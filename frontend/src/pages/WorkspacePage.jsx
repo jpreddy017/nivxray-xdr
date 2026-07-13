@@ -144,6 +144,7 @@ export default function WorkspacePage() {
   };
 
   const downloadReport = async (fmt = "html") => {
+    if (typeof fmt !== "string") fmt = "html";
     setStatus(`GENERATING ${fmt.toUpperCase()} REPORT...`);
     try {
       const r = await api.post(`/report/${fmt}`,
