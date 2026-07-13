@@ -77,3 +77,14 @@ Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") 
 - P2: Export IOCs (STIX 2.1 / MISP / CSV)
 - P2: Threat-intel graph visualization (react-force-graph-2d)
 - P3: Multi-tenant workspaces
+
+## Session 2 (2026-01) — Deep Analytics
+- Added **LOLBAS matcher** — 40 curated LOLBAS entries (certutil, mshta, rundll32, powershell, cmd, etc.) with argv-context detection + MITRE tagging + doc links
+- Added **AI-driven MITRE mapping** with evidence citation, merged with heuristic hits (source badge shown)
+- Added **Malware family attribution** (name + confidence + rationale) surfaced prominently in AI tab
+- Added **Behavior Flow Graph** — AI-produced node/edge graph (start | filesystem | network | crypto | execution | persistence | discovery | c2 | impact | end), rendered on a canvas-based `FlowGraph` component
+- Added **Universal file upload** — accepts ANY file format (PE, ELF, PDF, ZIP, Office, images, scripts). Returns MD5/SHA1/SHA256, magic-byte file-type detection, hex-dump preview, extracted strings ≥4 chars
+- Added **Multi-format report export**: TXT · HTML · CSV · DOCX · PDF (native styling). All 5 verified downloadable end-to-end via `/api/report/{fmt}`.
+- New backend modules: `lolbas.py`, updated `smart_decoder.py` (embedded-base64 blob extraction), extended `server.py` report renderers (`_render_text_report`, `_render_html_report`, `_render_csv_report`, `_render_docx_report`, `_render_pdf_from_html`)
+- Frontend: new `FlowGraph.jsx`, `ReportMenu.jsx`, new tabs in `ThreatAnalysis.jsx` (LOLBAS, FLOW)
+- Dependencies added: `python-docx==1.1.2`, `xhtml2pdf==0.2.16` (with `reportlab`), `react-force-graph-2d`

@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import OperationsPanel from "@/components/OperationsPanel";
 import RecipePanel from "@/components/RecipePanel";
 import ThreatAnalysis from "@/components/ThreatAnalysis";
+import ReportMenu from "@/components/ReportMenu";
 import api from "@/lib/api";
 import {
   Play, Zap, Wand2, Wrench, Share2, Download, Upload, Trash2, Copy, Sparkles,
@@ -142,17 +143,24 @@ export default function WorkspacePage() {
     }
   };
 
-  const downloadReport = async () => {
+  const downloadReport = async (fmt = "html") => {
+    setStatus(`GENERATING ${fmt.toUpperCase()} REPORT...`);
     try {
-      const r = await api.post("/report", { input, output });
-      const blob = new Blob([r.data.report], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
+      const r = await api.post(`/report/${fmt}`,
+        { input, output, enrich_osint: true, describe: !!output, use_ai_verdict: !!output },
+        { responseType: "blob" }
+      );
+      const disp = r.headers?.["x-filename"] || r.headers?.["content-disposition"] || "";
+      let filename = `nivxray_report.${fmt}`;
+      const m = /filename="?([^"]+)"?/.exec(disp);
+      if (m) filename = m[1];
+      const url = URL.createObjectURL(r.data);
       const a = document.createElement("a");
-      a.href = url; a.download = r.data.filename; a.click();
+      a.href = url; a.download = filename; a.click();
       URL.revokeObjectURL(url);
-      setStatus("REPORT DOWNLOADED");
+      setStatus(`REPORT DOWNLOADED (${fmt.toUpperCase()})`);
     } catch (e) {
-      setStatus("REPORT FAILED: " + e.message);
+      setStatus("REPORT FAILED: " + (e?.response?.data?.detail || e.message));
     }
   };
 
@@ -161,12 +169,15 @@ export default function WorkspacePage() {
     if (!f) return;
     const fd = new FormData();
     fd.append("file", f);
+    setStatus(`UPLOADING ${f.name}...`);
     try {
       const r = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
       setInput(r.data.content);
-      setStatus(`FILE LOADED: ${r.data.filename} (${r.data.size} bytes)`);
+      const type = r.data.file_type?.label || "?";
+      const md5 = r.data.hashes?.md5 || "";
+      setStatus(`LOADED: ${r.data.filename} · ${r.data.size} bytes · ${type} · MD5=${md5.slice(0, 12)}…`);
     } catch (e2) {
-      setStatus("UPLOAD FAILED: " + e2.message);
+      setStatus("UPLOAD FAILED: " + (e2?.response?.data?.detail || e2.message));
     } finally {
       e.target.value = "";
     }
@@ -208,11 +219,13 @@ export default function WorkspacePage() {
           flexWrap: "wrap", background: "var(--surface)",
         }}
       >
-        <span className="badge">42 OPS</span>
+        <span className="badge">45 OPS</span>
         <span className="badge warn">MITRE</span>
         <span className="badge warn">YARA</span>
+        <span className="badge warn">LOLBAS</span>
         <span className="badge warn">IOC</span>
         <span className="badge warn">OSINT</span>
+        <span className="badge warn">FLOW</span>
         <div style={{ flex: 1 }} />
 
         <button className="nvx-btn primary" onClick={autoInvestigate} disabled={loading} data-testid="btn-auto-investigate">

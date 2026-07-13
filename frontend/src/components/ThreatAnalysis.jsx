@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Copy } from "lucide-react";
+import FlowGraph from "@/components/FlowGraph";
 
 function severityBadgeClass(sev) {
-  return { high: "high", medium: "medium", low: "low", safe: "safe" }[sev] || "neutral";
+  return { high: "high", medium: "medium", low: "low", safe: "safe", critical: "high" }[sev] || "neutral";
 }
 
 function EmptyState({ label }) {
@@ -17,7 +18,7 @@ function EmptyState({ label }) {
 }
 
 export default function ThreatAnalysis({ analysis, loading }) {
-  const tabs = ["MITRE", "RULES", "IOCs", "TI-HITS", "OSINT", "AI", "CHAIN"];
+  const tabs = ["MITRE", "LOLBAS", "RULES", "IOCs", "TI-HITS", "OSINT", "AI", "FLOW", "CHAIN"];
   const [tab, setTab] = useState("MITRE");
 
   return (
@@ -69,11 +70,13 @@ export default function ThreatAnalysis({ analysis, loading }) {
         )}
 
         {analysis && tab === "MITRE" && <MitreTab items={analysis.mitre} />}
+        {analysis && tab === "LOLBAS" && <LolbasTab items={analysis.lolbas} />}
         {analysis && tab === "RULES" && <RulesTab items={analysis.yara} />}
         {analysis && tab === "IOCs" && <IocTab iocs={analysis.iocs} />}
         {analysis && tab === "TI-HITS" && <TiHitsTab hits={analysis.ti_hits} />}
         {analysis && tab === "OSINT" && <OsintTab osint={analysis.osint} />}
         {analysis && tab === "AI" && <AiTab desc={analysis.description} verdict={analysis.ai_verdict} />}
+        {analysis && tab === "FLOW" && <FlowTab description={analysis.description} />}
         {analysis && tab === "CHAIN" && <ChainTab chain={analysis.chain || []} />}
       </div>
     </aside>
@@ -83,7 +86,7 @@ export default function ThreatAnalysis({ analysis, loading }) {
 function MitreTab({ items = [] }) {
   if (!items.length) return <EmptyState label="No MITRE ATT&CK techniques matched" />;
   const byTactic = items.reduce((acc, m) => {
-    (acc[m.tactic] ||= []).push(m);
+    (acc[m.tactic || "Unknown"] ||= []).push(m);
     return acc;
   }, {});
   return (
@@ -95,18 +98,84 @@ function MitreTab({ items = [] }) {
           </div>
           {list.map((m) => (
             <div key={m.id} className="brut-border" style={{ padding: "8px 10px", marginBottom: 6, background: "var(--inset)" }} data-testid={`mitre-${m.id}`}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 <span className="mono" style={{ fontSize: 11, color: "var(--accent)" }}>{m.id}</span>
-                <a className="mono" style={{ fontSize: 10, color: "var(--text-mute)", textDecoration: "none" }}
-                   href={`https://attack.mitre.org/techniques/${m.id.replace(".", "/")}/`} target="_blank" rel="noreferrer">
-                  attack.mitre.org ↗
-                </a>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {m.source === "ai" && <span className="badge warn" title="Derived by AI from decoded behavior">AI</span>}
+                  <a className="mono" style={{ fontSize: 10, color: "var(--text-mute)", textDecoration: "none" }}
+                     href={`https://attack.mitre.org/techniques/${m.id.replace(".", "/")}/`} target="_blank" rel="noreferrer">
+                    attack.mitre.org ↗
+                  </a>
+                </span>
               </div>
               <div className="mono" style={{ fontSize: 12, color: "var(--text)", marginTop: 4 }}>{m.technique}</div>
+              {m.evidence && (
+                <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 4, borderLeft: "2px solid var(--warn)", paddingLeft: 6, background: "rgba(226,126,93,0.05)" }}>
+                  <span style={{ color: "var(--warn)" }}>evidence:</span> {m.evidence}
+                </div>
+              )}
             </div>
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+function LolbasTab({ items = [] }) {
+  if (!items.length) return <EmptyState label="No LOLBAS-listed binaries detected" />;
+  return (
+    <div className="stagger">
+      <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.18em", marginBottom: 8 }}>
+        {items.length} MATCH{items.length > 1 ? "ES" : ""} · LIVING OFF THE LAND BINARIES
+      </div>
+      {items.map((l, i) => (
+        <div key={i} className="brut-border" style={{ padding: 10, marginBottom: 8, background: "var(--inset)" }} data-testid={`lolbas-${l.binary}`}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span className="mono" style={{ fontSize: 12, color: "var(--warn)", fontWeight: 700 }}>{l.binary}</span>
+            <a href={l.url} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 10, color: "var(--text-mute)", textDecoration: "none" }}>
+              lolbas-project ↗
+            </a>
+          </div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+            {l.purposes.map((p) => <span key={p} className="badge">{p}</span>)}
+            {l.mitre.map((t) => <span key={t} className="badge warn">{t}</span>)}
+          </div>
+          <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 6 }}>{l.description}</div>
+          <pre className="mono" style={{
+            margin: "6px 0 0 0", fontSize: 10, color: "var(--text-mute)",
+            background: "transparent", whiteSpace: "pre-wrap", wordBreak: "break-all",
+          }}>{l.snippet}</pre>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FlowTab({ description }) {
+  const graph = description?.flow_graph;
+  if (!graph || !graph.nodes?.length) {
+    return <EmptyState label="No behavior flow graph — run AUTO INVESTIGATE / AI DESCRIBE to generate one" />;
+  }
+  return (
+    <div>
+      <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.18em", marginBottom: 8 }}>
+        BEHAVIOR FLOW · {graph.nodes.length} STEPS · {graph.edges?.length || 0} EDGES
+      </div>
+      <FlowGraph nodes={graph.nodes} edges={graph.edges || []} />
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10, fontSize: 10 }} className="mono">
+        {["start/end", "filesystem", "network", "crypto", "execution", "persistence", "discovery", "c2", "impact"].map((k) => (
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{
+              width: 10, height: 10, display: "inline-block",
+              background: { start: "#4AA890", "start/end": "#4AA890", filesystem: "#E27E5D", network: "#7fb9ff",
+                crypto: "#c0ca33", execution: "#d96c6c", persistence: "#e27e5d",
+                discovery: "#8b949e", c2: "#d96c6c", impact: "#d96c6c" }[k] || "#8b949e",
+            }} />
+            <span style={{ color: "var(--text-mute)" }}>{k}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -299,8 +368,25 @@ function OsintTab({ osint }) {
 
 function AiTab({ desc, verdict }) {
   if (!desc && !verdict) return <EmptyState label="Press AUTO-INVESTIGATE or DESCRIBE for AI analysis" />;
+  const fam = desc?.malware_family;
   return (
     <div className="stagger">
+      {fam && fam.name && (
+        <div className="brut-border" style={{ padding: 12, marginBottom: 12, background: "var(--inset)", borderLeft: "3px solid var(--warn)" }} data-testid="malware-family">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span className="mono" style={{ fontSize: 10, letterSpacing: "0.2em", color: "var(--warn)" }}>MALWARE FAMILY</span>
+            <span className={`badge ${fam.confidence === "high" ? "high" : fam.confidence === "medium" ? "medium" : "low"}`}>
+              {fam.confidence || "?"} confidence
+            </span>
+          </div>
+          <div style={{ fontFamily: "Chivo", fontWeight: 900, fontSize: 22, color: "var(--text)", marginTop: 8, letterSpacing: "-0.01em" }}>
+            {fam.name}
+          </div>
+          {fam.rationale && (
+            <p className="mono" style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 6, lineHeight: 1.6 }}>{fam.rationale}</p>
+          )}
+        </div>
+      )}
       {verdict && !verdict.error && (
         <div className="brut-border" style={{ padding: 12, marginBottom: 12, background: "var(--inset)" }} data-testid="ai-verdict">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
