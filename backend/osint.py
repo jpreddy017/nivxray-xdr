@@ -1,4 +1,4 @@
-"""NivXary — OSINT enrichment for extracted IOCs.
+"""NivXRay — OSINT enrichment for extracted IOCs.
 
 Supports pluggable API keys (VirusTotal, AbuseIPDB, Shodan, GreyNoise,
 URLScan.io, OTX AlienVault, IPinfo) loaded from the settings DB collection.
@@ -28,6 +28,7 @@ OSINT_SERVICES = [
     {"id": "otx", "label": "AlienVault OTX", "docs": "https://otx.alienvault.com/api", "supports": ["ip", "domain", "hash", "url"]},
     {"id": "ipinfo", "label": "IPinfo", "docs": "https://ipinfo.io/developers", "supports": ["ip"]},
     {"id": "hybrid_analysis", "label": "Hybrid Analysis", "docs": "https://www.hybrid-analysis.com/docs/api/v2", "supports": ["hash"]},
+    {"id": "abusech", "label": "abuse.ch Auth-Key", "docs": "https://auth.abuse.ch/", "supports": ["ThreatFox", "MalwareBazaar", "URLhaus API"]},
 ]
 
 _SERVICE_IDS = [s["id"] for s in OSINT_SERVICES]
@@ -308,7 +309,7 @@ async def enrich_iocs(iocs: Dict[str, List[str]], keys: Dict[str, str], max_per_
         "sources_used": _sources_used(keys),
     }
 
-    async with httpx.AsyncClient(timeout=_TIMEOUT, headers={"User-Agent": "NivXary/1.0"}) as c:
+    async with httpx.AsyncClient(timeout=_TIMEOUT, headers={"User-Agent": "NivXRay/1.0"}) as c:
         # IPs
         ip_tasks = []
         for ip in iocs.get("ips", [])[:max_per_type]:

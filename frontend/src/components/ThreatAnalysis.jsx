@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Copy, Download, Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
+import { Copy } from "lucide-react";
 
 function severityBadgeClass(sev) {
   return { high: "high", medium: "medium", low: "low", safe: "safe" }[sev] || "neutral";
@@ -9,12 +9,7 @@ function EmptyState({ label }) {
   return (
     <div
       className="mono"
-      style={{
-        color: "var(--text-mute)",
-        fontSize: 11,
-        padding: "20px 4px",
-        textAlign: "center",
-      }}
+      style={{ color: "var(--text-mute)", fontSize: 11, padding: "20px 4px", textAlign: "center" }}
     >
       {label}
     </div>
@@ -22,30 +17,22 @@ function EmptyState({ label }) {
 }
 
 export default function ThreatAnalysis({ analysis, loading }) {
-  const tabs = ["MITRE", "RULES", "IOCs", "OSINT", "AI", "CHAIN"];
+  const tabs = ["MITRE", "RULES", "IOCs", "TI-HITS", "OSINT", "AI", "CHAIN"];
   const [tab, setTab] = useState("MITRE");
 
   return (
     <aside
       className="brut-border"
       style={{
-        borderRight: "none",
-        borderTop: "none",
-        borderBottom: "none",
-        background: "var(--surface)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
+        borderRight: "none", borderTop: "none", borderBottom: "none",
+        background: "var(--surface)", display: "flex", flexDirection: "column", overflow: "hidden",
       }}
       data-testid="threat-analysis-panel"
     >
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "12px 14px",
-          borderBottom: "1px solid var(--border)",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 14px", borderBottom: "1px solid var(--border)",
         }}
       >
         <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>
@@ -58,20 +45,20 @@ export default function ThreatAnalysis({ analysis, loading }) {
         )}
       </div>
 
-      <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--inset)" }}>
+      <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--inset)", flexWrap: "wrap" }}>
         {tabs.map((t) => (
           <button
             key={t}
             className={`nvx-tab ${tab === t ? "active" : ""}`}
             onClick={() => setTab(t)}
-            data-testid={`tab-${t.toLowerCase()}`}
+            data-testid={`tab-${t.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}
           >
             {t}
           </button>
         ))}
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: 14 }} data-testid={`tab-content-${tab.toLowerCase()}`}>
+      <div style={{ flex: 1, overflowY: "auto", padding: 14 }} data-testid={`tab-content-${tab.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
         {loading && (
           <div className="mono" style={{ color: "var(--text-dim)", fontSize: 12 }}>
             Running analysis<span className="blink">_</span>
@@ -84,6 +71,7 @@ export default function ThreatAnalysis({ analysis, loading }) {
         {analysis && tab === "MITRE" && <MitreTab items={analysis.mitre} />}
         {analysis && tab === "RULES" && <RulesTab items={analysis.yara} />}
         {analysis && tab === "IOCs" && <IocTab iocs={analysis.iocs} />}
+        {analysis && tab === "TI-HITS" && <TiHitsTab hits={analysis.ti_hits} />}
         {analysis && tab === "OSINT" && <OsintTab osint={analysis.osint} />}
         {analysis && tab === "AI" && <AiTab desc={analysis.description} verdict={analysis.ai_verdict} />}
         {analysis && tab === "CHAIN" && <ChainTab chain={analysis.chain || []} />}
@@ -102,33 +90,19 @@ function MitreTab({ items = [] }) {
     <div className="stagger">
       {Object.entries(byTactic).map(([tactic, list]) => (
         <div key={tactic} style={{ marginBottom: 14 }}>
-          <div
-            className="mono"
-            style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.18em", marginBottom: 6 }}
-          >
+          <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.18em", marginBottom: 6 }}>
             {tactic.toUpperCase()}
           </div>
           {list.map((m) => (
-            <div
-              key={m.id}
-              className="brut-border"
-              style={{ padding: "8px 10px", marginBottom: 6, background: "var(--inset)" }}
-              data-testid={`mitre-${m.id}`}
-            >
+            <div key={m.id} className="brut-border" style={{ padding: "8px 10px", marginBottom: 6, background: "var(--inset)" }} data-testid={`mitre-${m.id}`}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span className="mono" style={{ fontSize: 11, color: "var(--accent)" }}>{m.id}</span>
-                <a
-                  className="mono"
-                  style={{ fontSize: 10, color: "var(--text-mute)", textDecoration: "none" }}
-                  href={`https://attack.mitre.org/techniques/${m.id.replace(".", "/")}/`}
-                  target="_blank" rel="noreferrer"
-                >
+                <a className="mono" style={{ fontSize: 10, color: "var(--text-mute)", textDecoration: "none" }}
+                   href={`https://attack.mitre.org/techniques/${m.id.replace(".", "/")}/`} target="_blank" rel="noreferrer">
                   attack.mitre.org ↗
                 </a>
               </div>
-              <div className="mono" style={{ fontSize: 12, color: "var(--text)", marginTop: 4 }}>
-                {m.technique}
-              </div>
+              <div className="mono" style={{ fontSize: 12, color: "var(--text)", marginTop: 4 }}>{m.technique}</div>
             </div>
           ))}
         </div>
@@ -175,20 +149,12 @@ function IocTab({ iocs = {} }) {
               {label} · {arr.length}
             </div>
             {arr.map((v) => (
-              <div
-                key={v}
-                data-testid={`ioc-${k}-${v}`}
-                className="mono brut-border"
+              <div key={v} data-testid={`ioc-${k}-${v}`} className="mono brut-border"
                 style={{
-                  fontSize: 11,
-                  padding: "6px 8px",
-                  background: "var(--inset)",
-                  color: "var(--text)",
-                  marginBottom: 4,
-                  wordBreak: "break-all",
+                  fontSize: 11, padding: "6px 8px", background: "var(--inset)",
+                  color: "var(--text)", marginBottom: 4, wordBreak: "break-all",
                   display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
-                }}
-              >
+                }}>
                 <span>{v}</span>
                 <button className="nvx-btn sm ghost" title="Copy" onClick={() => navigator.clipboard.writeText(v)}>
                   <Copy size={11} />
@@ -198,6 +164,30 @@ function IocTab({ iocs = {} }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function TiHitsTab({ hits = [] }) {
+  if (!hits.length) return <EmptyState label="No matches in local Threat-Intel DB — sync feeds via Threat Intel tab" />;
+  return (
+    <div className="stagger">
+      <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.18em", marginBottom: 8 }}>
+        {hits.length} HITS ACROSS CURATED FEEDS
+      </div>
+      {hits.map((h, i) => (
+        <div key={i} className="brut-border" style={{ padding: 10, marginBottom: 8, background: "var(--inset)" }} data-testid={`ti-hit-${i}`}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span className="mono" style={{ fontSize: 10, color: "var(--accent)", letterSpacing: "0.18em" }}>{h.kind}</span>
+            <span className={`badge ${severityBadgeClass(h.severity === "critical" ? "high" : h.severity)}`}>{h.severity}</span>
+          </div>
+          <div className="mono" style={{ fontSize: 11, color: "var(--text)", wordBreak: "break-all", marginTop: 4 }}>{h.value}</div>
+          <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 3 }}>
+            source: <span style={{ color: "var(--text-dim)" }}>{h.source}</span>
+            {h.tags?.length ? <> · tags: {h.tags.slice(0, 3).join(", ")}</> : null}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -319,64 +309,44 @@ function AiTab({ desc, verdict }) {
               {verdict.verdict} · {verdict.confidence}%
             </span>
           </div>
-          <p className="mono" style={{ fontSize: 12, color: "var(--text)", marginTop: 8, lineHeight: 1.6 }}>
-            {verdict.summary}
-          </p>
+          <p className="mono" style={{ fontSize: 12, color: "var(--text)", marginTop: 8, lineHeight: 1.6 }}>{verdict.summary}</p>
         </div>
       )}
       {desc && !desc.error && (
         <div data-testid="ai-description">
-          <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>
-            EXECUTIVE SUMMARY
-          </div>
+          <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>EXECUTIVE SUMMARY</div>
           <div className="brut-border" style={{ padding: 12, marginBottom: 12, background: "var(--inset)" }}>
             <p className="mono" style={{ fontSize: 12, color: "var(--text)", margin: 0, lineHeight: 1.6 }}>{desc.summary}</p>
           </div>
-
           {desc.behavior?.length > 0 && (
             <>
-              <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>
-                BEHAVIOR
-              </div>
+              <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>BEHAVIOR</div>
               <ul className="mono" style={{ fontSize: 12, color: "var(--text-dim)", paddingLeft: 18, margin: "0 0 12px 0" }}>
-                {desc.behavior.map((b, i) => (
-                  <li key={i} style={{ marginBottom: 4 }}>{b}</li>
-                ))}
+                {desc.behavior.map((b, i) => <li key={i} style={{ marginBottom: 4 }}>{b}</li>)}
               </ul>
             </>
           )}
-
           {desc.ioc_narrative && (
             <>
-              <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>
-                IOC NARRATIVE
-              </div>
+              <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>IOC NARRATIVE</div>
               <div className="brut-border" style={{ padding: 12, marginBottom: 12, background: "var(--inset)" }}>
                 <p className="mono" style={{ fontSize: 12, color: "var(--text)", margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{desc.ioc_narrative}</p>
               </div>
             </>
           )}
-
           {desc.attribution_hints && (
             <>
-              <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>
-                ATTRIBUTION HINTS
-              </div>
+              <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>ATTRIBUTION HINTS</div>
               <div className="brut-border" style={{ padding: 12, marginBottom: 12, background: "var(--inset)" }}>
                 <p className="mono" style={{ fontSize: 12, color: "var(--text-dim)", margin: 0, lineHeight: 1.6 }}>{desc.attribution_hints}</p>
               </div>
             </>
           )}
-
           {desc.recommended_actions?.length > 0 && (
             <>
-              <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>
-                RECOMMENDED ACTIONS
-              </div>
+              <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>RECOMMENDED ACTIONS</div>
               <ul className="mono" style={{ fontSize: 12, color: "var(--accent)", paddingLeft: 18, margin: 0 }}>
-                {desc.recommended_actions.map((a, i) => (
-                  <li key={i} style={{ marginBottom: 4 }}>{a}</li>
-                ))}
+                {desc.recommended_actions.map((a, i) => <li key={i} style={{ marginBottom: 4 }}>{a}</li>)}
               </ul>
             </>
           )}

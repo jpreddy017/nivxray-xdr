@@ -7,7 +7,7 @@ import { LogIn, Terminal } from "lucide-react";
 export default function LoginPage() {
   const { login, user } = useAuth();
   const nav = useNavigate();
-  const [email, setEmail] = useState("admin@nivxary.com");
+  const [email, setEmail] = useState("admin@nivxray.com");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
@@ -65,7 +65,7 @@ export default function LoginPage() {
         <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 12 }}>
           <Logo size={28} />
           <div style={{ fontFamily: "Chivo", fontWeight: 900, fontSize: 20, letterSpacing: "0.16em" }}>
-            NIVX<span style={{ color: "var(--accent)" }}>ARY</span>
+            NIVX<span style={{ color: "var(--accent)" }}>RAY</span>
           </div>
         </div>
 
@@ -89,12 +89,12 @@ export default function LoginPage() {
           <p className="mono" style={{ marginTop: 20, color: "var(--text-dim)", fontSize: 13, lineHeight: 1.7 }}>
             A DFIR-grade payload triage lab. Chain 40+ decoders, auto-solve
             nested encodings, and produce MITRE ATT&amp;CK maps, YARA hits,
-            OSINT-enriched IOCs and analyst-ready reports in one pass.
+            OSINT-enriched IOCs and analyst-ready reports in a single pass.
           </p>
         </div>
 
         <div className="mono" style={{ position: "relative", color: "var(--text-mute)", fontSize: 10, letterSpacing: "0.2em" }}>
-          NIVXARY // NIVX FORGE PROJECT // {new Date().getFullYear()}
+          NIVXRAY // NIVX FORGE PROJECT // {new Date().getFullYear()}
         </div>
       </aside>
 
@@ -183,7 +183,7 @@ export default function LoginPage() {
             }}
           >
             Default admin{" "}
-            <span style={{ color: "var(--text-dim)" }}>admin@nivxary.com</span> — the credential was set at
+            <span style={{ color: "var(--text-dim)" }}>admin@nivxray.com</span> — the credential was set at
             initial deployment. Change it via the Admin panel.
           </div>
         </form>

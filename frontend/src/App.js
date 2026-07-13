@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import LoginPage from "@/pages/LoginPage";
 import WorkspacePage from "@/pages/WorkspacePage";
 import AdminPage from "@/pages/AdminPage";
+import ThreatIntelPage from "@/pages/ThreatIntelPage";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -20,6 +21,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<Protected><WorkspacePage /></Protected>} />
+            <Route path="/threat-intel" element={<Protected><ThreatIntelPage /></Protected>} />
             <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -60,7 +60,7 @@ export default function RecipePanel({ steps, setSteps, ops }) {
             }}
           >
             Click operations on the left to build a pipeline, or press{" "}
-            <span style={{ color: "var(--accent)" }}>AUTO-DECODE</span> to let NivXary figure it out.
+            <span style={{ color: "var(--accent)" }}>AUTO-DECODE</span> to let NivXRay figure it out.
           </div>
         )}
 

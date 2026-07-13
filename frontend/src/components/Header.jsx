@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/lib/auth";
-import { LogOut, LayoutGrid, Cog } from "lucide-react";
+import { LogOut, LayoutGrid, Cog, Radar } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -30,7 +30,7 @@ export default function Header() {
           <Logo size={22} />
           <div style={{ lineHeight: 1 }}>
             <div style={{ fontFamily: "Chivo", fontWeight: 900, fontSize: 15, letterSpacing: "0.14em" }}>
-              NIVX<span style={{ color: "var(--accent)" }}>ARY</span>
+              NIVX<span style={{ color: "var(--accent)" }}>RAY</span>
             </div>
             <div className="mono" style={{ fontSize: 9, color: "var(--text-mute)", letterSpacing: "0.14em", marginTop: 2 }}>
               DECODER / THREAT-LAB

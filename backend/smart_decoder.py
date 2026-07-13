@@ -1,4 +1,4 @@
-"""NivXary — deterministic smart auto-decoder (no AI required).
+"""NivXRay — deterministic smart auto-decoder (no AI required).
 
 Given any payload — a raw PowerShell command line, a CMD one-liner, a nested
 base64/gzip blob, a URL-encoded XSS string, JS charcode, defanged IOCs, etc. —
