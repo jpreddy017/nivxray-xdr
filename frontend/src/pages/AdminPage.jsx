@@ -1,0 +1,245 @@
+import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
+import Header from "@/components/Header";
+import api from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { Check, X, KeyRound, ExternalLink, Save, TestTube2, Users, BarChart3 } from "lucide-react";
+
+export default function AdminPage() {
+  const { user } = useAuth();
+  const [services, setServices] = useState([]);
+  const [keys, setKeys] = useState({});
+  const [testing, setTesting] = useState({});
+  const [testResults, setTestResults] = useState({});
+  const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+
+  useEffect(() => {
+    if (!user || user.role !== "admin") return;
+    api.get("/admin/osint/services").then((r) => {
+      setServices(r.data);
+      const k = {};
+      r.data.forEach((s) => { k[s.id] = s.configured ? "" : ""; });
+      setKeys(k);
+    }).catch(() => {});
+    api.get("/admin/stats").then((r) => setStats(r.data)).catch(() => {});
+    api.get("/admin/users").then((r) => setUsers(r.data)).catch(() => {});
+  }, [user]);
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "admin") {
+    return (
+      <div className="App"><Header />
+        <div className="mono" style={{ padding: 40, color: "var(--high)" }}>ACCESS DENIED — admin only</div>
+      </div>
+    );
+  }
+
+  const save = async () => {
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      // only send non-empty keys (empty means "keep existing")
+      const payload = {};
+      Object.entries(keys).forEach(([k, v]) => { if (v && v.trim()) payload[k] = v.trim(); });
+      const r = await api.put("/admin/osint/settings", { keys: payload });
+      setSaveMsg(`Saved · ${r.data.configured_services.length} services active`);
+      // refresh masked list
+      const s = await api.get("/admin/osint/services");
+      setServices(s.data);
+      // clear inputs
+      const cleared = {}; Object.keys(keys).forEach((k) => (cleared[k] = ""));
+      setKeys(cleared);
+    } catch (e) {
+      setSaveMsg("ERROR: " + (e?.response?.data?.detail || e.message));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const test = async (svcId) => {
+    setTesting((t) => ({ ...t, [svcId]: true }));
+    try {
+      const r = await api.post(`/admin/osint/test/${svcId}`);
+      setTestResults((tr) => ({ ...tr, [svcId]: r.data }));
+    } catch (e) {
+      setTestResults((tr) => ({ ...tr, [svcId]: { ok: false, error: e?.response?.data?.detail || e.message } }));
+    } finally {
+      setTesting((t) => ({ ...t, [svcId]: false }));
+    }
+  };
+
+  const remove = async (svcId) => {
+    if (!window.confirm(`Remove API key for ${svcId}?`)) return;
+    await api.put("/admin/osint/settings", { keys: { [svcId]: "" } });
+    const s = await api.get("/admin/osint/services");
+    setServices(s.data);
+  };
+
+  return (
+    <div className="App">
+      <Header />
+
+      <div style={{ padding: 24, display: "grid", gap: 24, maxWidth: 1400, margin: "0 auto" }}>
+        <div>
+          <div className="mono" style={{ fontSize: 11, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>
+            /// CONTROL PLANE
+          </div>
+          <h1 style={{ fontFamily: "Chivo", fontWeight: 900, fontSize: 34, margin: 0, letterSpacing: "-0.01em" }}>
+            Admin<span style={{ color: "var(--accent)" }}> ·</span> Settings
+          </h1>
+        </div>
+
+        {/* Stats */}
+        {stats && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }} className="stagger">
+            <StatCard label="OPERATIONS" value={stats.total_operations} icon={<BarChart3 size={14} />} />
+            <StatCard label="USERS" value={stats.total_users} icon={<Users size={14} />} />
+            <StatCard label="SHARED RECIPES" value={stats.total_shares} icon={<ExternalLink size={14} />} />
+            <StatCard label="OSINT ACTIVE" value={stats.configured_osint_services} icon={<KeyRound size={14} />} />
+          </div>
+        )}
+
+        {/* OSINT services */}
+        <section className="brut-border" style={{ background: "var(--surface)" }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>▸ OSINT INTEGRATIONS</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {saveMsg && <span className="mono" style={{ fontSize: 11, color: saveMsg.startsWith("ERROR") ? "var(--high)" : "var(--accent)" }}>{saveMsg}</span>}
+              <button className="nvx-btn primary sm" onClick={save} disabled={saving} data-testid="btn-save-keys">
+                <Save size={12} /> {saving ? "SAVING…" : "SAVE"}
+              </button>
+            </div>
+          </div>
+          <div style={{ padding: 16 }}>
+            <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)", marginBottom: 14, lineHeight: 1.6 }}>
+              Paste API keys below. Leave a field blank to keep the existing key.
+              Use the trash icon to remove a saved key entirely.
+              Keys are stored server-side in MongoDB and never exposed back to the client.
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                  <Th>SERVICE</Th>
+                  <Th>SUPPORTS</Th>
+                  <Th>CURRENT KEY</Th>
+                  <Th>NEW KEY</Th>
+                  <Th>ACTIONS</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {services.map((s) => {
+                  const tr = testResults[s.id];
+                  return (
+                    <tr key={s.id} style={{ borderBottom: "1px solid var(--border)" }} data-testid={`osint-row-${s.id}`}>
+                      <Td>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {s.configured ? <Check size={13} color="var(--accent)" /> : <X size={13} color="var(--text-mute)" />}
+                          <span className="mono" style={{ color: s.configured ? "var(--text)" : "var(--text-dim)" }}>{s.label}</span>
+                          <a href={s.docs} target="_blank" rel="noreferrer" style={{ color: "var(--text-mute)" }} title="Docs">
+                            <ExternalLink size={11} />
+                          </a>
+                        </div>
+                      </Td>
+                      <Td>
+                        <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                          {s.supports.map((t) => (
+                            <span key={t} className="badge neutral">{t}</span>
+                          ))}
+                        </div>
+                      </Td>
+                      <Td>
+                        <span className="mono" style={{ fontSize: 11, color: s.configured ? "var(--accent)" : "var(--text-mute)" }}>
+                          {s.configured ? s.masked_key : "— not configured —"}
+                        </span>
+                      </Td>
+                      <Td>
+                        <input
+                          className="nvx-input"
+                          type="password"
+                          placeholder="paste key"
+                          value={keys[s.id] || ""}
+                          onChange={(e) => setKeys({ ...keys, [s.id]: e.target.value })}
+                          data-testid={`osint-input-${s.id}`}
+                          style={{ minWidth: 180 }}
+                        />
+                      </Td>
+                      <Td>
+                        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                          <button
+                            className="nvx-btn sm"
+                            onClick={() => test(s.id)}
+                            disabled={!s.configured || testing[s.id]}
+                            data-testid={`osint-test-${s.id}`}
+                            title="Test key against the service"
+                          >
+                            <TestTube2 size={11} /> {testing[s.id] ? "…" : "TEST"}
+                          </button>
+                          {s.configured && (
+                            <button className="nvx-btn sm ghost warn" onClick={() => remove(s.id)} title="Remove key">
+                              REMOVE
+                            </button>
+                          )}
+                          {tr && (
+                            <span className="mono" style={{ fontSize: 10, color: tr.ok ? "var(--accent)" : "var(--high)" }}>
+                              {tr.ok ? `OK (${tr.status_code})` : `FAIL${tr.status_code ? ` (${tr.status_code})` : ""}`}
+                            </span>
+                          )}
+                        </div>
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Users */}
+        <section className="brut-border" style={{ background: "var(--surface)" }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+            <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>▸ USERS</div>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                <Th>EMAIL</Th><Th>ROLE</Th><Th>CREATED</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.email} style={{ borderBottom: "1px solid var(--border)" }} data-testid={`user-row-${u.email}`}>
+                  <Td>{u.email}</Td>
+                  <Td><span className="badge">{u.role}</span></Td>
+                  <Td>{u.created_at?.slice(0, 19).replace("T", " ")}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon }) {
+  return (
+    <div className="brut-border" style={{ padding: 14, background: "var(--surface)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span className="mono" style={{ fontSize: 10, letterSpacing: "0.2em", color: "var(--warn)" }}>{label}</span>
+        <span style={{ color: "var(--accent)" }}>{icon}</span>
+      </div>
+      <div style={{ fontFamily: "Chivo", fontWeight: 900, fontSize: 32, color: "var(--text)", marginTop: 6 }}>{value}</div>
+    </div>
+  );
+}
+
+function Th({ children }) {
+  return <th className="mono" style={{ textAlign: "left", padding: "8px 12px", fontSize: 10, letterSpacing: "0.16em", color: "var(--text-mute)", fontWeight: 700 }}>{children}</th>;
+}
+
+function Td({ children }) {
+  return <td className="mono" style={{ padding: "10px 12px", fontSize: 11, color: "var(--text)", verticalAlign: "middle" }}>{children}</td>;
+}
