@@ -129,7 +129,66 @@ def smart_decode(payload: str) -> Dict[str, Any]:
         steps.append({"op": op_id, "args": args, "reason": reason})
         current = new_val
 
+    # If nothing chained (or ended on a non-base64 wrapper) — try to extract
+    # embedded base64 blobs and produce an annotated multi-part output.
+    if not steps or (len(current) == len(payload) and current == payload):
+        embedded = _extract_embedded_b64_blocks(current)
+        if embedded:
+            steps.append({
+                "op": "extract-base64",
+                "args": {},
+                "reason": f"Extracted {len(embedded)} embedded base64 blob(s) from wrapper",
+            })
+            parts = []
+            for i, e in enumerate(embedded, 1):
+                parts.append(f"────── EMBEDDED BLOB #{i} ({e['method']}) ──────")
+                parts.append(f"blob: {e['blob']}")
+                parts.append("decoded:")
+                parts.append(e["decoded"])
+                parts.append("")
+            current = "\n".join(parts).rstrip()
+
     return {"steps": steps, "output": current, "notes": notes}
+
+
+def _extract_embedded_b64_blocks(text: str) -> List[Dict[str, str]]:
+    """Find long base64 blobs (>= 40 chars) embedded inside text and decode them.
+    Uses gzip → zlib → utf-16-le → utf-8 fallback chain.
+    """
+    hits: List[Dict[str, str]] = []
+    seen = set()
+    for m in re.finditer(r"[A-Za-z0-9+/]{40,}={0,2}", text):
+        blob = m.group(0)
+        if blob in seen:
+            continue
+        seen.add(blob)
+        raw = _try_base64(blob)
+        if not raw:
+            continue
+        decoded_str = None
+        method = None
+        if raw[:2] == b"\x1f\x8b":
+            try: decoded_str = gzip.decompress(raw).decode("utf-8", errors="replace"); method = "base64→gzip"
+            except Exception: pass
+        if decoded_str is None and raw[:2] in (b"\x78\x01", b"\x78\x5e", b"\x78\x9c", b"\x78\xda"):
+            try: decoded_str = zlib.decompress(raw).decode("utf-8", errors="replace"); method = "base64→zlib"
+            except Exception: pass
+        if decoded_str is None and len(raw) >= 4 and raw[1] == 0:
+            try:
+                s = raw.decode("utf-16-le")
+                if _is_printable_text(s.encode("utf-8", errors="replace"), 0.85):
+                    decoded_str = s; method = "base64→utf-16-le"
+            except UnicodeDecodeError: pass
+        if decoded_str is None and _is_printable_text(raw, 0.85):
+            decoded_str = raw.decode("utf-8", errors="replace"); method = "base64→utf-8"
+        if decoded_str is None:
+            continue
+        hits.append({
+            "blob": blob[:64] + ("…" if len(blob) > 64 else ""),
+            "method": method,
+            "decoded": decoded_str,
+        })
+    return hits
 
 
 def _apply_next(current: str, steps_so_far: List[Dict[str, Any]], notes: List[str]) -> Tuple[str, Dict, str, str] | None:
