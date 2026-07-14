@@ -320,23 +320,34 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
             # Deterministic follow-up: base64 → xor(known_key) plan.
             if "_then_xor" in c:
                 try:
-                    xored = run_operation("xor", nxt, {"key": f"0x{c['_then_xor']:02x}"})
-                    if xored and xored != nxt:
-                        xsb = score_output(xored)
-                        best_results.append({
-                            "chain": chain + [clean_step,
-                                              {"op": "xor",
-                                               "args": {"key": f"0x{c['_then_xor']:02x}"}}],
-                            "output": xored,
-                            "score_breakdown": xsb,
-                            "path_scores": list(path_scores) + [sb["score"], xsb["score"]],
-                        })
-                        # Continue walking from the fully-decoded output too
-                        _walk(xored, chain + [clean_step,
-                                              {"op": "xor",
-                                               "args": {"key": f"0x{c['_then_xor']:02x}"}}],
-                              depth + 2, path_scores + [sb["score"], xsb["score"]], ctx)
-                        continue
+                    # Do base64+xor on RAW BYTES of the ORIGINAL base64 buffer
+                    # (`cur`), not through the UTF-8-corrupted `nxt`. This is
+                    # the correct path for CobaltStrike / Metasploit stagers
+                    # where the inner payload is x86/x64 shellcode.
+                    import base64 as _b64
+                    key = c["_then_xor"]
+                    b64_str = re.sub(r"\s+", "", cur)
+                    raw = _b64.b64decode(b64_str + "=" * (-len(b64_str) % 4),
+                                          validate=False)
+                    xored_bytes = bytes(b ^ key for b in raw)
+                    # Represent as hex so downstream shellcode-magic detection
+                    # (\xfc\xe8, \xfc\x48, MZ, etc.) sees real bytes.
+                    hex_out = xored_bytes.hex()
+                    xsb = score_output(hex_out)
+                    step_xor = {"op": "xor", "args": {"key": f"0x{key:02x}"}}
+                    best_results.append({
+                        "chain": chain + [clean_step, step_xor],
+                        "output": xored_bytes.decode("latin-1"),  # 1:1 byte↔codepoint preservation
+                        "output_hex": hex_out,
+                        "output_bytes_len": len(xored_bytes),
+                        "score_breakdown": xsb,
+                        "path_scores": list(path_scores) + [sb["score"], xsb["score"]],
+                    })
+                    # Continue walking from the hex form so a subsequent
+                    # candidate can further decode if needed.
+                    _walk(hex_out, chain + [clean_step, step_xor],
+                          depth + 2, path_scores + [sb["score"], xsb["score"]], ctx)
+                    continue
                 except Exception:
                     pass
             if nsb["score"] < sb["score"] - 0.30:  # branch massively regressed — prune
@@ -391,17 +402,27 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
         from shellcode_analyzer import shannon_entropy, is_shellcode
         for r in dedup:
             out = r.get("output") or ""
-            raw = out.encode("utf-8", errors="replace")
+            # For byte-preserving chains (base64→xor compound), use latin-1
+            # roundtrip which is 1:1 codepoint↔byte. Fall back to utf-8 for
+            # normal text outputs.
+            try:
+                raw = out.encode("latin-1") if all(ord(c) < 256 for c in out) \
+                                            else out.encode("utf-8", errors="replace")
+            except Exception:
+                raw = out.encode("utf-8", errors="replace")
             ent = shannon_entropy(raw)
             r["entropy"] = round(ent, 3)
             r["is_shellcode"] = is_shellcode(raw)
             if r["is_shellcode"]:
                 r["stop_condition"] = {
                     "reason": "high_entropy_no_encoding_markers"
-                              if not raw[:2] in (b"\xfc\xe8", b"\xfc\xeb", b"MZ") else "shellcode_prologue",
+                              if not raw[:2] in (b"\xfc\xe8", b"\xfc\xeb", b"\xfc\x48", b"MZ") else "shellcode_prologue",
                     "route_to": "disassembler",
                     "entropy": r["entropy"],
                 }
+                # Surface hex preview for downstream shellcode analyzer
+                if "output_hex" not in r:
+                    r["output_hex"] = raw.hex()
     except Exception:
         pass
 

@@ -572,7 +572,7 @@ def classify_behaviors(pipeline: List[Dict[str, str]],
 # 5. Recursive decode of a single payload span
 # =============================================================================
 
-def _decode_span(span: PayloadSpan) -> Dict[str, Any]:
+def _decode_span(span: PayloadSpan, hint_xor_key: Optional[int] = None) -> Dict[str, Any]:
     """Run the decoder chain against a single payload span. Uses `smart_decode`
     (deterministic) plus `magic_decode` (recursive search) and returns the
     best chain."""
@@ -608,7 +608,11 @@ def _decode_span(span: PayloadSpan) -> Dict[str, Any]:
                 "entropy": cand.get("entropy"),
             })
             if cand.get("is_shellcode"):
-                result["is_shellcode"] = True
+                # NOTE: don't propagate to `result["is_shellcode"]` here — that's
+                # decided at the end based on the *chosen* final_output only,
+                # otherwise a discarded shellcode branch would mis-flag a
+                # script-text chain as binary.
+                pass
     except Exception as e:                                # pragma: no cover
         result["chains"].append({"engine": "magic", "error": str(e)})
 
@@ -630,6 +634,46 @@ def _decode_span(span: PayloadSpan) -> Dict[str, Any]:
     if scored:
         scored.sort(key=lambda t: (-t[0], -t[1]))
         result["final_output"] = scored[0][2]
+
+    # Re-compute is_shellcode from the CHOSEN final output only.
+    try:
+        from shellcode_analyzer import is_shellcode as _is_sc
+        fo = result["final_output"] or ""
+        raw = fo.encode("latin-1") if all(ord(c) < 256 for c in fo) \
+                                   else fo.encode("utf-8", errors="replace")
+        result["is_shellcode"] = _is_sc(raw)
+    except Exception:
+        pass
+
+    # Hint-XOR fallback — apply an XOR key we saw in the *parent* text.
+    # Used by the recursive re-analysis pass for the classic pattern where the
+    # nested $var_code base64 lives inside a script containing `-bxor 35`.
+    if hint_xor_key is not None:
+        try:
+            import base64 as _b64
+            b64_str = re.sub(r"\s+", "", text)
+            if re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", b64_str) and len(b64_str) >= 12:
+                raw = _b64.b64decode(b64_str + "=" * (-len(b64_str) % 4), validate=False)
+                xored = bytes(b ^ hint_xor_key for b in raw)
+                if xored:
+                    from shellcode_analyzer import is_shellcode as _is_sc2
+                    latin1_str = xored.decode("latin-1")
+                    result["chains"].append({
+                        "engine": "hint-xor",
+                        "steps": [
+                            {"op": "base64-decode", "reason": "isolated inner base64"},
+                            {"op": "xor", "args": {"key": f"0x{hint_xor_key:02x}"},
+                             "reason": f"XOR key inherited from parent -bxor {hint_xor_key}"},
+                        ],
+                        "output": latin1_str,
+                        "output_hex": xored.hex(),
+                        "output_bytes_len": len(xored),
+                    })
+                    result["final_output"] = latin1_str
+                    result["is_shellcode"] = _is_sc2(xored)
+                    result["output_hex"] = xored.hex()
+        except Exception:
+            pass
 
     # Repeating-key XOR fallback — if we've decoded to a high-entropy buffer
     # (or nothing worked), invoke the multi-byte XOR brute-forcer explicitly.
@@ -867,6 +911,40 @@ def analyze_command(text: str,
 
     decodes: List[Dict[str, Any]] = [_decode_span(s) for s in to_decode]
 
+    # ----- Recursive re-analysis of decoded payloads --------------------
+    # If a decoded output *itself* contains new inline payloads (nested
+    # FromBase64String, -Enc value, atob(...), long base64, hex strings, etc.),
+    # feed it back through the pipeline. This trains the analyzer to peel
+    # every layer without the analyst needing to click twice.
+    _MAX_NESTED = 3
+    _seen_span_hashes = {hash((s.span_text, s.encoding)) for s in to_decode}
+    frontier = list(decodes)
+    # For each freshly-decoded output, capture any XOR key referenced in its
+    # own body so we can carry it forward when we peel nested payloads.
+    from payload_sanitizer import find_xor_key as _find_xor_key
+    for _pass in range(_MAX_NESTED):
+        next_frontier: List[Dict[str, Any]] = []
+        for d in frontier:
+            payload = d.get("final_output") or ""
+            if d.get("is_shellcode") or not payload:
+                continue
+            if len(payload) < 32:
+                continue
+            parent_xor = _find_xor_key(payload)
+            nested_spans = _find_payload_spans(payload, tokenize(payload), prof)
+            nested_spans = [s for s in nested_spans if s.confidence >= 0.80
+                            and hash((s.span_text, s.encoding)) not in _seen_span_hashes]
+            for ns in nested_spans:
+                _seen_span_hashes.add(hash((ns.span_text, ns.encoding)))
+                sub = _decode_span(ns, hint_xor_key=parent_xor)
+                sub["role"] = f"nested · {ns.role} (in {d['role']})"
+                sub["nested_from"] = d.get("role")
+                decodes.append(sub)
+                next_frontier.append(sub)
+        frontier = next_frontier
+        if not frontier:
+            break
+
     # PowerShell AST deobfuscation — post-decode polish. Apply to (a) the raw
     # command if the interpreter is PowerShell, and (b) each decoded output
     # so nested obfuscation gets resolved too.
@@ -920,6 +998,29 @@ def analyze_command(text: str,
     combined_text = "\n".join([text] + [d.get("final_output") or "" for d in decodes]
                               + [ast_report.get("final") or ""])
     iocs        = extract_iocs(combined_text)
+
+    # Merge IOCs from any shellcode buffers via the binary IOC extractor —
+    # catches C2 IPs / user-agents embedded in raw shellcode strings.
+    try:
+        from shellcode_analyzer import extract_iocs as _binary_iocs
+        for d in decodes:
+            if not d.get("is_shellcode"):
+                continue
+            fo = d.get("final_output") or ""
+            raw = fo.encode("latin-1") if all(ord(c) < 256 for c in fo) \
+                                       else fo.encode("utf-8", errors="replace")
+            b = _binary_iocs(raw)
+            # merge unique
+            for k in ("urls", "ips", "domains", "regkeys", "mutexes", "imports"):
+                for v in b.get(k) or []:
+                    if v not in iocs.get(k, []):
+                        iocs.setdefault(k, []).append(v)
+            for h in ("md5", "sha1", "sha256"):
+                for v in (b.get("hashes") or {}).get(h) or []:
+                    if v not in iocs["hashes"].get(h, []):
+                        iocs["hashes"].setdefault(h, []).append(v)
+    except Exception:
+        pass
     behaviors   = classify_behaviors(pipeline, text, prof)
     exec_flow   = _execution_flow(combined_text)
     if amsi["detected"]:
