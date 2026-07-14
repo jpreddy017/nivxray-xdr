@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Header from "@/components/Header";
 import OperationsPanel from "@/components/OperationsPanel";
 import RecipePanel from "@/components/RecipePanel";
@@ -7,6 +7,8 @@ import ReportMenu from "@/components/ReportMenu";
 import AttackGraph from "@/components/AttackGraph";
 import FinalSummary from "@/components/FinalSummary";
 import ShellcodeView from "@/components/ShellcodeView";
+import OutputView from "@/components/OutputView";
+import { runClientRecipe } from "@/lib/clientOps";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -91,6 +93,36 @@ export default function WorkspacePage() {
       setLoading(false);
     }
   };
+
+  // ---------- P1.a — Real-time client-side recipe preview ----------
+  // Runs the recipe in-browser as the analyst types / edits steps. Falls back
+  // to the backend for ops not ported to JS (kept out of the debounce loop).
+  // ~30ms debounce keeps the workspace fluid even on large paste.
+  const [livePreview, setLivePreview] = useState(null);
+  useEffect(() => {
+    if (!input && !steps.length) {
+      setLivePreview(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      const t0 = performance.now();
+      try {
+        const r = runClientRecipe(input, steps);
+        const latencyMs = Math.round(performance.now() - t0);
+        setLivePreview({ ...r, latencyMs });
+        // Preview only auto-populates Output if:
+        //   1. All steps ran in JS (no backend fallback needed), AND
+        //   2. The user hasn't manually triggered a run yet (output empty)
+        //      OR the previously-set output came from an earlier client preview.
+        if (!r.needsBackend && !r.error && r.output != null) {
+          setOutput(r.output);
+        }
+      } catch (e) {
+        setLivePreview({ output: "", ranSteps: [], unsupported: [], error: e.message, latencyMs: 0 });
+      }
+    }, 30);
+    return () => clearTimeout(t);
+  }, [input, steps]);
 
   const autoDecode = async ({ smart = false } = {}) => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
@@ -586,35 +618,23 @@ export default function WorkspacePage() {
             </div>
           )}
 
-          {/* Output Card */}
-          <div className="nvx-card" data-testid="output-card">
-            <div className="nvx-card-head">
-              <div className="nvx-card-title">
-                <span className="dot" />
-                OUTPUT
-              </div>
-              <div className="nvx-card-actions">
-                <button className="nvx-btn sm" onClick={() => analyze({ describe: true, aiVerdict: true })} disabled={analyzing || !output} data-testid="btn-ai-describe">
-                  <Sparkles size={11} /> AI DESCRIBE
-                </button>
-                <button className="nvx-btn sm" onClick={() => analyze({})} disabled={analyzing || (!input && !output)} data-testid="btn-analyze">
-                  ANALYZE + OSINT
-                </button>
-                <button className="nvx-btn sm ghost" onClick={() => navigator.clipboard.writeText(output)} disabled={!output} data-testid="btn-copy-output">
-                  <Copy size={11} /> COPY
-                </button>
-              </div>
-            </div>
-            <div className="nvx-card-body">
-              <textarea
-                className="nvx-textarea nvx-output-textarea"
-                data-testid="output-textarea"
-                value={output}
-                readOnly
-                placeholder="Run a recipe or click AUTO INVESTIGATE to see decoded output here…"
-              />
-            </div>
-          </div>
+          {/* Output Card — real-time preview + view toggles + byte diff */}
+          <OutputView
+            input={input}
+            output={output}
+            livePreview={livePreview}
+            actions={<>
+              <button className="nvx-btn sm" onClick={() => analyze({ describe: true, aiVerdict: true })} disabled={analyzing || !output} data-testid="btn-ai-describe">
+                <Sparkles size={11} /> AI DESCRIBE
+              </button>
+              <button className="nvx-btn sm" onClick={() => analyze({})} disabled={analyzing || (!input && !output)} data-testid="btn-analyze">
+                ANALYZE + OSINT
+              </button>
+              <button className="nvx-btn sm ghost" onClick={() => navigator.clipboard.writeText(output)} disabled={!output} data-testid="btn-copy-output">
+                <Copy size={11} /> COPY
+              </button>
+            </>}
+          />
 
           {/* Attack Graph Card — Tactical MITRE ATT&CK swim-lane */}
           {analysis?.description?.entity_graph?.nodes?.length > 0 && (
