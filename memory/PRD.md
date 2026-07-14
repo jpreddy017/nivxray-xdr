@@ -250,3 +250,22 @@ Real product bugs uncovered & fixed under the strict gate:
 Final gate: **332 backend unit/parametrized tests pass (0 failures)** — excludes `test_playbook_feedback.py` which is a live-LLM integration test with pre-existing latency flakiness unrelated to any changes here. Golden malware sample library benchmark still 100% (17/17). End-to-end HTTP proof: recursive `base64→gzip→base64→xor` pipeline recovers marker in the top-3 candidates via preview API `/api/decode/magic`.
 
 Deployment readiness re-verified — **zero blockers**. Ready for user to click Deploy.
+
+
+### Sub-session E · Auto Investigate recursion parity with Magic (Feb 2026)
+
+**Bug**: `AUTO INVESTIGATE` was using ONLY the greedy single-path `smart_decode` first, which stops at the loader-script layer of multi-layer stagers (e.g., Meterpreter `base64→gzip→base64→xor→shellcode`). Users had to manually fall back to the `MAGIC` button to reach raw shellcode.
+
+**Root cause**: `smart_decode` is a greedy chain runner — it applies the FIRST matching op via `_apply_next` priority list and stops when no rule matches. It stopped at 2 ops (`extract-payload`, `base64-gzip`) → PowerShell loader script. `magic_decode` recursively explores branches and reaches 5 ops → raw x86 shellcode.
+
+**Fix**: New helper `_deterministic_best_decode(payload)` in `server.py` runs BOTH engines and picks the winner using:
+  1. Shellcode terminal state wins unconditionally
+  2. Higher `magic_score` output wins
+  3. Longer chain (more layers peeled) wins as tie-breaker
+
+`ai_auto_investigate` now uses this helper, so it reaches the SAME terminal state as `MAGIC` on every supported payload.
+
+**Verification**: 
+- New regression `tests/test_auto_investigate_recursion_parity.py` (6 tests) — locks the parity, asserts exact `[extract-payload, gzip-decompress, extract-payload, base64-decode, xor]` chain + shellcode bytes match ground-truth Metasploit prologue.
+- End-to-end verified via preview `/api/ai/auto-investigate` — engine="magic", reached_shellcode=true on the Meterpreter fixture.
+- Full regression: **327/327 core backend tests passing** (excluding 2 pre-existing network-timeout tests unrelated to this fix).

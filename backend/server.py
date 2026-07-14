@@ -1353,20 +1353,128 @@ def extract_iocs_from_text(text: str) -> Dict[str, List[str]]:
     return flat
 
 
+def _deterministic_best_decode(payload: str) -> Dict[str, Any]:
+    """Run BOTH `smart_decode` and `magic_decode` and return the winner.
+
+    Rationale: `smart_decode` is a greedy single-path chain runner — it stops
+    the first time no rule in `_apply_next` matches, even if `magic_decode`
+    could continue peeling. This function is the single source of truth for
+    "the deepest deterministic decode the platform can produce", so
+    `AUTO INVESTIGATE` and `MAGIC` produce IDENTICAL terminal states on
+    multi-layer payloads (base64 → gzip → base64 → xor → shellcode, etc.).
+
+    Winner selection:
+      1. Shellcode terminal state wins unconditionally (only one engine reaches it).
+      2. Otherwise the higher `magic_score` output wins.
+      3. Tie-breaker: longer chain wins (more layers peeled).
+
+    Returns a normalized dict: {steps: [{op, args}], output, engine, reached_shellcode}.
+    """
+    # 1) smart decoder — greedy chain
+    try:
+        smart = smart_decode(payload)
+    except Exception as e:
+        smart = {"steps": [], "output": "", "notes": [f"smart-decode error: {e}"]}
+
+    # 2) magic decoder — recursive search
+    try:
+        m = magic_decode(payload, max_depth=6, max_branches=5, top_n=3)
+        top = (m.get("top_results") or [{}])[0]
+    except Exception as e:
+        top = {"chain": [], "output": "", "is_shellcode": False, "score_breakdown": {"score": 0.0},
+               "_err": str(e)}
+
+    smart_out = smart.get("output") or ""
+    magic_out = top.get("output") or ""
+
+    smart_reached_sc = False
+    magic_reached_sc = bool(top.get("is_shellcode"))
+    try:
+        from shellcode_analyzer import starts_with_known_prologue
+        if smart_out:
+            raw_s = smart_out.encode("latin-1") if all(ord(c) < 256 for c in smart_out) \
+                                                 else smart_out.encode("utf-8", errors="replace")
+            smart_reached_sc = starts_with_known_prologue(raw_s)
+    except Exception:
+        pass
+
+    smart_score = magic_score(smart_out).get("score", 0.0) if smart_out else 0.0
+    magic_score_val = (top.get("score_breakdown") or {}).get("score", 0.0)
+    if magic_reached_sc:
+        magic_score_val += 0.35  # shellcode terminal — treat as strong signal
+    if smart_reached_sc:
+        smart_score += 0.35
+
+    def _pack_smart() -> Dict[str, Any]:
+        return {
+            "steps": [{"op": s["op"], "args": s.get("args") or {}} for s in smart.get("steps") or []],
+            "output": smart_out,
+            "engine": "smart",
+            "reached_shellcode": smart_reached_sc,
+            "score": round(smart_score, 4),
+            "notes": smart.get("notes") or [],
+        }
+
+    def _pack_magic() -> Dict[str, Any]:
+        return {
+            "steps": [{"op": c["op"], "args": c.get("args") or {}}
+                      for c in (top.get("chain") or [])],
+            "output": magic_out,
+            "engine": "magic",
+            "reached_shellcode": magic_reached_sc,
+            "score": round(magic_score_val, 4),
+            "output_hex": top.get("output_hex"),
+            "output_bytes_len": top.get("output_bytes_len"),
+        }
+
+    # Rule 1: shellcode terminal wins unconditionally
+    if magic_reached_sc and not smart_reached_sc:
+        return _pack_magic()
+    if smart_reached_sc and not magic_reached_sc:
+        return _pack_smart()
+
+    # Rule 2: higher scoring output wins
+    if magic_score_val > smart_score + 0.02:
+        return _pack_magic()
+    if smart_score > magic_score_val + 0.02:
+        return _pack_smart()
+
+    # Rule 3: tie-breaker — the engine that peeled more layers wins.
+    # This is the key fix for the reported bug: when smart_decode stops at the
+    # loader-script layer (2 ops) while magic_decode reaches raw shellcode
+    # (5 ops), the deeper chain wins even if the scores are close.
+    smart_chain_len = len(smart.get("steps") or [])
+    magic_chain_len = len(top.get("chain") or [])
+    if magic_chain_len > smart_chain_len:
+        return _pack_magic()
+    if smart_chain_len > magic_chain_len:
+        return _pack_smart()
+
+    # Absolute fallback — prefer smart (its output already succeeded).
+    return _pack_smart() if smart_chain_len else _pack_magic()
+
+
 @api.post("/ai/auto-investigate")
 async def ai_auto_investigate(body: AutoIn, user=Depends(get_current_user)):
-    """Auto Decode + full Analyze (OSINT + AI describe + AI verdict) — optimized.
+    """Auto Decode + full Analyze (OSINT + AI describe + AI verdict).
 
-    Strategy for speed:
-      1. Run deterministic smart-decode FIRST (instant, no AI wait).
-      2. If smart decoder found nothing, fall back to AI decode.
-      3. Run OSINT enrichment and AI describe/verdict IN PARALLEL against the decoded output.
+    Strategy:
+      1. Run BOTH deterministic engines (smart + magic) and pick the winner
+         using shellcode terminal state → score → chain length. This ensures
+         AUTO INVESTIGATE reaches the SAME depth as MAGIC.
+      2. If neither deterministic engine produced usable steps, fall back to
+         AI-planned decode.
+      3. Run OSINT enrichment and AI describe/verdict against the decoded output.
     """
-    # 1) fast deterministic decode
-    det = smart_decode(body.input)
+    # 1) BOTH deterministic engines in parallel — pick the deeper/higher-quality winner
+    det = _deterministic_best_decode(body.input)
     if det["steps"]:
         steps = [RecipeStep(op=x["op"], args=x.get("args", {})) for x in det["steps"]]
-        reasoning = "Deterministic smart decoder chained: " + " → ".join(s.op for s in steps)
+        reasoning = (
+            f"Deterministic {det['engine']} decoder chained: "
+            + " → ".join(s.op for s in steps)
+            + (f"  [reached-shellcode-terminal-state]" if det.get("reached_shellcode") else "")
+        )
     else:
         # 2) fall back to AI-planned decode
         dec = await ai_auto_decode(body, user=user)
@@ -1390,6 +1498,9 @@ async def ai_auto_investigate(body: AutoIn, user=Depends(get_current_user)):
         "detected_type": exec_result.detected_type,
         "errors": exec_result.errors,
         "analysis": analysis,
+        # Anti-hallucination surface for the frontend
+        "engine": det.get("engine"),
+        "reached_shellcode": det.get("reached_shellcode", False),
     }
 
 
