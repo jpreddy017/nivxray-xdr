@@ -329,6 +329,39 @@ Regression: **327/327 core backend tests still passing** after refactor.
 
 3. **Client-side Auto-Detect on Paste** — new
    `/app/frontend/src/lib/magicLite.js` module that races 14 JS decoders in
+
+### Sub-session H · IOC-namespace filter + Decoder deep-training (Feb 2026)
+
+**8/8 sophisticated encoded command-lines now decode end-to-end at 80-100% confidence.**
+
+**IOC extractor false-positive fix**: `.NET` class namespaces (`io.memorystream`, `system.text.encoding`, etc.), binary extensions (`payload.exe`, `dropper.dll`), and method-chain leftovers (`chunk.readtoend`, `.frombase64string`) were being flagged as domain IOCs. Added a curated prefix + fake-TLD filter in `operations.extract_iocs`. Locked with 7 regression tests. STIX bundles no longer emit phantom indicators.
+
+**Decoder engine upgrades** (unlocked chains that previously stalled):
+- `_as_bytes` / `_bin_from` use LATIN-1 lossless roundtrip instead of UTF-8-with-replacement — chains like `base64 → XOR → gzip` no longer lose 0x8b→0xc2 0x8b to UTF-8 mangling.
+- `_pick_candidates` uses RAW payload (not `.strip()`) for magic-byte checks — Python `str.strip()` treats `\x1f` as whitespace and was silently eating the gzip magic prefix. This was the root cause of `base64 → xor-brute → gzip-decompress` failing on the recovered gzip stream.
+- `xor-brute` now uses a special keylen=1 fast path scoring against downstream binary magic (gzip 1f8b, zlib, PE MZ, ELF, ZIP, PDF, LZMA, bzip2, 7z, rar) — correctly recovers single-byte keys from `base64(xor_K(gzip(...)))` where the plaintext is not English but IS a valid gzip stream.
+- Added ETAOIN letter-frequency bonus to `_score_english` — breaks ties between key K and K^4 that both produce printable ASCII but only K produces correct letter distribution.
+- Occam margin for multi-byte keys (require +0.15 to beat a single-byte candidate, else +0.05) — prevents 15-30 byte keys from over-fitting on short ciphertexts.
+- Guards against `xor-brute → xor-brute` and `xor → xor-brute` loops; guard against any crypto op applied on already-detected shellcode.
+- `js-charcode-decode` / `js-hex-strings-decode` inserted at position 0 before `extract-payload` when the marker is present — sanitizer no longer eats the digit run.
+- Loop penalty (`0.20`) + tail-self-inverse penalty (`0.25`) in `deterministic_best_decode` — magic can no longer beat smart by tacking `rot13` onto already-clean text.
+- `xor-brute` returns ONLY the recovered plaintext (no human header) so it chains cleanly into gzip-decompress downstream.
+
+**Stress-test suite** (`tests/stress_test_encoded_commandlines.py`) — generates 8 valid encoded command lines from Python compression libraries (no LLM-typed corrupt blobs), hits `/api/decode/smart` + `/api/analyze`, asserts real IOC recovery:
+
+| # | Pattern | Chain | Confidence |
+|---|---------|-------|------------|
+| 1 | Double base64 URL wrapper | base64-decode × 2 | 88% |
+| 2 | PowerShell -EncodedCommand | extract-payload → base64-decode → utf16le-decode | 100% |
+| 3 | Base64 → GZIP → PS Cradle | extract-payload → base64-decode → gzip-decompress | 100% |
+| 4 | Base64 → XOR(0x2f) → GZIP | base64-decode → xor-brute → gzip-decompress | 100% |
+| 5 | Raw hex-encoded PowerShell | hex-decode | 100% |
+| 6 | JS String.fromCharCode() | js-charcode-decode | 80% |
+| 7 | URL-encoded XSS | url-decode | 90% |
+| 8 | 4-layer b64 → gzip → b64 → XOR | base64-decode → gzip-decompress → base64-decode → xor-brute | 100% |
+
+**Regression**: 334/334 core backend tests passing.
+
    parallel against the pasted string INSIDE the browser (zero network). When
    the top candidate scores ≥ 0.35, a green **⚡ AUTO-DETECT (Xms)** hint bar
    appears above the Recipe panel with the proposed chain, elapsed time, and

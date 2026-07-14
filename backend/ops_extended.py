@@ -87,6 +87,12 @@ def _bin_from(data: str, encoding: str = "utf-8") -> bytes:
     """Best-effort convert a string input into bytes for a crypto op.
 
     Accepts: base64 (with or without padding), hex, or raw text.
+
+    IMPORTANT: When the string already contains latin-1 code-points (bytes
+    that were preserved from a previous binary decode step, e.g. base64→raw),
+    round-trip via LATIN-1 not UTF-8. UTF-8 with `errors=replace` would
+    substitute 0xFFFD and destroy the bytes — breaking chains like
+    base64 → xor-brute → gzip-decompress.
     """
     s = (data or "").strip()
     # hex?
@@ -100,7 +106,11 @@ def _bin_from(data: str, encoding: str = "utf-8") -> bytes:
             return base64.b64decode(padded, validate=False)
     except Exception:
         pass
-    return s.encode(encoding, errors="replace")
+    # If any codepoint is > 0xFF, it's real UTF-8 text — encode as requested.
+    # Otherwise treat every codepoint as a raw byte (latin-1 = lossless).
+    if any(ord(c) > 0xFF for c in s):
+        return s.encode(encoding, errors="replace")
+    return s.encode("latin-1")
 
 
 def _key_from(k: str) -> bytes:
@@ -714,9 +724,14 @@ _XOR_MAX_KEY = 32
 
 
 def _score_english(b: bytes) -> float:
-    """Rough score in [0..1]: higher = more likely English/ASCII plaintext.
+    """Heuristic English-plaintext score in [0..1+] range. Higher is better.
 
-    Heuristic: printable-ratio × (letters+space) density × low-entropy bonus.
+    Base signal: printable ratio (0.55 weight) + letter/space ratio (0.30 weight).
+    Bonus:       Zipfian-frequency similarity of common letters (0.15 weight)
+                 — breaks the tie between key K and K^4 which both produce
+                 printable ASCII but where only K produces the correct letter
+                 distribution ('e','t','a','o' dominating).
+
     Intentionally cheap — runs `_XOR_MAX_KEY` times per brute call.
     """
     if not b:
@@ -725,7 +740,15 @@ def _score_english(b: bytes) -> float:
     letters   = sum(1 for x in b if (65 <= x < 91) or (97 <= x < 123) or x == 32)
     pr        = printable / len(b)
     lt        = letters / len(b)
-    return round(pr * 0.55 + lt * 0.45, 4)
+    # Letter-frequency bonus — reward outputs whose ETAOIN-density (top 6 English
+    # letters + space) matches natural language (~40%+).
+    etaoin    = sum(1 for x in b if x in (
+        0x65, 0x74, 0x61, 0x6f, 0x69, 0x6e,   # etaoin lower
+        0x45, 0x54, 0x41, 0x4f, 0x49, 0x4e,   # etaoin upper
+        0x20,                                  # space
+    ))
+    et        = etaoin / len(b)
+    return round(pr * 0.55 + lt * 0.30 + et * 0.15, 4)
 
 
 def _detect_xor_keylen(data: bytes, max_len: int = _XOR_MAX_KEY) -> List[int]:
@@ -762,10 +785,57 @@ def _detect_xor_keylen(data: bytes, max_len: int = _XOR_MAX_KEY) -> List[int]:
     return [kl for kl, _ in ranked]
 
 
+def _score_downstream_magic(b: bytes) -> float:
+    """Return a bonus score if the buffer starts with a recognisable
+    compressed / executable / archive magic sequence. This lets `xor-brute`
+    prefer keys that reveal downstream binary structure (gzip, zlib, PE, ELF,
+    ZIP, PDF, LZMA) even when the decoded plaintext is not English text.
+
+    Real Empire/Cobalt-Strike stagers often wrap `base64(xor(gzip(script)))`
+    where the XOR'd result must decompress before you see IOCs. Without this
+    bonus the brute-forcer picks the wrong key because gzip bytes score 0 on
+    English density.
+    """
+    if not b or len(b) < 4:
+        return 0.0
+    if b[:2] == b"\x1f\x8b":         return 0.70   # gzip
+    if b[:2] in (b"\x78\x9c", b"\x78\xda", b"\x78\x01"): return 0.55  # zlib
+    if b[:2] == b"MZ":               return 0.55   # PE
+    if b[:4] == b"\x7fELF":          return 0.55   # ELF
+    if b[:4] == b"PK\x03\x04":       return 0.45   # ZIP / docx / jar
+    if b[:4] == b"%PDF":             return 0.45   # PDF
+    if b[:6] == b"\xfd7zXZ\x00":     return 0.45   # xz
+    if b[:3] == b"BZh":              return 0.40   # bzip2
+    if b[:5] == b"7z\xbc\xaf\x27":   return 0.40   # 7z
+    if b[:4] == b"Rar!":             return 0.40   # rar
+    return 0.0
+
+
 def _crack_key_of_length(data: bytes, keylen: int) -> tuple:
     """Given a fixed key length, find the byte-per-column that maximises the
-    English-score of the decoded plaintext. Returns ``(key_bytes, score)``.
+    English-score of the decoded plaintext. Returns ``(key_bytes, score, plain)``.
+
+    Enhancement (Feb-2026): when candidate keys tie on English score, prefer
+    the one whose decoded output STARTS with a compressed/executable magic
+    (gzip 1f 8b, zlib, PE MZ, ELF, ZIP, PDF, LZMA/xz, bzip2, rar, 7z). Fixes
+    the common Empire/CobaltStrike `base64(xor(gzip(script)))` chain where
+    the XOR'd plaintext is not English but IS a valid gzip stream.
+
+    For keylen=1 we take a special fast path: sweep all 256 candidate keys
+    against the whole buffer and score plain = english_density +
+    downstream_magic_bonus. This is O(256 * len) — still fast — and it
+    correctly recovers `0x2f` from `base64(xor_0x2f(gzip(...)))` payloads
+    where the per-column English scoring incorrectly prefers a different key.
     """
+    if keylen == 1 and data:
+        best_k, best_total, best_plain = 0, -1.0, data
+        for kbyte in range(256):
+            plain = bytes(b ^ kbyte for b in data)
+            total = _score_english(plain) + _score_downstream_magic(plain)
+            if total > best_total:
+                best_k, best_total, best_plain = kbyte, total, plain
+        return bytes([best_k]), best_total, best_plain
+
     key = bytearray(keylen)
     for col in range(keylen):
         col_bytes = data[col::keylen]
@@ -779,7 +849,10 @@ def _crack_key_of_length(data: bytes, keylen: int) -> tuple:
                 best_score, best_k = s, kbyte
         key[col] = best_k
     plain = bytes(b ^ key[i % keylen] for i, b in enumerate(data))
-    return bytes(key), _score_english(plain), plain
+    # Combine english score + downstream-magic bonus so gzip/zlib/PE/ELF
+    # payloads outscore random gibberish even though they have 0 english density.
+    score = _score_english(plain) + _score_downstream_magic(plain)
+    return bytes(key), score, plain
 
 
 @op("xor-brute", "XOR Brute (repeating-key)", "Cryptography",
@@ -826,21 +899,30 @@ def _xor_brute(data: str, key_len: str = "auto") -> str:
     if not candidates:
         return "(unable to recover XOR key with high confidence)"
 
-    # sort by (length asc, score desc) — cheap way to enumerate short-first
+    # Occam-shave with variable margin: single-byte keys are so common in
+    # real-world droppers that we require a LONG key to beat a short key by
+    # a significant margin (0.15+ for keys > 8 bytes, else 0.05). This
+    # prevents spurious multi-byte keys that over-fit small ciphertexts.
     candidates.sort(key=lambda t: (t[0], -t[2]))
     best_kl, best_key, best_score, best_plain = candidates[0]
     for kl, k, s, plain in candidates[1:]:
-        # Prefer a longer key ONLY if it beats the current champion by >=0.05.
-        # This keeps single-byte keys from over-fitting into 30-byte ones, but
-        # still lets a legitimate multi-byte key (score jumps ~0.15+) win.
-        if s > best_score + 0.05:
+        margin = 0.15 if kl > 8 else 0.05
+        if s > best_score + margin:
             best_kl, best_key, best_score, best_plain = kl, k, s, plain
 
     if best_score <= 0:
         return "(unable to recover XOR key with high confidence)"
-    header = (
-        f"[xor-brute] recovered key = 0x{best_key.hex()} "
-        f"(len={len(best_key)}, ascii='{best_key.decode('ascii', errors='replace')}', "
-        f"english_score={best_score:.3f})\n\n"
-    )
-    return header + best_plain.decode("utf-8", errors="replace")
+
+    # Always return ONLY the recovered plaintext. The chosen key + score are
+    # captured in the operation's step trace metadata (see routers/ops.py
+    # trace builder) and shown in the Decoding Trace panel — no need for a
+    # human header that would (a) mislead the score-based winner picker and
+    # (b) break the next op in the chain (gzip-decompress on `[xor-brute...`).
+    #
+    # For binary/compressed plaintexts we return latin-1 (lossless) so the
+    # next op can pick up gzip/PE/ELF/zip magic bytes; for clean printable
+    # plaintexts UTF-8 replacement is fine.
+    dm = _score_downstream_magic(best_plain)
+    if dm >= 0.40:
+        return best_plain.decode("latin-1")
+    return best_plain.decode("utf-8", errors="replace")

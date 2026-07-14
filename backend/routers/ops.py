@@ -372,10 +372,13 @@ def _reason_for_op(op: str) -> str:
         "cmd-deobfuscate": "CMD.exe caret obfuscation",
         "refang-iocs": "Defanged IOCs (hxxp / [.] / [@])",
         "js-charcode": "JavaScript String.fromCharCode()",
+        "js-charcode-decode": "JavaScript String.fromCharCode() blocks",
+        "js-hex-strings-decode": r"JavaScript \xNN hex string escapes",
         "js-unescape": "JavaScript \\xNN hex escapes",
         "unicode-escape": "\\uNNNN unicode escapes",
         "utf16le-decode": "UTF-16LE byte pattern",
         "xor": "Single-byte XOR key recovered from wrapper",
+        "xor-brute": "Multi-byte XOR key recovered via English-density + downstream-magic brute force",
         "env-expand": "Resolved %TEMP% / $env:* / ${HOME} placeholders",
         "extract-base64": "Extracted embedded base64 blob(s) from wrapper text",
     }.get(op, f"Applied {op}")

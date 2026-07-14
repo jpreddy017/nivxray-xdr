@@ -87,7 +87,17 @@ def _b64_decode(data: str) -> str:
     cleaned = _clean(payload)
     # Auto-pad and decode
     padded = cleaned + "=" * (-len(cleaned) % 4)
-    return base64.b64decode(padded, validate=False).decode("utf-8", errors="replace")
+    raw = base64.b64decode(padded, validate=False)
+    # If the decoded bytes are clean UTF-8, prefer that (readable output). If
+    # they contain binary (compressed streams, XOR-encrypted bytes, PE headers,
+    # etc.) fall back to LATIN-1 so bytes survive as 1:1 codepoints for the
+    # NEXT op in the chain (gzip-decompress, xor-brute, shellcode-analyze).
+    # UTF-8 with errors='replace' would substitute 0xFFFD and corrupt the
+    # binary — breaking chains like base64→xor→gzip.
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")
 
 
 @op("base64-encode", "Base64 Encode", "Cryptography", "Encode data as Base64.")
@@ -405,7 +415,16 @@ def _is_hexlike(s: str) -> bool:
 
 
 def _as_bytes(data: str) -> bytes:
-    """Best-effort convert string payload to bytes: try hex, then base64, then utf-8."""
+    """Best-effort convert string payload to bytes: try hex, then base64, then utf-8.
+
+    IMPORTANT: if the input has ANY byte-value chars (0x00-0xFF) but no true
+    Unicode codepoints, round-trip via LATIN-1 (lossless 1:1 mapping) rather
+    than UTF-8-with-replacement — otherwise binary streams that already come
+    out of `base64-decode` (gzip magic 1f 8b, PE MZ, ELF, ...) get their high
+    bytes UTF-8-mangled (0x8b → 0xc2 0x8b) and downstream decompression /
+    disassembly fails. This is the root cause of the `base64 → xor → gzip`
+    chain failing at the `gzip-decompress` step.
+    """
     stripped = _clean(data)
     if stripped and all(c in "0123456789abcdefABCDEF" for c in stripped):
         if len(stripped) % 2 == 0:
@@ -413,10 +432,20 @@ def _as_bytes(data: str) -> bytes:
                 return bytes.fromhex(stripped)
             except ValueError:
                 pass
-    try:
-        return base64.b64decode(stripped + "=" * (-len(stripped) % 4), validate=False)
-    except (binascii.Error, ValueError):
-        pass
+    # Only try base64 when the payload is a well-shaped base64 alphabet AND
+    # doesn't already contain binary bytes (which would indicate a raw stream,
+    # not a text-encoded blob).
+    looks_binary = any(ord(c) < 32 and c not in "\t\r\n" for c in data[:64])
+    if not looks_binary:
+        try:
+            b64 = re.sub(r"\s+", "", data)
+            if b64 and re.fullmatch(r"[A-Za-z0-9+/=_-]+", b64):
+                return base64.b64decode(b64 + "=" * (-len(b64) % 4), validate=False)
+        except (binascii.Error, ValueError):
+            pass
+    # Fallback: latin-1 (lossless) if all codepoints ≤ 0xFF, else UTF-8.
+    if all(ord(c) <= 0xFF for c in data):
+        return data.encode("latin-1")
     return data.encode("utf-8", errors="replace")
 
 
@@ -432,6 +461,25 @@ def _parse_byte(k: str) -> int:
     return int(k, 0) & 0xFF
 
 
+# Class-name namespaces / language stdlib prefixes that regex-match "domain"
+# shape but are NOT real domains (io.memorystream, system.text.encoding, etc.)
+_CODE_NAMESPACE_PREFIXES = (
+    "io.", "system.", "net.", "microsoft.", "windows.", "kernel32.", "user32.",
+    "advapi32.", "ntdll.", "java.", "javax.", "com.sun.", "com.microsoft.",
+    "com.google.", "org.apache.", "org.springframework.", "com.oracle.",
+    "www.w3.org", "python.org", "docs.microsoft.com",
+)
+# TLDs that are actually reserved for code / examples (never real domains)
+_CODE_NAMESPACE_TLDS = {
+    "exe", "dll", "sys", "ps1", "psm1", "psd1", "bat", "cmd", "vbs", "js",
+    "py", "pyc", "so", "dylib", "jar", "class", "ko",  # binary/script exts
+    "readtoend", "getbytes", "invoke", "fromcharcode", "downloadstring",
+    "downloaddata", "downloadfile", "decompress", "compressionmode",
+    "memorystream", "streamreader", "gzipstream", "webclient", "encoding",
+    "ascii", "utf8", "unicode", "convert", "frombase64string", "text",
+    "length",  # .Length property access
+}
+
 # ==== IOC extraction bundle (for Threat Analysis) ============================
 def extract_iocs(text: str) -> Dict[str, List[str]]:
     r = _refang(text)
@@ -443,8 +491,26 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
     sha1 = list(dict.fromkeys(re.findall(r"\b[a-fA-F0-9]{40}\b", text)))
     sha256 = list(dict.fromkeys(re.findall(r"\b[a-fA-F0-9]{64}\b", text)))
     bitcoin = list(dict.fromkeys(re.findall(r"\b(?:bc1[a-z0-9]{25,90}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\b", text)))
-    # filter obvious FPs from domain match
-    doms = [d for d in doms if d not in ips]
+    # Filter obvious FPs from domain match:
+    #  1. Anything that also parsed as an IPv4 literal.
+    #  2. Code namespaces (io.memorystream, system.text.encoding, …) — these
+    #     regex-match the domain shape but are language identifiers, not IOCs.
+    #  3. Fake TLDs from method-chain leftovers (.readtoend, .frombase64string, …).
+    def _is_real_domain(d: str) -> bool:
+        if d in ips:
+            return False
+        if any(d.startswith(p) for p in _CODE_NAMESPACE_PREFIXES):
+            return False
+        tld = d.rsplit(".", 1)[-1]
+        if tld in _CODE_NAMESPACE_TLDS:
+            return False
+        # domain must contain at least one label longer than 1 char
+        labels = d.split(".")
+        if all(len(x) < 2 for x in labels):
+            return False
+        return True
+
+    doms = [d for d in doms if _is_real_domain(d)]
     return {
         "urls": urls,
         "ips": ips,

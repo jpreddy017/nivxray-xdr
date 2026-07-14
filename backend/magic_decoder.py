@@ -139,6 +139,12 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
     s = payload.strip()
     if not s:
         return cands
+    # IMPORTANT: for magic-byte detection use the UNSTRIPPED payload — Python's
+    # `str.strip()` treats `\x1f` (0x1F, Unit Separator) as whitespace and
+    # will happily strip the leading byte off a gzip magic (`1f 8b`), which
+    # then causes the `startswith("\x1f\x8b")` check below to silently miss
+    # every base64→xor(brute)→gzip chain in the wild.
+    raw = payload
     # Base64 detection
     b64only = re.sub(r"\s+", "", s)
     is_b64 = b64only and re.fullmatch(r"[A-Za-z0-9+/=_-]+", b64only) and len(b64only) >= 8
@@ -166,14 +172,15 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
     # UTF-16LE hint — half the bytes are 0x00 in alternating positions
     if _UTF16_HINT.search(s) or "\x00" in s:
         cands.append({"op": "utf16le-decode", "args": {}})
-    # Binary magic bytes AFTER a decode step (gzip, zlib, LZMA/XZ, PE)
-    if s.startswith("\x1f\x8b"):
+    # Binary magic bytes AFTER a decode step (gzip, zlib, LZMA/XZ, PE).
+    # NOTE: check against `raw` (unstripped) — see comment at top of function.
+    if raw.startswith("\x1f\x8b"):
         cands.insert(0, {"op": "gzip-decompress", "args": {}})
-    if s.startswith("\x78\x9c") or s.startswith("\x78\xda") or s.startswith("\x78\x01"):
+    if raw.startswith("\x78\x9c") or raw.startswith("\x78\xda") or raw.startswith("\x78\x01"):
         cands.insert(0, {"op": "zlib-decompress", "args": {}})
-    if s.startswith("\xfd7zXZ") or s.startswith("\xfd7z\x58\x5a"):
+    if raw.startswith("\xfd7zXZ") or raw.startswith("\xfd7z\x58\x5a"):
         cands.insert(0, {"op": "lzma-decompress", "args": {}})
-    if s.startswith("BZh"):
+    if raw.startswith("BZh"):
         cands.insert(0, {"op": "bzip2-decompress", "args": {}})
     # Hex detection (≥ 20 chars, even length). Prepend when the buffer is
     # UNAMBIGUOUSLY hex (only 0-9a-f, no uppercase letters beyond a-f) so it
@@ -197,12 +204,14 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
     # PowerShell -EncodedCommand
     if re.search(r"-e(?:c|nc|ncoded(?:command)?)?\s+[A-Za-z0-9+/=\s]{16,}", s, re.IGNORECASE):
         cands.append({"op": "powershell-encoded", "args": {}})
-    # JS charcode
-    if "String.fromCharCode" in s:
-        cands.append({"op": "js-charcode-decode", "args": {}})
-    # JS \x-escapes
-    if re.search(r"\\x[0-9a-fA-F]{2}", s):
-        cands.append({"op": "js-hex-strings-decode", "args": {}})
+    # JS charcode — MUST be inserted BEFORE extract-payload otherwise the
+    # wrapper stripper collapses `String.fromCharCode(108,111,...)` into a
+    # gibberish digit run and the js-charcode-decode op never fires.
+    if "String.fromCharCode" in s or "fromCharCode(" in s:
+        cands.insert(0, {"op": "js-charcode-decode", "args": {}})
+    # JS \x-escapes — same priority rationale as js-charcode.
+    if re.search(r"(?:\\x[0-9a-fA-F]{2}){3,}", s):
+        cands.insert(0, {"op": "js-hex-strings-decode", "args": {}})
     # ASCII85
     if s.startswith("<~") and s.endswith("~>"):
         cands.append({"op": "ascii85-decode", "args": {}})
@@ -231,13 +240,29 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
         if xk is not None:
             cands.insert(0, {"op": "xor", "args": {"key": f"0x{xk:02x}"}})
 
-        # Repeating-key XOR brute — trigger on high-entropy alphanum/base64 or
-        # pure-hex buffers that look like ciphertext. Cheap fallback, only
-        # explored when the standard chain didn't produce clean text.
-        s_ent = _entropy(s.encode("utf-8", errors="replace"))
-        if len(s) >= 32 and s_ent >= 4.5 and (
-            re.fullmatch(r"[A-Za-z0-9+/=\s]+", s) or
-            re.fullmatch(r"[0-9a-fA-F\s]+", s)
+        # Repeating-key XOR brute — trigger on:
+        #   (a) high-entropy alphanumeric/base64 text  (ciphertext-as-text)
+        #   (b) high-entropy hex text
+        #   (c) high-entropy RAW BINARY BYTES (previous step decoded to bytes
+        #       that don't decompress cleanly — likely XOR-obfuscated stream)
+        # (c) is the key case for `base64 → XOR → gzip` stagers: base64-decode
+        # produces raw XOR'd gzip bytes that no other op can handle, and
+        # `_score_downstream_magic` in xor-brute will find the correct key by
+        # scoring the recovered gzip magic prefix.
+        s_ent = _entropy(s.encode("latin-1", errors="replace"))
+        looks_b64 = re.fullmatch(r"[A-Za-z0-9+/=\s]+", s) is not None
+        looks_hex = re.fullmatch(r"[0-9a-fA-F\s]+", s) is not None
+        # "Binary": ≥10% of chars are non-printable control bytes.
+        # This is a much stronger binary signal than entropy alone on short
+        # buffers (e.g. an 81-byte gzip-compressed stream has entropy ~5.7
+        # which slips under a 6.0 threshold, but the same buffer has ~40%
+        # control bytes).
+        ctrl_ratio = sum(
+            1 for c in s if ord(c) < 32 and c not in "\t\r\n"
+        ) / max(1, len(s))
+        looks_binary = len(s) >= 16 and ctrl_ratio >= 0.10
+        if len(s) >= 16 and (
+            (s_ent >= 4.5 and (looks_b64 or looks_hex)) or looks_binary
         ):
             cands.append({"op": "xor-brute", "args": {"key_len": "auto"}})
     except Exception:
@@ -267,7 +292,19 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
     from payload_sanitizer import sanitize_encapsulated_payload
 
     # THUMB RULE: ISOLATE THE PAYLOAD STRING FIRST — strip script wrappers.
-    isolated = sanitize_encapsulated_payload(payload)
+    # EXCEPTION: if the wrapper contains `String.fromCharCode(...)` or
+    # `\xNN`-escape blocks, DO NOT sanitize — the sanitizer would collapse the
+    # digit / hex tokens away and destroy the structure. We need those to
+    # survive so `js-charcode-decode` / `js-hex-strings-decode` can fire in
+    # the candidate generator below.
+    _skip_isolation = (
+        "String.fromCharCode" in payload or
+        bool(re.search(r"(?:\\x[0-9a-fA-F]{2}){4,}", payload))
+    )
+    if _skip_isolation:
+        isolated = None
+    else:
+        isolated = sanitize_encapsulated_payload(payload)
     working = isolated if isolated else payload
     isolation_note = None
     if isolated and isolated != payload.strip():
@@ -324,6 +361,31 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                     "_then_xor": ctx["xor_key"],
                 })
         for c in cands:
+            # Guard: don't apply the same crypto op twice in a row (rot13 → rot13,
+            # xor-brute → xor-brute, xor → xor-brute etc). These loops signal
+            # over-decoding on already-clean text (from Feb-2026 regression:
+            # meterpreter chain kept looping xor-brute after xor finished).
+            _blocked_repeats = {"xor-brute", "xor", "rot13", "reverse"}
+            if chain and c.get("op") in _blocked_repeats:
+                prev_op = chain[-1].get("op")
+                if prev_op == c.get("op") or (
+                    c.get("op") == "xor-brute" and prev_op == "xor"
+                ) or (
+                    c.get("op") == "xor" and prev_op == "xor-brute"
+                ):
+                    continue
+            # Guard: don't try further crypto ops on an output that already
+            # looks like known shellcode (fc e8 89..., 48 31 d2..., etc.) —
+            # that's the terminal state we're chasing, not more decoding.
+            if c.get("op") in {"xor-brute", "xor", "rot13"} and cur:
+                try:
+                    from shellcode_analyzer import starts_with_known_prologue
+                    raw_cur = cur.encode("latin-1") if all(ord(x) < 256 for x in cur) \
+                                                    else cur.encode("utf-8", errors="replace")
+                    if starts_with_known_prologue(raw_cur):
+                        continue
+                except Exception:
+                    pass
             try:
                 if c.get("op") == "extract-payload" and "_nested_b64" in c:
                     # Snap the input down to the nested base64 span so subsequent
@@ -374,7 +436,14 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
             if nsb["score"] < sb["score"] - 0.30:  # branch massively regressed — prune
                 # …unless a XOR key is known — the pruned base64 output is
                 # probably XORed bytes we still want to try.
-                if ctx.get("xor_key") is None:
+                # …unless the pruned output looks like high-entropy binary
+                # (potential XOR-obfuscated or compressed content that only
+                # xor-brute or a decompression op can rescue).
+                looks_binary = (
+                    len(nxt) >= 24 and
+                    _entropy(nxt.encode("latin-1", errors="replace")) >= 6.0
+                )
+                if ctx.get("xor_key") is None and not looks_binary:
                     continue
             _walk(nxt, chain + [clean_step], depth + 1,
                   path_scores + [sb["score"]], ctx)

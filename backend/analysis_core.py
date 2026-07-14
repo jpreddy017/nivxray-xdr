@@ -66,6 +66,14 @@ def deterministic_best_decode(payload: str) -> Dict[str, Any]:
 
     magic_has_loop = _has_repeated_op(top.get("chain") or [])
     smart_has_loop = _has_repeated_op(smart.get("steps") or [])
+    # Detect "over-decoding" — a chain whose FINAL op is a self-inverse
+    # transform (rot13, reverse) applied on top of an already-clean result.
+    # Common false-positive pattern: `base64 → zlib → rot13("Hello!")` where
+    # the tail rot13 mangles readable output into gibberish (`Uryyb!`).
+    def _tail_self_inverse(chain):
+        return chain and chain[-1].get("op") in ("rot13", "reverse")
+    magic_tail_bad = _tail_self_inverse(top.get("chain") or [])
+    smart_tail_bad = _tail_self_inverse(smart.get("steps") or [])
 
     smart_reached_sc = False
     magic_reached_sc = bool(top.get("is_shellcode"))
@@ -97,6 +105,12 @@ def deterministic_best_decode(payload: str) -> Dict[str, Any]:
         magic_score_val -= 0.20
     if smart_has_loop:
         smart_score -= 0.20
+    # Tail self-inverse penalty — final rot13/reverse on already-clean text
+    # is over-decoding (Feb-2026 fix for the `Hello Compression!` regression).
+    if magic_tail_bad:
+        magic_score_val -= 0.25
+    if smart_tail_bad:
+        smart_score -= 0.25
 
     def _pack_smart() -> Dict[str, Any]:
         return {
