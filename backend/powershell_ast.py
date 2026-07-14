@@ -194,14 +194,23 @@ def _apply_replace_calls(text: str, out: List[Transformation]) -> str:
 # =============================================================================
 # 6. Variable assignment tracking — $a = "…"; … $a → substitute
 # =============================================================================
-# Match `$name = "…"` or `$name = '…'` — assignments only on their own line/stmt
+# Match `$name = "…"` or `$name = '…'` — assignments only on their own line/stmt.
+# Explicitly excludes `$env:XXX` / `$script:XXX` / `$global:XXX` — those are
+# scoped variable references, not user-defined bindings, and must be handled by
+# `env-expand` (for env:) or left untouched (for scope-qualified vars).
 _VAR_ASSIGN_RE = re.compile(
-    rf"""(?:^|[\s;{{]) *(\$[A-Za-z_][A-Za-z0-9_:]*)\s*=\s*({_STR_LIT})\s*(?=$|[;|\n\r}}])""",
-    re.M,
+    rf"""(?:^|[\s;{{]) *(\$(?!(?:env|script|global|local|private|using):)
+                          [A-Za-z_][A-Za-z0-9_]*)\s*=\s*({_STR_LIT})\s*
+                          (?=$|[;|\n\r}}])""",
+    re.M | re.X | re.I,
 )
-# Variable *usage* — only replace ones NOT immediately followed by `=` (which
-# would be a new assignment). Also skip usages inside string literals.
-_VAR_USAGE_RE = re.compile(r"(?<!\$)(\$[A-Za-z_][A-Za-z0-9_:]*)(?![A-Za-z0-9_:=])")
+# Variable *usage* — same exclusion. Only replace ones NOT immediately followed
+# by `=` (that'd be a fresh assignment).
+_VAR_USAGE_RE = re.compile(
+    r"(?<!\$)(\$(?!(?:env|script|global|local|private|using):)"
+    r"[A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_=])",
+    re.I,
+)
 
 
 def _substitute_variables(text: str, out: List[Transformation]) -> Tuple[str, Dict[str, str]]:

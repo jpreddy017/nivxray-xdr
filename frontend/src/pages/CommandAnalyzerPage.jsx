@@ -321,6 +321,55 @@ export default function CommandAnalyzerPage() {
               </button>
             </Section>
 
+            {/* Execution flow */}
+            {report.execution_flow?.length > 0 && (
+              <Section title={`EXECUTION FLOW · ${report.execution_flow.length} signal${report.execution_flow.length === 1 ? "" : "s"}`}
+                       testid="execflow-section" accent="var(--warn)">
+                <div style={{ display: "grid", gap: 6 }}>
+                  {report.execution_flow.map((e, i) => {
+                    const kindColor = {
+                      executor: "var(--high)", downloader: "var(--accent)",
+                      persistence: "var(--warn)", "file-decode": "var(--text-dim)",
+                      "code-exec-obj": "var(--high)",
+                    }[e.kind] || "var(--text)";
+                    return (
+                      <div key={i} className="brut-border" style={{
+                        padding: 8, background: "var(--inset)",
+                        borderLeft: `3px solid ${kindColor}`,
+                      }} data-testid={`execflow-${i}`}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span className="badge" style={{ background: `${kindColor}22`, color: kindColor, border: `1px solid ${kindColor}44`, textTransform: "uppercase" }}>
+                              {e.kind}
+                            </span>
+                            <span className="mono" style={{ fontSize: 12, color: "var(--text)", fontWeight: 700 }}>
+                              {e.label}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            <span className="badge" style={{ background: "var(--warn)22", color: "var(--warn)", border: "1px solid var(--warn)44" }}>
+                              MITRE {e.mitre_id}
+                            </span>
+                            <span className="badge" style={{ background: `${kindColor}22`, color: kindColor }}>
+                              {e.severity}
+                            </span>
+                          </div>
+                        </div>
+                        {e.evidence && (
+                          <pre className="mono" style={{
+                            margin: "5px 0 0", padding: 5, fontSize: 10.5,
+                            background: "var(--panel-2, rgba(0,0,0,0.35))", border: "1px solid var(--line)",
+                            borderRadius: 2, color: "var(--text-dim)",
+                            whiteSpace: "pre-wrap", wordBreak: "break-all",
+                          }}>{e.evidence}</pre>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Section>
+            )}
+
             {/* PowerShell AST deobfuscation */}
             {report.ast_deobfuscation?.applied && (
               <Section title={`POWERSHELL AST DEOBFUSCATION · ${(report.ast_deobfuscation.transformations || []).length} transforms`}

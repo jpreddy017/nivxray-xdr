@@ -467,6 +467,64 @@ _PERSISTENCE = re.compile(
     r"HKLM\\+Software\\+Microsoft\\+Windows\\+CurrentVersion\\+Run|"
     r"HKCU:\\+Software\\+Microsoft\\+Windows\\+CurrentVersion\\+Run)\b", re.I,
 )
+
+# Fine-grained execution-flow signals for the UI badge panel. Each entry maps
+# to a single named point in the command that has security-relevant meaning.
+_EXEC_FLOW_SIGNALS = [
+    # (kind, label, pattern, mitre_id, severity)
+    ("executor",   "Invoke-Expression",       re.compile(r"\bInvoke-Expression\b|(?<!\w)IEX(?!\w)", re.I), "T1059.001", "high"),
+    ("executor",   "Invoke-Command",          re.compile(r"\bInvoke-Command\b|(?<!\w)icm(?!\w)", re.I),    "T1059.001", "high"),
+    ("executor",   "Start-Process",           re.compile(r"\bStart-Process\b|(?<!\w)saps(?!\w)", re.I),    "T1059.001", "medium"),
+    ("executor",   "cmd /c",                  re.compile(r"cmd(?:\.exe)?\s+/c\b", re.I),                   "T1059.003", "high"),
+    ("executor",   "rundll32",                re.compile(r"\brundll32(?:\.exe)?\b", re.I),                 "T1218.011", "high"),
+    ("executor",   "regsvr32",                re.compile(r"\bregsvr32(?:\.exe)?\b", re.I),                 "T1218.010", "high"),
+    ("executor",   "mshta",                   re.compile(r"\bmshta(?:\.exe)?\b", re.I),                    "T1218.005", "high"),
+    ("executor",   "wscript / cscript",       re.compile(r"\b[wc]script(?:\.exe)?\b", re.I),               "T1059.005", "medium"),
+    ("executor",   "& call operator",         re.compile(r"(?:^|[\s;{|(])&\s*\$?[\w()]+", re.I),           "T1059.001", "medium"),
+    ("downloader", "Invoke-WebRequest",       re.compile(r"\bInvoke-WebRequest\b|(?<!\w)iwr(?!\w)", re.I), "T1105",     "high"),
+    ("downloader", "Invoke-RestMethod",       re.compile(r"\bInvoke-RestMethod\b|(?<!\w)irm(?!\w)", re.I), "T1105",     "high"),
+    ("downloader", "Net.WebClient",           re.compile(r"\bNet\.WebClient\b", re.I),                     "T1105",     "high"),
+    ("downloader", "DownloadString",          re.compile(r"\.DownloadString\b", re.I),                     "T1105",     "high"),
+    ("downloader", "DownloadFile",            re.compile(r"\.DownloadFile\b", re.I),                       "T1105",     "high"),
+    ("downloader", "curl / wget",             re.compile(r"\b(?:curl|wget)(?:\.exe)?\b", re.I),            "T1105",     "medium"),
+    ("downloader", "bitsadmin /transfer",     re.compile(r"\bbitsadmin\b[^\n]*/transfer\b", re.I),         "T1197",     "high"),
+    ("downloader", "certutil -urlcache",      re.compile(r"\bcertutil\b[^\n]*-urlcache\b", re.I),          "T1105",     "high"),
+    ("persistence","schtasks /create",        re.compile(r"\bschtasks\b[^\n]*/create\b", re.I),            "T1053.005", "high"),
+    ("persistence","Register-ScheduledTask",  re.compile(r"\bRegister-ScheduledTask\b", re.I),             "T1053.005", "high"),
+    ("persistence","New-Service",             re.compile(r"\bNew-Service\b", re.I),                        "T1543.003", "high"),
+    ("persistence","Run key",                 re.compile(r"HK(?:LM|CU)[:\\][^\n]*\\Run\b", re.I),          "T1547.001", "high"),
+    ("file-decode","certutil -decode",        re.compile(r"\bcertutil\b[^\n]*-decode\b", re.I),            "T1140",     "medium"),
+    ("code-exec-obj","WScript.Shell",         re.compile(r"WScript\.Shell", re.I),                         "T1059.005", "high"),
+    ("code-exec-obj","Shell.Application",     re.compile(r"Shell\.Application", re.I),                     "T1218",     "medium"),
+]
+
+
+def _execution_flow(text: str) -> List[Dict[str, Any]]:
+    """Fine-grained execution-flow badges. One entry per unique signal, with
+    the first evidence snippet."""
+    hits: List[Dict[str, Any]] = []
+    seen = set()
+    for kind, label, pat, mitre, sev in _EXEC_FLOW_SIGNALS:
+        m = pat.search(text)
+        if not m:
+            continue
+        if label in seen:
+            continue
+        seen.add(label)
+        start = max(0, m.start() - 6)
+        end   = min(len(text), m.end() + 20)
+        snip  = text[start:end].strip().replace("\n", " ⏎ ")
+        if len(snip) > 80: snip = snip[:80] + "…"
+        hits.append({
+            "kind":     kind,
+            "label":    label,
+            "mitre_id": mitre,
+            "severity": sev,
+            "evidence": snip,
+            "at":       m.start(),
+        })
+    hits.sort(key=lambda h: h["at"])
+    return hits
 _URL_RE      = re.compile(r"\bhttps?://[^\s\"'<>|]{4,}", re.I)
 _IP_RE       = re.compile(r"\b(?:25[0-5]|2[0-4]\d|[01]?\d\d?)(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?)){3}\b")
 
@@ -572,6 +630,38 @@ def _decode_span(span: PayloadSpan) -> Dict[str, Any]:
     if scored:
         scored.sort(key=lambda t: (-t[0], -t[1]))
         result["final_output"] = scored[0][2]
+
+    # Repeating-key XOR fallback — if we've decoded to a high-entropy buffer
+    # (or nothing worked), invoke the multi-byte XOR brute-forcer explicitly.
+    # This catches Cobalt-Strike PROFILE / Empire stagers whose inner layer is
+    # a repeating-key XOR (not a single byte).
+    if len(text) >= 32:
+        try:
+            from operations import OPERATIONS as _OPS
+            if "xor-brute" in _OPS:
+                bx = _OPS["xor-brute"]["fn"](text, "auto")
+                # header line looks like: "[xor-brute] recovered key = 0x… … score=…"
+                if bx and bx.startswith("[xor-brute]") and "score=" in bx:
+                    body = bx.split("\n\n", 1)[-1]
+                    # Only surface if it materially beats the current best.
+                    # Use a "readability" metric (letters + spaces) that's more
+                    # robust than raw printable ratio — XOR-garbage often has
+                    # high printable ratio but low letter density.
+                    def _readability(s: str) -> float:
+                        if not s: return 0.0
+                        n = len(s)
+                        letters = sum(1 for x in s if x.isalpha() or x == " ")
+                        return letters / n
+                    cur = result["final_output"] or ""
+                    if _readability(body) > _readability(cur) + 0.20:
+                        result["chains"].append({
+                            "engine": "xor-brute",
+                            "steps": [{"op": "xor-brute", "reason": bx.split("\n")[0]}],
+                            "output": body,
+                        })
+                        result["final_output"] = body
+        except Exception:
+            pass
     return result
 
 
@@ -831,6 +921,7 @@ def analyze_command(text: str,
                               + [ast_report.get("final") or ""])
     iocs        = extract_iocs(combined_text)
     behaviors   = classify_behaviors(pipeline, text, prof)
+    exec_flow   = _execution_flow(combined_text)
     if amsi["detected"]:
         behaviors.append({
             "tag":    "amsi-bypass",
@@ -877,6 +968,7 @@ def analyze_command(text: str,
         "lolbins":                lolbins,
         "mitre":                  mitre,
         "behaviors":              behaviors,
+        "execution_flow":         exec_flow,
         "behavior_summary":       summary,
         "raw_tokens":             tokens,
     }
