@@ -153,28 +153,148 @@ function LolbasTab({ items = [] }) {
 }
 
 function FlowTab({ description }) {
-  const graph = description?.flow_graph;
-  if (!graph || !graph.nodes?.length) {
-    return <EmptyState label="No behavior flow graph — run AUTO INVESTIGATE / AI DESCRIBE to generate one" />;
+  const chain = description?.attack_chain || [];
+  const fallbackGraph = description?.flow_graph;
+
+  if (!chain.length && (!fallbackGraph || !fallbackGraph.nodes?.length)) {
+    return <EmptyState label="No attack chain — run AUTO INVESTIGATE / AI DESCRIBE to generate the sequence" />;
   }
+
+  // If AI returned attack_chain: render the rich vertical flowchart.
+  if (chain.length) return <AttackChain chain={chain} />;
+
+  // Fallback: render the older node-graph
   return (
     <div>
       <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.18em", marginBottom: 8 }}>
-        BEHAVIOR FLOW · {graph.nodes.length} STEPS · {graph.edges?.length || 0} EDGES
+        BEHAVIOR FLOW · {fallbackGraph.nodes.length} STEPS
       </div>
-      <FlowGraph nodes={graph.nodes} edges={graph.edges || []} />
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10, fontSize: 10 }} className="mono">
-        {["start/end", "filesystem", "network", "crypto", "execution", "persistence", "discovery", "c2", "impact"].map((k) => (
-          <div key={k} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{
-              width: 10, height: 10, display: "inline-block",
-              background: { start: "#4AA890", "start/end": "#4AA890", filesystem: "#E27E5D", network: "#7fb9ff",
-                crypto: "#c0ca33", execution: "#d96c6c", persistence: "#e27e5d",
-                discovery: "#8b949e", c2: "#d96c6c", impact: "#d96c6c" }[k] || "#8b949e",
-            }} />
-            <span style={{ color: "var(--text-mute)" }}>{k}</span>
-          </div>
-        ))}
+      <FlowGraph nodes={fallbackGraph.nodes} edges={fallbackGraph.edges || []} />
+    </div>
+  );
+}
+
+function AttackChain({ chain }) {
+  const KIND_COLOR = {
+    ingestion: "#7fb9ff", deobfuscation: "#c0ca33", context: "#8b949e",
+    filesystem: "#E27E5D", network: "#7fb9ff", crypto: "#c0ca33",
+    execution: "#d96c6c", persistence: "#e27e5d", discovery: "#8b949e",
+    c2: "#d96c6c", impact: "#d96c6c",
+  };
+  return (
+    <div className="stagger" data-testid="attack-chain">
+      <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.18em", marginBottom: 14 }}>
+        DYNAMIC ATTACK CHAIN · {chain.length} STAGES
+      </div>
+      <div style={{ position: "relative", paddingLeft: 4 }}>
+        {/* vertical connector rail */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute", left: 18, top: 12, bottom: 12, width: 2,
+            background: "repeating-linear-gradient(180deg,var(--border) 0 6px,transparent 6px 12px)",
+          }}
+        />
+        {chain.map((c, i) => {
+          const color = KIND_COLOR[c.kind] || "var(--accent)";
+          const isLast = i === chain.length - 1;
+          return (
+            <div
+              key={i}
+              data-testid={`attack-step-${i + 1}`}
+              style={{ position: "relative", paddingLeft: 46, marginBottom: isLast ? 0 : 18 }}
+            >
+              {/* number node on the rail */}
+              <span
+                className="mono"
+                style={{
+                  position: "absolute", left: 0, top: 4,
+                  width: 38, height: 38,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  border: `2px solid ${color}`, color, fontSize: 13, fontWeight: 700,
+                  background: "var(--bg)",
+                  boxShadow: `0 0 0 4px var(--bg), 0 0 12px ${color}55`,
+                  zIndex: 2,
+                }}
+              >
+                {String(c.step ?? i + 1).padStart(2, "0")}
+              </span>
+
+              {/* horizontal tick from node to card */}
+              <span
+                aria-hidden
+                style={{
+                  position: "absolute", left: 38, top: 22, height: 2, width: 8,
+                  background: color,
+                }}
+              />
+
+              {/* card */}
+              <div
+                className="brut-border fade-in"
+                style={{
+                  background: "var(--inset)",
+                  borderLeft: `4px solid ${color}`,
+                  padding: "12px 14px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+                  <span
+                    className="mono"
+                    style={{
+                      fontSize: 12, fontWeight: 700, letterSpacing: "0.14em",
+                      color: "var(--text)", textTransform: "uppercase",
+                    }}
+                  >
+                    {c.title}
+                  </span>
+                  <span
+                    className="badge"
+                    style={{
+                      marginLeft: "auto", color, borderColor: color, background: "transparent",
+                    }}
+                  >
+                    {c.kind || "step"}
+                  </span>
+                </div>
+                <p className="mono" style={{ fontSize: 12, color: "var(--text-dim)", margin: 0, lineHeight: 1.65 }}>
+                  {c.summary}
+                </p>
+                {c.technical_detail && (
+                  <div
+                    className="mono"
+                    style={{
+                      marginTop: 10, padding: "8px 10px", fontSize: 11,
+                      color: "var(--warn)", background: "rgba(226,126,93,0.06)",
+                      borderLeft: "2px solid var(--warn)", wordBreak: "break-all",
+                    }}
+                  >
+                    <span style={{ color: "var(--text-mute)", letterSpacing: "0.12em", fontSize: 10 }}>ARTIFACT</span>
+                    <div style={{ marginTop: 3 }}>{c.technical_detail}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* down arrow between steps */}
+              {!isLast && (
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute", left: 12, bottom: -18, width: 14, height: 18,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  <span style={{
+                    borderLeft: "5px solid transparent",
+                    borderRight: "5px solid transparent",
+                    borderTop: `7px solid ${color}`,
+                    width: 0, height: 0,
+                  }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

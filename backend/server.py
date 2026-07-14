@@ -530,6 +530,15 @@ async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verd
             '  "mitre_techniques": [\n'
             '     {"id": "Txxxx or Txxxx.xxx", "technique": "name", "tactic": "MITRE tactic (Execution|Defense Evasion|...)", "evidence": "specific line/token in the decoded output that supports this mapping"}\n'
             '  ],\n'
+            '  "attack_chain": [\n'
+            '     {\n'
+            '        "step": 1,\n'
+            '        "title": "SHORT TECHNICAL LABEL (e.g. WRAPPER DEOBFUSCATION, CONTEXT ADJUSTMENT, STEALTH STAGER LOAD, ROLLING XOR DECRYPTION, FILELESS MEMORY INJECTION, C2 BEACONING, PERSISTENCE INSTALL, SHADOW COPY DESTROY)",\n'
+            '        "summary": "2-3 sentence plain-English narrative of what THIS step does. Be specific: name the API/function invoked, files touched, algorithms used.",\n'
+            '        "technical_detail": "optional: paste concrete artifact from the payload (e.g. hex key, filename, URL, IP, argv) that supports this step. null if none.",\n'
+            '        "kind": "ingestion|deobfuscation|context|filesystem|network|crypto|execution|persistence|discovery|c2|impact"\n'
+            '     }\n'
+            '  ],\n'
             '  "flow_graph": {\n'
             '     "nodes": [\n'
             '        {"id": "n1", "label": "short verb-phrase e.g. \'chdir to python.exe folder\'", "kind": "start|filesystem|network|crypto|execution|persistence|discovery|c2|impact|end"}\n'
@@ -561,7 +570,8 @@ async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verd
         "Write like an incident-report analyst: precise, factual, technical, cite specific IOC values / OSINT results / TI hits.\n"
         "For malware_family: only claim a family if there is strong evidence (unique strings, C2 patterns, packer, algorithm signatures, or matches to VT/OTX threat labels).\n"
         "For mitre_techniques: derive from the DECODED BEHAVIOR, not the outer wrapper. For each technique cite the specific evidence in the decoded output.\n"
-        "For flow_graph: model 4-10 nodes that capture the sequential and conditional actions of the decoded script. Include a 'start' and an 'end' node. Edges should be sequential (a→b→c) with optional branch labels. Node kinds must be one of: start|filesystem|network|crypto|execution|persistence|discovery|c2|impact|end.\n"
+        "For attack_chain: model 3-8 sequential steps that describe the ATTACK CHAIN (what the malware does step by step). Each step should have a strong technical title (short caps phrase) + 2-3 sentence plain-English summary + optional technical_detail (hex keys, filenames, URLs cited verbatim from the payload). Order MUST be causal. Use kinds: ingestion|deobfuscation|context|filesystem|network|crypto|execution|persistence|discovery|c2|impact.\n"
+        "For flow_graph: additionally produce a compact node/edge structure for visualization — 4-10 nodes.\n"
         "Return STRICT JSON only with the keys shown in the schema. No markdown, no prose outside JSON."
     )
     prompt = (
