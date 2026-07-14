@@ -77,6 +77,85 @@ def _is_clean_base64(text: str) -> bool:
     return bool(s) and bool(_B64_ALPHA_RE.match(s))
 
 
+# ---------------------------------------------------------------------------
+# Multi-stage helpers — used by the recursive decode-and-route pipeline to
+# re-scan the OUTPUT of a previous decoder for further nested payloads.
+# ---------------------------------------------------------------------------
+
+def find_all_base64_spans(text: str, min_len: int = 20) -> list:
+    """Return every base64 span (quoted-first, then generic) sorted by length DESC.
+
+    Used to chain e.g. `base64 → gzip → *inner* base64 → xor` where the second
+    base64 lives INSIDE the decompressed PowerShell body.
+    """
+    if not text:
+        return []
+    hits = []
+    for m in _QUOTED_RE.finditer(text):
+        s = m.group(1)
+        if len(s) >= min_len and _is_clean_base64(s):
+            hits.append(s)
+    # generic fallback — only fill in gaps the quoted rule missed
+    for m in _GENERIC_RE.finditer(text):
+        s = m.group(1)
+        if len(s) >= max(min_len, 40) and _is_clean_base64(s) and s not in hits:
+            hits.append(s)
+    # de-dupe while preserving order, then sort by len desc for LIFO consumption
+    seen = set(); out = []
+    for h in hits:
+        if h not in seen:
+            seen.add(h); out.append(h)
+    out.sort(key=len, reverse=True)
+    return out
+
+
+# Match XOR keys inside common obfuscator patterns. We recognise:
+#   PowerShell:  -bxor 35      (int)
+#                -bxor 0x23    (hex)
+#                -bxor 'A'     (single-char string)
+#   Python/JS:   ^ 0x35        (inside a loop body)
+#   C/asm:       xor eax, 0x35 / xor byte ptr [rax], 0x35
+_XOR_PATTERNS = [
+    re.compile(r"-bxor\s+0x([0-9A-Fa-f]{1,2})\b"),                # -bxor 0x35
+    re.compile(r"-bxor\s+(\d{1,3})\b"),                            # -bxor 35
+    re.compile(r"-bxor\s+['\"](.)['\"]"),                          # -bxor 'A'
+    re.compile(r"\^\s*0x([0-9A-Fa-f]{1,2})\b"),                    # ^ 0x35
+    re.compile(r"\bxor\s+(?:byte\s+ptr\s*)?\[?\w+\]?\s*,\s*0x([0-9A-Fa-f]{1,2})\b", re.I),
+]
+
+
+def find_xor_key(text: str):
+    """Parse an XOR key from PowerShell / JS / asm-flavoured obfuscator syntax.
+
+    Returns an int in [0..255] or ``None``. Sample real-world triggers:
+      $var_code[$x] = $var_code[$x] -bxor 35
+      $b -bxor 0x2A
+      xor eax, 0x35
+    """
+    if not text:
+        return None
+    for pat in _XOR_PATTERNS:
+        m = pat.search(text)
+        if not m:
+            continue
+        raw = m.group(1)
+        try:
+            # single-char case (came from a quoted literal)
+            if len(raw) == 1 and not raw.isdigit():
+                return ord(raw) & 0xFF
+            # hex if the pattern captured a hex group (all patterns without
+            # explicit prefix except decimal are hex)
+            if pat.pattern.startswith(r"-bxor\s+(\d"):
+                v = int(raw, 10)
+            else:
+                v = int(raw, 16)
+            if 0 <= v <= 255:
+                return v
+        except ValueError:
+            continue
+    return None
+
+
 def sanitize_encapsulated_payload(text: str) -> Optional[str]:
     """Extract the raw base64 payload from an encapsulated script snippet.
 

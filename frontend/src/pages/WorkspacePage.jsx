@@ -6,6 +6,7 @@ import ThreatAnalysis from "@/components/ThreatAnalysis";
 import ReportMenu from "@/components/ReportMenu";
 import AttackGraph from "@/components/AttackGraph";
 import FinalSummary from "@/components/FinalSummary";
+import ShellcodeView from "@/components/ShellcodeView";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -32,6 +33,7 @@ export default function WorkspacePage() {
   const [providerId, setProviderId] = useState("");
   const [magicResults, setMagicResults] = useState(null);
   const [showMagic, setShowMagic] = useState(false);
+  const [shellcodeFlag, setShellcodeFlag] = useState(false);
   const streamStopRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -136,6 +138,9 @@ export default function WorkspacePage() {
       op: s.op, reason: `magic auto-decoder (score ${r.score_breakdown?.score ?? "?"})`,
       output_preview: (r.output || "").slice(0, 400),
     })));
+    // Propagate the shellcode stop-condition flag so the ShellcodeView can
+    // auto-render when a magic chain terminates on binary output.
+    setShellcodeFlag(!!r.is_shellcode);
     setShowMagic(false);
     setStatus(`APPLIED MAGIC CHAIN · score ${r.score_breakdown?.score}`);
   };
@@ -654,6 +659,11 @@ export default function WorkspacePage() {
               playbooksUsed={analysis.playbooks_used || []}
             />
           )}
+
+          {/* Shellcode view — auto-renders when the magic decoder flags binary output */}
+          {shellcodeFlag && output && (
+            <ShellcodeView output={output} />
+          )}
         </section>
 
         <ThreatAnalysis
@@ -689,6 +699,12 @@ export default function WorkspacePage() {
                         #{i + 1} · SCORE <b style={{ color: "var(--warn)" }}>{sb.score}</b>
                         {sb.printable !== undefined && ` · printable=${sb.printable}`}
                         {sb.english !== undefined && ` · english=${sb.english}`}
+                        {r.is_shellcode && (
+                          <span className="badge" data-testid={`magic-result-${i}-shellcode-badge`}
+                                style={{ marginLeft: 8, background: "var(--high)22", color: "var(--high)", border: "1px solid var(--high)" }}>
+                            ⚠ SHELLCODE · {r.stop_condition?.reason?.replace(/_/g, " ")}
+                          </span>
+                        )}
                       </div>
                       <button className="nvx-btn sm primary" onClick={() => applyMagicResult(r)} data-testid={`btn-magic-apply-${i}`}>
                         <Play size={11} /> APPLY CHAIN

@@ -452,6 +452,54 @@ async def decode_magic(body: MagicIn, user=Depends(get_current_user)):
                         max_branches=body.max_branches, top_n=body.top_n)
 
 
+class ShellcodeIn(BaseModel):
+    input: str = Field(..., description="Hex, base64, or raw bytes to analyse")
+    arch: Optional[str] = Field(None, description="Arch hint: x86 / x86_64 / arm / arm64 / thumb")
+    max_insns: int = 300
+
+
+@api.post("/analyze/shellcode")
+async def analyze_shellcode(body: ShellcodeIn, user=Depends(get_current_user)):
+    """Shellcode / binary analysis — auto-detects architecture, disassembles via
+    Capstone, extracts IOCs and API imports. Accepts hex, base64, or raw utf-8.
+
+    This is the "stop condition" endpoint for the recursive decode-and-route
+    pipeline: when text-decoding produces a high-entropy binary buffer, hand it
+    here instead of continuing to decode.
+    """
+    from shellcode_analyzer import analyze as _analyze_shellcode
+    import base64 as _b64
+
+    raw_in = body.input.strip()
+    data: bytes = b""
+    src = "utf8"
+    # Try hex first (even-length, all hex chars, whitespace tolerated)
+    hex_stripped = re.sub(r"[\s:]", "", raw_in)
+    if hex_stripped and len(hex_stripped) % 2 == 0 and re.fullmatch(r"[0-9a-fA-F]+", hex_stripped):
+        try:
+            data = bytes.fromhex(hex_stripped)
+            src = "hex"
+        except Exception:
+            data = b""
+    # Fall back to base64
+    if not data:
+        try:
+            b64 = re.sub(r"\s+", "", raw_in)
+            data = _b64.b64decode(b64 + "=" * (-len(b64) % 4), validate=False)
+            if data:
+                src = "base64"
+        except Exception:
+            data = b""
+    if not data:
+        data = raw_in.encode("utf-8", errors="replace")
+        src = "utf8"
+
+    result = _analyze_shellcode(data, arch=body.arch, max_insns=body.max_insns)
+    result["input_source"] = src
+    result["input_bytes"] = len(data)
+    return result
+
+
 
 @api.post("/decode/smart")
 async def decode_smart(body: AutoIn, user=Depends(get_current_user)):

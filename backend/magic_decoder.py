@@ -205,6 +205,27 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
     # Refang defanged IOCs
     if re.search(r"hxxps?://|\[\.\]|\[dot\]|\[at\]", s, re.IGNORECASE):
         cands.append({"op": "refang-iocs", "args": {}})
+    # Nested FromBase64String / atob('…') payloads — re-scan the CURRENT text
+    # for another quoted base64 blob. Common in Cobalt-Strike / Empire stagers
+    # where the outer base64 unzips to a script containing a *second* base64.
+    try:
+        from payload_sanitizer import find_all_base64_spans, find_xor_key
+        nested = find_all_base64_spans(s, min_len=24)
+        # Only trigger if the current text looks like a script/wrapper (not the
+        # payload itself) — avoid infinite base64→base64 loops.
+        looks_wrapped = any(m in s for m in (
+            "FromBase64String", "atob(", "base64_decode", "-EncodedCommand", "$var_code",
+        ))
+        if nested and looks_wrapped:
+            cands.insert(0, {"op": "extract-payload", "args": {}, "_nested_b64": nested[0]})
+
+        # XOR key parsed directly from surrounding code (-bxor 35, ^ 0x2A, etc.)
+        xk = find_xor_key(s)
+        if xk is not None:
+            cands.insert(0, {"op": "xor", "args": {"key": f"0x{xk:02x}"}})
+    except Exception:
+        pass
+
     # de-dup while preserving order
     seen = set()
     unique: List[Dict[str, Any]] = []
@@ -238,7 +259,8 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
     initial_score = score_output(working)
     best_results: List[Dict[str, Any]] = []
 
-    def _walk(cur: str, chain: List[Dict[str, Any]], depth: int, path_scores: List[float]):
+    def _walk(cur: str, chain: List[Dict[str, Any]], depth: int, path_scores: List[float],
+              ctx: Dict[str, Any]):
         # Record the current state as a candidate result too — decoding can peak
         # partway through then degrade.
         sb = score_output(cur)
@@ -250,20 +272,86 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
         })
         if depth >= max_depth:
             return
+        # Refresh the XOR key from the current layer, if visible. This lets
+        # the key detected inside the decompressed PowerShell body propagate
+        # forward into the *next* layer where the base64 → xor chain fires.
+        try:
+            from payload_sanitizer import find_xor_key
+            k = find_xor_key(cur)
+            if k is not None:
+                ctx = {**ctx, "xor_key": k}
+        except Exception:
+            pass
         cands = _pick_candidates(cur)[:max_branches]
+        # If we're sitting on a clean-base64 buffer AND we've captured a XOR
+        # key from a previous layer, plan the deterministic base64 → xor chain.
+        if ctx.get("xor_key") is not None:
+            b64_only = re.sub(r"\s+", "", cur)
+            if re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", b64_only) and len(b64_only) >= 12:
+                cands.insert(0, {
+                    "op": "base64-decode", "args": {},
+                    "_then_xor": ctx["xor_key"],
+                })
         for c in cands:
             try:
-                nxt = run_operation(c["op"], cur, c["args"])
+                if c.get("op") == "extract-payload" and "_nested_b64" in c:
+                    # Snap the input down to the nested base64 span so subsequent
+                    # decoders operate ONLY on the isolated payload — this is
+                    # the "re-scan after every layer" rule.
+                    nxt = c["_nested_b64"]
+                else:
+                    nxt = run_operation(c["op"], cur, c["args"])
             except Exception:
                 continue
             if not nxt or nxt == cur:
                 continue
             nsb = score_output(nxt)
+            clean_step = {"op": c["op"], "args": c.get("args") or {}}
+            # Deterministic follow-up: base64 → xor(known_key) plan.
+            if "_then_xor" in c:
+                try:
+                    xored = run_operation("xor", nxt, {"key": f"0x{c['_then_xor']:02x}"})
+                    if xored and xored != nxt:
+                        xsb = score_output(xored)
+                        best_results.append({
+                            "chain": chain + [clean_step,
+                                              {"op": "xor",
+                                               "args": {"key": f"0x{c['_then_xor']:02x}"}}],
+                            "output": xored,
+                            "score_breakdown": xsb,
+                            "path_scores": list(path_scores) + [sb["score"], xsb["score"]],
+                        })
+                        # Continue walking from the fully-decoded output too
+                        _walk(xored, chain + [clean_step,
+                                              {"op": "xor",
+                                               "args": {"key": f"0x{c['_then_xor']:02x}"}}],
+                              depth + 2, path_scores + [sb["score"], xsb["score"]], ctx)
+                        continue
+                except Exception:
+                    pass
             if nsb["score"] < sb["score"] - 0.30:  # branch massively regressed — prune
-                continue
-            _walk(nxt, chain + [c], depth + 1, path_scores + [sb["score"]])
+                # …unless a XOR key is known — the pruned base64 output is
+                # probably XORed bytes we still want to try.
+                if ctx.get("xor_key") is None:
+                    continue
+            _walk(nxt, chain + [clean_step], depth + 1,
+                  path_scores + [sb["score"]], ctx)
 
-    _walk(working, [], 0, [])
+    _walk(working, [], 0, [], {})
+
+    # Chain-completion bonus — reward outputs that survived multiple decode
+    # layers AND are cleanly printable. Applied to every candidate BEFORE the
+    # top-N cut so a longer correct chain surfaces above short partial ones.
+    for r in best_results:
+        chain_len = len(r.get("chain") or [])
+        pr = r["score_breakdown"].get("printable", 0.0)
+        if chain_len >= 3 and pr >= 0.95:
+            r["score_breakdown"]["score"] = round(
+                r["score_breakdown"]["score"] + 0.05 * min(chain_len, 6), 4
+            )
+            r["score_breakdown"]["reasons"] = list(
+                r["score_breakdown"].get("reasons") or []
+            ) + [f"chain-complete-bonus (+{0.05 * min(chain_len, 6):.2f})"]
 
     # Deduplicate by (output snippet + chain length) and keep top-N
     seen = set()
@@ -279,6 +367,33 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
         dedup.append(r)
         if len(dedup) >= top_n:
             break
+
+    # Chain-completion bonus — reward outputs that survived multiple decode
+    # layers AND are cleanly printable. This surfaces the correct fully-decoded
+    # chain (base64→gzip→base64→xor) above intermediate stopping points.
+    for r in dedup:
+        pass
+    dedup.sort(key=lambda r: -r["score_breakdown"]["score"])
+
+    # Annotate the top-N with the shellcode stop-condition — flags outputs that
+    # should be routed to the disassembler view instead of another decode layer.
+    try:
+        from shellcode_analyzer import shannon_entropy, is_shellcode
+        for r in dedup:
+            out = r.get("output") or ""
+            raw = out.encode("utf-8", errors="replace")
+            ent = shannon_entropy(raw)
+            r["entropy"] = round(ent, 3)
+            r["is_shellcode"] = is_shellcode(raw)
+            if r["is_shellcode"]:
+                r["stop_condition"] = {
+                    "reason": "high_entropy_no_encoding_markers"
+                              if not raw[:2] in (b"\xfc\xe8", b"\xfc\xeb", b"MZ") else "shellcode_prologue",
+                    "route_to": "disassembler",
+                    "entropy": r["entropy"],
+                }
+    except Exception:
+        pass
 
     return {
         "initial_score": initial_score,

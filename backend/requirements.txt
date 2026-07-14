@@ -33,3 +33,4 @@ msgpack==1.2.1
 pefile==2024.8.26
 pyelftools==0.33
 jsbeautifier==2.0.3
+capstone==5.0.9

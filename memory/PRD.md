@@ -127,19 +127,37 @@ Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") 
 - Regression: **57/57 backend pytest pass**.
 
 ## Backlog (P1/P2 remaining)
-- P1: Playbook feedback loop (👍/👎 per investigation → auto-boost high-accuracy playbooks).
 - P1: Client-side WASM ops for real-time preview.
 - P1: Live diff-highlight between INPUT & OUTPUT columns.
 - P2: Modularize `/app/backend/server.py` into routers.
 - P2: STIX 2.1 export + community share page.
 
-## Session 7 (2026-02) — Benchmark 100% (Compression + JWT + JS atob patch)
-- **Compression samples fixed** — regenerated valid base64+gzip / base64+zlib / base64+lzma raw_input blobs and added a new `Bzip2-compressed base64` seed. Sample count: 15 → **17** built-in samples.
-- **Sanitizer** — `sanitize_encapsulated_payload` now short-circuits JWT-shaped inputs (`^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*$`) so `jwt-decode` sees the whole token instead of only the middle segment.
-- **Smart decoder** — after the sanitizer isolates a payload, `smart_decode` eagerly base64-decodes it and applies the compression-magic fast-path (`\x1f\x8b`, `\x78..`, `\xfd7zXZ\x00`, `BZh`) so short pure-alpha payloads like `YWxlcnQoIlhTUyIp` (JS `atob`) now chain correctly. Shared `_bin_magic_op` helper unifies gzip/zlib/lzma/bzip2 handling.
-- **Signature registry** — added zlib (`^e[AFJN]`), LZMA (`^/Td6WFo`) and bzip2 (`^QlpoO`) base64-prefix signatures so `magic_decode` prioritises the right decompression op for these payloads (previously only gzip had a signature).
-- **Seed-refresh** — `seed_builtins` now updates protected built-in samples in place when `raw_input`/`expected_output` diverge, so old corrupt seed data is auto-repaired on startup.
-- Regression: **71/71 backend pytest pass** (14 new sample-library benchmark tests). Malware Sample Library benchmark: **17/17 = 100.0% pass rate** — every category (Compression, Crypto, JavaScript, PowerShell, Bash, CMD, LOLBAS, Multi-stage, Malware Family, Living-off-the-Land, Python) at 100%.
+## Session 7 (2026-02) — Benchmark 100% + Playbook Feedback Loop + Recursive Decode-and-Route
+
+### Sub-session A · Benchmark 100% (Compression + JWT + JS atob patch)
+- **Compression samples fixed** — regenerated valid base64+gzip / base64+zlib / base64+lzma raw_input blobs and added a new `Bzip2-compressed base64` seed (17 built-in samples).
+- **Sanitizer** — `sanitize_encapsulated_payload` short-circuits JWT-shaped inputs so `jwt-decode` sees the whole token.
+- **Smart decoder** — after sanitizer isolation, eagerly base64-decodes + applies compression-magic fast-path (gzip/zlib/lzma/bzip2 via shared `_bin_magic_op`).
+- **Signature registry** — added zlib (`^e[AFJN]`), LZMA (`^/Td6WFo`), bzip2 (`^QlpoO`) base64-prefix signatures.
+- **Seed-refresh** — `seed_builtins` updates protected built-ins in place when data diverges. Benchmark: **17/17 = 100.0%**.
+
+### Sub-session B · Playbook feedback loop (👍/👎 with audit trail)
+- `record_playbook_vote()` in `models_studio.py` — toggle-aware, reverses previous vote counters before applying new one. Full audit trail appended to `playbook_votes.history`.
+- New collection `playbook_votes` with unique index `(job_id, analyst_email)`.
+- Endpoints: `POST/GET /api/analyze/{job_id}/feedback`, `GET /api/admin/playbooks/{id}/votes`.
+- Auto-boost: `get_active_playbooks` sorts by `feedback_weight = pos − neg` DESC, falls back to `usage_count`.
+- Frontend: `PlaybookFeedback` widget on Final Summary card + Threat Analysis header, `PlaybookScorecard` badge on Model Studio playbook cards.
+- **NOTE**: End-to-end backend testing agent timed out during a long AI-dependent flow; feedback endpoints smoke-tested manually (up→down→none, counters + audit correct). Fast unit tests in `tests/test_playbook_feedback.py` (needs `-n 0` to skip serialised AI polls).
+
+### Sub-session C · Recursive Decode-and-Route pipeline
+- **XOR key parser** in `payload_sanitizer.py` — `find_xor_key()` regex-extracts `-bxor 35`, `-bxor 0x2A`, `-bxor 'A'`, `^ 0x35`, `xor eax, 0x…`, `xor byte ptr [rax], 0x…` patterns.
+- **Multi-stage span extraction** — `find_all_base64_spans()` re-scans the current text (after each decode) for a *second* `FromBase64String("…")` and isolates it, avoiding infinite base64→base64 loops via the `looks_wrapped` guard.
+- **Magic decoder** — now threads a `ctx` (parsed XOR key etc.) through the recursive walk. When it sees a clean-base64 buffer AND a parent layer supplied a key, it plans the deterministic `base64-decode → xor(key)` chain. Chain-completion bonus surfaces fully-decoded chains above intermediate stopping points.
+- **Shellcode stop-condition** — new `shellcode_analyzer.py` module: `shannon_entropy`, `is_shellcode` (entropy + prologue heuristics for MSFVenom / Cobalt-Strike / MZ / ELF / Mach-O / ARM64), `detect_arch` (auto x86 / x86_64 / ARM / Thumb / ARM64 via Capstone coverage scoring), `disassemble` (Capstone listing with addr / hex / mnemonic / operands), `extract_iocs` (URLs, IPs, domains, MD5/SHA1/SHA256, reg-keys, mutexes, API imports).
+- **New API**: `POST /api/analyze/shellcode` — accepts hex / base64 / utf-8; returns arch + entropy + disassembly + IOCs. Manual arch override supported.
+- **New frontend**: `ShellcodeView.jsx` auto-renders below the workspace output when the magic decoder flags `is_shellcode: true`. Arch selector (AUTO / x86_64 / x86 / ARM64 / ARM / THUMB), hex preview, live disassembly table, collapsible IOC panel.
+- **Dependency**: added `capstone==5.0.9`. Regression: **71/71 pytest pass** (excluding the AI-dependent feedback loop suite) + **22/22 new pipeline tests** in `tests/test_shellcode_pipeline.py`.
+- **End-to-end proof**: Cobalt-Strike-style payload `base64(gzip(script containing base64('xor 35')))` decodes to `echo COBALT_STAGER_UNMASKED` in the #1 chain (score 0.65, all 5 ops chained deterministically). MSF x64 stager `fc4883e4f0e8…` auto-detects as x86_64, correctly disassembles to `cld; and rsp, -16; call …`.
 - **+42 operations** — total now **87**. Adds AES-CBC/GCM/ECB, DES/3DES-CBC, RC4, ChaCha20, HMAC-SHA1/256/512/MD5, PBKDF2-SHA256, SHA3-256/512, MD4, RIPEMD-160, bzip2/LZMA/LZ4 decompress, UTF-16BE/UTF-32/CP1252/ASCII85/Base85 codecs, JWT decode/verify, ASN.1/DER parse, MessagePack, JSON diff, PE-header parse, PE-strings extract, ELF-header parse, PDF header sniff, file-magic byte identifier, JS beautify, JS `\x`-escape decoder, printable-ratio / Shannon-entropy / byte-frequency utilities. (`/app/backend/ops_extended.py`)
 - **Magic Recursive Auto-Decoder** (`POST /api/decode/magic`) — CyberChef "Magic" parity. Tries every plausible op, scores each output (printable + English + entropy + structure signatures), and returns the top-N chains. UI: MAGIC button + modal with per-candidate scores/reasons + APPLY CHAIN.
 - **Automated payload sanitizer** (`/app/backend/payload_sanitizer.py`) — the "isolate the payload string first" thumb rule. Strips PowerShell/Bash wrappers (`[System.Convert]::FromBase64String`, `[Byte[]]$var_code`, `-EncodedCommand`, `echo …| base64 -d`, brackets, `$vars`) and extracts the longest base64/hex payload from inside quotes. Wired into `base64-decode`, `powershell-encoded`, `smart_decode`, `magic_decode`.
