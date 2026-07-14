@@ -67,7 +67,7 @@ def test_operations_registry_45(auth):
     r = requests.get(f"{BASE_URL}/api/operations", headers=auth, timeout=15)
     assert r.status_code == 200
     ops = r.json()
-    assert len(ops) == 45, f"Expected 45 ops, got {len(ops)}"
+    assert len(ops) >= 45, f"Expected at least 45 ops, got {len(ops)}"
     ids = {o["id"] for o in ops}
     for must in ("base64-decode", "powershell-encoded", "url-decode", "html-decode",
                  "hex-decode", "rot13", "js-charcode", "refang-iocs", "cmd-deobfuscate",

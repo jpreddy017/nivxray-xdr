@@ -11,6 +11,8 @@ import json
 import urllib.parse
 from typing import Any, Dict, List, Optional, Tuple
 
+from payload_sanitizer import sanitize_encapsulated_payload
+
 # ==== Registry ==============================================================
 OPERATIONS: Dict[str, Dict[str, Any]] = {}
 
@@ -74,11 +76,16 @@ def _b64_zlib(data: str) -> str:
 
 
 # ==== CRYPTOGRAPHY / ENCODING ================================================
-@op("base64-decode", "Base64 Decode", "Cryptography", "Decode a Base64 string (joins multi-line input, strips whitespace, auto-pads).")
+@op("base64-decode", "Base64 Decode", "Cryptography", "Decode a Base64 string (auto-extracts payload from scripts, joins multi-line, auto-pads).")
 def _b64_decode(data: str) -> str:
-    # 1. Join all input lines into a single string and strip whitespace/newlines
-    cleaned = _clean(data)
-    # 2. Auto-pad and decode
+    # Thumb rule: ISOLATE THE PAYLOAD STRING FIRST.
+    # If the input is an entire command line / script wrapper, extract the
+    # enclosed base64 payload before decoding.
+    isolated = sanitize_encapsulated_payload(data)
+    payload = isolated if isolated is not None else data
+    # Join lines & strip any remaining whitespace/newlines
+    cleaned = _clean(payload)
+    # Auto-pad and decode
     padded = cleaned + "=" * (-len(cleaned) % 4)
     return base64.b64decode(padded, validate=False).decode("utf-8", errors="replace")
 
@@ -215,23 +222,25 @@ def _ps_deob(data: str) -> str:
     return s
 
 
-@op("powershell-encoded", "PowerShell -EncodedCommand", "Deobfuscation", "Decode -EncodedCommand base64+UTF-16LE payload from a PowerShell command line (joins multi-line input, strips whitespace).")
+@op("powershell-encoded", "PowerShell -EncodedCommand", "Deobfuscation", "Decode -EncodedCommand base64+UTF-16LE payload (auto-extracts from full PowerShell command lines).")
 def _ps_encoded(data: str) -> str:
-    # 1. Join all lines of the input together into a single string
+    # Thumb rule: ISOLATE THE PAYLOAD STRING FIRST.
+    isolated = sanitize_encapsulated_payload(data)
+    if isolated:
+        payload = re.sub(r"[^A-Za-z0-9+/=]", "", isolated)
+        raw = base64.b64decode(payload + "=" * (-len(payload) % 4), validate=False)
+        return raw.decode("utf-16-le", errors="ignore")
+
+    # Fallback — regex-based extraction from the -e flag when sanitizer returns None
     joined = " ".join(data.splitlines())
-    # 2. Try to extract the base64 payload that follows -e/-ec/-enc/-encodedcommand.
-    #    Allow whitespace inside the payload so multi-line pastes still match.
     m = re.search(
         r"(?:-e(?:c|nc|ncoded(?:command)?)?)\s+([A-Za-z0-9+/=\s]+)",
         joined,
         re.IGNORECASE,
     )
     payload = m.group(1) if m else joined
-    # 3. Strip out all newlines/whitespace and any non-base64 chars from the payload
     payload = re.sub(r"[^A-Za-z0-9+/=]", "", payload)
-    # 4. Auto-pad and base64 decode
     raw = base64.b64decode(payload + "=" * (-len(payload) % 4), validate=False)
-    # 5. Decode the full joined string as UTF-16LE (the PowerShell standard)
     return raw.decode("utf-16-le", errors="ignore")
 
 

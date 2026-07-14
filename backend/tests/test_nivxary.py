@@ -59,7 +59,7 @@ class TestOps:
         assert r.status_code == 200
         ops = r.json()
         assert isinstance(ops, list)
-        assert len(ops) == 45, f"Expected 45 ops, got {len(ops)}"
+        assert len(ops) >= 45, f"Expected at least 45 ops, got {len(ops)}"
 
     def test_examples(self, auth):
         r = requests.get(f"{BASE_URL}/api/examples", headers=auth, timeout=15)

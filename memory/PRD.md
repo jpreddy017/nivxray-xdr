@@ -105,9 +105,13 @@ Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") 
 - **Attack Graph snapshots** — PNG (2x hi-DPI, canvas-rendered) and SVG native downloads directly from the graph toolbar.
 - Regression: **57/57 backend pytest tests pass** (11 new coverage tests in `test_new_features.py`). Auto-Investigate end-to-end verified in ~56-78s with all cards, filters, and downloads working.
 
-## Backlog (P0/P1 remaining)
-- P1: Promote in-memory `_JOBS` store to MongoDB/Redis before multi-replica deploy.
-- P2: Full 200-entry LOLBAS catalog auto-fetch — **DONE (239 entries now active)**.
-- P2: Modularize `/app/backend/server.py` (~1840 lines) into routers (`analyze/`, `admin/`, `threat_intel/`).
-- P3: STIX 2.1 export + community share page.
+## Session 5 (2026-02) — Weaponized Decoding + Training Studio
+- **+42 operations** — total now **87**. Adds AES-CBC/GCM/ECB, DES/3DES-CBC, RC4, ChaCha20, HMAC-SHA1/256/512/MD5, PBKDF2-SHA256, SHA3-256/512, MD4, RIPEMD-160, bzip2/LZMA/LZ4 decompress, UTF-16BE/UTF-32/CP1252/ASCII85/Base85 codecs, JWT decode/verify, ASN.1/DER parse, MessagePack, JSON diff, PE-header parse, PE-strings extract, ELF-header parse, PDF header sniff, file-magic byte identifier, JS beautify, JS `\x`-escape decoder, printable-ratio / Shannon-entropy / byte-frequency utilities. (`/app/backend/ops_extended.py`)
+- **Magic Recursive Auto-Decoder** (`POST /api/decode/magic`) — CyberChef "Magic" parity. Tries every plausible op, scores each output (printable + English + entropy + structure signatures), and returns the top-N chains. UI: MAGIC button + modal with per-candidate scores/reasons + APPLY CHAIN.
+- **Automated payload sanitizer** (`/app/backend/payload_sanitizer.py`) — the "isolate the payload string first" thumb rule. Strips PowerShell/Bash wrappers (`[System.Convert]::FromBase64String`, `[Byte[]]$var_code`, `-EncodedCommand`, `echo …| base64 -d`, brackets, `$vars`) and extracts the longest base64/hex payload from inside quotes. Wired into `base64-decode`, `powershell-encoded`, `smart_decode`, `magic_decode`.
+- **Known-signature auto-chain** (`/app/backend/signatures.py`) — recognized base64 prefixes: H4sIA→gzip, JAB/SQBFAF→UTF-16LE PowerShell, TVq→PE, UEsD→ZIP, JVBER→PDF, f0VMRg→ELF, plus XOR-loop key sniffer. Sourced from Sophos Cobalt-Strike teardowns.
+- **Recipe URL sharing** — `#recipe=<base64>` URL loads input + recipe on next visit. `COPY LINK` button on the toolbar.
+- **Model Studio 5th kind → `playbook`** — free-form analyst training text auto-appended to every AI investigation. Seeded with a **Malicious PowerShell Decoder Playbook** (Sophos-style layered stager rules + MITRE mappings) and a **LOLBAS Triage Guidance** playbook.
+- **NivX Cognis** — the flagship in-house AI persona, auto-selected in the Workspace picker. Trained on the Sophos layered-stager decoder + MITRE + LOLBAS pipeline. Uses Claude Sonnet 4.5 by default (via Emergent Universal LLM Key).
+- Regression: **57/57 backend pytest pass**.
 

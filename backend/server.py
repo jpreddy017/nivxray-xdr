@@ -24,7 +24,9 @@ from operations import (
     OPERATIONS, list_operations, run_operation,
     extract_iocs, detect_payload_type, mitre_map, yara_lite_scan, risk_score,
 )
+import ops_extended  # noqa: F401  — registers +40 new operations into OPERATIONS
 from smart_decoder import smart_decode
+from magic_decoder import magic_decode, score_output as magic_score
 from osint import enrich_iocs, OSINT_SERVICES
 from feeds import SOURCES as FEED_SOURCES, sync_source
 from lolbas import (
@@ -435,6 +437,21 @@ def _extract_strings(raw: bytes, min_len: int = 4, limit: int = 400) -> List[str
 # =============================================================================
 # Endpoints — Smart deterministic Auto-Decode (no AI needed)
 # =============================================================================
+class MagicIn(BaseModel):
+    input: str
+    max_depth: int = 4
+    max_branches: int = 3
+    top_n: int = 3
+
+
+@api.post("/decode/magic")
+async def decode_magic(body: MagicIn, user=Depends(get_current_user)):
+    """Recursive multi-branch auto-decoder — returns top-N candidate chains + scores."""
+    return magic_decode(body.input, max_depth=body.max_depth,
+                        max_branches=body.max_branches, top_n=body.top_n)
+
+
+
 @api.post("/decode/smart")
 async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     # 1. Check custom decode recipes first — if any regex matches, apply that
@@ -768,9 +785,10 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn):
             "ti_hits": ti_hits, "phase": "enrich_and_ai", "progress": 25,
         })
 
-        # Phase C — OSINT + AI in parallel (with optional persona/provider)
+        # Phase C — OSINT + AI in parallel (with optional persona/provider + all enabled playbooks)
         persona = await ms.get_persona(db, body.persona_id) if body.persona_id else None
         provider = await ms.get_provider(db, body.provider_id)
+        playbook_block = await ms.compose_playbook_prompt(db, target="ai")
         if persona and persona.get("id"):
             await ms.increment_usage(db, persona["id"])
         if provider and provider.get("id") and body.provider_id:
@@ -790,6 +808,7 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn):
                 lolbas=lolbas,
                 want_verdict=body.use_ai_verdict, want_describe=body.describe,
                 persona=persona, provider=provider,
+                playbook=playbook_block,
             )
 
         osint_task = asyncio.create_task(_run_osint())
@@ -891,11 +910,13 @@ async def analyze_status(job_id: str, user=Depends(get_current_user)):
 
 async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdict, want_describe, lolbas=None,
                                     persona: Optional[Dict[str, Any]] = None,
-                                    provider: Optional[Dict[str, Any]] = None):
+                                    provider: Optional[Dict[str, Any]] = None,
+                                    playbook: str = ""):
     """Single LLM call producing rich narrative description + verdict JSON.
 
-    Optional `persona` overrides the default system prompt (analyst-picked persona).
+    Optional `persona`   overrides the default system prompt.
     Optional `provider` swaps the LLM provider/model (Claude, GPT, Gemini).
+    Optional `playbook` — free-form analyst guidance appended to the system prompt.
     """
     parts = []
     if want_describe:
@@ -987,6 +1008,10 @@ async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verd
         )
     else:
         system = default_system
+
+    # Append the org-wide analyst playbook (playbook kind from Model Studio)
+    if playbook:
+        system = system + "\n" + playbook
 
     # LLM provider / model — default to Claude Sonnet 4.5
     llm_provider = ((provider or {}).get("config") or {}).get("provider") or "anthropic"
@@ -1863,6 +1888,11 @@ async def test_admin_model(model_id: str, body: ModelTestIn, user=Depends(requir
     if kind == "ai_provider":
         return {"kind": kind, "provider": cfg.get("provider"), "model": cfg.get("model"),
                 "note": "Provider connectivity is verified at Auto-Investigate time via the Emergent Universal LLM Key."}
+    if kind == "playbook":
+        return {"kind": kind,
+                "applies_to": cfg.get("applies_to") or ["ai"],
+                "body_preview": (cfg.get("body") or "")[:800],
+                "note": "This playbook is auto-appended to every AI investigation. Trigger AUTO-INVESTIGATE on a sample to see the effect."}
     raise HTTPException(status_code=400, detail=f"unknown kind: {kind}")
 
 

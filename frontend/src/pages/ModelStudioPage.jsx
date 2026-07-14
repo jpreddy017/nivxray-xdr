@@ -13,11 +13,13 @@ const KIND_META = {
   decode_recipe: { label: "DECODE RECIPES", icon: Cog, color: "var(--accent)",
     blurb: "Auto-applied decode chains. If input matches the regex, Smart Decode / Auto-Investigate runs your recipe first." },
   ai_persona: { label: "AI PERSONAS", icon: Sparkles, color: "var(--high)",
-    blurb: "Alternative system prompts for the AI Describe step. Analysts opt-in per investigation." },
+    blurb: "Alternative system prompts for the AI Describe step. Analysts opt-in per investigation. Flagship: NivX Cognis." },
   ai_provider: { label: "LLM PROVIDERS", icon: Cpu, color: "#c58af9",
     blurb: "Switch between Claude, GPT, or Gemini for the AI analysis step. Uses the Emergent Universal Key." },
+  playbook: { label: "PLAYBOOKS", icon: Sparkles, color: "#f7c17b",
+    blurb: "Free-form analyst guidance auto-appended to every AI investigation. Teach the tool your triage rules, decoding techniques, and org-specific IOC context." },
 };
-const KINDS = ["detection_rule", "decode_recipe", "ai_persona", "ai_provider"];
+const KINDS = ["detection_rule", "decode_recipe", "ai_persona", "ai_provider", "playbook"];
 
 export default function ModelStudioPage() {
   const { user } = useAuth();
@@ -117,6 +119,7 @@ export default function ModelStudioPage() {
       decode_recipe:  { match_regex: "", ops: [{ op: "base64-decode" }], notes: "" },
       ai_persona:     { system_prompt: "", notes: "" },
       ai_provider:    { provider: "anthropic", model: "claude-sonnet-4-5-20250929", default: false },
+      playbook:       { body: "", applies_to: ["ai"] },
     };
     setEditing({ id: null, kind: activeKind, name: "", enabled: true, config: templates[activeKind] });
   };
@@ -216,6 +219,7 @@ function ModelRow({ model, onEdit, onDelete, onToggle }) {
   const summary = model.kind === "detection_rule" ? `${cfg.binary_regex || "—"}${cfg.argv_regex ? "  ▸  " + cfg.argv_regex : ""}`
                 : model.kind === "decode_recipe" ? `match: ${cfg.match_regex} → ${(cfg.ops || []).map((o) => o.op).join(" → ")}`
                 : model.kind === "ai_persona" ? (cfg.system_prompt || "").slice(0, 140) + "…"
+                : model.kind === "playbook" ? `applies_to: ${(cfg.applies_to || ["ai"]).join(", ")} · ${(cfg.body || "").slice(0, 100)}…`
                 : `${cfg.provider} · ${cfg.model}${cfg.default ? " · DEFAULT" : ""}`;
   return (
     <div className="brut-border" style={{ padding: 14, background: "var(--surface)", display: "grid", gridTemplateColumns: "1fr auto", gap: 12 }}
@@ -275,6 +279,7 @@ function ModelEditor({ model, catalog, onChange, onCancel, onSave, saving, testS
         {model.kind === "decode_recipe"  && <DecodeRecipeFields  cfg={cfg} setCfg={setCfg} catalog={catalog} />}
         {model.kind === "ai_persona"     && <AiPersonaFields     cfg={cfg} setCfg={setCfg} />}
         {model.kind === "ai_provider"    && <AiProviderFields    cfg={cfg} setCfg={setCfg} catalog={catalog} />}
+        {model.kind === "playbook"       && <PlaybookFields      cfg={cfg} setCfg={setCfg} />}
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={model.enabled ?? true} onChange={(e) => set({ enabled: e.target.checked })} id="enabled-cb" data-testid="ms-input-enabled" />
@@ -461,6 +466,42 @@ function AiProviderFields({ cfg, setCfg, catalog }) {
     </>
   );
 }
+
+function PlaybookFields({ cfg, setCfg }) {
+  const applies = cfg.applies_to || ["ai"];
+  const toggle = (t) => setCfg({ applies_to: applies.includes(t) ? applies.filter((x) => x !== t) : [...applies, t] });
+  return (
+    <>
+      <div>
+        <Label>Playbook body <Hint>(required — free-form guidance / rules / instructions appended to every AI investigation)</Hint></Label>
+        <textarea
+          className="brut-input"
+          style={{ minHeight: 300, fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}
+          value={cfg.body || ""}
+          onChange={(e) => setCfg({ body: e.target.value })}
+          placeholder={"WHEN YOU SEE X, DO Y.\n\nEXAMPLE:\n- H4sIA prefix -> base64 then gzip-decompress\n- [Byte[]]$var_code = ... -> isolate quoted base64 first\n- If a -bxor <N> loop is present, apply XOR with key N after base64 decode"}
+          data-testid="ms-input-playbook-body"
+        />
+      </div>
+      <div>
+        <Label>Applies to</Label>
+        <div style={{ display: "flex", gap: 12 }}>
+          {["ai", "magic", "smart"].map((t) => (
+            <label key={t} className="mono" style={{ fontSize: 12, color: "var(--text)", display: "flex", gap: 6, alignItems: "center" }}>
+              <input type="checkbox" checked={applies.includes(t)} onChange={() => toggle(t)} data-testid={`ms-applies-${t}`} />
+              {t.toUpperCase()}
+            </label>
+          ))}
+        </div>
+        <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 4 }}>
+          <b>ai</b> — appended to every AI investigation system prompt (recommended). <b>magic</b>/<b>smart</b> reserved for future deterministic hooks.
+        </div>
+      </div>
+    </>
+  );
+}
+
+
 
 function TestResult({ result }) {
   if (result.error) return (

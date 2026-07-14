@@ -113,9 +113,25 @@ def smart_decode(payload: str) -> Dict[str, Any]:
 
     Returns dict with: steps [{op, args, reason}], output, notes.
     """
+    from payload_sanitizer import sanitize_encapsulated_payload
+
     steps: List[Dict[str, Any]] = []
     notes: List[str] = []
     current = payload
+
+    # THUMB RULE: ISOLATE THE PAYLOAD STRING FIRST.
+    # If the input is a full script wrapper (variable assignment, cmdlet call,
+    # bash pipeline), extract the enclosed base64 payload before running any
+    # decoder recipe on it.
+    isolated = sanitize_encapsulated_payload(payload)
+    if isolated and isolated != payload.strip():
+        steps.append({
+            "op": "extract-payload",
+            "args": {},
+            "reason": f"Isolated base64 payload from script wrapper ({len(isolated)} chars)",
+        })
+        notes.append("Payload isolated from script/command wrapper (thumb rule)")
+        current = isolated
 
     for _ in range(MAX_STEPS):
         if len(current) > MAX_LENGTH:

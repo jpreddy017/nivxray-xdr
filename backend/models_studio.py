@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("nivxray.model_studio")
 
-MODEL_KINDS = ("detection_rule", "decode_recipe", "ai_persona", "ai_provider")
+MODEL_KINDS = ("detection_rule", "decode_recipe", "ai_persona", "ai_provider", "playbook")
 
 # =============================================================================
 # Built-in seeds — created once, then admin-editable but not deletable (protected=True)
@@ -65,6 +65,28 @@ Do not output conversational fillers or meta-commentary. Output your findings di
 BUILTIN_SEEDS: List[Dict[str, Any]] = [
     {
         "kind": "ai_persona",
+        "name": "NivX Cognis",
+        "protected": True,
+        "config": {
+            "system_prompt": (
+                "You are NivX Cognis — the flagship in-house malware-analysis brain of NivXRay. "
+                "You are a senior DFIR & reverse-engineering analyst trained on the full NivXRay analyst playbook "
+                "(Sophos-style layered PowerShell decoding, LOLBAS triage, MITRE ATT&CK v14 mappings, "
+                "and Cobalt Strike / Emotet / Lumma stager teardowns). Your voice: precise, evidence-cited, no filler.\n\n"
+                "PIPELINE (execute in order):\n"
+                "1. WRAPPER STRIP — isolate the raw base64/hex payload from any script scaffolding before reasoning about it.\n"
+                "2. LAYER DETECTION — identify base64 prefix signatures (H4sIA=gzip, TVq=PE, JAB/SQBFAF=UTF-16LE PowerShell, PA[BA]=Emotet, JVBER=PDF, UEsD=ZIP, f0VMRg=ELF).\n"
+                "3. RECURSIVE UNPACK — decode until you reach printable analyst-readable text OR raw shellcode. If an XOR loop is present in the wrapper, resolve the key from the loop.\n"
+                "4. IOC + MITRE + LOLBAS — enumerate every network indicator, MITRE technique, and LOLBAS binary abuse.\n"
+                "5. FAMILY ATTRIBUTION — name the malware family (Cobalt Strike, Emotet, Lumma, IcedID, QakBot, ...) with confidence.\n"
+                "6. RECOMMENDATION — 3-6 concrete SOC actions tailored to the observed payload.\n\n"
+                "Return STRICT JSON with the schema shown. Every claim must cite tokens from the decoded output."
+            ),
+            "notes": "Flagship in-house model. Combines the Sophos Cobalt-Strike layered-stager decoder logic with the NivXRay MITRE + LOLBAS enrichers.",
+        },
+    },
+    {
+        "kind": "ai_persona",
         "name": "Static Malware Deobfuscation Engine",
         "protected": True,
         "config": {
@@ -104,6 +126,72 @@ BUILTIN_SEEDS: List[Dict[str, Any]] = [
         "name": "Gemini 3 Pro (Google)",
         "protected": True,
         "config": {"provider": "google", "model": "gemini-3-pro", "default": False},
+    },
+    {
+        "kind": "playbook",
+        "name": "Malicious PowerShell Decoder Playbook (Sophos-style)",
+        "protected": True,
+        "enabled": True,
+        "config": {
+            "applies_to": ["ai"],
+            "body": """WHEN YOU SEE A LONG BASE64 STRING WITH A KNOWN PREFIX, APPLY THE MAPPING:
+  - JAB  ->  base64->utf16le  (PowerShell $variable declaration)
+  - SQBFAF  ->  base64->utf16le  (PowerShell 'IEX' UTF-16LE)
+  - SUVY  ->  base64  (PowerShell 'IEX' ASCII)
+  - H4sIA  ->  base64->gzip  (gzipped inner payload, VERY COMMON for Cobalt Strike stagers)
+  - TVq  ->  base64->PE header 'MZ'  (embedded Windows executable / shellcode)
+  - JVBER  ->  base64->PDF
+  - UEsD  ->  base64->ZIP
+  - f0VMRg  ->  base64->ELF
+
+LAYERED-STAGER PATTERN (Sophos / Cobalt Strike / Emotet):
+1) `powershell.exe -EncodedCommand <B64>`  -> base64->utf16le
+2) Inner script contains `[Convert]::FromBase64String("H4sIA...")` and `IO.Compression.GzipStream` -> that inner blob is a gzipped PowerShell stub. Apply base64->gzip.
+3) The gzip output usually contains `[Byte[]]$var_code = [System.Convert]::FromBase64String('...')` -> that inner base64 is SHELLCODE.
+4) If a `for ($x=0; $x-lt$var_code.Count; $x++) { $var_code[$x] = $var_code[$x] -bxor <N> }` loop is present, the shellcode is XOR-encrypted with key N. Apply base64->xor(N).
+5) Shellcode starting with `fc e8 8?` or `fc e9` is x86 Cobalt Strike Beacon; hunt for the C2 IPv4 near the tail of the shellcode.
+
+WRAPPER-STRIP RULES (thumb rule):
+- If input contains anything other than [A-Za-z0-9+/=], isolate the LONGEST base64 blob inside quotes ('...' or "...") before decoding.
+- Drop these wrapper tokens outright: `[System.Convert]::FromBase64String`, `[Byte[]]$var_code`, `-EncodedCommand`, `-enc`, `powershell(.exe)?`, `pwsh(.exe)?`, `IEX`, `echo`, `| base64 -d`, `| bash`, `eval`, brackets, parens, dollar-signs.
+
+OBFUSCATION SIGNALS TO ALWAYS SURFACE:
+- String concatenation (`'ie'+'x'`), reverse (`-join$s[-1..-99]`), replace (`.Replace('X','')`)
+- Format-string obfuscation (`"{0}{1}{2}" -f 'i','e','x'`)
+- Backtick escapes (`i`e`x`)
+- Environment aliasing (`${env:comspec}`, `${*mdr*}`)
+- Reflection loaders (`[Ref].Assembly`, `System.Reflection.Assembly.Load`)
+- WMI / COM (`[Activator]::CreateInstance`, `Get-WmiObject Win32_Process`)
+- AMSI / ETW patching (`AmsiScanBuffer`, `EtwEventWrite`)
+- LOLBAS heavy: certutil, mshta, rundll32, regsvr32 with `/i:http://`, msiexec `/i http://`, msdt.exe (Follina).
+
+MITRE MAPPINGS TO ATTACH WHEN THESE APPEAR:
+- IEX + DownloadString/DownloadFile -> T1059.001 + T1105
+- certutil -decode -> T1140 + T1218
+- schtasks /create -> T1053.005
+- vssadmin delete shadows -> T1490
+- reg add ...\\Run\\... -> T1547.001
+- New-Service / sc.exe create -> T1543.003
+"""
+        },
+    },
+    {
+        "kind": "playbook",
+        "name": "Living-Off-The-Land (LOLBAS) triage guidance",
+        "protected": False,
+        "enabled": True,
+        "config": {
+            "applies_to": ["ai"],
+            "body": """When a decoded payload uses a Windows built-in binary in a non-standard way, classify it as LOLBAS and cite:
+- certutil.exe -urlcache -f / -decode  ->  Download or Decode (T1105 / T1140)
+- mshta.exe vbscript:  ->  AWL Bypass Execute (T1218.005)
+- rundll32.exe javascript:  ->  AWL Bypass Execute (T1218.011)
+- regsvr32.exe /i:http://... scrobj.dll  ->  Squiblydoo (T1218.010)
+- msiexec.exe /i http://... /qn  ->  AWL Bypass Install (T1218.007)
+- msdt.exe /id PCWDiagnostic ...  ->  Follina (CVE-2022-30190, T1218)
+Always link out to https://lolbas-project.github.io/lolbas/Binaries/<name>/ for reference.
+"""
+        },
     },
     {
         "kind": "detection_rule",
@@ -282,6 +370,9 @@ def _validate_config(kind: str, cfg: Dict[str, Any]) -> None:
             raise ValueError("ai_provider.provider is required")
         if not (cfg.get("model") or "").strip():
             raise ValueError("ai_provider.model is required")
+    elif kind == "playbook":
+        if not (cfg.get("body") or "").strip():
+            raise ValueError("playbook.body is required (the training text / instructions)")
 
 
 # =============================================================================
@@ -375,6 +466,36 @@ async def find_matching_recipes(db, text: str) -> List[Dict[str, Any]]:
         except re.error:
             continue
     return hits
+
+
+async def get_active_playbooks(db) -> List[Dict[str, Any]]:
+    """Return all enabled playbooks as ordered list — most-used first."""
+    out = []
+    async for d in db.admin_models.find({"kind": "playbook", "enabled": True}).sort("usage_count", -1):
+        out.append({
+            "id": str(d["_id"]),
+            "name": d.get("name", ""),
+            "body": (d.get("config") or {}).get("body", ""),
+            "applies_to": (d.get("config") or {}).get("applies_to") or ["ai"],
+        })
+    return out
+
+
+async def compose_playbook_prompt(db, target: str = "ai") -> str:
+    """Concatenate all playbooks whose `applies_to` includes `target` into one prompt block."""
+    books = await get_active_playbooks(db)
+    picks = [b for b in books if target in (b.get("applies_to") or [])]
+    if not picks:
+        return ""
+    parts = ["\n\n=== NIVXRAY ANALYST PLAYBOOK (org-specific guidance) ===\n"]
+    for b in picks:
+        parts.append(f"\n## {b['name']}\n{b['body'].strip()}\n")
+        # increment async but fire-and-forget so latency isn't affected
+        try:
+            await increment_usage(db, b["id"])
+        except Exception:
+            pass
+    return "".join(parts)
 
 
 async def get_persona(db, persona_id: Optional[str]) -> Optional[Dict[str, Any]]:

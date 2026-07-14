@@ -30,6 +30,8 @@ export default function WorkspacePage() {
   const [providers, setProviders] = useState([]);
   const [personaId, setPersonaId] = useState("");
   const [providerId, setProviderId] = useState("");
+  const [magicResults, setMagicResults] = useState(null);
+  const [showMagic, setShowMagic] = useState(false);
   const streamStopRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -39,11 +41,31 @@ export default function WorkspacePage() {
     // Model Studio — load enabled personas + providers if the user is admin;
     // non-admin users get an empty list (the AI call falls back to defaults).
     api.get("/admin/models?kind=ai_persona")
-      .then((r) => setPersonas((r.data || []).filter((m) => m.enabled)))
+      .then((r) => {
+        const enabled = (r.data || []).filter((m) => m.enabled);
+        setPersonas(enabled);
+        // Auto-select the flagship "NivX Cognis" persona if present and no persona selected yet
+        const cognis = enabled.find((m) => /nivx\s*cognis/i.test(m.name));
+        if (cognis && !personaId) setPersonaId(cognis.id);
+      })
       .catch(() => setPersonas([]));
     api.get("/admin/models?kind=ai_provider")
       .then((r) => setProviders((r.data || []).filter((m) => m.enabled)))
       .catch(() => setProviders([]));
+    // Recipe URL sharing — if the page loads with #recipe=<base64>, restore input+steps
+    if (window.location.hash.startsWith("#recipe=")) {
+      try {
+        const b64 = window.location.hash.slice("#recipe=".length);
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(b64))));
+        if (decoded?.i) setInput(decoded.i);
+        if (Array.isArray(decoded?.s)) {
+          setSteps(decoded.s.map((s) => ({ op: s.op, args: s.a || {} })));
+        }
+        setStatus("RECIPE LOADED FROM URL");
+      } catch (e) {
+        setStatus("Invalid recipe URL");
+      }
+    }
   }, []);
 
   const addOp = (op) => {
@@ -81,12 +103,63 @@ export default function WorkspacePage() {
       setChain((r.data.recipe || []).map((s, i) => ({
         op: s.op, reason: s.reason || "",
         output_preview: r.data.steps_output?.[i]?.output_preview || "",
+        custom: !!s.custom, model_id: s.model_id, model_name: s.model_name,
       })));
       setStatus(r.data.reasoning ? `AI: ${r.data.reasoning.slice(0, 120)}` : "SMART DECODE COMPLETE");
     } catch (e) {
       setStatus("ERROR: " + (e?.response?.data?.detail || e.message));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const magicDecode = async () => {
+    if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
+    setLoading(true);
+    setStatus("MAGIC ▸ recursive multi-branch search…");
+    try {
+      const r = await api.post("/decode/magic", { input, max_depth: 4, max_branches: 4, top_n: 5 });
+      setMagicResults(r.data);
+      setShowMagic(true);
+      setStatus(`MAGIC ▸ ${r.data.top_results?.length || 0} candidate chains · explored ${r.data.candidates_explored} paths`);
+    } catch (e) {
+      setStatus("ERROR: " + (e?.response?.data?.detail || e.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyMagicResult = (r) => {
+    setSteps((r.chain || []).map((s) => ({ op: s.op, args: s.args || {} })));
+    setOutput(r.output || "");
+    setChain((r.chain || []).map((s, i) => ({
+      op: s.op, reason: `magic auto-decoder (score ${r.score_breakdown?.score ?? "?"})`,
+      output_preview: (r.output || "").slice(0, 400),
+    })));
+    setShowMagic(false);
+    setStatus(`APPLIED MAGIC CHAIN · score ${r.score_breakdown?.score}`);
+  };
+
+  const shareRecipe = () => {
+    const payload = {
+      i: input.slice(0, 40000),
+      s: steps.map((s) => ({ op: s.op, a: s.args && Object.keys(s.args).length ? s.args : undefined })),
+    };
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const url = `${window.location.origin}${window.location.pathname}#recipe=${encoded}`;
+    setShareUrl(url);
+    // Best-effort clipboard write; the toast shows the URL either way
+    try {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(url).then(
+          () => setStatus("SHARE URL COPIED TO CLIPBOARD"),
+          () => setStatus("SHARE URL READY — copy from the toast"),
+        );
+      } else {
+        setStatus("SHARE URL READY — copy from the toast");
+      }
+    } catch {
+      setStatus("SHARE URL READY — copy from the toast");
     }
   };
 
@@ -320,7 +393,7 @@ export default function WorkspacePage() {
           flexWrap: "wrap", background: "var(--surface)",
         }}
       >
-        <span className="badge">45 OPS</span>
+        <span className="badge">{ops.length || 87} OPS</span>
         <span className="badge warn">MITRE</span>
         <span className="badge warn">YARA</span>
         <span className="badge warn">LOLBAS</span>
@@ -337,11 +410,15 @@ export default function WorkspacePage() {
                 value={personaId}
                 onChange={(e) => setPersonaId(e.target.value)}
                 data-testid="ai-persona-select"
-                title="AI Persona — leave default for the standard Threat Analyst"
+                title="AI Persona — 'NivX Cognis' is the in-house flagship"
                 style={{ padding: "4px 8px", fontSize: 11, height: 28, background: "var(--inset)" }}
               >
-                <option value="">PERSONA · Default</option>
-                {personas.map((p) => <option key={p.id} value={p.id}>PERSONA · {p.name}</option>)}
+                <option value="">PERSONA · Default (JSON)</option>
+                {personas.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {/nivx\s*cognis/i.test(p.name) ? "★ PERSONA · " : "PERSONA · "}{p.name}
+                  </option>
+                ))}
               </select>
             )}
             {providers.length > 0 && (
@@ -374,6 +451,11 @@ export default function WorkspacePage() {
         <button className="nvx-btn" onClick={() => autoDecode({ smart: true })} disabled={loading} data-testid="btn-smart-decode">
           <Zap size={13} /> SMART DECODE
         </button>
+        <button className="nvx-btn" onClick={magicDecode} disabled={loading} data-testid="btn-magic-decode"
+                style={{ borderColor: "var(--warn)", color: "var(--warn)" }}
+                title="Recursive multi-branch auto-decoder (CyberChef Magic parity) — tries every plausible op, scores outputs, and returns the top candidate chains">
+          <Wand2 size={13} /> MAGIC
+        </button>
         <button className="nvx-btn" onClick={runRecipe} disabled={loading || !steps.length} data-testid="btn-run-recipe">
           <Play size={13} /> RUN RECIPE
         </button>
@@ -381,6 +463,10 @@ export default function WorkspacePage() {
           <Wrench size={13} /> TROUBLESHOOT
         </button>
         <button className="nvx-btn" onClick={doShare} data-testid="btn-share"><Share2 size={13} /> SHARE</button>
+        <button className="nvx-btn ghost" onClick={shareRecipe} data-testid="btn-share-url"
+                title="Copy a URL that reproduces the current input + recipe (fully client-side)">
+          <Share2 size={13} /> COPY LINK
+        </button>
         <ReportMenu onDownload={downloadReport} />
         <button className="nvx-btn" onClick={() => fileRef.current?.click()} data-testid="btn-upload">
           <Upload size={13} /> UPLOAD
@@ -461,7 +547,7 @@ export default function WorkspacePage() {
               <textarea
                 className="nvx-textarea"
                 data-testid="input-textarea"
-                placeholder="Paste payload — PowerShell, base64, hex, gzip, defanged IOCs, XSS, JS charcode…"
+                placeholder="Paste anything — PowerShell, base64/hex, AES/RC4 ciphertext, JWT, PE/ELF headers, gzip/bzip2/LZMA, obfuscated JS, defanged IOCs…"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 rows={6}
@@ -572,6 +658,57 @@ export default function WorkspacePage() {
           onClearTactic={() => setTacticFilter(null)}
         />
       </div>
+
+      {showMagic && magicResults && (
+        <div
+          data-testid="magic-modal"
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowMagic(false); }}
+        >
+          <div className="brut-border" style={{ background: "var(--surface)", maxWidth: 1000, width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div className="mono" style={{ fontSize: 12, color: "var(--warn)", letterSpacing: "0.22em" }}>
+                ▸ MAGIC — {magicResults.top_results?.length || 0} CANDIDATE CHAINS · explored {magicResults.candidates_explored} paths
+              </div>
+              <button className="nvx-btn sm ghost" onClick={() => setShowMagic(false)} data-testid="btn-magic-close">
+                <X size={11} /> CLOSE
+              </button>
+            </div>
+            <div style={{ overflow: "auto", padding: 16, display: "grid", gap: 12 }}>
+              {(magicResults.top_results || []).map((r, i) => {
+                const sb = r.score_breakdown || {};
+                return (
+                  <div key={i} className="brut-border" style={{ padding: 12, background: "var(--inset)" }} data-testid={`magic-result-${i}`}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                      <div className="mono" style={{ fontSize: 12, color: "var(--accent)" }}>
+                        #{i + 1} · SCORE <b style={{ color: "var(--warn)" }}>{sb.score}</b>
+                        {sb.printable !== undefined && ` · printable=${sb.printable}`}
+                        {sb.english !== undefined && ` · english=${sb.english}`}
+                      </div>
+                      <button className="nvx-btn sm primary" onClick={() => applyMagicResult(r)} data-testid={`btn-magic-apply-${i}`}>
+                        <Play size={11} /> APPLY CHAIN
+                      </button>
+                    </div>
+                    <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 8 }}>
+                      chain: {r.chain?.length ? r.chain.map((c) => c.op).join(" → ") : "(no ops — input already clean)"}
+                    </div>
+                    {sb.reasons?.length > 0 && (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                        {sb.reasons.map((rr, ri) => <span key={ri} className="badge">{rr}</span>)}
+                      </div>
+                    )}
+                    <pre className="mono" style={{
+                      margin: 0, padding: 8, background: "var(--bg)", border: "1px solid var(--border)",
+                      fontSize: 11, color: "var(--text)", maxHeight: 160, overflow: "auto",
+                      whiteSpace: "pre-wrap", wordBreak: "break-all",
+                    }}>{(r.output || "").slice(0, 1200)}{(r.output || "").length > 1200 ? "…" : ""}</pre>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {shareUrl && (
         <div
