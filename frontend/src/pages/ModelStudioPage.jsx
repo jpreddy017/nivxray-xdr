@@ -246,6 +246,42 @@ function ModelRow({ model, onEdit, onDelete, onToggle }) {
                 : model.kind === "playbook" ? `applies_to: ${(cfg.applies_to || ["ai"]).join(", ")} · ${(cfg.body || "").slice(0, 100)}…`
                 : model.kind === "training_note" ? `always-on · ${(cfg.body || "").slice(0, 140)}…`
                 : `${cfg.provider} · ${cfg.model}${cfg.default ? " · DEFAULT" : ""}`;
+
+  // Inline test drawer state — one per row, collapsed by default
+  const [testOpen, setTestOpen] = useState(false);
+  const [sample, setSample] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const runInlineTest = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const r = await api.post(`/admin/models/${model.id}/test`, { sample });
+      setResult(r.data);
+    } catch (e) {
+      setResult({ error: e?.response?.data?.detail || e.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Preload a sensible default sample when opening the drawer for the first time
+  const openTest = () => {
+    if (!testOpen && !sample) {
+      const defaults = {
+        detection_rule: "powershell.exe -NoP -W Hidden -Enc SGVsbG8=",
+        decode_recipe:  "SGVsbG8sIE5pdlhSYXkh",           // Base64("Hello, NivXRay!")
+        ai_persona:     "This is a sample encoded payload to describe.",
+        ai_provider:    "(connectivity is validated at Auto-Investigate time)",
+        playbook:       "(this playbook is auto-appended — trigger Auto-Investigate to see effect)",
+        training_note:  "(this note is auto-prepended — trigger Auto-Investigate to see effect)",
+      };
+      setSample(defaults[model.kind] || "");
+    }
+    setTestOpen((o) => !o);
+  };
+
   return (
     <div className="brut-border" style={{ padding: 14, background: "var(--surface)", display: "grid", gridTemplateColumns: "1fr auto", gap: 12 }}
          data-testid={`ms-row-${model.id}`}>
@@ -278,11 +314,76 @@ function ModelRow({ model, onEdit, onDelete, onToggle }) {
         <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)", wordBreak: "break-all", lineHeight: 1.5 }}>
           {summary}
         </div>
+
+        {/* Inline test drawer — expands when TEST is toggled */}
+        {testOpen && (
+          <div
+            className="brut-border"
+            style={{ marginTop: 10, padding: 10, background: "var(--bg)" }}
+            data-testid={`ms-inline-test-${model.id}`}
+          >
+            <div className="mono" style={{ fontSize: 10, letterSpacing: "0.16em", color: "var(--text-mute)", marginBottom: 4, textTransform: "uppercase" }}>
+              Sample input
+            </div>
+            <textarea
+              className="brut-input"
+              style={{ width: "100%", minHeight: 60, fontFamily: "JetBrains Mono, monospace", fontSize: 11 }}
+              value={sample}
+              onChange={(e) => setSample(e.target.value)}
+              placeholder="Paste a sample payload to run through this model…"
+              data-testid={`ms-inline-test-sample-${model.id}`}
+            />
+            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 6 }}>
+              <button
+                className="nvx-btn sm ghost"
+                onClick={() => { setTestOpen(false); setResult(null); }}
+                data-testid={`ms-inline-test-close-${model.id}`}
+              >
+                <X size={11} /> CLOSE
+              </button>
+              <button
+                className="nvx-btn sm primary"
+                onClick={runInlineTest}
+                disabled={busy || !sample.trim()}
+                data-testid={`ms-inline-test-run-${model.id}`}
+              >
+                <Play size={11} /> {busy ? "RUNNING…" : "RUN TEST"}
+              </button>
+            </div>
+            {result && (
+              <div style={{ marginTop: 8 }}>
+                {result.error ? (
+                  <div className="mono" style={{ fontSize: 11, color: "var(--high)", borderLeft: "3px solid var(--high)", padding: "6px 10px" }}
+                       data-testid={`ms-inline-test-error-${model.id}`}>
+                    ERROR: {result.error}
+                  </div>
+                ) : (
+                  <pre
+                    className="mono"
+                    style={{ margin: 0, padding: 10, background: "var(--surface)", border: "1px solid var(--border)",
+                             fontSize: 11, color: "var(--text)", whiteSpace: "pre-wrap", maxHeight: 260, overflow: "auto" }}
+                    data-testid={`ms-inline-test-result-${model.id}`}
+                  >
+                    {JSON.stringify(result, null, 2)}
+                  </pre>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
         <button className="nvx-btn sm ghost" onClick={onToggle} data-testid={`ms-toggle-${model.id}`}>
           {model.enabled ? <X size={11} /> : <Check size={11} />}
           {model.enabled ? "DISABLE" : "ENABLE"}
+        </button>
+        <button
+          className={`nvx-btn sm ${testOpen ? "primary" : "ghost"}`}
+          onClick={openTest}
+          data-testid={`ms-test-${model.id}`}
+          title="Run this model against a sample input"
+        >
+          <TestTube2 size={11} /> TEST
         </button>
         <button className="nvx-btn sm" onClick={onEdit} data-testid={`ms-edit-${model.id}`}>EDIT</button>
         {!model.protected && (
