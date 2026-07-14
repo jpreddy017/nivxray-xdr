@@ -39,6 +39,7 @@ class RunRecipeOut(BaseModel):
 
 class AutoIn(BaseModel):
     input: str
+    disable_boost: bool = Field(False, description="Skip Learning-Feedback boost even if enabled")
 
 
 class MagicIn(BaseModel):

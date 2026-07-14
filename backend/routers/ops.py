@@ -302,6 +302,26 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     # Deterministic best-of race (smart vs magic) — this is the key upgrade
     det = deterministic_best_decode(body.input)
 
+    # === Learning Feedback Loop — Task 3 ============================== #
+    # Compute the boost BEFORE deciding — we don't rewrite the decoder,
+    # we simply attach transparency + record auto-hit/miss so future
+    # boosts learn from this outcome. Auto-boost is on unless disabled.
+    boost_meta = None
+    boost_hit = False
+    if not body.disable_boost:
+        try:
+            from learning.booster import boost as _boost
+            from learning.feedback import record_auto
+            boost_meta = await _boost(body.input, user["email"])
+            if boost_meta.get("enabled") and boost_meta.get("chain"):
+                actual_chain = [s["op"] for s in det.get("steps") or []]
+                boost_hit = (actual_chain == boost_meta["chain"])
+                # Fire-and-forget feedback signal for future ranking
+                await record_auto(user["email"], boost_meta["chain"], success=boost_hit)
+        except Exception:
+            boost_meta = None
+    # ================================================================== #
+
     # Build per-layer trace by re-running the winning chain step-by-step so
     # the frontend Decoding Trace panel has intermediate outputs to display.
     # Note: `extract-payload` is a virtual op that the magic decoder uses
@@ -350,6 +370,8 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         "custom_recipes_matched": [
             {"id": r["id"], "name": r["name"]} for r in custom_matches
         ],
+        "boost": boost_meta,
+        "boost_hit": boost_hit,
     }
     # Auto-record into user's Investigation History (fire-and-forget, never blocks)
     try:

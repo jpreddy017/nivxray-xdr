@@ -512,3 +512,51 @@ Same strict JSON contract + citation validator applies to BOTH providers. Fine-t
 - Natural-language Investigation Recipes (P2)
 - Threat-Intel Correlation Engine (P2)
 - AI SOC Copilot / NivX Cognis end-to-end (P3)
+
+---
+
+## 🆕 Feb 14, 2026 — Task 3 · Learning Feedback Loop (P1 · DONE)
+
+### What shipped
+Backend
+- `learning/signals.py` — pre-decode content fingerprint (~25 boolean/int features · length bucket · Shannon entropy · b64 density · powershell/curl/mshta/certutil/rundll32/regsvr32 markers · gzip/zlib base64 prefix magic · hex-stream / unicode-escape / url-encoded / defanged-IOC / HKCU-run detection). Deterministic, < 1 ms per payload.
+- `learning/booster.py` — signal-kind → ranked chain candidates from **three weighted sources**:
+  1. **Personal history frequency** (weight 3) — chains that historically produced `confidence ≥ 60` on this user's decodes
+  2. **KB entries** (weight 2) — `common_chains` from matching-kind Knowledge Base archetypes
+  3. **Built-in priors** (weight 1) — `DEFAULT_CHAIN_PRIORS` per signal kind
+  Analyst thumbs-up boosts by +2, thumbs-down penalises by −3.
+- `learning/feedback.py` — per-user MongoDB doc in `learning_feedback` collection with `up_votes`, `down_votes`, `auto_success`, `auto_failure` counters.
+- `routers/learning.py` — 3 endpoints: `POST /api/learning/boost`, `POST /api/learning/feedback`, `GET /api/learning/stats`.
+
+Integration
+- `POST /api/decode/smart` now returns `boost` metadata + `boost_hit` flag on every response. Auto-boost is ON by default; `disable_boost:true` cleanly bypasses. Every boosted chain records an `auto_success` (hit) or `auto_failure` (miss) signal that feeds back into the ranker next time.
+
+Frontend
+- `components/BoostBadge.jsx` — sticky brutalist badge above the Decoding Trace showing:
+  - source pill (YOUR HISTORY / KB ARCHETYPE / BUILT-IN PRIOR) with contextual tooltip
+  - signal_kind, confidence %, HIT / MISS chip
+  - boosted chain vs actual winner
+  - top 4 alternatives with their scores + sources
+  - 👍 HELPFUL / 👎 NOT HELPFUL controls (posts to `/api/learning/feedback`)
+  - 🔁 RE-RUN NO-BOOST (calls decode/smart with `disable_boost:true`)
+- Wired into WorkspacePage between the Recipe panel and Decoding Trace.
+
+Tests
+- `tests/test_learning.py` — **19 new tests** covering signal-extraction determinism, kind classification, default prior coverage, empty-source fallback, history-outranks-default, down-vote penalisation.
+- Combined regression: **50/50 tests passing across Task 1+2+3** in 2.47s.
+
+### Live verified
+- Auto-boost on: `POST /api/decode/smart` returns `boost.source="history"`, `confidence=1.0`, chain=`[extract-payload, base64-decode, utf16le-decode]`.
+- `disable_boost:true` cleanly nullifies `boost` in response.
+- Thumbs-up recorded: `POST /api/learning/feedback` → `current_up: 1`.
+- Stats endpoint confirms `up_votes` and `auto_failure` counters incrementing — the loop is measurably learning from every decode.
+
+### Provider-agnostic hybrid still intact
+The learning loop is pure Python + Mongo — no LLM calls. It composes cleanly with both the online (Claude) and future offline (Qwen 2.5 7B) providers because it operates upstream of the decoder itself, not the LLM.
+
+### Next Action Items
+- **Offline LLM track (Task 4)** — Fine-tune Qwen 2.5 7B on the OpenAI-format dataset, serve via Ollama, swap `OllamaQwenStub.json()` body → full hybrid failover active.
+- **P2** — STIX 2.1 Community Sharing page.
+
+### Future / Backlog
+- Natural-language Investigation Recipes · Threat-Intel Correlation Engine · AI SOC Copilot (NivX Cognis) end-to-end.

@@ -15,6 +15,7 @@ import SocVerdictPanel from "@/components/SocVerdictPanel";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
 import HistoryDrawer from "@/components/HistoryDrawer";
 import ProcessTreeView from "@/components/ProcessTreeView";
+import BoostBadge from "@/components/BoostBadge";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -54,6 +55,9 @@ export default function WorkspacePage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   // Predicted process tree (fed to both ProcessTreeView + SocVerdictPanel mini)
   const [predictedTree, setPredictedTree] = useState(null);
+  // Learning Feedback Loop
+  const [boost, setBoost] = useState(null);
+  const [boostHit, setBoostHit] = useState(false);
   const rehydrateFromHistory = (rec) => {
     if (!rec) return;
     setInput(rec.input_preview || "");
@@ -160,13 +164,14 @@ export default function WorkspacePage() {
     return () => clearTimeout(t);
   }, [input, steps]);
 
-  const autoDecode = async ({ smart = false } = {}) => {
+  const autoDecode = async ({ smart = false, disable_boost = false } = {}) => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
     setLoading(true);
     setStatus(smart ? "SMART-DECODING (DETERMINISTIC)..." : "AI AUTO-DECODING...");
     try {
       const url = smart ? "/decode/smart" : "/ai/auto-decode";
-      const r = await api.post(url, { input });
+      const payload = smart ? { input, disable_boost } : { input };
+      const r = await api.post(url, payload);
       setSteps((r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} })));
 
       // Anti-hallucination guard — if backend refused to emit a decode (SOC-mode
@@ -198,6 +203,9 @@ export default function WorkspacePage() {
         setReachedShellcode(!!r.data.reached_shellcode);
         setDecodeConfidence(r.data.confidence ?? null);
         setDecodeWinnerEngine(r.data.engine || null);
+        // Learning Feedback Loop — boost metadata
+        setBoost(r.data.boost || null);
+        setBoostHit(!!r.data.boost_hit);
       }
       setPasteHint(null);
     } catch (e) {
@@ -793,6 +801,18 @@ export default function WorkspacePage() {
 
           {/* Recipe */}
           <RecipePanel steps={steps} setSteps={setSteps} ops={ops} />
+
+          {/* Learning Feedback Loop — BOOST badge with source + confidence + disable/re-run */}
+          {boost && (
+            <div style={{ margin: "0 12px" }}>
+              <BoostBadge
+                boost={boost}
+                boostHit={boostHit}
+                engine={decodeWinnerEngine}
+                onRerun={(opts) => autoDecode({ smart: true, ...opts })}
+              />
+            </div>
+          )}
 
           {/* Decoding Trace — expandable per-layer view for the deterministic decoder */}
           {decodeTrace.length > 0 && (
