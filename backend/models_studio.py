@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("nivxray.model_studio")
 
-MODEL_KINDS = ("detection_rule", "decode_recipe", "ai_persona", "ai_provider", "playbook")
+MODEL_KINDS = ("detection_rule", "decode_recipe", "ai_persona", "ai_provider", "playbook", "training_note")
 
 # =============================================================================
 # Built-in seeds — created once, then admin-editable but not deletable (protected=True)
@@ -448,6 +448,9 @@ def _validate_config(kind: str, cfg: Dict[str, Any]) -> None:
     elif kind == "playbook":
         if not (cfg.get("body") or "").strip():
             raise ValueError("playbook.body is required (the training text / instructions)")
+    elif kind == "training_note":
+        if not (cfg.get("body") or "").strip():
+            raise ValueError("training_note.body is required (the directive text)")
 
 
 # =============================================================================
@@ -561,28 +564,75 @@ async def get_active_playbooks(db) -> List[Dict[str, Any]]:
     return out
 
 
+async def get_active_training_notes(db) -> List[Dict[str, Any]]:
+    """Return all enabled training notes ordered by feedback weight DESC then created_at DESC.
+
+    Training notes are ALWAYS-ON global directives auto-prepended to every AI
+    investigation. They rank ABOVE playbooks in the composed prompt so analyst
+    directives take priority over playbook rules. Feedback-weighted: analyst
+    👍/👎 on an investigation adjusts a note's ordering for future prompts.
+    """
+    out = []
+    async for d in db.admin_models.find({"kind": "training_note", "enabled": True}).sort(
+        [("feedback_weight", -1), ("created_at", -1)]
+    ):
+        out.append({
+            "id": str(d["_id"]),
+            "name": d.get("name", ""),
+            "body": (d.get("config") or {}).get("body", ""),
+            "feedback_pos": int(d.get("feedback_pos") or 0),
+            "feedback_neg": int(d.get("feedback_neg") or 0),
+            "feedback_weight": int(d.get("feedback_weight") or 0),
+        })
+    return out
+
+
 async def compose_playbook_prompt(db, target: str = "ai") -> str:
-    """Concatenate all playbooks whose `applies_to` includes `target` into one prompt block."""
+    """Concatenate all playbooks + training notes into a single prompt block."""
     text, _ids = await compose_playbook_prompt_with_meta(db, target)
     return text
 
 
 async def compose_playbook_prompt_with_meta(db, target: str = "ai") -> tuple[str, List[Dict[str, Any]]]:
-    """Same as compose_playbook_prompt but also returns a snapshot of the playbooks
-    that were applied so downstream code can attribute feedback correctly."""
+    """Compose the org-wide analyst prompt block.
+
+    ORDER (top → bottom, strongest anchor first):
+      1. GLOBAL TRAINING NOTES  — always-on directives, feedback-weighted
+      2. ANALYST PLAYBOOK       — per-target guidance (playbook kind)
+
+    Returns (combined_prompt_text, [{id, name, kind}, ...]) so the
+    playbook-feedback endpoint can attribute analyst votes to every artifact
+    that shaped the AI response.
+    """
+    notes = await get_active_training_notes(db)
     books = await get_active_playbooks(db)
     picks = [b for b in books if target in (b.get("applies_to") or [])]
-    if not picks:
-        return "", []
-    parts = ["\n\n=== NIVXRAY ANALYST PLAYBOOK (org-specific guidance) ===\n"]
+
+    parts: List[str] = []
     used: List[Dict[str, Any]] = []
-    for b in picks:
-        parts.append(f"\n## {b['name']}\n{b['body'].strip()}\n")
-        used.append({"id": b["id"], "name": b["name"]})
-        try:
-            await increment_usage(db, b["id"])
-        except Exception:
-            pass
+
+    # 1) Global training notes — always applied (target-agnostic)
+    if notes:
+        parts.append("\n\n=== NIVXRAY GLOBAL TRAINING NOTES (org-wide directives) ===\n")
+        for n in notes:
+            parts.append(f"\n## {n['name']}\n{n['body'].strip()}\n")
+            used.append({"id": n["id"], "name": n["name"], "kind": "training_note"})
+            try:
+                await increment_usage(db, n["id"])
+            except Exception:
+                pass
+
+    # 2) Playbooks — filtered by target (ai / decoder / scanner)
+    if picks:
+        parts.append("\n\n=== NIVXRAY ANALYST PLAYBOOK (org-specific guidance) ===\n")
+        for b in picks:
+            parts.append(f"\n## {b['name']}\n{b['body'].strip()}\n")
+            used.append({"id": b["id"], "name": b["name"], "kind": "playbook"})
+            try:
+                await increment_usage(db, b["id"])
+            except Exception:
+                pass
+
     return "".join(parts), used
 
 
@@ -616,7 +666,9 @@ async def _apply_vote_delta(db, playbook_id: str, delta_pos: int, delta_neg: int
         inc["feedback_neg"] = delta_neg
     if not inc:
         return
-    await db.admin_models.update_one({"_id": oid, "kind": "playbook"}, {"$inc": inc})
+    await db.admin_models.update_one(
+        {"_id": oid, "kind": {"$in": ["playbook", "training_note"]}}, {"$inc": inc}
+    )
     # recompute weight = pos - neg (simple, transparent)
     doc = await db.admin_models.find_one({"_id": oid}, {"feedback_pos": 1, "feedback_neg": 1})
     if not doc:

@@ -2018,6 +2018,10 @@ async def test_admin_model(model_id: str, body: ModelTestIn, user=Depends(requir
                 "applies_to": cfg.get("applies_to") or ["ai"],
                 "body_preview": (cfg.get("body") or "")[:800],
                 "note": "This playbook is auto-appended to every AI investigation. Trigger AUTO-INVESTIGATE on a sample to see the effect."}
+    if kind == "training_note":
+        return {"kind": kind,
+                "body_preview": (cfg.get("body") or "")[:800],
+                "note": "This training note is ALWAYS PREPENDED to every AI investigation system prompt (ranked above playbooks). Analyst 👍/👎 votes adjust its ordering for future prompts."}
     raise HTTPException(status_code=400, detail=f"unknown kind: {kind}")
 
 

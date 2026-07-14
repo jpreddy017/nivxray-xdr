@@ -8,6 +8,7 @@ import AdminPage from "@/pages/AdminPage";
 import ModelStudioPage from "@/pages/ModelStudioPage";
 import SampleLibraryPage from "@/pages/SampleLibraryPage";
 import ThreatIntelPage from "@/pages/ThreatIntelPage";
+import FloatingAddNoteButton from "@/components/FloatingAddNoteButton";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -31,6 +32,7 @@ function App() {
             <Route path="/admin/samples" element={<Protected><SampleLibraryPage /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <FloatingAddNoteButton />
         </AuthProvider>
       </BrowserRouter>
     </div>

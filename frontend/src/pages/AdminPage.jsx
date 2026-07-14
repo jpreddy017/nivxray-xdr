@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Check, X, KeyRound, ExternalLink, Save, TestTube2, Users, BarChart3, RefreshCw, Database, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
+import TrainingNotesCard from "@/components/TrainingNotesCard";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -154,6 +155,9 @@ export default function AdminPage() {
             </Link>
           </div>
         </section>
+
+        {/* Global AI Training Notes — always-on directives, feedback-weighted */}
+        <TrainingNotesCard />
 
         {/* LOLBAS Catalog */}
         <section className="brut-border" style={{ background: "var(--surface)" }} data-testid="lolbas-catalog-card">

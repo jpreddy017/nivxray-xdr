@@ -18,8 +18,10 @@ const KIND_META = {
     blurb: "Switch between Claude, GPT, or Gemini for the AI analysis step. Uses the Emergent Universal Key." },
   playbook: { label: "PLAYBOOKS", icon: Sparkles, color: "#f7c17b",
     blurb: "Free-form analyst guidance auto-appended to every AI investigation. Teach the tool your triage rules, decoding techniques, and org-specific IOC context." },
+  training_note: { label: "TRAINING NOTES", icon: Sparkles, color: "#7ee3c9",
+    blurb: "Always-on global directives PREPENDED to every AI investigation (ranked above playbooks). Feedback-weighted — 👍/👎 votes reorder priority for future prompts. Use for org-wide corrections the LLM should always apply." },
 };
-const KINDS = ["detection_rule", "decode_recipe", "ai_persona", "ai_provider", "playbook"];
+const KINDS = ["detection_rule", "decode_recipe", "ai_persona", "ai_provider", "playbook", "training_note"];
 
 export default function ModelStudioPage() {
   const { user } = useAuth();
@@ -120,6 +122,7 @@ export default function ModelStudioPage() {
       ai_persona:     { system_prompt: "", notes: "" },
       ai_provider:    { provider: "anthropic", model: "claude-sonnet-4-5-20250929", default: false },
       playbook:       { body: "", applies_to: ["ai"] },
+      training_note:  { body: "" },
     };
     setEditing({ id: null, kind: activeKind, name: "", enabled: true, config: templates[activeKind] });
   };
@@ -241,6 +244,7 @@ function ModelRow({ model, onEdit, onDelete, onToggle }) {
                 : model.kind === "decode_recipe" ? `match: ${cfg.match_regex} → ${(cfg.ops || []).map((o) => o.op).join(" → ")}`
                 : model.kind === "ai_persona" ? (cfg.system_prompt || "").slice(0, 140) + "…"
                 : model.kind === "playbook" ? `applies_to: ${(cfg.applies_to || ["ai"]).join(", ")} · ${(cfg.body || "").slice(0, 100)}…`
+                : model.kind === "training_note" ? `always-on · ${(cfg.body || "").slice(0, 140)}…`
                 : `${cfg.provider} · ${cfg.model}${cfg.default ? " · DEFAULT" : ""}`;
   return (
     <div className="brut-border" style={{ padding: 14, background: "var(--surface)", display: "grid", gridTemplateColumns: "1fr auto", gap: 12 }}
@@ -252,6 +256,14 @@ function ModelRow({ model, onEdit, onDelete, onToggle }) {
           {model.protected && <span className="badge">BUILT-IN</span>}
           {!model.enabled && <span className="badge" style={{ opacity: 0.6 }}>DISABLED</span>}
           {model.kind === "playbook" && (
+            <PlaybookScorecard
+              pos={model.feedback_pos || 0}
+              neg={model.feedback_neg || 0}
+              weight={model.feedback_weight || 0}
+              rowId={model.id}
+            />
+          )}
+          {model.kind === "training_note" && (
             <PlaybookScorecard
               pos={model.feedback_pos || 0}
               neg={model.feedback_neg || 0}
@@ -309,6 +321,7 @@ function ModelEditor({ model, catalog, onChange, onCancel, onSave, saving, testS
         {model.kind === "ai_persona"     && <AiPersonaFields     cfg={cfg} setCfg={setCfg} />}
         {model.kind === "ai_provider"    && <AiProviderFields    cfg={cfg} setCfg={setCfg} catalog={catalog} />}
         {model.kind === "playbook"       && <PlaybookFields      cfg={cfg} setCfg={setCfg} />}
+        {model.kind === "training_note"  && <TrainingNoteFields  cfg={cfg} setCfg={setCfg} />}
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={model.enabled ?? true} onChange={(e) => set({ enabled: e.target.checked })} id="enabled-cb" data-testid="ms-input-enabled" />
@@ -524,6 +537,31 @@ function PlaybookFields({ cfg, setCfg }) {
         </div>
         <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 4 }}>
           <b>ai</b> — appended to every AI investigation system prompt (recommended). <b>magic</b>/<b>smart</b> reserved for future deterministic hooks.
+        </div>
+      </div>
+    </>
+  );
+}
+
+
+
+function TrainingNoteFields({ cfg, setCfg }) {
+  return (
+    <>
+      <div>
+        <Label>Training note body <Hint>(required — the directive the LLM should ALWAYS follow)</Hint></Label>
+        <textarea
+          className="brut-input"
+          style={{ minHeight: 240, fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}
+          value={cfg.body || ""}
+          onChange={(e) => setCfg({ body: e.target.value })}
+          placeholder={"E.g.:\n- ALWAYS defang URLs in the final report (hxxp:// instead of http://)\n- Whenever you see a Cobalt Strike stager, prioritize the shellcode disassembly in the verdict\n- Our SOC treats T1218.011 rundll32 as CRITICAL even without a network IOC\n- Never claim a payload is benign without at least one decoded layer of evidence"}
+          data-testid="ms-input-training-note-body"
+        />
+        <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 6, lineHeight: 1.6 }}>
+          Training notes are <b style={{ color: "var(--accent)" }}>always-on</b> and PREPENDED to every AI
+          investigation system prompt (above playbooks). Analyst 👍/👎 on any investigation adjusts this
+          note&apos;s ordering for future prompts — feedback-weighted, no fine-tuning required.
         </div>
       </div>
     </>
