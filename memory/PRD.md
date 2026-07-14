@@ -234,3 +234,19 @@ Returns `{detected, severity, techniques[], amsi_related_count, etw_related_coun
 - **NivX Cognis** — the flagship in-house AI persona, auto-selected in the Workspace picker. Trained on the Sophos layered-stager decoder + MITRE + LOLBAS pipeline. Uses Claude Sonnet 4.5 by default (via Emergent Universal LLM Key).
 - Regression: **57/57 backend pytest pass**.
 
+
+
+### Sub-session D · 190-sample strict pre-deploy regression gate (Feb 2026)
+Built `tests/test_regression_150plus.py` — 190 parametrized tests covering 20 categories: Base64 flat/nested (double/triple/quad), UTF-16LE PS-Enc, gzip/zlib/LZMA/bzip2 wrappers, base64+single-byte XOR, hex, PowerShell AST deobfuscation, AMSI bypass patterns, LOLBin detection, shellcode extraction + Capstone disassembly, IOC extraction (URLs/IPs/hashes/domains/regkey/paths), MITRE ATT&CK mapping, env-var expansion, tokenizer/pipeline edge cases, malformed/hostile input, and multi-stage recursive end-to-end pipelines.
+
+Real product bugs uncovered & fixed under the strict gate:
+1. **`magic_decoder.py` byte-preservation extension** — Preserved XOR key from the **original wrapper text** before `sanitize_encapsulated_payload` strips it. Previously, PowerShell wrappers like `$c=[Convert]::FromBase64String("…"); … -bxor 35` lost the key on isolation, so the deterministic `base64→xor` chain never fired. Only worked for meterpreter-style stagers where the key was inside the *decompressed* gzip layer.
+2. **`magic_decoder.py`** — Prioritised `hex-decode` when input is unambiguously hex (only 0-9a-f). Previously outranked by base64/utf16 speculation under tight `max_branches` budgets.
+3. **`magic_decoder.py`** — Added *still-encoded-output* guard on the chain-completion bonus. Deeply-nested chains that produced pure hex/base64 output were artificially boosted above short readable answers (e.g. `Cobalt Strike stager` was outranked by a 7-op hex-mangling chain).
+4. **`command_analyzer.py`** — Guarded the xor-brute fallback so it only runs when there's no successful decode chain. Previously it could override a correct `base64→utf16le` decode with an alpha-heavy XOR-brute misfire on the ORIGINAL base64 text.
+5. **`command_analyzer.py`** — `detect_lolbins` now scans INSIDE multi-word quoted tokens (splits on `[\s;|,&]+`). Previously `powershell -c 'iex; rundll32 evil.dll,Main'` missed the `rundll32` LOLBin because shlex treated the whole quoted arg as a single token.
+6. **`command_analyzer.py`** — Added T1105 (Ingress Tool Transfer) MITRE mapping for `curl -o` / `wget -O` / `Invoke-WebRequest -OutFile` / `bitsadmin /transfer` / `curl … | powershell`. Previously only `DownloadString` mapped.
+
+Final gate: **332 backend unit/parametrized tests pass (0 failures)** — excludes `test_playbook_feedback.py` which is a live-LLM integration test with pre-existing latency flakiness unrelated to any changes here. Golden malware sample library benchmark still 100% (17/17). End-to-end HTTP proof: recursive `base64→gzip→base64→xor` pipeline recovers marker in the top-3 candidates via preview API `/api/decode/magic`.
+
+Deployment readiness re-verified — **zero blockers**. Ready for user to click Deploy.
