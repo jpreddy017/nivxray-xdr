@@ -27,7 +27,10 @@ from operations import (
 from smart_decoder import smart_decode
 from osint import enrich_iocs, OSINT_SERVICES
 from feeds import SOURCES as FEED_SOURCES, sync_source
-from lolbas import scan_lolbas
+from lolbas import (
+    scan_lolbas, load_from_db as lolbas_load, maybe_refresh as lolbas_maybe_refresh,
+    refresh_from_source as lolbas_refresh, get_status as lolbas_status,
+)
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
@@ -513,6 +516,282 @@ async def _lookup_ti_hits(iocs: Dict[str, List[str]]) -> List[Dict[str, Any]]:
     async for doc in db.iocs.find({"value": {"$in": values}}, {"_id": 0}):
         hits.append(doc)
     return hits
+
+
+# =============================================================================
+# SSE streaming — /api/analyze/stream
+# Streams the analysis pipeline live so long-running AI investigations don't
+# idle out on Cloudflare (60s). Emits named events for each phase and a final
+# `result` event containing the complete analysis payload.
+# =============================================================================
+def _sse(event: str, payload: Any) -> bytes:
+    body = json.dumps(payload, default=str)
+    return f"event: {event}\ndata: {body}\n\n".encode("utf-8")
+
+
+@api.post("/analyze/stream")
+async def analyze_stream(body: AnalyzeIn, user=Depends(get_current_user)):
+    """SSE analog of /api/analyze — streams progress + partial + final result."""
+
+    async def gen():
+        # 1) Deterministic extraction (fast)
+        try:
+            yield _sse("status", {"phase": "extract", "message": "Extracting IOCs, MITRE, YARA, LOLBAS…"})
+            text = (body.output or "") + "\n" + body.input
+            iocs = extract_iocs(text)
+            mitre = mitre_map(text)
+            yara = yara_lite_scan(text)
+            lolbas = scan_lolbas(text)
+            risk = risk_score(mitre, yara, iocs)
+            partial = {"iocs": iocs, "mitre": mitre, "yara": yara, "lolbas": lolbas, "risk": risk}
+            yield _sse("partial", partial)
+        except Exception as e:
+            yield _sse("error", {"phase": "extract", "error": str(e)})
+            return
+
+        # 2) TI hits (fast — local DB)
+        try:
+            yield _sse("status", {"phase": "ti_hits", "message": "Cross-referencing local Threat-Intel DB…"})
+            ti_hits = await _lookup_ti_hits(iocs)
+            yield _sse("ti_hits", ti_hits)
+        except Exception as e:
+            ti_hits = []
+            yield _sse("error", {"phase": "ti_hits", "error": str(e)})
+
+        # 3) Parallelize OSINT + AI describe/verdict, streaming a heartbeat while we wait
+        yield _sse("status", {"phase": "enrich_and_ai", "message": "Running OSINT enrichment + AI analysis in parallel…"})
+
+        async def _run_osint():
+            if not body.enrich_osint:
+                return None
+            keys = await load_osint_keys()
+            return await enrich_iocs(iocs, keys)
+
+        async def _run_ai():
+            if not (body.use_ai_verdict or body.describe):
+                return None
+            return await _ai_describe_and_verdict(
+                body.input, body.output or "", iocs, mitre, yara, {},
+                lolbas=lolbas,
+                want_verdict=body.use_ai_verdict, want_describe=body.describe,
+            )
+
+        osint_task = asyncio.create_task(_run_osint())
+        ai_task = asyncio.create_task(_run_ai())
+        pending = {osint_task, ai_task}
+
+        # Heartbeat every 10s to keep Cloudflare / reverse-proxy connection alive
+        elapsed = 0
+        osint_data: Optional[Dict[str, Any]] = None
+        ai_bundle: Optional[Dict[str, Any]] = None
+        while pending:
+            done, pending = await asyncio.wait(pending, timeout=10.0, return_when=asyncio.FIRST_COMPLETED)
+            elapsed += 10
+            if not done:
+                yield _sse("heartbeat", {"elapsed_s": elapsed, "phase": "waiting"})
+                # SSE comment as extra keep-alive nudge for proxies
+                yield b": keep-alive\n\n"
+                continue
+            for t in done:
+                try:
+                    r = t.result()
+                except Exception as e:
+                    if t is osint_task:
+                        osint_data = {"error": str(e)}
+                        yield _sse("error", {"phase": "osint", "error": str(e)})
+                    else:
+                        ai_bundle = None
+                        yield _sse("error", {"phase": "ai", "error": str(e)})
+                    continue
+                if t is osint_task:
+                    osint_data = r
+                    yield _sse("osint", osint_data or {})
+                else:
+                    ai_bundle = r
+                    if ai_bundle:
+                        if body.use_ai_verdict and ai_bundle.get("verdict") is not None:
+                            yield _sse("ai_verdict", ai_bundle.get("verdict"))
+                        if body.describe and ai_bundle.get("description") is not None:
+                            yield _sse("description", ai_bundle.get("description"))
+
+        ai_verdict = ai_bundle.get("verdict") if (ai_bundle and body.use_ai_verdict) else None
+        description = ai_bundle.get("description") if (ai_bundle and body.describe) else None
+
+        # Merge AI-derived MITRE with heuristics
+        merged_mitre = list(mitre)
+        if description and isinstance(description, dict):
+            ai_mitre = description.get("mitre_techniques") or []
+            seen_ids = {m["id"] for m in merged_mitre}
+            for m in ai_mitre:
+                if isinstance(m, dict) and m.get("id") and m["id"] not in seen_ids:
+                    merged_mitre.append({
+                        "id": m["id"], "technique": m.get("technique", ""),
+                        "tactic": m.get("tactic", ""), "evidence": m.get("evidence", ""),
+                        "source": "ai",
+                    })
+                    seen_ids.add(m["id"])
+            for m in merged_mitre:
+                m.setdefault("source", "heuristic")
+
+        final = {
+            "iocs": iocs, "mitre": merged_mitre, "yara": yara, "lolbas": lolbas, "risk": risk,
+            "osint": osint_data, "ti_hits": ti_hits,
+            "ai_verdict": ai_verdict, "description": description,
+        }
+        yield _sse("result", final)
+        yield _sse("done", {"ok": True})
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",  # disable nginx buffering
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# =============================================================================
+# Async job pipeline — /api/analyze/async + /api/analyze/status/{job_id}
+# Bypasses reverse-proxy hard timeouts for long AI runs by decoupling the
+# background computation from client polling. In-memory job store — fine
+# because jobs are short-lived and single-worker.
+# =============================================================================
+import uuid
+
+_JOBS: Dict[str, Dict[str, Any]] = {}
+_JOB_TTL_SEC = 60 * 15  # 15 minutes
+
+
+def _prune_jobs():
+    now = datetime.now(timezone.utc).timestamp()
+    stale = [j for j, s in _JOBS.items() if now - s.get("_created", now) > _JOB_TTL_SEC]
+    for j in stale:
+        _JOBS.pop(j, None)
+
+
+async def _run_analysis_job(job_id: str, body: AnalyzeIn):
+    """Background worker — populates the _JOBS[job_id] dict as phases complete."""
+    j = _JOBS[job_id]
+    try:
+        # Phase A — fast extraction
+        text = (body.output or "") + "\n" + body.input
+        iocs = extract_iocs(text)
+        mitre = mitre_map(text)
+        yara = yara_lite_scan(text)
+        lolbas = scan_lolbas(text)
+        risk = risk_score(mitre, yara, iocs)
+        j.update({
+            "iocs": iocs, "mitre": mitre, "yara": yara, "lolbas": lolbas, "risk": risk,
+            "phase": "ti_hits", "progress": 15,
+        })
+
+        # Phase B — TI hits
+        ti_hits = await _lookup_ti_hits(iocs)
+        j.update({"ti_hits": ti_hits, "phase": "enrich_and_ai", "progress": 25})
+
+        # Phase C — OSINT + AI in parallel
+        async def _run_osint():
+            if not body.enrich_osint:
+                return None
+            keys = await load_osint_keys()
+            return await enrich_iocs(iocs, keys)
+
+        async def _run_ai():
+            if not (body.use_ai_verdict or body.describe):
+                return None
+            return await _ai_describe_and_verdict(
+                body.input, body.output or "", iocs, mitre, yara, {},
+                lolbas=lolbas,
+                want_verdict=body.use_ai_verdict, want_describe=body.describe,
+            )
+
+        osint_task = asyncio.create_task(_run_osint())
+        ai_task = asyncio.create_task(_run_ai())
+        pending = {osint_task, ai_task}
+        osint_data: Optional[Dict[str, Any]] = None
+        ai_bundle: Optional[Dict[str, Any]] = None
+        start = datetime.now(timezone.utc).timestamp()
+
+        while pending:
+            done, pending = await asyncio.wait(pending, timeout=2.0, return_when=asyncio.FIRST_COMPLETED)
+            j["elapsed_s"] = int(datetime.now(timezone.utc).timestamp() - start)
+            for t in done:
+                try:
+                    r = t.result()
+                except Exception as e:
+                    if t is osint_task:
+                        osint_data = {"error": str(e)}
+                        j["osint"] = osint_data
+                        j["errors"] = (j.get("errors") or []) + [{"phase": "osint", "error": str(e)}]
+                    else:
+                        ai_bundle = None
+                        j["errors"] = (j.get("errors") or []) + [{"phase": "ai", "error": str(e)}]
+                    continue
+                if t is osint_task:
+                    osint_data = r
+                    j["osint"] = osint_data
+                    j["progress"] = max(j.get("progress", 25), 45)
+                else:
+                    ai_bundle = r
+                    if ai_bundle:
+                        if body.use_ai_verdict and ai_bundle.get("verdict") is not None:
+                            j["ai_verdict"] = ai_bundle.get("verdict")
+                        if body.describe and ai_bundle.get("description") is not None:
+                            j["description"] = ai_bundle.get("description")
+                    j["progress"] = 90
+
+        # Phase D — merge & finalize
+        merged_mitre = list(mitre)
+        description = j.get("description")
+        if description and isinstance(description, dict):
+            ai_mitre = description.get("mitre_techniques") or []
+            seen_ids = {m["id"] for m in merged_mitre}
+            for m in ai_mitre:
+                if isinstance(m, dict) and m.get("id") and m["id"] not in seen_ids:
+                    merged_mitre.append({
+                        "id": m["id"], "technique": m.get("technique", ""),
+                        "tactic": m.get("tactic", ""), "evidence": m.get("evidence", ""),
+                        "source": "ai",
+                    })
+                    seen_ids.add(m["id"])
+            for m in merged_mitre:
+                m.setdefault("source", "heuristic")
+        j["mitre"] = merged_mitre
+        j["status"] = "done"
+        j["progress"] = 100
+        j["phase"] = "complete"
+    except Exception as e:
+        log.exception("analysis job %s failed", job_id)
+        j["status"] = "error"
+        j["error"] = str(e)
+
+
+@api.post("/analyze/async")
+async def analyze_async(body: AnalyzeIn, user=Depends(get_current_user)):
+    """Kick off an analysis job. Returns immediately with job_id + fast partial extraction."""
+    _prune_jobs()
+    job_id = uuid.uuid4().hex
+    _JOBS[job_id] = {
+        "job_id": job_id,
+        "status": "running",
+        "phase": "extract",
+        "progress": 5,
+        "_created": datetime.now(timezone.utc).timestamp(),
+        "requested_by": user.get("email"),
+    }
+    asyncio.create_task(_run_analysis_job(job_id, body))
+    return {"job_id": job_id, "status": "running"}
+
+
+@api.get("/analyze/status/{job_id}")
+async def analyze_status(job_id: str, user=Depends(get_current_user)):
+    j = _JOBS.get(job_id)
+    if not j:
+        raise HTTPException(status_code=404, detail="job not found or expired")
+    # Never leak the internal timestamp
+    return {k: v for k, v in j.items() if not k.startswith("_")}
 
 
 async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdict, want_describe, lolbas=None):
@@ -1328,7 +1607,22 @@ async def admin_stats(user=Depends(require_admin)):
         "total_iocs": total_iocs,
         "configured_osint_services": len([v for v in keys.values() if v]),
         "total_operations": len(OPERATIONS),
+        "lolbas": lolbas_status(),
     }
+
+
+# =============================================================================
+# LOLBAS catalog admin — sync + status
+# =============================================================================
+@api.get("/admin/lolbas/status")
+async def get_lolbas_status(user=Depends(require_admin)):
+    return lolbas_status()
+
+
+@api.post("/admin/lolbas/sync")
+async def sync_lolbas_catalog(user=Depends(require_admin)):
+    """Force-refresh the LOLBAS catalog from lolbas-project.github.io."""
+    return await lolbas_refresh(db)
 
 
 # =============================================================================
@@ -1535,6 +1829,9 @@ app.add_middleware(
 async def _startup():
     await seed_admin()
     await _iocs_indexes()
+    # LOLBAS: load persisted cache, then trigger a background refresh if stale (>7d)
+    await lolbas_load(db)
+    asyncio.create_task(lolbas_maybe_refresh(db))
 
 
 @app.on_event("shutdown")

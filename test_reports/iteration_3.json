@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 3 — validated new features: (a) /api/analyze/async + /api/analyze/status polling job pipeline, (b) /api/analyze/stream SSE fast path, (c) LOLBAS catalog admin (status + sync + admin/stats.lolbas sub-object), (d) frontend Attack Graph click-to-filter, Final Summary card, PNG/SVG snapshot buttons, and Admin LOLBAS Catalog UI. Added /app/backend/tests/test_new_features.py (11 new tests, all pass). Full backend regression: 57/57 pytest tests pass (58.57s). LOLBAS live counts confirmed: active=248, source=239, defaults=40 (exact match to spec). Auto Investigate polling flow completed with full render in ~56s. All key data-testids present and functional. No browser console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_new_features.py",
+    "/app/backend/tests/test_nivxary.py",
+    "/app/backend/tests/test_multiline_decode.py",
+    "/app/test_reports/pytest/iteration_3.xml",
+    "/app/test_reports/pytest/iteration_3_full.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "In-memory _JOBS dict for async analysis pipeline is fine for single-replica preview but will not survive backend restart / horizontal scale. Consider promoting to MongoDB or Redis before multi-replica deploy.",
+    "SSE /analyze/stream is documented to be killed at ~60s by K8s ingress — this is now correctly worked around by the frontend using the polling pair (/analyze/async + /analyze/status). Behavior verified.",
+    "server.py is ~1840 lines — approaching the >700-line threshold for splitting; consider modularizing analyze/, admin/, threat-intel/ into routers when time permits."
+  ],
+  "updated_files": ["/app/backend/tests/test_new_features.py (new)"],
+  "success_rate": {"backend": "100% (57/57 pytest)", "frontend": "100% (all requested flows verified)"},
+  "test_credentials": "admin@nivxray.com / NivXRay#2026! — verified working",
+  "seed_data_creation": "None persistent. Tests write/clean TEST_ prefixed OSINT keys only.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend tests: `python -m pytest backend/tests/ -v` runs all 57 tests (~60s). test_new_features.py covers: analyze/async→status polling completion within 120s, analyze/stream SSE content-type + first-event delivery, /admin/lolbas/status (active/source/defaults/last_updated/source_url), /admin/lolbas/sync + count match on subsequent /status, /admin/stats.lolbas sub-object, 401/403 on unauth, and analyze/operations regression. Frontend verified: AUTO INVESTIGATE polling flow renders Attack Graph (lanes + nodes), Final Summary card, PNG/SVG snapshot buttons, tactic-filter-badge + ta-tactic-filter-bar on lane click, btn-clear-tactic-filter[-panel] to clear, and Admin LOLBAS Catalog card with SYNC NOW button. Live LOLBAS counts observed: active=248 source=239 defaults=40.",
+  "rca of the issue": "N/A — no bugs found."
+}

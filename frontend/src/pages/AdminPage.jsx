@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import Header from "@/components/Header";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Check, X, KeyRound, ExternalLink, Save, TestTube2, Users, BarChart3 } from "lucide-react";
+import { Check, X, KeyRound, ExternalLink, Save, TestTube2, Users, BarChart3, RefreshCw, Database } from "lucide-react";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -15,6 +15,8 @@ export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const [lolbasStatus, setLolbasStatus] = useState(null);
+  const [lolbasSyncing, setLolbasSyncing] = useState(false);
 
   useEffect(() => {
     if (!user || user.role !== "admin") return;
@@ -26,7 +28,25 @@ export default function AdminPage() {
     }).catch(() => {});
     api.get("/admin/stats").then((r) => setStats(r.data)).catch(() => {});
     api.get("/admin/users").then((r) => setUsers(r.data)).catch(() => {});
+    api.get("/admin/lolbas/status").then((r) => setLolbasStatus(r.data)).catch(() => {});
   }, [user]);
+
+  const syncLolbas = async () => {
+    setLolbasSyncing(true);
+    try {
+      const r = await api.post("/admin/lolbas/sync");
+      setLolbasStatus((s) => ({ ...(s || {}), ...r.data,
+        active_count: r.data.count || s?.active_count,
+        source_count: r.data.source_count ?? s?.source_count,
+      }));
+      const fresh = await api.get("/admin/lolbas/status");
+      setLolbasStatus(fresh.data);
+    } catch (e) {
+      setLolbasStatus((s) => ({ ...(s || {}), last_error: e?.response?.data?.detail || e.message }));
+    } finally {
+      setLolbasSyncing(false);
+    }
+  };
 
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== "admin") {
@@ -101,6 +121,38 @@ export default function AdminPage() {
             <StatCard label="OSINT ACTIVE" value={stats.configured_osint_services} icon={<KeyRound size={14} />} />
           </div>
         )}
+
+        {/* LOLBAS Catalog */}
+        <section className="brut-border" style={{ background: "var(--surface)" }} data-testid="lolbas-catalog-card">
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>▸ LOLBAS CATALOG</div>
+            <button className="nvx-btn primary sm" onClick={syncLolbas} disabled={lolbasSyncing} data-testid="btn-lolbas-sync">
+              <RefreshCw size={12} /> {lolbasSyncing ? "SYNCING…" : "SYNC NOW"}
+            </button>
+          </div>
+          <div style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+            <StatCard label="ACTIVE ENTRIES" value={lolbasStatus?.active_count ?? "—"} icon={<Database size={14} />} />
+            <StatCard label="FROM SOURCE" value={lolbasStatus?.source_count ?? "—"} icon={<Database size={14} />} />
+            <StatCard label="CURATED (ARGV)" value={lolbasStatus?.defaults_count ?? "—"} icon={<Database size={14} />} />
+            <div className="brut-border" style={{ padding: 12, background: "var(--inset)" }}>
+              <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", letterSpacing: "0.14em" }}>LAST SYNCED</div>
+              <div className="mono" style={{ fontSize: 11, color: lolbasStatus?.last_error ? "var(--high)" : "var(--accent)", marginTop: 4, wordBreak: "break-all" }}>
+                {lolbasStatus?.last_error
+                  ? `ERROR · ${lolbasStatus.last_error}`
+                  : (lolbasStatus?.last_updated ? new Date(lolbasStatus.last_updated).toLocaleString() : "never")}
+              </div>
+              <a className="mono" href={lolbasStatus?.source_url || "https://lolbas-project.github.io/"} target="_blank" rel="noreferrer"
+                 style={{ fontSize: 10, color: "var(--text-mute)", textDecoration: "none", marginTop: 6, display: "inline-block" }}>
+                {lolbasStatus?.source_url || "lolbas-project.github.io"} ↗
+              </a>
+            </div>
+          </div>
+          <div style={{ padding: "0 16px 14px", fontSize: 11, color: "var(--text-mute)", fontFamily: "JetBrains Mono", lineHeight: 1.6 }}>
+            Auto-refreshes every 7 days on backend startup. Curated argv-pattern rules always take precedence over
+            remote entries for high-fidelity matching (e.g. certutil, mshta, powershell). Network failures preserve
+            the last successful cache.
+          </div>
+        </section>
 
         {/* OSINT services */}
         <section className="brut-border" style={{ background: "var(--surface)" }}>

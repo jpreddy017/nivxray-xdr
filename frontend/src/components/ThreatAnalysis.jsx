@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Copy } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Copy, X } from "lucide-react";
 import FlowGraph from "@/components/FlowGraph";
 
 function severityBadgeClass(sev) {
@@ -17,9 +17,17 @@ function EmptyState({ label }) {
   );
 }
 
-export default function ThreatAnalysis({ analysis, loading }) {
+export default function ThreatAnalysis({ analysis, loading, selectedTactic = null, onClearTactic = null }) {
   const tabs = ["MITRE", "LOLBAS", "RULES", "IOCs", "TI-HITS", "OSINT", "AI", "FLOW", "CHAIN"];
   const [tab, setTab] = useState("MITRE");
+
+  // Build a technique-id → tactic map from the merged MITRE list.
+  // Used to filter LOLBAS entries (whose only tactic linkage is via technique IDs).
+  const techniqueToTactic = useMemo(() => {
+    const m = {};
+    (analysis?.mitre || []).forEach((x) => { if (x.id && x.tactic) m[x.id] = x.tactic; });
+    return m;
+  }, [analysis?.mitre]);
 
   return (
     <aside
@@ -46,6 +54,28 @@ export default function ThreatAnalysis({ analysis, loading }) {
         )}
       </div>
 
+      {selectedTactic && (
+        <div
+          data-testid="ta-tactic-filter-bar"
+          style={{
+            padding: "8px 14px", background: "rgba(226,126,93,0.08)",
+            borderBottom: "1px solid var(--warn)",
+            display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+          }}
+        >
+          <span className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.18em" }}>
+            FILTER ▸
+          </span>
+          <span className="badge warn">{selectedTactic}</span>
+          <span className="mono" style={{ fontSize: 10, color: "var(--text-mute)", flex: 1 }}>
+            MITRE + LOLBAS filtered · IOCs / OSINT / AI unfiltered
+          </span>
+          <button className="nvx-btn sm ghost" onClick={onClearTactic} data-testid="btn-clear-tactic-filter-panel">
+            <X size={11} /> CLEAR
+          </button>
+        </div>
+      )}
+
       <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--inset)", flexWrap: "wrap" }}>
         {tabs.map((t) => (
           <button
@@ -69,8 +99,8 @@ export default function ThreatAnalysis({ analysis, loading }) {
           <EmptyState label="No analysis yet — run a recipe or press AUTO-INVESTIGATE." />
         )}
 
-        {analysis && tab === "MITRE" && <MitreTab items={analysis.mitre} />}
-        {analysis && tab === "LOLBAS" && <LolbasTab items={analysis.lolbas} />}
+        {analysis && tab === "MITRE" && <MitreTab items={analysis.mitre} selectedTactic={selectedTactic} />}
+        {analysis && tab === "LOLBAS" && <LolbasTab items={analysis.lolbas} selectedTactic={selectedTactic} techniqueToTactic={techniqueToTactic} />}
         {analysis && tab === "RULES" && <RulesTab items={analysis.yara} />}
         {analysis && tab === "IOCs" && <IocTab iocs={analysis.iocs} />}
         {analysis && tab === "TI-HITS" && <TiHitsTab hits={analysis.ti_hits} />}
@@ -83,9 +113,11 @@ export default function ThreatAnalysis({ analysis, loading }) {
   );
 }
 
-function MitreTab({ items = [] }) {
+function MitreTab({ items = [], selectedTactic = null }) {
+  const filtered = selectedTactic ? items.filter((m) => (m.tactic || "Unknown") === selectedTactic) : items;
   if (!items.length) return <EmptyState label="No MITRE ATT&CK techniques matched" />;
-  const byTactic = items.reduce((acc, m) => {
+  if (!filtered.length) return <EmptyState label={`No MITRE techniques for tactic "${selectedTactic}"`} />;
+  const byTactic = filtered.reduce((acc, m) => {
     (acc[m.tactic || "Unknown"] ||= []).push(m);
     return acc;
   }, {});
@@ -122,14 +154,18 @@ function MitreTab({ items = [] }) {
   );
 }
 
-function LolbasTab({ items = [] }) {
+function LolbasTab({ items = [], selectedTactic = null, techniqueToTactic = {} }) {
+  const filtered = selectedTactic
+    ? items.filter((l) => (l.mitre || []).some((tid) => techniqueToTactic[tid] === selectedTactic))
+    : items;
   if (!items.length) return <EmptyState label="No LOLBAS-listed binaries detected" />;
+  if (!filtered.length) return <EmptyState label={`No LOLBAS matches for tactic "${selectedTactic}"`} />;
   return (
     <div className="stagger">
       <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.18em", marginBottom: 8 }}>
-        {items.length} MATCH{items.length > 1 ? "ES" : ""} · LIVING OFF THE LAND BINARIES
+        {filtered.length} MATCH{filtered.length > 1 ? "ES" : ""} · LIVING OFF THE LAND BINARIES
       </div>
-      {items.map((l, i) => (
+      {filtered.map((l, i) => (
         <div key={i} className="brut-border" style={{ padding: 10, marginBottom: 8, background: "var(--inset)" }} data-testid={`lolbas-${l.binary}`}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <span className="mono" style={{ fontSize: 12, color: "var(--warn)", fontWeight: 700 }}>{l.binary}</span>

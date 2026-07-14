@@ -5,9 +5,11 @@ import RecipePanel from "@/components/RecipePanel";
 import ThreatAnalysis from "@/components/ThreatAnalysis";
 import ReportMenu from "@/components/ReportMenu";
 import AttackGraph from "@/components/AttackGraph";
+import FinalSummary from "@/components/FinalSummary";
 import api from "@/lib/api";
+import { streamAnalyze } from "@/lib/sse";
 import {
-  Play, Zap, Wand2, Wrench, Share2, Download, Upload, Trash2, Copy, Sparkles,
+  Play, Zap, Wand2, Wrench, Share2, Download, Upload, Trash2, Copy, Sparkles, X,
 } from "lucide-react";
 
 export default function WorkspacePage() {
@@ -23,6 +25,8 @@ export default function WorkspacePage() {
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+  const [tacticFilter, setTacticFilter] = useState(null); // P3: click-to-filter
+  const streamStopRef = useRef(null);
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -74,30 +78,99 @@ export default function WorkspacePage() {
     }
   };
 
-  const analyze = async ({ describe = false, aiVerdict = false } = {}) => {
+  const analyze = ({ describe = false, aiVerdict = false } = {}) => {
     if (!input.trim() && !output.trim()) { setStatus("PROVIDE INPUT OR OUTPUT FIRST"); return; }
+    streamStopRef.current?.();
     setAnalyzing(true);
-    setStatus(describe ? "ANALYZING + AI DESCRIBE..." : "ANALYZING...");
+    if (describe || aiVerdict) {
+      // AI-heavy path — use job polling to bypass reverse-proxy timeouts
+      pollAnalyzeJob({ input, output, enrich_osint: true, describe, use_ai_verdict: aiVerdict }, chain);
+    } else {
+      // Fast path — SSE streaming
+      setStatus("ANALYZING…");
+      setAnalysis((prev) => ({ ...(prev || {}), chain, streaming: true }));
+      const stop = streamAnalyze(
+        { input, output, enrich_osint: true, describe: false, use_ai_verdict: false },
+        {
+          onStatus:      (s) => setStatus(`▸ ${s.phase.toUpperCase()}: ${s.message}`),
+          onPartial:     (p) => setAnalysis((a) => ({ ...(a || {}), ...p, chain, streaming: true })),
+          onTiHits:      (h) => setAnalysis((a) => ({ ...(a || {}), ti_hits: h, streaming: true })),
+          onOsint:       (o) => setAnalysis((a) => ({ ...(a || {}), osint: o, streaming: true })),
+          onResult:      (r) => setAnalysis({ ...r, chain, streaming: false }),
+          onError:       (e) => setStatus(`STREAM ERROR (${e.phase}): ${e.error}`),
+          onDone:        ()  => { setAnalyzing(false); streamStopRef.current = null;
+                                 setStatus((s) => s.startsWith("STREAM ERROR") ? s : "ANALYSIS COMPLETE"); },
+        },
+      );
+      streamStopRef.current = stop;
+    }
+  };
+
+  const pollAnalyzeJob = async (body, chainVal) => {
+    // Poll-based analysis for AI-heavy runs (bypasses SSE / proxy timeouts).
+    setStatus("ANALYZING ▸ enqueuing…");
+    setAnalysis({ chain: chainVal, streaming: true });
+    let jobId;
     try {
-      const r = await api.post("/analyze", {
-        input, output, enrich_osint: true, describe, use_ai_verdict: aiVerdict,
-      });
-      setAnalysis({ ...r.data, chain });
-      setStatus("ANALYSIS COMPLETE");
+      const r = await api.post("/analyze/async", body);
+      jobId = r.data.job_id;
     } catch (e) {
       setStatus("ERROR: " + (e?.response?.data?.detail || e.message));
-    } finally {
       setAnalyzing(false);
+      return;
     }
+    let cancelled = false;
+    streamStopRef.current = () => { cancelled = true; };
+    const MAX_POLLS = 90;   // 90 × 3s = 270s
+    for (let i = 0; i < MAX_POLLS; i++) {
+      if (cancelled) return;
+      try {
+        const st = await api.get(`/analyze/status/${jobId}`);
+        const d = st.data;
+        setAnalysis((a) => ({
+          ...(a || {}),
+          iocs: d.iocs || a?.iocs,
+          mitre: d.mitre || a?.mitre,
+          yara: d.yara || a?.yara,
+          lolbas: d.lolbas || a?.lolbas,
+          risk: d.risk || a?.risk,
+          ti_hits: d.ti_hits ?? a?.ti_hits,
+          osint: d.osint ?? a?.osint,
+          ai_verdict: d.ai_verdict ?? a?.ai_verdict,
+          description: d.description ?? a?.description,
+          chain: chainVal,
+          streaming: d.status !== "done" && d.status !== "error",
+        }));
+        setStatus(`▸ ${(d.phase || "running").toUpperCase()} · ${d.progress || 0}%${d.elapsed_s ? " · " + d.elapsed_s + "s" : ""}`);
+        if (d.status === "done") {
+          setStatus(`ANALYSIS COMPLETE · ${d.risk?.verdict || ""}`);
+          break;
+        }
+        if (d.status === "error") {
+          setStatus(`ERROR: ${d.error}`);
+          break;
+        }
+      } catch (e) {
+        // Transient network hiccups — keep polling
+        setStatus(`POLL WARN: ${e.message} — retrying…`);
+      }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    setAnalyzing(false);
+    streamStopRef.current = null;
   };
 
   const autoInvestigate = async () => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
+    streamStopRef.current?.();
     setLoading(true); setAnalyzing(true);
-    setStatus("AUTO-INVESTIGATE: DECODING + OSINT + AI...");
+    setTacticFilter(null);
+    setStatus("AUTO-INVESTIGATE ▸ SMART DECODING…");
     try {
-      const r = await api.post("/ai/auto-investigate", { input });
-      setSteps((r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} })));
+      // 1) Deterministic decode first (fast — <1s)
+      const r = await api.post("/decode/smart", { input });
+      const newSteps = (r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} }));
+      setSteps(newSteps);
       setOutput(r.data.output || "");
       setDetected(r.data.detected_type || null);
       const newChain = (r.data.recipe || []).map((s, i) => ({
@@ -105,13 +178,24 @@ export default function WorkspacePage() {
         output_preview: r.data.steps_output?.[i]?.output_preview || "",
       }));
       setChain(newChain);
-      setAnalysis({ ...r.data.analysis, chain: newChain });
-      setStatus(`INVESTIGATION COMPLETE · ${r.data.analysis?.risk?.verdict || ""}`);
+      setLoading(false);
+
+      // 2) Analysis via async job polling (bypasses 60s proxy timeout)
+      pollAnalyzeJob(
+        { input, output: r.data.output || "", enrich_osint: true, describe: true, use_ai_verdict: true },
+        newChain,
+      );
     } catch (e) {
       setStatus("ERROR: " + (e?.response?.data?.detail || e.message));
-    } finally {
       setLoading(false); setAnalyzing(false);
     }
+  };
+
+  const cancelStream = () => {
+    streamStopRef.current?.();
+    streamStopRef.current = null;
+    setAnalyzing(false); setLoading(false);
+    setStatus("STREAM CANCELLED");
   };
 
   const troubleshoot = async () => {
@@ -230,9 +314,14 @@ export default function WorkspacePage() {
         <span className="badge warn">FLOW</span>
         <div style={{ flex: 1 }} />
 
-        <button className="nvx-btn primary" onClick={autoInvestigate} disabled={loading} data-testid="btn-auto-investigate">
+        <button className="nvx-btn primary" onClick={autoInvestigate} disabled={loading || analyzing} data-testid="btn-auto-investigate">
           <Sparkles size={13} /> AUTO INVESTIGATE
         </button>
+        {analyzing && (
+          <button className="nvx-btn warn" onClick={cancelStream} data-testid="btn-cancel-stream">
+            <X size={13} /> CANCEL
+          </button>
+        )}
         <button className="nvx-btn" onClick={() => autoDecode({ smart: false })} disabled={loading} data-testid="btn-auto-decode">
           <Wand2 size={13} /> AI DECODE
         </button>
@@ -387,7 +476,7 @@ export default function WorkspacePage() {
             </div>
           </div>
 
-          {/* Attack Graph Card — Cortex XDR-style entity graph */}
+          {/* Attack Graph Card — Tactical MITRE ATT&CK swim-lane */}
           {analysis?.description?.entity_graph?.nodes?.length > 0 && (
             <div className="nvx-card" data-testid="attack-graph-card">
               <div className="nvx-card-head">
@@ -398,18 +487,44 @@ export default function WorkspacePage() {
                     {analysis.description.entity_graph.nodes.length} entities · {(analysis.description.entity_graph.edges || []).length} relations
                   </span>
                 </div>
+                {tacticFilter && (
+                  <div className="nvx-card-actions">
+                    <span className="badge warn" data-testid="tactic-filter-badge">
+                      FILTER · {tacticFilter}
+                    </span>
+                    <button className="nvx-btn sm ghost" onClick={() => setTacticFilter(null)} data-testid="btn-clear-tactic-filter">
+                      <X size={11} /> CLEAR
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="nvx-card-body">
                 <AttackGraph
                   nodes={analysis.description.entity_graph.nodes}
                   edges={analysis.description.entity_graph.edges || []}
+                  selectedTactic={tacticFilter}
+                  onTacticClick={(t) => setTacticFilter((cur) => cur === t ? null : t)}
                 />
               </div>
             </div>
           )}
+
+          {/* Final Summary — executive briefing derived from AI describe */}
+          {analysis?.description && (
+            <FinalSummary
+              description={analysis.description}
+              verdict={analysis.ai_verdict}
+              risk={analysis.risk}
+            />
+          )}
         </section>
 
-        <ThreatAnalysis analysis={analysis} loading={analyzing} />
+        <ThreatAnalysis
+          analysis={analysis}
+          loading={analyzing}
+          selectedTactic={tacticFilter}
+          onClearTactic={() => setTacticFilter(null)}
+        />
       </div>
 
       {shareUrl && (

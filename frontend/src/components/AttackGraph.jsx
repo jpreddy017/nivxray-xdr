@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import {
   User, Cog, FileText, HardDrive, Globe, Router, Mail, Database,
-  ScrollText, Link as LinkIcon, Skull, Target,
+  ScrollText, Link as LinkIcon, Skull, Target, Camera, Download,
 } from "lucide-react";
 
 /**
@@ -34,29 +34,121 @@ const TACTICS_ORDER = [
 ];
 const TACTIC_COLOR = Object.fromEntries(TACTICS_ORDER);
 
-export default function AttackGraph({ nodes = [], edges = [] }) {
+export default function AttackGraph({ nodes = [], edges = [], selectedTactic = null, onTacticClick = null }) {
   const { positions, laneMeta, width, height } = useMemo(() => layout(nodes, edges), [nodes, edges]);
+  const svgRef = useRef(null);
   if (!nodes.length) return null;
 
+  const dimNode = (n) => selectedTactic && (n.tactic || "Execution") !== selectedTactic;
+  const dimLane = (t)  => selectedTactic && t !== selectedTactic;
+
+  const serializeSvg = () => {
+    const el = svgRef.current;
+    if (!el) return null;
+    const clone = el.cloneNode(true);
+    // Inline background so exported PNG matches the app's dark theme
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    clone.setAttribute("style", "background:#0a0a0c;font-family:'JetBrains Mono',monospace");
+    const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    bg.setAttribute("x", "0"); bg.setAttribute("y", "0");
+    bg.setAttribute("width", String(width)); bg.setAttribute("height", String(height));
+    bg.setAttribute("fill", "#0a0a0c");
+    clone.insertBefore(bg, clone.firstChild);
+    return new XMLSerializer().serializeToString(clone);
+  };
+
+  const downloadSvg = () => {
+    const svgStr = serializeSvg();
+    if (!svgStr) return;
+    const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nivxray_attack_graph_${new Date().toISOString().replace(/[:.]/g, "-")}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadPng = () => {
+    const svgStr = serializeSvg();
+    if (!svgStr) return;
+    const scale = 2; // hi-DPI export
+    const canvas = document.createElement("canvas");
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext("2d");
+    // paint background in case the SVG background rect doesn't render on some browsers
+    ctx.fillStyle = "#0a0a0c";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `nivxray_attack_graph_${new Date().toISOString().replace(/[:.]/g, "-")}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    };
+    img.onerror = () => alert("Snapshot failed — please try SVG export instead.");
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
+  };
+
   return (
-    <div style={{ overflow: "auto", background: "var(--inset)", border: "1px solid var(--border)" }}>
-      <svg width={width} height={height} style={{ display: "block", minWidth: "100%" }} data-testid="attack-graph-svg">
-        {/* Lane backgrounds + headers */}
-        {laneMeta.map((L, i) => (
-          <g key={L.tactic}>
-            {i % 2 === 0 && (
-              <rect x={L.x - 90} y={0} width={180} height={height} fill="#0a0a0c" opacity={0.35} />
-            )}
-            <line x1={L.x - 90} y1={0} x2={L.x - 90} y2={height} stroke="#2d3135" strokeDasharray="3 3" />
-            <rect x={L.x - 85} y={12} width={170} height={26} fill={L.color} opacity={0.15} stroke={L.color} strokeWidth={1} />
-            <text x={L.x} y={30} fontSize={11} fontFamily="'Chivo',sans-serif" fill={L.color} textAnchor="middle" fontWeight={700} style={{ letterSpacing: "0.14em", textTransform: "uppercase" }}>
-              {L.tactic.length > 22 ? L.tactic.slice(0, 20) + "…" : L.tactic}
-            </text>
-            <text x={L.x} y={48} fontSize={9} fontFamily="'JetBrains Mono',monospace" fill="#8b949e" textAnchor="middle">
-              {L.nodeCount} node{L.nodeCount > 1 ? "s" : ""}
-            </text>
-          </g>
-        ))}
+    <div style={{ background: "var(--inset)", border: "1px solid var(--border)" }}>
+      {/* Snapshot toolbar */}
+      <div
+        style={{
+          display: "flex", gap: 6, padding: "6px 8px", borderBottom: "1px solid var(--border)",
+          background: "var(--bg)", alignItems: "center",
+        }}
+      >
+        <span className="mono" style={{ fontSize: 9, color: "var(--text-mute)", letterSpacing: "0.18em", marginRight: "auto" }}>
+          SNAPSHOT ▸
+        </span>
+        <button className="nvx-btn sm ghost" onClick={downloadPng} data-testid="btn-attack-graph-png">
+          <Camera size={11} /> PNG
+        </button>
+        <button className="nvx-btn sm ghost" onClick={downloadSvg} data-testid="btn-attack-graph-svg">
+          <Download size={11} /> SVG
+        </button>
+      </div>
+      <div style={{ overflow: "auto" }}>
+      <svg ref={svgRef} width={width} height={height} style={{ display: "block", minWidth: "100%" }} data-testid="attack-graph-svg" xmlns="http://www.w3.org/2000/svg">
+        {/* Lane backgrounds + headers (clickable) */}
+        {laneMeta.map((L, i) => {
+          const isSelected = selectedTactic === L.tactic;
+          const isDim = dimLane(L.tactic);
+          return (
+            <g
+              key={L.tactic}
+              data-testid={`ag-lane-${L.tactic.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+              style={{ cursor: onTacticClick ? "pointer" : "default", opacity: isDim ? 0.28 : 1, transition: "opacity 160ms" }}
+              onClick={() => onTacticClick?.(L.tactic)}
+            >
+              {i % 2 === 0 && (
+                <rect x={L.x - 90} y={0} width={180} height={height} fill="#0a0a0c" opacity={0.35} />
+              )}
+              {isSelected && (
+                <rect x={L.x - 90} y={0} width={180} height={height} fill={L.color} opacity={0.08} />
+              )}
+              <line x1={L.x - 90} y1={0} x2={L.x - 90} y2={height} stroke="#2d3135" strokeDasharray="3 3" />
+              <rect x={L.x - 85} y={12} width={170} height={26}
+                fill={L.color}
+                opacity={isSelected ? 0.35 : 0.15}
+                stroke={L.color} strokeWidth={isSelected ? 2 : 1} />
+              <text x={L.x} y={30} fontSize={11} fontFamily="'Chivo',sans-serif" fill={L.color} textAnchor="middle" fontWeight={700} style={{ letterSpacing: "0.14em", textTransform: "uppercase" }}>
+                {L.tactic.length > 22 ? L.tactic.slice(0, 20) + "…" : L.tactic}
+              </text>
+              <text x={L.x} y={48} fontSize={9} fontFamily="'JetBrains Mono',monospace" fill="#8b949e" textAnchor="middle">
+                {L.nodeCount} node{L.nodeCount > 1 ? "s" : ""}{isSelected ? " · FILTERED" : ""}
+              </text>
+            </g>
+          );
+        })}
         {/* right terminator line */}
         {laneMeta.length > 0 && (
           <line
@@ -84,6 +176,7 @@ export default function AttackGraph({ nodes = [], edges = [] }) {
           const to = nodes.find((n) => n.id === e.to);
           const stroke = (from?.malicious || to?.malicious) ? "#d96c6c" : "#4aa890";
           const marker = stroke === "#d96c6c" ? "arrow-red" : "arrow";
+          const edgeDim = selectedTactic && !(from && to && (from.tactic === selectedTactic || to.tactic === selectedTactic));
           // Bezier curve for cross-lane clarity
           const dx = b.x - a.x;
           const cx1 = a.x + dx * 0.4, cy1 = a.y;
@@ -91,9 +184,9 @@ export default function AttackGraph({ nodes = [], edges = [] }) {
           const midX = (a.x + b.x) / 2;
           const midY = (a.y + b.y) / 2;
           return (
-            <g key={i}>
+            <g key={i} style={{ opacity: edgeDim ? 0.15 : 0.9, transition: "opacity 160ms" }}>
               <path d={`M ${a.x} ${a.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${b.x} ${b.y}`}
-                    stroke={stroke} strokeWidth={1.6} fill="none" markerEnd={`url(#${marker})`} opacity={0.9} />
+                    stroke={stroke} strokeWidth={1.6} fill="none" markerEnd={`url(#${marker})`} />
               {e.label && (
                 <g>
                   <rect x={midX - (e.label.length * 3.2)} y={midY - 9} width={e.label.length * 6.4} height={14} fill="#101112" opacity={0.9} rx={2} />
@@ -112,8 +205,15 @@ export default function AttackGraph({ nodes = [], edges = [] }) {
           if (!p) return null;
           const Icon = TYPE_ICON[n.type] || Cog;
           const color = n.malicious ? "#d96c6c" : (TACTIC_COLOR[n.tactic] || "#4aa890");
+          const nDim = dimNode(n);
           return (
-            <g key={n.id} transform={`translate(${p.x}, ${p.y})`} data-testid={`ag-node-${n.id}`}>
+            <g
+              key={n.id}
+              transform={`translate(${p.x}, ${p.y})`}
+              data-testid={`ag-node-${n.id}`}
+              style={{ opacity: nDim ? 0.22 : 1, transition: "opacity 160ms", cursor: onTacticClick && n.tactic ? "pointer" : "default" }}
+              onClick={() => onTacticClick && n.tactic && onTacticClick(n.tactic)}
+            >
               {n.malicious && (
                 <circle r={28} fill="none" stroke={color} strokeWidth={1.5} strokeDasharray="4 3" opacity={0.7} />
               )}
@@ -156,6 +256,7 @@ export default function AttackGraph({ nodes = [], edges = [] }) {
           );
         })}
       </svg>
+      </div>
     </div>
   );
 }
