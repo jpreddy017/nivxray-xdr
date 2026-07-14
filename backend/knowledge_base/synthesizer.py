@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
 from fastapi import HTTPException
-from deps import llm_json
+from llm_provider import llm_json
 
 log = logging.getLogger("nivxray")
 

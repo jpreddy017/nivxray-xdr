@@ -13,8 +13,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException
-
-from deps import llm_json
+from llm_provider import llm_json
 from training.schema import ProcessTree, ProcessNode, SocRationale, ProcessEvidence
 from training.system_prompt import NIVXRAY_PROCESS_TREE_SYSTEM
 from training.validator import validate_and_prune

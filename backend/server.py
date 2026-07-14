@@ -44,6 +44,7 @@ from routers.admin import router as admin_router
 from routers.threat_intel import router as threat_intel_router, _ensure_iocs_indexes
 from routers.history import router as history_router
 from routers.process_tree import router as process_tree_router
+from routers.kb import router as kb_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("nivxray")
@@ -61,6 +62,7 @@ api.include_router(admin_router)
 api.include_router(threat_intel_router)
 api.include_router(history_router)
 api.include_router(process_tree_router)
+api.include_router(kb_router)
 
 app.include_router(api)
 
