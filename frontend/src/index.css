@@ -443,9 +443,11 @@ textarea:focus-visible,
   display: none;
 }
 .nvx-output-textarea {
-  flex: 1;
-  min-height: 160px;
-  resize: vertical;
+  height: 180px !important;
+  min-height: 180px !important;
+  max-height: 180px !important;
+  resize: none !important;
+  overflow-y: auto !important;
 }
 
 /* Tablet */
@@ -477,8 +479,9 @@ textarea:focus-visible,
     display: inline-flex;
   }
   .nvx-output-textarea {
-    min-height: 120px;
-    max-height: 240px;
+    height: 140px !important;
+    min-height: 140px !important;
+    max-height: 140px !important;
   }
   .nvx-toolbar .nvx-btn {
     font-size: 10px;
@@ -506,4 +509,59 @@ textarea:focus-visible,
   header nav .nvx-btn { padding: 4px 8px; font-size: 10px; }
   /* Toast/share */
   [data-testid="share-toast"] { left: 8px !important; right: 8px !important; max-width: unset !important; bottom: 8px !important; }
+}
+
+/* ============ Card style for center column sections ============ */
+.nvx-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  margin: 12px;
+  padding: 0;
+}
+.nvx-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nvx-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Chivo", sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.nvx-card-title .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.nvx-card-title .count {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--text-mute);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  margin-left: 6px;
+}
+.nvx-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.nvx-card-body {
+  padding: 0 14px 14px;
+}
+.nvx-card .nvx-textarea {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0;
 }

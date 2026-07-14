@@ -3,7 +3,7 @@ import axios from "axios";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API_BASE = `${BACKEND_URL}/api`;
 
-const api = axios.create({ baseURL: API_BASE });
+const api = axios.create({ baseURL: API_BASE, timeout: 180000 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("nvx_token");

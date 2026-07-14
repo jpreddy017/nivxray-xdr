@@ -300,40 +300,70 @@ export default function WorkspacePage() {
         <OperationsPanel onAdd={addOp} />
 
         {/* Center column */}
-        <section style={{ display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
-          {/* Input */}
-          <div style={{ padding: 14, borderBottom: "1px solid var(--border)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>
-                ▸ INPUT
+        <section style={{ display: "flex", flexDirection: "column", minWidth: 0, overflow: "auto" }}>
+          {/* Input Card */}
+          <div className="nvx-card" data-testid="input-card">
+            <div className="nvx-card-head">
+              <div className="nvx-card-title">
+                <span className="dot" />
+                INPUT
+                <span className="count">{input.length} chars</span>
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div className="nvx-card-actions">
+                <button className="nvx-btn primary sm" onClick={autoInvestigate} disabled={loading} data-testid="btn-auto-investigate-inline">
+                  <Sparkles size={11} /> AUTO INVESTIGATE
+                </button>
+                <button className="nvx-btn sm" onClick={() => autoDecode({ smart: true })} disabled={loading} data-testid="btn-smart-decode-inline">
+                  <Zap size={11} /> DECODE
+                </button>
                 <button className="nvx-btn sm ghost" onClick={() => setInput("")} data-testid="btn-clear-input">
                   <Trash2 size={11} /> CLEAR
                 </button>
               </div>
             </div>
-            <textarea
-              className="nvx-textarea"
-              data-testid="input-textarea"
-              placeholder="Paste payload — PowerShell, base64, hex, gzip, defanged IOCs, XSS, JS charcode…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              rows={5}
-              spellCheck={false}
-            />
+            <div className="nvx-card-body">
+              <textarea
+                className="nvx-textarea"
+                data-testid="input-textarea"
+                placeholder="Paste payload — PowerShell, base64, hex, gzip, defanged IOCs, XSS, JS charcode…"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                rows={6}
+                spellCheck={false}
+                style={{ height: 180, minHeight: 180, maxHeight: 180, resize: "none", overflowY: "auto" }}
+              />
+            </div>
           </div>
 
           {/* Recipe */}
           <RecipePanel steps={steps} setSteps={setSteps} ops={ops} />
 
-          {/* Output */}
-          <div style={{ padding: 14, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>
-                ▸ OUTPUT
+          {/* Detected banner */}
+          {detected && (
+            <div className="detect-banner fade-in" data-testid="detected-banner"
+              style={{
+                margin: "0 12px", padding: "10px 12px", border: "1px solid var(--accent)",
+                background: "rgba(74,168,144,0.08)", color: "var(--accent)",
+                fontFamily: "JetBrains Mono", fontSize: 11, letterSpacing: "0.06em",
+                display: "flex", alignItems: "center", gap: 8,
+              }}
+            >
+              <span style={{ background: "var(--accent)", color: "#0a0a0c", padding: "2px 8px", fontWeight: 700, letterSpacing: "0.14em" }}>
+                {'>_'}
+              </span>
+              <span style={{ fontWeight: 700 }}>{detected.label.toUpperCase()}</span>
+              <span style={{ color: "var(--text-mute)", marginLeft: "auto" }}>{output.length} decoded chars</span>
+            </div>
+          )}
+
+          {/* Output Card */}
+          <div className="nvx-card" data-testid="output-card">
+            <div className="nvx-card-head">
+              <div className="nvx-card-title">
+                <span className="dot" />
+                OUTPUT
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div className="nvx-card-actions">
                 <button className="nvx-btn sm" onClick={() => analyze({ describe: true, aiVerdict: true })} disabled={analyzing || !output} data-testid="btn-ai-describe">
                   <Sparkles size={11} /> AI DESCRIBE
                 </button>
@@ -345,28 +375,15 @@ export default function WorkspacePage() {
                 </button>
               </div>
             </div>
-
-            {detected && (
-              <div className="detect-banner fade-in" data-testid="detected-banner"
-                style={{
-                  padding: "8px 12px", border: "1px solid var(--accent)",
-                  background: "rgba(74,168,144,0.08)", color: "var(--accent)",
-                  marginBottom: 8, fontFamily: "JetBrains Mono", fontSize: 11,
-                  letterSpacing: "0.06em",
-                }}
-              >
-                ◉ {detected.label.toUpperCase()}
-              </div>
-            )}
-
-            <textarea
-              className="nvx-textarea nvx-output-textarea"
-              data-testid="output-textarea"
-              value={output}
-              readOnly
-              rows={5}
-              placeholder="Run a recipe, press SMART DECODE, or hit AUTO INVESTIGATE…"
-            />
+            <div className="nvx-card-body">
+              <textarea
+                className="nvx-textarea nvx-output-textarea"
+                data-testid="output-textarea"
+                value={output}
+                readOnly
+                placeholder="Run a recipe or click AUTO INVESTIGATE to see decoded output here…"
+              />
+            </div>
           </div>
         </section>
 

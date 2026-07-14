@@ -625,13 +625,42 @@ async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
 
 @api.post("/ai/auto-investigate")
 async def ai_auto_investigate(body: AutoIn, user=Depends(get_current_user)):
-    """Auto Decode + full Analyze (OSINT + AI describe + AI verdict) in one shot."""
-    dec = await ai_auto_decode(body, user=user)
+    """Auto Decode + full Analyze (OSINT + AI describe + AI verdict) — optimized.
+
+    Strategy for speed:
+      1. Run deterministic smart-decode FIRST (instant, no AI wait).
+      2. If smart decoder found nothing, fall back to AI decode.
+      3. Run OSINT enrichment and AI describe/verdict IN PARALLEL against the decoded output.
+    """
+    # 1) fast deterministic decode
+    det = smart_decode(body.input)
+    if det["steps"]:
+        steps = [RecipeStep(op=x["op"], args=x.get("args", {})) for x in det["steps"]]
+        reasoning = "Deterministic smart decoder chained: " + " → ".join(s.op for s in steps)
+    else:
+        # 2) fall back to AI-planned decode
+        dec = await ai_auto_decode(body, user=user)
+        steps = [RecipeStep(op=s["op"], args=s.get("args", {})) for s in dec["recipe"]]
+        reasoning = dec.get("reasoning", "")
+
+    exec_result = await run_recipe(RunRecipeIn(input=body.input, steps=steps), user=user)
+    decoded_output = exec_result.output
+
+    # 3) analyze (with OSINT + AI describe + AI verdict + LOLBAS + TI-hits)
     analysis = await analyze(AnalyzeIn(
-        input=body.input, output=dec["output"],
+        input=body.input, output=decoded_output,
         use_ai_verdict=True, describe=True, enrich_osint=True,
     ), user=user)
-    return {**dec, "analysis": analysis}
+
+    return {
+        "reasoning": reasoning,
+        "recipe": [s.model_dump() for s in steps],
+        "output": decoded_output,
+        "steps_output": exec_result.steps_output,
+        "detected_type": exec_result.detected_type,
+        "errors": exec_result.errors,
+        "analysis": analysis,
+    }
 
 
 @api.post("/ai/troubleshoot")
