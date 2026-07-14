@@ -29,6 +29,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from smart_decoder import smart_decode
 from magic_decoder import magic_decode
+from powershell_ast import deobfuscate_ps
+from amsi_detector import detect_amsi_bypass
 
 
 # =============================================================================
@@ -775,11 +777,78 @@ def analyze_command(text: str,
 
     decodes: List[Dict[str, Any]] = [_decode_span(s) for s in to_decode]
 
+    # PowerShell AST deobfuscation — post-decode polish. Apply to (a) the raw
+    # command if the interpreter is PowerShell, and (b) each decoded output
+    # so nested obfuscation gets resolved too.
+    ast_report: Dict[str, Any] = {"applied": False, "transformations": [],
+                                   "bindings": {}, "final": ""}
+    # Trigger AST deobfuscation when we recognise the interpreter as PowerShell
+    # OR when the raw text carries strong PowerShell syntax markers even in the
+    # absence of an explicit `powershell.exe` prefix.
+    ps_hints = bool(re.search(
+        r"(?:\$\w+\s*=|\[Convert\]::|\[char\]\d|\bIEX\b|\bInvoke-Expression\b|"
+        r"FromBase64String|-bxor|-f\s*['\"]|\.Replace\s*\(|`[a-zA-Z0-9])",
+        text,
+    ))
+    if (prof and prof.name == "powershell") or ps_hints:
+        combined = "\n".join([text] + [d.get("final_output") or "" for d in decodes])
+        deob = deobfuscate_ps(combined)
+        if deob["transformations"]:
+            ast_report = {
+                "applied":         True,
+                "transformations": deob["transformations"],
+                "bindings":        deob["bindings"],
+                "final":           deob["output"],
+            }
+            # If the deobfuscated output differs materially from the raw
+            # command, treat it as an additional "decode chain" so it flows
+            # into IOC extraction, MITRE mapping and behavior classification.
+            if deob["output"] and deob["output"] != combined:
+                decodes.append({
+                    "span": text[:200] + ("…" if len(text) > 200 else ""),
+                    "encoding": "ps-ast",
+                    "role": "PowerShell AST deobfuscation",
+                    "confidence": 0.90,
+                    "chains": [{
+                        "engine": "ps-ast",
+                        "steps": [{"op": t["kind"], "reason": t.get("detail", "")}
+                                  for t in deob["transformations"]],
+                        "output": deob["output"],
+                    }],
+                    "final_output": deob["output"],
+                    "is_shellcode": False,
+                })
+
+    # AMSI / ETW bypass detection — scan the raw command AND every decoded /
+    # deobfuscated layer. Bypasses commonly hide inside base64 wrappers.
+    scan_text = "\n".join(
+        [text] + [d.get("final_output") or "" for d in decodes] + [ast_report.get("final") or ""]
+    )
+    amsi = detect_amsi_bypass(scan_text)
+
     # Aggregate IOCs / MITRE / behaviors ---------------------------------------
-    combined_text = "\n".join([text] + [d.get("final_output") or "" for d in decodes])
+    combined_text = "\n".join([text] + [d.get("final_output") or "" for d in decodes]
+                              + [ast_report.get("final") or ""])
     iocs        = extract_iocs(combined_text)
     behaviors   = classify_behaviors(pipeline, text, prof)
+    if amsi["detected"]:
+        behaviors.append({
+            "tag":    "amsi-bypass",
+            "detail": f"AMSI/ETW bypass detected ({amsi['severity']}): "
+                      f"{amsi['techniques'][0]['name']}",
+        })
     mitre       = map_mitre(combined_text)
+    # Add MITRE mapping surfaced by the AMSI detector (with dedup)
+    seen_mitre = {m["id"] for m in mitre}
+    for t in amsi["techniques"]:
+        mid = t["mitre_id"]
+        if mid not in seen_mitre:
+            seen_mitre.add(mid)
+            mitre.append({"id": mid, "name": "Impair Defenses (Disable/Modify Tools)"
+                                          if mid == "T1562.001"
+                                          else "Impair Defenses (Indicator Blocking)"
+                                          if mid == "T1562.006"
+                                          else mid})
     lolbins     = detect_lolbins(tokens, prof)
     inline      = reconstruct_inline(text, to_decode, decodes)
     summary     = summarize(prof, behaviors, iocs, decodes)
@@ -802,6 +871,8 @@ def analyze_command(text: str,
         "choice_reason":          choice_reason,
         "decode_chains":          decodes,
         "final_decoded_inline":   inline,
+        "ast_deobfuscation":      ast_report,
+        "amsi_bypass":            amsi,
         "iocs":                   iocs,
         "lolbins":                lolbins,
         "mitre":                  mitre,

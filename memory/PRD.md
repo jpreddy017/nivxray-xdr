@@ -126,6 +126,47 @@ Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") 
 - Initial benchmark on seeded samples: **10/15 pass (66.7%)** — exposes real decoder gaps for follow-up work (LZMA / Zlib / H4sIA-gzip auto-chain / JWT / JS atob).
 - Regression: **57/57 backend pytest pass**.
 
+## Session 9 (2026-02) — Phase-2: PowerShell AST deobfuscation + AMSI bypass detection
+
+### PowerShell AST-lite deobfuscator (`/app/backend/powershell_ast.py`)
+Pattern-based mini-AST — multi-pass so each transformation feeds the next:
+- **Variable-assignment tracking**: `$a="I";$b="EX";$c=$a+$b` → `$c='IEX'` (first-assignment-wins scoping). Skips substitutions inside string literals so `"($var)"` stays intact.
+- **String concatenation**: `'i'+'e'+'x'` → `'iex'` (single-quote body escape `''` respected, double-quote `\"` unescape).
+- **Format-string obfuscation**: `"{2}{0}{1}" -f 'B','C','A'` → `'ABC'`.
+- **.Replace() char substitution**: `('IZEZX').Replace('Z','')` → `'IEX'` (multi-pass — up to 5 chained `.Replace()`).
+- **[char]N literal**: `[char]73+[char]69+[char]88` → `'IEX'`.
+- **Backtick escapes**: `` i`e`x `` → `iex`.
+- **Case normalization** for known cmdlets (`InVOkE-eXpReSsION` → `Invoke-Expression`) so signature matchers downstream fire reliably.
+Returns `{output, transformations:[{kind, before, after, detail}], bindings}` — analysts can audit every change.
+
+### AMSI-bypass detector (`/app/backend/amsi_detector.py`)
+Signature bank of 15 patterns across 3 categories (`amsi`, `reflection`, `etw`):
+- Direct references: `System.Management.Automation.AmsiUtils`, `amsiInitFailed`, `AmsiScanBuffer*`, `AmsiContext/Session`
+- Reflection bypasses: `GetField('amsiInitFailed',...)`, `SetValue($null,$true)` on AmsiUtils, `[Ref].Assembly.GetType(...)`
+- Byte-patch classics: Metsysbench (`0xB8,0x57,0x00,0x07,0x80,0xC3`), `xor eax,eax; ret` (`0x31,0xC0,0xC3`)
+- Memory helpers: `VirtualProtect` near AMSI region, `LoadLibrary('amsi.dll')`
+- ETW: `EtwEventWrite`, `System.Diagnostics.Eventing`
+- Known bypass phrasing: Nishang-style, Mattifestation/matt.graeber pattern
+Returns `{detected, severity, techniques[], amsi_related_count, etw_related_count}` — severity auto-tiers on match count + confidence (critical/high/medium/low).
+
+### Integration into ICAE (`command_analyzer.py`)
+- AST runs on the raw command AND every decoded layer when PowerShell markers are present (`$var=`, `[Convert]::`, `[char]N`, `-bxor`, `-f 'a'`, `.Replace(`, backticks) — no need for explicit `powershell.exe` prefix.
+- AMSI scan runs on the union of raw + all decoded + AST-normalized text — **catches bypasses hidden inside `-Enc` base64 wrappers**.
+- MITRE mapping auto-adds T1562.001 (Impair Defenses: Disable Tools) and T1562.006 (Indicator Blocking) with dedup.
+- Behaviors tag `amsi-bypass` (severity in detail) when detected.
+- Response now includes `ast_deobfuscation` + `amsi_bypass` blocks.
+
+### Frontend (`CommandAnalyzerPage.jsx`)
+- **AST DEOBFUSCATION** panel — variable-binding chips + transformation timeline + final deobfuscated output.
+- **AMSI / DEFENSE-EVASION** panel — severity badge, AMSI/ETW counts, per-technique cards with MITRE ID, confidence bar, evidence snippet.
+- Two new example chips: "PS variable+concat obfuscation" and "AMSI reflection bypass".
+
+### Regression: **139/139 pytest** (adds 18 new: PS AST + AMSI). Sample Library benchmark still **17/17 = 100%**.
+
+### End-to-end proof (visual, see attached screenshots)
+1. Obfuscated PS `$a='I';$b='E';$c='X'; & ($a+$b+$c) ([Ref].Assembly.GetType(...AmsiUtils')...SetValue($null,$true))` — AST resolves bindings, AMSI panel lists 7 techniques (critical).
+2. Same AMSI bypass **wrapped in base64 -Enc** — pipeline decodes `base64→utf16le` first, THEN detects all 7 AMSI techniques from the revealed content. Inline reconstruction shows the deobfuscated content next to the original -Enc blob.
+
 ## Backlog (P1/P2 remaining)
 - P1: Client-side WASM ops for real-time preview.
 - P1: Live diff-highlight between INPUT & OUTPUT columns.

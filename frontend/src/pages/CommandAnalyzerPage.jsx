@@ -28,6 +28,14 @@ const EXAMPLES = [
     label: "rundll32 mshtml LOLBIN",
     cmd: `rundll32.exe javascript:"\\..\\mshtml,RunHTMLApplication ";document.write();`,
   },
+  {
+    label: "PS variable+concat obfuscation",
+    cmd: `$a="I";$b="EX";$c=$a+$b; & $c whoami`,
+  },
+  {
+    label: "AMSI reflection bypass",
+    cmd: `[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed','NonPublic,Static').SetValue($null,$true)`,
+  },
 ];
 
 export default function CommandAnalyzerPage() {
@@ -312,6 +320,104 @@ export default function CommandAnalyzerPage() {
                 <Copy size={11} /> COPY
               </button>
             </Section>
+
+            {/* PowerShell AST deobfuscation */}
+            {report.ast_deobfuscation?.applied && (
+              <Section title={`POWERSHELL AST DEOBFUSCATION · ${(report.ast_deobfuscation.transformations || []).length} transforms`}
+                       testid="ast-section" accent="var(--good)">
+                {Object.keys(report.ast_deobfuscation.bindings || {}).length > 0 && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div className="mono" style={{ fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.15em", marginBottom: 4 }}>
+                      VARIABLE BINDINGS
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {Object.entries(report.ast_deobfuscation.bindings).map(([k, v], i) => (
+                        <code key={i} className="mono" data-testid={`ast-binding-${i}`}
+                              style={{
+                                fontSize: 11, padding: "2px 6px", color: "var(--good)",
+                                border: "1px solid var(--good)44", background: "var(--good)0F",
+                                borderRadius: 2, wordBreak: "break-all",
+                              }}>
+                          {k} = {JSON.stringify(v).slice(0, 60)}
+                        </code>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="mono" style={{ fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.15em", marginBottom: 4 }}>
+                  TRANSFORMATIONS APPLIED
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 3 }}>
+                  {report.ast_deobfuscation.transformations.map((t, i) => (
+                    <li key={i} className="mono" style={{ fontSize: 11, color: "var(--text)" }}
+                        data-testid={`ast-transform-${i}`}>
+                      <b style={{ color: "var(--accent)" }}>{t.kind}</b>{t.detail ? ` · ${t.detail}` : ""}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mono" style={{ fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.15em", marginTop: 10, marginBottom: 4 }}>
+                  DEOBFUSCATED OUTPUT
+                </div>
+                <pre className="mono" data-testid="ast-final"
+                     style={{
+                       margin: 0, padding: 8, fontSize: 11.5, color: "var(--text)",
+                       background: "var(--panel-2, rgba(0,0,0,0.35))",
+                       border: "1px solid var(--good)44", borderRadius: 2,
+                       whiteSpace: "pre-wrap", wordBreak: "break-all",
+                       maxHeight: 240, overflow: "auto",
+                     }}>{report.ast_deobfuscation.final}</pre>
+              </Section>
+            )}
+
+            {/* AMSI / Defense-evasion */}
+            {report.amsi_bypass?.detected && (
+              <Section title={`AMSI / DEFENSE-EVASION · ${report.amsi_bypass.severity?.toUpperCase()}`}
+                       testid="amsi-section" accent="var(--high)">
+                <div style={{ marginBottom: 10 }}>
+                  <span className="badge" data-testid="amsi-severity-badge"
+                        style={{
+                          background: "var(--high)22", color: "var(--high)",
+                          border: "1px solid var(--high)",
+                        }}>
+                    ⚠ AMSI BYPASS · {report.amsi_bypass.severity}
+                  </span>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--text-dim)", marginLeft: 10 }}>
+                    {report.amsi_bypass.amsi_related_count} AMSI · {report.amsi_bypass.etw_related_count} ETW
+                  </span>
+                </div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  {report.amsi_bypass.techniques.map((t, i) => (
+                    <div key={i} className="brut-border" style={{
+                      padding: 8, background: "var(--inset)",
+                    }} data-testid={`amsi-technique-${i}`}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                        <div className="mono" style={{ fontSize: 12, color: "var(--text)" }}>
+                          <b style={{ color: "var(--high)" }}>{t.name}</b>
+                        </div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <span className="badge" style={{ background: "var(--warn)22", color: "var(--warn)", border: "1px solid var(--warn)44" }}>
+                            MITRE {t.mitre_id}
+                          </span>
+                          <span className="badge">{Math.round(t.confidence * 100)}%</span>
+                        </div>
+                      </div>
+                      <div className="mono" style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 4 }}>
+                        [{t.pattern_id}] · {t.category}
+                      </div>
+                      {t.evidence && (
+                        <pre className="mono" style={{
+                          margin: "6px 0 0", padding: 6, fontSize: 10.5,
+                          background: "var(--panel-2, rgba(0,0,0,0.35))",
+                          border: "1px solid var(--high)44", borderRadius: 2,
+                          color: "var(--high)", whiteSpace: "pre-wrap", wordBreak: "break-all",
+                          maxHeight: 60, overflow: "auto",
+                        }}>{t.evidence}</pre>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             {/* IOCs + LOLBins + MITRE */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
