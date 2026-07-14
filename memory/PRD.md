@@ -1,5 +1,21 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
+
+## Latest Change (Feb 2026 — this session)
+### Chained Wrapper Archetypes + Universal Troubleshoot Engine
+- **New `PS_MSF_XOR_Stage2` archetype** — deterministically matches the Metasploit/Meterpreter reflective loader pattern (`[Byte[]]$var_code = FromBase64String + -bxor + reflective-PEB-walker`) and returns raw shellcode bytes.
+- **`try_archetypes()` now chains** — Stage-1 output feeds back into the registry (max depth 4), so `PS_MemoryStream_Gzip_IEX → PS_MSF_XOR_Stage2` fires in one call. Engine label becomes `archetype:PS_MemoryStream_Gzip_IEX+PS_MSF_XOR_Stage2` and confidence stays 100%.
+- **`analysis_core.deterministic_best_decode()`** now re-checks `reached_shellcode` against the archetype's chained terminal output, so SOC Verdict panel auto-fires on the recovered shellcode bytes.
+- **SocVerdictPanel** copy updated to plain-English: `Command & Control (C2) Server` and `Network Masquerading (User-Agent)` — the two IOCs SOC analysts most need.
+- **New Universal Troubleshoot Engine (`troubleshoot_engine.py`)** — deterministic-first, AI-optional:
+  * Diagnostic codes: EMPTY_INPUT, B64_PAD_FIX, GZIP_TRUNCATED, RECIPE_TOO_SHALLOW, ARCHETYPE_MISSED, OVER_DECODED, GRACEFUL_STOP, MISSING_IOCS, OP_CRASH, LOW_CONFIDENCE, UNKNOWN.
+  * Auto-fixes: repairs corrupted base64, deepens shallow recipes, applies missed archetypes, XOR-key sweep for missing IOCs, trims over-decoded tail, escalates low-confidence to magic-decoder.
+  * Endpoint `POST /api/troubleshoot/auto?use_ai=<bool>` — deterministic pass always runs; LLM escalation only if `use_ai=true` AND deterministic didn't produce output.
+  * Two frontend buttons: `TROUBLESHOOT` (offline) and `TROUBLESHOOT + AI` (with LLM fallback).
+- **Tests added**: 5 new tests in `test_wrapper_archetypes.py` (Stage-2 archetype + chained pipeline + real user fixture) + 6 new tests in `test_troubleshoot_engine.py`. **Full suite: 418/418 green** (excluding one pre-existing flaky live-integration test).
+- **Live E2E validated** via curl: `/api/decode/smart` on the real Meterpreter fixture returns `engine=archetype:PS_MemoryStream_Gzip_IEX+PS_MSF_XOR_Stage2, confidence=100, reached_shellcode=true, C2=149.28.81.19, UA=Mozilla/5.0(...)MSIE 9.0;Windows NT 6.1;Trident/5.0;BOIE9;PTBR`. `/api/troubleshoot/auto` with a deliberately shallow 1-op recipe auto-fixes to the 5-op chain with the same terminal state, 3 fixes applied, no LLM needed.
+
+
 ## Problem Statement
 Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") with:
 - 40+ deterministic decoders that work perfectly **without AI**

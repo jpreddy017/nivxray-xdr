@@ -478,17 +478,39 @@ export default function WorkspacePage() {
     setStatus("STREAM CANCELLED");
   };
 
-  const troubleshoot = async () => {
+  const troubleshoot = async (useAI = false) => {
     setLoading(true);
-    setStatus("TROUBLESHOOTING WITH AI...");
+    setStatus(useAI ? "TROUBLESHOOT ▸ deterministic + AI escalation…"
+                    : "TROUBLESHOOT ▸ deterministic rules…");
     try {
-      const r = await api.post("/ai/troubleshoot", { input, steps, error: null });
-      if (r.data.suggested_steps?.length) {
-        setSteps(r.data.suggested_steps.map((s) => ({ op: s.op, args: s.args || {} })));
-        setStatus(`DIAGNOSIS: ${r.data.diagnosis?.slice(0, 140)}`);
-      } else {
-        setStatus("NO SUGGESTIONS RETURNED");
+      const r = await api.post(`/troubleshoot/auto?use_ai=${useAI ? "true" : "false"}`,
+                               { input, steps, error: null });
+      const d = r.data;
+      // Auto-apply the repaired state to the workspace
+      if (d.final_steps?.length) {
+        setSteps(d.final_steps.map((s) => ({ op: s.op, args: s.args || {} })));
       }
+      if (d.final_output != null) {
+        setOutput(d.final_output);
+      }
+      if (d.final_engine) setDecodeWinnerEngine(d.final_engine);
+      if (d.final_confidence != null) setDecodeConfidence(d.final_confidence);
+      setReachedShellcode(!!d.reached_shellcode);
+
+      // Surface diagnostics as a compact toast + trace
+      const trace = (d.diagnoses || []).map((diag) => ({
+        step: "troubleshoot",
+        engine: diag.severity.toUpperCase(),
+        note: `[${diag.code}] ${diag.message}${diag.auto_fixed ? " ✓ AUTO-FIXED" : ""}`,
+      }));
+      if (d.fixes_applied?.length) {
+        trace.push({
+          step: "done",
+          note: `${d.fixes_applied.length} auto-fix(es) applied: ${d.fixes_applied.join("; ")}`,
+        });
+      }
+      setNivxrayTrace(trace);
+      setStatus(d.human_summary || (d.success ? "TROUBLESHOOT OK" : "TROUBLESHOOT — NO FIXES POSSIBLE"));
     } catch (e) {
       setStatus("ERROR: " + (e?.response?.data?.detail || e.message));
     } finally {
@@ -720,14 +742,31 @@ export default function WorkspacePage() {
                 }>
           <Play size={13} /> RUN RECIPE
         </button>
-        <button className="nvx-btn warn" onClick={troubleshoot} disabled={loading} data-testid="btn-troubleshoot"
+        <button className="nvx-btn warn" onClick={() => troubleshoot(false)} disabled={loading} data-testid="btn-troubleshoot"
                 title={
-                  "TROUBLESHOOT — Ask the AI why the current recipe / decode is failing.\n" +
-                  "Sends: input, current recipe, current output, and any errors — receives a targeted explanation + suggested fix.\n\n" +
-                  "▸ USE WHEN: recipe returns garbage or an error you can't explain.\n" +
-                  "▸ COST: 1 LLM call (~5s). Uses selected Persona + LLM."
+                  "TROUBLESHOOT — Universal one-click auto-fix.\n\n" +
+                  "▸ WORKS OFFLINE (no LLM). Fixes at runtime:\n" +
+                  "   • Base64 padding / alphabet corruption\n" +
+                  "   • Truncated gzip / partial deflate\n" +
+                  "   • Recipe stopped too early → applies deeper archetype\n" +
+                  "   • Missing IOCs in shellcode → XOR-key sweep\n" +
+                  "   • Over-decoded tail (rot13/reverse) → trimmed\n" +
+                  "   • Low-confidence stall → escalates to magic-decoder\n" +
+                  "   • Op crashes → rolls back to last good layer\n\n" +
+                  "▸ AUTO-APPLIES the fix to the workspace (recipe + output).\n" +
+                  "▸ Use `TROUBLESHOOT + AI` for LLM escalation if deterministic fails."
                 }>
           <Wrench size={13} /> TROUBLESHOOT
+        </button>
+        <button className="nvx-btn warn" onClick={() => troubleshoot(true)} disabled={loading} data-testid="btn-troubleshoot-ai"
+                title={
+                  "TROUBLESHOOT + AI — Same deterministic pipeline as above, then\n" +
+                  "escalates to the LLM (Claude Sonnet 4.5) ONLY if the offline rules\n" +
+                  "leave the payload undecoded. LLM proposes a new recipe based on the\n" +
+                  "collected diagnostics.\n\n" +
+                  "Costs 1 LLM call (~3-6s) only when needed."
+                }>
+          <Sparkles size={13} /> TROUBLESHOOT + AI
         </button>
         </>
         )}

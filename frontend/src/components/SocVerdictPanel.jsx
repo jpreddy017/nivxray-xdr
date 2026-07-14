@@ -57,13 +57,13 @@ export default function SocVerdictPanel({ output, confidence, winnerEngine, pred
   const socTicket = [
     `═══ NIVXRAY — SOC VERDICT ═══`,
     ``,
-    `Family:     ${familyPretty}`,
-    `Arch:       ${shellcode.arch}`,
-    `C2 IP:      ${iocs?.ip || "(none extracted)"}`,
-    `URL:        ${iocs?.url || "(none extracted)"}`,
-    `User-Agent: ${iocs?.userAgent || "(none extracted)"}`,
-    `MITRE:      ${mitre.join(", ")}`,
-    `Confidence: ${confidence ?? "?"} / 100 · engine=${winnerEngine || "magic"}`,
+    `Family:                            ${familyPretty}`,
+    `Arch:                              ${shellcode?.arch || "loader-script"}`,
+    `Command & Control (C2) Server:     ${iocs?.ip || "(none extracted)"}`,
+    `URL:                               ${iocs?.url || "(none extracted)"}`,
+    `Network Masquerading (User-Agent): ${iocs?.userAgent || "(none extracted)"}`,
+    `MITRE:                             ${mitre.join(", ")}`,
+    `Confidence:                        ${confidence ?? "?"} / 100 · engine=${winnerEngine || "magic"}`,
     ``,
     `RECOMMENDED ACTIONS:`,
     `  1. Block C2 IP ${iocs?.ip || "(see decoded output)"} at perimeter`,
@@ -116,12 +116,12 @@ export default function SocVerdictPanel({ output, confidence, winnerEngine, pred
       <div style={{ padding: "0 18px 14px 18px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
         <VerdictField icon={ShieldAlert} label="Arch" value={detected.arch} color="var(--warn)" />
         {iocs?.ip && (
-          <VerdictField icon={Wifi} label="C2 IP · block immediately"
+          <VerdictField icon={Wifi} label="Command & Control (C2) Server · block immediately"
                         value={iocs.ip} color="var(--high)" mono
                         testId="verdict-c2-ip" />
         )}
         {iocs?.userAgent && (
-          <VerdictField label="Hardcoded UA" value={iocs.userAgent.slice(0, 60) + (iocs.userAgent.length > 60 ? "…" : "")}
+          <VerdictField label="Network Masquerading (User-Agent)" value={iocs.userAgent.slice(0, 90) + (iocs.userAgent.length > 90 ? "…" : "")}
                         color="var(--warn)" mono testId="verdict-ua" />
         )}
         <VerdictField label="Confidence" value={`${confidence ?? "?"} / 100 · ${winnerEngine || "magic"}`}

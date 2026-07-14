@@ -249,3 +249,90 @@ async def ai_troubleshoot(body: TroubleshootIn, user=Depends(get_current_user)):
     fixed = [{"op": s["op"], "args": s.get("args") or {}}
              for s in (result.get("suggested_steps") or [])[:8] if s.get("op") in OPERATIONS]
     return {"diagnosis": result.get("diagnosis", ""), "suggested_steps": fixed}
+
+
+# ─── Universal Troubleshoot Engine ───────────────────────────────────────
+# Rule-based deterministic diagnostics + auto-repair. Works offline (no LLM).
+# Escalates to Claude ONLY if the deterministic pass leaves the state broken
+# AND the caller passes use_ai=true.
+@router.post("/troubleshoot/auto")
+async def troubleshoot_auto(body: TroubleshootIn, use_ai: bool = False, user=Depends(get_current_user)):
+    """One-click universal troubleshoot.
+
+    Runs a chain of rule-based diagnostics against the payload / recipe /
+    error, auto-applies fixes (base64 padding repair, missing archetype,
+    truncated gzip recovery, XOR-key sweep for missing IOCs, over-decode
+    trim, low-confidence escalation), and returns a plain-English summary.
+
+    If `use_ai=true` AND the deterministic pass didn't yield a usable output,
+    the LLM is invoked as a last resort with the full failure context.
+    """
+    from troubleshoot_engine import troubleshoot
+    current_steps = [s.model_dump() for s in body.steps]
+    result = troubleshoot(
+        input_text=body.input,
+        current_output=None,
+        current_steps=current_steps,
+        error=body.error,
+    )
+
+    # AI escalation — only if deterministic didn't produce usable output
+    if use_ai and not result["success"]:
+        try:
+            system = (
+                "You are a DFIR analyst. A payload could NOT be decoded by the "
+                "deterministic engine. Given the input, current recipe, error, "
+                "and the diagnostics already collected, propose a NEW recipe.\n"
+                f"AVAILABLE OPERATION IDS: {_OP_IDS}\n"
+                "Return STRICT JSON: {diagnosis: string, suggested_steps: [{op, args}]}. Max 8 steps."
+            )
+            prompt = (
+                f"INPUT:\n{body.input[:3000]}\n\n"
+                f"CURRENT RECIPE: {json.dumps(current_steps)}\n"
+                f"ERROR: {body.error or 'output empty / low confidence'}\n"
+                f"DETERMINISTIC DIAGNOSES: {json.dumps([d['code'] for d in result['diagnoses']])}\n\n"
+                f"Return only JSON."
+            )
+            plan = await llm_json(
+                "troubleshoot-auto-" + str(datetime.now(timezone.utc).timestamp()),
+                system, prompt,
+            )
+            ai_steps = [
+                {"op": s["op"], "args": s.get("args") or {}}
+                for s in (plan.get("suggested_steps") or [])[:8]
+                if s.get("op") in OPERATIONS
+            ]
+            if ai_steps:
+                # Actually run the AI-proposed recipe against the input
+                r = await run_recipe(
+                    RunRecipeIn(input=body.input,
+                                steps=[RecipeStep(op=s["op"], args=s["args"]) for s in ai_steps]),
+                    user=user,
+                )
+                result["ai_used"] = True
+                result["ai_diagnosis"] = plan.get("diagnosis", "")
+                result["diagnoses"].append({
+                    "code": "AI_ESCALATED",
+                    "severity": "info",
+                    "message": "LLM proposed a repair recipe: "
+                               + (plan.get("diagnosis", "") or "no diagnosis text"),
+                    "auto_fixed": bool(r.output),
+                })
+                if r.output:
+                    result["final_output"] = r.output
+                    result["final_steps"] = ai_steps
+                    result["final_engine"] = "ai-troubleshoot"
+                    result["success"] = True
+                    result["fixes_applied"].append("LLM-proposed recipe executed")
+                    result["human_summary"] = (
+                        f"Deterministic exhausted. LLM proposed: {plan.get('diagnosis','')[:200]}"
+                    )
+        except Exception as e:
+            result["diagnoses"].append({
+                "code": "OP_CRASH",
+                "severity": "error",
+                "message": f"AI escalation failed: {str(e)[:200]}",
+                "auto_fixed": False,
+            })
+
+    return result

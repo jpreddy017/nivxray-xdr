@@ -48,6 +48,17 @@ def deterministic_best_decode(payload: str) -> Dict[str, Any]:
         from wrapper_archetypes import try_archetypes
         arch = try_archetypes(payload)
         if arch and (arch.get("output") or "").strip():
+            # Re-check `reached_shellcode` on the (possibly chained) terminal
+            # output — Stage-2 archetypes return raw shellcode bytes that must
+            # trigger the SOC Verdict panel.
+            try:
+                from shellcode_analyzer import starts_with_known_prologue
+                out_s = arch["output"]
+                raw = (out_s.encode("latin-1") if all(ord(c) < 256 for c in out_s)
+                       else out_s.encode("utf-8", errors="replace"))
+                arch["reached_shellcode"] = starts_with_known_prologue(raw)
+            except Exception:
+                pass
             return arch
     except Exception:
         pass

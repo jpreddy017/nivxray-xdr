@@ -145,3 +145,105 @@ def test_archetype_ps_fb64_utf16le():
 def test_archetypes_return_none_for_plain_text():
     assert try_archetypes("just plain english text with no wrapper") is None
     assert try_archetypes("") is None
+
+
+# ─── PS_MSF_XOR_Stage2 (Meterpreter reflective loader) ───────────────────
+def _msf_loader_script(shellcode: bytes, xor_key: int = 0x23) -> str:
+    """Reproduce the classic `msfvenom -f psh` / Empire reflective loader
+    around an arbitrary shellcode buffer, XORed byte-wise with `xor_key`."""
+    xored = bytes(b ^ xor_key for b in shellcode)
+    b64 = base64.b64encode(xored).decode()
+    return (
+        "Set-StrictMode -Version 2\n"
+        "$DoIt = @'\n"
+        "function func_get_proc_address { Param ($m, $p) }\n"
+        "function func_get_delegate_type { Param ($t) }\n"
+        f"[Byte[]]$var_code = [System.Convert]::FromBase64String('{b64}')\n"
+        f"for ($x = 0; $x -lt $var_code.Count; $x++) {{ $var_code[$x] = $var_code[$x] -bxor {xor_key} }}\n"
+        "$var_va = [Kernel32]::VirtualAlloc(0, $var_code.Length, 0x3000, 0x40)\n"
+        "'@\n"
+    )
+
+
+def test_archetype_msf_xor_stage2_recovers_shellcode():
+    # Canonical MSF x86 prologue + a fake C2 string
+    sc = b"\xfc\xe8\x89\x00\x00\x00\x60\x89" + b"149.28.81.19\x00" + b"\x90" * 64
+    loader = _msf_loader_script(sc, xor_key=0x23)
+    r = try_archetypes(loader)
+    assert r is not None
+    assert r["archetype_id"] == "PS_MSF_XOR_Stage2"
+    # Terminal output must be the raw shellcode as latin-1 str
+    assert r["output"].encode("latin-1") == sc
+
+
+def test_archetype_msf_xor_stage2_with_non_default_key():
+    sc = b"\xfc\xe8" + b"\x41" * 100
+    loader = _msf_loader_script(sc, xor_key=0x7F)
+    r = try_archetypes(loader)
+    assert r is not None
+    assert r["archetype_id"] == "PS_MSF_XOR_Stage2"
+    assert r["output"].encode("latin-1") == sc
+
+
+def test_archetype_chains_gzip_stage1_to_xor_stage2_end_to_end():
+    """THE user-facing headline test: paste the full MSF one-liner, ONE call
+    to try_archetypes, get raw shellcode bytes back. Zero manual steps."""
+    sc = b"\xfc\xe8\x89\x00\x00\x00\x60\x89" + b"User-Agent: Mozilla/5.0 (compatible; MSIE 9.0)\x00" \
+       + b"149.28.81.19\x00" + b"\x90" * 128
+    loader_script = _msf_loader_script(sc, xor_key=0x23)
+    outer_b64 = base64.b64encode(gzip.compress(loader_script.encode())).decode()
+    wrapper = (
+        f'$s=New-Object IO.MemoryStream(,[Convert]::FromBase64String("{outer_b64}"));'
+        f'IEX (New-Object IO.StreamReader(New-Object IO.Compression.GzipStream('
+        f'$s,[IO.Compression.CompressionMode]::Decompress))).ReadToEnd();'
+    )
+    r = try_archetypes(wrapper)
+    assert r is not None, "chained archetype must fire end-to-end"
+    # BOTH stages should have fired, in order
+    assert r["chain_ids"] == ["PS_MemoryStream_Gzip_IEX", "PS_MSF_XOR_Stage2"], \
+        f"unexpected chain: {r['chain_ids']}"
+    assert r["engine"] == "archetype:PS_MemoryStream_Gzip_IEX+PS_MSF_XOR_Stage2"
+    # Terminal output = raw shellcode, decoded C2 + UA extractable
+    out_bytes = r["output"].encode("latin-1")
+    assert out_bytes == sc
+    assert b"149.28.81.19" in out_bytes
+    assert b"Mozilla/5.0" in out_bytes
+
+
+def test_archetype_chain_flags_reached_shellcode_via_analysis_core():
+    """The chained archetype must set reached_shellcode=True so the SOC
+    Verdict panel activates and the C2/UA get promoted to the top of the UI."""
+    from analysis_core import deterministic_best_decode
+    sc = b"\xfc\xe8\x89\x00\x00\x00\x60\x89" + b"\x90" * 200
+    loader_script = _msf_loader_script(sc, xor_key=0x23)
+    outer_b64 = base64.b64encode(gzip.compress(loader_script.encode())).decode()
+    wrapper = (
+        f'$s=New-Object IO.MemoryStream(,[Convert]::FromBase64String("{outer_b64}"));'
+        f'IEX (New-Object IO.StreamReader(New-Object IO.Compression.GzipStream('
+        f'$s,[IO.Compression.CompressionMode]::Decompress))).ReadToEnd();'
+    )
+    r = deterministic_best_decode(wrapper)
+    assert r["reached_shellcode"] is True, \
+        "shellcode prologue must be recognised on the archetype's terminal output"
+    assert r["engine"].startswith("archetype:PS_MemoryStream_Gzip_IEX+PS_MSF_XOR_Stage2")
+
+
+def test_archetype_chain_on_real_user_payload():
+    """Regression against the EXACT user-provided Metasploit stager fixture."""
+    import os
+    from analysis_core import deterministic_best_decode
+    fixture = os.path.join(os.path.dirname(__file__), "fixtures",
+                           "meterpreter_gzip_xor_stager.txt")
+    with open(fixture) as f:
+        payload = f.read().strip()
+    r = deterministic_best_decode(payload)
+    # Full chain must fire — Stage 1 (gzip stager) then Stage 2 (XOR loader)
+    assert r["engine"].startswith("archetype:PS_MemoryStream_Gzip_IEX+PS_MSF_XOR_Stage2"), \
+        f"chain did not cascade to Stage 2: engine={r['engine']}"
+    assert r["reached_shellcode"] is True
+    out_bytes = r["output"].encode("latin-1")
+    assert len(out_bytes) == 834
+    assert out_bytes[:8] == b"\xfc\xe8\x89\x00\x00\x00\x60\x89"
+    # The two IOCs the user cares about
+    assert b"149.28.81.19" in out_bytes
+    assert b"Mozilla/5.0" in out_bytes

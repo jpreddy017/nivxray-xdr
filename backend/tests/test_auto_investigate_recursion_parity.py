@@ -40,26 +40,35 @@ def _outer_b64(text: str) -> str:
 # --- Case 1: real Meterpreter stager (base64 → gzip → b64 → xor → sc) ---- #
 
 def test_meterpreter_stager_auto_investigate_matches_magic():
-    """The full 5-op chain must be reached — not the 2-op smart-decode chain."""
+    """The full multi-layer chain must be reached — not the 2-op smart-decode chain.
+
+    After the Feb-2026 chained-archetype refactor, Auto Investigate now reaches
+    the shellcode terminal state via TWO valid paths:
+        (a) `archetype:PS_MemoryStream_Gzip_IEX+PS_MSF_XOR_Stage2` (preferred — named, 100% conf)
+        (b) `magic` (fallback for payloads without a named archetype)
+    This test locks that whichever path fires, the TERMINAL STATE is identical
+    to Magic's — same shellcode bytes, same length, same reached_shellcode flag.
+    """
     text = _fixture("meterpreter_gzip_xor_stager.txt")
 
     det = _deterministic_best_decode(text)
     magic_top = (magic_decode(text, max_depth=6, max_branches=5, top_n=3)
                  .get("top_results") or [{}])[0]
 
-    # Auto Investigate reached the SAME final chain as Magic
-    det_ops = [s["op"] for s in det["steps"]]
-    magic_ops = [c["op"] for c in (magic_top.get("chain") or [])]
-    assert det_ops == magic_ops, (
-        f"AUTO INVESTIGATE chain diverged from MAGIC:\n"
-        f"  auto  = {det_ops}\n"
-        f"  magic = {magic_ops}"
-    )
     # Reached the shellcode terminal state (this is the whole point)
     assert det["reached_shellcode"] is True, \
         "auto-investigate must reach the raw x86 shellcode, not stop at the loader script"
-    # Winning engine is magic (5-op chain) — NOT smart (2-op chain)
-    assert det["engine"] == "magic"
+
+    # Engine is EITHER magic OR the chained archetype path — both are valid winners
+    assert det["engine"] == "magic" or det["engine"].startswith("archetype:"), \
+        f"unexpected engine: {det['engine']}"
+
+    # Terminal bytes match Magic's byte-for-byte (real parity, not op-name parity)
+    det_bytes = det["output"].encode("latin-1", errors="replace")
+    magic_bytes = (magic_top.get("output") or "").encode("latin-1", errors="replace")
+    assert det_bytes == magic_bytes, \
+        f"terminal shellcode bytes diverge: det[:16]={det_bytes[:16].hex()} magic[:16]={magic_bytes[:16].hex()}"
+    assert len(det_bytes) == 834
 
 
 def test_meterpreter_stager_recovers_exact_metasploit_prologue():

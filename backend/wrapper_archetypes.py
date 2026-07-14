@@ -249,6 +249,63 @@ def _handle_generic_b64_gzip(text: str) -> str:
     return robust_b64_then_gunzip(blob)
 
 
+# 8. PS_MSF_XOR_Stage2 — Metasploit / Meterpreter reflective shellcode loader.
+#    Matches the classic $DoIt loader script produced by
+#    `msfvenom -f psh` and Empire's `powershell/inject/reflective_pick`.
+#
+#    Signature triad (all three required):
+#        (a) [Byte[]]$var_code = [System.Convert]::FromBase64String('<b64>')
+#        (b) -bxor <key>              (single-byte XOR loop)
+#        (c) func_get_proc_address    (reflective PEB walker helper — Meterpreter tell)
+#                     OR
+#            VirtualAlloc / CreateThread    (raw reflective loader)
+#
+#    The handler:
+#        1. extracts the nested $var_code base64,
+#        2. base64-decodes → raw bytes,
+#        3. XORs with the extracted key,
+#        4. returns the resulting shellcode bytes as a latin-1 string so the
+#           frontend `detectShellcode()` prologue check + `extractShellcodeIocs()`
+#           fire → the SOC Verdict panel promotes the C2 IP and User-Agent.
+_PS_MSF_LOADER_VARCODE_RX = re.compile(
+    r"\[?Byte\[\]\]?\s*\$\w+\s*=\s*"
+    r"\[(?:System\.)?Convert\]::FromBase64String\s*\(\s*['\"]"
+    r"(?P<blob>[A-Za-z0-9+/=_\-\s]{40,})"
+    r"['\"]",
+    re.IGNORECASE,
+)
+_PS_MSF_LOADER_XOR_RX = re.compile(r"-bxor\s+(0x[0-9a-fA-F]+|\d+)", re.IGNORECASE)
+_PS_MSF_LOADER_MARKER_RX = re.compile(
+    r"(?:func_get_proc_address|VirtualAlloc|CreateThread|WaitForSingleObject|"
+    r"kernel32|Reflection\.Emit|DefineDynamicAssembly)",
+    re.IGNORECASE,
+)
+
+
+def _msf_loader_matches(text: str) -> bool:
+    return (
+        _PS_MSF_LOADER_VARCODE_RX.search(text) is not None
+        and _PS_MSF_LOADER_XOR_RX.search(text) is not None
+        and _PS_MSF_LOADER_MARKER_RX.search(text) is not None
+    )
+
+
+def _handle_ps_msf_xor_stage2(text: str) -> str:
+    b64_m = _PS_MSF_LOADER_VARCODE_RX.search(text)
+    key_m = _PS_MSF_LOADER_XOR_RX.search(text)
+    if not b64_m or not key_m:
+        raise ValueError("no msf-loader match")
+    raw = robust_b64decode(b64_m.group("blob"))
+    key_str = key_m.group(1)
+    key = int(key_str, 0) & 0xFF
+    sc = bytes(b ^ key for b in raw)
+    if len(sc) < 16:
+        raise ValueError("shellcode too short")
+    # Return as latin-1 str so the frontend can inspect prologue bytes AND
+    # regex-extract embedded strings (User-Agent, C2 IP).
+    return sc.decode("latin-1")
+
+
 ARCHETYPES: List[Dict[str, Any]] = [
     {
         "id": "PS_MemoryStream_Gzip_IEX",
@@ -299,42 +356,67 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "handler": _handle_generic_b64_gzip,
         "match":   lambda t: bool(_GENERIC_B64_GZIP_RX.search(t)),
     },
+    {
+        "id": "PS_MSF_XOR_Stage2",
+        "description": "Metasploit/Meterpreter PowerShell reflective loader ($var_code + -bxor + reflective PEB walker) — recovers raw shellcode bytes",
+        "chain": ["extract-b64", "base64-decode", "xor"],
+        "handler": _handle_ps_msf_xor_stage2,
+        "match":   lambda t: _msf_loader_matches(t),
+    },
 ]
 
 
-def try_archetypes(text: str) -> Optional[Dict[str, Any]]:
+def try_archetypes(text: str, max_depth: int = 4) -> Optional[Dict[str, Any]]:
     """Try every archetype in registry order; return the FIRST successful decode.
 
-    Return shape (matches deterministic_best_decode's return contract):
-        {
-          "output": "<decoded>",
-          "engine": "archetype:<id>",
-          "steps":  [{"op": step, "args": {}}, ...],
-          "score":  1.0,
-          "reached_shellcode": False,
-          "notes":  ["matched archetype ..."],
-          "archetype_id": "<id>",
-          "archetype_desc": "<desc>",
-        }
-    Returns None if no archetype matched.
+    ── Chaining (Stage-1 → Stage-2 → …) ────────────────────────────────────
+    After the first successful archetype fires, its OUTPUT is fed back into
+    the registry to see if another archetype matches (e.g. a PS gzip stager
+    unwraps to a Meterpreter XOR-loader, which unwraps to raw shellcode).
+    Chaining continues until no archetype matches OR `max_depth` is reached.
+
+    The returned dict contains the DEEPEST terminal output, plus:
+      • `chain_ids` — ordered list of archetype IDs that fired
+      • `chain_steps` — concatenated op steps across every stage
+      • `engine` — "archetype:<first>+<second>+…" for full traceability
+
+    Returns None if no archetype matched at the top level.
     """
-    for arch in ARCHETYPES:
-        try:
-            if not arch["match"](text):
+    fired: List[Dict[str, Any]] = []
+    current = text
+    for _ in range(max_depth):
+        matched = False
+        for arch in ARCHETYPES:
+            try:
+                if not arch["match"](current):
+                    continue
+                out = arch["handler"](current)
+                if isinstance(out, str) and out.strip() and out != current:
+                    fired.append({"id": arch["id"], "desc": arch["description"],
+                                  "chain": arch["chain"], "output": out})
+                    current = out
+                    matched = True
+                    break
+            except Exception:
                 continue
-            out = arch["handler"](text)
-            if isinstance(out, str) and out.strip():
-                return {
-                    "output": out,
-                    "engine": f"archetype:{arch['id']}",
-                    "steps":  [{"op": s, "args": {}} for s in arch["chain"]],
-                    "score":  1.0,
-                    "reached_shellcode": False,
-                    "notes":  [f"Matched named wrapper archetype: {arch['description']}"],
-                    "archetype_id":   arch["id"],
-                    "archetype_desc": arch["description"],
-                }
-        except Exception:
-            # Archetype's regex matched but its handler failed — try the next one
-            continue
-    return None
+        if not matched:
+            break
+
+    if not fired:
+        return None
+
+    ids   = [f["id"] for f in fired]
+    steps = []
+    for f in fired:
+        steps.extend([{"op": s, "args": {}} for s in f["chain"]])
+    return {
+        "output": fired[-1]["output"],
+        "engine": "archetype:" + "+".join(ids),
+        "steps":  steps,
+        "score":  1.0,
+        "reached_shellcode": False,   # analysis_core re-checks against prologues
+        "notes":  [f"Matched named wrapper archetype: {f['desc']}" for f in fired],
+        "archetype_id":   ids[-1],
+        "archetype_desc": fired[-1]["desc"],
+        "chain_ids":      ids,
+    }
