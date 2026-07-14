@@ -928,7 +928,14 @@ def analyze_command(text: str,
     elif not needs_choice:
         to_decode = high_conf
 
-    decodes: List[Dict[str, Any]] = [_decode_span(s) for s in to_decode]
+    # Pre-scan the ORIGINAL text for a wrapper XOR key (e.g. the outer
+    # `-bxor 35` in a Cobalt-Strike shellcode_inject.ps1 template). Pass it as
+    # `hint_xor_key` to every top-level _decode_span so the base64 spans nested
+    # inside the wrapper apply the XOR after base64-decode. Without this, the
+    # analyzer emits raw base64-decoded (still-XOR'd) bytes for the shellcode.
+    from payload_sanitizer import find_xor_key as _wrapper_key
+    _outer_xor = _wrapper_key(text)
+    decodes: List[Dict[str, Any]] = [_decode_span(s, hint_xor_key=_outer_xor) for s in to_decode]
 
     # ----- Recursive re-analysis of decoded payloads --------------------
     # If a decoded output *itself* contains new inline payloads (nested

@@ -86,6 +86,18 @@ def is_shellcode(data: bytes, entropy_threshold: float = 6.0) -> bool:
     return False
 
 
+def starts_with_known_prologue(data: bytes) -> bool:
+    """Strict: only True when the buffer starts with a KNOWN shellcode/binary
+    prologue. Used by the magic decoder to award a terminal-state boost without
+    getting fooled by high-entropy over-decoded random bytes."""
+    if not data or len(data) < 4:
+        return False
+    for prologue, _ in _SHELLCODE_PROLOGUES:
+        if data.startswith(prologue):
+            return True
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Arch auto-detection
 # ---------------------------------------------------------------------------

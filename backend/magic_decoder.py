@@ -388,6 +388,16 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
     # pure base64) — those chains almost always represent a walker that
     # went one step too far. Otherwise "Cobalt Strike stager" (short readable)
     # gets outranked by a 7-op chain that produced 60 chars of hex.
+    #
+    # SHELLCODE BOOST: when the output bytes look like x86/x64/ARM shellcode
+    # (MSFvenom / Cobalt-Strike stagers), that's a TERMINAL state — no more
+    # decoding needed. Boost hard so it beats deeper over-decoded chains.
+    #
+    # STRICT: only fires when the FIRST bytes match a KNOWN prologue signature
+    # (e.g. `fc e8` = cld;call, `fd 7b` = ARM64 stp). Entropy-only is not
+    # sufficient — random over-decoded bytes may also have high entropy but
+    # they're not real shellcode.
+    from shellcode_analyzer import starts_with_known_prologue as _known_prologue
     for r in best_results:
         chain_len = len(r.get("chain") or [])
         pr = r["score_breakdown"].get("printable", 0.0)
@@ -405,6 +415,25 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
             r["score_breakdown"]["reasons"] = list(
                 r["score_breakdown"].get("reasons") or []
             ) + [f"chain-complete-bonus (+{0.05 * min(chain_len, 6):.2f})"]
+
+        # Shellcode terminal-state boost — the walker should stop here.
+        # Only fires when the chain has AT LEAST one decoding op (bare
+        # extract-payload doesn't count) so we don't mis-flag inputs that
+        # were shellcode to start with. STRICT: known prologue only.
+        if chain_len >= 2 and out and len(out) >= 20:
+            try:
+                raw = out.encode("latin-1") if all(ord(c) < 256 for c in out) \
+                                            else out.encode("utf-8", errors="replace")
+                if _known_prologue(raw):
+                    r["score_breakdown"]["score"] = round(
+                        r["score_breakdown"]["score"] + 0.35, 4
+                    )
+                    r["score_breakdown"]["reasons"] = list(
+                        r["score_breakdown"].get("reasons") or []
+                    ) + ["shellcode-terminal-state (+0.35)"]
+                    r["is_shellcode"] = True
+            except Exception:
+                pass
 
     # Deduplicate by (output snippet + chain length) and keep top-N
     seen = set()
