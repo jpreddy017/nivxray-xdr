@@ -878,6 +878,20 @@ export default function WorkspacePage() {
           loading={analyzing}
           selectedTactic={tacticFilter}
           onClearTactic={() => setTacticFilter(null)}
+          rawInput={input}
+          decodedOutput={output}
+          decodeTrace={decodeTrace}
+          decodeEngine={decodeWinnerEngine}
+          decodeConfidence={decodeConfidence}
+          reachedShellcode={reachedShellcode}
+          onRerunFromNode={(layerIdx) => {
+            const layer = decodeTrace[layerIdx];
+            if (layer && !layer.error) {
+              setOutput(layer.output_preview || "");
+              setSteps(decodeTrace.slice(0, layerIdx + 1).map((t) => ({ op: t.op, args: t.args || {} })));
+              setStatus(`▸ RE-RUNNING FROM LAYER ${layerIdx + 1} (${layer.op})`);
+            }
+          }}
         />
       </div>
 

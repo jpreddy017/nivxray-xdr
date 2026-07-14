@@ -18,9 +18,18 @@ function EmptyState({ label }) {
   );
 }
 
-export default function ThreatAnalysis({ analysis, loading, selectedTactic = null, onClearTactic = null }) {
-  const tabs = ["MITRE", "LOLBAS", "RULES", "IOCs", "TI-HITS", "OSINT", "AI", "FLOW", "CHAIN"];
-  const [tab, setTab] = useState("MITRE");
+import InvestigationGraph from "./InvestigationGraph";
+
+export default function ThreatAnalysis({
+  analysis, loading,
+  selectedTactic = null, onClearTactic = null,
+  // Investigation Graph inputs — passed from WorkspacePage
+  rawInput = "", decodedOutput = "",
+  decodeTrace = [], decodeEngine = null, decodeConfidence = null,
+  reachedShellcode = false, onRerunFromNode = null,
+}) {
+  const tabs = ["GRAPH", "MITRE", "LOLBAS", "RULES", "IOCs", "TI-HITS", "OSINT", "AI", "FLOW", "CHAIN"];
+  const [tab, setTab] = useState("GRAPH");
 
   // Build a technique-id → tactic map from the merged MITRE list.
   // Used to filter LOLBAS entries (whose only tactic linkage is via technique IDs).
@@ -100,14 +109,41 @@ export default function ThreatAnalysis({ analysis, loading, selectedTactic = nul
         ))}
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: 14 }} data-testid={`tab-content-${tab.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
+      <div style={
+          tab === "GRAPH"
+            ? { flex: 1, overflow: "hidden", padding: 0, position: "relative" }
+            : { flex: 1, overflowY: "auto", padding: 14 }
+        } data-testid={`tab-content-${tab.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
         {loading && (
-          <div className="mono" style={{ color: "var(--text-dim)", fontSize: 12 }}>
+          <div className="mono" style={{ color: "var(--text-dim)", fontSize: 12, padding: tab === "GRAPH" ? 14 : 0 }}>
             Running analysis<span className="blink">_</span>
           </div>
         )}
-        {!loading && !analysis && (
+        {!loading && !analysis && tab !== "GRAPH" && (
           <EmptyState label="No analysis yet — run a recipe or press AUTO-INVESTIGATE." />
+        )}
+
+        {tab === "GRAPH" && (
+          (decodeTrace.length > 0 || (analysis && (analysis.iocs || analysis.mitre))) ? (
+            <InvestigationGraph
+              input={rawInput}
+              output={decodedOutput}
+              trace={decodeTrace}
+              iocs={analysis?.iocs || {}}
+              mitre={analysis?.mitre || []}
+              lolbas={analysis?.lolbas || []}
+              ti_hits={analysis?.ti_hits || []}
+              verdict={analysis?.ai_verdict}
+              engine={decodeEngine}
+              confidence={decodeConfidence}
+              reachedShellcode={reachedShellcode}
+              onRerunFromNode={onRerunFromNode}
+            />
+          ) : (
+            <div style={{ padding: 14 }}>
+              <EmptyState label="No investigation yet — run a decode + AUTO-INVESTIGATE to see the graph." />
+            </div>
+          )
         )}
 
         {analysis && tab === "MITRE" && <MitreTab items={analysis.mitre} selectedTactic={selectedTactic} />}
