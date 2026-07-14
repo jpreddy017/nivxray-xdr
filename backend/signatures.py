@@ -22,6 +22,24 @@ B64_PREFIX_SIGNATURES: List[Dict] = [
         "mitre":  ["T1027.010"],
     },
     {
+        "prefix": r"^e[AFJN]",
+        "chain":  ["zlib-decompress"],
+        "desc":   "zlib deflate stream (0x78 xx) — base64-wrapped zlib",
+        "mitre":  ["T1027.010"],
+    },
+    {
+        "prefix": r"^/Td6WFo",
+        "chain":  ["lzma-decompress"],
+        "desc":   "LZMA/XZ magic (0xfd 7z XZ 0x00) — base64-wrapped LZMA",
+        "mitre":  ["T1027.010"],
+    },
+    {
+        "prefix": r"^QlpoO",
+        "chain":  ["bzip2-decompress"],
+        "desc":   "bzip2 magic (BZh) — base64-wrapped bzip2",
+        "mitre":  ["T1027.010"],
+    },
+    {
         "prefix": r"^JAB",
         "chain":  ["base64-decode", "utf16le-decode"],
         "desc":   "PowerShell `$` variable declaration (UTF-16LE) — base64→utf16le",

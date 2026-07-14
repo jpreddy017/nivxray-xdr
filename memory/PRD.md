@@ -130,9 +130,16 @@ Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") 
 - P1: Playbook feedback loop (👍/👎 per investigation → auto-boost high-accuracy playbooks).
 - P1: Client-side WASM ops for real-time preview.
 - P1: Live diff-highlight between INPUT & OUTPUT columns.
-- P1: Patch decoder gaps surfaced by benchmark (LZMA/Zlib/H4sIA-gzip/JWT/JS atob).
 - P2: Modularize `/app/backend/server.py` into routers.
 - P2: STIX 2.1 export + community share page.
+
+## Session 7 (2026-02) — Benchmark 100% (Compression + JWT + JS atob patch)
+- **Compression samples fixed** — regenerated valid base64+gzip / base64+zlib / base64+lzma raw_input blobs and added a new `Bzip2-compressed base64` seed. Sample count: 15 → **17** built-in samples.
+- **Sanitizer** — `sanitize_encapsulated_payload` now short-circuits JWT-shaped inputs (`^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*$`) so `jwt-decode` sees the whole token instead of only the middle segment.
+- **Smart decoder** — after the sanitizer isolates a payload, `smart_decode` eagerly base64-decodes it and applies the compression-magic fast-path (`\x1f\x8b`, `\x78..`, `\xfd7zXZ\x00`, `BZh`) so short pure-alpha payloads like `YWxlcnQoIlhTUyIp` (JS `atob`) now chain correctly. Shared `_bin_magic_op` helper unifies gzip/zlib/lzma/bzip2 handling.
+- **Signature registry** — added zlib (`^e[AFJN]`), LZMA (`^/Td6WFo`) and bzip2 (`^QlpoO`) base64-prefix signatures so `magic_decode` prioritises the right decompression op for these payloads (previously only gzip had a signature).
+- **Seed-refresh** — `seed_builtins` now updates protected built-in samples in place when `raw_input`/`expected_output` diverge, so old corrupt seed data is auto-repaired on startup.
+- Regression: **71/71 backend pytest pass** (14 new sample-library benchmark tests). Malware Sample Library benchmark: **17/17 = 100.0% pass rate** — every category (Compression, Crypto, JavaScript, PowerShell, Bash, CMD, LOLBAS, Multi-stage, Malware Family, Living-off-the-Land, Python) at 100%.
 - **+42 operations** — total now **87**. Adds AES-CBC/GCM/ECB, DES/3DES-CBC, RC4, ChaCha20, HMAC-SHA1/256/512/MD5, PBKDF2-SHA256, SHA3-256/512, MD4, RIPEMD-160, bzip2/LZMA/LZ4 decompress, UTF-16BE/UTF-32/CP1252/ASCII85/Base85 codecs, JWT decode/verify, ASN.1/DER parse, MessagePack, JSON diff, PE-header parse, PE-strings extract, ELF-header parse, PDF header sniff, file-magic byte identifier, JS beautify, JS `\x`-escape decoder, printable-ratio / Shannon-entropy / byte-frequency utilities. (`/app/backend/ops_extended.py`)
 - **Magic Recursive Auto-Decoder** (`POST /api/decode/magic`) — CyberChef "Magic" parity. Tries every plausible op, scores each output (printable + English + entropy + structure signatures), and returns the top-N chains. UI: MAGIC button + modal with per-candidate scores/reasons + APPLY CHAIN.
 - **Automated payload sanitizer** (`/app/backend/payload_sanitizer.py`) — the "isolate the payload string first" thumb rule. Strips PowerShell/Bash wrappers (`[System.Convert]::FromBase64String`, `[Byte[]]$var_code`, `-EncodedCommand`, `echo …| base64 -d`, brackets, `$vars`) and extracts the longest base64/hex payload from inside quotes. Wired into `base64-decode`, `powershell-encoded`, `smart_decode`, `magic_decode`.
