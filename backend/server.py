@@ -34,6 +34,7 @@ from lolbas import (
     refresh_from_source as lolbas_refresh, get_status as lolbas_status,
 )
 import models_studio as ms
+import sample_library as sl
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
@@ -1896,6 +1897,126 @@ async def test_admin_model(model_id: str, body: ModelTestIn, user=Depends(requir
     raise HTTPException(status_code=400, detail=f"unknown kind: {kind}")
 
 
+# =============================================================================
+# Malware Sample Library — regression + benchmark + coverage dashboard
+# =============================================================================
+class SampleIn(BaseModel):
+    name: str
+    raw_input: str
+    expected_output: str
+    categories: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    expected_mitre: Optional[List[str]] = None
+    expected_iocs: Optional[List[str]] = None
+    difficulty: Optional[str] = "medium"
+    source_url: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class SamplePatchIn(BaseModel):
+    name: Optional[str] = None
+    raw_input: Optional[str] = None
+    expected_output: Optional[str] = None
+    categories: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    expected_mitre: Optional[List[str]] = None
+    expected_iocs: Optional[List[str]] = None
+    difficulty: Optional[str] = None
+    source_url: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class SampleBulkIn(BaseModel):
+    samples: List[SampleIn]
+
+
+@api.get("/admin/samples")
+async def list_samples_endpoint(category: Optional[str] = None, user=Depends(require_admin)):
+    return await sl.list_samples(db, category=category)
+
+
+@api.get("/admin/samples/dashboard")
+async def samples_dashboard(user=Depends(require_admin)):
+    return await sl.dashboard_snapshot(db)
+
+
+@api.get("/admin/samples/{sid}")
+async def get_sample_endpoint(sid: str, user=Depends(require_admin)):
+    s = await sl.get_sample(db, sid)
+    if not s:
+        raise HTTPException(status_code=404, detail="sample not found")
+    return s
+
+
+@api.post("/admin/samples")
+async def create_sample_endpoint(body: SampleIn, user=Depends(require_admin)):
+    try:
+        return await sl.create_sample(db, body.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api.post("/admin/samples/bulk")
+async def bulk_create_samples(body: SampleBulkIn, user=Depends(require_admin)):
+    created, failed = [], []
+    for s in body.samples:
+        try:
+            created.append(await sl.create_sample(db, s.model_dump()))
+        except Exception as e:
+            failed.append({"name": s.name, "error": str(e)})
+    return {"created": len(created), "failed": len(failed), "items": created, "errors": failed}
+
+
+@api.put("/admin/samples/{sid}")
+async def update_sample_endpoint(sid: str, body: SamplePatchIn, user=Depends(require_admin)):
+    patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    updated = await sl.update_sample(db, sid, patch)
+    if not updated:
+        raise HTTPException(status_code=404, detail="sample not found")
+    return updated
+
+
+@api.delete("/admin/samples/{sid}")
+async def delete_sample_endpoint(sid: str, user=Depends(require_admin)):
+    try:
+        ok = await sl.delete_sample(db, sid)
+        if not ok:
+            raise HTTPException(status_code=404, detail="sample not found")
+        return {"deleted": True}
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+@api.post("/admin/samples/{sid}/benchmark")
+async def benchmark_one_endpoint(sid: str, user=Depends(require_admin)):
+    try:
+        return await sl.benchmark_one(db, sid, smart_decode, magic_decode)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@api.post("/admin/samples/benchmark/all")
+async def benchmark_all_endpoint(user=Depends(require_admin)):
+    return await sl.benchmark_all(db, smart_decode, magic_decode)
+
+
+async def _nightly_benchmark_loop():
+    """Runs the full sample-library benchmark every 24h in the background.
+
+    Failures are logged but never crash the loop; the next tick just tries again.
+    """
+    # small startup delay so first startup isn't burdened
+    await asyncio.sleep(300)
+    while True:
+        try:
+            r = await sl.benchmark_all(db, smart_decode, magic_decode)
+            log.info("nightly benchmark: %d samples · %d passed (%.1f%%)",
+                     r.get("total", 0), r.get("passed", 0), r.get("pass_pct", 0.0))
+        except Exception as e:
+            log.warning("nightly benchmark failed: %s", e)
+        await asyncio.sleep(24 * 60 * 60)
+
+
 @api.get("/admin/lolbas/status")
 async def get_lolbas_status(user=Depends(require_admin)):
     return lolbas_status()
@@ -2117,6 +2238,10 @@ async def _startup():
     # Model Studio: indexes + seed built-in personas/providers/examples
     await ms.ensure_indexes(db)
     await ms.seed_builtins(db)
+    # Sample Library: indexes + seed 15 built-in samples + start nightly benchmark
+    await sl.ensure_indexes(db)
+    await sl.seed_builtins(db)
+    asyncio.create_task(_nightly_benchmark_loop())
 
 
 @app.on_event("shutdown")

@@ -123,6 +123,22 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* Sample Library quick-link */}
+        <section className="brut-border" style={{ background: "var(--surface)" }} data-testid="sample-library-link-card">
+          <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>▸ SAMPLE LIBRARY</div>
+              <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)", marginTop: 6, lineHeight: 1.5 }}>
+                Real-world encoded/obfuscated payloads with expected decoded outputs. Continuous regression
+                testing + nightly benchmark keeps decoder coverage growing without breaking existing samples.
+              </div>
+            </div>
+            <Link to="/admin/samples" className="nvx-btn primary" data-testid="admin-open-sample-library">
+              <Sparkles size={13} /> OPEN LIBRARY
+            </Link>
+          </div>
+        </section>
+
         {/* Model Studio quick-link */}
         <section className="brut-border" style={{ background: "var(--surface)" }} data-testid="model-studio-link-card">
           <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>

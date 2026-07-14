@@ -106,6 +106,33 @@ Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") 
 - Regression: **57/57 backend pytest tests pass** (11 new coverage tests in `test_new_features.py`). Auto-Investigate end-to-end verified in ~56-78s with all cards, filters, and downloads working.
 
 ## Session 5 (2026-02) — Weaponized Decoding + Training Studio
+- **+42 operations** — total now **87**. Adds AES-CBC/GCM/ECB, DES/3DES-CBC, RC4, ChaCha20, HMAC-SHA1/256/512/MD5, PBKDF2-SHA256, SHA3-256/512, MD4, RIPEMD-160, bzip2/LZMA/LZ4 decompress, UTF-16BE/UTF-32/CP1252/ASCII85/Base85 codecs, JWT decode/verify, ASN.1/DER parse, MessagePack, JSON diff, PE-header parse, PE-strings extract, ELF-header parse, PDF header sniff, file-magic byte identifier, JS beautify, JS `\x`-escape decoder, printable-ratio / Shannon-entropy / byte-frequency utilities.
+- **Magic Recursive Auto-Decoder** (`POST /api/decode/magic`) — CyberChef "Magic" parity.
+- **Automated payload sanitizer** — the "isolate the payload string first" thumb rule. Strips PowerShell/Bash wrappers before decode.
+- **Known-signature auto-chain** — H4sIA→gzip, JAB/SQBFAF→UTF-16LE PowerShell, TVq→PE, etc.
+- **Recipe URL sharing** — `#recipe=<base64>` restores input + steps.
+- **Model Studio 5th kind → `playbook`** — free-form analyst training text auto-appended to every AI investigation.
+- **NivX Cognis** — flagship in-house AI persona, auto-selected in the Workspace picker.
+
+## Session 6 (2026-02) — Malware Sample Library + Continuous Benchmark
+- **Sample Library** (`/app/backend/sample_library.py`) — MongoDB-backed collection storing real-world encoded payloads + expected decoded outputs + categories + MITRE + IOC labels.
+- **12 categories** with per-category coverage tracking: PowerShell, CMD, Bash, Python, JavaScript, .NET, LOLBAS, Malware Family, Compression, Crypto, Multi-stage, Living-off-the-Land.
+- **15 built-in seed samples** covering canonical PS -EncodedCommand, multi-line base64, Python b64decode wrapper, nested base64, hex, XOR shellcode declaration, gzip (H4sIA), zlib, LZMA, JWT, JS atob, bash base64 -d, CMD caret obfuscation, LOLBAS certutil, and a redacted Lumma stealer stub.
+- **Endpoints**: `/api/admin/samples` (list · CRUD · bulk import · dashboard), `/api/admin/samples/{id}/benchmark`, `/api/admin/samples/benchmark/all`.
+- **Benchmark logic** — runs both **Smart Decoder** and **Magic Decoder** against every sample, scores pass/fail by expected-output substring match, produces per-category coverage report.
+- **Nightly benchmark cron** — asyncio background task runs `benchmark_all` every 24h and persists results in `benchmark_runs` collection for historical tracking.
+- **Frontend** (`/app/frontend/src/pages/SampleLibraryPage.jsx`) — full CRUD UI, color-coded coverage dashboard (green ≥95% / orange ≥70% / red <70%), inline expand for raw/expected/notes, per-row + all-samples BENCH buttons, JSON bulk import.
+- **Header + Admin quick-link nav** to `/admin/samples`.
+- Initial benchmark on seeded samples: **10/15 pass (66.7%)** — exposes real decoder gaps for follow-up work (LZMA / Zlib / H4sIA-gzip auto-chain / JWT / JS atob).
+- Regression: **57/57 backend pytest pass**.
+
+## Backlog (P1/P2 remaining)
+- P1: Playbook feedback loop (👍/👎 per investigation → auto-boost high-accuracy playbooks).
+- P1: Client-side WASM ops for real-time preview.
+- P1: Live diff-highlight between INPUT & OUTPUT columns.
+- P1: Patch decoder gaps surfaced by benchmark (LZMA/Zlib/H4sIA-gzip/JWT/JS atob).
+- P2: Modularize `/app/backend/server.py` into routers.
+- P2: STIX 2.1 export + community share page.
 - **+42 operations** — total now **87**. Adds AES-CBC/GCM/ECB, DES/3DES-CBC, RC4, ChaCha20, HMAC-SHA1/256/512/MD5, PBKDF2-SHA256, SHA3-256/512, MD4, RIPEMD-160, bzip2/LZMA/LZ4 decompress, UTF-16BE/UTF-32/CP1252/ASCII85/Base85 codecs, JWT decode/verify, ASN.1/DER parse, MessagePack, JSON diff, PE-header parse, PE-strings extract, ELF-header parse, PDF header sniff, file-magic byte identifier, JS beautify, JS `\x`-escape decoder, printable-ratio / Shannon-entropy / byte-frequency utilities. (`/app/backend/ops_extended.py`)
 - **Magic Recursive Auto-Decoder** (`POST /api/decode/magic`) — CyberChef "Magic" parity. Tries every plausible op, scores each output (printable + English + entropy + structure signatures), and returns the top-N chains. UI: MAGIC button + modal with per-candidate scores/reasons + APPLY CHAIN.
 - **Automated payload sanitizer** (`/app/backend/payload_sanitizer.py`) — the "isolate the payload string first" thumb rule. Strips PowerShell/Bash wrappers (`[System.Convert]::FromBase64String`, `[Byte[]]$var_code`, `-EncodedCommand`, `echo …| base64 -d`, brackets, `$vars`) and extracts the longest base64/hex payload from inside quotes. Wired into `base64-decode`, `powershell-encoded`, `smart_decode`, `magic_decode`.

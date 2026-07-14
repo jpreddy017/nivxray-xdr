@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/lib/auth";
-import { LogOut, LayoutGrid, Cog, Radar, Sparkles } from "lucide-react";
+import { LogOut, LayoutGrid, Cog, Radar, Sparkles, Beaker } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -65,6 +65,16 @@ export default function Header() {
               style={{ color: loc.pathname.startsWith("/admin/models") ? "var(--accent)" : "var(--text-dim)" }}
             >
               <Sparkles size={13} /> MODEL STUDIO
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              to="/admin/samples"
+              data-testid="nav-sample-library"
+              className={`nvx-btn sm ghost`}
+              style={{ color: loc.pathname.startsWith("/admin/samples") ? "var(--accent)" : "var(--text-dim)" }}
+            >
+              <Beaker size={13} /> SAMPLES
             </Link>
           )}
         </nav>
