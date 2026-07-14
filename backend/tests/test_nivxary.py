@@ -14,8 +14,8 @@ if BASE_URL == "http://localhost:8001":
     except Exception:
         pass
 
-ADMIN_EMAIL = "admin@nivxary.com"
-ADMIN_PASSWORD = "NivXary#2026!"
+ADMIN_EMAIL = "admin@nivxray.com"
+ADMIN_PASSWORD = "NivXRay#2026!"
 
 
 @pytest.fixture(scope="session")

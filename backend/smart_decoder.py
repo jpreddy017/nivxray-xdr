@@ -23,7 +23,7 @@ from operations import run_operation
 _PS_ENCODED_RE = re.compile(
     r"(?:^|\s|;|&|\|)pwsh(?:\.exe)?|powershell(?:\.exe)?"
     r"[\s\S]*?"
-    r"(?:-e(?:c|n|nc|ncoded(?:command)?)?)\s+([A-Za-z0-9+/=]{16,})",
+    r"(?:-e(?:c|n|nc|ncoded(?:command)?)?)\s+([A-Za-z0-9+/=\s]{16,})",
     re.IGNORECASE,
 )
 
@@ -197,10 +197,12 @@ def _apply_next(current: str, steps_so_far: List[Dict[str, Any]], notes: List[st
     # 1. PowerShell -EncodedCommand   (highest priority — very specific pattern)
     m = _PS_ENCODED_RE.search(current)
     if m:
-        payload_b64 = m.group(1)
+        # Join lines & strip whitespace/non-base64 chars from the payload
+        payload_b64 = re.sub(r"[^A-Za-z0-9+/=]", "", m.group(1))
         raw = _try_base64(payload_b64)
         if raw is not None:
-            decoded = _decode_bytes(raw)
+            # PowerShell -EncodedCommand is ALWAYS UTF-16LE
+            decoded = raw.decode("utf-16-le", errors="ignore")
             return ("powershell-encoded", {}, "Detected PowerShell -EncodedCommand base64 payload (UTF-16LE)", decoded)
 
     # 2. PowerShell char-array / tick obfuscation

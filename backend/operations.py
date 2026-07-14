@@ -74,9 +74,13 @@ def _b64_zlib(data: str) -> str:
 
 
 # ==== CRYPTOGRAPHY / ENCODING ================================================
-@op("base64-decode", "Base64 Decode", "Cryptography", "Decode a Base64 string.")
+@op("base64-decode", "Base64 Decode", "Cryptography", "Decode a Base64 string (joins multi-line input, strips whitespace, auto-pads).")
 def _b64_decode(data: str) -> str:
-    return base64.b64decode(_clean(data), validate=False).decode("utf-8", errors="replace")
+    # 1. Join all input lines into a single string and strip whitespace/newlines
+    cleaned = _clean(data)
+    # 2. Auto-pad and decode
+    padded = cleaned + "=" * (-len(cleaned) % 4)
+    return base64.b64decode(padded, validate=False).decode("utf-8", errors="replace")
 
 
 @op("base64-encode", "Base64 Encode", "Cryptography", "Encode data as Base64.")
@@ -211,15 +215,24 @@ def _ps_deob(data: str) -> str:
     return s
 
 
-@op("powershell-encoded", "PowerShell -EncodedCommand", "Deobfuscation", "Decode -EncodedCommand base64+UTF-16LE payload from a PowerShell command line.")
+@op("powershell-encoded", "PowerShell -EncodedCommand", "Deobfuscation", "Decode -EncodedCommand base64+UTF-16LE payload from a PowerShell command line (joins multi-line input, strips whitespace).")
 def _ps_encoded(data: str) -> str:
-    m = re.search(r"(?:-e(?:c|nc|ncoded(?:command)?)?)\s+([A-Za-z0-9+/=]{20,})", data, re.IGNORECASE)
-    payload = m.group(1) if m else _clean(data)
+    # 1. Join all lines of the input together into a single string
+    joined = " ".join(data.splitlines())
+    # 2. Try to extract the base64 payload that follows -e/-ec/-enc/-encodedcommand.
+    #    Allow whitespace inside the payload so multi-line pastes still match.
+    m = re.search(
+        r"(?:-e(?:c|nc|ncoded(?:command)?)?)\s+([A-Za-z0-9+/=\s]+)",
+        joined,
+        re.IGNORECASE,
+    )
+    payload = m.group(1) if m else joined
+    # 3. Strip out all newlines/whitespace and any non-base64 chars from the payload
+    payload = re.sub(r"[^A-Za-z0-9+/=]", "", payload)
+    # 4. Auto-pad and base64 decode
     raw = base64.b64decode(payload + "=" * (-len(payload) % 4), validate=False)
-    try:
-        return raw.decode("utf-16-le")
-    except Exception:
-        return raw.decode("utf-8", errors="replace")
+    # 5. Decode the full joined string as UTF-16LE (the PowerShell standard)
+    return raw.decode("utf-16-le", errors="ignore")
 
 
 @op("js-charcode", "JavaScript CharCode Decode", "Deobfuscation", "Decode String.fromCharCode(a,b,c) sequences.")
