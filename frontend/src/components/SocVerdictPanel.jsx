@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Target, Copy, Check, ShieldAlert, Wifi } from "lucide-react";
 import { detectShellcode, extractShellcodeIocs } from "@/lib/shellcodeDetect";
+import ProcessTreeMini from "@/components/ProcessTreeMini";
 
 /**
  * SocVerdictPanel — Analyst-friendly one-line verdict card that appears above
@@ -15,7 +16,7 @@ import { detectShellcode, extractShellcodeIocs } from "@/lib/shellcodeDetect";
  * No backend call — everything is derived client-side from the decoded output
  * bytes via `detectShellcode()` + `extractShellcodeIocs()`.
  */
-export default function SocVerdictPanel({ output, confidence, winnerEngine }) {
+export default function SocVerdictPanel({ output, confidence, winnerEngine, predictedTree }) {
   const [copied, setCopied] = useState(false);
 
   const shellcode = useMemo(() => detectShellcode(output || ""), [output]);
@@ -139,6 +140,12 @@ export default function SocVerdictPanel({ output, confidence, winnerEngine }) {
           ))}
         </div>
       </div>
+
+      {predictedTree && (
+        <div style={{ padding: "0 18px 14px 18px" }} data-testid="soc-verdict-tree-mini">
+          <ProcessTreeMini tree={predictedTree} />
+        </div>
+      )}
     </section>
   );
 }

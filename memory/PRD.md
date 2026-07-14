@@ -7,6 +7,7 @@ Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") 
 - OSINT enrichment of extracted IOCs (IP, domain, URL, hash)
 - Threat Intelligence / IOC Database with bulk feed sync
 - Admin panel to manage OSINT + threat-intel API keys
+- LLM Fine-Tuning pipeline for Process Tree Prediction (Feb 2026)
 - Rebranded design (dark oxidized-copper aesthetic, distinct from reference NivX Forge screenshots)
 
 ## Architecture
@@ -14,6 +15,7 @@ Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") 
 - **Frontend**: React + React Router, custom brutalist-technical UI (JetBrains Mono + Chivo)
 - **Auth**: JWT (7-day expiry), bcrypt-hashed passwords, admin seeded on startup
 - **Deployment**: supervisor (backend:8001, frontend:3000)
+- **LLM Training Module (Feb 2026)**: `/app/backend/training/` — canonical process-tree schema, 101 seed archetypes, provider-agnostic exporters (OpenAI/Anthropic/JSONL/CSV/edge-list), strict citation validator
 
 ## User Personas
 1. **DFIR / SOC Analyst** — triage encoded payloads, extract IOCs, produce reports
@@ -412,3 +414,48 @@ Regression: **327/327 backend tests + smoke-tested frontend**.
 
 Regression: 228/228 core tests passing. Auto-save verified end-to-end via preview (one decode → one row in drawer → star toggle → filter → tag/notes edit → all round-trip cleanly).
 
+
+---
+
+## 🆕 Feb 14, 2026 — Process-Tree LLM Fine-Tuning Pipeline (Task 1 · P0 · DONE)
+
+### What shipped
+Backend
+- `training/schema.py` — canonical `ProcessNode`, `ProcessTree`, `ProcessEvidence`, `SocRationale`, `TrainingRecord` Pydantic models. Every node carries timestamp, PID/PPID, exec path, hashes, signer, integrity level, user, MITRE mapping + tactic, confidence, and cited evidence.
+- `training/system_prompt.py` — strict anti-hallucination system prompt (7 hard rules, cite-per-node enforcement, insufficient-evidence path).
+- `training/tree_formats.py` — nested-JSON ⇄ flat edge-list ⇄ ASCII tree converters. Nested JSON is canonical; all three benchmarkable.
+- `training/validator.py` — post-LLM validator that prunes uncited children and drops fabricated IOCs; appends drop-reasons to `tree.warnings`.
+- `training/predictor.py` — Claude Sonnet 4.5 (Emergent LLM key) prediction with three-layer anti-hallucination stack (prompt + schema + validator).
+- `training/seed_dataset.py` — **101 archetypes** across Windows (70) · Linux (27) · macOS (2) · container (2). Categories: PowerShell, CMD, LOLBins (certutil/bitsadmin/mshta/rundll32/regsvr32/msbuild/installutil/cmstp/msiexec/wmic/csc/wscript), WMI, Office macros, JScript, HTA, Ransomware pre-encryption chain, Bash/curl-pipe/wget-pipe, Python/Perl reverse shells, cron, systemd, SSH backdoor, Docker/kubectl escape, AWS CLI enumeration, osascript, LaunchAgent.
+- `training/exporter.py` — five exporter formats: JSONL (canonical), OpenAI chat, Anthropic conversational, CSV, edge-list JSONL.
+- `routers/process_tree.py` — new endpoints:
+  - `POST /api/analyze/process-tree` — predict + validate a tree
+  - `GET  /api/training/schema` — dump schema + system prompt
+  - `GET  /api/training/stats` — dataset totals + breakdown
+  - `GET  /api/training/archetypes?platform=&category=` — filterable metadata
+  - `GET  /api/training/dataset?format=jsonl|openai|anthropic|csv|edge-list` — download in any format
+  - `POST /api/training/render` — convert canonical tree → ASCII / edge-list / json
+- Wired into `server.py` router chain.
+
+Frontend
+- `components/ProcessTreeView.jsx` — SVG-rendered tactic-coloured tree (execution=green, persistence=red, PrivEsc=orange, defence-evasion=yellow, C2=purple, discovery=blue, impact=crimson, etc). Click-drawer for full node evidence. SOC rationale footer with MITRE / tactics / LOLBins / IOCs / Sigma / YARA opportunities + analyst summary + validator warnings.
+- `components/ProcessTreeMini.jsx` — compact linear preview embedded inside SocVerdictPanel.
+- Wired into WorkspacePage below the AttackGraph card + as `predictedTree` prop feeding SocVerdictPanel.
+
+Tests
+- `tests/test_process_tree.py` — **15 new tests** covering dataset coverage (100+ archetypes, all platforms, all key categories), per-archetype invariants (verdict/MITRE/citation), 3-format round-trip, all exporters, validator pruning behaviour, insufficient-evidence path, IOC pruning.
+- **Backend regression**: 360/360 tests pass (excluding one pre-existing external-preview-URL flake unrelated to this work).
+
+Docs
+- `/app/memory/LLM_TRAINING_SCHEMA.md` — full design doc: data model, three tree representations, anti-hallucination guarantees, prompt-response templates, exporter matrix, endpoint contracts, extensibility principles.
+
+### E2E verification
+Live curl test hit `/api/analyze/process-tree` with a PowerShell IEX downloader; Claude produced a valid tree with 2 nodes, `evidence_source=decoded`, MITRE `T1059.001, T1105, T1027, T1620`, cited both parent + child, warnings empty. ASCII rendering + edge-list rendering both correct.
+
+### Backlog (Task 2+)
+- **P0 · Task 2** — Knowledge Base auto-generated from Persistent History (next up)
+- **P1 · Task 3** — Learning Feedback Loop (priority boost from validated history)
+- **P2 · Task 4** — STIX 2.1 Community Sharing page
+- **P2 · Task 5** — Natural Language Investigation Recipes
+- **P2 · Task 6** — Threat Intel Correlation Engine
+- **P3 · Task 7** — AI SOC Copilot (NivX Cognis) using the fine-tuned model

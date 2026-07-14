@@ -14,6 +14,7 @@ import { detectShellcode } from "@/lib/shellcodeDetect";
 import SocVerdictPanel from "@/components/SocVerdictPanel";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
 import HistoryDrawer from "@/components/HistoryDrawer";
+import ProcessTreeView from "@/components/ProcessTreeView";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -51,6 +52,8 @@ export default function WorkspacePage() {
   const [pasteHint, setPasteHint] = useState(null);
   // History drawer
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Predicted process tree (fed to both ProcessTreeView + SocVerdictPanel mini)
+  const [predictedTree, setPredictedTree] = useState(null);
   const rehydrateFromHistory = (rec) => {
     if (!rec) return;
     setInput(rec.input_preview || "");
@@ -685,6 +688,7 @@ export default function WorkspacePage() {
         output={output}
         confidence={decodeConfidence}
         winnerEngine={decodeWinnerEngine}
+        predictedTree={predictedTree}
       />
 
       {/* 3-column layout */}
@@ -876,6 +880,16 @@ export default function WorkspacePage() {
                 />
               </div>
             </div>
+          )}
+
+          {/* Predicted Process Tree — appears once we have decoded output */}
+          {(output || input) && (
+            <ProcessTreeView
+              raw={input}
+              decoded={output || input}
+              autoFetch={false}
+              onTreeReady={setPredictedTree}
+            />
           )}
 
           {/* Final Summary — executive briefing derived from AI describe */}
