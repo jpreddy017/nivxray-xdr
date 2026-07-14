@@ -25,7 +25,17 @@ import {
 export default function WorkspacePage() {
   const [ops, setOps] = useState([]);
   const [examples, setExamples] = useState([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => {
+    // Restore last input if a session expired mid-decode (see api.js 401 interceptor)
+    try {
+      const saved = localStorage.getItem("nvx_last_input");
+      if (saved) {
+        localStorage.removeItem("nvx_last_input");
+        return saved;
+      }
+    } catch (_) {}
+    return "";
+  });
   const [output, setOutput] = useState("");
   const [steps, setSteps] = useState([]);
   const [detected, setDetected] = useState(null);
