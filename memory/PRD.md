@@ -88,3 +88,12 @@ Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") 
 - New backend modules: `lolbas.py`, updated `smart_decoder.py` (embedded-base64 blob extraction), extended `server.py` report renderers (`_render_text_report`, `_render_html_report`, `_render_csv_report`, `_render_docx_report`, `_render_pdf_from_html`)
 - Frontend: new `FlowGraph.jsx`, `ReportMenu.jsx`, new tabs in `ThreatAnalysis.jsx` (LOLBAS, FLOW)
 - Dependencies added: `python-docx==1.1.2`, `xhtml2pdf==0.2.16` (with `reportlab`), `react-force-graph-2d`
+
+## Session 3 (2026-02) — Multi-line PS/Base64 Decoder Fix
+- **Fixed** `powershell-encoded` operation in `/app/backend/operations.py`: now joins all input lines into a single string, strips all newlines/whitespace and non-base64 chars from the payload, auto-pads, and always decodes as **UTF-16LE** (PowerShell standard) with `errors="ignore"`.
+- **Fixed** `base64-decode` operation: now auto-pads missing `=` characters and reliably handles multi-line/whitespace-broken base64 pastes.
+- **Fixed** `_PS_ENCODED_RE` in `/app/backend/smart_decoder.py` to accept whitespace inside the captured base64 group `[A-Za-z0-9+/=\s]{16,}` — multi-line PS-encoded payloads are now detected by Smart Decode.
+- **Fixed** smart_decoder's PS-encoded branch to strip whitespace and force UTF-16LE decoding.
+- Regression tested via testing agent: **46/46 backend pytest tests pass** (27 new multi-line coverage tests added under `/app/backend/tests/test_multiline_decode.py`).
+- Test-side fix: stale credential typo (`nivxary` → `nivxray`) in `test_nivxary.py` corrected.
+
