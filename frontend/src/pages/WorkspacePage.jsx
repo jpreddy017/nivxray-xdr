@@ -58,6 +58,9 @@ export default function WorkspacePage() {
   // Learning Feedback Loop
   const [boost, setBoost] = useState(null);
   const [boostHit, setBoostHit] = useState(false);
+  // ONE-BUTTON UX — collapse Smart/AI/Auto Investigate/Troubleshoot into ADVANCED
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [nivxrayTrace, setNivxrayTrace] = useState([]);
   const rehydrateFromHistory = (rec) => {
     if (!rec) return;
     setInput(rec.input_preview || "");
@@ -163,6 +166,71 @@ export default function WorkspacePage() {
     }, 30);
     return () => clearTimeout(t);
   }, [input, steps]);
+
+  // ─── ONE-BUTTON orchestrator ─────────────────────────────────────────
+  // Auto-runs: (1) archetype/boost/deterministic via Smart Decode, then
+  //           (2) AI fallback (Auto Investigate) if confidence < 40.
+  // Fires a live trace so the analyst sees exactly what happened.
+  const nivxrayDecode = async () => {
+    if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
+    const trace = [];
+    setNivxrayTrace(trace);
+    setStatus("NIVXRAY DECODE — DETERMINISTIC + BOOST…");
+    setLoading(true);
+    try {
+      // Step 1 · deterministic (archetype + smart/magic race + boost)
+      const r = await api.post("/decode/smart", { input });
+      const conf = r.data.confidence ?? 0;
+      const eng = r.data.engine || "?";
+      const outLen = (r.data.output || "").length;
+      trace.push({
+        step: "deterministic",
+        engine: eng,
+        confidence: conf,
+        output_len: outLen,
+        note: eng.startsWith("archetype:")
+          ? `Matched wrapper archetype — ${eng.replace("archetype:", "")}`
+          : `Smart/magic race — ${eng}`,
+      });
+      setSteps((r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} })));
+      setOutput(r.data.output || "");
+      if (r.data.trace) setDecodeTrace(r.data.trace);
+      setReachedShellcode(!!r.data.reached_shellcode);
+      setDecodeConfidence(conf);
+      setDecodeWinnerEngine(eng);
+      setBoost(r.data.boost || null);
+      setBoostHit(!!r.data.boost_hit);
+      setNivxrayTrace([...trace]);
+
+      // Step 2 · AI fallback if confidence low OR archetype didn't match AND output is trivial
+      const shouldFallback = conf < 40 && !eng.startsWith("archetype:");
+      if (shouldFallback) {
+        trace.push({
+          step: "ai-fallback",
+          note: `Confidence ${conf}% below threshold — escalating to Auto Investigate`,
+        });
+        setNivxrayTrace([...trace]);
+        setStatus("NIVXRAY DECODE — AI FALLBACK…");
+        await autoInvestigate();   // reuses existing SSE stream
+        trace.push({ step: "ai-done", note: "AI investigation complete — see verdict panel" });
+      } else {
+        trace.push({
+          step: "done",
+          note: conf >= 40
+            ? `Deterministic decode succeeded at ${conf}% — AI fallback not needed`
+            : `Archetype match at 100% — AI fallback not needed`,
+        });
+      }
+      setNivxrayTrace([...trace]);
+      setStatus(`NIVXRAY DECODE COMPLETE · ${eng} · ${conf}%`);
+    } catch (e) {
+      trace.push({ step: "error", note: e?.response?.data?.detail || e.message });
+      setNivxrayTrace([...trace]);
+      setStatus("NIVXRAY DECODE FAILED — see trace");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const autoDecode = async ({ smart = false, disable_boost = false } = {}) => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
@@ -565,25 +633,42 @@ export default function WorkspacePage() {
           </div>
         )}
 
-        <button className="nvx-btn primary" onClick={autoInvestigate} disabled={loading || analyzing} data-testid="btn-auto-investigate"
+        <button className="nvx-btn primary" onClick={nivxrayDecode} disabled={loading || analyzing}
+                data-testid="btn-nivxray-decode"
                 title={
-                  "AUTO INVESTIGATE — Full SOC pipeline in one click.\n" +
-                  "Runs: MAGIC decode → OSINT enrichment → threat-intel lookup → MITRE mapping → AI verdict.\n\n" +
-                  "▸ USE WHEN: analyst triage of a fresh sample; you want the full report.\n" +
-                  "▸ COST: 15–90s + one LLM call (uses NivX Cognis persona + Claude by default).\n" +
-                  "▸ OUTPUT: decoded payload + IOCs + LOLBins + MITRE + AI verdict streamed as SSE."
-                }>
-          <Sparkles size={13} /> AUTO INVESTIGATE
+                  "NIVXRAY DECODE — ONE BUTTON. Auto-runs:\n" +
+                  "  1. Named wrapper archetype match (Empire/Cobalt/Bash/Node)\n" +
+                  "  2. Learning-Feedback boost from your history + KB\n" +
+                  "  3. Deterministic Smart Decode (magic ⊕ smart race)\n" +
+                  "  4. AI fallback (Auto Investigate) if confidence < 40%\n\n" +
+                  "▸ USE WHEN: literally always. Paste and click. NivXRay picks the sharpest path.\n" +
+                  "▸ RETURNS: full pipeline trace showing what fired and why."
+                }
+                style={{ fontSize: 13, padding: "8px 18px" }}>
+          <Sparkles size={14} /> NIVXRAY DECODE
         </button>
-        <button className="nvx-btn ghost" onClick={() => setHistoryOpen(true)} data-testid="btn-open-history"
-                title="Investigation History — auto-saved for 30 days (starred entries kept forever).">
-          📜 HISTORY
+        <button className="nvx-btn ghost" onClick={() => setAdvancedOpen((v) => !v)}
+                data-testid="btn-advanced-toggle"
+                title="Show individual decode modes (Smart / AI / Auto Investigate / Magic / Troubleshoot)">
+          {advancedOpen ? "▾ ADVANCED" : "▸ ADVANCED"}
         </button>
         {analyzing && (
           <button className="nvx-btn warn" onClick={cancelStream} data-testid="btn-cancel-stream">
             <X size={13} /> CANCEL
           </button>
         )}
+        <button className="nvx-btn ghost" onClick={() => setHistoryOpen(true)} data-testid="btn-open-history"
+                title="Investigation History — auto-saved for 30 days (starred entries kept forever).">
+          📜 HISTORY
+        </button>
+        {advancedOpen && (
+        <>
+        <button className="nvx-btn" onClick={autoInvestigate} disabled={loading || analyzing} data-testid="btn-auto-investigate"
+                title={
+                  "AUTO INVESTIGATE — Full SOC pipeline (MAGIC decode → OSINT → threat-intel → MITRE → AI verdict)."
+                }>
+          <Sparkles size={13} /> AUTO INVESTIGATE
+        </button>
         <button className="nvx-btn" onClick={() => autoDecode({ smart: false })} disabled={loading} data-testid="btn-auto-decode"
                 title={
                   "AI DECODE — LLM proposes a recipe (base64/gzip/XOR/etc.) with SOC anti-hallucination guard.\n" +
@@ -634,6 +719,8 @@ export default function WorkspacePage() {
                 }>
           <Wrench size={13} /> TROUBLESHOOT
         </button>
+        </>
+        )}
         <button className="nvx-btn" onClick={doShare} data-testid="btn-share"><Share2 size={13} /> SHARE</button>
         <button className="nvx-btn ghost" onClick={shareRecipe} data-testid="btn-share-url"
                 title="Copy a URL that reproduces the current input + recipe (fully client-side)">
@@ -801,6 +888,39 @@ export default function WorkspacePage() {
 
           {/* Recipe */}
           <RecipePanel steps={steps} setSteps={setSteps} ops={ops} />
+
+          {/* ONE-BUTTON pipeline trace */}
+          {nivxrayTrace.length > 0 && (
+            <div className="brut-border" style={{
+              margin: "0 12px 10px 12px", background: "var(--surface)",
+              padding: "8px 12px", fontFamily: "JetBrains Mono", fontSize: 11,
+            }} data-testid="nivxray-decode-trace">
+              <div style={{ color: "var(--accent)", letterSpacing: "0.16em",
+                            fontSize: 10, fontWeight: 700, marginBottom: 6 }}>
+                NIVXRAY DECODE · PIPELINE TRACE
+              </div>
+              {nivxrayTrace.map((t, i) => (
+                <div key={i} style={{
+                  display: "flex", gap: 8, alignItems: "center",
+                  padding: "3px 0",
+                  borderBottom: i < nivxrayTrace.length - 1 ? "1px dashed var(--border)" : "none",
+                }} data-testid={`nvx-trace-step-${i}`}>
+                  <span style={{ color: "var(--text-mute)", minWidth: 14 }}>#{i + 1}</span>
+                  <span style={{ color: "var(--warn)", minWidth: 110,
+                                 textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    {t.step}
+                  </span>
+                  {t.engine && (
+                    <span style={{ color: "var(--accent)" }}>{t.engine}</span>
+                  )}
+                  {t.confidence !== undefined && (
+                    <span style={{ color: "var(--text-dim)" }}>· {t.confidence}%</span>
+                  )}
+                  <span style={{ color: "var(--text-dim)", flex: 1 }}>{t.note}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Learning Feedback Loop — BOOST badge with source + confidence + disable/re-run */}
           {boost && (
