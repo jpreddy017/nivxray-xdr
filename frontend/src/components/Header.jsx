@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/lib/auth";
-import { LogOut, LayoutGrid, Cog, Radar, Sparkles, Beaker, Terminal } from "lucide-react";
+import { LogOut, LayoutGrid, Cog, Radar, Sparkles, Beaker, Terminal, BookOpen } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -54,6 +54,14 @@ export default function Header() {
             style={{ color: loc.pathname === "/analyze" ? "var(--accent)" : "var(--text-dim)" }}
           >
             <Terminal size={13} /> COMMAND ANALYZER
+          </Link>
+          <Link
+            to="/kb"
+            data-testid="nav-knowledge-base"
+            className="nvx-btn sm ghost"
+            style={{ color: loc.pathname === "/kb" ? "var(--accent)" : "var(--text-dim)" }}
+          >
+            <BookOpen size={13} /> KNOWLEDGE BASE
           </Link>
           {isAdmin && (
             <Link

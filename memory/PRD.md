@@ -459,3 +459,56 @@ Live curl test hit `/api/analyze/process-tree` with a PowerShell IEX downloader;
 - **P2 · Task 5** — Natural Language Investigation Recipes
 - **P2 · Task 6** — Threat Intel Correlation Engine
 - **P3 · Task 7** — AI SOC Copilot (NivX Cognis) using the fine-tuned model
+
+---
+
+## 🆕 Feb 14, 2026 — Task 2 · Knowledge Base + Hybrid LLM Provider Layer (P0 · DONE)
+
+### What shipped
+Backend
+- `knowledge_base/schema.py` — `KBEntry`, `KBSampleRef`, `KBIocRollup` Pydantic models. User-scoped rows; carry title/summary/severity/verdict/MITRE/tactics/engines/common_chains/IOC rollup/LOLBins/samples/playbook/hunt_queries/warnings/first_seen/refreshed_at.
+- `knowledge_base/fingerprint.py` — deterministic clustering: `(top-3 sorted MITRE, verdict bucket, shellcode flag)` → sha1 → stable slug.
+- `knowledge_base/synthesizer.py` — Claude Sonnet 4.5 playbook synthesis with 3 defence layers (system prompt · citation validator · deterministic fallback). Every playbook step must cite a verbatim substring from a source investigation.
+- `knowledge_base/builder.py` — orchestrator: history → bucketize → aggregate → optional LLM synth → upsert (idempotent; `first_seen` preserved).
+- `routers/kb.py` — 6 endpoints: `POST /api/kb/rebuild`, `GET /api/kb/entries`, `GET /api/kb/entries/{slug}`, `DELETE /api/kb/entries/{slug}`, `GET /api/kb/search`, `GET /api/kb/stats`, `GET /api/system/llm-providers`.
+- **`llm_provider.py`** — NEW provider-agnostic layer with automatic failover chain. Emergent Claude (online, priority 10) → Ollama Qwen 2.5 7B stub (offline, priority 100). Same JSON contract regardless of provider. Ready-to-swap when NivX Cognis (fine-tuned Qwen) is deployed.
+- Migrated `training.predictor` + `knowledge_base.synthesizer` to use the new provider layer — no call-site changes needed to plug Qwen later.
+
+Frontend
+- `pages/KnowledgeBasePage.jsx` — entry grid + drawer with playbook/hunt-queries/IOCs/samples, quick+full rebuild buttons, MITRE/severity filters, live provider-chain badge.
+- Nav link `KNOWLEDGE BASE` added to `Header.jsx`.
+- `/kb` route wired in `App.js`.
+
+Tests
+- `tests/test_knowledge_base.py` — 16 new tests (fingerprint stability, MITRE-order invariance, verdict/shellcode differentiation, LOLBin detection, IOC aggregation, sample ordering, bucketize, KBEntry model, provider chain).
+- Combined with Task 1: **31/31 KB+Process-Tree tests passing** in 2.46s.
+
+Live verification
+- `POST /api/kb/rebuild` on admin's real history: 13 investigations → 1 bucket → 1 KB entry in **2 ms** (deterministic mode).
+- `GET /api/system/llm-providers` returns `[emergent-claude-sonnet-4-5 (online), ollama-qwen-2.5-7b stub (offline)]`.
+- `GET /api/kb/entries` returns the freshly-built entry with the correct slug and investigation count.
+
+### Hybrid Architecture (aligned with your directive)
+```
+POST /api/analyze/process-tree    ┐
+POST /api/kb/rebuild               ├── llm_provider.llm_json()
+POST /api/ai/*                     ┘        │
+                                    priority chain:
+                            ┌───────────────┴──────────────┐
+                            ▼                              ▼
+             emergent-claude-sonnet-4-5             ollama-qwen-2.5-7b
+                (online, prio 10)                   (offline, prio 100)
+             — Emergent Universal Key —            — Fine-tuned NivX Cognis —
+                                                    (stub · not yet deployed)
+```
+Same strict JSON contract + citation validator applies to BOTH providers. Fine-tune + Ollama serving is a self-contained follow-up track (Task 3+).
+
+### Next Action Items
+- **P1 · Task 3** — Learning Feedback Loop (priority boost from validated KB entries into decoder ranking).
+- **Offline track** — Fine-tune Qwen 2.5 7B on `/api/training/dataset?format=openai` output; wire up Ollama; swap `OllamaQwenStub.json()` body to hit `http://ollama:11434/api/generate`.
+
+### Backlog
+- STIX 2.1 Community Sharing page (P2)
+- Natural-language Investigation Recipes (P2)
+- Threat-Intel Correlation Engine (P2)
+- AI SOC Copilot / NivX Cognis end-to-end (P3)
