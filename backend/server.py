@@ -1296,7 +1296,16 @@ async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
     # Quality floor for SOC use: we WILL NOT return an output below this.
     QUALITY_FLOOR = 0.35
 
-    if ai_q["score"] >= mg_q["score"]:
+    # HARD RULE: if one engine reached shellcode terminal state and the other
+    # did NOT, the shellcode-reaching engine WINS unconditionally. This
+    # prevents the AI from being rewarded for adding gratuitous "Extract
+    # Strings" / "clean up" steps that mangle raw shellcode into fragmented
+    # ASCII (which would otherwise score higher on printable_ratio).
+    if ai_q["shellcode"] and not mg_q["shellcode"]:
+        winner, wq, loser, lq = ai_result, ai_q, magic_result, mg_q
+    elif mg_q["shellcode"] and not ai_q["shellcode"]:
+        winner, wq, loser, lq = magic_result, mg_q, ai_result, ai_q
+    elif ai_q["score"] >= mg_q["score"]:
         winner, wq, loser, lq = ai_result, ai_q, magic_result, mg_q
     else:
         winner, wq, loser, lq = magic_result, mg_q, ai_result, ai_q

@@ -10,6 +10,7 @@ import ShellcodeView from "@/components/ShellcodeView";
 import OutputView from "@/components/OutputView";
 import { runClientRecipe } from "@/lib/clientOps";
 import { detectShellcode } from "@/lib/shellcodeDetect";
+import SocVerdictPanel from "@/components/SocVerdictPanel";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -37,10 +38,9 @@ export default function WorkspacePage() {
   const [magicResults, setMagicResults] = useState(null);
   const [showMagic, setShowMagic] = useState(false);
   const [shellcodeFlag, setShellcodeFlag] = useState(false);
-  // Client-side shellcode-prologue detection — mirrors the backend
-  // `starts_with_known_prologue()` so the ShellcodeView renders whenever the
-  // decoded output looks like real shellcode, even if the backend endpoint
-  // didn't set an `is_shellcode` flag (e.g. Auto Investigate / AI Decode paths).
+  // Winner metadata from AI Decode / Auto Investigate — feeds the SOC Verdict panel
+  const [decodeConfidence, setDecodeConfidence] = useState(null);
+  const [decodeWinnerEngine, setDecodeWinnerEngine] = useState(null);
   const isShellcodeClient = useMemo(() => !!detectShellcode(output || ""), [output]);
   const streamStopRef = useRef(null);
   const fileRef = useRef(null);
@@ -149,6 +149,8 @@ export default function WorkspacePage() {
         setOutput(r.data.output || "");
         const conf = r.data.confidence;
         const eng  = r.data.winner_engine;
+        setDecodeConfidence(conf ?? null);
+        setDecodeWinnerEngine(eng || null);
         const confPrefix = (conf != null && eng) ? `[${eng.toUpperCase()} · ${conf}%] ` : "";
         const detail = r.data.reasoning ? `AI: ${r.data.reasoning.slice(0, 120)}` : "SMART DECODE COMPLETE";
         setStatus(confPrefix + detail);
@@ -630,6 +632,15 @@ export default function WorkspacePage() {
           </button>
         ))}
       </div>
+
+      {/* SOC VERDICT — appears above the workspace whenever a decode
+          terminates on known shellcode / PE / ELF. Google-AI-style one-line
+          verdict + copy-to-clipboard SOC ticket. */}
+      <SocVerdictPanel
+        output={output}
+        confidence={decodeConfidence}
+        winnerEngine={decodeWinnerEngine}
+      />
 
       {/* 3-column layout */}
       <div className="nvx-workspace-grid">
