@@ -541,10 +541,10 @@ async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verd
             '  ],\n'
             '  "entity_graph": {\n'
             '     "nodes": [\n'
-            '        {"id": "e1", "label": "friendly label (e.g. \'python.exe\', \'instructions.docx\', \'185.220.101.45\', \'user@host\')", "type": "process|file|device|user|url|ip|domain|email|hash|registry|script", "malicious": true, "note": "optional short note"}\n'
+            '        {"id": "e1", "label": "ADVERSARY OBJECTIVE ONLY — describe WHAT the attacker is achieving on the victim, not the script mechanic. Good examples: \'Initial Foothold via Malicious Document\', \'Encrypted Stager Delivery\', \'Fileless In-Memory Execution\', \'Defense Evasion via Extension Masquerade\', \'C2 Beacon Establishment\', \'Credential Harvesting\', \'Data Exfiltration\', \'Shadow Copy Destruction (Anti-Recovery)\'. BAD examples that must NEVER appear: \'python.exe\', \'instructions.docx\', \'XOR Key 4fab...\', \'base64.b64decode()\', \'os.chdir\', \'exec()\', filenames, function calls, hex strings, variable names.", "type": "action|ip|url|user|device", "tactic": "MITRE ATT&CK tactic — REQUIRED — Reconnaissance|Resource Development|Initial Access|Execution|Persistence|Privilege Escalation|Defense Evasion|Credential Access|Discovery|Lateral Movement|Collection|Command and Control|Exfiltration|Impact", "malicious": true, "note": "optional 1-line summary of the attacker\'s intent at this step"}\n'
             '     ],\n'
             '     "edges": [\n'
-            '        {"from": "e1", "to": "e2", "label": "verb-phrase (Executed, Reads, Writes, Connects To, Parent Of, Sent To, Drops, Loads)"}\n'
+            '        {"from": "e1", "to": "e2", "label": "attacker progression verb (Enables, Escalates To, Leverages For, Feeds Into, Culminates In, Establishes, Exfiltrates To). NEVER script mechanic verbs like Reads, Loads, Decrypts, Parent Of."}\n'
             '     ]\n'
             '  },\n'
             '  "flow_graph": {\n'
@@ -579,7 +579,15 @@ async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verd
         "For malware_family: only claim a family if there is strong evidence (unique strings, C2 patterns, packer, algorithm signatures, or matches to VT/OTX threat labels).\n"
         "For mitre_techniques: derive from the DECODED BEHAVIOR, not the outer wrapper. For each technique cite the specific evidence in the decoded output.\n"
         "For attack_chain: model 3-8 sequential steps that describe the ATTACK CHAIN (what the malware does step by step). Each step should have a strong technical title (short caps phrase) + 2-3 sentence plain-English summary + optional technical_detail (hex keys, filenames, URLs cited verbatim from the payload). Order MUST be causal. Use kinds: ingestion|deobfuscation|context|filesystem|network|crypto|execution|persistence|discovery|c2|impact.\n"
-        "For entity_graph: extract 4-15 concrete ENTITIES from the payload (files touched, processes spawned, URLs contacted, IPs, users, devices, hashes) and the RELATIONSHIPS between them (Executed, Reads, Writes, Connects To, Parent Of, Drops, Sent To, Downloads). Mark 'malicious' true when the entity is suspicious/hostile. Types: process|file|device|user|url|ip|domain|email|hash|registry|script.\n"
+        "For entity_graph: this is a TACTICAL ATTACK CHAIN describing what THE ATTACKER is achieving on the victim system — NOT a technical decoder trace of the script's operations. Extract 5-10 ATTACKER GOALS/OUTCOMES, each mapped to a MITRE ATT&CK tactic. Frame every node from the adversary's perspective (their objectives on the target).\n"
+        "  STRICT RULES:\n"
+        "  - Do NOT create nodes for filenames, functions, APIs, variables, hex keys, or script internals (e.g. 'python.exe', 'instructions.docx', 'XOR Key 4fab…', 'base64.b64decode', 'os.chdir'). These are HOW the attacker operates, not WHAT they achieve.\n"
+        "  - DO create nodes for adversary objectives (e.g. 'Initial Foothold via Malicious Document', 'Encrypted Stager Delivery', 'In-Memory Fileless Execution', 'Defense Evasion via Extension Masquerade', 'C2 Establishment', 'Credential Harvesting Attempt', 'Data Exfiltration', 'Shadow Copy Destruction (Anti-Recovery)').\n"
+        "  - Node type should usually be 'action' (attacker action/objective) except for concrete external entities such as C2 IPs/URLs (type ip/url) or targeted victim entities (type user/device).\n"
+        "  - Every node MUST carry a MITRE ATT&CK tactic. Order the graph as a kill-chain timeline (Initial Access → Execution → Defense Evasion → Persistence → Credential Access → Discovery → Command and Control → Collection → Exfiltration → Impact).\n"
+        "  - Edges must express attacker progression (e.g. 'Enables', 'Escalates To', 'Leverages For', 'Feeds Into', 'Culminates In') — NOT script data-flow like 'Reads', 'Loads', 'Decrypts'.\n"
+        "  - Include the malicious flag on adversary-controlled nodes.\n"
+        "  Example: for a Python XOR loader dropping a stager, DO NOT list 'python.exe','base64','XOR key','instructions.docx'. INSTEAD produce nodes like: {label:'Initial Foothold (Signed LOLBin Abuse)', tactic:'Initial Access'} → {label:'Encrypted Stager Retrieval', tactic:'Defense Evasion'} → {label:'Rolling-Key Deobfuscation of Second Stage', tactic:'Defense Evasion'} → {label:'Fileless In-Memory Payload Execution', tactic:'Execution'} → {label:'C2 Beacon Establishment', tactic:'Command and Control'}.\n"
         "For flow_graph: additionally produce a compact node/edge structure for visualization — 4-10 nodes.\n"
         "Return STRICT JSON only with the keys shown in the schema. No markdown, no prose outside JSON."
     )
