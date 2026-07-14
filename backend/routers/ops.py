@@ -337,7 +337,7 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         })
         cur = nxt
 
-    return {
+    result = {
         "recipe": [{"op": s["op"], "args": s.get("args") or {}, "reason": _reason_for_op(s["op"])}
                    for s in det.get("steps") or []],
         "output": det.get("output") or "",
@@ -351,6 +351,20 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             {"id": r["id"], "name": r["name"]} for r in custom_matches
         ],
     }
+    # Auto-record into user's Investigation History (fire-and-forget, never blocks)
+    try:
+        from routers.history import record_investigation
+        await record_investigation(
+            user["email"],
+            input=body.input, output=result["output"],
+            chain=[s["op"] for s in det.get("steps") or []],
+            trace=trace,
+            engine=result["engine"], confidence=result["confidence"],
+            reached_shellcode=result["reached_shellcode"],
+        )
+    except Exception:
+        pass
+    return result
 
 
 def _reason_for_op(op: str) -> str:

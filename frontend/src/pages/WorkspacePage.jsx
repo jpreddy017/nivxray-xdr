@@ -13,6 +13,7 @@ import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
 import SocVerdictPanel from "@/components/SocVerdictPanel";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
+import HistoryDrawer from "@/components/HistoryDrawer";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -48,6 +49,25 @@ export default function WorkspacePage() {
   const [reachedShellcode, setReachedShellcode] = useState(false);
   // Client-side auto-detect on paste — 14 decoders raced instantly to surface a suggestion
   const [pasteHint, setPasteHint] = useState(null);
+  // History drawer
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const rehydrateFromHistory = (rec) => {
+    if (!rec) return;
+    setInput(rec.input_preview || "");
+    setOutput(rec.output_preview || "");
+    setDecodeTrace(rec.trace || []);
+    setDecodeWinnerEngine(rec.engine || null);
+    setDecodeConfidence(rec.confidence ?? null);
+    setReachedShellcode(!!rec.reached_shellcode);
+    setSteps((rec.chain || []).map((op) => ({ op, args: {} })));
+    setChain((rec.chain || []).map((op, i) => ({
+      op, reason: rec.trace?.[i]?.reason || "",
+      output_preview: rec.trace?.[i]?.output_preview || "",
+    })));
+    setAnalysis({ iocs: rec.iocs || {}, mitre: rec.mitre || [], ai_verdict: rec.verdict });
+    setStatus(`▸ RESTORED FROM HISTORY (${rec.engine} · ${rec.confidence}%)`);
+    setHistoryOpen(false);
+  };
   const isShellcodeClient = useMemo(() => !!detectShellcode(output || ""), [output]);
   const streamStopRef = useRef(null);
   const fileRef = useRef(null);
@@ -544,6 +564,10 @@ export default function WorkspacePage() {
                 }>
           <Sparkles size={13} /> AUTO INVESTIGATE
         </button>
+        <button className="nvx-btn ghost" onClick={() => setHistoryOpen(true)} data-testid="btn-open-history"
+                title="Investigation History — auto-saved for 30 days (starred entries kept forever).">
+          📜 HISTORY
+        </button>
         {analyzing && (
           <button className="nvx-btn warn" onClick={cancelStream} data-testid="btn-cancel-stream">
             <X size={13} /> CANCEL
@@ -935,6 +959,12 @@ export default function WorkspacePage() {
           <button className="nvx-btn sm ghost" style={{ marginTop: 6 }} onClick={() => setShareUrl("")}>DISMISS</button>
         </div>
       )}
+
+      <HistoryDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onRehydrate={rehydrateFromHistory}
+      />
     </div>
   );
 }

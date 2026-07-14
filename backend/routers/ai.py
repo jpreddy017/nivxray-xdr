@@ -200,7 +200,7 @@ async def ai_auto_investigate(body: AutoIn, user=Depends(get_current_user)):
         use_ai_verdict=True, describe=True, enrich_osint=True,
     ), user=user)
 
-    return {
+    result = {
         "reasoning": reasoning,
         "recipe": [s.model_dump() for s in steps],
         "output": decoded_output,
@@ -211,6 +211,24 @@ async def ai_auto_investigate(body: AutoIn, user=Depends(get_current_user)):
         "engine": det.get("engine"),
         "reached_shellcode": det.get("reached_shellcode", False),
     }
+    # Auto-record the full-fat investigation into user's history
+    try:
+        from routers.history import record_investigation
+        conf = int(round(min(1.0, (det.get("score") or 0.0)) * 100))
+        await record_investigation(
+            user["email"],
+            input=body.input, output=decoded_output,
+            chain=[s.op for s in steps],
+            trace=[{"op": s.op, "args": s.args or {}} for s in steps],
+            engine=det.get("engine"), confidence=conf,
+            reached_shellcode=det.get("reached_shellcode", False),
+            iocs=(analysis or {}).get("iocs") or {},
+            mitre=(analysis or {}).get("mitre") or [],
+            verdict=(analysis or {}).get("ai_verdict"),
+        )
+    except Exception:
+        pass
+    return result
 
 
 @router.post("/ai/troubleshoot")

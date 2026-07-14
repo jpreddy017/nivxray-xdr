@@ -376,3 +376,39 @@ Regression: **327/327 core backend tests still passing** after refactor.
 
 Regression: **327/327 backend tests + smoke-tested frontend**.
 
+
+### Sub-session I · Investigation Graph + Persistent History (Feb 2026)
+
+**Investigation Graph** (`/app/frontend/src/components/InvestigationGraph.jsx`) — SVG, ~450 lines, zero external graph libraries:
+- Vertical spine: raw-input → decode-chain nodes (color-coded 🔵 input, 🟢 op, 🔴 high-risk shellcode)
+- Terminal fan-out into 4 columns: IOCs (🟡) · MITRE (🟠) · LOLBINs · TI-HITS (🟣)
+- Node click → right-side drawer with details + Copy JSON + Export + ▸ Re-run from this node
+- Fullscreen toggle
+- Auto-classifies high-risk markers (shellcode/VirtualAlloc/AMSI/LOLBins) → red
+- Wired into ThreatAnalysis as the **default tab** (`GRAPH`) — analysts see the whole picture before drilling into MITRE/IOCs/etc.
+- IOC nodes expose VirusTotal + urlscan.io + MITRE ATT&CK pivot links
+
+**Persistent Investigation History** — the foundation-layer feature:
+- New collection `db.investigations` with unique index on `(user_email, input_hash)` for dedup — re-analysing the same payload bumps `run_count` instead of duplicating
+- **Partial TTL index** on `last_seen` filtered by `starred: false` — non-starred docs auto-expire after 30 days, starred docs are retained forever
+- Full-text index on `input_preview + notes + tags`, dedicated indexes on `iocs.urls / ips / domains` and `mitre.id`
+- Backend router `/app/backend/routers/history.py`:
+  - `POST /api/history/record` — internal, called fire-and-forget from `/decode/smart` + `/ai/auto-investigate`
+  - `GET /api/history` — paginated list with 8-way filter (q / ioc / mitre / engine / verdict / starred / shellcode / since_days)
+  - `GET /api/history/{id}` — full doc for rehydrate
+  - `PATCH /api/history/{id}` — update tags/notes/starred
+  - `DELETE /api/history/{id}`
+  - `GET /api/history/export/bundle` — download every investigation as JSON
+  - `POST /api/history/import` — bulk-restore from a bundle
+  - `POST /api/history/compare` — diff two investigations (chain / shared vs unique IOCs / MITRE)
+  - `GET /api/history/stats` — trend data: engine mix, top chains, confidence-over-time, shellcode / malicious counts
+- Auto-save hook wired into both `/decode/smart` (deterministic path) and `/ai/auto-investigate` (full-fat pipeline with iocs+mitre+verdict)
+- Per-user visibility by default; admin team-mode toggle scaffolded for enterprise deploys
+- Frontend `HistoryDrawer.jsx` (~250 lines): slide-out from workspace top-bar `📜 HISTORY` button
+  - Filters: text search, IOC value, MITRE id, verdict dropdown, engine dropdown, time range, ⭐ starred, ▲ shellcode
+  - Per-row: engine badge, confidence %, verdict color dot, chain summary, IOC count, MITRE count, tag chips, run×N counter, relative time
+  - Actions: ⭐ star toggle, 🏷️ EDIT (tags+notes modal), ▸ RESTORE (rehydrates input+chain+trace+analysis), 🗑 DELETE
+  - Bulk: EXPORT all, IMPORT bundle
+
+Regression: 228/228 core tests passing. Auto-save verified end-to-end via preview (one decode → one row in drawer → star toggle → filter → tag/notes edit → all round-trip cleanly).
+
