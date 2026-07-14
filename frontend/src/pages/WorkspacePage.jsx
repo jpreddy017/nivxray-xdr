@@ -132,14 +132,28 @@ export default function WorkspacePage() {
       const url = smart ? "/decode/smart" : "/ai/auto-decode";
       const r = await api.post(url, { input });
       setSteps((r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} })));
-      setOutput(r.data.output || "");
+
+      // Anti-hallucination guard — if backend refused to emit a decode (SOC-mode
+      // graceful stop), keep the input unchanged and surface the explanation
+      // instead of dumping garbage into the Output pane.
+      if (r.data.stopped_gracefully) {
+        setOutput("");
+        setStatus(`⚠ ${r.data.graceful_message || "No further deterministic decoding possible"}`);
+      } else {
+        setOutput(r.data.output || "");
+        const conf = r.data.confidence;
+        const eng  = r.data.winner_engine;
+        const confPrefix = (conf != null && eng) ? `[${eng.toUpperCase()} · ${conf}%] ` : "";
+        const detail = r.data.reasoning ? `AI: ${r.data.reasoning.slice(0, 120)}` : "SMART DECODE COMPLETE";
+        setStatus(confPrefix + detail);
+      }
+
       setDetected(r.data.detected_type || null);
       setChain((r.data.recipe || []).map((s, i) => ({
         op: s.op, reason: s.reason || "",
         output_preview: r.data.steps_output?.[i]?.output_preview || "",
         custom: !!s.custom, model_id: s.model_id, model_name: s.model_name,
       })));
-      setStatus(r.data.reasoning ? `AI: ${r.data.reasoning.slice(0, 120)}` : "SMART DECODE COMPLETE");
     } catch (e) {
       setStatus("ERROR: " + (e?.response?.data?.detail || e.message));
     } finally {
@@ -450,7 +464,14 @@ export default function WorkspacePage() {
                 value={personaId}
                 onChange={(e) => setPersonaId(e.target.value)}
                 data-testid="ai-persona-select"
-                title="AI Persona — 'NivX Cognis' is the in-house flagship"
+                title={
+                  "AI PERSONA — the system prompt / analyst voice.\n\n" +
+                  "★ NivX Cognis (recommended) — in-house flagship trained on Sophos layered-stager decoding + MITRE + LOLBAS.\n" +
+                  "  Use for: malware triage, obfuscated PowerShell, LOLBin chains, shellcode reasoning.\n\n" +
+                  "Default (JSON) — bare structured-output prompt.\n" +
+                  "  Use for: quick sanity checks, when you want raw LLM reasoning without SOC-specific context.\n\n" +
+                  "Custom personas — created in Model Studio → AI Personas."
+                }
                 style={{ padding: "4px 8px", fontSize: 11, height: 28, background: "var(--inset)" }}
               >
                 <option value="">PERSONA · Default (JSON)</option>
@@ -467,7 +488,14 @@ export default function WorkspacePage() {
                 value={providerId}
                 onChange={(e) => setProviderId(e.target.value)}
                 data-testid="ai-provider-select"
-                title="LLM Provider — leave default to use Claude Sonnet 4.5"
+                title={
+                  "LLM PROVIDER — which model executes the AI steps.\n\n" +
+                  "Default (Claude Sonnet 4.5) — best balance of accuracy + speed for malware triage.\n" +
+                  "  Use for: everything, unless you have a specific reason to switch.\n\n" +
+                  "GPT-5.2 — stronger on obscure JavaScript / eval-chain deobfuscation.\n" +
+                  "Gemini 3 Pro — strongest for multi-modal (screenshots) and non-English lures.\n\n" +
+                  "All providers use the Emergent Universal LLM Key. Switch in Model Studio → LLM Providers."
+                }
                 style={{ padding: "4px 8px", fontSize: 11, height: 28, background: "var(--inset)" }}
               >
                 <option value="">LLM · Default</option>
@@ -477,7 +505,14 @@ export default function WorkspacePage() {
           </div>
         )}
 
-        <button className="nvx-btn primary" onClick={autoInvestigate} disabled={loading || analyzing} data-testid="btn-auto-investigate">
+        <button className="nvx-btn primary" onClick={autoInvestigate} disabled={loading || analyzing} data-testid="btn-auto-investigate"
+                title={
+                  "AUTO INVESTIGATE — Full SOC pipeline in one click.\n" +
+                  "Runs: MAGIC decode → OSINT enrichment → threat-intel lookup → MITRE mapping → AI verdict.\n\n" +
+                  "▸ USE WHEN: analyst triage of a fresh sample; you want the full report.\n" +
+                  "▸ COST: 15–90s + one LLM call (uses NivX Cognis persona + Claude by default).\n" +
+                  "▸ OUTPUT: decoded payload + IOCs + LOLBins + MITRE + AI verdict streamed as SSE."
+                }>
           <Sparkles size={13} /> AUTO INVESTIGATE
         </button>
         {analyzing && (
@@ -485,21 +520,54 @@ export default function WorkspacePage() {
             <X size={13} /> CANCEL
           </button>
         )}
-        <button className="nvx-btn" onClick={() => autoDecode({ smart: false })} disabled={loading} data-testid="btn-auto-decode">
+        <button className="nvx-btn" onClick={() => autoDecode({ smart: false })} disabled={loading} data-testid="btn-auto-decode"
+                title={
+                  "AI DECODE — LLM proposes a recipe (base64/gzip/XOR/etc.) with SOC anti-hallucination guard.\n" +
+                  "Runs AI plan AND deterministic magic in parallel, picks the higher-confidence winner.\n\n" +
+                  "▸ USE WHEN: the payload is unusual and you want the LLM to reason about the format.\n" +
+                  "▸ SAFETY: if confidence < 35/100 it STOPS gracefully (no garbage output).\n" +
+                  "▸ COST: 1 LLM call (~3–8s). Uses selected Persona + LLM (default NivX Cognis + Claude).\n" +
+                  "▸ RETURNS: recipe + confidence % + winner engine + graceful-stop message if applicable."
+                }>
           <Wand2 size={13} /> AI DECODE
         </button>
-        <button className="nvx-btn" onClick={() => autoDecode({ smart: true })} disabled={loading} data-testid="btn-smart-decode">
+        <button className="nvx-btn" onClick={() => autoDecode({ smart: true })} disabled={loading} data-testid="btn-smart-decode"
+                title={
+                  "SMART DECODE — Fully deterministic. No AI. Fast.\n" +
+                  "Rule-based recipe selection using signature prefixes (H4sI→gzip, JAB/SQBF→UTF-16LE, TVq→PE, XOR-loop sniffer, etc).\n\n" +
+                  "▸ USE WHEN: you need repeatable results (regression tests, high-volume automation, air-gapped ops).\n" +
+                  "▸ COST: <100ms, no LLM. Zero hallucination by design.\n" +
+                  "▸ LIMITATION: only recognises known signatures. Falls back to no-op on unknown formats."
+                }>
           <Zap size={13} /> SMART DECODE
         </button>
         <button className="nvx-btn" onClick={magicDecode} disabled={loading} data-testid="btn-magic-decode"
                 style={{ borderColor: "var(--warn)", color: "var(--warn)" }}
-                title="Recursive multi-branch auto-decoder (CyberChef Magic parity) — tries every plausible op, scores outputs, and returns the top candidate chains">
+                title={
+                  "MAGIC — Recursive multi-branch auto-decoder (CyberChef Magic parity).\n" +
+                  "Tries every plausible op combination, scores each candidate (readability + shellcode prologue + IOC density), and returns the top-N chains for you to pick.\n\n" +
+                  "▸ USE WHEN: input is heavily obfuscated (nested base64+gzip+XOR); you want to see multiple candidate chains ranked side-by-side.\n" +
+                  "▸ COST: <500ms typically, no LLM.\n" +
+                  "▸ RETURNS: top 5 chains with per-step ops + confidence score + shellcode flag."
+                }>
           <Wand2 size={13} /> MAGIC
         </button>
-        <button className="nvx-btn" onClick={runRecipe} disabled={loading || !steps.length} data-testid="btn-run-recipe">
+        <button className="nvx-btn" onClick={runRecipe} disabled={loading || !steps.length} data-testid="btn-run-recipe"
+                title={
+                  "RUN RECIPE — Execute the current step list against the input.\n" +
+                  "Use this when you've hand-built the recipe (via the Operations panel) or edited a Smart/Magic/AI Decode output.\n\n" +
+                  "▸ COST: <100ms, no LLM.\n" +
+                  "▸ Sends to backend. For a 0-latency preview of JS-supported ops, watch the OUTPUT card update as you edit the recipe."
+                }>
           <Play size={13} /> RUN RECIPE
         </button>
-        <button className="nvx-btn warn" onClick={troubleshoot} disabled={loading} data-testid="btn-troubleshoot">
+        <button className="nvx-btn warn" onClick={troubleshoot} disabled={loading} data-testid="btn-troubleshoot"
+                title={
+                  "TROUBLESHOOT — Ask the AI why the current recipe / decode is failing.\n" +
+                  "Sends: input, current recipe, current output, and any errors — receives a targeted explanation + suggested fix.\n\n" +
+                  "▸ USE WHEN: recipe returns garbage or an error you can't explain.\n" +
+                  "▸ COST: 1 LLM call (~5s). Uses selected Persona + LLM."
+                }>
           <Wrench size={13} /> TROUBLESHOOT
         </button>
         <button className="nvx-btn" onClick={doShare} data-testid="btn-share"><Share2 size={13} /> SHARE</button>

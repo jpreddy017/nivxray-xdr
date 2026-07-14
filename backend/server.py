@@ -1168,41 +1168,180 @@ _OP_IDS = sorted(OPERATIONS.keys())
 
 @api.post("/ai/auto-decode")
 async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
-    """AI plans a recipe, executes it locally, and returns the final output.
-    If the AI plan fails, falls back to deterministic smart_decode.
+    """AI Decode with strict anti-hallucination guardrails for SOC use.
+
+    Pipeline:
+      1. Ask the LLM for a decoding recipe (JSON) — its ARGS included.
+      2. Run BOTH the AI plan AND the deterministic magic decoder in parallel.
+      3. Score each candidate (readability + shellcode prologue + IOC density).
+      4. Pick the higher-scoring winner. If BOTH are below the quality floor,
+         STOP GRACEFULLY and return `"No further deterministic decoding
+         possible"` with a confidence score + the exact ops attempted.
+
+    The output is NEVER silently corrupted — we return the winning engine, a
+    confidence 0–100, a `stopped_gracefully` flag, and per-step previews.
     """
     system = (
         "You are an expert malware analyst using a CyberChef-like tool. "
         "Given an obfuscated / encoded payload, produce a JSON recipe of operations that will fully decode it.\n"
         f"AVAILABLE OPERATION IDS: {_OP_IDS}\n"
         "Return STRICT JSON only with keys: reasoning (short string), steps (array of {op, args}).\n"
-        "Args optional. Only use ids from AVAILABLE OPERATION IDS. Max 8 steps."
+        "For XOR ops YOU MUST include the key in args, e.g. {\"op\":\"xor\",\"args\":{\"key\":\"0x23\"}}. "
+        "For gzip/zlib/base64 chained forms, list each step separately. "
+        "Only use ids from AVAILABLE OPERATION IDS. Max 8 steps."
     )
     prompt = f"PAYLOAD:\n{body.input[:4000]}\n\nReturn only JSON."
     try:
         plan = await _llm_json("autodecode-" + str(datetime.now(timezone.utc).timestamp()), system, prompt)
     except HTTPException:
-        plan = {"reasoning": "AI unavailable — falling back to deterministic smart decoder.", "steps": []}
+        plan = {"reasoning": "AI unavailable — falling back to deterministic decoder.", "steps": []}
 
-    steps = []
+    # Build AI recipe
+    ai_steps: List[RecipeStep] = []
     for s in (plan.get("steps") or [])[:8]:
         if s.get("op") in OPERATIONS:
-            steps.append(RecipeStep(op=s["op"], args=s.get("args") or {}))
+            ai_steps.append(RecipeStep(op=s["op"], args=s.get("args") or {}))
 
-    if not steps:
-        det = smart_decode(body.input)
-        steps = [RecipeStep(op=x["op"], args=x.get("args", {})) for x in det["steps"]]
-        plan.setdefault("reasoning", "Used deterministic smart decoder (no AI plan).")
+    # Execute AI plan (if any) + magic_decode in parallel
+    async def _run_ai_plan() -> Dict[str, Any]:
+        if not ai_steps:
+            return {"engine": "ai", "output": "", "recipe": [], "errors": ["no valid steps proposed"]}
+        r = await run_recipe(RunRecipeIn(input=body.input, steps=ai_steps), user=user)
+        return {
+            "engine": "ai",
+            "output": r.output or "",
+            "recipe": [s.model_dump() for s in ai_steps],
+            "steps_output": r.steps_output,
+            "detected_type": r.detected_type,
+            "errors": r.errors,
+        }
 
-    result = await run_recipe(RunRecipeIn(input=body.input, steps=steps), user=user)
-    return {
+    def _run_magic() -> Dict[str, Any]:
+        m = magic_decode(body.input, max_depth=6, max_branches=5, top_n=3)
+        top = (m.get("top_results") or [{}])[0]
+        return {
+            "engine": "magic",
+            "output": top.get("output", ""),
+            "recipe": [{"op": c["op"], "args": c.get("args") or {}}
+                       for c in (top.get("chain") or [])],
+            "steps_output": top.get("chain") or [],
+            "detected_type": m.get("detected_type"),
+            "errors": [],
+            "is_shellcode": top.get("is_shellcode", False),
+            "score": (top.get("score_breakdown") or {}).get("score", 0.0),
+        }
+
+    ai_task = asyncio.create_task(_run_ai_plan())
+    magic_result = _run_magic()
+    ai_result = await ai_task
+
+    # Quality scoring — the anti-hallucination guard
+    def _quality_score(res: Dict[str, Any]) -> Dict[str, Any]:
+        out = res.get("output") or ""
+        if not out:
+            return {"score": 0.0, "printable_ratio": 0.0, "shellcode": False,
+                    "iocs_found": 0, "reasons": ["empty output"]}
+        printable = sum(1 for c in out if 32 <= ord(c) < 127 or ord(c) in (9, 10, 13))
+        pr = printable / max(1, len(out))
+        reasons: List[str] = []
+        score = pr * 0.4  # 40% weight on readability
+
+        # Shellcode prologue detection — strong positive signal
+        try:
+            from shellcode_analyzer import starts_with_known_prologue
+            raw = out.encode("latin-1") if all(ord(c) < 256 for c in out) \
+                                        else out.encode("utf-8", errors="replace")
+            is_sc = starts_with_known_prologue(raw)
+            if is_sc:
+                score += 0.35
+                reasons.append("known shellcode prologue detected (+0.35)")
+        except Exception:
+            is_sc = False
+
+        # IOC extraction — any URLs/IPs/hashes recovered is a strong signal
+        try:
+            iocs = extract_iocs_from_text(out)
+            n_iocs = sum(len(v) if isinstance(v, list) else 0 for v in iocs.values())
+            if n_iocs:
+                score += min(0.20, 0.05 * n_iocs)
+                reasons.append(f"{n_iocs} IOC(s) recovered")
+        except Exception:
+            n_iocs = 0
+
+        # Known script markers
+        markers = ("IEX", "Invoke-Expression", "DownloadString", "New-Object",
+                   "FromBase64String", "http://", "https://", "MZ", "PE", "ELF",
+                   "cmd.exe", "powershell", "$env:")
+        matched_markers = [m for m in markers if m in out]
+        if matched_markers:
+            score += min(0.15, 0.05 * len(matched_markers))
+            reasons.append(f"script markers: {matched_markers[:3]}")
+
+        # Bonus: readability high enough that this looks like real text
+        if pr >= 0.90 and not is_sc:
+            score += 0.10
+            reasons.append("clean printable (+0.10)")
+
+        return {
+            "score": round(min(1.0, score), 3),
+            "printable_ratio": round(pr, 3),
+            "shellcode": is_sc,
+            "iocs_found": n_iocs,
+            "reasons": reasons,
+        }
+
+    ai_q = _quality_score(ai_result)
+    mg_q = _quality_score(magic_result)
+
+    # Quality floor for SOC use: we WILL NOT return an output below this.
+    QUALITY_FLOOR = 0.35
+
+    if ai_q["score"] >= mg_q["score"]:
+        winner, wq, loser, lq = ai_result, ai_q, magic_result, mg_q
+    else:
+        winner, wq, loser, lq = magic_result, mg_q, ai_result, ai_q
+
+    stopped_gracefully = wq["score"] < QUALITY_FLOOR
+
+    response = {
         "reasoning": plan.get("reasoning", ""),
-        "recipe": [s.model_dump() for s in steps],
-        "output": result.output,
-        "steps_output": result.steps_output,
-        "detected_type": result.detected_type,
-        "errors": result.errors,
+        "recipe": winner["recipe"],
+        "output": winner["output"] if not stopped_gracefully else "",
+        "steps_output": winner.get("steps_output") or [],
+        "detected_type": winner.get("detected_type"),
+        "errors": winner.get("errors") or [],
+        # Anti-hallucination guardrail metadata
+        "winner_engine": winner["engine"],
+        "confidence": int(round(wq["score"] * 100)),
+        "quality_reasons": wq["reasons"],
+        "stopped_gracefully": stopped_gracefully,
+        "graceful_message": (
+            "No further deterministic decoding possible. "
+            f"Best attempt via '{winner['engine']}' engine scored {int(round(wq['score']*100))}/100 "
+            f"(readability {int(wq['printable_ratio']*100)}%, "
+            f"shellcode={wq['shellcode']}, IOCs={wq['iocs_found']}). "
+            "The payload may already be plaintext, use a key/format not yet supported, "
+            "or be intentionally corrupted."
+        ) if stopped_gracefully else "",
+        "alternate": {
+            "engine": loser["engine"],
+            "confidence": int(round(lq["score"] * 100)),
+            "recipe": loser.get("recipe") or [],
+        },
     }
+    return response
+
+
+def extract_iocs_from_text(text: str) -> Dict[str, List[str]]:
+    """Lightweight IOC extraction reused by the quality gate."""
+    from command_analyzer import extract_iocs as _ex
+    r = _ex(text or "")
+    # Flatten nested hashes dict for counting convenience
+    flat = {"urls": r.get("urls") or [], "ips": r.get("ips") or [],
+            "regkeys": r.get("regkeys") or [], "file_paths": r.get("file_paths") or []}
+    h = r.get("hashes") or {}
+    flat["hashes"] = (h.get("md5") or []) + (h.get("sha1") or []) + (h.get("sha256") or [])
+    return flat
 
 
 @api.post("/ai/auto-investigate")

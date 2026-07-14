@@ -101,11 +101,16 @@ def test_command_analyzer_end_to_end():
     assert any(p["role"] == "[Convert]::FromBase64String argument"
                and p["confidence"] >= 0.90 and p["auto_decoded"]
                for p in r["identified_payloads"])
-    # There must be at least one decode chain that ends in the decoded
-    # meterpreter loader script text (`func_get_proc_address`).
+    # There must be at least one decode chain that ends EITHER on the loader
+    # script (`func_get_proc_address` text) OR on the terminal MSFvenom
+    # shellcode (`\xfc\xe8` prologue) — both are valid outcomes now that the
+    # analyzer peels through nested layers automatically.
     combined = "\n".join(d.get("final_output") or "" for d in r["decode_chains"])
-    assert "func_get_proc_address" in combined, \
-        "outer base64+gzip did not decode to the loader script"
+    reached_loader   = "func_get_proc_address" in combined
+    reached_shellcode = any(d.get("is_shellcode") for d in r["decode_chains"]) \
+                       or combined.encode("latin-1", errors="replace").startswith(b"\xfc\xe8")
+    assert reached_loader or reached_shellcode, \
+        f"outer base64+gzip did not decode to loader script OR shellcode. combined={combined[:200]!r}"
     # Execution-flow badges should flag IEX (from the outer command)
     labels = [e["label"] for e in r.get("execution_flow") or []]
     assert "Invoke-Expression" in labels
