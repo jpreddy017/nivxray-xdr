@@ -175,9 +175,16 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
         cands.insert(0, {"op": "lzma-decompress", "args": {}})
     if s.startswith("BZh"):
         cands.insert(0, {"op": "bzip2-decompress", "args": {}})
-    # Hex detection (≥ 20 chars, even length)
+    # Hex detection (≥ 20 chars, even length). Prepend when the buffer is
+    # UNAMBIGUOUSLY hex (only 0-9a-f, no uppercase letters beyond a-f) so it
+    # beats base64/utf16 speculation with tight max_branches budgets.
     if _HEX_BLOB.match(b64only) and len(b64only) % 2 == 0:
-        cands.append({"op": "hex-decode", "args": {}})
+        # Strictly hex → prioritise; ambiguous (uppercase letters G-Z) is caught
+        # by base64 detection above so we don't accidentally down-rank base64.
+        if re.fullmatch(r"[0-9a-fA-F]+", b64only):
+            cands.insert(0, {"op": "hex-decode", "args": {}})
+        else:
+            cands.append({"op": "hex-decode", "args": {}})
     # URL-encoded
     if re.search(r"%[0-9A-Fa-f]{2}", s):
         cands.append({"op": "url-decode", "args": {}})
@@ -269,6 +276,20 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
     initial_score = score_output(working)
     best_results: List[Dict[str, Any]] = []
 
+    # Preserve the XOR key from the ORIGINAL wrapper text before isolation
+    # strips it — otherwise `powershell $c = FromBase64String("..."); ...
+    # -bxor 35` loses the key when the sanitizer collapses down to the
+    # bare base64 blob. Seeds ctx so the very first `_walk` iteration can
+    # plan the deterministic base64→xor chain.
+    _initial_ctx: Dict[str, Any] = {}
+    try:
+        from payload_sanitizer import find_xor_key as _fxk
+        _wrapper_key = _fxk(payload)
+        if _wrapper_key is not None:
+            _initial_ctx["xor_key"] = _wrapper_key
+    except Exception:
+        pass
+
     def _walk(cur: str, chain: List[Dict[str, Any]], depth: int, path_scores: List[float],
               ctx: Dict[str, Any]):
         # Record the current state as a candidate result too — decoding can peak
@@ -358,15 +379,26 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
             _walk(nxt, chain + [clean_step], depth + 1,
                   path_scores + [sb["score"]], ctx)
 
-    _walk(working, [], 0, [], {})
+    _walk(working, [], 0, [], _initial_ctx)
 
     # Chain-completion bonus — reward outputs that survived multiple decode
     # layers AND are cleanly printable. Applied to every candidate BEFORE the
     # top-N cut so a longer correct chain surfaces above short partial ones.
+    # GUARD: skip when the output STILL looks like an encoded blob (pure hex,
+    # pure base64) — those chains almost always represent a walker that
+    # went one step too far. Otherwise "Cobalt Strike stager" (short readable)
+    # gets outranked by a 7-op chain that produced 60 chars of hex.
     for r in best_results:
         chain_len = len(r.get("chain") or [])
         pr = r["score_breakdown"].get("printable", 0.0)
-        if chain_len >= 3 and pr >= 0.95:
+        out = (r.get("output") or "").strip()
+        still_encoded = bool(
+            out and (
+                re.fullmatch(r"[0-9a-fA-F]{20,}", out) is not None
+                or re.fullmatch(r"[A-Za-z0-9+/]{20,}={0,2}", out) is not None
+            )
+        )
+        if chain_len >= 3 and pr >= 0.95 and not still_encoded:
             r["score_breakdown"]["score"] = round(
                 r["score_breakdown"]["score"] + 0.05 * min(chain_len, 6), 4
             )

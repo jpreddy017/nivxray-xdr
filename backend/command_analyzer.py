@@ -679,7 +679,11 @@ def _decode_span(span: PayloadSpan, hint_xor_key: Optional[int] = None) -> Dict[
     # (or nothing worked), invoke the multi-byte XOR brute-forcer explicitly.
     # This catches Cobalt-Strike PROFILE / Empire stagers whose inner layer is
     # a repeating-key XOR (not a single byte).
-    if len(text) >= 32:
+    #
+    # GUARD: only run when we have NO successful decode chain, or the current
+    # best chain has zero decode steps. Otherwise we risk overriding a correct
+    # base64→utf16le output with an alpha-heavy XOR-brute misfire.
+    if len(text) >= 32 and not result.get("final_output"):
         try:
             from operations import OPERATIONS as _OPS
             if "xor-brute" in _OPS:
@@ -719,6 +723,9 @@ _MITRE_RULES = [
     (re.compile(r"\batob\s*\(", re.I),                            "T1027",     "Obfuscated / base64 payload"),
     (re.compile(r"\bIEX\b|Invoke-Expression", re.I),              "T1059.001", "PowerShell in-memory execution"),
     (re.compile(r"\bDownloadString\b", re.I),                     "T1105",     "Ingress Tool Transfer"),
+    (re.compile(r"\b(?:curl|wget|bitsadmin|Invoke-WebRequest)\b.*(?:-o|--output|-O|/transfer|/download|-OutFile)", re.I | re.S),
+                                                                    "T1105",     "Ingress Tool Transfer"),
+    (re.compile(r"\bcurl\b.*\bhttps?://.*\|", re.I),              "T1105",     "Ingress Tool Transfer"),
     (re.compile(r"\bcertutil.*-urlcache|-decode\b", re.I),        "T1140",     "Deobfuscate / Decode Files"),
     (re.compile(r"\brundll32\b", re.I),                           "T1218.011", "Signed Binary Proxy (rundll32)"),
     (re.compile(r"\bregsvr32\b", re.I),                           "T1218.010", "Signed Binary Proxy (regsvr32)"),
@@ -783,6 +790,18 @@ def detect_lolbins(tokens: List[str], interpreter: Optional[InterpreterProfile])
         if key and INTERPRETERS[key].lolbin and key not in seen:
             seen.add(key)
             hits.append({"name": key, "role": "invoked binary"})
+        # Also scan INSIDE multi-word tokens (e.g. PowerShell -c 'iex; rundll32
+        # evil.dll,Main' becomes a single quoted token) for embedded LOLBin
+        # invocations. Splits on shell/PS separators — space, semicolon, pipe,
+        # comma, ampersand — and checks each sub-word against the LOLBin table.
+        # Skip if the token was already a bare LOLBin name (handled above).
+        if " " in base or ";" in base or "|" in base:
+            for sub in re.split(r"[\s;|,&]+", tok.strip('"\'')):
+                sub_base = sub.rsplit("\\", 1)[-1].rsplit("/", 1)[-1].lower()
+                sub_key = _INTERPRETER_INDEX.get(sub_base)
+                if sub_key and INTERPRETERS[sub_key].lolbin and sub_key not in seen:
+                    seen.add(sub_key)
+                    hits.append({"name": sub_key, "role": "invoked binary (nested)"})
     return hits
 
 
