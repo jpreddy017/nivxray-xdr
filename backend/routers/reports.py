@@ -1,4 +1,4 @@
-"""Reports router — /api/share, /api/share/{token}, /api/report, /api/report/{fmt}."""
+"""Reports router — /api/share, /api/share/{token}, /api/report, /api/report/{fmt}, /api/report/stix."""
 from __future__ import annotations
 import base64
 import json
@@ -8,12 +8,15 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from schemas import ShareIn, AnalyzeIn
 from deps import db, get_current_user
-from analysis_core import analysis_context
+from analysis_core import analysis_context, deterministic_best_decode
+from operations import extract_iocs, mitre_map
+from stix_export import build_investigation_bundle
 from report_renderers import (
     download,
     render_csv_report, render_docx_report, render_pdf_from_html,
     render_text_report, render_html_report,
 )
+from schemas import AutoIn
 
 router = APIRouter()
 
@@ -59,6 +62,46 @@ async def build_report(body: AnalyzeIn, user=Depends(get_current_user)):
     }
 
 
+@router.post("/report/stix")
+async def build_stix_report(body: AutoIn, user=Depends(get_current_user)):
+    """Return a STIX 2.1 bundle for the given payload.
+
+    Runs the deterministic best-of decoder, extracts IOCs + MITRE, then wraps
+    everything in indicators / attack-patterns / note / report objects tied
+    together with a single top-level bundle. Ready to import into MISP,
+    OpenCTI, ThreatConnect, Anomali, or any other STIX 2.1-aware platform.
+    """
+    det = deterministic_best_decode(body.input)
+    decoded = det.get("output") or ""
+    text = (decoded or "") + "\n" + body.input
+    iocs = extract_iocs(text)
+    mitre = mitre_map(text)
+    confidence = int(round(min(1.0, det.get("score", 0.0)) * 100))
+    trace = [{"op": s["op"], "args": s.get("args") or {}} for s in det.get("steps") or []]
+
+    bundle = build_investigation_bundle(
+        analyst_email=user.get("email") or "unknown@nivxray",
+        input_preview=body.input, output_preview=decoded,
+        engine=det.get("engine"),
+        confidence=confidence,
+        trace=trace, iocs=iocs, mitre=mitre, verdict=None,
+    )
+    return bundle
+
+
+@router.post("/report/stix/download")
+async def download_stix_report(body: AutoIn, user=Depends(get_current_user)):
+    """Same as /report/stix but returns as downloadable JSON attachment."""
+    bundle = await build_stix_report(body, user=user)
+    payload = json.dumps(bundle, indent=2).encode("utf-8")
+    stem = f"nivxray_stix_{int(datetime.now().timestamp())}"
+    return download(payload, f"{stem}.json", "application/vnd.oasis.stix+json")
+
+
+# ============================================================================
+# Generic report renderers — must be AFTER the literal /report/stix routes
+# above so FastAPI doesn't shadow them via the {fmt} path parameter.
+# ============================================================================
 @router.post("/report/{fmt}")
 async def build_report_fmt(fmt: str, body: AnalyzeIn, user=Depends(get_current_user)):
     """Download report as txt / html / csv / docx / pdf."""
@@ -96,3 +139,8 @@ async def build_report_fmt(fmt: str, body: AnalyzeIn, user=Depends(get_current_u
                                        ctx["description"], ctx["verdict"])
         payload = render_pdf_from_html(html_body)
         return download(payload, f"{stem}.pdf", "application/pdf")
+
+
+# ============================================================================
+# STIX 2.1 bundle export — decoded investigation ready for TIP ingestion
+# ============================================================================
