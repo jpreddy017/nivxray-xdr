@@ -91,15 +91,15 @@ BUILTIN_SEEDS: List[Dict[str, Any]] = [
     },
     {
         "name": "Gzip inside base64 (H4sIA prefix)",
-        "raw_input": "H4sICMxJqmYAA3guc2gAK0osTgVR2XmZecmVBQq+iSVJqSU5Cq7Fybk5AGjJ1P4dAAAA",
-        "expected_output": "echo",
+        "raw_input": "H4sIAIL2VWoC/0tNzshXyEjNyclXSCvKz1VIr8osAABjdx7zFAAAAA==",
+        "expected_output": "echo hello from gzip",
         "categories": ["Compression", "Multi-stage"],
         "difficulty": "medium",
         "notes": "Sophos Cobalt-Strike pattern: base64 → gzip → PowerShell.",
     },
     {
         "name": "Zlib-compressed base64",
-        "raw_input": "eJwLSSwuUUgqzc9RSMxJTUkFAB0uBOc=",
+        "raw_input": "eJzzSM3JyVdwzs8tKEotLs7Mz1MEAD/qBsg=",
         "expected_output": "Hello Compression!",
         "categories": ["Compression"],
         "difficulty": "medium",
@@ -107,11 +107,19 @@ BUILTIN_SEEDS: List[Dict[str, Any]] = [
     },
     {
         "name": "LZMA-compressed base64",
-        "raw_input": "/Td6WFoAAATm1rRGAgAhARYAAAB0L+Wj4AAPAHNdADshBIYU5PfIYRZM3+DEbW6IPXAMlS3knbUD0xThvxa/rQe0hWjD/8AAAADoUYA/6QUnvAABKBBIkI74HkO2830BAAAAAARZWg==",
+        "raw_input": "/Td6WFoAAATm1rRGAgAhARYAAAB0L+WjAQAJSGVsbG8gTFpNQQAAAH7LyqERLLdRAAEiChUa4WcftvN9AQAAAAAEWVo=",
         "expected_output": "Hello LZMA",
         "categories": ["Compression"],
         "difficulty": "hard",
         "notes": "Base64 → LZMA (xz) → plain text. Requires the new lzma-decompress op.",
+    },
+    {
+        "name": "Bzip2-compressed base64",
+        "raw_input": "QlpoOTFBWSZTWRfx3lUAAAGdgEAAEAAQQAIkwBAgACIAaeoQAwXTWCGDxdyRThQkBfx3lUA=",
+        "expected_output": "Hello Bzip2",
+        "categories": ["Compression"],
+        "difficulty": "hard",
+        "notes": "Base64 → bzip2 → plain text. Uses the bzip2-decompress op.",
     },
     {
         "name": "JWT token (unsigned)",
@@ -119,7 +127,7 @@ BUILTIN_SEEDS: List[Dict[str, Any]] = [
         "expected_output": "\"sub\": \"admin\"",
         "categories": ["Crypto"],
         "difficulty": "easy",
-        "notes": "Standard JWT — header + payload decode.",
+        "notes": "Standard JWT — header + payload decode (magic decoder chains jwt-decode).",
     },
     {
         "name": "JavaScript atob() call",
@@ -182,10 +190,35 @@ async def ensure_indexes(db) -> None:
 
 async def seed_builtins(db) -> None:
     for seed in BUILTIN_SEEDS:
-        exists = await db.sample_library.find_one({"name": seed["name"]})
-        if exists:
-            continue
+        existing = await db.sample_library.find_one({"name": seed["name"]})
         now = datetime.now(timezone.utc)
+        if existing:
+            # Refresh protected/built-in samples if the seed data has been updated
+            # (e.g. we fixed a broken gzip/zlib blob) — leave user-added samples alone.
+            if not existing.get("protected"):
+                continue
+            needs_refresh = (
+                existing.get("raw_input") != seed["raw_input"] or
+                existing.get("expected_output") != seed["expected_output"]
+            )
+            if not needs_refresh:
+                continue
+            await db.sample_library.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {
+                    "raw_input": seed["raw_input"],
+                    "expected_output": seed["expected_output"],
+                    "categories": seed.get("categories") or existing.get("categories") or [],
+                    "expected_mitre": seed.get("expected_mitre") or [],
+                    "expected_iocs": seed.get("expected_iocs") or [],
+                    "difficulty": seed.get("difficulty") or "medium",
+                    "notes": seed.get("notes") or "",
+                    "source_url": seed.get("source_url") or "",
+                    "updated_at": now,
+                }},
+            )
+            log.info("sample_library: refreshed built-in '%s'", seed["name"])
+            continue
         await db.sample_library.insert_one({
             **seed,
             "tags": seed.get("tags") or [],

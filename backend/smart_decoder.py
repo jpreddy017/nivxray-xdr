@@ -8,7 +8,9 @@ operations until a "clean" result is produced or no further progress is made.
 from __future__ import annotations
 import base64
 import binascii
+import bz2
 import gzip
+import lzma
 import re
 import zlib
 from typing import Any, Dict, List, Tuple
@@ -100,6 +102,32 @@ def _decode_bytes(raw: bytes) -> str:
     return raw.decode("utf-8", errors="replace")
 
 
+def _bin_magic_op(raw: bytes):
+    """If `raw` begins with a compression magic-byte sequence, decompress it
+    and return (op_id, decoded_string). Otherwise return None."""
+    if raw[:2] == b"\x1f\x8b":
+        try:
+            return ("base64-gzip", gzip.decompress(raw).decode("utf-8", errors="replace"))
+        except Exception:
+            pass
+    if raw[:2] in (b"\x78\x01", b"\x78\x5e", b"\x78\x9c", b"\x78\xda"):
+        try:
+            return ("base64-zlib", zlib.decompress(raw).decode("utf-8", errors="replace"))
+        except Exception:
+            pass
+    if raw[:6] == b"\xfd7zXZ\x00":
+        try:
+            return ("lzma-decompress", lzma.decompress(raw).decode("utf-8", errors="replace"))
+        except Exception:
+            pass
+    if raw[:3] == b"BZh":
+        try:
+            return ("bzip2-decompress", bz2.decompress(raw).decode("utf-8", errors="replace"))
+        except Exception:
+            pass
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Chain runner
 # ---------------------------------------------------------------------------
@@ -124,6 +152,7 @@ def smart_decode(payload: str) -> Dict[str, Any]:
     # bash pipeline), extract the enclosed base64 payload before running any
     # decoder recipe on it.
     isolated = sanitize_encapsulated_payload(payload)
+    isolated_flag = False
     if isolated and isolated != payload.strip():
         steps.append({
             "op": "extract-payload",
@@ -132,6 +161,29 @@ def smart_decode(payload: str) -> Dict[str, Any]:
         })
         notes.append("Payload isolated from script/command wrapper (thumb rule)")
         current = isolated
+        isolated_flag = True
+
+    # If the isolated payload is a *clean* base64 string, decode it eagerly —
+    # short pure-alpha payloads (e.g. `YWxlcnQoIlhTUyIp`) would otherwise be
+    # rejected by the length/alpha heuristics in `_apply_next`.
+    if isolated_flag:
+        b64_only = re.sub(r"\s+", "", current)
+        if b64_only and re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", b64_only) and len(b64_only) >= 8:
+            raw = _try_base64(b64_only)
+            if raw is not None:
+                # gzip / zlib / lzma / bzip2 magic byte fast-paths
+                bin_op = _bin_magic_op(raw)
+                if bin_op:
+                    op_id, decoded = bin_op
+                    steps.append({"op": op_id, "args": {},
+                                  "reason": f"Isolated payload → {op_id}"})
+                    current = decoded
+                else:
+                    dec_str = _decode_bytes(raw)
+                    if _is_printable_text(dec_str.encode("utf-8", errors="replace"), 0.85):
+                        steps.append({"op": "base64-decode", "args": {},
+                                      "reason": "Isolated payload → base64 decode"})
+                        current = dec_str
 
     for _ in range(MAX_STEPS):
         if len(current) > MAX_LENGTH:
@@ -274,20 +326,11 @@ def _apply_next(current: str, steps_so_far: List[Dict[str, Any]], notes: List[st
     if _looks_like_base64(current):
         raw = _try_base64(current)
         if raw is not None:
-            # try gzip first
-            if raw[:2] == b"\x1f\x8b":
-                try:
-                    dec = gzip.decompress(raw).decode("utf-8", errors="replace")
-                    return ("base64-gzip", {}, "Base64 → Gzip magic (0x1F 0x8B) detected", dec)
-                except Exception:
-                    pass
-            # try zlib
-            if raw[:2] in (b"\x78\x01", b"\x78\x5e", b"\x78\x9c", b"\x78\xda"):
-                try:
-                    dec = zlib.decompress(raw).decode("utf-8", errors="replace")
-                    return ("base64-zlib", {}, "Base64 → Zlib magic (0x78 xx) detected", dec)
-                except Exception:
-                    pass
+            # Compression magics — gzip / zlib / lzma / bzip2
+            bin_op = _bin_magic_op(raw)
+            if bin_op:
+                op_id, decoded = bin_op
+                return (op_id, {}, f"Base64 → {op_id} magic detected", decoded)
             # UTF-16LE readable text
             if len(raw) >= 4 and raw[1] == 0:
                 try:

@@ -24,6 +24,10 @@ from typing import Optional
 # Base64 alphabet only (no whitespace)
 _B64_ALPHA_RE = re.compile(r"^[A-Za-z0-9+/=]+$")
 
+# JWT shape: header.payload.signature (base64url, dot-separated).
+# JWTs are a legitimate structured format — do NOT strip their segments.
+_JWT_RE = re.compile(r"^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*$")
+
 # Pattern 1 — the longest base64-run inside a matched quote pair.
 # We accept ≥20 chars (down from the 30-char rule) because quotes are a
 # high-confidence encapsulation signal — false positives are rare inside a
@@ -87,6 +91,10 @@ def sanitize_encapsulated_payload(text: str) -> Optional[str]:
         return None
 
     stripped = text.strip()
+
+    # JWT-shape? Leave it alone — jwt-decode handles it as a whole.
+    if _JWT_RE.match(stripped):
+        return None
 
     # Fast-path: input is already clean base64 (whitespace tolerated).
     if _is_clean_base64(stripped):
