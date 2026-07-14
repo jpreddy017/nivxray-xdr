@@ -458,6 +458,28 @@ class ShellcodeIn(BaseModel):
     max_insns: int = 300
 
 
+class CommandAnalyzeIn(BaseModel):
+    input: str = Field(..., description="Raw command line to semantically analyse")
+    force_decode_span: Optional[str] = Field(
+        None, description="If the previous /analyze/command call returned "
+                          "needs_choice=true, resubmit with the chosen span here."
+    )
+
+
+@api.post("/analyze/command")
+async def analyze_command_endpoint(body: CommandAnalyzeIn, user=Depends(get_current_user)):
+    """Intelligent Command-Line Analysis Engine — semantic parsing first, then
+    decode ONLY the identified high-confidence payload span(s).
+
+    Returns a full analyst report: parsed structure, identified payloads with
+    confidence scores, decode chains, extracted IOCs, LOLBin detection, MITRE
+    ATT&CK mapping and a behavior summary. If two candidates tie within 0.05
+    confidence, `needs_choice:true` is set — resubmit with `force_decode_span`.
+    """
+    from command_analyzer import analyze_command as _ac
+    return _ac(body.input, force_decode_span=body.force_decode_span)
+
+
 @api.post("/analyze/shellcode")
 async def analyze_shellcode(body: ShellcodeIn, user=Depends(get_current_user)):
     """Shellcode / binary analysis — auto-detects architecture, disassembles via
