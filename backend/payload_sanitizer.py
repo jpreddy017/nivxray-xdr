@@ -29,7 +29,7 @@ _B64_ALPHA_RE = re.compile(r"^[A-Za-z0-9+/=]+$")
 # high-confidence encapsulation signal — false positives are rare inside a
 # matched pair AND we still enforce the strict base64 alphabet.
 _QUOTED_RE = re.compile(
-    r"(?:'|\"|@'|@\")\s*([A-Za-z0-9+/]{20,}={0,2})\s*(?:'|\"|'@|\"@)",
+    r"(?:'|\"|@'|@\")\s*([A-Za-z0-9+/]{12,}={0,2})\s*(?:'|\"|'@|\"@)",
 )
 
 # Pattern 2 — generic fallback: any base64 alphabet run of ≥40 chars

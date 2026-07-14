@@ -141,13 +141,40 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
         return cands
     # Base64 detection
     b64only = re.sub(r"\s+", "", s)
-    if b64only and re.fullmatch(r"[A-Za-z0-9+/=_-]+", b64only) and len(b64only) >= 8:
+    is_b64 = b64only and re.fullmatch(r"[A-Za-z0-9+/=_-]+", b64only) and len(b64only) >= 8
+    if is_b64:
         cands.append({"op": "base64-decode", "args": {}})
         cands.append({"op": "utf16-be-decode", "args": {}})
         cands.append({"op": "utf32-le-decode", "args": {}})
+        # Compression ops accept base64/hex directly — try them speculatively so a
+        # base64+gzip / base64+zlib / base64+lzma / base64+bzip2 chain is discovered
+        # without relying on magic-byte detection on the (utf-8-replaced) string.
+        cands.append({"op": "gzip-decompress", "args": {}})
+        cands.append({"op": "zlib-decompress", "args": {}})
+        cands.append({"op": "lzma-decompress", "args": {}})
+        cands.append({"op": "bzip2-decompress", "args": {}})
+        # If the base64 prefix maps to a known signature, prioritise that chain
+        try:
+            from signatures import match_b64_signature
+            sig = match_b64_signature(b64only)
+            if sig:
+                # Insert the signature chain ops at the FRONT so magic explores them first
+                for step_op in reversed(sig["chain"]):
+                    cands.insert(0, {"op": step_op, "args": {}})
+        except Exception:
+            pass
     # UTF-16LE hint — half the bytes are 0x00 in alternating positions
     if _UTF16_HINT.search(s) or "\x00" in s:
         cands.append({"op": "utf16le-decode", "args": {}})
+    # Binary magic bytes AFTER a decode step (gzip, zlib, LZMA/XZ, PE)
+    if s.startswith("\x1f\x8b"):
+        cands.insert(0, {"op": "gzip-decompress", "args": {}})
+    if s.startswith("\x78\x9c") or s.startswith("\x78\xda") or s.startswith("\x78\x01"):
+        cands.insert(0, {"op": "zlib-decompress", "args": {}})
+    if s.startswith("\xfd7zXZ") or s.startswith("\xfd7z\x58\x5a"):
+        cands.insert(0, {"op": "lzma-decompress", "args": {}})
+    if s.startswith("BZh"):
+        cands.insert(0, {"op": "bzip2-decompress", "args": {}})
     # Hex detection (≥ 20 chars, even length)
     if _HEX_BLOB.match(b64only) and len(b64only) % 2 == 0:
         cands.append({"op": "hex-decode", "args": {}})
@@ -169,17 +196,25 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
     # JS \x-escapes
     if re.search(r"\\x[0-9a-fA-F]{2}", s):
         cands.append({"op": "js-hex-strings-decode", "args": {}})
-    # gzip-ish (0x1f8b) detected via base64/hex → try base64 → gzip-decompress? handled by base64 first
     # ASCII85
     if s.startswith("<~") and s.endswith("~>"):
         cands.append({"op": "ascii85-decode", "args": {}})
-    # JWT
-    if re.fullmatch(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*", s):
-        cands.append({"op": "jwt-decode", "args": {}})
+    # JWT — 3 base64url segments joined by dots
+    if re.fullmatch(r"[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*", s):
+        cands.insert(0, {"op": "jwt-decode", "args": {}})
     # Refang defanged IOCs
     if re.search(r"hxxps?://|\[\.\]|\[dot\]|\[at\]", s, re.IGNORECASE):
         cands.append({"op": "refang-iocs", "args": {}})
-    return cands
+    # de-dup while preserving order
+    seen = set()
+    unique: List[Dict[str, Any]] = []
+    for c in cands:
+        k = c["op"]
+        if k in seen:
+            continue
+        seen.add(k)
+        unique.append(c)
+    return unique
 
 
 # =============================================================================
