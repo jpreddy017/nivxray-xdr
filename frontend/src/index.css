@@ -413,3 +413,97 @@ textarea:focus-visible,
   border-left: 1px dashed var(--border-strong);
   height: 8px;
 }
+
+/* ============ Responsive ============ */
+.nvx-workspace-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr 380px;
+  flex: 1;
+  min-height: 0;
+}
+.nvx-toolbar {
+  padding: 10px 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.nvx-examples {
+  padding: 8px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nvx-mobile-toggle {
+  display: none;
+}
+.nvx-output-textarea {
+  flex: 1;
+  min-height: 160px;
+  resize: vertical;
+}
+
+/* Tablet */
+@media (max-width: 1180px) {
+  .nvx-workspace-grid {
+    grid-template-columns: 240px 1fr 320px;
+  }
+}
+
+/* Small tablet / large phone */
+@media (max-width: 960px) {
+  .nvx-workspace-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+  .nvx-workspace-grid > aside.ops-panel,
+  .nvx-workspace-grid > aside.threat-panel {
+    max-height: 60vh;
+    border-left: none !important;
+    border-right: none !important;
+    border-top: 1px solid var(--border) !important;
+  }
+  .nvx-workspace-grid > aside.ops-panel.collapsed,
+  .nvx-workspace-grid > aside.threat-panel.collapsed {
+    max-height: 44px;
+    overflow: hidden;
+  }
+  .nvx-mobile-toggle {
+    display: inline-flex;
+  }
+  .nvx-output-textarea {
+    min-height: 120px;
+    max-height: 240px;
+  }
+  .nvx-toolbar .nvx-btn {
+    font-size: 10px;
+    padding: 8px 10px;
+  }
+}
+
+/* Phone */
+@media (max-width: 640px) {
+  .nvx-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+  .nvx-toolbar { padding: 8px 10px; gap: 6px; }
+  .nvx-examples { padding: 8px 10px; gap: 6px; }
+  .nvx-output-textarea { min-height: 100px; max-height: 200px; }
+  .nvx-textarea { font-size: 12px; padding: 8px; }
+  .nvx-btn { padding: 8px 10px; font-size: 10px; }
+  .nvx-btn.sm { padding: 4px 8px; font-size: 9px; }
+  /* Login page responsive */
+  .nvx-login-grid { grid-template-columns: 1fr !important; }
+  .nvx-login-aside { display: none !important; }
+  /* Admin & Threat-Intel — collapse columns */
+  table th, table td { padding: 6px 8px !important; font-size: 10px !important; }
+  /* Header nav truncation */
+  header nav .nvx-btn { padding: 4px 8px; font-size: 10px; }
+  /* Toast/share */
+  [data-testid="share-toast"] { left: 8px !important; right: 8px !important; max-width: unset !important; bottom: 8px !important; }
+}

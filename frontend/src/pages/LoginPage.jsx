@@ -30,6 +30,7 @@ export default function LoginPage() {
 
   return (
     <div
+      className="nvx-login-grid"
       style={{
         minHeight: "100vh",
         background: "var(--bg)",
@@ -40,6 +41,7 @@ export default function LoginPage() {
     >
       {/* left decorative pane */}
       <aside
+        className="nvx-login-aside"
         style={{
           position: "relative",
           overflow: "hidden",

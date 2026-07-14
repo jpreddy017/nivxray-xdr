@@ -23,7 +23,7 @@ export default function ThreatAnalysis({ analysis, loading }) {
 
   return (
     <aside
-      className="brut-border"
+      className="brut-border threat-panel"
       style={{
         borderRight: "none", borderTop: "none", borderBottom: "none",
         background: "var(--surface)", display: "flex", flexDirection: "column", overflow: "hidden",

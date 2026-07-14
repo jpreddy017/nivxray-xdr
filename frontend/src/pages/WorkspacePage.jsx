@@ -245,7 +245,7 @@ export default function WorkspacePage() {
           <Wrench size={13} /> TROUBLESHOOT
         </button>
         <button className="nvx-btn" onClick={doShare} data-testid="btn-share"><Share2 size={13} /> SHARE</button>
-        <button className="nvx-btn" onClick={downloadReport} data-testid="btn-download-report"><Download size={13} /> REPORT</button>
+        <ReportMenu onDownload={downloadReport} />
         <button className="nvx-btn" onClick={() => fileRef.current?.click()} data-testid="btn-upload">
           <Upload size={13} /> UPLOAD
         </button>
@@ -296,14 +296,7 @@ export default function WorkspacePage() {
       </div>
 
       {/* 3-column layout */}
-      <div
-        style={{
-          flex: 1,
-          display: "grid",
-          gridTemplateColumns: "300px 1fr 380px",
-          minHeight: 0,
-        }}
-      >
+      <div className="nvx-workspace-grid">
         <OperationsPanel onAdd={addOp} />
 
         {/* Center column */}
@@ -326,7 +319,7 @@ export default function WorkspacePage() {
               placeholder="Paste payload — PowerShell, base64, hex, gzip, defanged IOCs, XSS, JS charcode…"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              rows={7}
+              rows={5}
               spellCheck={false}
             />
           </div>
@@ -367,13 +360,12 @@ export default function WorkspacePage() {
             )}
 
             <textarea
-              className="nvx-textarea"
+              className="nvx-textarea nvx-output-textarea"
               data-testid="output-textarea"
               value={output}
               readOnly
-              rows={9}
+              rows={5}
               placeholder="Run a recipe, press SMART DECODE, or hit AUTO INVESTIGATE…"
-              style={{ flex: 1, minHeight: 160 }}
             />
           </div>
         </section>

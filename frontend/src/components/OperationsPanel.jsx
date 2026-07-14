@@ -31,7 +31,7 @@ export default function OperationsPanel({ onAdd }) {
 
   return (
     <aside
-      className="brut-border"
+      className="brut-border ops-panel"
       style={{
         borderLeft: "none",
         borderTop: "none",
