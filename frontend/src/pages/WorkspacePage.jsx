@@ -9,8 +9,10 @@ import FinalSummary from "@/components/FinalSummary";
 import ShellcodeView from "@/components/ShellcodeView";
 import OutputView from "@/components/OutputView";
 import { runClientRecipe } from "@/lib/clientOps";
+import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
 import SocVerdictPanel from "@/components/SocVerdictPanel";
+import DecodingTracePanel from "@/components/DecodingTracePanel";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -41,6 +43,11 @@ export default function WorkspacePage() {
   // Winner metadata from AI Decode / Auto Investigate — feeds the SOC Verdict panel
   const [decodeConfidence, setDecodeConfidence] = useState(null);
   const [decodeWinnerEngine, setDecodeWinnerEngine] = useState(null);
+  // Decoding Trace panel — per-layer intermediate outputs from the deterministic decoder
+  const [decodeTrace, setDecodeTrace] = useState([]);
+  const [reachedShellcode, setReachedShellcode] = useState(false);
+  // Client-side auto-detect on paste — 14 decoders raced instantly to surface a suggestion
+  const [pasteHint, setPasteHint] = useState(null);
   const isShellcodeClient = useMemo(() => !!detectShellcode(output || ""), [output]);
   const streamStopRef = useRef(null);
   const fileRef = useRef(null);
@@ -159,9 +166,17 @@ export default function WorkspacePage() {
       setDetected(r.data.detected_type || null);
       setChain((r.data.recipe || []).map((s, i) => ({
         op: s.op, reason: s.reason || "",
-        output_preview: r.data.steps_output?.[i]?.output_preview || "",
+        output_preview: r.data.trace?.[i]?.output_preview || r.data.steps_output?.[i]?.output_preview || "",
         custom: !!s.custom, model_id: s.model_id, model_name: s.model_name,
       })));
+      // Decoding Trace panel data (smart-decode returns full trace; ai-decode does not)
+      if (smart && r.data.trace) {
+        setDecodeTrace(r.data.trace);
+        setReachedShellcode(!!r.data.reached_shellcode);
+        setDecodeConfidence(r.data.confidence ?? null);
+        setDecodeWinnerEngine(r.data.engine || null);
+      }
+      setPasteHint(null);
     } catch (e) {
       setStatus("ERROR: " + (e?.response?.data?.detail || e.message));
     } finally {
@@ -315,7 +330,7 @@ export default function WorkspacePage() {
     setTacticFilter(null);
     setStatus("AUTO-INVESTIGATE ▸ SMART DECODING…");
     try {
-      // 1) Deterministic decode first (fast — <1s)
+      // 1) Deterministic decode first (fast — now uses smart+magic race for deepest chain)
       const r = await api.post("/decode/smart", { input });
       const newSteps = (r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} }));
       setSteps(newSteps);
@@ -323,10 +338,16 @@ export default function WorkspacePage() {
       setDetected(r.data.detected_type || null);
       const newChain = (r.data.recipe || []).map((s, i) => ({
         op: s.op, reason: s.reason || "",
-        output_preview: r.data.steps_output?.[i]?.output_preview || "",
+        output_preview: r.data.trace?.[i]?.output_preview || "",
         custom: !!s.custom, model_id: s.model_id, model_name: s.model_name,
       }));
       setChain(newChain);
+      // Decoding Trace panel data
+      setDecodeTrace(r.data.trace || []);
+      setDecodeWinnerEngine(r.data.engine || null);
+      setDecodeConfidence(r.data.confidence ?? null);
+      setReachedShellcode(!!r.data.reached_shellcode);
+      setPasteHint(null); // dismiss the paste suggestion once we've decoded
       setLoading(false);
 
       // 2) Analysis via async job polling (bypasses 60s proxy timeout)
@@ -675,15 +696,94 @@ export default function WorkspacePage() {
                 placeholder="Paste anything — PowerShell, base64/hex, AES/RC4 ciphertext, JWT, PE/ELF headers, gzip/bzip2/LZMA, obfuscated JS, defanged IOCs…"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onPaste={(e) => {
+                  // Client-side auto-detect: race 14 JS decoders against the pasted
+                  // string INSIDE the browser (zero network). Surface the top
+                  // candidate as an inline "USE THIS RECIPE" hint above the
+                  // Recipe panel. If the analyst ignores it, no harm done.
+                  const pasted = e.clipboardData?.getData("text") || "";
+                  if (pasted.length < 12 || pasted.length > 100_000) return;
+                  try {
+                    const m = magicLite(pasted, { maxDepth: 3, topN: 3 });
+                    if (m.best && m.best.score >= 0.35) {
+                      setPasteHint({
+                        chain: m.best.chain,
+                        score: m.best.score,
+                        preview: (m.best.output || "").slice(0, 200),
+                        elapsedMs: m.elapsedMs,
+                        alternates: m.candidates.slice(1, 3),
+                      });
+                    } else {
+                      setPasteHint(null);
+                    }
+                  } catch { setPasteHint(null); }
+                }}
                 rows={6}
                 spellCheck={false}
                 style={{ height: 180, minHeight: 180, maxHeight: 180, resize: "none", overflowY: "auto" }}
               />
+              {pasteHint && (
+                <div
+                  className="paste-hint"
+                  data-testid="paste-hint"
+                  style={{
+                    marginTop: 8, padding: "10px 12px",
+                    border: "1px solid var(--accent)", background: "rgba(74,168,144,0.08)",
+                    fontFamily: "JetBrains Mono", fontSize: 11, display: "flex",
+                    alignItems: "center", gap: 12, flexWrap: "wrap",
+                  }}
+                >
+                  <span style={{ color: "var(--accent)", letterSpacing: "0.14em", fontWeight: 700 }}>
+                    ⚡ AUTO-DETECT ({pasteHint.elapsedMs}ms)
+                  </span>
+                  <span style={{ color: "var(--text-dim)" }}>
+                    likely {pasteHint.chain.map((c) => c.op).join(" → ")} · score {pasteHint.score.toFixed(2)}
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  <button
+                    className="nvx-btn sm primary"
+                    data-testid="btn-use-paste-recipe"
+                    onClick={() => {
+                      setSteps(pasteHint.chain.map((c) => ({ op: c.op, args: c.args || {} })));
+                      setPasteHint(null);
+                      setStatus(`✓ APPLIED CLIENT-SIDE RECIPE (${pasteHint.chain.length} ops)`);
+                    }}
+                  >
+                    ▸ USE THIS RECIPE
+                  </button>
+                  <button
+                    className="nvx-btn sm ghost"
+                    data-testid="btn-dismiss-paste-hint"
+                    onClick={() => setPasteHint(null)}
+                  >
+                    <X size={11} /> DISMISS
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Recipe */}
           <RecipePanel steps={steps} setSteps={setSteps} ops={ops} />
+
+          {/* Decoding Trace — expandable per-layer view for the deterministic decoder */}
+          {decodeTrace.length > 0 && (
+            <div style={{ margin: "0 12px" }}>
+              <DecodingTracePanel
+                trace={decodeTrace}
+                engine={decodeWinnerEngine}
+                confidence={decodeConfidence}
+                reachedShellcode={reachedShellcode}
+                onJumpToLayer={(i) => {
+                  const layer = decodeTrace[i];
+                  if (layer && !layer.error) {
+                    setOutput(layer.output_preview || "");
+                    setStatus(`▸ JUMPED TO LAYER ${i + 1} · ${layer.op}`);
+                  }
+                }}
+              />
+            </div>
+          )}
 
           {/* Detected banner */}
           {detected && (

@@ -269,3 +269,77 @@ Deployment readiness re-verified — **zero blockers**. Ready for user to click 
 - New regression `tests/test_auto_investigate_recursion_parity.py` (6 tests) — locks the parity, asserts exact `[extract-payload, gzip-decompress, extract-payload, base64-decode, xor]` chain + shellcode bytes match ground-truth Metasploit prologue.
 - End-to-end verified via preview `/api/ai/auto-investigate` — engine="magic", reached_shellcode=true on the Meterpreter fixture.
 - Full regression: **327/327 core backend tests passing** (excluding 2 pre-existing network-timeout tests unrelated to this fix).
+
+### Sub-session F · server.py Modular Refactor (Feb 2026)
+
+**Goal**: Break the monolithic 2,700-line `server.py` into cohesive routers so
+the codebase scales for new features (Decoding Trace, STIX export, etc.) and
+onboarding new contributors doesn't require reading a 2700-line file.
+
+**Result**: `server.py` **2,638 → 104 lines (96% reduction)**. Endpoints now
+split across 7 routers under `/app/backend/routers/`:
+
+| Router | Endpoints | Lines |
+|--------|-----------|-------|
+| `auth.py` | `/api/auth/*`, `/api/` | 25 |
+| `ops.py` | `/operations`, `/recipe/run`, `/upload`, `/decode/{smart,magic}`, `/analyze/{command,shellcode}` | 383 |
+| `analyze.py` | `/analyze` (sync/stream/async), feedback, playbook votes | 426 |
+| `ai.py` | `/ai/{auto-decode,auto-investigate,troubleshoot}` | 233 |
+| `reports.py` | `/share`, `/report`, `/report/{fmt}` | 98 |
+| `admin.py` | OSINT keys, Model Studio, Sample Library, Users, LOLBAS | 326 |
+| `threat_intel.py` | `/threat-intel/*` | 170 |
+
+Shared modules:
+- `schemas.py` (142) — all Pydantic request/response types
+- `deps.py` (147) — DB, auth deps, JWT helpers, LLM helpers
+- `analysis_core.py` (313) — `deterministic_best_decode`, `ai_describe_and_verdict`, TI hits
+- `report_renderers.py` (382) — TXT/HTML/DOCX/PDF/CSV renderers
+
+Regression: **327/327 core backend tests still passing** after refactor.
+
+### Sub-session G · Decoding Trace + Client-side Paste-Detect + Smart Decode upgrade (Feb 2026)
+
+**Three linked features shipped together for full transparency:**
+
+1. **`/decode/smart` upgraded to deterministic-best-of race** — previously
+   used only greedy `smart_decode` (stopped at loader-script layer on
+   multi-layer stagers). Now uses `deterministic_best_decode(smart+magic)` so
+   the Smart Decode button AND Auto Investigate both reach the deepest chain
+   uniformly. Meterpreter fixture peels all 5 layers → x86 shellcode.
+   - Also adds a **loop penalty** to the winner picker: chains with consecutive
+     duplicate ops (e.g. `rot13 → rot13 → rot13`) are down-scored by 0.20
+     because that signals over-decoding on already-clean text (avoids
+     regressions on simple zlib payloads).
+
+2. **`Decoding Trace` panel** — new frontend component
+   (`/app/frontend/src/components/DecodingTracePanel.jsx`) that renders EVERY
+   recursive step:
+   - Header: engine (SMART/MAGIC), confidence %, SHELLCODE TERMINAL badge,
+     total layer count.
+   - Compact chain strip: `◇ extract-payload → GZ gzip-decompress → ◇ extract-payload → B64 base64-decode → XOR xor → SHELLCODE`
+     (each chip clickable to expand that layer).
+   - Per-layer expandable body: op icon, human-readable reason, args JSON,
+     intermediate output preview (max 400 chars, latin-1 safe), byte length,
+     and a **▸ JUMP TO THIS LAYER** button that pushes that layer's output
+     into the Output pane.
+   - Backend adds `trace: [{op, args, reason, output_preview, output_length}]`
+     to the `/decode/smart` response. Virtual `extract-payload` steps are
+     handled directly via `payload_sanitizer.sanitize_encapsulated_payload`
+     during trace replay.
+
+3. **Client-side Auto-Detect on Paste** — new
+   `/app/frontend/src/lib/magicLite.js` module that races 14 JS decoders in
+   parallel against the pasted string INSIDE the browser (zero network). When
+   the top candidate scores ≥ 0.35, a green **⚡ AUTO-DETECT (Xms)** hint bar
+   appears above the Recipe panel with the proposed chain, elapsed time, and
+   two buttons: `▸ USE THIS RECIPE` and `✕ DISMISS`. Typical response: ~2-5ms
+   for base64/gzip/hex/URL/xor inputs.
+
+**Verified end-to-end via preview** — meterpreter payload → Auto Investigate:
+- Recipe: `extract-payload → Gzip Decompress → extract-payload → Base64 Decode → XOR(0x23)`
+- Decoding Trace: MAGIC · 100% confidence · SHELLCODE TERMINAL · 5 layers peeled
+- SOC Verdict Panel: "SHELLCODE DETECTED · MSFvenom cld;call · x86 stager · C2 149.28.81.19"
+- Output pane: HEX view of `fc e8 89 00 00 00 60 89 e5 31 d2 …` (834 bytes)
+
+Regression: **327/327 backend tests + smoke-tested frontend**.
+

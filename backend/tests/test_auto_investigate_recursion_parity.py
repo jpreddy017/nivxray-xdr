@@ -20,7 +20,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import operations, ops_extended  # noqa: F401 — register op registry
 from magic_decoder import magic_decode
-from server import _deterministic_best_decode
+from analysis_core import deterministic_best_decode as _deterministic_best_decode
 
 
 # --- helpers -------------------------------------------------------------- #

