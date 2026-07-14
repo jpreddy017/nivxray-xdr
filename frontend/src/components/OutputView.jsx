@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
-import { Eye, Binary, Hash, GitCompareArrows, Zap, Cpu, CheckCircle2, XCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Eye, Binary, Hash, GitCompareArrows, Zap, Cpu, CheckCircle2, XCircle, Bug, ArrowDown } from "lucide-react";
 import { computeDiff, formatDelta, toHexDump, toBase64 } from "@/lib/diff";
+import { detectShellcode, extractShellcodeIocs } from "@/lib/shellcodeDetect";
 
 /**
  * OutputView
@@ -21,8 +22,22 @@ export default function OutputView({
 }) {
   const [view, setView] = useState("text");  // text | hex | base64
   const [showDiff, setShowDiff] = useState(false);
+  const [shellcodeBannerDismissed, setShellcodeBannerDismissed] = useState(false);
 
   const diff = useMemo(() => computeDiff(input || "", output || ""), [input, output]);
+  const shellcode = useMemo(() => detectShellcode(output || ""), [output]);
+  const shellcodeIocs = useMemo(() => shellcode ? extractShellcodeIocs(output || "") : null, [shellcode, output]);
+
+  // Auto-switch to HEX view when a decode terminates on known shellcode —
+  // rendering raw binary in TEXT view looks like garbage. Runs once per
+  // new detection (dismiss + change of output resets).
+  useEffect(() => {
+    if (shellcode) {
+      setView("hex");
+      setShowDiff(false);
+      setShellcodeBannerDismissed(false);
+    }
+  }, [shellcode?.family]);
   const renderedBody = useMemo(() => {
     if (view === "hex") return toHexDump(output || "");
     if (view === "base64") return toBase64(output || "");
@@ -63,6 +78,53 @@ export default function OutputView({
         {/* Card actions (Copy, AI Describe, Analyze+OSINT) */}
         <div className="nvx-card-actions" style={{ flexShrink: 0 }}>{actions}</div>
       </div>
+
+      {/* Shellcode banner — appears when the decoded output starts with a
+          known executable prologue (MSFvenom stagers, PE, ELF, ARM64) */}
+      {shellcode && !shellcodeBannerDismissed && (
+        <div
+          data-testid="shellcode-banner"
+          style={{
+            display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+            padding: "10px 14px",
+            background: "rgba(126,227,201,0.10)",
+            borderTop: "1px solid var(--border)",
+            borderBottom: "1px solid rgba(126,227,201,0.35)",
+          }}
+        >
+          <Bug size={14} style={{ color: "var(--accent)", flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <div className="mono" style={{ fontSize: 11, letterSpacing: "0.2em", color: "var(--accent)", fontWeight: 600 }}>
+              ⚡ SHELLCODE DECODED — {shellcode.family}
+            </div>
+            <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 3, lineHeight: 1.5 }}>
+              Auto-switched to HEX view · arch: <b style={{ color: "var(--text)" }}>{shellcode.arch}</b>
+              {shellcodeIocs?.ip && <> · C2 IP <b style={{ color: "var(--warn)" }}>{shellcodeIocs.ip}</b></>}
+              {shellcodeIocs?.userAgent && <> · UA <b style={{ color: "var(--warn)" }}>{shellcodeIocs.userAgent.slice(0, 40)}…</b></>}
+              {" · scroll ↓ for Capstone disassembly + IOC extraction"}
+            </div>
+          </div>
+          <button
+            className="nvx-btn sm ghost"
+            onClick={() => {
+              const view = document.querySelector('[data-testid="shellcode-view"]');
+              if (view) view.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            data-testid="shellcode-banner-scroll"
+            title="Scroll to Capstone disassembly + IOC extraction"
+          >
+            <ArrowDown size={11} /> DISASSEMBLY
+          </button>
+          <button
+            className="nvx-btn sm ghost"
+            onClick={() => setShellcodeBannerDismissed(true)}
+            data-testid="shellcode-banner-dismiss"
+            title="Dismiss banner"
+          >
+            <XCircle size={11} />
+          </button>
+        </div>
+      )}
 
       {/* Body */}
       <div className="nvx-card-body">

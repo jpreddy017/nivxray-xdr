@@ -9,6 +9,7 @@ import FinalSummary from "@/components/FinalSummary";
 import ShellcodeView from "@/components/ShellcodeView";
 import OutputView from "@/components/OutputView";
 import { runClientRecipe } from "@/lib/clientOps";
+import { detectShellcode } from "@/lib/shellcodeDetect";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -36,6 +37,11 @@ export default function WorkspacePage() {
   const [magicResults, setMagicResults] = useState(null);
   const [showMagic, setShowMagic] = useState(false);
   const [shellcodeFlag, setShellcodeFlag] = useState(false);
+  // Client-side shellcode-prologue detection — mirrors the backend
+  // `starts_with_known_prologue()` so the ShellcodeView renders whenever the
+  // decoded output looks like real shellcode, even if the backend endpoint
+  // didn't set an `is_shellcode` flag (e.g. Auto Investigate / AI Decode paths).
+  const isShellcodeClient = useMemo(() => !!detectShellcode(output || ""), [output]);
   const streamStopRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -749,8 +755,10 @@ export default function WorkspacePage() {
           )}
 
           {/* Shellcode view — auto-renders when the magic decoder flags binary output */}
-          {shellcodeFlag && output && (
-            <ShellcodeView output={output} />
+          {(shellcodeFlag || isShellcodeClient) && output && (
+            <div data-testid="shellcode-view">
+              <ShellcodeView output={output} />
+            </div>
           )}
         </section>
 
