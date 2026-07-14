@@ -97,3 +97,17 @@ Build a CyberChef-style tool called **NivXRay** ("like Payload Lab / CyberLab") 
 - Regression tested via testing agent: **46/46 backend pytest tests pass** (27 new multi-line coverage tests added under `/app/backend/tests/test_multiline_decode.py`).
 - Test-side fix: stale credential typo (`nivxary` → `nivxray`) in `test_nivxary.py` corrected.
 
+## Session 4 (2026-02) — Streaming, LOLBAS Auto-Sync, Attack Graph Filter, Final Summary
+- **P1 · Async job pipeline for AI-heavy runs** — new `/api/analyze/async` + `/api/analyze/status/{job_id}` pair replaces the SSE approach for Auto-Investigate (K8s ingress kills SSE at ~60s regardless of heartbeats). Background asyncio task fills progress from 5% → 25% → 45% → 90% → 100%; jobs stored in-memory with 15-min TTL. Frontend polls every 3s and cleanly bypasses the proxy timeout. `/api/analyze/stream` SSE endpoint kept for future short-run streaming use.
+- **P2 · LOLBAS auto-sync** — `/app/backend/lolbas.py` rewritten to fetch the full **239-entry** official catalog from `https://lolbas-project.github.io/api/lolbas.json`, cache in MongoDB `lolbas_cache`, merge with **40 curated argv-pattern rules** (defaults win on binary-name conflict). Auto-refreshes on backend startup if last sync is >7 days old. Failure preserves last-good cache. New admin endpoints: `GET /admin/lolbas/status`, `POST /admin/lolbas/sync`. Admin UI card added.
+- **P3 · Click-to-filter on Tactical Attack Graph** — clicking a lane header or node in the graph sets a tactic filter that dims other lanes/nodes/edges AND filters MITRE + LOLBAS tabs in the Threat Analysis panel. Filter badge in the AG card head and a banner in the Threat Analysis panel, both with a **CLEAR** button.
+- **Final Summary card** below the Attack Graph — consolidates malware family, executive summary, attack chain, observed behavior, IOC narrative, attribution hints, and recommended actions. **COPY** + **DOWNLOAD TXT** buttons.
+- **Attack Graph snapshots** — PNG (2x hi-DPI, canvas-rendered) and SVG native downloads directly from the graph toolbar.
+- Regression: **57/57 backend pytest tests pass** (11 new coverage tests in `test_new_features.py`). Auto-Investigate end-to-end verified in ~56-78s with all cards, filters, and downloads working.
+
+## Backlog (P0/P1 remaining)
+- P1: Promote in-memory `_JOBS` store to MongoDB/Redis before multi-replica deploy.
+- P2: Full 200-entry LOLBAS catalog auto-fetch — **DONE (239 entries now active)**.
+- P2: Modularize `/app/backend/server.py` (~1840 lines) into routers (`analyze/`, `admin/`, `threat_intel/`).
+- P3: STIX 2.1 export + community share page.
+
