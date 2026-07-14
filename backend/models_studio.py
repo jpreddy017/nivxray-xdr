@@ -254,6 +254,11 @@ def _sanitize_doc(doc: Dict[str, Any]) -> Dict[str, Any]:
         v = d.get(k)
         if isinstance(v, datetime):
             d[k] = v.isoformat()
+    # Surface feedback counters for playbooks (default to 0 for legacy docs).
+    if d.get("kind") == "playbook":
+        d["feedback_pos"] = int(d.get("feedback_pos") or 0)
+        d["feedback_neg"] = int(d.get("feedback_neg") or 0)
+        d["feedback_weight"] = int(d.get("feedback_weight") or 0)
     return d
 
 
@@ -469,33 +474,177 @@ async def find_matching_recipes(db, text: str) -> List[Dict[str, Any]]:
 
 
 async def get_active_playbooks(db) -> List[Dict[str, Any]]:
-    """Return all enabled playbooks as ordered list — most-used first."""
+    """Return all enabled playbooks ordered by feedback weight DESC then usage_count DESC."""
     out = []
-    async for d in db.admin_models.find({"kind": "playbook", "enabled": True}).sort("usage_count", -1):
+    async for d in db.admin_models.find({"kind": "playbook", "enabled": True}).sort(
+        [("feedback_weight", -1), ("usage_count", -1)]
+    ):
         out.append({
             "id": str(d["_id"]),
             "name": d.get("name", ""),
             "body": (d.get("config") or {}).get("body", ""),
             "applies_to": (d.get("config") or {}).get("applies_to") or ["ai"],
+            "feedback_pos": int(d.get("feedback_pos") or 0),
+            "feedback_neg": int(d.get("feedback_neg") or 0),
+            "feedback_weight": int(d.get("feedback_weight") or 0),
         })
     return out
 
 
 async def compose_playbook_prompt(db, target: str = "ai") -> str:
     """Concatenate all playbooks whose `applies_to` includes `target` into one prompt block."""
+    text, _ids = await compose_playbook_prompt_with_meta(db, target)
+    return text
+
+
+async def compose_playbook_prompt_with_meta(db, target: str = "ai") -> tuple[str, List[Dict[str, Any]]]:
+    """Same as compose_playbook_prompt but also returns a snapshot of the playbooks
+    that were applied so downstream code can attribute feedback correctly."""
     books = await get_active_playbooks(db)
     picks = [b for b in books if target in (b.get("applies_to") or [])]
     if not picks:
-        return ""
+        return "", []
     parts = ["\n\n=== NIVXRAY ANALYST PLAYBOOK (org-specific guidance) ===\n"]
+    used: List[Dict[str, Any]] = []
     for b in picks:
         parts.append(f"\n## {b['name']}\n{b['body'].strip()}\n")
-        # increment async but fire-and-forget so latency isn't affected
+        used.append({"id": b["id"], "name": b["name"]})
         try:
             await increment_usage(db, b["id"])
         except Exception:
             pass
-    return "".join(parts)
+    return "".join(parts), used
+
+
+# =============================================================================
+# Playbook feedback loop — 👍/👎 with full audit trail
+# =============================================================================
+VOTE_UP = "up"
+VOTE_DOWN = "down"
+VOTE_NONE = "none"
+_VOTE_DELTA = {VOTE_UP: (1, 0), VOTE_DOWN: (0, 1), VOTE_NONE: (0, 0)}
+
+
+async def ensure_vote_indexes(db) -> None:
+    await db.playbook_votes.create_index(
+        [("job_id", 1), ("analyst_email", 1)], unique=True, name="pv_job_analyst_unique"
+    )
+    await db.playbook_votes.create_index("playbook_ids", name="pv_playbook_ids")
+    await db.playbook_votes.create_index("at", name="pv_at")
+
+
+async def _apply_vote_delta(db, playbook_id: str, delta_pos: int, delta_neg: int) -> None:
+    from bson import ObjectId
+    try:
+        oid = ObjectId(playbook_id)
+    except Exception:
+        return
+    inc = {}
+    if delta_pos:
+        inc["feedback_pos"] = delta_pos
+    if delta_neg:
+        inc["feedback_neg"] = delta_neg
+    if not inc:
+        return
+    await db.admin_models.update_one({"_id": oid, "kind": "playbook"}, {"$inc": inc})
+    # recompute weight = pos - neg (simple, transparent)
+    doc = await db.admin_models.find_one({"_id": oid}, {"feedback_pos": 1, "feedback_neg": 1})
+    if not doc:
+        return
+    pos = int(doc.get("feedback_pos") or 0)
+    neg = int(doc.get("feedback_neg") or 0)
+    await db.admin_models.update_one(
+        {"_id": oid}, {"$set": {"feedback_weight": pos - neg}}
+    )
+
+
+async def record_playbook_vote(db, job_id: str, analyst_email: str,
+                                playbooks_used: List[Dict[str, Any]],
+                                vote: str, reason: Optional[str] = None) -> Dict[str, Any]:
+    """Record a 👍/👎/none vote for `job_id` — toggling allowed.
+
+    Every previous vote by the same analyst on the same job is *reversed* in the
+    counters before the new one is applied, so counts stay accurate no matter
+    how many times a vote is flipped. Full history is appended to
+    `playbook_votes.history` as an audit log.
+    """
+    if vote not in (VOTE_UP, VOTE_DOWN, VOTE_NONE):
+        raise ValueError("vote must be 'up', 'down' or 'none'")
+    now = datetime.now(timezone.utc)
+    playbook_ids = [p["id"] for p in playbooks_used if p.get("id")]
+
+    existing = await db.playbook_votes.find_one({"job_id": job_id, "analyst_email": analyst_email})
+    prev_vote = (existing or {}).get("vote") or VOTE_NONE
+
+    if prev_vote == vote:
+        # no-op — just refresh the reason/timestamp
+        if existing:
+            await db.playbook_votes.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"reason": reason or existing.get("reason"), "at": now}},
+            )
+        return {"job_id": job_id, "vote": vote, "prev_vote": prev_vote, "changed": False}
+
+    # Reverse previous, apply current — on each playbook attached to the job.
+    prev_pos, prev_neg = _VOTE_DELTA[prev_vote]
+    new_pos, new_neg = _VOTE_DELTA[vote]
+    for pid in playbook_ids:
+        await _apply_vote_delta(db, pid, new_pos - prev_pos, new_neg - prev_neg)
+
+    history_entry = {"at": now, "vote": vote, "prev_vote": prev_vote, "reason": reason or ""}
+    if existing:
+        await db.playbook_votes.update_one(
+            {"_id": existing["_id"]},
+            {
+                "$set": {"vote": vote, "reason": reason or "", "at": now, "playbook_ids": playbook_ids},
+                "$push": {"history": history_entry},
+            },
+        )
+    else:
+        await db.playbook_votes.insert_one({
+            "job_id": job_id,
+            "analyst_email": analyst_email,
+            "playbook_ids": playbook_ids,
+            "playbooks_used": playbooks_used,
+            "vote": vote,
+            "reason": reason or "",
+            "at": now,
+            "history": [history_entry],
+        })
+
+    return {"job_id": job_id, "vote": vote, "prev_vote": prev_vote, "changed": True,
+            "playbook_ids": playbook_ids}
+
+
+async def get_vote_for_job(db, job_id: str, analyst_email: str) -> Dict[str, Any]:
+    doc = await db.playbook_votes.find_one({"job_id": job_id, "analyst_email": analyst_email})
+    if not doc:
+        return {"vote": VOTE_NONE, "reason": "", "history": []}
+    hist = doc.get("history") or []
+    return {
+        "vote": doc.get("vote") or VOTE_NONE,
+        "reason": doc.get("reason") or "",
+        "at": (doc.get("at").isoformat() if isinstance(doc.get("at"), datetime) else None),
+        "history": [
+            {**h, "at": (h["at"].isoformat() if isinstance(h.get("at"), datetime) else None)}
+            for h in hist
+        ],
+    }
+
+
+async def list_playbook_votes(db, playbook_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    async for d in db.playbook_votes.find(
+        {"playbook_ids": playbook_id}
+    ).sort("at", -1).limit(limit):
+        out.append({
+            "job_id": d.get("job_id"),
+            "analyst_email": d.get("analyst_email"),
+            "vote": d.get("vote"),
+            "reason": d.get("reason") or "",
+            "at": (d.get("at").isoformat() if isinstance(d.get("at"), datetime) else None),
+        })
+    return out
 
 
 async def get_persona(db, persona_id: Optional[str]) -> Optional[Dict[str, Any]]:

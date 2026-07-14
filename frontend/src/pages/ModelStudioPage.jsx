@@ -212,6 +212,27 @@ export default function ModelStudioPage() {
   );
 }
 
+function PlaybookScorecard({ pos, neg, weight, rowId }) {
+  const weightColor = weight > 0 ? "var(--good, #4ade80)"
+                     : weight < 0 ? "var(--high, #f87171)"
+                     : "var(--text-mute)";
+  return (
+    <span
+      data-testid={`ms-playbook-scorecard-${rowId}`}
+      title={`${pos} 👍 / ${neg} 👎 · weight = ${weight}`}
+      className="mono"
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        padding: "2px 8px", fontSize: 10, letterSpacing: "0.1em",
+        border: `1px solid ${weightColor}`, color: weightColor,
+        background: `${weightColor}0F`, borderRadius: 2,
+      }}
+    >
+      👍 {pos} · 👎 {neg} · w{weight >= 0 ? `+${weight}` : weight}
+    </span>
+  );
+}
+
 function ModelRow({ model, onEdit, onDelete, onToggle }) {
   const KM = KIND_META[model.kind];
   const Icon = KM.icon;
@@ -230,6 +251,14 @@ function ModelRow({ model, onEdit, onDelete, onToggle }) {
           <span className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 700 }}>{model.name}</span>
           {model.protected && <span className="badge">BUILT-IN</span>}
           {!model.enabled && <span className="badge" style={{ opacity: 0.6 }}>DISABLED</span>}
+          {model.kind === "playbook" && (
+            <PlaybookScorecard
+              pos={model.feedback_pos || 0}
+              neg={model.feedback_neg || 0}
+              weight={model.feedback_weight || 0}
+              rowId={model.id}
+            />
+          )}
           <span className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginLeft: "auto" }}>
             used {model.usage_count || 0}×
           </span>

@@ -1,4 +1,5 @@
 import { Download, Copy } from "lucide-react";
+import PlaybookFeedback from "@/components/PlaybookFeedback";
 
 /**
  * FinalSummary — executive briefing card rendered below the Attack Graph.
@@ -8,7 +9,7 @@ import { Download, Copy } from "lucide-react";
  *
  * Includes a one-click TXT download of the whole briefing.
  */
-export default function FinalSummary({ description = {}, verdict = null, risk = null }) {
+export default function FinalSummary({ description = {}, verdict = null, risk = null, jobId = null, playbooksUsed = [] }) {
   const family = description.malware_family || {};
   const chain = description.attack_chain || [];
   const behavior = description.behavior || [];
@@ -231,6 +232,13 @@ export default function FinalSummary({ description = {}, verdict = null, risk = 
                 </li>
               ))}
             </ul>
+          </SummaryBlock>
+        )}
+
+        {/* Playbook feedback loop */}
+        {jobId && (playbooksUsed || []).length > 0 && (
+          <SummaryBlock label="Playbook Feedback · train your AI" testid="fs-playbook-feedback-block" accent="var(--accent)">
+            <PlaybookFeedback jobId={jobId} testidPrefix="fs-playbook-feedback" />
           </SummaryBlock>
         )}
       </div>

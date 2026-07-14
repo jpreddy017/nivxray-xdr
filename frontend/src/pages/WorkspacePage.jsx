@@ -195,11 +195,12 @@ export default function WorkspacePage() {
   const pollAnalyzeJob = async (body, chainVal) => {
     // Poll-based analysis for AI-heavy runs (bypasses SSE / proxy timeouts).
     setStatus("ANALYZING ▸ enqueuing…");
-    setAnalysis({ chain: chainVal, streaming: true });
+    setAnalysis({ chain: chainVal, streaming: true, job_id: null });
     let jobId;
     try {
       const r = await api.post("/analyze/async", body);
       jobId = r.data.job_id;
+      setAnalysis((a) => ({ ...(a || {}), job_id: jobId }));
     } catch (e) {
       setStatus("ERROR: " + (e?.response?.data?.detail || e.message));
       setAnalyzing(false);
@@ -215,6 +216,7 @@ export default function WorkspacePage() {
         const d = st.data;
         setAnalysis((a) => ({
           ...(a || {}),
+          job_id: jobId,
           iocs: d.iocs || a?.iocs,
           mitre: d.mitre || a?.mitre,
           yara: d.yara || a?.yara,
@@ -224,6 +226,7 @@ export default function WorkspacePage() {
           osint: d.osint ?? a?.osint,
           ai_verdict: d.ai_verdict ?? a?.ai_verdict,
           description: d.description ?? a?.description,
+          playbooks_used: d.playbooks_used ?? a?.playbooks_used,
           chain: chainVal,
           streaming: d.status !== "done" && d.status !== "error",
         }));
@@ -647,6 +650,8 @@ export default function WorkspacePage() {
               description={analysis.description}
               verdict={analysis.ai_verdict}
               risk={analysis.risk}
+              jobId={analysis.job_id}
+              playbooksUsed={analysis.playbooks_used || []}
             />
           )}
         </section>

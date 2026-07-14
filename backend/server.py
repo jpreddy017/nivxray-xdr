@@ -789,7 +789,9 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn):
         # Phase C — OSINT + AI in parallel (with optional persona/provider + all enabled playbooks)
         persona = await ms.get_persona(db, body.persona_id) if body.persona_id else None
         provider = await ms.get_provider(db, body.provider_id)
-        playbook_block = await ms.compose_playbook_prompt(db, target="ai")
+        playbook_block, playbooks_used = await ms.compose_playbook_prompt_with_meta(db, target="ai")
+        # Persist the snapshot so /analyze/{job_id}/feedback can attribute votes.
+        await _job_set(job_id, {"playbooks_used": playbooks_used})
         if persona and persona.get("id"):
             await ms.increment_usage(db, persona["id"])
         if provider and provider.get("id") and body.provider_id:
@@ -907,6 +909,58 @@ async def analyze_status(job_id: str, user=Depends(get_current_user)):
         if isinstance(doc.get(k), datetime):
             doc[k] = doc[k].isoformat()
     return doc
+
+
+class PlaybookFeedbackIn(BaseModel):
+    vote: str = Field(..., description="'up', 'down' or 'none' (to retract)")
+    reason: Optional[str] = None
+
+
+@api.post("/analyze/{job_id}/feedback")
+async def analyze_feedback(job_id: str, body: PlaybookFeedbackIn,
+                            user=Depends(get_current_user)):
+    """Record a 👍/👎 vote on the AI investigation attached to `job_id`.
+
+    Toggling is allowed — the previous vote (if any) is reversed on all playbooks
+    that were used before the new one is applied. A full audit trail of every
+    vote change is appended to `playbook_votes.history`.
+    """
+    job = await _job_get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found or expired")
+    playbooks_used = job.get("playbooks_used") or []
+    if not playbooks_used:
+        raise HTTPException(status_code=400,
+                            detail="this investigation did not apply any playbook — nothing to feedback on")
+    try:
+        result = await ms.record_playbook_vote(
+            db, job_id, user.get("email") or "anonymous",
+            playbooks_used, body.vote, body.reason,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    result["playbooks_used"] = playbooks_used
+    return result
+
+
+@api.get("/analyze/{job_id}/feedback")
+async def analyze_feedback_get(job_id: str, user=Depends(get_current_user)):
+    """Return the current user's vote (if any) + the playbooks attributed to this job."""
+    job = await _job_get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found or expired")
+    playbooks_used = job.get("playbooks_used") or []
+    vote = await ms.get_vote_for_job(db, job_id, user.get("email") or "anonymous")
+    return {"job_id": job_id, "playbooks_used": playbooks_used, **vote}
+
+
+@api.get("/admin/playbooks/{playbook_id}/votes")
+async def playbook_votes(playbook_id: str, limit: int = 50, user=Depends(require_admin)):
+    """Full audit trail of the last `limit` votes attributed to this playbook."""
+    return {
+        "playbook_id": playbook_id,
+        "votes": await ms.list_playbook_votes(db, playbook_id, limit=limit),
+    }
 
 
 async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdict, want_describe, lolbas=None,
@@ -2238,6 +2292,7 @@ async def _startup():
     # Model Studio: indexes + seed built-in personas/providers/examples
     await ms.ensure_indexes(db)
     await ms.seed_builtins(db)
+    await ms.ensure_vote_indexes(db)
     # Sample Library: indexes + seed 15 built-in samples + start nightly benchmark
     await sl.ensure_indexes(db)
     await sl.seed_builtins(db)

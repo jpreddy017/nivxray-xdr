@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Copy, X } from "lucide-react";
 import FlowGraph from "@/components/FlowGraph";
+import PlaybookFeedback from "@/components/PlaybookFeedback";
 
 function severityBadgeClass(sev) {
   return { high: "high", medium: "medium", low: "low", safe: "safe", critical: "high" }[sev] || "neutral";
@@ -42,16 +43,26 @@ export default function ThreatAnalysis({ analysis, loading, selectedTactic = nul
         style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "12px 14px", borderBottom: "1px solid var(--border)",
+          gap: 10, flexWrap: "wrap",
         }}
       >
         <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>
           ▸ THREAT ANALYSIS
         </div>
-        {analysis?.risk && (
-          <span className={`badge ${analysis.risk.level}`} data-testid="risk-badge">
-            {analysis.risk.verdict} · {analysis.risk.score}/100
-          </span>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {analysis?.job_id && (analysis?.playbooks_used?.length || 0) > 0 && (
+            <PlaybookFeedback
+              jobId={analysis.job_id}
+              compact
+              testidPrefix="ta-playbook-feedback"
+            />
+          )}
+          {analysis?.risk && (
+            <span className={`badge ${analysis.risk.level}`} data-testid="risk-badge">
+              {analysis.risk.verdict} · {analysis.risk.score}/100
+            </span>
+          )}
+        </div>
       </div>
 
       {selectedTactic && (
