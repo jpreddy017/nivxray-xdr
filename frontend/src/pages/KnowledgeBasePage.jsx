@@ -3,7 +3,8 @@ import api from "@/lib/api";
 import Header from "@/components/Header";
 import {
   BookOpen, RefreshCw, Search, X, ChevronRight, Trash2, Zap, Server,
-  ShieldAlert, Info, Copy, Check,
+  ShieldAlert, Info, Copy, Check, ChevronDown, Wrench, Sparkles, Radar,
+  Terminal, Layers, Fingerprint,
 } from "lucide-react";
 
 const SEV_COLOURS = {
@@ -136,6 +137,9 @@ export default function KnowledgeBasePage() {
             {" "}{rebuildInfo.investigations_scanned} investigations scanned in {rebuildInfo.took_ms}ms
           </div>
         )}
+
+        {/* PLATFORM CAPABILITIES — feature reference */}
+        <PlatformCapabilities />
 
         {/* STATS ROW */}
         {stats && stats.total > 0 && (
@@ -496,6 +500,111 @@ function DField({ label, icon, children }) {
         {icon} {label.toUpperCase()}
       </div>
       <div>{children}</div>
+    </div>
+  );
+}
+
+
+// ─── Platform Capabilities reference ──────────────────────────────────────
+const CAPABILITIES = [
+  {
+    id: "decode-smart",
+    icon: <Zap size={13} />,
+    name: "SMART DECODE",
+    scope: "100% deterministic — no LLM. Runs the smart/magic race + NAMED wrapper archetypes (PS_MemoryStream_Gzip_IEX, Bash_base64_pipe_bash, Node_Buffer_from_gunzip, ...) as a first-class first pass.",
+    when: "First choice for any obfuscated payload. Works fully offline.",
+    endpoint: "POST /api/decode/smart",
+  },
+  {
+    id: "auto-investigate",
+    icon: <Radar size={13} />,
+    name: "AUTO INVESTIGATE",
+    scope: "Deterministic decoder → IOC/MITRE mapping → LLM narrative + verdict + severity. Uses Claude Sonnet 4.5 for the reasoning layer only (never for the decode itself).",
+    when: "When you need a full SOC-ticket-ready report — verdict + IOC list + MITRE ATT&CK + analyst summary.",
+    endpoint: "POST /api/ai/auto-investigate",
+  },
+  {
+    id: "ai-decode",
+    icon: <Sparkles size={13} />,
+    name: "AI DECODE",
+    scope: "LLM-only decoder — Claude proposes a chain of decoder ops and applies them. Strict citation validator prunes hallucinated IOCs.",
+    when: "Fallback when Smart Decode confidence is < 40% AND the payload doesn't match any wrapper archetype.",
+    endpoint: "POST /api/ai/auto-decode",
+  },
+  {
+    id: "troubleshoot",
+    icon: <Wrench size={13} />,
+    name: "TROUBLESHOOT",
+    scope: "AI RECIPE FIXER. Takes your current recipe + input + error, calls Claude with a DFIR-analyst prompt, returns a diagnosis (1-3 sentences) + a corrected chain (max 8 steps).",
+    when: "You've built a recipe by hand, it's failing / producing wrong output, and you want the LLM to explain WHY and propose a fix. Do NOT use it for unknown payloads — use Smart Decode instead.",
+    endpoint: "POST /api/ai/troubleshoot",
+  },
+  {
+    id: "process-tree",
+    icon: <Layers size={13} />,
+    name: "PREDICTED PROCESS TREE",
+    scope: "LLM predicts the downstream process tree the decoded payload would spawn. Three-layer anti-hallucination guard — every process must be cited from the decoded text.",
+    when: "After a successful decode — click PREDICT TREE to see the attack lineage graph.",
+    endpoint: "POST /api/analyze/process-tree",
+  },
+  {
+    id: "learning-boost",
+    icon: <Fingerprint size={13} />,
+    name: "LEARNING BOOST",
+    scope: "Auto-boost: NivXRay tries chains that worked historically for similar payloads first. Sources: personal history frequency (w=3) → KB archetype match (w=2) → built-in priors (w=1). Analyst 👍/👎 tunes future boosts.",
+    when: "Automatic on every Smart Decode. Look for the BOOSTED badge above the Decoding Trace. Click RE-RUN NO-BOOST to disable for one payload.",
+    endpoint: "POST /api/learning/boost",
+  },
+];
+
+function PlatformCapabilities() {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="brut-border" style={{ marginBottom: 14, background: "var(--surface)" }}
+         data-testid="platform-capabilities-card">
+      <div
+        style={{
+          padding: "10px 14px", display: "flex", alignItems: "center", gap: 10,
+          cursor: "pointer", borderBottom: expanded ? "1px solid var(--border)" : "none",
+        }}
+        onClick={() => setExpanded((v) => !v)}
+        data-testid="platform-capabilities-toggle">
+        <BookOpen size={14} color="var(--accent)" />
+        <span className="mono" style={{ color: "var(--accent)", letterSpacing: "0.14em", fontSize: 12, fontWeight: 700 }}>
+          PLATFORM CAPABILITIES
+        </span>
+        <span style={{ color: "var(--text-mute)", fontSize: 11, fontFamily: "JetBrains Mono" }}>
+          · scope + when-to-use for every decode / AI mode
+        </span>
+        <span style={{ flex: 1 }} />
+        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+      </div>
+      {expanded && (
+        <div style={{ padding: "12px 16px", display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 12 }}>
+          {CAPABILITIES.map((c) => (
+            <div key={c.id} className="brut-border" style={{
+              padding: 12, background: "var(--inset)",
+            }} data-testid={`capability-${c.id}`}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ color: "var(--accent)" }}>{c.icon}</span>
+                <span className="mono" style={{ color: "var(--text)", fontWeight: 700, letterSpacing: "0.14em", fontSize: 12 }}>
+                  {c.name}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-dim)", lineHeight: 1.55, marginBottom: 6 }}>
+                {c.scope}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-mute)", marginBottom: 4 }}>
+                <b style={{ color: "var(--warn)" }}>When:</b> {c.when}
+              </div>
+              <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)" }}>
+                {c.endpoint}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

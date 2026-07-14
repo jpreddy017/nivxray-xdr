@@ -40,6 +40,18 @@ def deterministic_best_decode(payload: str) -> Dict[str, Any]:
 
     Returns a normalized dict: {steps: [{op, args}], output, engine, reached_shellcode}.
     """
+    # ─── Named Wrapper Archetypes — permanent fix for known payload shapes ─
+    # If a payload matches a registered archetype (e.g. PS_MemoryStream_Gzip_IEX),
+    # its dedicated handler runs FIRST and its result wins with confidence 100%.
+    # No more relying on the greedy race to accidentally get it right.
+    try:
+        from wrapper_archetypes import try_archetypes
+        arch = try_archetypes(payload)
+        if arch and (arch.get("output") or "").strip():
+            return arch
+    except Exception:
+        pass
+
     try:
         smart = smart_decode(payload)
     except Exception as e:

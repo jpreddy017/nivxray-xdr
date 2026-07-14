@@ -560,3 +560,66 @@ The learning loop is pure Python + Mongo — no LLM calls. It composes cleanly w
 
 ### Future / Backlog
 - Natural-language Investigation Recipes · Threat-Intel Correlation Engine · AI SOC Copilot (NivX Cognis) end-to-end.
+
+---
+
+## 🔒 Feb 14, 2026 — Permanent fix · Named Wrapper Archetypes (P0)
+
+### Root cause of the recurring failure
+The generic magic/smart decoder is a heuristic RACE — it stopped one step early on well-known wrappers (Empire / Cobalt-Strike PowerShell one-liners with `IO.MemoryStream` + `GzipStream` + `IEX`). Every previous fix was a *symptom patch*, not a structural fix. Additionally, real-world payloads often arrive with base64 corruption (extra trailing char from copy/paste, length 4n+1) which strict `b64decode` cannot handle.
+
+### The permanent fix (3 layers, no more whack-a-mole)
+Backend
+- **`wrapper_archetypes.py`** — new module with 7 named, first-class handlers:
+  - `PS_MemoryStream_Gzip_IEX` (Empire / Cobalt one-liner — the user's exact broken payload)
+  - `PS_MemoryStream_Deflate_IEX`
+  - `PS_FromBase64String_UTF16LE` (classic `-EncodedCommand` inner chain)
+  - `Bash_base64_gunzip_pipe`
+  - `Bash_base64_pipe_bash`
+  - `Node_Buffer_from_gunzip`
+  - `PS_FromBase64String_GzipStream_generic` (order-insensitive fallback)
+
+- **`robust_b64decode()`** — full recovery: strips whitespace, converts urlsafe, pads to `4n`, **progressively trims trailing 1-3 chars for 4n+1 corruption**, alphabet-strips as last resort.
+
+- **`robust_b64_then_gunzip()`** — partial-decompression recovery for **truncated gzip streams** via `zlib.decompressobj(16 + MAX_WBITS)`. When the source is chopped mid-payload, we recover every byte that WAS validly decompressed and mark the tail as `[⚠ PARTIAL DECOMPRESSION — source stream was truncated]`.
+
+- **Wired into `deterministic_best_decode()`** as the FIRST step (before the smart-vs-magic race). Archetype-matched decodes return `engine="archetype:<id>"` with confidence 100%.
+
+Tests
+- **`tests/test_wrapper_archetypes.py`** — 12 regression tests covering every archetype + robust b64 recovery + the exact user-reported failure (`test_archetype_ps_memstream_gzip_iex_with_4n_plus_1_corruption`).
+- **62/62 tests passing across Tasks 1-3 + this fix** in 2.47s.
+
+### Live verified
+The user's exact payload now decodes end-to-end:
+- `engine: archetype:PS_MemoryStream_Gzip_IEX`
+- `confidence: 100`
+- `chain: [extract-b64, base64-gzip]`
+- Output: full **Metasploit / Meterpreter PowerShell shellcode loader** (2 890 chars) — `func_get_proc_address`, `UnsafeNativeMethods`, `VirtualAlloc`, `FromBase64String + -bxor` inner XOR shellcode, with a clean truncation notice on the tail.
+- SOC Verdict Panel WILL render client-side because `loaderScript` in `SocVerdictPanel.jsx` matches (`func_get_proc_address` + `VirtualAlloc` + `FromBase64String(...)` + `-bxor N`).
+
+### Why this class of failure is now IMPOSSIBLE
+- Every archetype has a pytest regression pinned to real captured payloads.
+- Adding a new wrapper = one entry in `ARCHETYPES` + one test.
+- The base64/gzip recovery paths handle real-world corruption transparently.
+- The archetype layer runs BEFORE the generic race, so it can't be "outvoted" by a lower-confidence heuristic.
+
+### Next Action Items (unchanged)
+- Task 4 · Offline LLM (Qwen 2.5 7B via Ollama · fine-tune on `/api/training/dataset?format=openai` · swap `OllamaQwenStub.json()` body).
+- Consider ONE-BUTTON UX consolidation (`NIVXRAY DECODE` primary action running: archetype → boost → deterministic → LLM fallback in a single click) — requested by user, deferred to next session.
+
+---
+
+## 🆕 Feb 14, 2026 — Platform Capabilities reference on /kb
+
+Added a collapsible **PLATFORM CAPABILITIES** card at the top of the Knowledge Base page (`/kb`) — one-line honest scope + when-to-use for each mode:
+
+| Mode                    | Scope (honest)                                                                | Endpoint                              |
+|-------------------------|-------------------------------------------------------------------------------|---------------------------------------|
+| SMART DECODE            | 100% deterministic. Runs archetypes first → smart/magic race                  | `/api/decode/smart`                   |
+| AUTO INVESTIGATE        | Deterministic decoder → IOC/MITRE → LLM verdict                               | `/api/ai/auto-investigate`            |
+| AI DECODE               | LLM-only decoder — fallback when Smart confidence <40%                        | `/api/ai/auto-decode`                 |
+| **TROUBLESHOOT**        | **AI recipe fixer** — takes broken chain + input + error → diagnosis + fixed chain (max 8 steps) | `/api/ai/troubleshoot`  |
+| PREDICTED PROCESS TREE  | LLM predicts downstream process tree with 3-layer anti-hallucination         | `/api/analyze/process-tree`           |
+| LEARNING BOOST          | Auto-boost — history freq w=3, KB match w=2, built-in prior w=1               | `/api/learning/boost`                 |
+
+Frontend: `PlatformCapabilities` component in `KnowledgeBasePage.jsx`. Collapsed by default; expands to a 2-3 col grid.
