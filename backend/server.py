@@ -539,6 +539,14 @@ async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verd
             '        "kind": "ingestion|deobfuscation|context|filesystem|network|crypto|execution|persistence|discovery|c2|impact"\n'
             '     }\n'
             '  ],\n'
+            '  "entity_graph": {\n'
+            '     "nodes": [\n'
+            '        {"id": "e1", "label": "friendly label (e.g. \'python.exe\', \'instructions.docx\', \'185.220.101.45\', \'user@host\')", "type": "process|file|device|user|url|ip|domain|email|hash|registry|script", "malicious": true, "note": "optional short note"}\n'
+            '     ],\n'
+            '     "edges": [\n'
+            '        {"from": "e1", "to": "e2", "label": "verb-phrase (Executed, Reads, Writes, Connects To, Parent Of, Sent To, Drops, Loads)"}\n'
+            '     ]\n'
+            '  },\n'
             '  "flow_graph": {\n'
             '     "nodes": [\n'
             '        {"id": "n1", "label": "short verb-phrase e.g. \'chdir to python.exe folder\'", "kind": "start|filesystem|network|crypto|execution|persistence|discovery|c2|impact|end"}\n'
@@ -571,6 +579,7 @@ async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verd
         "For malware_family: only claim a family if there is strong evidence (unique strings, C2 patterns, packer, algorithm signatures, or matches to VT/OTX threat labels).\n"
         "For mitre_techniques: derive from the DECODED BEHAVIOR, not the outer wrapper. For each technique cite the specific evidence in the decoded output.\n"
         "For attack_chain: model 3-8 sequential steps that describe the ATTACK CHAIN (what the malware does step by step). Each step should have a strong technical title (short caps phrase) + 2-3 sentence plain-English summary + optional technical_detail (hex keys, filenames, URLs cited verbatim from the payload). Order MUST be causal. Use kinds: ingestion|deobfuscation|context|filesystem|network|crypto|execution|persistence|discovery|c2|impact.\n"
+        "For entity_graph: extract 4-15 concrete ENTITIES from the payload (files touched, processes spawned, URLs contacted, IPs, users, devices, hashes) and the RELATIONSHIPS between them (Executed, Reads, Writes, Connects To, Parent Of, Drops, Sent To, Downloads). Mark 'malicious' true when the entity is suspicious/hostile. Types: process|file|device|user|url|ip|domain|email|hash|registry|script.\n"
         "For flow_graph: additionally produce a compact node/edge structure for visualization — 4-10 nodes.\n"
         "Return STRICT JSON only with the keys shown in the schema. No markdown, no prose outside JSON."
     )

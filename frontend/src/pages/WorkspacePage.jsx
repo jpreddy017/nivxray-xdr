@@ -4,6 +4,7 @@ import OperationsPanel from "@/components/OperationsPanel";
 import RecipePanel from "@/components/RecipePanel";
 import ThreatAnalysis from "@/components/ThreatAnalysis";
 import ReportMenu from "@/components/ReportMenu";
+import AttackGraph from "@/components/AttackGraph";
 import api from "@/lib/api";
 import {
   Play, Zap, Wand2, Wrench, Share2, Download, Upload, Trash2, Copy, Sparkles,
@@ -385,6 +386,27 @@ export default function WorkspacePage() {
               />
             </div>
           </div>
+
+          {/* Attack Graph Card — Cortex XDR-style entity graph */}
+          {analysis?.description?.entity_graph?.nodes?.length > 0 && (
+            <div className="nvx-card" data-testid="attack-graph-card">
+              <div className="nvx-card-head">
+                <div className="nvx-card-title">
+                  <span className="dot" style={{ background: "var(--warn)" }} />
+                  ATTACK GRAPH
+                  <span className="count">
+                    {analysis.description.entity_graph.nodes.length} entities · {(analysis.description.entity_graph.edges || []).length} relations
+                  </span>
+                </div>
+              </div>
+              <div className="nvx-card-body">
+                <AttackGraph
+                  nodes={analysis.description.entity_graph.nodes}
+                  edges={analysis.description.entity_graph.edges || []}
+                />
+              </div>
+            </div>
+          )}
         </section>
 
         <ThreatAnalysis analysis={analysis} loading={analyzing} />
