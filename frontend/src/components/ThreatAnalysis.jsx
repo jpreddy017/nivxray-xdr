@@ -167,11 +167,20 @@ function LolbasTab({ items = [], selectedTactic = null, techniqueToTactic = {} }
       </div>
       {filtered.map((l, i) => (
         <div key={i} className="brut-border" style={{ padding: 10, marginBottom: 8, background: "var(--inset)" }} data-testid={`lolbas-${l.binary}`}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
             <span className="mono" style={{ fontSize: 12, color: "var(--warn)", fontWeight: 700 }}>{l.binary}</span>
-            <a href={l.url} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 10, color: "var(--text-mute)", textDecoration: "none" }}>
-              lolbas-project ↗
-            </a>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {l.custom && (
+                <span className="badge warn" data-testid={`lolbas-custom-${l.model_id || i}`} title={l.model_name ? `Custom rule: ${l.model_name}` : "Custom rule"}>
+                  ✦ CUSTOM
+                </span>
+              )}
+              {l.url && (
+                <a href={l.url} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 10, color: "var(--text-mute)", textDecoration: "none" }}>
+                  lolbas-project ↗
+                </a>
+              )}
+            </div>
           </div>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
             {l.purposes.map((p) => <span key={p} className="badge">{p}</span>)}
@@ -606,8 +615,15 @@ function ChainTab({ chain }) {
     <div className="stagger">
       {chain.map((c, i) => (
         <div key={i} className="brut-border" style={{ padding: 10, marginBottom: 8, background: "var(--inset)" }} data-testid={`chain-step-${i}`}>
-          <div className="mono" style={{ fontSize: 10, color: "var(--accent)", letterSpacing: "0.18em" }}>
-            STEP {String(i + 1).padStart(2, "0")} · {c.op}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div className="mono" style={{ fontSize: 10, color: "var(--accent)", letterSpacing: "0.18em" }}>
+              STEP {String(i + 1).padStart(2, "0")} · {c.op}
+            </div>
+            {c.custom && (
+              <span className="badge warn" data-testid={`chain-custom-badge-${i}`} title={c.model_name ? `Applied from Model Studio recipe: ${c.model_name}` : "Custom recipe"}>
+                ✦ CUSTOM {c.model_name ? " · " + c.model_name : ""}
+              </span>
+            )}
           </div>
           {c.reason && <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>{c.reason}</div>}
           {c.output_preview && (

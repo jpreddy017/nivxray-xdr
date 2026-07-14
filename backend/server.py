@@ -31,6 +31,7 @@ from lolbas import (
     scan_lolbas, load_from_db as lolbas_load, maybe_refresh as lolbas_maybe_refresh,
     refresh_from_source as lolbas_refresh, get_status as lolbas_status,
 )
+import models_studio as ms
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
@@ -99,6 +100,8 @@ class AnalyzeIn(BaseModel):
     use_ai_verdict: bool = False
     enrich_osint: bool = True
     describe: bool = False
+    persona_id: Optional[str] = None
+    provider_id: Optional[str] = None
 
 
 class TroubleshootIn(BaseModel):
@@ -189,16 +192,18 @@ def _mask(v: str) -> str:
 # =============================================================================
 # LLM helpers
 # =============================================================================
-def _new_chat(session_id: str, system: str) -> LlmChat:
+def _new_chat(session_id: str, system: str,
+              provider: str = "anthropic", model: str = "claude-sonnet-4-5-20250929") -> LlmChat:
     return LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=session_id,
         system_message=system,
-    ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+    ).with_model(provider, model)
 
 
-async def _llm_json(session_id: str, system: str, user: str, retries: int = 1) -> Dict[str, Any]:
-    chat = _new_chat(session_id, system)
+async def _llm_json(session_id: str, system: str, user: str, retries: int = 1,
+                    provider: str = "anthropic", model: str = "claude-sonnet-4-5-20250929") -> Dict[str, Any]:
+    chat = _new_chat(session_id, system, provider=provider, model=model)
     last_err = None
     for _ in range(retries + 1):
         try:
@@ -432,12 +437,46 @@ def _extract_strings(raw: bytes, min_len: int = 4, limit: int = 400) -> List[str
 # =============================================================================
 @api.post("/decode/smart")
 async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
+    # 1. Check custom decode recipes first — if any regex matches, apply that
+    #    recipe on top of the default deterministic pipeline as an ADVISORY hint.
+    custom_matches = await ms.find_matching_recipes(db, body.input)
+    if custom_matches:
+        # apply first (highest-usage) matching recipe; record usage
+        best = custom_matches[0]
+        await ms.increment_usage(db, best["id"])
+        # execute the custom recipe
+        try:
+            steps_for_run = [RecipeStep(op=s["op"], args=s.get("args") or {}) for s in best["ops"] if s.get("op") in OPERATIONS]
+            if steps_for_run:
+                result_custom = await run_recipe(
+                    RunRecipeIn(input=body.input, steps=steps_for_run), user=user,
+                )
+                recipe_out = [
+                    {"op": s.op, "args": s.args, "reason": f"custom recipe: {best['name']}",
+                     "custom": True, "model_id": best["id"], "model_name": best["name"]}
+                    for s in steps_for_run
+                ]
+                return {
+                    "recipe": recipe_out,
+                    "output": result_custom.output,
+                    "notes": [f"Applied custom recipe '{best['name']}' from Model Studio"],
+                    "detected_type": detect_payload_type(result_custom.output),
+                    "custom_recipes_matched": [
+                        {"id": r["id"], "name": r["name"]} for r in custom_matches
+                    ],
+                }
+        except Exception as e:
+            log.warning("custom recipe '%s' failed, falling back to smart_decode: %s", best.get("name"), e)
+
     result = smart_decode(body.input)
     return {
         "recipe": [{"op": s["op"], "args": s.get("args", {}), "reason": s["reason"]} for s in result["steps"]],
         "output": result["output"],
         "notes": result["notes"],
         "detected_type": detect_payload_type(result["output"]),
+        "custom_recipes_matched": [
+            {"id": r["id"], "name": r["name"]} for r in custom_matches
+        ],
     }
 
 
@@ -702,12 +741,21 @@ async def _job_push_error(job_id: str, phase: str, err: str) -> None:
 async def _run_analysis_job(job_id: str, body: AnalyzeIn):
     """Background worker — persists phase-by-phase progress to MongoDB."""
     try:
-        # Phase A — fast extraction
+        # Phase A — fast extraction (+ custom detection rules from Model Studio)
         text = (body.output or "") + "\n" + body.input
         iocs = extract_iocs(text)
         mitre = mitre_map(text)
         yara = yara_lite_scan(text)
         lolbas = scan_lolbas(text)
+        try:
+            custom_rules = await ms._load_active_rules(db)
+            custom_hits = ms.scan_custom_rules(text, custom_rules)
+            for h in custom_hits:
+                if h.get("model_id"):
+                    await ms.increment_usage(db, h["model_id"])
+            lolbas = lolbas + custom_hits
+        except Exception as e:
+            log.warning("custom detection rules failed: %s", e)
         risk = risk_score(mitre, yara, iocs)
         await _job_set(job_id, {
             "iocs": iocs, "mitre": mitre, "yara": yara, "lolbas": lolbas, "risk": risk,
@@ -720,7 +768,14 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn):
             "ti_hits": ti_hits, "phase": "enrich_and_ai", "progress": 25,
         })
 
-        # Phase C — OSINT + AI in parallel
+        # Phase C — OSINT + AI in parallel (with optional persona/provider)
+        persona = await ms.get_persona(db, body.persona_id) if body.persona_id else None
+        provider = await ms.get_provider(db, body.provider_id)
+        if persona and persona.get("id"):
+            await ms.increment_usage(db, persona["id"])
+        if provider and provider.get("id") and body.provider_id:
+            await ms.increment_usage(db, provider["id"])
+
         async def _run_osint():
             if not body.enrich_osint:
                 return None
@@ -734,6 +789,7 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn):
                 body.input, body.output or "", iocs, mitre, yara, {},
                 lolbas=lolbas,
                 want_verdict=body.use_ai_verdict, want_describe=body.describe,
+                persona=persona, provider=provider,
             )
 
         osint_task = asyncio.create_task(_run_osint())
@@ -833,8 +889,14 @@ async def analyze_status(job_id: str, user=Depends(get_current_user)):
     return doc
 
 
-async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdict, want_describe, lolbas=None):
-    """Single LLM call producing rich narrative description + verdict JSON."""
+async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdict, want_describe, lolbas=None,
+                                    persona: Optional[Dict[str, Any]] = None,
+                                    provider: Optional[Dict[str, Any]] = None):
+    """Single LLM call producing rich narrative description + verdict JSON.
+
+    Optional `persona` overrides the default system prompt (analyst-picked persona).
+    Optional `provider` swaps the LLM provider/model (Claude, GPT, Gemini).
+    """
     parts = []
     if want_describe:
         parts.append(
@@ -891,7 +953,7 @@ async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verd
         )
     schema = "{\n" + ",\n".join(parts) + "\n}"
 
-    system = (
+    default_system = (
         "You are a senior DFIR analyst reviewing a decoded payload. "
         "Write like an incident-report analyst: precise, factual, technical, cite specific IOC values / OSINT results / TI hits.\n"
         "For malware_family: only claim a family if there is strong evidence (unique strings, C2 patterns, packer, algorithm signatures, or matches to VT/OTX threat labels).\n"
@@ -909,6 +971,27 @@ async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verd
         "For flow_graph: additionally produce a compact node/edge structure for visualization — 4-10 nodes.\n"
         "Return STRICT JSON only with the keys shown in the schema. No markdown, no prose outside JSON."
     )
+    # Custom persona (if selected) overrides the default system prompt. When the
+    # persona is a free-form narrative persona (like the "Static Malware Deobfuscation
+    # Engine"), we still append a "return JSON with this schema" directive so the
+    # /analyze pipeline keeps working with structured output. Otherwise the AI tab
+    # would receive unparseable prose and every downstream card would fall back.
+    if persona and (persona.get("config") or {}).get("system_prompt"):
+        persona_prompt = persona["config"]["system_prompt"].strip()
+        system = (
+            persona_prompt
+            + "\n\nIMPORTANT — OUTPUT CONTRACT (in addition to your normal analysis):\n"
+            + "Return your final analysis as STRICT JSON only, matching the schema below. "
+            + "Fold your persona-specific findings into the `summary`, `attack_chain`, `behavior`, and `ioc_narrative` fields. "
+            + "No markdown, no prose outside JSON."
+        )
+    else:
+        system = default_system
+
+    # LLM provider / model — default to Claude Sonnet 4.5
+    llm_provider = ((provider or {}).get("config") or {}).get("provider") or "anthropic"
+    llm_model = ((provider or {}).get("config") or {}).get("model") or "claude-sonnet-4-5-20250929"
+
     prompt = (
         f"SCHEMA:\n{schema}\n\n"
         f"RAW INPUT:\n{inp[:3500]}\n\n"
@@ -920,7 +1003,11 @@ async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verd
         f"OSINT ENRICHMENT:\n{json.dumps(osint)[:5000]}\n\n"
         "Return only JSON."
     )
-    return await _llm_json("describe-" + str(datetime.now(timezone.utc).timestamp()), system, prompt)
+    return await _llm_json(
+        "describe-" + str(datetime.now(timezone.utc).timestamp()),
+        system, prompt,
+        provider=llm_provider, model=llm_model,
+    )
 
 
 # =============================================================================
@@ -1653,6 +1740,132 @@ async def admin_stats(user=Depends(require_admin)):
 # =============================================================================
 # LOLBAS catalog admin — sync + status
 # =============================================================================
+# =============================================================================
+# Model Studio — custom detection rules, decode recipes, AI personas, providers
+# =============================================================================
+class ModelIn(BaseModel):
+    kind: str
+    name: str
+    enabled: bool = True
+    config: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ModelPatchIn(BaseModel):
+    name: Optional[str] = None
+    enabled: Optional[bool] = None
+    config: Optional[Dict[str, Any]] = None
+
+
+class ModelTestIn(BaseModel):
+    sample: str
+
+
+@api.get("/admin/models")
+async def list_admin_models(kind: Optional[str] = None, user=Depends(require_admin)):
+    if kind and kind not in ms.MODEL_KINDS:
+        raise HTTPException(status_code=400, detail=f"invalid kind: {kind}")
+    return await ms.list_models(db, kind=kind)
+
+
+@api.get("/admin/models/catalog")
+async def model_catalog(user=Depends(require_admin)):
+    """Static catalog needed by the Model Studio UI (available ops + kinds)."""
+    return {
+        "kinds": list(ms.MODEL_KINDS),
+        "operations": sorted(OPERATIONS.keys()),
+        "providers": [
+            {"provider": "anthropic", "model": "claude-sonnet-4-5-20250929", "label": "Claude Sonnet 4.5"},
+            {"provider": "openai", "model": "gpt-5.2", "label": "GPT-5.2"},
+            {"provider": "google", "model": "gemini-3-pro", "label": "Gemini 3 Pro"},
+        ],
+    }
+
+
+@api.post("/admin/models")
+async def create_admin_model(body: ModelIn, user=Depends(require_admin)):
+    try:
+        return await ms.create_model(
+            db, kind=body.kind, name=body.name, config=body.config or {},
+            created_by=user.get("email"), enabled=body.enabled,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api.put("/admin/models/{model_id}")
+async def update_admin_model(model_id: str, body: ModelPatchIn, user=Depends(require_admin)):
+    try:
+        patch = {k: v for k, v in body.model_dump().items() if v is not None}
+        updated = await ms.update_model(db, model_id, patch)
+        if not updated:
+            raise HTTPException(status_code=404, detail="model not found")
+        return updated
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api.delete("/admin/models/{model_id}")
+async def delete_admin_model(model_id: str, user=Depends(require_admin)):
+    try:
+        ok = await ms.delete_model(db, model_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="model not found")
+        return {"deleted": True}
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+@api.post("/admin/models/{model_id}/test")
+async def test_admin_model(model_id: str, body: ModelTestIn, user=Depends(require_admin)):
+    """Test a model against a sample input. Returns a kind-specific result payload."""
+    m = await ms.get_model(db, model_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="model not found")
+    kind = m["kind"]
+    cfg = m.get("config") or {}
+    sample = body.sample or ""
+    if kind == "detection_rule":
+        hits = ms.scan_custom_rules(sample, [{
+            "binary_regex": cfg.get("binary_regex", ""),
+            "argv": cfg.get("argv_regex"),
+            "purposes": cfg.get("purposes") or ["Custom"],
+            "mitre": cfg.get("mitre") or [],
+            "desc": cfg.get("description") or m["name"],
+            "url": "", "source": f"custom:{m['id']}",
+            "name": m["name"], "severity": cfg.get("severity", "medium"),
+            "model_id": m["id"],
+        }])
+        return {"kind": kind, "matched": bool(hits), "hits": hits}
+    if kind == "decode_recipe":
+        try:
+            matched = bool(re.search(cfg.get("match_regex", ""), sample, re.IGNORECASE | re.DOTALL))
+        except re.error as e:
+            raise HTTPException(status_code=400, detail=f"invalid match_regex: {e}")
+        steps_out: List[Dict[str, Any]] = []
+        output = sample
+        if matched:
+            for step in (cfg.get("ops") or []):
+                op = step.get("op")
+                if op not in OPERATIONS:
+                    steps_out.append({"op": op, "error": "unknown op"})
+                    break
+                try:
+                    output = run_operation(op, output, step.get("args") or {})
+                    steps_out.append({"op": op, "output_preview": (output or "")[:300]})
+                except Exception as e:
+                    steps_out.append({"op": op, "error": str(e)})
+                    break
+        return {"kind": kind, "matched": matched, "steps": steps_out, "output": output}
+    if kind == "ai_persona":
+        return {"kind": kind,
+                "system_prompt_preview": (cfg.get("system_prompt") or "")[:800],
+                "sample_would_be_sent_as": (sample or "(no sample provided)")[:400]}
+    if kind == "ai_provider":
+        return {"kind": kind, "provider": cfg.get("provider"), "model": cfg.get("model"),
+                "note": "Provider connectivity is verified at Auto-Investigate time via the Emergent Universal LLM Key."}
+    raise HTTPException(status_code=400, detail=f"unknown kind: {kind}")
+
+
 @api.get("/admin/lolbas/status")
 async def get_lolbas_status(user=Depends(require_admin)):
     return lolbas_status()
@@ -1871,6 +2084,9 @@ async def _startup():
     # LOLBAS: load persisted cache, then trigger a background refresh if stale (>7d)
     await lolbas_load(db)
     asyncio.create_task(lolbas_maybe_refresh(db))
+    # Model Studio: indexes + seed built-in personas/providers/examples
+    await ms.ensure_indexes(db)
+    await ms.seed_builtins(db)
 
 
 @app.on_event("shutdown")

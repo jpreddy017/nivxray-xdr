@@ -3,7 +3,8 @@ import { Navigate } from "react-router-dom";
 import Header from "@/components/Header";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Check, X, KeyRound, ExternalLink, Save, TestTube2, Users, BarChart3, RefreshCw, Database } from "lucide-react";
+import { Check, X, KeyRound, ExternalLink, Save, TestTube2, Users, BarChart3, RefreshCw, Database, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -121,6 +122,22 @@ export default function AdminPage() {
             <StatCard label="OSINT ACTIVE" value={stats.configured_osint_services} icon={<KeyRound size={14} />} />
           </div>
         )}
+
+        {/* Model Studio quick-link */}
+        <section className="brut-border" style={{ background: "var(--surface)" }} data-testid="model-studio-link-card">
+          <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>▸ MODEL STUDIO</div>
+              <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)", marginTop: 6, lineHeight: 1.5 }}>
+                Teach NivXRay new tricks: custom detection rules, decode recipes, AI personas, and LLM provider switching.
+                All changes go live immediately on the next investigation.
+              </div>
+            </div>
+            <Link to="/admin/models" className="nvx-btn primary" data-testid="admin-open-model-studio">
+              <Sparkles size={13} /> OPEN STUDIO
+            </Link>
+          </div>
+        </section>
 
         {/* LOLBAS Catalog */}
         <section className="brut-border" style={{ background: "var(--surface)" }} data-testid="lolbas-catalog-card">

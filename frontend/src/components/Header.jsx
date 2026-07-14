@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/lib/auth";
-import { LogOut, LayoutGrid, Cog, Radar } from "lucide-react";
+import { LogOut, LayoutGrid, Cog, Radar, Sparkles } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -52,9 +52,19 @@ export default function Header() {
               to="/admin"
               data-testid="nav-admin"
               className={`nvx-btn sm ghost`}
-              style={{ color: loc.pathname.startsWith("/admin") ? "var(--accent)" : "var(--text-dim)" }}
+              style={{ color: loc.pathname === "/admin" ? "var(--accent)" : "var(--text-dim)" }}
             >
               <Cog size={13} /> ADMIN
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              to="/admin/models"
+              data-testid="nav-model-studio"
+              className={`nvx-btn sm ghost`}
+              style={{ color: loc.pathname.startsWith("/admin/models") ? "var(--accent)" : "var(--text-dim)" }}
+            >
+              <Sparkles size={13} /> MODEL STUDIO
             </Link>
           )}
         </nav>

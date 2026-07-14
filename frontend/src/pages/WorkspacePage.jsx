@@ -26,12 +26,24 @@ export default function WorkspacePage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [tacticFilter, setTacticFilter] = useState(null); // P3: click-to-filter
+  const [personas, setPersonas] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [personaId, setPersonaId] = useState("");
+  const [providerId, setProviderId] = useState("");
   const streamStopRef = useRef(null);
   const fileRef = useRef(null);
 
   useEffect(() => {
     api.get("/operations").then((r) => setOps(r.data)).catch(() => {});
     api.get("/examples").then((r) => setExamples(r.data)).catch(() => {});
+    // Model Studio — load enabled personas + providers if the user is admin;
+    // non-admin users get an empty list (the AI call falls back to defaults).
+    api.get("/admin/models?kind=ai_persona")
+      .then((r) => setPersonas((r.data || []).filter((m) => m.enabled)))
+      .catch(() => setPersonas([]));
+    api.get("/admin/models?kind=ai_provider")
+      .then((r) => setProviders((r.data || []).filter((m) => m.enabled)))
+      .catch(() => setProviders([]));
   }, []);
 
   const addOp = (op) => {
@@ -84,7 +96,8 @@ export default function WorkspacePage() {
     setAnalyzing(true);
     if (describe || aiVerdict) {
       // AI-heavy path — use job polling to bypass reverse-proxy timeouts
-      pollAnalyzeJob({ input, output, enrich_osint: true, describe, use_ai_verdict: aiVerdict }, chain);
+      pollAnalyzeJob({ input, output, enrich_osint: true, describe, use_ai_verdict: aiVerdict,
+                       persona_id: personaId || undefined, provider_id: providerId || undefined }, chain);
     } else {
       // Fast path — SSE streaming
       setStatus("ANALYZING…");
@@ -176,13 +189,15 @@ export default function WorkspacePage() {
       const newChain = (r.data.recipe || []).map((s, i) => ({
         op: s.op, reason: s.reason || "",
         output_preview: r.data.steps_output?.[i]?.output_preview || "",
+        custom: !!s.custom, model_id: s.model_id, model_name: s.model_name,
       }));
       setChain(newChain);
       setLoading(false);
 
       // 2) Analysis via async job polling (bypasses 60s proxy timeout)
       pollAnalyzeJob(
-        { input, output: r.data.output || "", enrich_osint: true, describe: true, use_ai_verdict: true },
+        { input, output: r.data.output || "", enrich_osint: true, describe: true, use_ai_verdict: true,
+          persona_id: personaId || undefined, provider_id: providerId || undefined },
         newChain,
       );
     } catch (e) {
@@ -313,6 +328,37 @@ export default function WorkspacePage() {
         <span className="badge warn">OSINT</span>
         <span className="badge warn">FLOW</span>
         <div style={{ flex: 1 }} />
+
+        {(personas.length > 0 || providers.length > 0) && (
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }} data-testid="ai-model-picker">
+            {personas.length > 0 && (
+              <select
+                className="brut-input"
+                value={personaId}
+                onChange={(e) => setPersonaId(e.target.value)}
+                data-testid="ai-persona-select"
+                title="AI Persona — leave default for the standard Threat Analyst"
+                style={{ padding: "4px 8px", fontSize: 11, height: 28, background: "var(--inset)" }}
+              >
+                <option value="">PERSONA · Default</option>
+                {personas.map((p) => <option key={p.id} value={p.id}>PERSONA · {p.name}</option>)}
+              </select>
+            )}
+            {providers.length > 0 && (
+              <select
+                className="brut-input"
+                value={providerId}
+                onChange={(e) => setProviderId(e.target.value)}
+                data-testid="ai-provider-select"
+                title="LLM Provider — leave default to use Claude Sonnet 4.5"
+                style={{ padding: "4px 8px", fontSize: 11, height: 28, background: "var(--inset)" }}
+              >
+                <option value="">LLM · Default</option>
+                {providers.map((p) => <option key={p.id} value={p.id}>LLM · {p.name}</option>)}
+              </select>
+            )}
+          </div>
+        )}
 
         <button className="nvx-btn primary" onClick={autoInvestigate} disabled={loading || analyzing} data-testid="btn-auto-investigate">
           <Sparkles size={13} /> AUTO INVESTIGATE
