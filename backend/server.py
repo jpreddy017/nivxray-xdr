@@ -655,25 +655,52 @@ async def analyze_stream(body: AnalyzeIn, user=Depends(get_current_user)):
 # =============================================================================
 # Async job pipeline — /api/analyze/async + /api/analyze/status/{job_id}
 # Bypasses reverse-proxy hard timeouts for long AI runs by decoupling the
-# background computation from client polling. In-memory job store — fine
-# because jobs are short-lived and single-worker.
+# background computation from client polling. Jobs live in MongoDB
+# (`analyze_jobs` collection) with a TTL index so they survive backend restarts
+# and work correctly across multiple replicas.
 # =============================================================================
 import uuid
 
-_JOBS: Dict[str, Dict[str, Any]] = {}
 _JOB_TTL_SEC = 60 * 15  # 15 minutes
+_ANALYZE_JOBS_INDEX_READY = False
 
 
-def _prune_jobs():
-    now = datetime.now(timezone.utc).timestamp()
-    stale = [j for j, s in _JOBS.items() if now - s.get("_created", now) > _JOB_TTL_SEC]
-    for j in stale:
-        _JOBS.pop(j, None)
+async def _ensure_jobs_indexes():
+    """Idempotent — creates a TTL index on `created_at` for auto-cleanup."""
+    global _ANALYZE_JOBS_INDEX_READY
+    if _ANALYZE_JOBS_INDEX_READY:
+        return
+    try:
+        await db.analyze_jobs.create_index(
+            "created_at", expireAfterSeconds=_JOB_TTL_SEC, name="ttl_created_at"
+        )
+        _ANALYZE_JOBS_INDEX_READY = True
+    except Exception as e:
+        log.warning("analyze_jobs TTL index create failed: %s", e)
+
+
+async def _job_get(job_id: str) -> Optional[Dict[str, Any]]:
+    doc = await db.analyze_jobs.find_one({"_id": job_id}, {"created_at": 0})
+    return doc
+
+
+async def _job_set(job_id: str, updates: Dict[str, Any]) -> None:
+    """Merge `updates` into the job doc. `updated_at` is refreshed every write."""
+    updates = {k: v for k, v in updates.items() if not k.startswith("_")}
+    updates["updated_at"] = datetime.now(timezone.utc)
+    await db.analyze_jobs.update_one({"_id": job_id}, {"$set": updates}, upsert=False)
+
+
+async def _job_push_error(job_id: str, phase: str, err: str) -> None:
+    await db.analyze_jobs.update_one(
+        {"_id": job_id},
+        {"$push": {"errors": {"phase": phase, "error": err}},
+         "$set": {"updated_at": datetime.now(timezone.utc)}},
+    )
 
 
 async def _run_analysis_job(job_id: str, body: AnalyzeIn):
-    """Background worker — populates the _JOBS[job_id] dict as phases complete."""
-    j = _JOBS[job_id]
+    """Background worker — persists phase-by-phase progress to MongoDB."""
     try:
         # Phase A — fast extraction
         text = (body.output or "") + "\n" + body.input
@@ -682,14 +709,16 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn):
         yara = yara_lite_scan(text)
         lolbas = scan_lolbas(text)
         risk = risk_score(mitre, yara, iocs)
-        j.update({
+        await _job_set(job_id, {
             "iocs": iocs, "mitre": mitre, "yara": yara, "lolbas": lolbas, "risk": risk,
             "phase": "ti_hits", "progress": 15,
         })
 
         # Phase B — TI hits
         ti_hits = await _lookup_ti_hits(iocs)
-        j.update({"ti_hits": ti_hits, "phase": "enrich_and_ai", "progress": 25})
+        await _job_set(job_id, {
+            "ti_hits": ti_hits, "phase": "enrich_and_ai", "progress": 25,
+        })
 
         # Phase C — OSINT + AI in parallel
         async def _run_osint():
@@ -716,35 +745,37 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn):
 
         while pending:
             done, pending = await asyncio.wait(pending, timeout=2.0, return_when=asyncio.FIRST_COMPLETED)
-            j["elapsed_s"] = int(datetime.now(timezone.utc).timestamp() - start)
+            elapsed_s = int(datetime.now(timezone.utc).timestamp() - start)
+            heartbeat: Dict[str, Any] = {"elapsed_s": elapsed_s}
             for t in done:
                 try:
                     r = t.result()
                 except Exception as e:
                     if t is osint_task:
                         osint_data = {"error": str(e)}
-                        j["osint"] = osint_data
-                        j["errors"] = (j.get("errors") or []) + [{"phase": "osint", "error": str(e)}]
+                        heartbeat["osint"] = osint_data
+                        await _job_push_error(job_id, "osint", str(e))
                     else:
                         ai_bundle = None
-                        j["errors"] = (j.get("errors") or []) + [{"phase": "ai", "error": str(e)}]
+                        await _job_push_error(job_id, "ai", str(e))
                     continue
                 if t is osint_task:
                     osint_data = r
-                    j["osint"] = osint_data
-                    j["progress"] = max(j.get("progress", 25), 45)
+                    heartbeat["osint"] = osint_data
+                    heartbeat["progress"] = 45
                 else:
                     ai_bundle = r
                     if ai_bundle:
                         if body.use_ai_verdict and ai_bundle.get("verdict") is not None:
-                            j["ai_verdict"] = ai_bundle.get("verdict")
+                            heartbeat["ai_verdict"] = ai_bundle.get("verdict")
                         if body.describe and ai_bundle.get("description") is not None:
-                            j["description"] = ai_bundle.get("description")
-                    j["progress"] = 90
+                            heartbeat["description"] = ai_bundle.get("description")
+                    heartbeat["progress"] = 90
+            await _job_set(job_id, heartbeat)
 
         # Phase D — merge & finalize
         merged_mitre = list(mitre)
-        description = j.get("description")
+        description = ai_bundle.get("description") if ai_bundle else None
         if description and isinstance(description, dict):
             ai_mitre = description.get("mitre_techniques") or []
             seen_ids = {m["id"] for m in merged_mitre}
@@ -758,40 +789,48 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn):
                     seen_ids.add(m["id"])
             for m in merged_mitre:
                 m.setdefault("source", "heuristic")
-        j["mitre"] = merged_mitre
-        j["status"] = "done"
-        j["progress"] = 100
-        j["phase"] = "complete"
+        await _job_set(job_id, {
+            "mitre": merged_mitre,
+            "status": "done",
+            "progress": 100,
+            "phase": "complete",
+        })
     except Exception as e:
         log.exception("analysis job %s failed", job_id)
-        j["status"] = "error"
-        j["error"] = str(e)
+        await _job_set(job_id, {"status": "error", "error": str(e), "phase": "error"})
 
 
 @api.post("/analyze/async")
 async def analyze_async(body: AnalyzeIn, user=Depends(get_current_user)):
-    """Kick off an analysis job. Returns immediately with job_id + fast partial extraction."""
-    _prune_jobs()
+    """Kick off an analysis job. Returns immediately with a job_id."""
+    await _ensure_jobs_indexes()
     job_id = uuid.uuid4().hex
-    _JOBS[job_id] = {
-        "job_id": job_id,
+    now = datetime.now(timezone.utc)
+    await db.analyze_jobs.insert_one({
+        "_id": job_id,
         "status": "running",
         "phase": "extract",
         "progress": 5,
-        "_created": datetime.now(timezone.utc).timestamp(),
+        "created_at": now,      # TTL-indexed
+        "updated_at": now,
         "requested_by": user.get("email"),
-    }
+    })
     asyncio.create_task(_run_analysis_job(job_id, body))
     return {"job_id": job_id, "status": "running"}
 
 
 @api.get("/analyze/status/{job_id}")
 async def analyze_status(job_id: str, user=Depends(get_current_user)):
-    j = _JOBS.get(job_id)
-    if not j:
+    doc = await _job_get(job_id)
+    if not doc:
         raise HTTPException(status_code=404, detail="job not found or expired")
-    # Never leak the internal timestamp
-    return {k: v for k, v in j.items() if not k.startswith("_")}
+    # Rename Mongo `_id` → `job_id` for the API client
+    doc["job_id"] = doc.pop("_id")
+    # Serialize datetime → ISO
+    for k in ("updated_at",):
+        if isinstance(doc.get(k), datetime):
+            doc[k] = doc[k].isoformat()
+    return doc
 
 
 async def _ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdict, want_describe, lolbas=None):
