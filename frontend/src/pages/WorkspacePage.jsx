@@ -690,42 +690,9 @@ export default function WorkspacePage() {
               </button>
             </div>
             <div style={{ overflow: "auto", padding: 16, display: "grid", gap: 12 }}>
-              {(magicResults.top_results || []).map((r, i) => {
-                const sb = r.score_breakdown || {};
-                return (
-                  <div key={i} className="brut-border" style={{ padding: 12, background: "var(--inset)" }} data-testid={`magic-result-${i}`}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-                      <div className="mono" style={{ fontSize: 12, color: "var(--accent)" }}>
-                        #{i + 1} · SCORE <b style={{ color: "var(--warn)" }}>{sb.score}</b>
-                        {sb.printable !== undefined && ` · printable=${sb.printable}`}
-                        {sb.english !== undefined && ` · english=${sb.english}`}
-                        {r.is_shellcode && (
-                          <span className="badge" data-testid={`magic-result-${i}-shellcode-badge`}
-                                style={{ marginLeft: 8, background: "var(--high)22", color: "var(--high)", border: "1px solid var(--high)" }}>
-                            ⚠ SHELLCODE · {r.stop_condition?.reason?.replace(/_/g, " ")}
-                          </span>
-                        )}
-                      </div>
-                      <button className="nvx-btn sm primary" onClick={() => applyMagicResult(r)} data-testid={`btn-magic-apply-${i}`}>
-                        <Play size={11} /> APPLY CHAIN
-                      </button>
-                    </div>
-                    <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 8 }}>
-                      chain: {r.chain?.length ? r.chain.map((c) => c.op).join(" → ") : "(no ops — input already clean)"}
-                    </div>
-                    {sb.reasons?.length > 0 && (
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
-                        {sb.reasons.map((rr, ri) => <span key={ri} className="badge">{rr}</span>)}
-                      </div>
-                    )}
-                    <pre className="mono" style={{
-                      margin: 0, padding: 8, background: "var(--bg)", border: "1px solid var(--border)",
-                      fontSize: 11, color: "var(--text)", maxHeight: 160, overflow: "auto",
-                      whiteSpace: "pre-wrap", wordBreak: "break-all",
-                    }}>{(r.output || "").slice(0, 1200)}{(r.output || "").length > 1200 ? "…" : ""}</pre>
-                  </div>
-                );
-              })}
+              {(magicResults.top_results || []).map((r, i) => (
+                <MagicResultCard key={i} r={r} idx={i} onApply={() => applyMagicResult(r)} />
+              ))}
             </div>
           </div>
         </div>
@@ -745,6 +712,72 @@ export default function WorkspacePage() {
           </div>
           <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)", wordBreak: "break-all" }}>{shareUrl}</div>
           <button className="nvx-btn sm ghost" style={{ marginTop: 6 }} onClick={() => setShareUrl("")}>DISMISS</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/**
+ * MagicResultCard — one candidate row inside the /decode/magic modal.
+ *
+ * When the candidate is flagged as shellcode by the backend
+ * (`is_shellcode:true`), an inline `🔬 ANALYZE BINARY` toggle appears that
+ * expands a full `ShellcodeView` (Capstone disassembly + IOC panel) directly
+ * inside the modal — no need to Apply Chain first.
+ */
+function MagicResultCard({ r, idx, onApply }) {
+  const [expanded, setExpanded] = useState(false);
+  const sb = r.score_breakdown || {};
+  return (
+    <div className="brut-border" style={{ padding: 12, background: "var(--inset)" }}
+         data-testid={`magic-result-${idx}`}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+        <div className="mono" style={{ fontSize: 12, color: "var(--accent)" }}>
+          #{idx + 1} · SCORE <b style={{ color: "var(--warn)" }}>{sb.score}</b>
+          {sb.printable !== undefined && ` · printable=${sb.printable}`}
+          {sb.english !== undefined && ` · english=${sb.english}`}
+          {r.is_shellcode && (
+            <span className="badge" data-testid={`magic-result-${idx}-shellcode-badge`}
+                  style={{ marginLeft: 8, background: "var(--high)22", color: "var(--high)", border: "1px solid var(--high)" }}>
+              ⚠ SHELLCODE · {r.stop_condition?.reason?.replace(/_/g, " ")}
+            </span>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {r.is_shellcode && (
+            <button
+              className="nvx-btn sm ghost"
+              onClick={() => setExpanded((v) => !v)}
+              data-testid={`btn-magic-analyze-binary-${idx}`}
+              style={{ borderColor: "var(--high)", color: "var(--high)" }}
+            >
+              <Sparkles size={11} /> {expanded ? "HIDE BINARY" : "🔬 ANALYZE BINARY"}
+            </button>
+          )}
+          <button className="nvx-btn sm primary" onClick={onApply} data-testid={`btn-magic-apply-${idx}`}>
+            <Play size={11} /> APPLY CHAIN
+          </button>
+        </div>
+      </div>
+      <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 8 }}>
+        chain: {r.chain?.length ? r.chain.map((c) => c.op).join(" → ") : "(no ops — input already clean)"}
+      </div>
+      {sb.reasons?.length > 0 && (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+          {sb.reasons.map((rr, ri) => <span key={ri} className="badge">{rr}</span>)}
+        </div>
+      )}
+      <pre className="mono" style={{
+        margin: 0, padding: 8, background: "var(--bg)", border: "1px solid var(--border)",
+        fontSize: 11, color: "var(--text)", maxHeight: 160, overflow: "auto",
+        whiteSpace: "pre-wrap", wordBreak: "break-all",
+      }}>{(r.output || "").slice(0, 1200)}{(r.output || "").length > 1200 ? "…" : ""}</pre>
+
+      {r.is_shellcode && expanded && (
+        <div style={{ marginTop: 10 }} data-testid={`magic-shellcode-view-${idx}`}>
+          <ShellcodeView output={r.output || ""} />
         </div>
       )}
     </div>

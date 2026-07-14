@@ -216,6 +216,21 @@ def smart_decode(payload: str) -> Dict[str, Any]:
                 parts.append("")
             current = "\n".join(parts).rstrip()
 
+    # Post-decoding polish: expand %TEMP% / $env:APPDATA / ${HOME} / ~/ into
+    # canonical placeholder paths so obfuscated IOC paths render as readable
+    # strings analysts can pivot on.
+    if current and re.search(r"%[A-Za-z_]|\$env:|\$\{?[A-Za-z_]|~/", current):
+        try:
+            expanded = run_operation("env-expand", current, {})
+            if expanded and expanded != current:
+                steps.append({
+                    "op": "env-expand", "args": {},
+                    "reason": "Resolved %TEMP% / $env:* / ${HOME} into canonical paths",
+                })
+                current = expanded
+        except Exception:
+            pass
+
     return {"steps": steps, "output": current, "notes": notes}
 
 

@@ -621,3 +621,226 @@ def _byte_freq(data: str) -> str:
     top = sorted(freq.items(), key=lambda kv: -kv[1])[:10]
     return json.dumps([{"byte": hex(k), "chr": chr(k) if 32 <= k < 127 else ".",
                         "count": v, "pct": round(v * 100 / len(b), 2)} for k, v in top], indent=2)
+
+
+# =============================================================================
+# Environment variable expansion (SOC priority — resolves obfuscated paths)
+# =============================================================================
+#   %TEMP%\evil.exe       →  C:\Users\Public\AppData\Local\Temp\evil.exe
+#   $env:APPDATA\stager   →  C:\Users\Public\AppData\Roaming\stager
+#   ${HOME}/pwn           →  /home/user/pwn
+#
+# Uses canonical placeholder paths (not real host state) so decoded IOC paths
+# render as human-readable strings analysts can pivot on.
+
+_ENV_MAP: Dict[str, str] = {
+    # Windows
+    "TEMP":            r"C:\Users\Public\AppData\Local\Temp",
+    "TMP":             r"C:\Users\Public\AppData\Local\Temp",
+    "APPDATA":         r"C:\Users\Public\AppData\Roaming",
+    "LOCALAPPDATA":    r"C:\Users\Public\AppData\Local",
+    "SYSTEMROOT":      r"C:\Windows",
+    "WINDIR":          r"C:\Windows",
+    "SYSTEM32":        r"C:\Windows\System32",
+    "PROGRAMDATA":     r"C:\ProgramData",
+    "PROGRAMFILES":    r"C:\Program Files",
+    "PROGRAMFILES(X86)": r"C:\Program Files (x86)",
+    "PROGRAMW6432":    r"C:\Program Files",
+    "USERPROFILE":     r"C:\Users\Public",
+    "PUBLIC":          r"C:\Users\Public",
+    "ALLUSERSPROFILE": r"C:\ProgramData",
+    "COMSPEC":         r"C:\Windows\System32\cmd.exe",
+    "COMMONPROGRAMFILES": r"C:\Program Files\Common Files",
+    "COMPUTERNAME":    "WIN-HOST",
+    "USERNAME":        "public",
+    "USERDOMAIN":      "WORKGROUP",
+    # Unix
+    "HOME":            "/home/user",
+    "USER":            "user",
+    "SHELL":           "/bin/bash",
+    "PATH":            "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "PWD":             "/home/user",
+    "XDG_CONFIG_HOME": "/home/user/.config",
+    "XDG_CACHE_HOME":  "/home/user/.cache",
+    "XDG_DATA_HOME":   "/home/user/.local/share",
+    "TMPDIR":          "/tmp",
+}
+
+# %WINDIR% / %COMSPEC%
+_ENV_PCT_RE   = re.compile(r"%([A-Za-z_][A-Za-z_0-9()]*)%")
+# $env:APPDATA / ${env:APPDATA}
+_ENV_PS_RE    = re.compile(r"\$(?:\{env:([A-Za-z_][A-Za-z_0-9]*)\}|env:([A-Za-z_][A-Za-z_0-9]*))", re.I)
+# ${HOME} / $HOME
+_ENV_BASH_RE  = re.compile(r"\$\{([A-Za-z_][A-Za-z_0-9]*)\}|\$([A-Za-z_][A-Za-z_0-9]*)")
+# ~/ (Unix home)
+_ENV_TILDE_RE = re.compile(r"~/")
+
+
+def _lookup_env(name: str) -> Optional[str]:
+    return _ENV_MAP.get((name or "").upper())
+
+
+@op("env-expand", "Env-var Expand", "Utility",
+    "Resolve %TEMP%, $env:APPDATA, ${HOME}, ~/ into canonical placeholder paths for readable IOCs.")
+def _env_expand(data: str) -> str:
+    if not data:
+        return data
+    def _pct(m):
+        v = _lookup_env(m.group(1))
+        return v if v is not None else m.group(0)
+    def _ps(m):
+        name = m.group(1) or m.group(2)
+        v = _lookup_env(name)
+        return v if v is not None else m.group(0)
+    def _sh(m):
+        name = m.group(1) or m.group(2)
+        v = _lookup_env(name)
+        return v if v is not None else m.group(0)
+    out = _ENV_PCT_RE.sub(_pct, data)
+    out = _ENV_PS_RE.sub(_ps, out)
+    out = _ENV_BASH_RE.sub(_sh, out)
+    out = _ENV_TILDE_RE.sub("/home/user/", out)
+    return out
+
+
+# =============================================================================
+# Repeating-key XOR — Kasiski + Friedman based auto key-length + brute force
+# =============================================================================
+# Real-world coverage: Cobalt-Strike PROFILEs, Empire stagers, custom loaders
+# often use 2–32 byte repeating XOR keys. Single-byte case is handled by the
+# existing `xor` op — this op is specifically for the multi-byte case.
+
+_XOR_MAX_KEY = 32
+
+
+def _score_english(b: bytes) -> float:
+    """Rough score in [0..1]: higher = more likely English/ASCII plaintext.
+
+    Heuristic: printable-ratio × (letters+space) density × low-entropy bonus.
+    Intentionally cheap — runs `_XOR_MAX_KEY` times per brute call.
+    """
+    if not b:
+        return 0.0
+    printable = sum(1 for x in b if 32 <= x < 127 or x in (9, 10, 13))
+    letters   = sum(1 for x in b if (65 <= x < 91) or (97 <= x < 123) or x == 32)
+    pr        = printable / len(b)
+    lt        = letters / len(b)
+    return round(pr * 0.55 + lt * 0.45, 4)
+
+
+def _detect_xor_keylen(data: bytes, max_len: int = _XOR_MAX_KEY) -> List[int]:
+    """Return candidate key lengths ranked by Kasiski-style repeat scoring.
+
+    Slides windows of 3–4 bytes across the buffer, records inter-occurrence
+    distances, then returns the GCD-of-distances-most-common divisors that
+    fall within [2..max_len].
+    """
+    if len(data) < 40:
+        return list(range(2, min(9, max_len + 1)))
+    # Kasiski: count distances between repeats of short windows
+    distances: Dict[int, int] = {}
+    for w in (3, 4):
+        seen: Dict[bytes, int] = {}
+        for i in range(len(data) - w):
+            chunk = bytes(data[i:i + w])
+            if chunk in seen:
+                d = i - seen[chunk]
+                if 2 <= d <= max_len * 4:
+                    distances[d] = distances.get(d, 0) + 1
+            else:
+                seen[chunk] = i
+    # score each candidate keylen by how many distances are divisible by it
+    scores: Dict[int, int] = {}
+    for kl in range(2, max_len + 1):
+        for d, c in distances.items():
+            if d % kl == 0:
+                scores[kl] = scores.get(kl, 0) + c
+    if not scores:
+        return list(range(2, min(9, max_len + 1)))
+    # sort by score desc, keep the top 8 to keep brute-force fast
+    ranked = sorted(scores.items(), key=lambda kv: -kv[1])[:8]
+    return [kl for kl, _ in ranked]
+
+
+def _crack_key_of_length(data: bytes, keylen: int) -> tuple:
+    """Given a fixed key length, find the byte-per-column that maximises the
+    English-score of the decoded plaintext. Returns ``(key_bytes, score)``.
+    """
+    key = bytearray(keylen)
+    for col in range(keylen):
+        col_bytes = data[col::keylen]
+        if not col_bytes:
+            continue
+        best_k, best_score = 0, -1.0
+        for kbyte in range(256):
+            decoded = bytes(b ^ kbyte for b in col_bytes)
+            s = _score_english(decoded)
+            if s > best_score:
+                best_score, best_k = s, kbyte
+        key[col] = best_k
+    plain = bytes(b ^ key[i % keylen] for i, b in enumerate(data))
+    return bytes(key), _score_english(plain), plain
+
+
+@op("xor-brute", "XOR Brute (repeating-key)", "Cryptography",
+    "Auto-detect 1–32 byte repeating XOR key from the ciphertext (Kasiski + English scoring).")
+def _xor_brute(data: str, key_len: str = "auto") -> str:
+    """Try every plausible repeating-key length and return the highest-scoring
+    plaintext. Input can be hex, base64 or raw bytes; output is UTF-8 with
+    replacement for any residual non-printables.
+    """
+    raw = _bin_from(data) if data else b""
+    if not raw:
+        return "(empty input)"
+    if len(raw) < 8:
+        return "(too short for repeating-key XOR analysis — try the plain `xor` op)"
+
+    # Manual key-length override
+    lens: List[int]
+    if key_len and key_len != "auto":
+        try:
+            n = int(key_len, 0)
+            lens = [n] if 1 <= n <= _XOR_MAX_KEY else _detect_xor_keylen(raw)
+        except (TypeError, ValueError):
+            lens = _detect_xor_keylen(raw)
+    else:
+        # Always try 1-byte first (fast path) then Kasiski ranking, then a
+        # sweep of *all* plausible small key lengths as a safety net.
+        lens = [1] + _detect_xor_keylen(raw) + list(range(2, _XOR_MAX_KEY + 1))
+        # de-dupe while preserving order
+        _seen = set(); _out = []
+        for x in lens:
+            if x in _seen: continue
+            _seen.add(x); _out.append(x)
+        lens = _out
+
+    # Score all candidates, then apply an Occam-shave preferring shorter keys
+    # unless a longer one *materially* outperforms them.
+    candidates = []
+    for kl in lens:
+        try:
+            k, s, plain = _crack_key_of_length(raw, kl)
+            candidates.append((kl, k, s, plain))
+        except Exception:
+            continue
+    if not candidates:
+        return "(unable to recover XOR key with high confidence)"
+
+    # sort by (length asc, score desc) — cheap way to enumerate short-first
+    candidates.sort(key=lambda t: (t[0], -t[2]))
+    best_kl, best_key, best_score, best_plain = candidates[0]
+    for kl, k, s, plain in candidates[1:]:
+        # Prefer a longer key ONLY if it beats the current champion by >=0.05.
+        # This keeps single-byte keys from over-fitting into 30-byte ones, but
+        # still lets a legitimate multi-byte key (score jumps ~0.15+) win.
+        if s > best_score + 0.05:
+            best_kl, best_key, best_score, best_plain = kl, k, s, plain
+
+    if best_score <= 0:
+        return "(unable to recover XOR key with high confidence)"
+    header = (
+        f"[xor-brute] recovered key = 0x{best_key.hex()} "
+        f"(len={len(best_key)}, ascii='{best_key.decode('ascii', errors='replace')}', "
+        f"english_score={best_score:.3f})\n\n"
+    )
+    return header + best_plain.decode("utf-8", errors="replace")

@@ -223,6 +223,16 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
         xk = find_xor_key(s)
         if xk is not None:
             cands.insert(0, {"op": "xor", "args": {"key": f"0x{xk:02x}"}})
+
+        # Repeating-key XOR brute — trigger on high-entropy alphanum/base64 or
+        # pure-hex buffers that look like ciphertext. Cheap fallback, only
+        # explored when the standard chain didn't produce clean text.
+        s_ent = _entropy(s.encode("utf-8", errors="replace"))
+        if len(s) >= 32 and s_ent >= 4.5 and (
+            re.fullmatch(r"[A-Za-z0-9+/=\s]+", s) or
+            re.fullmatch(r"[0-9a-fA-F\s]+", s)
+        ):
+            cands.append({"op": "xor-brute", "args": {"key_len": "auto"}})
     except Exception:
         pass
 
