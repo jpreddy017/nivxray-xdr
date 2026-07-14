@@ -21,16 +21,37 @@ export default function SocVerdictPanel({ output, confidence, winnerEngine }) {
   const shellcode = useMemo(() => detectShellcode(output || ""), [output]);
   const iocs = useMemo(() => shellcode ? extractShellcodeIocs(output || "") : null, [shellcode, output]);
 
-  if (!shellcode) return null;
+  // Also trigger on known LOADER SCRIPT signatures — the stager one layer
+  // above the raw shellcode. Analysts often stop at this layer because it's
+  // where the FromBase64String + -bxor pattern lives.
+  const loaderScript = useMemo(() => {
+    const t = output || "";
+    if (!t) return null;
+    const hasFromB64 = /FromBase64String\s*\(\s*['"][A-Za-z0-9+/=]{100,}/.test(t);
+    const hasXorLoop = /-bxor\s+\d+/.test(t);
+    const hasVirtualAlloc = /VirtualAlloc/i.test(t);
+    const hasFuncGetProcAddr = /func_get_proc_address/i.test(t);
+    if (hasFromB64 && hasXorLoop && (hasVirtualAlloc || hasFuncGetProcAddr)) {
+      return {
+        family: hasFuncGetProcAddr
+          ? "Metasploit / Meterpreter PowerShell shellcode loader"
+          : "PowerShell base64+XOR shellcode loader",
+        arch: "loader-script (peel one more layer to reach shellcode)",
+      };
+    }
+    return null;
+  }, [output]);
+
+  const detected = shellcode || loaderScript;
+
+  if (!detected) return null;
 
   // Derive MITRE badges from what we observe in the shellcode text
   const mitre = ["T1027", "T1059.001", "T1055"];   // obfuscation, PowerShell, in-mem inject
   if (iocs?.ip || iocs?.url) mitre.push("T1105", "T1071.001");
-  if (shellcode.family.includes("MSFvenom")) mitre.push("Meterpreter-family");
+  if (shellcode?.family?.includes("MSFvenom") || loaderScript?.family?.includes("Meterpreter")) mitre.push("Meterpreter-family");
 
-  const familyPretty = shellcode.family.includes("MSFvenom")
-    ? `Metasploit / Meterpreter ${shellcode.arch} stager`
-    : shellcode.family;
+  const familyPretty = detected.family;
 
   const socTicket = [
     `═══ NIVXRAY — SOC VERDICT ═══`,
@@ -92,7 +113,7 @@ export default function SocVerdictPanel({ output, confidence, winnerEngine }) {
       </div>
 
       <div style={{ padding: "0 18px 14px 18px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
-        <VerdictField icon={ShieldAlert} label="Arch" value={shellcode.arch} color="var(--warn)" />
+        <VerdictField icon={ShieldAlert} label="Arch" value={detected.arch} color="var(--warn)" />
         {iocs?.ip && (
           <VerdictField icon={Wifi} label="C2 IP · block immediately"
                         value={iocs.ip} color="var(--high)" mono
