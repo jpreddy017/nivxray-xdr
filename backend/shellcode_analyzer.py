@@ -71,12 +71,91 @@ _SHELLCODE_PROLOGUES = [
 ]
 
 
+def _is_valid_pe(data: bytes) -> bool:
+    """Strict PE validator — requires MZ at 0 AND `PE\\0\\0` at e_lfanew.
+
+    A raw XOR-brute output that happens to start with the bytes 0x4d 0x5a
+    ("MZ") is NOT a PE — a real PE has the DOS header at offset 0 whose
+    32-bit field at offset 0x3c points to the `PE\\0\\0` signature further
+    into the file. Without this check we hallucinate "SHELLCODE DETECTED"
+    on any random buffer whose first two bytes decode to `MZ`.
+    """
+    if len(data) < 0x40:
+        return False
+    if data[:2] != b"MZ":
+        return False
+    # e_lfanew is a signed 32-bit LE offset at 0x3c
+    e_lfanew = int.from_bytes(data[0x3c:0x40], "little", signed=True)
+    if e_lfanew < 0x40 or e_lfanew > len(data) - 4:
+        return False
+    return data[e_lfanew:e_lfanew + 4] == b"PE\x00\x00"
+
+
+def _is_repetitive(data: bytes, window: int = 512) -> bool:
+    """True when the buffer has strong short-period byte repetition with a
+    MULTI-BYTE motif — the classic signature of an incorrectly XOR-brute-
+    forced blob (repeating ciphertext × repeating key = repeating output).
+
+    Excludes single-byte fills (`\\x90` NOP sleds, `\\x00` padding,
+    `\\x41` heap-spray fills) which ARE legitimate in real shellcode.
+
+    Test: for period ∈ {2..16}, look for LONG spans of periodic repetition
+    where the motif genuinely has ≥ 2 distinct byte values. Runs of a
+    single-byte sled/fill are skipped because their appearance doesn't
+    indicate periodic ciphertext noise.
+    """
+    buf = data[:window]
+    if len(buf) < 32:
+        return False
+    # If a single byte value dominates >55 % of the window, this is a
+    # NOP sled / heap-spray fill — not periodic ciphertext noise.
+    from collections import Counter
+    top_byte, top_count = Counter(buf).most_common(1)[0]
+    if top_count / len(buf) > 0.55:
+        return False
+    for period in range(2, 17):
+        if period >= len(buf):
+            break
+        # For each candidate period, look for CONTIGUOUS spans where the
+        # motif genuinely repeats (period-shifted match) AND the local motif
+        # is multi-byte. This catches `MZFT..DY..` repetition without
+        # tripping on single-byte fill regions.
+        max_run = 0
+        current_run = 0
+        for i in range(period, len(buf)):
+            if buf[i] == buf[i - period]:
+                current_run += 1
+                if current_run > max_run:
+                    max_run = current_run
+            else:
+                current_run = 0
+        # A "long" periodic run = at least half the window
+        if max_run < len(buf) // 2:
+            continue
+        # Verify the motif inside the run has ≥ 2 distinct byte values
+        # (skip if it's a mono-byte fill at that period).
+        # Take the middle of the buffer to sample the motif away from
+        # start/end fill regions.
+        mid = len(buf) // 2
+        motif = buf[mid:mid + period]
+        if len(set(motif)) < 2:
+            continue
+        return True
+    return False
+
+
 def is_shellcode(data: bytes, entropy_threshold: float = 6.0) -> bool:
     """True iff the buffer looks like an executable payload rather than text."""
     if not data or len(data) < 16:
         return False
-    for prologue, _ in _SHELLCODE_PROLOGUES:
+    # Repetitive periodic buffers are XOR-brute noise, never real code
+    if _is_repetitive(data):
+        return False
+    for prologue, arch in _SHELLCODE_PROLOGUES:
         if data.startswith(prologue):
+            # PE / ELF / Mach-O — validate the full header signature
+            if arch == "pe":
+                return _is_valid_pe(data)
             return True
     if shannon_entropy(data) >= entropy_threshold:
         # rule out pure-ASCII high-entropy blobs (base64 leftovers)
@@ -92,8 +171,18 @@ def starts_with_known_prologue(data: bytes) -> bool:
     getting fooled by high-entropy over-decoded random bytes."""
     if not data or len(data) < 4:
         return False
-    for prologue, _ in _SHELLCODE_PROLOGUES:
+    # Repetitive buffers are XOR-brute noise, never real shellcode
+    if _is_repetitive(data):
+        return False
+    for prologue, arch in _SHELLCODE_PROLOGUES:
         if data.startswith(prologue):
+            # PE / ELF headers must pass strict signature validation.
+            # This is the ANTI-HALLUCINATION guard: XOR-brute occasionally
+            # produces `MZ` at offset 0 by chance; without validating the
+            # rest of the PE header the tool would falsely claim
+            # "SHELLCODE DETECTED · PE executable" on random noise.
+            if arch == "pe":
+                return _is_valid_pe(data)
             return True
     return False
 

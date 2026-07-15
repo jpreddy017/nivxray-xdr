@@ -1,6 +1,54 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — 🔥 HOTFIX · Anti-hallucination fake-PE detection)
+
+### User complaint (4 screenshots)
+NivXRay reported:
+```
+SOC VERDICT — SHELLCODE DETECTED
+PE executable (MZ header)
+arch: pe · confidence: 62/100 · magic
+```
+…on a buffer whose hex dump showed a REPEATING short-period pattern (`MZFT..DY.t..L.Wt` every 10 bytes) with entropy 4.815. The disassembly was junk instructions (`dec ebp; pop edx; inc esi; push esp; ret 0x486` — literally what you get from disassembling the ASCII bytes `MZFT`).
+
+### Root cause
+`starts_with_known_prologue()` in `shellcode_analyzer.py` returned True the moment a buffer started with `MZ` (or `\x7fELF`, `\xfc\xe8`, etc.). No structural validation, no repetition check. So when the XOR-brute algorithm happened to produce a key that placed 0x4D 0x5A at offset 0, the whole "SHELLCODE TERMINAL → PE executable → boost by +0.35" pipeline fired on random noise. This is the exact anti-hallucination class the user flagged as commercial-blocker.
+
+### Fix
+1. **`_is_valid_pe(data)`** — strict PE validator. Requires MZ at offset 0 AND a valid `e_lfanew` at offset 0x3c pointing to a `PE\\0\\0` signature. Real PE files pass; buffers that just happen to start with 0x4D 0x5A do not.
+2. **`_is_repetitive(data)`** — detects short-period byte repetition (period ∈ 2..16) with:
+   - Guard against single-byte fills (`\\x90` NOP sled, `\\x00` padding, `\\x41` heap-spray) which are legitimate in real shellcode.
+   - Requires a MULTI-BYTE motif inside a long contiguous periodic run — catches the `MZFT..DY..L.Wt` XOR-brute noise while leaving real MSFvenom stagers alone.
+3. **`is_shellcode()` + `starts_with_known_prologue()` tightened** — PE-arch buffers must pass `_is_valid_pe()`; ALL buffers must pass `_is_repetitive() is False`.
+
+### Tests
+- 7 new pytests in `test_anti_hallucination_fake_pe.py`:
+  1. The exact repetitive `MZFT..` pattern from the user's screenshot → rejected as fake PE.
+  2. Minimal real PE (MZ + e_lfanew + PE\\0\\0) → accepted.
+  3. Bare 2-byte `MZ` → rejected (insufficient header).
+  4. MZ with bogus e_lfanew → rejected.
+  5. Real MSFvenom x86_64 stager (`\\xfc\\xe8` + varied body + NOP sled) → still detected.
+  6. Repetitive shellcode-prologue noise → still rejected.
+  7. Real ELF → still accepted (prologue-only validation).
+- Feb-2026 full suite: **88/88 pass** (anti-hallucination + archetypes + decoders + fixture matrix + STIX + KB + Chain Persistence + Base32).
+
+### Live behavior after fix
+Your reported buffer will now:
+- Fail the `_is_valid_pe()` check (no valid `e_lfanew` → `PE\\0\\0`).
+- Fail the `_is_repetitive()` check (10-byte multi-byte periodic motif).
+- NOT get the +0.35 shellcode-terminal boost.
+- Return a plain deterministic decode result without the "SHELLCODE DETECTED" SOC verdict.
+
+### Files changed
+- `/app/backend/shellcode_analyzer.py` — added `_is_valid_pe`, `_is_repetitive`; tightened `is_shellcode` + `starts_with_known_prologue`.
+- `/app/backend/tests/test_anti_hallucination_fake_pe.py` — 7 new regression tests.
+
+⚠️ **Deployment**: preview only. Redeploy to `nivxray.nivxforge.com` when ready.
+
+
+
+
 ## Latest Change (Feb 2026 — Base32 xfail CLOSED · nested-b32 payload extraction)
 
 ### Context
