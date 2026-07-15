@@ -1,0 +1,1 @@
+iex 'Write-Host STAGE_2_LOADED_EMOTET_LIKE'
