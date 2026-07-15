@@ -272,6 +272,35 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
         if nested and looks_wrapped:
             cands.insert(0, {"op": "extract-payload", "args": {}, "_nested_b64": nested[0]})
 
+        # ── Nested Base32 quoted blob in a wrapper ──────────────────────
+        # Detect patterns like:
+        #   $x = 'JFCVQIBHK5ZGS5DFF...' ; ConvertFrom-Base32Encoded $x
+        # or any custom PS cmdlet + a quoted [A-Z2-7]+ literal ≥ 24 chars.
+        # Extract-payload has no rule for arbitrary custom-cmdlets, so we
+        # short-circuit here by isolating the quoted string as the payload
+        # and inserting `extract-payload → base32-decode` at the front.
+        _b32_quoted = re.findall(r"['\"]([A-Za-z2-7=]{24,})['\"]", s)
+        # Filter to strings that are UNAMBIGUOUSLY base32 (upper-cased ⊆ [A-Z2-7=])
+        _b32_valid = [
+            q for q in _b32_quoted
+            if re.fullmatch(r"[A-Z2-7=]+", q.upper())
+            and len(q) % 8 in (0, 2, 4, 5, 7)
+            # Must NOT already be flagged as base64 (base64 alphabet is a
+            # superset of base32; the priority test is that the string
+            # contains ONLY base32-safe chars: no 0, 1, 8, 9, +, /, or -).
+            and not re.search(r"[019+/\-]", q)
+        ]
+        # Also require the surrounding text mentions base32-like wrapper hints
+        # OR is a PS invocation (`$var = 'blob'; ...`). Prevents random uppercase
+        # words like URL slugs from falsely triggering.
+        _wrapper_hint = ("base32" in _s_low or "convertfrom-base32" in _s_low
+                         or bool(re.search(r"\$\w+\s*=\s*['\"]", s)))
+        if _b32_valid and _wrapper_hint:
+            # Sort longest-first — that's the payload
+            _b32_valid.sort(key=len, reverse=True)
+            cands.insert(0, {"op": "extract-payload", "args": {}, "_nested_b32": _b32_valid[0]})
+            cands.insert(1, {"op": "base32-decode", "args": {}})
+
         # XOR key parsed directly from surrounding code (-bxor 35, ^ 0x2A, etc.)
         xk = find_xor_key(s)
         if xk is not None:
@@ -429,6 +458,9 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                     # decoders operate ONLY on the isolated payload — this is
                     # the "re-scan after every layer" rule.
                     nxt = c["_nested_b64"]
+                elif c.get("op") == "extract-payload" and "_nested_b32" in c:
+                    # Same rule for nested base32 blobs (custom-cmdlet wrappers).
+                    nxt = c["_nested_b32"]
                 else:
                     nxt = run_operation(c["op"], cur, c["args"])
             except Exception:
@@ -476,12 +508,21 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                 # …unless the pruned output looks like high-entropy binary
                 # (potential XOR-obfuscated or compressed content that only
                 # xor-brute or a decompression op can rescue).
-                looks_binary = (
-                    len(nxt) >= 24 and
-                    _entropy(nxt.encode("latin-1", errors="replace")) >= 6.0
-                )
-                if ctx.get("xor_key") is None and not looks_binary:
-                    continue
+                # …unless we're deliberately isolating a nested b64/b32
+                # payload — the isolated blob almost always scores lower than
+                # the surrounding script wrapper, and pruning here would kill
+                # the ONLY viable path to the true plaintext.
+                if c.get("op") == "extract-payload" and (
+                    "_nested_b64" in c or "_nested_b32" in c
+                ):
+                    pass  # always follow through
+                else:
+                    looks_binary = (
+                        len(nxt) >= 24 and
+                        _entropy(nxt.encode("latin-1", errors="replace")) >= 6.0
+                    )
+                    if ctx.get("xor_key") is None and not looks_binary:
+                        continue
             _walk(nxt, chain + [clean_step], depth + 1,
                   path_scores + [sb["score"]], ctx)
 

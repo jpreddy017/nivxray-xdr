@@ -1,6 +1,37 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — Base32 xfail CLOSED · nested-b32 payload extraction)
+
+### Context
+The `base32_emotet_shape_wrap` fixture (PS custom-cmdlet + quoted Base32 blob, e.g. `$decoded = ConvertFrom-Base32Encoded 'JFCVQIB…'`) was marked `xfail` because `extract-payload` has no rule for arbitrary custom cmdlets + Base32 args, and the magic walker pruned the "isolate-then-base32-decode" chain because the isolated blob temporarily scored 0.35 lower than the raw wrapper.
+
+### Fix
+1. **Nested Base32 detection in `_pick_candidates`** — mirrors the existing nested-b64 hook. Scans the current text for `'[A-Za-z2-7=]{24+}'` quoted strings that are unambiguously base32 (no `0`, `1`, `8`, `9`, `+`, `/`, `-`) with a length-mod-8 in `{0,2,4,5,7}`. When a wrapper hint is present (`base32` mention, `ConvertFrom-Base32…`, or `$var = 'blob'` PS invocation), inserts `extract-payload (+ _nested_b32) → base32-decode` at the front of the candidate list.
+2. **Prune-safe nested isolation** — when the walker sees the extract-payload step carrying `_nested_b64` or `_nested_b32`, it always follows through even if the isolated blob temporarily scores lower than the surrounding script. This is safe because these steps are known-good isolations (not speculative decodes).
+3. **Walker consumer wired for `_nested_b32`** — mirrors the existing `_nested_b64` handling in the `_walk` step-executor.
+
+### Live validation
+```
+input:      $decoded = ConvertFrom-Base32Encoded 'JFCVQIBHK5ZGS5DFF...'; Invoke-Expression $decoded
+engine:     magic
+recipe:     extract-payload → base32-decode
+confidence: 86 %
+output:     IEX 'Write-Host STAGE_2_LOADED'
+```
+
+### Regression matrix
+`test_fixture_regression_matrix.py` — **17/17 pass, 0 xfail**. All Feb-2026 archetype + fixture + STIX + KB + Chain-Persistence suites: **60/60 green.**
+
+### Files changed
+- `/app/backend/magic_decoder.py` — nested-b32 detection in `_pick_candidates` + prune-safe walker branch + `_nested_b32` consumer in `_walk`.
+- `/app/backend/tests/test_fixture_regression_matrix.py` — `XFAIL_STEMS = {}` (cleared).
+
+⚠️ **Deployment**: preview only. Redeploy to `nivxray.nivxforge.com` when ready.
+
+
+
+
 ## Latest Change (Feb 2026 — HOTFIX · PS_BINARY_SPLIT_TOINT16 archetype)
 
 ### User complaint

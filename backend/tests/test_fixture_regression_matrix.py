@@ -66,11 +66,7 @@ FIXTURE_STEMS = _pairs()
 # Kept in the suite so the coverage stays visible and can be un-xfailed as
 # the pipeline improves. Comment explains the specific pipeline gap.
 XFAIL_STEMS = {
-    # Base32 blob embedded in PS via a non-standard helper name
-    # (`ConvertFrom-Base32Encoded 'BLOB'`). extract-payload has no rule for
-    # arbitrary custom-cmdlet + quoted Base32 arg. Feature to add later.
-    "base32_emotet_shape_wrap":
-        "extract-payload doesn't recognize custom-cmdlet + quoted Base32 blob",
+    # (all currently-known gaps have been closed as of Feb 2026)
 }
 
 
