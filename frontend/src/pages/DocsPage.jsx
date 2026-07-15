@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, BookOpen, ArrowRight, Sparkles, Download } from "lucide-react";
+import { Search, BookOpen, ArrowRight, Sparkles, Download, Link2 } from "lucide-react";
 import api from "@/lib/api";
 import ReactMarkdown from "react-markdown";
 
@@ -92,6 +92,7 @@ export default function DocsPage() {
           text: r.data.explanation || "",
           provider: r.data.provider,
           suggested: r.data.suggested_questions || [],
+          related: r.data.related_pages || [],
         },
       ]);
     } catch {
@@ -325,6 +326,34 @@ export default function DocsPage() {
                   <div className="docs-md" style={{ fontSize: 11 }}>
                     <ReactMarkdown>{msg.text || ""}</ReactMarkdown>
                   </div>
+                  {msg.role === "assistant" && msg.related && msg.related.length > 0 && i === thread.length - 1 && (
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ fontSize: 9, color: "#a78bfa", letterSpacing: 0.4, display: "flex", alignItems: "center", gap: 4 }}>
+                        <Link2 size={9} /> RELATED (RAG)
+                      </div>
+                      {msg.related.map((rp, j) => (
+                        <button key={rp.id}
+                                onClick={() => setSelected({ kind: rp.kind, id: rp.id })}
+                                data-testid={`docs-explain-related-${j}`}
+                                title={`Jump to ${rp.title} (${rp.kind}, score ${rp.score})`}
+                                style={{
+                                  fontSize: 10, padding: "4px 6px", textAlign: "left",
+                                  background: "rgba(167,139,250,0.06)",
+                                  border: "1px solid rgba(167,139,250,0.20)",
+                                  borderRadius: 3, color: "#c9d1d9", cursor: "pointer",
+                                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
+                                }}>
+                          <span>
+                            <span style={{ color: rp.kind === "workflow" ? "#f59e0b" : "#7ee3c9", marginRight: 4 }}>
+                              {rp.kind === "workflow" ? "🔀" : "▸"}
+                            </span>
+                            {rp.title}
+                          </span>
+                          <span style={{ fontSize: 8, color: "#94a3b8" }}>{rp.score}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {msg.role === "assistant" && msg.suggested && msg.suggested.length > 0 && i === thread.length - 1 && (
                     <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                       <div style={{ fontSize: 9, color: "#7ee3c9", letterSpacing: 0.4 }}>SUGGESTED</div>

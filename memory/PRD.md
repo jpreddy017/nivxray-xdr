@@ -1,7 +1,48 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 💬 Documentation Generator Phase 2 · AI Explain)
+## Latest Change (Feb 2026 — 🔍 Documentation Generator Phase 3 · Cross-Feature RAG)
+
+### Delivered — BM25 sparse retrieval over the docs corpus
+
+**Rationale**: 13-doc corpus is too small for dense embeddings — a pure-Python BM25 index gives strong lexical retrieval in <1 ms with zero external dependencies and no cold-start cost.
+
+**New module** `backend/docs/rag_index.py`:
+- Pure-Python BM25 (via `rank-bm25==0.2.2`, ~8 KB dep)
+- Auto-builds an in-memory index from `docs/features/*.yaml` + `docs/workflows/*.yaml`
+- Public: `build_index()`, `retrieve(query, k=3, exclude_ids=None)`, `invalidate()`, `index_stats()`
+- Snippet extractor centres each result on the earliest matching term
+- Thread-safe rebuild lock
+
+**New endpoints** (`backend/routers/docs.py`):
+- `GET  /api/docs/related?q=...&page=...&k=3` — retrieve top-k cross-feature snippets; if `page` supplied, auto-generates the query from that page's YAML and excludes it
+- `GET  /api/docs/rag/stats` — index health
+- `POST /api/docs/rag/reindex` — invalidate so next retrieval rebuilds
+
+**Enhanced `/api/docs/explain`**:
+- Injects top-3 cross-feature RAG snippets into the LLM system prompt as authoritative context ("Cross-feature RAG results — cite by id when relevant")
+- Returns `related_pages: [{id, kind, title, score}]` in the response
+- When the analyst has a follow-up question, RAG retrieval uses THAT question as the query (so asking "how do I push STIX" from `rot13` still surfaces `taxii_push`)
+- Static-registry fallback appends "**Related pages** — `id1`, `id2`, `id3`" tail so the fallback is still useful
+
+**Frontend** (`DocsPage.jsx`):
+- New purple "RELATED (RAG)" chip section above the mint "SUGGESTED" section in each assistant message
+- Each related chip shows: kind icon (🔀 workflow / ▸ feature), title, and BM25 score
+- Clicking a related chip navigates to that feature/workflow AND resets the session (fresh explain thread on the new page)
+- `data-testid="docs-explain-related-{n}"` for automation
+
+**Tests** — `backend/tests/test_docs_rag.py` (14 new, all pass)
+- Direct unit: index build/stats, top-hit correctness, exclusion, empty query, snippet bounds
+- Endpoints: `stats`, `related` by-query + by-page + self-exclusion, `k` bounds, 422 on out-of-range, `reindex`
+- Explain integration: `related_pages` shape + kind values, question-driven retrieval bypass (STIX query from rot13 → taxii_push), static-fallback tail
+
+Combined docs suite: **52 pass** across generator + pdf + explain-phase2 + rag.
+
+**Verified live**: analyst on `candidate_explorer` sees 3 related chips (`encoded_powershell`, `correction_flow`, `base58_decode`); clicking `encoded_powershell` navigates and resets the thread cleanly.
+
+---
+
+## Previous Change (Feb 2026 — 💬 Documentation Generator Phase 2 · AI Explain)
 
 ### Delivered — chat-style contextual AI explainer
 

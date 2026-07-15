@@ -26,6 +26,7 @@ from docs import (
     search, generate_guide, guide_stats,
 )
 from docs.pdf_generator import create_user_guide
+from docs.rag_index import retrieve as rag_retrieve, index_stats as rag_stats, invalidate as rag_invalidate
 
 
 router = APIRouter()
@@ -145,8 +146,33 @@ async def explain_this_page(body: ExplainIn, user=Depends(get_current_user)):
     - Multi-turn: pass back `session_id` from a previous turn to ask follow-ups
     - Returns 3 grounded `suggested_questions` derived from the page's YAML
     - Static fallback still returns a useful markdown summary when no key
+
+    Phase-3 (RAG) enhancements:
+    - BM25 retrieval over the full docs corpus finds cross-feature snippets
+      relevant to either the current page (default) or the analyst's question
+    - Retrieved snippets are injected into the LLM prompt as authoritative
+      context (top-3, current page excluded)
+    - Response includes a `related_pages` list [{id, kind, title, score}] so
+      the UI can render clickable chips to jump to those pages
     """
     doc, kind = _resolve_page(body.page)
+
+    # ---- RAG retrieval (cross-feature) ------------------------------
+    rag_query = body.question or ""
+    if doc and not rag_query:
+        # Use the page's own YAML as the retrieval query when the analyst
+        # hasn't typed one — surfaces the most related sibling docs.
+        rag_query = " ".join(filter(None, [
+            doc.get("title", ""),
+            doc.get("purpose", ""),
+            " ".join(doc.get("when_to_use") or []),
+            " ".join(doc.get("related") or doc.get("related_features") or []),
+        ]))
+    rag_hits = rag_retrieve(rag_query, k=3, exclude_ids=[body.page] if doc else None)
+    related_pages = [
+        {"id": h["id"], "kind": h["kind"], "title": h["title"], "score": h["score"]}
+        for h in rag_hits
+    ]
 
     # Static-registry summary (works with or without LLM).
     static_summary = None
@@ -171,35 +197,51 @@ async def explain_this_page(body: ExplainIn, user=Depends(get_current_user)):
 
     key = os.environ.get("EMERGENT_LLM_KEY", "")
     if not key:
+        # Append related-pages hint to the static summary so it's still useful.
+        tail = ""
+        if related_pages:
+            tail = "\n\n**Related pages** — " + ", ".join(
+                f"`{r['id']}`" for r in related_pages)
         return {
             "provider": "static-registry",
             "session_id": body.session_id or f"static-{body.page}",
-            "explanation": static_summary or (
+            "explanation": (static_summary or (
                 "No LLM key configured and no matching feature/workflow for "
                 f"`{body.page}`. Try `GET /api/docs/search?q={body.page}`."
-            ),
+            )) + tail,
             "suggested_questions": suggested,
+            "related_pages": related_pages,
         }
 
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
         system = (
             "You are NivXRay's in-app help — a senior SOC analyst pair-programmer.\n"
-            "Answer as concise GitHub-flavoured Markdown. Be specific to the page's YAML "
-            "content that's provided. When the analyst asks a follow-up, reuse the earlier "
-            "context — do NOT re-summarise unless asked.\n"
+            "Answer as concise GitHub-flavoured Markdown. Ground every claim in the YAML "
+            "content provided; if the RAG snippets contradict the current page, PREFER the "
+            "current page's YAML and note the discrepancy briefly. When the analyst asks a "
+            "follow-up, reuse the earlier context — do NOT re-summarise unless asked.\n"
             "Default format when no follow-up question is provided:\n"
             "  • **What it does** — one sentence\n"
             "  • **When to use** — 2-3 bullets grounded in the YAML\n"
             "  • **Pitfall** — one common mistake\n"
-            "  • **Related** — one sentence pointing at a related feature (if given)\n"
-            "Keep total length ≤ 200 words unless the analyst asks for depth."
+            "  • **Related** — one sentence pointing at the strongest related feature from RAG\n"
+            "Keep total length ≤ 250 words unless the analyst asks for depth."
         )
         parts = [f"Page id: `{body.page}`"]
         if doc and kind:
             parts.append(f"Per-page context (from YAML):\n```\n{_build_context_block(doc, kind)}\n```")
         else:
             parts.append("No matching feature/workflow found. Answer generally about NivXRay.")
+        if rag_hits:
+            rag_block = "\n".join(
+                f"- **{h['title']}** ({h['kind']}, id=`{h['id']}`, score={h['score']}): {h['snippet']}"
+                for h in rag_hits
+            )
+            parts.append(
+                "Cross-feature RAG results (top-3, current page excluded — cite by id when relevant):\n"
+                + rag_block
+            )
         if body.context:
             parts.append(f"Extra context from the UI:\n{body.context}")
         if body.question:
@@ -212,7 +254,7 @@ async def explain_this_page(body: ExplainIn, user=Depends(get_current_user)):
         chat = (
             LlmChat(api_key=key, session_id=session_id, system_message=system)
             .with_model("anthropic", "claude-sonnet-4-5-20250929")
-            .with_params(max_tokens=450)
+            .with_params(max_tokens=500)
         )
         reply = await chat.send_message(UserMessage(text=prompt))
         return {
@@ -220,14 +262,62 @@ async def explain_this_page(body: ExplainIn, user=Depends(get_current_user)):
             "session_id": session_id,
             "explanation": (reply or "").strip() or static_summary or "",
             "suggested_questions": suggested,
+            "related_pages": related_pages,
         }
     except Exception as e:
+        tail = ""
+        if related_pages:
+            tail = "\n\n**Related pages** — " + ", ".join(
+                f"`{r['id']}`" for r in related_pages)
         return {
             "provider": "static-registry",
             "session_id": body.session_id or f"static-{body.page}",
-            "explanation": static_summary or f"LLM error: {e}",
+            "explanation": (static_summary or f"LLM error: {e}") + tail,
             "suggested_questions": suggested,
+            "related_pages": related_pages,
         }
+
+
+@router.get("/docs/related", tags=["docs"])
+async def related_pages(
+    q: str = Query("", description="free-text query"),
+    page: Optional[str] = Query(None, description="current page id to exclude"),
+    k: int = Query(3, ge=1, le=10),
+    user=Depends(get_current_user),
+):
+    """BM25 retrieval over the docs corpus.
+
+    - Pass `q` alone for pure keyword search across features+workflows.
+    - Pass `page` to auto-generate the query from that page's YAML AND
+      exclude it from the results (cross-feature retrieval).
+    """
+    query = q
+    exclude: List[str] = []
+    if page:
+        exclude.append(page)
+        if not query:
+            doc, kind = _resolve_page(page)
+            if doc:
+                query = " ".join(filter(None, [
+                    doc.get("title", ""),
+                    doc.get("purpose", ""),
+                    " ".join(doc.get("when_to_use") or []),
+                    " ".join(doc.get("related") or doc.get("related_features") or []),
+                ]))
+    hits = rag_retrieve(query or "", k=k, exclude_ids=exclude or None)
+    return {"query": query, "hits": hits}
+
+
+@router.get("/docs/rag/stats", tags=["docs"])
+async def rag_index_stats(user=Depends(get_current_user)):
+    return rag_stats()
+
+
+@router.post("/docs/rag/reindex", tags=["docs"])
+async def rag_reindex(user=Depends(get_current_user)):
+    """Invalidate the in-memory BM25 index; next retrieval rebuilds it."""
+    rag_invalidate()
+    return {"status": "invalidated", "stats": rag_stats()}
 
 
 @router.get("/docs/stats", tags=["docs"])
