@@ -491,6 +491,49 @@ def _handle_js_fromcharcode(text: str) -> str:
     return decoded
 
 
+# 12. PS_BINARY_SPLIT_TOINT16 — Invoke-Obfuscation binary/hex-array shape.
+#
+#     Signature:  '<binary+junk>'.Split('<delims>') | ForEach-Object{
+#                     [Convert]::ToInt16(([String]$_), 2|10|16) -As[Char] }
+#
+#     This has been available as a raw op (`ps-binary-split-decode`) for a
+#     while but only worked WHEN CALLED ON THE WRAPPER TEXT. The magic
+#     race stripped the wrapper via `extract-payload` FIRST, losing the
+#     `.Split(...)` and `ToInt16(...,2)` metadata. Making this an archetype
+#     runs the decoder against the original wrapper before extract-payload
+#     can nuke it.
+_PS_BINSPLIT_MARKER_RX = re.compile(
+    r"ToInt16\s*\(\s*[^,]+?,\s*(?:2|10|16)\s*\)|"
+    r"\[char\]\s*\[int\]\s*\(\s*['\"]?0x",
+    re.IGNORECASE,
+)
+_PS_BINSPLIT_SPLIT_RX = re.compile(
+    r"\.\s*Split\s*\(\s*['\"][^'\"]{1,32}['\"]\s*\)",
+    re.IGNORECASE,
+)
+
+
+def _ps_binary_split_matches(text: str) -> bool:
+    return (
+        _PS_BINSPLIT_MARKER_RX.search(text) is not None
+        and _PS_BINSPLIT_SPLIT_RX.search(text) is not None
+    )
+
+
+def _handle_ps_binary_split(text: str) -> str:
+    from operations import run_operation
+    out = run_operation("ps-binary-split-decode", text, {})
+    if not isinstance(out, str) or len(out) < 3:
+        raise ValueError("binary-split decode produced too little output")
+    # Strip leading control-char noise (obfuscator artefacts like \x01 from
+    # single-bit chunks emitted before the real payload).
+    stripped = out.lstrip("".join(chr(i) for i in range(32) if i not in (9, 10, 13)))
+    printable = sum(1 for c in stripped if 32 <= ord(c) < 127 or c in "\r\n\t")
+    if printable / max(1, len(stripped)) < 0.60:
+        raise ValueError("binary-split output not mostly printable")
+    return stripped
+
+
 ARCHETYPES: List[Dict[str, Any]] = [
     {
         "id": "PS_MemoryStream_Gzip_IEX",
@@ -568,6 +611,13 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["js-charcode-decode"],
         "handler": _handle_js_fromcharcode,
         "match":   lambda t: _js_fromcharcode_matches(t),
+    },
+    {
+        "id": "PS_BINARY_SPLIT_TOINT16",
+        "description": "PowerShell '<binary+junk>'.Split(delims) | ForEach{[Convert]::ToInt16($_, 2/10/16) -As[Char]} — Invoke-Obfuscation binary/hex-array shape",
+        "chain": ["ps-binary-split-decode"],
+        "handler": _handle_ps_binary_split,
+        "match":   lambda t: _ps_binary_split_matches(t),
     },
 ]
 

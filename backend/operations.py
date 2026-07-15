@@ -153,7 +153,7 @@ def _ps_binary_split_decode(data: str) -> str:
         return ""
 
     # Extract the delimiter string from .Split('...')
-    delim_m = re.search(r"\.Split\s*\(\s*['\"]([^'\"]{1,32})['\"]\s*\)", data)
+    delim_m = re.search(r"\.\s*Split\s*\(\s*['\"]([^'\"]{1,32})['\"]\s*\)", data, re.IGNORECASE)
     if not delim_m:
         return ""
     delims = delim_m.group(1)
@@ -161,13 +161,25 @@ def _ps_binary_split_decode(data: str) -> str:
     # Extract the largest data-looking single-quoted string that contains
     # digits + at least one of the delimiter characters. This is the payload.
     valid_char_class = "0-9a-fA-F" if base == 16 else "0-9"
-    candidates = re.findall(r"['\"]([" + valid_char_class + re.escape(delims) + r"]{20,})['\"]", data)
+    candidates = re.findall(r"['\"]([" + valid_char_class + re.escape(delims) + r"]{10,})['\"]", data)
     if not candidates:
         return ""
     payload = max(candidates, key=len)
 
     # Split by delimiter chars
     chunks = re.split("[" + re.escape(delims) + "]", payload)
+    return _binary_chunks_to_text(chunks, base)
+
+
+def _binary_chunks_to_text(chunks: list, base: int) -> str:
+    """Convert a list of digit-string chunks (base 2/10/16) into text.
+
+    When a base-2 chunk is longer than 8 bits, it means the obfuscator's
+    delimiter set was incomplete and multiple bytes got glued together. We
+    then try 7-bit AND 8-bit re-chunking and pick whichever produces more
+    printable ASCII — this recovers ~all Invoke-Obfuscation binary/hex-array
+    payloads that would otherwise emit garbled Unicode.
+    """
     out = []
     for c in chunks:
         c = c.strip()
@@ -175,10 +187,73 @@ def _ps_binary_split_decode(data: str) -> str:
             continue
         try:
             n = int(c, base)
-            if 0 <= n <= 0x10FFFF:
-                out.append(chr(n))
         except ValueError:
             continue
+        # Simple case: single-byte-sized chunk
+        if base != 2 or len(c) <= 8:
+            if 0 <= n <= 0x10FFFF:
+                out.append(chr(n))
+            continue
+        # Over-long binary chunk → try 7 and 8-bit re-splits, pick best
+        best_text = ""
+        best_score = -1
+        # Both group sizes × both alignments (L-to-R and R-to-L). When the
+        # chunk length isn't a clean multiple of group_size, the correct
+        # boundary depends on how the obfuscator wrote it — R-to-L is common
+        # because the LOW-value byte often has a leading zero the obfuscator
+        # keeps in the string.
+        for group_size in (7, 8):
+            for offset in (0, len(c) % group_size):
+                if offset == group_size:
+                    continue
+                sub = []
+                i = offset
+                # If offset > 0, decode the leading fragment as its own char too
+                if offset > 0:
+                    try:
+                        nn = int(c[:offset], 2)
+                        if 32 <= nn <= 127:
+                            sub.append(chr(nn))
+                    except ValueError:
+                        pass
+                valid = True
+                while i < len(c):
+                    grp = c[i:i + group_size]
+                    if len(grp) < group_size:
+                        try:
+                            nn = int(grp, 2)
+                            if 32 <= nn <= 127:
+                                sub.append(chr(nn))
+                        except ValueError:
+                            valid = False
+                        break
+                    try:
+                        nn = int(grp, 2)
+                    except ValueError:
+                        valid = False
+                        break
+                    if not (0 <= nn <= 0x10FFFF):
+                        valid = False
+                        break
+                    sub.append(chr(nn))
+                    i += group_size
+                if not valid:
+                    continue
+                text = "".join(sub)
+                # Score: printable-ASCII count + letter/space bonus (favors real
+                # words over ASCII-noise like `l2` vs `ld`). Slight 8-bit bonus
+                # since ASCII encoders default to 8-bit even for 7-bit values.
+                printable = sum(1 for ch in text if 32 <= ord(ch) < 127)
+                letters = sum(1 for ch in text if ch.isalpha() or ch in " \r\n\t")
+                score = printable + letters + (0.1 if group_size == 8 else 0.0)
+                if score > best_score or (score == best_score and len(text) < len(best_text)):
+                    best_score = score
+                    best_text = text
+        # If both 7- and 8-bit re-splits failed, fall back to single-code-point
+        if best_text:
+            out.append(best_text)
+        elif 0 <= n <= 0x10FFFF:
+            out.append(chr(n))
     return "".join(out)
 
 

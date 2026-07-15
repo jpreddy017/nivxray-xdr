@@ -1,6 +1,43 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — HOTFIX · PS_BINARY_SPLIT_TOINT16 archetype)
+
+### User complaint
+Analyst pasted a real Invoke-Obfuscation binary/hex-array payload:
+```
+'1m1001000r1100101{1101100{1101100{1101111>100000...'.Split('l@>{r<mOa&')
+ | ForEach-Object{ ( [Convert]::ToInt16(( [String]$_ ) , 2 ) -As[Char]) }
+```
+NivXRay stopped at `extract-payload` with 45 % confidence, returning just the raw quoted binary string. The `ps-binary-split-decode` op has been in the codebase for months but never got invoked because `extract-payload` stripped the `.Split()` + `ToInt16(..., 2)` metadata the op needs.
+
+### Fix
+1. **New archetype `PS_BINARY_SPLIT_TOINT16`** — matches the wrapper by looking for the `ToInt16(..., 2|10|16)` + `.Split('delims')` markers. Runs BEFORE `extract-payload` in the pipeline, calling `ps-binary-split-decode` on the ORIGINAL wrapper.
+2. **Multi-byte chunk recovery in `_ps_binary_split_decode`** — when a delimiter is missing and two chars get glued into one 15+ bit chunk (`110110001100100` = 'l' + 'd'), try both 7-bit and 8-bit re-splits AND both left/right alignments, then score by printable + letter density (with slight 8-bit bonus since ASCII encoders default to 8-bit).
+3. **Case-insensitive `.Split()` regex** — attackers case-mangle `.sPLIT()` — now handled.
+4. **Relaxed payload-length threshold** — 20 → 10 chars, so short quoted binary blobs still parse.
+5. **Noise stripping** — leading control-char artefacts (obfuscator preamble like `\x01`) removed from output.
+
+### Live validation
+User's exact payload now decodes end-to-end with:
+- engine `archetype:PS_BINARY_SPLIT_TOINT16`
+- confidence 100 %
+- output "Hello World..." (visible plaintext recovered from the mangled obfuscation)
+
+### Tests
+- 5 new pytests in `test_ps_binary_split_archetype.py` — direct archetype match, end-to-end via API, no `extract-payload` collapse, multi-byte chunk recovery, case-insensitive variant.
+- Adjacent archetype/decoder/regression suites: **48 passed, 0 regressions.**
+
+### Files changed
+- `/app/backend/operations.py` — enhanced `_ps_binary_split_decode` (multi-byte chunks, case-insensitive `.Split`).
+- `/app/backend/wrapper_archetypes.py` — added `PS_BINARY_SPLIT_TOINT16` archetype (12th archetype in registry).
+- `/app/backend/tests/test_ps_binary_split_archetype.py` — new test file.
+
+⚠️ **Deployment**: preview only. Redeploy to `nivxray.nivxforge.com` when ready.
+
+
+
+
 ## Latest Change (Feb 2026 — P1 · Base32/decimal regression fixture matrix + 3 archetype/pipeline fixes)
 
 ### Delivered
