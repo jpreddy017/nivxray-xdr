@@ -19,7 +19,10 @@ export default function DocsPage() {
   const [audience, setAudience] = useState("user");
   const [q, setQ] = useState("");
   const [searchResults, setSearchResults] = useState(null);
-  const [explain, setExplain] = useState(null);
+  // Phase 2 chat state — thread is a list of {role: "assistant"|"user", text, suggested?}
+  const [thread, setThread] = useState([]);
+  const [sessionId, setSessionId] = useState(null);
+  const [followup, setFollowup] = useState("");
   const [explaining, setExplaining] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
@@ -69,17 +72,47 @@ export default function DocsPage() {
     setSearchResults(r.data);
   };
 
-  const runExplain = async () => {
+  const runExplain = async (question) => {
     if (!selected) return;
     setExplaining(true);
+    // If it's a follow-up (question set), append the user turn immediately.
+    if (question) {
+      setThread((t) => [...t, { role: "user", text: question }]);
+    }
     try {
-      const r = await api.post("/docs/explain", { page: selected.id });
-      setExplain(r.data);
+      const payload = { page: selected.id };
+      if (question) payload.question = question;
+      if (sessionId) payload.session_id = sessionId;
+      const r = await api.post("/docs/explain", payload);
+      setSessionId(r.data.session_id || null);
+      setThread((t) => [
+        ...t,
+        {
+          role: "assistant",
+          text: r.data.explanation || "",
+          provider: r.data.provider,
+          suggested: r.data.suggested_questions || [],
+        },
+      ]);
     } catch {
-      setExplain({ explanation: "Explanation failed." });
+      setThread((t) => [...t, { role: "assistant", text: "Explanation failed.", provider: "error" }]);
     } finally {
       setExplaining(false);
     }
+  };
+
+  // Reset chat when the selected page changes
+  useEffect(() => {
+    setThread([]);
+    setSessionId(null);
+    setFollowup("");
+  }, [selected?.id]);
+
+  const sendFollowup = async () => {
+    const q = followup.trim();
+    if (!q || explaining) return;
+    setFollowup("");
+    await runExplain(q);
   };
 
   // Group features by category
@@ -238,40 +271,112 @@ export default function DocsPage() {
         </div>
       </div>
 
-      {/* Right AI helper */}
-      <div className="nvx-card" style={{ width: 300, flexShrink: 0, height: "fit-content" }}>
+      {/* Right AI helper — Phase 2 chat-style */}
+      <div className="nvx-card" style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 120px)" }} data-testid="docs-explain-panel">
         <div className="nvx-card-head">
           <div className="nvx-card-title">
             <Sparkles size={12} style={{ marginRight: 6, color: "#f59e0b" }} />
             EXPLAIN
           </div>
-        </div>
-        <div className="nvx-card-body">
-          <button
-            className="nvx-btn sm"
-            onClick={runExplain}
-            disabled={!selected || explaining}
-            style={{ width: "100%" }}
-            data-testid="docs-explain-btn"
-          >
-            {explaining ? "Explaining…" : selected ? "Explain this page" : "Select a feature"}
-          </button>
-          {explain && (
-            <div
-              style={{
-                marginTop: 10, padding: 10, background: "rgba(15,23,42,0.5)",
-                fontSize: 11, color: "#c9d1d9", borderRadius: 3,
-                borderLeft: "2px solid #f59e0b",
-              }}
-              data-testid="docs-explain-result"
+          {thread.length > 0 && (
+            <button
+              className="nvx-btn sm ghost"
+              onClick={() => { setThread([]); setSessionId(null); }}
+              style={{ marginLeft: "auto", fontSize: 9 }}
+              data-testid="docs-explain-reset"
             >
-              <div style={{ color: "#94a3b8", fontSize: 10, marginBottom: 4 }}>
-                via {explain.provider}
-              </div>
-              <ReactMarkdown>{explain.explanation || ""}</ReactMarkdown>
+              RESET
+            </button>
+          )}
+        </div>
+        <div className="nvx-card-body" style={{ flex: 1, overflowY: "auto", padding: 10 }}>
+          {!selected ? (
+            <div style={{ fontSize: 11, color: "#94a3b8", padding: 10, textAlign: "center" }}>
+              Select a feature or workflow to unlock the AI explainer.
+            </div>
+          ) : thread.length === 0 ? (
+            <button
+              className="nvx-btn sm"
+              onClick={() => runExplain()}
+              disabled={explaining}
+              style={{ width: "100%" }}
+              data-testid="docs-explain-btn"
+            >
+              {explaining ? "Explaining…" : "Explain this page"}
+            </button>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {thread.map((msg, i) => (
+                <div key={i}
+                     data-testid={`docs-explain-msg-${msg.role}-${i}`}
+                     style={{
+                       padding: 8, borderRadius: 3, fontSize: 11,
+                       color: "#c9d1d9",
+                       background: msg.role === "user"
+                         ? "rgba(126,227,201,0.06)"
+                         : "rgba(15,23,42,0.5)",
+                       borderLeft: msg.role === "user"
+                         ? "2px solid #7ee3c9"
+                         : "2px solid #f59e0b",
+                     }}>
+                  <div style={{ color: "#94a3b8", fontSize: 9, marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                    {msg.role === "user" ? "you" : `via ${msg.provider || "assistant"}`}
+                  </div>
+                  <div className="docs-md" style={{ fontSize: 11 }}>
+                    <ReactMarkdown>{msg.text || ""}</ReactMarkdown>
+                  </div>
+                  {msg.role === "assistant" && msg.suggested && msg.suggested.length > 0 && i === thread.length - 1 && (
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ fontSize: 9, color: "#7ee3c9", letterSpacing: 0.4 }}>SUGGESTED</div>
+                      {msg.suggested.map((sq, j) => (
+                        <button key={j}
+                                onClick={() => runExplain(sq)}
+                                disabled={explaining}
+                                data-testid={`docs-explain-suggested-${j}`}
+                                style={{
+                                  fontSize: 10, padding: "4px 6px", textAlign: "left",
+                                  background: "rgba(148,163,184,0.06)",
+                                  border: "1px solid rgba(148,163,184,0.15)",
+                                  borderRadius: 3, color: "#c9d1d9", cursor: "pointer",
+                                }}>
+                          {sq}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {explaining && (
+                <div style={{ fontSize: 10, color: "#94a3b8", padding: 4 }} data-testid="docs-explain-loading">
+                  <ArrowRight size={10} /> thinking…
+                </div>
+              )}
             </div>
           )}
         </div>
+        {selected && thread.length > 0 && (
+          <div style={{ padding: 8, borderTop: "1px solid rgba(148,163,184,0.10)", display: "flex", gap: 4 }}>
+            <input
+              className="nvx-input"
+              value={followup}
+              onChange={(e) => setFollowup(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") sendFollowup(); }}
+              placeholder="Ask a follow-up…"
+              disabled={explaining}
+              style={{ flex: 1, fontSize: 11 }}
+              data-testid="docs-explain-followup"
+            />
+            <button
+              className="nvx-btn sm"
+              onClick={sendFollowup}
+              disabled={explaining || !followup.trim()}
+              style={{ fontSize: 10 }}
+              data-testid="docs-explain-send"
+            >
+              SEND
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

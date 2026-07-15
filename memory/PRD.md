@@ -1,7 +1,52 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🧪 Test Flake Fixes)
+## Latest Change (Feb 2026 — 💬 Documentation Generator Phase 2 · AI Explain)
+
+### Delivered — chat-style contextual AI explainer
+
+**Backend** (`backend/routers/docs.py`)
+
+`POST /api/docs/explain` now returns a richer contract:
+```json
+{
+  "provider": "emergent-claude" | "static-registry",
+  "session_id": "explain-<page>-<user>",
+  "explanation": "markdown text",
+  "suggested_questions": ["...", "...", "..."]
+}
+```
+
+New capabilities:
+- **Per-page context payload** — server auto-loads the full feature/workflow YAML into the LLM prompt (`_build_context_block`)
+- **Related feature enrichment** — related ids are inlined with their titles so the LLM can compare/contrast
+- **Multi-turn** — client passes `session_id` back on follow-ups; `LlmChat` retains conversation memory
+- **Grounded suggested_questions** — 3 smart follow-ups derived from the page's YAML (`when_to_use`, `related`, examples), with a generic fallback for unknown pages
+- **Static fallback preserved** — when the LLM budget is exhausted, returns a formatted YAML-derived summary AND still supplies `session_id` + `suggested_questions`
+
+**Frontend** (`DocsPage.jsx` right pane)
+
+Chat-style thread:
+- Auto-fires first "Explain this page" on button click
+- User + assistant messages rendered with distinct accent colors (mint = you, amber = assistant)
+- Suggested question chips render below the latest assistant message; click sends as follow-up
+- Follow-up text input + `[SEND]` button at the bottom (Enter to send)
+- `[RESET]` button in header clears the thread and session
+- Session/thread reset automatically when a different feature/workflow is selected
+- All interactive elements carry `data-testid` for automation
+
+**Tests** — `backend/tests/test_docs_explain_phase2.py` (9 new, all pass)
+- Response-shape includes `session_id`, `suggested_questions`
+- Feature suggestions mention the feature title; workflow suggestions cite the workflow
+- Unknown-page fallback returns 3 generic starter questions
+- Session ID is returned on first turn, stable across turns, and echoed when client-supplied
+- Static-fallback content is grounded in YAML (feature title, workflow steps)
+
+Combined suite: 38 pass across `test_docs_generator + test_docs_pdf + test_docs_explain_phase2`.
+
+---
+
+## Previous Change (Feb 2026 — 🧪 Test Flake Fixes)
 
 ### Fix 1 — `test_weight_based_sort` (real bug)
 Root cause: `models_studio.list_models()` sorted `admin_models` by `(kind ASC, name ASC)` — but the playbook feedback test (and the admin UX) expects `GET /api/admin/models?kind=playbook` to return playbooks ranked by `feedback_weight DESC` so the most analyst-approved rules bubble to the top. Fixed by branching the sort spec: when `kind == "playbook"`, sort by `[(feedback_weight, -1), (name, 1)]`; other kinds keep the existing behaviour.
