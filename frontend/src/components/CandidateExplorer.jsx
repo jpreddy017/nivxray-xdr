@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { ChevronDown, ChevronRight, X, AlertCircle, CheckCircle2, MinusCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, X, AlertCircle, CheckCircle2, MinusCircle, Edit3 } from "lucide-react";
 import api from "@/lib/api";
+import CorrectionModal from "@/components/CorrectionModal";
 
 /**
  * CandidateExplorer — Feb-2026 SOC panel that renders EVERY encoding candidate
@@ -212,6 +213,7 @@ export default function CandidateExplorer({ input, onSelect, testidPrefix = "can
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState({});
+  const [correctionOpen, setCorrectionOpen] = useState(false);
 
   useEffect(() => {
     if (!input || input.trim().length === 0) {
@@ -281,6 +283,14 @@ export default function CandidateExplorer({ input, onSelect, testidPrefix = "can
           CANDIDATE EXPLORER
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            className="nvx-btn sm ghost"
+            onClick={() => setCorrectionOpen(true)}
+            data-testid={`${testidPrefix}-correct-btn`}
+            style={{ fontSize: 10 }}
+          >
+            <Edit3 size={11} /> CORRECT THIS
+          </button>
           <span
             style={{
               padding: "4px 10px",
@@ -408,6 +418,14 @@ export default function CandidateExplorer({ input, onSelect, testidPrefix = "can
           />
         ))}
       </div>
+      <CorrectionModal
+        open={correctionOpen}
+        onClose={() => setCorrectionOpen(false)}
+        input={input}
+        engineOutput={data.best?.decoded_preview || (verdict.op ? verdict.op : "")}
+        engineChain={verdict.op ? [{ op: verdict.op }] : []}
+        engineConfidence={verdict.confidence ?? null}
+      />
     </div>
   );
 }

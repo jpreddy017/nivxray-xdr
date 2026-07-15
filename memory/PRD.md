@@ -1,7 +1,68 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🧠 P0 Structured Why-Not + 🎨 Frontend Candidate Explorer + 📡 TAXII 2.1 Push)
+## Latest Change (Feb 2026 — ⭐ #3 Learning Correction + ⭐ #4 Auto-Benchmark / Regression Suite)
+
+### Delivered — the self-improving, regression-tested platform
+
+**Backend**
+
+*New module* `backend/regression/__init__.py`:
+- Corpus CRUD helpers (`add_corpus_entry`, `list_corpus_entries`, `delete_corpus_entry`)
+- Benchmark runner (`run_benchmark`) — executes every corpus sample through `deterministic_best_decode` and produces `{total, passed, failed, pass_rate, flips[], new_regressions[], resolved_regressions[], affected_decoders[], results[]}`
+- Flip detection — samples whose pass status changed between runs (`from → to` with diff_type)
+- Singleton gate cache (`regression_gate` collection) — last_pass_rate persisted for cross-endpoint checks
+- `gate_permits_promotion(threshold=1.0)` — used by `/training/confusion/promote` to refuse promotion when regressions exist
+
+*New router* `backend/routers/regression.py` — 7 endpoints:
+- `GET  /api/regression/corpus/entries[?limit=N&source=X]`
+- `POST /api/regression/corpus/entries`  — direct create
+- `DELETE /api/regression/corpus/entries/{id}` — admin only
+- `POST /api/regression/run` — synchronous benchmark
+- `GET  /api/regression/latest` — most recent run + gate + corpus_size
+- `GET  /api/regression/history?limit=N` — light run summaries (no `results[]`)
+- `GET  /api/regression/runs/{id}` — full detail
+- `GET  /api/regression/gate` — permit status + reason
+
+*Enriched* `POST /api/learning/correction` with:
+- `promote_to_corpus: bool` — insert into `regression_corpus`
+- `sample_name`, `trigger_benchmark` — the correction inserts a versioned sample AND fires an immediate run
+- Response: `{ok, event, corpus_entry, benchmark_run}`
+
+*Promotion gate* — `POST /api/training/confusion/promote` now returns **HTTP 409** with `{error: "regression-gate-blocked", reason, gate, hint}` when the last run has any failing samples. This is the hard guarantee: no decoder/library update can be promoted unless every regression sample passes.
+
+**Frontend**
+
+*New component* `CorrectionModal.jsx`:
+- Opens from the CandidateExplorer "CORRECT THIS" button
+- Analyst enters `corrected_output` + optional `corrected_chain` + `notes`
+- Optional promote-to-corpus + trigger-benchmark checkboxes
+- On success shows a green result block: corpus entry id + benchmark summary + flip count
+
+*New component* `RegressionDashboard.jsx`:
+- Gate banner (GATE PASSING / GATE BLOCKED) with pass rate and reason
+- Six live stat chips: TOTAL, PASSED, FAILED, PASS RATE, NEW REGRESSIONS, RESOLVED
+- Structured lists of new-regression flips (red) and resolved-regression flips (green) with expected/actual snippets
+- Affected decoders chip cloud
+- Historical run strip (last 15 runs) as color-coded pass-rate bars
+- RUN NOW / REFRESH buttons
+- Mounted in `AdminPage` next to the Confusion Matrix
+
+*Correction integration* — the `CandidateExplorer` component now renders a "CORRECT THIS" button in the header of every result, opening the CorrectionModal pre-populated with the current input + engine output + engine chain + confidence.
+
+### Regression
+- **886 backend tests pass** (up from 878, +8 net new) · 7 xfailed unchanged · 4 pre-existing failures unrelated.
+- New file `backend/tests/test_regression_benchmark.py` — 8 tests covering CRUD, benchmark runner, flip detection, gate blocking, and the learning→promote→benchmark chain.
+- End-to-end verified via curl and screenshot: gate BLOCKS when 2/3 samples pass, unblocks when 2/2 samples pass, promote returns 409 with the structured gate block.
+
+### Files
+- **New**: `backend/regression/__init__.py`, `backend/routers/regression.py`, `backend/tests/test_regression_benchmark.py`, `frontend/src/components/CorrectionModal.jsx`, `frontend/src/components/RegressionDashboard.jsx`
+- **Modified**: `backend/server.py` (register regression router), `backend/routers/learning.py` (promote flag), `backend/routers/training_confusion.py` (gate check on promote), `frontend/src/components/CandidateExplorer.jsx` (CORRECT THIS button + modal), `frontend/src/pages/AdminPage.jsx` (mount RegressionDashboard)
+
+⚠️ **Deployment**: preview verified. Production redeploy required to push Learning Correction + Regression Dashboard to nivxray.nivxforge.com.
+
+
+## Previous Change (Feb 2026 — 🧠 P0 Structured Why-Not + 🎨 Frontend Candidate Explorer + 📡 TAXII 2.1 Push)
 
 ### Delivered — all 3 requested items shipped in one pass
 

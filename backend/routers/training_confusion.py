@@ -346,16 +346,35 @@ async def promote_corpus_sample(body: PromoteIn, user=Depends(get_current_user))
     Library so an analyst can iterate on decoder tuning without leaving
     `/admin`. Idempotent by raw_input — re-promoting the same fixture
     returns the existing library entry.
+
+    Feb-2026 (#4): Gated by the regression benchmark. If the last
+    regression run is failing (`pass_rate < threshold`), the promote is
+    refused with HTTP 409. Callers must first re-run the benchmark and
+    ensure it passes.
     """
+    # Deferred imports so this router loads without pulling heavy deps.
+    from deps import db
+    import sample_library as sl
+    from regression import gate_permits_promotion
+
+    # ── Regression gate check (Feb-2026 #4) ────────────────────────
+    gate = await gate_permits_promotion(db)
+    if not gate["ok"]:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "regression-gate-blocked",
+                "reason": gate["reason"],
+                "gate": gate["gate"],
+                "hint": "Run POST /api/regression/run and fix failing samples before promoting.",
+            },
+        )
+
     corpus = _load_jsonl(_CORPUS_JSONL)
     row = next((s for s in corpus if s.get("id") == body.sample_id), None)
     if not row:
         raise HTTPException(status_code=404,
                             detail=f"corpus sample not found: {body.sample_id}")
-
-    # Deferred imports so this router loads without pulling heavy deps.
-    from deps import db
-    import sample_library as sl
 
     # Dedupe on raw_input — the Sample Library `create_sample` doesn't
     # enforce uniqueness. Promoting the same corpus id twice should return

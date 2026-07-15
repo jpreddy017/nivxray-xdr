@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import TrainingNotesCard from "@/components/TrainingNotesCard";
 import ConfusionMatrixCard from "@/components/ConfusionMatrixCard";
 import TaxiiAdminPanel from "@/components/TaxiiAdminPanel";
+import RegressionDashboard from "@/components/RegressionDashboard";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -163,6 +164,9 @@ export default function AdminPage() {
 
         {/* Corpus Confusion Matrix — decoder health at a glance */}
         <ConfusionMatrixCard />
+
+        {/* Regression Dashboard — auto-benchmark + gate status (Feb-2026 #4) */}
+        <RegressionDashboard />
 
         {/* TAXII 2.1 Push — publish IOCs as STIX 2.1 to your TAXII server */}
         <TaxiiAdminPanel />
