@@ -1,6 +1,50 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — P0 KB Auto-Cluster + Save-as-KB-Template bridge)
+
+### Context
+The Knowledge Base builder existed but required an explicit `POST /api/kb/rebuild` call before any archetype appeared. Analysts had no way to promote a specific chain investigation into a KB template directly from the replay viewer. This blocked the P0 "KB Auto-Cluster" goal and the natural workflow of "I just triaged this chain — save it as a reusable archetype now, not on the next batch rebuild".
+
+### Implementation
+- **Incremental clustering (`knowledge_base/builder.py`)** — new function `incremental_upsert_for_investigation(user_email, investigation_id, synth=False)`:
+  1. Loads the target investigation.
+  2. Computes its deterministic fingerprint (top 3 MITRE ∪ verdict ∪ shellcode).
+  3. Gathers all sibling investigations sharing that fingerprint (bounded 500).
+  4. Aggregates + (optionally synthesises) + upserts exactly one `KBEntry`.
+  Runtime is O(bucket size) — fast enough to fire on every history write without impacting decode latency.
+- **Auto-cluster hook (`routers/history.py`)** — `record_investigation()` now schedules `asyncio.create_task(incremental_upsert_for_investigation(..., synth=False))` after every successful upsert. Deterministic fallback keeps the LLM off the hot path; the analyst can force LLM playbook synthesis via the manual "Save as KB Template" button.
+- **New endpoint `POST /api/kb/save-from-investigation`** (body: `{investigation_id, synth}`) → returns `{ok, fingerprint, slug, bucket_size, kb_id, created, warnings}`. 400 for invalid ids, 200 for both create + refresh (idempotent).
+- **"SAVE AS KB TEMPLATE" button on `ChainReplayView`** — one-click promotion of the currently-viewed chain into a KB archetype. States: idle → SAVING… → success banner `▪ NEW KB ARCHETYPE` / `▸ KB TEMPLATE REFRESHED` with mono slug + "OPEN IN KB" deep-link (`/kb#<slug>`). Errors surface in an inline red banner with the exact HTTP detail.
+
+### Files changed
+- `/app/backend/knowledge_base/builder.py` — added `incremental_upsert_for_investigation`.
+- `/app/backend/routers/history.py` — `record_investigation` now fires the auto-cluster hook.
+- `/app/backend/routers/kb.py` — added `POST /kb/save-from-investigation`.
+- `/app/frontend/src/components/ChainReplayView.jsx` — SAVE AS KB TEMPLATE button + status banner + OPEN IN KB link.
+
+### Tests
+- `/app/backend/tests/test_kb_auto_cluster.py` — 5 new tests: save-from-investigation happy path; invalid id → 400; auto-cluster hook bumps `last_seen` within seconds of a `/decode/smart` call; chain and single records share the same fingerprint code path; synth=true completes with either playbook or deterministic fallback.
+- Full backend suite: **487 / 488 green.** The single failing test (`test_playbook_feedback.py::test_weight_based_sort`) is the same pre-existing DB-state failure noted in the previous session — explicitly deferred as a micro-task per user direction.
+- Frontend `testing_agent_v3_fork` iteration_7: **100 % backend + frontend** — SAVING… state, `▪ NEW KB ARCHETYPE` banner, mono slug, correct `/kb#<slug>` deep-link, no JS errors.
+
+### Roadmap position
+| Priority | Task | Status |
+|---|---|---|
+| P0 | Chain Persistence in History | ✅ done (Feb 2026) |
+| P0 | KB Auto-Cluster | ✅ done (Feb 2026 — this change) |
+| P1 | STIX 2.1 chain export | 🟡 next |
+| P1 | Expand regression suite w/ real Base32/decimal phishing samples | ⏸ |
+| P2 | "Recent inputs" dropdown | ⏸ |
+| P2 | Natural Language Investigation Recipes | ⏸ |
+| P2 | Threat Intelligence Correlation Engine | ⏸ |
+| Blocked | Offline LLM fine-tune (Ollama/Qwen 2.5) | 🔒 GPU-side |
+
+⚠️ **Deployment**: preview only. Redeploy to `nivxray.nivxforge.com` when ready.
+
+
+
+
 ## Latest Change (Feb 2026 — P0 Chain Persistence in History)
 
 ### Context
