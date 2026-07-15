@@ -1,19 +1,17 @@
 name: Docs Screenshots
 
 on:
-  # Fresh capture on every release
-  release:
-    types: [published]
-  # Weekly refresh (every Monday 06:00 UTC) so aging UI drift is visible
-  schedule:
-    - cron: "0 6 * * 1"
-  # Manual trigger from the Actions tab, optionally scoped to a single workflow
+  # Manual trigger by the team (Actions tab → Run workflow), optionally
+  # scoped to a single workflow id.
   workflow_dispatch:
     inputs:
       workflow_id:
         description: "Workflow id to capture (blank = --all)"
         required: false
         default: ""
+  # Also run once whenever the team publishes a Release — team action too.
+  release:
+    types: [published]
 
 concurrency:
   group: docs-screenshots-${{ github.ref }}
