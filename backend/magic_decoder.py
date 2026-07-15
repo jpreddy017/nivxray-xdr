@@ -90,6 +90,15 @@ def _structure_bonus(s: str) -> Tuple[float, List[str]]:
         total += 0.30; bonuses.append("pe-header")
     if _UTF16_HINT.search(s):
         total += 0.20; bonuses.append("utf16-embedded")
+    # PS backtick-obfuscation PENALTY — the scoring above rewards long English
+    # words, but attackers use backticks to shatter `WebClient` into `W`e`B`C`l`i`e`n`T
+    # so the raw obfuscated form accidentally scores higher than the
+    # deobfuscated one (short fragments aren't checked against COMMON_WORDS).
+    # Discount ≈ backtick density so deobfuscate always wins its tie.
+    _bt = len(re.findall(r"`[A-Za-z]", s))
+    if _bt >= 4 and _bt / max(1, len(s)) > 0.05:
+        total -= min(0.40, _bt / max(1, len(s)))
+        bonuses.append("ps-backtick-obfuscation")
     return total, bonuses
 
 
@@ -238,6 +247,14 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
     # PowerShell -EncodedCommand
     if re.search(r"-e(?:c|nc|ncoded(?:command)?)?\s+[A-Za-z0-9+/=\s]{16,}", s, re.IGNORECASE):
         cands.append({"op": "powershell-encoded", "args": {}})
+    # PowerShell backtick obfuscation — `I`E`X, `N`e`T`.`W`e`B`C`l`i`e`N`T
+    # etc. When >= 15 % of the input is `<letter> pairs, insert the
+    # deobfuscator at the FRONT so subsequent decoders see the plaintext.
+    # This must run BEFORE _PS_KWORDS since the backtick-obfuscated form
+    # doesn't match `\bIEX\b` etc.
+    _bt_pairs = len(re.findall(r"`[A-Za-z]", s))
+    if _bt_pairs >= 4 and _bt_pairs / max(1, len(s)) > 0.10:
+        cands.insert(0, {"op": "powershell-deobfuscate", "args": {}})
     # JS charcode — MUST be inserted BEFORE extract-payload otherwise the
     # wrapper stripper collapses `String.fromCharCode(108,111,...)` into a
     # gibberish digit run and the js-charcode-decode op never fires.
