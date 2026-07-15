@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import {
   Target, RefreshCw, TrendingUp, TrendingDown, ChevronRight, X,
-  CheckCircle2, XCircle, Activity,
+  CheckCircle2, XCircle, Activity, Library, Check,
 } from "lucide-react";
 
 /**
@@ -29,6 +29,8 @@ export default function ConfusionMatrixCard() {
   const [expanded, setExpanded] = useState(null); // category slug
   const [detail, setDetail] = useState(null);     // { category, failures[] }
   const [detailLoading, setDetailLoading] = useState(false);
+  // Feb-2026 · Send to Sample Library — per-failure promote state
+  const [promoting, setPromoting] = useState({});   // {sample_id: 'busy'|'done'|'existed'|'error:...'}
 
   const loadSummary = async () => {
     setLoading(true);
@@ -78,6 +80,23 @@ export default function ConfusionMatrixCard() {
   };
 
   useEffect(() => { loadSummary(); }, []);
+
+  const promoteToLibrary = async (failure) => {
+    if (!failure?.id) return;
+    setPromoting((p) => ({ ...p, [failure.id]: "busy" }));
+    try {
+      const r = await api.post("/training/confusion/promote", {
+        sample_id: failure.id,
+      });
+      setPromoting((p) => ({
+        ...p,
+        [failure.id]: r.data?.existed ? "existed" : "done",
+      }));
+    } catch (e) {
+      const msg = e?.response?.data?.detail || e.message || "failed";
+      setPromoting((p) => ({ ...p, [failure.id]: `error:${msg}` }));
+    }
+  };
 
   const ov = summary?.overall;
   const pct = (v) => (v === undefined || v === null ? "—" : `${(v * 100).toFixed(1)}%`);
@@ -353,11 +372,44 @@ export default function ConfusionMatrixCard() {
                           />
                           {f.id}
                         </div>
-                        <div
-                          className="mono"
-                          style={{ fontSize: 10, color: "var(--text-mute)" }}
-                        >
-                          engine={f.engine || "—"} · conf={f.confidence ?? "—"}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div
+                            className="mono"
+                            style={{ fontSize: 10, color: "var(--text-mute)" }}
+                          >
+                            engine={f.engine || "—"} · conf={f.confidence ?? "—"}
+                          </div>
+                          <button
+                            className="nvx-btn sm ghost"
+                            onClick={() => promoteToLibrary(f)}
+                            disabled={promoting[f.id] === "busy"}
+                            data-testid={`promote-${f.id}`}
+                            title="Copy this failing corpus fixture into the writable Sample Library for decoder-tuning iteration."
+                            style={{
+                              color: promoting[f.id] === "done"    ? "#7ee3c9" :
+                                     promoting[f.id] === "existed" ? "var(--text-mute)" :
+                                     promoting[f.id]?.startsWith("error") ? "var(--high)" :
+                                     "var(--accent)",
+                              borderColor: promoting[f.id] === "done"    ? "#7ee3c9" :
+                                            promoting[f.id]?.startsWith("error") ? "var(--high)" :
+                                            "var(--border)",
+                            }}
+                          >
+                            {promoting[f.id] === "busy" ? (
+                              <RefreshCw size={11} style={{ animation: "spin 0.8s linear infinite" }} />
+                            ) : promoting[f.id] === "done" ? (
+                              <Check size={11} />
+                            ) : promoting[f.id] === "existed" ? (
+                              <Check size={11} />
+                            ) : (
+                              <Library size={11} />
+                            )}
+                            {promoting[f.id] === "busy"    ? "SENDING…" :
+                             promoting[f.id] === "done"    ? "SENT" :
+                             promoting[f.id] === "existed" ? "ALREADY IN LIBRARY" :
+                             promoting[f.id]?.startsWith("error") ? "RETRY" :
+                             "SEND TO SAMPLE LIBRARY"}
+                          </button>
                         </div>
                       </div>
                       <div

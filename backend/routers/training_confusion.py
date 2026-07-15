@@ -7,6 +7,11 @@ GET  /api/training/confusion
        • refresh=true|false   (default: false — return cached run if <10min old)
        • categories=all|<slug>[,slug…]  (default: all)
        • include_negatives=true|false  (default: true)
+POST /api/training/confusion/promote
+     Body:  {"sample_id": "<corpus id>", "notes": "<optional analyst note>"}
+     Promotes a corpus fixture (typically a failing one from the Confusion
+     Matrix drawer) into the writable Sample Library so an analyst can
+     iterate on decoder-tuning fixtures without leaving `/admin`.
 
 Returns a rich per-category confusion matrix computed against the deterministic
 corpus:
@@ -29,7 +34,7 @@ corpus:
           "engines_used":   {"smart": 5},
           "failures":       []
         },
-        …
+        # ...
       ],
       "negatives": {
         "tn": 10, "fp": 0,
@@ -320,3 +325,72 @@ async def get_confusion_summary(
                              "f1": c["f1"], "samples": c["samples"]}
                             for c in best],
     }
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Promote corpus sample → Sample Library
+# ═══════════════════════════════════════════════════════════════════════
+from pydantic import BaseModel
+
+
+class PromoteIn(BaseModel):
+    sample_id: str
+    notes: Optional[str] = None
+    difficulty: Optional[str] = None
+
+
+@router.post("/training/confusion/promote", tags=["training"])
+async def promote_corpus_sample(body: PromoteIn, user=Depends(get_current_user)):
+    """Copy a corpus fixture (typically failing) into the writable Sample
+    Library so an analyst can iterate on decoder tuning without leaving
+    `/admin`. Idempotent by raw_input — re-promoting the same fixture
+    returns the existing library entry.
+    """
+    corpus = _load_jsonl(_CORPUS_JSONL)
+    row = next((s for s in corpus if s.get("id") == body.sample_id), None)
+    if not row:
+        raise HTTPException(status_code=404,
+                            detail=f"corpus sample not found: {body.sample_id}")
+
+    # Deferred imports so this router loads without pulling heavy deps.
+    from deps import db
+    import sample_library as sl
+
+    # Dedupe on raw_input — the Sample Library `create_sample` doesn't
+    # enforce uniqueness. Promoting the same corpus id twice should return
+    # the EXISTING library entry, not create a duplicate.
+    existing = await db.sample_library.find_one({"raw_input": row["input"]})
+    if existing:
+        return {"created": False, "existed": True, "sample": sl._sanitize(existing)}
+
+    payload = {
+        "name":            f"Corpus · {row['id']}",
+        "raw_input":       row["input"],
+        "expected_output": row.get("expected_decoded") or "",
+        "categories":      [row.get("category") or "corpus"],
+        "tags":            ["corpus-v2", "promoted", body.sample_id],
+        "expected_mitre":  [m.get("id") for m in (row.get("mitre") or []) if m.get("id")],
+        "expected_iocs":   sum(list((row.get("iocs") or {}).values()), []),
+        "difficulty":      body.difficulty
+                            or ("hard" if row.get("verdict") == "Malicious" else "medium"),
+        "source_url":      None,
+        "notes":           (body.notes or "").strip()
+                            or (f"Promoted from Confusion Matrix. Verdict: "
+                                f"{row.get('verdict')} · Confidence: "
+                                f"{row.get('confidence')}. "
+                                f"{row.get('notes') or ''}").strip(),
+    }
+    try:
+        created = await sl.create_sample(db, payload)
+        return {"created": True, "existed": False, "sample": created}
+    except ValueError as e:
+        # Likely duplicate — best-effort lookup then return existing.
+        try:
+            existing = await db.samples.find_one({"raw_input": payload["raw_input"]})
+            if existing:
+                existing["id"] = str(existing.pop("_id"))
+                return {"created": False, "existed": True, "sample": existing}
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail=str(e))

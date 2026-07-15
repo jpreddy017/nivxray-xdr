@@ -1,7 +1,42 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🛡️ P1 · SOC Verdict Card + Evidence Metadata)
+## Latest Change (Feb 2026 — 📚 P1 · Sample Library promote from Confusion Matrix)
+
+### Delivered
+Analysts can now **one-click promote** a failing corpus fixture from the Confusion Matrix drawer into the writable Sample Library, without leaving `/admin`.
+
+**Backend**
+- `POST /api/training/confusion/promote  {sample_id, notes?, difficulty?}`
+- Reads the fixture from `samples.jsonl`, copies name / raw_input / expected_output / MITRE / IOCs / difficulty into a new Sample Library entry.
+- **Idempotent** — dedupes on `raw_input`; re-promoting returns `{created: false, existed: true, sample: <existing>}`.
+
+**Frontend**
+- `SEND TO SAMPLE LIBRARY` button on every failure row inside the Confusion Matrix accordion.
+- 4-state visual feedback: `SEND` → `SENDING…` (spinner) → `SENT` (green ✓) OR `ALREADY IN LIBRARY` (grey ✓) OR `RETRY` (red on error).
+- Per-row state kept in a `{sample_id: state}` map so multiple promotes stay independent.
+
+### Corrupted-container salvage (also this pass)
+- Raw-deflate fallback attempted on GZIP/ZLIB CRC failures. Salvaged plaintext surfaced on `corrupted_container.salvaged`.
+- New request param `mode: "strict" | "best_effort"` on `/decode/smart`:
+  - **strict** (default) — Corrupted verdict, salvage available for reference.
+  - **best_effort** — Elevates salvaged text as primary output with ⚠ Integrity Warning; verdict downgrades Corrupted → Suspicious.
+- Frontend STRICT / BEST-EFFORT toggle in the Advanced strip, persisted per-user in localStorage.
+
+### Files
+- Added:  none new (extended existing).
+- Modified: `backend/routers/training_confusion.py` (+ promote endpoint), `backend/schemas.py` (+ `mode` on `AutoIn`), `backend/routers/ops.py` (best-effort elevation + verdict rebuild), `backend/magic_decoder.py` (salvage attempt), `backend/evidence_extractor.py` (salvaged indicator + reason), `frontend/src/components/ConfusionMatrixCard.jsx` (promote button + state), `frontend/src/pages/WorkspacePage.jsx` (recovery-mode toggle).
+
+### Regression
+- 272 backend tests still pass · 7 xfailed (unchanged).
+- E2E screenshot on preview confirms promote button transitions SEND → SENT → ALREADY IN LIBRARY.
+
+⚠️ **Deployment**: requires redeploy for production users to see the SEND button and STRICT/BEST-EFFORT toggle.
+
+**Next up per your queue**: 🟠 **TAXII 2.1 Push**.
+
+
+## Previous Change (Feb 2026 — 🛡️ P1 · SOC Verdict Card + Evidence Metadata)
 
 ### Delivered
 An **evidence-driven Verdict Card** consolidates decoder confidence, corrupted-container signals, and per-layer metadata into a single analyst-facing block. Renders on both **Workspace** (post-decode) and **History Playback** (rehydrate).
