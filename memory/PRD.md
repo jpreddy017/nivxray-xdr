@@ -1,7 +1,38 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🚀 P0 · Training Corpus v2 · 49 categories · 250 samples)
+## Latest Change (Feb 2026 — 🚀 P1 · Confusion Matrix Dashboard)
+
+### Delivered
+A `GET /api/training/confusion` endpoint that runs the **full 245-sample + 10-negative** corpus through the same `deterministic_best_decode` pipeline used by `/api/decode/smart` and reports per-category **TP / FN / precision / recall / F1** plus per-negatives **TN / FP** for false-positive analysis. `GET /api/training/confusion/summary` returns the cached worst-5 / best-5 by recall.
+
+**Baseline against corpus v2** (auto-refreshes when `refresh=true`):
+- `samples_total: 245`, `negatives_total: 10`
+- `overall: {tp: 243, fn: 2, fp: 0, tn: 10, precision: 1.0, recall: 0.9918, f1: 0.9959, accuracy: 0.9922, avg_confidence: 86}`
+- The only 2 residual FN are the documented xfails: `base64_utf16le_004` (env-expand rewrites `$env:TEMP` → resolved path) and `double_base64_001` (2-char "id" plaintext).
+
+### API contract
+- `GET /api/training/confusion?refresh=false&categories=all&include_negatives=true`
+  - Auth: bearer token required (403 otherwise).
+  - Cache: 10-min in-memory per `(categories, include_negatives)` key. `refresh=true` bypasses.
+  - Response includes `duration_ms`, `generated_at`, per-category `failures` (with `id`/`expected`/`got`/`engine`/`confidence`) so an analyst sees exactly WHICH sample missed and why.
+- `GET /api/training/confusion/summary` — lightweight overview, uses cached matrix.
+- Category filter: `?categories=lumma_stealer,clickfix` narrows the sweep to a subset.
+
+### Perf
+- Cold run: ~11s serial (245 samples).
+- Warm hit: ~100ms.
+- The pytest suite (`tests/test_confusion_matrix.py`) covers auth-guard, shape, cache-hit, refresh-bypass, category filter, per-category integrity, and summary — **9/9 passing**.
+
+### Files
+- Added:  `/app/backend/routers/training_confusion.py` (endpoint + cache + matrix compute).
+- Added:  `/app/backend/tests/test_confusion_matrix.py` (9 tests).
+- Modified: `/app/backend/server.py` (router include).
+
+⚠️ **Deployment**: adds one new router. Requires `sudo supervisorctl restart backend` on prod (or user's deployment button). Cache is in-process, so cold start recomputes on first hit.
+
+
+## Previous Change (Feb 2026 — 🚀 P0 · Training Corpus v2 · 49 categories · 250 samples)
 
 ### Delivered
 NivX Forge corpus now covers **49 real-world attacker categories** with **245 supervised samples + 10 negative controls**. Every sample doubles as a fine-tune data point AND a regression test. `/api/decode/smart` recovers the plaintext on **250 samples end-to-end** with only **7 documented xfails**.
