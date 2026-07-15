@@ -46,6 +46,7 @@ from routers.history import router as history_router
 from routers.process_tree import router as process_tree_router
 from routers.kb import router as kb_router
 from routers.learning import router as learning_router
+from routers.chain import router as chain_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("nivxray")
@@ -65,6 +66,7 @@ api.include_router(history_router)
 api.include_router(process_tree_router)
 api.include_router(kb_router)
 api.include_router(learning_router)
+api.include_router(chain_router)
 
 app.include_router(api)
 

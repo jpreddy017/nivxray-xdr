@@ -16,6 +16,7 @@ import DecodingTracePanel from "@/components/DecodingTracePanel";
 import HistoryDrawer from "@/components/HistoryDrawer";
 import ProcessTreeView from "@/components/ProcessTreeView";
 import BoostBadge from "@/components/BoostBadge";
+import ChainStageEditor from "@/components/ChainStageEditor";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -70,6 +71,7 @@ export default function WorkspacePage() {
   const [boostHit, setBoostHit] = useState(false);
   // ONE-BUTTON UX — collapse Smart/AI/Auto Investigate/Troubleshoot into ADVANCED
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [chainOpen, setChainOpen] = useState(false);
   const [nivxrayTrace, setNivxrayTrace] = useState([]);
   const rehydrateFromHistory = (rec) => {
     if (!rec) return;
@@ -202,6 +204,7 @@ export default function WorkspacePage() {
     setShareUrl("");
     setTacticFilter(null);
     setStatus("READY");
+    setChainOpen(false);
     try { localStorage.removeItem("nvx.pendingInput"); } catch {}
   };
 
@@ -964,6 +967,30 @@ export default function WorkspacePage() {
               )}
             </div>
           </div>
+
+          {/* Multi-Stage Chain Analysis (opt-in via ADD STAGE button) */}
+          {chainOpen ? (
+            <ChainStageEditor
+              seedInput={input}
+              onSeedConsumed={() => { /* keep single-stage input intact */ }}
+            />
+          ) : (
+            <div style={{ margin: "6px 12px 8px 12px", display: "flex", justifyContent: "flex-end" }}>
+              <button
+                className="nvx-btn sm ghost"
+                data-testid="btn-open-chain-editor"
+                onClick={() => setChainOpen(true)}
+                title={
+                  "Open Multi-Stage Chain Analysis. Decode a series of PowerShell/CMD commands (e.g. Lumma ClickFix)\n" +
+                  "as one chain: per-stage deterministic decoding + unified SOC verdict + optional AI narrative for the WHOLE chain.\n\n" +
+                  "▸ Paste text with BLANK LINES separating stages to auto-split.\n" +
+                  "▸ Compact view auto-activates at 4+ stages."
+                }
+              >
+                + CHAIN MODE (multi-stage)
+              </button>
+            </div>
+          )}
 
           {/* Recipe */}
           <RecipePanel steps={steps} setSteps={setSteps} ops={ops} />

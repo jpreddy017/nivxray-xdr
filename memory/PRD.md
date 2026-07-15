@@ -1,6 +1,50 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — Multi-Stage Chain Analyzer, Lumma-style)
+### Feature
+Inspired by Sophos's Lumma Stealer ClickFix write-up (Feb 2025): real attacks span multiple PowerShell/CMD command lines. NivXRay now supports analyzing an ordered chain and producing a **unified SOC verdict** across all stages.
+
+### Backend (`chain_analyzer.py` + `routers/chain.py`)
+- `POST /api/decode/chain/split` — auto-splits blank-line-separated paste
+- `POST /api/decode/chain` — deterministic per-stage decode (no LLM), then aggregates:
+  * merged IOCs (URLs, IPs, domains, hashes, BTC) across all stages, deduped
+  * merged MITRE techniques in kill-chain tactic order (Execution → Defense Evasion → C2 → Impact) with `first_seen_stage`
+  * merged LOLBAS + YARA
+  * **malware-family detection** — voter across 13 known families (Lumma, Meterpreter, Cobalt Strike, Empire, QakBot, Emotet, IcedID, AsyncRAT, Amadey, RedLine, BumbleBee, Generic Reverse Shell, Generic PS Downloader)
+  * **chain-amplified risk**: +5/stage beyond first, +15 for known-family match, capped at 100
+- `POST /api/decode/chain/narrative` — ONE LLM call over the *full aggregate* (not per-stage) to produce Sophos-style analyst narrative
+- `POST /api/decode/chain/export?format=markdown|json` — Markdown report with per-stage breakdown + kill-chain table + merged IOCs (STIX 2.1 = P1 follow-up)
+
+### Frontend (`ChainStageEditor.jsx`)
+- Opt-in via `+ CHAIN MODE (multi-stage)` button below input
+- `+ ADD STAGE` — appends a stage card
+- **Blank-line auto-split on paste** — power-user shortcut
+- **Auto-compact view when stages > 3** — smaller stage cards, dense layout
+- Per-stage `DRILL` toggle → expandable decoded output for each stage independently
+- **Aggregate card**: family badge, verdict, merged IOC counts, kill-chain pills (T-ID · Sn), full IOC drilldown
+- `AI NARRATIVE (whole chain)` — single LLM call
+- `EXPORT .MD` + `EXPORT .JSON` buttons — instant download
+- Wired into `clearAll()`
+
+### Validation
+- E2E on canonical Lumma ClickFix 3-stage:
+  - Family: **Lumma Stealer** (80% conf)
+  - Verdict: **Malicious 100/100**
+  - Merged URLs across stages, merged IPs (`45.66.77.88` + `192.0.2.44`)
+  - Kill-chain order: T1059.001 → T1027.010 → T1105
+- **9 new pytest tests** in `test_chain_analyzer.py` — auto-split, family detection, Lumma chain, single-stage fallback, empty-stage handling
+- Full backend suite: **439 / 439 green** (was 430; +9 chain tests). Zero regressions.
+
+### P1 backlog (deferred to next session)
+- STIX 2.1 SDO/SRO export (endpoint stub in place, returns `note`)
+- Persist chains in History (already have persistence infra — need `chain_id` linkage)
+- Auto-cluster chains into Knowledge Base entries (KB builder already runs on single payloads — extend to chains)
+
+⚠️ **Deployment**: preview only. Redeploy to push to production.
+
+
+
 ## Latest Change (Feb 2026 — anti-hallucination corrupt-payload detector)
 ### Bug report
 User pasted a base64+gzip payload that Google GenAI claimed to decode as a reverse-shell PowerShell script beaconing to `45.142.122.92:443`. NivXRay refused to produce output. User asked "why can't we decode when Google can in 5 seconds?"
