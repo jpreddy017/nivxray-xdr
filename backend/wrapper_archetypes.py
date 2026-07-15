@@ -318,13 +318,20 @@ def _handle_ps_msf_xor_stage2(text: str) -> str:
 #    Attackers habit-case-mangle every keyword: `fOREACh-objEct`,
 #    `[ChAR]`, `bxoR`, `jOIn`, `InVOKE-ExpressIon`. All case-insensitive here.
 #
+#    RESILIENCE — the outer regex intentionally accepts a lax `[\d,\s]+` blob
+#    between `(` and `)`. This is required because terminal / chat / email
+#    line-wraps routinely CHOP an integer across two lines (e.g. `83,8\n3`
+#    which is really `83, 83`). The handler strips ALL whitespace from the
+#    captured blob before splitting on `,`, which restores the intended
+#    integer sequence without heuristic guessing.
+#
 #    The whole point of this archetype is to STOP the current pipeline from
 #    stripping the wrapper down to a bare digit run (which is what
 #    `extract-payload` currently does — the `-bxor` metadata is lost). This
 #    handler recovers the ORIGINAL PowerShell script (`Write-Host 'Hello…'`
 #    or a malicious payload) in a single pass, no LLM required.
 _PS_ASCII_XOR_IEX_INTS_RX = re.compile(
-    r"\(\s*(?P<ints>(?:\d{1,3}\s*,\s*){3,}\d{1,3})\s*\)",
+    r"\(\s*(?P<ints>[\d][\d,\s]{6,}[\d])\s*\)",
     re.IGNORECASE | re.DOTALL,
 )
 _PS_ASCII_XOR_IEX_KEY_RX = re.compile(
@@ -365,9 +372,22 @@ def _handle_ps_ascii_xor_iex(text: str) -> str:
         raise ValueError("no PS_ASCII_XOR_IEX match")
     key = int(key_m.group(1), 0) & 0xFF
     ints_raw = ints_m.group("ints")
-    # Extract only 1-3 digit tokens between 0 and 255. Anything else is noise.
-    tokens = re.findall(r"\d{1,3}", ints_raw)
-    nums = [int(t) for t in tokens if 0 <= int(t) <= 255]
+    # WRAP-RESILIENT PARSING — strip ALL whitespace from the captured int
+    # blob so terminal / chat / email line-wraps that chopped an integer
+    # across two lines (`83,8\n3` = intended `83, 83`) are healed before
+    # split. This is safe because the archetype's structural markers
+    # (`-bxor`, `foreach-object`, `-join''`, `iex`) already confirm we're
+    # inside a comma-separated PowerShell list — whitespace is never a
+    # legitimate separator here.
+    ints_clean = re.sub(r"\s+", "", ints_raw)
+    tokens = [t for t in ints_clean.split(",") if t]
+    nums: List[int] = []
+    for t in tokens:
+        if not t.isdigit():
+            continue
+        v = int(t)
+        if 0 <= v <= 255:
+            nums.append(v)
     if len(nums) < 4:
         raise ValueError("integer list too short")
     decoded = "".join(chr(n ^ key) for n in nums)

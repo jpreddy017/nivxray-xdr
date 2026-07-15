@@ -124,3 +124,38 @@ class TestPsAsciiXorIex:
         recipe_ops = [s["op"] for s in (r.json().get("recipe") or [])]
         assert "extract-payload" not in recipe_ops
         assert recipe_ops == ["ascii-decimal-decode", "xor"]
+
+    def test_terminal_line_wrap_inside_integer_still_decodes(self, auth):
+        """REGRESSION — user chat/email/terminal often line-wraps INSIDE an
+        integer (e.g. `83,8\\n3` really means `83, 83`). The archetype must
+        strip whitespace inside the captured int blob so this decodes
+        correctly instead of falling back to a raw digit run.
+        """
+        from wrapper_archetypes import try_archetypes
+        wrapped = (
+            'powershell  -NoProfil -NonInter     "((97,68 ,95 ,66,83 , 27 , '
+            '126, 89 , 69 , 66 ,22 ,17 , 126,83,90 , 90 ,89,22 , 97,89, 68 ,'
+            '90 ,82 , 23 , 17 ,22 , 27 , 112, 89 ,68, 83 , 81,68 , 89,67 ,88 ,'
+            ' 82 ,117, 89 , 90,89, 68 , 22 ,113,68 , 83,8\n'
+            '3 ,88,13 , 22,97,68 , 95,66 , 83,27 ,126,89 , 69 , 66 , 22 , 17 ,'
+            ' 121,84, 80, 67 ,69,85,87, 66,95, 89, 88 , 22, 100 ,89, 85, 93 ,'
+            ' 69, 23, 17 ,22,27 , 112,89 ,68 ,83 ,81 , 68 , 89, 67, 88 ,82,117,'
+            ' 89,90 , 89, 68,22 ,113,68, 83 , 83,88 )\n'
+            "| fOREACh-objEct{[ChAR]($_ -bxoR'0x36' )} )-jOIn'' | InVOKE-ExpressIon\""
+        )
+        r = try_archetypes(wrapped)
+        assert r is not None, "archetype must match even with line-wrap inside an integer"
+        assert r["engine"] == "archetype:PS_ASCII_XOR_IEX"
+        assert r["output"] == EXPECTED_DECODE
+
+        # End-to-end via API for the same wrapped payload
+        api_r = requests.post(
+            f"{BASE_URL}/api/decode/smart",
+            json={"input": wrapped},
+            headers=auth, timeout=30,
+        )
+        assert api_r.status_code == 200
+        d = api_r.json()
+        assert d["engine"] == "archetype:PS_ASCII_XOR_IEX"
+        assert d["output"] == EXPECTED_DECODE
+        assert d["confidence"] == 100
