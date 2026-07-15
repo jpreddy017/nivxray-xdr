@@ -506,7 +506,57 @@ async def explain_feedback_stats(user=Depends(get_current_user)):
     for v in per_page.values():
         totals["up"] += v.get("up", 0)
         totals["down"] += v.get("down", 0)
-    return {"totals": totals, "per_page": per_page, "per_provider": per_provider}
+    # Rank pages by net-negative score (down − up) DESC — actionable
+    # "which docs pages need the most attention".
+    weakest = sorted(
+        (
+            {
+                "page": pg,
+                "up": pv.get("up", 0),
+                "down": pv.get("down", 0),
+                "net_negative": pv.get("down", 0) - pv.get("up", 0),
+            }
+            for pg, pv in per_page.items()
+        ),
+        key=lambda x: (-x["net_negative"], -x["down"]),
+    )
+    return {
+        "totals": totals,
+        "per_page": per_page,
+        "per_provider": per_provider,
+        "weakest_pages": weakest[:10],
+    }
+
+
+@router.get("/docs/explain/feedback/recent", tags=["docs"])
+async def explain_feedback_recent(
+    vote: Optional[str] = Query(None, pattern="^(up|down)$"),
+    page: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=200),
+    user=Depends(get_current_user),
+):
+    """Return recent Explain feedback events for the admin panel drill-down."""
+    q: Dict[str, Any] = {"event_type": "docs_explain_feedback"}
+    if vote:
+        q["vote"] = vote
+    if page:
+        q["page"] = page
+    cur = db["learning_events"].find(q).sort("created_at", -1).limit(limit)
+    out: List[Dict[str, Any]] = []
+    async for d in cur:
+        out.append({
+            "id": str(d.get("_id")),
+            "page": d.get("page"),
+            "vote": d.get("vote"),
+            "provider": d.get("provider"),
+            "analyst_id": d.get("analyst_id"),
+            "question": d.get("question"),
+            "reply_snippet": d.get("reply_snippet"),
+            "comment": d.get("comment"),
+            "created_at": d.get("created_at"),
+            "session_id": d.get("session_id"),
+        })
+    return {"events": out}
 
 
 # ============================================================================

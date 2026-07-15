@@ -11,6 +11,7 @@ import TaxiiAdminPanel from "@/components/TaxiiAdminPanel";
 import RegressionDashboard from "@/components/RegressionDashboard";
 import EnrichmentAdminPanel from "@/components/EnrichmentAdminPanel";
 import ThreatIntelAdminPanel from "@/components/ThreatIntelAdminPanel";
+import DocsFeedbackPanel from "@/components/DocsFeedbackPanel";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -305,6 +306,9 @@ export default function AdminPage() {
             </table>
           </div>
         </section>
+
+        {/* Docs Explain feedback (👍/👎 signal from the docs assistant) */}
+        <DocsFeedbackPanel />
 
         {/* Users */}
         <section className="brut-border" style={{ background: "var(--surface)" }}>

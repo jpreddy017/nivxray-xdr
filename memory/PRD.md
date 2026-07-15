@@ -1,7 +1,46 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🧰 Documentation Generator Phase 4 · Full Bundle)
+## Latest Change (Feb 2026 — 🛠️ Documentation Generator Phase 5 · CI + Admin Panel)
+
+### Delivered — automated screenshot CI + admin docs-feedback triage panel
+
+**1. Screenshot CI**
+
+New files:
+- `.github/workflows/docs-screenshots.yml` — GH Actions workflow
+  - Triggers: `release: [published]`, weekly `cron "0 6 * * 1"`, `workflow_dispatch` (with optional `workflow_id` input)
+  - Installs backend deps + Playwright chromium
+  - Runs `scripts/run_docs_capture.sh`
+  - Uploads captured PNGs as a 30-day artifact
+  - On `main` (non-PR), auto-commits refreshed screenshots via `nivxray-docs-bot`
+  - Requires secrets: `NIVXRAY_BASE_URL`, `NIVXRAY_ADMIN_EMAIL`, `NIVXRAY_ADMIN_PASSWORD`
+- `backend/scripts/run_docs_capture.sh` — thin bash wrapper (bash-strict mode) for CI + cron reuse; reads env, resolves base URL from `/app/frontend/.env` fallback, invokes the Python CLI with `--all` or `--workflow $NIVXRAY_WORKFLOW`
+
+**2. Docs Feedback admin panel**
+
+Backend (`backend/routers/docs.py`):
+- `/docs/explain/feedback/stats` response now includes `weakest_pages[]` — top 10 pages sorted by `(down − up) DESC, down DESC` (actionable "which docs need attention")
+- New `GET /docs/explain/feedback/recent?vote=up|down&page=X&limit=N` — recent feedback events with question, provider, analyst_id, reply_snippet, comment
+
+Frontend:
+- New component `frontend/src/components/DocsFeedbackPanel.jsx`:
+  - Header: totals 👍/👎 + REFRESH
+  - Left: sortable "Weakest Pages" table with UP/DOWN/NET columns; click a row to drill down
+  - Right: recent 👎 events with page badge, analyst, timestamp, question, reply snippet, comment
+  - Footer: signal source note + "Open Docs" link
+- Wired into `AdminPage.jsx` between the OSINT services block and Users
+- All interactive elements carry `data-testid` (`docs-feedback-panel`, `docs-feedback-total-{up|down}`, `docs-feedback-row-{page}`, `docs-feedback-event-{id}`, `docs-feedback-refresh`)
+
+**Tests** — `backend/tests/test_docs_feedback_panel.py` (9 new, all pass)
+- `weakest_pages` is returned, correctly sorted by `net_negative DESC`, has full shape
+- `/recent` filters by vote and page, invalid vote → 422, limit upper-bound → 422, event shape validated
+
+Combined docs suite: **78 pass** (generator 12 + pdf 14 + explain-phase2 9 + rag 14 + extras 17 + feedback-panel 9). Live smoke confirmed on `/admin` — panel shows 11 up / 11 down, 5 weakest pages, 11 recent 👎 events with drill-down.
+
+---
+
+## Previous Change (Feb 2026 — 🧰 Documentation Generator Phase 4 · Full Bundle)
 
 ### Delivered — feedback loop, mtime watcher, HTML/DOCX exports, screenshot pipeline
 
