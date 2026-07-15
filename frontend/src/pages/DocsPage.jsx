@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, BookOpen, ArrowRight, Sparkles } from "lucide-react";
+import { Search, BookOpen, ArrowRight, Sparkles, Download } from "lucide-react";
 import api from "@/lib/api";
 import ReactMarkdown from "react-markdown";
 
@@ -21,6 +21,29 @@ export default function DocsPage() {
   const [searchResults, setSearchResults] = useState(null);
   const [explain, setExplain] = useState(null);
   const [explaining, setExplaining] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const downloadPdf = async () => {
+    setDownloading(true);
+    try {
+      const r = await api.get(`/docs/export/pdf?audience=${audience}`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([r.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `nivxray-${audience}-guide.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("PDF download failed", e);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     api.get("/docs/features").then((r) => setFeatures(r.data.features || []));
@@ -180,16 +203,29 @@ export default function DocsPage() {
             <BookOpen size={13} style={{ marginRight: 6 }} />
             {detail ? (detail.title || detail.id) : `${audience.toUpperCase()} GUIDE`}
           </div>
-          {selected && (
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
             <button
-              className="nvx-btn sm ghost"
-              onClick={() => { setSelected(null); setDetail(null); }}
-              style={{ marginLeft: "auto", fontSize: 10 }}
-              data-testid="docs-back-to-guide"
+              className="nvx-btn sm"
+              onClick={downloadPdf}
+              disabled={downloading}
+              style={{ fontSize: 10, display: "flex", alignItems: "center", gap: 4 }}
+              title={`Download the ${audience} guide as PDF`}
+              data-testid="docs-download-pdf"
             >
-              ← Back to guide
+              <Download size={11} />
+              {downloading ? "BUILDING…" : "PDF"}
             </button>
-          )}
+            {selected && (
+              <button
+                className="nvx-btn sm ghost"
+                onClick={() => { setSelected(null); setDetail(null); }}
+                style={{ fontSize: 10 }}
+                data-testid="docs-back-to-guide"
+              >
+                ← Back to guide
+              </button>
+            )}
+          </div>
         </div>
         <div className="nvx-card-body" style={{ fontSize: 13, color: "#c9d1d9", lineHeight: 1.6 }}>
           {detail ? (

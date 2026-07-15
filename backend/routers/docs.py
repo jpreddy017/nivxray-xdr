@@ -8,6 +8,7 @@ Endpoints
     GET  /api/docs/workflows/{id}               one workflow
     GET  /api/docs/guide?audience=user|admin|developer|all
                                                 auto-generated Markdown guide
+    GET  /api/docs/export/pdf?audience=...      auto-generated PDF User Guide
     GET  /api/docs/search?q=...
     POST /api/docs/explain                      AI "explain this page" helper
 """
@@ -16,6 +17,7 @@ import os
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from deps import get_current_user
@@ -23,6 +25,7 @@ from docs import (
     list_features, get_feature, list_workflows, get_workflow,
     search, generate_guide, guide_stats,
 )
+from docs.pdf_generator import create_user_guide
 
 
 router = APIRouter()
@@ -72,6 +75,21 @@ async def guide(
     user=Depends(get_current_user),
 ):
     return {"audience": audience, "markdown": generate_guide(audience=audience)}
+
+
+@router.get("/docs/export/pdf", tags=["docs"])
+async def export_pdf(
+    audience: str = Query("user", pattern="^(user|admin|developer|all)$"),
+    user=Depends(get_current_user),
+):
+    """Return an auto-generated PDF user guide for the given audience."""
+    pdf_bytes = create_user_guide(audience=audience)
+    filename = f"nivxray-{audience}-guide.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/docs/search", tags=["docs"])

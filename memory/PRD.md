@@ -1,7 +1,39 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 📖 Documentation Generator Phase 1)
+## Latest Change (Feb 2026 — 📄 Documentation Generator Phase 1.5 · PDF Export)
+
+### Delivered — auto-generated styled PDF user guide
+
+**Backend**
+
+*New module* `backend/docs/pdf_generator.py`:
+- `create_user_guide(audience='user'|'admin'|'developer'|'all', out_path=None) -> bytes`
+- ReportLab-powered, dynamically consumes the YAML registry (`list_features`, `list_workflows`, `guide_stats`)
+- Styled cover page with brand palette (deep slate ink + mint accents), page chrome (header/footer + page numbers), TOC, task-oriented workflows section, features grouped by category
+- Renders each feature with meta line, purpose, when-to-use, supported formats, confidence rules, common errors, tips, syntax-highlighted example blocks, related chips
+- Escapes untrusted YAML content for reportlab mini-XML
+
+*New endpoint* in `backend/routers/docs.py`:
+- `GET /api/docs/export/pdf?audience=user|admin|developer|all` — returns `application/pdf` with `Content-Disposition: attachment; filename=nivxray-{audience}-guide.pdf`
+
+**Frontend**
+
+`DocsPage.jsx`:
+- Added `[⬇ PDF]` download button in the center-pane header (uses current audience toggle)
+- Blob-based download via axios `responseType: 'blob'`
+- Button state shows "BUILDING…" while the request is in-flight
+- `data-testid="docs-download-pdf"`
+
+**Tests** — `backend/tests/test_docs_pdf.py` (14 tests, all pass)
+- Direct generator: valid PDF bytes for all 4 audiences, invalid-audience default, out_path disk write
+- Endpoint: PDF response, Content-Type + Content-Disposition, all-audience parametrisation, invalid audience → 422, auth required
+
+Verified: PDF ≈ 50 KB for user audience, magic header `%PDF-1.4`.
+
+---
+
+## Previous Change (Feb 2026 — 📖 Documentation Generator Phase 1)
 
 ### Delivered — documentation-as-a-product foundation
 
