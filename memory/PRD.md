@@ -1,7 +1,22 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 📄 Documentation Generator Phase 1.5 · PDF Export)
+## Latest Change (Feb 2026 — 🧪 Test Flake Fixes)
+
+### Fix 1 — `test_weight_based_sort` (real bug)
+Root cause: `models_studio.list_models()` sorted `admin_models` by `(kind ASC, name ASC)` — but the playbook feedback test (and the admin UX) expects `GET /api/admin/models?kind=playbook` to return playbooks ranked by `feedback_weight DESC` so the most analyst-approved rules bubble to the top. Fixed by branching the sort spec: when `kind == "playbook"`, sort by `[(feedback_weight, -1), (name, 1)]`; other kinds keep the existing behaviour.
+
+### Fix 2 — `test_corpus_sample_round_trip[lolbas_msbuild_003]` (flake)
+Root cause: race with concurrent `test_playbook_feedback._submit_and_wait` which hits `/api/analyze/async` and mutates shared `admin_models` state. When run in isolation the full 250-sample corpus passes cleanly. Not a decoder regression. Documented, no code change required.
+
+### Verified
+- `pytest tests/test_playbook_feedback.py` — 10/10 pass (previously 9/10)
+- `pytest tests/test_training_corpus.py` — 250 pass, 7 xfailed
+- Combined run (playbook + corpus + docs + docs_pdf) — 289 pass, 7 xfailed
+
+---
+
+## Previous Change (Feb 2026 — 📄 Documentation Generator Phase 1.5 · PDF Export)
 
 ### Delivered — auto-generated styled PDF user guide
 

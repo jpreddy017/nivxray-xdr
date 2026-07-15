@@ -334,7 +334,14 @@ def _sanitize_doc(doc: Dict[str, Any]) -> Dict[str, Any]:
 
 async def list_models(db, kind: Optional[str] = None) -> List[Dict[str, Any]]:
     q = {"kind": kind} if kind else {}
-    cur = db.admin_models.find(q).sort([("kind", 1), ("name", 1)])
+    # Playbooks are surfaced weight-DESC so the admin UI ranks the most
+    # analyst-approved rules first. All other kinds keep the existing
+    # (kind ASC, name ASC) ordering.
+    if kind == "playbook":
+        sort_spec = [("feedback_weight", -1), ("name", 1)]
+    else:
+        sort_spec = [("kind", 1), ("name", 1)]
+    cur = db.admin_models.find(q).sort(sort_spec)
     return [_sanitize_doc(d) async for d in cur]
 
 
