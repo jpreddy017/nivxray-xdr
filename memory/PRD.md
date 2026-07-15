@@ -1,6 +1,41 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — P0 Chain Persistence in History)
+
+### Context
+Multi-stage chain investigations were runnable via `+ CHAIN MODE` but nothing was saved. Analysts had to keep the browser tab open to preserve state, and past chains could not be recalled, exported, or clustered. This blocks the P0 downstream tasks (KB Auto-Cluster and STIX 2.1 export).
+
+### Implementation
+- **Schema extension** — `investigations` collection now stores `kind ∈ {"single","chain"}`, `stages[]` (per-stage input, output up to 8 KB, engine, confidence, steps, IOCs, MITRE, LOLBAS, YARA, shellcode/corrupt flags, `output_truncated` marker), `aggregate` (family, risk, kill_chain, merged IOCs, MITRE/LOLBAS/YARA, concatenated_output), `stage_labels[]`, `stage_count`. Fully backward compatible — legacy single-stage docs work unchanged.
+- **Auto-persist** — `POST /api/decode/chain` now writes into history (dedup by hashed `stage-boundary-joined` inputs; re-running the same chain bumps `run_count` instead of duplicating). Response includes `history_id`.
+- **Filtering** — `GET /api/history?kind=chain` isolates chain records. Also queryable via the existing text/IOC/MITRE/verdict/starred/shellcode filters.
+- **Read-only replay viewer** — new `ChainReplayView.jsx` component renders saved chains with per-stage input previews, drill-toggleable decoded output, aggregate SOC verdict (family, verdict, kill-chain, merged IOCs, MITRE/LOLBAS/YARA counts). Data-testids: `chain-replay-view`, `chain-replay-stage-{i}`, `chain-replay-verdict`, `btn-chain-replay-drill-{i}`.
+- **Restore flow** — `RESTORE TO WORKSPACE` button (both top and bottom of the replay card) migrates the saved chain back into an editable `ChainStageEditor`. If the current workspace has unsaved input/output/recipe steps, a `window.confirm` prompts the analyst before overwriting.
+- **UX polish** — `HistoryDrawer` now shows a distinct `▪ CHAIN · N STAGES` badge on chain rows and a `▪ CHAINS ONLY` filter checkbox. Auto-scroll on rehydrate accounts for the sticky ~90 px header so buttons are pointer-clickable without manual scroll.
+
+### Files changed
+- `/app/backend/routers/history.py` — `HistoryRecordIn` extended (`kind`, `stages`, `aggregate`, `stage_labels`); `_upsert_investigation` writes chain fields; `list_history` accepts `kind` filter; import round-trip preserves chain kind.
+- `/app/backend/routers/chain.py` — `POST /decode/chain` now records into history and returns `history_id`.
+- `/app/frontend/src/components/ChainReplayView.jsx` — NEW read-only replay viewer.
+- `/app/frontend/src/components/ChainStageEditor.jsx` — accepts `initialStages` prop for restore.
+- `/app/frontend/src/pages/WorkspacePage.jsx` — routes chain records to `ChainReplayView`; new `restoreChainToWorkspace()` with unsaved-changes guard; sticky-header-aware scroll.
+- `/app/frontend/src/components/HistoryDrawer.jsx` — chain badge + `chains-only` filter.
+
+### Tests
+- `/app/backend/tests/test_chain_persistence.py` — 6 new tests: chain decode creates history record with kind='chain'/stages/aggregate/stage_labels; re-run bumps run_count without duplicating; `kind=chain` filter isolates chain records; single-stage backward compat unaffected; export/import round-trip preserves kind; aggregate confidence is a valid int.
+- Full backend suite: **482 / 483 green.** The one failing test (`test_playbook_feedback.py::test_weight_based_sort`) is a **pre-existing** DB-state ordering assertion unrelated to Chain Persistence — it was not touched in this session.
+- Frontend `testing_agent_v3_fork` retested twice (iteration_5 → sticky-header overlay HIGH; iteration_6 → fix verified 100 %). All 4 button flows (top-restore, top-close, bottom-restore, bottom-close) pass with real mouse clicks; RESTORE-TO-WORKSPACE correctly unmounts the replay and mounts `ChainStageEditor` with the 2 saved stages pre-populated.
+
+### Next unlocked
+- **KB Auto-Cluster** — every `kind=chain` history row is now a fingerprintable artefact ready to feed into `knowledge_base/fingerprint.py`.
+- **STIX 2.1 chain export** — the persisted `stages` + `aggregate.kill_chain` provides the full temporal ordering STIX needs.
+
+⚠️ **Deployment**: preview only. Redeploy to `nivxray.nivxforge.com` when ready.
+
+
+
+
 ## Latest Change (Feb 2026 — Recursive Deep-Decode)
 ### User complaint
 > "I cant keep on asking you for 1000 of commandlines like this to check and fix right, so, train my tool to accurately decode and generate correct output."
