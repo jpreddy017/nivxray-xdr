@@ -487,6 +487,18 @@ async def decode_candidates(body: CandidatesIn, user=Depends(get_current_user)):
     malware indicators. If no candidate reaches MIN_ACCEPT, an
     ``unknown-or-identifier`` verdict is returned with hypotheses (hash /
     UUID / random token / unsupported encoding).
+
+    Output format (per Feb-2026 spec):
+        - candidates[]            ranked list with per-candidate evidence
+        - best                    top candidate (or None)
+        - verdict                 decoded | possible | unknown-or-identifier
+        - hex_representation      hex of the best decoded output
+        - readability_score       linguistic score of best output
+        - signature               file/binary signature (if detected)
+        - iocs                    extracted URLs / IPs / domains / hashes / paths
+        - lolbins                 detected LOLBins from the winning output
+        - mitre_techniques        MITRE ATT&CK mappings
+        - explanation             why this encoding was chosen over alternatives
     """
     from reasoning.candidate_engine import (
         score_candidates, classify_unknown, best_candidate,
@@ -495,7 +507,7 @@ async def decode_candidates(body: CandidatesIn, user=Depends(get_current_user)):
     top_n = max(1, min(int(body.top_n or 8), 20))
     cands = score_candidates(body.input, top_n=top_n)
     best = best_candidate(body.input)
-    payload = {
+    payload: Dict[str, Any] = {
         "input_length": len(body.input),
         "candidates": [c.as_dict() for c in cands],
         "best": best.as_dict() if best else None,
@@ -506,13 +518,72 @@ async def decode_candidates(body: CandidatesIn, user=Depends(get_current_user)):
     }
     if best is None:
         payload["verdict"] = classify_unknown(body.input).as_dict()
+        payload["hex_representation"] = None
+        payload["readability_score"] = None
+        payload["signature"] = None
+        payload["iocs"] = {}
+        payload["lolbins"] = []
+        payload["mitre_techniques"] = []
+        payload["explanation"] = (
+            "No encoding candidate reached the minimum-acceptance threshold "
+            f"({MIN_ACCEPT}). See `verdict.hypotheses` for likely alternatives "
+            "(hash / UUID / random token / unsupported encoding)."
+        )
+        return payload
+
+    payload["verdict"] = {
+        "verdict": "decoded" if best.confidence >= HIGH_THRESHOLD else "possible",
+        "op": best.op,
+        "confidence": best.confidence,
+        "rationale": best.rationale,
+    }
+
+    # ── Full output enrichment on the winning candidate's output ────
+    decoded = best.decoded or ""
+    try:
+        raw = decoded.encode("latin-1", errors="replace") \
+            if all(ord(c) < 256 for c in decoded) \
+            else decoded.encode("utf-8", errors="replace")
+    except Exception:
+        raw = b""
+    payload["hex_representation"] = raw.hex(" ")
+    payload["readability_score"] = round(
+        (best.evidence.get("linguistic_score") or 0.0), 4
+    )
+    payload["signature"] = best.evidence.get("signature")
+
+    # IOCs / MITRE / LOLBins from the DECODED text
+    from operations import extract_iocs, mitre_map
+    try:
+        payload["iocs"] = extract_iocs(decoded)
+    except Exception:
+        payload["iocs"] = {}
+    try:
+        payload["mitre_techniques"] = mitre_map(decoded)
+    except Exception:
+        payload["mitre_techniques"] = []
+    try:
+        from lolbas import scan_lolbas
+        payload["lolbins"] = scan_lolbas(decoded)
+    except Exception:
+        payload["lolbins"] = []
+
+    # ── "Why this over alternatives" explanation ─────────────────
+    # Compare best against the runner-up and articulate the delta.
+    if len(cands) >= 2:
+        runner = cands[1]
+        confidence_gap = round(best.confidence - runner.confidence, 4)
+        payload["explanation"] = (
+            f"Selected {best.op} (confidence={best.confidence:.2f}) over "
+            f"{runner.op} (confidence={runner.confidence:.2f}) — "
+            f"gap={confidence_gap:+.2f}. Rationale: {best.rationale} "
+            f"| Runner-up rationale: {runner.rationale}"
+        )
     else:
-        payload["verdict"] = {
-            "verdict": "decoded" if best.confidence >= HIGH_THRESHOLD else "possible",
-            "op": best.op,
-            "confidence": best.confidence,
-            "rationale": best.rationale,
-        }
+        payload["explanation"] = (
+            f"Selected {best.op} (confidence={best.confidence:.2f}) — "
+            f"only candidate above minimum threshold. {best.rationale}"
+        )
     return payload
 
 

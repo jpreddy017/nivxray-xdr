@@ -40,7 +40,17 @@ Confidence is a WEIGHTED SUM — no fixed per-encoding constant. Verified via te
 ```json
 { "input": "2NEpo7TZRRrLZSi2U", "top_n": 8 }
 ```
-Returns ranked candidates with `op`, `confidence`, `decoded_preview`, `evidence`, `rationale`, plus a `verdict` block explaining decoded / possible / unknown.
+Returns the FULL Feb-2026 output format:
+- `candidates[]` — ranked list with `op`, `confidence`, `decoded_preview`, `evidence`, `rationale`
+- `best` — top candidate
+- `verdict` — `decoded` / `possible` / `unknown-or-identifier`
+- `hex_representation` — hex dump of the decoded output (`48 65 6c 6c 6f 20 57 6f 72 6c 64 21`)
+- `readability_score` — linguistic score of the decoded output
+- `signature` — detected file signature (PE/ELF/PK/PDF/PNG/etc.)
+- `iocs` — extracted URLs / IPs / domains / hashes / emails / bitcoin addresses
+- `lolbins` — detected LOLBins with MITRE techniques + purposes
+- `mitre_techniques` — MITRE ATT&CK mappings (T1105, T1059.001, ...)
+- `explanation` — "Selected X (conf=0.85) over Y (conf=0.50) — gap=+0.35. Rationale: …"
 
 **5. Magic Decoder Integration**
 - Base58 now inserted at the FRONT of `_pick_candidates()` when input is unambiguously Base58 (correct alphabet, mixed-case OR digits present, no forbidden chars).
