@@ -47,12 +47,48 @@ from routers.process_tree import router as process_tree_router
 from routers.kb import router as kb_router
 from routers.learning import router as learning_router
 from routers.chain import router as chain_router
+from request_hardening import RequestHardeningMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("nivxray")
 
 app = FastAPI(title="NivXRay API")
 api = APIRouter(prefix="/api")
+
+
+# ── Health endpoints ────────────────────────────────────────────────────
+# `/api/health` = liveness (Cloudflare + k8s can hit cheaply)
+# `/api/health/deep` = readiness (Mongo + LLM key + disk) — for on-call triage
+@api.get("/health")
+async def health_liveness():
+    return {"status": "ok", "service": "nivxray-api"}
+
+
+@api.get("/health/deep")
+async def health_deep():
+    """Deep readiness — verifies Mongo, LLM key presence, disk headroom."""
+    import shutil
+    checks: dict = {"mongo": "unknown", "llm_key": "unknown", "disk": "unknown"}
+    ok = True
+    try:
+        await client.admin.command("ping")
+        checks["mongo"] = "ok"
+    except Exception as e:
+        checks["mongo"] = f"fail: {str(e)[:80]}"
+        ok = False
+    key = os.environ.get("EMERGENT_LLM_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    checks["llm_key"] = "ok" if key else "missing"
+    if not key:
+        ok = False
+    try:
+        total, used, free = shutil.disk_usage("/")
+        free_mb = free // (1024 * 1024)
+        checks["disk"] = f"ok ({free_mb} MB free)" if free_mb > 100 else f"low ({free_mb} MB free)"
+        if free_mb <= 100:
+            ok = False
+    except Exception as e:
+        checks["disk"] = f"fail: {str(e)[:80]}"
+    return {"status": "ok" if ok else "degraded", "checks": checks}
 
 # Wire routers under /api
 api.include_router(auth_router)
@@ -69,6 +105,9 @@ api.include_router(learning_router)
 api.include_router(chain_router)
 
 app.include_router(api)
+
+# Production hardening: X-Request-ID, hard timeouts, payload caps
+app.add_middleware(RequestHardeningMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

@@ -12,7 +12,7 @@
  */
 import { useState, useMemo } from "react";
 import { Plus, X, Play, Sparkles, Download, FileText, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
-import api from "../lib/api";
+import api, { apiStream } from "../lib/api";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -22,6 +22,7 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed }) {
   const [result, setResult] = useState(null);       // {stage_count, stages, aggregate}
   const [narrative, setNarrative] = useState(null); // {narrative, verdict, family, kill_chain}
   const [narrating, setNarrating] = useState(false);
+  const [narrateProgress, setNarrateProgress] = useState(null);
   const [drillOpen, setDrillOpen] = useState({});   // stage_index -> bool
 
   const chainMode = stages.length > 3;   // auto-switch to compact list view
@@ -65,15 +66,28 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed }) {
 
   const runNarrative = async () => {
     if (!result) return;
-    setNarrating(true);
+    setNarrating(true); setNarrative(null); setNarrateProgress({ stage: "starting", elapsed_ms: 0 });
+    const stages_body = stages.filter((s) => s.input.trim()).map((s) => ({ input: s.input }));
     try {
-      const r = await api.post("/decode/chain/narrative", {
-        stages: stages.filter((s) => s.input.trim()).map((s) => ({ input: s.input })),
-        aggregate: result.aggregate,
-      });
-      setNarrative(r.data);
+      // Prefer SSE (streamed) — heartbeats prevent Cloudflare 524 on long LLM calls.
+      await apiStream("/decode/chain/narrative/stream",
+        { stages: stages_body, aggregate: result.aggregate },
+        {
+          onProgress: (p) => setNarrateProgress(p),
+          onDone: (data) => { setNarrative(data); setNarrateProgress(null); },
+          onError: (msg) => { setNarrative({ error: msg }); setNarrateProgress(null); },
+        }
+      );
     } catch (e) {
-      setNarrative({ error: e?.response?.data?.detail || e.message });
+      // Fallback: non-streamed endpoint (also protected by 85s server-side timeout)
+      try {
+        const r = await api.post("/decode/chain/narrative",
+          { stages: stages_body, aggregate: result.aggregate });
+        setNarrative(r.data);
+      } catch (e2) {
+        setNarrative({ error: e2?.friendlyMessage || e2?.response?.data?.detail || e2.message });
+      }
+      setNarrateProgress(null);
     } finally {
       setNarrating(false);
     }
@@ -251,8 +265,12 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed }) {
           <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
             <button className="nvx-btn primary sm" onClick={runNarrative} disabled={narrating}
                     data-testid="btn-chain-narrative"
-                    title="ONE LLM call across the full aggregated chain — writes a Sophos-style analyst narrative.">
-              <Sparkles size={11} /> {narrating ? "GENERATING…" : "AI NARRATIVE (whole chain)"}
+                    title="ONE LLM call across the full aggregated chain — writes a Sophos-style analyst narrative. Streamed via SSE so it never triggers Cloudflare 524s on long runs.">
+              <Sparkles size={11} /> {narrating
+                ? (narrateProgress
+                    ? `${narrateProgress.stage.toUpperCase()} · ${Math.round((narrateProgress.elapsed_ms || 0) / 1000)}s`
+                    : "GENERATING…")
+                : "AI NARRATIVE (whole chain)"}
             </button>
             <button className="nvx-btn sm" onClick={() => doExport("markdown")} data-testid="btn-chain-export-md">
               <FileText size={11} /> EXPORT .MD

@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from deps import get_current_user
@@ -97,6 +98,88 @@ async def chain_narrative(body: ChainNarrativeIn, user=Depends(get_current_user)
         }
     except Exception as e:
         return {"error": str(e)[:400]}
+
+
+@router.post("/decode/chain/narrative/stream")
+async def chain_narrative_stream(body: ChainNarrativeIn, user=Depends(get_current_user)):
+    """Server-Sent Events (SSE) variant of /decode/chain/narrative.
+
+    Emits progress events immediately (avoiding Cloudflare 524 on slow LLM
+    calls), then a final `done` event with the full narrative. Frontend
+    consumes via EventSource / streamed fetch.
+
+    Event schema:
+      event: progress
+      data: {"stage": "connecting-llm" | "generating" | "finalizing", "elapsed_ms": <int>}
+
+      event: done
+      data: {"narrative": {...}, "verdict": {...}, "family": {...}, "kill_chain": [...]}
+
+      event: error
+      data: {"detail": "<msg>"}
+    """
+    import asyncio
+    import json as _json
+    import time as _time
+
+    async def event_stream():
+        started = _time.perf_counter()
+        # Immediate keep-alive so Cloudflare doesn't close the connection during LLM latency
+        yield "event: progress\ndata: " + _json.dumps({
+            "stage": "connecting-llm", "elapsed_ms": 0,
+        }) + "\n\n"
+
+        agg = body.aggregate or {}
+        stages = body.stages or []
+        chain_text = "\n\n───── stage boundary ─────\n\n".join(
+            f"[Stage {i}]\nINPUT: {s.input[:400]}\n" for i, s in enumerate(stages)
+        )
+
+        # Fire the LLM call as a background task so we can heartbeat while it runs.
+        from analysis_core import ai_describe_and_verdict
+        task = asyncio.create_task(ai_describe_and_verdict(
+            chain_text,
+            agg.get("concatenated_output") or "",
+            agg.get("iocs") or {},
+            agg.get("mitre") or [],
+            agg.get("yara") or [],
+            {},
+            lolbas=agg.get("lolbas") or [],
+            want_verdict=True,
+            want_describe=True,
+        ))
+
+        # Heartbeat every 8s to prevent proxy idle-close
+        try:
+            while not task.done():
+                await asyncio.wait([task], timeout=8.0)
+                elapsed = int((_time.perf_counter() - started) * 1000)
+                if not task.done():
+                    yield "event: progress\ndata: " + _json.dumps({
+                        "stage": "generating", "elapsed_ms": elapsed,
+                    }) + "\n\n"
+            result = task.result()
+            elapsed = int((_time.perf_counter() - started) * 1000)
+            payload = {
+                "narrative":  result.get("description"),
+                "verdict":    result.get("verdict"),
+                "family":     agg.get("family"),
+                "kill_chain": agg.get("kill_chain") or [],
+                "elapsed_ms": elapsed,
+            }
+            yield "event: done\ndata: " + _json.dumps(payload, default=str) + "\n\n"
+        except Exception as e:
+            yield "event: error\ndata: " + _json.dumps({"detail": str(e)[:400]}) + "\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",   # disable proxy buffering (nginx/CF)
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # ────────────────────────────────────────────────────────────────────────

@@ -1,6 +1,55 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — Cloudflare 524 hardening + SSE)
+### Goal
+Eliminate Cloudflare 524 origin-timeout errors on production. Every slow request now fails cleanly on the NivXRay side (with actionable error + traceable X-Request-ID) instead of returning a raw Cloudflare error page.
+
+### Backend hardening
+- **New `request_hardening.py` middleware** — every request gets:
+  * `X-Request-ID` header (echoed if supplied, generated otherwise as `nvx-<12 hex>`)
+  * `X-Elapsed-Ms` header on responses
+  * Hard timeout via `asyncio.wait_for`: **85s for LLM paths** (`/ai/*`, `/decode/chain/narrative`, `/decode/smart`, `/analyze` — 5s safety margin below Cloudflare's 100s cutoff); **30s default** for everything else
+  * **413 payload cap at 512 KB** with structured body (`detail`, `request_id`, `content_length`, `limit`)
+  * Slow-request logging (>5s) for on-call triage
+- **New `/api/health` (liveness)** + **`/api/health/deep` (readiness)** — Mongo ping + LLM key presence + disk headroom check. Suitable for Cloudflare Origin Health Monitor + k8s probes.
+
+### SSE streaming (Server-Sent Events)
+- **New `POST /decode/chain/narrative/stream`** — emits:
+  * `event: progress` immediately (keep-alive) + every 8s while LLM runs → prevents idle-close
+  * `event: done` with the full narrative payload
+  * `event: error` on any failure
+- Response headers: `text/event-stream` + `X-Accel-Buffering: no` (disables nginx/CF response buffering) + `Cache-Control: no-cache, no-transform`
+- LLM call runs as `asyncio.create_task` so the event loop stays responsive for heartbeats
+
+### Frontend hardening
+- **Full `lib/api.js` rewrite** with:
+  * Per-path timeouts: LLM = 90s, decode/analyze = 60s, default = 30s
+  * `AbortController` on every request → clean cancellation
+  * **Retry with exponential backoff** (500ms → 1.5s → 4.5s) on network errors + 502/503/504/524. Max 2 retries. Never retries 4xx.
+  * `X-Request-ID` surfacing on `err.requestId` for error toasts
+  * Human-friendly `err.friendlyMessage` on timeout / 413 / 524 with actionable guidance
+- **New `apiStream()` helper** — consumes SSE via native `fetch` + `getReader()`, calls `onProgress` / `onDone` / `onError` callbacks
+- **`ChainStageEditor.jsx`** — `AI NARRATIVE` button now streams: shows `CONNECTING-LLM · 2s` → `GENERATING · 15s` → final narrative. If SSE errors, falls back to non-streaming endpoint (also 85s server-side capped)
+
+### Testing
+- 7 new pytest cases in `test_request_hardening.py`:
+  * X-Request-ID generation + echo
+  * X-Elapsed-Ms header populated
+  * 413 payload cap (600 KB rejected)
+  * 413 response body shape
+  * `/api/health` liveness + `/api/health/deep` readiness
+  * SSE endpoint returns `text/event-stream` content-type + first frame is progress heartbeat
+- Full backend suite: **455 / 455 green** (was 448; +7 hardening tests). Zero regressions.
+
+### Deferred to P2 (explicitly out of scope per user direction)
+- Redis-backed distributed rate limiting
+- OpenTelemetry / full APM
+
+⚠️ **Deployment**: preview only. Redeploy to push to `nivxray.nivxforge.com`.
+
+
+
 ## Latest Change (Feb 2026 — Base32 + ASCII-decimal training)
 ### Bug report
 User pasted a payload consisting entirely of `A-Z2-7` (Base32 alphabet). Every existing decoder path assumed Base64 and failed. Nested inside was a stream of decimal ASCII codes (space-separated ints 0-255) — another common obfuscator artefact NivXRay didn't recognise.
