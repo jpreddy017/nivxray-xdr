@@ -392,13 +392,60 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             t["evidence"] = layer_metadata(t.get("op") or "", after,
                                            integrity_ok=ok,
                                            integrity_reason=reason)
-        # Verdict Card — top-of-workspace analyst brief
-        result["verdict_card"] = build_verdict_card(
-            input_text=body.input,
-            output_text=result["output"],
-            chain=[{"op": s["op"], "args": s.get("args") or {}} for s in det.get("steps") or []],
-            corrupted_container=result.get("corrupted_container"),
-        )
+
+        # ── Best-effort container recovery mode ─────────────────────────
+        # When the analyst opts into best-effort AND a corrupted container
+        # produced a salvaged plaintext, elevate the salvage to the primary
+        # output (with a permanent integrity warning appended). Verdict
+        # downgrades from Corrupted → Suspicious so the downstream Sample
+        # Library / TAXII / SIEM tooling can still ingest the payload.
+        cc = result.get("corrupted_container")
+        salvaged = (cc or {}).get("salvaged") if cc else None
+        mode = (body.mode or "strict").lower()
+        if mode == "best_effort" and cc and salvaged:
+            result["output"] = (
+                f"{salvaged}\n\n"
+                f"⚠ Integrity Warning · {cc.get('kind')} trailer invalid: "
+                f"{cc.get('reason')}. Payload recovered by best-effort raw "
+                f"deflate — CRC / ISIZE could NOT be verified. Treat as "
+                f"unverified plaintext until compared against source."
+            )
+            # keep the corrupted_container object so the UI still shows the
+            # ⚠ badge, but note the recovery mode used.
+            cc["mode"] = "best_effort"
+            # Rebuild verdict card with the elevated context so verdict
+            # becomes Suspicious (not Corrupted).
+            result["verdict_card"] = build_verdict_card(
+                input_text=body.input,
+                output_text=salvaged,
+                chain=[{"op": s["op"], "args": s.get("args") or {}} for s in det.get("steps") or []],
+                corrupted_container=None,   # bypass corrupted short-circuit
+            )
+            # Prepend an explicit warning indicator so analysts see it up top.
+            if result["verdict_card"]:
+                result["verdict_card"]["indicators"].insert(0, {
+                    "kind":  "negative",
+                    "label": (f"⚠ Best-effort recovery — {cc.get('kind')} CRC/ISIZE "
+                              f"validation FAILED ({cc.get('reason')}); "
+                              f"{len(salvaged)} bytes salvaged unverified."),
+                })
+                result["verdict_card"]["recommended_action"] = (
+                    "Verify salvaged plaintext against source before use. "
+                    "Attackers occasionally corrupt archive trailers to evade "
+                    "signature-based tooling — treat contents as unverified."
+                )
+            result["mode"] = "best_effort"
+        else:
+            # Strict mode — default. Verdict Card + evidence already carry
+            # the corrupted state including the salvaged bytes on
+            # `corrupted_container.salvaged` for the UI to preview.
+            result["verdict_card"] = build_verdict_card(
+                input_text=body.input,
+                output_text=result["output"],
+                chain=[{"op": s["op"], "args": s.get("args") or {}} for s in det.get("steps") or []],
+                corrupted_container=result.get("corrupted_container"),
+            )
+            result["mode"] = "strict"
     except Exception as _e:
         # Never break /decode/smart if evidence extraction hiccups
         result["verdict_card"] = None

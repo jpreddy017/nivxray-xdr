@@ -233,11 +233,28 @@ def _classify(indicators: List[Dict[str, str]],
     """Verdict + confidence — evidence-driven, never speculative."""
     # Corrupted container short-circuits.
     if corrupted:
+        salvaged = corrupted.get("salvaged")
+        if salvaged:
+            preview = salvaged[:80] + ("…" if len(salvaged) > 80 else "")
+            return {
+                "label":      "Corrupted",
+                "confidence": 20,
+                "reason":     (f"Corrupted {corrupted.get('kind', '?')} container "
+                               f"({corrupted.get('reason', 'integrity check failed')}), "
+                               f"but raw deflate salvaged {len(salvaged)} bytes "
+                               f"of UNVERIFIED plaintext: {preview!r}."),
+                "recommended_action": (
+                    "Compare salvaged plaintext against source before use — "
+                    "CRC/trailer was invalid so integrity cannot be attested. "
+                    "Do NOT ingest into automated pipelines without manual review."
+                ),
+            }
         return {
             "label":      "Corrupted",
             "confidence": 0,
             "reason":     (f"Corrupted {corrupted.get('kind', '?')} container: "
-                           f"{corrupted.get('reason', 'integrity check failed')}."),
+                           f"{corrupted.get('reason', 'integrity check failed')}. "
+                           "Raw payload was also unrecoverable."),
             "recommended_action": (
                 "Discard sample OR re-request the payload from the analyst. "
                 "Do not attempt further deterministic recovery — enable "
@@ -306,7 +323,17 @@ def build_verdict_card(input_text: str, output_text: str,
                        ) -> Dict[str, Any]:
     """Assemble the SOC Verdict Card — the top-of-workspace analyst brief."""
     indicators = _collect_indicators(input_text or "", output_text or "", chain or [])
-    verdict    = _classify(indicators, corrupted_container, chain or [], output_text or "")
+    # Surface salvaged plaintext as a POSITIVE indicator so analysts see it in
+    # the Evidence list, not just buried in the Reason line.
+    if corrupted_container and corrupted_container.get("salvaged"):
+        salv = corrupted_container["salvaged"]
+        preview = salv[:80] + ("…" if len(salv) > 80 else "")
+        indicators.insert(0, {
+            "kind":  "positive",
+            "label": (f"Raw deflate salvaged {len(salv)} bytes (UNVERIFIED — "
+                      f"CRC could not be validated): {preview!r}"),
+        })
+    verdict = _classify(indicators, corrupted_container, chain or [], output_text or "")
     return {
         "label":               verdict["label"],
         "confidence":          verdict["confidence"],

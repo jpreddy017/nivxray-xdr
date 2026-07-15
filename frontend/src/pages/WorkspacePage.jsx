@@ -365,13 +365,23 @@ export default function WorkspacePage() {
     }
   };
 
+  // Feb-2026 · Strict vs Best-Effort container-recovery mode. Persisted per
+  // user so the choice sticks across sessions.
+  const [recoveryMode, setRecoveryMode] = useState(
+    () => localStorage.getItem("nvx_recovery_mode") || "strict",
+  );
+  const setRecoveryModePersisted = (m) => {
+    setRecoveryMode(m);
+    try { localStorage.setItem("nvx_recovery_mode", m); } catch {}
+  };
+
   const autoDecode = async ({ smart = false, disable_boost = false } = {}) => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
     setLoading(true);
     setStatus(smart ? "SMART-DECODING (DETERMINISTIC)..." : "AI AUTO-DECODING...");
     try {
       const url = smart ? "/decode/smart" : "/ai/auto-decode";
-      const payload = smart ? { input, disable_boost } : { input };
+      const payload = smart ? { input, disable_boost, mode: recoveryMode } : { input };
       const r = await api.post(url, payload);
       setSteps((r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} })));
 
@@ -848,6 +858,56 @@ export default function WorkspacePage() {
                 }>
           <Zap size={13} /> SMART DECODE
         </button>
+        {/* Feb-2026 · Corrupted-Container recovery mode toggle */}
+        <div
+          data-testid="recovery-mode-toggle"
+          className="mono"
+          style={{
+            display: "inline-flex",
+            alignItems: "stretch",
+            border: "1px solid var(--border)",
+            borderRadius: 2,
+            marginLeft: 4,
+            fontSize: 10,
+            letterSpacing: "0.10em",
+          }}
+          title={
+            "Corrupted-Container recovery mode.\n\n" +
+            "STRICT (default) — Report CRC/trailer failures as Corrupted. Salvaged\n" +
+            "  plaintext is available on `corrupted_container.salvaged` for reference.\n\n" +
+            "BEST-EFFORT — Elevate salvaged plaintext to the primary output with a\n" +
+            "  permanent ⚠ Integrity Warning. Verdict downgrades Corrupted → Suspicious\n" +
+            "  so the payload can flow into Sample Library / TAXII / SIEM."
+          }
+        >
+          <button
+            onClick={() => setRecoveryModePersisted("strict")}
+            data-testid="recovery-mode-strict"
+            style={{
+              padding: "4px 10px",
+              background: recoveryMode === "strict" ? "var(--accent)" : "transparent",
+              color: recoveryMode === "strict" ? "var(--bg)" : "var(--text-mute)",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            STRICT
+          </button>
+          <button
+            onClick={() => setRecoveryModePersisted("best_effort")}
+            data-testid="recovery-mode-best-effort"
+            style={{
+              padding: "4px 10px",
+              background: recoveryMode === "best_effort" ? "var(--warn)" : "transparent",
+              color: recoveryMode === "best_effort" ? "var(--bg)" : "var(--text-mute)",
+              border: "none",
+              borderLeft: "1px solid var(--border)",
+              cursor: "pointer",
+            }}
+          >
+            BEST-EFFORT
+          </button>
+        </div>
         <button className="nvx-btn" onClick={magicDecode} disabled={loading} data-testid="btn-magic-decode"
                 style={{ borderColor: "var(--warn)", color: "var(--warn)" }}
                 title={

@@ -547,33 +547,70 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                 # or any other transformation — a corrupt archive is corrupt.
                 if c.get("_magic_locked"):
                     label = c["_magic_locked"]
+                    # ── Salvage attempt (Feb-2026, per user rule #5) ─────
+                    # Even when the container's CRC / trailer is invalid,
+                    # the deflate/lzma/bzip2 payload itself may still be
+                    # RECOVERABLE. Attempt an unverified salvage — for
+                    # GZIP: strip the 10-byte header + 8-byte trailer and
+                    # invoke raw deflate (`zlib.decompress(inner, -MAX_WBITS)`).
+                    # The result is surfaced as `salvaged` with a clear
+                    # WARNING that CRC couldn't be verified.
+                    salvaged = None
+                    try:
+                        raw = cur.encode("latin-1") if all(ord(x) < 256 for x in cur) \
+                                                    else cur.encode("utf-8", errors="replace")
+                        if label == "GZIP" and len(raw) >= 18:
+                            import zlib as _z
+                            inner = raw[10:-8]
+                            plain = _z.decompress(inner, -_z.MAX_WBITS)
+                            salvaged = plain.decode("utf-8", errors="replace")
+                        elif label == "ZLIB" and len(raw) >= 4:
+                            import zlib as _z
+                            # ZLIB check-fail: retry with raw deflate (skip 2-byte header, 4-byte adler32 trailer)
+                            plain = _z.decompress(raw[2:-4], -_z.MAX_WBITS)
+                            salvaged = plain.decode("utf-8", errors="replace")
+                    except Exception:
+                        salvaged = None
+
                     step_err = {
                         "op": c["op"],
                         "args": c.get("args") or {},
                         "_magic_locked": label,
                         "_error": f"{type(_e).__name__}: {_e}",
                     }
-                    best_results.append({
-                        "chain": chain + [step_err],
-                        "output": (
+                    if salvaged is not None:
+                        output_text = (
+                            f"[Corrupted {label} container — SALVAGED unverified payload] "
+                            f"{salvaged}\n\n"
+                            f"⚠ Warning: {type(_e).__name__}: {_e}. "
+                            "Trailer CRC/ISIZE could not be validated — recovered "
+                            "plaintext may be truncated or tampered. Verify against source."
+                        )
+                    else:
+                        output_text = (
                             f"[Corrupted {label} container] "
                             f"{type(_e).__name__}: {_e}. "
                             "Deterministic decoder will not brute-force inside a "
                             "corrupted container. Enable Aggressive Recovery to "
                             "attempt salvage."
-                        ),
+                        )
+                    best_results.append({
+                        "chain": chain + [step_err],
+                        "output": output_text,
                         "score_breakdown": {
                             "score":    0.0,
                             "printable": 0.0,
                             "english":   0.0,
                             "entropy":   0.0,
-                            "size":      0,
-                            "reasons":   [f"corrupted-{label.lower()}-container"],
+                            "size":      len(output_text),
+                            "reasons":   [f"corrupted-{label.lower()}-container"
+                                          + ("+salvaged" if salvaged is not None else "")],
                         },
                         "path_scores": list(path_scores) + [0.0],
                         "corrupted_container": {
-                            "kind":   label,
-                            "reason": str(_e),
+                            "kind":     label,
+                            "reason":   str(_e),
+                            "salvaged": salvaged,
                         },
                     })
                     return   # stop the ENTIRE branch — no further candidates

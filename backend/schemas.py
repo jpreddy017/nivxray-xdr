@@ -40,6 +40,12 @@ class RunRecipeOut(BaseModel):
 class AutoIn(BaseModel):
     input: str
     disable_boost: bool = Field(False, description="Skip Learning-Feedback boost even if enabled")
+    # Feb-2026: SOC-grade Corrupted-Container recovery mode.
+    #   strict       — deterministic mode. Fail CRC/ISIZE → return Corrupted verdict; salvage
+    #                  is stored on `corrupted_container.salvaged` for reference only.
+    #   best_effort  — retain the salvaged plaintext as the primary output with a clear
+    #                  ⚠ Integrity Warning. Verdict downgrades to Suspicious (not Corrupted).
+    mode: str = Field("strict", description="strict | best_effort")
 
 
 class MagicIn(BaseModel):
