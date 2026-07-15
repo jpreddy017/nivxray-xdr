@@ -95,13 +95,9 @@ async def _run_step(page, base_url: str, step_cfg: Dict[str, Any],
             pass
     await page.wait_for_timeout(step_cfg.get("delay_ms", 700))
 
-    if step_cfg.get("click_before"):
-        try:
-            await page.click(step_cfg["click_before"], force=True, timeout=4000)
-            await page.wait_for_timeout(500)
-        except Exception as e:
-            print(f"[warn] click_before failed: {e}", file=sys.stderr)
-
+    # Fill the input FIRST so any decode/action button becomes enabled,
+    # THEN click. Screenshot delay is honoured by the outer `delay_ms`
+    # for post-click renders below.
     ti = step_cfg.get("type_into")
     if ti and ti.get("selector") and ti.get("text") is not None:
         try:
@@ -109,6 +105,14 @@ async def _run_step(page, base_url: str, step_cfg: Dict[str, Any],
             await page.wait_for_timeout(400)
         except Exception as e:
             print(f"[warn] type_into failed: {e}", file=sys.stderr)
+
+    if step_cfg.get("click_before"):
+        try:
+            await page.click(step_cfg["click_before"], force=True, timeout=6000)
+            # Give the button-driven action time to render before we shoot.
+            await page.wait_for_timeout(step_cfg.get("post_click_ms", 1200))
+        except Exception as e:
+            print(f"[warn] click_before failed: {e}", file=sys.stderr)
 
     selector = step_cfg.get("selector")
     kwargs: Dict[str, Any] = {"path": str(out_path), "type": "png"}

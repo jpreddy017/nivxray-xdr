@@ -73,6 +73,32 @@ def generate_html(audience: str = "user") -> str:
     )
     stats = guide_stats()
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    # Inline the 5W1H analyst flow SVG right below the cover banner.
+    flow_svg = ""
+    try:
+        from pathlib import Path as _P
+        svg_path = _P(__file__).parent / "assets" / "analyst_flow.svg"
+        if svg_path.exists():
+            raw = svg_path.read_text(encoding="utf-8")
+            # Strip the XML prolog so the SVG embeds cleanly inline.
+            if raw.startswith("<?xml"):
+                raw = raw.split("?>", 1)[-1]
+            flow_svg = (
+                '<section style="margin:24px 0 32px;padding:20px;'
+                'background:rgba(126,227,201,0.04);border-left:3px solid #7ee3c9;'
+                'border-radius:4px;">'
+                '<h2 style="margin-top:0;">Analyst Flow · 5W1H</h2>'
+                '<p style="color:#94a3b8;font-size:13px;margin-top:0;">'
+                'Follow the arrows. Every step answers one of the six analyst '
+                'questions (What · Where · When · Why · How · Which) and loops '
+                'back into the learning system.</p>'
+                f'<div style="text-align:center;overflow-x:auto;">{raw}</div>'
+                '</section>'
+            )
+    except Exception:
+        pass
+
     return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -90,6 +116,7 @@ def generate_html(audience: str = "user") -> str:
     Auto-generated {ts}
   </div>
 </header>
+{flow_svg}
 <main>{body}</main>
 <footer>© {datetime.now(timezone.utc).year} NivXRay · Auto-generated from
 <code>docs/features/*.yaml</code> and <code>docs/workflows/*.yaml</code>.</footer>

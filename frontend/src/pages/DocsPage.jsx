@@ -26,6 +26,15 @@ export default function DocsPage() {
   const [followup, setFollowup] = useState("");
   const [explaining, setExplaining] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [flowSvg, setFlowSvg] = useState("");
+
+  useEffect(() => {
+    // Fetch the 5W1H flow SVG via the authed axios client so it renders
+    // even when the assets endpoint requires a Bearer token.
+    api.get("/docs/assets/analyst_flow.svg", { responseType: "text" })
+       .then((r) => setFlowSvg(typeof r.data === "string" ? r.data : ""))
+       .catch(() => setFlowSvg(""));
+  }, []);
 
   const downloadExport = async (fmt) => {
     setDownloading(true);
@@ -315,6 +324,40 @@ export default function DocsPage() {
             <FeatureDetail detail={detail} kind={selected.kind} />
           ) : (
             <div className="docs-md">
+              {/* 5W1H analyst flow — inline SVG banner */}
+              <div
+                data-testid="docs-analyst-flow-banner"
+                style={{
+                  margin: "0 0 20px", padding: 14,
+                  background: "rgba(126,227,201,0.05)",
+                  border: "1px solid rgba(126,227,201,0.15)",
+                  borderRadius: 4,
+                }}>
+                <div style={{ fontSize: 12, color: "#7ee3c9",
+                              letterSpacing: 0.6, marginBottom: 4 }}>
+                  ANALYST FLOW · 5W1H
+                </div>
+                <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
+                  Follow the arrows. Every step answers one of the six analyst
+                  questions (What · Where · When · Why · How · Which) and loops
+                  back into the learning system.
+                </div>
+                <img
+                  src={`${process.env.REACT_APP_BACKEND_URL || ""}/api/docs/assets/analyst_flow.svg`}
+                  alt="NivXRay analyst flow — 5W1H"
+                  style={{ width: "100%", height: "auto",
+                           background: "#0b1220", borderRadius: 3,
+                           display: flowSvg ? "none" : "block" }}
+                />
+                {flowSvg && (
+                  <div
+                    data-testid="docs-analyst-flow-svg"
+                    style={{ width: "100%", background: "#0b1220",
+                             borderRadius: 3, overflow: "hidden" }}
+                    dangerouslySetInnerHTML={{ __html: flowSvg }}
+                  />
+                )}
+              </div>
               <ReactMarkdown>{guide}</ReactMarkdown>
             </div>
           )}

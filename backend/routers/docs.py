@@ -566,6 +566,26 @@ async def explain_feedback_recent(
 # Workflow screenshots (captured by scripts/capture_docs_screenshots.py)
 # ============================================================================
 _SCREENSHOTS_DIR = Path(__file__).parent.parent / "docs" / "screenshots"
+_ASSETS_DIR = Path(__file__).parent.parent / "docs" / "assets"
+
+
+@router.get("/docs/assets/{filename}", tags=["docs"])
+async def get_docs_asset(filename: str, user=Depends(get_current_user)):
+    """Serve a static docs asset (SVG diagrams, PNGs bundled with the docs)."""
+    if "/" in filename or ".." in filename:
+        raise HTTPException(400, "invalid filename")
+    path = _ASSETS_DIR / filename
+    if not path.exists() or not path.is_file():
+        raise HTTPException(404, "asset not found")
+    if filename.endswith(".svg"):
+        media = "image/svg+xml"
+    elif filename.endswith(".png"):
+        media = "image/png"
+    elif filename.endswith(".gif"):
+        media = "image/gif"
+    else:
+        media = "application/octet-stream"
+    return FileResponse(path, media_type=media)
 
 
 @router.get("/docs/screenshots/{workflow_id}", tags=["docs"])

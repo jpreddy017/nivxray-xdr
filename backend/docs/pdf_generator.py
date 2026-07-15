@@ -29,6 +29,15 @@ from reportlab.platypus import (
 
 from docs import list_features, list_workflows, guide_stats
 
+# Optional SVG embed — svglib is bundled with reportlab, but guard the
+# import in case a slim environment strips it.
+try:
+    from svglib.svglib import svg2rlg  # type: ignore
+except Exception:  # pragma: no cover
+    svg2rlg = None
+
+_ASSETS_DIR = Path(__file__).parent / "assets"
+
 
 # -------------------------------------------------------------------
 # Brand palette — mirrors NivXRay's dark cyber aesthetic on paper.
@@ -404,6 +413,31 @@ def create_user_guide(
     story: List[Any] = []
     story.extend(_build_cover(styles, audience, stats))
     story.extend(_build_toc(styles, wfs, by_cat))
+
+    # ─── 5W1H analyst flow diagram (Phase 1 · User Guide) ───────────
+    flow_svg = _ASSETS_DIR / "analyst_flow.svg"
+    if svg2rlg is not None and flow_svg.exists():
+        try:
+            drawing = svg2rlg(str(flow_svg))
+            # Scale-to-fit page width (7.3 inch content frame)
+            max_w = 7.3 * inch
+            if drawing.width > 0:
+                scale = max_w / drawing.width
+                drawing.width *= scale
+                drawing.height *= scale
+                drawing.scale(scale, scale)
+            story.append(Paragraph("Analyst Flow — 5W1H", styles["H1"]))
+            story.append(Paragraph(
+                "Follow the arrows. Every step answers one of the six analyst "
+                "questions (What · Where · When · Why · How · Which) and loops "
+                "back into the learning system.",
+                styles["Muted"]))
+            story.append(Spacer(1, 8))
+            story.append(drawing)
+            story.append(PageBreak())
+        except Exception:
+            # Bad SVG or renderer mismatch — silently skip rather than fail export.
+            pass
 
     if wfs:
         story.append(Paragraph("Task-Oriented Workflows", styles["H1"]))

