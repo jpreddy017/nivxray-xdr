@@ -52,6 +52,11 @@ def _pairs():
     for fname in sorted(os.listdir(FIXTURES_DIR)):
         if not fname.endswith(".txt") or fname.endswith(".expected.txt"):
             continue
+        # Corpus-mirrored fixtures (`corpus_*.txt`) are covered by the
+        # dedicated `test_training_corpus.py` — skip here to avoid duplicate
+        # test runs and duplicated xfail bookkeeping.
+        if fname.startswith("corpus_"):
+            continue
         stem = fname[:-4]
         exp_path = os.path.join(FIXTURES_DIR, stem + ".expected.txt")
         if not os.path.exists(exp_path):

@@ -1,6 +1,44 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — P0 · Training Corpus v1)
+
+### Delivered
+NivX Forge now has a formal training + regression corpus.
+
+- **`/app/backend/training/corpus/generator.py`** — deterministic Python builder for the whole corpus. Regenerate with `python -m training.corpus.generator`. Idempotent (byte-identical output on re-run), safe for git check-in.
+- **`samples.jsonl`** — 50 samples across 10 v1 categories (5 each):
+  - `base64_utf16le`, `double_base64`, `gzip_base64`, `deflate_base64`, `xor_ascii_decimal_iex`, `xor_base64`, `hex_bytes`, `decimal_ascii`, `base32_rfc4648`, `rot13`.
+- **`negative_samples.jsonl`** — 10 benign controls (SQL, HTML, git commands, log lines, internal IP, benign email, etc.). Ensures the anti-hallucination guard doesn't drift.
+- **Full ground-truth schema** on every sample: `{id, category, input, expected_decoded, chain_stages, iocs, mitre, lolbas, verdict, confidence, notes}`.
+- **Fixture mirror** — each sample also written to `/app/backend/tests/fixtures/corpus_<id>.txt` + `.expected.txt` so the corpus doubles as a regression fixture set.
+- **`test_training_corpus.py`** — parametrized pytest that walks every sample through `/api/decode/smart` and asserts the plaintext is recovered. Also validates the schema completeness and v1 category coverage.
+
+### Results
+- **125/141 pass, 16 xfailed** across the full Feb-2026 suite (`test_training_corpus` + `test_fixture_regression_matrix` + all archetype/decoder/anti-hallucination/STIX/KB/Chain-Persistence suites).
+- xfails become the v2 backlog: `xor_base64` (auto-brute + code-hint parsing), `rot13` (ROT-N brute + English-density pick), 4 sample-level gaps (2-char plaintext, comma-only decimal without wrapper, BitsTransfer scoring path).
+
+### v2 backlog (35 more categories · ready to slot in when you're ready)
+Categories documented in `README.md`: triple_base64, base85/base91, octal, binary_split-mirror, caesar, url_encoding, unicode_escapes, caret_escaping, env_var_expansion, string_concat, char_arrays, join_split, format_operator, reverse, aes/rc4, clickfix, individual LOLBAS (mshta/rundll32/regsvr32/certutil), batch_var_slicing, vbscript, js_eval_atob, hta, wmi, schtasks, registry_run, lnk, amsi_bypass, reflection_loading, shellcode_virtualalloc, multi_stage_chains.
+
+### Files added
+- `/app/backend/training/__init__.py`
+- `/app/backend/training/corpus/__init__.py`
+- `/app/backend/training/corpus/generator.py`
+- `/app/backend/training/corpus/README.md`
+- `/app/backend/training/corpus/samples.jsonl`
+- `/app/backend/training/corpus/negative_samples.jsonl`
+- `/app/backend/tests/test_training_corpus.py`
+- `/app/backend/tests/fixtures/corpus_*.txt` (60 mirror files)
+
+### Files changed
+- `/app/backend/tests/test_fixture_regression_matrix.py` — skips `corpus_*` fixtures (dedicated coverage in `test_training_corpus.py`).
+
+⚠️ **Deployment**: preview only. This build ONLY adds new files — no production runtime code changed. Deploy is optional (corpus is a dev/test artifact).
+
+
+
+
 ## Latest Change (Feb 2026 — 🔥 HOTFIX · Anti-hallucination fake-PE detection)
 
 ### User complaint (4 screenshots)
