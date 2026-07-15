@@ -138,6 +138,50 @@ def _ascii_decimal_decode(data: str) -> str:
     return "".join(out)
 
 
+@op("ps-binary-split-decode", "PowerShell Binary/Hex Split-Array → Text", "Cryptography",
+    "Decode PowerShell binary-split obfuscation: `.Split('junkchars')` + `ToInt16($_, 2/10/16)`. "
+    "Auto-detects delimiters from the .Split() call, chunks the data string, and converts each chunk "
+    "from base-2 / base-10 / base-16 to ASCII. Handles Invoke-Obfuscation's binary/hex-array mode.")
+def _ps_binary_split_decode(data: str) -> str:
+    # Detect the base: 2, 10, or 16
+    base_m = re.search(r"ToInt16\s*\(\s*[^,]+,\s*(2|10|16)\s*\)", data, re.IGNORECASE)
+    if base_m:
+        base = int(base_m.group(1))
+    elif re.search(r"\[char\]\s*\[int\]\s*\(\s*['\"]?0x", data, re.IGNORECASE):
+        base = 16
+    else:
+        return ""
+
+    # Extract the delimiter string from .Split('...')
+    delim_m = re.search(r"\.Split\s*\(\s*['\"]([^'\"]{1,32})['\"]\s*\)", data)
+    if not delim_m:
+        return ""
+    delims = delim_m.group(1)
+
+    # Extract the largest data-looking single-quoted string that contains
+    # digits + at least one of the delimiter characters. This is the payload.
+    valid_char_class = "0-9a-fA-F" if base == 16 else "0-9"
+    candidates = re.findall(r"['\"]([" + valid_char_class + re.escape(delims) + r"]{20,})['\"]", data)
+    if not candidates:
+        return ""
+    payload = max(candidates, key=len)
+
+    # Split by delimiter chars
+    chunks = re.split("[" + re.escape(delims) + "]", payload)
+    out = []
+    for c in chunks:
+        c = c.strip()
+        if not c:
+            continue
+        try:
+            n = int(c, base)
+            if 0 <= n <= 0x10FFFF:
+                out.append(chr(n))
+        except ValueError:
+            continue
+    return "".join(out)
+
+
 @op("hex-encode", "Hex Encode", "Cryptography", "Encode text as hexadecimal.")
 def _hex_encode(data: str) -> str:
     return data.encode("utf-8").hex()
@@ -609,6 +653,24 @@ MITRE_HEURISTICS = [
         ("T1497.003", "Virtualization/Sandbox Evasion: Time Based Evasion", "Defense Evasion")),
     # ── BITS Jobs (explicit long-form) ────────────────────────────────────
     (r"start-bitstransfer|import-module\s+bitstransfer", ("T1197", "BITS Jobs", "Defense Evasion")),
+    # ── Linux/Unix shell obfuscation (Feb 2026 training) ──────────────────
+    # T1059.004 = Command and Scripting Interpreter: Unix Shell
+    # T1027.010 = Command Obfuscation
+    # T1140     = Deobfuscate/Decode Files or Information
+    # Base64-pipe execution: `echo "..." | base64 -d | sh|bash|zsh|dash|python|perl`
+    (r"base64\s+(?:-d|--decode)\s*\|\s*(?:sh|bash|zsh|dash|ksh|python\d?|perl|ruby)\b",
+        ("T1059.004", "Unix Shell", "Execution")),
+    (r"base64\s+(?:-d|--decode)\s*\|\s*(?:sh|bash|zsh|dash|ksh)\b",
+        ("T1027.010", "Command Obfuscation (Base64 pipe-to-shell)", "Defense Evasion")),
+    # Reverse-then-execute: `... | rev | (sh|bash|...)` — string-reversal obfuscation
+    (r"\|\s*rev\s*\|\s*(?:sh|bash|zsh|dash|ksh)\b",
+        ("T1027.010", "Command Obfuscation (rev pipe)", "Defense Evasion")),
+    # Env-var slicing: `${VAR:start:len}` used to build commands character-by-character
+    (r"\$\{\w+:\d+:\d+\}",
+        ("T1027.010", "Command Obfuscation (env-var slicing)", "Defense Evasion")),
+    # curl/wget download-and-exec (bash equivalent of Net.WebClient.DownloadString)
+    (r"(?:curl|wget)\s+[^|]*\|\s*(?:sh|bash|zsh|dash|ksh|python\d?)\b",
+        ("T1105", "Ingress Tool Transfer (curl/wget pipe-to-shell)", "Command and Control")),
 ]
 
 
@@ -653,6 +715,35 @@ YARA_LITE = [
     {"rule": "PS_CaseMixed_Obfuscation", "severity": "low",
      "pattern": r"\b(?=\w{6,})(?:[a-z]+[A-Z]){2,}[a-z]*\b",
      "desc": "Alternating-case keyword obfuscation to evade string-signature detection"},
+    # ── Linux / Bash obfuscation (Feb 2026 training) ───────────────────────
+    {"rule": "Bash_Base64_Pipe_Shell", "severity": "high",
+     "pattern": r"base64\s+(?:-d|--decode)\s*\|\s*(?:sh|bash|zsh|dash|ksh|python\d?|perl|ruby)\b",
+     "desc": "Bash base64-decode piped directly into shell (fileless in-memory execution)"},
+    {"rule": "Bash_Rev_Pipe_Shell", "severity": "high",
+     "pattern": r"\|\s*rev\s*\|\s*(?:sh|bash|zsh|dash|ksh)\b",
+     "desc": "String reversed via rev then piped to shell — anti-signature obfuscation"},
+    {"rule": "Bash_Env_Var_Slicing", "severity": "medium",
+     "pattern": r"\$\{\w+:\d+:\d+\}",
+     "desc": "Bash env-var slicing (${VAR:start:len}) — building commands character-by-character"},
+    {"rule": "Bash_Curl_Wget_Pipe_Shell", "severity": "high",
+     "pattern": r"(?:curl|wget)\s+[^\r\n|]{0,200}\|\s*(?:sh|bash|zsh|dash|ksh|python\d?)\b",
+     "desc": "curl/wget output piped directly to shell — classic Linux dropper pattern"},
+    # ── PowerShell structural obfuscation (Feb 2026 training) ──────────────
+    {"rule": "PS_Format_Shuffle", "severity": "medium",
+     "pattern": r"['\"](?:\s*\{\d+\}\s*)+['\"]\s*-f\s",
+     "desc": "PowerShell -f token-shuffle format string — array reorder evasion"},
+    {"rule": "PS_String_Split_Evasion", "severity": "medium",
+     "pattern": r"\.Split\s*\(\s*['\"][^'\"]{3,}['\"]\s*\)",
+     "desc": "String .Split() with 3+ char junk separator — delimiter-strip obfuscation"},
+    {"rule": "PS_BXor_Math", "severity": "high",
+     "pattern": r"-bxor\s+\$?\w",
+     "desc": "PowerShell -bxor math — inline XOR shellcode decryption"},
+    {"rule": "PS_ToInt16_Binary_Hex", "severity": "high",
+     "pattern": r"ToInt16\s*\(\s*[^,]+,\s*(?:2|16)\s*\)",
+     "desc": "PowerShell ToInt16 base-2/base-16 conversion — binary/hex payload reassembly"},
+    {"rule": "PS_Char_Int_Cast", "severity": "medium",
+     "pattern": r"\[char\]\s*\[int\]|\[char\]\s*\d+",
+     "desc": "PowerShell [char][int] cast — char-code payload reconstruction"},
 ]
 
 

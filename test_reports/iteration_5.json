@@ -1,0 +1,37 @@
+{
+  "summary": "Tested Chain Persistence P0. Backend: all 6 tests in test_chain_persistence.py PASS (dedup on rerun, kind=chain filter, stages/aggregate/stage_labels persisted, history round-trip). Frontend: end-to-end flow works — Chain editor -> RUN CHAIN -> agg-verdict -> History drawer with chain badges (▪ CHAIN · 2 STAGES) -> CHAINS ONLY filter -> Restore opens read-only ChainReplayView with per-stage previews, verdict, drill-toggle. RESTORE-TO-WORKSPACE and CLOSE buttons ARE FUNCTIONALLY CORRECT (handler unmounts replay and mounts ChainStageEditor with 2 stages pre-populated), BUT the buttons are visually hidden and click-intercepted by the sticky site HEADER because the auto scrollIntoView aligns card head at viewport top (y=13), directly beneath the ~40px fixed header. elementFromPoint at button center returned <HEADER class='brut-border'>, not the button. Real users need to manually scroll up to click these buttons.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ChainReplayView / WorkspacePage.rehydrateFromHistory",
+        "issue": "RESTORE TO WORKSPACE and CLOSE buttons in the replay card-head are obscured & pointer-intercepted by the fixed site <HEADER class='brut-border'>. The setTimeout(...) scrollIntoView({block:'start'}) at WorkspacePage.jsx line ~99 places the card top at y=0, hiding the button row (y≈13) behind the ~40px sticky header. elementFromPoint(center) returns HEADER, so mouse clicks never reach the button. JS synthetic .click() reaches the React handler and the flow completes correctly.",
+        "selector": "[data-testid='btn-chain-replay-restore'], [data-testid='btn-chain-replay-close']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "ChainReplayView card head", "issues": ["Header row (READ-ONLY title + RESTORE/CLOSE buttons) hidden under sticky top nav after auto-scroll; add scroll-margin-top equal to header height OR change scrollIntoView to block:'center' / +offset."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_chain_persistence.py", "/app/test_reports/pytest/chain_persistence.xml"],
+  "action_items": [
+    "Fix scroll offset: in WorkspacePage.jsx rehydrateFromHistory chain branch, either set `style={{ scrollMarginTop: '60px' }}` on the ChainReplayView root, or scroll to (rect.top + window.scrollY - HEADER_HEIGHT) instead of scrollIntoView({block:'start'}). Otherwise the analyst literally cannot click RESTORE/CLOSE without manually scrolling first.",
+    "(Optional) Consider making the ChainReplayView card-head sticky-below-header, or duplicating RESTORE/CLOSE buttons at the bottom of the card so they remain reachable regardless of scroll position."
+  ],
+  "critical_code_review_comments": [
+    "WorkspacePage.jsx is 1365 lines — over the 700-line soft limit. Consider splitting rehydrate/history/chain logic into dedicated hooks (useChainReplay, useHistoryDrawer).",
+    "The chain-replay confirm-before-restore path (restoreChainToWorkspace, line 126) is only triggered when hasUnsavedWork() is true. Not exercised in this run because workspace was empty; logic looks correct but should be regression tested when analyst has pending input.",
+    "ChainReplayView.jsx correctly guards on record.kind === 'chain' and null-safes agg/stages — good.",
+    "Pre-existing React hydration warning in ai-provider dropdown (<span> child of <option>) — unrelated to Chain Persistence but should be cleaned up eventually."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (6/6 chain persistence pytest)", "frontend": "~90% — all data-testids present and handlers correct; the sticky-header overlay bug blocks direct mouse clicks on RESTORE/CLOSE"},
+  "test_credentials": "admin@nivxray.com / NivXRay#2026! (worked)",
+  "seed_data_creation": "Backend pytest and playwright runs created ~32 chain history records under admin user via /api/decode/chain (each has 2 stages, powershell -e + IEX downloader).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Chain Persistence flow is 100% functional (backend + React state). The ONLY user-facing issue is that the auto scrollIntoView in WorkspacePage.jsx line ~99 hides the ChainReplayView card-head buttons behind the sticky top nav. Reproduce with playwright by clicking RESTORE in history and immediately clicking btn-chain-replay-restore — mouse click fails, JS .click() works. Fix by adding scroll-margin-top or offsetting the scroll target. Backend tests are exhaustive (6 tests) and all green; no need to rerun them unless routers/history.py or routers/chain.py changes.",
+  "rca of the issue": "Sticky site <HEADER class='brut-border'> (~40px tall) overlays the top of the ChainReplayView after the setTimeout scrollIntoView({block:'start'}) call at WorkspacePage.jsx:99. Card head sits at y=13, header covers y=0..~40, so document.elementFromPoint(button-center) returns HEADER. Playwright force-click and real mouse clicks are hit-tested by the browser and delivered to HEADER; synthetic el.click() bypasses hit testing and reaches the React onClick, which is why our JS-fallback verified the handlers are 100% correct (replay unmounts, ChainStageEditor mounts with initialStages populated: Stage 0 = 'powershell -e ZQBjAGgAbwAgAGgAaQA=', Stage 1 = 'IEX (New-Object Net.WebClient).DownloadString(...)', status becomes 'CHAIN RESTORED TO WORKSPACE - 2 stages ready to re-run'). Mitigation: add scrollMarginTop or replace scrollIntoView with manual window.scrollTo(0, rect.top + window.scrollY - HEADER_HEIGHT - 8)."
+}

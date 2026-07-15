@@ -31,6 +31,7 @@ export default function HistoryDrawer({ open, onClose, onRehydrate }) {
   const [verdict, setVerdict] = useState("");
   const [starredOnly, setStarredOnly] = useState(false);
   const [shellcodeOnly, setShellcodeOnly] = useState(false);
+  const [chainsOnly, setChainsOnly] = useState(false);
   const [sinceDays, setSinceDays] = useState(0);
   const [editing, setEditing] = useState(null); // {id, tags:'', notes:''}
 
@@ -46,6 +47,7 @@ export default function HistoryDrawer({ open, onClose, onRehydrate }) {
       if (verdict) params.verdict = verdict;
       if (starredOnly) params.starred = true;
       if (shellcodeOnly) params.shellcode = true;
+      if (chainsOnly) params.kind = "chain";
       if (sinceDays > 0) params.since_days = sinceDays;
       const r = await api.get("/history", { params });
       setItems(r.data.items || []);
@@ -54,7 +56,7 @@ export default function HistoryDrawer({ open, onClose, onRehydrate }) {
       console.warn("history load failed:", e);
     }
     setLoading(false);
-  }, [open, q, ioc, mitre, engine, verdict, starredOnly, shellcodeOnly, sinceDays]);
+  }, [open, q, ioc, mitre, engine, verdict, starredOnly, shellcodeOnly, chainsOnly, sinceDays]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -205,6 +207,11 @@ export default function HistoryDrawer({ open, onClose, onRehydrate }) {
                    data-testid="chk-history-shellcode" style={{ marginRight: 5 }} />
             ▲ SHELLCODE ONLY
           </label>
+          <label className="mono" style={{ fontSize: 10, color: "var(--text-dim)", cursor: "pointer" }}>
+            <input type="checkbox" checked={chainsOnly} onChange={(e) => setChainsOnly(e.target.checked)}
+                   data-testid="chk-history-chains" style={{ marginRight: 5 }} />
+            ▪ CHAINS ONLY
+          </label>
         </div>
 
         {/* LIST */}
@@ -257,7 +264,8 @@ export default function HistoryDrawer({ open, onClose, onRehydrate }) {
 
 
 function HistoryRow({ item, onOpen, onStar, onDelete, onEdit, relTime }) {
-  const chain = (item.chain || []).slice(0, 5).join(" → ");
+  const isChain = item.kind === "chain";
+  const chainOps = (item.chain || []).slice(0, 5).join(" → ");
   const iocCount =
     ((item.iocs?.urls || []).length) +
     ((item.iocs?.ips || []).length) +
@@ -288,6 +296,16 @@ function HistoryRow({ item, onOpen, onStar, onDelete, onEdit, relTime }) {
         </button>
         <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999,
                        background: verdictColor }} />
+        {isChain && (
+          <span
+            data-testid={`chain-badge-${item.id}`}
+            style={{ fontSize: 9, color: "var(--accent)", border: "1px solid var(--accent)",
+                     padding: "1px 5px", letterSpacing: "0.14em", fontWeight: 700 }}
+            title="Multi-stage chain investigation"
+          >
+            ▪ CHAIN · {item.stage_count || (item.stages || []).length || 0} STAGES
+          </span>
+        )}
         <span style={{ fontSize: 10, color: "var(--text-dim)" }}>
           {item.engine || "?"} · {item.confidence || 0}%
         </span>
@@ -304,9 +322,9 @@ function HistoryRow({ item, onOpen, onStar, onDelete, onEdit, relTime }) {
       <div style={{ fontSize: 10.5, color: "var(--text)", marginBottom: 4, wordBreak: "break-all" }}>
         {item.input_preview?.slice(0, 130)}{item.input_preview?.length > 130 ? "…" : ""}
       </div>
-      {chain && (
+      {chainOps && (
         <div style={{ fontSize: 10, color: "var(--accent)", marginBottom: 4 }}>
-          {chain}
+          {chainOps}
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>

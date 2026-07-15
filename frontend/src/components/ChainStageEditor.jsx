@@ -16,8 +16,13 @@ import api, { apiStream } from "../lib/api";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-export default function ChainStageEditor({ seedInput, onSeedConsumed }) {
-  const [stages, setStages] = useState(() => [{ id: uid(), input: seedInput || "" }]);
+export default function ChainStageEditor({ seedInput, onSeedConsumed, initialStages }) {
+  const [stages, setStages] = useState(() => {
+    if (Array.isArray(initialStages) && initialStages.length > 0) {
+      return initialStages.map((s) => ({ id: uid(), input: s.input || s.input_preview || "" }));
+    }
+    return [{ id: uid(), input: seedInput || "" }];
+  });
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);       // {stage_count, stages, aggregate}
   const [narrative, setNarrative] = useState(null); // {narrative, verdict, family, kill_chain}

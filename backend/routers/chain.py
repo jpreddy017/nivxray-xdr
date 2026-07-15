@@ -59,6 +59,56 @@ async def chain_decode(body: ChainIn, user=Depends(get_current_user)):
     result = await analyze_chain(stage_inputs)
     result["labels"] = [s.label for s in body.stages]
     result["timestamp"] = datetime.now(timezone.utc).isoformat()
+
+    # Persist the chain into user's Investigation History (fire-and-forget).
+    # Uses stage-boundary joined inputs as the dedup key so re-running the same
+    # multi-stage set bumps `run_count` instead of duplicating.
+    try:
+        from routers.history import record_investigation
+        joined_input = "\n\n───── stage boundary ─────\n\n".join(stage_inputs)
+        agg = result.get("aggregate") or {}
+        verdict_block = None
+        risk = agg.get("risk") or {}
+        family = agg.get("family") or {}
+        if risk.get("verdict"):
+            verdict_block = {
+                "verdict": risk.get("verdict"),
+                "confidence": risk.get("score"),
+                "summary": (f"{family.get('family')} · " if family.get("family") else "")
+                           + f"{risk.get('level', 'unknown')} risk · {len(result.get('stages') or [])} stages",
+            }
+        # Aggregate confidence: mean of per-stage confidences, capped to 100
+        stages = result.get("stages") or []
+        conf_vals = [s.get("confidence") for s in stages if isinstance(s.get("confidence"), (int, float))]
+        agg_conf = int(round(sum(conf_vals) / len(conf_vals))) if conf_vals else 0
+        chain_ops: List[str] = []
+        for s in stages:
+            for step in (s.get("steps") or []):
+                op = step.get("op") if isinstance(step, dict) else None
+                if op:
+                    chain_ops.append(op)
+        rec = await record_investigation(
+            user["email"],
+            input=joined_input,
+            output=agg.get("concatenated_output") or "",
+            chain=chain_ops,
+            trace=[],
+            engine="chain",
+            confidence=agg_conf,
+            reached_shellcode=any(bool(s.get("reached_shellcode")) for s in stages),
+            iocs=agg.get("iocs") or {},
+            mitre=agg.get("mitre") or [],
+            verdict=verdict_block,
+            kind="chain",
+            stages=stages,
+            aggregate=agg,
+            stage_labels=[s.label for s in body.stages],
+        )
+        if rec and rec.get("id"):
+            result["history_id"] = rec["id"]
+    except Exception:
+        # Never block a decode on a history write
+        pass
     return result
 
 

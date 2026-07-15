@@ -17,6 +17,7 @@ import HistoryDrawer from "@/components/HistoryDrawer";
 import ProcessTreeView from "@/components/ProcessTreeView";
 import BoostBadge from "@/components/BoostBadge";
 import ChainStageEditor from "@/components/ChainStageEditor";
+import ChainReplayView from "@/components/ChainReplayView";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -72,9 +73,38 @@ export default function WorkspacePage() {
   // ONE-BUTTON UX — collapse Smart/AI/Auto Investigate/Troubleshoot into ADVANCED
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [chainOpen, setChainOpen] = useState(false);
+  // Chain replay — read-only viewer for a rehydrated multi-stage history record
+  const [chainReplay, setChainReplay] = useState(null); // full history record with kind === "chain"
+  // Pending stage seed for ChainStageEditor after user chooses to restore a saved chain
+  const [pendingChainStages, setPendingChainStages] = useState(null);
+  const [chainEditorKey, setChainEditorKey] = useState(0); // force remount when initialStages change
   const [nivxrayTrace, setNivxrayTrace] = useState([]);
+  // Track whether the analyst has unsaved work in the current workspace so
+  // rehydrating from history can prompt before overwriting.
+  const hasUnsavedWork = () => !!(
+    (input && input.trim()) ||
+    (output && output.trim()) ||
+    (steps && steps.length > 0)
+  );
   const rehydrateFromHistory = (rec) => {
     if (!rec) return;
+    // Chain records — default UX is read-only viewer, RESTORE button transitions
+    // into editing after unsaved-changes confirmation.
+    if (rec.kind === "chain") {
+      setChainReplay(rec);
+      setHistoryOpen(false);
+      setStatus(`▸ CHAIN REPLAY (${rec.stage_count || (rec.stages || []).length} stages · read-only)`);
+      // Scroll the replay into view after render
+      setTimeout(() => {
+        try { document.querySelector('[data-testid="chain-replay-view"]')?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {}
+      }, 60);
+      return;
+    }
+    if (hasUnsavedWork() &&
+        !window.confirm("You have unsaved work in the current workspace. Restore this investigation and overwrite it?")) {
+      setHistoryOpen(false);
+      return;
+    }
     setInput(rec.input_preview || "");
     setOutput(rec.output_preview || "");
     setDecodeTrace(rec.trace || []);
@@ -89,6 +119,34 @@ export default function WorkspacePage() {
     setAnalysis({ iocs: rec.iocs || {}, mitre: rec.mitre || [], ai_verdict: rec.verdict });
     setStatus(`▸ RESTORED FROM HISTORY (${rec.engine} · ${rec.confidence}%)`);
     setHistoryOpen(false);
+  };
+
+  // Move a saved chain from the read-only replay viewer into the editable
+  // ChainStageEditor. Prompts to confirm if there's unsaved single-stage work.
+  const restoreChainToWorkspace = () => {
+    if (!chainReplay) return;
+    if (hasUnsavedWork() &&
+        !window.confirm("You have unsaved work in the current workspace. Restore this chain and overwrite it?")) {
+      return;
+    }
+    const stages = (chainReplay.stages || []).map((s) => ({
+      input: s.input_preview || s.input || "",
+    }));
+    // Reset single-stage state (chain will own the workspace now)
+    setInput("");
+    setOutput("");
+    setSteps([]);
+    setChain([]);
+    setAnalysis(null);
+    setDecodeTrace([]);
+    setDecodeWinnerEngine(null);
+    setDecodeConfidence(null);
+    setReachedShellcode(false);
+    setPendingChainStages(stages);
+    setChainEditorKey((k) => k + 1);
+    setChainOpen(true);
+    setChainReplay(null);
+    setStatus(`▸ CHAIN RESTORED TO WORKSPACE · ${stages.length} stages ready to re-run`);
   };
   const isShellcodeClient = useMemo(() => !!detectShellcode(output || ""), [output]);
   const streamStopRef = useRef(null);
@@ -205,6 +263,8 @@ export default function WorkspacePage() {
     setTacticFilter(null);
     setStatus("READY");
     setChainOpen(false);
+    setChainReplay(null);
+    setPendingChainStages(null);
     try { localStorage.removeItem("nvx.pendingInput"); } catch {}
   };
 
@@ -969,9 +1029,17 @@ export default function WorkspacePage() {
           </div>
 
           {/* Multi-Stage Chain Analysis (opt-in via ADD STAGE button) */}
-          {chainOpen ? (
+          {chainReplay ? (
+            <ChainReplayView
+              record={chainReplay}
+              onRestore={restoreChainToWorkspace}
+              onClose={() => setChainReplay(null)}
+            />
+          ) : chainOpen ? (
             <ChainStageEditor
+              key={chainEditorKey}
               seedInput={input}
+              initialStages={pendingChainStages}
               onSeedConsumed={() => { /* keep single-stage input intact */ }}
             />
           ) : (

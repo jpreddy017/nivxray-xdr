@@ -75,6 +75,13 @@ class HistoryRecordIn(BaseModel):
     verdict: Optional[Dict[str, Any]] = None
     tags: List[str] = Field(default_factory=list)
     notes: str = ""
+    # Multi-stage chain persistence — when kind == "chain", `stages` and
+    # `aggregate` carry the full multi-stage payload for rehydrate. For legacy
+    # single-stage decodes, kind defaults to "single" and these fields stay empty.
+    kind: str = "single"
+    stages: List[Dict[str, Any]] = Field(default_factory=list)
+    aggregate: Dict[str, Any] = Field(default_factory=dict)
+    stage_labels: List[Optional[str]] = Field(default_factory=list)
 
 
 class HistoryPatchIn(BaseModel):
@@ -168,27 +175,45 @@ async def _upsert_investigation(user_email: str, body: HistoryRecordIn) -> Dict[
     now = datetime.now(timezone.utc)
     h = _sha256(body.input)
     coll = db.investigations
+    is_chain = (body.kind == "chain") and bool(body.stages)
+    # For chain records, prune the stages payload so it fits comfortably in the
+    # 16 MB BSON cap. Keep per-stage input full for restore, cap outputs to 8 KB.
+    stored_stages: List[Dict[str, Any]] = []
+    if is_chain:
+        for s in body.stages:
+            ss = dict(s)
+            out = ss.get("output") or ""
+            if isinstance(out, str) and len(out) > 8000:
+                ss["output"] = out[:8000]
+                ss["output_truncated"] = True
+            stored_stages.append(ss)
     existing = await coll.find_one({"user_email": user_email, "input_hash": h})
     if existing:
+        set_fields = {
+            "chain": body.chain,
+            "trace": body.trace,
+            "output_preview": (body.output or "")[:800],
+            "output_length": len(body.output or ""),
+            "engine": body.engine,
+            "confidence": body.confidence,
+            "reached_shellcode": body.reached_shellcode,
+            "iocs": body.iocs,
+            "mitre": body.mitre,
+            "verdict": body.verdict,
+            "kind": body.kind,
+            "last_seen": now,
+            "ts": now,
+        }
+        if is_chain:
+            set_fields.update({
+                "stages": stored_stages,
+                "aggregate": body.aggregate,
+                "stage_labels": body.stage_labels,
+                "stage_count": len(stored_stages),
+            })
         await coll.update_one(
             {"_id": existing["_id"]},
-            {
-                "$set": {
-                    "chain": body.chain,
-                    "trace": body.trace,
-                    "output_preview": (body.output or "")[:800],
-                    "output_length": len(body.output or ""),
-                    "engine": body.engine,
-                    "confidence": body.confidence,
-                    "reached_shellcode": body.reached_shellcode,
-                    "iocs": body.iocs,
-                    "mitre": body.mitre,
-                    "verdict": body.verdict,
-                    "last_seen": now,
-                    "ts": now,
-                },
-                "$inc": {"run_count": 1},
-            },
+            {"$set": set_fields, "$inc": {"run_count": 1}},
         )
         return _serialize(await coll.find_one({"_id": existing["_id"]}))
     doc = {
@@ -213,7 +238,13 @@ async def _upsert_investigation(user_email: str, body: HistoryRecordIn) -> Dict[
         "first_seen": now,
         "last_seen": now,
         "ts": now,
+        "kind": body.kind,
     }
+    if is_chain:
+        doc["stages"] = stored_stages
+        doc["aggregate"] = body.aggregate
+        doc["stage_labels"] = body.stage_labels
+        doc["stage_count"] = len(stored_stages)
     r = await coll.insert_one(doc)
     doc["_id"] = r.inserted_id
     return _serialize(doc)
@@ -239,6 +270,7 @@ async def list_history(
     q: str = "",
     verdict: str = "",           # Malicious | Suspicious | Benign
     engine: str = "",            # smart | magic | ai | custom_recipe
+    kind: str = "",              # single | chain
     starred: Optional[bool] = None,
     shellcode: Optional[bool] = None,
     ioc: str = "",               # match against any IOC value
@@ -258,6 +290,8 @@ async def list_history(
         query["verdict.verdict"] = verdict
     if engine:
         query["engine"] = engine
+    if kind:
+        query["kind"] = kind
     if starred is not None:
         query["starred"] = starred
     if shellcode is not None:
@@ -407,6 +441,10 @@ async def import_history(body: HistoryImportIn, user=Depends(get_current_user)):
                 verdict=item.get("verdict"),
                 tags=item.get("tags") or [],
                 notes=item.get("notes") or "",
+                kind=item.get("kind") or "single",
+                stages=item.get("stages") or [],
+                aggregate=item.get("aggregate") or {},
+                stage_labels=item.get("stage_labels") or [],
             )
             r = await _upsert_investigation(user["email"], rec)
             if (item.get("starred") or False) and r:
