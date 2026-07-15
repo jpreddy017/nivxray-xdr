@@ -18,3 +18,27 @@ steps:
     action: Click "CORRECT THIS" if the auto-verdict is wrong; promote to corpus
     expected: The correction lands on the investigation timeline; a benchmark run fires
 related_features: [base64_decode, candidate_explorer, threat_intel_enrichment, correction_flow]
+
+# --------------------------------------------------------------
+# Optional per-step screenshot capture for the docs generator.
+# Consumed by /app/backend/scripts/capture_docs_screenshots.py
+# --------------------------------------------------------------
+capture:
+  login: true
+  steps:
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      full_page: false
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      full_page: false
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      full_page: false
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      full_page: false
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      full_page: false
+

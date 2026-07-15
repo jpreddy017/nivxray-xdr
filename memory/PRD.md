@@ -1,7 +1,81 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🔍 Documentation Generator Phase 3 · Cross-Feature RAG)
+## Latest Change (Feb 2026 — 🧰 Documentation Generator Phase 4 · Full Bundle)
+
+### Delivered — feedback loop, mtime watcher, HTML/DOCX exports, screenshot pipeline
+
+**1. Explain feedback (👍/👎) → `learning_events`**
+
+Backend (`backend/routers/docs.py`):
+- `POST /api/docs/explain/feedback` `{page, session_id, message_index, vote:"up|down|none", provider?, question?, reply_snippet?, comment?}`
+  - Persists into shared `learning_events` collection with `event_type: "docs_explain_feedback"` (fine-tune iterator safely skips because there's no `corrected_output`)
+  - Toggle behaviour: any prior vote on the same reply by the same analyst is replaced (up↔down is idempotent)
+  - `vote: "none"` retracts the vote
+- `GET /api/docs/explain/feedback/stats` — per-page + per-provider up/down aggregates + totals
+
+Frontend (`DocsPage.jsx`):
+- 👍/👎 buttons in the assistant message header (mint highlight for up, rose for down)
+- `data-testid="docs-explain-vote-{up|down}-{index}"`
+- Local optimistic toggle so the analyst sees their vote apply instantly
+
+**2. RAG index auto-invalidation (file watcher)**
+
+`backend/docs/rag_index.py`:
+- Added `_yaml_fingerprint()` — cheap `(path, mtime)` snapshot of the YAML dirs
+- `_ensure_ready()` compares the current fingerprint against the cached one; any add/edit/remove triggers a lazy rebuild on the next `retrieve()` call
+- Zero background threads, no watchdog daemon
+- `POST /api/docs/rag/reindex` still available for manual force
+
+**3. HTML + DOCX exports**
+
+New module `backend/docs/exporters.py`:
+- `generate_html(audience)` — standalone HTML with embedded dark-mode CSS, cover banner, TOC-friendly headings; renders the same `generate_guide()` Markdown so all four formats stay in lock-step
+- `generate_docx(audience)` — python-docx with cover page, workflow sections, feature sections grouped by category, styled bullets, code-formatted examples
+
+New endpoints:
+- `GET /api/docs/export/html?audience=...&inline=bool`
+- `GET /api/docs/export/docx?audience=...`
+
+Frontend: three side-by-side download buttons (`PDF`, `HTML`, `DOCX`) in the guide header.
+
+**4. Workflow screenshot capture (Playwright CLI)**
+
+New script `backend/scripts/capture_docs_screenshots.py`:
+- Reads a `capture:` block from each workflow YAML with per-step directives (`url`, `wait_for`, `selector`, `click_before`, `type_into`, `full_page`, `delay_ms`)
+- Optional `capture.login: true` performs the /login flow before Step 1
+- CLI: `python scripts/capture_docs_screenshots.py --workflow encoded_powershell` or `--all`
+- Saves PNGs to `backend/docs/screenshots/{workflow_id}/step_{n}.png`
+
+New endpoints:
+- `GET /api/docs/screenshots/{workflow_id}` — list captured shots (order-preserving)
+- `GET /api/docs/screenshots/{workflow_id}/{filename}` — serve a single PNG/GIF (path-traversal blocked)
+
+Frontend `FeatureDetail`: workflow steps now auto-render any captured screenshot below the Action/Expected block.
+
+**Sample capture block** added to `encoded_powershell.yaml` demonstrating the schema.
+
+**Dependencies added:**
+- `python-docx==1.1.2`
+- `Markdown==3.10.2`
+- `playwright==1.61.0` (chromium browser downloaded to `/pw-browsers/`)
+
+**Tests** — `backend/tests/test_docs_extras.py` (17 new, all pass)
+- Feedback: up-vote records, toggle replaces (up→down leaves 1 down), retract deletes, stats shape, invalid vote → 422
+- RAG watcher: touch YAML → fingerprint changes → retrieve() rebuilds
+- Exporters: HTML endpoint content-type + attachment header + `<!doctype>`, inline mode, DOCX ZIP structure (`word/document.xml`), all-format × all-audience matrix, 422 on bad audience
+- Screenshots: empty list, synthetic PNG round-trips through list + serve endpoints, path-traversal blocked
+
+**Combined docs suite: 69 pass** across generator + pdf + explain-phase2 + rag + extras.
+
+**Verified live**:
+- PDF/HTML/DOCX buttons all visible on `/docs`
+- 👍 click highlights mint; vote persists into `learning_events`
+- RAG index auto-rebuilds after a YAML `touch`
+
+---
+
+## Previous Change (Feb 2026 — 🔍 Documentation Generator Phase 3 · Cross-Feature RAG)
 
 ### Delivered — BM25 sparse retrieval over the docs corpus
 

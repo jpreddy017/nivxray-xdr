@@ -14,17 +14,20 @@ Endpoints
 """
 from __future__ import annotations
 import os
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel, Field
 
-from deps import get_current_user
+from deps import db, get_current_user
 from docs import (
     list_features, get_feature, list_workflows, get_workflow,
     search, generate_guide, guide_stats,
 )
+from docs.exporters import generate_docx, generate_html
 from docs.pdf_generator import create_user_guide
 from docs.rag_index import retrieve as rag_retrieve, index_stats as rag_stats, invalidate as rag_invalidate
 
@@ -375,6 +378,169 @@ async def export_pdf(
     )
 
 
+@router.get("/docs/export/html", tags=["docs"])
+async def export_html(
+    audience: str = Query("user", pattern="^(user|admin|developer|all)$"),
+    inline: bool = Query(False, description="Render inline instead of attachment"),
+    user=Depends(get_current_user),
+):
+    """Return an auto-generated standalone HTML user guide."""
+    html = generate_html(audience=audience)
+    filename = f"nivxray-{audience}-guide.html"
+    headers = {}
+    if not inline:
+        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return HTMLResponse(content=html, headers=headers)
+
+
+@router.get("/docs/export/docx", tags=["docs"])
+async def export_docx(
+    audience: str = Query("user", pattern="^(user|admin|developer|all)$"),
+    user=Depends(get_current_user),
+):
+    """Return an auto-generated DOCX user guide."""
+    data = generate_docx(audience=audience)
+    filename = f"nivxray-{audience}-guide.docx"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/docs/search", tags=["docs"])
 async def search_endpoint(q: str = "", user=Depends(get_current_user)):
     return search(q)
+
+
+# ============================================================================
+# Explain feedback loop — 👍/👎 on assistant replies → learning_events
+# ============================================================================
+class ExplainFeedbackIn(BaseModel):
+    page: str = Field(..., description="Page id the reply was about")
+    session_id: str = Field(..., description="Chat session id from /docs/explain")
+    message_index: int = Field(0, ge=0, description="Position of the reply in the thread")
+    vote: str = Field(..., pattern="^(up|down|none)$")
+    provider: Optional[str] = Field(None, description="emergent-claude | static-registry")
+    question: Optional[str] = Field(None, description="Analyst question this reply answered")
+    reply_snippet: Optional[str] = Field(None, description="First ~500 chars of the reply")
+    comment: Optional[str] = Field(None, description="Optional freeform comment")
+
+
+@router.post("/docs/explain/feedback", tags=["docs"])
+async def submit_explain_feedback(body: ExplainFeedbackIn,
+                                    user=Depends(get_current_user)):
+    """Persist an analyst 👍/👎 on an Explain assistant reply.
+
+    Records into the shared `learning_events` collection with a
+    distinctive `event_type: "docs_explain_feedback"` so the fine-tuning
+    exporter (which filters on `corrected_output`) safely skips these
+    events, and the feedback stats endpoint can aggregate them.
+    """
+    analyst = user.get("email") if isinstance(user, dict) else str(user)
+    doc = {
+        "event_type": "docs_explain_feedback",
+        "page": body.page,
+        "session_id": body.session_id,
+        "message_index": body.message_index,
+        "vote": body.vote,
+        "provider": body.provider,
+        "question": (body.question or "")[:500],
+        "reply_snippet": (body.reply_snippet or "")[:500],
+        "comment": (body.comment or "")[:500],
+        "analyst_id": analyst,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if body.vote == "none":
+        # Retract any prior vote from this analyst for this reply.
+        result = await db["learning_events"].delete_many({
+            "event_type": "docs_explain_feedback",
+            "session_id": body.session_id,
+            "message_index": body.message_index,
+            "analyst_id": analyst,
+        })
+        return {"status": "retracted", "deleted": result.deleted_count}
+    # Upsert: any prior vote from this analyst on this exact reply is
+    # replaced (toggle up↔down is a single logical event).
+    await db["learning_events"].delete_many({
+        "event_type": "docs_explain_feedback",
+        "session_id": body.session_id,
+        "message_index": body.message_index,
+        "analyst_id": analyst,
+    })
+    res = await db["learning_events"].insert_one(doc)
+    return {"status": "recorded", "id": str(res.inserted_id)}
+
+
+@router.get("/docs/explain/feedback/stats", tags=["docs"])
+async def explain_feedback_stats(user=Depends(get_current_user)):
+    """Aggregate 👍/👎 counts by page and by provider."""
+    pipeline_page = [
+        {"$match": {"event_type": "docs_explain_feedback"}},
+        {"$group": {
+            "_id": {"page": "$page", "vote": "$vote"},
+            "count": {"$sum": 1},
+        }},
+    ]
+    per_page: Dict[str, Dict[str, int]] = {}
+    async for row in db["learning_events"].aggregate(pipeline_page):
+        pg = row["_id"]["page"]
+        vt = row["_id"]["vote"]
+        per_page.setdefault(pg, {"up": 0, "down": 0})[vt] = row["count"]
+
+    per_provider: Dict[str, Dict[str, int]] = {}
+    pipeline_provider = [
+        {"$match": {"event_type": "docs_explain_feedback",
+                    "provider": {"$ne": None}}},
+        {"$group": {
+            "_id": {"provider": "$provider", "vote": "$vote"},
+            "count": {"$sum": 1},
+        }},
+    ]
+    async for row in db["learning_events"].aggregate(pipeline_provider):
+        pv = row["_id"]["provider"]
+        vt = row["_id"]["vote"]
+        per_provider.setdefault(pv, {"up": 0, "down": 0})[vt] = row["count"]
+
+    totals = {"up": 0, "down": 0}
+    for v in per_page.values():
+        totals["up"] += v.get("up", 0)
+        totals["down"] += v.get("down", 0)
+    return {"totals": totals, "per_page": per_page, "per_provider": per_provider}
+
+
+# ============================================================================
+# Workflow screenshots (captured by scripts/capture_docs_screenshots.py)
+# ============================================================================
+_SCREENSHOTS_DIR = Path(__file__).parent.parent / "docs" / "screenshots"
+
+
+@router.get("/docs/screenshots/{workflow_id}", tags=["docs"])
+async def list_workflow_screenshots(workflow_id: str,
+                                      user=Depends(get_current_user)):
+    """List captured screenshots for a workflow (order-preserving)."""
+    d = _SCREENSHOTS_DIR / workflow_id
+    if not d.exists():
+        return {"workflow_id": workflow_id, "screenshots": []}
+    files = sorted(d.glob("step_*.png")) + sorted(d.glob("step_*.gif"))
+    return {
+        "workflow_id": workflow_id,
+        "screenshots": [
+            {"step": i + 1, "filename": f.name,
+             "url": f"/api/docs/screenshots/{workflow_id}/{f.name}"}
+            for i, f in enumerate(files)
+        ],
+    }
+
+
+@router.get("/docs/screenshots/{workflow_id}/{filename}", tags=["docs"])
+async def get_workflow_screenshot(workflow_id: str, filename: str,
+                                    user=Depends(get_current_user)):
+    """Serve a single screenshot/gif captured for a workflow step."""
+    if "/" in filename or ".." in filename:
+        raise HTTPException(400, "invalid filename")
+    path = _SCREENSHOTS_DIR / workflow_id / filename
+    if not path.exists() or not path.is_file():
+        raise HTTPException(404, "screenshot not found")
+    media = "image/png" if filename.endswith(".png") else "image/gif"
+    return FileResponse(path, media_type=media)

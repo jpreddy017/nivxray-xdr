@@ -12,6 +12,13 @@ Public API
     build_index()                                  → (re)build the in-memory index
     retrieve(query, k=3, exclude_ids=None)         → list of {id, kind, title, category, score, snippet}
     invalidate()                                   → force a rebuild on next call
+    index_stats()                                  → health/size
+
+Auto-invalidation:
+    Before every retrieval we cheaply stat the YAML dirs. If any file has
+    been modified/added/removed since the last build, the index rebuilds
+    itself lazily. No background threads, no watchdog daemon — perfect
+    for a corpus you edit by hand.
 
 Docs entries are treated as flat text = title + purpose + when_to_use +
 tips + supported_formats + related. Workflows are treated similarly
@@ -21,11 +28,16 @@ from __future__ import annotations
 
 import re
 import threading
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from rank_bm25 import BM25Okapi
 
 from docs import list_features, list_workflows
+
+_DOCS_ROOT = Path(__file__).parent
+_FEATURES_DIR = _DOCS_ROOT / "features"
+_WORKFLOWS_DIR = _DOCS_ROOT / "workflows"
 
 # ------------------------------------------------------------------
 # Tokeniser — extremely simple. Lowercase, split on non-word, drop
@@ -90,11 +102,30 @@ def _snippet(text: str, terms: Iterable[str], width: int = 160) -> str:
 _lock = threading.Lock()
 _bm25: Optional[BM25Okapi] = None
 _docs: List[Dict[str, Any]] = []   # each: {id, kind, title, category, text, tokens}
+_fingerprint: Optional[Tuple[Tuple[str, float], ...]] = None  # snapshot of yaml mtimes
+
+
+def _yaml_fingerprint() -> Tuple[Tuple[str, float], ...]:
+    """Return a stable fingerprint of (path, mtime) for every YAML source.
+
+    Any add/remove/edit produces a different fingerprint, triggering a
+    lazy rebuild on the next `retrieve()` call.
+    """
+    items: List[Tuple[str, float]] = []
+    for d in (_FEATURES_DIR, _WORKFLOWS_DIR):
+        if not d.exists():
+            continue
+        for f in sorted(d.glob("*.yaml")):
+            try:
+                items.append((str(f), f.stat().st_mtime))
+            except OSError:
+                continue
+    return tuple(items)
 
 
 def build_index() -> None:
     """(Re)build the in-memory BM25 index from the YAML registry."""
-    global _bm25, _docs
+    global _bm25, _docs, _fingerprint
     with _lock:
         docs: List[Dict[str, Any]] = []
         for f in list_features():
@@ -121,18 +152,23 @@ def build_index() -> None:
         corpus = [d["tokens"] or ["__empty__"] for d in docs]
         _bm25 = BM25Okapi(corpus) if corpus else None
         _docs = docs
+        _fingerprint = _yaml_fingerprint()
 
 
 def invalidate() -> None:
     """Drop the cached index; next `retrieve` will rebuild."""
-    global _bm25
+    global _bm25, _fingerprint
     with _lock:
         _bm25 = None
+        _fingerprint = None
 
 
 def _ensure_ready() -> None:
-    if _bm25 is None or not _docs:
-        build_index()
+    # Fast path: index is loaded AND YAML on disk hasn't changed.
+    current_fp = _yaml_fingerprint()
+    if _bm25 is not None and _docs and _fingerprint == current_fp:
+        return
+    build_index()
 
 
 def retrieve(
@@ -188,4 +224,5 @@ def index_stats() -> Dict[str, Any]:
         "features": sum(1 for d in _docs if d["kind"] == "feature"),
         "workflows": sum(1 for d in _docs if d["kind"] == "workflow"),
         "ready": _bm25 is not None,
+        "fingerprint_entries": len(_fingerprint or ()),
     }

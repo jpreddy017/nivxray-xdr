@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, BookOpen, ArrowRight, Sparkles, Download, Link2 } from "lucide-react";
+import { Search, BookOpen, ArrowRight, Sparkles, Download, Link2, ThumbsUp, ThumbsDown } from "lucide-react";
 import api from "@/lib/api";
 import ReactMarkdown from "react-markdown";
 
@@ -26,27 +26,30 @@ export default function DocsPage() {
   const [explaining, setExplaining] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const downloadPdf = async () => {
+  const downloadExport = async (fmt) => {
     setDownloading(true);
     try {
-      const r = await api.get(`/docs/export/pdf?audience=${audience}`, {
-        responseType: "blob",
-      });
-      const blob = new Blob([r.data], { type: "application/pdf" });
+      const responseType = fmt === "html" ? "text" : "blob";
+      const r = await api.get(`/docs/export/${fmt}?audience=${audience}`, { responseType });
+      const mime = fmt === "pdf" ? "application/pdf"
+                 : fmt === "html" ? "text/html"
+                 : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      const blob = new Blob([r.data], { type: mime });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `nivxray-${audience}-guide.pdf`;
+      a.download = `nivxray-${audience}-guide.${fmt}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (e) {
-      console.error("PDF download failed", e);
+      console.error(`${fmt} download failed`, e);
     } finally {
       setDownloading(false);
     }
   };
+  const downloadPdf = () => downloadExport("pdf");
 
   useEffect(() => {
     api.get("/docs/features").then((r) => setFeatures(r.data.features || []));
@@ -114,6 +117,29 @@ export default function DocsPage() {
     if (!q || explaining) return;
     setFollowup("");
     await runExplain(q);
+  };
+
+  const submitVote = async (msgIndex, vote) => {
+    const msg = thread[msgIndex];
+    if (!msg || msg.role !== "assistant") return;
+    try {
+      await api.post("/docs/explain/feedback", {
+        page: selected?.id || "",
+        session_id: sessionId || "",
+        message_index: msgIndex,
+        vote,
+        provider: msg.provider || null,
+        question: msgIndex > 0 && thread[msgIndex - 1]?.role === "user"
+          ? thread[msgIndex - 1].text : null,
+        reply_snippet: (msg.text || "").slice(0, 500),
+      });
+      // Toggle-mark the message locally so UI reflects the vote.
+      setThread((t) => t.map((m, i) =>
+        i === msgIndex ? { ...m, vote: m.vote === vote ? null : vote } : m
+      ));
+    } catch (e) {
+      console.error("vote failed", e);
+    }
   };
 
   // Group features by category
@@ -240,14 +266,34 @@ export default function DocsPage() {
           <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
             <button
               className="nvx-btn sm"
-              onClick={downloadPdf}
+              onClick={() => downloadExport("pdf")}
               disabled={downloading}
               style={{ fontSize: 10, display: "flex", alignItems: "center", gap: 4 }}
               title={`Download the ${audience} guide as PDF`}
               data-testid="docs-download-pdf"
             >
               <Download size={11} />
-              {downloading ? "BUILDING…" : "PDF"}
+              {downloading ? "…" : "PDF"}
+            </button>
+            <button
+              className="nvx-btn sm ghost"
+              onClick={() => downloadExport("html")}
+              disabled={downloading}
+              style={{ fontSize: 10 }}
+              title={`Download the ${audience} guide as HTML`}
+              data-testid="docs-download-html"
+            >
+              HTML
+            </button>
+            <button
+              className="nvx-btn sm ghost"
+              onClick={() => downloadExport("docx")}
+              disabled={downloading}
+              style={{ fontSize: 10 }}
+              title={`Download the ${audience} guide as DOCX`}
+              data-testid="docs-download-docx"
+            >
+              DOCX
             </button>
             {selected && (
               <button
@@ -320,8 +366,38 @@ export default function DocsPage() {
                          ? "2px solid #7ee3c9"
                          : "2px solid #f59e0b",
                      }}>
-                  <div style={{ color: "#94a3b8", fontSize: 9, marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.4 }}>
-                    {msg.role === "user" ? "you" : `via ${msg.provider || "assistant"}`}
+                  <div style={{ color: "#94a3b8", fontSize: 9, marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.4, display: "flex", alignItems: "center" }}>
+                    <span>{msg.role === "user" ? "you" : `via ${msg.provider || "assistant"}`}</span>
+                    {msg.role === "assistant" && sessionId && (
+                      <span style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+                        <button
+                          onClick={() => submitVote(i, "up")}
+                          data-testid={`docs-explain-vote-up-${i}`}
+                          title="This reply helped"
+                          style={{
+                            background: msg.vote === "up" ? "rgba(126,227,201,0.20)" : "transparent",
+                            border: "1px solid rgba(148,163,184,0.20)",
+                            borderRadius: 3, padding: "2px 4px", cursor: "pointer",
+                            color: msg.vote === "up" ? "#7ee3c9" : "#94a3b8",
+                          }}
+                        >
+                          <ThumbsUp size={10} />
+                        </button>
+                        <button
+                          onClick={() => submitVote(i, "down")}
+                          data-testid={`docs-explain-vote-down-${i}`}
+                          title="This reply missed the mark"
+                          style={{
+                            background: msg.vote === "down" ? "rgba(244,63,94,0.20)" : "transparent",
+                            border: "1px solid rgba(148,163,184,0.20)",
+                            borderRadius: 3, padding: "2px 4px", cursor: "pointer",
+                            color: msg.vote === "down" ? "#f43f5e" : "#94a3b8",
+                          }}
+                        >
+                          <ThumbsDown size={10} />
+                        </button>
+                      </span>
+                    )}
                   </div>
                   <div className="docs-md" style={{ fontSize: 11 }}>
                     <ReactMarkdown>{msg.text || ""}</ReactMarkdown>
@@ -412,13 +488,26 @@ export default function DocsPage() {
 }
 
 function FeatureDetail({ detail, kind }) {
+  const [screenshots, setScreenshots] = useState([]);
+  useEffect(() => {
+    if (kind !== "workflow" || !detail?.id) { setScreenshots([]); return; }
+    api.get(`/docs/screenshots/${detail.id}`)
+      .then((r) => setScreenshots(r.data?.screenshots || []))
+      .catch(() => setScreenshots([]));
+  }, [kind, detail?.id]);
+
   if (kind === "workflow") {
+    const shotByStep = {};
+    for (const s of screenshots) shotByStep[s.step] = s;
+    const backend = process.env.REACT_APP_BACKEND_URL || "";
     return (
       <div>
         <div style={{ color: "#94a3b8", fontStyle: "italic", marginBottom: 12 }}>
           {detail.purpose}
         </div>
-        {(detail.steps || []).map((step, i) => (
+        {(detail.steps || []).map((step, i) => {
+          const shot = shotByStep[i + 1];
+          return (
           <div key={i} style={{ marginBottom: 14, padding: 12, background: "rgba(15,23,42,0.5)", borderRadius: 4 }}>
             <div style={{ color: "#7ee3c9", fontWeight: 600, marginBottom: 4 }}>
               STEP {i + 1} — {step.title}
@@ -427,8 +516,20 @@ function FeatureDetail({ detail, kind }) {
               <div><b>Action:</b> {step.action}</div>
               <div style={{ marginTop: 4, color: "#94a3b8" }}><b>Expected:</b> {step.expected}</div>
             </div>
+            {shot && (
+              <img
+                src={`${backend}${shot.url}`}
+                alt={`Step ${i + 1} screenshot`}
+                data-testid={`docs-workflow-screenshot-${i + 1}`}
+                style={{
+                  marginTop: 10, width: "100%", maxHeight: 320, objectFit: "contain",
+                  borderRadius: 3, border: "1px solid rgba(148,163,184,0.15)",
+                  background: "#0b1220",
+                }}
+              />
+            )}
           </div>
-        ))}
+        );})}
         {detail.related_features && (
           <div style={{ marginTop: 16, fontSize: 12, color: "#94a3b8" }}>
             Related: {detail.related_features.map((r) => (
