@@ -507,9 +507,18 @@ async def decode_candidates(body: CandidatesIn, user=Depends(get_current_user)):
     top_n = max(1, min(int(body.top_n or 8), 20))
     cands = score_candidates(body.input, top_n=top_n)
     best = best_candidate(body.input)
+    # Build structured candidate dicts. WINNER gets `as_dict` (no runner-up
+    # comparison), all OTHERS get `as_rejected_dict(winner)` so the
+    # frontend can render "why not Y?" tooltips.
+    candidate_dicts: List[Dict[str, Any]] = []
+    for c in cands:
+        if best is not None and c.op == best.op:
+            candidate_dicts.append(c.as_dict())
+        else:
+            candidate_dicts.append(c.as_rejected_dict(winner=best))
     payload: Dict[str, Any] = {
         "input_length": len(body.input),
-        "candidates": [c.as_dict() for c in cands],
+        "candidates": candidate_dicts,
         "best": best.as_dict() if best else None,
         "thresholds": {
             "high": HIGH_THRESHOLD,

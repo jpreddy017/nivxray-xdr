@@ -141,3 +141,45 @@ class TestCandidatesEndpointExplanation:
         assert "base58-decode" in expl
         assert "confidence=" in expl
         assert "over " in expl or "only candidate" in expl
+
+
+
+class TestStructuredWhyNot:
+    """Every rejected candidate must carry structured `rejection_reasons`."""
+
+    def test_rejection_reasons_shape(self, auth_headers):
+        r = requests.post(
+            f"{BASE_URL}/api/decode/candidates",
+            headers=auth_headers,
+            json={"input": "2NEpo7TZRRrLZSi2U", "top_n": 6},
+            timeout=30,
+        )
+        assert r.status_code == 200
+        data = r.json()
+        winner_op = data["verdict"]["op"]
+
+        found_rejection = False
+        for c in data["candidates"]:
+            if c["op"] == winner_op:
+                continue
+            found_rejection = True
+            assert "rejection_reasons" in c
+            for rr in c["rejection_reasons"]:
+                assert set(rr.keys()) >= {"code", "severity", "description", "detail"}
+                assert rr["severity"] in {"high", "medium", "low"}
+            assert "vs_winner" in c
+            assert c["vs_winner"]["winning_op"] == winner_op
+        assert found_rejection
+
+    def test_high_severity_when_decode_fails(self, auth_headers):
+        r = requests.post(
+            f"{BASE_URL}/api/decode/candidates",
+            headers=auth_headers,
+            json={"input": "2NEpo7TZRRrLZSi2U", "top_n": 8},
+            timeout=30,
+        )
+        data = r.json()
+        b64 = next((c for c in data["candidates"] if c["op"] == "base64-decode"), None)
+        assert b64 is not None
+        codes = [rr["code"] for rr in (b64.get("rejection_reasons") or [])]
+        assert "decode-rejected" in codes

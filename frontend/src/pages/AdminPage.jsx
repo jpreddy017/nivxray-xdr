@@ -7,6 +7,7 @@ import { Check, X, KeyRound, ExternalLink, Save, TestTube2, Users, BarChart3, Re
 import { Link } from "react-router-dom";
 import TrainingNotesCard from "@/components/TrainingNotesCard";
 import ConfusionMatrixCard from "@/components/ConfusionMatrixCard";
+import TaxiiAdminPanel from "@/components/TaxiiAdminPanel";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -162,6 +163,9 @@ export default function AdminPage() {
 
         {/* Corpus Confusion Matrix — decoder health at a glance */}
         <ConfusionMatrixCard />
+
+        {/* TAXII 2.1 Push — publish IOCs as STIX 2.1 to your TAXII server */}
+        <TaxiiAdminPanel />
 
         {/* LOLBAS Catalog */}
         <section className="brut-border" style={{ background: "var(--surface)" }} data-testid="lolbas-catalog-card">

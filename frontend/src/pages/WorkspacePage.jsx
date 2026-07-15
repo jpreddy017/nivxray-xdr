@@ -19,6 +19,7 @@ import ProcessTreeView from "@/components/ProcessTreeView";
 import BoostBadge from "@/components/BoostBadge";
 import ChainStageEditor from "@/components/ChainStageEditor";
 import ChainReplayView from "@/components/ChainReplayView";
+import CandidateExplorer from "@/components/CandidateExplorer";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -71,6 +72,9 @@ export default function WorkspacePage() {
   const [pasteHint, setPasteHint] = useState(null);
   // History drawer
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Feb-2026: Candidate Explorer toggle — shows the ranked encoding candidates
+  // + structured why-not breakdown from /api/decode/candidates.
+  const [showCandidateExplorer, setShowCandidateExplorer] = useState(false);
   // Predicted process tree (fed to both ProcessTreeView + SocVerdictPanel mini)
   const [predictedTree, setPredictedTree] = useState(null);
   // Learning Feedback Loop
@@ -1020,6 +1024,31 @@ export default function WorkspacePage() {
         winnerEngine={decodeWinnerEngine}
         predictedTree={predictedTree}
       />
+
+      {/* ▲ CANDIDATE EXPLORER (Feb-2026) — ranked encoding candidates with
+          structured "why-not" breakdowns, hex, IOCs, LOLBins, MITRE ATT&CK.
+          Toggle button opens the panel; renders below when active and there
+          is input to analyse. */}
+      <div style={{ padding: "0 16px 8px", display: "flex", alignItems: "center", gap: 8 }}>
+        <button
+          className={`nvx-btn sm ${showCandidateExplorer ? "" : "ghost"}`}
+          onClick={() => setShowCandidateExplorer((v) => !v)}
+          data-testid="toggle-candidate-explorer"
+        >
+          {showCandidateExplorer ? "✕ Hide" : "◈ Show"} Candidate Explorer
+        </button>
+        <span style={{ fontSize: 11, color: "#94a3b8" }}>
+          Ranked encoding candidates · evidence · why-not breakdown · IOCs / LOLBins / MITRE
+        </span>
+      </div>
+      {showCandidateExplorer && input && input.trim().length > 0 && (
+        <div style={{ padding: "0 16px 12px" }}>
+          <CandidateExplorer
+            input={input}
+            testidPrefix="workspace-candidate-explorer"
+          />
+        </div>
+      )}
 
       {/* ▲ SOC EVIDENCE-DRIVEN VERDICT CARD (Feb-2026) — always renders
           when the backend produces a verdict_card block. Consolidates

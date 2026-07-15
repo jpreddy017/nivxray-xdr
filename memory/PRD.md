@@ -1,7 +1,60 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🧠 P0 · Candidate-Based Encoding Detection Engine + Base58/62/64URL/Z85)
+## Latest Change (Feb 2026 — 🧠 P0 Structured Why-Not + 🎨 Frontend Candidate Explorer + 📡 TAXII 2.1 Push)
+
+### Delivered — all 3 requested items shipped in one pass
+
+**1. P0 — Structured "Why-Not" Breakdown**
+Every rejected candidate in `/api/decode/candidates` now carries `rejection_reasons: [{code, severity, description, detail}]` plus a `vs_winner` block with confidence gap. Reason codes (stable — never renamed):
+- `alphabet-mismatch` (high) · `alphabet-partial` (medium)
+- `length-invalid` (medium)
+- `decode-rejected` (high) · `decode-noop` (high)
+- `output-not-readable` (high) · `output-low-printable` (medium) · `garbage-decode` (high)
+- `no-linguistic-improvement` (high) · `marginal-linguistic-improvement` (medium) · `printable-but-non-linguistic` (medium)
+- `entropy-out-of-range` (medium) · `forbidden-char` (high)
+- `no-file-signature` (low) · `no-malware-indicators` (low)
+
+Severity `{high | medium | low}` drives UI color coding. Perfect fodder for hover-tooltips.
+
+**2. P1 — Frontend Candidate Explorer Panel** (`WorkspacePage`)
+New `CandidateExplorer.jsx` component with `data-testid="workspace-candidate-explorer"`:
+- Verdict badge (DECODED / POSSIBLE / UNKNOWN) with color-coded band
+- Winner summary + hex dump + IOCs + LOLBins + MITRE ATT&CK chips
+- Ranked candidate list with confidence bars, decoded previews, gap indicators
+- Per-candidate accordion showing evidence + structured why-not chips with severity icons
+- Toggle button `[data-testid="toggle-candidate-explorer"]` in the workspace header
+- Auto-expands winner; other candidates click-to-expand
+- "Try this candidate →" button on rejected candidates (via `onSelect` callback)
+
+**3. P1 — TAXII 2.1 Push** (`AdminPage`)
+Full STIX 2.1 → TAXII 2.1 publish pipeline:
+- New `backend/taxii/__init__.py` module: config storage, STIX bundle builder, HTTP push, log recording
+- New `routers/taxii.py`: 5 admin endpoints
+  - `GET /api/admin/taxii/config` — redacted config
+  - `POST /api/admin/taxii/config` — upsert config (token/password auto-redacted on return)
+  - `POST /api/admin/taxii/test` — hit discovery endpoint to verify auth + reachability
+  - `POST /api/admin/taxii/push` — build STIX 2.1 bundle from IOCs and POST to `/collections/<id>/objects/`
+  - `GET /api/admin/taxii/history?limit=N` — recent push log
+- STIX 2.1 objects: identity + typed indicators (url, ipv4, ipv6, domain-name, email-addr, file:hashes MD5/SHA-1/SHA-256, file:name)
+- Auth modes: `none` / `basic` / `bearer` / custom `header`
+- TLS verification toggle
+- Frontend `TaxiiAdminPanel.jsx` (`data-testid="taxii-admin-panel"`): full config UI + test button + push history with red-marked failures
+- MongoDB collections: `taxii_config` (singleton), `taxii_push_log` (grows)
+
+### Regression
+- **878 backend tests pass** (up from 868, +10 net new) · 7 xfailed unchanged · 4 pre-existing failures unrelated.
+- 10 new tests: 3 in `test_candidates_endpoint.py` (structured why-not), 7 in `test_taxii_push.py`.
+- Live-verified via curl (all 3 tasks) + screenshots (Candidate Explorer + TAXII panel).
+
+### Files
+- **New**: `backend/taxii/__init__.py`, `backend/routers/taxii.py`, `backend/tests/test_taxii_push.py`, `frontend/src/components/CandidateExplorer.jsx`, `frontend/src/components/TaxiiAdminPanel.jsx`
+- **Modified**: `backend/reasoning/candidate_engine.py` (+ `_build_rejection_reasons`, `_REASON_CODES`, `as_rejected_dict`), `backend/routers/ops.py` (per-candidate rejection_reasons), `backend/server.py` (register taxii router), `backend/tests/test_candidates_endpoint.py` (+ 3 tests), `frontend/src/pages/WorkspacePage.jsx` (toggle + panel), `frontend/src/pages/AdminPage.jsx` (mount TAXII panel)
+
+⚠️ **Deployment**: preview verified end-to-end. Production redeploy required to expose Candidate Explorer, structured why-not, and TAXII Push to nivxray.nivxforge.com.
+
+
+## Previous Change (Feb 2026 — 🧠 P0 · Candidate-Based Encoding Detection Engine + Base58/62/64URL/Z85)
 
 ### Delivered
 Full implementation of the user's "candidate-based encoding detection pipeline" spec. The engine no longer assumes a single encoding — for every input it generates a **ranked candidate list** with **dynamic (evidence-based) confidence scores** and explains WHY the winner was chosen.

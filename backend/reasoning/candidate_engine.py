@@ -219,6 +219,206 @@ class Candidate:
             "rationale": self.rationale,
         }
 
+    def as_rejected_dict(self, winner: Optional["Candidate"] = None) -> Dict[str, Any]:
+        """Same as `as_dict` PLUS a machine-readable ``rejection_reasons``
+        list derived from evidence, and a ``vs_winner`` block comparing
+        this candidate to the winning candidate.
+
+        Rejection reasons follow the schema:
+            [{code, detail, severity}, ...]
+        where severity ∈ {"high", "medium", "low"}. High = decisive
+        problem, medium = degrades confidence, low = observational only.
+        """
+        base = self.as_dict()
+        base["rejection_reasons"] = _build_rejection_reasons(self)
+        if winner is not None and winner.op != self.op:
+            base["vs_winner"] = {
+                "winning_op": winner.op,
+                "winner_confidence": round(winner.confidence, 4),
+                "confidence_gap": round(winner.confidence - self.confidence, 4),
+            }
+        return base
+
+
+# ---------------------------------------------------------------
+# Structured why-not reason codes
+# ---------------------------------------------------------------
+# Every reason code below MUST have a stable identifier so the frontend
+# can map it to an icon / tooltip. Additive; never rename existing codes.
+_REASON_CODES = {
+    "alphabet-mismatch": (
+        "high",
+        "Input characters are outside this encoding's alphabet",
+    ),
+    "alphabet-partial": (
+        "medium",
+        "Only a fraction of characters match the encoding's alphabet",
+    ),
+    "length-invalid": (
+        "medium",
+        "Length does not satisfy this encoding's constraints",
+    ),
+    "decode-rejected": (
+        "high",
+        "The decoder raised an error — the encoding does not apply",
+    ),
+    "decode-noop": (
+        "high",
+        "Applying the transform returned the input unchanged",
+    ),
+    "output-not-readable": (
+        "high",
+        "Decoded output has no linguistic signal (junk bytes)",
+    ),
+    "output-low-printable": (
+        "medium",
+        "Decoded output has a low printable-ASCII ratio",
+    ),
+    "no-linguistic-improvement": (
+        "high",
+        "ROT/XOR did not meaningfully improve output readability",
+    ),
+    "marginal-linguistic-improvement": (
+        "medium",
+        "ROT/XOR only marginally improved readability",
+    ),
+    "no-file-signature": (
+        "low",
+        "No known file signature (PE/ELF/PDF/PNG/…) found in the output",
+    ),
+    "no-malware-indicators": (
+        "low",
+        "No LOLBAS / malware token detected in the output",
+    ),
+    "entropy-out-of-range": (
+        "medium",
+        "Input entropy is outside the typical range for this encoding",
+    ),
+    "forbidden-char": (
+        "high",
+        "Input contains an encoding-forbidden character (e.g. 0/O/I/l for Base58)",
+    ),
+    "printable-but-non-linguistic": (
+        "medium",
+        "Output is printable but doesn't look like natural text",
+    ),
+    "garbage-decode": (
+        "high",
+        "Decoded output is a mix of printable and non-printable bytes with no linguistic content",
+    ),
+}
+
+
+def _reason(code: str, detail: str = "") -> Dict[str, Any]:
+    severity, description = _REASON_CODES.get(
+        code, ("low", "Unrecognized rejection code"),
+    )
+    return {
+        "code": code,
+        "severity": severity,
+        "description": description,
+        "detail": detail,
+    }
+
+
+def _build_rejection_reasons(cand: "Candidate") -> List[Dict[str, Any]]:
+    """Derive structured rejection reasons from the candidate's evidence.
+
+    Called on RUNNER-UP candidates so the frontend can render "why not
+    Y?" tooltips. On the winner, this list is typically empty (or
+    contains only 'low'-severity observational codes).
+    """
+    ev = cand.evidence or {}
+    reasons: List[Dict[str, Any]] = []
+
+    # 1) Alphabet checks
+    alphabet_ratio = ev.get("alphabet_ratio")
+    if alphabet_ratio is not None and alphabet_ratio < 1.0:
+        if alphabet_ratio < 0.90:
+            reasons.append(_reason(
+                "alphabet-mismatch",
+                f"alphabet_ratio={alphabet_ratio:.2f}",
+            ))
+        else:
+            reasons.append(_reason(
+                "alphabet-partial",
+                f"alphabet_ratio={alphabet_ratio:.2f}",
+            ))
+
+    # 2) Length rule
+    if ev.get("length_valid") is False:
+        reasons.append(_reason(
+            "length-invalid",
+            f"length={ev.get('length')}",
+        ))
+
+    # 3) Decode success
+    if ev.get("decode_ok") is False:
+        err = ev.get("decode_error")
+        detail = f"decoder raised: {err}" if err else "decoder returned None"
+        reasons.append(_reason("decode-rejected", detail))
+
+    # 4) Output readability
+    if ev.get("decode_ok") is True:
+        pr = ev.get("printable_ratio", 0.0)
+        lscore = ev.get("linguistic_score", 0.0)
+        if pr is not None and pr < 0.30 and not ev.get("signature"):
+            reasons.append(_reason(
+                "output-low-printable",
+                f"printable_ratio={pr:.2f}",
+            ))
+        if (lscore is not None and lscore < 0.05
+                and not ev.get("signature")
+                and not ev.get("malware_indicators")):
+            if 0.20 <= (pr or 0.0) <= 0.80:
+                reasons.append(_reason(
+                    "garbage-decode",
+                    f"printable={pr:.2f}, linguistic_score={lscore:.2f}",
+                ))
+            elif (pr or 0.0) > 0.80:
+                reasons.append(_reason(
+                    "printable-but-non-linguistic",
+                    f"printable={pr:.2f}, linguistic_score={lscore:.2f}",
+                ))
+            else:
+                reasons.append(_reason(
+                    "output-not-readable",
+                    f"linguistic_score={lscore:.2f}",
+                ))
+
+    # 5) ROT/XOR-specific linguistic delta
+    if cand.op in ("rot13", "rot47", "xor"):
+        delta = ev.get("linguistic_delta")
+        if delta is not None:
+            if delta < 0.15:
+                reasons.append(_reason(
+                    "no-linguistic-improvement",
+                    f"linguistic_delta={delta:.2f}",
+                ))
+            elif delta < 0.30:
+                reasons.append(_reason(
+                    "marginal-linguistic-improvement",
+                    f"linguistic_delta={delta:.2f}",
+                ))
+
+    # 6) Forbidden chars (encoding-specific)
+    rationale_low = (cand.rationale or "").lower()
+    if "forbidden-char" in rationale_low or "base58-forbidden" in rationale_low:
+        reasons.append(_reason(
+            "forbidden-char",
+            "encoding-specific forbidden character present in input",
+        ))
+
+    # 7) Observational low-severity notes (only if we haven't already got
+    # a higher-severity reason making the candidate uncompetitive).
+    if not any(r["severity"] == "high" for r in reasons):
+        if not ev.get("signature"):
+            reasons.append(_reason("no-file-signature"))
+        if not ev.get("malware_indicators"):
+            reasons.append(_reason("no-malware-indicators"))
+
+    return reasons
+
 
 # ---------------------------------------------------------------
 # Evidence helpers
