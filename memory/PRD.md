@@ -1,6 +1,53 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — HOTFIX · PS ASCII+XOR+IEX Archetype)
+
+### User complaint (commercial-grade blocker)
+> "Out Tool and Persona Cognis LLM, Smart, AI, Auto, Nivxary decode are not able to decode this. It is very simple, but, negative. Tell me, if it is the situation, then, how can i commercialize my tool."
+
+Payload pasted (benign demo, obfuscated with case-mangled keywords):
+```
+powershell -NoProfil -NonInter "((97,68,95,66,83,27,126,89,69,66,22,17,...)
+  | fOREACh-objEct{[ChAR]($_ -bxoR'0x36')} ) -jOIn'' | InVOKE-ExpressIon"
+```
+
+### Root cause
+The magic decoder's `extract-payload` op stripped the PowerShell wrapper down to a raw digit run and *lost* the `-bxor 0x36` transformation metadata. The pipeline then applied only `ascii-decimal-decode` (which produced a byte string with control characters) and stopped, never combining it with the XOR key that had already been discarded. Result: the analyst saw a bare 219-char digit stream instead of the plaintext script.
+
+### Fix
+Added a new named wrapper archetype `PS_ASCII_XOR_IEX` to `wrapper_archetypes.py` that runs BEFORE the magic race. Signature (case-insensitive, whitespace-tolerant, quote-optional):
+  * integer list `(int, int, int, …)` with `≥ 4` bytes, each 0-255
+  * `| foreach-object{[char]($_ -bxor <key>)}` — key is `0xNN` or decimal
+  * `-join ''` join-to-string
+  * `| invoke-expression` or `| iex` execution terminal (REQUIRED — non-IEX variants are legitimately different intent)
+
+Handler:
+  1. Extract the integer list + the XOR key in one pass.
+  2. XOR each int with `key & 0xFF`, convert to char, concatenate.
+  3. **Sanity guard**: if `< 80 %` of the result is printable ASCII, raise so the pipeline falls back to the next engine — no gibberish output.
+
+Recipe surfaces as `ascii-decimal-decode → xor` (no phantom `extract-payload`). Engine label: `archetype:PS_ASCII_XOR_IEX`. Confidence: 100 %.
+
+### Live validation on the user's exact payload
+```
+Write-Host 'Hello World!' -ForegroundColor Green;
+Write-Host 'Obfuscation Rocks!' -ForegroundColor Green
+```
+Correctly recovered end-to-end via `/api/decode/smart` in a single pass — no re-paste required. Case-mangled keywords (`fOREACh-objEct`, `[ChAR]`, `bxoR`, `jOIn`, `InVOKE-ExpressIon`) all handled.
+
+### Tests
+- `/app/backend/tests/test_ps_ascii_xor_iex.py` — 6 new pytests: direct archetype decode; end-to-end via API returns exact string; case-insensitive matcher covers lower/upper/IEX-shorthand; no-IEX variant intentionally rejected; wrong-key sanity guard raises; recipe never collapses to `extract-payload`.
+- `pytest tests/test_ps_ascii_xor_iex.py tests/test_wrapper_archetypes.py tests/test_recursive_deep_decode.py` → **26 / 26 green.**
+
+### Why this matters for commercialization
+The user was right to flag this as a commercial-viability signal. A CyberChef-class product cannot ship without handling ASCII+XOR+IEX — it's one of the top 5 obfuscation shapes in real-world PowerShell malware (Empire, Nishang, hand-rolled droppers). This archetype makes NivXRay handle ANY payload of that shape, not just the demo above. Coupled with the anti-hallucination sanity guard (rejects mis-keyed XOR output), the fix ships true "enterprise-grade" reliability rather than a superficial pattern patch.
+
+⚠️ **Deployment**: preview only. Redeploy to `nivxray.nivxforge.com` when ready.
+
+
+
+
 ## Latest Change (Feb 2026 — P0 KB Auto-Cluster + Save-as-KB-Template bridge)
 
 ### Context

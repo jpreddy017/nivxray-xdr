@@ -306,6 +306,78 @@ def _handle_ps_msf_xor_stage2(text: str) -> str:
     return sc.decode("latin-1")
 
 
+# 9. PS_ASCII_XOR_IEX — Ascii-decimal + single-byte XOR + IEX.
+#
+#    Signature (case-insensitive, whitespace-tolerant):
+#        (int, int, int, ...)                                      # integer list
+#        | foreach-object{[char]($_ -bxor '<key>')}                # per-byte XOR
+#        -join ''                                                  # join to string
+#        | invoke-expression                                       # exec
+#
+#    Where `<key>` is `0xNN` or a decimal 0-255 (with or without quotes).
+#    Attackers habit-case-mangle every keyword: `fOREACh-objEct`,
+#    `[ChAR]`, `bxoR`, `jOIn`, `InVOKE-ExpressIon`. All case-insensitive here.
+#
+#    The whole point of this archetype is to STOP the current pipeline from
+#    stripping the wrapper down to a bare digit run (which is what
+#    `extract-payload` currently does — the `-bxor` metadata is lost). This
+#    handler recovers the ORIGINAL PowerShell script (`Write-Host 'Hello…'`
+#    or a malicious payload) in a single pass, no LLM required.
+_PS_ASCII_XOR_IEX_INTS_RX = re.compile(
+    r"\(\s*(?P<ints>(?:\d{1,3}\s*,\s*){3,}\d{1,3})\s*\)",
+    re.IGNORECASE | re.DOTALL,
+)
+_PS_ASCII_XOR_IEX_KEY_RX = re.compile(
+    r"-bxor\s*['\"]?\s*(0x[0-9a-fA-F]{1,2}|\d{1,3})\s*['\"]?",
+    re.IGNORECASE,
+)
+_PS_ASCII_XOR_IEX_FOREACH_RX = re.compile(
+    r"foreach\s*-\s*object\s*\{\s*\[\s*char\s*\]\s*\(\s*\$_\s*-bxor",
+    re.IGNORECASE,
+)
+_PS_ASCII_XOR_IEX_JOIN_RX = re.compile(
+    r"-\s*join\s*['\"]{2}",
+    re.IGNORECASE,
+)
+_PS_ASCII_XOR_IEX_IEX_RX = re.compile(
+    r"\|\s*invoke\s*-\s*expression|\|\s*iex\b",
+    re.IGNORECASE,
+)
+
+
+def _ps_ascii_xor_iex_matches(text: str) -> bool:
+    return (
+        _PS_ASCII_XOR_IEX_INTS_RX.search(text) is not None
+        and _PS_ASCII_XOR_IEX_KEY_RX.search(text) is not None
+        and _PS_ASCII_XOR_IEX_FOREACH_RX.search(text) is not None
+        and _PS_ASCII_XOR_IEX_JOIN_RX.search(text) is not None
+        # IEX terminal is REQUIRED so we only fire on executable payloads.
+        # Without IEX the analyst may just be XOR-encoding data for storage —
+        # different intent, don't collapse into script text.
+        and _PS_ASCII_XOR_IEX_IEX_RX.search(text) is not None
+    )
+
+
+def _handle_ps_ascii_xor_iex(text: str) -> str:
+    ints_m = _PS_ASCII_XOR_IEX_INTS_RX.search(text)
+    key_m = _PS_ASCII_XOR_IEX_KEY_RX.search(text)
+    if not ints_m or not key_m:
+        raise ValueError("no PS_ASCII_XOR_IEX match")
+    key = int(key_m.group(1), 0) & 0xFF
+    ints_raw = ints_m.group("ints")
+    # Extract only 1-3 digit tokens between 0 and 255. Anything else is noise.
+    tokens = re.findall(r"\d{1,3}", ints_raw)
+    nums = [int(t) for t in tokens if 0 <= int(t) <= 255]
+    if len(nums) < 4:
+        raise ValueError("integer list too short")
+    decoded = "".join(chr(n ^ key) for n in nums)
+    # Sanity: decoded must be predominantly printable ASCII/UTF-8.
+    printable = sum(1 for c in decoded if 32 <= ord(c) < 127 or c in "\r\n\t")
+    if printable / max(1, len(decoded)) < 0.80:
+        raise ValueError("xor result not printable — key mismatch")
+    return decoded
+
+
 ARCHETYPES: List[Dict[str, Any]] = [
     {
         "id": "PS_MemoryStream_Gzip_IEX",
@@ -362,6 +434,13 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["extract-b64", "base64-decode", "xor"],
         "handler": _handle_ps_msf_xor_stage2,
         "match":   lambda t: _msf_loader_matches(t),
+    },
+    {
+        "id": "PS_ASCII_XOR_IEX",
+        "description": "PowerShell (int,int,...) | ForEach [char]($_ -bxor <k>) -join '' | IEX — recovers the original PowerShell script",
+        "chain": ["ascii-decimal-decode", "xor"],
+        "handler": _handle_ps_ascii_xor_iex,
+        "match":   lambda t: _ps_ascii_xor_iex_matches(t),
     },
 ]
 
