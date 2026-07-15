@@ -179,6 +179,58 @@ def troubleshoot(
                 "human_summary": "Nothing to decode — paste a payload first.",
             }
 
+    # ─── R1b: Corrupt-payload short-circuit ──────────────────────────────
+    # If the payload is structurally impossible (bad b64 length, malformed
+    # gzip body, synthetic gzip header, etc.), stop decoding immediately
+    # and return a clear anti-hallucination verdict.
+    try:
+        from corrupt_payload_detector import detect_corrupt_payload
+        corrupt = detect_corrupt_payload(input_text)
+    except Exception:
+        corrupt = None
+    if corrupt:
+        # Only SHORT-CIRCUIT decoding if the corruption is severe:
+        #   - gzip family AND body cannot decompress, OR
+        #   - synthetic gzip fingerprint, OR
+        #   - low-entropy faux-compressed body.
+        # For plain "bad base64 length" alone, we still let the deterministic
+        # pipeline attempt repair (a PowerShell payload with a stray char is
+        # usually recoverable).
+        _SEVERE = {"GZIP_HEADER_VALID_BODY_BAD",
+                   "GZIP_SYNTHETIC_HEADER",
+                   "LOW_ENTROPY_FAUX_COMPRESSED",
+                   "BASE64_DECODE_FAIL"}
+        codes_hit = {r["code"] for r in corrupt["reasons"]}
+        short_circuit = bool(codes_hit & _SEVERE)
+        diag = {
+            "code": "CORRUPT_PAYLOAD",
+            "severity": corrupt["severity"],
+            "message": corrupt["verdict"],
+            "auto_fixed": False,
+            "evidence": corrupt["reasons"],
+            "recommendation": corrupt["recommendation"],
+        }
+        diagnoses.append(diag)
+        if short_circuit:
+            return {
+                "success": False,
+                "diagnoses": diagnoses,
+                "fixes_applied": fixes_applied,
+                "final_output": "",
+                "final_steps": [],
+                "final_engine": "corrupt-payload-detector",
+                "final_confidence": 0,
+                "reached_shellcode": False,
+                "ai_used": False,
+                "human_summary": (
+                    f"⚠ PAYLOAD CORRUPT — {corrupt['verdict']} "
+                    f"({len(corrupt['reasons'])} evidence check(s) failed). "
+                    "Do NOT trust AI-generated 'decoded' output from other tools — they hallucinate."
+                ),
+                "corrupt_payload": corrupt,
+            }
+        # else: fall through and let the deterministic pipeline attempt repair.
+
     # ─── R2: Re-run deterministic pipeline (chained-archetype + magic race) ─
     try:
         from analysis_core import deterministic_best_decode

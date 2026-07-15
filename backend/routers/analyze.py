@@ -19,6 +19,7 @@ from deps import db, get_current_user, require_admin, load_osint_keys
 from operations import extract_iocs, mitre_map, yara_lite_scan, risk_score
 from osint import enrich_iocs
 from lolbas import scan_lolbas
+from corrupt_payload_detector import detect_corrupt_payload
 from analysis_core import ai_describe_and_verdict, lookup_ti_hits
 import models_studio as ms
 
@@ -38,6 +39,10 @@ async def analyze(body: AnalyzeIn, user=Depends(get_current_user)):
     lolbas = scan_lolbas(text)
     risk = risk_score(mitre, yara, iocs)
     ti_hits = await lookup_ti_hits(iocs)
+    # Corrupt-payload detector — catches fabricated / truncated blobs so
+    # analysts don't waste time comparing NivXRay's blank output to another
+    # tool's hallucinated "decoded" text.
+    corrupt = detect_corrupt_payload(body.input or "")
 
     osint_data = None
     if body.enrich_osint:
@@ -81,6 +86,7 @@ async def analyze(body: AnalyzeIn, user=Depends(get_current_user)):
         "iocs": iocs, "mitre": merged_mitre, "yara": yara, "lolbas": lolbas, "risk": risk,
         "osint": osint_data, "ti_hits": ti_hits,
         "ai_verdict": ai_verdict, "description": description,
+        "corrupt_payload": corrupt,
     }
 
 

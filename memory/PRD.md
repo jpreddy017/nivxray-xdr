@@ -1,6 +1,38 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — anti-hallucination corrupt-payload detector)
+### Bug report
+User pasted a base64+gzip payload that Google GenAI claimed to decode as a reverse-shell PowerShell script beaconing to `45.142.122.92:443`. NivXRay refused to produce output. User asked "why can't we decode when Google can in 5 seconds?"
+
+### Root cause investigation (three independent proofs Google hallucinated):
+1. **Base64 length arithmetic**: user's payload is 701 chars (4n+1) — mathematically impossible for real base64 (must be 4n, 4n+2, or 4n+3).
+2. **Multiple gzip implementations agree it's corrupt**: Python `gzip`, Python `zlib.decompressobj`, and Linux system `gunzip` (independent C implementation) all return `invalid compressed data — format violated`. The Huffman codes in the first deflate block don't form a valid decoding tree.
+3. **Byte-level comparison**: Gzipping Google's claimed "decoded script" produces bytes that share only the 4-byte gzip magic with the user's payload (bytes 5-9 differ: user has synthetic `00 00 00 00 00 ff`, real has timestamp `e4 d1 56 6a 02 ff`).
+
+The `nivxray_prod_key` XOR key embedded in the user's decoder recipe was itself a giveaway — real attackers do not name their XOR keys after the defensive tool they're trying to evade.
+
+### Fix
+New module `corrupt_payload_detector.py` with 5 evidence checks:
+- `BASE64_IMPOSSIBLE_LEN` — length mod 4 == 1
+- `GZIP_HEADER_VALID_BODY_BAD` — magic OK, deflate fails
+- `GZIP_SYNTHETIC_HEADER` — mtime=0 + xfl=0 + os=0xff (fabricated fingerprint)
+- `LOW_ENTROPY_FAUX_COMPRESSED` — deflate-body entropy < 7.60 bits/byte
+- `IMPOSSIBLE_PADDING` — > 2 trailing `=`
+
+Wired into:
+- `POST /api/analyze` — new `corrupt_payload` field in response
+- `POST /api/troubleshoot/auto` — short-circuits on *severe* codes (gzip-body-bad, synthetic header, low entropy, base64-decode-fail) but lets soft cases fall through to normal Troubleshoot repair (preserves the `test_troubleshoot_repairs_corrupted_base64` case)
+- **`ThreatAnalysis` UI** — bright red banner appears at the top of the panel showing all evidence + an "ANALYST NOTE" warning about AI hallucination in other tools
+
+### Tests
+- 6 new tests in `test_corrupt_payload_detector.py` (positive + negative + false-positive guards + Troubleshoot short-circuit integration)
+- **430 / 430 backend tests green** (2 min). Zero regressions.
+
+⚠️ **Deployment note**: fix lives in **preview** — user must redeploy for it to reach `nivxray.nivxforge.com`.
+
+
+
 ## Latest Change (Feb 2026 — post-deploy fixes)
 ### MITRE/LOLBAS long-form `-EncodedCommand` + Universal Clear
 Bug reports (production, https://nivxray.nivxforge.com):

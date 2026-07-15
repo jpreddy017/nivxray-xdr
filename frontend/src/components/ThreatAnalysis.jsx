@@ -74,6 +74,56 @@ export default function ThreatAnalysis({
         </div>
       </div>
 
+      {/* CORRUPT-PAYLOAD BANNER — bright, unmissable, cites all evidence */}
+      {analysis?.corrupt_payload && (
+        <div
+          data-testid="corrupt-payload-banner"
+          style={{
+            padding: "14px 16px",
+            background: "rgba(220, 38, 38, 0.12)",
+            borderTop: "1px solid rgba(220, 38, 38, 0.35)",
+            borderBottom: "2px solid rgba(220, 38, 38, 0.55)",
+          }}
+        >
+          <div
+            className="mono"
+            style={{
+              fontSize: 11, letterSpacing: "0.20em",
+              color: "#fca5a5", fontWeight: 700, marginBottom: 8,
+            }}
+          >
+            ⚠ PAYLOAD CORRUPT — CANNOT DECODE (structurally impossible)
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text)", marginBottom: 8, lineHeight: 1.4 }}>
+            {analysis.corrupt_payload.verdict}
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            {(analysis.corrupt_payload.reasons || []).map((r, i) => (
+              <div key={i} className="mono" style={{ fontSize: 10.5, color: "var(--text-mute)", padding: "2px 0" }}>
+                <span style={{ color: "#f87171" }}>◆ {r.code}</span>
+                <span style={{ marginLeft: 8 }}>{r.message}</span>
+                {r.evidence && (
+                  <div style={{ paddingLeft: 20, color: "var(--text-mute)", fontSize: 10 }}>
+                    evidence: <span style={{ color: "var(--accent)" }}>{r.evidence}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div
+            style={{
+              fontSize: 11, color: "#fca5a5", lineHeight: 1.5,
+              padding: "8px 10px", background: "rgba(0,0,0,0.35)",
+              borderRadius: 3, borderLeft: "3px solid #f87171",
+            }}
+          >
+            <strong style={{ letterSpacing: "0.10em" }}>ANALYST NOTE:</strong>{" "}
+            {analysis.corrupt_payload.recommendation}
+          </div>
+        </div>
+      )}
+
+
       {selectedTactic && (
         <div
           data-testid="ta-tactic-filter-bar"
