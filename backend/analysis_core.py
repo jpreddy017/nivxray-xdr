@@ -55,6 +55,20 @@ def deterministic_best_decode(payload: str) -> Dict[str, Any]:
         steps = r.get("steps") or []
         engine = r.get("engine")
 
+        # ── FORENSIC RULE — corrupted container terminates recursion ────
+        # If any layer detected a corrupted magic-byte container, do NOT
+        # keep peeling; that state is the analyst's answer.
+        if r.get("corrupted_container"):
+            all_steps.extend(steps)
+            if engine and engine not in engines:
+                engines.append(engine)
+            final_result = r
+            final_result["steps"] = all_steps
+            final_result["output"] = out
+            final_result["engine"] = "+".join(engines) if len(engines) > 1 else engine
+            final_result["iterations"] = iteration + 1
+            return final_result
+
         # No progress → stop.
         if not steps or not out.strip() or out == current or out == last_output:
             if iteration == 0:
@@ -129,6 +143,42 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
 
     try:
         m = magic_decode(payload, max_depth=6, max_branches=5, top_n=3)
+        # ── FORENSIC RULE — corrupted-container short-circuit ────────────
+        # If magic detected a valid container magic (GZIP/ZLIB/LZMA/BZIP2)
+        # whose decompression failed CRC / truncated-stream integrity, we
+        # bypass ALL scoring and return the corrupted-container terminal
+        # state. Falling back to smart_decode (which happily xor-brutes the
+        # raw bytes) would be a forensic false positive.
+        if m.get("corrupted_container"):
+            cc = m["corrupted_container"]
+            top0 = (m.get("top_results") or [{}])[0]
+            chain = top0.get("chain") or []
+            # Prepend the base64-decode step to the chain if the payload was
+            # a base64-encoded corrupted container — the analyst wants to
+            # see BOTH the base64 layer AND the failed decompression.
+            def _reason(step):
+                if step.get("_magic_locked"):
+                    return ("Container magic detected — integrity check "
+                            f"FAILED: {cc.get('reason')}")
+                if step.get("op") == "base64-decode":
+                    return "Base64-encoded payload detected"
+                return f"Applied {step.get('op')}"
+            return {
+                "steps":  [{"op": s.get("op"), "args": s.get("args") or {},
+                            "reason": _reason(s)}
+                           for s in chain],
+                "output": top0.get("output") or f"[Corrupted {cc.get('kind')} container]",
+                "engine": "magic",
+                "score":  0.0,
+                "reached_shellcode": False,
+                "corrupted_container": cc,
+                "notes":  [
+                    f"Container magic detected: {cc.get('kind')} (magic bytes preserved).",
+                    f"Integrity check failed: {cc.get('reason')}",
+                    "Deterministic decoder will NOT brute-force inside a corrupted container. "
+                    "Enable Aggressive Recovery (?aggressive=true) to attempt salvage.",
+                ],
+            }
         # Pick the magic candidate whose OUTPUT scores best under `magic_score`
         # (i.e. deepest AND most-clean), not just top_results[0] which is sorted
         # by the internal score-with-chain-complete-bonus. This avoids losing

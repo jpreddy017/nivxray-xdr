@@ -154,7 +154,7 @@ def score_output(s: str) -> Dict[str, Any]:
 # Candidate op selection
 # =============================================================================
 # Each candidate returns a list of (op_id, args) tuples to try given the input.
-def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
+def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
     cands: List[Dict[str, Any]] = []
     s = payload.strip()
     if not s:
@@ -228,14 +228,53 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
         cands.append({"op": "utf16le-decode", "args": {}})
     # Binary magic bytes AFTER a decode step (gzip, zlib, LZMA/XZ, PE).
     # NOTE: check against `raw` (unstripped) — see comment at top of function.
+    #
+    # ▲ FORENSIC RULE — magic bytes have HIGHEST priority.
+    # When a well-known container's magic sequence is present, we propose
+    # ONLY that container's decompress op and mark the branch as
+    # `_magic_locked`. If decompression subsequently fails (CRC / truncated
+    # stream), the walker records a "Corrupted <container>" terminal state
+    # and refuses to fall back to xor-brute / rot13 / caesar / etc.
+    # That's the behaviour a forensic tool must exhibit — a corrupt archive
+    # is corrupt, not "maybe secretly xor'd".
+    _magic_container = None
     if raw.startswith("\x1f\x8b"):
-        cands.insert(0, {"op": "gzip-decompress", "args": {}})
-    if raw.startswith("\x78\x9c") or raw.startswith("\x78\xda") or raw.startswith("\x78\x01"):
-        cands.insert(0, {"op": "zlib-decompress", "args": {}})
-    if raw.startswith("\xfd7zXZ") or raw.startswith("\xfd7z\x58\x5a"):
-        cands.insert(0, {"op": "lzma-decompress", "args": {}})
-    if raw.startswith("BZh"):
-        cands.insert(0, {"op": "bzip2-decompress", "args": {}})
+        _magic_container = "GZIP"
+    elif raw.startswith("\x78\x9c") or raw.startswith("\x78\xda") or raw.startswith("\x78\x01"):
+        _magic_container = "ZLIB"
+    elif raw.startswith("\xfd7zXZ") or raw.startswith("\xfd7z\x58\x5a"):
+        _magic_container = "LZMA"
+    elif raw.startswith("BZh"):
+        _magic_container = "BZIP2"
+
+    if _magic_container is not None:
+        op_map = {
+            "GZIP":  "gzip-decompress",
+            "ZLIB":  "zlib-decompress",
+            "LZMA":  "lzma-decompress",
+            "BZIP2": "bzip2-decompress",
+        }
+        # ── Speculative-bytes guard ─────────────────────────────────────
+        # If we ARRIVED at these bytes via a brute-force op (xor-brute /
+        # xor / rot13 / reverse), the "magic bytes" are LIKELY coincidence
+        # from the brute picking a key that maximises magic-alignment.
+        # Don't lock — return the compressed candidate PLUS the normal
+        # candidate list so scoring compares them fairly.
+        #
+        # Only when the arrival path is composed of lossless / deterministic
+        # transforms (base64/hex/utf16le/env-expand/…) do we trust the magic
+        # match and lock the branch to "corrupted container" on failure.
+        _speculative_ops = {"xor-brute", "xor", "rot13", "reverse"}
+        _chain_ops = {c.get("op") for c in (chain or [])}
+        if _chain_ops & _speculative_ops:
+            cands.insert(0, {"op": op_map[_magic_container], "args": {}})
+            # fall through — no early return, let scoring pick the winner
+        else:
+            return [{
+                "op": op_map[_magic_container],
+                "args": {},
+                "_magic_locked": _magic_container,
+            }]
     # Hex detection (≥ 20 chars, even length). Prepend when the buffer is
     # UNAMBIGUOUSLY hex (only 0-9a-f, no uppercase letters beyond a-f) so it
     # beats base64/utf16 speculation with tight max_branches budgets.
@@ -453,7 +492,7 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                 ctx = {**ctx, "xor_key": k}
         except Exception:
             pass
-        cands = _pick_candidates(cur)[:max_branches]
+        cands = _pick_candidates(cur, chain=chain)[:max_branches]
         # If we're sitting on a clean-base64 buffer AND we've captured a XOR
         # key from a previous layer, plan the deterministic base64 → xor chain.
         if ctx.get("xor_key") is not None:
@@ -500,7 +539,44 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                     nxt = c["_nested_b32"]
                 else:
                     nxt = run_operation(c["op"], cur, c["args"])
-            except Exception:
+            except Exception as _e:
+                # ── FORENSIC RULE — corrupted container terminal state ────
+                # When a magic-byte-locked decompress fails (BadGzipFile /
+                # CRC mismatch / truncated stream), we record the failure as
+                # the TERMINAL state for this branch. No fallback to xor-brute
+                # or any other transformation — a corrupt archive is corrupt.
+                if c.get("_magic_locked"):
+                    label = c["_magic_locked"]
+                    step_err = {
+                        "op": c["op"],
+                        "args": c.get("args") or {},
+                        "_magic_locked": label,
+                        "_error": f"{type(_e).__name__}: {_e}",
+                    }
+                    best_results.append({
+                        "chain": chain + [step_err],
+                        "output": (
+                            f"[Corrupted {label} container] "
+                            f"{type(_e).__name__}: {_e}. "
+                            "Deterministic decoder will not brute-force inside a "
+                            "corrupted container. Enable Aggressive Recovery to "
+                            "attempt salvage."
+                        ),
+                        "score_breakdown": {
+                            "score":    0.0,
+                            "printable": 0.0,
+                            "english":   0.0,
+                            "entropy":   0.0,
+                            "size":      0,
+                            "reasons":   [f"corrupted-{label.lower()}-container"],
+                        },
+                        "path_scores": list(path_scores) + [0.0],
+                        "corrupted_container": {
+                            "kind":   label,
+                            "reason": str(_e),
+                        },
+                    })
+                    return   # stop the ENTIRE branch — no further candidates
                 continue
             if not nxt or nxt == cur:
                 continue
@@ -719,9 +795,28 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
     except Exception:
         pass
 
+    # ── FORENSIC RULE — corrupted-container elevation ───────────────────
+    # If ANY branch discovered a corrupted magic-byte container, promote it
+    # to the TOP of the results — even if it was dedup'd out of the top-N
+    # by scoring. The analyst needs to see the exact CRC / data-error reason,
+    # not a garbage xor-brute output that only scored higher because it
+    # looked vaguely printable.
+    corrupted = None
+    for r in best_results:
+        if r.get("corrupted_container"):
+            corrupted = r
+            break
+    if corrupted:
+        # Prepend the isolation step so the chain reads correctly on the UI.
+        if isolation_note:
+            corrupted = {**corrupted,
+                         "chain": [{"op": "extract-payload", "args": {}}] + corrupted["chain"]}
+        dedup = [corrupted] + [r for r in dedup if not r.get("corrupted_container")]
+
     return {
         "initial_score": initial_score,
         "candidates_explored": len(best_results),
         "isolation_note": isolation_note,
         "top_results": dedup,
+        "corrupted_container": (corrupted or {}).get("corrupted_container"),
     }

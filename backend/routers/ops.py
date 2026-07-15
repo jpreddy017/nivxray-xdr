@@ -372,6 +372,11 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         ],
         "boost": boost_meta,
         "boost_hit": boost_hit,
+        # ▲ FORENSIC RULE — corrupted container signal (Feb-2026)
+        # When set, the frontend renders a big-red "Corrupted <kind>
+        # container" panel with the exact CRC / truncated-stream reason
+        # instead of a misleading "high-confidence xor-brute" result.
+        "corrupted_container": det.get("corrupted_container"),
     }
     # Auto-record into user's Investigation History (fire-and-forget, never blocks)
     try:
