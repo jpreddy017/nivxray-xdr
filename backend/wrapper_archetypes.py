@@ -398,6 +398,99 @@ def _handle_ps_ascii_xor_iex(text: str) -> str:
     return decoded
 
 
+# 10. PS_ASCII_DECIMAL_JOIN — Ascii-decimal + [char] + join (NO XOR variant).
+#
+#    Signature (case-insensitive, whitespace-tolerant):
+#        (int, int, int, ...)
+#        | foreach-object{[char]$_}     OR     | %{[char]$_}
+#        | Join-String                  OR     -join ''            OR   | Out-String
+#        (optional: | Invoke-Expression / iex)
+#
+#    Same wrap-resilient integer parsing as PS_ASCII_XOR_IEX. IEX terminal
+#    is OPTIONAL here — the archetype fires whenever the analyst pastes a
+#    `[char]$_`-style ASCII-decimal payload, which is a very common
+#    Nishang / Invoke-Obfuscation shape.
+_PS_ASCII_DEC_JOIN_CHAR_RX = re.compile(
+    r"(?:foreach\s*-\s*object|%)\s*\{\s*\[\s*char\s*\]\s*\$_\s*\}",
+    re.IGNORECASE,
+)
+_PS_ASCII_DEC_JOIN_TERM_RX = re.compile(
+    r"(?:-\s*join\s*['\"]{0,2}|join\s*-\s*string|out\s*-\s*string)",
+    re.IGNORECASE,
+)
+
+
+def _ps_ascii_decimal_join_matches(text: str) -> bool:
+    # Reject payloads that already have `-bxor` — those belong to
+    # PS_ASCII_XOR_IEX and must not be double-decoded.
+    if _PS_ASCII_XOR_IEX_KEY_RX.search(text):
+        return False
+    return (
+        _PS_ASCII_XOR_IEX_INTS_RX.search(text) is not None
+        and _PS_ASCII_DEC_JOIN_CHAR_RX.search(text) is not None
+        and _PS_ASCII_DEC_JOIN_TERM_RX.search(text) is not None
+    )
+
+
+def _handle_ps_ascii_decimal_join(text: str) -> str:
+    ints_m = _PS_ASCII_XOR_IEX_INTS_RX.search(text)
+    if not ints_m:
+        raise ValueError("no PS_ASCII_DECIMAL_JOIN match")
+    ints_clean = re.sub(r"\s+", "", ints_m.group("ints"))
+    tokens = [t for t in ints_clean.split(",") if t]
+    nums: List[int] = []
+    for t in tokens:
+        if not t.isdigit():
+            continue
+        v = int(t)
+        if 0 <= v <= 255:
+            nums.append(v)
+    if len(nums) < 4:
+        raise ValueError("integer list too short")
+    decoded = "".join(chr(n) for n in nums)
+    printable = sum(1 for c in decoded if 32 <= ord(c) < 127 or c in "\r\n\t")
+    if printable / max(1, len(decoded)) < 0.80:
+        raise ValueError("decoded result not printable")
+    return decoded
+
+
+# 11. JS_STRING_FROMCHARCODE_EVAL — JavaScript ASCII decimal in <script>eval(String.fromCharCode(...))</script>
+#
+#     Fake-update / SocGholish-style HTML injection. Attackers stash the real
+#     JS payload as a String.fromCharCode(72,105,...) call inside an <script>
+#     eval(...) wrapper so static grep for `atob` / `unescape` misses.
+_JS_FROMCHARCODE_RX = re.compile(
+    r"String\s*\.\s*fromCharCode\s*\(\s*(?P<ints>[\d][\d,\s]{6,}[\d])\s*\)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _js_fromcharcode_matches(text: str) -> bool:
+    return _JS_FROMCHARCODE_RX.search(text) is not None
+
+
+def _handle_js_fromcharcode(text: str) -> str:
+    m = _JS_FROMCHARCODE_RX.search(text)
+    if not m:
+        raise ValueError("no fromCharCode match")
+    ints_clean = re.sub(r"\s+", "", m.group("ints"))
+    tokens = [t for t in ints_clean.split(",") if t]
+    nums: List[int] = []
+    for t in tokens:
+        if not t.isdigit():
+            continue
+        v = int(t)
+        if 0 <= v <= 0x10FFFF:
+            nums.append(v)
+    if len(nums) < 3:
+        raise ValueError("integer list too short")
+    decoded = "".join(chr(n) for n in nums)
+    printable = sum(1 for c in decoded if 32 <= ord(c) < 127 or c in "\r\n\t")
+    if printable / max(1, len(decoded)) < 0.80:
+        raise ValueError("decoded result not printable")
+    return decoded
+
+
 ARCHETYPES: List[Dict[str, Any]] = [
     {
         "id": "PS_MemoryStream_Gzip_IEX",
@@ -461,6 +554,20 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["ascii-decimal-decode", "xor"],
         "handler": _handle_ps_ascii_xor_iex,
         "match":   lambda t: _ps_ascii_xor_iex_matches(t),
+    },
+    {
+        "id": "PS_ASCII_DECIMAL_JOIN",
+        "description": "PowerShell (int,int,...) | ForEach [char]$_ | Join-String / -join '' — non-XOR ASCII decimal decode",
+        "chain": ["ascii-decimal-decode"],
+        "handler": _handle_ps_ascii_decimal_join,
+        "match":   lambda t: _ps_ascii_decimal_join_matches(t),
+    },
+    {
+        "id": "JS_STRING_FROMCHARCODE",
+        "description": "JavaScript String.fromCharCode(int,int,...) — recovers the inner JS/HTML string (SocGholish, Fake-Update injects)",
+        "chain": ["js-charcode-decode"],
+        "handler": _handle_js_fromcharcode,
+        "match":   lambda t: _js_fromcharcode_matches(t),
     },
 ]
 

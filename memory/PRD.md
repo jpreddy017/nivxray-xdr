@@ -1,6 +1,45 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — P1 · Base32/decimal regression fixture matrix + 3 archetype/pipeline fixes)
+
+### Delivered
+- **9 real-shape fixtures** in `/app/backend/tests/fixtures/` (SAFE — all C2 defanged / example.com):
+  * `base32_pure_downloader` — pure Base32 → IEX Net.WebClient
+  * `base32_lowercase_downloader` — RFC 4648 §6 lower-case
+  * `base32_nopad_downloader` — Base32 with stripped `=` padding
+  * `base32_emotet_shape_wrap` — PS custom-cmdlet + quoted Base32 blob (xfail — future gap)
+  * `ascii_decimal_hello_analyst` — PS `(ints) | %{[char]$_} | Join-String` (no XOR)
+  * `ascii_decimal_recon` — bare space-separated decimals (`id;whoami;hostname`)
+  * `ascii_decimal_xor_hancitor` — PS ASCII+XOR+IEX (Hancitor-shape)
+  * `ascii_decimal_xor_multiline_empire` — same shape, multi-line whitespace (Empire drop)
+  * `js_fromcharcode_socgholish` — `<script>eval(String.fromCharCode(...))</script>`
+- **3 pipeline improvements** to close fixture gaps:
+  1. **`PS_ASCII_DECIMAL_JOIN` archetype** — matches `(ints) | %{[char]$_} | -join''/Join-String/Out-String` (no XOR variant). Guards against double-match with `PS_ASCII_XOR_IEX`.
+  2. **`JS_STRING_FROMCHARCODE` archetype** — matches `String.fromCharCode(int, int, …)` anywhere (SocGholish / Fake-Update injects). Handles Unicode codepoints up to U+10FFFF.
+  3. **Base32 case-insensitive detection** in `magic_decoder._pick_candidates` — RFC 4648 §6 compliance. Lower-case Base32 blobs now trigger `base32-decode` correctly.
+  4. **Magic tie-breaker** — when multiple candidates score equal, non-empty chains win over passthrough. Fixes bare decimal streams (`105 100 59 …`) that previously returned unchanged.
+
+### Regression matrix (`test_fixture_regression_matrix.py`)
+- Parametrized end-to-end test: each fixture pair → `/api/decode/smart` → assert expected substring in output. Known gaps marked with `xfail` + explanatory reason so coverage stays visible.
+- Focused Base32 op resilience: case-insensitive round-trip + missing-padding auto-heal.
+- Focused ASCII-decimal op resilience: separator variants (`,` / space / `\n` / mixed) + out-of-range token skip.
+
+### Results
+- New file: 16 passed, 1 xfailed (documented gap: base32 blob embedded via non-standard PS cmdlet — extract-payload has no rule for arbitrary custom-cmdlet + quoted Base32 arg; future feature).
+- Adjacent suites (`test_ps_ascii_xor_iex`, `test_wrapper_archetypes`, `test_recursive_deep_decode`, `test_new_features`): **54 passed, 0 regressions.**
+
+### Files changed
+- `/app/backend/wrapper_archetypes.py` — added `PS_ASCII_DECIMAL_JOIN` + `JS_STRING_FROMCHARCODE` archetypes.
+- `/app/backend/magic_decoder.py` — Base32 case-insensitive detection + `_sort_key` tie-breaker.
+- `/app/backend/tests/fixtures/` — 9 new fixture pairs.
+- `/app/backend/tests/test_fixture_regression_matrix.py` — 17 test cases.
+
+⚠️ **Deployment**: preview only. Redeploy to `nivxray.nivxforge.com` when ready.
+
+
+
+
 ## Latest Change (Feb 2026 — P1 · STIX 2.1 Chain Export · SOC/CTI-ready)
 
 ### Context

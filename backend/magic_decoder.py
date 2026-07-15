@@ -153,10 +153,15 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
     # no lowercase, no `+`, no `/`, no digits {0,1,8,9}. If it looks like
     # base32, PRIORITIZE it over base64 (which would otherwise steal the
     # candidate slot with lowercase-friendly alphabet).
+    #
+    # RFC 4648 §6: "Decoders MAY treat lower-case letters as their upper-case
+    # equivalents." Attackers routinely lowercase Base32 blobs for evasion,
+    # so we accept both cases here (the decoder itself uppercases).
+    b32_test = b64only.upper()
     is_b32 = (b64only
-              and re.fullmatch(r"[A-Z2-7=]+", b64only)
-              and len(b64only) >= 16
-              and len(b64only) % 8 in (0, 2, 4, 5, 7))
+              and re.fullmatch(r"[A-Z2-7=]+", b32_test)
+              and len(b32_test) >= 16
+              and len(b32_test) % 8 in (0, 2, 4, 5, 7))
     if is_b32:
         cands.insert(0, {"op": "base32-decode", "args": {}})
     if is_b64:
@@ -556,7 +561,16 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
     # chain (base64→gzip→base64→xor) above intermediate stopping points.
     for r in dedup:
         pass
-    dedup.sort(key=lambda r: -r["score_breakdown"]["score"])
+    # Tie-breaker: when magic scores are equal, prefer a NON-empty chain over
+    # a "no-op passthrough". Otherwise pure decimal / bare Base32 blobs that
+    # decode cleanly to ASCII (e.g. `105 100 59 119 104` → `id;who`) get
+    # shadowed by the "return input unchanged" candidate. Both score identically
+    # under the printable/english heuristic, but the decoded chain is the
+    # right answer for a decoder tool.
+    def _sort_key(r):
+        chain_len = len(r.get("chain") or [])
+        return (-r["score_breakdown"]["score"], 0 if chain_len > 0 else 1)
+    dedup.sort(key=_sort_key)
 
     # Annotate the top-N with the shellcode stop-condition — flags outputs that
     # should be routed to the disassembler view instead of another decode layer.
