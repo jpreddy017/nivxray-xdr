@@ -1,7 +1,43 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🔥 HOTFIX · Confusion Matrix timeout)
+## Latest Change (Feb 2026 — 🛡️ P1 · SOC Verdict Card + Evidence Metadata)
+
+### Delivered
+An **evidence-driven Verdict Card** consolidates decoder confidence, corrupted-container signals, and per-layer metadata into a single analyst-facing block. Renders on both **Workspace** (post-decode) and **History Playback** (rehydrate).
+
+**Contents of every card:**
+- **Verdict label** — `Malicious | Suspicious | Corrupted | Undecoded | Benign` (evidence-driven, never speculative).
+- **Confidence** (0-100).
+- **Reason** — one sentence citing the specific artifact (e.g. *"Corrupted GZIP container: CRC check failed."*).
+- **Evidence** — list of indicators with `[POSITIVE / NEGATIVE / NEUTRAL]` tag: MZ signature at offset N, PE header validated at e_lfanew=0x… , GZIP magic preserved, entropy 7.98, XOR key 0x2A recovered, URL surfaced, etc.
+- **Recommended Action** — one-line SOC runbook step (`Contain source host…`, `Discard sample…`, `Escalate to IR…`).
+- **COPY VERDICT** button — clipboards a ticket-ready block for ServiceNow / Jira / SIEM comments.
+
+**Per-layer Evidence Metadata** (attached to every `trace[]` step):
+`{ encoding, op, length, ascii, entropy, hex_preview, integrity: { ok, reason } }`.
+
+### Corrupted-container hardening (also this pass)
+- **Magic bytes = highest priority.** When a valid GZIP / ZLIB / LZMA / BZIP2 magic sequence is present and decompression fails CRC / truncated-stream integrity, the decoder records a *terminal* corrupted-container state and **REFUSES** to fall back to xor-brute / rot13 / caesar / reverse. Analyst sees `[Corrupted GZIP container] BadGzipFile: CRC check failed …`.
+- **Speculative-bytes guard.** When the magic-byte match comes AFTER a brute-force op (xor / xor-brute / rot13 / reverse), the container is treated as coincidence — no magic-lock — so downstream ops still get a fair scoring pass.
+- Fixes the reported `"INI T mE"` false positive on `H4sIAAAAAAAAE0tMSgYAMdM7xgQAAAA=`.
+
+### Files
+- Added: `/app/backend/evidence_extractor.py`, `/app/frontend/src/components/VerdictCard.jsx`.
+- Modified: `/app/backend/routers/ops.py` (`verdict_card` + per-layer `evidence` on `/decode/smart`), `/app/backend/routers/history.py` (`verdict_card` on `/history/{iid}`), `/app/backend/magic_decoder.py` (magic-locked candidate + corrupted-container elevation), `/app/backend/analysis_core.py` (short-circuit on corrupted container), `/app/frontend/src/pages/WorkspacePage.jsx` (state + render + rehydrate).
+
+### Regression
+- **272 backend tests pass / 7 xfailed** — no changes.
+- Corrupted GZIP false positive → `Corrupted · 0% · CRC check failed`.
+- Unicode escapes → decodes cleanly to `PowerShell`, layer evidence shows `encoding: Unicode escape (\uNNNN) · length: 10B · ascii: Yes · hex: 50 6f 77 65 72 53 68 65 6c 6c`.
+- Playwright screenshot on preview shows the card rendered correctly.
+
+⚠️ **Deployment**: frontend + backend both change. Requires user redeploy to push to `https://nivxray.nivxforge.com`.
+
+**Freeze rule (per user):** decoder logic is now frozen. Further changes only for real accuracy issues. Next up = **Sample Library promote from Confusion Matrix failures** → then **TAXII 2.1 Push**.
+
+
+## Previous Change (Feb 2026 — 🔥 HOTFIX · Confusion Matrix timeout)
 
 ### User report (production)
 `ERROR: timeout of 30000ms exceeded` on the CORPUS CONFUSION MATRIX card. Cold compute walks 245 samples through the deterministic decoder — ~11s locally, longer behind Cloudflare on prod, above the axios 30s default.

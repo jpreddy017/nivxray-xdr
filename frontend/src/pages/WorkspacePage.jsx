@@ -92,7 +92,7 @@ export default function WorkspacePage() {
     (output && output.trim()) ||
     (steps && steps.length > 0)
   );
-  const rehydrateFromHistory = (rec) => {
+  const rehydrateFromHistory = async (rec) => {
     if (!rec) return;
     // Chain records — default UX is read-only viewer, RESTORE button transitions
     // into editing after unsaved-changes confirmation.
@@ -118,18 +118,32 @@ export default function WorkspacePage() {
       setHistoryOpen(false);
       return;
     }
-    setInput(rec.input_preview || "");
-    setOutput(rec.output_preview || "");
-    setDecodeTrace(rec.trace || []);
-    setDecodeWinnerEngine(rec.engine || null);
-    setDecodeConfidence(rec.confidence ?? null);
-    setVerdictCard(rec.verdict_card || null);
-    setCorruptedContainer(rec.corrupted_container || null);
-    setReachedShellcode(!!rec.reached_shellcode);
-    setSteps((rec.chain || []).map((op) => ({ op, args: {} })));
-    setChain((rec.chain || []).map((op, i) => ({
-      op, reason: rec.trace?.[i]?.reason || "",
-      output_preview: rec.trace?.[i]?.output_preview || "",
+    // ▲ SOC Verdict Card (Feb-2026) — fetch the full history doc so we get
+    // the freshly-computed verdict_card + per-layer evidence on rehydrate.
+    // The list endpoint only carries lightweight preview fields.
+    let full = rec;
+    if (rec.id && !rec.verdict_card) {
+      try {
+        const r = await api.get(`/history/${rec.id}`);
+        full = { ...rec, ...r.data };
+      } catch (_) {
+        // fall back to the list record — restore still works, verdict just
+        // won't render for this rehydrate.
+      }
+    }
+    setInput(full.input_preview || full.input || "");
+    setOutput(full.output_preview || full.output || "");
+    setDecodeTrace(full.trace || []);
+    setDecodeWinnerEngine(full.engine || null);
+    setDecodeConfidence(full.confidence ?? null);
+    setVerdictCard(full.verdict_card || null);
+    setCorruptedContainer(full.corrupted_container || null);
+    setReachedShellcode(!!full.reached_shellcode);
+    setSteps((full.chain || []).map((op) => ({ op: (typeof op === "string" ? op : op.op), args: {} })));
+    setChain((full.chain || []).map((op, i) => ({
+      op: (typeof op === "string" ? op : op.op),
+      reason: full.trace?.[i]?.reason || "",
+      output_preview: full.trace?.[i]?.output_preview || "",
     })));
     setAnalysis({ iocs: rec.iocs || {}, mitre: rec.mitre || [], ai_verdict: rec.verdict });
     setStatus(`▸ RESTORED FROM HISTORY (${rec.engine} · ${rec.confidence}%)`);
@@ -156,6 +170,8 @@ export default function WorkspacePage() {
     setDecodeTrace([]);
     setDecodeWinnerEngine(null);
     setDecodeConfidence(null);
+    setVerdictCard(null);
+    setCorruptedContainer(null);
     setReachedShellcode(false);
     setPendingChainStages(stages);
     setChainEditorKey((k) => k + 1);
@@ -944,6 +960,17 @@ export default function WorkspacePage() {
         winnerEngine={decodeWinnerEngine}
         predictedTree={predictedTree}
       />
+
+      {/* ▲ SOC EVIDENCE-DRIVEN VERDICT CARD (Feb-2026) — always renders
+          when the backend produces a verdict_card block. Consolidates
+          Verdict · Confidence · Reason · Indicators · Recommended Action
+          into a single analyst-facing panel so the SOC responder doesn't
+          re-assemble the picture from 4 separate places. */}
+      {verdictCard && (
+        <div style={{ padding: "0 16px 12px" }}>
+          <VerdictCard verdict={verdictCard} testidPrefix="workspace-verdict" />
+        </div>
+      )}
 
       {/* 3-column layout */}
       <div className="nvx-workspace-grid">
