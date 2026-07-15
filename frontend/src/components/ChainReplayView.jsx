@@ -16,7 +16,7 @@
  *   onRestore     ()=>void — called when the analyst wants to edit the chain
  *   onClose       ()=>void — dismiss the viewer
  */
-import { AlertTriangle, BookmarkPlus, ChevronDown, ChevronRight, ExternalLink, Play, X } from "lucide-react";
+import { AlertTriangle, BookmarkPlus, ChevronDown, ChevronRight, Download, ExternalLink, FileJson, Play, X } from "lucide-react";
 import { useState } from "react";
 import api from "@/lib/api";
 
@@ -25,6 +25,9 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
   const [savingKb, setSavingKb] = useState(false);
   const [kbResult, setKbResult] = useState(null); // { slug, bucket_size, created }
   const [kbError, setKbError] = useState("");
+  const [exportingStix, setExportingStix] = useState(false);
+  const [stixError, setStixError] = useState("");
+  const [stixOk, setStixOk] = useState("");
   if (!record || record.kind !== "chain") return null;
 
   const saveAsKbTemplate = async () => {
@@ -41,6 +44,37 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
       setKbError(e?.response?.data?.detail || e?.message || "failed to save KB template");
     }
     setSavingKb(false);
+  };
+
+  const exportStix21 = async () => {
+    setExportingStix(true);
+    setStixError("");
+    setStixOk("");
+    try {
+      // Fetch bundle JSON, then trigger client-side download so the analyst
+      // gets a properly-named .json file without a round-trip through the
+      // /download attachment endpoint (works even behind proxies).
+      const r = await api.post("/report/stix/investigation", {
+        investigation_id: record.id,
+        tlp: "AMBER",
+      });
+      const bundle = r.data;
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+        type: "application/vnd.oasis.stix+json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `nivxforge_stix_${record.id.slice(0, 8)}_${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setStixOk(`STIX 2.1 bundle downloaded · ${(bundle.objects || []).length} objects · TLP:AMBER`);
+    } catch (e) {
+      setStixError(e?.response?.data?.detail || e?.message || "STIX export failed");
+    }
+    setExportingStix(false);
   };
 
   const stages = record.stages || [];
@@ -62,7 +96,7 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
             <span style={{ marginLeft: 8, color: "var(--text-mute)" }}>×{record.run_count} runs</span>
           )}
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button
             className="nvx-btn sm"
             onClick={saveAsKbTemplate}
@@ -72,6 +106,16 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
             style={{ borderColor: "var(--warn)", color: savingKb ? "var(--text-mute)" : "var(--warn)" }}
           >
             <BookmarkPlus size={11} /> {savingKb ? "SAVING…" : "SAVE AS KB TEMPLATE"}
+          </button>
+          <button
+            className="nvx-btn sm"
+            onClick={exportStix21}
+            disabled={exportingStix}
+            data-testid="btn-chain-replay-export-stix"
+            title="Export a STIX 2.1 bundle (Indicators, Malware, Attack Patterns, Observed Data, Relationships, Kill Chain, TLP:AMBER) for import into OpenCTI, MISP, Sentinel, Splunk ES, QRadar."
+            style={{ borderColor: "var(--accent)", color: exportingStix ? "var(--text-mute)" : "var(--accent)" }}
+          >
+            <FileJson size={11} /> {exportingStix ? "BUILDING…" : "EXPORT STIX 2.1"}
           </button>
           <button
             className="nvx-btn primary sm"
@@ -90,6 +134,32 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
           </button>
         </div>
       </div>
+
+      {(stixOk || stixError) && (
+        <div
+          data-testid="chain-replay-stix-status"
+          style={{
+            padding: "8px 12px",
+            borderTop: "1px solid var(--border)",
+            background: stixError ? "rgba(255,80,80,0.10)" : "rgba(90,180,160,0.10)",
+            fontSize: 11,
+            color: stixError ? "var(--high)" : "var(--accent)",
+            display: "flex", alignItems: "center", gap: 8,
+          }}
+        >
+          {stixError ? (
+            <>
+              <AlertTriangle size={12} />
+              <span data-testid="chain-replay-stix-error">STIX export failed · {stixError}</span>
+            </>
+          ) : (
+            <>
+              <Download size={12} />
+              <span data-testid="chain-replay-stix-ok">{stixOk}</span>
+            </>
+          )}
+        </div>
+      )}
 
       {(kbResult || kbError) && (
         <div

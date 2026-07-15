@@ -10,7 +10,7 @@ from schemas import ShareIn, AnalyzeIn
 from deps import db, get_current_user
 from analysis_core import analysis_context, deterministic_best_decode
 from operations import extract_iocs, mitre_map
-from stix_export import build_investigation_bundle
+from stix_export import build_investigation_bundle, build_from_history_record
 from report_renderers import (
     download,
     render_csv_report, render_docx_report, render_pdf_from_html,
@@ -96,6 +96,53 @@ async def download_stix_report(body: AutoIn, user=Depends(get_current_user)):
     payload = json.dumps(bundle, indent=2).encode("utf-8")
     stem = f"nivxray_stix_{int(datetime.now().timestamp())}"
     return download(payload, f"{stem}.json", "application/vnd.oasis.stix+json")
+
+
+# ============================================================================
+# STIX 2.1 export from a persisted investigation (single or chain).
+# Backs the "EXPORT STIX 2.1" button on ChainReplayView / History.
+# ============================================================================
+from pydantic import BaseModel
+
+
+class StixInvestigationIn(BaseModel):
+    investigation_id: str
+    analyst_notes: str = ""
+    tlp: str = "AMBER"       # WHITE | GREEN | AMBER | RED
+    download: bool = False   # if True → attachment response
+
+
+@router.post("/report/stix/investigation")
+async def stix_from_investigation(body: StixInvestigationIn, user=Depends(get_current_user)):
+    """Build a STIX 2.1 bundle from a persisted investigation (single or chain).
+
+    Fetches the record by id (user-scoped), then produces a SOC/CTI-ready
+    bundle with Identity (NivX Forge + analyst), Indicators + Observed Data,
+    Attack Patterns, Malware (when family recognised), Relationships,
+    Note, Report, TLP marking, and external references for OSINT lookups.
+    """
+    from bson import ObjectId
+    from bson.errors import InvalidId
+    try:
+        oid = ObjectId(body.investigation_id)
+    except (InvalidId, TypeError):
+        raise HTTPException(status_code=400, detail="invalid investigation id")
+    doc = await db.investigations.find_one({"_id": oid, "user_email": user["email"]})
+    if not doc:
+        raise HTTPException(status_code=404, detail="investigation not found")
+    # Shape doc into serialized form (id string, kind default)
+    doc = dict(doc)
+    doc["id"] = str(doc.pop("_id"))
+    doc.setdefault("kind", "single")
+
+    bundle = build_from_history_record(
+        doc, analyst_notes=body.analyst_notes, tlp=body.tlp.upper(),
+    )
+    if body.download:
+        payload = json.dumps(bundle, indent=2).encode("utf-8")
+        stem = f"nivxforge_stix_{body.investigation_id[:8]}_{int(datetime.now().timestamp())}"
+        return download(payload, f"{stem}.json", "application/vnd.oasis.stix+json")
+    return bundle
 
 
 # ============================================================================
