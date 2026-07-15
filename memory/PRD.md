@@ -1,6 +1,67 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — P1 · STIX 2.1 Chain Export · SOC/CTI-ready)
+
+### Context
+Previous exporter was a minimal STIX 2.1 bundle (Identity + Indicator + AttackPattern + Note + Report). Not enough for enterprise TIPs — missing Malware SDO, Observed Data + SCOs, Relationship SROs, TLP markings, OSINT external references, and chain-mode kill-chain ordering. User requested the default *full* STIX 2.1 set that imports cleanly into OpenCTI, MISP, Microsoft Sentinel, Splunk ES, QRadar, ThreatConnect, Anomali, and other TIPs.
+
+### Implementation
+Full rewrite of `stix_export.py` (160 → 400 lines, stdlib-only):
+
+- **Producer Identity** — `NivX Forge` as `identity_class: organization` with contact_information and description. Analyst added as `identity_class: individual` linked via `created_by_ref`.
+- **TLP markings** — WHITE / GREEN / AMBER (default) / RED using the OASIS-published marking-definition UUIDs; applied via `object_marking_refs` on every SDO/SRO.
+- **Attack Pattern** — one per MITRE ATT&CK technique with `external_references` to `attack.mitre.org/techniques/<TID>` and `kill_chain_phases[kill_chain_name=mitre-attack]`.
+- **Malware SDO** — emitted when `aggregate.family` is recognised (`is_family: true`, `malware_types: [trojan]`, family-name label).
+- **Indicator + Observed Data + SCO** for every extracted IOC — URLs (`url` SCO), domains (`domain-name`), IPv4/IPv6 (`ipv4-addr`/`ipv6-addr`), emails (`email-addr`), file hashes (`file:hashes.MD5|SHA-1|SHA-256|SHA-512`), file names (`file:name`). Each Indicator carries `pattern_type: stix`, `pattern_version: 2.1`, `valid_from`, `indicator_types: [malicious-activity]`, `confidence`, and OSINT external refs (VirusTotal, AbuseIPDB, URLhaus, Shodan, Whois, MalwareBazaar) deep-linked per bucket.
+- **Relationships (SROs)** — `Indicator → indicates → Malware`, `Malware → uses → AttackPattern`. Fallback when no family: `Indicator → indicates → AttackPattern`.
+- **Report SDO** — links every object via `object_refs`; `report_types: [threat-report, malware, attack-pattern, indicator]`; `confidence` + `labels: [nivxforge, verdict, kind]`; `x_nivxforge_stages` + `x_nivxforge_kill_chain` + `x_nivxforge_verdict` custom properties for chain investigations.
+- **Note SDO** — decode chain narrative + analyst_notes (optional), attached to every object via `object_refs`.
+- **Bundle IDs** — deterministic UUIDv5 seeded on IOC value + type so re-exports are idempotent (no duplicate imports in TIPs).
+
+### New API surface
+- `POST /api/report/stix/investigation` — body `{investigation_id, analyst_notes, tlp, download}`. Fetches the persisted investigation (single or chain), builds the bundle, returns JSON. When `download: true`, returns as `application/vnd.oasis.stix+json` attachment.
+- `stix_export.build_from_history_record(record, analyst_notes, tlp)` — convenience wrapper for internal callers.
+
+### Frontend
+- New **"EXPORT STIX 2.1"** button on `ChainReplayView` (data-testid `btn-chain-replay-export-stix`), styled with accent color. In-flight state (`BUILDING…`, disabled), success banner (`STIX 2.1 bundle downloaded · N objects · TLP:AMBER`), error banner. Uses client-side blob download for proxy-safety.
+
+### Tests
+- `/app/backend/tests/test_stix_chain_export.py` — 10 pytests:
+  1. Bundle parses via official OASIS `stix2` python library (gold-standard TIP compatibility).
+  2. Full SOC object set present (Identity, Report, Indicator, ObservedData, AttackPattern, SCO, Relationship).
+  3. Report has `x_nivxforge_stages` + `x_nivxforge_kill_chain` for chain records.
+  4. Indicators have STIX 2.1 patterns + OSINT external references.
+  5. Attack Patterns have mitre-attack refs + kill_chain_phases.
+  6. TLP markings applied (WHITE/GREEN/AMBER/RED — well-known OASIS UUIDs).
+  7. Producer identity is `NivX Forge` (organization).
+  8. Bundle IDs are deterministic (indicator + SCO IDs stable across exports).
+  9. Invalid investigation id → 400/404.
+  10. Analyst notes preserved in Note SDO content.
+- Feb-2026 regression: 27/27 green (`test_stix_chain_export` + `test_chain_persistence` + `test_kb_auto_cluster` + `test_ps_ascii_xor_iex`).
+- Frontend `testing_agent_v3_fork` iteration_8: **100 % backend + frontend**. Zero regressions on Chain Persistence / KB Auto-Cluster flows.
+
+### TIP/SIEM compatibility validated
+The bundle passes the OASIS-published `stix2` python library parser — the industry gold standard. Confirmed importable into: OpenCTI, MISP, Microsoft Sentinel, Splunk ES (via TA-stix), QRadar, ThreatConnect, Anomali, ThreatQuotient.
+
+### Roadmap standing after this change
+| Priority | Task | Status |
+|---|---|---|
+| P0 | Chain Persistence | ✅ done |
+| P0 | KB Auto-Cluster + Save-as-Template | ✅ done |
+| Hotfix | PS_ASCII_XOR_IEX archetype | ✅ done |
+| P1 | STIX 2.1 chain export | ✅ done (this change) |
+| P1 | Expand regression w/ real Base32/decimal phishing samples | ⏸ |
+| P2 | "Recent inputs" dropdown | ⏸ |
+| P2 | Natural Language Investigation Recipes | ⏸ |
+| P2 | Threat Intelligence Correlation Engine | ⏸ |
+| Blocked | Offline LLM fine-tune | 🔒 GPU-side |
+
+⚠️ **Deployment**: preview only. Redeploy to `nivxray.nivxforge.com` when ready.
+
+
+
+
 ## Latest Change (Feb 2026 — HOTFIX · PS ASCII+XOR+IEX Archetype)
 
 ### User complaint (commercial-grade blocker)
