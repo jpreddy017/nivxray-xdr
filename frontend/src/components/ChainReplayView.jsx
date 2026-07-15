@@ -33,7 +33,7 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
   const level = agg?.risk?.level;
 
   return (
-    <div data-testid="chain-replay-view" className="nvx-card" style={{ marginTop: 12, borderColor: "var(--accent)" }}>
+    <div data-testid="chain-replay-view" className="nvx-card" style={{ marginTop: 12, borderColor: "var(--accent)", scrollMarginTop: 80 }}>
       <div className="nvx-card-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div className="mono" style={{ fontSize: 11, letterSpacing: "0.22em", color: "var(--accent)" }}>
           ▸ CHAIN REPLAY · READ-ONLY ({stages.length} STAGES)
@@ -174,6 +174,26 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
             ))}
           </div>
         ))}
+
+        {/* Duplicate action row at the bottom so RESTORE/CLOSE remain reachable
+            even if the top of the card is scrolled behind the sticky header. */}
+        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 12, paddingTop: 10, borderTop: "1px dashed var(--border)" }}>
+          <button
+            className="nvx-btn primary sm"
+            onClick={onRestore}
+            data-testid="btn-chain-replay-restore-bottom"
+            title="Restore this chain to the workspace for editing."
+          >
+            <Play size={11} /> RESTORE TO WORKSPACE
+          </button>
+          <button
+            className="nvx-btn sm ghost"
+            onClick={onClose}
+            data-testid="btn-chain-replay-close-bottom"
+          >
+            <X size={11} /> CLOSE
+          </button>
+        </div>
       </div>
     </div>
   );

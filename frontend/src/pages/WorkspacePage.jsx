@@ -94,9 +94,16 @@ export default function WorkspacePage() {
       setChainReplay(rec);
       setHistoryOpen(false);
       setStatus(`▸ CHAIN REPLAY (${rec.stage_count || (rec.stages || []).length} stages · read-only)`);
-      // Scroll the replay into view after render
+      // Scroll the replay into view after render, offset for the sticky header
       setTimeout(() => {
-        try { document.querySelector('[data-testid="chain-replay-view"]')?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {}
+        try {
+          const el = document.querySelector('[data-testid="chain-replay-view"]');
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            const HEADER = 90; // brut-border top header + toolbar strip
+            window.scrollTo({ top: rect.top + window.scrollY - HEADER, behavior: "smooth" });
+          }
+        } catch {}
       }, 60);
       return;
     }
