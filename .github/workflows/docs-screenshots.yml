@@ -70,6 +70,47 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+      # ─── Release-triggered docs refresh (Phase-3 pipeline) ─────────
+      # After screenshots are fresh, regenerate the PDF / HTML / DOCX
+      # exports so the artifact bundle contains a complete guide.
+      - name: Generate guide exports
+        if: always()
+        working-directory: backend
+        env:
+          MONGO_URL:  ${{ secrets.NIVXRAY_MONGO_URL }}
+          DB_NAME:    ${{ secrets.NIVXRAY_DB_NAME }}
+        run: |
+          python -c "
+          from docs.pdf_generator import create_user_guide
+          from docs.exporters import generate_html, generate_docx
+          from pathlib import Path
+          out = Path('docs/exports')
+          out.mkdir(exist_ok=True)
+          for aud in ('user', 'admin', 'developer', 'all'):
+              (out / f'nivxray-{aud}-guide.pdf').write_bytes(create_user_guide(aud))
+              (out / f'nivxray-{aud}-guide.html').write_text(generate_html(aud))
+              (out / f'nivxray-{aud}-guide.docx').write_bytes(generate_docx(aud))
+          print('Generated guide exports:')
+          for p in sorted(out.iterdir()):
+              print(f'  {p.name}: {p.stat().st_size:,} bytes')
+          "
+
+      - name: Upload guide exports as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-guides
+          path: backend/docs/exports/*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Attach guide exports to the GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: backend/docs/exports/*
+          fail_on_unmatched_files: false
+
       - name: Commit refreshed screenshots (main only)
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |

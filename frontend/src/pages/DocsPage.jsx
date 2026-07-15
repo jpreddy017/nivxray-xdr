@@ -321,6 +321,32 @@ export default function DocsPage() {
               DOCX
             </button>
             {selected && (
+              <>
+                <a
+                  href={`${process.env.REACT_APP_BACKEND_URL || ""}/api/docs/cheatsheet/${selected.id}?fmt=pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="nvx-btn sm"
+                  data-testid="docs-cheatsheet-pdf"
+                  style={{ fontSize: 10, background: "rgba(126,227,201,0.15)",
+                           color: "#7ee3c9", textDecoration: "none",
+                           display: "inline-flex", alignItems: "center", gap: 4 }}
+                  title={`One-page PDF cheat sheet for ${selected.id}`}>
+                  📄 CHEAT PDF
+                </a>
+                <a
+                  href={`${process.env.REACT_APP_BACKEND_URL || ""}/api/docs/cheatsheet/${selected.id}?fmt=html&inline=true`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="nvx-btn sm ghost"
+                  data-testid="docs-cheatsheet-html"
+                  style={{ fontSize: 10, textDecoration: "none" }}
+                  title={`One-page HTML cheat sheet for ${selected.id}`}>
+                  HTML
+                </a>
+              </>
+            )}
+            {selected && (
               <button
                 className="nvx-btn sm ghost"
                 onClick={() => { setSelected(null); setDetail(null); }}

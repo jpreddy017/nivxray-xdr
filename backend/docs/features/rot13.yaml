@@ -20,3 +20,14 @@ common_errors:
 tips:
   - The reasoning engine tries every ROT-N (1..25) automatically and picks the one with the highest English density
 related: [candidate_explorer, magic_decoder]
+
+capture:
+  login: true
+  steps:
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into: { selector: '[data-testid="input-textarea"]', text: 'Uryyb Jbeyq!' }
+      click_before: '[data-testid="btn-nivxray-decode"]'
+      delay_ms: 3500
+      post_click_ms: 3000
+      full_page: true

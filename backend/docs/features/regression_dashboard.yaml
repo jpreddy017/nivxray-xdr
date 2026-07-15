@@ -13,3 +13,11 @@ tips:
   - Every correction promoted with `promote_to_corpus=true` auto-triggers a benchmark run
   - The historical run strip shows the pass-rate trend at a glance
 related: [correction_flow, sample_library, learning_correction]
+
+capture:
+  login: true
+  steps:
+    - url: /admin
+      wait_for: 'body'
+      delay_ms: 2500
+      full_page: true

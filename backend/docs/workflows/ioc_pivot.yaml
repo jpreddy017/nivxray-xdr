@@ -12,3 +12,14 @@ steps:
     action: If verdict is malicious, admin can push to the configured TAXII feed
     expected: STIX 2.1 bundle successfully posted; entry appears in the push log
 related_features: [threat_intel_enrichment, taxii_push, investigation_timeline]
+
+capture:
+  login: true
+  steps:
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into: { selector: '[data-testid="input-textarea"]', text: 'https://malicious.example.net/beacon.exe' }
+      click_before: '[data-testid="btn-auto-investigate-inline"]'
+      delay_ms: 4000
+      post_click_ms: 5000
+      full_page: true

@@ -15,3 +15,11 @@ steps:
     action: Open /admin and scroll to Regression Dashboard
     expected: Corpus size +1; if the new sample fails, the gate BLOCKS further library promotion
 related_features: [correction_flow, regression_dashboard, learning_correction]
+
+capture:
+  login: true
+  steps:
+    - url: /admin
+      wait_for: 'body'
+      delay_ms: 2500
+      full_page: true

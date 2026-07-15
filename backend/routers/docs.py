@@ -30,6 +30,7 @@ from docs import (
 from docs.automation import (
     coverage_report, scaffold_yaml, suggest_fix, walk_routes,
 )
+from docs.cheatsheet import generate_cheatsheet_html, generate_cheatsheet_pdf
 from docs.exporters import generate_docx, generate_html
 from docs.pdf_generator import create_user_guide
 from docs.rag_index import retrieve as rag_retrieve, index_stats as rag_stats, invalidate as rag_invalidate
@@ -408,6 +409,33 @@ async def export_docx(
         content=data,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/docs/cheatsheet/{doc_id}", tags=["docs"])
+async def export_cheatsheet(
+    doc_id: str,
+    fmt: str = Query("pdf", pattern="^(pdf|html)$"),
+    inline: bool = Query(False),
+):
+    """One-page cheat sheet for a single feature or workflow (pdf/html).
+
+    Publicly accessible so the DocsPage `<a href>` links work — cheat
+    sheets are derived from the same YAML we already publish, no PII.
+    """
+    if not (get_feature(doc_id) or get_workflow(doc_id)):
+        raise HTTPException(404, f"unknown doc id: {doc_id}")
+    if fmt == "html":
+        html = generate_cheatsheet_html(doc_id)
+        headers = {}
+        if not inline:
+            headers["Content-Disposition"] = f'attachment; filename="{doc_id}-cheatsheet.html"'
+        return HTMLResponse(content=html, headers=headers)
+    pdf = generate_cheatsheet_pdf(doc_id)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{doc_id}-cheatsheet.pdf"'},
     )
 
 

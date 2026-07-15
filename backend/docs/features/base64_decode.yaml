@@ -24,3 +24,14 @@ tips:
   - The Magic Decoder automatically chains Base64 → UTF-16LE detection
   - For URL-safe Base64 use the `base64url-decode` operation instead
 related: [base64url_decode, base58_decode, magic_decoder]
+
+capture:
+  login: true
+  steps:
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into: { selector: '[data-testid="input-textarea"]', text: 'SGVsbG8gV29ybGQh' }
+      click_before: '[data-testid="btn-nivxray-decode"]'
+      delay_ms: 3500
+      post_click_ms: 3000
+      full_page: true

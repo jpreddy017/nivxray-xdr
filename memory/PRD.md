@@ -1,7 +1,48 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 📚 User Guide Phase 2 · Encyclopedia)
+## Latest Change (Feb 2026 — 📄 User Guide Phase 3 · Cheat Sheets + CI Refresh + Full Coverage)
+
+### 1. Per-payload/per-feature cheat sheet export
+
+New module `backend/docs/cheatsheet.py`:
+- `generate_cheatsheet_html(doc_id)` — dark-themed, self-contained single-page HTML with cover header, purpose, first screenshot inline (base64 data-URI), two-column layout (steps/when/tips + sample/MITRE/IOCs/errors/related)
+- `generate_cheatsheet_pdf(doc_id)` — reportlab LETTER-page PDF with the same information architecture; auto-extracts IOCs (URLs/IPs/hashes) and MITRE T-IDs from the YAML via regex
+
+New endpoint: `GET /api/docs/cheatsheet/{doc_id}?fmt=pdf|html&inline=bool`
+- Publicly accessible (no PII in docs, matches the assets/screenshots pattern so `<a href>` links work without a Bearer token)
+- Returns 404 on unknown doc, 422 on bad `fmt`
+
+Frontend (`DocsPage.jsx`): two new buttons in the guide header when a page is selected — `📄 CHEAT PDF` (mint highlight) + `HTML` (ghost). Both open in a new tab.
+
+### 2. Release-triggered docs refresh
+
+`.github/workflows/docs-screenshots.yml` extended:
+- After screenshot capture, a new **Generate guide exports** step runs `create_user_guide(aud)` + `generate_html(aud)` + `generate_docx(aud)` for every audience → writes to `backend/docs/exports/`
+- **Upload guide exports as workflow artifact** step attaches PDFs/HTMLs/DOCXs (30-day retention)
+- **Attach guide exports to the GitHub Release** step uses `softprops/action-gh-release@v2` to append the guides to the release page automatically (only on `release` trigger)
+
+### 3. Feature screenshots — full coverage
+
+Added `capture:` blocks to every user-facing feature YAML that lacked one:
+`base64_decode`, `base58_decode`, `rot13`, `auto_investigate`, `correction_flow`, `regression_dashboard`, `taxii_push`
+
+### 4. Workflow screenshots — full coverage
+
+Added `capture:` blocks to `ioc_pivot` and `corpus_promote`.
+
+Total: **18 feature/workflow directories** now in `docs/screenshots/` (up from 5).
+
+**Tests** — `backend/tests/test_docs_cheatsheet.py` (11 new, all pass):
+- Parametrised format/doc-id matrix, attachment header, inline mode, unknown doc → 404, bad fmt → 422, public accessibility (no auth), HTML contains "CHEAT SHEET" heading and doc content
+
+**Combined docs suite: 100 pass** across 8 test files (generator + pdf + explain-phase2 + rag + extras + feedback-panel + automation + cheatsheet).
+
+**Live smoke on `/docs`**: opened `payload_encoded_powershell_download` — buttons `📄 CHEAT PDF` and `HTML` render mint-highlighted next to the guide-level PDF/HTML/DOCX buttons. Sidebar shows 9 workflows + 10 features.
+
+---
+
+## Previous Change (Feb 2026 — 📚 User Guide Phase 2 · Encyclopedia)
 
 ### Delivered — Bundles A + B + C in one pass
 

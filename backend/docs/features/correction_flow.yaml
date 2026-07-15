@@ -10,3 +10,14 @@ tips:
   - Check "Promote to regression corpus" to make this a permanent regression fixture
   - Check "Trigger benchmark immediately" to see live pass/fail flips right after promoting
 related: [regression_dashboard, learning_correction, investigation_timeline]
+
+capture:
+  login: true
+  steps:
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into: { selector: '[data-testid="input-textarea"]', text: 'SGVsbG8gV29ybGQh' }
+      click_before: '[data-testid="btn-nivxray-decode"]'
+      delay_ms: 3500
+      post_click_ms: 3500
+      full_page: true

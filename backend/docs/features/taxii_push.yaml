@@ -15,3 +15,11 @@ tips:
   - Test discovery FIRST via the "Test Connection" button before pushing
   - The bundle always includes an `identity` object identifying NivXRay
 related: [threat_intel_enrichment]
+
+capture:
+  login: true
+  steps:
+    - url: /admin
+      wait_for: 'body'
+      delay_ms: 2500
+      full_page: true

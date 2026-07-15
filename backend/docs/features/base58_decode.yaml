@@ -21,3 +21,14 @@ common_errors:
 tips:
   - The Candidate Explorer ranks Base58 above Base62/Base64 when the alphabet matches
 related: [base62_decode, base64_decode, candidate_explorer]
+
+capture:
+  login: true
+  steps:
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into: { selector: '[data-testid="input-textarea"]', text: 'JxF12TrwUP45BMd' }
+      click_before: '[data-testid="btn-nivxray-decode"]'
+      delay_ms: 3500
+      post_click_ms: 3000
+      full_page: true
