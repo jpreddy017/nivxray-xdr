@@ -545,8 +545,15 @@ def detect_payload_type(text: str) -> Optional[Dict[str, str]]:
 
 
 # ==== MITRE mini map (heuristic) =============================================
+# NOTE: PowerShell -EncodedCommand can appear in *any* case and *any* length:
+#   -e, -ec, -en, -enc, -enco, -encod, -encode, -encoded, -encodedc, ..., -encodedcommand
+# This pattern matches `-e` followed by any prefix of `nCoDeDcOmMaNd` OR `c`,
+# then a whitespace boundary.
+_PS_ENC_ARG = r"-e(?:c|(?:n(?:c(?:o(?:d(?:e(?:d(?:c(?:o(?:m(?:m(?:a(?:nd?)?)?)?)?)?)?)?)?)?)?)?)?)?\s"
+
 MITRE_HEURISTICS = [
-    (r"powershell.*?-e(?:c|nc)?\s", ("T1059.001", "PowerShell", "Execution")),
+    (rf"powershell.*?{_PS_ENC_ARG}", ("T1059.001", "PowerShell", "Execution")),
+    (rf"powershell.*?{_PS_ENC_ARG}[A-Za-z0-9+/=]{{20,}}", ("T1027.010", "Command Obfuscation: Base64/Encoded Command", "Defense Evasion")),
     (r"cmd(\.exe)?\s+/c", ("T1059.003", "Windows Command Shell", "Execution")),
     (r"invoke-webrequest|iwr\s|net\.webclient|downloadstring|curl\s|wget\s", ("T1105", "Ingress Tool Transfer", "Command and Control")),
     (r"schtasks|new-scheduledtask", ("T1053.005", "Scheduled Task", "Persistence")),
@@ -561,6 +568,17 @@ MITRE_HEURISTICS = [
     (r"vssadmin.*delete.*shadows", ("T1490", "Inhibit System Recovery", "Impact")),
     (r"cipher\s+/w|sdelete", ("T1070.004", "File Deletion", "Defense Evasion")),
     (r"nslookup|dnsquery", ("T1071.004", "Application Layer Protocol: DNS", "Command and Control")),
+    # ── Discovery techniques (T1057, T1082, T1016, T1033) ────────────────
+    (r"\bget-process\b|\btasklist\b", ("T1057", "Process Discovery", "Discovery")),
+    (r"\bget-service\b|\bnet\s+start\b|\bsc\s+query\b", ("T1007", "System Service Discovery", "Discovery")),
+    (r"\bwhoami\b|\bget-wmiobject.*win32_useraccount\b", ("T1033", "System Owner/User Discovery", "Discovery")),
+    (r"\bipconfig\b|\bget-netipaddress\b|\bnetsh\s+interface\b", ("T1016", "System Network Configuration Discovery", "Discovery")),
+    (r"\bnet\s+user\b|\bnet\s+group\b|\bget-localuser\b", ("T1087", "Account Discovery", "Discovery")),
+    (r"\bnet\s+view\b|\bnbtstat\b|\barp\s+-a\b", ("T1018", "Remote System Discovery", "Discovery")),
+    (r"\bsysteminfo\b|\bget-computerinfo\b|\bhostname\b", ("T1082", "System Information Discovery", "Discovery")),
+    # ── IEX / in-memory execution ────────────────────────────────────────
+    (r"\biex\b|invoke-expression", ("T1059.001", "PowerShell: Invoke-Expression", "Execution")),
+    (r"frombase64string", ("T1140", "Deobfuscate/Decode Files or Information", "Defense Evasion")),
 ]
 
 

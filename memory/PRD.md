@@ -1,6 +1,32 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — post-deploy fixes)
+### MITRE/LOLBAS long-form `-EncodedCommand` + Universal Clear
+Bug reports (production, https://nivxray.nivxforge.com):
+1. **Threat panels empty for `powershell.exe -EncodedCommand …` payloads** — MITRE, LOLBAS, RULES, IOCs, FLOW all blank; verdict wrongly `LOW RISK · 29/100`.
+2. **Clear button** only wiped input, leaving stale output + threat panels + trace visible.
+
+Root causes:
+- **Regex bug in `operations.MITRE_HEURISTICS[0]` + `lolbas.CATALOG['powershell.exe']`**: pattern `-e(nc|ncoded)?\s` required whitespace right after the flag → matched `-e `, `-enc `, `-encoded ` but NOT `-EncodedCommand ` (long form has no space between "d" and "Command"). Attackers universally use the long form.
+- **`btn-clear-input`** was wired to `setInput("")` — a single-line lambda from an early prototype.
+
+Fixes:
+- **New `_PS_ENC_ARG` regex** — nested-optional prefix matcher accepting ALL PowerShell encoded-command variants: `-e`, `-ec`, `-en`, `-enc`, `-enco`, `-encoded`, `-encodedcommand`, and every case-insensitive prefix in between.
+- **Added T1027.010** (Command Obfuscation: Base64/Encoded Command) MITRE tag — fires whenever `-Encoded…` is followed by a long b64 blob.
+- **Added 7 new MITRE Discovery tags**: T1057 (Get-Process/tasklist), T1007 (Get-Service), T1033 (whoami), T1016 (ipconfig/Get-NetIPAddress), T1087 (net user/Get-LocalUser), T1018 (net view/nbtstat), T1082 (systeminfo/hostname).
+- **Added `frombase64string`, `get-process`, `get-service` to LOLBAS powershell.exe pattern** — surfaces PS discovery + b64 decoding as LOLBIN abuse.
+- **Universal `clearAll()`** on WorkspacePage — resets 22 state slots + removes `nvx.pendingInput` localStorage safety net.
+
+Validation:
+- User's exact payload now returns: MITRE=[T1059.001, T1027.010, T1057], YARA=[PS_EncodedCommand, Base64_Long_Blob], LOLBAS=[powershell.exe], Verdict=Suspicious·44/100 (was Low Risk·29/100).
+- 6 new pytest cases in `test_encodedcommand_coverage.py` — covers both short and long form + full-panel integration.
+- Full backend suite: **424/424 green** (2m). No regressions.
+
+⚠️ **Deployment note**: All fixes live in **preview** — production (`nivxray.nivxforge.com`) still has the buggy regex until the user redeploys.
+
+
+
 ## Latest Change (Feb 2026 — this session)
 ### Chained Wrapper Archetypes + Universal Troubleshoot Engine
 - **New `PS_MSF_XOR_Stage2` archetype** — deterministically matches the Metasploit/Meterpreter reflective loader pattern (`[Byte[]]$var_code = FromBase64String + -bxor + reflective-PEB-walker`) and returns raw shellcode bytes.

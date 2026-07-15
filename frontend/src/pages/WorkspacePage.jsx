@@ -177,6 +177,35 @@ export default function WorkspacePage() {
     return () => clearTimeout(t);
   }, [input, steps]);
 
+  // ─── Universal CLEAR — wipe input + output + recipe + all analysis state ──
+  // (Previously "Clear" only touched input; now it resets every panel.)
+  const clearAll = () => {
+    setInput("");
+    setOutput("");
+    setSteps([]);
+    setDetected(null);
+    setChain([]);
+    setAnalysis(null);
+    setMagicResults(null);
+    setShowMagic(false);
+    setShellcodeFlag(false);
+    setDecodeConfidence(null);
+    setDecodeWinnerEngine(null);
+    setDecodeTrace([]);
+    setReachedShellcode(false);
+    setPasteHint(null);
+    setPredictedTree(null);
+    setBoost(null);
+    setBoostHit(false);
+    setNivxrayTrace([]);
+    setLivePreview(null);
+    setShareUrl("");
+    setTacticFilter(null);
+    setStatus("READY");
+    try { localStorage.removeItem("nvx.pendingInput"); } catch {}
+  };
+
+
   // ─── ONE-BUTTON orchestrator ─────────────────────────────────────────
   // Auto-runs: (1) archetype/boost/deterministic via Smart Decode, then
   //           (2) AI fallback (Auto Investigate) if confidence < 40.
@@ -856,7 +885,8 @@ export default function WorkspacePage() {
                 <button className="nvx-btn sm" onClick={() => autoDecode({ smart: true })} disabled={loading} data-testid="btn-smart-decode-inline">
                   <Zap size={11} /> DECODE
                 </button>
-                <button className="nvx-btn sm ghost" onClick={() => setInput("")} data-testid="btn-clear-input">
+                <button className="nvx-btn sm ghost" onClick={clearAll} data-testid="btn-clear-input"
+                        title="Clear everything: input, output, recipe, threat panels, trace, verdict, live preview.">
                   <Trash2 size={11} /> CLEAR
                 </button>
               </div>
