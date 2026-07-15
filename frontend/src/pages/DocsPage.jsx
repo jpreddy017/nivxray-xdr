@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, BookOpen, ArrowRight, Sparkles, Download, Link2, ThumbsUp, ThumbsDown } from "lucide-react";
 import api from "@/lib/api";
 import ReactMarkdown from "react-markdown";
+import Header from "@/components/Header";
 
 /**
  * DocsPage — Feb-2026 Phase 1 auto-generated documentation.
@@ -151,7 +152,9 @@ export default function DocsPage() {
   }
 
   return (
-    <div style={{ display: "flex", gap: 16, padding: 16, minHeight: "calc(100vh - 80px)" }} data-testid="docs-page">
+    <div className="App">
+      <Header />
+      <div style={{ display: "flex", gap: 16, padding: 16, minHeight: "calc(100vh - 80px)" }} data-testid="docs-page">
       {/* Left nav */}
       <div className="nvx-card" style={{ width: 280, flexShrink: 0, height: "fit-content" }}>
         <div className="nvx-card-head">
@@ -482,6 +485,7 @@ export default function DocsPage() {
             </button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
