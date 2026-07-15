@@ -212,6 +212,18 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
     # ordinary text that happens to contain numbers).
     _tokens = re.findall(r"\d+", s)
     if len(_tokens) >= 8:
+        # ── Binary-ASCII stream (0/1 only, 7-8 bit groups) ────────────
+        # Detect BEFORE decimal because a bit-string is ALSO all digits
+        # and would otherwise get eaten by the decimal path.
+        _bit_tokens = re.findall(r"[01]{7,8}", s)
+        if len(_bit_tokens) >= 3:
+            non_bit = re.sub(r"[01]{7,8}", "", s)
+            non_bit_stripped = re.sub(r"[\s,]+", "", non_bit)
+            if (len(_bit_tokens) >= 4
+                    and len(non_bit_stripped) < 3
+                    and all(t.count("0") + t.count("1") == len(t) for t in _bit_tokens)):
+                cands.insert(0, {"op": "binary-ascii-decode", "args": {}})
+
         realistic = sum(1 for t in _tokens if 0 <= int(t) <= 255)
         non_digit = re.sub(r"\d+", "", s)
         non_digit_stripped = re.sub(r"[\s,]+", "", non_digit)
@@ -297,6 +309,43 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
     # on ordinary English text gets naturally pruned.
     if re.fullmatch(r"[A-Za-z0-9\s.,;:!?\"'/@\-\_\(\)\[\]]{10,}", s):
         cands.append({"op": "rot13", "args": {}})
+
+    # ── Linguistic-hypothesis candidates (Feb-2026 Reasoning Engine) ────
+    # When the input characterizes as text_like (low entropy + high
+    # letter+space ratio, no structural signature), the linguistic scorer
+    # generates ROT-N (1..25), Atbash, reverse, XOR-single-byte candidates
+    # and ranks them by English-density delta. This is the "think like an
+    # analyst, not like a decoder" branch: promotes the deobfuscated
+    # candidate at the FRONT of the queue so it beats speculative base64.
+    #
+    # Only fires when NO structural signature has already been detected —
+    # otherwise we'd double-explore rot13 branches and break test parity.
+    try:
+        if _magic_container is None:
+            from reasoning.characterize import characterize as _characterize
+            from reasoning.text_candidates import text_candidates as _text_cands
+            _prof = _characterize(s)
+            if _prof.kind == "text_like":
+                # Cheap linguistic sweep — top-2 winners inserted at front.
+                _linguistic = _text_cands(s, min_delta=0.20, top_n=2,
+                                          include_xor=False)
+                for _cand in reversed(_linguistic):
+                    # Map back to ops registered in operations.py.
+                    if _cand.op == "rot13":
+                        cands.insert(0, {"op": "rot13", "args": {}})
+                    elif _cand.op == "rot-n":
+                        # ROT-N with a specific shift isn't a first-class op;
+                        # only insert if the shift is 13 (already covered) or
+                        # skip. rot47 covers a different alphabet, don't map.
+                        continue
+                    elif _cand.op == "reverse":
+                        cands.insert(0, {"op": "reverse", "args": {}})
+                    elif _cand.op == "atbash":
+                        # atbash is not a registered op — fall back to a rot13
+                        # exploration and let the scorer sort things out.
+                        continue
+    except Exception:
+        pass
     # PowerShell -EncodedCommand
     if re.search(r"-e(?:c|nc|ncoded(?:command)?)?\s+[A-Za-z0-9+/=\s]{16,}", s, re.IGNORECASE):
         cands.append({"op": "powershell-encoded", "args": {}})

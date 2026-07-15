@@ -1,6 +1,67 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — 🧠 P0 · Reasoning Engine roadmap — Confidence + LLM Tiebreaker + Explainer + Learning Framework)
+
+### Delivered
+The decoder now "thinks like an analyst" per the user's Feb-2026 architectural prompt. All P0 items from that prompt are shipped as **additive** layers on top of the existing engine — no behavior break in fast mode, opt-in enhancements in balanced/deep modes.
+
+**1. Hybrid Architecture (1C)** — deterministic fast paths for structural formats (base64, hex, gzip, zlib, lzma, bzip2, ...) preserved; reasoning path now fires for `text_like` inputs. The engine no longer misclassifies `CbjreFuryy -Abc` as base64 — it correctly outputs `PowerShell -Nop` via ROT13.
+
+**2. Confidence Engine** — weighted 4-dimension explainable verdict:
+- Structural Validity (0.30)
+- Readability (0.30) — printable ratio + English density + PS/shell keywords
+- Entropy Sanity (0.20) — natural text sweet spot at 3.5-4.8 bits/byte
+- Context Heuristics (0.20) — output aligns with input's implied intent (wrapper → command)
+- Bands: HIGH (≥ 0.75) / MEDIUM (0.50-0.74) / LOW (< 0.50). Every dimension attaches a human-readable reason.
+
+**3. LLM Tiebreaker (2B)** — Claude Sonnet 4.5 arbitrates ONLY when top-2 deterministic candidates score within `TIE_THRESHOLD` (0.05) AND mode = `deep`. LLM can only pick from candidates it's given — never invents new ops. Graceful fallback to deterministic winner on any error (budget cap, timeout, malformed reply).
+
+**4. Explainer** — every reasoning trace now compiles into a narrative:
+- `headline`: "Selected rot13 (Δ+0.798 linguistic score, ...)"
+- `selected[]`: winning steps with "why chose" rationale
+- `rejected[]`: considered-but-rejected candidates with "why rejected"
+- `tiebreakers[]`: notes on ambiguous decisions
+- `confidence`: final weighted score + band
+
+**5. Analyst Modes** — `analysis_mode: fast | balanced | deep`:
+- `fast` — deterministic core only, no reasoning frame (fastest, offline)
+- `balanced` (default) — + linguistic ranking + confidence + explainer
+- `deep` — + LLM tiebreaker on tied candidates
+
+**6. Learning Framework** — analyst-correction feedback loop:
+- `POST /api/learning/correction` — record when engine was wrong
+- `GET /api/learning/corrections/recent?limit=N` — audit trail
+- `GET /api/learning/corrections/summary` — aggregate stats (total events, mean confidence Δ, top substitution pairs)
+- Storage: `learning_events` MongoDB collection with input characterization profile attached.
+
+**7. Decoder Plugin Contract** — documented interface (`CanDecode / Confidence / Decode / Validate / Explain / SuggestNext`) in `reasoning/plugin_contract.py`. Opt-in; existing 87+ ops in `operations.py` untouched.
+
+### Files
+- **New** (all additive):
+  - `backend/reasoning/plugin_contract.py` — DecoderPlugin ABC + registry
+  - `backend/reasoning/confidence_engine.py` — weighted 4-dim scorer
+  - `backend/reasoning/llm_tiebreaker.py` — Claude arbitration with fallback
+  - `backend/reasoning/explainer.py` — narrative compiler
+  - `backend/reasoning/learning.py` — analyst-correction event store
+  - `backend/tests/test_reasoning_roadmap.py` — 33 new tests
+- **Modified**:
+  - `backend/reasoning/__init__.py` — export the new modules
+  - `backend/reasoning/engine.py` — wire deep-mode LLM tiebreaker into `_pick_with_tiebreak`
+  - `backend/analysis_core.py` — attach confidence + narrative to `/decode/smart` response
+  - `backend/routers/learning.py` — 3 new endpoints (correction / recent / summary)
+
+### Regression
+- **836 backend tests pass** (up from 803) · 7 xfailed (unchanged) · 4 pre-existing failures (unrelated to this pass).
+- Zero regressions. All existing decoder paths continue to work.
+- End-to-end verified: `POST /api/decode/smart {"input":"CbjreFuryy -Abc","analysis_mode":"balanced"}` returns:
+  - `output: "PowerShell -Nop"` · `engine: reasoning` · `confidence: 0.83 HIGH`
+  - `narrative.headline: "Selected rot13 (Δ+0.798 linguistic score, ...)"` · 4 rejected candidates listed with reasons.
+
+⚠️ **Deployment**: preview verified. Production redeploy required to expose new reasoning fields to `nivxray.nivxforge.com`.
+
+
+
 ## Latest Change (Feb 2026 — 📚 P1 · Sample Library promote from Confusion Matrix)
 
 ### Delivered

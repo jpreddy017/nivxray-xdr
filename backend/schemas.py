@@ -46,6 +46,14 @@ class AutoIn(BaseModel):
     #   best_effort  — retain the salvaged plaintext as the primary output with a clear
     #                  ⚠ Integrity Warning. Verdict downgrades to Suspicious (not Corrupted).
     mode: str = Field("strict", description="strict | best_effort")
+    analysis_mode: str = Field(
+        "balanced",
+        description=(
+            "fast | balanced | deep — controls the reasoning engine. "
+            "fast=deterministic core only, balanced=linguistic candidate "
+            "ranking (default), deep=+LLM tiebreaker on ambiguities."
+        ),
+    )
 
 
 class MagicIn(BaseModel):

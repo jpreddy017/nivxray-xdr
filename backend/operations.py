@@ -120,20 +120,58 @@ def _hex_decode(data: str) -> str:
 
 @op("ascii-decimal-decode", "ASCII Decimal Codes → Text", "Cryptography",
     "Decode a stream of space/comma-separated decimal ASCII codes (32-255) back into a text string. "
-    "Common in obfuscated PowerShell / JS payloads and multi-layer stagers (Base32 → decimal codes → next stage).")
+    "Common in obfuscated PowerShell / JS payloads and multi-layer stagers (Base32 → decimal codes → next stage). "
+    "If the decimal interpretation yields mostly-non-printable output but re-interpreting the same tokens as OCTAL "
+    "produces clean printable ASCII, the octal reading wins — analysts often paste `120 157 167 ...` from PowerShell "
+    "obfuscators that render bytes in octal.")
 def _ascii_decimal_decode(data: str) -> str:
     # Accept both space- and comma-separated tokens, and mixed whitespace
     tokens = re.findall(r"\d+", data)
     if not tokens:
         return ""
+    def _decode_base(base: int) -> str:
+        out = []
+        for t in tokens:
+            try:
+                n = int(t, base)
+            except ValueError:
+                continue
+            if 0 <= n <= 255:
+                out.append(chr(n))
+        return "".join(out)
+
+    dec_out = _decode_base(10)
+    # Try OCTAL fallback when the decimal reading is mostly non-printable
+    # (attackers frequently paste `120 157 167 145 ...` = octal for Power…).
+    try:
+        # Only tokens whose digits are 0-7 can be octal
+        if all(all(ch in "01234567" for ch in t) for t in tokens):
+            oct_out = _decode_base(8)
+            def _printable_ratio(s: str) -> float:
+                if not s: return 0.0
+                p = sum(1 for c in s if 32 <= ord(c) < 127 or c in "\r\n\t")
+                return p / len(s)
+            if _printable_ratio(oct_out) > _printable_ratio(dec_out) + 0.10:
+                return oct_out
+    except Exception:
+        pass
+    return dec_out
+
+
+@op("binary-ascii-decode", "Binary ASCII (0/1) → Text", "Cryptography",
+    "Decode a stream of space-separated 8-bit binary bytes back into text. "
+    "Example: `01010000 01101111 01110111 ...` -> `Pow...`. Tolerates 7-bit and mixed widths.")
+def _binary_ascii_decode(data: str) -> str:
+    tokens = re.findall(r"[01]{7,8}", data)
+    if len(tokens) < 3:
+        return ""
     out = []
     for t in tokens:
         try:
-            n = int(t)
+            n = int(t, 2)
         except ValueError:
             continue
-        # Only accept realistic byte values; skip garbage (e.g. year numbers)
-        if 0 <= n <= 255:
+        if 0 <= n <= 0xFF:
             out.append(chr(n))
     return "".join(out)
 

@@ -23,7 +23,7 @@ from deps import db, load_osint_keys, llm_json
 # ============================================================================
 # Deterministic winner picker (smart vs magic) — Auto Investigate parity fix
 # ============================================================================
-def deterministic_best_decode(payload: str) -> Dict[str, Any]:
+def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> Dict[str, Any]:
     """Recursive deep-decode wrapper — keeps peeling nested obfuscation layers.
 
     After each single-pass decode, we re-run the pipeline on the OUTPUT as if
@@ -37,14 +37,64 @@ def deterministic_best_decode(payload: str) -> Dict[str, Any]:
     full recipe (e.g. extract-payload → base64-decode → utf16le-decode
     → extract-payload → base64-decode → utf16le-decode) as ONE chain.
 
+    ``analysis_mode`` controls the reasoning engine (Feb-2026):
+      * ``fast``      — deterministic core only, no linguistic reasoning
+                        or LLM tiebreak. Fastest, offline, cheapest.
+      * ``balanced``  — deterministic core + reasoning-engine trace attached
+                        to output for explainability. LLM only on tie.
+      * ``deep``      — same as balanced + LLM arbitration always available
+                        when top candidates score within tie threshold.
+
     This is the "training" answer for multi-layer obfuscation: instead of
     asking the analyst to paste Stage-N-output back into the input box, the
     pipeline auto-recurses. Handles any depth of nested `FromBase64String`,
     hex, gzip, XOR, ASCII-decimal, Base32, etc.
     """
+    # ── Reasoning Engine — text-mode linguistic hypothesis pass ──────────
+    # When mode is balanced/deep AND the input characterizes as ``text_like``
+    # (mostly letters, low entropy, no structural magic), invoke the
+    # reasoning engine FIRST. It brute-scans ROT-N (n=1..25), Atbash,
+    # Reverse, and single-byte XOR ranked by linguistic-score delta.
+    # If it finds a transform that meaningfully improves linguistic score,
+    # the resulting output is fed BACK into the deterministic pipeline so
+    # any further structural obfuscation (e.g. -EncodedCommand) can peel.
+    # For non-text inputs (base64, gzip, hex, PE, script wrappers) this
+    # block is a no-op — the classic pipeline handles them as today.
+    if analysis_mode in ("balanced", "deep"):
+        try:
+            from reasoning import characterize as _char, reason as _reason
+            _prof0 = _char(payload)
+            if _prof0.kind == "text_like":
+                _rr = _reason(payload, mode=analysis_mode)
+                if (_rr.chain and _rr.final_output
+                        and _rr.final_output != payload):
+                    # Continue the pipeline on the reasoned output so any
+                    # newly-revealed wrapper (e.g. PowerShell -EncodedCommand)
+                    # gets peeled by the classic core.
+                    payload = _rr.final_output
+                    # Seed all_steps with the linguistic chain so the final
+                    # recipe carries it as the first layer(s).
+                    _reasoning_seed = [
+                        {"op": s["op"], "args": s.get("args") or {},
+                         "reason": s.get("reason") or f"reasoning: {s['op']}"}
+                        for s in _rr.chain
+                    ]
+                else:
+                    _reasoning_seed = []
+                _reasoning_trace = _rr.as_dict()
+            else:
+                _reasoning_seed = []
+                _reasoning_trace = None
+        except Exception:
+            _reasoning_seed = []
+            _reasoning_trace = None
+    else:
+        _reasoning_seed = []
+        _reasoning_trace = None
+
     MAX_ITER = 6
-    all_steps: List[Dict[str, Any]] = []
-    engines: List[str] = []
+    all_steps: List[Dict[str, Any]] = list(_reasoning_seed)
+    engines: List[str] = ["reasoning"] if _reasoning_seed else []
     current = payload
     last_output = None
     final_result: Dict[str, Any] = {}
@@ -93,7 +143,69 @@ def deterministic_best_decode(payload: str) -> Dict[str, Any]:
         final_result["steps"] = all_steps
         final_result["engine"] = "+".join(engines) if len(engines) > 1 else (engines[0] if engines else final_result.get("engine"))
         final_result["iterations"] = iteration + 1 if iteration else 1
+
+    # === Reasoning Engine trace (Feb-2026) ============================
+    # Attach an explainability trace so analysts can see WHY the winning
+    # chain was picked and what alternatives were considered. In "fast"
+    # mode this is skipped for latency. Never breaks the response even
+    # if the reasoning module misbehaves — wrapped in try/except.
+    if analysis_mode in ("balanced", "deep"):
+        try:
+            from reasoning import (
+                characterize as _char, linguistic_score as _lscore,
+                compute_confidence as _compute_conf,
+                explain_reasoning as _explain_reason,
+            )
+            _prof_in = _char(payload).as_dict()
+            _prof_out = _char(final_result.get("output") or "").as_dict()
+            _in_score = _lscore(payload)
+            _out_score = _lscore(final_result.get("output") or "")
+            _delta = round(_out_score - _in_score, 4)
+            # Weighted 4-dim confidence — the "explainable verdict" surface.
+            _conf = _compute_conf(
+                final_result.get("output") or "", input_text=payload,
+            )
+            # Compile the reasoning trace into a human-readable narrative.
+            _narrative = _explain_reason(
+                _reasoning_trace, confidence=_conf.confidence,
+            ) if _reasoning_trace else None
+            final_result["reasoning"] = {
+                "mode": analysis_mode,
+                "input_profile": _prof_in,
+                "output_profile": _prof_out,
+                "input_linguistic_score": round(_in_score, 4),
+                "output_linguistic_score": round(_out_score, 4),
+                "linguistic_delta": _delta,
+                "confidence": _conf.as_dict(),
+                "explanation": _explain_chain(
+                    payload, final_result.get("output") or "",
+                    all_steps or final_result.get("steps") or [],
+                    _delta,
+                ),
+                "narrative": _narrative,
+                "trace": _reasoning_trace,
+            }
+        except Exception as _e:
+            final_result["reasoning"] = {"mode": analysis_mode, "error": str(_e)}
     return final_result
+
+
+def _explain_chain(inp: str, out: str, chain: List[Dict[str, Any]],
+                    linguistic_delta: float) -> str:
+    """Analyst-facing one-paragraph "why" explanation of the decoding chain."""
+    if not chain:
+        if linguistic_delta > 0.10:
+            return ("Input already resembles readable text; no transformation "
+                    "improved linguistic clarity beyond a small margin.")
+        return "No structural or linguistic signal supported a transformation."
+    ops = " → ".join(c.get("op") or "?" for c in chain)
+    delta_word = ("substantially improved" if linguistic_delta > 0.20
+                  else "improved" if linguistic_delta > 0.05
+                  else "did not linguistically improve")
+    return (f"Chain [{ops}] {delta_word} readability "
+            f"(Δ={linguistic_delta:+.3f} linguistic score). "
+            f"Selected by evidence-based scoring: structural validity, "
+            f"printable ratio, English density, and analyst-keyword hits.")
 
 
 def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:

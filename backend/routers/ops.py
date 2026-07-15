@@ -300,7 +300,7 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             pass
 
     # Deterministic best-of race (smart vs magic) — this is the key upgrade
-    det = deterministic_best_decode(body.input)
+    det = deterministic_best_decode(body.input, analysis_mode=body.analysis_mode or "balanced")
 
     # === Learning Feedback Loop — Task 3 ============================== #
     # Compute the boost BEFORE deciding — we don't rewrite the decoder,
@@ -377,6 +377,12 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # container" panel with the exact CRC / truncated-stream reason
         # instead of a misleading "high-confidence xor-brute" result.
         "corrupted_container": det.get("corrupted_container"),
+        # ▲ REASONING ENGINE — evidence-based trace (Feb-2026)
+        # Attached whenever analysis_mode is balanced/deep. Contains input
+        # profile (kind, entropy, letter ratios), linguistic delta, and
+        # step-by-step "considered / chosen / rejected" reasoning per layer.
+        "reasoning": det.get("reasoning"),
+        "analysis_mode": body.analysis_mode or "balanced",
     }
 
     # ▲ SOC EVIDENCE — per-layer metadata (Feb-2026)
