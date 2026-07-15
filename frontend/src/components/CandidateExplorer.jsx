@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, X, AlertCircle, CheckCircle2, MinusCircle, Edit3 } from "lucide-react";
 import api from "@/lib/api";
 import CorrectionModal from "@/components/CorrectionModal";
+import EnrichmentBadge from "@/components/EnrichmentBadge";
 
 /**
  * CandidateExplorer — Feb-2026 SOC panel that renders EVERY encoding candidate
@@ -180,7 +181,7 @@ function CandidateRow({ candidate, isWinner, expanded, onToggle, onSelect }) {
   );
 }
 
-function EnrichmentBlock({ label, items, renderItem, testid }) {
+function EnrichmentBlock({ label, items, renderItem, testid, enrichable = false, input = null }) {
   if (!items || items.length === 0) return null;
   return (
     <div style={{ marginBottom: 10 }} data-testid={testid}>
@@ -189,21 +190,110 @@ function EnrichmentBlock({ label, items, renderItem, testid }) {
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {items.map((item, i) => (
-          <span
-            key={i}
-            style={{
-              fontSize: 11,
-              fontFamily: "monospace",
-              padding: "2px 8px",
-              background: "rgba(148,163,184,0.10)",
-              borderRadius: 3,
-              color: "#c9d1d9",
-            }}
-          >
-            {renderItem(item)}
-          </span>
+          <IocChip key={i} item={item} render={renderItem} enrichable={enrichable} input={input} />
         ))}
       </div>
+    </div>
+  );
+}
+
+function IocChip({ item, render, enrichable, input }) {
+  const [enriched, setEnriched] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const value = item.value || item.binary || (typeof item === "string" ? item : null);
+
+  const lookup = async (e) => {
+    e.stopPropagation();
+    if (!enrichable || !value) return;
+    setExpanded((v) => !v);
+    if (enriched || loading) return;
+    setLoading(true);
+    try {
+      // Feb-2026 #6: new /enrichment/ioc endpoint returns richer per-provider
+      // verdicts. Also log to the investigation timeline when `input` provided.
+      const r = await api.post("/enrichment/ioc", { value });
+      setEnriched(r.data);
+    } catch (err) {
+      setEnriched({ error: err.response?.data?.detail || err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "inline-block" }}>
+      <span
+        onClick={lookup}
+        style={{
+          fontSize: 11,
+          fontFamily: "monospace",
+          padding: "2px 8px",
+          background: enriched && !enriched.error ? "rgba(126,227,201,0.10)" : "rgba(148,163,184,0.10)",
+          borderRadius: 3,
+          color: "#c9d1d9",
+          cursor: enrichable ? "pointer" : "default",
+          border: expanded ? "1px solid rgba(126,227,201,0.4)" : "1px solid transparent",
+        }}
+        data-testid={`ioc-chip-${value?.slice(0, 20) || "chip"}`}
+      >
+        {render(item)}
+        {enrichable && (
+          <span style={{ marginLeft: 4, opacity: 0.6 }}>
+            {enriched?.aggregate?.verdict
+              ? (enriched.aggregate.verdict === "malicious" ? "🔴"
+                : enriched.aggregate.verdict === "suspicious" ? "🟠"
+                : enriched.aggregate.verdict === "clean" ? "🟢"
+                : "⚪")
+              : "🛈"}
+          </span>
+        )}
+      </span>
+      {expanded && enriched && (
+        <div
+          style={{
+            marginTop: 4,
+            padding: "8px 10px",
+            fontSize: 11,
+            background: "rgba(15,23,42,0.6)",
+            border: "1px solid rgba(148,163,184,0.20)",
+            borderRadius: 4,
+            fontFamily: "monospace",
+            minWidth: 300,
+            color: "#c9d1d9",
+          }}
+        >
+          {loading && <div style={{ color: "#94a3b8" }}>Looking up…</div>}
+          {enriched.error && <div style={{ color: "#f87171" }}>Error: {enriched.error}</div>}
+          {enriched.aggregate && (
+            <div style={{ color: "#7ee3c9", marginBottom: 6, fontWeight: 600 }}>
+              {enriched.kind || "?"} → {enriched.aggregate.verdict}
+              {enriched.aggregate.sources > 0 && ` (${enriched.aggregate.sources} sources)`}
+            </div>
+          )}
+          {enriched.providers &&
+            enriched.providers.map((p, i) => {
+              const color = p.verdict === "malicious" ? "#f87171"
+                : p.verdict === "suspicious" ? "#f59e0b"
+                : p.verdict === "clean" ? "#7ee3c9"
+                : p.verdict === "no-key" ? "#64748b"
+                : p.verdict === "error" ? "#f87171"
+                : "#94a3b8";
+              return (
+                <div key={i} style={{ marginBottom: 3, display: "flex", gap: 6 }}>
+                  <span style={{ color: "#94a3b8", minWidth: 90 }}>{p.provider}:</span>
+                  <span style={{ color, fontWeight: 600, minWidth: 90 }}>{p.verdict}</span>
+                  {p.sources > 0 && (
+                    <span style={{ color: "#94a3b8" }}>{p.sources} src</span>
+                  )}
+                  {p.cached && (
+                    <span style={{ color: "#64748b", fontSize: 9 }}>cached</span>
+                  )}
+                </div>
+              );
+            })}
+        </div>
+      )}
     </div>
   );
 }
@@ -382,6 +472,8 @@ export default function CandidateExplorer({ input, onSelect, testidPrefix = "can
               items={flatIocs}
               renderItem={(i) => `${i.kind}: ${i.value}`}
               testid={`${testidPrefix}-iocs`}
+              enrichable
+              input={input}
             />
             <EnrichmentBlock
               label="LOLBins"

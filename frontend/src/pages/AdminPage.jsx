@@ -9,6 +9,8 @@ import TrainingNotesCard from "@/components/TrainingNotesCard";
 import ConfusionMatrixCard from "@/components/ConfusionMatrixCard";
 import TaxiiAdminPanel from "@/components/TaxiiAdminPanel";
 import RegressionDashboard from "@/components/RegressionDashboard";
+import EnrichmentAdminPanel from "@/components/EnrichmentAdminPanel";
+import ThreatIntelAdminPanel from "@/components/ThreatIntelAdminPanel";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -167,6 +169,12 @@ export default function AdminPage() {
 
         {/* Regression Dashboard — auto-benchmark + gate status (Feb-2026 #4) */}
         <RegressionDashboard />
+
+        {/* Threat Intelligence + Fine-tuning dataset (Feb-2026 #6 + #8) */}
+        <ThreatIntelAdminPanel />
+
+        {/* Enrichment providers — VT / OTX / AbuseIPDB API keys (Feb-2026 #6) */}
+        <EnrichmentAdminPanel />
 
         {/* TAXII 2.1 Push — publish IOCs as STIX 2.1 to your TAXII server */}
         <TaxiiAdminPanel />

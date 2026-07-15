@@ -100,6 +100,24 @@ async def correction_endpoint(body: CorrectionIn, user=Depends(get_current_user)
         notes=body.notes,
     )
 
+    # Feb-2026 #5 — timeline event for the correction itself
+    try:
+        from timeline import record as _tl_record
+        await _tl_record(
+            db, kind="correction",
+            title=f"Analyst correction — {(body.input or '')[:40]}",
+            summary=(
+                f"engine={(body.engine_output or '')[:60]!r} → "
+                f"corrected={(body.corrected_output or '')[:60]!r}"
+            ),
+            actor=user.get("email"),
+            metadata={"promote": body.promote_to_corpus,
+                       "confidence_before": body.engine_confidence},
+            severity="warn" if not body.promote_to_corpus else "success",
+        )
+    except Exception:
+        pass
+
     corpus_entry = None
     benchmark_run = None
     if body.promote_to_corpus:
@@ -114,14 +132,46 @@ async def correction_endpoint(body: CorrectionIn, user=Depends(get_current_user)
             created_by=user.get("email"),
             notes=body.notes,
         )
+        # Timeline event — corpus promote
+        try:
+            from timeline import record as _tl_record
+            await _tl_record(
+                db, kind="corpus-promote",
+                title=f"Promoted to regression corpus: {corpus_entry['name']}",
+                summary=f"corpus entry {corpus_entry['_id']}",
+                actor=user.get("email"),
+                metadata={"corpus_id": corpus_entry["_id"]},
+                severity="success",
+            )
+        except Exception:
+            pass
         if body.trigger_benchmark:
             benchmark_run = await run_benchmark(
                 db, trigger="analyst-correction-promote",
                 triggered_by=user.get("email"),
             )
-            # Trim results array for the response
             benchmark_run = {k: v for k, v in benchmark_run.items()
                               if k != "results"}
+            # Timeline event — benchmark run
+            try:
+                from timeline import record as _tl_record
+                severity = "success" if benchmark_run.get("pass_rate", 0) >= 1.0 else "fail"
+                await _tl_record(
+                    db, kind="benchmark",
+                    title=(
+                        f"Benchmark {benchmark_run.get('passed')}/{benchmark_run.get('total')} passed "
+                        f"({(benchmark_run.get('pass_rate') or 0) * 100:.0f}%)"
+                    ),
+                    summary=(
+                        f"flips={len(benchmark_run.get('flips') or [])}, "
+                        f"new_regressions={len(benchmark_run.get('new_regressions') or [])}"
+                    ),
+                    actor=user.get("email"),
+                    metadata={"run_id": benchmark_run.get("_id")},
+                    severity=severity,
+                )
+            except Exception:
+                pass
     return {
         "ok": True,
         "event": event,

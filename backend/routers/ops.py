@@ -593,6 +593,34 @@ async def decode_candidates(body: CandidatesIn, user=Depends(get_current_user)):
             f"Selected {best.op} (confidence={best.confidence:.2f}) — "
             f"only candidate above minimum threshold. {best.rationale}"
         )
+
+    # ── Investigation timeline (Feb-2026 #5): log a "decode" event so
+    # the analyst can replay the full lifecycle for this input later.
+    try:
+        from timeline import record as _tl_record
+        await _tl_record(
+            db,
+            kind="decode",
+            title=f"Decoded {best.op} → {(best.decoded or '')[:60]}",
+            input_text=body.input,
+            actor=user.get("email"),
+            summary=(
+                f"op={best.op} confidence={best.confidence:.2f} "
+                f"verdict={payload['verdict']['verdict']}"
+            ),
+            metadata={
+                "op": best.op,
+                "confidence": best.confidence,
+                "verdict": payload["verdict"]["verdict"],
+                "hex": (payload.get("hex_representation") or "")[:120],
+                "iocs": payload.get("iocs") or {},
+                "mitre": [t.get("id") for t in (payload.get("mitre_techniques") or [])],
+            },
+            severity="success" if best.confidence >= 0.65 else "info",
+        )
+    except Exception:
+        pass
+
     return payload
 
 

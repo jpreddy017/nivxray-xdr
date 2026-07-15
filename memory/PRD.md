@@ -1,7 +1,75 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — ⭐ #3 Learning Correction + ⭐ #4 Auto-Benchmark / Regression Suite)
+## Latest Change (Feb 2026 — ⭐ #5 Investigation Timeline + ⭐ #6 Threat-Intel Enrichment)
+
+### Delivered — full investigation audit trail + provider-agnostic IOC enrichment
+
+**Backend**
+
+*Enhanced* `backend/timeline/__init__.py`:
+- Deterministic `investigation_id_for(input) = sha256(input)[:16]` — every event carrying the same input auto-groups
+- `list_investigations()` aggregation for the workspace UI's recent-investigations panel
+- `list_recent()` cross-investigation feed
+- Two new event kinds: `enrichment`, `promote` (aliases of existing kinds)
+
+*New router* `backend/routers/investigations.py` — 6 endpoints:
+- `GET  /api/investigations[?limit=N]`
+- `GET  /api/investigations/recent[?limit=N]` — global event feed
+- `POST /api/investigations/lookup {input}` — derive iid + return events
+- `GET  /api/investigations/{iid}/timeline`
+- `POST /api/investigations/{iid}/note`
+- `DELETE /api/investigations/{iid}` — cleanup
+
+*New module* `backend/enrichment/__init__.py`:
+- 3 provider adapters: VirusTotal v3 (`x-apikey`), AlienVault OTX (`X-OTX-API-KEY`), AbuseIPDB v2 (`Key`)
+- Normalized verdict schema: `{provider, verdict, score, sources, details, queried_at}` where `verdict ∈ {malicious, suspicious, clean, unknown, no-key, error}`
+- 24-hour result cache (`enrichment_cache` collection, TTL-driven)
+- Aggregate verdict = MAX severity across providers
+- IOC classification: url / ipv4 / domain / md5 / sha1 / sha256
+
+*New router* `backend/routers/enrichment.py` — 5 endpoints:
+- `GET  /api/enrichment/config` (admin, redacted)
+- `POST /api/enrichment/config` (admin)
+- `POST /api/enrichment/ioc {value}` — single IOC across all providers
+- `POST /api/enrichment/bulk {iocs, input?}` — bulk lookup + auto-log to investigation timeline when `input` present
+- `GET  /api/enrichment/classify?value=...`
+
+*Auto-emit hooks*:
+- `/api/decode/candidates` → `decode` event (op, confidence, verdict, hex, iocs, mitre)
+- `/api/learning/correction` → `correction` + `promote` (if promoted) + `benchmark` (if triggered)
+- `/api/enrichment/bulk` → `enrichment` event with malicious IOC list + severity band
+
+**Frontend**
+
+*Enhanced* `InvestigationTimeline.jsx`:
+- Now accepts `input` prop and derives the deterministic investigation_id client-side via SubtleCrypto (matches backend hash exactly)
+- Backward-compatible with the existing `investigationId` prop
+
+*New components*:
+- `EnrichmentAdminPanel.jsx` — 3-provider API-key config with enable toggles, cache TTL, help text with provider URLs
+- `EnrichmentBadge.jsx` — clickable chip showing aggregate verdict + expandable per-provider breakdown
+
+*Updated `CandidateExplorer`* — IOC chips now call `/api/enrichment/ioc` (new endpoint), show malicious/suspicious/clean/unknown/no-key verdict emoji, click-to-expand for per-provider breakdown
+
+*Updated `WorkspacePage`* — `InvestigationTimeline` now uses `input` prop (deterministic scoping) instead of `"adhoc"` — every decode + correction + enrichment on the current input lands in one timeline
+
+*Updated `AdminPage`* — mounted `EnrichmentAdminPanel` between Threat-Intel and TAXII cards
+
+### Regression
+- **913 backend tests pass** (up from 886, +27 new) · 7 xfailed unchanged · 4 pre-existing failures unrelated · zero regressions
+- New test file `test_investigations_enrichment.py` (14 tests): deterministic iid, decode-emits-event, note posting, listing, IOC classification (7 parametrised cases), config with redaction, no-key fallback, bulk-emits-timeline
+- End-to-end verified: decode of PowerShell b64 stager → timeline lists CORRECTION → BENCHMARK → CORPUS-PROMOTE events + IOC chips show enrichment badges
+
+### Files
+- **New (backend)**: `backend/enrichment/__init__.py`, `backend/routers/enrichment.py`, `backend/routers/investigations.py`, `backend/tests/test_investigations_enrichment.py`
+- **New (frontend)**: `frontend/src/components/EnrichmentAdminPanel.jsx`, `frontend/src/components/EnrichmentBadge.jsx`
+- **Modified**: `backend/timeline/__init__.py` (deterministic ids + investigations aggregation), `backend/server.py` (register 2 new routers), `backend/routers/ops.py` (emit decode event), `backend/routers/learning.py` (emit correction/promote/benchmark events), `frontend/src/components/InvestigationTimeline.jsx` (input prop), `frontend/src/components/CandidateExplorer.jsx` (new enrichment endpoint), `frontend/src/pages/WorkspacePage.jsx` (input-scoped timeline), `frontend/src/pages/AdminPage.jsx` (mount EnrichmentAdminPanel)
+
+⚠️ **Deployment**: preview verified. Production redeploy required to push Investigation Timeline + Threat-Intel Enrichment to nivxray.nivxforge.com.
+
+
+## Previous Change (Feb 2026 — ⭐ #3 Learning Correction + ⭐ #4 Auto-Benchmark)
 
 ### Delivered — the self-improving, regression-tested platform
 

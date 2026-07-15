@@ -51,6 +51,11 @@ from routers.chain import router as chain_router
 from routers.training_confusion import router as training_confusion_router
 from routers.taxii import router as taxii_router
 from routers.regression import router as regression_router
+from routers.investigations import router as investigations_router
+from routers.enrichment import router as enrichment_router
+from routers.timeline import router as timeline_router
+from routers.threat_intel_enrich import router as ti_enrich_router
+from routers.finetune import router as finetune_router
 from request_hardening import RequestHardeningMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -110,6 +115,11 @@ api.include_router(chain_router)
 api.include_router(training_confusion_router)
 api.include_router(taxii_router)
 api.include_router(regression_router)
+api.include_router(investigations_router)
+api.include_router(enrichment_router)
+api.include_router(timeline_router)
+api.include_router(ti_enrich_router)
+api.include_router(finetune_router)
 
 app.include_router(api)
 

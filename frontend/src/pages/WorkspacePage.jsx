@@ -20,6 +20,7 @@ import BoostBadge from "@/components/BoostBadge";
 import ChainStageEditor from "@/components/ChainStageEditor";
 import ChainReplayView from "@/components/ChainReplayView";
 import CandidateExplorer from "@/components/CandidateExplorer";
+import InvestigationTimeline from "@/components/InvestigationTimeline";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import {
@@ -1042,10 +1043,14 @@ export default function WorkspacePage() {
         </span>
       </div>
       {showCandidateExplorer && input && input.trim().length > 0 && (
-        <div style={{ padding: "0 16px 12px" }}>
+        <div style={{ padding: "0 16px 12px", display: "grid", gridTemplateColumns: "1fr 340px", gap: 12 }}>
           <CandidateExplorer
             input={input}
             testidPrefix="workspace-candidate-explorer"
+          />
+          <InvestigationTimeline
+            input={input}
+            testidPrefix="workspace-timeline"
           />
         </div>
       )}
