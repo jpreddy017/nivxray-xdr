@@ -1,0 +1,1 @@
+http://reg-1.example.test/r1.exe

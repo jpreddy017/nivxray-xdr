@@ -41,6 +41,15 @@ base64 hex url html json xml powershell bash python microsoft windows linux syst
 _JSON_START = re.compile(r"^\s*[\[{]")
 _URL_RE     = re.compile(r"https?://[^\s\"'<>]+")
 _PS_KWORDS  = re.compile(r"\b(IEX|Invoke-Expression|Invoke-WebRequest|Net\.WebClient|DownloadString|DownloadFile|Add-MpPreference|New-Object|System\.Reflection|VirtualAlloc|CreateThread)\b", re.IGNORECASE)
+_SHELL_KWORDS = re.compile(
+    r"\b(?:whoami|hostname|ipconfig|ifconfig|uname|systeminfo|"
+    r"powershell|pwsh|cmd|bash|/bin/sh|/bin/bash|curl|wget|nc|netcat|"
+    r"mshta|rundll32|regsvr32|certutil|bitsadmin|msiexec|msbuild|installutil|"
+    r"schtasks|reg\.exe|reg\s+add|wmic|net\s+user|Add-MpPreference|"
+    r"Get-Process|Set-Process|Start-Process|Start-BitsTransfer|"
+    r"Invoke-RestMethod|Invoke-WebRequest|ClickFix|CAPTCHA)\b",
+    re.IGNORECASE,
+)
 _HTML_RE    = re.compile(r"<(?:html|body|script|iframe|div|a\s|meta|link)\b", re.IGNORECASE)
 _PE_HEADER  = re.compile(r"^\s*MZ.{50,120}This program (?:cannot|must)", re.DOTALL)
 _UTF16_HINT = re.compile(r"(?:[ -~]\x00){10,}")
@@ -84,6 +93,8 @@ def _structure_bonus(s: str) -> Tuple[float, List[str]]:
         total += 0.20; bonuses.append("url")
     if _PS_KWORDS.search(s):
         total += 0.35; bonuses.append("ps-keywords")
+    if _SHELL_KWORDS.search(s):
+        total += 0.15; bonuses.append("shell-keywords")
     if _HTML_RE.search(s):
         total += 0.15; bonuses.append("html")
     if _PE_HEADER.match(s):
@@ -241,8 +252,11 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
     # HTML entities
     if "&#" in s or re.search(r"&\w+;", s):
         cands.append({"op": "html-decode", "args": {}})
-    # ROT13
-    if re.fullmatch(r"[A-Za-z\s.,!?\"'\-]{10,}", s):
+    # ROT13 — permissive alphabet lets us catch obfuscated command-lines
+    # (`phey uggc://…`, `vq;jubnzv;…`). The heuristic scorer picks a winner
+    # by English-density AFTER decode, so a false-positive ROT13 candidate
+    # on ordinary English text gets naturally pruned.
+    if re.fullmatch(r"[A-Za-z0-9\s.,;:!?\"'/@\-\_\(\)\[\]]{10,}", s):
         cands.append({"op": "rot13", "args": {}})
     # PowerShell -EncodedCommand
     if re.search(r"-e(?:c|nc|ncoded(?:command)?)?\s+[A-Za-z0-9+/=\s]{16,}", s, re.IGNORECASE):
@@ -263,6 +277,12 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
     # JS \x-escapes — same priority rationale as js-charcode.
     if re.search(r"(?:\\x[0-9a-fA-F]{2}){3,}", s):
         cands.insert(0, {"op": "js-hex-strings-decode", "args": {}})
+    # \uNNNN unicode escapes (JS/PowerShell obfuscation).
+    if re.search(r"(?:\\u[0-9a-fA-F]{4}){3,}", s):
+        cands.insert(0, {"op": "unicode-escape", "args": {}})
+    # Backslash-octal ASCII stream — `\110\145\154\154\157` → "Hello".
+    if re.search(r"(?:\\[0-7]{2,3}){3,}", s):
+        cands.insert(0, {"op": "octal-ascii-decode", "args": {}})
     # ASCII85
     if s.startswith("<~") and s.endswith("~>"):
         cands.append({"op": "ascii85-decode", "args": {}})
@@ -484,6 +504,20 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                 continue
             if not nxt or nxt == cur:
                 continue
+            # Self-inverse guard: ROT13 / reverse applied on an already-clean
+            # readable string only makes sense when the OUTPUT is MEASURABLY
+            # BETTER (more English words / shell keywords / URL / structure)
+            # than the input. Otherwise the op is destroying signal.
+            if c.get("op") in ("rot13", "reverse"):
+                def _signal(text: str) -> float:
+                    sc = 0.0
+                    sc += _english_density(text)
+                    if _PS_KWORDS.search(text): sc += 0.35
+                    if _SHELL_KWORDS.search(text): sc += 0.15
+                    if _URL_RE.search(text): sc += 0.20
+                    return sc
+                if _signal(nxt) <= _signal(cur) + 0.005:
+                    continue
             nsb = score_output(nxt)
             clean_step = {"op": c["op"], "args": c.get("args") or {}}
             # Deterministic follow-up: base64 → xor(known_key) plan.
@@ -499,23 +533,48 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                     raw = _b64.b64decode(b64_str + "=" * (-len(b64_str) % 4),
                                           validate=False)
                     xored_bytes = bytes(b ^ key for b in raw)
-                    # Represent as hex so downstream shellcode-magic detection
-                    # (\xfc\xe8, \xfc\x48, MZ, etc.) sees real bytes.
                     hex_out = xored_bytes.hex()
-                    xsb = score_output(hex_out)
                     step_xor = {"op": "xor", "args": {"key": f"0x{key:02x}"}}
-                    best_results.append({
-                        "chain": chain + [clean_step, step_xor],
-                        "output": xored_bytes.decode("latin-1"),  # 1:1 byte↔codepoint preservation
-                        "output_hex": hex_out,
-                        "output_bytes_len": len(xored_bytes),
-                        "score_breakdown": xsb,
-                        "path_scores": list(path_scores) + [sb["score"], xsb["score"]],
-                    })
-                    # Continue walking from the hex form so a subsequent
-                    # candidate can further decode if needed.
-                    _walk(hex_out, chain + [clean_step, step_xor],
-                          depth + 2, path_scores + [sb["score"], xsb["score"]], ctx)
+                    # Try UTF-8 decode FIRST — a lot of xor'd payloads are
+                    # ordinary ASCII scripts (`id;whoami`, PowerShell). Only
+                    # fall back to the hex/latin-1 dual representation when
+                    # the bytes are truly binary.
+                    plain_out = None
+                    try:
+                        candidate = xored_bytes.decode("utf-8")
+                        printable = sum(1 for c2 in candidate if 32 <= ord(c2) < 127 or c2 in "\r\n\t")
+                        if candidate and printable / max(1, len(candidate)) >= 0.90:
+                            plain_out = candidate
+                    except UnicodeDecodeError:
+                        pass
+                    if plain_out is not None:
+                        # Clean text branch — record & keep walking on the plaintext
+                        psb = score_output(plain_out)
+                        best_results.append({
+                            "chain": chain + [clean_step, step_xor],
+                            "output": plain_out,
+                            "score_breakdown": psb,
+                            "path_scores": list(path_scores) + [sb["score"], psb["score"]],
+                        })
+                        # Clear the xor_key so we don't re-plan another
+                        # base64→xor step on the already-decoded plaintext.
+                        _ctx_next = {k: v for k, v in ctx.items() if k != "xor_key"}
+                        _walk(plain_out, chain + [clean_step, step_xor],
+                              depth + 2, path_scores + [sb["score"], psb["score"]], _ctx_next)
+                    else:
+                        # Binary branch — surface hex + latin-1 for shellcode analyzer
+                        xsb = score_output(hex_out)
+                        best_results.append({
+                            "chain": chain + [clean_step, step_xor],
+                            "output": xored_bytes.decode("latin-1"),  # 1:1 byte↔codepoint preservation
+                            "output_hex": hex_out,
+                            "output_bytes_len": len(xored_bytes),
+                            "score_breakdown": xsb,
+                            "path_scores": list(path_scores) + [sb["score"], xsb["score"]],
+                        })
+                        _ctx_next = {k: v for k, v in ctx.items() if k != "xor_key"}
+                        _walk(hex_out, chain + [clean_step, step_xor],
+                              depth + 2, path_scores + [sb["score"], xsb["score"]], _ctx_next)
                     continue
                 except Exception:
                     pass

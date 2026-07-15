@@ -533,6 +533,168 @@ def _handle_ps_binary_split(text: str) -> str:
         raise ValueError("binary-split output not mostly printable")
     return stripped
 
+# ============================================================================
+# v2 — Feb-2026 archetype family: PowerShell string obfuscation shapes
+# ============================================================================
+# All these shapes recover a *token* (like "IEX", "Invoke-Expression"), NOT a
+# full script layer. Their handlers return only the recovered string. The
+# regex tests here are DELIBERATELY narrow — false positives on ordinary
+# scripts would silently rewrite outputs.
+
+_PS_STRING_CONCAT_RX = re.compile(
+    r"(?:['\"][^'\"]{1,20}['\"]\s*\+\s*){2,}['\"][^'\"]{0,20}['\"]"
+)
+
+
+def _ps_string_concat_matches(text: str) -> bool:
+    # At least 3 concatenated quoted literals — the typical `'Inv'+'oke'+…`
+    # obfuscation. Skip long inputs (>800 chars) to avoid corrupting a real
+    # multi-layer payload.
+    if len(text) > 800:
+        return False
+    return _PS_STRING_CONCAT_RX.search(text) is not None
+
+
+def _handle_ps_string_concat(text: str) -> str:
+    m = _PS_STRING_CONCAT_RX.search(text)
+    if not m:
+        raise ValueError("no ps-string-concat span in text")
+    span = m.group(0)
+    parts = re.findall(r"['\"]([^'\"]*)['\"]", span)
+    joined = "".join(parts)
+    if not joined:
+        raise ValueError("ps-string-concat parts are empty")
+    # Return the FULL input with the obfuscated span replaced by the joined
+    # token — analysts want to see the recovered call in situ.
+    return text.replace(span, joined, 1)
+
+
+_PS_JOIN_CHAR_ARRAY_RX = re.compile(
+    r"\(?\s*['\"][^'\"]['\"](?:\s*,\s*['\"][^'\"]['\"]){2,}\s*\)?\s*-join\s*['\"]{2}",
+)
+_PS_CHAR_ARRAY_INT_RX = re.compile(
+    r"\[char\[\]\]\s*\(\s*(\d{1,3}(?:\s*,\s*\d{1,3}){2,})\s*\)\s*(?:-join\s*['\"]{2})?",
+    re.IGNORECASE,
+)
+
+
+def _ps_join_char_array_matches(text: str) -> bool:
+    if len(text) > 800:
+        return False
+    return (
+        _PS_JOIN_CHAR_ARRAY_RX.search(text) is not None
+        or _PS_CHAR_ARRAY_INT_RX.search(text) is not None
+    )
+
+
+def _handle_ps_join_char_array(text: str) -> str:
+    # Char-integer array shape first: `[char[]](73,69,88)`
+    m = _PS_CHAR_ARRAY_INT_RX.search(text)
+    if m:
+        ints = [int(x.strip()) for x in m.group(1).split(",")]
+        if not all(0 <= i <= 0xFF for i in ints):
+            raise ValueError("char-array ints out of range")
+        joined = "".join(chr(i) for i in ints)
+        return text.replace(m.group(0), joined, 1)
+    # Char-string array shape: `('I','E','X') -join ''`
+    m2 = _PS_JOIN_CHAR_ARRAY_RX.search(text)
+    if m2:
+        span = m2.group(0)
+        parts = re.findall(r"['\"]([^'\"])['\"]", span)
+        joined = "".join(parts)
+        if not joined:
+            raise ValueError("ps-join-char-array parts empty")
+        return text.replace(span, joined, 1)
+    raise ValueError("no ps-join-char-array span in text")
+
+
+_PS_FORMAT_OP_RX = re.compile(
+    r'"((?:\{\d+\}){2,})"\s*-f\s*((?:[\'"][^\'"]*[\'"]\s*,\s*){1,}[\'"][^\'"]*[\'"])'
+)
+
+
+def _ps_format_op_matches(text: str) -> bool:
+    if len(text) > 800:
+        return False
+    return _PS_FORMAT_OP_RX.search(text) is not None
+
+
+def _handle_ps_format_op(text: str) -> str:
+    m = _PS_FORMAT_OP_RX.search(text)
+    if not m:
+        raise ValueError("no ps-format-op span")
+    fmt = m.group(1)
+    args_str = m.group(2)
+    args = re.findall(r"['\"]([^'\"]*)['\"]", args_str)
+    positions = [int(p) for p in re.findall(r"\{(\d+)\}", fmt)]
+    if any(p >= len(args) for p in positions):
+        raise ValueError("format-op position out of range")
+    joined = "".join(args[p] for p in positions)
+    if not joined:
+        raise ValueError("format-op result empty")
+    return text.replace(m.group(0), joined, 1)
+
+
+_PS_REVERSE_STRING_RX = re.compile(
+    r"-join\s*\(\s*['\"]([^'\"]{3,})['\"]\s*\[\s*-1\s*\.\.\s*-\d+\s*\]\s*\)"
+)
+
+
+def _ps_reverse_string_matches(text: str) -> bool:
+    if len(text) > 800:
+        return False
+    return _PS_REVERSE_STRING_RX.search(text) is not None
+
+
+def _handle_ps_reverse_string(text: str) -> str:
+    m = _PS_REVERSE_STRING_RX.search(text)
+    if not m:
+        raise ValueError("no ps-reverse-string span")
+    reversed_str = m.group(1)
+    plain = reversed_str[::-1]
+    return text.replace(m.group(0), plain, 1)
+
+
+_BATCH_VAR_SLICE_SET_RX = re.compile(
+    r"(?:^|\r?\n|&|@)\s*set\s+(\w+)\s*=\s*([^\r\n&]+)",
+    re.IGNORECASE,
+)
+_BATCH_VAR_SLICE_USE_RX = re.compile(r"%(\w+):~(\d+),(\d+)%")
+
+
+def _batch_var_slice_matches(text: str) -> bool:
+    if len(text) > 800:
+        return False
+    return (
+        _BATCH_VAR_SLICE_USE_RX.search(text) is not None
+        and _BATCH_VAR_SLICE_SET_RX.search(text) is not None
+    )
+
+
+def _handle_batch_var_slice(text: str) -> str:
+    # Build the variable table from every `set var=value` in the input.
+    vars_: Dict[str, str] = {}
+    for m in _BATCH_VAR_SLICE_SET_RX.finditer(text):
+        vars_[m.group(1).strip()] = m.group(2).strip()
+    if not vars_:
+        raise ValueError("no batch-set assignments")
+    changed = text
+    for m in _BATCH_VAR_SLICE_USE_RX.finditer(text):
+        name, start, length = m.group(1), int(m.group(2)), int(m.group(3))
+        source = vars_.get(name)
+        if source is None:
+            continue
+        sliced = source[start : start + length]
+        if not sliced:
+            continue
+        changed = changed.replace(m.group(0), sliced)
+    if changed == text:
+        raise ValueError("batch-var-slice produced no change")
+    return changed
+
+
+
+
 
 ARCHETYPES: List[Dict[str, Any]] = [
     {
@@ -618,6 +780,56 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["ps-binary-split-decode"],
         "handler": _handle_ps_binary_split,
         "match":   lambda t: _ps_binary_split_matches(t),
+    },
+    # ── PowerShell string-concatenation IEX ────────────────────────────
+    # Shape:   $c=('Inv'+'oke'+'-Ex'+'pression'); & $c ...
+    #         (('IE'+'X') -join '')
+    #         "{1}{0}" -f 'X','IE'
+    # Recovers the JOINED plaintext token(s).
+    {
+        "id": "PS_STRING_CONCAT",
+        "description": "PowerShell 'Inv'+'oke'+'-Ex'+'pression' style concatenation — recovers the joined string.",
+        "chain": ["ps-string-concat"],
+        "handler": lambda t: _handle_ps_string_concat(t),
+        "match":   lambda t: _ps_string_concat_matches(t),
+    },
+    # ── PowerShell -join (single-char array or split-then-join) ─────────
+    # Shape:   ('I','E','X') -join ''
+    #          [char[]](73,69,88) -join ''
+    {
+        "id": "PS_JOIN_CHAR_ARRAY",
+        "description": "PowerShell ('c1','c2',...) -join '' or [char[]](NN,NN,...) -join '' — recovers the joined string.",
+        "chain": ["ps-join-char-array"],
+        "handler": lambda t: _handle_ps_join_char_array(t),
+        "match":   lambda t: _ps_join_char_array_matches(t),
+    },
+    # ── PowerShell -f (format-operator) obfuscation ────────────────────
+    # Shape:   "{1}{0}" -f 'X','IE'  → 'IEX'
+    {
+        "id": "PS_FORMAT_OPERATOR",
+        "description": "PowerShell -f format-operator obfuscation (\"{i}{j}\" -f 'X','IE') — recovers the assembled string.",
+        "chain": ["ps-format-op"],
+        "handler": lambda t: _handle_ps_format_op(t),
+        "match":   lambda t: _ps_format_op_matches(t),
+    },
+    # ── PowerShell reverse-string obfuscation ───────────────────────────
+    # Shape:  -join ('noisserpxE-ekovnI'[-1..-17])
+    {
+        "id": "PS_REVERSE_STRING",
+        "description": "PowerShell -join ('<reversed>'[-1..-N]) — recovers the reversed string.",
+        "chain": ["reverse"],
+        "handler": lambda t: _handle_ps_reverse_string(t),
+        "match":   lambda t: _ps_reverse_string_matches(t),
+    },
+    # ── Batch %var:~x,y% substring extraction ───────────────────────────
+    # Shape:  @set v=REALLYLONG_SECRET_VALUE
+    #         @call echo %v:~7,6%      → "SECRET"
+    {
+        "id": "BATCH_VAR_SLICE",
+        "description": "Batch %var:~x,y% substring extraction — recovers the sliced substring.",
+        "chain": ["batch-var-slice"],
+        "handler": lambda t: _handle_batch_var_slice(t),
+        "match":   lambda t: _batch_var_slice_matches(t),
     },
 ]
 

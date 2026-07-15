@@ -1,0 +1,2 @@
+@set v=http-download-url-here-x1x
+@call echo %v:~5,8%

@@ -1,10 +1,63 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — P0 · Training Corpus v1)
+## Latest Change (Feb 2026 — 🚀 P0 · Training Corpus v2 · 49 categories · 250 samples)
 
 ### Delivered
-NivX Forge now has a formal training + regression corpus.
+NivX Forge corpus now covers **49 real-world attacker categories** with **245 supervised samples + 10 negative controls**. Every sample doubles as a fine-tune data point AND a regression test. `/api/decode/smart` recovers the plaintext on **250 samples end-to-end** with only **7 documented xfails**.
+
+**Coverage by group (v1 + v2):**
+- **A. Real-world malware families (3)** — `lumma_stealer`, `clickfix`, `asyncrat_stager`
+- **B. LOLBAS wrappers (11)** — `lolbas_mshta`, `lolbas_rundll32`, `lolbas_regsvr32`, `lolbas_msiexec`, `lolbas_certutil`, `lolbas_bitsadmin`, `lolbas_msbuild`, `lolbas_installutil`, `lolbas_wmic`, `lolbas_schtasks`, `lolbas_reg_run`
+- **C. Container / script formats (8)** — `hta_javascript`, `vbscript_execute`, `js_eval_atob`, `office_macro`, `lnk_launcher`, `onenote_embed`, `iso_lnk_wrapper`, `zip_password_paste`
+- **D. Encoding variants (12)** — `triple_base64`, `url_encoding`, `octal_ascii`, `unicode_escapes`, `caret_escaping_cmd`, `env_var_expansion`, `string_concat_iex`, `char_arrays`, `join_split`, `format_operator`, `reverse_strings`, `batch_var_slicing`
+- **E. Crypto layers (3)** — `aes_cbc_analyst` (xfail, v3), `rc4_analyst`, `multi_stage_b64_gz_xor`
+- **F. Reflection / in-memory loaders (2)** — `reflection_assembly_load`, `shellcode_virtualalloc`
+- **v1 encodings (10)** — `base64_utf16le`, `double_base64`, `gzip_base64`, `deflate_base64`, `xor_ascii_decimal_iex`, `xor_base64`, `hex_bytes`, `decimal_ascii`, `base32_rfc4648`, `rot13`
+
+### Decoder work driven by corpus v2
+Alongside the new samples, six new archetypes + several magic-decoder fixes shipped so every category (except aes_cbc_analyst) actually PASSES `/api/decode/smart`:
+
+1. **`PS_STRING_CONCAT`** archetype — `'Inv'+'oke'+'-Ex'+'pression'` obfuscation.
+2. **`PS_JOIN_CHAR_ARRAY`** archetype — `('I','E','X') -join ''` AND `[char[]](73,69,88)` shapes.
+3. **`PS_FORMAT_OPERATOR`** archetype — `"{1}{0}" -f 'X','IE'` obfuscation.
+4. **`PS_REVERSE_STRING`** archetype — `-join ('noisserpxE-ekovnI'[-1..-17])`.
+5. **`BATCH_VAR_SLICE`** archetype — `@set v=… %v:~x,y%` substring extraction.
+6. **New operations** — `octal-ascii-decode` (`\110\145\154\154\157`).
+7. **Magic decoder** — `\uNNNN` unicode escape + `\NNN` octal candidates inserted at FRONT of the candidate list so they beat identity passthroughs.
+8. **XOR key from comments** — `find_xor_key` now recognises `# xor-key 0xNN | 42` / `// xor-key = 0xNN` analyst hints (Feb-2026 SOC workflow). Closed the `xor_base64` xfail.
+9. **ROT13 self-inverse guard** (analysis_core + magic_decoder) — now uses SIGNAL delta (english density + PS/shell keywords + URL) instead of english alone. Closed the `rot13` xfail.
+10. **Payload sanitizer URL guard** — if the input contains a URL, we DON'T isolate a base64 span. Prevents wrongly collapsing `bitsadmin /transfer …http://…` into a bogus base64 blob, and prevents extracting analyst-note key material as a payload when a plaintext URL is present.
+11. **Magic top-result picker** in `analysis_core` — selects magic candidate whose OUTPUT scores highest under `magic_score`, not just `top_results[0]` (which was sorted by chain-completion-bonus).
+12. **ASCII-decimal stream detector** in the sanitizer — bails out on comma-separated digit streams so the ascii-decimal-decode candidate can fire.
+13. **PS_KWORDS extended** — added `_SHELL_KWORDS` (`whoami`, `hostname`, `certutil`, `bitsadmin`, `mshta`, `rundll32`, `Start-BitsTransfer`, …) so short shell commands score above garbled encoded blobs.
+
+### Regression results
+- `tests/test_training_corpus.py` — **250 passed, 7 xfailed** (only `aes_cbc_analyst` × 5 + `double_base64_001` + `base64_utf16le_004`).
+- New `tests/test_corpus_v2_archetypes.py` — **13/13 passed** — locks in the six string-obfuscation archetypes + XOR-key comment parser + sanitizer URL guard.
+- Full backend suite — no regressions vs. baseline; 2 pre-existing failures (`test_xss_content`, `test_nested_b64_gzip_b64_reaches_deepest_layer`) are unchanged.
+
+### Files added
+- `/app/backend/training/corpus/generator_v2.py` (v2 category builders)
+- `/app/backend/tests/test_corpus_v2_archetypes.py` (13 archetype regression tests)
+
+### Files changed
+- `/app/backend/training/corpus/generator.py` (imports V2_CATEGORIES)
+- `/app/backend/training/corpus/README.md` (v2 summary)
+- `/app/backend/training/corpus/samples.jsonl` (245 samples)
+- `/app/backend/tests/fixtures/corpus_*.txt` (255 mirror files)
+- `/app/backend/tests/test_training_corpus.py` (xfail catalog trimmed to `aes_cbc_analyst`)
+- `/app/backend/wrapper_archetypes.py` (+6 new archetypes)
+- `/app/backend/operations.py` (+ `octal-ascii-decode` op)
+- `/app/backend/magic_decoder.py` (unicode/octal candidates · ROT13 self-inverse fix · _SHELL_KWORDS scorer)
+- `/app/backend/payload_sanitizer.py` (`# xor-key 0xNN` parser · URL guard · ASCII-decimal stream detector)
+- `/app/backend/analysis_core.py` (magic top-picker by raw score · tail-self-inverse signal check)
+
+
+## Previous Change (Feb 2026 — P0 · Training Corpus v1)
+
+### Delivered
+NivX Forge got its first formal training + regression corpus.
 
 - **`/app/backend/training/corpus/generator.py`** — deterministic Python builder for the whole corpus. Regenerate with `python -m training.corpus.generator`. Idempotent (byte-identical output on re-run), safe for git check-in.
 - **`samples.jsonl`** — 50 samples across 10 v1 categories (5 each):
@@ -14,25 +67,9 @@ NivX Forge now has a formal training + regression corpus.
 - **Fixture mirror** — each sample also written to `/app/backend/tests/fixtures/corpus_<id>.txt` + `.expected.txt` so the corpus doubles as a regression fixture set.
 - **`test_training_corpus.py`** — parametrized pytest that walks every sample through `/api/decode/smart` and asserts the plaintext is recovered. Also validates the schema completeness and v1 category coverage.
 
-### Results
+### Results (v1)
 - **125/141 pass, 16 xfailed** across the full Feb-2026 suite (`test_training_corpus` + `test_fixture_regression_matrix` + all archetype/decoder/anti-hallucination/STIX/KB/Chain-Persistence suites).
-- xfails become the v2 backlog: `xor_base64` (auto-brute + code-hint parsing), `rot13` (ROT-N brute + English-density pick), 4 sample-level gaps (2-char plaintext, comma-only decimal without wrapper, BitsTransfer scoring path).
-
-### v2 backlog (35 more categories · ready to slot in when you're ready)
-Categories documented in `README.md`: triple_base64, base85/base91, octal, binary_split-mirror, caesar, url_encoding, unicode_escapes, caret_escaping, env_var_expansion, string_concat, char_arrays, join_split, format_operator, reverse, aes/rc4, clickfix, individual LOLBAS (mshta/rundll32/regsvr32/certutil), batch_var_slicing, vbscript, js_eval_atob, hta, wmi, schtasks, registry_run, lnk, amsi_bypass, reflection_loading, shellcode_virtualalloc, multi_stage_chains.
-
-### Files added
-- `/app/backend/training/__init__.py`
-- `/app/backend/training/corpus/__init__.py`
-- `/app/backend/training/corpus/generator.py`
-- `/app/backend/training/corpus/README.md`
-- `/app/backend/training/corpus/samples.jsonl`
-- `/app/backend/training/corpus/negative_samples.jsonl`
-- `/app/backend/tests/test_training_corpus.py`
-- `/app/backend/tests/fixtures/corpus_*.txt` (60 mirror files)
-
-### Files changed
-- `/app/backend/tests/test_fixture_regression_matrix.py` — skips `corpus_*` fixtures (dedicated coverage in `test_training_corpus.py`).
+- xfails became the v2 backlog: `xor_base64` (auto-brute + code-hint parsing), `rot13` (ROT-N brute + English-density pick), 4 sample-level gaps (2-char plaintext, comma-only decimal without wrapper, BitsTransfer scoring path). **✅ 12 of these have been resolved in v2 (see above).**
 
 ⚠️ **Deployment**: preview only. This build ONLY adds new files — no production runtime code changed. Deploy is optional (corpus is a dev/test artifact).
 

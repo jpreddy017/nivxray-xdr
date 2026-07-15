@@ -327,6 +327,17 @@ def _unicode_esc(data: str) -> str:
     return codecs.decode(data.encode("utf-8"), "unicode_escape")
 
 
+@op("octal-ascii-decode", "Octal ASCII Decode", "Cryptography",
+    "Decode backslash-octal streams like \\110\\145\\154\\154\\157 -> Hello.")
+def _octal_ascii(data: str) -> str:
+    # Match 2- or 3-digit octal groups (0-377). Reject sequences whose value
+    # would be > 0xFF (non-ASCII escape range).
+    def _sub(m):
+        v = int(m.group(1), 8)
+        return chr(v) if 0 <= v <= 0xFF else m.group(0)
+    return re.sub(r"\\([0-7]{2,3})", _sub, data)
+
+
 @op("utf16le-decode", "UTF-16LE Decode", "Cryptography", "Decode bytes as UTF-16 Little Endian.")
 def _utf16le(data: str) -> str:
     raw = _as_bytes(data) if _is_hexlike(data) else data.encode("utf-8", errors="replace")

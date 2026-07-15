@@ -129,7 +129,15 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
 
     try:
         m = magic_decode(payload, max_depth=6, max_branches=5, top_n=3)
-        top = (m.get("top_results") or [{}])[0]
+        # Pick the magic candidate whose OUTPUT scores best under `magic_score`
+        # (i.e. deepest AND most-clean), not just top_results[0] which is sorted
+        # by the internal score-with-chain-complete-bonus. This avoids losing
+        # to smart when magic promoted a slightly-lower-raw-score deeper chain.
+        _mags = m.get("top_results") or []
+        def _raw(r):
+            out = r.get("output") or ""
+            return magic_score(out).get("score", 0.0) if out else 0.0
+        top = max(_mags, key=_raw) if _mags else {}
     except Exception as e:
         top = {"chain": [], "output": "", "is_shellcode": False, "score_breakdown": {"score": 0.0},
                "_err": str(e)}
@@ -189,9 +197,28 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
         smart_score -= 0.20
     # Tail self-inverse penalty — final rot13/reverse on already-clean text
     # is over-decoding (Feb-2026 fix for the `Hello Compression!` regression).
-    if magic_tail_bad:
+    # BUT: only penalize when the decoded output has NO extra signal
+    # (english density, PS/shell keywords, URLs, or structure) compared to
+    # the input. A rot13 that turns `vq;jubnzv;ubfganzr` into
+    # `id;whoami;hostname` (adds shell-keywords match on `whoami` +
+    # `hostname`) is a WIN, not over-decoding.
+    def _has_extra_signal(chain_out: str, source: str) -> bool:
+        try:
+            from magic_decoder import (
+                _english_density, _PS_KWORDS, _SHELL_KWORDS, _URL_RE,
+            )
+            def _sig(t: str) -> float:
+                sc = _english_density(t)
+                if _PS_KWORDS.search(t): sc += 0.35
+                if _SHELL_KWORDS.search(t): sc += 0.15
+                if _URL_RE.search(t): sc += 0.20
+                return sc
+            return _sig(chain_out) > _sig(source) + 0.03
+        except Exception:
+            return False
+    if magic_tail_bad and not _has_extra_signal(magic_out, payload):
         magic_score_val -= 0.25
-    if smart_tail_bad:
+    if smart_tail_bad and not _has_extra_signal(smart_out, payload):
         smart_score -= 0.25
 
     def _pack_smart() -> Dict[str, Any]:

@@ -50,13 +50,11 @@ NEGATIVES = _load(NEGATIVE_JSONL)
 # category. Populated per-category via the reason string. Each xfail becomes
 # a v2 backlog item that a future decoder improvement can un-xfail.
 XFAIL_CATEGORIES = {
-    # xor_base64 relies on the analyst providing the xor key OOB; the
-    # deterministic decoder can't infer it from `# xor-key 0xNN` comments
-    # alone. v2: parse in-line key hints from surrounding code.
-    "xor_base64": "XOR key parsed from comment — auto-brute across full key-space is v2",
-    # ROT13 isn't in the magic candidate list yet. v2: add ROT-N brute
-    # scoring by English-density after each shift.
-    "rot13": "ROT-N brute + English-density pick is v2 (currently no ROT candidate)",
+    # AES-CBC with analyst-provided key/IV is a v3 target — the wrapper
+    # deliberately embeds the key OOB in analyst notes, so the deterministic
+    # pipeline can't perform a live decrypt yet. The corpus captures the
+    # ground-truth pairing for offline fine-tuning.
+    "aes_cbc_analyst": "AES-CBC live decrypt with parsed analyst-provided key/IV is v3",
 }
 # Individual sample-level xfails for shape-specific gaps that don't warrant
 # xfailing the entire category. Reason strings document the exact gap.
@@ -66,13 +64,6 @@ XFAIL_IDS = {
     "double_base64_001": "2-char plaintext output — magic min-length is 3",
     # Start-BitsTransfer wrapper picks a different engine at the moment.
     "base64_utf16le_004": "Start-BitsTransfer scoring path returns wrapper text",
-    # Comma-separated bare decimals without wrapper — scored equally to
-    # no-op, and the ',' separator ambiguates the tokenizer. v2: bias
-    # ascii-decimal-decode candidate when comma-density is high.
-    "decimal_ascii_001": "Comma-separated bare decimals — magic scores tie",
-    "decimal_ascii_003": "Comma-separated bare decimals — magic scores tie",
-    "decimal_ascii_004": "Comma-separated bare decimals — magic scores tie",
-    "decimal_ascii_005": "Comma-separated bare decimals — magic scores tie",
 }
 
 

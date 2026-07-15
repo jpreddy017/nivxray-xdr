@@ -1,0 +1,1 @@
+http://one-2.example.test/x.bat

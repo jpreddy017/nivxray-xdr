@@ -375,6 +375,14 @@ CATEGORIES = [
     cat_rot13,
 ]
 
+# ─── v2 additions (Feb-2026 — 35+ real-world SOC/CTI categories) ───────
+try:
+    from training.corpus.generator_v2 import V2_CATEGORIES
+    CATEGORIES = CATEGORIES + V2_CATEGORIES
+except ImportError:
+    # generator_v2 optional so unit tests that pin v1 still work
+    pass
+
 
 def build() -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     samples: List[Dict[str, Any]] = []
