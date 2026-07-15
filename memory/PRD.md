@@ -1,7 +1,63 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🟢 #8 Offline LLM Fine-Tuning — Roadmap Complete)
+## Latest Change (Feb 2026 — 📖 Documentation Generator Phase 1)
+
+### Delivered — documentation-as-a-product foundation
+
+**Backend**
+
+*New module* `backend/docs/__init__.py`:
+- YAML-driven feature + workflow registry (`docs/features/*.yaml`, `docs/workflows/*.yaml`)
+- `list_features(audience=)`, `get_feature(id)`, `list_workflows()`, `get_workflow(id)`
+- `search(q)` — case-insensitive substring across ids/titles/purpose/when_to_use/tips
+- `generate_guide(audience)` — auto-generates Markdown from registry, grouped by category, with workflows on top (task-oriented)
+
+*New router* `backend/routers/docs.py` — 8 endpoints:
+- `GET /api/docs/stats`
+- `GET /api/docs/features[?audience=...]`
+- `GET /api/docs/features/{id}`
+- `GET /api/docs/workflows`
+- `GET /api/docs/workflows/{id}`
+- `GET /api/docs/guide?audience=user|admin|developer|all`
+- `GET /api/docs/search?q=...`
+- `POST /api/docs/explain {page, context?, question?}` — Claude-powered contextual help, falls back to static registry when the key is missing
+
+*Seeded content* (13 YAML files):
+- **10 features**: base64_decode, base58_decode, rot13, candidate_explorer, regression_dashboard, threat_intel_enrichment, taxii_push, correction_flow, investigation_timeline, auto_investigate
+- **3 workflows**: encoded_powershell, ioc_pivot, corpus_promote
+
+Each feature YAML follows the standard template: id, title, category, audience, purpose, when_to_use[], supported_formats[], confidence_rules[], examples[{input, output, notes}], common_errors[], tips[], related[].
+
+**Frontend**
+
+*New page* `DocsPage.jsx` at `/docs`:
+- 3-column layout: left nav (search + audience toggle + workflow list + category tree) · center (Markdown guide OR feature/workflow detail) · right (AI helper)
+- USER/ADMIN/DEVELOPER audience toggle re-renders the guide
+- Live search across features + workflows
+- Feature detail view with structured sections and inline example code
+- Workflow detail view with step-by-step cards
+- "Explain This Page" button hits `/api/docs/explain` (Claude-powered when key available)
+
+*Nav integration* — new DOCS link in the top nav bar (visible to all authenticated users)
+
+### Regression
+- **937 backend tests pass** (up from 922, **+15 new**) · 7 xfailed unchanged · 4 pre-existing failures unrelated · zero regressions
+- New test file `test_docs_generator.py` (15 tests): stats shape, feature listing, get-by-id, 404 handling, guide generation per audience (3 parametrised), invalid audience 422, search across features and workflows, empty-query safety, AI explain with static fallback, workflow steps validation
+
+### Files
+- **New (backend)**: `backend/docs/__init__.py`, `backend/routers/docs.py`, 10 feature YAMLs, 3 workflow YAMLs, `backend/tests/test_docs_generator.py`
+- **New (frontend)**: `frontend/src/pages/DocsPage.jsx`
+- **Modified**: `backend/server.py` (register docs router), `frontend/src/App.js` (route), `frontend/src/components/Header.jsx` (nav link), `frontend/package.json` (react-markdown dep)
+
+### What's Next (Phase 2 + 3, opt-in)
+- **Phase 2** — Playwright screenshot automation into `docs/screenshots/`, Markdown→HTML export (free), Markdown→PDF/DOCX via pandoc, git-log→Release Notes generator
+- **Phase 3** — GIFs via ffmpeg, Sample Library expansion (15+ curated samples), interactive walk-throughs
+
+⚠️ **Deployment**: preview verified. Production redeploy required to expose `/docs` and the docs API to nivxray.nivxforge.com.
+
+
+## Previous Change (Feb 2026 — 🟢 #8 Offline LLM Fine-Tuning — Roadmap Complete)
 
 ### Delivered — the last roadmap item
 

@@ -1,0 +1,20 @@
+id: encoded_powershell
+title: Investigate an Encoded PowerShell Command
+purpose: Full triage of a suspicious `powershell -EncodedCommand ...` string from paste to report.
+steps:
+  - title: Paste the command
+    action: Paste the full PowerShell command (including the base64 blob) into the Workspace input
+    expected: The Magic Decoder auto-detects Base64 and produces a decoded payload
+  - title: Open the Candidate Explorer
+    action: Click "Show Candidate Explorer"
+    expected: Base64 wins with high confidence; runners-up (rot13, base58) show structured rejection reasons
+  - title: Enrich the IOCs
+    action: Click the 🛈 icon next to each extracted URL / IP / domain
+    expected: VT/OTX/AbuseIPDB verdicts appear inline; malicious IOCs are highlighted in red
+  - title: Review the MITRE mapping
+    action: Look at the MITRE chips (T1105 Ingress Tool Transfer, T1059.001 PowerShell, ...)
+    expected: Techniques align with the decoded command's behaviour
+  - title: Correct the decode (if needed)
+    action: Click "CORRECT THIS" if the auto-verdict is wrong; promote to corpus
+    expected: The correction lands on the investigation timeline; a benchmark run fires
+related_features: [base64_decode, candidate_explorer, threat_intel_enrichment, correction_flow]

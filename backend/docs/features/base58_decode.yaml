@@ -1,0 +1,23 @@
+id: base58_decode
+title: Base58 Decode (Bitcoin alphabet)
+category: Decoders
+audience: user
+purpose: Decode Bitcoin/IPFS-style Base58 strings.
+when_to_use:
+  - Bitcoin/blockchain addresses
+  - IPFS content identifiers
+  - Multibase-encoded blobs where 0/O/I/l would be ambiguous
+supported_formats: [Base58 (Bitcoin)]
+confidence_rules:
+  - Alphabet must be [123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]
+  - Forbidden characters 0/O/I/l cap confidence at 0.10
+  - Decoded output should be UTF-8 valid or a known binary signature
+examples:
+  - input: 2NEpo7TZRRrLZSi2U
+    output: Hello World!
+    notes: Canonical acceptance-test case from the Feb-2026 spec
+common_errors:
+  - Presence of 0/O/I/l — the input is NOT Base58, try Base62 or Base64
+tips:
+  - The Candidate Explorer ranks Base58 above Base62/Base64 when the alphabet matches
+related: [base62_decode, base64_decode, candidate_explorer]

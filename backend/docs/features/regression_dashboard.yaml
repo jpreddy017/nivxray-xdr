@@ -1,0 +1,15 @@
+id: regression_dashboard
+title: Regression Dashboard
+category: Admin
+audience: admin
+purpose: Auto-benchmark the entire regression corpus against the live decoder and highlight flips vs the previous run.
+when_to_use:
+  - Before promoting any sample-library change
+  - After tuning a decoder heuristic
+  - As part of the release checklist
+confidence_rules:
+  - The promotion gate is 100% pass rate — /training/confusion/promote returns HTTP 409 when the last run had any failures
+tips:
+  - Every correction promoted with `promote_to_corpus=true` auto-triggers a benchmark run
+  - The historical run strip shows the pass-rate trend at a glance
+related: [correction_flow, sample_library, learning_correction]

@@ -1,0 +1,13 @@
+id: investigation_timeline
+title: Investigation Timeline
+category: Analyst Workbench
+audience: user
+purpose: Chronological event log per investigation (deterministic id = sha256(input)[:16]).
+when_to_use:
+  - Replaying an old investigation
+  - Audit trail for compliance
+  - Tracking which analyst corrected which decode when
+tips:
+  - Every decode, correction, promote, benchmark, enrichment, and TAXII push auto-lands here
+  - Add free-form notes with the composer at the bottom
+related: [correction_flow, candidate_explorer]

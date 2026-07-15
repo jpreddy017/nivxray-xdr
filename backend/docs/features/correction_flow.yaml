@@ -1,0 +1,12 @@
+id: correction_flow
+title: Analyst Correction
+category: Analyst Workbench
+audience: user
+purpose: Record when the engine got a decode wrong and optionally promote the correction into the versioned regression corpus.
+when_to_use:
+  - Engine produced the wrong output OR the correct output via the wrong chain
+  - You want to guarantee this input never regresses again
+tips:
+  - Check "Promote to regression corpus" to make this a permanent regression fixture
+  - Check "Trigger benchmark immediately" to see live pass/fail flips right after promoting
+related: [regression_dashboard, learning_correction, investigation_timeline]

@@ -1,0 +1,17 @@
+id: corpus_promote
+title: Promote a Correction to the Regression Corpus
+purpose: Guarantee this input never silently regresses again.
+steps:
+  - title: Decode the input
+    action: Paste in the Workspace and open the Candidate Explorer
+    expected: A candidate wins — but you can see it's not the right answer
+  - title: Click CORRECT THIS
+    action: Enter the correct output + chain + optional notes
+    expected: Correction modal opens; enter the truth
+  - title: Enable promote + trigger benchmark
+    action: Check both boxes on the correction modal, name the sample, and submit
+    expected: "`learning_events` entry created; `regression_corpus` entry created; benchmark runs immediately"
+  - title: Review the Regression Dashboard
+    action: Open /admin and scroll to Regression Dashboard
+    expected: Corpus size +1; if the new sample fails, the gate BLOCKS further library promotion
+related_features: [correction_flow, regression_dashboard, learning_correction]

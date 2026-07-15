@@ -63,6 +63,14 @@ export default function Header() {
           >
             <BookOpen size={13} /> KNOWLEDGE BASE
           </Link>
+          <Link
+            to="/docs"
+            data-testid="nav-docs"
+            className={`nvx-btn sm ghost`}
+            style={{ color: loc.pathname === "/docs" ? "var(--accent)" : "var(--text-dim)" }}
+          >
+            <BookOpen size={13} /> DOCS
+          </Link>
           {isAdmin && (
             <Link
               to="/admin"
