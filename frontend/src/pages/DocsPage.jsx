@@ -537,11 +537,14 @@ export default function DocsPage() {
 function FeatureDetail({ detail, kind }) {
   const [screenshots, setScreenshots] = useState([]);
   useEffect(() => {
-    if (kind !== "workflow" || !detail?.id) { setScreenshots([]); return; }
+    if (!detail?.id) { setScreenshots([]); return; }
     api.get(`/docs/screenshots/${detail.id}`)
       .then((r) => setScreenshots(r.data?.screenshots || []))
       .catch(() => setScreenshots([]));
   }, [kind, detail?.id]);
+
+  const backend = process.env.REACT_APP_BACKEND_URL || "";
+  const featureShots = kind === "feature" ? screenshots : [];
 
   if (kind === "workflow") {
     const shotByStep = {};
@@ -637,6 +640,26 @@ function FeatureDetail({ detail, kind }) {
         <div style={{ marginTop: 16, fontSize: 12, color: "#94a3b8" }}>
           Related: {detail.related.map((r) => (
             <code key={r} style={{ padding: "1px 6px", background: "rgba(148,163,184,0.10)", borderRadius: 2, marginRight: 4 }}>{r}</code>
+          ))}
+        </div>
+      )}
+      {featureShots.length > 0 && (
+        <div style={{ marginTop: 18 }} data-testid="docs-feature-screenshots">
+          <div style={{ color: "#7ee3c9", fontWeight: 600, fontSize: 11, marginBottom: 6 }}>
+            Screenshots
+          </div>
+          {featureShots.map((shot, i) => (
+            <img
+              key={shot.filename}
+              src={`${backend}${shot.url}`}
+              alt={`${detail.id} screenshot ${i + 1}`}
+              data-testid={`docs-feature-screenshot-${i + 1}`}
+              style={{
+                marginTop: 8, width: "100%", maxHeight: 380, objectFit: "contain",
+                borderRadius: 3, border: "1px solid rgba(148,163,184,0.15)",
+                background: "#0b1220",
+              }}
+            />
           ))}
         </div>
       )}

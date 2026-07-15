@@ -14,3 +14,19 @@ tips:
   - Click "CORRECT THIS" to submit a correction and (optionally) promote the input to the regression corpus
   - IOC chips are enrichable — click 🛈 to fetch VT/OTX/AbuseIPDB verdicts
 related: [correction_flow, threat_intel_enrichment, investigation_timeline]
+
+# ------------------------------------------------------------
+# Screenshot capture — Phase 1 User Guide
+# ------------------------------------------------------------
+capture:
+  login: true
+  steps:
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="toggle-candidate-explorer"]'
+      delay_ms: 4000
+      post_click_ms: 3500
+      full_page: true

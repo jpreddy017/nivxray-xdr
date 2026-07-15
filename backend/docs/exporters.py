@@ -9,16 +9,34 @@ export formats (Markdown/HTML/DOCX/PDF) never drift apart.
 """
 from __future__ import annotations
 
+import base64
 import io
 from datetime import datetime, timezone
+from pathlib import Path as _P
 from typing import Any, Dict, List
 
 import markdown as md_lib
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Pt, RGBColor
+from docx.shared import Inches, Pt, RGBColor
 
 from docs import generate_guide, guide_stats, list_features, list_workflows
+
+_SCREENSHOTS_DIR = _P(__file__).parent / "screenshots"
+
+
+def _shots_for(doc_id: str) -> List[_P]:
+    d = _SCREENSHOTS_DIR / doc_id
+    if not d.exists():
+        return []
+    return sorted(d.glob("step_*.png"))
+
+
+def _png_as_data_uri(path: _P) -> str:
+    """Base64-inline a PNG so the HTML export is self-contained and works
+    offline without hitting the auth-protected /api/docs/screenshots endpoint."""
+    b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{b64}"
 
 
 # ---------------------------------------------------------------------
@@ -71,13 +89,53 @@ def generate_html(audience: str = "user") -> str:
         extensions=["fenced_code", "tables", "toc"],
         output_format="html5",
     )
+
+    # ─── Inject screenshots after each matching <h3> heading ───────
+    # Build a title → id map from the two YAML directories, then walk
+    # the rendered HTML and insert `<img>` blocks (base64 data-URIs so
+    # the export is self-contained).
+    import re
+    title_to_id: Dict[str, str] = {}
+    for f in list_features():
+        if f.get("title") and f.get("id"):
+            title_to_id[f["title"]] = f["id"]
+    for w in list_workflows():
+        if w.get("title") and w.get("id"):
+            title_to_id[w["title"]] = w["id"]
+
+    def _shot_block(doc_id: str) -> str:
+        shots = _shots_for(doc_id)
+        if not shots:
+            return ""
+        imgs = []
+        for i, p in enumerate(shots, 1):
+            imgs.append(
+                f'<figure style="margin:12px 0;padding:0;text-align:center;">'
+                f'<img src="{_png_as_data_uri(p)}" '
+                f'alt="{doc_id} screenshot {i}" '
+                f'style="max-width:100%;height:auto;border-radius:4px;'
+                f'border:1px solid rgba(148,163,184,0.20);background:#0b1220;">'
+                f'<figcaption style="font-size:11px;color:#94a3b8;'
+                f'margin-top:4px;">Screenshot {i}</figcaption></figure>'
+            )
+        return '<div class="shot-gallery">' + "".join(imgs) + "</div>"
+
+    def _inject(match: re.Match) -> str:
+        heading = match.group(0)
+        title = re.sub(r"<[^>]+>", "", match.group(1)).strip()
+        doc_id = title_to_id.get(title)
+        if not doc_id:
+            return heading
+        return heading + _shot_block(doc_id)
+
+    body = re.sub(r"<h3[^>]*>(.*?)</h3>", _inject, body, flags=re.DOTALL)
+
     stats = guide_stats()
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     # Inline the 5W1H analyst flow SVG right below the cover banner.
     flow_svg = ""
     try:
-        from pathlib import Path as _P
         svg_path = _P(__file__).parent / "assets" / "analyst_flow.svg"
         if svg_path.exists():
             raw = svg_path.read_text(encoding="utf-8")
@@ -181,6 +239,12 @@ def _feature_section(doc: Document, f: Dict[str, Any]) -> None:
     if f.get("related"):
         _para(doc, "Related: " + ", ".join(f["related"]),
               italic=True, size=9, color=_MUTED)
+    # Inline captured screenshots
+    for p in _shots_for(f.get("id", "")):
+        try:
+            doc.add_picture(str(p), width=Inches(6.5))
+        except Exception:
+            continue
 
 
 def _workflow_section(doc: Document, w: Dict[str, Any]) -> None:
@@ -193,6 +257,12 @@ def _workflow_section(doc: Document, w: Dict[str, Any]) -> None:
             _para(doc, f"Action: {step['action']}", size=10)
         if step.get("expected"):
             _para(doc, f"Expected: {step['expected']}", size=10, color=_MUTED)
+    # Inline captured screenshots for this workflow
+    for p in _shots_for(w.get("id", "")):
+        try:
+            doc.add_picture(str(p), width=Inches(6.5))
+        except Exception:
+            continue
     if w.get("related_features"):
         _para(doc, "Related features: " + ", ".join(w["related_features"]),
               italic=True, size=9, color=_MUTED)

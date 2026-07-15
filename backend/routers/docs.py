@@ -570,8 +570,12 @@ _ASSETS_DIR = Path(__file__).parent.parent / "docs" / "assets"
 
 
 @router.get("/docs/assets/{filename}", tags=["docs"])
-async def get_docs_asset(filename: str, user=Depends(get_current_user)):
-    """Serve a static docs asset (SVG diagrams, PNGs bundled with the docs)."""
+async def get_docs_asset(filename: str):
+    """Serve a static docs asset (SVG diagrams, PNGs bundled with the docs).
+
+    Publicly readable — these are non-sensitive product docs, and the
+    `<img src>` tag in `/docs` can't attach a Bearer token.
+    """
     if "/" in filename or ".." in filename:
         raise HTTPException(400, "invalid filename")
     path = _ASSETS_DIR / filename
@@ -607,9 +611,12 @@ async def list_workflow_screenshots(workflow_id: str,
 
 
 @router.get("/docs/screenshots/{workflow_id}/{filename}", tags=["docs"])
-async def get_workflow_screenshot(workflow_id: str, filename: str,
-                                    user=Depends(get_current_user)):
-    """Serve a single screenshot/gif captured for a workflow step."""
+async def get_workflow_screenshot(workflow_id: str, filename: str):
+    """Serve a single screenshot/gif captured for a workflow step.
+
+    Publicly readable — these are non-sensitive product screenshots and
+    `<img src>` in `/docs` can't send the Bearer token.
+    """
     if "/" in filename or ".." in filename:
         raise HTTPException(400, "invalid filename")
     path = _SCREENSHOTS_DIR / workflow_id / filename

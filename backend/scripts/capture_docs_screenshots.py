@@ -57,6 +57,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 WORKFLOWS_DIR = ROOT / "docs" / "workflows"
+FEATURES_DIR = ROOT / "docs" / "features"
 OUT_DIR = ROOT / "docs" / "screenshots"
 
 
@@ -135,19 +136,31 @@ async def _run_step(page, base_url: str, step_cfg: Dict[str, Any],
 
 async def capture_workflow(base_url: str, email: str, password: str,
                             workflow_id: str) -> Dict[str, Any]:
-    wf_path = WORKFLOWS_DIR / f"{workflow_id}.yaml"
-    if not wf_path.exists():
-        return {"workflow_id": workflow_id, "error": "workflow yaml not found"}
+    return await _capture_doc(base_url, email, password,
+                               workflow_id, "workflow")
 
-    data = _load_yaml(wf_path) or {}
+
+async def capture_feature(base_url: str, email: str, password: str,
+                           feature_id: str) -> Dict[str, Any]:
+    return await _capture_doc(base_url, email, password,
+                               feature_id, "feature")
+
+
+async def _capture_doc(base_url: str, email: str, password: str,
+                        doc_id: str, kind: str) -> Dict[str, Any]:
+    base_dir = FEATURES_DIR if kind == "feature" else WORKFLOWS_DIR
+    yaml_path = base_dir / f"{doc_id}.yaml"
+    if not yaml_path.exists():
+        return {"id": doc_id, "kind": kind, "error": f"{kind} yaml not found"}
+
+    data = _load_yaml(yaml_path) or {}
     capture_cfg = data.get("capture") or {}
     step_cfgs: List[Dict[str, Any]] = capture_cfg.get("steps") or []
     if not step_cfgs:
-        return {"workflow_id": workflow_id,
-                "skipped": True,
+        return {"id": doc_id, "kind": kind, "skipped": True,
                 "reason": "no `capture.steps` block in YAML"}
 
-    out_dir = OUT_DIR / workflow_id
+    out_dir = OUT_DIR / doc_id
     out_dir.mkdir(parents=True, exist_ok=True)
 
     async with async_playwright() as pw:
@@ -167,9 +180,8 @@ async def capture_workflow(base_url: str, email: str, password: str,
 
         await browser.close()
 
-    return {"workflow_id": workflow_id,
-            "captured": captured,
-            "out_dir": str(out_dir)}
+    return {"id": doc_id, "kind": kind,
+            "captured": captured, "out_dir": str(out_dir)}
 
 
 async def main_async(args) -> int:
@@ -195,16 +207,24 @@ async def main_async(args) -> int:
               file=sys.stderr)
         return 2
 
+    workflow_targets: List[str] = []
+    feature_targets: List[str] = []
     if args.all:
-        targets = [p.stem for p in sorted(WORKFLOWS_DIR.glob("*.yaml"))]
-    elif args.workflow:
-        targets = [args.workflow]
-    else:
-        print("error: pass --workflow ID or --all", file=sys.stderr)
+        workflow_targets = [p.stem for p in sorted(WORKFLOWS_DIR.glob("*.yaml"))]
+        feature_targets = [p.stem for p in sorted(FEATURES_DIR.glob("*.yaml"))]
+    if args.workflow:
+        workflow_targets.append(args.workflow)
+    if args.feature:
+        feature_targets.append(args.feature)
+    if not workflow_targets and not feature_targets:
+        print("error: pass --workflow ID, --feature ID, or --all", file=sys.stderr)
         return 2
 
-    for wf in targets:
+    for wf in workflow_targets:
         result = await capture_workflow(base, email, password, wf)
+        print(result)
+    for ft in feature_targets:
+        result = await capture_feature(base, email, password, ft)
         print(result)
     return 0
 
@@ -215,8 +235,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--email", help="Admin email")
     p.add_argument("--password", help="Admin password")
     p.add_argument("--workflow", help="Workflow id to capture")
+    p.add_argument("--feature", help="Feature id to capture")
     p.add_argument("--all", action="store_true",
-                   help="Capture every workflow that has a `capture:` block")
+                   help="Capture every feature & workflow with a `capture:` block")
     return p
 
 

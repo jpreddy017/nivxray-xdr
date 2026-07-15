@@ -24,7 +24,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import (
     BaseDocTemplate, Frame, NextPageTemplate, PageBreak, PageTemplate,
-    Paragraph, Spacer, Table, TableStyle,
+    Image as RLImage, Paragraph, Spacer, Table, TableStyle,
 )
 
 from docs import list_features, list_workflows, guide_stats
@@ -37,6 +37,7 @@ except Exception:  # pragma: no cover
     svg2rlg = None
 
 _ASSETS_DIR = Path(__file__).parent / "assets"
+_SCREENSHOTS_DIR = Path(__file__).parent / "screenshots"
 
 
 # -------------------------------------------------------------------
@@ -273,6 +274,45 @@ def _build_toc(styles: Dict[str, ParagraphStyle],
     return story
 
 
+def _embed_screenshots(doc_id: str, styles: Dict[str, ParagraphStyle],
+                        max_width_in: float = 6.5) -> List[Any]:
+    """Return reportlab flowables for every captured screenshot of a doc.
+
+    Files are read from `docs/screenshots/{doc_id}/step_*.png`. If the
+    directory doesn't exist or is empty, returns an empty list so the
+    caller can call it unconditionally.
+    """
+    shot_dir = _SCREENSHOTS_DIR / doc_id
+    if not shot_dir.exists():
+        return []
+    files = sorted(shot_dir.glob("step_*.png"))
+    if not files:
+        return []
+    out: List[Any] = []
+    for i, path in enumerate(files, 1):
+        try:
+            img = RLImage(str(path))
+            # Scale to fit content width while preserving aspect ratio.
+            aspect = img.imageHeight / max(1, img.imageWidth)
+            img.drawWidth = max_width_in * inch
+            img.drawHeight = max_width_in * inch * aspect
+            # Cap very tall screenshots at ~8 inches so they don't own an entire page.
+            if img.drawHeight > 8 * inch:
+                scale = (8 * inch) / img.drawHeight
+                img.drawHeight *= scale
+                img.drawWidth *= scale
+            out.append(Spacer(1, 4))
+            out.append(Paragraph(
+                f"<font color='#94a3b8' size='8'>Screenshot {i}</font>",
+                styles["Muted"]))
+            out.append(img)
+            out.append(Spacer(1, 6))
+        except Exception:
+            # Corrupt file — skip rather than kill the export.
+            continue
+    return out
+
+
 def _build_workflow(w: Dict[str, Any],
                     styles: Dict[str, ParagraphStyle]) -> List[Any]:
     story: List[Any] = []
@@ -295,6 +335,8 @@ def _build_workflow(w: Dict[str, Any],
                 f"<b>Expected:</b> "
                 f"<font color='#475569'>{_esc(step['expected'])}</font>",
                 styles["WorkflowStep"]))
+    # Inline captured screenshots for this workflow.
+    story.extend(_embed_screenshots(w.get("id", ""), styles))
     if w.get("related_features"):
         chips = " ".join(_chip(r) for r in w["related_features"])
         story.append(Spacer(1, 3))
@@ -352,6 +394,9 @@ def _build_feature(f: Dict[str, Any],
         chips = " ".join(_chip(r) for r in f["related"])
         story.append(Spacer(1, 3))
         story.append(Paragraph(f"<b>Related:</b> {chips}", styles["Muted"]))
+
+    # Inline captured screenshots for this feature (Phase 1 · User Guide).
+    story.extend(_embed_screenshots(f.get("id", ""), styles))
 
     story.append(Spacer(1, 6))
     story.append(_hr())
