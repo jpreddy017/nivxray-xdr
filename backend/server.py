@@ -148,6 +148,19 @@ async def _startup():
     await sl.ensure_indexes(db)
     await sl.seed_builtins(db)
     asyncio.create_task(_nightly_benchmark_loop())
+    # Confusion Matrix: pre-warm the cache so the first admin visit renders
+    # instantly instead of paying the ~11s cold-compute at the request layer.
+    async def _prewarm_confusion():
+        try:
+            import asyncio as _a
+            from routers.training_confusion import _compute_matrix, _CACHE, _cache_key
+            import time as _t
+            body = await _a.to_thread(_compute_matrix, None, True)
+            _CACHE[_cache_key(None, True)] = {"_ts": _t.time(), "body": body}
+            log.info(f"[startup] confusion matrix pre-warmed: {body['overall']}")
+        except Exception as e:
+            log.warning(f"[startup] confusion pre-warm failed: {e}")
+    asyncio.create_task(_prewarm_confusion())
 
 
 @app.on_event("shutdown")

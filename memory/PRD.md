@@ -1,7 +1,23 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🖥️ P1 · Confusion Matrix Frontend Widget)
+## Latest Change (Feb 2026 — 🔥 HOTFIX · Confusion Matrix timeout)
+
+### User report (production)
+`ERROR: timeout of 30000ms exceeded` on the CORPUS CONFUSION MATRIX card. Cold compute walks 245 samples through the deterministic decoder — ~11s locally, longer behind Cloudflare on prod, above the axios 30s default.
+
+### Fix
+- **Frontend `api.js`** — `pickTimeout` now maps `/training/confusion*` to the 60s decode-tier ceiling. No more 30s cutoff.
+- **Backend `server.py`** — background task on startup pre-computes the matrix and populates the in-memory cache. Log line confirms: `[startup] confusion matrix pre-warmed: {…}`. First user hit now serves from cache in ~150ms instead of paying the 11s cold compute at request time.
+
+### Validation
+- Preview `/admin` renders full metrics + worst/best lists in **1.36s** (was timing out).
+- 9/9 confusion tests still green.
+
+⚠️ **Production**: needs a redeploy from you to push this hotfix live on `https://nivxray.nivxforge.com`. Files changed are only `frontend/src/lib/api.js` and `backend/server.py` (both preview-safe, no schema or env changes).
+
+
+## Previous Change (Feb 2026 — 🖥️ P1 · Confusion Matrix Frontend Widget)
 
 ### Delivered
 A polished admin-dashboard widget on `/admin` that consumes `/api/training/confusion/summary` for the instant overview and `/api/training/confusion?categories=<slug>` for on-demand drill-down. Analysts see decoder health at a glance and can jump straight to any failing sample.

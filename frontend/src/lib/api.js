@@ -14,6 +14,11 @@ const TIMEOUT_DEFAULT = 30_000;   // everything else (auth, history, admin, etc.
 const pickTimeout = (url = "") => {
   if (/\/ai\/|\/decode\/chain\/narrative|\/troubleshoot\/auto\?use_ai=true/i.test(url)) return TIMEOUT_LLM;
   if (/\/decode\/|\/analyze/i.test(url)) return TIMEOUT_DECODE;
+  // Corpus confusion matrix — cold compute walks all 245 samples through
+  // the deterministic decoder. ~11s local, may be slower behind Cloudflare
+  // on prod. Give it the same headroom as decode ops so first-time visitors
+  // don't hit the 30s default and see a spurious timeout.
+  if (/\/training\/confusion/i.test(url)) return TIMEOUT_DECODE;
   return TIMEOUT_DEFAULT;
 };
 
