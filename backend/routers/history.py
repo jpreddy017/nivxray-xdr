@@ -378,7 +378,33 @@ async def get_history(iid: str, user=Depends(get_current_user)):
     doc = await db.investigations.find_one({"_id": oid, "user_email": user["email"]})
     if not doc:
         raise HTTPException(status_code=404, detail="not found")
-    return _serialize(doc)
+    result = _serialize(doc)
+    # ▲ SOC EVIDENCE (Feb-2026) — regenerate verdict card + per-layer
+    # metadata on rehydrate so History Playback shows the SAME analyst
+    # workbench as fresh decodes. This is deterministic and stateless —
+    # no history-doc migration required.
+    try:
+        from evidence_extractor import build_verdict_card, layer_metadata
+        result["verdict_card"] = build_verdict_card(
+            input_text=result.get("input") or "",
+            output_text=result.get("output") or "",
+            chain=[{"op": s.get("op") or s if isinstance(s, str) else s.get("op"),
+                    "args": s.get("args") if isinstance(s, dict) else {}}
+                   for s in (result.get("chain") or [])
+                   if s],
+            corrupted_container=result.get("corrupted_container"),
+        )
+        for t in (result.get("trace") or []):
+            if isinstance(t, dict):
+                t["evidence"] = layer_metadata(
+                    t.get("op") or "",
+                    t.get("output_preview") or "",
+                    integrity_ok=("error" not in t),
+                    integrity_reason=t.get("error"),
+                )
+    except Exception:
+        pass
+    return result
 
 
 @router.patch("/history/{iid}")

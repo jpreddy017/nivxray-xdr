@@ -378,6 +378,31 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # instead of a misleading "high-confidence xor-brute" result.
         "corrupted_container": det.get("corrupted_container"),
     }
+
+    # ▲ SOC EVIDENCE — per-layer metadata (Feb-2026)
+    # For every step in the decoding trace, append an `evidence` block:
+    # { encoding, length, ascii, entropy, hex_preview, integrity } — feeds
+    # the analyst-workbench Layer Metadata panel.
+    try:
+        from evidence_extractor import layer_metadata, build_verdict_card
+        for t in trace:
+            after = t.get("output_preview") or ""
+            ok = "error" not in t
+            reason = t.get("error")
+            t["evidence"] = layer_metadata(t.get("op") or "", after,
+                                           integrity_ok=ok,
+                                           integrity_reason=reason)
+        # Verdict Card — top-of-workspace analyst brief
+        result["verdict_card"] = build_verdict_card(
+            input_text=body.input,
+            output_text=result["output"],
+            chain=[{"op": s["op"], "args": s.get("args") or {}} for s in det.get("steps") or []],
+            corrupted_container=result.get("corrupted_container"),
+        )
+    except Exception as _e:
+        # Never break /decode/smart if evidence extraction hiccups
+        result["verdict_card"] = None
+        result["verdict_card_error"] = str(_e)
     # Auto-record into user's Investigation History (fire-and-forget, never blocks)
     try:
         from routers.history import record_investigation

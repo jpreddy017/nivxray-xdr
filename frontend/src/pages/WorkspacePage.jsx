@@ -12,6 +12,7 @@ import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
 import SocVerdictPanel from "@/components/SocVerdictPanel";
+import VerdictCard from "@/components/VerdictCard";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
 import HistoryDrawer from "@/components/HistoryDrawer";
 import ProcessTreeView from "@/components/ProcessTreeView";
@@ -58,6 +59,11 @@ export default function WorkspacePage() {
   // Winner metadata from AI Decode / Auto Investigate — feeds the SOC Verdict panel
   const [decodeConfidence, setDecodeConfidence] = useState(null);
   const [decodeWinnerEngine, setDecodeWinnerEngine] = useState(null);
+  // ▲ SOC Verdict Card — evidence-driven, backend-computed (Feb-2026)
+  const [verdictCard, setVerdictCard] = useState(null);
+  // Corrupted-container signal — big-red panel when the decoder refuses to
+  // brute-force inside a corrupt GZIP / ZLIB / LZMA / BZIP2 archive.
+  const [corruptedContainer, setCorruptedContainer] = useState(null);
   // Decoding Trace panel — per-layer intermediate outputs from the deterministic decoder
   const [decodeTrace, setDecodeTrace] = useState([]);
   const [reachedShellcode, setReachedShellcode] = useState(false);
@@ -117,6 +123,8 @@ export default function WorkspacePage() {
     setDecodeTrace(rec.trace || []);
     setDecodeWinnerEngine(rec.engine || null);
     setDecodeConfidence(rec.confidence ?? null);
+    setVerdictCard(rec.verdict_card || null);
+    setCorruptedContainer(rec.corrupted_container || null);
     setReachedShellcode(!!rec.reached_shellcode);
     setSteps((rec.chain || []).map((op) => ({ op, args: {} })));
     setChain((rec.chain || []).map((op, i) => ({
@@ -384,6 +392,9 @@ export default function WorkspacePage() {
         setBoost(r.data.boost || null);
         setBoostHit(!!r.data.boost_hit);
       }
+      // ▲ SOC evidence-driven analyst brief (Feb-2026)
+      setVerdictCard(r.data.verdict_card || null);
+      setCorruptedContainer(r.data.corrupted_container || null);
       setPasteHint(null);
     } catch (e) {
       setStatus("ERROR: " + (e?.response?.data?.detail || e.message));
