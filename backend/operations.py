@@ -599,6 +599,16 @@ MITRE_HEURISTICS = [
     # ── IEX / in-memory execution ────────────────────────────────────────
     (r"\biex\b|invoke-expression", ("T1059.001", "PowerShell: Invoke-Expression", "Execution")),
     (r"frombase64string", ("T1140", "Deobfuscate/Decode Files or Information", "Defense Evasion")),
+    # ── Sandbox / analysis evasion via delay loops ─────────────────────────
+    # Attackers stall execution to time out automated sandboxes. Common patterns:
+    #   for($i=1;$i-le 13000;$i++){Write-Host n}
+    #   while($true){Start-Sleep -s 30; if(...)break}
+    #   1..99999 | %{ ... }
+    # Match on a loop bound of ≥1000 iterations (below that = benign counter).
+    (r"(?:for\s*\(\s*\$\w+\s*=\s*\d+\s*;\s*\$\w+\s*-le\s*(?:[1-9]\d{3,})|start-sleep\s+(?:-s(?:econds)?\s+)?[1-9]\d{2,}|1\s*\.\.\s*[1-9]\d{3,}\s*\|\s*%)",
+        ("T1497.003", "Virtualization/Sandbox Evasion: Time Based Evasion", "Defense Evasion")),
+    # ── BITS Jobs (explicit long-form) ────────────────────────────────────
+    (r"start-bitstransfer|import-module\s+bitstransfer", ("T1197", "BITS Jobs", "Defense Evasion")),
 ]
 
 
@@ -629,6 +639,20 @@ YARA_LITE = [
     {"rule": "Mshta_Remote", "severity": "high", "pattern": r"mshta\.exe\s+https?://", "desc": "Remote HTA execution"},
     {"rule": "LSASS_Access", "severity": "high", "pattern": r"lsass|sekurlsa::|mimikatz", "desc": "LSASS / credential dumping references"},
     {"rule": "Shadow_Copy_Delete", "severity": "high", "pattern": r"vssadmin.*delete.*shadows|wmic.*shadowcopy.*delete", "desc": "Shadow copy deletion (ransomware precursor)"},
+    # ── Sandbox evasion — anti-analysis delay loops ────────────────────────
+    {"rule": "PS_Sandbox_Delay_Loop", "severity": "medium",
+     "pattern": r"for\s*\(\s*\$\w+\s*=\s*\d+\s*;\s*\$\w+\s*-le\s*(?:[1-9]\d{3,})|start-sleep\s+(?:-s(?:econds)?\s+)?[1-9]\d{2,}|1\s*\.\.\s*[1-9]\d{3,}\s*\|\s*%",
+     "desc": "PowerShell delay loop / long Start-Sleep — sandbox timeout evasion"},
+    # ── LOLBAS: Start-BitsTransfer (stealthy download) ─────────────────────
+    {"rule": "PS_BitsTransfer_Download", "severity": "high",
+     "pattern": r"start-bitstransfer|import-module\s+bitstransfer",
+     "desc": "PowerShell Start-BitsTransfer used for stealthy asynchronous download (LOLBIN, MITRE T1197)"},
+    # ── Case-mixed keyword obfuscation (anti-signature) ────────────────────
+    # Detects text where a PS/CMD keyword contains ≥3 case flips within it
+    # (e.g. `iMpoRt-MOdULE`, `dOwNlOaDsTrInG`). Rare in benign scripts.
+    {"rule": "PS_CaseMixed_Obfuscation", "severity": "low",
+     "pattern": r"\b(?=\w{6,})(?:[a-z]+[A-Z]){2,}[a-z]*\b",
+     "desc": "Alternating-case keyword obfuscation to evade string-signature detection"},
 ]
 
 

