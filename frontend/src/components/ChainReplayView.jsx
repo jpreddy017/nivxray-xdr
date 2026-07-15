@@ -16,12 +16,32 @@
  *   onRestore     ()=>void — called when the analyst wants to edit the chain
  *   onClose       ()=>void — dismiss the viewer
  */
-import { AlertTriangle, ChevronDown, ChevronRight, Play, X } from "lucide-react";
+import { AlertTriangle, BookmarkPlus, ChevronDown, ChevronRight, ExternalLink, Play, X } from "lucide-react";
 import { useState } from "react";
+import api from "@/lib/api";
 
 export default function ChainReplayView({ record, onRestore, onClose }) {
   const [drillOpen, setDrillOpen] = useState({});
+  const [savingKb, setSavingKb] = useState(false);
+  const [kbResult, setKbResult] = useState(null); // { slug, bucket_size, created }
+  const [kbError, setKbError] = useState("");
   if (!record || record.kind !== "chain") return null;
+
+  const saveAsKbTemplate = async () => {
+    setSavingKb(true);
+    setKbError("");
+    setKbResult(null);
+    try {
+      const r = await api.post("/kb/save-from-investigation", {
+        investigation_id: record.id,
+        synth: true,
+      });
+      setKbResult(r.data);
+    } catch (e) {
+      setKbError(e?.response?.data?.detail || e?.message || "failed to save KB template");
+    }
+    setSavingKb(false);
+  };
 
   const stages = record.stages || [];
   const agg = record.aggregate || {};
@@ -44,6 +64,16 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <button
+            className="nvx-btn sm"
+            onClick={saveAsKbTemplate}
+            disabled={savingKb}
+            data-testid="btn-chain-replay-save-kb"
+            title="Distil this chain into a Knowledge Base template with playbook + hunt queries."
+            style={{ borderColor: "var(--warn)", color: savingKb ? "var(--text-mute)" : "var(--warn)" }}
+          >
+            <BookmarkPlus size={11} /> {savingKb ? "SAVING…" : "SAVE AS KB TEMPLATE"}
+          </button>
+          <button
             className="nvx-btn primary sm"
             onClick={onRestore}
             data-testid="btn-chain-replay-restore"
@@ -60,6 +90,45 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
           </button>
         </div>
       </div>
+
+      {(kbResult || kbError) && (
+        <div
+          data-testid="chain-replay-kb-status"
+          style={{
+            padding: "8px 12px",
+            borderTop: "1px solid var(--border)",
+            borderBottom: "1px solid var(--border)",
+            background: kbError ? "rgba(255,80,80,0.10)" : "rgba(226,126,93,0.10)",
+            fontSize: 11,
+            color: kbError ? "var(--high)" : "var(--warn)",
+            display: "flex", alignItems: "center", gap: 8,
+          }}
+        >
+          {kbError ? (
+            <>
+              <AlertTriangle size={12} />
+              <span data-testid="chain-replay-kb-error">KB template failed · {kbError}</span>
+            </>
+          ) : (
+            <>
+              <BookmarkPlus size={12} />
+              <span data-testid="chain-replay-kb-ok">
+                {kbResult.created ? "▪ NEW KB ARCHETYPE" : "▸ KB TEMPLATE REFRESHED"}
+                {" — slug "}<span className="mono" style={{ color: "var(--accent)" }}>{kbResult.slug}</span>
+                {" · cluster size "}{kbResult.bucket_size}
+              </span>
+              <a
+                href={`/kb#${kbResult.slug}`}
+                target="_self"
+                data-testid="link-chain-replay-kb-open"
+                style={{ color: "var(--accent)", display: "inline-flex", alignItems: "center", gap: 3, marginLeft: "auto" }}
+              >
+                OPEN IN KB <ExternalLink size={10} />
+              </a>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="nvx-card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {stages.map((s, idx) => (

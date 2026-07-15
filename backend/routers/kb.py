@@ -79,6 +79,35 @@ async def rebuild_kb(body: RebuildIn = RebuildIn(), user=Depends(get_current_use
     return result
 
 
+# ─── Save-as-Template (single-investigation shortcut) ────────────────────
+class SaveFromInvestigationIn(BaseModel):
+    investigation_id: str
+    synth: bool = True    # user-triggered → LLM synth ON by default
+
+
+@router.post("/kb/save-from-investigation", tags=["kb"])
+async def kb_save_from_investigation(
+    body: SaveFromInvestigationIn,
+    user=Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Create or refresh a single KB entry from one investigation (chain or single).
+
+    Powers the "SAVE AS KB TEMPLATE" one-click action on the ChainReplayView.
+    Uses the same fingerprint clustering as rebuild — so if the investigation
+    matches an existing bucket, that bucket's entry is refreshed instead of
+    duplicating. Response includes the resulting KB slug so the frontend can
+    deep-link straight into the entry.
+    """
+    await _ensure_indexes()
+    from knowledge_base.builder import incremental_upsert_for_investigation
+    result = await incremental_upsert_for_investigation(
+        user["email"], body.investigation_id, synth=body.synth,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("reason", "failed"))
+    return result
+
+
 # ─── List / filter ───────────────────────────────────────────────────────
 @router.get("/kb/entries", tags=["kb"])
 async def list_entries(

@@ -134,6 +134,87 @@ async def _persist(entry: KBEntry) -> str:
     return str(doc["_id"]) if doc else ""
 
 
+async def incremental_upsert_for_investigation(
+    user_email: str,
+    investigation_id: str,
+    synth: bool = False,
+) -> Dict[str, Any]:
+    """Refresh a single KB bucket triggered by one investigation.
+
+    Loads the investigation, computes its fingerprint, gathers all sibling
+    investigations in the user's history that share that fingerprint, then
+    aggregates + (optionally) synthesises + upserts exactly one KB entry.
+
+    Cheap enough to call fire-and-forget after every /decode/* or /decode/chain,
+    which is how the "KB Auto-Cluster" P0 feature stays live without requiring
+    the analyst to hit `/api/kb/rebuild`.
+
+    `synth=False` skips the LLM call (deterministic playbook fallback), which
+    is the default for the auto-cluster hook to keep the write path fast and
+    LLM-quota safe. `synth=True` is used by the manual "Save as KB Template"
+    button so analysts opt into an LLM playbook when they want it.
+    """
+    from bson import ObjectId
+    from bson.errors import InvalidId
+
+    try:
+        oid = ObjectId(investigation_id)
+    except (InvalidId, TypeError):
+        return {"ok": False, "reason": "invalid investigation id"}
+
+    inv = await db.investigations.find_one({"_id": oid, "user_email": user_email})
+    if not inv:
+        return {"ok": False, "reason": "investigation not found"}
+
+    fp = compute_fingerprint(inv)
+    # Gather all sibling investigations sharing this fingerprint (cheap; bounded
+    # to 500 records by _load_user_history).
+    invs = await _load_user_history(user_email, limit=500)
+    bucket = [i for i in invs if compute_fingerprint(i) == fp]
+    if not bucket:
+        return {"ok": False, "reason": "empty bucket"}
+
+    agg = _aggregate_bucket(bucket)
+    if synth:
+        synth_data, warns = await synthesize(bucket)
+    else:
+        from knowledge_base.synthesizer import _deterministic_fallback
+        synth_data, warns = _deterministic_fallback(bucket), ["synth disabled"]
+
+    entry = KBEntry(
+        slug=slug_for(bucket[0], fp),
+        fingerprint=fp,
+        title=synth_data.get("title", ""),
+        summary=synth_data.get("summary", ""),
+        severity=synth_data.get("severity", "medium"),
+        verdict=agg["verdict"],
+        mitre_ids=agg["mitre_ids"],
+        tactics=agg["tactics"],
+        engines=agg["engines"],
+        common_chains=agg["common_chains"],
+        iocs=KBIocRollup(**agg["iocs"]),
+        lolbins=agg["lolbins"],
+        samples=_samples_of(bucket, k=5),
+        investigation_ids=[str(i.get("_id") or i.get("id") or "") for i in bucket],
+        investigation_count=len(bucket),
+        playbook_steps=synth_data.get("playbook_steps", []),
+        hunt_queries=synth_data.get("hunt_queries", []),
+        evidence_refs=synth_data.get("evidence_refs", []),
+        warnings=warns,
+        user_email=user_email,
+    )
+    kb_id = await _persist(entry)
+    return {
+        "ok": True,
+        "fingerprint": fp,
+        "slug": entry.slug,
+        "bucket_size": len(bucket),
+        "kb_id": kb_id,
+        "created": len(bucket) == 1,     # first investigation in this fingerprint
+        "warnings": warns,
+    }
+
+
 async def rebuild_for_user(user_email: str, limit: int = 500,
                             synth: bool = True) -> Dict[str, Any]:
     """Rebuild the KB for one user. Returns summary counts.

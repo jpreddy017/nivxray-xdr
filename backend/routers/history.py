@@ -255,7 +255,22 @@ async def record_investigation(user_email: str, **kwargs) -> Optional[Dict[str, 
     """Fire-and-forget history recorder. Never raise — never block a decode."""
     try:
         body = HistoryRecordIn(**kwargs)
-        return await _upsert_investigation(user_email, body)
+        rec = await _upsert_investigation(user_email, body)
+        # KB Auto-Cluster (Feb 2026) — incrementally refresh the KB bucket for
+        # the fingerprint this record just landed in. Runs on a background task
+        # so decode latency is unaffected; synth=False keeps it LLM-free (the
+        # deterministic playbook fallback is used).
+        if rec and rec.get("id"):
+            try:
+                import asyncio
+                from knowledge_base.builder import incremental_upsert_for_investigation
+                asyncio.create_task(
+                    incremental_upsert_for_investigation(user_email, rec["id"], synth=False)
+                )
+            except Exception as _kb_e:
+                import logging
+                logging.getLogger("nivxray").debug("kb auto-cluster hook: %s", _kb_e)
+        return rec
     except Exception as e:
         import logging
         logging.getLogger("nivxray").warning("history record failed: %s", e)
