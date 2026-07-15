@@ -169,3 +169,56 @@ async def summary(user=Depends(require_admin)):
             "created_at": "ISO-8601",
         },
     }
+
+
+
+# ─────────────────────────────────────────────────────────────
+# Feb-2026 #8 — ChatML/Alpaca formatted export + Ollama tiebreaker
+# ─────────────────────────────────────────────────────────────
+from fastapi import Query
+from finetune import stream_dataset, dataset_stats
+
+
+@router.get("/admin/finetune/stats", tags=["finetune"])
+async def finetune_stats(user=Depends(require_admin)):
+    """Counts by source collection — sanity check before exporting."""
+    return await dataset_stats(db)
+
+
+@router.get("/admin/finetune/dataset", tags=["finetune"])
+async def finetune_formatted_dataset(
+    fmt: str = Query("chatml", pattern="^(chatml|alpaca)$"),
+    include_corpus: bool = True,
+    include_corrections: bool = True,
+    limit: int = Query(10_000, ge=1, le=100_000),
+    user=Depends(require_admin),
+):
+    """Stream a fine-tuning-ready dataset as JSONL in the analyst's chosen
+    format (default ChatML — the format LLaMA-Factory, Axolotl, and Ollama
+    all consume natively).
+
+    curl -H "Authorization: Bearer <tok>" \\
+         "$API/api/admin/finetune/dataset?fmt=chatml&limit=5000" \\
+         > nivxray-train.jsonl
+    """
+    filename = f"nivxray-{fmt}.jsonl"
+    return StreamingResponse(
+        stream_dataset(
+            db,
+            include_corpus=include_corpus,
+            include_corrections=include_corrections,
+            fmt=fmt,
+            limit=limit,
+        ),
+        media_type="application/jsonl",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/admin/finetune/test-offline-llm", tags=["finetune"])
+async def finetune_test_offline_llm(user=Depends(require_admin)):
+    """Ping the configured local Ollama endpoint to verify reachability
+    of the offline LLM tiebreaker.
+    """
+    from reasoning.llm_tiebreaker import test_offline_llm as _test
+    return await _test()

@@ -20,10 +20,16 @@ Design rules:
 
 Env keys consulted (first non-empty wins):
     EMERGENT_LLM_KEY    (universal Emergent key — supports Claude)
+
+Provider selection (Feb-2026 #8):
+    LLM_TIEBREAKER_PROVIDER   claude (default) | ollama | auto
+    OFFLINE_LLM_URL           Ollama base URL, e.g. http://localhost:11434
+    OFFLINE_LLM_MODEL         Model tag, e.g. "nivxray:latest" (must exist on the server)
 """
 from __future__ import annotations
 
 import os
+import json as _json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -47,8 +53,96 @@ class TiebreakerVerdict:
 
 
 def tiebreak_available() -> bool:
-    """True iff at least one LLM key is present in the environment."""
-    return bool(os.environ.get("EMERGENT_LLM_KEY"))
+    """True iff at least one LLM provider is configured in the environment."""
+    prov = _selected_provider()
+    if prov == "ollama":
+        return bool(os.environ.get("OFFLINE_LLM_URL"))
+    if prov == "claude":
+        return bool(os.environ.get("EMERGENT_LLM_KEY"))
+    # auto: either provider counts
+    return bool(
+        os.environ.get("EMERGENT_LLM_KEY") or os.environ.get("OFFLINE_LLM_URL")
+    )
+
+
+def _selected_provider() -> str:
+    """Return the active provider: ``claude`` | ``ollama`` | ``auto``."""
+    return (os.environ.get("LLM_TIEBREAKER_PROVIDER") or "claude").lower()
+
+
+async def test_offline_llm() -> Dict[str, Any]:
+    """Ping the Ollama server (``/api/tags``) to confirm reachability."""
+    base = (os.environ.get("OFFLINE_LLM_URL") or "").rstrip("/")
+    model = os.environ.get("OFFLINE_LLM_MODEL") or "qwen2.5:7b"
+    if not base:
+        return {"ok": False, "reason": "OFFLINE_LLM_URL not configured"}
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as c:
+            r = await c.get(f"{base}/api/tags")
+            r.raise_for_status()
+            tags = [m.get("name") for m in (r.json().get("models") or [])]
+            return {"ok": True, "server": base, "expected_model": model,
+                    "available_models": tags,
+                    "model_present": model in tags}
+    except Exception as e:
+        return {"ok": False, "server": base, "error": str(e)}
+
+
+async def _arbitrate_ollama(input_text: str,
+                              candidates: List[Dict[str, Any]]) -> "TiebreakerVerdict":
+    """Route arbitration to a local Ollama server."""
+    base = (os.environ.get("OFFLINE_LLM_URL") or "").rstrip("/")
+    model = os.environ.get("OFFLINE_LLM_MODEL") or "qwen2.5:7b"
+    top = candidates[0]
+    if not base:
+        return TiebreakerVerdict(
+            winner_op=top.get("op") or "",
+            rationale="OFFLINE_LLM_URL not configured — fell back to top deterministic candidate",
+            provider="no-key", used_llm=False,
+        )
+    prompt = _build_prompt(input_text, candidates)
+    valid_ops = {c.get("op") for c in candidates}
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=20.0) as c:
+            payload = {
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "format": "json",
+                "options": {"num_predict": 200, "temperature": 0.1},
+            }
+            r = await c.post(f"{base}/api/generate", json=payload)
+            r.raise_for_status()
+            text = (r.json().get("response") or "").strip()
+        # Ollama with format=json is supposed to emit valid JSON already
+        import re as _re
+        text = _re.sub(r"^```(?:json)?|```$", "", text).strip()
+        data = _json.loads(text)
+        winner = str(data.get("winner_op") or "").strip()
+        rationale = str(data.get("rationale") or "").strip()
+        if winner not in valid_ops:
+            return TiebreakerVerdict(
+                winner_op=top.get("op") or "",
+                rationale=(
+                    f"Ollama returned op_id={winner!r} not in candidate set — "
+                    f"fell back to top deterministic candidate"
+                ),
+                provider="fallback-deterministic",
+                used_llm=True, error="invalid-winner",
+            )
+        return TiebreakerVerdict(
+            winner_op=winner, rationale=rationale or "Ollama chose without rationale",
+            provider=f"ollama:{model}", used_llm=True,
+        )
+    except Exception as e:
+        return TiebreakerVerdict(
+            winner_op=top.get("op") or "",
+            rationale="Ollama arbitration failed — fell back to top deterministic candidate",
+            provider="fallback-deterministic",
+            used_llm=False, error=str(e),
+        )
 
 
 def _build_prompt(input_text: str, candidates: List[Dict[str, Any]]) -> str:
@@ -93,6 +187,11 @@ async def arbitrate_async(
     """Async LLM arbitration. Returns TiebreakerVerdict.
 
     Falls back to the top deterministic candidate on any error.
+
+    Provider selection (Feb-2026 #8):
+        * LLM_TIEBREAKER_PROVIDER=claude → Emergent LLM key path
+        * LLM_TIEBREAKER_PROVIDER=ollama → local OFFLINE_LLM_URL path
+        * LLM_TIEBREAKER_PROVIDER=auto   → Claude first, Ollama on failure
     """
     if not candidates:
         return TiebreakerVerdict(
@@ -101,6 +200,16 @@ async def arbitrate_async(
         )
 
     top = candidates[0]
+    provider = _selected_provider()
+
+    # Direct routes ────────────────────────────────────────────────
+    if provider == "ollama":
+        return await _arbitrate_ollama(input_text, candidates)
+
+    # Auto: try Claude first, fall through to Ollama if key missing
+    if provider == "auto" and not os.environ.get("EMERGENT_LLM_KEY"):
+        if os.environ.get("OFFLINE_LLM_URL"):
+            return await _arbitrate_ollama(input_text, candidates)
 
     if not tiebreak_available():
         return TiebreakerVerdict(

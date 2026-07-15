@@ -1,7 +1,67 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — ⭐ #5 Investigation Timeline + ⭐ #6 Threat-Intel Enrichment)
+## Latest Change (Feb 2026 — 🟢 #8 Offline LLM Fine-Tuning — Roadmap Complete)
+
+### Delivered — the last roadmap item
+
+**Backend**
+
+*New module* `backend/finetune/__init__.py`:
+- `SYSTEM_PROMPT` — canonical training system message
+- `stream_dataset(...)` — async generator yielding JSONL lines from `regression_corpus` + `learning_events` (analyst corrections)
+- Two output formats: **ChatML** (default — LLaMA-Factory / Axolotl / Ollama compatible) and **Alpaca** (legacy trainers)
+- `dataset_stats()` — per-source counts for the admin UI
+
+*Extended router* `backend/routers/finetune.py` — 3 new endpoints on top of the existing dataset export:
+- `GET /api/admin/finetune/stats` — counts by source
+- `GET /api/admin/finetune/dataset?fmt=chatml|alpaca&limit=N` — streaming JSONL download (Content-Disposition attachment)
+- `POST /api/admin/finetune/test-offline-llm` — pings the local Ollama server, returns `{ok, available_models, model_present}`
+
+*Enhanced* `backend/reasoning/llm_tiebreaker.py`:
+- New `_arbitrate_ollama()` provider — hits `POST {OFFLINE_LLM_URL}/api/generate` with `format=json`, validates the winner op is in the candidate set
+- Env-driven provider router: `LLM_TIEBREAKER_PROVIDER` ∈ {`claude` (default), `ollama`, `auto`}
+- `test_offline_llm()` pings `/api/tags` for reachability + model presence
+- Graceful fallback: any error → top deterministic candidate with `provider="fallback-deterministic"` + error string
+
+**Documentation & Recipe**
+
+*New* `scripts/fine_tune.sh` — end-to-end walkthrough:
+1. Export ChatML JSONL from `/api/admin/finetune/dataset`
+2. Fine-tune Qwen 2.5 7B with LoRA via LLaMA-Factory (q_proj + v_proj)
+3. Merge LoRA and convert to GGUF via llama.cpp
+4. Import into Ollama with a Modelfile template
+5. Set `LLM_TIEBREAKER_PROVIDER=ollama` + `OFFLINE_LLM_URL` + `OFFLINE_LLM_MODEL` on the backend
+
+**Env-flag summary** (backend/.env)
+```
+LLM_TIEBREAKER_PROVIDER   claude | ollama | auto      (default: claude)
+OFFLINE_LLM_URL           http://your-ollama:11434    (required when provider=ollama)
+OFFLINE_LLM_MODEL         nivxray                     (default: qwen2.5:7b)
+```
+
+### Regression
+- **922 backend tests pass** (up from 913, **+9 new**) · 7 xfailed unchanged · 4 pre-existing failures unrelated · zero regressions
+- New test file `test_offline_finetune.py`: stats endpoint shape, ChatML/Alpaca format validation (roles=[system,user,assistant], embedded JSON has decoded+chain), Content-Disposition attachment header, offline-LLM clean failure without config, provider-selection env router (4 tests)
+
+### Files
+- **New**: `backend/finetune/__init__.py`, `backend/tests/test_offline_finetune.py`, `scripts/fine_tune.sh`
+- **Modified**: `backend/routers/finetune.py` (+3 endpoints), `backend/reasoning/llm_tiebreaker.py` (Ollama adapter + env router)
+
+### Roadmap Complete
+- ✅ #1 Candidate Explorer
+- ✅ #2 Structured Why-Not
+- ✅ #3 Learning Correction + Regression Corpus
+- ✅ #4 Auto-benchmark / Regression Testing
+- ✅ #5 Workspace Investigation Timeline
+- ✅ #6 Threat Intelligence Enrichment
+- ✅ #7 TAXII Push
+- ✅ #8 Offline LLM Fine-tuning
+
+⚠️ **Deployment**: preview verified. Production redeploy required to expose the new export endpoints and Ollama tiebreaker to nivxray.nivxforge.com.
+
+
+## Previous Change (Feb 2026 — ⭐ #5 Investigation Timeline + ⭐ #6 Threat-Intel Enrichment)
 
 ### Delivered — full investigation audit trail + provider-agnostic IOC enrichment
 
