@@ -1,7 +1,45 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🗺️ User Guide Phase 1 · Screenshots + 5W1H Flow Diagram)
+## Latest Change (Feb 2026 — 📚 User Guide Phase 2 · Encyclopedia)
+
+### Delivered — Bundles A + B + C in one pass
+
+**Bundle A · UI Reference workflow** (`docs/workflows/ui_reference.yaml`)
+14 documented steps + labelled screenshots covering every panel and every Threat Analysis tab: Input · action bar · Output · Decoding Chain · GRAPH · MITRE · LOLBAS · RULES · IOCS · TI-HITS · OSINT · AI · FLOW · CHAIN. Each step includes an explicit "what it does / when to use / what to look for" explanation grounded in real testids (`btn-nivxray-decode`, `btn-auto-investigate-inline`, `toggle-candidate-explorer`, `tab-*`).
+
+**Bundle B · 4 Sophisticated Payload Examples** — each a self-contained workflow YAML with step-by-step analyst walkthrough + captured screenshot:
+- `payload_encoded_powershell_download` — classic Emotet-style `powershell.exe -Enc` UTF-16LE download-cradle → T1059.001 + T1105
+- `payload_certutil_dropper` — LOLBAS `certutil.exe -urlcache -f` → T1105 + T1218 (Signed Binary Proxy Execution)
+- `payload_double_encoded_rot13_base64` — chained encodings (Base64(ROT13(cmd))) demonstrating recursive Candidate Explorer scoring
+- `payload_hex_shellcode` — hex-encoded MZ/PE header, deterministic MAGIC DECODE path, entropy delta + PE signature detection
+
+**Bundle C · 3 Anatomy SVG diagrams** (`docs/assets/`):
+- `auto_investigate_pipeline.svg` — 6-stage pipeline (Input → Magic → Candidate → Chain → Enrich → Verdict) + event bus banner + full legend
+- `attack_graph_anatomy.svg` — node-type legend (INPUT · STAGE · IOC · MITRE · VERDICT) with a rendered example graph
+- `decoding_chain_anatomy.svg` — Stage 1 → Stage 2 → Extract, with input/output bytes preview per stage + confidence + chain invariants
+
+**Wired into all outputs:**
+- **DocsPage.jsx** — fetches all 4 SVGs via authed axios and inlines them with `dangerouslySetInnerHTML`; each anatomy has its own `data-testid` (`docs-anatomy-pipeline|graph|chain`)
+- **HTML exporter** — inlines all 4 SVGs below the cover banner + base64 data-URIs embed the screenshots (23 images in the current build)
+- **PDF exporter** — new `_embed_svg()` helper renders each anatomy on its own page via `svg2rlg`; a new `_embed_screenshots()` flowable appends the captured PNGs after each feature/workflow section
+- **DOCX exporter** — `add_picture()` per screenshot for both features and workflows
+
+**Bug fixes along the way:**
+- Fixed `capture_docs_screenshots.py` to run `type_into` BEFORE `click_before` so decode buttons are enabled when clicked
+- Made `/api/docs/assets/*` and `/api/docs/screenshots/*/*` publicly readable (image tags can't attach the Bearer token, and these are non-sensitive product assets)
+- Fixed 2 YAML parse errors (unquoted colons in `expected:` strings)
+
+**Verified live**:
+- 9 workflows in the DocsPage sidebar (up from 3)
+- **PDF grew from 57 KB → 15.2 MB** with 4 SVG diagrams + screenshots embedded
+- HTML export contains 23 base64-inlined screenshots and all 4 SVG diagrams
+- All 31 pdf+extras regression tests green
+- On `/docs`: 5W1H flow diagram, then pipeline anatomy (full 6-stage row + event bus + legend visible), then attack-graph anatomy, then chain anatomy — all render inline before the auto-generated guide markdown
+
+---
+
+## Previous Change (Feb 2026 — 🗺️ User Guide Phase 1 · Screenshots + 5W1H Flow Diagram)
 
 ### Delivered
 

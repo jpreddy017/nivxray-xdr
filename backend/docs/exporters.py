@@ -133,13 +133,12 @@ def generate_html(audience: str = "user") -> str:
     stats = guide_stats()
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    # Inline the 5W1H analyst flow SVG right below the cover banner.
+    # Inline the 5W1H analyst flow SVG + 3 anatomy diagrams.
     flow_svg = ""
     try:
         svg_path = _P(__file__).parent / "assets" / "analyst_flow.svg"
         if svg_path.exists():
             raw = svg_path.read_text(encoding="utf-8")
-            # Strip the XML prolog so the SVG embeds cleanly inline.
             if raw.startswith("<?xml"):
                 raw = raw.split("?>", 1)[-1]
             flow_svg = (
@@ -151,6 +150,27 @@ def generate_html(audience: str = "user") -> str:
                 'Follow the arrows. Every step answers one of the six analyst '
                 'questions (What · Where · When · Why · How · Which) and loops '
                 'back into the learning system.</p>'
+                f'<div style="text-align:center;overflow-x:auto;">{raw}</div>'
+                '</section>'
+            )
+
+        anatomy_map = [
+            ("Auto-Investigate · Pipeline Anatomy", "auto_investigate_pipeline.svg"),
+            ("Attack Graph · Node Anatomy",         "attack_graph_anatomy.svg"),
+            ("Decoding Chain · Stage Anatomy",      "decoding_chain_anatomy.svg"),
+        ]
+        for heading, name in anatomy_map:
+            p = _P(__file__).parent / "assets" / name
+            if not p.exists():
+                continue
+            raw = p.read_text(encoding="utf-8")
+            if raw.startswith("<?xml"):
+                raw = raw.split("?>", 1)[-1]
+            flow_svg += (
+                '<section style="margin:24px 0 32px;padding:20px;'
+                'background:rgba(167,139,250,0.04);border-left:3px solid #a78bfa;'
+                'border-radius:4px;">'
+                f'<h2 style="margin-top:0;">{heading}</h2>'
                 f'<div style="text-align:center;overflow-x:auto;">{raw}</div>'
                 '</section>'
             )

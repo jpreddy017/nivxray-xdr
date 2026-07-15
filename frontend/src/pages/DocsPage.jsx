@@ -27,13 +27,26 @@ export default function DocsPage() {
   const [explaining, setExplaining] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [flowSvg, setFlowSvg] = useState("");
+  const [anatomySvgs, setAnatomySvgs] = useState({});
 
   useEffect(() => {
-    // Fetch the 5W1H flow SVG via the authed axios client so it renders
-    // even when the assets endpoint requires a Bearer token.
     api.get("/docs/assets/analyst_flow.svg", { responseType: "text" })
        .then((r) => setFlowSvg(typeof r.data === "string" ? r.data : ""))
        .catch(() => setFlowSvg(""));
+    const anatomies = [
+      ["pipeline", "auto_investigate_pipeline.svg"],
+      ["graph",    "attack_graph_anatomy.svg"],
+      ["chain",    "decoding_chain_anatomy.svg"],
+    ];
+    Promise.all(anatomies.map(([k, name]) =>
+      api.get(`/docs/assets/${name}`, { responseType: "text" })
+         .then((r) => [k, typeof r.data === "string" ? r.data : ""])
+         .catch(() => [k, ""])
+    )).then((entries) => {
+      const out = {};
+      for (const [k, v] of entries) out[k] = v;
+      setAnatomySvgs(out);
+    });
   }, []);
 
   const downloadExport = async (fmt) => {
@@ -358,6 +371,33 @@ export default function DocsPage() {
                   />
                 )}
               </div>
+              {/* Anatomy diagrams — Bundle C */}
+              {["pipeline", "graph", "chain"].map((k) => {
+                const svg = anatomySvgs[k];
+                const label = k === "pipeline"
+                  ? "AUTO-INVESTIGATE · PIPELINE ANATOMY"
+                  : k === "graph" ? "ATTACK GRAPH · NODE ANATOMY"
+                  : "DECODING CHAIN · STAGE ANATOMY";
+                if (!svg) return null;
+                return (
+                  <div key={k}
+                       data-testid={`docs-anatomy-${k}`}
+                       style={{
+                         margin: "0 0 20px", padding: 14,
+                         background: "rgba(167,139,250,0.04)",
+                         border: "1px solid rgba(167,139,250,0.15)",
+                         borderRadius: 4,
+                       }}>
+                    <div style={{ fontSize: 12, color: "#a78bfa",
+                                  letterSpacing: 0.6, marginBottom: 8 }}>
+                      {label}
+                    </div>
+                    <div style={{ width: "100%", overflowX: "auto",
+                                  background: "#0b1220", borderRadius: 3 }}
+                         dangerouslySetInnerHTML={{ __html: svg }} />
+                  </div>
+                );
+              })}
               <ReactMarkdown>{guide}</ReactMarkdown>
             </div>
           )}

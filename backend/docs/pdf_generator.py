@@ -459,30 +459,39 @@ def create_user_guide(
     story.extend(_build_cover(styles, audience, stats))
     story.extend(_build_toc(styles, wfs, by_cat))
 
-    # ─── 5W1H analyst flow diagram (Phase 1 · User Guide) ───────────
-    flow_svg = _ASSETS_DIR / "analyst_flow.svg"
-    if svg2rlg is not None and flow_svg.exists():
+    # ─── 5W1H analyst flow diagram + anatomy diagrams (User Guide) ───
+    def _embed_svg(name: str, heading: str, sub: str = ""):
+        svg_path = _ASSETS_DIR / name
+        if svg2rlg is None or not svg_path.exists():
+            return
         try:
-            drawing = svg2rlg(str(flow_svg))
-            # Scale-to-fit page width (7.3 inch content frame)
+            drawing = svg2rlg(str(svg_path))
             max_w = 7.3 * inch
             if drawing.width > 0:
                 scale = max_w / drawing.width
                 drawing.width *= scale
                 drawing.height *= scale
                 drawing.scale(scale, scale)
-            story.append(Paragraph("Analyst Flow — 5W1H", styles["H1"]))
-            story.append(Paragraph(
-                "Follow the arrows. Every step answers one of the six analyst "
-                "questions (What · Where · When · Why · How · Which) and loops "
-                "back into the learning system.",
-                styles["Muted"]))
+            story.append(Paragraph(heading, styles["H1"]))
+            if sub:
+                story.append(Paragraph(sub, styles["Muted"]))
             story.append(Spacer(1, 8))
             story.append(drawing)
             story.append(PageBreak())
         except Exception:
-            # Bad SVG or renderer mismatch — silently skip rather than fail export.
             pass
+
+    _embed_svg("analyst_flow.svg", "Analyst Flow — 5W1H",
+               "Follow the arrows. Every step answers one of the six analyst questions.")
+    _embed_svg("auto_investigate_pipeline.svg",
+               "Auto-Investigate · Pipeline Anatomy",
+               "One click → six stages → verdict. Each stage emits to the timeline.")
+    _embed_svg("attack_graph_anatomy.svg",
+               "Attack Graph · Node Anatomy",
+               "Nodes are colour-coded, edges label the transformation that produced them.")
+    _embed_svg("decoding_chain_anatomy.svg",
+               "Decoding Chain · Stage Anatomy",
+               "Each stage is atomic: input bytes → operation → output bytes.")
 
     if wfs:
         story.append(Paragraph("Task-Oriented Workflows", styles["H1"]))
