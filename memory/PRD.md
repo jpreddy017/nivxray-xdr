@@ -1,7 +1,37 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🚀 P1 · Confusion Matrix Dashboard)
+## Latest Change (Feb 2026 — 🖥️ P1 · Confusion Matrix Frontend Widget)
+
+### Delivered
+A polished admin-dashboard widget on `/admin` that consumes `/api/training/confusion/summary` for the instant overview and `/api/training/confusion?categories=<slug>` for on-demand drill-down. Analysts see decoder health at a glance and can jump straight to any failing sample.
+
+**UX highlights:**
+- **6 metric tiles** — Precision, Recall, F1, Accuracy, Avg Confidence, Negatives — colour-coded (recall < 95% turns amber; FPs on negatives → red).
+- **Worst 5 · Recall** and **Best 5 · Recall** side-by-side, each row clickable.
+- **Click a category** → in-line accordion opens listing every failing sample with `id / expected / got / engine / confidence`. Zero navigation cost — the fix loop is one keystroke.
+- **RECOMPUTE button** — forces `refresh=true` on the endpoint (~11s spin, spinner animated locally).
+- **10-min cache** by default (backend-side) — no waiting on repeat visits.
+- **Zero-FN category** message ("all samples decoded correctly") when clicking a green category.
+
+**Design:**
+- Follows the existing NivX Forge brutalist mono/teal aesthetic (`brut-border`, `brut-input`, `nvx-btn`, JetBrains Mono, `--surface` / `--inset` / `--accent` CSS vars).
+- Every interactive element has `data-testid`: `confusion-matrix-card`, `confusion-refresh-btn`, `metric-{precision|recall|f1|accuracy|avg-confidence|negatives}`, `worst-cat-<slug>`, `best-cat-<slug>`, `confusion-detail-<slug>`, `confusion-detail-close`, `confusion-failure-<id>`.
+
+**Placement:** below the "AI Training Notes" section on `AdminPage`, above LOLBAS Catalog. Only admins land on this page, so no role gate on the API is needed beyond the existing auth requirement.
+
+### Files
+- Added: `/app/frontend/src/components/ConfusionMatrixCard.jsx` (508 lines — card, metric tiles, category list, detail drawer).
+- Modified: `/app/frontend/src/pages/AdminPage.jsx` (import + placement).
+
+### Validation
+- Playwright screenshot flow shows the widget rendered, all 6 tiles populated (100 / 99.2 / 99.6 / 99.2 / 86 / 10-of-10), worst/best-5 lists correct, and the `base64_utf16le` accordion expanded showing the exact `$env:TEMP` vs `C:\Users\Public\AppData\Local\Temp` diff.
+- Backend regression: 272 corpus + confusion + archetype tests still passing.
+
+⚠️ **Deployment**: frontend-only card + one new backend router. Requires `sudo supervisorctl restart backend` for the router change (already done in dev). No new env vars / migrations.
+
+
+## Previous Change (Feb 2026 — 🚀 P1 · Confusion Matrix Dashboard)
 
 ### Delivered
 A `GET /api/training/confusion` endpoint that runs the **full 245-sample + 10-negative** corpus through the same `deterministic_best_decode` pipeline used by `/api/decode/smart` and reports per-category **TP / FN / precision / recall / F1** plus per-negatives **TN / FP** for false-positive analysis. `GET /api/training/confusion/summary` returns the cached worst-5 / best-5 by recall.
