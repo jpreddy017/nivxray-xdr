@@ -1,6 +1,36 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — Base32 + ASCII-decimal training)
+### Bug report
+User pasted a payload consisting entirely of `A-Z2-7` (Base32 alphabet). Every existing decoder path assumed Base64 and failed. Nested inside was a stream of decimal ASCII codes (space-separated ints 0-255) — another common obfuscator artefact NivXRay didn't recognise.
+
+### Fix — new primitives in the decoder toolkit
+- **New op `ascii-decimal-decode`** in `operations.py` — decodes `"72 101 108 108 111"` → `"Hello"`, tolerant of comma/space separators and out-of-range garbage.
+- **Base32 auto-detection** in `magic_decoder._pick_candidates()` — payloads using only `A-Z2-7=` are now detected as Base32 and prioritised OVER Base64 (which would otherwise steal the slot). Requires length ≥16 and valid length-mod-8 boundary.
+- **ASCII-decimal auto-detection** — space/comma-separated integer streams where ≥80% of tokens are in `[0, 255]` fire this op. When the input is essentially just digits+separators (nothing else), the op is inserted at the FRONT of the candidate queue to beat naive scoring.
+
+### Validation
+- 9 new pytest cases in `test_base32_ascii_decimal.py`:
+  * op registration + space/comma/garbage/empty input tolerance
+  * `magic_decode` on pure Base32 recovers plaintext
+  * `magic_decode` on pure ASCII-decimal stream recovers plaintext
+  * `magic_decode` on Base32-wrapping-ASCII-decimal chains both layers
+  * regression: Base32 must be prioritised over Base64 on `A-Z2-7`-only input
+- Full backend suite: **448 / 448 green** (was 439; +9 new). Zero regressions.
+
+### What this trains the tool to handle
+- PowerShell payloads produced by Invoke-Obfuscation `\SecureString\Base32` mode
+- Phishing-kit URLs encoded via Base32 to bypass regex allow-lists
+- Multi-layer decoy payloads that use decimal-code streams as an intermediate obfuscation
+- Any hand-rolled `String.Join(' ', $bytes)` obfuscation trick
+
+Note: the specific user payload has a 3rd non-standard layer (single-byte XOR only yields ~77% printable — likely a keyed cipher unique to the generator that produced it). Layers 1 + 2 now decode automatically. Layer 3 would need a supplied key or a custom archetype — those are per-family additions, not general primitives.
+
+⚠️ **Deployment**: preview only. Redeploy to push to `nivxray.nivxforge.com`.
+
+
+
 ## Latest Change (Feb 2026 — Multi-Stage Chain Analyzer, Lumma-style)
 ### Feature
 Inspired by Sophos's Lumma Stealer ClickFix write-up (Feb 2025): real attacks span multiple PowerShell/CMD command lines. NivXRay now supports analyzing an ordered chain and producing a **unified SOC verdict** across all stages.

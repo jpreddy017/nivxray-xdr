@@ -118,6 +118,26 @@ def _hex_decode(data: str) -> str:
     return bytes.fromhex(s).decode("utf-8", errors="replace")
 
 
+@op("ascii-decimal-decode", "ASCII Decimal Codes → Text", "Cryptography",
+    "Decode a stream of space/comma-separated decimal ASCII codes (32-255) back into a text string. "
+    "Common in obfuscated PowerShell / JS payloads and multi-layer stagers (Base32 → decimal codes → next stage).")
+def _ascii_decimal_decode(data: str) -> str:
+    # Accept both space- and comma-separated tokens, and mixed whitespace
+    tokens = re.findall(r"\d+", data)
+    if not tokens:
+        return ""
+    out = []
+    for t in tokens:
+        try:
+            n = int(t)
+        except ValueError:
+            continue
+        # Only accept realistic byte values; skip garbage (e.g. year numbers)
+        if 0 <= n <= 255:
+            out.append(chr(n))
+    return "".join(out)
+
+
 @op("hex-encode", "Hex Encode", "Cryptography", "Encode text as hexadecimal.")
 def _hex_encode(data: str) -> str:
     return data.encode("utf-8").hex()

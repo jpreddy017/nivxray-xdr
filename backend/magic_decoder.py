@@ -148,6 +148,17 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
     # Base64 detection
     b64only = re.sub(r"\s+", "", s)
     is_b64 = b64only and re.fullmatch(r"[A-Za-z0-9+/=_-]+", b64only) and len(b64only) >= 8
+    # ── Base32 detection ────────────────────────────────────────────────
+    # Base32 alphabet = A-Z + 2-7 (RFC 4648). Distinguishable from base64:
+    # no lowercase, no `+`, no `/`, no digits {0,1,8,9}. If it looks like
+    # base32, PRIORITIZE it over base64 (which would otherwise steal the
+    # candidate slot with lowercase-friendly alphabet).
+    is_b32 = (b64only
+              and re.fullmatch(r"[A-Z2-7=]+", b64only)
+              and len(b64only) >= 16
+              and len(b64only) % 8 in (0, 2, 4, 5, 7))
+    if is_b32:
+        cands.insert(0, {"op": "base32-decode", "args": {}})
     if is_b64:
         cands.append({"op": "base64-decode", "args": {}})
         cands.append({"op": "utf16-be-decode", "args": {}})
@@ -169,6 +180,24 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
                     cands.insert(0, {"op": step_op, "args": {}})
         except Exception:
             pass
+    # ── ASCII decimal codes stream ──────────────────────────────────────
+    # Detect "126 124 101 65 122 ..." (space/comma-separated ints 0-255).
+    # Heuristic: ≥ 8 tokens, ≥ 80% look like realistic byte values, and the
+    # NON-digit chars are almost entirely whitespace/commas (otherwise it's
+    # ordinary text that happens to contain numbers).
+    _tokens = re.findall(r"\d+", s)
+    if len(_tokens) >= 8:
+        realistic = sum(1 for t in _tokens if 0 <= int(t) <= 255)
+        non_digit = re.sub(r"\d+", "", s)
+        non_digit_stripped = re.sub(r"[\s,]+", "", non_digit)
+        # If ≥ 80% of tokens are byte-sized AND the input is essentially just
+        # digits + separators, this IS an ASCII-code stream — prioritise it.
+        if realistic / len(_tokens) > 0.80:
+            if len(non_digit_stripped) < 3:
+                # Pure decimal-code stream → HIGH priority (front of queue).
+                cands.insert(0, {"op": "ascii-decimal-decode", "args": {}})
+            elif re.search(r"\d[\s,]+\d", s):
+                cands.append({"op": "ascii-decimal-decode", "args": {}})
     # UTF-16LE hint — half the bytes are 0x00 in alternating positions
     if _UTF16_HINT.search(s) or "\x00" in s:
         cands.append({"op": "utf16le-decode", "args": {}})
