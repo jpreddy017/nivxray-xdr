@@ -28,6 +28,7 @@ from starlette.middleware.cors import CORSMiddleware
 # Register operation registries eagerly (needed for /operations and decoders)
 from operations import OPERATIONS  # noqa: F401
 import ops_extended  # noqa: F401  — registers +42 operations
+import ops_base_family  # noqa: F401  — registers base58/base62/base64url/z85
 from smart_decoder import smart_decode
 from magic_decoder import magic_decode
 from lolbas import load_from_db as lolbas_load, maybe_refresh as lolbas_maybe_refresh

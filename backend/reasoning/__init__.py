@@ -21,3 +21,8 @@ from .confidence_engine import compute_confidence, ConfidenceBreakdown  # noqa: 
 from .explainer import explain_reasoning, explain_chain  # noqa: F401
 from .llm_tiebreaker import arbitrate, arbitrate_async, tiebreak_available, TiebreakerVerdict  # noqa: F401
 from .plugin_contract import DecoderPlugin, DecoderResult, PLUGIN_REGISTRY  # noqa: F401
+from .candidate_engine import (  # noqa: F401
+    score_candidates, best_candidate, classify_unknown,
+    Candidate as EncodingCandidate, UnknownVerdict,
+    HIGH_THRESHOLD, MIN_ACCEPT, LOW_THRESHOLD,
+)

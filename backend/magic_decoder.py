@@ -182,6 +182,27 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
               and re.fullmatch(r"[A-Z2-7=]+", b32_test)
               and len(b32_test) >= 16
               and len(b32_test) % 8 in (0, 2, 4, 5, 7))
+    # ── Base58 detection (Feb-2026, Bitcoin/IPFS alphabet) ──────────────
+    # Base58 excludes 0/O/I/l. Prioritize BEFORE base64 when the input is
+    # unambiguously base58 (contains letters/digits and NONE of the
+    # forbidden chars). Length must be ≥ 4.
+    is_b58 = (
+        b64only
+        and re.fullmatch(
+            r"[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+",
+            b64only,
+        )
+        and len(b64only) >= 4
+        # Must contain BOTH upper AND lower (or digits + letters) — a pure
+        # lowercase word like "hello" would match base58 alphabet but is
+        # clearly plaintext. Base58 hashes/addresses are mixed-case.
+        and (
+            (any(c.isupper() for c in b64only) and any(c.islower() for c in b64only))
+            or any(c.isdigit() for c in b64only)
+        )
+    )
+    if is_b58:
+        cands.insert(0, {"op": "base58-decode", "args": {}})
     if is_b32:
         cands.insert(0, {"op": "base32-decode", "args": {}})
     if is_b64:

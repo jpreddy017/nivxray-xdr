@@ -1,7 +1,64 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🧠 P0 · Reasoning Engine roadmap — Confidence + LLM Tiebreaker + Explainer + Learning Framework)
+## Latest Change (Feb 2026 — 🧠 P0 · Candidate-Based Encoding Detection Engine + Base58/62/64URL/Z85)
+
+### Delivered
+Full implementation of the user's "candidate-based encoding detection pipeline" spec. The engine no longer assumes a single encoding — for every input it generates a **ranked candidate list** with **dynamic (evidence-based) confidence scores** and explains WHY the winner was chosen.
+
+**1. New First-Class Decoders** (all registered into the `OPERATIONS` registry):
+- `base58-decode` — Bitcoin/IPFS alphabet, excludes 0/O/I/l
+- `base62-decode` — alphanumeric (0-9, A-Z, a-z), no padding
+- `base64url-decode` — RFC 4648 §5 (URL-safe: - and _)
+- `z85-decode` — RFC 32 ZeroMQ Base85 variant
+- (Existing: base32, base64, hex, ascii85, rot13, rot47, url, html, unicode-escape, octal, ascii-decimal, binary-ascii, utf16le, gzip, zlib, xor, ...)
+
+**2. Candidate Scoring Engine** — `reasoning/candidate_engine.py`
+Every registered encoding is scored dynamically against the input based on:
+- Alphabet validity (full-match vs. per-char ratio)
+- Length validity (encoding-specific rules — base64 mod 4, base32 mod 8, z85 mod 5, base58 ≥ 4)
+- Input entropy (with per-encoding expected ranges)
+- Decode success/failure (rejecters penalized -0.35)
+- UTF-8 validity of output
+- Printable ASCII ratio of output
+- **Known file signatures** (MZ, ELF, PK, %PDF, GZIP, PNG, JPG, RIFF, Ogg, ID3, ZIP, RAR, 7z, Java class, Mach-O, BMP, ...)
+- **Malware indicators** (IEX, FromBase64String, powershell.exe, rundll32, certutil, mshta, IEX, DownloadString, curl, wget, /bin/sh, ...)
+- **Linguistic score** of decoded output (English density + PS/shell keywords + bigram frequency)
+- **Linguistic delta** for ROT/XOR (self-invertible transforms MUST improve readability)
+
+Confidence is a WEIGHTED SUM — no fixed per-encoding constant. Verified via tests:
+- Base58 example `2NEpo7TZRRrLZSi2U` → `Hello World!` at confidence **0.85** (HIGH)
+- SHA-256 hash → all decoders score ≤ 0.40 → engine returns **unknown-or-identifier** with hypotheses `["looks like a SHA-256 hash"]`
+- PowerShell b64 payload → base64-decode at **1.00** (malware indicators + readability)
+
+**3. Safety Rules** (per user prompt)
+- Never fabricate — random gibberish returns `unknown` verdict, not a forced decode.
+- Explicit "identifier/hash/token/random-blob/unsupported" classification when best candidate < MIN_ACCEPT (0.30).
+- Full rationale string on every candidate — analyst can audit exactly why one encoding was preferred.
+
+**4. New API Endpoint** — `POST /api/decode/candidates`
+```json
+{ "input": "2NEpo7TZRRrLZSi2U", "top_n": 8 }
+```
+Returns ranked candidates with `op`, `confidence`, `decoded_preview`, `evidence`, `rationale`, plus a `verdict` block explaining decoded / possible / unknown.
+
+**5. Magic Decoder Integration**
+- Base58 now inserted at the FRONT of `_pick_candidates()` when input is unambiguously Base58 (correct alphabet, mixed-case OR digits present, no forbidden chars).
+- `/api/decode/smart` on `2NEpo7TZRRrLZSi2U` now returns `output: "Hello World!"`, `recipe: [{"op":"base58-decode"}]`, `engine: magic`.
+
+### Files
+- **New**: `backend/ops_base_family.py`, `backend/reasoning/candidate_engine.py`, `backend/tests/test_candidate_engine.py` (27 tests)
+- **Modified**: `backend/server.py` (import ops_base_family), `backend/reasoning/__init__.py` (export candidate_engine), `backend/magic_decoder.py` (Base58 detection block), `backend/routers/ops.py` (+ `/decode/candidates` endpoint + BaseModel import)
+
+### Regression
+- **864 backend tests pass** (up from 836) — 28 net new tests, zero regressions.
+- 7 xfailed (unchanged) · 4 pre-existing failures (unrelated to this pass — see previous entries).
+- End-to-end verified via live API: Base58 → `Hello World!`, PowerShell b64 → indicators surface, SHA-256 → unknown verdict.
+
+⚠️ **Deployment**: preview verified. Production redeploy required to expose Base58/62/64URL/Z85 + new `/decode/candidates` endpoint to nivxray.nivxforge.com.
+
+
+## Previous Change (Feb 2026 — 🧠 P0 · Reasoning Engine roadmap — Confidence + LLM Tiebreaker + Explainer + Learning Framework)
 
 ### Delivered
 The decoder now "thinks like an analyst" per the user's Feb-2026 architectural prompt. All P0 items from that prompt are shipped as **additive** layers on top of the existing engine — no behavior break in fast mode, opt-in enhancements in balanced/deep modes.

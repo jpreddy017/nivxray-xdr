@@ -9,6 +9,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from schemas import (
     RecipeStep, RunRecipeIn, RunRecipeOut, AutoIn, MagicIn,
@@ -470,6 +471,51 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     except Exception:
         pass
     return result
+
+class CandidatesIn(BaseModel):
+    input: str
+    top_n: int = 8
+
+
+@router.post("/decode/candidates")
+async def decode_candidates(body: CandidatesIn, user=Depends(get_current_user)):
+    """Return the RANKED encoding-candidate list for an input.
+
+    Feb-2026 Candidate-Scoring Engine: every registered encoding is scored
+    dynamically against the input based on alphabet validity, length rules,
+    entropy, decode success, output printability, file signatures, and
+    malware indicators. If no candidate reaches MIN_ACCEPT, an
+    ``unknown-or-identifier`` verdict is returned with hypotheses (hash /
+    UUID / random token / unsupported encoding).
+    """
+    from reasoning.candidate_engine import (
+        score_candidates, classify_unknown, best_candidate,
+        HIGH_THRESHOLD, MIN_ACCEPT,
+    )
+    top_n = max(1, min(int(body.top_n or 8), 20))
+    cands = score_candidates(body.input, top_n=top_n)
+    best = best_candidate(body.input)
+    payload = {
+        "input_length": len(body.input),
+        "candidates": [c.as_dict() for c in cands],
+        "best": best.as_dict() if best else None,
+        "thresholds": {
+            "high": HIGH_THRESHOLD,
+            "min_accept": MIN_ACCEPT,
+        },
+    }
+    if best is None:
+        payload["verdict"] = classify_unknown(body.input).as_dict()
+    else:
+        payload["verdict"] = {
+            "verdict": "decoded" if best.confidence >= HIGH_THRESHOLD else "possible",
+            "op": best.op,
+            "confidence": best.confidence,
+            "rationale": best.rationale,
+        }
+    return payload
+
+
 
 
 def _reason_for_op(op: str) -> str:
