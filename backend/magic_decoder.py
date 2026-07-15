@@ -258,8 +258,11 @@ def _pick_candidates(payload: str) -> List[Dict[str, Any]]:
         nested = find_all_base64_spans(s, min_len=24)
         # Only trigger if the current text looks like a script/wrapper (not the
         # payload itself) — avoid infinite base64→base64 loops.
-        looks_wrapped = any(m in s for m in (
-            "FromBase64String", "atob(", "base64_decode", "-EncodedCommand", "$var_code",
+        # CASE-INSENSITIVE — attackers commonly use `fROMBase64sTriNG` /
+        # `AtOb(` / `-encodedCoMMand` to evade string-signature detection.
+        _s_low = s.lower()
+        looks_wrapped = any(m in _s_low for m in (
+            "frombase64string", "atob(", "base64_decode", "-encodedcommand", "$var_code",
         ))
         if nested and looks_wrapped:
             cands.insert(0, {"op": "extract-payload", "args": {}, "_nested_b64": nested[0]})

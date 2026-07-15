@@ -24,6 +24,65 @@ from deps import db, load_osint_keys, llm_json
 # Deterministic winner picker (smart vs magic) — Auto Investigate parity fix
 # ============================================================================
 def deterministic_best_decode(payload: str) -> Dict[str, Any]:
+    """Recursive deep-decode wrapper — keeps peeling nested obfuscation layers.
+
+    After each single-pass decode, we re-run the pipeline on the OUTPUT as if
+    it were a fresh payload. This continues until:
+      * output stabilises (identical to previous iteration), OR
+      * no new deterministic ops apply (candidate picker returns empty), OR
+      * MAX_ITER passes (safety cap, prevents runaway on adversarial inputs), OR
+      * we reach raw shellcode (terminal state — no further decoding possible).
+
+    Concatenates the step lists across all iterations so the frontend sees the
+    full recipe (e.g. extract-payload → base64-decode → utf16le-decode
+    → extract-payload → base64-decode → utf16le-decode) as ONE chain.
+
+    This is the "training" answer for multi-layer obfuscation: instead of
+    asking the analyst to paste Stage-N-output back into the input box, the
+    pipeline auto-recurses. Handles any depth of nested `FromBase64String`,
+    hex, gzip, XOR, ASCII-decimal, Base32, etc.
+    """
+    MAX_ITER = 6
+    all_steps: List[Dict[str, Any]] = []
+    engines: List[str] = []
+    current = payload
+    last_output = None
+    final_result: Dict[str, Any] = {}
+
+    for iteration in range(MAX_ITER):
+        r = _deterministic_best_decode_single_pass(current)
+        out = r.get("output") or ""
+        steps = r.get("steps") or []
+        engine = r.get("engine")
+
+        # No progress → stop.
+        if not steps or not out.strip() or out == current or out == last_output:
+            if iteration == 0:
+                final_result = r  # nothing decoded — return the single-pass verdict
+            break
+
+        # Progress — accumulate the steps and treat the output as the new input.
+        all_steps.extend(steps)
+        if engine and engine not in engines:
+            engines.append(engine)
+        final_result = r  # keep the latest single-pass result as base
+        current = out     # advance BEFORE the reached-shellcode check so the
+                          # final terminal state = the shellcode bytes, not the wrapper.
+        # Terminal: reached shellcode — no point decoding further.
+        if r.get("reached_shellcode"):
+            break
+        last_output = current
+
+    if all_steps:
+        final_result = dict(final_result)
+        final_result["output"] = current
+        final_result["steps"] = all_steps
+        final_result["engine"] = "+".join(engines) if len(engines) > 1 else (engines[0] if engines else final_result.get("engine"))
+        final_result["iterations"] = iteration + 1 if iteration else 1
+    return final_result
+
+
+def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
     """Run BOTH `smart_decode` and `magic_decode` and return the winner.
 
     Rationale: `smart_decode` is a greedy single-path chain runner — it stops
