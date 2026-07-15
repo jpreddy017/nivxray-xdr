@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel, Field
 
@@ -26,6 +26,9 @@ from deps import db, get_current_user
 from docs import (
     list_features, get_feature, list_workflows, get_workflow,
     search, generate_guide, guide_stats,
+)
+from docs.automation import (
+    coverage_report, scaffold_yaml, suggest_fix, walk_routes,
 )
 from docs.exporters import generate_docx, generate_html
 from docs.pdf_generator import create_user_guide
@@ -594,3 +597,71 @@ async def get_workflow_screenshot(workflow_id: str, filename: str,
         raise HTTPException(404, "screenshot not found")
     media = "image/png" if filename.endswith(".png") else "image/gif"
     return FileResponse(path, media_type=media)
+
+# ============================================================================
+# Documentation Automation — coverage · scaffold · suggest-fix (Phase 6)
+# ============================================================================
+class ScaffoldIn(BaseModel):
+    route_path: str = Field(..., description="Route path, e.g. /api/decode/candidates")
+    method: str = Field("GET", pattern="^(GET|POST|PUT|PATCH|DELETE)$")
+
+
+class SuggestFixIn(BaseModel):
+    page: str = Field(..., description="Feature or workflow id to revise")
+    limit: int = Field(20, ge=1, le=100,
+                        description="How many recent 👎 events to consider")
+
+
+@router.get("/docs/automation/coverage", tags=["docs"])
+async def automation_coverage(request: Request,
+                                user=Depends(get_current_user)):
+    """List every /api/* route with a covered/uncovered YAML flag.
+
+    See `docs.automation.coverage_report` for the matching heuristic
+    (explicit `tags` → path-token windows → feature ids).
+    """
+    return coverage_report(request.app)
+
+
+@router.post("/docs/automation/scaffold", tags=["docs"])
+async def automation_scaffold(body: ScaffoldIn, request: Request,
+                                user=Depends(get_current_user)):
+    """AI-draft a starter feature YAML for an undocumented route."""
+    # Look the route up on the live app so we get the real docstring.
+    hit = None
+    for r in walk_routes(request.app):
+        if r["path"] == body.route_path and r["method"] == body.method.upper():
+            hit = r
+            break
+    if not hit:
+        raise HTTPException(
+            404,
+            f"route not found: {body.method.upper()} {body.route_path}",
+        )
+    return await scaffold_yaml(hit)
+
+
+@router.post("/docs/automation/suggest-fix", tags=["docs"])
+async def automation_suggest_fix(body: SuggestFixIn,
+                                    user=Depends(get_current_user)):
+    """Draft a revised YAML for a docs page based on its recent 👎 feedback."""
+    # Pull the most recent 👎 events for this page.
+    cur = db["learning_events"].find({
+        "event_type": "docs_explain_feedback",
+        "page": body.page,
+        "vote": "down",
+    }).sort("created_at", -1).limit(body.limit)
+    events: List[Dict[str, Any]] = []
+    async for d in cur:
+        events.append({
+            "question": d.get("question"),
+            "reply_snippet": d.get("reply_snippet"),
+            "comment": d.get("comment"),
+            "created_at": d.get("created_at"),
+        })
+
+    result = await suggest_fix(body.page, events)
+    if result.get("error"):
+        raise HTTPException(404, result["error"])
+    return {**result, "negative_event_count": len(events)}
+

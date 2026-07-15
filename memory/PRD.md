@@ -1,7 +1,44 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🛠️ Documentation Generator Phase 5 · CI + Admin Panel)
+## Latest Change (Feb 2026 — 🤖 Documentation Generator Phase 6 · Docs Automation Pipeline)
+
+### Delivered — closed-loop docs automation: coverage · scaffold · suggest-fix
+
+**Backend** — new module `backend/docs/automation.py`:
+- `walk_routes(app)` — extracts every `/api/*` route from the live FastAPI app (path, method, handler, module, tags, docstring)
+- `coverage_report(app)` — matches routes to feature YAMLs via three-tier heuristic (explicit `tags` → path-token windows → single-token component match) and returns `{total_routes, documented_routes, undocumented_routes, coverage_pct, documented_features, undocumented[], sample_covered[]}`
+- `scaffold_yaml(route)` — AI-draft a starter feature YAML for an undocumented route (Claude Sonnet 4.5 via Emergent LLM key with a graceful template fallback)
+- `suggest_fix(page_id, negative_events)` — pulls the page's YAML + recent 👎 events and asks Claude to draft a revised YAML. Template fallback mechanically appends analyst complaints under `common_errors` so nothing is lost.
+
+**New endpoints** (`backend/routers/docs.py`):
+- `GET  /api/docs/automation/coverage`
+- `POST /api/docs/automation/scaffold {route_path, method}` → 404 on unknown route, 422 on bad method
+- `POST /api/docs/automation/suggest-fix {page, limit}` → auto-loads the last N 👎 events for that page
+
+Both AI paths validate the LLM output as parseable YAML with `id`+`title` before accepting; malformed responses degrade to the template branch.
+
+**Frontend** (`components/DocsFeedbackPanel.jsx`):
+- **Coverage badge** in the header: purple pill "COVERAGE 22.6%" with tooltip showing `documented/total /api/* routes mapped to feature YAML`
+- **SUGGEST FIX button** (`✨ FIX`) on every weakest-page row → opens a full-screen modal
+- **Two-pane YAML diff modal** — CURRENT (muted, grey) vs REVISED (mint accent) side-by-side, `[COPY YAML]` copies the revised patch to clipboard
+- Provider + negative-event count annotated in the modal header
+- All `data-testid`s: `docs-feedback-coverage`, `docs-feedback-suggest-fix-{page}`, `docs-feedback-fix-modal`, `docs-feedback-fix-current`, `docs-feedback-fix-revised`, `docs-feedback-fix-copy`, `docs-feedback-fix-close`
+
+**Tests** — `backend/tests/test_docs_automation.py` (11 new, all pass)
+- Coverage: shape, ≥50 routes discovered, ≥10 features indexed
+- Scaffold: known-route returns valid YAML with all required keys; unknown route → 404; bad method → 422
+- Suggest-fix: feature + workflow round-trip, unknown page → 404, limit>100 → 422, template-fallback embeds analyst complaint marker in the revised YAML
+
+Combined docs suite: **89 pass** across 7 test files (generator + pdf + explain-phase2 + rag + extras + feedback-panel + automation).
+
+**Live smoke on `/admin`**: coverage badge shows `22.6%` (35/155 routes mapped to 10 features), all 6 SUGGEST FIX buttons render on the weakest-pages table, modal opens with CURRENT vs REVISED diff and copy button.
+
+**Note**: LLM budget currently exhausted → both AI paths gracefully degrade to the deterministic template fallback in production. When the key has budget, drafts come from Claude Sonnet 4.5.
+
+---
+
+## Previous Change (Feb 2026 — 🛠️ Documentation Generator Phase 5 · CI + Admin Panel)
 
 ### Delivered — automated screenshot CI + admin docs-feedback triage panel
 

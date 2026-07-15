@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ThumbsDown, ThumbsUp, RefreshCw, MessageSquare, ExternalLink } from "lucide-react";
+import { ThumbsDown, ThumbsUp, RefreshCw, MessageSquare, ExternalLink, Sparkles, X, Copy } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "@/lib/api";
 
@@ -14,22 +14,49 @@ export default function DocsFeedbackPanel() {
   const [recent, setRecent] = useState([]);
   const [selectedPage, setSelectedPage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [coverage, setCoverage] = useState(null);
+  const [fixModal, setFixModal] = useState(null); // {page, revised_yaml, current_yaml, provider, notes}
+  const [fixLoading, setFixLoading] = useState(false);
 
   const load = async (pageFilter) => {
     setLoading(true);
     try {
-      const [s, r] = await Promise.all([
+      const [s, r, c] = await Promise.all([
         api.get("/docs/explain/feedback/stats"),
         api.get("/docs/explain/feedback/recent", {
           params: { vote: "down", limit: 20, ...(pageFilter ? { page: pageFilter } : {}) },
         }),
+        api.get("/docs/automation/coverage"),
       ]);
       setStats(s.data);
       setRecent(r.data.events || []);
+      setCoverage(c.data);
     } catch (e) {
       console.error("docs feedback load", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runSuggestFix = async (page) => {
+    setFixLoading(true);
+    setFixModal({ page, loading: true });
+    try {
+      const r = await api.post("/docs/automation/suggest-fix", { page, limit: 20 });
+      setFixModal(r.data);
+    } catch (e) {
+      setFixModal({ page, error: e?.response?.data?.detail || e.message });
+    } finally {
+      setFixLoading(false);
+    }
+  };
+
+  const copyRevised = async () => {
+    if (!fixModal?.revised_yaml) return;
+    try {
+      await navigator.clipboard.writeText(fixModal.revised_yaml);
+    } catch {
+      // Some browsers restrict clipboard access without HTTPS or a user gesture.
     }
   };
 
@@ -56,6 +83,18 @@ export default function DocsFeedbackPanel() {
                 data-testid="docs-feedback-total-down">
             <ThumbsDown size={11} /> {totals.down}
           </span>
+          {coverage && (
+            <span style={{
+                    fontSize: 10, color: "#a78bfa",
+                    display: "flex", alignItems: "center", gap: 4,
+                    padding: "2px 6px", borderRadius: 3,
+                    border: "1px solid rgba(167,139,250,0.25)",
+                  }}
+                  title={`${coverage.documented_routes}/${coverage.total_routes} /api/* routes mapped to a feature YAML`}
+                  data-testid="docs-feedback-coverage">
+              COVERAGE {coverage.coverage_pct}%
+            </span>
+          )}
         </div>
         <button onClick={() => { setSelectedPage(null); load(null); }}
                 disabled={loading}
@@ -85,6 +124,7 @@ export default function DocsFeedbackPanel() {
                   <th style={{ textAlign: "right", padding: "6px 6px", width: 40 }}>👍</th>
                   <th style={{ textAlign: "right", padding: "6px 6px", width: 40 }}>👎</th>
                   <th style={{ textAlign: "right", padding: "6px 10px", width: 50 }}>NET</th>
+                  <th style={{ padding: "6px 6px", width: 60 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -109,6 +149,19 @@ export default function DocsFeedbackPanel() {
                       <td style={{ padding: "6px 10px", textAlign: "right",
                                    color: netColor, fontWeight: 600 }}>
                         {w.net_negative > 0 ? `+${w.net_negative}` : w.net_negative}
+                      </td>
+                      <td style={{ padding: "6px 6px", textAlign: "right" }}
+                          onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => runSuggestFix(w.page)}
+                          disabled={fixLoading}
+                          data-testid={`docs-feedback-suggest-fix-${w.page}`}
+                          className="nvx-btn sm ghost"
+                          title="AI-draft a YAML patch that addresses this page's 👎 events"
+                          style={{ fontSize: 9, padding: "1px 6px",
+                                   display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <Sparkles size={9} /> FIX
+                        </button>
                       </td>
                     </tr>
                   );
@@ -189,6 +242,106 @@ export default function DocsFeedbackPanel() {
           Open Docs <ExternalLink size={10} />
         </Link>
       </div>
+
+      {fixModal && (
+        <SuggestFixModal
+          modal={fixModal}
+          onClose={() => setFixModal(null)}
+          onCopy={copyRevised}
+        />
+      )}
     </section>
+  );
+}
+
+
+function SuggestFixModal({ modal, onClose, onCopy }) {
+  return (
+    <div
+      onClick={onClose}
+      data-testid="docs-feedback-fix-modal"
+      style={{
+        position: "fixed", inset: 0, background: "rgba(2,6,23,0.75)",
+        zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(920px, 92vw)", maxHeight: "88vh", overflow: "auto",
+          background: "#0f172a", border: "1px solid rgba(126,227,201,0.30)",
+          borderRadius: 6, boxShadow: "0 30px 80px rgba(0,0,0,0.6)",
+        }}>
+        <div style={{
+          padding: "14px 20px", borderBottom: "1px solid var(--border)",
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <Sparkles size={14} color="#a78bfa" />
+          <div style={{ color: "#c9d1d9", fontSize: 13, fontWeight: 600 }}>
+            AI-drafted docs patch — <code style={{ color: "#f59e0b" }}>{modal.page}</code>
+          </div>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+            <button
+              className="nvx-btn sm ghost"
+              onClick={onCopy}
+              disabled={!modal.revised_yaml}
+              data-testid="docs-feedback-fix-copy"
+              style={{ fontSize: 10, display: "flex", alignItems: "center", gap: 4 }}>
+              <Copy size={11} /> COPY YAML
+            </button>
+            <button
+              className="nvx-btn sm ghost"
+              onClick={onClose}
+              data-testid="docs-feedback-fix-close"
+              style={{ fontSize: 10 }}>
+              <X size={11} />
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: 14, color: "#c9d1d9" }}>
+          {modal.loading && !modal.error && !modal.revised_yaml && (
+            <div style={{ fontSize: 11, color: "#94a3b8" }}>
+              Drafting … pulling recent 👎 events and consulting the model.
+            </div>
+          )}
+          {modal.error && (
+            <div style={{ fontSize: 11, color: "#f43f5e" }}>
+              {modal.error}
+            </div>
+          )}
+          {modal.notes && (
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 10, fontStyle: "italic" }}>
+              {modal.notes} <span style={{ color: "#a78bfa" }}>(provider: {modal.provider})</span>
+              {typeof modal.negative_event_count === "number" && (
+                <span> · based on {modal.negative_event_count} 👎 events</span>
+              )}
+            </div>
+          )}
+          {modal.revised_yaml && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>CURRENT</div>
+                <pre data-testid="docs-feedback-fix-current"
+                     style={{
+                       margin: 0, padding: 10, background: "rgba(15,23,42,0.7)",
+                       borderRadius: 3, fontSize: 10, color: "#94a3b8",
+                       overflow: "auto", maxHeight: "60vh",
+                     }}>{modal.current_yaml}</pre>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: "#7ee3c9", marginBottom: 4 }}>REVISED</div>
+                <pre data-testid="docs-feedback-fix-revised"
+                     style={{
+                       margin: 0, padding: 10, background: "rgba(15,23,42,0.7)",
+                       borderRadius: 3, fontSize: 10, color: "#c9d1d9",
+                       overflow: "auto", maxHeight: "60vh",
+                       borderLeft: "2px solid #7ee3c9",
+                     }}>{modal.revised_yaml}</pre>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
