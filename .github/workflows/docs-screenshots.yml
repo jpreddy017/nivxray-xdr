@@ -43,16 +43,26 @@ jobs:
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
-          # emergentintegrations lives on a custom PyPI index — without
-          # the extra-index-url flag pip aborts the whole requirements
-          # install (silently) and downstream `import yaml` breaks.
-          pip install -r requirements.txt \
-            --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
-          # Belt-and-suspenders: guarantee the docs-export deps are
-          # present even if some other transitive install failed.
-          pip install pyyaml reportlab svglib markdown python-docx pypdf pillow rank-bm25
-          # Quick diagnostic so future failures are visible in the log.
-          pip list | grep -iE '^(pyyaml|reportlab|svglib|pypdf|python-docx|pillow|rank-bm25)' || true
+          # The docs-export path doesn't need the full runtime — it only
+          # needs YAML config parsing, PDF/HTML/DOCX generation, Playwright,
+          # and a handful of stdlib helpers. Installing the full
+          # requirements.txt pulls in `emergentintegrations` (custom PyPI
+          # index) + `capstone` + `cryptography` etc., which is slow and
+          # brittle inside GitHub Actions. Install the minimal set instead.
+          pip install \
+              pyyaml==6.0.3 \
+              reportlab==4.5.1 \
+              svglib==2.0.2 \
+              markdown==3.10.2 \
+              python-docx==1.1.2 \
+              pypdf==6.14.2 \
+              pillow==12.3.0 \
+              rank-bm25==0.2.2 \
+              playwright==1.48.0 \
+              httpx==0.28.1 \
+              requests==2.32.3
+          # Diagnostic
+          pip list | grep -iE '^(pyyaml|reportlab|svglib|pypdf|python-docx|pillow|rank-bm25|playwright)' || true
 
       - name: Install Playwright browsers
         run: python -m playwright install --with-deps chromium
