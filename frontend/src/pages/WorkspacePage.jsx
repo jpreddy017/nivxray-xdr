@@ -27,6 +27,7 @@ import MoEPanel from "@/components/MoEPanel";
 import InvestigationTimeline from "@/components/InvestigationTimeline";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
+import { splitCommandLines, isMultiCommandInput } from "@/lib/commandSplitter";
 import {
   Play, Zap, Wand2, Wrench, Share2, Download, Upload, Trash2, Copy, Sparkles, X,
 } from "lucide-react";
@@ -312,12 +313,125 @@ export default function WorkspacePage() {
   };
 
 
+  // ─── Multi-command chain routing ─────────────────────────────────────
+  // When the analyst pastes multiple plain-text command lines (e.g. a Lumma
+  // ClickFix sequence, an EDR-bypass chain, a Meterpreter runner), the
+  // top-level AUTO INVESTIGATE / DECODE buttons must NOT flat-decode the
+  // whole blob (that would only pick up line 1). Instead we split into
+  // stages, run /api/decode/chain deterministically per stage, and expose
+  // the AGGREGATE as the top-level Output / Recipe / Attack Graph / KILL
+  // CHAIN so nothing is truncated. The full per-stage drill-down is
+  // rendered by ChainStageEditor which we auto-open below.
+  const runChainAnalysis = async (parts) => {
+    setLoading(true);
+    setStatus(`MULTI-COMMAND CHAIN DETECTED · analysing ${parts.length} stages…`);
+    try {
+      const r = await api.post("/decode/chain", {
+        stages: parts.map((p) => ({ input: p })),
+      });
+      const d = r.data || {};
+      const stages = d.stages || [];
+      const agg = d.aggregate || {};
+
+      // Aggregate confidence: floor of mean per-stage confidence, capped 0–100.
+      const confs = stages.map((s) => s.confidence).filter((c) => Number.isFinite(c));
+      const meanConf = confs.length
+        ? Math.min(100, Math.max(0, Math.round(confs.reduce((a, b) => a + b, 0) / confs.length)))
+        : null;
+      const family = agg.family?.family;
+      const verdict = agg.risk?.verdict;
+
+      // Compose a unified OUTPUT preview — each stage's decoded output with
+      // a small header. Analyst can still drill per-stage in Chain Analysis.
+      const outParts = stages.map((s, i) => {
+        const head = `─── STAGE ${i + 1} · engine=${s.engine || "?"} · conf=${s.confidence ?? "?"}/100 ───`;
+        return `${head}\n${(s.output || "").trim() || "(no additional decode — plain-text command)"}`;
+      });
+      const aggregatedOutput = outParts.join("\n\n");
+
+      // Sync top-level state so OUTPUT / RECIPE / MITRE / IOCs panels all
+      // reflect the AGGREGATE and not just the first line.
+      setOutput(aggregatedOutput);
+      // Recipe: show a synthetic "chain" step-summary so the RECIPE panel
+      // is not empty. Each stage becomes one recipe row.
+      const recipeSteps = stages.map((s) => ({
+        op: `stage-${s.stage_index + 1}`,
+        args: {},
+      }));
+      setSteps(recipeSteps);
+      setChain(stages.map((s) => ({
+        op: `stage-${s.stage_index + 1}`,
+        reason: `${s.engine || "?"} · conf=${s.confidence ?? "?"}/100 · ${(s.input_preview || "").slice(0, 80)}`,
+        output_preview: (s.output || "").slice(0, 200),
+      })));
+      setDecodeTrace(stages.map((s) => ({
+        op: `stage-${s.stage_index + 1}`,
+        args: {},
+        reason: `Stage ${s.stage_index + 1} · engine=${s.engine} · conf=${s.confidence}/100`,
+        output_preview: (s.output || "").slice(0, 400),
+        output_length: s.output_length,
+      })));
+      setDecodeWinnerEngine(`chain (${stages.length} stages)`);
+      setDecodeConfidence(meanConf);
+      setReachedShellcode(stages.some((s) => s.reached_shellcode));
+      setVerdictCard(null);
+      setCorruptedContainer(null);
+
+      // Feed the ATTACK GRAPH / IOC / MITRE panels via the analysis object.
+      setAnalysis({
+        iocs: agg.iocs || {},
+        mitre: agg.mitre || [],
+        lolbins: agg.lolbas || [],   // fallbackGraph reads `lolbins`
+        lolbas: agg.lolbas || [],
+        yara: agg.yara || [],
+        risk: agg.risk || {},
+        family: agg.family || null,
+        ai_verdict: verdict ? {
+          verdict,
+          confidence: agg.risk?.score,
+          summary: `${family ? family + " · " : ""}${stages.length} stages · chain-amplified`,
+        } : null,
+        chain_result: d,    // preserve full response for downstream panels
+        streaming: false,
+      });
+
+      // Auto-open Chain Mode so the per-stage drill-down UI is visible.
+      const stageSeeds = stages.map((s) => ({
+        input: s.input_preview && !s.input_preview.endsWith("…")
+          ? s.input_preview : (parts[s.stage_index] || ""),
+      }));
+      setPendingChainStages(stageSeeds);
+      setChainEditorKey((k) => k + 1);
+      setChainOpen(true);
+
+      setStatus(
+        `CHAIN COMPLETE · ${stages.length} stages · ${verdict || "unknown"}` +
+        (family ? ` · ${family}` : "") +
+        (meanConf != null ? ` · avg ${meanConf}%` : "")
+      );
+      setPasteHint(null);
+      return d;
+    } catch (e) {
+      setStatus("CHAIN ERROR: " + (e?.response?.data?.detail || e.message));
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   // ─── ONE-BUTTON orchestrator ─────────────────────────────────────────
   // Auto-runs: (1) archetype/boost/deterministic via Smart Decode, then
   //           (2) AI fallback (Auto Investigate) if confidence < 40.
   // Fires a live trace so the analyst sees exactly what happened.
   const nivxrayDecode = async () => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
+    // Multi-command chain? Route to /decode/chain so all stages are analysed.
+    const parts = splitCommandLines(input);
+    if (parts && parts.length > 1) {
+      await runChainAnalysis(parts);
+      return;
+    }
     const trace = [];
     setNivxrayTrace(trace);
     setStatus("NIVXRAY DECODE — DETERMINISTIC + BOOST…");
@@ -389,6 +503,12 @@ export default function WorkspacePage() {
 
   const autoDecode = async ({ smart = false, disable_boost = false } = {}) => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
+    // Multi-command chain? Route to /decode/chain (both smart and AI paths).
+    const parts = splitCommandLines(input);
+    if (parts && parts.length > 1) {
+      await runChainAnalysis(parts);
+      return;
+    }
     setLoading(true);
     setStatus(smart ? "SMART-DECODING (DETERMINISTIC)..." : "AI AUTO-DECODING...");
     try {
@@ -582,6 +702,13 @@ export default function WorkspacePage() {
 
   const autoInvestigate = async () => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
+    // Multi-command chain? Route to /decode/chain so every stage's IOCs /
+    // MITRE / LOLBAS reach the top-level Attack Graph & Kill Chain.
+    const parts = splitCommandLines(input);
+    if (parts && parts.length > 1) {
+      await runChainAnalysis(parts);
+      return;
+    }
     streamStopRef.current?.();
     setLoading(true); setAnalyzing(true);
     setTacticFilter(null);

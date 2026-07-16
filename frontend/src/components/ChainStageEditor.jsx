@@ -13,54 +13,9 @@
 import { useState, useMemo } from "react";
 import { Plus, X, Play, Sparkles, Download, FileText, ChevronDown, ChevronRight, AlertTriangle, Scissors } from "lucide-react";
 import api, { apiStream } from "../lib/api";
+import { splitCommandLines } from "../lib/commandSplitter";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
-
-// ── Command-line splitter ────────────────────────────────────────
-// Recognises the head token of a line as a known shell / LOLBAS /
-// scripting keyword so we can safely split single-newline pastes
-// into separate stages without needing the user to add blank lines.
-const _CMD_HEADS = [
-  "powershell", "pwsh", "cmd", "cmd.exe",
-  "certutil", "mshta", "rundll32", "regsvr32", "regsvcs", "regasm",
-  "msiexec", "installutil", "bitsadmin", "wmic", "wscript", "cscript",
-  "schtasks", "at.exe", "sc.exe", "netsh", "net.exe", "net ",
-  "curl", "wget", "iwr", "iex", "invoke-expression", "invoke-webrequest",
-  "start-process", "start ", "cmdkey", "runas",
-  "bash", "sh ", "python", "python3", "perl", "ruby", "node",
-  "vssadmin", "wbadmin", "bcdedit", "reg add", "reg delete",
-  "esentutl", "diskshadow", "dnx", "dotnet", "dxcap",
-];
-
-function _looksLikeCommand(line) {
-  const t = line.trim().toLowerCase();
-  if (!t || t.length > 4000) return false;
-  // Skip obvious continuation / comment / prompt lines.
-  if (/^([#;>]|::|rem\s|\/\/)/.test(t)) return false;
-  return _CMD_HEADS.some((h) => t.startsWith(h));
-}
-
-/**
- * Split a multi-line blob into separate command lines. Returns null when
- * the blob is a single logical statement (< 2 lines OR only one line
- * looks command-like).
- */
-function splitCommandLines(text) {
-  if (!text || !text.includes("\n")) return null;
-  // Fast path — blank-line delimited.
-  const blankSplit = text.split(/\n\s*\n+/).map((p) => p.trim()).filter(Boolean);
-  if (blankSplit.length > 1) return blankSplit;
-  // Heuristic path — every non-continuation line looks like a command.
-  const lines = text.split(/\r?\n/).map((l) => l.replace(/[\t ]+$/g, ""))
-                     .filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return null;
-  const cmdCount = lines.filter(_looksLikeCommand).length;
-  // Require ≥ 2 command-lookalikes AND at least half the lines qualify.
-  if (cmdCount >= 2 && cmdCount / lines.length >= 0.5) {
-    return lines;
-  }
-  return null;
-}
 
 export default function ChainStageEditor({ seedInput, onSeedConsumed, initialStages }) {
   const [stages, setStages] = useState(() => {
