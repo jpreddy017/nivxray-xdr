@@ -1,32 +1,43 @@
 id: payload_hex_shellcode
 title: Payload Example · Hex-Encoded Shellcode Blob
-purpose: Long strings of hex-pair octets (e.g., `\\x90\\x90\\x90...`) are a common shellcode delivery format. NivXRay detects hex, decodes to raw bytes, then inspects entropy and PE/ELF signatures to classify.
+purpose: Long strings of hex-pair octets (e.g., `\\x90\\x90\\x90...`) are a common
+  shellcode delivery format. NivXRay detects hex, decodes to raw bytes, then inspects
+  entropy and PE/ELF signatures to classify.
 steps:
-  - title: The raw command
-    action: |
-      Paste: 4d5a90000300000004000000ffff0000b800000000000000400000000000000000
-      (Truncated MZ/PE header — real samples are much longer.)
-    expected: Magic hint reads "Hex string". Byte count reflects the exact half-length of the input.
-  - title: MAGIC DECODE (deterministic-only)
-    action: Click MAGIC DECODE. Fully deterministic — no LLM in the loop.
-    expected: "OUTPUT panel shows the raw bytes. The file-signature detector adds a PE-header chip (MZ magic)."
-  - title: Verdict — Suspicious
-    action: Look at the verdict card.
-    expected: Verdict = **Suspicious** (binary content that wasn't expected in this context). MITRE = T1027 (Obfuscated Files or Information) + T1055 (Process Injection).
-  - title: Copy as base64 for handoff
-    action: In the OUTPUT panel, switch to Base64 view. Copy for pasting into a sandbox.
-    expected: Base64-encoded bytes appear in a copyable pre block.
-related_features: [candidate_explorer, threat_intel_enrichment]
+- title: The raw command
+  action: 'Paste: 4d5a90000300000004000000ffff0000b800000000000000400000000000000000
 
+    (Truncated MZ/PE header — real samples are much longer.)
+
+    '
+  expected: Magic hint reads "Hex string". Byte count reflects the exact half-length
+    of the input.
+- title: MAGIC DECODE (deterministic-only)
+  action: Click MAGIC DECODE. Fully deterministic — no LLM in the loop.
+  expected: OUTPUT panel shows the raw bytes. The file-signature detector adds a PE-header
+    chip (MZ magic).
+- title: Verdict — Suspicious
+  action: Look at the verdict card.
+  expected: Verdict = **Suspicious** (binary content that wasn't expected in this
+    context). MITRE = T1027 (Obfuscated Files or Information) + T1055 (Process Injection).
+- title: Copy as base64 for handoff
+  action: In the OUTPUT panel, switch to Base64 view. Copy for pasting into a sandbox.
+  expected: Base64-encoded bytes appear in a copyable pre block.
+related_features:
+- candidate_explorer
+- threat_intel_enrichment
 capture:
   login: true
   steps:
-    - url: /workspace
-      wait_for: '[data-testid="input-textarea"]'
-      type_into:
-        selector: '[data-testid="input-textarea"]'
-        text: 4d5a90000300000004000000ffff0000b800000000000000400000000000000000
-      click_before: '[data-testid="btn-nivxray-decode"]'
-      delay_ms: 4000
-      post_click_ms: 5000
-      full_page: true
+  - url: /workspace
+    wait_for: '[data-testid="input-textarea"]'
+    type_into:
+      selector: '[data-testid="input-textarea"]'
+      text: 4d5a90000300000004000000ffff0000b800000000000000400000000000000000
+    click_before: '[data-testid="btn-nivxray-decode"]'
+    delay_ms: 4000
+    post_click_ms: 6000
+    selectors:
+    - '[data-testid="input-card"]'
+    - '[data-testid="output-card"]'
+    - '[data-testid="threat-analysis-panel"]'

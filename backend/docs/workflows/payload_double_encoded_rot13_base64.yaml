@@ -1,42 +1,49 @@
 id: payload_double_encoded_rot13_base64
 title: Payload Example · Double-Encoded (ROT13 + Base64)
-purpose: Adversaries sometimes chain two cheap encodings (ROT13 → Base64) to hide from single-shot decoders. NivXRay's recursive Candidate Explorer catches this by scoring every candidate at each stage.
+purpose: Adversaries sometimes chain two cheap encodings (ROT13 → Base64) to hide
+  from single-shot decoders. NivXRay's recursive Candidate Explorer catches this by
+  scoring every candidate at each stage.
 steps:
-  - title: The raw command
-    action: |
-      Paste this Base64 blob (which ROT13-decodes to a URL):
-      cGVyZ2N4Ly9uYWlpaWkuYy1yaWZlLmJ2eS90b2NyLnpycmZzZW56rQ==
-      Note the trailing rQ== is intentional junk — real samples often have padding weirdness.
-    expected: Magic hint reads "Base64". You paste and NivXRay's engine starts scoring.
-  - title: NIVXRAY DECODE (recursive)
-    action: Click NIVXRAY DECODE. The engine peels Base64, then notices the result "cerg" / "irysnp"-shaped tokens are ROT13-consistent, and applies ROT13 next.
-    expected: "OUTPUT = pergc//naiiii.c-rifely/tocre.zrrfsenz → after ROT13 → certc//naveee.p-verse.by/toce.smmerns (a plausible URL/domain). Chain = 2 stages, Base64 then ROT13."
-  - title: Open the Candidate Explorer
-    action: Toggle SHOW CANDIDATE EXPLORER.
-    expected: The winning chain is `base64_decode → rot13`, but the panel shows why single-shot ROT13 and single-shot Base64 lost (low linguistic score, non-printable ratio).
-  - title: Correct if the answer looks wrong
-    action: If NivXRay picked the wrong ROT-N variant, click CORRECT THIS.
-    expected: Correction modal opens with the winning chain pre-populated. Save the truth and (optionally) promote to the regression corpus.
-related_features: [candidate_explorer, base64_decode, rot13, correction_flow]
+- title: The raw command
+  action: 'Paste this Base64 blob (which ROT13-decodes to a URL):
 
+    cGVyZ2N4Ly9uYWlpaWkuYy1yaWZlLmJ2eS90b2NyLnpycmZzZW56rQ==
+
+    Note the trailing rQ== is intentional junk — real samples often have padding weirdness.
+
+    '
+  expected: Magic hint reads "Base64". You paste and NivXRay's engine starts scoring.
+- title: NIVXRAY DECODE (recursive)
+  action: Click NIVXRAY DECODE. The engine peels Base64, then notices the result "cerg"
+    / "irysnp"-shaped tokens are ROT13-consistent, and applies ROT13 next.
+  expected: OUTPUT = pergc//naiiii.c-rifely/tocre.zrrfsenz → after ROT13 → certc//naveee.p-verse.by/toce.smmerns
+    (a plausible URL/domain). Chain = 2 stages, Base64 then ROT13.
+- title: Open the Candidate Explorer
+  action: Toggle SHOW CANDIDATE EXPLORER.
+  expected: The winning chain is `base64_decode → rot13`, but the panel shows why
+    single-shot ROT13 and single-shot Base64 lost (low linguistic score, non-printable
+    ratio).
+- title: Correct if the answer looks wrong
+  action: If NivXRay picked the wrong ROT-N variant, click CORRECT THIS.
+  expected: Correction modal opens with the winning chain pre-populated. Save the
+    truth and (optionally) promote to the regression corpus.
+related_features:
+- candidate_explorer
+- base64_decode
+- rot13
+- correction_flow
 capture:
   login: true
   steps:
-    - url: /workspace
-      wait_for: '[data-testid="input-textarea"]'
-      type_into:
-        selector: '[data-testid="input-textarea"]'
-        text: cGVyZ2N4Ly9uYWlpaWkuYy1yaWZlLmJ2eS90b2NyLnpycmZzZW56rQ==
-      click_before: '[data-testid="btn-nivxray-decode"]'
-      delay_ms: 4000
-      post_click_ms: 5000
-      full_page: true
-    - url: /workspace
-      wait_for: '[data-testid="input-textarea"]'
-      type_into:
-        selector: '[data-testid="input-textarea"]'
-        text: cGVyZ2N4Ly9uYWlpaWkuYy1yaWZlLmJ2eS90b2NyLnpycmZzZW56rQ==
-      click_before: '[data-testid="toggle-candidate-explorer"]'
-      delay_ms: 4500
-      post_click_ms: 4000
-      full_page: true
+  - url: /workspace
+    wait_for: '[data-testid="input-textarea"]'
+    type_into:
+      selector: '[data-testid="input-textarea"]'
+      text: cGVyZ2N4Ly9uYWlpaWkuYy1yaWZlLmJ2eS90b2NyLnpycmZzZW56rQ==
+    click_before: '[data-testid="btn-nivxray-decode"]'
+    delay_ms: 4000
+    post_click_ms: 6000
+    selectors:
+    - '[data-testid="input-card"]'
+    - '[data-testid="output-card"]'
+    - '[data-testid="threat-analysis-panel"]'

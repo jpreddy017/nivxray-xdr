@@ -110,28 +110,123 @@ async def _run_step(page, base_url: str, step_cfg: Dict[str, Any],
     if step_cfg.get("click_before"):
         try:
             await page.click(step_cfg["click_before"], force=True, timeout=6000)
-            # Give the button-driven action time to render before we shoot.
             await page.wait_for_timeout(step_cfg.get("post_click_ms", 1200))
         except Exception as e:
             print(f"[warn] click_before failed: {e}", file=sys.stderr)
 
-    selector = step_cfg.get("selector")
-    kwargs: Dict[str, Any] = {"path": str(out_path), "type": "png"}
-    if not selector:
-        kwargs["full_page"] = bool(step_cfg.get("full_page", False))
-        await page.screenshot(**kwargs)
-    else:
-        try:
-            el = await page.query_selector(selector)
-            if el:
-                await el.screenshot(path=str(out_path), type="png")
-            else:
-                kwargs["full_page"] = bool(step_cfg.get("full_page", False))
-                await page.screenshot(**kwargs)
-        except Exception:
-            await page.screenshot(**kwargs)
+    # Multi-region capture — one PNG per selector, suffixed by letter.
+    selectors_multi = step_cfg.get("selectors")
+    captured_any_region = False
+    if selectors_multi and isinstance(selectors_multi, list):
+        stem = out_path.stem
+        parent = out_path.parent
+        letters = "abcdefghij"
+        for i, sel in enumerate(selectors_multi):
+            sub = parent / f"{stem}_{letters[i]}.png"
+            try:
+                el = await page.query_selector(sel)
+                if el:
+                    await el.screenshot(path=str(sub), type="png")
+                    if sub.exists():
+                        _trim_trailing_dark(sub)
+                        captured_any_region = True
+                else:
+                    print(f"[warn] selector not found: {sel}", file=sys.stderr)
+            except Exception as e:
+                print(f"[warn] region {sel} failed: {e}", file=sys.stderr)
 
-    return out_path.exists()
+    # Base shot — skip only if multi-region succeeded.
+    if not captured_any_region:
+        selector = step_cfg.get("selector")
+        kwargs: Dict[str, Any] = {"path": str(out_path), "type": "png"}
+        if not selector:
+            kwargs["full_page"] = bool(step_cfg.get("full_page", False))
+            await page.screenshot(**kwargs)
+        else:
+            try:
+                el = await page.query_selector(selector)
+                if el:
+                    await el.screenshot(path=str(out_path), type="png")
+                else:
+                    kwargs["full_page"] = bool(step_cfg.get("full_page", False))
+                    await page.screenshot(**kwargs)
+            except Exception:
+                await page.screenshot(**kwargs)
+        if out_path.exists():
+            _trim_trailing_dark(out_path)
+
+    # ── Tab cycler ── click each Threat-Analysis tab and screenshot
+    # the panel so the PDF/HTML ends up with dedicated GRAPH / FLOW /
+    # CHAIN / MITRE / IOCS pictures instead of just whichever tab was
+    # active when the base shot fired.
+    tabs = step_cfg.get("tabs")
+    if tabs and isinstance(tabs, list):
+        stem = out_path.stem
+        parent = out_path.parent
+        panel_sel = step_cfg.get("tab_panel_selector",
+                                  '[data-testid="threat-analysis-panel"]')
+        for t in tabs:
+            tid = t if isinstance(t, str) else t.get("testid")
+            if not tid:
+                continue
+            wait_ms = 900 if isinstance(t, str) else int(t.get("wait_ms", 900))
+            try:
+                await page.click(f'[data-testid="{tid}"]', force=True, timeout=4000)
+                await page.wait_for_timeout(wait_ms)
+                panel = await page.query_selector(panel_sel)
+                if panel:
+                    tab_shot = parent / f"{stem}_tab_{tid.replace('tab-', '')}.png"
+                    await panel.screenshot(path=str(tab_shot), type="png")
+                    if tab_shot.exists():
+                        _trim_trailing_dark(tab_shot)
+            except Exception as e:
+                print(f"[warn] tab {tid} failed: {e}", file=sys.stderr)
+
+    return out_path.exists() or captured_any_region
+
+
+def _trim_trailing_dark(png_path: Path,
+                          dark_threshold: int = 30,
+                          content_ratio_threshold: float = 0.02) -> None:
+    """Trim trailing rows of the PNG that are ~solid dark in the CENTRE strip.
+
+    We only look at the middle 60% of each row (skip the ops sidebar on the
+    left and the empty margin on the right) so that a fully-populated
+    sidebar doesn't hide the fact that the analyst-facing OUTPUT region is
+    empty. Stops the moment we hit real content — graphs, chain view, or
+    threat-analysis widgets are preserved.
+    """
+    try:
+        from PIL import Image
+    except Exception:
+        return
+    try:
+        img = Image.open(png_path).convert("L")
+        w, h = img.size
+        pixels = img.load()
+        col_start = int(w * 0.20)   # skip the ~20 % ops sidebar on the left
+        col_end   = int(w * 0.80)   # skip the ~20 % blank margin on the right
+        step = 4
+        last_content = 0
+        for y in range(h - 1, -1, -1):
+            samples = 0
+            bright = 0
+            for x in range(col_start, col_end, step):
+                samples += 1
+                if pixels[x, y] > dark_threshold:
+                    bright += 1
+            if samples and (bright / samples) > content_ratio_threshold:
+                last_content = y
+                break
+        # Add ~30 px padding so the last widget's descender isn't clipped.
+        crop_h = min(h, last_content + 30)
+        if h - crop_h < 64:
+            return
+        img_full = Image.open(png_path)
+        img_full.crop((0, 0, w, crop_h)).save(png_path, format="PNG", optimize=True)
+    except Exception as e:
+        print(f"[warn] trim_trailing_dark failed for {png_path.name}: {e}",
+              file=sys.stderr)
 
 
 async def capture_workflow(base_url: str, email: str, password: str,

@@ -1,7 +1,36 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 📄 User Guide Phase 3 · Cheat Sheets + CI Refresh + Full Coverage)
+## Latest Change (Feb 2026 — ✂️ Screenshot Trim + Per-Tab GRAPH/FLOW/CHAIN Captures)
+
+### Delivered
+
+**A. Auto-trim trailing dark rows in every capture**
+- `capture_docs_screenshots.py :: _trim_trailing_dark()` post-processes every PNG with Pillow, cropping from the bottom up until it hits a row with real content in the centre 60 % (skipping the left ops sidebar so a full column of text doesn't mask an empty OUTPUT card)
+- Retroactively cropped all existing screenshots: **21 MB → 12 MB (42 % smaller)** — 24 files trimmed
+- The user's original complaint (huge black canvas below OUTPUT) is gone
+
+**B. Multi-region capture per step (`selectors:` list)**
+- Any step can now declare a `selectors:` array — the script produces one PNG per region (`step_1_a.png`, `step_1_b.png`, `step_1_c.png`)
+- Rewrote every high-value feature/workflow YAML (14 files) to use 3-region capture: `input-card` · `output-card` · `threat-analysis-panel`
+- Solves "one wide shot with an empty middle" — the docs now render each pane as its own dense, readable picture
+
+**C. Per-tab GRAPH · FLOW · CHAIN · MITRE captures (`tabs:` list)**
+- New `tabs: [...]` block on a step — cycles through each Threat-Analysis tab, clicking + waiting + screenshotting the panel per tab
+- Added to the 4 flagship workflows (`ui_reference`, `workspace_tour`, `payload_encoded_powershell_download`, `payload_certutil_dropper`)
+- Produces `step_1_tab_graph.png`, `step_1_tab_flow.png`, `step_1_tab_chain.png`, `step_1_tab_mitre.png`, `step_1_tab_lolbas.png`, `step_1_tab_iocs.png`, `step_1_tab_ti-hits.png`, `step_1_tab_osint.png`
+- Verified: each tab shot is a dense, focused picture (e.g. GRAPH tab shows the full 4-node investigation graph with legend chips)
+
+**Result**
+- **11 pictures per flagship workflow** now (3 region + 8 tab)
+- Full-guide PDF: **15 MB → 7 MB** (trimmed screenshots + no empty pages)
+- All PDF references embed real, meaningful content — GRAPH, MITRE, LOLBAS, IOCS, FLOW, CHAIN each get their own dedicated screenshot
+
+**Tested:** 14/14 PDF tests + all extras tests green.
+
+---
+
+## Previous Change (Feb 2026 — 📄 User Guide Phase 3 · Cheat Sheets + CI Refresh + Full Coverage)
 
 ### 1. Per-payload/per-feature cheat sheet export
 

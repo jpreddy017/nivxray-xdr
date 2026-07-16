@@ -439,6 +439,61 @@ async def export_cheatsheet(
     )
 
 
+@router.get("/docs/cheatsheet-bundle", tags=["docs"])
+async def export_cheatsheet_bundle(
+    fmt: str = Query("pdf", pattern="^(pdf|html)$"),
+    audience: Optional[str] = Query(None, pattern="^(user|admin|developer|all)$"),
+):
+    """One ZIP containing every cheat sheet — onboarding kit / SOC pack.
+
+    Optional `audience` filter narrows the feature set (workflows are
+    always included). Publicly accessible for the same reason as the
+    per-doc cheatsheet endpoint.
+    """
+    import io as _io
+    import zipfile as _zip
+    feats = list_features(audience=None if not audience or audience == "all" else audience)
+    wfs = list_workflows()
+
+    buf = _io.BytesIO()
+    with _zip.ZipFile(buf, "w", compression=_zip.ZIP_DEFLATED) as z:
+        # Consistent directory layout for easy printing/imports
+        for f in feats:
+            fid = f.get("id")
+            if not fid:
+                continue
+            data = (generate_cheatsheet_pdf(fid) if fmt == "pdf"
+                    else generate_cheatsheet_html(fid).encode("utf-8"))
+            z.writestr(f"features/{fid}-cheatsheet.{fmt}", data)
+        for w in wfs:
+            wid = w.get("id")
+            if not wid:
+                continue
+            data = (generate_cheatsheet_pdf(wid) if fmt == "pdf"
+                    else generate_cheatsheet_html(wid).encode("utf-8"))
+            z.writestr(f"workflows/{wid}-cheatsheet.{fmt}", data)
+        # Small README so recipients know what they're looking at
+        readme = (
+            "NivXRay Cheat-Sheet Bundle\n"
+            "==========================\n\n"
+            f"Format: {fmt.upper()}\n"
+            f"Features: {len(feats)}   Workflows: {len(wfs)}\n"
+            f"Audience filter: {audience or 'none'}\n\n"
+            "Layout:\n"
+            "  features/*-cheatsheet.<fmt>   — one file per decoder/analysis module\n"
+            "  workflows/*-cheatsheet.<fmt>  — one file per analyst workflow\n"
+            "\nRegenerate anytime via GET /api/docs/cheatsheet-bundle?fmt={pdf|html}\n"
+        )
+        z.writestr("README.txt", readme)
+
+    filename = f"nivxray-cheatsheets-{fmt}{('-' + audience) if audience else ''}.zip"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/docs/search", tags=["docs"])
 async def search_endpoint(q: str = "", user=Depends(get_current_user)):
     return search(q)

