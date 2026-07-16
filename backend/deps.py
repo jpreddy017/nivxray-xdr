@@ -34,7 +34,13 @@ ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 EMERGENT_LLM_KEY = os.environ["EMERGENT_LLM_KEY"]
 
 JWT_ALG = "HS256"
-JWT_EXPIRE_HOURS = 24 * 7
+# Configurable via env — defaults to 24 h. Post-Feb-2026 security audit
+# (SEC-002) shortened this from 7 days → 24 h.
+JWT_EXPIRE_HOURS = int(os.environ.get("JWT_EXPIRE_HOURS", "24"))
+# When true, the seeded admin user is created with must_change_password=True
+# so the first-boot password (or any rotation) must be replaced before the
+# admin can call any authenticated route other than /api/auth/change-password.
+_ADMIN_FORCE_PW_CHANGE = os.environ.get("ADMIN_FORCE_PASSWORD_CHANGE", "false").lower() in ("1", "true", "yes")
 
 # --- Global singletons -------------------------------------------------- #
 client = AsyncIOMotorClient(MONGO_URL)
@@ -74,6 +80,32 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(securit
     user = await db.users.find_one({"email": email}, {"_id": 0, "password": 0})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    # Force password change gate — 428 signals the client to redirect to
+    # the change-password modal before making any other authenticated
+    # request. The change-password endpoint itself uses `get_current_user_raw`
+    # (defined below) which bypasses this gate.
+    if user.get("must_change_password"):
+        raise HTTPException(status_code=428, detail="password_change_required")
+    return user
+
+
+async def get_current_user_raw(creds: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+    """Same as ``get_current_user`` but SKIPS the must_change_password gate.
+
+    Only the change-password endpoint should use this dependency. Every
+    other authenticated route MUST use ``get_current_user`` so a stale
+    session can't touch data before rotating a compromised password.
+    """
+    try:
+        payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=[JWT_ALG])
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user = await db.users.find_one({"email": email}, {"_id": 0, "password": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
     return user
 
 
@@ -84,6 +116,16 @@ async def require_admin(user=Depends(get_current_user)) -> Dict[str, Any]:
 
 
 async def seed_admin(logger) -> None:
+    """Idempotent admin seed — only creates the admin when missing.
+
+    Feb-2026 (SEC-001): NEVER re-set the password on an existing admin
+    account (the previous implementation didn't re-set either — this
+    docstring makes the guarantee explicit). If the environment carries
+    `ADMIN_FORCE_PASSWORD_CHANGE=true`, the seeded user is marked with
+    `must_change_password=True` so the first login is forced through
+    `/api/auth/change-password` before any other authenticated route
+    can be used.
+    """
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if existing:
         return
@@ -91,9 +133,13 @@ async def seed_admin(logger) -> None:
         "email": ADMIN_EMAIL,
         "password": hash_password(ADMIN_PASSWORD),
         "role": "admin",
+        "must_change_password": _ADMIN_FORCE_PW_CHANGE,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
-    logger.info(f"Seeded admin user: {ADMIN_EMAIL}")
+    logger.info(
+        f"Seeded admin user: {ADMIN_EMAIL} "
+        f"(must_change_password={_ADMIN_FORCE_PW_CHANGE})"
+    )
 
 
 # --- Settings ----------------------------------------------------------- #

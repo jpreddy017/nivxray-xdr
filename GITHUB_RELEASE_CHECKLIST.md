@@ -18,8 +18,16 @@ Confirm the GH Actions workflow secrets are configured. Repo → **Settings**
 | Secret | Value |
 | --- | --- |
 | `NIVXRAY_BASE_URL` | `https://nivxray.nivxforge.com` (your prod host) |
-| `NIVXRAY_ADMIN_EMAIL` | `admin@nivxray.com` |
-| `NIVXRAY_ADMIN_PASSWORD` | `NivXRay#2026!` |
+| `NIVXRAY_ADMIN_EMAIL` | your admin email (deploy-specific, do NOT commit) |
+| `NIVXRAY_ADMIN_PASSWORD` | your admin password (deploy-specific, do NOT commit) |
+
+> ⚠️ **Never commit admin credentials to this file or any repo file.**
+> Generate a fresh strong password per deployment (`python -c 'import
+> secrets; print(secrets.token_urlsafe(18))'`) and store it ONLY in the
+> Actions Secret store above. The seeded admin is created with
+> `must_change_password=true` when `ADMIN_FORCE_PASSWORD_CHANGE=true` is
+> set in the backend `.env`, so the first login is forced to rotate the
+> password before any other API call succeeds.
 
 Optional (only needed if the workflow reads prod Mongo):
 

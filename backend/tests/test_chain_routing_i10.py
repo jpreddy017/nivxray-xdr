@@ -19,7 +19,7 @@ IEX $r.ReadToEnd();"""
 
 def _login():
     r = requests.post(f"{BASE_URL}/api/auth/login", json={
-        "email": "admin@nivxray.com", "password": "NivXRay#2026!"
+        "email": "admin@nivxray.com", "password": "uulVDp5cCSB3Hva99s7UUAwK"
     }, timeout=30)
     assert r.status_code == 200, r.text
     j = r.json()

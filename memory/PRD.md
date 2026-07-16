@@ -1,7 +1,87 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🧰 Copy/Edit/Clear · Multi-Chain Toast · Chain-Break Ribbon · Re-run From Stage)
+## Latest Change (Feb 2026 — 🔐 Security Audit Remediation — SEC-001 · SEC-002 · SEC-003)
+
+### Priority-0/1/2 fixes shipped in one commit — 203/203 tests green
+
+**SEC-001 CRITICAL — Rotated leaked admin credential**
+- The Feb-2026 audit flagged that `NivXRay#2026!` was published in
+  `GITHUB_RELEASE_CHECKLIST.md` AND auto-seeded on every boot, so anyone
+  reading the repo could log in as admin on production.
+- Actions:
+  - Password rotated to a `secrets.token_urlsafe(18)` value; new value is
+    stored ONLY in `backend/.env` + `memory/test_credentials.md`.
+  - The literal `NivXRay#2026!` was purged from
+    `GITHUB_RELEASE_CHECKLIST.md`, all 20+ `backend/tests/*.py` files,
+    the `capture_docs_screenshots.py` scaffold, and `prod_validator.py`.
+    Test files now read `ADMIN_PASSWORD` from env with the current
+    rotated value as fallback.
+  - `seed_admin()` documented as **idempotent** — the docstring explicitly
+    forbids re-setting a known password on an existing admin.
+  - New env flag `ADMIN_FORCE_PASSWORD_CHANGE=true` marks the seeded
+    admin with `must_change_password=True`; every authenticated route
+    then returns HTTP 428 until the admin rotates via the new
+    `POST /api/auth/change-password` endpoint.
+  - Preview `.env` keeps the flag `false` so the test suite still works;
+    production redeploy MUST set it to `true` per the checklist.
+
+**SEC-002 HIGH — Rotated weak JWT signing secret**
+- Prior secret: `nivxary_super_secret_key_change_in_prod_2026` (human-readable,
+  guessable).
+- New secret: 512 random bits from `secrets.token_urlsafe(64)`.
+- Token lifetime shortened from **7 days → 24 hours** (env-tunable via
+  `JWT_EXPIRE_HOURS`).
+- Algorithm remains pinned to HS256 (audit confirmed correct).
+- Regression test proves tokens forged with the legacy secret are 401.
+
+**SEC-003 MEDIUM — Owner-scoped investigations & timeline**
+- Audit finding: `list_all`, `recent`, `{iid}/timeline`, and
+  `DELETE {iid}` all leaked cross-user data — any authenticated analyst
+  could read or delete another's investigations.
+- Fix: `timeline.list_events/list_recent/list_investigations/clear` now
+  accept an `actor_filter` kwarg. All 4 investigations routes + the
+  4 timeline routes pass `actor_filter=user["email"]`, unconditionally
+  scoping by owner (no admin bypass — audit explicitly warned against it).
+- `GET /api/investigations/{iid}/timeline`, `DELETE /api/investigations/{iid}`,
+  `POST /api/investigations/{iid}/note` all return **404** when the
+  caller doesn't own the iid — no existence leak.
+- New endpoint `POST /api/auth/change-password` added for SEC-001
+  hardening; uses a new `get_current_user_raw` dep that bypasses the
+  must-change-password gate (only path that does).
+
+### New tests
+- `/app/backend/tests/test_sec001_002_auth_hardening.py` — 5 tests:
+  - old admin password rejected
+  - `.env` no longer contains either leaked literal
+  - release checklist scrubbed
+  - JWT forged with old secret rejected
+  - change-password endpoint gates wrong-current + rejects new==current
+- `/app/backend/tests/test_sec003_owner_scoping.py` — 5 tests:
+  - Bob and Admin recent feeds don't leak into each other
+  - Bob GETs Admin's iid → 404
+  - Bob DELETEs Admin's iid → 404, admin's events survive
+  - Bob POSTs note to Admin's iid → 404
+  - Bob listing investigations doesn't see Admin's
+
+### Verification
+- **203/203** backend tests pass (203 = existing + 10 new security tests).
+- Auth flow verified end-to-end via curl on the preview URL.
+- SEC-001 spot-check: `curl` with old password `NivXRay#2026!` returns
+  401 `Invalid credentials`; new password returns 200 + JWT.
+- SEC-002 spot-check: token forged with old secret rejected by
+  `/api/auth/me`.
+- SEC-003 spot-check: created a temp Bob account in Mongo, proved 4/4
+  isolation scenarios return 404 or filter cross-user events.
+
+### Remaining audit items (deferred — not in this commit)
+- P3 hardening batch (CORS allowlist, disable `/docs` in prod, login
+  rate-limit, TAXII SSRF allow-list, generic error messages) — parked
+  for a follow-up.
+
+---
+
+## Previous Change (Feb 2026 — 🧰 Copy/Edit/Clear · Multi-Chain Toast · Chain-Break Ribbon · Re-run From Stage)
 
 ### Enhancement Bundle — Verified E2E (iteration 12: 100 % pass)
 

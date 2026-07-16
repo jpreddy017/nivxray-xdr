@@ -24,7 +24,7 @@ with open("/app/frontend/.env") as f:
 assert BASE_URL, "REACT_APP_BACKEND_URL missing"
 
 ADMIN_EMAIL = "admin@nivxray.com"
-ADMIN_PASSWORD = "NivXRay#2026!"
+ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
 
 
 # The exact 6-stage chain from the user's Feb-2026 report — 11 raw lines

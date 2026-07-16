@@ -44,7 +44,7 @@ def _load_base_url():
 
 BASE_URL = _load_base_url()
 ADMIN_EMAIL = "admin@nivxray.com"
-ADMIN_PASSWORD = "NivXRay#2026!"
+ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
 
 
 # --------------------------- XOR key parser --------------------------- #

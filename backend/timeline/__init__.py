@@ -100,11 +100,20 @@ async def record(
 
 async def list_events(
     db, investigation_id: str = "adhoc", limit: int = 100,
+    actor_filter: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
+    """Return events for a single investigation.
+
+    Feb-2026 (SEC-003 owner-scoping): when ``actor_filter`` is supplied,
+    only events whose ``actor`` matches are returned. Callers use this to
+    scope investigations per-user so one analyst can't read another's
+    decoded payloads or IOCs.
+    """
     limit = max(1, min(int(limit or 100), 500))
-    cursor = db[COLLECTION].find(
-        {"investigation_id": investigation_id}
-    ).sort("created_at", -1).limit(limit)
+    q: Dict[str, Any] = {"investigation_id": investigation_id}
+    if actor_filter:
+        q["actor"] = actor_filter
+    cursor = db[COLLECTION].find(q).sort("created_at", -1).limit(limit)
     events: List[Dict[str, Any]] = []
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
@@ -112,10 +121,17 @@ async def list_events(
     return events
 
 
-async def list_recent(db, limit: int = 100) -> List[Dict[str, Any]]:
-    """Global recent-events feed across ALL investigations."""
+async def list_recent(
+    db, limit: int = 100,
+    actor_filter: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Global recent-events feed. ``actor_filter`` restricts to one user's
+    events (SEC-003)."""
     limit = max(1, min(int(limit or 100), 500))
-    cursor = db[COLLECTION].find({}).sort("created_at", -1).limit(limit)
+    q: Dict[str, Any] = {}
+    if actor_filter:
+        q["actor"] = actor_filter
+    cursor = db[COLLECTION].find(q).sort("created_at", -1).limit(limit)
     events: List[Dict[str, Any]] = []
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
@@ -123,14 +139,22 @@ async def list_recent(db, limit: int = 100) -> List[Dict[str, Any]]:
     return events
 
 
-async def list_investigations(db, limit: int = 50) -> List[Dict[str, Any]]:
+async def list_investigations(
+    db, limit: int = 50,
+    actor_filter: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """List DISTINCT investigation IDs with their event counts + latest event.
 
     Used by the workspace UI to show a "recent investigations" panel.
+    Feb-2026 (SEC-003): ``actor_filter`` restricts aggregation to
+    investigations the calling user has personally recorded events for.
     """
     limit = max(1, min(int(limit or 50), 500))
+    match: Dict[str, Any] = {"investigation_id": {"$ne": "adhoc"}}
+    if actor_filter:
+        match["actor"] = actor_filter
     pipeline = [
-        {"$match": {"investigation_id": {"$ne": "adhoc"}}},
+        {"$match": match},
         {"$sort": {"created_at": -1}},
         {"$group": {
             "_id": "$investigation_id",
@@ -152,7 +176,17 @@ async def list_investigations(db, limit: int = 50) -> List[Dict[str, Any]]:
     return items
 
 
-async def clear(db, investigation_id: str) -> int:
-    """Delete all events for an investigation. Returns count removed."""
-    r = await db[COLLECTION].delete_many({"investigation_id": investigation_id})
+async def clear(
+    db, investigation_id: str,
+    actor_filter: Optional[str] = None,
+) -> int:
+    """Delete all events for an investigation. Returns count removed.
+
+    Feb-2026 (SEC-003): when ``actor_filter`` is supplied, only events
+    authored by that actor are removed. Prevents cross-user delete.
+    """
+    q: Dict[str, Any] = {"investigation_id": investigation_id}
+    if actor_filter:
+        q["actor"] = actor_filter
+    r = await db[COLLECTION].delete_many(q)
     return r.deleted_count

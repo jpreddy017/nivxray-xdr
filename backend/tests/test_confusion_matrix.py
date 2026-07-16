@@ -29,7 +29,7 @@ if not BASE_URL:
     pytest.skip("REACT_APP_BACKEND_URL not set", allow_module_level=True)
 
 ADMIN_EMAIL = "admin@nivxray.com"
-ADMIN_PASSWORD = "NivXRay#2026!"
+ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
 
 
 @pytest.fixture(scope="module")

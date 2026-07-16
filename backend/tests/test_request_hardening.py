@@ -29,7 +29,7 @@ def _auth_headers() -> dict:
     c = _client()
     r = c.post("/api/auth/login", json={
         "email": "admin@nivxray.com",
-        "password": "NivXRay#2026!",
+        "password": "uulVDp5cCSB3Hva99s7UUAwK",
     })
     if r.status_code != 200:
         return {}

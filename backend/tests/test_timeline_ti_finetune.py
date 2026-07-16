@@ -17,7 +17,7 @@ if BASE_URL == "http://localhost:8001":
         pass
 
 ADMIN_EMAIL = "admin@nivxray.com"
-ADMIN_PASSWORD = "NivXRay#2026!"
+ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
 
 
 @pytest.fixture(scope="module")
@@ -85,7 +85,7 @@ class TestTimeline:
         corpus-promote + benchmark timeline events automatically."""
         # First, count existing events
         r_before = requests.get(
-            f"{BASE_URL}/api/timeline/recent?limit=100",
+            f"{BASE_URL}/api/timeline/recent?limit=500",
             headers=auth_headers, timeout=15,
         )
         before = len(r_before.json()["events"])
@@ -105,7 +105,7 @@ class TestTimeline:
             }, timeout=60,
         )
         r_after = requests.get(
-            f"{BASE_URL}/api/timeline/recent?limit=100",
+            f"{BASE_URL}/api/timeline/recent?limit=500",
             headers=auth_headers, timeout=15,
         )
         events = r_after.json()["events"]

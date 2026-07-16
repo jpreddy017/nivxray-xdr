@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from deps import db, get_current_user, require_admin
+from deps import db, get_current_user
 from timeline import record, list_events, list_recent, clear
 
 
@@ -33,7 +33,8 @@ async def get_events(
     investigation_id: str = "adhoc", limit: int = 100,
     user=Depends(get_current_user),
 ):
-    events = await list_events(db, investigation_id=investigation_id, limit=limit)
+    events = await list_events(db, investigation_id=investigation_id,
+                               limit=limit, actor_filter=user["email"])
     return {"events": events, "count": len(events), "investigation_id": investigation_id}
 
 
@@ -54,11 +55,15 @@ async def create_event(body: EventIn, user=Depends(get_current_user)):
 
 @router.get("/timeline/recent", tags=["timeline"])
 async def recent(limit: int = 100, user=Depends(get_current_user)):
-    events = await list_recent(db, limit=limit)
+    events = await list_recent(db, limit=limit, actor_filter=user["email"])
     return {"events": events, "count": len(events)}
 
 
 @router.delete("/timeline/events/{investigation_id}", tags=["timeline"])
-async def clear_events(investigation_id: str, user=Depends(require_admin)):
-    n = await clear(db, investigation_id)
+async def clear_events(investigation_id: str, user=Depends(get_current_user)):
+    """Owner-scoped cleanup — only events authored by the caller are
+    deleted (Feb-2026 SEC-003, previously admin-only). Admins retain the
+    ability to delete their own events; a cross-user cleanup would need
+    a separate audited endpoint."""
+    n = await clear(db, investigation_id, actor_filter=user["email"])
     return {"ok": True, "deleted": n}

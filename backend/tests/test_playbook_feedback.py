@@ -33,7 +33,7 @@ BASE_URL = _load_base_url()
 assert BASE_URL, "REACT_APP_BACKEND_URL must be set"
 
 ADMIN_EMAIL = "admin@nivxray.com"
-ADMIN_PASSWORD = "NivXRay#2026!"
+ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
 
 # A real PowerShell -Enc payload that will trigger AI + attach playbooks.
 POWERSHELL_ENC = (

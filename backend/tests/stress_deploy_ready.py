@@ -26,7 +26,7 @@ if not API:
                 break
 
 r = requests.post(f"{API}/api/auth/login",
-                  json={"email":"admin@nivxray.com","password":"NivXRay#2026!"},
+                  json={"email":"admin@nivxray.com","password":"uulVDp5cCSB3Hva99s7UUAwK"},
                   timeout=15)
 r.raise_for_status()
 H = {"Authorization": f"Bearer {r.json()['access_token']}",

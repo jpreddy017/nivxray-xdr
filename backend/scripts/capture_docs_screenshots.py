@@ -7,7 +7,7 @@ Run from `/app/backend/`:
     python scripts/capture_docs_screenshots.py \
         --base-url $REACT_APP_BACKEND_URL \
         --email admin@nivxray.com \
-        --password 'NivXRay#2026!' \
+        --password 'uulVDp5cCSB3Hva99s7UUAwK' \
         --workflow encoded_powershell
 
 Or capture every workflow with a `capture:` block:

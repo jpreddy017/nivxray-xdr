@@ -23,7 +23,7 @@ if BASE_URL == "http://localhost:8001":
         pass
 
 ADMIN_EMAIL = "admin@nivxray.com"
-ADMIN_PASSWORD = "NivXRay#2026!"
+ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
 
 
 @pytest.fixture(scope="module")

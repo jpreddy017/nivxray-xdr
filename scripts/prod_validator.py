@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import base64
 import gzip
+import os
 import sys
 import time
 from typing import Any, Dict, List, Tuple
@@ -25,7 +26,7 @@ import requests
 
 PROD = "https://nivxray.nivxforge.com"
 EMAIL = "admin@nivxray.com"
-PW = "NivXRay#2026!"
+PW = os.environ.get("NIVXRAY_ADMIN_PASSWORD", "")
 
 session = requests.Session()
 session.headers.update({"User-Agent": "nivxray-prod-validator/1.0"})
