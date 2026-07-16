@@ -1,9 +1,9 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState, useCallback } from "react";
 import {
   User, Cog, FileText, HardDrive, Globe, Router, Mail, Database,
   ScrollText, Link as LinkIcon, Key, ShieldAlert, ServerCog,
   Cloud, Wifi, Camera, Download, AlertTriangle, Container, Bot,
-  Crown, Target, Zap,
+  Crown, Target, Zap, RotateCcw,
 } from "lucide-react";
 
 /**
@@ -113,7 +113,7 @@ function layoutLShape(nodes, edges) {
   const primary = new Set(chain);
   const off = nodes.filter((n) => !primary.has(n.id));
 
-  const CELL = 150;                 // spacing between path nodes
+  const CELL = 180;                 // spacing between path nodes (extra room for labels)
   const PAD  = 60;                  // frame padding
   const BEND = Math.min(4, Math.max(2, Math.floor(chain.length / 2)));
   // First BEND nodes go vertical (down the left), rest go horizontal
@@ -160,9 +160,72 @@ function layoutLShape(nodes, edges) {
 // Component
 // -------------------------------------------------------------------
 export default function AttackPathClean({ nodes = [], edges = [] }) {
-  const { positions, chain, width, height } = useMemo(
+  const { positions: baseLayout, chain, width, height } = useMemo(
     () => layoutLShape(nodes, edges), [nodes, edges]);
   const svgRef = useRef(null);
+
+  // ── Drag state ────────────────────────────────────────────────
+  // `overrides` stores user-moved positions per node id — merged on top
+  // of the auto-layout so edges/graphics follow live.
+  const [overrides, setOverrides] = useState({});
+  const dragRef = useRef(null); // { id, startPtX, startPtY, origX, origY }
+
+  // Merged effective positions.
+  const positions = useMemo(() => {
+    const out = {};
+    for (const id of Object.keys(baseLayout)) {
+      const base = baseLayout[id];
+      const ov = overrides[id];
+      out[id] = ov ? { ...base, x: ov.x, y: ov.y } : base;
+    }
+    return out;
+  }, [baseLayout, overrides]);
+
+  // Convert a pointer event's client coords into SVG user-space coords
+  // (respecting any css scaling of the <svg>).
+  const svgPointFromEvent = useCallback((evt) => {
+    const el = svgRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const rect = el.getBoundingClientRect();
+    const scaleX = width  / rect.width;
+    const scaleY = height / rect.height;
+    return {
+      x: (evt.clientX - rect.left) * scaleX,
+      y: (evt.clientY - rect.top)  * scaleY,
+    };
+  }, [width, height]);
+
+  const onNodePointerDown = (id) => (evt) => {
+    evt.stopPropagation();
+    evt.preventDefault();
+    // Capture the pointer so subsequent move/up events fire on this element
+    // even after the cursor leaves the node circle.
+    try { evt.currentTarget.setPointerCapture(evt.pointerId); } catch {}
+    const pt = svgPointFromEvent(evt);
+    const cur = positions[id] || { x: 0, y: 0 };
+    dragRef.current = {
+      id,
+      startPtX: pt.x, startPtY: pt.y,
+      origX: cur.x,   origY: cur.y,
+    };
+  };
+
+  const onSvgPointerMove = (evt) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const pt = svgPointFromEvent(evt);
+    const nx = d.origX + (pt.x - d.startPtX);
+    const ny = d.origY + (pt.y - d.startPtY);
+    // Clamp inside canvas with a small margin so labels remain visible.
+    const clampedX = Math.max(30, Math.min(width - 30,  nx));
+    const clampedY = Math.max(30, Math.min(height - 30, ny));
+    setOverrides((prev) => ({ ...prev, [d.id]: { x: clampedX, y: clampedY } }));
+  };
+
+  const endDrag = () => { dragRef.current = null; };
+
+  const resetLayout = () => setOverrides({});
+
   if (!nodes.length) return null;
 
   const primary = new Set(chain);
@@ -251,6 +314,11 @@ export default function AttackPathClean({ nodes = [], edges = [] }) {
         <span className="mono" style={{ fontSize: 9, color: "var(--text-mute)",
                                          letterSpacing: "0.18em", marginRight: 12 }}>
           KILL-CHAIN · {chain.length} on path · {nodes.length - chain.length} branches
+          {Object.keys(overrides).length > 0 && (
+            <span style={{ color: "#7ee3c9", marginLeft: 8 }}>
+              · {Object.keys(overrides).length} MOVED
+            </span>
+          )}
         </span>
         {/* Semantic legend chips */}
         <span style={{ display: "inline-flex", alignItems: "center", gap: 4,
@@ -268,6 +336,12 @@ export default function AttackPathClean({ nodes = [], edges = [] }) {
                        letterSpacing: "0.14em", marginRight: "auto" }}>
           <Crown size={10} /> CROWN JEWEL
         </span>
+        <button className="nvx-btn sm ghost" onClick={resetLayout}
+                disabled={!Object.keys(overrides).length}
+                title="Reset all dragged positions to the auto-computed layout"
+                data-testid="btn-attack-path-reset-layout">
+          <RotateCcw size={11} /> RESET
+        </button>
         <button className="nvx-btn sm ghost" onClick={downloadPng}
                 data-testid="btn-attack-path-png">
           <Camera size={11} /> PNG
@@ -281,9 +355,15 @@ export default function AttackPathClean({ nodes = [], edges = [] }) {
       <div style={{ overflow: "auto" }}>
         <svg ref={svgRef} width={width} height={height}
              style={{ display: "block", minWidth: "100%",
-                      background: "linear-gradient(180deg, #0b1220 0%, #0f172a 100%)" }}
+                      background: "linear-gradient(180deg, #0b1220 0%, #0f172a 100%)",
+                      touchAction: "none",
+                      cursor: dragRef.current ? "grabbing" : "default" }}
              data-testid="attack-path-clean-svg"
-             xmlns="http://www.w3.org/2000/svg">
+             xmlns="http://www.w3.org/2000/svg"
+             onPointerMove={onSvgPointerMove}
+             onPointerUp={endDrag}
+             onPointerLeave={endDrag}
+             onPointerCancel={endDrag}>
           {/* Dotted grid backdrop for the PuppyGraph look */}
           <defs>
             <pattern id="dotgrid" width="18" height="18" patternUnits="userSpaceOnUse">
@@ -336,7 +416,13 @@ export default function AttackPathClean({ nodes = [], edges = [] }) {
             return (
               <g key={n.id} transform={`translate(${p.x}, ${p.y})`}
                  data-testid={`ap-node-${n.id}`}
-                 style={{ opacity: isPath ? 1 : 0.75 }}>
+                 onPointerDown={onNodePointerDown(n.id)}
+                 style={{
+                    opacity: isPath ? 1 : 0.75,
+                    cursor: "grab",
+                    userSelect: "none",
+                    touchAction: "none",
+                 }}>
                 {/* Halo when on path */}
                 {isPath && (
                   <circle r={r + 6} fill={color} opacity={0.15} />
