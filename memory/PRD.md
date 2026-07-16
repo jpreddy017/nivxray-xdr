@@ -1,7 +1,76 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🔧 Wrapper-Shell Decoder Gaps + Meterpreter B64+XOR)
+## Latest Change (Feb 2026 — 🧭 Threat-Model Assessor + Custom-Recipe Race Fix)
+
+### Delivered
+
+**P2 · Threat-Model Assessor (`/threat-model`)**
+- New backend package `backend/threat_model/`:
+  * `parser.py` — tolerant Mermaid parser (graph TD / flowchart TD),
+    supports chained arrows (`A --> B --> C`), `&` shorthand
+    (`A & B --> C`), labelled arrows (`-->|HTTPS|`), and trust-zone tags
+    `[[EXT]]` / `[[DMZ]]` / `[[INT]]` / `[[DATA]]`. Never raises on
+    malformed input.
+  * `analyzer.py` — deterministic engine (source of truth): infers
+    component kind (waf/lb/auth/api/db/cache/queue/secret-store/llm/…),
+    enumerates attack paths (BFS from EXT/actor → DATA/db/secret-store),
+    maps STRIDE per trust-boundary edge, MITRE per component, generates
+    Sigma/KQL detection ideas, scores overall risk (0-100).
+- New router `backend/routers/threat_model.py` with:
+  * `POST /api/threat-model/analyze` — deterministic report only
+  * `POST /api/threat-model/enrich` — deterministic + MoE panel (additive
+    enrichment, never overrides deterministic verdict)
+  * `GET  /api/threat-model/example` — canonical example diagram + report
+- New frontend page `frontend/src/pages/ThreatModelPage.jsx`:
+  * Left column — Mermaid textarea with "⟳ EXAMPLE" and "▶ ANALYSE"
+  * Right column — risk gauge (0-100), counts strip, attack-path cards
+    with zone-coloured node chips + STRIDE chips, findings list with
+    MITRE tags + expandable detection ideas, MITRE coverage strip
+  * Bottom — optional MoE panel for AI enrichment (additive)
+- Nav link "THREAT MODEL" in Header. Route registered in App.js.
+- Regression suite `test_threat_model.py` — **35 new tests** covering
+  parser tolerance, kind inference, trust-boundary detection, attack-path
+  enumeration, STRIDE mapping, risk-score bands, router auth + malformed
+  input handling.
+
+**Custom-Recipe Race Fix (`/api/decode/smart`)**
+- Bug: Model Studio custom recipes matched via
+  `models_studio.find_matching_recipes` short-circuited the deterministic
+  pipeline. For the Meterpreter b64+XOR payload, a saved
+  `base64-decode`-only recipe won → chain stopped at the XOR'd bytes and
+  never reached shellcode.
+- Fix: after running the custom recipe, always compute the deterministic
+  pipeline as a race. If deterministic reaches shellcode **or** produces a
+  longer chain, deterministic wins.
+- Verified live via `/api/decode/smart`:
+  ```
+  engine=magic  reached_sc=True
+  chain=['extract-payload','base64-decode','xor-brute']
+  bytes=833  prologue=fce8890000006089e531d264…  (Meterpreter x86)
+  recovered:  149.28.81.19  ·  BOIE9;PTBR  ·  wininet imports
+  ```
+
+### Test totals (Feb 2026 session)
+- **154 pytest cases pass** across:
+  MoE panel · MoE adversarial · Meterpreter b64+XOR · Wrapper shell decode
+  · Ensemble AI-OFF · Threat-Model
+- Stress: 149/150 · 100/100 · 8/8 (encoded cmdlines) — **zero regressions**
+- Deployment readiness: **PASS** (no blockers, non-blocking warnings on
+  pre-existing `history.py` pagination — unrelated to this session)
+
+### Files touched this session
+Backend:
+- NEW: `reasoning/moe_panel.py`, `routers/moe_panel.py`, `routers/threat_model.py`, `threat_model/{__init__,parser,analyzer}.py`, 5 test files
+- MODIFIED: `analysis_core.py` (selector: shellcode-prefer + score_breakdown-aware), `magic_decoder.py` (wrapper-hint hex + b64 pipe + `_then_hex` / `_then_b64`), `ops_extended.py` (shellcode-prologue bonus in `_score_downstream_magic`), `routers/ops.py` (custom-recipe race with deterministic), `request_hardening.py` (LLM path list), `server.py`, `reasoning/__init__.py`
+
+Frontend:
+- NEW: `pages/ThreatModelPage.jsx`, `components/MoEPanel.jsx`
+- MODIFIED: `App.js`, `components/Header.jsx`, `pages/WorkspacePage.jsx`
+
+---
+
+## Previous Change (Feb 2026 — 🔧 Wrapper-Shell Decoder Gaps + Meterpreter B64+XOR)
 
 ### Delivered — three decoder gaps closed, zero regressions
 
