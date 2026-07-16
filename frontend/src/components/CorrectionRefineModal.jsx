@@ -22,13 +22,25 @@
  * can drive the flow.
  */
 import { useState } from "react";
-import { X, Send, ShieldCheck, Users, Globe, Lock } from "lucide-react";
+import { X, Send, ShieldCheck, Users, Globe, Lock, Check, AlertTriangle, HelpCircle, Lightbulb } from "lucide-react";
 import api from "../lib/api";
 
 const SCOPES = [
   { id: "private", label: "Private", desc: "Only you see it", icon: Lock },
   { id: "team",    label: "Team",    desc: "Shared with all analysts (auto-approve)", icon: Users },
   { id: "global",  label: "Global",  desc: "Global — requires admin approval", icon: Globe },
+];
+
+// Feb-2026 v2/v3 spec — 4 verdicts, each with its own downstream behavior.
+const VERDICTS = [
+  { id: "incorrect", label: "Incorrect",   icon: X,             color: "#ef4444",
+    desc: "Wrong finding — remove it (deterministic override on future analyses)" },
+  { id: "partial",   label: "Partial",     icon: AlertTriangle, color: "#f59e0b",
+    desc: "Partially correct — steer the LLM without dropping the finding" },
+  { id: "correct",   label: "Correct",     icon: Check,         color: "#4ade80",
+    desc: "Positive reinforcement — no override, boosts related findings" },
+  { id: "suggest",   label: "Suggest",     icon: Lightbulb,     color: "#22d3ee",
+    desc: "Advisory improvement suggestion — LLM-inject only, low priority" },
 ];
 
 const WRONGNESS_HINTS = {
@@ -54,6 +66,7 @@ export default function CorrectionRefineModal({
   const [prompt, setPrompt]   = useState("");
   const [tags, setTags]       = useState((defaultTags || []).join(", "));
   const [scope, setScope]     = useState("team");
+  const [verdict, setVerdict] = useState("incorrect");   // Feb-2026 v2/v3
   const [autoRerun, setAutoRerun] = useState(true);
   const [busy, setBusy]       = useState(false);
   const [err, setErr]         = useState(null);
@@ -73,7 +86,7 @@ export default function CorrectionRefineModal({
       const r = await api.post("/corrections", {
         surface, wrong_finding: wrongFinding,
         correct_prompt: prompt.trim(),
-        tags: tagList, scope,
+        tags: tagList, scope, verdict,
         input_text: inputText || undefined,
       });
       const d = r.data || {};
@@ -133,6 +146,32 @@ export default function CorrectionRefineModal({
               Common cases: <em style={{ color: "var(--text-dim)" }}>{hints.join(" · ")}</em>
             </div>
           )}
+        </div>
+
+        <label style={{ fontSize: 10, letterSpacing: "0.14em",
+                        color: "var(--text-mute)", display: "block", marginTop: 8 }}>
+          VERDICT
+        </label>
+        <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+          {VERDICTS.map((v) => {
+            const Icon = v.icon;
+            const on = v.id === verdict;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                data-testid={`correction-verdict-${v.id}`}
+                className={"nvx-btn sm " + (on ? "" : "ghost")}
+                onClick={() => setVerdict(v.id)}
+                style={{ flex: 1, minWidth: 90, padding: "5px 8px", fontSize: 10,
+                         borderColor: on ? v.color : undefined,
+                         color: on ? v.color : undefined }}
+                title={v.desc}
+              >
+                <Icon size={10}/> {v.label}
+              </button>
+            );
+          })}
         </div>
 
         <label style={{ fontSize: 10, letterSpacing: "0.14em",

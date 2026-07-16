@@ -1,7 +1,67 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — ✎ Analyst Corrections · Enterprise Feedback Loop)
+## Latest Change (Feb 2026 — 🎯 Refine ✎ on Workspace · 4-Verdict Picker · Admin Corrections Dashboard)
+
+### Feature bundle complete — 100/100 tests green
+
+Built the two follow-ups the user asked for on top of the Feb-2026
+Analyst Corrections foundation, PLUS the verdict-type upgrade from
+v2/v3 of the user's improvement-prompt PDFs.
+
+**1. `✎ Refine` launcher on Workspace panels**
+- New "TEACH NIVXRAY" strip renders under the SOC verdict card whenever
+  any analysis is available. 5 surface buttons — `MITRE / IOC / LOLBAS
+  / FAMILY / RISK` — each opens the CorrectionRefineModal pre-scoped to
+  that surface.
+- Modal now includes the **4-verdict picker** (v2/v3 spec):
+    - `Incorrect` — deterministic override on future analyses
+    - `Partial`   — steer the LLM without dropping the finding
+    - `Correct`   — positive reinforcement, no override
+    - `Suggest`   — advisory improvement, LLM-inject only
+- Backend `apply_overrides()` now GATES on verdict — only `incorrect`
+  actually removes findings; `correct/partial/suggest` are surfaced in
+  the `corrections_available` response but never delete data.
+
+**2. Corrections Admin Dashboard — `/admin/corrections`**
+- Backend `GET /api/corrections/analytics` (admin-only) returns 10
+  metric buckets: totals, by_status, by_surface heatmap, top_reused,
+  top_mitre, verdict_dist (FP/FN signal), reviewer_stats,
+  avg_approval_seconds, accuracy_signal (approved/total), trend_7d.
+- Frontend page renders — no chart library required, CSS-bar sparklines.
+  Blocks:
+    - 4 KPI cards (total / approved / pending / superseded)
+    - PER-SURFACE HEATMAP
+    - VERDICT DISTRIBUTION (with FP/FN colour coding)
+    - TOP-REUSED CORRECTIONS (top 10)
+    - TOP CORRECTED MITRE TECHNIQUES (top 10)
+    - REVIEWER THROUGHPUT
+    - 7-DAY SUBMISSION TREND
+    - PENDING GLOBAL-SCOPE INBOX with Approve / Reject / Rollback
+
+### New tests
+Extended `test_analyst_corrections.py` from 8 → 11 tests:
+- Verdict types accepted + validated
+- Correct-verdict does NOT trigger deterministic override
+- Analytics endpoint returns full 10-key shape
+
+### Verification
+- 100/100 backend tests green (spans corrections, threat-model, IOC
+  enrichment, multi-command chain, security audit, decoder core)
+- Analytics endpoint smoke-tested: totals=13, by_surface heatmap for
+  {threat_model, decode, note, ioc}, top_mitre includes T1078+T1046+
+  T1059.001, trend_7d has 7 daily buckets
+- Frontend compiles clean
+
+### Deferred (from v3/v4 PDF, tracked for follow-up)
+- Explainability mode ("why this finding" narrative)
+- Knowledge portal / doc uploads
+- Regression test automation on saved corrections
+- RBAC beyond admin/analyst
+
+---
+
+## Previous Change (Feb 2026 — ✎ Analyst Corrections · Enterprise Feedback Loop)
 
 ### Feature complete — 102/102 tests green
 

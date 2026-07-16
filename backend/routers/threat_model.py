@@ -62,6 +62,7 @@ async def threat_model_analyze(body: ThreatModelIn, user=Depends(get_current_use
              "apply_mode": c.get("apply_mode"), "surface": c.get("surface"),
              "correct_prompt": (c.get("correct_prompt") or "")[:400],
              "wrong_finding": c.get("wrong_finding"),
+             "verdict": c.get("verdict") or "incorrect",
              "version": c.get("version"), "reuse_count": c.get("reuse_count")}
             for c in applicable
         ]
@@ -129,6 +130,7 @@ async def threat_model_enrich(body: ThreatModelEnrichIn, user=Depends(get_curren
              "apply_mode": c.get("apply_mode"), "surface": c.get("surface"),
              "correct_prompt": (c.get("correct_prompt") or "")[:400],
              "wrong_finding": c.get("wrong_finding"),
+             "verdict": c.get("verdict") or "incorrect",
              "version": c.get("version"), "reuse_count": c.get("reuse_count")}
             for c in applicable
         ]

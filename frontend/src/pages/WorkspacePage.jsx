@@ -29,6 +29,7 @@ import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import { splitCommandLines, isMultiCommandInput } from "@/lib/commandSplitter";
 import InputToolbar from "@/components/InputToolbar";
+import CorrectionRefineModal from "@/components/CorrectionRefineModal";
 import {
   Play, Zap, Wand2, Wrench, Share2, Download, Upload, Trash2, Copy, Sparkles, X,
 } from "lucide-react";
@@ -105,6 +106,13 @@ export default function WorkspacePage() {
   // Feb-2026 Enhancements: input lock (edit toggle) + multi-command auto-route toast
   const [inputLocked, setInputLocked] = useState(false);
   const [multiChainNotice, setMultiChainNotice] = useState(null);   // { stages, verdict, family }
+  // Feb-2026: analyst-corrections launcher state.
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [refineCtx, setRefineCtx] = useState(null); // { surface, wrong_finding }
+  const openRefine = (surface, wrongFinding) => {
+    setRefineCtx({ surface, wrong_finding: wrongFinding });
+    setRefineOpen(true);
+  };
   const [nivxrayTrace, setNivxrayTrace] = useState([]);
   // Track whether the analyst has unsaved work in the current workspace so
   // rehydrating from history can prompt before overwriting.
@@ -1297,6 +1305,44 @@ export default function WorkspacePage() {
         </div>
       )}
 
+      {/* Feb-2026: ✎ Refine launcher — one button per surface. Analysts
+          click the surface that has a wrong finding, pick which specific
+          MITRE / IOC / LOLBIN / family / risk value is wrong inside the
+          modal, then submit a correction with the 4-verdict picker. */}
+      {(analysis || verdictCard) && (
+        <div
+          data-testid="refine-launcher-strip"
+          style={{
+            padding: "0 16px 10px", display: "flex", gap: 6, flexWrap: "wrap",
+            fontFamily: "JetBrains Mono", fontSize: 10, alignItems: "center",
+          }}
+        >
+          <span style={{ color: "var(--text-mute)", letterSpacing: "0.14em" }}>
+            ✎ TEACH NIVXRAY —
+          </span>
+          {[
+            ["mitre",  "MITRE"],
+            ["ioc",    "IOC"],
+            ["lolbas", "LOLBAS"],
+            ["family", "FAMILY"],
+            ["risk",   "RISK"],
+          ].map(([surface, label]) => (
+            <button
+              key={surface}
+              type="button"
+              className="nvx-btn sm ghost"
+              data-testid={`btn-refine-${surface}`}
+              title={`Refine a wrong ${label} finding`}
+              onClick={() => openRefine(surface,
+                                        { kind: surface, value: "" })}
+              style={{ padding: "2px 8px" }}
+            >
+              ✎ {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 3-column layout */}
       <div className="nvx-workspace-grid">
         <OperationsPanel onAdd={addOp} />
@@ -1784,6 +1830,17 @@ export default function WorkspacePage() {
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
         onRehydrate={rehydrateFromHistory}
+      />
+
+      {/* Feb-2026 · Analyst-corrections modal — opened by ✎ launcher strip */}
+      <CorrectionRefineModal
+        open={refineOpen}
+        onClose={() => setRefineOpen(false)}
+        surface={refineCtx?.surface}
+        wrongFinding={refineCtx?.wrong_finding || {}}
+        inputText={input}
+        defaultTags={[]}
+        onRerun={autoInvestigate}
       />
     </div>
   );

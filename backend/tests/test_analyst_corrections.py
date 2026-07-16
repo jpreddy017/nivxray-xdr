@@ -56,18 +56,19 @@ def test_submit_admin_global_scope_stays_pending(auth):
 
 def test_analyze_applies_deterministic_override(auth):
     # 1) Seed a correction that removes T1078 from threat-model findings.
+    unique_mermaid = "flowchart TD\n  UserA1 --> ApiA1\n  ApiA1 --> RedisA1[[INT]]\n  RedisA1 --> DbA1[[DATA]]"
     r = requests.post(f"{BASE_URL}/api/corrections", headers=auth, timeout=10, json={
         "surface": "threat_model",
         "wrong_finding": {"kind": "mitre", "value": "T1078"},
         "correct_prompt": "T1078 misapplied to a stateless cache — remove.",
-        "tags": ["redis", "cache"], "scope": "team",
-        "input_text": _mermaid(),
+        "tags": ["overtest-a1"], "scope": "team",
+        "input_text": unique_mermaid,
     })
     corr_id = r.json()["correction"]["id"]
 
     # 2) Analyze the same diagram — correction should be listed AND applied.
     r = requests.post(f"{BASE_URL}/api/threat-model/analyze", headers=auth,
-                      timeout=15, json={"mermaid": _mermaid(), "tags": ["redis"]})
+                      timeout=15, json={"mermaid": unique_mermaid, "tags": ["overtest-a1"]})
     assert r.status_code == 200
     d = r.json()
     avail = d.get("corrections_available") or []
@@ -174,3 +175,63 @@ def test_invalid_surface_rejected(auth):
         "correct_prompt": "won't be accepted",
     })
     assert r.status_code == 400
+
+
+def test_verdict_types_accepted_and_validated(auth):
+    """Feb-2026 v2/v3: all 4 verdict types accepted; invalid rejected."""
+    for v in ("correct", "incorrect", "partial", "suggest"):
+        r = requests.post(f"{BASE_URL}/api/corrections", headers=auth, timeout=10, json={
+            "surface": "ioc", "wrong_finding": {"kind": "ioc", "value": "http://t"},
+            "correct_prompt": f"verdict={v} regression test",
+            "verdict": v, "scope": "private",
+        })
+        assert r.status_code == 200, r.text
+        assert r.json()["correction"]["verdict"] == v
+    # Invalid verdict rejected
+    r = requests.post(f"{BASE_URL}/api/corrections", headers=auth, timeout=10, json={
+        "surface": "ioc", "wrong_finding": {"kind": "ioc", "value": "http://t"},
+        "correct_prompt": "bad verdict", "verdict": "wat", "scope": "private",
+    })
+    assert r.status_code == 400
+
+
+def test_correct_verdict_does_NOT_apply_deterministic_override(auth):
+    """A "correct" verdict is positive reinforcement — it must NEVER
+    delete the finding from a future analysis, only incorrect does that.
+    Regression for the v2/v3 verdict-gating rule."""
+    # Use a fully unique diagram so no prior test's incorrect-verdict
+    # correction bleeds in via the shared analyst_corrections collection.
+    unique_mermaid = ("flowchart TD\n  UserC1 --> ApiC1\n  ApiC1 --> DbC1[[DATA]]\n"
+                     "  ApiC1 --> KafkaC1[[INT]]")
+    # Seed a `correct` verdict on T1078 in threat_model
+    requests.post(f"{BASE_URL}/api/corrections", headers=auth, timeout=10, json={
+        "surface": "threat_model", "wrong_finding": {"kind": "mitre", "value": "T1078"},
+        "correct_prompt": "T1078 is CORRECT for auth flow here — do not remove.",
+        "verdict": "correct", "tags": ["correct-verdict-test-c1"],
+        "scope": "team", "input_text": unique_mermaid,
+    })
+    # Analyze — the correct-verdict correction must appear in
+    # corrections_available but must NOT drop T1078 from the report.
+    r = requests.post(f"{BASE_URL}/api/threat-model/analyze", headers=auth,
+                     timeout=15, json={"mermaid": unique_mermaid,
+                                       "tags": ["correct-verdict-test-c1"]})
+    d = r.json()
+    avail = d.get("corrections_available") or []
+    assert any(c.get("verdict") == "correct" for c in avail), avail
+    # No T1078 removal — since the diagram doesn't naturally produce T1078,
+    # we just verify the response has no `_applied_corrections` (no
+    # deterministic-override triggered by a correct verdict).
+    applied = (d.get("_applied_corrections") or [])
+    assert not any(a.get("kind") == "mitre" for a in applied), applied
+
+
+def test_analytics_endpoint_returns_full_shape(auth):
+    r = requests.get(f"{BASE_URL}/api/corrections/analytics", headers=auth, timeout=15)
+    assert r.status_code == 200
+    d = r.json()
+    for k in ("totals", "by_status", "by_surface", "top_reused", "top_mitre",
+              "verdict_dist", "reviewer_stats", "avg_approval_seconds",
+              "accuracy_signal", "trend_7d"):
+        assert k in d, f"missing analytics key: {k}"
+    assert isinstance(d["trend_7d"], list) and len(d["trend_7d"]) == 7
+    assert 0.0 <= float(d["accuracy_signal"]) <= 1.0

@@ -45,6 +45,7 @@ class CorrectionIn(BaseModel):
     correct_prompt: str = Field(..., min_length=8, max_length=4000)
     tags: List[str] = []
     scope: str = "private"
+    verdict: str = "incorrect"   # Feb-2026 v2/v3: correct|incorrect|partial|suggest
     input_text: Optional[str] = None
     diagram_hash: Optional[str] = None
     revises: Optional[str] = None       # id to revise; author-only
@@ -65,6 +66,8 @@ async def submit(body: CorrectionIn, user=Depends(get_current_user)):
         raise HTTPException(400, f"surface must be one of {sorted(_VALID_SURFACES)}")
     if body.scope not in ("private", "team", "global"):
         raise HTTPException(400, "scope must be private | team | global")
+    if body.verdict not in ("correct", "incorrect", "partial", "suggest"):
+        raise HTTPException(400, "verdict must be correct | incorrect | partial | suggest")
     # Author-only revise gate
     if body.revises:
         prev = await db[corr.COLLECTION].find_one({"id": body.revises})
@@ -84,6 +87,7 @@ async def submit(body: CorrectionIn, user=Depends(get_current_user)):
         input_text=body.input_text,
         diagram_hash_override=body.diagram_hash,
         revises=body.revises,
+        verdict=body.verdict,
     )
     doc.pop("_id", None)
     return {"ok": True, "correction": doc}
@@ -104,6 +108,17 @@ async def list_visible(
 async def list_pending(user=Depends(require_admin), limit: int = 200):
     items = await corr.list_pending_admin(db, limit=limit)
     return {"items": items, "count": len(items)}
+
+
+@router.get("/corrections/analytics", tags=["corrections", "admin"])
+async def analytics(user=Depends(require_admin)):
+    """Feb-2026 v3-spec: admin analytics for corrections dashboard.
+
+    Returns totals, per-status counts, per-surface heatmap, top-reused,
+    top corrected MITRE techniques, verdict distribution (FP/FN signal),
+    reviewer throughput, average approval velocity, and 7-day trend.
+    """
+    return await corr.get_analytics(db)
 
 
 @router.post("/corrections/{corr_id}/approve", tags=["corrections"])

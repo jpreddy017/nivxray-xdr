@@ -99,12 +99,14 @@ async def submit_correction(
     input_text: str | None = None,
     diagram_hash_override: str | None = None,
     revises: str | None = None,
+    verdict: str = "incorrect",
 ) -> Dict[str, Any]:
     """Create a new correction OR a new version of an existing one.
 
-    When ``revises`` is set, the caller is submitting a REVISION of an
-    existing correction. The old doc's ``status`` is set to ``superseded``
-    and the new doc points back via ``prev_version_id``.
+    ``verdict`` (Feb-2026 v2/v3 spec): one of ``correct`` (positive
+    reinforcement, no override), ``incorrect`` (deterministic override
+    when tag match ≥ 0.75), ``partial`` (LLM-inject only), ``suggest``
+    (advisory — LLM-inject only, low priority).
     """
     now = _NOW()
     dh  = diagram_hash_override or (diagram_hash(input_text) if input_text else None)
@@ -138,6 +140,7 @@ async def submit_correction(
         "correct_prompt": (correct_prompt or "").strip()[:4000],
         "tags": sorted(list({(t or "").strip().lower() for t in (tags or []) if t and t.strip()}))[:10],
         "scope": scope if scope in ("private", "team", "global") else "private",
+        "verdict": verdict if verdict in ("correct", "incorrect", "partial", "suggest") else "incorrect",
         # Admin authoring a private/team correction auto-approves; global
         # always needs a second-admin approval to reduce single-admin abuse
         # (unless it's a private/team correction by an admin, in which case
@@ -383,6 +386,11 @@ def apply_overrides(result: Dict[str, Any],
     for c in applicable:
         if c.get("apply_mode") != "override":
             continue
+        # Feb-2026 v2/v3: only INCORRECT verdicts trigger a deterministic
+        # override. Correct / Partial / Suggest never remove a finding —
+        # they only steer the LLM path.
+        if (c.get("verdict") or "incorrect") != "incorrect":
+            continue
         wf = c.get("wrong_finding") or {}
         kind = (wf.get("kind") or "").lower()
         val  = wf.get("value")
@@ -421,6 +429,123 @@ def apply_overrides(result: Dict[str, Any],
     if applied:
         result.setdefault("_applied_corrections", []).extend(applied)
     return result
+
+
+async def get_analytics(db) -> Dict[str, Any]:
+    """Feb-2026 v3-spec dashboard analytics — approval trend, per-surface
+    heatmap, top-reused corrections, top corrected MITRE techniques,
+    reviewer throughput, confidence calibration, FP/FN signal.
+
+    All aggregates run in Mongo — no per-doc loading — so this scales to
+    hundreds of thousands of corrections without impact.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    # Totals by status
+    status_counts: Dict[str, int] = {}
+    async for d in db[COLLECTION].aggregate([{"$group": {"_id": "$status", "n": {"$sum": 1}}}]):
+        status_counts[d["_id"] or "unknown"] = d["n"]
+
+    # Per-surface heatmap
+    surface_counts: Dict[str, int] = {}
+    async for d in db[COLLECTION].aggregate([
+        {"$group": {"_id": "$surface", "n": {"$sum": 1}}},
+        {"$sort": {"n": -1}},
+    ]):
+        surface_counts[d["_id"] or "unknown"] = d["n"]
+
+    # Top-reused (proven-value corrections)
+    top_reused: List[Dict[str, Any]] = []
+    async for d in db[COLLECTION].find(
+        {"status": {"$in": ["approved", "pending"]}}
+    ).sort("reuse_count", -1).limit(10):
+        d["_id"] = str(d["_id"])
+        d["confidence"] = compute_confidence(d)
+        top_reused.append({
+            "id": d["id"], "surface": d.get("surface"),
+            "reuse_count": d.get("reuse_count", 0),
+            "confidence": d["confidence"],
+            "wrong_finding": d.get("wrong_finding"),
+            "correct_prompt": (d.get("correct_prompt") or "")[:120],
+            "tags": d.get("tags", []),
+            "scope": d.get("scope"),
+        })
+
+    # Top corrected MITRE techniques
+    mitre_hits: Dict[str, int] = {}
+    async for d in db[COLLECTION].aggregate([
+        {"$match": {"wrong_finding.kind": "mitre"}},
+        {"$group": {"_id": "$wrong_finding.value", "n": {"$sum": 1}}},
+        {"$sort": {"n": -1}},
+        {"$limit": 10},
+    ]):
+        if d["_id"]:
+            mitre_hits[str(d["_id"])] = d["n"]
+
+    # Reviewer throughput
+    reviewer_stats: List[Dict[str, Any]] = []
+    async for d in db[COLLECTION].aggregate([
+        {"$match": {"approved_by": {"$ne": None}}},
+        {"$group": {"_id": "$approved_by",
+                     "approved": {"$sum": 1}}},
+        {"$sort": {"approved": -1}},
+        {"$limit": 10},
+    ]):
+        reviewer_stats.append({"reviewer": d["_id"], "approved": d["approved"]})
+
+    # Approval velocity (mean seconds pending → approved for approved docs)
+    velocities: List[float] = []
+    async for d in db[COLLECTION].find(
+        {"status": "approved", "approved_at": {"$ne": None}, "created_at": {"$ne": None}},
+    ).limit(500):
+        try:
+            t0 = datetime.fromisoformat(d["created_at"].replace("Z", "+00:00"))
+            t1 = datetime.fromisoformat(d["approved_at"].replace("Z", "+00:00"))
+            velocities.append((t1 - t0).total_seconds())
+        except Exception:
+            pass
+    avg_velocity_seconds = int(sum(velocities) / len(velocities)) if velocities else 0
+
+    # 7-day trend — created/day
+    trend: List[Dict[str, Any]] = []
+    now = datetime.now(timezone.utc)
+    for i in range(6, -1, -1):
+        day_start = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end   = day_start + timedelta(days=1)
+        cnt = await db[COLLECTION].count_documents({
+            "created_at": {"$gte": day_start.isoformat(), "$lt": day_end.isoformat()},
+        })
+        trend.append({"date": day_start.date().isoformat(), "count": cnt})
+
+    # FP / FN heuristic — verdict distribution
+    verdict_dist: Dict[str, int] = {}
+    async for d in db[COLLECTION].aggregate([
+        {"$group": {"_id": "$verdict", "n": {"$sum": 1}}},
+    ]):
+        verdict_dist[d["_id"] or "unspecified"] = d["n"]
+
+    total = sum(status_counts.values()) or 1
+    approved = status_counts.get("approved", 0)
+    accuracy_signal = round(approved / total, 3)
+
+    return {
+        "totals": {
+            "total": total,
+            "approved": approved,
+            "pending": status_counts.get("pending", 0),
+            "rejected": status_counts.get("rejected", 0),
+            "superseded": status_counts.get("superseded", 0),
+        },
+        "by_status":       status_counts,
+        "by_surface":      surface_counts,          # heatmap data
+        "top_reused":      top_reused,
+        "top_mitre":       mitre_hits,
+        "verdict_dist":    verdict_dist,             # FP/FN signal
+        "reviewer_stats":  reviewer_stats,           # throughput
+        "avg_approval_seconds": avg_velocity_seconds,
+        "accuracy_signal": accuracy_signal,         # 0..1 approved / total
+        "trend_7d":        trend,
+    }
 
 
 def inject_prompt_block(applicable: List[Dict[str, Any]]) -> str:
