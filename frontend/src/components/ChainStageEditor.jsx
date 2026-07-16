@@ -11,11 +11,63 @@
  *   - Export: Markdown, JSON (STIX 2.1 = P1)
  */
 import { useState, useMemo } from "react";
-import { Plus, X, Play, Sparkles, Download, FileText, ChevronDown, ChevronRight, AlertTriangle, Scissors } from "lucide-react";
+import { Plus, X, Play, Sparkles, Download, FileText, ChevronDown, ChevronRight, AlertTriangle, Scissors, RefreshCw, Circle } from "lucide-react";
 import api, { apiStream } from "../lib/api";
 import { splitCommandLines } from "../lib/commandSplitter";
+import InputToolbar from "./InputToolbar";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
+
+// ─── Chain-break classifier ─────────────────────────────────────────
+// Given a per-stage result, decide whether the stage broke and how.
+// Returns null (healthy) or { kind, severity, message }.
+//
+// Cases (Feb-2026 spec):
+//   (a) DECODE_FAILED   — engine null OR output missing/empty AND no chain applied
+//   (b) EMPTY_OUTPUT    — decoder ran but produced 0 bytes of output
+//   (e) LOW_CONFIDENCE  — confidence < 40 (still ran, but noisy)
+//   ERROR              — server-side exception on the stage
+function classifyStageBreak(stageResult) {
+  if (!stageResult) return null;
+  if (stageResult.error) {
+    return {
+      kind: "ERROR",
+      severity: "high",
+      message: `Stage errored: ${stageResult.error}`.slice(0, 200),
+    };
+  }
+  const conf = Number.isFinite(stageResult.confidence) ? stageResult.confidence : null;
+  const outLen = stageResult.output_length ?? (stageResult.output || "").length;
+  const engine = stageResult.engine;
+  const chainOps = Array.isArray(stageResult.chain) ? stageResult.chain.length : 0;
+  const inputLen = stageResult.input_length ?? (stageResult.input_preview || "").length;
+
+  // (a) Decode failed — engine ran but no decoder matched, and no chain applied.
+  if ((conf === 0 || conf === null) && chainOps === 0 && inputLen > 0) {
+    return {
+      kind: "DECODE_FAILED",
+      severity: "high",
+      message: "No known decoder matched · plain-text passthrough only",
+    };
+  }
+  // (b) Empty output — decoder claims success but produced 0 bytes.
+  if (outLen === 0 && inputLen > 0 && (conf ?? 0) > 0) {
+    return {
+      kind: "EMPTY_OUTPUT",
+      severity: "med",
+      message: "Decoder ran but yielded 0 bytes · input may be plaintext or malformed",
+    };
+  }
+  // (e) Low confidence — below the 40 % floor.
+  if (conf !== null && conf < 40 && chainOps > 0) {
+    return {
+      kind: "LOW_CONFIDENCE",
+      severity: "low",
+      message: `Confidence ${conf}/100 · below 40 % floor · verify output manually`,
+    };
+  }
+  return null;
+}
 
 export default function ChainStageEditor({ seedInput, onSeedConsumed, initialStages }) {
   const [stages, setStages] = useState(() => {
@@ -30,6 +82,10 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
   const [narrating, setNarrating] = useState(false);
   const [narrateProgress, setNarrateProgress] = useState(null);
   const [drillOpen, setDrillOpen] = useState({});   // stage_index -> bool
+  // Feb-2026 enhancement: per-stage input lock (edit-toggle from InputToolbar).
+  const [stageLocks, setStageLocks] = useState({});
+  // Feb-2026 enhancement: which stage index is currently re-running (for spinner).
+  const [rerunning, setRerunning] = useState(null);
 
   const chainMode = stages.length > 3;   // auto-switch to compact list view
 
@@ -88,6 +144,46 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
       setResult({ error: e?.response?.data?.detail || e.message });
     } finally {
       setRunning(false);
+    }
+  };
+
+  // Re-run the chain STARTING FROM a specific stage index. Prior stages'
+  // decoded outputs are preserved from the last full-chain result; the
+  // stage at `fromIdx` is fed its current textarea value; everything
+  // after is re-decoded. This is the analyst's core loop when tweaking
+  // one stage's parameters (e.g. adding an XOR key, editing a b64 blob)
+  // without paying to re-decode the whole chain.
+  const runFromStage = async (fromIdx) => {
+    setRerunning(fromIdx);
+    try {
+      const trimmed = stages.filter((s) => s.input.trim());
+      const tail = trimmed.slice(fromIdx).map((s) => ({ input: s.input }));
+      if (!tail.length) return;
+      const r = await api.post("/decode/chain", { stages: tail });
+      const partial = r.data || {};
+      // Splice new stage results back into the existing result state
+      // (preserve stages 0..fromIdx-1 verbatim, then append re-computed
+      // tail with stage_index re-based to the full chain index).
+      setResult((prev) => {
+        const prevStages = (prev?.stages || []).slice(0, fromIdx);
+        const newTail = (partial.stages || []).map((st, i) => ({
+          ...st, stage_index: fromIdx + i,
+        }));
+        return {
+          ...(prev || {}),
+          stage_count: prevStages.length + newTail.length,
+          stages: [...prevStages, ...newTail],
+          // Aggregate is re-emitted by the endpoint for the tail only,
+          // so we merge conservatively — full-chain re-aggregation would
+          // require a second server call. For most analyst workflows the
+          // tail aggregate is what they need to inspect.
+          aggregate: partial.aggregate || prev?.aggregate,
+        };
+      });
+    } catch (e) {
+      setResult((prev) => ({ ...(prev || {}), error: `Re-run from stage ${fromIdx} failed: ${e?.response?.data?.detail || e.message}` }));
+    } finally {
+      setRerunning(null);
     }
   };
 
@@ -161,9 +257,16 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
       </div>
 
       <div className="nvx-card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {stages.map((s, idx) => (
+        {stages.map((s, idx) => {
+          const stageRes = result?.stages?.[idx];
+          const breakInfo = classifyStageBreak(stageRes);
+          const locked = !!stageLocks[s.id];
+          return (
           <div key={s.id} data-testid={`chain-stage-${idx}`} style={{
-            border: "1px solid var(--border)", borderRadius: 4, padding: 8,
+            border: breakInfo
+              ? `1px solid ${breakInfo.severity === "high" ? "var(--high)" : breakInfo.severity === "med" ? "var(--warn)" : "var(--text-mute)"}`
+              : "1px solid var(--border)",
+            borderRadius: 4, padding: 8,
             background: "rgba(0,0,0,0.15)",
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -171,6 +274,19 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
                 STAGE {idx}
               </span>
               <div style={{ display: "flex", gap: 4 }}>
+                {stageRes && idx < stages.length && (
+                  <button
+                    className="nvx-btn sm ghost"
+                    onClick={() => runFromStage(idx)}
+                    disabled={running || rerunning !== null}
+                    data-testid={`btn-chain-rerun-from-${idx}`}
+                    title={`Re-run decoding from stage ${idx} onwards using this stage's current textarea value. Previous stages are preserved.`}
+                    style={{ padding: "2px 8px", fontSize: 10 }}
+                  >
+                    <RefreshCw size={10} className={rerunning === idx ? "spin" : ""} />
+                    {" "}RE-RUN
+                  </button>
+                )}
                 {canSplit(s.input) > 1 && (
                   <button
                     className="nvx-btn sm"
@@ -192,25 +308,61 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
                 )}
               </div>
             </div>
-            <textarea
-              className="nvx-textarea"
-              rows={chainMode ? 2 : 3}
-              data-testid={`chain-input-${idx}`}
-              placeholder={idx === 0
-                ? "Paste stage 0 — or paste multiple command lines (blank lines OR just one command per line) to auto-split into stages."
-                : `Stage ${idx} payload…`}
-              value={s.input}
-              onChange={(e) => setStageInput(s.id, e.target.value)}
-              onPaste={(e) => handlePasteSplit(s.id, e)}
-              style={{ fontSize: 11, minHeight: chainMode ? 40 : 60 }}
-            />
-            {result?.stages?.[idx] && (
+            <div style={{ position: "relative" }}>
+              <textarea
+                className="nvx-textarea"
+                rows={chainMode ? 2 : 3}
+                data-testid={`chain-input-${idx}`}
+                placeholder={idx === 0
+                  ? "Paste stage 0 — or paste multiple command lines (blank lines OR just one command per line) to auto-split into stages."
+                  : `Stage ${idx} payload…`}
+                value={s.input}
+                readOnly={locked}
+                onChange={(e) => setStageInput(s.id, e.target.value)}
+                onPaste={(e) => handlePasteSplit(s.id, e)}
+                style={{ fontSize: 11, minHeight: chainMode ? 40 : 60, paddingRight: 90 }}
+              />
+              <InputToolbar
+                scope={`chain-input-${idx}`}
+                value={s.input}
+                locked={locked}
+                onToggleEdit={() => setStageLocks((l) => ({ ...l, [s.id]: !l[s.id] }))}
+                onClear={() => setStageInput(s.id, "")}
+              />
+            </div>
+            {breakInfo && (
+              <div
+                data-testid={`chain-break-${idx}`}
+                data-break-kind={breakInfo.kind}
+                style={{
+                  marginTop: 6,
+                  padding: "5px 8px",
+                  fontSize: 10.5,
+                  fontFamily: "JetBrains Mono",
+                  borderLeft: `3px solid ${breakInfo.severity === "high" ? "var(--high)" : breakInfo.severity === "med" ? "var(--warn)" : "var(--text-mute)"}`,
+                  background: breakInfo.severity === "high"
+                    ? "rgba(255,90,90,0.08)"
+                    : breakInfo.severity === "med"
+                    ? "rgba(255,180,60,0.08)"
+                    : "rgba(200,200,200,0.05)",
+                  color: breakInfo.severity === "high" ? "var(--high)" : "var(--warn)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <AlertTriangle size={11} />
+                <span style={{ letterSpacing: "0.14em", fontWeight: 700 }}>{breakInfo.kind.replace(/_/g, " ")}</span>
+                <span style={{ color: "var(--text-dim)" }}>· {breakInfo.message}</span>
+              </div>
+            )}
+            {stageRes && (
               <div style={{ marginTop: 6, fontSize: 10.5 }}>
                 <div className="mono" style={{ color: "var(--text-mute)" }}>
-                  engine=<span style={{ color: "var(--accent)" }}>{result.stages[idx].engine || "n/a"}</span>
-                  {" · "}conf=<span style={{ color: result.stages[idx].confidence >= 60 ? "var(--ok)" : "var(--warn)" }}>{result.stages[idx].confidence}/100</span>
-                  {result.stages[idx].reached_shellcode && <span style={{ color: "var(--high)" }}> · SHELLCODE</span>}
-                  {result.stages[idx].corrupt_payload && <span style={{ color: "var(--high)" }}> · <AlertTriangle size={9} /> CORRUPT</span>}
+                  engine=<span style={{ color: "var(--accent)" }}>{stageRes.engine || "n/a"}</span>
+                  {" · "}conf=<span style={{ color: stageRes.confidence >= 60 ? "var(--ok)" : "var(--warn)" }}>{stageRes.confidence}/100</span>
+                  {stageRes.reached_shellcode && <span style={{ color: "var(--high)" }}> · SHELLCODE</span>}
+                  {stageRes.corrupt_payload && <span style={{ color: "var(--high)" }}> · <AlertTriangle size={9} /> CORRUPT</span>}
                   <button
                     className="nvx-btn sm ghost"
                     style={{ marginLeft: 8, padding: "2px 6px" }}
@@ -224,12 +376,12 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
                   <pre style={{
                     background: "rgba(0,0,0,0.3)", padding: 6, marginTop: 4,
                     maxHeight: 200, overflow: "auto", fontSize: 10, borderRadius: 3,
-                  }}>{(result.stages[idx].output || "").slice(0, 4000)}</pre>
+                  }}>{(stageRes.output || "").slice(0, 4000)}</pre>
                 )}
               </div>
             )}
           </div>
-        ))}
+        );})}
       </div>
 
       {result?.error && (

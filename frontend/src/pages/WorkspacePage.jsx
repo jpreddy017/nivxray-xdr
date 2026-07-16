@@ -28,6 +28,7 @@ import InvestigationTimeline from "@/components/InvestigationTimeline";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import { splitCommandLines, isMultiCommandInput } from "@/lib/commandSplitter";
+import InputToolbar from "@/components/InputToolbar";
 import {
   Play, Zap, Wand2, Wrench, Share2, Download, Upload, Trash2, Copy, Sparkles, X,
 } from "lucide-react";
@@ -97,6 +98,9 @@ export default function WorkspacePage() {
   // Pending stage seed for ChainStageEditor after user chooses to restore a saved chain
   const [pendingChainStages, setPendingChainStages] = useState(null);
   const [chainEditorKey, setChainEditorKey] = useState(0); // force remount when initialStages change
+  // Feb-2026 Enhancements: input lock (edit toggle) + multi-command auto-route toast
+  const [inputLocked, setInputLocked] = useState(false);
+  const [multiChainNotice, setMultiChainNotice] = useState(null);   // { stages, verdict, family }
   const [nivxrayTrace, setNivxrayTrace] = useState([]);
   // Track whether the analyst has unsaved work in the current workspace so
   // rehydrating from history can prompt before overwriting.
@@ -309,6 +313,8 @@ export default function WorkspacePage() {
     setChainOpen(false);
     setChainReplay(null);
     setPendingChainStages(null);
+    setMultiChainNotice(null);
+    setInputLocked(false);
     try { localStorage.removeItem("nvx.pendingInput"); } catch {}
   };
 
@@ -409,11 +415,53 @@ export default function WorkspacePage() {
         (family ? ` · ${family}` : "") +
         (meanConf != null ? ` · avg ${meanConf}%` : "")
       );
+      setMultiChainNotice({
+        stages: stages.length,
+        verdict: verdict || "unknown",
+        family: family || null,
+      });
       setPasteHint(null);
       return d;
     } catch (e) {
       setStatus("CHAIN ERROR: " + (e?.response?.data?.detail || e.message));
       return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Opt-out escape hatch — analyst wants the whole blob decoded flat
+  // (e.g. for a payload that *looks* multi-command but is actually a
+  // single obfuscation with newlines as delimiters). Bypasses the
+  // splitter and runs /api/decode/smart on the raw text.
+  const revertToFlatDecode = async () => {
+    setMultiChainNotice(null);
+    setChainOpen(false);
+    setLoading(true);
+    setStatus("REVERTED · analysing as flat blob…");
+    try {
+      const r = await api.post("/decode/smart", { input });
+      const d = r.data || {};
+      setOutput(d.output || "");
+      setSteps((d.recipe || []).map((s) => ({ op: s.op, args: s.args || {} })));
+      setChain(d.chain || []);
+      setDecodeTrace(d.chain || []);
+      setDecodeWinnerEngine(d.engine || null);
+      setDecodeConfidence(d.confidence ?? null);
+      setReachedShellcode(!!d.reached_shellcode);
+      // Wipe stale chain-aggregated analysis so ATT&CK / IOC panels re-derive from single blob.
+      setAnalysis({
+        iocs: d.iocs || {},
+        mitre: d.mitre || [],
+        lolbins: d.lolbas || [],
+        lolbas: d.lolbas || [],
+        yara: d.yara || [],
+        risk: d.risk || {},
+        family: d.family || null,
+      });
+      setStatus(`FLAT DECODE · engine=${d.engine || "?"} · conf=${d.confidence ?? "?"}/100`);
+    } catch (e) {
+      setStatus("FLAT DECODE ERROR: " + (e?.response?.data?.detail || e.message));
     } finally {
       setLoading(false);
     }
@@ -1265,12 +1313,14 @@ export default function WorkspacePage() {
               </div>
             </div>
             <div className="nvx-card-body">
-              <textarea
-                className="nvx-textarea"
-                data-testid="input-textarea"
-                placeholder="Paste anything — PowerShell, base64/hex, AES/RC4 ciphertext, JWT, PE/ELF headers, gzip/bzip2/LZMA, obfuscated JS, defanged IOCs…"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
+              <div style={{ position: "relative" }}>
+                <textarea
+                  className="nvx-textarea"
+                  data-testid="input-textarea"
+                  placeholder="Paste anything — PowerShell, base64/hex, AES/RC4 ciphertext, JWT, PE/ELF headers, gzip/bzip2/LZMA, obfuscated JS, defanged IOCs…"
+                  value={input}
+                  readOnly={inputLocked}
+                  onChange={(e) => setInput(e.target.value)}
                 onPaste={(e) => {
                   // Client-side auto-detect: race 14 JS decoders against the pasted
                   // string INSIDE the browser (zero network). Surface the top
@@ -1297,6 +1347,52 @@ export default function WorkspacePage() {
                 spellCheck={false}
                 style={{ height: 180, minHeight: 180, maxHeight: 180, resize: "none", overflowY: "auto" }}
               />
+              <InputToolbar
+                scope="input-textarea"
+                value={input}
+                locked={inputLocked}
+                onToggleEdit={() => setInputLocked((v) => !v)}
+                onClear={() => { setInput(""); setPasteHint(null); }}
+              />
+              </div>
+              {multiChainNotice && (
+                <div
+                  data-testid="multi-chain-notice"
+                  style={{
+                    marginTop: 8, padding: "8px 12px",
+                    border: "1px solid var(--accent)", borderRadius: 3,
+                    background: "rgba(74,168,144,0.10)",
+                    fontFamily: "JetBrains Mono", fontSize: 11,
+                    display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                  }}
+                >
+                  <span style={{ color: "var(--accent)", letterSpacing: "0.14em", fontWeight: 700 }}>
+                    ⚡ MULTI-COMMAND CHAIN
+                  </span>
+                  <span style={{ color: "var(--text-dim)" }}>
+                    detected · {multiChainNotice.stages} stages analysed
+                    {multiChainNotice.family && ` · ${multiChainNotice.family}`}
+                    {multiChainNotice.verdict && ` · ${multiChainNotice.verdict}`}
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  <button
+                    className="nvx-btn sm ghost"
+                    data-testid="btn-revert-flat-decode"
+                    onClick={revertToFlatDecode}
+                    disabled={loading}
+                    title="Bypass chain routing and decode the whole input as a single blob (useful when newlines are part of the payload itself)."
+                  >
+                    ▸ ANALYSE AS FLAT BLOB
+                  </button>
+                  <button
+                    className="nvx-btn sm ghost"
+                    data-testid="btn-dismiss-multi-chain-notice"
+                    onClick={() => setMultiChainNotice(null)}
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              )}
               {pasteHint && (
                 <div
                   className="paste-hint"
