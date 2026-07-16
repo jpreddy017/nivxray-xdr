@@ -1,6 +1,23 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — 🖥️ Chain-Editor OUTPUT panel propagation)
+
+### User-reported UX gap — "no output displayed" after RUN CHAIN in Chain Editor
+
+When the analyst drove the chain directly from the Chain Editor (INPUT box left empty, stages added manually, `RUN CHAIN` clicked), the per-stage cards + AGGREGATE showed the verdict but the top **OUTPUT** panel stayed on the placeholder `Run a recipe or click AUTO INVESTIGATE to see decoded output here…`. That looked like the run had failed even though the SOC verdict was rendered further down.
+
+**Fix**:
+- `ChainStageEditor.jsx` — added `onChainComplete(reportText, chainData)` callback prop. Fires once the `/decode/chain` response is in, packaging either the backend-synthesised `report_text` or a fallback concatenation of per-stage outputs.
+- `WorkspacePage.jsx` — wires the callback. When it fires:
+  - Populates `output` with the SOC report so the OUTPUT panel is no longer empty.
+  - Updates the top `STATUS` bar to `CHAIN COMPLETE · N stages · <verdict> · <family> · <score>/100`.
+  - Sets `decodeConfidence` and `decodeWinnerEngine="chain"` so the confidence chip and engine tag reflect the chain run.
+
+**Verified**: With INPUT empty + 2 chain stages, OUTPUT panel now shows the full multi-line SOC report (`NIVXRAY CHAIN INVESTIGATION · 2 stages · Verdict: Malicious 94/100 · Family: Destructive Wiper / Ransomware Precursor · per-stage engine + confidence table`). No regressions across `test_ps_var_indirection_and_wiper.py`, `test_wrapper_archetypes.py`, `test_chain_analyzer.py`, `test_multi_command_chain.py` — 42/42 pass.
+
+
+
 ## Latest Change (Feb 2026 — 🎯 PS Variable Indirection · Corrupt-Gzip Salvage · Destructive Wiper Family · Wiper LOLBAS)
 
 ### User-reported bug fix — "DECODE FAILED at stage 0" on real Empire/Cobalt loaders

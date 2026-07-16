@@ -71,7 +71,7 @@ function classifyStageBreak(stageResult) {
   return null;
 }
 
-export default function ChainStageEditor({ seedInput, onSeedConsumed, initialStages, initialResult }) {
+export default function ChainStageEditor({ seedInput, onSeedConsumed, initialStages, initialResult, onChainComplete }) {
   const [stages, setStages] = useState(() => {
     if (Array.isArray(initialStages) && initialStages.length > 0) {
       return initialStages.map((s) => ({ id: uid(), input: s.input || s.input_preview || "" }));
@@ -145,6 +145,24 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
       const r = await api.post("/decode/chain", payload);
       setResult(r.data);
       if (seedInput && onSeedConsumed) onSeedConsumed();
+      // Feb-2026 UX fix — propagate the chain SOC report_text (or a
+      // concatenated per-stage output fallback) up to the parent so the
+      // top OUTPUT panel isn't left empty when the chain was driven
+      // directly from the Chain Editor (no top-level INPUT paste).
+      if (onChainComplete) {
+        try {
+          const data = r.data || {};
+          const stagesArr = data.stages || [];
+          const rpt = data.report_text
+            || stagesArr
+                 .map((s, i) => {
+                   const head = `───── STAGE ${i} · engine=${s.engine || "?"} · conf=${s.confidence ?? 0}/100 ─────`;
+                   return `${head}\n${s.output || "(no output)"}`;
+                 })
+                 .join("\n\n");
+          onChainComplete(rpt, data);
+        } catch { /* never block the run on a callback error */ }
+      }
     } catch (e) {
       setResult({ error: e?.response?.data?.detail || e.message });
     } finally {

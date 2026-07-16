@@ -1506,6 +1506,27 @@ export default function WorkspacePage() {
               initialStages={pendingChainStages}
               initialResult={pendingChainResult}
               onSeedConsumed={() => { /* keep single-stage input intact */ }}
+              onChainComplete={(reportText, chainData) => {
+                // Feb-2026 UX fix — when the Chain Editor is driven
+                // directly (no INPUT paste), populate the top OUTPUT
+                // panel with the SOC report + light status update so
+                // the analyst has a single glance-view.
+                if (reportText) setOutput(reportText);
+                const agg = chainData?.aggregate || {};
+                const risk = agg?.risk || {};
+                const fam  = agg?.family || {};
+                const conf = Number.isFinite(risk?.score) ? risk.score : null;
+                const stageCount = (chainData?.stages || []).length;
+                const parts = [
+                  `CHAIN COMPLETE · ${stageCount} stage${stageCount === 1 ? "" : "s"}`,
+                  risk?.verdict || null,
+                  fam?.family || null,
+                  conf != null ? `${conf}/100` : null,
+                ].filter(Boolean);
+                setStatus(parts.join(" · "));
+                if (conf != null) setDecodeConfidence(conf);
+                setDecodeWinnerEngine("chain");
+              }}
             />
           ) : (
             <div style={{ margin: "6px 12px 8px 12px", display: "flex", justifyContent: "flex-end" }}>

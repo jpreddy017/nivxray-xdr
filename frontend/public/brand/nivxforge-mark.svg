@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="NivXForge mark">
+  <title>NivXForge — mark</title>
+  <desc>Hexagonal forge badge containing the bracket-N and molten spark — the parent brand of NivXRay.</desc>
+
+  <defs>
+    <linearGradient id="fstroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"  stop-color="#e2a05d"/>
+      <stop offset="100%" stop-color="#e27e5d"/>
+    </linearGradient>
+    <linearGradient id="fhex" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#4aa890" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#3b8b75" stop-opacity="0.9"/>
+    </linearGradient>
+    <radialGradient id="fglow" cx="50%" cy="72%" r="45%">
+      <stop offset="0%"  stop-color="#e27e5d" stop-opacity="0.35"/>
+      <stop offset="70%" stop-color="#e27e5d" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#e27e5d" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Molten ember behind the hex, hint of forge heat -->
+  <circle cx="256" cy="360" r="180" fill="url(#fglow)"/>
+
+  <!-- Hexagon (pointy-top, forge/anvil badge) -->
+  <!-- Radius ~230 from center 256,256 -->
+  <polygon points="256,32 455,148 455,364 256,480 57,364 57,148"
+           fill="none" stroke="url(#fhex)" stroke-width="10"
+           stroke-linejoin="miter"/>
+
+  <!-- Inner hex ring (double-line badge feel) -->
+  <polygon points="256,66 425,164 425,348 256,446 87,348 87,164"
+           fill="none" stroke="#2d3135" stroke-width="2"
+           stroke-linejoin="miter"/>
+
+  <!-- Bracket-N — centered inside the hex (family DNA of NivX) -->
+  <!-- Scaled to ~280 unit box, centered at 256,256 -->
+  <path d="M 128 356 L 128 152 L 188 152 L 296 296 L 296 152 L 372 152"
+        fill="none"
+        stroke="url(#fhex)"
+        stroke-width="26"
+        stroke-linejoin="miter"
+        stroke-linecap="square"/>
+
+  <!-- Anvil-plate below bracket → molten spark -->
+  <rect x="180" y="378" width="152" height="8" fill="#2d3135"/>
+  <circle cx="372" cy="356" r="24" fill="url(#fstroke)"/>
+  <circle cx="372" cy="356" r="36" fill="none" stroke="#e27e5d" stroke-opacity="0.35" stroke-width="3"/>
+
+  <!-- 4 hammer-strike marks at hex vertices (subtle) -->
+  <circle cx="256"  cy="32"  r="4" fill="#e27e5d"/>
+  <circle cx="256"  cy="480" r="4" fill="#e27e5d"/>
+  <circle cx="57"   cy="256" r="4" fill="#4aa890"/>
+  <circle cx="455"  cy="256" r="4" fill="#4aa890"/>
+</svg>
