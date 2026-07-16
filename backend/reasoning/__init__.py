@@ -26,3 +26,7 @@ from .candidate_engine import (  # noqa: F401
     Candidate as EncodingCandidate, UnknownVerdict,
     HIGH_THRESHOLD, MIN_ACCEPT, LOW_THRESHOLD,
 )
+from .moe_panel import (  # noqa: F401
+    run_panel, run_panel_async, moe_available,
+    normalise_evidence, Finding, EvidenceRef, ReviewerReport,
+)

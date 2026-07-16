@@ -23,6 +23,7 @@ import BoostBadge from "@/components/BoostBadge";
 import ChainStageEditor from "@/components/ChainStageEditor";
 import ChainReplayView from "@/components/ChainReplayView";
 import CandidateExplorer from "@/components/CandidateExplorer";
+import MoEPanel from "@/components/MoEPanel";
 import InvestigationTimeline from "@/components/InvestigationTimeline";
 import api from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
@@ -80,6 +81,8 @@ export default function WorkspacePage() {
   // Feb-2026: Candidate Explorer toggle — shows the ranked encoding candidates
   // + structured why-not breakdown from /api/decode/candidates.
   const [showCandidateExplorer, setShowCandidateExplorer] = useState(false);
+  // Feb-2026 P2: Mixture-of-Experts (MoE) Analyst Panel toggle
+  const [showMoePanel, setShowMoePanel] = useState(false);
   // Predicted process tree (fed to both ProcessTreeView + SocVerdictPanel mini)
   const [predictedTree, setPredictedTree] = useState(null);
   // Learning Feedback Loop
@@ -1066,6 +1069,33 @@ export default function WorkspacePage() {
             input={input}
             testidPrefix="workspace-timeline"
           />
+        </div>
+      )}
+
+      {/* MoE Analyst Panel toggle */}
+      <div
+        style={{
+          padding: "8px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          borderTop: "1px solid #1e293b",
+        }}
+      >
+        <button
+          className={`nvx-btn sm ${showMoePanel ? "" : "ghost"}`}
+          onClick={() => setShowMoePanel((v) => !v)}
+          data-testid="toggle-moe-panel"
+        >
+          {showMoePanel ? "✕ Hide" : "▣ Show"} MoE Analyst Panel
+        </button>
+        <span style={{ fontSize: 11, color: "#94a3b8" }}>
+          3-critic panel · Malware Analyst · Red Team · Defensive · Synthesiser (consensus + disagreements)
+        </span>
+      </div>
+      {showMoePanel && input && input.trim().length > 0 && (
+        <div style={{ padding: "0 16px 12px" }}>
+          <MoEPanel input={input} testidPrefix="workspace-moe-panel" />
         </div>
       )}
 

@@ -1,7 +1,87 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🚀 Deployment-Readiness Pass)
+## Latest Change (Feb 2026 — 🧠 P2 · Mixture-of-Experts (MoE) Analyst Panel)
+
+### Delivered — the analyst-grade multi-critic panel
+
+**Backend**
+- New module `backend/reasoning/moe_panel.py` — 3 specialist critics run in
+  parallel (`asyncio.gather`) + a synthesiser:
+  * **Malware Analyst** — behavioural analysis, IOC extraction, MITRE mapping
+  * **Red Team Reviewer** — offensive tradecraft, evasion, LOLBAS abuse
+  * **Defensive Reviewer** — detection engineering (Sigma / KQL / hunting)
+  * **Synthesiser** — consensus detection, disagreement escalation,
+    confidence-scored final verdict, recommended actions
+- **Anti-hallucination guardrail** — every finding MUST cite an
+  `evidence_ref` (type ∈ {chain, ioc, lolbin, mitre, decoded_text,
+  verdict}) pointing at a real artefact from the deterministic pipeline.
+  Findings that fail the check are dropped server-side.
+- **Zero-AI resilience** — when `EMERGENT_LLM_KEY` is empty or Claude
+  fails (timeout / JSON parse), each reviewer falls back to a
+  deterministic evidence-driven generator that produces the same schema
+  from the artefact bundle. 0 network calls, sub-2 ms per reviewer.
+- New router `backend/routers/moe_panel.py`:
+  * `GET  /api/moe/status` — reports availability + provider mode
+  * `POST /api/moe/analyze {input | evidence, session_id?}` — runs the
+    panel; if only `input` supplied, the deterministic pipeline builds
+    the evidence bundle first.
+- Per-Claude reviewer wrapped in `asyncio.wait_for(25 s)` so a single
+  stuck critic can't blow the request budget. Endpoint registered as an
+  LLM route (85 s) in `request_hardening.py`.
+
+**Frontend**
+- New `frontend/src/components/MoEPanel.jsx`:
+  * 3-column reviewer grid with per-column accent + duration_ms header
+  * Every finding card shows severity badge + confidence % + evidence
+    chips (chain-op, IOC value, LOLBin name, MITRE T-ID, decoded-text
+    span). Hover-tooltip reveals full evidence ref.
+  * Reviewer-specific extras block: Red Team → techniques; Defensive →
+    Sigma rules + hunting queries.
+  * Synthesiser card at bottom: consensus (mint), disagreements with
+    escalated severity (rose), recommended actions strip.
+  * All interactive elements carry `data-testid`
+    (`workspace-moe-panel`, `-run`, `-reviewer-<role>`, `-synthesis`,
+    `-verdict`).
+- Mounted in `WorkspacePage.jsx` between the Candidate Explorer strip
+  and the Verdict Card, gated by a new `toggle-moe-panel` button.
+
+**Tests** — `backend/tests/test_moe_panel.py` (22 new, all pass)
+- Evidence normalisation (flat lists / dict-of-lists / mixed MITRE)
+- Anti-hallucination guardrail (fake IOC / fake T-ID / no-refs finding
+  all dropped)
+- Deterministic fallback reviewer coverage (each reviewer emits ≥2
+  evidence-grounded findings for a realistic PS-b64 payload)
+- Synthesiser: consensus + disagreement + verdict-label logic
+- Router: status shape, evidence-bundle path, raw-input path (runs full
+  deterministic decode), 400/401 error paths
+
+Combined suite ran on preview: **83/83 pass** across `test_moe_panel +
+test_reasoning_roadmap + test_candidate_engine + test_ensemble_ai_off`.
+
+### AI-OFF capability snapshot (10-payload benchmark)
+
+Ran `backend/scripts/ai_off_capability_report.py` with
+`EMERGENT_LLM_KEY=""`:
+
+| Metric | Value |
+| --- | --- |
+| Deterministic chain accuracy | **9/10** (only miss: standalone Base58 with no context hint) |
+| Total decode time (10 payloads) | **42 ms** |
+| Total MoE panel time (10 payloads, static fallback) | **1 ms** |
+| Total artefacts recovered | 17 IOCs · 11 MITRE · 9 LOLBins · **68 findings** |
+| Verdicts | 7 × malicious · 1 × suspicious · 2 × benign-candidate |
+
+### Files touched
+- **New (backend)**: `backend/reasoning/moe_panel.py`, `backend/routers/moe_panel.py`, `backend/tests/test_moe_panel.py`, `backend/scripts/ai_off_capability_report.py`
+- **New (frontend)**: `frontend/src/components/MoEPanel.jsx`
+- **Modified**: `backend/server.py` (register moe router), `backend/reasoning/__init__.py` (export MoE symbols), `backend/request_hardening.py` (`/api/moe/analyze` gets LLM timeout), `frontend/src/pages/WorkspacePage.jsx` (mount MoE toggle + panel)
+
+⚠️ **Deployment**: preview verified — production redeploy required to expose `/api/moe/analyze` + the MoE Analyst Panel toggle to nivxray.nivxforge.com.
+
+---
+
+## Previous Change (Feb 2026 — 🚀 Deployment-Readiness Pass)
 
 ### Delivered in this fork
 
