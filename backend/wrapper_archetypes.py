@@ -252,7 +252,7 @@ _PS_ENC_CLI_RX = re.compile(
     r"[^\r\n\"']{0,200}?"                          # any inter-flag slop (values, dashes, spaces)
     r"[\s/-]-?(?:e|ec|enc|encoded|encodedcommand)\b"  # -Enc / -EncodedCommand / /enc
     r"\s+[\"']?"                                   # optional quote
-    r"(?P<blob>[A-Za-z0-9+/=_\-]{20,})"            # the base64 blob
+    r"(?P<blob>[A-Za-z0-9+/=_\-\s]{20,})"          # the base64 blob (may span lines / include whitespace)
     r"[\"']?",
     re.IGNORECASE,
 )
@@ -270,6 +270,8 @@ def _handle_ps_enc_cli(text: str) -> str:
     blob = _match_group(_PS_ENC_CLI_RX, text)
     if not blob:
         raise ValueError("no blob match")
+    # Strip whitespace / newlines that PowerShell -Enc happily ignores.
+    blob = re.sub(r"\s+", "", blob)
     raw = robust_b64decode(blob)
     # Try canonical UTF-16LE first — this is what PowerShell.exe -Enc requires
     try:
@@ -856,10 +858,278 @@ def _handle_batch_var_slice(text: str) -> str:
     return changed
 
 
+# ─── Feb 2026: 4 new archetypes covering deterministic gaps analyst reported ─
+
+# A. BASH_HEX_ECHO_XXD
+#    echo "<hex>" | xxd -r -p | ...  OR  echo -n "<hex>" | xxd -r -p
+#    Reverse-shell / IOC-hidden pattern. Extract the hex, decode to ASCII,
+#    return decoded (so downstream MITRE/YARA sees the IP/host).
+_BASH_HEX_XXD_RX = re.compile(
+    r"echo\s+-?n?\s*['\"](?P<blob>(?:[0-9a-fA-F]{2}\s*){4,})['\"]"
+    r"\s*\|\s*xxd\s+-r\s+-p",
+    re.IGNORECASE,
+)
+
+def _handle_bash_hex_xxd(text: str) -> str:
+    m = _BASH_HEX_XXD_RX.search(text)
+    if not m:
+        raise ValueError("no hex match")
+    hex_str = re.sub(r"\s+", "", m.group("blob"))
+    try:
+        raw = bytes.fromhex(hex_str)
+    except ValueError as e:
+        raise ValueError(f"invalid hex: {e}")
+    decoded = raw.decode("utf-8", errors="replace")
+    # Re-embed the decoded IP/host into the original command so downstream
+    # /dev/tcp/ MITRE + YARA + IOC extraction can pick it up.
+    return text.replace(m.group(0), decoded, 1)
+
+
+# B. CERTUTIL_DECODE_PEM
+#    Detects a PEM-wrapped base64 blob (`-----BEGIN CERTIFICATE----- … -----END
+#    CERTIFICATE-----`) *especially* when paired with certutil -decode. Decodes
+#    the blob and returns the raw bytes as latin-1 so the MZ/PE header is
+#    visible to downstream detectors.
+_PEM_BLOB_RX = re.compile(
+    r"-{5}BEGIN\s+CERTIFICATE-{5}\s*"
+    r"(?P<blob>[A-Za-z0-9+/=\s]{20,})"
+    r"-{5}END\s+CERTIFICATE-{5}",
+    re.IGNORECASE,
+)
+# Detects a "staged PEM file build" sequence:
+#   echo -----BEGIN CERTIFICATE----- > f.txt && echo <blob> >> f.txt && echo -----END CERTIFICATE----- >> f.txt && certutil -decode f.txt out.exe
+# The BEGIN/END markers and the blob live in SEPARATE echo statements, so
+# a naive contiguous-PEM regex misses them. We look for the pattern of
+# `echo <b64>` sitting between BEGIN and END markers OR paired with certutil
+# -decode in the same command line.
+_CERTUTIL_STAGING_RX = re.compile(
+    r"certutil(?:\.exe)?\s+(?:-[A-Za-z]+\s+)*-decode\b",
+    re.IGNORECASE,
+)
+_ECHO_B64_LINE_RX = re.compile(
+    r"echo\s+(?P<blob>[A-Za-z0-9+/=]{16,})\s*(?:>>|>)",
+    re.IGNORECASE,
+)
+
+def _handle_certutil_decode(text: str) -> str:
+    """Return `<original text>\n\n[CERTUTIL PAYLOAD DECODED]\n<decoded>`."""
+    blob = None
+    m = _PEM_BLOB_RX.search(text)
+    if m:
+        blob = re.sub(r"\s+", "", m.group("blob"))
+    if not blob:
+        # Staged form: certutil -decode present → pick the largest `echo <b64>`
+        # line as the payload blob (skipping PEM header/footer lines).
+        if _CERTUTIL_STAGING_RX.search(text):
+            candidates = [
+                m2.group("blob") for m2 in _ECHO_B64_LINE_RX.finditer(text)
+            ]
+            # Reject anything that looks like PEM boilerplate (BEGIN/END caught
+            # by another regex, but a bare `certificate` word would too).
+            candidates = [c for c in candidates
+                          if not re.fullmatch(r"[A-Z]+", c) and len(c) >= 20]
+            if candidates:
+                blob = max(candidates, key=len)
+    if not blob:
+        raise ValueError("no PEM/certutil blob")
+    raw = robust_b64decode(blob)
+    # Detect MZ (PE) header — always show the first 32 bytes hex-summary
+    # so downstream sees "MZ..." for T1140 + PE-staging.
+    head = raw[:32]
+    hex_head = head.hex()
+    is_pe = raw[:2] == b"MZ"
+    try:
+        readable = raw.decode("utf-8", errors="replace")
+    except Exception:
+        readable = raw.decode("latin-1", errors="replace")
+    tag = "PE (MZ) image staged for execution" if is_pe else "opaque binary blob"
+    return (
+        text
+        + "\n\n[CERTUTIL / PEM PAYLOAD DECODED]\n"
+        + f"first_bytes_hex={hex_head}\n"
+        + f"type={tag}\n"
+        + f"decoded_text_preview={readable[:200]!r}"
+    )
+
+
+# C. BASH_PARAM_EXP_SLICE
+#    Resolves `${VAR:x:y}` substring expansion using canonical Linux env
+#    values. Deterministic — same PATH/SHELL every time. Common defensive
+#    obfuscation: `${SHELL:0:1}a${PATH:11:1}h -c ...`
+_BASH_PARAM_EXP_RX = re.compile(r"\$\{(?P<var>\w+):(?P<start>\d+):(?P<len>\d+)\}")
+# Canonical Debian/Ubuntu env values — used as the default resolution.
+_CANONICAL_ENV = {
+    "PATH":  "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "SHELL": "/bin/bash",
+    "HOME":  "/root",
+    "USER":  "root",
+    "IFS":   " \t\n",
+    "PWD":   "/root",
+    "HOSTNAME": "localhost",
+    "LANG":  "en_US.UTF-8",
+}
+
+def _handle_bash_param_exp(text: str) -> str:
+    """Substitute every `${VAR:x:y}` with the character(s) from canonical env."""
+    def _sub(m: "re.Match[str]") -> str:
+        var = m.group("var")
+        start = int(m.group("start"))
+        length = int(m.group("len"))
+        val = _CANONICAL_ENV.get(var)
+        if val is None:
+            return m.group(0)  # leave untouched — unknown var
+        return val[start:start + length]
+
+    resolved = _BASH_PARAM_EXP_RX.sub(_sub, text)
+    if resolved == text:
+        raise ValueError("no ${VAR:x:y} matches resolved")
+    return resolved
+
+
+# D. CMD_FORLOOP_REVERSE_STRING
+#    set "p=<junk>" && for /L %i in (N,-1,0) do <nul set /p "c=!p:~%i,1!"
+#    Reverses the string in `p` character-by-character. Classic Emotet/
+#    QakBot / IcedID obfuscation. Handler reverses `p` and returns the
+#    original text with the reversed value substituted in.
+_CMD_FORLOOP_REV_RX = re.compile(
+    r"set\s+[\"']?p\s*=\s*(?P<val>[^\"'\r\n]{4,})[\"']?"
+    r"[\s\S]{0,120}?"
+    r"for\s*/L\s+%\w\s+in\s*\(\s*(?P<start>\d+)\s*,\s*-1\s*,\s*0\s*\)\s+do\s+"
+    r"<nul\s+set\s+/p\s+[\"']?c\s*=\s*!p:~%\w,1!",
+    re.IGNORECASE,
+)
+
+def _handle_cmd_forloop_reverse(text: str) -> str:
+    m = _CMD_FORLOOP_REV_RX.search(text)
+    if not m:
+        raise ValueError("no CMD reverse-forloop match")
+    junk = m.group("val")
+    revealed = junk[::-1]
+    return (
+        text
+        + "\n\n[CMD FOR-LOOP REVERSE-STRING RESOLVED]\n"
+        + f"reversed_p={revealed!r}\n"
+    )
+
+
+# E. CMD_CARET_OBFUSC — c^m^d^ /c wh^oami  (Emotet/Trickbot classic)
+# Must require a CMD-shaped context so we don't false-fire on binary
+# payloads that happen to contain `^X^Y` byte sequences.
+_CMD_CARET_OBFUSC_RX = re.compile(
+    r"(?:^|[\s&|;]|/[cvk])"                    # CMD boundary
+    r"(?:[a-zA-Z]\^){2,}[a-zA-Z]"              # letter^letter^letter (≥3 letters)
+    r"|"
+    r"\bc\^m\^d\b"                             # explicit `c^m^d`
+    r"|"
+    r"\^[a-zA-Z](?:\^[a-zA-Z]){2,}",           # ^X^Y^Z^W
+    re.IGNORECASE,
+)
+
+def _handle_cmd_caret_obfusc(text: str) -> str:
+    # CMD treats `^X` as literal `X` for ANY non-newline `X`. Only carets
+    # at end-of-line are line-continuations and must be preserved.
+    cleaned = re.sub(r"\^(?=[^\r\n])", "", text)
+    if cleaned == text:
+        raise ValueError("no caret-obfusc to strip")
+    return cleaned
+
+
+# F. JS_BUFFER_GUNZIP — Buffer.from('<b64>','base64') → zlib.gunzipSync(...)
+_JS_BUFFER_GUNZIP_RX = re.compile(
+    r"require\s*\(\s*['\"]zlib['\"]\s*\)\.gunzipSync\s*\(\s*"
+    r"Buffer\.from\s*\(\s*['\"](?P<blob>[A-Za-z0-9+/=_\-]{16,})['\"]\s*,"
+    r"\s*['\"]base64['\"]\s*\)\s*\)",
+    re.IGNORECASE,
+)
+# Also a looser form: Buffer.from(<b64>, 'base64') followed by gunzip anywhere
+_JS_BUFFER_GUNZIP_LOOSE_RX = re.compile(
+    r"Buffer\.from\s*\(\s*['\"](?P<blob>[A-Za-z0-9+/=_\-]{16,})['\"]"
+    r"\s*,\s*['\"]base64['\"]\s*\)[\s\S]{0,300}?gunzip",
+    re.IGNORECASE,
+)
+
+def _handle_js_buffer_gunzip(text: str) -> str:
+    m = _JS_BUFFER_GUNZIP_RX.search(text) or _JS_BUFFER_GUNZIP_LOOSE_RX.search(text)
+    if not m:
+        raise ValueError("no JS Buffer.gunzip match")
+    blob = m.group("blob")
+    try:
+        return robust_b64_then_gunzip(blob)
+    except Exception:
+        # blob is base64 but not gzipped — return the raw b64-decoded bytes
+        raw = robust_b64decode(blob)
+        return raw.decode("utf-8", errors="replace")
+
+
+# G. VBS_CHR_CONCAT — Chr(72) & Chr(101) & Chr(108) & …  (VBScript macros)
+_VBS_CHR_CONCAT_RX = re.compile(
+    r"(?:Chr[WwBb]?\s*\(\s*(?:&H)?\d+\s*\)\s*(?:&|\+)\s*){2,}"
+    r"Chr[WwBb]?\s*\(\s*(?:&H)?\d+\s*\)",
+    re.IGNORECASE,
+)
+_VBS_CHR_CALL_RX = re.compile(r"Chr[WwBb]?\s*\(\s*(?:&H)?(\d+)\s*\)", re.IGNORECASE)
+
+def _handle_vbs_chr_concat(text: str) -> str:
+    m = _VBS_CHR_CONCAT_RX.search(text)
+    if not m:
+        raise ValueError("no VBS Chr concat match")
+    chunk = m.group(0)
+    codes = [int(x) for x in _VBS_CHR_CALL_RX.findall(chunk)]
+    decoded = "".join(chr(c) for c in codes if 0 <= c < 0x10FFFF)
+    return text.replace(chunk, decoded, 1)
 
 
 
 ARCHETYPES: List[Dict[str, Any]] = [
+    {
+        "id": "BASH_HEX_ECHO_XXD",
+        "description": "Bash echo <hex> | xxd -r -p — hex-encoded IOC / reverse-shell target",
+        "chain": ["extract-hex", "hex-decode"],
+        "handler": _handle_bash_hex_xxd,
+        "match":   lambda t: bool(_BASH_HEX_XXD_RX.search(t)),
+    },
+    {
+        "id": "CERTUTIL_DECODE_PEM",
+        "description": "certutil -decode + PEM-wrapped base64 (PE staging / T1140+T1218)",
+        "chain": ["extract-pem", "base64-decode", "pe-header-check"],
+        "handler": _handle_certutil_decode,
+        "match":   lambda t: bool(_PEM_BLOB_RX.search(t) or _CERTUTIL_STAGING_RX.search(t)),
+    },
+    {
+        "id": "BASH_PARAM_EXP_SLICE",
+        "description": "Bash ${VAR:x:y} substring param-expansion — char-by-char command build",
+        "chain": ["resolve-param-expansion"],
+        "handler": _handle_bash_param_exp,
+        "match":   lambda t: bool(_BASH_PARAM_EXP_RX.search(t)),
+    },
+    {
+        "id": "CMD_FORLOOP_REVERSE_STRING",
+        "description": "CMD `for /L … !p:~%i,1!` reverse-string obfuscation (Emotet/QakBot)",
+        "chain": ["extract-p-var", "reverse-string"],
+        "handler": _handle_cmd_forloop_reverse,
+        "match":   lambda t: bool(_CMD_FORLOOP_REV_RX.search(t)),
+    },
+    {
+        "id": "CMD_CARET_OBFUSC",
+        "description": "CMD caret-escape obfuscation (c^m^d^ /c wh^oami) — Emotet family",
+        "chain": ["strip-carets"],
+        "handler": _handle_cmd_caret_obfusc,
+        "match":   lambda t: bool(_CMD_CARET_OBFUSC_RX.search(t)),
+    },
+    {
+        "id": "JS_BUFFER_GUNZIP",
+        "description": "Node.js Buffer.from(<b64>,'base64') + zlib.gunzipSync — SocGholish-style",
+        "chain": ["extract-b64", "gzip-decompress"],
+        "handler": _handle_js_buffer_gunzip,
+        "match":   lambda t: bool(_JS_BUFFER_GUNZIP_RX.search(t) or _JS_BUFFER_GUNZIP_LOOSE_RX.search(t)),
+    },
+    {
+        "id": "VBS_CHR_CONCAT",
+        "description": "VBScript Chr(N)&Chr(N)&… character-code concatenation (macro dropper)",
+        "chain": ["chr-decode"],
+        "handler": _handle_vbs_chr_concat,
+        "match":   lambda t: bool(_VBS_CHR_CONCAT_RX.search(t)),
+    },
     {
         "id": "PS_EncodedCommand",
         "description": "PowerShell -Enc / -EncodedCommand CLI flag (base64 → UTF-16LE or UTF-8 script)",
