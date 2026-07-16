@@ -27,7 +27,7 @@ function classifyStageBreak(stageResult) {
   if (outLen === 0 && inputLen > 0 && (conf ?? 0) > 0) {
     return { kind: "EMPTY_OUTPUT", severity: "med", message: "Decoder ran but yielded 0 bytes · input may be plaintext or malformed" };
   }
-  if (conf !== null && conf < 40 && chainOps > 0) {
+  if (conf !== null && conf < 40 && inputLen > 0) {
     return { kind: "LOW_CONFIDENCE", severity: "low", message: `Confidence ${conf}/100 · below 40 % floor · verify output manually` };
   }
   return null;

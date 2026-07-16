@@ -97,6 +97,10 @@ export default function WorkspacePage() {
   const [chainReplay, setChainReplay] = useState(null); // full history record with kind === "chain"
   // Pending stage seed for ChainStageEditor after user chooses to restore a saved chain
   const [pendingChainStages, setPendingChainStages] = useState(null);
+  // Feb-2026 fix: parent-supplied chain result forwarded to ChainStageEditor
+  // so RE-RUN buttons and break-ribbons render immediately after
+  // auto-investigate (fixes iteration-11 gating issue).
+  const [pendingChainResult, setPendingChainResult] = useState(null);
   const [chainEditorKey, setChainEditorKey] = useState(0); // force remount when initialStages change
   // Feb-2026 Enhancements: input lock (edit toggle) + multi-command auto-route toast
   const [inputLocked, setInputLocked] = useState(false);
@@ -313,6 +317,7 @@ export default function WorkspacePage() {
     setChainOpen(false);
     setChainReplay(null);
     setPendingChainStages(null);
+    setPendingChainResult(null);
     setMultiChainNotice(null);
     setInputLocked(false);
     try { localStorage.removeItem("nvx.pendingInput"); } catch {}
@@ -407,6 +412,7 @@ export default function WorkspacePage() {
           ? s.input_preview : (parts[s.stage_index] || ""),
       }));
       setPendingChainStages(stageSeeds);
+      setPendingChainResult(d);        // <-- forward full result to editor
       setChainEditorKey((k) => k + 1);
       setChainOpen(true);
 
@@ -437,6 +443,8 @@ export default function WorkspacePage() {
   const revertToFlatDecode = async () => {
     setMultiChainNotice(null);
     setChainOpen(false);
+    setPendingChainResult(null);
+    setPendingChainStages(null);
     setLoading(true);
     setStatus("REVERTED · analysing as flat blob…");
     try {
@@ -1446,6 +1454,7 @@ export default function WorkspacePage() {
               key={chainEditorKey}
               seedInput={input}
               initialStages={pendingChainStages}
+              initialResult={pendingChainResult}
               onSeedConsumed={() => { /* keep single-stage input intact */ }}
             />
           ) : (

@@ -58,8 +58,10 @@ function classifyStageBreak(stageResult) {
       message: "Decoder ran but yielded 0 bytes · input may be plaintext or malformed",
     };
   }
-  // (e) Low confidence — below the 40 % floor.
-  if (conf !== null && conf < 40 && chainOps > 0) {
+  // (e) Low confidence — below the 40 % floor. Includes stages where the
+  // decoder chose a "passthrough" (no chain ops) but still assigned a
+  // sub-40 confidence — analyst still needs a visible warning.
+  if (conf !== null && conf < 40 && inputLen > 0) {
     return {
       kind: "LOW_CONFIDENCE",
       severity: "low",
@@ -69,7 +71,7 @@ function classifyStageBreak(stageResult) {
   return null;
 }
 
-export default function ChainStageEditor({ seedInput, onSeedConsumed, initialStages }) {
+export default function ChainStageEditor({ seedInput, onSeedConsumed, initialStages, initialResult }) {
   const [stages, setStages] = useState(() => {
     if (Array.isArray(initialStages) && initialStages.length > 0) {
       return initialStages.map((s) => ({ id: uid(), input: s.input || s.input_preview || "" }));
@@ -77,7 +79,10 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
     return [{ id: uid(), input: seedInput || "" }];
   });
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState(null);       // {stage_count, stages, aggregate}
+  // Feb-2026 fix: seed with the parent-supplied chain result so RE-RUN
+  // buttons and break-ribbons render immediately after auto-investigate,
+  // without requiring the analyst to click RUN CHAIN a second time.
+  const [result, setResult] = useState(initialResult || null);
   const [narrative, setNarrative] = useState(null); // {narrative, verdict, family, kill_chain}
   const [narrating, setNarrating] = useState(false);
   const [narrateProgress, setNarrateProgress] = useState(null);
