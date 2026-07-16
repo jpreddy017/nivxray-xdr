@@ -569,9 +569,22 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             corrupted_container=result.get("corrupted_container"),
         )
         if report_txt:
-            result["output_raw"] = result.get("output") or ""
-            result["output"] = report_txt
-            result["report_text"] = report_txt
+            raw_output = result.get("output") or ""
+            # ── Feb-2026 UX fix — TERMINAL ARCHETYPES ──────────────────────
+            # When the winning archetype is a "terminal" one (its output is
+            # already a forensic report — e.g. CERTUTIL_DECODE_PEM's hexdump),
+            # the raw archetype output MUST be shown to the analyst instead
+            # of being replaced by the investigation-summary boilerplate.
+            # We prepend the summary as a small header so BOTH signals are
+            # visible in the OUTPUT panel.
+            if det.get("terminal_archetype") and raw_output:
+                result["output_raw"] = raw_output
+                result["output"] = raw_output + "\n\n" + report_txt
+                result["report_text"] = report_txt
+            else:
+                result["output_raw"] = raw_output
+                result["output"] = report_txt
+                result["report_text"] = report_txt
     except Exception:
         # Report synthesis is best-effort — never fail the decode.
         pass

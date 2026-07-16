@@ -1,6 +1,43 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — 🏗️ 7 new archetypes + terminal-archetype forensic view)
+
+### Analyst-reported gap round — payloads that deterministic decoder was missing
+
+After the "test with/without AI" round, 5 of the analyst's 5 payloads plus 3 additional real-world shapes from a stress-scan needed dedicated archetypes. Also added `terminal_archetype` semantics so forensic-report outputs (e.g. certutil hexdump) don't get clobbered by recursive smart/magic re-entry.
+
+**New archetypes (all pinned by pytest, 128/128 green)**:
+1. `PS_EncodedCommand` — `powershell.exe -Enc <b64>` (UTF-16LE canonical + UTF-8 fallback + multi-line b64 support). Fixes the `-NoP -NonI -W Hidden -Enc "…"` shape.
+2. `BASH_HEX_ECHO_XXD` — `echo "<hex>" | xxd -r -p …/dev/tcp/…` reverse-shells.
+3. `CERTUTIL_DECODE_PEM` — PEM-wrapped or `echo <b64> >> file … certutil -decode` staging. **Terminal archetype**. Emits full forensic hexdump: base64-len, decoded-size, magic bytes, file-type classifier (PE/ELF/Mach-O/ZIP), MITRE T1140+T1218+T1027, 3-row hexdump with ASCII sidebar exactly matching `xxd`/`hexdump -C` format the analyst requested.
+4. `BASH_PARAM_EXP_SLICE` — `${PATH:x:y}` / `${SHELL:x:y}` substring resolver using canonical Debian env.
+5. `CMD_FORLOOP_REVERSE_STRING` — `set "p=<junk>" && for /L %i in (N,-1,0) do <nul set /p "c=!p:~%i,1!"` Emotet/QakBot reverse-string builder.
+6. `CMD_CARET_OBFUSC` — `c^m^d^ /c wh^oami` (Emotet caret-escape).
+7. `JS_BUFFER_GUNZIP` — Node.js `Buffer.from(<b64>,'base64')` + `zlib.gunzipSync`.
+8. `VBS_CHR_CONCAT` — `Chr(N)&Chr(N)&…` VBScript macro dropper.
+
+**MITRE + YARA additions**:
+- MITRE T1095 / T1571 / T1059.004 for `/dev/tcp/HOST/PORT` reverse-shells (including `{}` xargs placeholder).
+- MITRE T1140 widened to match `certutil` without `.exe`.
+- YARA `Bash_Dev_TCP_RevShell`, `Bash_Exec_FD_RevShell`, `CMD_ForLoop_Reverse_String`, `Certutil_PEM_Wrapped_Payload` added.
+
+**Terminal-archetype propagation**:
+- `wrapper_archetypes.try_archetypes()` now emits `terminal_archetype: True` when a `terminal: True` archetype fires. Stops the chain-of-archetypes loop after the terminal fires so the forensic output isn't clobbered.
+- `analysis_core.deterministic_best_decode()` outer recursive loop respects the flag and short-circuits (parallel to the existing `corrupted_container` short-circuit).
+- `routers/ops.py` (`/decode/smart` endpoint) now prepends the terminal-archetype's raw output ABOVE the investigation summary so the analyst sees the hexdump AND the summary — instead of only the summary.
+
+**Verified end-to-end on preview** with the analyst's exact certutil payload:
+- `POST /api/decode/smart` → `engine: archetype:CERTUTIL_DECODE_PEM · conf 100`
+- Output contains: hex row `4d 5a 90 00 03 00 00 00 04 00 00 00 ff ff 00 00`, ASCII sidebar `|MZ..............|`, file-type `PE (MZ) executable`, `NIVXRAY INVESTIGATION SUMMARY` below.
+- UI: STATUS bar reads `NIVXRAY DECODE COMPLETE · archetype:CERTUTIL_DECODE_PEM · 100%`. Pipeline trace shows `#1 DETERMINISTIC 100%` + `#2 DONE · AI fallback not needed`.
+
+**New tests**: `tests/test_feb2026_4_archetypes.py` — 12 pytest cases pinning all 4 primary archetypes + 3 bonus archetypes + terminal-archetype propagation.
+
+**Regressions**: 128/128 pytest green across the 11 most-impacted suites (`test_feb2026_4_archetypes`, `test_recursive_deep_decode`, `test_multiline_decode`, `test_wrapper_archetypes`, `test_ps_var_indirection_and_wiper`, `test_ioc_reversed_fp_filter`, `test_moe_reviewer_attr_regression`, `test_chain_analyzer`, `test_multi_command_chain`, `test_lolbas_chain_export`, `test_wrapper_shell_decode`).
+
+
+
 ## Latest Change (Feb 2026 — 🩹 MoE panel `reviewer_name` attribute crash)
 
 ### User-reported bug — Threat Model → "RUN 3-CRITIC PANEL"

@@ -120,6 +120,23 @@ def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> 
             final_result["iterations"] = iteration + 1
             return final_result
 
+        # ── FORENSIC RULE — terminal archetype (Feb 2026) ────────────────
+        # A `terminal_archetype` fires when the winning archetype produces a
+        # forensic REPORT (e.g. certutil hexdump summary) rather than a
+        # further-decodable payload. The recursive wrapper MUST NOT re-enter
+        # smart/magic on that output — it would strip the report and re-run
+        # base64-extract on the embedded blob, clobbering the analyst view.
+        if r.get("terminal_archetype"):
+            all_steps.extend(steps)
+            if engine and engine not in engines:
+                engines.append(engine)
+            final_result = r
+            final_result["steps"] = all_steps
+            final_result["output"] = out
+            final_result["engine"] = "+".join(engines) if len(engines) > 1 else engine
+            final_result["iterations"] = iteration + 1
+            return final_result
+
         # No progress → stop.
         if not steps or not out.strip() or out == current or out == last_output:
             if iteration == 0:

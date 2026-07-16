@@ -933,22 +933,56 @@ def _handle_certutil_decode(text: str) -> str:
     if not blob:
         raise ValueError("no PEM/certutil blob")
     raw = robust_b64decode(blob)
-    # Detect MZ (PE) header — always show the first 32 bytes hex-summary
-    # so downstream sees "MZ..." for T1140 + PE-staging.
-    head = raw[:32]
-    hex_head = head.hex()
+
+    # ── Forensic-grade hexdump view ─────────────────────────────────────
+    # Analyst asked for: rows of 16 bytes, `xx xx xx …` grouped in 8+8, right
+    # column ASCII sidebar with `.` for non-printable. Cap at 128 bytes so
+    # the report stays scannable — the full raw bytes are decoded regardless.
+    def _hexdump(b: bytes, limit: int = 128) -> str:
+        rows = []
+        for off in range(0, min(len(b), limit), 16):
+            chunk = b[off:off + 16]
+            hex_left  = " ".join(f"{c:02x}" for c in chunk[:8])
+            hex_right = " ".join(f"{c:02x}" for c in chunk[8:16])
+            ascii_col = "".join(
+                chr(c) if 32 <= c < 127 else "." for c in chunk
+            )
+            rows.append(f"  {off:08x}  {hex_left:<23}  {hex_right:<23}  |{ascii_col}|")
+        if len(b) > limit:
+            rows.append(f"  … {len(b) - limit} more bytes …")
+        return "\n".join(rows)
+
+    # ── PE / MZ header classifier ──────────────────────────────────────
     is_pe = raw[:2] == b"MZ"
-    try:
-        readable = raw.decode("utf-8", errors="replace")
-    except Exception:
-        readable = raw.decode("latin-1", errors="replace")
-    tag = "PE (MZ) image staged for execution" if is_pe else "opaque binary blob"
+    header_summary = "unknown / opaque binary blob"
+    if is_pe:
+        header_summary = "PE (MZ) executable — staged for later execution via certutil -decode"
+    elif raw[:4] == b"\x7fELF":
+        header_summary = "ELF binary (Linux executable)"
+    elif raw[:4] == b"\xca\xfe\xba\xbe":
+        header_summary = "Mach-O / Java class file"
+    elif raw[:2] == b"PK":
+        header_summary = "ZIP / Office container"
+
     return (
         text
-        + "\n\n[CERTUTIL / PEM PAYLOAD DECODED]\n"
-        + f"first_bytes_hex={hex_head}\n"
-        + f"type={tag}\n"
-        + f"decoded_text_preview={readable[:200]!r}"
+        + "\n\n"
+        + "════════════════════════════════════════════════════════════════════\n"
+        + "  CERTUTIL / PEM PAYLOAD — DETERMINISTIC DECODE\n"
+        + "════════════════════════════════════════════════════════════════════\n"
+        + f"  Base64 length : {len(blob)} chars\n"
+        + f"  Decoded size  : {len(raw)} bytes\n"
+        + f"  File type     : {header_summary}\n"
+        + f"  Magic bytes   : {raw[:8].hex(' ') if len(raw) >= 8 else raw.hex(' ')}\n"
+        + f"  MITRE         : T1140 (Deobfuscate/Decode) · T1218 (Signed Binary Proxy Execution) · T1027 (Obfuscated Files)\n"
+        + f"  LOLBAS        : certutil.exe abused for payload decoding\n"
+        + "  ── HEXADECIMAL VIEW (raw bytes) ────────────────────────────────\n"
+        + _hexdump(raw)
+        + "\n  ── ASCII VIEW ──────────────────────────────────────────────────\n"
+        + "  "
+        + "".join(chr(c) if 32 <= c < 127 else "." for c in raw[:128])
+        + ("" if len(raw) <= 128 else f"\n  … {len(raw) - 128} more bytes truncated …")
+        + "\n════════════════════════════════════════════════════════════════════\n"
     )
 
 
@@ -1093,7 +1127,15 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "description": "certutil -decode + PEM-wrapped base64 (PE staging / T1140+T1218)",
         "chain": ["extract-pem", "base64-decode", "pe-header-check"],
         "handler": _handle_certutil_decode,
-        "match":   lambda t: bool(_PEM_BLOB_RX.search(t) or _CERTUTIL_STAGING_RX.search(t)),
+        "match":   lambda t: (
+            bool(_PEM_BLOB_RX.search(t) or _CERTUTIL_STAGING_RX.search(t))
+            and "CERTUTIL / PEM PAYLOAD — DETERMINISTIC DECODE" not in t
+        ),
+        # Output is a forensic REPORT (hexdump + summary), NOT a further-
+        # decodable payload. The recursive wrapper must not re-enter it,
+        # otherwise smart/magic would strip the report and re-extract the
+        # base64 blob, clobbering the analyst-facing view.
+        "terminal": True,
     },
     {
         "id": "BASH_PARAM_EXP_SLICE",
@@ -1305,6 +1347,7 @@ def try_archetypes(text: str, max_depth: int = 4) -> Optional[Dict[str, Any]]:
         pass
     for _ in range(max_depth):
         matched = False
+        hit_terminal = False
         for arch in ARCHETYPES:
             try:
                 if not arch["match"](current):
@@ -1312,13 +1355,15 @@ def try_archetypes(text: str, max_depth: int = 4) -> Optional[Dict[str, Any]]:
                 out = arch["handler"](current)
                 if isinstance(out, str) and out.strip() and out != current:
                     fired.append({"id": arch["id"], "desc": arch["description"],
-                                  "chain": arch["chain"], "output": out})
+                                  "chain": arch["chain"], "output": out,
+                                  "terminal": bool(arch.get("terminal"))})
                     current = out
                     matched = True
+                    hit_terminal = bool(arch.get("terminal"))
                     break
             except Exception:
                 continue
-        if not matched:
+        if not matched or hit_terminal:
             break
 
     if not fired:
@@ -1338,4 +1383,8 @@ def try_archetypes(text: str, max_depth: int = 4) -> Optional[Dict[str, Any]]:
         "archetype_id":   ids[-1],
         "archetype_desc": fired[-1]["desc"],
         "chain_ids":      ids,
+        # Feb-2026 — propagate terminal flag so the outer recursive wrapper
+        # does not re-enter (would clobber a forensic-report output like
+        # CERTUTIL_DECODE_PEM's hexdump with a smart/magic re-extract).
+        "terminal_archetype": any(f.get("terminal") for f in fired),
     }
