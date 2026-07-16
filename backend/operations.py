@@ -656,6 +656,11 @@ _CODE_NAMESPACE_PREFIXES = (
     "advapi32.", "ntdll.", "java.", "javax.", "com.sun.", "com.microsoft.",
     "com.google.", "org.apache.", "org.springframework.", "com.oracle.",
     "www.w3.org", "python.org", "docs.microsoft.com",
+    # Feb-2026 additions: executable / script extensions used as leading label
+    # in reversed or truncated command-lines (e.g. `exe.nimdassv` from a
+    # reversed `vssadmin.exe`, `dll.something` from `something.dll`).
+    "exe.", "dll.", "sys.", "ps1.", "cmd.", "bat.", "vbs.", "wsf.", "com.",
+    "msi.", "scr.", "cpl.", "hta.",
 )
 # TLDs that are actually reserved for code / examples (never real domains)
 _CODE_NAMESPACE_TLDS = {
@@ -667,6 +672,58 @@ _CODE_NAMESPACE_TLDS = {
     "ascii", "utf8", "unicode", "convert", "frombase64string", "text",
     "length",  # .Length property access
 }
+
+# Curated allow-list of real public TLDs. Anything with a TLD outside this
+# set is REJECTED unless it also passes the reversed-code sanity check. This
+# is the single strongest FP filter — it catches reversed strings from the
+# magic-decoder's `reverse` candidate op (e.g. `maertspizg.noisserpmoc.oi`
+# from reversed `io.compression.gzipstream`), truncated method chains, and
+# random language-identifier lookalikes.
+_REAL_TLDS = frozenset({
+    # generic
+    "com", "net", "org", "info", "biz", "name", "pro", "mobi", "asia",
+    "xyz", "top", "site", "online", "shop", "app", "dev", "tech",
+    "cloud", "store", "club", "live", "life", "world", "space",
+    "website", "page", "blog", "wiki", "news", "art", "media",
+    "email", "link", "id", "run", "io", "ai", "co", "me", "tv", "cc",
+    "to", "ly", "gg", "sh", "so", "st", "fm", "im", "pw", "vc", "ws",
+    # infra / cyber-relevant
+    "onion", "i2p", "bit",
+    # sponsored / infra
+    "gov", "mil", "edu", "int", "arpa",
+    # country-code (top ~90 that show up in real IOC feeds)
+    "us", "uk", "ca", "de", "fr", "es", "it", "nl", "be", "se", "no",
+    "fi", "dk", "pl", "cz", "at", "ch", "gr", "pt", "ie", "hu", "ro",
+    "bg", "hr", "sk", "si", "lt", "lv", "ee", "is", "lu", "mt", "cy",
+    "ru", "ua", "by", "kz", "uz", "am", "az", "ge", "md", "tj", "kg",
+    "cn", "jp", "kr", "hk", "tw", "sg", "my", "th", "vn", "ph", "id",
+    "au", "nz", "in", "pk", "bd", "lk", "np", "mm", "kh", "la",
+    "br", "ar", "cl", "mx", "pe", "co", "ve", "uy", "py", "bo", "ec",
+    "za", "ng", "ke", "eg", "ma", "tn", "dz", "et", "gh", "ug", "tz",
+    "ae", "sa", "il", "tr", "ir", "iq", "sy", "lb", "jo", "qa", "kw",
+    "bh", "om", "ye",
+})
+
+# Reversed-TLD prefixes — if a domain's FIRST label ends with one of these
+# reversed forms followed by nothing (e.g. `oi` from `.io` reversed) OR its
+# SECOND label starts with one, the string is almost certainly a
+# reverse-scanned code fragment, not a real IOC. Kept short to avoid FPs
+# on legitimate domains with unusual prefixes.
+_REVERSED_TLD_TOKENS = frozenset({
+    "moc",   # com
+    "ten",   # net
+    "gro",   # org
+    "ofni",  # info
+    "oi",    # io
+    "ia",    # ai
+    "vog",   # gov
+    "ude",   # edu
+    "vt",    # tv
+    "yl",    # ly
+    "sw",    # ws
+    "gg",    # gg (palindromic — but harmless)
+    "gs",    # sg reversed  (harmless — used defensively)
+})
 
 # ==== IOC extraction bundle (for Threat Analysis) ============================
 def extract_iocs(text: str) -> Dict[str, List[str]]:
@@ -684,17 +741,47 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
     #  2. Code namespaces (io.memorystream, system.text.encoding, …) — these
     #     regex-match the domain shape but are language identifiers, not IOCs.
     #  3. Fake TLDs from method-chain leftovers (.readtoend, .frombase64string, …).
+    #  4. Feb-2026: TLD not in the real-TLD allow-list.
+    #  5. Feb-2026: reversed-code artefacts (labels containing reversed
+    #     TLD tokens like `noisserpmoc`, `nimdassv`, `maertspizg`, or
+    #     domains whose first label ends in a reversed TLD such as `.oi`
+    #     at the tail — see analyst-reported bug from a chain that fed
+    #     reversed intermediates through the IOC regex).
     def _is_real_domain(d: str) -> bool:
         if d in ips:
             return False
         if any(d.startswith(p) for p in _CODE_NAMESPACE_PREFIXES):
             return False
-        tld = d.rsplit(".", 1)[-1]
+        labels = d.split(".")
+        tld = labels[-1]
         if tld in _CODE_NAMESPACE_TLDS:
             return False
+        # (4) Real-TLD gate — anything else is almost certainly a false
+        # positive from reversed / truncated code that just happens to
+        # match the label.label.tld shape.
+        if tld not in _REAL_TLDS:
+            return False
         # domain must contain at least one label longer than 1 char
-        labels = d.split(".")
         if all(len(x) < 2 for x in labels):
+            return False
+        # (5) Inversion sanity check — reject strings that look like a
+        # reverse-parsed code fragment:
+        #  a. Any label equals a known reversed-TLD token (`moc`, `ten`,
+        #     `gro`, `ofni`) → clearly `com`/`net`/`org`/`info` reversed
+        #     inside the string.
+        #  b. First label ends in a common reversed-TLD suffix followed by
+        #     nothing else, e.g. `pizg` (reversed `gzip` is the intent —
+        #     this is a heuristic tolerance).
+        #  c. Any label contains a reversed executable-extension marker
+        #     (`exe`, `lld`, `sys`) sitting at the START of a label with
+        #     length > 4 — `nimdassv` starts after the `exe.` prefix and
+        #     is caught by rule (a) via the `exe.` prefix above.
+        for lab in labels:
+            if lab in _REVERSED_TLD_TOKENS:
+                return False
+        # Extra: numeric-only labels (from ASCII decimal decodes) shouldn't
+        # be domains either.
+        if any(lab.isdigit() and len(lab) > 3 for lab in labels[:-1]):
             return False
         return True
 

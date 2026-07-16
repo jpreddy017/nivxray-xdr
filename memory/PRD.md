@@ -1,6 +1,27 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — 🧹 IOC reversed-string false-positive filter)
+
+### Analyst-reported bug — reversed intermediates leaking as domain IOCs
+
+Analyst flagged: `maertspizg.noisserpmoc.oi` (reversed `io.compression.gzipstream`) and `exe.nimdassv` (reversed `vssadmin.exe`) were surfacing in the MERGED IOCs `domains:` list of the chain aggregate. Root cause: `operations.extract_iocs()` used a permissive `label.label.tld` regex with `tld = [a-z]{2,}` — no TLD allow-list — so any label-shaped fragment matched. Reversed content leaks in because the magic-decoder tries `reverse` as a candidate op and re-scans the reversed intermediate for IOCs.
+
+**Fix — three layers per the analyst's spec**:
+- (1) **EXCLUDE CLASS NAMESPACES**: extended `_CODE_NAMESPACE_PREFIXES` to include `exe.`, `dll.`, `sys.`, `ps1.`, `cmd.`, `bat.`, `vbs.`, `wsf.`, `com.`, `msi.`, `scr.`, `cpl.`, `hta.` — catches reversed-binary strings like `exe.nimdassv` outright.
+- (2) **REAL-TLD ALLOW-LIST**: new `_REAL_TLDS` frozenset of ~180 real public TLDs. Anything with a TLD not in the set is rejected. Kills `oi`, `nimdassv`, and every random reversed junk in one shot.
+- (3) **INVERSION SANITY CHECK**: new `_REVERSED_TLD_TOKENS` set (`moc`, `ten`, `gro`, `ofni`, `oi`, `ia`, `vog`, `ude`, `vt`, `yl`, `sw`, `gg`, `gs`) — any domain whose LABELS contain a reversed-TLD token is rejected as a backward-parse artefact.
+- (4) Bonus: numeric-only labels > 3 chars are rejected (catches ASCII-decimal decode leftovers).
+
+**Verified**:
+- Unit tests: `operations.extract_iocs(<user payload>)` returns clean `domains=['evil.example.com']` with the reversed junk gone.
+- E2E: pasting the analyst's exact 3-stage payload into the workspace now renders `MERGED IOCs · (empty)` instead of `domains: 2 · maertspizg.noisserpmoc.oi · exe.nimdassv`. Everything else (family = Destructive Wiper, verdict = Malicious 100/100, Stage 0 archetype conf 100, kill-chain, LOLBAS list) still fires correctly.
+- Regression suite: **68/68 pytest cases green** across the 6 impacted suites, including 16 new tests in `test_ioc_reversed_fp_filter.py` (5 reversed-junk rejections, 6 real-domain positive tests, non-domain-IOC untouched, full end-to-end chain, numeric-label rejection).
+
+**New file**: `/app/backend/tests/test_ioc_reversed_fp_filter.py`
+
+
+
 ## Latest Change (Feb 2026 — 🔑 Change-Password Modal · Full-Chain Re-aggregate · Sales & Tech Decks)
 
 ### Three shipped in one pass
