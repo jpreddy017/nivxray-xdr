@@ -1,6 +1,34 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — 🔑 Change-Password Modal · Full-Chain Re-aggregate · Sales & Tech Decks)
+
+### Three shipped in one pass
+
+**1. Change-Password modal (P2)**
+- New `/app/frontend/src/components/ChangePasswordModal.jsx` — 3-field modal (current / new / confirm) with live strength bar (weak / ok / strong), rule surface (`≥ 12 chars, uppercase, lowercase, digit`), inline confirm-mismatch warning, escape/click-outside close, disabled state while submitting.
+- Wired into `Header.jsx` as a `KeyRound · PASSWORD` button next to LOGOUT; hits existing `POST /api/auth/change-password`; swaps the returned JWT into localStorage so the session survives the rotation without a re-login.
+- E2E verified in preview: rotated `uulVDp5cCSB3Hva99s7UUAwK → TestPwd123ABCxyz! → uulVDp5cCSB3Hva99s7UUAwK`, all three logins passed via curl.
+
+**2. Full-chain re-aggregation after RE-RUN FROM STAGE (P3 → shipped)**
+- `ChainStageEditor.runFromStage()` used to submit only the tail `stages.slice(fromIdx)`, so the aggregate hid stages 0…fromIdx-1. Confusing.
+- Now submits the **full stage list** (with the edited stage baked in) so `AGGREGATE` always reflects the true full-chain verdict. Also propagates the refreshed `report_text` to the top OUTPUT panel via `onChainComplete`.
+- Verified: RE-RUN from Stage 1 in a 3-stage chain now renders `AGGREGATE · 3 stages · chain-amplified · Destructive Wiper · Malicious 100/100` (was `2 stages` on the tail-only path).
+
+**3. Sales-pitch + Technical-demo decks (PPT + PDF)**
+- New `/app/frontend/public/brand/_build_decks.py` — python-pptx builder for two 16:9 decks using the brand palette, embedded mark, live workspace screenshot on the Product-Snapshot slide.
+- Sales deck (11 slides): cover · problem · solution · product snapshot · impact stats · payload proof · competition matrix · personas · deploy & trust · roadmap · CTA.
+- Technical deck (12 slides): cover · architecture layers · pipeline stages · archetype registry · multi-stage chain · MoE panel · analyst corrections · threat-intel enrichment · public API · quality signal · live-demo script · Q&A.
+- PDFs rendered via `libreoffice --headless --convert-to pdf`.
+- Deliverables in `/app/frontend/public/brand/`:
+    - `NivXRay-Sales-Pitch.pptx` / `.pdf`
+    - `NivXRay-Technical-Demo.pptx` / `.pdf`
+    - `_workspace_snapshot.png` (embedded product screenshot)
+
+**Regressions**: 42/42 pytest cases green across the 4 impacted suites. No backend code changes needed — used the existing `/api/auth/change-password` and `/api/decode/chain` endpoints.
+
+
+
 ## Latest Change (Feb 2026 — 🖥️ Chain-Editor OUTPUT panel propagation)
 
 ### User-reported UX gap — "no output displayed" after RUN CHAIN in Chain Editor

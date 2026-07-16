@@ -14,7 +14,6 @@ from pathlib import Path
 
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
-from pptx.dgm.color import RGBColor  # type: ignore  # (older API)  -- fixed below
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
@@ -289,7 +288,8 @@ def sales_deck() -> Path:
                  "One workspace. Zero context-switching.",
                  "Paste any payload → verdict + MITRE + LOLBAS + attack graph in one screen.")
     # Try to embed workspace screenshot if present
-    for candidate in ("/tmp/nvx_A2_chain_result.png", "/tmp/nvx_00_after_login.png"):
+    for candidate in ("/app/frontend/public/brand/_workspace_snapshot.png",
+                      "/tmp/nvx_A2_chain_result.png", "/tmp/nvx_00_after_login.png"):
         if Path(candidate).exists():
             s.shapes.add_picture(candidate, Inches(0.7), Inches(2.7),
                                  width=Inches(11.9), height=Inches(4.2))

@@ -170,39 +170,36 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
     }
   };
 
-  // Re-run the chain STARTING FROM a specific stage index. Prior stages'
-  // decoded outputs are preserved from the last full-chain result; the
-  // stage at `fromIdx` is fed its current textarea value; everything
-  // after is re-decoded. This is the analyst's core loop when tweaking
-  // one stage's parameters (e.g. adding an XOR key, editing a b64 blob)
-  // without paying to re-decode the whole chain.
+  // Re-run the chain. Historically this only re-decoded the TAIL starting
+  // from `fromIdx`; the aggregate then reflected only that tail. Analysts
+  // flagged this as confusing — editing stage 2 of a 4-stage chain would
+  // hide stages 0-1 from the aggregate.
+  //
+  // Feb-2026 fix: submit the FULL stage list (with the edited stage baked
+  // in) so the aggregate is always the true full-chain aggregate. Prior
+  // stage inputs are pulled from the analyst's current textarea values,
+  // not from stale decoded output, so any manual edit to an earlier stage
+  // also propagates.
   const runFromStage = async (fromIdx) => {
     setRerunning(fromIdx);
     try {
       const trimmed = stages.filter((s) => s.input.trim());
-      const tail = trimmed.slice(fromIdx).map((s) => ({ input: s.input }));
-      if (!tail.length) return;
-      const r = await api.post("/decode/chain", { stages: tail });
-      const partial = r.data || {};
-      // Splice new stage results back into the existing result state
-      // (preserve stages 0..fromIdx-1 verbatim, then append re-computed
-      // tail with stage_index re-based to the full chain index).
-      setResult((prev) => {
-        const prevStages = (prev?.stages || []).slice(0, fromIdx);
-        const newTail = (partial.stages || []).map((st, i) => ({
-          ...st, stage_index: fromIdx + i,
-        }));
-        return {
-          ...(prev || {}),
-          stage_count: prevStages.length + newTail.length,
-          stages: [...prevStages, ...newTail],
-          // Aggregate is re-emitted by the endpoint for the tail only,
-          // so we merge conservatively — full-chain re-aggregation would
-          // require a second server call. For most analyst workflows the
-          // tail aggregate is what they need to inspect.
-          aggregate: partial.aggregate || prev?.aggregate,
-        };
-      });
+      if (!trimmed.length) return;
+      const payload = trimmed.map((s) => ({ input: s.input }));
+      const r = await api.post("/decode/chain", { stages: payload });
+      const data = r.data || {};
+      setResult(data);
+      // Propagate the refreshed report to the top OUTPUT panel too.
+      if (onChainComplete) {
+        try {
+          const stagesArr = data.stages || [];
+          const rpt = data.report_text
+            || stagesArr
+                 .map((s, i) => `───── STAGE ${i} · engine=${s.engine || "?"} · conf=${s.confidence ?? 0}/100 ─────\n${s.output || "(no output)"}`)
+                 .join("\n\n");
+          onChainComplete(rpt, data);
+        } catch { /* ignore */ }
+      }
     } catch (e) {
       setResult((prev) => ({ ...(prev || {}), error: `Re-run from stage ${fromIdx} failed: ${e?.response?.data?.detail || e.message}` }));
     } finally {

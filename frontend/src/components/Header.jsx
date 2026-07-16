@@ -1,12 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
 import Logo from "@/components/Logo";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { useAuth } from "@/lib/auth";
-import { LogOut, LayoutGrid, Cog, Radar, Sparkles, Beaker, Terminal, BookOpen } from "lucide-react";
+import { LogOut, LayoutGrid, Cog, Radar, Sparkles, Beaker, Terminal, BookOpen, KeyRound } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
   const loc = useLocation();
   const isAdmin = user?.role === "admin";
+  const [cpOpen, setCpOpen] = useState(false);
 
   return (
     <header
@@ -116,10 +119,19 @@ export default function Header() {
         <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)" }} data-testid="header-user-email">
           {user?.email}
         </div>
+        <button
+          data-testid="header-change-password-btn"
+          className="nvx-btn sm ghost"
+          onClick={() => setCpOpen(true)}
+          title="Rotate your password"
+        >
+          <KeyRound size={13} /> PASSWORD
+        </button>
         <button data-testid="header-logout-btn" className="nvx-btn sm" onClick={logout}>
           <LogOut size={13} /> LOGOUT
         </button>
       </div>
+      <ChangePasswordModal open={cpOpen} onClose={() => setCpOpen(false)} />
     </header>
   );
 }
