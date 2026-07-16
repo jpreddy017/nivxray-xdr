@@ -184,10 +184,12 @@ function FindingCard({ finding, idx, onRefine }) {
                 data-testid={`refine-mitre-${idx}-${m}`}
                 title={`Refine — mark ${m} as wrong and teach NivXRay the correct mapping`}
                 style={{
-                  background: "transparent", border: "none", padding: 0,
-                  cursor: "pointer", color: "#f59e0b", fontSize: 9,
+                  background: "rgba(245,158,11,0.20)",
+                  border: "1px solid #f59e0b", padding: "1px 5px",
+                  cursor: "pointer", color: "#fbbf24", fontSize: 10,
+                  fontWeight: 800, borderRadius: 3, lineHeight: 1,
                 }}
-              >✎</button>
+              >✎ REFINE</button>
             </span>
           ))}
         </div>
@@ -312,6 +314,69 @@ export default function ThreatModelPage() {
               </code>{" "}
               — get attack paths, MITRE mapping, STRIDE analysis, and detection recommendations.
             </p>
+          </div>
+
+          {/* NEW FEATURE BANNER — Feb-2026: Teach NivXRay */}
+          <div
+            data-testid="tm-refine-feature-banner"
+            style={{
+              margin: "0 0 16px 0",
+              padding: "12px 16px",
+              background: "linear-gradient(90deg, rgba(124,58,237,0.15), rgba(34,211,238,0.10))",
+              border: "1.5px solid #7c3aed",
+              borderRadius: 6,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{
+              fontSize: 11, fontWeight: 800, letterSpacing: "0.20em",
+              color: "#c4b5fd", padding: "3px 8px",
+              background: "rgba(124,58,237,0.30)", borderRadius: 3,
+            }}>
+              ✎ NEW
+            </div>
+            <div style={{ flex: 1, minWidth: 300 }}>
+              <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600 }}>
+                Teach NivXRay when a finding is wrong.
+              </div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
+                After you analyze, click the small <span style={{ color: "#f59e0b" }}>✎</span> next to any
+                MITRE tag — or use the Refine buttons below — to submit a Correct / Incorrect /
+                Partial / Suggest verdict. Your correction re-runs the analysis automatically.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {[
+                ["mitre",      "MITRE"],
+                ["family",     "FAMILY"],
+                ["risk",       "RISK"],
+                ["mitigation", "MITIGATION"],
+                ["detection",  "DETECTION"],
+              ].map(([surf, label]) => (
+                <button
+                  key={surf}
+                  type="button"
+                  data-testid={`tm-btn-refine-${surf}`}
+                  onClick={() => openRefine({ kind: surf, value: "" })}
+                  style={{
+                    background: "rgba(124,58,237,0.20)",
+                    color: "#c4b5fd",
+                    border: "1px solid #7c3aed",
+                    padding: "5px 10px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: "0.10em",
+                    borderRadius: 3,
+                    cursor: "pointer",
+                  }}
+                >
+                  ✎ {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
