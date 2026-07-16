@@ -13,6 +13,7 @@ import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
 import { buildFallbackGraph } from "@/lib/fallbackGraph";
+import GuidanceBanner, { getGuidanceGlowStyle } from "@/components/GuidanceBanner";
 import SocVerdictPanel from "@/components/SocVerdictPanel";
 import VerdictCard from "@/components/VerdictCard";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
@@ -809,6 +810,10 @@ export default function WorkspacePage() {
           </div>
         )}
 
+        {/* Real-time input classifier — glows the right buttons + shows a stepper */}
+        <GuidanceBanner input={input} className="nvx-guidance-banner"
+                         data-testid="input-guidance-banner-wrapper" />
+
         <button className="nvx-btn primary" onClick={nivxrayDecode} disabled={loading || analyzing}
                 data-testid="btn-nivxray-decode"
                 title={
@@ -820,7 +825,10 @@ export default function WorkspacePage() {
                   "▸ USE WHEN: literally always. Paste and click. NivXRay picks the sharpest path.\n" +
                   "▸ RETURNS: full pipeline trace showing what fired and why."
                 }
-                style={{ fontSize: 13, padding: "8px 18px" }}>
+                style={{
+                  fontSize: 13, padding: "8px 18px",
+                  ...(getGuidanceGlowStyle(input, "btn-auto-investigate") || {}),
+                }}>
           <Sparkles size={14} /> NIVXRAY DECODE
         </button>
         <button className="nvx-btn ghost" onClick={() => setAdvancedOpen((v) => !v)}
@@ -842,10 +850,11 @@ export default function WorkspacePage() {
         <button className="nvx-btn" onClick={autoInvestigate} disabled={loading || analyzing} data-testid="btn-auto-investigate"
                 title={
                   "AUTO INVESTIGATE — Full SOC pipeline (MAGIC decode → OSINT → threat-intel → MITRE → AI verdict)."
-                }>
+                }
+                style={getGuidanceGlowStyle(input, "btn-auto-investigate") || undefined}>
           <Sparkles size={13} /> AUTO INVESTIGATE
         </button>
-        <button className="nvx-btn" onClick={() => autoDecode({ smart: false })} disabled={loading} data-testid="btn-auto-decode"
+        <button className="nvx-btn" onClick={() => autoDecode({ smart: false })} disabled={loading} data-testid="btn-ai-decode"
                 title={
                   "AI DECODE — LLM proposes a recipe (base64/gzip/XOR/etc.) with SOC anti-hallucination guard.\n" +
                   "Runs AI plan AND deterministic magic in parallel, picks the higher-confidence winner.\n\n" +
@@ -853,7 +862,8 @@ export default function WorkspacePage() {
                   "▸ SAFETY: if confidence < 35/100 it STOPS gracefully (no garbage output).\n" +
                   "▸ COST: 1 LLM call (~3–8s). Uses selected Persona + LLM (default NivX Cognis + Claude).\n" +
                   "▸ RETURNS: recipe + confidence % + winner engine + graceful-stop message if applicable."
-                }>
+                }
+                style={getGuidanceGlowStyle(input, "btn-ai-decode") || undefined}>
           <Wand2 size={13} /> AI DECODE
         </button>
         <button className="nvx-btn" onClick={() => autoDecode({ smart: true })} disabled={loading} data-testid="btn-smart-decode"
@@ -863,7 +873,8 @@ export default function WorkspacePage() {
                   "▸ USE WHEN: you need repeatable results (regression tests, high-volume automation, air-gapped ops).\n" +
                   "▸ COST: <100ms, no LLM. Zero hallucination by design.\n" +
                   "▸ LIMITATION: only recognises known signatures. Falls back to no-op on unknown formats."
-                }>
+                }
+                style={getGuidanceGlowStyle(input, "btn-smart-decode") || undefined}>
           <Zap size={13} /> SMART DECODE
         </button>
         {/* Feb-2026 · Corrupted-Container recovery mode toggle */}

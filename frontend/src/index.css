@@ -565,3 +565,15 @@ textarea:focus-visible,
   border: 1px solid var(--border);
   border-radius: 0;
 }
+
+/* ── Guidance-driven button pulse (Feb 2026) ─────────────────────
+   Applied inline via `getGuidanceGlowStyle()` when the input
+   classifier flags a button as the primary recommendation. */
+@keyframes nvx-recommend-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px #22c55e, 0 0 12px rgba(34, 197, 94, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 2px #22c55e, 0 0 22px rgba(34, 197, 94, 0.85);
+  }
+}
