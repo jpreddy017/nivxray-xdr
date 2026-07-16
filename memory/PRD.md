@@ -1,6 +1,27 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — 🩹 MoE panel `reviewer_name` attribute crash)
+
+### User-reported bug — Threat Model → "RUN 3-CRITIC PANEL"
+
+Clicking the button on the Threat Model page returned:
+```
+'ReviewerReport' object has no attribute 'reviewer_name'
+```
+Root cause: `reasoning/moe_panel.py:986` accessed `r.reviewer_name` when synthesising the verdict-consensus block, but the `ReviewerReport` dataclass field is `reviewer` (no `_name` suffix). Whenever ≥ 2 reviewers agreed (which is the common path — the whole point of a critic panel), `_synthesise()` raised AttributeError and `run_panel_async` bubbled it up. The router's try/except caught the string and rendered it in the AI-enrichment banner.
+
+**Fix**: `r.reviewer_name` → `r.reviewer`. One character. Pins with three new pytest cases in `tests/test_moe_reviewer_attr_regression.py`:
+1. Asserts `ReviewerReport` exposes `reviewer` and NOT `reviewer_name` (prevents future rename regressions).
+2. Runs `_synthesise()` with 3 reviewers, 2 agreeing on `high` severity → verifies no AttributeError + verdict-consensus block includes both agreeing reviewer names.
+3. Single-reviewer path still returns the expected shape.
+
+**Live-verified** on preview via `POST /api/threat-model/enrich` with a minimal Mermaid diagram — response now has `error: None`, `provider: hybrid`, 3 reviewers, 1 consensus item, 0 disagreements. No more error banner in the UI.
+
+Regressions: 59/59 pytest green across the impacted suites.
+
+
+
 ## Latest Change (Feb 2026 — 🧹 IOC reversed-string false-positive filter)
 
 ### Analyst-reported bug — reversed intermediates leaking as domain IOCs

@@ -983,7 +983,7 @@ def _synthesise(reports: List[ReviewerReport],
             fam = {"critical": "malicious", "high": "malicious",
                    "medium": "suspicious", "low": "suspicious",
                    "info": "benign"}.get(top.severity, "unknown")
-            vfam.setdefault(fam, []).append(r.reviewer_name)
+            vfam.setdefault(fam, []).append(r.reviewer)
         for fam, revs in vfam.items():
             if len(set(revs)) >= 2:
                 consensus.insert(0, {
