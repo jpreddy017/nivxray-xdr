@@ -1,6 +1,40 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — 🎯 PS Variable Indirection · Corrupt-Gzip Salvage · Destructive Wiper Family · Wiper LOLBAS)
+
+### User-reported bug fix — "DECODE FAILED at stage 0" on real Empire/Cobalt loaders
+
+Root-caused a `DECODE FAILED · plain-text passthrough only` on this common obfuscation shape:
+
+```powershell
+powershell.exe -NoProfile -WindowStyle Hidden -NonInteractive -Command "IO.Compression.GzipStream"
+$b='H4sICD12mFwCA2NvZGUAc0vNKy7PL8pJUQQAlp9pDwwAAAA=';
+$m=New-Object IO.MemoryStream(,[Convert]::FromBase64String($b));
+$g=New-Object IO.Compression.GzipStream($m,[IO.Compression.CompressionMode]::Decompress);
+$r=New-Object IO.StreamReader($g);IEX $r.ReadToEnd();
+```
+
+Two independent gaps combined into a silent failure:
+1. Archetype regex `_PS_MEMSTREAM_GZIP_RX` expected a **string literal** inside `FromBase64String("…")`, but real payloads use **variable indirection** (`$b='…'; ...FromBase64String($b)`) — the archetype missed and the magic decoder fell through to a `confidence=0` passthrough.
+2. Even when magic fired, this specific blob has a corrupt GZIP CRC trailer — Python's strict `gzip.decompress` refused and the pipeline aborted with `[Corrupted GZIP container] BadGzipFile: CRC check failed`.
+
+**Fixes**:
+- `wrapper_archetypes.resolve_ps_variables()` — new pass that pre-expands `$var='literal'` assignments in-place before archetype matching. Preserves the assignment statement for trace readability; inlines only downstream references. Runs up to 3 passes to resolve `$a='X'; $b=$a; ...` chains.
+- `wrapper_archetypes.robust_b64_then_gunzip()` — added a **third fallback**: if strict gzip AND streaming zlib both fail, walk the RFC-1952 header (FLG/FEXTRA/FNAME/FCOMMENT/FHCRC), strip the 8-byte trailer, and feed the raw DEFLATE body through `zlib.decompress(deflate_body, -MAX_WBITS)`. Salvages `Fensworld!` (and any real payload) from CRC-corrupt containers with a `[⚠ GZIP CRC INVALID — content salvaged via raw-deflate fallback]` marker.
+- `lolbas.py` — added `wevtutil.exe` (event-log wipe), `fsutil.exe` (USN journal deletejournal / file setzerodata / volume dismount), `cipher.exe /w:` (free-space overwrite) to the LOLBAS allow-list with proper MITRE mappings (T1070.001, T1485).
+- `chain_analyzer.detect_malware_family()` — added a **Destructive Wiper / Ransomware Precursor** classifier that fires when the aggregate LOLBAS set contains ≥3 unique binaries from `{vssadmin, wbadmin, wevtutil, bcdedit, fsutil, cipher}`. Wins over the regex-based voter because LOLBAS is higher fidelity than string matching.
+
+**Verified end-to-end** on the preview environment via UI screenshots:
+- Scenario A (paste full multi-stage into INPUT → NIVXRAY DECODE): auto-splits, Stage 0 lands `engine=archetype:PS_MemoryStream_Gzip_IEX · conf=100/100`, aggregate shows "Destructive Wiper / Ransomware Precursor · avg 77 %".
+- Scenario B (INPUT box left empty, three stages added via Chain Editor + RUN CHAIN): same Stage-0 archetype match at conf=100, same family verdict at confidence 80 %. Proves the Chain Editor operates independently of the INPUT box.
+
+**Regressions**: `pytest tests/test_wrapper_archetypes.py tests/test_multi_command_chain.py tests/test_chain_analyzer.py tests/test_lolbas_chain_export.py tests/test_recursive_deep_decode.py tests/test_wrapper_shell_decode.py tests/test_multiline_decode.py tests/test_ps_var_indirection_and_wiper.py` — **105/105 pass**.
+
+**New tests**: `/app/backend/tests/test_ps_var_indirection_and_wiper.py` — 10 tests pinning the variable-indirection archetype, CRC-corrupt salvage, end-to-end chain confidence, LOLBAS matches for the 3 new binaries, and the Destructive Wiper family classifier (3-bin trigger, 2-bin no-trigger, tie-break vs generic regex family).
+
+
+
 ## Latest Change (Feb 2026 — 🎯 Refine ✎ on Workspace · 4-Verdict Picker · Admin Corrections Dashboard)
 
 ### Feature bundle complete — 100/100 tests green

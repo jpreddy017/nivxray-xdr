@@ -187,6 +187,30 @@ def detect_malware_family(stages: List[Dict[str, Any]]) -> Optional[Dict[str, An
                 votes[family] += 1
                 evidence.setdefault(family, []).append(
                     f"stage {s['stage_index']}: '{m.group(0)}'")
+
+    # ── LOLBAS-based Destructive Wiper / Ransomware Precursor heuristic ──
+    # Fires when the aggregate LOLBAS set contains ≥3 unique binaries from
+    # the destructive-impact family (VSS deletion, backup deletion, event-log
+    # wipe, boot-config tamper, USN-journal wipe, free-space overwrite).
+    # This runs INDEPENDENTLY of the regex voter above and wins on tie because
+    # the LOLBAS signal is a much higher-fidelity indicator than a string match.
+    _WIPER_BINS = {"vssadmin.exe", "wbadmin.exe", "wevtutil.exe",
+                   "bcdedit.exe", "fsutil.exe", "cipher.exe"}
+    seen_wiper: Dict[str, str] = {}
+    for s in stages:
+        for hit in (s.get("lolbas") or []):
+            bin_name = (hit.get("binary") or hit.get("name") or "").lower()
+            if bin_name in _WIPER_BINS and bin_name not in seen_wiper:
+                seen_wiper[bin_name] = f"stage {s['stage_index']}: {bin_name}"
+    if len(seen_wiper) >= 3:
+        wiper_conf = min(100, 60 + (len(seen_wiper) - 3) * 10)
+        return {
+            "family": "Destructive Wiper / Ransomware Precursor",
+            "confidence": wiper_conf,
+            "hits": len(seen_wiper),
+            "evidence": list(seen_wiper.values())[:6],
+        }
+
     if not votes:
         return None
     top, count = votes.most_common(1)[0]

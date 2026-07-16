@@ -24,6 +24,82 @@ import zlib
 from typing import Any, Dict, List, Optional
 
 
+# ─── PowerShell variable resolver ────────────────────────────────────────
+# Many real-world stagers assign the payload to a variable first, then feed
+# the variable into FromBase64String / GzipStream / IEX. Example:
+#     $b='H4sICD...=';
+#     $m=New-Object IO.MemoryStream(,[Convert]::FromBase64String($b));
+#     $g=New-Object IO.Compression.GzipStream($m,...);
+# Our archetype regexes expect a string LITERAL inside FromBase64String(...),
+# so we pre-expand `$var='...'` / `$var="..."` assignments in-place before
+# matching. This is a purely lexical rewrite — safe, deterministic, and
+# invisible to callers.
+#
+# Supported shapes (single-quoted literals ARE NOT expanded by PowerShell,
+# but we intentionally treat both quote styles the same because analysts
+# copy/paste snippets and encoders often flip quote styles arbitrarily).
+_PS_VAR_ASSIGN_RX = re.compile(
+    r"\$(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*"
+    r"(?P<q>['\"])(?P<val>[^'\"\r\n]{4,4096})(?P=q)\s*[;\r\n]",
+)
+
+
+def resolve_ps_variables(text: str, max_passes: int = 3) -> str:
+    """Inline `$var='literal'` / `$var="literal"` assignments so downstream
+    archetype regexes can see the raw base64 blob instead of a `$var` token.
+
+    Runs up to `max_passes` times to resolve simple chains
+    (`$a='X'; $b=$a; ...FromBase64String($b)`), then returns the rewritten
+    text. Non-string assignments and expressions are left untouched.
+
+    The assignment statements themselves are preserved as-is (only downstream
+    references to the variable are inlined) so the rewritten script is still
+    readable in traces.
+    """
+    if not text or "$" not in text:
+        return text
+    current = text
+    for _ in range(max_passes):
+        assigns: Dict[str, str] = {}
+        # Record the byte ranges of the assignment RHS so we skip them
+        # when substituting references — we don't want `$b='X'` to become
+        # `'X'='X'`.
+        assign_spans: List[tuple] = []
+        for m in _PS_VAR_ASSIGN_RX.finditer(current):
+            assigns[m.group("name")] = m.group("val")
+            assign_spans.append((m.start(), m.end()))
+        if not assigns:
+            break
+
+        def _in_assign(pos: int) -> bool:
+            for a, b in assign_spans:
+                if a <= pos < b:
+                    return True
+            return False
+
+        # Sort longest-name first so `$aa` isn't shadowed by `$a`.
+        pieces: List[tuple] = []  # (start, end, replacement)
+        for name in sorted(assigns.keys(), key=len, reverse=True):
+            val = assigns[name]
+            rx = re.compile(r"\$" + re.escape(name) + r"(?![A-Za-z0-9_])")
+            for m in rx.finditer(current):
+                if _in_assign(m.start()):
+                    continue
+                pieces.append((m.start(), m.end(),
+                               "'" + val.replace("'", "''") + "'"))
+        if not pieces:
+            break
+        # Apply replacements right-to-left to keep offsets stable.
+        pieces.sort(key=lambda t: t[0], reverse=True)
+        rewritten = current
+        for start, end, repl in pieces:
+            rewritten = rewritten[:start] + repl + rewritten[end:]
+        if rewritten == current:
+            break
+        current = rewritten
+    return current
+
+
 # ─── Robust base64 recovery ──────────────────────────────────────────────
 _B64_ALPHA_RX = re.compile(r"[^A-Za-z0-9+/=_-]")
 
@@ -69,15 +145,19 @@ def robust_b64decode(blob: str) -> bytes:
 
 
 def robust_b64_then_gunzip(blob: str) -> str:
-    """base64 → gzip decompress, resilient to padding/length corruption
-    AND to truncated gzip streams (partial decompression recovers whatever
-    bytes were successfully emitted before the truncation).
+    """base64 → gzip decompress, resilient to padding/length corruption,
+    to truncated gzip streams (partial decompression recovers whatever
+    bytes were successfully emitted before the truncation), AND to
+    CRC-corrupt gzip trailers (real-world stagers frequently mangle the
+    trailing 8 bytes — we salvage the raw DEFLATE payload after stripping
+    the 10-byte header, any FNAME/FEXTRA/FCOMMENT/FHCRC fields, and the
+    8-byte trailer).
     """
     raw = robust_b64decode(blob)
     try:
         return gzip.decompress(raw).decode("utf-8", errors="replace")
     except (EOFError, OSError, zlib.error):
-        # Truncated stream — recover whatever we can via a streaming decompressor.
+        # (1) Truncated stream — recover whatever we can via a streaming decompressor.
         # gzip = zlib with 16+MAX_WBITS window bits.
         try:
             d = zlib.decompressobj(16 + zlib.MAX_WBITS)
@@ -91,6 +171,37 @@ def robust_b64_then_gunzip(blob: str) -> str:
                 partial = out.decode("utf-8", errors="replace")
                 return partial + "\n\n[⚠ PARTIAL DECOMPRESSION — source stream was truncated]"
         except zlib.error:
+            pass
+
+        # (2) CRC-corrupt gzip — strip the RFC-1952 header + optional
+        # FNAME/FEXTRA/FCOMMENT/FHCRC fields + 8-byte trailer, then feed the
+        # raw DEFLATE bytes through zlib with a negative window bits.
+        try:
+            if len(raw) >= 18 and raw[0] == 0x1F and raw[1] == 0x8B:
+                flags = raw[3]
+                idx = 10
+                # FEXTRA
+                if flags & 0x04 and idx + 2 <= len(raw):
+                    xlen = int.from_bytes(raw[idx:idx + 2], "little")
+                    idx += 2 + xlen
+                # FNAME (null-terminated)
+                if flags & 0x08:
+                    end = raw.find(b"\x00", idx)
+                    idx = (end + 1) if end != -1 else idx
+                # FCOMMENT (null-terminated)
+                if flags & 0x10:
+                    end = raw.find(b"\x00", idx)
+                    idx = (end + 1) if end != -1 else idx
+                # FHCRC (2 bytes)
+                if flags & 0x02:
+                    idx += 2
+                deflate_body = raw[idx:-8]
+                if deflate_body:
+                    salvaged = zlib.decompress(deflate_body, -zlib.MAX_WBITS)
+                    if salvaged:
+                        return salvaged.decode("utf-8", errors="replace") + \
+                            "\n\n[⚠ GZIP CRC INVALID — content salvaged via raw-deflate fallback]"
+        except (zlib.error, IndexError, ValueError):
             pass
         raise
 
@@ -852,6 +963,17 @@ def try_archetypes(text: str, max_depth: int = 4) -> Optional[Dict[str, Any]]:
     """
     fired: List[Dict[str, Any]] = []
     current = text
+    # Feb-2026 fix — resolve `$var='literal'` assignments so archetype
+    # regexes that expect a string literal inside FromBase64String(...)
+    # can match payloads that use variable indirection (a very common
+    # real-world obfuscation shape). This is a pure lexical rewrite and
+    # therefore safe to apply once at the top of the loop.
+    try:
+        resolved = resolve_ps_variables(current)
+        if resolved and resolved != current:
+            current = resolved
+    except Exception:
+        pass
     for _ in range(max_depth):
         matched = False
         for arch in ARCHETYPES:
