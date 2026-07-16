@@ -1,7 +1,91 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🔐 Security Audit Remediation — SEC-001 · SEC-002 · SEC-003)
+## Latest Change (Feb 2026 — ✎ Analyst Corrections · Enterprise Feedback Loop)
+
+### Feature complete — 102/102 tests green
+
+**The problem** — When any NivXRay finding is wrong (wrong MITRE mapping,
+false-positive LOLBIN, mis-attributed family, wrong risk verdict, etc.),
+analysts had no way to teach the tool. They'd re-see the same wrong
+answer on the next similar payload.
+
+**The fix** — A full "Teach NivXRay" feedback loop with versioning,
+approval workflow, hybrid matching (tag → LLM-similarity fallback), and
+hybrid application (deterministic override → LLM prompt injection).
+
+### Backend
+- NEW `backend/analyst_corrections.py` — the corrections library.
+  Storage in Mongo `analyst_corrections` collection with:
+  - Versioning (v1 → v2 → v3 …), rollback pointer + full history array
+  - Confidence scoring (status 60% + reuse-count 25% + author-role 15%,
+    -10% penalty for pending global-scope)
+  - 3 scopes: `private` · `team` (auto-approve) · `global` (admin
+    approval required — 4-eyes even for admin authoring)
+  - 10 surfaces: `threat_model`, `decode`, `chain`, `ioc`, `lolbas`,
+    `family`, `risk`, `detection`, `mitigation`, `note`
+  - Hybrid matcher: exact-hash → tag-Jaccard ≥ 0.5 → lexical similarity
+  - Hybrid applier: deterministic override (tag-Jaccard ≥ 0.75 or exact
+    hash) → LLM-prompt-injection (everything else)
+
+- NEW `backend/routers/analyst_corrections.py` — thin HTTP layer:
+  - `POST /api/corrections` — submit / revise
+  - `GET /api/corrections` — list visible (own + team + global-approved)
+  - `POST /api/corrections/preview` — see what *would* be applied
+  - `GET /api/corrections/pending` (admin) — global-pending inbox
+  - `POST /api/corrections/{id}/approve` (admin)
+  - `POST /api/corrections/{id}/reject` (admin)
+  - `POST /api/corrections/{id}/rollback` (admin) — restore prior
+    version as new v(N+1)
+
+- MODIFIED `backend/routers/threat_model.py` — `/analyze` and `/enrich`
+  now call `corr.find_applicable()`, apply deterministic overrides
+  (removing wrong MITRE / LOLBAS / IOC / family / risk items), inject
+  the "prior analyst corrections" prompt block into the MoE evidence
+  bundle, and return `corrections_available` in the response so the
+  frontend can render a purple "✎ ANALYST CORRECTIONS APPLIED" banner.
+  Reuse-count bumps on every override that fires.
+
+### Frontend
+- NEW `frontend/src/components/CorrectionRefineModal.jsx` — reusable
+  modal with correct-prompt textarea, tag chips, scope picker
+  (private/team/global), auto-rerun checkbox. `data-testid` on every
+  interactive element (`correction-*`).
+- MODIFIED `frontend/src/pages/ThreatModelPage.jsx`:
+  - Every MITRE tag now shows a `✎` refine button
+  - Banner at top of report when corrections applied
+  - Auto-rerun after submit refreshes the report
+
+### Tests
+- NEW `backend/tests/test_analyst_corrections.py` — 8 tests covering:
+  - Admin team-scope auto-approves
+  - Admin global-scope stays pending
+  - Analyze applies deterministic override + returns
+    `corrections_available`
+  - Revise bumps version + supersedes prior
+  - Approve → revise → rollback lifecycle preserves history
+  - Pending admin inbox lists global-pending
+  - Preview returns applicable by tag
+  - Invalid surface returns 400
+
+### Verification
+- 102/102 backend tests pass (corrections + threat-model + SEC-001/002/
+  003 auth + IOC enrichment + multi-command chain + MoE panel)
+- Full lifecycle smoke-tested end-to-end via curl:
+  submit → list → preview → auto-apply → revise → global-pending →
+  admin-approve → rollback
+
+### Remaining audit items (deferred — not in this commit)
+- P3 hardening batch (CORS allowlist, disable `/docs` in prod, login
+  rate-limit, TAXII SSRF allow-list, generic error messages)
+- Extend Refine `✎` button to Decode / Chain / IOC panels on
+  WorkspacePage (framework is ready — just needs wiring per panel)
+- Corrections dashboard for admins: usage analytics, top-reused
+  corrections, per-surface heatmap
+
+---
+
+## Previous Change (Feb 2026 — 🔐 Security Audit Remediation — SEC-001 · SEC-002 · SEC-003)
 
 ### Priority-0/1/2 fixes shipped in one commit — 203/203 tests green
 

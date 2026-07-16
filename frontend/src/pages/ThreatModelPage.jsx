@@ -11,6 +11,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import Header from "@/components/Header";
 import MoEPanel from "@/components/MoEPanel";
+import CorrectionRefineModal from "@/components/CorrectionRefineModal";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -144,7 +145,7 @@ function AttackPathCard({ path, idx }) {
   );
 }
 
-function FindingCard({ finding, idx }) {
+function FindingCard({ finding, idx, onRefine }) {
   return (
     <div
       data-testid={`threat-finding-${idx}`}
@@ -166,21 +167,27 @@ function FindingCard({ finding, idx }) {
         {finding.description}
       </div>
       {finding.mitre?.length > 0 && (
-        <div style={{ marginTop: 4 }}>
+        <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3, alignItems: "center" }}>
           {finding.mitre.map((m) => (
             <span
               key={m}
               style={{
-                fontSize: 9,
-                padding: "1px 5px",
-                marginRight: 3,
-                borderRadius: 3,
-                background: "#0f172a",
-                color: "#a5f3fc",
+                fontSize: 9, padding: "1px 5px", borderRadius: 3,
+                background: "#0f172a", color: "#a5f3fc",
                 border: "1px solid #14b8a6",
+                display: "inline-flex", alignItems: "center", gap: 3,
               }}
             >
               {m}
+              <button
+                onClick={() => onRefine?.({ kind: "mitre", value: m })}
+                data-testid={`refine-mitre-${idx}-${m}`}
+                title={`Refine — mark ${m} as wrong and teach NivXRay the correct mapping`}
+                style={{
+                  background: "transparent", border: "none", padding: 0,
+                  cursor: "pointer", color: "#f59e0b", fontSize: 9,
+                }}
+              >✎</button>
             </span>
           ))}
         </div>
@@ -251,6 +258,12 @@ function RiskGauge({ risk }) {
 export default function ThreatModelPage() {
   const [mermaid, setMermaid] = useState(DEFAULT_EXAMPLE);
   const [state, setState] = useState({ status: "idle", report: null, error: null });
+  // Feb-2026: analyst-corrections modal state.
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [refineWrong, setRefineWrong] = useState(null);
+
+  const openRefine = (wrong) => { setRefineWrong(wrong); setRefineOpen(true); };
+  const closeRefine = () => setRefineOpen(false);
 
   const runAnalysis = async () => {
     setState({ status: "loading", report: null, error: null });
@@ -389,6 +402,33 @@ export default function ThreatModelPage() {
               {report && (
                 <>
                   <RiskGauge risk={report.risk} />
+
+                  {report.corrections_available?.length > 0 && (
+                    <div
+                      data-testid="corrections-applied-banner"
+                      style={{
+                        marginTop: 10, padding: "8px 10px",
+                        border: "1px solid #7c3aed", borderRadius: 4,
+                        background: "rgba(124,58,237,0.10)", fontSize: 11,
+                        color: "#c4b5fd",
+                      }}
+                    >
+                      <div style={{ letterSpacing: "0.14em", fontWeight: 700, marginBottom: 4 }}>
+                        ✎ ANALYST CORRECTIONS APPLIED ({report.corrections_available.length})
+                      </div>
+                      {report.corrections_available.slice(0, 5).map((c) => (
+                        <div key={c.id} style={{ marginTop: 3, fontSize: 10 }}>
+                          <span style={{ color: "#a78bfa" }}>{c.id}</span>
+                          <span style={{ color: "#94a3b8" }}> · v{c.version} · conf {c.confidence} · </span>
+                          <span style={{ color: c.apply_mode === "override" ? "#f472b6" : "#94a3b8" }}>
+                            {c.apply_mode?.toUpperCase()}
+                          </span>
+                          <span style={{ color: "#cbd5e1" }}> — {c.correct_prompt?.slice(0, 100)}…</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 12 }}>
                     {[
                       ["nodes", report.counts.nodes],
@@ -427,7 +467,7 @@ export default function ThreatModelPage() {
                         ▸ FINDINGS ({report.findings.length})
                       </div>
                       {report.findings.map((f, i) => (
-                        <FindingCard key={i} finding={f} idx={i} />
+                        <FindingCard key={i} finding={f} idx={i} onRefine={openRefine} />
                       ))}
                     </div>
                   )}
@@ -476,6 +516,17 @@ export default function ThreatModelPage() {
           )}
         </div>
       </div>
+
+      {/* Analyst-corrections modal (Feb-2026 · teach-the-model feature) */}
+      <CorrectionRefineModal
+        open={refineOpen}
+        onClose={closeRefine}
+        surface="threat_model"
+        wrongFinding={refineWrong || {}}
+        inputText={mermaid}
+        defaultTags={[]}
+        onRerun={runAnalysis}
+      />
     </>
   );
 }
