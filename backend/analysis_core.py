@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 from operations import extract_iocs, mitre_map, yara_lite_scan, risk_score
 from smart_decoder import smart_decode
@@ -442,15 +443,63 @@ def extract_iocs_from_text(text: str) -> Dict[str, List[str]]:
 # TI cross-reference
 # ============================================================================
 async def lookup_ti_hits(iocs: Dict[str, List[str]]) -> List[Dict[str, Any]]:
-    """Cross-reference extracted IOCs against local Threat-Intel DB."""
-    values: List[str] = []
+    """Cross-reference extracted IOCs against local Threat-Intel DB.
+
+    Resilient matching:
+      • Exact-value hits across urls, ips, domains, md5, sha1, sha256.
+      • URL → hostname fallback: derive the host from every extracted URL
+        and additionally check the local `domain` collection — catches the
+        common case where the feed stores the domain but the payload
+        contains a URL with query-string / path variance.
+      • Case-normalised (host part is lower-cased before lookup).
+      • Deterministic de-dupe on (kind, value).
+    """
+    exact_values: List[str] = []
     for k in ("urls", "ips", "domains", "md5", "sha1", "sha256"):
-        values.extend(iocs.get(k) or [])
-    if not values:
+        for v in iocs.get(k) or []:
+            if v and v not in exact_values:
+                exact_values.append(v)
+
+    # URL → hostname fallback
+    derived_hosts: List[str] = []
+    for u in iocs.get("urls") or []:
+        try:
+            host = (urlparse(u).hostname or "").lower().strip(".")
+            if host and host not in derived_hosts:
+                derived_hosts.append(host)
+        except Exception:
+            continue
+
+    if not exact_values and not derived_hosts:
         return []
-    hits = []
-    async for doc in db.iocs.find({"value": {"$in": values}}, {"_id": 0}):
-        hits.append(doc)
+
+    seen = set()
+    hits: List[Dict[str, Any]] = []
+
+    # 1) Exact-value match across all kinds
+    if exact_values:
+        async for doc in db.iocs.find({"value": {"$in": exact_values}}, {"_id": 0}):
+            key = (doc.get("kind"), doc.get("value"))
+            if key not in seen:
+                seen.add(key)
+                hits.append(doc)
+
+    # 2) URL → hostname fallback — only look up matches in the `domain` kind
+    if derived_hosts:
+        async for doc in db.iocs.find(
+            {"kind": "domain", "value": {"$in": derived_hosts}},
+            {"_id": 0},
+        ):
+            key = (doc.get("kind"), doc.get("value"))
+            if key not in seen:
+                seen.add(key)
+                d = dict(doc)
+                # Tag the hit so the UI can show "matched via URL hostname"
+                extra = dict(d.get("extra") or {})
+                extra.setdefault("matched_via", "url-hostname")
+                d["extra"] = extra
+                hits.append(d)
+
     return hits
 
 

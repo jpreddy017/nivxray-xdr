@@ -146,6 +146,32 @@ _L_DEFAULT: List[Dict[str, Any]] = [
     {"bin": "whoami.exe", "argv": r"/all|/priv|/groups",
      "purposes": ["Discovery"], "mitre": ["T1033"],
      "desc": "Current-user discovery"},
+
+    # ─── 2025-2026 additions (L1 · coverage booster) ────────────────
+    {"bin": "dotnet.exe", "argv": r"exec\s+\S+\.dll|run\s+--project|fsi\s+|\bnew\s+console",
+     "purposes": ["Execute", "AWL Bypass"], "mitre": ["T1218"],
+     "desc": ".NET SDK LOLBAS — dotnet.exe used to run unsigned assemblies / F# scripts (2025 emerging)"},
+    {"bin": "dnx.exe", "argv": r"\.\/|https?://|\.dll|\.exe",
+     "purposes": ["Execute", "AWL Bypass"], "mitre": ["T1218"],
+     "desc": ".NET Execution Environment — dnx.exe proxying unsigned code (2025 emerging)"},
+    {"bin": "Dxcap.exe", "argv": r"-c\s+\S+|-file\s+\S+\.exe",
+     "purposes": ["Execute", "AWL Bypass"], "mitre": ["T1218"],
+     "desc": "Dxcap.exe (DirectX capture) proxy-executes arbitrary EXEs (2025 emerging)"},
+    {"bin": "desktopimgdownldr.exe", "argv": r"/lockscreenurl:https?://|/eventName:",
+     "purposes": ["Download"], "mitre": ["T1105"],
+     "desc": "desktopimgdownldr.exe abused to fetch arbitrary URLs (Win10+ built-in downloader)"},
+    {"bin": "stordiag.exe", "argv": r"-o\s|schtasks|systeminfo",
+     "purposes": ["Execute", "Discovery"], "mitre": ["T1218"],
+     "desc": "stordiag.exe launches child processes (schtasks / systeminfo) — LOL proxy"},
+    {"bin": "msconfig.exe", "argv": r"-4\s+.*\S+\.dll|\.wtd|\.wtb",
+     "purposes": ["Execute", "AWL Bypass"], "mitre": ["T1218"],
+     "desc": "msconfig.exe abused via /4 flag to load a rogue DLL"},
+    {"bin": "PresentationHost.exe", "argv": r"\.xbap|\.xaml|https?://",
+     "purposes": ["Execute", "AWL Bypass"], "mitre": ["T1218"],
+     "desc": "PresentationHost.exe launching XBAP / remote XAML (WPF LOLBAS)"},
+    {"bin": "Dfsvc.exe", "argv": r"\.application|\.deploy|https?://",
+     "purposes": ["Execute"], "mitre": ["T1218"],
+     "desc": "ClickOnce Deployment service abused to execute remote .application manifests"},
 ]
 
 # Defaults, keyed by binary name (lower) so API imports can be merged without overriding.

@@ -5,12 +5,14 @@ import RecipePanel from "@/components/RecipePanel";
 import ThreatAnalysis from "@/components/ThreatAnalysis";
 import ReportMenu from "@/components/ReportMenu";
 import AttackGraph from "@/components/AttackGraph";
+import AttackPathClean from "@/components/AttackPathClean";
 import FinalSummary from "@/components/FinalSummary";
 import ShellcodeView from "@/components/ShellcodeView";
 import OutputView from "@/components/OutputView";
 import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
+import { buildFallbackGraph } from "@/lib/fallbackGraph";
 import SocVerdictPanel from "@/components/SocVerdictPanel";
 import VerdictCard from "@/components/VerdictCard";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
@@ -51,6 +53,7 @@ export default function WorkspacePage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [tacticFilter, setTacticFilter] = useState(null); // P3: click-to-filter
+  const [graphView, setGraphView] = useState("path"); // "tactical" | "path" — mode of the new card below
   const [personas, setPersonas] = useState([]);
   const [providers, setProviders] = useState([]);
   const [personaId, setPersonaId] = useState("");
@@ -1334,6 +1337,79 @@ export default function WorkspacePage() {
               </div>
             </div>
           )}
+
+          {/* Kill-Chain Path Card — G1/G2 toggle. Renders as soon as we have
+              ANY decode signal (chain / output / IOCs / lolbins), synthesising
+              a graph on the fly if the AI describe hasn't run yet. */}
+          {(() => {
+            const aiGraph = analysis?.description?.entity_graph;
+            const hasAiGraph = aiGraph && Array.isArray(aiGraph.nodes) && aiGraph.nodes.length > 0;
+            const hasDecodeSignal = !!(
+              output || input ||
+              (analysis?.chain && (Array.isArray(analysis.chain) ? analysis.chain.length : (analysis.chain.steps || []).length)) ||
+              (analysis?.iocs && Object.values(analysis.iocs).some((v) => Array.isArray(v) && v.length)) ||
+              (analysis?.lolbins && analysis.lolbins.length) ||
+              (analysis?.mitre && analysis.mitre.length)
+            );
+            if (!hasAiGraph && !hasDecodeSignal) return null;
+
+            const graph = hasAiGraph
+              ? { nodes: aiGraph.nodes, edges: aiGraph.edges || [] }
+              : buildFallbackGraph({ input, output, analysis, verdict: verdictCard });
+            const source = hasAiGraph ? "ai" : "synth";
+
+            return (
+              <div className="nvx-card" data-testid="attack-path-card">
+                <div className="nvx-card-head">
+                  <div className="nvx-card-title">
+                    <span className="dot" style={{ background: "#38bdf8" }} />
+                    {graphView === "path" ? "G1 · KILL-CHAIN PATH" : "G2 · TACTICAL (ALT)"}
+                    <span className="count">
+                      {graphView === "path"
+                        ? `${graph.nodes.length} nodes · ${graph.edges.length} edges · ${source === "ai" ? "AI graph" : "synthesised"}`
+                        : "MITRE swim-lane (mirrors top card)"}
+                    </span>
+                  </div>
+                  <div className="nvx-card-actions">
+                    <div style={{ display: "inline-flex", border: "1px solid var(--border)",
+                                  borderRadius: 4, overflow: "hidden" }}
+                         data-testid="attack-path-view-toggle">
+                      <button
+                        className={`nvx-btn sm ${graphView === "path" ? "" : "ghost"}`}
+                        onClick={() => setGraphView("path")}
+                        data-testid="btn-graph-view-path"
+                        title="G1 — Clean kill-chain path (entry → choke → crown jewel)"
+                        style={{ borderRadius: 0, borderRight: "1px solid var(--border)" }}
+                      >
+                        G1
+                      </button>
+                      <button
+                        className={`nvx-btn sm ${graphView === "tactical" ? "" : "ghost"}`}
+                        onClick={() => setGraphView("tactical")}
+                        data-testid="btn-graph-view-tactical"
+                        title="G2 — MITRE tactical swim-lane"
+                        style={{ borderRadius: 0 }}
+                      >
+                        G2
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="nvx-card-body">
+                  {graphView === "path" ? (
+                    <AttackPathClean nodes={graph.nodes} edges={graph.edges} />
+                  ) : (
+                    <AttackGraph
+                      nodes={graph.nodes}
+                      edges={graph.edges}
+                      selectedTactic={tacticFilter}
+                      onTacticClick={(t) => setTacticFilter((cur) => cur === t ? null : t)}
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Predicted Process Tree — appears once we have decoded output */}
           {(output || input) && (
