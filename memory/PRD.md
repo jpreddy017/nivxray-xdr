@@ -1,7 +1,29 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — ✂️ Screenshot Trim + Per-Tab GRAPH/FLOW/CHAIN Captures)
+## Latest Change (Feb 2026 — 🖼️ P2 · Side-by-Side GRAPH + CHAIN Figure in PDF)
+
+### Delivered
+- `docs/pdf_generator.py :: _embed_screenshots()` now auto-detects `step_N_tab_graph.png` + `step_N_tab_chain.png` pairs and renders them side-by-side in a 2-column reportlab `Table` (captioned "GRAPH + CHAIN — visual evidence") for every payload/workflow that has them.
+- New helper `_pair_graph_chain_by_step()` isolates the pairing logic.
+- New helper `_scale_image()` extracted so both the pair figure (half-width) and standalone screenshots (full-width) share the same aspect-preserving scaler.
+- Non-paired screenshots continue to stack single-column as before.
+
+### Tests
+- `backend/tests/test_docs_pdf_pair.py` (4 new) — pair-detection unit tests (complete-pairs-only + non-matching-name filter), PDF-runs-cleanly integration, monkey-patched fake corpus verifies a Table flowable is emitted.
+- Combined `test_docs_pdf.py + test_docs_pdf_pair.py`: **18/18 green**.
+- Full docs suite (generator + pdf + pdf_pair + extras + cheatsheet + rag + automation + feedback + explain-phase2): **104/104 green**.
+
+### Dry-run of release workflow (all 12 artifacts generated locally)
+- `docs/exports/nivxray-{user|admin|developer|all}-guide.{pdf|html|docx}` regenerated cleanly
+- `nivxray-all-guide.pdf` = **6.8 MB** with the new pair figures embedded
+- End-to-end curl through `/api/docs/export/pdf?audience=all` returns identical bytes
+
+⚠️ **Deployment**: preview verified. Production redeploy required to push the side-by-side pair figure to nivxray.nivxforge.com — see GITHUB_RELEASE_CHECKLIST.md.
+
+---
+
+## Previous Change (Feb 2026 — ✂️ Screenshot Trim + Per-Tab GRAPH/FLOW/CHAIN Captures)
 
 ### Delivered
 

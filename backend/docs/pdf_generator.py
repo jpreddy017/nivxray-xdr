@@ -274,13 +274,52 @@ def _build_toc(styles: Dict[str, ParagraphStyle],
     return story
 
 
+def _scale_image(path: Path, max_width_in: float,
+                 max_height_in: float = 8.0) -> Optional[RLImage]:
+    """Return a scaled RLImage or None on failure."""
+    try:
+        img = RLImage(str(path))
+        aspect = img.imageHeight / max(1, img.imageWidth)
+        img.drawWidth = max_width_in * inch
+        img.drawHeight = max_width_in * inch * aspect
+        if img.drawHeight > max_height_in * inch:
+            scale = (max_height_in * inch) / img.drawHeight
+            img.drawHeight *= scale
+            img.drawWidth *= scale
+        return img
+    except Exception:
+        return None
+
+
+def _pair_graph_chain_by_step(files: List[Path]) -> Dict[str, Dict[str, Path]]:
+    """Group GRAPH + CHAIN tab screenshots by step number.
+
+    Filenames follow `step_<N>_tab_<tab>.png`. Returns:
+        {"1": {"graph": Path, "chain": Path}, ...}
+    Only entries that have BOTH graph and chain end up in the map.
+    """
+    import re
+    pat = re.compile(r"^step_(\d+)_tab_(graph|chain)\.png$")
+    pairs: Dict[str, Dict[str, Path]] = {}
+    for p in files:
+        m = pat.match(p.name)
+        if not m:
+            continue
+        step_no, tab = m.group(1), m.group(2)
+        pairs.setdefault(step_no, {})[tab] = p
+    # Keep only complete pairs
+    return {k: v for k, v in pairs.items() if "graph" in v and "chain" in v}
+
+
 def _embed_screenshots(doc_id: str, styles: Dict[str, ParagraphStyle],
                         max_width_in: float = 6.5) -> List[Any]:
     """Return reportlab flowables for every captured screenshot of a doc.
 
-    Files are read from `docs/screenshots/{doc_id}/step_*.png`. If the
-    directory doesn't exist or is empty, returns an empty list so the
-    caller can call it unconditionally.
+    Files are read from `docs/screenshots/{doc_id}/step_*.png`. When BOTH
+    `step_N_tab_graph.png` and `step_N_tab_chain.png` exist for the same
+    step, they are rendered side-by-side in a 2-column figure captioned
+    "GRAPH + CHAIN — visual evidence"; every other screenshot stacks as a
+    single-column image. Missing files → empty list (safe no-op).
     """
     shot_dir = _SCREENSHOTS_DIR / doc_id
     if not shot_dir.exists():
@@ -288,28 +327,64 @@ def _embed_screenshots(doc_id: str, styles: Dict[str, ParagraphStyle],
     files = sorted(shot_dir.glob("step_*.png"))
     if not files:
         return []
+
+    # Identify GRAPH+CHAIN pairs and remove them from the flat list so
+    # they don't get double-rendered.
+    pairs = _pair_graph_chain_by_step(files)
+    paired_paths = {p for pair in pairs.values() for p in pair.values()}
+    linear_files = [p for p in files if p not in paired_paths]
+
     out: List[Any] = []
-    for i, path in enumerate(files, 1):
-        try:
-            img = RLImage(str(path))
-            # Scale to fit content width while preserving aspect ratio.
-            aspect = img.imageHeight / max(1, img.imageWidth)
-            img.drawWidth = max_width_in * inch
-            img.drawHeight = max_width_in * inch * aspect
-            # Cap very tall screenshots at ~8 inches so they don't own an entire page.
-            if img.drawHeight > 8 * inch:
-                scale = (8 * inch) / img.drawHeight
-                img.drawHeight *= scale
-                img.drawWidth *= scale
-            out.append(Spacer(1, 4))
-            out.append(Paragraph(
-                f"<font color='#94a3b8' size='8'>Screenshot {i}</font>",
-                styles["Muted"]))
-            out.append(img)
-            out.append(Spacer(1, 6))
-        except Exception:
-            # Corrupt file — skip rather than kill the export.
+
+    # ── Side-by-side GRAPH + CHAIN figures (rendered first per step) ──
+    col_w_in = (max_width_in - 0.15) / 2.0  # small gutter between cells
+    for step_no in sorted(pairs.keys(), key=lambda s: int(s)):
+        gpath = pairs[step_no]["graph"]
+        cpath = pairs[step_no]["chain"]
+        gimg = _scale_image(gpath, col_w_in, max_height_in=6.0)
+        cimg = _scale_image(cpath, col_w_in, max_height_in=6.0)
+        if gimg is None or cimg is None:
             continue
+        # Column captions in bold small type above each image.
+        cap_style = ParagraphStyle(
+            "PairCap", parent=styles["Muted"],
+            fontSize=8, leading=10, alignment=TA_CENTER,
+            textColor=BRAND_MINT,
+        )
+        cell_graph = [Paragraph("GRAPH", cap_style), gimg]
+        cell_chain = [Paragraph("CHAIN", cap_style), cimg]
+        tbl = Table(
+            [[cell_graph, cell_chain]],
+            colWidths=[col_w_in * inch, col_w_in * inch],
+        )
+        tbl.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 2),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("BOX", (0, 0), (-1, -1), 0.4, BRAND_RULE),
+            ("LINEBEFORE", (1, 0), (1, -1), 0.4, BRAND_RULE),
+        ]))
+        out.append(Spacer(1, 6))
+        out.append(Paragraph(
+            f"<b>Step {step_no} · GRAPH + CHAIN — visual evidence</b>",
+            styles["Muted"]))
+        out.append(Spacer(1, 3))
+        out.append(tbl)
+        out.append(Spacer(1, 8))
+
+    # ── Everything else, one per line as before ──
+    for i, path in enumerate(linear_files, 1):
+        img = _scale_image(path, max_width_in, max_height_in=8.0)
+        if img is None:
+            continue
+        out.append(Spacer(1, 4))
+        out.append(Paragraph(
+            f"<font color='#94a3b8' size='8'>Screenshot {i} · {_esc(path.stem)}</font>",
+            styles["Muted"]))
+        out.append(img)
+        out.append(Spacer(1, 6))
     return out
 
 
