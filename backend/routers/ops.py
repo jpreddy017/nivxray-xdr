@@ -490,6 +490,92 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # Never break /decode/smart if evidence extraction hiccups
         result["verdict_card"] = None
         result["verdict_card_error"] = str(_e)
+
+    # ── IOC / MITRE / LOLBAS enrichment (Feb-2026 fix) ─────────────────
+    # Previously `/api/decode/smart` returned an empty analysis panel for
+    # plain-text PowerShell / cmd payloads because it only scanned the
+    # DECODED output — for a passthrough decode (input already plaintext)
+    # the decoded output equalled the input, but the router didn't scan
+    # EITHER. Result: user pasted `powershell.exe … (New-Object
+    # Net.WebClient).DownloadFile …` and the Attack Graph / IOC / MITRE
+    # panels were empty.
+    #
+    # Fix: run the same extractors used by /api/decode/candidates against
+    # the concatenation of INPUT + OUTPUT so the analyst gets IOC signals
+    # regardless of whether decoding actually removed anything.
+    #
+    # Also: augment `_scan_text` with reversed copies of any single-quoted
+    # or double-quoted string literals so the URL / IP obfuscated by a
+    # PowerShell `[1..0]` char-reverse trick (e.g. Payload A above) leaks
+    # into the IOC extractor without needing a full recursive decoder.
+    try:
+        from operations import extract_iocs, mitre_map
+        from lolbas import scan_lolbas
+        base_text = (body.input or "") + "\n" + (result.get("output") or "")
+        # Pull every same-quote-paired literal and append its reverse; catches
+        # `1sp.morf/moc.enoz-ym//:ptth` → `http://my-zone.com/from.ps1`.
+        # Same-quote pairing (`(['"]) ... \1`) prevents cross-quote merges
+        # that would otherwise grab PowerShell-syntax fragments like
+        # `IEX (([string[]](`.
+        _quoted = re.findall(r"(['\"])([^'\"\r\n]{6,256})\1", body.input or "")
+        _reversed_bits = [g[1][::-1] for g in _quoted if g and g[1]]
+        _scan_text = base_text
+        if _reversed_bits:
+            _scan_text = base_text + "\n" + "\n".join(_reversed_bits)
+        try:
+            result["iocs"] = extract_iocs(_scan_text)
+        except Exception:
+            result["iocs"] = {}
+        try:
+            result["mitre"] = mitre_map(_scan_text)
+        except Exception:
+            result["mitre"] = []
+        try:
+            result["lolbas"] = scan_lolbas(_scan_text)
+        except Exception:
+            result["lolbas"] = []
+    except Exception:
+        # Enrichment imports must never break the decode contract.
+        result.setdefault("iocs", {})
+        result.setdefault("mitre", [])
+        result.setdefault("lolbas", [])
+
+    # ── Investigation-Report synthesis (Feb-2026 UX fix) ────────────────
+    # The OUTPUT panel must NOT silently echo the analyst's input when
+    # the payload is already plaintext (nothing to decode). Instead we
+    # generate a SOC-format summary from the enriched IOC/MITRE/LOLBAS
+    # signals + verdict card and put that in `output`. The raw decoded
+    # content is preserved in `output_raw` for any tooling that still
+    # needs it, and the report is also exposed via `report_text` so the
+    # frontend can render it in a dedicated panel if it wants to.
+    try:
+        from investigation_report import synthesize_report
+        vc = result.get("verdict_card") or {}
+        risk = None
+        if vc and vc.get("verdict"):
+            risk = {"verdict": vc.get("verdict"), "score": vc.get("score")}
+        report_txt = synthesize_report(
+            input_text=body.input or "",
+            output_text=result.get("output") or "",
+            engine=result.get("engine"),
+            confidence=result.get("confidence"),
+            steps=[{"op": s["op"]} for s in det.get("steps") or []],
+            iocs=result.get("iocs") or {},
+            mitre=result.get("mitre") or [],
+            lolbas=result.get("lolbas") or [],
+            risk=risk,
+            family=None,
+            reached_shellcode=bool(result.get("reached_shellcode")),
+            corrupted_container=result.get("corrupted_container"),
+        )
+        if report_txt:
+            result["output_raw"] = result.get("output") or ""
+            result["output"] = report_txt
+            result["report_text"] = report_txt
+    except Exception:
+        # Report synthesis is best-effort — never fail the decode.
+        pass
+
     # Auto-record into user's Investigation History (fire-and-forget, never blocks)
     try:
         from routers.history import record_investigation

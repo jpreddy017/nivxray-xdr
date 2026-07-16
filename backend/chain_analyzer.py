@@ -52,10 +52,19 @@ async def decode_single_stage(payload: str, stage_index: int = 0) -> Dict[str, A
     from operations import extract_iocs, mitre_map, yara_lite_scan, risk_score
     from lolbas import scan_lolbas
     from corrupt_payload_detector import detect_corrupt_payload
+    import re as _re
 
     det = deterministic_best_decode(payload)
     decoded = det.get("output") or ""
+    # Augment the scan corpus with reversed copies of same-quote-paired
+    # string literals from the raw payload — captures PowerShell's
+    # `[1..0]` char-reverse obfuscation trick (Feb-2026 fix, same logic
+    # as /api/decode/smart).
+    _quoted = _re.findall(r"(['\"])([^'\"\r\n]{6,256})\1", payload)
+    _reversed_bits = [g[1][::-1] for g in _quoted if g and g[1]]
     combined = payload + "\n" + decoded
+    if _reversed_bits:
+        combined = combined + "\n" + "\n".join(_reversed_bits)
 
     iocs = extract_iocs(combined)
     mitre = mitre_map(combined)

@@ -60,6 +60,19 @@ async def chain_decode(body: ChainIn, user=Depends(get_current_user)):
     result["labels"] = [s.label for s in body.stages]
     result["timestamp"] = datetime.now(timezone.utc).isoformat()
 
+    # Feb-2026 UX fix — synthesize a SOC-format report so the caller
+    # (WorkspacePage) can put it in the OUTPUT panel INSTEAD of concatenated
+    # per-stage payloads. Attached as `report_text` on the response.
+    try:
+        from investigation_report import synthesize_chain_report
+        rpt = synthesize_chain_report(
+            result.get("stages") or [], result.get("aggregate") or {},
+        )
+        if rpt:
+            result["report_text"] = rpt
+    except Exception:
+        pass
+
     # Persist the chain into user's Investigation History (fire-and-forget).
     # Uses stage-boundary joined inputs as the dedup key so re-running the same
     # multi-stage set bumps `run_count` instead of duplicating.

@@ -99,15 +99,23 @@ def test_ps_encoded_multi_line(auth):
 
 
 def test_ps_encoded_full_cmdline_multi_line(auth):
-    """Real-world: powershell.exe wrapper with newline-split payload."""
+    """Real-world: powershell.exe wrapper with newline-split payload.
+
+    Feb-2026: `output` is now the SOC investigation report; the raw
+    decoded PowerShell is preserved in `output_raw`. Check both keys so
+    the test survives the OUTPUT-panel-summary UX fix."""
     payload = f"powershell.exe -nop -w hidden -e {PS_B64_MULTI}"
     r = requests.post(f"{BASE_URL}/api/decode/smart", headers=auth, timeout=30,
                       json={"input": payload})
     assert r.status_code == 200, r.text
-    out = r.json()["output"]
-    assert "DownloadString" in out
-    assert "http://evil.com/x.ps1" in out
-    assert "\x00" not in out
+    d = r.json()
+    decoded = d.get("output_raw") or d.get("output") or ""
+    urls = (d.get("iocs") or {}).get("urls") or []
+    # DownloadString / URL live in the DECODED payload, not necessarily
+    # in the report text — check either place.
+    assert ("DownloadString" in decoded) or (d.get("output") and "Downloads remote content" in d["output"])
+    assert ("http://evil.com/x.ps1" in decoded) or any("evil.com" in u for u in urls)
+    assert "\x00" not in decoded
 
 
 # ---------- Base64 multi-line + padding ----------

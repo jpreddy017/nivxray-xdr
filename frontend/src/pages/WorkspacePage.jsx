@@ -352,13 +352,17 @@ export default function WorkspacePage() {
       const family = agg.family?.family;
       const verdict = agg.risk?.verdict;
 
-      // Compose a unified OUTPUT preview — each stage's decoded output with
-      // a small header. Analyst can still drill per-stage in Chain Analysis.
-      const outParts = stages.map((s, i) => {
-        const head = `─── STAGE ${i + 1} · engine=${s.engine || "?"} · conf=${s.confidence ?? "?"}/100 ───`;
-        return `${head}\n${(s.output || "").trim() || "(no additional decode — plain-text command)"}`;
-      });
-      const aggregatedOutput = outParts.join("\n\n");
+      // Compose a unified OUTPUT preview — prefer the server-synthesized
+      // SOC report when present (Feb-2026 UX fix so the OUTPUT panel does
+      // NOT echo the analyst's raw multi-line paste), fall back to
+      // per-stage headers + decoded blobs when the report is absent.
+      const aggregatedOutput = (
+        d.report_text
+        || stages.map((s, i) => {
+             const head = `─── STAGE ${i + 1} · engine=${s.engine || "?"} · conf=${s.confidence ?? "?"}/100 ───`;
+             return `${head}\n${(s.output || "").trim() || "(no additional decode — plain-text command)"}`;
+           }).join("\n\n")
+      );
 
       // Sync top-level state so OUTPUT / RECIPE / MITRE / IOCs panels all
       // reflect the AGGREGATE and not just the first line.
