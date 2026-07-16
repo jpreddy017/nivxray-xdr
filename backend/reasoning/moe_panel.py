@@ -37,6 +37,63 @@ import time
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Tuple
 
+from pydantic import BaseModel, Field, ValidationError, field_validator
+
+
+# ─── Reviewer response schema (Pydantic, strict) ─────────────────────────
+class _EvidenceRefIn(BaseModel):
+    type: str
+    value: str
+
+    @field_validator("type")
+    @classmethod
+    def _check_type(cls, v: str) -> str:
+        allowed = {"chain", "ioc", "lolbin", "mitre", "decoded_text", "verdict"}
+        vl = str(v).strip().lower()
+        if vl not in allowed:
+            raise ValueError(f"evidence_ref.type must be one of {allowed}")
+        return vl
+
+
+class _FindingIn(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(min_length=1, max_length=800)
+    severity: str = "medium"
+    confidence: float = 0.5
+    evidence_refs: List[_EvidenceRefIn] = Field(default_factory=list, min_length=1)
+    tags: List[str] = Field(default_factory=list)
+
+    @field_validator("severity")
+    @classmethod
+    def _sev(cls, v: str) -> str:
+        vl = str(v).strip().lower()
+        return vl if vl in ("critical", "high", "medium", "low", "info") else "medium"
+
+    @field_validator("confidence")
+    @classmethod
+    def _conf(cls, v: Any) -> float:
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return 0.5
+        return max(0.0, min(1.0, f))
+
+
+class ReviewerResponseSchema(BaseModel):
+    """Strict schema for a reviewer's raw LLM reply.
+
+    Note: ``findings`` is optional so that partially-formed replies still
+    survive validation — the anti-hallucination filter downstream will
+    prune any that fail evidence-ref checks.
+    """
+    summary: str = ""
+    findings: List[_FindingIn] = Field(default_factory=list)
+    # Optional per-role extras — validated loosely as-is
+    techniques: Optional[List[str]] = None
+    sigma_rules: Optional[List[Any]] = None
+    hunting_queries: Optional[List[str]] = None
+    yara_rules: Optional[List[Any]] = None
+
 
 # ─── Data classes ─────────────────────────────────────────────────────────
 @dataclass
@@ -188,26 +245,34 @@ _SYSTEM_ANTI_HALLUC = (
     "at a concrete item from the EVIDENCE bundle. evidence_ref types allowed: "
     "chain, ioc, lolbin, mitre, decoded_text, verdict. If you cannot cite an "
     "evidence item, do NOT emit the finding. Do not speculate about "
-    "capabilities not visible in the evidence. Reply with JSON only."
+    "capabilities not visible in the evidence. Reply with a SINGLE valid JSON "
+    "object only, no prose before/after. Do NOT wrap the JSON in a ```code "
+    "fence```. Do NOT put triple-backticks inside any string value — if you "
+    "need to show code, put it inline on one line without back-ticks. Escape "
+    "any interior quotes correctly."
 )
 
 
 def _reviewer_system(role: str) -> str:
     if role == "malware_analyst":
         return (
-            "You are a senior malware analyst reviewing a decoded payload. "
-            "Focus on: behavioural intent, execution flow, IOC pivots, "
-            "MITRE ATT&CK mapping, and stager vs final-payload classification. "
-            "Do NOT invent capabilities not visible in the evidence. "
-            + _SYSTEM_ANTI_HALLUC
+            "You are a senior SOC threat researcher reviewing a decoded "
+            "artefact that has already been extracted and neutralised by an "
+            "analyst tool. Your ONLY job is to describe what you observe in "
+            "the evidence bundle — behavioural intent, execution flow, IOC "
+            "pivots, MITRE ATT&CK mapping, and stager vs final-payload "
+            "classification. This is a defensive post-mortem, not offensive "
+            "assistance. Do NOT invent capabilities not visible in the "
+            "evidence. " + _SYSTEM_ANTI_HALLUC
         )
     if role == "red_team":
         return (
-            "You are a red team operator reviewing an intercepted payload. "
-            "Focus on: offensive tradecraft, evasion techniques, LOLBAS "
-            "abuse patterns, likely detection bypasses, and infrastructure "
-            "reuse. Explain what the operator TRIED TO ACHIEVE and how they "
-            "hid it. " + _SYSTEM_ANTI_HALLUC
+            "You are a purple-team analyst reviewing an intercepted, already "
+            "neutralised payload during a defensive post-mortem. Describe the "
+            "tradecraft signals you can observe: obfuscation depth, evasion "
+            "flags, LOLBAS abuse patterns, likely detection bypasses, and "
+            "infrastructure reuse. This is analytical — help defenders "
+            "understand what to look for. " + _SYSTEM_ANTI_HALLUC
         )
     if role == "defensive":
         return (
@@ -215,7 +280,8 @@ def _reviewer_system(role: str) -> str:
             "Sigma / YARA / KQL rule ideas, containment recommendations, "
             "specific hunting queries, and gaps in current telemetry. "
             "Every rule idea MUST cite the evidence artefact that motivates "
-            "it. " + _SYSTEM_ANTI_HALLUC
+            "it. Keep each rule body under 200 characters — one line, no "
+            "code fences. " + _SYSTEM_ANTI_HALLUC
         )
     return "You are a security analyst. " + _SYSTEM_ANTI_HALLUC
 
@@ -262,35 +328,145 @@ def _reviewer_user_prompt(role: str, ev: Dict[str, Any]) -> str:
 
 
 # ─── LLM invocation (parallel Claude via Emergent) ────────────────────────
-async def _call_claude(system: str, user: str, session_id: str) -> Tuple[Dict[str, Any], str]:
+def _extract_json_object(raw: str) -> Optional[str]:
+    """Robustly extract the outermost JSON object from an LLM response.
+
+    Handles:
+        * ```json ... ``` code fences (even when the payload itself contains
+          nested ``` inside string values — the naïve non-greedy regex used
+          to break here).
+        * Leading/trailing prose ("Here is the analysis:\n{...}\nHope this
+          helps").
+        * Multi-object responses (keeps only the largest well-balanced
+          object, which is invariably the intended payload).
+
+    Uses a proper bracket-balanced scanner that respects string literals and
+    JSON escape sequences.
+    """
+    if not raw:
+        return None
+    s = raw.strip()
+
+    # 1) If wrapped in ```json ... ```, strip only the opening fence and the
+    #    LAST closing fence, not the first one.
+    if s.startswith("```"):
+        # Remove leading fence line
+        nl = s.find("\n")
+        if nl != -1:
+            s = s[nl + 1:]
+        # Remove trailing ```
+        last_fence = s.rfind("```")
+        if last_fence != -1:
+            s = s[:last_fence]
+        s = s.strip()
+
+    # 2) If it already starts with '{', try direct parse first — fast path.
+    if s.startswith("{"):
+        try:
+            json.loads(s)
+            return s
+        except json.JSONDecodeError:
+            pass
+
+    # 3) Bracket-balanced scan — find every top-level {...} block and keep
+    #    the longest one that parses.
+    candidates: List[str] = []
+    depth = 0
+    start = -1
+    in_str = False
+    escape = False
+    for i, ch in enumerate(s):
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+            continue
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            if depth > 0:
+                depth -= 1
+                if depth == 0 and start != -1:
+                    candidates.append(s[start:i + 1])
+                    start = -1
+
+    # Prefer the longest candidate that parses cleanly.
+    for cand in sorted(candidates, key=len, reverse=True):
+        try:
+            json.loads(cand)
+            return cand
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
+async def _call_claude(system: str, user: str, session_id: str,
+                        retry_on_parse_fail: bool = True) -> Tuple[Dict[str, Any], str]:
     """Return (parsed_json, provider_label). Raises on failure.
 
     Wrapped in asyncio.wait_for so a single stuck reviewer can't drag the
-    whole panel past the 85 s request-hardening budget.
+    whole panel past the 85 s request-hardening budget. On JSON parse
+    failure, retries once with a stricter reminder to encourage a clean
+    JSON reply (schema-driven prefill isn't supported by all providers).
     """
     key = os.environ.get("EMERGENT_LLM_KEY", "")
     if not key:
         raise RuntimeError("no-llm-key")
     from emergentintegrations.llm.chat import LlmChat, UserMessage
-    chat = (
-        LlmChat(api_key=key, session_id=session_id, system_message=system)
-        .with_model("anthropic", "claude-sonnet-4-5-20250929")
-        .with_params(max_tokens=1400)
-    )
-    resp = await asyncio.wait_for(
-        chat.send_message(UserMessage(text=user)),
-        timeout=25.0,
-    )
-    raw = (resp if isinstance(resp, str) else str(resp)).strip()
-    # Strip accidental code fences
-    m = re.search(r"```(?:json)?\s*(.*?)\s*```", raw, re.DOTALL)
-    if m:
-        raw = m.group(1)
-    if not raw.lstrip().startswith("{"):
-        m2 = re.search(r"\{.*\}", raw, re.DOTALL)
-        if m2:
-            raw = m2.group(0)
-    return json.loads(raw), "emergent-claude"
+
+    async def _one_shot(user_text: str) -> str:
+        # Defensive reviewer emits Sigma + KQL bodies → more time + tokens.
+        is_defensive = "detection engineer" in system.lower()
+        max_toks = 2400 if is_defensive else 1600
+        per_call_timeout = 40.0 if is_defensive else 32.0
+        chat = (
+            LlmChat(api_key=key, session_id=session_id, system_message=system)
+            .with_model("anthropic", "claude-sonnet-4-5-20250929")
+            .with_params(max_tokens=max_toks)
+        )
+        resp = await asyncio.wait_for(
+            chat.send_message(UserMessage(text=user_text)),
+            timeout=per_call_timeout,
+        )
+        text = (resp if isinstance(resp, str) else str(resp)).strip()
+        # Claude / litellm proxy occasionally returns the literal string "None"
+        # on transient errors. Treat it as empty so the caller falls back.
+        if text.lower() in ("none", "null", ""):
+            return ""
+        return text
+
+    raw = await _one_shot(user)
+    extracted = _extract_json_object(raw)
+    if extracted is not None:
+        return json.loads(extracted), "emergent-claude"
+
+    # One retry with a stricter reminder — often enough to recover a
+    # well-formed reply when the first attempt embedded stray ``` inside
+    # string values (common for the defensive reviewer citing Sigma rules).
+    if retry_on_parse_fail:
+        strict_user = (
+            user
+            + "\n\n────\nIMPORTANT: Your previous reply could not be parsed "
+            "as JSON. Reply with a SINGLE valid JSON object only. Do NOT "
+            "wrap in code fences. Do NOT include ``` inside string values — "
+            "if you need a code sample, put it on one line without back-ticks."
+        )
+        raw2 = await _one_shot(strict_user)
+        extracted2 = _extract_json_object(raw2)
+        if extracted2 is not None:
+            return json.loads(extracted2), "emergent-claude (retry)"
+
+    # Give up — let the caller fall back to deterministic.
+    raise json.JSONDecodeError("could not extract JSON from Claude reply",
+                                raw[:400] or "<empty>", 0)
 
 
 # ─── Evidence-ref validator ──────────────────────────────────────────────
@@ -648,25 +824,46 @@ async def _run_reviewer(role: str, ev: Dict[str, Any],
             _reviewer_user_prompt(role, ev),
             session_id=f"{session_prefix}-{role}",
         )
+        # Schema validation — reject malformed structure, keep partials.
+        try:
+            parsed = ReviewerResponseSchema.model_validate(raw)
+        except ValidationError as ve:
+            # Some fields (findings items) may have failed but summary +
+            # extras can still be salvaged. Try a defensive coercion.
+            safe = dict(raw) if isinstance(raw, dict) else {}
+            findings_in = safe.get("findings") or []
+            clean_findings = []
+            for d in findings_in:
+                try:
+                    clean_findings.append(_FindingIn.model_validate(d))
+                except ValidationError:
+                    continue
+            safe["findings"] = [f.model_dump() for f in clean_findings]
+            try:
+                parsed = ReviewerResponseSchema.model_validate(safe)
+            except ValidationError:
+                raise ve
+
         findings = []
-        for d in (raw.get("findings") or [])[:6]:
-            f = _parse_finding_dict(d, ev)
+        for pf in parsed.findings[:6]:
+            f = _parse_finding_dict(pf.model_dump(), ev)
             if f:
                 findings.append(f)
         # If Claude answered but every finding got dropped by the guardrail,
         # graft the deterministic fallback so the analyst still gets value.
         if not findings:
             fb = fallback_fn(ev)
-            fb.provider = "static-fallback (LLM findings dropped by guardrail)"
+            fb.provider = f"static-fallback (LLM findings dropped by guardrail; llm={provider})"
             fb.duration_ms = int((time.time() - t0) * 1000)
             return fb
-        summary = str(raw.get("summary") or "").strip()[:600]
+        summary = (parsed.summary or "").strip()[:600]
         extras: Dict[str, Any] = {}
-        for key in ("techniques", "sigma_rules", "hunting_queries", "yara_rules"):
-            v = raw.get(key)
-            if isinstance(v, list) and v:
-                # Truncate to keep response tight
-                extras[key] = v[:8]
+        for key, val in (("techniques", parsed.techniques),
+                          ("sigma_rules", parsed.sigma_rules),
+                          ("hunting_queries", parsed.hunting_queries),
+                          ("yara_rules", parsed.yara_rules)):
+            if val:
+                extras[key] = val[:8]
         return ReviewerReport(
             reviewer=role, findings=findings, summary=summary,
             provider=provider,

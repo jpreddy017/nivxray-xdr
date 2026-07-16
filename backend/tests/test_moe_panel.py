@@ -19,7 +19,9 @@ from reasoning.moe_panel import (
     _fallback_defensive, _synthesise, _parse_finding_dict,
     _valid_evidence_refs, run_panel_async,
     Finding, EvidenceRef,
+    _extract_json_object, ReviewerResponseSchema, _FindingIn,
 )
+from pydantic import ValidationError
 
 
 BASE_URL = "http://localhost:8001"
@@ -300,3 +302,158 @@ class TestRouter:
         r = requests.post(f"{BASE_URL}/api/moe/analyze",
                           json={"input": "x"}, timeout=15)
         assert r.status_code in (401, 403)
+
+
+
+# ─── JSON extractor regression tests (the root cause of the field bug) ──
+class TestJsonExtractor:
+    """Feb 2026 — direct regression coverage for the Claude-JSON parse
+    failures that occurred in production when the defensive reviewer cited
+    Sigma / KQL bodies containing embedded triple back-ticks."""
+
+    def test_plain_json_object_parses(self):
+        s = '{"summary":"ok","findings":[]}'
+        out = _extract_json_object(s)
+        assert out is not None
+        import json as _j
+        assert _j.loads(out)["summary"] == "ok"
+
+    def test_json_wrapped_in_json_fence(self):
+        s = '```json\n{"summary":"fenced","findings":[]}\n```'
+        out = _extract_json_object(s)
+        assert out is not None
+        import json as _j
+        assert _j.loads(out)["summary"] == "fenced"
+
+    def test_json_wrapped_in_plain_fence(self):
+        s = '```\n{"summary":"plain","findings":[]}\n```'
+        out = _extract_json_object(s)
+        assert out is not None
+
+    def test_nested_backticks_inside_string_value(self):
+        """This is the ACTUAL failure mode observed in production.
+
+        Claude wraps its whole reply in ```json ... ``` and inside a
+        sigma_rules[].detection string it also emits ``` around a code
+        snippet. The old lazy-regex extractor cut off at the first inner
+        fence, producing truncated JSON.
+        """
+        s = (
+            '```json\n'
+            '{"summary":"nested","findings":[],'
+            '"sigma_rules":[{"title":"x","detection":"```\\ndetection:\\n  ok\\n```"}]}\n'
+            '```'
+        )
+        out = _extract_json_object(s)
+        assert out is not None, "extractor must survive nested ``` inside string values"
+        import json as _j
+        parsed = _j.loads(out)
+        assert parsed["summary"] == "nested"
+        assert parsed["sigma_rules"][0]["title"] == "x"
+
+    def test_leading_and_trailing_prose(self):
+        s = 'Here is the analysis you requested:\n{"summary":"ok","findings":[]}\nHope this helps!'
+        out = _extract_json_object(s)
+        assert out is not None
+        import json as _j
+        assert _j.loads(out)["summary"] == "ok"
+
+    def test_picks_largest_of_multiple_objects(self):
+        # A tiny throwaway object followed by the real payload.
+        s = '{"noise":1}\nActual: {"summary":"big","findings":[{"title":"t","description":"d","evidence_refs":[{"type":"chain","value":"x"}]}]}'
+        out = _extract_json_object(s)
+        import json as _j
+        parsed = _j.loads(out)
+        assert parsed["summary"] == "big"
+        assert len(parsed["findings"]) == 1
+
+    def test_returns_none_on_no_json(self):
+        assert _extract_json_object("just prose, no braces here") is None
+        assert _extract_json_object("") is None
+        assert _extract_json_object(None) is None  # type: ignore
+
+    def test_ignores_braces_inside_string_literals(self):
+        # Curly braces inside a JSON string must not be treated as brackets.
+        s = '{"summary":"has {curly} braces {inside}","findings":[]}'
+        out = _extract_json_object(s)
+        assert out is not None
+        import json as _j
+        assert _j.loads(out)["summary"] == "has {curly} braces {inside}"
+
+    def test_handles_escaped_quotes(self):
+        s = '{"summary":"quote \\"inside\\" me","findings":[]}'
+        out = _extract_json_object(s)
+        assert out is not None
+
+
+# ─── Schema validation regression ────────────────────────────────────────
+class TestSchemaValidation:
+    def test_valid_reviewer_reply_parses(self):
+        payload = {
+            "summary": "test",
+            "findings": [{
+                "title": "Suspicious binary",
+                "description": "certutil abused for download.",
+                "severity": "high",
+                "confidence": 0.9,
+                "evidence_refs": [{"type": "lolbin", "value": "certutil.exe"}],
+                "tags": ["lolbas"],
+            }],
+        }
+        m = ReviewerResponseSchema.model_validate(payload)
+        assert len(m.findings) == 1
+        assert m.findings[0].severity == "high"
+
+    def test_bad_severity_normalised(self):
+        f = _FindingIn.model_validate({
+            "title": "T", "description": "D",
+            "severity": "APOCALYPTIC",
+            "confidence": 0.5,
+            "evidence_refs": [{"type": "chain", "value": "base64-decode"}],
+        })
+        assert f.severity == "medium"
+
+    def test_confidence_clamped(self):
+        f = _FindingIn.model_validate({
+            "title": "T", "description": "D",
+            "severity": "high",
+            "confidence": 42,
+            "evidence_refs": [{"type": "chain", "value": "base64-decode"}],
+        })
+        assert f.confidence == 1.0
+        f2 = _FindingIn.model_validate({
+            "title": "T", "description": "D",
+            "severity": "high",
+            "confidence": -5,
+            "evidence_refs": [{"type": "chain", "value": "base64-decode"}],
+        })
+        assert f2.confidence == 0.0
+
+    def test_bad_evidence_ref_type_rejected(self):
+        with pytest.raises(ValidationError):
+            _FindingIn.model_validate({
+                "title": "T", "description": "D",
+                "severity": "high",
+                "confidence": 0.5,
+                "evidence_refs": [{"type": "MADE_UP", "value": "x"}],
+            })
+
+    def test_finding_without_evidence_refs_rejected(self):
+        with pytest.raises(ValidationError):
+            _FindingIn.model_validate({
+                "title": "T", "description": "D",
+                "severity": "high",
+                "confidence": 0.5,
+                "evidence_refs": [],
+            })
+
+    def test_extras_survive_unknown_shape(self):
+        payload = {
+            "summary": "s",
+            "findings": [],
+            "sigma_rules": [{"title": "x", "detection": "y"}, "raw-string-rule"],
+            "hunting_queries": ["q1"],
+        }
+        m = ReviewerResponseSchema.model_validate(payload)
+        assert m.sigma_rules is not None
+        assert m.hunting_queries == ["q1"]
