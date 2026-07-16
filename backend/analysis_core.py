@@ -299,8 +299,30 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
         _mags = m.get("top_results") or []
         def _raw(r):
             out = r.get("output") or ""
-            return magic_score(out).get("score", 0.0) if out else 0.0
-        top = max(_mags, key=_raw) if _mags else {}
+            base = magic_score(out).get("score", 0.0) if out else 0.0
+            # Feb 2026 — respect the internal wrapper-decode boost recorded
+            # by the magic walker. Its `score_breakdown.score` includes the
+            # +0.40 bonus for wrapper-hint chains (e.g. `echo <hex>` → decode,
+            # `echo <b64> | base64 -d` → decode). Without this, the outer
+            # winner picker would rescore short decoded plaintexts on their
+            # own merits and lose to the wrapper's higher English score.
+            internal = (r.get("score_breakdown") or {}).get("score", 0.0)
+            return max(base, internal)
+        # ── FORENSIC RULE — shellcode-reached candidate wins unconditionally ─
+        # Feb 2026 fix (Meterpreter b64+xor case): magic-internal ranking sorts
+        # by chain-completion + score, so a SHORTER chain that leaves the b64
+        # blob as text can score above a DEEPER chain that peels through to
+        # actual shellcode bytes. Correct selection is: if ANY candidate
+        # reached a shellcode-terminal state, prefer that one; break ties by
+        # longer chain (more layers peeled) then by output-quality score.
+        _sc_mags = [r for r in _mags if r.get("is_shellcode")]
+        if _sc_mags:
+            top = max(_sc_mags,
+                       key=lambda r: (len(r.get("chain") or []), _raw(r)))
+        elif _mags:
+            top = max(_mags, key=_raw)
+        else:
+            top = {}
     except Exception as e:
         top = {"chain": [], "output": "", "is_shellcode": False, "score_breakdown": {"score": 0.0},
                "_err": str(e)}
@@ -347,7 +369,15 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
     # For magic use the RAW magic_score of its output — NOT the chain-completion
     # bonus'd score from top_results (which artificially inflates repeated-op
     # chains like `rot13 × 5` above a clean shorter chain).
-    magic_score_val = magic_score(magic_out).get("score", 0.0) if magic_out else 0.0
+    #
+    # EXCEPT for the "wrapper-hint decode" boost recorded in
+    # score_breakdown.score by the magic walker: when the chain successfully
+    # decoded a wrapper (`echo <hex>`, `echo <b64> | base64 -d`, etc.), the
+    # short decoded plaintext must beat the un-decoded wrapper text — see the
+    # `_then_hex` / `_then_b64` handlers.
+    _magic_raw = magic_score(magic_out).get("score", 0.0) if magic_out else 0.0
+    _magic_internal = (top.get("score_breakdown") or {}).get("score", 0.0)
+    magic_score_val = max(_magic_raw, _magic_internal)
 
     if magic_reached_sc:
         magic_score_val += 0.35

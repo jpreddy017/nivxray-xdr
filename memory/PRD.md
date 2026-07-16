@@ -1,7 +1,71 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🛡️ MoE Reliability & Safety Hardening)
+## Latest Change (Feb 2026 — 🔧 Wrapper-Shell Decoder Gaps + Meterpreter B64+XOR)
+
+### Delivered — three decoder gaps closed, zero regressions
+
+**Gap 1: Meterpreter b64+XOR shellcode-runner (`[Byte[]]$var_code = FromBase64String(...)`)**
+- Root cause: `_score_downstream_magic()` recognised gzip/PE/ELF/etc. but NOT
+  raw x86/x64 shellcode prologues (`fce889…`). `xor-brute` picked a
+  coincidentally-more-English wrong key over the correct `0x23` key.
+- Fix: `ops_extended._score_downstream_magic()` now returns +0.65 when the
+  candidate plaintext starts with a known MSFvenom / Cobalt-Strike / Empire
+  shellcode prologue (via `shellcode_analyzer.starts_with_known_prologue`).
+- Second fix: `analysis_core._deterministic_best_decode_single_pass` now
+  prefers any magic candidate where `is_shellcode=True` over non-shellcode
+  candidates, breaking ties by longer chain then output score. Prior behavior
+  discarded the deeper shellcode-reached branch in favour of a shorter
+  higher-scoring wrapper.
+- Regression tests: `test_meterpreter_b64xor.py` (8 tests) — pipeline
+  correctness, C2 IP recovery, UA fingerprint recovery, `_xor_brute` key
+  recovery, `_score_downstream_magic` extended behaviour.
+
+**Gap 2: Shell-wrapper hex decoders (`cmd /c echo <hex>`, `certutil -decodehex`, `xxd -r -p`)**
+- Root cause: standalone `hex-decode` candidate required ≥20 char hex blob.
+  Short hex substrings inside a wrapper never reached the walker.
+- Fix: new `_pick_candidates` block detects wrapper hints (`echo`,
+  `Write-Output`, `certutil`, `xxd -r`, `unhexlify`, `$var`, etc.) and
+  isolates a hex substring (≥8 chars, even length) via a new
+  `extract-payload → hex-decode` inline chain (`_then_hex` handler in the
+  walker).
+- Applies a +0.55 wrapper-hint-decode boost so the short decoded plaintext
+  beats the longer wrapper text in the outer winner selector.
+
+**Gap 3: Shell-pipe base64 decoders (`echo <b64> | base64 -d`)**
+- Root cause: existing base64-span extractor required ≥24 chars AND
+  PowerShell/JS wrapper hints — Unix pipe patterns never matched.
+- Fix: parallel `_then_b64` handler triggered by `base64 -d`,
+  `base64 --decode`, `base64 -D`, `openssl base64 -d`, `openssl enc -base64
+  -d`, `base64.b64decode(` wrappers. Accepts 4-char b64 tokens (1-byte
+  minimum). Same +0.55 wrapper-hint-decode boost.
+
+**Outer selector fix (`analysis_core._raw`, `magic_score_val`)**
+- Both now `max()` between `magic_score(output)` (text-quality) and
+  `score_breakdown.score` (which includes internal shellcode + wrapper-hint
+  boosts). Prevents the outer rescore from silently discarding the internal
+  boost that made a short binary/plaintext decode win the magic race.
+
+**Regression tests — `test_wrapper_shell_decode.py` (15 new)**
+- 10 parametrised wrapper decode cases (hex + b64 wrappers)
+- 5 negative cases: plain text, ascii-decimal stream, `cmd /c dir`, plain
+  PowerShell, `certutil -hashfile` — must NOT trigger a false decode.
+
+### Stress-test results (post-fix)
+- `stress_150_payloads.py`: **149/150 (99%)** — unchanged, same edge case
+- `stress_100_long.py`: **100/100 (100%)**
+- `stress_test_encoded_commandlines.py`: **8/8 (100%)**
+- `test_meterpreter_b64xor.py`: **8/8 new**
+- `test_wrapper_shell_decode.py`: **15/15 new**
+- MoE + reasoning suite: **102/102 (100%)**
+
+### Files touched
+- **Modified**: `backend/ops_extended.py` (shellcode magic bonus), `backend/analysis_core.py` (shellcode-preferring selector + score-breakdown-aware `_raw`), `backend/magic_decoder.py` (wrapper-hint hex + b64 pipe detection + `_then_hex` / `_then_b64` inline chains), `backend/routers/ops.py` (trace builder learned nested-hex isolation).
+- **New tests**: `backend/tests/test_meterpreter_b64xor.py`, `backend/tests/test_wrapper_shell_decode.py`.
+
+---
+
+## Previous Change (Feb 2026 — 🛡️ MoE Reliability & Safety Hardening)
 
 ### Delivered — production-grade JSON reliability + adversarial LLM safety
 

@@ -406,17 +406,66 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
     # where the outer base64 unzips to a script containing a *second* base64.
     try:
         from payload_sanitizer import find_all_base64_spans, find_xor_key
+        _s_low = s.lower()
+        # Feb 2026 — detect shell-pipe / echo-and-decode wrapper commands. When
+        # the analyst pastes `echo <b64> | base64 -d` or `cmd /c echo <hex>`,
+        # the wrapper text tells us EXACTLY which decoder to use, so we can
+        # lower the extraction thresholds without risking false positives.
+        _shell_b64_hints = (
+            "base64 -d", "base64 --decode", "base64 -d",  # unix
+            "base64 -D",  # macOS
+            "openssl base64 -d", "openssl enc -base64 -d",
+            "base64.b64decode(", "base64.decode(", "convertfrom-base64",
+        )
+        _pipe_b64_wrapper = any(h in _s_low for h in _shell_b64_hints)
+        # Pipe with `base64` (no explicit -d) — still very likely a decode
+        # context (`| base64` is only used decoratively when combined with
+        # -d or --decode; the *encode* direction always says `base64 -e` or
+        # nothing at all — but if the argument is already base64, that's a
+        # decode). Match cautiously: only when the string BEFORE the pipe
+        # contains a clean-base64 quoted-or-space-bounded token.
         nested = find_all_base64_spans(s, min_len=24)
         # Only trigger if the current text looks like a script/wrapper (not the
         # payload itself) — avoid infinite base64→base64 loops.
         # CASE-INSENSITIVE — attackers commonly use `fROMBase64sTriNG` /
         # `AtOb(` / `-encodedCoMMand` to evade string-signature detection.
-        _s_low = s.lower()
         looks_wrapped = any(m in _s_low for m in (
             "frombase64string", "atob(", "base64_decode", "-encodedcommand", "$var_code",
         ))
         if nested and looks_wrapped:
             cands.insert(0, {"op": "extract-payload", "args": {}, "_nested_b64": nested[0]})
+
+        # Shell-pipe base64 decode — accept SHORT (≥4 char) base64 tokens.
+        # Common patterns:
+        #   echo V3JpdGU= | base64 -d          → 8-char b64 = 'Write'
+        #   echo aGVsbG8= | base64 --decode    → 8-char b64
+        #   echo SGVsbG8gV29ybGQ | base64 -d   → 15-char b64 (no padding)
+        if _pipe_b64_wrapper:
+            # Look for b64-alphabet tokens (min 4 chars = 3 bytes minimum).
+            _b64_pipe_hits = re.findall(
+                r"['\"]?([A-Za-z0-9+/]{4,}={0,2})['\"]?", s,
+            )
+            _b64_pipe_valid = []
+            for tok in _b64_pipe_hits:
+                # Skip literal wrapper flag names.
+                if tok.lower() in ("base64", "decode", "openssl", "echo"):
+                    continue
+                # Must contain at least one uppercase / non-alnum symbol
+                # to distinguish from ordinary words like "hello".
+                if not re.search(r"[A-Z+/=]", tok) and tok.islower():
+                    continue
+                # Length must be valid b64 (multiple of 4 with proper padding).
+                _padded_len = len(tok) + (-len(tok) % 4)
+                if _padded_len < 4:
+                    continue
+                _b64_pipe_valid.append(tok)
+            if _b64_pipe_valid:
+                _b64_pipe_valid.sort(key=len, reverse=True)
+                cands.insert(0, {
+                    "op": "extract-payload", "args": {},
+                    "_nested_b64": _b64_pipe_valid[0],
+                    "_then_b64": True,
+                })
 
         # ── Nested Base32 quoted blob in a wrapper ──────────────────────
         # Detect patterns like:
@@ -446,6 +495,46 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
             _b32_valid.sort(key=len, reverse=True)
             cands.insert(0, {"op": "extract-payload", "args": {}, "_nested_b32": _b32_valid[0]})
             cands.insert(1, {"op": "base32-decode", "args": {}})
+
+        # ── Nested hex substring in a shell / PS wrapper ────────────────
+        # Detect patterns like:
+        #   cmd /c echo 4d5a90000300...        (echo dropper)
+        #   Write-Output "5762697465"          (PS write)
+        #   certutil -decodehex - 4d5a9000     (LOLBAS decode)
+        #   $var = '5762697465'
+        #   echo 5762697465 | xxd -r -p        (unix hex-pipe decode)
+        # Extract the hex substring so `hex-decode` can peel it. Threshold:
+        # ≥ 8 chars (4 bytes) and even length. Fires only when the wrapper
+        # is a shell / PowerShell / echo-style command.
+        _hex_wrapper_hints = (
+            "echo", "write-output", "write-host", "certutil", "-decodehex",
+            "fromhexstring", "convertfromhex", "$var", "printf",
+            "xxd -r", "xxd -p", "unhexlify",
+        )
+        _looks_wrappered = any(h in _s_low for h in _hex_wrapper_hints)
+        if _looks_wrappered:
+            # Find hex-only runs (may be quoted). Prefer longest.
+            _hex_hits = re.findall(r"['\"]?([0-9a-fA-F]{8,})['\"]?", s)
+            _hex_valid = []
+            for h in _hex_hits:
+                if len(h) % 2 != 0:
+                    continue
+                # Skip when the input clearly looks like an ASCII-decimal
+                # stream (multiple space/comma-separated small ints) — that
+                # candidate is handled by ascii-decimal-decode.
+                if re.search(r"\d+[\s,]+\d+[\s,]+\d+", s):
+                    continue
+                _hex_valid.append(h)
+            if _hex_valid:
+                _hex_valid.sort(key=len, reverse=True)
+                # Chain hex-decode inline via _then_hex so short (<20 char)
+                # extracted spans still get decoded — the standalone
+                # `hex-decode` candidate is guarded by _HEX_BLOB (≥20 chars).
+                cands.insert(0, {
+                    "op": "extract-payload", "args": {},
+                    "_nested_hex": _hex_valid[0],
+                    "_then_hex": True,
+                })
 
         # XOR key parsed directly from surrounding code (-bxor 35, ^ 0x2A, etc.)
         xk = find_xor_key(s)
@@ -607,6 +696,10 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                 elif c.get("op") == "extract-payload" and "_nested_b32" in c:
                     # Same rule for nested base32 blobs (custom-cmdlet wrappers).
                     nxt = c["_nested_b32"]
+                elif c.get("op") == "extract-payload" and "_nested_hex" in c:
+                    # Feb 2026 — isolate a nested hex substring in shell wrappers
+                    # (echo, Write-Output, certutil -decodehex, $var = '…').
+                    nxt = c["_nested_hex"]
                 else:
                     nxt = run_operation(c["op"], cur, c["args"])
             except Exception as _e:
@@ -761,6 +854,59 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                     continue
                 except Exception:
                     pass
+            # Deterministic follow-up: extract-payload → hex-decode inline.
+            # Used when the wrapper (`echo`, `Write-Output`, `certutil -decodehex`,
+            # `xxd -r -p`, `$var = '…'`) contains a SHORT (<20 char) hex
+            # substring that the standalone hex-decode candidate cannot see.
+            if c.get("_then_hex") and nxt:
+                try:
+                    _raw = bytes.fromhex(nxt.strip())
+                    try:
+                        _dec = _raw.decode("utf-8")
+                    except UnicodeDecodeError:
+                        _dec = _raw.decode("latin-1")
+                    step_hex = {"op": "hex-decode", "args": {}}
+                    hsb = score_output(_dec)
+                    hsb = {**hsb, "score": hsb.get("score", 0.0) + 0.55,
+                           "reasons": (hsb.get("reasons") or []) + ["wrapper-hint-decode (+0.55)"]}
+                    best_results.append({
+                        "chain": chain + [clean_step, step_hex],
+                        "output": _dec,
+                        "score_breakdown": hsb,
+                        "path_scores": list(path_scores) + [sb["score"], hsb["score"]],
+                    })
+                    _walk(_dec, chain + [clean_step, step_hex],
+                          depth + 2, path_scores + [sb["score"], hsb["score"]], ctx)
+                    continue
+                except Exception:
+                    pass
+            # Deterministic follow-up: extract-payload → base64-decode inline
+            # for shell-pipe patterns (`echo <b64> | base64 -d`). Same wrapper
+            # boost as `_then_hex` so short decoded strings beat the wrapper.
+            if c.get("_then_b64") and nxt:
+                try:
+                    import base64 as _b64
+                    _pad = "=" * (-len(nxt) % 4)
+                    _raw = _b64.b64decode(nxt + _pad, validate=False)
+                    try:
+                        _dec = _raw.decode("utf-8")
+                    except UnicodeDecodeError:
+                        _dec = _raw.decode("latin-1")
+                    step_b64 = {"op": "base64-decode", "args": {}}
+                    hsb = score_output(_dec)
+                    hsb = {**hsb, "score": hsb.get("score", 0.0) + 0.55,
+                           "reasons": (hsb.get("reasons") or []) + ["wrapper-hint-decode (+0.55)"]}
+                    best_results.append({
+                        "chain": chain + [clean_step, step_b64],
+                        "output": _dec,
+                        "score_breakdown": hsb,
+                        "path_scores": list(path_scores) + [sb["score"], hsb["score"]],
+                    })
+                    _walk(_dec, chain + [clean_step, step_b64],
+                          depth + 2, path_scores + [sb["score"], hsb["score"]], ctx)
+                    continue
+                except Exception:
+                    pass
             if nsb["score"] < sb["score"] - 0.30:  # branch massively regressed — prune
                 # …unless a XOR key is known — the pruned base64 output is
                 # probably XORed bytes we still want to try.
@@ -772,7 +918,7 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                 # the surrounding script wrapper, and pruning here would kill
                 # the ONLY viable path to the true plaintext.
                 if c.get("op") == "extract-payload" and (
-                    "_nested_b64" in c or "_nested_b32" in c
+                    "_nested_b64" in c or "_nested_b32" in c or "_nested_hex" in c
                 ):
                     pass  # always follow through
                 else:

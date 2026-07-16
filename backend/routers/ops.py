@@ -342,7 +342,15 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                 else:
                     # nested base64 span extraction
                     spans = find_all_base64_spans(cur, min_len=24)
-                    nxt = spans[0] if spans else cur
+                    if spans:
+                        nxt = spans[0]
+                    else:
+                        # nested hex span extraction (echo / Write-Output / certutil wrappers)
+                        hex_hits = re.findall(r"['\"]?([0-9a-fA-F]{8,})['\"]?", cur)
+                        hex_valid = [h for h in hex_hits
+                                      if len(h) % 2 == 0
+                                      and re.search(r"[a-fA-F]", h)]
+                        nxt = max(hex_valid, key=len) if hex_valid else cur
             else:
                 nxt = run_operation(op_id, cur, args)
         except Exception as e:

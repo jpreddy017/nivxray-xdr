@@ -787,14 +787,20 @@ def _detect_xor_keylen(data: bytes, max_len: int = _XOR_MAX_KEY) -> List[int]:
 
 def _score_downstream_magic(b: bytes) -> float:
     """Return a bonus score if the buffer starts with a recognisable
-    compressed / executable / archive magic sequence. This lets `xor-brute`
-    prefer keys that reveal downstream binary structure (gzip, zlib, PE, ELF,
-    ZIP, PDF, LZMA) even when the decoded plaintext is not English text.
+    compressed / executable / archive / shellcode magic sequence. This lets
+    ``xor-brute`` prefer keys that reveal downstream binary structure (gzip,
+    zlib, PE, ELF, ZIP, PDF, LZMA, or MSFvenom / Cobalt-Strike shellcode
+    prologues) even when the decoded plaintext is not English text.
 
     Real Empire/Cobalt-Strike stagers often wrap `base64(xor(gzip(script)))`
     where the XOR'd result must decompress before you see IOCs. Without this
     bonus the brute-forcer picks the wrong key because gzip bytes score 0 on
     English density.
+
+    Feb 2026 extension: also score raw x86/x64 shellcode prologues so that
+    ``base64(xor(shellcode))`` chains (the canonical `[Byte[]]$var_code =
+    [System.Convert]::FromBase64String(...)` PowerShell shellcode-runner
+    pattern) recover the correct key.
     """
     if not b or len(b) < 4:
         return 0.0
@@ -808,6 +814,16 @@ def _score_downstream_magic(b: bytes) -> float:
     if b[:3] == b"BZh":              return 0.40   # bzip2
     if b[:5] == b"7z\xbc\xaf\x27":   return 0.40   # 7z
     if b[:4] == b"Rar!":             return 0.40   # rar
+    # ── SHELLCODE prologues (MSFvenom / Cobalt Strike / Empire droppers) ──
+    # A recovered plaintext that starts with x86/x64 shellcode is the
+    # terminal state of a base64+xor stager — bonus it hard so it beats any
+    # spurious high-English-density wrong-key candidate.
+    try:
+        from shellcode_analyzer import starts_with_known_prologue
+        if starts_with_known_prologue(b):
+            return 0.65
+    except Exception:
+        pass
     return 0.0
 
 
