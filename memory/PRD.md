@@ -1,7 +1,75 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🧭 Threat-Model Assessor + Custom-Recipe Race Fix)
+## Latest Change (Feb 2026 — 🔗 Multi-Command Chain Auto-Routing at Top-Level Entry Points)
+
+### Bug Fix — Verified E2E on preview + backend regression
+
+**User report:** Pasted a 6-stage plain-text attack chain (11 raw lines:
+`sc.exe stop WinDefend` → hex-to-IEX loader → certutil download → WebClient
+→ reversed-string URL → gzip Base64 PowerShell stager) into the INPUT box
+and pressed **AUTO INVESTIGATE**. The top-level OUTPUT panel, RECIPE panel,
+KILL CHAIN, and NIVXRAY DECODE trace only reflected LINE 1 (47 bytes of
+`env-expand`). Chain Analysis panel existed but required manually clicking
+`+ CHAIN MODE (multi-stage)`.
+
+**Root cause:** `nivxrayDecode()`, `autoDecode()`, and `autoInvestigate()`
+all fed the raw multi-line blob to `/api/decode/smart`, which is a
+single-stage flat decoder. Only the first command survived.
+
+**Fix (shared shim + entry-point routing):**
+- NEW `frontend/src/lib/commandSplitter.js` — single source-of-truth
+  `splitCommandLines(text)` heuristic (moved out of `ChainStageEditor`).
+  Recognises 40+ command heads (powershell, cmd, certutil, mshta, wmic,
+  bitsadmin, regsvr32, IEX, curl, wget, python, bash…). Continuation lines
+  (`$var=…`, closing braces, trailing pipes, `IEX $var…`) are glued to the
+  preceding command — so a 6-line gzip stager block becomes ONE stage, not
+  six.
+- MODIFIED `pages/WorkspacePage.jsx` — new `runChainAnalysis(parts)` helper
+  calls `POST /api/decode/chain` and syncs top-level state (output, steps,
+  chain, decodeTrace, decodeWinnerEngine=`chain (N stages)`, decodeConfidence
+  = mean, analysis.iocs/mitre/lolbins/lolbas/family/risk/ai_verdict) with
+  the chain aggregate. All three entry points now split-and-route early
+  when ≥ 2 stages detected. ChainStageEditor auto-opens with pre-populated
+  stages so the analyst can drill per-stage.
+- Backward compat: single-line input skips the split branch entirely —
+  classic flat-decode behaviour unchanged.
+
+**Verification (testing agent iteration 10):**
+- Backend `POST /api/decode/chain` on the exact 6-stage payload: 6 stages,
+  family=`Generic PowerShell Downloader`, verdict=Malicious, avg 72%,
+  merged IOCs include `malicious-domain.com` and `127.0.0`, MITRE covers
+  T1140 + T1105 + T1059.003 + T1059.001.
+- Backend `POST /api/decode/smart` on a lone command: no `stage_count`
+  key — flat decode preserved.
+- Frontend AUTO INVESTIGATE + NIVXRAY DECODE + Smart Decode buttons: all
+  route through chain, ChainStageEditor auto-opens 6 stages, RECIPE panel
+  now shows 6 stage rows, OUTPUT shows `STAGE 1 · engine=… / STAGE 2 · …`
+  aggregated blocks (previously 47 bytes truncated to line-1 only).
+- Blank-line 2-stage payload also correctly triggers chain routing.
+- Status bar transitions: `MULTI-COMMAND CHAIN DETECTED · analysing N
+  stages…` → `CHAIN COMPLETE · N stages · <verdict> · <family> · avg NN%`.
+
+### Files touched
+Frontend:
+- NEW: `src/lib/commandSplitter.js`
+- MODIFIED: `src/components/ChainStageEditor.jsx` (imports shared util),
+  `src/pages/WorkspacePage.jsx` (splitCommandLines import + runChainAnalysis
+  + early split-and-route in nivxrayDecode/autoDecode/autoInvestigate)
+
+Backend:
+- No API changes. `/api/decode/chain` already returned everything needed —
+  the fix was purely on the entry-point router side.
+
+Tests:
+- NEW: `backend/tests/test_multi_command_chain.py` — 6/6 pass
+- Regression: 33 multi-line tests (this file + `test_multiline_decode.py`)
+  + 67 broader (chain analyzer, threat model, wrapper shell, meterpreter
+  b64+xor). All green.
+
+---
+
+## Previous Change (Feb 2026 — 🧭 Threat-Model Assessor + Custom-Recipe Race Fix)
 
 ### Delivered
 
