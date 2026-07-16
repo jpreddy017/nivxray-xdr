@@ -223,6 +223,31 @@ def analyze(diag: ParsedDiagram) -> Dict[str, Any]:
             detections=detections,
         ))
 
+    # Per-transition remediation library (Feb-2026 v5 audit fix — bug #3).
+    # Placed BEFORE the trust-boundary loop so the description-builder can
+    # reference it. Previously every trust-boundary crossing carried the
+    # same generic "mTLS + deny-by-default" text; now each transition +
+    # destination-kind gets a tailored recommendation.
+    _TM_REMEDIATION_LIB = {
+        ("EXT", "DMZ"):  "WAF-inspected TLS 1.3 termination · rate-limit at CDN · GeoIP + ASN allow-list · Bot management",
+        ("EXT", "INT"):  "Direct EXT→INT is HIGH RISK · route through DMZ reverse-proxy · mTLS + SPIFFE identity + JWT audience-pinning",
+        ("EXT", "DATA"): "CRITICAL · never expose DATA to EXT directly · require signed pre-authorised URLs OR proxy through INT service",
+        ("DMZ", "INT"):  "mTLS with rotating short-TTL certs · service-mesh (Istio / Linkerd) sidecar policy · request-scoped OAuth2 tokens",
+        ("DMZ", "DATA"): "STRONG isolation · DMZ services must proxy through an INT tier · row-level ACLs enforced at DB (not app)",
+        ("INT", "DATA"): "Least-privilege DB user per service · TLS to DB · secrets rotated ≥90d · query allow-list at proxy layer (ProxySQL / RDS Proxy)",
+        ("INT", "INT"):  "Service-mesh mTLS + workload-identity · deny-by-default authz policy · circuit breakers to prevent lateral spread",
+        ("INT", "EXT"):  "Egress proxy with domain allow-list (e.g. squid) · block direct outbound IPs · monitor DNS exfiltration",
+        ("DATA", "EXT"): "CRITICAL · data exfiltration path · require signed URLs with 1h TTL · alert on any DATA→EXT flow in SIEM",
+    }
+    _TM_KIND_DEFENCE = {
+        "db":            "Enable slow-query log → SIEM · DAM/Imperva-style query anomaly detection",
+        "cache":         "Redis AUTH + ACLs · disable CONFIG/EVAL from apps · TLS on wire",
+        "queue":         "Kafka ACLs per topic · schema registry · dead-letter monitoring",
+        "secret-store":  "Vault dynamic secrets · leaf-cert authentication · audit every fetch",
+        "s3":            "Bucket policy deny-public · KMS-encrypt at rest · CloudTrail data-events on",
+        "auth":          "MFA-required · OAuth2 device-code · TPM/HSM-backed keys · rotate JWKs quarterly",
+    }
+
     # 2) Edge findings — trust-boundary crossings with STRIDE + severity.
     for e in diag.edges:
         src = diag.nodes.get(e.src)
@@ -240,7 +265,9 @@ def analyze(diag: ParsedDiagram) -> Dict[str, Any]:
             title=f"Trust-boundary crossing · {src.zone} → {dst.zone} ({src.label} → {dst.label})",
             description=(f"Edge `{src.label} → {dst.label}` crosses from {src.zone} into {dst.zone}. "
                           f"STRIDE risks: {', '.join(stride) or 'general'}. "
-                          f"Ensure mTLS + explicit deny-by-default authorisation on this hop."),
+                          f"Ensure mTLS + explicit deny-by-default authorisation on this hop."
+                          + (f" · {_TM_REMEDIATION_LIB.get((src.zone or '', dst.zone or ''), '')}" if _TM_REMEDIATION_LIB.get((src.zone or '', dst.zone or '')) else "")
+                          + (f" · {_TM_KIND_DEFENCE.get(dst.kind or '', '')}" if _TM_KIND_DEFENCE.get(dst.kind or '') else "")),
             severity=sev,
             edge={"src": e.src, "dst": e.dst, "label": e.label},
             mitre=mitre_ids,

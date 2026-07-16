@@ -241,15 +241,25 @@ def normalise_evidence(evidence: Dict[str, Any]) -> Dict[str, Any]:
 
 # ─── Reviewer prompts ─────────────────────────────────────────────────────
 _SYSTEM_ANTI_HALLUC = (
+    "STRICT EVIDENCE GROUNDING (Feb-2026 v5 audit — bug #2 · anti-hallucination). "
     "Every finding you emit MUST include at least one evidence_ref pointing "
     "at a concrete item from the EVIDENCE bundle. evidence_ref types allowed: "
     "chain, ioc, lolbin, mitre, decoded_text, verdict. If you cannot cite an "
-    "evidence item, do NOT emit the finding. Do not speculate about "
-    "capabilities not visible in the evidence. Reply with a SINGLE valid JSON "
-    "object only, no prose before/after. Do NOT wrap the JSON in a ```code "
-    "fence```. Do NOT put triple-backticks inside any string value — if you "
-    "need to show code, put it inline on one line without back-ticks. Escape "
-    "any interior quotes correctly."
+    "evidence item, do NOT emit the finding. "
+    "You MUST NOT fabricate: binary names not present in `lolbins` (e.g. "
+    "Remote.exe, PsExec.exe, mimikatz.exe unless literally in the bundle), "
+    "file paths not present in `decoded_text` or `chain` output, CVE IDs not "
+    "present in the bundle, IP addresses / domains / URLs not in `iocs`, "
+    "hash values, registry keys, service names, process names, or specific "
+    "malware family attributions unless the evidence directly names them. "
+    "If a finding requires citing something absent from the bundle, either "
+    "OMIT the finding or downgrade it to `severity=info` with the explicit "
+    "caveat 'not directly evidenced'. "
+    "Do not speculate about capabilities not visible in the evidence. Reply "
+    "with a SINGLE valid JSON object only, no prose before/after. Do NOT "
+    "wrap the JSON in a ```code fence```. Do NOT put triple-backticks inside "
+    "any string value — if you need to show code, put it inline on one line "
+    "without back-ticks. Escape any interior quotes correctly."
 )
 
 
@@ -425,8 +435,8 @@ async def _call_claude(system: str, user: str, session_id: str,
     async def _one_shot(user_text: str) -> str:
         # Defensive reviewer emits Sigma + KQL bodies → more time + tokens.
         is_defensive = "detection engineer" in system.lower()
-        max_toks = 2400 if is_defensive else 1600
-        per_call_timeout = 40.0 if is_defensive else 32.0
+        max_toks = 1800 if is_defensive else 1400          # Feb-2026 v5: trim to reduce 40s spikes
+        per_call_timeout = 28.0 if is_defensive else 24.0  # Feb-2026 v5 audit bug #1
         chat = (
             LlmChat(api_key=key, session_id=session_id, system_message=system)
             .with_model("anthropic", "claude-sonnet-4-5-20250929")
@@ -955,6 +965,37 @@ def _synthesise(reports: List[ReviewerReport],
 
     # Consensus boost: every ≥2-reviewer finding shrinks doubt
     verdict_confidence = min(1.0, avg_conf + 0.03 * len(consensus))
+
+    # ── Verdict-level consensus (Feb-2026 v5 audit fix — bug #4) ─────
+    # Previously, `consensus` only fired when ≥2 reviewers happened to
+    # phrase their finding with the same TITLE-KEY. So three reviewers
+    # all concluding "benign" but each writing slightly different
+    # titles produced `CONSENSUS (0)` — an obvious visual bug. Now:
+    # if ≥2 reviewers agree on VERDICT (label + severity family), emit
+    # a synthetic verdict-consensus entry so the UI never shows an
+    # empty consensus block while reviewers actually align.
+    reviewers_reporting = [r for r in reports if r.findings]
+    if len(reviewers_reporting) >= 2:
+        # Group each reviewer's most-severe finding by (verdict-family)
+        vfam: Dict[str, List[str]] = {}
+        for r in reviewers_reporting:
+            top = max(r.findings, key=lambda f: _SEVERITY_ORDER.get(f.severity, 0))
+            fam = {"critical": "malicious", "high": "malicious",
+                   "medium": "suspicious", "low": "suspicious",
+                   "info": "benign"}.get(top.severity, "unknown")
+            vfam.setdefault(fam, []).append(r.reviewer_name)
+        for fam, revs in vfam.items():
+            if len(set(revs)) >= 2:
+                consensus.insert(0, {
+                    "title": f"All reviewers align on {fam.upper()}",
+                    "severity": "info" if fam == "benign" else
+                                 ("high" if fam == "malicious" else "medium"),
+                    "reviewers": sorted(set(revs)),
+                    "confidence": round(avg_conf, 3),
+                    "evidence": [f"{len(set(revs))}/{len(reviewers_reporting)} reviewers concur"],
+                    "kind": "verdict_consensus",
+                })
+                break     # one verdict-level consensus is enough
 
     # Recommended actions (deterministic, evidence-driven)
     actions: List[str] = []
