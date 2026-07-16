@@ -63,6 +63,7 @@ from routers.decode_guidance import router as decode_guidance_router
 from routers.moe_panel import router as moe_panel_router
 from routers.threat_model import router as threat_model_router
 from routers.analyst_corrections import router as analyst_corrections_router
+from routers.training_export import router as training_export_router
 from request_hardening import RequestHardeningMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
