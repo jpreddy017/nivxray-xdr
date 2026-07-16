@@ -237,6 +237,58 @@ def _match_group(rx: "re.Pattern[str]", text: str) -> Optional[str]:
         return m.group(1) if m.groups() else None
 
 
+# 0. PS_EncodedCommand — the CLI-flag form (most common PowerShell obfuscation)
+#    powershell.exe [-NoP] [-NonI] [-W Hidden] -Enc  "<base64>"
+#    powershell     -EncodedCommand '<base64>'
+#    powershell.exe -e  <base64>
+#
+#    Canonical semantics: base64 → UTF-16LE PowerShell script.
+#    But red-teamers and IR analysts routinely paste malformed variants
+#    where the base64 encodes ASCII/UTF-8 directly. Our handler tries
+#    UTF-16LE first (canonical), falls back to UTF-8 / latin-1 when the
+#    UTF-16LE decode produces mostly-non-printable output.
+_PS_ENC_CLI_RX = re.compile(
+    r"powershell(?:\.exe)?"                        # binary name
+    r"[^\r\n\"']{0,200}?"                          # any inter-flag slop (values, dashes, spaces)
+    r"[\s/-]-?(?:e|ec|enc|encoded|encodedcommand)\b"  # -Enc / -EncodedCommand / /enc
+    r"\s+[\"']?"                                   # optional quote
+    r"(?P<blob>[A-Za-z0-9+/=_\-]{20,})"            # the base64 blob
+    r"[\"']?",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_text(s: str, min_ratio: float = 0.7) -> bool:
+    """Heuristic: fraction of printable ASCII chars ≥ min_ratio."""
+    if not s:
+        return False
+    printable = sum(1 for c in s if 32 <= ord(c) < 127 or c in "\r\n\t")
+    return (printable / len(s)) >= min_ratio
+
+
+def _handle_ps_enc_cli(text: str) -> str:
+    blob = _match_group(_PS_ENC_CLI_RX, text)
+    if not blob:
+        raise ValueError("no blob match")
+    raw = robust_b64decode(blob)
+    # Try canonical UTF-16LE first — this is what PowerShell.exe -Enc requires
+    try:
+        candidate = raw.decode("utf-16le", errors="replace")
+        if _looks_like_text(candidate):
+            return candidate
+    except Exception:
+        pass
+    # Fall back to UTF-8 (analyst pasted a malformed / hand-rolled -Enc)
+    try:
+        candidate = raw.decode("utf-8", errors="replace")
+        if _looks_like_text(candidate):
+            return candidate
+    except Exception:
+        pass
+    # Last resort: latin-1 always succeeds
+    return raw.decode("latin-1", errors="replace")
+
+
 # 1. PS_MemoryStream_Gzip_IEX
 #    $s=New-Object IO.MemoryStream(,[Convert]::FromBase64String("<blob>"));
 #    IEX (New-Object IO.StreamReader(New-Object IO.Compression.GzipStream(
@@ -808,6 +860,13 @@ def _handle_batch_var_slice(text: str) -> str:
 
 
 ARCHETYPES: List[Dict[str, Any]] = [
+    {
+        "id": "PS_EncodedCommand",
+        "description": "PowerShell -Enc / -EncodedCommand CLI flag (base64 → UTF-16LE or UTF-8 script)",
+        "chain": ["extract-b64", "utf16le-or-utf8-decode"],
+        "handler": _handle_ps_enc_cli,
+        "match":   lambda t: bool(_PS_ENC_CLI_RX.search(t)),
+    },
     {
         "id": "PS_MemoryStream_Gzip_IEX",
         "description": "PowerShell IO.MemoryStream + GzipStream + IEX (Empire/Cobalt one-liner)",
