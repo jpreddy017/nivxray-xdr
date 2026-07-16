@@ -1,7 +1,96 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🔗 Multi-Command Chain Auto-Routing at Top-Level Entry Points)
+## Latest Change (Feb 2026 — 🧰 Copy/Edit/Clear · Multi-Chain Toast · Chain-Break Ribbon · Re-run From Stage)
+
+### Enhancement Bundle — Verified E2E (iteration 12: 100 % pass)
+
+Four analyst-UX enhancements shipped in one commit, on top of the
+Multi-Command Chain Auto-Routing fix from iteration 10.
+
+**1. `InputToolbar` — Copy / Edit-lock / Clear on every input textarea**
+- NEW `frontend/src/components/InputToolbar.jsx` — reusable 3-icon strip
+  pinned top-right of any `<textarea>`.
+- Data-testids `{scope}-copy`, `{scope}-edit`, `{scope}-clear`.
+- Copy: clipboard-write + `<textarea>+execCommand` fallback for HTTP
+  contexts; brief check-mark feedback.
+- Edit: toggles `readOnly` — protects captured payloads from mid-analysis
+  accidental typing.
+- Clear: confirms when value > 20 chars.
+- Wired into main workspace INPUT (`input-textarea-*`) + each chain stage
+  (`chain-input-{idx}-*`).
+
+**2. Multi-command auto-route toast + flat-decode opt-out**
+- Green banner (data-testid `multi-chain-notice`) inside INPUT card after
+  a multi-line paste triggers chain analysis. Shows N stages · family ·
+  verdict.
+- `btn-revert-flat-decode` re-runs `/api/decode/smart` on the raw blob to
+  bypass chain routing (useful when newlines are part of the payload).
+- `btn-dismiss-multi-chain-notice` closes the banner without changing
+  results.
+- `clearAll()` also wipes the notice + `pendingChainResult` state.
+
+**3. Chain-break visualization inside Chain Analysis panel**
+- Module-level `classifyStageBreak(stageResult)` in
+  `ChainStageEditor.jsx` — flags 3 cases (spec 1b):
+    - `DECODE_FAILED` (conf 0/null + no chain ops + non-empty input) —
+      red border + red ribbon
+    - `EMPTY_OUTPUT` (decoder ran but output_length=0) — amber ribbon
+    - `LOW_CONFIDENCE` (conf < 40 + non-empty input) — gray ribbon
+- Each failing stage card gets a colored ribbon
+  (`chain-break-{idx}` with `data-break-kind`) + colored border.
+- 9 unit tests covering all boundaries — all pass.
+
+**4. Re-run from stage (analyst core loop)**
+- `btn-chain-rerun-from-{idx}` on every chain stage (with a prior result).
+- Splices new tail-result back into the existing per-stage array,
+  preserving stages `[0..idx-1]` verbatim. Aggregate is refreshed from
+  the tail (a full-chain re-aggregation would need a second server call
+  — parked as future work if needed).
+- Spinner via `.spin` CSS keyframe in `App.css`.
+- Powers the classic malware-analyst workflow: tweak a stage (e.g. add
+  an XOR key, edit a Base64 blob) → one-click re-run downstream stages
+  without paying to re-decode the whole chain.
+
+### Iteration-11 → 12 root-cause fix
+The first UI run (iteration 11) failed on RE-RUN + break-ribbon because
+`ChainStageEditor` gated both on its own INTERNAL `result` state, but
+`runChainAnalysis` (parent) never forwarded the chain result — it only
+passed `initialStages`. Fixed by:
+- New `pendingChainResult` state in `WorkspacePage.jsx`
+- New `initialResult` prop on `ChainStageEditor` — seeds its `result`
+  state at mount so RE-RUN + break-ribbons render immediately after
+  AUTO INVESTIGATE (no second RUN CHAIN click needed).
+- Widened `LOW_CONFIDENCE` classifier — fires on any stage with
+  `conf < 40 && inputLen > 0` (previously required `chainOps > 0`,
+  which excluded passthrough-with-low-conf stages).
+- CSS shorthand-conflict warning in InputToolbar resolved by splitting
+  `border` shorthand into `borderWidth/borderStyle/borderColor` triplet.
+
+### Files touched
+Frontend:
+- NEW: `src/components/InputToolbar.jsx`
+- NEW: `src/components/__tests__/classifyStageBreak.test.mjs` (9/9 pass)
+- MODIFIED: `src/components/ChainStageEditor.jsx` (classifier +
+  initialResult prop + stageLocks + runFromStage + break-ribbon +
+  RE-RUN button)
+- MODIFIED: `src/pages/WorkspacePage.jsx` (pendingChainResult +
+  revertToFlatDecode + multiChainNotice + inputLocked + toolbar wiring +
+  toast banner)
+- MODIFIED: `src/App.css` (.spin keyframe)
+
+Backend: no changes.
+
+### Verification
+- Iteration 12 testing agent report: **all tests pass, zero issues,
+  retest_needed: false**.
+- 6 backend regression tests (test_multi_command_chain.py) still pass.
+- 9 frontend unit tests (classifyStageBreak) still pass.
+- Console clean of the CSS shorthand-conflict warning.
+
+---
+
+## Previous Change (Feb 2026 — 🔗 Multi-Command Chain Auto-Routing at Top-Level Entry Points)
 
 ### Bug Fix — Verified E2E on preview + backend regression
 
