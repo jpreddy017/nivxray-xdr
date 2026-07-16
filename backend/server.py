@@ -57,6 +57,8 @@ from routers.docs import router as docs_router
 from routers.timeline import router as timeline_router
 from routers.threat_intel_enrich import router as ti_enrich_router
 from routers.finetune import router as finetune_router
+from routers.lolbas_export import router as lolbas_export_router
+from routers.training_notes_sync import router as training_notes_sync_router
 from request_hardening import RequestHardeningMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -122,6 +124,8 @@ api.include_router(docs_router)
 api.include_router(timeline_router)
 api.include_router(ti_enrich_router)
 api.include_router(finetune_router)
+api.include_router(lolbas_export_router)
+api.include_router(training_notes_sync_router)
 
 app.include_router(api)
 

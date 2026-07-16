@@ -25,6 +25,7 @@ STAGE_ORDER: List[str] = ["Download", "Decode", "Execute", "Persist", "Impact"]
 _PURPOSE_TO_STAGE: Dict[str, str] = {
     "Download":         "Download",
     "Exfil":            "Impact",
+    "Impact":           "Impact",
     "Decode":           "Decode",
     "AWL Bypass":       "Execute",
     "Execute":          "Execute",

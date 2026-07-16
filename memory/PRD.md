@@ -1,7 +1,79 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## Latest Change (Feb 2026 — 🖼️ P2 · Side-by-Side GRAPH + CHAIN Figure in PDF)
+## Latest Change (Feb 2026 — 🚀 Deployment-Readiness Pass)
+
+### Delivered in this fork
+
+**G1 · Clean Attack-Path Graph** (PuppyGraph-style visual)
+- New `AttackPathClean.jsx` — L-shaped kill-chain with filled colour-coded circular nodes, semantic overlays (`⚡ ENTRY`, `🎯 CHOKE`, `👑 CROWN JEWEL`), and PNG/SVG export.
+- Rendered as a **new card below** the existing tactical Attack Graph (unchanged), with **G1 / G2** toggle buttons: G1 = clean kill-chain, G2 = tactical alt.
+- Renders after Decode / Run-Recipe / Auto-Investigate — not just after AI describe — via a fallback graph builder (`fallbackGraph.js`) that synthesises `{nodes, edges}` from `input + chain + iocs + lolbins + mitre + verdict`.
+
+**TI-HITS matching fix** (L0 blocker resolved)
+- `analysis_core.lookup_ti_hits()` now does URL→hostname fallback: derives host from every extracted URL and additionally checks the `domain` collection. Hits tagged `matched_via: url-hostname`.
+- Root cause: exact-string match against `iocs.value` failed on query-string variance (`?src=email`) even when the base domain was in the feed.
+- Live-verified end-to-end on preview. **4 regression tests green**.
+- Diagnostic notes: `alienvault_otx`, `threatfox`, `urlhaus`, `malwarebazaar`, `cins_army` all healthy; `abuseipdb` HTTP 429 (rate-limit); `talos` HTTP 403 (policy change — feed URL needs updating or drop).
+
+**LOLBAS L1 + L2 + L3 + L5**
+- L1: 8 new 2025-era LOLBAS entries in `_L_DEFAULT` (`dotnet.exe`, `dnx.exe`, `Dxcap.exe`, `desktopimgdownldr.exe`, `stordiag.exe`, `msconfig.exe`, `PresentationHost.exe`, `Dfsvc.exe`).
+- L2: new `lolbas_chain.py` — multi-stage kill-chain scorer (`Download → Decode → Execute → Persist → Impact`), returns `chain_score`, `severity_boost`, `flow_summary`.
+- L3: parent-child lineage detection — when a shell one-liner (`powershell.exe`, `cmd.exe`, `mshta.exe`, `wmic.exe`, `wscript.exe`, `cscript.exe`, `pwsh.exe`) contains another LOLBAS invocation, promotes severity + emits `parent_child` edges.
+- L5: `POST /api/lolbas/chain` + `POST /api/lolbas/export {binary, argv, fmt}` — emits **Sigma / KQL / SPL** detection rules ready-to-paste into Sentinel / Defender Advanced Hunting / Splunk.
+- **11 regression tests green**.
+
+**Training-Note URL Feature (⭐ new)**
+- Floating `+ TRAINING NOTE` modal redesigned with **extra-black high-contrast inputs** (`#f8fafc` typed text on `#0b1220` backdrop, `font-weight: 600`).
+- New **Reference URL** field + `SYNC` button — backend fetches the URL, extracts article text (HTML **or PDF** via `pypdf`), and asks Claude Sonnet 4.5 to condense it into a directive with `title / directive / tags`.
+- Endpoint: `POST /api/admin/training-notes/sync-url {url}` — supports `text/*, html, json, xml, markdown` + `application/pdf`.
+- Notes render a clickable mint `REF · <hostname>` pill on the note card; opens in a new tab.
+- **4 references captured live** in preview: 
+  1. ★ AI Graph Database (PuppyGraph — priority-flagged)
+  2. Attack Path Management (XM Cyber ebook search)
+  3. Cloud Attack Paths (XM Cyber ebook PDF)
+  4. Powerful PowerShell Detection Commands (Read Security)
+- Every future AI investigation is prepended with these directives.
+
+**P2 · Side-by-side GRAPH + CHAIN Figure in PDF** (finished this fork)
+- `_pair_graph_chain_by_step()` groups `step_N_tab_graph.png` + `step_N_tab_chain.png` pairs.
+- 2-column reportlab Table with mint captions embeds them side-by-side per payload.
+- Dry-run regenerated all 12 export artefacts locally (6.8 MB `nivxray-all-guide.pdf`).
+
+### Deployment stress test — 30 payloads
+
+| Metric | Result |
+| --- | --- |
+| Decode pass rate | **30/30 · 100%** |
+| Avg latency | 2.4 s / payload |
+| With LOLBins | 27/30 |
+| With MITRE | 26/30 |
+| History integrity | ✅ all critical fields present |
+
+Test file: `backend/tests/stress_deploy_ready.py` — reproducible any time via `python tests/stress_deploy_ready.py`.
+
+### Files touched
+- `backend/analysis_core.py` — TI-HITS resilient matching
+- `backend/lolbas.py` — 8 new 2025 bins
+- `backend/lolbas_chain.py` (new) — L2/L3 chain scorer
+- `backend/routers/lolbas_export.py` (new) — L5 Sigma/KQL/SPL emitter
+- `backend/routers/training_notes_sync.py` (new) — URL feature
+- `backend/docs/pdf_generator.py` — P2 side-by-side figure
+- `backend/server.py` — register new routers
+- `backend/tests/*` — 5 new test files, ~40 new tests
+- `frontend/src/components/AttackPathClean.jsx` (new)
+- `frontend/src/components/FloatingAddNoteButton.jsx` — high-contrast + URL feature
+- `frontend/src/components/TrainingNotesCard.jsx` — REF pill, URL field
+- `frontend/src/lib/fallbackGraph.js` (new)
+- `frontend/src/pages/WorkspacePage.jsx` — G1/G2 card
+- `.github/workflows/docs-screenshots.yml` (untouched — release checklist in `GITHUB_RELEASE_CHECKLIST.md`)
+
+### Deployment checklist
+See `/app/GITHUB_RELEASE_CHECKLIST.md` — step-by-step for cutting a GitHub release + triggering the docs-screenshots workflow + Emergent Prod redeploy.
+
+---
+
+## Previous Change (Feb 2026 — 🖼️ P2 · Side-by-Side GRAPH + CHAIN Figure in PDF)
 
 ### Delivered
 - `docs/pdf_generator.py :: _embed_screenshots()` now auto-detects `step_N_tab_graph.png` + `step_N_tab_chain.png` pairs and renders them side-by-side in a 2-column reportlab `Table` (captioned "GRAPH + CHAIN — visual evidence") for every payload/workflow that has them.

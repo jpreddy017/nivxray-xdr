@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from deps import require_user
+from deps import get_current_user
 from lolbas import scan_lolbas, _ACTIVE  # noqa: F401 — _ACTIVE used only for metadata lookup
 from lolbas_chain import compute_lolbas_chain
 
@@ -25,7 +25,7 @@ class ChainIn(BaseModel):
 
 
 @router.post("/lolbas/chain")
-async def lolbas_chain(body: ChainIn, user=Depends(require_user)):
+async def lolbas_chain(body: ChainIn, user=Depends(get_current_user)):
     """Return LOLBAS chain metadata (stages · parent-child · severity)."""
     hits = scan_lolbas(body.text)
     chain = compute_lolbas_chain(hits, body.text)
@@ -84,6 +84,10 @@ def _sigma_rule(binary: str, rule: Dict[str, Any], argv_hints: List[str]) -> str
     mitre = ", ".join(rule.get("mitre", []) or ["T1218"])
     purposes = ", ".join(rule.get("purposes", []) or ["Execute"])
     hint_lines = "\n".join(f"      - {_yaml_str(h)}" for h in argv_hints) or "      - '# adjust for your environment'"
+    attack_tags = "".join(
+        f"  - attack.{m.lower()}\n"
+        for m in (rule.get("mitre") or ["T1218"])
+    ).rstrip()
     return f"""title: LOLBAS · {binary} suspicious command-line
 id: nivxray-lolbas-{binary.replace('.', '-').lower()}
 status: experimental
@@ -95,7 +99,7 @@ references:
 tags:
   - attack.execution
   - attack.defense_evasion
-{"".join(f"  - attack.{m.lower()}\n" for m in rule.get('mitre', []) or ['T1218']).rstrip()}
+{attack_tags}
 logsource:
   product: windows
   category: process_creation
@@ -143,7 +147,7 @@ index=* sourcetype IN (WinEventLog:Security, Sysmon)
 
 
 @router.post("/lolbas/export")
-async def lolbas_export(body: ExportIn, user=Depends(require_user)):
+async def lolbas_export(body: ExportIn, user=Depends(get_current_user)):
     """Emit a Sigma / KQL / SPL rule for a single LOLBAS finding."""
     rule = _lookup_rule(body.binary)
     if not rule:

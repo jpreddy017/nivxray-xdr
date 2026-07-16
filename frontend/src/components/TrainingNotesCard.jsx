@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
-import { Plus, Trash2, Check, X, Save, GraduationCap, Sparkles } from "lucide-react";
+import { Plus, Trash2, Check, X, Save, GraduationCap, Sparkles, Link as LinkIcon, ExternalLink } from "lucide-react";
 
 /**
  * TrainingNotesCard
@@ -18,6 +18,7 @@ export default function TrainingNotesCard() {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [body, setBody] = useState("");
+  const [refUrl, setRefUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
@@ -38,18 +39,30 @@ export default function TrainingNotesCard() {
       setSaveMsg("ERROR: title and body are required");
       return;
     }
+    // Basic URL sanity (allow empty; block obviously malformed values)
+    const cleanUrl = refUrl.trim();
+    if (cleanUrl && !/^https?:\/\/[^\s]+$/i.test(cleanUrl)) {
+      setSaveMsg("ERROR: reference URL must start with http:// or https://");
+      return;
+    }
     setSaving(true);
     setSaveMsg("");
     try {
+      const cfg = { body: body.trim() };
+      if (cleanUrl) {
+        cfg.ref_url = cleanUrl;
+        try { cfg.ref_source = new URL(cleanUrl).hostname; } catch { /* ignore */ }
+      }
       await api.post("/admin/models", {
         kind: "training_note",
         name: name.trim(),
         enabled: true,
-        config: { body: body.trim() },
+        config: cfg,
       });
       setSaveMsg("Saved · will be prepended to next AI investigation");
       setName("");
       setBody("");
+      setRefUrl("");
       await load();
     } catch (e) {
       setSaveMsg("ERROR: " + (e?.response?.data?.detail || e.message));
@@ -112,6 +125,18 @@ export default function TrainingNotesCard() {
           onChange={(e) => setBody(e.target.value)}
           data-testid="training-note-body-input"
         />
+        {/* Reference URL — optional, but pinned to the note so analysts can jump back to the source */}
+        <div className="mono" style={{ fontSize: 10, letterSpacing: "0.16em", color: "var(--text-mute)", marginTop: 10, marginBottom: 4, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}>
+          <LinkIcon size={10} /> Reference URL <span style={{ opacity: 0.6 }}>· optional</span>
+        </div>
+        <input
+          className="brut-input"
+          style={{ width: "100%", fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}
+          placeholder="https://readsecurity.medium.com/... (article, CTI report, MITRE page, blog)"
+          value={refUrl}
+          onChange={(e) => setRefUrl(e.target.value)}
+          data-testid="training-note-refurl-input"
+        />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, gap: 8, flexWrap: "wrap" }}>
           <div className="mono" style={{ fontSize: 10, color: saveMsg.startsWith("ERROR") ? "var(--high)" : "var(--accent)" }} data-testid="training-note-save-msg">
             {saveMsg}
@@ -153,6 +178,28 @@ export default function TrainingNotesCard() {
                       {(n.config?.body || "").slice(0, 260)}
                       {(n.config?.body || "").length > 260 ? "…" : ""}
                     </div>
+                    {n.config?.ref_url && (
+                      <a
+                        href={n.config.ref_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mono"
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          marginTop: 6, padding: "2px 8px",
+                          fontSize: 10, letterSpacing: "0.12em",
+                          color: "#38bdf8", textDecoration: "none",
+                          border: "1px solid #0ea5e9",
+                          borderRadius: 3, background: "rgba(14,165,233,0.08)",
+                        }}
+                        title={n.config.ref_url}
+                        data-testid={`training-note-refurl-${n.id}`}
+                      >
+                        <LinkIcon size={10} />
+                        REF · {n.config.ref_source || (() => { try { return new URL(n.config.ref_url).hostname; } catch { return "link"; } })()}
+                        <ExternalLink size={9} />
+                      </a>
+                    )}
                     <div className="mono" style={{ fontSize: 9, color: "var(--text-mute)", marginTop: 6, letterSpacing: "0.08em" }}>
                       <Sparkles size={9} style={{ verticalAlign: "middle", marginRight: 4 }} />
                       WEIGHT {n.feedback_weight ?? 0} · 👍 {n.feedback_pos ?? 0} · 👎 {n.feedback_neg ?? 0} · USED {n.usage_count ?? 0}×
