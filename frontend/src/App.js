@@ -8,6 +8,7 @@ import AdminPage from "@/pages/AdminPage";
 import ModelStudioPage from "@/pages/ModelStudioPage";
 import SampleLibraryPage from "@/pages/SampleLibraryPage";
 import ThreatIntelPage from "@/pages/ThreatIntelPage";
+import ThreatModelPage from "@/pages/ThreatModelPage";
 import KnowledgeBasePage from "@/pages/KnowledgeBasePage";
 import DocsPage from "@/pages/DocsPage";
 import FloatingAddNoteButton from "@/components/FloatingAddNoteButton";
@@ -29,6 +30,7 @@ function App() {
             <Route path="/" element={<Protected><WorkspacePage /></Protected>} />
             <Route path="/analyze" element={<Protected><CommandAnalyzerPage /></Protected>} />
             <Route path="/threat-intel" element={<Protected><ThreatIntelPage /></Protected>} />
+            <Route path="/threat-model" element={<Protected><ThreatModelPage /></Protected>} />
             <Route path="/docs" element={<Protected><DocsPage /></Protected>} />
             <Route path="/kb" element={<Protected><KnowledgeBasePage /></Protected>} />
             <Route path="/admin" element={<Protected><AdminPage /></Protected>} />

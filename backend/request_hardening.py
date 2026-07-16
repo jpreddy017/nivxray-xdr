@@ -29,6 +29,7 @@ _LLM_PATHS = (
     "/api/analyze",         # /analyze may invoke ai_describe_and_verdict
     "/api/decode/smart",    # magic_decoder can be slow on huge inputs
     "/api/moe/analyze",     # MoE panel: 3 parallel Claude reviewers + synth
+    "/api/threat-model/enrich",   # threat-model deterministic + MoE enrichment
 )
 _DEFAULT_TIMEOUT_S = 30
 _LLM_TIMEOUT_S     = 85

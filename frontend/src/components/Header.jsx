@@ -64,6 +64,14 @@ export default function Header() {
             <BookOpen size={13} /> KNOWLEDGE BASE
           </Link>
           <Link
+            to="/threat-model"
+            data-testid="nav-threat-model"
+            className="nvx-btn sm ghost"
+            style={{ color: loc.pathname === "/threat-model" ? "var(--accent)" : "var(--text-dim)" }}
+          >
+            <Terminal size={13} /> THREAT MODEL
+          </Link>
+          <Link
             to="/docs"
             data-testid="nav-docs"
             className={`nvx-btn sm ghost`}

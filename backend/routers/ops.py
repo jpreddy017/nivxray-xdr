@@ -273,30 +273,55 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                 result_custom = await run_recipe(
                     RunRecipeIn(input=body.input, steps=steps_for_run), user=user,
                 )
-                recipe_out = [
-                    {"op": s.op, "args": s.args, "reason": f"custom recipe: {best['name']}",
-                     "custom": True, "model_id": best["id"], "model_name": best["name"]}
-                    for s in steps_for_run
-                ]
-                return {
-                    "recipe": recipe_out,
-                    "output": result_custom.output,
-                    "notes": [f"Applied custom recipe '{best['name']}' from Model Studio"],
-                    "detected_type": detect_payload_type(result_custom.output),
-                    "engine": "custom_recipe",
-                    "reached_shellcode": False,
-                    "trace": [
+                # Feb 2026 — RACE-CHECK the custom recipe against the
+                # deterministic pipeline. Custom recipes are user-authored
+                # snapshots and can silently short-circuit newer chains (like
+                # the b64+xor Meterpreter runner where the recipe stops at
+                # `base64-decode` while the deterministic pipeline continues
+                # to `xor-brute` and reaches actual shellcode). If deterministic
+                # goes DEEPER (more steps) or REACHES SHELLCODE, prefer it.
+                try:
+                    det_race = deterministic_best_decode(
+                        body.input, analysis_mode=body.analysis_mode or "balanced"
+                    )
+                except Exception:
+                    det_race = None
+                _custom_chain_len = len(steps_for_run)
+                _det_chain_len = len(det_race.get("steps") or []) if det_race else 0
+                _det_reached_sc = bool(det_race and det_race.get("reached_shellcode"))
+                _prefer_deterministic = (
+                    det_race is not None
+                    and (_det_reached_sc or _det_chain_len > _custom_chain_len + 0)
+                )
+                if _prefer_deterministic:
+                    # Skip the custom-recipe short-circuit — fall through to the
+                    # normal deterministic path below.
+                    pass
+                else:
+                    recipe_out = [
                         {"op": s.op, "args": s.args, "reason": f"custom recipe: {best['name']}",
-                         "output_preview": (result_custom.steps_output[i].get("output_preview") or "")
-                         if i < len(result_custom.steps_output) else "",
-                         "output_length": result_custom.steps_output[i].get("output_length")
-                         if i < len(result_custom.steps_output) else None}
-                        for i, s in enumerate(steps_for_run)
-                    ],
-                    "custom_recipes_matched": [
-                        {"id": r["id"], "name": r["name"]} for r in custom_matches
-                    ],
-                }
+                         "custom": True, "model_id": best["id"], "model_name": best["name"]}
+                        for s in steps_for_run
+                    ]
+                    return {
+                        "recipe": recipe_out,
+                        "output": result_custom.output,
+                        "notes": [f"Applied custom recipe '{best['name']}' from Model Studio"],
+                        "detected_type": detect_payload_type(result_custom.output),
+                        "engine": "custom_recipe",
+                        "reached_shellcode": False,
+                        "trace": [
+                            {"op": s.op, "args": s.args, "reason": f"custom recipe: {best['name']}",
+                             "output_preview": (result_custom.steps_output[i].get("output_preview") or "")
+                             if i < len(result_custom.steps_output) else "",
+                             "output_length": result_custom.steps_output[i].get("output_length")
+                             if i < len(result_custom.steps_output) else None}
+                            for i, s in enumerate(steps_for_run)
+                        ],
+                        "custom_recipes_matched": [
+                            {"id": r["id"], "name": r["name"]} for r in custom_matches
+                        ],
+                    }
         except Exception:
             pass
 

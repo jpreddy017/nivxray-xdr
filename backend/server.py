@@ -61,6 +61,7 @@ from routers.lolbas_export import router as lolbas_export_router
 from routers.training_notes_sync import router as training_notes_sync_router
 from routers.decode_guidance import router as decode_guidance_router
 from routers.moe_panel import router as moe_panel_router
+from routers.threat_model import router as threat_model_router
 from request_hardening import RequestHardeningMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -130,6 +131,7 @@ api.include_router(lolbas_export_router)
 api.include_router(training_notes_sync_router)
 api.include_router(decode_guidance_router)
 api.include_router(moe_panel_router)
+api.include_router(threat_model_router)
 
 app.include_router(api)
 
