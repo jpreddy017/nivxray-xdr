@@ -11,10 +11,56 @@
  *   - Export: Markdown, JSON (STIX 2.1 = P1)
  */
 import { useState, useMemo } from "react";
-import { Plus, X, Play, Sparkles, Download, FileText, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { Plus, X, Play, Sparkles, Download, FileText, ChevronDown, ChevronRight, AlertTriangle, Scissors } from "lucide-react";
 import api, { apiStream } from "../lib/api";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
+
+// ── Command-line splitter ────────────────────────────────────────
+// Recognises the head token of a line as a known shell / LOLBAS /
+// scripting keyword so we can safely split single-newline pastes
+// into separate stages without needing the user to add blank lines.
+const _CMD_HEADS = [
+  "powershell", "pwsh", "cmd", "cmd.exe",
+  "certutil", "mshta", "rundll32", "regsvr32", "regsvcs", "regasm",
+  "msiexec", "installutil", "bitsadmin", "wmic", "wscript", "cscript",
+  "schtasks", "at.exe", "sc.exe", "netsh", "net.exe", "net ",
+  "curl", "wget", "iwr", "iex", "invoke-expression", "invoke-webrequest",
+  "start-process", "start ", "cmdkey", "runas",
+  "bash", "sh ", "python", "python3", "perl", "ruby", "node",
+  "vssadmin", "wbadmin", "bcdedit", "reg add", "reg delete",
+  "esentutl", "diskshadow", "dnx", "dotnet", "dxcap",
+];
+
+function _looksLikeCommand(line) {
+  const t = line.trim().toLowerCase();
+  if (!t || t.length > 4000) return false;
+  // Skip obvious continuation / comment / prompt lines.
+  if (/^([#;>]|::|rem\s|\/\/)/.test(t)) return false;
+  return _CMD_HEADS.some((h) => t.startsWith(h));
+}
+
+/**
+ * Split a multi-line blob into separate command lines. Returns null when
+ * the blob is a single logical statement (< 2 lines OR only one line
+ * looks command-like).
+ */
+function splitCommandLines(text) {
+  if (!text || !text.includes("\n")) return null;
+  // Fast path — blank-line delimited.
+  const blankSplit = text.split(/\n\s*\n+/).map((p) => p.trim()).filter(Boolean);
+  if (blankSplit.length > 1) return blankSplit;
+  // Heuristic path — every non-continuation line looks like a command.
+  const lines = text.split(/\r?\n/).map((l) => l.replace(/[\t ]+$/g, ""))
+                     .filter((l) => l.trim().length > 0);
+  if (lines.length < 2) return null;
+  const cmdCount = lines.filter(_looksLikeCommand).length;
+  // Require ≥ 2 command-lookalikes AND at least half the lines qualify.
+  if (cmdCount >= 2 && cmdCount / lines.length >= 0.5) {
+    return lines;
+  }
+  return null;
+}
 
 export default function ChainStageEditor({ seedInput, onSeedConsumed, initialStages }) {
   const [stages, setStages] = useState(() => {
@@ -36,13 +82,12 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
   const removeStage = (id) => setStages((s) => (s.length > 1 ? s.filter((x) => x.id !== id) : s));
   const setStageInput = (id, value) => setStages((s) => s.map((x) => (x.id === id ? { ...x, input: value } : x)));
 
-  // Power-user auto-split: paste blank-line separated → append each as own stage
+  // Power-user auto-split: paste blank-line separated OR multiple command-lookalike lines → append each as own stage
   const handlePasteSplit = (id, e) => {
     const text = e.clipboardData?.getData("text") || "";
-    if (!text.includes("\n\n")) return;                  // no blank line → single-stage paste
+    const parts = splitCommandLines(text);
+    if (!parts || parts.length <= 1) return;             // no split → single-stage paste
     e.preventDefault();
-    const parts = text.split(/\n\s*\n+/).map((p) => p.trim()).filter(Boolean);
-    if (parts.length <= 1) return;
     setStages((s) => {
       const idx = s.findIndex((x) => x.id === id);
       // Fill current stage with first part, append the rest
@@ -51,6 +96,28 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
       parts.slice(1).forEach((p) => next.push({ id: uid(), input: p }));
       return next;
     });
+  };
+
+  // Manual splitter — reads the current textarea content and splits it
+  // in place. Analyst safety net when the paste-heuristic didn't fire.
+  const splitStageInPlace = (id) => {
+    setStages((s) => {
+      const idx = s.findIndex((x) => x.id === id);
+      const cur = s[idx];
+      if (!cur) return s;
+      const parts = splitCommandLines(cur.input);
+      if (!parts || parts.length <= 1) return s;
+      const next = [...s];
+      next[idx] = { ...next[idx], input: parts[0] };
+      const rest = parts.slice(1).map((p) => ({ id: uid(), input: p }));
+      next.splice(idx + 1, 0, ...rest);
+      return next;
+    });
+  };
+
+  const canSplit = (input) => {
+    const parts = splitCommandLines(input || "");
+    return parts && parts.length > 1 ? parts.length : 0;
   };
 
   const runChain = async () => {
@@ -148,19 +215,34 @@ export default function ChainStageEditor({ seedInput, onSeedConsumed, initialSta
               <span className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.20em" }}>
                 STAGE {idx}
               </span>
-              {stages.length > 1 && (
-                <button className="nvx-btn sm ghost" onClick={() => removeStage(s.id)}
-                        data-testid={`btn-chain-remove-${idx}`} title="Remove this stage">
-                  <X size={11} />
-                </button>
-              )}
+              <div style={{ display: "flex", gap: 4 }}>
+                {canSplit(s.input) > 1 && (
+                  <button
+                    className="nvx-btn sm"
+                    style={{ background: "rgba(126,227,201,0.10)",
+                             border: "1px solid #7ee3c9", color: "#7ee3c9",
+                             padding: "2px 8px", fontSize: 10 }}
+                    onClick={() => splitStageInPlace(s.id)}
+                    data-testid={`btn-chain-split-${idx}`}
+                    title={`Split this stage into ${canSplit(s.input)} separate stages — one per command line.`}
+                  >
+                    <Scissors size={10} /> SPLIT ×{canSplit(s.input)}
+                  </button>
+                )}
+                {stages.length > 1 && (
+                  <button className="nvx-btn sm ghost" onClick={() => removeStage(s.id)}
+                          data-testid={`btn-chain-remove-${idx}`} title="Remove this stage">
+                    <X size={11} />
+                  </button>
+                )}
+              </div>
             </div>
             <textarea
               className="nvx-textarea"
               rows={chainMode ? 2 : 3}
               data-testid={`chain-input-${idx}`}
               placeholder={idx === 0
-                ? "Paste stage 0 — or paste multiple payloads separated by BLANK LINES to auto-split into stages."
+                ? "Paste stage 0 — or paste multiple command lines (blank lines OR just one command per line) to auto-split into stages."
                 : `Stage ${idx} payload…`}
               value={s.input}
               onChange={(e) => setStageInput(s.id, e.target.value)}
