@@ -169,7 +169,7 @@ def robust_b64_then_gunzip(blob: str) -> str:
                 pass
             if out:
                 partial = out.decode("utf-8", errors="replace")
-                return partial + "\n\n[⚠ PARTIAL DECOMPRESSION — source stream was truncated]"
+                return partial + "\n\n[GZIP_TRUNCATED · partial recovery]"
         except zlib.error:
             pass
 
@@ -200,7 +200,7 @@ def robust_b64_then_gunzip(blob: str) -> str:
                     salvaged = zlib.decompress(deflate_body, -zlib.MAX_WBITS)
                     if salvaged:
                         return salvaged.decode("utf-8", errors="replace") + \
-                            "\n\n[⚠ GZIP CRC INVALID — content salvaged via raw-deflate fallback]"
+                            "\n\n[GZIP_TRUNCATED · CRC unverified]"
         except (zlib.error, IndexError, ValueError):
             pass
         raise
@@ -2214,6 +2214,299 @@ def _handle_bash_b32_pipe(text: str) -> str:
     return f"{text}\n\n{banner}"
 
 
+# ─── Feb 2026 · batch-CSV 3rd-round fixes ─────────────────────────────────
+# Sources: /app/uploads/nivxray_batch_results_3rd.csv rows 6, 7, 13, 14, 15, 17
+
+# ── row-0006 : CMD_FOR_LOOP_TOKEN_EXTRACTION ─────────────────────────────
+# cmd.exe /q /c "for /F "tokens=1,2" %i in ('echo iex calc') do %i %j"
+# Extract tokens from the inner ('literal string'), then substitute
+# %i/%j into the `do` template.
+_CMD_FOR_LOOP_TOKEN_RX = re.compile(
+    r"for\s+/[fF]\s+(?:\"tokens=(?P<toks>[^\"]+)\"|tokens=(?P<toks2>\S+))"
+    r"\s+%(?P<v1>\w)(?:\s+in\s+\()\s*['\"](?P<inner>[^'\"]+)['\"]\s*\)"
+    r"\s*do\s+(?P<template>[^\"\r\n]+?)(?=\"|$|\r|\n)",
+    re.IGNORECASE,
+)
+
+
+def _cmd_for_loop_token_matches(text: str) -> bool:
+    return bool(_CMD_FOR_LOOP_TOKEN_RX.search(text))
+
+
+def _handle_cmd_for_loop_token(text: str) -> str:
+    m = _CMD_FOR_LOOP_TOKEN_RX.search(text)
+    if not m:
+        raise ValueError("no cmd for-loop-token match")
+    inner = m.group("inner").strip()
+    # `echo XXX` inside the parentheses emits XXX; other cmds emit
+    # unknown static output — we conservatively handle the `echo` case.
+    src_stripped = re.sub(r"^\s*echo\s+", "", inner, flags=re.IGNORECASE)
+    tokens = src_stripped.split()
+    template = m.group("template").strip().rstrip('"').strip()
+    v1 = m.group("v1")
+    # Substitute %v1, %v2, ... with the split tokens in order.
+    resolved = template
+    for i, tok in enumerate(tokens):
+        var_char = chr(ord(v1) + i)  # %i → tokens[0], %j → tokens[1], …
+        resolved = re.sub(r"%" + re.escape(var_char) + r"\b", tok, resolved)
+    banner = (
+        "──── CMD FOR-loop token substitution (Feb 2026) ────\n"
+        f"Iterator source : {inner!r}\n"
+        f"Tokens          : {tokens}\n"
+        f"do-template     : {template!r}\n"
+        f"Resolved command: {resolved}\n"
+        "Behavior        : cmd.exe /F tokens=… harvests fields from a\n"
+        "                  static inline string and executes them as a\n"
+        "                  new command — classic Emotet/QakBot evasion.\n"
+        "MITRE           : T1059.003 / T1027\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# ── row-0013 : CMD_DELAYED_EXPANSION_STRING_REPLACE ───────────────────────
+# cmd /v:on /c "set "var=dhcp" && set "var=!var:d=h!" && powershell -Command !var!"
+# Rebuild the final !var! value by chasing the sequence of set/!var:a=b! ops.
+_CMD_SET_VAR_LITERAL_RX = re.compile(
+    r"""set\s+"?(?P<name>\w+)\s*=\s*(?P<val>[^"&\r\n]+?)"?\s*(?=&&|&|$)""",
+    re.IGNORECASE,
+)
+_CMD_SET_VAR_REPLACE_RX = re.compile(
+    r"""set\s+"?(?P<dst>\w+)\s*=\s*!(?P<src>\w+):(?P<a>[^=!"]+)=(?P<b>[^!"]*)!"?""",
+    re.IGNORECASE,
+)
+_CMD_DELAYED_EXP_TRIGGER_RX = re.compile(
+    r"/v(?:\s*:\s*|\s+)on\b", re.IGNORECASE,
+)
+
+
+def _cmd_delayed_exp_matches(text: str) -> bool:
+    if not _CMD_DELAYED_EXP_TRIGGER_RX.search(text):
+        return False
+    return bool(_CMD_SET_VAR_REPLACE_RX.search(text))
+
+
+def _handle_cmd_delayed_exp(text: str) -> str:
+    # Step 1: walk left-to-right, executing set-literal / set-replace in order.
+    vars_state: Dict[str, str] = {}
+    # Interleave both regex hits in source order.
+    hits = []
+    for m in _CMD_SET_VAR_LITERAL_RX.finditer(text):
+        # Skip literal-hits whose "value" is actually a !var:a=b! reference —
+        # those belong to the REPLACE regex and would otherwise clobber state
+        # with the raw bang-expression literal.
+        if re.search(r"!\w+:[^=!]+=[^!]*!", m.group("val") or ""):
+            continue
+        hits.append((m.start(), "literal", m))
+    for m in _CMD_SET_VAR_REPLACE_RX.finditer(text):
+        hits.append((m.start(), "replace", m))
+    hits.sort(key=lambda t: t[0])
+    steps: List[str] = []
+    for _, kind, m in hits:
+        if kind == "literal":
+            name, val = m.group("name"), m.group("val").strip()
+            vars_state[name] = val
+            steps.append(f"  set {name}={val}")
+        else:
+            dst, src, a, b = m.group("dst"), m.group("src"), m.group("a"), m.group("b")
+            if src not in vars_state:
+                continue
+            new_val = vars_state[src].replace(a, b)
+            vars_state[dst] = new_val
+            steps.append(f"  set {dst}=!{src}:{a}={b}! → {new_val}")
+    # Step 2: resolve any final !var! reference in the remaining command
+    resolved = text
+    for name, val in vars_state.items():
+        resolved = re.sub(r"!" + re.escape(name) + r"!", val, resolved)
+    banner = (
+        "──── CMD delayed-expansion string-replace (Feb 2026) ────\n"
+        "Variable trace :\n"
+        + "\n".join(steps) + "\n"
+        f"Final state    : {vars_state}\n"
+        f"Resolved cmd   : {resolved.strip()}\n"
+        "Behavior       : cmd /v:on delayed expansion combined with\n"
+        "                 !var:a=b! substring replacement — dodges static\n"
+        "                 string scanners by building the command at runtime.\n"
+        "MITRE          : T1140 / T1059.003 / T1027\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# ── row-0015 : PS_STRINGJOIN_CHAR_ARRAY_DIRECT ────────────────────────────
+# Invoke-Expression ([System.String]::Join('', ((73,69,88,...) | %{[char]$_})))
+_PS_STRINGJOIN_CHAR_RX = re.compile(
+    r"\[(?:System\.)?String\]::Join\s*\(\s*['\"](?P<sep>[^'\"]*)['\"]\s*,\s*"
+    r"\(\s*\(?\s*(?P<ints>\d{1,3}(?:\s*,\s*\d{1,3}){3,})\s*\)?\s*"
+    r"\|\s*%\s*\{\s*\[char\]\s*\$_\s*\}\s*\)\s*\)",
+    re.IGNORECASE,
+)
+
+
+def _ps_stringjoin_char_matches(text: str) -> bool:
+    return bool(_PS_STRINGJOIN_CHAR_RX.search(text))
+
+
+def _handle_ps_stringjoin_char(text: str) -> str:
+    m = _PS_STRINGJOIN_CHAR_RX.search(text)
+    if not m:
+        raise ValueError("no [String]::Join+charmap match")
+    sep = m.group("sep")
+    ints = [int(x.strip()) for x in m.group("ints").split(",")]
+    if not all(0 <= i <= 0xFF for i in ints):
+        raise ValueError("char array int out of range")
+    joined = sep.join(chr(i) for i in ints)
+    banner = (
+        "──── PS [String]::Join(char-array) (Feb 2026) ────\n"
+        f"Int array (n={len(ints)}) : {ints[:10]}{'…' if len(ints) > 10 else ''}\n"
+        f"Separator             : {sep!r}\n"
+        f"Recovered string      : {joined!r}\n"
+        "Behavior              : ASCII decimal → char decode, then joined\n"
+        "                        and passed to Invoke-Expression.\n"
+        "MITRE                 : T1027 / T1059.001 / T1140\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# ── row-0007 : PS_REGEX_HEX_TOCHAR_IEX ────────────────────────────────────
+# $h='487474...';[regex]::matches($h,'..')|%{[char][convert]::ToInt16($_.value,16)}
+# ; $i= -join $u; iex (New-Object …)
+#
+# Two matching shapes, because `resolve_ps_variables` may have already
+# inlined `$h='hex'` — turning `matches($h,'..')` into `matches('hex','..')`.
+_PS_REGEX_HEX_TOCHAR_VAR_RX = re.compile(
+    r"\$(?P<var>\w+)\s*=\s*['\"](?P<hex>[0-9a-fA-F]{6,})['\"]\s*;?"
+    r"[\s\S]{0,300}?"
+    r"\[(?:System\.)?regex\]::matches\s*\(\s*(?:\$(?P=var)|['\"](?P=hex)['\"])\s*,\s*['\"]\.\.['\"]\s*\)"
+    r"[\s\S]{0,200}?"
+    r"\[(?:System\.)?convert\]::ToInt16",
+    re.IGNORECASE,
+)
+_PS_REGEX_HEX_TOCHAR_INLINE_RX = re.compile(
+    r"\[(?:System\.)?regex\]::matches\s*\(\s*['\"](?P<hex>[0-9a-fA-F]{6,})['\"]\s*,\s*['\"]\.\.['\"]\s*\)"
+    r"[\s\S]{0,200}?"
+    r"\[(?:System\.)?convert\]::ToInt16",
+    re.IGNORECASE,
+)
+
+
+def _ps_regex_hex_tochar_matches(text: str) -> bool:
+    return bool(
+        _PS_REGEX_HEX_TOCHAR_VAR_RX.search(text)
+        or _PS_REGEX_HEX_TOCHAR_INLINE_RX.search(text)
+    )
+
+
+def _handle_ps_regex_hex_tochar(text: str) -> str:
+    m = _PS_REGEX_HEX_TOCHAR_VAR_RX.search(text) or _PS_REGEX_HEX_TOCHAR_INLINE_RX.search(text)
+    if not m:
+        raise ValueError("no ps-regex-hex-tochar match")
+    hex_s = m.group("hex")
+    var_lbl = m.groupdict().get("var") or "<inline>"
+    if len(hex_s) % 2 == 1:
+        hex_s = hex_s[:-1]
+    try:
+        decoded = binascii.unhexlify(hex_s).decode("utf-8", errors="replace")
+    except Exception as e:  # noqa: BLE001
+        raise ValueError(f"hex decode failed: {e}")
+    banner = (
+        "──── PS regex-hex → char → IEX (Feb 2026) ────\n"
+        f"Hex source (var ${var_lbl}) : {hex_s[:80]}{'…' if len(hex_s)>80 else ''}\n"
+        f"Decoded string                    : {decoded!r}\n"
+        "Behavior                          : [regex]::matches($h,'..') splits\n"
+        "                                    the hex string into byte pairs and\n"
+        "                                    ToInt16 → [char] rebuilds ASCII.\n"
+        "                                    Output typically feeds Invoke-Expression.\n"
+        "MITRE                             : T1027 / T1059.001 / T1140 / T1105\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# ── row-0014 : PS_MULTI_B64_INVOKE ────────────────────────────────────────
+# $d=[Convert]::FromBase64String('cmd.exe');$a=[Convert]::FromBase64String('/c calc.exe');& $d $a
+# Decode BOTH literals and emit the invoked command with args.
+_PS_MULTI_B64_INVOKE_RX = re.compile(
+    r"\$(?P<v1>\w+)\s*=\s*\[(?:System\.)?Convert\]::FromBase64String\s*\(\s*['\"](?P<b1>[A-Za-z0-9+/=_\-]{4,})['\"]\s*\)\s*;?"
+    r"[\s\S]{0,300}?"
+    r"\$(?P<v2>\w+)\s*=\s*\[(?:System\.)?Convert\]::FromBase64String\s*\(\s*['\"](?P<b2>[A-Za-z0-9+/=_\-]{2,})['\"]\s*\)\s*;?"
+    r"[\s\S]{0,200}?"
+    r"&\s*\$(?P<call1>\w+)\s+\$(?P<call2>\w+)",
+    re.IGNORECASE,
+)
+
+
+def _ps_multi_b64_invoke_matches(text: str) -> bool:
+    m = _PS_MULTI_B64_INVOKE_RX.search(text)
+    if not m:
+        return False
+    # Verify call vars match the assigned ones (order-independent).
+    assigned = {m.group("v1"), m.group("v2")}
+    called = {m.group("call1"), m.group("call2")}
+    return assigned == called
+
+
+def _handle_ps_multi_b64_invoke(text: str) -> str:
+    m = _PS_MULTI_B64_INVOKE_RX.search(text)
+    if not m:
+        raise ValueError("no multi-b64-invoke match")
+    v1, b1 = m.group("v1"), m.group("b1")
+    v2, b2 = m.group("v2"), m.group("b2")
+    call1, call2 = m.group("call1"), m.group("call2")
+    lookup = {v1: b1, v2: b2}
+    try:
+        d1 = robust_b64decode(lookup[call1]).decode("utf-8", errors="replace")
+        d2 = robust_b64decode(lookup[call2]).decode("utf-8", errors="replace")
+    except Exception as e:  # noqa: BLE001
+        raise ValueError(f"multi-b64 decode failed: {e}")
+    combined = f"{d1} {d2}".strip()
+    banner = (
+        "──── PS multi-b64 & Invoke (Feb 2026) ────\n"
+        f"${call1} = FromBase64({lookup[call1]!r}) → {d1!r}\n"
+        f"${call2} = FromBase64({lookup[call2]!r}) → {d2!r}\n"
+        f"Invocation ( & ${call1} ${call2} ) → {combined!r}\n"
+        "Behavior            : Two base64 blobs — first is the binary\n"
+        "                      target, second is its argument string.\n"
+        "                      `& $var $arg` executes them at runtime.\n"
+        "MITRE               : T1059.001 / T1059.003 / T1140 / T1027\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# ── row-0017 : PS_FROMBASE64_ASCII_INDIRECT ───────────────────────────────
+# $f='bmV0c3RhdCAtYW5v';$b=[Convert]::FromBase64String($f);
+# $s=[Text.Encoding]::ASCII.GetString($b);invoke-expression $s
+# The `_PS_FB64_ASCII_RX` regex expects the FromBase64String call to be
+# nested *inside* ASCII.GetString(). Here it isn't — the intermediate
+# assignment must be chased through two variables.
+_PS_FB64_ASCII_INDIRECT_RX = re.compile(
+    r"\$(?P<v1>\w+)\s*=\s*['\"](?P<blob>[A-Za-z0-9+/=_\-]{8,})['\"]\s*;?"
+    r"[\s\S]{0,300}?"
+    r"\$(?P<v2>\w+)\s*=\s*\[(?:System\.)?Convert\]::FromBase64String\s*\(\s*"
+    r"(?:\$(?P=v1)|['\"](?P=blob)['\"])\s*\)\s*;?"
+    r"[\s\S]{0,300}?"
+    r"\[(?:System\.)?Text\.Encoding\]::(?P<enc>ASCII|UTF-?8|Unicode|UTF-?16(?:LE)?|Default)\.GetString\s*\(\s*\$(?P=v2)\s*\)",
+    re.IGNORECASE,
+)
+
+
+def _ps_fb64_ascii_indirect_matches(text: str) -> bool:
+    return bool(_PS_FB64_ASCII_INDIRECT_RX.search(text))
+
+
+def _handle_ps_fb64_ascii_indirect(text: str) -> str:
+    m = _PS_FB64_ASCII_INDIRECT_RX.search(text)
+    if not m:
+        raise ValueError("no indirect fb64+ascii match")
+    blob = m.group("blob")
+    enc = m.group("enc").upper().replace("-", "")
+    raw = robust_b64decode(blob)
+    if enc in ("UNICODE", "UTF16", "UTF16LE"):
+        decoded = raw.decode("utf-16le", errors="replace")
+    elif enc in ("UTF8", "DEFAULT"):
+        decoded = raw.decode("utf-8", errors="replace")
+    else:
+        decoded = "".join(chr(b) if b < 0x80 else "?" for b in raw)
+    return decoded
+
+
 ARCHETYPES: List[Dict[str, Any]] = [
     # ─── Feb 2026 · Reverse-Shell Primitives (batch-CSV row 3/4/5/6/8/9 fix) ─
     {
@@ -2600,6 +2893,54 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["cmd-set-collect", "env-ref-resolve"],
         "handler": _handle_ps_envvar_method_chain,
         "match":   lambda t: _ps_envvar_method_chain_matches(t),
+        "terminal": True,
+    },
+    # ─── Feb 2026 · Batch-CSV 3rd-round fixes (rows 6, 7, 13, 14, 15, 17) ─
+    {
+        "id": "PS_MULTI_B64_INVOKE",
+        "description": "PowerShell `$v1=FromBase64('a');$v2=FromBase64('b');& $v1 $v2` — decodes BOTH literals and reconstructs the invocation.",
+        "chain": ["extract-b64-pair", "ascii-decode", "invoke-concat"],
+        "handler": _handle_ps_multi_b64_invoke,
+        "match":   lambda t: _ps_multi_b64_invoke_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "PS_FROMBASE64_ASCII_INDIRECT",
+        "description": "Indirect FromBase64String via chained `$f='b64';$b=FromBase64($f);ASCII.GetString($b)` — Feb 2026 row-0017 fix.",
+        "chain": ["extract-b64-via-var", "ascii-decode"],
+        "handler": _handle_ps_fb64_ascii_indirect,
+        "match":   lambda t: _ps_fb64_ascii_indirect_matches(t),
+    },
+    {
+        "id": "PS_REGEX_HEX_TOCHAR_IEX",
+        "description": "PowerShell $h='<hex>'; [regex]::matches($h,'..') | %{[char][convert]::ToInt16(...,16)} → IEX (row-0007).",
+        "chain": ["extract-hex-string", "regex-split-2", "hex-decode"],
+        "handler": _handle_ps_regex_hex_tochar,
+        "match":   lambda t: _ps_regex_hex_tochar_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "PS_STRINGJOIN_CHAR_ARRAY_DIRECT",
+        "description": "PowerShell [String]::Join('', ((n,n,n,...) | %{[char]$_})) direct char-array join (row-0015).",
+        "chain": ["extract-int-array", "chr-map", "join"],
+        "handler": _handle_ps_stringjoin_char,
+        "match":   lambda t: _ps_stringjoin_char_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "CMD_FOR_LOOP_TOKEN_EXTRACTION",
+        "description": "cmd.exe /F tokens=N %i in ('echo A B') do %i %j — Emotet/QakBot tokenised command builder (row-0006).",
+        "chain": ["extract-inline-string", "tokenize", "template-substitute"],
+        "handler": _handle_cmd_for_loop_token,
+        "match":   lambda t: _cmd_for_loop_token_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "CMD_DELAYED_EXPANSION_STRING_REPLACE",
+        "description": "cmd /v:on delayed-expansion `set var=X && set var=!var:a=b! && … !var!` runtime rewriter (row-0013).",
+        "chain": ["cmd-set-collect", "string-replace", "expand-bang-var"],
+        "handler": _handle_cmd_delayed_exp,
+        "match":   lambda t: _cmd_delayed_exp_matches(t),
         "terminal": True,
     },
     # ─── Feb 2026 · Native / LOLBAS command explainer (fallback) ───────

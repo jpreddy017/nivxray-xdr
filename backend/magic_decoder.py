@@ -743,19 +743,12 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                     }
                     if salvaged is not None:
                         output_text = (
-                            f"[Corrupted {label} container — SALVAGED unverified payload] "
-                            f"{salvaged}\n\n"
-                            f"⚠ Warning: {type(_e).__name__}: {_e}. "
-                            "Trailer CRC/ISIZE could not be validated — recovered "
-                            "plaintext may be truncated or tampered. Verify against source."
+                            f"[{label}_TRUNCATED · CRC unverified] {salvaged.strip()}"
                         )
                     else:
                         output_text = (
-                            f"[Corrupted {label} container] "
-                            f"{type(_e).__name__}: {_e}. "
-                            "Deterministic decoder will not brute-force inside a "
-                            "corrupted container. Enable Aggressive Recovery to "
-                            "attempt salvage."
+                            f"[{label}_CORRUPT] {type(_e).__name__}: {_e} "
+                            "— aggressive salvage disabled."
                         )
                     best_results.append({
                         "chain": chain + [step_err],
