@@ -1139,6 +1139,15 @@ for _label in (
     "excel-regex-annotate", "gcm-wildcard-annotate", "native-cmd-explain",
     "pe-header-check", "download-shell-bg",
     "reverse-shell-mkfifo", "reverse-shell-perl", "reverse-shell-python",
+    # Feb 2026 · fix "Unknown operation" red badge for LOLBAS annotator chains
+    "certutil-annotate", "mshta-annotate", "bitsadmin-annotate",
+    "msiexec-annotate", "regsvr32-annotate", "rundll32-annotate",
+    "wmic-annotate", "homoglyph-normalise", "expand-alias",
+    "cmd-set-collect", "env-ref-resolve", "extract-b64-pair",
+    "invoke-concat", "extract-b64-via-var", "extract-hex-string",
+    "regex-split-2", "extract-int-array", "chr-map", "join",
+    "extract-inline-string", "tokenize", "template-substitute",
+    "string-replace", "expand-bang-var", "xor-byte",
 ):
     _fn = _mk_annotator(_label)
     OPERATIONS[_label] = {

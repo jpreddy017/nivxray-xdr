@@ -1750,10 +1750,15 @@ export default function WorkspacePage() {
 
           {/* Kill-Chain Path Card — G1/G2 toggle. Renders as soon as we have
               ANY decode signal (chain / output / IOCs / lolbins), synthesising
-              a graph on the fly if the AI describe hasn't run yet. */}
+              a graph on the fly if the AI describe hasn't run yet.
+
+              Feb 2026 · Stability Fix: the Kill-Chain Path card now ALWAYS
+              uses the deterministic synth graph. The LLM narrative graph is
+              async and used to overwrite this card ~10-30 s after page load,
+              which analysts perceived as "the graph keeps changing". The
+              AI narrative graph now stays exclusively in the TACTICAL
+              SWIM-LANE card above, so each card has one stable source. */}
           {(() => {
-            const aiGraph = analysis?.description?.entity_graph;
-            const hasAiGraph = aiGraph && Array.isArray(aiGraph.nodes) && aiGraph.nodes.length > 0;
             const hasDecodeSignal = !!(
               output || input ||
               (analysis?.chain && (Array.isArray(analysis.chain) ? analysis.chain.length : (analysis.chain.steps || []).length)) ||
@@ -1761,12 +1766,10 @@ export default function WorkspacePage() {
               (analysis?.lolbins && analysis.lolbins.length) ||
               (analysis?.mitre && analysis.mitre.length)
             );
-            if (!hasAiGraph && !hasDecodeSignal) return null;
+            if (!hasDecodeSignal) return null;
 
-            const graph = hasAiGraph
-              ? { nodes: aiGraph.nodes, edges: aiGraph.edges || [] }
-              : buildFallbackGraph({ input, output, analysis, verdict: verdictCard });
-            const source = hasAiGraph ? "ai" : "synth";
+            const graph = buildFallbackGraph({ input, output, analysis, verdict: verdictCard });
+            const source = "synth";
 
             return (
               <div className="nvx-card" data-testid="attack-path-card">
@@ -1776,7 +1779,7 @@ export default function WorkspacePage() {
                     {graphView === "path" ? "G1 · KILL-CHAIN PATH" : "G2 · TACTICAL (ALT)"}
                     <span className="count">
                       {graphView === "path"
-                        ? `${graph.nodes.length} nodes · ${graph.edges.length} edges · ${source === "ai" ? "AI graph" : "synthesised"}`
+                        ? `${graph.nodes.length} nodes · ${graph.edges.length} edges · deterministic`
                         : "MITRE swim-lane (mirrors top card)"}
                     </span>
                   </div>
