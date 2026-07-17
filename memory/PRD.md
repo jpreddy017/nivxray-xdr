@@ -3345,3 +3345,25 @@ Frontend: `PlatformCapabilities` component in `KnowledgeBasePage.jsx`. Collapsed
 - Dashed-red graph edges for chain-breaks — P3
 - (Nice-to-have) Cite-Research chip next to each MITRE tag → opens source paper
 - Cosmetic: fix `<span>` inside `<option>` hydration warning in WorkspacePage.jsx ~L1005
+
+## Feb 2026 · Trending Techniques Panel (DOCS section, not Workspace)
+
+### What was added
+User directive: NivXRay is a **strict decoder tool, not a website**. Trending
+data lives in DOCS, never on Workspace.
+
+1. **`GET /api/threat-intel/rss/trending?days=7&top=10`** — aggregates the
+   pending/promoted training-note drafts crawled in the last N days:
+   - MITRE T-IDs with sample sources
+   - Top keywords / malware-family mentions
+   - Feed contribution counts
+   - Latest article list
+2. **DocsPage.jsx · TrendingPanel** — new sidebar entry under
+   "CTI REFERENCE" → "Trending Techniques (7d)". Read-only, no charts,
+   no widgets, no live-refresh — pure docs-style reference. Window
+   picker: 3d / 7d / 14d / 30d.
+
+### Design discipline
+- Workspace stays widget-free. No live threat radar. No dashboards.
+- Panel deliberately hides Cheat-PDF / Back-to-guide chrome for this
+  pseudo-selection (`selected.kind === "trending"`).

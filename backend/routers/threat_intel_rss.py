@@ -426,6 +426,95 @@ async def delete_pending(note_id: str, user=Depends(require_admin)):
     return {"ok": True, "pending_id": note_id, "status": "deleted"}
 
 
+@router.get("/threat-intel/rss/trending")
+async def trending_techniques(days: int = 7, top: int = 10,
+                               user=Depends(get_current_user)):
+    """Aggregate MITRE T-IDs, LOLBins, and obfuscation keywords mentioned
+    across all pending/promoted training-note drafts crawled in the last
+    `days` days. Purely a read-only DOCS panel — never mutates state.
+
+    Returns:
+      {
+        window_days:  int,
+        source_count: int,           # drafts included in the aggregate
+        techniques:  [{id, count, samples: [{title, url}]}]   # MITRE T-IDs
+        keywords:    [{kw, count}]   # obfuscation vocabulary hits
+        feeds:       [{feed_id, count}]
+        latest:      [{title, url, published_at, feed_name, keywords_hit}]
+      }
+    """
+    days = max(1, min(30, int(days or 7)))
+    top  = max(1, min(50, int(top or 10)))
+    cutoff = datetime.now(timezone.utc).timestamp() - days * 86400
+    # cutoff as iso for lex-compare against created_at (which we store as iso)
+    from datetime import datetime as _dt, timezone as _tz
+    cutoff_iso = _dt.fromtimestamp(cutoff, tz=_tz.utc).isoformat()
+
+    cur = db.pending_training_notes.find(
+        {"created_at": {"$gte": cutoff_iso}, "status": {"$in": ["pending", "promoted"]}}
+    ).sort([("created_at", -1)])
+    docs = [d async for d in cur]
+
+    tid_counts: Dict[str, int]        = {}
+    tid_samples: Dict[str, List[Dict[str, str]]] = {}
+    kw_counts: Dict[str, int]         = {}
+    feed_counts: Dict[str, int]       = {}
+    _TID_RX = re.compile(r"\bT1\d{3}(?:\.\d{3})?\b")
+
+    for d in docs:
+        haystack = " ".join([
+            d.get("article_title") or "",
+            d.get("draft_title")   or "",
+            d.get("draft_body")    or "",
+        ])
+        for tid in set(_TID_RX.findall(haystack)):
+            tid_counts[tid] = tid_counts.get(tid, 0) + 1
+            if tid not in tid_samples:
+                tid_samples[tid] = []
+            if len(tid_samples[tid]) < 3:
+                tid_samples[tid].append({
+                    "title": d.get("article_title", "")[:120],
+                    "url":   d.get("source_url", ""),
+                })
+        for kw in (d.get("keywords_hit") or []):
+            kw_counts[kw] = kw_counts.get(kw, 0) + 1
+        fid = d.get("feed_id") or "?"
+        feed_counts[fid] = feed_counts.get(fid, 0) + 1
+
+    techniques = sorted(
+        ({"id": tid, "count": c, "samples": tid_samples.get(tid, [])}
+         for tid, c in tid_counts.items()),
+        key=lambda x: (-x["count"], x["id"]),
+    )[:top]
+    keywords = sorted(
+        ({"kw": kw, "count": c} for kw, c in kw_counts.items()),
+        key=lambda x: (-x["count"], x["kw"]),
+    )[:top]
+    feeds = sorted(
+        ({"feed_id": fid, "count": c} for fid, c in feed_counts.items()),
+        key=lambda x: -x["count"],
+    )
+    latest = [
+        {
+            "title":         d.get("article_title", "")[:200],
+            "url":           d.get("source_url", ""),
+            "published_at":  d.get("published_at", ""),
+            "created_at":    d.get("created_at", ""),
+            "feed_name":     d.get("feed_name", ""),
+            "keywords_hit":  (d.get("keywords_hit") or [])[:6],
+        }
+        for d in docs[:15]
+    ]
+    return {
+        "window_days":  days,
+        "source_count": len(docs),
+        "techniques":   techniques,
+        "keywords":     keywords,
+        "feeds":        feeds,
+        "latest":       latest,
+    }
+
+
 # ─── Background scheduler ─────────────────────────────────────────────
 def _interval_hours() -> int:
     try:

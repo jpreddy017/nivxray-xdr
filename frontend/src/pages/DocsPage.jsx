@@ -85,6 +85,8 @@ export default function DocsPage() {
 
   useEffect(() => {
     if (!selected) { setDetail(null); return; }
+    // Trending is a client-side pseudo-selection — no backend fetch needed.
+    if (selected.kind === "trending") { setDetail(null); return; }
     const path = selected.kind === "feature"
       ? `/docs/features/${selected.id}`
       : `/docs/workflows/${selected.id}`;
@@ -276,6 +278,23 @@ export default function DocsPage() {
                   ))}
                 </div>
               ))}
+
+              {/* Feb-2026 · Read-only CTI trending panel (docs section) */}
+              <div style={{ marginTop: 14, borderTop: "1px solid rgba(148,163,184,0.15)", paddingTop: 10 }}>
+                <div style={{ fontSize: 10, color: "#7ee3c9", fontWeight: 600, marginBottom: 4 }}>
+                  CTI REFERENCE
+                </div>
+                <div onClick={() => setSelected({ kind: "trending", id: "trending" })}
+                     style={{
+                       fontSize: 11, padding: "4px 6px", cursor: "pointer",
+                       borderRadius: 3, color: "#c9d1d9",
+                       background: selected?.kind === "trending" ? "rgba(126,227,201,0.10)" : "transparent",
+                     }}
+                     data-testid="docs-trending-nav"
+                >
+                  Trending Techniques (7d)
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -286,7 +305,7 @@ export default function DocsPage() {
         <div className="nvx-card-head">
           <div className="nvx-card-title">
             <BookOpen size={13} style={{ marginRight: 6 }} />
-            {detail ? (detail.title || detail.id) : `${audience.toUpperCase()} GUIDE`}
+            {detail ? (detail.title || detail.id) : (selected?.kind === "trending" ? "Trending Techniques · Last 7 Days" : `${audience.toUpperCase()} GUIDE`)}
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
             <button
@@ -320,7 +339,7 @@ export default function DocsPage() {
             >
               DOCX
             </button>
-            {selected && (
+            {selected && selected.kind !== "trending" && (
               <>
                 <a
                   href={`${process.env.REACT_APP_BACKEND_URL || ""}/api/docs/cheatsheet/${selected.id}?fmt=pdf`}
@@ -359,7 +378,9 @@ export default function DocsPage() {
           </div>
         </div>
         <div className="nvx-card-body" style={{ fontSize: 13, color: "#c9d1d9", lineHeight: 1.6 }}>
-          {detail ? (
+          {selected?.kind === "trending" ? (
+            <TrendingPanel />
+          ) : detail ? (
             <FeatureDetail detail={detail} kind={selected.kind} />
           ) : (
             <div className="docs-md">
@@ -729,6 +750,179 @@ function FeatureDetail({ detail, kind }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+
+
+// ─── Feb-2026 · Trending Techniques (7-day CTI aggregate) ────────────────
+// Docs-style read-only reference panel powered by the CTI RSS crawler.
+// Deliberately static-looking — no charts, no live updates, no widgets on
+// the Workspace. Tool discipline: this belongs in DOCS.
+function TrendingPanel() {
+  const [data, setData]   = useState(null);
+  const [days, setDays]   = useState(7);
+  const [busy, setBusy]   = useState(true);
+  const [err, setErr]     = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBusy(true); setErr(null);
+    api.get(`/threat-intel/rss/trending?days=${days}&top=15`)
+       .then((r) => { if (!cancelled) setData(r.data); })
+       .catch((e) => { if (!cancelled) setErr(e.response?.data?.detail || e.message); })
+       .finally(() => { if (!cancelled) setBusy(false); });
+    return () => { cancelled = true; };
+  }, [days]);
+
+  return (
+    <div data-testid="docs-trending-panel">
+      <div style={{ marginBottom: 12, color: "#94a3b8", fontSize: 11, lineHeight: 1.6 }}>
+        Aggregated view of the CTI RSS crawler's inbox — MITRE T-IDs, malware
+        family names, and obfuscation keywords mentioned across public threat
+        research from the last {days} days. Data source:{" "}
+        <code>db.pending_training_notes</code>. Read-only reference; adjust
+        the crawler cadence via <code>CTI_RSS_INTERVAL_HOURS</code>.
+      </div>
+
+      <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>
+        {[3, 7, 14, 30].map((d) => (
+          <button key={d} onClick={() => setDays(d)}
+                  data-testid={`trending-window-${d}d`}
+                  className={`nvx-btn sm ${days === d ? "" : "ghost"}`}
+                  style={{ fontSize: 10 }}>
+            {d}D
+          </button>
+        ))}
+        <div style={{ marginLeft: "auto", fontSize: 10, color: "#94a3b8", alignSelf: "center" }}>
+          {busy ? "…" : data ? `${data.source_count} article${data.source_count === 1 ? "" : "s"} scanned` : ""}
+        </div>
+      </div>
+
+      {err && (
+        <div style={{ padding: 8, background: "rgba(239,68,68,0.08)",
+                       border: "1px solid rgba(239,68,68,0.3)", borderRadius: 3,
+                       fontSize: 11, color: "#ef4444", marginBottom: 12 }}
+             data-testid="trending-error">
+          {err}
+        </div>
+      )}
+
+      {data && data.source_count === 0 && !err && (
+        <div style={{ padding: 12, background: "rgba(148,163,184,0.05)",
+                      borderRadius: 3, fontSize: 12, color: "#94a3b8" }}
+             data-testid="trending-empty">
+          No crawled articles in the last {days} days. The scheduler auto-runs
+          every {`\${window.__cti_interval || 6}`.replace(/[${}\\]/g, "")} hours; you
+          can also trigger a manual crawl from{" "}
+          <code>/admin/training-inbox</code>.
+        </div>
+      )}
+
+      {data && data.techniques && data.techniques.length > 0 && (
+        <section style={{ marginBottom: 20 }}>
+          <div style={{ color: "#7ee3c9", fontWeight: 600, fontSize: 11, marginBottom: 6 }}>
+            Top MITRE ATT&amp;CK Techniques
+          </div>
+          <table className="mono" style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}
+                 data-testid="trending-techniques-table">
+            <thead>
+              <tr style={{ textAlign: "left", color: "#94a3b8" }}>
+                <th style={{ padding: "4px 6px", borderBottom: "1px solid rgba(148,163,184,0.15)" }}>T-ID</th>
+                <th style={{ padding: "4px 6px", borderBottom: "1px solid rgba(148,163,184,0.15)" }}>Hits</th>
+                <th style={{ padding: "4px 6px", borderBottom: "1px solid rgba(148,163,184,0.15)" }}>Sample sources</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.techniques.map((t) => (
+                <tr key={t.id} data-testid={`trending-tid-${t.id}`}>
+                  <td style={{ padding: "4px 6px", color: "#7ee3c9", fontWeight: 600 }}>{t.id}</td>
+                  <td style={{ padding: "4px 6px", color: "#c9d1d9" }}>{t.count}</td>
+                  <td style={{ padding: "4px 6px", color: "#94a3b8" }}>
+                    {t.samples.slice(0, 2).map((s, i) => (
+                      <a key={i} href={s.url} target="_blank" rel="noreferrer"
+                         style={{ display: "block", color: "#60a5fa", fontSize: 10, textDecoration: "none" }}
+                         title={s.title}>
+                        · {s.title.slice(0, 90)}
+                      </a>
+                    ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {data && data.keywords && data.keywords.length > 0 && (
+        <section style={{ marginBottom: 20 }}>
+          <div style={{ color: "#7ee3c9", fontWeight: 600, fontSize: 11, marginBottom: 6 }}>
+            Top Keywords / Malware-Family Mentions
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}
+               data-testid="trending-keywords">
+            {data.keywords.map((k) => (
+              <span key={k.kw}
+                    data-testid={`trending-kw-${k.kw}`}
+                    style={{ padding: "3px 8px", background: "rgba(126,227,201,0.08)",
+                              border: "1px solid rgba(126,227,201,0.2)",
+                              borderRadius: 3, fontSize: 11, color: "#c9d1d9" }}>
+                {k.kw} <span style={{ color: "#7ee3c9", fontWeight: 600 }}>×{k.count}</span>
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {data && data.feeds && data.feeds.length > 0 && (
+        <section style={{ marginBottom: 20 }}>
+          <div style={{ color: "#7ee3c9", fontWeight: 600, fontSize: 11, marginBottom: 6 }}>
+            Source Breakdown
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 11 }}
+               data-testid="trending-feeds">
+            {data.feeds.map((f) => (
+              <span key={f.feed_id}
+                    data-testid={`trending-feed-${f.feed_id}`}
+                    style={{ color: "#94a3b8" }}>
+                <code>{f.feed_id}</code> <span style={{ color: "#c9d1d9" }}>×{f.count}</span>
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {data && data.latest && data.latest.length > 0 && (
+        <section style={{ marginBottom: 20 }}>
+          <div style={{ color: "#7ee3c9", fontWeight: 600, fontSize: 11, marginBottom: 6 }}>
+            Latest Crawled Articles
+          </div>
+          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 11, lineHeight: 1.7 }}
+              data-testid="trending-latest">
+            {data.latest.map((a, i) => (
+              <li key={i} data-testid={`trending-latest-${i}`} style={{ marginBottom: 3 }}>
+                <a href={a.url} target="_blank" rel="noreferrer"
+                   style={{ color: "#c9d1d9", textDecoration: "none" }}>
+                  {a.title}
+                </a>
+                <span style={{ color: "#94a3b8", marginLeft: 6, fontSize: 10 }}>
+                  · {a.feed_name} · {(a.keywords_hit || []).slice(0, 3).join(", ")}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      <div style={{ marginTop: 16, fontSize: 10, color: "#64748b",
+                     borderTop: "1px solid rgba(148,163,184,0.15)", paddingTop: 8 }}>
+        This panel is a docs-only reference. NivXRay is a decoding /
+        forensics tool — not a live threat feed. For actionable pipeline
+        directives, promote a draft in{" "}
+        <code>/admin/training-inbox</code> to activate it in the
+        always-on training-notes channel.
+      </div>
     </div>
   );
 }
