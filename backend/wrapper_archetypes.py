@@ -2598,6 +2598,106 @@ def _handle_khex_nsmap(text: str) -> str:
     return ascii_out if ascii_score >= u16_score else u16_out
 
 
+# ─── Feb 2026 · XHEX variant (marker `x` at START, backslash at END) ───
+# Real-world payload shape (Fail_1, Fail_3 samples):
+#   `x63x47x39\x33\x5a\x58\x4a\x7a...`  or  `x63\x47\x39\...`
+# Each `x{HH}\` = 1 hex byte (marker char `x`, then 2 hex chars, then `\`
+# separator). Same underlying scheme as KHEX but with the tokens delimited
+# on the OTHER side (backslash follows the byte, not precedes).
+_XHEX_TOKEN_RE = re.compile(r"([a-z])([0-9a-z<>?]{2})\\")
+_XHEX_MIN_TOKENS = 20
+
+
+def _strip_smart_decorations(text: str) -> str:
+    """Strip smart-engine trace separator chars (━ box-drawing, section
+    dividers) so archetype regexes see the raw payload."""
+    return re.sub(r"[━─═║│┃┏┓┗┛┣┫┳┻╋]+", " ", text)
+
+
+def _xhex_variant_matches(text: str) -> bool:
+    healed = _strip_smart_decorations(_khex_self_heal(text))
+    tokens = _XHEX_TOKEN_RE.findall(healed)
+    if len(tokens) < _XHEX_MIN_TOKENS:
+        return False
+    # The marker character must be CONSISTENT across ≥70% of tokens (rules out
+    # false positives on natural language / already-decoded PowerShell).
+    from collections import Counter
+    marker_freq = Counter(t[0] for t in tokens)
+    top_marker, top_count = marker_freq.most_common(1)[0]
+    return top_count / len(tokens) >= 0.70
+
+
+def _handle_xhex_variant(text: str) -> str:
+    """Decode `<marker>HH\\` style hex tokens with optional letter substitution."""
+    import itertools as _it
+    from collections import Counter
+    healed = _strip_smart_decorations(_khex_self_heal(text))
+    all_tokens = _XHEX_TOKEN_RE.findall(healed)
+    if len(all_tokens) < _XHEX_MIN_TOKENS:
+        raise ValueError("xhex: too few tokens")
+
+    # Pick dominant marker letter
+    marker_freq = Counter(t[0] for t in all_tokens)
+    top_marker, _ = marker_freq.most_common(1)[0]
+    tokens = [t[1] for t in all_tokens if t[0] == top_marker]
+
+    # Collect substituted chars in token bodies
+    subst = sorted({c for tok in tokens for c in tok if c not in "0123456789abcdef"})
+    if len(subst) > 6:
+        freq = Counter(c for tok in tokens for c in tok if c in subst)
+        subst = [c for c, _ in freq.most_common(6)]
+    valid_tokens = [t for t in tokens if all(c in "0123456789abcdef" or c in subst for c in t)]
+    if len(valid_tokens) < _XHEX_MIN_TOKENS:
+        raise ValueError("xhex: not enough clean tokens")
+
+    best_score, best_bytes = 0.0, None
+    letters_needed = min(6, len(subst))
+    hex_pool = list("abcdef")[:letters_needed]
+    # Also try IDENTITY (no substitution — for standard hex payloads)
+    candidates = [dict(zip(subst[:letters_needed], perm)) for perm in _it.permutations(hex_pool)]
+    candidates.append({})  # identity fallback
+    for mapping in candidates:
+        try:
+            hex_str = "".join(mapping.get(t[0], t[0]) + mapping.get(t[1], t[1]) for t in valid_tokens)
+            raw = bytes.fromhex(hex_str)
+        except Exception:
+            continue
+        txt = raw.decode("ascii", errors="replace")
+        b64_shape = sum(1 for ch in txt if ch in
+                        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+        printable = sum(1 for b in raw if 32 <= b < 127 or b in (10, 13, 9))
+        score = 0.4 * (printable / max(len(raw), 1)) + 0.6 * (b64_shape / max(len(txt), 1))
+        if score > best_score:
+            best_score, best_bytes = score, raw
+
+    if not best_bytes or best_score < 0.80:
+        raise ValueError(f"xhex: no confident mapping found (best_score={best_score:.2f})")
+
+    return _b64_ascii_or_utf16(best_bytes)
+
+
+def _b64_ascii_or_utf16(raw: bytes) -> str:
+    """Common tail — base64-decode `raw` (ASCII bytes), try ASCII vs UTF-16LE.
+
+    Salvages invalid base64 lengths (4k+1) by trimming the trailing byte,
+    which is the standard fix for KHEX-family payloads where an outer
+    substitution accidentally emits a stray character.
+    """
+    txt = raw.decode("ascii", errors="replace")
+    txt = re.sub(r"[^A-Za-z0-9+/=]", "", txt)
+    if len(txt) % 4 == 1:
+        txt = txt[:-1]  # base64 cannot have length 4k+1; drop last char
+    padded = txt + "=" * (-len(txt) % 4)
+    b64_raw = base64.b64decode(padded, validate=False)
+    ascii_out = b64_raw.decode("ascii", errors="replace")
+    ascii_score = sum(1 for c in ascii_out if c.isprintable() or c in "\n\r\t") / max(len(ascii_out), 1)
+    if ascii_score >= 0.80:
+        return ascii_out
+    u16_out = b64_raw.decode("utf-16-le", errors="replace")
+    u16_score = sum(1 for c in u16_out if c.isprintable() or c in "\n\r\t") / max(len(u16_out), 1)
+    return u16_out if u16_score >= ascii_score else ascii_out
+
+
 ARCHETYPES: List[Dict[str, Any]] = [
     # ─── Feb 2026 · KHEX substitution cipher (Sample1_JP fix) ───────────────
     {
@@ -2609,6 +2709,17 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["khex-unmap", "hex-decode", "base64-decode", "utf16le-or-utf8-decode"],
         "handler": _handle_khex_nsmap,
         "match":   lambda t: _khex_nsmap_matches(t),
+        "terminal": False,
+    },
+    # ─── Feb 2026 · XHEX variant (marker before body, backslash after) ──────
+    {
+        "id": "PS_XHEX_TRAILING_DELIM_OBFUSCATION",
+        "description": "Hex substitution cipher with dominant marker letter (e.g. `x`) "
+                        "before each 2-char body and a backslash AFTER — shape `xHH\\`. "
+                        "Brute-forces letter substitution + optional identity mapping.",
+        "chain": ["xhex-unmap", "hex-decode", "base64-decode", "utf16le-or-utf8-decode"],
+        "handler": _handle_xhex_variant,
+        "match":   lambda t: _xhex_variant_matches(t),
         "terminal": False,
     },
     # ─── Feb 2026 · Reverse-Shell Primitives (batch-CSV row 3/4/5/6/8/9 fix) ─
