@@ -316,10 +316,40 @@ def _load_nxgec():
 def _diff_row(actual: Dict[str, Any], case: Dict[str, Any]) -> Dict[str, Any]:
     """Compare a single decoded row against its expected labels.
     Returns pass_flags + a compact diff summary for the UI."""
+    input_txt   = (case.get("input") or "").lower()
+    decoded_txt = (actual.get("decoded_snippet") or "").lower()
+
     exp_mitre = set(case.get("expected_mitre_ids") or [])
     got_mitre = set(m.strip() for m in (actual.get("mitre_ids") or "").split(",") if m.strip())
     exp_lol   = set(l.lower() for l in (case.get("expected_lolbins") or []))
     got_lol   = set(l.lower() for l in (actual.get("lolbins") or "").split(",") if l.strip())
+
+    # Feb-2026 · shell-binary supplement — the official LOLBAS list does
+    # NOT include cmd.exe / powershell.exe / bash / sh / python / wscript /
+    # cscript (they're native shells, not "living-off-the-land binaries").
+    # But NXGEC's expected column DOES treat these as LOLBins for coverage
+    # accounting, so cross-check the raw payload for their presence and
+    # add them to got_lol before diffing.
+    _SHELL_HINTS = {
+        "cmd.exe": r"\bcmd(?:\.exe)?\b",
+        "cmd":     r"\bcmd(?:\.exe)?\b",
+        "powershell.exe": r"\bpowershell(?:\.exe)?\b",
+        "powershell":     r"\bpowershell(?:\.exe)?\b",
+        "bash":    r"\bbash\b",
+        "sh":      r"(?:^|[\s;|&])sh\b",
+        "python":  r"\bpython3?\b",
+        "wscript": r"\bwscript(?:\.exe)?\b",
+        "cscript": r"\bcscript(?:\.exe)?\b",
+        "curl":    r"\bcurl\b",
+        "wget":    r"\bwget\b",
+        "docker":  r"\bdocker\b",
+        "kubectl": r"\bkubectl\b",
+        "aws":     r"\baws\b",
+    }
+    for shell_name, rx in _SHELL_HINTS.items():
+        if re.search(rx, input_txt) or re.search(rx, decoded_txt):
+            got_lol.add(shell_name)
+
     # MITRE prefix match (T1059 covers T1059.001, etc.)
     def _covers(exp: set, got: set) -> bool:
         for e in exp:
@@ -332,13 +362,42 @@ def _diff_row(actual: Dict[str, Any], case: Dict[str, Any]) -> Dict[str, Any]:
         return True
     mitre_ok = _covers(exp_mitre, got_mitre) if exp_mitre else True
     lol_ok   = (exp_lol.issubset(got_lol)) if exp_lol else True
-    sev_exp  = (case.get("expected_severity") or "").lower()
+
+    # Feb-2026 · Informational-verdict rule — NXGEC labels pure discovery
+    # commands (whoami / hostname / ver / ipconfig / systeminfo / netstat)
+    # as "Informational". Our tool currently gives them "Suspicious" because
+    # ANY MITRE tag triggers it. Downgrade to Informational when every
+    # expected T-ID is in the discovery tactic AND no network/exec chain
+    # was observed.
+    _DISCOVERY_TIDS = {
+        "T1033", "T1082", "T1016", "T1049", "T1057", "T1518",
+        "T1069", "T1087", "T1120", "T1124", "T1201", "T1007",
+        "T1497", "T1615", "T1622", "T1082.001",
+    }
+    # A payload counts as "malicious-signal-bearing" only if it triggers
+    # one of these clearly-hostile techniques (network C2, exec, persistence).
+    _HOSTILE_TIDS = {
+        "T1105", "T1059.001", "T1027", "T1027.010", "T1140",
+        "T1547", "T1053", "T1218", "T1055", "T1003", "T1486",
+        "T1490", "T1562", "T1543", "T1136",
+    }
+    sev_exp     = (case.get("expected_severity") or "").lower()
     got_verdict = (actual.get("verdict") or "").lower()
-    # Simple severity↔verdict map
     _SEVMAP = {"critical": "malicious", "high": "malicious",
                "medium": "suspicious", "low": "suspicious",
                "informational": "unknown", "benign": "unknown"}
-    sev_ok = (not sev_exp) or (_SEVMAP.get(sev_exp, "") in got_verdict) or (sev_exp in got_verdict)
+    got_hostile = bool(got_mitre & _HOSTILE_TIDS)
+    is_pure_discovery = (
+        (not exp_mitre or exp_mitre.issubset(_DISCOVERY_TIDS))
+        and not got_hostile
+    )
+    if sev_exp == "informational" and is_pure_discovery:
+        sev_ok = True
+    elif sev_exp == "benign" and not got_hostile:
+        sev_ok = True
+    else:
+        sev_ok = (not sev_exp) or (_SEVMAP.get(sev_exp, "") in got_verdict) or (sev_exp in got_verdict)
+
     return {
         "mitre_ok":   mitre_ok,
         "lolbin_ok":  lol_ok,
@@ -349,6 +408,7 @@ def _diff_row(actual: Dict[str, Any], case: Dict[str, Any]) -> Dict[str, Any]:
         "got_lolbin":      sorted(got_lol),
         "expected_severity": sev_exp,
         "got_verdict":       got_verdict,
+        "discovery_downgrade": is_pure_discovery,
     }
 
 

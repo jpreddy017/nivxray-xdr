@@ -21,7 +21,7 @@ except Exception:  # noqa: BLE001
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "nxgec.jsonl")
 
 # Baseline: any archetype work should only INCREASE this. If it drops, fail.
-_MIN_PASS_RATE = 50.0    # % — starter baseline; new archetype work must not drop below
+_MIN_PASS_RATE = 85.0    # % — Feb-2026 baseline (88.5% now; 3 corpus stubs can't be reached)
 
 
 def _load():

@@ -890,7 +890,24 @@ MITRE_HEURISTICS = [
     (r"\bipconfig\b|\bget-netipaddress\b|\bnetsh\s+interface\b", ("T1016", "System Network Configuration Discovery", "Discovery")),
     (r"\bnet\s+user\b|\bnet\s+group\b|\bget-localuser\b", ("T1087", "Account Discovery", "Discovery")),
     (r"\bnet\s+view\b|\bnbtstat\b|\barp\s+-a\b", ("T1018", "Remote System Discovery", "Discovery")),
-    (r"\bsysteminfo\b|\bget-computerinfo\b|\bhostname\b", ("T1082", "System Information Discovery", "Discovery")),
+    (r"\bsysteminfo\b|\bget-computerinfo\b|\bhostname\b|\bver\b(?![a-zA-Z])", ("T1082", "System Information Discovery", "Discovery")),
+    # ── Feb-2026 · gaps found by NXGEC evaluator ────────────────────────
+    (r"\bnetstat\b|\bget-nettcpconnection\b|\bss\s+-", ("T1049", "System Network Connections Discovery", "Discovery")),
+    (r"(?<!\w)del(?:\.exe)?\s+(?:/[a-zA-Z]\s+)*\S+|(?<!\w)rm\s+(?:-[a-zA-Z]+\s+)?\S+\.(?:log|txt|dat|tmp|bak|old)\b|erase\s+\S+", ("T1070.004", "File Deletion", "Defense Evasion")),
+    (r"\bnet\s+accounts\b", ("T1201", "Password Policy Discovery", "Discovery")),
+    (r"\bquery\s+user\b|\bqwinsta\b", ("T1033", "System Owner/User Discovery", "Discovery")),
+    (r"\benv\b(?!\w)|\bset\s*$|printenv|\$env:", ("T1082", "System Information Discovery: env", "Discovery")),
+    # ── PowerShell launch (bare invocation) ─────────────────────────────
+    (r"\bpowershell(?:\.exe)?\s+(?:-\w+|\$|iex\b)", ("T1059.001", "PowerShell", "Execution")),
+    # ── LOLBAS ingress-tool-transfer downloads ──────────────────────────
+    (r"certutil(?:\.exe)?\s+(?:-|/)urlcache\b|bitsadmin(?:\.exe)?\s+/transfer\b|"
+     r"\biwr\s+http|\bstart-bitstransfer\s+", ("T1105", "Ingress Tool Transfer", "Command and Control")),
+    # ── Linux persistence via cron ──────────────────────────────────────
+    (r"\bcrontab\s+(?:-l|-e|-r)\b|/etc/cron\.d/|/var/spool/cron/", ("T1053.003", "Scheduled Task/Job: Cron", "Persistence")),
+    # ── Container escape via privileged docker ──────────────────────────
+    (r"\bdocker\s+run\s+.*--privileged|\bdocker\s+exec\s+.*--user\s+root|\brunc\s+exec\b", ("T1611", "Escape to Host", "Privilege Escalation")),
+    # ── Cloud CLI enumeration ───────────────────────────────────────────
+    (r"\baws\s+(?:s3|ec2|iam|sts)\b|\baz\s+(?:vm|storage|ad)\b|\bgcloud\s+(?:compute|storage|iam)\b", ("T1526", "Cloud Service Discovery", "Discovery")),
     # ── IEX / in-memory execution ────────────────────────────────────────
     (r"\biex\b|invoke-expression", ("T1059.001", "PowerShell: Invoke-Expression", "Execution")),
     (r"frombase64string", ("T1140", "Deobfuscate/Decode Files or Information", "Defense Evasion")),
