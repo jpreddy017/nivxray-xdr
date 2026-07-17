@@ -2679,46 +2679,87 @@ def _handle_xhex_variant(text: str) -> str:
 def _b64_ascii_or_utf16(raw: bytes) -> str:
     """Common tail — try many decodings of the raw byte stream and pick the
     highest-scoring output. Handles: direct UTF-8/ASCII/Latin-1/UTF-16LE/BE,
-    OR raw-as-base64 → nested ASCII/UTF-16LE.
+    OR raw-as-base64 → nested ASCII/UTF-16LE, OR reversed-base64 → nested.
 
     Feb-2026 · Pipeline-Shatter Fix: handles odd-byte UTF-16 payloads by
     trimming the trailing byte (padding vulnerability spotted by Gemini),
     and salvages invalid base64 lengths (4k+1) by trimming the trailing byte.
+
+    Feb-2026 (later) · CJK-Gibberish Fix: `c.isprintable()` returns True for
+    CJK codepoints, so garbled UTF-16LE/BE decodes of ASCII bytes scored
+    100% "printable" and beat legitimate ASCII candidates. Now scores
+    ASCII-printable share primary (heavily preferred), with broad-printable
+    only as a tiebreaker when no candidate has ≥ 50% ASCII share.
     """
     candidates = []
+
+    def _ascii_pr(s: str) -> float:
+        if not s: return 0.0
+        return sum(1 for c in s if 32 <= ord(c) < 127 or c in "\n\r\t") / len(s)
+
+    def _broad_pr(s: str) -> float:
+        if not s: return 0.0
+        return sum(1 for c in s if c.isprintable() or c in "\n\r\t") / len(s)
+
+    def _score(s: str) -> float:
+        # ASCII-primary; broad only if ASCII share ≥ 50 % (so English-text-inside
+        # decodes still win). A CJK-only decode gives ASCII≈0 → score ≈ 0.
+        a = _ascii_pr(s)
+        return a if a >= 0.50 else 0.0
+
     # Direct byte decodings — including odd-byte UTF-16 salvage
     for enc in ("ascii", "utf-8", "utf-16-le", "utf-16-be", "latin-1"):
         for _raw in (raw, raw[:-1]) if (enc.startswith("utf-16") and len(raw) % 2 == 1) else (raw,):
             try:
                 dec = _raw.decode(enc, errors="strict")
-                printable = sum(1 for c in dec if c.isprintable() or c in "\n\r\t") / max(len(dec), 1)
-                if printable >= 0.85:
+                sc = _score(dec)
+                if sc >= 0.50:
                     bonus = 0.1 if any(k in dec.lower() for k in ("powershell", "iex", "http", "webclient", "invoke", "cmd", "shell")) else 0
-                    candidates.append((printable + bonus, dec, f"direct-{enc}"))
+                    candidates.append((sc + bonus, dec, f"direct-{enc}"))
             except Exception:
                 continue
     # Try treating raw as base64 → decode → try encodings
     txt = raw.decode("ascii", errors="replace")
     b64_txt = re.sub(r"[^A-Za-z0-9+/=]", "", txt)
-    if len(b64_txt) >= 20:
-        if len(b64_txt) % 4 == 1:
-            b64_txt = b64_txt[:-1]
+    for b64_variant_label, b64_candidate in [
+        ("b64", b64_txt),
+        # Reversed base64 (padding at front → analyst-obfuscation pattern)
+        ("b64-rev", b64_txt[::-1] if b64_txt.startswith("=") else None),
+    ]:
+        if not b64_candidate or len(b64_candidate) < 20:
+            continue
+        if len(b64_candidate) % 4 == 1:
+            b64_candidate = b64_candidate[:-1]
         try:
-            b64_raw = base64.b64decode(b64_txt + "=" * (-len(b64_txt) % 4), validate=False)
+            b64_raw = base64.b64decode(b64_candidate + "=" * (-len(b64_candidate) % 4), validate=False)
             for enc in ("ascii", "utf-8", "utf-16-le", "utf-16-be", "latin-1"):
                 for _b in (b64_raw, b64_raw[:-1]) if (enc.startswith("utf-16") and len(b64_raw) % 2 == 1) else (b64_raw,):
                     try:
                         dec = _b.decode(enc, errors="strict")
-                        printable = sum(1 for c in dec if c.isprintable() or c in "\n\r\t") / max(len(dec), 1)
-                        if printable >= 0.85:
+                        sc = _score(dec)
+                        if sc >= 0.50:
                             bonus = 0.1 if any(k in dec.lower() for k in ("powershell", "iex", "http", "webclient", "invoke", "cmd", "shell")) else 0
-                            candidates.append((printable + bonus, dec, f"b64→{enc}"))
+                            candidates.append((sc + bonus, dec, f"{b64_variant_label}→{enc}"))
                     except Exception:
                         continue
         except Exception:
             pass
     if not candidates:
-        # Fallback: latin-1 with 'replace' — never fails, no truncation
+        # No confident ASCII decode — degrade gracefully. Prefer the raw text
+        # with the highest broad-printable ratio (may include benign Unicode),
+        # but avoid the CJK-noise trap by requiring ≥ 40 % ASCII share.
+        fallback = []
+        for enc in ("utf-8", "utf-16-le", "latin-1"):
+            try:
+                dec = raw.decode(enc, errors="replace")
+                if _ascii_pr(dec) >= 0.40 and _broad_pr(dec) >= 0.80:
+                    fallback.append((_broad_pr(dec), dec, f"fallback-{enc}"))
+            except Exception:
+                continue
+        if fallback:
+            fallback.sort(reverse=True)
+            return fallback[0][1]
+        # Last resort: latin-1 with 'replace' — never fails, no truncation
         return raw.decode("latin-1", errors="replace")
     candidates.sort(reverse=True)
     return candidates[0][1]

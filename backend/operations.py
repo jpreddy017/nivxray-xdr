@@ -861,18 +861,32 @@ def _extract_pem(data: str) -> str:
 
 
 @op("utf16le-or-utf8-decode", "UTF-16LE-or-UTF-8 Decode", "Cryptography",
-    "Try UTF-16LE first; fall back to UTF-8 if the result is mostly non-printable.")
+    "Try UTF-16LE first; fall back to UTF-8 if the result is mostly non-printable. "
+    "CJK-gibberish resistant: rejects UTF-16 decodes whose codepoints are dominated by "
+    "non-ASCII ideographs (a common false-positive of naive `.isprintable()` scoring).")
 def _utf16_or_utf8(data: str) -> str:
     raw = _as_bytes(data) if _is_hexlike(data) else data.encode("latin-1", errors="replace")
-    # Try UTF-16LE
+
+    def _ascii_pr(s: str) -> float:
+        if not s: return 0.0
+        return sum(1 for c in s if 32 <= ord(c) < 127 or c in "\n\r\t") / len(s)
+
+    # Try UTF-16LE (strict). Accept ONLY if the ASCII-printable share is high —
+    # CJK ideograph noise (0x2000+) passes `c.isprintable()` and used to sneak in.
     try:
         u16 = raw.decode("utf-16-le", errors="strict")
-        printable = sum(1 for c in u16 if c.isprintable() or c in "\n\r\t")
-        if u16 and printable / len(u16) >= 0.85:
+        if u16 and _ascii_pr(u16) >= 0.70:
             return u16
     except UnicodeDecodeError:
         pass
-    # Fall back to UTF-8 with replacement
+    # Try UTF-8 strict — if it succeeds cleanly, prefer it (real ASCII text).
+    try:
+        u8 = raw.decode("utf-8", errors="strict")
+        if u8 and _ascii_pr(u8) >= 0.70:
+            return u8
+    except UnicodeDecodeError:
+        pass
+    # Fall back to UTF-8 with replacement (handles partial-mojibake gracefully).
     return raw.decode("utf-8", errors="replace")
 
 
