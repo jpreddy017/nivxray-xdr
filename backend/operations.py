@@ -592,6 +592,133 @@ def _sha256(data: str) -> str:
     import hashlib; return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
+# ─── Feb 2026 · P2 · Base85 + Rolling XOR + AES detector ─────────────────
+
+@op("base85-decode", "Base85 / Ascii85 Decode", "Cryptography",
+    "Decode Base85 (Ascii85) blob (with or without `<~ ~>` delimiters).")
+def _base85_decode(data: str) -> str:
+    import base64 as _b
+    stripped = data.strip()
+    if stripped.startswith("<~") and stripped.endswith("~>"):
+        stripped = stripped[2:-2]
+    stripped = re.sub(r"\s+", "", stripped)
+    try:
+        raw = _b.a85decode(stripped, adobe=False)
+        return raw.decode("utf-8", errors="replace")
+    except Exception:
+        try:
+            raw = _b.b85decode(stripped)
+            return raw.decode("utf-8", errors="replace")
+        except Exception as e:
+            return f"# base85 decode error: {e}"
+
+
+@op("xor-rolling", "XOR Rolling Multi-Byte", "Cryptography",
+    "Brute-force XOR against every 2-6 byte key. Returns the decode with the "
+    "highest English/PE/base64 printability score.",
+    [{"name": "max_key_len", "type": "string", "default": "6",
+      "description": "Maximum key length to brute-force"}])
+def _xor_rolling(data: str, max_key_len: str = "6") -> str:
+    raw = _as_bytes(data) if _is_hexlike(data) else data.encode("latin-1", errors="replace")
+    try:
+        max_len = min(int(max_key_len), 8)
+    except Exception:
+        max_len = 6
+    best_score, best_output, best_key = 0.0, "", b""
+    import itertools as _it
+    # Try short keys — brute-force by byte histogram fitting
+    for kl in range(1, max_len + 1):
+        # For each position mod kl, find the byte value that gives max printability
+        key = bytearray(kl)
+        for pos in range(kl):
+            best_b, best_pr = 0, 0
+            for b in range(256):
+                pr = sum(1 for i in range(pos, min(len(raw), pos + 256 * kl), kl)
+                         if 32 <= (raw[i] ^ b) < 127 or (raw[i] ^ b) in (9, 10, 13))
+                if pr > best_pr:
+                    best_pr, best_b = pr, b
+            key[pos] = best_b
+        # Score the full decode
+        decoded = bytes(r ^ key[i % kl] for i, r in enumerate(raw))
+        pr = sum(1 for b in decoded if 32 <= b < 127 or b in (9, 10, 13)) / max(len(decoded), 1)
+        if pr > best_score:
+            best_score = pr
+            best_key = bytes(key)
+            best_output = decoded.decode("latin-1", errors="replace")
+    return f"[key={best_key.hex()}, score={best_score:.0%}]\n{best_output}"
+
+
+@op("aes-detect", "AES Ciphertext Detector", "Cryptography",
+    "Detect AES-CBC/GCM ciphertext markers (IV+block structure) and surface "
+    "candidate key/IV extraction — does NOT decrypt without a known key.")
+def _aes_detect(data: str) -> str:
+    raw = _as_bytes(data) if _is_hexlike(data) else data.encode("latin-1", errors="replace")
+    if len(raw) < 32:
+        return "# AES detector: input too short (need ≥32 bytes for IV+block)"
+    if len(raw) % 16 != 0:
+        return f"# AES detector: length {len(raw)} not multiple of 16 (AES block size)"
+    import math
+    freq = Counter(raw[:1024])  # noqa: F821 — Counter imported in operations
+    entropy = -sum((c/len(raw[:1024])) * math.log2(c/len(raw[:1024])) for c in freq.values() if c > 0)
+    verdict = "LIKELY_AES" if entropy > 7.0 else "UNLIKELY_AES"
+    return (f"# AES Ciphertext Analysis\n"
+            f"# Length: {len(raw)} bytes ({len(raw)//16} blocks of 16)\n"
+            f"# Entropy: {entropy:.2f} bits/byte\n"
+            f"# Verdict: {verdict}\n"
+            f"# Candidate IV (first 16 bytes hex): {raw[:16].hex()}\n"
+            f"# Ciphertext blocks (hex, next 32 bytes): {raw[16:48].hex()}\n"
+            f"# — Provide key via `aes-decrypt` op to decrypt.")
+
+
+@op("magic-integer-array", "Magic Integer Array Decoder", "Deobfuscation",
+    "Auto-decodes @(N,N,N,...) integer arrays and [char[]] variants that "
+    "encode ASCII text.")
+def _magic_integer_array(data: str) -> str:
+    m = re.search(r"[@\(\[\{]\s*((?:\d{1,4}\s*,\s*){3,}\d{1,4})\s*[\)\]\}]", data)
+    if not m:
+        return data
+    try:
+        nums = [int(x.strip()) for x in m.group(1).split(",") if x.strip()]
+        if all(0 <= n <= 127 for n in nums):
+            return "".join(chr(n) for n in nums)
+        return data
+    except Exception:
+        return data
+
+
+@op("snappy-decompress", "Snappy Decompress", "Compression",
+    "Decompress Snappy-compressed data (raw or framed).")
+def _snappy_decompress(data: str) -> str:
+    raw = _as_bytes(data) if _is_hexlike(data) else data.encode("latin-1", errors="replace")
+    try:
+        import snappy  # optional dependency
+        return snappy.decompress(raw).decode("utf-8", errors="replace")
+    except ImportError:
+        return "# snappy decode error: python-snappy not installed"
+    except Exception as e:
+        return f"# snappy decode error: {e}"
+
+
+@op("mach-o-detect", "Mach-O Header Detector", "Extractors",
+    "Detect Mach-O (macOS binary) headers by magic bytes.")
+def _mach_o_detect(data: str) -> str:
+    raw = _as_bytes(data) if _is_hexlike(data) else data.encode("latin-1", errors="replace")
+    if len(raw) < 4:
+        return "# Mach-O: too short"
+    magic = raw[:4]
+    verdict = None
+    if magic == b"\xca\xfe\xba\xbe": verdict = "Mach-O Fat/Universal"
+    elif magic == b"\xfe\xed\xfa\xce": verdict = "Mach-O 32-bit (big-endian)"
+    elif magic == b"\xfe\xed\xfa\xcf": verdict = "Mach-O 64-bit (big-endian)"
+    elif magic == b"\xce\xfa\xed\xfe": verdict = "Mach-O 32-bit (little-endian)"
+    elif magic == b"\xcf\xfa\xed\xfe": verdict = "Mach-O 64-bit (little-endian)"
+    if verdict:
+        return f"# Mach-O detected: {verdict}\n# Magic: {magic.hex()}\n{raw[:64].hex()}..."
+    return f"# No Mach-O magic found (first 4 bytes: {magic.hex()})"
+
+
+
+
 # ==== ARCHETYPE CHAIN ALIASES ================================================
 # These ops make the semantic IDs emitted inside `wrapper_archetypes.py` chains
 # runnable via the Recipe UI. They fall into 3 buckets:

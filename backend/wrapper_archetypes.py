@@ -2901,6 +2901,98 @@ def _handle_certutil_workflow(text: str) -> str:
 
 
 
+
+# ─── Feb 2026 · P1.2 · LOLBAS Loader Wrappers (HTA/MSIExec/Regsvr32/Bitsadmin) ─
+
+def _mshta_wrapper_matches(text: str) -> bool:
+    low = text.lower()
+    if not re.search(r"\bmshta(\.exe)?\b", low):
+        return False
+    return bool(re.search(r"mshta.*(https?://|vbscript:|javascript:|\\\\)", low))
+
+
+def _handle_mshta_wrapper(text: str) -> str:
+    """MSHTA-driven HTA execution — extracts the URL/scriptlet target and
+    surfaces T1218.005 MITRE tag."""
+    url = re.search(r"(https?://[^\s'\"]+|vbscript:[^\s'\"]+|javascript:[^\s'\"]+)", text, re.IGNORECASE)
+    header = "# --- MSHTA LOLBAS Loader Detected ---\n"
+    header += "# T1218.005 · Signed Binary Proxy Execution: Mshta\n"
+    if url:
+        header += f"# HTA target: {url.group(1)}\n"
+    return header + text
+
+
+def _bitsadmin_transfer_matches(text: str) -> bool:
+    low = text.lower()
+    return "bitsadmin" in low and ("/transfer" in low or "/addfile" in low)
+
+
+def _handle_bitsadmin_transfer(text: str) -> str:
+    url = re.search(r"(https?://[^\s'\"]+)", text, re.IGNORECASE)
+    header = "# --- Bitsadmin File Transfer Detected ---\n"
+    header += "# T1197 · BITS Jobs · T1105 · Ingress Tool Transfer\n"
+    if url:
+        header += f"# Download URL: {url.group(1)}\n"
+    return header + text
+
+
+def _msiexec_install_matches(text: str) -> bool:
+    low = text.lower()
+    if "msiexec" not in low:
+        return False
+    return bool(re.search(r"msiexec.*(/i\s|/q\s|/quiet).*(https?://|\.msi)", low))
+
+
+def _handle_msiexec_install(text: str) -> str:
+    url = re.search(r"(https?://[^\s'\"]+\.msi)", text, re.IGNORECASE)
+    header = "# --- MSIExec Remote MSI Install Detected ---\n"
+    header += "# T1218.007 · Signed Binary Proxy Execution: Msiexec · T1105 · Ingress Tool Transfer\n"
+    if url:
+        header += f"# MSI URL: {url.group(1)}\n"
+    return header + text
+
+
+def _regsvr32_scriptlet_matches(text: str) -> bool:
+    low = text.lower()
+    if "regsvr32" not in low:
+        return False
+    return bool(re.search(r"regsvr32.*(scrobj\.dll|/i:https?://|/u\s+/s\s+/i:)", low))
+
+
+def _handle_regsvr32_scriptlet(text: str) -> str:
+    url = re.search(r"(https?://[^\s'\"]+)", text, re.IGNORECASE)
+    header = "# --- Regsvr32 Scriptlet Loader Detected (Squiblydoo) ---\n"
+    header += "# T1218.010 · Signed Binary Proxy Execution: Regsvr32\n"
+    if url:
+        header += f"# Scriptlet URL: {url.group(1)}\n"
+    return header + text
+
+
+def _rundll32_javascript_matches(text: str) -> bool:
+    low = text.lower()
+    return "rundll32" in low and ("javascript:" in low or "vbscript:" in low or "mshtml,runhtmlapplication" in low)
+
+
+def _handle_rundll32_javascript(text: str) -> str:
+    header = "# --- Rundll32 JavaScript/HTMLApplication Loader Detected ---\n"
+    header += "# T1218.011 · Signed Binary Proxy Execution: Rundll32\n"
+    return header + text
+
+
+def _wmic_process_call_matches(text: str) -> bool:
+    low = text.lower()
+    return "wmic" in low and "process" in low and "call" in low and ("create" in low or "http" in low)
+
+
+def _handle_wmic_process_call(text: str) -> str:
+    url = re.search(r"(https?://[^\s'\"]+)", text, re.IGNORECASE)
+    header = "# --- WMIC Process Call Detected ---\n"
+    header += "# T1047 · Windows Management Instrumentation\n"
+    if url:
+        header += f"# Remote target: {url.group(1)}\n"
+    return header + text
+
+
 ARCHETYPES: List[Dict[str, Any]] = [
     # ─── Feb 2026 · Unified HEX-FAMILY (KHEX + XHEX + variants) ─────────────
     {
@@ -2945,6 +3037,61 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["certutil-annotate"],
         "handler": lambda t: _handle_certutil_workflow(t),
         "match":   lambda t: _certutil_workflow_matches(t),
+        "terminal": False,
+    },
+    # ─── Feb 2026 · P1.2 LOLBAS wrappers ──────────────────────────────────
+    {
+        "id": "LOLBAS_MSHTA_LOADER",
+        "description": "MSHTA-driven HTA loader (T1218.005) — detects HTA execution "
+                       "via mshta.exe with remote/local scriptlet URL.",
+        "chain": ["mshta-annotate"],
+        "handler": lambda t: _handle_mshta_wrapper(t),
+        "match":   lambda t: _mshta_wrapper_matches(t),
+        "terminal": False,
+    },
+    {
+        "id": "LOLBAS_BITSADMIN_TRANSFER",
+        "description": "Bitsadmin file transfer (T1197 · BITS Jobs · T1105) — "
+                       "detects bitsadmin /transfer or /addfile with URL target.",
+        "chain": ["bitsadmin-annotate"],
+        "handler": lambda t: _handle_bitsadmin_transfer(t),
+        "match":   lambda t: _bitsadmin_transfer_matches(t),
+        "terminal": False,
+    },
+    {
+        "id": "LOLBAS_MSIEXEC_REMOTE_INSTALL",
+        "description": "MSIExec remote MSI install (T1218.007 · T1105) — detects "
+                       "msiexec /i /quiet http://... MSI installation from URL.",
+        "chain": ["msiexec-annotate"],
+        "handler": lambda t: _handle_msiexec_install(t),
+        "match":   lambda t: _msiexec_install_matches(t),
+        "terminal": False,
+    },
+    {
+        "id": "LOLBAS_REGSVR32_SCRIPTLET",
+        "description": "Regsvr32 scriptlet loader / Squiblydoo (T1218.010) — "
+                       "detects regsvr32 /u /s /i:http://... scrobj.dll pattern.",
+        "chain": ["regsvr32-annotate"],
+        "handler": lambda t: _handle_regsvr32_scriptlet(t),
+        "match":   lambda t: _regsvr32_scriptlet_matches(t),
+        "terminal": False,
+    },
+    {
+        "id": "LOLBAS_RUNDLL32_JAVASCRIPT",
+        "description": "Rundll32 JavaScript/HTMLApplication loader (T1218.011) — "
+                       "detects rundll32 javascript: or mshtml,RunHTMLApplication.",
+        "chain": ["rundll32-annotate"],
+        "handler": lambda t: _handle_rundll32_javascript(t),
+        "match":   lambda t: _rundll32_javascript_matches(t),
+        "terminal": False,
+    },
+    {
+        "id": "LOLBAS_WMIC_PROCESS_CALL",
+        "description": "WMIC process call create (T1047) — detects WMI-based "
+                       "remote execution via wmic process call create.",
+        "chain": ["wmic-annotate"],
+        "handler": lambda t: _handle_wmic_process_call(t),
+        "match":   lambda t: _wmic_process_call_matches(t),
         "terminal": False,
     },
     # ─── Feb 2026 · KHEX substitution cipher (Sample1_JP fix) ───────────────
