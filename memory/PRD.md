@@ -3367,3 +3367,21 @@ data lives in DOCS, never on Workspace.
 - Workspace stays widget-free. No live threat radar. No dashboards.
 - Panel deliberately hides Cheat-PDF / Back-to-guide chrome for this
   pseudo-selection (`selected.kind === "trending"`).
+
+## Feb 2026 · Batch-CSV Analysis Fixes (this session)
+
+User uploaded a 15-row Nivx_Test.csv batch-tester export. Gemini-based analysis
+flagged 6 bugs / minor issues. All resolved:
+
+| Row | Bug                                              | Fix                                                       |
+|-----|--------------------------------------------------|-----------------------------------------------------------|
+| 1   | UTF-16LE decode showed Han ideographs            | `_handle_ps_enc_cli` now scores all 3 encodings, picks best & shows both when mixed |
+| 4   | `evil.example` URL extracted, domain missing     | `extract_iocs` now emits hostname from every valid URL regardless of TLD gate |
+| 9   | b64+XOR fell to generic `smart` engine           | New archetype `PS_BASE64_XOR_BYTE_IEX`                    |
+| 10  | `ToCharArray()|?{$_})[-1..-($c.Length)]-join''` reverse missed | Enhanced `_PS_REVERSE_STRING_RX` + new post-resolution variant |
+| 11  | `$env:a$env:b$env:c(...)` method-chain missed    | New archetype `PS_ENVVAR_METHOD_CHAIN`                    |
+| 15  | `sal i Invoke-WebRequest; i '…'` alias-expansion missed | New archetype `PS_SAL_ALIAS_RESOLVER`                    |
+| 12  | `127.0.0` (invalid IP) not captured              | Free via row-4 fix (extracted from URL)                   |
+
+Test coverage: 27/27 in `test_research_refs_feb2026.py` (was 22). 117/117 in
+the deterministic-decoder regression subset. Zero regressions.

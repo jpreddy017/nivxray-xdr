@@ -786,6 +786,20 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
         return True
 
     doms = [d for d in doms if _is_real_domain(d)]
+    # Feb-2026 · Trust hostnames extracted directly from URLs — the URL
+    # match already validated their scheme+host shape, so bypass the
+    # real-TLD gate (which is a false-positive filter for the generic
+    # domain regex, not for URL-anchored hostnames). Fixes RFC-2606
+    # reserved TLDs (`.example`, `.test`, `.invalid`, `.localhost`) plus
+    # legitimate malware C2 that uses uncommon TLDs.
+    for u in urls:
+        try:
+            host = re.sub(r"^https?://", "", u, flags=re.IGNORECASE)
+            host = host.split("/", 1)[0].split(":", 1)[0].lower()
+            if host and host not in ips and host not in doms and "." in host:
+                doms.append(host)
+        except Exception:  # noqa: BLE001
+            continue
     return {
         "urls": urls,
         "ips": ips,

@@ -273,22 +273,44 @@ def _handle_ps_enc_cli(text: str) -> str:
     # Strip whitespace / newlines that PowerShell -Enc happily ignores.
     blob = re.sub(r"\s+", "", blob)
     raw = robust_b64decode(blob)
-    # Try canonical UTF-16LE first — this is what PowerShell.exe -Enc requires
-    try:
-        candidate = raw.decode("utf-16le", errors="replace")
-        if _looks_like_text(candidate):
-            return candidate
-    except Exception:
-        pass
-    # Fall back to UTF-8 (analyst pasted a malformed / hand-rolled -Enc)
-    try:
-        candidate = raw.decode("utf-8", errors="replace")
-        if _looks_like_text(candidate):
-            return candidate
-    except Exception:
-        pass
-    # Last resort: latin-1 always succeeds
-    return raw.decode("latin-1", errors="replace")
+
+    # Feb-2026 · Try ALL three encodings, score each on printable-ASCII
+    # density, and pick the winner. This fixes mixed-encoding payloads
+    # (row-0001 style) where UTF-16LE passes _looks_like_text() but the
+    # tail is actually UTF-8 sequential — UTF-16LE renders that as Han
+    # ideographs. UTF-8 would recover more real text in those cases.
+    def _score(s: str) -> int:
+        if not s:
+            return 0
+        # Count printable ASCII + common whitespace
+        return sum(1 for c in s if 32 <= ord(c) < 127 or c in "\r\n\t")
+    candidates = []
+    for enc in ("utf-16le", "utf-8", "latin-1"):
+        try:
+            s = raw.decode(enc, errors="replace")
+            candidates.append((enc, s, _score(s)))
+        except Exception:
+            continue
+    if not candidates:
+        return raw.decode("latin-1", errors="replace")
+    # Prefer utf-16le if it wins outright; else take highest-score.
+    candidates.sort(key=lambda x: (-x[2], 0 if x[0] == "utf-16le" else 1))
+    winner_enc, winner_txt, winner_score = candidates[0]
+    # If the winner has a mixed-encoding smell (Han ideographs etc.),
+    # emit BOTH so the analyst can pick.
+    def _is_garbled(s: str) -> bool:
+        bad = sum(1 for c in s if ord(c) > 0x2000 or c == "\ufffd")
+        return bad >= 2 and bad / max(1, len(s)) > 0.10
+    if _is_garbled(winner_txt) and len(candidates) > 1:
+        alt_enc, alt_txt, _ = candidates[1]
+        banner = (
+            f"\n──── PS_EncodedCommand · encoding-mixed payload (Feb 2026) ────\n"
+            f"Two candidate decodes shown — payload appears corrupt/mixed:\n"
+            f"  {winner_enc:>9}: {winner_txt!r}\n"
+            f"  {alt_enc:>9}: {alt_txt!r}\n"
+        )
+        return winner_txt + banner
+    return winner_txt
 
 
 # 1. PS_MemoryStream_Gzip_IEX
@@ -343,8 +365,32 @@ def _handle_ps_fb64_utf16(text: str) -> str:
     if not blob:
         raise ValueError("no blob match")
     raw = robust_b64decode(blob)
-    # PowerShell -EncodedCommand payloads are always UTF-16LE
-    return raw.decode("utf-16le", errors="replace")
+    decoded_utf16 = raw.decode("utf-16le", errors="replace")
+    # Feb-2026 · Corrupted-payload fallback: if the UTF-16LE decode
+    # contains Han-ideograph or replacement chars in the middle of an
+    # otherwise-ASCII payload, the attacker may have shipped a mixed
+    # encoding (some bytes are UTF-16LE, others are UTF-8 sequential).
+    # Try a plain UTF-8 decode as a second interpretation and show BOTH
+    # so the analyst can pick — this is the row-0001 style corrupt case.
+    def _is_probably_garbled(s: str) -> bool:
+        if not s:
+            return True
+        bad = sum(1 for ch in s if ord(ch) > 0x2000 or ch == "\ufffd")
+        return bad >= 2 or (bad and bad / max(1, len(s)) > 0.15)
+    if _is_probably_garbled(decoded_utf16):
+        try:
+            decoded_utf8 = raw.decode("utf-8", errors="replace")
+        except Exception:
+            decoded_utf8 = ""
+        banner = (
+            "\n──── Encoding-Mixed Payload Detected (Feb 2026) ────\n"
+            "UTF-16LE decode produced non-ASCII glyphs — payload may be\n"
+            "corrupted or mixed-encoded. Both interpretations shown:\n\n"
+            f"  UTF-16LE : {decoded_utf16!r}\n"
+            f"  UTF-8    : {decoded_utf8!r}\n"
+        )
+        return decoded_utf16 + banner
+    return decoded_utf16
 
 
 # 3b. PS_FromBase64String_ASCII  (Feb 2026 fix — explicit ASCII decoder)
@@ -899,21 +945,56 @@ def _handle_ps_format_op(text: str) -> str:
 _PS_REVERSE_STRING_RX = re.compile(
     r"-join\s*\(\s*['\"]([^'\"]{3,})['\"]\s*\[\s*-1\s*\.\.\s*-\d+\s*\]\s*\)"
 )
+# Feb-2026 · variant used by row-0010: $c='...'; iex(($c.ToCharArray()|?{$_})[-1..-($c.Length)]-join'')
+# Grabs the reversed body from the string-assignment above; falls back
+# to the whole text if no assignment is found.
+_PS_REVERSE_TOCHARARRAY_RX = re.compile(
+    r"\$(?P<var>\w+)\s*=\s*(?P<q>['\"])(?P<body>.{6,600}?)(?P=q)"
+    r"[\s\S]{0,300}?"
+    r"\$(?P=var)\s*\.\s*ToCharArray\s*\(\s*\)"
+    r"(?:\s*\|\s*\?\s*\{\s*\$_\s*\}\s*)?"
+    r"[\s)]*"          # allow closing parens between filter and slice
+    r"\[\s*-1\s*\.\.\s*-\s*\(?\s*(?:\d+|\$(?:(?P=var)\.Length))\s*\)?\s*\]"
+    r"\s*-join\s*['\"]{2}",
+    re.IGNORECASE,
+)
+# Post-resolution variant — after resolve_ps_variables() inlines the
+# `$c='body'` assignment, the payload becomes `'body'.ToCharArray()...`.
+# This second regex catches that shape directly.
+_PS_REVERSE_TOCHARARRAY_INLINE_RX = re.compile(
+    r"['\"](?P<body>.{6,600}?)['\"]\s*\.\s*ToCharArray\s*\(\s*\)"
+    r"(?:\s*\|\s*\?\s*\{\s*\$_\s*\}\s*)?"
+    r"[\s)]*"
+    r"\[\s*-1\s*\.\.\s*-\s*\(?\s*(?:\d+|['\"][^'\"]{6,600}['\"]\.Length)\s*\)?\s*\]"
+    r"\s*-join\s*['\"]{2}",
+    re.IGNORECASE,
+)
 
 
 def _ps_reverse_string_matches(text: str) -> bool:
-    if len(text) > 800:
+    if len(text) > 4000:
         return False
-    return _PS_REVERSE_STRING_RX.search(text) is not None
+    return (_PS_REVERSE_STRING_RX.search(text) is not None
+            or _PS_REVERSE_TOCHARARRAY_RX.search(text) is not None
+            or _PS_REVERSE_TOCHARARRAY_INLINE_RX.search(text) is not None)
 
 
 def _handle_ps_reverse_string(text: str) -> str:
     m = _PS_REVERSE_STRING_RX.search(text)
-    if not m:
-        raise ValueError("no ps-reverse-string span")
-    reversed_str = m.group(1)
-    plain = reversed_str[::-1]
-    return text.replace(m.group(0), plain, 1)
+    if m:
+        reversed_str = m.group(1)
+        return text.replace(m.group(0), reversed_str[::-1], 1)
+    m2 = _PS_REVERSE_TOCHARARRAY_RX.search(text)
+    if m2:
+        body = m2.group("body")
+        # Replace the matched slice so downstream loop can't re-match the
+        # same span (was causing 4x PS_REVERSE_STRING chains on row-0010).
+        return text.replace(m2.group(0), body[::-1], 1)
+    m3 = _PS_REVERSE_TOCHARARRAY_INLINE_RX.search(text)
+    if m3:
+        body = m3.group("body")
+        return text.replace(m3.group(0), body[::-1], 1)
+    raise ValueError("no ps-reverse-string span")
 
 
 _BATCH_VAR_SLICE_SET_RX = re.compile(
@@ -1598,6 +1679,122 @@ def _handle_ps_clipboard_iex(text: str) -> str:
     return f"{text}\n\n{banner}"
 
 
+# ─── Feb 2026 Batch-CSV Row Fixes (rows 9/10/11/15) ─────────────────────
+
+# --- U. PS_BASE64_XOR_BYTE_IEX  (row-0009 fix) --------------------------
+_PS_B64_XOR_IEX_RX = re.compile(
+    r"\[(?:System\.)?Convert\]::FromBase64String\s*\(\s*['\"](?P<blob>[A-Za-z0-9+/=]{12,})['\"]"
+    r"[\s\S]{0,300}?"
+    r"-b?xor\s*0x(?P<key>[0-9A-Fa-f]{1,2})"
+    r"[\s\S]{0,120}?"
+    r"(?:GetString|iex|Invoke-Expression)",
+    re.IGNORECASE,
+)
+
+def _ps_b64_xor_iex_matches(text: str) -> bool:
+    return bool(_PS_B64_XOR_IEX_RX.search(text))
+
+def _handle_ps_b64_xor_iex(text: str) -> str:
+    m = _PS_B64_XOR_IEX_RX.search(text)
+    if not m:
+        raise ValueError("no b64+xor pattern")
+    blob = m.group("blob")
+    key  = int(m.group("key"), 16)
+    try:
+        raw = robust_b64decode(blob)
+    except Exception as e:
+        raise ValueError(f"b64 decode failed: {e}") from e
+    xored = bytes(b ^ key for b in raw)
+    try:
+        decoded = xored.decode("ascii")
+    except UnicodeDecodeError:
+        decoded = "".join(chr(b) if 0x20 <= b < 0x7F else "?" for b in xored)
+    banner = (
+        "──── PS_BASE64_XOR_BYTE_IEX (Feb 2026) ────\n"
+        f"Base64 blob    : {blob[:80]}{'…' if len(blob)>80 else ''}\n"
+        f"XOR key        : 0x{key:02X}\n"
+        f"Decoded (ASCII): {decoded}\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# --- V. PS_SAL_ALIAS_RESOLVER  (row-0015 fix) ---------------------------
+_PS_SAL_DEFN_RX = re.compile(
+    r"\b(?:sal|Set-Alias|New-Alias|nal)\s+(?P<alias>[A-Za-z_]\w{0,20})\s+"
+    r"(?P<cmdlet>[A-Za-z][\w\-]{2,40})",
+    re.IGNORECASE,
+)
+
+def _ps_sal_alias_matches(text: str) -> bool:
+    return bool(_PS_SAL_DEFN_RX.search(text))
+
+def _handle_ps_sal_alias(text: str) -> str:
+    defs = list(_PS_SAL_DEFN_RX.finditer(text))
+    if not defs:
+        raise ValueError("no sal alias defs")
+    aliases: Dict[str, str] = {}
+    for m in defs:
+        aliases[m.group("alias")] = m.group("cmdlet")
+    resolved = text
+    for alias, cmdlet in aliases.items():
+        pattern = re.compile(
+            rf"(?<![A-Za-z\-])\b{re.escape(alias)}\b(?![A-Za-z\-\.\(])",
+            flags=re.IGNORECASE,
+        )
+        resolved = pattern.sub(cmdlet, resolved)
+    if resolved == text:
+        raise ValueError("no alias occurrences rewritten")
+    banner = "\n──── PS_SAL_ALIAS_RESOLVER · aliases expanded ────\n"
+    for a, c in aliases.items():
+        banner += f"  {a}  →  {c}\n"
+    return f"{text}\n{banner}\n{resolved}"
+
+
+# --- W. PS_ENVVAR_METHOD_CHAIN  (row-0011 fix) --------------------------
+_PS_ENV_REF_RX = re.compile(r"\$env:(\w+)", re.IGNORECASE)
+_CMD_SET_INLINE_RX = re.compile(
+    r"\bset\s+(\w+)\s*=\s*([^\r\n&\"']+?)(?=\s*(?:&&|\r|\n|$|\"))",
+    re.IGNORECASE,
+)
+
+def _ps_envvar_method_chain_matches(text: str) -> bool:
+    if len(text) > 3000:
+        return False
+    env_uses = _PS_ENV_REF_RX.findall(text)
+    if len(env_uses) < 2:
+        return False
+    sets = _CMD_SET_INLINE_RX.findall(text)
+    if len(sets) < 2:
+        return False
+    set_names = {n.lower() for n, _ in sets}
+    env_names = {u.lower() for u in env_uses}
+    return bool(set_names & env_names)
+
+def _handle_ps_envvar_method_chain(text: str) -> str:
+    sets = {n: v.strip() for n, v in _CMD_SET_INLINE_RX.findall(text)}
+    if not sets:
+        raise ValueError("no cmd set defs")
+    def _sub(m):
+        key = m.group(1)
+        for k, v in sets.items():
+            if k.lower() == key.lower():
+                return v
+        return m.group(0)
+    resolved = text
+    for _ in range(3):
+        new = _PS_ENV_REF_RX.sub(_sub, resolved)
+        if new == resolved:
+            break
+        resolved = new
+    if resolved == text:
+        raise ValueError("no env-var expansion")
+    banner = "\n──── PS_ENVVAR_METHOD_CHAIN · cmd $env: expansions ────\n"
+    for k, v in sets.items():
+        banner += f"  $env:{k}  →  {v}\n"
+    return f"{text}\n{banner}\n{resolved}"
+
+
+
 # --- T. NATIVE_CMD_EXPLAINER  (Feb 2026 · plain LOLBAS structured output) ─
 # When the input is already plaintext (no obfuscation) but is a well-known
 # native / LOLBAS command, provide a Google-AI-style structured breakdown so
@@ -2117,6 +2314,31 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["dotnet-remove-annotate"],
         "handler": lambda t: _handle_dotnet_string_remove(t),
         "match":   lambda t: _dotnet_string_remove_matches(t),
+        "terminal": True,
+    },
+    # ─── Feb 2026 · Batch-CSV-row fixes ─────────────────────────────
+    {
+        "id": "PS_BASE64_XOR_BYTE_IEX",
+        "description": "PowerShell FromBase64String + per-byte -bxor <key> + GetString + IEX (Feb 2026).",
+        "chain": ["extract-b64", "xor-byte", "ascii-decode"],
+        "handler": _handle_ps_b64_xor_iex,
+        "match":   lambda t: _ps_b64_xor_iex_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "PS_SAL_ALIAS_RESOLVER",
+        "description": "PowerShell `sal <alias> <cmdlet>` alias expansion (Feb 2026).",
+        "chain": ["expand-alias"],
+        "handler": _handle_ps_sal_alias,
+        "match":   lambda t: _ps_sal_alias_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "PS_ENVVAR_METHOD_CHAIN",
+        "description": "CMD `set a=Down&set b=load...` + PS `$env:a$env:b$env:c(...)` method-name chain (Feb 2026).",
+        "chain": ["cmd-set-collect", "env-ref-resolve"],
+        "handler": _handle_ps_envvar_method_chain,
+        "match":   lambda t: _ps_envvar_method_chain_matches(t),
         "terminal": True,
     },
     # ─── Feb 2026 · Native / LOLBAS command explainer (fallback) ───────
