@@ -176,6 +176,41 @@ export default function BatchTestPage() {
                  className="nvx-btn sm ghost">
                 <FileText size={12} /> DOWNLOAD EXAMPLE CSV
               </a>
+              <button
+                onClick={async () => {
+                  setBusy(true); setErr(null);
+                  try {
+                    const r = await api.post("/batch/evaluate/nxgec?analysis_mode=" + mode,
+                                              null, { timeout: 180_000 });
+                    // Adapt the NXGEC rows into the standard results shape
+                    const adapted = (r.data.rows || []).map((row, i) => ({
+                      id: row.id, input_snippet: row.input_snippet,
+                      engine: row.engine, confidence: row.confidence,
+                      verdict: row.verdict,
+                      chain_ops: `[NXGEC v${row.volume} ${row.overall_pass ? '✓ PASS' : '✗ FAIL'}] ` + (row.chain_ops || ""),
+                      mitre_ids: row.mitre_ids, lolbins: row.lolbins,
+                      iocs_ips: row.iocs_ips, iocs_domains: row.iocs_domains,
+                      iocs_urls: row.iocs_urls, iocs_hashes: row.iocs_hashes,
+                      decoded_snippet: `EXPECTED: mitre=${row.diff.expected_mitre.join(",")} lol=${row.diff.expected_lolbin.join(",")} sev=${row.diff.expected_severity} · GOT: ${row.decoded_snippet}`,
+                      reached_shellcode: row.reached_shellcode,
+                    }));
+                    setRows(adapted);
+                    setSummary({
+                      malicious: r.data.passed,
+                      suspicious: r.data.failed,
+                      unknown: 0, errors: 0,
+                      shellcode_reached: r.data.pass_rate,
+                    });
+                    setText(adapted.map(x => x.input_snippet).join("\n"));
+                  } catch (e) {
+                    setErr(e.response?.data?.detail || e.message);
+                  } finally { setBusy(false); }
+                }}
+                disabled={busy}
+                data-testid="batch-nxgec-btn"
+                className="nvx-btn sm primary" style={{ background: "#7ee3c9", color: "#0b1220" }}>
+                <FileText size={12} /> RUN NXGEC GOLD CORPUS (55 CASES)
+              </button>
               {err && (
                 <span style={{ color: VERDICT_COLOR.Malicious, fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}
                       data-testid="batch-error">

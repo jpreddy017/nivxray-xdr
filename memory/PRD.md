@@ -3385,3 +3385,11 @@ flagged 6 bugs / minor issues. All resolved:
 
 Test coverage: 27/27 in `test_research_refs_feb2026.py` (was 22). 117/117 in
 the deterministic-decoder regression subset. Zero regressions.
+
+## Feb 2026 · NXGEC Gold Corpus Integration (this session)
+- User uploaded NivXRay Gold Evaluation Corpus (10 volumes, 55 test cases with full expected labels).
+- Built docx→JSONL importer: `tests/fixtures/import_nxgec.py` → `nxgec.jsonl` (55 rows).
+- Backend evaluator: `GET/POST /api/batch/evaluate/nxgec?volume=N&limit=M&analysis_mode=X` — runs corpus, diffs actual vs expected (MITRE prefix-covered, LOLBins subset, severity/verdict match).
+- Frontend: "RUN NXGEC GOLD CORPUS (55 CASES)" button on `/batch-test`.
+- Pytest regression: `tests/test_nxgec_regression.py` — baseline 50% MITRE coverage; new work must not regress.
+- **Baseline results**: 37/55 overall pass (67.3%), 14/26 MITRE-only (53.8%). Volumes 4/7/8/9/10 = 100% pass. Volumes 1/5/6 need work (informational-verdict tuning, cmd.exe LOLBin classification).

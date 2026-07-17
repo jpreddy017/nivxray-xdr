@@ -297,3 +297,129 @@ async def batch_test_example(user=Depends(get_current_user)):
         headers={"Content-Disposition":
                  'attachment; filename="nivxray_batch_example.csv"'},
     )
+
+
+# ─── NXGEC Gold Corpus evaluator (Feb 2026) ────────────────────────────
+# Runs the pre-imported /app/backend/tests/fixtures/nxgec.jsonl fixture
+# through the deterministic pipeline and diffs actual vs. expected
+# (MITRE T-IDs, LOLBins, severity, decode-chain presence). Read-only.
+
+_NXGEC_PATH = "/app/backend/tests/fixtures/nxgec.jsonl"
+
+def _load_nxgec():
+    if not __import__("os").path.exists(_NXGEC_PATH):
+        return []
+    with open(_NXGEC_PATH, encoding="utf-8") as f:
+        return [__import__("json").loads(line) for line in f if line.strip()]
+
+
+def _diff_row(actual: Dict[str, Any], case: Dict[str, Any]) -> Dict[str, Any]:
+    """Compare a single decoded row against its expected labels.
+    Returns pass_flags + a compact diff summary for the UI."""
+    exp_mitre = set(case.get("expected_mitre_ids") or [])
+    got_mitre = set(m.strip() for m in (actual.get("mitre_ids") or "").split(",") if m.strip())
+    exp_lol   = set(l.lower() for l in (case.get("expected_lolbins") or []))
+    got_lol   = set(l.lower() for l in (actual.get("lolbins") or "").split(",") if l.strip())
+    # MITRE prefix match (T1059 covers T1059.001, etc.)
+    def _covers(exp: set, got: set) -> bool:
+        for e in exp:
+            if e in got:
+                continue
+            base = e.split(".")[0]
+            if any(g == e or g.startswith(base + ".") or g == base for g in got):
+                continue
+            return False
+        return True
+    mitre_ok = _covers(exp_mitre, got_mitre) if exp_mitre else True
+    lol_ok   = (exp_lol.issubset(got_lol)) if exp_lol else True
+    sev_exp  = (case.get("expected_severity") or "").lower()
+    got_verdict = (actual.get("verdict") or "").lower()
+    # Simple severity↔verdict map
+    _SEVMAP = {"critical": "malicious", "high": "malicious",
+               "medium": "suspicious", "low": "suspicious",
+               "informational": "unknown", "benign": "unknown"}
+    sev_ok = (not sev_exp) or (_SEVMAP.get(sev_exp, "") in got_verdict) or (sev_exp in got_verdict)
+    return {
+        "mitre_ok":   mitre_ok,
+        "lolbin_ok":  lol_ok,
+        "severity_ok": sev_ok,
+        "expected_mitre":  sorted(exp_mitre),
+        "got_mitre":       sorted(got_mitre),
+        "expected_lolbin": sorted(exp_lol),
+        "got_lolbin":      sorted(got_lol),
+        "expected_severity": sev_exp,
+        "got_verdict":       got_verdict,
+    }
+
+
+@router.get("/batch/evaluate/nxgec")
+async def nxgec_summary(user=Depends(get_current_user)):
+    """Lightweight endpoint — returns just the corpus metadata without
+    running it (fast, cache-friendly). Use POST to actually run."""
+    cases = _load_nxgec()
+    from collections import Counter
+    return {
+        "total": len(cases),
+        "per_volume": dict(Counter(c.get("volume") for c in cases)),
+        "categories": sorted({c.get("category") or "?" for c in cases}),
+    }
+
+
+@router.post("/batch/evaluate/nxgec")
+async def nxgec_run(volume: Optional[int] = None,
+                    limit: Optional[int] = None,
+                    analysis_mode: str = "balanced",
+                    user=Depends(get_current_user)):
+    """Run the Gold Corpus against the deterministic pipeline.
+
+    Query params:
+      volume         — restrict to a single volume 1..10 (None = all)
+      limit          — max cases to run (None = all)
+      analysis_mode  — fast | balanced | deep
+    """
+    cases = _load_nxgec()
+    if not cases:
+        raise HTTPException(status_code=503, detail="nxgec fixture missing — "
+                            "run `python -m tests.fixtures.import_nxgec` first.")
+    if volume is not None:
+        cases = [c for c in cases if c.get("volume") == volume]
+    if limit:
+        cases = cases[:max(1, min(500, limit))]
+    if not cases:
+        raise HTTPException(status_code=404, detail="no cases match filters")
+
+    if analysis_mode not in ("fast", "balanced", "deep"):
+        analysis_mode = "balanced"
+
+    rows: List[Dict[str, Any]] = []
+    passed = 0
+    for c in cases:
+        actual = _run_single(c["input"], analysis_mode)
+        actual["id"]            = c.get("id")
+        actual["title"]         = c.get("title")
+        actual["volume"]        = c.get("volume")
+        actual["category"]      = c.get("category")
+        actual["input_snippet"] = _snip(c.get("input", ""), _SNIPPET_LEN)
+        diff = _diff_row(actual, c)
+        actual["diff"] = diff
+        actual["overall_pass"] = bool(diff["mitre_ok"] and diff["lolbin_ok"] and diff["severity_ok"])
+        if actual["overall_pass"]:
+            passed += 1
+        rows.append(actual)
+
+    per_volume = {}
+    for r in rows:
+        v = r.get("volume") or 0
+        s = per_volume.setdefault(v, {"total": 0, "pass": 0})
+        s["total"] += 1
+        if r.get("overall_pass"):
+            s["pass"] += 1
+
+    return {
+        "total":       len(rows),
+        "passed":      passed,
+        "failed":      len(rows) - passed,
+        "pass_rate":   round(passed * 100 / len(rows), 1) if rows else 0.0,
+        "per_volume":  per_volume,
+        "rows":        rows,
+    }
