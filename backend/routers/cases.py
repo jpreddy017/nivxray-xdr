@@ -39,11 +39,17 @@ class SaveCaseIn(BaseModel):
 @router.post("/cases/save")
 async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
     user_email = getattr(user, "email", None) or (user.get("email") if isinstance(user, dict) else None)
-    doc = {
-        "id":          str(uuid.uuid4()),
-        "created_at":  datetime.now(timezone.utc).isoformat(),
+    name = body.name.strip()[:200]
+    now  = datetime.now(timezone.utc).isoformat()
+
+    # Feb 2026 · UPSERT by (user_email, name) — a subsequent SAVE with the
+    # same name updates the existing record instead of creating a duplicate.
+    # This matches the analyst's mental model: "SAVE" on a case they've
+    # already named should just persist their latest edits.
+    existing = _col.find_one({"user_email": user_email, "name": name})
+    doc_body = {
         "user_email":  user_email,
-        "name":        body.name.strip()[:200],
+        "name":        name,
         "input":       body.input,
         "output":      body.output,
         "engine":      body.engine,
@@ -53,17 +59,38 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
         "iocs":        body.iocs,
         "input_len":   len(body.input),
         "output_len":  len(body.output),
+        "updated_at":  now,
     }
-    _col.insert_one(doc)
-    # ─── Feb 2026 · Golden Vault auto-capture ────────────────────────────
-    # Any case the analyst names & saves becomes a locked pytest fixture.
-    # Every subsequent backend change (including the /learner regression
-    # gate) MUST reproduce this output — no silent regression can ship.
+
+    if existing:
+        _col.update_one(
+            {"_id": existing["_id"]},
+            {"$set": doc_body},
+        )
+        doc = {**existing, **doc_body}
+        updated = True
+    else:
+        doc = {
+            "id":         str(uuid.uuid4()),
+            "created_at": now,
+            **doc_body,
+        }
+        _col.insert_one(doc)
+        updated = False
+
+    # ─── Golden Vault auto-capture (only on first save per case-id) ──────
+    # Idempotent by fixture 'id' — the update path reuses the original id,
+    # so re-saves don't create duplicate fixture rows.
     try:
         _append_to_golden_vault(doc)
     except Exception:
-        pass  # never break the save flow on a vault issue
-    return {"id": doc["id"], "name": doc["name"], "created_at": doc["created_at"]}
+        pass
+    return {
+        "id":         doc["id"],
+        "name":       doc["name"],
+        "created_at": doc["created_at"],
+        "updated":    updated,
+    }
 
 
 def _append_to_golden_vault(doc: Dict[str, Any]) -> None:

@@ -108,6 +108,10 @@ export default function WorkspacePage() {
   // Feb-2026 Enhancements: input lock (edit toggle) + multi-command auto-route toast
   const [inputLocked, setInputLocked] = useState(false);
   const [multiChainNotice, setMultiChainNotice] = useState(null);   // { stages, verdict, family }
+  // Feb-2026 · once a case has been named+saved, subsequent SAVE clicks
+  // silently upsert under the same name (no prompt). Reset when the input
+  // is materially cleared (user starts a new investigation).
+  const [savedCaseName, setSavedCaseName] = useState(null);
   // Feb-2026: analyst-corrections launcher state.
   const [refineOpen, setRefineOpen] = useState(false);
   const [refineCtx, setRefineCtx] = useState(null); // { surface, wrong_finding }
@@ -349,6 +353,8 @@ export default function WorkspacePage() {
     setPendingChainStages(null);
     setPendingChainResult(null);
     setMultiChainNotice(null);
+    // Feb-2026 · reset saved-case tracker so next SAVE prompts for a new name
+    setSavedCaseName(null);
     setInputLocked(false);
     try { localStorage.removeItem("nvx.pendingInput"); } catch {}
   };
@@ -919,14 +925,23 @@ export default function WorkspacePage() {
 
   // Feb 2026 · Save the current workspace case (input+output+trace) with a
   // friendly name → recallable from Case Library page.
-  const saveCase = async () => {
+  const saveCase = async (opts = {}) => {
     if (!input || !output) {
       setStatus("SAVE CASE: run a decode first"); return;
     }
-    const name = window.prompt("Name this case (for future reference):",
-                               `Case · ${new Date().toLocaleString()}`);
-    if (!name) return;
-    setStatus("SAVING CASE...");
+    // Feb-2026 UX · if the case already has a name from an earlier save,
+    // reuse it silently (no prompt) so dynamic edits/re-decodes upsert
+    // rather than force the analyst to re-type the name.  Only prompt on
+    // the FIRST save, or when the user explicitly clicks SAVE AS (opts.forcePrompt).
+    let name = savedCaseName;
+    if (!name || opts.forcePrompt) {
+      name = window.prompt(
+        savedCaseName ? "Save this case AS a new name:" : "Name this case (for future reference):",
+        savedCaseName || `Case · ${new Date().toLocaleString()}`,
+      );
+      if (!name) return;
+    }
+    setStatus(savedCaseName && !opts.forcePrompt ? `UPDATING CASE "${name}"...` : "SAVING CASE...");
     try {
       const r = await api.post("/cases/save", {
         name,
@@ -938,11 +953,14 @@ export default function WorkspacePage() {
         verdict: verdictCard?.verdict || analysis?.ai_verdict || null,
         iocs: analysis?.iocs || {},
       });
-      setStatus(`CASE SAVED: "${name}" (id=${(r.data?.id || "").slice(0, 8)})`);
+      setSavedCaseName(name);
+      const wasUpdate = !!r.data?.updated;
+      setStatus(
+        wasUpdate
+          ? `CASE UPDATED: "${name}"`
+          : `CASE SAVED: "${name}" (id=${(r.data?.id || "").slice(0, 8)})`
+      );
     } catch (e) {
-      // Feb 2026 · fix "[object Object]" toast — Pydantic 422s return an ARRAY
-      // of {loc, msg, type} objects, plain JS toString on that gives "[object
-      // Object]". Coerce every path to a readable string before showing.
       const raw = e?.response?.data;
       let msg = raw?.detail || raw?.error || raw?.message || e?.message || String(e);
       if (Array.isArray(msg)) {
