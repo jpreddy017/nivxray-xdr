@@ -11,7 +11,7 @@
  *   POST /api/batch/test            — CSV/multipart path, used for export
  *   GET  /api/batch/test/example    — starter CSV template
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import api, { API_BASE } from "@/lib/api";
 import { Download, Upload, Play, FileText, AlertCircle } from "lucide-react";
