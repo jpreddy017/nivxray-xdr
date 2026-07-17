@@ -158,8 +158,8 @@ export default function SampleLibraryPage() {
           <div style={{ flex: 1 }} />
           <select className="brut-input" value={filter} onChange={(e) => setFilter(e.target.value)}
                   style={{ padding: "4px 8px", fontSize: 11, height: 30, background: "var(--inset)" }} data-testid="sl-filter">
-            <option value="">ALL CATEGORIES ({dashboard?.total_samples || 0})</option>
-            {cats.map((c) => <option key={c} value={c}>{c} ({catCounts[c] || 0})</option>)}
+            <option value="">{`ALL CATEGORIES (${dashboard?.total_samples || 0})`}</option>
+            {cats.map((c) => <option key={c} value={c}>{`${c} (${catCounts[c] || 0})`}</option>)}
           </select>
         </div>
 

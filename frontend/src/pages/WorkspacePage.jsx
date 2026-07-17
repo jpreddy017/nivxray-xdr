@@ -980,7 +980,7 @@ export default function WorkspacePage() {
                 <option value="">PERSONA · Default (JSON)</option>
                 {personas.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {/nivx\s*cognis/i.test(p.name) ? "★ PERSONA · " : "PERSONA · "}{p.name}
+                    {`${/nivx\s*cognis/i.test(p.name) ? "★ PERSONA · " : "PERSONA · "}${p.name}`}
                   </option>
                 ))}
               </select>
@@ -1002,7 +1002,7 @@ export default function WorkspacePage() {
                 style={{ padding: "4px 8px", fontSize: 11, height: 28, background: "var(--inset)" }}
               >
                 <option value="">LLM · Default</option>
-                {providers.map((p) => <option key={p.id} value={p.id}>LLM · {p.name}</option>)}
+                {providers.map((p) => <option key={p.id} value={p.id}>{`LLM · ${p.name}`}</option>)}
               </select>
             )}
           </div>
