@@ -2845,6 +2845,62 @@ def _handle_hexfamily(text: str) -> str:
     return _b64_ascii_or_utf16(best_overall_bytes)
 
 
+# ─── Feb 2026 · Sample-Set #04/#05/#09 fixes ─────────────────────────────
+# CMD delayed expansion (!VAR!), [char[]] array join, certutil workflow
+
+def _cmd_delayed_matches(text: str) -> bool:
+    """Fires when both !VAR! reference AND `set VAR=` bindings coexist."""
+    return bool(re.search(r"!\w+!", text)) and bool(re.search(r"\bset\s+\w+=", text, re.IGNORECASE))
+
+
+def _handle_cmd_delayed_expansion(text: str) -> str:
+    bindings = dict(re.findall(r"\bset\s+(\w+)\s*=\s*([^\r\n&|]+)", text, re.IGNORECASE))
+    def _sub(m):
+        return bindings.get(m.group(1), m.group(0))
+    cleaned = text.replace("^", "")
+    return re.sub(r"!(\w+)!", _sub, cleaned)
+
+
+def _ps_char_array_matches(text: str) -> bool:
+    """Fires when [char[]]@(N,N,N,...) pattern is present."""
+    return bool(re.search(r"\[char\[\]\]\s*[@\(]?\s*\(?\s*(?:\d{1,4}\s*,\s*){3,}\d{1,4}", text, re.IGNORECASE))
+
+
+def _handle_ps_char_array_join(text: str) -> str:
+    pattern = re.compile(
+        r"\[char\[\]\]\s*[@\(]?\s*\(?\s*((?:\d{1,4}\s*,\s*){3,}\d{1,4})\s*\)?\s*[@\)]?\s*"
+        r"(?:-join\s*['\"]{2}\s*)?",
+        re.IGNORECASE,
+    )
+    def _decode(m):
+        try:
+            nums = [int(x.strip()) for x in m.group(1).split(",") if x.strip()]
+            return "'" + "".join(chr(n) for n in nums) + "'"
+        except Exception:
+            return m.group(0)
+    return pattern.sub(_decode, text)
+
+
+def _certutil_workflow_matches(text: str) -> bool:
+    low = text.lower()
+    if "certutil" not in low:
+        return False
+    return any(flag in low for flag in ("-decode", "-urlcache", "-encode", "-f "))
+
+
+def _handle_certutil_workflow(text: str) -> str:
+    low = text.lower()
+    tags = []
+    if "-decode" in low:   tags.append("T1140 · Decode/Deobfuscate (certutil -decode)")
+    if "-urlcache" in low: tags.append("T1105 · Ingress Tool Transfer (certutil -urlcache)")
+    if "-encode" in low:   tags.append("T1027 · Obfuscated File Info (certutil -encode)")
+    header = "# --- Certutil LOLBAS Workflow Detected ---\n"
+    if tags:
+        header += "# " + "\n# ".join(tags) + "\n"
+    return header + text
+
+
+
 ARCHETYPES: List[Dict[str, Any]] = [
     # ─── Feb 2026 · Unified HEX-FAMILY (KHEX + XHEX + variants) ─────────────
     {
@@ -2856,6 +2912,39 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["hexfamily-detect", "hexfamily-unmap", "hex-decode", "base64-decode", "utf16le-or-utf8-decode"],
         "handler": _handle_hexfamily,
         "match":   lambda t: _hexfamily_matches(t),
+        "terminal": False,
+    },
+    # ─── Feb 2026 · CMD delayed expansion (!VAR! + set VAR=... chain) ──────
+    {
+        "id": "CMD_DELAYED_EXPANSION_CARET",
+        "description": "CMD.exe /V:ON delayed-expansion chain — collects all "
+                       "`set VAR=...` bindings, resolves `!VAR!` references, "
+                       "and strips caret (^) escapes.",
+        "chain": ["strip-carets", "cmd-set-collect", "expand-bang-var"],
+        "handler": lambda t: _handle_cmd_delayed_expansion(t),
+        "match":   lambda t: _cmd_delayed_matches(t),
+        "terminal": False,
+    },
+    # ─── Feb 2026 · [char[]] @(N,N,N) -join '' decoder ──────────────────────
+    {
+        "id": "PS_CHAR_ARRAY_JOIN_DECODE",
+        "description": "PowerShell [char[]]@(N,N,N) -join '' array-code decoder — "
+                       "extracts the integer array, converts each to its ASCII "
+                       "character, joins into a single string.",
+        "chain": ["extract-int-array", "chr-decode"],
+        "handler": lambda t: _handle_ps_char_array_join(t),
+        "match":   lambda t: _ps_char_array_matches(t),
+        "terminal": False,
+    },
+    # ─── Feb 2026 · Certutil download+decode workflow annotator ────────────
+    {
+        "id": "CERTUTIL_DOWNLOAD_DECODE_WORKFLOW",
+        "description": "Certutil download-and-decode workflow — annotates "
+                       "certutil -urlcache/-decode/-encode as the LOLBAS "
+                       "download+decode primitive used for stager delivery.",
+        "chain": ["certutil-annotate"],
+        "handler": lambda t: _handle_certutil_workflow(t),
+        "match":   lambda t: _certutil_workflow_matches(t),
         "terminal": False,
     },
     # ─── Feb 2026 · KHEX substitution cipher (Sample1_JP fix) ───────────────
