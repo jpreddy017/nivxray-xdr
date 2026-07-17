@@ -2728,20 +2728,67 @@ def _b64_ascii_or_utf16(raw: bytes) -> str:
     ]:
         if not b64_candidate or len(b64_candidate) < 20:
             continue
-        if len(b64_candidate) % 4 == 1:
-            b64_candidate = b64_candidate[:-1]
+        # Normalise padding: strip any leading/trailing '=' first, then re-add
+        # correct trailing padding. This is what turns 205-body-char reversed
+        # strings into decodable ones (b64decode refuses len % 4 == 1 even in
+        # non-strict mode).
+        core = b64_candidate.strip("=")
+        # Try multiple trim amounts to handle truncation in the source payload.
+        b64_raw = None
+        for trim in (0, 1, 2, 3):
+            trimmed = core[:-trim] if trim else core
+            if len(trimmed) < 20 or len(trimmed) % 4 == 1:
+                continue
+            try:
+                b64_raw = base64.b64decode(trimmed + "=" * (-len(trimmed) % 4), validate=False)
+                if b64_raw:
+                    break
+            except Exception:
+                continue
+        if not b64_raw:
+            continue
         try:
-            b64_raw = base64.b64decode(b64_candidate + "=" * (-len(b64_candidate) % 4), validate=False)
             for enc in ("ascii", "utf-8", "utf-16-le", "utf-16-be", "latin-1"):
                 for _b in (b64_raw, b64_raw[:-1]) if (enc.startswith("utf-16") and len(b64_raw) % 2 == 1) else (b64_raw,):
-                    try:
-                        dec = _b.decode(enc, errors="strict")
+                    # Try both strict and lenient decoding — lenient lets us
+                    # advance to the URL-decode branch even when a couple of
+                    # tail bytes are corrupt (common with truncated payloads).
+                    for err_mode in ("strict", "replace"):
+                        try:
+                            dec = _b.decode(enc, errors=err_mode)
+                        except Exception:
+                            continue
                         sc = _score(dec)
-                        if sc >= 0.50:
-                            bonus = 0.1 if any(k in dec.lower() for k in ("powershell", "iex", "http", "webclient", "invoke", "cmd", "shell")) else 0
-                            candidates.append((sc + bonus, dec, f"{b64_variant_label}→{enc}"))
-                    except Exception:
-                        continue
+                        if sc < 0.50:
+                            continue
+                        # Skip the strict duplicate — only add strict OR replace.
+                        if err_mode == "replace" and "\ufffd" not in dec:
+                            continue
+                        bonus = 0.1 if any(k in dec.lower() for k in ("powershell", "iex", "http", "webclient", "invoke", "cmd", "shell")) else 0
+                        candidates.append((sc + bonus, dec, f"{b64_variant_label}→{enc}"))
+                        # If the b64-decoded text is URL-encoded (analyst
+                        # obfuscation stacks `%HH` on top of base64), try
+                        # url-decoding it as an even deeper candidate.
+                        if "%" in dec and dec.count("%") >= max(3, int(0.03 * len(dec))):
+                            try:
+                                import urllib.parse as _up
+                                ud = _up.unquote(dec, errors="replace")
+                                # Strip trailing replacement/control noise from
+                                # truncated payloads so the ASCII share stays
+                                # representative of the actual command.
+                                ud_clean = ud.rstrip("\x00\ufffd\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0c\x0e\x0f")
+                                sc2 = _score(ud_clean)
+                                if sc2 >= 0.50:
+                                    bonus2 = 0.30 if any(k in ud_clean.lower() for k in
+                                        ("powershell", "iex", "http", "webclient", "invoke",
+                                         "cmd", "shell", "rundll32", "mshta", "certutil",
+                                         "bash", "wget", "curl", "temp\\", "%temp%",
+                                         "malware", "javascript", ".exe", "select-object",
+                                         "wscript", "cscript")) else 0.10
+                                    candidates.append((sc2 + bonus2, ud_clean, f"{b64_variant_label}→{enc}→url"))
+                            except Exception:
+                                pass
+                        break  # don't re-add both strict and replace
         except Exception:
             pass
     if not candidates:
@@ -2927,6 +2974,8 @@ def _handle_ps_char_array_join(text: str) -> str:
 
 def _certutil_workflow_matches(text: str) -> bool:
     low = text.lower()
+    if "--- certutil lolbas workflow detected ---" in low:
+        return False  # idempotent — already annotated
     if "certutil" not in low:
         return False
     return any(flag in low for flag in ("-decode", "-urlcache", "-encode", "-f "))
@@ -2950,6 +2999,8 @@ def _handle_certutil_workflow(text: str) -> str:
 
 def _mshta_wrapper_matches(text: str) -> bool:
     low = text.lower()
+    if "--- mshta lolbas loader detected ---" in low:
+        return False
     if not re.search(r"\bmshta(\.exe)?\b", low):
         return False
     return bool(re.search(r"mshta.*(https?://|vbscript:|javascript:|\\\\)", low))
@@ -2968,6 +3019,8 @@ def _handle_mshta_wrapper(text: str) -> str:
 
 def _bitsadmin_transfer_matches(text: str) -> bool:
     low = text.lower()
+    if "--- bitsadmin file transfer detected ---" in low:
+        return False
     return "bitsadmin" in low and ("/transfer" in low or "/addfile" in low)
 
 
@@ -2998,6 +3051,8 @@ def _handle_msiexec_install(text: str) -> str:
 
 def _regsvr32_scriptlet_matches(text: str) -> bool:
     low = text.lower()
+    if "--- regsvr32 scriptlet loader detected" in low:
+        return False
     if "regsvr32" not in low:
         return False
     return bool(re.search(r"regsvr32.*(scrobj\.dll|/i:https?://|/u\s+/s\s+/i:)", low))
@@ -3014,6 +3069,8 @@ def _handle_regsvr32_scriptlet(text: str) -> str:
 
 def _rundll32_javascript_matches(text: str) -> bool:
     low = text.lower()
+    if "--- rundll32 javascript/htmlapplication loader detected ---" in low:
+        return False
     return "rundll32" in low and ("javascript:" in low or "vbscript:" in low or "mshtml,runhtmlapplication" in low)
 
 
@@ -3025,6 +3082,8 @@ def _handle_rundll32_javascript(text: str) -> str:
 
 def _wmic_process_call_matches(text: str) -> bool:
     low = text.lower()
+    if "--- wmic process call detected ---" in low:
+        return False
     return "wmic" in low and "process" in low and "call" in low and ("create" in low or "http" in low)
 
 
@@ -3639,10 +3698,18 @@ def try_archetypes(text: str, max_depth: int = 4) -> Optional[Dict[str, Any]]:
             current = resolved
     except Exception:
         pass
+    already_fired: set = set()
     for _ in range(max_depth):
         matched = False
         hit_terminal = False
         for arch in ARCHETYPES:
+            # Feb 2026 · dedupe re-fires — annotation archetypes (certutil,
+            # rundll32, mshta, bitsadmin …) inject the LOLBIN keyword into
+            # their own output, which re-matched their regex and produced 6×
+            # cascading annotations. Once an archetype has fired, don't fire
+            # it again in this decode.
+            if arch["id"] in already_fired:
+                continue
             try:
                 if not arch["match"](current):
                     continue
@@ -3651,6 +3718,7 @@ def try_archetypes(text: str, max_depth: int = 4) -> Optional[Dict[str, Any]]:
                     fired.append({"id": arch["id"], "desc": arch["description"],
                                   "chain": arch["chain"], "output": out,
                                   "terminal": bool(arch.get("terminal"))})
+                    already_fired.add(arch["id"])
                     current = out
                     matched = True
                     hit_terminal = bool(arch.get("terminal"))
