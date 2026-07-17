@@ -342,15 +342,22 @@ _NXGEC_TEST = "backend/tests/test_nxgec_regression.py"
 
 
 def run_regression(timeout_sec: int = 90) -> Dict[str, Any]:
-    """Execute the NXGEC regression suite in a subprocess and return a
-    machine-readable summary. Uses pytest -q --tb=no."""
+    """Execute the NXGEC regression suite AND the User Golden Vault in a
+    subprocess and return a machine-readable summary. Uses pytest -q --tb=no.
+
+    The Golden Vault (backend/tests/test_user_golden_vault.py) locks every
+    workspace case the analyst has saved — any archetype change that breaks
+    a previously-validated payload is refused here, so /learner/approve can
+    never merge a regression."""
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     # __file__ is /app/backend/learner_engine.py → root = /app
     cwd = os.path.join(root, "backend")
     try:
         proc = subprocess.run(
             [sys.executable, "-m", "pytest", "-q", "--tb=short",
-             "tests/test_nxgec_regression.py"],
+             "tests/test_nxgec_regression.py",
+             "tests/test_user_golden_vault.py",
+             "tests/test_cjk_gibberish_regression.py"],
             cwd=cwd, capture_output=True, text=True, timeout=timeout_sec,
         )
         out = (proc.stdout or "") + "\n" + (proc.stderr or "")
@@ -362,6 +369,7 @@ def run_regression(timeout_sec: int = 90) -> Dict[str, Any]:
             "failed":   failed,
             "exit_code": proc.returncode,
             "log_tail": out[-4000:],
+            "suites":   ["nxgec", "user_golden_vault", "cjk_gibberish"],
         }
     except subprocess.TimeoutExpired:
         return {"ok": False, "passed": 0, "failed": 0,

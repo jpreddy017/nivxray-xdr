@@ -52,7 +52,56 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
         "output_len":  len(body.output),
     }
     _col.insert_one(doc)
+    # ─── Feb 2026 · Golden Vault auto-capture ────────────────────────────
+    # Any case the analyst names & saves becomes a locked pytest fixture.
+    # Every subsequent backend change (including the /learner regression
+    # gate) MUST reproduce this output — no silent regression can ship.
+    try:
+        _append_to_golden_vault(doc)
+    except Exception:
+        pass  # never break the save flow on a vault issue
     return {"id": doc["id"], "name": doc["name"], "created_at": doc["created_at"]}
+
+
+def _append_to_golden_vault(doc: Dict[str, Any]) -> None:
+    """Append a SAVE CASE snapshot to /app/backend/tests/fixtures/user_golden_vault.jsonl.
+    Idempotent by fixture 'id'. Skips snapshots that contain CJK gibberish
+    (those are broken outputs and shouldn't be locked in as truth)."""
+    import json as _json
+    out = doc.get("output") or ""
+    if any((0x4E00 <= ord(c) <= 0x9FFF) or (0x3040 <= ord(c) <= 0x30FF)
+           or (0x3400 <= ord(c) <= 0x4DBF) or (0xAC00 <= ord(c) <= 0xD7AF)
+           for c in out):
+        return  # don't lock in broken output
+    head = out.split("━━")[0].strip() if "━━" in out else out
+    sig  = "".join(c for c in head if 32 <= ord(c) < 127 or c in "\n\r\t")[:200]
+    fx = {
+        "name":                doc.get("name") or "unnamed",
+        "source":              "workspace_case",
+        "id":                  doc["id"],
+        "created_at":          doc["created_at"],
+        "input":               doc["input"],
+        "expected_engine":     doc.get("engine"),
+        "expected_conf":       doc.get("confidence"),
+        "expected_signature":  sig,
+    }
+    vault = "/app/backend/tests/fixtures/user_golden_vault.jsonl"
+    # Read existing IDs for idempotency
+    existing_ids = set()
+    if os.path.exists(vault):
+        with open(vault, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line: continue
+                try:
+                    existing_ids.add(_json.loads(line).get("id"))
+                except Exception:
+                    pass
+    if fx["id"] in existing_ids:
+        return
+    os.makedirs(os.path.dirname(vault), exist_ok=True)
+    with open(vault, "a", encoding="utf-8") as f:
+        f.write(_json.dumps(fx, ensure_ascii=False) + "\n")
 
 
 @router.get("/cases")

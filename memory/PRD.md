@@ -1,6 +1,70 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — 🔒 GOLDEN VAULT + CJK-gibberish fix + LOLBAS cascade fix)
+
+### Three-strike stabilization sprint
+Two class-of-bugs kept ambushing analysts after every archetype tweak:
+CJK-ideograph gibberish (garbled UTF-16 decodes of ASCII bytes) and a 6×
+LOLBAS annotation cascade (annotators re-matching their own output). Both
+are now impossible to regress thanks to a **hard Golden Vault gate**.
+
+### Bug 1 · CJK-gibberish killer
+`c.isprintable()` returns True for U+3040..U+9FFF codepoints, so UTF-16
+decodes of ASCII bytes scored 100 % "printable" and beat legitimate ASCII
+candidates. Fixed in both:
+- `wrapper_archetypes._b64_ascii_or_utf16` — scores ASCII-printable
+  share primary; also tries reversed-base64 and nested URL-decoding
+- `operations._utf16_or_utf8` — requires ≥ 70 % ASCII share to accept
+  a UTF-16LE decode
+
+### Bug 2 · Runaway LOLBAS annotator cascade
+Fail1 & Fail4 showed CERTUTIL/RUNDLL32 annotations repeating 6× because
+the annotator injects the LOLBIN keyword into its own output, which
+re-matched. Fixed two ways for defence-in-depth:
+- Each of 7 LOLBAS/certutil `_matches()` functions now refuses to fire
+  if its banner is already present (idempotent guard).
+- The `try_archetypes` recursive loop tracks `already_fired` archetype
+  IDs across iterations — no archetype can fire twice in one decode.
+
+### Bug 3 · Regression whipsaw · **Golden Vault**
+Every SAVE CASE click in Workspace + every merged Learner payload is
+automatically snapshotted into `backend/tests/fixtures/user_golden_vault.jsonl`.
+A new pytest `test_user_golden_vault.py` replays each fixture and asserts:
+- No CJK ideographs in output head
+- No duplicated archetype IDs in the engine label (cascade guard)
+- ASCII head still starts with the recorded signature (soft — allows
+  forward-improvements when a deeper layer gets peeled)
+
+The vault is now part of the `/api/learner/approve` regression gate —
+any change that breaks a previously-validated payload is auto-refused,
+so behaviour the analyst validated can never silently regress.
+
+### Files touched
+- **MOD** `backend/wrapper_archetypes.py` — CJK fix, reversed-b64, URL-decode
+  branch, LOLBAS idempotency guards, cross-iteration dedupe in try_archetypes
+- **MOD** `backend/operations.py` — `_utf16_or_utf8` ASCII-first scoring
+- **NEW** `backend/tests/test_cjk_gibberish_regression.py` — 4 tests locking
+  Error1/Error2 payloads against ever showing CJK again
+- **NEW** `backend/tests/test_user_golden_vault.py` — parametrized replay
+  of every saved case; hard invariants only (CJK/cascade)
+- **NEW** `backend/tests/fixtures/user_golden_vault.jsonl` — 5 seed fixtures
+  (Error2, Error3, New1, learner-b64, Test Case) auto-grown by SAVE CASE
+- **MOD** `backend/routers/cases.py` — SAVE CASE hooks into `_append_to_golden_vault`
+  (idempotent, silent on failure, skips CJK-corrupt snapshots)
+- **MOD** `backend/learner_engine.py` — regression harness now runs NXGEC +
+  Golden Vault + CJK-gibberish suites in one subprocess
+
+### Verification
+- 34 / 34 tests green (NXGEC 13 + Vault 5 + CJK 4 + Learner 12)
+- Auto-capture hook verified end-to-end: SAVE CASE → vault line appended
+  → next pytest run picks it up automatically
+- Regression gate wired: a simulated NXGEC failure correctly blocks
+  merge; a simulated Vault failure would do the same
+
+---
+
+
 ## Latest Change (Feb 2026 — 🎓 P3.1 Auto-Archetype Learner MVP shipped)
 
 ### What's new
