@@ -83,6 +83,8 @@ export default function BatchTestPage() {
         { timeout: 120_000 });
       setRows(r.data.rows || []);
       setSummary(r.data.summary || null);
+      setRunId(r.data.run_id || null);
+      loadHistory();
     } catch (e) {
       setErr(e.response?.data?.detail || e.message);
       setRows([]); setSummary(null);
@@ -103,6 +105,8 @@ export default function BatchTestPage() {
         { headers: { "Content-Type": "multipart/form-data" }, timeout: 180_000 });
       setRows(r.data.rows || []);
       setSummary(r.data.summary || null);
+      setRunId(r.data.run_id || null);
+      loadHistory();
       // reflect the parsed payloads back into the textarea (aids re-run)
       setText((r.data.rows || []).map(row => row.input_snippet).join("\n"));
     } catch (e2) {

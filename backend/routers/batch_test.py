@@ -236,7 +236,34 @@ async def batch_test_upload(
         rows.append(base)
 
     if format == "json":
-        return {"total": len(rows), "analysis_mode": analysis_mode, "rows": rows}
+        # Feb 2026 · persist to batch_runs
+        summary = {
+            "malicious":  sum(1 for r in rows if r.get("verdict") == "Malicious"),
+            "suspicious": sum(1 for r in rows if r.get("verdict") == "Suspicious"),
+            "unknown":    sum(1 for r in rows if r.get("verdict") == "Unknown"),
+            "errors":     sum(1 for r in rows if r.get("error")),
+            "shellcode_reached": sum(1 for r in rows if r.get("reached_shellcode")),
+        }
+        run_id = None
+        try:
+            import uuid
+            from datetime import datetime, timezone
+            run_doc = {
+                "id":            str(uuid.uuid4()),
+                "created_at":    datetime.now(timezone.utc).isoformat(),
+                "user_email":    getattr(user, "email", None) or (user.get("email") if isinstance(user, dict) else None),
+                "analysis_mode": analysis_mode,
+                "total":         len(rows),
+                "summary":       summary,
+                "rows":          rows,
+                "source":        f"upload:{file.filename or 'file'}",
+            }
+            db_batch_runs.insert_one(run_doc)
+            run_id = run_doc["id"]
+        except Exception:
+            pass
+        return {"total": len(rows), "analysis_mode": analysis_mode, "rows": rows,
+                "summary": summary, "run_id": run_id}
     csv_body = _rows_to_csv(rows)
     fname = re.sub(r"[^A-Za-z0-9._-]+", "_",
                    filename.rsplit(".", 1)[0] or "batch") + "_nivxray_results.csv"
