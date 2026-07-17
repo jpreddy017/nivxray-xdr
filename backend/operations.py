@@ -1561,6 +1561,33 @@ MITRE_HEURISTICS = [
         ("T1053.005", "Scheduled Task (PowerShell TaskScheduler)", "Persistence")),
     (r"\$encryption[Kk]ey\s*=\s*\[system\.convert\]::frombase64string",
         ("T1027", "Obfuscated Files or Information (PowerShell encryption-key loader)", "Defense Evasion")),
+    # ─── Feb 2026 · Case4/5-driven heuristics ────────────────────────
+    # Legitimate CDN / object-storage abuse — attackers host payloads on
+    # trusted infra to bypass domain-reputation filters. Seen in Case4
+    # (jsdelivr.net/gh/...), Case5 (contabostorage.com), and older cases
+    # (aliyun OSS, statically.io, raw.githubusercontent.com, cdn.discordapp.com).
+    (r"(?:cdn\.jsdelivr\.net/gh/|raw\.githubusercontent\.com/|cdn\.statically\.io/gh/|"
+     r"cdn\.discordapp\.com/attachments/|[a-z0-9-]+\.contabostorage\.com/|"
+     r"[a-z0-9-]+\.aliyun(?:cs)?\.com/|[a-z0-9-]+\.oss-[a-z0-9-]+\.aliyuncs\.com/|"
+     r"[a-z0-9-]+\.b-cdn\.net/|[a-z0-9-]+\.pages\.dev/|[a-z0-9-]+\.workers\.dev/)",
+        ("T1105", "Ingress Tool Transfer (Legitimate CDN/Object-Storage Abuse)", "Command and Control")),
+    (r"(?:cdn\.jsdelivr\.net/gh/|raw\.githubusercontent\.com/|"
+     r"[a-z0-9-]+\.contabostorage\.com/|[a-z0-9-]+\.oss-[a-z0-9-]+\.aliyuncs\.com/)",
+        ("T1102", "Web Service (Trusted-Domain C2 Fronting)", "Command and Control")),
+    # WinHTTP COM-object stager — different signature from Net.WebClient.
+    # Seen in Case4: $w = New-Object -ComObject WinHttp.WinHttpRequest.5.1
+    (r"new-object\s+-?comobject\s+winhttp\.winhttprequest",
+        ("T1059.001", "PowerShell (WinHTTP COM stager)", "Execution")),
+    (r"winhttp\.winhttprequest[^\n]*?\.open\s*\(\s*['\"]GET['\"]",
+        ("T1105", "Ingress Tool Transfer (WinHTTP COM stager)", "Command and Control")),
+    # `gcm *pattern*` / `gal *pattern*` Bohannon wildcard cmdlet obfuscation
+    (r"\((?:gcm|gal|get-command|get-alias)\s+[^)]{0,20}\*[a-z]{1,8}\*[^)]{0,20}\)",
+        ("T1027", "Obfuscated Files or Information (PowerShell wildcard cmdlet resolution)", "Defense Evasion")),
+    (r"\((?:gcm|gal|get-command|get-alias)\s+[^)]{0,30}\*[a-z]{1,10}\*",
+        ("T1059.001", "PowerShell (wildcard cmdlet resolution)", "Execution")),
+    # SyncAppvPublishingServer.vbs abuse — signed VBS proxy execution
+    (r"syncappvpublishingserver(?:\.vbs)?",
+        ("T1216", "System Script Proxy Execution: SyncAppvPublishingServer", "Defense Evasion")),
 ]
 
 

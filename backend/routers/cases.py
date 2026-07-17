@@ -29,7 +29,10 @@ class SaveCaseIn(BaseModel):
     engine:      Optional[str] = None
     confidence:  Optional[float] = None
     chain_ids:   List[str] = Field(default_factory=list)
-    verdict:     Optional[str] = None
+    # Feb 2026: verdict may be either a bare string ("Suspicious") OR a dict
+    # ({verdict, confidence, summary, family, ...}) depending on which panel
+    # emitted the save. Accept Any to prevent 422s from the strict-str schema.
+    verdict:     Optional[Any] = None
     iocs:        Dict[str, Any] = Field(default_factory=dict)
 
 

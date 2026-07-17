@@ -103,12 +103,19 @@ export default function HistoryDrawer({ open, onClose, onRehydrate }) {
 
   const relTime = (iso) => {
     if (!iso) return "";
-    const t = new Date(iso).getTime();
-    const s = Math.floor((Date.now() - t) / 1000);
-    if (s < 60) return `${s}s ago`;
-    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-    return `${Math.floor(s / 86400)}d ago`;
+    // Feb 2026 fix — backend serialises `datetime` without a tz suffix, so
+    // JS's Date() parses the string as *local* time (a 5.5-hour skew for IST
+    // users → "5h ago" instead of "just now"). Force UTC parse by appending
+    // 'Z' when no offset / no 'Z' is present.
+    let s = String(iso);
+    if (!/[Zz]|[+-]\d{2}:?\d{2}$/.test(s)) s = s + "Z";
+    const t = new Date(s).getTime();
+    if (!isFinite(t)) return "";
+    const dt = Math.floor((Date.now() - t) / 1000);
+    if (dt < 60) return `${dt}s ago`;
+    if (dt < 3600) return `${Math.floor(dt / 60)}m ago`;
+    if (dt < 86400) return `${Math.floor(dt / 3600)}h ago`;
+    return `${Math.floor(dt / 86400)}d ago`;
   };
 
   if (!open) return null;

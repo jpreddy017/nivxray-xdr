@@ -940,7 +940,18 @@ export default function WorkspacePage() {
       });
       setStatus(`CASE SAVED: "${name}" (id=${(r.data?.id || "").slice(0, 8)})`);
     } catch (e) {
-      setStatus("SAVE CASE FAILED: " + (e?.response?.data?.detail || e.message));
+      // Feb 2026 · fix "[object Object]" toast — Pydantic 422s return an ARRAY
+      // of {loc, msg, type} objects, plain JS toString on that gives "[object
+      // Object]". Coerce every path to a readable string before showing.
+      const raw = e?.response?.data;
+      let msg = raw?.detail || raw?.error || raw?.message || e?.message || String(e);
+      if (Array.isArray(msg)) {
+        msg = msg.map((v) => (v?.msg && v?.loc ? `${v.loc.join(".")}: ${v.msg}` : (v?.msg || JSON.stringify(v))))
+                 .join(" · ");
+      } else if (typeof msg === "object" && msg !== null) {
+        msg = msg.msg || msg.error || JSON.stringify(msg);
+      }
+      setStatus("SAVE CASE FAILED: " + msg);
     }
   };
 

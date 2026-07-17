@@ -182,6 +182,20 @@ _L_DEFAULT: List[Dict[str, Any]] = [
     {"bin": "Dfsvc.exe", "argv": r"\.application|\.deploy|https?://",
      "purposes": ["Execute"], "mitre": ["T1218"],
      "desc": "ClickOnce Deployment service abused to execute remote .application manifests"},
+
+    # ─── Feb 2026 · Case4/5-driven LOLBAS additions ──────────────────
+    # SyncAppvPublishingServer.vbs — signed Microsoft AppV VBS abused to
+    # proxy PowerShell in Case4 (App-V publishing server executes any
+    # code passed as its final argument via WScript). MITRE T1216.
+    {"bin": "SyncAppvPublishingServer.vbs", "argv": r"\bn;.*?&(?:\(gal\s|\(gcm\s|iex\b|Invoke-Expression)",
+     "purposes": ["Execute", "AWL Bypass"], "mitre": ["T1216", "T1218", "T1059.005"],
+     "desc": "SyncAppvPublishingServer.vbs — Microsoft-signed AppV VBS abused via WScript to proxy PowerShell (Case4 tradecraft)"},
+    {"bin": "wscript.exe", "argv": r"\.vbs\b|\.js\b|\.wsf\b",
+     "purposes": ["Execute"], "mitre": ["T1059.005"],
+     "desc": "WScript.exe executing .vbs / .js / .wsf droppers"},
+    {"bin": "cscript.exe", "argv": r"\.vbs\b|\.js\b|\.wsf\b|//E:|//nologo",
+     "purposes": ["Execute"], "mitre": ["T1059.005"],
+     "desc": "CScript.exe executing .vbs / .js / .wsf droppers"},
 ]
 
 # Defaults, keyed by binary name (lower) so API imports can be merged without overriding.
