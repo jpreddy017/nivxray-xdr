@@ -570,18 +570,21 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         )
         if report_txt:
             raw_output = result.get("output") or ""
-            # ── Feb-2026 UX fix — TERMINAL ARCHETYPES ──────────────────────
-            # When the winning archetype is a "terminal" one (its output is
-            # already a forensic report — e.g. CERTUTIL_DECODE_PEM's hexdump),
-            # the raw archetype output MUST be shown to the analyst instead
-            # of being replaced by the investigation-summary boilerplate.
-            # We prepend the summary as a small header so BOTH signals are
-            # visible in the OUTPUT panel.
-            if det.get("terminal_archetype") and raw_output:
+            # ── Feb-2026 UX fix — DECODED PAYLOAD ALWAYS VISIBLE ────────────
+            # The analyst must always see the decoded plaintext, not just the
+            # summary. Two cases:
+            #   1. terminal_archetype  → archetype output is a forensic report
+            #      (hexdump, layer-by-layer breakdown, native-cmd table). Prepend
+            #      the report_txt as a header AFTER the raw output.
+            #   2. non-terminal         → raw output is the decoded plaintext.
+            #      Prepend it, then attach the summary underneath.
+            input_text = (body.input or "").strip()
+            if raw_output and raw_output.strip() != input_text:
                 result["output_raw"] = raw_output
                 result["output"] = raw_output + "\n\n" + report_txt
                 result["report_text"] = report_txt
             else:
+                # Passthrough — no decoded content to prepend, show summary only.
                 result["output_raw"] = raw_output
                 result["output"] = report_txt
                 result["report_text"] = report_txt

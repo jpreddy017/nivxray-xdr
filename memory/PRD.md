@@ -3247,3 +3247,56 @@ Added a collapsible **PLATFORM CAPABILITIES** card at the top of the Knowledge B
 | LEARNING BOOST          | Auto-boost — history freq w=3, KB match w=2, built-in prior w=1               | `/api/learning/boost`                 |
 
 Frontend: `PlatformCapabilities` component in `KnowledgeBasePage.jsx`. Collapsed by default; expands to a 2-3 col grid.
+
+## Feb 2026 · Research-Backed Training + GoogleAI-Style Output (this session)
+
+### What was added
+1. **`/app/memory/RESEARCH_REFERENCES.md`** — source-of-truth doc for 3 primary research papers now baked into the tool:
+   - Bohannon & Holmes · Revoke-Obfuscation · BlackHat US-17
+   - Deep Instinct · "Excel(ent) Obfuscation: Regex Gone Rogue" (May 2025)
+   - dr4k0nia · "String Obfuscation The Malware Way" (Dec 2022)
+
+2. **13 new deterministic archetypes** in `/app/backend/wrapper_archetypes.py`:
+   - `PS_TICK_OBFUSC`, `CMD_ENVVAR_SPLIT_POWERSHELL`, `PS_GET_COMMAND_WILDCARD`,
+     `PS_SPLIT_JOIN_DELIM`, `PS_REPLACE_JUNK`, `PS_ARRAY_REVERSE_JOIN`,
+     `PS_REGEX_REVERSE`, `PS_SCRIPTBLOCK_CREATE`, `PS_CLIPBOARD_IEX`
+     (Bohannon US-17)
+   - `EXCEL_REGEX_OBFUSC` (Deep Instinct 2025)
+   - `DOTNET_HOMOGLYPH_REPLACE`, `DOTNET_STRING_REMOVE` (dr4k0nia)
+   - `NATIVE_CMD_EXPLAINER` — GoogleAI-style breakdown for plain-text LOLBAS commands
+     (reg.exe export, vssadmin delete shadows, schtasks /Create, sc create, wevtutil cl, etc.)
+   - `PS_FROMBASE64_ASCII_FROMHEX` — nested 4-layer PowerShell obfuscation decoder
+     with auto double-b64 detection (fixes user's "no output" complaint)
+   - `PS_FromBase64String_ASCII` (split from UTF16LE — was mis-classifying ASCII payloads)
+
+3. **`/app/backend/training/system_prompt.py`** — LLM narrative layer now cites the 3 research sources by name when their signature fires.
+
+4. **`/app/backend/training/corpus/samples.jsonl`** — 15 new JSONL rows (245 → 260)
+   teach the offline LLM to name-check the exact obfuscation techniques.
+
+5. **`/app/backend/tests/test_research_refs_feb2026.py`** — 22 pytest cases lock every new archetype behind a regression test.
+
+6. **`/app/backend/routers/ops.py`** — decoded plaintext is now ALWAYS prepended to the
+   investigation summary in the OUTPUT panel (fixes user "OUTPUT panel shows only summary" bug).
+
+### Test status (this session)
+- 151/151 targeted tests pass across `test_research_refs_feb2026`,
+  `test_wrapper_shell_decode`, `test_feb2026_4_archetypes`, `test_encodedcommand_coverage`,
+  `test_corpus_v2_archetypes`, `test_multiline_decode`, `test_chain_analyzer`,
+  `test_ioc_reversed_fp_filter`, `test_moe_reviewer_attr_regression`,
+  `test_fixture_regression_matrix`, `test_meterpreter_b64xor`,
+  `test_meterpreter_gzip_xor_stager`.
+- 5 pre-existing test failures (present at HEAD before this session; confirmed
+  via git stash test) — unrelated to this work:
+    · test_ps_ascii_xor_iex::test_end_to_end_via_decode_smart
+    · test_ps_ascii_xor_iex::test_terminal_line_wrap_inside_integer_still_decodes
+    · test_nivxary::test_xss_content
+    · test_analyst_corrections::test_analyze_applies_deterministic_override
+    · test_auto_investigate_recursion_parity::test_nested_b64_gzip_b64_reaches_deepest_layer
+
+### Next backlog
+- Automated Threat-Intel RSS crawler (BleepingComputer, Unit42) → admin inbox
+- Reverse-Engineering page (Hash → sample recovery via MalwareBazaar / VT)
+- Dashed-red graph edges for chain-breaks
+- Batch Analyst Testing UI/Endpoint (CSV in → CSV out)
+- Fix pre-existing 5 test failures noted above (touch investigation-report contract carefully)

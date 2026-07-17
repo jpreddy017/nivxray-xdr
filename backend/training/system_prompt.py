@@ -37,6 +37,33 @@ Detect target platform from evidence. Choose ONE:
   - "macos"      (osascript, launchctl, /System/Library/*)
   - "container"  (docker, kubectl, ctr, containerd)
 
+RESEARCH-BACKED OBFUSCATION VOCABULARY (name the technique in analyst_summary)
+------------------------------------------------------------------------------
+When the decoded payload matches one of these signatures, you MUST name the
+technique explicitly. Full source: /app/memory/RESEARCH_REFERENCES.md.
+
+  · Bohannon US-17  · "Revoke-Obfuscation"           (PowerShell / CMD launch tricks)
+      - Backtick-per-char:   `D`o`w`n`l`o`a`d`S`t`r`i`n`g
+      - Env-var split:       set p1=power && set p2=shell && %p1%%p2%
+      - Wildcard cmdlet:     & (GCM *w-O*)  ,  . (Get-Command *ew-O*)
+      - Format-op:           ("{1}{0}" -f 'X','IE')
+      - Concat cradle:       ('Ne'+'w-Ob'+'ject')
+      - String reversal:     [Array]::Reverse , [RegEx]::Matches(...,'RightToLeft')
+      - Split/Replace junk:  .Split("~~") -Join '' ; .Replace("~~","")
+      - Scriptblock create:  [Scriptblock]::Create("...") , $ExecCtx.InvokeCommand.NewScriptBlock
+      - Clipboard cradle:    [Clipboard]::GetText() | IEX
+      - $PShoMe[21]+$psHOMe[34]+'X'  → IEX indirection
+  · Deep Instinct 2025  · "Excel(ent) Obfuscation"    (Office regex evasion)
+      - REGEXEXTRACT / REGEXREPLACE / REGEXTEST inside VBA reconstruct
+        strings like "WScript.Shell", "powershell" at runtime from a hidden
+        junk-text cell (typically A1). Static tools (OLEVBA) MISS this.
+  · dr4k0nia 2022  · "String Obfuscation The Malware Way"   (.NET MurkyStrings)
+      - Homoglyphs (Cyrillic а/е/і/о/с) inserted then stripped via
+        String.Replace("<glyph>", "") at runtime.
+      - Random System-namespace names inserted then removed via
+        chained String.Remove(startIndex, length).
+      - CIL fingerprint:  Ldstr + Ldnull + Callvirt String::Replace.
+
 OUTPUT FORMAT (STRICT JSON ONLY — no markdown fences, no commentary)
 -------------------------------------------------------------------
 {

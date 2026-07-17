@@ -330,7 +330,8 @@ def _handle_ps_memstream_deflate(text: str) -> str:
 
 # 3. PS_FromBase64String_UTF16LE  (classic -EncodedCommand)
 _PS_FB64_UTF16_RX = re.compile(
-    r"\[(?:System\.)?Text\.Encoding\][^\n]{0,80}\.GetString\s*\("
+    r"\[(?:System\.)?Text\.Encoding\]::(?:Unicode|UTF-?16(?:LE)?)"
+    r"\.GetString\s*\("
     r"\s*\[(?:System\.)?Convert\]::FromBase64String\s*\(\s*[\"']"
     r"(?P<blob>[A-Za-z0-9+/=_\-\s]{16,})"
     r"[\"']",
@@ -344,6 +345,101 @@ def _handle_ps_fb64_utf16(text: str) -> str:
     raw = robust_b64decode(blob)
     # PowerShell -EncodedCommand payloads are always UTF-16LE
     return raw.decode("utf-16le", errors="replace")
+
+
+# 3b. PS_FromBase64String_ASCII  (Feb 2026 fix — explicit ASCII decoder)
+#     Handles [Text.Encoding]::ASCII.GetString([Convert]::FromBase64String('...'))
+#     — previously mis-classified as UTF-16LE which produced garbage.
+_PS_FB64_ASCII_RX = re.compile(
+    r"\[(?:System\.)?Text\.Encoding\]::(?:ASCII|UTF-?8|Default)"
+    r"\.GetString\s*\("
+    r"\s*\[(?:System\.)?Convert\]::FromBase64String\s*\(\s*[\"']"
+    r"(?P<blob>[A-Za-z0-9+/=_\-\s]{16,})"
+    r"[\"']",
+    re.IGNORECASE,
+)
+
+def _handle_ps_fb64_ascii(text: str) -> str:
+    blob = _match_group(_PS_FB64_ASCII_RX, text)
+    if not blob:
+        raise ValueError("no blob match")
+    raw = robust_b64decode(blob)
+    try:
+        return raw.decode("ascii")
+    except UnicodeDecodeError:
+        # PowerShell's ASCII.GetString replaces >0x7F bytes with '?'.
+        return "".join(chr(b) if b < 0x80 else "?" for b in raw)
+
+
+# 3c. PS_FROMBASE64_ASCII_FROMHEX  (Feb 2026 · full nested chain)
+#     iex(
+#       [Text.Encoding]::ASCII.GetString(
+#         [Convert]::FromHexString(
+#           [Text.Encoding]::ASCII.GetString(
+#             [Convert]::FromBase64String('<b64>')
+#           )
+#         )
+#       )
+#     )
+#
+# Deterministically unwinds all four layers. If the inner b64 output is
+# ITSELF a base64 string (trailing '='), recursively unwinds a second
+# layer before hex-decoding. Reports each layer explicitly.
+_PS_B64_HEX_ASCII_RX = re.compile(
+    r"(?:System\.)?Convert\]::FromHexString\s*\("
+    r"[\s\S]{0,120}?"
+    r"(?:System\.)?Convert\]::FromBase64String\s*\(\s*[\"']"
+    r"(?P<blob>[A-Za-z0-9+/=_\-\s]{16,})[\"']",
+    re.IGNORECASE,
+)
+
+def _ps_b64_hex_ascii_matches(text: str) -> bool:
+    return bool(_PS_B64_HEX_ASCII_RX.search(text))
+
+def _handle_ps_b64_hex_ascii(text: str) -> str:
+    import base64 as _b64, binascii as _binascii
+    m = _PS_B64_HEX_ASCII_RX.search(text)
+    if not m:
+        raise ValueError("no nested b64+hex match")
+    blob = m.group("blob").strip()
+    lines: List[str] = ["──── Nested FromBase64 → FromHex → ASCII Chain ────"]
+    lines.append(f"Layer 1  · FromBase64String input   : {blob[:80]}{'…' if len(blob)>80 else ''}")
+    try:
+        step1 = robust_b64decode(blob)
+    except Exception as e:  # noqa: BLE001
+        lines.append(f"Layer 1  · ERROR  b64-decode failed: {e}")
+        return f"{text}\n\n" + "\n".join(lines)
+    step1_ascii = "".join(chr(b) if b < 0x80 else "?" for b in step1)
+    lines.append(f"Layer 2  · ASCII.GetString          : {step1_ascii}")
+
+    # Detect if step1 is itself Base64 (attackers often double-encode)
+    hex_source = step1_ascii
+    if step1_ascii.endswith("=") or re.fullmatch(r"[A-Za-z0-9+/=]+", step1_ascii or ""):
+        try:
+            inner = _b64.b64decode(step1_ascii, validate=False)
+            inner_ascii = inner.decode("ascii", errors="replace")
+            if re.fullmatch(r"[0-9A-Fa-f\s]+", inner_ascii or ""):
+                lines.append(f"Layer 2b · (double-b64 detected) inner : {inner_ascii}")
+                hex_source = inner_ascii
+        except Exception:  # noqa: BLE001
+            pass
+
+    hex_clean = re.sub(r"\s+", "", hex_source)
+    if len(hex_clean) % 2 == 1:
+        hex_clean = hex_clean[:-1]
+    try:
+        step3_bytes = _binascii.unhexlify(hex_clean)
+    except Exception as e:  # noqa: BLE001
+        lines.append(f"Layer 3  · ERROR  FromHexString failed on non-hex input: {e}")
+        lines.append(
+            "         (payload appears malformed — inner b64 output is not valid hex; "
+            "will crash at PS runtime)"
+        )
+        return f"{text}\n\n" + "\n".join(lines)
+    lines.append(f"Layer 3  · FromHexString → bytes    : {step3_bytes.hex()}")
+    step4_ascii = "".join(chr(b) if b < 0x80 else "?" for b in step3_bytes)
+    lines.append(f"Layer 4  · ASCII.GetString (FINAL)  : {step4_ascii!r}")
+    return f"{text}\n\n" + "\n".join(lines)
 
 
 # 4. Bash_base64_gunzip_pipe
@@ -1113,6 +1209,609 @@ def _handle_vbs_chr_concat(text: str) -> str:
     return text.replace(chunk, decoded, 1)
 
 
+# ─── Feb 2026 · Research-Backed Archetypes ──────────────────────────────
+# Sources:
+#   • Bohannon & Holmes, BlackHat US 2017 (Revoke-Obfuscation)
+#   • Deep Instinct, "Excel(ent) Obfuscation: Regex Gone Rogue" (May 2025)
+#   • dr4k0nia, "String Obfuscation The Malware Way" (Dec 2022)
+# See /app/memory/RESEARCH_REFERENCES.md
+# ─────────────────────────────────────────────────────────────────────────
+
+# --- H. PS_TICK_OBFUSC  (Bohannon) --------------------------------------
+# Shape: `D`o`w`n`l`o`a`d`S`t`r`i`n`g   or   `I`E`X   or   `N`e`w`-`O`b`j`e`c`t
+# Backtick between every char is a purely-cosmetic PS escape → strip them.
+_PS_TICK_OBFUSC_RX = re.compile(
+    r"(?:`[A-Za-z\-]){3,}"
+)
+
+def _ps_tick_obfusc_matches(text: str) -> bool:
+    return bool(_PS_TICK_OBFUSC_RX.search(text))
+
+def _handle_ps_tick_obfusc(text: str) -> str:
+    changed = False
+    def repl(m: "re.Match[str]") -> str:
+        nonlocal changed
+        stripped = m.group(0).replace("`", "")
+        if stripped != m.group(0):
+            changed = True
+        return stripped
+    out = _PS_TICK_OBFUSC_RX.sub(repl, text)
+    if not changed:
+        raise ValueError("no ps-tick spans")
+    return out
+
+
+# --- I. CMD_ENVVAR_SPLIT_POWERSHELL  (Bohannon FIN8) --------------------
+# set p1=power && set p2=shell && cmd /c echo <PS> ^| %p1%%p2% -
+# Resolve chained %var% concatenation from `set NAME=VALUE` pairs.
+_CMD_ENV_SET_RX = re.compile(
+    r"set\s+([A-Za-z_][A-Za-z0-9_]*)=([^&\r\n\"]+?)(?=\s*(?:&&?|\r|\n|$))",
+    re.IGNORECASE,
+)
+_CMD_ENV_USE_RX = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)%")
+
+def _cmd_envvar_split_matches(text: str) -> bool:
+    if len(text) > 4000:
+        return False
+    sets = _CMD_ENV_SET_RX.findall(text)
+    if len(sets) < 2:
+        return False
+    names = {n.lower() for n, _ in sets}
+    uses = {u.lower() for u in _CMD_ENV_USE_RX.findall(text)}
+    joined = " ".join(v for _, v in sets).lower()
+    return bool(names & uses) and any(
+        tok in joined for tok in ("power", "shell", "cmd", "iex", "cert", "bit")
+    )
+
+def _handle_cmd_envvar_split(text: str) -> str:
+    vars_: Dict[str, str] = {n: v.strip() for n, v in _CMD_ENV_SET_RX.findall(text)}
+    if not vars_:
+        raise ValueError("no cmd env sets")
+    def replace_uses(s: str) -> str:
+        # Substitute %var% up to 3 passes so chained concats resolve fully
+        for _ in range(3):
+            new = _CMD_ENV_USE_RX.sub(
+                lambda m: vars_.get(m.group(1), m.group(0)),
+                s,
+            )
+            if new == s:
+                break
+            s = new
+        return s
+    resolved = replace_uses(text)
+    if resolved == text:
+        raise ValueError("no env-var expansion")
+    return resolved
+
+
+# --- J. PS_GET_COMMAND_WILDCARD  (Bohannon) -----------------------------
+# & (GCM *w-O*)  ,  . (Get-Command *ew-O*)  → obfuscated New-Object.
+# We flag the intent by annotating a comment. Very high-signal detector.
+_PS_GCM_WILDCARD_RX = re.compile(
+    r"(?:[&.]\s*\(\s*(?:GCM|Get-Command|Command|GAL|Get-Alias|Alias)\s+"
+    r"['\"]?\*?[A-Za-z\-]{2,}[\-*][A-Za-z\-]{0,}\*?['\"]?\s*\))",
+    re.IGNORECASE,
+)
+
+_PS_GCM_TARGET_HINTS = {
+    "w-o": "New-Object",
+    "ew-o": "New-Object",
+    "new-o": "New-Object",
+    "n-o": "New-Object",
+    "iex": "Invoke-Expression",
+    "i-e": "Invoke-Expression",
+    "voke-e": "Invoke-Expression",
+    "voke-c": "Invoke-Command",
+}
+
+def _ps_gcm_wildcard_matches(text: str) -> bool:
+    return bool(_PS_GCM_WILDCARD_RX.search(text))
+
+def _handle_ps_gcm_wildcard(text: str) -> str:
+    hits = _PS_GCM_WILDCARD_RX.findall(text)
+    if not hits:
+        raise ValueError("no gcm-wildcard match")
+    annotations = []
+    for span in hits:
+        low = span.lower()
+        target = "Get-Command wildcard"
+        for pat, name in _PS_GCM_TARGET_HINTS.items():
+            if pat in low:
+                target = name
+                break
+        annotations.append(f"[NIVX_DEOBFUSC] {span}  →  {target}")
+    banner = "\n".join(annotations)
+    return f"{text}\n\n# --- Bohannon Wildcard-Cmdlet Deobfuscation ---\n{banner}"
+
+
+# --- K. PS_SPLIT_JOIN_DELIM  (Bohannon) ---------------------------------
+# "(New-Object Net.We~~bClient)".Split("~~") -Join ''
+# $c=<STRING>; ($c.Split("~~") -Join '')  ← multi-statement form
+_PS_SPLIT_JOIN_INLINE_RX = re.compile(
+    r"(?:['\"](?P<body>[^'\"]{8,400}?)['\"]|\$\w+)\s*"
+    r"(?:\.\s*Split\s*\(\s*['\"](?P<delim>[^'\"]{1,6})['\"]\s*\)"
+    r"|\s*-Split\s*['\"](?P<delim2>[^'\"]{1,6})['\"])"
+    r"\s*(?:-Join|\.Join)\s*['\"]{2}",
+    re.IGNORECASE,
+)
+# String-assignment form: $c = "<body>" ... $c.Split("~~") -Join ''
+_PS_SPLIT_JOIN_ASSIGN_RX = re.compile(
+    r"\$(?P<var>\w+)\s*=\s*(?P<q>['\"])(?P<body>.{8,400}?)(?P=q)"
+    r"[\s\S]{0,200}?"
+    r"\$(?P=var)(?:\.\s*Split\s*\(\s*['\"](?P<delim>[^'\"]{1,6})['\"]\s*\)"
+    r"|\s*-Split\s*['\"](?P<delim2>[^'\"]{1,6})['\"])"
+    r"\s*(?:-Join|\.Join)\s*['\"]{2}",
+    re.IGNORECASE,
+)
+
+def _ps_split_join_matches(text: str) -> bool:
+    return bool(
+        _PS_SPLIT_JOIN_INLINE_RX.search(text)
+        or _PS_SPLIT_JOIN_ASSIGN_RX.search(text)
+    )
+
+def _handle_ps_split_join(text: str) -> str:
+    m = _PS_SPLIT_JOIN_ASSIGN_RX.search(text) or _PS_SPLIT_JOIN_INLINE_RX.search(text)
+    if not m:
+        raise ValueError("no split-join match")
+    body = m.groupdict().get("body") or ""
+    delim = m.groupdict().get("delim") or m.groupdict().get("delim2") or ""
+    if not body or not delim:
+        raise ValueError("empty body/delim")
+    cleaned = body.replace(delim, "")
+    return f"{text}\n\n# --- Split-Join Deobfuscation (Bohannon) ---\n{cleaned}"
+
+
+# --- L. PS_REPLACE_JUNK  (Bohannon) -------------------------------------
+# "<body>".Replace("~~","")  |  -Replace "~~",""  |  $c.Replace("~~","")
+_PS_REPLACE_JUNK_INLINE_RX = re.compile(
+    r"(?:['\"](?P<body>[^'\"]{8,400}?)['\"]|\$\w+)\s*"
+    r"(?:\.\s*Replace\s*\(\s*['\"](?P<delim>[^'\"]{1,6})['\"]\s*,\s*['\"]{2}\s*\)"
+    r"|\s*-c?Replace\s+['\"](?P<delim2>[^'\"]{1,6})['\"]\s*,\s*['\"]{2})",
+    re.IGNORECASE,
+)
+_PS_REPLACE_JUNK_ASSIGN_RX = re.compile(
+    r"\$(?P<var>\w+)\s*=\s*(?P<q>['\"])(?P<body>.{8,400}?)(?P=q)"
+    r"[\s\S]{0,200}?"
+    r"\$(?P=var)(?:\.\s*Replace\s*\(\s*['\"](?P<delim>[^'\"]{1,6})['\"]\s*,\s*['\"]{2}\s*\)"
+    r"|\s*-c?Replace\s+['\"](?P<delim2>[^'\"]{1,6})['\"]\s*,\s*['\"]{2})",
+    re.IGNORECASE,
+)
+
+def _ps_replace_junk_matches(text: str) -> bool:
+    # Skip if this is actually a dr4k0nia homoglyph payload (Cyrillic chars
+    # inside the .Replace() delimiter) — DOTNET_HOMOGLYPH_REPLACE handles it.
+    if _HOMOGLYPH_RX.search(text):
+        return False
+    return bool(
+        _PS_REPLACE_JUNK_INLINE_RX.search(text)
+        or _PS_REPLACE_JUNK_ASSIGN_RX.search(text)
+    )
+
+def _handle_ps_replace_junk(text: str) -> str:
+    m = _PS_REPLACE_JUNK_ASSIGN_RX.search(text) or _PS_REPLACE_JUNK_INLINE_RX.search(text)
+    if not m:
+        raise ValueError("no replace-junk match")
+    body = m.groupdict().get("body") or ""
+    delim = m.groupdict().get("delim") or m.groupdict().get("delim2") or ""
+    if not body or not delim:
+        raise ValueError("empty body/delim")
+    cleaned = body.replace(delim, "")
+    return f"{text}\n\n# --- Replace-Junk Deobfuscation (Bohannon) ---\n{cleaned}"
+
+
+# --- M. PS_ARRAY_REVERSE_JOIN  (Bohannon) -------------------------------
+# $c = "reversedString".ToCharArray(); [Array]::Reverse($c); ($c -Join '')
+_PS_ARRAY_REVERSE_JOIN_RX = re.compile(
+    r"['\"](?P<body>[^'\"]{6,400}?)['\"]\s*\.\s*ToCharArray\s*\(\s*\)"
+    r"[\s\S]{0,120}?\[Array\]\s*::\s*Reverse",
+    re.IGNORECASE,
+)
+
+def _ps_array_reverse_join_matches(text: str) -> bool:
+    return bool(_PS_ARRAY_REVERSE_JOIN_RX.search(text))
+
+def _handle_ps_array_reverse_join(text: str) -> str:
+    m = _PS_ARRAY_REVERSE_JOIN_RX.search(text)
+    if not m:
+        raise ValueError("no array-reverse match")
+    body = m.group("body")
+    rev = body[::-1]
+    return f"{text}\n\n# --- [Array]::Reverse Deobfuscation ---\n{rev}"
+
+
+# --- N. PS_REGEX_REVERSE  (Bohannon) ------------------------------------
+# -Join [RegEx]::Matches("body",'.','RightToLeft')
+# Body may contain single quotes → separately match single- vs double-quoted body.
+_PS_REGEX_REVERSE_DQ_RX = re.compile(
+    r"\[RegEx\]::Matches\s*\(\s*\"(?P<body>[^\"]{6,600})\"\s*,\s*"
+    r"['\"]\.['\"]\s*,\s*['\"]RightToLeft['\"]",
+    re.IGNORECASE,
+)
+_PS_REGEX_REVERSE_SQ_RX = re.compile(
+    r"\[RegEx\]::Matches\s*\(\s*'(?P<body>[^']{6,600})'\s*,\s*"
+    r"['\"]\.['\"]\s*,\s*['\"]RightToLeft['\"]",
+    re.IGNORECASE,
+)
+
+def _ps_regex_reverse_matches(text: str) -> bool:
+    return bool(
+        _PS_REGEX_REVERSE_DQ_RX.search(text)
+        or _PS_REGEX_REVERSE_SQ_RX.search(text)
+    )
+
+def _handle_ps_regex_reverse(text: str) -> str:
+    m = _PS_REGEX_REVERSE_DQ_RX.search(text) or _PS_REGEX_REVERSE_SQ_RX.search(text)
+    if not m:
+        raise ValueError("no regex-reverse match")
+    body = m.group("body")
+    return f"{text}\n\n# --- [RegEx]::Matches RightToLeft Reversal (Bohannon) ---\n{body[::-1]}"
+
+
+# --- O. PS_SCRIPTBLOCK_CREATE  (Bohannon) -------------------------------
+# [Scriptblock]::Create("<code>")  — body may contain single quotes
+_PS_SB_CREATE_DQ_RX = re.compile(
+    r"\[(?:ScriptBlock|Scriptblock|SCRIPTBLOCK)\]::Create\s*\(\s*"
+    r"\"(?P<body>[^\"]{4,800})\"\s*\)",
+    re.IGNORECASE,
+)
+_PS_SB_CREATE_SQ_RX = re.compile(
+    r"\[(?:ScriptBlock|Scriptblock|SCRIPTBLOCK)\]::Create\s*\(\s*"
+    r"'(?P<body>[^']{4,800})'\s*\)",
+    re.IGNORECASE,
+)
+
+def _ps_scriptblock_create_matches(text: str) -> bool:
+    return bool(_PS_SB_CREATE_DQ_RX.search(text) or _PS_SB_CREATE_SQ_RX.search(text))
+
+def _handle_ps_scriptblock_create(text: str) -> str:
+    m = _PS_SB_CREATE_DQ_RX.search(text) or _PS_SB_CREATE_SQ_RX.search(text)
+    if not m:
+        raise ValueError("no scriptblock-create match")
+    body = m.group("body")
+    return f"{text}\n\n# --- [Scriptblock]::Create Lifted (Bohannon) ---\n{body}"
+
+
+# --- P. EXCEL_REGEX_OBFUSC  (Deep Instinct 2025) ------------------------
+# VBA / Excel formula uses REGEXEXTRACT/REGEXREPLACE to pull hidden strings
+# from a junk-text-blob cell (e.g. A1) at runtime.
+_EXCEL_REGEX_FN_RX = re.compile(
+    r"\bREGEX(?:EXTRACT|REPLACE|TEST)\s*\(",
+    re.IGNORECASE,
+)
+_EXCEL_GETVAL_RX = re.compile(r"getval[0-9]?\s*[=(]", re.IGNORECASE)
+_EXCEL_VBA_HINTS_RX = re.compile(
+    r"(WScript\.Shell|Application\.Evaluate|Shell\s*\(|CreateObject)",
+    re.IGNORECASE,
+)
+
+def _excel_regex_obfusc_matches(text: str) -> bool:
+    fn_hits = len(_EXCEL_REGEX_FN_RX.findall(text))
+    if fn_hits < 1:
+        return False
+    # Confirm we're inside an Office/VBA context (avoid Python `re.regex` false
+    # positives) by looking for a helper name pattern or a VBA idiom.
+    return bool(_EXCEL_GETVAL_RX.search(text) or _EXCEL_VBA_HINTS_RX.search(text))
+
+def _handle_excel_regex_obfusc(text: str) -> str:
+    hits = _EXCEL_REGEX_FN_RX.findall(text)
+    banner = (
+        "# --- Deep Instinct 2025: Excel REGEX-obfuscation detected ---\n"
+        f"# {len(hits)} REGEXEXTRACT/REGEXREPLACE/REGEXTEST call(s) reconstruct\n"
+        "# malicious strings at runtime from a hidden text-blob (usually cell A1).\n"
+        "# Static tools like OLEVBA WILL MISS this. Deep-scan the sheet cells\n"
+        "# for the regex pattern arguments and manually resolve.\n"
+        "# MITRE: T1027, T1204.002, T1140. Downstream: PowerShell / WScript.Shell.\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# --- Q. DOTNET_HOMOGLYPH_REPLACE  (dr4k0nia 2022) -----------------------
+# .NET binary/source has string literals with Cyrillic а/е/і/о/с inserted
+# and calls String.Replace("<glyph>","") at runtime to strip them.
+_HOMOGLYPHS = {
+    "\u0430": "a",  # Cyrillic а → Latin a
+    "\u0435": "e",  # Cyrillic е → Latin e
+    "\u0456": "i",  # Cyrillic і → Latin i
+    "\u043e": "o",  # Cyrillic о → Latin o
+    "\u0441": "c",  # Cyrillic с → Latin c
+}
+_HOMOGLYPH_RX = re.compile("[" + "".join(_HOMOGLYPHS.keys()) + "]")
+_DOTNET_REPLACE_CALL_RX = re.compile(
+    r"\.\s*Replace\s*\(\s*['\"](?P<glyph>[\u0400-\u04FF])['\"]\s*,\s*['\"]{2}\s*\)",
+)
+
+def _dotnet_homoglyph_matches(text: str) -> bool:
+    return bool(_HOMOGLYPH_RX.search(text) and _DOTNET_REPLACE_CALL_RX.search(text))
+
+def _handle_dotnet_homoglyph(text: str) -> str:
+    # Step 1: substitute homoglyphs with their Latin equivalents (canonical)
+    normalised = _HOMOGLYPH_RX.sub(lambda m: _HOMOGLYPHS[m.group(0)], text)
+    if normalised == text:
+        raise ValueError("no homoglyph substitution")
+    # Step 2: remove the (now-Latinised) `.Replace("a","")` deobfuscator call
+    #         that malware relies on at runtime — it's a source-code artefact
+    #         with no operational value after normalisation.
+    cleaned = re.sub(
+        r"\.\s*Replace\s*\(\s*['\"][a-z]['\"]\s*,\s*['\"]{2}\s*\)",
+        "",
+        normalised,
+    )
+    banner = (
+        "\n# --- dr4k0nia MurkyStrings homoglyph deobfuscation ---\n"
+        "# Cyrillic U+0430/0435/0456/043E/0441 -> Latin a/e/i/o/c\n"
+    )
+    return f"{cleaned}{banner}"
+
+
+# --- R. DOTNET_STRING_REMOVE  (dr4k0nia 2022) ---------------------------
+# .Remove(<startIndex>,<length>) chained with padded-noise string literals.
+# We can't perfectly reverse without the exact indices; produce an analyst
+# annotation flagging the technique and citing dr4k0nia.
+_DOTNET_REMOVE_CHAIN_RX = re.compile(
+    r"(?:\.\s*Remove\s*\(\s*\d+\s*,\s*\d+\s*\)\s*){2,}",
+)
+
+def _dotnet_string_remove_matches(text: str) -> bool:
+    return bool(_DOTNET_REMOVE_CHAIN_RX.search(text))
+
+def _handle_dotnet_string_remove(text: str) -> str:
+    hits = _DOTNET_REMOVE_CHAIN_RX.findall(text)
+    if not hits:
+        raise ValueError("no .Remove chain")
+    banner = (
+        "# --- dr4k0nia MurkyStrings .Remove(start,len) chain detected ---\n"
+        f"# {len(hits)} chained .Remove(int,int) calls strip inserted noise\n"
+        "# (usually System-namespace method names) from padded string literals.\n"
+        "# Full recovery requires exact indices from the binary — treat as\n"
+        "# .NET T1027 obfuscation and hunt the caller class for the real IOCs.\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# --- S. PS_CLIPBOARD_IEX  (Bohannon) ------------------------------------
+# Two orientations: IEX([Clipboard]::GetText()) OR [Clipboard]::GetText() | IEX
+_PS_CLIPBOARD_IEX_A_RX = re.compile(
+    r"\[(?:System\.)?Windows\.Forms\.Clipboard\]::GetText\s*\(\s*\)"
+    r"[\s\S]{0,80}?(?:IEX|Invoke-Expression|\|\s*iex\b)",
+    re.IGNORECASE,
+)
+_PS_CLIPBOARD_IEX_B_RX = re.compile(
+    r"(?:IEX|Invoke-Expression)\s*\(?[\s\S]{0,80}?"
+    r"\[(?:System\.)?Windows\.Forms\.Clipboard\]::GetText\s*\(\s*\)",
+    re.IGNORECASE,
+)
+
+def _ps_clipboard_iex_matches(text: str) -> bool:
+    return bool(
+        _PS_CLIPBOARD_IEX_A_RX.search(text)
+        or _PS_CLIPBOARD_IEX_B_RX.search(text)
+    )
+
+def _handle_ps_clipboard_iex(text: str) -> str:
+    banner = (
+        "# --- Bohannon Cradle: Clipboard → IEX ---\n"
+        "# Attacker stages payload into clipboard (via prior process, GPO, or\n"
+        "# user paste) then invokes it with IEX. Command-line surface is CLEAN.\n"
+        "# MITRE: T1059.001, T1027, T1140. Hunt: Clipboard History / Sysmon EID 1\n"
+    )
+    return f"{text}\n\n{banner}"
+
+
+# --- T. NATIVE_CMD_EXPLAINER  (Feb 2026 · plain LOLBAS structured output) ─
+# When the input is already plaintext (no obfuscation) but is a well-known
+# native / LOLBAS command, provide a Google-AI-style structured breakdown so
+# the OUTPUT panel stops just echoing the raw line back at the analyst.
+# Format is deterministic — never invents fields, only labels known args.
+
+# (regex, [(field_label, group_index or literal, optional_note), …], short_action)
+# Each rule is fully independent and cited by NIVX_ID for auditability.
+_NATIVE_CMD_RULES: List[Dict[str, Any]] = [
+    # reg.exe export HKLM\HIVE C:\path\out.reg [/y]
+    {
+        "id": "REG_EXPORT_HIVE",
+        "rx": re.compile(
+            r"\breg(?:\.exe)?\s+export\s+"
+            r"(?P<hive>H[KM][A-Z_\\][^\s]*)\s+"
+            r"(?P<target>\"?[A-Za-z]:\\[^\s\"]+|/[^\s]+)"
+            r"(?P<flags>(?:\s+/[a-zA-Z])*)",
+            re.IGNORECASE,
+        ),
+        "action": "Export Windows Registry Hive",
+        "fields": [
+            ("Source Path", "hive"),
+            ("Target File", "target"),
+        ],
+        "flag_map": {
+            "/y": "Force/Overwrite Existing (/y)",
+            "/reg:32": "32-bit view (/reg:32)",
+            "/reg:64": "64-bit view (/reg:64)",
+        },
+        "mitre": "T1003.002 / T1552.002",
+        "risk": "SYSTEM/SAM/SECURITY hive export → offline credential extraction (secretsdump).",
+    },
+    # reg.exe save HKLM\HIVE C:\path\out.hiv [/y]
+    {
+        "id": "REG_SAVE_HIVE",
+        "rx": re.compile(
+            r"\breg(?:\.exe)?\s+save\s+"
+            r"(?P<hive>H[KM][A-Z_\\][^\s]*)\s+"
+            r"(?P<target>\"?[A-Za-z]:\\[^\s\"]+|/[^\s]+)"
+            r"(?P<flags>(?:\s+/[a-zA-Z])*)",
+            re.IGNORECASE,
+        ),
+        "action": "Save Registry Hive to Binary File",
+        "fields": [
+            ("Source Hive", "hive"),
+            ("Target File", "target"),
+        ],
+        "flag_map": {"/y": "Force/Overwrite Existing (/y)"},
+        "mitre": "T1003.002",
+        "risk": "Binary hive save (HKLM\\SAM etc.) → offline hash extraction.",
+    },
+    # certutil -urlcache -split -f URL PATH
+    # NOTE: intentionally NOT registering CERTUTIL_URLCACHE and CERTUTIL_DECODE_CLI
+    # here — those cases are handled by more specific decoders upstream
+    # (CERTUTIL_DECODE_PEM, wrapper decoders, etc.) that actually process the
+    # payload. The explainer must not intercept them.
+    #
+    # bitsadmin /transfer job URL LOCAL
+    {
+        "id": "BITSADMIN_TRANSFER",
+        "rx": re.compile(
+            r"\bbitsadmin(?:\.exe)?\s+/transfer\s+(?P<job>\S+)\s+"
+            r"(?P<url>https?://\S+)\s+(?P<target>\"?[^\s\"]+)",
+            re.IGNORECASE,
+        ),
+        "action": "BITS-based File Transfer (LOLBAS)",
+        "fields": [
+            ("Job Name",   "job"),
+            ("Source URL", "url"),
+            ("Target File","target"),
+        ],
+        "mitre": "T1197 / T1105",
+        "risk": "Windows-signed BITS job survives reboots; auto-retries download.",
+    },
+    # schtasks /Create /SC ONLOGON /TN NAME /TR "CMD"
+    {
+        "id": "SCHTASKS_CREATE",
+        "rx": re.compile(
+            r"\bschtasks(?:\.exe)?\s+/Create\s+.*?"
+            r"/SC\s+(?P<sc>\S+)\s+.*?"
+            r"/TN\s+(?P<tn>\"[^\"]+\"|\S+)\s+.*?"
+            r"/TR\s+(?P<tr>\"[^\"]+\"|\S+)",
+            re.IGNORECASE | re.DOTALL,
+        ),
+        "action": "Scheduled Task Creation (Persistence)",
+        "fields": [
+            ("Schedule",   "sc"),
+            ("Task Name",  "tn"),
+            ("Target Cmd", "tr"),
+        ],
+        "mitre": "T1053.005",
+        "risk": "Persistence via scheduled task — attacker payload runs on trigger.",
+    },
+    # sc.exe create SVC binPath= "..." start= auto
+    {
+        "id": "SC_CREATE_SERVICE",
+        "rx": re.compile(
+            r"\bsc(?:\.exe)?\s+create\s+(?P<svc>\S+)\s+.*?"
+            r"binPath=\s*\"(?P<bin>[^\"]+)\"",
+            re.IGNORECASE | re.DOTALL,
+        ),
+        "action": "Windows Service Creation (Persistence)",
+        "fields": [
+            ("Service Name", "svc"),
+            ("Binary Path",  "bin"),
+        ],
+        "mitre": "T1543.003",
+        "risk": "Auto-start service = boot-time persistence (usually SYSTEM integrity).",
+    },
+    # vssadmin delete shadows /all /quiet
+    {
+        "id": "VSSADMIN_DELETE_SHADOWS",
+        "rx": re.compile(
+            r"\bvssadmin(?:\.exe)?\s+delete\s+shadows\b(?P<flags>.*)",
+            re.IGNORECASE,
+        ),
+        "action": "Volume Shadow-Copy Deletion (Anti-Recovery)",
+        "fields": [
+            ("Command", "0"),
+        ],
+        "flag_map": {"/all": "All Snapshots (/all)", "/quiet": "Silent (/quiet)"},
+        "mitre": "T1490",
+        "risk": "Textbook ransomware pre-encryption step — kills VSS restore points.",
+    },
+    # wevtutil cl <log>   (event log clear)
+    {
+        "id": "WEVTUTIL_CLEAR_LOG",
+        "rx": re.compile(
+            r"\bwevtutil(?:\.exe)?\s+(?:cl|clear-log)\s+"
+            r"(?P<log>\"[^\"]+\"|\S+)",
+            re.IGNORECASE,
+        ),
+        "action": "Event Log Clear (Indicator Removal)",
+        "fields": [("Log Name", "log")],
+        "mitre": "T1070.001",
+        "risk": "Attacker wiping evidence — Security/System log often targeted post-breach.",
+    },
+    # net user <name> <password> /add
+    {
+        "id": "NET_USER_ADD",
+        "rx": re.compile(
+            r"\bnet(?:\.exe)?\s+user\s+(?P<user>\S+)(?:\s+(?P<pw>\S+))?\s+/add",
+            re.IGNORECASE,
+        ),
+        "action": "Local User Account Creation",
+        "fields": [
+            ("Username", "user"),
+            ("Password", "pw"),
+        ],
+        "mitre": "T1136.001",
+        "risk": "Rogue local account (often followed by `net localgroup administrators … /add`).",
+    },
+    # netsh advfirewall firewall add rule ...
+    {
+        "id": "NETSH_FW_RULE",
+        "rx": re.compile(
+            r"\bnetsh(?:\.exe)?\s+advfirewall\s+firewall\s+add\s+rule\s+"
+            r"name=\"?(?P<name>[^\"\r\n]+)\"?",
+            re.IGNORECASE,
+        ),
+        "action": "Windows Firewall Rule Injection",
+        "fields": [("Rule Name", "name")],
+        "mitre": "T1562.004",
+        "risk": "Attacker unblocks inbound C2 port or disables outbound egress control.",
+    },
+]
+
+
+def _native_cmd_explainer_matches(text: str) -> bool:
+    if len(text) > 2000 or not text.strip():
+        return False
+    for rule in _NATIVE_CMD_RULES:
+        if rule["rx"].search(text):
+            return True
+    return False
+
+
+def _handle_native_cmd_explainer(text: str) -> str:
+    for rule in _NATIVE_CMD_RULES:
+        m = rule["rx"].search(text)
+        if not m:
+            continue
+        lines: List[str] = [
+            f"Action:        {rule['action']}",
+        ]
+        for label, key in rule["fields"]:
+            if key == "0":
+                val = m.group(0).strip()
+            else:
+                try:
+                    val = (m.group(key) or "").strip()
+                except (IndexError, KeyError):
+                    val = ""
+            if val:
+                lines.append(f"{label + ':':<15}{val}")
+        # Decode flag switches
+        flag_map = rule.get("flag_map") or {}
+        try:
+            flag_span = m.group("flags") or ""
+        except (IndexError, KeyError):
+            flag_span = ""
+        if flag_span:
+            tokens = [t for t in flag_span.split() if t.startswith("/") or t.startswith("-")]
+            expanded = [flag_map.get(t.lower(), t) for t in tokens]
+            if expanded:
+                lines.append(f"{'Flags:':<15}" + ", ".join(expanded))
+        lines.append("")
+        lines.append(f"MITRE ATT&CK:  {rule['mitre']}")
+        lines.append(f"Risk:          {rule['risk']}")
+        lines.append(f"NIVX Rule ID:  {rule['id']}")
+        banner = "\n".join(lines)
+        return f"{text}\n\n──── NivXRay Native-Command Breakdown ────\n{banner}"
+    raise ValueError("no native-cmd rule matched")
+
 
 ARCHETYPES: List[Dict[str, Any]] = [
     {
@@ -1194,11 +1893,26 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "match":   lambda t: bool(_PS_MEMSTREAM_DEFLATE_RX.search(t)),
     },
     {
+        "id": "PS_FROMBASE64_ASCII_FROMHEX",
+        "description": "PowerShell nested chain: FromBase64String → ASCII.GetString → FromHexString → ASCII.GetString (Feb 2026).",
+        "chain": ["extract-b64", "ascii-decode", "hex-decode", "ascii-decode"],
+        "handler": _handle_ps_b64_hex_ascii,
+        "match":   lambda t: _ps_b64_hex_ascii_matches(t),
+        "terminal": True,
+    },
+    {
         "id": "PS_FromBase64String_UTF16LE",
         "description": "PowerShell FromBase64String + Encoding.Unicode.GetString (UTF-16LE)",
         "chain": ["extract-b64", "utf16le-decode"],
         "handler": _handle_ps_fb64_utf16,
         "match":   lambda t: bool(_PS_FB64_UTF16_RX.search(t)),
+    },
+    {
+        "id": "PS_FromBase64String_ASCII",
+        "description": "PowerShell FromBase64String + Encoding.ASCII.GetString (Feb 2026 fix — was mis-classified as UTF-16LE).",
+        "chain": ["extract-b64", "ascii-decode"],
+        "handler": _handle_ps_fb64_ascii,
+        "match":   lambda t: bool(_PS_FB64_ASCII_RX.search(t)),
     },
     {
         "id": "Bash_base64_gunzip_pipe",
@@ -1312,6 +2026,109 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["batch-var-slice"],
         "handler": lambda t: _handle_batch_var_slice(t),
         "match":   lambda t: _batch_var_slice_matches(t),
+    },
+    # ─── Feb 2026 Research-backed archetypes ────────────────────────────
+    # Source: /app/memory/RESEARCH_REFERENCES.md
+    #   Bohannon US-17 · Deep Instinct 2025 · dr4k0nia 2022
+    {
+        "id": "PS_TICK_OBFUSC",
+        "description": "PowerShell backtick-per-char obfuscation (Bohannon US-17) — strips `X between letters.",
+        "chain": ["strip-ticks"],
+        "handler": lambda t: _handle_ps_tick_obfusc(t),
+        "match":   lambda t: _ps_tick_obfusc_matches(t),
+    },
+    {
+        "id": "CMD_ENVVAR_SPLIT_POWERSHELL",
+        "description": "CMD `set p1=power && set p2=shell && %p1%%p2%` env-var recombination (Bohannon/FIN8).",
+        "chain": ["cmd-env-resolve"],
+        "handler": lambda t: _handle_cmd_envvar_split(t),
+        "match":   lambda t: _cmd_envvar_split_matches(t),
+    },
+    {
+        "id": "PS_GET_COMMAND_WILDCARD",
+        "description": "PowerShell `& (GCM *w-O*)` wildcard cmdlet resolve (Bohannon) — annotates target.",
+        "chain": ["gcm-wildcard-annotate"],
+        "handler": lambda t: _handle_ps_gcm_wildcard(t),
+        "match":   lambda t: _ps_gcm_wildcard_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "PS_SPLIT_JOIN_DELIM",
+        "description": "PowerShell '<body>'.Split('~~') -Join '' delimiter obfuscation (Bohannon).",
+        "chain": ["split-join-delim"],
+        "handler": lambda t: _handle_ps_split_join(t),
+        "match":   lambda t: _ps_split_join_matches(t),
+    },
+    {
+        "id": "PS_REPLACE_JUNK",
+        "description": "PowerShell '<body>'.Replace('~~','')  or  -Replace '~~','' junk-char removal (Bohannon).",
+        "chain": ["replace-junk"],
+        "handler": lambda t: _handle_ps_replace_junk(t),
+        "match":   lambda t: _ps_replace_junk_matches(t),
+    },
+    {
+        "id": "PS_ARRAY_REVERSE_JOIN",
+        "description": "PowerShell [Array]::Reverse($chars) + -Join '' string reversal (Bohannon).",
+        "chain": ["array-reverse-join"],
+        "handler": lambda t: _handle_ps_array_reverse_join(t),
+        "match":   lambda t: _ps_array_reverse_join_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "PS_REGEX_REVERSE",
+        "description": "PowerShell [RegEx]::Matches($x,'.','RightToLeft') string reversal (Bohannon).",
+        "chain": ["regex-reverse"],
+        "handler": lambda t: _handle_ps_regex_reverse(t),
+        "match":   lambda t: _ps_regex_reverse_matches(t),
+    },
+    {
+        "id": "PS_SCRIPTBLOCK_CREATE",
+        "description": "PowerShell [Scriptblock]::Create('<code>') string→scriptblock conversion (Bohannon).",
+        "chain": ["scriptblock-create"],
+        "handler": lambda t: _handle_ps_scriptblock_create(t),
+        "match":   lambda t: _ps_scriptblock_create_matches(t),
+    },
+    {
+        "id": "PS_CLIPBOARD_IEX",
+        "description": "PowerShell [Clipboard]::GetText() → IEX cradle (Bohannon) — annotates only.",
+        "chain": ["clipboard-cradle-annotate"],
+        "handler": lambda t: _handle_ps_clipboard_iex(t),
+        "match":   lambda t: _ps_clipboard_iex_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "EXCEL_REGEX_OBFUSC",
+        "description": "Excel REGEXEXTRACT / REGEXREPLACE VBA obfuscation (Deep Instinct 2025) — annotates.",
+        "chain": ["excel-regex-annotate"],
+        "handler": lambda t: _handle_excel_regex_obfusc(t),
+        "match":   lambda t: _excel_regex_obfusc_matches(t),
+        "terminal": True,
+    },
+    {
+        "id": "DOTNET_HOMOGLYPH_REPLACE",
+        "description": ".NET MurkyStrings-style homoglyph strings + .Replace() at runtime (dr4k0nia).",
+        "chain": ["homoglyph-normalise"],
+        "handler": lambda t: _handle_dotnet_homoglyph(t),
+        "match":   lambda t: _dotnet_homoglyph_matches(t),
+    },
+    {
+        "id": "DOTNET_STRING_REMOVE",
+        "description": ".NET MurkyStrings-style chained .Remove(i,l) noise-name stripping (dr4k0nia) — annotates.",
+        "chain": ["dotnet-remove-annotate"],
+        "handler": lambda t: _handle_dotnet_string_remove(t),
+        "match":   lambda t: _dotnet_string_remove_matches(t),
+        "terminal": True,
+    },
+    # ─── Feb 2026 · Native / LOLBAS command explainer (fallback) ───────
+    # Fires ONLY on plain-text LOLBAS commands so the OUTPUT panel does
+    # more than just echo the raw command back. Terminal by design.
+    {
+        "id": "NATIVE_CMD_EXPLAINER",
+        "description": "Plain-text LOLBAS / native command → GoogleAI-style structured breakdown (Action/Source/Target/Flags + MITRE/Risk).",
+        "chain": ["native-cmd-explain"],
+        "handler": lambda t: _handle_native_cmd_explainer(t),
+        "match":   lambda t: _native_cmd_explainer_matches(t),
+        "terminal": True,
     },
 ]
 
