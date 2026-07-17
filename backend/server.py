@@ -136,6 +136,9 @@ api.include_router(cases_router)
 
 from routers.learner import router as learner_router
 api.include_router(learner_router)
+
+from routers.sigma import router as sigma_router
+api.include_router(sigma_router)
 api.include_router(investigations_router)
 api.include_router(enrichment_router)
 api.include_router(docs_router)
