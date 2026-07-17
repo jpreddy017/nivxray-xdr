@@ -233,7 +233,7 @@ export default function FloatingAddNoteButton() {
             {/* Directive */}
             <div className="mono" style={{ ...LABEL_STYLE, display: "flex", alignItems: "center", gap: 6 }}>
               Directive
-              <span style={{ opacity: 0.55, fontWeight: 500 }}>· or upload a payload sample file</span>
+              <span style={{ opacity: 0.55, fontWeight: 500 }}>· or upload a payload sample file (ANY format)</span>
               <label
                 htmlFor="floating-tn-file-upload"
                 className="mono"
@@ -251,24 +251,75 @@ export default function FloatingAddNoteButton() {
               <input
                 id="floating-tn-file-upload"
                 type="file"
-                accept=".txt,.csv,.json,.log,.md,.b64,.hex,.ps1,.psm1,.bat,.cmd,.sh,.py,.js,.xml,.yaml,.yml,.ini,.conf"
+                accept="*/*"
                 onChange={(e) => {
                   setError("");
                   const f = e.target.files?.[0];
                   if (!f) return;
-                  if (f.size > 8 * 1024 * 1024) {
-                    setError(`File too large: ${(f.size / 1024 / 1024).toFixed(1)} MB (max 8 MB)`);
+                  if (f.size > 16 * 1024 * 1024) {
+                    setError(`File too large: ${(f.size / 1024 / 1024).toFixed(1)} MB (max 16 MB)`);
                     e.target.value = "";
                     return;
                   }
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    const content = String(reader.result || "");
-                    setBody(content);
-                    if (!name.trim()) setName(f.name.replace(/\.[^.]+$/, ""));
+                  // Detect binary vs text: read first 4 KB, count non-printable bytes.
+                  // If >5% non-printable → treat as binary (store as base64).
+                  const probe = new FileReader();
+                  probe.onload = () => {
+                    const buf = new Uint8Array(probe.result);
+                    const sampleLen = Math.min(buf.length, 4096);
+                    let nonPrint = 0;
+                    for (let i = 0; i < sampleLen; i++) {
+                      const b = buf[i];
+                      const printable = (b >= 32 && b < 127) || b === 9 || b === 10 || b === 13;
+                      if (!printable) nonPrint++;
+                    }
+                    const isBinary = sampleLen > 0 && (nonPrint / sampleLen) > 0.05;
+                    if (isBinary) {
+                      // Read full file as base64 data URL, strip the prefix
+                      const b64Reader = new FileReader();
+                      b64Reader.onload = () => {
+                        const dataUrl = String(b64Reader.result || "");
+                        const b64 = dataUrl.split(",")[1] || "";
+                        // Compute sha256 client-side for provenance
+                        crypto.subtle.digest("SHA-256", buf).then((hashBuf) => {
+                          const hex = Array.from(new Uint8Array(hashBuf))
+                            .map(b => b.toString(16).padStart(2,"0")).join("");
+                          const meta = [
+                            "[NIVX_BINARY_SAMPLE]",
+                            `filename=${f.name}`,
+                            `size=${f.size}`,
+                            `mime=${f.type || "application/octet-stream"}`,
+                            `sha256=${hex}`,
+                            "encoding=base64",
+                            "---",
+                            b64,
+                          ].join("\n");
+                          setBody(meta);
+                          if (!name.trim()) setName(f.name.replace(/\.[^.]+$/, ""));
+                        });
+                      };
+                      b64Reader.onerror = () => setError("Failed to read binary file");
+                      b64Reader.readAsDataURL(f);
+                    } else {
+                      // Text file — decode directly for readability
+                      const txt = new TextDecoder("utf-8", { fatal: false }).decode(buf.slice(0, sampleLen));
+                      // For full text content, re-read as text (in case file > 4KB)
+                      if (f.size <= sampleLen) {
+                        setBody(txt);
+                        if (!name.trim()) setName(f.name.replace(/\.[^.]+$/, ""));
+                      } else {
+                        const txtReader = new FileReader();
+                        txtReader.onload = () => {
+                          setBody(String(txtReader.result || ""));
+                          if (!name.trim()) setName(f.name.replace(/\.[^.]+$/, ""));
+                        };
+                        txtReader.onerror = () => setError("Failed to read text file");
+                        txtReader.readAsText(f);
+                      }
+                    }
                   };
-                  reader.onerror = () => setError("Failed to read file — text formats only");
-                  reader.readAsText(f);
+                  probe.onerror = () => setError("Failed to read file");
+                  probe.readAsArrayBuffer(f);
                   e.target.value = "";
                 }}
                 style={{ display: "none" }}
@@ -278,7 +329,7 @@ export default function FloatingAddNoteButton() {
             <textarea
               className="brut-input"
               style={{ ...INPUT_STYLE, minHeight: 200, resize: "vertical", lineHeight: 1.55 }}
-              placeholder={"E.g.:\n- ALWAYS defang URLs (hxxp://) in the final report\n- Never claim a payload is benign without decoded evidence\n- Treat T1218.011 rundll32 as CRITICAL even without a network IOC\n\n— OR click 📄 UPLOAD FILE above to load a payload/sample file (text formats, max 8 MB)."}
+              placeholder={"E.g.:\n- ALWAYS defang URLs (hxxp://) in the final report\n- Never claim a payload is benign without decoded evidence\n- Treat T1218.011 rundll32 as CRITICAL even without a network IOC\n\n— OR click 📄 UPLOAD FILE above to load a payload/sample file.\n   ▸ Text files → pasted as-is into the directive\n   ▸ Binary files (any format: .exe, .zip, .pdf, .doc, .bin, etc.) → auto-encoded as base64 with metadata header (filename, size, mime, sha256) so downstream engines can decode/scan safely (max 16 MB)."}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               data-testid="floating-training-note-body"
