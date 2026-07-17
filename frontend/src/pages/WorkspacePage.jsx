@@ -932,11 +932,11 @@ export default function WorkspacePage() {
         name,
         input,
         output,
-        engine: engine || "-",
-        confidence: confidence ?? null,
-        chain_ids: chainIds || [],
-        verdict: verdict || null,
-        iocs: iocs || {},
+        engine: decodeWinnerEngine || "-",
+        confidence: decodeConfidence ?? null,
+        chain_ids: (chain || []).map((c) => c.op_id || c.id).filter(Boolean),
+        verdict: verdictCard?.verdict || analysis?.ai_verdict || null,
+        iocs: analysis?.iocs || {},
       });
       setStatus(`CASE SAVED: "${name}" (id=${(r.data?.id || "").slice(0, 8)})`);
     } catch (e) {
