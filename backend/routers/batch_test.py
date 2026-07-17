@@ -95,12 +95,9 @@ def _run_single(payload: str, analysis_mode: str) -> Dict[str, Any]:
     try:
         from operations import extract_iocs, mitre_map
         iocs  = extract_iocs(scan_text)
-    except Exception:
-        iocs = {}
-    try:
-        from operations import mitre_map
         mitre = mitre_map(scan_text)
     except Exception:
+        iocs = {}
         mitre = []
     try:
         from lolbas import scan_lolbas

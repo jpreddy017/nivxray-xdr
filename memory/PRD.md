@@ -3300,3 +3300,48 @@ Frontend: `PlatformCapabilities` component in `KnowledgeBasePage.jsx`. Collapsed
 - Dashed-red graph edges for chain-breaks
 - Batch Analyst Testing UI/Endpoint (CSV in → CSV out)
 - Fix pre-existing 5 test failures noted above (touch investigation-report contract carefully)
+
+## Feb 2026 · CTI RSS Crawler + Batch Testing (this session)
+
+### What was added
+1. **CTI RSS Crawler (P1)** — `/app/backend/routers/threat_intel_rss.py`
+   - 8 curated feeds: BleepingComputer, Unit42, DFIR Report, Talos,
+     Mandiant, Microsoft Security, Check Point Research, SANS ISC.
+   - 87-keyword relevance filter (obfuscation, powershell, base64,
+     malware family names, MITRE T-IDs, LOLBins, evasion terms).
+   - Endpoints: `GET /threat-intel/rss/feeds`, `POST /rss/crawl`,
+     `GET /rss/pending`, `POST /rss/pending/{id}/promote`, `/dismiss`,
+     `DELETE /rss/pending/{id}`.
+   - Background auto-scheduler every N hours (default 6, env
+     `CTI_RSS_INTERVAL_HOURS=0` disables).
+   - Reuses `training_notes_sync.sync_training_note_url` for optional
+     LLM condensation of pending drafts.
+   - New Mongo collections: `pending_training_notes`, `cti_rss_meta`.
+
+2. **Batch Analyst Testing (P3)** — `/app/backend/routers/batch_test.py`
+   - `POST /batch/test` (multipart CSV/JSON, returns CSV attachment)
+   - `POST /batch/test/json` (pure JSON, returns matrix + summary)
+   - `GET /batch/test/example` (starter CSV template)
+   - Runs each of 1–500 payloads through `deterministic_best_decode` +
+     IOC/MITRE/LOLBAS enrichment + verdict-card scoring.
+   - Cap: 500 rows, 20 KB per payload.
+
+3. **Frontend pages**
+   - `/batch-test` — `BatchTestPage.jsx` — textarea + upload + mode picker +
+     results matrix + CSV export.
+   - `/admin/training-inbox` — `TrainingInboxPage.jsx` — feed picker + status
+     filter tabs + promote/dismiss/delete + expandable preview.
+   - Header nav: `nav-batch-test` (all users), `nav-training-inbox` (admin).
+
+### Test status
+- Testing subagent iteration_14 · overall PASS.
+- Backend: 17/17 new pytest cases pass (`test_batch_and_rss_feb2026.py`).
+- Frontend: all data-testids present, promote/dismiss/delete flows verified,
+  batch matrix populated with correct MITRE (T1003.002, T1027.010, T1059.001,
+  T1490).
+
+### Next backlog
+- Reverse-Engineering page (hash → sample via MalwareBazaar / VT) — P2
+- Dashed-red graph edges for chain-breaks — P3
+- (Nice-to-have) Cite-Research chip next to each MITRE tag → opens source paper
+- Cosmetic: fix `<span>` inside `<option>` hydration warning in WorkspacePage.jsx ~L1005
