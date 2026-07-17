@@ -37,6 +37,38 @@ export default function BatchTestPage() {
   const [summary, setSummary] = useState(null);
   const [busy, setBusy]   = useState(false);
   const [err, setErr]     = useState(null);
+  const [runId, setRunId] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const loadHistory = async () => {
+    try {
+      const r = await api.get("/batch/history", { params: { limit: 30 } });
+      setHistory(r.data?.runs || []);
+    } catch (_) { setHistory([]); }
+  };
+  useEffect(() => { loadHistory(); }, []);
+
+  const reloadRun = async (id) => {
+    setBusy(true); setErr(null);
+    try {
+      const r = await api.get(`/batch/history/${id}`);
+      setRows(r.data.rows || []);
+      setSummary(r.data.summary || null);
+      setRunId(id);
+      setShowHistory(false);
+    } catch (e) {
+      setErr(e.response?.data?.detail || e.message);
+    } finally { setBusy(false); }
+  };
+
+  const deleteRun = async (id) => {
+    if (!window.confirm("Delete this batch run?")) return;
+    try {
+      await api.delete(`/batch/history/${id}`);
+      loadHistory();
+    } catch (_) {}
+  };
 
   const payloadCount = useMemo(
     () => text.split("\n").map(l => l.trim()).filter(Boolean).length, [text]

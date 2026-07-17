@@ -262,18 +262,77 @@ async def batch_test_json(body: BatchInJson, user=Depends(get_current_user)):
         if not body.include_full_output:
             base.pop("decoded_full", None)
         rows.append(base)
+    summary = {
+        "malicious":  sum(1 for r in rows if r.get("verdict") == "Malicious"),
+        "suspicious": sum(1 for r in rows if r.get("verdict") == "Suspicious"),
+        "unknown":    sum(1 for r in rows if r.get("verdict") == "Unknown"),
+        "errors":     sum(1 for r in rows if r.get("error")),
+        "shellcode_reached": sum(1 for r in rows if r.get("reached_shellcode")),
+    }
+    # Feb 2026 · Persist every batch run to `batch_runs` for later retrieval
+    try:
+        import uuid
+        from datetime import datetime, timezone
+        run_doc = {
+            "id":            str(uuid.uuid4()),
+            "created_at":    datetime.now(timezone.utc).isoformat(),
+            "user_email":    getattr(user, "email", None) or (user.get("email") if isinstance(user, dict) else None),
+            "analysis_mode": mode,
+            "total":         len(rows),
+            "summary":       summary,
+            "rows":          rows,
+            "source":        body.source if hasattr(body, "source") else "json_api",
+        }
+        db_batch_runs.insert_one(run_doc)
+        run_id = run_doc["id"]
+    except Exception:
+        run_id = None
     return {
         "total": len(rows),
         "analysis_mode": mode,
         "rows": rows,
-        "summary": {
-            "malicious":  sum(1 for r in rows if r.get("verdict") == "Malicious"),
-            "suspicious": sum(1 for r in rows if r.get("verdict") == "Suspicious"),
-            "unknown":    sum(1 for r in rows if r.get("verdict") == "Unknown"),
-            "errors":     sum(1 for r in rows if r.get("error")),
-            "shellcode_reached": sum(1 for r in rows if r.get("reached_shellcode")),
-        },
+        "summary": summary,
+        "run_id": run_id,
     }
+
+
+# Feb 2026 · Batch Run History — persistence + retrieval
+from pymongo import MongoClient
+import os as _os
+
+_batch_client = MongoClient(_os.environ.get('MONGO_URL'))
+_batch_db     = _batch_client[_os.environ.get('DB_NAME')]
+db_batch_runs = _batch_db.batch_runs
+
+
+@router.get("/batch/history")
+async def batch_history(limit: int = 50, user=Depends(get_current_user)):
+    """List past batch runs (newest first) with summary metadata only —
+    no full row payload text (privacy + payload safety)."""
+    user_email = getattr(user, "email", None) or (user.get("email") if isinstance(user, dict) else None)
+    q = {"user_email": user_email} if user_email else {}
+    cur = db_batch_runs.find(q, {
+        "_id": 0, "id": 1, "created_at": 1, "analysis_mode": 1,
+        "total": 1, "summary": 1, "source": 1,
+    }).sort("created_at", -1).limit(min(int(limit), 200))
+    runs = list(cur)
+    return {"total": len(runs), "runs": runs}
+
+
+@router.get("/batch/history/{run_id}")
+async def batch_history_get(run_id: str, user=Depends(get_current_user)):
+    """Retrieve full rows of a past batch run — for reload / re-export."""
+    doc = db_batch_runs.find_one({"id": run_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="run not found")
+    return doc
+
+
+@router.delete("/batch/history/{run_id}")
+async def batch_history_delete(run_id: str, user=Depends(get_current_user)):
+    """Delete a past batch run."""
+    r = db_batch_runs.delete_one({"id": run_id})
+    return {"deleted": r.deleted_count}
 
 
 @router.get("/batch/test/example")
