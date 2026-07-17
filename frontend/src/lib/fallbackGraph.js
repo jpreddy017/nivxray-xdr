@@ -82,24 +82,75 @@ export function buildFallbackGraph({ input = "", output = "", analysis = {}, ver
     { key: "hashes",  type: "hash",   tactic: "Execution",            malicious: true, label: "Hash" },
     { key: "emails",  type: "email",  tactic: "Initial Access",       malicious: false, label: "Email" },
   ];
+  // Safely stringify potentially-object IOC values so nothing becomes
+  // "[object Object]" in the graph (Feb 2026 · RMM screenshot fix).
+  const toStr = (v) => {
+    if (v == null) return "";
+    if (typeof v === "string") return v;
+    if (typeof v === "number" || typeof v === "boolean") return String(v);
+    // object → prefer a semantic field, never fall back to raw String(obj)
+    return v.value || v.ioc || v.url || v.ip || v.domain || v.hash || v.email
+        || v.text || v.label || "";
+  };
   iocGroups.forEach(({ key, type, tactic, malicious }) => {
     const list = Array.isArray(iocs[key]) ? iocs[key] : [];
     list.slice(0, 3).forEach((val, idx) => {
-      const short = String(val).length > 22 ? String(val).slice(0, 20) + "…" : String(val);
+      const s = toStr(val);
+      if (!s) return;
+      const short = s.length > 22 ? s.slice(0, 20) + "…" : s;
       const id = `ioc-${key}-${idx}`;
       push({ id, label: short, type, tactic, malicious });
       link(prev, id, key.slice(0, -1));
     });
   });
 
-  // 6) MITRE technique chips as action nodes (attribution)
+  // 6) MITRE technique chips — humanise T-codes so analysts can read the
+  // graph without a MITRE cheat-sheet open. Feb 2026 · RMM readability fix.
+  const MITRE_LABELS = {
+    "T1059":     "Command & Scripting",
+    "T1059.001": "PowerShell",
+    "T1059.003": "Windows CMD",
+    "T1059.005": "Visual Basic",
+    "T1078":     "Valid Accounts",
+    "T1078.002": "Domain Accounts",
+    "T1078.004": "Cloud Accounts",
+    "T1021":     "Remote Services",
+    "T1021.001": "RDP",
+    "T1021.002": "SMB / Admin Shares",
+    "T1021.006": "WinRM",
+    "T1105":     "Ingress Tool Transfer",
+    "T1218":     "System Binary Proxy Execution",
+    "T1218.010": "Regsvr32",
+    "T1218.011": "Rundll32",
+    "T1140":     "Deobfuscate / Decode Files",
+    "T1562.001": "Impair Defenses (Defender)",
+    "T1555":     "Credentials from Password Stores",
+    "T1555.003": "Browser Credentials",
+    "T1555.004": "Windows Credential Manager",
+    "T1518.001": "Security Software Discovery",
+    "T1057":     "Process Discovery",
+    "T1082":     "System Info Discovery",
+    "T1049":     "Network Config Discovery",
+    "T1071":     "Application-Layer Protocol",
+    "T1071.001": "Web Protocols (C2)",
+    "T1027":     "Obfuscated Files / Info",
+    "T1204.002": "Malicious File Execution",
+  };
   const mitre = Array.isArray(analysis?.mitre) ? analysis.mitre
               : Array.isArray(analysis?.mitre_techniques) ? analysis.mitre_techniques
               : [];
-  mitre.slice(0, 3).forEach((t, i) => {
-    const tid = typeof t === "string" ? t : (t.id || t.technique_id || t.tid || `T?`);
+  mitre.slice(0, 5).forEach((t, i) => {
+    // Harden against unexpected object shapes (Feb 2026 · [OBJECT OBJECT] fix)
+    let tid = "T?";
+    if (typeof t === "string") tid = t;
+    else if (t && typeof t === "object") {
+      tid = t.id || t.technique_id || t.tid || t.technique || t.code || "T?";
+      if (typeof tid !== "string") tid = "T?";
+    }
+    const human = MITRE_LABELS[tid] || tid;
+    const label = MITRE_LABELS[tid] ? `${tid} · ${human}` : tid;
     const id = `mitre-${i}-${tid}`;
-    push({ id, label: tid, type: "action", tactic: "Discovery" });
+    push({ id, label, type: "action", tactic: "Discovery" });
     link(prev, id, "attributed");
   });
 
