@@ -231,11 +231,54 @@ export default function FloatingAddNoteButton() {
             />
 
             {/* Directive */}
-            <div className="mono" style={LABEL_STYLE}>Directive</div>
+            <div className="mono" style={{ ...LABEL_STYLE, display: "flex", alignItems: "center", gap: 6 }}>
+              Directive
+              <span style={{ opacity: 0.55, fontWeight: 500 }}>· or upload a payload sample file</span>
+              <label
+                htmlFor="floating-tn-file-upload"
+                className="mono"
+                data-testid="floating-training-note-upload-label"
+                style={{
+                  cursor: "pointer", padding: "3px 8px",
+                  background: "rgba(126,227,201,0.12)",
+                  border: "1px solid #7ee3c9", color: "#7ee3c9",
+                  fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase",
+                  marginLeft: "auto",
+                }}
+              >
+                📄 Upload File
+              </label>
+              <input
+                id="floating-tn-file-upload"
+                type="file"
+                accept=".txt,.csv,.json,.log,.md,.b64,.hex,.ps1,.psm1,.bat,.cmd,.sh,.py,.js,.xml,.yaml,.yml,.ini,.conf"
+                onChange={(e) => {
+                  setError("");
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  if (f.size > 8 * 1024 * 1024) {
+                    setError(`File too large: ${(f.size / 1024 / 1024).toFixed(1)} MB (max 8 MB)`);
+                    e.target.value = "";
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const content = String(reader.result || "");
+                    setBody(content);
+                    if (!name.trim()) setName(f.name.replace(/\.[^.]+$/, ""));
+                  };
+                  reader.onerror = () => setError("Failed to read file — text formats only");
+                  reader.readAsText(f);
+                  e.target.value = "";
+                }}
+                style={{ display: "none" }}
+                data-testid="floating-training-note-upload-input"
+              />
+            </div>
             <textarea
               className="brut-input"
               style={{ ...INPUT_STYLE, minHeight: 200, resize: "vertical", lineHeight: 1.55 }}
-              placeholder={"E.g.:\n- ALWAYS defang URLs (hxxp://) in the final report\n- Never claim a payload is benign without decoded evidence\n- Treat T1218.011 rundll32 as CRITICAL even without a network IOC"}
+              placeholder={"E.g.:\n- ALWAYS defang URLs (hxxp://) in the final report\n- Never claim a payload is benign without decoded evidence\n- Treat T1218.011 rundll32 as CRITICAL even without a network IOC\n\n— OR click 📄 UPLOAD FILE above to load a payload/sample file (text formats, max 8 MB)."}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               data-testid="floating-training-note-body"
