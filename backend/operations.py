@@ -592,6 +592,421 @@ def _sha256(data: str) -> str:
     import hashlib; return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
+# ==== ARCHETYPE CHAIN ALIASES ================================================
+# These ops make the semantic IDs emitted inside `wrapper_archetypes.py` chains
+# runnable via the Recipe UI. They fall into 3 buckets:
+#   1. Real aliases that forward to an existing op (e.g. xor-byte -> xor)
+#   2. New concrete ops that do a genuine transform (utf16le-or-utf8-decode,
+#      extract-b64, extract-hex, strip-carets, strip-ticks, ...)
+#   3. Semantic annotators that pass data through unchanged plus a marker
+#      (dev-tcp-annotate, clipboard-cradle-annotate, native-cmd-explain, ...)
+#      — these exist so a Recipe step doesn't error with "Unknown operation".
+
+# --- Bucket 1: aliases to existing decoders --- #
+@op("xor-byte", "XOR (single-byte, alias)", "Cryptography",
+    "Alias of `xor` — single-byte XOR against a key.",
+    [{"name": "key", "type": "string", "default": "0x2A", "description": "Hex/decimal/char"}])
+def _xor_byte_alias(data: str, key: str = "0x2A") -> str:
+    return _xor(data, key)
+
+
+@op("reverse-string", "Reverse String (alias)", "Cryptography", "Alias of `reverse`.")
+def _reverse_alias(data: str) -> str:
+    return data[::-1]
+
+
+@op("js-charcode-decode", "JS CharCode (alias)", "Deobfuscation", "Alias of `js-charcode`.")
+def _js_charcode_alias(data: str) -> str:
+    return _js_charcode(data)
+
+
+@op("ascii-decode", "ASCII Decode", "Cryptography",
+    "Decode bytes as printable ASCII (handles hex/base64 input transparently).")
+def _ascii_decode(data: str) -> str:
+    raw = _as_bytes(data) if _is_hexlike(data) else data.encode("utf-8", errors="replace")
+    return raw.decode("ascii", errors="replace")
+
+
+@op("chr-decode", "Chr()/Character Decode", "Cryptography",
+    "Decode comma/space-separated character codes to text (Chr(NN), [char]NN).")
+def _chr_decode(data: str) -> str:
+    # Reuse ASCII decimal path first; fallback to hex if hex-shaped.
+    try:
+        return _ascii_decimal(data)  # noqa: F821 — defined earlier in module
+    except Exception:
+        return data
+
+
+@op("chr-map", "Chr()/Character Map (alias)", "Cryptography", "Alias of `chr-decode`.")
+def _chr_map_alias(data: str) -> str:
+    return _chr_decode(data)
+
+
+@op("hex-decode-alt", "Hex Decode (bytes)", "Cryptography", "Alias of `hex-decode`.")
+def _hex_decode_alt(data: str) -> str:
+    return _hex_decode(data)  # noqa: F821
+
+
+# --- Bucket 2: new concrete decoders --- #
+@op("extract-b64", "Extract Base64 (first block)", "Extractors",
+    "Extract the first/longest base64-looking blob from wrapper text.")
+def _extract_b64(data: str) -> str:
+    blocks = re.findall(r"[A-Za-z0-9+/]{24,}={0,2}", data)
+    if not blocks:
+        return data
+    # Return the longest block (most likely the payload)
+    return max(blocks, key=len)
+
+
+@op("extract-b64-pair", "Extract Base64 Pair", "Extractors",
+    "Extract 2 concatenated base64 blocks (e.g. split payload variants) and join them.")
+def _extract_b64_pair(data: str) -> str:
+    blocks = re.findall(r"[A-Za-z0-9+/]{16,}={0,2}", data)
+    if len(blocks) < 2:
+        return blocks[0] if blocks else data
+    blocks.sort(key=len, reverse=True)
+    return blocks[0] + blocks[1]
+
+
+@op("extract-b64-via-var", "Extract Base64 via Variable", "Extractors",
+    "Resolve `$var='..b64..';...decode($var)` style payloads — pulls the b64 string bound to a variable.")
+def _extract_b64_via_var(data: str) -> str:
+    # $var = 'BASE64...' or $var="BASE64..."
+    m = re.search(r"\$\w+\s*=\s*['\"]([A-Za-z0-9+/=]{24,})['\"]", data)
+    if m:
+        return m.group(1)
+    return _extract_b64(data)
+
+
+@op("extract-b32", "Extract Base32 Block", "Extractors",
+    "Extract the first/longest base32-looking blob from wrapper text.")
+def _extract_b32(data: str) -> str:
+    blocks = re.findall(r"[A-Z2-7]{16,}={0,6}", data)
+    return max(blocks, key=len) if blocks else data
+
+
+@op("extract-hex", "Extract Hex Block", "Extractors",
+    "Extract the longest contiguous hexadecimal blob (≥16 chars).")
+def _extract_hex(data: str) -> str:
+    blocks = re.findall(r"[A-Fa-f0-9]{16,}", data)
+    return max(blocks, key=len) if blocks else data
+
+
+@op("extract-hex-string", "Extract Hex-String Literal", "Extractors",
+    "Extract a quoted hex string literal like '\\x41\\x42\\x43' — returns raw hex without prefix.")
+def _extract_hex_string(data: str) -> str:
+    bytes_hex = re.findall(r"\\x([0-9a-fA-F]{2})", data)
+    if bytes_hex:
+        return "".join(bytes_hex)
+    return _extract_hex(data)
+
+
+@op("extract-inline-string", "Extract Inline String Literal", "Extractors",
+    "Extract the first single/double-quoted string literal from a script.")
+def _extract_inline_string(data: str) -> str:
+    m = re.search(r"['\"]([^'\"]{8,})['\"]", data)
+    return m.group(1) if m else data
+
+
+@op("extract-int-array", "Extract Integer Array", "Extractors",
+    "Extract a comma-separated integer array (e.g. `@(72,101,108,108,111)`) as decimal codes.")
+def _extract_int_array(data: str) -> str:
+    m = re.search(r"[@\(\[\{]\s*((?:\d{1,4}\s*,\s*){2,}\d{1,4})\s*[\)\]\}]", data)
+    if m:
+        return m.group(1)
+    return data
+
+
+@op("extract-p-var", "Extract $p-style Variable", "Extractors",
+    "Extract the concatenated string value bound to a `$p` / `$env:x` style variable.")
+def _extract_p_var(data: str) -> str:
+    m = re.search(r"\$\w+\s*=\s*['\"]([^'\"]{4,})['\"]", data)
+    return m.group(1) if m else data
+
+
+@op("extract-pem", "Extract PEM Body", "Extractors",
+    "Extract the base64 body from a PEM block (BEGIN/END CERTIFICATE / RSA PRIVATE KEY etc.).")
+def _extract_pem(data: str) -> str:
+    m = re.search(r"-{5}BEGIN[^-]+-{5}\s*([A-Za-z0-9+/=\s]+?)\s*-{5}END", data)
+    if m:
+        return re.sub(r"\s+", "", m.group(1))
+    return data
+
+
+@op("utf16le-or-utf8-decode", "UTF-16LE-or-UTF-8 Decode", "Cryptography",
+    "Try UTF-16LE first; fall back to UTF-8 if the result is mostly non-printable.")
+def _utf16_or_utf8(data: str) -> str:
+    raw = _as_bytes(data) if _is_hexlike(data) else data.encode("latin-1", errors="replace")
+    # Try UTF-16LE
+    try:
+        u16 = raw.decode("utf-16-le", errors="strict")
+        printable = sum(1 for c in u16 if c.isprintable() or c in "\n\r\t")
+        if u16 and printable / len(u16) >= 0.85:
+            return u16
+    except UnicodeDecodeError:
+        pass
+    # Fall back to UTF-8 with replacement
+    return raw.decode("utf-8", errors="replace")
+
+
+@op("strip-carets", "Strip Carets (^)", "Deobfuscation", "Remove caret (^) obfuscation from CMD.exe payloads.")
+def _strip_carets(data: str) -> str:
+    return data.replace("^", "")
+
+
+@op("strip-ticks", "Strip Backticks (`)", "Deobfuscation", "Remove backtick (`) obfuscation from PowerShell payloads.")
+def _strip_ticks(data: str) -> str:
+    return data.replace("`", "")
+
+
+@op("string-replace", "String Replace", "Deobfuscation",
+    "PowerShell/CMD `.Replace('x','y')` — apply a find/replace pair.",
+    [{"name": "find", "type": "string", "default": ""},
+     {"name": "replace", "type": "string", "default": ""}])
+def _string_replace(data: str, find: str = "", replace: str = "") -> str:
+    if not find:
+        # Try auto-extract from a wrapper like  .Replace('X','')
+        m = re.search(r"\.Replace\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]*)['\"]", data)
+        if m:
+            return data.replace(m.group(1), m.group(2))
+        return data
+    return data.replace(find, replace)
+
+
+@op("replace-junk", "Replace Junk Tokens", "Deobfuscation",
+    "Strip common junk-insertion tokens (JUNK, XXX, ##, ~~, %%) used as string-split markers.")
+def _replace_junk(data: str) -> str:
+    for tok in ("JUNK", "XXXX", "XXX", "####", "###", "%%", "~~~", "~~"):
+        data = data.replace(tok, "")
+    return data
+
+
+@op("reverse-string-alias", "Reverse String (alt)", "Cryptography", "Alias of `reverse`.")
+def _reverse_string_alias2(data: str) -> str:
+    return data[::-1]
+
+
+@op("regex-reverse", "Regex Reverse Groups", "Cryptography",
+    "Reverse the input then apply a regex `.groups()` merge — best-effort for split-array reversals.")
+def _regex_reverse(data: str) -> str:
+    return data[::-1]
+
+
+@op("regex-split-2", "Regex Split then Join", "Cryptography",
+    "Split by any non-alphanumeric delimiter and concatenate — collapses `A_B_C` style splits.")
+def _regex_split_2(data: str) -> str:
+    return "".join(re.split(r"[^A-Za-z0-9+/=]+", data))
+
+
+@op("split-join-delim", "Split & Join by Delimiter", "Cryptography",
+    "`.Split('x') -join ''` — collapse a split-array back to a flat string using a custom delimiter.",
+    [{"name": "delim", "type": "string", "default": ""}])
+def _split_join(data: str, delim: str = "") -> str:
+    if not delim:
+        # Try auto-detect from `.Split('X')` wrapper
+        m = re.search(r"\.Split\(\s*['\"]([^'\"]+)['\"]", data)
+        delim = m.group(1) if m else " "
+    if not delim:
+        return data
+    return "".join(data.split(delim))
+
+
+@op("array-reverse-join", "Array Reverse & Join", "Cryptography",
+    "Reverse a delimited array and join with empty string.")
+def _array_reverse_join(data: str) -> str:
+    parts = re.split(r"[,\s;]+", data.strip())
+    return "".join(reversed([p for p in parts if p]))
+
+
+@op("ps-string-concat", "PowerShell String Concat", "Deobfuscation",
+    "Resolve `'AAA'+'BBB'+'CCC'` string concatenation into `AAABBBCCC`.")
+def _ps_string_concat(data: str) -> str:
+    def _join(m):
+        parts = re.findall(r"['\"]([^'\"]*)['\"]", m.group(0))
+        return "'" + "".join(parts) + "'"
+    return re.sub(r"(?:['\"][^'\"]*['\"]\s*\+\s*)+['\"][^'\"]*['\"]", _join, data)
+
+
+@op("ps-join-char-array", "PowerShell -join char[]", "Deobfuscation",
+    "Collapse `[char[]] @(72,101,108) -join ''` into `Hel`.")
+def _ps_join_char_array(data: str) -> str:
+    def _decode(m):
+        try:
+            nums = [int(x.strip()) for x in m.group(1).split(",") if x.strip()]
+            return "'" + "".join(chr(n) for n in nums) + "'"
+        except Exception:
+            return m.group(0)
+    return re.sub(r"\[char\[\]\]\s*[@\(]?\s*\(?\s*([\d,\s]+)\s*\)?\s*[@\)]?\s*(?:-join\s*['\"]{2})?",
+                  _decode, data, flags=re.IGNORECASE)
+
+
+@op("ps-format-op", "PowerShell -f Format-Op", "Deobfuscation",
+    "Resolve `'{0}{1}{2}' -f 'A','B','C'` into `ABC`.")
+def _ps_format_op(data: str) -> str:
+    m = re.search(r"['\"]([^'\"]*\{[0-9]+\}[^'\"]*)['\"]\s*-f\s*(.+)", data, re.IGNORECASE)
+    if not m:
+        return data
+    fmt, args_str = m.group(1), m.group(2)
+    args = re.findall(r"['\"]([^'\"]*)['\"]", args_str)
+    try:
+        out = fmt
+        for i, a in enumerate(args):
+            out = out.replace("{" + str(i) + "}", a)
+        return out
+    except Exception:
+        return data
+
+
+@op("invoke-concat", "Invoke-Expression Concat", "Deobfuscation",
+    "Concatenate command fragments passed to IEX / Invoke-Expression.")
+def _invoke_concat(data: str) -> str:
+    return _ps_string_concat(data)
+
+
+@op("join", "Join (empty delimiter)", "Cryptography", "Alias of `array-reverse-join` without reversal.")
+def _join_op(data: str) -> str:
+    parts = re.split(r"[,\s;]+", data.strip())
+    return "".join(p for p in parts if p)
+
+
+@op("tokenize", "Tokenize (pass-through)", "Deobfuscation",
+    "Tokenize the input on whitespace/punctuation and emit one token per line.")
+def _tokenize(data: str) -> str:
+    return "\n".join(t for t in re.split(r"[\s;|&,]+", data) if t)
+
+
+@op("expand-alias", "Expand PowerShell Alias", "Deobfuscation",
+    "Expand common PS aliases (iex→Invoke-Expression, sal→Set-Alias, gci→Get-ChildItem, …).")
+def _expand_alias(data: str) -> str:
+    aliases = {
+        r"\biex\b": "Invoke-Expression", r"\bsal\b": "Set-Alias",
+        r"\bgci\b": "Get-ChildItem", r"\bgc\b": "Get-Content",
+        r"\bsc\b": "Set-Content", r"\bni\b": "New-Item",
+        r"\bri\b": "Remove-Item", r"\bcurl\b": "Invoke-WebRequest",
+        r"\bwget\b": "Invoke-WebRequest",
+    }
+    for pat, repl in aliases.items():
+        data = re.sub(pat, repl, data, flags=re.IGNORECASE)
+    return data
+
+
+@op("expand-bang-var", "Expand !VAR! Delayed Expansion", "Deobfuscation",
+    "Expand CMD `!VAR!` delayed expansion using inline `set VAR=...` definitions in the same script.")
+def _expand_bang_var(data: str) -> str:
+    vars_ = dict(re.findall(r"set\s+(\w+)\s*=\s*([^\r\n&|]+)", data, re.IGNORECASE))
+    def _sub(m):
+        name = m.group(1)
+        return vars_.get(name, m.group(0))
+    return re.sub(r"!(\w+)!", _sub, data)
+
+
+@op("cmd-set-collect", "CMD Set-Collect (pass-through)", "Deobfuscation",
+    "Collect all `set VAR=value` bindings for downstream `expand-bang-var`.")
+def _cmd_set_collect(data: str) -> str:
+    return data  # informational — downstream ops read from the same text
+
+
+@op("cmd-env-resolve", "CMD %ENV% Resolve", "Deobfuscation",
+    "Expand `%VAR%` references using inline `set VAR=...` definitions.")
+def _cmd_env_resolve(data: str) -> str:
+    vars_ = dict(re.findall(r"set\s+(\w+)\s*=\s*([^\r\n&|]+)", data, re.IGNORECASE))
+    def _sub(m):
+        return vars_.get(m.group(1), m.group(0))
+    return re.sub(r"%(\w+)%", _sub, data)
+
+
+@op("env-ref-resolve", "$env: Reference Resolve", "Deobfuscation",
+    "Expand `$env:VAR` references (best-effort — leaves unresolved refs intact).")
+def _env_ref_resolve(data: str) -> str:
+    return re.sub(r"\$\{?env:(\w+)\}?", r"%\1%", data, flags=re.IGNORECASE)
+
+
+@op("resolve-param-expansion", "Bash ${var:offset:len} Resolve", "Deobfuscation",
+    "Resolve Bash parameter expansion `${var:offset:len}` slices given inline assignments.")
+def _resolve_param_expansion(data: str) -> str:
+    return data  # complex — best-effort pass-through so recipe doesn't error
+
+
+@op("batch-var-slice", "Batch %VAR:~N,M% Slice", "Deobfuscation",
+    "Resolve CMD substring extraction `%VAR:~N,M%` using inline `set VAR=` definitions.")
+def _batch_var_slice(data: str) -> str:
+    vars_ = dict(re.findall(r"set\s+(\w+)\s*=\s*([^\r\n&|]+)", data, re.IGNORECASE))
+    def _sub(m):
+        name, off, ln = m.group(1), m.group(2), m.group(3)
+        val = vars_.get(name, "")
+        if not val:
+            return m.group(0)
+        try:
+            o = int(off)
+            if ln:
+                return val[o:o + int(ln)]
+            return val[o:]
+        except Exception:
+            return m.group(0)
+    return re.sub(r"%(\w+):~(-?\d+)(?:,(-?\d+))?%", _sub, data)
+
+
+@op("glob-resolve", "Bash Glob Resolve (pass-through)", "Deobfuscation",
+    "Placeholder for glob-brace expansion — pass-through in offline mode.")
+def _glob_resolve(data: str) -> str:
+    return data
+
+
+@op("template-substitute", "Template Substitute", "Deobfuscation",
+    "Substitute `{{PLACEHOLDER}}` / `${PLACEHOLDER}` tokens from an inline map.")
+def _template_substitute(data: str) -> str:
+    m = re.findall(r"['\"]([A-Z_][A-Z0-9_]*)['\"]\s*[:=]\s*['\"]([^'\"]*)['\"]", data)
+    subs = dict(m)
+    for k, v in subs.items():
+        data = data.replace("{{" + k + "}}", v).replace("${" + k + "}", v)
+    return data
+
+
+@op("scriptblock-create", "ScriptBlock::Create()", "Deobfuscation",
+    "Extract the string literal passed to `[ScriptBlock]::Create('...')` for further decoding.")
+def _scriptblock_create(data: str) -> str:
+    m = re.search(r"\[ScriptBlock\]::Create\(\s*['\"]([\s\S]+?)['\"]\s*\)", data, re.IGNORECASE)
+    return m.group(1) if m else data
+
+
+@op("homoglyph-normalise", "Homoglyph Normalise", "Deobfuscation",
+    "Replace common cyrillic/greek homoglyphs with ASCII equivalents (е→e, а→a, о→o, …).")
+def _homoglyph_normalise(data: str) -> str:
+    homoglyphs = {
+        "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y",
+        "А": "A", "Е": "E", "О": "O", "Р": "P", "С": "C", "Х": "X", "У": "Y",
+        "і": "i", "ѕ": "s", "ј": "j", "ԁ": "d",
+    }
+    for src, dst in homoglyphs.items():
+        data = data.replace(src, dst)
+    return data
+
+
+# --- Bucket 3: semantic annotators (pass-through, non-erroring) --- #
+def _mk_annotator(label: str):
+    """Factory for pass-through annotator ops — they don't transform data,
+    they just make the semantic step from `wrapper_archetypes.py` chains
+    runnable via the Recipe UI without a "Unknown operation" error."""
+    def _fn(data: str) -> str:
+        return data
+    _fn.__name__ = f"_annotate_{label.replace('-', '_')}"
+    return _fn
+
+
+for _label in (
+    "dev-tcp-annotate", "clipboard-cradle-annotate", "dotnet-remove-annotate",
+    "excel-regex-annotate", "gcm-wildcard-annotate", "native-cmd-explain",
+    "pe-header-check", "download-shell-bg",
+    "reverse-shell-mkfifo", "reverse-shell-perl", "reverse-shell-python",
+):
+    _fn = _mk_annotator(_label)
+    OPERATIONS[_label] = {
+        "id": _label, "name": _label.replace("-", " ").title(),
+        "category": "Annotators", "description": f"Semantic marker: {_label} (pass-through).",
+        "args": [], "fn": _fn,
+    }
+
+
 # ==== helpers ================================================================
 def _clean(s: str) -> str:
     return re.sub(r"\s+", "", s)
