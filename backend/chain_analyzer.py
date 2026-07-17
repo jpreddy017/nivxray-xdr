@@ -323,6 +323,19 @@ async def analyze_chain(stage_inputs: List[str]) -> Dict[str, Any]:
         for s in stages
     )
 
+    # ── Feb-2026 v1.2.0 · Threat-Intel enrichment on the AGGREGATE ─────
+    # Prior versions only ran TI lookups per-stage in the single-decode
+    # router, leaving `/api/decode/chain` blind — multi-line pastes showed
+    # 0 TI-HITS even when merged IOCs matched local feed entries. We now
+    # run lookup_ti_hits(...) ONCE on the merged IOC set so the chain
+    # response exposes the same enrichment surface as single-stage decode.
+    ti_hits: List[Dict[str, Any]] = []
+    try:
+        from analysis_core import lookup_ti_hits as _lookup_ti
+        ti_hits = await _lookup_ti(merged_iocs)
+    except Exception:
+        ti_hits = []
+
     return {
         "stage_count": len(stages),
         "stages": stages,
@@ -335,5 +348,6 @@ async def analyze_chain(stage_inputs: List[str]) -> Dict[str, Any]:
             "risk": agg_risk,
             "kill_chain": kill_chain,
             "concatenated_output": concatenated_output,
+            "ti_hits": ti_hits,
         },
     }

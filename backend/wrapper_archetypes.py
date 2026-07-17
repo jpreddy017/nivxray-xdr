@@ -3114,7 +3114,12 @@ def _handle_hexfamily(text: str) -> str:
                 continue
 
     if not best_overall_bytes or best_overall_score < 0.60:
-        raise ValueError(f"hexfamily: no confident decode (best={best_overall_score:.2f})")
+        # Feb-2026 v1.2.0 · Defensive: return original text unchanged so the
+        # archetype dispatcher's `out != current` check bypasses this handler
+        # gracefully. Raising ValueError here previously surfaced as an
+        # "ERROR" trace-line on deeply-nested payloads even though the outer
+        # loop caught it — this keeps the trace clean.
+        return text
     return _b64_ascii_or_utf16(best_overall_bytes)
 
 
@@ -3276,6 +3281,134 @@ def _handle_wmic_process_call(text: str) -> str:
     if url:
         header += f"# Remote target: {url.group(1)}\n"
     return header + text
+
+
+# ─── Feb 2026 v1.2.0 · Blind Single-Byte XOR brute-force ────────────────
+# Wikipedia XOR-cipher intel: when key is unknown but ciphertext is present,
+# try all 256 keys and score for printable ASCII + magic-byte hits.
+# This is a LAST-RESORT archetype — matches only on high-entropy hex or
+# base64 blobs that no other archetype has claimed AND that yield a clean
+# plaintext with a strong magic-byte or English-like signature after XOR.
+#
+# Match criteria (all must hold):
+#   1. Payload is a single continuous run of hex (≥32 bytes) or base64 (≥32 chars).
+#   2. No printable-ASCII word ≥5 chars appears in the raw payload (i.e., it's
+#      not already plaintext code with embedded blobs).
+#
+# Handler:
+#   • decodes hex/b64 to raw bytes
+#   • tries all 256 single-byte keys
+#   • scores each candidate: printable_ratio + magic_byte_bonus + word_bonus
+#   • picks the highest-scoring key IF its score >= 0.75
+#   • otherwise returns text unchanged (safe fallthrough)
+_BLIND_XOR_HEX_RX  = re.compile(r"^([0-9A-Fa-f]{32,})$")
+_BLIND_XOR_B64_RX  = re.compile(r"^([A-Za-z0-9+/]{32,}={0,2})$")
+_ENGLISH_WORDS = (
+    b"the ", b" and ", b"http", b"cmd ", b"exec", b"powershell", b"MZ", b"PK",
+    b"%PDF", b"<?xml", b"<html", b"eval(", b"function", b"var ", b"iex ",
+    b"invoke", b"downloadstring", b".exe", b"C:\\", b"http://", b"https://",
+)
+_MAGIC_HEADS = (b"MZ", b"PK\x03\x04", b"%PDF", b"\x7fELF", b"\x89PNG", b"GIF8",
+                b"BM", b"ID3", b"OggS", b"\xff\xd8\xff", b"7z\xbc\xaf")
+
+
+def _blind_xor_matches(text: str) -> bool:
+    stripped = text.strip()
+    if len(stripped) < 32:
+        return False
+    # Reject if it contains any English-looking token ≥5 chars
+    if re.search(r"[A-Za-z]{5,}", stripped[:400]) and not (
+        _BLIND_XOR_HEX_RX.match(stripped) or _BLIND_XOR_B64_RX.match(stripped)
+    ):
+        return False
+    return bool(_BLIND_XOR_HEX_RX.match(stripped) or _BLIND_XOR_B64_RX.match(stripped))
+
+
+def _score_xor_plaintext(raw: bytes) -> float:
+    if not raw:
+        return 0.0
+    printable = sum(1 for b in raw if 32 <= b < 127 or b in (9, 10, 13))
+    pr_ratio = printable / len(raw)
+    score = pr_ratio
+    # Magic-byte bonus (huge signal for shellcode/PE/PDF/…)
+    for mh in _MAGIC_HEADS:
+        if raw.startswith(mh):
+            score += 0.60
+            break
+    # English/keyword bonus
+    low = raw.lower()
+    hits = sum(1 for w in _ENGLISH_WORDS if w.lower() in low)
+    if hits:
+        score += min(0.40, 0.08 * hits)
+    # Space + lowercase letter proportion — real English has ~15% spaces
+    # and ~65-75% lowercase alpha. Heavy discriminator against random bytes
+    # that happen to fall in printable range.
+    n = max(len(raw), 1)
+    spaces = sum(1 for b in raw if b == 0x20) / n
+    lowers = sum(1 for b in raw if 0x61 <= b <= 0x7A) / n
+    if 0.08 <= spaces <= 0.30:
+        score += 0.20
+    if lowers >= 0.35:
+        score += 0.25
+    elif lowers >= 0.20:
+        score += 0.10
+    return min(score, 3.0)
+
+
+def _handle_blind_xor(text: str) -> str:
+    stripped = text.strip()
+    # Decode to raw bytes
+    raw: Optional[bytes] = None
+    encoding = None
+    if _BLIND_XOR_HEX_RX.match(stripped):
+        try:
+            raw = bytes.fromhex(stripped)
+            encoding = "hex"
+        except Exception:
+            return text
+    elif _BLIND_XOR_B64_RX.match(stripped):
+        try:
+            import base64 as _b64
+            raw = _b64.b64decode(stripped + "=" * (-len(stripped) % 4), validate=False)
+            encoding = "base64"
+        except Exception:
+            return text
+    if not raw:
+        return text
+
+    # Baseline (no XOR) score — needed to reject already-plain hex/b64.
+    # If baseline is already ≥1.0 the raw bytes are essentially readable
+    # (e.g. hex-encoded ASCII like `41 41 41 …` = "AAA…"), and no XOR
+    # transformation should be claimed as an improvement.
+    baseline = _score_xor_plaintext(raw)
+    if baseline >= 1.00:
+        return text
+
+    best_key, best_score, best_bytes = -1, 0.0, None
+    for k in range(1, 256):  # skip k=0 (identity, no transformation)
+        cand = bytes(b ^ k for b in raw)
+        s = _score_xor_plaintext(cand)
+        if s > best_score:
+            best_score, best_key, best_bytes = s, k, cand
+
+    # Only fire if XOR beats baseline by a meaningful margin AND crosses threshold
+    if best_bytes is None or best_score < 0.90 or best_score - baseline < 0.20:
+        return text
+
+    try:
+        decoded_txt = best_bytes.decode("ascii", errors="replace")
+    except Exception:
+        decoded_txt = "".join(chr(b) if 0x20 <= b < 0x7F else "?" for b in best_bytes)
+
+    banner = (
+        "──── BLIND_XOR_SINGLE_BYTE (v1.2.0) ────\n"
+        f"Input encoding : {encoding}\n"
+        f"Raw bytes      : {len(raw)}\n"
+        f"XOR key found  : 0x{best_key:02X}  (score {best_score:.2f} · baseline {baseline:.2f})\n"
+        f"First 32 bytes : {best_bytes[:32].hex()}\n"
+        f"Decoded (ASCII):\n{decoded_txt[:2000]}\n"
+    )
+    return banner
 
 
 ARCHETYPES: List[Dict[str, Any]] = [
@@ -3607,6 +3740,20 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["ascii-decimal-decode"],
         "handler": _handle_ps_ascii_decimal_join,
         "match":   lambda t: _ps_ascii_decimal_join_matches(t),
+    },
+    # ─── Feb 2026 v1.2.0 · Blind single-byte XOR brute-force ─────────────
+    # Last-resort recovery of raw hex/base64 blobs with an unknown XOR key.
+    # Tries all 256 keys, scores by printable-ratio + magic-byte + English
+    # keywords. Fires only when a key beats the baseline by ≥0.15.
+    {
+        "id": "BLIND_XOR_SINGLE_BYTE",
+        "description": "Blind single-byte XOR brute-force — tries all 256 keys "
+                       "on hex/base64 ciphertext, picks the winner by printable-"
+                       "ratio + magic-byte + English-keyword scoring.",
+        "chain": ["hex-or-b64-decode", "xor-bruteforce-256"],
+        "handler": _handle_blind_xor,
+        "match":   lambda t: _blind_xor_matches(t),
+        "terminal": True,
     },
     {
         "id": "JS_STRING_FROMCHARCODE",

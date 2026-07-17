@@ -1,6 +1,22 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## v1.2.0 — Feb 2026 · Preview batch · Tradecraft-signature release
+
+**Status:** Batched on Preview · staged for prod after 7-day soak · Prod still on v1.1.1.
+
+### What's new in v1.2.0
+- 🐛 **P0 bug fixes**: IOC URL stops at shell metachars, `/api/decode/chain` now enriches with local Threat Intel, `hexfamily-detect` no longer raises on unrecoverable payloads.
+- 🎯 **Tradecraft signatures**: LOLBAS rename (`copy c:\windows\system32\curl.exe X.exe`), `msiexec /i /qn` silent installer, OneNote (.one) phishing child-proc chains, Temp-directory staging pivots, suspicious-TLD heuristic (.lol/.top/.click/.zip/…), free-hosting delivery (transfer.sh/anonfiles/…), Bohannon wildcard binary resolution (`c*d.e?e`).
+- 🧬 **BLIND_XOR_SINGLE_BYTE** archetype — brute-force 256 keys with magic-byte + English-keyword scoring.
+- 📤 **`POST /api/emit/sysmon`** — Sysmon Event 1 rule + XPath + PowerShell hunt one-liner.
+- 🎨 **UI**: coloured STATUS bar, TRADECRAFT DETECTED chip banner, smarter TI-HITS empty state that explains T1102 legit-infra abuse.
+
+Full details in `/app/memory/CHANGELOG.md` (v1.2.0 entry).
+
+---
+
+
 ## Latest Change (Feb 2026 — 🔒 GOLDEN VAULT + CJK-gibberish fix + LOLBAS cascade fix)
 
 ### Three-strike stabilization sprint

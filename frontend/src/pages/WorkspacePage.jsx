@@ -1276,12 +1276,32 @@ export default function WorkspacePage() {
           display: "flex", alignItems: "center", gap: 14,
         }}
       >
-        <span className="mono" style={{ fontSize: 10, color: "var(--accent)", letterSpacing: "0.2em" }}>
-          ● STATUS
-        </span>
-        <span className="mono" data-testid="status-line" style={{ fontSize: 11, color: "var(--text-dim)" }}>
-          {status}
-        </span>
+        {(() => {
+          // Feb-2026 v1.2.0 · Colour-coded STATUS bar so analysts can tell
+          // ERROR / SUCCESS / IN-PROGRESS / INFO apart at a glance.
+          const raw = String(status || "");
+          const lower = raw.toLowerCase();
+          let dot = "var(--accent)"; let text = "var(--text-dim)"; let label = "STATUS";
+          if (/error|failed|stream error|chain error|flat decode error/i.test(raw)) {
+            dot = "var(--high, #ef4444)"; text = "var(--high, #ef4444)"; label = "ERROR";
+          } else if (/complete|ok\b|analysis complete|success|ready|✓/i.test(lower)) {
+            dot = "#22c55e"; text = "#22c55e"; label = "OK";
+          } else if (/running|decoding|analyz|streaming|loading|generating|working/i.test(lower)) {
+            dot = "#f59e0b"; text = "#f59e0b"; label = "RUNNING";
+          } else if (/warn|partial|no.*match|not\s+found/i.test(lower)) {
+            dot = "#eab308"; text = "#eab308"; label = "WARN";
+          }
+          return (
+            <>
+              <span className="mono" data-testid="status-dot" style={{ fontSize: 10, color: dot, letterSpacing: "0.2em" }}>
+                ● {label}
+              </span>
+              <span className="mono" data-testid="status-line" style={{ fontSize: 11, color: text }}>
+                {status}
+              </span>
+            </>
+          );
+        })()}
         <div style={{ flex: 1 }} />
         <span className="mono" style={{ fontSize: 10, color: "var(--text-mute)" }}>
           INPUT {input.length}c · OUTPUT {output.length}c

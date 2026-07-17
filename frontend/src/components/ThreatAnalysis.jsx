@@ -123,6 +123,67 @@ export default function ThreatAnalysis({
         </div>
       )}
 
+      {/* Feb-2026 v1.2.0 · TRADECRAFT DETECTED callout ------------------- */}
+      {/* Surface named-tradecraft signatures at the top of the panel so    */}
+      {/* analysts don't have to hunt in the RULES tab to see them.         */}
+      {(() => {
+        const rules = analysis?.yara || [];
+        const named = rules.filter((r) =>
+          /^(?:LOLBAS_(?:Curl_Rename|Signed_Bin_Rename)|Msiexec_Remote_Silent_Install|OneNote_Phishing_Chain|OneNote_Extracted_Payload_Path|Temp_Directory_Staging|Suspicious_TLD_Domain|Free_Hosting_Delivery|Wildcard_Path_Resolution|XOR_Cipher_Indicator)$/.test(r?.rule || "")
+        );
+        if (!named.length) return null;
+        const chips = {
+          LOLBAS_Curl_Rename:            { label: "LOLBAS RENAME · curl.exe",           tone: "high"   },
+          LOLBAS_Signed_Bin_Rename:      { label: "LOLBAS RENAME · signed sys binary",  tone: "high"   },
+          Msiexec_Remote_Silent_Install: { label: "MSIEXEC /qn · silent install",       tone: "high"   },
+          OneNote_Phishing_Chain:        { label: "ONENOTE PHISHING · child-proc chain",tone: "high"   },
+          OneNote_Extracted_Payload_Path:{ label: "ONENOTE PHISHING · extracted script",tone: "high"   },
+          Temp_Directory_Staging:        { label: "STAGING · cmd /c cd /d %TEMP%",      tone: "medium" },
+          Suspicious_TLD_Domain:         { label: "SUSPICIOUS TLD · short-lifespan",    tone: "medium" },
+          Free_Hosting_Delivery:         { label: "FREE HOSTING · transfer.sh-like",    tone: "medium" },
+          Wildcard_Path_Resolution:      { label: "WILDCARD BINARY · c*d.e?e",          tone: "medium" },
+          XOR_Cipher_Indicator:          { label: "XOR CIPHER · shellcode decrypt",     tone: "medium" },
+        };
+        return (
+          <div
+            data-testid="tradecraft-callout"
+            style={{
+              padding: "10px 14px",
+              background: "rgba(245, 158, 11, 0.10)",
+              borderBottom: "2px solid rgba(245, 158, 11, 0.45)",
+            }}
+          >
+            <div className="mono" style={{
+              fontSize: 10, letterSpacing: "0.24em", color: "#fbbf24",
+              fontWeight: 700, marginBottom: 8,
+            }}>
+              ◆ NAMED TRADECRAFT DETECTED · {named.length} SIGNATURE{named.length > 1 ? "S" : ""}
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {named.map((r, i) => {
+                const c = chips[r.rule] || { label: r.rule, tone: "medium" };
+                const bg = c.tone === "high" ? "rgba(239,68,68,0.15)" : "rgba(234,179,8,0.15)";
+                const fg = c.tone === "high" ? "#fca5a5" : "#fde68a";
+                return (
+                  <span
+                    key={i}
+                    data-testid={`tradecraft-chip-${r.rule}`}
+                    title={r.description || r.desc || ""}
+                    className="mono"
+                    style={{
+                      fontSize: 10, letterSpacing: "0.10em",
+                      padding: "3px 8px", background: bg, color: fg,
+                      borderLeft: `2px solid ${fg}`, borderRadius: 2,
+                    }}
+                  >
+                    {c.label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {selectedTactic && (
         <div
@@ -200,7 +261,7 @@ export default function ThreatAnalysis({
         {analysis && tab === "LOLBAS" && <LolbasTab items={analysis.lolbas} selectedTactic={selectedTactic} techniqueToTactic={techniqueToTactic} />}
         {analysis && tab === "RULES" && <RulesTab items={analysis.yara} />}
         {analysis && tab === "IOCs" && <IocTab iocs={analysis.iocs} />}
-        {analysis && tab === "TI-HITS" && <TiHitsTab hits={analysis.ti_hits} />}
+        {analysis && tab === "TI-HITS" && <TiHitsTab hits={analysis.ti_hits} mitre={analysis.mitre} iocs={analysis.iocs} />}
         {analysis && tab === "OSINT" && <OsintTab osint={analysis.osint} />}
         {analysis && tab === "AI" && <AiTab desc={analysis.description} verdict={analysis.ai_verdict} />}
         {analysis && tab === "FLOW" && <FlowTab description={analysis.description} />}
@@ -499,8 +560,70 @@ function IocTab({ iocs = {} }) {
   );
 }
 
-function TiHitsTab({ hits = [] }) {
-  if (!hits.length) return <EmptyState label="No matches in local Threat-Intel DB — sync feeds via Threat Intel tab" />;
+function TiHitsTab({ hits = [], mitre = [], iocs = {} }) {
+  // Feb-2026 v1.2.0 · Fix misleading "No matches" UI — when T1102/T1105 CDN
+  // abuse flags are already raised OR when we have IOCs but zero feed hits,
+  // surface a contextual explanation instead of a bare empty state.
+  const legitCdnAbuse = (mitre || []).some((m) =>
+    (m?.id === "T1102" || m?.id === "T1105") && /CDN|Trusted|Object-Storage|Free-hosting/i.test(m?.technique || "")
+  );
+  const suspiciousTld = (mitre || []).some((m) => m?.id === "T1583.001");
+  const hasIocs = ["urls", "ips", "domains", "hashes"].some((k) => (iocs?.[k] || []).length > 0);
+
+  if (!hits.length) {
+    if (legitCdnAbuse) {
+      return (
+        <div className="brut-border" style={{ padding: 12, background: "var(--inset)" }} data-testid="ti-hits-cdn-abuse-note">
+          <div className="mono" style={{ fontSize: 10, color: "#f59e0b", letterSpacing: "0.18em", marginBottom: 6 }}>
+            ⚠ LEGITIMATE INFRASTRUCTURE ABUSE (T1102)
+          </div>
+          <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)", lineHeight: 1.6 }}>
+            No hits in local Threat-Intel feeds — this is <b>expected</b>.<br />
+            The C2/staging domain is a <b>trusted platform</b> (jsdelivr, GitHub, Discord, Contabo, Cloudflare Pages, transfer.sh, etc.).
+            These domains are <b>whitelisted</b> by reputation feeds precisely because they're legitimate — attackers abuse them for exactly that reason.<br />
+            <br />
+            <span style={{ color: "var(--text-mute)" }}>
+              → Detect on <b>path + user-agent + parent process</b>, not domain reputation.<br />
+              → Add allow-list exceptions for your org's known-good repos.
+            </span>
+          </div>
+        </div>
+      );
+    }
+    if (suspiciousTld && hasIocs) {
+      return (
+        <div className="brut-border" style={{ padding: 12, background: "var(--inset)" }} data-testid="ti-hits-suspicious-tld-note">
+          <div className="mono" style={{ fontSize: 10, color: "#eab308", letterSpacing: "0.18em", marginBottom: 6 }}>
+            ⚠ SUSPICIOUS TLD (T1583.001) — SHORT-LIFESPAN DOMAIN
+          </div>
+          <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)", lineHeight: 1.6 }}>
+            The IOC uses a heavily-abused TLD (.lol/.top/.click/.zip/…) that most feeds haven't cataloged yet.<br />
+            <span style={{ color: "var(--text-mute)" }}>
+              → Manually submit to VirusTotal / urlscan.io.<br />
+              → Block the parent TLD or add domain-age rules.
+            </span>
+          </div>
+        </div>
+      );
+    }
+    if (hasIocs) {
+      return (
+        <div className="brut-border" style={{ padding: 12, background: "var(--inset)" }} data-testid="ti-hits-no-match-note">
+          <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", letterSpacing: "0.18em", marginBottom: 6 }}>
+            NO MATCHES · IOCs PRESENT
+          </div>
+          <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)", lineHeight: 1.6 }}>
+            {(iocs?.urls?.length || 0) + (iocs?.ips?.length || 0) + (iocs?.domains?.length || 0)} IOC(s) extracted, but none match your local Threat-Intel feeds.<br />
+            <span style={{ color: "var(--text-mute)" }}>
+              → Sync feeds via the Threat Intel tab.<br />
+              → Fresh/unknown IOCs are common for novel campaigns.
+            </span>
+          </div>
+        </div>
+      );
+    }
+    return <EmptyState label="No matches in local Threat-Intel DB — sync feeds via Threat Intel tab" />;
+  }
   return (
     <div className="stagger">
       <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.18em", marginBottom: 8 }}>

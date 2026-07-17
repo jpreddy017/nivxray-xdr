@@ -1293,7 +1293,14 @@ _REVERSED_TLD_TOKENS = frozenset({
 # ==== IOC extraction bundle (for Threat Analysis) ============================
 def extract_iocs(text: str) -> Dict[str, List[str]]:
     r = _refang(text)
-    urls = list(dict.fromkeys(re.findall(r"https?://[^\s\"'<>\)]+", r, re.IGNORECASE)))
+    # Feb-2026 v1.2.0 · URL regex now stops on shell metacharacters
+    # (`|`, `&`, `;`, `` ` ``) and CMD-file-op delimiters (`>`, `<`, `\`).
+    # Fixes ClickFix false-positive where `https://tommy-aa.lol/f|for` was
+    # extracted as a single URL, breaking downstream TI lookups.
+    urls = list(dict.fromkeys(re.findall(r"https?://[^\s\"'<>\)|&;`]+", r, re.IGNORECASE)))
+    # Trim any trailing punctuation that shouldn't be part of a URL
+    urls = [u.rstrip(".,)]}") for u in urls]
+    urls = list(dict.fromkeys([u for u in urls if len(u) > 10]))
     ips = list(dict.fromkeys(re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", r)))
     emails = list(dict.fromkeys(re.findall(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}", r)))
     doms = list(dict.fromkeys(re.findall(r"\b(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b", r.lower())))
@@ -1588,6 +1595,59 @@ MITRE_HEURISTICS = [
     # SyncAppvPublishingServer.vbs abuse — signed VBS proxy execution
     (r"syncappvpublishingserver(?:\.vbs)?",
         ("T1216", "System Script Proxy Execution: SyncAppvPublishingServer", "Defense Evasion")),
+    # ─── Feb 2026 v1.2.0 · LOLBAS rename tradecraft ─────────────────────
+    # Attackers copy signed system LOLBINs (curl, certutil, bitsadmin,
+    # powershell, wmic, regsvr32) to arbitrary filenames in Temp / user
+    # AppData to bypass name-based EDR detection. Classic sequence:
+    #   cmd /c cd /d %TEMP% & copy c:\windows\system32\curl.exe <name>.exe
+    (r"copy(?:\.exe)?\s+(?:/[a-z]\s+)*[\"']?(?:c:\\windows\\system(?:32|64)|%windir%\\system(?:32|64)|"
+     r"c:\\windows\\syswow64|%windir%\\syswow64)\\"
+     r"(curl|certutil|bitsadmin|powershell|pwsh|wmic|regsvr32|rundll32|mshta|msiexec|hh|"
+     r"cmstp|installutil|xwizard|sc|wscript|cscript|forfiles|syncappvpublishingserver)\.(?:exe|vbs)[\"']?"
+     r"\s+[\"']?[^\\/\s]+\.(?:exe|com|bat|cmd|scr|dll|vbs)[\"']?",
+        ("T1036.003", "Masquerading: Rename System Utilities (LOLBAS rename)", "Defense Evasion")),
+    (r"copy(?:\.exe)?\s+(?:/[a-z]\s+)*[\"']?c:\\windows\\system(?:32|64)\\curl\.exe",
+        ("T1105", "Ingress Tool Transfer (renamed curl.exe)", "Command and Control")),
+    # ─── msiexec /i <URL_or_TempPath_or_filename> /qn — silent installer ─
+    (r"msiexec(?:\.exe)?\s+(?:/[a-z]\s+)*/i\s+"
+     r"(?:https?://\S+|[\"']?[a-z]:\\[^\"'\s]+\.msi[\"']?|[a-zA-Z0-9_\-]+\.msi)"
+     r"\s+(?:/[a-z]+\s+)*/q(?:n|b|r|f|uiet)?",
+        ("T1218.007", "Msiexec (Silent Remote/Local Installer)", "Defense Evasion")),
+    (r"msiexec(?:\.exe)?\s+.*?/i\s+https?://",
+        ("T1105", "Ingress Tool Transfer (msiexec remote MSI)", "Command and Control")),
+    # ─── cmd /c cd /d %TEMP% — staging-directory pivot ──────────────────
+    (r"cmd(?:\.exe)?\s+/[cCkK]\s+cd\s+/[dD]\s+"
+     r"(?:%TEMP%|%LOCALAPPDATA%\\Temp|%APPDATA%|%USERPROFILE%\\AppData\\Local\\Temp|"
+     r"c:\\users\\[^\\\s]+\\appdata\\local\\temp)",
+        ("T1074.001", "Local Data Staging (Temp directory pivot)", "Collection")),
+    # ─── OneNote (.one) phishing chain — ONENOTE spawning script hosts ──
+    # Signature detects the parent→child chain even from a paste of process
+    # command lines (analysts export from Sysmon Event 1 / ProcessTree tools).
+    # Parents seen: ONENOTE.EXE from Content.Outlook cache. Children spawned:
+    # mshta, wscript, cscript, cmd, hh, curl, rundll32, powershell.
+    (r"onenote(?:\.exe)?[^\n]{0,600}?\\(?:mshta|wscript|cscript|cmd|hh|curl|rundll32|powershell|pwsh)\.exe",
+        ("T1566.001", "Phishing: Spearphishing Attachment (OneNote embedded)", "Initial Access")),
+    (r"appdata\\local\\microsoft\\windows\\inetcache\\content\.outlook\\[a-z0-9]+\\[^\n]{0,200}?\.one\b",
+        ("T1204.002", "User Execution: Malicious File (OneNote payload)", "Execution")),
+    (r"onenote\\16\.0\\exported\\\{[a-f0-9\-]+\}\\NT\\\d+\\[^\n]{0,60}?\.(?:hta|wsf|vbs|js|bat|cmd|ps1|lnk)",
+        ("T1204.002", "User Execution: OneNote extracted embedded file", "Execution")),
+    # ─── Suspicious TLD registration / typosquat (Feb-2026 v1.2.0) ──────
+    # `.lol`, `.top`, `.click`, `.zip`, `.mov`, `.xyz` are heavily abused
+    # by ClickFix / phishing operators for short-lifespan payload domains.
+    (r"https?://[a-z0-9\-]+\.(?:lol|top|click|zip|mov|xyz|monster|rest|sbs|cfd|life|quest)/",
+        ("T1583.001", "Acquire Infrastructure: Domains (suspicious TLD)", "Resource Development")),
+    # ─── Free-hosting / transfer service abuse (staging + delivery) ─────
+    (r"(?:transfer\.sh|anonfiles\.com|filebin\.net|gofile\.io|catbox\.moe|litter\.catbox\.moe|"
+     r"file\.io|tempfiles\.ninja|sendgb\.com|dropmefiles\.com)/",
+        ("T1567.002", "Exfiltration to Cloud Storage / Free-Hosting Delivery", "Exfiltration")),
+    (r"https?://(?:transfer\.sh|anonfiles\.com|filebin\.net|gofile\.io|catbox\.moe|file\.io)/",
+        ("T1105", "Ingress Tool Transfer (Free-hosting staging)", "Command and Control")),
+    # ─── PowerShell wildcard file resolution (c*d.e?e → cmd.exe) ────────
+    (r"[a-z]\*[a-z]?\.[a-z]\?[a-z]\b|[a-z]{1,3}\*\.[a-z]{2,4}\b",
+        ("T1027", "Obfuscated Files or Information (wildcard path resolution)", "Defense Evasion")),
+    # ─── Blind XOR / repeating-key XOR present (analyst-facing hint) ────
+    (r"-b?xor\s+0x[0-9a-f]{2,4}|-b?xor\s+[\"']?[a-z0-9!@#\$%\^&\*]{2,16}[\"']?",
+        ("T1027.013", "Encrypted/Encoded File (XOR cipher)", "Defense Evasion")),
 ]
 
 
@@ -1676,6 +1736,44 @@ YARA_LITE = [
     {"rule": "Certutil_PEM_Wrapped_Payload", "severity": "high",
      "pattern": r"-{5}BEGIN\s+CERTIFICATE-{5}[\s\S]{20,}-{5}END\s+CERTIFICATE-{5}",
      "desc": "PEM-wrapped base64 blob (often paired with certutil -decode for PE staging)"},
+    # ── Feb-2026 v1.2.0 · LOLBAS rename tradecraft ─────────────────────
+    {"rule": "LOLBAS_Curl_Rename", "severity": "high",
+     "pattern": r"copy(?:\.exe)?\s+(?:/[a-z]\s+)*[\"']?(?:c:\\windows\\system(?:32|64)|%windir%\\system(?:32|64))\\curl\.exe[\"']?\s+[\"']?[^\\/\s]+\.(?:exe|com|bat|cmd|scr)[\"']?",
+     "desc": "curl.exe copied to random name (LOLBAS rename tradecraft — bypasses name-based EDR)"},
+    {"rule": "LOLBAS_Signed_Bin_Rename", "severity": "high",
+     "pattern": r"copy(?:\.exe)?\s+(?:/[a-z]\s+)*[\"']?(?:c:\\windows\\system(?:32|64)|%windir%\\system(?:32|64))\\(?:curl|certutil|bitsadmin|powershell|pwsh|wmic|regsvr32|rundll32|mshta|msiexec|hh|cmstp|installutil|xwizard|wscript|cscript|forfiles|syncappvpublishingserver)\.(?:exe|vbs)[\"']?\s+[\"']?[^\\/\s]+\.(?:exe|com|bat|cmd|scr|dll|vbs)[\"']?",
+     "desc": "Signed system LOLBIN (curl/certutil/bitsadmin/powershell/…) copied to random filename — masquerading via rename (MITRE T1036.003)"},
+    # ── Msiexec silent remote install ────────────────────────────────────
+    {"rule": "Msiexec_Remote_Silent_Install", "severity": "high",
+     "pattern": r"msiexec(?:\.exe)?\s+(?:/[a-z]+\s+)*/i\s+(?:https?://\S+|[\"']?[a-z]:\\[^\"'\s]+\.msi[\"']?|[a-zA-Z0-9_\-]+\.msi)\s+(?:/[a-z]+\s+)*/q(?:n|b|r|f|uiet)?",
+     "desc": "msiexec /i /qn silent install (remote URL, Temp-staged, or bare .msi filename) — MITRE T1218.007"},
+    # ── OneNote phishing chain ─────────────────────────────────────────
+    {"rule": "OneNote_Phishing_Chain", "severity": "high",
+     "pattern": r"onenote(?:\.exe)?[^\n]{0,600}?\\(?:mshta|wscript|cscript|cmd|hh|curl|rundll32|powershell|pwsh)\.exe",
+     "desc": "ONENOTE.EXE spawning script host (mshta/wscript/cmd/hh) — OneNote (.one) phishing chain"},
+    {"rule": "OneNote_Extracted_Payload_Path", "severity": "high",
+     "pattern": r"onenote\\16\.0\\exported\\\{[a-f0-9\-]+\}\\NT\\\d+\\[^\n]{0,60}?\.(?:hta|wsf|vbs|js|bat|cmd|ps1|lnk)",
+     "desc": "OneNote-extracted embedded script — canonical .one dropper temp path"},
+    # ── Temp-directory staging chain ────────────────────────────────────
+    {"rule": "Temp_Directory_Staging", "severity": "medium",
+     "pattern": r"cmd(?:\.exe)?\s+/[cCkK]\s+cd\s+/[dD]\s+(?:%TEMP%|%LOCALAPPDATA%\\Temp|%APPDATA%|%USERPROFILE%\\AppData\\Local\\Temp|c:\\users\\[^\\\s]+\\appdata\\local\\temp)",
+     "desc": "cmd /c cd /d %TEMP% — staging-directory pivot (T1074.001)"},
+    # ── Suspicious short-lifespan TLDs (ClickFix, phishing) ─────────────
+    {"rule": "Suspicious_TLD_Domain", "severity": "medium",
+     "pattern": r"https?://[a-z0-9\-]+\.(?:lol|top|click|zip|mov|xyz|monster|rest|sbs|cfd|life|quest)/",
+     "desc": "Suspicious short-lifespan TLD (.lol/.top/.click/.zip/…) — heavily abused for ClickFix/phishing"},
+    # ── Free-hosting delivery / staging ─────────────────────────────────
+    {"rule": "Free_Hosting_Delivery", "severity": "medium",
+     "pattern": r"https?://(?:transfer\.sh|anonfiles\.com|filebin\.net|gofile\.io|catbox\.moe|file\.io|tempfiles\.ninja|sendgb\.com|dropmefiles\.com)/",
+     "desc": "Free-file-hosting URL — payload staging / exfil (MITRE T1567.002 / T1105)"},
+    # ── Wildcard file/binary resolution ─────────────────────────────────
+    {"rule": "Wildcard_Path_Resolution", "severity": "medium",
+     "pattern": r"\b[a-z]\*[a-z]?\.[a-z]\?[a-z]\b|\b[a-z]{1,3}\*\.[a-z]{2,4}\b",
+     "desc": "Wildcard path/binary reference (c*d.e?e → cmd.exe) — Bohannon wildcard obfuscation"},
+    # ── Blind XOR indicator (ciphertext present) ────────────────────────
+    {"rule": "XOR_Cipher_Indicator", "severity": "medium",
+     "pattern": r"-b?xor\s+(?:0x[0-9a-f]{2,4}|[\"']?[a-z0-9!@#\$%\^&\*]{2,16}[\"']?)",
+     "desc": "PowerShell -bxor with visible key — XOR-cipher shellcode decryption (MITRE T1027.013)"},
 ]
 
 
