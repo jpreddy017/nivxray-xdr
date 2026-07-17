@@ -66,6 +66,13 @@ export default function FloatingAddNoteButton() {
     try {
       const r = await api.post("/admin/training-notes/sync-url",
                                 { url: refUrl.trim() });
+      // New envelope (Feb 2026): 200 always; check `ok` flag.
+      if (r.data && r.data.ok === false) {
+        const msg = r.data.error || "SYNC failed";
+        const hint = r.data.hint ? `  ${r.data.hint}` : "";
+        setError(`SYNC failed: ${msg}${hint}`);
+        return;
+      }
       setName(r.data.title || "");
       setBody(r.data.body || "");
       setSyncMeta({
@@ -75,7 +82,11 @@ export default function FloatingAddNoteButton() {
         tags: r.data.tags || [],
       });
     } catch (e) {
-      setError("SYNC failed: " + (e?.response?.data?.detail || e.message));
+      // Fallback for legacy 4xx/5xx paths — parse whatever we can.
+      const raw = e?.response?.data;
+      const msg = raw?.error || raw?.detail || e?.message || String(e);
+      const hint = raw?.hint ? `  ${raw.hint}` : "";
+      setError(`SYNC failed: ${msg}${hint}`);
     } finally {
       setSyncing(false);
     }

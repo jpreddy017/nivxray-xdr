@@ -112,11 +112,20 @@ def _extract_pdf(binary: bytes, max_pages: int = 60) -> str:
 
 @router.post("/admin/training-notes/sync-url")
 async def sync_training_note_url(body: SyncIn, user=Depends(require_admin)):
+    """Return **HTTP 200** always — success or failure. Errors are surfaced
+    via `{"ok": false, "error": "...", "hint": "..."}` in the body.
+
+    Rationale (Feb 2026): Cloudflare (fronting the Emergent preview URL)
+    replaces our JSON body with its own generic HTML error page whenever
+    the origin returns any 5xx status. That masks the true reason (LLM
+    budget exhausted, origin bot-block, etc.) and shows the analyst
+    "origin web server returned an invalid or incomplete response" instead.
+    Returning 200 with an error envelope keeps our real detail intact.
+    """
     url = body.url.strip()
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise HTTPException(status_code=422,
-                            detail="url must be an absolute http(s) URL")
+        return {"ok": False, "error": "url must be an absolute http(s) URL"}
 
     # ── 1. Fetch the page (size-capped, content-type-routed) ─────────
     async def _fetch():
@@ -137,8 +146,9 @@ async def sync_training_note_url(body: SyncIn, user=Depends(require_admin)):
         is_pdf = "application/pdf" in ctype or url.lower().endswith(".pdf")
         is_text = any(x in ctype for x in ("text/", "html", "xml", "json", "markdown"))
         if not is_pdf and not is_text:
-            raise HTTPException(status_code=415,
-                                detail=f"unsupported content-type: {ctype or 'unknown'}")
+            return {"ok": False,
+                    "error": f"unsupported content-type: {ctype or 'unknown'}",
+                    "hint": "SYNC only reads HTML / PDF / plain-text pages."}
         raw_bytes = r.content
         if len(raw_bytes) > _MAX_FETCH_BYTES:
             raw_bytes = raw_bytes[: _MAX_FETCH_BYTES]
@@ -146,20 +156,15 @@ async def sync_training_note_url(body: SyncIn, user=Depends(require_admin)):
         code = e.response.status_code
         hint = ""
         if code in (403, 429, 503):
-            hint = (f" — origin ({parsed.netloc}) blocked our fetch "
-                    "(likely Cloudflare bot protection). Copy the article "
-                    "text into the DIRECTIVE box manually.")
-        raise HTTPException(status_code=502,
-                            detail=f"HTTP {code} fetching {url}{hint}")
-    except HTTPException:
-        raise
+            hint = (f"origin ({parsed.netloc}) blocked our fetch (Cloudflare "
+                    "bot protection). Copy the article text into DIRECTIVE manually.")
+        return {"ok": False,
+                "error": f"HTTP {code} fetching {url}",
+                "hint": hint or "The origin server returned an HTTP error."}
     except Exception as e:
-        raise HTTPException(
-            status_code=502,
-            detail=(f"fetch failed for {parsed.netloc}: {e} — the origin "
-                    "server rejected our request. Paste the article text "
-                    "into DIRECTIVE manually to bypass."),
-        )
+        return {"ok": False,
+                "error": f"fetch failed for {parsed.netloc}: {e}",
+                "hint": "The origin server rejected our request. Paste the article text into DIRECTIVE manually."}
 
     if is_pdf:
         article = _extract_pdf(raw_bytes)
@@ -173,8 +178,9 @@ async def sync_training_note_url(body: SyncIn, user=Depends(require_admin)):
         source_kind = "web"
 
     if len(article) < 200:
-        raise HTTPException(status_code=422,
-                            detail="page had no extractable content (< 200 chars)")
+        return {"ok": False,
+                "error": "page had no extractable content (< 200 chars)",
+                "hint": "Site likely requires JavaScript rendering. Paste text into DIRECTIVE manually."}
     trimmed = article[:_MAX_LLM_CHARS]
 
     # ── 2. LLM condensation into directive form ──────────────────────
@@ -204,9 +210,23 @@ async def sync_training_note_url(body: SyncIn, user=Depends(require_admin)):
     try:
         result = await llm_json(session_id, system, user_msg, retries=1)
     except HTTPException as e:
-        # Bubble up LLM/parse failures as 502 so the UI can show a clear error.
-        raise HTTPException(status_code=502,
-                            detail=f"LLM condensation failed: {e.detail}")
+        # LLM/parse failure — surface the REAL reason as 200 body so Cloudflare
+        # doesn't replace it with a generic error page.
+        detail = str(e.detail) if e.detail else "unknown LLM failure"
+        low = detail.lower()
+        hint = ""
+        if "spend limit" in low or "budget" in low or "quota" in low:
+            hint = ("Your Emergent Universal Key hit its daily spend limit. "
+                    "Top up at Profile → Universal Key → Add Balance, or paste "
+                    "the article text into DIRECTIVE manually.")
+        elif "safety" in low or "refused" in low:
+            hint = ("The LLM refused this content (safety filter). Paste the "
+                    "article text into DIRECTIVE manually.")
+        return {"ok": False,
+                "error": f"LLM condensation failed: {detail}",
+                "hint": hint or "Retry later or paste the article text manually.",
+                "fetched_chars": len(article),
+                "source_kind": source_kind}
 
     title = (result.get("title") or "").strip()[:120]
     directive = (result.get("directive") or "").strip()
@@ -218,13 +238,16 @@ async def sync_training_note_url(body: SyncIn, user=Depends(require_admin)):
     if not title:
         title = f"REF · {parsed.netloc}"
     if len(directive) < 60:
-        raise HTTPException(status_code=502,
-                            detail="LLM returned an unusably short directive")
+        return {"ok": False,
+                "error": "LLM returned an unusably short directive",
+                "hint": "Try again or paste the article text into DIRECTIVE manually.",
+                "fetched_chars": len(article)}
 
     # Pin the source URL onto the body so the note remains auditable.
     body_out = directive.rstrip() + f"\n\n— Source: {url}"
 
     return {
+        "ok":            True,
         "title":         title,
         "body":          body_out,
         "ref_url":       url,
