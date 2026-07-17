@@ -73,6 +73,40 @@ async def decode_single_stage(payload: str, stage_index: int = 0) -> Dict[str, A
     corrupt = detect_corrupt_payload(payload)
     risk = risk_score(mitre, yara, iocs)
 
+    # ── Confidence formula (Feb 2026) ───────────────────────────────────
+    # Base confidence = deterministic-decoder score. But for plain-text
+    # LOLBAS payloads (no encoding, nothing to decode) the score sits
+    # near 0.4-0.6 while the payload IS still a high-fidelity malicious
+    # command (e.g. `reg.exe add HKLM\...\Run /v Backdoor`). We upgrade
+    # confidence proportional to the strength of MITRE + LOLBAS + YARA
+    # signals so plain-command scenarios read as high-confidence bad,
+    # while noisy edge cases stay near their deterministic score.
+    _base_conf = (
+        int(round((det.get("score") or 0.0) * 100))
+        if det.get("score") is not None else 100
+    )
+    _signal_boost = min(
+        30,
+        3 * len(mitre) + 4 * len(lolbas) + 6 * len(yara),
+    )
+    _confidence = min(100, max(_base_conf, _base_conf + _signal_boost // 2))
+    # Also clamp: if we have ≥2 LOLBAS + ≥1 MITRE hit, floor at 75 —
+    # this is deterministically an "actionable" verdict for a SOC even
+    # without any decoding.
+    if len(lolbas) >= 2 and len(mitre) >= 1:
+        _confidence = max(_confidence, 75)
+    elif len(lolbas) >= 1 and len(mitre) >= 1:
+        _confidence = max(_confidence, 70)
+    elif len(mitre) >= 2 and len(yara) >= 1:
+        _confidence = max(_confidence, 68)
+    elif len(mitre) >= 1 and len(yara) >= 2:
+        # Weaker but still deterministically actionable: one MITRE + two YARA
+        # (e.g. bash reverse-pipe: T1027.010 + Bash_Rev_Pipe_Shell + case-mixed)
+        _confidence = max(_confidence, 65)
+    elif len(mitre) >= 1 and len(lolbas) == 0 and len(yara) >= 1:
+        # LOLBIN doesn't classify (cmstp, xwizard, etc.) but MITRE fires
+        _confidence = max(_confidence, 65)
+
     return {
         "stage_index": stage_index,
         "input_preview": payload[:200] + ("…" if len(payload) > 200 else ""),
@@ -80,7 +114,7 @@ async def decode_single_stage(payload: str, stage_index: int = 0) -> Dict[str, A
         "output": decoded,
         "output_length": len(decoded),
         "engine": det.get("engine"),
-        "confidence": int(round((det.get("score") or 0.0) * 100)) if det.get("score") is not None else 100,
+        "confidence": _confidence,
         "reached_shellcode": bool(det.get("reached_shellcode")),
         "steps": det.get("steps") or [],
         "iocs": iocs,

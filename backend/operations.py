@@ -832,15 +832,41 @@ MITRE_HEURISTICS = [
     (r"cmd(\.exe)?\s+/c", ("T1059.003", "Windows Command Shell", "Execution")),
     (r"invoke-webrequest|iwr\s|net\.webclient|downloadstring|curl\s|wget\s", ("T1105", "Ingress Tool Transfer", "Command and Control")),
     (r"schtasks|new-scheduledtask", ("T1053.005", "Scheduled Task", "Persistence")),
-    (r"reg\s+add|new-itemproperty.*run\\|HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", ("T1547.001", "Registry Run Keys", "Persistence")),
+    (r"reg\s+add|new-itemproperty.*run\\|HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run|HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", ("T1547.001", "Registry Run Keys", "Persistence")),
+    (r"reg(?:\.exe)?\s+(?:save|export)\s+HK(?:LM|CU)\\(?:SAM|SECURITY|SYSTEM|SOFTWARE)\b", ("T1003.002", "Security Account Manager (SAM Hive Dump)", "Credential Access")),
+    (r"sc(?:\.exe)?\s+create\s+\S+\s+binpath", ("T1543.003", "Create or Modify Windows Service", "Persistence")),
+    (r"wevtutil(?:\.exe)?\s+(?:cl|clear-log|sl\s+\S+\s+/e:false)", ("T1070.001", "Clear Windows Event Logs", "Defense Evasion")),
+    (r"netsh(?:\.exe)?\s+advfirewall.*(?:state\s+off|disable)", ("T1562.004", "Disable or Modify System Firewall", "Defense Evasion")),
+    (r"(?:curl|wget)(?:\.exe)?\s+.*-[oO]\s+\S+\.exe", ("T1105", "Ingress Tool Transfer (curl/wget download-to-file)", "Command and Control")),
+    (r"net(?:\.exe)?\s+user\s+\S+\s+\S+\s+/add|net(?:\.exe)?\s+localgroup\s+administrators", ("T1136.001", "Create Local Account", "Persistence")),
     (r"mimikatz|sekurlsa::|lsass", ("T1003.001", "LSASS Memory", "Credential Access")),
     (r"bitsadmin|start-bitstransfer", ("T1197", "BITS Jobs", "Defense Evasion")),
     (r"wmic\s|win32_process", ("T1047", "Windows Management Instrumentation", "Execution")),
     (r"rundll32\.exe", ("T1218.011", "Rundll32", "Defense Evasion")),
     (r"mshta\.exe", ("T1218.005", "Mshta", "Defense Evasion")),
+    # ── Feb-2026 native LOLBIN classifiers (T1218 sub-techniques) ─────────
+    (r"cmstp(?:\.exe)?\s+/(?:ni|s)\s+", ("T1218.003", "CMSTP (LOLBAS Install)", "Defense Evasion")),
+    (r"installutil(?:\.exe)?\s+.*/(?:U|logfile)", ("T1218.004", "InstallUtil", "Defense Evasion")),
+    (r"hh(?:\.exe)?\s+https?://", ("T1218.001", "Compiled HTML File (hh.exe URL loader)", "Defense Evasion")),
+    (r"xwizards?(?:\.exe)?\s+/", ("T1218", "System Binary Proxy Execution: Xwizard", "Defense Evasion")),
+    (r"regsvr32(?:\.exe)?\s+.*(?:scrobj\.dll|/i:https?://|/i:.*\.sct)", ("T1218.010", "Regsvr32 (Squiblydoo)", "Defense Evasion")),
+    (r"psexec(?:\.exe)?\s+\\\\\S+", ("T1021.002", "SMB/PsExec Remote Execution", "Lateral Movement")),
+    (r"forfiles(?:\.exe)?\s+.*(?:cmd|powershell)", ("T1202", "Indirect Command Execution (forfiles)", "Defense Evasion")),
+    # Python / Perl / Ruby inline base64 exec — cross-platform stagers
+    (r"python\d?\s+-c\s+.*(?:import\s+base64.*)?base64\.b64decode.*exec", ("T1059.006", "Python (base64 exec)", "Execution")),
+    (r"python\d?\s+-c\s+.*exec\s*\(\s*base64\.b64decode", ("T1027.010", "Command Obfuscation (Python base64 exec)", "Defense Evasion")),
+    (r"perl\s+-e\s+.*(?:fork|exec)", ("T1059.006", "Perl (background exec)", "Execution")),
+    # Bash `>&` file-descriptor exfil to /dev/tcp
+    (r"cat\s+.*>\s*/dev/(?:tcp|udp)/", ("T1041", "Exfiltration Over C2 Channel (/dev/tcp)", "Exfiltration")),
+    # Sensitive-file read (typical exfil precursor / creds dump)
+    (r"(?:cat|less|more|type)\s+(?:/etc/(?:passwd|shadow|group|sudoers)|/root/\.\S+|~/\.(?:ssh|aws|gnupg))", ("T1552.001", "Credentials In Files", "Credential Access")),
+    # Bash `echo | rev | sh` reverse-string execution
+    (r"\|\s*rev\s*\|\s*(?:sh|bash|zsh|dash|ksh)\b", ("T1059.004", "Unix Shell (reverse-string exec)", "Execution")),
+    # Bash env-var assembly `export A=…; /$A/$B -c …`
+    (r"export\s+\w+=[\"']?\w+[\"']?\s*;.*\s+/\$\w+/\$\w+\s+-c\b", ("T1027.010", "Command Obfuscation (bash env-var assembly)", "Defense Evasion")),
     (r"certutil(?:\.exe)?\s+.{0,80}-decode\b", ("T1140", "Deobfuscate/Decode Files", "Defense Evasion")),
     (r"-nop|-noni|-w\s*hidden|-windowstyle\s+hidden", ("T1059.001", "PowerShell (hidden)", "Execution")),
-    (r"vssadmin.*delete.*shadows", ("T1490", "Inhibit System Recovery", "Impact")),
+    (r"vssadmin.*delete.*shadows|wbadmin(?:\.exe)?\s+delete\s+(?:systemstatebackup|catalog)", ("T1490", "Inhibit System Recovery", "Impact")),
     (r"cipher\s+/w|sdelete", ("T1070.004", "File Deletion", "Defense Evasion")),
     (r"nslookup|dnsquery", ("T1071.004", "Application Layer Protocol: DNS", "Command and Control")),
     # ── Discovery techniques (T1057, T1082, T1016, T1033) ────────────────
@@ -873,6 +899,11 @@ MITRE_HEURISTICS = [
         ("T1059.004", "Unix Shell", "Execution")),
     (r"base64\s+(?:-d|--decode)\s*\|\s*(?:sh|bash|zsh|dash|ksh)\b",
         ("T1027.010", "Command Obfuscation (Base64 pipe-to-shell)", "Defense Evasion")),
+    # Hex-pipe execution: `echo <hex> | xxd -r -p | sh|bash` (parallel to base64 pipe)
+    (r"xxd\s+-r\s+-p\s*\|\s*(?:sh|bash|zsh|dash|ksh|python\d?|perl|ruby)\b",
+        ("T1059.004", "Unix Shell (hex-pipe exec)", "Execution")),
+    (r"xxd\s+-r\s+-p\s*\|\s*(?:sh|bash|zsh|dash|ksh)\b",
+        ("T1027.010", "Command Obfuscation (Hex pipe-to-shell)", "Defense Evasion")),
     # Reverse-then-execute: `... | rev | (sh|bash|...)` — string-reversal obfuscation
     (r"\|\s*rev\s*\|\s*(?:sh|bash|zsh|dash|ksh)\b",
         ("T1027.010", "Command Obfuscation (rev pipe)", "Defense Evasion")),
