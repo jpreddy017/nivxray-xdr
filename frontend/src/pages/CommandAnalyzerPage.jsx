@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import ShellcodeView from "@/components/ShellcodeView";
 import api from "@/lib/api";
