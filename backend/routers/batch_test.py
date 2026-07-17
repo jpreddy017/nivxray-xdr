@@ -335,6 +335,19 @@ async def batch_history_delete(run_id: str, user=Depends(get_current_user)):
     return {"deleted": r.deleted_count}
 
 
+class _RenameBatch(BaseModel):
+    name: str
+
+
+@router.patch("/batch/history/{run_id}")
+async def batch_history_rename(run_id: str, body: _RenameBatch, user=Depends(get_current_user)):
+    """Attach a friendly name to a past batch run."""
+    r = db_batch_runs.update_one({"id": run_id}, {"$set": {"name": body.name.strip()[:120]}})
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="run not found")
+    return {"updated": r.modified_count, "name": body.name.strip()[:120]}
+
+
 @router.get("/batch/test/example")
 async def batch_test_example(user=Depends(get_current_user)):
     """Download a starter CSV template with 5 example payloads."""

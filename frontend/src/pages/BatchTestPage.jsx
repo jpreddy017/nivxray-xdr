@@ -209,6 +209,31 @@ export default function BatchTestPage() {
                 <FileText size={12} /> DOWNLOAD EXAMPLE CSV
               </a>
               <button
+                onClick={() => { setShowHistory(v => !v); if (!showHistory) loadHistory(); }}
+                data-testid="batch-history-btn"
+                className="nvx-btn sm ghost"
+                style={{ borderColor: showHistory ? "#7ee3c9" : undefined, color: showHistory ? "#7ee3c9" : undefined }}>
+                <FileText size={12} /> HISTORY {history.length ? `(${history.length})` : ""}
+              </button>
+              {runId && rows.length > 0 && (
+                <button
+                  onClick={async () => {
+                    const nm = window.prompt("Name this batch run (for future reference):", `Batch · ${new Date().toLocaleString()}`);
+                    if (!nm) return;
+                    try {
+                      await api.patch(`/batch/history/${runId}`, { name: nm });
+                      await loadHistory();
+                      alert(`Saved as "${nm}"`);
+                    } catch (e) {
+                      alert(`Save failed: ${e.response?.data?.detail || e.message}`);
+                    }
+                  }}
+                  data-testid="batch-save-btn"
+                  className="nvx-btn sm primary">
+                  <Download size={12} /> 💾 SAVE THIS RUN
+                </button>
+              )}
+              <button
                 onClick={async () => {
                   setBusy(true); setErr(null);
                   try {
