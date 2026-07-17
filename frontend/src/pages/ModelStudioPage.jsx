@@ -647,16 +647,80 @@ function PlaybookFields({ cfg, setCfg }) {
 
 
 function TrainingNoteFields({ cfg, setCfg }) {
+  const [uploadInfo, setUploadInfo] = useState(null);
+  const [uploadError, setUploadError] = useState("");
+
+  const handleFileUpload = (e) => {
+    setUploadError("");
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // 8 MB safety cap — training notes shouldn't be larger
+    if (file.size > 8 * 1024 * 1024) {
+      setUploadError(`File too large: ${(file.size / 1024 / 1024).toFixed(1)} MB (max 8 MB)`);
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = String(reader.result || "");
+      setCfg({ body: content });
+      setUploadInfo({ name: file.name, size: file.size, lines: content.split("\n").length });
+    };
+    reader.onerror = () => setUploadError("Failed to read file — is it a text file?");
+    reader.readAsText(file);
+    // Reset input so re-selecting same file re-fires
+    e.target.value = "";
+  };
+
   return (
     <>
       <div>
-        <Label>Training note body <Hint>(required — the directive the LLM should ALWAYS follow)</Hint></Label>
+        <Label>Training note body <Hint>(required — the directive the LLM should ALWAYS follow, OR a payload sample)</Hint></Label>
+
+        {/* File upload row — Feb 2026 addition */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, marginBottom: 8,
+          padding: "8px 10px", background: "var(--surface)",
+          border: "1px dashed var(--border)", borderRadius: 4,
+        }}>
+          <label
+            htmlFor="tn-file-upload"
+            className="mono"
+            data-testid="ms-training-note-upload-label"
+            style={{
+              cursor: "pointer", padding: "6px 12px", background: "var(--accent-dim)",
+              border: "1px solid var(--accent)", color: "var(--accent)",
+              fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase",
+            }}
+          >
+            📄 Upload File
+          </label>
+          <input
+            id="tn-file-upload"
+            type="file"
+            accept=".txt,.csv,.json,.log,.md,.b64,.hex,.ps1,.psm1,.bat,.cmd,.sh,.py,.js,.xml,.yaml,.yml,.ini,.conf"
+            onChange={handleFileUpload}
+            style={{ display: "none" }}
+            data-testid="ms-training-note-upload-input"
+          />
+          <span className="mono" style={{ fontSize: 10, color: "var(--text-mute)" }}>
+            {uploadInfo
+              ? <>Loaded: <b style={{ color: "var(--accent)" }}>{uploadInfo.name}</b> · {(uploadInfo.size / 1024).toFixed(1)} KB · {uploadInfo.lines} lines</>
+              : "Drop a payload/sample file — content auto-fills the body below (max 8 MB, text formats only)"}
+          </span>
+        </div>
+        {uploadError && (
+          <div className="mono" style={{ fontSize: 10, color: "var(--high)", marginBottom: 6 }} data-testid="ms-training-note-upload-error">
+            {uploadError}
+          </div>
+        )}
+
         <textarea
           className="brut-input"
           style={{ minHeight: 240, fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}
           value={cfg.body || ""}
           onChange={(e) => setCfg({ body: e.target.value })}
-          placeholder={"E.g.:\n- ALWAYS defang URLs in the final report (hxxp:// instead of http://)\n- Whenever you see a Cobalt Strike stager, prioritize the shellcode disassembly in the verdict\n- Our SOC treats T1218.011 rundll32 as CRITICAL even without a network IOC\n- Never claim a payload is benign without at least one decoded layer of evidence"}
+          placeholder={"E.g.:\n- ALWAYS defang URLs in the final report (hxxp:// instead of http://)\n- Whenever you see a Cobalt Strike stager, prioritize the shellcode disassembly in the verdict\n- Our SOC treats T1218.011 rundll32 as CRITICAL even without a network IOC\n- Never claim a payload is benign without at least one decoded layer of evidence\n\n— OR —\nPaste / upload a raw payload sample the tool should always learn from."}
           data-testid="ms-input-training-note-body"
         />
         <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 6, lineHeight: 1.6 }}>

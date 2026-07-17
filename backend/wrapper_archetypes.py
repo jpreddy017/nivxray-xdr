@@ -2507,7 +2507,110 @@ def _handle_ps_fb64_ascii_indirect(text: str) -> str:
     return decoded
 
 
+# ─── Feb 2026 · KHEX (\k substitution cipher) ─────────────────────────────
+# Real-world payload shape (from `Sample1_JP` / production `PS_KHEX_NSMAP_OBFUSCATION`):
+#   `\k63\k47\k39\k33\k5n\k58\k4n\k7n...`  (200-400 tokens)
+# Each `\kXY` = 1 hex byte with letters mapped via a substitution table.
+# Empirically the mapping is sequential: n→a, o→b, p→c, q→d, r→e, s→f — but
+# we brute-force ALL 6! = 720 permutations of any 6 substituted letters found
+# and score by base64-shape of the resulting hex-decode. This means the
+# archetype works for ANY KHEX variant without hard-coding the map.
+
+# Self-heal: some upstream engines emit these tokens interleaved with NUL
+# bytes (UTF-16LE half-decoded). If we see ≥20% NULs *and* the surviving
+# non-NUL chars form \k tokens, we strip NULs first.
+_KHEX_TOKEN_RE = re.compile(r"\\k([0-9a-z<>?]{2})")
+_KHEX_MIN_TOKENS = 20
+
+
+def _khex_self_heal(text: str) -> str:
+    """Strip interleaved NUL bytes if the residual forms \\k tokens."""
+    if not text:
+        return text
+    nul_ratio = text.count("\x00") / len(text)
+    if nul_ratio >= 0.20:
+        stripped = text.replace("\x00", "")
+        if len(_KHEX_TOKEN_RE.findall(stripped)) >= _KHEX_MIN_TOKENS:
+            return stripped
+    return text
+
+
+def _khex_nsmap_matches(text: str) -> bool:
+    healed = _khex_self_heal(text)
+    return len(_KHEX_TOKEN_RE.findall(healed)) >= _KHEX_MIN_TOKENS
+
+
+def _handle_khex_nsmap(text: str) -> str:
+    import itertools as _it
+    healed = _khex_self_heal(text)
+    tokens = _KHEX_TOKEN_RE.findall(healed)
+    if len(tokens) < _KHEX_MIN_TOKENS:
+        raise ValueError("khex: too few tokens")
+    # Collect substituted letters (anything that's not a hex digit)
+    subst = sorted({c for tok in tokens for c in tok if c not in "0123456789abcdef"})
+    # If more than 6 subst letters found, drop the least-frequent ones
+    if len(subst) > 6:
+        from collections import Counter
+        freq = Counter(c for tok in tokens for c in tok if c in subst)
+        subst = [c for c, _ in freq.most_common(6)]
+    # Filter tokens whose chars are all in {digits ∪ subst}
+    valid_tokens = [t for t in tokens if all(c in "0123456789abcdef" or c in subst for c in t)]
+    if len(valid_tokens) < _KHEX_MIN_TOKENS:
+        raise ValueError("khex: not enough clean tokens after subst filter")
+
+    best_score, best_bytes = 0.0, None
+    # Brute-force mapping: 6! = 720 permutations
+    letters_needed = min(6, len(subst))
+    hex_pool = list("abcdef")[:letters_needed]
+    for perm in _it.permutations(hex_pool):
+        mapping = dict(zip(subst[:letters_needed], perm))
+        try:
+            hex_str = "".join(mapping.get(t[0], t[0]) + mapping.get(t[1], t[1]) for t in valid_tokens)
+            raw = bytes.fromhex(hex_str)
+        except Exception:
+            continue
+        txt = raw.decode("ascii", errors="replace")
+        b64_shape = sum(1 for ch in txt if ch in
+                        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+        printable = sum(1 for b in raw if 32 <= b < 127 or b in (10, 13, 9))
+        score = 0.4 * (printable / max(len(raw), 1)) + 0.6 * (b64_shape / max(len(txt), 1))
+        if score > best_score:
+            best_score, best_bytes = score, raw
+
+    if not best_bytes or best_score < 0.85:
+        raise ValueError(f"khex: no confident mapping found (best_score={best_score:.2f})")
+
+    # Layer 2: the hex-decoded output is base64 — decode it
+    b64_txt = best_bytes.decode("ascii", errors="replace")
+    b64_txt = re.sub(r"[^A-Za-z0-9+/=]", "", b64_txt)
+    b64_raw = base64.b64decode(b64_txt + "=" * (-len(b64_txt) % 4), validate=False)
+
+    # Layer 3: prefer ASCII if mostly printable; else UTF-16LE
+    ascii_out = b64_raw.decode("ascii", errors="replace")
+    ascii_score = sum(1 for c in ascii_out if c.isprintable() or c in "\n\r\t") / max(len(ascii_out), 1)
+    if ascii_score >= 0.85:
+        return ascii_out
+    u16_out = b64_raw.decode("utf-16-le", errors="replace")
+    u16_score = sum(1 for c in u16_out if c.isprintable() or c in "\n\r\t") / max(len(u16_out), 1)
+    if u16_score >= 0.85:
+        return u16_out
+    # Fall back to whichever is better
+    return ascii_out if ascii_score >= u16_score else u16_out
+
+
 ARCHETYPES: List[Dict[str, Any]] = [
+    # ─── Feb 2026 · KHEX substitution cipher (Sample1_JP fix) ───────────────
+    {
+        "id": "PS_KHEX_NSMAP_OBFUSCATION",
+        "description": "Backslash-k hex substitution cipher (\\kXY) with letter-map "
+                        "(n→a, o→b, p→c, q→d, r→e, s→f) — self-heals UTF-16LE NUL "
+                        "interleaving, brute-forces the substitution table, "
+                        "decodes hex → base64 → ASCII/UTF-16LE plaintext.",
+        "chain": ["khex-unmap", "hex-decode", "base64-decode", "utf16le-or-utf8-decode"],
+        "handler": _handle_khex_nsmap,
+        "match":   lambda t: _khex_nsmap_matches(t),
+        "terminal": False,
+    },
     # ─── Feb 2026 · Reverse-Shell Primitives (batch-CSV row 3/4/5/6/8/9 fix) ─
     {
         "id": "BASH_MKFIFO_REVERSE_SHELL",
