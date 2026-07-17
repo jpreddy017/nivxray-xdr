@@ -917,6 +917,33 @@ export default function WorkspacePage() {
     }
   };
 
+  // Feb 2026 · Save the current workspace case (input+output+trace) with a
+  // friendly name → recallable from Case Library page.
+  const saveCase = async () => {
+    if (!input || !output) {
+      setStatus("SAVE CASE: run a decode first"); return;
+    }
+    const name = window.prompt("Name this case (for future reference):",
+                               `Case · ${new Date().toLocaleString()}`);
+    if (!name) return;
+    setStatus("SAVING CASE...");
+    try {
+      const r = await api.post("/cases/save", {
+        name,
+        input,
+        output,
+        engine: engine || "-",
+        confidence: confidence ?? null,
+        chain_ids: chainIds || [],
+        verdict: verdict || null,
+        iocs: iocs || {},
+      });
+      setStatus(`CASE SAVED: "${name}" (id=${(r.data?.id || "").slice(0, 8)})`);
+    } catch (e) {
+      setStatus("SAVE CASE FAILED: " + (e?.response?.data?.detail || e.message));
+    }
+  };
+
   const onUpload = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -1201,6 +1228,11 @@ export default function WorkspacePage() {
           <Share2 size={13} /> COPY LINK
         </button>
         <ReportMenu onDownload={downloadReport} />
+        <button className="nvx-btn" onClick={saveCase} data-testid="btn-save-case"
+                style={{borderColor:"#7ee3c9",color:"#7ee3c9"}}
+                title="Save this decoded case to the Case Library with a friendly name">
+          💾 SAVE CASE
+        </button>
         <button className="nvx-btn" onClick={() => fileRef.current?.click()} data-testid="btn-upload">
           <Upload size={13} /> UPLOAD
         </button>

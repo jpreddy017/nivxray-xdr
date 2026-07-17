@@ -130,6 +130,9 @@ api.include_router(regression_router)
 # Feb 2026 — Layer Integrity Validator + Predictive Planner
 from routers.planner import router as planner_router
 api.include_router(planner_router)
+# Feb 2026 — Workspace Case Library (💾 SAVE CASE)
+from routers.cases import router as cases_router
+api.include_router(cases_router)
 api.include_router(investigations_router)
 api.include_router(enrichment_router)
 api.include_router(docs_router)
