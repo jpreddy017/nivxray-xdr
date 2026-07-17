@@ -1963,6 +1963,188 @@ _NATIVE_CMD_RULES: List[Dict[str, Any]] = [
 ]
 
 
+# ─── Feb 2026 · Plaintext defense-evasion behavior detector ─────────────
+# Regex-based scoring of Windows plaintext scripts against 5 TTP families.
+# ≥2 families = match. Handler emits a rich MITRE + LOLBAS + IOC annotation.
+
+_DEFENSE_EVASION_PATTERNS = {
+    # T1562.001 · Impair Defenses — Defender + policy tampering
+    "T1562.001": [
+        re.compile(r"\bsc(?:\.exe)?\s+(?:config|stop|delete)\s+(?:Sense|WinDefend|WdNisSvc|WdBoot|WdFilter)\b", re.I),
+        re.compile(r"\breg(?:\.exe)?\s+delete\s+.*?(?:Windows\s+Defender|Advanced\s+Threat\s+Protection|WinDefend)\b", re.I),
+        re.compile(r"Set-MpPreference\s+.*?-Disable(?:Realtime|Behavior|Ioav|Script)", re.I),
+        re.compile(r"Add-MpPreference\s+.*?-ExclusionPath", re.I),
+        re.compile(r"Set-Alias\s+.*?(?:Remove-Item|rm)\b", re.I),
+    ],
+    # T1555 · Credentials from Password Stores (Windows Credential Manager, Browsers)
+    "T1555": [
+        re.compile(r"\bcmdkey(?:\.exe)?\s+/list\b", re.I),
+        re.compile(r"\bvaultcmd(?:\.exe)?\b", re.I),
+        re.compile(r"\\(?:User\s+Data|Local\s+State)\\(?:Login\s+Data|Cookies|Web\s+Data)", re.I),
+        re.compile(r"AppData\\(?:Local|Roaming)\\(?:Google|Microsoft|BraveSoftware|Mozilla)\\.*?(?:Login|Cookies|Credential)", re.I),
+    ],
+    # T1518.001 · Security Software Discovery — hardcoded EDR product enumeration
+    "T1518.001": None,  # scored by keyword count below
+    # T1082 · System Information Discovery / T1057 Process Discovery / T1049 Network Config Discovery
+    "T1057_T1049": [
+        re.compile(r"\bGet-Process\b|\bGet-Service\b|\bGet-ScheduledTask\b|\bGet-StartupCommand\b", re.I),
+        re.compile(r"\bGet-NetTCPConnection\b|\bnetstat\s+-[an]+", re.I),
+        re.compile(r"\btasklist(?:\s+/[a-z]+)+", re.I),
+    ],
+    # T1071 · Application Layer Protocol (external egress with hardcoded IP)
+    "T1071": [
+        re.compile(r"\b(?:https?://)?(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?", re.I),
+    ],
+}
+
+# Known EDR/AV/monitoring product name signals (T1518.001 scoring)
+_EDR_PRODUCT_KEYWORDS = (
+    "crowdstrike", "sentinelone", "carbon black", "carbonblack", "cylance", "cortex",
+    "cortex xdr", "microsoft defender", "mdatp", "mde", "windefend",
+    "eset", "kaspersky", "bitdefender", "sophos", "symantec", "mcafee", "trellix",
+    "trend micro", "trendmicro", "fireeye", "hxtool", "hx tool",
+    "elastic edr", "elastic endpoint", "wazuh", "osquery", "velociraptor",
+    "wireshark", "ip-guard", "ipguard", "safedog", "360totalsecurity", "360 total security",
+    "huorong", "rising", "qihoo", "kingsoft", "quick heal",
+    "checkpoint", "check point", "harmony endpoint",
+    "malwarebytes", "webroot", "avast", "avg", "f-secure", "gdata", "g data",
+    "watchguard", "cybereason", "tanium", "arcsight", "splunk", "qradar",
+    "microsoft sysmon", "sysmon",
+)
+
+
+def _defense_evasion_behavior_matches(text: str) -> bool:
+    # Refuse to fire if already annotated (idempotent).
+    if "# --- Windows Defense-Evasion Behavior Pattern Detected ---" in text:
+        return False
+    # Fast-fail for tiny inputs (< 80 chars is unlikely to have 2 concurrent families)
+    if len(text) < 80:
+        return False
+    families_hit = 0
+    for family, patterns in _DEFENSE_EVASION_PATTERNS.items():
+        if patterns is None:
+            continue  # T1518.001 scored below
+        if any(p.search(text) for p in patterns):
+            families_hit += 1
+    # T1518.001 — ≥5 distinct EDR product names in the text
+    lowered = text.lower()
+    edr_hits = sum(1 for k in _EDR_PRODUCT_KEYWORDS if k in lowered)
+    if edr_hits >= 5:
+        families_hit += 1
+    return families_hit >= 2
+
+
+def _handle_defense_evasion_behavior(text: str) -> str:
+    """Emit a rich MITRE + LOLBAS + IOC annotation block (terminal)."""
+    # Feb 2026 · pre-normalise JSON-escaping (\\\\ → \\, \\" → ") so LOLBAS
+    # binaries and EDR product names embedded in escaped script strings are
+    # still detected — WorkBuddy-class payloads have 300+ escape sequences.
+    normalised = text
+    try:
+        # unicode_escape twice covers double-escaped JSON blobs
+        for _ in range(2):
+            candidate = normalised.encode("utf-8", errors="ignore").decode(
+                "unicode_escape", errors="ignore")
+            if candidate.count("\\") < normalised.count("\\"):
+                normalised = candidate
+            else:
+                break
+    except Exception:
+        pass
+    lowered = normalised.lower()
+    findings: List[Dict[str, Any]] = []
+
+    # Which TTP families fired
+    ttp_map = {
+        "T1562.001": "Impair Defenses (Defender / Policy Tampering)",
+        "T1555":     "Credentials from Password Stores",
+        "T1057_T1049": "Process/Service/Network Discovery",
+        "T1071":     "Application Layer Protocol (External Egress)",
+    }
+    for family, patterns in _DEFENSE_EVASION_PATTERNS.items():
+        if patterns is None:
+            continue
+        matched = [p.pattern[:70] for p in patterns if p.search(normalised) or p.search(text)]
+        if matched:
+            findings.append({"tid": family, "label": ttp_map.get(family, family),
+                             "evidence_count": len(matched)})
+    edr_hits = [k for k in _EDR_PRODUCT_KEYWORDS if k in lowered]
+    if len(edr_hits) >= 5:
+        findings.append({"tid": "T1518.001",
+                         "label": "Security Software Discovery",
+                         "evidence_count": len(edr_hits)})
+
+    # Extract LOLBAS binaries seen
+    lolbas_seen = sorted({b for b in (
+        "sc.exe", "reg.exe", "cmdkey.exe", "powershell.exe", "vaultcmd.exe",
+        "wmic.exe", "netsh.exe", "certutil.exe", "bitsadmin.exe", "rundll32.exe",
+        "mshta.exe", "regsvr32.exe", "msiexec.exe", "wscript.exe", "cscript.exe",
+        "cmd.exe", "tasklist.exe", "schtasks.exe",
+    ) if b in lowered})
+
+    # Extract IOCs — external IPs + URLs + localhost service ports
+    ips = re.findall(r"\b(?:(?:1\d?\d|2[0-4]\d|25[0-5]|[1-9]?\d)\.){3}(?:1\d?\d|2[0-4]\d|25[0-5]|[1-9]?\d)\b", normalised)
+    external_ips = [ip for ip in set(ips)
+                    if not (ip.startswith(("10.", "127.", "192.168.", "169.254."))
+                            or ip.startswith(("172.16.", "172.17.", "172.18.", "172.19.",
+                                              "172.20.", "172.21.", "172.22.", "172.23.",
+                                              "172.24.", "172.25.", "172.26.", "172.27.",
+                                              "172.28.", "172.29.", "172.30.", "172.31.")))]
+    urls = re.findall(r"https?://[^\s\"'<>\\]+", normalised)
+    local_ports = sorted({int(m.group(1)) for m in re.finditer(
+        r"(?:localhost|127\.0\.0\.1)[:\s](\d{4,5})", normalised)})
+
+    # WorkBuddy/CodeBuddy signal (Feb 2026 real-world case)
+    workbuddy = any(k in lowered for k in (
+        "workbuddy", "codebuddy", "\\codebuddy\\", "tencent code assistant",
+        "launcher.exe", "system_cleanup.ps1", "monitor_check_",
+    ))
+
+    # Compose annotation
+    lines: List[str] = []
+    lines.append("# --- Windows Defense-Evasion Behavior Pattern Detected ---")
+    lines.append(f"# Severity: HIGH · Confidence: {90 + min(len(findings), 8)}%")
+    if workbuddy:
+        lines.append("# WorkBuddy/CodeBuddy weaponisation profile matched (Tencent AI-coding CLI)")
+    lines.append("")
+    lines.append("## MITRE ATT&CK Techniques")
+    for f in findings:
+        lines.append(f"  · {f['tid']:<12} {f['label']}  ({f['evidence_count']} evidence)")
+    if not findings:
+        lines.append("  (no MITRE techniques matched — anomalous match, please review)")
+    lines.append("")
+    lines.append("## LOLBAS Binaries Observed")
+    if lolbas_seen:
+        for b in lolbas_seen:
+            lines.append(f"  · {b}")
+    else:
+        lines.append("  (none)")
+    lines.append("")
+    lines.append("## Indicators of Compromise")
+    if external_ips:
+        lines.append("  External IPs:")
+        for ip in sorted(external_ips)[:10]:
+            lines.append(f"    · {ip}")
+    if urls:
+        lines.append("  URLs:")
+        for u in sorted(set(urls))[:10]:
+            lines.append(f"    · {u}")
+    if local_ports:
+        lines.append(f"  Internal C2 / IPC ports: {', '.join(str(p) for p in local_ports)}")
+    if edr_hits:
+        lines.append(f"  EDR / AV / monitoring products enumerated ({len(edr_hits)}):")
+        lines.append(f"    · {', '.join(sorted(edr_hits)[:15])}")
+    lines.append("")
+    lines.append("## Verdict")
+    lines.append("  HIGH — concurrent defense-evasion + credential-access + security-software-discovery")
+    lines.append("  patterns constitute an active adversary post-exploitation stage.")
+    lines.append("")
+    lines.append("## Original Script (unmodified)")
+    lines.append("─" * 60)
+    return "\n".join(lines) + "\n" + text
+
+
+
 def _native_cmd_explainer_matches(text: str) -> bool:
     if len(text) > 2000 or not text.strip():
         return False
@@ -3664,6 +3846,21 @@ ARCHETYPES: List[Dict[str, Any]] = [
         "chain": ["native-cmd-explain"],
         "handler": lambda t: _handle_native_cmd_explainer(t),
         "match":   lambda t: _native_cmd_explainer_matches(t),
+        "terminal": True,
+    },
+    # ─── Feb 2026 · Plaintext-behavior pattern detector ───────────────────
+    # Real-world SOC gap surfaced by NEW_Alert (WorkBuddy/CodeBuddy incident):
+    # the malicious payload was already plaintext (no obfuscation to peel),
+    # so no wrapper-unwrap archetype matched. This archetype hunts for the
+    # CONCURRENT presence of defense-evasion + credential-access + security-
+    # software-discovery patterns and produces a rich MITRE annotation. It
+    # never re-fires (terminal + explicit banner check).
+    {
+        "id": "WINDOWS_DEFENSE_EVASION_BEHAVIOR_PATTERN",
+        "description": "Plaintext Windows script exhibiting defense-evasion + credential-access + security-software-discovery TTPs (no obfuscation needed).",
+        "chain":   ["behavior-pattern-detect", "mitre-annotate", "verdict-override-high"],
+        "handler": lambda t: _handle_defense_evasion_behavior(t),
+        "match":   lambda t: _defense_evasion_behavior_matches(t),
         "terminal": True,
     },
 ]
