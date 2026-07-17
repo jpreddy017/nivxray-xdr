@@ -65,12 +65,50 @@ def _snip(s: Optional[str], n: int = _SNIPPET_LEN) -> str:
 def _verdict_from_result(result: Dict[str, Any]) -> str:
     vc = result.get("verdict_card") or {}
     v  = (vc.get("verdict") or "").strip()
-    if v:
-        return v
-    # Fallback — plain reached_shellcode implies malicious
+    # Feb 2026 · escalation rules — even if the deterministic verdict-card said
+    # "Suspicious", promote to Malicious when we have hard evidence signals
+    # commonly associated with active malware (download-and-execute chains,
+    # LOLBAS + URL combos, reverse-shell primitives, shellcode reached, or
+    # multiple MITRE technique matches).
+    decoded = str(result.get("decoded") or result.get("output") or "").lower()
+    iocs    = result.get("iocs") or {}
+    lolbas  = result.get("lolbas") or []
+    mitre   = result.get("mitre") or []
+    if isinstance(mitre, dict):
+        mitre_ids = list(mitre.keys())
+    elif isinstance(mitre, list):
+        mitre_ids = mitre
+    else:
+        mitre_ids = []
+    iocs_url_count = 0
+    if isinstance(iocs, dict):
+        iocs_url_count = len(iocs.get("urls", [])) + len(iocs.get("ips", [])) + len(iocs.get("domains", []))
+    # Signal 1 · shellcode reached (highest-confidence signal)
     if result.get("reached_shellcode"):
         return "Malicious"
-    if result.get("iocs") or result.get("mitre") or result.get("lolbas"):
+    # Signal 2 · download-and-execute chain (URL + one of IEX/WebClient/Invoke-WebRequest/DownloadString)
+    has_url  = ("http://" in decoded or "https://" in decoded) or iocs_url_count > 0
+    has_exec = any(k in decoded for k in ("iex", "invoke-expression", "downloadstring", "downloadfile",
+                                            "webclient", "invoke-webrequest", "invoke-restmethod",
+                                            "|iex", "| iex", "start-process"))
+    if has_url and has_exec:
+        return "Malicious"
+    # Signal 3 · reverse-shell primitive
+    if any(k in decoded for k in ("/dev/tcp/", "mkfifo", "socket.socket", "io::socket::inet",
+                                    "bash -i >&", "nc -e", "ncat -e")):
+        return "Malicious"
+    # Signal 4 · LOLBAS + URL combo (T1218 family with active URL target)
+    if lolbas and has_url:
+        return "Malicious"
+    # Signal 5 · 3+ MITRE tags from distinct tactic families
+    distinct_tactics = {m.split(".")[0] for m in mitre_ids if isinstance(m, str) and m.startswith("T")}
+    if len(distinct_tactics) >= 3 and has_url:
+        return "Malicious"
+    # Trust deterministic verdict if it exists (before generic fallback)
+    if v:
+        return v
+    # Generic fallback
+    if iocs or mitre or lolbas:
         return "Suspicious"
     return "Unknown"
 
@@ -117,6 +155,45 @@ def _run_single(payload: str, analysis_mode: str) -> Dict[str, Any]:
         vc = {}
 
     verdict = (vc.get("verdict") or "").strip()
+    # Feb 2026 · verdict-escalation rules — promote to Malicious on hard signals
+    decoded_low = output_txt.lower()
+    input_low   = payload.lower()
+    scan_low    = f"{input_low}\n{decoded_low}"
+    iocs_url_count = 0
+    if isinstance(iocs, dict):
+        iocs_url_count = (len(iocs.get("urls", []) or []) + len(iocs.get("ips", []) or []) +
+                          len(iocs.get("domains", []) or []))
+    has_url  = ("http://" in scan_low or "https://" in scan_low) or iocs_url_count > 0
+    has_exec = any(k in scan_low for k in (
+        "iex", "invoke-expression", "downloadstring", "downloadfile",
+        "webclient", "invoke-webrequest", "invoke-restmethod",
+        "|iex", "| iex", "start-process", "start ", "&& start",
+    ))
+    has_revshell = any(k in scan_low for k in (
+        "/dev/tcp/", "mkfifo", "socket.socket", "io::socket::inet",
+        "bash -i >&", "nc -e", "ncat -e", "pty.spawn",
+    ))
+    lolbas_names = [(l.get("name") or l.get("id") or "").lower() for l in (lolbas or [])]
+    # Also detect LOLBAS binaries directly in the payload/decoded text — fallback
+    # in case scan_lolbas missed one (e.g. mshta/rundll32/regsvr32 with short input).
+    lolbas_in_text = [b for b in ("mshta", "bitsadmin", "msiexec", "regsvr32", "rundll32",
+                                    "certutil", "wmic", "installutil", "cmstp", "wsf",
+                                    "hh.exe", "cscript", "wscript")
+                       if b in scan_low]
+    lolbas_hit = bool(lolbas_names) or bool(lolbas_in_text)
+    distinct_tactics = {(m.get("id") or "").split(".")[0] for m in mitre if isinstance(m, dict) and m.get("id","").startswith("T")}
+    # Escalation to Malicious
+    if r.get("reached_shellcode"):
+        verdict = "Malicious"
+    elif has_revshell:
+        verdict = "Malicious"
+    elif has_url and has_exec:
+        verdict = "Malicious"
+    elif lolbas_hit and has_url:
+        verdict = "Malicious"
+    elif len(distinct_tactics) >= 3 and has_url:
+        verdict = "Malicious"
+    # Fallback to deterministic card / signals
     if not verdict:
         if r.get("reached_shellcode"):
             verdict = "Malicious"
