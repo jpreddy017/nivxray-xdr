@@ -2677,28 +2677,187 @@ def _handle_xhex_variant(text: str) -> str:
 
 
 def _b64_ascii_or_utf16(raw: bytes) -> str:
-    """Common tail — base64-decode `raw` (ASCII bytes), try ASCII vs UTF-16LE.
+    """Common tail — try many decodings of the raw byte stream and pick the
+    highest-scoring output. Handles: direct UTF-8/ASCII/Latin-1/UTF-16LE/BE,
+    OR raw-as-base64 → nested ASCII/UTF-16LE.
 
-    Salvages invalid base64 lengths (4k+1) by trimming the trailing byte,
-    which is the standard fix for KHEX-family payloads where an outer
-    substitution accidentally emits a stray character.
+    Salvages invalid base64 lengths (4k+1) by trimming the trailing byte.
     """
+    candidates = []
+    # Direct byte decodings
+    for enc in ("ascii", "utf-8", "utf-16-le", "utf-16-be", "latin-1"):
+        try:
+            dec = raw.decode(enc, errors="strict")
+            printable = sum(1 for c in dec if c.isprintable() or c in "\n\r\t") / max(len(dec), 1)
+            if printable >= 0.85:
+                # Bonus if PowerShell-like keywords present
+                bonus = 0.1 if any(k in dec.lower() for k in ("powershell", "iex", "http", "webclient", "invoke", "cmd", "shell")) else 0
+                candidates.append((printable + bonus, dec, f"direct-{enc}"))
+        except Exception:
+            continue
+    # Try treating raw as base64 → decode → try encodings
     txt = raw.decode("ascii", errors="replace")
-    txt = re.sub(r"[^A-Za-z0-9+/=]", "", txt)
-    if len(txt) % 4 == 1:
-        txt = txt[:-1]  # base64 cannot have length 4k+1; drop last char
-    padded = txt + "=" * (-len(txt) % 4)
-    b64_raw = base64.b64decode(padded, validate=False)
-    ascii_out = b64_raw.decode("ascii", errors="replace")
-    ascii_score = sum(1 for c in ascii_out if c.isprintable() or c in "\n\r\t") / max(len(ascii_out), 1)
-    if ascii_score >= 0.80:
-        return ascii_out
-    u16_out = b64_raw.decode("utf-16-le", errors="replace")
-    u16_score = sum(1 for c in u16_out if c.isprintable() or c in "\n\r\t") / max(len(u16_out), 1)
-    return u16_out if u16_score >= ascii_score else ascii_out
+    b64_txt = re.sub(r"[^A-Za-z0-9+/=]", "", txt)
+    if len(b64_txt) >= 20:
+        if len(b64_txt) % 4 == 1:
+            b64_txt = b64_txt[:-1]
+        try:
+            b64_raw = base64.b64decode(b64_txt + "=" * (-len(b64_txt) % 4), validate=False)
+            for enc in ("ascii", "utf-8", "utf-16-le", "utf-16-be", "latin-1"):
+                try:
+                    dec = b64_raw.decode(enc, errors="strict")
+                    printable = sum(1 for c in dec if c.isprintable() or c in "\n\r\t") / max(len(dec), 1)
+                    if printable >= 0.85:
+                        bonus = 0.1 if any(k in dec.lower() for k in ("powershell", "iex", "http", "webclient", "invoke", "cmd", "shell")) else 0
+                        candidates.append((printable + bonus, dec, f"b64→{enc}"))
+                except Exception:
+                    continue
+        except Exception:
+            pass
+    if not candidates:
+        # Fallback: return best-effort latin-1 (never fails)
+        return raw.decode("latin-1", errors="replace")
+    candidates.sort(reverse=True)
+    return candidates[0][1]
+
+
+# ─── Feb 2026 · UNIFIED HEX-FAMILY archetype (KHEX + XHEX + trailing-marker) ─
+# Handles ALL hex-substitution variants in one archetype by trying multiple
+# regex orientations against the input:
+#   • `\<M>HH`  (marker + hex, backslash-prefixed)   — e.g. `\k63\k47\k39`
+#   • `HH<M>\`  (hex + marker, backslash-trailing)   — e.g. `63x\47x\39x\`
+#   • `<M>HH\`  (marker + hex + backslash)           — e.g. `x63\x47\x39\`
+# Where <M> is a marker char (letter) and HH is 2 hex chars (0-9 + a-f OR
+# substituted letters like n→a, o→b, ...). Brute-forces the letter map.
+_HEXFAMILY_VARIANTS = [
+    # (name, regex, hex_group_indices)
+    ("khex_leading",      re.compile(r"\\([a-z])([0-9a-z<>?]{2})"),  (1,)),  # \kHH — hex is group 2
+    ("xhex_trailing",     re.compile(r"([0-9a-z<>?]{2})([a-z])\\"),  (0,)),  # HHx\ — hex is group 1
+    ("xhex_before_slash", re.compile(r"([a-z])([0-9a-z<>?]{2})\\"),  (1,)),  # xHH\ — hex is group 2
+]
+_HEXFAMILY_MIN_TOKENS = 20
+
+
+def _hexfamily_matches(text: str) -> bool:
+    healed = _strip_smart_decorations(_khex_self_heal(text))
+    for _, rx, _ in _HEXFAMILY_VARIANTS:
+        matches = rx.findall(healed)
+        if len(matches) >= _HEXFAMILY_MIN_TOKENS:
+            # Marker consistency check — dominant marker must be ≥70%
+            from collections import Counter
+            markers = Counter()
+            for m in matches:
+                marker = m[0] if isinstance(m, tuple) else m
+                # Extract the marker char from the match
+                if isinstance(m, tuple) and len(m) == 2:
+                    # Determine which is marker (single char) vs hex (2 chars)
+                    markers[m[0] if len(m[0]) == 1 else m[1]] += 1
+            top = markers.most_common(1)
+            if top and top[0][1] / max(len(matches), 1) >= 0.70:
+                return True
+    return False
+
+
+def _handle_hexfamily(text: str) -> str:
+    """Try each variant, brute-force letter map, decode hex→base64→ASCII/UTF-16LE."""
+    import itertools as _it
+    from collections import Counter
+    healed = _strip_smart_decorations(_khex_self_heal(text))
+
+    best_overall_score = 0.0
+    best_overall_bytes = None
+    for variant_name, rx, _ in _HEXFAMILY_VARIANTS:
+        matches = rx.findall(healed)
+        if len(matches) < _HEXFAMILY_MIN_TOKENS:
+            continue
+        # Extract hex-body and marker from each match
+        hex_bodies = []
+        markers_seen = Counter()
+        for m in matches:
+            if isinstance(m, tuple) and len(m) == 2:
+                if len(m[0]) == 1 and len(m[1]) == 2:
+                    markers_seen[m[0]] += 1
+                    hex_bodies.append(m[1])
+                elif len(m[0]) == 2 and len(m[1]) == 1:
+                    markers_seen[m[1]] += 1
+                    hex_bodies.append(m[0])
+                else:
+                    continue
+        if not hex_bodies:
+            continue
+        top_marker, top_count = markers_seen.most_common(1)[0]
+        if top_count / len(hex_bodies) < 0.70:
+            continue
+        # Filter to dominant marker only
+        clean_bodies = []
+        for i, m in enumerate(matches):
+            marker = m[0] if isinstance(m, tuple) and len(m[0]) == 1 else (m[1] if isinstance(m, tuple) else None)
+            if marker == top_marker and i < len(hex_bodies):
+                clean_bodies.append(hex_bodies[i])
+        if len(clean_bodies) < _HEXFAMILY_MIN_TOKENS:
+            clean_bodies = hex_bodies  # fallback: use all
+
+        # Detect substituted letters in hex bodies
+        subst = sorted({c for b in clean_bodies for c in b if c not in "0123456789abcdef"})
+        if len(subst) > 6:
+            freq = Counter(c for b in clean_bodies for c in b if c in subst)
+            subst = [c for c, _ in freq.most_common(6)]
+        valid_bodies = [b for b in clean_bodies if all(c in "0123456789abcdef" or c in subst for c in b)]
+        if len(valid_bodies) < _HEXFAMILY_MIN_TOKENS:
+            continue
+
+        letters_needed = min(6, len(subst))
+        hex_pool = list("abcdef")[:letters_needed]
+        candidates = [dict(zip(subst[:letters_needed], perm)) for perm in _it.permutations(hex_pool)]
+        candidates.append({})  # identity fallback
+
+        for mapping in candidates:
+            try:
+                hex_str = "".join(mapping.get(b[0], b[0]) + mapping.get(b[1], b[1]) for b in valid_bodies)
+                # Try BOTH original AND nibble-swap orientation
+                for hex_variant in (hex_str, "".join(hex_str[i+1] + hex_str[i] for i in range(0, len(hex_str)-1, 2))):
+                    try:
+                        raw = bytes.fromhex(hex_variant)
+                    except Exception:
+                        continue
+                    txt = raw.decode("ascii", errors="replace")
+                    b64_shape = sum(1 for ch in txt if ch in
+                                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+                    printable = sum(1 for b in raw if 32 <= b < 127 or b in (10, 13, 9))
+                    # Boost score if any UTF-16 (BE/LE) decode is 95%+ printable
+                    u16_bonus = 0.0
+                    for enc in ("utf-16-le", "utf-16-be"):
+                        try:
+                            u = raw.decode(enc, errors="strict")
+                            u_pr = sum(1 for c in u if c.isprintable() or c in "\n\r\t") / max(len(u), 1)
+                            if u_pr >= 0.95:
+                                u16_bonus = max(u16_bonus, 0.25)
+                        except Exception:
+                            pass
+                    score = 0.35 * (printable / max(len(raw), 1)) + 0.4 * (b64_shape / max(len(txt), 1)) + u16_bonus
+                    if score > best_overall_score:
+                        best_overall_score, best_overall_bytes = score, raw
+            except Exception:
+                continue
+
+    if not best_overall_bytes or best_overall_score < 0.60:
+        raise ValueError(f"hexfamily: no confident decode (best={best_overall_score:.2f})")
+    return _b64_ascii_or_utf16(best_overall_bytes)
 
 
 ARCHETYPES: List[Dict[str, Any]] = [
+    # ─── Feb 2026 · Unified HEX-FAMILY (KHEX + XHEX + variants) ─────────────
+    {
+        "id": "PS_HEXFAMILY_UNIFIED_OBFUSCATION",
+        "description": "Unified hex-substitution family — auto-detects marker "
+                        "position (leading `\\kHH` / trailing `HHx\\` / `xHH\\`), "
+                        "brute-forces letter substitution, decodes hex → base64 → "
+                        "ASCII/UTF-16LE. Handles KHEX + XHEX + all mixed variants.",
+        "chain": ["hexfamily-detect", "hexfamily-unmap", "hex-decode", "base64-decode", "utf16le-or-utf8-decode"],
+        "handler": _handle_hexfamily,
+        "match":   lambda t: _hexfamily_matches(t),
+        "terminal": False,
+    },
     # ─── Feb 2026 · KHEX substitution cipher (Sample1_JP fix) ───────────────
     {
         "id": "PS_KHEX_NSMAP_OBFUSCATION",
