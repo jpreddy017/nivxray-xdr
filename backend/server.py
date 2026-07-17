@@ -127,6 +127,9 @@ api.include_router(chain_router)
 api.include_router(training_confusion_router)
 api.include_router(taxii_router)
 api.include_router(regression_router)
+# Feb 2026 — Layer Integrity Validator + Predictive Planner
+from routers.planner import router as planner_router
+api.include_router(planner_router)
 api.include_router(investigations_router)
 api.include_router(enrichment_router)
 api.include_router(docs_router)

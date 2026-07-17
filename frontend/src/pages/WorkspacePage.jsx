@@ -79,6 +79,8 @@ export default function WorkspacePage() {
   const [reachedShellcode, setReachedShellcode] = useState(false);
   // Client-side auto-detect on paste — 14 decoders raced instantly to surface a suggestion
   const [pasteHint, setPasteHint] = useState(null);
+  // Feb-2026: Server-side Smart Input Advisor (planner) hint — real-time layer detection
+  const [plannerHint, setPlannerHint] = useState(null);
   // History drawer
   const [historyOpen, setHistoryOpen] = useState(false);
   // Feb-2026: Candidate Explorer toggle — shows the ranked encoding candidates
@@ -272,6 +274,26 @@ export default function WorkspacePage() {
   // to the backend for ops not ported to JS (kept out of the debounce loop).
   // ~30ms debounce keeps the workspace fluid even on large paste.
   const [livePreview, setLivePreview] = useState(null);
+
+  // Feb-2026: Debounced Smart Input Advisor — hits /api/planner/advise 400ms
+  // after last keystroke. Zero cost when input < 20 chars.
+  useEffect(() => {
+    if (!input || input.length < 20) {
+      setPlannerHint(null);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.post("/planner/advise", { input });
+        const hints = r.data?.hints || [];
+        setPlannerHint(hints[0] || null);
+      } catch (_) {
+        setPlannerHint(null);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [input]);
+
   useEffect(() => {
     if (!input && !steps.length) {
       setLivePreview(null);
@@ -1356,6 +1378,18 @@ export default function WorkspacePage() {
                 <span className="dot" />
                 INPUT
                 <span className="count">{input.length} chars</span>
+                {plannerHint && (
+                  <span className="mono" data-testid="planner-hint-chip"
+                        style={{
+                          fontSize: 10, padding: "2px 8px", marginLeft: 8,
+                          background: "rgba(126,227,201,0.12)",
+                          border: "1px solid #7ee3c9", color: "#7ee3c9",
+                          letterSpacing: "0.08em", borderRadius: 3,
+                        }}
+                        title={plannerHint.reason}>
+                    💡 {plannerHint.op} · {Math.round((plannerHint.confidence || 0) * 100)}% → try <b>{plannerHint.suggested_button}</b>
+                  </span>
+                )}
               </div>
               <div className="nvx-card-actions">
                 <button className="nvx-btn primary sm" onClick={autoInvestigate} disabled={loading} data-testid="btn-auto-investigate-inline">
