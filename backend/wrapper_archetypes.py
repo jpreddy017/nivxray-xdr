@@ -2681,20 +2681,22 @@ def _b64_ascii_or_utf16(raw: bytes) -> str:
     highest-scoring output. Handles: direct UTF-8/ASCII/Latin-1/UTF-16LE/BE,
     OR raw-as-base64 → nested ASCII/UTF-16LE.
 
-    Salvages invalid base64 lengths (4k+1) by trimming the trailing byte.
+    Feb-2026 · Pipeline-Shatter Fix: handles odd-byte UTF-16 payloads by
+    trimming the trailing byte (padding vulnerability spotted by Gemini),
+    and salvages invalid base64 lengths (4k+1) by trimming the trailing byte.
     """
     candidates = []
-    # Direct byte decodings
+    # Direct byte decodings — including odd-byte UTF-16 salvage
     for enc in ("ascii", "utf-8", "utf-16-le", "utf-16-be", "latin-1"):
-        try:
-            dec = raw.decode(enc, errors="strict")
-            printable = sum(1 for c in dec if c.isprintable() or c in "\n\r\t") / max(len(dec), 1)
-            if printable >= 0.85:
-                # Bonus if PowerShell-like keywords present
-                bonus = 0.1 if any(k in dec.lower() for k in ("powershell", "iex", "http", "webclient", "invoke", "cmd", "shell")) else 0
-                candidates.append((printable + bonus, dec, f"direct-{enc}"))
-        except Exception:
-            continue
+        for _raw in (raw, raw[:-1]) if (enc.startswith("utf-16") and len(raw) % 2 == 1) else (raw,):
+            try:
+                dec = _raw.decode(enc, errors="strict")
+                printable = sum(1 for c in dec if c.isprintable() or c in "\n\r\t") / max(len(dec), 1)
+                if printable >= 0.85:
+                    bonus = 0.1 if any(k in dec.lower() for k in ("powershell", "iex", "http", "webclient", "invoke", "cmd", "shell")) else 0
+                    candidates.append((printable + bonus, dec, f"direct-{enc}"))
+            except Exception:
+                continue
     # Try treating raw as base64 → decode → try encodings
     txt = raw.decode("ascii", errors="replace")
     b64_txt = re.sub(r"[^A-Za-z0-9+/=]", "", txt)
@@ -2704,18 +2706,19 @@ def _b64_ascii_or_utf16(raw: bytes) -> str:
         try:
             b64_raw = base64.b64decode(b64_txt + "=" * (-len(b64_txt) % 4), validate=False)
             for enc in ("ascii", "utf-8", "utf-16-le", "utf-16-be", "latin-1"):
-                try:
-                    dec = b64_raw.decode(enc, errors="strict")
-                    printable = sum(1 for c in dec if c.isprintable() or c in "\n\r\t") / max(len(dec), 1)
-                    if printable >= 0.85:
-                        bonus = 0.1 if any(k in dec.lower() for k in ("powershell", "iex", "http", "webclient", "invoke", "cmd", "shell")) else 0
-                        candidates.append((printable + bonus, dec, f"b64→{enc}"))
-                except Exception:
-                    continue
+                for _b in (b64_raw, b64_raw[:-1]) if (enc.startswith("utf-16") and len(b64_raw) % 2 == 1) else (b64_raw,):
+                    try:
+                        dec = _b.decode(enc, errors="strict")
+                        printable = sum(1 for c in dec if c.isprintable() or c in "\n\r\t") / max(len(dec), 1)
+                        if printable >= 0.85:
+                            bonus = 0.1 if any(k in dec.lower() for k in ("powershell", "iex", "http", "webclient", "invoke", "cmd", "shell")) else 0
+                            candidates.append((printable + bonus, dec, f"b64→{enc}"))
+                    except Exception:
+                        continue
         except Exception:
             pass
     if not candidates:
-        # Fallback: return best-effort latin-1 (never fails)
+        # Fallback: latin-1 with 'replace' — never fails, no truncation
         return raw.decode("latin-1", errors="replace")
     candidates.sort(reverse=True)
     return candidates[0][1]
