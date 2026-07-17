@@ -901,7 +901,17 @@ MITRE_HEURISTICS = [
     (r"\bpowershell(?:\.exe)?\s+(?:-\w+|\$|iex\b)", ("T1059.001", "PowerShell", "Execution")),
     # ── LOLBAS ingress-tool-transfer downloads ──────────────────────────
     (r"certutil(?:\.exe)?\s+(?:-|/)urlcache\b|bitsadmin(?:\.exe)?\s+/transfer\b|"
-     r"\biwr\s+http|\bstart-bitstransfer\s+", ("T1105", "Ingress Tool Transfer", "Command and Control")),
+     r"\biwr\s+http|\bstart-bitstransfer\s+|"
+     r"regsvr32(?:\.exe)?\s+.*?/i:https?://|"          # remote scriptlet cradle
+     r"rundll32(?:\.exe)?\s+.*?url\.dll,FileProtocolHandler\s+https?://",
+     ("T1105", "Ingress Tool Transfer", "Command and Control")),
+    # Defender / EDR tampering
+    (r"(?:Add|Set|Remove)-MpPreference\b|-DisableRealtimeMonitoring|"
+     r"-DisableIOAVProtection|-ExclusionPath|-ExclusionExtension|"
+     r"Set-MpPreference\s+-Disable|"
+     r"sc\s+(?:stop|config)\s+(?:WinDefend|Sense|MsMpSvc)|"
+     r"reg\s+add\s+.*?DisableAntiSpyware",
+     ("T1562.001", "Impair Defenses: Disable or Modify Tools", "Defense Evasion")),
     # ── Linux persistence via cron ──────────────────────────────────────
     (r"\bcrontab\s+(?:-l|-e|-r)\b|/etc/cron\.d/|/var/spool/cron/", ("T1053.003", "Scheduled Task/Job: Cron", "Persistence")),
     # ── Container escape via privileged docker ──────────────────────────

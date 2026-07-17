@@ -3413,3 +3413,19 @@ Ran NXGEC evaluator, fixed 15 of 18 failing cases in one pass:
 
 **Final NXGEC pass rate: 52/55 = 94.5%** (100% on all real cases · 3 remaining are corpus placeholder stubs).
 **pytest baseline locked at 85%** in `test_nxgec_regression.py::test_baseline_mitre_coverage`. 136/136 targeted tests pass, zero regressions.
+
+## Feb 2026 · NXGEC → 100%
+- Replaced 3 corpus placeholder stubs (NXR-MAL-0001/2/3) with real, publicly-documented CLI chains:
+  - Emotet regsvr32 `/i:http://…` scriptlet cradle
+  - QakBot `schtasks ONLOGON + regsvr32 qbot.dll` persistence
+  - IcedID `Add-MpPreference / Set-MpPreference` Defender disable
+- Added 2 MITRE rules to `operations.py`:
+  - `regsvr32 … /i:http://` and `rundll32 … url.dll,FileProtocolHandler …` → T1105 (Ingress Tool Transfer)
+  - `Add/Set/Remove-MpPreference`, `-DisableRealtimeMonitoring`, `sc stop WinDefend`, `DisableAntiSpyware` regkey → T1562.001 (Impair Defenses)
+
+**Final: NXGEC 55/55 = 100% pass · 10/10 volumes green.**
+- Enterprise Certification (Vol 10): 5/5 ✓
+- Adversary Emulation (Vol 9): 5/5 ✓
+- Malware Chains (Vol 5): 5/5 ✓ (was 2/5 before session)
+- pytest baseline raised from 50% → 85% → **95%** in `test_nxgec_regression.py`.
+- 136/136 targeted regression tests pass; zero regressions.
