@@ -63,6 +63,11 @@ from routers.decode_guidance import router as decode_guidance_router
 from routers.moe_panel import router as moe_panel_router
 from routers.threat_model import router as threat_model_router
 from routers.analyst_corrections import router as analyst_corrections_router
+from routers.threat_intel_rss import (
+    router as threat_intel_rss_router,
+    start_scheduler as _start_cti_rss_scheduler,
+)
+from routers.batch_test import router as batch_test_router
 from request_hardening import RequestHardeningMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -134,6 +139,8 @@ api.include_router(decode_guidance_router)
 api.include_router(moe_panel_router)
 api.include_router(threat_model_router)
 api.include_router(analyst_corrections_router)
+api.include_router(threat_intel_rss_router)
+api.include_router(batch_test_router)
 
 app.include_router(api)
 
@@ -190,6 +197,12 @@ async def _startup():
         except Exception as e:
             log.warning(f"[startup] confusion pre-warm failed: {e}")
     asyncio.create_task(_prewarm_confusion())
+    # CTI RSS crawler — schedule keyword-only autocrawl every N hours.
+    try:
+        _start_cti_rss_scheduler()
+        log.info("[startup] CTI RSS crawler scheduled")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] CTI RSS scheduler failed: {e}")
 
 
 @app.on_event("shutdown")

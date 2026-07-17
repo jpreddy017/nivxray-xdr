@@ -3,7 +3,7 @@ import { useState } from "react";
 import Logo from "@/components/Logo";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { useAuth } from "@/lib/auth";
-import { LogOut, LayoutGrid, Cog, Radar, Sparkles, Beaker, Terminal, BookOpen, KeyRound } from "lucide-react";
+import { LogOut, LayoutGrid, Cog, Radar, Sparkles, Beaker, Terminal, BookOpen, KeyRound, Rss, TestTube } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -82,6 +82,14 @@ export default function Header() {
           >
             <BookOpen size={13} /> DOCS
           </Link>
+          <Link
+            to="/batch-test"
+            data-testid="nav-batch-test"
+            className="nvx-btn sm ghost"
+            style={{ color: loc.pathname === "/batch-test" ? "var(--accent)" : "var(--text-dim)" }}
+          >
+            <TestTube size={13} /> BATCH
+          </Link>
           {isAdmin && (
             <Link
               to="/admin"
@@ -90,6 +98,16 @@ export default function Header() {
               style={{ color: loc.pathname === "/admin" ? "var(--accent)" : "var(--text-dim)" }}
             >
               <Cog size={13} /> ADMIN
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              to="/admin/training-inbox"
+              data-testid="nav-training-inbox"
+              className="nvx-btn sm ghost"
+              style={{ color: loc.pathname === "/admin/training-inbox" ? "var(--accent)" : "var(--text-dim)" }}
+            >
+              <Rss size={13} /> INBOX
             </Link>
           )}
           {isAdmin && (
