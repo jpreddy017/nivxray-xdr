@@ -15,9 +15,7 @@ import React, { useState } from "react";
  */
 export default function DecodingTracePanel({ trace, engine, confidence, reachedShellcode, onJumpToLayer }) {
   const [openIdx, setOpenIdx] = useState(0);
-  if (!trace || trace.length === 0) return null;
-
-  const OP_ICONS = {
+  if (!trace || trace.length === 0) return null;  const OP_ICONS = {
     "extract-payload": "◇",
     "base64-decode": "B64",
     "base64-gzip": "GZ",
@@ -168,12 +166,28 @@ export default function DecodingTracePanel({ trace, engine, confidence, reachedS
       <div className="dtp-body">
         {trace.map((t, i) => {
           const isOpen = i === openIdx;
+          const health = _layerHealth(t);
           return (
             <div key={i} className={`dtp-layer ${isOpen ? "open" : ""}`} data-testid={`dtp-layer-${i}`}>
               <div className="dtp-layer-hdr" onClick={() => setOpenIdx(isOpen ? -1 : i)}>
                 <span className="dtp-index">{i + 1}</span>
                 {OP_ICONS[t.op] && <span className="dtp-op-icon">{OP_ICONS[t.op]}</span>}
                 <span className="dtp-op">{t.op}</span>
+                {health.icon && (
+                  <span
+                    className="mono"
+                    data-testid={`dtp-health-${i}`}
+                    title={health.reason}
+                    style={{
+                      fontSize: 10, padding: "1px 6px", marginLeft: 6,
+                      background: health.bg, color: health.fg,
+                      border: `1px solid ${health.fg}`,
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {health.icon} {health.label}
+                  </span>
+                )}
                 <span className="dtp-reason">— {t.reason || "applied"}</span>
                 <span className="dtp-toggle">{isOpen ? "▾" : "▸"}</span>
               </div>
@@ -182,6 +196,16 @@ export default function DecodingTracePanel({ trace, engine, confidence, reachedS
                   {t.args && Object.keys(t.args).length > 0 && (
                     <div className="dtp-args" data-testid={`dtp-args-${i}`}>
                       args: {JSON.stringify(t.args)}
+                    </div>
+                  )}
+                  {health.detail && (
+                    <div className="mono" data-testid={`dtp-health-detail-${i}`}
+                      style={{
+                        fontSize: 10, padding: "6px 8px", marginBottom: 6,
+                        background: "rgba(0,0,0,0.2)", color: "var(--dim)",
+                        border: "1px solid var(--br)", borderLeft: `3px solid ${health.fg}`,
+                      }}>
+                      <b style={{color:health.fg}}>X-RAY:</b> {health.detail}
                     </div>
                   )}
                   {t.error ? (
@@ -216,4 +240,96 @@ export default function DecodingTracePanel({ trace, engine, confidence, reachedS
       </div>
     </div>
   );
+}
+
+// ─── X-RAY Layer Health Analyzer ─────────────────────────────────────────
+// Runs cheap structural checks on a layer's output to give the analyst a
+// per-node health verdict (✅ VALID / ⚠️ SALVAGE / 🔴 BROKEN) + the exact
+// mathematical reason. Zero network cost — pure regex + length arithmetic.
+function _layerHealth(step) {
+  const out = String(step.output_preview || "");
+  const len = step.output_length != null ? step.output_length : out.length;
+  const op = String(step.op || "").toLowerCase();
+
+  // Layer-specific structural checks
+  if (op.includes("base64") || op.includes("b64")) {
+    const stripped = out.replace(/[\s=]/g, "");
+    const mod = stripped.length % 4;
+    if (mod === 1) return {
+      icon: "🔴", label: "BROKEN", fg: "#ff5c5c", bg: "rgba(255,92,92,0.1)",
+      reason: `Base64 length ${stripped.length} ≡ 4k+1 (invalid — cannot pad)`,
+      detail: `Length ${stripped.length} chars — base64 lengths must be 4k, 4k+2, or 4k+3. Salvage: drop last char → ${stripped.length - 1}.`,
+    };
+    if (/[^A-Za-z0-9+/=_\-]/.test(stripped.slice(0, 200))) return {
+      icon: "⚠️", label: "MIXED", fg: "#ffb454", bg: "rgba(255,180,84,0.1)",
+      reason: "Contains non-base64 chars — may need pre-strip",
+      detail: "Non-base64 characters detected. Consider running strip-junk or extract-base64 first.",
+    };
+    return {
+      icon: "✅", label: "VALID", fg: "#7ee3c9", bg: "rgba(126,227,201,0.1)",
+      reason: `Base64 length ${stripped.length} (4k+${mod}) — well-formed`,
+      detail: `Base64 charset OK · length ${stripped.length} · padding ${mod === 0 ? "not needed" : `${4 - mod} '=' required`}`,
+    };
+  }
+  if (op.includes("hex") && !op.includes("family")) {
+    const clean = out.replace(/[\s\\x0]/g, "").toLowerCase();
+    if (clean.length % 2 !== 0) return {
+      icon: "🔴", label: "BROKEN", fg: "#ff5c5c", bg: "rgba(255,92,92,0.1)",
+      reason: `Hex length ${clean.length} is odd — needs pairs`,
+      detail: `Hex must be pairs of [0-9a-f]. Salvage: drop last char.`,
+    };
+    if (/[^0-9a-f]/.test(clean.slice(0, 200))) return {
+      icon: "🔴", label: "BROKEN", fg: "#ff5c5c", bg: "rgba(255,92,92,0.1)",
+      reason: "Non-hex characters present",
+      detail: "Hex accepts only [0-9a-f]. Consider hex-family/xhex-unmap first.",
+    };
+    return {
+      icon: "✅", label: "VALID", fg: "#7ee3c9", bg: "rgba(126,227,201,0.1)",
+      reason: `Hex ${clean.length} chars → ${clean.length / 2} bytes`,
+      detail: `Even length · all chars [0-9a-f] · decodes to ${clean.length / 2} bytes`,
+    };
+  }
+  if (op.includes("url")) {
+    const escapes = out.match(/%(.{0,2})/g) || [];
+    const malformed = escapes.filter((e) => !/^%[0-9a-fA-F]{2}$/.test(e));
+    if (malformed.length > 0) return {
+      icon: "🔴", label: "BROKEN", fg: "#ff5c5c", bg: "rgba(255,92,92,0.1)",
+      reason: `${malformed.length} malformed %-escapes`,
+      detail: `Invalid: ${malformed.slice(0, 3).join(", ")}`,
+    };
+    return {
+      icon: "✅", label: "VALID", fg: "#7ee3c9", bg: "rgba(126,227,201,0.1)",
+      reason: `${escapes.length} valid %-escapes`,
+      detail: `All %-escapes conform to %XX pattern`,
+    };
+  }
+  if (op.includes("utf16") || op.includes("utf-16")) {
+    const printable = (out.match(/[\x20-\x7e\n\r\t]/g) || []).length / Math.max(out.length, 1);
+    if (printable < 0.80) return {
+      icon: "⚠️", label: "LOW-PRINT", fg: "#ffb454", bg: "rgba(255,180,84,0.1)",
+      reason: `Printable ratio ${(printable * 100).toFixed(0)}% — possibly binary`,
+      detail: `Only ${(printable * 100).toFixed(0)}% printable ASCII — output may be binary/shellcode`,
+    };
+    return {
+      icon: "✅", label: "VALID", fg: "#7ee3c9", bg: "rgba(126,227,201,0.1)",
+      reason: `UTF-16 decoded · ${(printable * 100).toFixed(0)}% printable`,
+      detail: `${(printable * 100).toFixed(0)}% printable — clean text decode`,
+    };
+  }
+  if (step.error) return {
+    icon: "🔴", label: "ERROR", fg: "#ff5c5c", bg: "rgba(255,92,92,0.1)",
+    reason: step.error, detail: `Layer raised: ${step.error}`,
+  };
+  // Generic default — printable-ratio check
+  const printable = (out.match(/[\x20-\x7e\n\r\t]/g) || []).length / Math.max(out.length, 1);
+  if (printable >= 0.85) return {
+    icon: "✅", label: "OK", fg: "#7ee3c9", bg: "rgba(126,227,201,0.1)",
+    reason: `${(printable * 100).toFixed(0)}% printable`,
+    detail: `Output looks clean · ${len.toLocaleString()} chars · ${(printable * 100).toFixed(0)}% printable ASCII`,
+  };
+  return {
+    icon: "⚠️", label: "LOW-PRINT", fg: "#ffb454", bg: "rgba(255,180,84,0.1)",
+    reason: `Only ${(printable * 100).toFixed(0)}% printable`,
+    detail: `Possibly compressed/encrypted binary — try gzip/zlib/XOR next`,
+  };
 }

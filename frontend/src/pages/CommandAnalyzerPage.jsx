@@ -43,6 +43,20 @@ export default function CommandAnalyzerPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [report, setReport] = useState(null);
+  const [plannerHint, setPlannerHint] = useState(null);
+
+  // Debounced real-time input analyzer — same infra as Workspace
+  useEffect(() => {
+    if (!input || input.length < 20) { setPlannerHint(null); return; }
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.post("/planner/advise", { input });
+        const hints = r.data?.hints || [];
+        setPlannerHint(hints[0] || null);
+      } catch (_) { setPlannerHint(null); }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [input]);
 
   const run = async (forceSpan) => {
     if (!input.trim()) { setErr("Provide a command to analyze"); return; }

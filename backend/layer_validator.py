@@ -125,7 +125,7 @@ def plan_next(text: str, max_hints: int = 5) -> List[Dict[str, Any]]:
     lower = stripped.lower()
 
     # ─── PowerShell -EncodedCommand ──────────────────────────────────────
-    if re.search(r"powershell(\.exe)?\s+.*-e(nc(oded(command)?)?)?\s+[A-Za-z0-9+/=]{20,}", lower):
+    if re.search(r"powershell(\.exe)?\s+.*-e(nc(oded(command)?)?)?\s+[A-Za-z0-9+/=]{8,}", lower):
         hints.append({
             "op": "powershell-encoded",
             "confidence": 0.98,
@@ -200,6 +200,15 @@ def plan_next(text: str, max_hints: int = 5) -> List[Dict[str, Any]]:
             "reason": "Reverse-shell primitive detected (/dev/tcp, mkfifo, or Python socket)",
             "suggested_button": "AUTO INVESTIGATE",
         })
+    # ─── Download-and-execute cradle (curl/wget → bash/sh/iex/eval) ────────
+    if re.search(r"\b(curl|wget|iwr|invoke-webrequest)\b.*(-fsSL|-o\s|-O\s|http)", lower) or \
+       re.search(r"\b(curl|wget)\b.*\|\s*(bash|sh|iex|python|perl|eval)", lower):
+        hints.append({
+            "op": "download-cradle-detect",
+            "confidence": 0.95,
+            "reason": "Download-and-execute cradle detected (curl/wget → shell/interpreter)",
+            "suggested_button": "AUTO INVESTIGATE",
+        })
     # ─── LOLBAS binaries ──────────────────────────────────────────────────
     lolbas_hits = [b for b in ("certutil", "bitsadmin", "mshta", "regsvr32", "wmic", "rundll32", "msiexec")
                    if b in lower]
@@ -209,6 +218,14 @@ def plan_next(text: str, max_hints: int = 5) -> List[Dict[str, Any]]:
             "confidence": 0.80,
             "reason": f"LOLBAS binary detected: {', '.join(lolbas_hits)}",
             "suggested_button": "AUTO INVESTIGATE",
+        })
+    # ─── Plain PowerShell script (no wrappers/encoding) → analyst-review ──
+    if not hints and re.search(r"\b(Get-|Set-|New-|Remove-|Invoke-|Write-|Where-Object|ForEach-Object|Select-)\w+\b", stripped):
+        hints.append({
+            "op": "plain-powershell-review",
+            "confidence": 0.70,
+            "reason": "Plain PowerShell cmdlet detected — no obfuscation, review IOCs",
+            "suggested_button": "ANALYZE + OSINT",
         })
     # ─── Nothing looks encoded — likely plaintext ─────────────────────────
     if not hints:
