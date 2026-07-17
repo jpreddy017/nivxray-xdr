@@ -28,7 +28,27 @@ from deps import require_admin, llm_json
 
 router = APIRouter()
 
-_UA = {"User-Agent": "NivXRay/1.0 (+training-notes-url-sync)"}
+_UA = {
+    # Modern Chrome UA — Cloudflare-fronted sites (redcanary.com etc.) refuse
+    # bot-shaped User-Agents outright. Real browser UA + Accept header pair
+    # bypasses the vast majority of the "invalid or incomplete response" 502s
+    # Cloudflare returns when the origin has bot protection enabled.
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,application/pdf;q=0.8,*/*;q=0.7"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Sec-Fetch-Site":  "none",
+    "Sec-Fetch-Mode":  "navigate",
+    "Sec-Fetch-User":  "?1",
+    "Sec-Fetch-Dest":  "document",
+    "Upgrade-Insecure-Requests": "1",
+}
 _TIMEOUT = httpx.Timeout(30.0, connect=8.0)
 _MAX_FETCH_BYTES = 8_000_000     # 8 MB — enough for most CTI ebooks
 _MAX_LLM_CHARS   = 18_000        # trimmed content passed to the LLM
@@ -99,27 +119,47 @@ async def sync_training_note_url(body: SyncIn, user=Depends(require_admin)):
                             detail="url must be an absolute http(s) URL")
 
     # ── 1. Fetch the page (size-capped, content-type-routed) ─────────
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True,
-                                      headers=_UA) as c:
+    async def _fetch():
+        # httpx defaults to HTTP/1.1 (h2 extra not installed) — browser-like
+        # headers alone bypass most Cloudflare "invalid response" 502s.
+        async with httpx.AsyncClient(
+            timeout=_TIMEOUT,
+            follow_redirects=True,
+            headers=_UA,
+        ) as c:
             r = await c.get(url)
             r.raise_for_status()
-            ctype = (r.headers.get("content-type") or "").lower()
-            is_pdf = "application/pdf" in ctype or url.lower().endswith(".pdf")
-            is_text = any(x in ctype for x in ("text/", "html", "xml", "json", "markdown"))
-            if not is_pdf and not is_text:
-                raise HTTPException(status_code=415,
-                                    detail=f"unsupported content-type: {ctype or 'unknown'}")
-            raw_bytes = r.content
-            if len(raw_bytes) > _MAX_FETCH_BYTES:
-                raw_bytes = raw_bytes[: _MAX_FETCH_BYTES]
+            return r
+
+    try:
+        r = await _fetch()
+        ctype = (r.headers.get("content-type") or "").lower()
+        is_pdf = "application/pdf" in ctype or url.lower().endswith(".pdf")
+        is_text = any(x in ctype for x in ("text/", "html", "xml", "json", "markdown"))
+        if not is_pdf and not is_text:
+            raise HTTPException(status_code=415,
+                                detail=f"unsupported content-type: {ctype or 'unknown'}")
+        raw_bytes = r.content
+        if len(raw_bytes) > _MAX_FETCH_BYTES:
+            raw_bytes = raw_bytes[: _MAX_FETCH_BYTES]
     except httpx.HTTPStatusError as e:
+        code = e.response.status_code
+        hint = ""
+        if code in (403, 429, 503):
+            hint = (f" — origin ({parsed.netloc}) blocked our fetch "
+                    "(likely Cloudflare bot protection). Copy the article "
+                    "text into the DIRECTIVE box manually.")
         raise HTTPException(status_code=502,
-                            detail=f"HTTP {e.response.status_code} fetching {url}")
+                            detail=f"HTTP {code} fetching {url}{hint}")
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"fetch failed: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=(f"fetch failed for {parsed.netloc}: {e} — the origin "
+                    "server rejected our request. Paste the article text "
+                    "into DIRECTIVE manually to bypass."),
+        )
 
     if is_pdf:
         article = _extract_pdf(raw_bytes)

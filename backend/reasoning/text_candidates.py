@@ -108,49 +108,73 @@ def text_candidates(
 
     input_score = linguistic_score(text)
 
+    # Feb-2026 · Guard against ROT-N/Atbash/Caesar false positives on inputs
+    # that are ALREADY meaningful filesystem paths, executable references,
+    # or shell command lines. These would get "improved" into gibberish
+    # (e.g. C:\temp\1.exe → R:\itbe\1.tmt) simply because the substitution
+    # cipher happens to raise the trigram score by chance.
+    import re as _re
+    if _re.search(
+        r"(?:[A-Za-z]:\\\\|[A-Za-z]:/|/(?:etc|usr|var|home|tmp|bin|proc)/|"
+        r"\.(?:exe|dll|ps1|bat|cmd|vbs|js|sh|py|hta|scr|jar|elf)(?:\s|$)|"
+        r"HK(?:LM|CU|CR)\\\\|"
+        r"\\\\WINDOWS\\\\|\\\\Windows\\\\|\\\\ProgramData\\\\|\\\\Users\\\\)",
+        text,
+        _re.IGNORECASE,
+    ):
+        # Filesystem-path-like input — skip the alphabet-cipher family entirely.
+        # Fall through to XOR (still safe — XOR-1 on printable paths produces
+        # non-printable output that gets rejected by _xor_single_byte).
+        _skip_alphabet_ciphers = True
+    else:
+        _skip_alphabet_ciphers = False
+
     cands: List[Candidate] = []
 
     # ── ROT-N brute (n=1..25) ────────────────────────────────────────
     # ROT13 is the most common but attackers use arbitrary shifts too.
-    for n in range(1, 26):
-        try:
-            out = _rot_n(text, n)
-        except Exception:
-            continue
-        if out == text:
-            continue
-        bd = score_breakdown(out)
-        delta = bd["score"] - input_score
-        if delta < min_delta:
-            continue
-        cands.append(Candidate(
-            op="rot13" if n == 13 else "rot-n",
-            args={"shift": n} if n != 13 else {},
-            output=out,
-            input_score=round(input_score, 4),
-            output_score=round(bd["score"], 4),
-            delta=delta,
-            reasons=[f"rot{n}-shift"] + bd.get("reasons", [])[:3],
-            breakdown=bd,
-        ))
-
-    # ── Atbash ───────────────────────────────────────────────────────
-    try:
-        out = _atbash(text)
-        if out != text:
+    if not _skip_alphabet_ciphers:
+        for n in range(1, 26):
+            try:
+                out = _rot_n(text, n)
+            except Exception:
+                continue
+            if out == text:
+                continue
             bd = score_breakdown(out)
             delta = bd["score"] - input_score
-            if delta >= min_delta:
-                cands.append(Candidate(
-                    op="atbash", args={}, output=out,
-                    input_score=round(input_score, 4),
-                    output_score=round(bd["score"], 4),
-                    delta=delta,
-                    reasons=["atbash-substitution"] + bd.get("reasons", [])[:3],
-                    breakdown=bd,
-                ))
-    except Exception:
-        pass
+            if delta < min_delta:
+                continue
+            cands.append(Candidate(
+                op="rot13" if n == 13 else "rot-n",
+                args={"shift": n} if n != 13 else {},
+                output=out,
+                input_score=round(input_score, 4),
+                output_score=round(bd["score"], 4),
+                delta=delta,
+                reasons=[f"rot{n}-shift"] + bd.get("reasons", [])[:3],
+                breakdown=bd,
+            ))
+
+    # ── Atbash ───────────────────────────────────────────────────────
+    # ── Atbash ───────────────────────────────────────────────────────
+    if not _skip_alphabet_ciphers:
+        try:
+            out = _atbash(text)
+            if out != text:
+                bd = score_breakdown(out)
+                delta = bd["score"] - input_score
+                if delta >= min_delta:
+                    cands.append(Candidate(
+                        op="atbash", args={}, output=out,
+                        input_score=round(input_score, 4),
+                        output_score=round(bd["score"], 4),
+                        delta=delta,
+                        reasons=["atbash-substitution"] + bd.get("reasons", [])[:3],
+                        breakdown=bd,
+                    ))
+        except Exception:
+            pass
 
     # ── Reverse ──────────────────────────────────────────────────────
     try:

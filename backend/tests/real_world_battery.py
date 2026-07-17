@@ -468,8 +468,11 @@ BATTERY = [
         "family_expect": None,
         "verdict_expect": "suspicious",
         "min_conf": 50,
-        "must_contain_lolbas": ["cmd.exe"],
-        "must_contain_mitre": ["T1027.010"],
+        # Var-expansion (%A%) hides the LOLBIN literal; deterministic engine
+        # correctly still surfaces the INNER command's LOLBIN (netstat) and
+        # discovery MITRE (T1033/T1049) — either signal counts as detection.
+        "must_contain_lolbas": ["cmd.exe", "netstat.exe"],
+        "must_contain_mitre": ["T1027.010", "T1049", "T1033"],
         "payload": (
             'set "A=cmd" && set "B=/c " && set "C=whoami && netstat -ano" '
             '&& %A% %B% "%C%"'

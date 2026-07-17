@@ -1530,6 +1530,37 @@ MITRE_HEURISTICS = [
     # ── CMD reverse-string for-loop (Emotet / QakBot / IcedID) ───────────
     (r"for\s*/L\s+%[a-z]\s+in\s*\(\s*\d+\s*,\s*-1\s*,\s*0\s*\)\s+do\s+.*?!\w+:~%",
         ("T1027.010", "Command Obfuscation (CMD reverse-string for-loop)", "Defense Evasion")),
+    # ── Feb-2026 · Case2 + real-world battery gap-fills ──────────────────
+    # VBScript Chr(N)&Chr(N)&… character-code assembly (macro dropper)
+    (r"(?:chr[wb]?\s*\(\s*(?:&h)?\d+\s*\)\s*[&+]\s*){2,}chr[wb]?\s*\(\s*(?:&h)?\d+\s*\)",
+        ("T1059.005", "Visual Basic (VBScript Chr concat)", "Execution")),
+    (r"(?:chr[wb]?\s*\(\s*(?:&h)?\d+\s*\)\s*[&+]\s*){3,}",
+        ("T1027", "Obfuscated Files or Information (VBS Chr concat)", "Defense Evasion")),
+    # Node.js Buffer.from(<b64>,'base64') + zlib.gunzipSync — SocGholish class
+    (r"require\s*\(\s*['\"]zlib['\"]\s*\)\.gunzip(?:sync)?\s*\(\s*buffer\.from",
+        ("T1059.007", "JavaScript (Node.js zlib.gunzipSync dropper)", "Execution")),
+    (r"buffer\.from\s*\([^)]{6,300}?base64[^)]{0,50}?\)[^;]{0,300}?gunzip",
+        ("T1027", "Obfuscated Files or Information (Buffer.from base64 + gunzip)", "Defense Evasion")),
+    (r"eval\s*\(\s*(?:zlib\.gunzip(?:sync)?\s*\(\s*)?buffer\.from",
+        ("T1140", "Deobfuscate/Decode (JS eval Buffer.from)", "Defense Evasion")),
+    # HTML-entity encoded command (e.g. &#112;&#111;&#119;&#101;&#114;&#115;…)
+    (r"(?:&#\d{2,4};){10,}",
+        ("T1027", "Obfuscated Files or Information (HTML entity chain)", "Defense Evasion")),
+    (r"(?:&#\d{2,4};){20,}",
+        ("T1140", "Deobfuscate/Decode (HTML entity chain)", "Defense Evasion")),
+    # Perl inline eval(decode_base64(...)) — cross-platform stager
+    (r"perl\s+-M(?:MIME::)?Base64\s+-e\s+.*(?:eval|decode_base64)",
+        ("T1059.006", "Perl (base64 eval)", "Execution")),
+    (r"perl\s+-e\s+['\"].*?eval\s*\(\s*decode_base64",
+        ("T1027.010", "Command Obfuscation (Perl base64 eval)", "Defense Evasion")),
+    # BCDEdit recovery / boot-status tamper — ransomware precursor
+    (r"bcdedit(?:\.exe)?\s+/set\s+.*?(?:recoveryenabled\s+no|bootstatuspolicy\s+ignoreallfailures)",
+        ("T1490", "Inhibit System Recovery (bcdedit)", "Impact")),
+    # PowerShell TaskScheduler + encryption key + -Enc (Case2 archetype)
+    (r"powershell.*?frombase64string\s*\(.*?\).*?(?:register-scheduledtask|new-scheduledtask|schtasks)",
+        ("T1053.005", "Scheduled Task (PowerShell TaskScheduler)", "Persistence")),
+    (r"\$encryption[Kk]ey\s*=\s*\[system\.convert\]::frombase64string",
+        ("T1027", "Obfuscated Files or Information (PowerShell encryption-key loader)", "Defense Evasion")),
 ]
 
 
