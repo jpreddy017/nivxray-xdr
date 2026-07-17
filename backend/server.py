@@ -133,6 +133,9 @@ api.include_router(planner_router)
 # Feb 2026 — Workspace Case Library (💾 SAVE CASE)
 from routers.cases import router as cases_router
 api.include_router(cases_router)
+
+from routers.learner import router as learner_router
+api.include_router(learner_router)
 api.include_router(investigations_router)
 api.include_router(enrichment_router)
 api.include_router(docs_router)

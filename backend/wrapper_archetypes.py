@@ -3641,3 +3641,19 @@ def try_archetypes(text: str, max_depth: int = 4) -> Optional[Dict[str, Any]]:
         # CERTUTIL_DECODE_PEM's hexdump with a smart/magic re-extract).
         "terminal_archetype": any(f.get("terminal") for f in fired),
     }
+
+
+
+# ─── Feb 2026 · Auto-Archetype Learner — staging fallback ──────────────────
+# Learner-approved archetypes live in wrapper_archetypes_learned.py and are
+# appended AFTER the built-in list so they act as safety-net fallbacks
+# (built-ins always try first). Import is best-effort — a missing/broken
+# staging file must NEVER break the core engine.
+try:
+    from wrapper_archetypes_learned import LEARNED_ARCHETYPES as _LEARNED  # type: ignore
+    if isinstance(_LEARNED, list):
+        for _a in _LEARNED:
+            if isinstance(_a, dict) and _a.get("id") and callable(_a.get("handler")) and callable(_a.get("match")):
+                ARCHETYPES.append(_a)
+except Exception:
+    pass

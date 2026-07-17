@@ -14,6 +14,7 @@ import KnowledgeBasePage from "@/pages/KnowledgeBasePage";
 import DocsPage from "@/pages/DocsPage";
 import BatchTestPage from "@/pages/BatchTestPage";
 import TrainingInboxPage from "@/pages/TrainingInboxPage";
+import LearnerPage from "@/pages/LearnerPage";
 import FloatingAddNoteButton from "@/components/FloatingAddNoteButton";
 
 function Protected({ children }) {
@@ -42,6 +43,7 @@ function App() {
             <Route path="/admin/samples" element={<Protected><SampleLibraryPage /></Protected>} />
             <Route path="/admin/training-inbox" element={<Protected><TrainingInboxPage /></Protected>} />
             <Route path="/batch-test" element={<Protected><BatchTestPage /></Protected>} />
+            <Route path="/learner" element={<Protected><LearnerPage /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <FloatingAddNoteButton />

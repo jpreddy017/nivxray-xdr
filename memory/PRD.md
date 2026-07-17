@@ -1,6 +1,94 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## Latest Change (Feb 2026 — 🎓 P3.1 Auto-Archetype Learner MVP shipped)
+
+### What's new
+Analyst-driven learning loop for growing the archetype library from real-world
+misses. Failed payload + expected output flows through a deterministic engine
+that clusters, proposes, gates on NXGEC regression, and only merges after human
+approval into a **staging file** (never touches `wrapper_archetypes.py` directly).
+
+- **Feature engine** (`backend/learner_engine.py`):
+  - `extract_features(text)` — length, entropy, charset class, b64/hex ratios,
+    escape flags (%HH, \\xHH, \\uHHHH, HTML), LOLBAS tokens, top bigrams
+  - `similarity(a, b)` — 0–100 similarity score
+  - `cluster_key(features)` — coarse deterministic label used for grouping
+  - `propose_archetype(raw, expected)` — returns `{archetype_id, wrapper_regex,
+    decode_chain, confidence, confidence_breakdown, why, why_not, code}`
+  - `run_regression()` — spawns `pytest tests/test_nxgec_regression.py` in a
+    subprocess, parses pass/fail totals, returns machine-readable summary
+  - `append_to_staging()` / `remove_from_staging()` — idempotent staging writer
+    with rollback via marker-block excision
+
+- **Router** (`backend/routers/learner.py`) — 11 endpoints:
+  - `POST /api/learner/submit` — submit `{raw_payload, expected_output, notes,
+    dataset_source}` → creates entry + returns cluster + dupe hits
+  - `POST /api/learner/duplicate-check` — pre-submit lookup (≥ 60 % similarity)
+  - `GET  /api/learner/inbox?status=` — list submissions
+  - `GET  /api/learner/clusters` — Mongo aggregation by cluster_key
+  - `GET  /api/learner/cluster/{key}` — cluster members
+  - `POST /api/learner/analyze/{id}` — run proposal generator
+  - `GET  /api/learner/proposals` — awaiting approval
+  - `POST /api/learner/approve/{id}` — **NXGEC gate → staging write → version stamp** (admin)
+  - `POST /api/learner/reject/{id}` — reject with reason (admin)
+  - `GET  /api/learner/approved` — merged archetypes
+  - `GET  /api/learner/history` — version log
+  - `POST /api/learner/rollback/{version_id}` — strip block from staging (admin)
+  - `GET  /api/learner/payload/{id}` — full detail
+
+- **Staging file** (`backend/wrapper_archetypes_learned.py`) — imported at the
+  tail of `wrapper_archetypes.py`; learned handlers are appended AFTER built-ins
+  so they act as safety-net fallbacks. Best-effort import — a corrupted file
+  can never break the core engine.
+
+- **Frontend** (`frontend/src/pages/LearnerPage.jsx`, `/learner` route with
+  `GraduationCap` nav icon) — 5 tabs: **Inbox · Clusters · Proposals · Approved
+  · History** with:
+  - Submit form (raw + expected + notes + dataset source) with **live
+    duplicate detection** on blur
+  - Detail modal showing features, wrapper regex, decode chain, "why this
+    archetype", **confidence breakdown** (Regex 35 / Entropy 20 / Charsets 15 /
+    Decode-path 20 / Corpus 10), "why not higher?" panel when confidence < 80,
+    candidate code with **COPY** button
+  - Approve button runs regression + writes staging + version-stamps; UI shows
+    **regression impact** (passed, failed, Δcoverage vs. previous baseline)
+  - Rollback button on History tab excises the block from staging
+
+- **Rich metadata schema** stored per submission: `raw_payload`, `expected_output`,
+  `features`, `cluster_key`, `notes`, `tags`, `dataset_source`, `status`,
+  `proposal`, `regression`, `impact`, `approved_by/at/notes`, `rejected_by/
+  at/reason`, `version_id`, `dupes`. Every merge is version-stamped in
+  `learner_versions` with rollback state.
+
+- **Tests** (`backend/tests/test_learner_engine.py`) — 12/12 green:
+  feature extraction, similarity, cluster grouping, proposal shape, confidence
+  breakdown sums, low-confidence explanation, staging write idempotency &
+  rollback, regression harness shape.
+
+- **Safety verified**:
+  - Full E2E via curl: submit → dup-check → analyze → approve (NXGEC 13/13) →
+    staging append → history log → rollback → staging file back to baseline.
+  - **Regression FAILURE properly BLOCKS merge** — simulated a failing suite
+    return; API returned `{ok: false, reason: "regression FAILED — merge
+    blocked"}` and staging file remained byte-identical.
+  - Backend restarts cleanly with learned import wired in.
+
+### Files added/modified
+- **NEW** `backend/learner_engine.py` — pure-Python analyzer + regression harness
+- **NEW** `backend/routers/learner.py` — 11-endpoint router
+- **NEW** `backend/wrapper_archetypes_learned.py` — staging file (empty seed)
+- **NEW** `backend/tests/test_learner_engine.py` — 12 unit tests
+- **NEW** `frontend/src/pages/LearnerPage.jsx` — 5-tab UI (~800 LOC)
+- **MOD** `backend/wrapper_archetypes.py` — best-effort import of LEARNED_ARCHETYPES
+- **MOD** `backend/server.py` — mount `learner_router`
+- **MOD** `frontend/src/App.js` — `/learner` route
+- **MOD** `frontend/src/components/Header.jsx` — `LEARNER` nav link + icon
+- **MOD** `frontend/src/pages/WorkspacePage.jsx` — fixed 5 undefined-var lint blockers in `saveCase` (mapped to `decodeWinnerEngine` / `decodeConfidence` / `chain` / `verdictCard.verdict` / `analysis.iocs`)
+
+---
+
+
 ## Latest Change (Feb 2026 — 📊 Confidence formula + LOLBAS/MITRE coverage lift)
 
 ### Analyst two-round battery — 60+ payloads exercised deterministically
