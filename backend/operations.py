@@ -1818,6 +1818,100 @@ MITRE_HEURISTICS = [
         ("T1068", "Exploitation for Privilege Escalation (LegacyHive-style hive load)", "Privilege Escalation")),
     (r"usrclass\.dat[^\n]{0,80}?(?:reg\s+load|RegLoadKey|NtLoadKey|LoadHive)",
         ("T1112", "Modify Registry (arbitrary hive-file mount)", "Defense Evasion")),
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · Finger protocol ClickFix (BleepingComputer)
+    # ═══════════════════════════════════════════════════════════════════
+    (r"\bfinger(?:\.exe)?\s+[A-Za-z0-9_.\-]+@[A-Za-z0-9.\-]+\s*(?:\||\|\|)\s*cmd",
+        ("T1059.003", "Finger protocol piped to cmd — ClickFix LOLBIN abuse", "Execution")),
+    (r"\bfinger(?:\.exe)?\s+[A-Za-z0-9_.\-]+@[A-Za-z0-9.\-]+",
+        ("T1105", "Ingress Tool Transfer via Finger protocol (TCP/79 LOLBIN)", "Command and Control")),
+    (r"finger://[A-Za-z0-9.\-]+",
+        ("T1071", "Application Layer Protocol: Finger", "Command and Control")),
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · GitHub Actions supply-chain (Wiz M&M)
+    # ═══════════════════════════════════════════════════════════════════
+    (r"on:\s*pull_request_target\b|pull_request_target:",
+        ("T1195.002", "Supply Chain Compromise: pull_request_target GitHub Actions trigger", "Initial Access")),
+    (r"uses:\s+[A-Za-z0-9_\-]+/[A-Za-z0-9_\-]+@(?:main|master|dev)\b",
+        ("T1195.002", "Unpinned GitHub Action reference (@main/@master/@dev) — supply-chain risk", "Initial Access")),
+    (r"(?:secrets\.[A-Z_]+|GITHUB_TOKEN|ACTIONS_RUNTIME_TOKEN)[^\n]{0,300}?"
+     r"(?:curl|wget|python|node|powershell|nc|bash)\s+.*?https?://",
+        ("T1195.002", "GitHub Actions secret exfiltration via curl/wget/nc", "Initial Access")),
+    (r"actions/checkout@[^\s]*\s+.*?ref:\s+\$\{\{\s*github\.event\.pull_request\.head\.sha",
+        ("T1195.002", "actions/checkout with attacker-controlled PR head SHA (Wiz M&M tradecraft)", "Initial Access")),
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · npm / JS supply-chain (Socket Jscrambler)
+    # ═══════════════════════════════════════════════════════════════════
+    (r"[\"']postinstall[\"']\s*:\s*[\"'](?:node|npm|npx|curl|wget|bash|sh|python)\s+",
+        ("T1195.001", "npm postinstall hook running arbitrary code (JS supply-chain)", "Initial Access")),
+    (r"npm\s+(?:install|i)\s+.*?--(?:ignore-scripts=false|allow-scripts)|"
+     r"npm\s+publish\s+.*?--access\s+public",
+        ("T1195.001", "npm install/publish with script-enabling flag (supply-chain marker)", "Initial Access")),
+    (r"\b(?:jscrambler|obfuscator\.io|javascript-obfuscator)\b[^\n]{0,80}?(?:transform|obfuscate|encode)",
+        ("T1027", "JavaScript obfuscation tool signature (Jscrambler/obfuscator.io)", "Defense Evasion")),
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · Ransomware EDR/AV kill + destruction
+    # ═══════════════════════════════════════════════════════════════════
+    (r"Set-MpPreference\s+.*?(?:-DisableRealtimeMonitoring|-DisableIOAVProtection|"
+     r"-DisableBehaviorMonitoring|-DisableScriptScanning|-DisableIntrusionPreventionSystem|"
+     r"-DisableBlockAtFirstSeen|-ExclusionPath|-ExclusionExtension)\s+\$true",
+        ("T1562.001", "Impair Defenses: Disable Windows Defender (Set-MpPreference)", "Defense Evasion")),
+    (r"(?:taskkill|Stop-Process)[^\n]{0,60}?/(?:IM|Name)\s+(?:MsMpEng|MpDefenderCoreService|"
+     r"CSFalconService|SentinelAgent|MBAMService|windefend|WinDefend|CylanceSvc|"
+     r"BDServicesHost|EPProtectedService|ekrn|avast|avg|kaspersky|nortons?ecurity|"
+     r"trendmicro|sophos|carbonblack|cyren)",
+        ("T1562.001", "EDR/AV process kill (ransomware pre-encryption stage)", "Defense Evasion")),
+    (r"sc(?:\.exe)?\s+(?:stop|delete|config)\s+(?:WinDefend|MpKsl|Sense|CSFalconService|"
+     r"SentinelAgent|MBAMService|CylanceSvc|BDESVC|MpsSvc|WdNisSvc)",
+        ("T1562.001", "sc.exe stop/delete/config on security service (EDR-disable)", "Defense Evasion")),
+    (r"wevtutil\s+(?:cl|clear-log)\s+(?:System|Security|Application|Microsoft-Windows-[A-Za-z\-]+)|"
+     r"Clear-EventLog\s+.*?(?:-LogName|Security|System|Application)",
+        ("T1070.001", "Event Log clearing (post-encryption cleanup)", "Defense Evasion")),
+    (r"vssadmin(?:\.exe)?\s+delete\s+shadows\b|"
+     r"wmic\s+shadowcopy\s+delete\b|"
+     r"Get-WmiObject\s+Win32_Shadowcopy.*?\.Delete\(\)",
+        ("T1490", "Inhibit System Recovery: Delete Volume Shadow Copies (ransomware pre-encrypt)", "Impact")),
+    (r"bcdedit(?:\.exe)?\s+/set\s+.*?(?:bootstatuspolicy\s+ignoreallfailures|recoveryenabled\s+no)",
+        ("T1490", "Inhibit System Recovery: Disable Windows Recovery Environment", "Impact")),
+    (r"wbadmin(?:\.exe)?\s+delete\s+(?:catalog|backup|systemstatebackup)",
+        ("T1490", "Inhibit System Recovery: Delete Windows Backup", "Impact")),
+    # Everest ransomware markers
+    (r"\bEverest[_\-]?(?:Locker|Ransom|Team)\b|"
+     r"README_TO_RESTORE\.(?:txt|html)|_HOW_TO_RECOVERY_FILES_",
+        ("T1486", "Data Encrypted for Impact (Everest ransomware markers)", "Impact")),
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · Gamarue/Andromeda worm (RedCanary)
+    # ═══════════════════════════════════════════════════════════════════
+    (r"autorun\.inf[^\n]{0,80}?open\s*=|"
+     r"\bandromeda\b|\bgamarue\b|\bWauchos?\b",
+        ("T1091", "Replication Through Removable Media (Gamarue/Andromeda autorun.inf)", "Lateral Movement")),
+    (r"rundll32(?:\.exe)?\s+.*?,\s*(?:AndromedaEntry|SetupObject|_bo\d+|Install|DllInstall)",
+        ("T1218.011", "Rundll32 with Gamarue-family export names", "Defense Evasion")),
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · VMware ESXi hypervisor exploit (Ars Technica)
+    # (CVE-2024-37085 domain-group escalation & related ESXi post-exploit)
+    # ═══════════════════════════════════════════════════════════════════
+    (r"\besxcli\s+(?:vm|network|storage|system)\s+",
+        ("T1059", "ESXi shell command (esxcli) — hypervisor post-exploitation", "Execution")),
+    (r"\bvim-cmd\s+(?:vmsvc|hostsvc|solo)/",
+        ("T1059", "ESXi vim-cmd — VM lifecycle manipulation from hypervisor", "Execution")),
+    (r"\b\/etc\/ssh\/sshd_config[^\n]{0,60}?ESXi|"
+     r"\bpython\s+-c\s+.*?os\.execv\(.*?/bin/sh|"
+     r"\bchmod\s+\+x\s+/tmp/[a-z0-9]{4,}\.sh",
+        ("T1059.004", "ESXi shell drop / execute (hypervisor post-exploit)", "Execution")),
+    (r"ESX\s+Admins?\b|ESX\s+Admins\s+group|"
+     r"\bAD-integrated\s+ESXi\b|"
+     r"CVE-2024-37085",
+        ("T1078.002", "ESXi 'ESX Admins' AD-group escalation (CVE-2024-37085)", "Privilege Escalation")),
+    (r"vmsvc/(?:snapshot|power\.off|unregister|destroy)\.(?:create|remove)",
+        ("T1490", "ESXi VM snapshot/unregister/destroy — ransomware pre-encrypt on hypervisor", "Impact")),
+
 ]
 
 
@@ -2078,6 +2172,99 @@ YARA_LITE = [
     {"rule": "UserProfileSvc_Hive_Mount", "severity": "high",
      "pattern": r"ProfSvc|UserProfileService|LoadUserProfile|CreateProfile\w*\s*\(",
      "desc": "User Profile Service hive-mount API — LegacyHive/CVE-class EoP surface"},
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · Finger protocol ClickFix
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "Finger_Piped_To_Cmd", "severity": "high",
+     "pattern": r"\bfinger(?:\.exe)?\s+[A-Za-z0-9_.\-]+@[A-Za-z0-9.\-]+\s*\|\s*cmd",
+     "desc": "finger user@host | cmd — ClickFix remote-script LOLBIN abuse (BleepingComputer Nov 2025)"},
+    {"rule": "Finger_URI_Scheme", "severity": "medium",
+     "pattern": r"finger://[A-Za-z0-9.\-]+",
+     "desc": "finger:// URI — TCP/79 remote script retrieval (T1071)"},
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · GitHub Actions supply-chain
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "GHA_pull_request_target", "severity": "high",
+     "pattern": r"on:\s*pull_request_target\b|pull_request_target:\s*",
+     "desc": "GitHub Actions pull_request_target trigger — dangerous unless carefully scoped (Wiz M&M)"},
+    {"rule": "GHA_Unpinned_Action_Ref", "severity": "medium",
+     "pattern": r"uses:\s+[A-Za-z0-9_\-]+/[A-Za-z0-9_\-]+@(?:main|master|dev)\b",
+     "desc": "GitHub Action reference pinned to a mutable branch (@main/@master/@dev)"},
+    {"rule": "GHA_Secret_Exfil", "severity": "high",
+     "pattern": r"(?:secrets\.[A-Z_]+|GITHUB_TOKEN|ACTIONS_RUNTIME_TOKEN)[^\n]{0,300}?(?:curl|wget|nc|bash|python|node)\s+.*?https?://",
+     "desc": "GitHub Actions secret piped to network exfil command"},
+    {"rule": "GHA_Checkout_Attacker_SHA", "severity": "high",
+     "pattern": r"actions/checkout@[^\s]*\s+.*?ref:\s+\$\{\{\s*github\.event\.pull_request\.head\.sha",
+     "desc": "actions/checkout with attacker-controlled PR head SHA (Wiz M&M supply-chain tradecraft)"},
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · npm supply-chain (Socket Jscrambler)
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "NPM_Postinstall_Script", "severity": "medium",
+     "pattern": r"[\"']postinstall[\"']\s*:\s*[\"'](?:node|npm|npx|curl|wget|bash|sh|python)\s+",
+     "desc": "npm postinstall hook running arbitrary command (JS supply-chain risk)"},
+    {"rule": "NPM_Allow_Scripts_Install", "severity": "medium",
+     "pattern": r"npm\s+(?:install|i)\s+.*?--(?:ignore-scripts=false|allow-scripts)",
+     "desc": "npm install with explicit script-enabling flag"},
+    {"rule": "JS_Obfuscator_Tool", "severity": "medium",
+     "pattern": r"\b(?:jscrambler|obfuscator\.io|javascript-obfuscator)\b[^\n]{0,80}?(?:transform|obfuscate|encode)",
+     "desc": "JavaScript obfuscation tool signature (Jscrambler / obfuscator.io / javascript-obfuscator)"},
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · Ransomware EDR-disable + recovery-kill
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "Defender_Set_MpPreference_Disable", "severity": "high",
+     "pattern": r"Set-MpPreference\s+.*?-(?:DisableRealtimeMonitoring|DisableIOAVProtection|DisableBehaviorMonitoring|DisableScriptScanning|DisableIntrusionPreventionSystem|DisableBlockAtFirstSeen)\s+\$true",
+     "desc": "Windows Defender feature disabled via Set-MpPreference (MITRE T1562.001)"},
+    {"rule": "EDR_AV_Process_Kill", "severity": "high",
+     "pattern": r"(?:taskkill|Stop-Process)[^\n]{0,60}?/(?:IM|Name)\s+(?:MsMpEng|CSFalconService|SentinelAgent|MBAMService|WinDefend|CylanceSvc|BDServicesHost|EPProtectedService|ekrn|avast|avg|kaspersky|sophos|carbonblack)",
+     "desc": "taskkill/Stop-Process targeting known EDR/AV daemons — pre-encryption stage (MITRE T1562.001)"},
+    {"rule": "SC_Stop_Security_Service", "severity": "high",
+     "pattern": r"sc(?:\.exe)?\s+(?:stop|delete|config)\s+(?:WinDefend|MpKsl|Sense|CSFalconService|SentinelAgent|MBAMService|CylanceSvc|BDESVC|MpsSvc|WdNisSvc)",
+     "desc": "sc.exe stop/delete/config on Windows security service (MITRE T1562.001)"},
+    {"rule": "Event_Log_Clear", "severity": "high",
+     "pattern": r"wevtutil\s+(?:cl|clear-log)\s+(?:System|Security|Application|Microsoft-Windows-[A-Za-z\-]+)|Clear-EventLog\s+-LogName",
+     "desc": "Windows Event Log clearing (MITRE T1070.001)"},
+    {"rule": "Volume_Shadow_Copy_Delete", "severity": "high",
+     "pattern": r"vssadmin(?:\.exe)?\s+delete\s+shadows\b|wmic\s+shadowcopy\s+delete\b|Win32_Shadowcopy.*?\.Delete\(\)",
+     "desc": "Delete Volume Shadow Copies — canonical ransomware pre-encrypt step (MITRE T1490)"},
+    {"rule": "BCDEdit_Disable_Recovery", "severity": "high",
+     "pattern": r"bcdedit(?:\.exe)?\s+/set\s+.*?(?:bootstatuspolicy\s+ignoreallfailures|recoveryenabled\s+no)",
+     "desc": "bcdedit disabling Windows Recovery Environment (MITRE T1490)"},
+    {"rule": "WBAdmin_Delete_Backup", "severity": "high",
+     "pattern": r"wbadmin(?:\.exe)?\s+delete\s+(?:catalog|backup|systemstatebackup)",
+     "desc": "wbadmin delete backup/catalog — ransomware pre-encrypt (MITRE T1490)"},
+    {"rule": "Everest_Ransomware_Marker", "severity": "high",
+     "pattern": r"\bEverest[_\-]?(?:Locker|Ransom|Team)\b|README_TO_RESTORE\.(?:txt|html)|_HOW_TO_RECOVERY_FILES_",
+     "desc": "Everest ransomware family marker (ransom-note / group tag)"},
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · Gamarue/Andromeda worm
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "Gamarue_Andromeda_Autorun", "severity": "high",
+     "pattern": r"autorun\.inf[^\n]{0,80}?open\s*=|\bandromeda\b|\bgamarue\b|\bWauchos\b",
+     "desc": "Gamarue/Andromeda autorun.inf USB worm marker (RedCanary threat report)"},
+    {"rule": "Rundll32_Gamarue_Exports", "severity": "medium",
+     "pattern": r"rundll32(?:\.exe)?\s+.*?,\s*(?:AndromedaEntry|SetupObject|_bo\d+|Install|DllInstall)",
+     "desc": "Rundll32 invoking Gamarue-family export functions"},
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · VMware ESXi hypervisor exploit
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "ESXi_esxcli_Command", "severity": "medium",
+     "pattern": r"\besxcli\s+(?:vm|network|storage|system)\s+",
+     "desc": "esxcli command — VMware ESXi hypervisor post-exploitation"},
+    {"rule": "ESXi_vim_cmd", "severity": "high",
+     "pattern": r"\bvim-cmd\s+(?:vmsvc|hostsvc|solo)/",
+     "desc": "vim-cmd — VM lifecycle manipulation from ESXi hypervisor"},
+    {"rule": "ESXi_AD_Admin_Group_Escalation", "severity": "high",
+     "pattern": r"ESX\s+Admins?\b|CVE-2024-37085",
+     "desc": "ESXi 'ESX Admins' AD-group escalation (CVE-2024-37085)"},
+    {"rule": "ESXi_VM_Snapshot_Destroy", "severity": "high",
+     "pattern": r"vmsvc/(?:snapshot|power\.off|unregister|destroy)\.(?:create|remove)",
+     "desc": "ESXi VM snapshot/unregister/destroy from hypervisor (ransomware target)"},
 ]
 
 
