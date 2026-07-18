@@ -2208,6 +2208,64 @@ MITRE_HEURISTICS = [
     (r"(?:\.(?:top|xyz|club|online|site|website|store|shop|space|tk|ml|ga|cf))/[a-z0-9]{6,}", ("T1583.001", "Attacker-registered low-cost TLD staging domain (.top/.xyz/.club/…)", "Resource Development")),
     (r"(?:cloudproxy|cloudflarepanel|panel1337|c2server|admin-panel|beaconserver)\.[a-z0-9\-\.]+", ("T1583.004", "Attacker C2/panel-style domain naming", "Resource Development")),
     (r"ngrok\.io|serveo\.net|localtunnel\.me|loca\.lt|trycloudflare\.com", ("T1090.002", "Tunneling service (ngrok/serveo/cloudflared) — attacker relay infrastructure", "Command and Control")),
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.2 · Gap-report fixes (daily_regression payloads A4/B8/
+    # D3/E6/G1/G2). Six detection gaps flagged as zero-MITRE — each below
+    # ties a common tradecraft signature to its canonical ATT&CK ID.
+    # ═══════════════════════════════════════════════════════════════════
+
+    # ── A4 · PowerShell AMSI-bypass (reflection short-form) ─────────────
+    # `[Ref].Assembly.GetType('...AmsiUtils').GetField('amsiInitFailed',...)
+    #  .SetValue($null,$true)` — evade PowerShell script-block scanning.
+    (r"\[Ref\]\.Assembly\.GetType\(\s*['\"][^'\"]*AmsiUtils['\"]|"
+     r"amsiInitFailed|"
+     r"GetField\(\s*['\"]amsi[A-Za-z]+['\"]\s*,\s*['\"]NonPublic\s*,\s*Static['\"]",
+        ("T1562.001", "Impair Defenses: AMSI Reflection Bypass ([Ref].Assembly + amsiInitFailed)", "Defense Evasion")),
+    (r"System\.Management\.Automation\.AmsiUtils",
+        ("T1562.001", "AMSI Utils reflection reference (PowerShell defense-evasion staging)", "Defense Evasion")),
+
+    # ── B8 · PowerShell char-code assembly (integer-array → string) ─────
+    # `-join(([char[]](116,101,115,116)))` or `[char[]](0x74,0x65,...)`.
+    # Classic string-hiding tradecraft used to smuggle IEX / DownloadString
+    # past static scanners.
+    (r"-join\s*\(\s*\(?\s*\[char(?:\[\])?\]\s*\(?\s*\d+\s*,\s*\d+\s*,\s*\d+|"
+     r"\[char\[\]\]\s*\(\s*(?:\d+|0x[0-9a-fA-F]+)\s*,\s*(?:\d+|0x[0-9a-fA-F]+)\s*,",
+        ("T1027", "Obfuscated Files or Information: PowerShell char-code array assembly", "Defense Evasion")),
+
+    # ── D3 · Linux background-execution stager (`nohup ... &`) ──────────
+    # `nohup /tmp/x >/dev/null 2>&1 &` — the canonical way to daemonise a
+    # dropped payload on Linux without an inherited shell.
+    (r"\bnohup\s+[^\|;&\n]+?(?:\s+>?/dev/null|\s+2>&1)?\s*&(?![&=])",
+        ("T1059.004", "Unix Shell: nohup background execution (detached daemonisation)", "Execution")),
+    (r"\bdisown\b|setsid\s+\S|(?:^|\s)(?:sh|bash|zsh)\s+[^\|;&\n]+\s*&(?![&=])",
+        ("T1059.004", "Unix Shell: detached background job (setsid/disown/`&`)", "Execution")),
+
+    # ── E6 · MSBuild inline-task LOLBin execution ───────────────────────
+    # `msbuild.exe C:\...\evil.csproj` — MSBuild happily compiles+runs an
+    # inline C# task from a .csproj / .xml, bypassing AppLocker script rules.
+    (r"msbuild(?:\.exe)?\s+[^\s;|&\n]*\.(?:csproj|xml|proj)\b|"
+     r"<UsingTask\s+TaskName=[^>]+AssemblyFile=|<Task>\s*<Code\s+Type=[\"']?Class",
+        ("T1127.001", "Trusted Developer Utilities Proxy Execution: MSBuild inline task", "Defense Evasion")),
+
+    # ── G1 · GCP service-account JWT (iss=…iam.gserviceaccount.com) ─────
+    # Base64 payload starts with `eyJ` and once decoded reveals a GCP
+    # service-account issuer — classic key-file exfil / privesc pivot.
+    (r"eyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]*(?:aWFtLmdzZXJ2aWNlYWNjb3VudA|"
+     r"c3ZjLWFjY291bnQ|Z3NlcnZpY2VhY2NvdW50)[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+|"
+     r"iam\.gserviceaccount\.com|service_account_key|"
+     r"gcloud\s+auth\s+(?:activate-service-account|print-access-token|application-default)",
+        ("T1552.004", "Unsecured Credentials: GCP Service-Account JWT / Key File", "Credential Access")),
+    (r"\"type\"\s*:\s*\"service_account\"|private_key_id\"\s*:\s*\"[a-f0-9]{40}",
+        ("T1552.004", "GCP service-account key JSON structure (private_key_id / type=service_account)", "Credential Access")),
+
+    # ── G2 · AWS Cognito ID token (cognito:username claim in JWT body) ──
+    (r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]*(?:Y29nbml0bzp1c2VybmFtZQ|"          # base64("cognito:username")
+     r"Y29nbml0by11c2Vy|Y29nbml0bzpncm91cHM)[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+|"
+     r"cognito:username|cognito-idp\.[a-z0-9-]+\.amazonaws\.com|"
+     r"AWSCognitoIdentityProviderService|"
+     r"aws\s+cognito-idp\s+(?:admin-initiate-auth|initiate-auth|admin-get-user)",
+        ("T1528", "Steal Application Access Token: AWS Cognito ID/Access token", "Credential Access")),
 ]
 
 

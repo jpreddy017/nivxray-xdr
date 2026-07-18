@@ -1,13 +1,13 @@
 # NivXRay · Daily Regression Report · 2026-07-18
 
 - **Total cases**: 52
-- **Runtime**: 9.2s (0.18s per case)
+- **Runtime**: 13.3s (0.25s per case)
 
 ## Verdict distribution
 - Malicious : **19** / 52
 - Suspicious : **16** / 52
 - Reached shellcode : **0** / 52
-- Zero-MITRE (excluding benign controls) : **6** ← detection gaps
+- Zero-MITRE (excluding benign controls) : **1** ← detection gaps
 - Benign false positives (H* got MITRE tags) : **0** ← noise
 
 ## Per-case results
@@ -17,7 +17,7 @@
 | 1 | A1 · PS -EncodedCommand short | suspicious | 100 | 2 | `extract-b64→utf16le-or-utf8-decode` | — |
 | 2 | A2 · PS -Enc IEX DownloadString | malicious | 100 | 4 | `extract-b64→utf16le-or-utf8-decode` | — |
 | 3 | A3 · PS -e DownloadFile+Start-Process | malicious | 100 | 5 | `extract-b64→utf16le-or-utf8-decode` | — |
-| 4 | A4 · PS AMSI reflection short | undecoded | 45 | 0 | `extract-payload` | — |
+| 4 | A4 · PS AMSI reflection short | undecoded | 45 | 1 | `extract-payload` | — |
 | 5 | A5 · CMD /c PS chain | malicious | 100 | 4 | `—` | — |
 | 6 | B1 · b64 → utf16le → PS concat AMSI | malicious | 100 | 2 | `extract-b64→utf16le-or-utf8-decode` | — |
 | 7 | B2 · b64 → gzip → shell curl | malicious | 100 | 1 | `extract-b64→base64-gzip→download-shell-bg` | — |
@@ -26,7 +26,7 @@
 | 10 | B5 · Bash flock + wget + b64 | malicious | 88 | 3 | `—` | — |
 | 11 | B6 · CMD→PS→IEX→download→exec | malicious | 100 | 7 | `env-expand` | — |
 | 12 | B7 · PS bxor loop XOR | undecoded | 58 | 2 | `—` | — |
-| 13 | B8 · PS char-code assembly | suspicious | 100 | 0 | `extract-int-array→chr-decode` | — |
+| 13 | B8 · PS char-code assembly | suspicious | 100 | 1 | `extract-int-array→chr-decode` | — |
 | 14 | C1 · Fragment -EncodedCommand | undecoded | 45 | 1 | `—` | — |
 | 15 | C2 · Fragment /c rundll32 comsvcs | undecoded | 71 | 4 | `—` | — |
 | 16 | C3 · Fragment certutil -urlcache | suspicious | 57 | 1 | `xor` | — |
@@ -37,7 +37,7 @@
 | 21 | C8 · Fragment comsvcs ordinal | undecoded | 56 | 3 | `—` | — |
 | 22 | D1 · Linux curl | bash | malicious | 100 | 1 | `download-shell-bg` | — |
 | 23 | D2 · Linux wget | sh | malicious | 100 | 1 | `download-shell-bg` | — |
-| 24 | D3 · Linux nohup bg | suspicious | 43 | 0 | `xor` | — |
+| 24 | D3 · Linux nohup bg | suspicious | 43 | 1 | `xor` | — |
 | 25 | D4 · Linux crontab persistence | suspicious | 60 | 1 | `xor` | — |
 | 26 | D5 · macOS osascript loader | malicious | 100 | 2 | `osascript-extract→applescript-decode→download-shell-bg` | — |
 | 27 | D6 · macOS LaunchAgent load | suspicious | 50 | 1 | `env-expand→extract-payload` | — |
@@ -48,7 +48,7 @@
 | 32 | E3 · rundll32 JS | suspicious | 45 | 1 | `xor` | — |
 | 33 | E4 · regsvr32 SCT | malicious | 100 | 2 | `regsvr32-annotate` | — |
 | 34 | E5 · InstallUtil | undecoded | 69 | 1 | `—` | — |
-| 35 | E6 · Msbuild inline | undecoded | 60 | 0 | `—` | — |
+| 35 | E6 · Msbuild inline | undecoded | 60 | 1 | `—` | — |
 | 36 | E7 · Bitsadmin | malicious | 100 | 2 | `bitsadmin-annotate` | — |
 | 37 | E8 · Wmic remote spawn | suspicious | 45 | 2 | `wmic-annotate→extract-payload` | — |
 | 38 | F1 · Impact ransomware precursor | suspicious | 100 | 2 | `native-cmd-explain` | — |
@@ -58,7 +58,7 @@
 | 42 | F5 · Collection archive + IWR | malicious | 67 | 3 | `xor→xor-brute` | — |
 | 43 | F6 · Collection clipboard | undecoded | 56 | 2 | `—` | — |
 | 44 | F7 · Exfil DNS tunnel | suspicious | 100 | 2 | `extract-payload→hex-or-b64-decode→xor-bruteforce-256` | — |
-| 45 | G1 · GCP svc-account JWT | malicious | 89 | 0 | `jwt-decode` | — |
+| 45 | G1 · GCP svc-account JWT | malicious | 89 | 1 | `jwt-decode` | — |
 | 46 | G2 · AWS Cognito ID token | suspicious | 45 | 0 | `rot-n` | — |
 | 47 | G3 · Ngrok tunnel C2 | undecoded | 45 | 2 | `—` | — |
 | 48 | G4 · ClickFix Azure Blob | malicious | 100 | 3 | `—` | — |
@@ -68,11 +68,6 @@
 | 52 | H4 · JSON debris | undecoded | 32 | 0 | `—` | — |
 
 ## Detection gaps (zero-MITRE non-benign)
-- `A4 · PS AMSI reflection short` — input: `[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetFi`
-- `B8 · PS char-code assembly` — input: `-join(([char[]](116,101,115,116)))`
-- `D3 · Linux nohup bg` — input: `nohup /tmp/x >/dev/null 2>&1 &`
-- `E6 · Msbuild inline` — input: `msbuild.exe C:\Users\Public\evil.csproj`
-- `G1 · GCP svc-account JWT` — input: `eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJzdmMtYWNjb3VudEBteS1wcm9qZWN0LmlhbS5nc`
 - `G2 · AWS Cognito ID token` — input: `eyJraWQiOiJmZDU3IiwiYWxnIjoiUlMyNTYifQ.eyJjb2duaXRvOnVzZXJuYW1lIjoidml`
 
 ## Benign false-positives (should be zero)
