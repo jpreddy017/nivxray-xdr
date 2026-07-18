@@ -1973,6 +1973,74 @@ MITRE_HEURISTICS = [
      r"launchctl\s+kickstart\s+.*?com\.apple\.notificationcenterui",
         ("T1562.008", "NotificationCenter suppression (ClickLock covert operation)", "Defense Evasion")),
 
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · Excel-batch gap coverage (real-world payloads)
+    # ═══════════════════════════════════════════════════════════════════
+    # Python base64 exec — canonical Python living-off-the-land dropper
+    (r"python(?:3|3\.\d+|w)?\s+(?:-c|-m\s+base64|-B\s+)?[\"']?exec\s*\(\s*__import__\s*\(\s*[\"']base64[\"']\s*\)\.b64decode\s*\(",
+        ("T1059.006", "Python -c exec base64 b64decode — LOTL dropper", "Execution")),
+    (r"python(?:3|3\.\d+|w)?\s+(?:-c|-m|-B)\s+.*?base64\.(?:b64decode|urlsafe_b64decode)",
+        ("T1027.010", "Python base64 in-line decode — obfuscated execution", "Defense Evasion")),
+    # Offensive-toolkit script names (PowerSploit / PowerView / Rubeus / Mimikatz / etc.)
+    (r"\b(?:PowerView|PowerSploit|Invoke-Kerberoast|Invoke-Mimikatz|Rubeus|SharpHound|"
+     r"BloodHound|Certify|SafetyKatz|SharpKatz|CrackMapExec|CME|Impacket|GetUserSPNs|"
+     r"secretsdump|psexec\.py|smbexec\.py|Ghostpack|Seatbelt|Whisker|StandIn|ADSearch|"
+     r"SharpRoast|SharpDPAPI|SharpChisel|SharpSocks|Rubeus\.exe|Mimikatz\.exe|nanodump)"
+     r"(?:\.ps1|\.py|\.exe)?\b",
+        ("T1588.002", "Obtain Capabilities: Tool — Offensive-security tool signature", "Resource Development")),
+    # UNC-path execution (SMB share) + rundll32/pushd
+    (r"pushd\s+\\\\[a-z0-9\-\.]+\\[^\s\"']+|"
+     r"rundll32(?:\.exe)?\s+.*?\\\\[a-z0-9\-\.]+\\[^\s,]+",
+        ("T1021.002", "SMB/Windows Admin Shares: UNC-path execution via pushd/rundll32", "Lateral Movement")),
+    # schtasks REMOTE (/s <host>) — task creation on remote machine
+    (r"schtasks(?:\.exe)?\s+.*?/s\s+[\w\.\-]{3,}\s+.*?/tn\s+[\"']?[\w\-]+[\"']?\s+/tr",
+        ("T1053.005", "Scheduled Task creation on REMOTE host via schtasks /s", "Persistence")),
+    # PowerShell PSRemoting enablement
+    (r"Enable-PSRemoting\b|winrm(?:\.exe)?\s+(?:quickconfig|set\s+winrm/config)",
+        ("T1021.006", "Enable-PSRemoting / winrm quickconfig — remote PowerShell setup", "Lateral Movement")),
+    # UAC / EnableLUA registry disable
+    (r"HK(?:LM|EY_LOCAL_MACHINE)\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System.*?"
+     r"EnableLUA.*?REG_DWORD.*?/d\s+0|"
+     r"reg\s+add\s+.*?EnableLUA\s+/t\s+REG_DWORD\s+/d\s+0",
+        ("T1548.002", "Bypass User Account Control: Disable EnableLUA registry", "Privilege Escalation")),
+    # Windows Firewall disable
+    (r"sc(?:\.exe)?\s+(?:stop|delete|config)\s+(?:MpsSvc|BFE|LanmanServer)|"
+     r"netsh(?:\.exe)?\s+advfirewall\s+set\s+.*?state\s+off|"
+     r"Set-NetFirewallProfile\s+.*?-Enabled\s+False",
+        ("T1562.004", "Impair Defenses: Disable/Modify Windows Firewall", "Defense Evasion")),
+    # RMM tool markers — AnyDesk / QuickAssist / TeamViewer / ScreenConnect / Atera / Splashtop
+    (r"(?:AnyDesk(?:\.exe)?|QuickAssist(?:\.exe)?|TeamViewer(?:\.exe|_Service)?|"
+     r"ScreenConnect(?:\.ClientService)?|LabTech|Atera(?:Agent)?|NinjaOne|NinjaRMM|"
+     r"Splashtop|LogMeIn|ConnectWise\s+(?:Control|Automate)|"
+     r"KaseyaVSA|GoTo(?:Assist|Resolve))",
+        ("T1219", "Remote Access Software (RMM tool identifier)", "Command and Control")),
+    (r"--install\s+[\"']?c:\\AnyDesk\\[\"']?.*?--(?:start-with-win|silent|set-password)",
+        ("T1219", "AnyDesk silent install with persistence + password (RMM abuse)", "Command and Control")),
+    # QuickAssist / RemoteAssistance
+    (r"MicrosoftCorporationII\.QuickAssist_.*?QuickAssist\.exe",
+        ("T1219", "Windows QuickAssist RMM (T1219) — abused in Storm-1811 tradecraft", "Command and Control")),
+    # ScreenConnect ClientService with PDF/PDL args
+    (r"ScreenConnect\.ClientService\.exe.*?(?:-e=SessionType|--session|-s=|--host)",
+        ("T1219", "ScreenConnect ClientService with session-type args (RMM tradecraft)", "Command and Control")),
+    # WebDAV mount / http share
+    (r"net(?:\.exe)?\s+use\s+[A-Z]:\s+https?://[^\s]+\s+/persistent:no",
+        ("T1105", "net use → HTTP/WebDAV share (payload staging via WebDAV)", "Command and Control")),
+    # -EncodedCommand with 40+ base64 chars → PowerShell downloader
+    (r"powershell(?:\.exe)?\s+(?:-\S+\s+){1,6}-e(?:c|nc|ncodedcommand)\s+[A-Za-z0-9+/=]{60,}",
+        ("T1027.010", "PowerShell -EncodedCommand with long base64 payload", "Defense Evasion")),
+    # msiexec /i https:// remote-msi with e/y query params (evasion)
+    (r"msiexec(?:\.exe)?\s+.*?/i\s+https?://[^\s]+\.msi\?e=[^\s]+&y=Guest",
+        ("T1218.007", "msiexec /i remote MSI with e=/y=Guest evasion params", "Defense Evasion")),
+    # VirtualBox VBoxManage (hypervisor abuse — VM sandbox escape/attack VMs)
+    (r"VBoxManage(?:\.exe)?\s+(?:startvm|controlvm|import|export|snapshot|clonevm)",
+        ("T1497", "VBoxManage — VirtualBox VM control (sandbox-evasion / VM attack)", "Defense Evasion")),
+    # Tor / anonymizer runtime
+    (r"[a-z]:\\Users\\[^\\]+\\AppData\\[^\\]+\\[^\\]+\\runtime\\tor\\torrc|"
+     r"\btor(?:\.exe)?\s+-f\s+.*?torrc",
+        ("T1090.003", "Tor Multi-hop Proxy — anonymized C2 (torrc config detected)", "Command and Control")),
+    # Local Volume Shadow deletion with specific shadow ID
+    (r"vssadmin(?:\.exe)?\s+Delete\s+Shadows\s+/Shadow=\{[a-f0-9\-]+\}\s+/Quiet",
+        ("T1490", "vssadmin Delete Shadows /Shadow={GUID} — ransomware/anti-forensics", "Impact")),
 ]
 
 
