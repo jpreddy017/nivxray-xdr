@@ -73,6 +73,7 @@ from routers.corpus_validate import router as corpus_validate_router
 from routers.lab import router as lab_router
 from routers.public_feeds import router as public_feeds_router
 from routers.benchmark import router as benchmark_router
+from routers.decode_feedback import router as decode_feedback_router
 from request_hardening import RequestHardeningMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -163,6 +164,7 @@ api.include_router(corpus_validate_router)
 api.include_router(lab_router)
 api.include_router(public_feeds_router)
 api.include_router(benchmark_router)
+api.include_router(decode_feedback_router)
 
 app.include_router(api)
 

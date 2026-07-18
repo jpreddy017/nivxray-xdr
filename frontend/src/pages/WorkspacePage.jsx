@@ -23,6 +23,7 @@ import BoostBadge from "@/components/BoostBadge";
 import ChainStageEditor from "@/components/ChainStageEditor";
 import ChainReplayView from "@/components/ChainReplayView";
 import CandidateExplorer from "@/components/CandidateExplorer";
+import BadDecodeModal from "@/components/BadDecodeModal";
 import MoEPanel from "@/components/MoEPanel";
 import InvestigationTimeline from "@/components/InvestigationTimeline";
 import api from "@/lib/api";
@@ -120,6 +121,41 @@ export default function WorkspacePage() {
     setRefineOpen(true);
   };
   const [nivxrayTrace, setNivxrayTrace] = useState([]);
+  // v1.4.2 · Report Bad Decode + Enrich IOCs
+  const [badDecodeOpen, setBadDecodeOpen] = useState(false);
+  const [iocEnrichment, setIocEnrichment] = useState(null);
+  const [enrichingIocs, setEnrichingIocs] = useState(false);
+  const enrichIocs = async () => {
+    if (!analysis?.iocs) return;
+    const values = [];
+    Object.values(analysis.iocs).forEach((v) => {
+      if (Array.isArray(v)) v.forEach((x) => { if (typeof x === "string") values.push(x); });
+    });
+    if (values.length === 0) return;
+    setEnrichingIocs(true);
+    try {
+      const axios = (await import("axios")).default;
+      const API = process.env.REACT_APP_BACKEND_URL + "/api";
+      const token = localStorage.getItem("nivxray_token") || localStorage.getItem("access_token");
+      const r = await axios.post(
+        `${API}/threat-intel/enrich-batch`,
+        { values: values.slice(0, 25) },
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      // Reshape to the pill format
+      const out = (r.data?.results || []).map((row) => ({
+        value: row.value || row.ioc || "",
+        malicious_score: row.malicious_score || row.vt_malicious || 0,
+        abuse_confidence: row.abuse_confidence || 0,
+        providers: row.providers || row,
+      }));
+      setIocEnrichment(out);
+    } catch (e) {
+      setIocEnrichment([{ value: "enrichment failed: " + (e?.message || "unknown") }]);
+    } finally {
+      setEnrichingIocs(false);
+    }
+  };
   // Track whether the analyst has unsaved work in the current workspace so
   // rehydrating from history can prompt before overwriting.
   const hasUnsavedWork = () => !!(
@@ -1761,7 +1797,74 @@ export default function WorkspacePage() {
               <button className="nvx-btn sm ghost" onClick={() => navigator.clipboard.writeText(output)} disabled={!output} data-testid="btn-copy-output">
                 <Copy size={11} /> COPY
               </button>
+              <button
+                className="nvx-btn sm"
+                style={{ background: "#dc2626", color: "#fff", borderColor: "#7f1d1d" }}
+                onClick={() => setBadDecodeOpen(true)}
+                disabled={!input}
+                data-testid="btn-report-bad-decode"
+                title="Report a bad / undecoded output — get AI-generated diagnosis"
+              >
+                REPORT BAD DECODE
+              </button>
+              <button
+                className="nvx-btn sm"
+                style={{ background: "#0f766e", color: "#fff", borderColor: "#134e4a" }}
+                onClick={enrichIocs}
+                disabled={
+                  enrichingIocs ||
+                  !(analysis?.iocs && Object.values(analysis.iocs).some((v) => Array.isArray(v) && v.length))
+                }
+                data-testid="btn-enrich-iocs"
+                title="Push extracted IOCs to VirusTotal / OTX / AbuseIPDB for reputation lookup"
+              >
+                {enrichingIocs ? "ENRICHING…" : "ENRICH IOCs"}
+              </button>
             </>}
+          />
+
+          {/* IOC enrichment pills — populated after ENRICH IOCs is clicked */}
+          {iocEnrichment && iocEnrichment.length > 0 && (
+            <div className="nvx-card" data-testid="ioc-enrichment-card">
+              <div className="nvx-card-head">
+                <div className="nvx-card-title">
+                  <span className="dot" style={{ background: "#0f766e" }} />
+                  IOC ENRICHMENT
+                  <span className="count">{iocEnrichment.length} IOCs enriched</span>
+                </div>
+              </div>
+              <div className="nvx-card-body" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {iocEnrichment.map((e, i) => {
+                  const bad = (e.malicious_score || 0) > 0 || (e.abuse_confidence || 0) > 25;
+                  const bg = bad ? "#7f1d1d" : "#134e4a";
+                  const label = e.value + (e.malicious_score ? ` · ${e.malicious_score} hits` : "");
+                  return (
+                    <span
+                      key={i}
+                      data-testid={`ioc-pill-${i}`}
+                      style={{
+                        background: bg, color: "#fff", padding: "6px 12px",
+                        borderRadius: 999, fontSize: 11, letterSpacing: 0.6,
+                        border: "1px solid rgba(255,255,255,0.15)",
+                      }}
+                      title={JSON.stringify(e.providers || {}, null, 2)}
+                    >
+                      {bad ? "🔴 " : "🟢 "}
+                      {label}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Bad-decode feedback modal */}
+          <BadDecodeModal
+            open={badDecodeOpen}
+            onClose={() => setBadDecodeOpen(false)}
+            rawInput={input}
+            observedOutput={output}
+            observedChain={(analysis?.chain?.steps || analysis?.chain || []).map?.((s) => s?.op || s) || []}
           />
 
           {/* Attack Graph Card — Tactical MITRE ATT&CK swim-lane */}

@@ -1,6 +1,52 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## v1.4.2 — Feb 2026 · IOC Uplift · Bad-Decode Feedback · TI Enrich · BTLO Corpus
+
+**Status:** Preview · CI Gate PASSING @ **MITRE 93.3% / Undecoded 1.7% / IOC 54.7%** · corpus grew 100 → 120 · BENCHMARK tab live in header nav.
+
+### Delivered this batch
+1. **IOC recall 28.9% → 54.7%** (~2×) via v1.4.1 heuristic upgrade in `smart_decoder.py`:
+    - Widened `_has_strong_signal` — accepts reversed-b64 that decodes to another charset-shape layer that itself terminates in a magic byte (depth-2 recursion, prevents ping-pong)
+    - Explicit reversed-b64 tell: text starts with `=` → known base64 padding at tail before reversal → auto-accept
+    - Per-layer IOC surfacing in `/api/decode/smart` — unions IOCs across every trace intermediate + reversed forms (was only scanning final output)
+    - Mirrored the per-layer walker into the Real-World Stress runner so ground-truth measurement matches production
+2. **REPORT BAD DECODE analyst feedback** (`POST /api/decode/feedback`) — Claude Sonnet 4.5 diagnoses WHY the decode failed and HOW to fix it (root cause, fix steps, suggested recipe, missing heuristic). Deterministic fallback when LLM key absent. Red button on Workspace output card + `BadDecodeModal.jsx` result panel.
+3. **ENRICH IOCs pill UI** — teal button on Workspace hits existing `/api/threat-intel/enrich-batch` for extracted IOCs; renders red/green pills with malicious hit count + AbuseIPDB confidence.
+4. **BENCHMARK nav link** — added `Gauge` icon between HEATMAP and TOOLS (public no-auth `/benchmark`).
+5. **BTLO/Bohannon tradecraft** added to corpus (+20 entries · 100 → 120):
+    - BTLO Malicious PowerShell Analysis (Emotet)
+    - PS String-Concat IEX, Reversed-IEX, Filler-Char, Format-Operator
+    - DeflateStream+B64, SecureString, ClickFix chain, Reflection.Assembly.Load
+    - Empire stager (BTLO shape) — b64+XOR variable key
+
+### Files added
+- `backend/routers/decode_feedback.py` — feedback endpoint + Claude diagnosis
+- `frontend/src/components/BadDecodeModal.jsx` — analyst feedback + diagnosis UI
+
+### Files touched
+- `backend/smart_decoder.py` — reverse-b64 heuristic widened (v1.4.1)
+- `backend/routers/ops.py` — per-layer IOC surfacing across trace intermediates
+- `backend/tests/real_world_stress_suite.py` — per-layer runner + 20 new BTLO-family ATOMS
+- `backend/server.py` — wire `decode_feedback_router`
+- `frontend/src/pages/WorkspacePage.jsx` — REPORT BAD DECODE + ENRICH IOCs buttons + state + enrichIocs handler
+- `frontend/src/components/Header.jsx` — BENCHMARK nav link
+
+### Metrics on refreshed corpus (120 payloads · avg 5.6 layers)
+- MITRE hit-rate  · **93.3%** (was 87.0%)
+- Undecoded rate  · **1.7%** (was 2.0%)
+- IOC recall      · **54.7%** (was 28.9%) — nearly 2× lift
+- Marker hit-rate · **60.0%** (was 37.0%)
+- Avg latency    · **204 ms** per payload
+
+### Deferred (next batch when user OKs)
+- IOC recall final push 54.7% → 70% (needs deeper multi-layer chain — likely magic_decoder branch expansion)
+- Learner ingestion of `decode_feedback` records (auto-generate archetype proposals from user-reported bad decodes)
+- Refactor `wrapper_archetypes.py` / `operations.py` by tradecraft family
+
+---
+
+
 ## v1.4.0 — Feb 2026 · REAL-WORLD STRESS BENCHMARK · CI Gate · Public Publish
 
 **Status:** Preview · CI gate PASSING · public benchmark page live at `/benchmark` · corpus refresh scheduler armed.

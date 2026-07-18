@@ -397,20 +397,32 @@ def _apply_next(current: str, steps_so_far: List[Dict[str, Any]], notes: List[st
         except Exception:
             pass
 
-    # 8.5. Reverse-string heuristic (Feb 2026 v1.3.1) ————————————————
+    # 8.5. Reverse-string heuristic (Feb 2026 v1.3.1, expanded v1.4.1) ————
     # `echo … | rev | base64` and `xxd -p | rev` tradecraft. We attempt a
     # reversal ONLY IF: (a) we haven't just reversed on the previous step
     # (prevents ping-pong on symmetric charsets like pure hex), AND (b) the
     # reversed text decodes to something with a KNOWN binary magic OR non-
-    # ambiguous plaintext (contains characters outside the current charset).
+    # ambiguous plaintext (contains characters outside the current charset),
+    # OR (c) the reversed text is a b64 blob whose decode is ITSELF another
+    # b64/hex chain that eventually terminates in a magic byte (deep multi-
+    # layer real-world tradecraft — Sophos / TrendMicro corpus).
     _last_op = steps_so_far[-1]["op"] if steps_so_far else None
     _rev = current[::-1]
+    # ── Explicit tell: text STARTS with `=` = base64 padding was at END
+    # before reversal. This is a near-certain reversed-b64 signature; we
+    # loosen the strong-signal requirement in that case.
+    _starts_with_pad = bool(current) and current[0] == "="
     if _last_op != "reverse" and _rev != current and len(_rev) >= 16:
 
-        def _has_strong_signal(_raw: bytes) -> bool:
+        def _has_strong_signal(_raw: bytes, _depth: int = 0) -> bool:
             """A signal is 'strong' if the raw bytes contain a magic prefix
             OR decode to text that has whitespace / non-alphanumeric structure
-            (i.e., real words, not just charset-shaped noise)."""
+            (i.e., real words, not just charset-shaped noise).
+
+            v1.4.1: also allow charset-shape noise (pure b64 / pure hex) IF
+            that noise ITSELF decodes to a magic byte / real text within
+            <=2 recursive steps. This catches deep multi-layer reversed
+            chains where the intermediate layers are pure charset."""
             if _bin_magic_op(_raw) is not None:
                 return True
             if _raw[:2] == b"MZ" or _raw[:4] == b"\x7fELF":
@@ -421,19 +433,41 @@ def _apply_next(current: str, steps_so_far: List[Dict[str, Any]], notes: List[st
                 return False
             if not _is_printable_text(_raw, 0.9):
                 return False
-            # Reject shape-collision noise (pure hex / pure b64 charset) —
-            # we need real evidence of a distinct decoding layer underneath.
+            # Real-words test — has whitespace or non-alphanumeric punctuation.
             if re.fullmatch(r"[0-9a-fA-F]+", s) or re.fullmatch(r"[A-Za-z0-9+/=]+", s):
+                # v1.4.1: recurse ONE more level. If this charset-shape blob
+                # decodes to a magic byte or true plaintext underneath, ACCEPT.
+                if _depth >= 2:
+                    return False
+                # Try b64 first if it fits the charset
+                if re.fullmatch(r"[A-Za-z0-9+/=]+", s):
+                    _inner = _try_base64(s)
+                    if _inner is not None and _has_strong_signal(_inner, _depth + 1):
+                        return True
+                # Try hex
+                if re.fullmatch(r"[0-9a-fA-F]+", s) and len(s) % 2 == 0:
+                    try:
+                        _hex_inner = bytes.fromhex(s)
+                        if _has_strong_signal(_hex_inner, _depth + 1):
+                            return True
+                    except (ValueError, binascii.Error):
+                        pass
                 return False
             return True
 
-        # Case A — reversed is valid base64 that decodes with a strong signal
+        # Case A — reversed is valid base64 that decodes with a strong signal.
+        # If the original text starts with `=`, we KNOW this is reversed b64
+        # (`=` is only ever base64 padding, and it's always at the tail); we
+        # skip the strong-signal gate in that case.
         if _looks_like_base64(_rev):
             _raw = _try_base64(_rev)
-            if _raw is not None and _has_strong_signal(_raw):
-                return ("reverse", {},
-                        "Reversed text is a base64 blob with a real payload underneath",
-                        _rev)
+            if _raw is not None and (_starts_with_pad or _has_strong_signal(_raw)):
+                reason = (
+                    "Reversed text is a base64 blob (input started with `=` padding, near-certain reversed-b64)"
+                    if _starts_with_pad
+                    else "Reversed text is a base64 blob with a real payload underneath"
+                )
+                return ("reverse", {}, reason, _rev)
         # Case B — reversed is valid hex that decodes with a strong signal
         if _looks_like_hex(_rev):
             try:
