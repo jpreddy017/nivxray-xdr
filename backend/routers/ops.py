@@ -579,6 +579,11 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # tells the UI which card to highlight.
         "layer_trace": det.get("layer_trace") or [],
         "l3_metadata": det.get("l3_metadata"),
+        # ▲ PER-LAYER IOC/LOLBAS ATTRIBUTION (v1.5.4)
+        # Populated later once we've run per-layer extract_iocs / scan_lolbas.
+        # Shape: [{layer, op, iocs, lolbas}] — allows TI-HITS panel to chip
+        # each hit with the layer that revealed it.
+        "layer_iocs": [],
         "analysis_mode": body.analysis_mode or "balanced",
     }
 
@@ -694,28 +699,35 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         from operations import extract_iocs, mitre_map
         from lolbas import scan_lolbas
         base_text = (body.input or "") + "\n" + (result.get("output") or "")
-        # ── v1.4.1 · Per-layer IOC surfacing ────────────────────────────
-        # Real-world payloads bury URLs / IPs / domains 5-6 layers deep.
-        # When the decoder halts at a mid-chain layer (e.g. gzip stream
-        # truncated), IOCs from the layers we DID decode were still lost
-        # because the final `output` didn't carry them. Now we UNION the
-        # scan text across EVERY successful trace step so an intermediate
-        # `output_preview` still leaks its domain / IP into the analysis
-        # panel even if the final chain didn't fully terminate.
+        # ── v1.5.4 · Per-layer IOC surfacing WITH layer attribution ─────
+        # Every intermediate `output_preview` gets scanned individually so we
+        # can tell the analyst WHICH layer surfaced each URL/IP/domain — TI
+        # hits are then chip-tagged with "L2" / "L3" / etc.
         _layer_texts: List[str] = []
-        for t in (trace or []):
+        _layer_records: List[Dict[str, Any]] = []  # [{layer, op, iocs, lolbas}]
+        for _idx, t in enumerate(trace or []):
             preview = t.get("output_preview") or ""
             if preview and preview not in _layer_texts:
                 _layer_texts.append(preview)
-        # Pull every same-quote-paired literal and append its reverse; catches
-        # `1sp.morf/moc.enoz-ym//:ptth` → `http://my-zone.com/from.ps1`.
-        # Same-quote pairing (`(['"]) ... \1`) prevents cross-quote merges
-        # that would otherwise grab PowerShell-syntax fragments like
-        # `IEX (([string[]](`.
+            try:
+                _l_iocs = extract_iocs(preview or "") if preview else {}
+            except Exception:
+                _l_iocs = {}
+            try:
+                _l_lol = scan_lolbas(preview or "") if preview else []
+            except Exception:
+                _l_lol = []
+            # Only record layers that actually surfaced SOMETHING new
+            has_ioc = any((_l_iocs.get(k) or []) for k in ("urls", "ips", "domains", "md5", "sha1", "sha256"))
+            if has_ioc or _l_lol:
+                _layer_records.append({
+                    "layer":  _idx + 1,
+                    "op":     t.get("op"),
+                    "iocs":   _l_iocs,
+                    "lolbas": _l_lol,
+                })
         _quoted = re.findall(r"(['\"])([^'\"\r\n]{6,256})\1", body.input or "")
         _reversed_bits = [g[1][::-1] for g in _quoted if g and g[1]]
-        # Also add reversed forms of every layer preview — same reverse-
-        # obfuscation trick can appear at ANY layer, not just the input.
         for lt in _layer_texts:
             if 6 <= len(lt) <= 2048:
                 _reversed_bits.append(lt[::-1])
@@ -735,7 +747,34 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             result["lolbas"] = scan_lolbas(_scan_text)
         except Exception:
             result["lolbas"] = []
+        # v1.5.4 — attach per-layer attribution for the TI-HITS panel + AI narrative
+        result["layer_iocs"] = _layer_records
     except Exception:
+        pass
+
+    # ── v1.5.5 · TI SHIELD · 360° per-layer intelligence correlator ──
+    # Runs EVERY intel source (IOC/LOLBAS/MITRE/YARA + local TI + all 9
+    # live OSINT providers + family hint + severity) against EVERY decode
+    # layer. Time-boxed to 18s hard cap so the request never blows the
+    # 90s gateway. If it can't finish inside the budget → returns what it
+    # has and logs. Live OSINT itself is capped inside layer_360.
+    try:
+        import asyncio as _asyncio
+        from layer_360 import enrich_layers_360
+        _layer_records_for_shield = locals().get("_layer_records", [])
+        result["ti_shield"] = await _asyncio.wait_for(
+            enrich_layers_360(
+                layer_records=_layer_records_for_shield,
+                raw_input=body.input or "",
+                final_output=result.get("output") or "",
+            ),
+            timeout=18.0,
+        )
+    except _asyncio.TimeoutError:
+        result["ti_shield"] = []
+        result.setdefault("notes", []).append("TI Shield exceeded 18s budget — final-layer-only")
+    except Exception as _e:  # noqa: BLE001
+        result["ti_shield"] = []
         # Enrichment imports must never break the decode contract.
         result.setdefault("iocs", {})
         result.setdefault("mitre", [])

@@ -756,18 +756,27 @@ def extract_iocs_from_text(text: str) -> Dict[str, List[str]]:
 # ============================================================================
 # TI cross-reference
 # ============================================================================
-async def lookup_ti_hits(iocs: Dict[str, List[str]]) -> List[Dict[str, Any]]:
-    """Cross-reference extracted IOCs against local Threat-Intel DB.
+async def lookup_ti_hits(iocs: Dict[str, List[str]],
+                          layer_iocs: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+    """Cross-reference extracted IOCs against local TI DB + live OSINT.
 
-    Resilient matching:
-      • Exact-value hits across urls, ips, domains, md5, sha1, sha256.
-      • URL → hostname fallback: derive the host from every extracted URL
-        and additionally check the local `domain` collection — catches the
-        common case where the feed stores the domain but the payload
-        contains a URL with query-string / path variance.
-      • Case-normalised (host part is lower-cased before lookup).
-      • Deterministic de-dupe on (kind, value).
+    v1.5.4: When `layer_iocs` is supplied (per-layer surfacing from the
+    decode pipeline), each returned hit is annotated with `layer` (int) and
+    `revealed_by_op` (str) so the analyst can see WHICH decode step
+    unmasked the malicious indicator.
     """
+    # Build a reverse map: value → (layer_number, op) — first-seen wins
+    # so the EARLIEST layer to reveal an IOC takes attribution credit.
+    _attribution: Dict[str, Dict[str, Any]] = {}
+    for record in (layer_iocs or []):
+        layer_num = record.get("layer")
+        op_id = record.get("op") or ""
+        for kind, values in ((record.get("iocs") or {}) or {}).items():
+            if not isinstance(values, list):
+                continue
+            for v in values:
+                if v and v not in _attribution:
+                    _attribution[v] = {"layer": layer_num, "revealed_by_op": op_id}
     exact_values: List[str] = []
     for k in ("urls", "ips", "domains", "md5", "sha1", "sha256"):
         for v in iocs.get(k) or []:
@@ -885,11 +894,12 @@ async def lookup_ti_hits(iocs: Dict[str, List[str]]) -> List[Dict[str, Any]]:
         # Live OSINT is best-effort; local hits still return.
         pass
 
+    for _e in list(hits):
+        _v = _e.get("value")
+        if _v and _v in _attribution:
+            _e["layer"] = _attribution[_v]["layer"]
+            _e["revealed_by_op"] = _attribution[_v]["revealed_by_op"]
     return hits
-
-
-# ============================================================================
-# AI describe + verdict — the main narrative call
 # ============================================================================
 async def ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdict, want_describe,
                                    lolbas=None,

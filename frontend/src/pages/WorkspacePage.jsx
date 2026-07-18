@@ -25,6 +25,7 @@ import ChainReplayView from "@/components/ChainReplayView";
 import CandidateExplorer from "@/components/CandidateExplorer";
 import BadDecodeModal from "@/components/BadDecodeModal";
 import EscalationLadder from "@/components/EscalationLadder";
+import TIShieldPanel from "@/components/TIShieldPanel";
 import MoEPanel from "@/components/MoEPanel";
 import InvestigationTimeline from "@/components/InvestigationTimeline";
 import api from "@/lib/api";
@@ -549,6 +550,8 @@ export default function WorkspacePage() {
         layer_trace: d.layer_trace || [],
         engine: d.engine || null,
         confidence: (d.confidence ?? d.score ?? null),
+        // v1.5.5 — TI Shield · 360° per-layer intelligence
+        ti_shield: d.ti_shield || [],
       });
       setStatus(`FLAT DECODE · engine=${d.engine || "?"} · conf=${d.confidence ?? "?"}/100`);
     } catch (e) {
@@ -611,6 +614,8 @@ export default function WorkspacePage() {
         confidence:  conf / 100,
         layer_trace: r.data.layer_trace || [],
         l3_metadata: r.data.l3_metadata || null,
+        // v1.5.5 — TI Shield renders immediately on primary decode
+        ti_shield:   r.data.ti_shield || (a?.ti_shield) || [],
       }));
 
       // Step 2 · AI fallback if confidence low OR archetype didn't match AND output is trivial
@@ -1809,6 +1814,11 @@ export default function WorkspacePage() {
               winner={analysis.engine}
               confidence={analysis.confidence ?? analysis.score}
             />
+          )}
+
+          {/* v1.5.5 — TI Shield · 360° per-layer intelligence */}
+          {Array.isArray(analysis?.ti_shield) && analysis.ti_shield.length > 0 && (
+            <TIShieldPanel layers={analysis.ti_shield} />
           )}
 
           {/* Output Card — real-time preview + view toggles + byte diff */}

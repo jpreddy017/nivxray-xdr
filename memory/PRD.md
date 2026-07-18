@@ -1,6 +1,63 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## v1.5.5 — Feb 2026 · TI SHIELD 360° Per-Layer Intelligence + Live OSINT (9 providers)
+
+**Status:** Preview · TI Shield rendering on every decode · 9 live OSINT providers wired · per-layer severity scoring live.
+
+### Shipped
+- **TI Shield** (`layer_360.py` + `TIShieldPanel.jsx`) — every decode layer (L0 raw → L1..LN → L-final) is scanned through the FULL intel stack:
+  - `extract_iocs` (urls · ips · domains · md5/sha1/sha256)
+  - `scan_lolbas`  (LOLBin abuse)
+  - `mitre_map`   (MITRE ATT&CK)
+  - `yara_lite_scan` (in-house YARA-lite)
+  - `lookup_ti_hits` (local `db.iocs` feed + LIVE OSINT merged)
+  - `osint.enrich_iocs` against **all 9 providers**: VirusTotal · AbuseIPDB · Shodan · GreyNoise · URLScan · OTX AlienVault · IPinfo · Hybrid Analysis · abuse.ch (ThreatFox / MalwareBazaar / URLhaus)
+  - `family_hint` (heuristic malware-family per-layer guess)
+  - `severity` (score 0-100 + band: none/low/medium/high/critical)
+- **Live OSINT merged into TI-HITS panel** — `lookup_ti_hits()` now calls `osint.enrich_iocs()` and surfaces any IOC that ANY of the 9 providers flags as malicious. Verified: 45.148.10.181 → surfaces with `AbuseIPDB:19% · OTX:4 pulses` badges.
+- **Per-layer IOC attribution** — TI-HITS annotate `layer: N, revealed_by_op: <op>` so analyst sees WHICH decode step unmasked each malicious indicator.
+- **`/api/threat-intel/enrich-batch` rewired** — now routes through the full `osint.enrich_iocs()` pipeline instead of a limited 3-provider stub.
+- **Frontend TI Shield panel** — per-layer cards with severity band border-glow (red for critical), 6 metric chips (IOCS · LOLBAS · MITRE · YARA · TI HITS · LIVE), family-hint pill, expandable Live OSINT details.
+
+### Files added
+- `backend/layer_360.py` — 360° per-layer intelligence correlator
+- `frontend/src/components/TIShieldPanel.jsx` — UI panel
+
+### Files touched
+- `backend/analysis_core.py` — `lookup_ti_hits()` now merges live OSINT + accepts `layer_iocs` for attribution
+- `backend/routers/ops.py` — `layer_iocs` records per-layer surfacing + `ti_shield` field in response
+- `backend/routers/threat_intel_enrich.py` — enrich-batch routes through full osint.enrich_iocs (all 9 providers)
+- `frontend/src/pages/WorkspacePage.jsx` — TIShieldPanel mount + `ti_shield` in analysis state
+- `frontend/src/components/EscalationLadder.jsx` — L0 archetype card + skipped state
+- `backend/.env` — `OTX_API_KEY` + `URLSCAN_API_KEY` (redundant with admin panel — Mongo `settings.osint_keys` is source of truth)
+
+### Verified end-to-end
+- Backend `ti_shield` array: 2 layer cards (L0 raw + L-final) with severity/iocs/mitre/yara counts
+- TI-HITS panel now surfaces live-OSINT: `ip=45.148.10.181 · source=live-osint · tags=[osint-live, abuseipdb, otx]`
+- Frontend `[data-testid="ti-shield-panel"]` mounted, 2 layer cards rendered
+- All 9 provider keys configured in admin panel (VT · AbuseIPDB · Shodan · URLScan · OTX · Hybrid Analysis · abuse.ch — GreyNoise + IPinfo optional)
+
+### NivX brand family locked
+```
+NivX Machines (Co)
+├── nivxmachines.com    — Corporate + Customer Portal + NivXForge TI tab
+└── nivxforge.com       — Product platform
+    ├── nivxray.nivxforge.com     · NivXRay      — Command-line + multi-layer decode
+    ├── crucible.nivxforge.com    · NivX Crucible (P0 · L4 sandbox — next)
+    ├── vault.nivxforge.com       · NivX Vault (future)
+    └── insight.nivxforge.com     · NivX Insight (future)
+```
+
+### Next Zero-Miss batch
+- **P0 NivX Crucible** — L4 sandbox detonation (managed API path recommended: Any.Run / VMRay / Hybrid Analysis / CAPE)
+- **P0 Auto-escalation orchestrator** — confidence-gated L1→L2→L3→L4→L5 with hard SLAs
+- **P1 Learner auto-loop closure to L4** — Crucible detonation → auto-archetype in learner inbox
+- **P1 Qwen fine-tune activation** — execute `finetune/run_finetune.sh` on GPU host
+
+---
+
+
 ## v1.5.2 — Feb 2026 · Zero-Miss Escalation UI · Adversarial Regression · Auto-Learner · NivX Family Brand Locked
 
 **Status:** Preview · CI Gate PASSING · Escalation Ladder rendering on every decode · ENRICH IOCs auth-bug fixed · adversarial corpus writing on Undecoded traffic.

@@ -61,7 +61,6 @@ async def enrich_one(body: EnrichIn, user=Depends(get_current_user)):
     from deps import load_osint_keys as _load_osint_keys
     keys = await _load_osint_keys()
     # Bucket the single value by kind for enrich_iocs signature
-    from threat_intel_enrich import detect_kind
     kind = detect_kind(body.value)
     bucket = {"ips": [], "domains": [], "urls": [], "md5": [], "sha1": [], "sha256": []}
     kind_map = {"ip": "ips", "domain": "domains", "url": "urls",
@@ -82,7 +81,7 @@ async def enrich_batch(body: EnrichBatchIn, user=Depends(get_current_user)):
     """
     from osint import enrich_iocs
     from deps import load_osint_keys as _load_osint_keys
-    from threat_intel_enrich import detect_kind
+    from threat_intel_enrich import detect_kind as _detect_kind
     keys = await _load_osint_keys()
     limited = list(body.values or [])[:25]
     # Bucket by kind
@@ -90,7 +89,7 @@ async def enrich_batch(body: EnrichBatchIn, user=Depends(get_current_user)):
     kind_map = {"ip": "ips", "domain": "domains", "url": "urls",
                 "md5": "md5", "sha1": "sha1", "sha256": "sha256"}
     for v in limited:
-        kind = detect_kind(v)
+        kind = _detect_kind(v)
         slot = kind_map.get(kind)
         if slot:
             bucket[slot].append(v)
