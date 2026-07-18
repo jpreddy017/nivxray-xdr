@@ -1,22 +1,24 @@
 /**
- * LabPage — /lab · Analyst Practice Lab
+ * LabPage — /lab · Analyst Practice Lab (Narrative Mode)
  *
- * Turns NivXRay into a teaching platform. Analysts get a random payload
- * from the gold corpus, guess the MITRE T-IDs / LOLBins / severity, and
- * see how they scored. Streaks + XP make it stick.
+ * v1.3.1 (Feb 2026): shifted from strict MITRE T-code memorisation to a
+ * free-form analyst write-up. The analyst explains what the command does,
+ * the impact, and their recommendations. Claude grades on a 100-pt rubric
+ * (understanding 40 · impact 30 · recommendations 30) and the expected
+ * MITRE codes are shown POST-submit as learning material — not as a quiz.
  *
  * Backend endpoints:
- *   GET  /api/lab/challenge      — pull a challenge (answer hidden)
- *   POST /api/lab/attempt        — grade the guess + persist score
- *   GET  /api/lab/me             — my stats + recent attempts
- *   GET  /api/lab/leaderboard    — top-20 scorers
- *   GET  /api/lab/reveal/{id}    — full expected answer (post-attempt)
+ *   GET  /api/lab/challenge              — pull a challenge (answer hidden)
+ *   POST /api/lab/attempt/narrative      — grade write-up via Claude
+ *   GET  /api/lab/me                     — my stats + recent attempts
+ *   GET  /api/lab/leaderboard            — top-20 scorers
  */
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import api from "@/lib/api";
 import {
-  GraduationCap, Trophy, Zap, Target, RefreshCw, Check, X, Eye, Award, Flame,
+  GraduationCap, Trophy, Zap, Target, RefreshCw, Check, X, Award, Flame,
+  Sparkles, BookOpen, ShieldAlert, Wrench,
 } from "lucide-react";
 
 const DIFFICULTIES = [
@@ -26,40 +28,31 @@ const DIFFICULTIES = [
   { key: "hard",   label: "Hard" },
 ];
 
-const SEVERITIES = ["", "Informational", "Low", "Medium", "High", "Critical", "Benign"];
-
 const DIFFICULTY_COLOR = { easy: "#10b981", medium: "#f59e0b", hard: "#ef4444" };
 
 export default function LabPage() {
   const [difficulty, setDifficulty] = useState("");
-  const [ch,   setCh]   = useState(null);      // current challenge
-  const [busy, setBusy] = useState(false);
-  const [err,  setErr]  = useState(null);
-  const [mitreGuess,    setMitreGuess]    = useState("");
-  const [lolbinsGuess,  setLolbinsGuess]  = useState("");
-  const [sevGuess,      setSevGuess]      = useState("");
-  const [result, setResult] = useState(null);   // grading response
-  const [reveal, setReveal] = useState(null);   // full expected answer
-  const [me,     setMe]     = useState(null);
-  const [board,  setBoard]  = useState([]);
+  const [ch,      setCh]      = useState(null);
+  const [busy,    setBusy]    = useState(false);
+  const [err,     setErr]     = useState(null);
+  const [understanding,   setUnderstanding]   = useState("");
+  const [impact,          setImpact]          = useState("");
+  const [recommendations, setRecommendations] = useState("");
+  const [result,  setResult]  = useState(null);
+  const [me,      setMe]      = useState(null);
+  const [board,   setBoard]   = useState([]);
 
   const loadMe = async () => {
-    try {
-      const r = await api.get("/lab/me");
-      setMe(r.data);
-    } catch (_) {}
+    try { const r = await api.get("/lab/me"); setMe(r.data); } catch (_) {}
   };
   const loadBoard = async () => {
-    try {
-      const r = await api.get("/lab/leaderboard");
-      setBoard(r.data?.leaderboard || []);
-    } catch (_) {}
+    try { const r = await api.get("/lab/leaderboard"); setBoard(r.data?.leaderboard || []); } catch (_) {}
   };
   useEffect(() => { loadMe(); loadBoard(); }, []);
 
   const newChallenge = async () => {
-    setBusy(true); setErr(null); setResult(null); setReveal(null);
-    setMitreGuess(""); setLolbinsGuess(""); setSevGuess("");
+    setBusy(true); setErr(null); setResult(null);
+    setUnderstanding(""); setImpact(""); setRecommendations("");
     try {
       const r = await api.get("/lab/challenge", { params: difficulty ? { difficulty } : {} });
       setCh(r.data);
@@ -70,28 +63,25 @@ export default function LabPage() {
 
   const submit = async () => {
     if (!ch) return;
+    if (!understanding.trim() && !impact.trim() && !recommendations.trim()) {
+      setErr("Please write at least one section before submitting.");
+      return;
+    }
     setBusy(true); setErr(null);
     try {
-      const guessMitre = mitreGuess.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
-      const guessLolbins = lolbinsGuess.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
-      const r = await api.post("/lab/attempt", {
-        challenge_id: ch.challenge_id,
-        guess_mitre: guessMitre,
-        guess_lolbins: guessLolbins,
-        guess_severity: sevGuess,
+      const r = await api.post("/lab/attempt/narrative", {
+        challenge_id:    ch.challenge_id,
+        understanding, impact, recommendations,
       });
       setResult(r.data);
-      // Auto-reveal after submission
-      const rv = await api.get(`/lab/reveal/${ch.challenge_id}`);
-      setReveal(rv.data);
-      loadMe();
-      loadBoard();
+      loadMe(); loadBoard();
     } catch (e) {
       setErr(e.response?.data?.detail || e.message);
     } finally { setBusy(false); }
   };
 
   const stats = me?.stats || {};
+  const grading = busy && ch && !result;
 
   return (
     <div data-testid="lab-page">
@@ -103,10 +93,9 @@ export default function LabPage() {
               <GraduationCap size={20} /> Analyst Practice Lab
             </h1>
             <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-dim)" }}>
-              Random payload from the NivXRay Gold Corpus. Guess the tradecraft. Build the streak.
+              Write your analysis in plain English. Claude grades on tradecraft understanding, impact, and recommendations — MITRE codes are revealed as learning material after you submit.
             </p>
           </div>
-          {/* Personal HUD */}
           <div style={{ display: "flex", gap: 12, alignItems: "center" }} data-testid="lab-hud">
             <StatChip icon={<Flame size={14} />}  label="Streak"    value={stats.streak || 0}       color="#f97316" />
             <StatChip icon={<Trophy size={14} />} label="Best"      value={stats.best_streak || 0}  color="#eab308" />
@@ -150,7 +139,7 @@ export default function LabPage() {
           </div>
         </div>
 
-        {/* Challenge card */}
+        {/* Challenge + narrative form */}
         {ch && (
           <div className="nvx-card" style={{ marginBottom: 12 }} data-testid="lab-challenge">
             <div className="nvx-card-head">
@@ -179,75 +168,136 @@ export default function LabPage() {
                 whiteSpace: "pre-wrap", wordBreak: "break-all", margin: 0,
               }} data-testid="lab-payload">{ch.input}</pre>
 
-              {/* Guess form */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 200px", gap: 10, marginTop: 12 }}>
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-dim)" }}>Your MITRE T-IDs (comma-separated)</label>
-                  <input
-                    data-testid="lab-mitre-input"
-                    value={mitreGuess} onChange={e => setMitreGuess(e.target.value)}
-                    disabled={!!result}
-                    placeholder="e.g. T1059.001, T1027.010"
-                    style={inputStyle} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-dim)" }}>LOLBins (comma-separated)</label>
-                  <input
-                    data-testid="lab-lolbins-input"
-                    value={lolbinsGuess} onChange={e => setLolbinsGuess(e.target.value)}
-                    disabled={!!result}
-                    placeholder="e.g. powershell.exe, certutil.exe"
-                    style={inputStyle} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-dim)" }}>Severity</label>
-                  <select
-                    data-testid="lab-severity-input"
-                    value={sevGuess} onChange={e => setSevGuess(e.target.value)}
-                    disabled={!!result}
-                    style={{ ...inputStyle, height: 30 }}>
-                    {SEVERITIES.map(s => <option key={s} value={s}>{s || "— select —"}</option>)}
-                  </select>
-                </div>
+              {/* Narrative form */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 14 }}>
+                <NarrativeField
+                  testid="lab-understanding-input"
+                  icon={<BookOpen size={12} />}
+                  label="1. What does this command do?"
+                  hint="Explain each flag/binary. Is it downloading, executing, encoding, persisting?"
+                  value={understanding} onChange={setUnderstanding}
+                  disabled={!!result || grading}
+                />
+                <NarrativeField
+                  testid="lab-impact-input"
+                  icon={<ShieldAlert size={12} />}
+                  label="2. Impact & risk"
+                  hint="What happens if this runs on a corporate endpoint? Severity? Blast radius?"
+                  value={impact} onChange={setImpact}
+                  disabled={!!result || grading}
+                />
+                <NarrativeField
+                  testid="lab-recommendations-input"
+                  icon={<Wrench size={12} />}
+                  label="3. Recommendations"
+                  hint="Detections (EDR/SIEM), containment steps, hardening. Be specific."
+                  value={recommendations} onChange={setRecommendations}
+                  disabled={!!result || grading}
+                />
               </div>
+
               {!result && (
-                <div style={{ marginTop: 12 }}>
+                <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
                   <button onClick={submit} disabled={busy}
                           data-testid="lab-submit-btn" className="nvx-btn sm primary">
-                    <Target size={12} /> SUBMIT GUESS
+                    <Sparkles size={12} /> {grading ? "GRADING WITH CLAUDE…" : "SUBMIT ANALYSIS"}
                   </button>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)" }}>
+                    Rubric: understanding /40 · impact /30 · recommendations /30 · perfect ≥ 85
+                  </span>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Result card */}
-        {result && reveal && (
+        {/* AI grade + reveal */}
+        {result && (
           <div className="nvx-card" style={{ marginBottom: 12,
-                borderColor: result.perfect ? "#7ee3c9" : "#f59e0b" }}
+                borderColor: result.perfect ? "#7ee3c9" : (result.score >= 60 ? "#f59e0b" : "#ef4444") }}
                data-testid="lab-result">
             <div className="nvx-card-head">
               <div className="nvx-card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {result.perfect
-                  ? <><Check size={14} color="#7ee3c9" /> Perfect! +{result.score} XP · Streak {result.streak}</>
-                  : <><Eye size={14} color="#f59e0b" /> Partial — {result.score}/{result.max_score} XP</>}
+                  ? <><Check size={14} color="#7ee3c9" /> Excellent write-up · {result.score}/{result.max_score} XP · Streak {result.streak}</>
+                  : <><Sparkles size={14} color="#f59e0b" /> {result.score}/{result.max_score} XP · Keep going</>}
               </div>
               <button onClick={newChallenge} className="nvx-btn xs primary" data-testid="lab-next-btn">
                 <RefreshCw size={11} /> NEXT CHALLENGE
               </button>
             </div>
-            <div className="nvx-card-body" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-              <ResultBox label="MITRE T-IDs"
-                         pass={result.mitre_pass}
-                         got={result.got.mitre} expected={result.expected.mitre} />
-              <ResultBox label="LOLBins"
-                         pass={result.lolbin_pass}
-                         got={result.got.lolbins} expected={result.expected.lolbins} />
-              <ResultBox label="Severity"
-                         pass={result.severity_pass}
-                         got={[result.got.severity]}
-                         expected={[result.expected.severity]} />
+            <div className="nvx-card-body">
+              {/* Rubric bars */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <RubricBar label="Understanding" score={result.understanding_score} max={40} icon={<BookOpen size={11} />} />
+                <RubricBar label="Impact"        score={result.impact_score}        max={30} icon={<ShieldAlert size={11} />} />
+                <RubricBar label="Recommendations" score={result.recommendations_score} max={30} icon={<Wrench size={11} />} />
+              </div>
+
+              {/* AI feedback */}
+              {result.feedback && (
+                <div style={{
+                  padding: 10, marginBottom: 12,
+                  background: "rgba(126,227,201,0.06)", border: "1px solid #7ee3c955",
+                  borderRadius: 4, fontSize: 12, color: "var(--text)",
+                }} data-testid="lab-ai-feedback">
+                  <div style={{ fontSize: 10, color: "#7ee3c9", marginBottom: 4, letterSpacing: "0.08em" }}>
+                    CLAUDE&apos;S FEEDBACK
+                  </div>
+                  {result.feedback}
+                </div>
+              )}
+
+              {/* Strengths / gaps */}
+              {(result.strengths?.length || result.gaps?.length) ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                  <ListCard title="Strengths" items={result.strengths} color="#7ee3c9" icon={<Check size={11} />} testid="lab-strengths" />
+                  <ListCard title="Gaps"      items={result.gaps}      color="#f59e0b" icon={<X size={11} />}     testid="lab-gaps" />
+                </div>
+              ) : null}
+
+              {/* MITRE reveal (learning material) */}
+              {(result.expected_mitre_enriched?.length || result.expected_lolbins?.length) ? (
+                <div style={{
+                  padding: 10, background: "var(--bg-deep)",
+                  border: "1px solid var(--border)", borderRadius: 4,
+                }} data-testid="lab-mitre-reveal">
+                  <div style={{ fontSize: 10, color: "var(--text-dim)", marginBottom: 8, letterSpacing: "0.08em" }}>
+                    REFERENCE ATT&amp;CK MAPPING (learn — not scored)
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                    {(result.expected_mitre_enriched || []).map(m => (
+                      <span key={m.id} data-testid={`lab-mitre-chip-${m.id}`}
+                            title={m.tactic}
+                            style={{
+                              padding: "3px 8px", background: "rgba(168,85,247,0.12)",
+                              border: "1px solid #a855f7", color: "#e9d5ff",
+                              fontFamily: "JetBrains Mono", fontSize: 10, borderRadius: 3,
+                            }}>
+                        <strong>{m.id}</strong>{m.name ? ` · ${m.name}` : ""}
+                      </span>
+                    ))}
+                  </div>
+                  {result.expected_lolbins?.length > 0 && (
+                    <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
+                      LOLBins:{" "}
+                      {result.expected_lolbins.map(l => (
+                        <span key={l} style={{
+                          padding: "2px 6px", background: "rgba(245,158,11,0.14)",
+                          border: "1px solid #f59e0b55", color: "#fcd34d",
+                          fontFamily: "JetBrains Mono", fontSize: 10, borderRadius: 3,
+                          marginRight: 4,
+                        }}>{l}</span>
+                      ))}
+                    </div>
+                  )}
+                  {result.expected_severity && (
+                    <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 6 }}>
+                      Expected severity: <strong style={{ color: "var(--text)" }}>{result.expected_severity}</strong>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         )}
@@ -292,17 +342,39 @@ export default function LabPage() {
   );
 }
 
-const inputStyle = {
-  width: "100%",
-  padding: "6px 8px",
-  background: "var(--bg-deep)",
-  border: "1px solid var(--border)",
-  color: "var(--text)",
-  fontFamily: "JetBrains Mono",
-  fontSize: 11,
-  borderRadius: 4,
-  marginTop: 4,
-};
+// ─── UI helpers ──────────────────────────────────────────────────────────
+
+function NarrativeField({ testid, icon, label, hint, value, onChange, disabled }) {
+  return (
+    <div>
+      <label style={{ fontSize: 11, color: "var(--text-dim)", display: "flex", alignItems: "center", gap: 4 }}>
+        {icon} {label}
+      </label>
+      <textarea
+        data-testid={testid}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        disabled={disabled}
+        placeholder={hint}
+        rows={7}
+        style={{
+          width: "100%",
+          padding: "8px 10px",
+          background: "var(--bg-deep)",
+          border: "1px solid var(--border)",
+          color: "var(--text)",
+          fontFamily: "JetBrains Mono",
+          fontSize: 11,
+          lineHeight: 1.55,
+          borderRadius: 4,
+          marginTop: 4,
+          resize: "vertical",
+          minHeight: 130,
+        }}
+      />
+    </div>
+  );
+}
 
 function StatChip({ icon, label, value, color }) {
   return (
@@ -320,23 +392,41 @@ function StatChip({ icon, label, value, color }) {
   );
 }
 
-function ResultBox({ label, pass, got, expected }) {
+function RubricBar({ label, score, max, icon }) {
+  const pct = Math.max(0, Math.min(100, Math.round(((score || 0) / max) * 100)));
+  const color = pct >= 80 ? "#7ee3c9" : pct >= 50 ? "#f59e0b" : "#ef4444";
   return (
-    <div style={{
-      padding: 10, border: `1px solid ${pass ? "#7ee3c9" : "#ef4444"}`,
-      background: pass ? "rgba(126,227,201,0.06)" : "rgba(239,68,68,0.06)",
-      borderRadius: 4,
+    <div data-testid={`lab-rubric-${label.toLowerCase()}`}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-dim)", marginBottom: 4 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>{icon} {label}</span>
+        <span style={{ color, fontFamily: "JetBrains Mono", fontWeight: 700 }}>{score || 0}/{max}</span>
+      </div>
+      <div style={{ height: 6, background: "var(--bg-deep)", border: "1px solid var(--border)", borderRadius: 3, overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: color, transition: "width .35s ease" }} />
+      </div>
+    </div>
+  );
+}
+
+function ListCard({ title, items, color, icon, testid }) {
+  return (
+    <div data-testid={testid} style={{
+      padding: 10, border: `1px solid ${color}55`,
+      background: `${color}0f`, borderRadius: 4,
     }}>
       <div style={{
         display: "flex", alignItems: "center", gap: 6, fontSize: 11,
-        color: pass ? "#7ee3c9" : "#ef4444", fontWeight: 700, marginBottom: 6,
+        color, fontWeight: 700, marginBottom: 6, letterSpacing: "0.06em",
       }}>
-        {pass ? <Check size={12} /> : <X size={12} />} {label}
+        {icon} {title.toUpperCase()}
       </div>
-      <div style={{ fontSize: 10, color: "var(--text-dim)" }}>
-        <div>You: <span style={{ color: "var(--text)" }}>{(got || []).filter(Boolean).join(", ") || "—"}</span></div>
-        <div>Expected: <span style={{ color: "var(--text)" }}>{(expected || []).filter(Boolean).join(", ") || "—"}</span></div>
-      </div>
+      {items?.length ? (
+        <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: "var(--text)", lineHeight: 1.55 }}>
+          {items.map((it, i) => <li key={i}>{String(it)}</li>)}
+        </ul>
+      ) : (
+        <div style={{ fontSize: 11, color: "var(--text-dim)" }}>—</div>
+      )}
     </div>
   );
 }

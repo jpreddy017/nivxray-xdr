@@ -1,6 +1,42 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## v1.3.1 — Feb 18 2026 · Analyst Practice Lab · Narrative Mode
+
+**Status:** Preview · shipping to prod after user validation
+
+### Why
+Users struggled to memorise MITRE T-codes. The lab was punishing recall, not analysis. Real SOC work is a write-up: *what does this do → what's the impact → what do we recommend*.
+
+### What changed
+- 🧠 **Narrative-first grading** — Analyst Practice Lab (`/lab`) now asks three free-form questions instead of exact-match MITRE / LOLBin / severity inputs:
+  1. What does this command do?
+  2. Impact & risk
+  3. Recommendations
+- 🤖 **AI grading via Claude Sonnet 4.5** (Emergent LLM key) on a 100-pt rubric: understanding /40 · impact /30 · recommendations /30 · perfect ≥ 85. Returns strengths, gaps, and concrete feedback.
+- 🎓 **MITRE reveal as learning material** — after submit, expected T-IDs are shown with human-readable *name + tactic* (e.g. `T1033 · System Owner/User Discovery`). Not scored, purely educational.
+- 📉 **Graceful fallback** — if `EMERGENT_LLM_KEY` is absent, a length + coverage heuristic still grades locally.
+- 🧪 **3 new tests** in `test_lab_narrative.py` — all green (rubric bounds, empty write-up, 404).
+
+### New backend
+- `POST /api/lab/attempt/narrative` — grade a free-form write-up, persist to `lab_attempts` (`mode: "narrative"`), update streak/XP.
+- `_mitre_index()` + `_mitre_enrich()` in `routers/lab.py` — enrich T-IDs from `operations.MITRE_HEURISTICS` (280-entry tuple list).
+- `/api/lab/reveal/{id}` now also returns `expected_mitre_enriched`.
+
+### Frontend
+- `LabPage.jsx` rewritten around 3 large textareas + a rubric hint under the submit button.
+- After grading: 3 rubric progress bars, Claude's feedback card, `Strengths ↔ Gaps` two-column list, and a "REFERENCE ATT&CK MAPPING (learn — not scored)" chip strip with tactic tooltips.
+- Legacy strict-guess `/lab/attempt` endpoint remains for any callers still using it.
+
+### Files touched
+- `backend/routers/lab.py` — narrative endpoint, MITRE enrichment, AI grader
+- `frontend/src/pages/LabPage.jsx` — full rewrite
+- `backend/tests/test_lab_narrative.py` — 3 new tests
+
+---
+
+
+
 ## v1.3.0-preview (batch 2) — Feb 18 2026 · Heatmap + Corpus + macOS + gap fixes
 
 **Status:** Preview · **staged for next prod release**
