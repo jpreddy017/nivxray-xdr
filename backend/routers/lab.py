@@ -20,7 +20,7 @@ import random
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from pymongo import MongoClient
 
@@ -150,6 +150,71 @@ async def lab_challenge(difficulty: Optional[str] = None, user=Depends(get_curre
         pool = cases
     case = random.choice(pool)
     return _redact_answer(case, _difficulty(case))
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Feb 2026 v1.3.0 · PUBLIC DEMO endpoints (no auth) for attention play
+# IP-throttled to 30 requests/hour to prevent abuse. No persistence.
+# ═══════════════════════════════════════════════════════════════════════
+_public_rate: Dict[str, List[float]] = {}
+_PUBLIC_LIMIT = 30
+_PUBLIC_WINDOW = 3600
+
+
+def _check_public_rate(ip: str) -> bool:
+    import time
+    now = time.time()
+    hist = [t for t in _public_rate.get(ip, []) if now - t < _PUBLIC_WINDOW]
+    if len(hist) >= _PUBLIC_LIMIT:
+        return False
+    hist.append(now)
+    _public_rate[ip] = hist
+    return True
+
+
+class PublicAttemptIn(BaseModel):
+    challenge_id:    str
+    guess_mitre:     List[str] = Field(default_factory=list)
+    guess_lolbins:   List[str] = Field(default_factory=list)
+    guess_severity:  Optional[str] = ""
+
+
+@router.get("/lab/public/challenge")
+async def lab_public_challenge(request: Request, difficulty: Optional[str] = None):
+    """PUBLIC · no auth. IP-throttled. For nivxray.nivxforge.com/lab landing page."""
+    ip = request.client.host if request.client else "unknown"
+    if not _check_public_rate(ip):
+        raise HTTPException(429, f"Public demo limited to {_PUBLIC_LIMIT} requests/hour. Sign up for unlimited access.")
+    cases = _load_challenges()
+    if not cases:
+        raise HTTPException(503, "gold corpus missing")
+    if difficulty in ("easy", "medium", "hard"):
+        pool = [c for c in cases if _difficulty(c) == difficulty]
+        if not pool:
+            pool = cases
+    else:
+        pool = cases
+    case = random.choice(pool)
+    out = _redact_answer(case, _difficulty(case))
+    out["public"] = True
+    out["daily_limit_remaining"] = _PUBLIC_LIMIT - len(_public_rate.get(ip, []))
+    return out
+
+
+@router.post("/lab/public/attempt")
+async def lab_public_attempt(body: PublicAttemptIn, request: Request):
+    """PUBLIC · no auth · no persistence. Grade only."""
+    ip = request.client.host if request.client else "unknown"
+    if not _check_public_rate(ip):
+        raise HTTPException(429, "Public demo rate-limited. Sign up for unlimited access.")
+    cases = _load_challenges()
+    case = next((c for c in cases if c.get("id") == body.challenge_id), None)
+    if not case:
+        raise HTTPException(404, "challenge not found")
+    result = _grade(body.guess_mitre, body.guess_lolbins, body.guess_severity or "", case)
+    result["public"] = True
+    result["cta"] = "Sign up free to track your streak, unlock all 55 challenges, and access the full decoder."
+    return result
 
 
 @router.post("/lab/attempt")
