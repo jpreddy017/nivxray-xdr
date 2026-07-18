@@ -230,6 +230,11 @@ body::before {
   padding: 5px 10px;
   font-size: 11px;
 }
+.nvx-btn.xs {
+  padding: 3px 7px;
+  font-size: 10px;
+  gap: 4px;
+}
 
 /* Input */
 .nvx-input {

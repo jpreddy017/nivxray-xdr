@@ -101,8 +101,12 @@ def test_archetype_bash_b64_gunzip():
     wrapper = f"echo '{b64}' | base64 -d | gunzip | bash"
     r = try_archetypes(wrapper)
     assert r is not None
-    assert r["archetype_id"] == "Bash_base64_gunzip_pipe"
-    assert r["output"] == inner
+    # Feb 2026 · Bash_base64_gunzip_pipe fires first, then the decoded
+    # `curl … | bash` output chains into BASH_WGET_FLOCK_BACKGROUND.
+    # Assert the first archetype (index 0 of the chain) is the gunzip one.
+    chain = r.get("chain_ids") or [r["archetype_id"]]
+    assert chain[0] == "Bash_base64_gunzip_pipe"
+    assert inner in r["output"]
 
 
 # ─── Bash_base64_pipe_bash ───────────────────────────────────────────────

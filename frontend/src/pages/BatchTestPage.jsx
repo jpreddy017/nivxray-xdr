@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import api, { API_BASE } from "@/lib/api";
-import { Download, Upload, Play, FileText, AlertCircle } from "lucide-react";
+import { Download, Upload, Play, FileText, AlertCircle, RefreshCw, Trash2, Pencil, Clock } from "lucide-react";
 
 const MODES = ["fast", "balanced", "deep"];
 const VERDICT_COLOR = {
@@ -281,6 +281,99 @@ export default function BatchTestPage() {
             </div>
           </div>
         </div>
+
+        {showHistory && (
+          <div className="nvx-card" style={{ marginBottom: 12 }} data-testid="batch-history-panel">
+            <div className="nvx-card-head">
+              <div className="nvx-card-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Clock size={14} /> Recent Batch Runs
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--text-dim)" }}>
+                <span data-testid="batch-history-count">{history.length} run{history.length === 1 ? "" : "s"}</span>
+                <button
+                  onClick={loadHistory}
+                  data-testid="batch-history-refresh"
+                  className="nvx-btn xs ghost"
+                  title="Refresh history">
+                  <RefreshCw size={11} /> REFRESH
+                </button>
+              </div>
+            </div>
+            <div className="nvx-card-body" style={{ overflowX: "auto", padding: 0 }}>
+              {history.length === 0 ? (
+                <div style={{ padding: "16px 12px", color: "var(--text-dim)", fontSize: 12, textAlign: "center" }}>
+                  No batch runs saved yet. Run some payloads to populate history.
+                </div>
+              ) : (
+                <table className="mono" style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}
+                       data-testid="batch-history-table">
+                  <thead>
+                    <tr style={{ background: "var(--bg-deep)", textAlign: "left" }}>
+                      {["When","Name / Source","Mode","Total","Mal","Susp","Unk","Err","Actions"].map(h => (
+                        <th key={h} style={{ padding: "8px 10px", color: "var(--text-dim)",
+                                              borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((h, i) => {
+                      const s = h.summary || {};
+                      const when = h.created_at ? new Date(h.created_at).toLocaleString() : "—";
+                      const label = h.name || h.source || "—";
+                      return (
+                        <tr key={h.id} data-testid={`batch-history-row-${i}`}
+                            style={{ borderBottom: "1px solid var(--border)",
+                                      background: h.id === runId ? "rgba(126,227,201,0.08)" : (i % 2 ? "transparent" : "rgba(255,255,255,0.02)") }}>
+                          <td style={{ padding: "6px 10px", color: "var(--text-mute)", whiteSpace: "nowrap" }}>{when}</td>
+                          <td style={{ padding: "6px 10px", color: "var(--text)", maxWidth: 300, overflow: "hidden",
+                                        textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={label}>
+                            {label}
+                          </td>
+                          <td style={{ padding: "6px 10px", color: "var(--accent)" }}>{h.analysis_mode || "—"}</td>
+                          <td style={{ padding: "6px 10px", color: "var(--text)" }}>{h.total ?? "—"}</td>
+                          <td style={{ padding: "6px 10px", color: VERDICT_COLOR.Malicious, fontWeight: 600 }}>{s.malicious ?? 0}</td>
+                          <td style={{ padding: "6px 10px", color: VERDICT_COLOR.Suspicious, fontWeight: 600 }}>{s.suspicious ?? 0}</td>
+                          <td style={{ padding: "6px 10px", color: VERDICT_COLOR.Unknown }}>{s.unknown ?? 0}</td>
+                          <td style={{ padding: "6px 10px", color: VERDICT_COLOR.Malicious }}>{s.errors ?? 0}</td>
+                          <td style={{ padding: "6px 10px", whiteSpace: "nowrap" }}>
+                            <button
+                              onClick={() => reloadRun(h.id)}
+                              data-testid={`batch-history-load-${i}`}
+                              className="nvx-btn xs primary" title="Load this run">
+                              <Play size={10} /> LOAD
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const nm = window.prompt("Rename this run:", h.name || "");
+                                if (nm == null) return;
+                                try {
+                                  await api.patch(`/batch/history/${h.id}`, { name: nm });
+                                  loadHistory();
+                                } catch (e) {
+                                  alert(`Rename failed: ${e.response?.data?.detail || e.message}`);
+                                }
+                              }}
+                              data-testid={`batch-history-rename-${i}`}
+                              className="nvx-btn xs ghost" title="Rename" style={{ marginLeft: 4 }}>
+                              <Pencil size={10} />
+                            </button>
+                            <button
+                              onClick={() => deleteRun(h.id)}
+                              data-testid={`batch-history-delete-${i}`}
+                              className="nvx-btn xs ghost" title="Delete"
+                              style={{ marginLeft: 4, color: VERDICT_COLOR.Malicious, borderColor: "rgba(239,68,68,0.35)" }}>
+                              <Trash2 size={10} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
 
         {summary && (
           <div className="nvx-card" style={{ marginBottom: 12 }} data-testid="batch-summary">

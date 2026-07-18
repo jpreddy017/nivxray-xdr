@@ -2055,6 +2055,55 @@ MITRE_HEURISTICS = [
     (r"\.(?:cursorrules|windsurf|copilot-instructions\.md|\.aider\.chat\.history)|"
      r"\.vscode/settings\.json[^\n]{0,60}?(?:cline|codeium|copilot|cursor)",
         ("T1588.002", "AI-coding-assistant project artefacts in payload (Montana Empire ZIP signature)", "Resource Development")),
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · Fragment-mode heuristics
+    # (Match argument-only command-line fragments even when the host
+    # LOLBin has been sliced off — critical for partial telemetry, EDR
+    # process-tree fragments, and analyst-pasted command excerpts.)
+    # ═══════════════════════════════════════════════════════════════════
+    # Bare -EncodedCommand / -e / -ec / -enc … with base64 tail
+    (r"(?:^|[\s\"'])-e(?:c|nc|ncoded|ncodedc|ncodedcommand)?\s+[A-Za-z0-9+/=]{24,}",
+        ("T1059.001", "PowerShell -EncodedCommand fragment (no host binary present)", "Execution")),
+    (r"(?:^|[\s\"'])-e(?:c|nc|ncoded|ncodedc|ncodedcommand)?\s+[A-Za-z0-9+/=]{60,}",
+        ("T1027.010", "PowerShell -EncodedCommand fragment — long base64 payload", "Defense Evasion")),
+    # Bare -Command "IEX(...)" / -c "IEX ..." fragment
+    (r"(?:^|[\s\"'])-c(?:ommand)?\s+[\"']?[^\"'\r\n]{0,120}?(?:iex|invoke-expression|downloadstring|invoke-webrequest|net\.webclient|start-bitstransfer)",
+        ("T1059.001", "PowerShell -Command fragment invoking IEX / download-and-execute", "Execution")),
+    # Bare cmd fragment: /c or /k with chained commands
+    (r"(?:^|[\s\"'])/[cCkK]\s+[\"']?[^\"'\r\n]{0,200}?(?:&&|\|\||\bstart\b|\bpowershell\b|\bcurl\b|\bcertutil\b|\bbitsadmin\b|\bmshta\b|\breg\s+add\b)",
+        ("T1059.003", "cmd /c or /k fragment chaining execution primitives", "Execution")),
+    # Bare certutil-style fragments (arguments only)
+    (r"(?:^|[\s\"'])-urlcache\s+(?:-\S+\s+){0,3}-f\s+https?://",
+        ("T1105", "certutil -urlcache -f fragment (download via LOLBIN args)", "Command and Control")),
+    (r"(?:^|[\s\"'])-decode(?:hex)?\s+[\"']?[a-z0-9_.\\/\-]{3,}[\"']?\s+[\"']?[a-z0-9_.\\/\-]{3,}[\"']?",
+        ("T1140", "certutil -decode fragment (base64/hex decode of staged file)", "Defense Evasion")),
+    # Bare bitsadmin fragment
+    (r"(?:^|[\s\"'])/transfer\s+\S+\s+https?://\S+\s+\S+",
+        ("T1197", "bitsadmin /transfer fragment (BITS-job download)", "Command and Control")),
+    # Bare mshta fragment (URL argument w/o host binary)
+    (r"(?:^|[\s\"'])(?:javascript:|vbscript:)[^\r\n]{0,200}?(?:GetObject|WScript|ActiveXObject|eval|CreateObject)",
+        ("T1218.005", "mshta-style javascript:/vbscript: URI fragment", "Defense Evasion")),
+    # Bare rundll32 fragment (DLL,Entry pattern)
+    (r"(?:^|[\s\"'])[\"']?[a-z]:\\[^\"'\r\n]{2,200}?\.dll[\"']?,\s*[A-Za-z_@#][A-Za-z0-9_@#]{2,60}",
+        ("T1218.011", "rundll32-style DLL,ExportedFunction fragment", "Defense Evasion")),
+    # Bare reg-add persistence key fragment
+    (r"(?:^|[\s\"'])add\s+[\"']?HK(?:LM|CU)\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        ("T1547.001", "reg add HKCU/HKLM ...\\Run persistence fragment", "Persistence")),
+    # Bare schtasks / at.exe scheduling fragment
+    (r"(?:^|[\s\"'])/create\s+/tn\s+[\"']?\S+[\"']?\s+/tr\s+",
+        ("T1053.005", "schtasks /create /tn /tr fragment (scheduled-task persistence)", "Persistence")),
+    # Bare wmic process-call fragment
+    (r"(?:^|[\s\"'])process\s+call\s+create\s+[\"']?[^\"'\r\n]{0,200}?(?:powershell|cmd|cscript|wscript|mshta|rundll32)",
+        ("T1047", "wmic process call create fragment (remote/local process spawn)", "Execution")),
+    # Bare vssadmin shadow-copy delete fragment
+    (r"(?:^|[\s\"'])delete\s+shadows\s+/all\s+/quiet",
+        ("T1490", "vssadmin delete shadows /all /quiet fragment (ransom precursor)", "Impact")),
+    # Bare -NoP / -NoProfile / -W Hidden / -EP Bypass stealth combo (fragment)
+    (r"(?:^|[\s])(?:-nop|-noprofile)\s+(?:-\S+\s+){0,4}(?:-w(?:indowstyle)?\s+hidden|-ep\s+bypass|-executionpolicy\s+bypass)",
+        ("T1059.001", "PowerShell stealth-flag fragment (-NoP -W Hidden -EP Bypass)", "Execution")),
+    # Standalone very-long base64 blob (>= 200 chars) with typical PowerShell UTF-16LE prefix
+    (r"(?:^|[\s\"'=])[A-Za-z0-9+/]{200,}={0,2}(?:\s|$|['\"])",
+        ("T1027", "Standalone long base64 blob (>=200 chars) — likely encoded payload", "Defense Evasion")),
 ]
 
 
