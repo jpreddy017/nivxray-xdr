@@ -1,5 +1,14 @@
 name: Docs Screenshots
 
+# ── Feb 2026 v1.2.0 hotfix ──────────────────────────────────────────────
+# GitHub tightened default GITHUB_TOKEN permissions — the release-upload
+# step (softprops/action-gh-release@v2) needs `contents: write` explicitly,
+# otherwise it fails with "Resource not accessible by integration".
+# Also declares the minimum surface needed; everything else stays read-only.
+permissions:
+  contents: write
+  actions: read
+
 on:
   # Manual trigger by the team (Actions tab → Run workflow), optionally
   # scoped to a single workflow id.
