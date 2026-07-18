@@ -226,6 +226,113 @@ def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> 
         # Normalizer must never break decode
         pass
 
+    # Feb 2026 v1.3.5 · Post-decode reverse-string catcher.
+    # If the FINAL output looks like reversed base64 (starts with `==` and
+    # matches the b64 alphabet), try reversing + decoding. Handles the
+    # `... | base64 | rev` tradecraft that some multi-stage stagers use
+    # AFTER hex/utf16 layers have been peeled — magic_decoder's chain
+    # doesn't include reverse-string, so we catch it here as a safety net.
+    try:
+        import re, base64, gzip, zlib
+        out_text = final_result.get("output") or ""
+        stripped = out_text.strip()
+        # Trigger conditions: starts with `==` (b64 padding at *start* = reversed)
+        # OR the whole thing is a long pure-b64 blob that fails to decode forward
+        # but decodes cleanly when reversed.
+        looks_reversed_b64 = (
+            len(stripped) >= 40
+            and stripped.startswith("==")
+            and re.fullmatch(r"[A-Za-z0-9+/=\s]+", stripped)
+        )
+        if looks_reversed_b64:
+            rev = stripped[::-1]
+            b64_only = re.sub(r"[^A-Za-z0-9+/=]", "", rev)
+            pad = b64_only + "=" * (-len(b64_only) % 4)
+            try:
+                raw = base64.b64decode(pad, validate=False)
+                # Only accept if result is printable text OR has known magic
+                is_printable = sum(1 for b in raw[:200] if 32 <= b < 127 or b in (9, 10, 13)) / max(1, min(200, len(raw))) >= 0.85
+                is_magic = raw[:2] in (b"\x1f\x8b", b"MZ") or raw[:4] == b"\x7fELF"
+                if is_printable or is_magic:
+                    decoded = raw.decode("utf-8", errors="replace") if is_printable else raw.hex(" ")
+                    # Also unwrap gzip if present
+                    if raw[:2] == b"\x1f\x8b":
+                        try:
+                            decoded = gzip.decompress(raw).decode("utf-8", errors="replace")
+                        except Exception:
+                            pass
+                    final_result["output"] = decoded
+                    (final_result.setdefault("steps") or []).extend([
+                        {"op": "reverse", "args": {},
+                         "reason": "Post-decode: output was reversed base64 (starts with `==` padding at head)"},
+                        {"op": "base64-decode", "args": {},
+                         "reason": "Post-decode: reversed → base64 → plaintext"},
+                    ])
+                    final_result.setdefault("post_processing", {})["reverse_b64"] = {
+                        "original_len": len(out_text),
+                        "cleaned_len":  len(decoded),
+                    }
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # Feb 2026 v1.3.5 · Shellcode family annotation.
+    # When the final output is raw shellcode bytes (Latin1-encoded on the
+    # transit as a str), replace it with an analyst-friendly card: family
+    # tag, arch, hex dump, extracted UAs / IOCs / API names, and a hint
+    # to run through `speakeasy` or `scdbg`.
+    try:
+        from shellcode_analyzer import annotate_shellcode, starts_with_known_prologue
+        out_text = final_result.get("output") or ""
+        if out_text and final_result.get("reached_shellcode"):
+            # Reconstruct raw bytes from the latin1-transit string.
+            try:
+                raw = out_text.encode("latin1", errors="replace")
+            except Exception:
+                raw = b""
+            if raw and starts_with_known_prologue(raw):
+                card = annotate_shellcode(raw)
+                if card:
+                    final_result["output"] = card
+                    final_result.setdefault("post_processing", {})["shellcode_annotate"] = {
+                        "raw_bytes": len(raw),
+                        "card_len":  len(card),
+                    }
+    except Exception:
+        pass
+
+    # Feb 2026 v1.3.5 · Trim binary tail from mixed text/binary outputs.
+    # Common after UTF-16LE decoding a payload whose tail bytes aren't
+    # actually UTF-16 text (script header + shellcode blob spliced together).
+    # We look for: printable-prefix (≥30 chars) followed by ≥20 consecutive
+    # non-printable / NUL bytes. Split into `<prefix>` + `[trailing binary:
+    # N bytes · hex preview]`.
+    try:
+        import re
+        out_text = final_result.get("output") or ""
+        if out_text and 40 < len(out_text) < 32_000 and "─── Shellcode" not in out_text:
+            # Find first index where 12+ non-printable chars appear in a row.
+            m = re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]{12,}", out_text)
+            if m and m.start() >= 30:
+                head = out_text[:m.start()].rstrip()
+                tail = out_text[m.start():]
+                tail_bytes = tail.encode("latin1", errors="replace")
+                hex_prev = " ".join(f"{b:02x}" for b in tail_bytes[:32])
+                trimmed = (
+                    f"{head}\n\n"
+                    f"# ─── Trailing binary blob ({len(tail_bytes)} bytes · not text) ───\n"
+                    f"# hex preview: {hex_prev}"
+                    + (" …" if len(tail_bytes) > 32 else "")
+                )
+                final_result["output"] = trimmed
+                final_result.setdefault("post_processing", {})["binary_tail_trim"] = {
+                    "prefix_len": len(head),
+                    "tail_bytes": len(tail_bytes),
+                }
+    except Exception:
+        pass
+
     return final_result
 
 

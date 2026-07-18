@@ -400,3 +400,141 @@ def analyze(data: bytes, arch: Optional[str] = None, max_insns: int = 300) -> Di
         "hex_preview":  data[:64].hex(" "),
         "capstone_available": _CS_OK,
     }
+
+
+
+# ---------------------------------------------------------------------------
+# v1.3.5 · Shellcode family annotator (analyst-friendly output card)
+# ---------------------------------------------------------------------------
+
+# Family fingerprints — checked in order. Each entry: (name, matcher, mitre)
+_SHELLCODE_FAMILIES: List[tuple] = [
+    ("Metasploit Meterpreter (reverse_tcp/https · x86 stager)",
+     lambda d: d.startswith(b"\xfc\xe8") and (b"ws2_32" in d.lower() or b"wininet" in d.lower() or b"MSIE" in d),
+     "T1071.001"),
+    ("Metasploit Meterpreter (reverse_tcp/https · x64 stager)",
+     lambda d: d.startswith(b"\xfc\x48\x83\xe4\xf0") and (b"ws2_32" in d.lower() or b"wininet" in d.lower()),
+     "T1071.001"),
+    ("Cobalt Strike Beacon (staged · x86)",
+     lambda d: d.startswith(b"\xfc\xe8") and b"beacon" in d.lower(),
+     "T1071.001"),
+    ("Generic MSFVenom shellcode (x86 · reverse-shell)",
+     lambda d: d.startswith(b"\xfc\xe8") and (b"\x0f\xb7\x4a\x26" in d[:64] or b"\x31\xff" in d[:64]),
+     "T1059"),
+    ("Generic MSFVenom shellcode (x64)",
+     lambda d: d.startswith(b"\xfc\x48"),
+     "T1059"),
+    ("Windows PE Executable dropped inline",
+     lambda d: d.startswith(b"MZ") and b"PE\x00\x00" in d[:512],
+     "T1027.002"),
+    ("Linux ELF binary dropped inline",
+     lambda d: d.startswith(b"\x7fELF"),
+     "T1027.002"),
+]
+
+
+def _hex_dump(data: bytes, offset: int = 0, count: int = 128, width: int = 16) -> str:
+    """Classic hex+ASCII side-by-side dump for the first `count` bytes."""
+    end = min(len(data), offset + count)
+    lines = []
+    for i in range(offset, end, width):
+        chunk = data[i:i + width]
+        hex_part = " ".join(f"{b:02x}" for b in chunk).ljust(width * 3)
+        ascii_part = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
+        lines.append(f"  {i:08x}  {hex_part}  |{ascii_part}|")
+    if end < len(data):
+        lines.append(f"  … ({len(data) - end} more bytes truncated)")
+    return "\n".join(lines)
+
+
+def _extract_user_agents(data: bytes) -> List[str]:
+    """Pull User-Agent strings from shellcode HTTP staging."""
+    uas: List[str] = []
+    for s in _ascii_strings(data, min_len=20):
+        if s.startswith("Mozilla/") or "compatible;" in s or "MSIE " in s:
+            uas.append(s)
+    return uas[:5]
+
+
+def _family_recognise(data: bytes) -> tuple:
+    """Return (family_name, mitre_id) or (None, None)."""
+    for name, match, mitre in _SHELLCODE_FAMILIES:
+        try:
+            if match(data):
+                return name, mitre
+        except Exception:
+            continue
+    return None, None
+
+
+def annotate_shellcode(data: bytes, max_bytes: int = 4096) -> Optional[str]:
+    """Produce an analyst-friendly shellcode investigation card.
+
+    Returns None if `data` doesn't match any known shellcode family or magic.
+    Otherwise returns a multi-line annotation string:
+
+        # --- Shellcode Detected: <family> ---
+        # Arch:   x86_64 · Size: 512B · Entropy: 6.94
+        # MITRE:  T1071.001
+        # UA:     Mozilla/5.0 (compatible; MSIE 9.0; ...)
+        # IOCs:   http://…, 10.1.2.3:4444
+        # Hex dump (first 128 bytes):
+        #   00000000  fc e8 82 00 …  |…|
+        # Disassembly (first 24 instructions):
+        #   00000000  cld
+        #   00000001  call 0x87
+        # Recommendation: dump to /tmp/x.bin and feed to `speakeasy` or `scdbg`
+    """
+    if not data or len(data) < 8:
+        return None
+    if not (starts_with_known_prologue(data) or is_shellcode(data)):
+        return None
+
+    family, mitre = _family_recognise(data)
+    arch = detect_arch(data)
+    ents = round(shannon_entropy(data), 3)
+    uas = _extract_user_agents(data)
+    iocs = extract_iocs(data)
+    urls = iocs.get("urls") or []
+    ips = iocs.get("ipv4") or iocs.get("ips") or []
+    apis = [s for s in _ascii_strings(data, 6)
+            if s.lower() in ("kernel32.dll", "ws2_32.dll", "wininet.dll", "advapi32.dll",
+                             "loadlibrarya", "getprocaddress", "wsastartup", "wsasocket",
+                             "connect", "recv", "send", "createprocessa",
+                             "virtualalloc", "internetopena", "internetconnecta",
+                             "httpopenrequesta", "httpsendrequesta")][:10]
+
+    # Optional disassembly (short — capstone may not be installed)
+    disasm_lines: List[str] = []
+    try:
+        for insn in disassemble(data[:min(len(data), max_bytes)], arch, max_insns=24):
+            disasm_lines.append(f"  {insn.get('addr', 0):08x}  {insn.get('mnemonic','?'):8s} {insn.get('op_str','')}")
+    except Exception:
+        pass
+
+    lines = []
+    lines.append(f"# ─── Shellcode Detected: {family or 'Unknown shellcode / binary'} ───")
+    lines.append(f"# Arch    : {arch} · Size: {len(data)}B · Entropy: {ents}")
+    if mitre:
+        lines.append(f"# MITRE   : {mitre}")
+    if uas:
+        for ua in uas:
+            lines.append(f"# UA      : {ua}")
+    if urls:
+        lines.append(f"# URLs    : {', '.join(urls[:5])}")
+    if ips:
+        lines.append(f"# IPs     : {', '.join(ips[:5])}")
+    if apis:
+        lines.append(f"# APIs    : {', '.join(apis)}")
+    lines.append("#")
+    lines.append("# Hex dump (first 128 bytes):")
+    lines.append(_hex_dump(data, 0, 128))
+    if disasm_lines:
+        lines.append("#")
+        lines.append("# Disassembly (first 24 instructions):")
+        lines.extend(disasm_lines)
+    lines.append("#")
+    lines.append("# Recommendation: extract raw bytes → run through `speakeasy` "
+                 "or `scdbg` for full behavioural analysis. If Meterpreter/Cobalt "
+                 "Strike, extract the C2 config with `1768` or `dissect.cobaltstrike`.")
+    return "\n".join(lines)

