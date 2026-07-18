@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import Header from "@/components/Header";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -41,16 +42,17 @@ export default function BenchmarkPage() {
   const gateColor = gateOk ? "#22c55e" : "#ef4444";
 
   return (
-    <div
-      data-testid="benchmark-page"
-      style={{
-        minHeight: "100vh",
-        background: "#0b0f19",
-        color: "#e5e7eb",
-        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-        padding: "48px 6vw",
-      }}
-    >
+    <div data-testid="benchmark-page-wrap" style={{ minHeight: "100vh", background: "#0b0f19" }}>
+      <Header />
+      <div
+        data-testid="benchmark-page"
+        style={{
+          background: "#0b0f19",
+          color: "#e5e7eb",
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          padding: "32px 6vw 48px",
+        }}
+      >
       <header style={{ marginBottom: 32 }}>
         <div style={{ opacity: 0.55, fontSize: 12, letterSpacing: 2 }}>
           NIVXRAY · PUBLIC BENCHMARK
@@ -206,6 +208,7 @@ export default function BenchmarkPage() {
         ground truth is verifiable. Corpus refreshes weekly via MalwareBazaar + Atomic
         Red Team. CI gate: MITRE hit-rate &ge; 75% + Undecoded &le; 10%.
       </footer>
+      </div>
     </div>
   );
 }

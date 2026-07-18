@@ -98,20 +98,33 @@ export default function Header() {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)" }} data-testid="header-user-email">
-          {user?.email}
-        </div>
-        <button
-          data-testid="header-change-password-btn"
-          className="nvx-btn sm ghost"
-          onClick={() => setCpOpen(true)}
-          title="Rotate your password"
-        >
-          <KeyRound size={13} /> PASSWORD
-        </button>
-        <button data-testid="header-logout-btn" className="nvx-btn sm" onClick={logout}>
-          <LogOut size={13} /> LOGOUT
-        </button>
+        {user ? (
+          <>
+            <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)" }} data-testid="header-user-email">
+              {user?.email}
+            </div>
+            <button
+              data-testid="header-change-password-btn"
+              className="nvx-btn sm ghost"
+              onClick={() => setCpOpen(true)}
+              title="Rotate your password"
+            >
+              <KeyRound size={13} /> PASSWORD
+            </button>
+            <button data-testid="header-logout-btn" className="nvx-btn sm" onClick={logout}>
+              <LogOut size={13} /> LOGOUT
+            </button>
+          </>
+        ) : (
+          <Link
+            to="/login"
+            data-testid="header-login-link"
+            className="nvx-btn sm"
+            style={{ textDecoration: "none" }}
+          >
+            LOGIN
+          </Link>
+        )}
       </div>
       <ChangePasswordModal open={cpOpen} onClose={() => setCpOpen(false)} />
     </header>
