@@ -1,9 +1,30 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
-## v1.3.0-preview — Feb 18 2026 · Fragment MITRE + Batch UX
+## v1.3.0-preview (batch 2) — Feb 18 2026 · Heatmap + Corpus + macOS + gap fixes
 
-**Status:** Preview batch · **ready for EOD prod release**
+**Status:** Preview · **staged for next prod release**
+
+### New in batch 2
+- 🗺️ **MITRE ATT&CK Detection Heatmap** page (`/heatmap`) — 231 heuristics · 102 techniques · 13 tactics · live payload probe
+- 🧪 **Corpus Validator** endpoint (`POST /api/corpus/validate`) — CSV/JSON/JSONL/XLSX → auto gap report
+- 🍎 **macOS `osascript` decoder** archetype — Amos/Poseidon/MacStealer tradecraft, JXA support, embedded b64 pipe chaining
+- 🎯 **Fragment MITRE extensions** — `/c … rundll32/tasklist/comsvcs` + ordinal DLL exports (`comsvcs.dll, #+000024`)
+- 🐛 **Verdict noise fix** — tiny (<20 char) no-signal payloads no longer flagged Suspicious
+- 🧪 **49 new tests** (14 endpoints + 18 fragment + 17 archetype), all green
+
+### Session inventory (v1.3.0-preview total)
+- 3 new frontend pages (Recent Runs panel, MITRE Heatmap page, corpus preview soon)
+- 3 new backend routers (mitre_heatmap, corpus_validate, extended batch)
+- 14 new MITRE fragment heuristics
+- 1 new macOS archetype
+- ~65 net new tests
+- Ready-to-release checklist: all green
+
+---
+
+
+## v1.3.0-preview (batch 1) — Feb 18 2026 · Fragment MITRE + Batch UX
 
 ### What's new in v1.3.0-preview (this session)
 - 🎨 **Recent Runs panel** in Batch tab (was hidden – backend existed since Feb 2026)

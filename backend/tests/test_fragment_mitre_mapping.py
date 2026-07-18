@@ -54,6 +54,23 @@ def test_fragment_rundll32_dll_export():
     assert "T1218.011" in ids
 
 
+def test_fragment_rundll32_dll_ordinal_export():
+    """Feb 2026 v1.3.0 · comsvcs.dll ordinal MiniDump (LSASS dump tradecraft)."""
+    ids = _ids('C:\\windows\\System32\\comsvcs.dll, #+000024 1076 \\Windows\\Temp\\x.ttf full')
+    assert "T1218.011" in ids
+    assert "T1003.001" in ids  # ← comsvcs.dll ordinal → LSASS-dump primitive
+
+
+def test_fragment_cmd_slashc_rundll32_lsass():
+    """/c for /f ... rundll32 comsvcs LSASS tradecraft — fragment-mode T1059.003."""
+    frag = ('/Q /c for /f "tokens=1,2 delims= " %A in ("tasklist /fi "Imagename eq lsass.exe" '
+            '| find "lsass"") do rundll32.exe C:\\windows\\System32\\comsvcs.dll, #+000024 %B')
+    ids = _ids(frag)
+    assert "T1059.003" in ids
+    assert "T1218.011" in ids
+    assert "T1003.001" in ids
+
+
 def test_fragment_reg_run_key_persistence():
     ids = _ids('add "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v Updater /d "cmd /c payload.exe" /f')
     assert "T1547.001" in ids

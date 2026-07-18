@@ -1,6 +1,57 @@
 # NivXRay · CHANGELOG
 
-## v1.3.0-preview — 2026-07-18 · Fragment MITRE + Batch Recent Runs UI
+## v1.3.0-preview (batch 2) — 2026-07-18 · Heatmap + Corpus Validator + macOS Decoder + Analyst Gap Fixes
+
+**Status:** Preview batch · staged for next prod release
+
+### 🗺️ NEW: MITRE ATT&CK Detection Heatmap (`/heatmap`)
+- Visual coverage matrix — 231 heuristics · 102 unique techniques · 13 tactics in kill-chain order
+- Top-covered techniques strip, sparse-coverage warning (candidates for new signatures)
+- **Payload probe** — paste any command, cells light up in real-time
+- Filter box for T-ID / technique name
+
+**New endpoints:**
+- `GET  /api/mitre/heatmap`
+- `GET  /api/mitre/heatmap/tactic/{name}`
+- `POST /api/mitre/heatmap/probe`
+
+### 🧪 NEW: Corpus Validator (`POST /api/corpus/validate`)
+- Accepts CSV / JSON / JSONL / XLSX
+- Returns per-row **gap report**: expected MITRE vs got MITRE, missing/extras, coverage %
+- Prefix-match logic (T1059 covers T1059.001)
+- `by_status` summary: pass / gap / no_expectations / empty_mitre_no_expectations
+- Downloadable starter template at `GET /api/corpus/validate/example`
+
+### 🍎 NEW: macOS `osascript` decoder archetype
+- Handles AppleScript `do shell script "…"` variants
+- Handles JXA (`osascript -l JavaScript -e …`)
+- Extracts embedded `echo <b64> | base64 -d | sh` chains → recovers plaintext
+- Emits T1059.002 · T1140 · T1204.002 · T1105 · T1543.001
+
+### 🎯 Fragment-mode heuristic improvements (from analyst "Now" batch feedback)
+- Extended `cmd /c` fragment allow-list: now includes `rundll32|tasklist|comsvcs|wmic|net use|schtasks|vssadmin|for /f`
+- Extended `.dll,Export` pattern: accepts ordinal-form exports (e.g., `comsvcs.dll, #+000024` → T1218.011)
+- **New**: `comsvcs.dll ordinal MiniDump` → T1003.001 (LSASS credential dumping)
+
+### 🐛 Verdict noise fix (v1.2.0 → v1.3.0-preview)
+- Tiny (<20 char) no-signal payloads (`[`, `],`, `"-Embedding",`) no longer flagged **Suspicious**
+- Downgrade rule: `len<20 AND no MITRE AND no LOLBAS AND no IOCs AND no shellcode → Unknown`
+- Fixes false-flag Suspicious verdicts on JSON parser debris in analyst pastes
+
+### 🧪 Tests
+- `tests/test_v1_3_endpoints.py` — 14 new tests (heatmap / corpus / osascript)
+- `tests/test_fragment_mitre_mapping.py` — 18 fragment tests (up from 16), all green
+- Full v1.3.0 test set: **49/49 pass**
+
+### 📊 Analyst validation
+- Re-ran user "Now" batch (11 rows, LSASS-dump tradecraft) — all 5 target fixes landed:
+  - `[`, `],`, `"-Embedding",` → downgraded to Unknown ✅
+  - `/Q /c for /f ... rundll32` → now 5 MITRE (was 4, added T1059.003) ✅
+  - `comsvcs.dll, #+000024 ...` → now 2 MITRE (was 1, added T1218.011) ✅
+
+---
+
+## v1.3.0-preview (batch 1) — 2026-07-18 · Fragment MITRE + Batch Recent Runs UI
 
 **Status:** Preview batch · staged for EOD prod release
 

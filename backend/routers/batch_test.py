@@ -202,6 +202,18 @@ def _run_single(payload: str, analysis_mode: str) -> Dict[str, Any]:
         else:
             verdict = "Unknown"
 
+    # Feb 2026 v1.3.0 · Tiny-input noise guard — pure syntax fragments like
+    # `[`, `],`, `"-Embedding",` (JSON/COM debris from analyst pastes) MUST
+    # NOT get a "Suspicious" verdict. If the payload is short AND has zero
+    # signals (no MITRE, no LOLBAS, no IOCs, no chain steps, no shellcode),
+    # downgrade to Unknown regardless of what the deterministic engine said.
+    _stripped = payload.strip().strip('"\'').strip()
+    _no_signals = (not iocs or (isinstance(iocs, dict) and
+                    not any((iocs.get(k) or []) for k in ("ips","domains","urls","md5","sha1","sha256")))) \
+                  and not mitre and not lolbas and not r.get("reached_shellcode")
+    if len(_stripped) < 20 and _no_signals and verdict == "Suspicious":
+        verdict = "Unknown"
+
     steps = r.get("steps") or []
     # ── Feb 2026 v1.3.0 · Fold LOLBAS-provided MITRE tags into the aggregate.
     # Previously only `mitre_map()` heuristics were exported → certutil-only
