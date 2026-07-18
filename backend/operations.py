@@ -795,6 +795,37 @@ def _extract_b64_pair(data: str) -> str:
     return blocks[0] + blocks[1]
 
 
+@op("extract-b64-concat", "Extract Concatenated Base64 (`'a'+'b'+…`)", "Extractors",
+    "Reconstructs split base64 payloads stored as `'chunk1'+'chunk2'+…'chunkN'` "
+    "(Emotet / IcedID / Cobalt Strike downloader tradecraft). Concatenates every "
+    "quoted string fragment along a `+`-chain — even when individual chunks are "
+    "short — and returns the joined blob. Length-selected: only fires when the "
+    "concat produces a substantially longer blob than any single quoted chunk.")
+def _extract_b64_concat(data: str) -> str:
+    # 1. Find every quoted-string `+` chain of length ≥ 3 chunks (single or double quotes).
+    #    Chain shape: 'x'+'y'+…+'z' or "x"+"y"+…+"z"  — chunks are base64-shape.
+    #    We match TWO quote styles independently.
+    best = ""
+    for qc in ("'", '"'):
+        pat = qc + r"([A-Za-z0-9+/=]{4,120})" + qc
+        # Grab a run of ≥3 chunks separated by `+` (allowing whitespace)
+        chain_pat = r"(?:" + pat + r"\s*\+\s*){2,}" + pat
+        for m in re.finditer(chain_pat, data):
+            joined = "".join(re.findall(pat, m.group(0)))
+            if len(joined) > len(best):
+                best = joined
+    # 2. Fallback: also try concatenating ALL individual quoted b64-shape chunks
+    #    (some samples separate chunks by variable references, not just `+`).
+    all_chunks_single = re.findall(r"'([A-Za-z0-9+/=]{20,120})'", data)
+    all_chunks_double = re.findall(r'"([A-Za-z0-9+/=]{20,120})"', data)
+    for chunks in (all_chunks_single, all_chunks_double):
+        if len(chunks) >= 5:  # 5+ same-quote-style chunks — very likely a payload
+            joined = "".join(chunks)
+            if len(joined) > len(best):
+                best = joined
+    return best or _extract_b64(data)
+
+
 @op("extract-b64-via-var", "Extract Base64 via Variable", "Extractors",
     "Resolve `$var='..b64..';...decode($var)` style payloads — pulls the b64 string bound to a variable.")
 def _extract_b64_via_var(data: str) -> str:

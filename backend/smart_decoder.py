@@ -147,21 +147,81 @@ def smart_decode(payload: str) -> Dict[str, Any]:
     notes: List[str] = []
     current = payload
 
+    # ── v1.3.3 · Concatenated base64 payload reconstruction ─────────────
+    # Emotet / IcedID / Cobalt Strike downloaders split their base64 blob
+    # across `'chunk1'+'chunk2'+...` (each chunk may embed `{0}` / `{1}`
+    # format placeholders that get resolved by a `-f` operator elsewhere in
+    # the script). We concatenate every quoted b64-shape chunk along a `+`
+    # chain, run ps_normalize to resolve any format placeholders, then
+    # decode the resulting joined blob. Almost always a gzip / PE payload.
+    def _find_concat_chain(text: str, qc: str) -> str:
+        # Allow base64 chars + `{d}` format placeholders + `/`+`-`+`_` for
+        # URL-safe base64 variants inside chunks. Upper bound is generous
+        # (up to 500 chars per chunk) so bulk-chunk splits don't break the
+        # chain mid-run.
+        chunk = qc + r"[A-Za-z0-9+/=_\-{}]{4,500}" + qc
+        chain_pat = r"(?:" + chunk + r"\s*\+\s*){4,}" + chunk
+        best = ""
+        for m in re.finditer(chain_pat, text):
+            joined = "".join(re.findall(qc + r"([A-Za-z0-9+/=_\-{}]{4,500})" + qc, m.group(0)))
+            if len(joined) > len(best):
+                best = joined
+        return best
+
+    _best_chain = ""
+    for qc in ("'", '"'):
+        cand = _find_concat_chain(payload, qc)
+        if len(cand) > len(_best_chain):
+            _best_chain = cand
+    if _best_chain and len(_best_chain) >= 60:
+        # Resolve `{0}` / `{1}` placeholders via ps_normalize if the input
+        # has a `-f` format-operator argument list nearby.
+        resolved = _best_chain
+        if "{" in resolved:
+            try:
+                from ps_normalize import normalize_if_powershell
+                # Feed the FULL input through normalize so `-f` args are visible;
+                # then extract the same chain from the normalised text.
+                norm_text, _ = normalize_if_powershell(payload)
+                for qc in ("'", '"'):
+                    cand = _find_concat_chain(norm_text, qc)
+                    if len(cand) > len(resolved):
+                        resolved = cand
+            except Exception:
+                pass
+        # If placeholders remain, strip them so base64 decode can proceed.
+        cleaned_blob = re.sub(r"\{[0-9]+\}", "", resolved)
+        _raw = _try_base64(cleaned_blob) if len(cleaned_blob) >= 60 else None
+        if _raw is not None:
+            _n_chunks = payload.count("'+'") + payload.count('"+"') + 1
+            steps.append({
+                "op": "extract-b64-concat", "args": {},
+                "reason": f"Reconstructed split base64 payload from ~{_n_chunks} concatenated chunks ({len(cleaned_blob)} chars total)",
+            })
+            current = cleaned_blob
+            notes.append("Concatenated-base64 payload reconstructed before decode chain")
+            bin_op = _bin_magic_op(_raw)
+            if bin_op:
+                op_id, decoded = bin_op
+                steps.append({"op": op_id, "args": {}, "reason": f"Concat payload → {op_id}"})
+                current = decoded
+
     # THUMB RULE: ISOLATE THE PAYLOAD STRING FIRST.
     # If the input is a full script wrapper (variable assignment, cmdlet call,
     # bash pipeline), extract the enclosed base64 payload before running any
     # decoder recipe on it.
-    isolated = sanitize_encapsulated_payload(payload)
     isolated_flag = False
-    if isolated and isolated != payload.strip():
-        steps.append({
-            "op": "extract-payload",
-            "args": {},
-            "reason": f"Isolated base64 payload from script wrapper ({len(isolated)} chars)",
-        })
-        notes.append("Payload isolated from script/command wrapper (thumb rule)")
-        current = isolated
-        isolated_flag = True
+    if not steps:  # Skip isolation if concat-reconstruct already fired.
+        isolated = sanitize_encapsulated_payload(payload)
+        if isolated and isolated != payload.strip():
+            steps.append({
+                "op": "extract-payload",
+                "args": {},
+                "reason": f"Isolated base64 payload from script wrapper ({len(isolated)} chars)",
+            })
+            notes.append("Payload isolated from script/command wrapper (thumb rule)")
+            current = isolated
+            isolated_flag = True
 
     # If the isolated payload is a *clean* base64 string, decode it eagerly —
     # short pure-alpha payloads (e.g. `YWxlcnQoIlhTUyIp`) would otherwise be

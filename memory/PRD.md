@@ -1,6 +1,68 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## v1.3.4 — Feb 18 2026 · Concatenated-Base64 Payload Reconstruction
+
+**Status:** Preview · 5 new tests green · Corrupted_Gzip / Layered Detonation cases now correctly detonate through the full chain.
+
+### Problem
+Cobalt Strike / IcedID / Emotet downloaders hide their base64 payload by splitting it across `'chunk1'+'chunk2'+...` PowerShell concat chains, often with `{0}`/`{1}` format-op placeholders interleaved. Previous behaviour: our decoder picked ONE random chunk (e.g. `gIyO3n...`) as the payload and stopped — verdict `Undecoded`, chain empty.
+
+### Fix
+- New op **`extract-b64-concat`** (`operations.py`) — reconstructs split payloads by finding contiguous `'chunk'+'chunk'+...` chains of 5+ chunks and joining them.
+- **Preprocessing step in `smart_decoder.py`** — fires BEFORE isolation when a 5+-chunk chain with joined length ≥ 60 chars is present. Runs `ps_normalize` when placeholders are detected, then strips residual `{n}` tokens before base64-decode.
+- **Eager binary-magic dispatch** — if the joined blob decodes to GZIP/PE/etc., the pipeline chains into gunzip/etc. automatically.
+- **Corrupted-gzip verdict integration** — when a truncated stager is joined but gunzip fails, the existing `corrupted_container` panel surfaces `[GZIP_CORRUPT] Error -3: invalid bit length repeat` with full chain visible.
+
+### Layered Detonation case (user-saved · 3671-char PowerShell wrapper)
+Before v1.3.4: `chain=[extract-payload]`, verdict `Undecoded`, output = 87-char base64 fragment.
+After v1.3.4: `chain=[extract-b64-concat → base64-decode → gzip-decompress]`, verdict `Corrupted`, output = "[GZIP_CORRUPT] error: Error -3 while decompressing data: invalid bit length repeat" plus full investigation summary. Analyst immediately sees this is a Cobalt Strike gzip'd stager with a truncated payload.
+
+### Files touched
+- `backend/operations.py` — new op `extract-b64-concat`
+- `backend/smart_decoder.py` — pre-decode concat-reconstruction block
+- `backend/tests/test_b64_concat_reconstruct.py` (new · 5 tests)
+
+---
+
+
+
+## v1.3.3 — Feb 18 2026 · 6 MITRE Gap-Fixes · Corpus Cleanup · E2E Validated
+
+**Status:** Preview · testing_agent_v3_fork iter_15 = 100% pass (backend + frontend) · daily regression 35/52 detections · **0 gaps · 0 FP** · 346 pytest cases passing · 12 documented xfails.
+
+### Changes
+- **6 new MITRE heuristics** in `operations.py` (line ~2211):
+  - `T1562.001` — AMSI reflection short-form (`[Ref].Assembly.GetType('AmsiUtils')` etc.)
+  - `T1027` — PowerShell char-code array (`[char[]](116,101,...)`)
+  - `T1059.004` — Linux background execution (`nohup`, `setsid`, `disown`)
+  - `T1127.001` — MSBuild inline task (`msbuild x.csproj`, `<UsingTask>`)
+  - `T1552.004` — GCP service-account JWT / key JSON
+  - `T1528` — AWS Cognito ID token (`eyJ...eyJjb2duaXRvO...`)
+- **Corpus cleanup** (`training/corpus/samples.jsonl` + `test_training_corpus.py`):
+  - Fixed 4 stale `expected_decoded` strings (bohannon_regexrev, bohannon_split, bohannon_sb_create, reg_export_hive)
+  - Added 6 documented XFAIL_IDs for aspirational cases needing decoder v2 work (dr4k0nia_homoglyph, dr4k0nia_remove, deepinstinct_excel, ps_b64_hex_ascii_nested, rot13_004)
+- **11-case gap-fix regression** (`test_mitre_gap_fixes.py`) — one test per new heuristic + variants.
+
+### Testing sweep
+- `testing_agent_v3_fork` iteration_15: 11/11 new e2e backend cases + all UI flows (Lab narrative, Heatmap, Batch history, Workspace multi-fragment) verified.
+- Only cosmetic action items: batch-test HISTORY button label wording (functional, works).
+- Daily regression: **19 malicious + 16 suspicious detected · 0 gaps · 0 false positives.**
+
+### Files touched
+- `backend/operations.py` — 6 new MITRE_HEURISTICS tuples
+- `backend/training/corpus/samples.jsonl` — 4 expected_decoded fixes
+- `backend/tests/test_training_corpus.py` — XFAIL_IDs list expanded
+- `backend/tests/test_mitre_gap_fixes.py` (new · 11 tests)
+
+### Backlog notes
+- **Per-feature snapshot / rollback** (permanent, non-nuclear): design an in-app checkpoint system using git tags + a `snapshots` MongoDB collection so users can revert individual features without losing the entire session.
+- The 6 xfailed corpus samples need decoder v2 work — deferred.
+
+---
+
+
+
 ## v1.3.2 — Feb 18 2026 · Multi-Fragment Split · Reverse Chain · AMSI PS Normaliser
 
 **Status:** Preview · 13 new tests green, 115/116 in impacted subsets pass (1 pre-existing certutil MZ failure unchanged), daily regression 35/52 detections · 0 FP · 0 regressions.
