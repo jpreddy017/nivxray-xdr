@@ -2041,6 +2041,20 @@ MITRE_HEURISTICS = [
     # Local Volume Shadow deletion with specific shadow ID
     (r"vssadmin(?:\.exe)?\s+Delete\s+Shadows\s+/Shadow=\{[a-f0-9\-]+\}\s+/Quiet",
         ("T1490", "vssadmin Delete Shadows /Shadow={GUID} — ransomware/anti-forensics", "Impact")),
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · Phantom Squatting (Unit42) + Montana Empire
+    # ═══════════════════════════════════════════════════════════════════
+    (r"Kimseye\s+G[üu]venme|ENTER\s+THE\s+EMPIRE|Montana\s+Empire\s+(?:Panel|Kit|Admin)",
+        ("T1566.002", "Montana Empire phishing-kit control-panel markers", "Initial Access")),
+    (r"[a-z0-9\-]+post-app\.(?:com|net|org|io)|[a-z0-9\-]+-portal-support\.(?:com|net|io)",
+        ("T1583.001", "Phantom Squatting: hallucinated brand-portal domain pattern", "Resource Development")),
+    (r"(?:admin|sandbox|billing|api|dashboard|checkout)\.[a-z0-9\-]{4,30}\.(?:com|net|io)/(?:v\d+/)?(?:login|auth|pay|api)",
+        ("T1583.001", "AI-hallucinated brand subdomain (phantom-squat pattern)", "Resource Development")),
+    (r"api\.telegram\.org/bot[0-9]+:[A-Za-z0-9_\-]{20,}/(?:sendDocument|sendMessage|forwardMessage)",
+        ("T1567", "Telegram Bot API — OTP/credential relay (Montana Empire tradecraft)", "Exfiltration")),
+    (r"\.(?:cursorrules|windsurf|copilot-instructions\.md|\.aider\.chat\.history)|"
+     r"\.vscode/settings\.json[^\n]{0,60}?(?:cline|codeium|copilot|cursor)",
+        ("T1588.002", "AI-coding-assistant project artefacts in payload (Montana Empire ZIP signature)", "Resource Development")),
 ]
 
 
