@@ -2125,6 +2125,39 @@ MITRE_HEURISTICS = [
      r"\[System\.Runtime\.InteropServices\.Marshal\]::(?:Copy|GetDelegateForFunctionPointer)|"
      r"CreateThread\s*\(\s*(?:IntPtr\.Zero|0)",
         ("T1055.002", "PowerShell VirtualAlloc/CreateThread shellcode injection primitive", "Defense Evasion")),
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0 · PowerShell-syntax fragments (no `powershell.exe`)
+    # Fixes the class of payloads where the PowerShell interpreter host
+    # is implicit (e.g., piped from another script) but the cmdlet syntax
+    # is unmistakable.
+    # ═══════════════════════════════════════════════════════════════════
+    # Invoke-WebRequest / Invoke-RestMethod / iwr / irm — download primitive
+    (r"(?<![A-Za-z0-9_])(?:Invoke-WebRequest|Invoke-RestMethod|\biwr\b|\birm\b)\s+[^\r\n]{0,200}?-Uri\s+[\$\"']?https?://",
+        ("T1059.001", "PowerShell Invoke-WebRequest/IRM download cmdlet", "Execution")),
+    (r"(?<![A-Za-z0-9_])(?:Invoke-WebRequest|Invoke-RestMethod|\biwr\b|\birm\b)\s+[^\r\n]{0,200}?-(?:Uri|OutFile)\s+",
+        ("T1105", "PowerShell Invoke-WebRequest/IRM — Ingress Tool Transfer", "Command and Control")),
+    # Net.WebClient / DownloadFile / DownloadString — legacy PS download
+    (r"(?:New-Object\s+)?(?:System\.)?Net\.WebClient|\.DownloadString\s*\(|\.DownloadFile\s*\(",
+        ("T1105", "PowerShell Net.WebClient .DownloadString/.DownloadFile", "Command and Control")),
+    (r"(?:New-Object\s+)?(?:System\.)?Net\.WebClient|\.DownloadString\s*\(|\.DownloadFile\s*\(",
+        ("T1059.001", "PowerShell Net.WebClient download primitive", "Execution")),
+    # Start-Process / saps — user-execution primitive
+    (r"(?<![A-Za-z0-9_])(?:Start-Process|\bsaps\b)\s+[^\r\n]{0,200}?(?:\.exe|\$\w+|['\"][A-Za-z]:\\)",
+        ("T1204.002", "PowerShell Start-Process user-execution primitive", "Execution")),
+    (r"(?<![A-Za-z0-9_])(?:Start-Process|\bsaps\b)\s+",
+        ("T1059.001", "PowerShell Start-Process cmdlet (no PS host prefix)", "Execution")),
+    # Get-Random used to name a payload file (staging obfuscation)
+    (r"\$\(?Get-Random\)?[^\r\n]{0,60}?\.exe|\.exe[^\r\n]{0,60}?\$\(?Get-Random",
+        ("T1027", "PowerShell $(Get-Random).exe staging — filename obfuscation", "Defense Evasion")),
+    # Random-looking PowerShell variable names (heuristic: 5+ chars, mixed letter+digit, no dict word)
+    (r"\$[a-z]{2,4}[0-9]{2,4}[a-z]*\s*=\s*['\"]https?://",
+        ("T1027", "PowerShell randomized variable name assigned a URL", "Defense Evasion")),
+    # PowerShell comment tag `<# random #>` — used as tradecraft marker
+    (r"<#\s*[a-z0-9]{4,8}\s*#>",
+        ("T1027", "PowerShell junk-comment tradecraft marker `<# tag #>`", "Defense Evasion")),
+    # Staging path in AppData\Local\Temp
+    (r"C:\\Users\\Public\\AppData\\Local\\Temp\\|C:\\ProgramData\\|\\Windows\\Temp\\",
+        ("T1074.001", "Local staging in Public/ProgramData/Temp directory", "Collection")),
 ]
 
 
