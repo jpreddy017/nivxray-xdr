@@ -137,7 +137,7 @@ export default function WorkspacePage() {
     try {
       const axios = (await import("axios")).default;
       const API = process.env.REACT_APP_BACKEND_URL + "/api";
-      const token = localStorage.getItem("nivxray_token") || localStorage.getItem("access_token");
+      const token = localStorage.getItem("nvx_token");
       const r = await axios.post(
         `${API}/threat-intel/enrich-batch`,
         { values: values.slice(0, 25) },
@@ -597,6 +597,19 @@ export default function WorkspacePage() {
       setBoost(r.data.boost || null);
       setBoostHit(!!r.data.boost_hit);
       setNivxrayTrace([...trace]);
+      // v1.5.1 — populate analysis with Zero-Miss escalation ladder so the
+      // EscalationLadder component renders immediately on primary decode
+      // (without waiting for the analyst to click ANALYZE + OSINT).
+      setAnalysis((a) => ({
+        ...(a || {}),
+        iocs:        r.data.iocs || (a?.iocs) || {},
+        mitre:       r.data.mitre || (a?.mitre) || [],
+        lolbas:      r.data.lolbas || (a?.lolbas) || [],
+        engine:      eng,
+        confidence:  conf / 100,
+        layer_trace: r.data.layer_trace || [],
+        l3_metadata: r.data.l3_metadata || null,
+      }));
 
       // Step 2 · AI fallback if confidence low OR archetype didn't match AND output is trivial
       const shouldFallback = conf < 40 && !eng.startsWith("archetype:");
@@ -1849,21 +1862,33 @@ export default function WorkspacePage() {
               </div>
               <div className="nvx-card-body" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {iocEnrichment.map((e, i) => {
-                  const bad = (e.malicious_score || 0) > 0 || (e.abuse_confidence || 0) > 25;
-                  const bg = bad ? "#7f1d1d" : "#134e4a";
-                  const label = e.value + (e.malicious_score ? ` · ${e.malicious_score} hits` : "");
+                  // v1.5.2 · Explicit error surface — failure pills are RED,
+                  // never green. Failures come in from the enrichIocs catch
+                  // block as {value: "enrichment failed: <msg>"}.
+                  const isError = typeof e.value === "string" &&
+                                  (e.value.startsWith("enrichment failed") ||
+                                   e.value.startsWith("provider unavailable") ||
+                                   e.error);
+                  const bad = isError ||
+                              (e.malicious_score || 0) > 0 ||
+                              (e.abuse_confidence || 0) > 25;
+                  const bg = isError ? "#991b1b" : (bad ? "#7f1d1d" : "#134e4a");
+                  const label = isError
+                    ? e.value
+                    : e.value + (e.malicious_score ? ` · ${e.malicious_score} hits` : "");
+                  const icon = isError ? "⚠️ " : (bad ? "🔴 " : "🟢 ");
                   return (
                     <span
                       key={i}
-                      data-testid={`ioc-pill-${i}`}
+                      data-testid={`ioc-pill-${i}${isError ? "-error" : ""}`}
                       style={{
                         background: bg, color: "#fff", padding: "6px 12px",
                         borderRadius: 999, fontSize: 11, letterSpacing: 0.6,
-                        border: "1px solid rgba(255,255,255,0.15)",
+                        border: `1px solid ${isError ? "#dc2626" : "rgba(255,255,255,0.15)"}`,
                       }}
                       title={JSON.stringify(e.providers || {}, null, 2)}
                     >
-                      {bad ? "🔴 " : "🟢 "}
+                      {icon}
                       {label}
                     </span>
                   );

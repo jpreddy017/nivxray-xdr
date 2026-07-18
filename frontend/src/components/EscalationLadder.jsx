@@ -14,7 +14,13 @@ export default function EscalationLadder({ trace, winner, confidence }) {
   if (!Array.isArray(trace) || trace.length === 0) return null;
 
   const engineToLayer = { smart: "L1", magic: "L2", "llm-l3": "L3" };
-  const winnerLayer = engineToLayer[winner] || winner;
+  // Archetype fast-path returns `engine: "archetype:<name>"` — collapse
+  // any such value to the L0 card.
+  let winnerLayer = engineToLayer[winner];
+  if (!winnerLayer && typeof winner === "string" && winner.startsWith("archetype")) {
+    winnerLayer = "L0";
+  }
+  winnerLayer = winnerLayer || winner;
 
   return (
     <div
@@ -42,8 +48,10 @@ export default function EscalationLadder({ trace, winner, confidence }) {
           const verdict = step.verdict || "unknown";
           const color =
             verdict === "reached-shellcode" ? "#22c55e"
+            : verdict === "matched" ? "#22c55e"
             : verdict === "decoded" ? "#22c55e"
             : verdict === "zero-chain" ? "#94a3b8"
+            : verdict === "skipped" ? "#475569"
             : verdict === "gave-up" ? "#ef4444" : "#94a3b8";
           const bg = isWinner ? "#052e16" : "#0f172a";
           const border = isWinner ? "#166534" : "#334155";
@@ -62,8 +70,10 @@ export default function EscalationLadder({ trace, winner, confidence }) {
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color, marginBottom: 3 }}>
                 {verdict === "reached-shellcode" ? "SHELLCODE" :
+                 verdict === "matched" ? "MATCHED" :
                  verdict === "decoded" ? "DECODED" :
                  verdict === "zero-chain" ? "ZERO-CHAIN" :
+                 verdict === "skipped" ? "SKIPPED" :
                  verdict === "gave-up" ? "GAVE UP" : verdict.toUpperCase()}
               </div>
               <div style={{ fontSize: 10, color: "#64748b" }}>

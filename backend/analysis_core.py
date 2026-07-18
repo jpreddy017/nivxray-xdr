@@ -465,6 +465,21 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
                 arch["reached_shellcode"] = starts_with_known_prologue(raw)
             except Exception:
                 pass
+            # v1.5.1 — populate escalation trace so the UI ladder renders on
+            # the archetype-match fast path too. Archetype-match is L0 — even
+            # cheaper than L1 heuristics — so we emit a synthetic "matched"
+            # L0 entry + skipped L1/L2 entries the UI can grey out.
+            arch["layer_trace"] = [
+                {
+                    "layer": "L0",
+                    "engine": "archetype",
+                    "chain_len": len(arch.get("steps") or []),
+                    "score": 1.0,
+                    "verdict": "matched",
+                },
+                {"layer": "L1", "engine": "smart", "chain_len": 0, "score": 0.0, "verdict": "skipped"},
+                {"layer": "L2", "engine": "magic", "chain_len": 0, "score": 0.0, "verdict": "skipped"},
+            ]
             return arch
     except Exception:
         pass

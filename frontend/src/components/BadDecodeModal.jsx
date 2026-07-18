@@ -16,7 +16,7 @@ export default function BadDecodeModal({ open, onClose, rawInput, observedOutput
   const submit = async () => {
     setSubmitting(true); setErr(null);
     try {
-      const token = localStorage.getItem("nivxray_token") || localStorage.getItem("access_token");
+      const token = localStorage.getItem("nvx_token");
       const r = await axios.post(
         `${API}/decode/feedback`,
         {

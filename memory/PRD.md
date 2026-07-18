@@ -1,6 +1,61 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## v1.5.2 — Feb 2026 · Zero-Miss Escalation UI · Adversarial Regression · Auto-Learner · NivX Family Brand Locked
+
+**Status:** Preview · CI Gate PASSING · Escalation Ladder rendering on every decode · ENRICH IOCs auth-bug fixed · adversarial corpus writing on Undecoded traffic.
+
+### Brand family (locked · user Feb-2026)
+```
+NivX Machines (Co)
+├── nivxmachines.com    — Corporate + Customer Portal + NivXForge TI tab
+└── nivxforge.com       — Product platform
+    ├── nivxray.nivxforge.com     · NivXRay   — Command-line + multi-layer decode
+    ├── crucible.nivxforge.com    · NivX Crucible (P0 · L4 sandbox)
+    ├── vault.nivxforge.com       · NivX Vault (future)
+    └── insight.nivxforge.com     · NivX Insight (future)
+```
+
+### Shipped this batch
+- **Zero-Miss Escalation Ladder UI** (`EscalationLadder.jsx`) — renders L0/L1/L2/L3 cards on every decode, winner badge, confidence %, verdict per layer (matched · decoded · zero-chain · skipped · gave-up). Live green/grey/red colour code. Backend emits `layer_trace[]` from `analysis_core.deterministic_best_decode` on ALL paths (archetype fast-path L0, smart L1, magic L2, LLM L3).
+- **Adversarial Regression Suite** — `/api/decode/smart` now appends any Undecoded payload to `tests/fixtures/adversarial_corpus.jsonl` (SHA1 dedupe). `tests/test_adversarial_regression.py` iterates the ledger and gates CI at `NIVX_ADV_MIN_HIT_RATE` (default 60%). Registered as `@pytest.mark.adversarial`.
+- **Novel-payload learner loop closure** — `/api/learner/ingest-feedback` now AUTO-analyzes any feedback record with `expected_output` OR `ai_suggested_recipe`. Result: proposals appear immediately in the Proposals tab without admin clicking ANALYZE. Also added `/api/learner/auto-analyze-inbox` bulk endpoint.
+- **L3 LLM decoder fallback** (`llm_decoder.py`) — fires ONLY when both L1 and L2 zero-chain. Wired into `deterministic_best_decode` end-of-race. 10-second timeout, cost-gated on `EMERGENT_LLM_KEY`, non-recursive.
+- **Qwen 2.5 7B fine-tune bootstrap** (`finetune/run_finetune.sh`) — one-shot GPU-host script: unsloth + trl LoRA → llama.cpp GGUF → Ollama-ready `.q5_k_m.gguf` (~5GB, ~$4 GPU rental, ~4h runtime).
+- **ENRICH IOCs auth fix** — WorkspacePage + BadDecodeModal were reading a stale `nivxray_token` key → 403. Now use the canonical `nvx_token` key from `lib/auth.jsx`. Verified: 2 IOCs enriched, green clean-reputation pills, no error pill.
+- **Error-state pill red** — IOC enrichment failure pills now render **⚠️ red with dc2626 border**, not green (user-flagged bug).
+
+### Files added
+- `backend/llm_decoder.py` — L3 fallback
+- `backend/tests/test_adversarial_regression.py` — regression gate
+- `backend/finetune/run_finetune.sh` — GPU-host bootstrap
+- `frontend/src/components/EscalationLadder.jsx` — L0–L3 ladder UI
+
+### Files touched
+- `backend/analysis_core.py` — `layer_trace` emitter on all decode paths (archetype/smart/magic/L3)
+- `backend/routers/ops.py` — layer_trace passthrough + adversarial-corpus writer
+- `backend/routers/learner.py` — ingest auto-analyze + `/learner/auto-analyze-inbox`
+- `backend/pytest.ini` — `adversarial` marker registered
+- `frontend/src/pages/WorkspacePage.jsx` — EscalationLadder mount, nvx_token fix, IOC error-pill red
+- `frontend/src/components/BadDecodeModal.jsx` — nvx_token fix
+- `frontend/src/pages/LearnerPage.jsx` — INGEST FEEDBACK btn + FEEDBACK pill + Suggested Recipe chips
+
+### Bug-check results (user-requested "check all buttons")
+- **NIVXRAY DECODE** ✅ (2 layers peeled, 100% confidence, full investigation summary)
+- **AI DESCRIBE / ANALYZE + OSINT / COPY / DIFF / HEX / B64** ✅
+- **REPORT BAD DECODE modal** ✅ (opens, Claude diagnosis returned via `/api/decode/feedback`)
+- **ENRICH IOCs** ✅ (auth fixed, 2 IOCs enriched · green clean pills)
+- **Zero-Miss Escalation Trace card** ✅ (renders on every decode; L0 winner + L1/L2 skipped shown for archetype match)
+
+### Next Zero-Miss batch (in strict priority)
+- **P0 NivX Crucible** — L4 sandbox detonation. crucible.nivxforge.com subdomain. Two paths on the table: (a2) integrate Any.Run / VMRay / Hybrid Analysis / CAPE API — clean architecture, no infra pain, ~$50-500/mo external; (a1) self-hosted Docker `--network=none` + mitmproxy — only viable if we can run privileged containers on the deploy target.
+- **P0 Auto-escalation orchestrator** — L1→L2→L3→L4→L5 with `confidence < 0.6` gates and hard SLA (<50ms L1, <400ms L2, <5s L3, <30s L4, <60s total)
+- **P1 Learner auto-loop closure to L4** — successful Crucible detonation → auto-archetype proposal in learner inbox
+- **P1 Qwen fine-tune activation** — execute `run_finetune.sh` on a GPU host
+
+---
+
+
 ## v1.4.4 — Feb 2026 · Learner UI Polish · Qwen Fine-Tune Pipeline · IOC Ceiling Found
 
 **Status:** Preview · CI Gate PASSING @ MITRE 93.3% / Undecoded 1.7% / IOC 54.7% (heuristic ceiling reached · sandbox detonation is the path to 70%+)

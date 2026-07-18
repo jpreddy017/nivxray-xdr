@@ -573,6 +573,12 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # profile (kind, entropy, letter ratios), linguistic delta, and
         # step-by-step "considered / chosen / rejected" reasoning per layer.
         "reasoning": det.get("reasoning"),
+        # ▲ ZERO-MISS ESCALATION LADDER (v1.5.1)
+        # Records what each layer (L1 smart / L2 magic / L3 llm-l3) produced
+        # so the frontend can render the escalation trace. `winner_layer`
+        # tells the UI which card to highlight.
+        "layer_trace": det.get("layer_trace") or [],
+        "l3_metadata": det.get("l3_metadata"),
         "analysis_mode": body.analysis_mode or "balanced",
     }
 
