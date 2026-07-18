@@ -814,6 +814,77 @@ async def lookup_ti_hits(iocs: Dict[str, List[str]]) -> List[Dict[str, Any]]:
                 d["extra"] = extra
                 hits.append(d)
 
+    # ── v1.5.3 · Live OSINT provider hits merged into TI-HITS ──────────
+    # The local `db.iocs` is only ONE source of intel. When live providers
+    # (VT / AbuseIPDB / OTX / URLScan / Shodan / Hybrid Analysis / abuse.ch)
+    # report an IOC as malicious, that MUST also surface in the TI-HITS
+    # panel — otherwise analysts miss real threats.
+    try:
+        from osint import enrich_iocs
+        from deps import load_osint_keys
+        keys = await load_osint_keys()
+        if any(keys.values()):
+            live = await enrich_iocs(iocs, keys, max_per_type=6)
+            def _maybe_add(bucket_row: Dict[str, Any], kind_label: str):
+                if not isinstance(bucket_row, dict):
+                    return
+                val = bucket_row.get("value")
+                if not val:
+                    return
+                vt = (bucket_row.get("virustotal") or {})
+                ab = (bucket_row.get("abuseipdb") or {})
+                otx = (bucket_row.get("otx") or {})
+                urlscan = (bucket_row.get("urlscan") or {})
+                hybrid = (bucket_row.get("hybrid_analysis") or {})
+                shodan = (bucket_row.get("shodan") or {})
+                greynoise = (bucket_row.get("greynoise") or {})
+                vt_mal = (vt.get("malicious") or 0) + (vt.get("suspicious") or 0)
+                ab_score = ab.get("abuse_confidence_score") or ab.get("abuseConfidenceScore") or 0
+                otx_pulses = otx.get("pulse_count") or len(otx.get("pulses") or [])
+                greynoise_class = (greynoise or {}).get("classification") or ""
+                is_bad = (
+                    vt_mal > 0 or ab_score > 25 or otx_pulses > 0
+                    or greynoise_class == "malicious"
+                    or bool((hybrid or {}).get("threat_score"))
+                )
+                if not is_bad:
+                    return
+                key_id = (kind_label, val)
+                if key_id in seen:
+                    return
+                seen.add(key_id)
+                # Build a summary "source" string like "VT:3 · OTX:2 pulses · AbuseIPDB:87%"
+                badges = []
+                if vt_mal:      badges.append(f"VT:{vt_mal}")
+                if ab_score:    badges.append(f"AbuseIPDB:{ab_score}%")
+                if otx_pulses:  badges.append(f"OTX:{otx_pulses} pulses")
+                if greynoise_class: badges.append(f"GreyNoise:{greynoise_class}")
+                if (hybrid or {}).get("threat_score"): badges.append(f"HybridAnalysis:{hybrid['threat_score']}")
+                hits.append({
+                    "kind":         kind_label,
+                    "value":        val,
+                    "source":       "live-osint",
+                    "confidence":   min(100, vt_mal * 10 + ab_score + otx_pulses * 5),
+                    "tags":         ["osint-live"] + [b.split(":")[0].lower() for b in badges],
+                    "extra": {
+                        "badges":       badges,
+                        "virustotal":   vt,
+                        "abuseipdb":    ab,
+                        "otx":          otx,
+                        "urlscan":      urlscan,
+                        "hybrid_analysis": hybrid,
+                        "shodan":       shodan,
+                        "greynoise":    greynoise,
+                    },
+                })
+            for row in (live.get("ips") or []):     _maybe_add(row, "ip")
+            for row in (live.get("domains") or []): _maybe_add(row, "domain")
+            for row in (live.get("urls") or []):    _maybe_add(row, "url")
+            for row in (live.get("hashes") or []):  _maybe_add(row, "hash")
+    except Exception as _e:  # noqa: BLE001
+        # Live OSINT is best-effort; local hits still return.
+        pass
+
     return hits
 
 
