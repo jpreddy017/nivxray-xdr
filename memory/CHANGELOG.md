@@ -33,18 +33,44 @@
 - **Smarter TI-HITS empty state** — instead of misleading "No matches", shows contextual message when: T1102/T1105 legit-CDN abuse detected → explains why NO hit is expected + how to detect; T1583.001 suspicious TLD → prompts VT / urlscan submission; IOCs present but no feed hit → prompts feed sync.
 
 ### 🧪 Testing
-- **New `tests/test_v1_2_0_batch.py`** — 24 tests covering all P0 fixes + P1 signatures + composite screenshot-#1 payload smoke test. All 24 pass.
-- **Full sweep**: 209/210 test pass on Preview (1 pre-existing failure in `test_archetype_bash_b64_gunzip`, unrelated to v1.2.0).
+- **New `tests/test_v1_2_0_batch.py`** — 44 tests covering all P0 fixes + P1 signatures + macOS tradecraft + Cloud/Identity abuse + Plaintext-guard + composite screenshot-#1 payload smoke test. All 44 pass.
+- **Full sweep**: 218/218 pass across v1.2.0 + Golden Vault + Real-World Battery + Chain + TI + IOC + Sigma. Zero regressions.
+
+### 🍎 macOS Archetype Family (NEW)
+- **AppleScript / osascript** — `T1059.002` execution + `T1056.002` fake-credential-prompt dialog (Amos/MacStealer tradecraft).
+- **LaunchAgent / LaunchDaemon persistence** — `T1543.001` via `~/Library/LaunchAgents/*.plist` + `launchctl load`.
+- **Keychain dump** — `security find-generic-password / dump-keychain / unlock-keychain` → `T1555.001`.
+- **Gatekeeper bypass** — `xattr -d com.apple.quarantine` + `spctl --master-disable` → `T1553.001`.
+- **Sudo piped password** — `echo "pwd" | sudo -S` → `T1548.003`.
+- **TCC reset** — `tccutil reset SystemPolicyAllFiles` → `T1562`.
+- **Browser profile access** — Chrome/Brave/Edge/Safari/Firefox macOS paths → `T1555.003`.
+- **dscl account discovery** — `dscl . -read/-list /Users/` → `T1087.001`.
+- **defaults autostart** — `defaults write LSUIElement/ApplePersistenceIgnoreState` → `T1547.015`.
+
+### ☁ Cloud & Identity Abuse (NEW)
+- **OAuth device-code phishing** — `microsoft.com/devicelogin?otc=…` → `T1566.002` + `T1621` MFA fatigue.
+- **Illicit-consent grant** — over-scoped Mail/Files/Directory/Chat permissions → `T1550.001` + `T1528`.
+- **Microsoft Teams webhook C2** — `*.webhook.office.com/webhookb2/…` → `T1102` GIFshell-class.
+- **Microsoft Graph API exfil** — `graph.microsoft.com/v1.0/me/messages|drive|chats` → `T1567`.
+- **AAD/Entra PRT abuse** — `x-ms-refreshtokencredential`, `aadinternals`, `aadconnect` → `T1550.001`.
+- **AWS credential leaks** — `AKIA[0-9A-Z]{16}` + secret-key patterns → `T1552.001`.
+- **Cloud CLI cred manipulation** — `gcloud iam service-accounts keys create`, `az ad sp credential reset`, `kubectl create token` → `T1098.001`.
+
+### 🛡 AI Decode Plaintext Guard (NEW)
+- **Bug fixed:** For plaintext commandlines (like `cmd /c copy c:\windows\system32\curl.exe X.exe`), AI DECODE was echoing input to output because no encoding to strip. Analysts read this as "AI reversed my input".
+- **Fix:** `_is_already_plaintext()` detector at top of `/ai/auto-decode`. When input is ≥95% printable ASCII with real command/keyword markers AND no base64/hex/gzip/url-encoding markers, endpoint returns `stopped_gracefully=True` with a clear guidance message: "Input already appears to be plaintext — no decoding needed. Use ANALYZE + OSINT for MITRE + IOC + verdict."
+- Verified against 4 real plaintext cases pulled from live Preview history + 4 encoded-payload rejections.
 
 ### 📁 Files touched
-- `backend/operations.py` — IOC URL regex hardened; 12 new MITRE heuristics + 10 new YARA-lite rules.
+- `backend/operations.py` — 22 new MITRE heuristics (macOS + Cloud) + 15 new YARA-lite rules.
 - `backend/wrapper_archetypes.py` — hexfamily defensive; BLIND_XOR_SINGLE_BYTE archetype added.
 - `backend/chain_analyzer.py` — TI enrichment on aggregate.
 - `backend/sigma_generator.py` — `emit_sysmon()` function.
 - `backend/routers/sigma.py` — `/api/emit/sysmon` endpoint.
+- `backend/routers/ai.py` — `_is_already_plaintext()` + plaintext short-circuit in `/ai/auto-decode`.
 - `frontend/src/pages/WorkspacePage.jsx` — coloured STATUS bar.
 - `frontend/src/components/ThreatAnalysis.jsx` — TRADECRAFT callout + smart TI-HITS empty state.
-- `backend/tests/test_v1_2_0_batch.py` — new regression suite.
+- `backend/tests/test_v1_2_0_batch.py` — new 44-test regression suite.
 
 ---
 

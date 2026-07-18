@@ -1648,6 +1648,102 @@ MITRE_HEURISTICS = [
     # ─── Blind XOR / repeating-key XOR present (analyst-facing hint) ────
     (r"-b?xor\s+0x[0-9a-f]{2,4}|-b?xor\s+[\"']?[a-z0-9!@#\$%\^&\*]{2,16}[\"']?",
         ("T1027.013", "Encrypted/Encoded File (XOR cipher)", "Defense Evasion")),
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.2.0 · macOS Archetype Family
+    # ═══════════════════════════════════════════════════════════════════
+    # Amos Stealer / MacStealer / RustDoor / KandyKorn / Pupy — common
+    # macOS tradecraft: osascript AppleScript dialogs, LaunchAgent/Daemon
+    # persistence, curl-piped installers, keychain dumping, mdworker
+    # process abuse. Detects flat-file paste of process command lines.
+    #
+    # ─── AppleScript / osascript execution ──────────────────────────────
+    (r"osascript\s+(?:-e\s+|-l\s+JavaScript\s+-e\s+|-l\s+AppleScript\s+-e\s+)",
+        ("T1059.002", "Command and Scripting Interpreter: AppleScript", "Execution")),
+    (r"osascript\s+.{0,200}?(?:display\s+dialog|activate|do\s+shell\s+script)",
+        ("T1059.002", "AppleScript with dialog/shell — likely credential prompt", "Execution")),
+    # Fake credential prompt — Amos Stealer signature
+    (r"display\s+dialog\s+[\"'](?:System\s+Preferences|MacOS|Please\s+enter|password|verification)",
+        ("T1056.002", "Input Capture: GUI Input Capture (fake password prompt)", "Credential Access")),
+    # ─── LaunchAgent / LaunchDaemon persistence ─────────────────────────
+    (r"(?:~/Library|/Library|/System/Library)/LaunchAgents/[^\s]+\.plist|"
+     r"(?:~/Library|/Library|/System/Library)/LaunchDaemons/[^\s]+\.plist",
+        ("T1543.001", "Create or Modify System Process: Launch Agent/Daemon", "Persistence")),
+    (r"launchctl\s+(?:load|bootstrap|enable|kickstart)\s+.*?(?:LaunchAgents|LaunchDaemons)",
+        ("T1543.001", "launchctl load (LaunchAgent/Daemon persistence)", "Persistence")),
+    # ─── macOS credential theft ─────────────────────────────────────────
+    (r"security\s+(?:find-generic-password|find-internet-password|dump-keychain|unlock-keychain)",
+        ("T1555.001", "Credentials from Password Stores: Keychain", "Credential Access")),
+    (r"~/Library/Keychains/login\.keychain|/Library/Keychains/System\.keychain",
+        ("T1555.001", "macOS Keychain file access", "Credential Access")),
+    # Safari / Chrome / Firefox / Brave / Edge macOS profile paths
+    (r"~/Library/Application\s+Support/(?:Google/Chrome|BraveSoftware/Brave-Browser|"
+     r"Microsoft\s+Edge|com\.apple\.Safari|Firefox)/",
+        ("T1555.003", "Credentials from Web Browsers (macOS profile)", "Credential Access")),
+    # ─── curl | sh / bash — canonical macOS/Linux dropper ───────────────
+    (r"(?:curl|wget)\s+(?:-\w+\s+)*[\"']?https?://[^\s'\"]+[\"']?\s*\|\s*(?:sh|bash|zsh|osascript|python\d?)\b",
+        ("T1105", "Ingress Tool Transfer (curl-pipe-to-shell macOS/Linux dropper)", "Command and Control")),
+    # ─── xattr strip — remove Gatekeeper quarantine (macOS bypass) ──────
+    (r"xattr\s+(?:-d\s+|-c\s+|-r\s+-d\s+)?com\.apple\.quarantine|"
+     r"xattr\s+-cr\s+\S+",
+        ("T1553.001", "Subvert Trust Controls: Gatekeeper Bypass (xattr strip)", "Defense Evasion")),
+    (r"spctl\s+(?:--master-disable|--global-disable|-a\s+-t\s+open)",
+        ("T1553", "Subvert Trust Controls: Disable Gatekeeper (spctl)", "Defense Evasion")),
+    # ─── sudo -S piped password / TCC bypass ────────────────────────────
+    (r"echo\s+[\"'][^\"']{4,}[\"']\s*\|\s*sudo\s+-S\b",
+        ("T1548.003", "Abuse Elevation Control Mechanism: Sudo (piped password)", "Privilege Escalation")),
+    (r"tccutil\s+(?:reset|delete)\s+(?:All|SystemPolicyAllFiles|Accessibility|ScreenCapture)",
+        ("T1562", "Impair Defenses: Reset TCC permissions", "Defense Evasion")),
+    # ─── Amos Stealer file exfil paths ──────────────────────────────────
+    (r"/private/tmp/[a-z0-9]{4,}/(?:passwords|Keychain|wallets|browsers)|"
+     r"~/(?:Documents|Desktop|Downloads)/.*?\.(?:zip|tar\.gz)\s+.*?curl.*?--data-binary",
+        ("T1560", "Archive Collected Data (Amos/MacStealer exfil archive)", "Collection")),
+    # ─── mdworker / dscl / defaults abuse ───────────────────────────────
+    (r"\bdscl\s+\.\s+-(?:read|list|change)\s+/Users/",
+        ("T1087.001", "Local Account Discovery (dscl macOS)", "Discovery")),
+    (r"defaults\s+write\s+.*?LSUIElement|defaults\s+write\s+.*?ApplePersistenceIgnoreState",
+        ("T1547.015", "Boot or Logon Autostart: LSUIElement/PersistenceIgnoreState", "Persistence")),
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.2.0 · Cloud & Identity Abuse (Entra / Teams / OAuth)
+    # ═══════════════════════════════════════════════════════════════════
+    # ─── OAuth device-code phishing (Entra ID / M365) ───────────────────
+    # Attackers send victim a device_code + user_code and phish them into
+    # completing the OAuth flow, granting attacker a token bound to their
+    # session. Canonical URLs: /oauth2/v2.0/devicecode, /devicelogin.
+    (r"https?://(?:login\.microsoftonline\.com|login\.microsoft\.com|login\.live\.com)/"
+     r"(?:[a-f0-9\-]{8,}|common|organizations|consumers)/oauth2/(?:v2\.0/)?"
+     r"(?:devicecode|token|authorize)",
+        ("T1566.002", "Phishing: Spearphishing Link (OAuth Device-Code flow)", "Initial Access")),
+    (r"microsoft\.com/devicelogin\?otc=[A-Z0-9]{6,}|"
+     r"microsoft\.com/devicelogin\s+.*?user_code",
+        ("T1621", "Multi-Factor Authentication Request Generation (device-code MFA push)", "Credential Access")),
+    # ─── Illicit consent / OAuth token abuse ────────────────────────────
+    (r"scope=(?:Mail\.Read|Mail\.ReadWrite|Files\.ReadWrite\.All|offline_access|"
+     r"Directory\.Read\.All|User\.Read\.All|Sites\.ReadWrite\.All|Chat\.ReadWrite)",
+        ("T1550.001", "Use Alternate Authentication Material: OAuth Token (over-scoped consent)", "Defense Evasion")),
+    (r"client_id=[a-f0-9\-]{20,}.*?scope=.*?(?:Mail\.|Files\.|Directory\.|Chat\.)",
+        ("T1528", "Steal Application Access Token (illicit-consent grant)", "Credential Access")),
+    # ─── Microsoft Teams external-tenant / webhook / GIFshell abuse ─────
+    (r"https?://[a-z0-9\-]+\.webhook\.office\.com/webhookb2/",
+        ("T1102", "Web Service: Trusted Domain (Teams Incoming Webhook C2)", "Command and Control")),
+    (r"https?://teams\.microsoft\.com/l/(?:chat|meetup-join|message)/",
+        ("T1204.002", "User Execution: Teams deep-link click", "Execution")),
+    (r"graph\.microsoft\.com/(?:v1\.0|beta)/(?:me|users/[^/]+)/(?:messages|drive|chats)",
+        ("T1567", "Exfiltration Over Web Service (Microsoft Graph API)", "Exfiltration")),
+    # ─── AzureAD / Entra ID · Primary Refresh Token abuse ───────────────
+    (r"PRT\s*(?:cookie|token)|x-ms-refreshtokencredential|"
+     r"aadinternals|adfsdump|aadconnect|azurehound",
+        ("T1550.001", "Primary Refresh Token / Entra ID abuse", "Defense Evasion")),
+    # ─── AWS keys pattern (canonical + Session Token) ───────────────────
+    (r"AKIA[0-9A-Z]{16}",
+        ("T1552.001", "Unsecured Credentials: AWS Access Key ID", "Credential Access")),
+    (r"aws_secret_access_key\s*=\s*[A-Za-z0-9/+]{40}",
+        ("T1552.001", "Unsecured Credentials: AWS Secret Access Key", "Credential Access")),
+    # ─── GCP / Azure service-account key exfil paths ────────────────────
+    (r"gcloud\s+iam\s+service-accounts\s+keys\s+create|"
+     r"az\s+ad\s+sp\s+credential\s+reset|"
+     r"kubectl\s+create\s+token\s+.*--duration",
+        ("T1098.001", "Account Manipulation: Additional Cloud Credentials", "Persistence")),
 ]
 
 
@@ -1774,6 +1870,60 @@ YARA_LITE = [
     {"rule": "XOR_Cipher_Indicator", "severity": "medium",
      "pattern": r"-b?xor\s+(?:0x[0-9a-f]{2,4}|[\"']?[a-z0-9!@#\$%\^&\*]{2,16}[\"']?)",
      "desc": "PowerShell -bxor with visible key — XOR-cipher shellcode decryption (MITRE T1027.013)"},
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.2.0 · macOS tradecraft
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "macOS_osascript_dialog", "severity": "high",
+     "pattern": r"osascript\s+.{0,200}?(?:display\s+dialog|activate|do\s+shell\s+script)",
+     "desc": "AppleScript with display-dialog / do-shell-script — Amos/MacStealer fake-prompt tradecraft"},
+    {"rule": "macOS_launchagent_persistence", "severity": "high",
+     "pattern": r"(?:~/Library|/Library|/System/Library)/(?:LaunchAgents|LaunchDaemons)/[^\s]+\.plist",
+     "desc": "LaunchAgent / LaunchDaemon plist path — macOS persistence (MITRE T1543.001)"},
+    {"rule": "macOS_launchctl_load", "severity": "high",
+     "pattern": r"launchctl\s+(?:load|bootstrap|enable|kickstart)\s+.*?(?:LaunchAgents|LaunchDaemons)",
+     "desc": "launchctl load — installing macOS LaunchAgent/Daemon persistence"},
+    {"rule": "macOS_keychain_dump", "severity": "high",
+     "pattern": r"security\s+(?:find-generic-password|find-internet-password|dump-keychain|unlock-keychain)",
+     "desc": "macOS Keychain access via `security` CLI — credential dump (MITRE T1555.001)"},
+    {"rule": "macOS_gatekeeper_bypass", "severity": "high",
+     "pattern": r"xattr\s+(?:-d\s+|-c\s+|-r\s+-d\s+)?com\.apple\.quarantine|xattr\s+-cr\s+\S+|spctl\s+--master-disable",
+     "desc": "Gatekeeper quarantine strip / spctl disable — macOS trust bypass (MITRE T1553.001)"},
+    {"rule": "macOS_sudo_piped_password", "severity": "high",
+     "pattern": r"echo\s+[\"'][^\"']{4,}[\"']\s*\|\s*sudo\s+-S\b",
+     "desc": "Piped password to `sudo -S` — macOS privilege escalation with hardcoded creds"},
+    {"rule": "macOS_curl_pipe_shell", "severity": "high",
+     "pattern": r"(?:curl|wget)\s+(?:-\w+\s+)*[\"']?https?://[^\s'\"]+[\"']?\s*\|\s*(?:sh|bash|zsh|osascript)\b",
+     "desc": "curl/wget piped directly to sh/bash/zsh/osascript — canonical macOS/Linux dropper"},
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.2.0 · Cloud & Identity abuse
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "OAuth_DeviceCode_Phishing", "severity": "high",
+     "pattern": r"microsoft\.com/devicelogin(?:\?otc=[A-Z0-9]{6,}|\s+.*?user_code)",
+     "desc": "OAuth device-code phishing URL / user_code — Entra ID token theft (MITRE T1566.002 / T1621)"},
+    {"rule": "MS_Graph_API_C2", "severity": "medium",
+     "pattern": r"graph\.microsoft\.com/(?:v1\.0|beta)/(?:me|users/[^/]+)/(?:messages|drive|chats)",
+     "desc": "Microsoft Graph API endpoint — legit-infra C2/exfil channel (MITRE T1567)"},
+    {"rule": "MS_Teams_Webhook_C2", "severity": "high",
+     "pattern": r"https?://[a-z0-9\-]+\.webhook\.office\.com/webhookb2/",
+     "desc": "Microsoft Teams Incoming Webhook — GIFshell / webhook C2 abuse (MITRE T1102)"},
+    {"rule": "AWS_Access_Key_Leak", "severity": "high",
+     "pattern": r"AKIA[0-9A-Z]{16}",
+     "desc": "AWS Access Key ID pattern — credential leakage (MITRE T1552.001)"},
+    {"rule": "AWS_Secret_Key_Leak", "severity": "high",
+     "pattern": r"aws_secret_access_key\s*=\s*[A-Za-z0-9/+]{40}",
+     "desc": "AWS Secret Access Key assignment — credential leakage"},
+    {"rule": "AAD_Primary_Refresh_Token", "severity": "high",
+     "pattern": r"PRT\s*(?:cookie|token)|x-ms-refreshtokencredential|aadinternals|aadconnect",
+     "desc": "AAD/Entra Primary Refresh Token abuse — long-lived cloud auth material theft"},
+    {"rule": "Cloud_Service_Cred_Reset", "severity": "medium",
+     "pattern": r"gcloud\s+iam\s+service-accounts\s+keys\s+create|az\s+ad\s+sp\s+credential\s+reset|kubectl\s+create\s+token\b",
+     "desc": "Cloud CLI creating new service-account credentials — persistence via extra keys (MITRE T1098.001)"},
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.2.0 · Illicit OAuth consent scopes
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "OAuth_Overscoped_Consent", "severity": "high",
+     "pattern": r"scope=(?:Mail\.Read|Mail\.ReadWrite|Files\.ReadWrite\.All|Directory\.Read\.All|User\.Read\.All|Sites\.ReadWrite\.All|Chat\.ReadWrite)",
+     "desc": "Over-scoped OAuth consent (Mail.*/Files.*/Directory.*/Chat.*) — illicit-consent phish (MITRE T1550.001)"},
 ]
 
 

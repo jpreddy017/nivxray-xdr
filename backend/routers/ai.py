@@ -22,9 +22,105 @@ router = APIRouter()
 _OP_IDS = sorted(OPERATIONS.keys())
 
 
+def _is_already_plaintext(text: str) -> bool:
+    """Detect plaintext commandlines that don't need AI decoding.
+
+    Returns True when the input is:
+      • ≥95% printable ASCII (allowing tabs/newlines/CR)
+      • Contains at least one real English/command keyword or Windows path
+      • Has NO encoding markers (long base64 blob, hex-only blob, gzip magic,
+        heavy percent-encoding, or non-ASCII payload marker)
+    """
+    if not text or len(text) < 4:
+        return False
+    n = len(text)
+    printable = sum(1 for c in text if 32 <= ord(c) < 127 or ord(c) in (9, 10, 13))
+    if printable / n < 0.95:
+        return False
+
+    low = text.lower()
+
+    # Reject if there's an obvious ENCODED region (would benefit from AI DECODE)
+    import re as _re
+    # A base64-looking run of ≥40 chars → probably encoded
+    if _re.search(r"[A-Za-z0-9+/]{40,}={0,2}", text):
+        return False
+    # A hex-only continuous run of ≥32 chars
+    if _re.search(r"\b[0-9A-Fa-f]{32,}\b", text):
+        return False
+    # PowerShell -EncodedCommand shape
+    if _re.search(r"-e(?:c|nc|ncodedcommand)?\s+[A-Za-z0-9+/=]{20,}", low):
+        return False
+    # % url-encoding density > 10 pairs
+    if len(_re.findall(r"%[0-9A-Fa-f]{2}", text)) >= 10:
+        return False
+    # gzip / zlib magic in leading bytes
+    if text[:2] in ("\x1f\x8b", "\x78\x9c", "\x78\x01", "\x78\xda"):
+        return False
+    # HTML-entity encoded chain
+    if len(_re.findall(r"&#\d+;", text)) >= 8:
+        return False
+    # backslash-hex escape stream (\x41\x42\x43…)
+    if len(_re.findall(r"\\x[0-9A-Fa-f]{2}", text)) >= 8:
+        return False
+    # \uNNNN unicode escape stream
+    if len(_re.findall(r"\\u[0-9A-Fa-f]{4}", text)) >= 6:
+        return False
+
+    # POSITIVE signal — at least one real command/keyword/path indicator
+    positive_markers = (
+        r"\bcmd(?:\.exe)?\s+/",           # cmd /c
+        r"\bpowershell(?:\.exe)?\s+",     # powershell -e / -Command
+        r"\b[a-z]:\\[a-z0-9_\\.\-]+",     # C:\Windows\...
+        r"\bhttps?://[a-z0-9\-.]+",       # URL
+        r"\b(?:msiexec|curl|certutil|bitsadmin|regsvr32|rundll32|mshta|wmic|"
+        r"schtasks|reg|net|sc|copy|move|del|erase|wget)(?:\.exe)?\b",
+        r"\b(?:iex|invoke-webrequest|downloadstring|new-object)\b",
+        r"\bsudo\b|\bbash\b|\bssh\b|\bchmod\b|\bcurl\b|/etc/|/var/|/tmp/",
+        r"\bosascript\b|\blaunchctl\b|\bxattr\b|\bspctl\b|\bdscl\b",
+    )
+    for pat in positive_markers:
+        if _re.search(pat, low):
+            return True
+
+    # Fallback: mostly-word text with real English words is also plaintext
+    words = _re.findall(r"\b[a-zA-Z]{3,}\b", text)
+    if len(words) >= 5 and all(len(w) <= 30 for w in words):
+        return True
+    return False
+
+
 @router.post("/ai/auto-decode")
 async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
     """AI Decode with strict anti-hallucination guardrails for SOC use."""
+    # ─── Feb 2026 v1.2.0 · Plaintext short-circuit ──────────────────────
+    # Prior bug: pasting a plaintext commandline (e.g.
+    # `cmd /c copy c:\windows\system32\curl.exe X.exe`) resulted in the LLM
+    # + magic pipeline both echoing the input to output, because no
+    # decoding was possible. Analysts read this as "AI reversed my input".
+    # Detect plaintext and stop gracefully with a clear next-step hint.
+    raw = (body.input or "").strip()
+    if _is_already_plaintext(raw):
+        return {
+            "reasoning": "Input already appears to be plaintext — no decoding needed.",
+            "recipe": [],
+            "output": "",
+            "steps_output": [],
+            "detected_type": {"type": "plaintext", "label": "Plain text — no encoding detected"},
+            "errors": [],
+            "winner_engine": "plaintext-guard",
+            "confidence": 100,
+            "quality_reasons": ["input is already plaintext (≥95% printable, no encoding markers)"],
+            "stopped_gracefully": True,
+            "graceful_message": (
+                "Input appears to be plaintext already — no base64 / hex / gzip / "
+                "XOR encoding detected. AI DECODE only helps unwrap encoded/obfuscated "
+                "layers. Use ANALYZE + OSINT (or AUTO INVESTIGATE) to run MITRE mapping, "
+                "IOC extraction, and AI verdict on this commandline directly."
+            ),
+            "alternate": {"engine": "none", "confidence": 0, "recipe": []},
+        }
+
     system = (
         "You are an expert malware analyst using a CyberChef-like tool. "
         "Given an obfuscated / encoded payload, produce a JSON recipe of operations that will fully decode it.\n"
