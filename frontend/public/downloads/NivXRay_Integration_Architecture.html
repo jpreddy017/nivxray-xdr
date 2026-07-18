@@ -132,114 +132,233 @@
   </table>
 </div>
 
-<!-- ─────────────── Slide 2 · Type-I ─────────────── -->
+<!-- ─────────────── Slide 2 · Type-I.A ─────────────── -->
 <div class="slide">
-  <div class="slide-num">02 · TYPE-I · INLINE / AUTO-ENRICHMENT</div>
-  <h1>Type-I · Inline auto-enrichment</h1>
+  <div class="slide-num">02 · TYPE-I.A · PARALLEL SIDECAR</div>
+  <h1>Type-I.A · Parallel sidecar (NivXRay writes to SIEM directly)</h1>
+
+  <div style="color:var(--text-dim); font-size:12px; margin-bottom:10px;">
+    NivXRay pulls logs <em>from</em> EDR, decodes autonomously, then writes
+    <strong>BOTH</strong> the original EDR data <strong>AND</strong> the NivXRay-enriched
+    analysis into SIEM/XDR/ServiceNow as a single combined event.
+  </div>
 
   <pre>
-  Log Sources                                                                     
-  ┌──────────────┐                                                                
-  │ Firewall     │──▶┐                                                            
-  │ WAF          │──▶│                                                            
-  │ IDS/IPS      │──▶│   ┌───────────┐    ┌─────┐    ┌──────────┐    ┌──────────────┐
-  │ DB           │──▶│──▶│ Collector │───▶│ EDR │───▶│  NivXRay │───▶│ SNOW / SIEM  │
-  │ Servers      │──▶│   │ Connector │    └─────┘    │  Decode+ │    │ XDR / SOAR   │
-  │ Other apps / │──▶│   └───────────┘               │  MITRE + │    └──────┬───────┘
-  │ net devices  │──▶┘                                │  TI-HITS │           │
-  └──────────────┘                                    └──────────┘           ▼
-                                                                        ┌───────────┐
-                                                                        │  Analyst  │
-                                                                        │ has LESS  │
-                                                                        │   work    │
-                                                                        └───────────┘
+   Log Sources                                                                          
+   ┌──────────────┐                                                                     
+   │ Firewall     │──▶┐                                                                 
+   │ WAF          │──▶│                                                                 
+   │ IDS/IPS      │──▶│   ┌───────────┐    ┌─────┐                                      
+   │ DB / Servers │──▶│──▶│ Collector │───▶│ EDR │────────────┐                         
+   │ Other apps   │──▶┘   │ Connector │    └──┬──┘            │  ┌──────────────┐       
+   └──────────────┘       └───────────┘       │               ├─▶│ SNOW / SIEM  │       
+                                              │               │  │ XDR / SOAR   │       
+                                              │  pull logs    │  └──────┬───────┘       
+                                              ▼               │         │               
+                                       ┌──────────────┐       │         ▼               
+                                       │   NivXRay    │───────┘   ┌───────────┐         
+                                       │  Deep-Decode │  enriched │  Analyst  │         
+                                       │  MITRE +     │  data     │ sees BOTH │         
+                                       │  TI-HITS     │  ─────────│ EDR +     │         
+                                       └──────────────┘           │ NivXRay   │         
+                                                                  │ combined  │         
+                                                                  └───────────┘         
   </pre>
 
   <div class="grid-2" style="margin-top:12px;">
     <div>
       <h3>How it works</h3>
       <ul>
-        <li>Every event/alert flowing EDR → SIEM passes through NivXRay</li>
-        <li>Pre-attribution: verdicts, MITRE tags, IOCs, TI-HITS arrive at SIEM already tagged</li>
-        <li>Analyst opens a notable → MITRE columns already populated</li>
-        <li>Verdict feeds SOAR playbook branching automatically</li>
+        <li>NivXRay reads EDR events via EDR's API / event stream</li>
+        <li>Decodes autonomously — zero human intervention</li>
+        <li>Writes BOTH the original EDR event AND NivXRay's decoded output to SIEM as one combined record</li>
+        <li>Analyst opens SIEM notable — sees EDR fields <strong>+</strong> <code>nivxray.verdict</code>, <code>nivxray.mitre[]</code>, <code>nivxray.ti_hits[]</code> already populated</li>
       </ul>
     </div>
     <div>
-      <h3>Best for</h3>
+      <h3>Trade-offs</h3>
       <ul>
-        <li>High-volume SOCs (>1000 events/sec)</li>
-        <li>MSSPs · MDR providers · IR retainers</li>
-        <li>Customers running automated response playbooks</li>
-        <li>Regulated environments needing 100% event coverage</li>
+        <li>✅ <strong>Zero EDR impact</strong> — EDR pipeline untouched</li>
+        <li>✅ NivXRay failure ≠ EDR failure (fault-isolated)</li>
+        <li>✅ Faster to deploy (no EDR change window)</li>
+        <li>⚠️ Duplicate ingest to SIEM (EDR row + NivXRay row → correlate on <code>source_alert_id</code>)</li>
+        <li>⚠️ Two writes to SIEM per event → SIEM licensing implication</li>
       </ul>
     </div>
   </div>
-
-  <h3 style="margin-top:16px;">SLA Contract</h3>
-  <table>
-    <tr><th>Mode</th><th>p50 latency</th><th>p95 latency</th><th>Throughput (per pod)</th></tr>
-    <tr><td>fast</td><td>80 ms</td><td>150 ms</td><td>5,000 events/sec</td></tr>
-    <tr><td>balanced</td><td>120 ms</td><td>200 ms</td><td>2,500 events/sec</td></tr>
-    <tr><td>deep</td><td>350 ms</td><td>800 ms</td><td>600 events/sec</td></tr>
-  </table>
 </div>
 
-<!-- ─────────────── Slide 3 · Type-II ─────────────── -->
+<!-- ─────────────── Slide 3 · Type-I.B ─────────────── -->
 <div class="slide">
-  <div class="slide-num">03 · TYPE-II · ON-DEMAND / INVESTIGATION</div>
-  <h1>Type-II · On-demand investigation</h1>
+  <div class="slide-num">03 · TYPE-I.B · ENRICH-BACK-TO-EDR</div>
+  <h1>Type-I.B · Enrich-back-to-EDR (single alert, combined data)</h1>
+
+  <div style="color:var(--text-dim); font-size:12px; margin-bottom:10px;">
+    NivXRay pulls logs <em>from</em> EDR, decodes, sends the enriched output
+    <strong>BACK to EDR</strong>. EDR fires the alert (with combined EDR + NivXRay data) into
+    SIEM/XDR/ServiceNow — one single, richer alert per event.
+  </div>
 
   <pre>
-  Log Sources                                                                       
-  ┌──────────────┐                                                                  
-  │ Firewall     │──▶┐                                                              
-  │ WAF          │──▶│   ┌───────────┐    ┌─────┐    ┌──────────────┐    ┌────────┐
-  │ IDS/IPS      │──▶│──▶│ Collector │───▶│ EDR │───▶│ SIEM / XDR / │───▶│Analyst │
-  │ DB / Servers │──▶│   │ Connector │    └─────┘    │ ServiceNow   │    │ User   │
-  │ Other        │──▶┘   └───────────┘               └──────────────┘    └───┬────┘
-  └──────────────┘                                                            │
-                                                                              ▼
-                                                                     "pull into NivXRay
-                                                                      for deeper look"
-                                                                              │
-                                                                              ▼
-                                                                      ┌──────────────┐
-                                                                      │   NivXRay    │
-                                                                      │ Deep-Decode  │
-                                                                      │ Investigator │
-                                                                      └──────────────┘
-                                                                (part of investigation)
+   Log Sources                                                                                
+   ┌──────────────┐                                                                           
+   │ Firewall     │──▶┐                                                                       
+   │ WAF          │──▶│                                                                       
+   │ IDS/IPS      │──▶│   ┌───────────┐    ┌───────┐                                          
+   │ DB / Servers │──▶│──▶│ Collector │───▶│  EDR  │◀───┐                                     
+   │ Other apps   │──▶┘   │ Connector │    │       │    │ decoded + MITRE +                   
+   └──────────────┘       └───────────┘    └───┬───┘    │ TI-HITS payload                     
+                                               │        │                                     
+                                     pull logs │        │                                     
+                                               ▼        │                                     
+                                        ┌──────────────┐│                                     
+                                        │   NivXRay    ├┘                                     
+                                        │  Deep-Decode │                                      
+                                        │  MITRE +     │                                      
+                                        │  TI-HITS     │                                      
+                                        └──────────────┘                                      
+                                               │                                              
+                                               │ EDR fires ONE                                
+                                               ▼ enriched alert                               
+                                    ┌────────────────────┐                                    
+                                    │ SNOW / SIEM / XDR  │                                    
+                                    │ receives: EDR data │                                    
+                                    │ + NivXRay verdict  │                                    
+                                    │ in ONE combined    │                                    
+                                    │ alert record       │                                    
+                                    └─────────┬──────────┘                                    
+                                              ▼                                               
+                                        ┌──────────┐                                          
+                                        │ Analyst  │                                          
+                                        │ triage   │                                          
+                                        └──────────┘                                          
   </pre>
 
   <div class="grid-2" style="margin-top:12px;">
     <div>
       <h3>How it works</h3>
       <ul>
-        <li>NivXRay is NOT in the automatic pipeline</li>
-        <li>Analyst spots a suspicious event in SIEM</li>
-        <li>Copies commandline → NivXRay Workspace → deep decode</li>
-        <li>Optionally batches 500 payloads for regression triage</li>
+        <li>NivXRay reads EDR events (same as I.A)</li>
+        <li>Decodes autonomously</li>
+        <li>Sends output <strong>back to EDR</strong> via EDR's custom-field / IOA-tag API</li>
+        <li>EDR fires <em>ONE</em> enriched alert into SIEM — no duplicate rows</li>
+        <li>Analyst opens SIEM notable — everything is on a single record</li>
       </ul>
     </div>
     <div>
-      <h3>Best for</h3>
+      <h3>Trade-offs</h3>
       <ul>
-        <li>SOC power-tool adoption (2-week POC path)</li>
-        <li>Forensic / IR investigations</li>
-        <li>SIEM change-freeze environments</li>
-        <li>Customers wanting zero-risk trial</li>
+        <li>✅ Single alert per event — clean triage view</li>
+        <li>✅ No SIEM licensing doubling</li>
+        <li>✅ Preserves EDR as source of truth</li>
+        <li>⚠️ Requires EDR support for writable custom fields (CrowdStrike Fusion / SentinelOne STAR / Defender custom detections)</li>
+        <li>⚠️ Slight latency (EDR waits ~200 ms for NivXRay before firing)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────── Slide 4 · Type-II ─────────────── -->
+<div class="slide">
+  <div class="slide-num">04 · TYPE-II · ON-DEMAND ANALYST</div>
+  <h1>Type-II · On-demand analyst investigation</h1>
+
+  <div style="color:var(--text-dim); font-size:12px; margin-bottom:10px;">
+    Completely end-user driven. After a new alert lands in SIEM/XDR/ServiceNow, the analyst
+    <strong>manually pulls</strong> the suspicious payload into NivXRay for deep investigation.
+    NivXRay is NOT in the automatic pipeline.
+  </div>
+
+  <pre>
+   Log Sources                                                                                
+   ┌──────────────┐                                                                           
+   │ Firewall     │──▶┐                                                                       
+   │ WAF          │──▶│                                                                       
+   │ IDS/IPS      │──▶│   ┌───────────┐    ┌─────┐    ┌──────────────┐    ┌────────┐          
+   │ DB / Servers │──▶│──▶│ Collector │───▶│ EDR │───▶│ SIEM / XDR / │───▶│Analyst │          
+   │ Other apps   │──▶┘   │ Connector │    └─────┘    │ ServiceNow   │    │  User  │          
+   └──────────────┘       └───────────┘               └──────────────┘    └───┬────┘          
+                                                                              │               
+                                                          new alert fires,    │               
+                                                       analyst decides:       │               
+                                                       "let me pull into      │               
+                                                        NivXRay for deeper    │               
+                                                        look"                 ▼               
+                                                                       ┌──────────────┐       
+                                                                       │   NivXRay    │       
+                                                                       │  Workspace   │       
+                                                                       │  investigator│       
+                                                                       └──────────────┘       
+                                                              (fully manual · NOT automated)  
+  </pre>
+
+  <div class="grid-2" style="margin-top:12px;">
+    <div>
+      <h3>How it works</h3>
+      <ul>
+        <li>SIEM/XDR fires a new alert normally</li>
+        <li>Analyst investigates in SIEM — spots a suspicious commandline/payload</li>
+        <li>Analyst opens NivXRay Workspace and pastes the payload</li>
+        <li>Deep-decode returns MITRE + LOLBAS + IOCs + TI-HITS + AI narrative</li>
+        <li>Analyst uses NivXRay's findings to close/escalate the alert in SIEM</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Trade-offs</h3>
+      <ul>
+        <li>✅ Zero SIEM/EDR change — plug in on day one</li>
+        <li>✅ No pipeline risk — NivXRay outage doesn't affect detection</li>
+        <li>✅ Best POC path (2-week eval, no engineering cost)</li>
+        <li>⚠️ Depends on analyst discipline (they must choose to pull)</li>
+        <li>⚠️ Doesn't scale to high alert volumes</li>
       </ul>
     </div>
   </div>
 
   <div class="callout" style="margin-top:16px;">
-    <strong>Adoption path we recommend:</strong>
-    Start with <span class="pill pill-warm">Type-II</span> (0-risk POC, 2 weeks) →
-    prove ROI (analyst time saved, tradecraft caught) →
-    graduate to <span class="pill pill-hot">Type-I</span> once value proven.
-    <br>
-    <strong>90% of customers follow this path.</strong>
+    <strong>Recommended adoption path:</strong>
+    <span class="pill pill-warm">Type-II</span> (2-week POC · zero risk) →
+    <span class="pill pill-hot">Type-I.A</span> (parallel sidecar · quick production) →
+    <span class="pill pill-hot">Type-I.B</span> (enrich-back-to-EDR · full clean integration).
+  </div>
+</div>
+
+<!-- ─────────────── Slide 5 · Mode Comparison Table ─────────────── -->
+<div class="slide">
+  <div class="slide-num">05 · MODE COMPARISON</div>
+  <h1>Which mode when?</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Attribute</th>
+        <th style="color:#ef4444;">Type-I.A · Sidecar</th>
+        <th style="color:#ef4444;">Type-I.B · Back-to-EDR</th>
+        <th style="color:#f59e0b;">Type-II · Analyst</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Human in the loop?</td><td>No</td><td>No</td><td><strong>Yes</strong></td></tr>
+      <tr><td>NivXRay input source</td><td>EDR event stream</td><td>EDR event stream</td><td>Analyst paste</td></tr>
+      <tr><td>NivXRay output goes to</td><td>SIEM (directly)</td><td>EDR (back)</td><td>Analyst screen</td></tr>
+      <tr><td>SIEM sees</td><td>2 rows (EDR + NivXRay)</td><td>1 row (combined)</td><td>Original EDR row only</td></tr>
+      <tr><td>EDR change required</td><td>No</td><td><strong>Yes</strong> (writable field)</td><td>No</td></tr>
+      <tr><td>SIEM change required</td><td>Custom source</td><td>None</td><td>None</td></tr>
+      <tr><td>Latency added to alert</td><td>0 ms (parallel)</td><td>~200 ms</td><td>N/A (manual)</td></tr>
+      <tr><td>SIEM licensing cost</td><td>~2× events</td><td>1× events</td><td>1× events</td></tr>
+      <tr><td>Deployment effort</td><td>Medium (2 wk)</td><td>High (4 wk)</td><td>Low (1 day)</td></tr>
+      <tr><td>POC risk</td><td>Low</td><td>Medium</td><td>Zero</td></tr>
+      <tr><td>Analyst effort per alert</td><td>Very low</td><td>Very low</td><td>High</td></tr>
+      <tr><td>Best fit</td><td>MSSPs · MDR</td><td>Enterprise SOCs</td><td>POC / IR teams</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout" style="margin-top:16px;">
+    <strong>Decision rule of thumb:</strong>
+    Can the customer's EDR write custom fields? →
+    <span class="pill pill-hot">Type-I.B</span> (cleanest).
+    If not → <span class="pill pill-hot">Type-I.A</span> (parallel).
+    Can't touch the pipeline yet → <span class="pill pill-warm">Type-II</span> (start here).
   </div>
 </div>
 
