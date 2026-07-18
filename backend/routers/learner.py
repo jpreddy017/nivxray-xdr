@@ -407,3 +407,108 @@ async def duplicate_check(body: DupCheckIn, user=Depends(get_current_user)):
             })
     dupes.sort(key=lambda x: -x["similarity"])
     return {"cluster_key": ck, "dupes": dupes}
+
+
+
+# ─── FEEDBACK INGESTION (v1.4.3) ────────────────────────────────────────
+# Pull user-reported "bad decode / undecoded" records from the
+# `decode_feedback` collection into the learner inbox. Deduped by SHA1 of
+# raw_input so re-runs are safe. Auto-tags with the AI-suggested recipe
+# ops from the Claude diagnosis so cluster grouping is more meaningful.
+_col_feedback = _db.decode_feedback
+
+
+@router.post("/learner/ingest-feedback")
+async def ingest_feedback(user=Depends(get_current_user)):
+    """Admin-only: ingest all decode_feedback records into the learner inbox."""
+    _admin(user)
+    import hashlib
+
+    cursor = _col_feedback.find({"ingested_to_learner": {"$ne": True}})
+    ingested = 0
+    skipped_dupes = 0
+    created_ids: List[str] = []
+
+    for fb in cursor:
+        raw = (fb.get("raw_input") or "").strip()
+        if not raw:
+            continue
+        # SHA1 dedupe against already-ingested payloads
+        sha1 = hashlib.sha1(raw.encode("utf-8")).hexdigest()
+        if _col_payloads.find_one({"source_sha1": sha1}, {"id": 1}):
+            _col_feedback.update_one({"id": fb["id"]}, {"$set": {"ingested_to_learner": True, "ingest_dup": True}})
+            skipped_dupes += 1
+            continue
+
+        features = eng.extract_features(raw)
+        ck = eng.cluster_key(features)
+
+        diagnosis = fb.get("diagnosis") or {}
+        suggested_recipe = diagnosis.get("suggested_recipe") or []
+        missing_heuristic = diagnosis.get("missing_heuristic") or ""
+        root_cause = diagnosis.get("root_cause") or ""
+        why = diagnosis.get("ai_explanation") or ""
+
+        notes_parts = []
+        if fb.get("reason"):
+            notes_parts.append(f"Analyst reason: {fb['reason']}")
+        if root_cause:
+            notes_parts.append(f"Root cause (AI): {root_cause}")
+        if why:
+            notes_parts.append(f"Why failed: {why[:400]}")
+        if missing_heuristic:
+            notes_parts.append(f"Missing heuristic: {missing_heuristic}")
+
+        tags = list({t for t in [fb.get("kind") or "wrong_output", "decode_feedback"] + list(suggested_recipe) if t})
+
+        doc = {
+            "id":              str(uuid.uuid4()),
+            "created_at":      _now(),
+            "created_by":      fb.get("user") or _email(user),
+            "raw_payload":     raw,
+            "expected_output": fb.get("expected_output") or "",
+            "notes":           "\n\n".join(notes_parts),
+            "tags":            tags,
+            "dataset_source":  "decode_feedback",
+            "source_feedback_id": fb.get("id"),
+            "source_sha1":     sha1,
+            "features":        features,
+            "cluster_key":     ck,
+            "status":          "inbox",
+            "proposal":        None,
+            "regression":      None,
+            "approved_by":     None,
+            "approved_at":     None,
+            "approval_notes":  None,
+            "rejected_by":     None,
+            "rejected_at":     None,
+            "reject_reason":   None,
+            "dupes":           [],
+            # Carry the AI-suggested recipe forward — Learner UI can render it
+            # as a starter template so the admin can approve without re-analysis.
+            "ai_suggested_recipe": suggested_recipe,
+        }
+        _col_payloads.insert_one(doc)
+        _col_feedback.update_one(
+            {"id": fb["id"]},
+            {"$set": {"ingested_to_learner": True, "learner_payload_id": doc["id"]}},
+        )
+        ingested += 1
+        created_ids.append(doc["id"])
+
+    return {
+        "ok":             True,
+        "ingested":       ingested,
+        "skipped_dupes":  skipped_dupes,
+        "created_ids":    created_ids,
+    }
+
+
+@router.get("/learner/feedback-source")
+async def list_feedback_sourced(limit: int = 100, user=Depends(get_current_user)):
+    """List learner_payloads that originated from decode_feedback."""
+    cur = _col_payloads.find(
+        {"dataset_source": "decode_feedback"},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(min(int(limit), 500))
+    return {"items": list(cur)}

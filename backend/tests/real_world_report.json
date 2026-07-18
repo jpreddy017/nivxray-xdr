@@ -1,6 +1,6 @@
 {
   "summary": {
-    "generated_at": "2026-07-18T15:13:22.321401+00:00",
+    "generated_at": "2026-07-18T15:32:41.445097+00:00",
     "total": 120,
     "mitre_hits": 112,
     "mitre_hit_rate": 0.9333,
@@ -9,10 +9,10 @@
     "ioc_recall": 0.5467,
     "ioc_hits": 82,
     "ioc_total": 150,
-    "marker_hits": 73,
-    "marker_hit_rate": 0.6083,
+    "marker_hits": 72,
+    "marker_hit_rate": 0.6,
     "avg_layers": 5.6,
-    "avg_latency_ms": 202,
+    "avg_latency_ms": 204,
     "per_family": {
       "Emotet": {
         "total": 2,
@@ -355,7 +355,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 93
+      "ms": 92
     },
     {
       "id": "rws_002_qakbot",
@@ -377,7 +377,7 @@
         "hex-decode",
         "base64-decode"
       ],
-      "output_head": "\u00f4E\u0010\u0004Q\u000e\u0011\u0019UV\u0095N\u0099Q]Z\u0015\u0013\u00c2]Y0\u0099\r)\u00d0\u00deG\u0011\u0015\u0089YS\u00ba\u0019\u008d\u00d6I\u00ccj\u001dR\u0085\u0095\u001a\u00d2\u0091\u00db\u00be\u00d9\u0014\u009e]\f\u00a2\u0091\u00941\u009d\u008d\u00b9\u001d\u00cc\u00e2\r\u0015(\u0019\u00d5L\u0099\u0098$\u00d5\u00ce\u00c8\u0018\u00da\u0014UVY\u009d\u001d\u0005\u00d5\u00904Y\f\u00dc\u0098\u00d0a\u00dd\u00cb\u000f\u00d9\u008c^\u0015Z@U\u0012\u00cd\u0010\u00d2",
+      "output_head": "\u00f4E\u0010\u0004Q\u000e\u0011\u0019UV\u0095N\u0099Q]Z\u0015\u0013\u00c2]Y0\u0099\r)\u00d0\u00deG\u0011\u0015\u0089YS\u00ba\u0019\u008d\u00d6I\u00ccj\u001dR\u0085\u0095\u001a\u00d2\u0091\u00db\u00be\u00d9\u0014\u009e]\f\u00a2\u0091\u00941\u009d\u008d\u00b9\u001d\u00cc\u00e2\r\u0015(\u0019\u00d5L\u0099\u0098$\u00d5\u00ce\u00c8\u0018\u00da\u0014UVY\u009d\u001d\u0005\u00d5\u00904Y\f\u00dc\u0098\u00d0a\u00dd\u00cb\u000f\u00d9\u008c\\\u00dd\u008a U\u0012\u00cd\u0010\u00d2",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -404,7 +404,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 198
+      "ms": 197
     },
     {
       "id": "rws_003_icedid",
@@ -503,7 +503,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 729
+      "ms": 732
     },
     {
       "id": "rws_005_empire",
@@ -552,7 +552,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 586
+      "ms": 673
     },
     {
       "id": "rws_006_apt29_-_cozy_bear",
@@ -644,7 +644,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 146
+      "ms": 147
     },
     {
       "id": "rws_008_lumma_stealer",
@@ -694,7 +694,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 83
+      "ms": 84
     },
     {
       "id": "rws_009_lockbit",
@@ -781,7 +781,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 91
+      "ms": 92
     },
     {
       "id": "rws_011_sliver_c2",
@@ -967,7 +967,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 29
+      "ms": 30
     },
     {
       "id": "rws_015_apt28_-_fancy_bear",
@@ -1015,7 +1015,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 200
+      "ms": 201
     },
     {
       "id": "rws_016_amos_stealer_(macos)",
@@ -1106,7 +1106,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 215
+      "ms": 216
     },
     {
       "id": "rws_018_xmrig_cryptominer",
@@ -1158,7 +1158,7 @@
       "ioc_recall": 0.667,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 614
+      "ms": 613
     },
     {
       "id": "rws_019_apt29_(wmi)",
@@ -1206,7 +1206,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 505
+      "ms": 510
     },
     {
       "id": "rws_020_amadey",
@@ -1333,7 +1333,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 553
+      "ms": 555
     },
     {
       "id": "rws_023_trickbot",
@@ -1381,7 +1381,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 68
+      "ms": 69
     },
     {
       "id": "rws_024_latrodectus",
@@ -1482,7 +1482,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 390
+      "ms": 394
     },
     {
       "id": "rws_026_blackcat_-_alphv",
@@ -1522,7 +1522,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 41
+      "ms": 43
     },
     {
       "id": "rws_027_ghostrat",
@@ -1620,7 +1620,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 145
+      "ms": 146
     },
     {
       "id": "rws_029_apt10_-_menupass",
@@ -1656,7 +1656,7 @@
       "ioc_recall": null,
       "undecoded": true,
       "marker_hit": false,
-      "ms": 24
+      "ms": 25
     },
     {
       "id": "rws_030_apt41_(bits)",
@@ -1926,7 +1926,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 125
+      "ms": 126
     },
     {
       "id": "rws_036_apt29_(bitsadmin)",
@@ -1965,7 +1965,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 25
+      "ms": 26
     },
     {
       "id": "rws_037_oilrig_-_apt34",
@@ -2060,7 +2060,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 660
+      "ms": 661
     },
     {
       "id": "rws_039_apt38_-_lazarus",
@@ -2112,7 +2112,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 220
+      "ms": 224
     },
     {
       "id": "rws_040_atomicwallet_stealer_(macos)",
@@ -2157,7 +2157,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 20
+      "ms": 21
     },
     {
       "id": "rws_041_apt27_-_emissary_panda",
@@ -2247,7 +2247,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 277
+      "ms": 281
     },
     {
       "id": "rws_043_gootloader",
@@ -2390,7 +2390,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 253
+      "ms": 255
     },
     {
       "id": "rws_046_bumblebee_(macos_variant)",
@@ -2429,7 +2429,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 33
+      "ms": 34
     },
     {
       "id": "rws_047_3cx_supply-chain",
@@ -2471,7 +2471,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 422
+      "ms": 420
     },
     {
       "id": "rws_048_aws_cognito_abuse",
@@ -2515,7 +2515,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 441
+      "ms": 445
     },
     {
       "id": "rws_049_gcp_sa_jwt_theft",
@@ -2557,7 +2557,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 261
+      "ms": 262
     },
     {
       "id": "rws_050_apt29_(cognito+ps)",
@@ -2601,7 +2601,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 397
+      "ms": 396
     },
     {
       "id": "rws_051_btlo_-_emotet_(base64+utf16le)",
@@ -2647,7 +2647,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 74
+      "ms": 75
     },
     {
       "id": "rws_052_ps_string-concat_iex",
@@ -2715,7 +2715,7 @@
         "hex-or-b64-decode",
         "xor-bruteforce-256"
       ],
-      "output_head": "\u2500\u2500\u2500\u2500 BLIND_XOR_SINGLE_BYTE (v1.2.0) \u2500\u2500\u2500\u2500\nInput encoding : base64\nRaw bytes      : 408\nXOR key found  : 0xA3  (score 1.13 \u00b7 baseline 0.12)\nFirst 32 bytes : 33736f6ea76e66eb6f72236e76e76f766f6e46eb6e72e\u2026",
+      "output_head": "\u2500\u2500\u2500\u2500 BLIND_XOR_SINGLE_BYTE (v1.2.0) \u2500\u2500\u2500\u2500\nInput encoding : base64\nRaw bytes      : 408\nXOR key found  : 0xA0  (score 1.05 \u00b7 baseline 0.12)\nFirst 32 bytes : 30706c6da46d65e86c71206d75e46c756c6d45e86d71e\u2026",
       "matched_mitre": [
         "T1027"
       ],
@@ -2741,7 +2741,7 @@
       "ioc_total": 2,
       "ioc_recall": 0.0,
       "undecoded": false,
-      "marker_hit": true,
+      "marker_hit": false,
       "ms": 125
     },
     {
@@ -2834,7 +2834,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 175
+      "ms": 176
     },
     {
       "id": "rws_056_ps_deflatestream+b64",
@@ -2877,7 +2877,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 44
+      "ms": 45
     },
     {
       "id": "rws_057_ps_securestring_payload",
@@ -2919,7 +2919,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 268
+      "ms": 269
     },
     {
       "id": "rws_058_ps_clickfix_chain",
@@ -2970,7 +2970,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 665
+      "ms": 668
     },
     {
       "id": "rws_059_ps_reflection.assembly.load",
@@ -3016,7 +3016,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 318
+      "ms": 319
     },
     {
       "id": "rws_060_ps_empire_stager_(btlo_shape)",
@@ -3063,7 +3063,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 122
+      "ms": 123
     },
     {
       "id": "rws_061_emotet_v2",
@@ -3107,7 +3107,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 297
+      "ms": 298
     },
     {
       "id": "rws_062_qakbot_v2",
@@ -3251,7 +3251,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 137
+      "ms": 138
     },
     {
       "id": "rws_065_empire_v2",
@@ -3350,7 +3350,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 191
+      "ms": 192
     },
     {
       "id": "rws_067_asyncrat_v2",
@@ -3484,7 +3484,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 31
+      "ms": 32
     },
     {
       "id": "rws_070_bumblebee_v2",
@@ -3533,7 +3533,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 89
+      "ms": 90
     },
     {
       "id": "rws_071_sliver_c2_v2",
@@ -3584,7 +3584,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 396
+      "ms": 397
     },
     {
       "id": "rws_072_meterpreter_v2",
@@ -3636,7 +3636,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 917
+      "ms": 923
     },
     {
       "id": "rws_073_socgholish_v2",
@@ -3681,7 +3681,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 32
+      "ms": 33
     },
     {
       "id": "rws_074_apt41_-_winnti_v2",
@@ -3775,7 +3775,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 452
+      "ms": 450
     },
     {
       "id": "rws_076_amos_stealer_(macos)_v2",
@@ -3872,7 +3872,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 390
+      "ms": 396
     },
     {
       "id": "rws_078_xmrig_cryptominer_v2",
@@ -4011,7 +4011,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 307
+      "ms": 309
     },
     {
       "id": "rws_081_nanocore_rat_v2",
@@ -4057,7 +4057,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 312
+      "ms": 314
     },
     {
       "id": "rws_082_smokeloader_v2",
@@ -4100,7 +4100,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 123
+      "ms": 124
     },
     {
       "id": "rws_083_trickbot_v2",
@@ -4268,7 +4268,7 @@
         "hex-or-b64-decode",
         "xor-bruteforce-256"
       ],
-      "output_head": "\u2500\u2500\u2500\u2500 BLIND_XOR_SINGLE_BYTE (v1.2.0) \u2500\u2500\u2500\u2500\nInput encoding : base64\nRaw bytes      : 408\nXOR key found  : 0xBD  (score 1.17 \u00b7 baseline 0.10)\nFirst 32 bytes : 2d6d7170b9707cf5716c3d7068f971693d706c3d64647\u2026",
+      "output_head": "\u2500\u2500\u2500\u2500 BLIND_XOR_SINGLE_BYTE (v1.2.0) \u2500\u2500\u2500\u2500\nInput encoding : base64\nRaw bytes      : 408\nXOR key found  : 0xBD  (score 1.16 \u00b7 baseline 0.10)\nFirst 32 bytes : 2d6d7170b9707cf5716c3d7068f971693d706c3d64647\u2026",
       "matched_mitre": [
         "T1027"
       ],
@@ -4386,7 +4386,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 105
+      "ms": 106
     },
     {
       "id": "rws_089_apt10_-_menupass_v2",
@@ -4404,7 +4404,7 @@
       "chain": [
         "extract-payload"
       ],
-      "output_head": "Lemlvb3FNTnhpdDBSUEwxNjhUcllQTk55U2NOQXZNd3hvakxkUERPcHk5SndFQ3NhRFRycWdOTGhRcVBIdmMySm5qcDhjQ010TThLdTAvQ28yV1hpUEFJczRI",
+      "output_head": "Lemlvb3FNTnhpdDBSUEwxNjhUcllQTk55U2NOQXZNd3hvakxkUERPcHk5SndFQ3NhRFRycWdOTGhRcVBIdmMySm5qcDhjQ010TThLdTAvQ28yV2MrSEFJczRI",
       "matched_mitre": [],
       "missed_mitre": [
         "T1027",
@@ -4519,7 +4519,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 150
+      "ms": 151
     },
     {
       "id": "rws_092_avoslocker_v2",
@@ -4567,7 +4567,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 309
+      "ms": 312
     },
     {
       "id": "rws_093_apt35_-_charming_kitten_v2",
@@ -4697,7 +4697,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 278
+      "ms": 277
     },
     {
       "id": "rws_096_apt29_(bitsadmin)_v2",
@@ -4743,7 +4743,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 268
+      "ms": 267
     },
     {
       "id": "rws_097_oilrig_-_apt34_v2",
@@ -4835,7 +4835,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 415
+      "ms": 414
     },
     {
       "id": "rws_099_apt38_-_lazarus_v2",
@@ -5069,7 +5069,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 195
+      "ms": 194
     },
     {
       "id": "rws_104_rhadamanthys_v2",
@@ -5187,7 +5187,7 @@
         "hex-or-b64-decode",
         "xor-bruteforce-256"
       ],
-      "output_head": "\u2500\u2500\u2500\u2500 BLIND_XOR_SINGLE_BYTE (v1.2.0) \u2500\u2500\u2500\u2500\nInput encoding : base64\nRaw bytes      : 504\nXOR key found  : 0xA0  (score 1.14 \u00b7 baseline 0.12)\nFirst 32 bytes : 30706c6da46d61e86c71206d75e46c74206d79a87878e\u2026",
+      "output_head": "\u2500\u2500\u2500\u2500 BLIND_XOR_SINGLE_BYTE (v1.2.0) \u2500\u2500\u2500\u2500\nInput encoding : base64\nRaw bytes      : 504\nXOR key found  : 0xA0  (score 1.13 \u00b7 baseline 0.12)\nFirst 32 bytes : 30706c6da46d61e86c71206d75e46c74206d79a87878e\u2026",
       "matched_mitre": [
         "T1027"
       ],
@@ -5212,7 +5212,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 178
+      "ms": 177
     },
     {
       "id": "rws_107_3cx_supply-chain_v2",
@@ -5300,7 +5300,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 274
+      "ms": 276
     },
     {
       "id": "rws_109_gcp_sa_jwt_theft_v2",
@@ -5339,7 +5339,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 57
+      "ms": 58
     },
     {
       "id": "rws_110_apt29_(cognito+ps)_v2",
@@ -5430,7 +5430,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 646
+      "ms": 649
     },
     {
       "id": "rws_112_ps_string-concat_iex_v2",
@@ -5478,7 +5478,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 241
+      "ms": 242
     },
     {
       "id": "rws_113_ps_reversed-iex_v2",
@@ -5612,7 +5612,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 396
+      "ms": 394
     },
     {
       "id": "rws_116_ps_deflatestream+b64_v2",
@@ -5658,7 +5658,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1318
+      "ms": 1306
     },
     {
       "id": "rws_117_ps_securestring_payload_v2",
@@ -5698,7 +5698,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 705
+      "ms": 704
     },
     {
       "id": "rws_118_ps_clickfix_chain_v2",
@@ -5747,7 +5747,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 404
+      "ms": 402
     },
     {
       "id": "rws_119_ps_reflection.assembly.load_v2",
@@ -5834,7 +5834,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 656
+      "ms": 658
     }
   ]
 }
