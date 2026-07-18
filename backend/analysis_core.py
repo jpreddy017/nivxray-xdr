@@ -359,10 +359,16 @@ def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> 
             if annotations:
                 seen = set()
                 unique = [(w, c) for w, c in annotations if not ((w, c) in seen or seen.add((w, c)))]
-                block = "\n\n# ─── Wildcard LOLBIN resolution (v1.3.5) ───\n"
+                # Inline-substitute the wildcard pattern with the canonical
+                # binary name so analysts see `cmd.exe` directly, not `c*d.e?e`.
+                cleaned = _out
+                for wildcard, canon in unique:
+                    cleaned = cleaned.replace(wildcard, canon)
+                # Keep a small annotation footer noting what was resolved.
+                block = "\n\n# ─── Wildcard LOLBIN resolution (v1.3.6) ───\n"
                 for wildcard, canon in unique:
                     block += f"#   {wildcard:20s} → {canon}\n"
-                final_result["output"] = _out + block
+                final_result["output"] = cleaned + block
                 final_result.setdefault("post_processing", {})["wildcard_resolve"] = {
                     "resolved": [f"{w} → {c}" for w, c in unique],
                 }
