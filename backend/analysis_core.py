@@ -673,6 +673,20 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
     if smart_chain_len > magic_chain_len:
         return _pack_smart()
 
+    # ── v1.5.0 · L3 LLM decoder fallback ────────────────────────────────
+    # Both L1 (smart) and L2 (magic) reached the same dead-end. Try L3
+    # (Claude 4.5) ONLY IF neither engine produced any usable chain.
+    # This closes the "Undecoded" gap for novel wrappers.
+    if smart_chain_len == 0 and magic_chain_len == 0 and payload and len(payload) >= 4:
+        try:
+            from llm_decoder import llm_decode_fallback
+            l3 = llm_decode_fallback(payload)
+            if l3 and (l3.get("output") or l3.get("steps")):
+                # L3 verdict wins by default — deterministic gave up.
+                return l3
+        except Exception as _e:  # noqa: BLE001
+            pass
+
     return _pack_smart() if smart_chain_len else _pack_magic()
 
 

@@ -491,6 +491,20 @@ async def ingest_feedback(user=Depends(get_current_user)):
             # as a starter template so the admin can approve without re-analysis.
             "ai_suggested_recipe": suggested_recipe,
         }
+        # ── v1.5.0 · Auto-analyze the moment we ingest ─────────────────
+        # Closes the novel-payload loop: analyst reports bad decode →
+        # feedback ingested → proposal auto-generated → admin just reviews.
+        # We only auto-analyze if there's SOMETHING to work with
+        # (expected output OR AI suggested recipe) — otherwise skip and
+        # let the admin click ANALYZE manually.
+        if fb.get("expected_output") or suggested_recipe:
+            try:
+                doc["proposal"] = eng.propose_archetype(raw, fb.get("expected_output") or "")
+                doc["status"] = "proposed"
+                doc["analyzed_at"] = _now()
+                doc["analyzed_by"] = "auto:ingest-feedback"
+            except Exception as _e:
+                doc["notes"] = (doc["notes"] or "") + f"\n\n[auto-analyze failed: {_e}]"
         _col_payloads.insert_one(doc)
         _col_feedback.update_one(
             {"id": fb["id"]},
@@ -515,3 +529,46 @@ async def list_feedback_sourced(limit: int = 100, user=Depends(get_current_user)
         {"_id": 0}
     ).sort("created_at", -1).limit(min(int(limit), 500))
     return {"items": list(cur)}
+
+
+
+
+# ─── BULK AUTO-ANALYZE (v1.5.0 · novel-payload loop closure) ─────────────
+@router.post("/learner/auto-analyze-inbox")
+async def auto_analyze_inbox(user=Depends(get_current_user)):
+    """Admin: analyze every inbox row that hasn't been analyzed yet.
+
+    Iterates every `status=inbox` payload, runs `propose_archetype`,
+    and flips status to `proposed`. Skips rows with no `expected_output`
+    AND no `ai_suggested_recipe` (nothing to work from).
+    """
+    _admin(user)
+    cursor = _col_payloads.find({"status": "inbox"})
+    analyzed = 0
+    skipped = 0
+    failed = 0
+    for doc in cursor:
+        has_signal = bool(doc.get("expected_output")) or bool(doc.get("ai_suggested_recipe"))
+        if not has_signal:
+            skipped += 1
+            continue
+        try:
+            prop = eng.propose_archetype(doc["raw_payload"], doc.get("expected_output") or "")
+            _col_payloads.update_one(
+                {"id": doc["id"]},
+                {"$set": {
+                    "proposal":    prop,
+                    "status":      "proposed",
+                    "analyzed_at": _now(),
+                    "analyzed_by": "auto:bulk-analyze",
+                }},
+            )
+            analyzed += 1
+        except Exception:
+            failed += 1
+    return {
+        "ok":       True,
+        "analyzed": analyzed,
+        "skipped":  skipped,
+        "failed":   failed,
+    }
