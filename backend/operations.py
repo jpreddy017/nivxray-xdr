@@ -2260,7 +2260,8 @@ MITRE_HEURISTICS = [
         ("T1552.004", "GCP service-account key JSON structure (private_key_id / type=service_account)", "Credential Access")),
 
     # ── G2 · AWS Cognito ID token (cognito:username claim in JWT body) ──
-    (r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]*(?:Y29nbml0bzp1c2VybmFtZQ|"          # base64("cognito:username")
+    (r"eyJ[A-Za-z0-9_-]{6,}\.eyJjb2duaXRvO[A-Za-z0-9_-]*|"                      # JWT body starts with {"cognito:…"
+     r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]*(?:Y29nbml0bzp1c2VybmFtZQ|"          # base64("cognito:username")
      r"Y29nbml0by11c2Vy|Y29nbml0bzpncm91cHM)[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+|"
      r"cognito:username|cognito-idp\.[a-z0-9-]+\.amazonaws\.com|"
      r"AWSCognitoIdentityProviderService|"

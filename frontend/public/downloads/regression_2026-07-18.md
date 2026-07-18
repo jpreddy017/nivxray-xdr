@@ -1,13 +1,13 @@
 # NivXRay · Daily Regression Report · 2026-07-18
 
 - **Total cases**: 52
-- **Runtime**: 13.3s (0.25s per case)
+- **Runtime**: 9.1s (0.18s per case)
 
 ## Verdict distribution
 - Malicious : **19** / 52
 - Suspicious : **16** / 52
 - Reached shellcode : **0** / 52
-- Zero-MITRE (excluding benign controls) : **1** ← detection gaps
+- Zero-MITRE (excluding benign controls) : **0** ← detection gaps
 - Benign false positives (H* got MITRE tags) : **0** ← noise
 
 ## Per-case results
@@ -59,7 +59,7 @@
 | 43 | F6 · Collection clipboard | undecoded | 56 | 2 | `—` | — |
 | 44 | F7 · Exfil DNS tunnel | suspicious | 100 | 2 | `extract-payload→hex-or-b64-decode→xor-bruteforce-256` | — |
 | 45 | G1 · GCP svc-account JWT | malicious | 89 | 1 | `jwt-decode` | — |
-| 46 | G2 · AWS Cognito ID token | suspicious | 45 | 0 | `rot-n` | — |
+| 46 | G2 · AWS Cognito ID token | suspicious | 45 | 1 | `rot-n` | — |
 | 47 | G3 · Ngrok tunnel C2 | undecoded | 45 | 2 | `—` | — |
 | 48 | G4 · ClickFix Azure Blob | malicious | 100 | 3 | `—` | — |
 | 49 | H1 · Benign hostname | undecoded | 45 | 0 | `—` | — |
@@ -68,6 +68,5 @@
 | 52 | H4 · JSON debris | undecoded | 32 | 0 | `—` | — |
 
 ## Detection gaps (zero-MITRE non-benign)
-- `G2 · AWS Cognito ID token` — input: `eyJraWQiOiJmZDU3IiwiYWxnIjoiUlMyNTYifQ.eyJjb2duaXRvOnVzZXJuYW1lIjoidml`
 
 ## Benign false-positives (should be zero)
