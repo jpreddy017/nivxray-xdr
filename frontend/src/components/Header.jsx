@@ -3,7 +3,7 @@ import { useState } from "react";
 import Logo from "@/components/Logo";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { useAuth } from "@/lib/auth";
-import { LogOut, LayoutGrid, Cog, Radar, Sparkles, Beaker, Terminal, BookOpen, KeyRound, Rss, TestTube, GraduationCap } from "lucide-react";
+import { LogOut, LayoutGrid, Cog, Radar, Sparkles, Beaker, Terminal, BookOpen, KeyRound, Rss, TestTube, GraduationCap, Grid } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -89,6 +89,14 @@ export default function Header() {
             style={{ color: loc.pathname === "/batch-test" ? "var(--accent)" : "var(--text-dim)" }}
           >
             <TestTube size={13} /> BATCH
+          </Link>
+          <Link
+            to="/heatmap"
+            data-testid="nav-heatmap"
+            className="nvx-btn sm ghost"
+            style={{ color: loc.pathname === "/heatmap" ? "var(--accent)" : "var(--text-dim)" }}
+          >
+            <Grid size={13} /> HEATMAP
           </Link>
           <Link
             to="/learner"

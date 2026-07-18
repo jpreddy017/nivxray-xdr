@@ -68,6 +68,8 @@ from routers.threat_intel_rss import (
     start_scheduler as _start_cti_rss_scheduler,
 )
 from routers.batch_test import router as batch_test_router
+from routers.mitre_heatmap import router as mitre_heatmap_router
+from routers.corpus_validate import router as corpus_validate_router
 from request_hardening import RequestHardeningMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -153,6 +155,8 @@ api.include_router(threat_model_router)
 api.include_router(analyst_corrections_router)
 api.include_router(threat_intel_rss_router)
 api.include_router(batch_test_router)
+api.include_router(mitre_heatmap_router)
+api.include_router(corpus_validate_router)
 
 app.include_router(api)
 

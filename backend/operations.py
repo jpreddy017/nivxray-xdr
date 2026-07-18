@@ -2070,7 +2070,7 @@ MITRE_HEURISTICS = [
     (r"(?:^|[\s\"'])-c(?:ommand)?\s+[\"']?[^\"'\r\n]{0,120}?(?:iex|invoke-expression|downloadstring|invoke-webrequest|net\.webclient|start-bitstransfer)",
         ("T1059.001", "PowerShell -Command fragment invoking IEX / download-and-execute", "Execution")),
     # Bare cmd fragment: /c or /k with chained commands
-    (r"(?:^|[\s\"'])/[cCkK]\s+[\"']?[^\"'\r\n]{0,200}?(?:&&|\|\||\bstart\b|\bpowershell\b|\bcurl\b|\bcertutil\b|\bbitsadmin\b|\bmshta\b|\breg\s+add\b)",
+    (r"(?:^|[\s\"'])/[cCkK]\s+[\"']?[^\"'\r\n]{0,200}?(?:&&|\|\||\bstart\b|\bpowershell\b|\bcurl\b|\bcertutil\b|\bbitsadmin\b|\bmshta\b|\breg\s+add\b|\brundll32\b|\btasklist\b|\bcomsvcs\b|\bwmic\b|\bnet\s+use\b|\bschtasks\b|\bvssadmin\b|\bfor\s+/f\b)",
         ("T1059.003", "cmd /c or /k fragment chaining execution primitives", "Execution")),
     # Bare certutil-style fragments (arguments only)
     (r"(?:^|[\s\"'])-urlcache\s+(?:-\S+\s+){0,3}-f\s+https?://",
@@ -2083,9 +2083,12 @@ MITRE_HEURISTICS = [
     # Bare mshta fragment (URL argument w/o host binary)
     (r"(?:^|[\s\"'])(?:javascript:|vbscript:)[^\r\n]{0,200}?(?:GetObject|WScript|ActiveXObject|eval|CreateObject)",
         ("T1218.005", "mshta-style javascript:/vbscript: URI fragment", "Defense Evasion")),
-    # Bare rundll32 fragment (DLL,Entry pattern)
-    (r"(?:^|[\s\"'])[\"']?[a-z]:\\[^\"'\r\n]{2,200}?\.dll[\"']?,\s*[A-Za-z_@#][A-Za-z0-9_@#]{2,60}",
-        ("T1218.011", "rundll32-style DLL,ExportedFunction fragment", "Defense Evasion")),
+    # Bare rundll32 fragment (DLL,Entry pattern) — accepts named or ordinal exports (#+000024)
+    (r"(?:^|[\s\"'])[\"']?[a-z]:\\[^\"'\r\n]{2,200}?\.dll[\"']?,\s*(?:[A-Za-z_@#][A-Za-z0-9_@#]{2,60}|#\+?[0-9A-Fa-f]{2,10})",
+        ("T1218.011", "rundll32-style DLL,ExportedFunction fragment (named or ordinal)", "Defense Evasion")),
+    # comsvcs.dll ordinal MiniDump — LSASS credential-dumping tradecraft
+    (r"comsvcs\.dll[\"']?,\s*#\+?[0-9]{2,10}",
+        ("T1003.001", "comsvcs.dll ordinal MiniDump — LSASS credential dumping", "Credential Access")),
     # Bare reg-add persistence key fragment
     (r"(?:^|[\s\"'])add\s+[\"']?HK(?:LM|CU)\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
         ("T1547.001", "reg add HKCU/HKLM ...\\Run persistence fragment", "Persistence")),
