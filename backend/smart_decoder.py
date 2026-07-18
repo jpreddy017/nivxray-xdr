@@ -337,6 +337,68 @@ def _apply_next(current: str, steps_so_far: List[Dict[str, Any]], notes: List[st
         except Exception:
             pass
 
+    # 8.5. Reverse-string heuristic (Feb 2026 v1.3.1) ————————————————
+    # `echo … | rev | base64` and `xxd -p | rev` tradecraft. We attempt a
+    # reversal ONLY IF: (a) we haven't just reversed on the previous step
+    # (prevents ping-pong on symmetric charsets like pure hex), AND (b) the
+    # reversed text decodes to something with a KNOWN binary magic OR non-
+    # ambiguous plaintext (contains characters outside the current charset).
+    _last_op = steps_so_far[-1]["op"] if steps_so_far else None
+    _rev = current[::-1]
+    if _last_op != "reverse" and _rev != current and len(_rev) >= 16:
+
+        def _has_strong_signal(_raw: bytes) -> bool:
+            """A signal is 'strong' if the raw bytes contain a magic prefix
+            OR decode to text that has whitespace / non-alphanumeric structure
+            (i.e., real words, not just charset-shaped noise)."""
+            if _bin_magic_op(_raw) is not None:
+                return True
+            if _raw[:2] == b"MZ" or _raw[:4] == b"\x7fELF":
+                return True
+            try:
+                s = _raw.decode("utf-8")
+            except UnicodeDecodeError:
+                return False
+            if not _is_printable_text(_raw, 0.9):
+                return False
+            # Reject shape-collision noise (pure hex / pure b64 charset) —
+            # we need real evidence of a distinct decoding layer underneath.
+            if re.fullmatch(r"[0-9a-fA-F]+", s) or re.fullmatch(r"[A-Za-z0-9+/=]+", s):
+                return False
+            return True
+
+        # Case A — reversed is valid base64 that decodes with a strong signal
+        if _looks_like_base64(_rev):
+            _raw = _try_base64(_rev)
+            if _raw is not None and _has_strong_signal(_raw):
+                return ("reverse", {},
+                        "Reversed text is a base64 blob with a real payload underneath",
+                        _rev)
+        # Case B — reversed is valid hex that decodes with a strong signal
+        if _looks_like_hex(_rev):
+            try:
+                _hex_raw = bytes.fromhex(re.sub(r"[\s,\-]", "", _rev))
+                if _has_strong_signal(_hex_raw):
+                    return ("reverse", {},
+                            "Reversed text is hex-encoded with a real payload underneath",
+                            _rev)
+                # Special case: reversed hex decodes to something that's
+                # itself the base64 charset (i.e., after unhex we get a b64
+                # string). This is the `xxd -p | rev | base64` middle layer.
+                try:
+                    _hex_str = _hex_raw.decode("latin1")
+                    if re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", _hex_str) and len(_hex_str) >= 24:
+                        # Confirm the b64 decodes to a magic or printable text
+                        _inner = _try_base64(_hex_str)
+                        if _inner is not None and (_bin_magic_op(_inner) or _is_printable_text(_inner, 0.85)):
+                            return ("reverse", {},
+                                    "Reversed hex unpacks to a base64 blob of real payload",
+                                    _rev)
+                except (UnicodeDecodeError, ValueError):
+                    pass
+            except (ValueError, binascii.Error):
+                pass
+
     # 9. Whole-input Base64 candidates (with intelligent gzip/zlib/utf16 chaining)
     if _looks_like_base64(current):
         raw = _try_base64(current)

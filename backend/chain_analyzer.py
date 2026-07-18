@@ -36,11 +36,17 @@ def auto_split_stages(text: str) -> List[str]:
 
     A single-stage input returns a 1-element list. Splitting only occurs
     when the caller pastes an obvious multi-payload block.
+
+    Feb 2026 v1.3.1: also normalises `<br>`, `<br/>`, `<br />` HTML line
+    breaks (common in Splunk / Kibana / Sentinel log exports) so pasted
+    dumps split cleanly.
     """
     if not text or not text.strip():
         return []
-    parts = [p.strip() for p in _BLANK_LINE_SPLIT.split(text.strip()) if p.strip()]
-    return parts or [text.strip()]
+    # Normalise HTML line breaks → real newlines. Case-insensitive.
+    normalised = re.sub(r"(?i)<\s*br\s*/?\s*>", "\n\n", text)
+    parts = [p.strip() for p in _BLANK_LINE_SPLIT.split(normalised.strip()) if p.strip()]
+    return parts or [normalised.strip()]
 
 
 # ────────────────────────────────────────────────────────────────────────

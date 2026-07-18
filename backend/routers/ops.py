@@ -251,6 +251,141 @@ async def analyze_shellcode(body: ShellcodeIn, user=Depends(get_current_user)):
     return result
 
 
+async def _decode_multi_fragment(fragments: List[str], body: AutoIn, user) -> Dict[str, Any]:
+    """Decode each fragment via `/api/decode/smart` internally and merge.
+
+    Fragment-mode is triggered by:
+      * `<br>` HTML line breaks (Kibana / Sentinel exports)
+      * ≥ 2 `-Enc <b64>` / `-EncodedCommand <b64>` blocks in one paste
+
+    Produces a merged response with:
+      * `output`     — labelled per-fragment decoded outputs joined by
+                       clear stage boundaries
+      * `chain_ids`  — union of every fragment's chain
+      * `mitre`      — deduped union
+      * `lolbas`     — deduped union (by binary name)
+      * `iocs`       — merged (urls/ips/domains/hashes)
+      * `risk`       — max severity across fragments
+      * `fragments`  — per-fragment breakdown for the UI
+    """
+    from analysis_core import deterministic_best_decode
+    from operations import extract_iocs, mitre_map
+    from lolbas import scan_lolbas
+
+    per_fragment: List[Dict[str, Any]] = []
+    merged_output_parts: List[str] = []
+    merged_chain: List[str] = []
+    merged_mitre_by_id: Dict[str, Dict[str, Any]] = {}
+    merged_lolbas_by_bin: Dict[str, Dict[str, Any]] = {}
+    merged_iocs: Dict[str, set] = {}
+    max_score = 0
+    max_verdict = "Undecoded"
+
+    _SEVERITY_ORDER = {"Undecoded": 0, "Benign": 1, "Corrupted": 2, "Suspicious": 3, "Malicious": 4, "Unknown": 0}
+
+    for idx, frag in enumerate(fragments, 1):
+        try:
+            det = deterministic_best_decode(frag, analysis_mode=body.analysis_mode or "balanced")
+        except Exception as e:
+            det = {"output": frag, "steps": [], "score": 0.0, "engine": "error", "notes": [f"decode error: {e}"]}
+        f_out = det.get("output") or ""
+        f_steps = [s["op"] for s in det.get("steps") or []]
+        # Enrichment on input+output
+        f_scan = frag + "\n" + f_out
+        try:
+            f_iocs = extract_iocs(f_scan) or {}
+        except Exception:
+            f_iocs = {}
+        try:
+            f_mitre = mitre_map(f_scan) or []
+        except Exception:
+            f_mitre = []
+        try:
+            f_lolbas = scan_lolbas(f_scan) or []
+        except Exception:
+            f_lolbas = []
+
+        # Verdict card per fragment (best-effort)
+        try:
+            from evidence_extractor import build_verdict_card
+            f_vc = build_verdict_card(
+                input_text=frag, output_text=f_out,
+                chain=[{"op": s["op"], "args": s.get("args") or {}} for s in det.get("steps") or []],
+                corrupted_container=det.get("corrupted_container"),
+            )
+        except Exception:
+            f_vc = None
+        f_score = int((f_vc or {}).get("confidence") or 0)
+        f_verdict = ((f_vc or {}).get("label") or "Unknown").strip()
+
+        per_fragment.append({
+            "index":       idx,
+            "input":       frag[:400],
+            "output":      f_out,
+            "chain_ids":   f_steps,
+            "engine":      det.get("engine"),
+            "mitre":       f_mitre,
+            "lolbas":      f_lolbas,
+            "iocs":        f_iocs,
+            "risk":        {"verdict": f_verdict, "level": f_verdict.lower(), "score": f_score},
+            "verdict_card": f_vc,
+        })
+
+        # Merge chain
+        merged_chain.extend(f_steps)
+        # Merge MITRE (by id)
+        for m in f_mitre:
+            mid = (m.get("id") if isinstance(m, dict) else None) or (m if isinstance(m, str) else None)
+            if mid and mid not in merged_mitre_by_id:
+                merged_mitre_by_id[mid] = m if isinstance(m, dict) else {"id": mid}
+        # Merge LOLBAS (by binary)
+        for l in f_lolbas:
+            key = (l.get("binary") if isinstance(l, dict) else None) or (l if isinstance(l, str) else None)
+            if key and key not in merged_lolbas_by_bin:
+                merged_lolbas_by_bin[key] = l if isinstance(l, dict) else {"binary": key}
+        # Merge IOCs
+        for k, v in f_iocs.items():
+            if isinstance(v, list):
+                merged_iocs.setdefault(k, set()).update(v)
+        # Max verdict
+        if _SEVERITY_ORDER.get(f_verdict, 0) > _SEVERITY_ORDER.get(max_verdict, 0):
+            max_verdict = f_verdict
+        max_score = max(max_score, f_score)
+
+        # Build labelled output block
+        header = f"── Fragment {idx}/{len(fragments)} · engine={det.get('engine')} · risk={f_verdict}({f_score}) ──"
+        merged_output_parts.append(header)
+        merged_output_parts.append(f"INPUT : {frag[:200]}{'…' if len(frag) > 200 else ''}")
+        merged_output_parts.append("DECODED:")
+        merged_output_parts.append(f_out or "(no decoded content)")
+        merged_output_parts.append("")
+
+    merged_output = "\n".join(merged_output_parts).rstrip()
+    merged_iocs_out = {k: sorted(v) for k, v in merged_iocs.items()}
+
+    return {
+        "engine":           "multi-fragment",
+        "output":           merged_output,
+        "output_raw":       merged_output,
+        "recipe":           [{"op": op, "args": {}, "reason": f"multi-fragment step"} for op in merged_chain],
+        "chain_ids":        merged_chain,
+        "score":            max_score,
+        "confidence":       max_score,
+        "reached_shellcode": any((f.get("risk") or {}).get("level") == "malicious" for f in per_fragment),
+        "risk":             {"verdict": max_verdict, "level": max_verdict.lower(), "score": max_score},
+        "mitre":            list(merged_mitre_by_id.values()),
+        "lolbas":           list(merged_lolbas_by_bin.values()),
+        "iocs":             merged_iocs_out,
+        "fragments":        per_fragment,
+        "fragment_count":   len(fragments),
+        "notes":            [f"Multi-fragment mode: split {len(fragments)} payloads (HTML <br> and/or repeated -Enc detected)"],
+        "detected_type":    "multi-fragment",
+        "analysis_mode":    body.analysis_mode or "balanced",
+        "custom_recipes_matched": [],
+        "trace":            [],
+    }
+
+
 @router.post("/decode/smart")
 async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     """Custom recipe match first, else deterministic BEST-of {smart, magic}.
@@ -259,8 +394,25 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     at the loader-script layer on multi-layer stagers. Now uses
     `deterministic_best_decode` (smart+magic race) so this endpoint reaches the
     SAME terminal state as the MAGIC button on every supported payload.
+
+    Feb 2026 v1.3.1: multi-fragment auto-split. When the input contains HTML
+    line breaks (`<br>`) OR multiple `-Enc <b64>` / `powershell` / `cmd`
+    fragments on separate lines, we split, decode each independently, and
+    return a MERGED output — so pasting a Kibana / Sentinel `<br>`-joined
+    log dump shows every decoded fragment, not just the first.
     """
     from analysis_core import deterministic_best_decode
+
+    # ── Multi-fragment auto-split (v1.3.1) ─────────────────────────────
+    raw_input = body.input or ""
+    _has_br = bool(re.search(r"(?i)<\s*br\s*/?\s*>", raw_input))
+    _norm = re.sub(r"(?i)<\s*br\s*/?\s*>", "\n\n", raw_input)
+    _enc_count = len(re.findall(r"(?i)-\s*e(?:c|nc|ncoded(?:command)?)\b", _norm))
+    _fragments: List[str] = []
+    if _has_br or _enc_count >= 2:
+        _fragments = [p.strip() for p in re.split(r"\n\s*\n+", _norm.strip()) if p.strip()]
+    if len(_fragments) >= 2:
+        return await _decode_multi_fragment(_fragments, body, user)
 
     custom_matches = await ms.find_matching_recipes(db, body.input)
     if custom_matches:
@@ -401,6 +553,11 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         "reached_shellcode": det.get("reached_shellcode", False),
         "confidence": int(round(min(1.0, det.get("score", 0.0)) * 100)),
         "trace": trace,
+        # Flat convenience fields — Feb 2026 · regression + UI consumers.
+        # `chain_ids` mirrors `recipe[].op` for callers that want a bare
+        # list; `score` mirrors `confidence` (kept for both names).
+        "chain_ids": [s["op"] for s in (det.get("steps") or [])],
+        "score":     int(round(min(1.0, det.get("score", 0.0)) * 100)),
         "custom_recipes_matched": [
             {"id": r["id"], "name": r["name"]} for r in custom_matches
         ],
@@ -490,6 +647,25 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # Never break /decode/smart if evidence extraction hiccups
         result["verdict_card"] = None
         result["verdict_card_error"] = str(_e)
+
+    # ── Flat `risk` object — Feb 2026 · regression + UI consumers ──────
+    # Callers (daily_regression.py, batch pipeline, external SIEM push)
+    # want a stable {verdict, level, score} shape without diving into
+    # verdict_card. We map:
+    #   verdict_card.label       → risk.verdict     (raw label string)
+    #   verdict_card.label       → risk.level       (lowercase)
+    #   verdict_card.confidence  → risk.score       (0-100 int)
+    # For failed / missing verdict cards, risk is set to a safe "Unknown".
+    try:
+        vc = result.get("verdict_card") or {}
+        _label = (vc.get("label") or vc.get("verdict") or "").strip()
+        result["risk"] = {
+            "verdict": _label or "Unknown",
+            "level":   _label.lower() if _label else "unknown",
+            "score":   int(vc.get("confidence") or vc.get("score") or 0),
+        }
+    except Exception:
+        result["risk"] = {"verdict": "Unknown", "level": "unknown", "score": 0}
 
     # ── IOC / MITRE / LOLBAS enrichment (Feb-2026 fix) ─────────────────
     # Previously `/api/decode/smart` returned an empty analysis panel for

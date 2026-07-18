@@ -1,6 +1,43 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## v1.3.2 — Feb 18 2026 · Multi-Fragment Split · Reverse Chain · AMSI PS Normaliser
+
+**Status:** Preview · 13 new tests green, 115/116 in impacted subsets pass (1 pre-existing certutil MZ failure unchanged), daily regression 35/52 detections · 0 FP · 0 regressions.
+
+### 1. `/api/decode/smart` — multi-fragment auto-split
+- Analysts paste log dumps joined by `<br>` HTML tags (Kibana/Sentinel/Splunk) → now recognised.
+- Trigger: input contains `<br>` OR ≥ 2 `-Enc`/`-EncodedCommand` blocks.
+- Each fragment decoded independently; the response merges MITRE, LOLBAS, IOCs, and returns a `fragments` array with per-fragment `chain_ids`, `output`, `risk`, `verdict_card`.
+- Response engine: `multi-fragment` · shape stays parity-compatible with single-fragment (`chain_ids`, `score`, `risk`, `output` all present).
+- Test: `tests/test_multi_fragment_split.py` (3 tests).
+
+### 2. Reverse-string heuristic in `smart_decoder.py`
+- Handles `xxd -p | rev | base64` and `base64 | rev` tradecraft.
+- Fires when reversed text decodes with a **strong signal** (binary magic, or plaintext outside the ambient charset). Skips symmetric pure-hex/pure-b64 (no ping-pong).
+- Test: `tests/test_smart_reverse_chain.py` (4 tests) — full 6-layer chain `echo | b64 | gzip | b64 | xxd -p | rev | b64` now decodes end-to-end to `NivXray_Test_Payload_01`.
+
+### 3. `ps_normalize.py` — AMSI-bypass bareword coercion
+- 4 new passes: double-paren, leading-dot, paren+concat, and unparenthesised bareword adjacent to quoted strings.
+- The Feb 2026 AMSI-bypass tradecraft (`((.Man)+agement.)`, `((Syst)+'em')`, `('u'+'to'+(mation.))`) now cleanly resolves to `'System.Management.Automation.AmsiUtils'`, `'amsiInitFailed'`, `'NonPublic,Static'`.
+- Test: `tests/test_ps_normalize_amsi.py` (3 tests) — verified idempotent, no infinite loops.
+
+### 4. Response-shape fix for `/api/decode/smart`
+- Added top-level `chain_ids` (flat op-name list), `score` (0–100 int), and `risk: {verdict, level, score}`.
+- Fixes the regression pipeline reporting `None` for these fields.
+
+### Files touched
+- `backend/routers/ops.py` — multi-fragment split, `_decode_multi_fragment`, flat `risk`/`score`/`chain_ids`
+- `backend/smart_decoder.py` — reverse heuristic (Case A/B guards, no ping-pong)
+- `backend/ps_normalize.py` — 4 new bareword coercion passes
+- `backend/chain_analyzer.py` — `auto_split_stages` now normalises `<br>` → `\n\n`
+- `backend/tests/test_multi_fragment_split.py`, `test_smart_reverse_chain.py`, `test_ps_normalize_amsi.py` (new)
+- `backend/tests/extensive_regression.py` (P0 linting fix — precomputed f-string args)
+
+---
+
+
+
 ## v1.3.1 — Feb 18 2026 · Analyst Practice Lab · Narrative Mode
 
 **Status:** Preview · shipping to prod after user validation
