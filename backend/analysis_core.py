@@ -634,6 +634,31 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
     if smart_tail_bad and not _has_extra_signal(smart_out, payload):
         smart_score -= 0.25
 
+    def _layer_trace() -> List[Dict[str, Any]]:
+        """v1.5.1 · Zero-Miss escalation ladder — what each layer produced."""
+        return [
+            {
+                "layer": "L1",
+                "engine": "smart",
+                "chain_len": len(smart.get("steps") or []),
+                "score": round(smart_score, 4),
+                "verdict": (
+                    "reached-shellcode" if smart_reached_sc
+                    else ("decoded" if (smart.get("steps") or []) else "zero-chain")
+                ),
+            },
+            {
+                "layer": "L2",
+                "engine": "magic",
+                "chain_len": len(top.get("chain") or []),
+                "score": round(magic_score_val, 4),
+                "verdict": (
+                    "reached-shellcode" if magic_reached_sc
+                    else ("decoded" if (top.get("chain") or []) else "zero-chain")
+                ),
+            },
+        ]
+
     def _pack_smart() -> Dict[str, Any]:
         return {
             "steps": [{"op": s["op"], "args": s.get("args") or {}} for s in smart.get("steps") or []],
@@ -642,6 +667,7 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
             "reached_shellcode": smart_reached_sc,
             "score": round(smart_score, 4),
             "notes": smart.get("notes") or [],
+            "layer_trace": _layer_trace(),
         }
 
     def _pack_magic() -> Dict[str, Any]:
@@ -654,6 +680,7 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
             "score": round(magic_score_val, 4),
             "output_hex": top.get("output_hex"),
             "output_bytes_len": top.get("output_bytes_len"),
+            "layer_trace": _layer_trace(),
         }
 
     if magic_reached_sc and not smart_reached_sc:
@@ -682,7 +709,15 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
             from llm_decoder import llm_decode_fallback
             l3 = llm_decode_fallback(payload)
             if l3 and (l3.get("output") or l3.get("steps")):
-                # L3 verdict wins by default — deterministic gave up.
+                # Attach the L1/L2 escalation trace so the UI can show WHY L3
+                # fired (both prior layers zero-chained).
+                l3.setdefault("layer_trace", _layer_trace())
+                l3["layer_trace"].append({
+                    "layer": "L3", "engine": "llm-l3",
+                    "chain_len": len(l3.get("steps") or []),
+                    "score": l3.get("score", 0.5),
+                    "verdict": "decoded" if (l3.get("steps") or []) else "gave-up",
+                })
                 return l3
         except Exception as _e:  # noqa: BLE001
             pass

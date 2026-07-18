@@ -1,0 +1,2 @@
+{"sha1": "7e0a722888e2f08b7a5e932db6a91dca4856fb77", "input": "powershell -Enc SQBFAFgA", "engine": "magic", "layer_trace": [], "user": "admin@nivxray.com", "at": "2026-07-18T16:11:46.788107+00:00"}
+{"sha1": "fed5658f139d347e38b79f63e7769e6e90017c11", "input": "random-noise-not-encoded-abcdefghij12345", "engine": "magic", "layer_trace": [], "user": "admin@nivxray.com", "at": "2026-07-18T16:11:58.986877+00:00"}

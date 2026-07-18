@@ -24,6 +24,7 @@ import ChainStageEditor from "@/components/ChainStageEditor";
 import ChainReplayView from "@/components/ChainReplayView";
 import CandidateExplorer from "@/components/CandidateExplorer";
 import BadDecodeModal from "@/components/BadDecodeModal";
+import EscalationLadder from "@/components/EscalationLadder";
 import MoEPanel from "@/components/MoEPanel";
 import InvestigationTimeline from "@/components/InvestigationTimeline";
 import api from "@/lib/api";
@@ -542,6 +543,10 @@ export default function WorkspacePage() {
         yara: d.yara || [],
         risk: d.risk || {},
         family: d.family || null,
+        // v1.5.1 — Zero-Miss escalation trace
+        layer_trace: d.layer_trace || [],
+        engine: d.engine || null,
+        confidence: (d.confidence ?? d.score ?? null),
       });
       setStatus(`FLAT DECODE · engine=${d.engine || "?"} · conf=${d.confidence ?? "?"}/100`);
     } catch (e) {
@@ -1780,6 +1785,15 @@ export default function WorkspacePage() {
               <span style={{ fontWeight: 700 }}>{detected.label.toUpperCase()}</span>
               <span style={{ color: "var(--text-mute)", marginLeft: "auto" }}>{output.length} decoded chars</span>
             </div>
+          )}
+
+          {/* v1.5.1 — Zero-Miss Escalation Ladder */}
+          {analysis?.layer_trace && Array.isArray(analysis.layer_trace) && analysis.layer_trace.length > 0 && (
+            <EscalationLadder
+              trace={analysis.layer_trace}
+              winner={analysis.engine}
+              confidence={analysis.confidence ?? analysis.score}
+            />
           )}
 
           {/* Output Card — real-time preview + view toggles + byte diff */}

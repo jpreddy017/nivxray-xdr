@@ -787,6 +787,40 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # Report synthesis is best-effort — never fail the decode.
         pass
 
+    # ── v1.5.1 · Adversarial corpus writer ───────────────────────────
+    # Every payload that goes UNDECODED in production becomes a permanent
+    # regression case. This is the "never regress" safety net — once the
+    # decoder team fixes the miss, the fix is protected forever.
+    try:
+        _steps_ct = len(det.get("steps") or [])
+        _out = (result.get("output") or "").strip()
+        _in = (body.input or "").strip()
+        _undecoded = (_steps_ct == 0) or (_out == "") or (_out == _in)
+        if _undecoded and len(_in) >= 8:
+            from pathlib import Path
+            import hashlib, json as _json
+            from datetime import datetime, timezone
+            _CORPUS = Path("/app/backend/tests/fixtures/adversarial_corpus.jsonl")
+            _CORPUS.parent.mkdir(parents=True, exist_ok=True)
+            _sha1 = hashlib.sha1(_in.encode("utf-8")).hexdigest()
+            # dedupe on sha1 by scanning existing ledger — cheap for <10k entries
+            _seen = False
+            if _CORPUS.exists():
+                for _line in _CORPUS.read_text(encoding="utf-8").splitlines():
+                    if _sha1 in _line:
+                        _seen = True; break
+            if not _seen:
+                _CORPUS.open("a", encoding="utf-8").write(_json.dumps({
+                    "sha1":    _sha1,
+                    "input":   _in[:8192],
+                    "engine":  result.get("engine"),
+                    "layer_trace": result.get("layer_trace") or [],
+                    "user":    user.get("email"),
+                    "at":      datetime.now(timezone.utc).isoformat(),
+                }, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
     # Auto-record into user's Investigation History (fire-and-forget, never blocks)
     try:
         from routers.history import record_investigation
