@@ -278,21 +278,41 @@ function InboxTab({ setStatus, setErr }) {
       <div className="nvx-card">
         <div className="nvx-card-head">
           <div className="nvx-card-title">Inbox ({rows.length})</div>
-          <select value={filter} onChange={e => setFilter(e.target.value)}
-                  data-testid="learner-filter-select"
-                  style={{ background: "var(--bg-mute)", color: "var(--text)",
-                            border: "1px solid var(--border)", borderRadius: 4,
-                            padding: "3px 8px", fontFamily: "JetBrains Mono", fontSize: 11 }}>
-            {["inbox", "proposed", "merged", "rejected", "rolled_back", "all"].map(s =>
-              <option key={s} value={s}>{s}</option>
-            )}
-          </select>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              className="nvx-btn xs"
+              style={{ background: "#0f766e", color: "#fff", borderColor: "#134e4a" }}
+              data-testid="learner-ingest-feedback-btn"
+              onClick={async () => {
+                try {
+                  setStatus?.("ingesting decode_feedback…");
+                  const r = await api.post(`/learner/ingest-feedback`);
+                  setStatus?.(`ingested ${r.data.ingested} · dupes skipped ${r.data.skipped_dupes}`);
+                  load();
+                } catch (e) {
+                  setErr?.(e?.response?.data?.detail || e?.message || "ingest failed");
+                }
+              }}
+              title="Pull every unprocessed decode_feedback record into this inbox, deduped by SHA1"
+            >
+              INGEST FEEDBACK
+            </button>
+            <select value={filter} onChange={e => setFilter(e.target.value)}
+                    data-testid="learner-filter-select"
+                    style={{ background: "var(--bg-mute)", color: "var(--text)",
+                              border: "1px solid var(--border)", borderRadius: 4,
+                              padding: "3px 8px", fontFamily: "JetBrains Mono", fontSize: 11 }}>
+              {["inbox", "proposed", "merged", "rejected", "rolled_back", "all"].map(s =>
+                <option key={s} value={s}>{s}</option>
+              )}
+            </select>
+          </div>
         </div>
         <div className="nvx-card-body">
           <table style={tableStyle}>
             <thead>
               <tr>
-                <th>ID</th><th>Cluster</th><th>Status</th><th>Preview</th><th>Actions</th>
+                <th>ID</th><th>Cluster</th><th>Status</th><th>Source</th><th>Preview</th><th>Suggested Recipe</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -301,9 +321,54 @@ function InboxTab({ setStatus, setErr }) {
                   <td className="mono">{r.id.slice(0, 8)}</td>
                   <td className="mono">{r.cluster_key}</td>
                   <td><StatusBadge s={r.status} /></td>
-                  <td className="mono" style={{ maxWidth: 400, overflow: "hidden",
+                  <td>
+                    {r.dataset_source === "decode_feedback" ? (
+                      <span
+                        data-testid={`learner-source-feedback-${r.id}`}
+                        title={r.source_feedback_id ? `feedback id: ${r.source_feedback_id}` : "auto-ingested from REPORT BAD DECODE"}
+                        style={{
+                          background: "#7f1d1d", color: "#fff", padding: "2px 8px",
+                          borderRadius: 999, fontSize: 10, letterSpacing: 0.4,
+                          display: "inline-block",
+                        }}
+                      >
+                        FEEDBACK
+                      </span>
+                    ) : (
+                      <span className="mono" style={{ color: "var(--text-dim)", fontSize: 10 }}>
+                        {r.dataset_source || "manual"}
+                      </span>
+                    )}
+                  </td>
+                  <td className="mono" style={{ maxWidth: 300, overflow: "hidden",
                                                 textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.preview}
+                  </td>
+                  <td>
+                    {Array.isArray(r.ai_suggested_recipe) && r.ai_suggested_recipe.length > 0 ? (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 3, maxWidth: 240 }}>
+                        {r.ai_suggested_recipe.slice(0, 4).map((op, i) => (
+                          <span
+                            key={i}
+                            data-testid={`learner-recipe-chip-${r.id}-${i}`}
+                            style={{
+                              background: "#134e4a", color: "#a7f3d0",
+                              padding: "1px 6px", borderRadius: 3, fontSize: 9,
+                              fontFamily: "JetBrains Mono",
+                            }}
+                          >
+                            {op}
+                          </span>
+                        ))}
+                        {r.ai_suggested_recipe.length > 4 && (
+                          <span style={{ fontSize: 9, color: "var(--text-dim)" }}>
+                            +{r.ai_suggested_recipe.length - 4}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 10, color: "var(--text-dim)" }}>—</span>
+                    )}
                   </td>
                   <td>
                     <button className="nvx-btn xs ghost" onClick={() => analyze(r.id)}
@@ -320,8 +385,8 @@ function InboxTab({ setStatus, setErr }) {
                 </tr>
               ))}
               {!rows.length && (
-                <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "var(--text-dim)" }}>
-                  No entries. Submit a failed payload above.
+                <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--text-dim)" }}>
+                  No entries. Submit a failed payload above or click INGEST FEEDBACK to pull analyst REPORT BAD DECODE reports.
                 </td></tr>
               )}
             </tbody>

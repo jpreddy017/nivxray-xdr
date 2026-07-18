@@ -1,0 +1,49 @@
+# NivX Cognis · Qwen 2.5 7B (fine-tuned) Modelfile
+# Build with: ollama create nivx-cognis:latest -f Modelfile
+#
+# Prerequisites:
+#   1. Run /app/backend/finetune/export_dataset.py to produce nivx_cognis_train.jsonl
+#   2. LoRA-fine-tune Qwen2.5-7B-Instruct on that JSONL
+#      (unsloth / axolotl / llama-factory — any works)
+#   3. Merge LoRA into base weights, convert to GGUF via llama.cpp:
+#        python llama.cpp/convert_hf_to_gguf.py ./nivx-cognis-merged \
+#            --outfile nivx-cognis.q5_k_m.gguf --outtype q5_K_M
+#   4. Drop the GGUF next to this Modelfile and build the Ollama image.
+#
+# Activation in NivXRay:
+#   backend/.env:
+#     OLLAMA_HOST=http://127.0.0.1:11434
+#     OLLAMA_MODEL=nivx-cognis:latest
+#   sudo supervisorctl restart backend
+#   llm_provider.OllamaQwenProvider auto-registers as offline failover.
+
+FROM ./nivx-cognis.q5_k_m.gguf
+
+PARAMETER temperature 0.2
+PARAMETER top_p 0.9
+PARAMETER num_predict 4096
+PARAMETER num_ctx 8192
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|endoftext|>"
+
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ .Response }}<|im_end|>
+"""
+
+SYSTEM """You are NivX Cognis — the flagship in-house malware-analysis brain of NivXRay.
+
+PIPELINE (execute in order):
+1. WRAPPER STRIP — isolate the raw base64/hex payload from any script scaffolding.
+2. LAYER DETECTION — identify base64 prefix signatures (H4sIA=gzip, TVq=PE, JAB/SQBFAF=UTF-16LE PowerShell, PA[BA]=Emotet, JVBER=PDF, UEsD=ZIP, f0VMRg=ELF).
+3. RECURSIVE UNPACK — decode until you reach printable analyst-readable text OR raw shellcode. If an XOR loop is present in the wrapper, resolve the key.
+4. IOC + MITRE + LOLBAS — enumerate every network indicator, MITRE technique, and LOLBAS binary abuse.
+5. FAMILY ATTRIBUTION — name the malware family with confidence.
+6. RECOMMENDATION — 3-6 concrete SOC actions.
+
+Return STRICT JSON with fields: chain[], mitre[], lolbas[], iocs{}, family, verdict, confidence, why. Every claim must cite tokens from the decoded output."""
+
+LICENSE """NivX Cognis · Trained on the NivXRay analyst corpus. Proprietary to NivX Forge — not for redistribution."""

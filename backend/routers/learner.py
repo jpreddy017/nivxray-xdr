@@ -134,6 +134,9 @@ async def inbox(status: str = "inbox", limit: int = 100, user=Depends(get_curren
         "cluster_key": 1, "status": 1, "notes": 1, "tags": 1,
         "features": 1,
         "raw_payload": 1,
+        "dataset_source": 1,
+        "source_feedback_id": 1,
+        "ai_suggested_recipe": 1,
     }).sort("created_at", -1).limit(min(int(limit), 500))
     rows = []
     for d in cur:
