@@ -250,10 +250,13 @@ def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> 
             pad = b64_only + "=" * (-len(b64_only) % 4)
             try:
                 raw = base64.b64decode(pad, validate=False)
-                # Only accept if result is printable text OR has known magic
-                is_printable = sum(1 for b in raw[:200] if 32 <= b < 127 or b in (9, 10, 13)) / max(1, min(200, len(raw))) >= 0.85
+                # Accept if printable OR contains recognisable command markers
+                # OR has known magic. Lower threshold (0.4) because reversed
+                # payloads often have URL-encoded chunks + interspersed binary.
+                is_printable = sum(1 for b in raw[:400] if 32 <= b < 127 or b in (9, 10, 13)) / max(1, min(400, len(raw))) >= 0.4
                 is_magic = raw[:2] in (b"\x1f\x8b", b"MZ") or raw[:4] == b"\x7fELF"
-                if is_printable or is_magic:
+                has_markers = any(mk in raw[:800].lower() for mk in (b"cmd.exe", b"powershell", b".exe", b"%temp%", b"http://", b"https://", b"invoke-"))
+                if is_printable or is_magic or has_markers:
                     decoded = raw.decode("utf-8", errors="replace") if is_printable else raw.hex(" ")
                     # Also unwrap gzip if present
                     if raw[:2] == b"\x1f\x8b":

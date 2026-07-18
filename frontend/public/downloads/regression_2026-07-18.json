@@ -1,7 +1,7 @@
 {
   "date": "2026-07-18",
   "total": 52,
-  "elapsed_sec": 9.47,
+  "elapsed_sec": 17.29,
   "results": [
     {
       "n": 1,
@@ -176,7 +176,7 @@
     {
       "n": 7,
       "label": "B2 \u00b7 b64 \u2192 gzip \u2192 shell curl",
-      "input_snippet": "echo 'H4sIABOFW2oC/0suLcpR0E0rDvZRyCgpKbDS16/Qy8wHEsUZCjUKSYnFGQDBGOWIIgAAAA==' ",
+      "input_snippet": "echo 'H4sIAH2JW2oC/0suLcpR0E0rDvZRyCgpKbDS16/Qy8wHEsUZCjUKSYnFGQDBGOWIIgAAAA==' ",
       "status": 200,
       "engine": "archetype:Bash_base64_gunzip_pipe+BASH_WGET_FLOCK_BACKGROUND",
       "score": 100,

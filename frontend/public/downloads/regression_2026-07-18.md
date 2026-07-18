@@ -1,7 +1,7 @@
 # NivXRay · Daily Regression Report · 2026-07-18
 
 - **Total cases**: 52
-- **Runtime**: 9.5s (0.18s per case)
+- **Runtime**: 17.3s (0.33s per case)
 
 ## Verdict distribution
 - Malicious : **19** / 52

