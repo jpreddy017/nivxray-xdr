@@ -1,5 +1,43 @@
 # NivXRay · CHANGELOG
 
+## v1.3.0-preview — 2026-07-18 · Fragment MITRE + Batch Recent Runs UI
+
+**Status:** Preview batch · staged for EOD prod release
+
+### 🎨 UI additions
+- **Recent Runs panel** in Batch tab (`BatchTestPage.jsx`) — was hidden despite backend `/api/batch/history` existing. Now visible via `HISTORY` toggle button. Shows When / Name / Mode / Total / Mal / Susp / Unk / Err + LOAD / rename / delete actions. Currently loads 30 most-recent runs.
+- New `.nvx-btn.xs` size class for compact action buttons inside tables.
+
+### 🎯 Fragment-mode MITRE mapping (Issue 2 · P0)
+Argument-only command fragments (no LOLBin host present) now surface MITRE tags. Fixes the 9/11 empty-MITRE fragments from the analyst-uploaded Excel corpus.
+
+New heuristics in `operations.py`:
+- Bare `-EncodedCommand <b64>` → **T1059.001** + **T1027.010** (long payload)
+- Bare `-Command "IEX(...)"` → **T1059.001**
+- Bare `/c` or `/k` chain → **T1059.003**
+- Bare `-urlcache -f https://…` → **T1105**
+- Bare `-decode staged.b64 payload.exe` → **T1140**
+- Bare `/transfer <job> <url> <path>` → **T1197**
+- Bare `<path>.dll,Export` → **T1218.011**
+- Bare `add HKCU\…\Run` → **T1547.001**
+- Bare `/create /tn <name> /tr <cmd>` → **T1053.005**
+- Bare `process call create <lolbin>` → **T1047**
+- Bare `delete shadows /all /quiet` → **T1490**
+- Bare `-NoP -W Hidden -EP Bypass` → **T1059.001**
+- Standalone base64 blob ≥200 chars → **T1027**
+- Bare `javascript:/vbscript:` URI → **T1218.005**
+
+### 🧪 Test coverage
+- `tests/test_fragment_mitre_mapping.py` — 16 new tests (all green)
+- Fixed pre-existing `test_archetype_bash_b64_gunzip` (chained archetype now correctly asserted via `chain_ids[0]`)
+
+### ✅ Regression status
+- Fragment tests: **16/16 pass**
+- Wrapper archetypes: **17/17 pass**
+- Full suite: **352 passed** (9 pre-existing `test_training_corpus` failures unchanged, non-blocking)
+
+---
+
 ## v1.2.0 — 2026-07-18 · Preview batch · Tradecraft-signature release
 
 **Status:** Batched on Preview · staged for prod release after 7-day soak

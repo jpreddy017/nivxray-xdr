@@ -1,6 +1,27 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## v1.3.0-preview — Feb 18 2026 · Fragment MITRE + Batch UX
+
+**Status:** Preview batch · **ready for EOD prod release**
+
+### What's new in v1.3.0-preview (this session)
+- 🎨 **Recent Runs panel** in Batch tab (was hidden – backend existed since Feb 2026)
+- 🎯 **Fragment MITRE mapping** – argument-only fragments now tag correctly (14 new heuristics: bare `-enc`, `-Command`, `/c`, `-urlcache`, `-decode`, `/transfer`, `.dll,Export`, `add HK*\Run`, `/create /tn`, `process call create`, `delete shadows`, `-NoP -W Hidden`, standalone long b64, `javascript:` URIs)
+- 🧪 **16 new fragment tests** — all green
+- 🐞 Fixed pre-existing `test_archetype_bash_b64_gunzip` (chain-ids assertion)
+- 🎛️ New `.nvx-btn.xs` compact button style
+
+### Ready-to-release checklist
+- [x] Recent Runs panel verified via screenshot (30 runs visible)
+- [x] All fragment heuristics tested (16/16)
+- [x] Wrapper archetype suite green (17/17)
+- [x] No regression to v1.2.0 tradecraft signatures
+- [x] AMSI-bypass payload end-to-end validated (6-layer decode, T1059.001/T1027.010/T1059.003/T1027)
+
+---
+
+
 ## v1.2.0 — Feb 2026 · Preview batch · Tradecraft-signature release
 
 **Status:** Batched on Preview · staged for prod after 7-day soak · Prod still on v1.1.1.
