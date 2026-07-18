@@ -132,7 +132,66 @@
   </table>
 </div>
 
-<!-- ─────────────── Slide 2 · Type-I.A ─────────────── -->
+<!-- ─────────────── Slide 1.5 · Current State vs Target State ─────────────── -->
+<div class="slide">
+  <div class="slide-num">01.5 · CURRENT vs TARGET STATE (be honest)</div>
+  <h1>What ships today vs what's on the roadmap</h1>
+
+  <div class="callout" style="border-left-color:#ef4444; margin-top:12px;">
+    <strong style="color:#ef4444;">Honesty check.</strong> Today NivXRay is a
+    <strong>Type-II tool</strong>. The Type-I automation diagrams on the following slides
+    are <strong>target-state architecture (v1.5 goal)</strong>, not current reality.
+  </div>
+
+  <div class="grid-2" style="margin-top:16px;">
+    <div>
+      <h3 style="color:var(--accent);">✅ Today (v1.3.0-preview)</h3>
+      <ul>
+        <li>Analyst pastes payload → deep decode + MITRE + IOCs + TI-HITS + AI narrative</li>
+        <li>Batch API: 500 payloads via CSV/JSON/XLSX upload</li>
+        <li>Nightly pull from 4 free public feeds (DShield, URLhaus, Feodo, CISA KEV)</li>
+        <li>Practice Lab, Heatmap, Corpus Validator, macOS decoder</li>
+        <li>Nightly benchmark loop against golden corpus</li>
+        <li>Learner: submit failure → auto-cluster → regression-gated merge</li>
+      </ul>
+      <div style="margin-top:8px;"><span class="pill pill-ok">Type-II · production ready</span></div>
+    </div>
+    <div>
+      <h3 style="color:#ef4444;">🎯 Target (v1.5 · 4-6 weeks out)</h3>
+      <ul>
+        <li>Log collector — poll EDR APIs (Falcon, S1, Defender)</li>
+        <li>Syslog receiver for firewall / IDS / network logs</li>
+        <li>Kafka / Redpanda consumer for high-throughput ingest</li>
+        <li>Job queue (Redis/Celery) for background analysis</li>
+        <li>Output writers: Splunk HEC · Sentinel Logs Ingestion · ServiceNow ITSM</li>
+        <li>Custom-field writer for CrowdStrike Fusion / S1 STAR (enables Type-I.B)</li>
+        <li>Circuit breakers + per-tenant rate quotas</li>
+      </ul>
+      <div style="margin-top:8px;"><span class="pill pill-hot">Type-I · engineering required</span></div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:16px;">Effort to close the gap</h3>
+  <table>
+    <tr><th>Component</th><th>Effort</th><th>Sprint</th></tr>
+    <tr><td>Log collector (per EDR)</td><td>~1 week each</td><td>Wk 3-4</td></tr>
+    <tr><td>Syslog receiver</td><td>~3 days</td><td>Wk 3</td></tr>
+    <tr><td>Kafka/Redpanda consumer</td><td>~1 week</td><td>Wk 4</td></tr>
+    <tr><td>Job queue (Redis/Celery)</td><td>~3-5 days</td><td>Wk 3</td></tr>
+    <tr><td>Splunk HEC writer</td><td>~2 days</td><td>Wk 3</td></tr>
+    <tr><td>Sentinel Logs Ingestion writer</td><td>~2 days</td><td>Wk 3</td></tr>
+    <tr><td>ServiceNow ITSM writer</td><td>~3 days</td><td>Wk 4</td></tr>
+    <tr><td>CrowdStrike Fusion IOA writer (Type-I.B)</td><td>~1 week</td><td>Wk 4-5</td></tr>
+    <tr><td>Circuit breaker + back-pressure</td><td>~3 days</td><td>Wk 5</td></tr>
+    <tr><th>TOTAL for Type-I production-ready</th><th>~4-6 weeks</th><th></th></tr>
+  </table>
+
+  <div class="callout" style="margin-top:12px;">
+    <strong>Sales positioning today:</strong> lead with <span class="pill pill-warm">Type-II</span>
+    (works out-of-the-box, 2-week POC, zero risk). Show Type-I diagrams as
+    <em>"the roadmap you'll grow into"</em> — never promise it as available today.
+  </div>
+</div>
 <div class="slide">
   <div class="slide-num">02 · TYPE-I.A · PARALLEL SIDECAR</div>
   <h1>Type-I.A · Parallel sidecar (NivXRay writes to SIEM directly)</h1>
