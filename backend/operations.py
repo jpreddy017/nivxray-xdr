@@ -2107,6 +2107,24 @@ MITRE_HEURISTICS = [
     # Standalone very-long base64 blob (>= 200 chars) with typical PowerShell UTF-16LE prefix
     (r"(?:^|[\s\"'=])[A-Za-z0-9+/]{200,}={0,2}(?:\s|$|['\"])",
         ("T1027", "Standalone long base64 blob (>=200 chars) — likely encoded payload", "Defense Evasion")),
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0 · Cobalt Strike / Metasploit shellcode loader
+    # ═══════════════════════════════════════════════════════════════════
+    # `[Byte[]]$var_code = [System.Convert]::FromBase64String(...)` — the
+    # canonical CS/MSF PowerShell shellcode-loader stub. The `$var_code`
+    # variable name is a fingerprint used in nearly every CS profile.
+    (r"\[Byte\[\]\]\s*\$(?:var_)?(?:code|shellcode|buf|payload|sc)\s*=\s*\[(?:System\.)?Convert\]::FromBase64String",
+        ("T1055", "PowerShell byte-array shellcode buffer (CS/MSF loader pattern)", "Defense Evasion")),
+    (r"\[Byte\[\]\]\s*\$(?:var_)?(?:code|shellcode|buf|payload|sc)\s*=\s*\[(?:System\.)?Convert\]::FromBase64String",
+        ("T1620", "Reflective code loading — PowerShell byte-array + FromBase64String", "Defense Evasion")),
+    # CS `var_` prefix naming convention (Malleable C2 profile)
+    (r"\$var_(?:code|key|iv|k|s|xor|shellcode|payload|buf)",
+        ("T1027", "Cobalt Strike Malleable C2 variable naming (`$var_*`)", "Defense Evasion")),
+    # PowerShell VirtualAlloc + memcpy shellcode injection primitive
+    (r"VirtualAlloc\s*\([^)]*(?:0x40|64)\s*\)|"
+     r"\[System\.Runtime\.InteropServices\.Marshal\]::(?:Copy|GetDelegateForFunctionPointer)|"
+     r"CreateThread\s*\(\s*(?:IntPtr\.Zero|0)",
+        ("T1055.002", "PowerShell VirtualAlloc/CreateThread shellcode injection primitive", "Defense Evasion")),
 ]
 
 
