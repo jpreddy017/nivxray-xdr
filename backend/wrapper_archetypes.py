@@ -3395,6 +3395,17 @@ def _handle_blind_xor(text: str) -> str:
     if best_bytes is None or best_score < 0.90 or best_score - baseline < 0.20:
         return text
 
+    # v1.5.6 anti-false-positive gate — BLIND_XOR was producing garbage
+    # matches on reversed-base64 payloads whose XOR happened to land in a
+    # somewhat printable range but contained ZERO English/tradecraft
+    # keywords. Require either (a) at least ONE keyword hit or magic byte,
+    # OR (b) an unambiguously high printable ratio (≥0.95 — real ASCII text).
+    _has_keyword = any(w.lower() in best_bytes.lower() for w in _ENGLISH_WORDS)
+    _has_magic   = any(best_bytes.startswith(mh) for mh in _MAGIC_HEADS)
+    _printable_ratio = sum(1 for b in best_bytes if 32 <= b < 127 or b in (9,10,13)) / max(len(best_bytes), 1)
+    if not (_has_keyword or _has_magic or _printable_ratio >= 0.95):
+        return text
+
     try:
         decoded_txt = best_bytes.decode("ascii", errors="replace")
     except Exception:

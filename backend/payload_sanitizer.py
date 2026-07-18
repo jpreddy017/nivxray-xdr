@@ -193,6 +193,21 @@ def sanitize_encapsulated_payload(text: str) -> Optional[str]:
     if _is_clean_base64(stripped):
         return None
 
+    # v1.5.6 — URL-encoded-blob guard.  If the payload is essentially a
+    # b64/hex charset with a stray `%XX` at the very edge (position 0 or
+    # last 3 chars), it's an `URL(rev(b64(P)))` / `URL(b64(P))` sample
+    # where `%3D` == URL-encoded `=` padding. Extracting the b64 span
+    # WITHOUT the leading `%XX` prevents URL-decode from ever firing
+    # downstream. Return None so the smart heuristic runs url-decode first.
+    _pct_hits = list(re.finditer(r"%[0-9A-Fa-f]{2}", stripped))
+    if len(_pct_hits) == 1:
+        m = _pct_hits[0]
+        pos = m.start()
+        edge = pos == 0 or pos >= len(stripped) - 3
+        remainder = stripped[:pos] + stripped[pos + 3:]
+        if edge and len(remainder) >= 16 and re.fullmatch(r"[A-Za-z0-9+/=_\-]+", remainder):
+            return None
+
     # ── ASCII-decimal stream detector ────────────────────────────────────
     # A comma / whitespace-separated stream of small ints is NOT a base64
     # payload — the sanitizer's last-resort collapse (`[,\s;`]` stripped)

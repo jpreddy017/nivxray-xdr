@@ -367,7 +367,29 @@ def _apply_next(current: str, steps_so_far: List[Dict[str, Any]], notes: List[st
             return ("refang-iocs", {}, "Defanged IOCs detected (hxxp / [.] / [@])", new_val)
 
     # 5. URL encoding
-    if _URL_ENC_RE.search(current) and len(_URL_ENC_RE.findall(current)) >= 2:
+    #    Primary trigger: ≥2 percent-escapes (avoids false-positives on prose
+    #    containing a single stray `%`).
+    #    v1.5.6: also fire on a SINGLE percent-escape when the encoded byte
+    #    sits at position 0 or in the final 3 chars AND the rest of the
+    #    string is pure base64/hex charset — this is the fingerprint of
+    #    `URL(rev(b64(P)))` and `URL(b64(P))` tradecraft where the reversed
+    #    b64 padding (`=` → `%3D`) is the only surviving %-escape.
+    _url_hits = _URL_ENC_RE.findall(current)
+    _fire_url = False
+    if len(_url_hits) >= 2:
+        _fire_url = True
+    elif len(_url_hits) == 1:
+        m = _URL_ENC_RE.search(current)
+        pos = m.start() if m else -1
+        edge = pos == 0 or pos >= len(current) - 3
+        remainder = _URL_ENC_RE.sub("", current)
+        # remainder must be non-empty AND look like a codec-charset blob
+        if edge and len(remainder) >= 16 and (
+            re.fullmatch(r"[A-Za-z0-9+/=_\-]+", remainder) or
+            re.fullmatch(r"[0-9a-fA-F]+", remainder)
+        ):
+            _fire_url = True
+    if _fire_url:
         new_val = run_operation("url-decode", current)
         if new_val != current:
             return ("url-decode", {}, "URL percent-encoded characters detected", new_val)
