@@ -1912,6 +1912,67 @@ MITRE_HEURISTICS = [
     (r"vmsvc/(?:snapshot|power\.off|unregister|destroy)\.(?:create|remove)",
         ("T1490", "ESXi VM snapshot/unregister/destroy — ransomware pre-encrypt on hypervisor", "Impact")),
 
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · TrendMicro Patriot Bait (AI-built C&C)
+    # ═══════════════════════════════════════════════════════════════════
+    # Fixed 5-sec polling to /api/v1/update — canonical Patriot Bait beacon
+    (r"/api/v1/(?:update|telemetry|agents|interact)\b",
+        ("T1071.001", "AI-generated C&C API endpoint (/api/v1/update|telemetry|agents|interact)", "Command and Control")),
+    (r"X-Agent-ID\s*:\s*\$env:COMPUTERNAME|X-Agent-ID\s*:\s*[^\n]{0,60}?_[A-Za-z0-9]+",
+        ("T1071.001", "Custom X-Agent-ID HTTP header — Patriot Bait beacon signature", "Command and Control")),
+    (r"Start-Sleep\s+-Seconds?\s+5[^\n]{0,120}?Invoke-WebRequest.*?/api/v1/",
+        ("T1071.001", "PowerShell 5-second polling loop to /api/v1/ — AI botnet beacon", "Command and Control")),
+    (r"%APPDATA%\\Microsoft\\Windows\\Runtime\\svchost\.exe|"
+     r"AppData\\Roaming\\Microsoft\\Windows\\Runtime\\svchost\.exe",
+        ("T1036.005", "svchost.exe in non-standard Runtime path (Patriot Bait persistence)", "Defense Evasion")),
+    (r"Win32_PerfFormattedData_PerfOS_System",
+        ("T1546.003", "WMI Event Subscription: Win32_PerfFormattedData_PerfOS_System (Patriot Bait)", "Persistence")),
+    (r"%TEMP%\\win_update_svc_[A-Za-z0-9]+\.ps1|Temp\\win_update_svc_",
+        ("T1105", "win_update_svc_*.ps1 in %TEMP% — Patriot Bait payload marker", "Command and Control")),
+    (r"HKCU:\\Environment\\UserInitMprLogonScript|"
+     r"HKEY_CURRENT_USER\\Environment\\UserInitMprLogonScript",
+        ("T1037.001", "UserInitMprLogonScript registry persistence (non-admin logon script)", "Persistence")),
+    (r"OneDrive\s+Standalone\s+Update\s+Task-S-1-5-21-",
+        ("T1053.005", "Scheduled Task masquerade: OneDrive Standalone Update Task-S-1-5-21-*", "Persistence")),
+    (r"GEMINI\.md|SKILL\.md|C2_MIGRATION_GUIDE\.md",
+        ("T1027", "AI-skill-file markers (GEMINI.md / SKILL.md / C2_MIGRATION_GUIDE.md)", "Defense Evasion")),
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · ClickLock macOS ClickFix stealer
+    # ═══════════════════════════════════════════════════════════════════
+    # LaunchAgent plist names (com.authirity.plist / com.chromer.plist)
+    (r"com\.(?:authirity|chromer)\.plist|"
+     r"~/Library/LaunchAgents/com\.(?:authirity|chromer)\.plist",
+        ("T1543.001", "ClickLock macOS LaunchAgent persistence (com.authirity/com.chromer)", "Persistence")),
+    # Forced password-dialog kill loop
+    (r"(?:while|repeat)[^\n]{0,80}?(?:osascript|do\s+shell\s+script)[^\n]{0,120}?"
+     r"display\s+dialog[^\n]{0,120}?(?:password|Keychain|Chrome\s+Safe\s+Storage)",
+        ("T1056.002", "macOS forced-password-dialog loop (ClickLock coercion tradecraft)", "Credential Access")),
+    (r"(?:killall|pkill)\s+.*?(?:Finder|Dock|Activity\s+Monitor|Console|System\s+Settings|Spotlight)"
+     r"[^\n]{0,120}?(?:sleep\s+0\.[0-9]+|osascript)",
+        ("T1499.001", "macOS process-kill loop (ClickLock 210ms/200ms coercion cycle)", "Impact")),
+    # Chrome Safe Storage keychain access
+    (r"security\s+find-generic-password\s+.*?Chrome\s+Safe\s+Storage|"
+     r"\bChrome\s+Safe\s+Storage\s+key\b",
+        ("T1555.001", "Chrome Safe Storage key theft from macOS Keychain (ClickLock)", "Credential Access")),
+    # Fake Cloudflare terminal captcha
+    (r"(?:Verifying\s+you\s+are\s+human|Cloudflare\s+security\s+check|"
+     r"[▓█▒░]{10,})",
+        ("T1204.002", "Fake Cloudflare 'human verification' terminal progress-bar (ClickFix)", "Execution")),
+    # Telegram Bot API exfil (macOS + Windows both)
+    (r"https?://api\.telegram\.org/bot[0-9]+:[A-Za-z0-9_\-]{20,}/(?:sendDocument|sendMessage|sendPhoto)",
+        ("T1567", "Exfiltration via Telegram Bot API (ClickLock, Amos, StealC, Lumma)", "Exfiltration")),
+    # GSocket backdoor
+    (r"\bgsocket\b|gs-netcat|gs\.uk/y[^\n]{0,20}?\.sh",
+        ("T1071.001", "GSocket relay backdoor (ClickLock persistent RAT)", "Command and Control")),
+    (r"osascript\s+-e\s+.*?tell\s+application\s+\"Terminal\"|"
+     r"clear\s+&&\s+printf\s+.*?\\033\[[?A-Za-z0-9;]+",
+        ("T1059.002", "AppleScript telling Terminal + ANSI escape spam (ClickLock UX-lockout)", "Execution")),
+    # Kill NotificationCenter (silent operation)
+    (r"killall\s+NotificationCenter\b|"
+     r"launchctl\s+kickstart\s+.*?com\.apple\.notificationcenterui",
+        ("T1562.008", "NotificationCenter suppression (ClickLock covert operation)", "Defense Evasion")),
+
 ]
 
 
@@ -2265,6 +2326,65 @@ YARA_LITE = [
     {"rule": "ESXi_VM_Snapshot_Destroy", "severity": "high",
      "pattern": r"vmsvc/(?:snapshot|power\.off|unregister|destroy)\.(?:create|remove)",
      "desc": "ESXi VM snapshot/unregister/destroy from hypervisor (ransomware target)"},
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · TrendMicro Patriot Bait (AI-built C&C)
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "PatriotBait_API_Endpoint", "severity": "high",
+     "pattern": r"/api/v1/(?:update|telemetry|agents|interact)\b",
+     "desc": "AI-generated C&C API endpoint (Patriot Bait /api/v1/*) — TrendMicro Jul 2026"},
+    {"rule": "PatriotBait_XAgentID_Header", "severity": "high",
+     "pattern": r"X-Agent-ID\s*:\s*(?:\$env:COMPUTERNAME|[^\n]{0,60}?_[A-Za-z0-9]+)",
+     "desc": "Custom X-Agent-ID HTTP header — Patriot Bait beacon signature"},
+    {"rule": "PatriotBait_5Sec_Polling", "severity": "high",
+     "pattern": r"Start-Sleep\s+-Seconds?\s+5[^\n]{0,120}?Invoke-WebRequest.*?/api/v1/",
+     "desc": "PowerShell 5-second polling loop to /api/v1/ — AI botnet beacon"},
+    {"rule": "PatriotBait_Svchost_Path", "severity": "high",
+     "pattern": r"(?:%APPDATA%|AppData\\Roaming)\\Microsoft\\Windows\\Runtime\\svchost\.exe",
+     "desc": "svchost.exe in non-standard Runtime path — Patriot Bait persistence"},
+    {"rule": "PatriotBait_WMI_Filter", "severity": "high",
+     "pattern": r"Win32_PerfFormattedData_PerfOS_System",
+     "desc": "WMI Event Subscription filter on PerfOS_System (Patriot Bait persistence)"},
+    {"rule": "PatriotBait_Temp_Payload", "severity": "high",
+     "pattern": r"(?:%TEMP%|Temp)\\win_update_svc_[A-Za-z0-9]+\.ps1",
+     "desc": "win_update_svc_*.ps1 in %TEMP% — Patriot Bait payload marker"},
+    {"rule": "UserInitMprLogonScript_Persistence", "severity": "high",
+     "pattern": r"(?:HKCU|HKEY_CURRENT_USER):?\\Environment\\UserInitMprLogonScript",
+     "desc": "UserInitMprLogonScript registry persistence — non-admin logon-script (T1037.001)"},
+    {"rule": "OneDrive_Update_Task_Masquerade", "severity": "high",
+     "pattern": r"OneDrive\s+Standalone\s+Update\s+Task-S-1-5-21-",
+     "desc": "Scheduled Task masquerade as OneDrive Standalone Update — Patriot Bait persistence"},
+    {"rule": "AI_Skill_File_Markers", "severity": "medium",
+     "pattern": r"\b(?:GEMINI\.md|SKILL\.md|C2_MIGRATION_GUIDE\.md)\b",
+     "desc": "AI skill-file naming pattern (GEMINI.md / SKILL.md / C2_MIGRATION_GUIDE.md) — Patriot Bait"},
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · ClickLock macOS ClickFix stealer
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "ClickLock_LaunchAgent", "severity": "high",
+     "pattern": r"com\.(?:authirity|chromer)\.plist",
+     "desc": "ClickLock macOS LaunchAgent plist (com.authirity / com.chromer)"},
+    {"rule": "macOS_Forced_Password_Dialog_Loop", "severity": "high",
+     "pattern": r"(?:while|repeat)[^\n]{0,80}?(?:osascript|do\s+shell\s+script)[^\n]{0,120}?display\s+dialog[^\n]{0,120}?(?:password|Keychain|Chrome\s+Safe\s+Storage)",
+     "desc": "macOS forced-password-dialog loop — ClickLock coercion tradecraft"},
+    {"rule": "macOS_Process_Kill_Loop", "severity": "high",
+     "pattern": r"(?:killall|pkill)\s+.*?(?:Finder|Dock|Activity\s+Monitor|Console|System\s+Settings|Spotlight)[^\n]{0,120}?(?:sleep\s+0\.[0-9]+|osascript)",
+     "desc": "macOS process-kill loop (Finder/Dock/Activity Monitor/...) — ClickLock coercion cycle"},
+    {"rule": "Chrome_SafeStorage_Keychain_Access", "severity": "high",
+     "pattern": r"security\s+find-generic-password\s+.*?Chrome\s+Safe\s+Storage|\bChrome\s+Safe\s+Storage\s+key\b",
+     "desc": "Chrome Safe Storage key access via macOS Keychain (ClickLock decrypt-passwords tradecraft)"},
+    {"rule": "Fake_Cloudflare_Terminal_Captcha", "severity": "high",
+     "pattern": r"(?:Verifying\s+you\s+are\s+human|Cloudflare\s+security\s+check|[▓█▒░]{10,})",
+     "desc": "Fake Cloudflare human-verification terminal progress-bar — ClickFix (Windows + macOS)"},
+    {"rule": "Telegram_Bot_API_Exfil", "severity": "high",
+     "pattern": r"https?://api\.telegram\.org/bot[0-9]+:[A-Za-z0-9_\-]{20,}/(?:sendDocument|sendMessage|sendPhoto)",
+     "desc": "Telegram Bot API exfil endpoint (ClickLock / Amos / StealC / Lumma)"},
+    {"rule": "GSocket_Relay_Backdoor", "severity": "high",
+     "pattern": r"\bgsocket\b|\bgs-netcat\b|gs\.uk/y",
+     "desc": "GSocket relay-based reverse-shell backdoor (ClickLock persistent RAT module)"},
+    {"rule": "NotificationCenter_Suppression", "severity": "medium",
+     "pattern": r"killall\s+NotificationCenter\b|launchctl\s+kickstart\s+.*?com\.apple\.notificationcenterui",
+     "desc": "NotificationCenter killed — macOS covert operation (ClickLock hides system alerts)"},
 ]
 
 
