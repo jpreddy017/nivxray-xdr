@@ -203,15 +203,27 @@ def _run_single(payload: str, analysis_mode: str) -> Dict[str, Any]:
             verdict = "Unknown"
 
     steps = r.get("steps") or []
+    # ── Feb 2026 v1.3.0 · Fold LOLBAS-provided MITRE tags into the aggregate.
+    # Previously only `mitre_map()` heuristics were exported → certutil-only
+    # payloads showed just `T1105` even though the LOLBAS registry declares
+    # certutil ↔ [T1105, T1140, T1218]. Union them so the batch CSV reflects
+    # every technique the tool actually recognised.
+    all_mitre = {m.get("id") for m in mitre if isinstance(m, dict) and m.get("id")}
+    for lb in (lolbas or []):
+        if isinstance(lb, dict):
+            for tid in (lb.get("mitre") or []):
+                if isinstance(tid, str) and tid.startswith("T"):
+                    all_mitre.add(tid)
+    all_mitre.discard("")
     return {
         "engine":            r.get("engine") or "unknown",
         "confidence":        int(vc.get("score") or round(min(1.0, r.get("score") or 0) * 100)),
         "verdict":           verdict,
         "chain_ops":         " → ".join(s.get("op", "") for s in steps if s.get("op")),
-        "mitre_ids":         ",".join(sorted({m.get("id", "") for m in mitre if m.get("id")})),
-        "lolbins":           ",".join(sorted({(l.get("name") or l.get("id") or "").strip()
+        "mitre_ids":         ",".join(sorted(all_mitre)),
+        "lolbins":           ",".join(sorted({(l.get("binary") or l.get("name") or l.get("id") or "").strip()
                                               for l in lolbas
-                                              if (l.get("name") or l.get("id"))})),
+                                              if isinstance(l, dict) and (l.get("binary") or l.get("name") or l.get("id"))})),
         "iocs_ips":          ",".join(iocs.get("ips") or []),
         "iocs_domains":      ",".join(iocs.get("domains") or []),
         "iocs_urls":         ",".join(iocs.get("urls") or []),
