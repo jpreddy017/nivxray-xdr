@@ -21,6 +21,7 @@ export default function Header() {
     { to: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
     { to: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
     { to: "/benchmark",  label: "BENCHMARK",  icon: Gauge,      testId: "nav-benchmark" },
+    { to: "/battery",    label: "BATTERY",    icon: Gauge,      testId: "nav-battery" },
   ];
 
   // Grouped: analysis tools (secondary usage)

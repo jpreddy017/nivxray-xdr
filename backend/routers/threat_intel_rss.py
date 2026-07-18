@@ -406,6 +406,67 @@ async def promote_pending(note_id: str, body: PromoteIn,
             "pending_id": note_id, "title": title}
 
 
+@router.post("/threat-intel/rss/pending/promote-high-confidence")
+async def promote_high_confidence(min_score: int = 4, dry_run: bool = False,
+                                  user=Depends(require_admin)):
+    """Bulk-promote every pending note whose keyword_score >= min_score.
+
+    Default `min_score=4` is our "high confidence" bar — tuned so the CTI
+    crawler's keyword ranker only surfaces items with multiple tradecraft
+    tokens (e.g. `command and control` + `mitre` + `malware`). Pass
+    `dry_run=true` to preview what would be promoted without changing DB.
+    """
+    q = {"status": "pending", "keyword_score": {"$gte": int(min_score)}}
+    docs = [d async for d in db.pending_training_notes.find(q).sort([("keyword_score", -1)])]
+    if dry_run:
+        return {"dry_run": True, "would_promote": len(docs),
+                "min_score": min_score,
+                "items": [{"id": d["_id"], "score": d.get("keyword_score"),
+                           "title": d.get("draft_title"),
+                           "feed": d.get("feed_name")} for d in docs]}
+    now_iso = datetime.now(timezone.utc).isoformat()
+    promoted, skipped = [], []
+    for doc in docs:
+        title = (doc.get("draft_title") or "").strip()[:120]
+        text  = (doc.get("draft_body") or "").strip()
+        if len(text) < 40:
+            skipped.append({"id": doc["_id"], "reason": "body too short"})
+            continue
+        adm = {
+            "kind":            "training_note",
+            "name":            title or f"CTI · {doc.get('feed_name')}",
+            "enabled":         True,
+            "config":          {"body": text, "ref_url": doc.get("source_url"),
+                                 "ref_source": doc.get("feed_name")},
+            "tags":            doc.get("draft_tags") or [],
+            "feedback_pos":    0,
+            "feedback_neg":    0,
+            "feedback_weight": 0,
+            "usage_count":     0,
+            "created_at":      now_iso,
+            "updated_at":      now_iso,
+            "origin":          {"channel": "cti-rss-crawler",
+                                 "feed_id": doc.get("feed_id"),
+                                 "pending_id": doc["_id"],
+                                 "keyword_score": doc.get("keyword_score"),
+                                 "bulk_promoted": True},
+        }
+        ins = await db.admin_models.insert_one(adm)
+        await db.pending_training_notes.update_one(
+            {"_id": doc["_id"]},
+            {"$set": {"status": "promoted", "promoted_at": now_iso,
+                       "promoted_admin_model_id": str(ins.inserted_id),
+                       "updated_at": now_iso}},
+        )
+        promoted.append({"id": doc["_id"], "score": doc.get("keyword_score"),
+                         "title": title,
+                         "admin_model_id": str(ins.inserted_id)})
+    return {"ok": True, "min_score": min_score,
+            "promoted_count": len(promoted),
+            "skipped_count":  len(skipped),
+            "promoted": promoted, "skipped": skipped}
+
+
 @router.post("/threat-intel/rss/pending/{note_id}/dismiss")
 async def dismiss_pending(note_id: str, user=Depends(require_admin)):
     r = await db.pending_training_notes.update_one(

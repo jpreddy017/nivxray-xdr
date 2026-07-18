@@ -18,6 +18,7 @@ import LabPage from "@/pages/LabPage";
 import TrainingInboxPage from "@/pages/TrainingInboxPage";
 import LearnerPage from "@/pages/LearnerPage";
 import BenchmarkPage from "@/pages/BenchmarkPage";
+import MultiLayerBatteryPage from "@/pages/MultiLayerBatteryPage";
 import FloatingAddNoteButton from "@/components/FloatingAddNoteButton";
 
 function Protected({ children }) {
@@ -50,6 +51,7 @@ function App() {
             <Route path="/lab" element={<Protected><LabPage /></Protected>} />
             <Route path="/learner" element={<Protected><LearnerPage /></Protected>} />
             <Route path="/benchmark" element={<BenchmarkPage />} />
+            <Route path="/battery"   element={<Protected><MultiLayerBatteryPage /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <FloatingAddNoteButton />
