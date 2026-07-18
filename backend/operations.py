@@ -1744,6 +1744,80 @@ MITRE_HEURISTICS = [
      r"az\s+ad\s+sp\s+credential\s+reset|"
      r"kubectl\s+create\s+token\s+.*--duration",
         ("T1098.001", "Account Manipulation: Additional Cloud Credentials", "Persistence")),
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · VHDX/VHD virtual-disk delivery tradecraft
+    # (Ref: Gurucul 2026-07 Overlord RAT via Tax_Assessment.vhdx)
+    # ═══════════════════════════════════════════════════════════════════
+    (r"(?:mount-diskimage|mount-vhd|get-diskimage)\s+.*?\.(?:vhdx?|iso|img)\b|"
+     r"powershell.*?mount-diskimage",
+        ("T1204.002", "User Execution: Malicious File (VHDX/VHD/ISO container)", "Execution")),
+    (r"powershell(?:\.exe)?\s+-w(?:indowstyle)?\s+hidden\s+-nop\s+-c\s+[\"']?sleep\s+\d+\s*;"
+     r"[^\n]{0,400}?(?:Get-DiskImage|Get-Partition|Get-Volume)[^\n]{0,300}?"
+     r"(?:InvokeVerb\([\"']?Eject|Dismount-DiskImage)",
+        ("T1070.004", "Indicator Removal: File Deletion (VHDX auto-eject + delete)", "Defense Evasion")),
+    (r"\(New-Object\s+-ComObject\s+Shell\.Application\)\.Namespace\(17\)\.ParseName\([^)]+\)\.InvokeVerb\([\"']?Eject",
+        ("T1070.004", "Shell.Application Namespace(17) Eject — VHDX auto-unmount", "Defense Evasion")),
+    (r"\b\w{3,20}\.exe\b[^\n]{0,200}\b(?:event|version|dbghelp|winhttp|dbgcore|iertutil|"
+     r"loghelp|profapi|sqlite3|winmm|ffmpeg)\.dll\b",
+        ("T1574.001", "Hijack Execution Flow: DLL Side-Loading", "Defense Evasion")),
+    (r"(?:username|computername|hostname|user[\s_-]?name)[^\n]{0,80}?"
+     r"(?:\bsandbox\b|\bhoney(?:pot)?\b|\bvmware\b|\bVBox\b|\bVirtualBox\b|\bQEMU\b|\bCuckoo\b|"
+     r"\banalyst\b|\bmalware\b|\bany\.?run\b|\btriage\b|\bjoesandbox\b|\bhybrid-analysis\b)",
+        ("T1497.001", "Virtualization/Sandbox Evasion: System Checks (username/host match)", "Defense Evasion")),
+    (r"\bIsRunningInVirtualMachine\s*\(\s*\)",
+        ("T1497", "Explicit VM-detection function (SheetAgent/anti-analysis)", "Defense Evasion")),
+    (r"\b(?:x64dbg|x32dbg|ida64|windbg|ollydbg|binaryninja|cutter|frida|"
+     r"wireshark|fiddler|tcpdump|dumpcap|mitmdump|httpdebugger|fakenet|inetsim|"
+     r"processhacker|procexp|ksdumper|apimonitor|dynamorio)\.exe\b",
+        ("T1057", "Process Discovery (analysis-tool enumeration)", "Discovery")),
+    (r"\b(?:vmhgfs|vmci|vmmouse|vm3dmp|vboxguest|vboxsf|vboxvideo|vboxmouse|"
+     r"prleth|prlfs|prlmouse|prlvideo|prlvnic)\.sys\b",
+        ("T1497.001", "Virtualization driver .sys enumeration (Overlord tradecraft)", "Defense Evasion")),
+    (r"\b(?:VMware\s+SVGA|Xen\s+VGA|QXL|VirtualBox\s+Graphics\s+Adapter)\b",
+        ("T1497.001", "Graphics-adapter-based VM detection", "Defense Evasion")),
+    (r"Overlord-[A-Za-z0-9]{18,24}_[CS]",
+        ("T1027", "Overlord RAT mutex marker (family classifier)", "Defense Evasion")),
+    (r"\b(?:donut|shellcode[-_]?runner|Amsi(?:ScanBuffer|BypassPatch))\b[^\n]{0,200}?"
+     r"(?:VirtualAlloc(?:Ex)?|WriteProcessMemory|CreateRemoteThread|NtCreateThreadEx)",
+        ("T1055.002", "Portable Executable Injection / Donut-loader in-memory execution", "Defense Evasion")),
+    (r"(?:\bRC4(?:Decrypt|Init|Crypt)\b|InitRC4Ctx)",
+        ("T1027.013", "RC4 shellcode decryption routine", "Defense Evasion")),
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · ControlR RMM abuse + Google Sheets C2
+    # (Ref: Seqrite 2026-07 Operation ShadowRecruit / APT36)
+    # ═══════════════════════════════════════════════════════════════════
+    (r"\bdemo\.controlr\.app\b|controlr\.app/(?:download|install|api)|"
+     r"ControlR\.Agent\.Installer(?:\.exe)?|-TenantId\s+[a-f0-9\-]{20,}",
+        ("T1219", "Remote Access Software: ControlR RMM abuse (APT36 tradecraft)", "Command and Control")),
+    (r"https?://sheets\.googleapis\.com/v4/spreadsheets/[A-Za-z0-9_\-]{20,}|"
+     r"https?://www\.googleapis\.com/(?:auth/spreadsheets|drive/v3/files)",
+        ("T1102", "Web Service: Google Sheets / Drive (C2 channel)", "Command and Control")),
+    (r"[\"']?service_account[\"']?\s*[:=]\s*[\"'][a-z0-9\-]+@[a-z0-9\-]+\.iam\.gserviceaccount\.com[\"']|"
+     r"[\"']?private_key_id[\"']\s*:\s*[\"'][a-f0-9]{20,}[\"']",
+        ("T1552.001", "Unsecured Credentials: Google service-account credentials (embedded)", "Credential Access")),
+    (r"schtasks(?:\.exe)?\s+/create\s+.*?/tn\s+[\"']?(?:WindowsDefenderSync|WinSyncDefender|"
+     r"DefenderSyncService|MicrosoftUpdateSync|WindowsNetlogonSync)[^\"'\s]{0,40}[\"']?",
+        ("T1053.005", "Scheduled Task masquerading as Windows Defender/Update service", "Persistence")),
+    (r"%APPDATA%\\Microsoft\\Windows\\Start\s+Menu\\Programs\\Startup\\[^\\/\s]+\.lnk|"
+     r"AppData\\Roaming\\Microsoft\\Windows\\Start\s+Menu\\Programs\\Startup\\.*?\.lnk",
+        ("T1547.001", "Startup Folder .lnk shortcut persistence", "Persistence")),
+    (r"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\[A-Za-z_][A-Za-z0-9_]*|"
+     r"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\",
+        ("T1547.001", "HKCU Run key persistence", "Persistence")),
+    (r"IconLocation\s*=\s*[\"']?[^\"'\n]{0,120}?(?:msedge|iexplore|chrome|firefox|acrobat)\.exe",
+        ("T1036.005", "Masquerading: LNK IconLocation browser/reader impersonation", "Defense Evasion")),
+    (r"cleanup\.bat[^\n]{0,200}?(?:del|erase|rd)\s+/[qs]\s+[\"']?%~dp0|"
+     r"timeout\s+/t\s+\d+\s+&&?\s+del\s+.*?service\.json",
+        ("T1070.004", "cleanup.bat self-delete + config wipe (SheetAgent/APT36)", "Defense Evasion")),
+    # ─── LegacyHive EoP — Windows userprofile-service arbitrary hive ────
+    (r"\bLegacyHive(?:\.exe|\.cpp)?\b|"
+     r"\bRegLoadKey\w*\s*\(|\bRegLoadAppKey\s*\(|"
+     r"reg(?:\.exe)?\s+load\s+HK(?:CU|LM|CR)\\[^\s]+\s+[a-z]:\\[^\s]+\.(?:dat|hiv|hive)\b",
+        ("T1068", "Exploitation for Privilege Escalation (LegacyHive-style hive load)", "Privilege Escalation")),
+    (r"usrclass\.dat[^\n]{0,80}?(?:reg\s+load|RegLoadKey|NtLoadKey|LoadHive)",
+        ("T1112", "Modify Registry (arbitrary hive-file mount)", "Defense Evasion")),
 ]
 
 
@@ -1918,12 +1992,92 @@ YARA_LITE = [
     {"rule": "Cloud_Service_Cred_Reset", "severity": "medium",
      "pattern": r"gcloud\s+iam\s+service-accounts\s+keys\s+create|az\s+ad\s+sp\s+credential\s+reset|kubectl\s+create\s+token\b",
      "desc": "Cloud CLI creating new service-account credentials — persistence via extra keys (MITRE T1098.001)"},
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · VHDX/VHD delivery + anti-analysis rules
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "VHDX_Container_Mount", "severity": "high",
+     "pattern": r"(?:mount-diskimage|mount-vhd|get-diskimage)\s+.*?\.(?:vhdx?|iso|img)\b|powershell.*?mount-diskimage",
+     "desc": "VHDX/VHD/ISO container mount — MOTW-bypass payload delivery (Overlord/BumbleBee tradecraft)"},
+    {"rule": "VHDX_PowerShell_Cleanup_Eject", "severity": "high",
+     "pattern": r"powershell(?:\.exe)?\s+-w(?:indowstyle)?\s+hidden\s+-nop\s+-c\s+[\"']?sleep\s+\d+.*?(?:Get-DiskImage|Get-Partition)[^\n]{0,300}?(?:InvokeVerb\([\"']?Eject|Dismount-DiskImage)",
+     "desc": "Hidden PS cleanup — sleep + Get-DiskImage + Eject/Dismount (Overlord auto-unmount signature)"},
+    {"rule": "Shell_Application_Namespace17_Eject", "severity": "high",
+     "pattern": r"\(New-Object\s+-ComObject\s+Shell\.Application\)\.Namespace\(17\)\.ParseName\([^)]+\)\.InvokeVerb\([\"']?Eject",
+     "desc": "COM Shell.Application Namespace(17) Eject — VHDX auto-unmount tradecraft"},
+    {"rule": "DLL_Sideloading_CoLocated", "severity": "medium",
+     "pattern": r"\b\w{3,20}\.exe\b[^\n]{0,200}\b(?:event|version|dbghelp|winhttp|dbgcore|iertutil|loghelp|profapi|sqlite3|winmm|ffmpeg)\.dll\b",
+     "desc": "Executable co-located with commonly-sideloaded DLL name (T1574.001)"},
+    {"rule": "Sandbox_Username_String_Check", "severity": "medium",
+     "pattern": r"(?:username|computername|hostname|user[\s_-]?name)[^\n]{0,80}?(?:\bsandbox\b|\bhoney(?:pot)?\b|\bvmware\b|\bVBox\b|\bQEMU\b|\bCuckoo\b|\banalyst\b|\bany\.?run\b|\btriage\b)",
+     "desc": "Anti-analysis: username/host string comparison against sandbox/VM indicators"},
+    {"rule": "Analysis_Tool_Process_Enum", "severity": "medium",
+     "pattern": r"\b(?:x64dbg|x32dbg|ida64|windbg|ollydbg|binaryninja|cutter|frida|wireshark|fiddler|tcpdump|dumpcap|mitmdump|httpdebugger|fakenet|inetsim|processhacker|ksdumper|apimonitor|dynamorio)\.exe\b",
+     "desc": "Analysis-tool process enumeration — debuggers/RE/network-analysis (T1057 anti-analysis)"},
+    {"rule": "Virtualization_Driver_Enum", "severity": "medium",
+     "pattern": r"\b(?:vmhgfs|vmci|vmmouse|vm3dmp|vboxguest|vboxsf|vboxvideo|prleth|prlfs|prlmouse)\.sys\b",
+     "desc": "Enumeration of virtualization driver .sys files (VM detection)"},
+    {"rule": "Overlord_RAT_Mutex", "severity": "high",
+     "pattern": r"Overlord-[A-Za-z0-9]{18,24}_[CS]",
+     "desc": "Overlord RAT mutex pattern — family classifier"},
+    {"rule": "Donut_Loader_Signature", "severity": "high",
+     "pattern": r"\b(?:donut|shellcode[-_]?runner)\b[^\n]{0,200}?(?:VirtualAlloc(?:Ex)?|WriteProcessMemory|CreateRemoteThread|NtCreateThreadEx)",
+     "desc": "Donut-loader in-memory PE execution signature"},
+    {"rule": "RC4_Decrypt_Routine", "severity": "medium",
+     "pattern": r"\bRC4(?:Decrypt|Init|Crypt)\b|InitRC4Ctx",
+     "desc": "RC4 decryption routine reference — encrypted-shellcode staging"},
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · ControlR RMM + Google Sheets C2
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "ControlR_RMM_Abuse", "severity": "high",
+     "pattern": r"\bdemo\.controlr\.app\b|ControlR\.Agent\.Installer|-TenantId\s+[a-f0-9\-]{20,}",
+     "desc": "ControlR remote-management tool abuse (APT36 ShadowRecruit tradecraft) — MITRE T1219"},
+    {"rule": "Google_Sheets_C2", "severity": "high",
+     "pattern": r"https?://sheets\.googleapis\.com/v4/spreadsheets/[A-Za-z0-9_\-]{20,}",
+     "desc": "Google Sheets API endpoint — legit-infra C2 channel (SheetAgent tradecraft)"},
+    {"rule": "Google_Service_Account_Credentials", "severity": "high",
+     "pattern": r"[\"']?service_account[\"']?\s*[:=]\s*[\"'][a-z0-9\-]+@[a-z0-9\-]+\.iam\.gserviceaccount\.com[\"']|[\"']?private_key_id[\"']\s*:\s*[\"'][a-f0-9]{20,}[\"']",
+     "desc": "Google service-account credentials embedded in payload (T1552.001)"},
+    {"rule": "Scheduled_Task_Defender_Masquerade", "severity": "high",
+     "pattern": r"schtasks(?:\.exe)?\s+/create\s+.*?/tn\s+[\"']?(?:WindowsDefenderSync|WinSyncDefender|DefenderSyncService|MicrosoftUpdateSync|WindowsNetlogonSync)",
+     "desc": "Scheduled Task masquerading as Windows Defender/Update service (T1053.005)"},
+    {"rule": "Startup_Folder_LNK_Persistence", "severity": "medium",
+     "pattern": r"(?:%APPDATA%|AppData\\Roaming)\\Microsoft\\Windows\\Start\s+Menu\\Programs\\Startup\\[^\\/\s]{1,60}\.lnk",
+     "desc": "Startup folder .lnk shortcut persistence (T1547.001)"},
+    {"rule": "HKCU_Run_Key_Persistence", "severity": "medium",
+     "pattern": r"(?:HKCU|HKEY_CURRENT_USER)\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\[A-Za-z_][A-Za-z0-9_]*",
+     "desc": "HKCU Run key persistence (T1547.001)"},
+    {"rule": "LNK_Icon_Impersonation", "severity": "high",
+     "pattern": r"IconLocation\s*=\s*[\"']?[^\"'\n]{0,120}?(?:msedge|iexplore|chrome|firefox|acrobat)\.exe",
+     "desc": "LNK IconLocation impersonating browser/PDF-reader — social-engineering lure (T1036.005)"},
+    {"rule": "Cleanup_Bat_Self_Delete", "severity": "medium",
+     "pattern": r"cleanup\.bat[^\n]{0,200}?(?:del|erase|rd)\s+/[qs]\s+[\"']?%~dp0|timeout\s+/t\s+\d+\s+&&?\s+del\s+.*?service\.json",
+     "desc": "cleanup.bat self-delete + config wipe (SheetAgent/APT36 tradecraft)"},
     # ═══════════════════════════════════════════════════════════════════
     # Feb 2026 v1.2.0 · Illicit OAuth consent scopes
     # ═══════════════════════════════════════════════════════════════════
     {"rule": "OAuth_Overscoped_Consent", "severity": "high",
      "pattern": r"scope=(?:Mail\.Read|Mail\.ReadWrite|Files\.ReadWrite\.All|Directory\.Read\.All|User\.Read\.All|Sites\.ReadWrite\.All|Chat\.ReadWrite)",
      "desc": "Over-scoped OAuth consent (Mail.*/Files.*/Directory.*/Chat.*) — illicit-consent phish (MITRE T1550.001)"},
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0-preview · LegacyHive — Windows userprofile-service
+    # arbitrary hive load EoP (CVE-adjacent, published Jul 2026)
+    # Ref: https://github.com/MSNightmare/LegacyHive
+    # ═══════════════════════════════════════════════════════════════════
+    {"rule": "LegacyHive_EoP_Marker", "severity": "high",
+     "pattern": r"\bLegacyHive(?:\.exe|\.cpp)?\b",
+     "desc": "LegacyHive EoP PoC binary/name — Windows userprofile-service arbitrary hive load (T1068)"},
+    {"rule": "Usrclass_Dat_Unusual_Load", "severity": "high",
+     "pattern": r"\bRegLoadKey\w*\s*\(|\bRegLoadAppKey\s*\(|\bNtLoadKey\w*\s*\([^\)]*usrclass\.dat|"
+     r"usrclass\.dat[^\n]{0,80}?(?:reg\s+load|RegLoadKey|LoadHive|NtLoadKey)",
+     "desc": "usrclass.dat hive-load via RegLoadKey/NtLoadKey — LegacyHive-style EoP"},
+    {"rule": "Registry_Arbitrary_Hive_Load", "severity": "high",
+     "pattern": r"reg(?:\.exe)?\s+load\s+HK(?:CU|LM|CR)\\[^\s]+\s+[a-z]:\\[^\s]+\.(?:dat|hiv|hive)\b",
+     "desc": "reg load — arbitrary hive-file mount into registry (EoP tradecraft)"},
+    {"rule": "UserProfileSvc_Hive_Mount", "severity": "high",
+     "pattern": r"ProfSvc|UserProfileService|LoadUserProfile|CreateProfile\w*\s*\(",
+     "desc": "User Profile Service hive-mount API — LegacyHive/CVE-class EoP surface"},
 ]
 
 
