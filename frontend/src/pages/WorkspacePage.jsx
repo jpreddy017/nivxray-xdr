@@ -143,12 +143,14 @@ export default function WorkspacePage() {
         { values: values.slice(0, 25) },
         { headers: token ? { Authorization: `Bearer ${token}` } : {} },
       );
-      // Reshape to the pill format
+      // Reshape to the pill format (v1.5.3 · full osint.enrich_iocs)
       const out = (r.data?.results || []).map((row) => ({
-        value: row.value || row.ioc || "",
-        malicious_score: row.malicious_score || row.vt_malicious || 0,
+        value:            row.value || row.ioc || "",
+        kind:             row.kind || "",
+        malicious_score:  row.malicious_score || 0,
         abuse_confidence: row.abuse_confidence || 0,
-        providers: row.providers || row,
+        otx_pulses:       row.otx_pulses || 0,
+        providers:        row.providers || {},
       }));
       setIocEnrichment(out);
     } catch (e) {
@@ -1862,20 +1864,23 @@ export default function WorkspacePage() {
               </div>
               <div className="nvx-card-body" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {iocEnrichment.map((e, i) => {
-                  // v1.5.2 · Explicit error surface — failure pills are RED,
-                  // never green. Failures come in from the enrichIocs catch
-                  // block as {value: "enrichment failed: <msg>"}.
                   const isError = typeof e.value === "string" &&
                                   (e.value.startsWith("enrichment failed") ||
                                    e.value.startsWith("provider unavailable") ||
                                    e.error);
                   const bad = isError ||
                               (e.malicious_score || 0) > 0 ||
-                              (e.abuse_confidence || 0) > 25;
+                              (e.abuse_confidence || 0) > 25 ||
+                              (e.otx_pulses || 0) > 0;
                   const bg = isError ? "#991b1b" : (bad ? "#7f1d1d" : "#134e4a");
+                  // v1.5.3 · richer pill label — surface OTX pulses + AbuseIPDB confidence
+                  const badges = [];
+                  if (!isError && e.malicious_score) badges.push(`VT:${e.malicious_score}`);
+                  if (!isError && e.abuse_confidence) badges.push(`AB:${e.abuse_confidence}%`);
+                  if (!isError && e.otx_pulses) badges.push(`OTX:${e.otx_pulses}`);
                   const label = isError
                     ? e.value
-                    : e.value + (e.malicious_score ? ` · ${e.malicious_score} hits` : "");
+                    : e.value + (badges.length ? ` · ${badges.join(" · ")}` : "");
                   const icon = isError ? "⚠️ " : (bad ? "🔴 " : "🟢 ");
                   return (
                     <span
