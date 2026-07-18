@@ -166,7 +166,7 @@ export default function DecodingTracePanel({ trace, engine, confidence, reachedS
       <div className="dtp-body">
         {trace.map((t, i) => {
           const isOpen = i === openIdx;
-          const health = _layerHealth(t);
+          const health = _layerHealth(t, i, trace);
           return (
             <div key={i} className={`dtp-layer ${isOpen ? "open" : ""}`} data-testid={`dtp-layer-${i}`}>
               <div className="dtp-layer-hdr" onClick={() => setOpenIdx(isOpen ? -1 : i)}>
@@ -244,9 +244,39 @@ export default function DecodingTracePanel({ trace, engine, confidence, reachedS
 
 // ─── X-RAY Layer Health Analyzer ─────────────────────────────────────────
 // Runs cheap structural checks on a layer's output to give the analyst a
-// per-node health verdict (✅ VALID / ⚠️ SALVAGE / 🔴 BROKEN) + the exact
+// per-node health verdict (✅ VALID / ⚠️ SALVAGED / 🔴 BROKEN) + the exact
 // mathematical reason. Zero network cost — pure regex + length arithmetic.
-function _layerHealth(step) {
+//
+// v1.5.6 UX polish: mid-chain BROKEN/MIXED steps are downgraded to
+// SALVAGED (cyan) when a downstream layer successfully continued — hard
+// red is reserved for terminal dead-ends only.
+function _layerHealth(step, idx, trace) {
+  const raw = _rawLayerHealth(step);
+  // Only downgrade if we know we're mid-chain AND the pipeline recovered
+  if (
+    trace &&
+    idx != null &&
+    idx < trace.length - 1 &&
+    (raw.label === "BROKEN" || raw.label === "MIXED") &&
+    !step.error
+  ) {
+    const next = trace[idx + 1];
+    const nextOk = next && !next.error && (next.output_length ?? String(next.output_preview || "").length) > 0;
+    if (nextOk) {
+      return {
+        icon: "⚠️",
+        label: "SALVAGED",
+        fg: "#5dd0ff",
+        bg: "rgba(93,208,255,0.10)",
+        reason: `${raw.reason} — downstream layer recovered`,
+        detail: `${raw.detail}\n\n↪ Pipeline continued: next op '${next.op}' produced ${next.output_length || 0} chars cleanly. Marker downgraded from ${raw.label} to SALVAGED.`,
+      };
+    }
+  }
+  return raw;
+}
+
+function _rawLayerHealth(step) {
   const out = String(step.output_preview || "");
   const len = step.output_length != null ? step.output_length : out.length;
   const op = String(step.op || "").toLowerCase();
