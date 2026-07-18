@@ -688,6 +688,19 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         from operations import extract_iocs, mitre_map
         from lolbas import scan_lolbas
         base_text = (body.input or "") + "\n" + (result.get("output") or "")
+        # ── v1.4.1 · Per-layer IOC surfacing ────────────────────────────
+        # Real-world payloads bury URLs / IPs / domains 5-6 layers deep.
+        # When the decoder halts at a mid-chain layer (e.g. gzip stream
+        # truncated), IOCs from the layers we DID decode were still lost
+        # because the final `output` didn't carry them. Now we UNION the
+        # scan text across EVERY successful trace step so an intermediate
+        # `output_preview` still leaks its domain / IP into the analysis
+        # panel even if the final chain didn't fully terminate.
+        _layer_texts: List[str] = []
+        for t in (trace or []):
+            preview = t.get("output_preview") or ""
+            if preview and preview not in _layer_texts:
+                _layer_texts.append(preview)
         # Pull every same-quote-paired literal and append its reverse; catches
         # `1sp.morf/moc.enoz-ym//:ptth` → `http://my-zone.com/from.ps1`.
         # Same-quote pairing (`(['"]) ... \1`) prevents cross-quote merges
@@ -695,9 +708,15 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # `IEX (([string[]](`.
         _quoted = re.findall(r"(['\"])([^'\"\r\n]{6,256})\1", body.input or "")
         _reversed_bits = [g[1][::-1] for g in _quoted if g and g[1]]
-        _scan_text = base_text
+        # Also add reversed forms of every layer preview — same reverse-
+        # obfuscation trick can appear at ANY layer, not just the input.
+        for lt in _layer_texts:
+            if 6 <= len(lt) <= 2048:
+                _reversed_bits.append(lt[::-1])
+        _scan_parts = [base_text] + _layer_texts
         if _reversed_bits:
-            _scan_text = base_text + "\n" + "\n".join(_reversed_bits)
+            _scan_parts.extend(_reversed_bits)
+        _scan_text = "\n".join(_scan_parts)
         try:
             result["iocs"] = extract_iocs(_scan_text)
         except Exception:

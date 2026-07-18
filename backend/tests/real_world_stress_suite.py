@@ -690,8 +690,9 @@ def _ioc_recall(expected: Dict[str, List[str]], extracted: Any) -> Tuple[int, in
 
 def _run_one(entry: Dict[str, Any]) -> Dict[str, Any]:
     from analysis_core import deterministic_best_decode
-    from operations import extract_iocs, mitre_map
+    from operations import extract_iocs, mitre_map, run_operation
     from lolbas import scan_lolbas
+    from payload_sanitizer import sanitize_encapsulated_payload, find_all_base64_spans
 
     t0 = time.time()
     det: Dict[str, Any]
@@ -703,8 +704,38 @@ def _run_one(entry: Dict[str, Any]) -> Dict[str, Any]:
     output = det.get("output") or ""
     steps = [s.get("op") for s in (det.get("steps") or [])]
 
-    # Enrich on input + output (same as /api/decode/smart)
-    scan_text = (entry["raw_input"] or "") + "\n" + output
+    # ── v1.4.1 · Per-layer IOC surfacing (mirrors /api/decode/smart) ────
+    # Re-run each step to capture intermediate outputs; union IOCs across
+    # every layer so URLs / domains / IPs buried mid-chain are surfaced
+    # even when the final layer fails to decode cleanly.
+    layer_previews: List[str] = []
+    cur = entry["raw_input"]
+    for step in (det.get("steps") or []):
+        op_id = step.get("op") or ""
+        args = step.get("args") or {}
+        try:
+            if op_id == "extract-payload":
+                iso = sanitize_encapsulated_payload(cur)
+                if iso and iso != cur.strip():
+                    nxt = iso
+                else:
+                    spans = find_all_base64_spans(cur, min_len=24)
+                    nxt = spans[0] if spans else cur
+            else:
+                nxt = run_operation(op_id, cur, args)
+        except Exception:
+            break
+        if isinstance(nxt, str) and nxt:
+            layer_previews.append(nxt[:2048])
+        cur = nxt if isinstance(nxt, str) else cur
+
+    scan_parts = [entry["raw_input"] or "", output] + layer_previews
+    # Also add reversed forms — reverse-string tradecraft can appear at ANY layer
+    for lp in list(layer_previews):
+        if 6 <= len(lp) <= 2048:
+            scan_parts.append(lp[::-1])
+    scan_text = "\n".join(scan_parts)
+
     try:
         got_mitre = mitre_map(scan_text) or []
     except Exception:
