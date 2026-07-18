@@ -17,6 +17,7 @@ import MitreHeatmapPage from "@/pages/MitreHeatmapPage";
 import LabPage from "@/pages/LabPage";
 import TrainingInboxPage from "@/pages/TrainingInboxPage";
 import LearnerPage from "@/pages/LearnerPage";
+import BenchmarkPage from "@/pages/BenchmarkPage";
 import FloatingAddNoteButton from "@/components/FloatingAddNoteButton";
 
 function Protected({ children }) {
@@ -48,6 +49,7 @@ function App() {
             <Route path="/heatmap" element={<Protected><MitreHeatmapPage /></Protected>} />
             <Route path="/lab" element={<Protected><LabPage /></Protected>} />
             <Route path="/learner" element={<Protected><LearnerPage /></Protected>} />
+            <Route path="/benchmark" element={<BenchmarkPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <FloatingAddNoteButton />

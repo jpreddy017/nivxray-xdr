@@ -72,6 +72,7 @@ from routers.mitre_heatmap import router as mitre_heatmap_router
 from routers.corpus_validate import router as corpus_validate_router
 from routers.lab import router as lab_router
 from routers.public_feeds import router as public_feeds_router
+from routers.benchmark import router as benchmark_router
 from request_hardening import RequestHardeningMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -161,6 +162,7 @@ api.include_router(mitre_heatmap_router)
 api.include_router(corpus_validate_router)
 api.include_router(lab_router)
 api.include_router(public_feeds_router)
+api.include_router(benchmark_router)
 
 app.include_router(api)
 
@@ -223,6 +225,13 @@ async def _startup():
         log.info("[startup] CTI RSS crawler scheduled")
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] CTI RSS scheduler failed: {e}")
+    # Real-World Stress corpus — weekly refresh from MalwareBazaar + ART.
+    try:
+        from corpus_refresh import start_corpus_refresh_scheduler
+        start_corpus_refresh_scheduler()
+        log.info("[startup] real-world corpus refresh scheduler armed")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] corpus refresh scheduler failed: {e}")
 
 
 @app.on_event("shutdown")

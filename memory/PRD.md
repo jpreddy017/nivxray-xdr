@@ -1,6 +1,45 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## v1.4.0 — Feb 2026 · REAL-WORLD STRESS BENCHMARK · CI Gate · Public Publish
+
+**Status:** Preview · CI gate PASSING · public benchmark page live at `/benchmark` · corpus refresh scheduler armed.
+
+### What shipped
+- 🎯 **`backend/tests/real_world_stress_suite.py`** — 100 curated multi-layer (>=5 layers) real-world obfuscated command lines. Each entry reconstructs a documented incident (Sophos, TrendMicro, Any.Run, MalwareBazaar, Mandiant, CrowdStrike, MITRE ATT&CK, Atomic Red Team) with verifiable ground truth, expected MITRE, expected IOCs. Also emits JSON + HTML per-payload verdict reports.
+- 🚦 **CI Gate (`backend/tests/test_real_world_stress.py`)** — pytest-registered, blocks releases below `MITRE hit-rate >= 75%` OR `Undecoded rate > 10%`. Current: **87% MITRE hit / 2% Undecoded — PASS**.
+- 🔄 **Weekly auto-refresh (`backend/corpus_refresh.py`)** — Sunday 03:00 UTC cron loop pulls MalwareBazaar recent + Atomic Red Team GitHub YAMLs, deduplicates on SHA1, appends to `/app/backend/tests/fixtures/real_world_refresh.jsonl`.
+- 🌐 **Public benchmark (`GET /api/benchmark/real-world`)** — no-auth JSON endpoint + `/benchmark` React page (public). KPIs: MITRE hit-rate, Undecoded rate, IOC recall (reported), Marker rate, avg layers, avg latency, per-family breakdown, corpus download link, HTML report link.
+- 📥 **Corpus download (`GET /api/benchmark/real-world/download`)** — full curated corpus with raw_input + ground_truth for third-party verification.
+- 🧹 **Manual re-run (`POST /api/benchmark/refresh`)** — refreshes ledger + reruns suite + bypasses 15-min cache.
+
+### Metrics on current corpus (100 payloads · avg 5.57 layers)
+- MITRE hit-rate  · **87.0%** (threshold >=75%)
+- Undecoded rate  · **2.0%**  (threshold <=10%)
+- IOC recall      · **28.9%** (reported target 70%, not gated)
+- Marker hit-rate · **37.0%** (informational)
+- Avg latency    · **46 ms** per payload
+
+### Files added
+- `backend/tests/real_world_stress_suite.py` — corpus + runner + gate + report writers
+- `backend/tests/test_real_world_stress.py` — pytest CI gate wrapper
+- `backend/corpus_refresh.py` — weekly refresh from MalwareBazaar + ART
+- `backend/routers/benchmark.py` — public benchmark API
+- `frontend/src/pages/BenchmarkPage.jsx` — public `/benchmark` page
+
+### Files touched
+- `backend/server.py` — wires `benchmark_router` + arms corpus-refresh scheduler on startup
+- `backend/pytest.ini` — registers `real_world` marker
+- `frontend/src/App.js` — public `/benchmark` route (no auth)
+
+### Next follow-ups (backlog)
+- Fold IOC-recall uplift into decoder heuristics (currently 28.9%, target 70%) — the multi-layer chains bury domains/URLs 5+ decodings deep and the smart decoder occasionally stops early.
+- Threat Intel `/api/threat-intel/enrich` endpoint + Workspace pill UI (deferred).
+- `wrapper_archetypes.py` / `operations.py` refactor by tradecraft family.
+
+---
+
+
 ## v1.3.4 — Feb 18 2026 · Concatenated-Base64 Payload Reconstruction
 
 **Status:** Preview · 5 new tests green · Corrupted_Gzip / Layered Detonation cases now correctly detonate through the full chain.
