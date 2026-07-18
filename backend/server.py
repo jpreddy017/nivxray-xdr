@@ -234,6 +234,13 @@ async def _startup():
         log.info("[startup] real-world corpus refresh scheduler armed")
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] corpus refresh scheduler failed: {e}")
+    # v1.5.6 · Hourly TI feed sync into local db.iocs (cache-first)
+    try:
+        from ti_feed_sync import start_ti_feed_scheduler
+        start_ti_feed_scheduler(db)
+        log.info("[startup] TI feed sync scheduler armed (hourly)")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] TI feed sync scheduler failed: {e}")
 
 
 @app.on_event("shutdown")
