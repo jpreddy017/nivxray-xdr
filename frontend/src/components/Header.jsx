@@ -2,14 +2,47 @@ import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import Logo from "@/components/Logo";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
+import NavDropdown from "@/components/NavDropdown";
 import { useAuth } from "@/lib/auth";
-import { LogOut, LayoutGrid, Cog, Radar, Sparkles, Beaker, Terminal, BookOpen, KeyRound, Rss, TestTube, GraduationCap, Grid } from "lucide-react";
+import {
+  LogOut, LayoutGrid, Cog, Sparkles, Beaker, Terminal, BookOpen,
+  KeyRound, Rss, TestTube, GraduationCap, Grid, Wrench, Library,
+} from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
   const loc = useLocation();
   const isAdmin = user?.role === "admin";
   const [cpOpen, setCpOpen] = useState(false);
+
+  // Primary tabs — always visible, high-usage
+  const primary = [
+    { to: "/",           label: "WORKSPACE",  icon: LayoutGrid, testId: "nav-workspace" },
+    { to: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
+    { to: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
+  ];
+
+  // Grouped: analysis tools (secondary usage)
+  const toolsItems = [
+    { to: "/analyze",      label: "Command Analyzer", icon: Terminal, testId: "nav-command-analyzer" },
+    { to: "/threat-model", label: "Threat Model",     icon: Terminal, testId: "nav-threat-model" },
+  ];
+
+  // Grouped: reference / knowledge (occasional usage)
+  const learnItems = [
+    { to: "/kb",   label: "Knowledge Base", icon: BookOpen, testId: "nav-knowledge-base" },
+    { to: "/docs", label: "Docs",           icon: BookOpen, testId: "nav-docs" },
+  ];
+
+  // Grouped: admin (admin-only, occasional usage) — Learner belongs here since
+  // it's a training/tuning tool, not an end-user analyst workflow.
+  const adminItems = [
+    { to: "/admin",                 label: "Admin Panel",    icon: Cog,            testId: "nav-admin" },
+    { to: "/learner",               label: "Learner",        icon: GraduationCap,  testId: "nav-learner" },
+    { to: "/admin/training-inbox",  label: "Training Inbox", icon: Rss,            testId: "nav-training-inbox" },
+    { to: "/admin/models",          label: "Model Studio",   icon: Sparkles,       testId: "nav-model-studio" },
+    { to: "/admin/samples",         label: "Sample Library", icon: Beaker,         testId: "nav-sample-library" },
+  ];
 
   return (
     <header
@@ -41,110 +74,24 @@ export default function Header() {
           </div>
         </Link>
         <span style={{ color: "var(--border-strong)" }}>│</span>
+
         <nav style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <Link
-            to="/"
-            data-testid="nav-workspace"
-            className={`nvx-btn sm ghost ${loc.pathname === "/" ? "" : ""}`}
-            style={{ color: loc.pathname === "/" ? "var(--accent)" : "var(--text-dim)" }}
-          >
-            <LayoutGrid size={13} /> WORKSPACE
-          </Link>
-          <Link
-            to="/analyze"
-            data-testid="nav-command-analyzer"
-            className="nvx-btn sm ghost"
-            style={{ color: loc.pathname === "/analyze" ? "var(--accent)" : "var(--text-dim)" }}
-          >
-            <Terminal size={13} /> COMMAND ANALYZER
-          </Link>
-          <Link
-            to="/kb"
-            data-testid="nav-knowledge-base"
-            className="nvx-btn sm ghost"
-            style={{ color: loc.pathname === "/kb" ? "var(--accent)" : "var(--text-dim)" }}
-          >
-            <BookOpen size={13} /> KNOWLEDGE BASE
-          </Link>
-          <Link
-            to="/threat-model"
-            data-testid="nav-threat-model"
-            className="nvx-btn sm ghost"
-            style={{ color: loc.pathname === "/threat-model" ? "var(--accent)" : "var(--text-dim)" }}
-          >
-            <Terminal size={13} /> THREAT MODEL
-          </Link>
-          <Link
-            to="/docs"
-            data-testid="nav-docs"
-            className={`nvx-btn sm ghost`}
-            style={{ color: loc.pathname === "/docs" ? "var(--accent)" : "var(--text-dim)" }}
-          >
-            <BookOpen size={13} /> DOCS
-          </Link>
-          <Link
-            to="/batch-test"
-            data-testid="nav-batch-test"
-            className="nvx-btn sm ghost"
-            style={{ color: loc.pathname === "/batch-test" ? "var(--accent)" : "var(--text-dim)" }}
-          >
-            <TestTube size={13} /> BATCH
-          </Link>
-          <Link
-            to="/heatmap"
-            data-testid="nav-heatmap"
-            className="nvx-btn sm ghost"
-            style={{ color: loc.pathname === "/heatmap" ? "var(--accent)" : "var(--text-dim)" }}
-          >
-            <Grid size={13} /> HEATMAP
-          </Link>
-          <Link
-            to="/learner"
-            data-testid="nav-learner"
-            className="nvx-btn sm ghost"
-            style={{ color: loc.pathname === "/learner" ? "var(--accent)" : "var(--text-dim)" }}
-          >
-            <GraduationCap size={13} /> LEARNER
-          </Link>
-          {isAdmin && (
+          {primary.map(p => (
             <Link
-              to="/admin"
-              data-testid="nav-admin"
-              className={`nvx-btn sm ghost`}
-              style={{ color: loc.pathname === "/admin" ? "var(--accent)" : "var(--text-dim)" }}
-            >
-              <Cog size={13} /> ADMIN
-            </Link>
-          )}
-          {isAdmin && (
-            <Link
-              to="/admin/training-inbox"
-              data-testid="nav-training-inbox"
+              key={p.to}
+              to={p.to}
+              data-testid={p.testId}
               className="nvx-btn sm ghost"
-              style={{ color: loc.pathname === "/admin/training-inbox" ? "var(--accent)" : "var(--text-dim)" }}
+              style={{ color: loc.pathname === p.to ? "var(--accent)" : "var(--text-dim)" }}
             >
-              <Rss size={13} /> INBOX
+              <p.icon size={13} /> {p.label}
             </Link>
-          )}
+          ))}
+
+          <NavDropdown label="TOOLS"    icon={Wrench}  items={toolsItems} testId="nav-tools" />
+          <NavDropdown label="LEARN"    icon={Library} items={learnItems} testId="nav-learn" />
           {isAdmin && (
-            <Link
-              to="/admin/models"
-              data-testid="nav-model-studio"
-              className={`nvx-btn sm ghost`}
-              style={{ color: loc.pathname.startsWith("/admin/models") ? "var(--accent)" : "var(--text-dim)" }}
-            >
-              <Sparkles size={13} /> MODEL STUDIO
-            </Link>
-          )}
-          {isAdmin && (
-            <Link
-              to="/admin/samples"
-              data-testid="nav-sample-library"
-              className={`nvx-btn sm ghost`}
-              style={{ color: loc.pathname.startsWith("/admin/samples") ? "var(--accent)" : "var(--text-dim)" }}
-            >
-              <Beaker size={13} /> SAMPLES
-            </Link>
+            <NavDropdown label="ADMIN" icon={Cog} items={adminItems} testId="nav-admin-menu" />
           )}
         </nav>
       </div>
