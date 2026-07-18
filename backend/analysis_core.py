@@ -7,7 +7,9 @@
 - IOC extraction reused by the quality gate.
 """
 from __future__ import annotations
+import asyncio
 import json
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -1003,11 +1005,11 @@ async def ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdi
         f"SCHEMA:\n{schema}\n\n"
         f"RAW INPUT:\n{inp[:3500]}\n\n"
         f"DECODED OUTPUT:\n{out[:3500]}\n\n"
-        f"EXTRACTED IOCs:\n{json.dumps(iocs)[:2000]}\n\n"
+        f"EXTRACTED IOCs:\n{json.dumps(iocs)[:1200]}\n\n"
         f"HEURISTIC MITRE (from wrapper text):\n{json.dumps(mitre)[:1200]}\n\n"
         f"HEURISTIC YARA:\n{json.dumps(yara)[:1200]}\n\n"
         f"LOLBAS MATCHES:\n{json.dumps(lolbas or [])[:1500]}\n\n"
-        f"OSINT ENRICHMENT:\n{json.dumps(osint)[:5000]}\n\n"
+        f"OSINT ENRICHMENT:\n{json.dumps(osint)[:2500]}\n\n"
         "Return only JSON."
     )
     return await llm_json(
@@ -1035,18 +1037,26 @@ async def analysis_context(body, user) -> Dict[str, Any]:
     if body.enrich_osint:
         try:
             keys = await load_osint_keys()
-            osint = await enrich_iocs(iocs, keys)
+            osint = await asyncio.wait_for(enrich_iocs(iocs, keys),
+                                           timeout=float(os.environ.get("NIVX_OSINT_DEADLINE_S", "20")))
+        except asyncio.TimeoutError:
+            osint = {"error": "OSINT timed out — falling back to local TI hits only"}
         except Exception as e:
             osint = {"error": str(e)}
     if body.describe or body.use_ai_verdict:
         try:
-            ai_bundle = await ai_describe_and_verdict(
-                body.input, body.output or "", iocs, mitre_hits, yara, osint or {},
-                lolbas=lolbas,
-                want_verdict=body.use_ai_verdict, want_describe=body.describe,
+            ai_bundle = await asyncio.wait_for(
+                ai_describe_and_verdict(
+                    body.input, body.output or "", iocs, mitre_hits, yara, osint or {},
+                    lolbas=lolbas,
+                    want_verdict=body.use_ai_verdict, want_describe=body.describe,
+                ),
+                timeout=float(os.environ.get("NIVX_AI_DEADLINE_S", "25")),
             )
             description = ai_bundle.get("description")
             verdict = ai_bundle.get("verdict")
+        except asyncio.TimeoutError:
+            description = {"error": "AI verdict timed out — pipeline proceeded without LLM narrative"}
         except Exception as e:
             description = {"error": str(e)}
     merged_mitre = list(mitre_hits)

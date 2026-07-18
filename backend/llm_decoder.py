@@ -168,13 +168,51 @@ def llm_decode_fallback(payload: str) -> Optional[Dict[str, Any]]:
     if not parsed or not isinstance(parsed, dict):
         return None
     # Shape adaptor — return `deterministic_best_decode`-compatible dict.
-    chain = parsed.get("chain") or []
+    # v1.5.8 — Filter/alias Claude-invented op names against the real
+    # OPERATIONS registry. Prior bug: Claude returned chain steps like
+    # `case-obfuscation-normalization` / `case_obfuscation_normalization`
+    # that don't map to any registered op → the frontend Recipe replay
+    # errored with `Unknown operation: …` and analysts saw a red 🔴 ERROR
+    # on the final step even though the decode itself succeeded.
+    raw_chain = parsed.get("chain") or []
+    try:
+        from operations import OPERATIONS as _OPS
+    except Exception:
+        _OPS = {}
+    # Common LLM synonyms → real registered ops
+    _ALIASES = {
+        "case-obfuscation-normalization":  "cmd-deobfuscate",
+        "case_obfuscation_normalization":  "cmd-deobfuscate",
+        "cmd-caret-normalization":         "strip-carets",
+        "caret-strip":                     "strip-carets",
+        "b64-decode":                      "base64-decode",
+        "b64":                             "base64-decode",
+        "utf16-decode":                    "utf16le-decode",
+        "utf16le":                         "utf16le-decode",
+        "url-percent-decode":              "url-decode",
+        "env-var-expand":                  "env-expand",
+        "reverse-string":                  "reverse",
+    }
+    chain: list[str] = []
+    dropped: list[str] = []
+    for op in raw_chain:
+        if not isinstance(op, str) or not op.strip():
+            continue
+        canonical = _ALIASES.get(op.strip(), op.strip())
+        if _OPS and canonical not in _OPS:
+            dropped.append(op)
+            continue
+        chain.append(canonical)
+    steps = [{"op": op, "args": {}, "reason": f"L3 LLM decoded: {op}"} for op in chain]
+    notes = [f"L3 LLM fallback fired — {parsed.get('why', '')[:280]}"]
+    if dropped:
+        notes.append(f"L3 dropped {len(dropped)} unknown op(s): {dropped[:5]!r}")
     return {
         "output":      parsed.get("output") or "",
-        "steps":       [{"op": op, "args": {}, "reason": f"L3 LLM decoded: {op}"} for op in chain],
+        "steps":       steps,
         "engine":      "llm-l3",
         "score":       float(parsed.get("confidence") or 0.5),
-        "notes":       [f"L3 LLM fallback fired — {parsed.get('why', '')[:280]}"],
+        "notes":       notes,
         "l3_metadata": {
             "iocs":       parsed.get("iocs") or {},
             "mitre":      parsed.get("mitre") or [],

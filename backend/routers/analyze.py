@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -44,28 +45,51 @@ async def analyze(body: AnalyzeIn, user=Depends(get_current_user)):
     # tool's hallucinated "decoded" text.
     corrupt = detect_corrupt_payload(body.input or "")
 
-    osint_data = None
-    if body.enrich_osint:
+    # v1.5.8 — parallel OSINT + AI with strict per-leg timeouts.
+    # Prior bug: sequential + no timeout → any slow leg blocked the entire
+    # sync /analyze route (Cloudflare 524 in prod when total ran >100s).
+    _OSINT_DEADLINE_S = float(os.environ.get("NIVX_OSINT_DEADLINE_S", "20"))
+    _AI_DEADLINE_S    = float(os.environ.get("NIVX_AI_DEADLINE_S",    "25"))
+
+    async def _osint_leg():
+        if not body.enrich_osint:
+            return None
+        keys = await load_osint_keys()
         try:
-            keys = await load_osint_keys()
-            osint_data = await enrich_iocs(iocs, keys)
+            return await asyncio.wait_for(enrich_iocs(iocs, keys), timeout=_OSINT_DEADLINE_S)
+        except asyncio.TimeoutError:
+            return {"error": f"OSINT timed out (>{int(_OSINT_DEADLINE_S)}s) — local TI hits only"}
         except Exception as e:
-            osint_data = {"error": str(e)}
+            return {"error": str(e)}
+
+    async def _ai_leg():
+        if not (body.use_ai_verdict or body.describe):
+            return None
+        try:
+            return await asyncio.wait_for(
+                ai_describe_and_verdict(
+                    body.input, body.output or "", iocs, mitre, yara, {},
+                    lolbas=lolbas,
+                    want_verdict=body.use_ai_verdict, want_describe=body.describe,
+                ),
+                timeout=_AI_DEADLINE_S,
+            )
+        except asyncio.TimeoutError:
+            return {"error": f"AI timed out (>{int(_AI_DEADLINE_S)}s) — narrative skipped"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    osint_data, ai_bundle = await asyncio.gather(_osint_leg(), _ai_leg())
 
     ai_verdict = None
     description = None
-    if body.use_ai_verdict or body.describe:
-        try:
-            ai_bundle = await ai_describe_and_verdict(
-                body.input, body.output or "", iocs, mitre, yara, osint_data or {},
-                lolbas=lolbas,
-                want_verdict=body.use_ai_verdict, want_describe=body.describe,
-            )
+    if ai_bundle:
+        if isinstance(ai_bundle, dict) and ai_bundle.get("error"):
+            if body.use_ai_verdict: ai_verdict = {"error": ai_bundle["error"]}
+            if body.describe:       description = {"error": ai_bundle["error"]}
+        else:
             ai_verdict = ai_bundle.get("verdict") if body.use_ai_verdict else None
             description = ai_bundle.get("description") if body.describe else None
-        except Exception as e:
-            if body.use_ai_verdict: ai_verdict = {"error": str(e)}
-            if body.describe: description = {"error": str(e)}
 
     merged_mitre = list(mitre)
     if description and isinstance(description, dict):
@@ -126,20 +150,38 @@ async def analyze_stream(body: AnalyzeIn, user=Depends(get_current_user)):
 
         yield _sse("status", {"phase": "enrich_and_ai", "message": "Running OSINT enrichment + AI analysis in parallel…"})
 
+        # v1.5.8 — hard-cap each of the two parallel legs. Previously the loop
+        # would wait until BOTH tasks finished, and a slow Claude call could
+        # stretch the whole route past 90 s. Now each leg has its own strict
+        # deadline; whichever legs miss it get cancelled and the pipeline
+        # completes with the results it already has.
+        _OSINT_DEADLINE_S = float(os.environ.get("NIVX_OSINT_DEADLINE_S", "20"))
+        _AI_DEADLINE_S    = float(os.environ.get("NIVX_AI_DEADLINE_S",    "25"))
+
         async def _run_osint():
             if not body.enrich_osint:
                 return None
             keys = await load_osint_keys()
-            return await enrich_iocs(iocs, keys)
+            try:
+                return await asyncio.wait_for(enrich_iocs(iocs, keys),
+                                              timeout=_OSINT_DEADLINE_S)
+            except asyncio.TimeoutError:
+                return {"error": f"OSINT timed out (>{int(_OSINT_DEADLINE_S)}s) — falling back to local TI hits only"}
 
         async def _run_ai():
             if not (body.use_ai_verdict or body.describe):
                 return None
-            return await ai_describe_and_verdict(
-                body.input, body.output or "", iocs, mitre, yara, {},
-                lolbas=lolbas,
-                want_verdict=body.use_ai_verdict, want_describe=body.describe,
-            )
+            try:
+                return await asyncio.wait_for(
+                    ai_describe_and_verdict(
+                        body.input, body.output or "", iocs, mitre, yara, {},
+                        lolbas=lolbas,
+                        want_verdict=body.use_ai_verdict, want_describe=body.describe,
+                    ),
+                    timeout=_AI_DEADLINE_S,
+                )
+            except asyncio.TimeoutError:
+                return {"error": f"AI verdict timed out (>{int(_AI_DEADLINE_S)}s) — pipeline proceeded without LLM narrative"}
 
         osint_task = asyncio.create_task(_run_osint())
         ai_task = asyncio.create_task(_run_ai())
