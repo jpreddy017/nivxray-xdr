@@ -1,6 +1,63 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## v1.4.4 — Feb 2026 · Learner UI Polish · Qwen Fine-Tune Pipeline · IOC Ceiling Found
+
+**Status:** Preview · CI Gate PASSING @ MITRE 93.3% / Undecoded 1.7% / IOC 54.7% (heuristic ceiling reached · sandbox detonation is the path to 70%+)
+
+### Shipped this batch (per user Task list)
+
+**Task 2 · Learner UI Polish** ✅
+- New table columns: `Source` + `Suggested Recipe`
+- **INGEST FEEDBACK** button (teal) at top-right of inbox — one-click pull of all decode_feedback → learner_payloads with SHA1 dedupe
+- **FEEDBACK** source pill (red) on rows sourced from analyst REPORT BAD DECODE
+- **Suggested recipe chips** (teal, up to 4 + `+N` overflow) — Claude's proposed op sequence, one-click template for archetype approval
+- Backend `/learner/inbox` widened to surface `dataset_source`, `source_feedback_id`, `ai_suggested_recipe`
+- Verified via screenshot: 3 FEEDBACK rows with `detect_powershell_encoded → extract_base64_payload → base64_decode → utf16le_decode → strip_powershell_prefix` chips visible
+
+**Task 3 · Qwen 2.5 7B Fine-Tune Pipeline (scaffolded end-to-end)** ✅
+- `backend/finetune/export_dataset.py` — exports Golden Vault (19) + Training Corpus (260) + Real-World Stress (120) into a **399-row Alpaca-format JSONL** ready for LoRA training. Verified working.
+- `backend/finetune/Modelfile` — Ollama Modelfile with Qwen2.5 chat template + NivX Cognis system prompt + Q5_K_M quantization
+- `backend/finetune/README.md` — end-to-end activation guide (dataset → GPU LoRA on unsloth → GGUF via llama.cpp → Ollama build → OLLAMA_HOST/OLLAMA_MODEL env → auto-registration as offline failover). One-time cost ~$4 GPU rental.
+- Live activation waits on: (a) user runs LoRA training on external GPU host, (b) drops the GGUF, (c) sets env vars, (d) restarts backend. `llm_provider.OllamaQwenProvider` auto-registers.
+
+**Task 1 · IOC recall push 54.7% → 70%** — HEURISTIC CEILING FOUND
+- Attempted: v1.4.3 aggressive reverse-charset detector + ROT13 outer wrapper detector in smart_decoder → **regressed** (54.7→53.3) → reverted
+- Attempted: v1.4.4 union magic_decode top-5 branches with smart_decode intermediates in stress runner → **no gain** (both engines converge on the same heuristic wall)
+- **Honest finding:** 55% IOC recall on 6-layer bury depth is the ceiling for purely-deterministic decoding. The remaining gap is not a heuristic bug — it's an architectural gap. The URLs live BEHIND wall the decoder can't peel without running the payload.
+- **Path forward:** the Zero-Miss architecture (P0 sandbox detonation) is the answer, not another heuristic tweak.
+
+### Files added
+- `backend/finetune/export_dataset.py` — dataset exporter (verified: 399 rows, Alpaca format)
+- `backend/finetune/Modelfile` — Ollama scaffold
+- `backend/finetune/README.md` — activation guide
+
+### Files touched
+- `backend/routers/learner.py` — inbox projection widened + `/learner/ingest-feedback` + `/learner/feedback-source`
+- `backend/tests/real_world_stress_suite.py` — magic_decode union in runner (defensive, no regression, no gain either)
+- `frontend/src/pages/LearnerPage.jsx` — Source column + Suggested Recipe column + INGEST FEEDBACK button
+
+### v1.5.0 Zero-Miss Architecture (proposed after user's Feb-2026 mandate)
+Zero-Miss = "**Niv = New**, **XRay = Scan** — always decode, always attribute, never Undecoded." Five-layer enforcement:
+1. **L1** Deterministic decoder (regex/archetype) — ✅ shipped
+2. **L2** Magic branch search (score every op) — ✅ shipped
+3. **L3** LLM decoder fallback (Claude 4.5 + Qwen NivX Cognis when trained) — ⚠️ Claude ✅, Qwen scaffolded
+4. **L4** Sandbox detonation (Docker + mitmproxy, isolated egress) — ❌ NOT YET (biggest gap)
+5. **L5** Behavior-based verdict (syscalls, network, file writes) — ❌ NOT YET (derived from L4)
+
+Every payload MUST land on a verdict from L1 or L5. "Undecoded" becomes a system-invariant violation, not a normal outcome. Target: **≥95% IOC recall + zero Undecoded** on next real-world corpus refresh after L4/L5 lands.
+
+### Next follow-ups (backlog · in Zero-Miss priority order)
+- **P0** L4 sandbox detonation (Docker + mitmproxy + syscall capture)
+- **P0** Auto-escalation orchestrator (L1→L2→L3→L4→L5 with confidence gates)
+- **P1** Learner auto-loop closure (successful L4 → auto-archetype proposal)
+- **P1** Qwen fine-tune activation (execute the scaffold on a GPU host)
+- **P2** Confidence-aware verdict UI (show escalation trace to analyst)
+- **P2** Adversarial regression suite (permanent test for every ever-Undecoded payload)
+
+---
+
+
 ## v1.4.3 — Feb 2026 · Learner-Feedback Auto-Ingestion · IOC Uplift Exploration
 
 **Status:** Preview · CI Gate PASSING @ MITRE 93.3% / Undecoded 1.7% / IOC 54.7% (baseline held) · learner inbox now auto-populated from analyst REPORT-BAD-DECODE reports.

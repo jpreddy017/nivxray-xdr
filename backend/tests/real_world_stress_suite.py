@@ -765,6 +765,7 @@ def _run_one(entry: Dict[str, Any]) -> Dict[str, Any]:
     from operations import extract_iocs, mitre_map, run_operation
     from lolbas import scan_lolbas
     from payload_sanitizer import sanitize_encapsulated_payload, find_all_base64_spans
+    from magic_decoder import magic_decode  # v1.4.4 · union IOCs across both engines
 
     t0 = time.time()
     det: Dict[str, Any]
@@ -776,10 +777,10 @@ def _run_one(entry: Dict[str, Any]) -> Dict[str, Any]:
     output = det.get("output") or ""
     steps = [s.get("op") for s in (det.get("steps") or [])]
 
-    # ── v1.4.1 · Per-layer IOC surfacing (mirrors /api/decode/smart) ────
-    # Re-run each step to capture intermediate outputs; union IOCs across
-    # every layer so URLs / domains / IPs buried mid-chain are surfaced
-    # even when the final layer fails to decode cleanly.
+    # ── v1.4.4 · Union IOCs across BOTH engines' intermediates ──────────
+    # `deterministic_best_decode` picks ONE winner (smart OR magic). But the
+    # loser's intermediate chain may still have surfaced a URL / domain / IP
+    # buried deeper than the winner reached. Union them for IOC recall.
     layer_previews: List[str] = []
     cur = entry["raw_input"]
     for step in (det.get("steps") or []):
@@ -801,8 +802,33 @@ def _run_one(entry: Dict[str, Any]) -> Dict[str, Any]:
             layer_previews.append(nxt[:2048])
         cur = nxt if isinstance(nxt, str) else cur
 
+    # ── Also probe magic_decode top-N branches (even if magic lost) ─────
+    try:
+        magic = magic_decode(entry["raw_input"], max_depth=6, max_branches=5, top_n=5)
+        for r in (magic.get("top_results") or []):
+            o = r.get("output") or ""
+            if o and o not in layer_previews:
+                layer_previews.append(o[:2048])
+            # Re-walk each magic candidate chain to capture ITS intermediates too
+            _c = entry["raw_input"]
+            for step in (r.get("chain") or []):
+                op_id = step.get("op") or ""
+                args = step.get("args") or {}
+                try:
+                    if op_id == "extract-payload":
+                        iso = sanitize_encapsulated_payload(_c)
+                        _c = iso if (iso and iso != _c.strip()) else _c
+                    else:
+                        _c = run_operation(op_id, _c, args)
+                except Exception:
+                    break
+                if isinstance(_c, str) and _c and _c not in layer_previews:
+                    layer_previews.append(_c[:2048])
+    except Exception:
+        pass
+
     scan_parts = [entry["raw_input"] or "", output] + layer_previews
-    # Also add reversed forms — reverse-string tradecraft can appear at ANY layer
+    # Reversed forms — reverse-string tradecraft can appear at ANY layer
     for lp in list(layer_previews):
         if 6 <= len(lp) <= 2048:
             scan_parts.append(lp[::-1])
