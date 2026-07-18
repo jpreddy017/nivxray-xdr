@@ -1,5 +1,36 @@
 # NivXRay · CHANGELOG
 
+## v1.3.0-preview (batch 5) — 2026-07-18 · Heatmap-driven sparse-tactic backfill + PS normalizer
+
+**Status:** Preview batch · staged for next prod release
+
+### 🎯 Sparse-tactic self-audit → 5 tactics closed
+The Heatmap self-audit banner said 6 tactics had `<5 techniques`. Closed 5 of the 6:
+- **Lateral Movement**: 4 → **6** · new heuristics for RDP (`mstsc /v:`), SMB (`\\host\c$`), WinRM (`Enter-PSSession`, `winrs -r:`), PsExec-family, WMI remote, SSH-family, `Copy-Item -ToSession`, robocopy over SMB
+- **Collection**: 2 → **9** · clipboard, screen capture, PS transcript, archive utilities (Compress-Archive/7z/rar/makecab), recursive file-type search, browser data paths, Exchange mailbox export
+- **Exfiltration**: 2 → **5** · POST via IWR, `curl -T`/`-F file=@`, public file-shares (transfer.sh/mega/dropbox/pastebin), cloud storage (S3/GCS/Azure Blob), DNS tunneling, SCP/SFTP
+- **Impact**: 3 → **7** · shadow-copy tampering, service stops (Defender/EventLog/BITS/VSS), event-log clearing, secure-delete (cipher /w, sdelete), ransomware artefact extensions + note names, forced shutdown, account removal
+- **Initial Access**: 4 → **5** · malicious-attachment vehicles, phishing lure patterns, CVE references, public-facing appliance exploits (Palo Alto/Fortinet/Citrix/Ivanti)
+- ⚠️ Resource Development: 2 → 3 (still sparse; hard to detect from payload text alone)
+
+### 📈 Heatmap totals
+- Heuristics: 231 → **280** (+49)
+- Unique techniques: 104 → **123** (+19)
+- Sparse tactics: **6 → 1**
+
+### 🔍 PowerShell cosmetic normalizer (`backend/ps_normalize.py`)
+New post-processing pass — strips 3 cosmetic obfuscation layers left over after base64/format decode:
+1. Backticks inside identifiers (``S`eT-It`em`` → `Set-Item`)
+2. String concat (`'Uti'+'l'` → `'Util'`)
+3. Format-string operator (`"{1}{0}" -f 'F','rE'` → `'rEF'`)
+Applied iteratively up to 8 passes until stable.
+
+### 🧪 Regression
+- All previous v1.3.0 tests (49/49) still green
+- 4 live probe validations (Lateral Mv · Impact · Exfil · Collection chains) all lit correctly
+
+---
+
 ## v1.3.0-preview (batch 3) — 2026-07-18 · Analyst Practice Lab + Nav polish
 
 **Status:** Preview batch · staged for next prod release

@@ -2158,6 +2158,56 @@ MITRE_HEURISTICS = [
     # Staging path in AppData\Local\Temp
     (r"C:\\Users\\Public\\AppData\\Local\\Temp\\|C:\\ProgramData\\|\\Windows\\Temp\\",
         ("T1074.001", "Local staging in Public/ProgramData/Temp directory", "Collection")),
+    # ═══════════════════════════════════════════════════════════════════
+    # Feb 2026 v1.3.0 · Sparse-tactic backfill (from heatmap self-audit)
+    # Closing gaps in Lateral Movement · Collection · Exfiltration · Impact
+    # ═══════════════════════════════════════════════════════════════════
+    # ── Lateral Movement ────────────────────────────────────────────────
+    (r"(?<![A-Za-z])(?:mstsc(?:\.exe)?)\s+/v:", ("T1021.001", "RDP session via mstsc /v:", "Lateral Movement")),
+    (r"net\s+use\s+\\\\[^\s]+|\\\\[a-z0-9\-\.]+\\(?:c\$|admin\$|ipc\$)", ("T1021.002", "SMB/admin-share access via net use \\\\host\\C$/ADMIN$", "Lateral Movement")),
+    (r"(?<![A-Za-z])(?:Enter-PSSession|New-PSSession|Invoke-Command)\s+[^\r\n]{0,120}?-ComputerName", ("T1021.006", "PowerShell remoting (Enter-PSSession/Invoke-Command -ComputerName)", "Lateral Movement")),
+    (r"(?<![A-Za-z])winrs(?:\.exe)?\s+-r:", ("T1021.006", "winrs -r: remote shell (WinRM)", "Lateral Movement")),
+    (r"(?<![A-Za-z])(?:psexec|paexec|remcom|smbexec)(?:\d*)?(?:\.exe)?\s+\\\\", ("T1570", "PsExec-family lateral tool transfer", "Lateral Movement")),
+    (r"wmic\s+/node:[\"']?[^\s\"']+[\"']?\s+process\s+call\s+create|Get-WmiObject\s+-ComputerName|Invoke-WmiMethod\s+-ComputerName", ("T1047", "WMI remote process spawn (/node: or -ComputerName)", "Lateral Movement")),
+    (r"(?<![A-Za-z])(?:plink|putty|ssh)(?:\.exe)?\s+[^\r\n]{0,100}?@[a-z0-9\-\.]+", ("T1021.004", "SSH-family remote session (ssh/plink/putty)", "Lateral Movement")),
+    (r"Copy-Item\s+[^\r\n]{0,120}?-ToSession|robocopy\s+[^\r\n]{0,120}?\\\\", ("T1570", "Copy-Item -ToSession / robocopy over SMB — lateral tool transfer", "Lateral Movement")),
+
+    # ── Collection ──────────────────────────────────────────────────────
+    (r"Get-Clipboard|Set-Clipboard|System\.Windows\.Forms\.Clipboard", ("T1115", "Clipboard read/write API", "Collection")),
+    (r"Graphics\.CopyFromScreen|BitBlt|CopyFromScreen|System\.Drawing\.Bitmap.*Screen", ("T1113", "Screen capture API (CopyFromScreen/BitBlt)", "Collection")),
+    (r"Start-Transcript|Set-PSReadlineOption\s+-HistorySavePath", ("T1056.004", "PowerShell transcript/history capture", "Collection")),
+    (r"Compress-Archive|(?<![A-Za-z])(?:7z|rar|winrar)(?:\.exe)?\s+a\s+[^\r\n]{0,120}?\.(?:zip|rar|7z)|makecab\s+", ("T1560.001", "Archive collection utility (Compress-Archive/7z/rar/makecab)", "Collection")),
+    (r"Get-ChildItem\s+[^\r\n]{0,120}?-(?:Recurse|Include)\s+[^\r\n]{0,120}?(?:\*\.(?:pdf|docx?|xlsx?|pptx?|txt|csv|kdbx))", ("T1119", "Automated collection: recursive file-type search", "Collection")),
+    (r"AppData\\Roaming\\(?:Microsoft\\Windows\\Cookies|Mozilla\\Firefox\\Profiles|Chromium|Chrome\\User Data)|Login Data|Cookies\.sqlite", ("T1005", "Browser credential / cookie / login data collection", "Collection")),
+    (r"New-MailboxExportRequest|Search-Mailbox\s+-SearchQuery", ("T1114.002", "Exchange mailbox export (email collection)", "Collection")),
+
+    # ── Exfiltration ────────────────────────────────────────────────────
+    (r"Invoke-(?:WebRequest|RestMethod)\s+[^\r\n]{0,200}?-Method\s+POST\s+[^\r\n]{0,120}?(?:-InFile|-Body)", ("T1041", "PowerShell POST exfil via Invoke-WebRequest/IRM", "Exfiltration")),
+    (r"curl(?:\.exe)?\s+[^\r\n]{0,200}?(?:-T\s+|-X\s+POST\s+[^\r\n]{0,80}?-F\s+[\"']?file=@|--upload-file)", ("T1048.003", "curl file upload (-T / -F file=@)", "Exfiltration")),
+    (r"(?<![A-Za-z\.])(?:transfer\.sh|anonfiles\.com|file\.io|0x0\.st|catbox\.moe|mega\.nz|dropbox\.com/s/|pastebin\.com/raw|paste\.ee|ghostbin\.com)", ("T1567.002", "Exfil to public file-share (transfer.sh / mega.nz / dropbox / pastebin)", "Exfiltration")),
+    (r"aws\s+s3\s+cp\s+[^\r\n]{0,120}?s3://|gsutil\s+cp\s+[^\r\n]{0,120}?gs://|az\s+storage\s+blob\s+upload", ("T1567.002", "Exfil to cloud object storage (S3/GCS/Azure Blob)", "Exfiltration")),
+    (r"(?:nslookup|Resolve-DnsName|dig)\s+[a-z0-9\-]{20,60}\.[a-z0-9\-\.]{5,60}", ("T1048.003", "DNS-tunneling-style long-subdomain lookup", "Exfiltration")),
+    (r"scp\s+[^\r\n]{0,120}?@[a-z0-9\-\.]+:|sftp\s+[^\r\n]{0,80}?@[a-z0-9\-\.]+", ("T1048", "SCP/SFTP file transfer to remote host", "Exfiltration")),
+
+    # ── Impact ──────────────────────────────────────────────────────────
+    (r"wmic\s+shadowcopy\s+delete|wbadmin\s+delete\s+(?:catalog|backup|systemstatebackup)|bcdedit\s+/set\s+\{[^\}]+\}\s+recoveryenabled\s+no|bcdedit\s+/set\s+bootstatuspolicy\s+ignoreallfailures", ("T1490", "Inhibit recovery: shadowcopy/wbadmin/bcdedit tampering", "Impact")),
+    (r"(?<![A-Za-z])(?:net(?:1)?|sc(?:\.exe)?)\s+stop\s+[\"']?(?:MpsSvc|WinDefend|WdNisSvc|SecurityHealthService|Sense|wuauserv|BITS|VSS|SamSs|EventLog|Spooler)|Stop-Service\s+[\"']?(?:WinDefend|MpsSvc|Sense|EventLog)", ("T1489", "Service stop targeting Defender/EventLog/Backup/BITS", "Impact")),
+    (r"(?<![A-Za-z])(?:wevtutil\s+cl|Clear-EventLog|Remove-EventLog|Clear-History)", ("T1070.001", "Windows event log clearing (wevtutil cl / Clear-EventLog)", "Impact")),
+    (r"cipher(?:\.exe)?\s+/w:|(?<![A-Za-z])sdelete(?:64|32)?(?:\.exe)?\s+-p\s+\d+|fsutil\s+usn\s+deletejournal", ("T1561.001", "Secure-delete / journal wipe (cipher /w, sdelete, fsutil)", "Impact")),
+    (r"(?:\.(?:locked|encrypted|crypted|enc|ryk|conti|revil|lockbit|blackcat|akira|noname|clop|8base|hive|maze))\b|README[_\-]?(?:DECRYPT|RANSOM|RESTORE)|HOW[_\-]TO[_\-]DECRYPT|_RECOVER_INSTRUCTIONS", ("T1486", "Ransomware artefact: known extension or ransom-note filename", "Impact")),
+    (r"(?<![A-Za-z])(?:shutdown|Restart-Computer)\s+[^\r\n]{0,60}?(?:/r\s+/f|/s\s+/f|-Force)", ("T1529", "Forced shutdown/restart (shutdown /r /f · Restart-Computer -Force)", "Impact")),
+    (r"net\s+user\s+[^\r\n]{0,40}?/delete|Remove-LocalUser|Set-ADAccountControl\s+.*-Enabled\s+\$false|Disable-ADAccount", ("T1531", "Account access removal (net user /delete · Remove-LocalUser · Disable-ADAccount)", "Impact")),
+
+    # ── Initial Access ──────────────────────────────────────────────────
+    (r"(?:\.(?:iso|img|vhd|vhdx|hta|lnk|scr|ps1|vbs|js|wsf|jar))\s*(?:\"|'|$|\s|\?)", ("T1566.001", "Malicious attachment / delivery vehicle (ISO/IMG/HTA/LNK/PS1/VBS/JS)", "Initial Access")),
+    (r"contact\s+support|verify\s+your\s+account|password\s+expires|urgent\s+action\s+required|click\s+here\s+to\s+(?:verify|reset|confirm)", ("T1566.002", "Phishing lure text patterns", "Initial Access")),
+    (r"(?:CVE-\d{4}-\d{4,7})", ("T1190", "CVE identifier referenced — possible exploit-based initial access", "Initial Access")),
+    (r"(?:paloaltonetworks|fortinet|citrix|solarwinds|vmware|ivanti|manageengine|movEit|log4j|jndi:)", ("T1190", "Public-facing appliance exploit target (Palo Alto/Fortinet/Citrix/Ivanti/…)", "Initial Access")),
+
+    # ── Resource Development ────────────────────────────────────────────
+    (r"(?:\.(?:top|xyz|club|online|site|website|store|shop|space|tk|ml|ga|cf))/[a-z0-9]{6,}", ("T1583.001", "Attacker-registered low-cost TLD staging domain (.top/.xyz/.club/…)", "Resource Development")),
+    (r"(?:cloudproxy|cloudflarepanel|panel1337|c2server|admin-panel|beaconserver)\.[a-z0-9\-\.]+", ("T1583.004", "Attacker C2/panel-style domain naming", "Resource Development")),
+    (r"ngrok\.io|serveo\.net|localtunnel\.me|loca\.lt|trycloudflare\.com", ("T1090.002", "Tunneling service (ngrok/serveo/cloudflared) — attacker relay infrastructure", "Command and Control")),
 ]
 
 
