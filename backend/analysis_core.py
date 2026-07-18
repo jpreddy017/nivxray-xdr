@@ -333,6 +333,39 @@ def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> 
     except Exception:
         pass
 
+    # Feb 2026 v1.3.5 · `where`-wildcard resolver annotation.
+    # `where c*d.e?e` → cmd.exe · `where c*u*r*l.e?e` → curl.exe etc.
+    # Inline-annotate the canonical binary next to each wildcard pattern so
+    # analysts don't have to mentally resolve the string obfuscation.
+    try:
+        import re as _re
+        _WHERE_WILDCARDS = [
+            (_re.compile(r"where\s+(c\*d\.e\?e)", _re.IGNORECASE),           "cmd.exe"),
+            (_re.compile(r"where\s+(c\*u\*r\*l\.e\?e)", _re.IGNORECASE),     "curl.exe"),
+            (_re.compile(r"where\s+(p\*ell\.exe)", _re.IGNORECASE),          "powershell.exe"),
+            (_re.compile(r"where\s+(p\*w?\*ell\.e\?e)", _re.IGNORECASE),     "powershell.exe"),
+            (_re.compile(r"where\s+(wmi[a-z*?]+\.exe)", _re.IGNORECASE),     "wmic.exe"),
+            (_re.compile(r"where\s+(mshta\.e\?e)", _re.IGNORECASE),          "mshta.exe"),
+        ]
+        _out = final_result.get("output") or ""
+        if _out:
+            annotations = []
+            for pat, canon in _WHERE_WILDCARDS:
+                for m in pat.finditer(_out):
+                    annotations.append((m.group(1), canon))
+            if annotations:
+                seen = set()
+                unique = [(w, c) for w, c in annotations if not ((w, c) in seen or seen.add((w, c)))]
+                block = "\n\n# ─── Wildcard LOLBIN resolution (v1.3.5) ───\n"
+                for wildcard, canon in unique:
+                    block += f"#   {wildcard:20s} → {canon}\n"
+                final_result["output"] = _out + block
+                final_result.setdefault("post_processing", {})["wildcard_resolve"] = {
+                    "resolved": [f"{w} → {c}" for w, c in unique],
+                }
+    except Exception:
+        pass
+
     return final_result
 
 

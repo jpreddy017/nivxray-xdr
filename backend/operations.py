@@ -2298,6 +2298,15 @@ MITRE_HEURISTICS = [
      r"AWSCognitoIdentityProviderService|"
      r"aws\s+cognito-idp\s+(?:admin-initiate-auth|initiate-auth|admin-get-user)",
         ("T1528", "Steal Application Access Token: AWS Cognito ID/Access token", "Credential Access")),
+
+    # ── H1 · `where`-wildcard LOLBIN string obfuscation (Feb 2026 v1.3.5) ──
+    # `where c*d.e?e` / `where c*u*r*l.e?e` / `where p*ell.exe` — used to
+    # avoid emitting the literal strings cmd.exe / curl.exe / powershell.exe
+    # so static YARA/Sigma rules on command lines miss the LOLBIN reference.
+    # See saved case "Real_Confirmed_Authorized Activity" for a live sample.
+    (r"where\s+[cCpPrRwWmMnN][a-zA-Z*?]*\*[a-zA-Z*?]*\.(?:e[xX?]e|dll|com)|"
+     r"where\s+[a-zA-Z]+\?[a-zA-Z*?]*\.[a-zA-Z*?]+",
+        ("T1027", "Obfuscated Files: `where`-wildcard LOLBIN string hiding (c*d.e?e / p*ell.exe)", "Defense Evasion")),
 ]
 
 
