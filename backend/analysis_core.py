@@ -205,6 +205,27 @@ def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> 
             }
         except Exception as _e:
             final_result["reasoning"] = {"mode": analysis_mode, "error": str(_e)}
+
+    # Feb 2026 v1.3.0 · Wire PS cosmetic normalizer into the decode chain.
+    # Strips backticks in identifiers, resolves format-string operators,
+    # collapses string concatenations — the three cosmetic layers PowerShell's
+    # tokenizer removes at parse-time.
+    try:
+        from ps_normalize import normalize_if_powershell
+        out_text = final_result.get("output") or ""
+        if out_text:
+            cleaned, applied = normalize_if_powershell(out_text)
+            if applied and cleaned != out_text:
+                final_result["output"] = cleaned
+                final_result.setdefault("post_processing", {})["ps_normalize"] = {
+                    "applied":       applied,
+                    "original_len":  len(out_text),
+                    "cleaned_len":   len(cleaned),
+                }
+    except Exception:
+        # Normalizer must never break decode
+        pass
+
     return final_result
 
 
