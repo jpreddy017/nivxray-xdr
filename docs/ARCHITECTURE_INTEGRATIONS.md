@@ -8,24 +8,77 @@
 
 ## Slide 1 · Positioning
 
-**NivXRay is NOT a SIEM. NivXRay is NOT an EDR. NivXRay is a Deep-Decode + MITRE-Attribution Micro-Service that sits between raw telemetry and the customer's existing detection pipeline.**
-
-```
-  ┌──────────────┐    raw commandline / payload    ┌────────────────┐    enriched verdict + MITRE + IOCs    ┌──────────────┐
-  │  SIEM / EDR  │ ──────────────────────────────▶ │    NivXRay     │ ─────────────────────────────────▶ │  SOAR / SIEM │
-  │ (Splunk/QRad │    ~50–5000 events/sec          │  Deep-Decode + │       verdict + score + tags        │  playbooks / │
-  │  ·Sentinel · │                                 │  MITRE + TI-   │                                       │  ticket sys  │
-  │  CrowdStrike)│ ◀───────── batch API ─────────  │  HITS engine   │       normalized JSON payload         │  (Splunk SOAR│
-  └──────────────┘                                 └────────────────┘                                       │  · XSOAR ·   │
-                                                                                                            │  Tines)      │
-                                                                                                            └──────────────┘
-```
-
-**One-line value**: "Turn every obfuscated commandline your EDR shipped into a MITRE-tagged verdict in <200 ms — without touching your SIEM schema."
+**NivXRay is NOT a SIEM. NivXRay is NOT an EDR. NivXRay is a Deep-Decode + MITRE-Attribution + IOC-Enrichment micro-service that plugs into an existing SOC stack in one of two ways — Type-I (inline, automatic) or Type-II (on-demand, analyst-triggered).**
 
 ---
 
-## Slide 2 · HLD — 3 integration modes
+## Slide 2 · The two deployment types (per customer diagram)
+
+### Type-I · Inline / auto-enrichment mode
+```
+   Log Sources                                                                     
+   ┌──────────────┐                                                                
+   │ Firewall     │──▶┐                                                            
+   │ WAF          │──▶│                                                            
+   │ IDS/IPS      │──▶│   ┌───────────┐    ┌─────┐    ┌─────────┐    ┌──────────────┐
+   │ DB           │──▶│──▶│ Collector │───▶│ EDR │───▶│ NivXRay │───▶│ SNOW / SIEM  │
+   │ Servers      │──▶│   │ Connector │    └─────┘    │ Decode+ │    │ XDR / SOAR   │
+   │ Other apps / │──▶│   └───────────┘               │ MITRE + │    └──────┬───────┘
+   │ net devices  │──▶┘                                │ TI-HITS │           │
+   └──────────────┘                                    └─────────┘           ▼
+                                                                        ┌─────────┐
+                                                                        │ Analyst │
+                                                                        │ has LESS│
+                                                                        │ work    │
+                                                                        └─────────┘
+```
+- Every event/alert flowing from EDR → SIEM passes through NivXRay for **pre-attribution**
+- Verdicts, MITRE tags, IOCs, TI-HITS **arrive at the SIEM already normalized**
+- Analyst opens a notable in Splunk/Sentinel — the MITRE tags are already there
+- **Latency budget**: p95 <200 ms per event (fast mode) so it doesn't back-pressure the pipeline
+- **Best for**: high-volume SOCs, MSSPs, MDR providers, automated response
+
+### Type-II · On-demand / investigation mode
+```
+   Log Sources                                                                       
+   ┌──────────────┐                                                                  
+   │ Firewall     │──▶┐                                                              
+   │ WAF          │──▶│   ┌───────────┐    ┌─────┐    ┌──────────────┐    ┌────────┐
+   │ IDS/IPS      │──▶│──▶│ Collector │───▶│ EDR │───▶│ SIEM / XDR / │───▶│Analyst │
+   │ DB / Servers │──▶│   │ Connector │    └─────┘    │ ServiceNow   │    │ User   │
+   │ Other        │──▶┘   └───────────┘               └──────────────┘    └───┬────┘
+   └──────────────┘                                                            │
+                                                                     "let me pull this into
+                                                                      NivXRay for deeper look"
+                                                                                │
+                                                                                ▼
+                                                                        ┌──────────────┐
+                                                                        │   NivXRay    │
+                                                                        │  Deep-Decode │
+                                                                        │  Investigator│
+                                                                        └──────────────┘
+                                                                    (NivXRay as part of
+                                                                     analyst's investigation)
+```
+- NivXRay is NOT in the automatic pipeline
+- Analyst picks a suspicious event in SIEM → opens NivXRay → pastes the payload → gets full decode
+- **Latency budget**: interactive — deep mode (500-2000 ms) acceptable
+- **Best for**: SOC power-tool adoption, forensic investigations, incident-response teams
+- **Zero SIEM disruption** — no schema changes, no ingest changes, no risk
+
+### How to pick
+
+| If the customer… | Recommend |
+|---|---|
+| …wants auto-tagged notables in Splunk ES / Sentinel Analytics | **Type-I** |
+| …has strict SLAs on SIEM ingest latency | **Type-II** (start here, upgrade later) |
+| …can't touch their EDR→SIEM pipeline (change-freeze) | **Type-II** |
+| …runs an MSSP or handles many tenants | **Type-I** with per-tenant JWT |
+| …is doing a proof-of-value | **Type-II** first (0-risk), then Type-I in production |
+
+Most customers **start with Type-II** (2-week POC) → **graduate to Type-I** once ROI proven.
+
+---
 
 ### Mode A · **Pull** (SIEM/EDR calls NivXRay)
 
