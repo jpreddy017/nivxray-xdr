@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Save, Download, Database } from "lucide-react";
 import api from "@/lib/api";
 
@@ -76,10 +76,9 @@ export default function ThreatIntelAdminPanel() {
             { key: "otx", api: "otx_api_key", enable: "enable_otx", label: "AlienVault OTX" },
             { key: "abuseipdb", api: "abuseipdb_api_key", enable: "enable_abuseipdb", label: "AbuseIPDB (IPs only)" },
           ].map((p) => (
-            <>
-              <label key={`${p.key}-lbl`} style={{ fontSize: 11, color: "#c9d1d9" }}>{p.label}</label>
+            <React.Fragment key={p.key}>
+              <label style={{ fontSize: 11, color: "#c9d1d9" }}>{p.label}</label>
               <input
-                key={`${p.key}-input`}
                 type="password"
                 className="nvx-input"
                 placeholder="API key"
@@ -87,7 +86,7 @@ export default function ThreatIntelAdminPanel() {
                 onChange={(e) => update(p.api, e.target.value)}
                 data-testid={`ti-${p.key}-key`}
               />
-              <label key={`${p.key}-tog`} style={{ fontSize: 11, color: "#94a3b8", display: "flex", alignItems: "center", gap: 4 }}>
+              <label style={{ fontSize: 11, color: "#94a3b8", display: "flex", alignItems: "center", gap: 4 }}>
                 <input
                   type="checkbox"
                   checked={!!cfg[p.enable]}
@@ -96,7 +95,7 @@ export default function ThreatIntelAdminPanel() {
                 />
                 enabled
               </label>
-            </>
+            </React.Fragment>
           ))}
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 20 }}>

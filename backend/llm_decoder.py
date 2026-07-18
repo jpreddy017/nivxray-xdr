@@ -27,7 +27,42 @@ import json
 import logging
 import os
 import re
+import threading
 import time
+
+
+def _run_async_on_dedicated_loop(coro, hard_timeout_s: float = 20.0):
+    """v1.5.7 · Run an async coroutine on a fresh event loop in a dedicated
+    thread and return its result synchronously.
+
+    Why: L3 fallback is called from sync request paths that may or may not
+    already be inside a running event loop (Starlette threadpool workers).
+    Using `asyncio.run_coroutine_threadsafe(...).result()` on the caller's
+    loop deadlocks the threadpool under sustained load. Spawning a
+    dedicated loop in its own daemon thread sidesteps that entirely — the
+    caller's loop keeps handling requests, and this helper cleanly bails
+    on `hard_timeout_s`.
+    """
+    box: dict = {"value": None, "error": None}
+
+    def _worker():
+        loop = asyncio.new_event_loop()
+        try:
+            box["value"] = loop.run_until_complete(coro)
+        except BaseException as e:            # noqa: BLE001 — propagate everything
+            box["error"] = e
+        finally:
+            try: loop.close()
+            except Exception: pass
+
+    t = threading.Thread(target=_worker, daemon=True, name="l3-llm-decoder")
+    t.start()
+    t.join(timeout=hard_timeout_s)
+    if t.is_alive():
+        raise TimeoutError(f"L3 dispatch exceeded hard_timeout={hard_timeout_s}s")
+    if box["error"] is not None:
+        raise box["error"]
+    return box["value"]
 from typing import Any, Dict, Optional
 
 log = logging.getLogger("nivxray.llm_decoder")
@@ -108,22 +143,27 @@ def llm_decode_fallback(payload: str) -> Optional[Dict[str, Any]]:
     if not key:
         return None
     try:
-        # asyncio.run inside a sync caller — safe because we're not in an
-        # existing event loop (`deterministic_best_decode` is invoked from
-        # sync FastAPI request paths after `await` returns).
-        loop = None
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-        if loop and loop.is_running():
-            # We are inside an async request handler — schedule + block.
-            fut = asyncio.run_coroutine_threadsafe(_call_claude(payload, key), loop)
-            parsed = fut.result(timeout=_TIMEOUT_S + 2)
-        else:
-            parsed = asyncio.run(_call_claude(payload, key))
+        # v1.5.7 · Deadlock fix.
+        # PRIOR bug: when a caller was already inside a running event loop
+        # AND executing on a threadpool worker (Starlette's default), the
+        # old code did:
+        #     fut = asyncio.run_coroutine_threadsafe(coro, loop)
+        #     fut.result(timeout=…)   # ← blocks the worker thread
+        # Under sustained decode traffic every threadpool worker parked on
+        # `.result()` → threadpool exhausted → `/api/health` and every
+        # sync request queued behind Starlette's threadpool → backend
+        # appeared to "hang" and only `sudo supervisorctl restart backend`
+        # recovered it.
+        #
+        # FIX: always run the Claude coroutine on a DEDICATED asyncio loop
+        # inside its own thread. This never touches the caller's loop,
+        # never occupies a Starlette threadpool worker for the full LLM
+        # round-trip, and cleanly bails after `_TIMEOUT_S + 3s`.
+        parsed = _run_async_on_dedicated_loop(
+            _call_claude(payload, key), hard_timeout_s=_TIMEOUT_S + 3
+        )
     except Exception as e:
-        log.warning("L3: dispatch failed: %s", e)
+        log.warning("L3: dispatch failed: %r", e)   # repr, so exception type is visible
         return None
     if not parsed or not isinstance(parsed, dict):
         return None

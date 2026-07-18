@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Header from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,14 +55,16 @@ export default function MultiLayerBatteryPage() {
 
   useEffect(() => { load(); }, []);
 
-  if (loading) return <div style={{ padding: 32, color: "var(--muted)" }} data-testid="battery-loading">Loading battery report…</div>;
-  if (error)   return <div style={{ padding: 32, color: "#ff5c7a" }} data-testid="battery-error">Error: {error}</div>;
+  if (loading) return (<><Header /><div style={{ padding: 32, color: "var(--muted)" }} data-testid="battery-loading">Loading battery report…</div></>);
+  if (error)   return (<><Header /><div style={{ padding: 32, color: "#ff5c7a" }} data-testid="battery-error">Error: {error}</div></>);
   if (!data)   return null;
 
   const pct = Math.round((data.pass_rate || 0) * 100);
 
   return (
-    <div style={{ padding: "24px 32px", minHeight: "calc(100vh - 60px)" }} data-testid="multilayer-battery-page">
+    <>
+      <Header />
+      <div style={{ padding: "24px 32px", minHeight: "calc(100vh - 60px)" }} data-testid="multilayer-battery-page">
       {/* HEADER */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
@@ -208,5 +211,6 @@ export default function MultiLayerBatteryPage() {
         report: <span style={{ color: "var(--text)" }}>backend/tests/reports/multilayer_battery.json</span>
       </div>
     </div>
+    </>
   );
 }
