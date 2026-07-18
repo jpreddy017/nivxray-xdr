@@ -1,5 +1,58 @@
 # NivXRay · CHANGELOG
 
+## v1.3.0-preview (batch 3) — 2026-07-18 · Analyst Practice Lab + Nav polish
+
+**Status:** Preview batch · staged for next prod release
+
+### 🎓 NEW: Analyst Practice Lab (`/lab`) — teaching-platform pivot
+Turns NivXRay from a **tool** into a **teaching platform**. End-users open Learn → Practice Lab and:
+- Pick difficulty (Easy / Medium / Hard / Any)
+- Get a random payload from the **NXGEC gold corpus (55 cases)** with the answer hidden
+- Guess **MITRE T-IDs · LOLBins · Severity**
+- Server grades using prefix-match logic (T1059 covers T1059.001)
+- Streak counter · Total XP · Best streak · Perfect-attempt count
+- Live leaderboard across all users
+
+**Scoring** (20 XP max per challenge):
+- MITRE correct → 10 XP
+- LOLBins correct → 5 XP
+- Severity correct → 5 XP
+- Perfect = all three → +1 streak
+
+**Backend endpoints:**
+- `GET  /api/lab/challenge?difficulty=easy|medium|hard`
+- `POST /api/lab/attempt`
+- `GET  /api/lab/me` (personal stats + recent attempts)
+- `GET  /api/lab/leaderboard`
+- `GET  /api/lab/reveal/{challenge_id}` (post-attempt answer reveal)
+
+**MongoDB collections:** `lab_attempts`, `lab_stats`
+
+### 🧭 Nav polish
+- **Learner** moved back to visible `LEARN ▾` dropdown (was in ADMIN — reverted per user request; Learner is open to end-users)
+- **Practice Lab** added to `LEARN ▾` dropdown
+- Final structure:
+  - **PRIMARY**: WORKSPACE · BATCH · HEATMAP
+  - **TOOLS ▾**: Command Analyzer · Threat Model
+  - **LEARN ▾**: Practice Lab · Learner · Knowledge Base · Docs
+  - **ADMIN ▾** (admin only): Admin Panel · Training Inbox · Model Studio · Sample Library
+
+### 🧪 Learner walkthrough report
+- Ran 6 diverse samples through the Learner pipeline
+- Full JSON + Markdown report saved to:
+  - `/app/frontend/public/downloads/learner_walkthrough_sample.json`
+  - `/app/frontend/public/downloads/learner_walkthrough_report.md`
+- Report includes honest assessment of Learner's current strengths + weaknesses
+
+### 🩻 Honest CT-Scan review delivered
+Full transparent review of NivXRay posted in conversation:
+- Overall: **7.2/10** — legitimate analyst power-tool, needs ~4 weeks of commercial infra to reach platform-grade
+- Strong: engine (8.5), test discipline (8), tradecraft coverage (8)
+- Weak: multi-tenancy (0), observability (3), commercial readiness (4)
+- 4-week roadmap: trust (fix ignored tests, rate-limit auth) → decompose monoliths → observability → commercial fork
+
+---
+
 ## v1.3.0-preview (batch 2) — 2026-07-18 · Heatmap + Corpus Validator + macOS Decoder + Analyst Gap Fixes
 
 **Status:** Preview batch · staged for next prod release

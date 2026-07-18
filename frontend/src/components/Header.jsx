@@ -28,17 +28,17 @@ export default function Header() {
     { to: "/threat-model", label: "Threat Model",     icon: Terminal, testId: "nav-threat-model" },
   ];
 
-  // Grouped: reference / knowledge (occasional usage)
+  // Grouped: reference / knowledge + learning (open to all end-users)
   const learnItems = [
-    { to: "/kb",   label: "Knowledge Base", icon: BookOpen, testId: "nav-knowledge-base" },
-    { to: "/docs", label: "Docs",           icon: BookOpen, testId: "nav-docs" },
+    { to: "/lab",     label: "Practice Lab",   icon: GraduationCap, testId: "nav-lab" },
+    { to: "/learner", label: "Learner",        icon: GraduationCap, testId: "nav-learner" },
+    { to: "/kb",      label: "Knowledge Base", icon: BookOpen,      testId: "nav-knowledge-base" },
+    { to: "/docs",    label: "Docs",           icon: BookOpen,      testId: "nav-docs" },
   ];
 
-  // Grouped: admin (admin-only, occasional usage) — Learner belongs here since
-  // it's a training/tuning tool, not an end-user analyst workflow.
+  // Grouped: admin (admin-only, occasional usage)
   const adminItems = [
     { to: "/admin",                 label: "Admin Panel",    icon: Cog,            testId: "nav-admin" },
-    { to: "/learner",               label: "Learner",        icon: GraduationCap,  testId: "nav-learner" },
     { to: "/admin/training-inbox",  label: "Training Inbox", icon: Rss,            testId: "nav-training-inbox" },
     { to: "/admin/models",          label: "Model Studio",   icon: Sparkles,       testId: "nav-model-studio" },
     { to: "/admin/samples",         label: "Sample Library", icon: Beaker,         testId: "nav-sample-library" },

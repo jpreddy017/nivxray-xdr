@@ -70,6 +70,7 @@ from routers.threat_intel_rss import (
 from routers.batch_test import router as batch_test_router
 from routers.mitre_heatmap import router as mitre_heatmap_router
 from routers.corpus_validate import router as corpus_validate_router
+from routers.lab import router as lab_router
 from request_hardening import RequestHardeningMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -157,6 +158,7 @@ api.include_router(threat_intel_rss_router)
 api.include_router(batch_test_router)
 api.include_router(mitre_heatmap_router)
 api.include_router(corpus_validate_router)
+api.include_router(lab_router)
 
 app.include_router(api)
 
