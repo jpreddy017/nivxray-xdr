@@ -1,6 +1,43 @@
 # NivXRay — Decoder & Threat Analysis Platform
 
 
+## v1.4.3 — Feb 2026 · Learner-Feedback Auto-Ingestion · IOC Uplift Exploration
+
+**Status:** Preview · CI Gate PASSING @ MITRE 93.3% / Undecoded 1.7% / IOC 54.7% (baseline held) · learner inbox now auto-populated from analyst REPORT-BAD-DECODE reports.
+
+### Shipped
+- **`POST /api/learner/ingest-feedback`** (admin) — pulls every open `decode_feedback` record, dedupes by SHA1, and creates a matching `learner_payload` entry with:
+    - `raw_payload` = analyst-reported input
+    - `expected_output` = analyst-supplied ground truth (if any)
+    - `notes` = analyst reason + Claude root-cause + AI why-failed + missing-heuristic
+    - `tags` = `kind` + `decode_feedback` + Claude's suggested-recipe op names
+    - `ai_suggested_recipe` = starter template that admin can approve without re-analysis
+    - Flags source feedback record with `ingested_to_learner: True` + `learner_payload_id`
+- **`GET /api/learner/feedback-source`** — quick list of learner_payloads that originated from decode_feedback for admin review.
+
+### IOC Uplift Exploration (kept baseline)
+Attempted a v1.4.3 aggressive reverse-charset detector + outer ROT13 detector in `smart_decoder.py`. Slight regression (54.7% → 53.3%) — reverted both blocks. IOC recall stays at 54.7%. Further push to 70% needs deeper magic_decoder branch expansion, not incremental heuristic tweaks.
+
+### Verified end-to-end
+- Submit feedback → HTTP 200, Claude diagnosis returned
+- Trigger ingestion → 3 records ingested, 0 dupes
+- Query `feedback-source` → notes carry the AI reasoning verbatim, tags include the suggested recipe ops
+
+### Files touched
+- `backend/routers/learner.py` — appended `/learner/ingest-feedback` + `/learner/feedback-source` endpoints + `_col_feedback` collection wiring
+- `backend/smart_decoder.py` — reverted the aggressive-reverse + ROT13 blocks (baseline preserved)
+
+### Explicit non-scope this session
+- **`wrapper_archetypes.py` + `operations.py` refactor by tradecraft family** — deferred. God-file pattern is annoying but not blocking; refactor deserves its own dedicated preview cycle with 24h soak + testing_agent regression sweep. Trigger when next tradecraft family (e.g., mobile/Android) is added.
+
+### Next follow-ups (backlog)
+- IOC recall 54.7% → 70% via magic_decoder multi-branch expansion (reversed-charset detector at each branch, not just tail)
+- Learner UI polish — surface `ai_suggested_recipe` + `source_feedback_id` in the LearnerPage inbox
+- Fine-tune Qwen 2.5 7B → activate offline `nivx-cognis:latest` provider (currently stubbed)
+
+---
+
+
 ## v1.4.2 — Feb 2026 · IOC Uplift · Bad-Decode Feedback · TI Enrich · BTLO Corpus
 
 **Status:** Preview · CI Gate PASSING @ **MITRE 93.3% / Undecoded 1.7% / IOC 54.7%** · corpus grew 100 → 120 · BENCHMARK tab live in header nav.
