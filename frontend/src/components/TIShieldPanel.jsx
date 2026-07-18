@@ -87,10 +87,11 @@ export default function TIShieldPanel({ layers }) {
                 <div style={{
                   fontFamily: "JetBrains Mono, monospace", fontSize: 10,
                   background: "#020617", color: "#a7f3d0", padding: 8,
-                  borderRadius: 4, marginBottom: 6, maxHeight: 60,
-                  overflow: "hidden", textOverflow: "ellipsis",
+                  borderRadius: 4, marginBottom: 6, maxHeight: 260,
+                  overflowY: "auto", overflowX: "auto",
                   whiteSpace: "pre-wrap", wordBreak: "break-all",
-                }}>
+                }}
+                data-testid={`ti-shield-preview-${L.layer}`}>
                   {L.preview}
                 </div>
               )}
