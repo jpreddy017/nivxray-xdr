@@ -118,6 +118,80 @@ def _hex_decode(data: str) -> str:
     return bytes.fromhex(s).decode("utf-8", errors="replace")
 
 
+def _auto_charset_decode(raw: bytes) -> str:
+    """v1.5.7 — smart charset picker.
+
+    Detects UTF-16LE (>=25% of odd-index bytes are 0x00 AND the LE
+    interpretation is mostly ASCII-printable) before falling back to UTF-8.
+    Fixes the `MZFTØ DYØtØ LØWLØ…` mojibake seen after XOR-brute of a
+    `powershell -enc`-style base64(UTF-16LE) payload.
+    """
+    if not raw:
+        return ""
+    if len(raw) >= 8:
+        odd_nulls = sum(1 for i in range(1, len(raw), 2) if raw[i] == 0)
+        odd_total = (len(raw) + 1) // 2  # count of odd-indexed bytes
+        if odd_total and odd_nulls / odd_total >= 0.25:
+            try:
+                u16 = raw.decode("utf-16-le", errors="strict")
+                pr = sum(1 for c in u16 if 32 <= ord(c) < 127 or c in "\n\r\t") / max(1, len(u16))
+                if pr >= 0.60:
+                    return u16
+            except UnicodeDecodeError:
+                pass
+    return raw.decode("utf-8", errors="replace")
+
+
+@op("hex-or-b64-decode", "Hex-or-Base64 Auto-Decode", "Cryptography",
+    "Try hex-decode first; if input isn't hex-shaped or produces non-printable bytes, "
+    "fall back to base64. Auto-detects UTF-16LE (`powershell -enc`) output. Used by "
+    "BLIND_XOR archetypes — never fails, always returns something readable.")
+def _hex_or_b64_decode(data: str) -> str:
+    s = (data or "").strip()
+    if not s:
+        return ""
+    # 1. Hex path — pure `[0-9a-f]` with even length is the strong signal
+    clean_hex = re.sub(r"[^0-9a-fA-F]", "", s)
+    if len(clean_hex) >= 4 and len(clean_hex) % 2 == 0 and \
+       len(clean_hex) / max(1, len(s)) >= 0.85:
+        try:
+            raw = bytes.fromhex(clean_hex)
+            out = _auto_charset_decode(raw)
+            if out.strip():
+                return out
+        except ValueError:
+            pass
+    # 2. Base64 path — fall through
+    try:
+        pad = (-len(s)) % 4
+        raw = base64.b64decode(s + "=" * pad, validate=False)
+        return _auto_charset_decode(raw)
+    except Exception:
+        return s
+
+
+@op("xor-bruteforce-256", "XOR Bruteforce 256 (auto-charset)", "Cryptography",
+    "Try every single-byte XOR key (0x00..0xFF) and return the highest-scoring "
+    "candidate — auto-detects UTF-16LE (`powershell -enc`) output so bytes render "
+    "as clean ASCII, not `Ø`-mojibake. Preferred over `xor-bruteforce` for stager "
+    "payloads that end up as UTF-16LE PowerShell blobs.")
+def _xor_bruteforce_256(data: str) -> str:
+    raw = _as_bytes(data) if _is_hexlike(data) else data.encode("latin-1", errors="replace")
+    if not raw:
+        return ""
+    best_score, best_out = -1, ""
+    for k in range(256):
+        cand = bytes(b ^ k for b in raw)
+        decoded = _auto_charset_decode(cand)
+        # Simple scoring: ASCII printable ratio
+        pr = sum(1 for c in decoded if 32 <= ord(c) < 127 or c in "\n\r\t") / max(1, len(decoded))
+        score = int(pr * 1000) + (50 if any(m in decoded for m in
+                 ("IEX", "powershell", "http", "cmd", "Invoke", "DownloadString")) else 0)
+        if score > best_score:
+            best_score, best_out = score, decoded
+    return best_out
+
+
 @op("ascii-decimal-decode", "ASCII Decimal Codes → Text", "Cryptography",
     "Decode a stream of space/comma-separated decimal ASCII codes (32-255) back into a text string. "
     "Common in obfuscated PowerShell / JS payloads and multi-layer stagers (Base32 → decimal codes → next stage). "

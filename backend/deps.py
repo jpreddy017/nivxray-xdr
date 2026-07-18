@@ -164,15 +164,27 @@ def new_chat(session_id: str, system: str,
     ).with_model(provider, model)
 
 
-async def llm_json(session_id: str, system: str, user: str, retries: int = 1,
+async def llm_json(session_id: str, system: str, user: str, retries: int = 2,
                    provider: str = "anthropic", model: str = "claude-sonnet-4-5-20250929") -> Dict[str, Any]:
-    chat = new_chat(session_id, system, provider=provider, model=model)
-    last_err = None
-    for _ in range(retries + 1):
+    """Send a prompt and parse JSON. Retries with exponential backoff on
+    empty responses / parse errors — a common Claude edge-case that used
+    to bubble up as `Expecting value: line 1 column 1 (char 0)` 502s."""
+    import asyncio as _asyncio
+    last_err: Any = None
+    for attempt in range(retries + 1):
+        chat = new_chat(session_id, system, provider=provider, model=model)
         try:
             resp = await chat.send_message(UserMessage(text=user))
             raw = resp if isinstance(resp, str) else str(resp)
             cleaned = raw.strip()
+            if not cleaned:
+                # Empty upstream response — retry with linear backoff before
+                # 502-ing so a transient rate-limit / content-filter miss
+                # doesn't kill the whole request.
+                last_err = "empty response from LLM"
+                if attempt < retries:
+                    await _asyncio.sleep(0.6 * (attempt + 1))
+                continue
             m = re.search(r"```(?:json)?\s*(.*?)\s*```", cleaned, re.DOTALL)
             if m: cleaned = m.group(1)
             if not cleaned.lstrip().startswith("{"):
@@ -181,6 +193,8 @@ async def llm_json(session_id: str, system: str, user: str, retries: int = 1,
             return json.loads(cleaned)
         except Exception as e:
             last_err = e
+            if attempt < retries:
+                await _asyncio.sleep(0.4 * (attempt + 1))
     raise HTTPException(status_code=502, detail=f"LLM JSON parse failed: {last_err}")
 
 

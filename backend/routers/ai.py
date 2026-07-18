@@ -1,14 +1,16 @@
 """AI router — /api/ai/auto-decode, /api/ai/auto-investigate, /api/ai/troubleshoot."""
 from __future__ import annotations
 import asyncio
+import hashlib
 import json
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from schemas import AutoIn, TroubleshootIn, RecipeStep, RunRecipeIn, AnalyzeIn
-from deps import get_current_user, llm_json
+from deps import get_current_user, llm_json, db
 from operations import OPERATIONS
 from magic_decoder import magic_decode
 from analysis_core import (
@@ -20,6 +22,40 @@ from routers.analyze import analyze as run_analyze
 router = APIRouter()
 
 _OP_IDS = sorted(OPERATIONS.keys())
+
+# ─── AI DECODE latency guards (v1.5.7) ───────────────────────────────────
+# 1. Mongo-backed SHA1 cache — same input never re-hits Claude.
+# 2. Hard timeout on the LLM plan call — bounded worst-case; magic wins on stall.
+_AI_LLM_TIMEOUT_S = float(os.environ.get("NIVX_AI_LLM_TIMEOUT_S", "15"))
+_AI_CACHE_TTL_S   = int(os.environ.get("NIVX_AI_CACHE_TTL_S",   str(30 * 24 * 3600)))
+
+
+def _ai_cache_key(payload: str) -> str:
+    return hashlib.sha1(payload.encode("utf-8", errors="replace")).hexdigest()
+
+
+async def _ai_cache_get(payload_sha1: str) -> Dict[str, Any] | None:
+    doc = await db.ai_decode_cache.find_one({"_id": payload_sha1})
+    if not doc:
+        return None
+    age = (datetime.now(timezone.utc)
+           - datetime.fromisoformat(doc["cached_at"].replace("Z", "+00:00"))
+           ).total_seconds()
+    if age > _AI_CACHE_TTL_S:
+        return None
+    return doc.get("response")
+
+
+async def _ai_cache_put(payload_sha1: str, response: Dict[str, Any]) -> None:
+    try:
+        await db.ai_decode_cache.update_one(
+            {"_id": payload_sha1},
+            {"$set": {"cached_at": datetime.now(timezone.utc).isoformat(),
+                       "response":  response}},
+            upsert=True,
+        )
+    except Exception:
+        pass  # never fail a decode over cache write
 
 
 def _is_already_plaintext(text: str) -> bool:
@@ -121,6 +157,14 @@ async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
             "alternate": {"engine": "none", "confidence": 0, "recipe": []},
         }
 
+    # ─── v1.5.7 · Response cache short-circuit ──────────────────────────
+    # Same payload → same decode. Zero-cost repeat lookups (SHA1 → Mongo).
+    _payload_sha = _ai_cache_key(raw)
+    _cached = await _ai_cache_get(_payload_sha)
+    if _cached:
+        _cached["cache_hit"] = True
+        return _cached
+
     system = (
         "You are an expert malware analyst using a CyberChef-like tool. "
         "Given an obfuscated / encoded payload, produce a JSON recipe of operations that will fully decode it.\n"
@@ -132,9 +176,15 @@ async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
     )
     prompt = f"PAYLOAD:\n{body.input[:4000]}\n\nReturn only JSON."
     try:
-        plan = await llm_json("autodecode-" + str(datetime.now(timezone.utc).timestamp()), system, prompt)
-    except HTTPException:
-        plan = {"reasoning": "AI unavailable — falling back to deterministic decoder.", "steps": []}
+        # v1.5.7: hard timeout so a slow Claude can't stall the whole route;
+        # magic decode still finishes in parallel and can win.
+        plan = await asyncio.wait_for(
+            llm_json("autodecode-" + str(datetime.now(timezone.utc).timestamp()), system, prompt),
+            timeout=_AI_LLM_TIMEOUT_S,
+        )
+    except (HTTPException, asyncio.TimeoutError) as e:
+        _reason = "timed out" if isinstance(e, asyncio.TimeoutError) else "unavailable"
+        plan = {"reasoning": f"AI {_reason} — falling back to deterministic decoder.", "steps": []}
 
     ai_steps: List[RecipeStep] = []
     for s in (plan.get("steps") or [])[:8]:
@@ -237,7 +287,7 @@ async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
 
     stopped_gracefully = wq["score"] < QUALITY_FLOOR
 
-    return {
+    _response = {
         "reasoning": plan.get("reasoning", ""),
         "recipe": winner["recipe"],
         "output": winner["output"] if not stopped_gracefully else "",
@@ -261,7 +311,14 @@ async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
             "confidence": int(round(lq["score"] * 100)),
             "recipe": loser.get("recipe") or [],
         },
+        "cache_hit": False,
     }
+    # v1.5.7 · Write to cache only when the decode meaningfully succeeded.
+    # Never cache empty/graceful-stop responses — analyst-facing errors must
+    # stay fresh so LLM improvements benefit the next request.
+    if not stopped_gracefully and _response.get("output"):
+        await _ai_cache_put(_payload_sha, _response)
+    return _response
 
 
 @router.post("/ai/auto-investigate")
