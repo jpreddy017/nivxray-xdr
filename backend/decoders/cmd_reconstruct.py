@@ -140,7 +140,11 @@ def _reveal_call_var(text: str, assigns: Dict[str, str]) -> Tuple[str, int]:
     `_reveal_invoked_var`. Rewrites `CALL FOO` (where FOO is a resolved
     assignment) to include the resolved literal inline so keywords like
     `certutil` reach IOC / MITRE extractors even when the LOLBAS binary
-    name only exists via CALL indirection."""
+    name only exists via CALL indirection.
+
+    Idempotency guard (Jul-2026): skip any CALL whose next token is
+    already a `<#=>` sentinel so the orchestrator can safely re-run this
+    decoder without stacking duplicate reveal markers."""
     if not assigns:
         return text, 0
 
@@ -150,6 +154,9 @@ def _reveal_call_var(text: str, assigns: Dict[str, str]) -> Tuple[str, int]:
     for m in _RX_CALL_VAR.finditer(text):
         name = m.group(1)
         if name not in assigns:
+            continue
+        tail = text[m.end() : m.end() + 8]
+        if tail.lstrip().startswith("<#=>"):
             continue
         pieces.append(text[last:m.end()])
         pieces.append(f" <#=> {assigns[name]} <#=>")

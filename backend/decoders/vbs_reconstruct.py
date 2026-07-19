@@ -71,11 +71,23 @@ def _reveal_createobject(text: str) -> Tuple[str, int]:
     """Emit each CreateObject ProgID as a plain-text token so IOC/MITRE
     extractors can key on `WScript.Shell`, `Scripting.FileSystemObject`,
     `MSXML2.XMLHTTP`, etc.  Uses the same `<#=> ... <#=>` marker as the
-    ps-reconstruct / cmd-reconstruct reveal for consistency."""
+    ps-reconstruct / cmd-reconstruct reveal for consistency.
+
+    Idempotency guard (Jul-2026): the orchestrator re-runs decoders every
+    iteration until the fingerprint stabilises. Without this guard, each
+    pass would append ANOTHER `<#=> ... <#=>` marker after the same
+    `CreateObject(...)` match, producing a runaway cascade in the OUTPUT
+    box. Skip any match that is already followed by a `<#=>` sentinel.
+    """
     hits = 0
     pieces: List[str] = []
     last = 0
     for m in _RX_CREATE_OBJECT.finditer(text):
+        # Peek at the next few chars — if a reveal marker already sits
+        # right after this match, the reveal has already fired.
+        tail = text[m.end() : m.end() + 8]
+        if tail.lstrip().startswith("<#=>"):
+            continue
         prog = m.group(2)
         pieces.append(text[last:m.end()])
         pieces.append(f" <#=> {prog} <#=>")

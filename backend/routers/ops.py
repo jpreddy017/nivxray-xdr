@@ -818,10 +818,20 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             #      the report_txt as a header AFTER the raw output.
             #   2. non-terminal         → raw output is the decoded plaintext.
             #      Prepend it, then attach the summary underneath.
+            # ── Jul-2026 UX polish (pre-RC2.9) — label the two sections so
+            #     the analyst never confuses the decoded payload with the
+            #     investigation metadata. Same OUTPUT box, clear boundary.
             input_text = (body.input or "").strip()
+            _DECODED_HDR = (
+                "━" * 66 + "\n"
+                "▼ DECODED OUTPUT" + "\n"
+                + "━" * 66
+            )
             if raw_output and raw_output.strip() != input_text:
                 result["output_raw"] = raw_output
-                result["output"] = raw_output + "\n\n" + report_txt
+                result["output"] = (
+                    f"{_DECODED_HDR}\n{raw_output}\n\n{report_txt}"
+                )
                 result["report_text"] = report_txt
             else:
                 # Passthrough — no decoded content to prepend, show summary only.

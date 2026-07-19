@@ -353,6 +353,12 @@ def _reveal_invoked_var(text: str) -> Tuple[str, int]:
         name = m.group(1)
         if name not in assigns:
             continue
+        # Idempotency guard (Jul-2026) — skip when the invocation is
+        # already followed by a `<#=>` reveal marker so re-runs of the
+        # decoder don't stack duplicate literals in the output.
+        tail = text[m.end() : m.end() + 8]
+        if tail.lstrip().startswith("<#=>"):
+            continue
         pieces.append(text[last:m.end()])
         # Emit the resolved literal after the invocation so it appears in
         # final output for keyword surfacing (IEX / powershell / cmd etc.)
