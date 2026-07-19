@@ -9,6 +9,8 @@ Anti-hallucination stack:
     3. Post-parse citation validator (`training.validator`)
 """
 from __future__ import annotations
+import asyncio
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -17,6 +19,72 @@ from llm_provider import llm_json
 from training.schema import ProcessTree, ProcessNode, SocRationale, ProcessEvidence
 from training.system_prompt import NIVXRAY_PROCESS_TREE_SYSTEM
 from training.validator import validate_and_prune
+
+
+def _heuristic_tree(raw: str, decoded: str, reason: str) -> ProcessTree:
+    """v1.5.8 — Heuristic fallback when the LLM is unavailable or times out.
+    Builds a minimal but useful process tree from LOLBINs, IOCs, and MITRE
+    hits extracted deterministically from the decoded payload. Never blank.
+    """
+    try:
+        from operations import extract_iocs, mitre_map
+        from lolbas import scan_lolbas
+    except Exception:
+        return _insufficient(reason)
+    text = (decoded or "") + "\n" + (raw or "")
+    iocs   = extract_iocs(text) or {}
+    lolbas = scan_lolbas(text) or []
+    mitre  = mitre_map(text) or []
+    ips    = list(iocs.get("ipv4") or [])[:5]
+    urls   = list(iocs.get("url")  or [])[:5]
+    domains= list(iocs.get("domain") or [])[:5]
+    files  = list(iocs.get("file_path") or iocs.get("filename") or [])[:5]
+    hits   = [(l.get("binary") or l.get("name") or "?") for l in lolbas][:5]
+    mitre_ids = [m.get("id") for m in mitre if m.get("id")][:8]
+
+    # Root = the FIRST LOLBIN found (best guess at initial process); else "cmd.exe"
+    root_proc = hits[0] if hits else ("powershell.exe" if "powershell" in text.lower() else "cmd.exe")
+    root_action = "Deterministic tree — LLM unavailable, tree built from LOLBIN + IOC + MITRE evidence."
+
+    children = []
+    for lb in hits[1:]:
+        children.append(ProcessNode(
+            process=lb, action="Invoked LOLBIN",
+            evidence=ProcessEvidence(citation=lb, inferred=True, confidence=0.4),
+        ))
+    for url in urls:
+        children.append(ProcessNode(
+            process="net.request", action=f"HTTP request → {url}",
+            evidence=ProcessEvidence(citation=url, inferred=True, confidence=0.5),
+        ))
+    for f in files:
+        children.append(ProcessNode(
+            process="file.io", action=f"File operation → {f}",
+            evidence=ProcessEvidence(citation=f, inferred=True, confidence=0.4),
+        ))
+    root = ProcessNode(
+        process=root_proc, action=root_action,
+        evidence=ProcessEvidence(citation=(hits[0] if hits else "heuristic"),
+                                  inferred=True, confidence=0.35),
+    )
+    root.children = children
+
+    from training.schema import SocRationale
+    rationale = SocRationale(
+        verdict=("Suspicious" if (urls or files or hits) else "Unknown"),
+        severity=("medium" if (urls or hits) else "low"),
+        mitre_ids=mitre_ids,
+        summary=f"Heuristic fallback tree ({reason}). "
+                f"{len(hits)} LOLBIN(s), {len(urls)} URL(s), {len(ips)} IP(s), "
+                f"{len(domains)} domain(s), {len(files)} file(s).",
+    )
+    return ProcessTree(
+        platform="windows",
+        root=root,
+        rationale=rationale,
+        evidence_source="heuristic-fallback",
+        warnings=[f"LLM unavailable — used deterministic evidence only ({reason})"],
+    )
 
 
 def _insufficient(reason: str) -> ProcessTree:
@@ -60,14 +128,24 @@ async def predict_process_tree(raw: str, decoded: str,
     )
 
     try:
-        data = await llm_json(sid, NIVXRAY_PROCESS_TREE_SYSTEM, user_prompt, retries=1)
+        # v1.5.8 — hard timeout so PREDICT TREE never hangs the frontend
+        # (frontend has 60s axios cap; give LLM 40s and reserve 20s for
+        # heuristic fallback + serialisation on the way back).
+        _pt_deadline = float(os.environ.get("NIVX_PREDICT_TREE_DEADLINE_S", "40"))
+        data = await asyncio.wait_for(
+            llm_json(sid, NIVXRAY_PROCESS_TREE_SYSTEM, user_prompt, retries=1),
+            timeout=_pt_deadline,
+        )
+    except asyncio.TimeoutError:
+        return _heuristic_tree(raw, decoded,
+                               f"LLM timed out (>{int(_pt_deadline)}s) — heuristic tree emitted")
     except HTTPException as e:
-        return _insufficient(f"LLM upstream unavailable ({e.detail})")
+        return _heuristic_tree(raw, decoded, f"LLM upstream unavailable ({e.detail})")
     except Exception as e:
-        return _insufficient(f"LLM error: {e}")
+        return _heuristic_tree(raw, decoded, f"LLM error: {e}")
 
     if not isinstance(data, dict) or "root" not in data:
-        return _insufficient("LLM returned malformed JSON")
+        return _heuristic_tree(raw, decoded, "LLM returned malformed JSON")
 
     try:
         tree = ProcessTree(
@@ -81,7 +159,7 @@ async def predict_process_tree(raw: str, decoded: str,
             warnings=list(data.get("warnings", [])),
         )
     except Exception as e:
-        return _insufficient(f"schema build error: {e}")
+        return _heuristic_tree(raw, decoded, f"schema build error: {e}")
 
     validated, _dropped = validate_and_prune(tree, decoded or "", raw or "")
     return validated
