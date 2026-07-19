@@ -31,6 +31,14 @@ class Base32Decoder(BaseDecoder):
             return DetectResult(confidence=0.0, why="Length must be multiple of 8 and ≥ 8")
         if not _B32.match(s):
             return DetectResult(confidence=0.0, why="Non-base32 characters present")
+        # Reject prose payloads (multiple whitespace-separated tokens)
+        stripped_input = (payload or "").strip()
+        tokens = len(re.split(r"\s+", stripped_input)) if stripped_input else 0
+        if tokens > 1:
+            return DetectResult(
+                confidence=0.05,
+                why=f"Contains internal whitespace ({tokens} tokens) — likely prose",
+            )
         # avoid clashing with all-caps hex (which would also match)
         if re.match(r"^[A-F0-9]+$", s):
             return DetectResult(confidence=0.15, why="Ambiguous: also valid hex")

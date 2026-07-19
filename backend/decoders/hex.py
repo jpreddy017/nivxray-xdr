@@ -33,8 +33,17 @@ class HexDecoder(BaseDecoder):
             return DetectResult(confidence=0.0, why="Length must be even and ≥ 8")
         if not _HEX_ONLY.match(stripped):
             return DetectResult(confidence=0.0, why="Non-hex characters present")
-        # High confidence when the raw payload actually used a hex-ish separator
+        # Reject prose (multiple whitespace-separated tokens) unless a hex prefix
+        # like \\x / 0x is actually present in the original payload.
         used_prefix = bool(re.search(r"\\x|0x|:", payload or ""))
+        if not used_prefix:
+            stripped_input = (payload or "").strip()
+            tokens = len(re.split(r"\s+", stripped_input)) if stripped_input else 0
+            if tokens > 1:
+                return DetectResult(
+                    confidence=0.05,
+                    why=f"Contains internal whitespace ({tokens} tokens) — likely prose",
+                )
         conf = 0.9 if used_prefix else 0.75
         return DetectResult(
             confidence=conf,

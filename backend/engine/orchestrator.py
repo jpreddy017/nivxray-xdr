@@ -239,15 +239,25 @@ class Orchestrator:
                 cand_fp = fingerprint_compute(res.output)
                 cand_score = _score(cand_fp)
 
-                # Accept if score improves OR the plugin emitted intelligence signals
+                # Accept if:
+                #   (a) score improves, or
+                #   (b) high-confidence transform (≥0.7) that changes the output —
+                #       likely an intermediate step (e.g. base64 → binary bytes),
+                #   (c) plugin emits intelligence signals worth trace-recording.
                 emitted_signals = bool(
                     res.mitre_hints or res.family_hints
                     or res.lolbas_hits or res.tradecraft or res.iocs
                 )
-                improved = (
-                    cand_score >= best_score + _IMPROVEMENT_EPS
-                    or (res.output != current and cand_score >= best_score * 0.75)
+                score_improved = cand_score >= best_score + _IMPROVEMENT_EPS
+                high_conf_transform = (
+                    det.confidence >= 0.7
+                    and res.output
+                    and res.output != current
                 )
+                soft_improvement = (
+                    res.output != current and cand_score >= best_score * 0.75
+                )
+                improved = score_improved or high_conf_transform or soft_improvement
                 if improved or emitted_signals:
                     step = TraceStep(
                         layer=depth,

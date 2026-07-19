@@ -35,8 +35,8 @@ class Base64Decoder(BaseDecoder):
 
     def detect(self, payload: str, fingerprint: Fingerprint, ctx: AnalysisContext) -> DetectResult:
         s = _WS.sub("", payload or "")
-        if len(s) < 8:
-            return DetectResult(confidence=0.0, why="Too short for base64")
+        if len(s) < 12:
+            return DetectResult(confidence=0.0, why="Too short (< 12 non-ws chars)")
         if not _ANY.match(s):
             return DetectResult(confidence=0.0, why="Non-base64 characters present")
         mod = len(s) % 4
@@ -44,11 +44,28 @@ class Base64Decoder(BaseDecoder):
             return DetectResult(confidence=0.15, why="Length mod 4 == 1 (invalid pad)")
         if not re.search(r"[A-Za-z]", s):
             return DetectResult(confidence=0.30, why="All-digit — could be decimal")
+        # Prefer hex when the payload is a valid hex string (both alphabets match).
+        # Hex has higher information-density and is more common inside base64 wrappers.
+        if re.match(r"^[0-9a-fA-F]+$", s) and len(s) % 2 == 0:
+            return DetectResult(
+                confidence=0.35,
+                why="Ambiguous with hex — deferring to hex-decode",
+            )
+        # Reject payloads that are actually English prose (multiple space-separated
+        # word-like tokens). Base64 blobs are single unbroken alphabet runs; if the
+        # original has multiple whitespace-separated tokens, it's almost always text.
+        stripped_input = (payload or "").strip()
+        internal_ws_tokens = len(re.split(r"\s+", stripped_input)) if stripped_input else 0
+        if internal_ws_tokens > 1:
+            return DetectResult(
+                confidence=0.05,
+                why=f"Contains internal whitespace ({internal_ws_tokens} tokens) — likely prose",
+            )
         conf = 0.85
         urlsafe = bool(_URLSAFE.match(s) and not _STD.match(s))
         return DetectResult(
             confidence=conf,
-            why=f"Base64 alphabet fit, length mod 4 == {mod}",
+            why=f"Base64 alphabet fit, length mod 4 == {mod}, len={len(s)}",
             args={"urlsafe": urlsafe},
         )
 
