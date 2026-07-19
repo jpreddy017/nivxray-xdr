@@ -32,6 +32,7 @@ from engine.models import (
     LolbasHit,
     MitreHint,
     PluginResult,
+    TradecraftFlag,
 )
 from engine.registry import DecoderRegistry
 
@@ -69,6 +70,29 @@ _RX_DOWNLOAD_STRING = re.compile(
 )
 _RX_NET_WEBCLIENT = re.compile(
     r"""New-Object\s+(?:System\.)?Net\.WebClient""",
+    re.IGNORECASE,
+)
+
+# Python -c "exec(...b64decode(b'BLOB')...)" — RC2.2 hotfix
+# Handles common malware wrappers like:
+#   python -c "exec(__import__('base64').b64decode(b'aW1w...').decode())"
+#   python3 -c "exec(import('base64').b64decode(b'aW1w...'))"
+#   -c "exec(...)"           (extracted from higher wrappers)
+_RX_PY_EXEC_B64 = re.compile(
+    r"""
+    (?:python[0-9._]*\s+)?           # optional python(3) prefix
+    -c\s+["']?                        # -c "…
+    \s*exec\s*\(                     # exec(
+    .{0,240}?                         # __import__('base64') / import('base64')
+                                      # (allow nested parens, chr(N) obfuscation)
+    \.b64decode\s*\(\s*               # .b64decode(
+    b?['"]([A-Za-z0-9+/=_\-]{20,})['"]# b'BLOB'
+    """,
+    re.IGNORECASE | re.VERBOSE | re.DOTALL,
+)
+# Python -c "exec(BLOB)" — plain exec of a code string
+_RX_PY_EXEC_PLAIN = re.compile(
+    r"""(?:python[0-9._]*\s+)?-c\s+["']?\s*exec\s*\(\s*["']([^"']{20,})["']""",
     re.IGNORECASE,
 )
 
@@ -212,6 +236,32 @@ def _try_wrappers(payload: str) -> Tuple[str, str, List[MitreHint], List[LolbasH
         ], [LolbasHit(binary="cmd.exe", technique_id="T1059.003",
                       evidence="/c parameter")]
 
+    # 8) Python -c "exec(...b64decode(b'BLOB')...)" — very common malware
+    m = _RX_PY_EXEC_B64.search(payload)
+    if m:
+        return m.group(1), "Python exec(b64decode(...))", [
+            MitreHint(id="T1059.006", technique="Command and Scripting Interpreter: Python",
+                      tactic="Execution",
+                      evidence="python -c \"exec(...b64decode(...))\" wrapper",
+                      source="archetype"),
+            MitreHint(id="T1027", technique="Obfuscated Files or Information",
+                      tactic="Defense Evasion",
+                      evidence="Base64-encoded Python source",
+                      source="archetype"),
+        ], [LolbasHit(binary="python.exe", technique_id="T1059.006",
+                      evidence="python -c exec(base64.b64decode())")]
+
+    # 9) Python -c "exec('...')" — plain exec of code string
+    m = _RX_PY_EXEC_PLAIN.search(payload)
+    if m:
+        return m.group(1), "Python exec()", [
+            MitreHint(id="T1059.006", technique="Python",
+                      tactic="Execution",
+                      evidence="python -c \"exec(...)\" wrapper",
+                      source="archetype"),
+        ], [LolbasHit(binary="python.exe", technique_id="T1059.006",
+                      evidence="python -c exec()")]
+
     return "", "", [], []
 
 
@@ -248,10 +298,29 @@ class WrapperExtractDecoder(BaseDecoder):
         inner, name, mitre, lolbas = _try_wrappers(payload)
         if not inner:
             return PluginResult(output=payload, notes=["No wrapper matched at decode time"])
+        tradecraft = []
+        # High-severity wrappers get an extra tradecraft flag to boost the
+        # risk score above the "needs_review" floor.
+        if "Python exec" in name:
+            tradecraft = [TradecraftFlag(
+                flag="python-exec-b64", severity="high",
+                evidence=f"{name} wrapper — code smuggled through base64",
+            )]
+        elif "FromBase64String" in name or "-EncodedCommand" in name:
+            tradecraft = [TradecraftFlag(
+                flag="ps-encodedcommand-b64", severity="medium",
+                evidence=f"{name} wrapper — PowerShell base64 execution",
+            )]
+        elif "DownloadString" in name or "mshta URL" in name:
+            tradecraft = [TradecraftFlag(
+                flag="remote-payload-fetch", severity="high",
+                evidence=f"{name} — payload fetched from remote URL",
+            )]
         return PluginResult(
             output=inner,
             mitre_hints=mitre,
             lolbas_hits=lolbas,
+            tradecraft=tradecraft,
             notes=[f"Extracted from wrapper: {name}"],
             explanation=f"Unwrapped {name}; inner payload passed to next decoder.",
         )
