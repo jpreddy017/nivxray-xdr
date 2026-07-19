@@ -2,12 +2,12 @@ name: RC2.3 Quality Gate
 
 on:
   pull_request:
-    branches: [main, feature/rc2]
+    branches: [main, feature/rc2, feature/rc2.1b]
     paths:
       - 'backend/**'
       - '.github/workflows/rc23_quality_gate.yml'
   push:
-    branches: [main, feature/rc2]
+    branches: [main, feature/rc2, feature/rc2.1b]
     paths:
       - 'backend/**'
 
