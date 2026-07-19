@@ -4,6 +4,43 @@
 engine is the product. AI is an **opt-in analyst assistant**, never the
 core decoder. Everything must work offline.
 
+
+---
+
+## 🟢 RC2.0 · SHIPPED TO PRODUCTION — 2026-07-19
+
+**Live URL:** https://nivxray.nivxforge.com
+**Branch:** `feature/rc2` (deployed & GitHub-pushed)
+**Local tests:** 126/126 green · **Production authenticated smoke:** ✅ passed
+**Full evidence:** `/app/memory/DEPLOYMENT_EVIDENCE.md` + `/app/memory/evidence/` (17 screenshots + 4 exports + curl/pytest transcripts)
+
+RC2.0 delivers:
+- PDF export (`reportlab`) — 3-page branded report, all 11 sections, byte-stable
+- 4 export formats end-to-end (MD/JSON/TXT/PDF) served from `POST /api/v2/analyze/report?fmt=…`
+- UI branding: `</> NivXRay v1.0 · MCIP`, nav = Analyst Workspace / Regression Battery / Investigator (zero "Legacy Workspace")
+- 12 registered plugins (base32, base64, base91, ascii85, gzip, hex, rot13, rot47, url, xor-brute, zlib-deflate, extract-wrapper)
+- Meterpreter PS-wrapper → `family-identified` in <1.1s on prod (verdict=malicious · risk=95 · chain=`[extract-wrapper→base64-decode→xor-brute]` · C2 IP `149.28.81.19`)
+
+## 🟡 Next up · RC2.1 · Malware Family Plugins (P1)
+
+Deterministic `intelligence`-category plugins (no LLM, no sandbox):
+
+1. Meterpreter (extract from current xor-brute hard-coded logic)
+2. AsyncRAT (config-block + string signatures)
+3. Lumma Stealer (C2 exfil patterns)
+4. DarkGate (AutoIt-wrapped stager)
+
+See roadmap in `/app/memory/RC2_ROADMAP.md`. Backlog for RC2.2–2.5:
+- RC2.2 · Remaining decoders (Base58, Brotli, LZMA, Homoglyph normalization)
+- RC2.3 · Advanced PS reconstruction (`[char]0xNN`, `-join`, `-f`, `${env:X}`, tick-strip, case-normalize)
+- RC2.4 · Advanced CMD reconstruction (`%var%`, `!DELAYED!`, `^` escapes, `for /f`)
+- RC2.5 · Golden Corpus (200-1000 real samples + YAML schema + CI gate)
+
+Cleanup items:
+- Re-evaluate 5 `xfail` corpus samples in `test_training_corpus.py`
+- Purge legacy `operations.py` + `wrapper_archetypes.py` (functionality now in plugin engine)
+
+
 ---
 
 ---

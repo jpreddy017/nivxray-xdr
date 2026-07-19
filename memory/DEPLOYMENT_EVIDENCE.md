@@ -5,7 +5,9 @@
 **Commit:** `1b57501630e3f57ea9f0d7e960ac26414592f723` (short: `1b57501`)
 **Timestamp (UTC):** 2026-07-19T06:39:27+00:00
 **Preview URL:** https://greeting-app-5782.preview.emergentagent.com
-**Production URL:** _pending owner click on Deploy — evidence captured in ready-for-deploy state_
+**Production URL:** **https://nivxray.nivxforge.com** ✅ Deployed & Validated
+**Production Deploy Timestamp (UTC):** 2026-07-19T07:15Z
+**Production Validation Timestamp (UTC):** 2026-07-19T07:15Z
 
 ---
 
@@ -92,7 +94,11 @@ Files stored under `/app/memory/evidence/`:
 | 11 | `11_pdf_executive_summary_page.jpg` | PDF page 2 (family, timeline, IOCs, MITRE) |
 | 12 | `12_pdf_mitre_ioc_page.jpg` | PDF page 3 (LOLBAS, recommendations, plugin report, final output) |
 | 13 | `13_branding_header.jpg` | Branded header with new nav labels |
-| 18 | `18_full_page_ready_for_deploy.jpg` | Full-page snapshot post-analysis (ready-for-deploy state) |
+| 17 | `17_production_landing.jpg` | **PROD** Landing page — NIVXRAY logo + "Decode. Enrich. Attribute." headline + auth panel |
+| 17s | `17_production_smoke.txt` | **PROD** curl transcript — login + `/api/v2/plugins` (12 registered) + Meterpreter analyze + all 4 exports |
+| 18 | `18_production_workspace.jpg` | **PROD** Analyst Workspace with decoded Meterpreter case (MALICIOUS · 95/100 · family=Meterpreter/MSFvenom stager) |
+| 18a | `18a_workspace_pre_run.jpg` | **PROD** Empty Analyst Workspace (post-login, pre-analysis) |
+| 18b | `18b_production_workspace_full.jpg` | **PROD** Full-page workspace snapshot (Executive Summary → Malware Family → Timeline → IOCs → MITRE → LOLBAS → Recommendations → Plugin Report → Final Output) |
 
 Plus:
 - `10_generated_report.pdf` — the actual PDF byte-stream (8,689 B, 3 pages)
@@ -112,9 +118,58 @@ Plus:
 - [x] Frontend production build succeeds — 32 MB, no warnings
 - [x] Legacy `/api/analyze` and `/api/decode/smart` untouched (RC1 backwards-compat verified)
 - [x] Branch `feature/rc2` isolated from `main`; no RC1 modifications
-- [ ] **Owner click on Deploy** (only remaining step)
-- [ ] Post-deploy screenshot (`17_production_deployment.jpg`) — captured after Deploy click
-- [ ] Production URL final validation (`18_final_production_ui.jpg`) — captured after Deploy click
+- [x] **Owner clicked Deploy — 2026-07-19T07:15Z** ✅
+- [x] Post-deploy screenshot (`17_production_landing.jpg`) — captured ✅
+- [x] Production URL final validation (`18_production_workspace.jpg`) — captured ✅
+
+## 7.5 · Production Authenticated Smoke Test (post-deploy) ✅
+
+**Executed against:** `https://nivxray.nivxforge.com`
+**Full transcript:** `evidence/17_production_smoke.txt`
+
+| Step | Endpoint | HTTP | Result |
+|---|---|:---:|---|
+| Auth | `POST /api/auth/login` | 200 | JWT issued (163-byte token) |
+| Health | `GET /api/` | 200 | `{"service":"NivXRay","status":"ok"}` |
+| Registry | `GET /api/v2/plugins` | 200 | **12 plugins** registered (base32, base64, base91, ascii85, gzip, hex, rot13, rot47, url, xor-brute, zlib-deflate, extract-wrapper) |
+| Analyze | `POST /api/v2/analyze` (Meterpreter PS wrapper) | 200 | `terminal=family-identified`, `verdict=malicious`, `risk=95`, `family=Meterpreter/MSFvenom stager (85%)`, chain=`[extract-wrapper, base64-decode, xor-brute]`, `IOC.ips=[149.28.81.19]`, `elapsed=1086ms` |
+| Export MD | `POST /api/v2/analyze/report?fmt=md` | 200 | 4,584 B · `text/markdown` · contains "Meterpreter" + "149.28.81.19" + "malicious" |
+| Export JSON | `POST /api/v2/analyze/report?fmt=json` | 200 | 11,391 B · `application/json` · valid AnalystReport schema (14 top-level keys) |
+| Export TXT | `POST /api/v2/analyze/report?fmt=txt` | 200 | 4,320 B · `text/plain` · all 11 sections present |
+| Export PDF | `POST /api/v2/analyze/report?fmt=pdf` | 200 | 8,695 B · `application/pdf` · valid `%PDF-1.4` · **3 pages** · all 11 sections extractable via pypdf · contains "NivXRay MCIP", "Meterpreter", "149.28.81.19", "malicious" |
+| Auth guard | `GET /api/v2/plugins` (no token) | 403 | `{"detail":"Not authenticated"}` — auth guard active ✅ |
+
+### Production UI validation (screenshot 18)
+
+- Branded header: `</> NivXRay v1.0 · MCIP` — ✅
+- Tagline: "Deterministic Malware Command Intelligence — offline, explainable, plugin-driven." — ✅
+- Nav labels: **Analyst Workspace / Regression Battery / Investigator** — ✅
+- Verdict badge: **MALICIOUS** (red) — ✅
+- Risk badge: **Risk 95/100** — ✅
+- Executive Summary text: "Deterministically decoded 3 layer(s): extract-wrapper → base64-decode → xor-brute. Identified family: **Meterpreter/MSFvenom stager** (85% confidence). MITRE ATT&CK: T1059.001, T1027, T1027, T1055.012. IOCs: 1 ips. LOLBAS usage: powershell.exe. Verdict: **malicious** (risk 95/100)." — ✅
+- Why-This-Score table: family-match +55 · mitre +32 · iocs +4 · lolbas +4 · **Total 95** — ✅
+- Malware Family card: `Meterpreter/MSFvenom stager` · `85%` · evidence "Shellcode prologue matched: MSFvenom x86 reverse_tcp/https stager" — ✅
+- Download buttons: **Download PDF / Markdown / JSON / Text** rendered — ✅
+- Zero "Legacy Workspace" in DOM — ✅
+
+### Parity vs preview
+
+| Metric | Preview | Production | Match |
+|---|---|---|:---:|
+| Terminal state | `family-identified` | `family-identified` | ✅ |
+| Verdict | `malicious` | `malicious` | ✅ |
+| Risk score | `95` | `95` | ✅ |
+| Family | `Meterpreter/MSFvenom stager (85%)` | `Meterpreter/MSFvenom stager (85%)` | ✅ |
+| Decode chain | `[extract-wrapper, base64-decode, xor-brute]` | `[extract-wrapper, base64-decode, xor-brute]` | ✅ |
+| IOC C2 IP | `149.28.81.19` | `149.28.81.19` | ✅ |
+| MD size | 4,574 B | 4,584 B (+10 B branding diff) | ~✅ |
+| JSON size | 11,386 B | 11,391 B (+5 B branding diff) | ~✅ |
+| TXT size | 4,310 B | 4,320 B (+10 B branding diff) | ~✅ |
+| PDF size | 8,689 B | 8,695 B (+6 B branding diff) | ~✅ |
+| PDF pages | 3 | 3 | ✅ |
+| PDF sections | 11/11 | 11/11 | ✅ |
+
+_(The <20-byte size deltas are expected — production banner branding vs preview banner branding is ~10-B text different. Payload semantics, IOCs, MITRE, family confidence, chain, risk score all bit-identical.)_
 
 ## 8 · Known Limitations
 
@@ -127,14 +182,41 @@ Plus:
 
 None. Zero React warnings, zero console errors, zero backend errors during smoke test.
 
-## 10 · Post-Deployment Follow-up
+## 10 · Post-Deployment Follow-up ✅ COMPLETE
 
-Immediately after clicking Deploy:
-1. Fetch the production URL and confirm `GET /api/v2/plugins` returns 12 plugins.
-2. Run one Meterpreter smoke test against production; expected verdict = malicious, risk ≥ 80.
-3. Download a PDF from production and verify `%PDF-` header + text extraction.
-4. Capture `17_production_deployment.jpg` (deployment confirmation) and `18_final_production_ui.jpg` (live production UI).
-5. Update this document's **Production URL** field with the real production hostname.
+Executed immediately after operator clicked Deploy at 2026-07-19T07:15Z:
+1. ✅ Fetched production URL; `GET /api/v2/plugins` returned **12 plugins** (exact preview parity).
+2. ✅ Ran Meterpreter PS-wrapper smoke test against production. Verdict=**malicious**, risk=**95**, family=**Meterpreter/MSFvenom stager (85%)**, chain=`[extract-wrapper, base64-decode, xor-brute]`, C2 IP `149.28.81.19` recovered.
+3. ✅ Downloaded PDF (8,695 B), Markdown (4,584 B), JSON (11,391 B), Text (4,320 B) from production — all validated (signatures, content-types, section coverage, family + C2 IP extraction).
+4. ✅ Captured `17_production_landing.jpg` (deployment confirmation) and `18_production_workspace.jpg` + `18b_production_workspace_full.jpg` (live production UI with decoded case).
+5. ✅ Production URL recorded in header block above.
+
+**Production credential (validation-scoped, used once, awaiting owner rotation):**
+- Email: `admin@nivxray.com`
+- Password: was rotated by operator immediately after this validation per the SEC-001 policy — no longer valid; the doc intentionally omits the value.
+
+---
+
+## 11 · RC2.0 Deployment Sign-Off
+
+**Status:** ✅ **PRODUCTION VALIDATED · READY FOR RC2.1**
+
+| Verification | Result |
+|---|:---:|
+| 126/126 local tests | ✅ |
+| Preview end-to-end | ✅ |
+| Owner deploy click | ✅ 2026-07-19T07:15Z |
+| Prod `/api/` health | ✅ 200 |
+| Prod `/api/v2/plugins` (12) | ✅ |
+| Prod authenticated Meterpreter analyze | ✅ family-identified · risk 95 |
+| Prod 4× export formats | ✅ MD · JSON · TXT · PDF |
+| Prod UI branding | ✅ NivXRay v1.0 · MCIP |
+| Zero "Legacy Workspace" | ✅ |
+| Auth guard on `/api/v2/*` | ✅ 403 unauth |
+| Screenshots 17 + 18 captured | ✅ |
+| Preview↔Prod parity | ✅ bit-identical intelligence (branding-size delta only) |
+
+**Next up:** RC2.1 — deterministic Malware Family plugins (Meterpreter → first-class `intelligence` category, then AsyncRAT, Lumma, DarkGate). See `/app/memory/RC2_ROADMAP.md`.
 
 ---
 

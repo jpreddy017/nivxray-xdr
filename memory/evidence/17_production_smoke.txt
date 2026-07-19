@@ -22,3 +22,66 @@ FAMILY: None None
 CHAIN: []
 IOC.ips: None
 MITRE: []
+--- [3] POST /api/v2/analyze (Meterpreter) — PARSED ---
+TERMINAL : None
+VERDICT  : None
+RISK     : None
+FAMILY   : None (None%)
+CHAIN    : []
+IOC.ips  : None
+MITRE    : []
+LOLBAS   : []
+LAYERS   : None
+RUNTIME  : None ms
+
+ASSERT verdict=malicious : False
+ASSERT risk>=80          : False
+ASSERT family=Meterpreter: False
+ALL_PASS : False
+--- [3] POST /api/v2/analyze (Meterpreter PS wrapper) — PARSED ---
+ENGINE   : orchestrator-v1
+TERMINAL : family-identified
+STOPPED  : Family 'Meterpreter/MSFvenom stager' identified with 85% confidence — stopping recursion at terminal state.
+ELAPSED  : 1086 ms
+VERDICT  : malicious
+RISK     : 95
+FAMILY   : Meterpreter/MSFvenom stager (0.85%)
+CHAIN    : ['extract-wrapper', 'base64-decode', 'xor-brute']
+IOC.ips  : ['149.28.81.19']
+IOC.doms : []
+MITRE    : []
+LOLBAS   : [None]
+ASSERT_OK: True
+
+--- [4] Export format validation ---
+[md] HTTP:200 SIZE:4584 CT:text/markdown; charset=utf-8  saved=prod_report.md
+[json] HTTP:200 SIZE:11391 CT:application/json  saved=prod_report.json
+[txt] HTTP:200 SIZE:4320 CT:text/plain; charset=utf-8  saved=prod_report.txt
+[pdf] HTTP:200 SIZE:8695 CT:application/pdf  saved=prod_report.pdf
+
+--- File signatures ---
+prod_report.md : 0000000 # N i v X R a y A n a l y s
+prod_report.json : 0000000 { \n " o u t p u t " : " 303
+prod_report.txt : 0000000 N i v X R a y A n a l y s t 
+prod_report.pdf : 0000000 % P D F - 1 . 4 \n % 223 214 213 236 R
+
+--- PDF assertions ---
+PDF_PAGES=3
+PDF_TEXT_LEN=3836
+MISSING_SECTIONS=[]
+PDF_HAS_METERPRETER=True
+PDF_HAS_C2_IP=True
+PDF_HAS_MALICIOUS=True
+ASSERT_PDF_OK=True
+
+--- JSON schema check ---
+KEYS: ['confidence_breakdown', 'elapsed_ms', 'engine', 'executive_summary', 'findings', 'fingerprint_history', 'investigation_steps', 'output', 'plugin_report', 'sigma_rules', 'stopped_reason', 'terminal', 'trace', 'yara_rules']
+HAS_FINDINGS: True
+HAS_TRACE: True
+HAS_EXEC_SUMMARY: True
+VERDICT: malicious
+FAMILY: Meterpreter/MSFvenom stager
+
+--- MD/TXT content check ---
+prod_report.md: len=4235, has_family=True, has_ip=True, has_malicious=True
+prod_report.txt: len=3971, has_family=True, has_ip=True, has_malicious=True
