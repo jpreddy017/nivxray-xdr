@@ -1,52 +1,62 @@
 """Orchestrator — recursive plugin-driven decode + intelligence loop.
 
-Algorithm (Phase A, deterministic-only)
----------------------------------------
-1. Compute L0 fingerprint of the current payload.
-2. Ask DecoderRegistry for candidate plugins (ranked by confidence, cost).
-3. Try each candidate up to `budget.max_branches` times per layer.
-4. Score the output — if it improves on the current best, accept it and recurse.
-5. Collect intelligence signals (mitre_hints, family_hints, lolbas_hits,
-   tradecraft, iocs) from every step into the aggregated `Findings` object.
-6. Terminate on:
-      - english_density ≥ 0.7 (very likely plaintext)
-      - budget exhausted (depth or wall-time)
-      - no candidate improves the score
+Production hardening (Feb 2026)
+-------------------------------
+* Loop detection — payload SHA-1 short-hash memo prevents same-content from
+  being decoded twice. Same plugin cannot fire twice on identical bytes.
+* Memory ceiling — per-step and cumulative output size caps.
+* Wall-time + depth + branch caps (via Budget).
+* Plugin execution report — records EVERY plugin invocation with its outcome
+  (accepted / skipped / detect_zero / decode_error / no_improvement / loop).
+* Explainable confidence — every point contributing to risk_score is stored
+  in ConfidenceBreakdown with its source and evidence.
+* Terminal states — english, family-identified, budget, no-candidate, complete.
 
 Vision alignment
 ----------------
-The orchestrator ONLY routes. All capability — decoding AND intelligence — lives
-in plugins. This makes NivXRay extensible from "commands" to "scripts" to
-"malware families" without changes to the core loop.
+The orchestrator ONLY routes. AI cannot influence decoding, verdicts, or
+Findings — it may enrich the executive_summary post-hoc via a separate,
+opt-in step outside this loop.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from .fingerprint_util import compute as fingerprint_compute
 from .models import (
     AnalysisContext,
     AnalystReport,
+    ConfidenceBreakdown,
     Findings,
     Fingerprint,
     IOCBundle,
     InvestigationRecommendation,
+    PluginExecutionEntry,
+    PluginExecutionReport,
+    RiskContribution,
     TraceStep,
 )
 from .registry import DecoderRegistry
 
 log = logging.getLogger("nivx.engine.orchestrator")
 
+# Terminal / scoring constants — kept in one place for tunability.
 _TERMINAL_ENGLISH = 0.7
 _TERMINAL_FAMILY_CONFIDENCE = 0.8
 _IMPROVEMENT_EPS = 0.02
 
-# Weight table for verdict/risk aggregation (Phase A — keep simple, tune later)
-_SEVERITY_WEIGHTS = {
-    "info": 2, "low": 5, "medium": 15, "high": 35, "critical": 60,
-}
+# Safety limits (env-tunable in Budget; defaults here are hard fallbacks).
+_MAX_OUTPUT_BYTES = 4 * 1024 * 1024        # 4 MB per intermediate output
+_MAX_CUMULATIVE_BYTES = 32 * 1024 * 1024   # 32 MB across all layers
+
+_SEVERITY_WEIGHTS = {"info": 2, "low": 5, "medium": 15, "high": 35, "critical": 60}
+
+
+def _short_hash(text: str) -> str:
+    return hashlib.sha1(text.encode("latin-1", errors="replace")).hexdigest()[:16]
 
 
 def _score(fp: Fingerprint) -> float:
@@ -68,7 +78,6 @@ def _merge_iocs(bundle: IOCBundle, add: dict) -> None:
 
 
 def _aggregate_findings(trace: List[TraceStep]) -> Findings:
-    """Build the single-source-of-truth Findings object from every trace step."""
     findings = Findings()
     seen_mitre = set()
     seen_family = {}
@@ -87,8 +96,6 @@ def _aggregate_findings(trace: List[TraceStep]) -> Findings:
             findings.lolbas.append(hit)
         for tc in step.tradecraft:
             findings.tradecraft.append(tc)
-
-    # Family match — pick top confidence
     if seen_family:
         ranked = sorted(seen_family.values(), key=lambda h: -h.confidence)
         top = ranked[0]
@@ -96,40 +103,96 @@ def _aggregate_findings(trace: List[TraceStep]) -> Findings:
         findings.family.confidence = top.confidence
         findings.family.evidence = [top.evidence] if top.evidence else []
         findings.family.alternatives = ranked[1:]
-
-    # Risk score & verdict
-    risk = 0
-    for tc in findings.tradecraft:
-        risk += _SEVERITY_WEIGHTS.get(tc.severity, 5)
-    risk += 8 * len(findings.mitre_techniques)
-    risk += 4 * len(findings.lolbas)
-    # Family-match is the strongest deterministic signal — weight accordingly
-    if findings.family.confidence >= 0.8:
-        risk += 55
-    elif findings.family.confidence >= 0.7:
-        risk += 35
-    elif findings.family.confidence >= 0.5:
-        risk += 15
-    risk += 4 * (len(findings.iocs.urls) + len(findings.iocs.ips) + len(findings.iocs.domains))
-    findings.risk_score = min(100, risk)
-
-    if findings.risk_score >= 70:
-        findings.verdict = "malicious"
-    elif findings.risk_score >= 40:
-        findings.verdict = "suspicious"
-    elif findings.risk_score > 0:
-        findings.verdict = "needs_review"
-    else:
-        findings.verdict = "unknown"
-
     return findings
 
 
+def _compute_confidence_breakdown(findings: Findings) -> ConfidenceBreakdown:
+    """Explainable risk_score — one RiskContribution per signal source."""
+    contribs: List[RiskContribution] = []
+    total = 0
+
+    # Family match — the strongest deterministic signal
+    if findings.family.confidence >= 0.8:
+        pts = 55
+        contribs.append(RiskContribution(
+            source="family-match", points=pts,
+            detail=f"High-confidence family: {findings.family.family} "
+                   f"({findings.family.confidence * 100:.0f}%)",
+        ))
+        total += pts
+    elif findings.family.confidence >= 0.7:
+        pts = 35
+        contribs.append(RiskContribution(
+            source="family-match", points=pts,
+            detail=f"Family: {findings.family.family} "
+                   f"({findings.family.confidence * 100:.0f}%)",
+        ))
+        total += pts
+    elif findings.family.confidence >= 0.5:
+        pts = 15
+        contribs.append(RiskContribution(
+            source="family-match", points=pts,
+            detail=f"Weak family match: {findings.family.family}",
+        ))
+        total += pts
+
+    # MITRE techniques
+    if findings.mitre_techniques:
+        pts = 8 * len(findings.mitre_techniques)
+        ids = ", ".join(sorted({h.id for h in findings.mitre_techniques}))
+        contribs.append(RiskContribution(
+            source="mitre", points=pts,
+            detail=f"{len(findings.mitre_techniques)} MITRE technique(s): {ids}",
+        ))
+        total += pts
+
+    # IOCs
+    ioc_total = (len(findings.iocs.urls) + len(findings.iocs.ips)
+                 + len(findings.iocs.domains))
+    if ioc_total:
+        pts = 4 * ioc_total
+        contribs.append(RiskContribution(
+            source="iocs", points=pts,
+            detail=(f"{len(findings.iocs.ips)} IPs, {len(findings.iocs.urls)} URLs, "
+                    f"{len(findings.iocs.domains)} domains extracted"),
+        ))
+        total += pts
+
+    # LOLBAS
+    if findings.lolbas:
+        pts = 4 * len(findings.lolbas)
+        bins = ", ".join(sorted({h.binary for h in findings.lolbas}))
+        contribs.append(RiskContribution(
+            source="lolbas", points=pts,
+            detail=f"LOLBAS usage: {bins}",
+        ))
+        total += pts
+
+    # Tradecraft flags — severity-weighted
+    if findings.tradecraft:
+        pts = sum(_SEVERITY_WEIGHTS.get(tc.severity, 5) for tc in findings.tradecraft)
+        flags = ", ".join(f"{tc.flag}({tc.severity})" for tc in findings.tradecraft)
+        contribs.append(RiskContribution(
+            source="tradecraft", points=pts, detail=flags,
+        ))
+        total += pts
+
+    total = min(100, total)
+    if total >= 70:
+        verdict = "malicious"
+    elif total >= 40:
+        verdict = "suspicious"
+    elif total > 0:
+        verdict = "needs_review"
+    else:
+        verdict = "unknown"
+    return ConfidenceBreakdown(total=total, verdict=verdict, contributions=contribs)
+
+
 def _executive_summary(trace: List[TraceStep], findings: Findings) -> str:
-    """Deterministic prose summary — AI may enrich later if enabled."""
     if not trace and findings.risk_score == 0:
         return "No transforms applied; payload appears to be plaintext with no notable indicators."
-    parts = []
+    parts: List[str] = []
     if trace:
         chain = " → ".join(step.decoder for step in trace)
         parts.append(f"Deterministically decoded {len(trace)} layer(s): {chain}.")
@@ -154,7 +217,6 @@ def _executive_summary(trace: List[TraceStep], findings: Findings) -> str:
 
 
 def _default_recommendations(findings: Findings) -> List[InvestigationRecommendation]:
-    """Deterministic next-step suggestions based on findings."""
     recs: List[InvestigationRecommendation] = []
     if findings.iocs.ips:
         recs.append(InvestigationRecommendation(
@@ -203,13 +265,25 @@ class Orchestrator:
         terminal = "no-op"
         stopped_reason = ""
 
+        # Production-hardening state
+        seen_hashes: Set[str] = {_short_hash(current)}          # loop detection
+        # Track (plugin_id, payload_hash) to prevent re-firing same plugin on same bytes
+        plugin_payload_seen: Set[tuple] = set()
+        cumulative_bytes = len(current)
+        exec_report = PluginExecutionReport()
+
+        def _log(**kw):
+            exec_report.entries.append(PluginExecutionEntry(**kw))
+
         while True:
+            # 1. Budget check
             reason = ctx.budget.exhausted(depth)
             if reason:
                 terminal = "budget"
                 stopped_reason = f"Budget exhausted ({reason})"
                 break
 
+            # 2. Terminal: already English
             if current_fp.english_density >= _TERMINAL_ENGLISH:
                 terminal = "english"
                 stopped_reason = (
@@ -217,27 +291,33 @@ class Orchestrator:
                 )
                 break
 
-            # Terminal: previous step already identified a high-confidence family
-            # (e.g. Meterpreter shellcode prologue). Further decoding would waste
-            # budget and re-emit duplicate signals.
+            # 3. Terminal: previous step identified a high-confidence family
             if ctx.trace.steps:
                 last_step = ctx.trace.steps[-1]
+                terminal_family = None
                 for fh in last_step.family_hints:
                     if fh.confidence >= _TERMINAL_FAMILY_CONFIDENCE:
-                        terminal = "family-identified"
-                        stopped_reason = (
-                            f"Family '{fh.family}' identified with "
-                            f"{fh.confidence * 100:.0f}% confidence — "
-                            "stopping recursion at terminal state."
-                        )
+                        terminal_family = fh
                         break
-                if terminal == "family-identified":
+                if terminal_family:
+                    terminal = "family-identified"
+                    stopped_reason = (
+                        f"Family '{terminal_family.family}' identified with "
+                        f"{terminal_family.confidence * 100:.0f}% confidence — "
+                        "stopping recursion at terminal state."
+                    )
                     break
 
+            # 4. Candidate discovery
             cands = DecoderRegistry.candidates(
                 current, current_fp, ctx, top_n=ctx.budget.max_branches
             )
             if not cands:
+                # Record every plugin as "skipped: detect_zero"
+                for dec in DecoderRegistry.all():
+                    _log(plugin=dec.id, layer=depth, outcome="detect_zero",
+                         detect_confidence=0.0, reason="detect() returned 0",
+                         exec_ms=0)
                 if depth == 0:
                     terminal = "no-candidate"
                     stopped_reason = (
@@ -251,37 +331,73 @@ class Orchestrator:
                     )
                 break
 
+            # 5. Try candidates
             accepted = None
+            current_hash = _short_hash(current)
             for plugin, det in cands:
+                # Loop-detection: same plugin can't run on same-content payload twice
+                key = (plugin.id, current_hash)
+                if key in plugin_payload_seen:
+                    _log(plugin=plugin.id, layer=depth, outcome="skipped",
+                         detect_confidence=det.confidence, detect_reason=det.why,
+                         reason="loop-detection: same plugin already applied to identical bytes",
+                         exec_ms=0)
+                    continue
+
                 step_start = time.monotonic_ns()
                 try:
                     res = plugin.decode(current, det.args, ctx)
-                except Exception as exc:                       # pragma: no cover
+                except Exception as exc:
+                    exec_ms = (time.monotonic_ns() - step_start) // 1_000_000
+                    _log(plugin=plugin.id, layer=depth, outcome="decode_error",
+                         detect_confidence=det.confidence, detect_reason=det.why,
+                         reason=f"{type(exc).__name__}: {exc}", exec_ms=int(exec_ms))
                     log.warning("decode() raised in %s: %s", plugin.id, exc)
                     continue
                 exec_ms = (time.monotonic_ns() - step_start) // 1_000_000
+
+                # Memory safety: reject outputs above the per-step ceiling
+                if len(res.output) > _MAX_OUTPUT_BYTES:
+                    _log(plugin=plugin.id, layer=depth, outcome="skipped",
+                         detect_confidence=det.confidence, detect_reason=det.why,
+                         reason=f"output {len(res.output)}B exceeds per-step limit {_MAX_OUTPUT_BYTES}B",
+                         exec_ms=int(exec_ms))
+                    continue
+                if cumulative_bytes + len(res.output) > _MAX_CUMULATIVE_BYTES:
+                    _log(plugin=plugin.id, layer=depth, outcome="skipped",
+                         detect_confidence=det.confidence, detect_reason=det.why,
+                         reason=f"cumulative {cumulative_bytes + len(res.output)}B "
+                                f"exceeds pipeline limit {_MAX_CUMULATIVE_BYTES}B",
+                         exec_ms=int(exec_ms))
+                    continue
+
+                # Loop-detection on OUTPUT: if we've seen this exact payload already,
+                # applying this plugin is guaranteed useless.
+                out_hash = _short_hash(res.output)
+                if out_hash in seen_hashes:
+                    _log(plugin=plugin.id, layer=depth, outcome="skipped",
+                         detect_confidence=det.confidence, detect_reason=det.why,
+                         reason="loop-detection: output identical to a previously-seen state",
+                         exec_ms=int(exec_ms))
+                    plugin_payload_seen.add(key)
+                    continue
+
                 cand_fp = fingerprint_compute(res.output)
                 cand_score = _score(cand_fp)
 
-                # Accept if:
-                #   (a) score improves, or
-                #   (b) high-confidence transform (≥0.7) that changes the output —
-                #       likely an intermediate step (e.g. base64 → binary bytes),
-                #   (c) plugin emits intelligence signals worth trace-recording.
                 emitted_signals = bool(
                     res.mitre_hints or res.family_hints
                     or res.lolbas_hits or res.tradecraft or res.iocs
                 )
                 score_improved = cand_score >= best_score + _IMPROVEMENT_EPS
                 high_conf_transform = (
-                    det.confidence >= 0.7
-                    and res.output
-                    and res.output != current
+                    det.confidence >= 0.7 and res.output and res.output != current
                 )
                 soft_improvement = (
                     res.output != current and cand_score >= best_score * 0.75
                 )
                 improved = score_improved or high_conf_transform or soft_improvement
+
                 if improved or emitted_signals:
                     step = TraceStep(
                         layer=depth,
@@ -301,16 +417,31 @@ class Orchestrator:
                         tradecraft=res.tradecraft,
                     )
                     ctx.trace.add_step(step)
+                    plugin_payload_seen.add(key)
+                    _log(plugin=plugin.id, layer=depth, outcome="accepted",
+                         detect_confidence=det.confidence, detect_reason=det.why,
+                         reason=("score improved" if score_improved
+                                 else ("high-confidence transform" if high_conf_transform
+                                       else ("soft improvement" if soft_improvement
+                                             else "signals emitted"))),
+                         exec_ms=int(exec_ms), signals_emitted=emitted_signals)
                     if improved:
                         current = res.output
                         current_fp = cand_fp
                         ctx.trace.add_fingerprint(current_fp)
                         best_score = cand_score
+                        seen_hashes.add(out_hash)
+                        cumulative_bytes += len(res.output)
                     accepted = plugin.id
                     if improved:
                         break
                     # signals-only plugins don't advance the loop; try next candidate
                     continue
+
+                _log(plugin=plugin.id, layer=depth, outcome="no_improvement",
+                     detect_confidence=det.confidence, detect_reason=det.why,
+                     reason=f"score {cand_score:.3f} vs best {best_score:.3f}",
+                     exec_ms=int(exec_ms))
 
             if not accepted:
                 if depth == 0:
@@ -339,10 +470,23 @@ class Orchestrator:
 
         elapsed_ms = (time.monotonic_ns() - started) // 1_000_000
 
-        # Aggregate intelligence from every layer
+        # Aggregate intelligence and build explainable confidence
         findings = _aggregate_findings(list(ctx.trace.steps))
+        breakdown = _compute_confidence_breakdown(findings)
+        findings.risk_score = breakdown.total
+        findings.verdict = breakdown.verdict
+
         summary = _executive_summary(list(ctx.trace.steps), findings)
         recommendations = _default_recommendations(findings)
+
+        exec_report.layers_run = len(ctx.trace.steps)
+        exec_report.total_time_ms = int(elapsed_ms)
+        exec_report.budget_snapshot = {
+            "max_depth": ctx.budget.max_depth,
+            "max_branches": ctx.budget.max_branches,
+            "wall_time_ms": ctx.budget.wall_time_ms,
+            "elapsed_ms": ctx.budget.elapsed_ms(),
+        }
 
         return AnalystReport(
             output=current,
@@ -355,4 +499,6 @@ class Orchestrator:
             findings=findings,
             executive_summary=summary,
             investigation_steps=recommendations,
+            confidence_breakdown=breakdown,
+            plugin_report=exec_report,
         )

@@ -48,6 +48,10 @@ from .models import (
     YaraRuleStub,
     FamilyMatch,
     SimilarCase,
+    ConfidenceBreakdown,
+    RiskContribution,
+    PluginExecutionReport,
+    PluginExecutionEntry,
 )
 from .decoder_base import BaseDecoder
 from .registry import DecoderRegistry
@@ -62,6 +66,8 @@ __all__ = [
     "MitreHint", "FamilyHint", "LolbasHit", "TradecraftFlag",
     "InvestigationRecommendation", "SigmaRuleStub", "YaraRuleStub",
     "FamilyMatch", "SimilarCase",
+    "ConfidenceBreakdown", "RiskContribution",
+    "PluginExecutionReport", "PluginExecutionEntry",
     "BaseDecoder", "DecoderRegistry", "Orchestrator",
     "engine_mode", "new_budget", "EngineMode",
 ]

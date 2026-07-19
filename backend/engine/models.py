@@ -191,6 +191,42 @@ class Findings(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Explainable-confidence breakdown (why the final risk_score is what it is)
+# ---------------------------------------------------------------------------
+class RiskContribution(BaseModel):
+    source: str                             # "family-match" | "mitre" | "iocs" | "tradecraft" | "lolbas"
+    points: int                             # signed contribution to risk_score
+    detail: str = ""                        # human-readable evidence
+
+
+class ConfidenceBreakdown(BaseModel):
+    total: int                              # final risk_score
+    verdict: str
+    contributions: List[RiskContribution] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Plugin execution report — every plugin invocation is traced, including skips
+# ---------------------------------------------------------------------------
+class PluginExecutionEntry(BaseModel):
+    plugin: str
+    layer: int
+    outcome: str                            # "accepted" | "skipped" | "detect_zero" | "decode_error" | "no_improvement"
+    detect_confidence: float = 0.0
+    detect_reason: str = ""
+    exec_ms: int = 0
+    reason: str = ""                        # why skipped / accepted / errored
+    signals_emitted: bool = False
+
+
+class PluginExecutionReport(BaseModel):
+    layers_run: int = 0
+    entries: List[PluginExecutionEntry] = Field(default_factory=list)
+    total_time_ms: int = 0
+    budget_snapshot: Dict[str, int] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
 # Terminal analyst report (was DecodeOutcome)
 # ---------------------------------------------------------------------------
 class AnalystReport(BaseModel):
@@ -214,6 +250,11 @@ class AnalystReport(BaseModel):
     investigation_steps: List[InvestigationRecommendation] = Field(default_factory=list)
     sigma_rules: List[SigmaRuleStub] = Field(default_factory=list)
     yara_rules: List[YaraRuleStub] = Field(default_factory=list)
+    # Production-hardening surface
+    confidence_breakdown: ConfidenceBreakdown = Field(
+        default_factory=lambda: ConfidenceBreakdown(total=0, verdict="unknown")
+    )
+    plugin_report: PluginExecutionReport = Field(default_factory=PluginExecutionReport)
 
 
 # Backwards-compat alias
