@@ -116,6 +116,32 @@ export default function BatchTestPage() {
     }
   };
 
+  // RC2.2 · universal ingest — mine commandlines from ANY document
+  //   (.docx, .pdf, .xlsx, .pptx, .html, .eml, .rtf, .json, .yaml, .zip, .tar,
+  //    .gz, .txt, .log, .md, .ps1, .bat, .sh, .py, .js, .vbs, .hta, .wsf …)
+  const onMineFile = async (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    setBusy(true); setErr(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      fd.append("analysis_mode", mode);
+      fd.append("format", "json");
+      fd.append("min_confidence", "0.5");
+      const r = await api.post("/batch/test/mine", fd,
+        { headers: { "Content-Type": "multipart/form-data" }, timeout: 240_000 });
+      setRows(r.data.rows || []);
+      setSummary(r.data.summary || null);
+      setRunId(r.data.run_id || null);
+      loadHistory();
+      setText((r.data.rows || []).map(row => row.input_snippet).join("\n"));
+    } catch (e2) {
+      setErr(e2.response?.data?.detail || e2.message);
+    } finally {
+      setBusy(false); e.target.value = "";
+    }
+  };
+
   const downloadCsv = async () => {
     const payloads = text.split("\n").map(l => l.trim()).filter(Boolean);
     if (!payloads.length) return;
@@ -153,9 +179,11 @@ export default function BatchTestPage() {
             Batch Analyst Testing
           </h1>
           <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-dim)" }}>
-            Paste 1–500 payloads (one per line) or upload a CSV.
-            Every row runs through the deterministic pipeline &amp; enrichment.
-            Export the matrix as CSV for reporting.
+            Paste 1–500 payloads (one per line), upload a CSV, or click&nbsp;
+            <b style={{ color: "#7ee3c9" }}>"MINE FROM ANY FILE"</b> to pull commandlines
+            out of a .docx / .pdf / .xlsx / .pptx / .html / .eml / .rtf / .json / .yaml /
+            .zip / .tar / .gz report — every candidate runs through the deterministic pipeline &amp;
+            enrichment. Export the matrix as CSV for reporting.
           </p>
         </div>
 
@@ -204,6 +232,17 @@ export default function BatchTestPage() {
                      data-testid="batch-upload-btn">
                 <Upload size={12} /> UPLOAD .CSV / .JSON
                 <input type="file" accept=".csv,.json,.txt" onChange={onFile}
+                       style={{ display: "none" }} />
+              </label>
+              <label className="nvx-btn sm ghost"
+                     style={{ cursor: "pointer",
+                              borderColor: "#7ee3c9", color: "#7ee3c9" }}
+                     title="Extract & analyse commandlines from any document: .docx, .pdf, .xlsx, .pptx, .html, .eml, .rtf, .json, .yaml, .zip, .tar, .gz, .txt, .log, .md, .ps1, .bat, .sh, .py, .js, .vbs, .hta, .wsf, .reg …"
+                     data-testid="batch-mine-btn">
+                <Upload size={12} /> MINE FROM ANY FILE
+                <input type="file"
+                       accept=".docx,.pdf,.xlsx,.pptx,.html,.htm,.eml,.rtf,.json,.jsonl,.ndjson,.yaml,.yml,.csv,.tsv,.zip,.tar,.tgz,.gz,.txt,.log,.md,.ini,.cfg,.conf,.ps1,.psm1,.bat,.cmd,.sh,.py,.js,.vbs,.hta,.wsf,.reg,.rb,.pl,.php,.xml"
+                       onChange={onMineFile}
                        style={{ display: "none" }} />
               </label>
               <a href={`${API_BASE}/batch/test/example`}
@@ -412,7 +451,7 @@ export default function BatchTestPage() {
               }} data-testid="batch-results-table">
                 <thead>
                   <tr style={{ background: "var(--bg-deep)", textAlign: "left" }}>
-                    {["#","Payload","Engine","Conf","Verdict","Chain","MITRE","IOCs","Decoded"].map(h => (
+                    {["#","Payload","Source","Engine","Conf","Verdict","Chain","MITRE","IOCs","Decoded"].map(h => (
                       <th key={h} style={{ padding: "8px 10px", color: "var(--text-dim)",
                                             borderBottom: "1px solid var(--border)",
                                             whiteSpace: "nowrap" }}>{h}</th>
@@ -429,6 +468,15 @@ export default function BatchTestPage() {
                                     textOverflow: "ellipsis", whiteSpace: "nowrap",
                                     color: "var(--text)" }}
                           title={row.input_snippet}>{row.input_snippet}</td>
+                      <td style={{ padding: "6px 10px", maxWidth: 160, overflow: "hidden",
+                                    textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                    color: "var(--text-dim)", fontSize: 10 }}
+                          title={`${row.source_kind || ""}${row.source_origin ? " · " + row.source_origin : ""}`}
+                          data-testid={`batch-row-source-${i}`}>
+                        {row.source_kind
+                          ? `${row.source_kind}${row.source_origin ? " · " + row.source_origin : ""}`
+                          : "—"}
+                      </td>
                       <td style={{ padding: "6px 10px", color: "var(--accent)" }}>{row.engine}</td>
                       <td style={{ padding: "6px 10px", color: "var(--text)" }}>{row.confidence}</td>
                       <td style={{ padding: "6px 10px",

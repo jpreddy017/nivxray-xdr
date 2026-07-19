@@ -4,14 +4,14 @@ Chronological record of significant releases (newest first).
 
 ---
 
-## RC2.2 — Deterministic Decoder Expansion · 2026-07-20
+## RC2.2 — Decoder Expansion + Universal File Ingest · 2026-07-20
 
 **Status:** ✅ Ready to ship (Preview verified, awaiting Save-to-GitHub + Deploy)
 **Tag recommended:** `v1.0.0-RC2.2`
-**Tests:** 147/147 engine green (16 new · zero regressions)
+**Tests:** 194/194 engine green (63 new · zero regressions)
 **Release notes:** `/app/memory/RELEASE_NOTES_v1.0.0-RC2.2.md`
 
-### Added — 7 new plugins
+### Added — 7 new decoder plugins
 
 - `utf16-decode` — UTF-16LE/BE detection + decode (unblocks all `powershell -EncodedCommand` payloads)
 - `ps-reconstruct` — `[char]NN`, `[char[]](nums)-join`, string-concat, backtick strip
@@ -21,6 +21,23 @@ Chronological record of significant releases (newest first).
 - `jwt-decode` — JWT header + payload → pretty JSON (marked terminal)
 - `reverse-string` — string-reverse obfuscation recovery
 
+### Added — Universal file ingest for Batch Analyst
+
+- `POST /api/batch/test/mine/preview` — dry-run extraction (returns candidates
+  without executing them, for analyst review)
+- `POST /api/batch/test/mine` — full mine-and-run: extracts commandlines from
+  any supported document and runs each through the deterministic pipeline
+- Frontend: new **"MINE FROM ANY FILE"** button on the Batch Analyst page,
+  results table now shows a `Source` column with `<kind> · <origin>`
+- New modules `backend/file_extractors.py` (extractor dispatch) and
+  `backend/commandline_miner.py` (regex-based candidate mining)
+- Supported: .docx, .pdf, .xlsx, .pptx, .html, .htm, .eml, .rtf, .json,
+  .jsonl, .yaml, .csv, .tsv, .zip, .tar, .tgz, .gz, .txt, .log, .md, .ini,
+  .cfg, .conf, .ps1, .psm1, .bat, .cmd, .sh, .py, .js, .vbs, .hta, .wsf,
+  .reg, .rb, .pl, .php, .xml
+- Archives recursed up to 25 members, 25 MB per file, 8 MB per member
+- Rows carry `source_kind` and `source_origin` for full traceability
+
 ### Changed
 
 - `extract_wrapper._normalize()` — strips PowerShell backticks (mirror of the CMD `^` fix)
@@ -28,6 +45,11 @@ Chronological record of significant releases (newest first).
 - `base91-decode` — rejects whitespace-separated structured text (JSON, prose)
 - `xor-brute` — skips high-printable structured text + short binary blobs (<32 B)
 - `fingerprint_util._COMMON_EN` — added JSON claim names + short web tokens
+
+### Dependencies added
+- `beautifulsoup4 == 4.15.0`
+- `lxml == 6.1.1`
+- `striprtf == 0.0.32`
 
 ### Fixed
 

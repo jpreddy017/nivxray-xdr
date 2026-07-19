@@ -8,6 +8,12 @@ without a single UI click.
 Endpoints (all under /api):
   POST /batch/test           — multipart CSV OR application/json body
   POST /batch/test/json      — pure JSON body, returns JSON
+  POST /batch/test/mine      — universal file upload: extracts commandlines
+                               from .docx / .pdf / .xlsx / .pptx / .html /
+                               .eml / .rtf / .json / .yaml / .zip / … then
+                               runs each candidate through the pipeline
+  POST /batch/test/mine/preview — dry-run: return mined candidates without
+                                   running them (analyst review step)
   GET  /batch/test/example   — download a starter CSV template
 
 Row schema in the output CSV:
@@ -29,6 +35,8 @@ from pydantic import BaseModel, Field
 
 from deps import get_current_user
 from analysis_core import deterministic_best_decode
+from file_extractors import extract as extract_file_text, is_supported
+from commandline_miner import mine_segments
 
 router = APIRouter()
 
@@ -682,4 +690,203 @@ async def nxgec_run(volume: Optional[int] = None,
         "pass_rate":   round(passed * 100 / len(rows), 1) if rows else 0.0,
         "per_volume":  per_volume,
         "rows":        rows,
+    }
+
+
+
+# --------------------------------------------------------------------------- #
+# Universal file-format ingest — RC2.2 (Feb 2026)
+# --------------------------------------------------------------------------- #
+# Accepts .docx / .pdf / .xlsx / .pptx / .html / .htm / .eml / .rtf / .json /
+# .yaml / .csv / .tsv / .zip / .tar / .tgz / .gz / .txt / .log / .md and
+# every common script extension. Extracts text with `file_extractors.extract`
+# and mines candidate commandlines with `commandline_miner.mine_segments`.
+_MAX_MINE_CANDIDATES = 500       # cap the analyst never wants to blow past
+
+
+def _mine_from_upload(filename: str, raw: bytes) -> Dict[str, Any]:
+    """Shared helper used by both the mine and preview endpoints.
+
+    Returns:
+        {
+            "filename": str,
+            "size_bytes": int,
+            "segments": [{origin, kind, chars}],
+            "candidates": [{text, kind, confidence, origin}]  (deduped, capped)
+        }
+    """
+    result = extract_file_text(filename, raw)
+    cands = mine_segments(result.segments)
+    # Cap to keep the pipeline safe.
+    truncated = False
+    if len(cands) > _MAX_MINE_CANDIDATES:
+        cands = cands[:_MAX_MINE_CANDIDATES]
+        truncated = True
+    return {
+        "filename":  result.filename,
+        "size_bytes": result.total_bytes,
+        "segments": [
+            {"origin": s.origin, "kind": s.kind, "chars": len(s.text or "")}
+            for s in result.segments
+        ],
+        "candidates": [
+            {"text": c.text, "kind": c.kind,
+             "confidence": c.confidence, "origin": c.origin}
+            for c in cands
+        ],
+        "truncated": truncated,
+        "notes": result.notes,
+    }
+
+
+@router.post("/batch/test/mine/preview")
+async def batch_test_mine_preview(
+    file: UploadFile = File(...,
+        description="Any document — .docx, .pdf, .xlsx, .pptx, .html, .eml, "
+                    ".rtf, .json, .yaml, .csv, .tsv, .zip, .tar, .gz, .txt, "
+                    ".ps1, .bat, .sh, …"),
+    user=Depends(get_current_user),
+):
+    """Dry-run: extract candidate commandlines from an uploaded file without
+    running them through the decoder pipeline. Analyst can review the mined
+    payloads and then call `/batch/test/mine` to execute the batch."""
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=422, detail="empty upload")
+    if len(raw) > 25 * 1024 * 1024:                    # 25 MB hard cap
+        raise HTTPException(status_code=413,
+                            detail="file too large (>25 MB)")
+    payload = _mine_from_upload(file.filename or "upload", raw)
+    return {
+        "filename":     payload["filename"],
+        "size_bytes":   payload["size_bytes"],
+        "supported":    is_supported(file.filename or ""),
+        "segment_count": len(payload["segments"]),
+        "segments":     payload["segments"],
+        "candidate_count": len(payload["candidates"]),
+        "candidates":   payload["candidates"],
+        "truncated":    payload["truncated"],
+    }
+
+
+@router.post("/batch/test/mine")
+async def batch_test_mine_and_run(
+    file: UploadFile = File(...,
+        description="Any document — .docx, .pdf, .xlsx, .pptx, .html, .eml, "
+                    ".rtf, .json, .yaml, .csv, .tsv, .zip, .tar, .gz, .txt, "
+                    ".ps1, .bat, .sh, …"),
+    analysis_mode: str = Form(default="balanced"),
+    kinds: Optional[str] = Form(
+        default=None,
+        description="Optional comma-separated list of candidate kinds to keep "
+                    "(commandline,wrapper,script,b64-blob,url). Defaults to all.",
+    ),
+    min_confidence: float = Form(default=0.5),
+    format: str = Form(default="json", description="csv | json"),
+    user=Depends(get_current_user),
+):
+    """Universal ingest — extract commandlines from any supported document
+    format and run each through the deterministic pipeline.
+
+    The output row schema is identical to `/batch/test`, plus:
+        source_origin   Where in the file each candidate came from
+                        (e.g. "sheet Log/row 12", "page 3", "zip:script.ps1")
+        source_kind     commandline | wrapper | script | b64-blob | url
+    """
+    if analysis_mode not in ("fast", "balanced", "deep"):
+        analysis_mode = "balanced"
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=422, detail="empty upload")
+    if len(raw) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=413,
+                            detail="file too large (>25 MB)")
+
+    mined = _mine_from_upload(file.filename or "upload", raw)
+    keep_kinds = None
+    if kinds:
+        keep_kinds = {k.strip().lower() for k in kinds.split(",") if k.strip()}
+    candidates = [
+        c for c in mined["candidates"]
+        if c["confidence"] >= min_confidence
+        and (keep_kinds is None or c["kind"] in keep_kinds)
+    ][:_MAX_ROWS]
+
+    if not candidates:
+        raise HTTPException(
+            status_code=422,
+            detail=(f"no candidate commandlines mined from {file.filename or 'file'} "
+                    f"(size={mined['size_bytes']}B, segments={len(mined['segments'])}). "
+                    "Try lowering `min_confidence` or check the file is supported.")
+        )
+
+    rows: List[Dict[str, Any]] = []
+    for i, cand in enumerate(candidates):
+        base = {
+            "id":              _row_id("row", i),
+            "input_snippet":   _snip(cand["text"]),
+            "source_origin":   cand.get("origin") or "",
+            "source_kind":     cand.get("kind") or "",
+        }
+        base.update(_run_single(cand["text"], analysis_mode))
+        rows.append(base)
+
+    summary = {
+        "malicious":         sum(1 for r in rows if r.get("verdict") == "Malicious"),
+        "suspicious":        sum(1 for r in rows if r.get("verdict") == "Suspicious"),
+        "unknown":           sum(1 for r in rows if r.get("verdict") == "Unknown"),
+        "errors":            sum(1 for r in rows if r.get("error")),
+        "shellcode_reached": sum(1 for r in rows if r.get("reached_shellcode")),
+        "mined_total":       len(mined["candidates"]),
+        "mined_kept":        len(candidates),
+        "file_segments":     len(mined["segments"]),
+    }
+
+    run_id = None
+    try:
+        import uuid
+        from datetime import datetime, timezone
+        run_doc = {
+            "id":            str(uuid.uuid4()),
+            "created_at":    datetime.now(timezone.utc).isoformat(),
+            "user_email":    (getattr(user, "email", None)
+                              or (user.get("email") if isinstance(user, dict) else None)),
+            "analysis_mode": analysis_mode,
+            "total":         len(rows),
+            "summary":       summary,
+            "rows":          rows,
+            "source":        f"mined:{file.filename or 'file'}",
+        }
+        db_batch_runs.insert_one(run_doc)
+        run_id = run_doc["id"]
+    except Exception:
+        pass
+
+    if format == "csv":
+        # Same CSV columns as /batch/test, plus source_* leaders
+        fields = ["id", "source_origin", "source_kind"] + _CSV_FIELDS
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=fields, extrasaction="ignore",
+                           quoting=csv.QUOTE_ALL)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r.get(k, "") for k in fields})
+        fname = re.sub(r"[^A-Za-z0-9._-]+", "_",
+                       (file.filename or "batch").rsplit(".", 1)[0]) \
+                       + "_nivxray_mined_results.csv"
+        return Response(
+            content=buf.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        )
+
+    return {
+        "filename":       file.filename or "upload",
+        "size_bytes":     mined["size_bytes"],
+        "total":          len(rows),
+        "analysis_mode":  analysis_mode,
+        "summary":        summary,
+        "rows":           rows,
+        "run_id":         run_id,
+        "candidates_all": mined["candidates"],       # for optional analyst review
     }
