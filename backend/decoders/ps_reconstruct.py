@@ -63,6 +63,26 @@ _RX_STR_CONCAT = re.compile(
 _RX_BACKTICK = re.compile(r"(?<!`)`(?![nrt0abfv`\"'])")
 
 
+# 5) `.Replace('a','b')` on a quoted literal or a chained expression.
+#    Supports both single- and double-quoted args; chained calls apply
+#    left-to-right ('X').Replace('a','b').Replace('c','d')
+_RX_REPLACE = re.compile(
+    r"""(['"])((?:(?!\1).)*?)\1\s*\)?\s*\.Replace\s*\(\s*(['"])((?:(?!\3).)*)\3\s*,\s*(['"])((?:(?!\5).)*)\5\s*\)""",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+# 6) Simple variable-to-string-literal assignment tracking.
+#    `$var = 'literal'` or `$var='literal'` (single or double quotes).
+#    We only track assignments to pure string literals — anything computed is
+#    left alone. This is a deliberate precision-over-recall choice: the
+#    orchestrator's downstream regex passes handle chained expressions.
+_RX_VAR_ASSIGN = re.compile(
+    r"""\$(\w+)\s*=\s*(['"])((?:(?!\2).)*)\2""",
+    re.DOTALL,
+)
+
+
 def _int_from_token(tok: str) -> int:
     tok = tok.strip()
     if tok.lower().startswith("0x"):
@@ -145,6 +165,68 @@ def _strip_ps_backticks(text: str) -> Tuple[str, int]:
     return _RX_BACKTICK.sub(_sub, text), hits
 
 
+def _replace_dot_replace(text: str) -> Tuple[str, int]:
+    """Apply `.Replace('a','b')` on quoted literals; iterate to chain."""
+    hits = 0
+    while True:
+        m = _RX_REPLACE.search(text)
+        if not m:
+            break
+        target = m.group(2)
+        needle = m.group(4)
+        subst = m.group(6)
+        if not needle:                                  # empty needle is a no-op
+            break
+        try:
+            replaced = target.replace(needle, subst)
+        except Exception:                               # pragma: no cover
+            break
+        text = text[:m.start()] + "'" + replaced.replace("'", "''") + "'" + text[m.end():]
+        hits += 1
+        if hits > 32:                                   # runaway guard
+            break
+    return text, hits
+
+
+def _expand_string_vars(text: str) -> Tuple[str, int]:
+    """Substitute `$var` references with their assigned string literals.
+
+    Only expands variables assigned to plain string literals in the same
+    payload. Assignments that use `[char]` / `-join` / expressions are left
+    to earlier passes to resolve first.
+    """
+    assigns: Dict[str, str] = {}
+    for m in _RX_VAR_ASSIGN.finditer(text):
+        # Precision guard: last assignment wins; overwriting is fine.
+        assigns[m.group(1)] = m.group(3)
+    if not assigns:
+        return text, 0
+
+    hits = 0
+    for name, value in assigns.items():
+        # Substitute `$name` when not immediately followed by a word char
+        # (so `$name` matches but `$namespace` doesn't).
+        rx = re.compile(rf"\${re.escape(name)}(?![A-Za-z0-9_])")
+        # Preserve the assignment line itself; only replace usage sites.
+        # Simple heuristic: skip replacement at the assignment position.
+        assign_rx = re.compile(rf"\${re.escape(name)}\s*=\s*(['\"])")
+        pieces: List[str] = []
+        last = 0
+        for m in rx.finditer(text):
+            # Skip if this occurrence is the LHS of an assignment.
+            probe = text[m.start():m.start() + 200]
+            if assign_rx.match(probe):
+                continue
+            pieces.append(text[last:m.start()])
+            pieces.append("'" + value.replace("'", "''") + "'")
+            last = m.end()
+            hits += 1
+        if pieces:
+            pieces.append(text[last:])
+            text = "".join(pieces)
+    return text, hits
+
+
 class PowerShellReconstructDecoder(BaseDecoder):
     id = "ps-reconstruct"
     name = "PowerShell String Reconstruct"
@@ -168,6 +250,16 @@ class PowerShellReconstructDecoder(BaseDecoder):
             signals.append("str-concat")
         if _RX_BACKTICK.search(payload) and re.search(r"[A-Za-z]`[A-Za-z]", payload):
             signals.append("ps-backtick")
+        if _RX_REPLACE.search(payload):
+            signals.append("ps-replace")
+        if _RX_VAR_ASSIGN.search(payload):
+            # Only count var-expansion as a signal if the variable is actually
+            # referenced somewhere in the same payload.
+            for m in _RX_VAR_ASSIGN.finditer(payload):
+                name = m.group(1)
+                if re.search(rf"\${re.escape(name)}(?![A-Za-z0-9_=])", payload):
+                    signals.append("ps-var-expand")
+                    break
         if not signals:
             return DetectResult(confidence=0.0, why="No PS reconstruction pattern")
         # Confidence: single mild signal is 0.6, multiple is 0.9
@@ -202,6 +294,23 @@ class PowerShellReconstructDecoder(BaseDecoder):
         if n:
             total_hits += n
             notes.append(f"Stripped {n} PowerShell backtick escape(s)")
+
+        text, n = _replace_dot_replace(text)
+        if n:
+            total_hits += n
+            notes.append(f"Applied {n} .Replace() call(s)")
+
+        text, n = _expand_string_vars(text)
+        if n:
+            total_hits += n
+            notes.append(f"Expanded {n} PowerShell variable reference(s)")
+
+        # Second pass — variable expansion may unlock new .Replace targets
+        # (e.g. `$x = 'IZZEZZX'; $x.Replace('ZZ','')`).
+        text, n = _replace_dot_replace(text)
+        if n:
+            total_hits += n
+            notes.append(f"Applied {n} additional .Replace() call(s) after var expansion")
 
         if total_hits == 0:
             return PluginResult(output=payload, notes=["ps-reconstruct: no changes"])
