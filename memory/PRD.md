@@ -6,6 +6,60 @@ core decoder. Everything must work offline.
 
 ---
 
+---
+
+## Product Vision — Malware Command Intelligence Platform (MCIP) · Feb 2026
+
+NivXRay is NOT another CyberChef, EDR, or Sandbox. It creates its own category:
+**Malware Command Intelligence Platform** — turning unknown encoded/obfuscated
+commands into analyst-ready intelligence. Positioning:
+
+- CyberChef → decodes bytes.
+- **NivXRay → understands the command.**
+
+Every paste → automatic, deterministic, offline **Analyst-Ready Intelligence Report**:
+Input → Recursive Decode → Pattern Detection → IOC Extraction → MITRE Mapping →
+LOLBAS Detection → Malware Family Heuristics → Analyst Findings → Executive
+Summary → Final SOC Report.
+
+Engineering priority order: Maintainability > Extensibility > Deterministic
+Accuracy > Performance > Offline Capability > Analyst Productivity.
+
+AI must never become a dependency; it may only *enhance* the deterministic report.
+
+## Session 2 · Phase A — DONE (commit `666fbf2` on `feature/plugin-decoder-engine`)
+
+Plugin-based decoder engine scaffold with vision-aligned MCIP schema. All
+additive — legacy `deterministic_best_decode` remains default via
+`NIVX_ENGINE=legacy`. New engine opt-in via `NIVX_ENGINE=orchestrator`.
+
+| # | Deliverable | File(s) |
+|---|---|---|
+| A1 | Layered engine primitives (Budget, AnalysisContext, TraceBuffer, Fingerprint) | `engine/models.py`, `engine/fingerprint_util.py` |
+| A2 | Plugin contract with universal `PluginResult` (output + iocs + mitre + family + lolbas + tradecraft + recommendations + explain) | `engine/decoder_base.py`, `engine/models.py` |
+| A3 | Auto-discovering `DecoderRegistry` (thread-safe, ranked by confidence + cost) | `engine/registry.py` |
+| A4 | Recursive `Orchestrator` with budget-enforced depth/time/branch caps + Findings aggregation + deterministic executive summary + investigation recommendations | `engine/orchestrator.py` |
+| A5 | 3 pilot decoders migrated to plugin contract | `decoders/base64.py`, `decoders/hex.py`, `decoders/url.py` |
+| A6 | Feature flag `NIVX_ENGINE` + env-tunable budget | `engine/config.py`, `.env` |
+| A7 | Regression locks 15→17 + 23 new Phase A engine tests (40/40 green) | `tests/test_regression_lock.py`, `tests/test_engine_phase_a.py` |
+| A8 | Backwards-compat aliases `DecodeResult == PluginResult`, `DecodeOutcome == AnalystReport` | `engine/__init__.py` |
+
+**Phased Session 2 plan:**
+- Phase A · Foundation ✅ **DONE**
+- Phase B · Migrate 14 remaining decoders (batches of 3–5 with regression gates)
+- Phase C · New capabilities (ascii85, base91, brotli, lzma, `stopped_reason` UX)
+- Phase D · Frontend `DecodingTracePanel` rewrite (Fingerprint card + why-stopped chip)
+- Phase E · Split `wrapper_archetypes.py` → `/archetypes/*.py` (L1 refactor)
+- Phase F · Split `analysis_core.py` threat-intel → `/threat_intel/*.py` (L3) + 3 family plugins (Meterpreter, AsyncRAT, Lumma)
+- Phase G · Cut-over: remove legacy engines, `NIVX_ENGINE=orchestrator` becomes default
+
+### Diagnostic completed this session
+- `Testing for NonAI` case: legacy engine ✅ works deterministically (98% conf, IP `149.28.81.19`, Meterpreter detected in ~5s). Original 55s timeout was AI leg, not decoder.
+- `Need_analysis` case: engine correctly stops at 45% because payload uses a custom-alphabet base-N cipher we don't yet have a plugin for. Not a bug — missing capability. Will be closed in Phase C when ascii85/base91/base92-probe plugins land.
+- Pre-existing failure: `test_meterpreter_b64xor.py::test_pipeline_reaches_meterpreter_shellcode` fails identically on `main` (before Phase A). Legacy `deterministic_best_decode(..., analysis_mode="deep")` regression — separate from Phase A scope.
+
+
+
 ## Session 1 (DONE · this commit)
 
 | # | Deliverable | File(s) |
