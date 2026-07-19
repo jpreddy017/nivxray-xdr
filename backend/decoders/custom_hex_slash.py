@@ -42,6 +42,7 @@ _SEPARATORS: Tuple[str, ...] = (
 def _try_extract(text: str) -> Tuple[str, bytes, int]:
     """Return (separator_used, byte_data, token_count) for the best-fit sep."""
     best: Tuple[str, bytes, int] = ("", b"", 0)
+    # Style A — token FOLLOWED by separator:  `d3x\d3x\76x\`
     for sep_re in _SEPARATORS:
         rx = re.compile(rf"([0-9a-fA-F]{{2}}){sep_re}")
         tokens = rx.findall(text)
@@ -49,6 +50,17 @@ def _try_extract(text: str) -> Tuple[str, bytes, int]:
             try:
                 data = bytes.fromhex("".join(tokens))
                 best = (sep_re, data, len(tokens))
+            except ValueError:
+                continue
+    # Style B — token PRECEDED by `\x`  (C-style hex escapes)
+    #   \x3b\x34\x35   OR   \\x3b\\x34\\x35 (double-escaped in strings)
+    for prefix in (r"\\x", r"\\\\x"):
+        rx = re.compile(rf"{prefix}([0-9a-fA-F]{{2}})")
+        tokens = rx.findall(text)
+        if len(tokens) >= 10 and len(tokens) > best[2]:
+            try:
+                data = bytes.fromhex("".join(tokens))
+                best = (f"prefix:{prefix}", data, len(tokens))
             except ValueError:
                 continue
     return best

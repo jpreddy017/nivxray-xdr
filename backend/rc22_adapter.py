@@ -77,6 +77,12 @@ def try_orchestrator_first(
     """
     if not payload or len(payload) < 4:
         return None
+    # RC2.2 hotfix — Prod 2026-07-19: legacy `smart+magic+reasoning` race
+    # hangs the HTTP request for the full 60 s frontend timeout on very
+    # large inputs. For anything > 8 KB we FORCE the orchestrator path
+    # even when it returns an incomplete chain — that way the analyst
+    # gets a fast, partial decode instead of an ERROR: timeout page.
+    force_orchestrator = len(payload) > 8 * 1024
     try:
         # Deferred import — avoids circular deps at module load
         from engine.orchestrator import Orchestrator
@@ -87,24 +93,84 @@ def try_orchestrator_first(
     try:
         ctx = AnalysisContext(budget=Budget(
             max_depth=20,
-            # Balanced/deep get a slightly bigger wall budget; fast is tight.
-            wall_time_ms=8000 if analysis_mode != "fast" else 3000,
+            # Tight wall budget — the orchestrator is deterministic and O(n)
+            # per layer, but LARGE inputs (>5 KB) can hit the ceiling.  We
+            # cap at 4 s per analysis so the total round trip stays under
+            # the frontend's 60 s HTTP timeout even on legacy fallback.
+            wall_time_ms=4000 if analysis_mode != "fast" else 2000,
         ))
         result = Orchestrator(ctx).run(payload)
     except Exception:
+        # If the orchestrator itself blew up on a huge input, return a
+        # minimal legacy-shape dict so the endpoint responds instead of
+        # falling through to legacy which will hang.
+        if force_orchestrator:
+            return {
+                "output": payload,
+                "detected_type": "text",
+                "engine": "rc2-orchestrator-safe-fallback",
+                "steps": [],
+                "trace": [],
+                "reached_shellcode": False,
+                "terminal": "orchestrator-exception",
+                "iocs": {"ips": [], "urls": [], "domains": [], "emails": [],
+                         "file_paths": [], "bitcoin_addresses": [],
+                         "hashes": {"md5": [], "sha1": [], "sha256": []}},
+                "mitre": [], "lolbas": [], "tradecraft": [],
+                "verdict": "needs_review", "risk_score": 0,
+                "family": None,
+                "engine_reason": (
+                    f"Input {len(payload)}B exceeded orchestrator safety cap; "
+                    "returning raw to prevent legacy pipeline hang."
+                ),
+            }
         return None
 
     if not result or not result.trace:
+        if force_orchestrator:
+            # Even with an empty trace, if the input is huge, return a
+            # minimal shape so the request returns quickly.
+            return {
+                "output": (result.output if result else payload) or payload,
+                "detected_type": "text",
+                "engine": "rc2-orchestrator-no-op",
+                "steps": [],
+                "trace": [],
+                "reached_shellcode": False,
+                "terminal": (getattr(result, "terminal", "no-candidate") if result else "no-candidate"),
+                "iocs": {"ips": [], "urls": [], "domains": [], "emails": [],
+                         "file_paths": [], "bitcoin_addresses": [],
+                         "hashes": {"md5": [], "sha1": [], "sha256": []}},
+                "mitre": [], "lolbas": [], "tradecraft": [],
+                "verdict": "needs_review", "risk_score": 0,
+                "family": None,
+                "engine_reason": (
+                    f"Input {len(payload)}B — orchestrator found no candidate; "
+                    "skipping legacy pipeline to prevent HTTP timeout."
+                ),
+            }
         return None
 
-    # Only "adopt" the orchestrator when it produced a useful chain.
-    # Terminal states we trust: complete, english, family-identified.
+    # Adopt the orchestrator result AGGRESSIVELY.
+    #
+    # Rationale — Prod bug 2026-07-19: on very large inputs (≥5 KB) the
+    # orchestrator sometimes stops with terminal="max-depth" or
+    # "wall-time" while the legacy `smart_decode + magic_decode +
+    # reasoning` fallback then hangs for the full HTTP timeout window.
+    # Any orchestrator chain with ≥1 layer is objectively better than
+    # legacy running for 60 s and returning garbage.
     terminal = getattr(result, "terminal", "") or ""
-    if terminal not in ("complete", "english", "family-identified"):
-        # For no-candidate / max-depth / loop-detected — still adopt if we
-        # peeled ≥2 layers and produced changed output; otherwise defer.
-        if len(result.trace) < 2:
-            return None
+    # Clean terminals → always adopt
+    clean_terminals = ("complete", "english", "family-identified")
+    if terminal in clean_terminals:
+        pass  # always adopt
+    elif len(result.trace) >= 1:
+        # Partial chain — still adopt so legacy doesn't hang the request.
+        # The Recipe panel will show the layers we did peel, and if the
+        # analyst wants more, they can add manual ops from the catalog.
+        pass
+    else:
+        return None
 
     # Convert TraceStep list → legacy step dicts
     steps: List[Dict[str, Any]] = []
