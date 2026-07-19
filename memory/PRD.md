@@ -7,6 +7,36 @@ core decoder. Everything must work offline.
 
 ---
 
+## 🟢 RC2.2+ · DELIVERED — 2026-07-19 (Post-fork continuation)
+
+**Branch:** `feature/rc2` · **Tests:** 15/15 new + 46/47 legacy regression green
+**Release notes appended to CHANGELOG below**
+
+RC2.2+ delivers on the 4-task hardening list the user explicitly requested:
+
+1. **XOR-brute extended to 8-byte keys** (`decoders/xor_brute.py`)
+   - Frequency-weighted per-column English scoring (space + all letters + digits + punctuation)
+   - Iterative polish pass — re-evaluates every column against the full-plaintext score to recover near-miss key bytes
+   - Verified: recovers 5-byte (`K3yPs`) and 7-byte (`S3v3nBt`) keys from base64(xor(cmdline)) chains
+
+2. **Network + LOLBAS combo verdict bump** (`engine/orchestrator.py::_compute_confidence_breakdown`)
+   - +15 risk contribution when LOLBAS binary is paired with any external IOC (URL/IP/domain) — the canonical download-and-execute pattern (T1105)
+   - New RiskContribution source: `network-lolbas-combo`
+
+3. **Residual-obfuscation tail-trim / retry** (`engine/orchestrator.py::_trim_tail_garbage`)
+   - Post-decode pass detects clean-head + binary-tail split
+   - Retries every decoder plugin on the tail; if none recovers, cleanly truncates with a visible truncation note
+   - Unicode-aware printable check keeps box-drawing/CJK output intact
+
+4. **STIX 2.1 export from AnalystReport** (`engine/stix_exporter.py`, `routers/analyst_v2.py`)
+   - New `GET /api/v2/analyze/report?fmt=stix` returns a full OASIS STIX 2.1 bundle (identity, malware, attack-patterns, indicators, SCOs, observed-data, relationships, note, report)
+   - Compatible with OpenCTI, MISP, Sentinel, Splunk ES, QRadar, ThreatConnect, Anomali, ThreatQuotient
+
+Regression tests: `/app/backend/tests/test_rc22_xor8_lolbas_stix.py` (15 tests).
+
+
+---
+
 ## 🟢 RC2.0 · SHIPPED TO PRODUCTION — 2026-07-19
 
 **Live URL:** https://nivxray.nivxforge.com

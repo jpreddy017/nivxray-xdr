@@ -173,6 +173,27 @@ def _compute_confidence_breakdown(findings: Findings) -> ConfidenceBreakdown:
         ))
         total += pts
 
+    # Network + LOLBAS combo — high-signal composite pattern.
+    # certutil/mshta/bitsadmin/regsvr32/rundll32/msiexec/powershell paired
+    # with an external URL/IP/domain is a canonical download-and-execute
+    # tradecraft (T1105). Bumps clean deterministic hits into MALICIOUS
+    # (>70 score) without needing a family match.
+    has_network_ioc = bool(
+        findings.iocs.urls or findings.iocs.ips or findings.iocs.domains
+    )
+    if findings.lolbas and has_network_ioc:
+        bins = sorted({h.binary for h in findings.lolbas})
+        counts = []
+        if findings.iocs.urls:    counts.append(f"{len(findings.iocs.urls)} URL(s)")
+        if findings.iocs.ips:     counts.append(f"{len(findings.iocs.ips)} IP(s)")
+        if findings.iocs.domains: counts.append(f"{len(findings.iocs.domains)} domain(s)")
+        contribs.append(RiskContribution(
+            source="network-lolbas-combo", points=15,
+            detail=(f"LOLBAS ({', '.join(bins)}) paired with network IOC "
+                    f"({', '.join(counts)}) — download-and-execute pattern (T1105)."),
+        ))
+        total += 15
+
     # Tradecraft flags — severity-weighted
     if findings.tradecraft:
         pts = sum(_SEVERITY_WEIGHTS.get(tc.severity, 5) for tc in findings.tradecraft)
@@ -250,6 +271,154 @@ def _default_recommendations(findings: Findings) -> List[InvestigationRecommenda
             rationale="Non-zero risk indicators present but no direct IOCs to action.",
         ))
     return recs
+
+
+def _is_printable_char(c: str) -> bool:
+    """Wide printable check for tail-trim detection.
+
+    ASCII printable + common whitespace are always printable. For Unicode
+    codepoints ≥ 0x100 we accept the BMP "text" ranges (Latin Extended,
+    Greek, Cyrillic, symbols, CJK, box-drawing …). The C1 control range
+    (0x7F–0x9F) and Latin-1 supplement (0xA0–0xFF) are considered "binary
+    garbage" because that's what XOR-brute residue typically looks like.
+    """
+    o = ord(c)
+    if 32 <= o < 127:
+        return True
+    if o in (9, 10, 13):
+        return True
+    # Real Unicode text: Latin Extended-A onwards.
+    if o >= 0x0100:
+        return True
+    return False
+
+
+def _find_tail_garbage_start(text: str, *,
+                             min_run: int = 8,
+                             tail_probe: int = 200,
+                             printable_thresh: float = 0.55) -> Optional[int]:
+    """Return the index where a binary-garbage tail begins, else None.
+
+    Heuristic:
+      * Only consider inputs whose last `tail_probe` chars have a low
+        printable ratio (< printable_thresh) — no point trimming clean text.
+      * Walk backwards from the end; the tail is the maximal suffix whose
+        printable ratio stays below `printable_thresh`.
+      * Require the trimmed head to be non-empty and readable
+        (printable_ratio ≥ 0.85). Otherwise the payload is uniformly
+        garbage and truncation would hide it — better to keep it intact.
+      * Require the garbage run to be at least `min_run` bytes so we don't
+        chop off legitimate one-off non-printables (LF, tab, etc.).
+    """
+    n = len(text)
+    if n < min_run * 2:
+        return None
+    # Sample the last 60 chars (or last third of text) — if that region is
+    # mostly printable, don't bother walking. Sampling the whole 200-char
+    # window misses cases where a short garbage tail is dwarfed by a longer
+    # clean head.
+    sample_len = min(60, max(min_run * 4, n // 3))
+    sample = text[-sample_len:]
+    sample_pr = sum(1 for c in sample if _is_printable_char(c))
+    if sample_pr / len(sample) >= printable_thresh:
+        return None
+    # Walk backwards: find the earliest index such that the suffix from
+    # there to end has printable_ratio < printable_thresh AND length >= min_run.
+    cut = n
+    non_print_run = 0
+    for i in range(n - 1, -1, -1):
+        is_print = _is_printable_char(text[i])
+        if not is_print:
+            non_print_run += 1
+            if non_print_run >= min_run:
+                cut = i - non_print_run + 1
+        else:
+            # break the run only if we've already found a long enough tail
+            if cut < n:
+                break
+            non_print_run = 0
+    if cut >= n:
+        return None
+    head = text[:cut]
+    if not head:
+        return None
+    head_pr = sum(1 for c in head if _is_printable_char(c))
+    if head_pr / len(head) < 0.85:
+        return None
+    return cut
+
+
+def _trim_tail_garbage(current: str, ctx: AnalysisContext,
+                       exec_report: PluginExecutionReport,
+                       depth: int) -> str:
+    """Attempt a retry on the binary tail; else cleanly truncate.
+
+    Two-phase residual-obfuscation cleanup:
+      1. Detect a clean head + binary tail split.
+      2. Retry every decoder on the tail alone (one pass, non-recursive)
+         and prepend the head if that pass produces readable output.
+      3. Otherwise truncate the tail and record a trace note.
+    """
+    cut = _find_tail_garbage_start(current)
+    if cut is None:
+        return current
+    head, tail = current[:cut], current[cut:]
+
+    # Phase 1 — retry decoding on the tail (single non-recursive pass)
+    try:
+        tail_fp = fingerprint_compute(tail)
+        cands = DecoderRegistry.candidates(tail, tail_fp, ctx, top_n=None)
+        cands = [(p, d) for p, d in cands
+                 if getattr(p, "category", "") != "intelligence"]
+        for plugin, det in cands[:3]:
+            try:
+                res = plugin.decode(tail, det.args, ctx)
+            except Exception:
+                continue
+            if not res.output or res.output == tail:
+                continue
+            out_fp = fingerprint_compute(res.output)
+            if out_fp.printable_ratio >= 0.9 and out_fp.english_density >= 0.05:
+                new_current = head + res.output
+                step = TraceStep(
+                    layer=depth,
+                    decoder=f"{plugin.id} (tail-retry)",
+                    schema_version=plugin.schema_version,
+                    confidence=det.confidence,
+                    why=f"tail-retry: recovered {len(res.output)}B from binary tail",
+                    in_len=len(tail),
+                    out_len=len(res.output),
+                    exec_ms=0,
+                    preview=res.output[:200],
+                    args=det.args,
+                    sub_iocs=res.iocs,
+                    mitre_hints=res.mitre_hints,
+                    family_hints=res.family_hints,
+                    lolbas_hits=res.lolbas_hits,
+                    tradecraft=res.tradecraft,
+                )
+                ctx.trace.add_step(step)
+                exec_report.entries.append(PluginExecutionEntry(
+                    plugin=plugin.id, layer=depth, outcome="accepted",
+                    detect_confidence=det.confidence,
+                    detect_reason="tail-retry: residual-obfuscation cleanup",
+                    reason="tail successfully re-decoded", exec_ms=0,
+                    signals_emitted=bool(res.iocs or res.mitre_hints
+                                         or res.family_hints or res.lolbas_hits),
+                ))
+                return new_current
+    except Exception as exc:                                # pragma: no cover
+        log.warning("tail-retry pass raised: %s", exc)
+
+    # Phase 2 — no plugin recovered the tail: truncate.
+    exec_report.entries.append(PluginExecutionEntry(
+        plugin="residual-trim", layer=depth, outcome="accepted",
+        detect_confidence=1.0,
+        detect_reason=f"binary tail {len(tail)}B detected after clean head",
+        reason=f"truncated {len(tail)}B of non-printable residue",
+        exec_ms=0, signals_emitted=False,
+    ))
+    return head + f"\n[… {len(tail)} bytes of residual non-printable data truncated]"
 
 
 def _run_intelligence_pass(payload: str, fingerprint: Fingerprint,
@@ -572,6 +741,20 @@ class Orchestrator:
             depth += 1
 
         elapsed_ms = (time.monotonic_ns() - started) // 1_000_000
+
+        # RC2.2 — Residual-obfuscation cleanup pass.
+        # After the decode loop terminates, look for a clean-head + binary-tail
+        # split (typical when XOR brute recovers most but not all of the
+        # payload). Retry decoding on the tail; if no plugin can salvage it,
+        # cleanly truncate to keep the analyst output panel readable.
+        try:
+            trimmed = _trim_tail_garbage(current, ctx, exec_report, depth)
+            if trimmed != current:
+                current = trimmed
+                current_fp = fingerprint_compute(current)
+                ctx.trace.add_fingerprint(current_fp)
+        except Exception as exc:                                # pragma: no cover
+            log.warning("residual-trim pass raised: %s", exc)
 
         # RC2.1a — Post-decode intelligence pass.
         # After the decode chain terminates, run every `intelligence`-category

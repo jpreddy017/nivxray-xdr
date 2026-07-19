@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import re
 from typing import Any, Dict, List, Tuple
-
 from engine.decoder_base import BaseDecoder
 from engine.models import (
     AnalysisContext,
@@ -94,6 +93,53 @@ def _score(b: bytes) -> float:
     return _english_score(b) + bonus
 
 
+# English byte-frequency profile (per-character weights, unigram model).
+# Covers every ASCII letter + digit + common punctuation seen in real-world
+# payloads. Values scaled so the multi-byte column scorer can distinguish
+# real English from merely-printable garbage.
+_ENG_FREQ_WEIGHTS: Dict[int, int] = {
+    # Space is by far the most common byte in English commandlines
+    ord(' '): 25,
+    # Lower-case letters (Wikipedia English unigrams × 10, floored)
+    ord('e'): 12, ord('t'):  9, ord('a'):  8, ord('o'):  7,
+    ord('i'):  7, ord('n'):  7, ord('s'):  6, ord('h'):  6,
+    ord('r'):  6, ord('d'):  4, ord('l'):  4, ord('c'):  3,
+    ord('u'):  3, ord('m'):  3, ord('w'):  2, ord('f'):  2,
+    ord('g'):  2, ord('y'):  2, ord('p'):  2, ord('b'):  2,
+    ord('v'):  1, ord('k'):  1, ord('j'):  1, ord('x'):  1,
+    ord('q'):  1, ord('z'):  1,
+    # Digits + common commandline punctuation
+    ord('.'):  3, ord('/'):  3, ord('-'):  3, ord(':'):  2,
+    ord('\''): 2, ord('"'):  2, ord('('):  1, ord(')'):  1,
+    ord('\n'): 3, ord('\t'): 1,
+    # Digits — mild bump
+    **{d: 1 for d in range(ord('0'), ord('9') + 1)},
+}
+_ENG_FREQ_MAX = max(_ENG_FREQ_WEIGHTS.values())
+
+
+def _column_english_score(col: bytes) -> float:
+    """Frequency-weighted English score for a single XOR-column.
+
+    Multi-byte XOR cracking must rank keys on the LIKELIHOOD that the
+    decoded column matches English letter/space distribution, not merely
+    printable ASCII — otherwise many wrong keys tie at printable=1.0.
+    """
+    if not col:
+        return 0.0
+    printable = 0
+    weighted = 0
+    for b in col:
+        lb = b | 0x20 if 0x41 <= b <= 0x5A else b   # ASCII case-fold
+        weighted += _ENG_FREQ_WEIGHTS.get(lb, 0)
+        if 32 <= b < 127 or b in (9, 10, 13):
+            printable += 1
+    # Density normalized against the theoretical max (all bytes = ' ' → 25/byte)
+    density = weighted / (len(col) * _ENG_FREQ_MAX)
+    printable_ratio = printable / len(col)
+    return printable_ratio * 0.25 + density * 0.75
+
+
 def _crack_single_byte(data: bytes) -> Tuple[int, float, bytes]:
     best_k, best_s, best_p = 0, -1.0, data
     for k in range(256):
@@ -113,12 +159,46 @@ def _crack_multi_byte(data: bytes, keylen: int) -> Tuple[bytes, float, bytes]:
         best_k, best_s = 0, -1.0
         for kbyte in range(256):
             decoded = bytes(x ^ kbyte for x in col_bytes)
-            s = _english_score(decoded)
+            s = _column_english_score(decoded)
             if s > best_s:
                 best_s, best_k = s, kbyte
         key[col] = best_k
     plain = bytes(b ^ key[i % keylen] for i, b in enumerate(data))
-    return bytes(key), _score(plain), plain
+    best_score = _score(plain)
+
+    # Polish pass — cheap correction for near-miss columns. Per-column scoring
+    # sometimes picks a key byte off by a couple of bits because column-only
+    # scoring can't see whole-word signal. Fix by re-scanning each column
+    # against the full-plaintext scorer (which sees English word hits).
+    # Cost: 256 * keylen * passes * len(data)  — bounded and fast.
+    if keylen >= 2:
+        cur = bytearray(key)
+        for _ in range(3):
+            improved = False
+            for col in range(keylen):
+                original = cur[col]
+                col_best = original
+                col_best_score = best_score
+                for kb in range(256):
+                    if kb == original:
+                        continue
+                    cur[col] = kb
+                    trial = bytes(b ^ cur[i % keylen] for i, b in enumerate(data))
+                    s = _score(trial)
+                    if s > col_best_score:
+                        col_best_score = s
+                        col_best = kb
+                cur[col] = col_best
+                if col_best != original:
+                    best_score = col_best_score
+                    improved = True
+            if not improved:
+                break
+        key = cur
+        plain = bytes(b ^ key[i % keylen] for i, b in enumerate(data))
+        best_score = _score(plain)
+
+    return bytes(key), best_score, plain
 
 
 # --------------------------------------------------------------------------- #
@@ -199,7 +279,10 @@ class XorBruteDecoder(BaseDecoder):
     schema_version = "1.0"
 
     _MIN_LEN = 16
-    _MAX_KEYLEN = 4                         # multi-byte scan cap for perf
+    _MAX_KEYLEN = 8                         # multi-byte scan cap for perf
+    # Keylens 5–8 are only tried when the payload has enough bytes per column
+    # for scoring to be reliable — rule of thumb: ≥ 16 bytes per column.
+    _MIN_BYTES_PER_COLUMN = 16
 
     def detect(self, payload: str, fingerprint: Fingerprint, ctx: AnalysisContext) -> DetectResult:
         if len(payload) < self._MIN_LEN:
@@ -259,7 +342,11 @@ class XorBruteDecoder(BaseDecoder):
         best_keylen = 1
 
         # Try short repeating keys — cheap; keeps total under a few ms per KB.
+        # For keylen ≥ 5 we require ≥ _MIN_BYTES_PER_COLUMN samples per column
+        # so the per-column english_score is statistically meaningful.
         for kl in range(2, self._MAX_KEYLEN + 1):
+            if kl >= 5 and (len(b) // kl) < self._MIN_BYTES_PER_COLUMN:
+                continue
             k, s, p = _crack_multi_byte(b, kl)
             if s > best_score:
                 best_score, best_plain, best_key, best_keylen = s, p, k, kl

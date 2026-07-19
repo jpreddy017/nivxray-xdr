@@ -18,6 +18,7 @@ client keeps working; new frontends opt in.
 """
 from __future__ import annotations
 
+import json
 import logging
 from typing import Optional
 
@@ -35,6 +36,7 @@ from engine import (
 from engine.config import new_budget
 from engine.report import to_json, to_markdown, to_text
 from engine.report_pdf import to_pdf
+from engine.stix_exporter import analyst_report_to_stix
 
 log = logging.getLogger("nivx.routers.v2")
 
@@ -83,6 +85,8 @@ async def analyze_v2_report(
       md  (default)  → Markdown; content-type text/markdown
       json           → JSON; content-type application/json
       txt            → Plain text; content-type text/plain
+      pdf            → PDF; content-type application/pdf
+      stix           → STIX 2.1 bundle; content-type application/stix+json
     """
     if not req.input or not req.input.strip():
         raise HTTPException(status_code=400, detail="input must be non-empty")
@@ -105,6 +109,18 @@ async def analyze_v2_report(
         body = to_pdf(report)
         media = "application/pdf"
         filename = "nivxray-analyst-report.pdf"
+    elif fmt_norm == "stix":
+        analyst_email = getattr(user, "email", None) or (
+            user.get("email") if isinstance(user, dict) else "unknown@nivxforge"
+        )
+        bundle = analyst_report_to_stix(
+            report,
+            analyst_email=str(analyst_email or "unknown@nivxforge"),
+            input_preview=req.input,
+        )
+        body = json.dumps(bundle, indent=2).encode("utf-8")
+        media = "application/stix+json; version=2.1"
+        filename = "nivxray-analyst-report.stix.json"
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported fmt: {fmt}")
     return Response(
