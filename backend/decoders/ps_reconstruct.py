@@ -83,6 +83,22 @@ _RX_VAR_ASSIGN = re.compile(
 )
 
 
+# 7) `('a','b','c') -join ''` — join a quoted-string array with a separator.
+#    Also matches `'a','b','c' -join '.'` without wrapping parens.
+_RX_JOIN_ARRAY = re.compile(
+    r"""\(?\s*((?:(['"])(?:(?!\2).)*\2\s*,\s*){1,}(['"])(?:(?!\3).)*\3)\s*\)?\s*-\s*join\s*(['"])((?:(?!\4).)*)\4""",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+# 8) `"format" -f "arg1","arg2",...` — .NET format-string operator.
+#    Precision-first: only fire when format string uses {N} placeholders.
+_RX_FORMAT_OP = re.compile(
+    r"""(['"])((?:(?!\1).)*\{\d+\}(?:(?!\1).)*)\1\s*-\s*f\s*((?:(?:['"])(?:(?!['"]).)*(?:['"])\s*,?\s*)+)""",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
 def _int_from_token(tok: str) -> int:
     tok = tok.strip()
     if tok.lower().startswith("0x"):
@@ -227,6 +243,51 @@ def _expand_string_vars(text: str) -> Tuple[str, int]:
     return text, hits
 
 
+def _apply_join_array(text: str) -> Tuple[str, int]:
+    """Collapse `('a','b','c') -join 'sep'` into a single quoted literal."""
+    hits = 0
+
+    def _sub(m: re.Match) -> str:
+        nonlocal hits
+        elems_blob = m.group(1)
+        sep = m.group(5)
+        # Extract every quoted fragment from the element list
+        frags = re.findall(r"""(['"])((?:(?!\1).)*)\1""", elems_blob, re.DOTALL)
+        if len(frags) < 2:
+            return m.group(0)
+        joined = sep.join(f[1] for f in frags)
+        hits += 1
+        return "'" + joined.replace("'", "''") + "'"
+
+    return _RX_JOIN_ARRAY.sub(_sub, text), hits
+
+
+def _apply_format_operator(text: str) -> Tuple[str, int]:
+    """Apply `"{2}{0}{1}" -f "E","X","I"` .NET string.Format semantics."""
+    hits = 0
+
+    def _sub(m: re.Match) -> str:
+        nonlocal hits
+        fmt = m.group(2)
+        args_blob = m.group(3)
+        args = [f[1] for f in re.findall(r"""(['"])((?:(?!\1).)*)\1""",
+                                          args_blob, re.DOTALL)]
+        if not args:
+            return m.group(0)
+        # Substitute {N} placeholders
+        try:
+            def _slot(sm: re.Match) -> str:
+                idx = int(sm.group(1))
+                return args[idx] if 0 <= idx < len(args) else sm.group(0)
+            out = re.sub(r"\{(\d+)\}", _slot, fmt)
+        except Exception:                                # pragma: no cover
+            return m.group(0)
+        hits += 1
+        return "'" + out.replace("'", "''") + "'"
+
+    return _RX_FORMAT_OP.sub(_sub, text), hits
+
+
 class PowerShellReconstructDecoder(BaseDecoder):
     id = "ps-reconstruct"
     name = "PowerShell String Reconstruct"
@@ -252,6 +313,10 @@ class PowerShellReconstructDecoder(BaseDecoder):
             signals.append("ps-backtick")
         if _RX_REPLACE.search(payload):
             signals.append("ps-replace")
+        if _RX_JOIN_ARRAY.search(payload):
+            signals.append("ps-join-array")
+        if _RX_FORMAT_OP.search(payload):
+            signals.append("ps-format-op")
         if _RX_VAR_ASSIGN.search(payload):
             # Only count var-expansion as a signal if the variable is actually
             # referenced somewhere in the same payload.
@@ -299,6 +364,16 @@ class PowerShellReconstructDecoder(BaseDecoder):
         if n:
             total_hits += n
             notes.append(f"Applied {n} .Replace() call(s)")
+
+        text, n = _apply_join_array(text)
+        if n:
+            total_hits += n
+            notes.append(f"Collapsed {n} -join array(s)")
+
+        text, n = _apply_format_operator(text)
+        if n:
+            total_hits += n
+            notes.append(f"Applied {n} -f format operator(s)")
 
         text, n = _expand_string_vars(text)
         if n:
