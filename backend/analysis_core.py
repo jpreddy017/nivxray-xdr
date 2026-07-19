@@ -36,23 +36,30 @@ def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> 
       * MAX_ITER passes (safety cap, prevents runaway on adversarial inputs), OR
       * we reach raw shellcode (terminal state — no further decoding possible).
 
-    Concatenates the step lists across all iterations so the frontend sees the
-    full recipe (e.g. extract-payload → base64-decode → utf16le-decode
-    → extract-payload → base64-decode → utf16le-decode) as ONE chain.
+    RC2.2 (Jul 2026) — Orchestrator preflight
+    ----------------------------------------
+    Before entering the legacy smart/magic race, try the modern
+    Orchestrator (`engine.orchestrator`) which owns the RC2.2 plugin set
+    (`custom-hex-slash`, `nibble-swap`, `reverse-string`, `ps-reconstruct`,
+    `utf16-decode`, `data-uri-extract`, `ioc-extractor`, `python-exec`
+    wrapper, family plugins, etc). When it produces a meaningful chain
+    (≥2 layers AND a clean terminal state), we adopt its result directly
+    — same output shape, plus MITRE / LOLBAS / IOCs / verdict populated
+    from the orchestrator's post-decode intelligence pass.
 
-    ``analysis_mode`` controls the reasoning engine (Feb-2026):
-      * ``fast``      — deterministic core only, no linguistic reasoning
-                        or LLM tiebreak. Fastest, offline, cheapest.
-      * ``balanced``  — deterministic core + reasoning-engine trace attached
-                        to output for explainability. LLM only on tie.
-      * ``deep``      — same as balanced + LLM arbitration always available
-                        when top candidates score within tie threshold.
-
-    This is the "training" answer for multi-layer obfuscation: instead of
-    asking the analyst to paste Stage-N-output back into the input box, the
-    pipeline auto-recurses. Handles any depth of nested `FromBase64String`,
-    hex, gzip, XOR, ASCII-decimal, Base32, etc.
+    If the orchestrator can't do better than the legacy pipeline, we fall
+    through so nothing regresses.
     """
+    # ── RC2.2 · Orchestrator preflight ────────────────────────────────────
+    try:
+        from rc22_adapter import try_orchestrator_first
+        adopted = try_orchestrator_first(payload, analysis_mode=analysis_mode)
+        if adopted:
+            return adopted
+    except Exception:
+        # Never let the adapter break the pipeline — legacy always available
+        pass
+
     # ── Reasoning Engine — text-mode linguistic hypothesis pass ──────────
     # When mode is balanced/deep AND the input characterizes as ``text_like``
     # (mostly letters, low entropy, no structural magic), invoke the
