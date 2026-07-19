@@ -27,9 +27,11 @@ class Base32Decoder(BaseDecoder):
 
     def detect(self, payload: str, fp: Fingerprint, ctx: AnalysisContext) -> DetectResult:
         s = _WS.sub("", payload or "").upper()
-        if len(s) < 8 or len(s) % 8 != 0:
-            return DetectResult(confidence=0.0, why="Length must be multiple of 8 and ≥ 8")
-        if not _B32.match(s):
+        if len(s) < 8:
+            return DetectResult(confidence=0.0, why="Too short (< 8 non-ws chars)")
+        # Auto-pad to a multiple of 8 for the alphabet check + decode attempt.
+        padded = s + ("=" * ((-len(s)) % 8))
+        if not _B32.match(padded):
             return DetectResult(confidence=0.0, why="Non-base32 characters present")
         # Reject prose payloads (multiple whitespace-separated tokens)
         stripped_input = (payload or "").strip()
@@ -46,6 +48,8 @@ class Base32Decoder(BaseDecoder):
 
     def decode(self, payload: str, args: Dict[str, Any], ctx: AnalysisContext) -> PluginResult:
         s = _WS.sub("", payload or "").upper()
+        # Auto-pad to a multiple of 8 for the standard-library decoder.
+        s = s + ("=" * ((-len(s)) % 8))
         try:
             raw = _b64.b32decode(s, casefold=True)
         except Exception as exc:

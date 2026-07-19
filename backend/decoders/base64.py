@@ -51,16 +51,28 @@ class Base64Decoder(BaseDecoder):
                 confidence=0.35,
                 why="Ambiguous with hex — deferring to hex-decode",
             )
-        # Reject payloads that are actually English prose (multiple space-separated
-        # word-like tokens). Base64 blobs are single unbroken alphabet runs; if the
-        # original has multiple whitespace-separated tokens, it's almost always text.
-        stripped_input = (payload or "").strip()
-        internal_ws_tokens = len(re.split(r"\s+", stripped_input)) if stripped_input else 0
-        if internal_ws_tokens > 1:
+        # Prefer base32 when the payload uses only its strict alphabet
+        # (A-Z + 2-7). Base64 also accepts these chars, but if we see zero
+        # lowercase, zero digits outside 2-7, and zero '+/', the payload is
+        # unambiguously Base32.  Defer to base32-decode.
+        if re.match(r"^[A-Z2-7]+=*$", s):
             return DetectResult(
-                confidence=0.05,
-                why=f"Contains internal whitespace ({internal_ws_tokens} tokens) — likely prose",
+                confidence=0.30,
+                why="Ambiguous with Base32 (only A-Z + 2-7) — deferring to base32-decode",
             )
+        # Reject payloads that are actually English prose (word-like tokens with
+        # spaces). Real Base64 CAN contain newline wrapping (MIME wraps at 76
+        # chars, PEM certificates, HTTP responses) but never space separators.
+        stripped_input = (payload or "").strip()
+        if stripped_input:
+            # Space-separated tokens → prose. Reject.
+            if re.search(r" ", stripped_input) or re.search(r"\t", stripped_input):
+                return DetectResult(
+                    confidence=0.05,
+                    why="Contains internal spaces — likely prose, not base64",
+                )
+            # Newline-only whitespace → MIME/PEM style multi-line base64. Accept.
+            # `s` was already computed with all whitespace stripped upstream.
         conf = 0.85
         urlsafe = bool(_URLSAFE.match(s) and not _STD.match(s))
         return DetectResult(

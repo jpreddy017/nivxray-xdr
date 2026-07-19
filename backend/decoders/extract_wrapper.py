@@ -73,11 +73,38 @@ _RX_NET_WEBCLIENT = re.compile(
 )
 
 
+def _strip_cmd_carets(text: str) -> str:
+    """CMD's ^ is a line-continuation/escape character; when parsed, CMD removes
+    every unescaped ^ from the command line. Real attackers use it to obfuscate
+    keywords like p^ow^ER^s^HE^LL. This mimics CMD's parser: strip lone ^ that
+    aren't preceded by another ^."""
+    if "^" not in text:
+        return text
+    out = []
+    i = 0
+    while i < len(text):
+        c = text[i]
+        if c == "^" and i + 1 < len(text):
+            out.append(text[i + 1])
+            i += 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
 # --------------------------------------------------------------------------- #
 # Wrapper strategies (ordered by specificity)
 # --------------------------------------------------------------------------- #
 def _try_wrappers(payload: str) -> Tuple[str, str, List[MitreHint], List[LolbasHit]]:
     """Return (inner, wrapper_name, mitre_hints, lolbas_hits) or ("", "", [], [])."""
+    # 0) Normalize CMD ^-escape obfuscation before pattern matching so
+    #    `cmd /c p^ow^ER^s^HE^LL -e <b64>` is seen as `powershell -e <b64>`.
+    #    We keep the original for the FromBase64String branch (which is inside
+    #    quotes and doesn't use ^-escapes), and use the normalized form for
+    #    the cmd / powershell shell-argument patterns.
+    normalized = _strip_cmd_carets(payload) if "^" in payload else payload
+
     # 1) [Convert]::FromBase64String('...') is the most specific
     m = _RX_FROM_B64.search(payload)
     if m:
@@ -93,8 +120,8 @@ def _try_wrappers(payload: str) -> Tuple[str, str, List[MitreHint], List[LolbasH
         ], [LolbasHit(binary="powershell.exe", technique_id="T1059.001",
                       evidence="[Convert]::FromBase64String wrapper")]
 
-    # 2) powershell -EncodedCommand
-    m = _RX_PS_ENCODED.search(payload)
+    # 2) powershell -EncodedCommand (works on caret-stripped payload too)
+    m = _RX_PS_ENCODED.search(normalized)
     if m:
         return m.group(1), "PowerShell -EncodedCommand", [
             MitreHint(id="T1059.001", technique="PowerShell",
@@ -143,8 +170,8 @@ def _try_wrappers(payload: str) -> Tuple[str, str, List[MitreHint], List[LolbasH
                       evidence="mshta vbscript: wrapper")]
 
     # 6) powershell -Command
-    m = _RX_PS_CMD.search(payload)
-    if m and m.group(1).strip() != payload.strip():
+    m = _RX_PS_CMD.search(normalized)
+    if m and m.group(1).strip() != normalized.strip():
         return m.group(1).strip(), "PowerShell -Command", [
             MitreHint(id="T1059.001", technique="PowerShell",
                       tactic="Execution",
@@ -153,8 +180,8 @@ def _try_wrappers(payload: str) -> Tuple[str, str, List[MitreHint], List[LolbasH
                       evidence="-Command parameter")]
 
     # 7) cmd /c ...
-    m = _RX_CMD_C.search(payload)
-    if m and m.group(1).strip() != payload.strip():
+    m = _RX_CMD_C.search(normalized)
+    if m and m.group(1).strip() != normalized.strip():
         return m.group(1).strip(), "cmd /c", [
             MitreHint(id="T1059.003", technique="Windows Command Shell",
                       tactic="Execution",
