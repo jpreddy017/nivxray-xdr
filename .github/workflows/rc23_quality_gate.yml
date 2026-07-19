@@ -1,0 +1,68 @@
+name: RC2.3 Quality Gate
+
+on:
+  pull_request:
+    branches: [main, feature/rc2]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/rc23_quality_gate.yml'
+  push:
+    branches: [main, feature/rc2]
+    paths:
+      - 'backend/**'
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install brotli zstandard
+
+      - name: Unit tests — RC2.3 delta scope
+        working-directory: backend
+        run: |
+          python -m pytest \
+            tests/test_rc22_xor8_lolbas_stix.py \
+            tests/test_meterpreter_gzip_xor_stager.py \
+            tests/test_engine_phase_a.py \
+            tests/test_rc22_workspace_adapter.py \
+            -q --no-header
+
+      - name: RC2.3 chain-completeness benchmark (release gate)
+        working-directory: backend
+        run: |
+          # Fail if chain_complete drops below RC2.3 Stable baseline (77.4%)
+          # or if any false-positive IOC is introduced.
+          python -m tests.rc23_benchmark.ci_gate \
+            --min-chain-pct 77.4 \
+            --max-fp 0
+
+      - name: Save benchmark output as artifact
+        if: always()
+        working-directory: backend
+        run: |
+          python -m tests.rc23_benchmark.run_benchmark \
+            --json rc23_benchmark_result.json || true
+
+      - name: Upload benchmark artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc23-benchmark-result
+          path: backend/rc23_benchmark_result.json
+          if-no-files-found: warn
