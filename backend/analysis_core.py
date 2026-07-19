@@ -908,7 +908,31 @@ async def ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdi
                                    persona: Optional[Dict[str, Any]] = None,
                                    provider: Optional[Dict[str, Any]] = None,
                                    playbook: str = ""):
-    """Single LLM call producing rich narrative description + verdict JSON."""
+    """Single LLM call producing rich narrative description + verdict JSON.
+
+    v1.6.1 — SHA1 response cache. The /api/analyze route was re-hitting
+    Claude for identical inputs and timing out at 55s every time. Now the
+    exact (input, output, want_verdict, want_describe) tuple is cached in
+    `db.ai_describe_cache` for 30 days → instant returns for repeat cases
+    (e.g. re-opening a saved workspace case).
+    """
+    import hashlib as _hl
+    _key_src = "|".join([
+        (inp or "")[:2000], (out or "")[:2000],
+        str(bool(want_verdict)), str(bool(want_describe)),
+        (playbook or "")[:200],
+    ])
+    _cache_key = _hl.sha1(_key_src.encode("utf-8", errors="replace")).hexdigest()
+    try:
+        from deps import db as _db
+        _cached = await _db.ai_describe_cache.find_one({"_id": _cache_key})
+        if _cached and _cached.get("response"):
+            r = dict(_cached["response"])
+            r["cache_hit"] = True
+            return r
+    except Exception:
+        pass
+
     parts = []
     if want_describe:
         parts.append(
@@ -1012,11 +1036,23 @@ async def ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdi
         f"OSINT ENRICHMENT:\n{json.dumps(osint)[:2500]}\n\n"
         "Return only JSON."
     )
-    return await llm_json(
+    resp = await llm_json(
         "describe-" + str(datetime.now(timezone.utc).timestamp()),
         system, prompt,
         provider=llm_provider, model=llm_model,
     )
+    # v1.6.1 — persist to cache so repeat re-runs of the same case return
+    # instantly instead of paying the 15-55s Claude latency again.
+    try:
+        from deps import db as _db
+        await _db.ai_describe_cache.update_one(
+            {"_id": _cache_key},
+            {"$set": {"response": resp, "cached_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True,
+        )
+    except Exception:
+        pass
+    return resp
 
 
 # ============================================================================

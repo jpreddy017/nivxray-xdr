@@ -22,7 +22,51 @@ core decoder. Everything must work offline.
 
 ## Sprint plan (2 weeks)
 
-### Priority 1 — Recursive Decode Engine (Session 2)
+## Session 2 (LOCKED · arch-first before decoder expansion)
+
+Per case "Need_analysis" review — order MUST be:
+
+### Phase 2A · Architecture (do first, non-negotiable)
+1. **Plugin-based decoder framework** — every decoder implements `detect()` +
+   `decode()` contract, auto-registered via `decoders/__init__.py`
+2. **Recursive decode engine v2** — iterates `all_plugins()` by
+   `detect()` confidence, hard recursion cap (12) + wall-time cap (5s)
+3. **Decoder Trace Engine** — every layer emits standard record:
+   `{decoder_name, detect_confidence, input_size, output_size,
+     exec_time_ms, preview_200, full_output, why_selected, warnings}`
+
+### Phase 2B · Analyst-friendly "BROKEN" recovery flow
+When base64 (or any codec) fails structurally, do NOT show bare "BROKEN".
+Emit graceful diagnostic:
+- ⚠️ Invalid Base64 detected (X chars)
+- Recovery attempts tried:
+  * Strip whitespace/newlines
+  * Fix missing padding (=)
+  * Trim 1-3 trailing chars if length becomes 4k/4k+2/4k+3
+  * Re-detect all other codecs (maybe not base64 at all)
+- Only if ALL recovery fails → clear "why decoding stopped" reason
+
+### Phase 2C · Decoder coverage (AFTER 2A + 2B)
+- Base58, Base85, Brotli, LZMA (currently missing)
+- Nested archive extraction
+
+### Phase 2D · Frontend Decoder Trace UI
+Each layer row must show:
+- Decoder name + category
+- Detection confidence bar
+- Input size / Output size (side by side)
+- Execution time (ms)
+- Preview (first 200 chars, monospace)
+- 📋 COPY button
+- "Why selected" tooltip
+- Expandable "full output" viewer
+
+## Non-negotiables (reinforced)
+- AI is opt-in, never the core decoder
+- Deterministic engine is the product
+- Every new decoder ships with pytest unit tests
+- Regression lock (15 tests, growing) runs before every deploy
+- Backward compatibility — do NOT remove existing features
 - Port existing decoders into `decoders/*.py` plugin files:
   base32, base58, base85, hex, xor, gzip, zlib, lzma, brotli,
   utf16, reverse, rot13, rot47, url, html, unicode, decimal, octal

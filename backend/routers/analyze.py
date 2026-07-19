@@ -65,6 +65,21 @@ async def analyze(body: AnalyzeIn, user=Depends(get_current_user)):
     async def _ai_leg():
         if not (body.use_ai_verdict or body.describe):
             return None
+        # v1.6.1 — cache the "timeout" negative result so repeated attempts
+        # skip the wait entirely. TTL 10 min.
+        import hashlib as _hl
+        _neg_key = "neg:" + _hl.sha1(
+            ((body.input or "")[:2000] + "|" + (body.output or "")[:2000]).encode("utf-8", errors="replace")
+        ).hexdigest()
+        try:
+            _neg = await db.ai_describe_cache.find_one({"_id": _neg_key})
+            if _neg:
+                from datetime import datetime as _dt
+                age = (_dt.utcnow() - _dt.fromisoformat(_neg["cached_at"].replace("Z",""))).total_seconds()
+                if age < 600:  # 10 min TTL
+                    return {"error": f"AI timed out on this exact input {int(age)}s ago — try again later or edit input"}
+        except Exception:
+            pass
         try:
             return await asyncio.wait_for(
                 ai_describe_and_verdict(
@@ -75,7 +90,18 @@ async def analyze(body: AnalyzeIn, user=Depends(get_current_user)):
                 timeout=_AI_DEADLINE_S,
             )
         except asyncio.TimeoutError:
-            return {"error": f"AI timed out (>{int(_AI_DEADLINE_S)}s) — narrative skipped"}
+            # Persist the negative result so we don't re-attempt for 10 min.
+            try:
+                from datetime import datetime as _dt
+                await db.ai_describe_cache.update_one(
+                    {"_id": _neg_key},
+                    {"$set": {"response": None, "timeout": True,
+                               "cached_at": _dt.utcnow().isoformat()}},
+                    upsert=True,
+                )
+            except Exception:
+                pass
+            return {"error": f"AI timed out (>{int(_AI_DEADLINE_S)}s) — narrative skipped, cached for 10 min"}
         except Exception as e:
             return {"error": str(e)}
 
