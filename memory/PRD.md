@@ -7,7 +7,37 @@ core decoder. Everything must work offline.
 
 ---
 
-## 🟢 RC2.3 · READY-TO-SHIP (2026-07-19) — Deterministic Codec Expansion + PS Reconstruction
+## 🟢 RC2.4 · UI POLISH · DELIVERED (2026-07-19)
+
+**Branch:** `feature/rc2` · **Ships on:** next Emergent deploy
+**Scope:** UI/frontend only — engine untouched, zero decoder changes
+
+**Fixed (both bugs the user saw on prod screenshot):**
+
+1. **Terminal-decode banner** replaces binary-tail garbage in TEXT view
+   - New `detectTerminalTail()` heuristic (`OutputView.jsx`)
+   - TEXT view now shows only the clean head
+   - Raw bytes remain fully in HEX / B64 views (evidence preserved)
+   - Amber banner: "TERMINAL DECODE STATE · Partial reconstruction complete · Remaining N bytes appear binary/encrypted/unsupported"
+   - "INSPECT HEX" button pivots analyst directly to raw view
+
+2. **"conf 0/100" misleading display** — fixed
+   - Chain-mode stage header now shows `conf=n/a · decoded` when stage returned content but no confidence value
+   - Flat-decode status pill: same treatment
+   - No longer suggests "0% confidence" when engine actually recovered commands + IOCs + LOLBAS + MITRE
+
+**Commits:**
+- `87c091d` feat(ui/RC2.4): terminal-decode banner
+- `da9d2b9` fix(ui/RC2.4): stop showing misleading 'conf 0/100' when decode succeeded
+
+**Deferred to RC2.5+ (per user roadmap, `/app/memory/ROADMAP.md`):**
+- Separate "Recovered Payload" panel from Investigation Summary
+- Dedicated Recovered Commands card with copy button
+- Full Decode vs Threat confidence split (currently unified fix)
+
+---
+
+
 
 **Branch:** `feature/rc2` · **Tag proposal:** `v1.0.0-RC2.3`
 **Approach:** measurement-first; every change gated by the RC2.3 chain-completeness benchmark
