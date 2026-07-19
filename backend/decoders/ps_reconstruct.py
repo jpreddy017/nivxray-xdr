@@ -99,6 +99,30 @@ _RX_FORMAT_OP = re.compile(
 )
 
 
+# 9) `[ScriptBlock]::Create('command')` or `[scriptblock]::Create("command")`
+#    Unwrap the string literal argument — the resulting block IS the command.
+#    Used by RC2.6 P0.3 to peel scriptblock wrappers before downstream passes.
+_RX_SCRIPTBLOCK_CREATE = re.compile(
+    r"""\[\s*(?:System\.Management\.Automation\.)?ScriptBlock\s*\]\s*::\s*Create\s*\(\s*(['"])((?:(?!\1).)*)\1\s*\)""",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+# 10) IEX-of-variable / invocation-of-variable — the second half of the
+#     reconstruction-and-invoke dance:
+#         $a = ('I','E','X') -join ''; & $a  ...
+#         $c = [char]73+[char]69+[char]88; IEX $c ...
+#     We detect this to (a) raise ps-reconstruct detection confidence so it
+#     wins the orchestrator race against extract-wrapper, and (b) after
+#     var-expansion, rewrite `& $var` / `IEX $var` to `& 'RESOLVED'` /
+#     `IEX 'RESOLVED'` so the reconstructed keyword surfaces in the final
+#     output for MITRE / IOC extractors.
+_RX_INVOKE_VAR = re.compile(
+    r"""(?:^|[\s;&|\(])(?:&|Invoke-Expression|IEX)\s*\(?\s*\$(\w+)\b""",
+    re.IGNORECASE,
+)
+
+
 def _int_from_token(tok: str) -> int:
     tok = tok.strip()
     if tok.lower().startswith("0x"):
@@ -288,6 +312,61 @@ def _apply_format_operator(text: str) -> Tuple[str, int]:
     return _RX_FORMAT_OP.sub(_sub, text), hits
 
 
+def _unwrap_scriptblock_create(text: str) -> Tuple[str, int]:
+    """RC2.6 P0.3.b — `[ScriptBlock]::Create('cmd')` → `'cmd'`.
+
+    Keeps the surrounding structure so if the block is chained with
+    `.Invoke()` or piped into `&`, the next pass still sees it as a
+    string literal ready for var-expansion / MITRE extraction.
+    """
+    hits = 0
+
+    def _sub(m: re.Match) -> str:
+        nonlocal hits
+        hits += 1
+        inner = m.group(2)
+        return "'" + inner.replace("'", "''") + "'"
+
+    return _RX_SCRIPTBLOCK_CREATE.sub(_sub, text), hits
+
+
+def _reveal_invoked_var(text: str) -> Tuple[str, int]:
+    """RC2.6 P0.3.c — rewrite `& $var` / `IEX $var` / `Invoke-Expression $var`
+    to embed the resolved literal INLINE alongside the invocation.
+
+    Only fires when `$var` was assigned to a plain string literal in the
+    same payload. Original invocation is preserved (so downstream analysts
+    still see the variable reference); the resolved literal is appended in
+    a comment-like marker so IOC / MITRE extractors can see keywords like
+    `IEX` in the final output.
+    """
+    assigns: Dict[str, str] = {}
+    for m in _RX_VAR_ASSIGN.finditer(text):
+        assigns[m.group(1)] = m.group(3)
+    if not assigns:
+        return text, 0
+
+    hits = 0
+    pieces: List[str] = []
+    last = 0
+    for m in _RX_INVOKE_VAR.finditer(text):
+        name = m.group(1)
+        if name not in assigns:
+            continue
+        pieces.append(text[last:m.end()])
+        # Emit the resolved literal after the invocation so it appears in
+        # final output for keyword surfacing (IEX / powershell / cmd etc.)
+        # without corrupting the syntax if analysts copy-paste.
+        resolved = assigns[name]
+        pieces.append(f" <#=> '{resolved.replace(chr(39), chr(39)*2)}' <#=>")
+        last = m.end()
+        hits += 1
+    if hits == 0:
+        return text, 0
+    pieces.append(text[last:])
+    return "".join(pieces), hits
+
+
 class PowerShellReconstructDecoder(BaseDecoder):
     id = "ps-reconstruct"
     name = "PowerShell String Reconstruct"
@@ -317,6 +396,8 @@ class PowerShellReconstructDecoder(BaseDecoder):
             signals.append("ps-join-array")
         if _RX_FORMAT_OP.search(payload):
             signals.append("ps-format-op")
+        if _RX_SCRIPTBLOCK_CREATE.search(payload):
+            signals.append("ps-scriptblock")
         if _RX_VAR_ASSIGN.search(payload):
             # Only count var-expansion as a signal if the variable is actually
             # referenced somewhere in the same payload.
@@ -325,10 +406,24 @@ class PowerShellReconstructDecoder(BaseDecoder):
                 if re.search(rf"\${re.escape(name)}(?![A-Za-z0-9_=])", payload):
                     signals.append("ps-var-expand")
                     break
+        # RC2.6 P0.3 — invocation-of-variable pattern. When we see BOTH a
+        # reconstruction signal AND `& $var` / `IEX $var`, this is the
+        # canonical reconstruct-then-invoke dance — bump confidence high
+        # enough to beat extract-wrapper (0.65) so the reconstructed
+        # keyword surfaces in the final output.
+        invoke_var_present = bool(_RX_INVOKE_VAR.search(payload))
+        if invoke_var_present and signals:
+            signals.append("ps-invoke-var")
         if not signals:
             return DetectResult(confidence=0.0, why="No PS reconstruction pattern")
-        # Confidence: single mild signal is 0.6, multiple is 0.9
-        conf = 0.6 if len(signals) == 1 else 0.9
+        # Confidence: single mild signal is 0.6; two = 0.9; the
+        # reconstruct-then-invoke combo lifts to 0.85 (>0.65 extract-wrapper).
+        if invoke_var_present and len(signals) >= 2:
+            conf = 0.9
+        elif len(signals) >= 2:
+            conf = 0.9
+        else:
+            conf = 0.6
         return DetectResult(
             confidence=conf,
             why=f"PowerShell reconstruction signals: {', '.join(signals)}",
@@ -339,6 +434,14 @@ class PowerShellReconstructDecoder(BaseDecoder):
         text = payload
         total_hits = 0
         notes: List[str] = []
+
+        # RC2.6 P0.3.b — Peel ScriptBlock wrappers first so the inner
+        # command becomes a plain string literal that later passes can
+        # reason about (var expansion, .Replace, etc.).
+        text, n = _unwrap_scriptblock_create(text)
+        if n:
+            total_hits += n
+            notes.append(f"Unwrapped {n} [ScriptBlock]::Create(...) call(s)")
 
         text, n = _replace_char_arrays(text)
         if n:
@@ -386,6 +489,14 @@ class PowerShellReconstructDecoder(BaseDecoder):
         if n:
             total_hits += n
             notes.append(f"Applied {n} additional .Replace() call(s) after var expansion")
+
+        # RC2.6 P0.3.c — After all reconstruction is done, surface the
+        # resolved literal alongside `& $var` / `IEX $var` invocations so
+        # keywords like IEX / powershell reach the IOC + MITRE extractors.
+        text, n = _reveal_invoked_var(text)
+        if n:
+            total_hits += n
+            notes.append(f"Revealed {n} invoked-variable literal(s)")
 
         if total_hits == 0:
             return PluginResult(output=payload, notes=["ps-reconstruct: no changes"])

