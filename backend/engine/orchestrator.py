@@ -40,6 +40,7 @@ from .registry import DecoderRegistry
 log = logging.getLogger("nivx.engine.orchestrator")
 
 _TERMINAL_ENGLISH = 0.7
+_TERMINAL_FAMILY_CONFIDENCE = 0.8
 _IMPROVEMENT_EPS = 0.02
 
 # Weight table for verdict/risk aggregation (Phase A — keep simple, tune later)
@@ -102,7 +103,13 @@ def _aggregate_findings(trace: List[TraceStep]) -> Findings:
         risk += _SEVERITY_WEIGHTS.get(tc.severity, 5)
     risk += 8 * len(findings.mitre_techniques)
     risk += 4 * len(findings.lolbas)
-    risk += 20 if findings.family.confidence >= 0.7 else 0
+    # Family-match is the strongest deterministic signal — weight accordingly
+    if findings.family.confidence >= 0.8:
+        risk += 55
+    elif findings.family.confidence >= 0.7:
+        risk += 35
+    elif findings.family.confidence >= 0.5:
+        risk += 15
     risk += 4 * (len(findings.iocs.urls) + len(findings.iocs.ips) + len(findings.iocs.domains))
     findings.risk_score = min(100, risk)
 
@@ -209,6 +216,23 @@ class Orchestrator:
                     f"english_density={current_fp.english_density:.2f} ≥ {_TERMINAL_ENGLISH}"
                 )
                 break
+
+            # Terminal: previous step already identified a high-confidence family
+            # (e.g. Meterpreter shellcode prologue). Further decoding would waste
+            # budget and re-emit duplicate signals.
+            if ctx.trace.steps:
+                last_step = ctx.trace.steps[-1]
+                for fh in last_step.family_hints:
+                    if fh.confidence >= _TERMINAL_FAMILY_CONFIDENCE:
+                        terminal = "family-identified"
+                        stopped_reason = (
+                            f"Family '{fh.family}' identified with "
+                            f"{fh.confidence * 100:.0f}% confidence — "
+                            "stopping recursion at terminal state."
+                        )
+                        break
+                if terminal == "family-identified":
+                    break
 
             cands = DecoderRegistry.candidates(
                 current, current_fp, ctx, top_n=ctx.budget.max_branches
