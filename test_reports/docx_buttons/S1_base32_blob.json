@@ -1,0 +1,708 @@
+{
+  "sample": "S1_base32_blob",
+  "payload": "GQ4SANJQEA2TIIBTGIQDIOJAGUYCANJSEAZTEIBUHEQDIOBAGQ4SAMZSEA2TIIBVGMQDGMRAGQ4SANJQEA2TAIBTGIQDIOJAGQ4CANJTEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBUHAQDKNBAGMZCANBZEA2TAIBVGIQDGMRAGQ4SANJTEA2TGIBTGIQDKNJAGQ4SAMZSEA2DSIBVGEQDKMBAGMZCANBZEA2TAIBVGQQDGMRAGU2CANJREAZTEIBUHEQDKMZAGQ4CAMZSEA2DSIBVGUQDKMBAGMZCANBZEA2TAIBVGUQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGUZCANJREAZTEIBVGQQDIOJAGMZCANBZEA2TEIBVGAQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGU2CANBYEAZTEIBUHEQDKMBAGUZSAMZSEA2DSIBVGIQDKMBAGMZCANJUEA2TAIBTGIQDIOJAGUZCANJSEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGAQDKNBAGMZCANJUEA2DSIBTGIQDIOJAGUZSANJSEAZTEIBUHEQDKMZAGU2CAMZSEA2DSIBVGEQDKMBAGMZCANBZEA2TAIBVGQQDGMRAGQ4SANJSEA2TCIBTGIQDKNBAGUZSAMZSEA2DSIBUHEQDKMZAGMZCANBZEA2TAIBVGMQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGQ4SANBYEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGMQDKMZAGMZCANBZEA2TGIBUHAQDGMRAGQ4SANJTEA2DSIBTGIQDIOJAGUZCANBZEAZTEIBUHEQDKMBAGUZSAMZSEA2DSIBUHEQDKMBAGMZCANJUEA2TGIBTGIQDIOJAGUYCANJVEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBVGIQDKMRAGMZCANBZEA2DQIBVGUQDGMRAGQ4SANJSEA2DSIBTGIQDKNBAGQ4CAMZSEA2DSIBVGMQDKMRAGMZCANBZEA2DSIBUHEQDGMRAGQ4SANJQEA2TGIBTGIQDIOJAGUZSANJTEAZTEIBVGUQDIOJAGMZCANBZEA2TGIBUHAQDGMRAGQ4SANJQEA2TKIBTGIQDIOJAGQ4CANJTEAZTEIBVGQQDIOJAGMZCANBZEA2TKIBVGAQDGMRAGQ4SANJQEA2TCIBTGIQDIOJAGUYCANJTEAZTEIBUHEQDKMZAGQ4CAMZSEA2DSIBVGQQDKMJAGMZCANBZEA2TEIBVGIQDGMRAGQ4SANJTEA2TGIBTGIQDIOJAGUYCANJQEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGAQDIOJAGMZCANBZEA2TGIBVGMQDGMRAGQ4SANJUEA2TEIBTGIQDIOJAGUZCANBZEAZTEIBUHEQDKMBAGU2CAMZSEA2TIIBUHAQDGMRAGU2CANJTEAZTEIBVGQQDKMBAGMZCANBZEA2TAIBVGUQDGMRAGQ4SANJTEA2TCIBTGIQDIOJAGUZCANJSEAZTEIBUHEQDKMBAGU2SAMZSEA2DSIBVGIQDIOJAGMZCANJUEA2DQIBTGIQDIOJAGUZSANJSEAZTEIBUHEQDIOJAGQ4CAMZSEA2DSIBVGIQDKMBAGMZCANBZEA2DQIBVGIQDGMRAGQ4SANBYEA2TAIBTGIQDIOJAGQ4SANJQEAZTEIBUHEQDKMBAGUYCAMZSEA2TIIBUHAQDGMRAGU2CANJTEAZTEIBVGQQDKMBAGMZCANBZEA2TCIBUHEQDGMRAGU2CANJQEAZTEIBVGQQDKMZAGMZCANBZEA2DSIBVGEQDGMRAGQ4SANJSEA2TAIBTGIQDIOJAGQ4CANJUEAZTEIBUHEQDKMZAGUYSAMZSEA2DSIBVGUQDKMBAGMZCANBZEA2TAIBVGMQDGMRAGQ4SANJTEA2TIIBTGIQDIOJAGQ4SANJUEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBVGAQDKMZAGMZCANBZEA2TKIBVGAQDGMRAGQ4SANJQEA2DSIBTGIQDKNJAGQ4Q",
+  "smart": {
+    "recipe": [
+      {
+        "op": "hex-or-b64-decode",
+        "args": {},
+        "reason": "Applied hex-or-b64-decode"
+      },
+      {
+        "op": "xor-bruteforce-256",
+        "args": {},
+        "reason": "Applied xor-bruteforce-256"
+      }
+    ],
+    "output": "\u2500\u2500\u2500\u2500 BLIND_XOR_SINGLE_BYTE (v1.2.0) \u2500\u2500\u2500\u2500\nInput encoding : base64\nRaw bytes      : 1533\nXOR key found  : 0x54  (score 1.18 \u00b7 baseline 0.35)\nFirst 32 bytes : 4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810\nPayload shape  : binary\nDecoded        :\n\u26a0 Binary payload detected \u2014 PE / .exe / .dll (Windows executable)\n    magic: b'MZ'   size: 1533 bytes\n    hex head (64B): 4d5a465486044459c774d4074cd05774b6144d125654860644520744d40048105774b4144d5a465492064459c774d4014c90574c90144d5a465486044459c754\n    (switch OUTPUT view to HEX to inspect further; not printable as text)\n\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      archetype:BLIND_XOR_SINGLE_BYTE \u00b7 conf 100/100\n  Chain:       hex-or-b64-decode \u2192 xor-bruteforce-256\n\n  MITRE ATT&CK\n    T1027        \u00b7 Defense Evasion\n\n  IOCs\n    SHA-256   4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Matched named wrapper archetype: Blind single-byte XOR brute-force \u2014 tries all 256 keys on hex/base64 ciphertext, picks the winner by printable-ratio + magic-byte + English-keyword scoring."
+    ],
+    "detected_type": null,
+    "engine": "archetype:BLIND_XOR_SINGLE_BYTE",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "hex-or-b64-decode",
+        "args": {},
+        "reason": "Applied hex-or-b64-decode",
+        "output_preview": "\u0019\u000e\u0012\u0000\ufffdP\u0010\r\ufffd \ufffdS\u0018\ufffd\u0003 \ufffd@\u0019F\u0002\u0000\ufffdR\u0010\u0006S\u0010\ufffdT\u001cD\u0003 \ufffd@\u0019\u000e\u0012\u0000\ufffdR\u0010\r\ufffd \ufffdU\u0018\ufffd\u0003\u0018\ufffd@\u0019\u000e\u0012\u0000\ufffdP\u0010\r\ufffd\u0000\ufffdS\u0018\ufffd\u0003 \ufffd@\u0019\u000e\u0002\u0000\ufffdS\u0010\u0006S\u0010\ufffdT\u001cD\u0003(\ufffd@\u0019FB\u0000\ufffdR\u0010\r\ufffdH\ufffdT\u001c\u0004\u0003(\ufffd@\u0018\ufffdB\u0000\ufffdY\u0010\r\ufffd\u0000\ufffdU\u0018\ufffd\u0003\u0018\ufffd@\u0019\u000e\u0012\u0000\ufffdS\u0010\r\ufffd\u0018\ufffdS\u0018\ufffd\u0003(\ufffd@\u0019\u000e\u0012\u0000\ufffdR\u0010\r\ufffdH\ufffdU\u0018D\u0003(\ufffd@\u0018\ufffdB\u0000\ufffdY\u0010\r\ufffd\u0000\ufffdU\u0019\u0004\u0003\u0018\ufffd@\u0019M\ufffd\u0000\ufffdQ\u0010\u0006S\u0010\ufffdT\u001cD\u0003(\ufffd@\u0019\u000e\u0002\u0000\ufffdR\u0010\r\ufffdH\ufffdU\u0019D\u0003(\ufffd@\u0018\ufffdB\u0000\ufffdY\u0010\r\ufffd\u0000\ufffdU\u0019D\u0003\u0018\ufffd@\u0019\u000e\u0012\u0000\ufffdS\u0010\r\ufffd\u0010\ufffdS\u0018\ufffd\u0003 \ufffd@\u0019FB\u0000\ufffdQ\u0010\u0006S\u0010\ufffdU\u0019\u0004\u0003 \ufffd@\u0018\ufffdB\u0000\ufffdY\u0010\r\ufffd\u0010\ufffdU\u0018\u0004\u0003\u0018\ufffd@\u0019\u000e\u0012\u0000\ufffdS\u0010\r\ufffd\u0010\ufffdS\u0018\ufffd\u0003 \ufffd@\u0019M\ufffd\u0000\ufffdX\u0010\u0006S\u0010\ufffdT\u001cD\u0003(\ufffd@\u0019FR\u0000\ufffdR\u0010\r\ufffdH\ufffdU\u0018\ufffd\u0003(\ufffd@\u0018\ufffdB\u0000\ufffdT\u0010\r\ufffd\u0000\ufffdS\u0018\ufffd\u0003 \ufffd@\u0019FB\u0000\ufffdR\u0010\u0006S\u0010\ufffdT\u001cD\u0003(\ufffd@\u0019FB\u0000\ufffdR\u0010\r\ufffdH\ufffdU\u0018\u0004\u0003(\ufffd@\u0018\ufffdB\u0000",
+        "output_length": 1533,
+        "evidence": {
+          "encoding": "hex-or-b64-decode",
+          "op": "hex-or-b64-decode",
+          "length": 598,
+          "ascii": false,
+          "entropy": 4.006,
+          "hex_preview": "19 0e 12 00 ef bf bd 50 10 0d ef bf bd 20 ef bf \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "xor-bruteforce-256",
+        "args": {},
+        "reason": "Applied xor-bruteforce-256",
+        "output_preview": "ynr`_0pm_@_3x_c@_ y&b`_2pf3p_4|$c@_ ynr`_2pm_@_5x_cx_ ynr`_0pm_`_3x_c@_ ynb`_3pf3p_4|$cH_ y&\"`_2pm_(_4|dcH_ x_\"`_9pm_`_5x_cx_ ynr`_3pm_x_3x_cH_ ynr`_2pm_(_5x$cH_ x_\"`_9pm_`_5ydcx_ y-_`_1pf3p_4|$cH_ ynb`_2pm_(_5y$cH_ x_\"`_9pm_`_5y$cx_ ynr`_3pm_p_3x_c@_ y&\"`_1pf3p_5ydc@_ x_\"`_9pm_p_5xdcx_ ynr`_3pm_p_3x_c@_ y-_`_8pf3p_4|$cH_ y&2`_2pm_(_5x_cH_ x_\"`_4pm_`_3x_c@_ y&\"`_2pf3p_4|$cH_ y&\"`_2pm_(_5xdcH_ x_\"`",
+        "output_length": 1533,
+        "evidence": {
+          "encoding": "xor-bruteforce-256",
+          "op": "xor-bruteforce-256",
+          "length": 400,
+          "ascii": true,
+          "entropy": 4.124,
+          "hex_preview": "79 6e 72 60 5f 30 70 6d 5f 40 5f 33 78 5f 63 40 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "hex-or-b64-decode",
+      "xor-bruteforce-256"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "unknown",
+      "chain": [
+        "ps-join-char-array"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "env-expand"
+          ],
+          "score": 40,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "base64-decode",
+            "gzip-decompress",
+            "download-shell-bg"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 2044,
+        "length_bucket": "l",
+        "entropy": 4.212,
+        "b64_density": 1.0,
+        "has_powershell": false,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": true,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": null,
+    "layer_trace": [
+      {
+        "layer": "L0",
+        "engine": "archetype",
+        "chain_len": 2,
+        "score": 1.0,
+        "verdict": "matched"
+      },
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Suspicious",
+      "confidence": 60,
+      "reason": "Peeled 2 encoding layer(s) without an executable signature \u2014 reviewer confirmation required.",
+      "indicators": [
+        {
+          "label": "Low entropy (5.20) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        }
+      ],
+      "recommended_action": "Escalate to IR for behavioural sandbox / dynamic analysis and confirm the terminal payload against threat-intel."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Suspicious",
+      "level": "suspicious",
+      "score": 60
+    },
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [
+        "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810"
+      ],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1027",
+        "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+        "tactic": "Defense Evasion"
+      }
+    ],
+    "lolbas": [],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "GQ4SANJQEA2TIIBTGIQDIOJAGUYCANJSEAZTEIBUHEQDIOBAGQ4SAMZSEA2TIIBVGMQDGMRAGQ4SANJQEA2TAIBTGIQDIOJAGQ4CANJTEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBUHAQDKNBAGMZCANBZEA2TAIBVGIQDGMRAGQ4SANJTEA2TGIBTGIQDKNJAGQ4SAMZSEA2DSIBVGEQDKMBAGMZCANBZEA2TAIBVGQQDGMRAGU2CANJREAZTEIBUHEQDKMZAGQ4CAMZSEA2DSIBVGUQDKMBAGMZCANBZEA2TAIBVGUQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGUZCANJREAZTEIBVGQQDIOJAGMZCANBZEA2TEIBVGAQDGMRAGQ4SANJTEA2TEIBT",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [
+          {
+            "id": "T1027",
+            "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+            "tactic": "Defense Evasion"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "GQ4SANJQEA2TIIBTGIQDIOJAGUYCANJSEAZTEIBUHEQDIOBAGQ4SAMZSEA2TIIBVGMQDGMRAGQ4SANJQEA2TAIBTGIQDIOJAGQ4CANJTEAZTEIBUHEQDKMZA",
+            "description": "Long Base64 blob"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 9,
+          "band": "none"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "\u2500\u2500\u2500\u2500 BLIND_XOR_SINGLE_BYTE (v1.2.0) \u2500\u2500\u2500\u2500\nInput encoding : base64\nRaw bytes      : 1533\nXOR key found  : 0x54  (score 1.18 \u00b7 baseline 0.35)\nFirst 32 bytes : 4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810\nPayload shape  : binary\nDecoded        :\n\u26a0 Binary payload detected \u2014 PE / .exe / .dll (Windows executable)\n    magic: b'MZ'   size: 1533 bytes\n    hex head (64B): 4d5a465486044459",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [
+            "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810"
+          ],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "4d5a465486044459c774d4074cd05774b6144d125654860644520744d40048105774b4144d5a465492064459c774d4014c90574c90144d5a46548604",
+            "description": "Long Base64 blob"
+          },
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "encoding",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {
+          "ips": [],
+          "domains": [],
+          "urls": [],
+          "hashes": [
+            {
+              "algorithm": "sha256",
+              "value": "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810",
+              "hybrid_analysis": null,
+              "otx": {
+                "pulse_count": 0,
+                "reputation": null,
+                "pulses": []
+              }
+            }
+          ],
+          "sources_used": [
+            "ip-api.com (geolocation, no key)",
+            "system DNS (reverse lookup, resolution)",
+            "AbuseIPDB",
+            "URLScan.io",
+            "AlienVault OTX",
+            "Hybrid Analysis"
+          ]
+        },
+        "family_hint": null,
+        "severity": {
+          "score": 11,
+          "band": "low"
+        }
+      }
+    ],
+    "output_raw": "\u2500\u2500\u2500\u2500 BLIND_XOR_SINGLE_BYTE (v1.2.0) \u2500\u2500\u2500\u2500\nInput encoding : base64\nRaw bytes      : 1533\nXOR key found  : 0x54  (score 1.18 \u00b7 baseline 0.35)\nFirst 32 bytes : 4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810\nPayload shape  : binary\nDecoded        :\n\u26a0 Binary payload detected \u2014 PE / .exe / .dll (Windows executable)\n    magic: b'MZ'   size: 1533 bytes\n    hex head (64B): 4d5a465486044459c774d4074cd05774b6144d125654860644520744d40048105774b4144d5a465492064459c774d4014c90574c90144d5a465486044459c754\n    (switch OUTPUT view to HEX to inspect further; not printable as text)\n",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      archetype:BLIND_XOR_SINGLE_BYTE \u00b7 conf 100/100\n  Chain:       hex-or-b64-decode \u2192 xor-bruteforce-256\n\n  MITRE ATT&CK\n    T1027        \u00b7 Defense Evasion\n\n  IOCs\n    SHA-256   4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  },
+  "magic": {
+    "initial_score": {
+      "score": 0.45,
+      "printable": 1.0,
+      "english": 0.0,
+      "entropy": 4.212,
+      "size": 2044,
+      "reasons": [
+        "printable=1.00"
+      ]
+    },
+    "candidates_explored": 16,
+    "isolation_note": null,
+    "top_results": [
+      {
+        "chain": [
+          {
+            "op": "base32-decode",
+            "args": {}
+          }
+        ],
+        "output": "49 50 54 32 49 50 52 32 49 48 49 32 54 53 32 49 50 50 32 49 48 53 32 49 53 52 32 49 48 54 32 49 50 52 32 49 53 53 32 55 49 32 49 51 50 32 49 50 54 32 54 51 32 49 53 48 32 49 55 50 32 49 50 55 32 49 53 52 32 49 52 51 32 54 49 32 49 52 50 32 49 53 52 32 49 54 48 32 49 50 53 32 49 52 50 32 54 50 32 49 52 52 32 49 50 52 32 49 50 54 32 54 49 32 49 53 52 32 49 53 54 32 49 51 50 32 49 50 54 32 49 52 51 32 54 53 32 49 49 53 32 49 50 53 32 49 53 52 32 49 49 48 32 49 50 52 32 49 53 53 32 49 53 48 32 49 53 49 32 49 52 49 32 49 50 53 32 49 49 50 32 54 53 32 49 50 55 32 49 53 52 32 49 52 52 32 49 48 55 32 49 52 49 32 54 48 32 49 53 52 32 49 49 49 32 49 50 53 32 49 53 53 32 55 49 32 49 53 48 32 49 50 55 32 49 48 53 32 54 49 32 49 55 50 32 49 50 51 32 49 50 53 32 49 53 48 32 49 54 51 32 49 52 52 32 49 53 53 32 49 50 50 32 49 50 52 32 49 50 49 32 49 53 53 32 49 54 52 32 49 52 49 32 49 50 54 32 54 48 32 54 53 32 54 50 32 49 50 55 32 49 53 51 32 49 52 52 32 49 50 55 32 49 52 49 32 54 48 32 49 53 52 32 49 49 48 32 49 52 50 32 49 48 52 32 49 48 50 32 49 49 50 32 49 50 50 32 54 48 32 54 53 32 54 50 32 49 51 49 32 54 50 32 54 53 32 49 49 51 32 49 52 50 32 49 48 54 32 49 53 51 32 49 55 50 32 49 50 53 32 49 53 54 32 49 49 54 32 49 53 52 32 49 50 53 32 49 55 50 32 49 50 49 32 55 49",
+        "score_breakdown": {
+          "score": 0.45,
+          "printable": 1.0,
+          "english": 0.0,
+          "entropy": 2.688,
+          "size": 1277,
+          "reasons": [
+            "printable=1.00"
+          ]
+        },
+        "path_scores": [
+          0.45,
+          0.45
+        ],
+        "entropy": 2.688,
+        "is_shellcode": false
+      },
+      {
+        "chain": [
+          {
+            "op": "base32-decode",
+            "args": {}
+          },
+          {
+            "op": "hex-decode",
+            "args": {}
+          }
+        ],
+        "output": "IPT2IPR2IHI2TS2IPP2IHS2ISR2IHT2IPR2ISS2UI2IQP2IPT2TQ2ISH2IUP2IPU2ISR2IRQ2TI2IRP2ISR2ITH2IPS2IRP2TP2IRR2IPR2IPT2TI2ISR2IST2IQP2IPT2IRQ2TS2IIS2IPS2ISR2IIH2IPR2ISS2ISH2ISI2IRI2IPS2IIP2TS2IPU2ISR2IRR2IHU2IRI2TH2ISR2III2IPS2ISS2UI2ISH2IPU2IHS2TI2IUP2IPQ2IPS2ISH2ITQ2IRR2ISS2IPP2IPR2IPI2ISS2ITR2IRI2IPT2TH2TS2TP2IPU2ISQ2IRR2IPU2IRI2TH2ISR2IIH2IRP2IHR2IHP2IIP2IPP2TH2TS2TP2IQI2TP2TS2IIQ2IRP2IHT2ISQ2IUP2IPS2IST2IIT2ISR2IPS2IUP2IPI2UI",
+        "score_breakdown": {
+          "score": 0.45,
+          "printable": 1.0,
+          "english": 0.0,
+          "entropy": 2.765,
+          "size": 426,
+          "reasons": [
+            "printable=1.00"
+          ]
+        },
+        "path_scores": [
+          0.45,
+          0.45,
+          0.45
+        ],
+        "entropy": 2.765,
+        "is_shellcode": false
+      },
+      {
+        "chain": [],
+        "output": "GQ4SANJQEA2TIIBTGIQDIOJAGUYCANJSEAZTEIBUHEQDIOBAGQ4SAMZSEA2TIIBVGMQDGMRAGQ4SANJQEA2TAIBTGIQDIOJAGQ4CANJTEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBUHAQDKNBAGMZCANBZEA2TAIBVGIQDGMRAGQ4SANJTEA2TGIBTGIQDKNJAGQ4SAMZSEA2DSIBVGEQDKMBAGMZCANBZEA2TAIBVGQQDGMRAGU2CANJREAZTEIBUHEQDKMZAGQ4CAMZSEA2DSIBVGUQDKMBAGMZCANBZEA2TAIBVGUQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGUZCANJREAZTEIBVGQQDIOJAGMZCANBZEA2TEIBVGAQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGU2CANBYEAZTEIBUHEQDKMBAGUZSAMZSEA2DSIBVGIQDKMBAGMZCANJUEA2TAIBTGIQDIOJAGUZCANJSEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGAQDKNBAGMZCANJUEA2DSIBTGIQDIOJAGUZSANJSEAZTEIBUHEQDKMZAGU2CAMZSEA2DSIBVGEQDKMBAGMZCANBZEA2TAIBVGQQDGMRAGQ4SANJSEA2TCIBTGIQDKNBAGUZSAMZSEA2DSIBUHEQDKMZAGMZCANBZEA2TAIBVGMQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGQ4SANBYEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGMQDKMZAGMZCANBZEA2TGIBUHAQDGMRAGQ4SANJTEA2DSIBTGIQDIOJAGUZCANBZEAZTEIBUHEQDKMBAGUZSAMZSEA2DSIBUHEQDKMBAGMZCANJUEA2TGIBTGIQDIOJAGUYCANJVEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBVGIQDKMRAGMZCANBZEA2DQIBVGUQDGMRAGQ4SANJSEA2DSIBTGIQDKNBAGQ4CAMZSEA2DSIBVGMQDKMRAGMZCANBZEA2DSIBUHEQDGMRAGQ4SANJQEA2TGIBTGIQDIOJAGUZSANJTEAZTEIBVGUQDIOJAGMZCANBZEA2TGIBUHAQDGMRAGQ4SANJQEA2TKIBTGIQDIOJAGQ4CANJTEAZTEIBVGQQDIOJAGMZCANBZEA2TKIBVGAQDGMRAGQ4SANJQEA2TCIBTGIQDIOJAGUYCANJTEAZTEIBUHEQDKMZAGQ4CAMZSEA2DSIBVGQQDKMJAGMZCANBZEA2TEIBVGIQDGMRAGQ4SANJTEA2TGIBTGIQDIOJAGUYCANJQEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGAQDIOJAGMZCANBZEA2TGIBVGMQDGMRAGQ4SANJUEA2TEIBTGIQDIOJAGUZCANBZEAZTEIBUHEQDKMBAGU2CAMZSEA2TIIBUHAQDGMRAGU2CANJTEAZTEIBVGQQDKMBAGMZCANBZEA2TAIBVGUQDGMRAGQ4SANJTEA2TCIBTGIQDIOJAGUZCANJSEAZTEIBUHEQDKMBAGU2SAMZSEA2DSIBVGIQDIOJAGMZCANJUEA2DQIBTGIQDIOJAGUZSANJSEAZTEIBUHEQDIOJAGQ4CAMZSEA2DSIBVGIQDKMBAGMZCANBZEA2DQIBVGIQDGMRAGQ4SANBYEA2TAIBTGIQDIOJAGQ4SANJQEAZTEIBUHEQDKMBAGUYCAMZSEA2TIIBUHAQDGMRAGU2CANJTEAZTEIBVGQQDKMBAGMZCANBZEA2TCIBUHEQDGMRAGU2CANJQEAZTEIBVGQQDKMZAGMZCANBZEA2DSIBVGEQDGMRAGQ4SANJSEA2TAIBTGIQDIOJAGQ4CANJUEAZTEIBUHEQDKMZAGUYSAMZSEA2DSIBVGUQDKMBAGMZCANBZEA2TAIBVGMQDGMRAGQ4SANJTEA2TIIBTGIQDIOJAGQ4SANJUEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBVGAQDKMZAGMZCANBZEA2TKIBVGAQDGMRAGQ4SANJQEA2DSIBTGIQDKNJAGQ4Q",
+        "score_breakdown": {
+          "score": 0.45,
+          "printable": 1.0,
+          "english": 0.0,
+          "entropy": 4.212,
+          "size": 2044,
+          "reasons": [
+            "printable=1.00"
+          ]
+        },
+        "path_scores": [
+          0.45
+        ],
+        "entropy": 4.212,
+        "is_shellcode": false
+      }
+    ],
+    "corrupted_container": null
+  },
+  "ai_decode": {
+    "reasoning": "AI unavailable \u2014 falling back to deterministic decoder.",
+    "recipe": [
+      {
+        "op": "base32-decode",
+        "args": {}
+      },
+      {
+        "op": "ascii-decimal-decode",
+        "args": {}
+      },
+      {
+        "op": "ascii-decimal-decode",
+        "args": {}
+      },
+      {
+        "op": "base64-decode",
+        "args": {}
+      },
+      {
+        "op": "base64-decode",
+        "args": {}
+      }
+    ],
+    "output": "SOC Challenge: If you can read this, you decoded it correctly.",
+    "steps_output": [
+      {
+        "op": "base32-decode",
+        "args": {}
+      },
+      {
+        "op": "ascii-decimal-decode",
+        "args": {}
+      },
+      {
+        "op": "ascii-decimal-decode",
+        "args": {}
+      },
+      {
+        "op": "base64-decode",
+        "args": {}
+      },
+      {
+        "op": "base64-decode",
+        "args": {}
+      }
+    ],
+    "detected_type": null,
+    "errors": [],
+    "winner_engine": "magic",
+    "confidence": 50,
+    "quality_reasons": [
+      "clean printable (+0.10)"
+    ],
+    "stopped_gracefully": false,
+    "graceful_message": "",
+    "alternate": {
+      "engine": "ai",
+      "confidence": 0,
+      "recipe": []
+    },
+    "cache_hit": true
+  },
+  "analyze": {
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [
+        "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810"
+      ],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1027",
+        "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+        "tactic": "Defense Evasion",
+        "source": "heuristic"
+      }
+    ],
+    "yara": [
+      {
+        "rule": "Base64_Long_Blob",
+        "severity": "low",
+        "match": "4d5a465486044459c774d4074cd05774b6144d125654860644520744d40048105774b4144d5a465492064459c774d4014c90574c90144d5a46548604",
+        "description": "Long Base64 blob"
+      },
+      {
+        "rule": "PS_CaseMixed_Obfuscation",
+        "severity": "low",
+        "match": "encoding",
+        "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+      }
+    ],
+    "lolbas": [],
+    "risk": {
+      "score": 13,
+      "verdict": "Benign",
+      "level": "safe"
+    },
+    "osint": {
+      "ips": [],
+      "domains": [],
+      "urls": [],
+      "hashes": [
+        {
+          "algorithm": "sha256",
+          "value": "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810",
+          "hybrid_analysis": null,
+          "otx": {
+            "pulse_count": 0,
+            "reputation": null,
+            "pulses": []
+          }
+        }
+      ],
+      "sources_used": [
+        "ip-api.com (geolocation, no key)",
+        "system DNS (reverse lookup, resolution)",
+        "AbuseIPDB",
+        "URLScan.io",
+        "AlienVault OTX",
+        "Hybrid Analysis"
+      ]
+    },
+    "ti_hits": [],
+    "ai_verdict": {
+      "error": "502: LLM JSON parse failed: Expecting value: line 1 column 1 (char 0)"
+    },
+    "description": {
+      "error": "502: LLM JSON parse failed: Expecting value: line 1 column 1 (char 0)"
+    },
+    "corrupt_payload": null
+  },
+  "predict_tree": {
+    "tree": {
+      "tree_id": "b8ba14c0e4",
+      "platform": "windows",
+      "root": {
+        "node_id": "d0a59954f3",
+        "parent_node_id": null,
+        "process": "unknown.exe",
+        "command_line": "GQ4SANJQEA2TIIBTGIQDIOJAGUYCANJSEAZTEIBUHEQDIOBAGQ4SAMZSEA2TIIBVGMQDGMRAGQ4SANJQEA2TAIBTGIQDIOJAGQ4CANJTEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBUHAQDKNBAGMZCANBZEA2TAIBVGIQDGMRAGQ4SANJTEA2TGIBTGIQDKNJAGQ4SAMZSEA2DSIBVGEQDKMBAGMZCANBZEA2TAIBVGQQDGMRAGU2CANJREAZTEIBUHEQDKMZAGQ4CAMZSEA2DSIBVGUQDKMBAGMZCANBZEA2TAIBVGUQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGUZCANJREAZTEIBVGQQDIOJAGMZCANBZEA2TEIBVGAQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGU2CANBYEAZTEIBUHEQDKMBAGUZSAMZSEA2DSIBVGIQDKMBAGMZCANJUEA2TAIBTGIQDIOJAGUZCANJSEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGAQDKNBAGMZCANJUEA2DSIBTGIQDIOJAGUZSANJSEAZTEIBUHEQDKMZAGU2CAMZSEA2DSIBVGEQDKMBAGMZCANBZEA2TAIBVGQQDGMRAGQ4SANJSEA2TCIBTGIQDKNBAGUZSAMZSEA2DSIBUHEQDKMZAGMZCANBZEA2TAIBVGMQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGQ4SANBYEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGMQDKMZAGMZCANBZEA2TGIBUHAQDGMRAGQ4SANJTEA2DSIBTGIQDIOJAGUZCANBZEAZTEIBUHEQDKMBAGUZSAMZSEA2DSIBUHEQDKMBAGMZCANJUEA2TGIBTGIQDIOJAGUYCANJVEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBVGIQDKMRAGMZCANBZEA2DQIBVGUQDGMRAGQ4SANJSEA2DSIBTGIQDKNBAGQ4CAMZSEA2DSIBVGMQDKMRAGMZCANBZEA2DSIBUHEQDGMRAGQ4SANJQEA2TGIBTGIQDIOJAGUZSANJTEAZTEIBVGUQDIOJAGMZCANBZEA2TGIBUHAQDGMRAGQ4SANJQEA2TKIBTGIQDIOJAGQ4CANJTEAZTEIBVGQQDIOJAGMZCANBZEA2TKIBVGAQDGMRAGQ4SANJQEA2TCIBTGIQDIOJAGUYCANJTEAZTEIBUHEQDKMZAGQ4CAMZSEA2DSIBVGQQDKMJAGMZCANBZEA2TEIBVGIQDGMRAGQ4SANJTEA2TGIBTGIQDIOJAGUYCANJQEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGAQDIOJAGMZCANBZEA2TGIBVGMQDGMRAGQ4SANJUEA2TEIBTGIQDIOJAGUZCANBZEAZTEIBUHEQDKMBAGU2CAMZSEA2TIIBUHAQDGMRAGU2CANJTEAZTEIBVGQQDKMBAGMZCANBZEA2TAIBVGUQDGMRAGQ4SANJTEA2TCIBTGIQDIOJAGUZCANJSEAZTEIBUHEQDKMBAGU2SAMZSEA2DSIBVGIQDIOJAGMZCANJUEA2DQIBTGIQDIOJAGUZSANJSEAZTEIBUHEQDIOJAGQ4CAMZSEA2DSIBVGIQDKMBAGMZCANBZEA2DQIBVGIQDGMRAGQ4SANBYEA2TAIBTGIQDIOJAGQ4SANJQEAZTEIBUHEQDKMBAGUYCAMZSEA2TIIBUHAQDGMRAGU2CANJTEAZTEIBVGQQDKMBAGMZCANBZEA2TCIBUHEQDGMRAGU2CANJQEAZTEIBVGQQDKMZAGMZCANBZEA2DSIBVGEQDGMRAGQ4SANJSEA2TAIBTGIQDIOJAGQ4CANJUEAZTEIBUHEQDKMZAGUYSAMZSEA2DSIBVGUQDKMBAGMZCANBZEA2TAIBVGMQDGMRAGQ4SANJTEA2TIIBTGIQDIOJAGQ4SANJUEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBVGAQDKMZAGMZCANBZEA2TKIBVGAQDGMRAGQ4SANJQEA2DSIBTGIQDKNJAGQ4Q",
+        "executable_path": null,
+        "hashes": {
+          "sha256": "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810"
+        },
+        "signer": null,
+        "pid": null,
+        "ppid": null,
+        "user": null,
+        "integrity_level": null,
+        "action": "Executes XOR-obfuscated PE/MZ binary payload (1533 bytes)",
+        "lolbin": false,
+        "mitre_ids": [
+          "T1027",
+          "T1204.002"
+        ],
+        "tactic": "defense-evasion",
+        "ts_delta_ms": 0,
+        "timestamp": null,
+        "evidence": {
+          "citation": "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810",
+          "layer_index": 0,
+          "inferred": false,
+          "confidence": 1.0
+        },
+        "children": []
+      },
+      "rationale": {
+        "verdict": "Base32-encoded XOR-obfuscated Windows PE binary (MZ header) \u2014 likely malicious dropper or payload requiring user execution",
+        "severity": "high",
+        "confidence": 0.95,
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "hashes": [
+            "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810"
+          ],
+          "files": []
+        },
+        "lolbins": [],
+        "mitre_ids": [
+          "T1027",
+          "T1204.002"
+        ],
+        "tactics": [
+          "defense-evasion",
+          "execution"
+        ],
+        "sigma_opportunities": [
+          "Sigma: Base32 encoded executable payload in command line",
+          "Sigma: XOR obfuscation key bruteforce pattern (0x54)",
+          "Sigma: PE/MZ magic bytes in decoded user input"
+        ],
+        "yara_opportunities": [
+          "YARA: rule ObfuscatedPE { strings: $mz = { 4D 5A } condition: $mz at 0 and filesize < 5000 }",
+          "YARA: rule XorKey54 { strings: $xor_pattern = { 54 } condition: #xor_pattern > 100 }"
+        ],
+        "evidence_refs": [
+          "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810",
+          "MZ",
+          "XOR key found  : 0x54"
+        ],
+        "analyst_summary": "This payload is a base32-encoded Windows PE executable (MZ header detected) obfuscated via single-byte XOR with key 0x54. The decoder successfully recovered a 1533-byte binary artifact with SHA-256 hash 4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810. No process tree can be deterministically predicted because PE binaries require user interaction or a parent process to execute \u2014 the decoded output is raw binary, not a script/command line. This represents a classic dropper or second-stage payload delivered via obfuscated encoding to evade static detection. SOC should quarantine the hash, perform sandbox detonation, and correlate with PCAP/EDR for parent process context (e.g., email attachment, web download, macro). The obfuscation technique (base32 + XOR) aligns with T1027 (Obfuscated Files or Information) and the expected execution vector is T1204.002 (User Execution: Malicious File)."
+      },
+      "evidence_source": "decoded",
+      "warnings": [
+        "Decoded payload is a binary PE/MZ executable (1533 bytes) \u2014 no command-line script detected. Process tree prediction requires sandbox detonation or parent context. Returning single-node artifact with obfuscation metadata only."
+      ],
+      "generated_ts": "2026-07-19T00:53:04.176298+00:00"
+    },
+    "edge_list": {
+      "tree_id": "b8ba14c0e4",
+      "platform": "windows",
+      "evidence_source": "decoded",
+      "nodes": [
+        {
+          "node_id": "d0a59954f3",
+          "parent_node_id": null,
+          "process": "unknown.exe",
+          "command_line": "GQ4SANJQEA2TIIBTGIQDIOJAGUYCANJSEAZTEIBUHEQDIOBAGQ4SAMZSEA2TIIBVGMQDGMRAGQ4SANJQEA2TAIBTGIQDIOJAGQ4CANJTEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBUHAQDKNBAGMZCANBZEA2TAIBVGIQDGMRAGQ4SANJTEA2TGIBTGIQDKNJAGQ4SAMZSEA2DSIBVGEQDKMBAGMZCANBZEA2TAIBVGQQDGMRAGU2CANJREAZTEIBUHEQDKMZAGQ4CAMZSEA2DSIBVGUQDKMBAGMZCANBZEA2TAIBVGUQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGUZCANJREAZTEIBVGQQDIOJAGMZCANBZEA2TEIBVGAQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGU2CANBYEAZTEIBUHEQDKMBAGUZSAMZSEA2DSIBVGIQDKMBAGMZCANJUEA2TAIBTGIQDIOJAGUZCANJSEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGAQDKNBAGMZCANJUEA2DSIBTGIQDIOJAGUZSANJSEAZTEIBUHEQDKMZAGU2CAMZSEA2DSIBVGEQDKMBAGMZCANBZEA2TAIBVGQQDGMRAGQ4SANJSEA2TCIBTGIQDKNBAGUZSAMZSEA2DSIBUHEQDKMZAGMZCANBZEA2TAIBVGMQDGMRAGQ4SANJTEA2TEIBTGIQDIOJAGQ4SANBYEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGMQDKMZAGMZCANBZEA2TGIBUHAQDGMRAGQ4SANJTEA2DSIBTGIQDIOJAGUZCANBZEAZTEIBUHEQDKMBAGUZSAMZSEA2DSIBUHEQDKMBAGMZCANJUEA2TGIBTGIQDIOJAGUYCANJVEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBVGIQDKMRAGMZCANBZEA2DQIBVGUQDGMRAGQ4SANJSEA2DSIBTGIQDKNBAGQ4CAMZSEA2DSIBVGMQDKMRAGMZCANBZEA2DSIBUHEQDGMRAGQ4SANJQEA2TGIBTGIQDIOJAGUZSANJTEAZTEIBVGUQDIOJAGMZCANBZEA2TGIBUHAQDGMRAGQ4SANJQEA2TKIBTGIQDIOJAGQ4CANJTEAZTEIBVGQQDIOJAGMZCANBZEA2TKIBVGAQDGMRAGQ4SANJQEA2TCIBTGIQDIOJAGUYCANJTEAZTEIBUHEQDKMZAGQ4CAMZSEA2DSIBVGQQDKMJAGMZCANBZEA2TEIBVGIQDGMRAGQ4SANJTEA2TGIBTGIQDIOJAGUYCANJQEAZTEIBUHEQDKMBAGUZCAMZSEA2DSIBVGAQDIOJAGMZCANBZEA2TGIBVGMQDGMRAGQ4SANJUEA2TEIBTGIQDIOJAGUZCANBZEAZTEIBUHEQDKMBAGU2CAMZSEA2TIIBUHAQDGMRAGU2CANJTEAZTEIBVGQQDKMBAGMZCANBZEA2TAIBVGUQDGMRAGQ4SANJTEA2TCIBTGIQDIOJAGUZCANJSEAZTEIBUHEQDKMBAGU2SAMZSEA2DSIBVGIQDIOJAGMZCANJUEA2DQIBTGIQDIOJAGUZSANJSEAZTEIBUHEQDIOJAGQ4CAMZSEA2DSIBVGIQDKMBAGMZCANBZEA2DQIBVGIQDGMRAGQ4SANBYEA2TAIBTGIQDIOJAGQ4SANJQEAZTEIBUHEQDKMBAGUYCAMZSEA2TIIBUHAQDGMRAGU2CANJTEAZTEIBVGQQDKMBAGMZCANBZEA2TCIBUHEQDGMRAGU2CANJQEAZTEIBVGQQDKMZAGMZCANBZEA2DSIBVGEQDGMRAGQ4SANJSEA2TAIBTGIQDIOJAGQ4CANJUEAZTEIBUHEQDKMZAGUYSAMZSEA2DSIBVGUQDKMBAGMZCANBZEA2TAIBVGMQDGMRAGQ4SANJTEA2TIIBTGIQDIOJAGQ4SANJUEAZTEIBUHEQDKMZAGUZCAMZSEA2DSIBVGAQDKMZAGMZCANBZEA2TKIBVGAQDGMRAGQ4SANJQEA2DSIBTGIQDKNJAGQ4Q",
+          "executable_path": null,
+          "hashes": {
+            "sha256": "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810"
+          },
+          "signer": null,
+          "pid": null,
+          "ppid": null,
+          "user": null,
+          "integrity_level": null,
+          "action": "Executes XOR-obfuscated PE/MZ binary payload (1533 bytes)",
+          "lolbin": false,
+          "mitre_ids": [
+            "T1027",
+            "T1204.002"
+          ],
+          "tactic": "defense-evasion",
+          "ts_delta_ms": 0,
+          "timestamp": null,
+          "evidence": {
+            "citation": "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810",
+            "layer_index": 0,
+            "inferred": false,
+            "confidence": 1.0
+          }
+        }
+      ],
+      "edges": [],
+      "rationale": {
+        "verdict": "Base32-encoded XOR-obfuscated Windows PE binary (MZ header) \u2014 likely malicious dropper or payload requiring user execution",
+        "severity": "high",
+        "confidence": 0.95,
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "hashes": [
+            "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810"
+          ],
+          "files": []
+        },
+        "lolbins": [],
+        "mitre_ids": [
+          "T1027",
+          "T1204.002"
+        ],
+        "tactics": [
+          "defense-evasion",
+          "execution"
+        ],
+        "sigma_opportunities": [
+          "Sigma: Base32 encoded executable payload in command line",
+          "Sigma: XOR obfuscation key bruteforce pattern (0x54)",
+          "Sigma: PE/MZ magic bytes in decoded user input"
+        ],
+        "yara_opportunities": [
+          "YARA: rule ObfuscatedPE { strings: $mz = { 4D 5A } condition: $mz at 0 and filesize < 5000 }",
+          "YARA: rule XorKey54 { strings: $xor_pattern = { 54 } condition: #xor_pattern > 100 }"
+        ],
+        "evidence_refs": [
+          "4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810",
+          "MZ",
+          "XOR key found  : 0x54"
+        ],
+        "analyst_summary": "This payload is a base32-encoded Windows PE executable (MZ header detected) obfuscated via single-byte XOR with key 0x54. The decoder successfully recovered a 1533-byte binary artifact with SHA-256 hash 4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810. No process tree can be deterministically predicted because PE binaries require user interaction or a parent process to execute \u2014 the decoded output is raw binary, not a script/command line. This represents a classic dropper or second-stage payload delivered via obfuscated encoding to evade static detection. SOC should quarantine the hash, perform sandbox detonation, and correlate with PCAP/EDR for parent process context (e.g., email attachment, web download, macro). The obfuscation technique (base32 + XOR) aligns with T1027 (Obfuscated Files or Information) and the expected execution vector is T1204.002 (User Execution: Malicious File)."
+      },
+      "warnings": [
+        "Decoded payload is a binary PE/MZ executable (1533 bytes) \u2014 no command-line script detected. Process tree prediction requires sandbox detonation or parent context. Returning single-node artifact with obfuscation metadata only."
+      ]
+    },
+    "ascii": "[WINDOWS] tree_id=b8ba14c0e4 \u00b7 source=decoded\nverdict : Base32-encoded XOR-obfuscated Windows PE binary (MZ header) \u2014 likely malicious dropper or payload requiring user execution  (high)\nMITRE   : T1027, T1204.002\n\n\u2514\u2500 unknown.exe  [T1027,T1204.002]\n     cmd : GQ4SANJQEA2TIIBTGIQDIOJAGUYCANJSEAZTEIBUHEQDIOBAGQ4SAMZSEA2TIIBVGMQDGMRAGQ4SANJQEA2TAIBTGIQDIOJAG...\n     \u2192 Executes XOR-obfuscated PE/MZ binary payload (1533 bytes)\n\nSUMMARY:\n  This payload is a base32-encoded Windows PE executable (MZ header detected) obfuscated via single-byte XOR with key 0x54. The decoder successfully recovered a 1533-byte binary artifact with SHA-256 hash 4d5a465486044459c774d4074cd05774b6144d125654860644520744d4004810. No process tree can be deterministically predicted because PE binaries require user interaction or a parent process to execute \u2014 the decoded output is raw binary, not a script/command line. This represents a classic dropper or second-stage payload delivered via obfuscated encoding to evade static detection. SOC should quarantine the hash, perform sandbox detonation, and correlate with PCAP/EDR for parent process context (e.g., email attachment, web download, macro). The obfuscation technique (base32 + XOR) aligns with T1027 (Obfuscated Files or Information) and the expected execution vector is T1204.002 (User Execution: Malicious File)."
+  }
+}
