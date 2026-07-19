@@ -95,11 +95,50 @@ def try_orchestrator_first(
             max_depth=20,
             # Tight wall budget — the orchestrator is deterministic and O(n)
             # per layer, but LARGE inputs (>5 KB) can hit the ceiling.  We
-            # cap at 4 s per analysis so the total round trip stays under
+            # cap at 3 s per analysis so the total round trip stays under
             # the frontend's 60 s HTTP timeout even on legacy fallback.
-            wall_time_ms=4000 if analysis_mode != "fast" else 2000,
+            # (Lowered from 4 s → 3 s after Prod 2026-07-19 evidence of a
+            # 7850-char payload still hitting the 60 s ceiling.)
+            wall_time_ms=3000 if analysis_mode != "fast" else 1500,
         ))
-        result = Orchestrator(ctx).run(payload)
+        # HARD wall-clock ceiling — some payload shapes cause the
+        # candidate-picker to iterate thousands of times before
+        # respecting `Budget.wall_time_ms`. We enforce a 15 s absolute
+        # ceiling via a background daemon that raises on the main
+        # thread. That's still 45 s below the frontend HTTP timeout.
+        import threading
+        result_holder: Dict[str, Any] = {}
+        def _run():
+            try:
+                result_holder["r"] = Orchestrator(ctx).run(payload)
+            except Exception as e:
+                result_holder["err"] = e
+        th = threading.Thread(target=_run, daemon=True)
+        th.start()
+        th.join(timeout=15.0)
+        if th.is_alive():
+            # Orchestrator is still churning — abandon it, return safe fallback
+            return {
+                "output": payload,
+                "detected_type": "text",
+                "engine": "rc2-orchestrator-hard-ceiling",
+                "steps": [], "trace": [],
+                "reached_shellcode": False,
+                "terminal": "hard-ceiling-15s",
+                "iocs": {"ips": [], "urls": [], "domains": [], "emails": [],
+                         "file_paths": [], "bitcoin_addresses": [],
+                         "hashes": {"md5": [], "sha1": [], "sha256": []}},
+                "mitre": [], "lolbas": [], "tradecraft": [],
+                "verdict": "needs_review", "risk_score": 0,
+                "family": None,
+                "engine_reason": (
+                    f"Orchestrator exceeded 15 s hard ceiling on {len(payload)}B "
+                    "input; returning raw so the request stays under the HTTP timeout."
+                ),
+            }
+        if "err" in result_holder:
+            raise result_holder["err"]
+        result = result_holder.get("r")
     except Exception:
         # If the orchestrator itself blew up on a huge input, return a
         # minimal legacy-shape dict so the endpoint responds instead of
