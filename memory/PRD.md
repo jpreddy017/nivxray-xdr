@@ -7,6 +7,33 @@ core decoder. Everything must work offline.
 
 ---
 
+## 🟢 RC2.8 · JS + VBScript Reconstruction · DELIVERED (2026-02-XX)
+
+**Branch:** `feature/rc2` · **Scope:** Backend engine — two new decoders
+**Benchmark evidence:** `/app/memory/rc28_js_vbs.json` — **30/31 chain-complete (96.8%)** up from 26/31 (83.9%) · **+12.9pp** · zero false-positive IOCs · **101/101** unit tests pass.
+
+### Added
+| Decoder | Signals | Detail |
+|---------|---------|--------|
+| `js-reconstruct` | `String.fromCharCode(N,N,...)`, `atob('base64')`, `unescape('%XX')` | Rewrites the primitive; keeps surrounding `eval()`/`Function()` wrapper for downstream extractors. Multi-signal conf 0.9 · single 0.85. |
+| `vbs-reconstruct` | `Chr()/ChrW()` chain, `CreateObject("ProgID")` | Chains collapse to a quoted literal; ProgIDs revealed via `<#=> ... <#=>` marker so IOC/MITRE extractors key on `WScript.Shell`, `MSXML2.XMLHTTP`, etc. Confidence **0.96–0.97** to beat extract-wrapper's cmd /c heuristic (0.95). |
+
+### Fixed benchmark samples (+4)
+- `js-fromcharcode` → chain-complete (`alert`, `xss` surface)
+- `js-atob` → chain-complete (`alert`, `pwned` surface)
+- `vbs-chr` → chain-complete (`MsgBox`, `pwned` surface)
+- `vbs-createobject` → chain-complete (`WScript.Shell`, `cmd.exe` surface)
+- Categories now: JavaScript 3/3 · VBScript 2/2 · **all 100 %**.
+
+### Unit tests
+`/app/backend/tests/test_js_vbs_reconstruct.py` — 15 tests locking:
+- JS: fromCharCode (dec + hex args), atob, unescape, binary-blob guard, precision detect
+- VBS: Chr chain, ChrW unicode, CreateObject reveal, confidence-beats-extract-wrapper
+- Zero-false-positive-IOC gate for both
+
+
+---
+
 ## 🟢 RC2.7 · CMD Reconstruction · DELIVERED (2026-02-XX)
 
 **Branch:** `feature/rc2` · **Scope:** Backend engine — new `decoders/cmd_reconstruct.py`
