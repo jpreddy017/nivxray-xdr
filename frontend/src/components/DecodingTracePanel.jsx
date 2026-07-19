@@ -132,9 +132,21 @@ export default function DecodingTracePanel({ trace, engine, confidence, reachedS
       <div className="dtp-hdr">
         <span className="dtp-title">▸ DECODING TRACE</span>
         <span className={`dtp-badge ${engineBadge.cls}`} data-testid="dtp-engine-badge">{engineBadge.label}</span>
-        {typeof confidence === "number" && (
-          <span className="dtp-badge conf" data-testid="dtp-confidence">{confidence}% CONFIDENCE</span>
-        )}
+        {/* RC2.5 · Don't render a misleading "0% CONFIDENCE" badge when the
+            deterministic engine did recover a chain but reported no
+            per-decode confidence. Show a decoded/n-a status instead so the
+            analyst can trust the SOC Verdict as the single source. */}
+        {(() => {
+          const hasConf = Number.isFinite(confidence) && confidence > 0;
+          const decodedOk = Array.isArray(trace) && trace.length > 0 && trace.some((t) => !t.error);
+          if (hasConf) {
+            return <span className="dtp-badge conf" data-testid="dtp-confidence">{confidence}% CONFIDENCE</span>;
+          }
+          if (decodedOk) {
+            return <span className="dtp-badge conf" data-testid="dtp-confidence">CONF · N/A · DECODED</span>;
+          }
+          return null;
+        })()}
         {reachedShellcode && (
           <span className="dtp-badge shellcode" data-testid="dtp-shellcode">▲ SHELLCODE TERMINAL</span>
         )}

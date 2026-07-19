@@ -265,9 +265,20 @@ export default function InvestigationGraph({
       <div className="hdr" data-testid="inv-graph-header">
         <span className="title">⬢ INVESTIGATION GRAPH</span>
         {engine && <span className="badge" data-testid="inv-graph-engine">{engine.toUpperCase()}</span>}
-        {typeof confidence === "number" && (
-          <span className="badge conf" data-testid="inv-graph-confidence">{confidence}% CONFIDENCE</span>
-        )}
+        {/* RC2.5 · Same treatment as DecodingTracePanel — don't mislead the
+            analyst with "0% CONFIDENCE" when the chain actually decoded but
+            the deterministic engine didn't emit a per-decode number. */}
+        {(() => {
+          const hasConf = Number.isFinite(confidence) && confidence > 0;
+          const decodedOk = Array.isArray(trace) && trace.length > 0 && trace.some((t) => !t.error);
+          if (hasConf) {
+            return <span className="badge conf" data-testid="inv-graph-confidence">{confidence}% CONFIDENCE</span>;
+          }
+          if (decodedOk) {
+            return <span className="badge conf" data-testid="inv-graph-confidence">CONF · N/A · DECODED</span>;
+          }
+          return null;
+        })()}
         {reachedShellcode && <span className="badge shellcode">▲ SHELLCODE TERMINAL</span>}
         <button
           className="btn-fs"

@@ -54,6 +54,13 @@ export default function SocVerdictPanel({ output, confidence, winnerEngine, pred
 
   const familyPretty = detected.family;
 
+  // RC2.5 · Confidence is only meaningful when the deterministic engine
+  // reported a positive number. A 0/null value means "engine did not emit
+  // a per-decode number" — never show that as "0 / 100", it confuses the
+  // analyst into thinking the whole verdict is untrustworthy.
+  const hasConf = Number.isFinite(confidence) && confidence > 0;
+  const confDisplay = hasConf ? `${confidence} / 100` : "n/a · decoded";
+
   const socTicket = [
     `═══ NIVXRAY — SOC VERDICT ═══`,
     ``,
@@ -63,7 +70,7 @@ export default function SocVerdictPanel({ output, confidence, winnerEngine, pred
     `URL:                               ${iocs?.url || "(none extracted)"}`,
     `Network Masquerading (User-Agent): ${iocs?.userAgent || "(none extracted)"}`,
     `MITRE:                             ${mitre.join(", ")}`,
-    `Confidence:                        ${confidence ?? "?"} / 100 · engine=${winnerEngine || "magic"}`,
+    `Confidence:                        ${confDisplay} · engine=${winnerEngine || "magic"}`,
     ``,
     `RECOMMENDED ACTIONS:`,
     `  1. Block C2 IP ${iocs?.ip || "(see decoded output)"} at perimeter`,
@@ -124,7 +131,7 @@ export default function SocVerdictPanel({ output, confidence, winnerEngine, pred
           <VerdictField label="Network Masquerading (User-Agent)" value={iocs.userAgent.slice(0, 90) + (iocs.userAgent.length > 90 ? "…" : "")}
                         color="var(--warn)" mono testId="verdict-ua" />
         )}
-        <VerdictField label="Confidence" value={`${confidence ?? "?"} / 100 · ${winnerEngine || "magic"}`}
+        <VerdictField label="Confidence" value={`${confDisplay} · ${winnerEngine || "magic"}`}
                       color="var(--accent)" />
       </div>
 
