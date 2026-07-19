@@ -69,19 +69,53 @@ class ReverseStringDecoder(BaseDecoder):
         # Second heuristic — Base64 padding `=` at the FRONT of the payload
         # is a strong signal the string was reversed (base64 padding always
         # sits at the tail in real Base64).
+        #
+        # NOTE: threshold DROPPED from 0.95 → 0.55 (support-team RCA
+        # 2026-07-19). After nibble-swap on real customer payloads the
+        # output contains parens/backticks/quotes (~61% base64-alphabet)
+        # which failed the 0.95 gate and let the chain fall to wrong
+        # decoders. 0.55 catches real payloads while still rejecting prose.
         stripped = payload.strip()
         if stripped.startswith("=") and len(stripped) >= 20:
-            # Verify the reversed form matches base64 alphabet + is >= 20 chars
             rev = stripped[::-1]
             b64_like = sum(1 for c in rev if c.isalnum() or c in "+/=")
-            if b64_like / len(rev) > 0.95:
-                # Higher than base64's 0.85 so we defeat the false positive
-                # decode that would otherwise mangle the payload.
+            if b64_like / len(rev) > 0.55:
                 return DetectResult(
                     confidence=0.92,
-                    why="Payload starts with '=' — reversed Base64 pattern",
+                    why=(f"Payload starts with '=' — reversed Base64 "
+                         f"({b64_like/len(rev):.0%} base64-alphabet)"),
                     args={"rev_hits": 0, "fwd_hits": 0, "b64_reverse": True},
                 )
+        # Third heuristic (support-team RCA 2026-07-19) — actively try
+        # reversing + base64-decoding and check whether the result is
+        # printable text. This catches reverse-obfuscation on payloads
+        # that DON'T start with `=` (e.g. because the reversal produced
+        # a trailing-padding blob whose leading char is a normal base64
+        # alphanum). Only fires when the reversed form has at least
+        # 40% base64 characters — cheap enough to be a routine check.
+        if len(stripped) >= 32 and not any(c.isspace() for c in stripped):
+            rev = stripped[::-1]
+            b64_like = sum(1 for c in rev if c.isalnum() or c in "+/=")
+            if b64_like / len(rev) >= 0.55:
+                # Attempt a probe decode
+                import base64 as _b64
+                probe = rev
+                if len(probe) % 4:
+                    probe = probe + "=" * (-len(probe) % 4)
+                try:
+                    decoded = _b64.b64decode(probe, validate=False)
+                    printable = sum(1 for b in decoded
+                                    if 32 <= b < 127 or b in (9, 10, 13))
+                    if decoded and printable / max(1, len(decoded)) >= 0.75:
+                        return DetectResult(
+                            confidence=0.85,
+                            why=("Reverse-then-Base64 probe yielded "
+                                 f"{printable/max(1,len(decoded)):.0%} printable"),
+                            args={"rev_hits": 0, "fwd_hits": 0,
+                                  "b64_reverse_probe": True},
+                        )
+                except Exception:
+                    pass
         return DetectResult(confidence=0.0, why="No reverse-obfuscation signal")
 
     def decode(self, payload: str, args: Dict[str, Any], ctx: AnalysisContext) -> PluginResult:
