@@ -115,7 +115,9 @@ _RX_DATA_URI = re.compile(
 )
 
 _RX_LONG_B64 = re.compile(
-    r"""(?<![A-Za-z0-9+/=_-])[A-Za-z0-9+/=_-]{60,}(?![A-Za-z0-9+/=_-])"""
+    # ≥100 chars to reduce noise from short quoted Base64 fragments that
+    # already appear inside a captured wrapper.
+    r"""(?<![A-Za-z0-9+/=_-])[A-Za-z0-9+/=_-]{100,}(?![A-Za-z0-9+/=_-])"""
 )
 
 _RX_URL = re.compile(
@@ -139,6 +141,40 @@ def _dedup(cands: Iterable[Candidate]) -> List[Candidate]:
         seen.add(key)
         out.append(c)
     return out
+
+
+# Minimum length + shell/attacker-keyword requirement — used to filter
+# spreadsheet-row noise where a cell might contain the literal word "cmd"
+# or "sh" but no actual command. Structured tabular data (xlsx/csv rows)
+# blows up the miner's candidate count with these false positives.
+_MIN_MEANINGFUL_LEN = 30
+_MEANINGFUL_TOKENS = (
+    "powershell", "pwsh", "cmd.exe", "cmd /c", "cmd /k",
+    "mshta", "rundll32", "regsvr32", "wmic", "certutil", "bitsadmin",
+    "msiexec", "cscript", "wscript", "hh.exe", "installutil", "msbuild",
+    "-encodedcommand", "-enc ", "iex ", "iex(", "invoke-expression",
+    "invoke-webrequest", "invoke-restmethod", "downloadstring",
+    "downloadfile", "webclient", "frombase64string", "|iex", "| iex",
+    "/dev/tcp/", "bash -c", "sh -c", "curl ", "wget ", "| bash",
+    "data:", "http://", "https://", "ftp://",
+)
+
+
+def _is_meaningful(cand: Candidate) -> bool:
+    """Return True when the candidate is likely a real command line rather
+    than tabular noise. Guards the spreadsheet-row false-positive path.
+    """
+    if cand.kind in ("wrapper", "b64-blob"):
+        # Wrappers and base64 blobs already have strong structural signals
+        return True
+    if cand.kind == "url":
+        # URLs are self-signaled; keep them
+        return True
+    txt = cand.text or ""
+    if len(txt) < _MIN_MEANINGFUL_LEN:
+        return False
+    low = txt.lower()
+    return any(tok in low for tok in _MEANINGFUL_TOKENS)
 
 
 def mine(text: str, *, origin: str = "") -> List[Candidate]:
@@ -209,6 +245,10 @@ def mine(text: str, *, origin: str = "") -> List[Candidate]:
 
     # Order by confidence descending, stable within kind.
     cands = _dedup(cands)
+    # Filter tabular noise (spreadsheet rows, prose fragments) — every
+    # candidate must carry a shell/attacker keyword AND ≥30 chars unless it's
+    # already a structured wrapper / url / b64-blob.
+    cands = [c for c in cands if _is_meaningful(c)]
     cands.sort(key=lambda c: (-c.confidence, c.kind))
     return cands
 
