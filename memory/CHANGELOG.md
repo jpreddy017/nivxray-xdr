@@ -6,9 +6,14 @@ Chronological record of significant releases (newest first).
 
 ## RC2.1a — Malware Family Intelligence · 2026-07-19
 
-**Branch:** `feature/rc2` (not yet redeployed)
-**Tests:** 115/115 (46 new · zero regressions)
-**Verified on preview:** ✅ https://greeting-app-5782.preview.emergentagent.com
+**Status:** ✅ **SHIPPED TO PRODUCTION** — https://nivxray.nivxforge.com
+**Deploy timestamp:** 2026-07-19T09:04Z
+**Tag recommended:** `v1.0.0-RC2.1a`
+**Tests:** 124/124 (46 new · zero regressions)
+**Post-deploy watch:** 30/30 iters · 29 OK · 1 transient CF-520 (recovered ≤ 6 s)
+**Production authenticated smoke:** ✅ Meterpreter + AsyncRAT + all 4 export formats
+**Full evidence:** `/app/memory/DEPLOYMENT_EVIDENCE.md` §12
+**Release notes:** `/app/memory/RELEASE_NOTES_v1.0.0-RC2.1a.md`
 
 ### Added
 

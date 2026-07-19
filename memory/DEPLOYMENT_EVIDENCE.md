@@ -220,4 +220,95 @@ Executed immediately after operator clicked Deploy at 2026-07-19T07:15Z:
 
 ---
 
+## 12 · RC2.1a Deployment · Malware Family Intelligence · 2026-07-19T09:04Z
+
+**Production URL:** https://nivxray.nivxforge.com (unchanged; new checkpoint layered on RC2.0)
+**Branch:** `feature/rc2` (RC2.1a commits pushed via Save-to-GitHub)
+**Release notes:** `/app/memory/RELEASE_NOTES_v1.0.0-RC2.1a.md`
+**Rollback plan:** `/app/memory/RC2.1a_ROLLBACK_PLAN.md` (Emergent platform Rollback → RC2.0 checkpoint · ~1 min RTO)
+
+### 12.1 · Pre-deploy gate ✅
+
+- Full regression: **124/124** across engine/family/analyst_v2/PDF suites (46 new · zero regressions)
+- Frontend production build: clean (14.6 s · zero warnings)
+- Preview end-to-end: Meterpreter & AsyncRAT both `family-identified`
+- Rollback signal check: Emergent Rollback control present with RC2.0 checkpoint visible
+
+### 12.2 · Post-deploy authenticated smoke test ✅
+
+**Transcript:** `evidence/rc21a_prod_smoke.txt`
+
+| # | Endpoint | HTTP | Result |
+|---:|---|:---:|---|
+| 1 | `GET /api/` | 200 | `{"service":"NivXRay","status":"ok"}` · 0.35 s |
+| 2 | `POST /api/auth/login` | 200 | JWT (163-byte) |
+| 3 | `GET /api/v2/plugins` | 200 | **21 plugins** — 12 base + **9 family** (agenttesla, asyncrat, cobaltstrike, darkgate, lumma, meterpreter, quasarrat, remcos, snake-keylogger) |
+| 4 | `POST /api/v2/analyze` (Meterpreter PS wrapper) | 200 | `terminal=family-identified` · verdict `malicious` · risk **100** · family `Meterpreter/MSFvenom stager` (**100 %**) · chain `[extract-wrapper, base64-decode, xor-brute, family-meterpreter]` · IOC `149.28.81.19` · YARA `APT_Meterpreter_MSFvenom_Stager` · atomic_red `T1055.012#T1055.012-1` · 2 evidence items · 4 family MITRE hits |
+| 5 | `POST /api/v2/analyze` (AsyncRAT config text) | 200 | `terminal=family-identified` · verdict `malicious` · risk **87** · family `AsyncRAT` (**100 %**) · YARA `MAL_AsyncRAT_Client` · atomic_red `T1219` · 7 evidence items |
+| 6 | `POST /api/v2/analyze/report?fmt=md` | 200 | 6 064 B · `text/markdown` · contains family + C2 IP |
+| 7 | `POST /api/v2/analyze/report?fmt=json` | 200 | 21 041 B · schema populated with `evidence_items`, `yara_suggestion`, `mitre_techniques`, `atomic_red_hint` |
+| 8 | `POST /api/v2/analyze/report?fmt=txt` | 200 | 5 744 B · all sections + family + C2 IP |
+| 9 | `POST /api/v2/analyze/report?fmt=pdf` | 200 | 9 584 B · **3 pages** · all 11 sections extractable · contains family + C2 IP + `malicious` |
+
+### 12.3 · Production UI validation (screenshots 20 & 21)
+
+Both screenshots stored in `evidence/`.
+
+**Screenshot 20 — `20_prod_rc21a_asyncrat.jpg`** (AsyncRAT case):
+- Branded header intact
+- Verdict `MALICIOUS` · Risk `87/100`
+- Summary references `family-asyncrat` decode step
+- Malware Family card: `AsyncRAT · 100% · 7 signature(s) matched (weight 2.85/0.85)`
+- Why-Score: family-match +55 · mitre +32 = 87
+
+**Screenshot 21 — `21_prod_rc21a_meterpreter.jpg`** (Meterpreter case):
+- Branded header intact
+- Verdict `MALICIOUS` · Risk `100/100`
+- Summary shows 4-layer chain: `extract-wrapper → base64-decode → xor-brute → family-meterpreter`
+- Malware Family card: `Meterpreter/MSFvenom stager · 100%`
+- Why-Score: family-match +55 · mitre +64 (8 techniques) · iocs +4 · lolbas +4 = 100
+
+### 12.4 · Preview ↔ Production parity ✅
+
+| Metric | Preview | Production | Match |
+|---|---|---|:---:|
+| Plugin count | 21 | 21 | ✅ |
+| Family plugin count | 9 | 9 | ✅ |
+| Meterpreter verdict / risk / family / conf | malicious / 100 / Meterpreter / 100% | malicious / 100 / Meterpreter / 100% | ✅ |
+| Meterpreter decode chain (4 steps) | `[extract-wrapper, base64-decode, xor-brute, family-meterpreter]` | identical | ✅ |
+| Meterpreter YARA | `APT_Meterpreter_MSFvenom_Stager` | identical | ✅ |
+| Meterpreter atomic_red | `T1055.012#T1055.012-1` | identical | ✅ |
+| Meterpreter C2 IP | `149.28.81.19` | identical | ✅ |
+| AsyncRAT family / conf | AsyncRAT / 100% | identical | ✅ |
+| AsyncRAT YARA | `MAL_AsyncRAT_Client` | identical | ✅ |
+| PDF size (Meterpreter) | 9 583 B | 9 584 B (+1 B) | ~✅ |
+| JSON export schema keys | equal | equal | ✅ |
+
+### 12.5 · Post-deploy watch (30-min continuous probe) ✅ COMPLETE
+
+**Script:** `evidence/rc21a_watch.sh`
+**Log:** `evidence/rc21a_prod_watch.jsonl` (30 lines, one probe per line)
+
+**Final tally:**
+- **30/30 iterations** (60-s intervals · 30-min wall clock)
+- **29 alarm=OK · 1 alarm=HEALTH_FAIL**
+- The single HEALTH_FAIL was iter 9 (Cloudflare 520 · lasted ≤ 6 s per immediate re-probe → under the 60-s rollback threshold). Iter 10 fully recovered (health 200 · plugins 21 · analyze verdict malicious/Meterpreter).
+- **6/6 authenticated Meterpreter analyze probes** (iters 5, 10, 15, 20, 25, 30) all returned `verdict=malicious · family=Meterpreter/MSFvenom stager · latency 992–2 821 ms · median ~1.5 s`
+- Login latency: min 1 581 ms · max 14 135 ms · avg 3 291 ms (outlier during the Cloudflare blip)
+- No 5xx spike over any 5-min rolling window
+- No `RecursionError` / `OOMKilled` / repeated `TimeoutError` in backend logs
+
+**Watch verdict:** ✅ **GREEN — RC2.1a stable across full 30-min window**
+
+### 12.6 · RC2.1a Sign-Off
+
+**Status:** ✅ **PRODUCTION VALIDATED · RC2.1a RELEASED**
+
+Recommended tag: **`v1.0.0-RC2.1a`** on the merge commit that carried the RC2.1a diff to `main`.
+
+
+
+
+---
+
 _This document is the official Release Candidate 2.0 validation artifact. Do not modify after deploy sign-off; append a v1.1 changelog instead._
