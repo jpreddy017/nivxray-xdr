@@ -77,12 +77,12 @@ def try_orchestrator_first(
     """
     if not payload or len(payload) < 4:
         return None
-    # RC2.2 hotfix — Prod 2026-07-19: legacy `smart+magic+reasoning` race
-    # hangs the HTTP request for the full 60 s frontend timeout on very
-    # large inputs. For anything > 8 KB we FORCE the orchestrator path
-    # even when it returns an incomplete chain — that way the analyst
-    # gets a fast, partial decode instead of an ERROR: timeout page.
-    force_orchestrator = len(payload) > 8 * 1024
+    # RC2.2 hotfix — Prod 2026-07-19 (2nd pass): legacy `smart+magic+reasoning`
+    # race can hang the HTTP request for the full 60 s frontend timeout on
+    # ANY moderately-sized input where the orchestrator finds no candidate.
+    # We now force the orchestrator to own the response for payloads > 4 KB
+    # (was 8 KB) — catches the 7850-char timeout case from the Prod screenshot.
+    force_orchestrator = len(payload) > 4 * 1024
     try:
         # Deferred import — avoids circular deps at module load
         from engine.orchestrator import Orchestrator
