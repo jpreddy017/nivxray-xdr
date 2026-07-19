@@ -1,0 +1,9 @@
+=== PRODUCTION SMOKE TEST ===
+URL: https://nivxray.nivxforge.com
+Timestamp: 2026-07-19T06:53:33Z
+
+--- [1] GET /api/v2/plugins ---
+{"detail":"Not authenticated"}
+HTTP:403 · TIME:0.493618s · SIZE:30B
+{"detail":"Invalid credentials"}
+HTTP:401
