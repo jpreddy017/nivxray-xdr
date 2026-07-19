@@ -83,6 +83,15 @@ class Base64Decoder(BaseDecoder):
                 )
             # Newline-only whitespace → MIME/PEM style multi-line base64. Accept.
             # `s` was already computed with all whitespace stripped upstream.
+        # Also make base64 defer when the payload starts with '=' — those are
+        # padding chars that always appear at the TAIL in real Base64. A
+        # leading '=' is a hallmark of reverse-obfuscation; let reverse-string
+        # take precedence.
+        if s.startswith("="):
+            return DetectResult(
+                confidence=0.30,
+                why="Leading '=' padding — likely reversed Base64, deferring to reverse-string",
+            )
         conf = 0.85
         urlsafe = bool(_URLSAFE.match(s) and not _STD.match(s))
         return DetectResult(

@@ -292,7 +292,9 @@ FamilyMatch.model_rebuild()
 @dataclass
 class Budget:
     """Single source of truth for orchestrator resource limits."""
-    max_depth: int = 12
+    max_depth: int = 20                         # bumped from 12 in RC2.2 for
+                                                 # deeply-nested loaders (see
+                                                 # test_rc22_sophisticated_chain)
     max_branches: int = 3
     wall_time_ms: int = 5000
     start_ns: int = field(default_factory=time.monotonic_ns)

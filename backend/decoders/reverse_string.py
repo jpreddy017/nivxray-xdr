@@ -66,6 +66,22 @@ class ReverseStringDecoder(BaseDecoder):
                 why=f"Reversed-token hits={rev_hits} exceed forward hits={fwd_hits}",
                 args={"rev_hits": rev_hits, "fwd_hits": fwd_hits},
             )
+        # Second heuristic — Base64 padding `=` at the FRONT of the payload
+        # is a strong signal the string was reversed (base64 padding always
+        # sits at the tail in real Base64).
+        stripped = payload.strip()
+        if stripped.startswith("=") and len(stripped) >= 20:
+            # Verify the reversed form matches base64 alphabet + is >= 20 chars
+            rev = stripped[::-1]
+            b64_like = sum(1 for c in rev if c.isalnum() or c in "+/=")
+            if b64_like / len(rev) > 0.95:
+                # Higher than base64's 0.85 so we defeat the false positive
+                # decode that would otherwise mangle the payload.
+                return DetectResult(
+                    confidence=0.92,
+                    why="Payload starts with '=' — reversed Base64 pattern",
+                    args={"rev_hits": 0, "fwd_hits": 0, "b64_reverse": True},
+                )
         return DetectResult(confidence=0.0, why="No reverse-obfuscation signal")
 
     def decode(self, payload: str, args: Dict[str, Any], ctx: AnalysisContext) -> PluginResult:
