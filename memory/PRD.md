@@ -7,7 +7,42 @@ core decoder. Everything must work offline.
 
 ---
 
-## 🟢 RC2.2+ · DELIVERED — 2026-07-19 (Post-fork continuation)
+## 🟢 RC2.3 · IN-PROGRESS (2026-07-19) — Deterministic Codec Expansion + Benchmark
+
+**Branch:** `feature/rc2`
+**Approach:** measurement-first; every change gated by the RC2.3 chain-completeness benchmark
+**Baseline:** `/app/memory/rc22_pre_changes.json` (RC2.2 pre-my-changes = 19/31 · 61.3%)
+
+**Delivered this session (per-decoder atomic commits):**
+
+| Commit | Impact | Test result |
+|---|---|---|
+| `perf(xor-brute): gate polish pass` | -8ms avg latency | 48/48 tests ✅ |
+| `feat: Brotli decompress plugin + benchmark harness` | +1 codec | 0 regressions ✅ |
+| `feat: LZMA/XZ decompress plugin` | +1 codec | 0 regressions ✅ |
+| `feat: Zstd decompress plugin` | +1 codec | 0 regressions ✅ |
+| `feat: Caesar cipher (shift 1-25) plugin` | +1 codec | 0 regressions ✅ |
+
+**Benchmark evidence (`/app/memory/rc23_*.json`):**
+- **Chain-complete: 22/31 (71.0%)** — up from 19/31 (61.3%) pre-RC2.2+
+- **False-positive IOCs: 0** across all runs
+- **p50 = 0 ms · p95 = 784 ms · Avg = 285 ms · Under 500ms target: 27/31 (87%)**
+
+**Failing samples (drives Phase A remaining work):**
+- `ps-join-obfuscation` / `ps-format-operator` / `ps-replace-obfuscation` → needs PS reconstruction (Phase A6)
+- `cmd-delayed-expansion` → needs CMD `!DELAYED!` expander (Phase A7)
+- `xor-11byte-b64` → needs 9-16 byte XOR extension (Phase A2)
+- `js-fromcharcode` / `js-atob` → Phase B (JavaScript runtime)
+- `vbs-chr` / `vbs-createobject` → Phase B (VBScript runtime)
+
+**Benchmark harness:** `/app/backend/tests/rc23_benchmark/`
+- `__init__.py` — 31 curated samples across 12 categories
+- `run_benchmark.py` — chain-completeness runner with per-category summary
+- `profile_latency.py` — p50/p95/p99 + per-plugin aggregate timing
+
+---
+
+
 
 **Branch:** `feature/rc2` · **Tests:** 15/15 new + 46/47 legacy regression green
 **Release notes appended to CHANGELOG below**
