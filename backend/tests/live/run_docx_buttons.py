@@ -6,7 +6,11 @@ import json, os, time, requests, docx
 from pathlib import Path
 
 API   = "http://localhost:8001"
-CREDS = {"email": "admin@nivxray.com", "password": "uulVDp5cCSB3Hva99s7UUAwK"}
+# Credentials come from env (backend/.env exports ADMIN_EMAIL / ADMIN_PASSWORD).
+_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+if not _PASSWORD:
+    raise SystemExit("ADMIN_PASSWORD env var required (source backend/.env first)")
+CREDS = {"email": os.environ.get("ADMIN_EMAIL", "admin@nivxray.com"), "password": _PASSWORD}
 OUTDIR = Path("/app/test_reports/docx_buttons"); OUTDIR.mkdir(parents=True, exist_ok=True)
 
 # ── Extract 4 distinct payloads from the doc ────────────────────────────

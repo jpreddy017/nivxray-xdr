@@ -6,9 +6,14 @@ Run from `/app/backend/`:
 
     python scripts/capture_docs_screenshots.py \
         --base-url $REACT_APP_BACKEND_URL \
-        --email admin@nivxray.com \
-        --password 'uulVDp5cCSB3Hva99s7UUAwK' \
+        --email $ADMIN_EMAIL \
+        --password "$ADMIN_PASSWORD" \
         --workflow encoded_powershell
+
+Both --email and --password can also be supplied via the environment
+variables NIVXRAY_ADMIN_EMAIL / NIVXRAY_ADMIN_PASSWORD (or ADMIN_EMAIL /
+ADMIN_PASSWORD from backend/.env). Never hardcode credentials in this
+file — the argparse defaults intentionally require an explicit source.
 
 Or capture every workflow with a `capture:` block:
 
@@ -295,10 +300,10 @@ async def main_async(args) -> int:
               file=sys.stderr)
         return 2
 
-    email = args.email or os.environ.get("NIVXRAY_ADMIN_EMAIL", "admin@nivxray.com")
-    password = args.password or os.environ.get("NIVXRAY_ADMIN_PASSWORD", "")
+    email = args.email or os.environ.get("NIVXRAY_ADMIN_EMAIL") or os.environ.get("ADMIN_EMAIL", "admin@nivxray.com")
+    password = args.password or os.environ.get("NIVXRAY_ADMIN_PASSWORD") or os.environ.get("ADMIN_PASSWORD", "")
     if not password:
-        print("error: --password required (or NIVXRAY_ADMIN_PASSWORD env)",
+        print("error: --password required (or NIVXRAY_ADMIN_PASSWORD / ADMIN_PASSWORD env)",
               file=sys.stderr)
         return 2
 

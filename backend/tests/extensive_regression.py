@@ -13,9 +13,14 @@ from typing import Dict, Any, List
 import requests
 
 API = os.popen('grep REACT_APP_BACKEND_URL /app/frontend/.env | cut -d= -f2').read().strip()
+# Credentials come from env (backend/.env exports ADMIN_EMAIL / ADMIN_PASSWORD).
+_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@nivxray.com")
+_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+if not _PASSWORD:
+    raise SystemExit("ADMIN_PASSWORD env var required (source backend/.env first)")
 TOK = os.popen(
     f"""curl -s -X POST {API}/api/auth/login -H 'Content-Type: application/json' """
-    """-d '{"email":"admin@nivxray.com","password":"uulVDp5cCSB3Hva99s7UUAwK"}' """
+    f"""-d '{{"email":"{_EMAIL}","password":"{_PASSWORD}"}}' """
     """| python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])" """
 ).read().strip()
 H = {"Authorization": f"Bearer {TOK}"}

@@ -7,6 +7,33 @@ core decoder. Everything must work offline.
 
 ---
 
+## 🟢 RC2.5 · CONFIDENCE-BADGE FIX · DELIVERED (2026-02-XX)
+
+**Branch:** `feature/rc2` · **Scope:** UI/frontend only — engine untouched
+**Test evidence:** `/app/test_reports/iteration_17.json` (2/3 panels live-verified in DOM, 3rd verified by code review · zero `0% CONFIDENCE` matches after fix)
+
+**Fixed:** The misleading "0% CONFIDENCE" badge on three surfaces that made the analyst distrust the SOC Verdict (which shows 70%+ correctly). Applied the same `hasConf = Number.isFinite(confidence) && confidence > 0` guard RC2.4 introduced for chain-mode headers.
+
+| # | File | Fix |
+|---|------|-----|
+| 1 | `frontend/src/components/DecodingTracePanel.jsx` (line 132-150) | Show `CONF · N/A · DECODED` when trace decoded ok but confidence=0/null |
+| 2 | `frontend/src/components/InvestigationGraph.jsx` (line 265-280) | Same guard on the Investigation Graph header badge |
+| 3 | `frontend/src/components/SocVerdictPanel.jsx` (line 55-75, 127) | `n/a · decoded` in SOC-ticket string + Confidence VerdictField |
+
+The backend-computed `VerdictCard` (workspace-verdict-card) is unrelated and still shows its true score.
+
+**Cleanup (partial · 5/50+ files):** Removed hardcoded admin password from 5 test scripts flagged in the handoff. Replaced with `os.environ.get("ADMIN_PASSWORD")` fail-fast pattern:
+- `backend/scripts/capture_docs_screenshots.py`
+- `backend/tests/daily_regression.py`
+- `backend/tests/extensive_regression.py`
+- `backend/tests/live/run_docx_buttons.py`
+- `backend/tests/stress_deploy_ready.py`
+
+⚠️ **~45 more backend test files still contain the hardcoded password** — see `ROADMAP.md` for the deferred bulk-cleanup task.
+
+
+---
+
 ## 🟢 RC2.4 · UI POLISH · DELIVERED (2026-07-19)
 
 **Branch:** `feature/rc2` · **Ships on:** next Emergent deploy

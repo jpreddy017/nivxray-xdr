@@ -25,8 +25,14 @@ if not API:
                 API = ln.split("=", 1)[1].strip().rstrip("/")
                 break
 
+# Credentials come from env (backend/.env exports ADMIN_EMAIL / ADMIN_PASSWORD).
+_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@nivxray.com")
+_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+if not _PASSWORD:
+    raise SystemExit("ADMIN_PASSWORD env var required (source backend/.env first)")
+
 r = requests.post(f"{API}/api/auth/login",
-                  json={"email":"admin@nivxray.com","password":"uulVDp5cCSB3Hva99s7UUAwK"},
+                  json={"email": _EMAIL, "password": _PASSWORD},
                   timeout=15)
 r.raise_for_status()
 H = {"Authorization": f"Bearer {r.json()['access_token']}",
