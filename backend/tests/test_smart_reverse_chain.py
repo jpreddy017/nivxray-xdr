@@ -62,7 +62,7 @@ def test_reverse_chain_via_api():
     API = os.popen("grep REACT_APP_BACKEND_URL /app/frontend/.env | cut -d= -f2").read().strip()
     tok = requests.post(f"{API}/api/auth/login",
                         json={"email": "admin@nivxray.com",
-                              "password": "uulVDp5cCSB3Hva99s7UUAwK"}, timeout=10).json().get("access_token")
+                              "password": os.environ.get("ADMIN_PASSWORD", "")}, timeout=10).json().get("access_token")
     if not tok:
         pytest.skip("auth unavailable")
     enc = _build_reversed_chain(b"NivXray_Test_Payload_01\n")

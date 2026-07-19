@@ -23,7 +23,7 @@ with open("/app/frontend/.env") as f:
 assert BASE_URL, "REACT_APP_BACKEND_URL not set"
 
 ADMIN_EMAIL = "admin@nivxray.com"
-ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 
 @pytest.fixture(scope="module")

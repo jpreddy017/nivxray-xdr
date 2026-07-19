@@ -95,7 +95,7 @@ def test_change_password_endpoint_exists_and_gates_wrong_current_password():
     current password (401) and only accept a new one that differs from
     the current."""
     admin_email = "admin@nivxray.com"
-    admin_pw = os.environ.get("ADMIN_PASSWORD", "uulVDp5cCSB3Hva99s7UUAwK")
+    admin_pw = os.environ.get("ADMIN_PASSWORD", "")
     r = requests.post(f"{BASE_URL}/api/auth/login",
                       json={"email": admin_email, "password": admin_pw},
                       timeout=15)

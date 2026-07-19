@@ -16,7 +16,7 @@ so the compressed streams are guaranteed valid. No hand-typed base64 blobs.
 Usage:
     export NIVXRAY_URL='https://your-prod-url.com'
     export NIVXRAY_EMAIL='admin@nivxray.com'
-    export NIVXRAY_PASSWORD='uulVDp5cCSB3Hva99s7UUAwK'
+    export NIVXRAY_PASSWORD=os.environ.get("ADMIN_PASSWORD", "")
     python3 /app/backend/tests/stress_test_encoded_commandlines.py
 """
 from __future__ import annotations
@@ -34,7 +34,7 @@ from typing import Dict, List, Tuple
 
 NIVXRAY_URL = os.environ.get("NIVXRAY_URL") or "https://greeting-app-5782.preview.emergentagent.com"
 EMAIL = os.environ.get("NIVXRAY_EMAIL") or "admin@nivxray.com"
-PASSWORD = os.environ.get("NIVXRAY_PASSWORD") or "uulVDp5cCSB3Hva99s7UUAwK"
+PASSWORD = os.environ.get("NIVXRAY_PASSWORD") or os.environ.get("ADMIN_PASSWORD", "")
 
 
 def _post(path: str, body: dict, token: str | None = None, timeout: float = 45.0) -> dict:

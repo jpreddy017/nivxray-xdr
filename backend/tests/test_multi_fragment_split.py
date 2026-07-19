@@ -15,7 +15,7 @@ API = os.environ.get("REACT_APP_BACKEND_URL") or subprocess.check_output(
     "grep REACT_APP_BACKEND_URL /app/frontend/.env | cut -d= -f2",
     shell=True,
 ).decode().strip()
-EMAIL, PW = "admin@nivxray.com", "uulVDp5cCSB3Hva99s7UUAwK"
+EMAIL, PW = "admin@nivxray.com", os.environ.get("ADMIN_PASSWORD", "")
 
 
 @pytest.fixture(scope="module")

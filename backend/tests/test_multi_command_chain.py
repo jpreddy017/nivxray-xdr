@@ -13,6 +13,7 @@ This suite verifies the *backend* half — /api/decode/chain still returns a
 correct aggregate for the exact user payload, so the frontend routing does
 not need to change anything on the server side.
 """
+import os
 import pytest
 import requests
 
@@ -24,7 +25,7 @@ with open("/app/frontend/.env") as f:
 assert BASE_URL, "REACT_APP_BACKEND_URL missing"
 
 ADMIN_EMAIL = "admin@nivxray.com"
-ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 
 # The exact 6-stage chain from the user's Feb-2026 report — 11 raw lines

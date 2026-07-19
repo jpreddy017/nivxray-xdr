@@ -13,6 +13,7 @@ Contract
 6. Legacy fmt (md / json / txt) untouched — backwards compat
 """
 from __future__ import annotations
+import os
 
 import io
 
@@ -53,7 +54,7 @@ def client():
 @pytest.fixture(scope="module")
 def token(client):
     r = client.post("/api/auth/login", json={
-        "email": "admin@nivxray.com", "password": "uulVDp5cCSB3Hva99s7UUAwK"
+        "email": "admin@nivxray.com", "password": os.environ.get("ADMIN_PASSWORD", "")
     })
     assert r.status_code == 200
     return r.json()["access_token"]

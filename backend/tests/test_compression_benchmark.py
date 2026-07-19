@@ -11,7 +11,7 @@ if not BASE_URL:
                 BASE_URL = line.split("=", 1)[1].strip().rstrip("/")
 
 ADMIN_EMAIL = "admin@nivxray.com"
-ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 
 @pytest.fixture(scope="session")

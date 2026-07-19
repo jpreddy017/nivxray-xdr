@@ -9,7 +9,7 @@ import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://greeting-app-5782.preview.emergentagent.com").rstrip("/")
 ADMIN_EMAIL = "admin@nivxray.com"
-ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 
 @pytest.fixture(scope="module")

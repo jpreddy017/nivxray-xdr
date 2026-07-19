@@ -26,7 +26,7 @@ if not API:
 
 r = requests.post(f"{API}/api/auth/login",
                   json={"email": "admin@nivxray.com",
-                        "password": "uulVDp5cCSB3Hva99s7UUAwK"},
+                        "password": os.environ.get("ADMIN_PASSWORD", "")},
                   timeout=15)
 r.raise_for_status()
 H = {"Authorization": f"Bearer {r.json()['access_token']}",

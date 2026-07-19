@@ -41,7 +41,7 @@ FIXTURES_DIR = "/app/backend/tests/fixtures"
 @pytest.fixture(scope="module")
 def auth():
     r = requests.post(f"{BASE_URL}/api/auth/login",
-                      json={"email": "admin@nivxray.com", "password": "uulVDp5cCSB3Hva99s7UUAwK"}, timeout=30)
+                      json={"email": "admin@nivxray.com", "password": os.environ.get("ADMIN_PASSWORD", "")}, timeout=30)
     assert r.status_code == 200
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
