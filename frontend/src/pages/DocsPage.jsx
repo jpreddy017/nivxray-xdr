@@ -28,6 +28,9 @@ export default function DocsPage() {
   const [downloading, setDownloading] = useState(false);
   const [flowSvg, setFlowSvg] = useState("");
   const [anatomySvgs, setAnatomySvgs] = useState({});
+  // Feb-2026 · in-app business docs (Vision, HLD/LLD, Capabilities Skeleton)
+  const [businessDocs, setBusinessDocs] = useState([]);
+  const [businessContent, setBusinessContent] = useState(null); // {title, content}
 
   useEffect(() => {
     api.get("/docs/assets/analyst_flow.svg", { responseType: "text" })
@@ -77,6 +80,8 @@ export default function DocsPage() {
   useEffect(() => {
     api.get("/docs/features").then((r) => setFeatures(r.data.features || []));
     api.get("/docs/workflows").then((r) => setWorkflows(r.data.workflows || []));
+    api.get("/docs/business").then((r) => setBusinessDocs(r.data.items || []))
+       .catch(() => setBusinessDocs([]));
   }, []);
 
   useEffect(() => {
@@ -84,9 +89,15 @@ export default function DocsPage() {
   }, [audience]);
 
   useEffect(() => {
-    if (!selected) { setDetail(null); return; }
+    if (!selected) { setDetail(null); setBusinessContent(null); return; }
     // Trending is a client-side pseudo-selection — no backend fetch needed.
-    if (selected.kind === "trending") { setDetail(null); return; }
+    if (selected.kind === "trending") { setDetail(null); setBusinessContent(null); return; }
+    if (selected.kind === "business") {
+      setDetail(null);
+      api.get(`/docs/business/${selected.id}`).then((r) => setBusinessContent(r.data))
+         .catch(() => setBusinessContent({ title: "Error", content: "# Doc could not be loaded" }));
+      return;
+    }
     const path = selected.kind === "feature"
       ? `/docs/features/${selected.id}`
       : `/docs/workflows/${selected.id}`;
@@ -257,6 +268,30 @@ export default function DocsPage() {
                 </div>
               ))}
 
+              {/* Feb-2026 · Business / enterprise-facing docs (Vision, HLD/LLD, Skeleton) */}
+              {businessDocs.length > 0 && (
+                <div style={{ marginTop: 14, borderTop: "1px solid rgba(148,163,184,0.15)", paddingTop: 10 }}>
+                  <div style={{ fontSize: 10, color: "#7ee3c9", fontWeight: 600, marginBottom: 4 }}>
+                    BUSINESS DOCS ({businessDocs.length})
+                  </div>
+                  {businessDocs.map((doc) => (
+                    <div key={doc.slug}
+                         onClick={() => setSelected({ kind: "business", id: doc.slug })}
+                         style={{
+                           fontSize: 11, padding: "4px 6px", cursor: "pointer",
+                           borderRadius: 3, color: "#a78bfa",
+                           background: selected?.id === doc.slug ? "rgba(167,139,250,0.10)" : "transparent",
+                           marginBottom: 2,
+                         }}
+                         data-testid={`docs-business-${doc.slug}`}
+                         title={doc.summary}
+                    >
+                      📄 {doc.title}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {Object.entries(byCategory).map(([cat, feats]) => (
                 <div key={cat} style={{ marginTop: 10 }}>
                   <div style={{ fontSize: 10, color: "#7ee3c9", fontWeight: 600, marginBottom: 4 }}>
@@ -380,6 +415,13 @@ export default function DocsPage() {
         <div className="nvx-card-body" style={{ fontSize: 13, color: "#c9d1d9", lineHeight: 1.6 }}>
           {selected?.kind === "trending" ? (
             <TrendingPanel />
+          ) : selected?.kind === "business" && businessContent ? (
+            <div className="docs-md" data-testid="docs-business-content">
+              <div style={{ marginBottom: 12, color: "#a78bfa", fontSize: 11 }}>
+                <code>{selected.id}</code> · audience: {businessContent.audience || "all"} · {businessContent.size_bytes} bytes
+              </div>
+              <ReactMarkdown>{businessContent.content}</ReactMarkdown>
+            </div>
           ) : detail ? (
             <FeatureDetail detail={detail} kind={selected.kind} />
           ) : (

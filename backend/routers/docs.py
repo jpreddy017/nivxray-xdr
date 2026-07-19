@@ -775,3 +775,84 @@ async def automation_suggest_fix(body: SuggestFixIn,
         raise HTTPException(404, result["error"])
     return {**result, "negative_event_count": len(events)}
 
+
+
+# ────────────────────────────────────────────────────────────────
+# Business docs — Vision / Capabilities / Skeleton
+# ────────────────────────────────────────────────────────────────
+# Serves the enterprise-facing markdown docs (`VISION_ENTERPRISE_INTEGRATION.md`,
+# `CAPABILITIES_HLD_LLD.md`, `CAPABILITIES_SKELETON.md`) from `/app/memory/` so
+# analysts / sales / SEs can access them in-app without leaving the tool.
+
+_BUSINESS_DOCS_DIR = Path("/app/memory")
+
+_BUSINESS_DOCS_REGISTRY = [
+    {
+        "slug": "skeleton",
+        "title": "Capabilities Skeleton (Buyer Meetings)",
+        "filename": "CAPABILITIES_SKELETON.md",
+        "audience": "sales",
+        "summary": "Lean skeleton — fill in during buyer meetings. Structure only, not prose.",
+    },
+    {
+        "slug": "hld-lld",
+        "title": "Capabilities Document (HLD + LLD)",
+        "filename": "CAPABILITIES_HLD_LLD.md",
+        "audience": "architect",
+        "summary": "Full technical design — architecture, API contracts, deployment topology.",
+    },
+    {
+        "slug": "vision",
+        "title": "Enterprise Integration Vision",
+        "filename": "VISION_ENTERPRISE_INTEGRATION.md",
+        "audience": "executive",
+        "summary": "Executive narrative for CISOs — problem, product, integration, ROI.",
+    },
+    {
+        "slug": "roadmap",
+        "title": "RC2 Roadmap",
+        "filename": "RC2_ROADMAP.md",
+        "audience": "developer",
+        "summary": "Detailed RC2 sprint plan — priorities, dependencies, delivery order.",
+    },
+    {
+        "slug": "changelog",
+        "title": "Changelog",
+        "filename": "CHANGELOG.md",
+        "audience": "all",
+        "summary": "What's been shipped, chronologically. Great pre-meeting refresher.",
+    },
+]
+
+
+@router.get("/docs/business", tags=["docs"])
+async def list_business_docs(user=Depends(get_current_user)):
+    """List all business / enterprise-facing markdown documents."""
+    items = []
+    for entry in _BUSINESS_DOCS_REGISTRY:
+        path = _BUSINESS_DOCS_DIR / entry["filename"]
+        items.append({
+            **entry,
+            "available": path.exists(),
+            "size_bytes": path.stat().st_size if path.exists() else 0,
+            "url": f"/api/docs/business/{entry['slug']}",
+        })
+    return {"items": items, "total": len(items)}
+
+
+@router.get("/docs/business/{slug}", tags=["docs"])
+async def get_business_doc(slug: str, user=Depends(get_current_user)):
+    """Return the raw markdown for a business doc (renderable in the UI)."""
+    entry = next((e for e in _BUSINESS_DOCS_REGISTRY if e["slug"] == slug), None)
+    if not entry:
+        raise HTTPException(404, f"business doc not found: {slug}")
+    path = _BUSINESS_DOCS_DIR / entry["filename"]
+    if not path.exists():
+        raise HTTPException(404, f"file missing: {entry['filename']}")
+    return {
+        "slug": slug,
+        "title": entry["title"],
+        "audience": entry["audience"],
+        "content": path.read_text(encoding="utf-8"),
+        "size_bytes": path.stat().st_size,
+    }
