@@ -195,15 +195,26 @@ def test_lock13_ai_toggle_endpoints_exist():
 
 
 # ═════════════════════════════════════════════════════════════════════════
-# LOCK 14 · Modular decoder plugin skeleton exists
+# LOCK 14 · Modular decoder plugin registry exists (Phase A architecture)
 # ═════════════════════════════════════════════════════════════════════════
 def test_lock14_modular_decoder_skeleton():
+    """Locks the plugin-based decoder architecture introduced in Session 2 / Phase A."""
     import sys
     sys.path.insert(0, "/app/backend")
-    from decoders import all_plugins, get
-    assert len(all_plugins()) >= 1, "Regressed: decoder plugin registry empty"
-    b64 = get("base64-decode")
-    assert b64 is not None and b64["decode"]("SGVsbG8=") == "Hello"
+    from engine import DecoderRegistry, Orchestrator, AnalysisContext, Budget
+    plugins = DecoderRegistry.all()
+    assert len(plugins) >= 3, "Regressed: fewer than 3 pilot decoders registered"
+    ids = {p.id for p in plugins}
+    assert "base64-decode" in ids, "Regressed: base64 plugin missing"
+    # End-to-end orchestrator smoke: base64('Hello world english text') → plaintext
+    import base64 as _b64
+    payload = _b64.b64encode(b"Hello world english text").decode()
+    report = Orchestrator(AnalysisContext(budget=Budget(max_depth=6, wall_time_ms=2000))).run(payload)
+    assert "Hello world english text" in report.output
+    assert report.trace and report.trace[0].decoder == "base64-decode"
+    # Vision-aligned: AnalystReport must carry the aggregated intelligence surface
+    assert hasattr(report, "findings"), "AnalystReport missing findings aggregate"
+    assert hasattr(report, "executive_summary"), "AnalystReport missing executive_summary"
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -217,3 +228,58 @@ def test_lock15_credit_guard_wired():
     env = open("/app/backend/.env").read()
     assert "NIVX_AI_RATE_HOURLY" in env, ".env missing NIVX_AI_RATE_HOURLY"
     assert "NIVX_AI_BUDGET_CAP_CREDITS" in env
+
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 16 · Session-2 engine feature flag wired
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock16_engine_feature_flag():
+    """`NIVX_ENGINE` env var gates legacy vs. orchestrator. Default = legacy."""
+    import os, sys
+    sys.path.insert(0, "/app/backend")
+    env = open("/app/backend/.env").read()
+    assert "NIVX_ENGINE" in env, ".env missing NIVX_ENGINE feature flag"
+    assert "NIVX_ENGINE_BUDGET_WALLTIME_MS" in env, ".env missing budget wall-time config"
+    from engine.config import engine_mode, new_budget
+    prev = os.environ.get("NIVX_ENGINE")
+    try:
+        os.environ["NIVX_ENGINE"] = "legacy"
+        assert engine_mode() == "legacy"
+        os.environ["NIVX_ENGINE"] = "orchestrator"
+        assert engine_mode() == "orchestrator"
+    finally:
+        if prev is None:
+            os.environ.pop("NIVX_ENGINE", None)
+        else:
+            os.environ["NIVX_ENGINE"] = prev
+    b = new_budget()
+    assert b.max_depth >= 1 and b.wall_time_ms >= 100 and b.max_branches >= 1
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 17 · AnalystReport carries MCIP intelligence surface
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock17_analyst_report_surface():
+    """Orchestrator output MUST expose Findings + executive_summary + investigation_steps.
+
+    Locks the vision-aligned MCIP schema so future refactors cannot silently
+    drop the intelligence aggregate that separates NivXRay from CyberChef.
+    """
+    import sys
+    sys.path.insert(0, "/app/backend")
+    from engine import AnalystReport, Orchestrator, AnalysisContext, Budget, Findings, IOCBundle
+    r = Orchestrator(AnalysisContext(budget=Budget(max_depth=4, wall_time_ms=1500))).run(
+        base64.b64encode(b"the quick brown fox jumps over the lazy dog").decode()
+    )
+    assert isinstance(r, AnalystReport)
+    assert isinstance(r.findings, Findings)
+    assert isinstance(r.findings.iocs, IOCBundle)
+    # every findings field is non-None (default empty containers)
+    for name in ("mitre_techniques", "lolbas", "tradecraft",
+                 "kill_chain_phases", "similar_cases"):
+        assert getattr(r.findings, name) is not None
+    assert r.executive_summary, "executive_summary must be populated deterministically"
+    assert r.investigation_steps is not None
+    # verdict comes from deterministic aggregation; plaintext output → unknown
+    assert r.findings.verdict in {"unknown", "needs_review", "suspicious", "malicious", "benign"}

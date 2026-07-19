@@ -1,13 +1,16 @@
 """Engine data models — the shared contract every layer speaks.
 
-Design notes
-------------
-- Pydantic v2 is used ONLY where a JSON-serialisable, self-documenting cross-layer
-  contract clearly pays off (Fingerprint, TraceStep, DetectResult, DecodeResult).
-- Plain dataclasses are used for hot-path runtime objects (Budget, TraceBuffer,
-  AnalysisContext) to avoid per-call validation overhead.
-- schema_version is minimal today (bumped by hand); trace records it so future
-  replays can pick the right decoder version.
+Design principles (vision-aligned: NivXRay as Malware Command Intelligence Platform)
+--------------------------------------------------------------------------------
+- Every plugin — decoder, archetype, or intelligence heuristic — emits the SAME
+  shape (`PluginResult`). This turns every layer into an intelligence contributor,
+  not just a byte-shuffler.
+- The terminal object is `AnalystReport`, not just decoded text. It carries
+  aggregated `Findings` (verdict, IOCs, MITRE, family) + `InvestigationRecommendation`s.
+- Pydantic v2 is used where JSON-serialisable, self-documenting cross-layer
+  contracts pay off. Plain dataclasses for hot-path runtime objects.
+- `DecodeResult` and `DecodeOutcome` remain as backwards-compat aliases so existing
+  code and tests keep working; new plugins should use `PluginResult` / `AnalystReport`.
 """
 from __future__ import annotations
 
@@ -19,50 +22,103 @@ from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
+# Intelligence signal types (emitted by any plugin at any layer)
+# ---------------------------------------------------------------------------
+class MitreHint(BaseModel):
+    id: str                                 # e.g. "T1059.001"
+    technique: str = ""
+    tactic: str = ""
+    evidence: str = ""
+    source: str = "heuristic"               # heuristic | archetype | family | ai
+
+
+class FamilyHint(BaseModel):
+    family: str                             # e.g. "Meterpreter"
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: str = ""
+    aka: List[str] = Field(default_factory=list)
+
+
+class LolbasHit(BaseModel):
+    binary: str                             # e.g. "certutil.exe"
+    technique_id: Optional[str] = None
+    evidence: str = ""
+
+
+class TradecraftFlag(BaseModel):
+    flag: str                               # e.g. "amsi-bypass", "reflective-injection"
+    severity: str = "info"                  # info | low | medium | high | critical
+    evidence: str = ""
+
+
+class IOCBundle(BaseModel):
+    urls: List[str] = Field(default_factory=list)
+    ips: List[str] = Field(default_factory=list)
+    domains: List[str] = Field(default_factory=list)
+    emails: List[str] = Field(default_factory=list)
+    md5: List[str] = Field(default_factory=list)
+    sha1: List[str] = Field(default_factory=list)
+    sha256: List[str] = Field(default_factory=list)
+    bitcoin_addresses: List[str] = Field(default_factory=list)
+    file_paths: List[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # L0 output — Fingerprint
 # ---------------------------------------------------------------------------
 class Fingerprint(BaseModel):
-    """Structural probe result for a single payload.
-
-    Emitted by L0 probes; consumed by L2 decoder registry to filter candidates.
-    Kept small and JSON-friendly so it can be rendered on the frontend Trace panel.
-    """
     input_len: int
-    printable_ratio: float = 0.0            # 0..1
-    english_density: float = 0.0            # 0..1
-    entropy: float = 0.0                    # Shannon bits/byte
+    printable_ratio: float = 0.0
+    english_density: float = 0.0
+    entropy: float = 0.0
     is_binary: bool = False
     encoding_candidates: List[Dict[str, Any]] = Field(default_factory=list)
-    # e.g. [{"name": "base64", "alphabet_fit": 0.98, "length_mod": 0}, ...]
-    file_type: Optional[str] = None         # "PE", "OLE", "OOXML", "RTF", ...
-    wrapper_type: Optional[str] = None      # "powershell", "cmd", "hta", ...
+    file_type: Optional[str] = None
+    wrapper_type: Optional[str] = None
     notes: List[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
-# Decoder plug-in contract
+# Plugin contract (universal for L2 decoders and L3 intelligence plugins)
 # ---------------------------------------------------------------------------
 class DetectResult(BaseModel):
-    """A decoder's confidence that it applies to the current payload."""
+    """A plugin's confidence that it applies to the current payload."""
     confidence: float = Field(ge=0.0, le=1.0)
     why: str = ""
     args: Dict[str, Any] = Field(default_factory=dict)
-    # args passes decoder-specific config (e.g. xor key candidate list) to decode()
 
 
-class DecodeResult(BaseModel):
-    """A decoder's output after applying decode()."""
-    output: str                             # decoded text (or Latin-1 encoded bytes)
+class PluginResult(BaseModel):
+    """The unified output shape for every plugin.
+
+    A pure decoder (e.g. base64) sets only `output`.
+    A pure intelligence plugin (e.g. meterpreter_detector) sets only signals.
+    A hybrid plugin (e.g. xor-brute that also emits an IP IOC) sets both.
+    """
+    # Byte transform (empty for pure-intelligence plugins)
+    output: str = ""
     output_is_binary: bool = False
+    # Intelligence signals — any plugin at any layer may contribute
+    iocs: Dict[str, List[str]] = Field(default_factory=dict)
+    mitre_hints: List[MitreHint] = Field(default_factory=list)
+    family_hints: List[FamilyHint] = Field(default_factory=list)
+    lolbas_hits: List[LolbasHit] = Field(default_factory=list)
+    tradecraft: List[TradecraftFlag] = Field(default_factory=list)
+    recommendations: List[str] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
-    sub_iocs: Dict[str, List[str]] = Field(default_factory=dict)
-    # sub_iocs lets a decoder surface IOCs it saw locally (e.g. XOR key reveals URL)
+    explanation: str = ""                   # optional human-readable prose
 
 
+# Backwards-compat alias — kept so existing tests / callers don't break
+DecodeResult = PluginResult
+
+
+# ---------------------------------------------------------------------------
+# Trace step (one layer of the recursive decode chain)
+# ---------------------------------------------------------------------------
 class TraceStep(BaseModel):
-    """One layer of the recursive decode chain. Displayed on the frontend."""
     layer: int
-    decoder: str                            # canonical id, e.g. "base64-decode"
+    decoder: str                            # canonical plugin id
     schema_version: str = "1.0"
     confidence: float
     why: str
@@ -71,33 +127,105 @@ class TraceStep(BaseModel):
     exec_ms: int
     preview: str                            # first 200 chars of decoded output
     args: Dict[str, Any] = Field(default_factory=dict)
+    # Signals surfaced by this specific step (aggregated into Findings)
     sub_iocs: Dict[str, List[str]] = Field(default_factory=dict)
+    mitre_hints: List[MitreHint] = Field(default_factory=list)
+    family_hints: List[FamilyHint] = Field(default_factory=list)
+    lolbas_hits: List[LolbasHit] = Field(default_factory=list)
+    tradecraft: List[TradecraftFlag] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
-# Terminal outcome
+# Investigation recommendation & rule stubs
 # ---------------------------------------------------------------------------
-class DecodeOutcome(BaseModel):
-    """Final orchestrator result surfaced to callers (routers, tests, frontend)."""
+class InvestigationRecommendation(BaseModel):
+    priority: str = "medium"                # low | medium | high | critical
+    action: str                             # imperative sentence for the analyst
+    rationale: str = ""
+    related_iocs: List[str] = Field(default_factory=list)
+
+
+class SigmaRuleStub(BaseModel):
+    title: str
+    description: str = ""
+    logsource: Dict[str, str] = Field(default_factory=dict)
+    detection: Dict[str, Any] = Field(default_factory=dict)
+
+
+class YaraRuleStub(BaseModel):
+    name: str
+    strings: List[str] = Field(default_factory=list)
+    condition: str = ""
+    tags: List[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Similar-case & family match
+# ---------------------------------------------------------------------------
+class FamilyMatch(BaseModel):
+    family: str = "unknown"
+    confidence: float = 0.0
+    evidence: List[str] = Field(default_factory=list)
+    alternatives: List[FamilyHint] = Field(default_factory=list)
+
+
+class SimilarCase(BaseModel):
+    case_id: str
+    similarity: float                       # 0..1 Jaccard
+    label: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Findings — aggregated intelligence across all layers (single source of truth)
+# ---------------------------------------------------------------------------
+class Findings(BaseModel):
+    verdict: str = "unknown"                # benign | suspicious | malicious | needs_review | unknown
+    risk_score: int = 0                     # 0..100
+    iocs: IOCBundle = Field(default_factory=IOCBundle)
+    mitre_techniques: List[MitreHint] = Field(default_factory=list)
+    family: FamilyMatch = Field(default_factory=FamilyMatch)
+    lolbas: List[LolbasHit] = Field(default_factory=list)
+    tradecraft: List[TradecraftFlag] = Field(default_factory=list)
+    kill_chain_phases: List[str] = Field(default_factory=list)
+    similar_cases: List[SimilarCase] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Terminal analyst report (was DecodeOutcome)
+# ---------------------------------------------------------------------------
+class AnalystReport(BaseModel):
+    """The machine-readable analyst-ready intelligence report.
+
+    Combines the decoding trace (how), the fingerprint history (what shape),
+    the findings (what it means), and analyst-facing outputs (what to do).
+    """
+    # The "how"
     output: str
     trace: List[TraceStep] = Field(default_factory=list)
     fingerprint_history: List[Fingerprint] = Field(default_factory=list)
-    terminal: str = "no-op"                 # "shellcode" | "english" | "budget" | "no-candidate" | ...
+    terminal: str = "no-op"
     stopped_reason: str = ""
     elapsed_ms: int = 0
     engine: str = "orchestrator-v1"
+    # The "what it means" — aggregated intelligence
+    findings: Findings = Field(default_factory=Findings)
+    # The "what to do next" — analyst-ready outputs
+    executive_summary: str = ""             # deterministic; AI may enrich when enabled
+    investigation_steps: List[InvestigationRecommendation] = Field(default_factory=list)
+    sigma_rules: List[SigmaRuleStub] = Field(default_factory=list)
+    yara_rules: List[YaraRuleStub] = Field(default_factory=list)
+
+
+# Backwards-compat alias
+DecodeOutcome = AnalystReport
 
 
 # ---------------------------------------------------------------------------
-# Runtime objects (dataclasses — fast, mutable, no validation cost)
+# Runtime objects (dataclasses — fast, mutable, no per-call validation)
 # ---------------------------------------------------------------------------
 @dataclass
 class Budget:
-    """Single source of truth for orchestrator resource limits.
-
-    All limits are checked at each layer boundary. When any limit is breached,
-    the orchestrator terminates with `terminal="budget"`.
-    """
+    """Single source of truth for orchestrator resource limits."""
     max_depth: int = 12
     max_branches: int = 3
     wall_time_ms: int = 5000
@@ -132,11 +260,7 @@ class TraceBuffer:
 
 @dataclass
 class AnalysisContext:
-    """Per-request context carried through L0-L1-L2-L3.
-
-    Purposely minimal in Phase A. Extended in later phases with cache, ai_gate,
-    settings, request_id, user, etc.
-    """
+    """Per-request context carried through L0-L1-L2-L3."""
     budget: Budget = field(default_factory=Budget)
     trace: TraceBuffer = field(default_factory=TraceBuffer)
     ai_enabled: bool = False
