@@ -34,6 +34,7 @@ from engine import (
 )
 from engine.config import new_budget
 from engine.report import to_json, to_markdown, to_text
+from engine.report_pdf import to_pdf
 
 log = logging.getLogger("nivx.routers.v2")
 
@@ -100,6 +101,10 @@ async def analyze_v2_report(
         body = to_text(report)
         media = "text/plain; charset=utf-8"
         filename = "nivxray-analyst-report.txt"
+    elif fmt_norm == "pdf":
+        body = to_pdf(report)
+        media = "application/pdf"
+        filename = "nivxray-analyst-report.pdf"
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported fmt: {fmt}")
     return Response(

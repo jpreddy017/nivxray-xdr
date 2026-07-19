@@ -105,7 +105,7 @@ export default function AnalystWorkspacePage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const ext = fmt === "md" ? "md" : fmt === "json" ? "json" : "txt";
+      const ext = fmt === "md" ? "md" : fmt === "json" ? "json" : fmt === "pdf" ? "pdf" : "txt";
       a.download = `nivxray-analyst-report.${ext}`;
       a.click();
       URL.revokeObjectURL(url);
@@ -193,6 +193,7 @@ export default function AnalystWorkspacePage() {
                 {report.executive_summary}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
+                <DownloadBtn testid="dl-pdf"  label="Download PDF"      onClick={() => downloadReport("pdf")} />
                 <DownloadBtn testid="dl-md"   label="Download Markdown" onClick={() => downloadReport("md")} />
                 <DownloadBtn testid="dl-json" label="Download JSON"     onClick={() => downloadReport("json")} />
                 <DownloadBtn testid="dl-txt"  label="Download Text"     onClick={() => downloadReport("txt")} />
