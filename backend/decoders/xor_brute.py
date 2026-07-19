@@ -208,6 +208,16 @@ class XorBruteDecoder(BaseDecoder):
         # produces garbage. Applies even at density 0 for short inputs.
         if fingerprint.english_density > 0.05:
             return DetectResult(confidence=0.0, why="Input already reads as English")
+        # Skip structured/decoded text — printable payloads with newlines and
+        # word-like tokens (JSON, prose, wrapped output). XOR-bruting these
+        # only produces garbage.
+        if fingerprint.printable_ratio >= 0.95 and (
+            "\n" in payload or payload.count(" ") >= 3
+        ):
+            return DetectResult(
+                confidence=0.0,
+                why="Structured plaintext (contains whitespace/newlines) — not XOR ciphertext",
+            )
         b = payload.encode("latin-1", errors="replace")
         if not fingerprint.is_binary:
             # High-printable payloads: require length and entropy hallmarks of
@@ -229,7 +239,14 @@ class XorBruteDecoder(BaseDecoder):
                 why=(f"High-entropy printable payload ({len(b)}B, entropy "
                      f"{fingerprint.entropy:.2f}, repeating byte {top}× hint)"),
             )
-        # Binary payload — primary candidate (base64 → binary → xor path)
+        # Binary payload — primary candidate (base64 → binary → xor path).
+        # But short binary blobs (< 32 bytes) are almost never XOR-obfuscated
+        # meaningful content — they're wallet keys, IVs, salts, etc.
+        if len(b) < 32:
+            return DetectResult(
+                confidence=0.0,
+                why=f"Binary payload too short ({len(b)}B) — not XOR ciphertext",
+            )
         return DetectResult(
             confidence=0.65,
             why=(f"Binary payload ({len(b)} bytes, entropy "

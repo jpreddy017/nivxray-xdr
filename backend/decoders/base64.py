@@ -60,6 +60,16 @@ class Base64Decoder(BaseDecoder):
                 confidence=0.30,
                 why="Ambiguous with Base32 (only A-Z + 2-7) — deferring to base32-decode",
             )
+        # Prefer Base58 for wallet-address-shaped payloads. Base58 excludes
+        # 0, O, I, l — if none of those are present AND the payload matches
+        # a Bitcoin/Solana length window, defer to base58-decode.
+        if (25 <= len(s) <= 44
+                and not re.search(r"[0OIl+/=]", s)
+                and s[0] in ("1", "3")):
+            return DetectResult(
+                confidence=0.30,
+                why="Wallet-address shape — deferring to base58-decode",
+            )
         # Reject payloads that are actually English prose (word-like tokens with
         # spaces). Real Base64 CAN contain newline wrapping (MIME wraps at 76
         # chars, PEM certificates, HTTP responses) but never space separators.

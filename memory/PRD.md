@@ -43,12 +43,51 @@ RC2.1a delivers **Malware Family Intelligence** as first-class MCIP output:
 - Post-decode intelligence pass with terminal-state promotion
 - Backwards-compatible API (all existing fields preserved)
 
+## 🟢 RC2.2 · SHIPPED — 2026-07-20 (Decoder Expansion + Analyst-Ready IOCs)
+
+**Branch:** `feature/rc2` · **Tests:** 147/147 engine green (16 new RC2.2 · zero regressions)
+**Test file:** `backend/tests/test_rc22_decoder_pack.py`
+
+RC2.2 fixes 3 of the 4 in-production decoder failure modes (verified via
+smoke-test on preview API):
+
+1. **UTF-16LE post-Base64 mangling** — `powershell -EncodedCommand <B64>`
+   output is UTF-16LE bytes. Previously the orchestrator treated the null-byte
+   pattern as garbage and let XOR-brute mangle it. Now the new `utf16-decode`
+   plugin recognises the `[printable][0x00]` alternation, decodes UTF-16LE/BE
+   (BOM or heuristic), and hands the extracted command back to
+   `extract-wrapper` → clean IOC.
+2. **PowerShell backtick obfuscation** — `p`ow`ers`h`ell -e <B64>` now strips
+   inline backticks in `extract_wrapper._normalize` (mirror of the CMD `^`
+   fix) before wrapper regex matching.
+3. **Data URI wrappers** — `data:text/html;base64,<B64>` and percent-encoded
+   bodies unwrap via the new `data-uri-extract` plugin.
+
+Additional decoders shipped in this pack (with regression tests):
+- `base58-decode` — Bitcoin/Solana/IPFS alphabet
+- `jwt-decode` — JWT header + payload as JSON (marked terminal)
+- `reverse-string` — string-reverse obfuscation (`llehsrewop`, `:sptth`)
+- `ps-reconstruct` — `[char]0xNN + [char]0xMM`, `[char[]](nums) -join`, string-
+  concat collapse, PowerShell backtick strip
+- `ioc-extractor` — post-decode intelligence plugin that harvests URLs, IPs,
+  domains, emails, MD5/SHA1/SHA256, Bitcoin addresses and file paths from
+  the final payload
+
+Guardrails added:
+- `base64-decode` defers to `base58-decode` for wallet-shaped payloads
+  (starts with `1`/`3`, len 25-44, no `0OIl+/=`)
+- `base91-decode` skips whitespace-separated structured text
+- `xor-brute` skips high-printable structured text (JSON, prose, wrapped
+  output) and short binary blobs (< 32 B)
+- `fingerprint_util._COMMON_EN` expanded to recognise JSON claim names
+  (`alg`, `sub`, `iat`, `header`, `payload`, `typ`, ...) so JWT and other
+  structured decodes hit terminal-English quickly
+
 ## 🟡 Next up · RC2.1b · STIX 2.1 Bundle Export (1.5 days)
 
 `GET /api/v2/analyze/report?fmt=stix` — validated against MISP · OpenCTI · ThreatConnect · MS Sentinel · Splunk ES
-- RC2.2 · Remaining decoders (Base58, Brotli, LZMA, Homoglyph normalization)
-- RC2.3 · Advanced PS reconstruction (`[char]0xNN`, `-join`, `-f`, `${env:X}`, tick-strip, case-normalize)
-- RC2.4 · Advanced CMD reconstruction (`%var%`, `!DELAYED!`, `^` escapes, `for /f`)
+- RC2.3 · Advanced PS reconstruction (`-f` format, `${env:X}`, tick-strip, case-normalize)
+- RC2.4 · Advanced CMD reconstruction (`%var%`, `!DELAYED!`, `for /f`)
 - RC2.5 · Golden Corpus (200-1000 real samples + YAML schema + CI gate)
 
 Cleanup items:

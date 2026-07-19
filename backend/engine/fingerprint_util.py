@@ -15,9 +15,23 @@ from .models import Fingerprint
 _PRINTABLE = set(range(32, 127)) | {9, 10, 13}
 _WORD_RE = re.compile(r"[A-Za-z]{3,}")
 _COMMON_EN = {
+    # Prose
     "the", "and", "for", "not", "you", "are", "with", "this", "that", "have",
-    "from", "will", "http", "https", "www", "com", "net", "org", "exe", "cmd",
+    "from", "will",
+    # Web / URL
+    "http", "https", "www", "com", "net", "org", "url", "uri", "host",
+    # Windows / attacker keywords
+    "exe", "cmd", "dll", "bat", "ps1", "vbs", "hta",
     "powershell", "user", "system", "invoke", "expression", "download", "script",
+    # JWT / JSON claim names
+    "alg", "typ", "sub", "iat", "exp", "iss", "aud", "jti", "nbf", "kid", "azp",
+    "header", "payload", "signature", "claims", "scope",
+    # File-system / IR
+    "file", "path", "temp", "windows", "program", "roaming", "appdata",
+    # Generic short English particles that show up in decoded scripts
+    "get", "set", "run", "new", "add", "use", "put", "log", "src", "dst",
+    # HTTP tokens
+    "content", "type", "text", "html", "json", "form", "auth", "token", "bearer",
 }
 
 

@@ -93,17 +93,40 @@ def _strip_cmd_carets(text: str) -> str:
     return "".join(out)
 
 
+# PowerShell backticks are the escape character. Attackers wedge them
+# between letters (`p`o`w`e`r`s`h`e`l`l) to defeat keyword regexes.
+# Outside a string context, PS strips the backtick unless it's a
+# recognised escape (`n `r `t `0 `a `b `f `v `` `" `' ).
+_RX_PS_BACKTICK = re.compile(r"`(?![nrt0abfv`\"'])")
+
+
+def _strip_ps_backticks(text: str) -> str:
+    if "`" not in text:
+        return text
+    return _RX_PS_BACKTICK.sub("", text)
+
+
+def _normalize(text: str) -> str:
+    """Apply CMD `^` and PowerShell `` ` `` obfuscation strips before matching."""
+    out = text
+    if "^" in out:
+        out = _strip_cmd_carets(out)
+    if "`" in out:
+        out = _strip_ps_backticks(out)
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # Wrapper strategies (ordered by specificity)
 # --------------------------------------------------------------------------- #
 def _try_wrappers(payload: str) -> Tuple[str, str, List[MitreHint], List[LolbasHit]]:
     """Return (inner, wrapper_name, mitre_hints, lolbas_hits) or ("", "", [], [])."""
-    # 0) Normalize CMD ^-escape obfuscation before pattern matching so
-    #    `cmd /c p^ow^ER^s^HE^LL -e <b64>` is seen as `powershell -e <b64>`.
-    #    We keep the original for the FromBase64String branch (which is inside
-    #    quotes and doesn't use ^-escapes), and use the normalized form for
-    #    the cmd / powershell shell-argument patterns.
-    normalized = _strip_cmd_carets(payload) if "^" in payload else payload
+    # 0) Normalize CMD ^ + PowerShell ` obfuscation before pattern matching so
+    #    `cmd /c p^ow^ER^s^HE^LL -e <b64>` OR `p`ow`ers`hell -e <b64>` are
+    #    both seen as `powershell -e <b64>`. We keep the original for the
+    #    FromBase64String branch (which is inside quotes) and use normalized
+    #    for the cmd / powershell shell-argument patterns.
+    normalized = _normalize(payload) if ("^" in payload or "`" in payload) else payload
 
     # 1) [Convert]::FromBase64String('...') is the most specific
     m = _RX_FROM_B64.search(payload)

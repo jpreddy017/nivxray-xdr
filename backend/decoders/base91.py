@@ -78,8 +78,19 @@ class Base91Decoder(BaseDecoder):
         if fp.english_density > 0.05:
             return DetectResult(confidence=0.0,
                                 why="Input already reads as English")
+        # Reject structured/decoded text (JSON, wrapped output, prose with
+        # spaces or newlines). basE91 payloads are single opaque blobs.
+        raw = payload or ""
+        if raw.strip():
+            ws_tokens = len(re.split(r"\s+", raw.strip()))
+            if ws_tokens > 3:
+                return DetectResult(
+                    confidence=0.0,
+                    why=f"Input has {ws_tokens} whitespace-separated tokens — "
+                        "structured text, not a basE91 blob",
+                )
         # Uses characters uncommon in casual text? — high-confidence
-        signature_chars = set("~$^|`{}")
+        signature_chars = set("~$^|`")
         if any(c in signature_chars for c in stripped):
             return DetectResult(confidence=0.75,
                                 why="basE91 alphabet fit + signature chars present")

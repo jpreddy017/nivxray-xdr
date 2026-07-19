@@ -4,6 +4,42 @@ Chronological record of significant releases (newest first).
 
 ---
 
+## RC2.2 — Deterministic Decoder Expansion · 2026-07-20
+
+**Status:** ✅ Ready to ship (Preview verified, awaiting Save-to-GitHub + Deploy)
+**Tag recommended:** `v1.0.0-RC2.2`
+**Tests:** 147/147 engine green (16 new · zero regressions)
+**Release notes:** `/app/memory/RELEASE_NOTES_v1.0.0-RC2.2.md`
+
+### Added — 7 new plugins
+
+- `utf16-decode` — UTF-16LE/BE detection + decode (unblocks all `powershell -EncodedCommand` payloads)
+- `ps-reconstruct` — `[char]NN`, `[char[]](nums)-join`, string-concat, backtick strip
+- `data-uri-extract` — RFC 2397 `data:*;base64,` + percent-encoded body unwrap
+- `ioc-extractor` — post-decode intelligence plugin (URLs / IPs / domains / emails / hashes / BTC / paths)
+- `base58-decode` — Bitcoin / Solana / IPFS wallet alphabet
+- `jwt-decode` — JWT header + payload → pretty JSON (marked terminal)
+- `reverse-string` — string-reverse obfuscation recovery
+
+### Changed
+
+- `extract_wrapper._normalize()` — strips PowerShell backticks (mirror of the CMD `^` fix)
+- `base64-decode` — defers to `base58-decode` for wallet-shaped payloads
+- `base91-decode` — rejects whitespace-separated structured text (JSON, prose)
+- `xor-brute` — skips high-printable structured text + short binary blobs (<32 B)
+- `fingerprint_util._COMMON_EN` — added JSON claim names + short web tokens
+
+### Fixed
+
+- `powershell -enc <UTF-16LE Base64>` now decodes end-to-end to a clean URL + IOC
+- `p`ow`ers`h`ell -e <B64>` backtick-obfuscated wrappers now recognised
+- `data:text/html;base64,…` now unwrapped and further decoded
+- JWT tokens no longer mangled by downstream `xor-brute`
+- Base58 wallet addresses no longer misclassified as Base64 → `xor-brute` garbage
+
+---
+
+
 ## RC2.1a — Malware Family Intelligence · 2026-07-19
 
 **Status:** ✅ **SHIPPED TO PRODUCTION** — https://nivxray.nivxforge.com
