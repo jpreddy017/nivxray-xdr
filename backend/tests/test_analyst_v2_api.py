@@ -91,14 +91,16 @@ class TestAnalyzeV2:
         assert rep["findings"]["verdict"] == "malicious"
         assert rep["findings"]["risk_score"] >= 80
         assert "149.28.81.19" in rep["findings"]["iocs"]["ips"]
-        # Decoder chain locked
+        # Decoder chain locked — RC2.1a appends confirming family plugin
         chain = [s["decoder"] for s in rep["trace"]]
-        assert chain == ["extract-wrapper", "base64-decode", "xor-brute"]
+        assert chain[:3] == ["extract-wrapper", "base64-decode", "xor-brute"]
+        assert "family-meterpreter" in chain
         # Confidence breakdown populated
         assert rep["confidence_breakdown"]["contributions"]
         assert rep["confidence_breakdown"]["total"] == rep["findings"]["risk_score"]
-        # Plugin execution report populated
-        assert rep["plugin_report"]["layers_run"] == 3
+        # Plugin execution report populated (RC2.1a intelligence pass adds one
+        # additional TraceStep so layers_run is 4 instead of the pre-2.1a 3)
+        assert rep["plugin_report"]["layers_run"] == 4
         assert rep["plugin_report"]["entries"]
 
     def test_budget_overrides_respected(self, client, hdr):

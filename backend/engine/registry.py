@@ -95,7 +95,9 @@ class DecoderRegistry:
 
 
 def _autodiscover() -> None:
-    """Import every module in backend.decoders so their `register()` calls fire."""
+    """Import every module in backend.decoders + backend.decoders.families
+    so their `register()` calls fire.
+    """
     try:
         import backend.decoders as pkg                 # type: ignore
     except ImportError:
@@ -108,4 +110,21 @@ def _autodiscover() -> None:
             importlib.import_module(f"{pkg.__name__}.{name}")
         except Exception as exc:                       # pragma: no cover
             log.error("Failed to import decoder plugin %r: %s", name, exc)
+    # RC2.1a — walk one level deeper for family/intelligence sub-packages
+    for _, name, is_pkg in pkgutil.iter_modules(pkg.__path__):
+        if not is_pkg or name.startswith("_"):
+            continue
+        try:
+            sub = importlib.import_module(f"{pkg.__name__}.{name}")
+        except Exception as exc:                       # pragma: no cover
+            log.error("Failed to import subpackage %r: %s", name, exc)
+            continue
+        for _, sub_name, _ in pkgutil.iter_modules(sub.__path__):
+            if sub_name.startswith("_"):
+                continue
+            try:
+                importlib.import_module(f"{sub.__name__}.{sub_name}")
+            except Exception as exc:                   # pragma: no cover
+                log.error("Failed to import plugin %r/%r: %s",
+                          name, sub_name, exc)
     log.info("Decoder registry ready — %d plugins loaded", len(_decoders))

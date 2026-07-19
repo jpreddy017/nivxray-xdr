@@ -68,7 +68,9 @@ class TestWrapperExtractor:
         r = Orchestrator(AnalysisContext(budget=Budget(max_depth=6, wall_time_ms=5000))).run(FULL)
         assert r.terminal == "family-identified"
         ids = [s.decoder for s in r.trace]
-        assert ids == ["extract-wrapper", "base64-decode", "xor-brute"]
+        # RC2.1a — post-decode intelligence pass appends a confirming family plugin
+        assert ids[:3] == ["extract-wrapper", "base64-decode", "xor-brute"]
+        assert "family-meterpreter" in ids  # intelligence-pass confirmation
         assert r.findings.family.family
         assert "Meterpreter" in r.findings.family.family or "MSFvenom" in r.findings.family.family
         assert "149.28.81.19" in r.findings.iocs.ips

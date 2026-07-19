@@ -23,7 +23,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Tuple
 
 from .fingerprint_util import compute as fingerprint_compute
 from .models import (
@@ -103,6 +103,11 @@ def _aggregate_findings(trace: List[TraceStep]) -> Findings:
         findings.family.confidence = top.confidence
         findings.family.evidence = [top.evidence] if top.evidence else []
         findings.family.alternatives = ranked[1:]
+        # RC2.1a — propagate rich family evidence when a family plugin fires
+        findings.family.evidence_items = list(top.evidence_items)
+        findings.family.mitre_techniques = list(top.mitre_techniques)
+        findings.family.yara_suggestion = top.yara_suggestion
+        findings.family.atomic_red_hint = top.atomic_red_hint
     return findings
 
 
@@ -247,6 +252,99 @@ def _default_recommendations(findings: Findings) -> List[InvestigationRecommenda
     return recs
 
 
+def _run_intelligence_pass(payload: str, fingerprint: Fingerprint,
+                           ctx: AnalysisContext, current_depth: int,
+                           exec_report: PluginExecutionReport,
+                           raw_input: str = "") -> None:
+    """Post-decode pass: run every `intelligence`-category plugin over the
+    raw input, the final payload AND every trace layer's preview. Family
+    signatures may live only in the original input (before over-eager XOR
+    or base91 mangles them), in an intermediate layer, or in the final
+    decoded blob. Scanning all three guarantees we don't miss a hit
+    hidden behind extra decoding.
+    """
+    from .registry import DecoderRegistry
+
+    # Candidate texts to scan — dedupe by first 512 chars to skip identicals.
+    # Raw input is scanned FIRST so a family plugin that fires on plain-text
+    # signatures (e.g. AsyncRAT config strings) always wins over noise from
+    # aggressive intermediate decoders.
+    candidates: List[Tuple[str, int]] = []
+    seen_prefix: Set[str] = set()
+    if raw_input:
+        candidates.append((raw_input, 0))
+        seen_prefix.add(raw_input[:512])
+    if payload and payload[:512] not in seen_prefix:
+        candidates.append((payload, current_depth))
+        seen_prefix.add(payload[:512])
+    for step in ctx.trace.steps:
+        prev = step.preview or ""
+        key = prev[:512]
+        if not prev or key in seen_prefix:
+            continue
+        seen_prefix.add(key)
+        candidates.append((prev, step.layer))
+
+    for plugin in DecoderRegistry.all():
+        if getattr(plugin, "category", "") != "intelligence":
+            continue
+        fired = False
+        for text, layer in candidates:
+            try:
+                det = plugin.detect(text, fingerprint, ctx)
+            except Exception as exc:                          # pragma: no cover
+                log.warning("intelligence detect() raised in %s: %s",
+                            plugin.id, exc)
+                continue
+            if det.confidence < 0.05:
+                continue
+            step_start = time.monotonic_ns()
+            try:
+                res = plugin.decode(text, det.args, ctx)
+            except Exception as exc:                          # pragma: no cover
+                exec_report.entries.append(PluginExecutionEntry(
+                    plugin=plugin.id, layer=layer,
+                    outcome="decode_error",
+                    detect_confidence=det.confidence,
+                    reason=f"{type(exc).__name__}: {exc}", exec_ms=0,
+                ))
+                continue
+            exec_ms = (time.monotonic_ns() - step_start) // 1_000_000
+            emitted = bool(res.family_hints or res.mitre_hints or res.iocs
+                           or res.lolbas_hits or res.tradecraft)
+            if not emitted:
+                continue
+            step = TraceStep(
+                layer=layer, decoder=plugin.id,
+                schema_version=plugin.schema_version,
+                confidence=det.confidence, why=det.why,
+                in_len=len(text), out_len=len(text),
+                exec_ms=int(exec_ms), preview=text[:200],
+                args=det.args, sub_iocs=res.iocs,
+                mitre_hints=res.mitre_hints,
+                family_hints=res.family_hints,
+                lolbas_hits=res.lolbas_hits,
+                tradecraft=res.tradecraft,
+            )
+            ctx.trace.add_step(step)
+            exec_report.entries.append(PluginExecutionEntry(
+                plugin=plugin.id, layer=layer, outcome="accepted",
+                detect_confidence=det.confidence,
+                detect_reason=det.why,
+                reason="intelligence-pass: signals emitted",
+                exec_ms=int(exec_ms), signals_emitted=True,
+            ))
+            fired = True
+            break            # one hit per plugin is enough
+        if not fired:
+            exec_report.entries.append(PluginExecutionEntry(
+                plugin=plugin.id, layer=current_depth,
+                outcome="detect_zero", detect_confidence=0.0,
+                reason="intelligence-pass: no signatures matched",
+                exec_ms=0,
+            ))
+
+
 class Orchestrator:
     """Run the deterministic recursive decode + intelligence pipeline."""
 
@@ -308,10 +406,15 @@ class Orchestrator:
                     )
                     break
 
-            # 4. Candidate discovery
-            cands = DecoderRegistry.candidates(
-                current, current_fp, ctx, top_n=ctx.budget.max_branches
+            # 4. Candidate discovery — exclude intelligence-only plugins here;
+            # they run in the dedicated post-decode intelligence pass so they
+            # don't preempt decoder chaining (RC2.1a).
+            cands_all = DecoderRegistry.candidates(
+                current, current_fp, ctx, top_n=None,
             )
+            cands = [(p, d) for p, d in cands_all
+                     if getattr(p, "category", "") != "intelligence"]
+            cands = cands[: ctx.budget.max_branches]
             if not cands:
                 # Record every plugin as "skipped: detect_zero"
                 for dec in DecoderRegistry.all():
@@ -470,11 +573,32 @@ class Orchestrator:
 
         elapsed_ms = (time.monotonic_ns() - started) // 1_000_000
 
+        # RC2.1a — Post-decode intelligence pass.
+        # After the decode chain terminates, run every `intelligence`-category
+        # plugin over the final payload AND the original raw input. Family
+        # plugins can then confirm or override earlier heuristic hints and
+        # detect signatures that live in the raw payload even when the
+        # orchestrator's XOR/base91 heuristics produced downstream garbage.
+        _run_intelligence_pass(current, current_fp, ctx, depth, exec_report,
+                               raw_input=payload or "")
+
         # Aggregate intelligence and build explainable confidence
         findings = _aggregate_findings(list(ctx.trace.steps))
         breakdown = _compute_confidence_breakdown(findings)
         findings.risk_score = breakdown.total
         findings.verdict = breakdown.verdict
+
+        # RC2.1a — promote terminal state if the intelligence pass surfaced
+        # a high-confidence family match. The main decode loop couldn't do
+        # this because family plugins run only after it terminates.
+        if (terminal != "family-identified"
+                and findings.family.confidence >= _TERMINAL_FAMILY_CONFIDENCE):
+            terminal = "family-identified"
+            stopped_reason = (
+                f"Post-decode intelligence pass identified family "
+                f"'{findings.family.family}' with "
+                f"{findings.family.confidence * 100:.0f}% confidence."
+            )
 
         summary = _executive_summary(list(ctx.trace.steps), findings)
         recommendations = _default_recommendations(findings)

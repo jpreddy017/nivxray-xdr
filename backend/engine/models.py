@@ -37,6 +37,19 @@ class FamilyHint(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: str = ""
     aka: List[str] = Field(default_factory=list)
+    # RC2.1a additions — structured evidence + per-family intelligence
+    evidence_items: List["EvidenceItem"] = Field(default_factory=list)
+    mitre_techniques: List["MitreHint"] = Field(default_factory=list)
+    yara_suggestion: Optional["YaraRuleStub"] = None
+    atomic_red_hint: Optional[str] = None
+
+
+class EvidenceItem(BaseModel):
+    """Structured evidence entry for a family match — one row per signature hit."""
+    type: str                               # "string" | "regex" | "bytes" | "opcode"
+    pattern: str                            # human-readable pattern that matched
+    location: str = ""                      # e.g. "layer=2/offset=0x40"
+    weight: float = 0.0                     # contribution to confidence
 
 
 class LolbasHit(BaseModel):
@@ -167,6 +180,11 @@ class FamilyMatch(BaseModel):
     confidence: float = 0.0
     evidence: List[str] = Field(default_factory=list)
     alternatives: List[FamilyHint] = Field(default_factory=list)
+    # RC2.1a — attached intelligence when a family plugin fires
+    evidence_items: List[EvidenceItem] = Field(default_factory=list)
+    mitre_techniques: List[MitreHint] = Field(default_factory=list)
+    yara_suggestion: Optional[YaraRuleStub] = None
+    atomic_red_hint: Optional[str] = None
 
 
 class SimilarCase(BaseModel):
@@ -259,6 +277,13 @@ class AnalystReport(BaseModel):
 
 # Backwards-compat alias
 DecodeOutcome = AnalystReport
+
+
+# ---------------------------------------------------------------------------
+# Resolve forward references (FamilyHint → EvidenceItem/YaraRuleStub)
+# ---------------------------------------------------------------------------
+FamilyHint.model_rebuild()
+FamilyMatch.model_rebuild()
 
 
 # ---------------------------------------------------------------------------

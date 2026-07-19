@@ -21,16 +21,29 @@ RC2.0 delivers:
 - 12 registered plugins (base32, base64, base91, ascii85, gzip, hex, rot13, rot47, url, xor-brute, zlib-deflate, extract-wrapper)
 - Meterpreter PS-wrapper → `family-identified` in <1.1s on prod (verdict=malicious · risk=95 · chain=`[extract-wrapper→base64-decode→xor-brute]` · C2 IP `149.28.81.19`)
 
-## 🟡 Next up · RC2.1 · Malware Family Plugins (P1)
+## 🟢 RC2.1a · SHIPPED (feature branch) — 2026-07-19
 
-Deterministic `intelligence`-category plugins (no LLM, no sandbox):
+**Branch:** `feature/rc2` (adds `backend/decoders/families/`)
+**Tests:** 115/115 green (46 new family-plugin tests · full engine + analyst_v2 pass)
+**Preview validated:** ✅ 21 plugins on live preview, AsyncRAT + Meterpreter both end-to-end
+**Production:** _not yet redeployed — RC2.1a stays on feature branch until RC2.1b+c land_
 
-1. Meterpreter (extract from current xor-brute hard-coded logic)
-2. AsyncRAT (config-block + string signatures)
-3. Lumma Stealer (C2 exfil patterns)
-4. DarkGate (AutoIt-wrapped stager)
+Delivered:
+- 9 first-class `intelligence`-category family plugins:
+  - Meterpreter / MSFvenom, AsyncRAT, Lumma Stealer, DarkGate, Remcos RAT,
+    AgentTesla, QuasarRAT, Cobalt Strike, Snake Keylogger
+- Weighted-signature confidence-scoring model (`min(1.0, sum(matched_weights)/calibration)`)
+- Per-family MITRE ATT&CK technique mapping (4-5 techniques each)
+- Per-family YARA rule stub generator (`YaraRuleStub` with matched signatures)
+- Per-family Atomic-Red-Team hint
+- Structured `EvidenceItem` list (type/pattern/location/weight) per detection
+- Post-decode intelligence pass (scans raw input + final payload + all trace layers)
+- Terminal-state promotion when family plugin fires at ≥ 80% confidence
+- 46 new regression tests in `tests/test_family_plugins.py`
 
-See roadmap in `/app/memory/RC2_ROADMAP.md`. Backlog for RC2.2–2.5:
+## 🟡 Next up · RC2.1b · STIX 2.1 Bundle Export (1.5 days)
+
+`GET /api/v2/analyze/report?fmt=stix` — validated against MISP · OpenCTI · ThreatConnect · MS Sentinel · Splunk ES
 - RC2.2 · Remaining decoders (Base58, Brotli, LZMA, Homoglyph normalization)
 - RC2.3 · Advanced PS reconstruction (`[char]0xNN`, `-join`, `-f`, `${env:X}`, tick-strip, case-normalize)
 - RC2.4 · Advanced CMD reconstruction (`%var%`, `!DELAYED!`, `^` escapes, `for /f`)
