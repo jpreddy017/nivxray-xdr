@@ -45,6 +45,21 @@ def _b64_str(s: str) -> str:
     return _b64(s.encode("utf-8"))
 
 
+def _brotli_b64(s: str) -> str:
+    import brotli
+    return _b64(brotli.compress(s.encode("utf-8")))
+
+
+def _lzma_b64(s: str) -> str:
+    import lzma
+    return _b64(lzma.compress(s.encode("utf-8")))
+
+
+def _zstd_b64(s: str) -> str:
+    import zstandard
+    return _b64(zstandard.ZstdCompressor().compress(s.encode("utf-8")))
+
+
 def _double_b64(s: str) -> str:
     return _b64_str(_b64_str(s))
 
