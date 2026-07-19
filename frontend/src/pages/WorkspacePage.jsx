@@ -687,7 +687,15 @@ export default function WorkspacePage() {
         setDecodeConfidence(conf ?? null);
         setDecodeWinnerEngine(eng || null);
         const confPrefix = (conf != null && eng) ? `[${eng.toUpperCase()} · ${conf}%] ` : "";
-        const detail = r.data.reasoning ? `AI: ${r.data.reasoning.slice(0, 120)}` : "SMART DECODE COMPLETE";
+        // v1.5.8 · reasoning can arrive as string OR object (LLM path variants).
+        // Guard against `.slice is not a function` when it's an object.
+        const _raw = r.data.reasoning;
+        const _reasonStr = typeof _raw === "string"
+          ? _raw
+          : (_raw && typeof _raw === "object"
+              ? (_raw.explanation || _raw.summary || _raw.text || JSON.stringify(_raw))
+              : "");
+        const detail = _reasonStr ? `AI: ${_reasonStr.slice(0, 120)}` : "SMART DECODE COMPLETE";
         setStatus(confPrefix + detail);
       }
 
