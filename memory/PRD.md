@@ -7,7 +7,50 @@ core decoder. Everything must work offline.
 
 ---
 
-## 🟢 RC2.3 · IN-PROGRESS (2026-07-19) — Deterministic Codec Expansion + Benchmark
+## 🟢 RC2.3 · READY-TO-SHIP (2026-07-19) — Deterministic Codec Expansion + PS Reconstruction
+
+**Branch:** `feature/rc2` · **Tag proposal:** `v1.0.0-RC2.3`
+**Approach:** measurement-first; every change gated by the RC2.3 chain-completeness benchmark
+**Baseline reference:** `/app/memory/rc22_pre_changes.json` (pre-my-changes = 19/31 · 61.3%)
+
+**Delivered this session (8 atomic commits, benchmark-verified):**
+
+| # | Commit | Change | Bench delta |
+|---|---|---|---|
+| 1 | `fda4390` | perf(xor-brute): polish-pass gating | -8ms avg |
+| 2 | `9bdd8c9` | feat: Brotli plugin + benchmark harness | 0 regressions |
+| 3 | `fbfe08e` | chore: gitignore rc23_benchmark pycache | — |
+| 4 | `10534c0` | feat: LZMA/XZ plugin | 0 regressions |
+| 5 | `541777c` | feat: Zstd plugin | 0 regressions |
+| 6 | `f0ad465` | feat: Caesar cipher (shift 1-25) plugin | 0 regressions |
+| 7 | `38fd46d` | feat(ps-reconstruct P0.1): `.Replace()` + `$var` expansion | +1 sample |
+| 8 | `8d8e1a1` | feat(ps-reconstruct P0.2): `-join` + `-f` format op | +1 sample |
+
+**Final benchmark evidence** (`/app/memory/rc23_after_p02.json`):
+- **Chain-complete: 24/31 (77.4%)** — up from 19/31 (61.3%) = **+16.1pp**
+- **False-positive IOCs: 0** across every run — precision maintained
+- p50 = 0ms · p95 = 784ms · Avg = 303 ms · **87% of samples under 500ms target**
+- Unit tests: **48/48 pass** on my delta scope
+
+**Frozen items — next sprint (in priority order per user):**
+1. PowerShell P0.3 — `[char]` polish, ScriptBlock reconstruction, IEX-of-var chains
+2. CMD reconstruction — `!DELAYED!`, nested `%VAR%`, `SET`/`CALL`/`FOR /F`
+3. JavaScript reconstruction — `atob`, `String.fromCharCode`, `unescape`, `eval`
+4. VBScript reconstruction — `Chr`, `ChrW`, `Execute`, `CreateObject`
+5. Analyst Workspace UX — Decode Outcome badge, Decode Status banner, Recovered-Command panel
+6. XOR 9-16 byte key extension
+7. Phase D new families (XWorm, NjRAT, RedLine, FormBook, Emotet)
+
+**Benchmark harness:** `/app/backend/tests/rc23_benchmark/`
+- `__init__.py` — 31 curated samples across 12 categories (Base64, XOR, Compression, PowerShell, CMD, LOLBAS, Multi-Stage, Phishing, Benign, Regression, JavaScript, VBScript)
+- `run_benchmark.py` — chain-completeness + per-category summary + JSON export
+- `profile_latency.py` — p50/p95/p99 + per-plugin aggregate timing
+
+**Recommendation:** wire `run_benchmark.py` into CI as a required pre-merge gate. Any future PR that drops chain-completeness below 77.4% or introduces false-positive IOCs will fail automatically.
+
+---
+
+## 🟢 RC2.2+ · DELIVERED — 2026-07-19 (Post-fork continuation)
 
 **Branch:** `feature/rc2`
 **Approach:** measurement-first; every change gated by the RC2.3 chain-completeness benchmark
