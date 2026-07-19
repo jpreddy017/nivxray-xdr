@@ -435,7 +435,15 @@ export default function WorkspacePage() {
       const aggregatedOutput = (
         d.report_text
         || stages.map((s, i) => {
-             const head = `─── STAGE ${i + 1} · engine=${s.engine || "?"} · conf=${s.confidence ?? "?"}/100 ───`;
+             // RC2.4 — Don't render a misleading "conf 0/100" header when the
+             // stage decoded successfully but the backend didn't attach a
+             // per-stage confidence value. Show a decode status instead.
+             const hasConf = Number.isFinite(s.confidence) && s.confidence > 0;
+             const decodedOk = (s.output || "").trim().length > 0;
+             const confBadge = hasConf
+               ? `conf=${s.confidence}/100`
+               : (decodedOk ? "conf=n/a · decoded" : "conf=n/a");
+             const head = `─── STAGE ${i + 1} · engine=${s.engine || "?"} · ${confBadge} ───`;
              return `${head}\n${(s.output || "").trim() || "(no additional decode — plain-text command)"}`;
            }).join("\n\n")
       );
@@ -553,7 +561,14 @@ export default function WorkspacePage() {
         // v1.5.5 — TI Shield · 360° per-layer intelligence
         ti_shield: d.ti_shield || [],
       });
-      setStatus(`FLAT DECODE · engine=${d.engine || "?"} · conf=${d.confidence ?? "?"}/100`);
+      // RC2.4 — Same treatment for flat decode: don't show "0/100" when the
+      // decoder actually returned content.
+      const flatHasConf = Number.isFinite(d.confidence) && d.confidence > 0;
+      const flatDecodedOk = (d.output || "").trim().length > 0;
+      const flatConfBadge = flatHasConf
+        ? `conf=${d.confidence}/100`
+        : (flatDecodedOk ? "conf=n/a · decoded" : "conf=n/a");
+      setStatus(`FLAT DECODE · engine=${d.engine || "?"} · ${flatConfBadge}`);
     } catch (e) {
       setStatus("FLAT DECODE ERROR: " + (e?.response?.data?.detail || e.message));
     } finally {
