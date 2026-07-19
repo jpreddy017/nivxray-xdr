@@ -29,6 +29,17 @@ core decoder. Everything must work offline.
 - Refactor `smart_decoder.py` to iterate `decoders.all_plugins()` and pick
   by `detect()` confidence; never stop until no plugin above threshold.
 - Add hard recursion cap (default 12 layers) + wall-time cap (5 s per input).
+- **Decoder Trace Engine** — every plugin emits a standard trace record:
+  `{decoder_id, decoder_name, category, input_size, output_size,
+    detect_confidence, exec_time_ms, preview, full_output, warnings}`.
+- Frontend `<DecoderTracePanel />` extended with per-row COPY button,
+  exec-time-ms column, confidence bar, expandable "full output" viewer.
+
+### SDLC — Git branching for Session 2
+- Baseline tag: `v1.0.0-baseline` (frozen after Session 1 deploys to prod)
+- Feature branch: `feature/plugin-decoder-engine`
+- Merge-gate: 15 regression locks pass + battery 12/12 + manual smoke
+- Rollback: `git checkout v1.0.0-baseline` OR Emergent platform rollback
 
 ### Priority 2 — Decoder Coverage (Session 2/3)
 - Add Base58, Base85, Brotli, LZMA (missing today).
