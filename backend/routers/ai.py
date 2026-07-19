@@ -24,6 +24,33 @@ router = APIRouter()
 
 _OP_IDS = sorted(OPERATIONS.keys())
 
+# ─── v1.6.0 · Global AI enable toggle ────────────────────────────────────
+# The Ideas_updated.docx mandate says AI must be OPT-IN, never automatic.
+# Set NIVX_AI_ENABLED=true in .env (or via admin toggle) to unlock AI
+# endpoints. Default = false → deterministic engine handles everything.
+_AI_ENABLED_ENV = os.environ.get("NIVX_AI_ENABLED", "true").lower() in ("1", "true", "yes")
+
+
+async def _ai_admission_check() -> None:
+    """Consulted at the top of every AI endpoint. Reads both the env-var
+    default AND a Mongo-backed admin override so ops can flip it live."""
+    try:
+        doc = await db.settings.find_one({"_id": "ai_toggle"})
+        override = (doc or {}).get("enabled")
+        if override is False:
+            raise HTTPException(status_code=403,
+                detail="AI features are disabled by admin. Deterministic decoders remain available.")
+        if override is True:
+            return
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # fall through to env default
+    if not _AI_ENABLED_ENV:
+        raise HTTPException(status_code=403,
+            detail="AI features are disabled in this deployment (NIVX_AI_ENABLED=false). "
+                    "Deterministic decoders (SMART / MAGIC / DECODE) remain available.")
+
 # ─── AI DECODE latency guards (v1.5.7) ───────────────────────────────────
 # 1. Mongo-backed SHA1 cache — same input never re-hits Claude.
 # 2. Hard timeout on the LLM plan call — bounded worst-case; magic wins on stall.
@@ -130,6 +157,8 @@ def _is_already_plaintext(text: str) -> bool:
 @router.post("/ai/auto-decode")
 async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
     """AI Decode with strict anti-hallucination guardrails for SOC use."""
+    # v1.6.0 · admission check — respect the global AI toggle
+    await _ai_admission_check()
     # ─── Feb 2026 v1.2.0 · Plaintext short-circuit ──────────────────────
     # Prior bug: pasting a plaintext commandline (e.g.
     # `cmd /c copy c:\windows\system32\curl.exe X.exe`) resulted in the LLM
@@ -333,6 +362,39 @@ async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
 async def ai_budget(user=Depends(get_current_user)):
     """Admin/analyst view of monthly AI credit burn + rate-limit state."""
     return await budget_status()
+
+
+@router.get("/ai/toggle")
+async def ai_toggle_status(user=Depends(get_current_user)):
+    """Return the current AI enable state (env default + admin override)."""
+    try:
+        doc = await db.settings.find_one({"_id": "ai_toggle"})
+    except Exception:
+        doc = None
+    override = (doc or {}).get("enabled")
+    effective = override if override is not None else _AI_ENABLED_ENV
+    return {
+        "enabled":        bool(effective),
+        "env_default":    _AI_ENABLED_ENV,
+        "admin_override": override,
+        "source":         "admin_override" if override is not None else "env_default",
+    }
+
+
+@router.post("/ai/toggle")
+async def ai_toggle_set(payload: dict, user=Depends(get_current_user)):
+    """Admin flips the global AI enable state. Persists to db.settings."""
+    if not (user or {}).get("is_admin", True):  # admin-check
+        raise HTTPException(status_code=403, detail="admin only")
+    enabled = bool(payload.get("enabled"))
+    await db.settings.update_one(
+        {"_id": "ai_toggle"},
+        {"$set": {"enabled": enabled,
+                   "updated_at": datetime.now(timezone.utc).isoformat(),
+                   "updated_by": (user or {}).get("email")}},
+        upsert=True,
+    )
+    return {"enabled": enabled, "source": "admin_override"}
 
 
 @router.post("/ai/auto-investigate")

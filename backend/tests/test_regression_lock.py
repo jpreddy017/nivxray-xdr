@@ -182,3 +182,38 @@ def test_lock12_multilayer_battery_still_green():
     assert report["passed"] == report["total"], \
         f"Regressed: battery no longer 100% — {report['passed']}/{report['total']}"
     assert report["total"] >= 12
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 13 · AI global toggle · admin can flip AI OFF, deterministic works
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock13_ai_toggle_endpoints_exist():
+    src = open("/app/backend/routers/ai.py").read()
+    assert "_ai_admission_check" in src, "Regressed: AI admission gate removed"
+    assert '"/ai/toggle"' in src, "Regressed: admin AI toggle endpoint missing"
+    assert "NIVX_AI_ENABLED" in src, "Regressed: env-var default missing"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 14 · Modular decoder plugin skeleton exists
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock14_modular_decoder_skeleton():
+    import sys
+    sys.path.insert(0, "/app/backend")
+    from decoders import all_plugins, get
+    assert len(all_plugins()) >= 1, "Regressed: decoder plugin registry empty"
+    b64 = get("base64-decode")
+    assert b64 is not None and b64["decode"]("SGVsbG8=") == "Hello"
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# LOCK 15 · Credit-guard module exists + rate/budget config in .env
+# ═════════════════════════════════════════════════════════════════════════
+def test_lock15_credit_guard_wired():
+    import os
+    assert os.path.exists("/app/backend/ai_credit_guard.py"), "Credit guard module removed"
+    src = open("/app/backend/routers/ai.py").read()
+    assert "guard_ai_endpoint" in src, "AI DECODE endpoint no longer calls credit guard"
+    env = open("/app/backend/.env").read()
+    assert "NIVX_AI_RATE_HOURLY" in env, ".env missing NIVX_AI_RATE_HOURLY"
+    assert "NIVX_AI_BUDGET_CAP_CREDITS" in env
