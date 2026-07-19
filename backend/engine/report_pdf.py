@@ -34,8 +34,10 @@ from .models import AnalystReport
 
 # ------------------------------------------------------------------- styles --
 _STYLES = getSampleStyleSheet()
-_H1 = ParagraphStyle("H1", parent=_STYLES["Heading1"], fontSize=18, spaceAfter=12,
-                    textColor=colors.HexColor("#0f172a"))
+_H1 = ParagraphStyle("H1", parent=_STYLES["Heading1"], fontSize=22, spaceAfter=4,
+                    textColor=colors.HexColor("#0369a1"), fontName="Helvetica-Bold")
+_TAGLINE = ParagraphStyle("Tagline", parent=_STYLES["BodyText"], fontSize=9,
+                          textColor=colors.HexColor("#64748b"), leading=11)
 _H2 = ParagraphStyle("H2", parent=_STYLES["Heading2"], fontSize=13, spaceBefore=14,
                     spaceAfter=6, textColor=colors.HexColor("#0369a1"))
 _BODY = ParagraphStyle("Body", parent=_STYLES["BodyText"], fontSize=10, leading=13,
@@ -82,10 +84,28 @@ def to_pdf(report: AnalystReport, *, title: str = "NivXRay Analyst Report") -> b
         subject="Malware Command Intelligence Report",
     )
     story: list = []
-    story.append(_p(title, _H1))
-    story.append(_p("Deterministic Malware Command Intelligence — powered by NivXRay",
-                    _SMALL))
-    story.append(Spacer(1, 8))
+    # Branded wordmark header (deterministic — pure text, no external image asset)
+    story.append(_p("&lt;/&gt; NivXRay MCIP", _H1))
+    story.append(_p(
+        "Malware Command Intelligence Platform  ·  Deterministic  ·  Offline-first",
+        _TAGLINE,
+    ))
+    story.append(Spacer(1, 4))
+    story.append(_p(title, _H2))
+    # Report metadata block (byte-stable — no timestamps)
+    meta_rows = [
+        ["Report Field", "Value"],
+        ["Product",         "NivXRay MCIP"],
+        ["Engine",          report.engine],
+        ["Schema Version",  "1.0"],
+        ["Report Format",   "PDF (deterministic, metadata-stripped)"],
+        ["Input Length",    f"{report.fingerprint_history[0].input_len if report.fingerprint_history else 0} bytes"],
+        ["Layers Decoded",  str(len(report.trace))],
+    ]
+    mt = Table(meta_rows, colWidths=[1.6 * inch, 5.4 * inch])
+    mt.setStyle(_TABLE_STYLE)
+    story.append(mt)
+    story.append(Spacer(1, 6))
 
     findings = report.findings
 

@@ -119,15 +119,18 @@ export default function AnalystWorkspacePage() {
       <div className="max-w-6xl mx-auto space-y-6">
         <header className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">NivXRay · Analyst Workspace</h1>
+            <h1 className="text-2xl font-bold tracking-tight" data-testid="analyst-brand">
+              <span className="text-cyan-400">&lt;/&gt;</span> NivXRay <span className="text-slate-500 text-lg font-normal">v1.0 · MCIP</span>
+            </h1>
             <p className="text-sm text-slate-400 mt-1">
               Deterministic Malware Command Intelligence — offline, explainable, plugin-driven.
             </p>
           </div>
-          <div className="flex gap-2">
-            <a href="/battery" className="text-sm text-slate-400 hover:text-slate-200">Battery</a>
-            <a href="/" className="text-sm text-slate-400 hover:text-slate-200">Legacy Workspace</a>
-          </div>
+          <nav className="flex gap-4 text-sm">
+            <a href="/analyst" className="text-cyan-300 font-medium">Analyst Workspace</a>
+            <a href="/battery" className="text-slate-400 hover:text-slate-200">Regression Battery</a>
+            <a href="/" className="text-slate-400 hover:text-slate-200">Investigator</a>
+          </nav>
         </header>
 
         {/* Input area */}

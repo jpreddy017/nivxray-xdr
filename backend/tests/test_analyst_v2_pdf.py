@@ -101,6 +101,37 @@ class TestPdfRendererUnit:
         assert "MALICIOUS" in text.upper()
         assert "powershell.exe" in text.lower() or "powershell" in text.lower()
 
+    def test_pdf_has_all_required_sections_and_branding(self):
+        """RC2.0 acceptance gate — every required section + branded logo present."""
+        from engine import AnalysisContext, Budget, Orchestrator
+        from engine.report_pdf import to_pdf
+        r = Orchestrator(AnalysisContext(budget=Budget(max_depth=6, wall_time_ms=4000))).run(METERPRETER)
+        pdf = to_pdf(r)
+        reader = pypdf.PdfReader(io.BytesIO(pdf))
+        text = "\n".join((p.extract_text() or "") for p in reader.pages)
+        required_sections = [
+            "NivXRay MCIP",                # branded wordmark logo
+            "Malware Command Intelligence Platform",  # tagline
+            "Executive Summary",
+            "Verdict",
+            "Why This Score",              # explainable confidence
+            "Malware Family",
+            "Decode Timeline",
+            "Indicators of Compromise",
+            "MITRE ATT&CK Mapping",
+            "LOLBAS Detection",
+            "Recommended Investigation Steps",
+            "Plugin Execution Report",
+            "Final Decoded Output",
+            # Metadata block
+            "Product",
+            "Engine",
+            "Schema Version",
+            "Layers Decoded",
+        ]
+        missing = [s for s in required_sections if s not in text]
+        assert not missing, f"PDF missing required sections: {missing}"
+
 
 class TestPdfApi:
     def test_pdf_export_endpoint(self, client, hdr):
