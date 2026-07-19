@@ -108,7 +108,7 @@
         "final_readable": "1/2",
         "verdict_precise": "1/2",
         "false_positive_iocs": 0,
-        "avg_time_ms": 349
+        "avg_time_ms": 350
       },
       {
         "category": "VBScript",
@@ -128,7 +128,7 @@
         "final_readable": "3/4",
         "verdict_precise": "1/4",
         "false_positive_iocs": 0,
-        "avg_time_ms": 1985
+        "avg_time_ms": 1986
       }
     ]
   },
@@ -218,7 +218,7 @@
       "confidence": 59,
       "verdict": "suspicious",
       "expected_verdict": "malicious",
-      "time_ms": 288,
+      "time_ms": 287,
       "chain": [
         "base64-decode",
         "xor-brute",
@@ -242,7 +242,7 @@
       "confidence": 100,
       "verdict": "malicious",
       "expected_verdict": "malicious",
-      "time_ms": 962,
+      "time_ms": 966,
       "chain": [
         "base64-decode",
         "xor-brute",
@@ -297,7 +297,7 @@
       "confidence": 57,
       "verdict": "suspicious",
       "expected_verdict": "malicious",
-      "time_ms": 5908,
+      "time_ms": 5910,
       "chain": [
         "base64-decode",
         "xor-brute",
@@ -441,7 +441,7 @@
       "iocs_missing": [],
       "false_positive_iocs": [],
       "stop_reason": "no-candidate",
-      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (31 plugins considered).",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (32 plugins considered).",
       "confidence": 0,
       "verdict": "unknown",
       "expected_verdict": "unknown",
@@ -502,7 +502,7 @@
       "iocs_missing": [],
       "false_positive_iocs": [],
       "stop_reason": "no-candidate",
-      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (31 plugins considered).",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (32 plugins considered).",
       "confidence": 12,
       "verdict": "needs_review",
       "expected_verdict": "suspicious",
@@ -525,7 +525,7 @@
       "iocs_missing": [],
       "false_positive_iocs": [],
       "stop_reason": "no-candidate",
-      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (31 plugins considered).",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (32 plugins considered).",
       "confidence": 12,
       "verdict": "needs_review",
       "expected_verdict": "malicious",
@@ -590,7 +590,7 @@
       "iocs_missing": [],
       "false_positive_iocs": [],
       "stop_reason": "no-candidate",
-      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (31 plugins considered).",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (32 plugins considered).",
       "confidence": 12,
       "verdict": "needs_review",
       "expected_verdict": "malicious",
@@ -633,7 +633,7 @@
       "iocs_missing": [],
       "false_positive_iocs": [],
       "stop_reason": "no-candidate",
-      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (31 plugins considered).",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (32 plugins considered).",
       "confidence": 0,
       "verdict": "unknown",
       "expected_verdict": "unknown",
@@ -694,7 +694,7 @@
       "confidence": 98,
       "verdict": "malicious",
       "expected_verdict": "malicious",
-      "time_ms": 699,
+      "time_ms": 701,
       "chain": [
         "base64-decode",
         "xor-brute",
@@ -764,7 +764,7 @@
       "iocs_missing": [],
       "false_positive_iocs": [],
       "stop_reason": "no-candidate",
-      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (31 plugins considered).",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (32 plugins considered).",
       "confidence": 0,
       "verdict": "unknown",
       "expected_verdict": "suspicious",
@@ -806,7 +806,7 @@
       "iocs_missing": [],
       "false_positive_iocs": [],
       "stop_reason": "no-candidate",
-      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (31 plugins considered).",
+      "stopped_detail": "No decoder claimed confidence \u2265 0.05 on the raw input (32 plugins considered).",
       "confidence": 0,
       "verdict": "unknown",
       "expected_verdict": "suspicious",
