@@ -3406,10 +3406,57 @@ def _handle_blind_xor(text: str) -> str:
     if not (_has_keyword or _has_magic or _printable_ratio >= 0.95):
         return text
 
-    try:
-        decoded_txt = best_bytes.decode("ascii", errors="replace")
-    except Exception:
-        decoded_txt = "".join(chr(b) if 0x20 <= b < 0x7F else "?" for b in best_bytes)
+    # v1.5.8 — smart-render the decoded bytes rather than blindly forcing
+    # ASCII (which produces the `Ø`-mojibake analysts saw on PE / binary
+    # payloads and UTF-16LE PowerShell blobs).
+    def _smart_render(b: bytes) -> tuple[str, str]:
+        # Magic-byte fingerprints
+        magics = [
+            (b"MZ",           "PE / .exe / .dll (Windows executable)"),
+            (b"\x7fELF",      "ELF (Linux/Unix binary)"),
+            (b"\xca\xfe\xba\xbe", "Mach-O / Java class"),
+            (b"\xcf\xfa\xed\xfe", "Mach-O 64-bit (macOS binary)"),
+            (b"\x1f\x8b",     "gzip stream"),
+            (b"PK\x03\x04",   "ZIP / DOCX / JAR archive"),
+            (b"%PDF",         "PDF document"),
+            (b"BM",           "BMP image"),
+        ]
+        for sig, label in magics:
+            if b.startswith(sig):
+                head = b[:64].hex()
+                return (
+                    f"⚠ Binary payload detected — {label}\n"
+                    f"    magic: {sig!r}   size: {len(b)} bytes\n"
+                    f"    hex head (64B): {head}\n"
+                    f"    (switch OUTPUT view to HEX to inspect further; not printable as text)",
+                    "binary"
+                )
+        # UTF-16LE (odd bytes mostly 0x00)
+        if len(b) >= 8:
+            odd = sum(1 for i in range(1, len(b), 2) if b[i] == 0)
+            if odd / max(1, (len(b) + 1) // 2) >= 0.25:
+                try:
+                    txt = b.decode("utf-16-le")
+                    if sum(1 for c in txt if 32 <= ord(c) < 127 or c in "\n\r\t") / max(1, len(txt)) >= 0.60:
+                        return (txt[:2000], "utf-16-le")
+                except UnicodeDecodeError:
+                    pass
+        # UTF-8 with ≥90 % printable → text
+        try:
+            u8 = b.decode("utf-8")
+            if sum(1 for c in u8 if 32 <= ord(c) < 127 or c in "\n\r\t") / max(1, len(u8)) >= 0.90:
+                return (u8[:2000], "utf-8")
+        except UnicodeDecodeError:
+            pass
+        # Fallback — replacement chars with a clear caveat
+        return (
+            "(payload is non-printable — displayed with `?` for non-ASCII bytes;"
+            " switch OUTPUT view to HEX to see raw bytes)\n"
+            + "".join(chr(b_) if 0x20 <= b_ < 0x7F else "?" for b_ in b[:2000]),
+            "opaque",
+        )
+
+    decoded_txt, render_kind = _smart_render(best_bytes)
 
     banner = (
         "──── BLIND_XOR_SINGLE_BYTE (v1.2.0) ────\n"
@@ -3417,7 +3464,8 @@ def _handle_blind_xor(text: str) -> str:
         f"Raw bytes      : {len(raw)}\n"
         f"XOR key found  : 0x{best_key:02X}  (score {best_score:.2f} · baseline {baseline:.2f})\n"
         f"First 32 bytes : {best_bytes[:32].hex()}\n"
-        f"Decoded (ASCII):\n{decoded_txt[:2000]}\n"
+        f"Payload shape  : {render_kind}\n"
+        f"Decoded        :\n{decoded_txt}\n"
     )
     return banner
 
