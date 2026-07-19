@@ -21,21 +21,90 @@
 
 ---
 
-## 1 · RC2 Priority Order (per owner mandate)
+## 1 · RC2 Priority Order (per owner mandate — **updated 2026-07-19 post-RC2.0 sign-off**)
 
-| # | Feature | Estimated effort | Risk | Ships in |
+**RC2.0 shipped to production ✅** (https://nivxray.nivxforge.com · 2026-07-19). Remaining scope expanded by owner to elevate NivXRay from decoder into a true enterprise MCIP:
+
+| # | Feature | Est. effort | Risk | Ships in |
 |---:|---|:---:|:---:|:---:|
-| 1 | PDF export | 0.5 day | Low | RC2.0 |
-| 2 | Malware family plugins × 4 (Meterpreter, AsyncRAT, Lumma, DarkGate) | 2 days | Med | RC2.1 |
-| 3 | Remaining decoders (Base58, Brotli, LZMA, Homoglyph) | 1.5 days | Low | RC2.2 |
-| 4 | Advanced PowerShell reconstruction | 2 days | Med | RC2.3 |
-| 5 | Advanced CMD reconstruction | 1.5 days | Med | RC2.4 |
-| 6 | Golden corpus (500–1000 real samples) | 3 days | High (data curation) | RC2.5 |
+| 1 | ~~PDF export~~ ✅ shipped | — | — | RC2.0 |
+| 2 | **9 malware family plugins** (Meterpreter, AsyncRAT, Lumma, DarkGate, **Remcos, AgentTesla, QuasarRAT, Cobalt Strike, Snake Keylogger**) + confidence-score model + per-family MITRE + YARA suggestions | 5 days | Med | **RC2.1a** |
+| 3 | **STIX 2.1 bundle export** (`/api/v2/analyze/report?fmt=stix`) validated against MISP · OpenCTI · ThreatConnect · MS Sentinel · Splunk ES | 1.5 days | Low | **RC2.1b** |
+| 4 | **Analyst Verdict panel** (in-UI) + **MITRE Navigator layer export** + **IOC CSV export** + **Sigma rule generator** | 2 days | Low | **RC2.1c** |
+| 5 | Decoder expansion: Base58, Brotli, LZMA, Homoglyph, **UUID/GUID, JWT, shellcode detection, RC4/AES payload-ID** | 3 days | Low | RC2.2 |
+| 6 | Advanced PowerShell reconstruction | 2 days | Med | RC2.3 |
+| 7 | Advanced CMD reconstruction + **env-var resolution + multi-stage payload reconstruction** | 2 days | Med | RC2.4 |
+| 8 | Golden Corpus 500–1000 real samples + CI regression gate | 3 days | High | RC2.5 |
+| 9 | P3 cleanup: purge `operations.py` + `wrapper_archetypes.py`, resolve xfails, remove dead compat shims | 1 day | Low | RC2.6 |
 
-Total window: **~10.5 engineer-days**.
+Total remaining window: **~19.5 engineer-days**.
 Each item ships as its own commit + regression gate. Any item can be paused without blocking the next.
 
 ---
+
+## 1.5 · Owner Expansion — Enterprise MCIP Scope (2026-07-19)
+
+Adopting owner's post-RC2.0 recommendations. Full text preserved verbatim in `/app/memory/OWNER_RECOMMENDATION_2026-07-19.md` (created when first RC2.1 branch opens).
+
+### 🔥 RC2.1a — Malware Family Intelligence
+**9 first-class `intelligence`-category plugins** (all deterministic, no LLM):
+1. Meterpreter / MSFVenom (extracted from `xor-brute`)
+2. AsyncRAT (`AsyncClient.Settings`, `<AsyncRAT`, `AsyncMutex_*`, `Aes256`)
+3. Lumma Stealer (`Lumma`, `lumma-shop`, `/api/(steal|conf)`, `crypto/browsers/wallets/files/software`)
+4. DarkGate (`%STAT%`, `%B64%`, AutoIt marker, `DGSNM`)
+5. **Remcos RAT** (`Remcos-`, RC4 config-block magic `x1c`, mutex `Remcos_MUTEX_*`, screenshot markers)
+6. **AgentTesla** (SMTP exfil templates, keylog format strings, `Panel` string, `pw_string_`)
+7. **QuasarRAT** (`Quasar.Common`, TLS pinning cert-hash, `SETTINGS` AES-256 header)
+8. **Cobalt Strike** (`beacon`, `Malleable-C2`, jitter `0xBEEF`, sleep-mask XOR pattern, HTTP staging URI `/updates.rss`, `.d?` extension pattern)
+9. **Snake Keylogger** (`Snake-`, `SMTPServer=`, `PW-`, `Screenshot=`, panel string `pw_`)
+
+**Every family plugin emits:**
+- `family` (canonical name)
+- `confidence` (0.0–1.0, calibrated via signature match count)
+- `evidence` (structured list — each item has `type`, `pattern`, `location`)
+- `mitre_techniques` (family-specific)
+- `yara_suggestion` (auto-generated rule stub keyed off matched signatures)
+- `atomic_red_test_hint` (link to relevant AtomicRedTeam T# test when present)
+
+**Confidence scoring model:** Each family plugin has a weighted signature table. Confidence = `min(1.0, sum(matched_weights) / calibration_threshold)`. Calibration comes from golden corpus (locked once RC2.5 completes phase 1).
+
+### ⭐ RC2.1b — STIX 2.1 Bundle Export
+- New endpoint: `GET /api/v2/analyze/report?fmt=stix` (also POST for one-shot analyze+export)
+- Uses `stix2` (OASIS-maintained Python SDK)
+- Bundle content: `indicator` (per IOC), `malware` (per identified family), `attack-pattern` (per MITRE tech), `identity` (NivXRay as producer), `relationship` (indicator↔malware, malware↔attack-pattern), `report` (SDO wrapping all objects)
+- Validated round-trip in tests against:
+  - MISP (`stix2` → `misp-stix` importer)
+  - OpenCTI (STIX bundle upload via v4 API test harness)
+  - ThreatConnect (v3 STIX 2.1 endpoint schema)
+  - Microsoft Sentinel (TAXII 2.1 STIX-DDS format)
+  - Splunk Enterprise Security (Threat Intel Framework STIX-2.1 field mapping)
+- Regression: `tests/test_stix_export.py` asserts every consumer's required fields are populated.
+
+### ⭐ RC2.1c — Analyst Verdict Panel + Export Suite
+**UI (new component in `AnalystWorkspacePage.jsx`):**
+Consolidated "Analyst Verdict" card at top of report showing:
+- Executive Summary (existing, promoted)
+- Malware Family + confidence
+- Decode Chain (existing, promoted)
+- MITRE ATT&CK mapping (existing)
+- LOLBins used
+- Extracted IOCs (existing)
+- **C2 Infrastructure** (dedicated sub-card: IP/domain/URL + geo/ASN lookup via existing OSINT stack)
+- **Detection Rationale** (auto-composed narrative from signature-match evidence)
+- **Recommended SOC Actions** (existing, enriched with playbook links)
+- **Sigma rule** (auto-generated)
+- **YARA rule** (auto-generated from family signatures)
+- **STIX bundle download**
+- **MITRE Navigator layer JSON export** (drag-drop into https://mitre-attack.github.io/attack-navigator/)
+- **IOC exports:** CSV, JSON, STIX
+
+**Sigma auto-gen:** New module `backend/engine/sigma_builder.py` — takes findings, produces Sigma YAML using process-creation / file-event / network-connection log-sources depending on which IOCs and MITRE tactics matched.
+
+**MITRE Navigator export:** `backend/engine/navigator_layer.py` — emits Navigator v4.5 layer JSON with all matched techniques scored 100, unmatched greyed out.
+
+---
+
+
 
 ## 2 · Feature Specs
 
@@ -89,21 +158,25 @@ class FamilyPlugin(BaseDecoder):
 
 ---
 
-### 🟢 RC2.2 · Remaining Decoders
+### 🟢 RC2.2 · Decoder Expansion (owner-expanded 2026-07-19)
 
-Four single-file plugins.
+Eight single-file plugins.
 
-**`decoders/base58.py`** — Bitcoin / Solana / IPFS. Alphabet `123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz`. Skip if `0OIl` present. Confidence 0.6 on pure alphabet + length ≥ 20.
+**Original four:**
+- `decoders/base58.py` — Bitcoin / Solana / IPFS. Alphabet `123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz`. Skip if `0OIl` present. Confidence 0.6 on pure alphabet + length ≥ 20.
+- `decoders/brotli.py` — `brotli>=1.1.0`. No magic → entropy probe + try-decompress. Confidence 0.85 on successful decompress.
+- `decoders/lzma.py` — stdlib `lzma`. Magic `FD 37 7A 58 5A 00` (`.xz`) or raw. Confidence 0.95 on magic, 0.4 on entropy probe.
+- `decoders/homoglyph.py` — Category `normalize`. Cyrillic look-alikes → Latin, fires only on mixed-script + command-pattern.
 
-**`decoders/brotli.py`** — Native Python `brotli` package (pin `brotli>=1.1.0`). Magic bytes: none, so detection uses "high-entropy binary + tiny 0.05 confidence + try-decompress guard". Confidence bumped to 0.85 on successful decompress.
+**Owner additions:**
+- `decoders/uuid_extract.py` — Category `pattern`. Extract UUIDs/GUIDs (both hex-4-2-2-2-6 and canonical `{...}` forms) as IOCs. Non-transforming (like family plugins).
+- `decoders/jwt_decode.py` — Split `xxx.yyy.zzz`, base64url-decode header + body, emit `iss`, `sub`, `aud`, `exp`, `alg` as findings. Flag `alg=none` and `HS256` with obviously-weak keys.
+- `decoders/shellcode_detect.py` — Category `intelligence`. Deterministic shellcode heuristic (opcode-histogram: high `MOV EAX/EBX`, `CALL EBP`, `XOR EAX,EAX`, low letters), independent of family match. Emits `shellcode_present: true/false` + arch guess (x86 vs x64).
+- `decoders/crypto_payload_id.py` — Category `intelligence`. Detect encrypted payload wrappers: RC4 headers (repeated `0x01 0x02 0x03` schedule leak), AES-CBC IV pattern (16-byte block boundary), AES-GCM tag (16-byte trailer). Emits `encrypted_payload: {algo, iv_hex, ciphertext_len}` for the analyst even when we can't decrypt without the key.
 
-**`decoders/lzma.py`** — stdlib `lzma`. Magic `FD 37 7A 58 5A 00` (`.xz`) or raw stream. Confidence 0.95 on magic, 0.4 on entropy probe.
+**Tests:** `tests/test_engine_phase_c_extra.py` — one test class per plugin (+ negative case + integration).
 
-**`decoders/homoglyph.py`** — Category `normalize`. Maps Cyrillic look-alikes (`а е о р с у х`) → Latin. Fires only when payload contains mixed scripts. `PluginResult.notes` describes what was normalized so analysts can audit.
-
-**Tests:** `tests/test_engine_phase_c_extra.py` — one test class per plugin, roundtrip + negative-input.
-
-**Regression gate:** RC1 + RC2.0 + RC2.1 all green.
+**Regression gate:** RC1 + RC2.0 + RC2.1a/b/c all green.
 
 ---
 
