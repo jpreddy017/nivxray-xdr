@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from schemas import AutoIn, TroubleshootIn, RecipeStep, RunRecipeIn, AnalyzeIn
 from deps import get_current_user, llm_json, db
+from ai_credit_guard import guard_ai_endpoint, record_ai_spend, budget_status
 from operations import OPERATIONS
 from magic_decoder import magic_decode
 from analysis_core import (
@@ -165,6 +166,11 @@ async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
         _cached["cache_hit"] = True
         return _cached
 
+    # ─── v1.5.9 · Credit-guard (rate limit + budget cap + shared cache) ─
+    _guard_hit = await guard_ai_endpoint(user, "ai_decode", raw)
+    if _guard_hit is not None:
+        return _guard_hit
+
     system = (
         "You are an expert malware analyst using a CyberChef-like tool. "
         "Given an obfuscated / encoded payload, produce a JSON recipe of operations that will fully decode it.\n"
@@ -318,7 +324,15 @@ async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
     # stay fresh so LLM improvements benefit the next request.
     if not stopped_gracefully and _response.get("output"):
         await _ai_cache_put(_payload_sha, _response)
+        # v1.5.9 — also record spend in the shared credit ledger
+        await record_ai_spend(user, "ai_decode", raw, _response)
     return _response
+
+
+@router.get("/ai/budget")
+async def ai_budget(user=Depends(get_current_user)):
+    """Admin/analyst view of monthly AI credit burn + rate-limit state."""
+    return await budget_status()
 
 
 @router.post("/ai/auto-investigate")
