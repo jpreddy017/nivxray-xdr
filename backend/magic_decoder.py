@@ -377,6 +377,14 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
         # from the 509-case honest baseline.
         cands.insert(0, {"op": "ps-encodedcommand-multilayer", "args": {}})
         cands.append({"op": "powershell-encoded", "args": {}})
+    # RC4.0 (Feb 2026) — PowerShell inline-eval patterns Google AI can
+    # decode but we couldn't (until now):
+    #   • $h='43,61,6c,63,...' -split ',' | ForEach-Object {[char][int]('0x'+$_)}
+    #   • [byte[]](N,N,...) -bxor key[i%len] with key from ::GetBytes('KEY')
+    if re.search(r"\[char\]\[int\]\s*\(\s*['\"]0x", s) and re.search(r"[0-9a-fA-F]{1,2}(?:\s*,\s*[0-9a-fA-F]{1,2}){4,}", s):
+        cands.insert(0, {"op": "powershell-hex-csv-inline", "args": {}})
+    if re.search(r"\[byte\[\]\]\s*\(", s) and re.search(r"-bxor", s, re.IGNORECASE):
+        cands.insert(0, {"op": "powershell-xor-inline-key", "args": {}})
     # PowerShell backtick obfuscation — `I`E`X, `N`e`T`.`W`e`B`C`l`i`e`N`T
     # etc. When >= 15 % of the input is `<letter> pairs, insert the
     # deobfuscator at the FRONT so subsequent decoders see the plaintext.

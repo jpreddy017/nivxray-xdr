@@ -34,6 +34,7 @@ import ops_extended  # noqa: F401  — registers +42 operations
 # wrapper-only) by iteratively peeling base64 → UTF-16LE → hex-escape →
 # URL-encoded → reversed chains inside PS-EncodedCommand wrappers.
 from decoders import ps_encodedcommand_multilayer  # noqa: F401
+from decoders import ps_inline_eval  # noqa: F401  — powershell-hex-csv-inline + powershell-xor-inline-key
 import ops_base_family  # noqa: F401  — registers base58/base62/base64url/z85
 from smart_decoder import smart_decode
 from magic_decoder import magic_decode

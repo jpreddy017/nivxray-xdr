@@ -30,6 +30,19 @@
 ### ✅ Phase D.4 · NjRAT family detector  ← DELIVERED (RC3.4 · Feb-2026 · 7 MITRE, `|'|'|` splitter)
 ### ✅ Phase D.5 · Emotet family detector  ← DELIVERED (RC3.4 · Feb-2026 · 10 MITRE, XL4 + `@`-URL list)
 ### ✅ Phase D.6 · Cobalt Strike Beacon config extractor  ← DELIVERED (RC3.5 · Feb-2026 · full TLV parser, XOR v3/v4/plaintext, structured C2 IOCs)
+### 🔧 RC4.0 (WIP · 2026-07-20) · Google-AI-parity decoders (batch 1/2)
+    **Delivered:**
+    - `decoders/ps_encodedcommand_multilayer.py` — iteratively peels base64 → UTF-16LE → hex-escape → URL-encoded → reversed chains inside `powershell -e <base64>` wrappers (up to 8 iterations, stops on verified plaintext or magic bytes). Registered in `magic_decoder._candidates` at HEAD of PowerShell-encoded branch.
+    - `decoders/ps_inline_eval.py` with two new ops:
+      • `powershell-hex-csv-inline` — decodes `$h='43,61,6c,63,...' -split ',' | {[char][int]('0x'+$_)}` → `calc.exe` (matches Google AI's Pattern 3 output).
+      • `powershell-xor-inline-key` — decodes `[byte[]](N,N,...) -bxor key[i%len]` with `[Encoding]::ASCII.GetBytes('KEY')` inline (matches Pattern 2 mechanism — note: Google AI hallucinated `calc.exe` for the specific test bytes; real math yields `DKZAR\x18LIAXAvBPU` — our tool is honest).
+    - `sigma_export.py` sibling: **`yara_export.py`** + `GET /api/cases/{id}/yara` endpoint + `YARA` button in CasesDrawer next to SIGMA. Deterministic YARA rule generator w/ magic-byte detection, extracted-strings pills, MITRE tags.
+    - Batch-500 baseline results persisted at `tests/fixtures/regression_baseline/batch_500_2026-07-20.json` (509-case snapshot: 31% Malicious verified · 65% Partial wrapper-only · 33% honest-verified rate).
+    **Still open — remaining 3 Google-AI-parity patterns:**
+    - **Pattern 4:** `batch-envvar-substitute` — `set p=c_a_l_c_._e_x_e && start "%p:_=%"` (batch `%var:from=to%` substitution strips `_`)
+    - **Pattern 5:** `powershell-reverse-regex-swap` — `-replace '(\w+)\.(\w+)','$2.$1'` swap + `[-1..-8]` backward indexing
+    - **Pattern 6:** `cmd-envvar-substring-picker` — `%SystemRoot:~0,1%` → `C` + concat multiple slices to build `calc.exe`
+    All three follow the same recipe: regex-match the pattern, extract the literal, apply the transform deterministically, return plaintext. ~30-45 min each in a fresh session.
 ### 🔧 RC3.9 (WIP · 2026-07-20) · Decoder-plausibility guards + Documents upload hotfix
     Delivered:
     - `custom-hex-slash` now peels recursively (max 5 iterations).
