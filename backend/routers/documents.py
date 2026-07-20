@@ -544,3 +544,214 @@ async def reinvestigate_document(
         "lolbas": _g("lolbas") or [],
         "reached_shellcode": bool(_g("reached_shellcode")),
     }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# BATCH DECODE — extract EVERY command line from a document and run each
+# through `/decode/smart`. Auto-persists each as a saved Case named
+# `<file>::L<line>` so the analyst can browse them in the Case Library.
+# ═════════════════════════════════════════════════════════════════════════════
+_SHELL_HINT_RE = __import__("re").compile(
+    r"(powershell|cmd(\.exe)?|certutil|mshta|rundll32|bitsadmin|regsvr32|"
+    r"wscript|cscript|schtasks|wmic|curl\s+|wget\s+|iex\s|invoke-|"
+    r"FromBase64String|System\.Convert|System\.Reflection|"
+    r"http://|https://|ftp://|-e(ncodedcommand)?\s+[A-Za-z0-9+/=]{20,})",
+    __import__("re").IGNORECASE,
+)
+
+
+def _split_command_lines(text: str, min_len: int = 24, max_lines: int = 200) -> List[str]:
+    """Split extracted document text into candidate command lines.
+
+    Rules:
+      • Line-based split (\n or tab-separated cells for XLSX)
+      • Keep only lines matching a shell/URL/PowerShell hint
+      • Drop duplicates preserving order
+      • Cap at `max_lines` to keep the batch bounded
+    """
+    seen, out = set(), []
+    for raw in text.splitlines():
+        for cell in raw.split("\t"):
+            s = cell.strip()
+            if len(s) < min_len or s in seen:
+                continue
+            if _SHELL_HINT_RE.search(s):
+                seen.add(s)
+                out.append(s)
+                if len(out) >= max_lines:
+                    return out
+    return out
+
+
+@router.post("/documents/{doc_id}/batch-decode")
+async def batch_decode_document(
+    doc_id: str,
+    body: Optional[Dict[str, Any]] = Body(default=None),
+    user=Depends(get_current_user),
+):
+    """Extract every candidate command-line from an uploaded document and
+    pipe each through `/decode/smart`. Each result is auto-saved as a Case
+    named `<filename>::L<index>` so the analyst can browse the whole batch
+    in the Case Library and hit SIGMA / RE-DECODE per row.
+
+    Body (all optional):
+      max_lines: cap the number of extracted lines (default 200)
+      min_len:   minimum candidate length in chars (default 24)
+      auto_save: create workspace_cases entries (default True)
+    """
+    oid = _oid(doc_id)
+    if not oid:
+        raise HTTPException(status_code=400, detail="invalid id")
+    bucket = _bucket()
+    f_meta = None
+    async for f in bucket.find({"_id": oid}):
+        f_meta = f
+        break
+    if not f_meta:
+        raise HTTPException(status_code=404, detail="not found")
+    meta = _gf(f_meta, "metadata") or {}
+    if meta.get("user_email") != user["email"] and user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    body = body or {}
+    max_lines = int(body.get("max_lines") or 200)
+    min_len = int(body.get("min_len") or 24)
+    auto_save = body.get("auto_save", True)
+
+    ext = _ext(_gf(f_meta, "filename") or "")
+    stream = await bucket.open_download_stream(oid)
+    data = await stream.read()
+
+    # Reuse the same extraction paths as re-investigate
+    text: Optional[str] = None
+    if ext in PREVIEWABLE_TEXT_EXTS:
+        text = data.decode("utf-8", errors="replace")
+    elif ext == "pdf":
+        from pdfminer.high_level import extract_text as _pdf_extract
+        with io.BytesIO(data) as buf:
+            text = _pdf_extract(buf) or ""
+    elif ext == "docx":
+        from docx import Document
+        with io.BytesIO(data) as buf:
+            text = "\n".join(p.text for p in Document(buf).paragraphs)
+    elif ext == "xlsx":
+        from openpyxl import load_workbook
+        with io.BytesIO(data) as buf:
+            wb = load_workbook(buf, read_only=True, data_only=True)
+            rows: List[str] = []
+            for sh in wb.sheetnames[:5]:
+                ws = wb[sh]
+                for r in ws.iter_rows(values_only=True, max_row=2000):
+                    rows.append("\t".join("" if v is None else str(v) for v in r))
+        text = "\n".join(rows)
+    else:
+        raise HTTPException(status_code=415, detail=f".{ext} is not supported for batch decode")
+
+    if not text or not text.strip():
+        raise HTTPException(status_code=422, detail="No extractable text in file")
+
+    lines = _split_command_lines(text, min_len=min_len, max_lines=max_lines)
+    if not lines:
+        return {"ok": False, "reason": "no candidate command lines found",
+                "total_lines": len(text.splitlines())}
+
+    from routers.ops import decode_smart
+    from schemas import AutoIn as _DecodeIn
+
+    fname = _gf(f_meta, "filename") or "doc"
+    stem = fname.rsplit(".", 1)[0][:40]
+
+    results: List[Dict[str, Any]] = []
+    counts = {"malicious": 0, "partial": 0, "undecoded": 0, "benign": 0, "error": 0}
+
+    for idx, line in enumerate(lines, start=1):
+        try:
+            r = await decode_smart(_DecodeIn(input=line), user=user)
+            def _g(k, default=None):
+                if isinstance(r, dict): return r.get(k, default)
+                return getattr(r, k, default)
+            vc = _g("verdict_card") or {}
+            v = (vc.get("verdict") or "").lower()
+            if v not in counts: v = "error"
+            counts[v] = counts.get(v, 0) + 1
+
+            # ── OUTPUT VERIFICATION (Feb 2026) ─────────────────────────
+            # Don't trust the verdict alone — cross-check that the DECODED
+            # content actually contains real forensic evidence.
+            _out_text = str(_g("output") or "")
+            _clean = _out_text
+            for _tok in ("━" * 30, "▼ DECODED OUTPUT", "NIVXRAY INVESTIGATION SUMMARY"):
+                _clean = _clean.split(_tok, 1)[0].strip()
+            _out_bytes = _clean.encode("latin-1", errors="replace")
+            _wordhits_ = _lolbas_present = _url_present = _magic_ok = False
+            try:
+                from ops_extended import _wordhits as _wh
+                from ops_extended import _score_downstream_magic as _mag
+                _wordhits_ = _wh(_out_bytes) >= 2
+                _magic_ok = _mag(_out_bytes) >= 0.30
+            except Exception:
+                pass
+            # Are LOLBAS binaries / URLs actually present in the decoded text?
+            for lb in (_g("lolbas") or []):
+                bn = (lb.get("binary") if isinstance(lb, dict) else lb) or ""
+                if bn and bn.lower() in _clean.lower():
+                    _lolbas_present = True; break
+            for u in ((_g("iocs") or {}).get("urls") or []):
+                if str(u).lower() in _clean.lower():
+                    _url_present = True; break
+            _verified = bool(_wordhits_ or _magic_ok or _lolbas_present or _url_present)
+            _verify_reason = (
+                "magic_bytes" if _magic_ok else
+                "lolbas_in_output" if _lolbas_present else
+                "url_in_output" if _url_present else
+                "shell_tokens" if _wordhits_ else
+                "wrapper_only_no_payload_evidence"
+            )
+
+            row = {
+                "index":      idx,
+                "input":      line[:200],
+                "verdict":    vc.get("verdict"),
+                "risk_score": vc.get("risk_score"),
+                "partial":    bool(vc.get("partial")),
+                "wrapper_only": bool(vc.get("wrapper_only")),
+                "engine":     _g("engine"),
+                "chain_len":  len(_g("layer_trace") or []),
+                "urls":       (_g("iocs") or {}).get("urls") or [],
+                "lolbas":     [l.get("binary") if isinstance(l, dict) else l for l in (_g("lolbas") or [])][:3],
+                "mitre":      [m.get("id") for m in (_g("mitre") or [])][:6],
+                # Honest verification flag — analyst can filter on this
+                "verified":       _verified,
+                "verify_reason":  _verify_reason,
+                "output_first_120": _clean[:120],
+            }
+            # Auto-persist as a Case so the Case Library gets populated
+            if auto_save:
+                case_name = f"{stem}::L{idx:03d}"[:200]
+                try:
+                    from routers.cases import save_case, SaveCaseIn  # type: ignore
+                    await save_case(SaveCaseIn(
+                        name=case_name, input=line,
+                        output=_g("output") or "",
+                        engine=_g("engine") or "-",
+                        confidence=_g("confidence"),
+                        chain_ids=[t.get("op") if isinstance(t, dict) else t
+                                    for t in (_g("layer_trace") or [])],
+                        verdict=vc.get("verdict"),
+                        iocs=_g("iocs") or {},
+                    ), user=user)
+                    row["case_name"] = case_name
+                except Exception as _se:
+                    row["case_save_error"] = str(_se)[:200]
+            results.append(row)
+        except Exception as e:
+            counts["error"] += 1
+            results.append({"index": idx, "input": line[:200], "error": str(e)[:200]})
+
+    return {
+        "ok": True,
+        "filename": fname,
+        "extracted_lines": len(lines),
+        "counts": counts,
+        "results": results,
+    }
