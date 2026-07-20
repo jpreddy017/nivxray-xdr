@@ -6,10 +6,11 @@ core decoder. Everything must work offline.
 
 ## 🎯 NEXT-SESSION PRIORITIES (post-RC3.0, locked 2026-02-20 with user)
 
-Ship these 5 items **BEFORE** Phase D malware-family detectors. Order intentional — verdict precision first, biggest customer impact.
+Ship these 6 items **BEFORE** Phase D malware-family detectors. Order intentional — freeze the baseline first, precision second, biggest customer impact.
 
-1. **P0 · Verdict precision 15/31 → ≥ 90 %** — diff benchmark expectations vs new `_classify`; add a lock test.
-2. **P0.5 · Regression fixtures for every plugin decoder** — golden input → golden output in `/app/backend/tests/fixtures/plugin_regression/`.
+0. **P0 · Freeze RC3.0 baseline corpus (CI gate)** — capture the current chain-completeness (30/31 = 96.8 %), verdict-precision (15/31), 107/107 pytest state, and one canonical screenshot of the 7-panel workspace per representative payload. Store under `/app/backend/tests/rc30_baseline/`. Add a **CI gate script** that FAILS a merge if chain-completeness drops, verdict-precision drops, any pytest breaks, or any panel loses its `data-testid`. This is the reference point every subsequent change must not regress.
+1. **P0 · Verdict precision 15/31 → ≥ 90 %** — diff benchmark expectations vs new `_classify`; add a lock test. The baseline from item 0 tracks the floor.
+2. **P0.5 · Regression fixtures for every plugin decoder** — golden input → golden output in `/app/backend/tests/fixtures/plugin_regression/`. Feeds the CI gate.
 3. **P1 · Enrich `crypto-key-required` tradecraft** — structured JSON with algorithm, encoding, key_len_bits, iv_len_bits, nonce_required, confidence.
 4. **P1 · Extend `crypto-detect` framework for ChaCha20 / Salsa20 / DES / 3DES** — reuse `crypto_hints`; add a `_ALGO_SPECS` table, no per-algo classes.
 5. **P1 · IR Handoff Export (.md / .pdf)** — one-click 7-panel SOC brief; extend `engine/report.py` + `engine/report_pdf.py`; button in the Verdict panel header.
