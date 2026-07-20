@@ -1149,6 +1149,56 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     except Exception:
         pass
 
+    # ── RC4.2 · CMD/PowerShell evaluation trace ────────────────────
+    # Even when the orchestrator adopts a chain that doesn't include our
+    # batch-envvar-substitute op, if the raw input has the pattern we run
+    # the decoder directly and attach a transformation_trace so analysts
+    # see the reconstruction steps (p = c_a_l_c_._e_x_e → remove '_' →
+    # calc.exe → start calc.exe). Closes the "stopped at %p:_=%" gap
+    # reported by external reviewers.
+    try:
+        import re as _re
+        src = body.input or ""
+        trace = []
+        # Pattern 1: SET var + %var:from=to%
+        set_re = _re.compile(r"""(?:^|[\s&])set\s+["']?(\w+)["']?\s*=\s*["']?([^"'\r\n&|<>]+?)["']?(?=\s*(?:&&?|\|\|?|$|\r|\n))""",
+                              _re.IGNORECASE | _re.MULTILINE)
+        sub_re = _re.compile(r"""%(\w+):([^=%]{0,64})=([^%]{0,64})%""")
+        substr_re = _re.compile(r"""%(\w+):~\s*(-?\d+)\s*(?:,\s*(-?\d+))?\s*%""")
+        env = {m.group(1).lower(): m.group(2) for m in set_re.finditer(src)}
+        for m in set_re.finditer(src):
+            trace.append({"step": "set-var", "detail":
+                          f"{m.group(1)} = {m.group(2)}"})
+        for m in sub_re.finditer(src):
+            var, frm, to = m.group(1).lower(), m.group(2), m.group(3)
+            val = env.get(var, "")
+            resolved = val.replace(frm, to) if val else "(unresolved)"
+            trace.append({"step": "envvar-substitute",
+                          "detail": f"%{m.group(1)}:{frm}={to}%  →  "
+                          f"'{val}'.replace('{frm}','{to}') = '{resolved}'"})
+        if substr_re.search(src):
+            for m in substr_re.finditer(src):
+                trace.append({"step": "envvar-substring",
+                              "detail": f"%{m.group(1)}:~{m.group(2)},"
+                              f"{m.group(3) or ''}%  →  slice"})
+        if trace:
+            result["transformation_trace"] = trace
+            # Also inject the ops into the recipe so downstream UI/analysts
+            # see the deterministic step chain instead of an empty chain.
+            existing_ops = {r.get("op") for r in (result.get("recipe") or []) if isinstance(r, dict)}
+            recipe = list(result.get("recipe") or [])
+            if any(t["step"] in ("envvar-substitute", "set-var") for t in trace) \
+                    and "batch-envvar-substitute" not in existing_ops:
+                recipe.insert(0, {"op": "batch-envvar-substitute",
+                                    "detail": "CMD SET + %VAR:from=to% resolved deterministically"})
+            if any(t["step"] == "envvar-substring" for t in trace) \
+                    and "cmd-envvar-substring-picker" not in existing_ops:
+                recipe.insert(0, {"op": "cmd-envvar-substring-picker",
+                                    "detail": "CMD %VAR:~start,len% substring sliced"})
+            result["recipe"] = recipe
+    except Exception:
+        pass
+
     return result
 
 
