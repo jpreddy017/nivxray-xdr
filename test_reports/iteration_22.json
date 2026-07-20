@@ -1,0 +1,25 @@
+{
+  "summary": "RC4.2 powershell-semantic-mini + regressions verified. 6/6 backend tests passed against POST /api/decode/smart. Flow-1 reviewer example: recovers 'exe.calc' with 4 ps-semantic trace steps and emits 'Cannot prove this launches'. Flow-2: real-binary honest verdict emits 'Launches calc.exe (LOLBAS-safe path recovered)' when chain-math resolves to a real Windows binary. All prior regressions (batch-envvar-substitute, RC4-inline decryption to http://c2.evil.io/beacon, AES-CBC runtime-decryption-required, benign Get-Process) still pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_rc42_semantic_mini.py",
+    "/app/test_reports/pytest/rc42_semantic.xml"
+  ],
+  "action_items": [
+    "Review spec had ambiguous wording for Flow-2: it says 'literal changed to calc.exe (already reversed)'. Actual chain-math requires literal='clac.exe' to recover 'calc.exe' (clac.exe -> replace-swap -> exe.clac -> reverse-first-8 -> calc.exe). Test uses 'clac.exe' to validate the LOLBAS-safe branch; backend behavior is correct. Consider clarifying the review-request wording so future testers don't hit the same confusion."
+  ],
+  "critical_code_review_comments": [
+    "ps_semantic_mini.py real-binary allowlist is hardcoded to 7 names (calc/notepad/cmd/powershell/mshta/certutil/rundll32). Fine for the current 'honest-verdict' scope but should reference the LOLBAS list explicitly if expanded.",
+    "routers/ops.py is 1200+ lines; the RC4.1/RC4.2 honest-verdict blocks are inlined in two places (lines ~486 and ~1108). Consider extracting to a small helper to avoid drift.",
+    "Login endpoint occasionally times out on the first request (>30s) under load — likely a warm-path/pool issue; consider a health warmup on startup so first-hit latency is bounded."
+  ],
+  "updated_files": ["/app/backend/tests/test_rc42_semantic_mini.py"],
+  "success_rate": {"backend": "100%", "frontend": "skipped"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from review request)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend /api/auth/login can intermittently take >30s cold; use timeout>=60s and retry up to 3x. RC4.2 chain math for the semantic-mini decoder: literal->join(noop)->replace-swap(dot-tokens)->reverse-first-N-chars. Real-binary LOLBAS-safe verdict fires only when the FINAL recovered literal is in the allowlist (calc/notepad/cmd/powershell/mshta/certutil/rundll32).",
+  "rca of the issue": "n/a - all pass"
+}

@@ -1196,6 +1196,33 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                 recipe.insert(0, {"op": "cmd-envvar-substring-picker",
                                     "detail": "CMD %VAR:~start,len% substring sliced"})
             result["recipe"] = recipe
+
+        # RC4.2 · PowerShell chain evaluator — reverse+regex-swap pipe pattern.
+        # Fires on `-replace '(\w+)\.(\w+)','$2.$1'` + `ForEach-Object {$_[-1..-N] -join ''}`
+        if _re.search(r"-replace\s*['\"]\([^)]+\)\\\.\([^)]+\)['\"]\s*,\s*['\"]\$2\.\$1['\"]",
+                       src, _re.IGNORECASE) or \
+           _re.search(r"ForEach-Object\s*\{\s*\$_\[\s*-1\s*\.\.\s*-\d+\s*\]\s*-join",
+                       src, _re.IGNORECASE):
+            from operations import run_operation as _run_op_ps_sem
+            try:
+                sem_out = _run_op_ps_sem("powershell-semantic-mini", src, {})
+                if sem_out and not sem_out.startswith("(powershell-semantic-mini"):
+                    # Prepend semantic reconstruction banner to output_raw so
+                    # analysts see the step-by-step trace + honest verdict.
+                    result["output_raw"] = sem_out + "\n" + str(result.get("output_raw") or "")
+                    # Add to recipe if not already present
+                    if "powershell-semantic-mini" not in {r.get("op") for r in (result.get("recipe") or [])}:
+                        result["recipe"] = [{"op": "powershell-semantic-mini",
+                                              "detail": "Chain evaluator: -replace + reverse + join"}] + (result.get("recipe") or [])
+                    # Also record in transformation_trace
+                    trace_now = result.get("transformation_trace") or []
+                    for line in sem_out.split("\n"):
+                        line = line.strip()
+                        if line.startswith("Step "):
+                            trace_now.append({"step": "ps-semantic", "detail": line})
+                    result["transformation_trace"] = trace_now
+            except Exception:
+                pass
     except Exception:
         pass
 
