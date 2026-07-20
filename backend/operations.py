@@ -41,7 +41,33 @@ def list_operations() -> List[Dict[str, Any]]:
 def run_operation(op_id: str, data: str, args: Optional[Dict[str, Any]] = None) -> str:
     if op_id not in OPERATIONS:
         raise ValueError(f"Unknown operation: {op_id}")
-    return OPERATIONS[op_id]["fn"](data, **(args or {}))
+    fn = OPERATIONS[op_id]["fn"]
+    # Filter args to only the kwargs `fn` actually accepts. The
+    # orchestrator's plugin detect() often returns diagnostic args
+    # (`token_count`, `density`, `printable_ratio`, `urlsafe`, …) that
+    # a legacy op function was never designed for. Passing them raw
+    # yields `TypeError: got an unexpected keyword argument 'X'` and
+    # renders as a red "error:" row inside the Chain Recipe panel.
+    passed = args or {}
+    if passed:
+        import inspect
+        try:
+            sig = inspect.signature(fn)
+            accepted = {
+                name for name, p in sig.parameters.items()
+                if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                              inspect.Parameter.KEYWORD_ONLY)
+                and name != "data"
+            }
+            has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD
+                              for p in sig.parameters.values())
+            if not has_var_kw:
+                passed = {k: v for k, v in passed.items() if k in accepted}
+        except (TypeError, ValueError):
+            # Introspection failed (C-fn, wrapper, etc.) — pass nothing
+            # rather than crash on an unknown kwarg.
+            passed = {}
+    return fn(data, **passed)
 
 
 # ==== COMPRESSION ============================================================
@@ -1247,7 +1273,14 @@ def _register_plugin_op(op_id: str, label: str, description: str,
     Late-imports the plugin at call time so this file has no hard dependency
     on the decoder package's autodiscovery order.
     """
-    def _fn(data: str) -> str:
+    def _fn(data: str, **_ignored) -> str:
+        """Recipe-UI wrapper. Accepts **kwargs because `run_operation`
+        expands the step's `args` dict as keyword arguments (e.g.
+        `token_count=76, density=0.91`). The plugin re-derives what it
+        needs from `detect()` at call time, so we deliberately drop the
+        passed-in args to avoid signature drift with the plugin's
+        internal detect() result shape.
+        """
         # Lazy import — avoids a circular import at module load.
         from engine.registry import DecoderRegistry
         from engine.models import AnalysisContext
@@ -1331,6 +1364,10 @@ for _label in (
     "regex-split-2", "extract-int-array", "chr-map", "join",
     "extract-inline-string", "tokenize", "template-substitute",
     "string-replace", "expand-bang-var", "xor-byte",
+    # Feb 2026 · orchestrator emits `ioc-extract` and `extract-payload`
+    # as terminal steps; register them as no-op annotators so the manual
+    # Chain-Recipe replay doesn't red-flag them.
+    "ioc-extract", "extract-payload",
 ):
     _fn = _mk_annotator(_label)
     OPERATIONS[_label] = {
