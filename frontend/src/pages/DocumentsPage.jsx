@@ -100,6 +100,42 @@ export default function DocumentsPage() {
     setBusy(null);
   };
 
+  const batchDecode = async (item) => {
+    if (!window.confirm(
+      `BATCH DECODE will extract EVERY command-line from "${item.filename}" and run each ` +
+      `through the deterministic pipeline. Each result is auto-saved as a Case (browsable ` +
+      `in the CASES drawer with SIGMA export). This may take 1-5 minutes for large files. Continue?`
+    )) return;
+    setBusy(item.id);
+    try {
+      const r = await api.post(`/documents/${item.id}/batch-decode`, { max_lines: 500 }, { timeout: 600000 });
+      const d = r.data;
+      const c = d.counts || {};
+      const total = d.extracted_lines || 0;
+      const verified = (d.results || []).filter(x => x.verified).length;
+      alert(
+        `═══ BATCH DECODE COMPLETE ═══\n\n` +
+        `File: ${d.filename}\n` +
+        `Extracted lines: ${total}\n\n` +
+        `VERDICT BREAKDOWN:\n` +
+        `  Malicious:      ${c.malicious || 0}\n` +
+        `  Partial:        ${c.partial || 0}\n` +
+        `  Suspicious:     ${c.suspicious || 0}\n` +
+        `  Undecoded:      ${c.undecoded || 0}\n` +
+        `  Benign:         ${c.benign || 0}\n` +
+        `  Error:          ${c.error || 0}\n\n` +
+        `HONEST COVERAGE:\n` +
+        `  Verified (real evidence): ${verified} (${((verified/total)*100).toFixed(1)}%)\n` +
+        `  Unverified (wrapper only): ${total - verified} (${(((total-verified)/total)*100).toFixed(1)}%)\n\n` +
+        `Cases saved to Case Library — open CASES drawer to browse.`
+      );
+      load();
+    } catch (e) {
+      alert("Batch decode failed: " + (e?.response?.data?.detail || e.message));
+    }
+    setBusy(null);
+  };
+
   const ingest = async (item) => {
     setBusy(item.id);
     try {
@@ -204,6 +240,12 @@ export default function DocumentsPage() {
                         title="Extract text payload and run through /decode/smart"
                         style={{ borderColor: "#7ee3c9", color: "#7ee3c9" }}>
                   <Zap size={10} /> {busy === d.id ? "…" : "DECODE"}
+                </button>
+                <button className="nvx-btn sm ghost" onClick={() => batchDecode(d)}
+                        disabled={busy === d.id} data-testid={`btn-doc-batch-decode-${d.id}`}
+                        title="BATCH DECODE — split into command-lines, decode EACH, auto-save as Cases (~1-5 min)"
+                        style={{ borderColor: "#f59e0b", color: "#f59e0b" }}>
+                  <Zap size={10} /> BATCH
                 </button>
                 {isJson && (
                   <button className="nvx-btn sm ghost" onClick={() => ingest(d)}
