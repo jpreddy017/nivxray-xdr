@@ -1196,26 +1196,37 @@ export default function WorkspacePage() {
         <GuidanceBanner input={input} className="nvx-guidance-banner"
                          data-testid="input-guidance-banner-wrapper" />
 
-        <button className="nvx-btn primary" onClick={nivxrayDecode} disabled={loading || analyzing}
-                data-testid="btn-nivxray-decode"
+        {/* PRIMARY — full SOC pipeline (decode + MITRE + IOCs + LOLBAS + verdict) */}
+        <button className="nvx-btn primary" onClick={autoInvestigate} disabled={loading || analyzing}
+                data-testid="btn-auto-investigate"
                 title={
-                  "NIVXRAY DECODE — ONE BUTTON. Auto-runs:\n" +
-                  "  1. Named wrapper archetype match (Empire/Cobalt/Bash/Node)\n" +
-                  "  2. Learning-Feedback boost from your history + KB\n" +
-                  "  3. Deterministic Smart Decode (magic ⊕ smart race)\n" +
-                  "  4. AI fallback (Auto Investigate) if confidence < 40%\n\n" +
-                  "▸ USE WHEN: literally always. Paste and click. NivXRay picks the sharpest path.\n" +
-                  "▸ RETURNS: full pipeline trace showing what fired and why."
+                  "AUTO INVESTIGATE — the default one-click SOC brief.\n" +
+                  "Runs: deterministic decode → MITRE ATT&CK map → IOCs → LOLBAS → Verdict card.\n" +
+                  "AI narrative fires ONLY if you pick an AI persona from the dropdown.\n\n" +
+                  "▸ USE WHEN: literally always. This is what you want 95% of the time."
                 }
                 style={{
                   fontSize: 13, padding: "8px 18px",
                   ...(getGuidanceGlowStyle(input, "btn-auto-investigate") || {}),
                 }}>
-          <Sparkles size={14} /> NIVXRAY DECODE
+          <Sparkles size={14} /> AUTO INVESTIGATE
         </button>
+
+        {/* SECONDARY — deterministic decode only, no enrichment. Faster. */}
+        <button className="nvx-btn" onClick={nivxrayDecode} disabled={loading || analyzing}
+                data-testid="btn-nivxray-decode"
+                title={
+                  "DECODE — deterministic decoder chain only, no enrichment.\n" +
+                  "Faster than Auto Investigate; skips MITRE/OSINT/verdict-card.\n\n" +
+                  "▸ USE WHEN: you just want the payload peeled and don't need the SOC brief."
+                }
+                style={{ fontSize: 12, padding: "7px 14px" }}>
+          <Zap size={13} /> DECODE
+        </button>
+
         <button className="nvx-btn ghost" onClick={() => setAdvancedOpen((v) => !v)}
                 data-testid="btn-advanced-toggle"
-                title="Show individual decode modes (Smart / AI / Auto Investigate / Magic / Troubleshoot)">
+                title="Advanced modes: AI Decode · Smart Decode · Recovery mode">
           {advancedOpen ? "▾ ADVANCED" : "▸ ADVANCED"}
         </button>
         {analyzing && (
@@ -1229,32 +1240,22 @@ export default function WorkspacePage() {
         </button>
         {advancedOpen && (
         <>
-        <button className="nvx-btn" onClick={autoInvestigate} disabled={loading || analyzing} data-testid="btn-auto-investigate"
-                title={
-                  "AUTO INVESTIGATE — Full SOC pipeline (MAGIC decode → OSINT → threat-intel → MITRE → AI verdict)."
-                }
-                style={getGuidanceGlowStyle(input, "btn-auto-investigate") || undefined}>
-          <Sparkles size={13} /> AUTO INVESTIGATE
-        </button>
         <button className="nvx-btn" onClick={() => autoDecode({ smart: false })} disabled={loading} data-testid="btn-ai-decode"
                 title={
                   "AI DECODE — LLM proposes a recipe (base64/gzip/XOR/etc.) with SOC anti-hallucination guard.\n" +
-                  "Runs AI plan AND deterministic magic in parallel, picks the higher-confidence winner.\n\n" +
+                  "Requires an AI persona (dropdown above) — no-op in PLAIN mode.\n\n" +
                   "▸ USE WHEN: the payload is unusual and you want the LLM to reason about the format.\n" +
                   "▸ SAFETY: if confidence < 35/100 it STOPS gracefully (no garbage output).\n" +
-                  "▸ COST: 1 LLM call (~3–8s). Uses selected Persona + LLM (default NivX Cognis + Claude).\n" +
-                  "▸ RETURNS: recipe + confidence % + winner engine + graceful-stop message if applicable."
+                  "▸ COST: 1 LLM call (~3–8s)."
                 }
                 style={getGuidanceGlowStyle(input, "btn-ai-decode") || undefined}>
           <Wand2 size={13} /> AI DECODE
         </button>
         <button className="nvx-btn" onClick={() => autoDecode({ smart: true })} disabled={loading} data-testid="btn-smart-decode"
                 title={
-                  "SMART DECODE — Fully deterministic. No AI. Fast.\n" +
-                  "Rule-based recipe selection using signature prefixes (H4sI→gzip, JAB/SQBF→UTF-16LE, TVq→PE, XOR-loop sniffer, etc).\n\n" +
-                  "▸ USE WHEN: you need repeatable results (regression tests, high-volume automation, air-gapped ops).\n" +
-                  "▸ COST: <100ms, no LLM. Zero hallucination by design.\n" +
-                  "▸ LIMITATION: only recognises known signatures. Falls back to no-op on unknown formats."
+                  "SMART DECODE — signature-first deterministic recipe. No AI. Faster than Auto Investigate.\n" +
+                  "Rule-based recipe selection using signature prefixes (H4sI→gzip, JAB/SQBF→UTF-16LE, TVq→PE, etc).\n\n" +
+                  "▸ USE WHEN: you need repeatable results (regression tests, high-volume automation, air-gapped)."
                 }
                 style={getGuidanceGlowStyle(input, "btn-smart-decode") || undefined}>
           <Zap size={13} /> SMART DECODE
