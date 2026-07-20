@@ -4,6 +4,18 @@
 engine is the product. AI is an **opt-in analyst assistant**, never the
 core decoder. Everything must work offline.
 
+## 🎯 NEXT-SESSION PRIORITIES (post-RC3.0, locked 2026-02-20 with user)
+
+Ship these 5 items **BEFORE** Phase D malware-family detectors. Order intentional — verdict precision first, biggest customer impact.
+
+1. **P0 · Verdict precision 15/31 → ≥ 90 %** — diff benchmark expectations vs new `_classify`; add a lock test.
+2. **P0.5 · Regression fixtures for every plugin decoder** — golden input → golden output in `/app/backend/tests/fixtures/plugin_regression/`.
+3. **P1 · Enrich `crypto-key-required` tradecraft** — structured JSON with algorithm, encoding, key_len_bits, iv_len_bits, nonce_required, confidence.
+4. **P1 · Extend `crypto-detect` framework for ChaCha20 / Salsa20 / DES / 3DES** — reuse `crypto_hints`; add a `_ALGO_SPECS` table, no per-algo classes.
+5. **P1 · IR Handoff Export (.md / .pdf)** — one-click 7-panel SOC brief; extend `engine/report.py` + `engine/report_pdf.py`; button in the Verdict panel header.
+
+Full detail in `/app/memory/ROADMAP.md`.
+
 
 ---
 ## 🟢 RC3.0 · Symmetric-Crypto Pack + Verdict Hardening + 7-Panel UI · DELIVERED (2026-02-20)

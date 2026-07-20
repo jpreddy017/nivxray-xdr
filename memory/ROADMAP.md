@@ -3,6 +3,53 @@
 **Baseline (frozen):** RC2.3 Stable, tagged `v1.0.0-RC2.3` on GitHub · 24/31 chain-complete (77.4%) · 0 FP-IOCs · deployed to `nivxray.nivxforge.com`
 
 ---
+## 🎯 NEXT SESSION — POST-RC3.0 PRIORITIES (locked 2026-02-20 with user)
+
+These 5 items land BEFORE Phase D (new malware family detectors). Order is intentional — verdict precision first because it has the biggest customer impact.
+
+### P0 · Verdict Precision Sprint (15/31 → ≥ 90 %)
+- **Root-cause the 16 verdict-precision misses** on the RC23 benchmark.
+  - Diff the benchmark's `expected_verdict` vs `_classify` output for each miss.
+  - Categorise: (a) benchmark rule stale vs new findings-aware logic, (b) genuine over-/under-classification, (c) missing indicator surface.
+- **Deliverable:** verdict precision ≥ 28/31 (≥ 90 %). Add a lock test that fails if precision drops below 90 %.
+- **File to read first:** `/app/backend/tests/rc23_benchmark/run_benchmark.py` — the ground-truth expectations.
+
+### P0.5 · Regression Fixture Battery (net-new lock tests)
+- For EVERY plugin decoder currently in `/app/backend/decoders/`, add a golden-input → golden-output fixture in `/app/backend/tests/fixtures/plugin_regression/`.
+- Includes: `ps-reconstruct`, `cmd-reconstruct`, `js-reconstruct`, `vbs-reconstruct`, `ps-hex-escape`, `custom-hex-slash`, `nibble-swap`, `decimal-charcode-decode`, `octal-charcode-decode`, `rc4-decrypt`, `aes-cbc-decrypt`, `crypto-detect`.
+- A single parametrised pytest test loads every fixture and asserts byte-identical output. Prevents silent regressions when a plugin's detect() thresholds are tuned.
+
+### P1 · `crypto-key-required` Tradecraft Enrichment
+Current tradecraft evidence text lists only algorithm + byte-length. Enhance to a machine-readable payload:
+```json
+{
+  "algorithm":     "AES-CBC",
+  "encoding":      "base64",
+  "key_len_bits":  128,
+  "iv_len_bits":   128,
+  "nonce_required": false,
+  "confidence":    0.85,
+  "why":           "…"
+}
+```
+Consumed by the Analyst Workspace Behavior panel to render an actionable "Provide key: 16 bytes hex/base64" prompt with a copy-paste-friendly form.
+
+### P1 · Extend `crypto-detect` Framework (NOT separate plugins)
+Reuse `crypto_hints.detect_encryption_shape` + the plugin pattern to add:
+- **ChaCha20** — 32-byte key + 16-byte nonce; nonce-hint regex needed.
+- **Salsa20** — same shape as ChaCha20; family alias.
+- **DES / 3DES** — 8-byte block alignment; key sizes 8 / 16 / 24 bytes.
+Each new algorithm = one entry in a `_ALGO_SPECS` table + regex additions, NOT a copy-pasted class. Keeps the codebase DRY.
+
+### P1 · IR Handoff Export (`.md` / `.pdf`)
+One-click export of the 7-panel Analyst Workspace as a shareable SOC brief:
+- Backend: `/api/v2/report/ir-handoff?format=md|pdf` extending `engine/report.py` + `engine/report_pdf.py`.
+- Frontend: "EXPORT · IR HANDOFF" button in the sticky Verdict panel header. Includes: Verdict + Confidence + Risk, Recovered Payload, Chain Recipe, MITRE, IOCs, Network, Behavior, timestamp, analyst name.
+- Optional STIX-2.1 bundle export already exists at `/api/v2/analyze/report?fmt=stix` — reuse for machine-to-machine handoff.
+
+---
+
+
 
 ## RC2.4 — Analyst UX Polish (UI only, engine untouched)
 
