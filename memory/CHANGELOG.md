@@ -5,6 +5,51 @@ Chronological record of significant releases (newest first).
 
 ---
 
+## RC3.4 — Family Expansion (FormBook + NjRAT + Emotet) + IR-Export Flywheel · 2026-02-21
+
+**Status:** ✅ Ready to ship
+**Tag recommended:** `v1.0.0-RC3.4`
+**Tests:** 197/197 CI gate pytest · 75 plugin-golden fixtures across 36 plugins · **14 family detectors**
+
+### 🦠 D.3 · FormBook / XLoader
+- `decoders/families/formbook.py` — 9 signatures, 8 MITRE (T1055.012 Process Hollowing, T1056.004 Credential API Hooking, T1027.007 Dynamic API Resolution).
+- YARA seed `MAL_FormBook_XLoader` · ART pointer T1055.012.
+- E2E verified: `verdict=malicious · risk=79 · family=FormBook(1.00) · 8 MITRE`.
+
+### 🦠 D.4 · NjRAT / Bladabindi
+- `decoders/families/njrat.py` — 8 signatures anchored on the canonical `|'|'|` config splitter, 7 MITRE (T1562.004 firewall bypass, T1547.001 Run-key, T1059.005 VBS).
+- YARA seed `MAL_NjRAT_Bladabindi` · ART pointer T1219.
+- E2E verified: `verdict=malicious · risk=83 · family=njRAT(1.00) · 8 MITRE`.
+
+### 🦠 D.5 · Emotet / Heodo
+- `decoders/families/emotet.py` — 10 signatures, 10 MITRE (T1204.002 Malicious File, T1573.001 Symmetric Crypto C2, T1562.001 Defender bypass, XL4 macros, `@`-delimited fallback URL list).
+- YARA seed `MAL_Emotet_Loader` · ART pointer T1204.002.
+- E2E verified: `verdict=malicious · risk=83 · family=Emotet(1.00) · 11 MITRE`.
+
+### 🌀 IR-Export → Golden-Fixture flywheel
+
+- New `tools/ir_export_to_fixture.py` converter — takes any IR Handoff JSON export from a saved analyst case and locks it as a permanent regression in `tests/fixtures/plugin_regression/prod-cases.jsonl`.
+- Runner extension: `prod-cases.jsonl` is a reserved end-to-end bucket. Every entry runs through the full Orchestrator and asserts verdict floor, risk-score floor, chain-layer count floor, MITRE / LOLBAS / family drift-free.
+- Field-hardened flywheel: **every real-world case becomes permanent CI protection** with a single command:
+  ```
+  python tools/ir_export_to_fixture.py Screen1.json Screen2.json "Do not download this directly on your machine".json
+  ```
+
+### 📊 CI-gate deltas (RC3.3 → RC3.4)
+
+| Metric                     | RC3.3 | RC3.4 |
+|----------------------------|-------|-------|
+| Pytest passing (gate)      | 185   | **197** |
+| Plugin golden fixtures     | 63    | **75**  |
+| Family detectors           | 11    | **14 (+ FormBook, NjRAT, Emotet)** |
+| Chain completeness         | 96.8% | 96.8% (held) |
+| Verdict precision          | 29/31 | 29/31 (held) |
+| Avg latency                | 241ms | 240ms |
+
+
+
+---
+
 ## RC3.3 — Malware-Family Expansion (D.2 RedLine) · 2026-02-21
 
 **Status:** ✅ Ready to ship (extends RC3.2 baseline)

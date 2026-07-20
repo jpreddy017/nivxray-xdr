@@ -35,6 +35,27 @@ def _iter_fixtures() -> Iterable[Tuple[str, Dict[str, Any]]]:
         return
     for path in sorted(FIXTURE_DIR.glob("*.jsonl")):
         plugin_id = path.stem
+        # RC3.4 · prod-cases.jsonl is a special "end-to-end regression"
+        # bucket populated by tools/ir_export_to_fixture.py. Each entry
+        # runs through the full Orchestrator instead of a single plugin.
+        # The runner detects this via the reserved stem "prod-cases".
+        if plugin_id == "prod-cases":
+            for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError as exc:            # pragma: no cover
+                    raise AssertionError(
+                        f"{path.name}:{lineno} — invalid JSON: {exc}"
+                    ) from exc
+                entry.setdefault("case_id", f"line{lineno}")
+                entry["_source_path"] = str(path)
+                entry["_source_line"] = lineno
+                entry["_end_to_end"] = True
+                yield "_orchestrator_", entry
+            continue
         for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
             line = raw.strip()
             if not line or line.startswith("#"):
@@ -69,6 +90,47 @@ def test_plugin_golden_fixture(plugin_id: str, fixture: Dict[str, Any]) -> None:
     case_id = fixture.get("case_id", "?")
     desc = fixture.get("description", "")
     src = f"{fixture.get('_source_path','?')}:{fixture.get('_source_line','?')} ({case_id})"
+
+    # RC3.4 · end-to-end prod-case regression path.
+    if fixture.get("_end_to_end"):
+        from engine import Orchestrator
+        payload = fixture["input"]
+        ctx = AnalysisContext(budget=Budget(wall_time_ms=8000))
+        r = Orchestrator(ctx).run(payload)
+        f = r.findings
+        # Verdict floor
+        exp_verdict = fixture.get("expected_verdict")
+        if exp_verdict and exp_verdict != "unknown":
+            order = {"unknown": 0, "needs_review": 1, "suspicious": 2, "malicious": 3}
+            assert order.get(f.verdict, 0) >= order.get(exp_verdict, 0), (
+                f"{src} — verdict downgrade: expected ≥ {exp_verdict!r} got {f.verdict!r}"
+            )
+        risk_min = int(fixture.get("expected_risk_min", 0))
+        assert f.risk_score >= risk_min, (
+            f"{src} — risk_score {f.risk_score} < floor {risk_min}"
+        )
+        # Chain-layer floor
+        chain_min = int(fixture.get("expected_chain_layers_min", 0))
+        assert len(r.trace) >= chain_min, (
+            f"{src} — only {len(r.trace)} layer(s), expected ≥ {chain_min}"
+        )
+        # MITRE / LOLBAS / family
+        mitre_ids = {h.id for h in f.mitre_techniques}
+        for tid in fixture.get("expected_mitre", []) or []:
+            assert tid in mitre_ids, f"{src} — expected MITRE {tid} lost (got {sorted(mitre_ids)})"
+        lolbas = {h.binary.lower() for h in f.lolbas}
+        for b in fixture.get("expected_lolbas_binaries", []) or []:
+            assert b.lower() in lolbas, f"{src} — expected LOLBAS {b!r} lost"
+        exp_fam = fixture.get("expected_family")
+        if exp_fam and exp_fam != "unknown":
+            assert f.family.family == exp_fam, (
+                f"{src} — family drift: expected {exp_fam!r} got {f.family.family!r}"
+            )
+            floor_fam = float(fixture.get("expected_family_min_confidence", 0.5))
+            assert f.family.confidence >= floor_fam, (
+                f"{src} — family conf {f.family.confidence:.2f} < {floor_fam}"
+            )
+        return
 
     plugin = DecoderRegistry.get(plugin_id)
     assert plugin is not None, f"{src} — plugin {plugin_id!r} not registered"
@@ -166,13 +228,13 @@ def test_every_registered_plugin_has_fixture_file():
         "family-asyncrat", "family-cobaltstrike", "family-darkgate",
         "family-lumma", "family-meterpreter", "family-quasarrat",
         "family-remcos", "family-snake-keylogger",
-        # Key-required crypto plugins — they surface a `crypto-key-required`
-        # tradecraft flag instead of decoding. Full fixture coverage lands
-        # in RC3.2c together with the enriched tradecraft schema (task G).
+        # Key-required crypto plugins — the enriched schema in RC3.2c
+        # already exercises them.
         "aes-cbc-decrypt", "rc4-decrypt",
     }
+    # Skip the reserved end-to-end bucket
+    fixture_files = {p.stem for p in FIXTURE_DIR.glob("*.jsonl") if p.stem != "prod-cases"}
     registered = {d.id for d in DecoderRegistry.all()}
-    fixture_files = {p.stem for p in FIXTURE_DIR.glob("*.jsonl")}
     missing = registered - fixture_files - _EXEMPT
     assert not missing, (
         "Every registered decoder must have a paired fixture file. "
