@@ -1335,6 +1335,18 @@ for _op_id, _label, _desc in (
     ("ps-hex-escape",
      "PowerShell / C-style Hex Escape (plugin)",
      r"Decode `\xNN` byte-escape sequences (also matches `\\xNN`)."),
+    ("rc4-decrypt",
+     "RC4 (ARC4) Decrypt (plugin)",
+     "Decrypt an RC4 stream cipher blob. Recovers key from inline context "
+     "(e.g. `$key='…'`) or accepts analyst-supplied `key` arg."),
+    ("aes-cbc-decrypt",
+     "AES-CBC / AES-ECB Decrypt (plugin)",
+     "Decrypt an AES-128/192/256-CBC or ECB ciphertext. Uses inline key "
+     "hints or analyst-supplied `key` / `iv` / `mode` args."),
+    ("crypto-detect",
+     "Ciphertext Shape Detector (plugin)",
+     "Structural-only detector — flags AES/RC4 ciphertext shapes and "
+     "emits KEY REQUIRED tradecraft when no inline key is present."),
 ):
     _register_plugin_op(_op_id, _label, _desc)
 
