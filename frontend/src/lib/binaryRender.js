@@ -32,14 +32,40 @@ const MAGICS = [
 // PE-specific tell-tale substring (present in almost every real PE payload)
 const PE_MARKER = "This program cannot be run in DOS mode";
 
+// Strip the backend's decorative header (`━━━━━━ ▼ DECODED OUTPUT ━━━━━━`)
+// before we analyse — the banner is UI decoration, not forensic content.
+function stripHeader(src) {
+  if (!src) return "";
+  // Remove leading run of box-drawing chars + the "▼ DECODED OUTPUT" marker
+  // plus another box-drawing run and the trailing newline.
+  let s = String(src);
+  s = s.replace(/^[━─═▬▔▁▂▃▄▅▆▇█─\s]*[\u25bc\u25be\u25b6][^\n]*\n[━─═▬▔▁▂▃▄▅▆▇█─\s]*\n?/u, "");
+  // Also drop the closing INVESTIGATION SUMMARY block, if present.
+  const cut = s.indexOf("NIVXRAY INVESTIGATION SUMMARY");
+  if (cut > 0) s = s.slice(0, cut);
+  return s.trimStart();
+}
+
+// Convert a JS string to UTF-8 bytes (Uint8Array). Uses TextEncoder — available
+// in every modern browser + happy with unicode above 0xFF.
+function toBytes(text) {
+  if (typeof TextEncoder !== "undefined") {
+    return new TextEncoder().encode(text || "");
+  }
+  const arr = new Uint8Array(text.length);
+  for (let i = 0; i < text.length; i++) arr[i] = text.charCodeAt(i) & 0xff;
+  return arr;
+}
+
 // Extract ASCII strings of length ≥ minLen — mimics the Unix `strings` tool
 function extractStrings(text, minLen = 4, cap = 40) {
   const out = [];
   let cur = "";
-  for (let i = 0; i < text.length && out.length < cap; i++) {
-    const c = text.charCodeAt(i);
+  const src = stripHeader(text);
+  for (let i = 0; i < src.length && out.length < cap; i++) {
+    const c = src.charCodeAt(i);
     if (c >= 0x20 && c <= 0x7e) {
-      cur += text[i];
+      cur += src[i];
     } else {
       if (cur.length >= minLen) out.push(cur);
       cur = "";
@@ -49,12 +75,14 @@ function extractStrings(text, minLen = 4, cap = 40) {
   return out;
 }
 
-// Simple Shannon entropy over the char code distribution (0..8, higher = more random)
+// Simple Shannon entropy over the byte distribution (0..8, higher = more random)
 function entropy(text) {
   if (!text) return 0;
+  const bytes = toBytes(stripHeader(text));
+  const n = Math.min(bytes.length, 4096);
+  if (!n) return 0;
   const freq = new Array(256).fill(0);
-  const n = Math.min(text.length, 4096);   // cap for perf
-  for (let i = 0; i < n; i++) freq[text.charCodeAt(i) & 0xff]++;
+  for (let i = 0; i < n; i++) freq[bytes[i]]++;
   let h = 0;
   for (let i = 0; i < 256; i++) {
     if (!freq[i]) continue;
@@ -67,10 +95,12 @@ function entropy(text) {
 // Printable ratio (space + ASCII printables + \n \r \t)
 function printableRatio(text) {
   if (!text) return 1;
-  const n = Math.min(text.length, 4096);
+  const bytes = toBytes(stripHeader(text));
+  const n = Math.min(bytes.length, 4096);
+  if (!n) return 1;
   let printable = 0;
   for (let i = 0; i < n; i++) {
-    const c = text.charCodeAt(i);
+    const c = bytes[i];
     if ((c >= 0x20 && c <= 0x7e) || c === 0x09 || c === 0x0a || c === 0x0d) printable++;
   }
   return printable / n;
@@ -78,25 +108,25 @@ function printableRatio(text) {
 
 function detectMagic(text) {
   if (!text) return null;
+  const clean = stripHeader(text);
   for (const m of MAGICS) {
-    if (text.startsWith(m.prefix)) return m;
+    if (clean.startsWith(m.prefix)) return m;
   }
-  // PE-specific: sometimes the MZ header has been trimmed but the DOS-stub message remains.
-  if (text.includes(PE_MARKER)) return { prefix: "", label: "PE executable (Windows)", ext: ".exe/.dll" };
+  if (clean.includes(PE_MARKER) || text.includes(PE_MARKER)) {
+    return { prefix: "", label: "PE executable (Windows)", ext: ".exe/.dll" };
+  }
   return null;
 }
 
-// Compact hex-preview: first `bytes` chars → "4d 5a 90 00 03 00 00 00  |  MZ......"
-function hexPreview(text, bytes = 96) {
+// Compact hex-preview: proper UTF-8 bytes with " |  ASCII gutter".
+function hexPreview(text, bytes = 128) {
   if (!text) return "";
+  const src = toBytes(stripHeader(text));
   const rows = [];
-  for (let off = 0; off < Math.min(text.length, bytes); off += 16) {
-    const chunk = text.slice(off, off + 16);
-    const hex = Array.from(chunk).map((c) => c.charCodeAt(0).toString(16).padStart(2, "0")).join(" ");
-    const ascii = Array.from(chunk).map((c) => {
-      const cc = c.charCodeAt(0);
-      return (cc >= 0x20 && cc <= 0x7e) ? c : ".";
-    }).join("");
+  for (let off = 0; off < Math.min(src.length, bytes); off += 16) {
+    const chunk = Array.from(src.slice(off, off + 16));
+    const hex = chunk.map((b) => b.toString(16).padStart(2, "0")).join(" ");
+    const ascii = chunk.map((b) => (b >= 0x20 && b <= 0x7e) ? String.fromCharCode(b) : ".").join("");
     rows.push(`${off.toString(16).padStart(4, "0")}   ${hex.padEnd(47, " ")}  ${ascii}`);
   }
   return rows.join("\n");
@@ -117,11 +147,12 @@ function hexPreview(text, bytes = 96) {
  *     }
  */
 export function analyzeOutput(text) {
-  const src = String(text || "");
-  const byteLen = new Blob([src]).size;
-  const pr = printableRatio(src);
-  const h = entropy(src);
-  const magic = detectMagic(src);
+  const raw = String(text || "");
+  const clean = stripHeader(raw);
+  const byteLen = toBytes(clean).length;
+  const pr = printableRatio(raw);
+  const h = entropy(raw);
+  const magic = detectMagic(raw);
 
   let kind = "plaintext";
   let reason = "Fully printable — safe to display as text.";
@@ -143,8 +174,8 @@ export function analyzeOutput(text) {
     printableRatio: pr,
     entropy: h,
     magic,
-    hexPreview: kind === "binary" ? hexPreview(src, 128) : "",
-    strings: kind === "binary" || kind === "partial" ? extractStrings(src, 5, 24) : [],
+    hexPreview: kind === "binary" ? hexPreview(raw, 128) : "",
+    strings: kind === "binary" || kind === "partial" ? extractStrings(raw, 5, 24) : [],
     byteLen,
     reason,
   };

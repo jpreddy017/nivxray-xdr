@@ -991,7 +991,7 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             }
         await record_investigation(
             user["email"],
-            input=body.input, output=result["output"],
+            input=body.input, output=result.get("output_raw") or result["output"],
             chain=[s["op"] for s in det.get("steps") or []],
             trace=trace,
             engine=result["engine"], confidence=result["confidence"],
