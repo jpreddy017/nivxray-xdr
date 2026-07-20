@@ -16,6 +16,7 @@ import { buildFallbackGraph } from "@/lib/fallbackGraph";
 import GuidanceBanner, { getGuidanceGlowStyle } from "@/components/GuidanceBanner";
 import SocVerdictPanel from "@/components/SocVerdictPanel";
 import VerdictCard from "@/components/VerdictCard";
+import AnalystResults from "@/components/AnalystResults";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
 import HistoryDrawer from "@/components/HistoryDrawer";
 import ProcessTreeView from "@/components/ProcessTreeView";
@@ -911,6 +912,10 @@ export default function WorkspacePage() {
       setDecodeWinnerEngine(r.data.engine || null);
       setDecodeConfidence(r.data.confidence ?? null);
       setReachedShellcode(!!r.data.reached_shellcode);
+      // P0.2 · RC2.9 — surface the backend verdict card immediately so
+      // the top "Analysis Verdict" panel populates from the deterministic
+      // decode step, not just after the async /analyze job finishes.
+      setVerdictCard(r.data.verdict_card || null);
       setPasteHint(null); // dismiss the paste suggestion once we've decoded
       setLoading(false);
 
@@ -1481,16 +1486,23 @@ export default function WorkspacePage() {
         </div>
       )}
 
-      {/* ▲ SOC EVIDENCE-DRIVEN VERDICT CARD (Feb-2026) — always renders
-          when the backend produces a verdict_card block. Consolidates
-          Verdict · Confidence · Reason · Indicators · Recommended Action
-          into a single analyst-facing panel so the SOC responder doesn't
-          re-assemble the picture from 4 separate places. */}
-      {verdictCard && (
-        <div style={{ padding: "0 16px 12px" }}>
-          <VerdictCard verdict={verdictCard} testidPrefix="workspace-verdict" />
-        </div>
-      )}
+      {/* ▲ SOC EVIDENCE-DRIVEN VERDICT CARD (Feb-2026) — RC2.9 P0.2:
+          the legacy VerdictCard has been REPLACED by the 7-panel
+          AnalystResults view (Analysis Verdict · Recovered Payload ·
+          Chain Recipe · MITRE · IOCs · Network · Behavior) rendered
+          just above. Legacy block kept commented for reference but
+          intentionally not rendered.
+       */}
+      {/* {verdictCard && (<VerdictCard verdict={verdictCard} testidPrefix="workspace-verdict" />)} */}
+
+      {/* ▲ ANALYST RESULTS · 7 CANONICAL PANELS (P0.2 · RC2.9) */}
+      <AnalystResults
+        verdictCard={verdictCard}
+        output={output}
+        decodeTrace={decodeTrace}
+        decodeConfidence={decodeConfidence}
+        analysis={analysis}
+      />
 
       {/* Feb-2026: ✎ Refine launcher — one button per surface. Analysts
           click the surface that has a wrong finding, pick which specific
