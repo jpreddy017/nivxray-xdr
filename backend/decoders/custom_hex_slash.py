@@ -81,9 +81,18 @@ class CustomHexSlashDecoder(BaseDecoder):
         if count < 10:
             return DetectResult(confidence=0.0,
                                 why="No hex-with-separator pattern")
-        # High confidence when the entire payload is basically all hex tokens
+        # High confidence when the entire payload is basically all hex tokens.
+        # The 0.95 tier at density > 0.75 is intentional: `d3x\d3x\d3x\…` is
+        # a completely unambiguous custom-hex-slash signature and must beat
+        # `utf16le-or-utf8-decode` (which produces plausible-looking but
+        # scrambled output on the same bytes). See March1 regression.
         density = (count * 4) / max(1, len(payload))
-        conf = 0.9 if density > 0.75 else 0.7
+        if density > 0.75:
+            conf = 0.95
+        elif density > 0.40:
+            conf = 0.85
+        else:
+            conf = 0.70
         return DetectResult(
             confidence=conf,
             why=(f"Detected {count} hex token(s) separated by {sep!r} "
