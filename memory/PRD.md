@@ -1,8 +1,18 @@
 # NivXRay — Sprint Roadmap (v1.6.0 · Deterministic-First Pivot)
 
-**Locked direction (from `Ideas_updated.docx` · Feb 2026)**: The deterministic
-engine is the product. AI is an **opt-in analyst assistant**, never the
-core decoder. Everything must work offline.
+**Locked direction (from `Ideas_updated.docx` · Feb 2026 · reaffirmed with user 2026-02-20)**:
+
+> **NivXRay's core capability is FULLY DETERMINISTIC. AI is an optional enhancement — never a dependency.**
+>
+> - ✅ The tool must produce **accurate verdicts, decoded payloads, MITRE mappings, IOCs, behavior analysis, and confidence WITHOUT AI**.
+> - ✅ AI should only provide **narrative polish, executive summaries, and analyst assistance**.
+> - ✅ **If AI is disabled or unavailable, the tool functions at full technical capability.** No degraded state.
+>
+> **Enforcement mechanism (RC3.0):**
+> - Default persona is **`PLAIN · Deterministic (no AI)`** — no auto-selection of `NivX Cognis`.
+> - Analyst opts IN to AI narrative by picking a persona explicitly.
+> - Every technical panel (Verdict · Recovered Payload · Chain Recipe · MITRE · IOCs · Network · Behavior) populates identically whether AI is engaged or not.
+> - Any future feature that introduces an AI dependency into the CORE pipeline is a P0 architectural violation — it must be refactored to run rule-based/deterministic with AI as an opt-in overlay.
 
 ## 🎯 NEXT-SESSION PRIORITIES (post-RC3.0, locked 2026-02-20 with user)
 
