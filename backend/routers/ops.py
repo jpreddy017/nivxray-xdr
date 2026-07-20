@@ -1303,11 +1303,12 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                 pass
 
         # RC4.5 · PowerShell Backtick / Line-Continuation Normalizer —
-        # fires when the input contains any backtick (`) AND at least one
-        # backtick precedes an identifier char (rules out pure escape-
-        # only strings like ``"a`n b"``). Collapses in-token backticks
-        # (``po`we`rshell`` → ``powershell``) and line-continuations.
-        if "`" in src and _re.search(r"`[A-Za-z0-9_]", src):
+        # fires when the input contains any backtick (`) AND either
+        # (a) a backtick precedes an identifier char (in-token obfusc.)
+        # (b) a backtick precedes ``\r?\n`` (line continuation)
+        # so both variants trigger the module.
+        if "`" in src and (_re.search(r"`[A-Za-z0-9_]", src)
+                              or _re.search(r"`[ \t]*\r?\n", src)):
             from operations import run_operation as _run_op_ps_bt
             try:
                 bt_out = _run_op_ps_bt("powershell-backtick-normalize", src, {})
