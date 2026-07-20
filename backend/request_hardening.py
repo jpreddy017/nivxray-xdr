@@ -30,6 +30,7 @@ _LLM_PATHS = (
     "/api/decode/smart",    # magic_decoder can be slow on huge inputs
     "/api/moe/analyze",     # MoE panel: 3 parallel Claude reviewers + synth
     "/api/threat-model/enrich",   # threat-model deterministic + MoE enrichment
+    "/api/cases/",           # SAVE-with-reinvestigate + /cases/{id}/reinvestigate
 )
 _DEFAULT_TIMEOUT_S = 30
 _LLM_TIMEOUT_S     = 85

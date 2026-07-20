@@ -938,6 +938,18 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     # Auto-record into user's Investigation History (fire-and-forget, never blocks)
     try:
         from routers.history import record_investigation
+        # Feb 2026 — persist the enriched intelligence with the record so
+        # rehydrate shows verdict/IOCs/MITRE identical to the fresh decode.
+        vc = result.get("verdict_card") or {}
+        verdict_summary = None
+        if vc:
+            verdict_summary = {
+                "verdict":    vc.get("verdict") or vc.get("label"),
+                "confidence": vc.get("confidence"),
+                "risk_score": vc.get("risk_score") or vc.get("score"),
+                "summary":    vc.get("summary") or vc.get("headline"),
+                "family":     vc.get("family"),
+            }
         await record_investigation(
             user["email"],
             input=body.input, output=result["output"],
@@ -945,6 +957,9 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             trace=trace,
             engine=result["engine"], confidence=result["confidence"],
             reached_shellcode=result["reached_shellcode"],
+            iocs=result.get("iocs") or {},
+            mitre=result.get("mitre") or [],
+            verdict=verdict_summary,
         )
     except Exception:
         pass

@@ -172,6 +172,10 @@ api.include_router(benchmark_router)
 api.include_router(multilayer_battery_router)
 api.include_router(decode_feedback_router)
 
+# Feb 2026 — In-app Documents / Case Vault (multi-format upload)
+from routers.documents import router as documents_router
+api.include_router(documents_router)
+
 app.include_router(api)
 
 # Production hardening: X-Request-ID, hard timeouts, payload caps

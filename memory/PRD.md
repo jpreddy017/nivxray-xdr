@@ -30,6 +30,15 @@
 ### ✅ Phase D.4 · NjRAT family detector  ← DELIVERED (RC3.4 · Feb-2026 · 7 MITRE, `|'|'|` splitter)
 ### ✅ Phase D.5 · Emotet family detector  ← DELIVERED (RC3.4 · Feb-2026 · 10 MITRE, XL4 + `@`-URL list)
 ### ✅ Phase D.6 · Cobalt Strike Beacon config extractor  ← DELIVERED (RC3.5 · Feb-2026 · full TLV parser, XOR v3/v4/plaintext, structured C2 IOCs)
+### ✅ RC3.6 · Case Library UX + History rehydrate correctness  ← DELIVERED (2026-07-20)
+    - `SAVE CASE` now auto-runs `/decode/smart` before persisting so the case ships with a real verdict / IOC / MITRE surface (not an INPUT-echo).
+    - `POST /api/cases/{id}/reinvestigate` + `POST /api/cases/reinvestigate-broken` — one-click re-run against saved cases.
+    - Case name propagated to History rows (`case_name` field) + Workspace status pill (💾 CASE · <name>) + dynamic SAVE→UPDATE button.
+    - Full input / output persisted in history (up to 200 KB each) instead of the old 500 / 800-char previews; list endpoint keeps rows light via projection.
+    - Rehydrate fills the top VerdictCard from stored verdict when regen returns empty (fixes "Awaiting analysis · 0%").
+    - Client live-preview no longer overwrites restored output (skipLivePreviewRef).
+    - Admin-disabled AI reclassified as NOTICE (blue), not ERROR (red).
+    - Screenshot proof: `Lookintoit` restored → verdict Malicious 70/100 · 5-layer chain (extract-payload → base64-decode → xor-brute → crypto-detect → family-meterpreter) · MITRE T1140/T1027/T1055/T1620 · C2 IP `149.28.81.19`.
 ### ✅ IR-Export → Golden-Fixture flywheel  ← DELIVERED (RC3.4 · Feb-2026 · `tools/ir_export_to_fixture.py`)
 ### ✅ G · P1 · Enrich `crypto-key-required` tradecraft  ← DELIVERED (RC3.2c · structured metadata schema)
 ### ✅ F · P1 · Phase C.5 · ChaCha20 / AES-GCM / AES-CTR / DES / 3DES shape detection  ← DELIVERED (RC3.2c)

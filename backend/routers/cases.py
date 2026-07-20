@@ -42,6 +42,47 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
     name = body.name.strip()[:200]
     now  = datetime.now(timezone.utc).isoformat()
 
+    # Feb 2026 · If the frontend saved BEFORE the decode ran (output echoes
+    # the input, chain empty, no engine) — synthesise a fresh investigation
+    # so the persisted case has proper output/verdict/iocs. Without this the
+    # analyst's Case Library entry is useless ("no proper output" bug).
+    body_out = body.output or ""
+    needs_reinvestigate = (
+        not body_out.strip()
+        or body_out.strip() == (body.input or "").strip()
+        or not (body.chain_ids or [])
+        or (body.engine in (None, "-", ""))
+    )
+    fresh: Dict[str, Any] = {}
+    if body.input and needs_reinvestigate:
+        try:
+            from routers.ops import decode_smart
+            from schemas import AutoIn as _DecodeIn
+            result = await decode_smart(_DecodeIn(input=body.input), user=user)
+            def _g(k, default=None):
+                if isinstance(result, dict):
+                    return result.get(k, default)
+                return getattr(result, k, default)
+            vc = _g("verdict_card") or {}
+            layer_trace = _g("layer_trace") or []
+            fresh = {
+                "output":       _g("output") or body_out,
+                "engine":       _g("engine") or body.engine or "-",
+                "confidence":   _g("confidence") if _g("confidence") is not None else body.confidence,
+                "chain_ids":    [t.get("op") if isinstance(t, dict) else t for t in layer_trace]
+                                 or (body.chain_ids or []),
+                "verdict":      vc.get("verdict") or vc.get("label") or body.verdict,
+                "verdict_card": vc,
+                "iocs":         _g("iocs") or body.iocs or {},
+                "mitre":        _g("mitre") or [],
+                "lolbas":       _g("lolbas") or [],
+                "reached_shellcode": bool(_g("reached_shellcode")),
+                "reinvestigated_at": now,
+            }
+        except Exception:
+            # Fall back to whatever the client sent — never fail the save.
+            fresh = {}
+
     # Feb 2026 · UPSERT by (user_email, name) — a subsequent SAVE with the
     # same name updates the existing record instead of creating a duplicate.
     # This matches the analyst's mental model: "SAVE" on a case they've
@@ -51,16 +92,23 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
         "user_email":  user_email,
         "name":        name,
         "input":       body.input,
-        "output":      body.output,
-        "engine":      body.engine,
-        "confidence":  body.confidence,
-        "chain_ids":   body.chain_ids,
-        "verdict":     body.verdict,
-        "iocs":        body.iocs,
+        "output":      fresh.get("output", body.output),
+        "engine":      fresh.get("engine", body.engine),
+        "confidence":  fresh.get("confidence", body.confidence),
+        "chain_ids":   fresh.get("chain_ids", body.chain_ids),
+        "verdict":     fresh.get("verdict", body.verdict),
+        "iocs":        fresh.get("iocs", body.iocs),
         "input_len":   len(body.input),
-        "output_len":  len(body.output),
+        "output_len":  len(fresh.get("output", body.output) or ""),
         "updated_at":  now,
     }
+    if fresh:
+        # Only stash the extra fields if we actually re-ran the pipeline.
+        doc_body["verdict_card"] = fresh.get("verdict_card")
+        doc_body["mitre"]        = fresh.get("mitre")
+        doc_body["lolbas"]       = fresh.get("lolbas")
+        doc_body["reached_shellcode"] = fresh.get("reached_shellcode")
+        doc_body["reinvestigated_at"] = fresh.get("reinvestigated_at")
 
     if existing:
         _col.update_one(
@@ -85,11 +133,22 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
         _append_to_golden_vault(doc)
     except Exception:
         pass
+    # ─── Tag History row with the friendly case name (Feb 2026) ──────────
+    # The History Drawer previously showed only the raw input_preview. Now
+    # rows carry `case_name` so the analyst can find "Immediate1" instantly.
+    try:
+        from routers.history import tag_history_with_case
+        await tag_history_with_case(
+            user_email or "", body.input or "", doc["name"], doc.get("id"),
+        )
+    except Exception:
+        pass
     return {
         "id":         doc["id"],
         "name":       doc["name"],
         "created_at": doc["created_at"],
         "updated":    updated,
+        "reinvestigated": bool(fresh),
     }
 
 
@@ -158,3 +217,155 @@ async def get_case(case_id: str, user=Depends(get_current_user)):
 async def delete_case(case_id: str, user=Depends(get_current_user)):
     r = _col.delete_one({"id": case_id})
     return {"deleted": r.deleted_count}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# RE-INVESTIGATE — re-run /decode/smart on a saved case's input and persist
+# the fresh output/verdict/iocs/mitre/chain to the case doc. Fixes the classic
+# "OUTPUT=INPUT" saved-before-decode state.
+# ═════════════════════════════════════════════════════════════════════════════
+@router.post("/cases/{case_id}/reinvestigate")
+async def reinvestigate_case(case_id: str, user=Depends(get_current_user)):
+    """Re-run the deterministic decoding pipeline on this case's input and
+    overwrite output / engine / confidence / verdict / iocs / chain_ids with
+    the fresh result. Returns the updated case document."""
+    doc = _col.find_one({"id": case_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="case not found")
+
+    from routers.ops import decode_smart
+    from schemas import AutoIn as _DecodeIn
+    try:
+        result = await decode_smart(_DecodeIn(input=doc.get("input") or ""), user=user)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"decode/smart failed: {e}")
+
+    def _g(k, default=None):
+        if isinstance(result, dict):
+            return result.get(k, default)
+        return getattr(result, k, default)
+
+    # Extract structured fields from the fresh run
+    fresh_output = _g("output") or ""
+    fresh_engine = _g("engine")
+    fresh_conf   = _g("confidence")
+    iocs         = _g("iocs") or {}
+    mitre        = _g("mitre") or []
+    lolbas       = _g("lolbas") or []
+    verdict_card = _g("verdict_card") or {}
+    layer_trace  = _g("layer_trace") or []
+    reached_sc   = bool(_g("reached_shellcode"))
+
+    chain_ops = [t.get("op") if isinstance(t, dict) else t for t in layer_trace]
+    verdict_str = verdict_card.get("verdict") or verdict_card.get("label")
+
+    now = datetime.now(timezone.utc).isoformat()
+    update = {
+        "output":       fresh_output,
+        "output_len":   len(fresh_output),
+        "engine":       fresh_engine or "-",
+        "confidence":   fresh_conf,
+        "chain_ids":    chain_ops,
+        "verdict":      verdict_str,
+        "verdict_card": verdict_card,
+        "iocs":         iocs,
+        "mitre":        mitre,
+        "lolbas":       lolbas,
+        "reached_shellcode": reached_sc,
+        "reinvestigated_at": now,
+        "updated_at":   now,
+    }
+    _col.update_one({"id": case_id}, {"$set": update})
+    # Feb 2026 — tag the history row created by decode_smart with the case name
+    try:
+        from routers.history import tag_history_with_case
+        user_email = getattr(user, "email", None) or (user.get("email") if isinstance(user, dict) else None)
+        await tag_history_with_case(
+            user_email or "", doc.get("input") or "", doc.get("name") or "", doc.get("id"),
+        )
+    except Exception:
+        pass
+    doc = _col.find_one({"id": case_id}, {"_id": 0})
+    return {"ok": True, "case": doc}
+
+
+@router.post("/cases/reinvestigate-broken")
+async def reinvestigate_broken(user=Depends(get_current_user)):
+    """Batch: re-run the decoder on every case where output==input or the
+    chain is empty (i.e. the case was saved before AUTO-INVESTIGATE ran)."""
+    user_email = getattr(user, "email", None) or (
+        user.get("email") if isinstance(user, dict) else None
+    )
+    q: Dict[str, Any] = {}
+    if user_email:
+        q["user_email"] = user_email
+    docs = list(_col.find(q, {"id": 1, "input": 1, "output": 1, "chain_ids": 1, "name": 1, "_id": 0}))
+    from routers.ops import decode_smart
+    from schemas import AutoIn as _DecodeIn
+    fixed: List[Dict[str, Any]] = []
+    skipped: List[Dict[str, Any]] = []
+    failed: List[Dict[str, Any]] = []
+    for d in docs:
+        inp = d.get("input") or ""
+        out = d.get("output") or ""
+        chain = d.get("chain_ids") or []
+        # Broken = output equals input (echo bug) OR chain is empty
+        if not inp:
+            skipped.append({"id": d.get("id"), "name": d.get("name"), "reason": "empty input"})
+            continue
+        if out.strip() and out.strip() != inp.strip() and chain:
+            skipped.append({"id": d.get("id"), "name": d.get("name"), "reason": "already investigated"})
+            continue
+        try:
+            result = await decode_smart(_DecodeIn(input=inp), user=user)
+
+            def _g(k, default=None):
+                if isinstance(result, dict):
+                    return result.get(k, default)
+                return getattr(result, k, default)
+
+            vc = _g("verdict_card") or {}
+            layer_trace = _g("layer_trace") or []
+            update = {
+                "output":       _g("output") or "",
+                "output_len":   len(_g("output") or ""),
+                "engine":       _g("engine") or "-",
+                "confidence":   _g("confidence"),
+                "chain_ids":    [t.get("op") if isinstance(t, dict) else t for t in layer_trace],
+                "verdict":      vc.get("verdict") or vc.get("label"),
+                "verdict_card": vc,
+                "iocs":         _g("iocs") or {},
+                "mitre":        _g("mitre") or [],
+                "lolbas":       _g("lolbas") or [],
+                "reached_shellcode": bool(_g("reached_shellcode")),
+                "reinvestigated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at":   datetime.now(timezone.utc).isoformat(),
+            }
+            _col.update_one({"id": d["id"]}, {"$set": update})
+            # Tag the history row so History Drawer shows the friendly name
+            try:
+                from routers.history import tag_history_with_case
+                user_email_now = getattr(user, "email", None) or (
+                    user.get("email") if isinstance(user, dict) else None
+                )
+                await tag_history_with_case(
+                    user_email_now or "", inp, d.get("name") or "", d.get("id"),
+                )
+            except Exception:
+                pass
+            fixed.append({
+                "id":      d.get("id"),
+                "name":    d.get("name"),
+                "verdict": update["verdict"],
+                "engine":  update["engine"],
+                "chain_len": len(update["chain_ids"]),
+                "output_len": update["output_len"],
+            })
+        except Exception as e:  # noqa: BLE001
+            failed.append({"id": d.get("id"), "name": d.get("name"), "error": str(e)[:200]})
+    return {
+        "total": len(docs),
+        "fixed": fixed,
+        "skipped": skipped,
+        "failed": failed,
+    }

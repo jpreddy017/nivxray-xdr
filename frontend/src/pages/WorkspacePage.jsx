@@ -250,8 +250,13 @@ export default function WorkspacePage() {
         // won't render for this rehydrate.
       }
     }
-    setInput(full.input_preview || full.input || "");
-    setOutput(full.output_preview || full.output || "");
+    // ▲ Skip the client-side live-preview one shot so it doesn't
+    // overwrite the properly-decoded output we just restored from
+    // history (matters when the payload is a PE binary or the client
+    // recipe would silently mangle non-ASCII bytes).
+    skipLivePreviewRef.current = true;
+    setInput(full.input || full.input_preview || "");
+    setOutput(full.output || full.output_preview || "");
     setDecodeTrace(full.trace || []);
     setDecodeWinnerEngine(full.engine || null);
     setDecodeConfidence(full.confidence ?? null);
@@ -265,7 +270,15 @@ export default function WorkspacePage() {
       output_preview: full.trace?.[i]?.output_preview || "",
     })));
     setAnalysis({ iocs: rec.iocs || {}, mitre: rec.mitre || [], ai_verdict: rec.verdict });
-    setStatus(`▸ RESTORED FROM HISTORY (${rec.engine} · ${rec.confidence}%)`);
+    // Feb 2026 — restore the friendly case name so the workspace pill
+    // (💾 CASE · <name>) reappears and subsequent SAVE upserts the same case.
+    if (full.case_name) setSavedCaseName(full.case_name);
+    else setSavedCaseName(null);
+    setStatus(
+      full.case_name
+        ? `▸ RESTORED "${full.case_name}" (${rec.engine} · ${rec.confidence}%)`
+        : `▸ RESTORED FROM HISTORY (${rec.engine} · ${rec.confidence}%)`
+    );
     setHistoryOpen(false);
   };
 
@@ -384,9 +397,20 @@ export default function WorkspacePage() {
     return () => clearTimeout(t);
   }, [input]);
 
+  // Feb 2026 — Ref to skip the client-side live-preview overwrite when we
+  // just restored a case from History. Live-preview naively runs the recipe
+  // in JS which overwrites the properly-decoded output stored in the case
+  // (especially destructive for binary PE payloads that JS can't render).
+  const skipLivePreviewRef = useRef(false);
+
   useEffect(() => {
     if (!input && !steps.length) {
       setLivePreview(null);
+      return;
+    }
+    if (skipLivePreviewRef.current) {
+      // Consume the one-shot skip flag — next input/steps edit re-enables preview.
+      skipLivePreviewRef.current = false;
       return;
     }
     const t = setTimeout(() => {
@@ -885,7 +909,12 @@ export default function WorkspacePage() {
       jobId = r.data.job_id;
       setAnalysis((a) => ({ ...(a || {}), job_id: jobId }));
     } catch (e) {
-      setStatus("ERROR: " + (e?.response?.data?.detail || e.message));
+      const detail = e?.response?.data?.detail || e.message || "";
+      if (/AI features are disabled/i.test(String(detail))) {
+        setStatus("NOTICE · AI narrative skipped (admin-disabled) · deterministic verdict shown");
+      } else {
+        setStatus("ERROR: " + detail);
+      }
       setAnalyzing(false);
       return;
     }
@@ -919,7 +948,16 @@ export default function WorkspacePage() {
           break;
         }
         if (d.status === "error") {
-          setStatus(`ERROR: ${d.error}`);
+          // Feb 2026 — AI-off is an intentional admin policy, not a
+          // failure. Deterministic decode already succeeded and the
+          // verdict card is populated. Surface as a neutral NOTICE so
+          // the STATUS bar doesn't scream red ERROR.
+          const errMsg = String(d.error || "");
+          if (/AI features are disabled/i.test(errMsg)) {
+            setStatus("NOTICE · AI narrative skipped (admin-disabled) · deterministic verdict shown");
+          } else {
+            setStatus(`ERROR: ${d.error}`);
+          }
           break;
         }
       } catch (e) {
@@ -1422,8 +1460,10 @@ export default function WorkspacePage() {
         <ReportMenu onDownload={downloadReport} />
         <button className="nvx-btn" onClick={saveCase} data-testid="btn-save-case"
                 style={{borderColor:"#7ee3c9",color:"#7ee3c9"}}
-                title="Save this decoded case to the Case Library with a friendly name">
-          💾 SAVE CASE
+                title={savedCaseName
+                  ? `Update the saved case "${savedCaseName}" with the current workspace state`
+                  : "Save this decoded case to the Case Library with a friendly name"}>
+          💾 {savedCaseName ? `UPDATE "${savedCaseName.length > 20 ? savedCaseName.slice(0,20)+"…" : savedCaseName}"` : "SAVE CASE"}
         </button>
         <button className="nvx-btn" onClick={() => fileRef.current?.click()} data-testid="btn-upload">
           <Upload size={13} /> UPLOAD
@@ -1445,7 +1485,10 @@ export default function WorkspacePage() {
           const raw = String(status || "");
           const lower = raw.toLowerCase();
           let dot = "var(--accent)"; let text = "var(--text-dim)"; let label = "STATUS";
-          if (/error|failed|stream error|chain error|flat decode error/i.test(raw)) {
+          if (/^notice/i.test(raw)) {
+            // Intentional admin-off states etc. — informational only.
+            dot = "#38bdf8"; text = "#38bdf8"; label = "NOTICE";
+          } else if (/error|failed|stream error|chain error|flat decode error/i.test(raw)) {
             dot = "var(--high, #ef4444)"; text = "var(--high, #ef4444)"; label = "ERROR";
           } else if (/complete|ok\b|analysis complete|success|ready|✓/i.test(lower)) {
             dot = "#22c55e"; text = "#22c55e"; label = "OK";
@@ -1466,6 +1509,23 @@ export default function WorkspacePage() {
           );
         })()}
         <div style={{ flex: 1 }} />
+        {savedCaseName && (
+          <span
+            data-testid="workspace-case-name"
+            className="mono"
+            style={{
+              fontSize: 10, letterSpacing: "0.14em",
+              color: "#7ee3c9",
+              border: "1px solid #7ee3c9",
+              padding: "2px 8px",
+              background: "rgba(126,227,201,0.08)",
+              maxWidth: 340, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}
+            title={`Saved case: ${savedCaseName}`}
+          >
+            💾 CASE · {savedCaseName}
+          </span>
+        )}
         <span className="mono" style={{ fontSize: 10, color: "var(--text-mute)" }}>
           INPUT {input.length}c · OUTPUT {output.length}c
         </span>

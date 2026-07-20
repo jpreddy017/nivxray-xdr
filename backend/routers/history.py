@@ -75,6 +75,11 @@ class HistoryRecordIn(BaseModel):
     verdict: Optional[Dict[str, Any]] = None
     tags: List[str] = Field(default_factory=list)
     notes: str = ""
+    # Feb 2026 — friendly case name so History rows are identifiable as
+    # "Immediate1", "Do not download into your machine", etc. Set by the
+    # SAVE CASE flow and propagated to the linked history row.
+    case_name: Optional[str] = None
+    case_id: Optional[str] = None
     # Multi-stage chain persistence — when kind == "chain", `stages` and
     # `aggregate` carry the full multi-stage payload for rehydrate. For legacy
     # single-stage decodes, kind defaults to "single" and these fields stay empty.
@@ -138,9 +143,10 @@ async def _ensure_indexes():
         )
         # Sort by newest
         await coll.create_index([("user_email", 1), ("ts", -1)], name="user_ts")
-        # Text search on input_preview + notes + chain + verdict summary
+        # Text search on input_preview + notes + tags + case_name (Feb 2026)
         await coll.create_index(
-            [("input_preview", "text"), ("notes", "text"), ("tags", "text")],
+            [("input_preview", "text"), ("notes", "text"), ("tags", "text"),
+             ("case_name", "text")],
             name="text_search",
         )
         # Filter facets
@@ -192,6 +198,8 @@ async def _upsert_investigation(user_email: str, body: HistoryRecordIn) -> Dict[
         set_fields = {
             "chain": body.chain,
             "trace": body.trace,
+            "input": (body.input or "")[:200_000],
+            "output": (body.output or "")[:200_000],
             "output_preview": (body.output or "")[:800],
             "output_length": len(body.output or ""),
             "engine": body.engine,
@@ -204,6 +212,12 @@ async def _upsert_investigation(user_email: str, body: HistoryRecordIn) -> Dict[
             "last_seen": now,
             "ts": now,
         }
+        # Only overwrite case_name/case_id if the caller supplied them —
+        # otherwise preserve the name from an earlier SAVE CASE tagging.
+        if body.case_name:
+            set_fields["case_name"] = body.case_name[:200]
+        if body.case_id:
+            set_fields["case_id"] = body.case_id
         if is_chain:
             set_fields.update({
                 "stages": stored_stages,
@@ -219,10 +233,12 @@ async def _upsert_investigation(user_email: str, body: HistoryRecordIn) -> Dict[
     doc = {
         "user_email": user_email,
         "input_hash": h,
+        "input": (body.input or "")[:200_000],
         "input_preview": (body.input or "")[:500],
         "input_length": len(body.input or ""),
         "chain": body.chain,
         "trace": body.trace,
+        "output": (body.output or "")[:200_000],
         "output_preview": (body.output or "")[:800],
         "output_length": len(body.output or ""),
         "engine": body.engine,
@@ -233,6 +249,8 @@ async def _upsert_investigation(user_email: str, body: HistoryRecordIn) -> Dict[
         "verdict": body.verdict,
         "tags": body.tags,
         "notes": body.notes,
+        "case_name": (body.case_name or "")[:200] or None,
+        "case_id": body.case_id,
         "starred": False,
         "run_count": 1,
         "first_seen": now,
@@ -277,6 +295,22 @@ async def record_investigation(user_email: str, **kwargs) -> Optional[Dict[str, 
         return None
 
 
+async def tag_history_with_case(user_email: str, input_text: str, case_name: str,
+                                  case_id: Optional[str] = None) -> bool:
+    """Attach a friendly `case_name` (and optional `case_id`) to the history
+    row for the given input. Idempotent — called by /cases/save so History
+    Drawer rows show the analyst-chosen name."""
+    if not input_text or not case_name:
+        return False
+    await _ensure_indexes()
+    h = _sha256(input_text)
+    r = await db.investigations.update_one(
+        {"user_email": user_email, "input_hash": h},
+        {"$set": {"case_name": case_name[:200], "case_id": case_id}},
+    )
+    return r.matched_count > 0
+
+
 # ============================================================================
 # Endpoints
 # ============================================================================
@@ -300,7 +334,15 @@ async def list_history(
     await _ensure_indexes()
     query: Dict[str, Any] = {"user_email": user["email"]}
     if q:
-        query["$text"] = {"$search": q}
+        # Case-name / input / notes / tags matching. We use $or of regex
+        # instead of $text so cases with a stale text-index still match.
+        rgx = {"$regex": q, "$options": "i"}
+        query["$or"] = [
+            {"case_name":     rgx},
+            {"input_preview": rgx},
+            {"notes":         rgx},
+            {"tags":          rgx},
+        ]
     if verdict:
         query["verdict.verdict"] = verdict
     if engine:
@@ -326,7 +368,10 @@ async def list_history(
     if since_days > 0:
         cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
         query["ts"] = {"$gte": cutoff}
-    cur = db.investigations.find(query).sort("ts", -1).skip(max(0, skip)).limit(max(1, min(200, limit)))
+    # LIST projection — omit the full `input` / `output` fields (can be large).
+    # The row cards only need previews; RESTORE fetches the full doc via /history/{id}.
+    _list_proj = {"input": 0, "output": 0, "trace": 0, "stages": 0, "aggregate": 0}
+    cur = db.investigations.find(query, _list_proj).sort("ts", -1).skip(max(0, skip)).limit(max(1, min(200, limit)))
     items = [_serialize(d) async for d in cur]
     total = await db.investigations.count_documents(query)
     return {"total": total, "items": items, "limit": limit, "skip": skip}
@@ -385,14 +430,24 @@ async def get_history(iid: str, user=Depends(get_current_user)):
     # no history-doc migration required.
     try:
         from evidence_extractor import build_verdict_card, layer_metadata
+        # The stored fields are `input_preview` / `output_preview`. Fall back
+        # to them so the verdict card actually has content to score against.
+        _in  = result.get("input") or result.get("input_preview") or ""
+        _out = result.get("output") or result.get("output_preview") or ""
+        _findings = {
+            "iocs":             result.get("iocs") or {},
+            "mitre_techniques": result.get("mitre") or [],
+            "lolbas":           result.get("lolbas") or [],
+        }
         result["verdict_card"] = build_verdict_card(
-            input_text=result.get("input") or "",
-            output_text=result.get("output") or "",
+            input_text=_in,
+            output_text=_out,
             chain=[{"op": s.get("op") or s if isinstance(s, str) else s.get("op"),
                     "args": s.get("args") if isinstance(s, dict) else {}}
                    for s in (result.get("chain") or [])
                    if s],
             corrupted_container=result.get("corrupted_container"),
+            findings=_findings,
         )
         for t in (result.get("trace") or []):
             if isinstance(t, dict):
@@ -404,6 +459,25 @@ async def get_history(iid: str, user=Depends(get_current_user)):
                 )
     except Exception:
         pass
+    # Fallback (Feb 2026) — if verdict_card regen came back empty but the
+    # STORED verdict object has content (Malicious / risk_score / confidence),
+    # hydrate the card from it so the top ANALYSIS VERDICT panel isn't
+    # stuck on "Awaiting analysis · 0%".
+    vc = result.get("verdict_card") or {}
+    stored_verdict = result.get("verdict") if isinstance(result.get("verdict"), dict) else None
+    if (not vc or not vc.get("verdict")) and stored_verdict and stored_verdict.get("verdict"):
+        risk = stored_verdict.get("risk_score")
+        conf = stored_verdict.get("confidence")
+        result["verdict_card"] = {
+            "verdict":    stored_verdict.get("verdict"),
+            "label":      stored_verdict.get("verdict"),
+            "risk_score": risk if risk is not None else conf,
+            "confidence": conf if conf is not None else risk,
+            "summary":    stored_verdict.get("summary"),
+            "family":     stored_verdict.get("family"),
+            "reasons":    (vc or {}).get("reasons") or [],
+            "hydrated_from_history": True,
+        }
     return result
 
 

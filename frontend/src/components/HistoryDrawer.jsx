@@ -169,7 +169,7 @@ export default function HistoryDrawer({ open, onClose, onRehydrate }) {
         }}>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <Search size={12} style={{ color: "var(--text-dim)" }} />
-            <input type="text" className="nvx-input sm" placeholder="Search input / notes / tags"
+            <input type="text" className="nvx-input sm" placeholder="Search case name / input / notes"
                    value={q} onChange={(e) => setQ(e.target.value)}
                    data-testid="input-history-search"
                    style={{ flex: 1, fontSize: 11 }} />
@@ -303,6 +303,20 @@ function HistoryRow({ item, onOpen, onStar, onDelete, onEdit, relTime }) {
         </button>
         <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999,
                        background: verdictColor }} />
+        {item.case_name && (
+          <span
+            data-testid={`history-case-name-${item.id}`}
+            title={`Saved case · ${item.case_name}`}
+            style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+              color: "#7ee3c9", border: "1px solid #7ee3c9",
+              padding: "1px 6px", background: "rgba(126,227,201,0.08)",
+              maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}
+          >
+            💾 {item.case_name}
+          </span>
+        )}
         {isChain && (
           <span
             data-testid={`chain-badge-${item.id}`}
