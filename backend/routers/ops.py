@@ -1225,12 +1225,11 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                 pass
 
         # RC4.3 · PowerShell Normalization + Runtime Reconstruction —
-        # fires when input contains `powershell` (any case) AND either commas
-        # as token separators OR any mixed-case parameter name.
-        if _re.search(r"powershell(?:\.exe)?", src, _re.IGNORECASE) and (
-                _re.search(r",\s*-?[A-Za-z]", src) or
-                _re.search(r"-[A-Za-z]*[A-Z][A-Za-z]*[a-z][A-Za-z]*[A-Z]",
-                            src)):
+        # fires whenever input starts with powershell/pwsh (any case) and has
+        # at least one dash-prefixed parameter. This catches ALL PS command
+        # lines, whether mixed-case, comma-separated, or clean.
+        if _re.search(r"\b(?:powershell(?:\.exe)?|pwsh(?:\.exe)?)\b", src, _re.IGNORECASE) \
+                and _re.search(r"\s-[A-Za-z]", src):
             from operations import run_operation as _run_op_ps_norm
             try:
                 norm_out = _run_op_ps_norm("powershell-normalize", src, {})

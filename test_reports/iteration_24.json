@@ -1,0 +1,36 @@
+{
+  "summary": "RC4.3 re-verification after trigger loosening at /app/backend/routers/ops.py L1231-1232. 7/8 pass (all 5 request-listed flows for -Command/pwsh + both regressions now green), BUT Flow-1 (reviewer mixed-case comma-token example) REGRESSED from PASS to FAIL. Root cause: new trigger's second condition `\\s-[A-Za-z]` requires WHITESPACE before the dash. Flow-1's input `PoWeRsHeLl.eXe,-NoPrOfIlE,-ExEcUtIoNpOlIcY,ByPaSs,-CoMmAnD,\"...\"` uses commas as separators — no whitespace precedes any dash — so powershell-normalize never fires and the router falls through to crypto-detect (recipe=['crypto-detect']). Net iteration_23 vs 24: Flow-2/3 fixed (as intended), Flow-1 broken (unintended regression). Flow-5 (pwsh) added and PASSES.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/decode/smart",
+        "issue": "Trigger regression: Flow-1 (comma-separated PS with dash-prefixed params) no longer invokes powershell-normalize. Trigger at /app/backend/routers/ops.py L1232 uses `\\s-[A-Za-z]` which does not match `,-NoPrOfIlE`. Observed recipe=['crypto-detect'] instead of ['powershell-normalize'].",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_rc43_smart_normalizer.py",
+    "/app/test_reports/pytest/rc43_smart_v2.xml"
+  ],
+  "action_items": [
+    "In /app/backend/routers/ops.py L1232, change the second regex from `\\s-[A-Za-z]` to `[\\s,]-[A-Za-z]` (or `(?:^|[^A-Za-z0-9])-[A-Za-z]`) so comma-separated PS token lists still trigger the normalizer. This restores Flow-1 without regressing Flows 2/3/5 (they all have space before dash).",
+    "After fix, re-run: pytest backend/tests/test_rc43_smart_normalizer.py -v — expected 8/8 green."
+  ],
+  "critical_code_review_comments": [
+    "The trigger predicate is a compound of two regex searches inline in the router — extract into a small helper `_looks_like_ps_commandline(src)` in ps_normalizer.py with unit coverage over: space-sep, comma-sep, tab-sep, mixed. This prevents future single-character regex regressions from silently breaking one shape.",
+    "The prior iteration_23 review comment (extract chain_injectors.py) still stands — ops.py is 1439 lines with 3 near-duplicate injector blocks."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_rc43_smart_normalizer.py (added Flow-5 pwsh alias test)"
+  ],
+  "success_rate": {"backend": "87.5% (7/8)", "frontend": "skipped"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "PASSING (7): Flow-2 unsafe IEX (fixed since iter23), Flow-3 Echo alias (fixed since iter23), Flow-4 quoted commas, Flow-5 pwsh core (new), RC4.2 slice regression exe.calc, RC4.1 RC4-inline c2.evil.io, benign Get-Process. FAILING (1): Flow-1 mixed-case comma-token — regression caused by trigger tightening on whitespace. Single-char regex fix required. Login can be slow (60-90s cold) — session-scoped token fixture with 3x retries at 90s each already in test file.",
+  "rca of the issue": "Root cause: /app/backend/routers/ops.py L1231-1232 new trigger `_re.search(r\"\\\\b(?:powershell(?:\\\\.exe)?|pwsh(?:\\\\.exe)?)\\\\b\", src, _re.IGNORECASE) and _re.search(r\"\\\\s-[A-Za-z]\", src)`. Second condition requires whitespace before dash. Flow-1 input `PoWeRsHeLl.eXe,-NoPrOfIlE,-ExEcUtIoNpOlIcY,ByPaSs,-CoMmAnD,...` has commas, not spaces, so second regex fails → powershell-normalize skipped → falls through to crypto-detect. Repro: `curl -sX POST $URL/api/decode/smart -H 'Authorization: Bearer $T' -H 'Content-Type: application/json' --data-raw '{\"input\":\"PoWeRsHeLl.eXe,-NoPrOfIlE,-CoMmAnD,\\\"Write-Host x\\\"\"}'` → recipe=[{op: crypto-detect}]. Mitigation: broaden second regex to `[\\s,]-[A-Za-z]` or drop it (matching on powershell/pwsh keyword alone is enough given the normalizer safely no-ops on non-PS input)."
+}

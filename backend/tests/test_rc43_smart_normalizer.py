@@ -76,6 +76,16 @@ def test_flow3_echo_alias_simulated(client):
     assert "hello" in raw
 
 
+# --- Flow 5: pwsh alias (PS Core) safe built-in simulation ---
+def test_flow5_pwsh_core_simulated(client):
+    inp = "pwsh -Command \"Echo 'core'\""
+    res = smart(client, inp)
+    assert "powershell-normalize" in _ops(res), f"ops={_ops(res)}"
+    raw = res.get("output_raw") or ""
+    assert "pwsh.exe" in raw
+    assert "core" in raw
+
+
 # --- Flow 4: quoted commas preserved verbatim ---
 def test_flow4_quoted_commas_preserved(client):
     inp = 'powershell.exe -Command "Write-Host \'a,b,c\'"'
