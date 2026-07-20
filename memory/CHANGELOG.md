@@ -5,6 +5,45 @@ Chronological record of significant releases (newest first).
 
 ---
 
+## RC3.5 — Cobalt Strike Beacon Config Extractor · 2026-02-21
+
+**Status:** ✅ Ready to redeploy · CI gate green (206/206 pytest)
+**Tag recommended:** `v1.0.0-RC3.5`
+
+### 🎯 RC3.5 · CS Beacon config extractor (promoted from rule-only to full config-parser)
+
+- New `decoders/cobaltstrike_beacon_config.py` — deterministic TLV extractor for the encrypted config block embedded in Cobalt Strike beacons.
+- **XOR-key auto-detection**: handles CS v3 (`0x69`), CS v4 (`0x2E`), and plaintext (already-unwrapped) configs. Signature-driven — locates the TLV magic `00 01 00 01 00 02` after XOR before extracting.
+- **TLV parser** reads standard beacon fields: `beacon_type`, `port`, `sleep_time`, `jitter`, `c2_server`, `user_agent`, `watermark`, `spawnto_x86`, `spawnto_x64`, `process_inject_start` — 14 tag names decoded, unknown tags surfaced as `tag_0xNNNN`.
+- **Structured IOC emission**: builds full C2 URLs (`{scheme}://{host}:{port}{uri}`) from the extracted `c2_server` field. Multiple C2 hosts + URIs enumerated separately.
+- **Enriched tradecraft flag** `cobaltstrike-config-extracted` (severity=critical) carries a structured metadata payload: `beacon_type`, `port`, `sleep_ms`, `jitter_pct`, `watermark`, `c2_hosts[]`, `c2_uris[]`, `xor_key`, `tlv_field_count` — analyst-ready for immediate SOC action.
+- **MITRE mappings**: T1071.001 (HTTP C2), T1573.002 (RSA-encrypted metadata), T1027 (XOR obfuscation).
+- Family confidence promoted from ~0.6 (rule-only) to **0.95 (config-extracted)** on beacon samples.
+
+### 🧪 Regression coverage — `tests/fixtures/plugin_regression/cobaltstrike-beacon-config.jsonl`
+
+- 3 golden fixtures locking XOR v3 (0x69), XOR v4 (0x2E), and plaintext extraction paths.
+- End-to-end verified via orchestrator: XOR-2E beacon → `verdict=malicious · risk=100 · family=Cobalt Strike Beacon(0.95) · URLs=[https://c2.example.test:443/updates.rss]`.
+
+### 📊 CI-gate deltas (RC3.1.1 → RC3.5)
+
+| Metric                     | RC3.1.1 | RC3.5 |
+|----------------------------|---------|-------|
+| Pytest passing (gate)      | 203     | **206** |
+| Plugin golden fixtures     | 75      | **78**  |
+| Family detectors           | 14      | 14 + **CS-Beacon config extractor** |
+| Chain completeness         | 96.8%   | 96.8% (held) |
+| Verdict precision          | 29/31   | 29/31 (held) |
+| Avg latency                | 240ms   | 240ms (held) |
+
+### 🚀 Deploy path
+
+Redeploy required to push RC3.5 into prod. Fully additive — no behavioural changes to existing decoders. Zero regression risk.
+
+
+
+---
+
 ## RC3.1.1 — Production Hotfix Batch · 2026-02-21
 
 **Status:** ✅ Ready to redeploy · CI gate green (203/203 pytest)

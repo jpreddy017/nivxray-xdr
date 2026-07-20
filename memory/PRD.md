@@ -29,6 +29,7 @@
 ### ✅ Phase D.3 · FormBook family detector  ← DELIVERED (RC3.4 · Feb-2026 · 8 MITRE, T1055.012 Hollow)
 ### ✅ Phase D.4 · NjRAT family detector  ← DELIVERED (RC3.4 · Feb-2026 · 7 MITRE, `|'|'|` splitter)
 ### ✅ Phase D.5 · Emotet family detector  ← DELIVERED (RC3.4 · Feb-2026 · 10 MITRE, XL4 + `@`-URL list)
+### ✅ Phase D.6 · Cobalt Strike Beacon config extractor  ← DELIVERED (RC3.5 · Feb-2026 · full TLV parser, XOR v3/v4/plaintext, structured C2 IOCs)
 ### ✅ IR-Export → Golden-Fixture flywheel  ← DELIVERED (RC3.4 · Feb-2026 · `tools/ir_export_to_fixture.py`)
 ### ✅ G · P1 · Enrich `crypto-key-required` tradecraft  ← DELIVERED (RC3.2c · structured metadata schema)
 ### ✅ F · P1 · Phase C.5 · ChaCha20 / AES-GCM / AES-CTR / DES / 3DES shape detection  ← DELIVERED (RC3.2c)
