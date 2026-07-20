@@ -258,6 +258,43 @@ async def export_case_as_sigma(case_id: str, format: str = "yaml",
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# YARA EXPORT — sibling of Sigma. String-based detection for host EDR / VT / Yara-hunter.
+# ═════════════════════════════════════════════════════════════════════════════
+@router.get("/cases/{case_id}/yara")
+async def export_case_as_yara(case_id: str, format: str = "yara",
+                               user=Depends(get_current_user)):
+    """Auto-generate a YARA rule from a saved case.
+    format=yara (default) returns a .yar body; format=json wraps the rule text."""
+    from fastapi.responses import Response
+    from yara_export import build_yara_rule, _rule_name
+    doc = _col.find_one({"id": case_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="case not found")
+    yara_body = build_yara_rule(
+        case_name=doc.get("name") or "case",
+        case_id=doc.get("id"),
+        verdict=doc.get("verdict_card") or (
+            {"verdict": doc.get("verdict")} if isinstance(doc.get("verdict"), str) else (doc.get("verdict") or {})
+        ),
+        input_text=doc.get("input") or "",
+        output_text=doc.get("output") or "",
+        chain=doc.get("chain_ids") or [],
+        iocs=doc.get("iocs") or {},
+        mitre=doc.get("mitre") or [],
+        lolbas=doc.get("lolbas") or [],
+        author=(user.get("email") if isinstance(user, dict) else getattr(user, "email", None)) or "NivXRay",
+    )
+    if format == "json":
+        return {"rule": yara_body, "rule_name": _rule_name(doc.get("name") or "case", doc.get("id"))}
+    fname = f"{_rule_name(doc.get('name') or 'case', doc.get('id'))}.yar"
+    return Response(
+        content=yara_body,
+        media_type="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # RE-INVESTIGATE — re-run /decode/smart on a saved case's input and persist
 # the fresh output/verdict/iocs/mitre/chain to the case doc. Fixes the classic
 # "OUTPUT=INPUT" saved-before-decode state.

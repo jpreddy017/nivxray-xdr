@@ -89,6 +89,25 @@ export default function CasesDrawer({ open, onClose, onRestore }) {
     }
   };
 
+  const exportYara = async (item) => {
+    try {
+      const r = await api.get(`/cases/${item.id}/yara`, { responseType: "text" });
+      const body = typeof r.data === "string" ? r.data : String(r.data);
+      const blob = new Blob([body], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `nivxray-${(item.name || "case").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.yar`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("YARA export failed: " + (e?.response?.data?.detail || e.message));
+    }
+  };
+
+
   const filtered = q
     ? items.filter((c) => (c.name || "").toLowerCase().includes(q.toLowerCase()))
     : items;
@@ -193,6 +212,12 @@ export default function CasesDrawer({ open, onClose, onRestore }) {
                           title="Export as Sigma detection rule (SIEM-ready YAML)"
                           style={{ borderColor: "#f59e0b", color: "#f59e0b" }}>
                     <Shield size={10} /> SIGMA
+                  </button>
+                  <button className="nvx-btn sm ghost" onClick={() => exportYara(c)}
+                          data-testid={`btn-case-yara-${c.id}`}
+                          title="Export as YARA rule (host-EDR / VirusTotal Hunt-ready)"
+                          style={{ borderColor: "#c084fc", color: "#c084fc" }}>
+                    <Shield size={10} /> YARA
                   </button>
                   <button className="nvx-btn sm ghost" onClick={() => openCase(c)}
                           data-testid={`btn-case-open-${c.id}`}>

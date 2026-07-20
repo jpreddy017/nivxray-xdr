@@ -29,6 +29,11 @@ from starlette.middleware.gzip import GZipMiddleware
 # Register operation registries eagerly (needed for /operations and decoders)
 from operations import OPERATIONS  # noqa: F401
 import ops_extended  # noqa: F401  — registers +42 operations
+# RC4.0 (Feb 2026) — PowerShell -EncodedCommand multi-layer peel decoder.
+# Eliminates the #1 failure class from the 509-case baseline (65%
+# wrapper-only) by iteratively peeling base64 → UTF-16LE → hex-escape →
+# URL-encoded → reversed chains inside PS-EncodedCommand wrappers.
+from decoders import ps_encodedcommand_multilayer  # noqa: F401
 import ops_base_family  # noqa: F401  — registers base58/base62/base64url/z85
 from smart_decoder import smart_decode
 from magic_decoder import magic_decode

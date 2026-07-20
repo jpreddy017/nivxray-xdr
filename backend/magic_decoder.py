@@ -369,6 +369,13 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
         pass
     # PowerShell -EncodedCommand
     if re.search(r"-e(?:c|nc|ncoded(?:command)?)?\s+[A-Za-z0-9+/=\s]{16,}", s, re.IGNORECASE):
+        # RC4.0 (Feb 2026) — insert the multi-layer peel BEFORE the vanilla
+        # powershell-encoded op. The multi-layer variant iteratively peels
+        # base64 → UTF-16LE → hex-escape → URL-encoded → reversed chains
+        # until terminal output is verified plaintext or a magic-byte
+        # sequence — eliminating the #1 failure class (65% wrapper-only)
+        # from the 509-case honest baseline.
+        cands.insert(0, {"op": "ps-encodedcommand-multilayer", "args": {}})
         cands.append({"op": "powershell-encoded", "args": {}})
     # PowerShell backtick obfuscation — `I`E`X, `N`e`T`.`W`e`B`C`l`i`e`N`T
     # etc. When >= 15 % of the input is `<letter> pairs, insert the
