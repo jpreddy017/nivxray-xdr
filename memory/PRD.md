@@ -6,6 +6,40 @@ core decoder. Everything must work offline.
 
 
 ---
+## 🟢 RC3.0 · Symmetric-Crypto Pack + Verdict Hardening + 7-Panel UI · DELIVERED (2026-02-20)
+
+**Branch:** `feature/rc3` · **Scope:** Backend crypto plugins + verdict-card hardening + Analyst Workspace UX refactor
+**Benchmark evidence:** `/app/backend/tests/rc23_benchmark/run_benchmark.py` → **30/31 chain-complete (96.8%)** held; verdict precision improved **14→15/31**; **107 tests pass** including 14 new crypto tests + 10 verdict-null tests.
+
+### P0.1 · Verdict Card never null · Findings-aware classification
+- **`build_verdict_card` never returns None.** Any internal exception is caught, logged via `log.exception(...)`, and swapped for a structured `_fallback_card(_FALLBACK_REASON)` — the analyst UI only ever sees the GENERIC message "Automated verdict generation failed. Manual analyst review recommended." Raw exception details never leak.
+- **`ops.py` exception paths use `_fallback_card`.** Both the first-pass build and the post-enrichment rebuild return a structured card on any failure — zero `verdict_card = None` assignments remain in the codebase.
+- **Findings-aware classification.** `_classify` now escalates to Malicious on `URL indicator` / `LOLBAS binary` / `Malware family match` and Suspicious on ≥3 MITRE techniques. Post-enrichment rebuild re-runs the verdict with the full IOC/MITRE/LOLBAS surface so payloads previously stuck at "Suspicious @30 %" now correctly surface as "Malicious @80–90 %".
+
+### P0.2 · Analyst Workspace 7-panel UI (`AnalystResults.jsx`)
+- **New components:** `RecoveredPayloadCard.jsx` + `AnalystResults.jsx` (with sub-panels VerdictPanel / ChainRecipePanel / MitrePanel / IocPanel / NetworkPanel / BehaviorPanel).
+- **Locked panel order:** ① Analysis Verdict → ② Recovered Payload → ③ Chain Recipe → ④ MITRE → ⑤ IOCs → ⑥ Network → ⑦ Behavior.
+- Every panel: sticky header, collapse/expand toggle, copy-to-clipboard, `data-testid` per panel + per interactive element.
+- Verdict panel populates from `/decode/smart`'s `verdict_card` immediately (previously required a second async job).
+
+### P0.3 · Symmetric-Crypto Pack (RC4 / AES-CBC / AES-ECB + `crypto-detect`)
+- **`/app/backend/crypto_hints.py`** — Single-artifact key/IV extractor + structural ciphertext shape detector. NEVER cross-request, NEVER brute-force.
+- **`/app/backend/decoders/crypto_symmetric.py`** — Three new orchestrator plugins:
+  - `rc4-decrypt` · deterministic RC4 decrypt when a key literal (`$key='…'`, `password="…"`, byte-array) is present in the same artifact.
+  - `aes-cbc-decrypt` · deterministic AES-128/192/256 CBC + ECB decrypt with inline key + IV recovery.
+  - `crypto-detect` · signal-only structural detector — flags ciphertext-shaped blobs and emits a `crypto-key-required` tradecraft flag when no inline key is present, even if decryption isn't possible.
+- **Manual Chain-Recipe UI** — analyst-typed `key`/`iv`/`mode` args flow through the same wrappers via `key`/`iv`/`mode` slots (already exposed by `ops_extended.py`); wrapper merges analyst args over detect() output.
+- **Auto-decrypt policy** — enforced: auto-decrypt ONLY when key is deterministically recovered from the same artifact AND plaintext ≥ 70 %-printable; otherwise return original payload + KEY REQUIRED tradecraft with detected algorithm and required inputs.
+
+### `run_operation` args-filter hardening
+- Introspects each op's signature and drops kwargs the function doesn't accept — fixes cascade errors like "`_b64_decode() got an unexpected keyword argument 'urlsafe'`" that surfaced when the orchestrator's plugin detect() args were replayed into legacy ops.
+
+### Unit tests
+- `/app/backend/tests/test_verdict_card_never_null.py` — 10 tests (MITRE-only, IOC-only, IncidentL full-findings, benign, empty, malformed chain, malformed findings, corrupted container, chain-only).
+- `/app/backend/tests/test_crypto_symmetric.py` — 14 tests (inline-key auto-decrypt for RC4/AES; KEY REQUIRED emission when key absent; analyst-supplied key acceptance; no-brute-force lock; crypto-detect signal-only behaviour; hint extractor precision).
+
+---
+
 ## 🟢 RC2.9 · Chain-Recipe Wrappers + Runaway Guard + `ps-hex-escape` · DELIVERED (2026-02-20)
 
 **Branch:** `feature/rc2` · **Scope:** Backend engine — new decoder, manual runner parity, DoS guard

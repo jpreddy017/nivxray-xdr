@@ -1267,20 +1267,18 @@ def _homoglyph_normalise(data: str) -> str:
 # used by the orchestrator so behaviour is identical between "auto-investigate"
 # and manual chain replay. No re-implementation, no drift.
 def _register_plugin_op(op_id: str, label: str, description: str,
-                         category: str = "Deobfuscation") -> None:
+                         category: str = "Deobfuscation",
+                         args_schema: Optional[List[Dict[str, Any]]] = None) -> None:
     """Register a Recipe-UI-visible wrapper around a plugin decoder.
 
     Late-imports the plugin at call time so this file has no hard dependency
     on the decoder package's autodiscovery order.
+
+    `args_schema` — optional list of {name, type, label, placeholder}
+    dicts consumed by the Chain-Recipe UI to render analyst-input fields
+    (e.g. `key`/`iv`/`mode` for the crypto decoders).
     """
-    def _fn(data: str, **_ignored) -> str:
-        """Recipe-UI wrapper. Accepts **kwargs because `run_operation`
-        expands the step's `args` dict as keyword arguments (e.g.
-        `token_count=76, density=0.91`). The plugin re-derives what it
-        needs from `detect()` at call time, so we deliberately drop the
-        passed-in args to avoid signature drift with the plugin's
-        internal detect() result shape.
-        """
+    def _fn(data: str, **kwargs) -> str:
         # Lazy import — avoids a circular import at module load.
         from engine.registry import DecoderRegistry
         from engine.models import AnalysisContext
@@ -1290,9 +1288,12 @@ def _register_plugin_op(op_id: str, label: str, description: str,
             raise ValueError(f"plugin decoder {op_id!r} not registered")
         fp = _fp_compute(data or "")
         ctx = AnalysisContext()
-        # Run detect() to fetch any args the plugin normally infers.
+        # Merge: (a) analyst-supplied kwargs (highest priority),
+        #        (b) whatever detect() infers.
         det = plugin.detect(data or "", fp, ctx)
-        res = plugin.decode(data or "", det.args or {}, ctx)
+        merged = dict(det.args or {})
+        merged.update({k: v for k, v in kwargs.items() if v not in (None, "")})
+        res = plugin.decode(data or "", merged, ctx)
         return res.output if res.output is not None else (data or "")
 
     _fn.__name__ = f"_plugin_{op_id.replace('-', '_')}"
@@ -1301,54 +1302,63 @@ def _register_plugin_op(op_id: str, label: str, description: str,
         "name":        label,
         "category":    category,
         "description": description,
-        "args":        [],
+        "args":        args_schema or [],
         "fn":          _fn,
     }
 
 
-# RC2.6 / 2.7 / 2.8 / 2.9 — expose every plugin decoder in the manual runner.
-for _op_id, _label, _desc in (
+# RC2.6 / 2.7 / 2.8 / 2.9 · RC3.0 — expose every plugin decoder in the manual runner.
+for _op_id, _label, _desc, _args in (
     ("ps-reconstruct",
      "PowerShell Reconstruct (plugin)",
-     "Rebuild plaintext from PowerShell [char]NN / -join / concat / .Replace() obfuscation."),
+     "Rebuild plaintext from PowerShell [char]NN / -join / concat / .Replace() obfuscation.",
+     None),
     ("cmd-reconstruct",
      "CMD Reconstruct (plugin)",
-     "Resolve CMD.exe SET/CALL variables, delayed expansion and nested %VAR% chains."),
+     "Resolve CMD.exe SET/CALL variables, delayed expansion and nested %VAR% chains.",
+     None),
     ("js-reconstruct",
      "JavaScript Reconstruct (plugin)",
-     "Peel atob(), String.fromCharCode() and quoted-concat obfuscation."),
+     "Peel atob(), String.fromCharCode() and quoted-concat obfuscation.",
+     None),
     ("vbs-reconstruct",
      "VBScript Reconstruct (plugin)",
-     "Resolve Chr()/CreateObject/StrReverse VBS obfuscation."),
+     "Resolve Chr()/CreateObject/StrReverse VBS obfuscation.",
+     None),
     ("decimal-charcode-decode",
      "Decimal Char-Code Decode (plugin)",
-     "Space-separated decimal ASCII codes → chars."),
+     "Space-separated decimal ASCII codes → chars.",
+     None),
     ("octal-charcode-decode",
      "Octal Char-Code Decode (plugin)",
-     "Space-separated octal ASCII codes → chars."),
+     "Space-separated octal ASCII codes → chars.",
+     None),
     ("custom-hex-slash",
      "Custom Hex-with-Separator (plugin)",
-     r"Exotic hex tokenisations (e.g. `d3x\d3x\` or `\xNN\xNN`) → bytes."),
+     r"Exotic hex tokenisations (e.g. `d3x\d3x\` or `\xNN\xNN`) → bytes.",
+     None),
     ("nibble-swap",
      "Nibble-Swap (plugin)",
-     "Swap high/low nibbles of every byte — recovers text hidden by nibble-obfuscators."),
+     "Swap high/low nibbles of every byte — recovers text hidden by nibble-obfuscators.",
+     None),
     ("ps-hex-escape",
      "PowerShell / C-style Hex Escape (plugin)",
-     r"Decode `\xNN` byte-escape sequences (also matches `\\xNN`)."),
-    ("rc4-decrypt",
-     "RC4 (ARC4) Decrypt (plugin)",
-     "Decrypt an RC4 stream cipher blob. Recovers key from inline context "
-     "(e.g. `$key='…'`) or accepts analyst-supplied `key` arg."),
-    ("aes-cbc-decrypt",
-     "AES-CBC / AES-ECB Decrypt (plugin)",
-     "Decrypt an AES-128/192/256-CBC or ECB ciphertext. Uses inline key "
-     "hints or analyst-supplied `key` / `iv` / `mode` args."),
+     r"Decode `\xNN` byte-escape sequences (also matches `\\xNN`).",
+     None),
+    # NOTE (RC3.0): `rc4-decrypt` and `aes-cbc-decrypt` are also registered
+    # as ORCHESTRATOR-facing plugins in `/app/backend/decoders/crypto_symmetric.py`
+    # for auto-invoke with inline-key recovery. The MANUAL Chain-Recipe UI
+    # keeps using the pre-existing clean ops from `ops_extended.py` (key/iv
+    # as explicit typed args). We only surface the new signal-only
+    # `crypto-detect` here so the analyst can force a "flag as ciphertext"
+    # step without triggering decryption.
     ("crypto-detect",
      "Ciphertext Shape Detector (plugin)",
      "Structural-only detector — flags AES/RC4 ciphertext shapes and "
-     "emits KEY REQUIRED tradecraft when no inline key is present."),
+     "emits KEY REQUIRED tradecraft when no inline key is present.",
+     None),
 ):
-    _register_plugin_op(_op_id, _label, _desc)
+    _register_plugin_op(_op_id, _label, _desc, args_schema=_args)
 
 
 # --- Bucket 3: semantic annotators (pass-through, non-erroring) --- #

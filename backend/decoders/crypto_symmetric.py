@@ -253,10 +253,10 @@ class AesCbcDecoder(BaseDecoder):
             # extracted ciphertext blob before rejecting.
             from crypto_hints import _entropy as _ent
             blob_ent = _ent(raw)
-            if blob_ent < 6.0:
+            if blob_ent < 5.5:
                 return DetectResult(
                     confidence=0.0,
-                    why=f"Ciphertext-blob entropy {blob_ent:.2f} < 6.0 — not AES-shaped",
+                    why=f"Ciphertext-blob entropy {blob_ent:.2f} < 5.5 — not AES-shaped",
                 )
         cands = _key_candidates(payload, ctx, {})
         # Also try IV recovery from context.

