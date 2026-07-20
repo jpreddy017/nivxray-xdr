@@ -1,7 +1,7 @@
 {
-  "total": 32,
-  "passed": 12,
-  "hit_rate": 0.375,
+  "total": 65,
+  "passed": 22,
+  "hit_rate": 0.3385,
   "threshold": 0.6,
   "results": [
     {
@@ -113,19 +113,59 @@
       "sha1": "6c06f9eff8f4c60622f7eb107e8564af1892d07e",
       "engine": "rc2-orchestrator",
       "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
         "ioc-extract"
       ],
-      "output_head": "# RC4-encoded payload with hardcoded key: 'hardcoded-rc4-key-1'\n# recovered plaintext: 'http://rc4-1.example.test/x'",
-      "ok": false
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 RC4                      key_source=inline recovery=static-complete ",
+      "ok": true
     },
     {
       "sha1": "426951616d42ea71b5010516cd9cc0ac9be7de42",
       "engine": "rc2-orchestrator",
       "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
         "ioc-extract"
       ],
-      "output_head": "# RC4-encoded payload with hardcoded key: 'hardcoded-rc4-key-2'\n# recovered plaintext: 'http://rc4-2.example.test/y'",
-      "ok": false
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 RC4                      key_source=inline recovery=static-complete ",
+      "ok": true
     },
     {
       "sha1": "a8f14303bb3be565ccccd7ea34da1d803a11a3c1",
@@ -287,16 +327,396 @@
     },
     {
       "sha1": "eb32fe579f52b910a0bcb15c09d78747b6d0e34f",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "cipher /w:C:\\",
       "ok": false
     },
     {
       "sha1": "1584af34536103c086f163f599640acbb9f26155",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "set \"A=cmd\" && set \"B=/c \" && set \"C=whoami && netstat -ano\" && %A% %B% \"%C%\"",
+      "ok": false
+    },
+    {
+      "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "powershell -e ABC",
+      "ok": false
+    },
+    {
+      "sha1": "97b8825cc08fdde82d18aaa26f4c1dab3fa963c9",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-xor-inline-key"
+      ],
+      "output_head": "La@kTDRIyRqRZAU",
+      "ok": true
+    },
+    {
+      "sha1": "f18d46780fda16ff0927300bdc7cd4f7112bf2da",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "whoami && netstat -ano",
+      "output_head": "print(1+1)",
+      "ok": false
+    },
+    {
+      "sha1": "1b42e8db26f7d6de7901f6f19c7ee61de4b11df9",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "notepad readme.txt",
+      "ok": false
+    },
+    {
+      "sha1": "d0a44a6f10acaf1cbdf099b429f6ab013d5b0882",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "ok": false
+    },
+    {
+      "sha1": "940b661e76ae57f083336270cf9646b56a91c2d7",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE=';    var b=atob(d);    var l=document.createElement('a');    l.download='payload.exe';    l.href=URL",
+      "ok": false
+    },
+    {
+      "sha1": "74922dfbd46d5c3ec773a59cd4d6868acc352b50",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "ok": false
+    },
+    {
+      "sha1": "a3000b7c7aac53570a950f75827a60847132ed73",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE=';        var b=atob(d);        var l=document.createElement('a');        l.download='payload.exe';  ",
+      "ok": false
+    },
+    {
+      "sha1": "888ca0494ea03d52b32013c26f891ade2f651b1b",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "ok": false
+    },
+    {
+      "sha1": "9dab0c64d545d383773f8738c8f89e80183784e6",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE=';            var b=atob(d);            var l=document.createElement('a');            l.download='pay",
+      "ok": false
+    },
+    {
+      "sha1": "f9f75777c6ec5ce767f90a3564eba599398a4d58",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "ok": false
+    },
+    {
+      "sha1": "be20c2c37e2ee3cf3b04f60542cfa9f19e5ca83e",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM='; var b=atob(d); var l=document.createElement('a'); l.download='stager.js'; l.href=URL.createObjectU",
+      "ok": false
+    },
+    {
+      "sha1": "73d7f991eb4f45f1cd0c111ac8b263c25aac9a2b",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM=';    var b=atob(d);    var l=document.createElement('a');    l.download='stager.js';    l.href=URL.c",
+      "ok": false
+    },
+    {
+      "sha1": "815f7f3c78f3e2f33674b6d45e28297ca2063dfc",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM='; var b=atob(d); var l=document.createElement('a'); l.download='stager.js'; l.href=URL.createObjectU",
+      "ok": false
+    },
+    {
+      "sha1": "892ed1156a4390ee17d9583a72b5c90eb1eca957",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM=';        var b=atob(d);        var l=document.createElement('a');        l.download='stager.js';    ",
+      "ok": false
+    },
+    {
+      "sha1": "75961e94374593ec0d56c3fa71e7a69b834a20aa",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM='; var b=atob(d); var l=document.createElement('a'); l.download='stager.js'; l.href=URL.createObjectU",
+      "ok": false
+    },
+    {
+      "sha1": "dc5969c50b2137c3bcf9e0105f44799198fe1dba",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM=';            var b=atob(d);            var l=document.createElement('a');            l.download='sta",
+      "ok": false
+    },
+    {
+      "sha1": "74039109c9017d452ea18c24594ccc4e69633b10",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "var d='YmluYXJ5LUM='; var b=atob(d); var l=document.createElement('a'); l.download='stager.js'; l.href=URL.createObjectU",
+      "ok": false
+    },
+    {
+      "sha1": "6e2ab035d8c5951f1d91102d16be119683004146",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "function _0x29d5() { const t = ['mdq0ytfKmwy','mtG5nZqWrLrLEMLS','y3nZvgv4Da']; return t; }\n    (function(a, b) { const ",
+      "ok": false
+    },
+    {
+      "sha1": "bd9eb6daa30c514127171560f23c7251407d3f49",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 OpenSSL:AES-CBC          key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "c90030f3ad0174333f56ebf287ee08023a78aa45",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 ChaCha20                 key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "497c214024c8c165981baa74ce3226a5eb872fe6",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 3DES                     key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "2bba7c08b75da4299fd15987796ff2130a950c40",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 RC4                      key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "4cf1c3e2ef81e5a21c9ced974dc0ece8a68fa74a",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 GPG-symmetric            key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "3d136e8573b7af2e26b5ee19f6e0835f8c0a2bad",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 GPG-symmetric            key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "d6be764edc6030fc64f63aa44e31140155bbf56c",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 OpenSSL:AES-CBC          key_source=inline recovery=runtime-required",
+      "ok": true
+    },
+    {
+      "sha1": "be4fa6d6a87306122c662701c212ab69662fa969",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "Get-Process | Where-Object CPU -gt 100",
+      "ok": false
+    },
+    {
+      "sha1": "39bc5cb078aa6a4cad06e89db720ca25bb54f6b5",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "schtasks /query /fo LIST /v",
+      "ok": false
+    },
+    {
+      "sha1": "1b2fa2c1cd7e555ce09d6046372293b7d771dee9",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "set \"p=calc.exe\" && start calc.exe",
+      "ok": false
+    },
+    {
+      "sha1": "e43fc82dfe47d42a53b70957b028fec7853d3165",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "Write-Host '[+] Mixed Case Test'",
+      "ok": false
+    },
+    {
+      "sha1": "4b1a07b5a78dcdbea29be3c287903a41df793e2c",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "echo \"opening\" 'closing' \"another string\" 'and-another'",
+      "ok": false
+    },
+    {
+      "sha1": "f87fa6b84bf4799448d1eca995e96ac9e533473e",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "powershell.exe -NoProfile -eXecUtIonPoLicY UnReStRiCtEd",
+      "ok": false
+    },
+    {
+      "sha1": "2e26648e784ec7a0cf4d08534ddda41df35f1a30",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "echo hello",
       "ok": false
     }
   ]
