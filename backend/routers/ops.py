@@ -1197,6 +1197,54 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                                     "detail": "CMD %VAR:~start,len% substring sliced"})
             result["recipe"] = recipe
 
+        # RC4.4 · CMD Runtime Reconstruction Engine — always attach the
+        # full analyst report (character-extraction table, reconstruction
+        # trace, confidence breakdown, ATT&CK map, honest verdict) whenever
+        # the input contains %VAR:~a,b% / adjacent %A%%B% / !VAR! / caret
+        # escape obfuscation. This is the deterministic runtime resolver
+        # that goes BEYOND the plain substring picker.
+        if _re.search(r"%\w+:~-?\d+(?:,-?\d+)?%", src) \
+                or _re.search(r"%\w+%%\w+%", src) \
+                or _re.search(r"!\w+(?::[~=][^!]*)?!", src) \
+                or _re.search(r"[A-Za-z]\^[A-Za-z]", src):
+            try:
+                from decoders.cmd_runtime_reconstruct import (
+                    run_cmd_runtime_reconstruct as _run_crr,
+                    render_report as _render_crr,
+                    DEFAULT_PROFILE as _CRR_DEFAULT,
+                )
+                # Optional profile override — reserved for a follow-up UI
+                # panel. For now the default Win10 x64 profile is used.
+                _profile = _CRR_DEFAULT
+                _custom = None
+                _crr = _run_crr(src, profile_name=_profile,
+                                 custom_env=_custom)
+                banner = _render_crr(_crr)
+                result["output_raw"] = banner + "\n" + str(result.get("output_raw") or "")
+                result["cmd_runtime_reconstruct"] = _crr
+                existing_ops_now = {r.get("op") for r in (result.get("recipe") or [])
+                                      if isinstance(r, dict)}
+                if "cmd-runtime-reconstruct" not in existing_ops_now:
+                    result["recipe"] = [{"op": "cmd-runtime-reconstruct",
+                                          "detail": (
+                                              f"Runtime reconstruction via profile "
+                                              f"{_profile}"
+                                          )}] + (result.get("recipe") or [])
+                trace_now = result.get("transformation_trace") or []
+                for row in _crr.get("character_trace") or []:
+                    trace_now.append({
+                        "step": "cmd-char-extract",
+                        "detail": (
+                            f"%{row['variable']}{row['slice'] and (':' + row['slice']) or ''}% "
+                            f"→ '{row['character']}'  (from {str(row['value'])[:40]!r})"
+                        ),
+                    })
+                for row in _crr.get("reconstruction_trace") or []:
+                    trace_now.append({"step": row["step"], "detail": row["detail"]})
+                result["transformation_trace"] = trace_now
+            except Exception:
+                pass
+
         # RC4.2 · PowerShell chain evaluator — reverse+regex-swap pipe pattern.
         # Fires on `-replace '(\w+)\.(\w+)','$2.$1'` + `ForEach-Object {$_[-1..-N] -join ''}`
         if _re.search(r"-replace\s*['\"]\([^)]+\)\\\.\([^)]+\)['\"]\s*,\s*['\"]\$2\.\$1['\"]",
@@ -1225,11 +1273,12 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                 pass
 
         # RC4.3 · PowerShell Normalization + Runtime Reconstruction —
-        # fires whenever input starts with powershell/pwsh (any case) and has
-        # at least one dash-prefixed parameter. This catches ALL PS command
-        # lines, whether mixed-case, comma-separated, or clean.
+        # fires whenever input mentions powershell/pwsh (any case) AND has
+        # at least one dash-prefixed parameter (accepting either whitespace
+        # OR comma as the preceding separator — that's the mixed-case
+        # comma-obfuscation case).
         if _re.search(r"\b(?:powershell(?:\.exe)?|pwsh(?:\.exe)?)\b", src, _re.IGNORECASE) \
-                and _re.search(r"\s-[A-Za-z]", src):
+                and _re.search(r"[\s,]-[A-Za-z]", src):
             from operations import run_operation as _run_op_ps_norm
             try:
                 norm_out = _run_op_ps_norm("powershell-normalize", src, {})
@@ -1247,6 +1296,43 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                     result["transformation_trace"] = trace_now
             except Exception:
                 pass
+    except Exception:
+        pass
+
+    # ── RC4.5 · Post-verdict Honesty Linter ─────────────────────────
+    # If the verdict is Malicious with high confidence BUT the final
+    # output_raw still contains raw obfuscation markers (%, backtick,
+    # -replace, -join, [byte[]] loop, base64 blob), we haven't finished
+    # reconstruction. Downgrade the confidence label so the analyst sees
+    # an honest "partial-reconstruction" state instead of over-claiming.
+    try:
+        import re as _re2
+        out_raw_ck = str(result.get("output_raw") or result.get("output") or "")
+        residuals = []
+        if _re2.search(r"%\w+:[~=]", out_raw_ck):
+            residuals.append("cmd-envvar")
+        if _re2.search(r"`\w", out_raw_ck):
+            residuals.append("ps-backtick")
+        if _re2.search(r"-replace\s+['\"]", out_raw_ck):
+            residuals.append("ps-replace")
+        if _re2.search(r"\|\s*ForEach-Object\s*\{", out_raw_ck):
+            residuals.append("ps-foreach")
+        if _re2.search(r"\[byte\[\]\]\s*\(\s*\d", out_raw_ck):
+            residuals.append("byte-array-xor")
+        if residuals:
+            vc = result.get("verdict_card") or {}
+            if (vc.get("verdict") or "").lower() == "malicious" \
+                    and (vc.get("confidence") or 0) >= 70:
+                vc = dict(vc)
+                vc["confidence"] = min(vc.get("confidence", 70), 60)
+                vc["verdict"] = "partial-reconstruction"
+                vc["honesty_note"] = (
+                    "Downgraded by RC4.5 honesty linter — residual obfuscation "
+                    f"markers still present in output_raw: {residuals}. Reconstruction "
+                    "is incomplete; do not treat as fully decoded."
+                )
+                result["verdict_card"] = vc
+            result["honesty_residuals"] = residuals
     except Exception:
         pass
 

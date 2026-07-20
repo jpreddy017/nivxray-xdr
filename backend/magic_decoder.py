@@ -400,6 +400,9 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
     # RC4.0 Pattern 6 — CMD %VAR:~start,len% substring picker
     if re.search(r"%\w+:~-?\d+(?:,-?\d+)?%", s):
         cands.insert(0, {"op": "cmd-envvar-substring-picker", "args": {}})
+        # RC4.4 · Full runtime reconstruction engine — sits ABOVE the plain
+        # substring picker so analysts see the analyst report + char trace.
+        cands.insert(0, {"op": "cmd-runtime-reconstruct", "args": {}})
     # RC4.0 Pattern 5a — PowerShell reverse-string via [-1..-N] slice
     if re.search(r"\$\w+\s*\[\s*-1\s*\.\.\s*-(?:\$\w+\.Length|\d+)\s*\]", s, re.IGNORECASE):
         cands.insert(0, {"op": "powershell-reverse-string", "args": {}})
