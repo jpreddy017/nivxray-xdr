@@ -464,20 +464,48 @@ class CryptoDetectDecoder(BaseDecoder):
             notes=[note],
         )
         if keys_found == 0:
+            # RC3.2c · enriched crypto-key-required schema
+            algo_str = "/".join(algos)
+            # Best-effort algorithm normalisation for the structured metadata.
+            _first = (algos[0] or "").split("/")[0].upper()
+            _KEY_LEN = {"AES": 128, "AES-CBC": 128, "AES-ECB": 128,
+                        "AES-GCM": 128, "AES-CTR": 128,
+                        "CHACHA20": 256, "RC4": 40, "DES": 56, "3DES": 168}
+            _IV_LEN  = {"AES-CBC": 128, "AES-ECB": 0,
+                        "AES-GCM": 96, "AES-CTR": 128,
+                        "CHACHA20": 96, "RC4": 0, "DES": 64, "3DES": 64}
+            _NONCE   = {"AES-GCM", "AES-CTR", "CHACHA20"}
+            _MODE    = {"AES-CBC": "CBC", "AES-ECB": "ECB", "AES-GCM": "GCM",
+                        "AES-CTR": "CTR", "CHACHA20": "stream", "RC4": "stream",
+                        "DES": "CBC", "3DES": "CBC"}
+            meta = {
+                "algorithm":     _first.split("-")[0] if _first else "unknown",
+                "mode":          _MODE.get(_first, "unknown"),
+                "key_len_bits":  _KEY_LEN.get(_first),
+                "iv_len_bits":   _IV_LEN.get(_first, 0),
+                "nonce_required": _first in _NONCE,
+                "encoding":      shape.get("encoding", "raw"),
+                "ciphertext_len": byte_len,
+                "keys_found":    keys_found,
+                "ivs_found":     ivs_found,
+                "confidence":    round(shape.get("confidence", 0.6), 3),
+                "candidates":    algos,
+            }
             result.tradecraft.append(TradecraftFlag(
                 flag="crypto-key-required",
                 severity="medium",
-                evidence=(f"{'/'.join(algos)} ciphertext ({byte_len}B) "
+                evidence=(f"{algo_str} ciphertext ({byte_len}B) "
                           f"detected, but no inline key literal was found "
                           f"in the same artifact. Provide `key` "
                           + ("(+ optional `iv`) " if "AES-CBC/ECB" in algos else "")
                           + "via Chain-Recipe args to decrypt."),
+                metadata=meta,
             ))
             result.mitre_hints.append(MitreHint(
                 id="T1027.013",
                 technique="Encrypted/Encoded File",
                 tactic="Defense Evasion",
-                evidence=f"{'/'.join(algos)} ciphertext detected without inline key",
+                evidence=f"{algo_str} ciphertext detected without inline key",
                 source="heuristic",
             ))
         result.explanation = (

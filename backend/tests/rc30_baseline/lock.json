@@ -1,13 +1,17 @@
 {
-  "_": "RC3.1 Stable baseline — frozen 2026-02-21 after verdict-precision hardening (15/31 → 29/31 = 93.5%) + Cloudflare origin-parse fix + terminal-layer BROKEN→RECOVERED. Every subsequent merge must not regress these floors.",
-  "release":           "RC3.1",
+  "_": "RC3.2 baseline — 2026-02-21 · added Golden Fixture Framework (RC3.2a · 59 fixtures across 32 plugins) + XWorm family detector (RC3.2b) + enriched crypto-key-required tradecraft schema with ChaCha20/AES-GCM/AES-CTR/DES-shape support (RC3.2c). Every future decoder must ship with a paired plugin_regression/<id>.jsonl.",
+  "release":           "RC3.2",
   "frozen_at":         "2026-02-21",
   "backend": {
     "chain_completeness":   {"value": 30, "of": 31, "pct": 96.7},
     "verdict_precision":    {"value": 29, "of": 31},
     "false_positive_iocs":  {"value": 0,  "ceiling": 0},
     "avg_latency_ms":       {"value": 500, "ceiling": 800},
-    "pytest_total_passing": 116
+    "pytest_total_passing": 181,
+    "plugin_golden_fixtures": 59,
+    "family_detectors":     ["asyncrat", "cobalt-strike", "meterpreter",
+                             "remcos", "quasarrat", "darkgate", "lumma",
+                             "agent-tesla", "snake-keylogger", "xworm"]
   },
   "frontend_ux_locks": {
     "primary_button":        "★ AUTO INVESTIGATE",

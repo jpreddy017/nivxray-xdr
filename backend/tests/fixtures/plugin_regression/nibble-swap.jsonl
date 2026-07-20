@@ -1,2 +1,2 @@
 # nibble-swap · Golden Fixtures · RC3.2a
-{"case_id": "nib-swap-ps", "description": "Nibble-swapped 'powershell' bytes", "input": "\u0007\u00f6wV'7\u0086V\u00c6\u00c6", "detect_min_confidence": 0.2, "expected_output_contains": ["powershell"]}
+{"case_id": "nib-swap-ps-long", "description": "Nibble-swapped PowerShell IEX (\u2265 32 chars)", "input": "\u0007\u00f6wV'7\u0086V\u00c6\u00c6\u00e2V\u0087V\u0002\u00d2\u00e6\u00f6\u0007\u0002\u00d2w\u0002\u0086\u0096FFV\u00e6\u0002\u00d26\u0002\u0094T\u0085", "detect_min_confidence": 0.2, "expected_output_contains": ["powershell.exe", "IEX"]}

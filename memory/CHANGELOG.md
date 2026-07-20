@@ -5,6 +5,53 @@ Chronological record of significant releases (newest first).
 
 ---
 
+## RC3.2 — Deterministic Coverage Sprint · 2026-02-21
+
+**Status:** ✅ Ready to ship (Preview verified · CI gate green)
+**Tag recommended:** `v1.0.0-RC3.2`
+**Tests:** 181/181 CI gate pytest · 59 plugin-golden fixtures across 32 plugins · verdict precision 29/31 (held) · chain 96.8 % (held)
+
+### 🏗️ RC3.2a · Golden Fixture Framework
+
+- New `tests/fixtures/plugin_regression/<plugin_id>.jsonl` per-plugin corpus with density-gated schema (`case_id`, `input`, `detect_min_confidence`, `expected_output_contains`, `expected_mitre`, `expected_tradecraft`, `expected_lolbas_binaries`, `expected_family`, `expected_family_min_confidence`).
+- New `tests/test_plugin_golden_fixtures.py` parametrised runner + discoverability lock (`test_every_registered_plugin_has_fixture_file`) — the moment a new decoder registers without a paired JSONL, CI fails.
+- **59 golden fixture cases** shipped across `base64-decode`, `base32-decode`, `hex-decode`, `url-decode`, `rot13-decode`, `rot47-decode`, `utf16-decode`, `gzip-decompress`, `zlib-deflate-decompress`, `brotli-decompress`, `lzma-decompress`, `zstd-decompress`, `ascii85-decode`, `base58-decode`, `base91-decode`, `html-unicode-escape`, `decimal-charcode-decode`, `octal-charcode-decode`, `reverse-string`, `caesar-decode`, `jwt-decode`, `data-uri-extract`, `ps-hex-escape`, `nibble-swap`, `custom-hex-slash`, `xor-brute`, `extract-wrapper`, `ps-reconstruct`, `js-reconstruct`, `vbs-reconstruct`, `cmd-reconstruct`, `family-xworm`.
+
+### 🦠 RC3.2b · XWorm reference family detector
+
+- New `decoders/families/xworm.py` — 12 weighted signatures covering XClient class, `XWormMutex_` prefix, feature enums (`XPlugin` / `XChat` / `XKeyLog` / `XHVNC`), wire tags (`pong` / `save_Plugin` / `offline_Get`), `USB_Spread` module, `XWorm V<n>` banner.
+- 7 canonical MITRE mappings: T1219 (Remote Access), T1055 (Process Injection), T1547.001 (Startup persistence), T1091 (Removable Media replication), T1573.001 (AES C2), T1056.001 (Keylogging), T1113 (Screen Capture).
+- Auto-generated YARA rule stub `MAL_XWorm_Client` + Atomic Red Team pointer T1219.
+- End-to-end verification: single-line XWorm V5.6 config XML → `verdict=malicious · risk=79 · family=XWorm(1.00) · 7 MITRE techniques`.
+
+### 🔐 RC3.2c · Enriched `crypto-key-required` tradecraft + expanded shape detection
+
+- `TradecraftFlag.metadata` gains a structured schema: `algorithm`, `mode`, `key_len_bits`, `iv_len_bits`, `nonce_required`, `encoding`, `ciphertext_len`, `keys_found`, `ivs_found`, `confidence`, `candidates`. Analysts (and downstream crypto extractors) can now consume the flag without re-parsing the evidence text.
+- `crypto_hints.detect_encryption_shape()` extended to surface `AES-GCM`, `AES-CTR`, `ChaCha20`, `DES/3DES` alongside `AES-CBC/ECB` and `RC4`.
+- 6 new regression tests locking the schema and the ChaCha20 / AES-CTR / AES-GCM stream detection.
+
+### 📊 CI-gate deltas (`tests/rc30_baseline/lock.json` → RC3.2)
+
+| Metric                     | RC3.1 | RC3.2 |
+|----------------------------|-------|-------|
+| Pytest passing (gate)      | 116   | **181** |
+| Plugin golden fixtures     | 0     | **59**  |
+| Family detectors           | 9     | **10 (+ XWorm)** |
+| Chain completeness         | 96.8% | 96.8% (held) |
+| Verdict precision          | 29/31 | 29/31 (held) |
+| Avg latency                | 500ms | 500ms (held) |
+| False-positive IOCs        | 0     | 0 (held) |
+
+### 🐛 Deferred to RC3.1.1 hotfix (production findings only — no CI regression)
+
+- **PROD-BUG-1** Verdict / confidence tri-state inconsistency (Threat Analysis rail vs Verdict card vs Investigation Summary).
+- **PROD-BUG-2** LOLBAS false-positives (`Control.exe` / `Remote.exe`) from post-decode scanner on garbled binary tail.
+- **PROD-BUG-3** Chain terminates on corrupt final layer — IOC extractor should re-run on the PREVIOUS printable layer.
+
+
+
+---
+
 ## RC3.1 — Verdict precision + IR Handoff Export · 2026-02-21
 
 **Status:** ✅ Ready to ship (Preview verified end-to-end)

@@ -63,6 +63,8 @@ def _pytest_gate(expected_min_passing: int) -> int:
          "tests/test_sample_commandline_chain.py",
          "tests/test_html_unicode_escape.py",
          "tests/test_rc31_p1_hotfixes.py",
+         "tests/test_plugin_golden_fixtures.py",
+         "tests/test_rc32_crypto_and_xworm.py",
          "-q", "--no-header"],
         "pytest",
     )

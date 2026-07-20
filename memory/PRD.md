@@ -18,29 +18,25 @@
 
 **Order confirmed by user after production validation showed OUTPUT + VERDICT populating in one blink on PLAIN mode:**
 
-### ✅ D · P0 · Freeze RC3.0 baseline corpus + CI gate  ← DELIVERED (RC3.0, refreshed to RC3.1)
+### ✅ D · P0 · Freeze RC3.0 baseline corpus + CI gate  ← DELIVERED (RC3.0, refreshed to RC3.2)
 ### ✅ A · P1 · Cloudflare origin-parse error on async enrichment tail  ← DELIVERED (RC3.1 · Feb-2026)
 ### ✅ B · P1 · Cosmetic polish — terminal-layer RECOVERED downgrade  ← DELIVERED (RC3.1 · Feb-2026)
 ### ✅ C · P1 · Verdict precision 15/31 → ≥ 90 %  ← DELIVERED (RC3.1 · 29/31 = 93.5 %)
 ### ✅ H · P1 · IR Handoff Export (.md / .pdf)  ← DELIVERED (RC3.1 · Feb-2026, MD + PDF + JSON + STIX 2.1)
+### ✅ E · P1 · Golden-fixture regression battery  ← DELIVERED (RC3.2a · 59 fixtures / 32 plugins)
+### ✅ Phase D.1 · XWorm family detector  ← DELIVERED (RC3.2b · Feb-2026 · 7 MITRE techniques, YARA + ART)
+### ✅ G · P1 · Enrich `crypto-key-required` tradecraft  ← DELIVERED (RC3.2c · structured metadata schema)
+### ✅ F · P1 · Phase C.5 · ChaCha20 / AES-GCM / AES-CTR / DES / 3DES shape detection  ← DELIVERED (RC3.2c)
 
-### 🟡 Currently open
+### 🟡 Currently open — RC3.1.1 hotfix backlog (from prod field-test)
 
-### E · P1 · Golden-fixture regression battery  ← NEXT
-- Golden input → golden output in `/app/backend/tests/fixtures/plugin_regression/` for every plugin
-- Parametrised pytest, feeds the CI gate. `html_unicode_escape` fixture is already in place as the reference implementation.
+- **PROD-BUG-1** Verdict + confidence tri-state UI inconsistency (P0)
+- **PROD-BUG-2** LOLBAS FPs on garbled binary tail (P1)
+- **PROD-BUG-3** IOC extractor should re-run on previous printable layer when terminal layer is corrupt (P1)
 
-### F · P1 · Phase C.5 · Obfuscation Coverage Sprint (partially delivered in RC3.1)
-- ✅ HIGH · Unicode escapes (`\u0041`), HTML entities (`&#65;`)  — RC3.1
-- MED · Base32 / Base58 / Base85 / Base91  ← already in codebase, add explicit tests
-- MED · UUID-encoded shellcode, IPv4/IPv6-encoded shellcode
-- MED · ChaCha20 / AES-GCM / DES / 3DES (reuse `crypto_hints._ALGO_SPECS`)
-- BONUS · JSE/VBE
+### 🟢 Next up (RC3.3 · Malware-family expansion)
 
-### G · P1 · Enrich `crypto-key-required` tradecraft
-Structured JSON with algorithm, encoding, key_len_bits, iv_len_bits, nonce_required, confidence.
-
-### Then · Phase D · Malware-family detectors (XWorm / RedLine / FormBook / NjRAT / Emotet)
+- D.2 RedLine · D.3 FormBook · D.4 NjRAT · D.5 Emotet — each following the XWorm RC3.2b template (signature table + MITRE + YARA seed + golden fixtures)
 
 ### 🛡️ Phase R · Robustness Hardening (parallel track — full detail in ROADMAP.md)
 Cross-cutting enterprise-grade capabilities that slot in after the numbered sprint completes, prioritised by customer pull:
@@ -49,6 +45,61 @@ Cross-cutting enterprise-grade capabilities that slot in after the numbered spri
 - **R.3** Tradecraft detectors: AMSI/ETW bypass · sandbox-detection · registry/scheduled-task persistence · DGA heuristic
 - **R.4** Enterprise: RBAC · immutable audit log · API tokens · multi-tenant workspaces · Prometheus metrics
 - **R.5** Payload types: VBA macros · LNK · Excel-4.0 · PDF JS · HTA/MSI/ISO container unpacking
+
+
+---
+
+## 🐛 Production findings from RC3.1 field-test · 2026-02-21 (deferred hotfix — RC3.1.1)
+
+Observed on `https://nivxray.nivxforge.com` on two independent PowerShell-encoded
+multi-layer samples. Log-only — user asked to keep pushing through RC3.2 and
+batch these into the next hotfix release once the sprint completes.
+
+### PROD-BUG-1 · Verdict + confidence tri-state inconsistency  (P0)
+Three separate UI surfaces show three different values for the same case:
+
+| Surface                                           | Sample 1        | Sample 2       |
+|---------------------------------------------------|-----------------|----------------|
+| Threat Analysis (right rail)                      | Suspicious 58/100 | Suspicious 48/100 |
+| Analysis Verdict card (main)                      | Malicious 70%   | Malicious 70%  |
+| Investigation Summary (embedded in decoded body)  | Malicious conf 0/100 | Malicious conf 0/100 |
+
+Root cause hypothesis: the Threat Analysis rail is served from a different
+endpoint (`/api/v2/analyze` sync) while the Verdict card + Investigation
+Summary use the async `/analyze/job` path. `conf 0/100` in the embedded
+summary is a formatting bug (uses `det.get("score",0)*100` where the deterministic
+engine emits `risk_score` directly, not a fractional `score`).
+
+**Fix path:** unify the confidence source of truth. All three panels must
+render from the same `verdict_card.risk_score` / `verdict_card.verdict`.
+
+### PROD-BUG-2 · Post-decode LOLBAS false-positives on garbled binary tail  (P1)
+Sample 1 lists `certutil.exe · powershell.exe · cmd.exe · Control.exe · Remote.exe`.
+`Control.exe` and `Remote.exe` are FPs — the post-decode LOLBAS scanner
+introduced in RC3.1 matches these binary names inside the high-entropy
+binary tail of the corrupt final decode output.
+
+**Fix path:** gate `_post_decode_lolbas_scan()` behind a printable-ratio
+check on the scanned surface (drop bytes with `printable_ratio < 0.7`
+before feeding into `scan_lolbas`). Alternatively, only scan the FIRST
+readable segment (until entropy exceeds 5.0).
+
+### PROD-BUG-3 · Chain terminates at corrupt final layer  (P1)
+Both prod samples show the chain running through 4 – 6 layers and stopping
+with a corrupt output (garbled binary in sample 1, numeric-string noise in
+sample 2). The IOC extractor cannot recover a URL from a corrupt final
+layer even when the RAW decoded text clearly contains a `certutil.exe -urlcache`
+pattern. This is why Sample 1 stayed at Suspicious rather than being
+promoted to Malicious via the HIGH-LOLBAS + URL combo bonus.
+
+**Fix path (RC3.2 investigative):** rank layers by "recoverability" — if
+the last layer has printable-ratio < 0.7, re-run ioc-extraction on the
+PREVIOUS layer (which had 100% printable ASCII). This is essentially the
+same principle as the terminal-BROKEN → RECOVERED downgrade but applied
+to the IOC pathway.
+
+
+---
 
 
 ---

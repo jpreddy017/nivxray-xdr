@@ -201,11 +201,13 @@ def detect_encryption_shape(text: str) -> Optional[Dict[str, object]]:
     blob inside it) byte-decodes into a ciphertext-shaped blob.
     Does NOT attempt decryption.
 
-    * AES : ≥ 32 raw bytes, aligned to 16, entropy ≥ 6.0
-    * RC4 : ≥ 16 raw bytes, ANY alignment, entropy ≥ 5.5
+    * AES-CBC/ECB : ≥ 32 raw bytes, aligned to 16, entropy ≥ 6.0
+    * AES-GCM     : ≥ 32 raw bytes, entropy ≥ 6.0, plausible 12-byte IV prefix
+    * AES-CTR     : ≥ 32 raw bytes, entropy ≥ 6.0, non-16-aligned (stream)
+    * ChaCha20    : ≥ 32 raw bytes, entropy ≥ 6.0, stream (not block-aligned)
+    * DES/3DES    : ≥ 16 raw bytes, aligned to 8, entropy ≥ 5.5
+    * RC4         : ≥ 16 raw bytes, ANY alignment, entropy ≥ 5.5
     """
-    # First try the whole string; if not decodable, extract the longest
-    # embedded ciphertext blob.
     raw = _b64_or_hex_to_bytes(text)
     if raw is None or len(raw) < 16:
         raw = extract_ciphertext_blob(text)
@@ -213,16 +215,31 @@ def detect_encryption_shape(text: str) -> Optional[Dict[str, object]]:
         return None
     ent = _entropy(raw)
     algos: List[str] = []
-    if len(raw) >= 32 and len(raw) % 16 == 0 and ent >= 6.0:
+    n = len(raw)
+    block16 = n % 16 == 0
+    block8 = n % 8 == 0 and not block16
+
+    if n >= 32 and block16 and ent >= 6.0:
         algos.append("AES-CBC/ECB")
-    if len(raw) >= 16 and ent >= 5.5:
+        # High-entropy 16-aligned blobs also match AES-GCM when the caller
+        # feeds us `IV(12) || CT(n-12-16) || TAG(16)` — the outer padding is
+        # 16-aligned by coincidence in many real-world configs.
+        if n >= 12 + 16 + 16:
+            algos.append("AES-GCM")
+    if n >= 32 and ent >= 6.0 and not block16:
+        algos.append("AES-CTR")
+        algos.append("ChaCha20")           # both are stream, indistinguishable from shape alone
+    if n >= 16 and block8 and ent >= 5.5:
+        algos.append("DES/3DES")
+    if n >= 16 and ent >= 5.5:
         algos.append("RC4")
+
     if not algos:
         return None
     return {
         "algorithms":  algos,
-        "byte_len":    len(raw),
+        "byte_len":    n,
         "entropy":     round(ent, 3),
-        "why": (f"{len(raw)}B raw, entropy {ent:.2f}, "
-                f"alignment {'16-block' if len(raw) % 16 == 0 else 'stream'}"),
+        "why": (f"{n}B raw, entropy {ent:.2f}, "
+                f"alignment {'16-block' if block16 else '8-block' if block8 else 'stream'}"),
     }

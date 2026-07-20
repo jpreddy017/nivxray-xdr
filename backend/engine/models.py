@@ -62,6 +62,19 @@ class TradecraftFlag(BaseModel):
     flag: str                               # e.g. "amsi-bypass", "reflective-injection"
     severity: str = "info"                  # info | low | medium | high | critical
     evidence: str = ""
+    # RC3.2c · Optional structured metadata for `crypto-key-required` and
+    # related tradecraft. Analysts can hand this straight into a crypto
+    # extractor / brute-forcer without re-deriving the algorithm surface.
+    # Keys (all optional, populated when the flag has cryptographic
+    # semantics — safe to ignore for non-crypto flags):
+    #   algorithm       "AES", "RC4", "ChaCha20", "DES", "3DES", ...
+    #   mode            "CBC", "ECB", "GCM", "CTR", ...
+    #   key_len_bits    128 | 192 | 256 | ...
+    #   iv_len_bits     0 (ECB) | 64 (DES/RC4-nonce) | 96 (GCM) | 128 (CBC)
+    #   nonce_required  true when the algorithm requires a nonce (GCM/CTR/ChaCha20)
+    #   encoding        "base64", "hex", "raw", ...
+    #   confidence      0.0-1.0 — how sure we are about the algo identification
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class IOCBundle(BaseModel):

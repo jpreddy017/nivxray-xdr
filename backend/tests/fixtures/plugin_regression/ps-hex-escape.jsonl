@@ -1,2 +1,2 @@
 # ps-hex-escape · Golden Fixtures · RC3.2a
-{"case_id": "ps-charhex-ps", "description": "PowerShell [char]0xNN reconstruction", "input": "$([char]0x70+[char]0x6f+[char]0x77+[char]0x65+[char]0x72+[char]0x73+[char]0x68+[char]0x65+[char]0x6c+[char]0x6c)", "detect_min_confidence": 0.4, "expected_output_contains": ["powershell"]}
+{"case_id": "ps-xhex-stream", "description": "PowerShell $([char]0xNN) / \\xNN escape stream \u2265 10 tokens", "input": "\\x70\\x6f\\x77\\x65\\x72\\x73\\x68\\x65\\x6c\\x6c\\x2e\\x65\\x78\\x65 \\x2d\\x63 \\x63\\x61\\x6c\\x63", "detect_min_confidence": 0.4, "expected_output_contains": ["powershell.exe", "-c", "calc"]}

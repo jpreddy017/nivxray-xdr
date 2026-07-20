@@ -134,6 +134,25 @@ def test_plugin_golden_fixture(plugin_id: str, fixture: Dict[str, Any]) -> None:
             f"{src} — expected LOLBAS binary {b!r} not emitted (got {sorted(lolbas_bins)})"
         )
 
+    # ---- Family-hint check (intelligence plugins) --------------------
+    # Family plugins emit `family_hints` with a canonical family name +
+    # confidence in the decode() pass. Their detect() confidence is
+    # intentionally low (see FamilyPlugin base class), so the fixture
+    # opts into a stronger post-decode assertion here.
+    exp_family = fixture.get("expected_family")
+    if exp_family:
+        family_names = [h.family for h in (r.family_hints or [])]
+        assert exp_family in family_names, (
+            f"{src} — expected family {exp_family!r} not in family_hints "
+            f"(got {family_names})"
+        )
+        floor_fam = float(fixture.get("expected_family_min_confidence", 0.5))
+        hit = next(h for h in r.family_hints if h.family == exp_family)
+        assert hit.confidence >= floor_fam, (
+            f"{src} — family {exp_family!r} confidence {hit.confidence:.2f} < "
+            f"floor {floor_fam}"
+        )
+
 
 def test_every_registered_plugin_has_fixture_file():
     """Discoverability lock — the moment we ship a new plugin it MUST land
