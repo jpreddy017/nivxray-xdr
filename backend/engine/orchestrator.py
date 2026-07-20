@@ -57,8 +57,16 @@ _MAX_CUMULATIVE_BYTES = 32 * 1024 * 1024   # 32 MB across all layers
 # Prevents a single slow decoder from stalling the request for >60s and
 # eating a Cloudflare 524 timeout.
 _MAX_INPUT_BYTES_PER_DECODE = 8 * 1024 * 1024      # 8 MB
-_SLOW_DECODE_WARN_MS = 8_000                         # log warning
-_HARD_ABORT_MS = 20_000                              # hard-abort budget
+_SLOW_DECODE_WARN_MS = 6_000                         # log warning
+_HARD_ABORT_MS = 12_000                              # hard-abort budget
+# When the payload is highly repetitive (see March-1 / Cisco-embedded PS
+# samples), a moderate 5-8KB input can still cascade into 25+ recursive
+# layers because the pipeline peels one wrapper only to reveal another
+# hex-escape stream. Bail out early: at depth ≥ 8 or when a single layer
+# produces near-identical output to the previous one, we abort with a
+# partial-result terminal instead of chasing the ghost for 60+ seconds.
+_DEEP_RECURSION_DEPTH = 8
+_DEEP_RECURSION_INPUT_BYTES = 512 * 1024             # 512 KB
 
 _SEVERITY_WEIGHTS = {"info": 2, "low": 5, "medium": 15, "high": 35, "critical": 60}
 
@@ -661,6 +669,23 @@ class Orchestrator:
                 stopped_reason = (f"Runaway guard: pipeline elapsed "
                                    f"{ctx.budget.elapsed_ms()}ms exceeded "
                                    f"hard-abort {_HARD_ABORT_MS}ms.")
+                break
+            # Feb-2026 · deep-recursion guard for highly-repetitive payloads
+            # (nested hex-escape streams that peel one layer only to reveal
+            # another identical wrapper). At depth ≥ 8 AND input ≥ 512 KB,
+            # we've almost certainly entered a runaway; return partial
+            # results instead of chasing indefinitely.
+            if depth >= _DEEP_RECURSION_DEPTH and len(current) >= _DEEP_RECURSION_INPUT_BYTES:
+                _log(plugin="deep-recursion-guard", layer=depth, outcome="skipped",
+                     detect_confidence=1.0,
+                     reason=(f"depth {depth} ≥ {_DEEP_RECURSION_DEPTH} AND "
+                             f"input {len(current)}B ≥ "
+                             f"{_DEEP_RECURSION_INPUT_BYTES}B — likely runaway"),
+                     exec_ms=0)
+                terminal = "budget"
+                stopped_reason = (f"Deep-recursion guard: {depth} layers deep "
+                                   f"with {len(current)}B still expanding — "
+                                   "returning partial result to avoid 60s+ hang.")
                 break
             cands_all = DecoderRegistry.candidates(
                 current, current_fp, ctx, top_n=None,

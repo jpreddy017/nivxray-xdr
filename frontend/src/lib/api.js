@@ -8,7 +8,12 @@ export const API_BASE = `${BACKEND_URL}/api`;
 // so the user gets an actionable NivXRay error instead of a Cloudflare 524
 // page. Deep decoders (magic on huge inputs) get a middle-ground 60s.
 const TIMEOUT_LLM     = 90_000;   // /ai/*, /decode/chain/narrative
-const TIMEOUT_DECODE  = 60_000;   // /decode/smart, /decode/magic, /decode/chain, /analyze
+// RC3.0 · Feb-2026 — decode endpoints get 90s of grace time. The
+// backend's hard-abort is 12s (`_HARD_ABORT_MS` in orchestrator.py),
+// but the intelligence/enrichment pass (MITRE, LOLBAS, IOC, verdict-card
+// rebuild) adds up to ~20-40s on very large samples. 90s comfortably
+// covers the tail without letting the analyst wait forever on runaways.
+const TIMEOUT_DECODE  = 90_000;   // /decode/smart, /decode/magic, /decode/chain, /analyze
 const TIMEOUT_DEFAULT = 30_000;   // everything else (auth, history, admin, etc.)
 
 const pickTimeout = (url = "") => {
