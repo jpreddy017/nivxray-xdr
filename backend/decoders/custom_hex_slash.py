@@ -101,32 +101,50 @@ class CustomHexSlashDecoder(BaseDecoder):
         )
 
     def decode(self, payload: str, args: Dict[str, Any], ctx: AnalysisContext) -> PluginResult:
-        _, data, count = _try_extract(payload)
-        if not data:
+        # Feb 2026 — RECURSIVE peel (max 5 iterations). Real-world samples
+        # (Immediate1/3, Finetune, Big Whale) wrap the payload in 2-3 nested
+        # layers of hex-with-separator; the pipeline used to stop after the
+        # FIRST peel, leaving `;3;;3;;3;;` residue that the downstream
+        # xor-brute then misinterpreted. Bounded loop prevents infinite
+        # regress on pathological inputs.
+        current = payload
+        total_tokens = 0
+        peels = 0
+        for _ in range(5):
+            _, data, count = _try_extract(current)
+            if not data or count < 10:
+                break
+            current = data.decode("latin-1")
+            total_tokens += count
+            peels += 1
+        if peels == 0:
             return PluginResult(output="", notes=["no hex tokens matched"])
-        # Emit as latin-1 so binary bytes survive round-trip in the pipeline.
         return PluginResult(
-            output=data.decode("latin-1"),
+            output=current,
             output_is_binary=True,
-            notes=[f"Extracted {count} byte(s) from custom hex-separator format"],
+            notes=[
+                f"Extracted {total_tokens} byte(s) via {peels}× recursive "
+                f"custom hex-separator peel",
+            ],
             mitre_hints=[
                 MitreHint(
                     id="T1027.001",
                     technique="Binary Padding",
                     tactic="Defense Evasion",
-                    evidence="Custom ASCII-hex encoding with exotic separator",
+                    evidence=f"Nested ASCII-hex encoding ({peels} layers deep)",
                     source="heuristic",
                 ),
             ],
             tradecraft=[
                 TradecraftFlag(
                     flag="custom-hex-obfuscation", severity="medium",
-                    evidence=f"{count} hex tokens joined by separator",
+                    evidence=f"{total_tokens} hex tokens across {peels} nested layers",
                 ),
             ],
             explanation=(
                 "Peeled a custom hex-with-separator encoding often used by "
                 "loader scripts to smuggle binary through Base64 wrappers."
+                + (f" Detected {peels} nested layers." if peels > 1 else "")
             ),
         )
 

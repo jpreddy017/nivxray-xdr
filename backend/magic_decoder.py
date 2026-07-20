@@ -562,9 +562,18 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
             1 for c in s if ord(c) < 32 and c not in "\t\r\n"
         ) / max(1, len(s))
         looks_binary = len(s) >= 16 and ctrl_ratio >= 0.10
+        # Feb 2026 · Skip XOR-brute when the buffer is already a CLEAN
+        # encoded string (base64 / URL-encoded / hex) — this is the "one
+        # more decode layer" state, NOT a XOR ciphertext. Running xor-brute
+        # here caused the Immediate1/3 / Finetune / Big Whale false positives
+        # (over-shoot yielded `sN6#aEZsn…` gibberish).
+        looks_urlenc = ("%" in s and re.search(r"%[0-9a-fA-F]{2}", s) is not None)
+        clean_encoded = len(s) >= 16 and ctrl_ratio < 0.03 and (
+            looks_b64 or looks_hex or looks_urlenc
+        )
         if len(s) >= 16 and (
             (s_ent >= 4.5 and (looks_b64 or looks_hex)) or looks_binary
-        ):
+        ) and not clean_encoded:
             cands.append({"op": "xor-brute", "args": {"key_len": "auto"}})
     except Exception:
         pass

@@ -745,6 +745,23 @@ _XOR_WORDHIT_TOKENS = (
     b" the ", b" and ", b" for ", b" this ", b" that ", b" with ",
     b" from ", b" not ", b" but ", b" you ", b" are ", b" was ",
     b" your ", b" have ", b" will ",
+    # C2 framework markers (PoshC2 / Cobalt Strike / Donut / Metasploit)
+    # Ref: redteaming.co.uk PoshC2 shellcode + binary-patching post.
+    # These let a base64(xor(shellcode)) reveal-the-loader pass through the
+    # plausibility guard even without English content in the decoded payload.
+    b"mscoree.dll", b"clr.dll", b"CorBindTo", b"CreateInstance",
+    b"AppDomain", b"ICorRuntimeHost", b"ExecuteInDefaultAppDomain",
+    b"ReflectiveLoader", b"sRDI", b"srdi",
+    b"WinHttp", b"WinInet", b"WinExec", b"CreateProcess", b"VirtualAlloc",
+    b"LoadLibrary", b"GetProcAddress", b"kernel32", b"ntdll",
+    b"System.Convert", b"FromBase64String", b"System.Reflection",
+    b"Assembly.Load", b"Add-Type", b"[Reflection.Assembly]",
+    b"user32.dll", b"advapi32.dll", b"ws2_32", b"wininet.dll",
+    b"cmd /c", b"cmd.exe /c", b"-EncodedCommand", b"-encodedcommand",
+    b"IEX(", b"iex(", b"Invoke-Expression",
+    # Meterpreter / MSFvenom / Empire user-agents & UA strings that survive
+    # XOR-decoded shellcode dumps.
+    b"Mozilla/", b"Chrome/", b"MSIE ", b"Trident/",
 )
 
 

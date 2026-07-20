@@ -971,6 +971,36 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                 "family":     None,
                 "undecoded":  True,
             }
+
+        # ── Feb 2026 · Terminal-output plausibility check ───────────────
+        # Even when the pipeline peels several layers, the FINAL output
+        # can still be gibberish (over-shooting XOR, missed nested-hex).
+        # If the terminal text has neither shell tokens nor magic bytes
+        # AND no IOC/MITRE/LOLBAS were extracted, downgrade to
+        # "Partial · Undecoded" instead of a misleading Malicious card.
+        elif _out_clean and _out_clean != _in_raw and _no_findings:
+            try:
+                from ops_extended import _wordhits as _wh
+                from ops_extended import _score_downstream_magic as _mag
+                _bytes = _out_clean.encode("latin-1", errors="replace")
+                if _wh(_bytes) < 2 and _mag(_bytes) < 0.30:
+                    result["verdict_card"] = {
+                        "verdict":    "Partial",
+                        "label":      "Partial Decode",
+                        "risk_score": 20,
+                        "confidence": 20,
+                        "summary":    "Pipeline peeled layers but terminal output isn't recognisable plaintext.",
+                        "reasons": [
+                            f"Chain applied {len(_steps)} layer(s) but produced no shell tokens, magic bytes, or IOCs.",
+                            "Likely over-shot (extra XOR/brute pass) OR under-shot (nested obfuscation not fully unwrapped).",
+                            "Try: disable XOR-brute in ADVANCED, or add manual `custom-hex-slash`/`ps-hex-escape` step.",
+                        ],
+                        "family":    None,
+                        "undecoded": True,
+                        "partial":   True,
+                    }
+            except Exception:
+                pass
     except Exception:
         pass
 

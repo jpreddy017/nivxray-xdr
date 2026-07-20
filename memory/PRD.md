@@ -30,6 +30,15 @@
 ### ✅ Phase D.4 · NjRAT family detector  ← DELIVERED (RC3.4 · Feb-2026 · 7 MITRE, `|'|'|` splitter)
 ### ✅ Phase D.5 · Emotet family detector  ← DELIVERED (RC3.4 · Feb-2026 · 10 MITRE, XL4 + `@`-URL list)
 ### ✅ Phase D.6 · Cobalt Strike Beacon config extractor  ← DELIVERED (RC3.5 · Feb-2026 · full TLV parser, XOR v3/v4/plaintext, structured C2 IOCs)
+### 🔧 RC3.9 (WIP · 2026-07-20) · Decoder-plausibility guards
+    Delivered:
+    - `custom-hex-slash` now peels recursively (max 5 iterations) — handles nested-hex-escape wrappers (Immediate1 / Big Whale).
+    - `_XOR_WORDHIT_TOKENS` extended with PoshC2 / Cobalt Strike / Donut / MSFvenom markers (`mscoree.dll`, `clr.dll`, `sRDI`, `ReflectiveLoader`, `AppDomain`, `LoadLibrary`, `Mozilla/`, etc.) — real shellcode dumps now pass the plausibility guard even without English content.
+    - `magic_decoder.py` no longer queues `xor-brute` when input is CLEAN base64 / URL-encoded / hex (`ctrl_ratio < 0.03` + no non-printable chars) — prevents the "over-shoot yields `sN6#aEZsn…` gibberish" false positive.
+    - `ops.decode_smart` verdict guard extended: **Partial Decode** verdict (risk 20, `partial: True`) when pipeline peeled layers but terminal output has no shell tokens / magic bytes / IOCs.
+    Still open — needs fresh-session investigation:
+    - Some cases (Immediate1/3, Finetune, Big Whale) still emit `;3;;3;;` or `sN6#aEZsn…` because the `rc2-orchestrator` (`engine/orchestrator.py`) has its own candidate-generation logic that bypasses `magic_decoder._candidates`. The orchestrator needs its own "clean-encoded skip xor-brute" guard mirroring the one in magic_decoder.
+    - `Partial` verdict downgrade only fires when `_no_findings` — but these cases DO surface LOLBAS/MITRE from the wrapper, so verdict stays `Malicious 70/100`. Needs the plausibility check to consider "wrapper-only findings vs decoded-payload findings" separately.
 ### ✅ RC3.8 · Case Library + Sigma Export + Documents UI + Family-Op registration  ← DELIVERED (2026-07-20)
     - **📁 Case Library Drawer** (`components/CasesDrawer.jsx`): 720-px slide-out sibling to History showing every saved case (28 total) with verdict badge (Malicious/Suspicious/Undecoded/Corrupted), engine, in/out sizes and 4 row-actions: **RE-DECODE / SIGMA / OPEN / 🗑**. `💾 CASES` button lives next to `📜 HISTORY` in the workspace toolbar.
     - **🎯 Sigma Auto-Export** (`sigma_export.py` + `GET /cases/{id}/sigma`): deterministic YAML rule generator. Reads verdict + IOCs + MITRE + LOLBAS + decode chain → emits process_creation OR network_connection Sigma rule with `attack.tXXXX` tags and the exact CommandLine substring as the trigger. Verified on Lookintoit → `attack.t1027/t1055/t1140/t1620` + `[System.Convert]::FromBase64String(` trigger.
