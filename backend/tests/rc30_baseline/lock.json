@@ -7,11 +7,12 @@
     "verdict_precision":    {"value": 29, "of": 31},
     "false_positive_iocs":  {"value": 0,  "ceiling": 0},
     "avg_latency_ms":       {"value": 500, "ceiling": 800},
-    "pytest_total_passing": 181,
-    "plugin_golden_fixtures": 59,
+    "pytest_total_passing": 185,
+    "plugin_golden_fixtures": 63,
     "family_detectors":     ["asyncrat", "cobalt-strike", "meterpreter",
                              "remcos", "quasarrat", "darkgate", "lumma",
-                             "agent-tesla", "snake-keylogger", "xworm"]
+                             "agent-tesla", "snake-keylogger", "xworm",
+                             "redline"]
   },
   "frontend_ux_locks": {
     "primary_button":        "★ AUTO INVESTIGATE",

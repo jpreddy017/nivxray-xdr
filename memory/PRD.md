@@ -25,6 +25,7 @@
 ### ✅ H · P1 · IR Handoff Export (.md / .pdf)  ← DELIVERED (RC3.1 · Feb-2026, MD + PDF + JSON + STIX 2.1)
 ### ✅ E · P1 · Golden-fixture regression battery  ← DELIVERED (RC3.2a · 59 fixtures / 32 plugins)
 ### ✅ Phase D.1 · XWorm family detector  ← DELIVERED (RC3.2b · Feb-2026 · 7 MITRE techniques, YARA + ART)
+### ✅ Phase D.2 · RedLine family detector  ← DELIVERED (RC3.3 · Feb-2026 · 8 MITRE techniques, YARA + ART)
 ### ✅ G · P1 · Enrich `crypto-key-required` tradecraft  ← DELIVERED (RC3.2c · structured metadata schema)
 ### ✅ F · P1 · Phase C.5 · ChaCha20 / AES-GCM / AES-CTR / DES / 3DES shape detection  ← DELIVERED (RC3.2c)
 

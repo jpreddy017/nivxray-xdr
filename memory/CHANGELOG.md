@@ -5,6 +5,48 @@ Chronological record of significant releases (newest first).
 
 ---
 
+## RC3.3 — Malware-Family Expansion (D.2 RedLine) · 2026-02-21
+
+**Status:** ✅ Ready to ship (extends RC3.2 baseline)
+**Tag recommended:** `v1.0.0-RC3.3`
+**Tests:** 185/185 CI gate pytest (+4 · RedLine golden fixtures) · 63 plugin-golden fixtures across 33 plugins · 11 family detectors
+
+### 🦠 RC3.3 · RedLine Stealer family detector (D.2)
+
+- New `decoders/families/redline.py` — 10 weighted signatures covering the RedLine panel namespace, `IRemoteEndpoint` SOAP contract, `ScanBrowsers/ScanWallets/ScanTelegram/ScanDiscord/ScanSteam/ScanFTP/ScanFiles` feature enum, `V20-V23` version banner, Rijndael/3DES helpers, and IP-check services (`api.ip.sb`, `iplogger.org`).
+- **8 canonical MITRE mappings:** T1555.003 (Web-browser creds), T1005 (Local data collection), T1113 (Screen capture), T1082 (System info discovery), T1071.001 (Web-protocol C2), T1573.001 (Symmetric-crypto C2), T1547.001 (Startup persistence), T1041 (C2 exfiltration).
+- Auto-generated YARA seed `MAL_RedLine_Stealer` + Atomic Red Team pointer T1555.003.
+- End-to-end verified: RedLine V23 config → `verdict=malicious · risk=83 · family=RedLine(1.00) · 9 MITRE techniques`.
+- 4 golden regression fixtures locking panel namespace, ScanRules feature flags, V23 version banner, and strings-dump correlation.
+
+### 📊 CI-gate deltas (RC3.2 → RC3.3)
+
+| Metric                     | RC3.2 | RC3.3 |
+|----------------------------|-------|-------|
+| Pytest passing (gate)      | 181   | **185** |
+| Plugin golden fixtures     | 59    | **63**  |
+| Family detectors           | 10    | **11 (+ RedLine)** |
+| Chain completeness         | 96.8% | 96.8% (held) |
+| Verdict precision          | 29/31 | 29/31 (held) |
+| Avg latency                | 241ms | 241ms (held) |
+
+### 🐛 Deferred to RC3.1.1 hotfix (production findings only)
+
+- **PROD-BUG-1** verdict tri-state UI inconsistency (Malicious 70% vs Threat Analysis rail Benign 13/100 on same case)
+- **PROD-BUG-4** OUTPUT panel showing INPUT bytes instead of decoded terminal-layer payload
+- **PROD-BUG-6** post-decode extractor skipping `pe-executable-payload` tradecraft when terminal layer is a valid PE
+- **PROD-BUG-2** LOLBAS false-positives on garbled binary tail
+- **PROD-BUG-3** IOC extractor should re-run on previous printable layer when terminal is corrupt
+
+### 🟢 Next up
+
+- **RC3.4** — D.3 FormBook · D.4 NjRAT · D.5 Emotet (same RedLine/XWorm template)
+- **RC3.1.1** — batch-ship all 5 production hotfixes with saved-case regression from field-test
+
+
+
+---
+
 ## RC3.2 — Deterministic Coverage Sprint · 2026-02-21
 
 **Status:** ✅ Ready to ship (Preview verified · CI gate green)
