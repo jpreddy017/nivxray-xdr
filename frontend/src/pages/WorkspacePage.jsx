@@ -268,9 +268,11 @@ export default function WorkspacePage() {
       .then((r) => {
         const enabled = (r.data || []).filter((m) => m.enabled);
         setPersonas(enabled);
-        // Auto-select the flagship "NivX Cognis" persona if present and no persona selected yet
-        const cognis = enabled.find((m) => /nivx\s*cognis/i.test(m.name));
-        if (cognis && !personaId) setPersonaId(cognis.id);
+        // RC3.0 (Feb-2026): DO NOT auto-select an AI persona. Deterministic-
+        // only is the product default — analysts opt IN to AI narrative by
+        // picking a persona explicitly. Every technical panel (Verdict,
+        // MITRE, IOCs, LOLBAS, Recovered Payload) populates identically
+        // whether an AI persona is active or not.
       })
       .catch(() => setPersonas([]));
     api.get("/admin/models?kind=ai_provider")
@@ -926,8 +928,13 @@ export default function WorkspacePage() {
       setLoading(false);
 
       // 2) Analysis via async job polling (bypasses 60s proxy timeout)
+      // RC3.0: AI narrative + AI verdict fire ONLY when the analyst has
+      // explicitly picked an AI persona (personaId non-empty). PLAIN mode
+      // keeps everything deterministic — no LLM latency, no LLM cost.
+      const aiEnabled = !!personaId;
       pollAnalyzeJob(
-        { input, output: r.data.output || "", enrich_osint: true, describe: true, use_ai_verdict: true,
+        { input, output: r.data.output || "", enrich_osint: true,
+          describe: aiEnabled, use_ai_verdict: aiEnabled,
           persona_id: personaId || undefined, provider_id: providerId || undefined },
         newChain,
       );
@@ -1000,8 +1007,12 @@ export default function WorkspacePage() {
     if (typeof fmt !== "string") fmt = "html";
     setStatus(`GENERATING ${fmt.toUpperCase()} REPORT...`);
     try {
+      const aiEnabled = !!personaId;
       const r = await api.post(`/report/${fmt}`,
-        { input, output, enrich_osint: true, describe: !!output, use_ai_verdict: !!output },
+        { input, output, enrich_osint: true,
+          describe: !!output && aiEnabled,
+          use_ai_verdict: !!output && aiEnabled,
+          persona_id: personaId || undefined, provider_id: providerId || undefined },
         { responseType: "blob" }
       );
       const disp = r.headers?.["x-filename"] || r.headers?.["content-disposition"] || "";
@@ -1150,7 +1161,7 @@ export default function WorkspacePage() {
                 }
                 style={{ padding: "4px 8px", fontSize: 11, height: 28, background: "var(--inset)" }}
               >
-                <option value="">PERSONA · Default (JSON)</option>
+                <option value="">★ PLAIN · Deterministic (no AI)</option>
                 {personas.map((p) => (
                   <option key={p.id} value={p.id}>
                     {`${/nivx\s*cognis/i.test(p.name) ? "★ PERSONA · " : "PERSONA · "}${p.name}`}
