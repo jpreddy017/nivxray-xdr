@@ -839,13 +839,25 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         from investigation_report import synthesize_report
         vc = result.get("verdict_card") or {}
         risk = None
+        # RC3.1.1 hotfix (PROD-BUG-1): the embedded Investigation Summary
+        # was rendering "conf 0/100" because `result['confidence']` reflects
+        # the deterministic DECODE confidence (0.0 for a plain base64→PE
+        # decode), not the analyst-facing THREAT confidence. Unify: prefer
+        # verdict_card.risk_score / verdict_card.confidence, which is what
+        # the Analysis Verdict card and Threat Analysis rail also show.
+        vc_score = vc.get("risk_score") or vc.get("score")
+        vc_conf  = vc.get("confidence")
+        if vc_score is None and isinstance(vc_conf, (int, float)):
+            vc_score = int(round(float(vc_conf) * 100)) if vc_conf <= 1 else int(vc_conf)
         if vc and vc.get("verdict"):
-            risk = {"verdict": vc.get("verdict"), "score": vc.get("score")}
+            risk = {"verdict": vc.get("verdict"), "score": vc_score}
+        # Investigation-summary confidence follows the same source of truth.
+        summary_confidence = vc_score if vc_score is not None else result.get("confidence")
         report_txt = synthesize_report(
             input_text=body.input or "",
             output_text=result.get("output") or "",
             engine=result.get("engine"),
-            confidence=result.get("confidence"),
+            confidence=summary_confidence,
             steps=[{"op": s["op"]} for s in det.get("steps") or []],
             iocs=result.get("iocs") or {},
             mitre=result.get("mitre") or [],

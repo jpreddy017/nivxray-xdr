@@ -128,13 +128,76 @@ def _merge_iocs(bundle: IOCBundle, add: dict) -> None:
                 target.append(item)
 
 
+def _printable_ratio_bytes(s: str) -> float:
+    """Same printable-ratio calc as html_unicode_escape uses. Kept inline
+    to avoid a cross-decoder import; the surface is only 4 lines."""
+    if not s:
+        return 0.0
+    ok = sum(1 for c in s if (0x20 <= ord(c) < 0x7f) or c in "\r\n\t")
+    return ok / len(s)
+
+
+def _post_decode_pe_check(findings: Findings, final_output: str) -> None:
+    """RC3.1.1 hotfix (PROD-BUG-6): when the terminal decode layer is a
+    valid PE (MZ + PE\\0\\0), surface a ``pe-executable-payload``
+    tradecraft flag + T1204.002 / T1105 MITRE hints. Without this the
+    Behavior panel stays empty for the canonical `base64 → PE loader`
+    case even though the payload is unambiguously a Windows executable
+    dropped as a decoded artefact."""
+    try:
+        from .models import TradecraftFlag, MitreHint
+    except Exception:                              # pragma: no cover
+        return
+    if not final_output:
+        return
+    # latin-1 lets a Python str hold arbitrary byte values 0-255.
+    try:
+        raw = final_output.encode("latin-1", errors="ignore")
+    except Exception:                              # pragma: no cover
+        return
+    if len(raw) < 0x40 or not raw.startswith(b"MZ"):
+        return
+    try:
+        e_lfanew = int.from_bytes(raw[0x3c:0x40], "little", signed=False)
+    except Exception:                              # pragma: no cover
+        return
+    if not (0 < e_lfanew < len(raw) - 4) or raw[e_lfanew:e_lfanew + 4] != b"PE\x00\x00":
+        return
+    # Avoid duplicates on re-analyse.
+    if any(t.flag == "pe-executable-payload" for t in findings.tradecraft):
+        return
+    findings.tradecraft.append(TradecraftFlag(
+        flag="pe-executable-payload",
+        severity="high",
+        evidence=(f"Terminal decode layer is a valid Windows PE binary "
+                  f"(MZ + PE\\0\\0 at offset 0x{e_lfanew:x}, {len(raw)} bytes) — "
+                  "a base64-wrapped executable dropper."),
+        metadata={"format": "PE", "e_lfanew": e_lfanew, "byte_len": len(raw)},
+    ))
+    for tid, tech, tac in (
+        ("T1204.002", "Malicious File", "Execution"),
+        ("T1105",     "Ingress Tool Transfer", "Command and Control"),
+    ):
+        if any(h.id == tid and h.source == "pe-check" for h in findings.mitre_techniques):
+            continue
+        findings.mitre_techniques.append(MitreHint(
+            id=tid, name=tech, source="pe-check",
+            evidence="Terminal decode layer is a valid Windows PE binary",
+        ))
+
+
 def _post_decode_lolbas_scan(findings: Findings, final_output: str, raw_input: str) -> None:
     """RC3.1 · Run the global LOLBAS scanner across the concatenated raw +
     decoded surface and merge any hits back into `findings.lolbas` / MITRE.
     Individual decoder plugins only emit LOLBAS for the wrappers they
     recognise (powershell, cmd, mshta, python); the global scanner covers
     the full corpus (certutil, regsvr32, bitsadmin, rundll32, wmic, hh,
-    msiexec, cscript, wscript, msbuild, installutil, etc.)."""
+    msiexec, cscript, wscript, msbuild, installutil, etc.).
+
+    RC3.1.1 hotfix (PROD-BUG-2): gate the scan behind a printable-ratio
+    check so garbled binary tails (PE / shellcode residue) don't
+    accidentally match binary names like `Control.exe` / `Remote.exe`.
+    """
     try:
         from lolbas import scan_lolbas          # local import: avoids cycle
         from .models import LolbasHit, MitreHint
@@ -144,6 +207,19 @@ def _post_decode_lolbas_scan(findings: Findings, final_output: str, raw_input: s
     seen_bins = {h.binary.lower() for h in findings.lolbas}
     seen_mitre = {(h.id, h.source) for h in findings.mitre_techniques}
     text = ((raw_input or "") + "\n" + (final_output or ""))[:200_000]
+
+    # PROD-BUG-2 gate: bail out if the surface is high-entropy binary
+    # noise. Analysts don't want `Control.exe` / `Remote.exe` false-
+    # positives from a PE binary tail; a printable-ratio floor of 0.60
+    # keeps clean plaintext samples in scope while excluding raw PEs
+    # and shellcode dumps.
+    if _printable_ratio_bytes(text) < 0.60:
+        # Still allow the input side to be scanned (it may be a plaintext
+        # command line) even if the decoded tail is binary.
+        text = (raw_input or "")[:200_000]
+        if _printable_ratio_bytes(text) < 0.60:
+            return
+
     try:
         hits = scan_lolbas(text) or []
     except Exception:                              # pragma: no cover
@@ -1071,6 +1147,7 @@ class Orchestrator:
         # analysts get certutil/mshta/regsvr32/bitsadmin/… coverage even
         # when the wrapper decoder didn't fire.
         _post_decode_lolbas_scan(findings, current, payload or "")
+        _post_decode_pe_check(findings, current)
         breakdown = _compute_confidence_breakdown(
             findings,
             decode_depth=len(ctx.trace.steps),

@@ -66,11 +66,36 @@ export default function ThreatAnalysis({
               testidPrefix="ta-playbook-feedback"
             />
           )}
-          {analysis?.risk && (
-            <span className={`badge ${analysis.risk.level}`} data-testid="risk-badge">
-              {analysis.risk.verdict} · {analysis.risk.score}/100
-            </span>
-          )}
+          {/* RC3.1.1 hotfix: verdict tri-state unification.
+              The single source of truth is `analysis.verdict_card`. The
+              legacy `analysis.risk` object only lives on old sync paths
+              and would otherwise render "Benign 13/100" while the Analysis
+              Verdict card correctly says "Malicious 70%". Prefer the
+              verdict_card; fall back to risk only when the card is empty. */}
+          {(() => {
+            const vc = analysis?.verdict_card;
+            const rk = analysis?.risk;
+            if (vc && vc.verdict) {
+              const label = (vc.verdict[0]?.toUpperCase() + vc.verdict.slice(1)) || "Unknown";
+              const score = Math.max(0, Math.min(100, Math.round(vc.risk_score ?? vc.score ?? 0)));
+              const level = vc.verdict === "malicious" ? "high"
+                          : vc.verdict === "suspicious" ? "medium"
+                          : vc.verdict === "needs_review" ? "low" : "safe";
+              return (
+                <span className={`badge ${level}`} data-testid="risk-badge">
+                  {label} · {score}/100
+                </span>
+              );
+            }
+            if (rk) {
+              return (
+                <span className={`badge ${rk.level}`} data-testid="risk-badge">
+                  {rk.verdict} · {rk.score}/100
+                </span>
+              );
+            }
+            return null;
+          })()}
         </div>
       </div>
 

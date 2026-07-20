@@ -950,7 +950,20 @@ export default function WorkspacePage() {
       const r = await api.post("/decode/smart", { input });
       const newSteps = (r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} }));
       setSteps(newSteps);
-      setOutput(r.data.output || "");
+      // RC3.1.1 hotfix (PROD-BUG-4): OUTPUT panel was echoing INPUT when
+      // the deterministic engine returned the raw input (e.g. PE binary
+      // decoded from base64 — result.output is the raw PE bytes, but the
+      // report-synthesis path in ops.py may prepend an Investigation
+      // Summary and the raw output tail can look identical to the input
+      // in the OUTPUT panel because the browser can't render binary).
+      // Prefer the terminal-layer preview when available and when the
+      // raw `r.data.output` byte-matches the raw input (safety net).
+      const _rawOut = r.data.output || "";
+      const _lastTraceLayer = (r.data.trace || []).slice(-1)[0];
+      const _outEqInput = _rawOut && _rawOut === input;
+      setOutput(_outEqInput && _lastTraceLayer?.output_preview
+                  ? _lastTraceLayer.output_preview
+                  : _rawOut);
       setDetected(r.data.detected_type || null);
       const newChain = (r.data.recipe || []).map((s, i) => ({
         op: s.op, reason: s.reason || "",
