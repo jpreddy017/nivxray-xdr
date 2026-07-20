@@ -1223,6 +1223,31 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                     result["transformation_trace"] = trace_now
             except Exception:
                 pass
+
+        # RC4.3 · PowerShell Normalization + Runtime Reconstruction —
+        # fires when input contains `powershell` (any case) AND either commas
+        # as token separators OR any mixed-case parameter name.
+        if _re.search(r"powershell(?:\.exe)?", src, _re.IGNORECASE) and (
+                _re.search(r",\s*-?[A-Za-z]", src) or
+                _re.search(r"-[A-Za-z]*[A-Z][A-Za-z]*[a-z][A-Za-z]*[A-Z]",
+                            src)):
+            from operations import run_operation as _run_op_ps_norm
+            try:
+                norm_out = _run_op_ps_norm("powershell-normalize", src, {})
+                if norm_out and not norm_out.startswith("(powershell-normalize"):
+                    result["output_raw"] = norm_out + "\n" + str(result.get("output_raw") or "")
+                    if "powershell-normalize" not in {r.get("op") for r in (result.get("recipe") or [])}:
+                        result["recipe"] = [{"op": "powershell-normalize",
+                                              "detail": "PS command-line normalization + runtime simulation"}] + (result.get("recipe") or [])
+                    trace_now = result.get("transformation_trace") or []
+                    for line in norm_out.split("\n"):
+                        line = line.strip()
+                        if line.startswith("Step ") or line.startswith("Reconstructed") \
+                                or line.startswith("Runtime Output"):
+                            trace_now.append({"step": "ps-normalize", "detail": line[:200]})
+                    result["transformation_trace"] = trace_now
+            except Exception:
+                pass
     except Exception:
         pass
 

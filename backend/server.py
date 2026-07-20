@@ -38,6 +38,7 @@ from decoders import ps_inline_eval  # noqa: F401  — powershell-hex-csv-inline
 from decoders import batch_envvar_substitute  # noqa: F401  — batch-envvar-substitute + cmd-envvar-substring-picker
 from decoders import ps_reverse_swap  # noqa: F401  — powershell-reverse-string + powershell-reverse-regex-swap
 from decoders import ps_semantic_mini  # noqa: F401  — RC4.2 chain evaluator
+from decoders import ps_normalizer  # noqa: F401  — RC4.3 PS normalizer + runtime simulator
 from decoders import crypto_api_annotator  # noqa: F401  — crypto-api-annotator (RC4.1)
 from decoders import rc4_inline_decrypt  # noqa: F401  — rc4-inline-decrypt (RC4.1)
 from decoders import rc40_orchestrator_plugins  # noqa: F401  — orchestrator plugins for RC4.0 decoders

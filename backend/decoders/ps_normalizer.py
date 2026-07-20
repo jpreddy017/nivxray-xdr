@@ -1,0 +1,247 @@
+"""RC4.3 · PowerShell Normalization & Runtime Reconstruction (Feb 2026).
+
+Deterministically mimics PowerShell's argument-parsing stage before execution:
+
+  * Normalizes comma-token separators to spaces (only outside quoted strings)
+  * Canonicalizes `powershell.exe` casing
+  * Canonicalizes parameter names case-insensitively
+    (`-NoPrOfIlE` → `-NoProfile`, `-ExEcUtIoNpOlIcY` → `-ExecutionPolicy`,
+     `ByPaSs` → `Bypass`, `-CoMmAnD` → `-Command`, ...)
+  * Preserves quoted payloads exactly
+  * If the payload is a safe built-in (`Write-Host`, `Write-Output`, `Echo`,
+    `Out-Host`), emits a deterministic "Runtime Output (Simulation)".
+  * Never emulates Invoke-Expression, external binaries, network,
+    registry, process-creation, or anything dangerous.
+
+Zero LLM. Zero heuristics. Zero invented output.
+"""
+from __future__ import annotations
+import re
+from typing import Any, Dict, List, Tuple
+from operations import op
+
+
+# ── Parameter canonicalization map ────────────────────────────────
+_CANONICAL_PARAMS = {
+    "noprofile": "-NoProfile",
+    "noninteractive": "-NonInteractive",
+    "nologo": "-NoLogo",
+    "noexit": "-NoExit",
+    "executionpolicy": "-ExecutionPolicy",
+    "command": "-Command",
+    "encodedcommand": "-EncodedCommand",
+    "enc": "-EncodedCommand",
+    "windowstyle": "-WindowStyle",
+    "w": "-WindowStyle",
+    "file": "-File",
+    "inputformat": "-InputFormat",
+    "outputformat": "-OutputFormat",
+    "psconsolefile": "-PSConsoleFile",
+    "version": "-Version",
+    "sta": "-STA",
+    "mta": "-MTA",
+}
+_CANONICAL_VALUES = {
+    "bypass": "Bypass",
+    "unrestricted": "Unrestricted",
+    "restricted": "Restricted",
+    "remotesigned": "RemoteSigned",
+    "allsigned": "AllSigned",
+    "hidden": "Hidden",
+    "normal": "Normal",
+    "minimized": "Minimized",
+    "maximized": "Maximized",
+}
+_CANONICAL_EXE = {
+    "powershell.exe": "powershell.exe",
+    "powershell": "powershell.exe",
+    "pwsh.exe":      "pwsh.exe",
+    "pwsh":          "pwsh.exe",
+    "cmd.exe":       "cmd.exe",
+    "cmd":           "cmd.exe",
+}
+
+
+# ── Quote-aware tokenizer ─────────────────────────────────────────
+def _tokenize(cmd: str) -> List[Tuple[str, str]]:
+    """Return list of (kind, value). kind ∈ {'quoted', 'raw', 'sep'}.
+    Preserves quoted strings verbatim (single or double)."""
+    tokens: List[Tuple[str, str]] = []
+    i = 0
+    n = len(cmd)
+    while i < n:
+        c = cmd[i]
+        if c in ('"', "'"):
+            # Find matching close quote — handle escaped `` and doubled quotes
+            j = i + 1
+            while j < n:
+                if cmd[j] == "`" and j + 1 < n:
+                    j += 2; continue
+                if cmd[j] == c:
+                    if j + 1 < n and cmd[j + 1] == c:  # doubled = literal
+                        j += 2; continue
+                    break
+                j += 1
+            tokens.append(("quoted", cmd[i:j + 1]))
+            i = j + 1
+        elif c in (" ", "\t", ","):
+            # Comma acts as separator ONLY outside quotes (already handled)
+            tokens.append(("sep", " "))
+            i += 1
+        else:
+            j = i
+            while j < n and cmd[j] not in (" ", "\t", ",", '"', "'"):
+                j += 1
+            tokens.append(("raw", cmd[i:j]))
+            i = j
+    return tokens
+
+
+def _normalize_exe(tok: str) -> str:
+    low = tok.lower()
+    return _CANONICAL_EXE.get(low, tok)
+
+
+def _normalize_param(tok: str) -> str:
+    if not tok.startswith("-"):
+        return tok
+    key = tok[1:].lower()
+    return _CANONICAL_PARAMS.get(key, "-" + tok[1:])  # keep original casing rules
+
+
+def _normalize_value(tok: str) -> str:
+    low = tok.lower()
+    return _CANONICAL_VALUES.get(low, tok)
+
+
+# ── Safe built-in simulator ───────────────────────────────────────
+_SAFE_BUILTINS = {"write-host", "write-output", "echo", "out-host"}
+
+
+def _simulate_safe_builtin(payload: str) -> str | None:
+    """If the payload is a single safe built-in with a literal string argument,
+    return the deterministic output. Otherwise None."""
+    # Strip outer quotes if the payload is one quoted string
+    p = payload.strip()
+    if (p.startswith('"') and p.endswith('"')) or (p.startswith("'") and p.endswith("'")):
+        p = p[1:-1]
+    m = re.match(r"^\s*(Write-Host|Write-Output|Echo|Out-Host)\s+(.+?)\s*$", p,
+                  re.IGNORECASE | re.DOTALL)
+    if not m:
+        return None
+    cmd = m.group(1).lower()
+    arg = m.group(2).strip()
+    # Only accept a SINGLE literal string argument (single or double quoted)
+    lit_m = re.match(r"""^(['"])(.*)\1\s*$""", arg, re.DOTALL)
+    if not lit_m:
+        return None
+    literal = lit_m.group(2)
+    # De-double the quote character if PowerShell escaping is used
+    q = lit_m.group(1)
+    literal = literal.replace(q + q, q)
+    # De-backtick common escapes
+    literal = literal.replace("`n", "\n").replace("`t", "\t").replace("`r", "\r")
+    if cmd in _SAFE_BUILTINS:
+        return literal
+    return None
+
+
+# ── Main op ───────────────────────────────────────────────────────
+@op("powershell-normalize",
+    "PowerShell command-line normalizer + runtime simulator",
+    "Semantic Evaluation",
+    "Deterministically emulates PowerShell's argument parsing stage before "
+    "execution. Normalizes mixed-case executable and parameter names, converts "
+    "comma-separated token obfuscation to spaces (outside quoted strings), "
+    "canonicalizes execution-policy values, and — for safe built-ins like "
+    "Write-Host / Write-Output / Echo / Out-Host — produces a deterministic "
+    "Runtime Output (Simulation). Never emulates Invoke-Expression, external "
+    "binaries, network activity, or anything with side effects.")
+def op_powershell_normalize(data: str, args: Dict[str, Any] | None = None) -> str:
+    src = (data or "").strip()
+    if not src:
+        return "(powershell-normalize · empty input)"
+
+    tokens = _tokenize(src)
+    # Squash multi-seps
+    flat: List[Tuple[str, str]] = []
+    prev_sep = False
+    for k, v in tokens:
+        if k == "sep":
+            if prev_sep:
+                continue
+            prev_sep = True
+        else:
+            prev_sep = False
+        flat.append((k, v))
+
+    # Build normalized command
+    trace: List[str] = []
+    out_parts: List[str] = []
+    exe_seen = False
+    for idx, (k, v) in enumerate(flat):
+        if k == "sep":
+            out_parts.append(" ")
+            continue
+        if k == "quoted":
+            out_parts.append(v)
+            continue
+        # k == 'raw'
+        if not exe_seen:
+            new = _normalize_exe(v)
+            if new != v:
+                trace.append(f"exe: '{v}' → '{new}'")
+            out_parts.append(new)
+            exe_seen = True
+            continue
+        if v.startswith("-"):
+            new = _normalize_param(v)
+            if new != v:
+                trace.append(f"param: '{v}' → '{new}'")
+            out_parts.append(new)
+        else:
+            new = _normalize_value(v)
+            if new != v:
+                trace.append(f"value: '{v}' → '{new}'")
+            out_parts.append(new)
+
+    reconstructed = "".join(out_parts).strip()
+    # Detect if any comma-normalization actually happened
+    if "," in src and "," not in reconstructed:
+        trace.insert(0, "comma-token-separator: `,` → ` ` (outside quoted strings)")
+
+    # Try to simulate safe built-in output when the -Command payload is a
+    # simple string literal argument.
+    sim: str | None = None
+    m_cmd = re.search(r"""-Command\s+(?P<q>['"])(?P<payload>.*)(?P=q)\s*$""",
+                       reconstructed, re.IGNORECASE | re.DOTALL)
+    if m_cmd:
+        sim = _simulate_safe_builtin(m_cmd.group("payload"))
+
+    # Banner
+    lines = ["▼ POWERSHELL NORMALIZATION & RUNTIME RECONSTRUCTION (RC4.3 · deterministic)"]
+    if trace:
+        lines.append("Normalization steps:")
+        for i, s in enumerate(trace, 1):
+            lines.append(f"  Step {i}: {s}")
+    lines.append("")
+    lines.append("Reconstructed Command:")
+    lines.append(f"  {reconstructed}")
+    lines.append("")
+    if sim is not None:
+        lines.append("Runtime Output (Simulation · deterministic):")
+        for L in sim.splitlines() or [sim]:
+            lines.append(f"  {L}")
+        lines.append("")
+        lines.append("Behavior:")
+        lines.append("  · Mixed-case obfuscation")
+        if any("comma" in t for t in trace):
+            lines.append("  · Comma-separated token obfuscation")
+        lines.append("  · Case-insensitive PowerShell normalization")
+        lines.append("  · Safe built-in — no malicious behavior")
+    else:
+        lines.append("Runtime Output (Simulation): "
+                      "not attempted — payload is not a safe built-in "
+                      "(Write-Host / Write-Output / Echo / Out-Host with a "
+                      "single literal string argument).")
+    return "\n".join(lines) + "\n"
