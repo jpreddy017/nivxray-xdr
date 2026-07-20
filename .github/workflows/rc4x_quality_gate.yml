@@ -30,7 +30,14 @@ jobs:
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt \
+          # CI runs deterministic decoder tests only — the LLM stack
+          # (litellm + emergentintegrations) is required at runtime by
+          # a couple of comparison scripts, but not by any test in the
+          # RC2.3/RC4.x quality-gate scope. Filter both lines out to
+          # avoid the pip resolver colliding on the private CDN wheel.
+          grep -Ev "^(emergentintegrations|litellm)([=<>~ ]|$| @ )" \
+            requirements.txt > requirements-ci.txt
+          pip install -r requirements-ci.txt \
             --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
           pip install brotli zstandard
 
