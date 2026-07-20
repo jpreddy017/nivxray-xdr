@@ -65,6 +65,7 @@ def _pytest_gate(expected_min_passing: int) -> int:
          "tests/test_rc31_p1_hotfixes.py",
          "tests/test_plugin_golden_fixtures.py",
          "tests/test_rc32_crypto_and_xworm.py",
+         "tests/test_rc311_prod_hotfix.py",
          "-q", "--no-header"],
         "pytest",
     )

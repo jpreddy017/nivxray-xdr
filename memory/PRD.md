@@ -35,11 +35,13 @@
 
 ### 🟡 Currently open — RC3.1.1 hotfix backlog (from prod field-test)
 
-- **PROD-BUG-1** Verdict + confidence tri-state UI inconsistency (P0)
-- **PROD-BUG-2** LOLBAS FPs on garbled binary tail (P1)
-- **PROD-BUG-3** IOC extractor should re-run on previous printable layer when terminal layer is corrupt (P1)
+- ~~**PROD-BUG-1** Verdict + confidence tri-state UI inconsistency (P0)~~ ✅ DELIVERED (RC3.1.1)
+- ~~**PROD-BUG-4** OUTPUT panel showing INPUT bytes (P0)~~ ✅ DELIVERED (RC3.1.1)
+- ~~**PROD-BUG-6** post-decode extractor skipping `pe-executable-payload` tradecraft when terminal layer is a valid PE (P1)~~ ✅ DELIVERED (RC3.1.1)
+- ~~**PROD-BUG-2** LOLBAS FPs on garbled binary tail (P1)~~ ✅ DELIVERED (RC3.1.1)
+- ~~**PROD-BUG-3** IOC extractor should re-run on previous printable layer when terminal is corrupt (P1)~~ ✅ DELIVERED (RC3.1.1)
 
-### 🟢 Next up (RC3.3 · Malware-family expansion)
+### 🟢 Next up (RC3.4 already delivered · RC3.1.1 ready to redeploy)
 
 - D.2 RedLine · D.3 FormBook · D.4 NjRAT · D.5 Emotet — each following the XWorm RC3.2b template (signature table + MITRE + YARA seed + golden fixtures)
 

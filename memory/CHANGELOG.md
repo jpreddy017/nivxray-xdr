@@ -5,6 +5,49 @@ Chronological record of significant releases (newest first).
 
 ---
 
+## RC3.1.1 — Production Hotfix Batch · 2026-02-21
+
+**Status:** ✅ Ready to redeploy · CI gate green (203/203 pytest)
+**Tag recommended:** `v1.0.0-RC3.1.1`
+**Trigger:** Field-test findings from PROD (case saved as "Do not download this directly on your machine" + Screen1/Screen2)
+
+### 🐛 5 production bugs fixed
+
+- **PROD-BUG-1 (P0) · Verdict / confidence tri-state unified.**
+  Frontend `ThreatAnalysis.jsx` now prefers `analysis.verdict_card` (canonical source of truth) over the legacy `analysis.risk` object. Backend `ops.py:decode_smart` resolves the Investigation Summary confidence from `verdict_card.risk_score` (never from the deterministic engine's decode-score, which returns 0 for plain base64→PE decodes). All three UI surfaces — Threat Analysis rail, Analysis Verdict card, embedded Investigation Summary — now render the same verdict + confidence.
+- **PROD-BUG-4 (P0) · OUTPUT panel falls back to trace preview when input==output.**
+  `WorkspacePage.jsx:setOutput()` now checks whether the raw backend output byte-matches the input; if so and a terminal-layer preview is available, that preview is displayed instead. Fixes the canonical `base64 → PE` case where the OUTPUT panel was showing the base64 input string.
+- **PROD-BUG-6 (P1) · PE-executable-payload tradecraft surfaces.**
+  New `_post_decode_pe_check()` in the orchestrator: hooks into the primary decode loop to capture PE fingerprints (MZ + PE\\0\\0) at every successful layer BEFORE downstream transforms mangle them. Also scans the raw input as base64. Surfaces `pe-executable-payload (high)` tradecraft + T1204.002 + T1105 MITRE hints. Verified: base64-wrapped PE → `verdict=malicious · risk=100 · tradecraft=[pe-executable-payload(high)] · MITRE T1027,T1055.012,T1105,T1204.002`.
+- **PROD-BUG-2 (P1) · LOLBAS false-positives on garbled binary tail eliminated.**
+  `_post_decode_lolbas_scan()` now gates behind a printable-ratio floor of 0.60 on the scanned surface. Binary-only tails (raw PE bodies, shellcode residue) no longer match `Control.exe` / `Remote.exe` etc. Clean plaintext inputs are still scanned even when the decoded tail is binary.
+- **PROD-BUG-3 (P1) · Investigation continues on corrupt terminal.**
+  Same PE-check surface now also runs on ALL intermediate layer outputs via `ctx._pe_hits[]` — if the terminal layer is a garbled xor-brute mangle but an earlier layer produced a valid PE, the tradecraft flag + MITRE still surface. Same principle applied to LOLBAS gate.
+
+### 🧪 Regression coverage — `tests/test_rc311_prod_hotfix.py`
+
+- 6 new regression tests (203/203 gate)
+- Every bug locked via either direct behavioural assertion (BUG-6, BUG-2) or source-diff regression lock (BUG-1, BUG-4) so a refactor cannot silently reintroduce the issue.
+
+### 📊 CI-gate deltas (RC3.4 → RC3.1.1)
+
+| Metric                     | RC3.4 | RC3.1.1 |
+|----------------------------|-------|---------|
+| Pytest passing (gate)      | 197   | **203** |
+| Plugin golden fixtures     | 75    | 75 (held) |
+| Family detectors           | 14    | 14 (held) |
+| Chain completeness         | 96.8% | 96.8% (held) |
+| Verdict precision          | 29/31 | 29/31 (held) |
+| Avg latency                | 240ms | 240ms (held) |
+
+### 🚀 Deploy path
+
+Redeploy required to push RC3.1.1 into prod. All backend + frontend changes are staged on preview and CI-verified.
+
+
+
+---
+
 ## RC3.4 — Family Expansion (FormBook + NjRAT + Emotet) + IR-Export Flywheel · 2026-02-21
 
 **Status:** ✅ Ready to ship

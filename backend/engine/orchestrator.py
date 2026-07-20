@@ -137,52 +137,87 @@ def _printable_ratio_bytes(s: str) -> float:
     return ok / len(s)
 
 
-def _post_decode_pe_check(findings: Findings, final_output: str) -> None:
-    """RC3.1.1 hotfix (PROD-BUG-6): when the terminal decode layer is a
-    valid PE (MZ + PE\\0\\0), surface a ``pe-executable-payload``
-    tradecraft flag + T1204.002 / T1105 MITRE hints. Without this the
-    Behavior panel stays empty for the canonical `base64 → PE loader`
-    case even though the payload is unambiguously a Windows executable
-    dropped as a decoded artefact."""
+def _post_decode_pe_check(findings: Findings, final_output: str,
+                           trace: Optional[List] = None,
+                           pe_hits: Optional[List] = None) -> None:
+    """RC3.1.1 hotfix (PROD-BUG-6): surface a ``pe-executable-payload``
+    tradecraft flag + T1204.002 / T1105 MITRE hints when any decode
+    layer produced a valid Windows PE (MZ + PE\\0\\0).
+
+    Priority order for the PE fingerprint source:
+      1. ``pe_hits`` inline captures from the orchestrator loop (most
+         reliable — snapshots the raw bytes before the next transform
+         can mangle them, and works with unlimited layer sizes).
+      2. Final output (``current`` at end of chain).
+      3. Trace previews (limited to 200 chars — only detects PEs with
+         very small ``e_lfanew``).
+    """
     try:
         from .models import TradecraftFlag, MitreHint
     except Exception:                              # pragma: no cover
         return
-    if not final_output:
+
+    def _pe_check(s: str) -> Optional[int]:
+        if not s or len(s) < 0x40:
+            return None
+        try:
+            raw = s.encode("latin-1", errors="ignore")
+        except Exception:                          # pragma: no cover
+            return None
+        if len(raw) < 0x40 or not raw.startswith(b"MZ"):
+            return None
+        try:
+            e_lfanew = int.from_bytes(raw[0x3c:0x40], "little", signed=False)
+        except Exception:                          # pragma: no cover
+            return None
+        if not (0 < e_lfanew < len(raw) - 4) or raw[e_lfanew:e_lfanew + 4] != b"PE\x00\x00":
+            return None
+        return e_lfanew
+
+    hit_e_lfanew: Optional[int] = None
+    hit_source = ""
+    # 1. Inline orchestrator captures
+    if pe_hits:
+        depth, plugin_id, e_lfanew, byte_len = pe_hits[0]
+        hit_e_lfanew = e_lfanew
+        hit_source = f"layer-{depth}.{plugin_id} ({byte_len}B PE)"
+    # 2. Final output
+    if hit_e_lfanew is None:
+        r = _pe_check(final_output or "")
+        if r is not None:
+            hit_e_lfanew = r
+            hit_source = "final-output"
+    # 3. Trace previews (short — best-effort)
+    if hit_e_lfanew is None and trace:
+        for step in trace:
+            preview = getattr(step, "preview", "") or ""
+            r = _pe_check(preview)
+            if r is not None:
+                hit_e_lfanew = r
+                hit_source = f"trace[{step.layer}].{step.decoder}-preview"
+                break
+    if hit_e_lfanew is None:
         return
-    # latin-1 lets a Python str hold arbitrary byte values 0-255.
-    try:
-        raw = final_output.encode("latin-1", errors="ignore")
-    except Exception:                              # pragma: no cover
-        return
-    if len(raw) < 0x40 or not raw.startswith(b"MZ"):
-        return
-    try:
-        e_lfanew = int.from_bytes(raw[0x3c:0x40], "little", signed=False)
-    except Exception:                              # pragma: no cover
-        return
-    if not (0 < e_lfanew < len(raw) - 4) or raw[e_lfanew:e_lfanew + 4] != b"PE\x00\x00":
-        return
-    # Avoid duplicates on re-analyse.
+
     if any(t.flag == "pe-executable-payload" for t in findings.tradecraft):
         return
     findings.tradecraft.append(TradecraftFlag(
         flag="pe-executable-payload",
         severity="high",
-        evidence=(f"Terminal decode layer is a valid Windows PE binary "
-                  f"(MZ + PE\\0\\0 at offset 0x{e_lfanew:x}, {len(raw)} bytes) — "
-                  "a base64-wrapped executable dropper."),
-        metadata={"format": "PE", "e_lfanew": e_lfanew, "byte_len": len(raw)},
+        evidence=(f"Windows PE binary detected in decode chain "
+                  f"(MZ + PE\\0\\0 at offset 0x{hit_e_lfanew:x}, source={hit_source}) "
+                  "— a canonical base64-wrapped executable dropper."),
+        metadata={"format": "PE", "e_lfanew": hit_e_lfanew, "source": hit_source},
     ))
-    for tid, tech, tac in (
-        ("T1204.002", "Malicious File", "Execution"),
-        ("T1105",     "Ingress Tool Transfer", "Command and Control"),
+    for tid, tech in (
+        ("T1204.002", "Malicious File"),
+        ("T1105",     "Ingress Tool Transfer"),
     ):
         if any(h.id == tid and h.source == "pe-check" for h in findings.mitre_techniques):
             continue
         findings.mitre_techniques.append(MitreHint(
             id=tid, name=tech, source="pe-check",
-            evidence="Terminal decode layer is a valid Windows PE binary",
+            evidence=f"PE binary detected in decode chain (source={hit_source})",
         ))
 
 
@@ -1069,6 +1104,20 @@ class Orchestrator:
                                              else "signals emitted"))),
                          exec_ms=int(exec_ms), signals_emitted=emitted_signals)
                     if improved:
+                        # RC3.1.1 hotfix (PROD-BUG-6): capture PE fingerprint
+                        # BEFORE the next chained transform (xor-brute, etc.)
+                        # can mangle the MZ header. Stashed on ctx for the
+                        # post-decode PE-check aggregator.
+                        try:
+                            _raw = res.output.encode("latin-1", errors="ignore")
+                            if _raw.startswith(b"MZ") and len(_raw) >= 0x40:
+                                _e = int.from_bytes(_raw[0x3c:0x40], "little")
+                                if 0 < _e < len(_raw) - 4 and _raw[_e:_e+4] == b"PE\x00\x00":
+                                    if not hasattr(ctx, "_pe_hits"):
+                                        ctx._pe_hits = []
+                                    ctx._pe_hits.append((depth, plugin.id, _e, len(_raw)))
+                        except Exception:                # pragma: no cover
+                            pass
                         current = res.output
                         current_fp = cand_fp
                         ctx.trace.add_fingerprint(current_fp)
@@ -1147,7 +1196,31 @@ class Orchestrator:
         # analysts get certutil/mshta/regsvr32/bitsadmin/… coverage even
         # when the wrapper decoder didn't fire.
         _post_decode_lolbas_scan(findings, current, payload or "")
-        _post_decode_pe_check(findings, current)
+        # RC3.1.1 hotfix (PROD-BUG-6): scan the FULL raw input + current
+        # + every intermediate `current` snapshot recorded via ctx._pe_hits.
+        # Also decode the raw input as base64 and check that — the most
+        # common obfuscation is a bare base64 blob wrapping a PE.
+        try:
+            import base64 as _b64
+            _pe_candidates = [current, payload or ""]
+            _raw = (payload or "").strip()
+            if _raw and len(_raw) >= 100 and len(_raw) % 4 <= 2:
+                try:
+                    _decoded = _b64.b64decode(_raw, validate=False)
+                    _pe_candidates.append(_decoded.decode("latin-1", errors="ignore"))
+                except Exception:
+                    pass
+            _pe_hits = list(getattr(ctx, "_pe_hits", []) or [])
+            for _cand in _pe_candidates:
+                _raw_b = _cand.encode("latin-1", errors="ignore") if _cand else b""
+                if len(_raw_b) >= 0x40 and _raw_b.startswith(b"MZ"):
+                    _e = int.from_bytes(_raw_b[0x3c:0x40], "little")
+                    if 0 < _e < len(_raw_b) - 4 and _raw_b[_e:_e+4] == b"PE\x00\x00":
+                        _pe_hits.append((0, "raw-scan", _e, len(_raw_b)))
+                        break
+        except Exception:
+            _pe_hits = list(getattr(ctx, "_pe_hits", []) or [])
+        _post_decode_pe_check(findings, current, list(ctx.trace.steps), _pe_hits)
         breakdown = _compute_confidence_breakdown(
             findings,
             decode_depth=len(ctx.trace.steps),
