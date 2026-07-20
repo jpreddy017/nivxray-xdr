@@ -723,6 +723,44 @@ def _env_expand(data: str) -> str:
 _XOR_MAX_KEY = 32
 
 
+# ── Feb 2026 · Word-hit dictionary for XOR-brute plausibility guard ────
+# Small hand-curated list of shell/PowerShell tokens and English function
+# words. Any recovered plaintext with < 2 hits (and no downstream magic)
+# is REJECTED as a false-positive XOR key — this fixes the "sN6#aEZsn…"
+# gibberish we were emitting on the Immediate1/2/3 + Finetune cases.
+_XOR_WORDHIT_TOKENS = (
+    # Shell / LOLBAS binaries
+    b"powershell", b"cmd.exe", b"certutil", b"mshta", b"regsvr32",
+    b"rundll32", b"bitsadmin", b"wscript", b"cscript", b"schtasks",
+    b"wmic", b"curl", b"wget", b"nslookup", b"whoami", b"net user",
+    b"reg add", b"reg query", b"tasklist", b"taskkill", b"ipconfig",
+    # PowerShell verbs / patterns
+    b"invoke-", b"iex", b"iwr", b"downloadstring", b"downloadfile",
+    b"start-process", b"new-object", b"set-content", b"add-content",
+    b"get-item", b"get-child", b"convertfrom", b"convertto",
+    # Network / URL shapes
+    b"http://", b"https://", b"ftp://", b".exe", b".dll", b".ps1",
+    b".bat", b".vbs", b".hta",
+    # Very common English function words
+    b" the ", b" and ", b" for ", b" this ", b" that ", b" with ",
+    b" from ", b" not ", b" but ", b" you ", b" are ", b" was ",
+    b" your ", b" have ", b" will ",
+)
+
+
+def _wordhits(b: bytes) -> int:
+    """Count matches of `_XOR_WORDHIT_TOKENS` in the buffer (case-insensitive).
+
+    Cheap byte-level scan (no regex) so it runs inside the XOR-brute hot loop
+    without measurable overhead. Returns a plain integer — the caller thresholds
+    (typically ≥ 2) to accept a candidate plaintext.
+    """
+    if not b:
+        return 0
+    lo = b.lower()
+    return sum(1 for tok in _XOR_WORDHIT_TOKENS if tok in lo)
+
+
 def _score_english(b: bytes) -> float:
     """Heuristic English-plaintext score in [0..1+] range. Higher is better.
 
@@ -928,6 +966,27 @@ def _xor_brute(data: str, key_len: str = "auto") -> str:
 
     if best_score <= 0:
         return "(unable to recover XOR key with high confidence)"
+
+    # ── Feb 2026 · PLAUSIBILITY GUARD ────────────────────────────────────
+    # `_score_english` is a printable-byte + letter-ratio heuristic — it
+    # happily rates random ASCII noise like `sN6#aEZsnWmnrJZiv^!elSnd`
+    # at ~0.70. That produced FALSE-POSITIVE "XOR key recovered" verdicts
+    # on real cases (Immediate1/2/3, "Finetune"), where the true payload
+    # was another obfuscation layer we can't unwrap without a hint.
+    #
+    # Requirement to accept the key: the plaintext must EITHER contain
+    # a downstream magic (gzip / PE / ELF / shellcode prologue) already
+    # boosted above, OR at least 2 real-word / command-token hits from
+    # a small dictionary. Otherwise return an explicit "requires-hint"
+    # marker so the pipeline stops here and the analyst can add a key.
+    _magic_bonus = _score_downstream_magic(best_plain)
+    if _magic_bonus < 0.30 and _wordhits(best_plain) < 2:
+        return (
+            "(xor-brute · no plausible plaintext — best key len={kl} "
+            "hex={hx} scored {sc:.2f} but yielded no English words / "
+            "shell tokens / magic bytes. Provide a string-key hint via "
+            "`xor` op with `key=` arg.)"
+        ).format(kl=best_kl, hx=best_key.hex(), sc=best_score)
 
     # Always return ONLY the recovered plaintext. The chosen key + score are
     # captured in the operation's step trace metadata (see routers/ops.py
