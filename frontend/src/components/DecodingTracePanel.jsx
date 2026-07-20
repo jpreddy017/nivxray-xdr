@@ -205,11 +205,25 @@ export default function DecodingTracePanel({ trace, engine, confidence, reachedS
               </div>
               {isOpen && (
                 <div className="dtp-details">
-                  {t.args && Object.keys(t.args).length > 0 && (
-                    <div className="dtp-args" data-testid={`dtp-args-${i}`}>
-                      args: {JSON.stringify(t.args)}
-                    </div>
-                  )}
+                  {t.args && Object.keys(t.args).length > 0 && (() => {
+                    // RC3.0 UX polish — hide default-value args from the
+                    // trace panel. `{"urlsafe": false}` etc. is visual
+                    // noise for an analyst — only show args that were
+                    // actively meaningful (truthy strings, non-zero
+                    // numbers, non-empty arrays/objects).
+                    const meaningful = Object.entries(t.args).filter(([, v]) => {
+                      if (v === false || v === null || v === undefined || v === "" || v === 0) return false;
+                      if (Array.isArray(v) && v.length === 0) return false;
+                      if (typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0) return false;
+                      return true;
+                    });
+                    if (meaningful.length === 0) return null;
+                    return (
+                      <div className="dtp-args" data-testid={`dtp-args-${i}`}>
+                        args: {JSON.stringify(Object.fromEntries(meaningful))}
+                      </div>
+                    );
+                  })()}
                   {health.detail && (
                     <div className="mono" data-testid={`dtp-health-detail-${i}`}
                       style={{
@@ -256,15 +270,16 @@ export default function DecodingTracePanel({ trace, engine, confidence, reachedS
 
 // ─── X-RAY Layer Health Analyzer ─────────────────────────────────────────
 // Runs cheap structural checks on a layer's output to give the analyst a
-// per-node health verdict (✅ VALID / ⚠️ SALVAGED / 🔴 BROKEN) + the exact
+// per-node health verdict (✅ VALID / ✓ RECOVERED / 🔴 BROKEN) + the exact
 // mathematical reason. Zero network cost — pure regex + length arithmetic.
 //
-// v1.5.6 UX polish: mid-chain BROKEN/MIXED steps are downgraded to
-// SALVAGED (cyan) when a downstream layer successfully continued — hard
-// red is reserved for terminal dead-ends only.
+// RC3.0 UX polish (Feb-2026): mid-chain BROKEN/MIXED steps are relabelled
+// to ✓ RECOVERED (green) when a downstream layer successfully continued.
+// Hard red BROKEN is reserved for terminal dead-ends only. Prior label
+// "SALVAGED" read as a warning even though the pipeline handled it fine.
 function _layerHealth(step, idx, trace) {
   const raw = _rawLayerHealth(step);
-  // Only downgrade if we know we're mid-chain AND the pipeline recovered
+  // Only relabel if we know we're mid-chain AND the pipeline recovered
   if (
     trace &&
     idx != null &&
@@ -276,12 +291,12 @@ function _layerHealth(step, idx, trace) {
     const nextOk = next && !next.error && (next.output_length ?? String(next.output_preview || "").length) > 0;
     if (nextOk) {
       return {
-        icon: "⚠️",
-        label: "SALVAGED",
-        fg: "#5dd0ff",
-        bg: "rgba(93,208,255,0.10)",
-        reason: `${raw.reason} — downstream layer recovered`,
-        detail: `${raw.detail}\n\n↪ Pipeline continued: next op '${next.op}' produced ${next.output_length || 0} chars cleanly. Marker downgraded from ${raw.label} to SALVAGED.`,
+        icon: "✓",
+        label: "RECOVERED",
+        fg: "#7ee3c9",
+        bg: "rgba(126,227,201,0.12)",
+        reason: `${raw.reason} — downstream layer recovered ${next.output_length || 0} clean chars`,
+        detail: `${raw.detail}\n\n↪ Pipeline recovered cleanly: next op '${next.op}' produced ${next.output_length || 0} chars. Not a real issue — original label ${raw.label} downgraded to RECOVERED.`,
       };
     }
   }

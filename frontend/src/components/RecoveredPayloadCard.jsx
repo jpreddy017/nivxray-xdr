@@ -120,7 +120,7 @@ export default function RecoveredPayloadCard({
             {layerCount} layer{layerCount === 1 ? "" : "s"} peeled
           </span>
         )}
-        {confidence != null && (
+        {confidence != null && Number(confidence) > 0 && (
           <span
             data-testid={`${testid}-confidence`}
             style={{

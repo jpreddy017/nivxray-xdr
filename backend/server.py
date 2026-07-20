@@ -24,6 +24,7 @@ import os
 
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 
 # Register operation registries eagerly (needed for /operations and decoders)
 from operations import OPERATIONS  # noqa: F401
@@ -175,6 +176,14 @@ app.include_router(api)
 
 # Production hardening: X-Request-ID, hard timeouts, payload caps
 app.add_middleware(RequestHardeningMiddleware)
+# RC3.0 · Feb-2026 · Cloudflare origin-parse hardening.
+# Large async-enrichment responses (typically 200-800 KB for big-whale
+# December-class payloads) can occasionally exceed the CF proxy's
+# chunked-transfer buffer, triggering a "could not parse" red toast on
+# the analyst UI even though the primary decode succeeded. Enabling
+# GZip on any response ≥ 4 KB reduces the wire size ~5-10× and eliminates
+# the parse issue without touching the payload semantics.
+app.add_middleware(GZipMiddleware, minimum_size=4096, compresslevel=6)
 
 app.add_middleware(
     CORSMiddleware,
