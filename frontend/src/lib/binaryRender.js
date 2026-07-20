@@ -46,14 +46,15 @@ function stripHeader(src) {
   return s.trimStart();
 }
 
-// Convert a JS string to UTF-8 bytes (Uint8Array). Uses TextEncoder — available
-// in every modern browser + happy with unicode above 0xFF.
+// Convert a JS string to raw byte array via Latin-1 (each char → single
+// byte). Malware bytes come to us via Python's `.decode("latin-1", errors=
+// "replace")` on the raw shellcode, so char code == byte value. Using
+// TextEncoder (UTF-8) here would inflate `\x90` → `c2 90`, producing the
+// misleading "off-by-one" hex previews forensic analysts hate.
 function toBytes(text) {
-  if (typeof TextEncoder !== "undefined") {
-    return new TextEncoder().encode(text || "");
-  }
-  const arr = new Uint8Array(text.length);
-  for (let i = 0; i < text.length; i++) arr[i] = text.charCodeAt(i) & 0xff;
+  const src = String(text || "");
+  const arr = new Uint8Array(src.length);
+  for (let i = 0; i < src.length; i++) arr[i] = src.charCodeAt(i) & 0xff;
   return arr;
 }
 
