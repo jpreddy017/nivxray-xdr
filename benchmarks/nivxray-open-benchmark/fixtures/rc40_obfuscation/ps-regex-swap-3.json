@@ -1,0 +1,10 @@
+{
+  "id": "ps-regex-swap-3",
+  "category": "ps-regex-swap",
+  "command_line": "$s = 'exe.powershell' -replace '(\\w+)\\.(\\w+)','$2.$1'; Start-Process $s",
+  "expected_keywords": [
+    "powers"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

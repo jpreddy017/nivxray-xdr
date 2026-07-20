@@ -1,0 +1,8 @@
+{
+  "id": "ps-xor-ascii-9",
+  "category": "ps-xor-inline",
+  "expected_keywords": [
+    "bitsadmin"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

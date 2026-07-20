@@ -1,0 +1,25 @@
+{
+  "id": "machineguid-key-0",
+  "algorithm": "AES-CBC",
+  "key_status": "env-derived",
+  "recoverable_stages": [
+    "base64-decode-cipher"
+  ],
+  "runtime_stages": [
+    "read-machineguid-reg",
+    "aes-cbc-decrypt"
+  ],
+  "expected_verdict": "malicious",
+  "expected_iocs": [
+    "HKLM:\\SOFTWARE\\Microsoft\\Cryptography"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1140",
+    "T1082"
+  ],
+  "static_recovery_verdict": "static-recovery-complete \u00b7 runtime-decryption-required"
+}

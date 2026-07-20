@@ -1,0 +1,10 @@
+{
+  "id": "ps-encoded-8-mut5",
+  "category": "ps-encoded",
+  "command_line": "powershell.exe -NoProfile -EncodedCommand TgBlAHcALQBTAGUAcgB2AGkAYwBlACAALQBOAGEAbQBlACAAbQBhAGwAaQBjAGkAbwB1AHMAUwB2AGMAIAAtAEIAaQBuAGEAcgB5AFAAYQB0AGgATgBhAG0AZQAgAEMAOgBcAGUAdgBpAGwALgBlAHgAZQA=\n# comment-5",
+  "expected_keywords": [
+    "evil.exe"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

