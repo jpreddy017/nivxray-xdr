@@ -437,3 +437,28 @@ green pre-ship.
 
 12-plugin orchestrator, deterministic decoder chain, findings aggregator,
 budget & loop guards, 113 tests green. Locked as `RC1_READINESS.md`.
+
+## 2026-02-20 · RC4.1 · Deterministic Crypto & Honest-Verdict Engine
+
+### Fixed
+- `powershell-xor-inline-key` regex now accepts `$_`, `$idx`, `Text.Encoding`-short form, integer-array keys.
+- `powershell-hex-csv-inline`, `powershell-reverse-string`, `powershell-reverse-regex-swap`, `batch-envvar-substitute`, `cmd-envvar-substring-picker` now fire in orchestrator + magic paths (conf=0.98, +2.00 score boost, score-regression exempt-list).
+
+### Added
+- `rc4-inline-decrypt` — deterministic RC4 stream cipher (KSA+PRGA in Python).
+- `crypto-api-annotator` — 28 crypto-family signatures with recovery-status semantics.
+- Honest-verdict merge in `routers/ops.py` — `crypto_hints`, `static_recovery`, MITRE additions.
+- 100-fixture golden regression corpus + pytest CI wrapper.
+- 475-case obfuscation batch harness.
+- 3-whale AI-vs-Deterministic showdown script.
+- Customer-facing PDF + PowerPoint report generators.
+- Research references saved for roadmap (Abobus, RMM-abuse, GithubC2).
+
+### Regression
+- 575 fixtures · 561 pass · **97.6 %**. 0 false negatives. 1 documented false positive (schtasks LOLBAS heuristic).
+- Testing agent verified 12/12 targeted API flows PASS.
+
+### Evidence
+- /app/evidence/EVIDENCE.md · rc40_batch_report.md · rc41_report.md · rc43_ai_vs_det.md
+- /app/evidence/NivXRay_RC41_Customer_Report.pdf (459 KB, 4 screenshots embedded)
+- /app/evidence/NivXRay_RC41_Customer_Deck.pptx (297 KB, 10 slides)
