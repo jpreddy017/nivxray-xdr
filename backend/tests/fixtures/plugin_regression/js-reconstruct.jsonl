@@ -1,0 +1,3 @@
+# js-reconstruct · Golden Fixtures · RC3.2a
+{"case_id": "js-fromcharcode", "description": "eval(String.fromCharCode(...))", "input": "eval(String.fromCharCode(112,111,119,101,114,115,104,101,108,108,46,101,120,101))", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell.exe"]}
+{"case_id": "js-atob", "description": "eval(atob('...'))", "input": "eval(atob('Y21kLmV4ZSAvYyBjYWxjLmV4ZQ=='))", "detect_min_confidence": 0.3, "expected_output_contains": ["cmd.exe", "calc.exe"]}

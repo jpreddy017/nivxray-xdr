@@ -1,0 +1,2 @@
+# nibble-swap · Golden Fixtures · RC3.2a
+{"case_id": "nib-swap-ps", "description": "Nibble-swapped 'powershell' bytes", "input": "\u0007\u00f6wV'7\u0086V\u00c6\u00c6", "detect_min_confidence": 0.2, "expected_output_contains": ["powershell"]}

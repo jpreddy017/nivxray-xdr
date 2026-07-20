@@ -1,0 +1,4 @@
+# extract-wrapper · Golden Fixtures · RC3.2a
+{"case_id": "wrap-powershell-enc", "description": "powershell -EncodedCommand wrapper strip", "input": "powershell.exe -nop -w hidden -EncodedCommand SQBFAFgAKAAgACcAaAB0AHQAcAA6AC8ALwBhAC4AYgAvAGMAJwApAA==", "detect_min_confidence": 0.4, "expected_output": "SQBFAFgAKAAgACcAaAB0AHQAcAA6AC8ALwBhAC4AYgAvAGMAJwApAA==", "expected_lolbas_binaries": ["powershell.exe"]}
+{"case_id": "wrap-cmd-c", "description": "cmd.exe /c wrapper strip", "input": "cmd.exe /c \"powershell.exe -c calc.exe\"", "detect_min_confidence": 0.4, "expected_output_contains": ["powershell.exe", "calc.exe"]}
+{"case_id": "wrap-mshta-vbscript", "description": "mshta vbscript: wrapper strip", "input": "mshta.exe vbscript:CreateObject(\"Wscript.Shell\").Run(\"powershell.exe -c calc\",0,true)(window.close)", "detect_min_confidence": 0.4, "expected_output_contains": ["CreateObject", "powershell", "calc"]}

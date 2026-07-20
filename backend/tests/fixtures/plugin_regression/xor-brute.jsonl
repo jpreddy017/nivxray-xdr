@@ -1,0 +1,2 @@
+# xor-brute · Golden Fixtures · RC3.2a
+{"case_id": "xor-1byte-2a", "description": "Single-byte XOR key 0x2a \u2192 PowerShell IEX", "input": "ZE]OXYBOFF\u0004ORO\n\u0007I\n\bcor\nB^^Z\u0010\u0005\u0005K\u0004H\u0005R\u0004ZY\u001b\b", "detect_min_confidence": 0.2, "expected_output_contains": ["powershell", "IEX"]}

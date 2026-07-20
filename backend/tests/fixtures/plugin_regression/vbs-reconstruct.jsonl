@@ -1,0 +1,2 @@
+# vbs-reconstruct · Golden Fixtures · RC3.2a
+{"case_id": "vbs-chr", "description": "Chr(112)&Chr(111)&... reconstruct", "input": "Execute(Chr(112)&Chr(111)&Chr(119)&Chr(101)&Chr(114)&Chr(115)&Chr(104)&Chr(101)&Chr(108)&Chr(108))", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell"]}

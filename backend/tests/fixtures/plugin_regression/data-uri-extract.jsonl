@@ -1,0 +1,7 @@
+# data-uri-extract · Golden Fixtures · RC3.2a
+# RFC-2397 data: URIs. This plugin EXTRACTS the body — downstream base64
+# / percent-decode plugins handle the payload. So `expected_output` is
+# the extracted body (still base64 or still percent-encoded), NOT the
+# fully-decoded plaintext.
+{"case_id":"data-uri-b64-html","description":"data:text/html;base64 phishing lure — body extracted (not b64-decoded)","input":"data:text/html;base64,PHNjcmlwdD5ldmFsKGF0b2IoJ2NHOTNaWEp6YUdWc2JDNWxlR1U9JykpPC9zY3JpcHQ+","detect_min_confidence":0.5,"expected_output":"PHNjcmlwdD5ldmFsKGF0b2IoJ2NHOTNaWEp6YUdWc2JDNWxlR1U9JykpPC9zY3JpcHQ+"}
+{"case_id":"data-uri-percent-encoded","description":"data URI with percent-encoded body","input":"data:application/x-msdownload,cmd.exe%20/c%20calc","detect_min_confidence":0.4,"expected_output_contains":["cmd.exe","calc"]}

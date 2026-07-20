@@ -1,0 +1,4 @@
+# ps-reconstruct · Golden Fixtures · RC3.2a
+{"case_id": "ps-join", "description": "[char[]](...)-join''", "input": "[char[]](112,111,119,101,114,115,104,101,108,108) -join ''", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell"]}
+{"case_id": "ps-format-op", "description": "-f format operator index-swap", "input": "(\"{2}{0}{1}\" -f 'ershell','.exe','pow')", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell.exe"]}
+{"case_id": "ps-string-concat", "description": "'p'+'o'+'w'+... concat", "input": "'p'+'o'+'w'+'e'+'r'+'s'+'h'+'e'+'l'+'l'", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell"]}

