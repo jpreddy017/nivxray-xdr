@@ -51,6 +51,14 @@ _IMPROVEMENT_EPS = 0.02
 # Safety limits (env-tunable in Budget; defaults here are hard fallbacks).
 _MAX_OUTPUT_BYTES = 4 * 1024 * 1024        # 4 MB per intermediate output
 _MAX_CUMULATIVE_BYTES = 32 * 1024 * 1024   # 32 MB across all layers
+# Runaway loop guard (Feb-2026): if an incoming payload exceeds this cap AND
+# is dominated by a single repetitive obfuscation pattern (10k+ hex escapes,
+# gigantic base64 padding runs, etc.), skip the corresponding plugin outright.
+# Prevents a single slow decoder from stalling the request for >60s and
+# eating a Cloudflare 524 timeout.
+_MAX_INPUT_BYTES_PER_DECODE = 8 * 1024 * 1024      # 8 MB
+_SLOW_DECODE_WARN_MS = 8_000                         # log warning
+_HARD_ABORT_MS = 20_000                              # hard-abort budget
 
 _SEVERITY_WEIGHTS = {"info": 2, "low": 5, "medium": 15, "high": 35, "critical": 60}
 
@@ -525,6 +533,56 @@ class Orchestrator:
         started = time.monotonic_ns()
 
         current = payload or ""
+
+        # Runaway guard — pre-fingerprint gate (Feb-2026). Fingerprint compute
+        # is O(n) over the entire payload and entropy calc allocates a Counter
+        # of the byte histogram; on a 10 MB pathological input this alone
+        # eats seconds. Short-circuit here BEFORE any expensive scan so the
+        # request returns a clean "runaway-guard" terminal to the caller
+        # instead of a Cloudflare 524 upstream timeout.
+        if len(current) > _MAX_INPUT_BYTES_PER_DECODE:
+            fp_stub = Fingerprint(
+                input_len=len(current), entropy=0.0,
+                printable_ratio=0.0, english_density=0.0,
+                magic=None,
+            )
+            ctx.trace.add_fingerprint(fp_stub)
+            exec_report = PluginExecutionReport()
+            exec_report.entries.append(PluginExecutionEntry(
+                plugin="runaway-guard", layer=0, outcome="skipped",
+                detect_confidence=1.0,
+                reason=(f"payload {len(current)}B exceeds per-decode "
+                        f"cap {_MAX_INPUT_BYTES_PER_DECODE}B — refusing to fingerprint"),
+                exec_ms=0,
+            ))
+            elapsed_ms = (time.monotonic_ns() - started) // 1_000_000
+            exec_report.layers_run = 0
+            exec_report.total_time_ms = int(elapsed_ms)
+            findings = Findings()
+            breakdown = _compute_confidence_breakdown(findings)
+            findings.risk_score = breakdown.total
+            findings.verdict = breakdown.verdict
+            return AnalystReport(
+                output=current[:2048] + (
+                    f"\n[… {len(current) - 2048} bytes suppressed by runaway guard]"
+                    if len(current) > 2048 else ""
+                ),
+                trace=[], fingerprint_history=[fp_stub],
+                terminal="budget",
+                stopped_reason=(f"Runaway guard aborted: payload {len(current)}B "
+                                f"exceeds {_MAX_INPUT_BYTES_PER_DECODE}B "
+                                "per-decode input cap. No decode attempted."),
+                elapsed_ms=int(elapsed_ms),
+                engine="orchestrator-v1",
+                findings=findings,
+                executive_summary=(f"Payload {len(current)}B exceeds the "
+                                    f"{_MAX_INPUT_BYTES_PER_DECODE // (1024 * 1024)} MB "
+                                    "per-decode cap; no analysis performed."),
+                investigation_steps=[],
+                confidence_breakdown=breakdown,
+                plugin_report=exec_report,
+            )
+
         current_fp = fingerprint_compute(current)
         ctx.trace.add_fingerprint(current_fp)
         best_score = _score(current_fp)
@@ -578,6 +636,32 @@ class Orchestrator:
             # 4. Candidate discovery — exclude intelligence-only plugins here;
             # they run in the dedicated post-decode intelligence pass so they
             # don't preempt decoder chaining (RC2.1a).
+            # Runaway guard (Feb-2026): before invoking detect() on 40+
+            # plugins (each of which may scan the entire payload), refuse to
+            # even start on payloads over the per-decode input cap. This is
+            # the strongest guard against Cloudflare 524 timeouts.
+            if len(current) > _MAX_INPUT_BYTES_PER_DECODE:
+                _log(plugin="runaway-guard", layer=depth, outcome="skipped",
+                     detect_confidence=1.0,
+                     reason=f"payload {len(current)}B exceeds per-decode "
+                            f"cap {_MAX_INPUT_BYTES_PER_DECODE}B — no candidate discovery",
+                     exec_ms=0)
+                terminal = "budget"
+                stopped_reason = (f"Runaway guard: payload {len(current)}B "
+                                   f"exceeds {_MAX_INPUT_BYTES_PER_DECODE}B "
+                                   "per-decode input cap.")
+                break
+            if ctx.budget.elapsed_ms() >= _HARD_ABORT_MS:
+                _log(plugin="runaway-guard", layer=depth, outcome="skipped",
+                     detect_confidence=1.0,
+                     reason=f"pipeline elapsed {ctx.budget.elapsed_ms()}ms "
+                            f"≥ hard-abort {_HARD_ABORT_MS}ms",
+                     exec_ms=0)
+                terminal = "budget"
+                stopped_reason = (f"Runaway guard: pipeline elapsed "
+                                   f"{ctx.budget.elapsed_ms()}ms exceeded "
+                                   f"hard-abort {_HARD_ABORT_MS}ms.")
+                break
             cands_all = DecoderRegistry.candidates(
                 current, current_fp, ctx, top_n=None,
             )
@@ -616,6 +700,37 @@ class Orchestrator:
                          exec_ms=0)
                     continue
 
+                # Runaway guard: refuse decoders on giant payloads. Prevents a
+                # single repetitive-pattern payload from stalling the request
+                # long enough to trip a Cloudflare 524 upstream. Downstream
+                # decoders never see the oversize input either — they get the
+                # untouched `current` and either transform something smaller
+                # or the loop terminates cleanly.
+                if len(current) > _MAX_INPUT_BYTES_PER_DECODE:
+                    _log(plugin=plugin.id, layer=depth, outcome="skipped",
+                         detect_confidence=det.confidence, detect_reason=det.why,
+                         reason=f"runaway-guard: input {len(current)}B "
+                                f"exceeds per-decode cap {_MAX_INPUT_BYTES_PER_DECODE}B",
+                         exec_ms=0)
+                    continue
+
+                # Hard-abort budget: never let the pipeline run beyond
+                # `_HARD_ABORT_MS` regardless of the plugin's own budget.
+                # This is a floor that guards against pathological chains
+                # where several decoders each consume ~5s.
+                if ctx.budget.elapsed_ms() >= _HARD_ABORT_MS:
+                    _log(plugin=plugin.id, layer=depth, outcome="skipped",
+                         detect_confidence=det.confidence, detect_reason=det.why,
+                         reason=f"runaway-guard: pipeline elapsed "
+                                f"{ctx.budget.elapsed_ms()}ms ≥ hard-abort "
+                                f"{_HARD_ABORT_MS}ms",
+                         exec_ms=0)
+                    terminal = "budget"
+                    stopped_reason = (f"Hard-abort budget hit "
+                                       f"({_HARD_ABORT_MS}ms) mid-layer.")
+                    accepted = "__hard_abort__"
+                    break
+
                 step_start = time.monotonic_ns()
                 try:
                     res = plugin.decode(current, det.args, ctx)
@@ -627,6 +742,9 @@ class Orchestrator:
                     log.warning("decode() raised in %s: %s", plugin.id, exc)
                     continue
                 exec_ms = (time.monotonic_ns() - step_start) // 1_000_000
+                if exec_ms >= _SLOW_DECODE_WARN_MS:
+                    log.warning("slow decoder %s: %dms on %dB input",
+                                plugin.id, int(exec_ms), len(current))
 
                 # Memory safety: reject outputs above the per-step ceiling
                 if len(res.output) > _MAX_OUTPUT_BYTES:
@@ -714,6 +832,11 @@ class Orchestrator:
                      detect_confidence=det.confidence, detect_reason=det.why,
                      reason=f"score {cand_score:.3f} vs best {best_score:.3f}",
                      exec_ms=int(exec_ms))
+
+            if accepted == "__hard_abort__":
+                # Hard-abort was set inside the inner loop; break the outer
+                # while so we don't overwrite terminal / stopped_reason.
+                break
 
             if not accepted:
                 if depth == 0:

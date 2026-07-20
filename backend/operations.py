@@ -1228,6 +1228,84 @@ def _homoglyph_normalise(data: str) -> str:
     return data
 
 
+# --- Bucket 2b: plugin-decoder wrappers ---------------------------------- #
+# The `DecoderRegistry` (backend/decoders/*) is the source of truth for the
+# recursive engine, but the manual Chain-Recipe UI only knows the OPERATIONS
+# registry defined in this file. When the analyst dispatches a step like
+# `ps-reconstruct` from the UI the request lands on `/api/recipe/run` which
+# calls `run_operation(step.op, …)` — and prior to Feb-2026 that raised
+# `Unknown operation: ps-reconstruct` because the plugin ID never made it
+# into OPERATIONS.
+#
+# These wrappers close that gap. They forward to the SAME plugin implementation
+# used by the orchestrator so behaviour is identical between "auto-investigate"
+# and manual chain replay. No re-implementation, no drift.
+def _register_plugin_op(op_id: str, label: str, description: str,
+                         category: str = "Deobfuscation") -> None:
+    """Register a Recipe-UI-visible wrapper around a plugin decoder.
+
+    Late-imports the plugin at call time so this file has no hard dependency
+    on the decoder package's autodiscovery order.
+    """
+    def _fn(data: str) -> str:
+        # Lazy import — avoids a circular import at module load.
+        from engine.registry import DecoderRegistry
+        from engine.models import AnalysisContext
+        from engine.fingerprint_util import compute as _fp_compute
+        plugin = DecoderRegistry.get(op_id)
+        if plugin is None:
+            raise ValueError(f"plugin decoder {op_id!r} not registered")
+        fp = _fp_compute(data or "")
+        ctx = AnalysisContext()
+        # Run detect() to fetch any args the plugin normally infers.
+        det = plugin.detect(data or "", fp, ctx)
+        res = plugin.decode(data or "", det.args or {}, ctx)
+        return res.output if res.output is not None else (data or "")
+
+    _fn.__name__ = f"_plugin_{op_id.replace('-', '_')}"
+    OPERATIONS[op_id] = {
+        "id":          op_id,
+        "name":        label,
+        "category":    category,
+        "description": description,
+        "args":        [],
+        "fn":          _fn,
+    }
+
+
+# RC2.6 / 2.7 / 2.8 / 2.9 — expose every plugin decoder in the manual runner.
+for _op_id, _label, _desc in (
+    ("ps-reconstruct",
+     "PowerShell Reconstruct (plugin)",
+     "Rebuild plaintext from PowerShell [char]NN / -join / concat / .Replace() obfuscation."),
+    ("cmd-reconstruct",
+     "CMD Reconstruct (plugin)",
+     "Resolve CMD.exe SET/CALL variables, delayed expansion and nested %VAR% chains."),
+    ("js-reconstruct",
+     "JavaScript Reconstruct (plugin)",
+     "Peel atob(), String.fromCharCode() and quoted-concat obfuscation."),
+    ("vbs-reconstruct",
+     "VBScript Reconstruct (plugin)",
+     "Resolve Chr()/CreateObject/StrReverse VBS obfuscation."),
+    ("decimal-charcode-decode",
+     "Decimal Char-Code Decode (plugin)",
+     "Space-separated decimal ASCII codes → chars."),
+    ("octal-charcode-decode",
+     "Octal Char-Code Decode (plugin)",
+     "Space-separated octal ASCII codes → chars."),
+    ("custom-hex-slash",
+     "Custom Hex-with-Separator (plugin)",
+     r"Exotic hex tokenisations (e.g. `d3x\d3x\` or `\xNN\xNN`) → bytes."),
+    ("nibble-swap",
+     "Nibble-Swap (plugin)",
+     "Swap high/low nibbles of every byte — recovers text hidden by nibble-obfuscators."),
+    ("ps-hex-escape",
+     "PowerShell / C-style Hex Escape (plugin)",
+     r"Decode `\xNN` byte-escape sequences (also matches `\\xNN`)."),
+):
+    _register_plugin_op(_op_id, _label, _desc)
+
+
 # --- Bucket 3: semantic annotators (pass-through, non-erroring) --- #
 def _mk_annotator(label: str):
     """Factory for pass-through annotator ops — they don't transform data,

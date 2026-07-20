@@ -6,6 +6,30 @@ core decoder. Everything must work offline.
 
 
 ---
+## 🟢 RC2.9 · Chain-Recipe Wrappers + Runaway Guard + `ps-hex-escape` · DELIVERED (2026-02-20)
+
+**Branch:** `feature/rc2` · **Scope:** Backend engine — new decoder, manual runner parity, DoS guard
+**Benchmark evidence:** `/app/backend/tests/rc23_benchmark/run_benchmark.py` → **30/31 chain-complete (96.8%)** held; **83 tests pass** including new `test_rc29_gap_close.py` (15) and `test_runaway_guard.py` (4).
+
+### Added
+- **`ps-hex-escape` plugin decoder** (`/app/backend/decoders/ps_hex_escape.py`). Detects & decodes `\xNN` / `\\xNN` C-style byte-escape streams that appear in PowerShell obfuscators (Invoke-PSObfuscation) and December_Commandline-class payloads. Precision-first: only fires when ≥10 escapes AND density ≥ 40 %, with a printable-ratio dry-run guard.
+- **Manual Chain-Recipe wrappers for 9 plugin decoders** (`/app/backend/operations.py :: _register_plugin_op`). Every plugin ID reachable from the recursive engine is now also dispatchable from the analyst UI via `/api/recipe/run`. Closes the "Unknown operation: ps-reconstruct" P0 bug. Wrappers forward to the same plugin implementation — zero drift between auto-investigate and manual mode. Ops: `ps-reconstruct`, `cmd-reconstruct`, `js-reconstruct`, `vbs-reconstruct`, `decimal-charcode-decode`, `octal-charcode-decode`, `custom-hex-slash`, `nibble-swap`, `ps-hex-escape`.
+- **Runaway loop / DoS guard** (`/app/backend/engine/orchestrator.py`). Three-layer defence against Cloudflare 524 timeouts on pathological payloads:
+  1. **Pre-fingerprint gate**: payloads > 8 MB short-circuit in <1 ms with `terminal="budget"`, preserving the first 2 KB as an analyst preview.
+  2. **Per-layer input gate**: same 8 MB cap re-checked before candidate discovery each iteration.
+  3. **Hard-abort budget**: pipeline aborts if cumulative wall-time ≥ 20 s regardless of per-plugin budgets.
+  Slow-decoder warn log (>8 s per call) added for observability.
+
+### Fixed
+- **P0** `/api/recipe/run` no longer returns `"Unknown operation: ps-reconstruct"` for any plugin-based decoder ID.
+- Manual Chain-Recipe output is now byte-identical to orchestrator output for the same op — locked by `test_manual_runner_matches_plugin_runner_for_ps_hex_escape`.
+
+### Unit tests
+- `/app/backend/tests/test_rc29_gap_close.py` — 15 tests locking plugin/manual-runner parity + `ps-hex-escape` precision.
+- `/app/backend/tests/test_runaway_guard.py` — 4 tests locking the DoS guard.
+
+---
+
 
 ## 🟢 RC2.8 · JS + VBScript Reconstruction · DELIVERED (2026-02-XX)
 
