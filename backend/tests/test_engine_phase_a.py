@@ -185,7 +185,11 @@ class TestOrchestrator:
         step2 = base64.b64encode(step1.encode()).decode()
         r = Orchestrator().run(step2)
         assert "powershell" in r.output
-        assert [s.decoder for s in r.trace] == ["base64-decode", "hex-decode"]
+        # RC4.5 · alias normalizer may append a normalization step at the
+        # end (iex → Invoke-Expression). Assert the two core decode steps
+        # appear in order, allow further RC4.x semantic normalization on top.
+        decoders_in_trace = [s.decoder for s in r.trace]
+        assert decoders_in_trace[:2] == ["base64-decode", "hex-decode"]
 
     def test_depth_cap_respected(self):
         # 8 nested base64 layers, budget only allows 3

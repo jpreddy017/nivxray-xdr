@@ -417,6 +417,18 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
     _bt_pairs = len(re.findall(r"`[A-Za-z]", s))
     if _bt_pairs >= 4 and _bt_pairs / max(1, len(s)) > 0.10:
         cands.insert(0, {"op": "powershell-deobfuscate", "args": {}})
+    # RC4.5 · Backtick / line-continuation normalizer — fires on ANY
+    # in-token backtick (even a single one). Placed AFTER the aggressive
+    # deobfuscator so we prefer the analyst-facing normalizer for lighter
+    # obfuscation.
+    if _bt_pairs >= 1:
+        cands.insert(0, {"op": "powershell-backtick-normalize", "args": {}})
+    # RC4.5 · Cmdlet-alias normalizer — fires when the input mentions
+    # powershell/pwsh AND has at least one known alias at a command
+    # position. Cheap check via substring, filtered by the plugin's own
+    # detect() at run time.
+    if re.search(r"\b(?:powershell(?:\.exe)?|pwsh(?:\.exe)?)\b", s, re.IGNORECASE):
+        cands.insert(0, {"op": "powershell-alias-normalize", "args": {}})
     # JS charcode — MUST be inserted BEFORE extract-payload otherwise the
     # wrapper stripper collapses `String.fromCharCode(108,111,...)` into a
     # gibberish digit run and the js-charcode-decode op never fires.

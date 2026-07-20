@@ -40,6 +40,8 @@ from decoders import ps_reverse_swap  # noqa: F401  — powershell-reverse-strin
 from decoders import ps_semantic_mini  # noqa: F401  — RC4.2 chain evaluator
 from decoders import ps_normalizer  # noqa: F401  — RC4.3 PS normalizer + runtime simulator
 from decoders import cmd_runtime_reconstruct  # noqa: F401  — RC4.4 CMD env-var runtime reconstruction engine
+from decoders import ps_backtick_normalizer  # noqa: F401  — RC4.5 PS backtick / line-continuation normalizer
+from decoders import ps_alias_normalizer  # noqa: F401  — RC4.5 PS cmdlet-alias normalizer
 from decoders import crypto_api_annotator  # noqa: F401  — crypto-api-annotator (RC4.1)
 from decoders import rc4_inline_decrypt  # noqa: F401  — rc4-inline-decrypt (RC4.1)
 from decoders import rc40_orchestrator_plugins  # noqa: F401  — orchestrator plugins for RC4.0 decoders

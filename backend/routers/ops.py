@@ -1197,16 +1197,32 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                                     "detail": "CMD %VAR:~start,len% substring sliced"})
             result["recipe"] = recipe
 
-        # RC4.4 · CMD Runtime Reconstruction Engine — always attach the
-        # full analyst report (character-extraction table, reconstruction
-        # trace, confidence breakdown, ATT&CK map, honest verdict) whenever
-        # the input contains %VAR:~a,b% / adjacent %A%%B% / !VAR! / caret
-        # escape obfuscation. This is the deterministic runtime resolver
-        # that goes BEYOND the plain substring picker.
-        if _re.search(r"%\w+:~-?\d+(?:,-?\d+)?%", src) \
-                or _re.search(r"%\w+%%\w+%", src) \
-                or _re.search(r"!\w+(?::[~=][^!]*)?!", src) \
-                or _re.search(r"[A-Za-z]\^[A-Za-z]", src):
+        # RC4.4 · CMD Runtime Reconstruction Engine — attach the full
+        # analyst report (character-extraction table, reconstruction trace,
+        # confidence breakdown, ATT&CK map, honest verdict) whenever the
+        # input contains ANY of:
+        #   * env-var obfuscation ( %VAR:~a,b% / adjacent %A%%B% / !VAR! /
+        #     `^` caret escape / `""` quote fragmentation )
+        #   * a plain LOLBIN invocation (certutil / mshta / regsvr32 /
+        #     rundll32 / wmic / bitsadmin / installutil / etc.) — so even
+        #     non-obfuscated malware launchers get the RC4.4 verdict block
+        #     + T1218/T1059.003 promoted to top-level result.mitre.
+        _lolbin_rx = _re.compile(
+            r"\b(?:cmd|powershell|pwsh|wscript|cscript|"
+            r"certutil|bitsadmin|mshta|regsvr32|rundll32|installutil|"
+            r"msiexec|wmic|schtasks|cmstp|ftp|curl|hh|ieexec|"
+            r"calc|notepad)\.exe\b",
+            _re.IGNORECASE,
+        )
+        _has_obf = (
+            _re.search(r"%\w+:~-?\d+(?:,-?\d+)?%", src)
+            or _re.search(r"%\w+%%\w+%", src)
+            or _re.search(r"!\w+(?::[~=][^!]*)?!", src)
+            or _re.search(r"[A-Za-z]\^[A-Za-z]", src)
+            or _re.search(r'""', src)
+        )
+        _has_lolbin = bool(_lolbin_rx.search(src))
+        if _has_obf or _has_lolbin:
             try:
                 from decoders.cmd_runtime_reconstruct import (
                     run_cmd_runtime_reconstruct as _run_crr,
@@ -1242,6 +1258,20 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                 for row in _crr.get("reconstruction_trace") or []:
                     trace_now.append({"step": row["step"], "detail": row["detail"]})
                 result["transformation_trace"] = trace_now
+
+                # Promote RC4.4 ATT&CK hints into the top-level
+                # ``result.mitre`` list so downstream consumers (verdict
+                # card, STIX exporter, dashboards) can see T1218 / T1059
+                # even when the LOLBAS shield hasn't fired yet.
+                _existing_mitre = {(h.get("id") if isinstance(h, dict) else None)
+                                     for h in (result.get("mitre") or [])}
+                _promoted = list(result.get("mitre") or [])
+                for _h in _crr.get("mitre") or []:
+                    if _h.get("id") and _h.get("id") not in _existing_mitre:
+                        _promoted.append(_h)
+                        _existing_mitre.add(_h.get("id"))
+                if _promoted:
+                    result["mitre"] = _promoted
             except Exception:
                 pass
 
@@ -1268,6 +1298,50 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                         line = line.strip()
                         if line.startswith("Step "):
                             trace_now.append({"step": "ps-semantic", "detail": line})
+                    result["transformation_trace"] = trace_now
+            except Exception:
+                pass
+
+        # RC4.5 · PowerShell Backtick / Line-Continuation Normalizer —
+        # fires when the input contains any backtick (`) AND at least one
+        # backtick precedes an identifier char (rules out pure escape-
+        # only strings like ``"a`n b"``). Collapses in-token backticks
+        # (``po`we`rshell`` → ``powershell``) and line-continuations.
+        if "`" in src and _re.search(r"`[A-Za-z0-9_]", src):
+            from operations import run_operation as _run_op_ps_bt
+            try:
+                bt_out = _run_op_ps_bt("powershell-backtick-normalize", src, {})
+                if bt_out and not bt_out.startswith("(powershell-backtick-normalize"):
+                    result["output_raw"] = bt_out + "\n" + str(result.get("output_raw") or "")
+                    if "powershell-backtick-normalize" not in {r.get("op") for r in (result.get("recipe") or [])}:
+                        result["recipe"] = [{"op": "powershell-backtick-normalize",
+                                              "detail": "Backtick / line-continuation collapsed"}] + (result.get("recipe") or [])
+                    trace_now = result.get("transformation_trace") or []
+                    for line in bt_out.split("\n"):
+                        line = line.strip()
+                        if line.startswith("Step "):
+                            trace_now.append({"step": "ps-backtick-normalize", "detail": line[:200]})
+                    result["transformation_trace"] = trace_now
+            except Exception:
+                pass
+
+        # RC4.5 · PowerShell Alias → Canonical Cmdlet Normalizer — fires
+        # only when the input mentions powershell/pwsh (so we don't
+        # accidentally rewrite the word ``ls`` inside plain shell text).
+        if _re.search(r"\b(?:powershell(?:\.exe)?|pwsh(?:\.exe)?)\b", src, _re.IGNORECASE):
+            from operations import run_operation as _run_op_ps_alias
+            try:
+                al_out = _run_op_ps_alias("powershell-alias-normalize", src, {})
+                if al_out and not al_out.startswith("(powershell-alias-normalize"):
+                    result["output_raw"] = al_out + "\n" + str(result.get("output_raw") or "")
+                    if "powershell-alias-normalize" not in {r.get("op") for r in (result.get("recipe") or [])}:
+                        result["recipe"] = [{"op": "powershell-alias-normalize",
+                                              "detail": "PS aliases expanded to canonical cmdlets"}] + (result.get("recipe") or [])
+                    trace_now = result.get("transformation_trace") or []
+                    for line in al_out.split("\n"):
+                        line = line.strip()
+                        if line.startswith("Step "):
+                            trace_now.append({"step": "ps-alias-normalize", "detail": line[:200]})
                     result["transformation_trace"] = trace_now
             except Exception:
                 pass

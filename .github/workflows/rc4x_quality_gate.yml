@@ -1,0 +1,114 @@
+name: RC4.x Quality Gate
+
+on:
+  pull_request:
+    branches: [main, feature/rc2, feature/rc2.1b, feature/rc4, feature/rc4.5]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/rc4x_quality_gate.yml'
+  push:
+    branches: [main, feature/rc2, feature/rc2.1b, feature/rc4, feature/rc4.5]
+    paths:
+      - 'backend/**'
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install brotli zstandard
+
+      # ─── RC2.3 baseline (still guarding chain-completeness regression) ───
+      - name: Unit tests — RC2.3 baseline scope
+        working-directory: backend
+        run: |
+          python -m pytest \
+            tests/test_rc22_xor8_lolbas_stix.py \
+            tests/test_meterpreter_gzip_xor_stager.py \
+            tests/test_engine_phase_a.py \
+            tests/test_rc22_workspace_adapter.py \
+            -q --no-header
+
+      # ─── RC4.0 six-pattern decoder roadmap ───
+      - name: Unit tests — RC4.0 decoder pack
+        working-directory: backend
+        run: |
+          python -m pytest \
+            tests/test_b64_concat_reconstruct.py \
+            -q --no-header
+
+      # ─── RC4.2 semantic mini + trace ───
+      - name: Unit tests — RC4.2 semantic evaluator
+        working-directory: backend
+        run: |
+          python -m pytest \
+            tests/test_rc42_semantic_mini.py \
+            tests/test_rc42_smart_decode_flows.py \
+            tests/test_rc42_transformation_trace.py \
+            -q --no-header
+
+      # ─── RC4.3 PS normalizer + smart-decode integration ───
+      - name: Unit tests — RC4.3 PS normalizer
+        working-directory: backend
+        run: |
+          python -m pytest \
+            tests/test_ps_normalizer.py \
+            tests/test_rc43_smart_normalizer.py \
+            -q --no-header
+
+      # ─── RC4.4 CMD Runtime Reconstruction engine ───
+      - name: Unit tests — RC4.4 CMD runtime reconstruction
+        working-directory: backend
+        run: |
+          python -m pytest \
+            tests/test_cmd_runtime_reconstruct.py \
+            -q --no-header
+
+      # ─── RC4.5 PS Backtick + Alias normalizers ───
+      - name: Unit tests — RC4.5 PS backtick + alias normalizers
+        working-directory: backend
+        run: |
+          python -m pytest \
+            tests/test_ps_backtick_normalizer.py \
+            tests/test_ps_alias_normalizer.py \
+            -q --no-header
+
+      # ─── RC2.3 chain-completeness benchmark (release gate — kept) ───
+      - name: RC2.3 chain-completeness benchmark
+        working-directory: backend
+        run: |
+          # Fail if chain_complete drops below RC2.3 Stable baseline (77.4%)
+          # or if any false-positive IOC is introduced.
+          python -m tests.rc23_benchmark.ci_gate \
+            --min-chain-pct 77.4 \
+            --max-fp 0
+
+      - name: Save benchmark output as artifact
+        if: always()
+        working-directory: backend
+        run: |
+          python -m tests.rc23_benchmark.run_benchmark \
+            --json rc23_benchmark_result.json || true
+
+      - name: Upload benchmark artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc23-benchmark-result
+          path: backend/rc23_benchmark_result.json
+          if-no-files-found: warn

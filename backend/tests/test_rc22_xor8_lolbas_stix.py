@@ -100,7 +100,10 @@ class TestNetworkLolbasCombo:
         breakdown = _compute_confidence_breakdown(f)
         sources = {c.source: c.points for c in breakdown.contributions}
         assert "network-lolbas-combo" in sources
-        assert sources["network-lolbas-combo"] == 15
+        # Post-RC2.2 tuning: combo bump raised from 15 → 35 to reflect the
+        # stronger network+LOLBIN co-occurrence signal. Keep this in sync
+        # with orchestrator._compute_confidence_breakdown.
+        assert sources["network-lolbas-combo"] == 35
 
     def test_combo_pushes_into_malicious(self):
         f = self._findings(
