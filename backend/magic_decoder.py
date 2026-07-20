@@ -383,8 +383,29 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
     #   • [byte[]](N,N,...) -bxor key[i%len] with key from ::GetBytes('KEY')
     if re.search(r"\[char\]\[int\]\s*\(\s*['\"]0x", s) and re.search(r"[0-9a-fA-F]{1,2}(?:\s*,\s*[0-9a-fA-F]{1,2}){4,}", s):
         cands.insert(0, {"op": "powershell-hex-csv-inline", "args": {}})
+    # RC4.1 · RC4 inline decrypt — fires when KSA + PRGA signature present
+    if re.search(r"0\s*\.\.\s*255", s) and re.search(r"-bxor", s, re.IGNORECASE) \
+            and re.search(r"FromBase64String", s, re.IGNORECASE):
+        cands.insert(0, {"op": "rc4-inline-decrypt", "args": {}})
+    # RC4.1 · Crypto API annotator — always considered when Aes/RC4/DES/DPAPI/GPG/OpenSSL patterns
+    if re.search(r"aes|rijndael|chacha|des|protecteddata|openssl|\bgpg\b|machineguid|rc4", s, re.IGNORECASE):
+        cands.append({"op": "crypto-api-annotator", "args": {}})
     if re.search(r"\[byte\[\]\]\s*\(", s) and re.search(r"-bxor", s, re.IGNORECASE):
         cands.insert(0, {"op": "powershell-xor-inline-key", "args": {}})
+    # RC4.0 Pattern 4 — Batch %VAR:from=to% substitution
+    # Fires when we see `set VAR=…` AND `%VAR:X=Y%` in the same input.
+    if re.search(r"(?:^|[\s&])set\s+\w+\s*=", s, re.IGNORECASE | re.MULTILINE) \
+            and re.search(r"%\w+:[^=%]{0,64}=[^%]{0,64}%", s):
+        cands.insert(0, {"op": "batch-envvar-substitute", "args": {}})
+    # RC4.0 Pattern 6 — CMD %VAR:~start,len% substring picker
+    if re.search(r"%\w+:~-?\d+(?:,-?\d+)?%", s):
+        cands.insert(0, {"op": "cmd-envvar-substring-picker", "args": {}})
+    # RC4.0 Pattern 5a — PowerShell reverse-string via [-1..-N] slice
+    if re.search(r"\$\w+\s*\[\s*-1\s*\.\.\s*-(?:\$\w+\.Length|\d+)\s*\]", s, re.IGNORECASE):
+        cands.insert(0, {"op": "powershell-reverse-string", "args": {}})
+    # RC4.0 Pattern 5b — PowerShell -replace '(\w+)\.(\w+)','$2.$1'
+    if re.search(r"-replace\s*['\"]\([^)]+\)\\\.\([^)]+\)['\"]\s*,\s*['\"]\$2\.\$1['\"]", s, re.IGNORECASE):
+        cands.insert(0, {"op": "powershell-reverse-regex-swap", "args": {}})
     # PowerShell backtick obfuscation — `I`E`X, `N`e`T`.`W`e`B`C`l`i`e`N`T
     # etc. When >= 15 % of the input is `<letter> pairs, insert the
     # deobfuscator at the FRONT so subsequent decoders see the plaintext.
@@ -812,6 +833,34 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                 if _signal(nxt) <= _signal(cur) + 0.005:
                     continue
             nsb = score_output(nxt)
+            # Deterministic pattern-locked decoders (RC4.0) — apply a HARD
+            # score boost (+2.0) because the input matched a regex signature
+            # so the transform IS the terminal answer. Otherwise a short
+            # random-looking XOR/hex plaintext would score lower than the
+            # PowerShell-decorated obfuscated wrapper (which gets a +0.35
+            # PS-keywords bonus from _structure_bonus). The +2.0 boost
+            # guarantees the decoded output surfaces as top_results[0].
+            _pattern_locked_ops = {
+                "powershell-xor-inline-key",
+                "powershell-hex-csv-inline",
+                "powershell-reverse-string",
+                "powershell-reverse-regex-swap",
+                "batch-envvar-substitute",
+                "cmd-envvar-substring-picker",
+                "rc4-inline-decrypt",
+            }
+            if c.get("op") in _pattern_locked_ops:
+                nsb = {**nsb, "score": (nsb.get("score", 0.0) or 0.0) + 2.0,
+                       "reasons": (nsb.get("reasons") or []) + ["pattern-locked-decode (+2.00)"]}
+                # Explicitly record the boosted result BEFORE recursion —
+                # the recursive _walk re-scores nxt from scratch (without the
+                # boost) so we need to persist the boosted record here.
+                best_results.append({
+                    "chain": chain + [{"op": c["op"], "args": c.get("args") or {}}],
+                    "output": nxt,
+                    "score_breakdown": nsb,
+                    "path_scores": list(path_scores) + [sb["score"], nsb["score"]],
+                })
             clean_step = {"op": c["op"], "args": c.get("args") or {}}
             # Deterministic follow-up: base64 → xor(known_key) plan.
             if "_then_xor" in c:
@@ -938,6 +987,27 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                     "_nested_b64" in c or "_nested_b32" in c or "_nested_hex" in c
                 ):
                     pass  # always follow through
+                # …unless the op is a pattern-locked deterministic transform
+                # (RC4.0 · Feb 2026). These decoders trigger only when their
+                # exact regex signature matches the input, so the output is
+                # the guaranteed terminal plaintext — even when it's short
+                # or looks random (e.g. XOR of an unknown-key ciphertext).
+                # Pruning here would silently defeat the plugin.
+                elif c.get("op") in {
+                    "powershell-xor-inline-key",
+                    "powershell-hex-csv-inline",
+                    "powershell-reverse-string",
+                    "powershell-reverse-regex-swap",
+                    "batch-envvar-substitute",
+                    "cmd-envvar-substring-picker",
+                    "ps-encodedcommand-multilayer",
+                    "powershell-encoded",
+                    "custom-hex-slash",
+                    "nibble-swap",
+                    "rc4-inline-decrypt",
+                    "crypto-api-annotator",
+                }:
+                    pass  # always follow through — deterministic pattern-locked
                 else:
                     looks_binary = (
                         len(nxt) >= 24 and

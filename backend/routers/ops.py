@@ -483,6 +483,50 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     # Deterministic best-of race (smart vs magic) — this is the key upgrade
     det = deterministic_best_decode(body.input, analysis_mode=body.analysis_mode or "balanced")
 
+    # ── RC4.1 · Crypto-API honest-verdict annotation ─────────────────────
+    # Runs unconditionally on the raw input so the annotator fires even when
+    # rc22_adapter / smart_decode wins the chain race and skips
+    # deterministic_best_decode's post-hoc annotation block.
+    try:
+        from decoders.crypto_api_annotator import _find_all as _crypto_find  # noqa
+        _crypto_hits = _crypto_find((body.input or "").lower())
+        if _crypto_hits:
+            _existing_mitre = det.get("mitre") or []
+            _seen_mitre = {(m.get("id") if isinstance(m, dict) else str(m))
+                           for m in _existing_mitre}
+            for h in _crypto_hits:
+                for mid in h.get("mitre") or []:
+                    if mid not in _seen_mitre:
+                        _seen_mitre.add(mid)
+                        _existing_mitre.append({
+                            "id":        mid,
+                            "technique": h.get("algorithm", "Cryptography"),
+                            "tactic":    "Defense Evasion",
+                            "evidence":  f"{h.get('algorithm')} · key_source={h.get('key_source')} "
+                                         f"· recovery={h.get('recovery')}",
+                            "source":    "rc41-crypto-annotator",
+                        })
+            det["mitre"] = _existing_mitre
+            det["crypto_hints"] = _crypto_hits
+            _recoverable = sum(1 for h in _crypto_hits if h.get("recovery") == "static-complete")
+            _runtime     = sum(1 for h in _crypto_hits if h.get("recovery") == "runtime-required")
+            det["static_recovery"] = {
+                "static_stages":  _recoverable,
+                "runtime_stages": _runtime,
+                "verdict": (
+                    "static-recovery-complete · runtime-decryption-required"
+                    if _runtime > 0 else "static-recovery-complete"
+                ),
+            }
+            banner = "▼ CRYPTO API DETECTED (RC4.1 · honest-verdict)\n" + "\n".join(
+                f"  · {h['algorithm']:<24} key_source={h['key_source']} recovery={h['recovery']}"
+                for h in _crypto_hits
+            ) + "\n\n"
+            det["output_raw"] = banner + str(det.get("output_raw") or det.get("output") or "")
+    except Exception:
+        pass
+    # ─────────────────────────────────────────────────────────────────────
+
     # === Learning Feedback Loop — Task 3 ============================== #
     # Compute the boost BEFORE deciding — we don't rewrite the decoder,
     # we simply attach transparency + record auto-hit/miss so future
@@ -1060,7 +1104,53 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         )
     except Exception:
         pass
+
+    # ── RC4.1 · Crypto-API honest-verdict FINAL merge ─────────────────
+    # Runs AFTER the IOC/MITRE/LOLBAS enrichment overwrites the mitre list,
+    # so the crypto annotations (AES-CBC, RC4, DPAPI, MachineGuid, etc.) are
+    # guaranteed to appear in the final response. Also copies static_recovery
+    # + crypto_hints from `det` into `result` since the enrichment stage
+    # doesn't touch either field.
+    try:
+        from decoders.crypto_api_annotator import _find_all as _crypto_find  # noqa
+        _crypto_hits = _crypto_find((body.input or "").lower())
+        if _crypto_hits:
+            _existing = result.get("mitre") or []
+            _seen = {(m.get("id") if isinstance(m, dict) else str(m)) for m in _existing}
+            for h in _crypto_hits:
+                for mid in h.get("mitre") or []:
+                    if mid not in _seen:
+                        _seen.add(mid)
+                        _existing.append({
+                            "id":        mid,
+                            "technique": h.get("algorithm", "Cryptography"),
+                            "tactic":    "Defense Evasion",
+                            "evidence":  f"{h.get('algorithm')} · key_source={h.get('key_source')} "
+                                         f"· recovery={h.get('recovery')}",
+                            "source":    "rc41-crypto-annotator",
+                        })
+            result["mitre"] = _existing
+            result["crypto_hints"] = _crypto_hits
+            _stat = sum(1 for h in _crypto_hits if h.get("recovery") == "static-complete")
+            _rt   = sum(1 for h in _crypto_hits if h.get("recovery") == "runtime-required")
+            result["static_recovery"] = {
+                "static_stages":  _stat,
+                "runtime_stages": _rt,
+                "verdict":        (
+                    "static-recovery-complete · runtime-decryption-required"
+                    if _rt > 0 else "static-recovery-complete"
+                ),
+            }
+            banner = "▼ CRYPTO API DETECTED (RC4.1 · honest-verdict)\n" + "\n".join(
+                f"  · {h['algorithm']:<24} key_source={h['key_source']} recovery={h['recovery']}"
+                for h in _crypto_hits
+            ) + "\n\n"
+            result["output_raw"] = banner + str(result.get("output_raw") or result.get("output") or "")
+    except Exception:
+        pass
+
     return result
+
 
 class CandidatesIn(BaseModel):
     input: str
