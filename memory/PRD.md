@@ -38,10 +38,18 @@ Capture the current golden state before any new changes:
 - Enable gzip on `/analyze/job` responses
 - Fixes red-toast error on big-whale samples where verdict already returned successfully
 
-### B · P1 · Cosmetic polish  ← THIRD
-- Wire real decode-confidence value into the `RECOVERED PAYLOAD · DECODE CONF · N%` badge (currently reads 0 % even when verdict is Malicious)
-- Downgrade `⚠ BROKEN` → `✓ RECOVERED` on layers that successfully produced downstream output
-- Hide default-value args from the DECODING TRACE panel (`{"urlsafe":false}` etc.)
+### B · P1 · Cosmetic polish  ← THIRD (partial — 3 of 5 done in RC3.0 deploy #3)
+**Done in RC3.0 (Feb-2026 · production):**
+- ✅ DECODE CONF badge hidden when 0/null
+- ✅ SALVAGED → ✓ RECOVERED (green) for mid-chain layers
+- ✅ Default-value args (`{"urlsafe":false}`) hidden from trace panel
+
+**Still open:**
+- Terminal-layer BROKEN badge should downgrade to ✓ RECOVERED when the OVERALL investigation produced valid IOC/MITRE/LOLBAS signals (currently only mid-chain layers get the downgrade).
+- **NEW · Cloudflare origin-parse error on `/analyze/job` polling** — persists even after GZip middleware. Root cause is NOT response size; likely a specific endpoint returning malformed/empty headers on big-whale samples. Next-session diagnosis:
+  1. Add explicit logging on `/analyze/job` completion path (accept-encoding, content-length, chunked-transfer state).
+  2. Confirm the async job's final response isn't chunked-encoded empty.
+  3. Consider disabling chunked-encoding on `/analyze/job` responses (`transfer-encoding: identity`).
 
 ### C · P1 · Verdict precision 15/31 → ≥ 90 %  ← FOURTH
 - Diff benchmark expectations vs new `_classify` output
