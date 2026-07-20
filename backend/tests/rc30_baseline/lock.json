@@ -1,13 +1,13 @@
 {
-  "_": "RC3.0 Stable baseline — frozen 2026-02-20 after production deploy on nivxray.nivxforge.com and user validation showing blink-of-eye OUTPUT+VERDICT co-render. Every subsequent merge must not regress these floors.",
-  "release":           "RC3.0",
-  "frozen_at":         "2026-02-20",
+  "_": "RC3.1 Stable baseline — frozen 2026-02-21 after verdict-precision hardening (15/31 → 29/31 = 93.5%) + Cloudflare origin-parse fix + terminal-layer BROKEN→RECOVERED. Every subsequent merge must not regress these floors.",
+  "release":           "RC3.1",
+  "frozen_at":         "2026-02-21",
   "backend": {
     "chain_completeness":   {"value": 30, "of": 31, "pct": 96.7},
-    "verdict_precision":    {"value": 15, "of": 31},
+    "verdict_precision":    {"value": 29, "of": 31},
     "false_positive_iocs":  {"value": 0,  "ceiling": 0},
     "avg_latency_ms":       {"value": 500, "ceiling": 800},
-    "pytest_total_passing": 107
+    "pytest_total_passing": 116
   },
   "frontend_ux_locks": {
     "primary_button":        "★ AUTO INVESTIGATE",

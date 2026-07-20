@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 
 from schemas import AnalyzeIn, PlaybookFeedbackIn
 from deps import db, get_current_user, require_admin, load_osint_keys
@@ -457,7 +457,92 @@ async def analyze_status(job_id: str, user=Depends(get_current_user)):
     for k in ("updated_at",):
         if isinstance(doc.get(k), datetime):
             doc[k] = doc[k].isoformat()
-    return doc
+    # RC3.1 · Cloudflare origin-parse hardening.
+    # Big-whale payloads occasionally hydrate the job doc with sub-fields
+    # (AI description, decoded output previews, raw shellcode dumps) that
+    # push the JSON over ~1 MB. When combined with chunked-transfer
+    # streaming through Cloudflare, this triggers a red "origin could not
+    # parse" toast on the analyst UI even though the primary decode
+    # succeeded. Two defences:
+    #   1. Sanitize every string field to strip NULs / non-UTF-8 sequences.
+    #   2. Cap each individual field at 128 KB (analyst preview is enough);
+    #      full artefacts remain available through /analyze (sync) if needed.
+    #   3. Cap the ENTIRE response at 512 KB.
+    #   4. Return via JSONResponse with explicit Content-Length so the ASGI
+    #      layer does not fall back to chunked-transfer encoding.
+    _sanitize_job_doc(doc)
+    body = json.dumps(doc, default=str, ensure_ascii=False)
+    if len(body.encode("utf-8")) > 512 * 1024:
+        doc = _shrink_job_doc(doc)
+        body = json.dumps(doc, default=str, ensure_ascii=False)
+    payload = body.encode("utf-8")
+    return JSONResponse(
+        content=doc,
+        headers={
+            "Content-Length": str(len(payload)),
+            "Cache-Control": "no-store",
+            "X-Payload-Sanitized": "true",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Job-doc sanitizer / shrinker helpers (RC3.1 Cloudflare origin-parse fix)
+# ---------------------------------------------------------------------------
+_MAX_FIELD_BYTES = 128 * 1024
+_MAX_RESPONSE_BYTES = 512 * 1024
+
+
+def _clean_str(s: str) -> str:
+    """Strip NULs + illegal control chars that break JSON / HTTP proxies."""
+    if not isinstance(s, str):
+        return s
+    # Drop NUL + high control chars but keep \t \n \r
+    return "".join(ch for ch in s if ch >= " " or ch in "\t\n\r").replace("\x00", "")
+
+
+def _cap_str(s: str, limit: int = _MAX_FIELD_BYTES) -> str:
+    b = s.encode("utf-8", errors="replace")
+    if len(b) <= limit:
+        return s
+    return b[: limit].decode("utf-8", errors="replace") + f"\n[... truncated {len(b) - limit} bytes]"
+
+
+def _sanitize_job_doc(doc: Dict[str, Any]) -> None:
+    """In-place recursive sanitize + per-field cap for a job status doc."""
+    def _walk(o):
+        if isinstance(o, dict):
+            for k, v in list(o.items()):
+                if isinstance(v, str):
+                    o[k] = _cap_str(_clean_str(v))
+                elif isinstance(v, (dict, list)):
+                    _walk(v)
+        elif isinstance(o, list):
+            for i, v in enumerate(o):
+                if isinstance(v, str):
+                    o[i] = _cap_str(_clean_str(v))
+                elif isinstance(v, (dict, list)):
+                    _walk(v)
+    _walk(doc)
+
+
+def _shrink_job_doc(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """When the JSON body exceeds 512 KB, drop the largest optional fields
+    while preserving the analyst-critical surface (job_id, status, phase,
+    progress, iocs, mitre, lolbas, verdict, risk)."""
+    critical = {"job_id", "status", "phase", "progress", "iocs", "mitre",
+                "lolbas", "yara", "ti_hits", "risk", "verdict_card",
+                "ai_verdict", "updated_at", "errors"}
+    slim = {k: v for k, v in doc.items() if k in critical}
+    slim["_truncated"] = True
+    slim["_truncated_reason"] = (
+        "response exceeded 512 KB origin-safe limit; fetch full artefacts "
+        "via /api/analyze (sync) if the analyst needs raw AI description / "
+        "decoded preview payloads"
+    )
+    # Cap the surviving string fields again
+    _sanitize_job_doc(slim)
+    return slim
 
 
 @router.post("/analyze/{job_id}/feedback")

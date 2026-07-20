@@ -123,6 +123,49 @@ export default function WorkspacePage() {
     setRefineCtx({ surface, wrong_finding: wrongFinding });
     setRefineOpen(true);
   };
+
+  // RC3.1 · IR Handoff Export — download the analyst brief in the
+  // requested format. Re-runs the deterministic orchestrator so the
+  // downloaded artefact always matches what the analyst sees on screen.
+  const downloadHandoff = async (fmt) => {
+    try {
+      const axios = (await import("axios")).default;
+      const src = (input || "").trim();
+      if (!src) {
+        alert("Nothing to export — decode an input first.");
+        return;
+      }
+      const token = localStorage.getItem("nvx_token");
+      const r = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/api/v2/analyze/report?fmt=${encodeURIComponent(fmt)}`,
+        { input: src },
+        {
+          responseType: "blob",
+          timeout: 45_000,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      );
+      const ext = fmt === "md" ? "md"
+        : fmt === "pdf" ? "pdf"
+        : fmt === "json" ? "json"
+        : fmt === "stix" ? "stix.json"
+        : "txt";
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const blob = new Blob([r.data], {
+        type: r.headers?.["content-type"] || "application/octet-stream",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `nivxray-analyst-report-${stamp}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`Handoff export failed: ${err?.response?.status || err?.message || err}`);
+    }
+  };
   const [nivxrayTrace, setNivxrayTrace] = useState([]);
   // v1.4.2 · Report Bad Decode + Enrich IOCs
   const [badDecodeOpen, setBadDecodeOpen] = useState(false);
@@ -1522,6 +1565,44 @@ export default function WorkspacePage() {
         analysis={analysis}
       />
 
+      {/* RC3.1 · IR HANDOFF EXPORT — downloadable SOC brief from the
+          Verdict header. Backend already exposes /api/v2/analyze/report
+          in md / txt / json / pdf / stix formats. Analysts click the
+          format they want; we re-run the deterministic orchestrator
+          against the current input so the download always reflects the
+          exact same findings surface visible on screen. */}
+      {(analysis || verdictCard) && (
+        <div
+          data-testid="ir-handoff-strip"
+          style={{
+            padding: "0 16px 8px", display: "flex", gap: 6, flexWrap: "wrap",
+            fontFamily: "JetBrains Mono", fontSize: 10, alignItems: "center",
+          }}
+        >
+          <span style={{ color: "var(--text-mute)", letterSpacing: "0.14em" }}>
+            📥 IR HANDOFF EXPORT —
+          </span>
+          {[
+            ["md",   "SOC BRIEF (.md)",  "text/markdown"],
+            ["pdf",  "PDF REPORT",       "application/pdf"],
+            ["json", "JSON",             "application/json"],
+            ["stix", "STIX 2.1",         "application/stix+json"],
+          ].map(([fmt, label]) => (
+            <button
+              key={fmt}
+              type="button"
+              className="nvx-btn sm ghost"
+              data-testid={`btn-handoff-${fmt}`}
+              title={`Download analyst-ready ${label}`}
+              onClick={() => downloadHandoff(fmt)}
+              style={{ padding: "2px 8px" }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Feb-2026: ✎ Refine launcher — one button per surface. Analysts
           click the surface that has a wrong finding, pick which specific
           MITRE / IOC / LOLBIN / family / risk value is wrong inside the
@@ -1831,6 +1912,26 @@ export default function WorkspacePage() {
                 engine={decodeWinnerEngine}
                 confidence={decodeConfidence}
                 reachedShellcode={reachedShellcode}
+                overallSuccess={(() => {
+                  // RC3.1: signal to trace panel that the OVERALL investigation
+                  // recovered actionable intelligence. Used to downgrade a
+                  // terminal-layer "BROKEN" badge to "RECOVERED" when we in
+                  // fact extracted a valid analyst-ready report.
+                  try {
+                    const iocs = analysis?.iocs || {};
+                    const iocCount =
+                      (iocs.urls?.length || 0) + (iocs.domains?.length || 0) +
+                      (iocs.ips?.length || 0) + (iocs.hashes?.length || 0) +
+                      (iocs.emails?.length || 0) + (iocs.files?.length || 0);
+                    const mitreCount = (analysis?.mitre || []).length;
+                    const lolbasCount = (analysis?.lolbas || []).length;
+                    const familyOK = !!(verdictCard?.family || verdictCard?.family_matches?.length);
+                    const verdictOK = !!(verdictCard && verdictCard.verdict && verdictCard.verdict !== "unknown");
+                    return reachedShellcode || iocCount > 0 || mitreCount > 0 || lolbasCount > 0 || familyOK || verdictOK;
+                  } catch (_e) {
+                    return false;
+                  }
+                })()}
                 onJumpToLayer={(i) => {
                   const layer = decodeTrace[i];
                   if (layer && !layer.error) {

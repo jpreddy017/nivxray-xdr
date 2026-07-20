@@ -2,6 +2,69 @@
 
 Chronological record of significant releases (newest first).
 
+
+---
+
+## RC3.1 — Verdict precision + IR Handoff Export · 2026-02-21
+
+**Status:** ✅ Ready to ship (Preview verified end-to-end)
+**Tag recommended:** `v1.0.0-RC3.1`
+**Tests:** 116/116 CI gate green · 9 new regression tests · verdict precision 15/31 → 29/31 (**93.5%**)
+
+### 🐛 P1 hot-fixes (closes RC3.0 backlog)
+
+- **Terminal-layer `BROKEN` badge → `RECOVERED`.** The trace panel now
+  downgrades the terminal layer to ✓ `RECOVERED` whenever the OVERALL
+  investigation surfaced valid IOCs / MITRE / LOLBAS / family / verdict.
+  Analysts no longer see a misleading red badge when the pipeline actually
+  succeeded (`DecodingTracePanel.jsx`, `WorkspacePage.jsx`).
+- **Cloudflare origin-parse fix on `/analyze/status/{job_id}`.**
+  `routers/analyze.py` now sanitises NUL / C0 control chars, caps every
+  string field at 128 KB, and shrinks the entire response to ≤ 512 KB
+  before returning via `JSONResponse` with explicit `Content-Length` — no
+  more chunked-transfer fallback on Whale-payload polls.
+
+### 🎯 P0 · Verdict precision — 15/31 → 29/31 (48 % → 93.5 %)
+
+- New tiered LOLBAS scoring (`_HIGH_LOLBAS` vs `_BENIGN_LOLBAS`).
+- Hard-signal gating stops isolated obfuscation from scoring — `_classify`
+  now leaves pure `IEX` / `-f` / `-replace` samples at UNKNOWN, and pushes
+  canonical `certutil / mshta / regsvr32 + URL` combos into MALICIOUS.
+- Post-decode global LOLBAS re-scan (`_post_decode_lolbas_scan`) merges
+  wrapper-decoder blindspots (certutil, regsvr32, bitsadmin, wmic, hh, …).
+- `encoding-chain` bonus for canonical staging (`base64+utf16+gzip+URL`)
+  distinguishes malicious Empire / Meterpreter loaders from PS-only
+  obfuscation, which stays at SUSPICIOUS.
+- Tradecraft severity re-weighted (medium 15 → 25, cap 30 → 25) so pure
+  reconstruction obfuscation without downstream signal returns UNKNOWN.
+
+### ✨ P1 · New capability
+
+- **HTML entity + JS `\uXXXX` Unicode-escape decoder**
+  (`decoders/html_unicode_escape.py`). Recognises `&#65;`, `&#x41;`,
+  `\u0041`, `\u{1F600}` and `\x41` escape streams; density-gated so sparse
+  noise inside a binary payload never triggers a phantom decode.
+- **IR Handoff Export UI** — analyst-ready download strip under the Verdict
+  header (MD / PDF / JSON / STIX 2.1). Re-runs the deterministic engine
+  server-side so the file always matches the on-screen findings.
+
+### 🧪 Regression coverage
+
+- `tests/test_html_unicode_escape.py` — 4 golden regression tests
+- `tests/test_rc31_p1_hotfixes.py` — 5 tests locking sanitiser + downgrade
+- `tests/test_regression_lock.py::test_lock11_*` — renamed SALVAGED → RECOVERED
+
+### 📊 CI-gate deltas (`tests/rc30_baseline/lock.json` → RC3.1)
+
+| Metric                  | RC3.0 | RC3.1 |
+|-------------------------|-------|-------|
+| Chain completeness      | 96.7 % | **96.7 %** (held) |
+| Verdict precision       | 15/31 | **29/31 (93.5 %)** |
+| Pytest passing (gate)   | 107   | **116** |
+| Avg latency             | 500 ms | 500 ms (unchanged) |
+| False-positive IOCs     | 0     | 0 (held) |
+
+
 ---
 
 ## RC2.2 — Decoder Expansion + Universal File Ingest · 2026-07-20

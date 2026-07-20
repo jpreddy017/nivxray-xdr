@@ -14,64 +14,31 @@
 > - Every technical panel (Verdict · Recovered Payload · Chain Recipe · MITRE · IOCs · Network · Behavior) populates identically whether AI is engaged or not.
 > - Any future feature that introduces an AI dependency into the CORE pipeline is a P0 architectural violation — it must be refactored to run rule-based/deterministic with AI as an opt-in overlay.
 
-## 🎯 NEXT-SESSION EXECUTION ORDER (locked with user 2026-02-20, post-RC3.0 deploy validation)
+## 🎯 NEXT-SESSION EXECUTION ORDER
 
 **Order confirmed by user after production validation showed OUTPUT + VERDICT populating in one blink on PLAIN mode:**
 
-### D · P0 · Freeze RC3.0 baseline corpus + CI gate  ← FIRST
-Capture the current golden state before any new changes:
-- Chain-completeness: 30/31 (96.8 %)
-- Verdict precision: 15/31
-- Pytest: 107/107 pass
-- Fast-path decode latency: <500 ms end-to-end
-- All 7 panels populate together (blink-of-eye UX)
-- Store under `/app/backend/tests/rc30_baseline/` with fixture inputs + expected outputs + one canonical screenshot per representative payload.
-- **CI gate script** that FAILS a merge if:
-  * chain-completeness drops below 30/31
-  * verdict-precision drops below 15/31
-  * any pytest breaks
-  * any panel loses its `data-testid`
-  * end-to-end decode latency exceeds 800 ms on the fast-path fixture
+### ✅ D · P0 · Freeze RC3.0 baseline corpus + CI gate  ← DELIVERED (RC3.0, refreshed to RC3.1)
+### ✅ A · P1 · Cloudflare origin-parse error on async enrichment tail  ← DELIVERED (RC3.1 · Feb-2026)
+### ✅ B · P1 · Cosmetic polish — terminal-layer RECOVERED downgrade  ← DELIVERED (RC3.1 · Feb-2026)
+### ✅ C · P1 · Verdict precision 15/31 → ≥ 90 %  ← DELIVERED (RC3.1 · 29/31 = 93.5 %)
+### ✅ H · P1 · IR Handoff Export (.md / .pdf)  ← DELIVERED (RC3.1 · Feb-2026, MD + PDF + JSON + STIX 2.1)
 
-### A · P1 · Cloudflare origin-parse error on async enrichment tail  ← SECOND
-- Cap enrichment response payload at 512 KB
-- Enable gzip on `/analyze/job` responses
-- Fixes red-toast error on big-whale samples where verdict already returned successfully
+### 🟡 Currently open
 
-### B · P1 · Cosmetic polish  ← THIRD (partial — 3 of 5 done in RC3.0 deploy #3)
-**Done in RC3.0 (Feb-2026 · production):**
-- ✅ DECODE CONF badge hidden when 0/null
-- ✅ SALVAGED → ✓ RECOVERED (green) for mid-chain layers
-- ✅ Default-value args (`{"urlsafe":false}`) hidden from trace panel
-
-**Still open:**
-- Terminal-layer BROKEN badge should downgrade to ✓ RECOVERED when the OVERALL investigation produced valid IOC/MITRE/LOLBAS signals (currently only mid-chain layers get the downgrade).
-- **NEW · Cloudflare origin-parse error on `/analyze/job` polling** — persists even after GZip middleware. Root cause is NOT response size; likely a specific endpoint returning malformed/empty headers on big-whale samples. Next-session diagnosis:
-  1. Add explicit logging on `/analyze/job` completion path (accept-encoding, content-length, chunked-transfer state).
-  2. Confirm the async job's final response isn't chunked-encoded empty.
-  3. Consider disabling chunked-encoding on `/analyze/job` responses (`transfer-encoding: identity`).
-
-### C · P1 · Verdict precision 15/31 → ≥ 90 %  ← FOURTH
-- Diff benchmark expectations vs new `_classify` output
-- Add lock test at ≥ 28/31
-- The baseline from D tracks the floor
-
-### E · P1 · Golden-fixture regression battery  ← FIFTH
+### E · P1 · Golden-fixture regression battery  ← NEXT
 - Golden input → golden output in `/app/backend/tests/fixtures/plugin_regression/` for every plugin
-- Parametrised pytest, feeds the CI gate from D
+- Parametrised pytest, feeds the CI gate. `html_unicode_escape` fixture is already in place as the reference implementation.
 
-### F · P1 · Phase C.5 · Obfuscation Coverage Sprint  ← SIXTH
-- HIGH · Unicode escapes (`\u0041`), HTML entities (`&#65;`)
-- MED · Base32 / Base58 / Base85 / Base91
+### F · P1 · Phase C.5 · Obfuscation Coverage Sprint (partially delivered in RC3.1)
+- ✅ HIGH · Unicode escapes (`\u0041`), HTML entities (`&#65;`)  — RC3.1
+- MED · Base32 / Base58 / Base85 / Base91  ← already in codebase, add explicit tests
 - MED · UUID-encoded shellcode, IPv4/IPv6-encoded shellcode
 - MED · ChaCha20 / AES-GCM / DES / 3DES (reuse `crypto_hints._ALGO_SPECS`)
-- BONUS · PS tick-obfuscation, CMD caret-escape, JSE/VBE
+- BONUS · JSE/VBE
 
-### G · P1 · Enrich `crypto-key-required` tradecraft  ← SEVENTH
+### G · P1 · Enrich `crypto-key-required` tradecraft
 Structured JSON with algorithm, encoding, key_len_bits, iv_len_bits, nonce_required, confidence.
-
-### H · P1 · IR Handoff Export (.md / .pdf)  ← EIGHTH
-One-click SOC brief from the Verdict panel header.
 
 ### Then · Phase D · Malware-family detectors (XWorm / RedLine / FormBook / NjRAT / Emotet)
 
@@ -82,6 +49,16 @@ Cross-cutting enterprise-grade capabilities that slot in after the numbered spri
 - **R.3** Tradecraft detectors: AMSI/ETW bypass · sandbox-detection · registry/scheduled-task persistence · DGA heuristic
 - **R.4** Enterprise: RBAC · immutable audit log · API tokens · multi-tenant workspaces · Prometheus metrics
 - **R.5** Payload types: VBA macros · LNK · Excel-4.0 · PDF JS · HTA/MSI/ISO container unpacking
+
+
+---
+## 🟢 RC3.1 · Verdict Precision + IR Handoff + P1 hot-fixes · DELIVERED (2026-02-21)
+
+**Branch:** `feature/rc2` · **Scope:** verdict precision 15/31 → 29/31 (93.5 %) · Cloudflare origin-parse fix · Terminal `BROKEN` → `RECOVERED` · IR Handoff Export UI (MD/PDF/JSON/STIX) · HTML entity + JS `\uXXXX` decoder · 9 new regression tests.
+
+**CI gate (RC3.1 lock.json):** 116/116 pytest · 96.8 % chain-completeness · 29/31 verdict precision · 500 ms avg latency · 0 false-positive IOCs.
+
+Full detail: `/app/memory/CHANGELOG.md#rc31`.
 
 
 ---

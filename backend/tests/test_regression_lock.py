@@ -164,13 +164,14 @@ def test_lock10_blind_xor_smart_render_pe_binary():
 
 
 # ═════════════════════════════════════════════════════════════════════════
-# LOCK 11 · X-RAY SALVAGE downgrade — mid-chain BROKEN/MIXED must
-#            downgrade to SALVAGED when downstream recovered
+# LOCK 11 · X-RAY RECOVERED downgrade — mid-chain BROKEN/MIXED must
+#            downgrade to RECOVERED when downstream recovered
+#            (renamed from "SALVAGED" in RC3.0 · Feb-2026 UX polish)
 # ═════════════════════════════════════════════════════════════════════════
 def test_lock11_xray_salvage_downgrade_wired():
     src = open("/app/frontend/src/components/DecodingTracePanel.jsx").read()
-    assert "SALVAGED" in src, "Regressed: SALVAGED badge removed"
-    assert "_rawLayerHealth" in src, "Regressed: raw-vs-salvaged split removed"
+    assert "RECOVERED" in src, "Regressed: RECOVERED badge removed"
+    assert "_rawLayerHealth" in src, "Regressed: raw-vs-recovered split removed"
 
 
 # ═════════════════════════════════════════════════════════════════════════

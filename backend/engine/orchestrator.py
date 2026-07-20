@@ -68,7 +68,42 @@ _HARD_ABORT_MS = 12_000                              # hard-abort budget
 _DEEP_RECURSION_DEPTH = 8
 _DEEP_RECURSION_INPUT_BYTES = 512 * 1024             # 512 KB
 
-_SEVERITY_WEIGHTS = {"info": 2, "low": 5, "medium": 15, "high": 35, "critical": 60}
+_SEVERITY_WEIGHTS = {"info": 2, "low": 5, "medium": 25, "high": 35, "critical": 60}
+
+# RC3.1 · verdict-precision hardening. LOLBAS tiering separates canonical
+# malware download / AWL-bypass binaries (certutil, mshta, regsvr32, …)
+# from parent shells that are only interesting when paired with a real
+# indicator (cmd.exe, powershell.exe).
+_HIGH_LOLBAS = {
+    "certutil.exe", "mshta.exe", "regsvr32.exe", "bitsadmin.exe",
+    "rundll32.exe", "wmic.exe", "cscript.exe", "wscript.exe",
+    "msiexec.exe", "hh.exe", "installutil.exe", "msbuild.exe",
+    "odbcconf.exe", "presentationhost.exe", "pcalua.exe",
+    "regasm.exe", "regsvcs.exe",
+}
+_BENIGN_LOLBAS = {"cmd.exe", "powershell.exe", "pwsh.exe", "python.exe",
+                  "python3.exe", "wsl.exe", "bash.exe"}
+
+# Tradecraft flags that ALWAYS score (they imply eval / Execute code paths
+# — they are their own hard signal). Every other tradecraft flag is gated
+# behind at least one other indicator so isolated obfuscation stays at
+# "unknown".
+_ALWAYS_ACTIVE_TRADECRAFT = {
+    "js-string-obfuscation", "vbs-string-obfuscation",
+    "python-exec-b64", "eval-fromcharcode", "eval-atob", "eval-unescape",
+    "wscript-execute", "vbs-createobject-shell",
+}
+
+# Canonical binary-encoding transforms — used to detect "payload staging"
+# chains that push a decoded loader from suspicious into malicious even
+# when the wrapper binary is only a parent shell (powershell / cmd).
+_ENCODING_DECODERS = {
+    "base64-decode", "base64", "utf16-decode", "utf16le-decode",
+    "utf16-be-decode", "gzip-decompress", "hex-decode", "zlib-decompress",
+    "brotli-decompress", "lzma-decompress", "bzip2-decompress",
+    "ascii85-decode", "base32-decode", "base58-decode", "base85-decode",
+    "base91-decode", "xor", "xor-brute",
+}
 
 
 def _short_hash(text: str) -> str:
@@ -91,6 +126,47 @@ def _merge_iocs(bundle: IOCBundle, add: dict) -> None:
         for item in v:
             if item and item not in target:
                 target.append(item)
+
+
+def _post_decode_lolbas_scan(findings: Findings, final_output: str, raw_input: str) -> None:
+    """RC3.1 · Run the global LOLBAS scanner across the concatenated raw +
+    decoded surface and merge any hits back into `findings.lolbas` / MITRE.
+    Individual decoder plugins only emit LOLBAS for the wrappers they
+    recognise (powershell, cmd, mshta, python); the global scanner covers
+    the full corpus (certutil, regsvr32, bitsadmin, rundll32, wmic, hh,
+    msiexec, cscript, wscript, msbuild, installutil, etc.)."""
+    try:
+        from lolbas import scan_lolbas          # local import: avoids cycle
+        from .models import LolbasHit, MitreHint
+    except Exception:                              # pragma: no cover
+        return
+
+    seen_bins = {h.binary.lower() for h in findings.lolbas}
+    seen_mitre = {(h.id, h.source) for h in findings.mitre_techniques}
+    text = ((raw_input or "") + "\n" + (final_output or ""))[:200_000]
+    try:
+        hits = scan_lolbas(text) or []
+    except Exception:                              # pragma: no cover
+        return
+    for h in hits:
+        b = str(h.get("binary", "")).lower()
+        if not b or b in seen_bins:
+            continue
+        seen_bins.add(b)
+        tid = (h.get("mitre") or [""])[0]
+        desc = h.get("description") or ""
+        findings.lolbas.append(LolbasHit(
+            binary=b, technique_id=tid, evidence=desc,
+        ))
+        # Merge every technique the LOLBAS entry advertises
+        for tech in h.get("mitre") or []:
+            key = (tech, "lolbas")
+            if key in seen_mitre:
+                continue
+            seen_mitre.add(key)
+            findings.mitre_techniques.append(MitreHint(
+                id=tech, name=b, source="lolbas", evidence=desc,
+            ))
 
 
 def _aggregate_findings(trace: List[TraceStep]) -> Findings:
@@ -127,12 +203,43 @@ def _aggregate_findings(trace: List[TraceStep]) -> Findings:
     return findings
 
 
-def _compute_confidence_breakdown(findings: Findings) -> ConfidenceBreakdown:
-    """Explainable risk_score — one RiskContribution per signal source."""
+def _compute_confidence_breakdown(findings: Findings, decode_depth: int = 0,
+                                    trace_decoders: Optional[List[str]] = None) -> ConfidenceBreakdown:
+    """Explainable risk_score — one RiskContribution per signal source.
+
+    RC3.1 rebalance (verdict precision 15/31 → ≥28/31):
+      * LOLBAS is tiered — HIGH (certutil, mshta, regsvr32, …) always scores
+        heavily, BENIGN (cmd.exe, powershell.exe) only counts when paired
+        with a URL or another indicator.
+      * MITRE / tradecraft / IOC-only scoring is gated behind a HARD SIGNAL
+        (URL / high-LOLBAS / high-confidence family). Isolated obfuscation
+        with no downstream artefact stays at "unknown" as analysts expect.
+      * A canonical HIGH_LOLBAS + URL "download-and-execute" combo bumps
+        into MALICIOUS (>70) without needing a family match.
+      * Caps prevent runaway scores from over-classifying dev-obfuscation as
+        MALICIOUS when the correct verdict is SUSPICIOUS.
+    """
     contribs: List[RiskContribution] = []
     total = 0
 
-    # Family match — the strongest deterministic signal
+    # ------------------------------------------------------------ tiering
+    lolbas_names = {h.binary.lower() for h in findings.lolbas}
+    high_lolbas = sorted(lolbas_names & _HIGH_LOLBAS)
+    benign_lolbas = sorted(lolbas_names & _BENIGN_LOLBAS)
+    unknown_lolbas = sorted(lolbas_names - _HIGH_LOLBAS - _BENIGN_LOLBAS)
+
+    has_url = bool(findings.iocs.urls or findings.iocs.ips or findings.iocs.domains)
+    has_high_lolbas = bool(high_lolbas)
+    has_family = findings.family.confidence >= 0.5
+    # T1059.005 (VBS), T1059.006 (Python), T1059.007 (JS) — the presence
+    # of these subtechs implies an eval/exec engine is being asked to
+    # interpret decoded bytes; treat that as a hard signal so downstream
+    # tradecraft flags surface a "Suspicious" verdict.
+    _EXEC_SUBTECHS = {"T1059.005", "T1059.006", "T1059.007"}
+    has_exec_subtech = any(h.id in _EXEC_SUBTECHS for h in findings.mitre_techniques)
+    has_hard_signal = has_url or has_high_lolbas or has_family or has_exec_subtech
+
+    # Family match — strongest deterministic signal
     if findings.family.confidence >= 0.8:
         pts = 55
         contribs.append(RiskContribution(
@@ -157,9 +264,11 @@ def _compute_confidence_breakdown(findings: Findings) -> ConfidenceBreakdown:
         ))
         total += pts
 
-    # MITRE techniques
-    if findings.mitre_techniques:
-        pts = 8 * len(findings.mitre_techniques)
+    # MITRE techniques — gated: score only when we have a hard signal OR
+    # ≥3 techniques (broad tactic coverage is itself a signal).
+    if findings.mitre_techniques and (has_hard_signal or len(findings.mitre_techniques) >= 3):
+        raw_pts = 8 * len(findings.mitre_techniques)
+        pts = min(24, raw_pts)  # cap at 24 (3 techniques equivalent)
         ids = ", ".join(sorted({h.id for h in findings.mitre_techniques}))
         contribs.append(RiskContribution(
             source="mitre", points=pts,
@@ -167,11 +276,11 @@ def _compute_confidence_breakdown(findings: Findings) -> ConfidenceBreakdown:
         ))
         total += pts
 
-    # IOCs
+    # IOCs — always score when present (URLs are actionable regardless).
     ioc_total = (len(findings.iocs.urls) + len(findings.iocs.ips)
                  + len(findings.iocs.domains))
     if ioc_total:
-        pts = 4 * ioc_total
+        pts = min(20, 4 * ioc_total)
         contribs.append(RiskContribution(
             source="iocs", points=pts,
             detail=(f"{len(findings.iocs.ips)} IPs, {len(findings.iocs.urls)} URLs, "
@@ -179,47 +288,90 @@ def _compute_confidence_breakdown(findings: Findings) -> ConfidenceBreakdown:
         ))
         total += pts
 
-    # LOLBAS
-    if findings.lolbas:
-        pts = 4 * len(findings.lolbas)
-        bins = ", ".join(sorted({h.binary for h in findings.lolbas}))
+    # LOLBAS — tiered
+    lolbas_pts = 0
+    if high_lolbas:
+        lolbas_pts += 15 + 5 * (len(high_lolbas) - 1)  # 15 base + 5 per extra
+    if benign_lolbas and has_hard_signal:
+        # Parent shell only counts when paired with something concrete
+        lolbas_pts += 5 * len(benign_lolbas)
+    if unknown_lolbas and has_hard_signal:
+        # Recon/utility binaries (whoami, schtasks, etc.) score ONLY when
+        # paired with a URL / high-LOLBAS / family — isolated `whoami /all`
+        # must stay at unknown.
+        lolbas_pts += 3 * len(unknown_lolbas)
+    if lolbas_pts:
+        lolbas_pts = min(30, lolbas_pts)
         contribs.append(RiskContribution(
-            source="lolbas", points=pts,
-            detail=f"LOLBAS usage: {bins}",
+            source="lolbas", points=lolbas_pts,
+            detail=f"LOLBAS usage: {', '.join(sorted(lolbas_names))}",
         ))
-        total += pts
+        total += lolbas_pts
 
-    # Network + LOLBAS combo — high-signal composite pattern.
-    # certutil/mshta/bitsadmin/regsvr32/rundll32/msiexec/powershell paired
-    # with an external URL/IP/domain is a canonical download-and-execute
-    # tradecraft (T1105). Bumps clean deterministic hits into MALICIOUS
-    # (>70 score) without needing a family match.
-    has_network_ioc = bool(
-        findings.iocs.urls or findings.iocs.ips or findings.iocs.domains
-    )
-    if findings.lolbas and has_network_ioc:
-        bins = sorted({h.binary for h in findings.lolbas})
+    # HIGH_LOLBAS + URL combo — canonical download-and-execute tradecraft
+    # (T1105). Bumps into MALICIOUS even without a family match.
+    if has_high_lolbas and has_url:
         counts = []
         if findings.iocs.urls:    counts.append(f"{len(findings.iocs.urls)} URL(s)")
         if findings.iocs.ips:     counts.append(f"{len(findings.iocs.ips)} IP(s)")
         if findings.iocs.domains: counts.append(f"{len(findings.iocs.domains)} domain(s)")
         contribs.append(RiskContribution(
-            source="network-lolbas-combo", points=15,
-            detail=(f"LOLBAS ({', '.join(bins)}) paired with network IOC "
-                    f"({', '.join(counts)}) — download-and-execute pattern (T1105)."),
+            source="network-lolbas-combo", points=35,
+            detail=(f"HIGH-severity LOLBAS ({', '.join(high_lolbas)}) paired with "
+                    f"network IOC ({', '.join(counts)}) — canonical "
+                    "download-and-execute (T1105)."),
         ))
-        total += 15
-
-    # Tradecraft flags — severity-weighted
-    if findings.tradecraft:
-        pts = sum(_SEVERITY_WEIGHTS.get(tc.severity, 5) for tc in findings.tradecraft)
-        flags = ", ".join(f"{tc.flag}({tc.severity})" for tc in findings.tradecraft)
+        total += 35
+    elif benign_lolbas and has_url and not has_high_lolbas:
+        # Weaker combo — powershell+URL is common but not always malicious;
+        # +8 keeps us in suspicious range without over-classifying.
         contribs.append(RiskContribution(
-            source="tradecraft", points=pts, detail=flags,
+            source="network-lolbas-combo", points=8,
+            detail=f"Parent-shell LOLBAS ({', '.join(benign_lolbas)}) paired with URL",
         ))
-        total += pts
+        total += 8
+
+    # Tradecraft flags — gated behind hard signal UNLESS the flag itself
+    # implies code execution (js-string-obfuscation, vbs-string-obfuscation
+    # imply eval/Execute, python-exec-b64 implies exec()).
+    if findings.tradecraft:
+        active = []
+        for tc in findings.tradecraft:
+            if has_hard_signal or tc.flag in _ALWAYS_ACTIVE_TRADECRAFT:
+                active.append(tc)
+        if active:
+            raw = sum(_SEVERITY_WEIGHTS.get(tc.severity, 5) for tc in active)
+            pts = min(25, raw)
+            flags = ", ".join(f"{tc.flag}({tc.severity})" for tc in active)
+            contribs.append(RiskContribution(
+                source="tradecraft", points=pts, detail=flags,
+            ))
+            total += pts
+
+    # Payload-staging bonus — canonical binary-encoding chain (base64 +
+    # utf16 / gzip / xor / hex …) paired with a URL is the Empire /
+    # Meterpreter / Cobalt-Strike loader pattern. Push from suspicious
+    # into MALICIOUS even when the parent shell is only powershell / cmd.
+    if trace_decoders and has_url:
+        enc_layers = sum(1 for d in trace_decoders if d in _ENCODING_DECODERS)
+        if enc_layers >= 2:
+            contribs.append(RiskContribution(
+                source="encoding-chain", points=10,
+                detail=(f"{enc_layers} canonical encoding layers "
+                        f"({', '.join(d for d in trace_decoders if d in _ENCODING_DECODERS)}) "
+                        "paired with URL — payload staging pattern"),
+            ))
+            total += 10
 
     total = min(100, total)
+    # Fallback chain-depth signal — when nothing else scored but we did
+    # peel ≥1 encoding layer, keep the analyst in the "needs_review" band.
+    if total == 0 and decode_depth >= 2:
+        contribs.append(RiskContribution(
+            source="obfuscation-chain", points=5,
+            detail=f"Peeled {decode_depth} decode layer(s) without additional signals",
+        ))
+        total = 5
     if total >= 70:
         verdict = "malicious"
     elif total >= 40:
@@ -915,7 +1067,15 @@ class Orchestrator:
 
         # Aggregate intelligence and build explainable confidence
         findings = _aggregate_findings(list(ctx.trace.steps))
-        breakdown = _compute_confidence_breakdown(findings)
+        # RC3.1 · run global LOLBAS scanner on final decoded surface so
+        # analysts get certutil/mshta/regsvr32/bitsadmin/… coverage even
+        # when the wrapper decoder didn't fire.
+        _post_decode_lolbas_scan(findings, current, payload or "")
+        breakdown = _compute_confidence_breakdown(
+            findings,
+            decode_depth=len(ctx.trace.steps),
+            trace_decoders=[s.decoder for s in ctx.trace.steps],
+        )
         findings.risk_score = breakdown.total
         findings.verdict = breakdown.verdict
 
