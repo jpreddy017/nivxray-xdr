@@ -6,7 +6,7 @@ import NavDropdown from "@/components/NavDropdown";
 import { useAuth } from "@/lib/auth";
 import {
   LogOut, LayoutGrid, Cog, Sparkles, Beaker, Terminal, BookOpen,
-  KeyRound, Rss, TestTube, GraduationCap, Grid, Wrench, Library, Gauge,
+  KeyRound, Rss, TestTube, GraduationCap, Grid, Wrench, Library, Gauge, FolderOpen,
 } from "lucide-react";
 
 export default function Header() {
@@ -20,6 +20,7 @@ export default function Header() {
     { to: "/",           label: "WORKSPACE",  icon: LayoutGrid, testId: "nav-workspace" },
     { to: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
     { to: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
+    { to: "/documents",  label: "DOCUMENTS",  icon: FolderOpen, testId: "nav-documents" },
     { to: "/benchmark",  label: "BENCHMARK",  icon: Gauge,      testId: "nav-benchmark" },
     { to: "/battery",    label: "BATTERY",    icon: Gauge,      testId: "nav-battery" },
   ];

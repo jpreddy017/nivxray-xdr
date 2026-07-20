@@ -220,6 +220,44 @@ async def delete_case(case_id: str, user=Depends(get_current_user)):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# SIGMA EXPORT — deterministic YAML rule for SIEM ingestion
+# ═════════════════════════════════════════════════════════════════════════════
+@router.get("/cases/{case_id}/sigma")
+async def export_case_as_sigma(case_id: str, format: str = "yaml",
+                                user=Depends(get_current_user)):
+    """Auto-generate a Sigma detection rule from a saved case.
+    format=yaml (default) returns text/yaml body; format=json returns the dict."""
+    from fastapi.responses import Response
+    from sigma_export import build_sigma_rule, rule_to_yaml
+    doc = _col.find_one({"id": case_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="case not found")
+    rule = build_sigma_rule(
+        case_name=doc.get("name") or "case",
+        case_id=doc.get("id"),
+        verdict=doc.get("verdict_card") or (
+            {"verdict": doc.get("verdict")} if isinstance(doc.get("verdict"), str) else (doc.get("verdict") or {})
+        ),
+        input_text=doc.get("input") or "",
+        output_text=doc.get("output") or "",
+        chain=doc.get("chain_ids") or [],
+        iocs=doc.get("iocs") or {},
+        mitre=doc.get("mitre") or [],
+        lolbas=doc.get("lolbas") or [],
+        author=(user.get("email") if isinstance(user, dict) else getattr(user, "email", None)) or "NivXRay",
+    )
+    if format == "json":
+        return {"rule": rule}
+    yaml_text = rule_to_yaml(rule)
+    fname = f"{rule['id']}.yml"
+    return Response(
+        content=yaml_text,
+        media_type="application/x-yaml",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # RE-INVESTIGATE — re-run /decode/smart on a saved case's input and persist
 # the fresh output/verdict/iocs/mitre/chain to the case doc. Fixes the classic
 # "OUTPUT=INPUT" saved-before-decode state.

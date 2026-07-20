@@ -1390,6 +1390,12 @@ for _label in (
     # as terminal steps; register them as no-op annotators so the manual
     # Chain-Recipe replay doesn't red-flag them.
     "ioc-extract", "extract-payload",
+    # Feb 2026 · family detectors are terminal fingerprint annotators —
+    # register them so the layer trace stops showing "Unknown operation".
+    "family-meterpreter", "family-cobaltstrike", "family-xworm",
+    "family-redline", "family-formbook", "family-njrat", "family-emotet",
+    # Crypto detectors that surface as trace ops
+    "crypto-detect", "crypto-key-required",
 ):
     _fn = _mk_annotator(_label)
     OPERATIONS[_label] = {

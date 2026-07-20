@@ -19,6 +19,7 @@ import VerdictCard from "@/components/VerdictCard";
 import AnalystResults from "@/components/AnalystResults";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
 import HistoryDrawer from "@/components/HistoryDrawer";
+import CasesDrawer from "@/components/CasesDrawer";
 import ProcessTreeView from "@/components/ProcessTreeView";
 import BoostBadge from "@/components/BoostBadge";
 import ChainStageEditor from "@/components/ChainStageEditor";
@@ -87,6 +88,7 @@ export default function WorkspacePage() {
   const [plannerHint, setPlannerHint] = useState(null);
   // History drawer
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [casesOpen, setCasesOpen] = useState(false);
   // Feb-2026: Candidate Explorer toggle — shows the ranked encoding candidates
   // + structured why-not breakdown from /api/decode/candidates.
   const [showCandidateExplorer, setShowCandidateExplorer] = useState(false);
@@ -1347,6 +1349,11 @@ export default function WorkspacePage() {
                 title="Investigation History — auto-saved for 30 days (starred entries kept forever).">
           📜 HISTORY
         </button>
+        <button className="nvx-btn ghost" onClick={() => setCasesOpen(true)} data-testid="btn-open-cases"
+                title="Case Library — named cases you've saved. Re-decode, open, or delete."
+                style={{ borderColor: "#7ee3c9", color: "#7ee3c9" }}>
+          💾 CASES
+        </button>
         {advancedOpen && (
         <>
         <button className="nvx-btn" onClick={() => autoDecode({ smart: false })} disabled={loading} data-testid="btn-ai-decode"
@@ -2368,6 +2375,28 @@ export default function WorkspacePage() {
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
         onRehydrate={rehydrateFromHistory}
+      />
+
+      <CasesDrawer
+        open={casesOpen}
+        onClose={() => setCasesOpen(false)}
+        onRestore={(caseDoc) => {
+          // Rehydrate directly from workspace_case doc — same fields as
+          // history rehydrate but sourced from /cases/{id}.
+          skipLivePreviewRef.current = true;
+          setInput(caseDoc.input || "");
+          setOutput(caseDoc.output || "");
+          setDecodeTrace([]);
+          setDecodeWinnerEngine(caseDoc.engine || null);
+          setDecodeConfidence(caseDoc.confidence ?? null);
+          setVerdictCard(caseDoc.verdict_card || null);
+          setReachedShellcode(!!caseDoc.reached_shellcode);
+          setSteps((caseDoc.chain_ids || []).map((op) => ({ op, args: {} })));
+          setChain((caseDoc.chain_ids || []).map((op) => ({ op, reason: "", output_preview: "" })));
+          setAnalysis({ iocs: caseDoc.iocs || {}, mitre: caseDoc.mitre || [], ai_verdict: caseDoc.verdict });
+          setSavedCaseName(caseDoc.name);
+          setStatus(`▸ OPENED "${caseDoc.name}" (${caseDoc.engine} · ${caseDoc.confidence || 0}%)`);
+        }}
       />
 
       {/* Feb-2026 · Analyst-corrections modal — opened by ✎ launcher strip */}

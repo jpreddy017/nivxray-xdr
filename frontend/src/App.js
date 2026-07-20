@@ -12,6 +12,7 @@ import ThreatModelPage from "@/pages/ThreatModelPage";
 import CorrectionsAdminPage from "@/pages/CorrectionsAdminPage";
 import KnowledgeBasePage from "@/pages/KnowledgeBasePage";
 import DocsPage from "@/pages/DocsPage";
+import DocumentsPage from "@/pages/DocumentsPage";
 import BatchTestPage from "@/pages/BatchTestPage";
 import MitreHeatmapPage from "@/pages/MitreHeatmapPage";
 import LabPage from "@/pages/LabPage";
@@ -42,6 +43,7 @@ function App() {
             <Route path="/threat-model" element={<Protected><ThreatModelPage /></Protected>} />
             <Route path="/admin/corrections" element={<Protected><CorrectionsAdminPage /></Protected>} />
             <Route path="/docs" element={<Protected><DocsPage /></Protected>} />
+            <Route path="/documents" element={<Protected><DocumentsPage /></Protected>} />
             <Route path="/kb" element={<Protected><KnowledgeBasePage /></Protected>} />
             <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
             <Route path="/admin/models" element={<Protected><ModelStudioPage /></Protected>} />
