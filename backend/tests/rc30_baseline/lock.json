@@ -1,0 +1,47 @@
+{
+  "_": "RC3.0 Stable baseline — frozen 2026-02-20 after production deploy on nivxray.nivxforge.com and user validation showing blink-of-eye OUTPUT+VERDICT co-render. Every subsequent merge must not regress these floors.",
+  "release":           "RC3.0",
+  "frozen_at":         "2026-02-20",
+  "backend": {
+    "chain_completeness":   {"value": 30, "of": 31, "pct": 96.7},
+    "verdict_precision":    {"value": 15, "of": 31},
+    "false_positive_iocs":  {"value": 0,  "ceiling": 0},
+    "avg_latency_ms":       {"value": 500, "ceiling": 800},
+    "pytest_total_passing": 107
+  },
+  "frontend_ux_locks": {
+    "primary_button":        "★ AUTO INVESTIGATE",
+    "secondary_button":      "▸ DECODE",
+    "default_persona":       "★ PLAIN · Deterministic (no AI)",
+    "seven_panel_order":     [
+      "verdict-panel",
+      "recovered-payload",
+      "chain-recipe-panel",
+      "mitre-panel",
+      "iocs-panel",
+      "network-panel",
+      "behavior-panel"
+    ],
+    "verdict_card_null_forbidden": true,
+    "exception_details_leaked_forbidden": true
+  },
+  "engine_locks": {
+    "runaway_hard_abort_ms":         12000,
+    "runaway_deep_recursion_depth":  8,
+    "runaway_max_input_bytes":       8388608,
+    "frontend_axios_decode_timeout": 90000,
+    "deterministic_first":           true,
+    "ai_is_opt_in_only":             true
+  },
+  "next_session_execution_order": [
+    "D · Baseline + CI gate (this file)",
+    "A · Cloudflare origin-parse fix on async enrichment tail",
+    "B · Cosmetic polish (decode-conf badge + SALVAGED→RECOVERED)",
+    "C · Verdict precision 15/31 → ≥ 90 %",
+    "E · Golden regression fixtures per plugin",
+    "F · Phase C.5 obfuscation coverage",
+    "G · Enriched crypto-key-required tradecraft",
+    "H · IR Handoff Export (.md/.pdf)",
+    "Phase D · Malware-family detectors"
+  ]
+}

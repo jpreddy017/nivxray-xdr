@@ -49,6 +49,56 @@ One-click export of the 7-panel Analyst Workspace as a shareable SOC brief:
 
 ---
 
+## 🛡️ Phase R · Robustness Hardening (locked 2026-02-20 with user)
+
+Cross-cutting production-grade capabilities. These items land alongside or after the numbered next-session sprint items — grouped here as a separate track because they're multi-owner and multi-release.
+
+### R.1 · External Intelligence Integrations (analyst asks EVERY case)
+- **VirusTotal** — /api/enrich/vt for hashes / URLs / IPs / domains. Cache 24h.
+- **AlienVault OTX** — pulse membership + first-seen data.
+- **MISP push** — one-click share Malicious-verdict IOCs to team feed.
+- **Triage / Any.run detonation** — sandbox execution of recovered payload (Phase E backlog moved here).
+- **Slack / Teams / Discord webhook** — auto-notify on Malicious verdict per workspace.
+
+### R.2 · Detection Engineering Export
+- **Sigma rule export** — one-click from a decoded case → shareable YAML rule.
+- **YARA rule export** — pattern extraction from the recovered payload.
+- STIX 2.1 export already exists · Sigma+YARA close the SOC value loop.
+
+### R.3 · High-Value Tradecraft Detectors (rule-based, no AI)
+- **AMSI / ETW bypass patterns** — flag red-team tradecraft even when the decoded output looks benign.
+- **Sandbox / VM detection strings** — pafish/paranoiac fingerprints.
+- **Registry-key persistence patterns** (`HKCU\...\Run`, `AutoRun`, IFEO, ServiceDll).
+- **Scheduled-task / service persistence patterns** (`schtasks /create`, `sc.exe create`, `New-ScheduledTask`).
+- **DGA domain heuristic** — n-gram entropy scorer.
+
+### R.4 · Enterprise Hardening (compliance blockers for enterprise deals)
+- **RBAC** — analyst / admin / read-only roles.
+- **Audit log** — who decoded what, when, from where. Immutable.
+- **API tokens** for headless / SIEM integration (currently JWT-only, per-user).
+- **Multi-tenant workspaces** — team isolation.
+- **Prometheus metrics endpoint** — SIEM push, alerting.
+
+### R.5 · Payload-Type Coverage (beyond command lines — huge real-world gap)
+- **Office VBA macros** extraction + deobfuscation.
+- **LNK files** parser (Windows shortcuts — #1 phishing dropper vector).
+- **XLM / Excel 4.0 macros**.
+- **PDF JavaScript** extraction.
+- **CHM / HTA / MSI / ISO** container unpacking.
+
+### 🎯 If we ship 5 to make NivXRay unmistakably enterprise-robust:
+1. **VirusTotal + OTX enrichment** (R.1)
+2. **Sigma + YARA export** (R.2)
+3. **AMSI/ETW bypass + sandbox-detection patterns** (R.3)
+4. **Audit log + API tokens** (R.4)
+5. **VBA + LNK payload extraction** (R.5)
+
+Prioritisation: after the numbered sprint (D → A → B → C → E → F → G → H) completes,
+Phase R items slot in based on customer/user pull. R.1 + R.2 are the highest-signal
+because analysts request them on every case.
+
+
+
 
 
 ## RC2.4 — Analyst UX Polish (UI only, engine untouched)

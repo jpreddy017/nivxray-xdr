@@ -67,6 +67,14 @@ One-click SOC brief from the Verdict panel header.
 
 ### Then · Phase D · Malware-family detectors (XWorm / RedLine / FormBook / NjRAT / Emotet)
 
+### 🛡️ Phase R · Robustness Hardening (parallel track — full detail in ROADMAP.md)
+Cross-cutting enterprise-grade capabilities that slot in after the numbered sprint completes, prioritised by customer pull:
+- **R.1** External intel: VirusTotal · OTX · MISP · Triage sandbox · Slack/Teams webhooks
+- **R.2** Detection engineering: Sigma + YARA rule export from decoded cases
+- **R.3** Tradecraft detectors: AMSI/ETW bypass · sandbox-detection · registry/scheduled-task persistence · DGA heuristic
+- **R.4** Enterprise: RBAC · immutable audit log · API tokens · multi-tenant workspaces · Prometheus metrics
+- **R.5** Payload types: VBA macros · LNK · Excel-4.0 · PDF JS · HTA/MSI/ISO container unpacking
+
 
 ---
 ## 🟢 RC3.0 · Symmetric-Crypto Pack + Verdict Hardening + 7-Panel UI · DELIVERED (2026-02-20)
