@@ -303,6 +303,27 @@ class XorBruteDecoder(BaseDecoder):
     def detect(self, payload: str, fingerprint: Fingerprint, ctx: AnalysisContext) -> DetectResult:
         if len(payload) < self._MIN_LEN:
             return DetectResult(confidence=0.0, why="Too short for XOR brute")
+        # Feb 2026 · CLEAN-ENCODED SKIP GUARD ────────────────────────────
+        # Refuse to XOR-brute a buffer that IS ALREADY a clean encoded
+        # string (base64 / URL-encoded / hex). This is the "one more decode
+        # layer" state, NOT a XOR ciphertext. Running xor-brute here caused
+        # the Immediate1/3 / Finetune / Big Whale false-positive outputs
+        # (over-shoot yielded `sN6#aEZsn…` gibberish or `;3;;3;;` residue).
+        # Mirrors the same guard now living in magic_decoder.py.
+        import re as _re
+        _looks_b64    = _re.fullmatch(r"[A-Za-z0-9+/=\s]+", payload) is not None
+        _looks_hex    = _re.fullmatch(r"[0-9a-fA-F\s]+", payload) is not None
+        _looks_urlenc = ("%" in payload
+                         and _re.search(r"%[0-9a-fA-F]{2}", payload) is not None)
+        _ctrl = sum(1 for c in payload if ord(c) < 32 and c not in "\t\r\n")
+        _ctrl_ratio = _ctrl / max(1, len(payload))
+        if _ctrl_ratio < 0.03 and (_looks_b64 or _looks_hex or _looks_urlenc):
+            return DetectResult(
+                confidence=0.0,
+                why=("Buffer is already a clean encoded string "
+                     f"(b64={_looks_b64} hex={_looks_hex} urlenc={_looks_urlenc}) "
+                     "— run the appropriate decoder BEFORE xor-brute"),
+            )
         # Skip anything with plausible English word content — brute XOR of prose
         # produces garbage. Applies even at density 0 for short inputs.
         if fingerprint.english_density > 0.05:

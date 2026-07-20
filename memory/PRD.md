@@ -30,15 +30,19 @@
 ### ✅ Phase D.4 · NjRAT family detector  ← DELIVERED (RC3.4 · Feb-2026 · 7 MITRE, `|'|'|` splitter)
 ### ✅ Phase D.5 · Emotet family detector  ← DELIVERED (RC3.4 · Feb-2026 · 10 MITRE, XL4 + `@`-URL list)
 ### ✅ Phase D.6 · Cobalt Strike Beacon config extractor  ← DELIVERED (RC3.5 · Feb-2026 · full TLV parser, XOR v3/v4/plaintext, structured C2 IOCs)
-### 🔧 RC3.9 (WIP · 2026-07-20) · Decoder-plausibility guards
+### 🔧 RC3.9 (WIP · 2026-07-20) · Decoder-plausibility guards + Documents upload hotfix
     Delivered:
-    - `custom-hex-slash` now peels recursively (max 5 iterations) — handles nested-hex-escape wrappers (Immediate1 / Big Whale).
-    - `_XOR_WORDHIT_TOKENS` extended with PoshC2 / Cobalt Strike / Donut / MSFvenom markers (`mscoree.dll`, `clr.dll`, `sRDI`, `ReflectiveLoader`, `AppDomain`, `LoadLibrary`, `Mozilla/`, etc.) — real shellcode dumps now pass the plausibility guard even without English content.
-    - `magic_decoder.py` no longer queues `xor-brute` when input is CLEAN base64 / URL-encoded / hex (`ctrl_ratio < 0.03` + no non-printable chars) — prevents the "over-shoot yields `sN6#aEZsn…` gibberish" false positive.
-    - `ops.decode_smart` verdict guard extended: **Partial Decode** verdict (risk 20, `partial: True`) when pipeline peeled layers but terminal output has no shell tokens / magic bytes / IOCs.
+    - `custom-hex-slash` now peels recursively (max 5 iterations).
+    - `_XOR_WORDHIT_TOKENS` extended with PoshC2 / Cobalt Strike / Donut / Meterpreter markers.
+    - `magic_decoder.py` no longer queues `xor-brute` when input is CLEAN base64 / URL-encoded / hex.
+    - **NEW · `decoders/xor_brute.py` orchestrator plugin** now also has the `clean_encoded` skip guard — mirrors magic_decoder, so the rc2-orchestrator no longer over-shoots (fixes Immediate1/3/Finetune/Big Whale).
+    - **NEW · `ops.decode_smart` verdict guard** upgraded with WRAPPER-ONLY detection: cross-checks IOC/LOLBAS/domain findings against the terminal decoded output. If findings only appear in the wrapper, emits `Partial · wrapper_only=True` (risk 25).
+    - Verified: Immediate1 → verdict `Partial` wrapper_only=True · Immediate2 → `Malicious` (certutil) · Lookintoit → `Malicious` (real MSFvenom fc e8 shellcode) · Do no download → `Malicious` (PE MZ header).
+    - **HOTFIX · `routers/documents.py` upload** — motor's `find(...).to_list()` returns dicts, not GridFSFile objects. `_serialize()` was accessing `.metadata` as an attribute (crashed prod upload with `'dict' object has no attribute 'metadata'`). Now uses a `_gf()` helper that handles both dict and object forms end-to-end (upload/list/download/preview/delete/ingest/re-investigate). Verified via curl: upload → 200, list → 1 item, preview → text extracted.
     Still open — needs fresh-session investigation:
-    - Some cases (Immediate1/3, Finetune, Big Whale) still emit `;3;;3;;` or `sN6#aEZsn…` because the `rc2-orchestrator` (`engine/orchestrator.py`) has its own candidate-generation logic that bypasses `magic_decoder._candidates`. The orchestrator needs its own "clean-encoded skip xor-brute" guard mirroring the one in magic_decoder.
-    - `Partial` verdict downgrade only fires when `_no_findings` — but these cases DO surface LOLBAS/MITRE from the wrapper, so verdict stays `Malicious 70/100`. Needs the plausibility check to consider "wrapper-only findings vs decoded-payload findings" separately.
+    - Golden fixtures for Immediate1/3/Finetune/Big Whale ready in `/tmp/prod_cases.json` — need to convert to `tests/fixtures/plugin_regression/wrapper-only-partial.jsonl` with `_end_to_end: true` and hook the Partial verdict into `test_plugin_golden_fixtures.py` order dict.
+    - Run full CI gate + regression before re-deploy.
+### ✅ RC3.8 · Case Library + Sigma Export + Documents UI + Family-Op registration  ← DELIVERED (2026-07-20)
 ### ✅ RC3.8 · Case Library + Sigma Export + Documents UI + Family-Op registration  ← DELIVERED (2026-07-20)
     - **📁 Case Library Drawer** (`components/CasesDrawer.jsx`): 720-px slide-out sibling to History showing every saved case (28 total) with verdict badge (Malicious/Suspicious/Undecoded/Corrupted), engine, in/out sizes and 4 row-actions: **RE-DECODE / SIGMA / OPEN / 🗑**. `💾 CASES` button lives next to `📜 HISTORY` in the workspace toolbar.
     - **🎯 Sigma Auto-Export** (`sigma_export.py` + `GET /cases/{id}/sigma`): deterministic YAML rule generator. Reads verdict + IOCs + MITRE + LOLBAS + decode chain → emits process_creation OR network_connection Sigma rule with `attack.tXXXX` tags and the exact CommandLine substring as the trigger. Verified on Lookintoit → `attack.t1027/t1055/t1140/t1620` + `[System.Convert]::FromBase64String(` trigger.

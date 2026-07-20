@@ -49,6 +49,18 @@ PREVIEWABLE_TEXT_EXTS = {
 }
 
 
+# ── Feb 2026 · dict-safe accessor for GridFSFile OR .files dict ────
+def _gf(f, key, default=None):
+    """Read a field from a motor GridFSFile object OR a raw `.files` dict.
+    Motor's `open_download_stream` returns GridFSFile, but `find(...)` returns
+    dicts, which broke the docs upload flow (AttributeError: metadata)."""
+    if isinstance(f, dict):
+        # Filename lives under "filename" in both; upload_date is `uploadDate`
+        alt = {"upload_date": "uploadDate", "_id": "_id"}
+        return f.get(alt.get(key, key), default)
+    return getattr(f, key, default)
+
+
 def _bucket() -> AsyncIOMotorGridFSBucket:
     return AsyncIOMotorGridFSBucket(client[DB_NAME], bucket_name=BUCKET_NAME)
 
@@ -67,15 +79,28 @@ def _ext(filename: str) -> str:
 
 
 def _serialize(f) -> Dict[str, Any]:
-    """Normalise a GridFSFile object into a JSON-safe dict."""
-    meta = f.metadata or {}
+    """Normalise a GridFSFile object OR a raw dict from `.files` into a
+    JSON-safe response. Motor's `find(...).to_list()` returns dicts, while
+    `open_download_stream(...)` returns GridFSFile — so we support both."""
+    if isinstance(f, dict):
+        _id = f.get("_id")
+        filename = f.get("filename") or ""
+        length = f.get("length") or 0
+        upload_date = f.get("uploadDate") or f.get("upload_date")
+        meta = f.get("metadata") or {}
+    else:
+        _id = getattr(f, "_id", None)
+        filename = getattr(f, "filename", None) or ""
+        length = getattr(f, "length", 0) or 0
+        upload_date = getattr(f, "upload_date", None) or getattr(f, "uploadDate", None)
+        meta = getattr(f, "metadata", None) or {}
     return {
-        "id":            str(f._id),
-        "filename":      f.filename,
-        "length":        f.length,
-        "upload_date":   f.upload_date.isoformat() if isinstance(f.upload_date, datetime) else None,
-        "content_type":  meta.get("content_type") or mimetypes.guess_type(f.filename)[0] or "application/octet-stream",
-        "ext":           _ext(f.filename or ""),
+        "id":            str(_id) if _id is not None else None,
+        "filename":      filename,
+        "length":        length,
+        "upload_date":   upload_date.isoformat() if isinstance(upload_date, datetime) else upload_date,
+        "content_type":  meta.get("content_type") or mimetypes.guess_type(filename)[0] or "application/octet-stream",
+        "ext":           _ext(filename or ""),
         "user_email":    meta.get("user_email"),
         "notes":         meta.get("notes") or "",
         "tags":          meta.get("tags") or [],
@@ -192,7 +217,7 @@ async def download_document(doc_id: str, user=Depends(get_current_user)):
         break
     if not f_meta:
         raise HTTPException(status_code=404, detail="not found")
-    meta = f_meta.metadata or {}
+    meta = _gf(f_meta, 'metadata') or {}
     if meta.get("user_email") != user["email"] and user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="forbidden")
 
@@ -200,7 +225,7 @@ async def download_document(doc_id: str, user=Depends(get_current_user)):
     data = await stream.read()
 
     ctype = meta.get("content_type") or "application/octet-stream"
-    filename = f_meta.filename or "download"
+    filename = _gf(f_meta, 'filename') or "download"
     return StreamingResponse(
         io.BytesIO(data),
         media_type=ctype,
@@ -221,11 +246,11 @@ async def preview_document(doc_id: str, max_chars: int = 20000, user=Depends(get
         break
     if not f_meta:
         raise HTTPException(status_code=404, detail="not found")
-    meta = f_meta.metadata or {}
+    meta = _gf(f_meta, 'metadata') or {}
     if meta.get("user_email") != user["email"] and user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="forbidden")
 
-    ext = _ext(f_meta.filename or "")
+    ext = _ext(_gf(f_meta, 'filename') or "")
     stream = await bucket.open_download_stream(oid)
     data = await stream.read()
 
@@ -278,8 +303,8 @@ async def preview_document(doc_id: str, max_chars: int = 20000, user=Depends(get
     return {
         "kind": "binary",
         "ext": ext,
-        "content": f"Binary file ({f_meta.length} bytes). Download to view.",
-        "length": f_meta.length,
+        "content": f"Binary file ({_gf(f_meta, 'length')} bytes). Download to view.",
+        "length": _gf(f_meta, 'length'),
     }
 
 
@@ -321,11 +346,11 @@ async def ingest_as_fixture(doc_id: str, user=Depends(get_current_user)):
         break
     if not f_meta:
         raise HTTPException(status_code=404, detail="not found")
-    meta = f_meta.metadata or {}
+    meta = _gf(f_meta, 'metadata') or {}
     if meta.get("user_email") != user["email"] and user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="forbidden")
 
-    ext = _ext(f_meta.filename or "")
+    ext = _ext(_gf(f_meta, 'filename') or "")
     if ext not in ("json", "jsonl"):
         raise HTTPException(status_code=400, detail="Only JSON/JSONL can be ingested as fixtures")
 
@@ -402,7 +427,7 @@ async def reinvestigate_document(
         break
     if not f_meta:
         raise HTTPException(status_code=404, detail="not found")
-    meta = f_meta.metadata or {}
+    meta = _gf(f_meta, 'metadata') or {}
     if meta.get("user_email") != user["email"] and user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="forbidden")
 
@@ -413,7 +438,7 @@ async def reinvestigate_document(
     stream = await bucket.open_download_stream(oid)
     data = await stream.read()
 
-    ext = _ext(f_meta.filename or "")
+    ext = _ext(_gf(f_meta, 'filename') or "")
     # Extract text depending on the format
     text: Optional[str] = None
     if ext in PREVIEWABLE_TEXT_EXTS:

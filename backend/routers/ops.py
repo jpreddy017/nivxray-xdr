@@ -975,29 +975,57 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # ── Feb 2026 · Terminal-output plausibility check ───────────────
         # Even when the pipeline peels several layers, the FINAL output
         # can still be gibberish (over-shooting XOR, missed nested-hex).
-        # If the terminal text has neither shell tokens nor magic bytes
-        # AND no IOC/MITRE/LOLBAS were extracted, downgrade to
-        # "Partial · Undecoded" instead of a misleading Malicious card.
-        elif _out_clean and _out_clean != _in_raw and _no_findings:
+        # We compute "payload findings" = findings that came out of the
+        # DECODED CONTENT (not from the wrapper) by grepping IOCs/LOLBAS
+        # tokens against the terminal output. When the decoded payload
+        # itself is empty of findings AND its bytes have no plausible
+        # plaintext shape → downgrade to `Partial · Wrapper-Only` so the
+        # analyst knows the verdict is inferred from the WRAPPER, not
+        # from a successful decode.
+        elif _out_clean and _out_clean != _in_raw:
             try:
                 from ops_extended import _wordhits as _wh
                 from ops_extended import _score_downstream_magic as _mag
                 _bytes = _out_clean.encode("latin-1", errors="replace")
-                if _wh(_bytes) < 2 and _mag(_bytes) < 0.30:
+                # Which findings actually appear inside the decoded output?
+                _urls    = (result.get("iocs") or {}).get("urls") or []
+                _ips     = (result.get("iocs") or {}).get("ips") or []
+                _domains = (result.get("iocs") or {}).get("domains") or []
+                _lolbas  = result.get("lolbas") or []
+                _payload_findings = 0
+                _out_lc = _out_clean.lower()
+                for u in _urls + _domains + _ips:
+                    if str(u).lower() in _out_lc:
+                        _payload_findings += 1
+                for lb in _lolbas:
+                    bn = (lb.get("binary") if isinstance(lb, dict) else lb) or ""
+                    if bn and bn.lower() in _out_lc:
+                        _payload_findings += 1
+                _wrapper_only = _payload_findings == 0 and (
+                    _urls or _ips or _domains or _lolbas or (result.get("mitre") or [])
+                )
+                _no_plausibility = _wh(_bytes) < 2 and _mag(_bytes) < 0.30
+                if _no_plausibility and (_wrapper_only or _no_findings):
                     result["verdict_card"] = {
                         "verdict":    "Partial",
                         "label":      "Partial Decode",
-                        "risk_score": 20,
-                        "confidence": 20,
-                        "summary":    "Pipeline peeled layers but terminal output isn't recognisable plaintext.",
+                        "risk_score": 25,
+                        "confidence": 25,
+                        "summary":    (
+                            "Wrapper-only findings — decoded payload is not "
+                            "recognisable plaintext." if _wrapper_only else
+                            "Pipeline peeled layers but terminal output isn't recognisable plaintext."
+                        ),
                         "reasons": [
-                            f"Chain applied {len(_steps)} layer(s) but produced no shell tokens, magic bytes, or IOCs.",
+                            f"Chain applied {len(_steps)} layer(s) but terminal bytes have < 2 shell/English tokens.",
+                            "Verdict tags (LOLBAS/MITRE) come from the OBFUSCATION WRAPPER, not the decoded payload." if _wrapper_only else "No IOCs/LOLBAS/MITRE surfaced from decode.",
                             "Likely over-shot (extra XOR/brute pass) OR under-shot (nested obfuscation not fully unwrapped).",
                             "Try: disable XOR-brute in ADVANCED, or add manual `custom-hex-slash`/`ps-hex-escape` step.",
                         ],
-                        "family":    None,
-                        "undecoded": True,
-                        "partial":   True,
+                        "family":       None,
+                        "undecoded":    False,
+                        "partial":      True,
+                        "wrapper_only": bool(_wrapper_only),
                     }
             except Exception:
                 pass
