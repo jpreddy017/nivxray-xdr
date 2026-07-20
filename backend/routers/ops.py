@@ -935,6 +935,45 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     except Exception:
         pass
 
+    # ── Feb 2026 · "Pattern-not-recognised" guard ────────────────────
+    # If the engine peeled ZERO layers AND the surfaced output is
+    # basically the input (echo), stamp a clear "Undecoded" state on the
+    # verdict card so the analyst never sees the misleading empty-chain
+    # "everything's fine" green flash. Preserves any existing card that
+    # actually recovered IOCs / MITRE / LOLBAS.
+    try:
+        _in_raw = (body.input or "").strip()
+        _out_raw = (result.get("output_raw") or result.get("output") or "").strip()
+        _out_clean = _out_raw
+        for _tok in ("━" * 30, "▼ DECODED OUTPUT", "NIVXRAY INVESTIGATION SUMMARY"):
+            _out_clean = _out_clean.split(_tok, 1)[0].strip()
+        _steps = det.get("steps") or []
+        _no_findings = (
+            not (result.get("iocs") or {}).get("urls") and
+            not (result.get("iocs") or {}).get("ips") and
+            not (result.get("iocs") or {}).get("domains") and
+            not (result.get("mitre") or []) and
+            not (result.get("lolbas") or [])
+        )
+        if _in_raw and (not _steps or _out_clean == _in_raw) and _no_findings:
+            result["verdict_card"] = {
+                "verdict":    "Undecoded",
+                "label":      "Undecoded",
+                "risk_score": 0,
+                "confidence": 0,
+                "summary":    "Pattern not recognised — no known encoding matched.",
+                "reasons": [
+                    "Deterministic engine peeled 0 layers.",
+                    "Terminal output matches raw input (no transformation).",
+                    "No IOCs / MITRE / LOLBAS surfaced.",
+                    "Try: MAGIC ▸ recursive multi-branch search, or add a manual recipe step.",
+                ],
+                "family":     None,
+                "undecoded":  True,
+            }
+    except Exception:
+        pass
+
     # Auto-record into user's Investigation History (fire-and-forget, never blocks)
     try:
         from routers.history import record_investigation

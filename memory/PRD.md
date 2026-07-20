@@ -30,6 +30,11 @@
 ### ✅ Phase D.4 · NjRAT family detector  ← DELIVERED (RC3.4 · Feb-2026 · 7 MITRE, `|'|'|` splitter)
 ### ✅ Phase D.5 · Emotet family detector  ← DELIVERED (RC3.4 · Feb-2026 · 10 MITRE, XL4 + `@`-URL list)
 ### ✅ Phase D.6 · Cobalt Strike Beacon config extractor  ← DELIVERED (RC3.5 · Feb-2026 · full TLV parser, XOR v3/v4/plaintext, structured C2 IOCs)
+### ✅ RC3.7 · CLEAN Output Rendering + Pattern-Not-Recognised guard  ← DELIVERED (2026-07-20)
+    - **Kill the scrambled bytes:** new `lib/binaryRender.js` classifier (magic-byte detection, Shannon entropy, printable-ratio) drives a `CleanBinarySummary` card in `RecoveredPayloadCard.jsx`. Binary payloads now render as `▲ BINARY PAYLOAD · {size} · printable X% · entropy Y` banner + extracted printable strings pills + `strings`-style HEX PREVIEW with offsets. `SHOW RAW BYTES →` toggle preserves the raw view for hex-forensics.
+    - **Kill OUTPUT=INPUT silently:** rehydrate now detects an echo (with backend header stripped) and auto-fires AUTO INVESTIGATE with a clear status banner: `▲ OUTPUT=INPUT · "case" was saved before decode — click AUTO INVESTIGATE to peel it`.
+    - **Kill silent "no fruitful output":** server-side `ops.decode_smart` stamps an `Undecoded` verdict card (`risk_score=0`, `reasons=[…]`, `undecoded=True`) when 0 layers peeled AND no IOC/MITRE/LOLBAS surfaced AND output=input. Analyst sees a clear "Pattern not recognised — try MAGIC or add a manual recipe step" instead of a green empty flash.
+    - Verified against `Lookintoit` (shellcode 5-layer chain, 24 extracted strings incl. C2 IP `149.28.81.19`) and `Do no download into your machine` (base64 PE binary, MZ header detected, `.text/.rdata/.rsrc` sections surface as string pills).
 ### ✅ RC3.6 · Case Library UX + History rehydrate correctness  ← DELIVERED (2026-07-20)
     - `SAVE CASE` now auto-runs `/decode/smart` before persisting so the case ships with a real verdict / IOC / MITRE surface (not an INPUT-echo).
     - `POST /api/cases/{id}/reinvestigate` + `POST /api/cases/reinvestigate-broken` — one-click re-run against saved cases.

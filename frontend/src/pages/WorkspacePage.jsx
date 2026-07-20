@@ -255,8 +255,16 @@ export default function WorkspacePage() {
     // history (matters when the payload is a PE binary or the client
     // recipe would silently mangle non-ASCII bytes).
     skipLivePreviewRef.current = true;
-    setInput(full.input || full.input_preview || "");
-    setOutput(full.output || full.output_preview || "");
+    const _inp = full.input || full.input_preview || "";
+    const _out = full.output || full.output_preview || "";
+    // Feb 2026 — detect "OUTPUT == INPUT" (case saved before AUTO-INVESTIGATE
+    // ran) and auto-fire a re-investigate so the analyst never sees a
+    // silent echo. Uses the permissive comparator that ignores the
+    // DECODED-OUTPUT header the backend prepends.
+    const cleanedOut = _out.replace(/^━+\s*▼ DECODED OUTPUT\s*━+\s*/i, "").trim();
+    const isEcho = _inp && cleanedOut && cleanedOut === _inp.trim();
+    setInput(_inp);
+    setOutput(_out);
     setDecodeTrace(full.trace || []);
     setDecodeWinnerEngine(full.engine || null);
     setDecodeConfidence(full.confidence ?? null);
@@ -275,11 +283,18 @@ export default function WorkspacePage() {
     if (full.case_name) setSavedCaseName(full.case_name);
     else setSavedCaseName(null);
     setStatus(
-      full.case_name
-        ? `▸ RESTORED "${full.case_name}" (${rec.engine} · ${rec.confidence}%)`
-        : `▸ RESTORED FROM HISTORY (${rec.engine} · ${rec.confidence}%)`
+      isEcho
+        ? `▲ OUTPUT=INPUT · "${full.case_name || "case"}" was saved before decode — click AUTO INVESTIGATE to peel it`
+        : (full.case_name
+            ? `▸ RESTORED "${full.case_name}" (${rec.engine} · ${rec.confidence}%)`
+            : `▸ RESTORED FROM HISTORY (${rec.engine} · ${rec.confidence}%)`)
     );
     setHistoryOpen(false);
+    // Auto-fire re-investigate for echo cases so the analyst never
+    // stares at a raw base64 blob wondering what to do.
+    if (isEcho) {
+      setTimeout(() => autoInvestigate(), 400);
+    }
   };
 
   // Move a saved chain from the read-only replay viewer into the editable

@@ -14,8 +14,9 @@
  *   props.testid        · string          · data-testid prefix (optional)
  *   props.collapsible   · boolean         · default true
  */
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Copy, ChevronDown, ChevronRight, Check } from "lucide-react";
+import { analyzeOutput } from "@/lib/binaryRender";
 
 export default function RecoveredPayloadCard({
   output,
@@ -27,10 +28,12 @@ export default function RecoveredPayloadCard({
 }) {
   const [open, setOpen] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
 
   const empty = !output || !String(output).trim();
   const displayed = String(output || "");
   const byteLen = new Blob([displayed]).size;
+  const analysis = useMemo(() => analyzeOutput(displayed), [displayed]);
 
   const doCopy = async () => {
     try {
@@ -165,29 +168,190 @@ export default function RecoveredPayloadCard({
             >
               No decoded payload yet — run AUTO INVESTIGATE or paste input.
             </div>
+          ) : analysis.kind !== "plaintext" && !showRaw ? (
+            <CleanBinarySummary
+              analysis={analysis}
+              onShowRaw={() => setShowRaw(true)}
+              testid={testid}
+            />
           ) : (
-            <pre
-              data-testid={`${testid}-body`}
-              style={{
-                margin: 0,
-                fontFamily: "JetBrains Mono, monospace",
-                fontSize: 12,
-                lineHeight: 1.5,
-                color: "var(--text, #e2e8f0)",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-all",
-                maxHeight: 360,
-                overflow: "auto",
-                background: "var(--surface-2, #0a0e13)",
-                border: "1px solid var(--border, #1e293b)",
-                padding: 10,
-              }}
-            >
-              {displayed}
-            </pre>
+            <>
+              {analysis.kind !== "plaintext" && (
+                <div
+                  data-testid={`${testid}-raw-notice`}
+                  style={{
+                    fontSize: 10, color: "#f59e0b", fontFamily: "JetBrains Mono",
+                    padding: "6px 10px", marginBottom: 8,
+                    background: "rgba(245,158,11,0.08)",
+                    border: "1px solid rgba(245,158,11,0.4)",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                  }}
+                >
+                  <span>▲ RAW BYTES · unprintable chars will render as boxes — for hex-view forensics use HEX tab</span>
+                  <button
+                    className="nvx-btn sm ghost"
+                    onClick={() => setShowRaw(false)}
+                    data-testid={`${testid}-hide-raw`}
+                    style={{ fontSize: 10 }}
+                  >
+                    ← BACK TO SUMMARY
+                  </button>
+                </div>
+              )}
+              <pre
+                data-testid={`${testid}-body`}
+                style={{
+                  margin: 0,
+                  fontFamily: "JetBrains Mono, monospace",
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  color: "var(--text, #e2e8f0)",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-all",
+                  maxHeight: 360,
+                  overflow: "auto",
+                  background: "var(--surface-2, #0a0e13)",
+                  border: "1px solid var(--border, #1e293b)",
+                  padding: 10,
+                }}
+              >
+                {displayed}
+              </pre>
+            </>
           )}
         </div>
       )}
     </section>
+  );
+}
+
+
+/**
+ * CleanBinarySummary — analyst-friendly card for binary / partially-decoded
+ * outputs. Replaces the ▓░▒▓@@#$% raw-byte dump with a structured summary:
+ * magic + strings extraction + hex preview + toggle to show raw bytes.
+ */
+function CleanBinarySummary({ analysis, onShowRaw, testid }) {
+  const isBinary = analysis.kind === "binary";
+  const border = isBinary ? "#ef4444" : "#f59e0b";
+  const bg     = isBinary ? "rgba(239,68,68,0.06)" : "rgba(245,158,11,0.06)";
+  const label  = isBinary ? "BINARY PAYLOAD" : "PARTIAL DECODE";
+  const icon   = isBinary ? "▲" : "◐";
+
+  return (
+    <div data-testid={`${testid}-clean-summary`} style={{ display: "grid", gap: 10 }}>
+      {/* Banner */}
+      <div
+        style={{
+          padding: "10px 12px",
+          border: `1px solid ${border}`,
+          background: bg,
+          borderRadius: 3,
+          fontFamily: "JetBrains Mono, monospace",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 13, color: border, fontWeight: 700, letterSpacing: "0.18em" }}>
+            {icon} {label}
+          </span>
+          {analysis.magic && (
+            <span
+              data-testid={`${testid}-magic`}
+              style={{
+                fontSize: 10, padding: "2px 8px",
+                border: `1px solid ${border}`, color: border,
+                letterSpacing: "0.06em", borderRadius: 3,
+              }}
+            >
+              {analysis.magic.label}
+            </span>
+          )}
+          <span style={{ fontSize: 10, color: "var(--text-mute)" }}>
+            {analysis.byteLen.toLocaleString()} B · printable {(analysis.printableRatio * 100).toFixed(0)}% · entropy {analysis.entropy.toFixed(2)}
+          </span>
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 6 }}>
+          {analysis.reason}
+        </div>
+      </div>
+
+      {/* Extracted strings */}
+      {analysis.strings.length > 0 && (
+        <div>
+          <div style={{
+            fontSize: 10, letterSpacing: "0.18em", color: "var(--text-dim)",
+            padding: "0 2px 4px", fontFamily: "JetBrains Mono",
+          }}>
+            EXTRACTED STRINGS · {analysis.strings.length}
+          </div>
+          <div
+            data-testid={`${testid}-strings`}
+            style={{
+              display: "flex", flexWrap: "wrap", gap: 6,
+              background: "var(--surface-2, #0a0e13)",
+              border: "1px solid var(--border)",
+              padding: 8, maxHeight: 140, overflow: "auto",
+            }}
+          >
+            {analysis.strings.map((s, i) => (
+              <span
+                key={i}
+                style={{
+                  fontSize: 11, fontFamily: "JetBrains Mono, monospace",
+                  padding: "2px 6px", background: "rgba(126,227,201,0.06)",
+                  border: "1px solid rgba(126,227,201,0.25)",
+                  color: "var(--accent)", borderRadius: 2,
+                  maxWidth: 340, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}
+                title={s}
+              >
+                {s.length > 40 ? s.slice(0, 40) + "…" : s}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Hex preview */}
+      {analysis.hexPreview && (
+        <div>
+          <div style={{
+            fontSize: 10, letterSpacing: "0.18em", color: "var(--text-dim)",
+            padding: "0 2px 4px", fontFamily: "JetBrains Mono",
+          }}>
+            HEX PREVIEW · first 128 bytes
+          </div>
+          <pre
+            data-testid={`${testid}-hex-preview`}
+            style={{
+              margin: 0, padding: 10,
+              fontFamily: "JetBrains Mono, monospace",
+              fontSize: 11, lineHeight: 1.5,
+              background: "var(--surface-2, #0a0e13)",
+              border: "1px solid var(--border)",
+              color: "var(--text)",
+              overflow: "auto", maxHeight: 220,
+            }}
+          >
+            {analysis.hexPreview}
+          </pre>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button
+          className="nvx-btn sm"
+          onClick={onShowRaw}
+          data-testid={`${testid}-show-raw`}
+          title="Show the raw byte stream (may render as ▓░▒ boxes for unprintable chars)"
+        >
+          SHOW RAW BYTES →
+        </button>
+        <span style={{ fontSize: 10, color: "var(--text-mute)" }}>
+          Downstream panels (IOCs · MITRE · LOLBAS) already ran against the full byte stream.
+        </span>
+      </div>
+    </div>
   );
 }
