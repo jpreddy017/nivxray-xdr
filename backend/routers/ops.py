@@ -5,6 +5,7 @@
 from __future__ import annotations
 import base64 as _b64
 import hashlib
+import logging
 import re
 from typing import Any, Dict, List, Optional
 
@@ -23,6 +24,8 @@ from operations import (
 from smart_decoder import smart_decode
 from magic_decoder import magic_decode
 import models_studio as ms
+
+log = logging.getLogger("nivx.routers.ops")
 
 router = APIRouter()
 
@@ -654,10 +657,13 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                 corrupted_container=result.get("corrupted_container"),
             )
             result["mode"] = "strict"
-    except Exception as _e:
-        # Never break /decode/smart if evidence extraction hiccups
-        result["verdict_card"] = None
-        result["verdict_card_error"] = str(_e)
+    except Exception:
+        # Never break /decode/smart if evidence extraction hiccups. Full
+        # traceback goes to the internal logger; the analyst-facing card
+        # gets a GENERIC message — never a raw exception type/message.
+        log.exception("Verdict card generation failed in /decode/smart")
+        from evidence_extractor import _fallback_card, _FALLBACK_REASON
+        result["verdict_card"] = _fallback_card(_FALLBACK_REASON)
 
     # ── Flat `risk` object — Feb 2026 · regression + UI consumers ──────
     # Callers (daily_regression.py, batch pipeline, external SIEM push)
@@ -749,6 +755,47 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             result["lolbas"] = []
         # v1.5.4 — attach per-layer attribution for the TI-HITS panel + AI narrative
         result["layer_iocs"] = _layer_records
+
+        # ── P0.1 (Feb-2026) · Verdict-card rebuild with full findings ───
+        # The FIRST verdict-card pass (line ~650) ran BEFORE the IOC /
+        # MITRE / LOLBAS enrichment, so it decided the verdict on
+        # byte-level artifacts + chain length only. Payloads with 7 MITRE
+        # + LOLBIN + URL but no MZ header ended up bland "Suspicious @ 30%"
+        # (or `None` if a step-dict was malformed). Rebuild the card here
+        # with the full findings surface so the analyst brief actually
+        # reflects the tradecraft the enrichment pipeline detected.
+        try:
+            from evidence_extractor import build_verdict_card as _rebuild_vc
+            _findings = {
+                "iocs":              result.get("iocs") or {},
+                "mitre_techniques":  result.get("mitre") or [],
+                "lolbas":            result.get("lolbas") or [],
+                "family":            (result.get("verdict_card") or {}).get("family"),
+            }
+            _new_vc = _rebuild_vc(
+                input_text=body.input or "",
+                output_text=result.get("output") or "",
+                chain=[{"op": s.get("op"), "args": s.get("args") or {}}
+                       for s in (det.get("steps") or []) if isinstance(s, dict)],
+                corrupted_container=result.get("corrupted_container"),
+                findings=_findings,
+            )
+            if _new_vc:
+                # Preserve any best-effort recovery indicators from the
+                # first pass by keeping the FIRST-PASS card if it was
+                # already stronger than the rebuild (label rank).
+                _rank = {"Malicious": 4, "Suspicious": 3, "Corrupted": 2,
+                          "Benign": 1, "Undecoded": 0, "Inconclusive": 0}
+                _old_vc = result.get("verdict_card") or {}
+                _old_r = _rank.get(_old_vc.get("label") or "", -1)
+                _new_r = _rank.get(_new_vc.get("label") or "", -1)
+                if _new_r >= _old_r:
+                    result["verdict_card"] = _new_vc
+        except Exception:
+            # Rebuild is a nice-to-have — never fail the request over it.
+            # Full traceback to the internal logger only; never propagate
+            # the exception text to the analyst UI.
+            log.exception("Verdict card rebuild (post-enrichment) failed")
     except Exception:
         pass
 

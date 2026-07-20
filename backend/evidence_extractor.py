@@ -26,9 +26,20 @@ Design principles
    marketing prose.
 """
 from __future__ import annotations
+import logging
 import math
 import re
 from typing import Any, Dict, List, Optional
+
+log = logging.getLogger("nivx.evidence_extractor")
+
+# Analyst-facing message used when the automated verdict pipeline can't
+# attribute a concrete verdict — either because evidence is insufficient
+# or because an internal exception was caught. NEVER expose exception
+# types / messages to the UI (they can leak internal paths & schema).
+_FALLBACK_REASON = (
+    "Automated verdict generation failed. Manual analyst review recommended."
+)
 
 # ── Byte-level constants used across indicators ─────────────────────────
 _MZ    = b"MZ"
@@ -278,9 +289,12 @@ def _classify(indicators: List[Dict[str, str]],
             ),
         }
 
-    # Malicious — hard evidence of exec-format / shellcode prologue / active URL
+    # Malicious — hard evidence of exec-format / shellcode prologue / active
+    # URL / malware family match / LOLBAS abuse.
     hard = [i for i in positive if any(k in i["label"] for k in (
-        "PE header validated", "ELF magic", "prologue", "MSFvenom", "URL surfaced",
+        "PE header validated", "ELF magic", "prologue", "MSFvenom",
+        "URL surfaced", "URL indicator", "Malware family match",
+        "LOLBAS binary",
     ))]
     if hard:
         return {
@@ -290,6 +304,22 @@ def _classify(indicators: List[Dict[str, str]],
             "recommended_action": (
                 "Contain source host, hunt for parent process, submit to "
                 "sandbox / VirusTotal, and correlate URL / MITRE mapping."
+            ),
+        }
+
+    # MITRE-heavy signals — even without a URL / LOLBIN we escalate to
+    # Suspicious-High when ATT&CK techniques are present.
+    mitre = [i for i in positive if "MITRE ATT&CK" in i["label"]]
+    if len(mitre) >= 3:
+        return {
+            "label":      "Suspicious",
+            "confidence": min(80, 40 + 5 * len(mitre)),
+            "reason":     (f"{len(mitre)} MITRE ATT&CK techniques identified: "
+                            + ", ".join(m["label"].split("—", 1)[0].strip()
+                                        for m in mitre[:3]) + "."),
+            "recommended_action": (
+                "Escalate to IR — the technique mapping is broad enough to "
+                "indicate active tradecraft. Cross-check against SIEM."
             ),
         }
 
@@ -317,27 +347,105 @@ def _classify(indicators: List[Dict[str, str]],
     }
 
 
+def _fallback_card(reason: str) -> Dict[str, Any]:
+    """Structured fallback when the evidence pipeline can't build a
+    concrete verdict — NEVER return None. Downstream consumers (UI, SIEM
+    push, batch aggregators) rely on this shape being present.
+    """
+    return {
+        "label":              "Inconclusive",
+        "verdict":            "Inconclusive",       # explicit alias for old clients
+        "confidence":         0,
+        "risk_score":         0,
+        "reason":             reason or "Insufficient evidence to attribute a verdict.",
+        "indicators":         [],
+        "recommended_action": (
+            "Manually review the payload — the automated pipeline did not "
+            "gather enough concrete evidence to attribute a verdict."
+        ),
+    }
+
+
 def build_verdict_card(input_text: str, output_text: str,
                        chain: List[Dict[str, Any]],
                        corrupted_container: Optional[Dict[str, Any]] = None,
+                       findings: Optional[Dict[str, Any]] = None,
                        ) -> Dict[str, Any]:
-    """Assemble the SOC Verdict Card — the top-of-workspace analyst brief."""
-    indicators = _collect_indicators(input_text or "", output_text or "", chain or [])
-    # Surface salvaged plaintext as a POSITIVE indicator so analysts see it in
-    # the Evidence list, not just buried in the Reason line.
-    if corrupted_container and corrupted_container.get("salvaged"):
-        salv = corrupted_container["salvaged"]
-        preview = salv[:80] + ("…" if len(salv) > 80 else "")
-        indicators.insert(0, {
-            "kind":  "positive",
-            "label": (f"Raw deflate salvaged {len(salv)} bytes (UNVERIFIED — "
-                      f"CRC could not be validated): {preview!r}"),
-        })
-    verdict = _classify(indicators, corrupted_container, chain or [], output_text or "")
-    return {
-        "label":               verdict["label"],
-        "confidence":          verdict["confidence"],
-        "reason":              verdict["reason"],
-        "indicators":          indicators,
-        "recommended_action":  verdict["recommended_action"],
-    }
+    """Assemble the SOC Verdict Card — the top-of-workspace analyst brief.
+
+    Feb-2026 hardening (P0.1):
+      * Always returns a structured dict — never `None`. Any internal
+        exception is caught and converted into an `Inconclusive` fallback
+        card so downstream UI / SIEM never sees a null.
+      * When `findings` are supplied (MITRE / LOLBIN / IOC / family), they
+        are lifted into indicators and contribute to the verdict tier —
+        previously the card was decided ONLY on byte-level artifacts and
+        chain length, so payloads with 7 MITRE + LOLBIN + URL that had no
+        MZ header or `http://` literal in the output ended up as bland
+        Suspicious-30% (or slipped through with a None when the caller's
+        step-dict was missing a key).
+    """
+    try:
+        indicators = _collect_indicators(input_text or "", output_text or "", chain or [])
+
+        # Lift intelligence-pipeline findings into indicators so `_classify`
+        # can see them. Findings are OPTIONAL — callers that don't have
+        # them yet (early legacy path) still get a working card.
+        if findings:
+            for tech in (findings.get("mitre_techniques") or findings.get("mitre") or [])[:8]:
+                tid = tech.get("id") if isinstance(tech, dict) else str(tech)
+                tname = tech.get("technique") or tech.get("name") if isinstance(tech, dict) else ""
+                if tid:
+                    indicators.append({
+                        "kind":  "positive",
+                        "label": f"MITRE ATT&CK {tid}" + (f" — {tname}" if tname else ""),
+                    })
+            for hit in (findings.get("lolbas") or [])[:5]:
+                name = hit.get("binary") or hit.get("name") if isinstance(hit, dict) else str(hit)
+                if name:
+                    indicators.append({
+                        "kind":  "positive",
+                        "label": f"LOLBAS binary observed: {name}",
+                    })
+            iocs = findings.get("iocs") or {}
+            if isinstance(iocs, dict):
+                for u in (iocs.get("urls") or [])[:3]:
+                    indicators.append({"kind": "positive",
+                                        "label": f"URL indicator: {u}"})
+                for h in (iocs.get("hosts") or iocs.get("domains") or [])[:3]:
+                    indicators.append({"kind": "positive",
+                                        "label": f"Host / domain indicator: {h}"})
+                for i in (iocs.get("ips") or [])[:3]:
+                    indicators.append({"kind": "positive",
+                                        "label": f"IP indicator: {i}"})
+            fam = findings.get("family") or {}
+            if isinstance(fam, dict) and fam.get("name"):
+                indicators.append({
+                    "kind":  "positive",
+                    "label": f"Malware family match: {fam.get('name')} "
+                             f"(confidence {fam.get('confidence', 0)})",
+                })
+
+        # Surface salvaged plaintext as a POSITIVE indicator so analysts see it in
+        # the Evidence list, not just buried in the Reason line.
+        if corrupted_container and corrupted_container.get("salvaged"):
+            salv = corrupted_container["salvaged"]
+            preview = salv[:80] + ("…" if len(salv) > 80 else "")
+            indicators.insert(0, {
+                "kind":  "positive",
+                "label": (f"Raw deflate salvaged {len(salv)} bytes (UNVERIFIED — "
+                          f"CRC could not be validated): {preview!r}"),
+            })
+        verdict = _classify(indicators, corrupted_container, chain or [], output_text or "")
+        return {
+            "label":               verdict["label"],
+            "verdict":             verdict["label"],      # alias — some clients read `verdict`
+            "confidence":          verdict["confidence"],
+            "risk_score":          verdict["confidence"], # alias — legacy field name
+            "reason":              verdict["reason"],
+            "indicators":          indicators,
+            "recommended_action":  verdict["recommended_action"],
+        }
+    except Exception:
+        log.exception("Verdict card generation failed")
+        return _fallback_card(_FALLBACK_REASON)
