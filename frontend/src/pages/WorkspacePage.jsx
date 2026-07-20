@@ -397,6 +397,12 @@ export default function WorkspacePage() {
     // Feb-2026 · reset saved-case tracker so next SAVE prompts for a new name
     setSavedCaseName(null);
     setInputLocked(false);
+    // RC3.0 · P0.2 — wipe the 7-panel Analyst Workspace state so the
+    // Analysis Verdict / Recovered Payload / MITRE / IOCs / Network /
+    // Behavior blocks vanish and the analyst gets a clean workspace for
+    // the next test. Previously CLEAR only reset input & trace, leaving
+    // the previous verdict card and analysis blob visible.
+    setVerdictCard(null);
     try { localStorage.removeItem("nvx.pendingInput"); } catch {}
   };
 
