@@ -205,7 +205,16 @@ GOLDEN_CORPUS: Tuple[Dict[str, Any], ...] = (
     # corpus growth doesn't inflate the runner file itself.
     "engine.golden_corpus_expansion",
     fromlist=["EXPANSION_CORPUS"],
-).EXPANSION_CORPUS
+).EXPANSION_CORPUS + __import__(
+    # Phase 9.5d round-2 expansion (GC-260 → GC-290): more enterprise
+    # workloads (Exchange EMS, ADFS, WSUS, DNS, PKI, DHCP, GPO, VSS,
+    # FSRM, WUA, LAPS, RDS, SCOM, Defender) + malware families
+    # (TrickBot, Ryuk, LockBit, BlackCat, Conti, Bumblebee, DarkGate,
+    # IcedID, Astaroth, Snake KeyLogger, SocGholish, Latrodectus) +
+    # obfuscation (Invoke-Obfuscation ticks, DOSfuscation, XSL LOLBAS).
+    "engine.golden_corpus_expansion_r2",
+    fromlist=["EXPANSION_R2_CORPUS"],
+).EXPANSION_R2_CORPUS
 
 
 # ---------------------------------------------------------------------------
