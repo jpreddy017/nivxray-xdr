@@ -21,6 +21,9 @@ on:
     paths:
       - 'backend/engine/**'
       - 'backend/tests/rc5/**'
+      - 'backend/routers/ops.py'
+      - 'backend/deps.py'
+      - '.github/workflows/rc5_gates.yml'
 
 jobs:
   rc5-gates:
