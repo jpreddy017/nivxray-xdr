@@ -96,6 +96,7 @@ def test_response_contains_all_required_keys(client, auth):
               "language", "input", "semantic_ir", "exec_graph", "behaviors",
               "evidence_refs", "confidence_summary", "reconstructed_commands",
               "decode_chain", "warnings", "unresolved_nodes",
+              "mitre", "mitre_navigator", "mitre_stix",
               "processing_time_ms"):
         assert k in j, f"missing {k}"
 
@@ -143,11 +144,12 @@ def test_input_echoed_back(client, auth):
     assert r.json()["input"] == "SET X=1"
 
 
-def test_decode_chain_lists_four_steps(client, auth):
+def test_decode_chain_lists_five_steps(client, auth):
     r = _post_parse(client, auth, input="echo hi")
     chain = r.json()["decode_chain"]
-    assert len(chain) == 4
-    assert chain[-1] == "behavior_extract"
+    assert len(chain) == 5
+    assert chain[-2] == "behavior_extract"
+    assert chain[-1] == "mitre_v2"
 
 
 def test_warnings_field_is_list(client, auth):
@@ -432,3 +434,42 @@ def test_no_dangling_refs_on_complex_input(client, auth):
     for refs in j["evidence_refs"].values():
         for nid in refs:
             assert nid in node_ids
+
+
+
+# ── Phase 5 · MITRE v2 API surface ──────────────────────────────────
+def test_mitre_field_is_a_list(client, auth):
+    r = _post_parse(client, auth, input="powershell.exe -c Start-Process notepad.exe")
+    assert isinstance(r.json()["mitre"], list)
+
+
+def test_mitre_navigator_is_a_dict_with_version(client, auth):
+    r = _post_parse(client, auth, input="powershell.exe -c Start-Process notepad.exe")
+    nav = r.json()["mitre_navigator"]
+    assert isinstance(nav, dict)
+    assert "versions" in nav and "domain" in nav
+    assert nav["domain"] == "enterprise-attack"
+
+
+def test_mitre_stix_is_a_stix_bundle(client, auth):
+    r = _post_parse(client, auth, input="powershell.exe -c Start-Process notepad.exe")
+    stix = r.json()["mitre_stix"]
+    assert isinstance(stix, dict)
+    assert stix["type"] == "bundle"
+    assert any(o["type"] == "identity" for o in stix["objects"])
+
+
+def test_mitre_mapping_has_technique_id_for_ps_process_spawn(client, auth):
+    r = _post_parse(client, auth, input="powershell.exe -c Start-Process notepad.exe",
+                    language="powershell")
+    mm = r.json()["mitre"]
+    # At least one T1059-family mapping should be present.
+    assert any(m["technique_id"] == "T1059" for m in mm)
+
+
+def test_plugin_versions_include_mitre(client, auth):
+    r = _post_parse(client, auth, input="echo hi")
+    plugs = r.json()["plugin_versions"]
+    assert "mitre_mapper" in plugs
+    assert "mitre_navigator" in plugs
+    assert "mitre_stix" in plugs

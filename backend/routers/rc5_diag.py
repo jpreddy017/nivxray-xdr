@@ -55,6 +55,13 @@ from engine.parsers import powershell_parser as _ps_parser  # noqa: F401 — reg
 from engine.interpreters import cmd_interpreter as _cmd_interp  # noqa: F401
 from engine.interpreters import powershell_interpreter as _ps_interp  # noqa: F401
 from engine.detectors.behavior_extractor import extract_behaviors  # noqa: F401
+from engine.detectors.mitre_mapper import (
+    map_behaviors_to_mitre, MITRE_RULES,
+)
+from engine.detectors.mitre_navigator_export import (
+    build_navigator_layer, NAV_LAYER_VERSION,
+)
+from engine.detectors.mitre_stix_export import build_stix_bundle, STIX_VERSION
 
 
 API_VERSION = "1"
@@ -112,6 +119,9 @@ class ParseResponse(BaseModel):
     decode_chain: List[str]
     warnings: List[str]
     unresolved_nodes: List[UnresolvedRef]
+    mitre: List[Dict[str, Any]]
+    mitre_navigator: Dict[str, Any]
+    mitre_stix: Dict[str, Any]
     processing_time_ms: float
 
 
@@ -180,6 +190,7 @@ async def rc5_parse(
     sir = parser.parse(src)
     graph = interp.interpret(sir)
     behaviors = extract_behaviors(graph)
+    mitre_mappings = map_behaviors_to_mitre(behaviors)
 
     # Confidence summary — over deterministic-origin nodes.
     conf_vals = [n.confidence for n in graph.nodes if n.origin == "deterministic"]
@@ -199,7 +210,8 @@ async def rc5_parse(
 
     # Decode chain — one line per parser/interpreter step attributable.
     decode_chain: List[str] = [f"normalize:{lang}", f"parse:{lang}",
-                               f"interpret:{lang}", "behavior_extract"]
+                               f"interpret:{lang}", "behavior_extract",
+                               "mitre_v2"]
 
     # Reconstructed commands — non-empty, non-unresolved
     reconstructed = [n.reconstructed for n in graph.nodes
@@ -224,6 +236,10 @@ async def rc5_parse(
             "powershell_parser":   {"name": "powershell", "schema_version": SIR_SCHEMA_VERSION},
             "powershell_interpreter": {"name": "powershell", "schema_version": EXEC_SV},
             "behavior_extractor":  {"schema_version": EXEC_SV},
+            "mitre_mapper":        {"schema_version": EXEC_SV,
+                                    "rule_count": len(MITRE_RULES)},
+            "mitre_navigator":     {"schema_version": NAV_LAYER_VERSION},
+            "mitre_stix":          {"schema_version": STIX_VERSION},
         },
         language=lang,
         input=src,
@@ -236,6 +252,9 @@ async def rc5_parse(
         decode_chain=decode_chain,
         warnings=list(sir.warnings or []),
         unresolved_nodes=unresolved_refs,
+        mitre=[m.model_dump(mode="json") for m in mitre_mappings],
+        mitre_navigator=build_navigator_layer(mitre_mappings),
+        mitre_stix=build_stix_bundle(mitre_mappings),
         processing_time_ms=elapsed_ms,
     )
 

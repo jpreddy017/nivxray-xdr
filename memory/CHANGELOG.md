@@ -2,6 +2,17 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-21 · RC5 · Phase 5 · MITRE v2 (SHIPPED behind SEMANTIC_ENGINE_V2)
+
+- **New:** `backend/engine/detectors/mitre_mapper.py` — deterministic `Behavior[] → MitreMapping[]` mapper. 32 rules, 1:N technique support, evidence-first (behavior + node IDs), confidence per mapping, data-source + Sigma/KQL/SPL/AQL detection recommendations.
+- **New:** `backend/engine/detectors/mitre_navigator_export.py` — ATT&CK Navigator v4.5 layer JSON export (deterministic).
+- **New:** `backend/engine/detectors/mitre_stix_export.py` — STIX 2.1 bundle export with `identity`, `attack-pattern`, `x-nivxray-mapping` (custom SDO), `report`; stable sha1-derived IDs.
+- **API:** `/api/rc5/parse` now returns `mitre[]`, `mitre_navigator{}`, `mitre_stix{}`; `decode_chain` gains `mitre_v2` step.
+- **Tests:** +117 Phase 5 regression tests. Full RC5 suite = 459 passing / 0 failing.
+- **CI gate:** kill-list §13 static-import guard (`_KEYWORD_MITRE_MAP` cannot be re-imported by any file in `engine/` or `routers/`).
+- **Report:** `RC5_PHASE_5_COMPLIANCE.md`.
+
+
 
 ---
 
