@@ -78,10 +78,21 @@ function detectTerminalTail(text) {
  * IOC panels — this detector just prevents the OUTPUT textarea from
  * looking broken.
  *
+ * The NivXRay backend wraps decoded output in a decorated envelope:
+ *   ━━━ DECODED OUTPUT ━━━
+ *   <payload — may be binary>
+ *   ━━━ NIVXRAY INVESTIGATION SUMMARY ━━━
+ *   <verdict/mitre/chain summary>
+ *   ━━━
+ * We must inspect ONLY the payload region — the box-drawing header +
+ * summary boilerplate suppresses whole-blob entropy well below the
+ * threshold on a real shellcode case. When no envelope is present
+ * (raw output), we fall back to scoring the whole string.
+ *
  * Returns { entropy, printableRatio, byteCount } when the payload should
  * be hidden, else null.
  *
- * Threshold: entropy > 6.5  AND  printable < 50%  AND  length >= 64.
+ * Threshold: entropy > 6.5  AND  printable < 50%  AND  payload length >= 64.
  * (Random bytes have entropy ~7.99, English text ~4.2.)
  */
 function detectBinaryPayload(text) {
@@ -95,9 +106,36 @@ function detectBinaryPayload(text) {
     return false;
   };
 
+  // Envelope-aware slice: keep only the payload between the DECODED
+  // OUTPUT header and the next section header (INVESTIGATION SUMMARY /
+  // NIVXRAY / another ━━━ ruler). Falls back to the whole string when
+  // no envelope is present (raw magic/smart decode output).
+  const HEADER_RE = /▼\s*DECODED\s*OUTPUT[^\n]*\n/i;
+  const FOOTER_RE = /\n[^\n]*(?:NIVXRAY|INVESTIGATION\s*SUMMARY|RECOVERED\s*PAYLOAD)[^\n]*/i;
+  let payload = text;
+  const hm = text.match(HEADER_RE);
+  if (hm) {
+    let after = text.slice(hm.index + hm[0].length);
+    // Strip a trailing ruler line right after the header, if any.
+    after = after.replace(/^━+\s*\n/, "");
+    const fm = after.match(FOOTER_RE);
+    if (fm) after = after.slice(0, fm.index);
+    // Strip any trailing ruler line right before the footer.
+    after = after.replace(/\n━+\s*$/, "");
+    payload = after;
+  }
+  // Also drop lines that are ONLY box-drawing chars — they suppress
+  // entropy on payloads that repeat rulers between sections.
+  payload = payload
+    .split("\n")
+    .filter((ln) => !/^[━─═\s]+$/.test(ln))
+    .join("\n");
+
+  if (!payload || payload.length < 64) return null;
+
   // Sample up to first 4096 chars — enough for a reliable entropy read
   // without slowing the render loop on huge outputs.
-  const sample = text.length > 4096 ? text.slice(0, 4096) : text;
+  const sample = payload.length > 4096 ? payload.slice(0, 4096) : payload;
   const n = sample.length;
 
   // Printable ratio
@@ -122,7 +160,7 @@ function detectBinaryPayload(text) {
   return {
     entropy: entropy,
     printableRatio: printableRatio,
-    byteCount: text.length,
+    byteCount: payload.length,
   };
 }
 

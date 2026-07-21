@@ -7,6 +7,40 @@ obfuscated malware command lines with zero AI hallucinations, honest
 
 ## Next Release: RC4.6 (in progress) — Semantic Engine + Binary IOC Lift
 
+### RC4.6.1.1 · Binary Payload UX (Feb 24, 2026 — Fix A + Fix B)
+
+**Symptom A (user-visible):** After RC4.6.1 lifted C2 IPs / User-Agents
+from binary shellcode, the DECODED OUTPUT text panel still rendered the
+raw non-printable bytes between the box-drawing header ("▼ DECODED
+OUTPUT") and the "NIVXRAY INVESTIGATION SUMMARY" footer. Analysts read
+the garble as a broken decode even though the IOC panel below was
+correctly populated.
+
+**Fix A — Binary Payload Banner** (`/app/frontend/src/components/OutputView.jsx`):
+Added `detectBinaryPayload()` that (1) slices the payload region between
+the DECODED OUTPUT header and the next section header, (2) strips
+ruler-only lines, (3) computes Shannon entropy + printable ratio on the
+extracted region. When `entropy > 6.5 AND printable < 50% AND len ≥ 64`,
+a red ⚠ **BINARY SHELLCODE PAYLOAD DETECTED** banner replaces the raw
+bytes in the TEXT view, showing entropy + printable % + byte count.
+Analyst can toggle `[SHOW RAW BYTES ANYWAY]` to reveal or click
+`[INSPECT HEX]` to switch views. Non-binary payloads and existing
+shellcode-prologue / terminal-tail cases pass through unchanged.
+
+**Symptom B:** Save Case timed out at 30s on Prod (CPU-throttled
+containers finalising verdict-card + IOC serialization on heavy payloads).
+
+**Fix B — 60s Save Timeout** (`/app/frontend/src/lib/api.js`): Added a
+`/cases/save` branch to `pickTimeout()` returning `60_000`ms.
+
+**Verified end-to-end:** Live screenshot test confirmed banner appears
+on random-binary decode (entropy 7.33 · printable 42% · 299 B), TEXT
+view empty with helpful placeholder, `[SHOW RAW BYTES ANYWAY]` reveals
+1004 chars + button flips label, `[INSPECT HEX]` activates HEX view.
+Regression: plain PowerShell decode produces readable text with NO
+banner. Save Case succeeds < 1s on lightweight cases and now has 60s
+headroom on heavy ones.
+
 ### RC4.6.1 · Binary Shellcode IoC Lift (Feb 21, 2026)
 **Symptom (user-visible):** For payloads that reach shellcode (Meterpreter /
 MSFvenom / CS beacon), the case's structured `iocs` field was empty even
