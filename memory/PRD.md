@@ -7,6 +7,28 @@ obfuscated malware command lines with zero AI hallucinations, honest
 
 ## Current Release: RC4.5 (Feb 2026) — **Production Baseline**
 
+### RC4.5.2 · CI Import Fix (Feb 21, 2026)
+**Symptom:** GitHub Actions `RC4.x Quality Gate` failed at the
+**RC2.3 baseline scope** step with `ModuleNotFoundError: No module
+named 'emergentintegrations'`.
+
+**Root cause:** `backend/deps.py` imported `LlmChat` / `UserMessage`
+from `emergentintegrations.llm.chat` at module load time. The CI
+workflow deliberately strips `emergentintegrations` and `litellm`
+from `requirements-ci.txt` (private-CDN wheel + not needed for
+deterministic decoder tests), so any test transitively importing
+`deps` (via `analysis_core`) blew up before pytest could collect.
+
+**Fix:** Moved `emergentintegrations` imports inside `new_chat()`,
+`llm_json()`, `llm_text()`. Added `TYPE_CHECKING`-only import so the
+return-type annotation stays typed without triggering runtime load.
+Runtime behaviour unchanged — the wheel IS installed in
+Preview / Production so FastAPI routes still use the real client.
+
+**Verified locally** with a `sys.meta_path` blocker that simulates
+CI: `deps` and `analysis_core` import cleanly; RC2.3 baseline scope
+(48 tests) and RC4.4/RC4.5 pure unit scope (65 tests) all pass.
+
 ### RC4.5.1 · Cloudflare 524/520 Hotfix (Feb 21, 2026)
 **Symptom:** Prod returned Cloudflare 524 (timeout) / 520 (empty
 response) on large PS `-EncodedCommand` payloads (e.g. the

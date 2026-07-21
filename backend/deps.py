@@ -10,7 +10,7 @@ import os
 import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING
 
 import bcrypt
 import jwt
@@ -19,7 +19,15 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+# NOTE: `emergentintegrations` is a private-CDN wheel that the RC4.x quality-gate
+# CI intentionally strips from requirements-ci.txt (see .github/workflows/
+# rc4x_quality_gate.yml). Importing it at module load time makes every test
+# that transitively imports `deps` fail with ModuleNotFoundError. Deferring
+# the import into `new_chat()` keeps the deterministic-only test scope
+# runnable without the LLM stack while still letting runtime FastAPI routes
+# hit the real client when the wheel is installed.
+if TYPE_CHECKING:  # pragma: no cover — type hints only
+    from emergentintegrations.llm.chat import LlmChat  # noqa: F401
 
 
 ROOT_DIR = Path(__file__).parent
@@ -156,7 +164,9 @@ def mask(v: str) -> str:
 
 # --- LLM helpers -------------------------------------------------------- #
 def new_chat(session_id: str, system: str,
-             provider: str = "anthropic", model: str = "claude-sonnet-4-5-20250929") -> LlmChat:
+             provider: str = "anthropic", model: str = "claude-sonnet-4-5-20250929") -> "LlmChat":
+    # Lazy import — see module-header note about the RC4.x CI wheel filter.
+    from emergentintegrations.llm.chat import LlmChat
     return LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=session_id,
@@ -170,6 +180,7 @@ async def llm_json(session_id: str, system: str, user: str, retries: int = 2,
     empty responses / parse errors — a common Claude edge-case that used
     to bubble up as `Expecting value: line 1 column 1 (char 0)` 502s."""
     import asyncio as _asyncio
+    from emergentintegrations.llm.chat import UserMessage  # lazy — see header note
     last_err: Any = None
     for attempt in range(retries + 1):
         chat = new_chat(session_id, system, provider=provider, model=model)
@@ -199,6 +210,7 @@ async def llm_json(session_id: str, system: str, user: str, retries: int = 2,
 
 
 async def llm_text(session_id: str, system: str, user: str) -> str:
+    from emergentintegrations.llm.chat import UserMessage  # lazy — see header note
     chat = new_chat(session_id, system)
     try:
         r = await chat.send_message(UserMessage(text=user))

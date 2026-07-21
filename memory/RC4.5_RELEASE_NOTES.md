@@ -44,6 +44,26 @@ raw.githubusercontent, workers.dev, portal-support, post-app).
 7. **RC4.5.1 mitre_map ReDoS perf guard (NEW)**
 8. RC2.3 chain-completeness benchmark (77.4% floor, 0 FP IOCs)
 
+### 🔧 RC4.5.2 · CI Import Fix (`deps.py` lazy LLM import)
+`backend/deps.py` previously did `from emergentintegrations.llm.chat import LlmChat, UserMessage`
+at module load time. Because the CI workflow intentionally strips the
+`emergentintegrations` and `litellm` wheels from `requirements-ci.txt`
+(private-CDN wheel + irrelevant to deterministic decoder tests), every
+test that transitively imported `deps` (via `analysis_core`) failed with
+`ModuleNotFoundError: No module named 'emergentintegrations'` inside the
+`RC2.3 baseline scope` step of the quality-gate.
+
+**Fix:** moved the `LlmChat` / `UserMessage` imports inside `new_chat()`,
+`llm_json()`, `llm_text()`. Added a `TYPE_CHECKING` block so the module-level
+type annotation stays typed for IDEs without triggering the runtime import.
+
+Runtime behaviour unchanged: FastAPI routes still hit the real LLM client
+because the wheel IS present in the production/preview environments.
+
+Verified locally with an `sys.meta_path` blocker that simulates the CI
+environment: `deps` and `analysis_core` both import cleanly, RC2.3 baseline
+scope (48 tests) + RC4.4 / RC4.5 pure unit scope (65 tests) all pass.
+
 ---
 
 ## Test Suite Status
@@ -61,9 +81,11 @@ Zero regressions. Zero decoding regressions. Zero verdict regressions.
 
 ---
 
-## Files Changed (RC4.5.1 hotfix)
+## Files Changed (RC4.5.1 hotfix + RC4.5.2 CI import fix)
 
 - `backend/operations.py` — ReDoS-safe patterns for T1105 / T1102 / T1583.001
+- `backend/deps.py` — lazy `emergentintegrations` import so CI can run
+  deterministic tests without the private-CDN wheel (RC4.5.2)
 - `backend/tests/test_mitre_redos_perf.py` — new (perf regression guard)
 - `.github/workflows/rc4x_quality_gate.yml` — added step 7 (ReDoS guard)
 - `scripts/rc45_prev_prod_parity.py` — new (Prev↔Prod parity smoke script)
