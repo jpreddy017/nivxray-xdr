@@ -16,6 +16,7 @@ import { buildFallbackGraph } from "@/lib/fallbackGraph";
 import GuidanceBanner, { getGuidanceGlowStyle } from "@/components/GuidanceBanner";
 import SocVerdictPanel from "@/components/SocVerdictPanel";
 import VerdictCard from "@/components/VerdictCard";
+import AnalystQuickActions from "@/components/AnalystQuickActions";
 import AnalystResults from "@/components/AnalystResults";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
 import HistoryDrawer from "@/components/HistoryDrawer";
@@ -1585,6 +1586,26 @@ export default function WorkspacePage() {
         winnerEngine={decodeWinnerEngine}
         predictedTree={predictedTree}
       />
+
+      {/* ▲ RC4.5.7 · Analyst Quick Actions — Executive summary,
+          confidence breakdown, and one-click block-rule generation.
+          Pure UI synthesis from existing verdict_card + iocs — zero
+          backend changes, zero decoder-engine touch. */}
+      {(verdictCard || analysis) && (
+        <div style={{ padding: "0 16px 12px" }}>
+          <AnalystQuickActions
+            result={{
+              verdict_card: verdictCard || undefined,
+              iocs: (analysis && analysis.iocs) || undefined,
+              mitre: (analysis && analysis.mitre) || undefined,
+              reached_shellcode: !!(verdictCard && verdictCard.reached_shellcode),
+              family: (verdictCard && verdictCard.family) || (analysis && analysis.family),
+              verdict: verdictCard && verdictCard.label,
+              confidence: verdictCard && verdictCard.confidence,
+            }}
+          />
+        </div>
+      )}
 
       {/* ▲ CANDIDATE EXPLORER (Feb-2026) — ranked encoding candidates with
           structured "why-not" breakdowns, hex, IOCs, LOLBins, MITRE ATT&CK.
