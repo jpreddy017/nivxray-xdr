@@ -96,21 +96,19 @@ Final run: **51/51 (100.00%)** · 0 regressions on the original 15.
 - **PR-delta reporter (`scripts/golden_delta.py`)** — now renders a "Pipeline latency" table alongside coverage + accuracy, so every PR carries a perf regression signal.
 - **Current baseline** (51 samples): p50 = 0.190 ms, p95 = 0.628 ms, p99 = 1.051 ms, total pipeline = 13.48 ms. Deep -enc + full pipeline for the whole corpus is under 15 ms.
 
-## 5. SOC Prime Analyst UI polish
+## 5. Analyst UI polish — REVERTED (user directive, 2026-02-23)
 
-Design agent consulted first (`/app/design_guidelines.json` — enterprise SIEM aesthetic, strict dark, no gradients, monospace for IOCs, verdict-tier solid colors).
+**Status:** Reverted after user preview review. User confirmed: (a) the pre-existing `/analyst/rc5` layout is preferred over the added SOC Prime visualization panels; (b) the manual CMD/PowerShell dropdown was suboptimal — analysts may not know the language ahead of time.
 
-New components under `frontend/src/components/rc5/`:
-- **`StickyVerdictHeader.jsx`** — pinned top; verdict badge (solid tier color), risk-score, 7-dim mini bars (capability/execution/persistence/network/evasion/impact/intent), CAP/FLOOR indicators, X-Decode-Ms + run-id.
-- **`ExecutionGraphSVG.jsx`** — deterministic grid-layout SVG of the RC5 ExecGraph. Nodes colour-coded by NodeKind class. Hover to highlight edges. Click handler ready. Terminal-style grid background.
-- **`BehaviorTimeline.jsx`** — horizontal cards grouped by tactic (execution, persistence, defense_evasion, C2, credential_access, impact, exfil, discovery, collection, lateral, DNS, clipboard, named_pipe, WMI). Each behavior card shows sub_kind, reconstructed evidence, confidence, evidence node IDs.
-- **`MitreEvidenceTable.jsx`** — dense expandable-row table. Click T-code → drills down to Sigma / KQL / SPL / AQL detection snippets + data sources + evidence node IDs + link to attack.mitre.org. Header actions: **Download ATT&CK Navigator JSON** + **"Open in ATT&CK Navigator"** (copies layer to clipboard + opens Navigator).
+**Action taken:**
+- Removed the added `StickyVerdictHeader`, `ExecutionGraphSVG`, `BehaviorTimeline`, and `MitreEvidenceTable` component imports and render blocks from `AnalystRC5Page.jsx`. All four component files under `frontend/src/components/rc5/` were **deleted** so no dead code lingers.
+- Replaced the manual language `<select>` with a **deterministic auto-detect** heuristic (`detectLanguage()`), an **AUTO-INVESTIGATE** button (styled to match the main decoder page pattern at `nivxray.nivxforge.com`), and a read-only "auto-detected" badge showing the detected language. Detection uses ordered marker scoring — no regex on secrets, no AI, ties break toward `cmd`.
 
-Integrated into `AnalystRC5Page.jsx` above the existing panels — additive, existing exports/verdict/lolbin/explainability panels untouched.
+**PS markers scored:** `$var = …`, `-EncodedCommand` / `-enc`, `-ExecutionPolicy`, `IEX`, `Invoke-Expression/WebRequest/RestMethod`, `New-Object`, verb-noun cmdlets, `[System.…]`/`[Convert]`/`[char]`, pipe-to-IEX, splatting `@{`, `powershell.exe`.
 
-Aesthetic: strict `bg-slate-950` base, `bg-slate-900` cards, `border-slate-800`, JetBrains Mono for hashes/IPs/node IDs, solid tier colors (Benign #22c55e, Suspicious #f59e0b, Malicious #ef4444, Critical #e11d48), no gradients anywhere.
+**CMD markers scored:** classic LOLBAS (`certutil`, `reg add/delete/query`, `wmic`, `schtasks`, `sc`, `vssadmin`, `net user/group/localgroup`, `netsh`, `bcdedit`, `robocopy`, `xcopy`), `%ENV%` variables, `^` escape, `cmd.exe /X` flags, standalone `/X` switches, `&&` chaining.
 
-Charter compliance: purely visualization of existing backend data — no new detection logic, no new API endpoints, no schema changes.
+**Retained SOC Prime deliverable** — the design agent's blueprint at `/app/design_guidelines.json` remains on file for future UI iteration once the user is ready.
 
 ## 6. CI fix — rc5_gates.yml
 

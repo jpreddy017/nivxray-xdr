@@ -24,7 +24,7 @@ derives every conclusion from graph evidence.
 - **RCA loop:** baseline 39/51 (76.47%) → **51/51 (100%)** after 6 targeted interpreter coverage patches. Zero regressions on the original 15.
 - **Interpreter coverage patches:** aliased-IEX dispatch via `& $var (payload)`, `New-Object Net.WebClient` materialization marker, `iwr/curl/wget` call-expr → HttpNode with URL evidence, IEX implicit `powershell.exe` marker for T1059 emission, RUN_KEY_MARKERS extended for Winlogon/Userinit/Shell/IFEO.
 - **Latency instrumentation:** per-sample `duration_ms` + aggregate percentiles (`mean/p50/p95/p99/max/total`). PR-delta reporter renders a Pipeline Latency table. Baseline: p95 = 0.628 ms.
-- **SOC Prime Analyst UI polish:** `StickyVerdictHeader`, `ExecutionGraphSVG`, `BehaviorTimeline`, `MitreEvidenceTable` with "Open in ATT&CK Navigator" deep-link and per-technique Sigma/KQL/SPL drill-down. Design guided by `/app/design_guidelines.json` (enterprise SIEM aesthetic).
+- **Analyst UI change:** replaced the manual CMD/PowerShell dropdown with **deterministic language auto-detection** + **AUTO-INVESTIGATE** button. Analysts no longer need to know the language ahead of time. Detected language shown as a read-only "auto-detected" badge. Pre-existing `/analyst/rc5` layout preserved (SOC Prime visualization panels were reverted per user preview review — retained the auto-detect UX improvement only).
 - **CI fix:** `rc5_gates.yml` — added MongoDB service block (76 API tests were failing).
 - **Full RC5 suite: 695 pass / 0 fail.** Golden Corpus 51/51.
 

