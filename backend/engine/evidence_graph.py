@@ -519,6 +519,28 @@ class EvidenceGraph(BaseModel):
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
 
+    def to_canonical_dict(self) -> Dict[str, Any]:
+        """Return a canonical, provenance-stripped dict — deterministic
+        across runs regardless of upstream `ExecNode.id` UUID churn.
+
+        `source_node_ids` link back to `ExecNode.id` values which are
+        random UUIDs generated per pipeline run. They are useful for
+        analyst drill-down but they DEFEAT byte-identical determinism.
+        This canonical form is what the Phase 11.2 CI gate compares.
+        """
+        def _strip(d: Dict[str, Any]) -> Dict[str, Any]:
+            return {k: v for k, v in d.items() if k != "source_node_ids"}
+        return {
+            "schema_version": self.schema_version,
+            "nodes": [_strip(n.model_dump(mode="json")) for n in self.nodes],
+            "edges": [_strip(e.model_dump(mode="json")) for e in self.edges],
+        }
+
+    def to_canonical_json(self) -> str:
+        return json.dumps(
+            self.to_canonical_dict(), sort_keys=True, separators=(",", ":")
+        )
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "EvidenceGraph":
         return cls(

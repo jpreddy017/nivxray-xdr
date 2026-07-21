@@ -292,6 +292,32 @@ class TestSerialization:
         assert set(data.keys()) == {"schema_version", "nodes", "edges"}
         assert data["schema_version"] == EVIDENCE_GRAPH_SCHEMA_VERSION
 
+    def test_canonical_json_strips_source_node_ids(self):
+        p = EvidenceNode.build(
+            EvidenceNodeKind.process, {"image": "cmd"},
+            source_node_ids=("n_random_uuid_a",),
+        )
+        g = EvidenceGraph().add_node(p)
+        blob = g.to_canonical_json()
+        assert "source_node_ids" not in blob
+        assert "n_random_uuid_a" not in blob
+
+    def test_canonical_json_stable_across_provenance_churn(self):
+        # Same entity graph, different provenance UUIDs → identical canonical.
+        p1 = EvidenceNode.build(
+            EvidenceNodeKind.process, {"image": "cmd"},
+            source_node_ids=("n_aaaaaaaaaaaa",),
+        )
+        p2 = EvidenceNode.build(
+            EvidenceNodeKind.process, {"image": "cmd"},
+            source_node_ids=("n_bbbbbbbbbbbb",),
+        )
+        g1 = EvidenceGraph().add_node(p1)
+        g2 = EvidenceGraph().add_node(p2)
+        assert g1.to_canonical_json() == g2.to_canonical_json()
+        # But the non-canonical JSON must differ (source_node_ids visible).
+        assert g1.to_json() != g2.to_json()
+
 
 # ---------------------------------------------------------------------------
 # Query helpers

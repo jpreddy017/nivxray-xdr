@@ -208,6 +208,36 @@ def _build(exec_graph: ExecGraph) -> EvidenceGraph:
                 {"reflection": target},
                 source_node_ids=(xn.id,),
             )
+        # --- Phase 11.1 · plumbing kinds → Command evidence -----------------
+        # These carry the reconstructed intermediate command / value that
+        # links raw script text to observable side effects. We surface them
+        # as `Command` entities so the downstream Correlation Engine
+        # (Phase 11.3) has a substrate for temporal reasoning.
+        elif xn.kind in (
+            NodeKind.string_op,
+            NodeKind.concat,
+            NodeKind.var_bind,
+            NodeKind.var_expand,
+        ):
+            body = (xn.reconstructed or "").strip()
+            if body == "":
+                # Fall back to args signature so identical no-body ops
+                # still collapse to a single evidence node.
+                body = _pick(xn.args, "op", "name") or f"<{xn.kind.value}>"
+            ev = EvidenceNode.build(
+                EvidenceNodeKind.command,
+                {"kind": xn.kind.value, "body": body},
+                attrs={"parser": xn.parser or "", "confidence": xn.confidence},
+                source_node_ids=(xn.id,),
+            )
+        elif xn.kind == NodeKind.unresolved:
+            reason = str((xn.args or {}).get("reason") or "unresolved")
+            ev = EvidenceNode.build(
+                EvidenceNodeKind.memobj,
+                {"unresolved": reason},
+                attrs={"confidence": xn.confidence},
+                source_node_ids=(xn.id,),
+            )
 
         if ev is not None:
             eg = eg.add_node(ev)

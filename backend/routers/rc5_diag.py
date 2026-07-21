@@ -48,6 +48,9 @@ from pydantic import BaseModel, Field
 from deps import require_admin
 # Import plugin modules — this registers parser/interpreter/detector.
 from engine.exec_graph import SCHEMA_VERSION as EXEC_SV, NodeKind
+from engine.evidence_graph import EVIDENCE_GRAPH_SCHEMA_VERSION
+from engine.evidence_graph_builder import build_evidence_graph_sidecar
+from engine.evidence_graph_config import evidence_graph_mode
 from engine.semantic_ir import SIR_SCHEMA_VERSION
 from engine.plugin_api import get_parser, get_interpreter
 from engine.parsers import cmd_parser as _cmd_parser  # noqa: F401 — register
@@ -128,6 +131,11 @@ class ParseResponse(BaseModel):
     lolbins_v2: List[Dict[str, Any]]
     verdict_v2: Dict[str, Any]
     explain: Dict[str, Any]
+    # Phase 11.0/11.1 side-car. Only populated when
+    # `NIVX_EVIDENCE_GRAPH=sidecar` is set. Absent in production by default.
+    # NOT a verdict driver — analyst-inspection only.
+    evidence_graph: Optional[Dict[str, Any]] = None
+    evidence_graph_metrics: Optional[Dict[str, Any]] = None
     processing_time_ms: float
 
 
@@ -241,6 +249,18 @@ async def rc5_parse(
     # X-Decode-Ms performance header (analyst-facing perf signal).
     response.headers["X-Decode-Ms"] = f"{elapsed_ms:.3f}"
 
+    # Phase 11.0 / 11.1 · Evidence Knowledge Graph side-car.
+    # Controlled by `NIVX_EVIDENCE_GRAPH` (default off in prod). The
+    # graph is analyst-inspection only — never a verdict driver.
+    evidence_graph_json: Optional[Dict[str, Any]] = None
+    evidence_graph_metrics_json: Optional[Dict[str, Any]] = None
+    if evidence_graph_mode() == "sidecar":
+        eg_graph, eg_metrics = build_evidence_graph_sidecar(graph)
+        if eg_graph is not None:
+            evidence_graph_json = eg_graph.to_dict()
+        if eg_metrics is not None:
+            evidence_graph_metrics_json = eg_metrics.to_dict()
+
     return ParseResponse(
         api_version=API_VERSION,
         semantic_engine_version=EXEC_SV,
@@ -259,6 +279,8 @@ async def rc5_parse(
             "lolbin_v2":           {"schema_version": EXEC_SV},
             "verdict_v2":          {"schema_version": EXEC_SV},
             "explainability":      {"schema_version": EXEC_SV},
+            "evidence_graph":      {"schema_version": EVIDENCE_GRAPH_SCHEMA_VERSION,
+                                    "mode": evidence_graph_mode()},
         },
         language=lang,
         input=src,
@@ -277,6 +299,8 @@ async def rc5_parse(
         lolbins_v2=[r.model_dump(mode="json") for r in lolbin_rows],
         verdict_v2=verdict.model_dump(mode="json"),
         explain=explanation.model_dump(mode="json"),
+        evidence_graph=evidence_graph_json,
+        evidence_graph_metrics=evidence_graph_metrics_json,
         processing_time_ms=elapsed_ms,
     )
 
@@ -293,4 +317,8 @@ async def rc5_status(_: dict = Depends(require_admin)) -> Dict[str, Any]:
         "diag_enabled": _diag_enabled(),
         "flag_semantic_engine_v2": os.environ.get("SEMANTIC_ENGINE_V2", "").lower() in ("1","true","yes","on"),
         "supported_languages": ["cmd", "powershell"],
+        "evidence_graph": {
+            "mode": evidence_graph_mode(),
+            "schema_version": EVIDENCE_GRAPH_SCHEMA_VERSION,
+        },
     }
