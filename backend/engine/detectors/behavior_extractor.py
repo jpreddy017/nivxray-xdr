@@ -88,6 +88,11 @@ RUN_KEY_MARKERS = (
     r"hklm\software\microsoft\windows\currentversion\run",
     r"hkey_current_user\software\microsoft\windows\currentversion\run",
     r"hkey_local_machine\software\microsoft\windows\currentversion\run",
+    # PowerShell-style hive:\ prefix (Phase 9.5 RCA fix for GC-100)
+    r"hkcu:\software\microsoft\windows\currentversion\run",
+    r"hklm:\software\microsoft\windows\currentversion\run",
+    # Common CurrentVersion\Run variants without full drive prefix
+    r"currentversion\run",
 )
 
 

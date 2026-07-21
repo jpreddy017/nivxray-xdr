@@ -1,0 +1,84 @@
+name: RC5 Golden Corpus CI Gate
+
+# Mandatory gate — every PR must:
+#   1. Run the full RC5 backend test suite.
+#   2. Execute the Golden Corpus.
+#   3. FAIL the PR if pass_rate drops below the previous baseline
+#      or if regression_count > 0.
+#
+# Locked per user directive on 2026-02-21 for the Phase 9.5 → 10 window.
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  rc5-golden-gate:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:6
+        ports: ["27017:27017"]
+
+    env:
+      MONGO_URL: mongodb://localhost:27017
+      DB_NAME:   nivxray_ci
+      # Deterministic feature flags for the CI run — mirror Preview settings.
+      SEMANTIC_ENGINE_V2: "true"
+      ADMIN_EMAIL:        "ci@nivxray.local"
+      ADMIN_PASSWORD:     "ci-only-not-a-real-secret"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run RC5 test suite (must be 100% green)
+        run: |
+          cd backend
+          python -m pytest tests/rc5/ -q --tb=short
+
+      - name: Run Golden Corpus (headless, in-process)
+        id: golden
+        run: |
+          cd backend
+          python - <<'PY'
+          import asyncio, json, sys
+          from engine.golden_corpus import run_corpus
+          r = run_corpus()
+          out = {
+              "total": r.total, "passed": r.passed, "failed": r.failed,
+              "pass_rate": r.pass_rate,
+              "regression_count": r.regression_count,
+              "newly_failing": r.newly_failing,
+          }
+          print(json.dumps(out, indent=2))
+          # Enforce hard thresholds.
+          if r.pass_rate < 95.0:
+              print(f"::error::Golden Corpus pass_rate {r.pass_rate}% < 95% threshold")
+              sys.exit(1)
+          if r.regression_count > 0:
+              print(f"::error::Golden Corpus regression_count={r.regression_count} > 0")
+              print(f"::error::Newly failing: {r.newly_failing}")
+              sys.exit(1)
+          print(f"::notice::Golden Corpus PASS · {r.passed}/{r.total} ({r.pass_rate}%)")
+          PY
+
+      - name: Emit summary
+        if: always()
+        run: |
+          echo "## RC5 Golden Corpus CI Gate" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Job status: **${{ job.status }}**" >> $GITHUB_STEP_SUMMARY
+          echo "- Gate criteria: pass_rate ≥ 95% AND regression_count == 0" >> $GITHUB_STEP_SUMMARY

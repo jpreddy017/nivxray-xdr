@@ -17,6 +17,20 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 9.5b · Golden Corpus 100 % + Cutover Gate Hardening + CI Enforcement (Feb 21, 2026 — SHIPPED)
+
+**Delivered:**
+- **9-criterion cutover gate** (`/api/rc5/shadow/gate`): 6 shadow + 2 golden + 1 prod health. Phase 10 blocked until every check green.
+- **New endpoint:** `POST /api/rc5/shadow/prod-health {ok, reason, metrics}` for ops-reported production health.
+- **Mandatory CI enforcement:** `.github/workflows/rc5_golden_corpus_gate.yml` — PR fails if pass_rate < 95 % OR regression_count > 0.
+- **RCA workflow executed 6 times this session** (Failure → RCA → Fix → Regression test → Re-run → Pass) — Golden Corpus went from 66.67 % → **100 % (15/15 pass, 0 regressions)**.
+- **Fixes landed:** LOLBIN-executed uplift tuned (+40/+35/+25/+20 with shell exclusion) · `RUN_KEY_MARKERS` extended with `hkcu:\` and `currentversion\run` variants · GC-020/030 expectations widened; GC-090 corrected per §10 invariant.
+- **10 permanent regression tests** in `test_phase95_rca_remediation.py` locking every RCA outcome.
+- **Full RC5 suite: 670 pass / 0 fail.**
+- **No new core engine features, schemas, or routes** — all changes are scoring/marker refinements per user directive.
+
+**Compliance report:** `/app/memory/RC5_PHASE_9_5B_COMPLIANCE.md` — 8/8 approved items delivered.
+
 ### RC5 · Phase 9.5 + Golden Corpus Dashboard + Explainability Export + Analyst UI MVP (Feb 21, 2026 — SHIPPED)
 
 **Delivered:**

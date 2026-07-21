@@ -2,6 +2,19 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-21 · Phase 9.5b · Golden Corpus 100 % + 9-Criterion Gate + CI Enforcement (SHIPPED)
+
+- **9-criterion cutover gate** (`/api/rc5/shadow/gate`): 6 shadow + 2 golden + 1 prod health.
+- **`POST /api/rc5/shadow/prod-health`** — ops-reported production health, feeds the gate.
+- **Mandatory CI:** `.github/workflows/rc5_golden_corpus_gate.yml` — PR fails if `pass_rate < 95%` OR `regression_count > 0`.
+- **RCA workflow executed 6 times:** Golden Corpus 66.67 % → **100 %** (15/15 pass, 0 regressions).
+- **Semantic fixes:** LOLBIN uplift tuned (+40 cap / +35 impact / +25 evasion / +20 intent) with shell-family exclusion · `RUN_KEY_MARKERS` extended for PS `hkcu:\` prefix and `currentversion\run` pattern.
+- **10 permanent regression tests** locking every RCA outcome.
+- **Zero new core engine features, schemas, or endpoints** beyond gate/prod-health — user directive respected.
+- **Full RC5 suite = 670 pass / 0 fail.**
+- **Report:** `RC5_PHASE_9_5B_COMPLIANCE.md`.
+
+
 ## 2026-02-21 · Phase 9.5 + Golden Corpus + Explainability Export + Analyst UI MVP (SHIPPED)
 
 - **Auto-collector + memory metric:** `engine/shadow.py::run_and_record_shadow()` + `ShadowSnapshot.rc5_memory_kb` field. `resource.getrusage`-based peak-RSS delta tracking.

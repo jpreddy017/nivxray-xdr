@@ -147,35 +147,94 @@ async def report_cumulative(
 
 @router.get("/gate")
 async def cutover_gate(_: dict = Depends(require_admin)) -> Dict[str, Any]:
-    """Cutover gate. Returns `ready: true` when shadow-run success criteria met.
+    """Cutover gate. Returns `ready: true` when ALL success criteria met.
 
-    Success criteria (per spec § 15, tightened by user directive):
-      * Crash rate < 0.5 / 1000
-      * FP change ≤ 5 (fewer new false positives) OR total < 50 (small corpus)
-      * FN change ≤ 5
-      * Dangling refs = 0
-      * Latency p95 regression ratio ≤ 1.30
-      * At least 200 snapshots aggregated
+    Success criteria (locked per user directive, Feb 21 2026):
+
+      A. Shadow-run stats (30-day window):
+        * ≥ 200 snapshots aggregated
+        * Crash rate  < 0.5 / 1000
+        * FP change   ≤ 5
+        * FN change   ≤ 5
+        * Dangling refs = 0
+        * Latency p95 regression ratio ≤ 1.30
+
+      B. Golden Corpus health:
+        * pass_rate ≥ 95 %
+        * regression_count == 0 on the latest run
+
+      C. Production health (self-reported):
+        * `settings.prod_health.ok == true` — set by ops after health checks
+          (5xx rate < 0.5 % · 4xx rate < 5 % · error budget green).
+
+    If any block fails, the gate returns `ready_for_cutover: false` and
+    Phase 10 cutover script refuses to run.
     """
+    from engine.golden_corpus import latest_run as _golden_latest
+
     rpt = await cumulative_report(db, since_days=30)
     total = rpt.get("total", 0)
     parser = rpt.get("parser", {}) or {}
     latency = rpt.get("latency_ms", {}) or {}
+    golden = await _golden_latest(db)
+    golden_pass = float(golden.pass_rate) if golden else 0.0
+    golden_regr = int(golden.regression_count) if golden else 999
+    golden_total = int(golden.total) if golden else 0
+    prod_health = await db["settings"].find_one({"_id": "prod_health"}) or {}
+    prod_ok = bool(prod_health.get("ok", False))
+
     checks: Dict[str, Any] = {
-        "min_snapshots":      total >= 200,
-        "crash_rate":         (parser.get("crash_delta_per_1000") or 0) < 0.5,
-        "fp_change":          rpt.get("fp_change", 0) <= 5,
-        "fn_change":          rpt.get("fn_change", 0) <= 5,
-        "dangling_refs":      (rpt.get("graph_completeness", {}) or {}).get("total_dangling_refs", 0) == 0,
-        "latency_regression": ((latency.get("rc5_regression_ratio_p95") or 0) <= 1.30),
+        # A. shadow
+        "shadow_min_snapshots":  total >= 200,
+        "shadow_crash_rate":     (parser.get("crash_delta_per_1000") or 0) < 0.5,
+        "shadow_fp_change":      rpt.get("fp_change", 0) <= 5,
+        "shadow_fn_change":      rpt.get("fn_change", 0) <= 5,
+        "shadow_dangling_refs":  (rpt.get("graph_completeness", {}) or {}).get("total_dangling_refs", 0) == 0,
+        "shadow_latency_reg":    ((latency.get("rc5_regression_ratio_p95") or 0) <= 1.30),
+        # B. golden corpus
+        "golden_pass_rate_95":   golden_pass >= 95.0 and golden_total > 0,
+        "golden_no_regression":  golden_regr == 0,
+        # C. production health
+        "prod_health_ok":        prod_ok,
     }
-    ready = all(checks.values()) if total >= 200 else False
+    ready = all(checks.values())
     return {
         "ready_for_cutover": ready,
         "checks": checks,
         "total_snapshots": total,
+        "golden": {"pass_rate": golden_pass, "regression_count": golden_regr,
+                   "total": golden_total,
+                   "run_id": (golden.run_id if golden else None),
+                   "ts": (golden.ts.isoformat() if golden else None)},
+        "prod_health": {"ok": prod_ok, "reported_at": prod_health.get("reported_at")},
         "summary": rpt,
     }
+
+
+class ProdHealthReport(BaseModel):
+    ok: bool
+    reason: Optional[str] = None
+    metrics: Optional[Dict[str, Any]] = None
+
+
+@router.post("/prod-health")
+async def report_prod_health(
+    payload: ProdHealthReport,
+    admin: dict = Depends(require_admin),
+) -> Dict[str, Any]:
+    """Ops-reported production health flag consumed by the cutover gate."""
+    await db["settings"].update_one(
+        {"_id": "prod_health"},
+        {"$set": {
+            "ok": bool(payload.ok),
+            "reason": payload.reason,
+            "metrics": payload.metrics,
+            "reported_at": datetime.now(timezone.utc).isoformat(),
+            "reported_by": admin.get("email") or admin.get("sub") or "admin",
+        }},
+        upsert=True,
+    )
+    return {"ok": payload.ok}
 
 
 __all__ = ["router"]

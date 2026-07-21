@@ -355,14 +355,31 @@ class VerdictComputer:
                 emit("intent", 20, reason, t.value, b.id)
 
         # LOLBIN v2 uplift — only `executed` state (§ 9 invariant).
+        # Phase 9.5 RCA: uplift excludes the shells themselves (`cmd`,
+        # `powershell`, `pwsh`, `cscript`, `wscript`) since their abuse
+        # is already captured by other behaviors (obfuscation, encoded
+        # commands, autorun writes, etc). Uplift only applies to the
+        # "surprise" LOLBIN family (certutil, mshta, bitsadmin, rundll32,
+        # regsvr32, wmic, installutil, msbuild, schtasks, sc, mimikatz…).
+        _SHELL_BARE_NAMES = frozenset({
+            "cmd", "powershell", "pwsh", "cscript", "wscript",
+        })
         for l in lolbins:
             if l.state != LolbinState.executed:
                 continue
+            if l.binary in _SHELL_BARE_NAMES:
+                continue
             fake_bid = "l_" + l.id
-            emit("defense_evasion", 10,
+            emit("defense_evasion", 25,
                  f"LOLBIN executed: {l.display_name}",
                  "defense_evasion", fake_bid)
-            emit("capability", 5,
+            emit("capability", 40,
+                 f"LOLBIN executed: {l.display_name}",
+                 "defense_evasion", fake_bid)
+            emit("impact", 35,
+                 f"LOLBIN executed: {l.display_name}",
+                 "defense_evasion", fake_bid)
+            emit("intent", 20,
                  f"LOLBIN executed: {l.display_name}",
                  "defense_evasion", fake_bid)
 
