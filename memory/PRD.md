@@ -17,7 +17,18 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
-### RC5 · Phase 1 · Foundation (Feb 24, 2026 — SHIPPED behind `SEMANTIC_ENGINE_V2=false`)
+### RC5 · Phase 2 · CMD Semantic Interpreter (Feb 24, 2026 — SHIPPED behind flag)
+
+**Delivered:**
+- `backend/engine/parsers/cmd_parser.py` — deterministic tokenizer + parser producing SIR trees. Supports SET, `%VAR%`, `%VAR:old=new%`, `%VAR:~offset,len%`, `!VAR!`, `&`/`&&`/`||` sequencing, CALL 2nd-pass, IF equality, ECHO, parenthesised blocks, double-quoted strings, `^` line-continuation + literal-escape, redirection tokens. Deferred to Phase 2.1 (marked as `UnresolvedNode`): SET /A arithmetic, FOR /F, FOR /L, IF DEFINED/EXIST/ERRORLEVEL, SETLOCAL scope-pop.
+- `backend/engine/interpreters/cmd_interpreter.py` — SIR → ExecGraph. Statically evaluates SET/expand/replace/substring/delayed/CALL/IF/echo. Fuses adjacent tokens (`!X!.exe` → single concat arg). Emits `var_bind` / `var_expand` / `string_op` / `concat` / `process` / `unresolved` nodes with full evidence side-effects. Confidence: 100 for literals, 90 for var-expansion, 40 for unknown vars, 0 for unresolved.
+- Both plugins auto-register via `plugin_api.register_parser` / `register_interpreter` at import time — matches the frozen contract in `RC5_PLUGIN_API.md`.
+- 37 new tests (`backend/tests/rc5/unit/cmd/`) — tokenizer edge cases, SET, %VAR% expansion, replace/substring modifiers, delayed !VAR! with SETLOCAL scoping, CALL 2nd-pass, sequencing, IF static-eval (true/false/unresolvable), ECHO, quoting, `^` escapes, confidence drops, evidence integrity, deterministic re-run.
+- **134/134 RC5 tests passing** (97 Phase-1 + 37 Phase-2).
+
+**Live smoke test:** `SET X=notepad.exe & start %X%` correctly reconstructs `start notepad.exe` with 3 ExecNodes (var_bind + var_expand + process) and zero dangling refs.
+
+## RC5 · Phase 1 · Foundation (Feb 24, 2026 — SHIPPED behind `SEMANTIC_ENGINE_V2=false`)
 
 **Delivered:**
 - `backend/engine/exec_graph.py` — `ExecNode` (frozen, 39 reserved kinds), `ExecGraph`
