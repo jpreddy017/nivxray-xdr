@@ -91,6 +91,19 @@ def validate_config() -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# RC5 · Feature flag reader — § 14 of RC5_SEMANTIC_ENGINE_SPEC.md
+# ---------------------------------------------------------------------------
+def semantic_engine_v2_enabled() -> bool:
+    """Return True when `SEMANTIC_ENGINE_V2` env var is truthy.
+
+    Default is False so Phase 1 lands with zero production impact. Flipped
+    to True on Prod only at Phase 10 cutover after the 30-day shadow-run
+    gate passes.
+    """
+    return os.environ.get("SEMANTIC_ENGINE_V2", "false").lower() in ("1", "true", "yes", "on")
+
+
 # --- DB proxy singletons ------------------------------------------------ #
 # `client` and `db` are exposed as proxy objects so every existing
 # `from deps import db` import site keeps working (there are 30+ of

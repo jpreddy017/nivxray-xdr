@@ -1458,6 +1458,30 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     except Exception:
         pass
 
+    # ── RC5 · Phase 1 · Semantic Engine v2 stubs ─────────────────────
+    # These fields are always emitted (behind the SEMANTIC_ENGINE_V2 flag
+    # they are populated; behind the default flag=false they remain empty).
+    # UI + downstream consumers can rely on the KEYS existing from Phase 1
+    # onwards. See /app/memory/RC5_SEMANTIC_ENGINE_SPEC.md § 14 (feature
+    # flag strategy) and § 21 (Phase 1 deliverables).
+    try:
+        from deps import semantic_engine_v2_enabled
+        from engine.exec_graph import SCHEMA_VERSION as _RC5_SV
+        _v2_on = semantic_engine_v2_enabled()
+        result.setdefault("semantic_ir", None)
+        result.setdefault("exec_graph", {"nodes": [], "schema_version": _RC5_SV})
+        result.setdefault("behaviors", [])
+        result.setdefault("mitre_v2", [])
+        result.setdefault("lolbins_v2", {"executed": [], "referenced": [], "expanded": []})
+        result.setdefault("verdict_v2", None)
+        result.setdefault("explain", None)
+        result["semantic_engine_v2"] = _v2_on
+    except Exception:
+        # Never break /decode/smart on RC5 stub emission — Phase 1 is
+        # code-additive-only. Any exception here means the import failed
+        # in a mis-configured pod; downstream code paths are unaffected.
+        log.exception("RC5 stub emission failed (safe to ignore during Phase 1)")
+
     return result
 
 

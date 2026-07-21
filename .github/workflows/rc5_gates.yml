@@ -1,0 +1,105 @@
+name: RC5 Semantic Engine Gates
+
+# Phase 1 CI enforcement — locks the architectural invariants defined in
+# /app/memory/RC5_SEMANTIC_ENGINE_SPEC.md (v2). These gates protect the
+# ExecGraph / SIR schemas from silent drift as later phases land.
+#
+# Runs on every PR + push to protected branches touching backend code
+# or this workflow.
+
+on:
+  pull_request:
+    branches: [main, feature/rc2, feature/rc2.1b, feature/rc4, feature/rc4.5, feature/rc5]
+    paths:
+      - 'backend/engine/**'
+      - 'backend/tests/rc5/**'
+      - 'backend/routers/ops.py'
+      - 'backend/deps.py'
+      - '.github/workflows/rc5_gates.yml'
+  push:
+    branches: [main, feature/rc2, feature/rc2.1b, feature/rc4, feature/rc4.5, feature/rc5]
+    paths:
+      - 'backend/engine/**'
+      - 'backend/tests/rc5/**'
+
+jobs:
+  rc5-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install minimal deps (no LLM stack needed for RC5 gates)
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          grep -Ev "^(emergentintegrations|litellm)([=<>~ ]|$| @ )" \
+            requirements.txt > requirements-ci.txt
+          pip install -r requirements-ci.txt \
+            --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
+
+      # ─── § 12 Architectural Invariants (6 gates) ────────────────────
+      - name: Invariant · § 12.1 · Graph immutability
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_graph_immutability.py -q --no-header
+
+      - name: Invariant · § 12.2 · No raw-output parsing by detectors
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_no_raw_output_parsing.py -q --no-header
+
+      - name: Invariant · § 12.3 · Evidence-ref integrity
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_evidence_ref_integrity.py -q --no-header
+
+      - name: Invariant · § 6 · Confidence propagation rules
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_confidence_rules.py -q --no-header
+
+      - name: Invariant · § 12.5 · Plugin API frozen
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_plugin_api_frozen.py -q --no-header
+
+      - name: Invariant · § 12.6 · --no-ai deterministic parity
+        working-directory: backend
+        run: python -m pytest tests/rc5/invariants/test_no_ai_deterministic.py -q --no-header
+
+      # ─── Unit tests — SIR + ExecGraph schema locks ─────────────────
+      - name: Unit · SIR schema (25 tests)
+        working-directory: backend
+        run: python -m pytest tests/rc5/unit/semantic_ir/ -q --no-header
+
+      - name: Unit · ExecGraph schema (30 tests)
+        working-directory: backend
+        run: python -m pytest tests/rc5/unit/exec_graph/ -q --no-header
+
+      # ─── Full RC5 suite in one shot (catches config drift) ─────────
+      - name: All RC5 tests
+        working-directory: backend
+        run: python -m pytest tests/rc5/ -q --no-header
+
+      # ─── § 13 Kill-list — protects the deprecation contract ────────
+      - name: Kill-list · no new imports of retired keyword maps
+        working-directory: backend
+        run: |
+          # A NEW import (outside operations.py where they still live) of
+          # the kill-listed symbols fails the build. This gate is seeded
+          # in Phase 1 so subsequent phases can't accidentally repopulate
+          # the old keyword paths.
+          set -e
+          BAD=$(grep -rn "_KEYWORD_MITRE_MAP\|_KEYWORD_LOLBAS_HITS" \
+                --include='*.py' --exclude-dir=__pycache__ \
+                engine/ routers/ tests/rc5/ 2>/dev/null || true)
+          if [ -n "$BAD" ]; then
+            echo "❌ Kill-list violation — new import of retired keyword map:"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "✅ Kill-list clean."

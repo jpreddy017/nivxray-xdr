@@ -5,6 +5,59 @@ Build a deterministic-first analyst workspace that decodes / reconstructs
 obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
+## RC5 · Semantic Execution Engine (in progress) — Feb 24, 2026
+
+**Motivation:** Legacy engine's semantic layer is heuristic (keyword regex
+drives verdicts / MITRE / LOLBIN). RC5 replaces it with a **deterministic
+command interpreter** that reconstructs the executable command exactly as
+CMD / PowerShell would run it, builds an immutable Execution Graph, and
+derives every conclusion from graph evidence.
+
+**Specs authored (source of truth):**
+- `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
+- `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
+
+### RC5 · Phase 1 · Foundation (Feb 24, 2026 — SHIPPED behind `SEMANTIC_ENGINE_V2=false`)
+
+**Delivered:**
+- `backend/engine/exec_graph.py` — `ExecNode` (frozen, 39 reserved kinds), `ExecGraph`
+  (immutable, append-only, confidence-rule-enforcing), `Behavior` (14 tactics + 7
+  supporting), `SideEffect` (37 verbs). All Pydantic v2 `frozen=True`.
+- `backend/engine/semantic_ir.py` — SIR node types (31 frozen kinds), `SIRTree` (JSON-roundtrip-safe).
+- `backend/engine/plugin_api.py` — `SemanticParser`, `SemanticInterpreter`, `Detector` ABCs
+  + registry.
+- `backend/deps.py` — `semantic_engine_v2_enabled()` env reader.
+- `backend/routers/ops.py` — 8 v2 stub fields emitted on `/decode/smart` responses:
+  `semantic_ir`, `exec_graph`, `behaviors`, `mitre_v2`, `lolbins_v2`, `verdict_v2`, `explain`,
+  `semantic_engine_v2`.
+- `.github/workflows/rc5_gates.yml` — 9 CI gates enforcing § 12 invariants + kill-list.
+- **97/97 RC5 tests passing** — 6 invariant + 25 SIR unit + 30 ExecGraph unit + 36 integration.
+
+**Feature flag:** `SEMANTIC_ENGINE_V2` (env var; default `false`). Phase 1 is code-additive-only —
+zero production impact. Response now always includes v2 stub keys (empty arrays / None) so
+downstream consumers can rely on their presence from Phase 1 onwards.
+
+**Locked architectural invariants (CI-enforced, cannot regress):**
+1. `ExecNode` / `ExecGraph` / `Behavior` are immutable.
+2. Detectors consume ExecGraph only — raw `result["output"]` parsing forbidden by static-import gate.
+3. Every conclusion carries evidence Node/Behavior IDs — dangling-ref check enforces.
+4. Confidence propagates deterministically (child ≤ min parent; -20 on unresolved).
+5. Plugin API surface (`__all__`) is frozen at Phase 1.
+6. `--no-ai` mode produces byte-identical deterministic output (advisor-origin
+   discriminator on every node).
+7. Kill-list gate — no new imports of `_KEYWORD_MITRE_MAP` / `_KEYWORD_LOLBAS_HITS`.
+
+**Next phases (roadmap):**
+- Phase 2 (2 wk) — CMD Semantic Interpreter.
+- Phase 3 (2 wk) — PowerShell Semantic Interpreter (AST-driven).
+- Phase 4 (1 wk) — Behavior Extractor.
+- Phase 5 (3 d) — MITRE Engine v2.
+- Phase 6 (2 d) — LOLBIN Engine v2 (referenced / expanded / executed).
+- Phase 7 (2 d) — Verdict Engine v2 (7-dimension scoring).
+- Phase 8 (2 d) — Explainability compiler.
+- Phase 9 (1 wk in parallel) — 1000+ regression corpus.
+- Phase 10 (3 d) — Shadow-run 30 d + Prod cutover.
+
 ## Next Release: RC4.6 (in progress) — Semantic Engine + Binary IOC Lift
 
 ### RC4.6.1.1 · Binary Payload UX (Feb 24, 2026 — Fix A + Fix B)
