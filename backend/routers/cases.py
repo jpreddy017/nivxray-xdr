@@ -63,10 +63,18 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
                 return getattr(result, k, default)
             vc = _g("verdict_card") or {}
             layer_trace = _g("layer_trace") or []
+            # Prefer verdict_card.confidence (the authoritative post-scoring
+            # value) over the flat top-level `_g("confidence")` which some
+            # pipelines still leave at 0 while the card correctly holds e.g.
+            # 80/100 (Meterpreter, MSFvenom prologue cases). Fixes case-list
+            # showing "0/100" while the verdict card shows "80/100".
+            _fresh_conf = vc.get("confidence")
+            if _fresh_conf is None:
+                _fresh_conf = _g("confidence")
             fresh = {
                 "output":       _g("output") or body_out,
                 "engine":       _g("engine") or body.engine or "-",
-                "confidence":   _g("confidence") if _g("confidence") is not None else body.confidence,
+                "confidence":   _fresh_conf if _fresh_conf is not None else body.confidence,
                 "chain_ids":    [t.get("op") if isinstance(t, dict) else t for t in layer_trace]
                                  or (body.chain_ids or []),
                 "verdict":      vc.get("verdict") or vc.get("label") or body.verdict,
@@ -321,11 +329,16 @@ async def reinvestigate_case(case_id: str, user=Depends(get_current_user)):
     # Extract structured fields from the fresh run
     fresh_output = _g("output") or ""
     fresh_engine = _g("engine")
-    fresh_conf   = _g("confidence")
+    # verdict_card.confidence is authoritative (post-scoring). Top-level
+    # `confidence` is legacy and sometimes stays 0 for shellcode cases —
+    # prefer the card when present.
+    verdict_card = _g("verdict_card") or {}
+    fresh_conf   = verdict_card.get("confidence")
+    if fresh_conf is None:
+        fresh_conf = _g("confidence")
     iocs         = _g("iocs") or {}
     mitre        = _g("mitre") or []
     lolbas       = _g("lolbas") or []
-    verdict_card = _g("verdict_card") or {}
     layer_trace  = _g("layer_trace") or []
     reached_sc   = bool(_g("reached_shellcode"))
 
@@ -399,11 +412,15 @@ async def reinvestigate_broken(user=Depends(get_current_user)):
 
             vc = _g("verdict_card") or {}
             layer_trace = _g("layer_trace") or []
+            # Prefer verdict_card.confidence over the flat top-level value.
+            _rescore_conf = vc.get("confidence")
+            if _rescore_conf is None:
+                _rescore_conf = _g("confidence")
             update = {
                 "output":       _g("output") or "",
                 "output_len":   len(_g("output") or ""),
                 "engine":       _g("engine") or "-",
-                "confidence":   _g("confidence"),
+                "confidence":   _rescore_conf,
                 "chain_ids":    [t.get("op") if isinstance(t, dict) else t for t in layer_trace],
                 "verdict":      vc.get("verdict") or vc.get("label"),
                 "verdict_card": vc,

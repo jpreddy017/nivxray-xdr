@@ -7,6 +7,33 @@ obfuscated malware command lines with zero AI hallucinations, honest
 
 ## Current Release: RC4.5 (Feb 2026) — **Production Baseline**
 
+### RC4.5.4 · Case-List Confidence Field Fix (Feb 21, 2026)
+**Symptom (user-visible):** In the Case Library, cases displayed
+`confidence: 0/100` even when the verdict card correctly said e.g.
+`Malicious · 80/100`. Meterpreter / MSFvenom shellcode cases were the
+most obvious — a case named "ToInvestigate" showed 0 on the list but 80
+on the verdict card.
+
+**Root cause:** `routers/cases.py` at 3 sites (`SAVE`, `re-investigate`,
+`re-score`) pulled `confidence` from the **top-level** `decode/smart`
+response (`_g("confidence")`). For shellcode-family payloads, that flat
+field is legacy 0 while the authoritative post-scoring value lives in
+`verdict_card.confidence`. The flat field then gets persisted to the
+case doc → case-list shows 0 forever.
+
+**Fix:** at all 3 sites, prefer `verdict_card.confidence` (authoritative)
+and fall back to the flat `_g("confidence")` only when the card is
+absent. Zero behavioural change for the majority of payloads where both
+fields already agreed.
+
+**Backfill:** `scripts/rc454_backfill_case_confidence.py` — one-shot,
+idempotent, additive-only. Corrected **32 of 33** existing Preview
+cases (never lowers a value; skips docs without `verdict_card`).
+
+**Verified:** ToInvestigate case now correctly reads `confidence: 80.0
+· Malicious` on the case list, matching its verdict card. RC4.x Quality
+Gate still GREEN (149/149) after the fix.
+
 ### RC4.5.3 · Full Import-Time Side-Effect Elimination (Feb 21, 2026)
 **Symptom:** After the RC4.5.2 lazy-import fix landed, GitHub Actions
 surfaced a second class of failure — `KeyError: 'MONGO_URL'` — because
