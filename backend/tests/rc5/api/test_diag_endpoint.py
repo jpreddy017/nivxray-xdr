@@ -7,14 +7,27 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(scope="module")
 def client(monkeypatch_session=None):
-    # Force diag enabled + inject env for tests.
+    # Force diag enabled + inject env for tests. We use direct assignment
+    # (not setdefault) for ADMIN_EMAIL / ADMIN_PASSWORD because some CI
+    # environments have a stale ADMIN_EMAIL value polluting the runner
+    # (e.g. a reserved-TLD address like `ci@nivxray.local` that Pydantic's
+    # EmailStr validator will reject). Overriding unconditionally keeps
+    # the test hermetic and independent of the outer env.
     os.environ["RC5_DIAG_ENABLED"] = "true"
-    os.environ.setdefault("ADMIN_EMAIL", "admin@nivxray.com")
-    os.environ.setdefault("ADMIN_PASSWORD", "uulVDp5cCSB3Hva99s7UUAwK")
+    os.environ["ADMIN_EMAIL"] = "admin@nivxray.com"
+    os.environ["ADMIN_PASSWORD"] = "uulVDp5cCSB3Hva99s7UUAwK"
     os.environ.setdefault("JWT_SECRET", "test-jwt-secret-do-not-use-in-prod")
     os.environ.setdefault("EMERGENT_LLM_KEY", "test-key")
     os.environ.setdefault("MONGO_URL", "mongodb://localhost:27017")
     os.environ.setdefault("DB_NAME", "test_nivxray")
+    # Force `deps.py` module constants to pick up the fresh env values by
+    # re-importing them BEFORE server.py is imported. deps.py reads
+    # ADMIN_EMAIL / ADMIN_PASSWORD at import-time only, so any stale
+    # module-cache would carry the wrong values into the seed logic.
+    import importlib, sys
+    for mod in ("deps", "server"):
+        if mod in sys.modules:
+            del sys.modules[mod]
     from server import app
     with TestClient(app) as c:
         yield c

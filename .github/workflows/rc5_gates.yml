@@ -48,6 +48,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Diagnostic: prove which ADMIN_EMAIL the runner sees. If it shows
+      # anything other than admin@nivxray.com, there's a repo-level
+      # variable/secret polluting the process; the tests defensively
+      # override it (see tests/rc5/api/test_diag_endpoint.py `client`
+      # fixture) but this echo makes the source visible in the log.
+      - name: Diagnostic · dump inherited ADMIN_EMAIL
+        run: |
+          echo "ADMIN_EMAIL from workflow env: ${ADMIN_EMAIL:-<unset>}"
+          echo "ADMIN_PASSWORD present: $([ -n \"$ADMIN_PASSWORD\" ] && echo yes || echo no)"
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
