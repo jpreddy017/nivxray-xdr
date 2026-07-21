@@ -62,6 +62,8 @@ from engine.detectors.mitre_navigator_export import (
     build_navigator_layer, NAV_LAYER_VERSION,
 )
 from engine.detectors.mitre_stix_export import build_stix_bundle, STIX_VERSION
+from engine.detectors.lolbin_v2 import classify_lolbins
+from engine.detectors.verdict_v2 import compute_verdict
 
 
 API_VERSION = "1"
@@ -122,6 +124,8 @@ class ParseResponse(BaseModel):
     mitre: List[Dict[str, Any]]
     mitre_navigator: Dict[str, Any]
     mitre_stix: Dict[str, Any]
+    lolbins_v2: List[Dict[str, Any]]
+    verdict_v2: Dict[str, Any]
     processing_time_ms: float
 
 
@@ -191,6 +195,8 @@ async def rc5_parse(
     graph = interp.interpret(sir)
     behaviors = extract_behaviors(graph)
     mitre_mappings = map_behaviors_to_mitre(behaviors)
+    lolbin_rows = classify_lolbins(graph)
+    verdict = compute_verdict(behaviors, mitre_mappings, lolbin_rows)
 
     # Confidence summary — over deterministic-origin nodes.
     conf_vals = [n.confidence for n in graph.nodes if n.origin == "deterministic"]
@@ -211,7 +217,7 @@ async def rc5_parse(
     # Decode chain — one line per parser/interpreter step attributable.
     decode_chain: List[str] = [f"normalize:{lang}", f"parse:{lang}",
                                f"interpret:{lang}", "behavior_extract",
-                               "mitre_v2"]
+                               "mitre_v2", "lolbin_v2", "verdict_v2"]
 
     # Reconstructed commands — non-empty, non-unresolved
     reconstructed = [n.reconstructed for n in graph.nodes
@@ -240,6 +246,8 @@ async def rc5_parse(
                                     "rule_count": len(MITRE_RULES)},
             "mitre_navigator":     {"schema_version": NAV_LAYER_VERSION},
             "mitre_stix":          {"schema_version": STIX_VERSION},
+            "lolbin_v2":           {"schema_version": EXEC_SV},
+            "verdict_v2":          {"schema_version": EXEC_SV},
         },
         language=lang,
         input=src,
@@ -255,6 +263,8 @@ async def rc5_parse(
         mitre=[m.model_dump(mode="json") for m in mitre_mappings],
         mitre_navigator=build_navigator_layer(mitre_mappings),
         mitre_stix=build_stix_bundle(mitre_mappings),
+        lolbins_v2=[r.model_dump(mode="json") for r in lolbin_rows],
+        verdict_v2=verdict.model_dump(mode="json"),
         processing_time_ms=elapsed_ms,
     )
 

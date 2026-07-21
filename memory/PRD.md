@@ -17,6 +17,29 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 7 · Verdict v2 (Feb 21, 2026 — SHIPPED)
+
+**Delivered:**
+- `backend/engine/detectors/verdict_v2.py` — deterministic 7-dim scorer (intent/capability/execution/impact/stealth/persistence/defense_evasion). Cap-and-floor guardrails prevent "execution alone" from driving verdicts and lift high-impact/capability signals into Malicious floor. Verdict tiers Benign 0-24 / Suspicious 25-49 / Malicious 50-74 / Critical 75-100.
+- `Verdict` model carries `scores`, `top_reasons` (≤5, evidence-linked, dedup), `cap_applied` / `floor_applied` audit trail, and `weights` snapshot for analyst reproducibility.
+- `/api/rc5/parse` extended: `verdict_v2{}` response field, `plugin_versions.verdict_v2`, `decode_chain[verdict_v2]`.
+- **58 new tests** (53 unit + 4 API + 1 decode-chain). Full RC5 suite = **565 pass / 0 fail**.
+- **Live verification:** `calc.exe`→Benign(3) · `certutil -urlcache`→Suspicious(37) · `reg add HKCU\Run + bitsadmin`→Critical(76) · `mimikatz`→Malicious(50, floor).
+
+**Compliance report:** `/app/memory/RC5_PHASE_7_COMPLIANCE.md` — 16/16 approved items delivered.
+
+### RC5 · Phase 6 · LOLBIN v2 (Feb 21, 2026 — SHIPPED)
+
+**Delivered:**
+- `backend/engine/detectors/lolbin_v2.py` — deterministic 3-state model (referenced / expanded / executed). Only `executed` enters Verdict v2 math (§9 invariant enforced via `LolbinRow.enters_verdict` computed field).
+- Graph-walker reads only `ExecGraph` + structured `ExecNode.args` — no regex on raw text.
+- Reuses `backend/lolbas.py::_ACTIVE` catalog (curated 40 + auto-synced ~239 official LOLBAS entries).
+- `/api/rc5/parse` extended: `lolbins_v2[]` response field, `plugin_versions.lolbin_v2`, `decode_chain[lolbin_v2]`.
+- **49 new tests** (46 unit + 3 API). Kill-list §13 static-import gate for `_KEYWORD_LOLBAS_HITS`.
+- **Live verification:** `set A=certutil.exe & bitsadmin ... & %A% -decode ...` → certutil `executed` (3 evidence nodes), bitsadmin `executed` (1 evidence node).
+
+**Compliance report:** `/app/memory/RC5_PHASE_6_COMPLIANCE.md` — 14/14 approved items delivered.
+
 ### RC5 · Phase 5 · MITRE ATT&CK v2 (Feb 21, 2026 — SHIPPED)
 
 **Delivered:**

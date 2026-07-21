@@ -2,6 +2,24 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-21 · RC5 · Phase 7 · Verdict v2 (SHIPPED behind SEMANTIC_ENGINE_V2)
+
+- **New:** `backend/engine/detectors/verdict_v2.py` — deterministic 7-dimension risk score (intent / capability / execution / impact / stealth / persistence / defense_evasion). Cap-and-floor rules prevent obfuscation-only inputs from becoming malicious and lift high-impact signals to Malicious floor. Verdict tiers Benign / Suspicious / Malicious / Critical.
+- **Behavioral outputs:** `top_reasons[]` (≤5, evidence-linked, dedup), `cap_applied` / `floor_applied` audit fields, `weights` snapshot.
+- **API:** `verdict_v2{}` on `/api/rc5/parse`; `decode_chain` gains `verdict_v2` step.
+- **Tests:** +58 (53 unit + 4 API + 1 decode-chain). Full RC5 suite = 565 pass / 0 fail.
+- **Live verification:** worked examples from spec § 10 confirmed (calc→Benign, certutil→Suspicious, HKCU+bits→Critical, mimikatz→Malicious via floor).
+- **Report:** `RC5_PHASE_7_COMPLIANCE.md`.
+
+## 2026-02-21 · RC5 · Phase 6 · LOLBIN v2 (SHIPPED behind SEMANTIC_ENGINE_V2)
+
+- **New:** `backend/engine/detectors/lolbin_v2.py` — deterministic 3-state model (referenced / expanded / executed). Only `executed` enters verdict math (§9 architectural invariant, enforced via Pydantic computed field).
+- Reuses live LOLBAS catalog from `backend/lolbas.py`.
+- **API:** `lolbins_v2[]` on `/api/rc5/parse`; `decode_chain` gains `lolbin_v2` step; `plugin_versions.lolbin_v2` advertised.
+- **Tests:** +49 (46 unit + 3 API). Kill-list §13 gate for `_KEYWORD_LOLBAS_HITS` static imports.
+- **Report:** `RC5_PHASE_6_COMPLIANCE.md`.
+
+
 ## 2026-02-21 · RC5 · Phase 5 · MITRE v2 (SHIPPED behind SEMANTIC_ENGINE_V2)
 
 - **New:** `backend/engine/detectors/mitre_mapper.py` — deterministic `Behavior[] → MitreMapping[]` mapper. 32 rules, 1:N technique support, evidence-first (behavior + node IDs), confidence per mapping, data-source + Sigma/KQL/SPL/AQL detection recommendations.

