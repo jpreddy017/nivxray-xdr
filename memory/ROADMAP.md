@@ -4,6 +4,25 @@
 
 
 ---
+## 🎨 Dashboard Visualization Aesthetic — Reference (Feb 2026)
+
+**Reference:** SOC Prime "Platform Modules" hex-card panels + "DetectFlow" animated pipeline flow (source topics → EVENTS/SEC → DETECTION PIPELINES → TAGGED/SEC → destination topics, with a secondary #RULES → STAGING → RULES DEPLOYED lane and a MITRE TIE glowing ring in the middle). User has confirmed this aesthetic is the target look for NivXRay dashboards going forward — hex-shaped module icons, glassmorphic dark panels, animated node/edge flow diagrams, glowing counters, green + violet accent palette.
+
+**Scope where this style should be applied (in priority order):**
+
+1. **Live Evidence Graph flow** on the Dashboard — animate the sidecar builds: incoming samples → parser → interpreter → Evidence Graph node/edge counter → integrity gate → verdict tile. Currently rendered as static KPI cards; upgrade to the DetectFlow animated pipeline style.
+2. **Platform Modules landing hero** — a 3-hex card row: `Deterministic Decoder`, `Evidence Knowledge Graph`, `Analyst Workspace`, each with a hex icon + short blurb + `LEARN MORE` / `OPEN` buttons. Matches SOC Prime hero visually.
+3. **Correlation Engine visualisation (Phase 11.3+)** — the graph relationships (executes / contacts / depends-on / derived-from) rendered as an interactive force-directed diagram with a glowing MITRE-tie ring in the centre, in the same visual family.
+
+**Guardrails already agreed in this session:**
+
+- No behavioural changes shipped with visual work. Verdicts, scoring, and analyst-visible data model stay identical.
+- Existing analyst-facing pages (`/analyst/rc5`, `Documents`, etc.) remain untouched unless explicitly re-approved. The user rejected an earlier SOC-Prime-style Analyst UI overhaul because they preferred the existing layout for those pages specifically.
+
+**Not on this push.** Deferred to a dedicated "Dashboard visual refresh" milestone.
+
+
+---
 ## 🧹 Engineering Debt Backlog (post-Feb-2026)
 
 **Restore strict Cloud Build (`CI=true craco build`)** — P2, tech debt.
