@@ -65,35 +65,31 @@ function detectTerminalTail(text) {
 
 
 /**
- * detectBinaryPayload — Feb-2026 · Fix A
+ * detectBinaryPayload — Feb-2026 · Fix A (v2)
  *
  * Detect an ENTIRE binary/shellcode payload (as opposed to a clean-head +
  * binary-tail terminal state). Fires when the decoded output has high
- * Shannon entropy AND a low printable-character ratio, meaning rendering
- * it as text produces unreadable garble.
+ * Shannon entropy AND a low printable-character ratio in the payload
+ * region between the "▼ DECODED OUTPUT" envelope header and the
+ * "NIVXRAY INVESTIGATION SUMMARY" footer.
  *
- * Analysts complained that shellcode C2-IOC-lift cases showed the raw
- * bytes in the DECODED OUTPUT panel, making them think the tool failed.
- * IOCs (C2 IPs, URLs) are still extracted correctly and rendered in the
- * IOC panels — this detector just prevents the OUTPUT textarea from
- * looking broken.
+ * Also EXTRACTS the actionable intel embedded inside the binary buffer:
+ *   • C2 IPs (regex on the printable strings sub-strate)
+ *   • URLs
+ *   • User-Agent lines
+ *   • Win32 API name hints (LoadLibrary, VirtualAlloc, wininet, …)
+ *   • Full printable-string dump (≥ 5 chars, ASCII only)
+ * These are surfaced BY the caller as a human-readable OUTPUT view, so
+ * the DECODED OUTPUT panel shows actionable intelligence instead of
+ * garble. Raw bytes remain one click away via [SHOW RAW BYTES ANYWAY].
  *
- * The NivXRay backend wraps decoded output in a decorated envelope:
- *   ━━━ DECODED OUTPUT ━━━
- *   <payload — may be binary>
- *   ━━━ NIVXRAY INVESTIGATION SUMMARY ━━━
- *   <verdict/mitre/chain summary>
- *   ━━━
- * We must inspect ONLY the payload region — the box-drawing header +
- * summary boilerplate suppresses whole-blob entropy well below the
- * threshold on a real shellcode case. When no envelope is present
- * (raw output), we fall back to scoring the whole string.
+ * Returns { entropy, printableRatio, byteCount, extracted } when a
+ * binary payload is detected, else null.
  *
- * Returns { entropy, printableRatio, byteCount } when the payload should
- * be hidden, else null.
+ * `extracted` = { ips, urls, userAgents, apis, strings } — arrays.
  *
- * Threshold: entropy > 6.5  AND  printable < 50%  AND  payload length >= 64.
- * (Random bytes have entropy ~7.99, English text ~4.2.)
+ * Threshold: entropy > 6.5  AND  printable < 50%  AND  payload len >= 64.
+ * (Random bytes ~7.99, English text ~4.2.)
  */
 function detectBinaryPayload(text) {
   if (!text || text.length < 64) return null;
@@ -107,25 +103,20 @@ function detectBinaryPayload(text) {
   };
 
   // Envelope-aware slice: keep only the payload between the DECODED
-  // OUTPUT header and the next section header (INVESTIGATION SUMMARY /
-  // NIVXRAY / another ━━━ ruler). Falls back to the whole string when
-  // no envelope is present (raw magic/smart decode output).
+  // OUTPUT header and the next section header. Falls back to the whole
+  // string when no envelope is present.
   const HEADER_RE = /▼\s*DECODED\s*OUTPUT[^\n]*\n/i;
   const FOOTER_RE = /\n[^\n]*(?:NIVXRAY|INVESTIGATION\s*SUMMARY|RECOVERED\s*PAYLOAD)[^\n]*/i;
   let payload = text;
   const hm = text.match(HEADER_RE);
   if (hm) {
     let after = text.slice(hm.index + hm[0].length);
-    // Strip a trailing ruler line right after the header, if any.
     after = after.replace(/^━+\s*\n/, "");
     const fm = after.match(FOOTER_RE);
     if (fm) after = after.slice(0, fm.index);
-    // Strip any trailing ruler line right before the footer.
     after = after.replace(/\n━+\s*$/, "");
     payload = after;
   }
-  // Also drop lines that are ONLY box-drawing chars — they suppress
-  // entropy on payloads that repeat rulers between sections.
   payload = payload
     .split("\n")
     .filter((ln) => !/^[━─═\s]+$/.test(ln))
@@ -133,12 +124,9 @@ function detectBinaryPayload(text) {
 
   if (!payload || payload.length < 64) return null;
 
-  // Sample up to first 4096 chars — enough for a reliable entropy read
-  // without slowing the render loop on huge outputs.
   const sample = payload.length > 4096 ? payload.slice(0, 4096) : payload;
   const n = sample.length;
 
-  // Printable ratio
   let printable = 0;
   const freq = new Map();
   for (let i = 0; i < n; i++) {
@@ -149,7 +137,6 @@ function detectBinaryPayload(text) {
   const printableRatio = printable / n;
   if (printableRatio >= 0.5) return null;
 
-  // Shannon entropy (base 2, per char)
   let entropy = 0;
   for (const count of freq.values()) {
     const p = count / n;
@@ -157,11 +144,82 @@ function detectBinaryPayload(text) {
   }
   if (entropy <= 6.5) return null;
 
+  // ── Intel extraction ──────────────────────────────────────────────
+  // Regex-scan the full envelope-sliced payload (up to 32KB) for the
+  // ASCII strings malware embeds inside the binary buffer.
+  const scan = payload.length > 32768 ? payload.slice(0, 32768) : payload;
+  const IPV4_RE   = /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g;
+  const URL_RE    = /\bhttps?:\/\/[^\s\x00-\x1f<>"'`]{4,200}/gi;
+  const UA_RE     = /(?:User-Agent:\s*)?Mozilla\/[\d.]+\s*\([^)]{0,200}\)(?:\s*[^\s\x00-\x1f]{0,80})?/g;
+  const API_RE    = /\b(?:LoadLibrary[AW]?|GetProcAddress|VirtualAlloc(?:Ex)?|VirtualProtect|CreateThread|CreateRemoteThread|WriteProcessMemory|ReadProcessMemory|OpenProcess|WinExec|ShellExecute[AW]?|CreateProcess[AW]?|CreateFile[AW]?|WriteFile|ReadFile|InternetOpen[AW]?|InternetOpenUrl[AW]?|InternetConnect[AW]?|InternetReadFile|HttpOpenRequest[AW]?|HttpSendRequest[AW]?|WSAStartup|WSASocket|connect|send|recv|closesocket|wininet|wsock32|ws2_32|kernel32|ntdll|advapi32|ThLw)\b/g;
+  const STRING_RE = /[\x20-\x7e]{5,}/g;
+
+  const uniq = (arr) => Array.from(new Set(arr));
+  // Drop private/link-local/reserved IPs — reduce false positives from
+  // parsed shellcode noise (0.0.0.0, 127.x, 10.x, 192.168.x, 169.254.x, 224.x+).
+  const isRoutableIp = (ip) => {
+    const [a, b] = ip.split(".").map(Number);
+    if (a === 0 || a === 127 || a >= 224) return false;
+    if (a === 10) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+    return true;
+  };
+
+  const ips = uniq((scan.match(IPV4_RE) || []).filter(isRoutableIp));
+  const urls = uniq(scan.match(URL_RE) || []);
+  const userAgents = uniq(scan.match(UA_RE) || []).map((s) =>
+    s.replace(/^User-Agent:\s*/i, "").trim(),
+  );
+  const apis = uniq(scan.match(API_RE) || []);
+  // Printable strings — drop pure-punct / single-word noise
+  const rawStrings = scan.match(STRING_RE) || [];
+  const strings = uniq(
+    rawStrings.filter((s) => /[A-Za-z0-9]/.test(s) && s.length >= 5),
+  );
+
+  const extracted = { ips, urls, userAgents, apis, strings };
+
   return {
     entropy: entropy,
     printableRatio: printableRatio,
     byteCount: payload.length,
+    extracted: extracted,
   };
+}
+
+
+/**
+ * formatExtractedIntel — render `detectBinaryPayload().extracted` as a
+ * clean, meta-data-free block for the OUTPUT textarea. Pure intel only.
+ */
+function formatExtractedIntel(bp) {
+  if (!bp?.extracted) return "";
+  const { ips, urls, userAgents, apis, strings } = bp.extracted;
+  const lines = [];
+  const pad = (label) => label.padEnd(14);
+
+  if (ips.length) lines.push(`${pad("C2 IPs:")}${ips.join(", ")}`);
+  if (urls.length) {
+    for (let i = 0; i < urls.length; i++) {
+      lines.push(`${pad(i === 0 ? "URLs:" : "")}${urls[i]}`);
+    }
+  }
+  if (userAgents.length) {
+    for (let i = 0; i < userAgents.length; i++) {
+      lines.push(`${pad(i === 0 ? "User-Agent:" : "")}${userAgents[i]}`);
+    }
+  }
+  if (apis.length) lines.push(`${pad("API imports:")}${apis.join(", ")}`);
+
+  if (strings.length) {
+    if (lines.length) lines.push("");
+    lines.push("Extracted strings:");
+    for (const s of strings) lines.push(`  ${s}`);
+  }
+
+  return lines.join("\n");
 }
 
 
@@ -234,10 +292,12 @@ export default function OutputView({
     // TEXT view — if a terminal-tail is detected, show the clean head only.
     // Raw bytes remain fully available in HEX / B64 views (evidence preserved).
     if (terminalTail) return terminalTail.clean;
-    // Fix A · Feb-2026 — Suppress high-entropy binary garble unless the
-    // analyst explicitly opts in via [SHOW RAW BYTES ANYWAY]. Empty body
-    // lets the banner + button dominate the panel.
-    if (binaryPayload && !showRawBinary) return "";
+    // Fix A · Feb-2026 — When the payload is high-entropy binary garble,
+    // surface the EXTRACTED INTEL (C2 IPs, URLs, User-Agent, API imports,
+    // ASCII strings) AS the decoded output. Raw bytes are one click away.
+    if (binaryPayload && !showRawBinary) {
+      return formatExtractedIntel(binaryPayload);
+    }
     return output || "";
   }, [output, view, terminalTail, binaryPayload, showRawBinary]);
 
@@ -359,52 +419,46 @@ export default function OutputView({
         </div>
       )}
 
-      {/* Fix A · Feb-2026 — Binary Shellcode Payload banner. Fires when
-          the ENTIRE decoded output is high-entropy binary garble (no
-          shellcode prologue matched, no clean-head terminal tail). Hides
-          the raw bytes from the TEXT view by default; analyst can reveal
-          them with the [SHOW RAW BYTES ANYWAY] button. IOCs (C2 IPs/URLs)
-          continue to render in the IOC panels below. */}
+      {/* Fix A · Feb-2026 — Binary Shellcode Payload strip. When the
+          decoded payload is high-entropy binary garble, we replace the
+          raw-bytes render with an EXTRACTED INTEL block (C2 IPs, URLs,
+          User-Agent, API imports, ASCII strings) so the OUTPUT panel
+          shows actionable intelligence instead of noise. This strip is
+          a minimal note + toggle — no meta-data decoration. */}
       {binaryPayload && view === "text" && (
         <div
           data-testid="binary-payload-banner"
           style={{
             display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
-            padding: "10px 14px",
-            background: "rgba(217, 108, 108, 0.08)",
+            padding: "8px 14px",
+            background: "rgba(126,227,201,0.06)",
             borderTop: "1px solid var(--border)",
-            borderBottom: "1px solid rgba(217, 108, 108, 0.35)",
+            borderBottom: "1px solid rgba(126,227,201,0.25)",
           }}
         >
-          <ShieldAlert size={14} style={{ color: "var(--high)", flexShrink: 0 }} />
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <div className="mono" style={{ fontSize: 11, letterSpacing: "0.2em", color: "var(--high)", fontWeight: 600 }}>
-              ⚠ BINARY SHELLCODE PAYLOAD DETECTED
-            </div>
-            <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 3, lineHeight: 1.5 }}>
-              Payload is <b style={{ color: "var(--text)" }}>{binaryPayload.byteCount} bytes</b> of high-entropy binary content
-              {" "}(entropy <b style={{ color: "var(--text)" }}>{binaryPayload.entropy.toFixed(2)}</b> · printable{" "}
-              <b style={{ color: "var(--text)" }}>{(binaryPayload.printableRatio * 100).toFixed(0)}%</b>).
-              {" "}Raw bytes are not human-readable — inspect in <b style={{ color: "var(--text)" }}>HEX</b> view.
-              {" "}Extracted IOCs (C2 IPs / URLs) appear in the IOC panel below.
-            </div>
+          <div
+            className="mono"
+            style={{ fontSize: 10, letterSpacing: "0.18em", color: "var(--text-mute)", flex: 1, minWidth: 240 }}
+          >
+            {showRawBinary
+              ? "▸ RAW BINARY BYTES"
+              : `▸ EXTRACTED INTEL FROM ${binaryPayload.byteCount} BYTE SHELLCODE`}
           </div>
           <button
             className="nvx-btn sm ghost"
             onClick={() => setView("hex")}
             data-testid="binary-payload-view-hex"
             title="Switch to HEX view to inspect raw binary bytes"
-            style={{ borderColor: "var(--high)", color: "var(--high)" }}
           >
-            <Binary size={11} /> INSPECT HEX
+            <Binary size={11} /> HEX
           </button>
           <button
             className="nvx-btn sm ghost"
             onClick={() => setShowRawBinary((v) => !v)}
             data-testid="binary-payload-show-raw"
-            title={showRawBinary ? "Hide raw binary bytes" : "Reveal raw binary bytes in TEXT view (may look garbled)"}
+            title={showRawBinary ? "Show extracted intel view" : "Reveal raw binary bytes as text (may look garbled)"}
           >
-            {showRawBinary ? "HIDE RAW BYTES" : "SHOW RAW BYTES ANYWAY"}
+            {showRawBinary ? "SHOW EXTRACTED INTEL" : "SHOW RAW BYTES"}
           </button>
         </div>
       )}
@@ -419,11 +473,7 @@ export default function OutputView({
             data-testid="output-textarea"
             value={renderedBody}
             readOnly
-            placeholder={
-              binaryPayload && !showRawBinary
-                ? "Binary bytes hidden — use HEX view or click [SHOW RAW BYTES ANYWAY] above."
-                : "Run a recipe or click AUTO INVESTIGATE to see decoded output here…"
-            }
+            placeholder="Run a recipe or click AUTO INVESTIGATE to see decoded output here…"
             style={view === "hex" ? { fontFamily: "JetBrains Mono, monospace", fontSize: 11 } : undefined}
           />
         )}
