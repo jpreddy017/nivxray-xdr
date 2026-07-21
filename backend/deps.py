@@ -3,6 +3,23 @@
 Extracted from server.py during the Feb-2026 modularization refactor.
 Every router imports auth / db / LLM helpers from here so there's ONE source
 of truth for cross-cutting concerns.
+
+Import-time contract (Feb-21 2026 refactor)
+-------------------------------------------
+This module MUST NOT perform any side effects at import time:
+  * NO required `os.environ["X"]` lookups (only safe `.get(..., default)`)
+  * NO Mongo client construction (no `AsyncIOMotorClient(...)`)
+  * NO network I/O, DB I/O, or LLM SDK imports
+
+Runtime configuration & DB initialization live in two explicit hooks:
+  * `validate_config()`  — raises RuntimeError if required env vars missing
+  * `init_database()`    — constructs the Motor client & binds the `client`
+                           and `db` proxies
+
+Both are called from `server.py`'s `@app.on_event("startup")` handler so
+uvicorn/production still fail-fast when misconfigured, while pytest can
+freely import `deps` (and every module that transitively imports it)
+without a live Mongo, without secrets, and without a `.env` file.
 """
 from __future__ import annotations
 import json
@@ -19,27 +36,35 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from motor.motor_asyncio import AsyncIOMotorClient
 
-# NOTE: `emergentintegrations` is a private-CDN wheel that the RC4.x quality-gate
-# CI intentionally strips from requirements-ci.txt (see .github/workflows/
-# rc4x_quality_gate.yml). Importing it at module load time makes every test
-# that transitively imports `deps` fail with ModuleNotFoundError. Deferring
-# the import into `new_chat()` keeps the deterministic-only test scope
-# runnable without the LLM stack while still letting runtime FastAPI routes
-# hit the real client when the wheel is installed.
+# NOTE: `emergentintegrations` is a private-CDN wheel that the RC4.x CI
+# strips from `requirements-ci.txt`. Kept out of module scope so pytest
+# collection works without the wheel — real routes lazy-import inside
+# `new_chat()` / `llm_json()` / `llm_text()`.
 if TYPE_CHECKING:  # pragma: no cover — type hints only
     from emergentintegrations.llm.chat import LlmChat  # noqa: F401
+    from motor.motor_asyncio import AsyncIOMotorDatabase  # noqa: F401
 
 
 ROOT_DIR = Path(__file__).parent
+# `load_dotenv` is idempotent, has no external side effects when the
+# file is absent (which is the case in CI), and only mutates os.environ.
+# Left at module scope so tests can still pick up a developer's local .env.
 load_dotenv(ROOT_DIR / ".env")
 
-# --- Config ------------------------------------------------------------- #
-MONGO_URL = os.environ["MONGO_URL"]
-DB_NAME = os.environ["DB_NAME"]
-JWT_SECRET = os.environ["JWT_SECRET"]
-ADMIN_EMAIL = os.environ["ADMIN_EMAIL"]
-ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
-EMERGENT_LLM_KEY = os.environ["EMERGENT_LLM_KEY"]
+# --- Configuration ------------------------------------------------------ #
+# All required config is read via safe `.get(..., "")` so importing this
+# module never raises. Validation happens in `validate_config()` below.
+_REQUIRED_ENV = (
+    "MONGO_URL", "DB_NAME", "JWT_SECRET",
+    "ADMIN_EMAIL", "ADMIN_PASSWORD", "EMERGENT_LLM_KEY",
+)
+
+MONGO_URL = os.environ.get("MONGO_URL", "")
+DB_NAME = os.environ.get("DB_NAME", "")
+JWT_SECRET = os.environ.get("JWT_SECRET", "")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 
 JWT_ALG = "HS256"
 # Configurable via env — defaults to 24 h. Post-Feb-2026 security audit
@@ -50,10 +75,153 @@ JWT_EXPIRE_HOURS = int(os.environ.get("JWT_EXPIRE_HOURS", "24"))
 # admin can call any authenticated route other than /api/auth/change-password.
 _ADMIN_FORCE_PW_CHANGE = os.environ.get("ADMIN_FORCE_PASSWORD_CHANGE", "false").lower() in ("1", "true", "yes")
 
-# --- Global singletons -------------------------------------------------- #
-client = AsyncIOMotorClient(MONGO_URL)
-db = client[DB_NAME]
+
+def validate_config() -> None:
+    """Fail-fast validator — raises if any required env var is missing.
+
+    Invoked from `server.py`'s FastAPI startup event so uvicorn refuses
+    to serve a mis-configured pod. NOT called at import time so pytest
+    can collect without a full `.env`.
+    """
+    missing = [k for k in _REQUIRED_ENV if not os.environ.get(k)]
+    if missing:
+        raise RuntimeError(
+            f"NivXRay config error — missing required env var(s): {missing}. "
+            "Populate backend/.env before starting the server."
+        )
+
+
+# --- DB proxy singletons ------------------------------------------------ #
+# `client` and `db` are exposed as proxy objects so every existing
+# `from deps import db` import site keeps working (there are 30+ of
+# them across routers). The proxies contain no Motor client at import
+# time — `init_database()` binds a real client at FastAPI startup.
+class _MotorProxy:
+    """Proxy that forwards attribute + item access to a Motor client/db.
+
+    Raises RuntimeError if used before `init_database()` runs — so a
+    test that accidentally hits DB code without proper setup fails
+    loudly instead of silently talking to a placeholder.
+    """
+    __slots__ = ("_real", "_name")
+
+    def __init__(self, name: str) -> None:
+        object.__setattr__(self, "_real", None)
+        object.__setattr__(self, "_name", name)
+
+    def _bind(self, real: Any) -> None:
+        object.__setattr__(self, "_real", real)
+
+    def _require(self) -> Any:
+        real = object.__getattribute__(self, "_real")
+        if real is None:
+            name = object.__getattribute__(self, "_name")
+            raise RuntimeError(
+                f"deps.{name} accessed before init_database(). "
+                "Call validate_config() + init_database() at FastAPI "
+                "startup, or install a test fixture that binds it."
+            )
+        return real
+
+    def __getattr__(self, key: str) -> Any:
+        return getattr(self._require(), key)
+
+    def __getitem__(self, key: str) -> Any:
+        return self._require()[key]
+
+    def __repr__(self) -> str:
+        bound = object.__getattribute__(self, "_real") is not None
+        name = object.__getattribute__(self, "_name")
+        return f"<_MotorProxy name={name!r} bound={bound}>"
+
+
+client: Any = _MotorProxy("client")
+db: Any = _MotorProxy("db")
 security = HTTPBearer()
+
+
+def init_database() -> None:
+    """Construct the real Motor client & bind the `client` / `db` proxies.
+
+    Idempotent — safe to call multiple times (subsequent calls are no-ops
+    once the proxies are bound). Called from `server.py`'s FastAPI
+    startup handler AFTER `validate_config()` succeeds.
+    """
+    # Refuse to bind without validated config — belt-and-suspenders.
+    validate_config()
+    if object.__getattribute__(client, "_real") is None:
+        real_client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+        real_db = real_client[os.environ["DB_NAME"]]
+        client._bind(real_client)
+        db._bind(real_db)
+
+
+# --- Sync pymongo access for legacy read-heavy paths ------------------- #
+# A handful of routers (cases, learner, lab, batch_test, public_feeds)
+# use the *synchronous* pymongo driver for read-heavy paths. Instead of
+# each creating its own module-scope `MongoClient(os.environ.get(...))`
+# — which is an import-time side effect and duplicates state — they now
+# import `sync_collection("<name>")` from here. The returned proxy resolves
+# the underlying `pymongo.Collection` on first use (via `get_sync_db()`),
+# after `validate_config()` has succeeded.
+_sync_client: Any = None
+
+
+def _get_sync_client() -> Any:
+    """Return (and memoize) the process-wide sync pymongo client.
+
+    Fails fast via `validate_config()` if required env vars are missing.
+    """
+    global _sync_client
+    if _sync_client is None:
+        validate_config()
+        from pymongo import MongoClient
+        _sync_client = MongoClient(os.environ["MONGO_URL"])
+    return _sync_client
+
+
+def get_sync_db() -> Any:
+    """Return the sync pymongo Database. Lazily initialised on first call."""
+    return _get_sync_client()[os.environ["DB_NAME"]]
+
+
+class _SyncCollectionProxy:
+    """Lazy proxy for a sync pymongo Collection.
+
+    Resolves the real collection on first attribute access — so a router
+    can do `_col = sync_collection("workspace_cases")` at import time
+    without touching the DB, and `_col.find(...)` inside a route handler
+    still works exactly as before.
+    """
+    __slots__ = ("_col_name", "_real")
+
+    def __init__(self, collection_name: str) -> None:
+        object.__setattr__(self, "_col_name", collection_name)
+        object.__setattr__(self, "_real", None)
+
+    def _resolve(self) -> Any:
+        real = object.__getattribute__(self, "_real")
+        if real is None:
+            name = object.__getattribute__(self, "_col_name")
+            real = get_sync_db()[name]
+            object.__setattr__(self, "_real", real)
+        return real
+
+    def __getattr__(self, key: str) -> Any:
+        return getattr(self._resolve(), key)
+
+    def __getitem__(self, key: Any) -> Any:
+        return self._resolve()[key]
+
+    def __repr__(self) -> str:
+        name = object.__getattribute__(self, "_col_name")
+        bound = object.__getattribute__(self, "_real") is not None
+        return f"<_SyncCollectionProxy name={name!r} bound={bound}>"
+
+
+def sync_collection(name: str) -> _SyncCollectionProxy:
+    """Factory for a lazy sync pymongo collection proxy."""
+    return _SyncCollectionProxy(name)
 
 
 # --- Password / JWT ----------------------------------------------------- #

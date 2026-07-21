@@ -433,12 +433,10 @@ async def batch_test_json(body: BatchInJson, user=Depends(get_current_user)):
 
 
 # Feb 2026 · Batch Run History — persistence + retrieval
-from pymongo import MongoClient
-import os as _os
+# Lazy sync-pymongo collection proxy — see deps.sync_collection.
+from deps import sync_collection as _sync_collection
 
-_batch_client = MongoClient(_os.environ.get('MONGO_URL'))
-_batch_db     = _batch_client[_os.environ.get('DB_NAME')]
-db_batch_runs = _batch_db.batch_runs
+db_batch_runs = _sync_collection("batch_runs")
 
 
 @router.get("/batch/history")

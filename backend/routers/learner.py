@@ -13,19 +13,17 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from pymongo import MongoClient
 
-from deps import get_current_user
+from deps import get_current_user, sync_collection
 import learner_engine as eng
 
 
 router = APIRouter()
 
-_client = MongoClient(os.environ.get("MONGO_URL"))
-_db     = _client[os.environ.get("DB_NAME")]
-
-_col_payloads = _db.learner_payloads
-_col_versions = _db.learner_versions
+# Lazy sync-pymongo collection proxies — resolved on first use, so import
+# has zero DB side effects (see deps.sync_collection).
+_col_payloads = sync_collection("learner_payloads")
+_col_versions = sync_collection("learner_versions")
 
 
 # ─── models ─────────────────────────────────────────────────────────────
@@ -418,7 +416,7 @@ async def duplicate_check(body: DupCheckIn, user=Depends(get_current_user)):
 # `decode_feedback` collection into the learner inbox. Deduped by SHA1 of
 # raw_input so re-runs are safe. Auto-tags with the AI-suggested recipe
 # ops from the Claude diagnosis so cluster grouping is more meaningful.
-_col_feedback = _db.decode_feedback
+_col_feedback = sync_collection("decode_feedback")
 
 
 @router.post("/learner/ingest-feedback")

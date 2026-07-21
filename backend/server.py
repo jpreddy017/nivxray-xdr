@@ -52,7 +52,7 @@ from lolbas import load_from_db as lolbas_load, maybe_refresh as lolbas_maybe_re
 import models_studio as ms
 import sample_library as sl
 
-from deps import client, db, seed_admin
+from deps import client, db, seed_admin, validate_config, init_database
 from routers.auth import router as auth_router
 from routers.ops import router as ops_router
 from routers.analyze import router as analyze_router
@@ -229,6 +229,12 @@ async def _nightly_benchmark_loop():
 
 @app.on_event("startup")
 async def _startup():
+    # Fail-fast on missing required env vars, then bind the Motor
+    # client / db proxies. Import-time deps.py has ZERO side effects —
+    # everything Mongo-touching happens here so pytest can freely import
+    # any module without a live database or `.env`.
+    validate_config()
+    init_database()
     await seed_admin(log)
     await _ensure_iocs_indexes()
     # LOLBAS: load persisted cache, then trigger a background refresh if stale (>7d)

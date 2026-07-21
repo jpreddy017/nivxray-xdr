@@ -17,15 +17,13 @@ from typing import Any, Dict, List
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pymongo import MongoClient
 
-from deps import get_current_user
+from deps import get_current_user, sync_collection
 
 router = APIRouter()
 
-_client = MongoClient(os.environ.get("MONGO_URL"))
-_db     = _client[os.environ.get("DB_NAME")]
-_iocs   = _db.iocs
+# Lazy sync-pymongo collection proxy — see deps.sync_collection.
+_iocs = sync_collection("iocs")
 
 
 def _now() -> str:

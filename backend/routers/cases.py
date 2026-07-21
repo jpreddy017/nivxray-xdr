@@ -11,15 +11,13 @@ import os
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from pymongo import MongoClient
 
-from deps import get_current_user
+from deps import get_current_user, sync_collection
 
 router = APIRouter()
 
-_client = MongoClient(os.environ.get("MONGO_URL"))
-_db     = _client[os.environ.get("DB_NAME")]
-_col    = _db.workspace_cases
+# Lazy sync-pymongo collection proxy — see deps.sync_collection.
+_col = sync_collection("workspace_cases")
 
 
 class SaveCaseIn(BaseModel):

@@ -23,20 +23,18 @@ Additionally maintains an append-only `privacy_audit` collection so any
 setting change is traceable (compliance requirement).
 """
 from __future__ import annotations
-import os
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional
 import hashlib
-from pymongo import MongoClient
+
+from deps import sync_collection
 
 
-_client = MongoClient(os.environ.get("MONGO_URL"))
-_db     = _client[os.environ.get("DB_NAME")]
-
-_col_settings = _db.tenant_privacy_settings
-_col_audit    = _db.privacy_audit
-_col_invest   = _db.investigations
-_col_cases    = _db.workspace_cases
+# Lazy sync-pymongo collection proxies — see deps.sync_collection.
+_col_settings = sync_collection("tenant_privacy_settings")
+_col_audit    = sync_collection("privacy_audit")
+_col_invest   = sync_collection("investigations")
+_col_cases    = sync_collection("workspace_cases")
 
 
 DEFAULT_SETTINGS: Dict[str, Any] = {

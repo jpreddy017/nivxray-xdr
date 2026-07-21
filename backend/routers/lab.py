@@ -22,9 +22,8 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from pymongo import MongoClient
 
-from deps import get_current_user
+from deps import get_current_user, sync_collection
 try:
     from operations import MITRE_HEURISTICS  # type: ignore
 except Exception:
@@ -32,10 +31,9 @@ except Exception:
 
 router = APIRouter()
 
-_client = MongoClient(os.environ.get("MONGO_URL"))
-_db     = _client[os.environ.get("DB_NAME")]
-_attempts = _db.lab_attempts
-_stats    = _db.lab_stats
+# Lazy sync-pymongo collection proxies — see deps.sync_collection.
+_attempts = sync_collection("lab_attempts")
+_stats    = sync_collection("lab_stats")
 
 _NXGEC_PATH = "/app/backend/tests/fixtures/nxgec.jsonl"
 
