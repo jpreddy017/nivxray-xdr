@@ -199,7 +199,13 @@ GOLDEN_CORPUS: Tuple[Dict[str, Any], ...] = (
             "lolbins_executed": ["wmic"],
         },
     },
-)
+) + __import__(
+    # Extension bundle: benign enterprise + malware + edge cases.
+    # Kept in a sibling module so this file stays readable and future
+    # corpus growth doesn't inflate the runner file itself.
+    "engine.golden_corpus_expansion",
+    fromlist=["EXPANSION_CORPUS"],
+).EXPANSION_CORPUS
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +231,9 @@ class SampleResult(BaseModel):
     mitre_conf: int = 0
     verdict_conf: int = 0
     weighted_conf: int = 0
+    # Phase 9.5c+: per-sample latency instrumentation (deterministic —
+    # measures pipeline compute time only, no I/O).
+    duration_ms: float = 0.0
     exception: Optional[str] = None
 
 
@@ -242,6 +251,8 @@ class GoldenRunReport(BaseModel):
     newly_failing: List[str] = Field(default_factory=list)
     coverage: Dict[str, float] = Field(default_factory=dict)   # decode / semantic / behavior / mitre / lolbin / verdict
     accuracy: Dict[str, float] = Field(default_factory=dict)   # per-metric
+    # Phase 9.5c+: latency percentiles across all samples (ms).
+    latency: Dict[str, float] = Field(default_factory=dict)    # mean / p50 / p95 / p99 / max
     samples: List[SampleResult] = Field(default_factory=list)
 
 
@@ -253,6 +264,7 @@ _TIER_RANK = {"Benign": 0, "Suspicious": 1, "Malicious": 2, "Critical": 3}
 
 def _run_sample(sample: Dict[str, Any]) -> SampleResult:
     """Deterministically execute a single sample and return a SampleResult."""
+    import time as _time
     lang = sample["language"]
     src = sample["input"]
     expected = sample["expected"]
@@ -261,6 +273,7 @@ def _run_sample(sample: Dict[str, Any]) -> SampleResult:
         input_hash=hashlib.sha256(src.encode("utf-8")).hexdigest()[:16],
         language=lang,
     )
+    _t0 = _time.perf_counter()
     try:
         parser = PowerShellParser() if lang == "powershell" else CmdParser()
         interp = PowerShellInterpreter() if lang == "powershell" else CmdInterpreter()
@@ -333,6 +346,7 @@ def _run_sample(sample: Dict[str, Any]) -> SampleResult:
         result.passed = False
         result.exception = f"{type(exc).__name__}: {exc}"
         result.reasons.append(result.exception)
+    result.duration_ms = round((_time.perf_counter() - _t0) * 1000.0, 3)
     return result
 
 
@@ -367,6 +381,25 @@ def run_corpus(
         "overall_pass_rate": pass_rate,
     }
 
+    # Latency instrumentation — mean / p50 / p95 / p99 / max in ms.
+    def _pct_lat(vals: List[float], q: float) -> float:
+        if not vals:
+            return 0.0
+        s = sorted(vals)
+        # Nearest-rank percentile, deterministic.
+        k = max(0, min(len(s) - 1, int(round((q / 100.0) * (len(s) - 1)))))
+        return round(s[k], 3)
+
+    durations = [r.duration_ms for r in results]
+    latency = {
+        "mean_ms": round(sum(durations) / len(durations), 3) if durations else 0.0,
+        "p50_ms":  _pct_lat(durations, 50),
+        "p95_ms":  _pct_lat(durations, 95),
+        "p99_ms":  _pct_lat(durations, 99),
+        "max_ms":  round(max(durations), 3) if durations else 0.0,
+        "total_ms": round(sum(durations), 3) if durations else 0.0,
+    }
+
     # Regressions vs previous run
     regression_count = 0
     newly_supported: List[str] = []
@@ -387,7 +420,7 @@ def run_corpus(
         regression_count=regression_count,
         newly_supported=newly_supported,
         newly_failing=newly_failing,
-        coverage=coverage, accuracy=accuracy,
+        coverage=coverage, accuracy=accuracy, latency=latency,
         samples=results,
     )
 

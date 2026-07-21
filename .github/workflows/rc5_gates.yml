@@ -27,6 +27,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # Provide MongoDB for the API tests under tests/rc5/api/ which
+    # exercise real FastAPI routes backed by motor/pymongo.
+    services:
+      mongo:
+        image: mongo:6
+        ports: ["27017:27017"]
+
+    env:
+      MONGO_URL: mongodb://localhost:27017
+      DB_NAME:   nivxray_ci
+      SEMANTIC_ENGINE_V2: "true"
+      ADMIN_EMAIL:    "ci@nivxray.local"
+      ADMIN_PASSWORD: "ci-only-not-a-real-secret"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4

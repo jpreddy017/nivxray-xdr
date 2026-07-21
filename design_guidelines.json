@@ -1,109 +1,155 @@
 {
-  "theme_strategy": "Oxidized Copper on Graphite - Brutalist Technical Schematic",
+  "theme_strategy": "Dark mode strictly, modeled after enterprise SIEM platforms (Splunk ES, Elastic Security). No fluff, no gradients.",
   "typography": {
     "headings": {
-      "family": "Chivo",
-      "google_font_url": "https://fonts.googleapis.com/css2?family=Chivo:wght@300;400;700;900&display=swap",
-      "usage": "Headers, Main UI Labels, Primary Buttons, Tool Navigation"
+      "family": "Inter, Geist, sans-serif",
+      "classes": "font-sans tracking-tight font-semibold"
     },
-    "body_and_code": {
-      "family": "JetBrains Mono",
-      "google_font_url": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap",
-      "usage": "Payload inputs, Recipe pipelines, Operations list, Code snippets, Data tables, IOC readouts"
+    "body": {
+      "family": "Inter, Geist, sans-serif",
+      "classes": "font-sans text-slate-300"
+    },
+    "monospace_data": {
+      "family": "JetBrains Mono, Fira Code, monospace",
+      "classes": "font-mono tracking-tight",
+      "usage": "Hashes, IPs, IOCs, node IDs, T-codes, Sigma snippets"
+    },
+    "sizing_hierarchy": {
+      "H1": "text-2xl",
+      "H2": "text-xl",
+      "H3": "text-lg",
+      "H4": "text-base",
+      "Body": "text-sm",
+      "Labels_Small": "text-xs uppercase tracking-[0.1em]"
     }
   },
   "colors": {
-    "background": "#101112",
-    "surface": "#18191B",
-    "surface_inset": "#0A0A0C",
-    "border": "#2D3135",
-    "text_primary": "#E5E7EB",
-    "text_secondary": "#8B949E",
-    "primary_accent": {
-      "color": "#4AA890",
-      "hover": "#3B8B75",
-      "description": "Oxidized Copper for primary actions, Run buttons, Active states, Hover highlights"
+    "background": {
+      "base": "bg-slate-950",
+      "hex": "#020617"
     },
-    "secondary_accent": {
-      "color": "#E27E5D",
-      "description": "Phosphor Rust for Threat highlights, Warnings, Highlighted Recipe Steps"
+    "surface": {
+      "default": "bg-slate-900",
+      "elevated": "bg-slate-800",
+      "hex_default": "#0f172a"
     },
-    "threat_levels": {
-      "high": "#D96C6C",
-      "medium": "#E27E5D",
-      "low": "#C0CA33",
-      "safe": "#4AA890"
+    "border": {
+      "default": "border-slate-800",
+      "subtle": "border-slate-800/50"
+    },
+    "text": {
+      "primary": "text-slate-50",
+      "secondary": "text-slate-400",
+      "muted": "text-slate-500"
+    },
+    "verdict_tiers": {
+      "benign": {
+        "bg": "bg-green-500",
+        "text": "text-green-50",
+        "hex": "#22c55e"
+      },
+      "suspicious": {
+        "bg": "bg-amber-500",
+        "text": "text-amber-950",
+        "hex": "#f59e0b"
+      },
+      "malicious": {
+        "bg": "bg-red-500",
+        "text": "text-red-50",
+        "hex": "#ef4444"
+      },
+      "critical": {
+        "bg": "bg-rose-600",
+        "text": "text-rose-50",
+        "hex": "#e11d48"
+      }
     }
   },
-  "grids_and_layouts": {
-    "workspace_layout": "3-column layout using strict Grid Borders pattern. Left col-span-3 (Operations), Center col-span-6 (Input/Recipe/Output pipeline), Right col-span-3 (Threat Analysis).",
-    "borders": "Sharp, 1px solid #2D3135 everywhere. Use border-r and border-b heavily to create separated panes like a blueprint schematic.",
-    "radius": "Minimal to none (rounded-none or max rounded-sm / 2px) to keep the brutalist-technical feel.",
-    "spacing_scale": "Use tight packing for technical data (p-2, p-3) but wider gaps for panel separations."
+  "layouts": {
+    "wireframe_structure": "Enterprise Density Grid. Single pane of glass. Top Sticky Header containing Verdict Card -> Top Action Bar -> 2-Column Bento Grid -> Full-width Data Tables.",
+    "grid_system": "grid-cols-1 md:grid-cols-12 gap-4",
+    "sticky_regions": {
+      "verdict_header": "sticky top-0 z-50 w-full bg-slate-950/90 backdrop-blur-xl border-b border-slate-800 p-4 flex justify-between items-center"
+    },
+    "panel_allocations": {
+      "execution_graph": "col-span-12 lg:col-span-8 row-span-2",
+      "explainability_panel": "col-span-12 lg:col-span-4",
+      "golden_corpus_widget": "col-span-12 md:col-span-6 lg:col-span-4",
+      "shadow_run_info": "col-span-12 md:col-span-6 lg:col-span-4",
+      "cutover_gate": "col-span-12 lg:col-span-4",
+      "behavior_timeline": "col-span-12",
+      "mitre_table": "col-span-12",
+      "lolbin_table": "col-span-12 md:col-span-6",
+      "v1_v2_diff": "col-span-12 md:col-span-6"
+    }
   },
-  "component_rules": {
-    "operations_panel": "Dense vertical list format using JetBrains Mono. Use subtle left-border highlight (#4AA890) and right-aligned '+' icon on hover.",
-    "recipe_pipeline": "Sequential connected blocks. Use dashed or solid vertical lines to connect recipe steps. Include reorderable blocks with drag handle icons.",
-    "payload_areas": "Darker inset background (#0A0A0C). Use JetBrains Mono. Include character counter and clear actions in a thin toolbar above or below.",
-    "threat_analysis_panel": "Tabs on top (MITRE, YARA, IOCs, Chain, Graph). High density is key. Use square badge components for IOCs and MITRE tactics with tinted backgrounds.",
-    "buttons": "Sharp edges, flat background. Primary buttons use #4AA890 background with #101112 text for high contrast. Secondary buttons use transparent bg with #2D3135 border and hover state.",
-    "badges": "Square badges, no rounded corners. 1px border. Tinted background (e.g. bg-opacity-10) matching the border color."
-  },
-  "motion_and_interactions": {
-    "hover_reveals": "Operations list items show an 'Add to Recipe' (+) icon smoothly on hover.",
-    "pipeline_animation": "When a new recipe is added or reordered, use layout animations (e.g., Framer Motion) for smooth sliding.",
-    "staggered_load": "Threat Analysis panel items (IOCs, MITRE badges) stagger-fade in when Auto Investigate completes.",
-    "payload_banner": "A small animated banner or pulse effect above output when payload type is auto-detected.",
-    "chain_visualization": "Graph tab should use visx or react-force-graph-2d for interactive, animated node connections."
+  "component_specs": {
+    "execution_graph": {
+      "description": "Interactive node/edge visualization of RC5 ExecGraph.",
+      "visuals": "Technical grid background (CSS repeating-linear-gradient). Nodes are square, flat, 1px border. font-mono for Node ID.",
+      "interactions": "Hover node -> highlight edges, display tooltip with node payload."
+    },
+    "behavior_timeline": {
+      "description": "Horizontal timeline of extracted behaviors grouped by tactic.",
+      "visuals": "flex overflow-x-auto gap-4 py-4. Timeline track is a solid 2px line (bg-slate-800). Behavior items are small cards (bg-slate-900 border-l-2 border-l-amber-500) sitting on the track."
+    },
+    "mitre_evidence_drilldown": {
+      "description": "Tabular list of MITRE techniques with expandable evidence.",
+      "visuals": "shadcn Table. Dense styling (py-2 instead of py-4). Row hover bg-slate-800/50. Font-mono for T-code.",
+      "interactions": "Click row -> expands to show behavior evidence strings and Sigma snippets in a sub-table with bg-slate-950."
+    },
+    "attack_navigator_btn": {
+      "description": "Deep-link to attack.mitre.org Navigator layer.",
+      "visuals": "shadcn Button, variant outline, size sm. Icon: Map or Compass (lucide-react). 'Open in ATT&CK Navigator'.",
+      "placement": "Top right of MITRE Evidence Table header."
+    },
+    "v1_v2_diff_view": {
+      "description": "Analyst diff view of previous vs new verdict/features.",
+      "visuals": "Split pane or diff block. Removed items: bg-red-950/30 text-red-400 line-through. Added items: bg-green-950/30 text-green-400."
+    },
+    "verdict_card": {
+      "description": "Top-left sticky card showing verdict, risk score, dimensions.",
+      "visuals": "Highest priority visual. Huge number for risk score (font-mono text-4xl). Verdict badge uses solid color scale. 7-dimension bars use tiny progress tracks (h-1)."
+    }
   },
   "visual_enhancers": {
-    "texture": "Subtle noise overlay (opacity 2-3%) across the entire background to simulate a technical screen or RISO print texture.",
-    "depth": "Avoid drop shadows. Use layered borders and inset backgrounds (darker shades like #0A0A0C) to denote depth and text areas.",
-    "glassmorphism": "Avoid in main UI. Use ONLY for floating contextual tooltips or dropdowns to add clarity without muddying the flat schematic look."
+    "style": "The 'Technical' Look (Grid Borders). Strict, rigid, flat.",
+    "shadows": "Minimal. No large diffuse shadows. Use 1px borders to separate surfaces.",
+    "borders": "border-slate-800 everywhere. Nested containers use border-slate-700.",
+    "gradients": "BANNED. Use flat background colors only."
   },
-  "3d_and_creative_libraries": {
-    "graph_visualization": {
-      "library": "react-force-graph-2d",
-      "reason": "Best for visualizing Threat Analysis IOC chains, decode graphs, and network correlations without heavy overhead."
-    },
-    "motion": {
-      "library": "framer-motion",
-      "reason": "Essential for layout transitions in the recipe pipeline and staggered threat analysis results."
-    }
+  "motion": {
+    "philosophy": "Micro-animations only for functional feedback. No decorative motion.",
+    "interactions": "hover:bg-slate-800 transition-colors duration-150. Node expansion uses linear scale transform.",
+    "stagger": "Do not stagger table rows. High density data should render instantly."
   },
   "accessibility": {
-    "contrast": "Ensure all text against the #101112 and #18191B backgrounds meets WCAG AA (Text Primary #E5E7EB is ~14:1, Secondary #8B949E is ~5.5:1).",
-    "focus_states": "Use strict focus:ring-2 focus:ring-[#4AA890] focus:outline-none for all inputs and buttons.",
-    "motion_preference": "Respect prefers-reduced-motion for all Framer Motion animations."
+    "contrast": "Ensure text-slate-400 against bg-slate-900 meets 4.5:1 ratio. Adjust if needed.",
+    "keyboard": "All expandable table rows and graph nodes must be focusable (tabIndex=0) and triggerable via Enter.",
+    "test_ids": "Every interactive element MUST have data-testid (e.g., 'verdict-badge', 'node-142', 'mitre-row-T1059')."
   },
-  "image_urls": {
-    "login_background": {
-      "url": "https://images.unsplash.com/photo-1596865249308-2472dc5807d7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwzfHxkYXJrJTIwdGVjaCUyMHRleHR1cmV8ZW58MHx8fHwxNzgzOTY5NDMwfDA&ixlib=rb-4.1.0&q=85",
-      "description": "Abstract glitchy technical texture, best used with very low opacity (10-20%) blending into the background on the login/auth gate."
-    },
-    "secondary_texture": {
-      "url": "https://images.unsplash.com/photo-1631375937044-6dd5beac01d2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMGNpcmN1aXQlMjBib2FyZCUyMGdyZWVufGVufDB8fHx8MTc4Mzk2OTQzN3ww&ixlib=rb-4.1.0&q=85",
-      "description": "Dark computer motherboard trace texture. Can be used in 'Threat Analysis' empty states or as a subtle banner background."
-    }
+  "3d_libraries": {
+    "recommendation": "None. 3D is BANNED for this strict SIEM compliance dashboard. Use 2D React Flow or custom SVG for execution graph.",
+    "alternative": "If node visualization is too complex for SVG, use vis-network or react-flow-renderer in strict 2D mode."
   },
+  "image_urls": [],
   "instructions_to_main_agent": [
-    "Build the UI in React/Tailwind/Shadcn using Javascript (.js/.jsx files).",
-    "Do not use generic 'hacker green' (#00FF00) or 'cyber purple' (#800080). Strictly adhere to the Oxidized Copper (#4AA890) and Graphite (#101112) palette.",
-    "For the Main Workspace, build a 3-column layout using grid-cols-1 md:grid-cols-12. Use 'border-collapse' style layout for the columns to make them feel like docked schematic panes.",
-    "Use Shadcn components but heavily customize them: remove rounded corners (rounded-none), remove default shadows, add 1px sharp borders using the defined border color.",
-    "Use Lucide-React or Phosphor Icons for technical symbology (e.g., node graphs, brackets, database).",
-    "Build a Login gate first with a centered brutalist technical terminal vibe before revealing the main 3-column workspace.",
-    "Implement 'data-testid' on all interactive elements (buttons, inputs, tabs)."
+    "Build a strict dark-mode dashboard tailored for SOC analysts.",
+    "Use standard HTML/Tailwind for structural layout and shadcn/ui for complex interactive components.",
+    "Replace all default generic sans-serif fonts with JetBrains Mono or Fira Code for IPs, hashes, T-codes, and IOCs.",
+    "Do NOT use any gradients anywhere.",
+    "Implement the Execution Graph using React Flow or basic SVG components mapped over the graph data.",
+    "Implement the MITRE Evidence Drill-down using a customized shadcn Table with expandable rows (Collapsible).",
+    "Keep spacing tight (p-2, p-4) to maximize data density on the screen.",
+    "Make the Verdict Card sticky at the top of the viewport.",
+    "Bind the 5-Stage Confidence Breakdown to a series of compact Progress components.",
+    "Apply `data-testid` to all actionable components."
   ],
-  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
-    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
-    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
-    "Create depth through layered design elements with z-index hierarchy and inset backgrounds.",
-    "You MUST NOT apply universal transition (e.g., `transition: all`). Always add transitions for specific interactive elements.",
-    "Always use modern, sharp-edged button styles relevant to the brutalist-technical aesthetic.",
-    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons.",
-    "Every interaction needs micro-animations - hover states, transitions, and entrance animations.",
-    "Subtle grain textures, custom cursors, selection states, and loading animations separate good from extraordinary.",
-    "All interactive and key informational elements MUST include a `data-testid` attribute to facilitate robust automated testing."
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not use transparent backgrounds under text that overlays images or grids.",
+    "Never center-align the main App container. Reading flow must remain natural left-to-right.",
+    "Hover states must be distinctly lighter than the active state background.",
+    "Add transition-colors for all buttons and interactive rows, but exclude transition-all.",
+    "Do not invent new components if shadcn/ui equivalents exist; adapt the primitives."
   ]
 }

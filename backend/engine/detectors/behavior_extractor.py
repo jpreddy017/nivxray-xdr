@@ -93,6 +93,12 @@ RUN_KEY_MARKERS = (
     r"hklm:\software\microsoft\windows\currentversion\run",
     # Common CurrentVersion\Run variants without full drive prefix
     r"currentversion\run",
+    # Phase 9.5c corpus coverage: Winlogon Userinit hijack + shell hijack +
+    # Image File Execution Options debugger — all are T1547 sub-techniques.
+    r"currentversion\winlogon",
+    r"winlogon\userinit",
+    r"winlogon\shell",
+    r"image file execution options",
 )
 
 

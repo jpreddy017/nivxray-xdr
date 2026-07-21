@@ -123,6 +123,18 @@ def build_report(head: Dict[str, Any],
                      f"{_delta(base_acc.get(k), head_acc.get(k))} |")
     lines.append("")
 
+    # Latency table (Phase 9.5c+).
+    head_lat = head.get("latency", {}) or {}
+    base_lat = base.get("latency", {}) if base else {}
+    if head_lat:
+        lines.append("### Pipeline latency (ms per sample)\n")
+        lines.append("| Metric | Base | Head |")
+        lines.append("|---|---|---|")
+        for k in ("mean_ms", "p50_ms", "p95_ms", "p99_ms", "max_ms", "total_ms"):
+            lines.append(f"| {k} | {base_lat.get(k, 'n/a')} | "
+                         f"{_delta(base_lat.get(k), head_lat.get(k), fmt='%.3f')} |")
+        lines.append("")
+
     # Newly failing / newly supported.
     newly_failing = head.get("newly_failing") or []
     newly_supported = head.get("newly_supported") or []

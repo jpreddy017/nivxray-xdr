@@ -231,7 +231,26 @@ class PowerShellInterpreter(SemanticInterpreter):
                               reconstructed=inner_src,
                               confidence=max(0, conf - 5),
                               parser="powershell", inputs=parents)
-            return graph.add_node(marker), env, marker.id
+            graph = graph.add_node(marker)
+            # Also emit an implicit powershell.exe process marker so the
+            # MITRE mapper's T1059 rule (which keys off image ∈ PS_IMAGES)
+            # fires for IEX calls — IEX always runs inside a PS shell.
+            ps_marker = ExecNode(
+                kind=NodeKind.process,
+                args={"image": "powershell.exe",
+                      "args": ["-Command", inner_src[:120]],
+                      "context": "iex_shell"},
+                reconstructed=f"powershell.exe -Command <IEX-payload>",
+                confidence=max(0, conf - 10),
+                parser="powershell", inputs=parents,
+            )
+            ps_marker = ps_marker.model_copy(update={
+                "side_effects": (SideEffect(verb=SideEffectVerb.create_process,
+                                            node_id=ps_marker.id,
+                                            evidence="IEX shell context"),),
+            })
+            graph = graph.add_node(ps_marker)
+            return graph, env, marker.id
 
         # -EncodedCommand body already decoded at parse time
         enc_body = node.attrs.get("encoded_command_decoded")
@@ -321,6 +340,38 @@ class PowerShellInterpreter(SemanticInterpreter):
                               confidence=conf,
                               parser="powershell", inputs=parents)
             return graph.add_node(marker), env, marker.id
+        # Aliased-IEX dispatch — `& $e (payload)` where $e resolved to
+        # 'iex' / 'invoke-expression'. Treat this exactly like an IEX call
+        # so the payload reparse fires and T1059 evidence is preserved.
+        if isinstance(val, str) and val.strip().lower() in (
+            "iex", "invoke-expression"
+        ) and len(node.children) >= 2:
+            # Materialize the payload arg so it can be re-parsed.
+            payload, pconf, graph = self._materialize(node.children[1], graph, env, parents)
+            payload_str = str(payload) if payload is not None else ""
+            if self._guard_reparse(payload_str):
+                parser = get_parser("powershell")
+                inner_sir = parser.parse(payload_str)
+                self._decode_depth += 1
+                try:
+                    for stmt in inner_sir.root.children:
+                        graph, env, _ = self._eval(stmt, graph, env,
+                                                    iex_rounds + 1, parents)
+                finally:
+                    self._decode_depth -= 1
+            iex_marker = ExecNode(
+                kind=NodeKind.process,
+                args={"image": "powershell.exe", "args": ["-Command", payload_str[:120]],
+                      "context": "aliased_iex_invocation"},
+                reconstructed=f"& {val} {payload_str[:80]}",
+                confidence=min(conf, pconf), parser="powershell", inputs=parents,
+            )
+            iex_marker = iex_marker.model_copy(update={
+                "side_effects": (SideEffect(verb=SideEffectVerb.create_process,
+                                            node_id=iex_marker.id,
+                                            evidence=f"& {val} …"),),
+            })
+            return graph.add_node(iex_marker), env, iex_marker.id
         # Otherwise treat as external invocation
         proc = ExecNode(kind=NodeKind.process,
                         args={"image": str(val), "args": []},
@@ -385,6 +436,8 @@ class PowerShellInterpreter(SemanticInterpreter):
             return self._materialize_binop(node, graph, env, parents)
         if k == SIRKind.member_expr:
             return self._materialize_member(node, graph, env, parents)
+        if k == SIRKind.call_expr:
+            return self._materialize_call(node, graph, env, parents)
         if k == SIRKind.script_block_lit:
             return "{ …scriptblock… }", 60, graph
         if k == SIRKind.unresolved:
@@ -635,6 +688,65 @@ class PowerShellInterpreter(SemanticInterpreter):
                 if m:
                     return m.group(0)
         return None
+
+    # ── call_expr materialization (Phase 9.5c coverage) ───────────
+    def _materialize_call(self, node, graph, env, parents) -> Tuple[Any, int, ExecGraph]:
+        """Materialize a call_expr that appears as an ATOM inside another
+        expression (e.g. ``iex (iwr http://...)``, ``$w = New-Object …``,
+        ``$r = curl url``). Emits the appropriate side-effect node and
+        returns a value the outer expression can consume.
+        """
+        head = str(node.value or "")
+        head_lower = head.lower()
+        # Materialize positional args once so we can inspect URLs / types.
+        arg_vals: List[Any] = []
+        for c in node.children:
+            v, _, graph = self._materialize(c, graph, env, parents)
+            arg_vals.append(v)
+
+        # New-Object with a known type marker so downstream `.DownloadString`
+        # on the result matches the WebClient method interception path.
+        if head_lower == "new-object" and arg_vals:
+            type_name = str(arg_vals[0]).strip().lower().replace("system.", "")
+            marker = f"[new-object:{type_name}]"
+            return marker, 80, graph
+
+        # iwr / curl / wget / Invoke-WebRequest / Invoke-RestMethod used
+        # as expressions (their return value is downstream data). Emit an
+        # HttpNode so the behavior extractor picks up T1105 evidence, and
+        # return the URL string so callers like IEX can process it.
+        if head_lower in (
+            "iwr", "invoke-webrequest", "curl", "wget",
+            "irm", "invoke-restmethod",
+        ):
+            url = self._first_url_from_args(arg_vals) or ""
+            if url:
+                verb = (SideEffectVerb.https_request
+                        if url.lower().startswith("https://")
+                        else SideEffectVerb.http_request)
+                http_node = ExecNode(
+                    kind=NodeKind.http,
+                    args={"url": url, "method": head, "direction": "download",
+                          "context": "expr_atom"},
+                    reconstructed=f"{head} {url}",
+                    confidence=90, parser="powershell", inputs=parents,
+                )
+                http_node = http_node.model_copy(update={
+                    "side_effects": (
+                        SideEffect(verb=verb, node_id=http_node.id,
+                                   evidence=f"{head} {url}"),
+                        SideEffect(verb=SideEffectVerb.download,
+                                   node_id=http_node.id, evidence=url),
+                    ),
+                })
+                graph = graph.add_node(http_node)
+                return url, 90, graph
+            return "", 40, graph
+
+        # Fallback — preserve head+args as string form so downstream
+        # provenance / string ops can still see this atom.
+        args_render = " ".join(str(a) for a in arg_vals)
+        return f"{head} {args_render}".strip(), 60, graph
 
 
 _INSTANCE = PowerShellInterpreter()
