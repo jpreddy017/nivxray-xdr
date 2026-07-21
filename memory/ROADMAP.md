@@ -4,6 +4,30 @@
 
 
 ---
+## 🚀 Frontend Performance Sprint — Phase 2 (Feb 2026 · SHIPPED to preview)
+
+**Objective:** Reduce initial JavaScript payload; improve perceived UI responsiveness. Zero backend / verdict / analysis changes.
+
+**Change:** `frontend/src/App.js` — every page except `LoginPage` converted to `React.lazy(() => import(...))` + a top-level `<Suspense fallback={<RouteFallback/>}>` wrapping the `<Routes>`. Shared shell (`AuthProvider`, `BrowserRouter`, `FloatingAddNoteButton`) remains eagerly loaded. Fallback: a minimal centred "loading …" text — no layout shift.
+
+**Measured (production `CI=true yarn build`):**
+- Initial JS bundle: **1,400 KB → 332 KB (-76%)**
+- Initial gzip: **~430 KB → 106 KB (-75%)**
+- Lazy chunks: **0 → 29** (one per page + shared runtime)
+- Total JS on disk: 1.4 MB → 1.7 MB (+23% — expected chunk-boundary overhead; only a fraction is loaded per session)
+
+**Constraints honoured:**
+- ✅ Zero backend changes.
+- ✅ Zero verdict / analysis changes.
+- ✅ `CI=true yarn build` clean.
+- ✅ All 24 routes still map to identical page components.
+- ✅ `LoginPage` still eagerly loaded (first paint for unauth users).
+
+**Follow-up captured (still open):** restore strict `CI=true craco build` after fixing the 8 pre-existing hooks-exhaustive-deps warnings — see the "Engineering Debt Backlog" section above.
+
+---
+
+
 ## 🎨 Dashboard Visualization Aesthetic — Reference (Feb 2026)
 
 **Reference:** SOC Prime "Platform Modules" hex-card panels + "DetectFlow" animated pipeline flow (source topics → EVENTS/SEC → DETECTION PIPELINES → TAGGED/SEC → destination topics, with a secondary #RULES → STAGING → RULES DEPLOYED lane and a MITRE TIE glowing ring in the middle). User has confirmed this aesthetic is the target look for NivXRay dashboards going forward — hex-shaped module icons, glassmorphic dark panels, animated node/edge flow diagrams, glowing counters, green + violet accent palette.
