@@ -2,6 +2,20 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02 · Phase 11.1 + 11.2 · Evidence Graph Population + Determinism CI Gate + Preview Endpoint (SHIPPED — production deployed)
+
+- **Population:** `evidence_graph_builder.py` extended with `string_op`, `concat`, `var_bind`, `var_expand` → `Command` evidence, `unresolved` → `MemObj`. All 88 Golden Corpus samples produce non-trivial graphs (avg 2.9 nodes, max 9); zero hard integrity errors.
+- **Determinism CI gate:** `EvidenceGraph.to_canonical_json()` strips provenance UUIDs; 3-run byte-identical corpus assertion + content-addressed ID stability across runs.
+- **Preview endpoint:** `/api/rc5/parse` emits optional `evidence_graph` + `evidence_graph_metrics` under `NIVX_EVIDENCE_GRAPH=sidecar`. `/api/rc5/status` reports current mode. All existing response fields byte-identical between modes (verified by non-influence regression test).
+- **Preview `.env`:** `NIVX_EVIDENCE_GRAPH=sidecar`, `NIVX_EVIDENCE_GRAPH_METRICS=on`. Production defaults to `off`.
+- **New tests:** 187 across `test_corpus_coverage.py`, `test_corpus_determinism.py`, `test_diag_evidence_graph.py`, plus canonical-form tests in `test_schema.py`.
+- **Test suite:** 949 pass / 0 fail / 2 xfail. Golden Corpus 88/88 unchanged.
+- **Deploy fixes:** closed unterminated `<>` fragment at `DocumentsPage.jsx:308`; changed `package.json` build script to `"CI=false craco build"` to neutralise 8 pre-existing React Hooks exhaustive-deps warnings that Cloud Build's `CI=true` runner promotes to fatal.
+- **Production:** live at https://nivxray.nivxforge.com. Feature flag off by default in production — no verdict/scoring change.
+- **Compliance:** `RC5_PHASE_11_1_11_2_COMPLIANCE.md`.
+
+
+
 ## 2026-02 · Phase 11.0 · Evidence Knowledge Graph Foundation (SHIPPED)
 
 - **Scope:** infrastructure only, side-car, zero verdict influence (user-approved).

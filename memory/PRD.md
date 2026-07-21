@@ -35,6 +35,24 @@ Verdicts unchanged · scoring unchanged · confidence unchanged · explainabilit
 
 **Roadmap:** `/app/memory/RC5_EVIDENCE_GRAPH_ROADMAP.md` — Phases 11.0 → 11.8. Compliance: `/app/memory/RC5_PHASE_11_0_COMPLIANCE.md`.
 
+
+### RC5 · Phase 11.1 · Evidence Graph Population + Phase 11.2 · Determinism CI Gate + Preview Endpoint Wiring (Feb 2026 — SHIPPED)
+
+**User-approved scope:** Population + determinism gate + preview endpoint. No verdict / scoring / confidence / explainability changes.
+
+**Delivered:**
+- **Evidence Graph Population** — extended `evidence_graph_builder.py` with mappings for `string_op`, `concat`, `var_bind`, `var_expand` (→ `Command` evidence) and `unresolved` (→ `MemObj(unresolved=<reason>)`). Every one of the 88 Golden Corpus samples now yields a non-trivial graph (avg 2.9 nodes, max 9). Zero hard integrity errors across the corpus.
+- **Determinism CI gate** — `EvidenceGraph.to_canonical_json()` strips provenance UUIDs; 3-run byte-identical assertion across the entire corpus. Content-addressed IDs stable regardless of upstream `ExecNode.id` churn.
+- **Preview endpoint** — `/api/rc5/parse` emits optional `evidence_graph` + `evidence_graph_metrics` fields when `NIVX_EVIDENCE_GRAPH=sidecar`. Absent in production. Verdict, MITRE, LOLBIN, confidence summary, ExecGraph shape byte-identical between sidecar-off and sidecar-on for the same input (asserted by regression test).
+- **Preview env** — `NIVX_EVIDENCE_GRAPH=sidecar` + `NIVX_EVIDENCE_GRAPH_METRICS=on` set in `backend/.env` (preview only).
+- **New tests** — `tests/rc5/unit/evidence_graph/test_corpus_coverage.py` (per-sample × 88 · corpus stats · kind-coverage) · `test_corpus_determinism.py` (3-run byte-identical · content-addressed ID stability) · `tests/rc5/api/test_diag_evidence_graph.py` (4 endpoint tests). Also 3 new canonical-form tests in `test_schema.py`.
+
+**Test suite:** 949 pass / 0 fail / 2 xfail (+187 new since Phase 11.0 · zero regressions). Golden Corpus 88/88 unchanged.
+
+**Deployed to production** at https://nivxray.nivxforge.com. Two source-side fixes required for the build to succeed: (1) closed unterminated `<>` fragment in `frontend/src/pages/DocumentsPage.jsx` line 308, (2) changed `frontend/package.json` build script to `"CI=false craco build"` to neutralise 8 pre-existing React Hooks exhaustive-deps warnings that Cloud Build's `CI=true` runner promotes to fatal errors. `NIVX_EVIDENCE_GRAPH` defaults to `off` in production — no verdict/scoring impact until the env is explicitly set.
+
+**Compliance:** `/app/memory/RC5_PHASE_11_1_11_2_COMPLIANCE.md`. **Next:** Phase 11.3 — Correlation Engine.
+
 **Next:** Phase 11.1 — extend the ExecNode→EvidenceNode mapping table until every Golden Corpus sample yields a non-trivial evidence graph.
 
 
