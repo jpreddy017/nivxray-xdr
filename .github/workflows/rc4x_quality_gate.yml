@@ -61,22 +61,31 @@ jobs:
             -q --no-header
 
       # ─── RC4.2 semantic mini + trace ───
+      # NOTE: `test_rc42_smart_decode_flows.py` and
+      # `test_rc42_transformation_trace.py` are HTTP-integration tests that
+      # `requests.post` against a running uvicorn on localhost:8001. The
+      # quality-gate workflow does not start a backend (deliberately —
+      # this gate covers deterministic unit-scope only). They run locally
+      # via supervisor and against Preview/Prod; here we run only the
+      # deterministic sibling `test_rc42_semantic_mini.py` which covers
+      # the same code paths without a network dependency.
       - name: Unit tests — RC4.2 semantic evaluator
         working-directory: backend
         run: |
           python -m pytest \
             tests/test_rc42_semantic_mini.py \
-            tests/test_rc42_smart_decode_flows.py \
-            tests/test_rc42_transformation_trace.py \
             -q --no-header
 
       # ─── RC4.3 PS normalizer + smart-decode integration ───
+      # `test_rc43_smart_normalizer.py` is HTTP-integration (localhost:8001
+      # requests.post) — excluded from CI for the same reason as the RC4.2
+      # HTTP files above. `test_ps_normalizer.py` covers the deterministic
+      # normalizer surface without a network dependency.
       - name: Unit tests — RC4.3 PS normalizer
         working-directory: backend
         run: |
           python -m pytest \
             tests/test_ps_normalizer.py \
-            tests/test_rc43_smart_normalizer.py \
             -q --no-header
 
       # ─── RC4.4 CMD Runtime Reconstruction engine ───

@@ -7,6 +7,40 @@ obfuscated malware command lines with zero AI hallucinations, honest
 
 ## Current Release: RC4.5 (Feb 2026) — **Production Baseline**
 
+### RC4.5.5 · CI Workflow Scope Fix (Feb 21, 2026)
+**Symptom:** After RC4.5.2/.3/.4 pushed, GitHub Actions still went RED
+at the **RC4.2 semantic evaluator** step with:
+```
+ConnectionError: HTTPConnectionPool(host='localhost', port=8001):
+Max retries exceeded — Connection refused
+```
+
+**Root cause:** the workflow's RC4.2 and RC4.3 test lists included two
+HTTP-integration test files that `requests.post` against a running
+uvicorn on `localhost:8001` — but the quality-gate workflow deliberately
+never starts a backend (it's a deterministic unit-scope gate). These
+files were previously masked by the earlier `ModuleNotFoundError:
+emergentintegrations` failure aborting the workflow at RC2.3, so the
+connection errors never surfaced until the RC4.5.2 CI fix let the
+workflow proceed to the RC4.2 step.
+
+**Files that need a live backend (moved out of CI):**
+- `tests/test_rc42_smart_decode_flows.py`
+- `tests/test_rc42_transformation_trace.py`
+- `tests/test_rc43_smart_normalizer.py`
+
+Their deterministic siblings — `test_rc42_semantic_mini.py` (6 tests)
+and `test_ps_normalizer.py` (10 tests) — cover the same code paths
+in-process. HTTP-integration tests still run locally / against
+Preview / against Prod, just not in the CI quality gate.
+
+**Fix:** `.github/workflows/rc4x_quality_gate.yml` — removed the 3
+HTTP-integration files from the RC4.2 and RC4.3 steps. Added explanatory
+comments so this doesn't regress.
+
+**Verified:** 134/134 GREEN under simulated CI (blank env, no
+`emergentintegrations`, no live backend), 73s total.
+
 ### RC4.5.4 · Case-List Confidence Field Fix (Feb 21, 2026)
 **Symptom (user-visible):** In the Case Library, cases displayed
 `confidence: 0/100` even when the verdict card correctly said e.g.
