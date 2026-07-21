@@ -30,7 +30,7 @@ jobs:
       DB_NAME:   nivxray_ci
       # Deterministic feature flags for the CI run — mirror Preview settings.
       SEMANTIC_ENGINE_V2: "true"
-      ADMIN_EMAIL:        "ci@nivxray.local"
+      ADMIN_EMAIL:        "admin@nivxray.com"
       ADMIN_PASSWORD:     "ci-only-not-a-real-secret"
 
     steps:

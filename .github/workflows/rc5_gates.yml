@@ -38,7 +38,7 @@ jobs:
       MONGO_URL: mongodb://localhost:27017
       DB_NAME:   nivxray_ci
       SEMANTIC_ENGINE_V2: "true"
-      ADMIN_EMAIL:    "ci@nivxray.local"
+      ADMIN_EMAIL:    "admin@nivxray.com"
       ADMIN_PASSWORD: "ci-only-not-a-real-secret"
 
     steps:
