@@ -5,6 +5,32 @@ Build a deterministic-first analyst workspace that decodes / reconstructs
 obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
+## Next Release: RC4.6 (in progress) — Semantic Engine + Binary IOC Lift
+
+### RC4.6.1 · Binary Shellcode IoC Lift (Feb 21, 2026)
+**Symptom (user-visible):** For payloads that reach shellcode (Meterpreter /
+MSFvenom / CS beacon), the case's structured `iocs` field was empty even
+when C2 IPs (e.g. `149.28.81.19` in the "ToInvestigate" case), User-Agents,
+and API-hint strings were plainly visible in the decoded output.
+
+**Root cause:** The `/api/decode/smart` router ran `extract_iocs()` only
+on TEXT concatenations of intermediate layer previews. When the final
+decoded layer is raw shellcode bytes, most bytes get turned into `\ufffd`
+replacement characters during UTF-8 decoding, wiping the embedded ASCII
+strings before the IoC extractor sees them.
+
+**Fix:** In `routers/ops.py`, right after the text-only `extract_iocs()`
+pass, when `result["reached_shellcode"]` is True, re-scan
+`result["output"]` as latin-1-encoded bytes through
+`shellcode_analyzer.extract_iocs()` (which walks ASCII + UTF-16LE strings
+inside the binary buffer). Any new URLs / IPs / domains / hashes /
+regkeys / mutexes / imports are merged into the top-level `iocs` dict —
+purely additive; existing values are preserved.
+
+**Verified:** ToInvestigate case reinvestigated → `iocs.ips` now contains
+`149.28.81.19` (previously empty). RC4.x Quality Gate still GREEN
+(134/134). All existing regressions unchanged.
+
 ## Current Release: RC4.5 (Feb 2026) — **Production Baseline**
 
 ### RC4.5.5 · CI Workflow Scope Fix (Feb 21, 2026)

@@ -789,6 +789,53 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             result["iocs"] = extract_iocs(_scan_text)
         except Exception:
             result["iocs"] = {}
+
+        # ── RC4.6.1 · Binary shellcode IOC lift ────────────────────────
+        # When the final decoded layer is raw shellcode (Meterpreter /
+        # MSFvenom / CS beacon), the text-only `extract_iocs` above sees
+        # replacement chars (\ufffd) instead of the ASCII strings embedded
+        # in the shellcode — so C2 IPs like `149.28.81.19` and the
+        # attacker's User-Agent never make it into `iocs.ips` / `iocs.urls`.
+        #
+        # Fix: if `reached_shellcode`, re-scan the FINAL output text as
+        # bytes with `shellcode_analyzer.extract_iocs()` which walks
+        # ASCII + UTF-16LE strings inside the binary buffer and merges
+        # any new URL / IP / domain / hash / regkey / mutex / imports
+        # into the top-level `iocs` dict. Purely additive (never removes).
+        try:
+            if result.get("reached_shellcode"):
+                from shellcode_analyzer import extract_iocs as _bin_iocs
+                # `result["output"]` contains the analyst-facing rendering
+                # which retains the shellcode bytes as latin-1 codepoints.
+                # trace[-1].output_preview is sometimes an error message
+                # (e.g. "xor-brute · no plausible plaintext…"), so we
+                # prefer the final `output` field which holds the real
+                # decoded buffer.
+                _src_text = result.get("output") or ""
+                if _src_text:
+                    try:
+                        _raw = _src_text.encode("latin-1", errors="replace")
+                    except Exception:
+                        _raw = _src_text.encode("utf-8", errors="replace")
+                    b = _bin_iocs(_raw) or {}
+                    _iocs = result.get("iocs") or {}
+                    for _k in ("urls", "ips", "domains", "regkeys", "mutexes", "imports"):
+                        _existing = _iocs.get(_k) or []
+                        for _v in (b.get(_k) or []):
+                            if _v and _v not in _existing:
+                                _existing.append(_v)
+                        _iocs[_k] = _existing
+                    _iocs.setdefault("hashes", {})
+                    for _h in ("md5", "sha1", "sha256"):
+                        _cur = _iocs["hashes"].get(_h) or []
+                        for _v in ((b.get("hashes") or {}).get(_h) or []):
+                            if _v and _v not in _cur:
+                                _cur.append(_v)
+                        _iocs["hashes"][_h] = _cur
+                    result["iocs"] = _iocs
+        except Exception:
+            # Never let the binary IOC lift break the pipeline.
+            pass
         try:
             result["mitre"] = mitre_map(_scan_text)
         except Exception:
