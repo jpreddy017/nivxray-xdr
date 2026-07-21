@@ -16,6 +16,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
+    # Deterministic unit-test scope only — no real DB, no real LLM.
+    # `deps.py` reads these at import time (fail-fast policy in
+    # Preview/Prod). CI supplies dummy values so pytest can collect
+    # tests that transitively import `analysis_core → deps`. No test
+    # in this scope actually talks to Mongo or the LLM.
+    env:
+      MONGO_URL: "mongodb://localhost:27017"
+      DB_NAME: "nivxray_ci"
+      JWT_SECRET: "ci-dummy-jwt-secret"
+      ADMIN_EMAIL: "ci@example.com"
+      ADMIN_PASSWORD: "ci-dummy-password"
+      EMERGENT_LLM_KEY: "ci-dummy-llm-key"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
