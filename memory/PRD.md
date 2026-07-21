@@ -17,6 +17,19 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 9 · Shadow Run + Delta Analyzer + A/B Toggle (Feb 21, 2026 — SHIPPED to Prod)
+
+**Delivered:**
+- `backend/engine/shadow.py` — `ShadowSnapshot` model, `make_snapshot()` builder, `compute_delta_report()` computing 12-dimension delta (verdict tier · MITRE added/removed/kept · LOLBIN state model vs flat · behavior tactic histogram · 5-stage confidence · reconstruction · latency p50/p95/p99 + regression ratio · graph completeness · parser warnings/exceptions · FP change · FN change · unresolved nodes). MongoDB collection `rc5_shadow_runs`.
+- `backend/routers/rc5_shadow.py` — 5 admin endpoints (`/status`, `/toggle`, `/record`, `/report/daily`, `/report/cumulative`) + **`/gate`** endpoint that computes cutover readiness (ready_for_cutover=true only when ≥200 snapshots · crash <0.5/1000 · FP≤5 · FN≤5 · dangling=0 · p95 ratio ≤1.30). Persists toggle to `settings._id="rc5_shadow"`.
+- `scripts/rc5_delta_report.py` — CLI daily/cumulative reporter for cron/CI. Live-verified.
+- **40 shadow tests** + full RC5 suite = **658 pass / 0 fail**.
+- **DEPLOYED to Production https://nivxray.nivxforge.com** with `SEMANTIC_ENGINE_V2=false` (Prod default preserved).
+
+**Compliance report:** `/app/memory/RC5_PHASE_9_COMPLIANCE.md` — 15/15 approved items delivered. Memory metric + auto-collector wrapper deferred to Phase 9.5.
+
+**Phase 10 gate is now armed.** Cutover is blocked until `/api/rc5/shadow/gate` returns `ready_for_cutover: true` after the 30-day shadow run.
+
 ### RC5 · Phase 8 · Explainability Compiler (Feb 21, 2026 — SHIPPED)
 
 **Delivered:**

@@ -2,6 +2,18 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-21 · RC5 · Phase 9 · Shadow Run + Delta Analyzer + A/B Toggle (DEPLOYED to Prod)
+
+- **New:** `backend/engine/shadow.py` — snapshot model + 12-dimension delta analyzer.
+- **New:** `backend/routers/rc5_shadow.py` — admin API (status, toggle, record, report daily/cumulative, cutover gate).
+- **New:** `scripts/rc5_delta_report.py` — CLI daily/cumulative report for cron/CI.
+- **Delta dimensions tracked:** verdict tier · MITRE (added/removed/kept) · LOLBIN state model vs flat · behavior tactic histogram · 5-stage confidence medians · reconstruction (nodes/unresolved) · latency p50/p95/p99 + regression ratio · graph completeness · parser warnings & exceptions · FP change · FN change · unresolved-node count.
+- **Cutover gate:** `/api/rc5/shadow/gate` computes success criteria (≥200 snaps · crash <0.5/1000 · FP≤5 · FN≤5 · dangling=0 · p95 ≤1.30). Blocks Phase 10 automatically.
+- **Deployed to Production** at https://nivxray.nivxforge.com with `SEMANTIC_ENGINE_V2=false` (Prod default preserved; no user-visible change). Shadow-emit collection begins on Preview.
+- **Tests:** +40 shadow-analyzer tests. Full RC5 suite = 658 pass / 0 fail.
+- **Report:** `RC5_PHASE_9_COMPLIANCE.md`.
+
+
 ## 2026-02-21 · RC5 · Phase 8 · Explainability Compiler (SHIPPED)
 
 - **New:** `backend/engine/detectors/explainability.py` — deterministic bundle assembler.

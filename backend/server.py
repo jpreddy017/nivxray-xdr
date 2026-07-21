@@ -89,6 +89,7 @@ from routers.mitre_heatmap import router as mitre_heatmap_router
 from routers.corpus_validate import router as corpus_validate_router
 from routers.lab import router as lab_router
 from routers.rc5_diag import router as rc5_diag_router
+from routers.rc5_shadow import router as rc5_shadow_router
 from routers.public_feeds import router as public_feeds_router
 from routers.benchmark import router as benchmark_router
 from routers.multilayer_battery import router as multilayer_battery_router
@@ -189,6 +190,7 @@ api.include_router(benchmark_router)
 api.include_router(multilayer_battery_router)
 api.include_router(decode_feedback_router)
 api.include_router(rc5_diag_router)
+api.include_router(rc5_shadow_router)
 
 # Feb 2026 — In-app Documents / Case Vault (multi-format upload)
 from routers.documents import router as documents_router
@@ -242,6 +244,9 @@ async def _startup():
     # LOLBAS: load persisted cache, then trigger a background refresh if stale (>7d)
     await lolbas_load(db)
     asyncio.create_task(lolbas_maybe_refresh(db))
+    # RC5 · Phase 9 · Shadow-Run: ensure indexes on the `rc5_shadow_runs` collection.
+    from engine.shadow import ensure_shadow_indexes
+    await ensure_shadow_indexes(db)
     # Model Studio: indexes + seed built-in personas/providers/examples
     await ms.ensure_indexes(db)
     await ms.seed_builtins(db)
