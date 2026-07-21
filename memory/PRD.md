@@ -17,6 +17,18 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 3 · PowerShell AST Interpreter (Feb 24, 2026 — SHIPPED behind flag)
+
+**Delivered:**
+- `backend/engine/normalizers_ps/alias_map.py` — 48 canonical PS alias resolutions + AMSI/ETW bypass fingerprint markers.
+- `backend/engine/parsers/powershell_parser.py` — deterministic tokenizer + AST parser → SIRTree. Handles: backtick collapse (in-string + identifier), whitespace/case normalisation, `#` + `<# … #>` comments, single/double-quoted strings + here-strings, variables (`$x`, `${braced}`, `$env:X`, `$script:X`), types + type accelerators, static + instance calls, arrays / indexing / negative-index, string operators `+ -join -split -replace -f`, ScriptBlock literals, `& $sb` invocation, cmdlet parsing with `-Param value` args, alias resolution, **-EncodedCommand base64 UTF-16LE decode → inline as SIR**, AMSI/ETW semantic tagging on call nodes.
+- `backend/engine/interpreters/powershell_interpreter.py` — SIR → immutable ExecGraph. Full deterministic evaluation of: variable propagation, constant folding, string materialization with `"$var"` expansion, all string ops, `.Method()` + `::Static()` calls (Substring/Replace/ToUpper/ToLower/Trim/ToCharArray/Reverse/Split; Convert::FromBase64String, Text.Encoding::GetString, [char]N, [int]"n"), array literals + indexing, ScriptBlock deferred eval, `& { … }` invocation, **IEX / Invoke-Expression fixed-point re-parse with cap = 6** (monkeypatch-adjustable), -EncodedCommand body inlining, dotted head fusing (`powershell.exe`), dotted property chain preservation (`[Ref].Assembly.GetType(…)`).
+- **111 PowerShell tests** (`tests/rc5/unit/powershell/`): 30 lexer + 46 interpreter + 35 real-world corpus. Includes Invoke-Obfuscation patterns, PowerShell Empire cradle skeletons, Atomic Red Team tests (T1059.001, RunKey persistence, scheduled tasks, real-time-monitoring disable), Microsoft doc examples, benign admin scripts, AMSI-bypass fingerprints. **All 245 RC5 tests passing** (97 Phase-1 + 37 Phase-2 CMD + 111 Phase-3 PS).
+- **Deferred to Phase 3.1** (all emit `UnresolvedNode` with reason): `param()` blocks, function definitions, `try/catch/finally`, `-match/-notmatch` regex ops, dot-sourcing, `Add-Type` + `[Type]::InvokeMember` reflection, `Get-Variable/Get-Item` runtime introspection, `-EncodedArguments`, splatting `@vars`, ScriptBlock `$_` piped-item propagation, `Invoke-Command -ScriptBlock` remoting, PS v2 positional-order quirks.
+- **Live verification:** `/api/decode/smart` still returns `engine: rc2-orchestrator`, `exec_graph.nodes: 0`, `semantic_engine_v2: false` — zero user-visible change. Backend healthy.
+
+**Compliance report:** `/app/memory/RC5_PHASE_3_COMPLIANCE.md` — every one of 22 previously-approved invariants + 5 user directives audited. Zero silently dropped. Awaiting user approval to deploy.
+
 ### RC5 · Phase 2 · CMD Semantic Interpreter (Feb 24, 2026 — SHIPPED behind flag)
 
 **Delivered:**
