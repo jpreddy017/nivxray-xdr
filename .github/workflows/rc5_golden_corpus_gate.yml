@@ -2,11 +2,14 @@ name: RC5 Golden Corpus CI Gate
 
 # Mandatory gate — every PR must:
 #   1. Run the full RC5 backend test suite.
-#   2. Execute the Golden Corpus.
-#   3. FAIL the PR if pass_rate drops below the previous baseline
-#      or if regression_count > 0.
+#   2. Execute the Golden Corpus (in-process, deterministic).
+#   3. On PRs, compare against the base branch and post a Markdown delta
+#      report to the job summary + PR comment.
+#   4. FAIL the PR if head pass_rate < 95% OR regression_count > 0.
 #
 # Locked per user directive on 2026-02-21 for the Phase 9.5 → 10 window.
+# Phase 9.5c (2026-02-23): added PR delta reporter — pass-rate, regression,
+# per-stage coverage, detector accuracy, per-sample verdict-shift table.
 
 on:
   pull_request:
@@ -31,54 +34,132 @@ jobs:
       ADMIN_PASSWORD:     "ci-only-not-a-real-secret"
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout head
+        uses: actions/checkout@v4
+        with:
+          path: head
+
+      - name: Checkout base branch (PRs only)
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install backend dependencies
+      - name: Install head backend dependencies
         run: |
-          cd backend
+          cd head/backend
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run RC5 test suite (must be 100% green)
+      - name: Run RC5 test suite on HEAD (must be 100% green)
         run: |
-          cd backend
+          cd head/backend
           python -m pytest tests/rc5/ -q --tb=short
 
-      - name: Run Golden Corpus (headless, in-process)
-        id: golden
+      # ── Base branch corpus run (PRs only) ─────────────────────────
+      - name: Install base branch backend dependencies
+        if: github.event_name == 'pull_request'
         run: |
-          cd backend
-          python - <<'PY'
-          import asyncio, json, sys
+          cd base/backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Golden Corpus on BASE (best-effort, tolerates schema drift)
+        if: github.event_name == 'pull_request'
+        id: base-corpus
+        continue-on-error: true
+        run: |
+          cd base/backend
+          # If the base branch predates the delta script, generate the
+          # equivalent JSON via ad-hoc code so the delta can still be built.
+          if [ -f scripts/golden_delta.py ]; then
+            python scripts/golden_delta.py \
+              --out /tmp/base_delta.md \
+              --emit-head-json /tmp/base_run.json || true
+          else
+            python - <<'PY'
+          import json, os
+          os.environ.setdefault("SEMANTIC_ENGINE_V2","true")
           from engine.golden_corpus import run_corpus
           r = run_corpus()
-          out = {
-              "total": r.total, "passed": r.passed, "failed": r.failed,
-              "pass_rate": r.pass_rate,
-              "regression_count": r.regression_count,
-              "newly_failing": r.newly_failing,
-          }
-          print(json.dumps(out, indent=2))
-          # Enforce hard thresholds.
-          if r.pass_rate < 95.0:
-              print(f"::error::Golden Corpus pass_rate {r.pass_rate}% < 95% threshold")
-              sys.exit(1)
-          if r.regression_count > 0:
-              print(f"::error::Golden Corpus regression_count={r.regression_count} > 0")
-              print(f"::error::Newly failing: {r.newly_failing}")
-              sys.exit(1)
-          print(f"::notice::Golden Corpus PASS · {r.passed}/{r.total} ({r.pass_rate}%)")
+          with open("/tmp/base_run.json","w") as f:
+              f.write(r.model_dump_json())
           PY
+          fi
+
+      # ── Head branch corpus run + delta report ────────────────────
+      - name: Run Golden Corpus on HEAD (+ PR delta if base available)
+        id: golden
+        run: |
+          cd head/backend
+          BASE_ARG=""
+          if [ -f /tmp/base_run.json ]; then
+            BASE_ARG="--base /tmp/base_run.json"
+          fi
+          python scripts/golden_delta.py \
+            $BASE_ARG \
+            --out /tmp/delta.md \
+            --emit-head-json /tmp/head_run.json
 
       - name: Emit summary
         if: always()
         run: |
           echo "## RC5 Golden Corpus CI Gate" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/delta.md ]; then
+            cat /tmp/delta.md >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Job status: **${{ job.status }}**" >> $GITHUB_STEP_SUMMARY
           echo "- Gate criteria: pass_rate ≥ 95% AND regression_count == 0" >> $GITHUB_STEP_SUMMARY
+
+      # ── PR comment (optional — swallow permission failures) ──────
+      - name: Comment PR with delta report
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('/tmp/delta.md')) return;
+            const body = fs.readFileSync('/tmp/delta.md', 'utf8');
+            const marker = '<!-- rc5-golden-corpus-delta -->';
+            const commentBody = marker + "\n" + body;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: commentBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody,
+              });
+            }
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc5-golden-delta
+          path: |
+            /tmp/delta.md
+            /tmp/head_run.json
+            /tmp/base_run.json
+          if-no-files-found: warn

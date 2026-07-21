@@ -2,6 +2,24 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-23 · Phase 9.5c · GC-090 Deep -enc Decoding + Golden Corpus PR-Delta CI (SHIPPED)
+
+- **PowerShell `-EncodedCommand` deep decode:** UTF-16LE Base64 payloads now recursively re-parsed & re-evaluated through the full RC5 pipeline (Parser → SIR → Behavior → MITRE → LOLBIN → Verdict → Explainability).
+- **WebClient / HttpClient interception:** `.DownloadString()`, `.DownloadFile()`, `.DownloadData()`, `.UploadString()`, `.UploadFile()`, `.UploadData()` + `*Async` variants emit deterministic `HttpNode` with URL + direction + side-effects → T1105 (Ingress Tool Transfer), T1071 (App Layer Protocol).
+- **GZipStream / DeflateStream transparent decompression:** `_try_decompress()` unwraps gzip, zlib, and raw-deflate payloads produced by `[Convert]::FromBase64String(...)` or fed directly to `[Text.Encoding]::UTF8.GetString(...)`.
+- **Deep-decode safety net:** `MAX_DECODE_DEPTH = 10` + SHA-1 payload cycle detection across all recursive re-parse paths (IEX, -enc, decompression chains).
+- **GC-090 verdict flip:** now correctly evaluates to `Malicious` with `T1059 + T1027 + T1105` after deep semantic decoding.
+- **New CI reporter:** `backend/scripts/golden_delta.py` — Markdown PR delta for pass-rate, regression count, per-stage coverage, detector accuracy, per-sample verdict shifts, PASS↔FAIL flips.
+- **CI workflow upgraded:** `.github/workflows/rc5_golden_corpus_gate.yml` — dual base+head checkout, runs corpus on both, posts delta to job summary + PR comment (best-effort), blocks on `pass_rate < 95%` or `regression_count > 0`.
+- **Tests:** +13 deep-decode tests (`tests/rc5/unit/powershell/test_deep_decode.py`) + 7 delta-reporter tests (`tests/rc5/unit/golden_corpus/test_delta_reporter.py`).
+- **Full RC5 suite = 690 pass / 0 fail (+20 vs Phase 9.5b).**
+- **Golden Corpus:** 15/15 (100%). GC-090 flipped Benign → Malicious.
+- **Charter locked:** no new detection rules, verdict logic, MITRE mappings, or verdict weights during shadow-run. Only allowed work: corpus expansion, interpreter coverage patches driven by corpus failures, perf instrumentation, Analyst UI polish.
+- **Phase 10 cutover:** still BLOCKED pending 30-day shadow-run window.
+- **Report:** `RC5_PHASE_9_5C_COMPLIANCE.md`.
+
+
+
 ## 2026-02-21 · Phase 9.5b · Golden Corpus 100 % + 9-Criterion Gate + CI Enforcement (SHIPPED)
 
 - **9-criterion cutover gate** (`/api/rc5/shadow/gate`): 6 shadow + 2 golden + 1 prod health.

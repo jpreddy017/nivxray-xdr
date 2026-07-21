@@ -2,6 +2,25 @@
 
 **Baseline (frozen):** RC2.3 Stable, tagged `v1.0.0-RC2.3` on GitHub · 24/31 chain-complete (77.4%) · 0 FP-IOCs · deployed to `nivxray.nivxforge.com`
 
+
+---
+## 🔒 SHADOW-RUN CHARTER (locked 2026-02-23)
+
+The 30-day shadow-run window is dedicated to **quality, coverage, and production validation** — **not new architecture**. Every workstream below MUST link to either a Golden Corpus sample or a stability/perf metric.
+
+### Allowed during shadow-run
+- **Golden Corpus expansion** → real malware families (Emotet, Qakbot, IcedID PS loaders), benign enterprise scripts (Exchange install, SCCM, Chocolatey, Winget), MSI LOLBIN chains (`msiexec /i http…`), HTA (mshta remote payloads), WMI event subscriptions, XSL Transform LOLBAS, `regsvr32 /s /n /u /i:` scriptlets. Target: GC-150 → GC-300.
+- **Interpreter coverage patches** driven exclusively by corpus failures — surgical, one gap at a time.
+- **Performance & latency instrumentation** surfaced via the PR delta report (`latency_p50`, `latency_p95`, per-sample decode ms).
+- **Analyst UI polish** (SOC Prime-inspired — visibility improvements only, no detection logic changes).
+
+### Blocked until Phase 10 (post-cutover)
+- New detection rules, MITRE mappings, LOLBIN table entries.
+- New verdict-math weights, floors, caps, or dimensions.
+- New parsers or interpreters.
+- New API endpoints or schema changes.
+
+
 ---
 ## 🎯 NEXT SESSION — POST-RC3.0 PRIORITIES (locked 2026-02-20 with user)
 

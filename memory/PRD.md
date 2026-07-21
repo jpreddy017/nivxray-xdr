@@ -17,6 +17,23 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 9.5c · GC-090 Deep -enc Decoding + Golden Corpus PR-Delta CI (Feb 23, 2026 — SHIPPED)
+
+**Delivered:**
+- **Deep PowerShell `-EncodedCommand` decoding** — UTF-16LE Base64 payloads now recursively re-parsed and re-evaluated through the full RC5 pipeline (Parser → SIR → Behavior → MITRE → LOLBIN → Verdict → Explainability).
+- **WebClient method interception** — `.DownloadString / .DownloadFile / .DownloadData / .UploadString / .UploadFile / .UploadData` + `*Async` variants emit deterministic `HttpNode` with URL + direction. Produces T1105 (Ingress Tool Transfer) + T1071 (App Layer Protocol).
+- **GZipStream / DeflateStream transparent decompression** at `[Convert]::FromBase64String` and `[Text.Encoding]::UTF8.GetString` sites.
+- **Deep-decode safety net:** `MAX_DECODE_DEPTH = 10` + SHA-1 payload cycle detection across all recursive re-parse paths.
+- **GC-090 verdict flip:** now correctly evaluates to `Malicious` with `T1059 + T1027 + T1105`. Corpus expectation updated.
+- **New CI reporter `backend/scripts/golden_delta.py`** — Markdown PR delta for pass-rate, regression count, per-stage coverage, detector accuracy, per-sample verdict shifts, PASS↔FAIL flips.
+- **CI workflow upgraded** — dual base+head checkout; posts delta report to job summary + PR comment; still blocks on `pass_rate < 95%` or `regression_count > 0`.
+- **Tests:** +20 (13 deep-decode + 7 delta reporter). **Full RC5 suite: 690 pass / 0 fail.** Golden Corpus: 15/15 (100%).
+
+**Shadow-run charter (locked 2026-02-23):** No new detection rules, verdict logic, MITRE mappings, or verdict weights until Phase 10 cutover. Only allowed workstreams: corpus expansion, interpreter coverage patches driven by corpus failures, perf instrumentation, Analyst UI polish.
+
+**Compliance report:** `/app/memory/RC5_PHASE_9_5C_COMPLIANCE.md`.
+
+
 ### RC5 · Phase 9.5b · Golden Corpus 100 % + Cutover Gate Hardening + CI Enforcement (Feb 21, 2026 — SHIPPED)
 
 **Delivered:**

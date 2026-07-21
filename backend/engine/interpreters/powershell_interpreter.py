@@ -11,14 +11,22 @@ Key capabilities:
   * `-join` / `-split` / `-replace` / `-f` / `+` / method calls
   * `[Convert]::FromBase64String`, `[char]N`, `[int]"n"`,
     `[Text.Encoding]::UTF8.GetString`
+  * Automatic GZipStream / DeflateStream decompression of decoded byte blobs
   * Array literals, indexing, slicing (`[-1]`, `[0..3]`)
   * `IEX` / `Invoke-Expression` / `& $sb` fixed-point re-parse (cap = 6)
   * ScriptBlock deferred eval
-  * -EncodedCommand body inlined + parsed
+  * -EncodedCommand body inlined + recursively parsed through the full pipeline
+  * WebClient .DownloadString / .DownloadFile / .DownloadData / *Async
+    method invocations emit HttpNode side-effects deterministically
+  * Global deep-decode safety net: max depth 10, cycle detection via
+    SHA-1 of payload strings (Phase 9.5c hardening for GC-090).
 """
 from __future__ import annotations
 
 import base64
+import hashlib
+import gzip
+import zlib
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..exec_graph import (
@@ -34,6 +42,62 @@ from ..normalizers_ps.alias_map import AMSI_BYPASS_MARKERS, ETW_BYPASS_MARKERS
 
 
 IEX_MAX_ROUNDS = 6
+# Hard cap on total deep-decode recursion (encoded-command + IEX + gzip +
+# deflate + FromBase64String chained together). Prevents DoS via crafted
+# self-referencing payloads even if cycle-detection is bypassed.
+MAX_DECODE_DEPTH = 10
+
+# WebClient / HttpWebRequest / RestMethod method-name catalog. Names are
+# compared case-insensitively; the interpreter always sees the raw method
+# name from the SIR member node.
+_DOWNLOAD_METHOD_NAMES = frozenset({
+    "downloadstring", "downloadfile", "downloaddata",
+    "downloadstringasync", "downloadfileasync", "downloaddataasync",
+    "downloadstringtaskasync", "downloadfiletaskasync", "downloaddatataskasync",
+    "openread", "openreadasync",
+})
+_UPLOAD_METHOD_NAMES = frozenset({
+    "uploadstring", "uploadfile", "uploaddata", "uploadvalues",
+    "uploadstringasync", "uploadfileasync", "uploaddataasync",
+    "uploadstringtaskasync", "uploadfiletaskasync", "uploaddatataskasync",
+    "openwrite", "openwriteasync",
+})
+
+
+def _looks_like_gzip(b: bytes) -> bool:
+    return len(b) >= 2 and b[0] == 0x1F and b[1] == 0x8B
+
+
+def _looks_like_zlib(b: bytes) -> bool:
+    # zlib/deflate framed: CMF byte low nibble == 8 (deflate).
+    if len(b) < 2:
+        return False
+    cmf, flg = b[0], b[1]
+    return (cmf & 0x0F) == 0x08 and ((cmf * 256 + flg) % 31 == 0)
+
+
+def _try_decompress(b: bytes) -> Optional[bytes]:
+    """Attempt gzip → zlib(deflate) → raw-deflate decompression. Returns
+    None if none succeed. Deterministic; no I/O.
+    """
+    if not isinstance(b, (bytes, bytearray)):
+        return None
+    b = bytes(b)
+    if _looks_like_gzip(b):
+        try:
+            return gzip.decompress(b)
+        except Exception:
+            pass
+    if _looks_like_zlib(b):
+        try:
+            return zlib.decompress(b)
+        except Exception:
+            pass
+    # Try raw deflate (no zlib header) — common in PS Deflate payloads.
+    try:
+        return zlib.decompress(b, -zlib.MAX_WBITS)
+    except Exception:
+        return None
 
 
 class PowerShellInterpreter(SemanticInterpreter):
@@ -43,9 +107,28 @@ class PowerShellInterpreter(SemanticInterpreter):
         graph = ExecGraph()
         env: Dict[str, Any] = {}
         iex_rounds = 0
+        # Per-interpret() deep-decode safety net. Reset every call so
+        # test isolation and repeated invocations behave deterministically.
+        self._visited_payloads: set = set()
+        self._decode_depth: int = 0
         for stmt in sir.root.children:
             graph, env, _ = self._eval(stmt, graph, env, iex_rounds, parents=())
         return graph
+
+    # ── Deep-decode guard (Phase 9.5c) ──────────────────────────────
+    def _guard_reparse(self, source: str) -> bool:
+        """Return True if it's safe to reparse ``source`` at this decode
+        level, else False. Enforces MAX_DECODE_DEPTH and a per-run cycle
+        cache keyed by SHA-1(payload) so a payload that decodes to itself
+        can never loop.
+        """
+        if self._decode_depth >= MAX_DECODE_DEPTH:
+            return False
+        key = hashlib.sha1((source or "").encode("utf-8", errors="replace")).hexdigest()[:16]
+        if key in self._visited_payloads:
+            return False
+        self._visited_payloads.add(key)
+        return True
 
     # ── Dispatcher ──────────────────────────────────────────────────
     def _eval(self, node, graph, env, iex_rounds, parents):
@@ -124,11 +207,23 @@ class PowerShellInterpreter(SemanticInterpreter):
                              inputs=parents)
                 return graph.add_node(n), env, n.id
             inner_src = arg_vals[0]
+            # Global deep-decode guard: cycle detection + MAX_DECODE_DEPTH.
+            if not self._guard_reparse(inner_src):
+                n = ExecNode(kind=NodeKind.unresolved,
+                             args={"reason": "IEX blocked by deep-decode guard "
+                                              f"(depth={self._decode_depth}, cycle-check)"},
+                             confidence=max(0, conf - 20), parser="powershell",
+                             inputs=parents)
+                return graph.add_node(n), env, n.id
             parser = get_parser("powershell")
             sir = parser.parse(inner_src)
-            # Evaluate inner statements in current env — full fixed-point
-            for stmt in sir.root.children:
-                graph, env, _ = self._eval(stmt, graph, env, iex_rounds + 1, parents)
+            self._decode_depth += 1
+            try:
+                # Evaluate inner statements in current env — full fixed-point
+                for stmt in sir.root.children:
+                    graph, env, _ = self._eval(stmt, graph, env, iex_rounds + 1, parents)
+            finally:
+                self._decode_depth -= 1
             # Emit a marker
             marker = ExecNode(kind=NodeKind.var_expand,
                               args={"kind": "iex_expansion", "round": iex_rounds + 1,
@@ -141,10 +236,33 @@ class PowerShellInterpreter(SemanticInterpreter):
         # -EncodedCommand body already decoded at parse time
         enc_body = node.attrs.get("encoded_command_decoded")
         if enc_body:
+            # Global deep-decode guard prevents infinite nested -enc loops.
+            if not self._guard_reparse(enc_body):
+                reconstructed = f"{head} " + " ".join(arg_vals)
+                blocked = ExecNode(
+                    kind=NodeKind.process,
+                    args={"image": head, "args": arg_vals,
+                          "encoded_command": True,
+                          "decode_blocked": True,
+                          "decode_block_reason": f"depth={self._decode_depth} or cycle"},
+                    reconstructed=reconstructed,
+                    confidence=conf,
+                    parser="powershell", inputs=parents,
+                )
+                blocked = blocked.model_copy(update={
+                    "side_effects": (SideEffect(verb=SideEffectVerb.create_process,
+                                                node_id=blocked.id,
+                                                evidence=reconstructed),),
+                })
+                return graph.add_node(blocked), env, blocked.id
             parser = get_parser("powershell")
             inner_sir = parser.parse(enc_body)
-            for stmt in inner_sir.root.children:
-                graph, env, _ = self._eval(stmt, graph, env, iex_rounds, parents)
+            self._decode_depth += 1
+            try:
+                for stmt in inner_sir.root.children:
+                    graph, env, _ = self._eval(stmt, graph, env, iex_rounds, parents)
+            finally:
+                self._decode_depth -= 1
             reconstructed = f"{head} " + " ".join(arg_vals)
             proc = ExecNode(
                 kind=NodeKind.process,
@@ -344,7 +462,24 @@ class PowerShellInterpreter(SemanticInterpreter):
             # [Convert]::FromBase64String("...")
             if base_name in ("convert", "system.convert") and name.lower() == "frombase64string" and arg_vals:
                 try:
-                    return base64.b64decode(str(arg_vals[0])), 90, graph
+                    decoded = base64.b64decode(str(arg_vals[0]))
+                    # If the decoded blob is gzip/deflate compressed we
+                    # transparently decompress here so downstream
+                    # GetString / IEX chains see the plaintext script.
+                    inflated = _try_decompress(decoded)
+                    if inflated is not None:
+                        # Emit a marker so provenance survives.
+                        marker = ExecNode(
+                            kind=NodeKind.var_expand,
+                            args={"kind": "decompress", "algorithm": (
+                                "gzip" if _looks_like_gzip(decoded) else "deflate"
+                            ), "in_len": len(decoded), "out_len": len(inflated)},
+                            reconstructed=f"decompress({len(decoded)}B → {len(inflated)}B)",
+                            confidence=85, parser="powershell", inputs=parents,
+                        )
+                        graph = graph.add_node(marker)
+                        return inflated, 85, graph
+                    return decoded, 90, graph
                 except Exception:
                     return "", 30, graph
             # [Text.Encoding]::UTF8.GetString(bytes)  — approximate handling
@@ -352,7 +487,12 @@ class PowerShellInterpreter(SemanticInterpreter):
                 try:
                     b = arg_vals[0]
                     if isinstance(b, (bytes, bytearray)):
-                        return b.decode("utf-8", errors="replace"), 85, graph
+                        # Handle gzip/deflate wrappers passed straight to
+                        # GetString without an explicit stream reader step.
+                        inflated = _try_decompress(bytes(b))
+                        if inflated is not None:
+                            b = inflated
+                        return bytes(b).decode("utf-8", errors="replace"), 85, graph
                     return str(b), 60, graph
                 except Exception:
                     return "", 30, graph
@@ -379,6 +519,58 @@ class PowerShellInterpreter(SemanticInterpreter):
             for c in node.children[1:]:
                 v, _, graph = self._materialize(c, graph, env, parents)
                 arg_vals.append(v)
+            mname_lower = name.lower()
+            # ── Encoding.GetString on bytes — matches both direct static
+            # calls and chained `[Text.Encoding]::UTF8.GetString($b)` (which
+            # arrives here as kind='method' because GetString is invoked
+            # off the UTF8 property of the Encoding type). Deterministic:
+            # if the first arg is bytes we decode it; if it's compressed we
+            # transparently decompress first.
+            if (mname_lower == "getstring" and arg_vals
+                    and isinstance(arg_vals[0], (bytes, bytearray))):
+                try:
+                    b = bytes(arg_vals[0])
+                    inflated = _try_decompress(b)
+                    if inflated is not None:
+                        b = inflated
+                    return b.decode("utf-8", errors="replace"), 85, graph
+                except Exception:
+                    return "", 30, graph
+            # WebClient / HttpClient / Invoke-WebRequest patterns — emit
+            # HttpNode deterministically so the behavior extractor picks
+            # this up as a real network side-effect. Applies to any
+            # receiver (WebClient object, chained new-object result, etc.)
+            # because the method name uniquely identifies the API.
+            if mname_lower in _DOWNLOAD_METHOD_NAMES or mname_lower in _UPLOAD_METHOD_NAMES:
+                is_upload = mname_lower in _UPLOAD_METHOD_NAMES
+                url = self._first_url_from_args(arg_vals) or (
+                    str(arg_vals[0]) if arg_vals else ""
+                )
+                verb = (SideEffectVerb.upload if is_upload
+                        else SideEffectVerb.download)
+                # Prefer https if scheme visible; else default to http_request.
+                if url.lower().startswith("https://"):
+                    net_verb = SideEffectVerb.https_request
+                else:
+                    net_verb = SideEffectVerb.http_request
+                http_node = ExecNode(
+                    kind=NodeKind.http,
+                    args={"url": url, "method": name,
+                          "direction": "upload" if is_upload else "download",
+                          "receiver": str(recv)[:80]},
+                    reconstructed=f"{name}({url})",
+                    confidence=max(60, rc), parser="powershell", inputs=parents,
+                )
+                http_node = http_node.model_copy(update={
+                    "side_effects": (
+                        SideEffect(verb=net_verb, node_id=http_node.id,
+                                   evidence=f"{name}({url})"),
+                        SideEffect(verb=verb, node_id=http_node.id,
+                                   evidence=url),
+                    ),
+                })
+                graph = graph.add_node(http_node)
+                return url, max(60, rc), graph
             if isinstance(recv, str):
                 mname = name.lower()
                 try:
@@ -421,6 +613,28 @@ class PowerShellInterpreter(SemanticInterpreter):
             return rendered, 60, graph
         # bare type reference — return its name
         return name, 60, graph
+
+    # ── URL extraction helper ──────────────────────────────────────
+    @staticmethod
+    def _first_url_from_args(arg_vals: List[Any]) -> Optional[str]:
+        """Return the first http/https URL discovered in method arg list.
+        Handles bytes, strings, lists — deterministic, no regex on raw
+        exec-graph text.
+        """
+        import re as _re
+        for v in arg_vals:
+            if isinstance(v, (list, tuple)):
+                for x in v:
+                    if isinstance(x, str) and x.startswith(("http://", "https://")):
+                        return x
+                continue
+            if isinstance(v, str):
+                if v.startswith(("http://", "https://")):
+                    return v
+                m = _re.search(r"https?://[^\s'\"<>]{4,600}", v)
+                if m:
+                    return m.group(0)
+        return None
 
 
 _INSTANCE = PowerShellInterpreter()

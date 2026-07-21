@@ -149,6 +149,23 @@ class BehaviorExtractor(Detector):
 
         if k in (NodeKind.http,):
             out.append(self._behavior(n, TacticKind.command_and_control, "http", {}))
+            # HTTP nodes emitted from WebClient.DownloadString / DownloadFile
+            # / DownloadData style method invocations carry a direction hint
+            # ("download" / "upload"). Emit an additional download/upload
+            # behavior so T1105 (Ingress Tool Transfer) or T1041 (Exfil over
+            # C2 Channel) rules fire deterministically.
+            direction = str(n.args.get("direction") or "").lower()
+            url = n.args.get("url") or None
+            if direction == "download":
+                out.append(self._behavior(
+                    n, TacticKind.command_and_control, "download",
+                    {"url_hint": url, "image": "powershell"},
+                ))
+            elif direction == "upload":
+                out.append(self._behavior(
+                    n, TacticKind.exfiltration, "upload",
+                    {"url_hint": url, "image": "powershell"},
+                ))
 
         if k == NodeKind.dns:
             out.append(self._behavior(n, TacticKind.dns_query, None, {}))

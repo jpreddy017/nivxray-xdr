@@ -191,13 +191,22 @@ def test_iex_beyond_cap_yields_unresolved(monkeypatch):
     # Self-referential IEX chain: $s expands to `iex "$s"`, so each round
     # of Invoke-Expression re-invokes itself. Reduce cap to 3 rounds so
     # the test is fast + deterministic.
+    # Phase 9.5c: cycle-detection may terminate the loop before the round
+    # counter cap fires (same payload each round → SHA-1 collision).
+    # Accept EITHER safety-net termination.
     from engine.interpreters import powershell_interpreter as pi
     monkeypatch.setattr(pi, "IEX_MAX_ROUNDS", 3)
     src = '$s = \'iex "$s"\'\niex $s'
     g = _run(src)
-    cap_reasons = [n.args.get("reason", "") for n in _unresolved(g)
-                   if "cap" in (n.args.get("reason") or "").lower()]
-    assert cap_reasons, f"expected cap-reason UnresolvedNode, got: {[n.args for n in _unresolved(g)]}"
+    safety_reasons = [
+        n.args.get("reason", "") for n in _unresolved(g)
+        if any(kw in (n.args.get("reason") or "").lower()
+               for kw in ("cap", "cycle", "deep-decode", "depth"))
+    ]
+    assert safety_reasons, (
+        "expected cap-reason OR cycle-check UnresolvedNode, "
+        f"got: {[n.args for n in _unresolved(g)]}"
+    )
 
 
 # ── EncodedCommand reconstruction ──────────────────────────────────
