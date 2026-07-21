@@ -214,7 +214,14 @@ GOLDEN_CORPUS: Tuple[Dict[str, Any], ...] = (
     # obfuscation (Invoke-Obfuscation ticks, DOSfuscation, XSL LOLBAS).
     "engine.golden_corpus_expansion_r2",
     fromlist=["EXPANSION_R2_CORPUS"],
-).EXPANSION_R2_CORPUS
+).EXPANSION_R2_CORPUS + __import__(
+    # Phase 9.5d hotfix: family of obfuscation-benign regressions
+    # proving the generic invariant "obfuscation is evidence, not
+    # guilt". Any change that lets a multi-encoded benign string
+    # elevate verdict above Benign will break this family.
+    "engine.golden_corpus_obfuscation_family",
+    fromlist=["OBFUSCATION_BENIGN_FAMILY"],
+).OBFUSCATION_BENIGN_FAMILY
 
 
 # ---------------------------------------------------------------------------

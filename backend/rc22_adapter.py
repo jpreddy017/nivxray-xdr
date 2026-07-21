@@ -53,6 +53,51 @@ _LEGACY_OP_ALIAS: Dict[str, str] = {
 }
 
 
+def _apply_obfuscation_only_cap(verdict, risk_score, mitre_list,
+                                 lolbas_list, tradecraft_list):
+    """RC5 invariant § 10 — obfuscation is EVIDENCE, not GUILT.
+
+    Return `(capped_verdict, capped_risk, cap_reason_or_None)`.
+
+    A verdict is capped at Benign if and only if ALL these hold:
+      * the raw verdict is Suspicious / Malicious / Critical
+      * zero LOLBAS hits
+      * zero non-T1027 MITRE techniques
+      * zero tradecraft flags
+
+    In that case the ONLY signal driving the escalation is
+    obfuscation itself — which per invariant § 10 must never
+    produce a non-Benign verdict on its own. T1027 is retained
+    in the outputs as descriptive evidence.
+
+    Pure, deterministic, no I/O. Kept as a module-level helper so
+    (a) the unit test suite can exercise it independently, and
+    (b) the invariant is greppable across the codebase.
+    """
+    v_lower = str(verdict or "").lower()
+    non_t1027_mitre = [
+        m for m in (mitre_list or [])
+        if (m.get("technique_id") if isinstance(m, dict) else getattr(m, "technique_id", ""))
+           != "T1027"
+    ]
+    obfuscation_only = (
+        v_lower in ("suspicious", "malicious", "critical")
+        and not lolbas_list
+        and not non_t1027_mitre
+        and not tradecraft_list
+    )
+    if not obfuscation_only:
+        return verdict, risk_score, None
+    return (
+        "benign",
+        0,
+        "Verdict capped at Benign by RC5 invariant § 10: "
+        "obfuscation-only (T1027) with no reconstructed malicious "
+        "behavior — decoded plaintext contains no LOLBAS/exec/network/"
+        "persistence/credential evidence.",
+    )
+
+
 def _shellcode_reached(output: str) -> bool:
     """Basic PE / shellcode magic heuristic — matches the legacy detector's
     behaviour so downstream verdict thresholds line up."""
@@ -278,6 +323,18 @@ def try_orchestrator_first(
         for t in findings.tradecraft
     ]
 
+    # ── Phase 9.5d+ · RC5 invariant § 10 enforcement (P0 hotfix) ────
+    # Delegated to the pure helper `_apply_obfuscation_only_cap` so
+    # both this call site and the invariant unit-test suite share the
+    # same decision logic. See helper docstring for the full contract.
+    _capped_verdict, _capped_risk, _cap_reason = _apply_obfuscation_only_cap(
+        verdict=findings.verdict,
+        risk_score=findings.risk_score,
+        mitre_list=mitre,
+        lolbas_list=lolbas,
+        tradecraft_list=tradecraft,
+    )
+
     return {
         "output":            result.output or "",
         "detected_type":     result.output_type if hasattr(result, "output_type") else "text",
@@ -291,16 +348,18 @@ def try_orchestrator_first(
         "mitre":             mitre,
         "lolbas":            lolbas,
         "tradecraft":        tradecraft,
-        "verdict":           findings.verdict,
-        "risk_score":        findings.risk_score,
+        "verdict":           _capped_verdict,
+        "risk_score":        _capped_risk,
+        "verdict_cap_reason": _cap_reason,
         "family":            {
             "family":     findings.family.family,
             "confidence": findings.family.confidence,
         } if findings.family and findings.family.family else None,
         # For explainability
         "engine_reason": (
-            f"RC2.2 orchestrator adopted "
+            (_cap_reason + " · " if _cap_reason else "")
+            + f"RC2.2 orchestrator adopted "
             f"({len(steps)} layer(s), terminal={terminal}, "
-            f"verdict={findings.verdict}, risk={findings.risk_score})"
+            f"verdict={_capped_verdict}, risk={_capped_risk})"
         ),
     }
