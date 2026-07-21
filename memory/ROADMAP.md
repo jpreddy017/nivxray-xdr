@@ -4,6 +4,24 @@
 
 
 ---
+## 🧹 Engineering Debt Backlog (post-Feb-2026)
+
+**Restore strict Cloud Build (`CI=true craco build`)** — P2, tech debt.
+The Feb-2026 production deploy unblocked itself with `"build": "CI=false craco build"` in `frontend/package.json`. This masks warnings-as-errors during Cloud Build. Address the 8 pre-existing React Hooks `exhaustive-deps` warnings individually, then revert to plain `"craco build"`:
+
+- `src/components/AnalystResults.jsx:146` — wrap `vc` in its own `useMemo`
+- `src/components/OutputView.jsx:288` — add `shellcode` to deps or refactor
+- `src/lib/auth.jsx:26` — add `user` to deps
+- `src/pages/DashboardPage.jsx:160` — wrap `categoryCoverage` in its own `useMemo`
+- `src/pages/KnowledgeBasePage.jsx:68` — add `load` to deps (or `useCallback` wrap)
+- `src/pages/SampleLibraryPage.jsx:37` — same as above
+- `src/pages/ThreatIntelPage.jsx:42` — add `loadItems` to deps
+- `src/pages/TrainingInboxPage.jsx:51` — add `load` to deps
+
+Once each is either fixed or explicitly disabled with an inline comment justifying it, remove `CI=false` from the build script to restore strict CI signal on future warnings.
+
+
+---
 ## 🔒 SHADOW-RUN CHARTER (locked 2026-02-23)
 
 The 30-day shadow-run window is dedicated to **quality, coverage, and production validation** — **not new architecture**. Every workstream below MUST link to either a Golden Corpus sample or a stability/perf metric.

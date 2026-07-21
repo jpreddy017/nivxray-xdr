@@ -2,6 +2,21 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02 · Priority 1-3 Sprint · Correctness + Training Inbox + Observability (SHIPPED)
+
+- **Parser:** `$env:VAR + '...'` hang fixed in `powershell_parser._parse_call_args`; anti-hang safeguard added.
+- **Detection:** `[Reflection.Assembly]::Load*` now emits `NodeKind.reflection`; MITRE remap to **T1620** (was T1055.001).
+- **IPv4 classification:** octet 0-255 validation + 3-zero-octet + `255.255.255.255` + `Version=` context rejection in `operations.extract_iocs`. `9.0.0.0` / `Version=7.4.0.0` no longer promoted to IOC.
+- **Family attribution:** `chain_analyzer.detect_malware_family` requires ≥ 2 hits; single hits marked `provisional=True` at conf 20; provisional matches do NOT trigger the `+15` risk boost.
+- **Both xfail cases retired.** Positive regression tests replace them.
+- **Training Inbox:** cluster label `⊢` render fixed (JetBrains Mono `|-` ligature disabled); empty Suggested Recipe replaced with italic `no recipe yet · click ANALYZE` UX hint.
+- **Observability:** `engine/evidence_graph_observability.py` ring buffer + `GET /api/rc5/evidence-graph/metrics` + two Dashboard KPI tiles (p95 build/peak, health).
+- **Tests:** 973 pass / 0 fail / 0 xfail (+24). Golden Corpus 88/88 unchanged. Frontend `CI=true yarn build` clean.
+- **Backlog:** restore strict `CI=true craco build` after resolving 8 pre-existing hooks-exhaustive-deps warnings.
+- **Compliance:** `RC5_CORRECTNESS_OBSERVABILITY_SPRINT_COMPLIANCE.md`.
+
+
+
 ## 2026-02 · Phase 11.1 + 11.2 · Evidence Graph Population + Determinism CI Gate + Preview Endpoint (SHIPPED — production deployed)
 
 - **Population:** `evidence_graph_builder.py` extended with `string_op`, `concat`, `var_bind`, `var_expand` → `Command` evidence, `unresolved` → `MemObj`. All 88 Golden Corpus samples produce non-trivial graphs (avg 2.9 nodes, max 9); zero hard integrity errors.

@@ -135,16 +135,19 @@ export default function DashboardPage() {
   const [golden, setGolden] = useState(null);
   const [shadow, setShadow] = useState(null);
   const [gate, setGate] = useState(null);
+  const [egMetrics, setEgMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [g, s, gt] = await Promise.all([
+    const [g, s, gt, eg] = await Promise.all([
       api.get("/rc5/golden/summary").catch(() => ({ data: null })),
       api.get("/rc5/shadow/status").catch(() => ({ data: null })),
       api.get("/rc5/shadow/gate").catch(() => ({ data: null })),
+      api.get("/rc5/evidence-graph/metrics").catch(() => ({ data: null })),
     ]);
     setGolden(g.data); setShadow(s.data); setGate(gt.data);
+    setEgMetrics(eg.data);
     setLoading(false);
   }, []);
   useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, [load]);
@@ -241,6 +244,25 @@ export default function DashboardPage() {
                  value={shadowDays != null ? `${shadowDays} / 30` : "—"}
                  sub="days elapsed" />
           </Glass>
+          {egMetrics && egMetrics.mode === "sidecar" && (
+            <Glass glow="cyan" testId="kpi-evidence-graph">
+              <Kpi label="Evidence Graph · p95" tone="cyan" icon={Cpu}
+                   value={egMetrics.build_ms_p95 != null
+                          ? `${egMetrics.build_ms_p95} ms`
+                          : "—"}
+                   sub={`p50 ${egMetrics.build_ms_p50 ?? 0} ms · peak ${Math.round((egMetrics.peak_memory_kb_p95 ?? 0))} KB`} />
+            </Glass>
+          )}
+          {egMetrics && egMetrics.mode === "sidecar" && (
+            <Glass glow={egMetrics.integrity_error_total === 0 ? "green" : "red"}
+                   testId="kpi-evidence-graph-health">
+              <Kpi label="Evidence Graph · Health"
+                   tone={egMetrics.integrity_error_total === 0 ? "green" : "red"}
+                   icon={ShieldCheck}
+                   value={`${Math.round((egMetrics.success_rate ?? 1) * 100)}%`}
+                   sub={`${egMetrics.sample_count ?? 0} builds · avg ${egMetrics.node_count_mean ?? 0}n/${egMetrics.edge_count_mean ?? 0}e · ${egMetrics.integrity_error_total ?? 0} integ err`} />
+            </Glass>
+          )}
         </div>
 
         {/* Grid: category coverage + cutover gate */}

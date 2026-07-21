@@ -53,6 +53,31 @@ Verdicts unchanged · scoring unchanged · confidence unchanged · explainabilit
 
 **Compliance:** `/app/memory/RC5_PHASE_11_1_11_2_COMPLIANCE.md`. **Next:** Phase 11.3 — Correlation Engine.
 
+
+### RC5 · Priority 1-3 · Correctness + Training Inbox + Observability Sprint (Feb 2026 — SHIPPED)
+
+**Priority 1 · Correctness (all four items):**
+- **Parser hang** on `$env:VAR + '...'` in method-call argument context — fixed in `powershell_parser._parse_call_args` by consuming binary operators between atoms. Added a top-level anti-hang safeguard.
+- **`[Reflection.Assembly]::Load*` semantic detection** — interpreter now emits `NodeKind.reflection`; MITRE mapper remapped `R-DE-REFLECTION` to the correct technique **T1620 (Reflective Code Loading)**.
+- **Dotted-quad IPv4 misclassification** — `operations.extract_iocs` now validates octets 0-255, rejects ≥3-zero-octet quads (versions `9.0.0.0` / subnet bases `10.0.0.0`), rejects `255.255.255.255`, rejects `Version=X.Y.Z.W` context.
+- **Weak-evidence family attribution** — `chain_analyzer.detect_malware_family` requires ≥ 2 corroborating hits; single-hit matches are flagged `provisional=True` at confidence 20 and do NOT drive the `+15` risk boost.
+- **Both xfail cases retired.** GC-275 restored to original `$env:APPDATA + '\\<file>'` form. GC-284 now expects `verdict_min: Suspicious` + `mitre: [T1620]`.
+
+**Priority 2 · Training Inbox:**
+- Cluster label `⊢` rendering — root cause was JetBrains Mono `|-` ligature. Fixed via `font-variant-ligatures: none` on the cluster column in `LearnerPage.jsx`.
+- Empty Suggested Recipe — replaced confusing `—` with an italic UX hint (`no recipe yet · click ANALYZE`) plus tooltip.
+
+**Priority 3 · Side-car Observability:**
+- `engine/evidence_graph_observability.py` — in-memory ring buffer (deque, thread-safe, cap 500), p50/p95/max/mean aggregation.
+- `GET /api/rc5/evidence-graph/metrics` (admin-only) exposes the snapshot.
+- Two new Dashboard KPI tiles — `Evidence Graph · p95` (build_ms + peak KB) and `Evidence Graph · Health` (success rate + integrity errors + mean node/edge counts). Hidden when sidecar is off (production stays visually identical).
+
+**Test suite:** 973 pass / 0 fail / 0 xfail (up from 949 · +24). Golden Corpus 88/88 unchanged. Frontend `CI=true yarn build` clean.
+
+**Backlog:** restore strict `CI=true craco build` after fixing the 8 pre-existing React Hooks `exhaustive-deps` warnings.
+
+**Compliance:** `/app/memory/RC5_CORRECTNESS_OBSERVABILITY_SPRINT_COMPLIANCE.md`. **Next:** Phase 11.3 · Correlation Engine.
+
 **Next:** Phase 11.1 — extend the ExecNode→EvidenceNode mapping table until every Golden Corpus sample yields a non-trivial evidence graph.
 
 

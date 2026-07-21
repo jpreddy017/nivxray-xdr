@@ -51,6 +51,10 @@ from engine.exec_graph import SCHEMA_VERSION as EXEC_SV, NodeKind
 from engine.evidence_graph import EVIDENCE_GRAPH_SCHEMA_VERSION
 from engine.evidence_graph_builder import build_evidence_graph_sidecar
 from engine.evidence_graph_config import evidence_graph_mode
+from engine.evidence_graph_observability import (
+    aggregate as evidence_graph_aggregate,
+    record as evidence_graph_record,
+)
 from engine.semantic_ir import SIR_SCHEMA_VERSION
 from engine.plugin_api import get_parser, get_interpreter
 from engine.parsers import cmd_parser as _cmd_parser  # noqa: F401 — register
@@ -255,11 +259,18 @@ async def rc5_parse(
     evidence_graph_json: Optional[Dict[str, Any]] = None
     evidence_graph_metrics_json: Optional[Dict[str, Any]] = None
     if evidence_graph_mode() == "sidecar":
-        eg_graph, eg_metrics = build_evidence_graph_sidecar(graph)
-        if eg_graph is not None:
-            evidence_graph_json = eg_graph.to_dict()
-        if eg_metrics is not None:
-            evidence_graph_metrics_json = eg_metrics.to_dict()
+        try:
+            eg_graph, eg_metrics = build_evidence_graph_sidecar(graph)
+            if eg_graph is not None:
+                evidence_graph_json = eg_graph.to_dict()
+            if eg_metrics is not None:
+                evidence_graph_metrics_json = eg_metrics.to_dict()
+                evidence_graph_record(eg_metrics, error=False)
+            else:
+                evidence_graph_record(None, error=True)
+        except Exception:
+            evidence_graph_record(None, error=True)
+            raise
 
     return ParseResponse(
         api_version=API_VERSION,
@@ -321,4 +332,24 @@ async def rc5_status(_: dict = Depends(require_admin)) -> Dict[str, Any]:
             "mode": evidence_graph_mode(),
             "schema_version": EVIDENCE_GRAPH_SCHEMA_VERSION,
         },
+    }
+
+
+@router.get(
+    "/evidence-graph/metrics",
+    summary="RC5 Evidence Graph observability (Admin only)",
+    description=(
+        "Rolling in-memory telemetry for the Evidence Knowledge Graph "
+        "side-car: p50/p95 build time, peak memory, mean node/edge "
+        "counts, integrity-error total, and success rate over the "
+        "current window. Operational only — NEVER influences verdicts."
+    ),
+)
+async def rc5_evidence_graph_metrics(_: dict = Depends(require_admin)) -> Dict[str, Any]:
+    snap = evidence_graph_aggregate()
+    return {
+        "api_version": API_VERSION,
+        "mode": evidence_graph_mode(),
+        "schema_version": EVIDENCE_GRAPH_SCHEMA_VERSION,
+        **snap.to_dict(),
     }

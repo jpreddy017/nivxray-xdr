@@ -381,7 +381,16 @@ function InboxTab({ setStatus, setErr }) {
                         )}
                       </div>
                     ) : (
-                      <span style={{ fontSize: 10, color: "var(--text-dim)" }}>—</span>
+                      <span
+                        data-testid={`learner-recipe-empty-${r.id}`}
+                        style={{
+                          fontSize: 10, color: "var(--text-dim)",
+                          fontStyle: "italic", letterSpacing: "0.05em",
+                        }}
+                        title="Click ANALYZE to generate a deterministic recipe proposal for this sample."
+                      >
+                        no recipe yet · click ANALYZE
+                      </span>
                     )}
                   </td>
                   <td>
