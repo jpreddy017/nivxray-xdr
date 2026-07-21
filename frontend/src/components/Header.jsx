@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import {
   LogOut, LayoutGrid, Cog, Sparkles, Beaker, Terminal, BookOpen,
   KeyRound, Rss, TestTube, GraduationCap, Grid, Wrench, Library, Gauge, FolderOpen,
+  BarChart3,
 } from "lucide-react";
 
 export default function Header() {
@@ -18,6 +19,7 @@ export default function Header() {
   // Primary tabs — always visible, high-usage
   const primary = [
     { to: "/",           label: "WORKSPACE",  icon: LayoutGrid, testId: "nav-workspace" },
+    { to: "/dashboard",  label: "DASHBOARD",  icon: BarChart3,  testId: "nav-dashboard" },
     { to: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
     { to: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
     { to: "/documents",  label: "DOCUMENTS",  icon: FolderOpen, testId: "nav-documents" },

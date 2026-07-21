@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import LoginPage from "@/pages/LoginPage";
 import WorkspacePage from "@/pages/WorkspacePage";
+import DashboardPage from "@/pages/DashboardPage";
 import CommandAnalyzerPage from "@/pages/CommandAnalyzerPage";
 import AdminPage from "@/pages/AdminPage";
 import ModelStudioPage from "@/pages/ModelStudioPage";
@@ -39,6 +40,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<Protected><WorkspacePage /></Protected>} />
+            <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
             <Route path="/analyze" element={<Protected><CommandAnalyzerPage /></Protected>} />
             <Route path="/threat-intel" element={<Protected><ThreatIntelPage /></Protected>} />
             <Route path="/threat-model" element={<Protected><ThreatModelPage /></Protected>} />

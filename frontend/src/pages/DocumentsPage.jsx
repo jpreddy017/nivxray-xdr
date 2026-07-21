@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
+import Header from "@/components/Header";
 import { Upload, Trash2, RefreshCw, FileText, Download, Zap } from "lucide-react";
 
 const ACCEPT = ".pdf,.doc,.docx,.csv,.xls,.xlsx,.json,.jsonl,.txt,.log,.eml,.msg,.html,.htm,.xml,.md,.yml,.yaml,.ps1,.bat,.sh,.py,.js,.vbs";
@@ -156,7 +157,9 @@ export default function DocumentsPage() {
   };
 
   return (
-    <div style={{ padding: "20px 24px", maxWidth: 1300, margin: "0 auto" }}>
+    <>
+      <Header />
+      <div style={{ padding: "20px 24px", maxWidth: 1300, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
         <span className="mono" style={{ fontSize: 22, letterSpacing: "0.24em", color: "var(--accent)", fontWeight: 700 }}>
           📂 DOCUMENTS
