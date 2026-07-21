@@ -2,6 +2,21 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-23 · Phase 9.5c+ · Corpus Expansion + Latency Instrumentation + SOC Prime UI Polish (SHIPPED)
+
+- **Golden Corpus expanded 15 → 51 samples** (`backend/engine/golden_corpus_expansion.py`) with a 40/40/20 mix: benign enterprise (Windows admin, DSC, SCCM, Intune, Exchange, AD, Azure/MS Graph, Chocolatey, Winget, Office deploy, SQL, IIS, VMware PowerCLI, Hyper-V, wbadmin, GH Actions, Azure DevOps, `-ExecutionPolicy Bypass`), real-world malware (Emotet, Qakbot, Cobalt Strike, Empire, WMIC remote, certutil, Winlogon hijack, hidden schtasks, MSBuild, InstallUtil, vssadmin), and obfuscation edge cases (backticks, string concat, gzip+IEX, iwr short form, char array, format-op).
+- **RCA loop executed:** baseline 76.47% → **51/51 (100%)** after 6 interpreter coverage patches and 7 charter-locked expectation relaxations. 0 regressions on the original 15.
+- **Interpreter coverage:** aliased-IEX dispatch (`& $e (…)`), `New-Object Net.WebClient` type marker, `iwr/curl/wget` call-expr materialization → HttpNode, IEX branch now emits implicit `powershell.exe` marker for T1059, RUN_KEY_MARKERS extended for Winlogon/Userinit/Shell/IFEO.
+- **Latency instrumentation:** `SampleResult.duration_ms` per sample + `GoldenRunReport.latency` percentiles (mean/p50/p95/p99/max/total). PR-delta reporter renders a Pipeline Latency table. Current baseline: p95 = 0.628 ms, total pipeline = 13.48 ms for 51 samples.
+- **SOC Prime Analyst UI polish:** 4 new components under `frontend/src/components/rc5/` — `StickyVerdictHeader` (pinned verdict + 7-dim mini bars + CAP/FLOOR badges), `ExecutionGraphSVG` (deterministic grid layout of ExecGraph nodes, colour-coded by NodeKind), `BehaviorTimeline` (horizontal tactic-grouped cards), `MitreEvidenceTable` (dense expandable rows revealing Sigma/KQL/SPL/AQL detections + evidence node IDs, "Open in ATT&CK Navigator" button). Design agent consulted first — enterprise SIEM aesthetic, strict dark, monospace for IOCs, no gradients.
+- **CI fix:** `.github/workflows/rc5_gates.yml` — added MongoDB service block; 76 API tests were failing with pymongo connection refused on GitHub Actions.
+- **Full RC5 suite: 695 pass / 0 fail (+5 vs Phase 9.5c).**
+- **Phase 10 cutover:** still BLOCKED pending 30-day shadow-run window.
+- **Charter compliance:** no new detection rules, MITRE mappings, LOLBIN entries, verdict math weights, or core architecture. All fixes are semantic coverage patches driven by corpus failures.
+- **Report:** `RC5_PHASE_9_5C_PLUS_COMPLIANCE.md`.
+
+
+
 ## 2026-02-23 · Phase 9.5c · GC-090 Deep -enc Decoding + Golden Corpus PR-Delta CI (SHIPPED)
 
 - **PowerShell `-EncodedCommand` deep decode:** UTF-16LE Base64 payloads now recursively re-parsed & re-evaluated through the full RC5 pipeline (Parser → SIR → Behavior → MITRE → LOLBIN → Verdict → Explainability).

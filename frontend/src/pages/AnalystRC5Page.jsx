@@ -21,6 +21,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { StickyVerdictHeader } from "@/components/rc5/StickyVerdictHeader";
+import { ExecutionGraphSVG } from "@/components/rc5/ExecutionGraphSVG";
+import { BehaviorTimeline } from "@/components/rc5/BehaviorTimeline";
+import { MitreEvidenceTable } from "@/components/rc5/MitreEvidenceTable";
 
 const TIER_STYLE = {
   Benign:     "bg-emerald-950 text-emerald-300 border-emerald-800",
@@ -130,19 +134,26 @@ const AnalystRC5Page = () => {
   }, [rc5]);
 
   return (
-    <div className="min-h-screen bg-[#0e1116] text-slate-100 p-6" data-testid="analyst-rc5-page">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#020617] text-slate-100" data-testid="analyst-rc5-page">
+      {rc5?.verdict && (
+        <StickyVerdictHeader
+          verdict={rc5.verdict}
+          xDecodeMs={xDecodeMs}
+          runId={rc5?.run_id}
+        />
+      )}
+      <div className="max-w-7xl mx-auto space-y-6 p-6">
         <header className="flex items-baseline justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-sky-300">NivXRay · RC5 Analyst</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="text-2xl font-bold text-sky-300 tracking-tight">NivXRay · RC5 Analyst</h1>
+            <p className="text-[11px] font-mono tracking-tight text-slate-500 uppercase">
               Deterministic-first · Evidence-linked · No AI in decoded fields
             </p>
           </div>
           <div className="flex gap-2 text-xs">
             {xDecodeMs && (
               <Badge data-testid="x-decode-ms-badge"
-                     className="bg-slate-800 text-sky-300 border border-slate-700">
+                     className="bg-slate-800 text-sky-300 border border-slate-700 font-mono">
                 X-Decode-Ms {xDecodeMs}
               </Badge>
             )}
@@ -203,6 +214,45 @@ const AnalystRC5Page = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* SOC-Prime-inspired visualization panels (Phase 9.5c+) */}
+        {rc5 && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card className="bg-slate-900 border-slate-800 lg:col-span-2"
+                  data-testid="execution-graph-panel">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-slate-200 text-sm uppercase tracking-[0.1em] font-mono">
+                  Execution Graph · {rc5?.graph?.nodes?.length || 0} nodes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ExecutionGraphSVG graph={rc5.graph} />
+              </CardContent>
+            </Card>
+            <Card className="bg-slate-900 border-slate-800"
+                  data-testid="behavior-timeline-panel">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-slate-200 text-sm uppercase tracking-[0.1em] font-mono">
+                  Behavior Timeline · {rc5?.behaviors?.length || 0}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BehaviorTimeline behaviors={rc5.behaviors} />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {rc5?.mitre?.length ? (
+          <Card className="bg-slate-900 border-slate-800" data-testid="mitre-drilldown-panel">
+            <CardContent className="pt-4">
+              <MitreEvidenceTable
+                mitre={rc5.mitre}
+                navigatorLayer={rc5.mitre_navigator}
+              />
+            </CardContent>
+          </Card>
+        ) : null}
 
         {rc5 && <ResultsPanel rc5={rc5}
                               onNavJson={downloadNavigatorJson}

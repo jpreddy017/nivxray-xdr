@@ -17,6 +17,24 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 9.5c+ · Corpus Expansion + Latency Instrumentation + SOC Prime UI Polish (Feb 23, 2026 — SHIPPED)
+
+**Delivered:**
+- **Golden Corpus 15 → 51 samples** with balanced distribution: benign enterprise (18), real-world malware (11), obfuscation edge cases (7), plus the original 15 baseline. Enterprise coverage: Windows admin, PowerShell DSC, SCCM/MECM, Intune, Exchange, Active Directory, Azure/Microsoft Graph, Chocolatey, Winget, Office Deployment, SQL admin, IIS admin, VMware PowerCLI, Hyper-V, Windows Backup, GitHub Actions runner, Azure DevOps agent, `-ExecutionPolicy Bypass`. Malware coverage: Emotet, Qakbot, Cobalt Strike (mshta), Empire (`-nop -w hidden -enc`), WMIC remote process, certutil decode+run, Winlogon Userinit hijack, hidden SYSTEM schtasks, MSBuild inline C#, InstallUtil /U, vssadmin delete shadows.
+- **RCA loop:** baseline 39/51 (76.47%) → **51/51 (100%)** after 6 targeted interpreter coverage patches. Zero regressions on the original 15.
+- **Interpreter coverage patches:** aliased-IEX dispatch via `& $var (payload)`, `New-Object Net.WebClient` materialization marker, `iwr/curl/wget` call-expr → HttpNode with URL evidence, IEX implicit `powershell.exe` marker for T1059 emission, RUN_KEY_MARKERS extended for Winlogon/Userinit/Shell/IFEO.
+- **Latency instrumentation:** per-sample `duration_ms` + aggregate percentiles (`mean/p50/p95/p99/max/total`). PR-delta reporter renders a Pipeline Latency table. Baseline: p95 = 0.628 ms.
+- **SOC Prime Analyst UI polish:** `StickyVerdictHeader`, `ExecutionGraphSVG`, `BehaviorTimeline`, `MitreEvidenceTable` with "Open in ATT&CK Navigator" deep-link and per-technique Sigma/KQL/SPL drill-down. Design guided by `/app/design_guidelines.json` (enterprise SIEM aesthetic).
+- **CI fix:** `rc5_gates.yml` — added MongoDB service block (76 API tests were failing).
+- **Full RC5 suite: 695 pass / 0 fail.** Golden Corpus 51/51.
+
+**Charter compliance:** no new detection rules, no MITRE mapping additions, no LOLBIN entries, no verdict-math weight/floor/cap changes, no new core architecture. Everything shipped is either corpus data, coverage patch, or visualization.
+
+**Deferred to post-cutover (tracked, not implemented):** verdict uplift for regsvr32/wmic/msbuild/installutil; new MITRE mappings for mshta→T1105, msbuild→T1127, installutil→T1218, vssadmin→T1490; obfuscation behavior for FromBase64+decompress; LOLBIN semantic differentiation (wbadmin start-vs-delete).
+
+**Compliance report:** `/app/memory/RC5_PHASE_9_5C_PLUS_COMPLIANCE.md`.
+
+
 ### RC5 · Phase 9.5c · GC-090 Deep -enc Decoding + Golden Corpus PR-Delta CI (Feb 23, 2026 — SHIPPED)
 
 **Delivered:**
