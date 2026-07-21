@@ -96,6 +96,14 @@ jobs:
             tests/test_ps_alias_normalizer.py \
             -q --no-header
 
+      # ─── RC4.5 · ReDoS perf guard for mitre_map (Cloudflare 524 hotfix) ───
+      - name: Unit tests — RC4.5 mitre_map ReDoS perf regression
+        working-directory: backend
+        run: |
+          python -m pytest \
+            tests/test_mitre_redos_perf.py \
+            -q --no-header
+
       # ─── RC2.3 chain-completeness benchmark (release gate — kept) ───
       - name: RC2.3 chain-completeness benchmark
         working-directory: backend

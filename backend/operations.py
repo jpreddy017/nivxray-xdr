@@ -1821,13 +1821,16 @@ MITRE_HEURISTICS = [
     # trusted infra to bypass domain-reputation filters. Seen in Case4
     # (jsdelivr.net/gh/...), Case5 (contabostorage.com), and older cases
     # (aliyun OSS, statically.io, raw.githubusercontent.com, cdn.discordapp.com).
-    (r"(?:cdn\.jsdelivr\.net/gh/|raw\.githubusercontent\.com/|cdn\.statically\.io/gh/|"
-     r"cdn\.discordapp\.com/attachments/|[a-z0-9-]+\.contabostorage\.com/|"
-     r"[a-z0-9-]+\.aliyun(?:cs)?\.com/|[a-z0-9-]+\.oss-[a-z0-9-]+\.aliyuncs\.com/|"
-     r"[a-z0-9-]+\.b-cdn\.net/|[a-z0-9-]+\.pages\.dev/|[a-z0-9-]+\.workers\.dev/)",
+    # v1.5.6 ReDoS fix: `\b` anchor + bounded `{1,63}` DNS-label length
+    # prevents catastrophic backtracking on large repetitive lowercase inputs
+    # (base64 blobs, hex dumps). Previously took ~2.5s per call on 16KB text.
+    (r"\b(?:cdn\.jsdelivr\.net/gh/|raw\.githubusercontent\.com/|cdn\.statically\.io/gh/|"
+     r"cdn\.discordapp\.com/attachments/|[a-z0-9-]{1,63}\.contabostorage\.com/|"
+     r"[a-z0-9-]{1,63}\.aliyun(?:cs)?\.com/|[a-z0-9-]{1,63}\.oss-[a-z0-9-]{1,63}\.aliyuncs\.com/|"
+     r"[a-z0-9-]{1,63}\.b-cdn\.net/|[a-z0-9-]{1,63}\.pages\.dev/|[a-z0-9-]{1,63}\.workers\.dev/)",
         ("T1105", "Ingress Tool Transfer (Legitimate CDN/Object-Storage Abuse)", "Command and Control")),
-    (r"(?:cdn\.jsdelivr\.net/gh/|raw\.githubusercontent\.com/|"
-     r"[a-z0-9-]+\.contabostorage\.com/|[a-z0-9-]+\.oss-[a-z0-9-]+\.aliyuncs\.com/)",
+    (r"\b(?:cdn\.jsdelivr\.net/gh/|raw\.githubusercontent\.com/|"
+     r"[a-z0-9-]{1,63}\.contabostorage\.com/|[a-z0-9-]{1,63}\.oss-[a-z0-9-]{1,63}\.aliyuncs\.com/)",
         ("T1102", "Web Service (Trusted-Domain C2 Fronting)", "Command and Control")),
     # WinHTTP COM-object stager — different signature from Net.WebClient.
     # Seen in Case4: $w = New-Object -ComObject WinHttp.WinHttpRequest.5.1
@@ -2294,7 +2297,7 @@ MITRE_HEURISTICS = [
     # ═══════════════════════════════════════════════════════════════════
     (r"Kimseye\s+G[üu]venme|ENTER\s+THE\s+EMPIRE|Montana\s+Empire\s+(?:Panel|Kit|Admin)",
         ("T1566.002", "Montana Empire phishing-kit control-panel markers", "Initial Access")),
-    (r"[a-z0-9\-]+post-app\.(?:com|net|org|io)|[a-z0-9\-]+-portal-support\.(?:com|net|io)",
+    (r"\b[a-z0-9-]{1,63}post-app\.(?:com|net|org|io)|\b[a-z0-9-]{1,63}-portal-support\.(?:com|net|io)",
         ("T1583.001", "Phantom Squatting: hallucinated brand-portal domain pattern", "Resource Development")),
     (r"(?:admin|sandbox|billing|api|dashboard|checkout)\.[a-z0-9\-]{4,30}\.(?:com|net|io)/(?:v\d+/)?(?:login|auth|pay|api)",
         ("T1583.001", "AI-hallucinated brand subdomain (phantom-squat pattern)", "Resource Development")),

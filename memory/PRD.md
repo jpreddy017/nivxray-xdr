@@ -5,7 +5,29 @@ Build a deterministic-first analyst workspace that decodes / reconstructs
 obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
-## Current Release: RC4.5 (Feb 2026)
+## Current Release: RC4.5 (Feb 2026) — **Production Baseline**
+
+### RC4.5.1 · Cloudflare 524/520 Hotfix (Feb 21, 2026)
+**Symptom:** Prod returned Cloudflare 524 (timeout) / 520 (empty
+response) on large PS `-EncodedCommand` payloads (e.g. the
+7850-char `Morning_BigWhale_Test` case). Preview handled them fine.
+
+**Root cause:** Three MITRE URL/domain rules in `operations.py`
+(`T1105` CDN-abuse, `T1102` Web-Service, `T1583.001` phantom-squat)
+used unbounded `[a-z0-9-]+\.` alternation without `\b` anchor, which
+exhibited catastrophic backtracking on large repetitive lowercase
+inputs (base64 blobs). **Measured impact: 4.52s per mitre_map call**
+on 16KB input; ×2 in the enrichment pipeline → ~10s in Preview,
+overflowed Cloudflare 100s on Prod under load.
+
+**Fix:** Added `\b` word boundary + bounded `{1,63}` (max DNS-label
+length) to the three patterns. **Post-fix: 0.099s per call — 45×
+speedup.** End-to-end `/api/decode/smart` dropped 10.4s → 1.1s on
+the reproducer.
+
+**Regression guard:** `tests/test_mitre_redos_perf.py` (2 tests,
+500ms budget). Wired into `.github/workflows/rc4x_quality_gate.yml`
+as a dedicated step so this class of ReDoS can never regress silently.
 
 ### RC4.5 · PowerShell Backtick + Cmdlet-Alias Normalizers
 **Ships:**
@@ -62,6 +84,7 @@ obfuscated malware command lines with zero AI hallucinations, honest
   full pipeline (accommodates new RC4.5 normalizer step).
 
 ## Completed (Feb 2026)
+- ✅ **RC4.5.1 Cloudflare 524/520 hotfix — mitre_map ReDoS (Feb 21)**
 - ✅ RC4.5 PS backtick + alias normalizers (Feb 20)
 - ✅ P0-FEAT-6 LOLBIN classification fix (Feb 20)
 - ✅ CI workflow migration RC2.3 → RC4.x (Feb 20)
