@@ -7,6 +7,42 @@ obfuscated malware command lines with zero AI hallucinations, honest
 
 ## Current Release: RC4.5 (Feb 2026) — **Production Baseline**
 
+### RC4.5.3 · Full Import-Time Side-Effect Elimination (Feb 21, 2026)
+**Symptom:** After the RC4.5.2 lazy-import fix landed, GitHub Actions
+surfaced a second class of failure — `KeyError: 'MONGO_URL'` — because
+`deps.py` still performed `os.environ["X"]` lookups and constructed a
+Motor client at module scope. Five additional routers (`cases`, `lab`,
+`learner`, `public_feeds`, `batch_test`) and `privacy.py` also created
+their own module-scope `MongoClient(os.environ.get(...))` — same class
+of import-time side effect.
+
+**Fix (architectural, not a CI workaround):**
+1. `deps.py`: switched all required env-var reads to `os.environ.get(k, "")`.
+   Added `validate_config()` and `init_database()`, invoked from
+   FastAPI's `@app.on_event("startup")`. Exposed `client` and `db` as
+   lazy `_MotorProxy` singletons — the 30+ existing `from deps import db`
+   sites keep working unchanged. Added a `sync_collection(name)` helper
+   returning `_SyncCollectionProxy` for the legacy-sync-pymongo callers.
+2. `server.py`: startup handler now calls `validate_config() → init_database()
+   → seed_admin(log)` in that order.
+3. `routers/{cases,lab,learner,public_feeds,batch_test}.py` +
+   `privacy.py`: replaced `MongoClient(os.environ.get(...))` +
+   `_db.collection` with `sync_collection("collection")`.
+4. `.github/workflows/rc4x_quality_gate.yml`: removed the temporary
+   CI-only env-var workaround block — the architecture no longer needs it.
+
+**Post-refactor architectural invariants (verified Feb 21, 2026):**
+- ZERO module-scope required `os.environ[X]` reads
+- ZERO module-scope `AsyncIOMotorClient(...)` construction
+- ZERO module-scope `MongoClient(...)` construction
+- ZERO module-scope `emergentintegrations` imports
+- `validate_config()` + `init_database()` execute only during FastAPI startup
+- Preview/Production still fail-fast when required config is missing
+  (verified: FastAPI startup raises `RuntimeError` with blank env)
+- Full backend module tree (57 files) imports cleanly in a blank environment
+- RC4.x Quality Gate: 149/149 passed under simulated CI (blank env,
+  `emergentintegrations` + `litellm` blocked)
+
 ### RC4.5.2 · CI Import Fix (Feb 21, 2026)
 **Symptom:** GitHub Actions `RC4.x Quality Gate` failed at the
 **RC2.3 baseline scope** step with `ModuleNotFoundError: No module
