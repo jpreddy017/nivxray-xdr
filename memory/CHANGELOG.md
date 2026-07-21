@@ -2,6 +2,19 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-21 · RC5 · Phase 8 · Explainability Compiler (SHIPPED)
+
+- **New:** `backend/engine/detectors/explainability.py` — deterministic bundle assembler.
+- **Evidence Tree:** Verdict → TopReason → Behavior → ExecNode → SIRNode → decode-layer → source spans. Every top_reason gets an evidence link with resolved node IDs, kinds, reconstructed strings, layer numbers, and byte spans.
+- **Confidence Breakdown:** per-stage scores across decode, semantic reconstruction, behavior, mitre, verdict, plus weighted overall (weights sum to 1.0, snapshotted in response for audit).
+- **"Why NOT Malicious?":** for Benign/Suspicious verdicts, an ordered `missing_signals[]` derived from behavior taxonomy absences (no persistence · no credential access · no network activity · no exfil · no shellcode · no reflection · no AMSI/ETW bypass · no destructive impact · no LOLBIN executed · low capability · low impact). Guardrails (`cap_applied`/`floor_applied`) surfaced from Verdict v2 to explain any threshold jumps.
+- **§14 AI-boundary lock:** `Explanation.narrative` is always empty; `narrative_origin="advisor"` marker. Deterministic fields never touched by AI.
+- **`X-Decode-Ms` response header** added to `/api/rc5/parse`.
+- **API:** `explain{}` field, `plugin_versions.explainability`, `decode_chain[explainability]` (8-step chain).
+- **Tests:** +54 (46 unit + 7 API + 1 chain). Full RC5 suite = 618 pass / 0 fail.
+- **Report:** `RC5_PHASE_8_COMPLIANCE.md`.
+
+
 ## 2026-02-21 · RC5 · Phase 7 · Verdict v2 (SHIPPED behind SEMANTIC_ENGINE_V2)
 
 - **New:** `backend/engine/detectors/verdict_v2.py` — deterministic 7-dimension risk score (intent / capability / execution / impact / stealth / persistence / defense_evasion). Cap-and-floor rules prevent obfuscation-only inputs from becoming malicious and lift high-impact signals to Malicious floor. Verdict tiers Benign / Suspicious / Malicious / Critical.

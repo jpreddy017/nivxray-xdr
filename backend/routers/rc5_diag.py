@@ -42,7 +42,7 @@ import statistics
 import time
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from deps import require_admin
@@ -64,6 +64,7 @@ from engine.detectors.mitre_navigator_export import (
 from engine.detectors.mitre_stix_export import build_stix_bundle, STIX_VERSION
 from engine.detectors.lolbin_v2 import classify_lolbins
 from engine.detectors.verdict_v2 import compute_verdict
+from engine.detectors.explainability import compile_explanation
 
 
 API_VERSION = "1"
@@ -126,6 +127,7 @@ class ParseResponse(BaseModel):
     mitre_stix: Dict[str, Any]
     lolbins_v2: List[Dict[str, Any]]
     verdict_v2: Dict[str, Any]
+    explain: Dict[str, Any]
     processing_time_ms: float
 
 
@@ -167,6 +169,7 @@ def _detect_language(text: str) -> str:
 )
 async def rc5_parse(
     payload: ParseRequest,
+    response: Response,
     _: dict = Depends(require_admin),
 ) -> ParseResponse:
     if not _diag_enabled():
@@ -197,6 +200,10 @@ async def rc5_parse(
     mitre_mappings = map_behaviors_to_mitre(behaviors)
     lolbin_rows = classify_lolbins(graph)
     verdict = compute_verdict(behaviors, mitre_mappings, lolbin_rows)
+    explanation = compile_explanation(
+        original_input=src, sir=sir, graph=graph, behaviors=behaviors,
+        mitre=mitre_mappings, lolbins=lolbin_rows, verdict=verdict,
+    )
 
     # Confidence summary — over deterministic-origin nodes.
     conf_vals = [n.confidence for n in graph.nodes if n.origin == "deterministic"]
@@ -217,7 +224,8 @@ async def rc5_parse(
     # Decode chain — one line per parser/interpreter step attributable.
     decode_chain: List[str] = [f"normalize:{lang}", f"parse:{lang}",
                                f"interpret:{lang}", "behavior_extract",
-                               "mitre_v2", "lolbin_v2", "verdict_v2"]
+                               "mitre_v2", "lolbin_v2", "verdict_v2",
+                               "explainability"]
 
     # Reconstructed commands — non-empty, non-unresolved
     reconstructed = [n.reconstructed for n in graph.nodes
@@ -230,6 +238,8 @@ async def rc5_parse(
                        for n in unresolved]
 
     elapsed_ms = round((time.perf_counter() - t0) * 1000, 3)
+    # X-Decode-Ms performance header (analyst-facing perf signal).
+    response.headers["X-Decode-Ms"] = f"{elapsed_ms:.3f}"
 
     return ParseResponse(
         api_version=API_VERSION,
@@ -248,6 +258,7 @@ async def rc5_parse(
             "mitre_stix":          {"schema_version": STIX_VERSION},
             "lolbin_v2":           {"schema_version": EXEC_SV},
             "verdict_v2":          {"schema_version": EXEC_SV},
+            "explainability":      {"schema_version": EXEC_SV},
         },
         language=lang,
         input=src,
@@ -265,6 +276,7 @@ async def rc5_parse(
         mitre_stix=build_stix_bundle(mitre_mappings),
         lolbins_v2=[r.model_dump(mode="json") for r in lolbin_rows],
         verdict_v2=verdict.model_dump(mode="json"),
+        explain=explanation.model_dump(mode="json"),
         processing_time_ms=elapsed_ms,
     )
 

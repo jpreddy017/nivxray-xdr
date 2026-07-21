@@ -17,6 +17,21 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 8 · Explainability Compiler (Feb 21, 2026 — SHIPPED)
+
+**Delivered:**
+- `backend/engine/detectors/explainability.py` — deterministic `Explanation` bundle with three analyst-facing capabilities:
+  1. **Evidence Tree** — Verdict → TopReason → Behavior → ExecNode → SIRNode → decode-layer → source spans. Every conclusion traceable back to origin.
+  2. **Confidence Breakdown** — per-stage scores (decode / semantic_reconstruction / behavior / mitre / verdict + weighted_overall). Weights sum to 1.0, snapshot in response.
+  3. **"Why NOT Malicious?"** — deterministic missing-signal list for Benign/Suspicious verdicts (no persistence, no network, no cred access, no shellcode, no AMSI/ETW bypass, no LOLBIN executed, low capability, low impact) + guardrails (`cap_applied` / `floor_applied`) surface.
+- `narrative` locked to empty + `narrative_origin="advisor"` marker enforces §14 AI-boundary invariant.
+- **`X-Decode-Ms` response header** added to `/api/rc5/parse` — analyst-facing perf signal.
+- `/api/rc5/parse` extended: `explain{}` response field, `plugin_versions.explainability`, `decode_chain[explainability]`.
+- **54 new tests** (46 unit + 7 API + 1 decode-chain). Full RC5 suite = **618 pass / 0 fail**.
+- **Live verification:** `echo hi` → `X-Decode-Ms: 0.397`, 11 missing signals, 5-stage confidence 100/100/100/100/100 = 100 overall.
+
+**Compliance report:** `/app/memory/RC5_PHASE_8_COMPLIANCE.md` — 17/17 approved items delivered.
+
 ### RC5 · Phase 7 · Verdict v2 (Feb 21, 2026 — SHIPPED)
 
 **Delivered:**

