@@ -24,6 +24,11 @@ const pickTimeout = (url = "") => {
   // on prod. Give it the same headroom as decode ops so first-time visitors
   // don't hit the 30s default and see a spurious timeout.
   if (/\/training\/confusion/i.test(url)) return TIMEOUT_DECODE;
+  // Feb-2026 · Save Case can be slow on Prod (CPU-throttled containers
+  // finalising verdict-card + IOC serialization on heavy payloads).
+  // 60s gives the backend comfortable headroom vs the previous 30s
+  // that was tripping on shellcode / large-output cases.
+  if (/\/cases\/save/i.test(url)) return 60_000;
   return TIMEOUT_DEFAULT;
 };
 

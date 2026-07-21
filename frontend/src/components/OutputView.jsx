@@ -65,6 +65,69 @@ function detectTerminalTail(text) {
 
 
 /**
+ * detectBinaryPayload — Feb-2026 · Fix A
+ *
+ * Detect an ENTIRE binary/shellcode payload (as opposed to a clean-head +
+ * binary-tail terminal state). Fires when the decoded output has high
+ * Shannon entropy AND a low printable-character ratio, meaning rendering
+ * it as text produces unreadable garble.
+ *
+ * Analysts complained that shellcode C2-IOC-lift cases showed the raw
+ * bytes in the DECODED OUTPUT panel, making them think the tool failed.
+ * IOCs (C2 IPs, URLs) are still extracted correctly and rendered in the
+ * IOC panels — this detector just prevents the OUTPUT textarea from
+ * looking broken.
+ *
+ * Returns { entropy, printableRatio, byteCount } when the payload should
+ * be hidden, else null.
+ *
+ * Threshold: entropy > 6.5  AND  printable < 50%  AND  length >= 64.
+ * (Random bytes have entropy ~7.99, English text ~4.2.)
+ */
+function detectBinaryPayload(text) {
+  if (!text || text.length < 64) return null;
+
+  const isPrintable = (c) => {
+    const o = c.charCodeAt(0);
+    if (o >= 32 && o < 127) return true;
+    if (o === 9 || o === 10 || o === 13) return true;
+    if (o >= 0x0100) return true;
+    return false;
+  };
+
+  // Sample up to first 4096 chars — enough for a reliable entropy read
+  // without slowing the render loop on huge outputs.
+  const sample = text.length > 4096 ? text.slice(0, 4096) : text;
+  const n = sample.length;
+
+  // Printable ratio
+  let printable = 0;
+  const freq = new Map();
+  for (let i = 0; i < n; i++) {
+    const c = sample[i];
+    if (isPrintable(c)) printable++;
+    freq.set(c, (freq.get(c) || 0) + 1);
+  }
+  const printableRatio = printable / n;
+  if (printableRatio >= 0.5) return null;
+
+  // Shannon entropy (base 2, per char)
+  let entropy = 0;
+  for (const count of freq.values()) {
+    const p = count / n;
+    entropy -= p * Math.log2(p);
+  }
+  if (entropy <= 6.5) return null;
+
+  return {
+    entropy: entropy,
+    printableRatio: printableRatio,
+    byteCount: text.length,
+  };
+}
+
+
+/**
  * OutputView
  * ----------
  * Enhanced Output panel with:
@@ -85,6 +148,9 @@ export default function OutputView({
   const [view, setView] = useState("text");  // text | hex | base64
   const [showDiff, setShowDiff] = useState(false);
   const [shellcodeBannerDismissed, setShellcodeBannerDismissed] = useState(false);
+  // Fix A (Feb-2026) — analyst opt-in to view raw binary bytes as text
+  // when the payload is high-entropy garble. Reset per new output.
+  const [showRawBinary, setShowRawBinary] = useState(false);
 
   const diff = useMemo(() => computeDiff(input || "", output || ""), [input, output]);
   const shellcode = useMemo(() => detectShellcode(output || ""), [output]);
@@ -97,6 +163,22 @@ export default function OutputView({
     () => (shellcode ? null : detectTerminalTail(output || "")),
     [output, shellcode],
   );
+
+  // Fix A · Feb-2026 — Whole-payload binary garble detection. Fires when
+  // the decoded output is high-entropy / low-printable AND neither a
+  // known-prologue shellcode nor a terminal-tail case has already claimed
+  // the render. We hide the raw bytes from the TEXT textarea by default
+  // (opt-in via `[SHOW RAW BYTES ANYWAY]`) and surface a banner directing
+  // the analyst to the HEX view + IOC panels.
+  const binaryPayload = useMemo(
+    () => (shellcode || terminalTail ? null : detectBinaryPayload(output || "")),
+    [output, shellcode, terminalTail],
+  );
+
+  // Reset the raw-binary opt-in whenever the underlying output changes.
+  useEffect(() => {
+    setShowRawBinary(false);
+  }, [output]);
 
   // Auto-switch to HEX view when a decode terminates on known shellcode —
   // rendering raw binary in TEXT view looks like garbage. Runs once per
@@ -114,8 +196,12 @@ export default function OutputView({
     // TEXT view — if a terminal-tail is detected, show the clean head only.
     // Raw bytes remain fully available in HEX / B64 views (evidence preserved).
     if (terminalTail) return terminalTail.clean;
+    // Fix A · Feb-2026 — Suppress high-entropy binary garble unless the
+    // analyst explicitly opts in via [SHOW RAW BYTES ANYWAY]. Empty body
+    // lets the banner + button dominate the panel.
+    if (binaryPayload && !showRawBinary) return "";
     return output || "";
-  }, [output, view, terminalTail]);
+  }, [output, view, terminalTail, binaryPayload, showRawBinary]);
 
   return (
     <div className="nvx-card" data-testid="output-card">
@@ -235,6 +321,56 @@ export default function OutputView({
         </div>
       )}
 
+      {/* Fix A · Feb-2026 — Binary Shellcode Payload banner. Fires when
+          the ENTIRE decoded output is high-entropy binary garble (no
+          shellcode prologue matched, no clean-head terminal tail). Hides
+          the raw bytes from the TEXT view by default; analyst can reveal
+          them with the [SHOW RAW BYTES ANYWAY] button. IOCs (C2 IPs/URLs)
+          continue to render in the IOC panels below. */}
+      {binaryPayload && view === "text" && (
+        <div
+          data-testid="binary-payload-banner"
+          style={{
+            display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+            padding: "10px 14px",
+            background: "rgba(217, 108, 108, 0.08)",
+            borderTop: "1px solid var(--border)",
+            borderBottom: "1px solid rgba(217, 108, 108, 0.35)",
+          }}
+        >
+          <ShieldAlert size={14} style={{ color: "var(--high)", flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <div className="mono" style={{ fontSize: 11, letterSpacing: "0.2em", color: "var(--high)", fontWeight: 600 }}>
+              ⚠ BINARY SHELLCODE PAYLOAD DETECTED
+            </div>
+            <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 3, lineHeight: 1.5 }}>
+              Payload is <b style={{ color: "var(--text)" }}>{binaryPayload.byteCount} bytes</b> of high-entropy binary content
+              {" "}(entropy <b style={{ color: "var(--text)" }}>{binaryPayload.entropy.toFixed(2)}</b> · printable{" "}
+              <b style={{ color: "var(--text)" }}>{(binaryPayload.printableRatio * 100).toFixed(0)}%</b>).
+              {" "}Raw bytes are not human-readable — inspect in <b style={{ color: "var(--text)" }}>HEX</b> view.
+              {" "}Extracted IOCs (C2 IPs / URLs) appear in the IOC panel below.
+            </div>
+          </div>
+          <button
+            className="nvx-btn sm ghost"
+            onClick={() => setView("hex")}
+            data-testid="binary-payload-view-hex"
+            title="Switch to HEX view to inspect raw binary bytes"
+            style={{ borderColor: "var(--high)", color: "var(--high)" }}
+          >
+            <Binary size={11} /> INSPECT HEX
+          </button>
+          <button
+            className="nvx-btn sm ghost"
+            onClick={() => setShowRawBinary((v) => !v)}
+            data-testid="binary-payload-show-raw"
+            title={showRawBinary ? "Hide raw binary bytes" : "Reveal raw binary bytes in TEXT view (may look garbled)"}
+          >
+            {showRawBinary ? "HIDE RAW BYTES" : "SHOW RAW BYTES ANYWAY"}
+          </button>
+        </div>
+      )}
+
       {/* Body */}
       <div className="nvx-card-body">
         {showDiff && view === "text" ? (
@@ -245,7 +381,11 @@ export default function OutputView({
             data-testid="output-textarea"
             value={renderedBody}
             readOnly
-            placeholder="Run a recipe or click AUTO INVESTIGATE to see decoded output here…"
+            placeholder={
+              binaryPayload && !showRawBinary
+                ? "Binary bytes hidden — use HEX view or click [SHOW RAW BYTES ANYWAY] above."
+                : "Run a recipe or click AUTO INVESTIGATE to see decoded output here…"
+            }
             style={view === "hex" ? { fontFamily: "JetBrains Mono, monospace", fontSize: 11 } : undefined}
           />
         )}
