@@ -17,6 +17,18 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 4 · Behavior Extractor (Feb 24, 2026 — SHIPPED behind flag)
+
+**Delivered:**
+- `backend/engine/detectors/behavior_extractor.py` — first real `Detector` plugin. Walks the immutable ExecGraph (never raw text) and emits `Behavior[]` with evidence Node IDs, tactic classification, confidence propagation, and structured parameters. Covers all 14 top-level MITRE tactics + 7 supporting behaviors documented in the RC5 spec.
+- Frozen rule table (documented in module docstring): ProcessNode → execution + specialised C2/persistence/credential access based on image sets; RegistryNode/ScheduledTaskNode/ServiceNode/MemoryNode/ShellcodeNode → structured persistence/evasion behaviors; semantic tags (`amsi_bypass`/`etw_bypass`/`encoded_command`) → defense_evasion.
+- **35 new tests** at `backend/tests/rc5/unit/behavior_extractor/test_behaviors.py`. Critical invariants tested: (1) `test_extractor_does_not_read_raw_output` proves § 12.2 (no raw-text parsing), (2) `test_advisor_origin_nodes_ignored` locks § 6.6 (no AI in verdict math), (3) `test_evidence_node_ids_all_resolve` locks § 12.3 (no dangling refs), (4) `test_behaviors_are_frozen` locks immutability.
+- URL tokenization added to PS parser (side-benefit enabling URL-hint capture in download behaviors — e.g. `Invoke-WebRequest -Uri http://c2/beacon` produces `command_and_control/download` with `parameters={url_hint: "http://c2/beacon"}`).
+- **280/280 RC5 tests passing** (97 Phase-1 + 37 Phase-2 CMD + 111 Phase-3 PS + 35 Phase-4 Behavior).
+- **Live smoke:** obfuscated PS `powershell.exe -NoP -Enc <b64 iwr>` produces 2 ExecNodes + 4 evidence-backed Behaviors (`execution/process_spawn` inner + `command_and_control/download` + `execution/process_spawn` outer + `defense_evasion/obfuscation`).
+
+**Compliance report:** `/app/memory/RC5_PHASE_4_COMPLIANCE.md` — every invariant + user directive audited. Zero silently dropped. Zero architectural weakening.
+
 ### RC5 · Phase 3 · PowerShell AST Interpreter (Feb 24, 2026 — SHIPPED behind flag)
 
 **Delivered:**

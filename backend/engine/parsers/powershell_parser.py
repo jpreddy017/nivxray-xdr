@@ -54,6 +54,7 @@ _TOKEN_RE = re.compile(
   | (?P<HERE_SQ>        @'[\s\S]*?'@           )
   | (?P<STR_SQ>         '(?:[^']|'')*'         )   # 'literal'
   | (?P<STR_DQ>         "(?:\\.|`.|[^"`\\])*"  )   # "expandable"
+  | (?P<URL>            https?://[^\s'"<>()\[\]|&;`]+ )   # bare URL as one token
   | (?P<VAR_BRACE>      \$\{[^}]+\}            )
   | (?P<VAR_SCOPED>     \$(?:env|script|global|local|private):[A-Za-z_][A-Za-z0-9_]* )
   | (?P<VAR>            \$[A-Za-z_][A-Za-z0-9_]* )
@@ -499,6 +500,10 @@ class PowerShellParser(SemanticParser):
             node, i = self._parse_scriptblock(toks, i, warnings)
         elif t.kind == "IDENT":
             # bare word — treat as string literal (positional arg)
+            node = SIRNode(kind=SIRKind.string_literal, value=t.value,
+                           parser="powershell", source_span=(t.start, t.end))
+            i += 1
+        elif t.kind == "URL":
             node = SIRNode(kind=SIRKind.string_literal, value=t.value,
                            parser="powershell", source_span=(t.start, t.end))
             i += 1
