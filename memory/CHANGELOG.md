@@ -2,6 +2,22 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02 · Phase 11.0 · Evidence Knowledge Graph Foundation (SHIPPED)
+
+- **Scope:** infrastructure only, side-car, zero verdict influence (user-approved).
+- **New modules:**
+  - `backend/engine/evidence_graph.py` — 18 node kinds + 19 edge kinds + immutable, content-addressed graph container + integrity validation.
+  - `backend/engine/evidence_graph_config.py` — `NIVX_EVIDENCE_GRAPH` (default `off`), `NIVX_EVIDENCE_GRAPH_METRICS`, `EvidenceGraphMetrics` (build ms, peak KB, node/edge counts, integrity errors, schema versions).
+  - `backend/engine/evidence_graph_builder.py` — pure `ExecGraph → EvidenceGraph` side-car; nearest-process anchoring; zero mutation of the source graph.
+- **New tests:** `tests/rc5/unit/evidence_graph/` (53 tests · deterministic IDs, immutability, dedup, integrity, serialization, feature-flag gating, non-influence, metrics, performance envelope).
+- **Test suite:** 762 pass / 0 fail / 2 xfail (up from 709 · +53 · zero regressions).
+- **Golden Corpus:** 88/88 (unchanged).
+- **Progression policy change:** the mandatory 30-day calendar-gated shadow run has been RETIRED. Phase progression is now driven by objective engineering quality gates (see `RC5_EVIDENCE_GRAPH_ROADMAP.md`).
+- **Constraints honoured:** verdicts / scoring / confidence / explainability / analyst-visible output all unchanged. `ExecGraph` remains authoritative. Legacy `operations.py` untouched. `rc22_adapter._apply_obfuscation_only_cap` untouched.
+- **Roadmap:** `RC5_EVIDENCE_GRAPH_ROADMAP.md` · Compliance: `RC5_PHASE_11_0_COMPLIANCE.md`.
+
+
+
 ## 2026-07-21 · Phase 9.5d · Corpus Taxonomy + Round-2 Expansion + xfail Hygiene (SHIPPED)
 
 - **Golden Corpus 51 → 82 samples** (`backend/engine/golden_corpus_expansion_r2.py`) — 15 more benign enterprise workloads (Exchange EMS, ADFS, WSUS, DNS admin, PKI, Print Mgmt, DHCP, GPO, VSS create-shadow, FSRM, WUA, LAPS, RDS, SCOM, Defender), 12 more malware families (TrickBot, Ryuk, LockBit, BlackCat, Conti, Bumblebee, DarkGate, IcedID, Astaroth, Snake KeyLogger, SocGholish, Latrodectus), 4 obfuscation/red-team samples (Invoke-Obfuscation, format-op, DOSfuscation, WMIC XSL LOLBAS).

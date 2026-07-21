@@ -17,6 +17,27 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 11.0 · Evidence Knowledge Graph Foundation (Feb 2026 — SHIPPED)
+
+**User-approved scope:** Infrastructure only · side-car · zero verdict influence.
+**Progression policy:** The mandatory 30-day calendar-gated shadow run has been RETIRED. Phase progression is now driven by objective engineering quality gates (all tests green, Golden Corpus ≥95%, zero regressions, performance/memory within thresholds, determinism, manual validation, engineering sign-off).
+
+**Delivered:**
+- `engine/evidence_graph.py` — 18 node kinds, 19 edge kinds, immutable models, deterministic content-addressed IDs (`sha256(kind|canonical_key)[:16]`), auto-dedup graph container, deterministic JSON round-trip, integrity validation (dangling edges, derivation cycles, content-address verification, orphan warnings).
+- `engine/evidence_graph_config.py` — `NIVX_EVIDENCE_GRAPH` feature flag (default `off`) + `NIVX_EVIDENCE_GRAPH_METRICS` toggle + `EvidenceGraphMetrics` (build ms, peak KB via `tracemalloc`, node/edge counts, integrity error count, schema versions).
+- `engine/evidence_graph_builder.py` — pure side-car builder mapping `ExecGraph` → `EvidenceGraph`. Anchors side-effects to nearest process ancestor. Zero mutation of source `ExecGraph`.
+- `tests/rc5/unit/evidence_graph/` — 53 new tests covering deterministic IDs, immutability, dedup, integrity, serialization, feature-flag gating, determinism, mapping correctness, non-influence, metrics, performance envelope.
+
+**Constraints honoured:**
+Verdicts unchanged · scoring unchanged · confidence unchanged · explainability unchanged · `ExecGraph` remains authoritative · legacy `operations.py` untouched · `rc22_adapter._apply_obfuscation_only_cap` untouched.
+
+**Test suite:** 762 pass / 0 fail / 2 xfail (up from 709 / +53 new · zero regressions). Golden Corpus 88/88 (unchanged).
+
+**Roadmap:** `/app/memory/RC5_EVIDENCE_GRAPH_ROADMAP.md` — Phases 11.0 → 11.8. Compliance: `/app/memory/RC5_PHASE_11_0_COMPLIANCE.md`.
+
+**Next:** Phase 11.1 — extend the ExecNode→EvidenceNode mapping table until every Golden Corpus sample yields a non-trivial evidence graph.
+
+
 ### RC5 · Phase 9.5d · Taxonomy + Corpus Round-2 + xfail Hygiene (Jul 21, 2026 — SHIPPED)
 
 **Delivered:**
