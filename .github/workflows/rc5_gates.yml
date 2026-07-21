@@ -113,20 +113,16 @@ jobs:
         run: python -m pytest tests/rc5/ -q --no-header
 
       # ─── § 13 Kill-list — protects the deprecation contract ────────
+      # Runs the two Python-based kill-list gates that check for NEW
+      # imports of `_KEYWORD_MITRE_MAP` / `_KEYWORD_LOLBAS_HITS` outside
+      # the legacy `operations.py`. These tests use precise regex on
+      # `import` statements and skip themselves via `pathlib` — a plain
+      # bash grep would false-positive on docstrings and the tests'
+      # own regex patterns.
       - name: Kill-list · no new imports of retired keyword maps
         working-directory: backend
         run: |
-          # A NEW import (outside operations.py where they still live) of
-          # the kill-listed symbols fails the build. This gate is seeded
-          # in Phase 1 so subsequent phases can't accidentally repopulate
-          # the old keyword paths.
-          set -e
-          BAD=$(grep -rn "_KEYWORD_MITRE_MAP\|_KEYWORD_LOLBAS_HITS" \
-                --include='*.py' --exclude-dir=__pycache__ \
-                engine/ routers/ tests/rc5/ 2>/dev/null || true)
-          if [ -n "$BAD" ]; then
-            echo "❌ Kill-list violation — new import of retired keyword map:"
-            echo "$BAD"
-            exit 1
-          fi
-          echo "✅ Kill-list clean."
+          python -m pytest \
+            tests/rc5/unit/mitre_v2/test_mitre_invariants.py::test_no_new_import_of_KEYWORD_MITRE_MAP_in_engine_or_routers \
+            tests/rc5/unit/lolbin_v2/test_lolbin_v2.py::test_no_new_import_of_KEYWORD_LOLBAS_HITS_in_engine \
+            -q --no-header
