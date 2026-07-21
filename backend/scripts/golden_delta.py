@@ -135,6 +135,23 @@ def build_report(head: Dict[str, Any],
                          f"{_delta(base_lat.get(k), head_lat.get(k), fmt='%.3f')} |")
         lines.append("")
 
+    # Per-category coverage (Phase 9.5d+).
+    head_cat = head.get("category_coverage", {}) or {}
+    base_cat = (base.get("category_coverage", {}) if base else {}) or {}
+    if head_cat:
+        lines.append("### Per-category coverage (pass rate by taxonomy)\n")
+        lines.append("| Category | Base | Head | Samples |")
+        lines.append("|---|---|---|---|")
+        for cat in sorted(head_cat.keys()):
+            hd = head_cat[cat] or {}
+            bd = base_cat.get(cat) or {}
+            samples = f"{hd.get('passed', 0)}/{hd.get('total', 0)}"
+            lines.append(
+                f"| {cat} | {bd.get('pass_rate', 'n/a')} | "
+                f"{_delta(bd.get('pass_rate'), hd.get('pass_rate'))} | {samples} |"
+            )
+        lines.append("")
+
     # Newly failing / newly supported.
     newly_failing = head.get("newly_failing") or []
     newly_supported = head.get("newly_supported") or []

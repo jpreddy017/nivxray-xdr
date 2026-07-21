@@ -2,6 +2,20 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-07-21 · Phase 9.5d · Corpus Taxonomy + Round-2 Expansion + xfail Hygiene (SHIPPED)
+
+- **Golden Corpus 51 → 82 samples** (`backend/engine/golden_corpus_expansion_r2.py`) — 15 more benign enterprise workloads (Exchange EMS, ADFS, WSUS, DNS admin, PKI, Print Mgmt, DHCP, GPO, VSS create-shadow, FSRM, WUA, LAPS, RDS, SCOM, Defender), 12 more malware families (TrickBot, Ryuk, LockBit, BlackCat, Conti, Bumblebee, DarkGate, IcedID, Astaroth, Snake KeyLogger, SocGholish, Latrodectus), 4 obfuscation/red-team samples (Invoke-Obfuscation, format-op, DOSfuscation, WMIC XSL LOLBAS).
+- **Canonical taxonomy** (`backend/engine/golden_corpus_taxonomy.py`) — 15 closed categories: enterprise_administration, powershell_administration, cloud_administration, devops_iac, developer_tooling, lolbas, persistence, credential_access, lateral_movement, downloaders, packers_obfuscation, ransomware, living_off_the_land, defense_evasion, edge_case_regression, baseline_smoke.
+- **Per-category coverage** emitted in `GoldenRunReport.category_coverage`; PR-delta reporter renders a per-taxonomy pass-rate table.
+- **xfail hygiene** (`tests/rc5/unit/hygiene/test_xfail_hygiene.py`) — every gap-tracking test must declare `reason=` string, use `strict=True`, and the whole gap-tracking dir must be human-reviewed at least every 60 days (enforced by test).
+- **Coverage-gap regression tests** (`tests/rc5/unit/coverage_gaps/test_parser_gaps.py`) — 2 `xfail(strict=True)` tests documenting the `$env:VAR + '...'` parser hang and missing `[Reflection.Assembly]::Load` → T1620 mapping. Both track post-cutover work.
+- **Honest reporting shift** — corpus results now explicitly scoped ("100% within corpus scope", not "zero FP globally"). Compliance doc `RC5_PHASE_9_5D_COMPLIANCE.md` lists gaps per category (cloud_admin, credential_access, lateral_movement, defense_evasion) as coverage under-represented, not solved.
+- **Full RC5 suite: 698 pass / 0 fail + 2 xfailed** (+3 vs Phase 9.5c+). Golden Corpus 82/82.
+- **Phase 10 cutover:** still BLOCKED pending 30-day shadow-run window.
+- **Charter compliance:** no new detection rules, verdict math, MITRE mappings, LOLBIN entries, or core architecture. Corpus data + taxonomy + hygiene + reporting only.
+
+
+
 ## 2026-02-23 · Phase 9.5c+ · Corpus Expansion + Latency Instrumentation + SOC Prime UI Polish (SHIPPED)
 
 - **Golden Corpus expanded 15 → 51 samples** (`backend/engine/golden_corpus_expansion.py`) with a 40/40/20 mix: benign enterprise (Windows admin, DSC, SCCM, Intune, Exchange, AD, Azure/MS Graph, Chocolatey, Winget, Office deploy, SQL, IIS, VMware PowerCLI, Hyper-V, wbadmin, GH Actions, Azure DevOps, `-ExecutionPolicy Bypass`), real-world malware (Emotet, Qakbot, Cobalt Strike, Empire, WMIC remote, certutil, Winlogon hijack, hidden schtasks, MSBuild, InstallUtil, vssadmin), and obfuscation edge cases (backticks, string concat, gzip+IEX, iwr short form, char array, format-op).

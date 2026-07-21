@@ -244,6 +244,10 @@ class SampleResult(BaseModel):
     # measures pipeline compute time only, no I/O).
     duration_ms: float = 0.0
     exception: Optional[str] = None
+    # Phase 9.5d+: canonical taxonomy category (see
+    # engine.golden_corpus_taxonomy.CATEGORIES). Populated by
+    # `_run_sample` via `category_for_sample_id`.
+    category: str = "edge_case_regression"
 
 
 class GoldenRunReport(BaseModel):
@@ -262,6 +266,10 @@ class GoldenRunReport(BaseModel):
     accuracy: Dict[str, float] = Field(default_factory=dict)   # per-metric
     # Phase 9.5c+: latency percentiles across all samples (ms).
     latency: Dict[str, float] = Field(default_factory=dict)    # mean / p50 / p95 / p99 / max
+    # Phase 9.5d+: per-category coverage — { category: {total, passed, pass_rate} }.
+    # Enables honest reporting like "downloaders: 8/8 pass (100%)" or
+    # "credential_access: 1/2 (50%)" instead of just an aggregate number.
+    category_coverage: Dict[str, Dict[str, float]] = Field(default_factory=dict)
     samples: List[SampleResult] = Field(default_factory=list)
 
 
@@ -274,13 +282,18 @@ _TIER_RANK = {"Benign": 0, "Suspicious": 1, "Malicious": 2, "Critical": 3}
 def _run_sample(sample: Dict[str, Any]) -> SampleResult:
     """Deterministically execute a single sample and return a SampleResult."""
     import time as _time
+    from .golden_corpus_categories import category_for_sample_id
     lang = sample["language"]
     src = sample["input"]
     expected = sample["expected"]
+    # Prefer an explicit `category` on the sample dict; fall back to the
+    # ID-prefix map for legacy entries that predate Phase 9.5d.
+    category = sample.get("category") or category_for_sample_id(sample["id"])
     result = SampleResult(
         sample_id=sample["id"],
         input_hash=hashlib.sha256(src.encode("utf-8")).hexdigest()[:16],
         language=lang,
+        category=category,
     )
     _t0 = _time.perf_counter()
     try:
@@ -409,6 +422,22 @@ def run_corpus(
         "total_ms": round(sum(durations), 3) if durations else 0.0,
     }
 
+    # Per-category coverage (Phase 9.5d+) — honest reporting per taxonomy
+    # bucket instead of a single aggregate number.
+    from collections import defaultdict as _defaultdict
+    _by_cat: Dict[str, List[SampleResult]] = _defaultdict(list)
+    for r in results:
+        _by_cat[r.category].append(r)
+    category_coverage: Dict[str, Dict[str, float]] = {}
+    for cat, rs in _by_cat.items():
+        cat_total = len(rs)
+        cat_passed = sum(1 for r in rs if r.passed)
+        category_coverage[cat] = {
+            "total": cat_total,
+            "passed": cat_passed,
+            "pass_rate": round(cat_passed / cat_total * 100.0, 2) if cat_total else 0.0,
+        }
+
     # Regressions vs previous run
     regression_count = 0
     newly_supported: List[str] = []
@@ -430,6 +459,7 @@ def run_corpus(
         newly_supported=newly_supported,
         newly_failing=newly_failing,
         coverage=coverage, accuracy=accuracy, latency=latency,
+        category_coverage=category_coverage,
         samples=results,
     )
 

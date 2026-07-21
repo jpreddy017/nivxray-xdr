@@ -17,6 +17,24 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 9.5d · Taxonomy + Corpus Round-2 + xfail Hygiene (Jul 21, 2026 — SHIPPED)
+
+**Delivered:**
+- **Golden Corpus 51 → 82 samples** (round 2 covering Exchange EMS, ADFS, WSUS, DNS/DHCP/PKI/Print/GPO/VSS/FSRM/WUA/LAPS/RDS/SCOM/Defender enterprise admin; TrickBot / Ryuk / LockBit / BlackCat / Conti / Bumblebee / DarkGate / IcedID / Astaroth / Snake KeyLogger / SocGholish / Latrodectus malware families; Invoke-Obfuscation / DOSfuscation / WMIC XSL LOLBAS obfuscation).
+- **Canonical taxonomy** (15 closed categories) with per-category coverage rendered in the PR-delta report — turns aggregate pass-rate into an honest per-class signal.
+- **xfail hygiene** — every gap-tracking test needs `reason=`, `strict=True`, and 60-day review cadence enforced by test.
+- **2 documented coverage gaps** (`$env:VAR` parser hang, reflective PE-load T1620) as `xfail(strict=True)` — will auto-fail the day a fix ships, forcing corpus expectation updates.
+- **Honest reporting shift** — dropped the "audit-grade / zero-FP-globally / contract-worthy" language from prior compliance docs. Claims now scoped to the corpus explicitly.
+
+**Charter compliance:** no new detection rules, MITRE mappings, LOLBIN entries, verdict weights, or core architecture. Corpus expansion + taxonomy + hygiene + reporting only.
+
+**Coverage gaps openly tracked:** cloud_administration (need Azure CLI / aws-cli / gcloud samples), credential_access (need Kerberoasting / LSASS-comsvcs), lateral_movement (need PsExec / WinRM / SMB push), defense_evasion (need AMSI-bypass / ClearEventLog / script-block-logging disable).
+
+**Test suite:** 698 pass · 2 xfailed. Golden Corpus 82/82 within corpus scope.
+
+**Compliance report:** `/app/memory/RC5_PHASE_9_5D_COMPLIANCE.md`.
+
+
 ### RC5 · Phase 9.5c+ · Corpus Expansion + Latency Instrumentation + SOC Prime UI Polish (Feb 23, 2026 — SHIPPED)
 
 **Delivered:**
