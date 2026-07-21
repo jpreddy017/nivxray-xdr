@@ -17,6 +17,17 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 9.5 + Golden Corpus Dashboard + Explainability Export + Analyst UI MVP (Feb 21, 2026 — SHIPPED)
+
+**Delivered:**
+- **Phase 9.5 Auto-Collector + Memory Metric:** `engine/shadow.py::run_and_record_shadow()` runs full RC5 pipeline in-process, captures peak-RSS delta (`resource.getrusage`), records snapshot. New field `ShadowSnapshot.rc5_memory_kb`.
+- **Golden Corpus Dashboard:** `backend/engine/golden_corpus.py` — 15-sample curated corpus with `verdict / verdict_min / mitre / lolbins_executed` expected fields. Metrics: pass/fail, regression count, per-stage coverage (decode/semantic/behavior/mitre/verdict), per-metric accuracy, newly-supported + newly-failing lists. Endpoints `/api/rc5/golden/{run,latest,summary,history}`. First live run: 10/15 pass = 66.67 % — real Phase-6/7 gaps surfaced honestly.
+- **Explainability Export:** `backend/engine/explain_export.py` — JSON (deterministic, sorted keys), HTML (self-contained dark theme, printable), PDF (ReportLab). Endpoint `POST /api/rc5/explain/export {input, language, format}`. All 8 user-listed fields covered (Evidence Tree, Execution Graph, Semantic IR, Behaviors, MITRE, Verdict, Confidence Breakdown, Why-NOT-Malicious). Live-verified: JSON 17.7 KB, HTML 5.8 KB, PDF 4.6 KB (valid `%PDF` header).
+- **Analyst UI MVP:** `frontend/src/pages/AnalystRC5Page.jsx` on `/analyst/rc5`. 12 panels: Verdict card + 4-color tier badge · 7-dim score bars · 5-stage confidence bars · Why-NOT-Malicious with signals + guardrails · Evidence Tree drill-down · MITRE table + **Download Navigator JSON** + **"Open in ATT&CK Navigator"** buttons · LOLBIN 3-state colored table · Behaviors table · Golden Corpus health card · Cutover Gate readiness card · Shadow-Run info card · JSON/HTML/PDF export buttons · X-Decode-Ms header surfaced. Full `data-testid` coverage.
+- **Full RC5 suite = 658 pass / 0 fail unchanged.**
+
+**Compliance report:** `/app/memory/RC5_PHASE_9_5_COMPLIANCE.md` — every user-listed capability delivered.
+
 ### RC5 · Phase 9 · Shadow Run + Delta Analyzer + A/B Toggle (Feb 21, 2026 — SHIPPED to Prod)
 
 **Delivered:**

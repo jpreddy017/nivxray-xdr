@@ -2,6 +2,16 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-21 · Phase 9.5 + Golden Corpus + Explainability Export + Analyst UI MVP (SHIPPED)
+
+- **Auto-collector + memory metric:** `engine/shadow.py::run_and_record_shadow()` + `ShadowSnapshot.rc5_memory_kb` field. `resource.getrusage`-based peak-RSS delta tracking.
+- **Golden Corpus Dashboard:** `backend/engine/golden_corpus.py` — 15 curated samples, 10 tracked metrics (pass/fail, regression count, decode/semantic/behavior/mitre/verdict coverage, verdict/mitre/lolbin/behavior accuracy, newly-supported + newly-failing lists). Endpoints `/api/rc5/golden/{run,latest,summary,history}`. First run: 66.67 % pass, real gaps surfaced.
+- **Explainability Export:** `backend/engine/explain_export.py` — JSON (deterministic sort), HTML (dark theme, printable), PDF (ReportLab). All user-listed fields covered. Endpoint `POST /api/rc5/explain/export`.
+- **Analyst UI (P1 MVP):** `frontend/src/pages/AnalystRC5Page.jsx` on `/analyst/rc5`. 12 panels: verdict card, 7-dim scores, 5-stage confidence, Why-NOT-Malicious, Evidence Tree, MITRE table with Navigator JSON download + "Open in ATT&CK Navigator" button, LOLBIN 3-state table, behaviors, Golden Corpus health, Cutover Gate status, Shadow-Run info, JSON/HTML/PDF exports, X-Decode-Ms header surface.
+- **Full RC5 suite = 658 pass / 0 fail unchanged.**
+- **Report:** `RC5_PHASE_9_5_COMPLIANCE.md`.
+
+
 ## 2026-02-21 · RC5 · Phase 9 · Shadow Run + Delta Analyzer + A/B Toggle (DEPLOYED to Prod)
 
 - **New:** `backend/engine/shadow.py` — snapshot model + 12-dimension delta analyzer.

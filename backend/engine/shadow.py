@@ -73,6 +73,7 @@ class ShadowSnapshot(BaseModel):
     rc5_dangling_refs: int = 0
     rc5_confidence: Dict[str, int] = Field(default_factory=dict)  # 5-stage
     rc5_latency_ms: Optional[float] = None
+    rc5_memory_kb: Optional[int] = None   # peak RSS delta during RC5 pipeline
     rc5_exception: Optional[str] = None
     rc5_parser_warnings: List[str] = Field(default_factory=list)
 
@@ -100,6 +101,7 @@ def make_snapshot(
     rc5_response: Optional[Dict[str, Any]] = None,
     rc5_exception: Optional[str] = None,
     rc5_latency_ms: Optional[float] = None,
+    rc5_memory_kb: Optional[int] = None,
     corpus_label: Optional[str] = None,
     ts: Optional[datetime] = None,
 ) -> ShadowSnapshot:
@@ -116,6 +118,7 @@ def make_snapshot(
         rc4_exception=rc4_exception,
         rc5_exception=rc5_exception,
         rc5_latency_ms=rc5_latency_ms,
+        rc5_memory_kb=rc5_memory_kb,
         corpus_label=corpus_label,
     )
     if rc5_response and not rc5_exception:
@@ -393,6 +396,91 @@ async def cumulative_report(
     }
 
 
+async def run_and_record_shadow(
+    db,
+    *,
+    original_input: str,
+    language: str = "cmd",
+    rc4_verdict: Optional[str] = None,
+    rc4_mitre: Optional[List[str]] = None,
+    rc4_lolbas: Optional[List[str]] = None,
+    rc4_latency_ms: Optional[float] = None,
+    rc4_exception: Optional[str] = None,
+    corpus_label: Optional[str] = None,
+) -> Optional[str]:
+    """Auto-collector: run the RC5 pipeline in-process, record a snapshot.
+
+    Returns the inserted doc-id, or `None` if `emit_enabled=false` (via
+    settings) or `SEMANTIC_ENGINE_V2=false`. This is safe to call from
+    any request handler after the primary RC4 code path has finished.
+    """
+    import os
+    import resource
+    import time
+
+    if os.environ.get("SEMANTIC_ENGINE_V2", "").lower() not in ("1", "true", "yes", "on"):
+        return None
+    setting = await db["settings"].find_one({"_id": "rc5_shadow"})
+    if not setting or not setting.get("emit_enabled"):
+        return None
+
+    # In-process RC5 pipeline invocation.
+    from .parsers.cmd_parser import CmdParser
+    from .parsers.powershell_parser import PowerShellParser
+    from .interpreters.cmd_interpreter import CmdInterpreter
+    from .interpreters.powershell_interpreter import PowerShellInterpreter
+    from .detectors.behavior_extractor import extract_behaviors
+    from .detectors.mitre_mapper import map_behaviors_to_mitre
+    from .detectors.lolbin_v2 import classify_lolbins
+    from .detectors.verdict_v2 import compute_verdict
+    from .detectors.explainability import compile_explanation
+
+    parser = PowerShellParser() if language == "powershell" else CmdParser()
+    interp = PowerShellInterpreter() if language == "powershell" else CmdInterpreter()
+    mem_before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    t0 = time.perf_counter()
+    rc5_exc: Optional[str] = None
+    rc5_dict: Dict[str, Any] = {}
+    try:
+        sir = parser.parse(original_input)
+        graph = interp.interpret(sir)
+        behaviors = extract_behaviors(graph)
+        mitre = map_behaviors_to_mitre(behaviors)
+        lolbins = classify_lolbins(graph)
+        verdict = compute_verdict(behaviors, mitre, lolbins)
+        explain = compile_explanation(
+            original_input=original_input, sir=sir, graph=graph,
+            behaviors=behaviors, mitre=mitre, lolbins=lolbins, verdict=verdict,
+        )
+        rc5_dict = {
+            "mitre": [m.model_dump(mode="json") for m in mitre],
+            "lolbins_v2": [l.model_dump(mode="json") for l in lolbins],
+            "behaviors": [b.model_dump(mode="json") for b in behaviors],
+            "exec_graph": {"nodes": [{"kind": n.kind.value} for n in graph.nodes]},
+            "verdict_v2": verdict.model_dump(mode="json"),
+            "explain": explain.model_dump(mode="json"),
+            "warnings": list(sir.warnings or []),
+        }
+    except Exception as exc:
+        rc5_exc = f"{type(exc).__name__}: {exc}"
+    rc5_latency_ms = round((time.perf_counter() - t0) * 1000, 3)
+    mem_after = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    rc5_memory_kb = max(0, int(mem_after - mem_before))
+
+    snap = make_snapshot(
+        original_input=original_input, language=language,
+        rc4_verdict=rc4_verdict, rc4_mitre=rc4_mitre,
+        rc4_lolbas=rc4_lolbas, rc4_latency_ms=rc4_latency_ms,
+        rc4_exception=rc4_exception,
+        rc5_response=rc5_dict if not rc5_exc else None,
+        rc5_exception=rc5_exc,
+        rc5_latency_ms=rc5_latency_ms,
+        rc5_memory_kb=rc5_memory_kb,
+        corpus_label=corpus_label,
+    )
+    return await record_snapshot(db, snap)
+
+
 __all__ = [
     "COLLECTION",
     "ShadowSnapshot",
@@ -403,4 +491,5 @@ __all__ = [
     "load_snapshots",
     "daily_report",
     "cumulative_report",
+    "run_and_record_shadow",
 ]
