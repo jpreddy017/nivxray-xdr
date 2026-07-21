@@ -103,9 +103,26 @@ def try_orchestrator_first(
         ))
         # HARD wall-clock ceiling — some payload shapes cause the
         # candidate-picker to iterate thousands of times before
-        # respecting `Budget.wall_time_ms`. We enforce a 15 s absolute
-        # ceiling via a background daemon that raises on the main
-        # thread. That's still 45 s below the frontend HTTP timeout.
+        # respecting `Budget.wall_time_ms`. We enforce an absolute
+        # ceiling via a background daemon that raises on the main thread.
+        #
+        # RC4.6.2 mitigation (Feb 21, 2026):
+        # Raised from 15 s → 45 s. Prod measurements showed the same
+        # in-process work that completes in 1.9 s on the Preview
+        # container takes ~30 s on the Prod container, with the ratio
+        # (~6×) holding across all CPU-bound payload sizes and NOT
+        # holding for network / auth / non-CPU work. This looks like a
+        # Prod-side CPU-allocation delta vs Preview that Emergent
+        # Support is investigating. Until they confirm parity, 45 s
+        # keeps legitimate Prod decodes from hitting the safe-fallback.
+        # Cloudflare's proxy timeout is 100 s, so 45 s still leaves a
+        # 55 s safety margin against 524 timeouts.
+        #
+        # This is a MITIGATION, not the permanent fix. If Prod CPU
+        # parity is restored, this ceiling never fires (Preview at 1.9 s
+        # is 24× below 45 s). Revert to 15 s once the infra issue is
+        # confirmed resolved.
+        _HARD_CEILING_S = 45.0
         import threading
         result_holder: Dict[str, Any] = {}
         def _run():
@@ -115,7 +132,7 @@ def try_orchestrator_first(
                 result_holder["err"] = e
         th = threading.Thread(target=_run, daemon=True)
         th.start()
-        th.join(timeout=15.0)
+        th.join(timeout=_HARD_CEILING_S)
         if th.is_alive():
             # Orchestrator is still churning — abandon it, return safe fallback
             return {
@@ -124,7 +141,7 @@ def try_orchestrator_first(
                 "engine": "rc2-orchestrator-hard-ceiling",
                 "steps": [], "trace": [],
                 "reached_shellcode": False,
-                "terminal": "hard-ceiling-15s",
+                "terminal": f"hard-ceiling-{int(_HARD_CEILING_S)}s",
                 "iocs": {"ips": [], "urls": [], "domains": [], "emails": [],
                          "file_paths": [], "bitcoin_addresses": [],
                          "hashes": {"md5": [], "sha1": [], "sha256": []}},
@@ -132,7 +149,7 @@ def try_orchestrator_first(
                 "verdict": "needs_review", "risk_score": 0,
                 "family": None,
                 "engine_reason": (
-                    f"Orchestrator exceeded 15 s hard ceiling on {len(payload)}B "
+                    f"Orchestrator exceeded {int(_HARD_CEILING_S)} s hard ceiling on {len(payload)}B "
                     "input; returning raw so the request stays under the HTTP timeout."
                 ),
             }
