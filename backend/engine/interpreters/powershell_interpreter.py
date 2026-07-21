@@ -560,6 +560,39 @@ class PowerShellInterpreter(SemanticInterpreter):
                     return int(arg_vals[0]), 100, graph
                 except Exception:
                     return "", 30, graph
+            # [Reflection.Assembly]::Load / LoadFile / LoadFrom / LoadWithPartialName
+            # — emit a ReflectionNode so behavior_extractor / MITRE T1620 /
+            # verdict_v2 all see reflective PE loading as a first-class
+            # deterministic node. Feb-2026 coverage-gap fix.
+            if (base_name.endswith("reflection.assembly")
+                    or base_name in ("assembly", "system.reflection.assembly")
+                    or base_name.endswith("assembly")):
+                mname = name.lower()
+                if mname in ("load", "loadfile", "loadfrom",
+                             "loadwithpartialname", "unsafeloadfrom"):
+                    payload_kind = (
+                        "bytes" if arg_vals and isinstance(arg_vals[0], (bytes, bytearray))
+                        else "path" if mname in ("loadfile", "loadfrom", "unsafeloadfrom")
+                        else "name" if mname == "loadwithpartialname"
+                        else "unknown"
+                    )
+                    payload_len = (
+                        len(arg_vals[0]) if arg_vals and isinstance(arg_vals[0], (bytes, bytearray, str))
+                        else 0
+                    )
+                    refl = ExecNode(
+                        kind=NodeKind.reflection,
+                        args={
+                            "assembly": f"[{base_type.value}]::{name}",
+                            "method": mname,
+                            "payload_kind": payload_kind,
+                            "payload_len": payload_len,
+                        },
+                        reconstructed=f"[{base_type.value}]::{name}(<{payload_kind}:{payload_len}B>)",
+                        confidence=85, parser="powershell", inputs=parents,
+                    )
+                    graph = graph.add_node(refl)
+                    return refl.reconstructed, 85, graph
             # Fallback: preserve `[Type]::name(...)` syntax so downstream
             # (AMSI-bypass fingerprinting, provenance) sees the raw form.
             preserved_type = str(base_type.value or "")

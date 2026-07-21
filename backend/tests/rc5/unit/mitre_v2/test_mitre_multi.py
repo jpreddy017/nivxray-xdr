@@ -47,8 +47,10 @@ def test_amsi_and_reflection_both_map_independently():
     b2 = _b(TacticKind.defense_evasion, "reflection", {}, nid="n_r")
     mm = map_behaviors_to_mitre([b1, b2])
     subs = {m.sub_technique_id for m in mm}
+    techs = {m.technique_id for m in mm}
     assert "T1562.001" in subs
-    assert "T1055.001" in subs
+    # Feb-2026: reflection now maps to T1620 (Reflective Code Loading).
+    assert "T1620" in techs
 
 
 def test_mshta_with_download_emits_T1218_005_AND_T1105():

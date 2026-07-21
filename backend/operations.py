@@ -1549,7 +1549,42 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
     # Trim any trailing punctuation that shouldn't be part of a URL
     urls = [u.rstrip(".,)]}") for u in urls]
     urls = list(dict.fromkeys([u for u in urls if len(u) > 10]))
-    ips = list(dict.fromkeys(re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", r)))
+    # Feb-2026 · deterministic IPv4 classification (Priority 1 correctness):
+    # (a) validate each octet 0-255 (rejects `999.999.999.999` regex hits);
+    # (b) reject dotted-quads with 3+ zero octets (`9.0.0.0`, `1.0.0.0`, `10.0.0.0`) —
+    #     these are software version numbers or network base addresses, never
+    #     useful as C2 host IOCs;
+    # (c) reject broadcast `255.255.255.255` and Version=X.Y.Z.W context.
+    _ip_candidates = re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", r)
+    def _is_routable_ipv4_ioc(ip: str, blob: str) -> bool:
+        octs = ip.split(".")
+        try:
+            nums = [int(x) for x in octs]
+        except ValueError:
+            return False
+        if any(n < 0 or n > 255 for n in nums):
+            return False
+        # Reject IPs with 3+ zero octets — versions (`9.0.0.0`, `1.0.0.0`),
+        # network base addresses (`10.0.0.0`), and any-address (`0.0.0.0`).
+        if sum(1 for n in nums if n == 0) >= 3:
+            return False
+        if ip == "255.255.255.255":
+            return False
+        # Reject when appearing in an assembly-version / `Version=` context.
+        # Case-insensitive check on a small window around the match.
+        idx = blob.find(ip)
+        if idx >= 0:
+            window = blob[max(0, idx - 24):idx + len(ip) + 24].lower()
+            if any(marker in window for marker in (
+                "version=", "version:", ", version=", "assemblyversion",
+                "fileversion", "productversion",
+            )):
+                return False
+        return True
+
+    ips = list(dict.fromkeys(
+        ip for ip in _ip_candidates if _is_routable_ipv4_ioc(ip, r)
+    ))
     emails = list(dict.fromkeys(re.findall(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}", r)))
     doms = list(dict.fromkeys(re.findall(r"\b(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b", r.lower())))
     md5 = list(dict.fromkeys(re.findall(r"\b[a-fA-F0-9]{32}\b", text)))

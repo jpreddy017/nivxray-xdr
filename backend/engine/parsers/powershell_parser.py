@@ -174,9 +174,20 @@ class PowerShellParser(SemanticParser):
             if toks[i].kind in ("NL", "SEMI"):
                 i += 1
                 continue
+            prev_i = i
             node, i = self._parse_statement(toks, i, warnings)
             if node is not None:
                 stmts.append(node)
+            # Anti-hang safeguard — if a downstream parser returns without
+            # advancing `i`, we skip one token and record a warning rather
+            # than looping forever. Prevents future coverage-gap regressions
+            # from becoming infinite loops.
+            if i == prev_i:
+                warnings.append(
+                    f"parser: no-advance at token {toks[i].kind}={toks[i].value!r} "
+                    f"@ {toks[i].start}; skipping to avoid hang"
+                )
+                i += 1
         root = SIRNode(kind=SIRKind.program, children=tuple(stmts), parser=self.name,
                        source_span=(0, len(text)))
         return SIRTree(root=root, parser=self.name, original_length=len(text),
@@ -612,12 +623,34 @@ class PowerShellParser(SemanticParser):
     def _parse_call_args(self, toks, i, warnings):
         """Parse comma-separated arg list, stopping at RPAREN. This
         variant does NOT let bare commas promote to array_literal — each
-        atom is a separate argument."""
+        atom is a separate argument. Binary operators (`+`, `-eq`,
+        `-join`, etc.) between atoms ARE consumed so expressions like
+        ``$w.Foo($env:APPDATA + '\\x.dll')`` parse cleanly and do not
+        leave a stray `+` token that would trigger a top-level parse
+        loop hang (RC5 coverage-gap fix, Feb 2026)."""
         args: List[SIRNode] = []
         while i < len(toks) and toks[i].kind not in ("RPAREN", "NL", "SEMI"):
             atom, i = self._parse_atom(toks, i, warnings)
             if atom is None:
                 break
+            # Chain binary operators (except COMMA, which is the arg separator).
+            while i < len(toks) and toks[i].kind in ("OP2", "PLUS"):
+                op = toks[i].value
+                i += 1
+                rhs, i = self._parse_atom(toks, i, warnings)
+                if rhs is None:
+                    break
+                kind = SIRKind.binary_op
+                if op == "-join":
+                    kind = SIRKind.join_op
+                elif op == "-split":
+                    kind = SIRKind.split_op
+                elif op == "-replace":
+                    kind = SIRKind.replace_op
+                elif op == "-f":
+                    kind = SIRKind.format_op
+                atom = SIRNode(kind=kind, value=op, children=(atom, rhs),
+                               parser="powershell")
             args.append(atom)
             if i < len(toks) and toks[i].kind == "COMMA":
                 i += 1

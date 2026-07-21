@@ -472,8 +472,8 @@ MITRE_RULES: Tuple[MitreRule, ...] = (
     ),
     MitreRule(
         rule_id="R-DE-REFLECTION",
-        technique_id="T1055", sub_technique_id="T1055.001",
-        technique_name="Process Injection: Dynamic-link Library / Reflective loader",
+        technique_id="T1620", sub_technique_id=None,
+        technique_name="Reflective Code Loading",
         behavior_tactic=TacticKind.defense_evasion, sub_kind="reflection",
         base_confidence=90,
         data_sources=("Sysmon EventID 7 (ImageLoaded)", "AMSI 4104"),

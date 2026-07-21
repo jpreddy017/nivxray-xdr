@@ -319,7 +319,21 @@ function InboxTab({ setStatus, setErr }) {
               {rows.map(r => (
                 <tr key={r.id} data-testid={`learner-inbox-row-${r.id}`}>
                   <td className="mono">{r.id.slice(0, 8)}</td>
-                  <td className="mono">{r.cluster_key}</td>
+                  <td
+                    className="mono"
+                    data-testid={`learner-cluster-${r.id}`}
+                    style={{
+                      // Feb-2026 · disable ligatures so `|-` in the cluster
+                      // key does not render as `⊢` (JetBrains Mono ligature)
+                      // in the cluster column. The stored key is ASCII-only
+                      // (`printable|small|-|-|-`); the ligature substitution
+                      // was purely visual.
+                      fontVariantLigatures: "none",
+                      fontFeatureSettings: '"liga" 0, "calt" 0',
+                    }}
+                  >
+                    {r.cluster_key}
+                  </td>
                   <td><StatusBadge s={r.status} /></td>
                   <td>
                     {r.dataset_source === "decode_feedback" ? (

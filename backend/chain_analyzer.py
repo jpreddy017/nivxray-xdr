@@ -254,11 +254,26 @@ def detect_malware_family(stages: List[Dict[str, Any]]) -> Optional[Dict[str, An
     if not votes:
         return None
     top, count = votes.most_common(1)[0]
+    # Feb-2026 · weak-evidence gate (Priority 1 correctness):
+    # A single regex hit is NOT sufficient to attribute a malware family.
+    # Require ≥ 2 corroborating signal hits before returning a family
+    # match — a single string coincidence must not drive verdict
+    # elevation. Weak single-hit candidates are surfaced as
+    # `provisional=True` for analyst review but do NOT influence risk.
+    if count < 2:
+        return {
+            "family": top,
+            "confidence": 20,           # low, and NOT verdict-elevating
+            "hits": count,
+            "evidence": evidence[top][:5],
+            "provisional": True,
+        }
     return {
         "family": top,
         "confidence": min(100, count * 40),
         "hits": count,
         "evidence": evidence[top][:5],
+        "provisional": False,
     }
 
 
@@ -275,8 +290,10 @@ def _aggregate_risk(stages: List[Dict[str, Any]], merged_iocs: Dict[str, List[st
     # Chain amplifier: +5 per additional stage beyond the first, capped
     if len(stages) > 1:
         score = min(100, score + (len(stages) - 1) * 5)
-    if family:
-        # Known-family match is a huge tell
+    if family and not family.get("provisional", False):
+        # Feb-2026 · Only firm (non-provisional) family attributions
+        # contribute to risk. Weak single-hit provisional matches are
+        # surfaced for analyst review but must not elevate verdict tier.
         score = min(100, score + 15)
     if score >= 70:
         verdict, level = "Malicious", "high"
