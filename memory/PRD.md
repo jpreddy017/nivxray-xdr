@@ -17,6 +17,18 @@ derives every conclusion from graph evidence.
 - `/app/memory/RC5_SEMANTIC_ENGINE_SPEC.md` — 21-section architecture spec (v2).
 - `/app/memory/RC5_PLUGIN_API.md` — frozen plugin contract for future parsers/detectors.
 
+### RC5 · Phase 4.5 · `/api/rc5/parse` Diagnostic Endpoint (Feb 24, 2026 — SHIPPED)
+
+**Delivered:**
+- `backend/routers/rc5_diag.py` — read-only, deterministic, AI-free `POST /api/rc5/parse` + `GET /api/rc5/status`. Admin JWT required (`require_admin` dep) AND `RC5_DIAG_ENABLED=true` OR `SEMANTIC_ENGINE_V2=true` env flag. Returns full RC5 trace in one JSON blob: `api_version` · `semantic_engine_version` · `plugin_versions` · `language` (auto-detected) · `semantic_ir` · `exec_graph` · `behaviors` · `evidence_refs` · `confidence_summary` (min/median/max/unresolved_count/total) · `reconstructed_commands` · `decode_chain` · `warnings` · `unresolved_nodes` · `processing_time_ms`.
+- Registered on `/api/rc5/*` via `server.py`. OpenAPI/Swagger auto-generated at `/openapi.json` with `ParseRequest`/`ParseResponse` schemas + summary + description.
+- `RC5_DIAG_ENABLED=true` added to Preview `.env` (Prod stays OFF by design).
+- **57 API regression tests** covering auth, gating, response shape, language detection, CMD/PS parses, confidence, determinism, OpenAPI docs, evidence-ref integrity, AI-absence static check.
+- **Grand total 337 RC5 tests passing.**
+- **Live verification:** `POST /api/rc5/parse {"input":"Start-Process notepad.exe"}` → 200 in 0.27ms; returns 1 ExecNode + 1 Behavior (`execution/process_spawn`), confidence 100.
+
+**Compliance report:** `/app/memory/RC5_PHASE_4_5_COMPLIANCE.md`. Every user-listed field + every requirement audited. Zero architectural invariant weakened.
+
 ### RC5 · Phase 4 · Behavior Extractor (Feb 24, 2026 — SHIPPED behind flag)
 
 **Delivered:**
