@@ -326,7 +326,7 @@ export default function DeviceTrajectory() {
                 {/* SVG overlay: lifelines + spawn arcs */}
                 <svg width={canvasW} height={canvasH}
                      className="absolute top-0 left-0 pointer-events-none">
-                  {/* Lifelines */}
+                  {/* Lifelines — dashed, matching Cisco Device Trajectory pattern */}
                   {rows.map((r, i) => {
                     const y = i * ROW_H + ROW_H / 2;
                     const x1 = xForTs(r.firstTs);
@@ -340,13 +340,9 @@ export default function DeviceTrajectory() {
                     return (
                       <g key={r.key + ":line"}>
                         <line x1={x1 - 4} y1={y} x2={x2 + 4} y2={y}
-                              stroke={stroke} strokeWidth={isSel ? 2 : 1}
-                              strokeOpacity={isSel ? 0.95 : 0.65} />
-                        {/* start/end tick marks */}
-                        <line x1={x1} y1={y - 5} x2={x1} y2={y + 5}
-                              stroke={stroke} strokeOpacity="0.55" strokeWidth="1" />
-                        <line x1={x2} y1={y - 5} x2={x2} y2={y + 5}
-                              stroke={stroke} strokeOpacity="0.55" strokeWidth="1" />
+                              stroke={stroke} strokeWidth={isSel ? 1.5 : 1}
+                              strokeDasharray="2 3"
+                              strokeOpacity={isSel ? 0.95 : 0.55} />
                       </g>
                     );
                   })}
@@ -701,68 +697,80 @@ function ProcessRail({ rows, selectedKey, onPickRow }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Event glyph on a lifeline
+// Event glyph on a lifeline — Cisco-style symbol set
+//   · Circle-with-play (▷)   → default execution / process spawn
+//   · Circle-with-plus (+)   → file creation / write
+//   · Red hex shield         → malicious verdict override
+//   · Amber warning triangle → suspicious verdict (compact)
+// Sized 22px so they read cleanly at 1080p; grow to 26 on hover.
 // ═══════════════════════════════════════════════════════════════════
 function EventGlyph({ frame, x, y, selected, onSelect }) {
   const v = verdictFor(frame);
   const meta = LANE_META[frame.lane] || LANE_META.process;
-  const size = 18;
+  const size = 22;
   const half = size / 2;
   const mitre0 = (frame.mitre || [])[0];
 
-  // Malicious → red hex shield · Suspicious → amber triangle · Benign → play dot
   const isMalicious = v === "malicious";
-  const isSuspicious = v === "suspicious";
+  const isFileCreate = frame.lane === "file" && !isMalicious;
+  // Neutral outline color on the disc — bright zinc for legibility on dark canvas
+  const discFill   = "#0B0B0E";
+  const discStroke = selected ? "#F59E0B"
+                    : (v === "suspicious" ? "#A16207"
+                    : "#71717A"); // zinc-500
 
   return (
     <button
       data-testid={`event-glyph-${frame.frame_iid}`}
       onClick={() => onSelect(frame)}
-      className="absolute z-10 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-amber-500
+      className="absolute z-10 outline-none focus-visible:ring-2 focus-visible:ring-amber-500
                  transition-transform duration-150 hover:scale-125"
       style={{
         left: x - half, top: y - half,
         width: size, height: size,
-        background: selected ? "rgba(245,158,11,0.15)" : "transparent",
-        border: selected ? "1px solid #F59E0B" : "none",
-        boxShadow: selected ? "0 0 12px rgba(245,158,11,0.35)" : "none",
+        filter: selected ? "drop-shadow(0 0 6px rgba(245,158,11,0.55))" : "none",
       }}
       title={frame.label || frame.action}
     >
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <defs>
-          <filter id={`g-${frame.frame_iid}`} x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="1.2" result="b" />
-            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
         {isMalicious ? (
-          // hex shield
-          <g filter={`url(#g-${frame.frame_iid})`}>
-            <polygon points={`${half},2 ${size - 2},${half - 3} ${size - 2},${half + 3} ${half},${size - 2} 2,${half + 3} 2,${half - 3}`}
-                     fill="#450A0A" stroke={VERDICT.malicious.color} strokeWidth="1.4" />
-            <path d={`M ${half - 3} ${half - 1} L ${half - 1} ${half + 2} L ${half + 3} ${half - 3}`}
-                  fill="none" stroke="#FCA5A5" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          /* ── red hex shield with checkmark ─────────────────────── */
+          <g>
+            <polygon
+              points={`${half},1 ${size - 1},${half - 4} ${size - 1},${half + 4} ${half},${size - 1} 1,${half + 4} 1,${half - 4}`}
+              fill="#450A0A"
+              stroke={VERDICT.malicious.color}
+              strokeWidth="1.6"
+            />
+            <path
+              d={`M ${half - 4} ${half - 1} L ${half - 1} ${half + 3} L ${half + 4} ${half - 4}`}
+              fill="none" stroke="#FCA5A5" strokeWidth="1.6"
+              strokeLinecap="round" strokeLinejoin="round"
+            />
           </g>
-        ) : isSuspicious ? (
-          // amber triangle
-          <g filter={`url(#g-${frame.frame_iid})`}>
-            <polygon points={`${half},2 ${size - 2},${size - 2} 2,${size - 2}`}
-                     fill="#78350F" stroke={VERDICT.suspicious.color} strokeWidth="1.4" />
-            <line x1={half} y1={half - 2} x2={half} y2={half + 2}
-                  stroke="#FDE68A" strokeWidth="1.4" strokeLinecap="round" />
-            <circle cx={half} cy={half + 4} r="0.9" fill="#FDE68A" />
+        ) : isFileCreate ? (
+          /* ── circle with plus (file created) ───────────────────── */
+          <g>
+            <circle cx={half} cy={half} r={half - 2}
+                    fill={discFill} stroke={discStroke} strokeWidth="1.5" />
+            <line x1={half - 4} y1={half} x2={half + 4} y2={half}
+                  stroke={meta.accent} strokeWidth="1.8" strokeLinecap="round" />
+            <line x1={half} y1={half - 4} x2={half} y2={half + 4}
+                  stroke={meta.accent} strokeWidth="1.8" strokeLinecap="round" />
           </g>
         ) : (
-          // benign play dot in lane accent
+          /* ── circle with play triangle (execution / observation) ─ */
           <g>
-            <circle cx={half} cy={half} r={half - 3}
-                    fill="#0B0B0E" stroke={meta.accent} strokeWidth="1.4" />
-            <polygon points={`${half - 1.5},${half - 2.5} ${half - 1.5},${half + 2.5} ${half + 2.5},${half}`}
-                     fill={meta.accent} />
+            <circle cx={half} cy={half} r={half - 2}
+                    fill={discFill} stroke={discStroke} strokeWidth="1.5" />
+            <polygon
+              points={`${half - 2.5},${half - 3.5} ${half - 2.5},${half + 3.5} ${half + 3.5},${half}`}
+              fill={meta.accent}
+            />
           </g>
         )}
       </svg>
+
       {mitre0 && (
         <span
           className="absolute -top-3 -right-1 text-[8px] leading-none px-1 py-[1px] rounded-sm
