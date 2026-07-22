@@ -132,7 +132,13 @@ jobs:
         # in pytest-xdist#754). Serial completes in 2–3 min on CI vs
         # <30 s locally; well within the 40-min timeout-minutes budget.
         # Per-test --timeout=60 kills any single hang (belt-and-braces).
-        run: python -m pytest tests/rc5/ -q --no-header -m "not slow" --timeout=60 --timeout-method=thread -p no:cacheprovider
+        #
+        # `-n 0` is REQUIRED to override pytest.ini's `addopts = -n 2
+        # --dist loadscope`. Without it, xdist still spawns 2 workers
+        # even though we don't pass `-n 2` here, reproducing the same
+        # `[gw0] node down: Not properly terminated` teardown deadlock.
+        # See pytest.ini's own comment: "Serial = `-n 0`".
+        run: python -m pytest tests/rc5/ -q --no-header -m "not slow" -n 0 --timeout=60 --timeout-method=thread -p no:cacheprovider
 
       # ─── § 13 Kill-list — protects the deprecation contract ────────
       # Runs the two Python-based kill-list gates that check for NEW

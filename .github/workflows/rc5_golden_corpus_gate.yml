@@ -67,7 +67,12 @@ jobs:
           # via `thread` method kills any single hang. -p no:cacheprovider
           # eliminates a cross-worker cache-race that also triggered the
           # same "[gw0] node down: Not properly terminated" symptom.
-          python -m pytest tests/rc5/ -q --tb=short --timeout=60 --timeout-method=thread -p no:cacheprovider
+          #
+          # `-n 0` is REQUIRED to override pytest.ini's addopts=`-n 2
+          # --dist loadscope`. Otherwise xdist still spawns workers even
+          # though we don't pass `-n 2` here. See pytest.ini's own
+          # comment: "Serial = `-n 0`".
+          python -m pytest tests/rc5/ -q --tb=short -n 0 --timeout=60 --timeout-method=thread -p no:cacheprovider
 
       # ── Base branch corpus run (PRs only) ─────────────────────────
       - name: Install base branch backend dependencies
