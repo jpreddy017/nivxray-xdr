@@ -6,6 +6,47 @@ obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
 
+## 2026-02-22 · Phase 3 · v2 Routers + Frontend Shell + Deletion Safety (SHIPPED)
+
+**Motivation:** Land the first user-facing v2 surfaces —
+`/api/v2/cases` (Case CRUD) and `/api/v2/parse` (v2-only shadow
+adapter endpoint) — plus a placeholder frontend workspace, and
+harden the isolation contract with a deletion-safety test.
+
+**Shipped (all additive, zero RC5 file mutated other than a
+try-wrapped router include in `server.py`):**
+
+- **`/api/v2/cases`** (`v2/routers/cases.py`): POST · GET · GET/{id} ·
+  DELETE. Behind `NIVX_FLAG_CASE_ENGINE`; returns 503 when disabled.
+  Writes go only to `v2_cases`. Soft-delete only.
+- **`/api/v2/parse`** (`v2/routers/parse.py`): POST — invokes only
+  `v2.shadow.observe()`. **Zero RC5 code contact.** Returns a CEM v1
+  event. Behind `NIVX_FLAG_ADAPTERS`.
+- **Server wire-up**: `server.py` includes v2 routers inside a
+  `try/except` so if `/app/backend/v2/` is deleted, RC5 keeps
+  booting. Test proves this behaviour.
+- **Frontend v2 shell**: `src/v2/flags.js` (3-state client-side
+  reader) + `src/v2/pages/CaseWorkspaceShell.jsx` (placeholder,
+  hidden from top-level nav, gated by `CASE_ENGINE`).
+- **Deletion-safety tests** (`tests/test_v2_isolation.py`):
+  - `test_rc5_source_never_imports_v2_unwrapped` — AST scan proves
+    zero unwrapped v2 imports anywhere outside `v2/*`.
+  - `test_deleting_v2_would_not_break_rc5_imports` — simulates
+    deletion by blanking `sys.modules["v2*"]`, reimports `server`,
+    asserts `/api/rc5/parse` still registers.
+- **CI rebaseline dry-run canary** (`test_rebaseline_dry_run_matches_frozen_baseline`):
+  runs `python -m tests.tools.rebaseline --dry-run` on every CI
+  run; asserts `baseline_id` + `sample_map_hash` haven't drifted.
+- **Cross-namespace policy honored**: only shared imports between
+  `/api/rc5/*` and `/api/v2/*` are `deps.require_admin` + `deps.db`
+  (auth + Mongo — stable versioned utilities, exempt per §Round-6).
+
+**Verified:** 311/311 tests pass in 6.16 s across regression gate +
+framework + phase 2 + phase 3 + locale + entity + correlation +
+150+ regression suites.
+
+
+
 ## 2026-02-22 · Phase 2 Round-6 · Shadow Observer + Reinforced Parity (SHIPPED)
 
 **Motivation:** User asked for two reinforcements — (a) dedicated

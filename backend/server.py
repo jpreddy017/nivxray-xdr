@@ -200,6 +200,21 @@ api.include_router(rc5_entities_router)
 from routers.documents import router as documents_router
 api.include_router(documents_router)
 
+# v2 · Additive next-generation namespace (Phase 3+).
+# Isolated inside a try/except so if `/app/backend/v2/` is deleted
+# outright the RC5 API keeps running — this is the deletion-safety
+# guarantee documented in GOVERNANCE.md §Round-6.
+try:
+    from v2.routers import cases_router as _v2_cases_router
+    from v2.routers import parse_router as _v2_parse_router
+    api.include_router(_v2_cases_router)
+    api.include_router(_v2_parse_router)
+except Exception as _v2_exc:                             # pragma: no cover
+    import logging as _logging
+    _logging.getLogger(__name__).info(
+        "v2 routers unavailable — RC5 continues unaffected (%s)", _v2_exc,
+    )
+
 app.include_router(api)
 
 # Production hardening: X-Request-ID, hard timeouts, payload caps
