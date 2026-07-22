@@ -80,12 +80,16 @@ const LEFT_RAIL_W = 232;          // width of the process-label rail
 const CANVAS_PAD_X = 24;          // horizontal padding inside the track
 const SCRUBBER_H = 56;            // top histogram scrubber height
 
-// Extract a readable process-name label from a frame
+// Extract a readable process-name label from a frame.
+// Per user reference: hide ugly `proc_shadow_<hex>` iids behind a
+// friendly "Unknown Process" label — analysts should see binaries,
+// never internal shadow IDs.
 function processLabelOf(frame) {
   const raw = frame.label || frame.action || "";
   const m = raw.match(/([A-Za-z0-9_.-]+\.(?:exe|dll|msi|ps1|bat|cmd|sys|com))/i);
   if (m) return m[1];
   const p = (frame.process?.iid || frame.parent?.iid || "").split(/[:/\\]/).pop();
+  if (p && /^proc_shadow_/i.test(p)) return "Unknown Process";
   return p || (frame.action || "event");
 }
 // Group key: prefer readable process name so that N events from the same
@@ -126,6 +130,21 @@ export default function DeviceTrajectory() {
   const [lastViewed, setLastViewed] = useState(null);
   // R4 · Investigation Report modal
   const [reportOpen, setReportOpen] = useState(false);
+  // R4.2 · Two-band grouping (analyst view) vs 5-lane expert view.
+  // Analyst  → System (SYSTEM + PROCESS + REGISTRY), Files & Network (FILES + NETWORK)
+  // Expert   → SYSTEM · PROCESS · FILES · NETWORK · REGISTRY (all separate)
+  const [expertMode, setExpertMode] = useState(false);
+  const bandFor = useCallback((row) => {
+    // Derive from the row's dominant lane — the lane of its first frame,
+    // which mirrors how the row lands on the swimlane anyway.
+    const lane = (row.events?.[0]?.lane) || "process";
+    if (expertMode) {
+      return (LANE_META[lane]?.label) || lane.toUpperCase();
+    }
+    return (lane === "file" || lane === "network")
+      ? "Files & Network"
+      : "System";
+  }, [expertMode]);
 
   const enabled = isObservable("TRAJECTORY_ENGINE") || isObservable("CASE_ENGINE");
 
@@ -256,11 +275,26 @@ export default function DeviceTrajectory() {
         r.worstVerdict = v;
       }
     });
-    // Sort by first-seen ts so lifelines cascade
-    return [...byKey.values()].sort((a, b) =>
-      a.firstTs !== b.firstTs ? a.firstTs - b.firstTs : a.label.localeCompare(b.label)
-    );
-  }, [frames]);
+    // Sort so bands cluster together (analyst view groups System vs
+    // Files & Network into contiguous blocks), then within a band by
+    // first-seen ts. Expert view uses lane precedence instead.
+    const bandRank = (r) => {
+      const lane = r.events?.[0]?.lane || "process";
+      if (expertMode) {
+        const order = ["system", "process", "file", "network", "registry"];
+        return order.indexOf(lane);
+      }
+      // Analyst: System block (0) before Files & Network (1)
+      return (lane === "file" || lane === "network") ? 1 : 0;
+    };
+    return [...byKey.values()].sort((a, b) => {
+      const ba = bandRank(a), bb = bandRank(b);
+      if (ba !== bb) return ba - bb;
+      return a.firstTs !== b.firstTs
+        ? a.firstTs - b.firstTs
+        : a.label.localeCompare(b.label);
+    });
+  }, [frames, expertMode]);
 
   const rowIndex = useMemo(() => {
     const m = new Map();
@@ -333,6 +367,27 @@ export default function DeviceTrajectory() {
 
   const onPickEvent = useCallback((f) => setSelected(f), []);
 
+  // Row Y positions on the canvas — must reserve BAND_H per band header
+  // on the left rail so lifelines stay aligned with row labels. This
+  // MUST come before any conditional early return (rules-of-hooks).
+  const BAND_H = 24;
+  const { rowY, canvasH } = useMemo(() => {
+    let y = 0;
+    const arr = [];
+    let prevBand = null;
+    rows.forEach((r) => {
+      const b = bandFor(r);
+      if (b !== prevBand) {
+        y += BAND_H;
+        prevBand = b;
+      }
+      arr.push(y);
+      y += ROW_H;
+    });
+    return { rowY: arr, canvasH: y + 8 };
+  }, [rows, bandFor]);
+  const yOf = (i) => (rowY[i] ?? 0) + ROW_H / 2;
+
   if (!enabled) {
     return (
       <div data-testid="v2-trajectory-disabled"
@@ -344,9 +399,6 @@ export default function DeviceTrajectory() {
       </div>
     );
   }
-
-  // Total canvas height for absolute-positioned children
-  const canvasH = rows.length * ROW_H + 16;
 
   return (
     <div data-testid="v2-device-trajectory"
@@ -397,6 +449,9 @@ export default function DeviceTrajectory() {
           {/* Row layout (left rail + track canvas) */}
           <div className="flex-1 flex overflow-auto">
             <ProcessRail rows={rows} selectedKey={selected ? processKeyOf(selected) : null}
+                         bandFor={bandFor}
+                         expertMode={expertMode}
+                         onToggleExpert={() => setExpertMode(m => !m)}
                          onPickRow={(r) => onPickEvent(r.events[0])}
                          onOpenAncestry={(key) => {
                            // Strip the "bin:" prefix so the URL is human-friendly
@@ -414,7 +469,7 @@ export default function DeviceTrajectory() {
                 {/* Row separators */}
                 {rows.map((r, i) => (
                   <div key={r.key + ":sep"} className="absolute inset-x-0 border-b border-zinc-900/70"
-                       style={{ top: (i + 1) * ROW_H - 1, height: 1 }} />
+                       style={{ top: (rowY[i] ?? 0) + ROW_H - 1, height: 1 }} />
                 ))}
 
                 {/* SVG overlay: lifelines + spawn arcs */}
@@ -422,7 +477,7 @@ export default function DeviceTrajectory() {
                      className="absolute top-0 left-0 pointer-events-none">
                   {/* Lifelines — dashed, matching Cisco Device Trajectory pattern */}
                   {rows.map((r, i) => {
-                    const y = i * ROW_H + ROW_H / 2;
+                    const y = yOf(i);
                     const x1 = xForTs(r.firstTs);
                     const x2 = xForTs(r.lastTs);
                     const isSel = selected && processKeyOf(selected) === r.key;
@@ -444,8 +499,8 @@ export default function DeviceTrajectory() {
                   {spawnEdges.map(({ parent, child }, i) => {
                     const pi = rowIndex.get(parent), ci = rowIndex.get(child);
                     if (pi == null || ci == null) return null;
-                    const py = pi * ROW_H + ROW_H / 2;
-                    const cy = ci * ROW_H + ROW_H / 2;
+                    const py = yOf(pi);
+                    const cy = yOf(ci);
                     const childRow = rows[ci];
                     const cx = xForTs(childRow.firstTs);
                     return (
@@ -457,13 +512,33 @@ export default function DeviceTrajectory() {
                   })}
                 </svg>
 
+                {/* Band header stripes on canvas — thin dark bar matching
+                    the left-rail band label height, so the grid stays
+                    honest visually. */}
+                {(() => {
+                  const stripes = [];
+                  let prev = null;
+                  rows.forEach((r, i) => {
+                    const b = bandFor(r);
+                    if (b !== prev) {
+                      stripes.push(
+                        <div key={`band-${i}`}
+                             className="absolute inset-x-0 bg-zinc-950 border-b border-zinc-900"
+                             style={{ top: (rowY[i] ?? 0) - BAND_H, height: BAND_H }} />
+                      );
+                      prev = b;
+                    }
+                  });
+                  return stripes;
+                })()}
+
                 {/* Selected row highlight band */}
                 {selected && (() => {
                   const idx = rowIndex.get(processKeyOf(selected));
                   if (idx == null) return null;
                   return (
                     <div className="absolute inset-x-0 pointer-events-none"
-                         style={{ top: idx * ROW_H, height: ROW_H,
+                         style={{ top: rowY[idx] ?? 0, height: ROW_H,
                                   background: "linear-gradient(90deg, rgba(161,161,170,0.10), rgba(161,161,170,0.04))",
                                   borderTop: "1px solid rgba(161,161,170,0.35)",
                                   borderBottom: "1px solid rgba(161,161,170,0.35)" }} />
@@ -476,7 +551,7 @@ export default function DeviceTrajectory() {
                   const i = rowIndex.get(key);
                   if (i == null) return null;
                   const x = xForTs(f.ts);
-                  const y = i * ROW_H + ROW_H / 2;
+                  const y = yOf(i);
                   const isSel = selected?.frame_iid === f.frame_iid;
                   return (
                     <EventGlyph key={f.frame_iid || `${key}-${x}`}
@@ -1037,56 +1112,101 @@ function Scrubber({ histogram, minTs, maxTs, frames }) {
 // ═══════════════════════════════════════════════════════════════════
 // Process left rail (one row per process)
 // ═══════════════════════════════════════════════════════════════════
-function ProcessRail({ rows, selectedKey, onPickRow, onOpenAncestry }) {
+function ProcessRail({ rows, selectedKey, onPickRow, onOpenAncestry, bandFor, expertMode, onToggleExpert }) {
+  // Group rows by band label so we can render a heavy band header once
+  // per group. `bandFor(row)` returns the band label string.
+  const groups = [];
+  const seen = new Map();
+  rows.forEach((r) => {
+    const b = bandFor(r);
+    if (!seen.has(b)) {
+      seen.set(b, { label: b, rows: [] });
+      groups.push(seen.get(b));
+    }
+    seen.get(b).rows.push(r);
+  });
+
   return (
     <div className="shrink-0 border-r border-zinc-800 bg-zinc-950/60"
          style={{ width: LEFT_RAIL_W }}
          data-testid="process-rail">
-      <div className="h-8 flex items-center px-3 border-b border-zinc-900">
+      <div className="h-8 flex items-center justify-between px-3 border-b border-zinc-900">
         <span className="text-[9px] tracking-[0.24em] uppercase font-semibold text-zinc-500">
-          Files & Processes
+          Processes
         </span>
+        <button
+          data-testid="expert-mode-toggle"
+          onClick={onToggleExpert}
+          title={expertMode ? "Analyst view (2 bands)" : "Expert view (5 lanes)"}
+          className={"text-[9px] tracking-widest font-semibold px-1.5 py-[2px] rounded-sm border " +
+                     (expertMode
+                       ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/40"
+                       : "bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300 hover:border-zinc-700")}
+        >
+          {expertMode ? "EXPERT" : "ANALYST"}
+        </button>
       </div>
       <div>
-        {rows.map((r, i) => {
-          const isSel = selectedKey === r.key;
-          const vc = r.worstVerdict === "malicious" ? VERDICT.malicious.color
-                   : r.worstVerdict === "suspicious" ? VERDICT.suspicious.color
-                   : "#3F3F46";
-          return (
-            <div key={r.key}
-                 className={"group w-full h-[34px] flex items-center gap-2 pl-3 pr-1 border-b border-zinc-900/70 " +
-                            (isSel ? "bg-zinc-100/8" : "hover:bg-zinc-900/50")}
-                 style={{ borderLeft: `2px solid ${vc}66` }}>
-              <button
-                data-testid={`row-${r.key}`}
-                onClick={() => onPickRow(r)}
-                className="flex-1 flex items-center gap-2 text-left outline-none">
-                <span className={"flex-1 truncate text-[11px] " + (isSel ? "text-zinc-100" : "text-zinc-300")}
-                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                  {r.label}
-                </span>
-                <span className="text-[9px] tracking-widest text-zinc-600 font-semibold">
-                  [{r.type}]
-                </span>
-                <span className="text-[9px] text-zinc-500 tabular-nums w-6 text-right"
-                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                  {r.events.length}
-                </span>
-              </button>
-              <button
-                data-testid={`row-ancestry-${r.key}`}
-                title="Open ancestry graph"
-                onClick={(e) => { e.stopPropagation(); onOpenAncestry(r.key); }}
-                className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-100
-                           w-5 h-5 flex items-center justify-center rounded-sm border border-zinc-800
-                           hover:border-zinc-500/40 transition-all duration-150"
-              >
-                <ChevronRight size={11} />
-              </button>
+        {groups.map((g, gi) => (
+          <div key={g.label}>
+            <div
+              className="h-6 flex items-center px-3 bg-zinc-950 border-b border-zinc-900"
+              style={{ borderTop: gi === 0 ? "none" : "1px solid #18181B" }}
+            >
+              <span className="text-[9.5px] tracking-[0.22em] uppercase font-semibold text-zinc-400">
+                {g.label}
+              </span>
+              <span className="ml-auto text-[9px] text-zinc-600 tabular-nums">
+                {g.rows.length}
+              </span>
             </div>
-          );
-        })}
+            {g.rows.map((r) => {
+              const isSel = selectedKey === r.key;
+              const vc = r.worstVerdict === "malicious" ? VERDICT.malicious.color
+                       : r.worstVerdict === "suspicious" ? VERDICT.suspicious.color
+                       : "#3F3F46";
+              const isUnknown = r.label === "Unknown Process";
+              return (
+                <div key={r.key}
+                     className={"group w-full h-[34px] flex items-center gap-2 pl-3 pr-1 border-b border-zinc-900/70 " +
+                                (isSel ? "bg-zinc-100/8" : "hover:bg-zinc-900/50")}
+                     style={{ borderLeft: `2px solid ${vc}66` }}>
+                  <button
+                    data-testid={`row-${r.key}`}
+                    onClick={() => onPickRow(r)}
+                    className="flex-1 flex items-center gap-2 text-left outline-none">
+                    <span
+                      className={"flex-1 truncate text-[11px] " +
+                                 (isUnknown
+                                   ? "text-zinc-500 italic"
+                                   : (isSel ? "text-cyan-200 underline underline-offset-2" : "text-cyan-400 hover:text-cyan-300 hover:underline underline-offset-2"))}
+                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+                    >
+                      {r.label}
+                    </span>
+                    <span className="text-[9px] tracking-widest text-zinc-600 font-semibold">
+                      [PE]
+                    </span>
+                    <span className="text-[9px] text-zinc-500 tabular-nums w-6 text-right"
+                          style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                      {r.events.length}
+                    </span>
+                  </button>
+                  <button
+                    data-testid={`row-ancestry-${r.key}`}
+                    title="Open ancestry graph"
+                    onClick={(e) => { e.stopPropagation(); onOpenAncestry(r.key); }}
+                    className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-100
+                               w-5 h-5 flex items-center justify-center rounded-sm border border-zinc-800
+                               hover:border-zinc-500/40 transition-all duration-150"
+                  >
+                    <ChevronRight size={11} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1273,11 +1393,11 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
             : (isMalicious ? "drop-shadow(0 0 4px rgba(225,29,72,0.5))" : "none"),
         }}
       >
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <svg width={size} height={size} viewBox="0 0 22 22">
           {isMalicious ? (
             <g>
               <polygon
-                points={`${half},1 ${size - 1},${half - 3} ${size - 1},${half + 3} ${half},${size - 1} 1,${half + 3} 1,${half - 3}`}
+                points="11,1 21,7 21,15 11,21 1,15 1,7"
                 fill="#450A0A"
                 stroke={VERDICT.malicious.color}
                 strokeWidth="1.4"
@@ -1286,16 +1406,18 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
             </g>
           ) : (
             <g>
-              <circle cx={half} cy={half} r={half - 1.5}
+              <circle cx="11" cy="11" r="9.5"
                       fill="#FFFFFF"
                       stroke={selected ? "#FFFFFF" : ringColor}
-                      strokeWidth={selected ? 1.5 : 1.2} />
+                      strokeWidth={selected ? 1.6 : 1.2} />
               <ActivityMark kind={kind} color={markColor} />
             </g>
           )}
         </svg>
 
-        {mitre0 && (
+        {/* MITRE technique chip — hidden by default (per user ref); shown
+            only when this glyph is selected. Keeps the swimlane clean. */}
+        {mitre0 && selected && (
           <span
             className="absolute -top-3 -right-1 text-[8px] leading-none px-1 py-[1px] rounded-sm
                        bg-zinc-800 text-zinc-300 border border-zinc-700 pointer-events-none z-20"
