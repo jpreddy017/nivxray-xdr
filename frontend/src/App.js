@@ -32,8 +32,6 @@ const BenchmarkPage         = lazy(() => import("@/pages/BenchmarkPage"));
 const MultiLayerBatteryPage = lazy(() => import("@/pages/MultiLayerBatteryPage"));
 const AnalystWorkspacePage  = lazy(() => import("@/pages/AnalystWorkspacePage"));
 const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
-const PreviewCommandHub     = lazy(() => import("@/pages/PreviewCommandHub"));
-const CommandHubPage        = lazy(() => import("@/pages/CommandHubPage"));
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -94,10 +92,6 @@ function App() {
               <Route path="/battery"   element={<Protected><MultiLayerBatteryPage /></Protected>} />
               <Route path="/analyst"   element={<Protected><AnalystWorkspacePage /></Protected>} />
               <Route path="/analyst/rc5" element={<Protected><AnalystRC5Page /></Protected>} />
-              {/* Feb-2026 · Command Hub — production route (authed). */}
-              <Route path="/command-hub" element={<Protected><CommandHubPage /></Protected>} />
-              {/* Feb-2026 · design preview — public, NOT wired into production nav. */}
-              <Route path="/preview/command-hub" element={<PreviewCommandHub />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
