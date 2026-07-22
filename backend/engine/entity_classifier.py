@@ -82,8 +82,11 @@ _RX_DOTTED_QUAD = re.compile(
 
 # Network-context keywords — presence in the surrounding window is a
 # strong hint the token is an actual IPv4.  Kept lowercase; matched
-# against a lowercased context view.
+# against a lowercased context view. Multi-locale coverage added
+# Feb-2026 for Russian / Chinese / Japanese / Korean / Arabic threat-
+# intel writeups (deterministic string containment, no NLP).
 _NET_CONTEXT = (
+    # ── English / code identifiers ──
     "connect(", "connect ", "socket", "tcpclient", "udpclient",
     "webrequest", "httpwebrequest", "invoke-webrequest", "iwr ",
     "invoke-restmethod", "irm ", "downloadstring", "downloadfile",
@@ -96,11 +99,23 @@ _NET_CONTEXT = (
     "gethostbyname", "resolve-dnsname", "ping ", "traceroute",
     "tracert", "nslookup", "bind(", "bind ", "listen(", "0.0.0.0",
     "127.0.0.1",
+    # ── Russian / Cyrillic (Kaspersky / Group-IB writeups) ──
+    "адрес", "айпи", "хост", "порт", "сервер", "подключ", "соедин",
+    "загруз", "скачива",
+    # ── Simplified Chinese (Qihoo 360 / Anquanke) ──
+    "地址", "主机", "服务器", "端口", "下载", "连接", "通信",
+    # ── Japanese (JPCERT / IBM X-Force JP) ──
+    "アドレス", "ホスト", "サーバ", "ポート", "接続", "通信",
+    # ── Korean (AhnLab / KISA) ──
+    "주소", "호스트", "서버", "포트", "연결", "통신",
+    # ── Arabic (Threat-intel from AR-language DFIR blogs) ──
+    "عنوان", "خادم", "منفذ", "اتصال", "تحميل",
 )
 
 # Version-context keywords — presence flips the interpretation to a
-# software version literal.
+# software version literal. Multi-locale coverage same as _NET_CONTEXT.
 _VERSION_CONTEXT = (
+    # ── English / code identifiers ──
     "assemblyversion", "assemblyfileversion", "[version]", "version=",
     "-version ", "psversion", "fileversion", "productversion",
     "clrversion", "version:", "\"version\"", "'version'",
@@ -109,14 +124,35 @@ _VERSION_CONTEXT = (
     ".dll,version=", ",version=", "publickeytoken=",
     ",culture=", "-assembly ", "app version", "package version",
     "release ", "chocolatey", "installutil", "gacutil",
+    # ── Russian ──
+    "верси", "версия", "сборк",
+    # ── Chinese ──
+    "版本", "版号",
+    # ── Japanese ──
+    "バージョン",
+    # ── Korean ──
+    "버전",
+    # ── Arabic ──
+    "إصدار", "نسخة",
 )
 
-# Windows-build context keywords.
+# Windows-build context keywords — multi-locale.
 _WIN_BUILD_CONTEXT = (
+    # ── English ──
     "osversion", "buildnumber", "current build", "currentbuild",
     "windows nt ", "windows 10", "windows 11", "winver", "kernel",
     "ntkernel", "ntoskrnl", "wmi.win32_operatingsystem",
     "win32_operatingsystem", "systeminfo", "[environment]::osversion",
+    # ── Russian ──
+    "сборка windows", "виндовс", "ядро",
+    # ── Chinese ──
+    "windows 版本", "内核版本", "系统版本", "视窗",
+    # ── Japanese ──
+    "windowsバージョン", "windows のバージョン", "ビルド番号",
+    # ── Korean ──
+    "windows 빌드", "빌드 번호",
+    # ── Arabic ──
+    "ويندوز", "إصدار ويندوز",
 )
 
 # Well-known Windows 10 / 11 major-build tags. Any dotted-quad whose

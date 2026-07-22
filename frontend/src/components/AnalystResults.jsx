@@ -773,6 +773,124 @@ function BehaviorPanel({ lolbas = [], tradecraft = [], killChain = [] }) {
 }
 
 /* ------------------------------------------------------------------ *
+ * CorrelationPanel — Phase 11.3 side-car surface.
+ * Zero verdict influence — describes relationships between evidence
+ * nodes: temporal spans, dependency chains, contradictions. Hidden
+ * when the analysis carries no correlation payload.
+ * ------------------------------------------------------------------ */
+function CorrelationPanel({ correlation }) {
+  if (!correlation || !correlation.stats) return null;
+  const spans      = correlation.temporal_spans     || [];
+  const chains     = correlation.dependency_chains  || [];
+  const contras    = correlation.contradictions     || [];
+  const nothing    = spans.length + chains.length + contras.length === 0;
+
+  return (
+    <Panel
+      title="CORRELATION · SIDE-CAR"
+      subtitle="Temporal · dependency · contradictions (zero verdict influence)"
+      testid="correlation-panel"
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{
+          display: "flex", gap: 6, flexWrap: "wrap",
+          fontFamily: "JetBrains Mono, monospace", fontSize: 10,
+          color: "var(--text-dim)",
+        }}>
+          <StatPill label="temporal" value={spans.length}    tone="#22d3ee" />
+          <StatPill label="chains"   value={chains.length}   tone="#22c55e" />
+          <StatPill label="contra"   value={contras.length}  tone="#ef4444" />
+          <StatPill label="nodes"    value={correlation.stats.node_count || 0} tone="#94a3b8" />
+        </div>
+
+        {nothing && (
+          <div style={{
+            padding: "10px 0", fontStyle: "italic",
+            fontFamily: "JetBrains Mono, monospace", fontSize: 11,
+            color: "var(--text-mute)",
+          }}>
+            No cross-node relationships surfaced for this run.
+          </div>
+        )}
+
+        {contras.length > 0 && (
+          <div data-testid="correlation-contradictions">
+            <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 9,
+                          color: "#fca5a5", letterSpacing: "0.18em", marginBottom: 4 }}>
+              CONTRADICTIONS · {contras.length}
+            </div>
+            {contras.slice(0, 8).map((c, i) => (
+              <div key={i} style={{
+                fontSize: 11, padding: "4px 8px", marginBottom: 4,
+                background: "rgba(239,68,68,0.06)",
+                border: "1px solid rgba(239,68,68,0.30)",
+                color: "#fca5a5", fontFamily: "JetBrains Mono, monospace",
+              }}>
+                <div style={{ opacity: 0.85 }}>node <code>{c.node_id}</code> · kind {c.kind}</div>
+                {(c.reasons || []).map((r, j) => (
+                  <div key={j} style={{ paddingLeft: 12, color: "#fee2e2" }}>• {r}</div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {spans.length > 0 && (
+          <div data-testid="correlation-spans">
+            <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 9,
+                          color: "#67e8f9", letterSpacing: "0.18em", marginBottom: 4 }}>
+              TEMPORAL SPANS · {spans.length}
+            </div>
+            {spans.slice(0, 6).map((s, i) => (
+              <div key={i} style={{
+                fontSize: 11, padding: "3px 8px", marginBottom: 3,
+                fontFamily: "JetBrains Mono, monospace",
+                color: "var(--text-dim)",
+                border: "1px solid var(--border, #1e293b)",
+              }}>
+                length {s.length} · {(s.kind_sequence || []).join(" → ")}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {chains.length > 0 && (
+          <div data-testid="correlation-chains">
+            <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 9,
+                          color: "#86efac", letterSpacing: "0.18em", marginBottom: 4 }}>
+              DEPENDENCY CHAINS · {chains.length}
+            </div>
+            {chains.slice(0, 6).map((c, i) => (
+              <div key={i} style={{
+                fontSize: 11, padding: "3px 8px", marginBottom: 3,
+                fontFamily: "JetBrains Mono, monospace",
+                color: "var(--text-dim)",
+                border: "1px solid var(--border, #1e293b)",
+              }}>
+                root <code>{c.root_id}</code> · {c.hops} leaves
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+function StatPill({ label, value, tone }) {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      padding: "2px 8px", borderRadius: 999,
+      background: `${tone}14`, border: `1px solid ${tone}44`,
+      color: tone, fontWeight: 700,
+    }}>
+      <span>{label}</span>
+      <span style={{ color: "var(--text)" }}>{value}</span>
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ *
  * Public container — renders all 7 panels in the locked order.
  * Renders nothing (returns null) if there is no analysis / output yet
  * AND no verdict card — prevents empty scaffolding above the input.
@@ -828,6 +946,9 @@ export default function AnalystResults({
 
       {/* 7. Behavior */}
       <BehaviorPanel lolbas={lolbas} tradecraft={tradecraft} killChain={killChain} />
+
+      {/* 8. Correlation side-car — Phase 11.3 (zero verdict influence) */}
+      <CorrelationPanel correlation={analysis?.correlation} />
     </div>
   );
 }

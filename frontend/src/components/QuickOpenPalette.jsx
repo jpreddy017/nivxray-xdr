@@ -23,8 +23,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search, X, ArrowRight, FileText, TestTube2, Target, Rss, ScrollText, Beaker,
-  History as HistoryIcon,
+  History as HistoryIcon, RefreshCw, Play, Command, Gauge, Rocket, KeyRound,
 } from "lucide-react";
+import { toast } from "sonner";
 import api from "@/lib/api";
 
 const RECENT_KEY = "nvx-qo-recent";
@@ -38,7 +39,104 @@ const SECTIONS = [
   { key: "training",  label: "Training Notes",icon: Rss,        route: () => `/admin/training-inbox` },
   { key: "batch",     label: "Batch Runs",    icon: TestTube2,  route: (r) => `/batch-test?run=${encodeURIComponent(r.id)}` },
   { key: "documents", label: "Documents",     icon: ScrollText, route: (r) => `/documents#${encodeURIComponent(r.id)}` },
+  { key: "action",    label: "Actions",       icon: Command,    route: (r) => r.href },
 ];
+
+// Command aliases — trigger by typing `>` at the start of the palette.
+// Each command performs a REAL action (API call or navigation) —
+// no mocks. Actions run inside the palette callback so the modal
+// closes only when the user picks the row.
+function buildCommands({ navigate, closePalette }) {
+  const call = async (fn, ok, err) => {
+    try {
+      await fn();
+      toast.success(ok);
+    } catch (e) {
+      toast.error(err || String(e));
+    }
+  };
+  return [
+    {
+      id: "cmd:refresh-corpus", icon: RefreshCw, kind: "action",
+      label: ">refresh corpus",
+      sub:   "Re-poll /api/rc5/golden/summary",
+      exec:  () => call(
+        () => api.get("/rc5/golden/summary?nocache=1"),
+        "Corpus health refreshed",
+        "Failed to refresh corpus",
+      ),
+    },
+    {
+      id: "cmd:run-benchmark", icon: Gauge, kind: "action",
+      label: ">run benchmark",
+      sub:   "Kick off the golden benchmark & open the Benchmark page",
+      exec:  async () => {
+        await call(
+          () => api.post("/rc5/golden/run", {}),
+          "Benchmark started",
+          "Failed to start benchmark",
+        );
+        closePalette(); navigate("/benchmark");
+      },
+    },
+    {
+      id: "cmd:open-recent-case", icon: HistoryIcon, kind: "action",
+      label: ">open recent case",
+      sub:   "Jump to the latest investigation",
+      exec:  async () => {
+        try {
+          const { data } = await api.get("/investigations?limit=1");
+          const list = data?.investigations || data || [];
+          const first = list[0];
+          if (first?.id || first?._id) {
+            closePalette();
+            navigate(`/analyst?iid=${encodeURIComponent(first.id || first._id)}`);
+          } else {
+            toast.info("No recent cases yet");
+          }
+        } catch { toast.error("Could not fetch recent cases"); }
+      },
+    },
+    {
+      id: "cmd:open-training", icon: Rss, kind: "action",
+      label: ">open training inbox",
+      sub:   "Jump to /admin/training-inbox",
+      exec:  () => { closePalette(); navigate("/admin/training-inbox"); },
+    },
+    {
+      id: "cmd:open-heatmap", icon: Target, kind: "action",
+      label: ">open mitre heatmap",
+      sub:   "Jump to /heatmap",
+      exec:  () => { closePalette(); navigate("/heatmap"); },
+    },
+    {
+      id: "cmd:run-battery", icon: Play, kind: "action",
+      label: ">run battery",
+      sub:   "Kick off the multi-layer regression battery",
+      exec:  () => call(
+        () => api.post("/battery/rerun", {}),
+        "Battery re-run started",
+        "Failed to start battery",
+      ),
+    },
+    {
+      id: "cmd:change-password", icon: KeyRound, kind: "action",
+      label: ">change password",
+      sub:   "Open the change-password modal",
+      exec:  () => {
+        closePalette();
+        // Dispatch a custom event the Header listens to.
+        window.dispatchEvent(new CustomEvent("nvx-open-change-password"));
+      },
+    },
+    {
+      id: "cmd:workspace", icon: Rocket, kind: "action",
+      label: ">go workspace",
+      sub:   "Jump to the Analyst Workspace",
+      exec:  () => { closePalette(); navigate("/"); },
+    },
+  ];
+}
 
 // ─── Small helpers ────────────────────────────────────────────────
 function fuzzy(needle, hay) {
@@ -91,6 +189,12 @@ export default function QuickOpenPalette() {
   const [recent, setRecent] = useState(() => loadRecent());
   const inputRef = useRef(null);
   const navigate = useNavigate();
+
+  const commands = useMemo(
+    () => buildCommands({ navigate, closePalette: () => setOpen(false) }),
+    [navigate],
+  );
+  const isCommandMode = q.startsWith(">");
 
   // ── Global keyboard trigger ──────────────────────────────────────
   useEffect(() => {
@@ -157,6 +261,18 @@ export default function QuickOpenPalette() {
 
   // ── Ranked / grouped view ────────────────────────────────────────
   const flatResults = useMemo(() => {
+    // Command palette mode — the ">" prefix filters against the
+    // aliases only. Filter substring on both the label and the sub.
+    if (isCommandMode) {
+      const needle = q.slice(1).trim().toLowerCase();
+      return commands
+        .filter(c => !needle || c.label.toLowerCase().includes(needle) || (c.sub || "").toLowerCase().includes(needle))
+        .map((c) => ({
+          __key: c.id, kind: "action",
+          id: c.id, label: c.label, sub: c.sub,
+          icon: c.icon, exec: c.exec,
+        }));
+    }
     const out = [];
     const push = (kind, item, label, sub) => {
       const s = SECTIONS.find(x => x.key === kind);
@@ -190,7 +306,7 @@ export default function QuickOpenPalette() {
       fuzzy(q, r.label) || fuzzy(q, r.sub) || fuzzy(q, r.kind) || fuzzy(q, String(r.id)),
     );
     return filtered.slice(0, 60);
-  }, [q, data]);
+  }, [q, data, isCommandMode, commands]);
 
   const grouped = useMemo(() => {
     const g = {};
@@ -203,7 +319,14 @@ export default function QuickOpenPalette() {
 
   // Keyboard nav within the results list
   const activate = useCallback((row) => {
-    if (!row || !row.route) return;
+    if (!row) return;
+    // Command aliases carry an `exec` function; run it and let the
+    // command close the palette itself when appropriate.
+    if (typeof row.exec === "function") {
+      row.exec();
+      return;
+    }
+    if (!row.route) return;
     saveRecent(row);
     setOpen(false);
     try { navigate(row.route(row)); } catch { /* ignore */ }
@@ -253,7 +376,7 @@ export default function QuickOpenPalette() {
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Jump to case, sample, MITRE, training note, batch run or document…"
+            placeholder="Jump to case, sample, MITRE, training note, batch run or document…  (type “>” for commands)"
             data-testid="quick-open-input"
             style={{
               flex: 1,
@@ -278,8 +401,8 @@ export default function QuickOpenPalette() {
 
         {/* Body */}
         <div style={{ maxHeight: "58vh", overflowY: "auto" }}>
-          {/* Recent when the query is empty */}
-          {!q && recent.length > 0 && (
+          {/* Recent when the query is empty AND not in command mode */}
+          {!q && !isCommandMode && recent.length > 0 && (
             <Section title="Recent" icon={HistoryIcon}>
               {recent.map((r, i) => (
                 <Row key={r.__key} row={r} active={idx === i} onClick={() => activate(r)}
@@ -288,8 +411,8 @@ export default function QuickOpenPalette() {
             </Section>
           )}
 
-          {/* Grouped when the query is empty */}
-          {!q && SECTIONS.map((s) => {
+          {/* Grouped when the query is empty AND not in command mode */}
+          {!q && !isCommandMode && SECTIONS.map((s) => {
             const rows = grouped[s.key] || [];
             if (!rows.length) return null;
             return (
@@ -304,8 +427,8 @@ export default function QuickOpenPalette() {
             );
           })}
 
-          {/* Flat ranked list when there is a query */}
-          {q && (
+          {/* Flat ranked list when there is a query OR in command mode */}
+          {(q || isCommandMode) && (
             flatResults.length === 0 ? (
               <div style={{ padding: 30, textAlign: "center", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 12, color: "rgba(148,163,184,0.6)" }}>
                 No matches for “{q}”

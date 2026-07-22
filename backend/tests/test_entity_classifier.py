@@ -166,3 +166,38 @@ class TestRegression:
             'AssemblyVersion("9.0.0.0")',
         )
         assert res.kind == KIND_SOFTWARE_VERSION
+
+
+# ─── Multi-locale context keywords (Feb-2026) ────────────────────────
+
+class TestMultiLocale:
+    def test_russian_network_context(self):
+        # "подключение к серверу" ≈ "connection to server"
+        res = classify_token("203.0.113.5", "подключение к серверу 203.0.113.5")
+        assert res.kind == KIND_IPV4
+
+    def test_chinese_network_context(self):
+        # "服务器" = "server"; "地址" = "address"
+        res = classify_token("203.0.113.5", "目标服务器地址: 203.0.113.5")
+        assert res.kind == KIND_IPV4
+
+    def test_arabic_network_context(self):
+        # "خادم" = "server"; "اتصال" = "connection"
+        res = classify_token("203.0.113.5", "اتصال إلى خادم 203.0.113.5")
+        assert res.kind == KIND_IPV4
+
+    def test_chinese_version_context(self):
+        # "版本" = "version"
+        res = classify_token("9.0.0.0", "组件版本 9.0.0.0")
+        assert res.kind == KIND_SOFTWARE_VERSION
+
+    def test_japanese_win_build_context(self):
+        # "ビルド番号" = "build number"
+        res = classify_token(
+            "10.0.19045.5011",
+            "Windowsバージョン ビルド番号 10.0.19045.5011",
+        )
+        # 10.0.19045 IS a well-known Win10 build so the prefix rule
+        # matches even without locale — but locale keyword coverage is
+        # still exercised for the runtime path.
+        assert res.kind == KIND_WINDOWS_BUILD

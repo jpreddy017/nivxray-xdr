@@ -140,6 +140,9 @@ class ParseResponse(BaseModel):
     # NOT a verdict driver — analyst-inspection only.
     evidence_graph: Optional[Dict[str, Any]] = None
     evidence_graph_metrics: Optional[Dict[str, Any]] = None
+    # Phase 11.3 · Correlation Engine side-car report. Same mode gate.
+    # Zero verdict influence — describes relationships only.
+    correlation: Optional[Dict[str, Any]] = None
     processing_time_ms: float
 
 
@@ -258,11 +261,21 @@ async def rc5_parse(
     # graph is analyst-inspection only — never a verdict driver.
     evidence_graph_json: Optional[Dict[str, Any]] = None
     evidence_graph_metrics_json: Optional[Dict[str, Any]] = None
+    # Phase 11.3 · Correlation Engine side-car (Feb-2026).
+    correlation_json: Optional[Dict[str, Any]] = None
     if evidence_graph_mode() == "sidecar":
         try:
             eg_graph, eg_metrics = build_evidence_graph_sidecar(graph)
             if eg_graph is not None:
                 evidence_graph_json = eg_graph.to_dict()
+                # Phase 11.3 · pure-function correlation on the same
+                # graph. Zero verdict influence. Any exception here is
+                # silenced — analyst response must never regress.
+                try:
+                    from engine.correlation_engine import correlate as _corr
+                    correlation_json = _corr(eg_graph).to_dict()
+                except Exception:  # pragma: no cover
+                    correlation_json = None
             if eg_metrics is not None:
                 evidence_graph_metrics_json = eg_metrics.to_dict()
                 evidence_graph_record(eg_metrics, error=False)
@@ -312,6 +325,7 @@ async def rc5_parse(
         explain=explanation.model_dump(mode="json"),
         evidence_graph=evidence_graph_json,
         evidence_graph_metrics=evidence_graph_metrics_json,
+        correlation=correlation_json,
         processing_time_ms=elapsed_ms,
     )
 

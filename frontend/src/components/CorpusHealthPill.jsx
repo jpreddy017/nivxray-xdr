@@ -10,14 +10,18 @@
  * Tooltip surfaces pass-rate / regression count so analysts can hover
  * for the numbers without leaving the current page.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import api from "@/lib/api";
 
 const POLL_MS = 60_000;
 
 export default function CorpusHealthPill() {
   const [state, setState] = useState({ loading: true });
+  // Track previous gate so we only toast on the transition, not on
+  // every poll. Persist across polls but scoped to the component.
+  const prevGateRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,6 +34,27 @@ export default function CorpusHealthPill() {
         const failed = data?.failed ?? 0;
         const rate   = total > 0 ? (passed / total) * 100 : 0;
         const gateOk = failed === 0 && total > 0;
+
+        // Regression detection: previous poll was PASS, this poll is
+        // FAIL → surface a subtle toast so the analyst is warned even
+        // if they aren't looking at the pill.
+        if (prevGateRef.current === true && gateOk === false && total > 0) {
+          toast.warning("Corpus regression detected", {
+            description: `${failed} sample${failed === 1 ? "" : "s"} now failing (${passed}/${total} passing). Check /benchmark for the diff.`,
+            duration: 10000,
+            id: "corpus-regression-alert",
+          });
+        }
+        // Recovery signal — pill was failing, is now green again.
+        if (prevGateRef.current === false && gateOk === true) {
+          toast.success("Corpus back to green", {
+            description: `All ${total} samples passing again.`,
+            duration: 6000,
+            id: "corpus-recovery-alert",
+          });
+        }
+        prevGateRef.current = total > 0 ? gateOk : null;
+
         setState({ loading: false, gateOk, passed, total, failed, rate,
                    hasData: total > 0 });
       } catch {

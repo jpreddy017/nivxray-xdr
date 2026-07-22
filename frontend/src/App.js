@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import LoginPage from "@/pages/LoginPage";
 import FloatingAddNoteButton from "@/components/FloatingAddNoteButton";
 import QuickOpenPalette from "@/components/QuickOpenPalette";
+import { Toaster } from "@/components/ui/sonner";
 
 // Route-based code splitting (Perf Sprint · Feb 2026). Each page below
 // ships as its own webpack chunk and downloads on-demand when the route
@@ -98,6 +99,7 @@ function App() {
           </Suspense>
           <FloatingAddNoteButton />
           <QuickOpenPalette />
+          <Toaster richColors position="bottom-right" data-testid="toaster" />
         </AuthProvider>
       </BrowserRouter>
     </div>
