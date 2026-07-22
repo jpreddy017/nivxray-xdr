@@ -21,14 +21,26 @@
  * Feature-flag gated on TRAJECTORY_ENGINE. No RC5 imports.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Cpu, Activity, FileCode, Globe, Database,
-  Search, Shield, ShieldAlert, ShieldCheck, ChevronRight,
-  Clock, PenSquare, Radar, Play, AlertTriangle, X,
+  Search, Shield, ShieldAlert, ShieldCheck, ChevronRight, ChevronDown,
+  Clock, PenSquare, Radar, Play, AlertTriangle, X, Filter, HelpCircle,
+  FolderOpen, Sparkles,
 } from "lucide-react";
 import { isObservable } from "../flags";
 import api from "@/lib/api";
+
+// LocalStorage key for the "new since last view" badge
+const LAST_VIEWED_KEY = (caseId) => `nivx.trajectory.lastViewed.${caseId}`;
+// Confidence tiers used by the evidence badge
+function confidenceTierOf(frame) {
+  const c = Number(frame.provenance?.confidence ?? frame.confidence ?? 0);
+  if (c >= 0.8 || frame.rule_id) return { key: "high",   label: "HIGH",   color: "#22C55E" };
+  if (c >= 0.5 || (frame.mitre || []).length > 0)
+                                 return { key: "medium", label: "MED",    color: "#F59E0B" };
+  return                                { key: "low",    label: "LOW",    color: "#71717A" };
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // Lane metadata (accents applied to event glyphs, NOT full-row bands)
@@ -92,6 +104,7 @@ function processKeyOf(frame) {
 // Root component
 // ═══════════════════════════════════════════════════════════════════
 export default function DeviceTrajectory() {
+  const navigate = useNavigate();
   const { caseId = "case_dfir_bumblebee_akira_2026" } = useParams() || {};
   const [data, setData] = useState(null);
   const [err, setErr]   = useState(null);
@@ -101,6 +114,16 @@ export default function DeviceTrajectory() {
   const searchRef = useRef(null);
   const canvasRef = useRef(null);
   const [canvasW, setCanvasW] = useState(1200);
+  // R1.1 · Filter chips
+  const [verdictFilter, setVerdictFilter] = useState("all"); // all | benign | suspicious | malicious
+  const [laneFilter, setLaneFilter]       = useState("all"); // all | system | process | file | network | registry
+  const [mitreFilter, setMitreFilter]     = useState(null);  // null | "TXXXX"
+  // R1.1 · Case selector
+  const [cases, setCases]           = useState(null);
+  const [caseMenuOpen, setCaseMenu] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
+  // R1.1 · New-since-last-view badge
+  const [lastViewed, setLastViewed] = useState(null);
 
   const enabled = isObservable("TRAJECTORY_ENGINE") || isObservable("CASE_ENGINE");
 
@@ -121,6 +144,31 @@ export default function DeviceTrajectory() {
     return () => { cancelled = true; };
   }, [caseId, enabled]);
 
+  // R1.1 · Load case list for the selector (best-effort — 401/404 → keep null)
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.get("/v2/cases?limit=100");
+        if (!cancelled) setCases(Array.isArray(r.data) ? r.data : []);
+      } catch (_) {
+        if (!cancelled) setCases([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [enabled]);
+
+  // R1.1 · Read the "last viewed" timestamp for this case, then bump it.
+  useEffect(() => {
+    if (!enabled) return;
+    try {
+      const prev = localStorage.getItem(LAST_VIEWED_KEY(caseId));
+      setLastViewed(prev ? Number(prev) : null);
+      localStorage.setItem(LAST_VIEWED_KEY(caseId), String(Date.now()));
+    } catch (_) { /* localStorage disabled — ignore */ }
+  }, [caseId, enabled]);
+
   // Observe canvas resize so nodes stay pixel-precise across viewports
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -133,18 +181,36 @@ export default function DeviceTrajectory() {
     return () => ro.disconnect();
   }, [enabled]);
 
-  // Filtered frames
+  // Filtered frames (search + verdict + lane + mitre chip)
   const frames = useMemo(() => {
     if (!data?.frames) return [];
-    if (!query) return data.frames;
-    const q = query.toLowerCase();
-    return data.frames.filter(f =>
-      (f.label || "").toLowerCase().includes(q) ||
-      (f.action || "").toLowerCase().includes(q) ||
-      processLabelOf(f).toLowerCase().includes(q) ||
-      (f.mitre || []).some(t => t.toLowerCase().includes(q)),
-    );
-  }, [data, query]);
+    let out = data.frames;
+    if (verdictFilter !== "all")
+      out = out.filter(f => verdictFor(f) === verdictFilter);
+    if (laneFilter !== "all")
+      out = out.filter(f => f.lane === laneFilter);
+    if (mitreFilter)
+      out = out.filter(f => (f.mitre || []).includes(mitreFilter));
+    if (query) {
+      const q = query.toLowerCase();
+      out = out.filter(f =>
+        (f.label || "").toLowerCase().includes(q) ||
+        (f.action || "").toLowerCase().includes(q) ||
+        processLabelOf(f).toLowerCase().includes(q) ||
+        (f.mitre || []).some(t => t.toLowerCase().includes(q)),
+      );
+    }
+    return out;
+  }, [data, query, verdictFilter, laneFilter, mitreFilter]);
+
+  // R1.1 · Count of frames newer than the last-viewed timestamp
+  const newSinceCount = useMemo(() => {
+    if (!lastViewed || !data?.frames) return 0;
+    return data.frames.filter(f => {
+      const ing = new Date(f.provenance?.ingested_at || f.ts).getTime();
+      return ing > lastViewed;
+    }).length;
+  }, [data, lastViewed]);
 
   // Time domain + x mapper
   const { xForTs, minTs, maxTs, tickTimes } = useMemo(() => {
@@ -289,6 +355,11 @@ export default function DeviceTrajectory() {
         query={query} setQuery={setQuery}
         zoom={zoom} setZoom={setZoom}
         searchRef={searchRef}
+        cases={cases}
+        caseMenuOpen={caseMenuOpen} setCaseMenu={setCaseMenu}
+        onPickCase={(id) => navigate(`/v2/trajectory/${encodeURIComponent(id)}`)}
+        legendOpen={legendOpen} setLegendOpen={setLegendOpen}
+        newSinceCount={newSinceCount}
       />
 
       {err && (
@@ -301,6 +372,22 @@ export default function DeviceTrajectory() {
 
       {/* Top two-tier scrubber */}
       <Scrubber histogram={histogram} minTs={minTs} maxTs={maxTs} frames={frames} />
+
+      {/* R1.1 · Filter chips row */}
+      <FilterChips
+        verdictFilter={verdictFilter} setVerdictFilter={setVerdictFilter}
+        laneFilter={laneFilter} setLaneFilter={setLaneFilter}
+        mitreFilter={mitreFilter} setMitreFilter={setMitreFilter}
+        topMitre={overview.mitre}
+        counts={{
+          malicious:  overview.malicious,
+          suspicious: overview.suspicious,
+          benign:     (data?.count ?? 0) - overview.malicious - overview.suspicious,
+        }}
+        laneCounts={Object.fromEntries(overview.lanes)}
+        totalShown={frames.length}
+        totalAll={data?.count ?? 0}
+      />
 
       {/* Main work area */}
       <div className="flex flex-1 min-h-0">
@@ -433,9 +520,13 @@ export default function DeviceTrajectory() {
 // ═══════════════════════════════════════════════════════════════════
 // Header
 // ═══════════════════════════════════════════════════════════════════
-function Header({ caseId, count, totalRows, query, setQuery, zoom, setZoom, searchRef }) {
+function Header({
+  caseId, count, totalRows, query, setQuery, zoom, setZoom, searchRef,
+  cases, caseMenuOpen, setCaseMenu, onPickCase,
+  legendOpen, setLegendOpen, newSinceCount,
+}) {
   return (
-    <header className="h-14 shrink-0 flex items-center gap-4 border-b border-zinc-800 bg-zinc-950 px-4 z-20">
+    <header className="h-14 shrink-0 flex items-center gap-4 border-b border-zinc-800 bg-zinc-950 px-4 z-20 relative">
       <div className="flex items-center gap-3">
         <div className="w-7 h-7 flex items-center justify-center rounded-sm bg-amber-500/10
                         border border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.15)]">
@@ -451,13 +542,71 @@ function Header({ caseId, count, totalRows, query, setQuery, zoom, setZoom, sear
         </div>
       </div>
 
-      <div className="hidden md:flex items-center gap-2 pl-4 ml-2 border-l border-zinc-800 h-8">
+      {/* Case selector dropdown */}
+      <div className="hidden md:flex items-center gap-2 pl-4 ml-2 border-l border-zinc-800 h-8 relative">
         <span className="text-[10px] tracking-widest uppercase text-zinc-500 font-semibold">Case</span>
-        <code className="text-[11px] text-amber-500"
-              style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-              data-testid="case-id-label">
-          {caseId}
-        </code>
+        <button
+          data-testid="case-selector-trigger"
+          onClick={() => setCaseMenu(!caseMenuOpen)}
+          className="flex items-center gap-1.5 px-2 py-1 rounded-sm border border-zinc-800
+                     hover:border-amber-500/40 hover:bg-amber-500/5 transition-colors duration-150"
+        >
+          <FolderOpen size={11} className="text-amber-500/70" />
+          <code className="text-[11px] text-amber-500 max-w-[240px] truncate"
+                style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+            {caseId}
+          </code>
+          {newSinceCount > 0 && (
+            <span
+              data-testid="new-since-badge"
+              className="ml-1 text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-sm
+                         bg-amber-500 text-amber-950 flex items-center gap-1"
+              title={`${newSinceCount} new events since last visit`}
+            >
+              <Sparkles size={9} /> {newSinceCount} NEW
+            </span>
+          )}
+          <ChevronDown size={11} className={"text-zinc-500 transition-transform duration-150 " +
+                                             (caseMenuOpen ? "rotate-180" : "")} />
+        </button>
+
+        {caseMenuOpen && cases && (
+          <div
+            data-testid="case-selector-menu"
+            className="absolute top-full mt-1 left-16 w-96 max-h-80 overflow-y-auto z-40
+                       bg-zinc-950 border border-zinc-800 rounded-sm shadow-2xl"
+          >
+            {cases.length === 0 && (
+              <div className="p-3 text-[11px] text-zinc-600"
+                   style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                no cases indexed · use POST /api/v2/cases to seed
+              </div>
+            )}
+            {cases.map(c => {
+              const id = c.case_id || c._id || c.id;
+              const isActive = id === caseId;
+              return (
+                <button
+                  key={id}
+                  data-testid={`case-option-${id}`}
+                  onClick={() => { onPickCase(id); setCaseMenu(false); }}
+                  className={"w-full text-left px-3 py-2 border-b border-zinc-900 last:border-b-0 " +
+                             "transition-colors duration-100 " +
+                             (isActive ? "bg-amber-500/10" : "hover:bg-zinc-900/50")}
+                >
+                  <div className={"text-[11px] " + (isActive ? "text-amber-400" : "text-zinc-200")}
+                       style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                    {id}
+                  </div>
+                  {c.title && (
+                    <div className="text-[10px] text-zinc-500 mt-0.5">{c.title}</div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <span className="text-zinc-700 mx-1">·</span>
         <span className="text-[10px] tracking-widest uppercase text-zinc-500 font-semibold">Events</span>
         <span className="text-[11px] text-zinc-200 tabular-nums"
@@ -474,6 +623,20 @@ function Header({ caseId, count, totalRows, query, setQuery, zoom, setZoom, sear
       </div>
 
       <div className="flex-1" />
+
+      {/* Legend button */}
+      <div className="relative">
+        <button
+          data-testid="glyph-legend-trigger"
+          onClick={() => setLegendOpen(!legendOpen)}
+          className="w-8 h-8 flex items-center justify-center rounded-sm border border-zinc-800
+                     text-zinc-400 hover:text-amber-500 hover:border-amber-500/40 transition-colors duration-150"
+          title="Symbol legend"
+        >
+          <HelpCircle size={14} />
+        </button>
+        {legendOpen && <GlyphLegend onClose={() => setLegendOpen(false)} />}
+      </div>
 
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600" size={12} />
@@ -510,6 +673,208 @@ function Header({ caseId, count, totalRows, query, setQuery, zoom, setZoom, sear
         ))}
       </div>
     </header>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Filter chips row (R1.1 · Analyst Experience)
+// ═══════════════════════════════════════════════════════════════════
+function FilterChips({
+  verdictFilter, setVerdictFilter,
+  laneFilter, setLaneFilter,
+  mitreFilter, setMitreFilter,
+  topMitre, counts, laneCounts, totalShown, totalAll,
+}) {
+  const hasFilter = verdictFilter !== "all" || laneFilter !== "all" || mitreFilter;
+  return (
+    <div className="shrink-0 border-b border-zinc-800 bg-zinc-950/95 px-4 py-2
+                    flex items-center gap-2 flex-wrap"
+         data-testid="filter-chips">
+      <div className="flex items-center gap-1.5">
+        <Filter size={11} className="text-zinc-600" />
+        <span className="text-[9px] tracking-[0.24em] text-zinc-500 uppercase font-semibold">
+          Filter
+        </span>
+      </div>
+
+      {/* Verdict pills */}
+      <ChipGroup>
+        <Chip active={verdictFilter === "all"} onClick={() => setVerdictFilter("all")}
+              tid="chip-verdict-all">
+          All
+        </Chip>
+        <Chip active={verdictFilter === "malicious"} onClick={() => setVerdictFilter("malicious")}
+              tid="chip-verdict-malicious" color="#E11D48">
+          <ShieldAlert size={10} /> Malicious
+          <span className="tabular-nums opacity-70">{counts.malicious}</span>
+        </Chip>
+        <Chip active={verdictFilter === "suspicious"} onClick={() => setVerdictFilter("suspicious")}
+              tid="chip-verdict-suspicious" color="#F59E0B">
+          <Shield size={10} /> Suspicious
+          <span className="tabular-nums opacity-70">{counts.suspicious}</span>
+        </Chip>
+        <Chip active={verdictFilter === "benign"} onClick={() => setVerdictFilter("benign")}
+              tid="chip-verdict-benign" color="#22C55E">
+          <ShieldCheck size={10} /> Observation
+          <span className="tabular-nums opacity-70">{counts.benign}</span>
+        </Chip>
+      </ChipGroup>
+
+      <span className="w-px h-4 bg-zinc-800 mx-1" />
+
+      {/* Lane pills */}
+      <ChipGroup>
+        <Chip active={laneFilter === "all"} onClick={() => setLaneFilter("all")}
+              tid="chip-lane-all">All lanes</Chip>
+        {LANE_ORDER.map(l => {
+          const meta = LANE_META[l];
+          return (
+            <Chip key={l} active={laneFilter === l} onClick={() => setLaneFilter(l)}
+                  tid={`chip-lane-${l}`} color={meta.accent}>
+              <meta.Icon size={10} /> {meta.label}
+              <span className="tabular-nums opacity-70">{laneCounts[l] || 0}</span>
+            </Chip>
+          );
+        })}
+      </ChipGroup>
+
+      {topMitre.length > 0 && (
+        <>
+          <span className="w-px h-4 bg-zinc-800 mx-1" />
+          <ChipGroup>
+            {topMitre.slice(0, 4).map(([tid, n]) => (
+              <Chip key={tid}
+                    active={mitreFilter === tid}
+                    onClick={() => setMitreFilter(mitreFilter === tid ? null : tid)}
+                    tid={`chip-mitre-${tid}`}
+                    color="#F87171">
+                {tid}
+                <span className="tabular-nums opacity-70">{n}</span>
+              </Chip>
+            ))}
+          </ChipGroup>
+        </>
+      )}
+
+      <div className="flex-1" />
+
+      {/* Result count + clear */}
+      <div className="flex items-center gap-2 text-[10px] text-zinc-500"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        <span className="text-zinc-200 tabular-nums">{totalShown}</span>
+        <span className="text-zinc-600">/</span>
+        <span className="tabular-nums">{totalAll}</span>
+        <span>shown</span>
+        {hasFilter && (
+          <button
+            data-testid="filter-clear"
+            onClick={() => { setVerdictFilter("all"); setLaneFilter("all"); setMitreFilter(null); }}
+            className="ml-2 flex items-center gap-1 text-amber-500 hover:text-amber-400
+                       border border-amber-500/40 rounded-sm px-1.5 py-0.5 transition-colors duration-150"
+          >
+            <X size={9} /> clear
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+function ChipGroup({ children }) {
+  return <div className="flex items-center gap-1">{children}</div>;
+}
+function Chip({ active, onClick, tid, color, children }) {
+  const style = active && color ? {
+    color, borderColor: color + "66", background: color + "1F",
+  } : undefined;
+  return (
+    <button
+      data-testid={tid}
+      onClick={onClick}
+      className={
+        "flex items-center gap-1 px-2 py-0.5 rounded-sm border text-[10px] tracking-wider " +
+        "transition-colors duration-100 " +
+        (active
+          ? (color ? "" : "border-amber-500/50 text-amber-400 bg-amber-500/10")
+          : "border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700")
+      }
+      style={{ fontFamily: "'IBM Plex Sans', sans-serif", ...(style || {}) }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Glyph legend (popover)
+// ═══════════════════════════════════════════════════════════════════
+function GlyphLegend({ onClose }) {
+  const items = [
+    { kind: "create",     label: "Create"     },
+    { kind: "copy",       label: "Copy"       },
+    { kind: "move",       label: "Move"       },
+    { kind: "execute",    label: "Execute"    },
+    { kind: "open",       label: "Open"       },
+    { kind: "network",    label: "Network"    },
+    { kind: "exploit",    label: "Exploit prevention" },
+    { kind: "restore",    label: "Restore"    },
+    { kind: "detect",     label: "Scan detection" },
+    { kind: "compromise", label: "Compromise" },
+    { kind: "scan",       label: "Scan"       },
+    { kind: "reboot",     label: "Reboot"     },
+  ];
+  return (
+    <div
+      data-testid="glyph-legend"
+      className="absolute top-full mt-1 right-0 w-[420px] z-40 bg-zinc-950 border border-zinc-800
+                 rounded-sm shadow-2xl p-4"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] tracking-[0.24em] font-semibold text-zinc-400 uppercase">
+          Symbol legend
+        </span>
+        <button onClick={onClose} className="text-zinc-600 hover:text-zinc-300">
+          <X size={12} />
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {items.map(({ kind, label }) => (
+          <div key={kind} className="flex items-center gap-2 py-1">
+            <svg width={22} height={22} viewBox="0 0 22 22">
+              <circle cx="11" cy="11" r="9" fill="#0B0B0E" stroke="#71717A" strokeWidth="1.5" />
+              <ActivityMark kind={kind} color="#E4E4E7" />
+            </svg>
+            <span className="text-[11px] text-zinc-300"
+                  style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>{label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 pt-3 border-t border-zinc-900 grid grid-cols-3 gap-2">
+        <LegendVerdict color="#22C55E" label="Observation" />
+        <LegendVerdict color="#F59E0B" label="Suspicious"  />
+        <LegendVerdictHex label="Malicious" />
+      </div>
+    </div>
+  );
+}
+function LegendVerdict({ color, label }) {
+  return (
+    <div className="flex items-center gap-2">
+      <svg width={20} height={20} viewBox="0 0 20 20">
+        <circle cx="10" cy="10" r="8" fill="#0B0B0E" stroke={color} strokeWidth="1.6" />
+      </svg>
+      <span className="text-[10px] text-zinc-300">{label}</span>
+    </div>
+  );
+}
+function LegendVerdictHex({ label }) {
+  return (
+    <div className="flex items-center gap-2">
+      <svg width={20} height={20} viewBox="0 0 20 20">
+        <polygon points="10,1 19,6 19,14 10,19 1,14 1,6"
+                 fill="#450A0A" stroke="#E11D48" strokeWidth="1.5" />
+      </svg>
+      <span className="text-[10px] text-zinc-300">{label}</span>
+    </div>
   );
 }
 
@@ -1161,6 +1526,7 @@ function EvidencePanel({ frame, onClose }) {
   const meta = LANE_META[frame.lane] || LANE_META.process;
   const v = verdictFor(frame);
   const vMeta = VERDICT[v];
+  const conf = confidenceTierOf(frame);
   return (
     <div className="flex-1 flex flex-col overflow-hidden" data-testid="evidence-panel">
       <div className="px-5 pt-5 pb-4 border-b border-zinc-900 relative">
@@ -1180,12 +1546,20 @@ function EvidencePanel({ frame, onClose }) {
             ESC <X size={11} />
           </button>
         </div>
-        <span className="inline-flex items-center gap-1 text-[9px] font-bold tracking-[0.2em] px-1.5 py-0.5 rounded-sm border"
-              style={{ color: vMeta.color, borderColor: vMeta.color + "66", background: vMeta.color + "14",
-                       fontFamily: "'IBM Plex Sans', sans-serif" }}
-              data-testid="verdict-badge">
-          <vMeta.Icon size={10} /> {vMeta.label}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-[9px] font-bold tracking-[0.2em] px-1.5 py-0.5 rounded-sm border"
+                style={{ color: vMeta.color, borderColor: vMeta.color + "66", background: vMeta.color + "14",
+                         fontFamily: "'IBM Plex Sans', sans-serif" }}
+                data-testid="verdict-badge">
+            <vMeta.Icon size={10} /> {vMeta.label}
+          </span>
+          <span className="inline-flex items-center gap-1 text-[9px] font-bold tracking-[0.2em] px-1.5 py-0.5 rounded-sm border"
+                style={{ color: conf.color, borderColor: conf.color + "66", background: conf.color + "14",
+                         fontFamily: "'IBM Plex Sans', sans-serif" }}
+                data-testid="confidence-badge">
+            {conf.label} CONF
+          </span>
+        </div>
         <div className="mt-3 text-[12px] text-zinc-200 leading-relaxed break-words"
              style={{ fontFamily: "'IBM Plex Mono', monospace" }}
              data-testid="evidence-label">
