@@ -60,9 +60,14 @@ jobs:
       - name: Run RC5 test suite on HEAD (must be 100% green)
         run: |
           cd head/backend
-          # -n 2 + per-test timeout guards against the same 99%-cancel
-          # pattern that hit rc5_gates.yml on Feb-2026.
-          python -m pytest tests/rc5/ -q --tb=short -n 2 --timeout=60 --timeout-method=thread
+          # SERIAL run — xdist (-n 2) caused a 99%-cancel teardown deadlock
+          # on GitHub runners when combined with FastAPI's async lifespan +
+          # Motor's connection close (see pytest-xdist#754). Mirrors the
+          # fix already applied to rc5_gates.yml. Per-test --timeout=60
+          # via `thread` method kills any single hang. -p no:cacheprovider
+          # eliminates a cross-worker cache-race that also triggered the
+          # same "[gw0] node down: Not properly terminated" symptom.
+          python -m pytest tests/rc5/ -q --tb=short --timeout=60 --timeout-method=thread -p no:cacheprovider
 
       # ── Base branch corpus run (PRs only) ─────────────────────────
       - name: Install base branch backend dependencies
