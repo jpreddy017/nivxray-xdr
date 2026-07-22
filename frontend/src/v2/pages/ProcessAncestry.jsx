@@ -21,13 +21,13 @@ import api from "@/lib/api";
 
 const VERDICT = {
   benign:     { color: "#22C55E", label: "OBSERVATION", Icon: ShieldCheck },
-  suspicious: { color: "#F59E0B", label: "SUSPICIOUS",  Icon: Shield      },
+  suspicious: { color: "#A1A1AA", label: "SUSPICIOUS",  Icon: Shield      },
   malicious:  { color: "#E11D48", label: "MALICIOUS",   Icon: ShieldAlert },
 };
 
 const ROLE_META = {
   ancestor:   { label: "ANCESTOR",   color: "#71717A" },
-  root:       { label: "ROOT",       color: "#F59E0B" },
+  root:       { label: "ROOT",       color: "#A1A1AA" },
   descendant: { label: "DESCENDANT", color: "#8B5CF6" },
 };
 
@@ -113,14 +113,14 @@ export default function ProcessAncestry() {
           data-testid="ancestry-back"
           onClick={() => navigate(`/v2/trajectory/${encodeURIComponent(caseId)}`)}
           className="w-8 h-8 flex items-center justify-center rounded-sm border border-zinc-800
-                     text-zinc-400 hover:text-amber-500 hover:border-amber-500/40 transition-colors duration-150"
+                     text-zinc-400 hover:text-zinc-100 hover:border-zinc-500/40 transition-colors duration-150"
         >
           <ArrowLeft size={14} />
         </button>
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 flex items-center justify-center rounded-sm bg-amber-500/10
-                          border border-amber-500/30">
-            <Activity className="text-amber-500" size={14} />
+          <div className="w-7 h-7 flex items-center justify-center rounded-sm bg-zinc-100/10
+                          border border-zinc-500/30">
+            <Activity className="text-zinc-100" size={14} />
           </div>
           <div>
             <div className="text-[9px] tracking-[0.28em] text-zinc-500 uppercase font-semibold">
@@ -133,7 +133,7 @@ export default function ProcessAncestry() {
         </div>
         <div className="hidden md:flex items-center gap-2 pl-4 ml-2 border-l border-zinc-800 h-8">
           <span className="text-[10px] tracking-widest uppercase text-zinc-500 font-semibold">Case</span>
-          <code className="text-[11px] text-amber-500"
+          <code className="text-[11px] text-zinc-100"
                 style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
             {caseId}
           </code>
@@ -222,7 +222,7 @@ export default function ProcessAncestry() {
           ) : (
             <div className="p-5" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
               <div className="flex items-center gap-2 mb-1">
-                <Activity size={13} className="text-amber-500" />
+                <Activity size={13} className="text-zinc-100" />
                 <span className="text-[10px] tracking-[0.24em] font-semibold text-zinc-400 uppercase">
                   Ancestry Overview
                 </span>
@@ -260,13 +260,13 @@ function NodeCard({ node, x, y, selected, onSelect }) {
       data-testid={`ancestry-node-${node.key}`}
       onClick={onSelect}
       className="absolute rounded-sm bg-zinc-900 border text-left outline-none focus-visible:ring-2
-                 focus-visible:ring-amber-500 transition-transform duration-150 hover:-translate-y-[2px]"
+                 focus-visible:ring-white/60 transition-transform duration-150 hover:-translate-y-[2px]"
       style={{
         left: x, top: y, width: NODE_W, height: NODE_H,
-        borderColor: selected ? "#F59E0B" : (rMeta.color + "66"),
+        borderColor: selected ? "#A1A1AA" : (rMeta.color + "66"),
         borderLeftColor: rMeta.color, borderLeftWidth: 3,
         boxShadow: selected
-          ? "0 0 0 1px #F59E0B, 0 6px 24px -8px rgba(245,158,11,0.35)"
+          ? "0 0 0 1px #A1A1AA, 0 6px 24px -8px rgba(161,161,170,0.35)"
           : `0 4px 16px -8px ${vMeta.color}44`,
       }}
     >
@@ -322,7 +322,7 @@ function NodeDetail({ node, events, onClose }) {
       <div className="px-5 pt-5 pb-4 border-b border-zinc-900 relative">
         <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: vMeta.color }} />
         <div className="flex items-center gap-2 mb-2">
-          <Activity size={13} className="text-amber-500" />
+          <Activity size={13} className="text-zinc-100" />
           <span className="text-[10px] tracking-[0.24em] font-semibold text-zinc-400 uppercase">
             {ROLE_META[node.role]?.label || node.role}
           </span>

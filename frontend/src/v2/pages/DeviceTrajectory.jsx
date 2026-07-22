@@ -12,7 +12,7 @@
  *
  * Visuals (design_guidelines.json — "Amber-on-Graphite / Tactical Surveillance"):
  *   - zinc-950 base, zinc-800 borders, IBM Plex Sans + Mono
- *   - Amber #F59E0B as the ONE hero accent (V2 badge, zoom active, selection)
+ *   - Amber #A1A1AA as the ONE hero accent (V2 badge, zoom active, selection)
  *   - Per-lane accents kept small: violet SYSTEM, rose PROCESS, amber FILES,
  *     indigo NETWORK, orange REGISTRY — used to tint event glyphs
  *   - Verdict halos: emerald (observation) · amber (suspicious) · rose (malicious)
@@ -38,7 +38,7 @@ function confidenceTierOf(frame) {
   const c = Number(frame.provenance?.confidence ?? frame.confidence ?? 0);
   if (c >= 0.8 || frame.rule_id) return { key: "high",   label: "HIGH",   color: "#22C55E" };
   if (c >= 0.5 || (frame.mitre || []).length > 0)
-                                 return { key: "medium", label: "MED",    color: "#F59E0B" };
+                                 return { key: "medium", label: "MED",    color: "#A1A1AA" };
   return                                { key: "low",    label: "LOW",    color: "#71717A" };
 }
 
@@ -48,7 +48,7 @@ function confidenceTierOf(frame) {
 const LANE_META = {
   system:   { label: "SYSTEM",   accent: "#8B5CF6", Icon: Cpu      },
   process:  { label: "PROCESS",  accent: "#E11D48", Icon: Activity },
-  file:     { label: "FILES",    accent: "#F59E0B", Icon: FileCode },
+  file:     { label: "FILES",    accent: "#A1A1AA", Icon: FileCode },
   network:  { label: "NETWORK",  accent: "#4F46E5", Icon: Globe    },
   registry: { label: "REGISTRY", accent: "#EA580C", Icon: Database },
 };
@@ -56,7 +56,7 @@ const LANE_ORDER = ["system", "process", "file", "network", "registry"];
 
 const VERDICT = {
   benign:     { color: "#22C55E", label: "OBSERVATION",  Icon: ShieldCheck },
-  suspicious: { color: "#F59E0B", label: "SUSPICIOUS",   Icon: Shield      },
+  suspicious: { color: "#A1A1AA", label: "SUSPICIOUS",   Icon: Shield      },
   malicious:  { color: "#E11D48", label: "MALICIOUS",    Icon: ShieldAlert },
 };
 function verdictFor(f) {
@@ -339,8 +339,8 @@ export default function DeviceTrajectory() {
            className="min-h-screen bg-zinc-950 text-zinc-500 p-6 text-xs"
            style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
         Device Trajectory is disabled. Set{" "}
-        <code className="text-amber-500">REACT_APP_NIVX_FLAG_TRAJECTORY_ENGINE=shadow</code>{" "}or{" "}
-        <code className="text-amber-500">REACT_APP_NIVX_FLAG_CASE_ENGINE=shadow</code>.
+        <code className="text-zinc-100">REACT_APP_NIVX_FLAG_TRAJECTORY_ENGINE=shadow</code>{" "}or{" "}
+        <code className="text-zinc-100">REACT_APP_NIVX_FLAG_CASE_ENGINE=shadow</code>.
       </div>
     );
   }
@@ -429,7 +429,7 @@ export default function DeviceTrajectory() {
                     const stroke = r.worstVerdict === "malicious"
                       ? VERDICT.malicious.color
                       : r.worstVerdict === "suspicious"
-                        ? "#A16207" // muted amber
+                        ? "#71717A" // muted zinc (was amber, per user ref)
                         : "#3F3F46"; // zinc-700
                     return (
                       <g key={r.key + ":line"}>
@@ -464,9 +464,9 @@ export default function DeviceTrajectory() {
                   return (
                     <div className="absolute inset-x-0 pointer-events-none"
                          style={{ top: idx * ROW_H, height: ROW_H,
-                                  background: "linear-gradient(90deg, rgba(245,158,11,0.10), rgba(245,158,11,0.04))",
-                                  borderTop: "1px solid rgba(245,158,11,0.35)",
-                                  borderBottom: "1px solid rgba(245,158,11,0.35)" }} />
+                                  background: "linear-gradient(90deg, rgba(161,161,170,0.10), rgba(161,161,170,0.04))",
+                                  borderTop: "1px solid rgba(161,161,170,0.35)",
+                                  borderBottom: "1px solid rgba(161,161,170,0.35)" }} />
                   );
                 })()}
 
@@ -493,7 +493,7 @@ export default function DeviceTrajectory() {
                   <div className="text-xs tracking-wider text-center">
                     <Radar className="mx-auto mb-2 text-zinc-700" size={22} />
                     NO TRAJECTORY FRAMES · seed observations via{" "}
-                    <code className="text-amber-500">POST /api/v2/cases/{caseId}/observations</code>
+                    <code className="text-zinc-100">POST /api/v2/cases/{caseId}/observations</code>
                   </div>
                 </div>
               )}
@@ -523,9 +523,9 @@ export default function DeviceTrajectory() {
       <button
         data-testid="generate-report-cta"
         onClick={() => setReportOpen(true)}
-        className="fixed bottom-6 right-[404px] bg-amber-500 text-amber-950 px-3 py-1.5 rounded-sm
-                   font-semibold text-[11px] tracking-wider shadow-lg hover:bg-amber-400
-                   border border-amber-300/60 flex items-center gap-2 z-40
+        className="fixed bottom-6 right-[404px] bg-zinc-100 text-zinc-950 px-3 py-1.5 rounded-sm
+                   font-semibold text-[11px] tracking-wider shadow-lg hover:bg-zinc-200
+                   border border-zinc-300/60 flex items-center gap-2 z-40
                    transition-colors duration-150"
       >
         <FileCode size={12} /> GENERATE REPORT
@@ -548,9 +548,9 @@ function Header({
   return (
     <header className="h-14 shrink-0 flex items-center gap-4 border-b border-zinc-800 bg-zinc-950 px-4 z-20 relative">
       <div className="flex items-center gap-3">
-        <div className="w-7 h-7 flex items-center justify-center rounded-sm bg-amber-500/10
-                        border border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.15)]">
-          <Radar className="text-amber-500" size={14} />
+        <div className="w-7 h-7 flex items-center justify-center rounded-sm bg-zinc-100/10
+                        border border-zinc-500/30 shadow-[0_0_8px_rgba(161,161,170,0.15)]">
+          <Radar className="text-zinc-100" size={14} />
         </div>
         <div>
           <div className="text-[9px] tracking-[0.28em] text-zinc-500 uppercase font-semibold">
@@ -569,10 +569,10 @@ function Header({
           data-testid="case-selector-trigger"
           onClick={() => setCaseMenu(!caseMenuOpen)}
           className="flex items-center gap-1.5 px-2 py-1 rounded-sm border border-zinc-800
-                     hover:border-amber-500/40 hover:bg-amber-500/5 transition-colors duration-150"
+                     hover:border-zinc-500/40 hover:bg-zinc-100/5 transition-colors duration-150"
         >
-          <FolderOpen size={11} className="text-amber-500/70" />
-          <code className="text-[11px] text-amber-500 max-w-[240px] truncate"
+          <FolderOpen size={11} className="text-zinc-100/70" />
+          <code className="text-[11px] text-zinc-100 max-w-[240px] truncate"
                 style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
             {caseId}
           </code>
@@ -580,7 +580,7 @@ function Header({
             <span
               data-testid="new-since-badge"
               className="ml-1 text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-sm
-                         bg-amber-500 text-amber-950 flex items-center gap-1"
+                         bg-zinc-100 text-zinc-950 flex items-center gap-1"
               title={`${newSinceCount} new events since last visit`}
             >
               <Sparkles size={9} /> {newSinceCount} NEW
@@ -612,9 +612,9 @@ function Header({
                   onClick={() => { onPickCase(id); setCaseMenu(false); }}
                   className={"w-full text-left px-3 py-2 border-b border-zinc-900 last:border-b-0 " +
                              "transition-colors duration-100 " +
-                             (isActive ? "bg-amber-500/10" : "hover:bg-zinc-900/50")}
+                             (isActive ? "bg-zinc-100/10" : "hover:bg-zinc-900/50")}
                 >
-                  <div className={"text-[11px] " + (isActive ? "text-amber-400" : "text-zinc-200")}
+                  <div className={"text-[11px] " + (isActive ? "text-zinc-100" : "text-zinc-200")}
                        style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                     {id}
                   </div>
@@ -650,7 +650,7 @@ function Header({
           data-testid="glyph-legend-trigger"
           onClick={() => setLegendOpen(!legendOpen)}
           className="w-8 h-8 flex items-center justify-center rounded-sm border border-zinc-800
-                     text-zinc-400 hover:text-amber-500 hover:border-amber-500/40 transition-colors duration-150"
+                     text-zinc-400 hover:text-zinc-100 hover:border-zinc-500/40 transition-colors duration-150"
           title="Symbol legend"
         >
           <HelpCircle size={14} />
@@ -668,7 +668,7 @@ function Header({
           placeholder="search process / command / mitre"
           className="pl-8 pr-8 py-1.5 w-72 bg-zinc-900 border border-zinc-700 rounded-sm
                      text-xs text-zinc-200 placeholder-zinc-600 outline-none
-                     focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors duration-150"
+                     focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors duration-150"
           style={{ fontFamily: "'IBM Plex Mono', monospace" }}
         />
         <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-600
@@ -683,7 +683,7 @@ function Header({
             className={
               "px-2.5 py-1 text-[10px] font-semibold tracking-wider rounded-sm transition-colors duration-150 " +
               (zoom === z
-                ? "bg-amber-500/15 text-amber-500 border border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.12)]"
+                ? "bg-zinc-100/15 text-zinc-100 border border-zinc-500/40 shadow-[0_0_8px_rgba(161,161,170,0.12)]"
                 : "text-zinc-500 hover:text-zinc-300 border border-transparent")
             }
             style={{ fontFamily: "'IBM Plex Mono', monospace" }}
@@ -729,7 +729,7 @@ function FilterChips({
           <span className="tabular-nums opacity-70">{counts.malicious}</span>
         </Chip>
         <Chip active={verdictFilter === "suspicious"} onClick={() => setVerdictFilter("suspicious")}
-              tid="chip-verdict-suspicious" color="#F59E0B">
+              tid="chip-verdict-suspicious" color="#A1A1AA">
           <Shield size={10} /> Suspicious
           <span className="tabular-nums opacity-70">{counts.suspicious}</span>
         </Chip>
@@ -789,8 +789,8 @@ function FilterChips({
           <button
             data-testid="filter-clear"
             onClick={() => { setVerdictFilter("all"); setLaneFilter("all"); setMitreFilter(null); }}
-            className="ml-2 flex items-center gap-1 text-amber-500 hover:text-amber-400
-                       border border-amber-500/40 rounded-sm px-1.5 py-0.5 transition-colors duration-150"
+            className="ml-2 flex items-center gap-1 text-zinc-100 hover:text-zinc-100
+                       border border-zinc-500/40 rounded-sm px-1.5 py-0.5 transition-colors duration-150"
           >
             <X size={9} /> clear
           </button>
@@ -814,7 +814,7 @@ function Chip({ active, onClick, tid, color, children }) {
         "flex items-center gap-1 px-2 py-0.5 rounded-sm border text-[10px] tracking-wider " +
         "transition-colors duration-100 " +
         (active
-          ? (color ? "" : "border-amber-500/50 text-amber-400 bg-amber-500/10")
+          ? (color ? "" : "border-zinc-500/50 text-zinc-100 bg-zinc-100/10")
           : "border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700")
       }
       style={{ fontFamily: "'IBM Plex Sans', sans-serif", ...(style || {}) }}
@@ -870,7 +870,7 @@ function GlyphLegend({ onClose }) {
       </div>
       <div className="mt-3 pt-3 border-t border-zinc-900 grid grid-cols-3 gap-2">
         <LegendVerdict color="#22C55E" label="Observation" />
-        <LegendVerdict color="#F59E0B" label="Suspicious"  />
+        <LegendVerdict color="#A1A1AA" label="Suspicious"  />
         <LegendVerdictHex label="Malicious" />
       </div>
     </div>
@@ -968,7 +968,7 @@ function Scrubber({ histogram, minTs, maxTs, frames }) {
             const pct = n / max;
             return (
               <div key={i}
-                   className={"flex-1 rounded-[1px] " + (n === 0 ? "bg-zinc-900" : "bg-amber-500/70")}
+                   className={"flex-1 rounded-[1px] " + (n === 0 ? "bg-zinc-900" : "bg-zinc-100/70")}
                    style={{ height: `${Math.max(pct * 100, n === 0 ? 12 : 18)}%` }} />
             );
           })}
@@ -988,11 +988,11 @@ function Scrubber({ histogram, minTs, maxTs, frames }) {
                             (has ? "bg-zinc-900" : "bg-zinc-950")}
                  title={iso}>
               {isActive && (
-                <span className="absolute top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-amber-500
-                                 shadow-[0_0_8px_rgba(245,158,11,0.9)]" />
+                <span className="absolute top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-zinc-100
+                                 shadow-[0_0_8px_rgba(161,161,170,0.9)]" />
               )}
               <span className={"absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[9px] tabular-nums " +
-                              (isActive ? "text-amber-400" : "text-zinc-500")}
+                              (isActive ? "text-zinc-100" : "text-zinc-500")}
                     style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                 {d.getUTCDate()}
               </span>
@@ -1013,7 +1013,7 @@ function Scrubber({ histogram, minTs, maxTs, frames }) {
           return (
             <div key={h}
                  className={"flex-1 relative border-t border-b border-zinc-800/70 " +
-                            (has ? "bg-amber-500/25" : "bg-zinc-950")}
+                            (has ? "bg-zinc-100/25" : "bg-zinc-950")}
                  style={!has ? {
                    backgroundImage:
                      "repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(63,63,70,0.5) 3px, rgba(63,63,70,0.5) 4px)"
@@ -1021,7 +1021,7 @@ function Scrubber({ histogram, minTs, maxTs, frames }) {
                  title={`${h}:00`}>
               {(h % 3 === 0) && (
                 <span className={"absolute bottom-0 left-1/2 -translate-x-1/2 text-[8px] tabular-nums " +
-                                (has ? "text-amber-400" : "text-zinc-600")}
+                                (has ? "text-zinc-100" : "text-zinc-600")}
                       style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                   {h.toString().padStart(2, "0")}
                 </span>
@@ -1056,13 +1056,13 @@ function ProcessRail({ rows, selectedKey, onPickRow, onOpenAncestry }) {
           return (
             <div key={r.key}
                  className={"group w-full h-[34px] flex items-center gap-2 pl-3 pr-1 border-b border-zinc-900/70 " +
-                            (isSel ? "bg-amber-500/8" : "hover:bg-zinc-900/50")}
+                            (isSel ? "bg-zinc-100/8" : "hover:bg-zinc-900/50")}
                  style={{ borderLeft: `2px solid ${vc}66` }}>
               <button
                 data-testid={`row-${r.key}`}
                 onClick={() => onPickRow(r)}
                 className="flex-1 flex items-center gap-2 text-left outline-none">
-                <span className={"flex-1 truncate text-[11px] " + (isSel ? "text-amber-400" : "text-zinc-300")}
+                <span className={"flex-1 truncate text-[11px] " + (isSel ? "text-zinc-100" : "text-zinc-300")}
                       style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
                   {r.label}
                 </span>
@@ -1078,9 +1078,9 @@ function ProcessRail({ rows, selectedKey, onPickRow, onOpenAncestry }) {
                 data-testid={`row-ancestry-${r.key}`}
                 title="Open ancestry graph"
                 onClick={(e) => { e.stopPropagation(); onOpenAncestry(r.key); }}
-                className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-amber-400
+                className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-100
                            w-5 h-5 flex items-center justify-center rounded-sm border border-zinc-800
-                           hover:border-amber-500/40 transition-all duration-150"
+                           hover:border-zinc-500/40 transition-all duration-150"
               >
                 <ChevronRight size={11} />
               </button>
@@ -1240,19 +1240,19 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
   const conf = confidenceTierOf(frame);
   const [hovered, setHovered] = useState(false);
 
-  const size = 22;
+  const size = 16;
   const half = size / 2;
   const mitre0 = (frame.mitre || [])[0];
 
-  // Disposition ring color
+  // Cisco Secure Endpoint palette — white disc + dark icon, red hex only for malicious
   const ringColor = isMalicious ? VERDICT.malicious.color
-                  : isSuspicious ? "#F59E0B"
-                  : "#71717A";
+                  : isSuspicious ? "#A1A1AA"      // muted zinc for suspicious (no yellow)
+                  : "#71717A";                    // benign observation
 
-  // Activity-mark color
+  // Activity-mark color — black-on-white for the neutral disc; red on hex shield.
   const markColor = (kind === ACTIVITY.COMPROMISE || kind === ACTIVITY.DETECT)
     ? "#FCA5A5"
-    : (isSuspicious ? "#FCD34D" : meta.accent);
+    : "#0B0B0E";                                  // dark icon on white disc
 
   return (
     <>
@@ -1263,13 +1263,13 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
         onMouseLeave={() => setHovered(false)}
         onFocus={() => setHovered(true)}
         onBlur={() => setHovered(false)}
-        className="absolute z-10 outline-none focus-visible:ring-2 focus-visible:ring-amber-500
+        className="absolute z-10 outline-none focus-visible:ring-2 focus-visible:ring-white/60
                    transition-transform duration-150 hover:scale-125"
         style={{
           left: x - half, top: y - half,
           width: size, height: size,
           filter: selected
-            ? "drop-shadow(0 0 8px rgba(245,158,11,0.7))"
+            ? "drop-shadow(0 0 6px rgba(255,255,255,0.7))"
             : (isMalicious ? "drop-shadow(0 0 4px rgba(225,29,72,0.5))" : "none"),
         }}
       >
@@ -1277,19 +1277,19 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
           {isMalicious ? (
             <g>
               <polygon
-                points={`${half},1 ${size - 1},${half - 4} ${size - 1},${half + 4} ${half},${size - 1} 1,${half + 4} 1,${half - 4}`}
+                points={`${half},1 ${size - 1},${half - 3} ${size - 1},${half + 3} ${half},${size - 1} 1,${half + 3} 1,${half - 3}`}
                 fill="#450A0A"
                 stroke={VERDICT.malicious.color}
-                strokeWidth="1.6"
+                strokeWidth="1.4"
               />
               <ActivityMark kind={kind} color="#FCA5A5" />
             </g>
           ) : (
             <g>
-              <circle cx={half} cy={half} r={half - 2}
-                      fill="#0B0B0E"
-                      stroke={selected ? "#F59E0B" : ringColor}
-                      strokeWidth={selected ? 1.8 : 1.5} />
+              <circle cx={half} cy={half} r={half - 1.5}
+                      fill="#FFFFFF"
+                      stroke={selected ? "#FFFFFF" : ringColor}
+                      strokeWidth={selected ? 1.5 : 1.2} />
               <ActivityMark kind={kind} color={markColor} />
             </g>
           )}
@@ -1329,7 +1329,7 @@ function ProvenanceCard({ frame, x, y, verdict, conf, activity, meta }) {
         left: x + 16,
         top: Math.max(y - 40, 4),
         fontFamily: "'IBM Plex Sans', sans-serif",
-        boxShadow: "0 12px 32px -8px rgba(0,0,0,0.85), 0 0 0 1px rgba(245,158,11,0.15)",
+        boxShadow: "0 12px 32px -8px rgba(0,0,0,0.85), 0 0 0 1px rgba(161,161,170,0.15)",
       }}
     >
       {/* Header: verdict + confidence + activity + lane */}
@@ -1391,7 +1391,7 @@ function ProvRow({ label, value, muted, emphasize }) {
     <div className="flex items-baseline gap-2">
       <span className="w-14 shrink-0 text-zinc-500">{label}</span>
       <span className={"flex-1 break-all " +
-                      (emphasize ? "text-amber-400" : (muted ? "text-zinc-400" : "text-zinc-200"))}>
+                      (emphasize ? "text-zinc-100" : (muted ? "text-zinc-400" : "text-zinc-200"))}>
         {value}
       </span>
     </div>
@@ -1475,13 +1475,13 @@ function DrawerTab({ active, onClick, label, count, tid }) {
       className={"flex-1 h-9 flex items-center justify-center gap-2 text-[10px] tracking-[0.2em] " +
                  "font-semibold uppercase transition-colors duration-150 border-b-2 " +
                  (active
-                   ? "text-amber-400 border-amber-500 bg-amber-500/5"
+                   ? "text-zinc-100 border-zinc-500 bg-zinc-100/5"
                    : "text-zinc-500 border-transparent hover:text-zinc-300")}
     >
       {label}
       {count != null && (
         <span className={"text-[9px] px-1 rounded-sm tabular-nums " +
-                        (active ? "bg-amber-500/15 text-amber-400" : "bg-zinc-900 text-zinc-500")}
+                        (active ? "bg-zinc-100/15 text-zinc-100" : "bg-zinc-900 text-zinc-500")}
               style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
           {count}
         </span>
@@ -1551,7 +1551,7 @@ function CaseOverviewPanel({ overview, totalEvents, caseId }) {
     <div className="p-5 flex-1 overflow-y-auto"
          style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
       <div className="flex items-center gap-2 mb-1">
-        <Shield size={13} className="text-amber-500" />
+        <Shield size={13} className="text-zinc-100" />
         <span className="text-[10px] tracking-[0.24em] font-semibold text-zinc-400">
           CASE OVERVIEW
         </span>
@@ -1836,8 +1836,8 @@ function ReportModal({ caseId, onClose }) {
       >
         {/* Header */}
         <div className="h-14 shrink-0 flex items-center gap-3 border-b border-zinc-800 px-5 relative">
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-amber-500" />
-          <FileCode className="text-amber-500" size={16} />
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-zinc-100" />
+          <FileCode className="text-zinc-100" size={16} />
           <div>
             <div className="text-[9px] tracking-[0.28em] text-zinc-500 uppercase font-semibold">
               NIVXRAY · V2 · R4
@@ -1852,7 +1852,7 @@ function ReportModal({ caseId, onClose }) {
             onClick={() => copyTo("json", JSON.stringify(json, null, 2))}
             disabled={!json}
             className="text-[10px] tracking-widest px-2.5 py-1 border border-zinc-700 rounded-sm
-                       text-zinc-300 hover:text-amber-400 hover:border-amber-500/40
+                       text-zinc-300 hover:text-zinc-100 hover:border-zinc-500/40
                        transition-colors duration-150 disabled:opacity-30"
           >
             {copied === "json" ? "✓ COPIED" : "COPY JSON"}
@@ -1862,7 +1862,7 @@ function ReportModal({ caseId, onClose }) {
             onClick={() => copyTo("md", md || "")}
             disabled={!md}
             className="text-[10px] tracking-widest px-2.5 py-1 border border-zinc-700 rounded-sm
-                       text-zinc-300 hover:text-amber-400 hover:border-amber-500/40
+                       text-zinc-300 hover:text-zinc-100 hover:border-zinc-500/40
                        transition-colors duration-150 disabled:opacity-30"
           >
             {copied === "md" ? "✓ COPIED" : "COPY MD"}
@@ -1871,8 +1871,8 @@ function ReportModal({ caseId, onClose }) {
             data-testid="report-download-md"
             onClick={() => download(`${caseId}.report.md`, md || "", "text/markdown")}
             disabled={!md}
-            className="text-[10px] tracking-widest px-2.5 py-1 border border-amber-500/40 rounded-sm
-                       text-amber-400 hover:bg-amber-500/10 transition-colors duration-150
+            className="text-[10px] tracking-widest px-2.5 py-1 border border-zinc-500/40 rounded-sm
+                       text-zinc-100 hover:bg-zinc-100/10 transition-colors duration-150
                        disabled:opacity-30"
           >
             ↓ .md
@@ -1881,8 +1881,8 @@ function ReportModal({ caseId, onClose }) {
             data-testid="report-download-json"
             onClick={() => download(`${caseId}.report.json`, JSON.stringify(json, null, 2), "application/json")}
             disabled={!json}
-            className="text-[10px] tracking-widest px-2.5 py-1 border border-amber-500/40 rounded-sm
-                       text-amber-400 hover:bg-amber-500/10 transition-colors duration-150
+            className="text-[10px] tracking-widest px-2.5 py-1 border border-zinc-500/40 rounded-sm
+                       text-zinc-100 hover:bg-zinc-100/10 transition-colors duration-150
                        disabled:opacity-30"
           >
             ↓ .json
@@ -1904,7 +1904,7 @@ function ReportModal({ caseId, onClose }) {
             }}
             disabled={!json}
             className="text-[10px] tracking-widest px-2.5 py-1 rounded-sm
-                       bg-amber-500 text-amber-950 hover:bg-amber-400 font-semibold
+                       bg-zinc-100 text-zinc-950 hover:bg-zinc-200 font-semibold
                        transition-colors duration-150 disabled:opacity-30"
           >
             ↓ .pdf
@@ -1947,7 +1947,7 @@ function ReportModal({ caseId, onClose }) {
                     e.preventDefault();
                     document.getElementById(`sec-${s.id}`)?.scrollIntoView({ behavior: "smooth" });
                   }}
-                  className="block px-3 py-1.5 text-[10px] text-zinc-400 hover:text-amber-400 hover:bg-zinc-900/50
+                  className="block px-3 py-1.5 text-[10px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/50
                              border-b border-zinc-900/50 transition-colors duration-100"
                 >
                   <span className="tabular-nums text-zinc-600 mr-2"
@@ -1961,7 +1961,7 @@ function ReportModal({ caseId, onClose }) {
                 <div className="text-[9px] tracking-[0.24em] uppercase text-zinc-500 font-semibold mb-1">
                   Signature
                 </div>
-                <div className="text-[10px] text-amber-500 break-all"
+                <div className="text-[10px] text-zinc-100 break-all"
                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}
                      data-testid="report-signature">
                   {json.signature?.sha256}
