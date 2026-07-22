@@ -21,6 +21,7 @@ import { useState, useMemo } from "react";
 import {
   Copy, ChevronDown, ChevronRight, Check,
   Shield, Target, Globe, ListTree, Activity,
+  AlertTriangle,
 } from "lucide-react";
 import RecoveredPayloadCard from "./RecoveredPayloadCard";
 
@@ -142,7 +143,7 @@ const chip = (color, extra = {}) => ({
 /* ------------------------------------------------------------------ *
  * 1. Analysis Verdict
  * ------------------------------------------------------------------ */
-function VerdictPanel({ verdictCard }) {
+function VerdictPanel({ verdictCard, correlation = null }) {
   // Wrap the fallback in useMemo so `vc` has a stable identity across
   // renders when `verdictCard` is null — keeps downstream memo deps sane.
   const vc = useMemo(
@@ -289,6 +290,60 @@ function VerdictPanel({ verdictCard }) {
             </li>
           ))}
         </ul>
+      )}
+      {/* Contradiction Auto-Alert · Phase 11.3 side-car surfacing.
+          Shown ONLY when the correlation payload flags conflicting
+          evidence. Zero influence on verdict score / confidence /
+          risk — this is a display-only prompt for the analyst. */}
+      {Array.isArray(correlation?.contradictions) && correlation.contradictions.length > 0 && (
+        <div
+          data-testid="verdict-contradiction-alert"
+          role="alert"
+          style={{
+            marginTop: 12,
+            padding: "8px 10px",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 8,
+            background: "rgba(239,68,68,0.08)",
+            border: "1px solid rgba(239,68,68,0.35)",
+            borderLeft: "3px solid #ef4444",
+            fontFamily: "JetBrains Mono, monospace",
+            fontSize: 11,
+            color: "#fca5a5",
+            lineHeight: 1.45,
+          }}
+        >
+          <AlertTriangle size={13} color="#ef4444" style={{ flexShrink: 0, marginTop: 1 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 9, letterSpacing: "0.18em", color: "#ef4444",
+              fontWeight: 700, marginBottom: 3,
+            }}>
+              CORRELATION ALERT · {correlation.contradictions.length} CONTRADICTION{correlation.contradictions.length === 1 ? "" : "S"}
+            </div>
+            <div style={{ color: "#fee2e2" }}>
+              Conflicting evidence detected across nodes — verdict score
+              unaffected. Review the correlation panel below for details.
+            </div>
+            <div style={{
+              marginTop: 5, fontSize: 10, color: "rgba(252,165,165,0.85)",
+            }}>
+              {correlation.contradictions.slice(0, 3).map((c, i) => (
+                <span key={i}>
+                  {i > 0 && " · "}
+                  <code style={{ color: "#fca5a5" }}>{c.node_id}</code>
+                  <span style={{ opacity: 0.75 }}> ({c.kind})</span>
+                </span>
+              ))}
+              {correlation.contradictions.length > 3 && (
+                <span style={{ opacity: 0.6 }}>
+                  {" "}· +{correlation.contradictions.length - 3} more
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </Panel>
   );
@@ -921,7 +976,7 @@ export default function AnalystResults({
   return (
     <div data-testid="analyst-results" style={{ marginTop: 4 }}>
       {/* 1. Analysis Verdict — pinned via CSS-sticky header inside Panel */}
-      <VerdictPanel verdictCard={verdictCard} />
+      <VerdictPanel verdictCard={verdictCard} correlation={analysis?.correlation} />
 
       {/* 2. Recovered Payload */}
       <RecoveredPayloadCard

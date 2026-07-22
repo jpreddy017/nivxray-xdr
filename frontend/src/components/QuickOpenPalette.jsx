@@ -139,10 +139,54 @@ function buildCommands({ navigate, closePalette }) {
 }
 
 // ─── Small helpers ────────────────────────────────────────────────
+// Score a candidate string against a needle.
+// Higher = better match. 0 = no match.
+//
+// Ranking rules (Feb-2026, Cmd+K fuzzy boost):
+//   • exact match on the full string      → 1000
+//   • starts-with (prefix) match          → 700 + boost by needle length
+//   • word-boundary prefix (any token)    → 500 + boost by needle length
+//   • plain substring match               → 300 minus distance from start
+//   • subsequence match (chars in order)  → 100 minus gap penalty
+//   • otherwise                           → 0
+// Ties are broken by shorter haystacks (more specific matches).
+function scoreMatch(needle, hay) {
+  if (!needle) return 1;
+  const n = String(needle).toLowerCase();
+  const h = String(hay || "").toLowerCase();
+  if (!h) return 0;
+  if (h === n) return 1000;
+  if (h.startsWith(n)) return 700 + n.length * 4 - Math.max(0, h.length - n.length) * 0.1;
+  // word-boundary prefix: any token starts with the needle
+  const words = h.split(/[\s._\-/:]+/);
+  for (const w of words) {
+    if (w && w.startsWith(n)) return 500 + n.length * 3;
+  }
+  const sub = h.indexOf(n);
+  if (sub >= 0) return 300 - sub;
+  // Subsequence (all needle chars appear in order somewhere in the haystack).
+  // Penalise big gaps between matches.
+  let i = 0;
+  let lastPos = -1;
+  let gapPenalty = 0;
+  for (const c of h) {
+    if (c === n[i]) {
+      if (lastPos >= 0) gapPenalty += Math.min(5, (h.indexOf(c, lastPos + 1) - lastPos - 1));
+      lastPos = h.indexOf(c, lastPos + 1);
+      i += 1;
+      if (i === n.length) break;
+    }
+  }
+  if (i === n.length) return Math.max(1, 100 - gapPenalty);
+  return 0;
+}
+
+// Legacy boolean wrapper — retained for grouped view where we don't
+// need a ranking, only a hit/no-hit decision. Callers may prefer
+// scoreMatch(...) > 0 directly.
+// eslint-disable-next-line no-unused-vars
 function fuzzy(needle, hay) {
-  if (!needle) return true;
-  const n = needle.toLowerCase();
-  return (hay || "").toLowerCase().includes(n);
+  return scoreMatch(needle, hay) > 0;
 }
 
 function loadRecent() {
@@ -262,16 +306,26 @@ export default function QuickOpenPalette() {
   // ── Ranked / grouped view ────────────────────────────────────────
   const flatResults = useMemo(() => {
     // Command palette mode — the ">" prefix filters against the
-    // aliases only. Filter substring on both the label and the sub.
+    // aliases only. Rank by exact/prefix/substring boost so typing
+    // "ref" surfaces ">refresh corpus" before ">run benchmark".
     if (isCommandMode) {
       const needle = q.slice(1).trim().toLowerCase();
-      return commands
-        .filter(c => !needle || c.label.toLowerCase().includes(needle) || (c.sub || "").toLowerCase().includes(needle))
-        .map((c) => ({
+      const ranked = commands
+        .map((c) => {
+          const s = Math.max(
+            scoreMatch(needle, c.label.replace(/^>/, "")),
+            scoreMatch(needle, c.sub || ""),
+          );
+          return { c, s };
+        })
+        .filter(({ s }) => !needle || s > 0)
+        .sort((a, b) => b.s - a.s)
+        .map(({ c }) => ({
           __key: c.id, kind: "action",
           id: c.id, label: c.label, sub: c.sub,
           icon: c.icon, exec: c.exec,
         }));
+      return ranked;
     }
     const out = [];
     const push = (kind, item, label, sub) => {
@@ -302,10 +356,23 @@ export default function QuickOpenPalette() {
            `doc · ${d.mime || d.ext || "—"}`);
     }
     if (!q) return out;
-    const filtered = out.filter((r) =>
-      fuzzy(q, r.label) || fuzzy(q, r.sub) || fuzzy(q, r.kind) || fuzzy(q, String(r.id)),
-    );
-    return filtered.slice(0, 60);
+    // Score every candidate: take the MAX of label/sub/kind/id scores.
+    // Rows with score 0 are filtered. Sort desc so exact / prefix hits
+    // float to the top ("ps1" → "PowerShell" before ".ps1" doc names).
+    const scored = out
+      .map((r) => {
+        const s = Math.max(
+          scoreMatch(q, r.label),
+          scoreMatch(q, r.sub) * 0.6,       // sub-string of subtitle matters less
+          scoreMatch(q, r.kind) * 0.4,
+          scoreMatch(q, String(r.id)) * 0.5,
+        );
+        return { r, s };
+      })
+      .filter(({ s }) => s > 0)
+      .sort((a, b) => b.s - a.s)
+      .map(({ r }) => r);
+    return scored.slice(0, 60);
   }, [q, data, isCommandMode, commands]);
 
   const grouped = useMemo(() => {
