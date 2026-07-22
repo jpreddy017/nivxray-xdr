@@ -39,7 +39,7 @@ const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
 // navigation. Route only resolves when the CASE_ENGINE flag is at
 // least SHADOW; otherwise the component renders a disabled banner.
 const V2CaseWorkspaceShell  = lazy(() => import("@/v2/pages/CaseWorkspaceShell"));
-const V2DeviceTrajectory    = lazy(() => import("@/v2/pages/DeviceTrajectory"));
+const V2DeviceTrajectory    = lazy(() => import("@/v2/pages/DeviceTrajectoryV2"));
 const V2ProcessAncestry     = lazy(() => import("@/v2/pages/ProcessAncestry"));
 
 function Protected({ children }) {

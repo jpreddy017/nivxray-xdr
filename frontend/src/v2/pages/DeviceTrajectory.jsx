@@ -43,21 +43,56 @@ function confidenceTierOf(frame) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// NivXRay · Device Trajectory design tokens (spec §1, §3, §4, §7, §11).
+// Original identity — Cisco layout principles, not Cisco branding.
+// ═══════════════════════════════════════════════════════════════════
+const NX = {
+  // Surfaces
+  bg:          "#1F232A",           // App background
+  panel:       "#262B33",           // Primary panel
+  panel2:      "#2D333D",           // Secondary panel (rails, drawers)
+  canvasBg:    "#24282F",           // Timeline canvas
+  border:      "#4B5563",           // Low-contrast borders
+  borderDim:   "#3A404A",           // Grid lines
+  hoverBg:     "#353C46",           // Row hover
+  selectedBg:  "#425A7A",           // Row selected
+  // Text
+  text:        "#F3F4F6",
+  textDim:     "#A8B3C2",
+  textMute:    "#646C76",
+  link:        "#5FA8FF",           // Hyperlink / process names
+  // Semantic
+  success:     "#55C271",
+  warning:     "#F5C542",
+  critical:    "#F04B4B",
+  // Timeline / scrubber
+  scrubDay:    "#808A98",           // Day marker (normal)
+  scrubHour:   "#33445A",           // Hour scrubber bg
+  scrubFuture: "#3C4048",           // Future / no-data hatch
+  densityLine: "#4A90FF",           // Blue density curve
+  // Lifelines
+  lifelineActive: "#4A8B47",        // Muted green (active row)
+  lifelineDim:    "#545C66",        // Grey (inactive)
+  // Selection
+  selectGlow:  "#4A90FF",
+};
+
+// ═══════════════════════════════════════════════════════════════════
 // Lane metadata (accents applied to event glyphs, NOT full-row bands)
 // ═══════════════════════════════════════════════════════════════════
 const LANE_META = {
-  system:   { label: "SYSTEM",   accent: "#8B5CF6", Icon: Cpu      },
-  process:  { label: "PROCESS",  accent: "#E11D48", Icon: Activity },
-  file:     { label: "FILES",    accent: "#A1A1AA", Icon: FileCode },
-  network:  { label: "NETWORK",  accent: "#4F46E5", Icon: Globe    },
-  registry: { label: "REGISTRY", accent: "#EA580C", Icon: Database },
+  system:   { label: "SYSTEM",   accent: NX.textDim, Icon: Cpu      },
+  process:  { label: "PROCESS",  accent: NX.textDim, Icon: Activity },
+  file:     { label: "FILES",    accent: NX.textDim, Icon: FileCode },
+  network:  { label: "NETWORK",  accent: NX.textDim, Icon: Globe    },
+  registry: { label: "REGISTRY", accent: NX.textDim, Icon: Database },
 };
 const LANE_ORDER = ["system", "process", "file", "network", "registry"];
 
 const VERDICT = {
-  benign:     { color: "#22C55E", label: "OBSERVATION",  Icon: ShieldCheck },
-  suspicious: { color: "#A1A1AA", label: "SUSPICIOUS",   Icon: Shield      },
-  malicious:  { color: "#E11D48", label: "MALICIOUS",    Icon: ShieldAlert },
+  benign:     { color: NX.success,  label: "OBSERVATION",  Icon: ShieldCheck },
+  suspicious: { color: NX.warning,  label: "SUSPICIOUS",   Icon: Shield      },
+  malicious:  { color: NX.critical, label: "MALICIOUS",    Icon: ShieldAlert },
 };
 function verdictFor(f) {
   const hasMitre = (f.mitre || []).length > 0;
@@ -67,18 +102,26 @@ function verdictFor(f) {
   return "benign";
 }
 
-// Graph-paper track backdrop
+// Canvas backdrop — vertical grid only (spec §4). Very thin lines,
+// low opacity — the grid supports alignment without dominating.
 const TRACK_BG =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'>" +
-  "<path d='M48 0H0v48' fill='none' stroke='%2327272A' stroke-opacity='0.35' stroke-width='0.5'/>" +
-  "<path d='M12 0v48M24 0v48M36 0v48M0 12h48M0 24h48M0 36h48' fill='none' stroke='%2327272A' stroke-opacity='0.18' stroke-width='0.5'/>" +
+  "<path d='M12 0v48M24 0v48M36 0v48M48 0v48' fill='none' stroke='%233A404A' stroke-opacity='0.55' stroke-width='0.5'/>" +
   "</svg>\")";
 
-// Layout constants
-const ROW_H = 34;                 // per-process row height in canvas
-const LEFT_RAIL_W = 232;          // width of the process-label rail
-const CANVAS_PAD_X = 24;          // horizontal padding inside the track
-const SCRUBBER_H = 56;            // top histogram scrubber height
+// Layout constants (spec §16 · 8px grid).
+// Proportions per user directive: canvas ~55%, scrubbers ~18%, header/filters ~13%.
+const ROW_H         = 26;   // per-process row height — denser to give canvas more room
+const LEFT_RAIL_W   = 176;  // narrower process-label rail
+const CANVAS_PAD_X  = 16;   // horizontal padding inside track
+const HEADER_H      = 40;   // spec ~6% of 700px
+const FILTERBAR_H   = 36;   // spec ~7%
+const DAY_SCRUB_H   = 72;   // spec ~10% — blue density curve + red critical dots
+const HOUR_SCRUB_H  = 52;   // spec ~8% — hour scrubber + hatched future zone
+const STATUS_H      = 24;   // spec ~4% bottom status
+const ACTIVITY_PANEL_W = 300; // right activity/details panel width
+const GLYPH_SIZE    = 10;   // spec §8 · very small
+const BAND_H        = 20;   // band header stripe height (was 24)
 
 // Extract a readable process-name label from a frame.
 // Per user reference: hide ugly `proc_shadow_<hex>` iids behind a
@@ -370,7 +413,6 @@ export default function DeviceTrajectory() {
   // Row Y positions on the canvas — must reserve BAND_H per band header
   // on the left rail so lifelines stay aligned with row labels. This
   // MUST come before any conditional early return (rules-of-hooks).
-  const BAND_H = 24;
   const { rowY, canvasH } = useMemo(() => {
     let y = 0;
     const arr = [];
@@ -402,8 +444,12 @@ export default function DeviceTrajectory() {
 
   return (
     <div data-testid="v2-device-trajectory"
-         className="flex flex-col h-screen overflow-hidden bg-zinc-950 text-zinc-100"
-         style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+         className="flex flex-col h-screen overflow-hidden"
+         style={{
+           background: NX.bg,
+           color: NX.text,
+           fontFamily: "Inter, 'IBM Plex Sans', system-ui, sans-serif",
+         }}>
       <Header
         caseId={caseId} count={data?.count} totalRows={rows.length}
         query={query} setQuery={setQuery}
@@ -424,24 +470,29 @@ export default function DeviceTrajectory() {
         </div>
       )}
 
-      {/* Top two-tier scrubber */}
-      <Scrubber histogram={histogram} minTs={minTs} maxTs={maxTs} frames={frames} />
+      {/* Top two-tier scrubber (Day + Hour) */}
+      <Scrubber frames={frames} minTs={minTs} maxTs={maxTs} />
 
-      {/* R1.1 · Filter chips row */}
-      <FilterChips
-        verdictFilter={verdictFilter} setVerdictFilter={setVerdictFilter}
-        laneFilter={laneFilter} setLaneFilter={setLaneFilter}
-        mitreFilter={mitreFilter} setMitreFilter={setMitreFilter}
-        topMitre={overview.mitre}
-        counts={{
-          malicious:  overview.malicious,
-          suspicious: overview.suspicious,
-          benign:     (data?.count ?? 0) - overview.malicious - overview.suspicious,
-        }}
-        laneCounts={Object.fromEntries(overview.lanes)}
-        totalShown={frames.length}
-        totalAll={data?.count ?? 0}
-      />
+      {/* Compact filter bar (spec §14 · Filters ▼) */}
+      <div className="shrink-0 flex items-center gap-3 px-3"
+           style={{ height: FILTERBAR_H, background: NX.panel,
+                    borderBottom: `1px solid ${NX.border}` }}
+           data-testid="filter-bar">
+        <FilterChips
+          verdictFilter={verdictFilter} setVerdictFilter={setVerdictFilter}
+          laneFilter={laneFilter} setLaneFilter={setLaneFilter}
+          mitreFilter={mitreFilter} setMitreFilter={setMitreFilter}
+          topMitre={overview.mitre}
+          counts={{
+            malicious:  overview.malicious,
+            suspicious: overview.suspicious,
+            benign:     (data?.count ?? 0) - overview.malicious - overview.suspicious,
+          }}
+          laneCounts={Object.fromEntries(overview.lanes)}
+          totalShown={frames.length}
+          totalAll={data?.count ?? 0}
+        />
+      </div>
 
       {/* Main work area */}
       <div className="flex flex-1 min-h-0">
@@ -462,7 +513,11 @@ export default function DeviceTrajectory() {
             <div
               ref={canvasRef}
               className="flex-1 relative overflow-hidden"
-              style={{ backgroundImage: TRACK_BG, backgroundSize: "48px 48px" }}
+              style={{
+                backgroundColor: NX.canvasBg,
+                backgroundImage: TRACK_BG,
+                backgroundSize: "48px 100%",
+              }}
               data-testid="trajectory-canvas"
             >
               <div className="relative" style={{ height: canvasH }}>
@@ -475,23 +530,23 @@ export default function DeviceTrajectory() {
                 {/* SVG overlay: lifelines + spawn arcs */}
                 <svg width={canvasW} height={canvasH}
                      className="absolute top-0 left-0 pointer-events-none">
-                  {/* Lifelines — dashed, matching Cisco Device Trajectory pattern */}
+                  {/* Lifelines — thin dashed, muted green when active (spec §7) */}
                   {rows.map((r, i) => {
                     const y = yOf(i);
                     const x1 = xForTs(r.firstTs);
                     const x2 = xForTs(r.lastTs);
                     const isSel = selected && processKeyOf(selected) === r.key;
                     const stroke = r.worstVerdict === "malicious"
-                      ? VERDICT.malicious.color
+                      ? NX.critical
                       : r.worstVerdict === "suspicious"
-                        ? "#71717A" // muted zinc (was amber, per user ref)
-                        : "#3F3F46"; // zinc-700
+                        ? NX.warning
+                        : (isSel ? NX.lifelineActive : NX.lifelineDim);
                     return (
                       <g key={r.key + ":line"}>
                         <line x1={x1 - 4} y1={y} x2={x2 + 4} y2={y}
-                              stroke={stroke} strokeWidth={isSel ? 1.5 : 1}
+                              stroke={stroke} strokeWidth={isSel ? 1.4 : 1}
                               strokeDasharray="2 3"
-                              strokeOpacity={isSel ? 0.95 : 0.55} />
+                              strokeOpacity={isSel ? 0.9 : 0.4} />
                       </g>
                     );
                   })}
@@ -532,16 +587,16 @@ export default function DeviceTrajectory() {
                   return stripes;
                 })()}
 
-                {/* Selected row highlight band */}
+                {/* Selected row highlight band (spec §11 selected #425A7A) */}
                 {selected && (() => {
                   const idx = rowIndex.get(processKeyOf(selected));
                   if (idx == null) return null;
                   return (
                     <div className="absolute inset-x-0 pointer-events-none"
                          style={{ top: rowY[idx] ?? 0, height: ROW_H,
-                                  background: "linear-gradient(90deg, rgba(161,161,170,0.10), rgba(161,161,170,0.04))",
-                                  borderTop: "1px solid rgba(161,161,170,0.35)",
-                                  borderBottom: "1px solid rgba(161,161,170,0.35)" }} />
+                                  background: `${NX.selectedBg}22`,
+                                  borderTop:    `1px solid ${NX.selectedBg}66`,
+                                  borderBottom: `1px solid ${NX.selectedBg}66` }} />
                   );
                 })()}
 
@@ -621,17 +676,20 @@ function Header({
   legendOpen, setLegendOpen, newSinceCount,
 }) {
   return (
-    <header className="h-14 shrink-0 flex items-center gap-4 border-b border-zinc-800 bg-zinc-950 px-4 z-20 relative">
-      <div className="flex items-center gap-3">
-        <div className="w-7 h-7 flex items-center justify-center rounded-sm bg-zinc-100/10
-                        border border-zinc-500/30 shadow-[0_0_8px_rgba(161,161,170,0.15)]">
-          <Radar className="text-zinc-100" size={14} />
+    <header className="shrink-0 flex items-center gap-3 px-3 z-20 relative"
+            style={{ height: HEADER_H, background: NX.panel, borderBottom: `1px solid ${NX.border}` }}>
+      <div className="flex items-center gap-2">
+        <div className="w-5 h-5 flex items-center justify-center rounded-sm"
+             style={{ background: `${NX.link}22`, border: `1px solid ${NX.border}` }}>
+          <Radar size={11} style={{ color: NX.link }} />
         </div>
-        <div>
-          <div className="text-[9px] tracking-[0.28em] text-zinc-500 uppercase font-semibold">
-            NIVXRAY · V2 · SHADOW
+        <div style={{ lineHeight: 1 }}>
+          <div className="text-[8px] tracking-[0.24em] uppercase font-semibold"
+               style={{ color: NX.textMute }}>
+            NIVXRAY · V2
           </div>
-          <h1 className="text-base font-semibold text-zinc-100 tracking-tight leading-none mt-0.5">
+          <h1 className="text-[13px] font-semibold tracking-tight leading-none mt-0.5"
+              style={{ color: NX.text }}>
             Device Trajectory
           </h1>
         </div>
@@ -734,20 +792,27 @@ function Header({
       </div>
 
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600" size={12} />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={13}
+                style={{ color: NX.textMute }} />
         <input
           ref={searchRef}
           data-testid="trajectory-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="search process / command / mitre"
-          className="pl-8 pr-8 py-1.5 w-72 bg-zinc-900 border border-zinc-700 rounded-sm
-                     text-xs text-zinc-200 placeholder-zinc-600 outline-none
-                     focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors duration-150"
-          style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+          placeholder="Search Device Trajectory"
+          className="pl-9 pr-8 py-2 w-80 rounded-md outline-none text-[13px]"
+          style={{
+            background: NX.panel2,
+            border: `1px solid ${NX.textMute}`,
+            color: NX.text,
+            fontFamily: "Inter, 'IBM Plex Sans', sans-serif",
+            transition: "border-color 150ms",
+          }}
+          onFocus={(e) => e.currentTarget.style.borderColor = NX.link}
+          onBlur={(e)  => e.currentTarget.style.borderColor = NX.textMute}
         />
-        <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-600
-                        border border-zinc-700 rounded px-1 bg-zinc-950 pointer-events-none">/</kbd>
+        <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] pointer-events-none rounded px-1"
+             style={{ color: NX.textMute, border: `1px solid ${NX.border}`, background: NX.panel }}>/</kbd>
       </div>
 
       <div className="flex items-center gap-1 border border-zinc-800 rounded-sm p-0.5" role="tablist">
@@ -772,7 +837,8 @@ function Header({
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Filter chips row (R1.1 · Analyst Experience)
+// Compact filter bar (spec §14 · Filters ▼ dropdown).
+// Shows a single-line summary + a "Filters" dropdown. No colorful chips.
 // ═══════════════════════════════════════════════════════════════════
 function FilterChips({
   verdictFilter, setVerdictFilter,
@@ -780,98 +846,169 @@ function FilterChips({
   mitreFilter, setMitreFilter,
   topMitre, counts, laneCounts, totalShown, totalAll,
 }) {
+  const [open, setOpen] = useState(false);
   const hasFilter = verdictFilter !== "all" || laneFilter !== "all" || mitreFilter;
+  const activeParts = [];
+  if (verdictFilter !== "all") activeParts.push(verdictFilter);
+  if (laneFilter !== "all")    activeParts.push(laneFilter);
+  if (mitreFilter)             activeParts.push(mitreFilter);
+
   return (
-    <div className="shrink-0 border-b border-zinc-800 bg-zinc-950/95 px-4 py-2
-                    flex items-center gap-2 flex-wrap"
-         data-testid="filter-chips">
-      <div className="flex items-center gap-1.5">
-        <Filter size={11} className="text-zinc-600" />
-        <span className="text-[9px] tracking-[0.24em] text-zinc-500 uppercase font-semibold">
-          Filter
-        </span>
+    <div className="flex-1 flex items-center gap-3" data-testid="filter-chips">
+      <div className="relative">
+        <button
+          data-testid="filters-dropdown"
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-[12px]"
+          style={{
+            background: NX.panel2,
+            border: `1px solid ${NX.border}`,
+            color: NX.text,
+            transition: "border-color 150ms",
+          }}
+        >
+          <Filter size={12} style={{ color: NX.textDim }} />
+          <span>Filters</span>
+          {hasFilter && (
+            <span className="ml-1 text-[10px] tabular-nums px-1 rounded-sm"
+                  style={{ background: `${NX.link}33`, color: NX.link }}>
+              {activeParts.length}
+            </span>
+          )}
+          <ChevronDown size={11} style={{ color: NX.textDim,
+            transition: "transform 150ms",
+            transform: open ? "rotate(180deg)" : "none" }} />
+        </button>
+
+        {open && (
+          <div className="absolute top-full mt-1 left-0 w-72 z-30 rounded-sm py-2"
+               style={{
+                 background: NX.panel2,
+                 border: `1px solid ${NX.border}`,
+                 boxShadow: "0 12px 32px -8px rgba(0,0,0,0.7)",
+               }}
+               data-testid="filters-menu">
+            <FilterGroup label="Verdict">
+              {[
+                ["all",        "All",         null],
+                ["malicious",  "Malicious",   counts.malicious],
+                ["suspicious", "Suspicious",  counts.suspicious],
+                ["benign",     "Observation", counts.benign],
+              ].map(([k, lbl, n]) => (
+                <FilterRow key={k}
+                           active={verdictFilter === k}
+                           label={lbl} count={n}
+                           onClick={() => setVerdictFilter(k)}
+                           testId={`filter-verdict-${k}`} />
+              ))}
+            </FilterGroup>
+
+            <FilterGroup label="Lane">
+              <FilterRow active={laneFilter === "all"} label="All lanes"
+                         onClick={() => setLaneFilter("all")}
+                         testId="filter-lane-all" />
+              {LANE_ORDER.map(l => (
+                <FilterRow key={l}
+                           active={laneFilter === l}
+                           label={LANE_META[l].label.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                           count={laneCounts[l] || 0}
+                           onClick={() => setLaneFilter(l)}
+                           testId={`filter-lane-${l}`} />
+              ))}
+            </FilterGroup>
+
+            {topMitre.length > 0 && (
+              <FilterGroup label="MITRE Techniques">
+                {topMitre.slice(0, 6).map(([tid, n]) => (
+                  <FilterRow key={tid}
+                             active={mitreFilter === tid}
+                             label={tid} count={n}
+                             onClick={() => setMitreFilter(mitreFilter === tid ? null : tid)}
+                             testId={`filter-mitre-${tid}`} />
+                ))}
+              </FilterGroup>
+            )}
+
+            {hasFilter && (
+              <button
+                data-testid="filter-clear"
+                onClick={() => { setVerdictFilter("all"); setLaneFilter("all"); setMitreFilter(null); }}
+                className="w-full text-left px-3 py-1.5 text-[11px]"
+                style={{
+                  color: NX.link,
+                  borderTop: `1px solid ${NX.border}`,
+                }}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Verdict pills */}
-      <ChipGroup>
-        <Chip active={verdictFilter === "all"} onClick={() => setVerdictFilter("all")}
-              tid="chip-verdict-all">
-          All
-        </Chip>
-        <Chip active={verdictFilter === "malicious"} onClick={() => setVerdictFilter("malicious")}
-              tid="chip-verdict-malicious" color="#E11D48">
-          <ShieldAlert size={10} /> Malicious
-          <span className="tabular-nums opacity-70">{counts.malicious}</span>
-        </Chip>
-        <Chip active={verdictFilter === "suspicious"} onClick={() => setVerdictFilter("suspicious")}
-              tid="chip-verdict-suspicious" color="#A1A1AA">
-          <Shield size={10} /> Suspicious
-          <span className="tabular-nums opacity-70">{counts.suspicious}</span>
-        </Chip>
-        <Chip active={verdictFilter === "benign"} onClick={() => setVerdictFilter("benign")}
-              tid="chip-verdict-benign" color="#22C55E">
-          <ShieldCheck size={10} /> Observation
-          <span className="tabular-nums opacity-70">{counts.benign}</span>
-        </Chip>
-      </ChipGroup>
-
-      <span className="w-px h-4 bg-zinc-800 mx-1" />
-
-      {/* Lane pills */}
-      <ChipGroup>
-        <Chip active={laneFilter === "all"} onClick={() => setLaneFilter("all")}
-              tid="chip-lane-all">All lanes</Chip>
-        {LANE_ORDER.map(l => {
-          const meta = LANE_META[l];
-          return (
-            <Chip key={l} active={laneFilter === l} onClick={() => setLaneFilter(l)}
-                  tid={`chip-lane-${l}`} color={meta.accent}>
-              <meta.Icon size={10} /> {meta.label}
-              <span className="tabular-nums opacity-70">{laneCounts[l] || 0}</span>
-            </Chip>
-          );
-        })}
-      </ChipGroup>
-
-      {topMitre.length > 0 && (
-        <>
-          <span className="w-px h-4 bg-zinc-800 mx-1" />
-          <ChipGroup>
-            {topMitre.slice(0, 4).map(([tid, n]) => (
-              <Chip key={tid}
-                    active={mitreFilter === tid}
-                    onClick={() => setMitreFilter(mitreFilter === tid ? null : tid)}
-                    tid={`chip-mitre-${tid}`}
-                    color="#F87171">
-                {tid}
-                <span className="tabular-nums opacity-70">{n}</span>
-              </Chip>
-            ))}
-          </ChipGroup>
-        </>
+      {hasFilter && (
+        <div className="flex items-center gap-1 text-[11px]"
+             style={{ color: NX.textDim }}>
+          {activeParts.map(p => (
+            <span key={p} className="px-1.5 py-0.5 rounded-sm text-[10px]"
+                  style={{
+                    background: `${NX.link}22`,
+                    color: NX.link,
+                    fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                  }}>
+              {p}
+            </span>
+          ))}
+        </div>
       )}
 
       <div className="flex-1" />
 
-      {/* Result count + clear */}
-      <div className="flex items-center gap-2 text-[10px] text-zinc-500"
-           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-        <span className="text-zinc-200 tabular-nums">{totalShown}</span>
-        <span className="text-zinc-600">/</span>
-        <span className="tabular-nums">{totalAll}</span>
-        <span>shown</span>
-        {hasFilter && (
-          <button
-            data-testid="filter-clear"
-            onClick={() => { setVerdictFilter("all"); setLaneFilter("all"); setMitreFilter(null); }}
-            className="ml-2 flex items-center gap-1 text-zinc-100 hover:text-zinc-100
-                       border border-zinc-500/40 rounded-sm px-1.5 py-0.5 transition-colors duration-150"
-          >
-            <X size={9} /> clear
-          </button>
-        )}
+      <div className="flex items-center gap-1.5 text-[11px] tabular-nums"
+           style={{ color: NX.textDim, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+        <span style={{ color: NX.text }}>{totalShown}</span>
+        <span style={{ color: NX.textMute }}>/</span>
+        <span>{totalAll}</span>
+        <span style={{ color: NX.textMute }}>shown</span>
       </div>
     </div>
+  );
+}
+
+function FilterGroup({ label, children }) {
+  return (
+    <div className="pb-1.5">
+      <div className="px-3 py-1 text-[9px] tracking-[0.22em] uppercase font-semibold"
+           style={{ color: NX.textMute }}>
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function FilterRow({ active, label, count, onClick, testId }) {
+  return (
+    <button
+      data-testid={testId}
+      onClick={onClick}
+      className="w-full flex items-center gap-2 px-3 py-1 text-[12px] text-left"
+      style={{
+        color: active ? NX.text : NX.textDim,
+        background: active ? `${NX.link}22` : "transparent",
+      }}
+      onMouseEnter={(e) => !active && (e.currentTarget.style.background = NX.hoverBg)}
+      onMouseLeave={(e) => !active && (e.currentTarget.style.background = "transparent")}
+    >
+      <span className="flex-1">{label}</span>
+      {count != null && (
+        <span className="text-[10px] tabular-nums"
+              style={{ color: active ? NX.link : NX.textMute,
+                       fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+          {count}
+        </span>
+      )}
+    </button>
   );
 }
 function ChipGroup({ children }) {
@@ -974,15 +1111,17 @@ function LegendVerdictHex({ label }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Two-tier top scrubber — day-of-month strip + hour-of-day strip, both
-// with hatched "outside window" zones (Cisco Device Trajectory pattern
-// adopted; visuals are ours).
+// Two-tier scrubber (spec §3 · Cisco Device Trajectory pattern).
+// Tier 1 · Day timeline (DAY_SCRUB_H): blue density curve + red dots
+// Tier 2 · Hour timeline (HOUR_SCRUB_H): 24-hour scrubber + hatched
+//         future / no-data zone
+// Compact — combined height ≤ 18% of viewport per user directive.
 // ═══════════════════════════════════════════════════════════════════
-function Scrubber({ histogram, minTs, maxTs, frames }) {
+function Scrubber({ frames, minTs, maxTs }) {
   const total = frames.length;
   const hasData = total > 0 && maxTs > minTs;
 
-  // Build a 31-day month strip anchored on maxTs
+  // Build a 31-day month strip anchored on maxTs.
   const monthDays = useMemo(() => {
     const anchor = hasData ? maxTs : Date.now();
     const end = new Date(anchor); end.setUTCHours(0, 0, 0, 0);
@@ -994,113 +1133,138 @@ function Scrubber({ histogram, minTs, maxTs, frames }) {
     return out;
   }, [hasData, maxTs]);
 
-  // Which days have any events?
-  const eventDayKeys = useMemo(() => {
-    const s = new Set();
+  // Bucket events by day (ISO) → count. Also collect "critical" days
+  // = days with at least one malicious event.
+  const { dayCounts, criticalDays } = useMemo(() => {
+    const counts = new Map(), crit = new Set();
     frames.forEach(f => {
-      const d = new Date(f.ts); d.setUTCHours(0, 0, 0, 0);
-      s.add(d.toISOString().slice(0, 10));
+      const iso = new Date(f.ts).toISOString().slice(0, 10);
+      counts.set(iso, (counts.get(iso) || 0) + 1);
+      if (verdictFor(f) === "malicious") crit.add(iso);
     });
-    return s;
+    return { dayCounts: counts, criticalDays: crit };
   }, [frames]);
 
-  // Which hours have events on the active day (= day of first event)?
   const activeDayKey = hasData
     ? new Date(minTs).toISOString().slice(0, 10)
     : monthDays[monthDays.length - 1].toISOString().slice(0, 10);
+
   const activeHours = useMemo(() => {
     const s = new Set();
     if (!hasData) return s;
     frames.forEach(f => {
       const d = new Date(f.ts);
-      const key = d.toISOString().slice(0, 10);
-      if (key === activeDayKey) s.add(d.getUTCHours());
+      if (d.toISOString().slice(0, 10) === activeDayKey) s.add(d.getUTCHours());
     });
     return s;
   }, [frames, hasData, activeDayKey]);
 
-  const spanLabel = hasData ? `spanning ${formatDuration(maxTs - minTs)}` : "no window";
+  // Density curve — smooth polyline over month days. Spec §3 uses
+  // #4A90FF, thin (~2px), no glow.
+  const densityPath = useMemo(() => {
+    const maxN = Math.max(1, ...monthDays.map(d =>
+      dayCounts.get(d.toISOString().slice(0, 10)) || 0));
+    const W = 100, H = 100;   // normalised viewBox
+    const step = W / Math.max(1, monthDays.length - 1);
+    const pts = monthDays.map((d, i) => {
+      const n = dayCounts.get(d.toISOString().slice(0, 10)) || 0;
+      const y = H - 10 - (n / maxN) * (H - 20);
+      return `${(i * step).toFixed(2)},${y.toFixed(2)}`;
+    });
+    return pts.join(" ");
+  }, [monthDays, dayCounts]);
 
   return (
-    <div className="shrink-0 border-b border-zinc-800 bg-zinc-950/95 px-4 py-2"
+    <div className="shrink-0"
+         style={{ background: NX.panel, borderBottom: `1px solid ${NX.border}` }}
          data-testid="scrubber">
-      {/* Header line */}
-      <div className="flex items-center gap-3 mb-1">
-        <div>
-          <div className="text-[9px] tracking-[0.24em] text-zinc-500 uppercase font-semibold">
-            Timeline
-          </div>
-          <div className="text-[10px] text-zinc-400"
-               style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-            <span className="text-zinc-200 tabular-nums">{total}</span> compromise events · {spanLabel}
-          </div>
-        </div>
-        <div className="flex-1" />
-        {/* Density histogram sparkline on the right */}
-        <div className="w-64 h-6 flex items-end gap-[2px]">
-          {histogram.map((n, i) => {
-            const max = Math.max(1, ...histogram);
-            const pct = n / max;
+
+      {/* Tier 1 · Day scrubber (spec §3) */}
+      <div className="relative" style={{ height: DAY_SCRUB_H }} data-testid="scrubber-month">
+        {/* Blue density curve (behind the day cells) */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none"
+             viewBox="0 0 100 100" preserveAspectRatio="none">
+          <polyline
+            points={densityPath}
+            fill="none"
+            stroke={NX.densityLine}
+            strokeWidth="0.8"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            opacity="0.9"
+          />
+        </svg>
+
+        {/* Day cells overlay */}
+        <div className="absolute inset-0 flex items-end px-3 pb-1">
+          {monthDays.map((d, i) => {
+            const iso = d.toISOString().slice(0, 10);
+            const isActive   = iso === activeDayKey;
+            const isCritical = criticalDays.has(iso);
+            const isFirstOfMonth = d.getUTCDate() === 1 || i === 0;
+            const dayNum = d.getUTCDate();
             return (
-              <div key={i}
-                   className={"flex-1 rounded-[1px] " + (n === 0 ? "bg-zinc-900" : "bg-zinc-100/70")}
-                   style={{ height: `${Math.max(pct * 100, n === 0 ? 12 : 18)}%` }} />
+              <div key={iso} className="flex-1 relative h-full flex flex-col justify-end items-center"
+                   title={iso}>
+                {/* Red critical dot (spec §3) */}
+                {isCritical && (
+                  <span className="absolute top-2 w-1.5 h-1.5 rounded-full"
+                        style={{ background: NX.critical }} />
+                )}
+                {/* Selected-day marker · white border */}
+                {isActive && (
+                  <span className="absolute inset-x-0 bottom-4 mx-auto w-4 h-4 rounded-full"
+                        style={{
+                          border: `1.5px solid ${NX.text}`,
+                          background: `${NX.selectGlow}33`,
+                        }} />
+                )}
+                <span className="text-[10px] tabular-nums leading-none pb-0.5"
+                      style={{
+                        color: isActive ? NX.text : NX.scrubDay,
+                        fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                      }}>
+                  {dayNum}
+                </span>
+                {isFirstOfMonth && (
+                  <span className="absolute top-0.5 left-0 text-[9px] uppercase tracking-widest font-semibold"
+                        style={{ color: NX.textMute }}>
+                    {d.toLocaleString("en-US", { month: "short", timeZone: "UTC" })}
+                  </span>
+                )}
+              </div>
             );
           })}
         </div>
       </div>
 
-      {/* Tier 1 · Month day strip */}
-      <div className="flex items-stretch gap-[1px] h-8 mt-1" data-testid="scrubber-month">
-        {monthDays.map((d, i) => {
-          const iso = d.toISOString().slice(0, 10);
-          const has = eventDayKeys.has(iso);
-          const isActive = iso === activeDayKey;
-          const isFirst = i === 0 || d.getUTCDate() === 1;
-          return (
-            <div key={iso}
-                 className={"flex-1 relative border-t border-b border-zinc-800/70 " +
-                            (has ? "bg-zinc-900" : "bg-zinc-950")}
-                 title={iso}>
-              {isActive && (
-                <span className="absolute top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-zinc-100
-                                 shadow-[0_0_8px_rgba(161,161,170,0.9)]" />
-              )}
-              <span className={"absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[9px] tabular-nums " +
-                              (isActive ? "text-zinc-100" : "text-zinc-500")}
-                    style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                {d.getUTCDate()}
-              </span>
-              {isFirst && (
-                <span className="absolute -top-3 left-0 text-[9px] uppercase tracking-widest text-zinc-600 font-semibold">
-                  {d.toLocaleString("en-US", { month: "short", timeZone: "UTC" })}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Tier 2 · Hour-of-day strip for the active day */}
-      <div className="flex items-stretch gap-[1px] h-6 mt-2" data-testid="scrubber-hour">
+      {/* Tier 2 · Hour scrubber (spec §3) */}
+      <div className="relative flex items-stretch"
+           style={{ height: HOUR_SCRUB_H, background: NX.scrubHour,
+                    borderTop: `1px solid ${NX.border}` }}
+           data-testid="scrubber-hour">
         {Array.from({ length: 24 }, (_, h) => {
           const has = activeHours.has(h);
           return (
             <div key={h}
-                 className={"flex-1 relative border-t border-b border-zinc-800/70 " +
-                            (has ? "bg-zinc-100/25" : "bg-zinc-950")}
+                 className="flex-1 relative flex flex-col items-center justify-end pb-1"
                  style={!has ? {
                    backgroundImage:
-                     "repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(63,63,70,0.5) 3px, rgba(63,63,70,0.5) 4px)"
+                     `repeating-linear-gradient(135deg, transparent 0 3px, ${NX.scrubFuture} 3px 4px)`,
                  } : undefined}
-                 title={`${h}:00`}>
-              {(h % 3 === 0) && (
-                <span className={"absolute bottom-0 left-1/2 -translate-x-1/2 text-[8px] tabular-nums " +
-                                (has ? "text-zinc-100" : "text-zinc-600")}
-                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                  {h.toString().padStart(2, "0")}
-                </span>
+                 title={`${h.toString().padStart(2,"0")}:00`}>
+              {/* Selected-hour vertical white line (spec §3) */}
+              {has && h === Math.min(...activeHours) && (
+                <div className="absolute inset-y-1 w-px left-1/2"
+                     style={{ background: NX.text, opacity: 0.85 }} />
               )}
+              <span className="text-[10px] tabular-nums leading-none"
+                    style={{
+                      color: has ? NX.text : NX.textMute,
+                      fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                    }}>
+                {(h % 2 === 0) ? h.toString().padStart(2, "0") : ""}
+              </span>
             </div>
           );
         })}
@@ -1127,68 +1291,84 @@ function ProcessRail({ rows, selectedKey, onPickRow, onOpenAncestry, bandFor, ex
   });
 
   return (
-    <div className="shrink-0 border-r border-zinc-800 bg-zinc-950/60"
-         style={{ width: LEFT_RAIL_W }}
+    <div className="shrink-0"
+         style={{ width: LEFT_RAIL_W, background: NX.panel2, borderRight: `1px solid ${NX.border}` }}
          data-testid="process-rail">
-      <div className="h-8 flex items-center justify-between px-3 border-b border-zinc-900">
-        <span className="text-[9px] tracking-[0.24em] uppercase font-semibold text-zinc-500">
+      <div className="h-8 flex items-center justify-between px-4"
+           style={{ borderBottom: `1px solid ${NX.border}` }}>
+        <span className="text-[10px] tracking-[0.22em] uppercase font-semibold" style={{ color: NX.textDim }}>
           Processes
         </span>
         <button
           data-testid="expert-mode-toggle"
           onClick={onToggleExpert}
           title={expertMode ? "Analyst view (2 bands)" : "Expert view (5 lanes)"}
-          className={"text-[9px] tracking-widest font-semibold px-1.5 py-[2px] rounded-sm border " +
-                     (expertMode
-                       ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/40"
-                       : "bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300 hover:border-zinc-700")}
+          className="text-[9px] tracking-widest font-semibold px-1.5 py-[2px] rounded-sm"
+          style={{
+            background: expertMode ? `${NX.link}22` : NX.panel,
+            color:      expertMode ? NX.link         : NX.textMute,
+            border:     `1px solid ${expertMode ? `${NX.link}66` : NX.border}`,
+            transition: "all 150ms",
+          }}
         >
           {expertMode ? "EXPERT" : "ANALYST"}
         </button>
       </div>
       <div>
-        {groups.map((g, gi) => (
+        {groups.map((g) => (
           <div key={g.label}>
-            <div
-              className="h-6 flex items-center px-3 bg-zinc-950 border-b border-zinc-900"
-              style={{ borderTop: gi === 0 ? "none" : "1px solid #18181B" }}
-            >
-              <span className="text-[9.5px] tracking-[0.22em] uppercase font-semibold text-zinc-400">
+            <div className="h-6 flex items-center px-4"
+                 style={{
+                   background: NX.panel,
+                   borderBottom: `1px solid ${NX.border}`,
+                 }}>
+              <span className="text-[10px] tracking-[0.22em] uppercase font-semibold"
+                    style={{ color: NX.textDim }}>
                 {g.label}
               </span>
-              <span className="ml-auto text-[9px] text-zinc-600 tabular-nums">
+              <span className="ml-auto text-[9px] tabular-nums" style={{ color: NX.textMute }}>
                 {g.rows.length}
               </span>
             </div>
             {g.rows.map((r) => {
               const isSel = selectedKey === r.key;
-              const vc = r.worstVerdict === "malicious" ? VERDICT.malicious.color
-                       : r.worstVerdict === "suspicious" ? VERDICT.suspicious.color
-                       : "#3F3F46";
+              const vc = r.worstVerdict === "malicious" ? NX.critical
+                       : r.worstVerdict === "suspicious" ? NX.warning
+                       : NX.border;
               const isUnknown = r.label === "Unknown Process";
               return (
                 <div key={r.key}
-                     className={"group w-full h-[34px] flex items-center gap-2 pl-3 pr-1 border-b border-zinc-900/70 " +
-                                (isSel ? "bg-zinc-100/8" : "hover:bg-zinc-900/50")}
-                     style={{ borderLeft: `2px solid ${vc}66` }}>
+                     className="group w-full flex items-center gap-2 pl-4 pr-1"
+                     style={{
+                       height: ROW_H,
+                       background: isSel ? `${NX.selectedBg}33` : "transparent",
+                       borderBottom: `1px solid ${NX.border}22`,
+                       borderLeft:   `2px solid ${vc}88`,
+                       transition:   "background-color 150ms",
+                     }}
+                     onMouseEnter={(e) => !isSel && (e.currentTarget.style.background = NX.hoverBg)}
+                     onMouseLeave={(e) => !isSel && (e.currentTarget.style.background = "transparent")}>
                   <button
                     data-testid={`row-${r.key}`}
                     onClick={() => onPickRow(r)}
                     className="flex-1 flex items-center gap-2 text-left outline-none">
                     <span
-                      className={"flex-1 truncate text-[11px] " +
-                                 (isUnknown
-                                   ? "text-zinc-500 italic"
-                                   : (isSel ? "text-cyan-200 underline underline-offset-2" : "text-cyan-400 hover:text-cyan-300 hover:underline underline-offset-2"))}
-                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+                      className="flex-1 truncate text-[13px]"
+                      style={{
+                        color: isUnknown ? NX.textMute : NX.link,
+                        fontFamily: "Inter, 'IBM Plex Sans', sans-serif",
+                        fontWeight: 400,
+                        fontStyle: isUnknown ? "italic" : "normal",
+                        textDecoration: isSel ? "underline" : "none",
+                        textUnderlineOffset: "2px",
+                      }}
                     >
                       {r.label}
                     </span>
-                    <span className="text-[9px] tracking-widest text-zinc-600 font-semibold">
-                      [PE]
-                    </span>
-                    <span className="text-[9px] text-zinc-500 tabular-nums w-6 text-right"
-                          style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                    <span className="text-[9px] tracking-widest font-semibold"
+                          style={{ color: NX.textMute }}>[PE]</span>
+                    <span className="text-[10px] tabular-nums w-6 text-right"
+                          style={{ color: NX.textMute, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
                       {r.events.length}
                     </span>
                   </button>
@@ -1196,9 +1376,12 @@ function ProcessRail({ rows, selectedKey, onPickRow, onOpenAncestry, bandFor, ex
                     data-testid={`row-ancestry-${r.key}`}
                     title="Open ancestry graph"
                     onClick={(e) => { e.stopPropagation(); onOpenAncestry(r.key); }}
-                    className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-100
-                               w-5 h-5 flex items-center justify-center rounded-sm border border-zinc-800
-                               hover:border-zinc-500/40 transition-all duration-150"
+                    className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded-sm"
+                    style={{
+                      color: NX.textMute,
+                      border: `1px solid ${NX.border}`,
+                      transition: "all 150ms",
+                    }}
                   >
                     <ChevronRight size={11} />
                   </button>
@@ -1360,19 +1543,19 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
   const conf = confidenceTierOf(frame);
   const [hovered, setHovered] = useState(false);
 
-  const size = 16;
+  const size = GLYPH_SIZE;
   const half = size / 2;
   const mitre0 = (frame.mitre || [])[0];
 
-  // Cisco Secure Endpoint palette — white disc + dark icon, red hex only for malicious
-  const ringColor = isMalicious ? VERDICT.malicious.color
-                  : isSuspicious ? "#A1A1AA"      // muted zinc for suspicious (no yellow)
-                  : "#71717A";                    // benign observation
+  // Spec §9: white symbols inside subtle colored outlines.
+  // Fill is dark (matches canvas), ring color encodes verdict.
+  const ringColor = isMalicious ? NX.critical
+                  : isSuspicious ? NX.warning
+                  : NX.textDim;
 
-  // Activity-mark color — black-on-white for the neutral disc; red on hex shield.
-  const markColor = (kind === ACTIVITY.COMPROMISE || kind === ACTIVITY.DETECT)
-    ? "#FCA5A5"
-    : "#0B0B0E";                                  // dark icon on white disc
+  // Activity mark is WHITE except on the red hex shield where it's a
+  // light-red for contrast (spec §9 · Detection ● Red).
+  const markColor = "#FFFFFF";
 
   return (
     <>
@@ -1383,14 +1566,15 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
         onMouseLeave={() => setHovered(false)}
         onFocus={() => setHovered(true)}
         onBlur={() => setHovered(false)}
-        className="absolute z-10 outline-none focus-visible:ring-2 focus-visible:ring-white/60
-                   transition-transform duration-150 hover:scale-125"
+        className="absolute z-10 outline-none focus-visible:ring-2 focus-visible:ring-offset-0
+                   transition-transform hover:scale-125"
         style={{
           left: x - half, top: y - half,
           width: size, height: size,
+          transitionDuration: "150ms",                 // spec §17
           filter: selected
-            ? "drop-shadow(0 0 6px rgba(255,255,255,0.7))"
-            : (isMalicious ? "drop-shadow(0 0 4px rgba(225,29,72,0.5))" : "none"),
+            ? `drop-shadow(0 0 6px ${NX.selectGlow})`   // spec §10 blue glow
+            : (isMalicious ? `drop-shadow(0 0 3px ${NX.critical}88)` : "none"),
         }}
       >
         <svg width={size} height={size} viewBox="0 0 22 22">
@@ -1398,8 +1582,8 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
             <g>
               <polygon
                 points="11,1 21,7 21,15 11,21 1,15 1,7"
-                fill="#450A0A"
-                stroke={VERDICT.malicious.color}
+                fill="#3B0F14"
+                stroke={NX.critical}
                 strokeWidth="1.4"
               />
               <ActivityMark kind={kind} color="#FCA5A5" />
@@ -1407,21 +1591,24 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
           ) : (
             <g>
               <circle cx="11" cy="11" r="9.5"
-                      fill="#FFFFFF"
-                      stroke={selected ? "#FFFFFF" : ringColor}
+                      fill={NX.canvasBg}
+                      stroke={selected ? NX.selectGlow : ringColor}
                       strokeWidth={selected ? 1.6 : 1.2} />
               <ActivityMark kind={kind} color={markColor} />
             </g>
           )}
         </svg>
 
-        {/* MITRE technique chip — hidden by default (per user ref); shown
-            only when this glyph is selected. Keeps the swimlane clean. */}
+        {/* MITRE chip hidden by default; shown only when selected. */}
         {mitre0 && selected && (
           <span
             className="absolute -top-3 -right-1 text-[8px] leading-none px-1 py-[1px] rounded-sm
-                       bg-zinc-800 text-zinc-300 border border-zinc-700 pointer-events-none z-20"
-            style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+                       pointer-events-none z-20"
+            style={{
+              background: NX.panel2, color: NX.textDim,
+              border: `1px solid ${NX.border}`,
+              fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+            }}
           >
             {mitre0}
           </span>
