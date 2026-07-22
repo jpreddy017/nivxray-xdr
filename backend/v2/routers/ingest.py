@@ -86,22 +86,59 @@ async def _upsert_case(case_id: str, adapter_name: str) -> None:
 
 
 async def _pipe_commands(commands: list[str], case_id: str, adapter_name: str) -> dict[str, int]:
-    """Run every command through the shadow pipeline. Returns counts."""
+    """Run every command through the shadow pipeline. Returns counts.
+
+    Also mints a `command_line` artifact per command when the
+    ARTIFACT_STORE flag is observable, so the R4 Report Generator can
+    cite immutable evidence IDs instead of dumping inline strings.
+    Artifact writes are best-effort — failures MUST NOT block ingest.
+    """
     obs_ok = 0
     obs_total = 0
+    artifacts_created = 0
+    artifact_store_on = get_flag("ARTIFACT_STORE").observable()
     for cmd in commands:
         if not cmd: continue
+        # Mint the artifact ONCE per command (idempotent via sha256+kind).
+        art_iid: str | None = None
+        if artifact_store_on:
+            try:
+                from v2.artifact_store import create_or_update
+                art = await create_or_update(
+                    _db, kind="command_line", value=cmd,
+                    mime_type="text/x-command-line",
+                    source=adapter_name, case_id=case_id, actor="ingest-pipeline",
+                    provenance={"adapter": adapter_name},
+                )
+                art_iid = art.artifact_iid
+                artifacts_created += 1
+            except Exception:
+                # Silent — determinism > new-feature errors bubbling.
+                art_iid = None
         for ev in observe_all(cmd, case_id=case_id):
             obs_total += 1
+            # Tag the observation with its artifact link so downstream
+            # consumers (Report, Trajectory) can follow the reference.
+            if art_iid and isinstance(ev, dict):
+                ev.setdefault("provenance", {}).setdefault("artifact_iid", art_iid)
             obs_id = await persist(_db, ev)
             if obs_id:
                 obs_ok += 1
+                # Best-effort back-link observation → artifact.
+                if art_iid:
+                    try:
+                        from v2.artifact_store import link_observation
+                        await link_observation(_db, art_iid, str(obs_id),
+                                               actor="ingest-pipeline")
+                    except Exception:
+                        pass
     if commands:
         await _upsert_case(case_id, adapter_name)
     return {
         "ingested_records": len(commands),
         "observations_created": obs_ok,
         "observations_emitted": obs_total,
+        "artifacts_created": artifacts_created,
     }
 
 

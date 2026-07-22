@@ -212,6 +212,7 @@ try:
     from v2.routers import report_router as _v2_report_router
     from v2.routers import ancestry_router as _v2_ancestry_router
     from v2.routers import ingest_router as _v2_ingest_router
+    from v2.routers import artifacts_router as _v2_artifacts_router
     api.include_router(_v2_cases_router)
     api.include_router(_v2_parse_router)
     api.include_router(_v2_trajectory_router)
@@ -219,6 +220,7 @@ try:
     api.include_router(_v2_report_router)
     api.include_router(_v2_ancestry_router)
     api.include_router(_v2_ingest_router)
+    api.include_router(_v2_artifacts_router)
 except Exception as _v2_exc:                             # pragma: no cover
     import logging as _logging
     _logging.getLogger(__name__).info(

@@ -3,6 +3,65 @@
 Chronological record of significant releases (newest first).
 
 
+## 2026-02-22 · R4.1 Stable + R2 · Artifact Store (SHIPPED)
+
+**R4.1 Stable — permanent CI flake fix**
+- Root cause: `v2/flags.py::FLAGS` was a module-level snapshot captured
+  at import time. Any env var set later (fixtures, admin API, workflow
+  timing quirks) was invisible → every new flag-gated test failed on
+  cold-cache CI runs.
+- Fix (`v2/flags.py`): `get()` / `all_disabled()` / `summary()` now
+  read `os.environ` on every call. Production behaviour is byte-
+  identical (env is stable at process start). RC5 code untouched.
+- Fix (`/app/backend/conftest.py` — new, session scope): unconditionally
+  exports `NIVX_FLAG_TRAJECTORY_ENGINE`, `_CASE_ENGINE`, `_ADAPTERS`,
+  `_ARTIFACT_STORE = shadow` for every pytest run, so isolated file
+  runs and workflow-env misconfigurations can't ever re-fail this
+  class of tests.
+- Per-file fixtures reverted to plain `setdefault` — no more
+  `importlib.reload` / `FLAGS[n] = _read(n)` hacks.
+- **CI-equivalent cold-cache run: 820 passed, 3 skipped, 0 failed**.
+
+**R2 · Artifact Store** (Immutable Evidence Objects, P0)
+- New module `/app/backend/v2/artifact_store/`
+  - `schema.py` — `Artifact` + `CustodyEvent` models (frozen at `r2.0`)
+    with FULL DFIR field set requested by user:
+    - `artifact_iid`  · deterministic ID `art_<12hex(sha256(kind|sha256))>`
+    - `sha256`        · content hash (hex lowercase)
+    - `source`        · adapter / uploader name
+    - `provenance`    · rule_id, confidence, engine version, run_id
+    - `chain_of_custody` · append-only `list[CustodyEvent]`
+    - `related_case_ids`, `related_entity_iids`, `related_observation_iids`
+    - `mime_type`, `size`, `acquisition_time`, `created_at`, `schema_version`
+  - `store.py` — idempotent upsert (`(sha256, kind)` identity), custody
+    append, three link helpers (case / entity / observation). Every
+    write logs a custody event. Never overwrites — additive only.
+- New router `/app/backend/v2/routers/artifacts.py`
+  - `POST   /api/v2/artifacts`                               · create/upsert
+  - `GET    /api/v2/artifacts/{artifact_iid}`                · fetch
+  - `GET    /api/v2/artifacts/by-sha/{sha256}?kind=…`        · fetch by hash
+  - `GET    /api/v2/cases/{case_id}/artifacts`               · list by case
+  - `POST   /api/v2/artifacts/{iid}/custody`                 · append custody
+  - `POST   /api/v2/artifacts/{iid}/link/case`               · attach case
+  - `POST   /api/v2/artifacts/{iid}/link/entity`             · attach entity
+  - `POST   /api/v2/artifacts/{iid}/link/observation`        · attach obs
+  - All admin-gated + `ARTIFACT_STORE` flag-gated.
+- Ingest hook: `POST /api/v2/ingest/{format}` now auto-mints a
+  `command_line` artifact per ingested command and back-links the
+  observation IID. Failures are silent (never blocks ingest).
+- 10/10 pytest suite covers determinism, idempotency, custody,
+  link merges, list-by-case, HTTP flow, 404s, and RC5-import
+  invariant.
+- Live smoke: `POST /api/v2/artifacts` → SHA-256 hash + custody chain
+  populated; `POST /api/v2/ingest/json` → 2 commands ingested, 2
+  artifacts auto-created, each with 1 observation back-link.
+
+**Frontend · Device Trajectory nav**
+- Added `TRAJECTORY` entry to primary header nav (`Header.jsx`) with
+  Radar icon, `data-testid="nav-trajectory"`, routes to `/v2/trajectory`.
+
+
+
 ## 2026-02-22 · R2.5 · Multi-format Ingest Adapters (SHIPPED) + CI hardening
 
 **R2.5 · Multi-format Ingest Adapters** (Mode A ingress unlocked)

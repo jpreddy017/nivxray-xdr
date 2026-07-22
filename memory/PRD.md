@@ -5,6 +5,36 @@ Build a deterministic-first analyst workspace that decodes / reconstructs
 obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
+## 2026-02-22 · R4.1 CI Stability + R2 Artifact Store (SHIPPED)
+
+**R4.1 · Permanent CI flag-flake fix**
+- `v2/flags.py::get()` now reads env vars dynamically (was: import-time
+  snapshot that any late-set env couldn't reach)
+- Session-level `/app/backend/conftest.py` sets NIVX_FLAG_* defaults for
+  every test run, so isolated file runs + workflow-env misconfig don't
+  fail flag-gated tests
+- 820 passed / 3 skipped / 0 failed on cold-cache CI-equivalent run
+- Zero RC5 changes; production behaviour byte-identical
+
+**R2 · Artifact Store**
+- New module `/app/backend/v2/artifact_store/` (schema + store)
+- Field set per user spec: `artifact_iid`, `sha256`, `source`,
+  `provenance`, `chain_of_custody`, `related_case_ids`,
+  `related_entity_iids`, `related_observation_iids`, `mime_type`,
+  `size`, `acquisition_time`, `schema_version`
+- Deterministic IID `art_<12hex(sha256(kind|sha256))>` → idempotent
+- 8 HTTP endpoints under `/api/v2/artifacts…` + case-scoped list
+- Ingest pipeline auto-mints `command_line` artifacts per record and
+  back-links the observation
+- 10/10 tests (determinism, idempotency, custody, links, HTTP flow,
+  RC5-import invariant)
+
+**Frontend · Device Trajectory nav**
+- Added `TRAJECTORY` link (Radar icon) to primary header nav, routes
+  to `/v2/trajectory` with `data-testid="nav-trajectory"`
+
+
+
 
 ## 2026-02-22 · Phase 3d · Device Trajectory Engine (SHIPPED · backend)
 

@@ -62,7 +62,60 @@ Modes served: Mode B primarily; MITRE coverage endpoint also feeds Mode A report
 
 ---
 
-## 🔴 R4 · Deterministic Investigation Report Generator · **NEXT · P0**
+## R4 · Deterministic Investigation Report Generator · **SHIPPED**
+
+Delivered:
+- `GET /api/v2/cases/{id}/report` · `.md` · `.pdf` (all deterministic)
+- 10 canonical sections (executive → signature) frozen at schema `r4.0`
+- SHA-256 signature over canonical JSON; identical inputs → identical bytes
+- `generated_at` derived from newest observation (never `datetime.now()`)
+- PDF via `reportlab` with pinned metadata / creation date
+- 7/7 pytest suite: sections, determinism, PDF, empty-case, RC5-import invariant
+- Frontend: Investigation Report modal on Device Trajectory with
+  Copy JSON / Copy Markdown / Download .pdf
+
+Modes served: **BOTH · Mode A (egress payload) + Mode B (on-demand preview)**
+
+---
+
+## R4.1 · CI Stability · **SHIPPED**
+
+Delivered:
+- Root-caused the recurring "flag frozen at import" CI flake class
+- `v2/flags.py::get()` now reads env dynamically — production behaviour
+  byte-identical, tests + admin toggles finally work as expected
+- `backend/conftest.py` (session scope) exports flag defaults for tests
+- 820 passed, 3 skipped, 0 failed on cold-cache CI run
+- Zero RC5 changes
+
+---
+
+## R2 · Artifact Store · **SHIPPED**
+
+Immutable evidence-object store powering artifact citations in R4
+reports and every downstream egress adapter.
+
+Delivered:
+- `/app/backend/v2/artifact_store/` module (schema + store)
+- 12 fields per artifact incl. `artifact_iid`, `sha256`, `source`,
+  `provenance`, `chain_of_custody`, `related_case_ids`,
+  `related_entity_iids`, `related_observation_iids`, `mime_type`,
+  `size`, `acquisition_time`, `schema_version`
+- Deterministic ID: `art_<12hex(sha256(kind|sha256))>` — idempotent
+  upserts across ingest-pipeline retries
+- 8 HTTP endpoints under `/api/v2/artifacts…` — create, fetch (iid or
+  sha), list by case, append custody, link case/entity/observation
+- Ingest pipeline (`/api/v2/ingest/{format}`) auto-mints a
+  `command_line` artifact per record and back-links the observation
+- 10/10 pytest suite (determinism, idempotency, custody, links,
+  list-by-case, HTTP, 404, RC5-import invariant)
+
+Modes served: **BOTH · Mode A (SIEM/ITSM egress payloads cite
+artifacts) + Mode B (analyst UI evidence panel)**
+
+---
+
+## R4-legacy anchor · Report Generator (design spec)
 
 Why now: Report Generator is the **shared capability** that powers
 both Mode A and Mode B. Every future adapter or UI feature is
