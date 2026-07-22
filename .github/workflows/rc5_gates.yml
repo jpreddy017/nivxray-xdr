@@ -33,7 +33,13 @@ jobs:
     # coverage) are excluded from the default gate below and run via a
     # separate nightly workflow. The fast slice completes in ~30-60 s on
     # a GitHub-hosted runner, so 20 min is generous headroom.
-    timeout-minutes: 20
+    # Bumped 20 → 40 (Feb-2026) after CI cancels at the 99% mark on
+    # cold-cache GitHub runners. Local pytest completes the same
+    # suite in <30 s but shared runners can serialise Mongo bring-up
+    # and async teardown of FastAPI startup events. 40 minutes is a
+    # comfortable ceiling; the per-test guard below prevents any
+    # single test from stealing the whole budget.
+    timeout-minutes: 40
 
     # Provide MongoDB for the API tests under tests/rc5/api/ which
     # exercise real FastAPI routes backed by motor/pymongo.
@@ -120,7 +126,13 @@ jobs:
       # explicit here so the intent is visible in the workflow file.
       - name: All RC5 tests (fast slice)
         working-directory: backend
-        run: python -m pytest tests/rc5/ -q --no-header -m "not slow"
+        # `-n 2` caps xdist parallelism so worker startup doesn't storm
+        # the shared runner (default `-n auto` doubles setup cost on 2-core
+        # runners). `--timeout=60 --timeout-method=thread` kills any
+        # single hung test at 60 s instead of letting it consume the
+        # whole job budget — the pattern that caused the mysterious
+        # "operation was canceled" at 99% on the previous run.
+        run: python -m pytest tests/rc5/ -q --no-header -m "not slow" -n 2 --timeout=60 --timeout-method=thread
 
       # ─── § 13 Kill-list — protects the deprecation contract ────────
       # Runs the two Python-based kill-list gates that check for NEW

@@ -60,7 +60,9 @@ jobs:
       - name: Run RC5 test suite on HEAD (must be 100% green)
         run: |
           cd head/backend
-          python -m pytest tests/rc5/ -q --tb=short
+          # -n 2 + per-test timeout guards against the same 99%-cancel
+          # pattern that hit rc5_gates.yml on Feb-2026.
+          python -m pytest tests/rc5/ -q --tb=short -n 2 --timeout=60 --timeout-method=thread
 
       # ── Base branch corpus run (PRs only) ─────────────────────────
       - name: Install base branch backend dependencies
