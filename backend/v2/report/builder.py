@@ -30,34 +30,83 @@ _TECHNIQUE_TO_TACTIC = {
 
 
 def _process_name_of(event: dict) -> str:
-    label = (event.get("label") or event.get("action") or "").lower()
-    # Simple deterministic extraction — matches frontend rule.
-    for tok in label.split():
-        if any(tok.endswith(ext) for ext in (".exe", ".dll", ".msi", ".ps1", ".bat", ".cmd", ".sys", ".com")):
-            return tok
-    proc = (event.get("process") or {}).get("iid") or (event.get("parent") or {}).get("iid")
-    return proc or (event.get("action") or "event")
+    """Extract a human-friendly executable name from an enriched frame.
+
+    Order of precedence (most trustworthy → least):
+        1. `raw.entity` / `raw.target` from the deterministic rule
+           (highest signal — this is what fired).
+        2. First `.exe/.dll/.msi/.ps1/.bat/.cmd/.sys/.com` token in
+           label or action.
+        3. `process.iid` / `parent.iid` (may be `proc_shadow_XXX`).
+        4. `action` field (still readable — e.g. `dumped`, `enumerated`).
+    """
+    import re
+    # 1) Deterministic rule extraction (highest signal)
+    raw = event.get("raw") or {}
+    for key in ("entity", "target"):
+        v = raw.get(key)
+        if isinstance(v, str) and re.search(r"\.(exe|dll|msi|ps1|bat|cmd|sys|com)$", v, re.IGNORECASE):
+            return v.lower()
+
+    # 2) Regex against label / action
+    for src in (event.get("label"), event.get("action")):
+        if not isinstance(src, str): continue
+        m = re.search(r"([A-Za-z0-9_.-]+\.(?:exe|dll|msi|ps1|bat|cmd|sys|com))", src, re.IGNORECASE)
+        if m:
+            return m.group(1).lower()
+
+    # 3) iids (usually proc_shadow_XXX — still stable)
+    for k in ("process", "parent"):
+        iid = ((event.get(k) or {}).get("iid"))
+        if iid:
+            return iid.split(":")[-1]
+
+    # 4) Fall back to action string
+    return (event.get("action") or "").strip() or "unattributed"
 
 
 def _verdict_of(event: dict) -> str:
     has_mitre = bool(event.get("mitre"))
-    rule = event.get("rule_id") or (event.get("provenance") or {}).get("rule_id")
+    rule = event.get("rule_id") or (event.get("provenance") or {}).get("rule_id") \
+        or (event.get("raw") or {}).get("rule_id")
     if has_mitre and rule: return "malicious"
     if has_mitre:          return "suspicious"
     return "benign"
 
 
 async def _load_events(db: AsyncIOMotorDatabase, case_id: str) -> list[dict]:
-    """Read all shadow observations for the case, unwrap to CEM events, sort by ts."""
+    """Load enriched CEM frames using the same trajectory composer that
+    powers the Device Trajectory UI.
+
+    This keeps Mode A (automated report) and Mode B (interactive UI)
+    fed by ONE source of truth: the `raw.entity` / `raw.rule_id` /
+    canonical `lane` / `label` / `action` all come from the same
+    deterministic pipeline the analyst sees on screen.
+    """
+    from v2.trajectory.device import build_from_observations
+    frames = await build_from_observations(db, case_id=case_id, limit=5000)
+    # Attach the underlying `raw` block (rule_id / entity / target /
+    # confidence) so `_process_name_of` and command-line decoding can
+    # reach it. `build_from_observations` returns TrajectoryFrame
+    # dataclasses; `to_dict()` includes provenance but not the raw
+    # command block, so we merge from the observation store here.
+    events = [f.to_dict() for f in frames]
+    if not events:
+        return events
+    # Second pass — enrich each frame with its raw command block
     coll = db[COLLECTIONS["shadow_observations"]]
-    cursor = coll.find({"case_id": case_id})
-    rows = [r async for r in cursor]
-    events = []
-    for r in rows:
-        ev = dict(r.get("event") or {})
-        ev.setdefault("_captured_at", r.get("captured_at"))
-        events.append(ev)
-    events.sort(key=lambda e: (e.get("ts") or "", e.get("frame_iid") or ""))
+    raw_by_iid: dict[str, dict] = {}
+    async for row in coll.find({"case_id": case_id}, {"event.iid": 1, "event.raw": 1}):
+        ev = row.get("event") or {}
+        iid = ev.get("iid")
+        if iid:
+            raw_by_iid[iid] = ev.get("raw") or {}
+    for e in events:
+        # `evidence_ids` is a top-level field on TrajectoryFrame (see
+        # v2/trajectory/schema.py) holding the source observation iid.
+        ev_ids = e.get("evidence_ids") or []
+        if ev_ids and ev_ids[0] in raw_by_iid:
+            e["raw"] = raw_by_iid[ev_ids[0]]
     return events
 
 
