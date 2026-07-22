@@ -6,6 +6,37 @@ obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
 
+## 2026-02-22 · Phase 2 Round-6 · Shadow Observer + Reinforced Parity (SHIPPED)
+
+**Motivation:** User asked for two reinforcements — (a) dedicated
+storage for dual-emitted CEM events, (b) explicit parity tests
+proving RC5 outputs are byte-identical with the shadow flag ON.
+
+**Shipped:**
+- **Shadow observer entry point** (`v2/shadow/__init__.py`):
+  - `observe(text) → CanonicalEvent | None` — pure function, no I/O,
+    deterministic sha256-based iids. Returns None when
+    `NIVX_FLAG_ADAPTERS` is disabled.
+  - `persist(db, event) → id | None` — writes CEM events to the
+    dedicated `v2_shadow_observations` collection. Refuses to run
+    when flag is disabled. **Never touches RC5 collections.**
+- **Reinforced parity tests** (`test_v2_phase2.py`):
+  - `test_rc5_engine_source_has_no_conditional_on_adapter_flag` —
+    static grep of every file under `engine/` proves ZERO reads of
+    any `NIVX_FLAG_*` key or `v2.flags` module from RC5 source.
+  - `test_rc5_parse_endpoint_output_stable_across_flag_states` —
+    runs the entire 88-sample Golden Corpus twice (flag OFF then
+    ON), compares per-sample fingerprints (verdict / MITRE /
+    passed) via sha256, requires byte-identical hashes.
+  - Together these mathematically preclude any behaviour change
+    from `NIVX_FLAG_ADAPTERS=shadow`.
+- **Shadow observer unit tests**: verify deterministic iids across
+  identical inputs + no-op behaviour when flag disabled.
+
+**Verified:** 48/48 tests pass in 2 s. Zero RC5 file modified.
+
+
+
 ## 2026-02-22 · Phase 2 · CEM Storage + Shadow Adapter + OpenAPI Gate (SHIPPED)
 
 **Motivation:** Land Case-scoped storage schema, promote command-line

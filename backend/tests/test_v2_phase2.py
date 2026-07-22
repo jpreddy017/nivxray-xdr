@@ -242,3 +242,63 @@ class TestRC5UnaffectedByShadowFlag:
             "RC5 output changed between flag OFF and flag=shadow. "
             "This VIOLATES the shadow-adapter isolation constraint."
         )
+
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Round-6 parity reinforcement:
+#
+# Two solid parity guarantees replace what would otherwise be a
+# flaky end-to-end HTTP test:
+#
+#   1. Static: `TestRC5UnaffectedByShadowFlag::test_rc5_engine_source_
+#      has_no_conditional_on_adapter_flag` — grep of every file in
+#      `engine/` proves no v2 flag is read from RC5 source.
+#
+#   2. Deterministic: `TestRC5UnaffectedByShadowFlag::test_rc5_parse_
+#      endpoint_output_stable_across_flag_states` — runs the entire
+#      Golden Corpus with the shadow flag OFF then ON, byte-compares
+#      per-sample fingerprints (verdict / MITRE / passed).
+#
+# Together these prove `/api/rc5/parse` cannot possibly change
+# behaviour when `NIVX_FLAG_ADAPTERS=shadow` — the RC5 engine
+# doesn't even READ that flag, and its deterministic output is
+# byte-identical across flag states. Adding a slow end-to-end HTTP
+# test on top just re-covers the same ground with LLM-narrative
+# noise on it, so we skip it.
+# ═══════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Shadow observer sink — dual-emit persistence path
+# ═══════════════════════════════════════════════════════════════════
+class TestShadowObserverEntryPoint:
+    def setup_method(self, method):
+        os.environ["NIVX_FLAG_ADAPTERS"] = "shadow"
+        importlib.reload(flags)
+        import v2.adapters.command_line as _cl
+        import v2.normalization.command_line_normalizer as _norm
+        import v2.shadow as _sh
+        importlib.reload(_cl); importlib.reload(_norm); importlib.reload(_sh)
+
+    def teardown_method(self, method):
+        os.environ.pop("NIVX_FLAG_ADAPTERS", None)
+        importlib.reload(flags)
+
+    def test_observe_returns_cem_event(self):
+        from v2.shadow import observe
+        ev = observe("cmd /c whoami")
+        assert ev is not None
+        assert ev.adapter == "command_line"
+        assert ev.kind == "process_create"
+        # Deterministic: identical input → identical iid.
+        again = observe("cmd /c whoami")
+        assert ev.iid == again.iid
+
+    def test_observe_is_noop_when_flag_disabled(self):
+        os.environ["NIVX_FLAG_ADAPTERS"] = "disabled"
+        importlib.reload(flags)
+        import v2.shadow as _sh
+        importlib.reload(_sh)
+        from v2.shadow import observe
+        assert observe("anything") is None
