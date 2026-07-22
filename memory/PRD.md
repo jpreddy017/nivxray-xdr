@@ -6,6 +6,47 @@ obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
 
+## 2026-02-22 · M2 · Hero build shipped (dark theme, Cisco-methodology)
+
+Approved hero mockup at `/design/trajectory-hero.html` shipped as live code with no design drift.
+
+**Design deliverables (in `/app/memory/design/`):**
+- `M2_AUDIT.md` — brutally honest audit of shipped pills/scrubbers
+- `M2_DESIGN_SPEC.md` — investigation workflow, hierarchy, layout spec, acceptance criteria
+- `M2_CISCO_CORRECTIONS.md` — anchored to Cisco User Guide (pp. 324–366) + Success Capsule video
+- `/frontend/public/design/trajectory-mockups.html` (12 v1 scenes)
+- `/frontend/public/design/trajectory-mockups-v2.html` (6 corrected scenes)
+- `/frontend/public/design/trajectory-mockups-v3.html` (8 final scenes)
+- `/frontend/public/design/trajectory-hero.html` (1 hero + component justification tables)
+
+**Shipped features (dark theme, single canonical layout):**
+- Case bar (32 px) — hostname · isolation · analyst · counts
+- Time compass (56 px) — 24-hour lens with compromise dots + draggable viewport window
+- Attack chain sidebar (232 px) — MITRE-mapped stages, clickable to focus canvas time-window
+- Canvas — thin 1-px lifelines, indented ancestry (├─ └─ │), sticky-X entity gutter, yellow vertical compromise time-window, dedicated compromise indicator rows, double-circle sources, single-symbol targets, three-state disposition fill, blue trigger halos on selected compromise
+- Evidence pane (340 px) — verbatim Cisco field list: verdict badges, command line, SHA-256, parent, MITRE, detection rule, block/allow actions
+- Status bar (22 px) — window + focus + counts
+- Synthetic scrollbars (right + bottom) that appear only when content overflows viewport
+- Glassy-white palette: `#F4F6FA` bg / `#FFFFFF` panels / red `#DC2626` / green `#059669` / amber `#F5C142` / blue `#2563EB`
+
+**Killed vs the previous shipped implementation:**
+- Horizontal pill lifelines (colored the scaffolding, not the events)
+- Amber tint on entity rows (made everything look "suspicious")
+- Day scrubber (JUN/JUL bar)
+- Hour scrubber row
+- Filter row across the top
+- Left rail Analyst/Expert toggle
+- Canvas minimap (compass covers its job)
+- Empty white space to the right (canvas is now width-responsive)
+
+**Files touched:**
+- `frontend/src/v2/canvas_engine/InvestigationCanvas.jsx` (full rewrite)
+- `frontend/src/v2/pages/DeviceTrajectoryV2.jsx` (full rewrite — 1340 → ~640 lines)
+
+**Backend / RC5:** UNTOUCHED. 820 tests green.
+
+
+
 ## 2026-02-22 · M2 · Investigation Canvas — Entity-Lifetime Story View (SHIPPED · frontend)
 
 **Motivation:** User criticised the M1 canvas as an "interactive scatter plot"
