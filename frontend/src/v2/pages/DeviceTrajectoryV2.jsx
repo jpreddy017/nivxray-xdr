@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { isObservable } from "../flags";
 import api from "@/lib/api";
+import { InvestigationCanvas } from "@/v2/canvas_engine";
 
 // ═══════════════════════════════════════════════════════════════════
 // Design tokens
@@ -473,78 +474,41 @@ export default function DeviceTrajectoryV2() {
           expert={expert} onToggleExpert={() => setExpert(v => !v)}
         />
 
-        {/* Canvas */}
-        <div ref={canvasRef} className="flex-1 relative overflow-auto"
-             style={{ background: NX.canvas }}
-             data-testid="trajectory-canvas">
-          <div className="relative" style={{ height: canvasH, minWidth: canvasW }}>
-            {/* Faint vertical hour columns */}
-            <div className="absolute inset-0 pointer-events-none"
-                 style={{
-                   backgroundImage:
-                     `repeating-linear-gradient(90deg, transparent 0 47px, ${NX.border}88 47px 48px)`,
-                 }} />
-
-            {/* Band header stripes */}
-            {groups.map((g, i) => (
-              <div key={g.label + i} className="absolute inset-x-0 flex items-center px-3"
-                   style={{
-                     top: g.top - BAND_H, height: BAND_H,
-                     background: NX.panel,
-                     borderBottom: `1px solid ${NX.border}`,
-                   }}>
-                <span className="text-[9px] tracking-[0.22em] uppercase font-semibold"
-                      style={{ color: NX.textDim }}>{g.label}</span>
-                <span className="ml-auto text-[9px] tabular-nums"
-                      style={{ color: NX.textMute }}>{g.rows.length}</span>
-              </div>
-            ))}
-
-            {/* Selected row highlight */}
-            {selected && (() => {
-              const i = rowIndex.get(processKeyOf(selected));
-              if (i == null) return null;
-              return (
-                <div className="absolute inset-x-0 pointer-events-none"
-                     style={{ top: rowY[i] ?? 0, height: ROW_H,
-                              background: `${NX.selected}22` }} />
-              );
-            })()}
-
-            {/* Lifelines */}
-            <svg width={canvasW} height={canvasH}
-                 className="absolute top-0 left-0 pointer-events-none">
-              {rows.map((r, i) => {
-                const y = yOf(i);
-                const x1 = xForTs(r.firstTs);
-                const x2 = xForTs(r.lastTs);
-                const sel = selected && processKeyOf(selected) === r.key;
-                const stroke = r.worstVerdict === "malicious" ? NX.critical
-                             : r.worstVerdict === "suspicious" ? NX.warning
-                             : sel ? NX.lifeline : NX.lifelineDim;
-                return (
-                  <line key={r.key} x1={x1 - 3} y1={y} x2={x2 + 3} y2={y}
-                        stroke={stroke} strokeWidth={sel ? 1.2 : 0.9}
-                        strokeDasharray="2 3"
-                        opacity={sel ? 0.9 : 0.4} />
-                );
-              })}
-            </svg>
-
-            {/* Event glyphs */}
-            {frames.map(f => {
-              const i = rowIndex.get(processKeyOf(f));
-              if (i == null) return null;
-              const x = xForTs(f.ts);
-              const y = yOf(i);
-              return (
-                <Glyph key={f.frame_iid || `${x}-${y}`}
-                       frame={f} x={x} y={y}
-                       selected={selected?.frame_iid === f.frame_iid}
-                       onSelect={setSelected} />
-              );
-            })}
-          </div>
+        {/* Canvas — powered by the reusable Investigation Canvas Engine */}
+        <div className="flex-1 min-w-0 relative">
+          <InvestigationCanvas
+            rows={rows.map(r => ({
+              key: r.key,
+              label: r.label,
+              band: bandOf(r.lane, expert),
+              worstVerdict: r.worstVerdict,
+              firstTs: r.firstTs,
+              lastTs:  r.lastTs,
+              meta: r,
+            }))}
+            events={frames.map(f => ({
+              id:      f.frame_iid,
+              rowKey:  processKeyOf(f),
+              ts:      f.ts,
+              kind:    activityOf(f),
+              verdict: verdictOf(f),
+              label:   f.label || f.action,
+              mitre:   f.mitre || [],
+              meta:    f,
+            }))}
+            selected={selected?.frame_iid || null}
+            onSelect={(ev) => setSelected(ev.meta)}
+            tokens={{
+              bg: NX.canvas, band: NX.panel, band2: NX.panel2,
+              border: NX.border, text: NX.text, textDim: NX.textDim,
+              textMute: NX.textMute, link: NX.link, success: NX.success,
+              warning: NX.warning, critical: NX.critical,
+              lifeline: NX.lifeline, lifelineDim: NX.lifelineDim,
+              selectGlow: NX.link, grid: NX.border,
+            }}
+            emptyMessage="No events for this case."
+            testId="trajectory-canvas"
+          />
         </div>
 
         {/* Right panel */}
