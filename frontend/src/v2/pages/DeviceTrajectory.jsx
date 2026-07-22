@@ -1198,6 +1198,7 @@ function ActivityMark({ kind, color }) {
 // Event glyph — Cisco Secure Endpoint symbol vocabulary applied.
 //   Base disc + activity mark + disposition ring
 //   Malicious → red hexagon shield replaces the disc (Cisco disposition)
+//   Hover → rule-provenance tooltip (R1.1)
 // ═══════════════════════════════════════════════════════════════════
 function EventGlyph({ frame, x, y, selected, onSelect }) {
   const v = verdictFor(frame);
@@ -1205,7 +1206,8 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
   const kind = activityOf(frame);
   const isMalicious = v === "malicious";
   const isSuspicious = v === "suspicious";
-  const isBenign = v === "benign";
+  const conf = confidenceTierOf(frame);
+  const [hovered, setHovered] = useState(false);
 
   const size = 22;
   const half = size / 2;
@@ -1214,61 +1216,154 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
   // Disposition ring color
   const ringColor = isMalicious ? VERDICT.malicious.color
                   : isSuspicious ? "#F59E0B"
-                  : "#71717A"; // zinc-500
+                  : "#71717A";
 
-  // Activity-mark color — lane accent for non-malicious, red for compromise-class
+  // Activity-mark color
   const markColor = (kind === ACTIVITY.COMPROMISE || kind === ACTIVITY.DETECT)
     ? "#FCA5A5"
     : (isSuspicious ? "#FCD34D" : meta.accent);
 
   return (
-    <button
-      data-testid={`event-glyph-${frame.frame_iid}`}
-      onClick={() => onSelect(frame)}
-      className="absolute z-10 outline-none focus-visible:ring-2 focus-visible:ring-amber-500
-                 transition-transform duration-150 hover:scale-125"
-      style={{
-        left: x - half, top: y - half,
-        width: size, height: size,
-        filter: selected
-          ? "drop-shadow(0 0 8px rgba(245,158,11,0.7))"
-          : (isMalicious ? "drop-shadow(0 0 4px rgba(225,29,72,0.5))" : "none"),
-      }}
-      title={`${frame.action} · ${VERDICT[v].label}`}
-    >
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {isMalicious ? (
-          /* red hex shield replaces the disc entirely (Cisco malicious disposition) */
-          <g>
-            <polygon
-              points={`${half},1 ${size - 1},${half - 4} ${size - 1},${half + 4} ${half},${size - 1} 1,${half + 4} 1,${half - 4}`}
-              fill="#450A0A"
-              stroke={VERDICT.malicious.color}
-              strokeWidth="1.6"
-            />
-            <ActivityMark kind={kind} color="#FCA5A5" />
-          </g>
-        ) : (
-          <g>
-            <circle cx={half} cy={half} r={half - 2}
-                    fill="#0B0B0E"
-                    stroke={selected ? "#F59E0B" : ringColor}
-                    strokeWidth={selected ? 1.8 : 1.5} />
-            <ActivityMark kind={kind} color={markColor} />
-          </g>
-        )}
-      </svg>
+    <>
+      <button
+        data-testid={`event-glyph-${frame.frame_iid}`}
+        onClick={() => onSelect(frame)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={() => setHovered(true)}
+        onBlur={() => setHovered(false)}
+        className="absolute z-10 outline-none focus-visible:ring-2 focus-visible:ring-amber-500
+                   transition-transform duration-150 hover:scale-125"
+        style={{
+          left: x - half, top: y - half,
+          width: size, height: size,
+          filter: selected
+            ? "drop-shadow(0 0 8px rgba(245,158,11,0.7))"
+            : (isMalicious ? "drop-shadow(0 0 4px rgba(225,29,72,0.5))" : "none"),
+        }}
+      >
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          {isMalicious ? (
+            <g>
+              <polygon
+                points={`${half},1 ${size - 1},${half - 4} ${size - 1},${half + 4} ${half},${size - 1} 1,${half + 4} 1,${half - 4}`}
+                fill="#450A0A"
+                stroke={VERDICT.malicious.color}
+                strokeWidth="1.6"
+              />
+              <ActivityMark kind={kind} color="#FCA5A5" />
+            </g>
+          ) : (
+            <g>
+              <circle cx={half} cy={half} r={half - 2}
+                      fill="#0B0B0E"
+                      stroke={selected ? "#F59E0B" : ringColor}
+                      strokeWidth={selected ? 1.8 : 1.5} />
+              <ActivityMark kind={kind} color={markColor} />
+            </g>
+          )}
+        </svg>
 
-      {mitre0 && (
-        <span
-          className="absolute -top-3 -right-1 text-[8px] leading-none px-1 py-[1px] rounded-sm
-                     bg-zinc-800 text-zinc-300 border border-zinc-700 pointer-events-none z-20"
-          style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-        >
-          {mitre0}
-        </span>
+        {mitre0 && (
+          <span
+            className="absolute -top-3 -right-1 text-[8px] leading-none px-1 py-[1px] rounded-sm
+                       bg-zinc-800 text-zinc-300 border border-zinc-700 pointer-events-none z-20"
+            style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+          >
+            {mitre0}
+          </span>
+        )}
+      </button>
+
+      {hovered && !selected && (
+        <ProvenanceCard frame={frame} x={x} y={y} verdict={v}
+                        conf={conf} activity={kind} meta={meta} />
       )}
-    </button>
+    </>
+  );
+}
+
+// ─── Rule-provenance hover card (R1.1) ───────────────────────────────
+function ProvenanceCard({ frame, x, y, verdict, conf, activity, meta }) {
+  const vMeta = VERDICT[verdict];
+  const rule = frame.rule_id || frame.provenance?.rule_id;
+  const source = frame.provenance?.source;
+  const adapter = frame.provenance?.adapter;
+  return (
+    <div
+      data-testid={`provenance-card-${frame.frame_iid}`}
+      className="absolute z-30 pointer-events-none w-[320px] bg-zinc-950/98 border border-zinc-800
+                 rounded-sm shadow-2xl p-3"
+      style={{
+        left: x + 16,
+        top: Math.max(y - 40, 4),
+        fontFamily: "'IBM Plex Sans', sans-serif",
+        boxShadow: "0 12px 32px -8px rgba(0,0,0,0.85), 0 0 0 1px rgba(245,158,11,0.15)",
+      }}
+    >
+      {/* Header: verdict + confidence + activity + lane */}
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        <span className="inline-flex items-center gap-1 text-[8px] font-bold tracking-[0.2em] px-1 py-0.5 rounded-sm border"
+              style={{ color: vMeta.color, borderColor: vMeta.color + "66", background: vMeta.color + "14" }}>
+          <vMeta.Icon size={9} /> {vMeta.label}
+        </span>
+        <span className="inline-flex items-center gap-1 text-[8px] font-bold tracking-[0.2em] px-1 py-0.5 rounded-sm border"
+              style={{ color: conf.color, borderColor: conf.color + "66", background: conf.color + "14" }}>
+          {conf.label}
+        </span>
+        <span className="inline-flex items-center gap-1 text-[8px] font-bold tracking-[0.2em] px-1 py-0.5 rounded-sm border border-zinc-800 text-zinc-400 uppercase">
+          <meta.Icon size={9} style={{ color: meta.accent }} /> {meta.label}
+        </span>
+      </div>
+
+      {/* Command / label */}
+      <div className="text-[10px] text-zinc-100 leading-relaxed break-words mb-2"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        {frame.label || frame.action}
+      </div>
+
+      {/* Provenance grid */}
+      <div className="text-[9px] space-y-0.5"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        <ProvRow label="action"   value={frame.action}                       muted />
+        <ProvRow label="ts"       value={new Date(frame.ts).toISOString()}   muted />
+        <ProvRow label="rule_id"  value={rule || "— (no rule fired)"}
+                                  emphasize={!!rule} />
+        <ProvRow label="source"   value={source || "shadow_adapter"}         muted />
+        {adapter && <ProvRow label="adapter" value={adapter} muted />}
+        {frame.provenance?.confidence != null && (
+          <ProvRow label="conf" value={String(frame.provenance.confidence)} muted />
+        )}
+      </div>
+
+      {(frame.mitre || []).length > 0 && (
+        <div className="mt-2 pt-2 border-t border-zinc-900 flex flex-wrap gap-1">
+          {frame.mitre.map(t => (
+            <span key={t}
+                  className="text-[9px] px-1 py-[1px] border border-rose-500/30 rounded-sm
+                             text-rose-400 bg-rose-500/5"
+                  style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-2 pt-2 border-t border-zinc-900 text-[9px] text-zinc-600">
+        Click to open Evidence Panel · Activity: {activity}
+      </div>
+    </div>
+  );
+}
+function ProvRow({ label, value, muted, emphasize }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="w-14 shrink-0 text-zinc-500">{label}</span>
+      <span className={"flex-1 break-all " +
+                      (emphasize ? "text-amber-400" : (muted ? "text-zinc-400" : "text-zinc-200"))}>
+        {value}
+      </span>
+    </div>
   );
 }
 
