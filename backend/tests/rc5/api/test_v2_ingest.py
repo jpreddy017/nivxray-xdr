@@ -12,9 +12,15 @@ import pytest
 
 @pytest.fixture(scope="module", autouse=True)
 def _env_flags():
-    os.environ.setdefault("NIVX_FLAG_TRAJECTORY_ENGINE", "shadow")
-    os.environ.setdefault("NIVX_FLAG_CASE_ENGINE", "shadow")
-    os.environ.setdefault("NIVX_FLAG_ADAPTERS", "shadow")
+    """Enable v2 flags AND force-refresh the FLAGS snapshot (see
+    test_v2_ancestry._env_flags for rationale)."""
+    os.environ["NIVX_FLAG_TRAJECTORY_ENGINE"] = "shadow"
+    os.environ["NIVX_FLAG_CASE_ENGINE"] = "shadow"
+    os.environ["NIVX_FLAG_ADAPTERS"] = "shadow"
+    import v2.flags as _f
+    for _n in _f.FLAG_NAMES:
+        _f.FLAGS[_n] = _f._read(_n)
+    yield
 
 
 async def _call(endpoint: str, payload, content_type: str = "application/json"):

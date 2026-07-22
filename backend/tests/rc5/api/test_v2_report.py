@@ -18,9 +18,12 @@ import pytest
 
 @pytest.fixture(scope="module")
 def _env_flags():
+    """Backstop for isolated runs — session conftest already sets these,
+    but a bare `pytest tests/rc5/api/test_v2_report.py` still works."""
     os.environ.setdefault("NIVX_FLAG_TRAJECTORY_ENGINE", "shadow")
     os.environ.setdefault("NIVX_FLAG_CASE_ENGINE", "shadow")
     os.environ.setdefault("NIVX_FLAG_ADAPTERS", "shadow")
+    yield
 
 
 @pytest.mark.asyncio

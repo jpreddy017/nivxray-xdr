@@ -14,9 +14,15 @@ from fastapi import HTTPException
 
 @pytest.fixture(scope="module", autouse=True)
 def _env_flags():
+    """Backstop for anyone running this file in isolation without the
+    session-level `/app/backend/conftest.py`. `v2.flags.get()` reads
+    env dynamically, so plain `setdefault` is sufficient — no more
+    module-cache surgery needed.
+    """
     os.environ.setdefault("NIVX_FLAG_TRAJECTORY_ENGINE", "shadow")
     os.environ.setdefault("NIVX_FLAG_CASE_ENGINE", "shadow")
     os.environ.setdefault("NIVX_FLAG_ADAPTERS", "shadow")
+    yield
 
 
 async def _call(process_iid: str) -> dict:

@@ -90,30 +90,57 @@ def _read(name: str) -> FeatureFlag:
                        state=FlagState.parse(os.environ.get(env_key)))
 
 
-# Snapshot captured at process start. Deterministic across module
-# imports within the same process.
+# Snapshot captured at process start. Kept ONLY for back-compat with
+# `summary()` and `all_disabled()` — `get()` re-reads env every call.
+# See DYNAMIC_FLAGS below for the rationale.
 FLAGS: Final[dict[str, FeatureFlag]] = {n: _read(n) for n in FLAG_NAMES}
 
 
+# ─── Dynamic flag reads ──────────────────────────────────────────────
+# Historically `FLAGS` was a frozen import-time snapshot and every
+# consumer (routers, tests, admin API) had to trip over the fact that
+# env vars set AFTER import were invisible. Every fork-agent handoff
+# has re-discovered this the hard way (CI cold-cache runs, module-
+# scope fixtures, admin runtime toggles, notebook re-runs).
+#
+# We now resolve every `get(name)` from the LIVE environment. Cost is
+# a single dict lookup + string parse — well under a microsecond per
+# call and dominated by the FastAPI request itself. In exchange we
+# get:
+#   • CI env vars set at any point work identically to `.env` files.
+#   • Test fixtures can flip a flag mid-suite without importlib.reload.
+#   • The future admin API can just call `os.environ[...] = "shadow"`.
+#   • `all_disabled()` stays semantically stable — it now reflects
+#     current env, not a stale import snapshot.
+#
+# `FLAGS` is preserved so any pre-existing `from v2.flags import FLAGS`
+# consumer keeps working; it's simply no longer the authoritative
+# source of truth.
 def get(name: str) -> FeatureFlag:
-    """Return the registered flag or a DISABLED sentinel for unknowns."""
+    """Return the current state of a registered flag.
+
+    Reads `os.environ` on every call — see the module docstring for
+    the rationale (permanent fix for the CI cold-cache class of bugs).
+    """
     if name not in FLAGS:
         return FeatureFlag(name=name, env_key=f"NIVX_FLAG_{name}",
                            state=FlagState.DISABLED)
-    return FLAGS[name]
+    return _read(name)
 
 
 def all_disabled() -> bool:
-    """True iff every registered flag is DISABLED.
+    """True iff every registered flag is currently DISABLED.
 
-    Governance contract §12: when this returns True, the process
-    MUST behave byte-identically to the frozen RC5 release.
+    Reads env live (see `get`). Governance contract §12 still holds:
+    when this returns True, the process MUST behave byte-identically
+    to the frozen RC5 release.
     """
-    return all(f.state is FlagState.DISABLED for f in FLAGS.values())
+    return all(_read(n).state is FlagState.DISABLED for n in FLAG_NAMES)
 
 
 def summary() -> dict[str, str]:
-    return {n: f.state.value for n, f in FLAGS.items()}
+    """Live summary of every registered flag."""
+    return {n: _read(n).state.value for n in FLAG_NAMES}
 
 
 __all__ = [
