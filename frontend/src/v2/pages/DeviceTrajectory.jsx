@@ -124,6 +124,8 @@ export default function DeviceTrajectory() {
   const [legendOpen, setLegendOpen] = useState(false);
   // R1.1 · New-since-last-view badge
   const [lastViewed, setLastViewed] = useState(null);
+  // R4 · Investigation Report modal
+  const [reportOpen, setReportOpen] = useState(false);
 
   const enabled = isObservable("TRAJECTORY_ENGINE") || isObservable("CASE_ENGINE");
 
@@ -503,16 +505,29 @@ export default function DeviceTrajectory() {
                 frames={frames} onPickEvent={onPickEvent} />
       </div>
 
-      {/* Floating Training Note CTA */}
+      {/* Floating Training Note CTA + Generate Report CTA */}
       <button
         data-testid="training-note-cta"
+        className="fixed bottom-6 right-[540px] bg-zinc-900 text-zinc-300 px-3 py-1.5 rounded-sm
+                   font-semibold text-[11px] tracking-wider shadow-lg hover:bg-zinc-800
+                   border border-zinc-700 flex items-center gap-2 z-40
+                   transition-colors duration-150"
+      >
+        <PenSquare size={12} /> TRAINING NOTE
+      </button>
+      <button
+        data-testid="generate-report-cta"
+        onClick={() => setReportOpen(true)}
         className="fixed bottom-6 right-[404px] bg-amber-500 text-amber-950 px-3 py-1.5 rounded-sm
                    font-semibold text-[11px] tracking-wider shadow-lg hover:bg-amber-400
                    border border-amber-300/60 flex items-center gap-2 z-40
                    transition-colors duration-150"
       >
-        <PenSquare size={12} /> TRAINING NOTE
+        <FileCode size={12} /> GENERATE REPORT
       </button>
+      {reportOpen && (
+        <ReportModal caseId={caseId} onClose={() => setReportOpen(false)} />
+      )}
     </div>
   );
 }
@@ -1741,4 +1756,197 @@ function formatDuration(ms) {
   if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
   if (ms < 86_400_000) return `${(ms / 3_600_000).toFixed(1)}h`;
   return `${(ms / 86_400_000).toFixed(1)}d`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// R4 · Investigation Report Modal
+//   - Fetches JSON + Markdown on open
+//   - Preview pane (Markdown rendered as monospace text)
+//   - Copy JSON · Copy Markdown · Download .md · Download .json
+//   - Displays signature and section list
+// ═══════════════════════════════════════════════════════════════════
+function ReportModal({ caseId, onClose }) {
+  const [json, setJson]         = useState(null);
+  const [md, setMd]             = useState(null);
+  const [err, setErr]           = useState(null);
+  const [copied, setCopied]     = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [rj, rm] = await Promise.all([
+          api.get(`/v2/cases/${encodeURIComponent(caseId)}/report`),
+          api.get(`/v2/cases/${encodeURIComponent(caseId)}/report.md`,
+                  { responseType: "text", transformResponse: [(x) => x] }),
+        ]);
+        if (cancelled) return;
+        setJson(rj.data);
+        setMd(typeof rm.data === "string" ? rm.data : String(rm.data));
+      } catch (e) {
+        if (!cancelled) setErr(e?.response?.data?.detail || e.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [caseId]);
+
+  const copyTo = async (kind, text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(kind);
+      setTimeout(() => setCopied(null), 1500);
+    } catch (_) { /* clipboard blocked */ }
+  };
+
+  const download = (filename, content, mime) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  return (
+    <div
+      data-testid="report-modal"
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-8"
+      onClick={onClose}
+      style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}
+    >
+      <div
+        className="w-full max-w-6xl h-full max-h-[92vh] bg-zinc-950 border border-zinc-800 rounded-sm
+                   flex flex-col overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="h-14 shrink-0 flex items-center gap-3 border-b border-zinc-800 px-5 relative">
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-amber-500" />
+          <FileCode className="text-amber-500" size={16} />
+          <div>
+            <div className="text-[9px] tracking-[0.28em] text-zinc-500 uppercase font-semibold">
+              NIVXRAY · V2 · R4
+            </div>
+            <div className="text-sm font-semibold text-zinc-100 leading-none mt-0.5">
+              Deterministic Investigation Report
+            </div>
+          </div>
+          <div className="flex-1" />
+          <button
+            data-testid="report-copy-json"
+            onClick={() => copyTo("json", JSON.stringify(json, null, 2))}
+            disabled={!json}
+            className="text-[10px] tracking-widest px-2.5 py-1 border border-zinc-700 rounded-sm
+                       text-zinc-300 hover:text-amber-400 hover:border-amber-500/40
+                       transition-colors duration-150 disabled:opacity-30"
+          >
+            {copied === "json" ? "✓ COPIED" : "COPY JSON"}
+          </button>
+          <button
+            data-testid="report-copy-md"
+            onClick={() => copyTo("md", md || "")}
+            disabled={!md}
+            className="text-[10px] tracking-widest px-2.5 py-1 border border-zinc-700 rounded-sm
+                       text-zinc-300 hover:text-amber-400 hover:border-amber-500/40
+                       transition-colors duration-150 disabled:opacity-30"
+          >
+            {copied === "md" ? "✓ COPIED" : "COPY MD"}
+          </button>
+          <button
+            data-testid="report-download-md"
+            onClick={() => download(`${caseId}.report.md`, md || "", "text/markdown")}
+            disabled={!md}
+            className="text-[10px] tracking-widest px-2.5 py-1 border border-amber-500/40 rounded-sm
+                       text-amber-400 hover:bg-amber-500/10 transition-colors duration-150
+                       disabled:opacity-30"
+          >
+            ↓ .md
+          </button>
+          <button
+            data-testid="report-download-json"
+            onClick={() => download(`${caseId}.report.json`, JSON.stringify(json, null, 2), "application/json")}
+            disabled={!json}
+            className="text-[10px] tracking-widest px-2.5 py-1 border border-amber-500/40 rounded-sm
+                       text-amber-400 hover:bg-amber-500/10 transition-colors duration-150
+                       disabled:opacity-30"
+          >
+            ↓ .json
+          </button>
+          <button
+            data-testid="report-close"
+            onClick={onClose}
+            className="ml-2 text-zinc-500 hover:text-zinc-300"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        {err ? (
+          <div className="p-6 text-[11px] text-rose-400"
+               style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+               data-testid="report-error">
+            {String(err)}
+          </div>
+        ) : !json ? (
+          <div className="p-6 text-[11px] text-zinc-500"
+               style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+               data-testid="report-loading">
+            composing deterministic report…
+          </div>
+        ) : (
+          <div className="flex flex-1 min-h-0">
+            {/* Left · section index */}
+            <div className="w-56 shrink-0 border-r border-zinc-800 bg-zinc-950/70 overflow-y-auto">
+              <div className="p-3 text-[9px] tracking-[0.24em] uppercase text-zinc-500 font-semibold border-b border-zinc-900">
+                Sections
+              </div>
+              {(json.sections || []).map(s => (
+                <a
+                  key={s.id}
+                  href={`#sec-${s.id}`}
+                  data-testid={`report-toc-${s.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById(`sec-${s.id}`)?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="block px-3 py-1.5 text-[10px] text-zinc-400 hover:text-amber-400 hover:bg-zinc-900/50
+                             border-b border-zinc-900/50 transition-colors duration-100"
+                >
+                  <span className="tabular-nums text-zinc-600 mr-2"
+                        style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                    {String(s.order).padStart(2, "0")}
+                  </span>
+                  {s.title}
+                </a>
+              ))}
+              <div className="p-3 mt-2 border-t border-zinc-900">
+                <div className="text-[9px] tracking-[0.24em] uppercase text-zinc-500 font-semibold mb-1">
+                  Signature
+                </div>
+                <div className="text-[10px] text-amber-500 break-all"
+                     style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+                     data-testid="report-signature">
+                  {json.signature?.sha256}
+                </div>
+                <div className="text-[9px] text-zinc-600 mt-1">
+                  {json.schema_version} · {json.signature?.canonical_json_bytes} B
+                </div>
+              </div>
+            </div>
+
+            {/* Right · Markdown preview */}
+            <div className="flex-1 overflow-y-auto">
+              <pre
+                data-testid="report-md-preview"
+                className="p-6 text-[11px] leading-relaxed text-zinc-200 whitespace-pre-wrap break-words"
+                style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+              >
+                {md}
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

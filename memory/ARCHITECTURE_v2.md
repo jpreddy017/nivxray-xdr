@@ -695,3 +695,134 @@ Before Artefacts 9–15 are actioned, please confirm:
 → Companion document `/app/memory/ENGINES_UI_PERF.md` covers Artefacts 9–15.
 
 **No code has been written.**
+
+---
+
+# APPENDIX · Dual-Mode Operating Vision (Feb-2026, locked)
+
+NivXRay is a **dual-mode DFIR platform**. One deterministic engine
+exposed through two first-class workflows. Everything up to and
+including the Investigation Report Generator (R4) is shared between
+the two modes — new UI surfaces and new adapters both derive their
+value from the same canonical pipeline.
+
+## Mode A · Automated Ingest-and-Report Pipeline (SOAR back-end)
+
+```
+   EDR / SIEM / cloud / OS telemetry
+   (JSON, syslog RFC-5424, WMI, API, EVTX, CSV, webhook)
+                       │
+                       ▼
+      ┌────────────────────────────────────┐
+      │ INGEST ADAPTERS  (R2.5)            │
+      │  - json_adapter                    │
+      │  - syslog_adapter                  │
+      │  - evtx_adapter                    │
+      │  - csv_adapter                     │
+      │  - webhook_receiver                │
+      │  - wmi_receiver (stub → R7)        │
+      └────────────────────────────────────┘
+                       │  (emits CEM v1 events)
+                       ▼
+      ┌────────────────────────────────────┐
+      │ CANONICAL EVENT MODEL (CEM v1)     │
+      │  v2_shadow_observations            │
+      │  v2_case_events                    │
+      └────────────────────────────────────┘
+                       │
+                       ▼
+      ┌────────────────────────────────────┐
+      │ DETERMINISTIC ENGINE               │
+      │  - Command-line decoder (RC5,      │
+      │    FROZEN — multi-layer encoded    │
+      │    powershell, base64, xor, etc.)  │
+      │  - Semantic parser v2 (5-lane)     │
+      │  - Rule engine + verdict + conf    │
+      └────────────────────────────────────┘
+                       │
+                       ▼
+      ┌────────────────────────────────────┐
+      │ ENRICHMENT KIT (R3)                │
+      │  - MITRE ATT&CK technique+tactic   │
+      │  - NIST IR (SP 800-61) phase       │
+      │  - OSINT (VT / abuseipdb / URLhaus)│
+      │  - CVE correlation                 │
+      └────────────────────────────────────┘
+                       │
+                       ▼
+      ┌────────────────────────────────────┐
+      │ INVESTIGATION REPORT GENERATOR (R4)│  ← SHARED CAPABILITY
+      │  Deterministic hash of inputs      │  ← same case → same hash
+      │  JSON + Markdown + PDF (R4.1)      │
+      └────────────────────────────────────┘
+                       │
+                       ▼
+      ┌────────────────────────────────────┐
+      │ EGRESS ADAPTERS (R5)               │
+      │  - servicenow_egress               │
+      │  - splunk_hec_egress               │
+      │  - qradar_egress                   │
+      │  - webhook_egress (HMAC signed)    │
+      │  - email_egress                    │
+      └────────────────────────────────────┘
+                       │
+                       ▼
+        ServiceNow  ·  Splunk ES  ·  QRadar  ·  Sentinel  ·  webhook  ·  email
+                    where the analyst already sits
+```
+
+## Mode B · Interactive Analyst Console (post-alert investigation)
+
+```
+   Analyst opens NivXRay from a ServiceNow / SIEM alert deep-link
+                       │
+                       ▼
+      ┌────────────────────────────────────┐
+      │ SAME CEM STORE  (v2_case_events)   │
+      │ SAME ENRICHMENT (R3)               │
+      │ SAME REPORT GENERATOR (R4)         │
+      └────────────────────────────────────┘
+                       │
+        ┌──────────────┼──────────────┬──────────────┐
+        ▼              ▼              ▼              ▼
+  Device Trajectory  Ancestry       Artifact      Investigation
+   (R1 + R1.1)        (R1.2)         Store (R2)    Report (R4)
+   ─────────────      ────────       ──────────    ─────────────
+   swimlanes          spawn graph    immutable     on-demand
+   glyphs             per-process    evidence      preview modal
+   filter chips       drill-down     citations     copy / download
+   scrubber           deep-dive      auditability
+   evidence panel
+```
+
+## Why the Report Generator (R4) is prioritised first
+
+The report is the **canonical output**. Every UI screen in Mode B is a
+projection of what the report expresses. Every egress payload in Mode
+A is a serialisation of the report. Landing R4 early means:
+
+1. **Mode A ingress** (R2.5) immediately produces a full report on
+   every batch — the moment the first adapter lands, the SOAR use
+   case is real.
+2. **Mode A egress** (R5) has a stable, tested payload to serialise —
+   ServiceNow / Splunk integrations become a wrapper around the
+   report JSON.
+3. **Mode B UI surfaces** (R1.2 ancestry, R2 artifact store) become
+   sections of the same report that analysts can preview and export.
+
+## Shared Contracts
+
+| Contract                       | Owner file                                  | Frozen? |
+|--------------------------------|---------------------------------------------|---------|
+| CEM v1 canonical event schema  | v2/case_engine/schema.py                    | after R1 |
+| Verdict / confidence tiers     | v2/semantic/verdicts.py + frontend flags    | after R1.1 |
+| MITRE tactic map               | v2/routers/mitre_coverage.py                | mutable — grows in R3 |
+| Report JSON schema             | v2/report/schema.py (R4, upcoming)          | frozen at R4 tag |
+| Egress payload envelope        | v2/egress/envelope.py (R5, upcoming)        | frozen at R5 tag |
+
+## RC5 Immutability, Reiterated
+
+The legacy RC5 command-line decoder is **frozen** — it is the highest-signal
+component in the entire deterministic engine. All new work is additive
+and lives under `/app/backend/v2/**` and `/app/frontend/src/v2/**`.
+See `/app/memory/GOVERNANCE.md` §Round-6.
