@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Eye, Binary, Hash, GitCompareArrows, Zap, Cpu, CheckCircle2, XCircle, Bug, ArrowDown, ShieldAlert } from "lucide-react";
+import NavTabs from "@/components/NavTabs";
 import { computeDiff, formatDelta, toHexDump, toBase64 } from "@/lib/diff";
 import { detectShellcode, extractShellcodeIocs } from "@/lib/shellcodeDetect";
 
@@ -319,19 +320,37 @@ export default function OutputView({
         {/* Size + delta */}
         <SizeDeltaPill diff={diff} />
 
-        {/* View toggles */}
-        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }} data-testid="output-view-toggles">
-          <ViewToggle icon={Eye}     label="TEXT"   active={view === "text"}   onClick={() => setView("text")}   testId="output-view-text" />
-          <ViewToggle icon={Binary}  label="HEX"    active={view === "hex"}    onClick={() => setView("hex")}    testId="output-view-hex" />
-          <ViewToggle icon={Hash}    label="B64"    active={view === "base64"} onClick={() => setView("base64")} testId="output-view-b64" />
-          <ViewToggle
-            icon={GitCompareArrows}
-            label="DIFF"
-            active={showDiff}
-            onClick={() => setShowDiff((s) => !s)}
-            testId="output-view-diff"
-            disabled={view !== "text"}
-            title={view === "text" ? "Toggle byte-level diff vs input" : "Diff only available in TEXT view"}
+        {/* View toggles — unified NavTabs (DetectFlow). DIFF is
+            state-driven and only enabled when TEXT view is active. */}
+        <div style={{ marginLeft: "auto" }} data-testid="output-view-toggles">
+          <NavTabs
+            items={[
+              { key: "text",   label: "TEXT", icon: Eye,    testId: "output-view-text" },
+              { key: "hex",    label: "HEX",  icon: Binary, testId: "output-view-hex" },
+              { key: "base64", label: "B64",  icon: Hash,   testId: "output-view-b64" },
+              {
+                key: "diff", label: "DIFF", icon: GitCompareArrows,
+                testId: "output-view-diff",
+                disabled: view !== "text",
+                title: view === "text"
+                  ? "Toggle byte-level diff vs input"
+                  : "Diff only available in TEXT view",
+              },
+            ]}
+            activeKey={view === "text" && showDiff ? "diff" : view}
+            onSelect={(k) => {
+              if (k === "diff") {
+                if (view === "text") setShowDiff((s) => !s);
+                return;
+              }
+              setView(k);
+              setShowDiff(false);
+            }}
+            variant="strip"
+            size="sm"
+            tone="accent"
+            testId="output-view-tabs"
+            ariaLabel="Output view mode"
           />
         </div>
 
@@ -486,21 +505,6 @@ export default function OutputView({
 }
 
 // ---------- Sub-components ----------
-function ViewToggle({ icon: Icon, label, active, onClick, disabled, title, testId }) {
-  return (
-    <button
-      className={`nvx-btn sm ${active ? "primary" : "ghost"}`}
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      data-testid={testId}
-      style={{ opacity: disabled ? 0.5 : 1 }}
-    >
-      <Icon size={11} /> {label}
-    </button>
-  );
-}
-
 function LivePreviewPill({ lp }) {
   if (!lp) return null;
   const { needsBackend, unsupported, error, latencyMs, ranSteps } = lp;

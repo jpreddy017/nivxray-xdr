@@ -3,6 +3,7 @@ import { useState } from "react";
 import Logo from "@/components/Logo";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import NavDropdown from "@/components/NavDropdown";
+import NavTabs from "@/components/NavTabs";
 import { useAuth } from "@/lib/auth";
 import {
   LogOut, LayoutGrid, Cog, Sparkles, Beaker, Terminal, BookOpen,
@@ -16,15 +17,16 @@ export default function Header() {
   const isAdmin = user?.role === "admin";
   const [cpOpen, setCpOpen] = useState(false);
 
-  // Primary tabs — always visible, high-usage
+  // Primary tabs — always visible, high-usage. Routed via NavTabs
+  // (variant="nav") so all pages inherit the DetectFlow design system.
   const primary = [
-    { to: "/",           label: "WORKSPACE",  icon: LayoutGrid, testId: "nav-workspace" },
-    { to: "/dashboard",  label: "DASHBOARD",  icon: BarChart3,  testId: "nav-dashboard" },
-    { to: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
-    { to: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
-    { to: "/documents",  label: "DOCUMENTS",  icon: FolderOpen, testId: "nav-documents" },
-    { to: "/benchmark",  label: "BENCHMARK",  icon: Gauge,      testId: "nav-benchmark" },
-    { to: "/battery",    label: "BATTERY",    icon: Gauge,      testId: "nav-battery" },
+    { key: "workspace",  href: "/",           label: "WORKSPACE",  icon: LayoutGrid, testId: "nav-workspace" },
+    { key: "dashboard",  href: "/dashboard",  label: "DASHBOARD",  icon: BarChart3,  testId: "nav-dashboard" },
+    { key: "batch",      href: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
+    { key: "heatmap",    href: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
+    { key: "documents",  href: "/documents",  label: "DOCUMENTS",  icon: FolderOpen, testId: "nav-documents" },
+    { key: "benchmark",  href: "/benchmark",  label: "BENCHMARK",  icon: Gauge,      testId: "nav-benchmark" },
+    { key: "battery",    href: "/battery",    label: "BATTERY",    icon: Gauge,      testId: "nav-battery" },
   ];
 
   // Grouped: analysis tools (secondary usage)
@@ -80,18 +82,15 @@ export default function Header() {
         </Link>
         <span style={{ color: "var(--border-strong)" }}>│</span>
 
-        <nav style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {primary.map(p => (
-            <Link
-              key={p.to}
-              to={p.to}
-              data-testid={p.testId}
-              className="nvx-btn sm ghost"
-              style={{ color: loc.pathname === p.to ? "var(--accent)" : "var(--text-dim)" }}
-            >
-              <p.icon size={13} /> {p.label}
-            </Link>
-          ))}
+        <nav style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <NavTabs
+            items={primary}
+            variant="nav"
+            size="sm"
+            tone="accent"
+            testId="nav-primary"
+            ariaLabel="Primary navigation"
+          />
 
           <NavDropdown label="TOOLS"    icon={Wrench}  items={toolsItems} testId="nav-tools" />
           <NavDropdown label="LEARN"    icon={Library} items={learnItems} testId="nav-learn" />

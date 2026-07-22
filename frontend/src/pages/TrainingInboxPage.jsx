@@ -12,6 +12,7 @@
  */
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
+import NavTabs from "@/components/NavTabs";
 import api from "@/lib/api";
 import { RefreshCw, Check, X, Trash2, ExternalLink, Rss, Play, AlertCircle } from "lucide-react";
 
@@ -167,19 +168,23 @@ export default function TrainingInboxPage() {
           </div>
         </div>
 
-        {/* ── Status filter tabs ─────────────────────────────────────── */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-          {["pending", "promoted", "dismissed", "all"].map(s => (
-            <button key={s} onClick={() => setStatus(s)}
-                    data-testid={`filter-${s}`}
-                    className={`nvx-btn sm ${status === s ? "primary" : "ghost"}`}
-                    style={{ textTransform: "uppercase" }}>
-              {s}{" "}
-              {counts[s] !== undefined && s !== "all" && (
-                <span style={{ opacity: 0.6, marginLeft: 4 }}>({counts[s]})</span>
-              )}
-            </button>
-          ))}
+        {/* ── Status filter tabs — unified NavTabs (DetectFlow) ─── */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <NavTabs
+            items={["pending", "promoted", "dismissed", "all"].map((s) => ({
+              key: s,
+              label: s,
+              testId: `filter-${s}`,
+              count: s !== "all" ? counts[s] : undefined,
+            }))}
+            activeKey={status}
+            onSelect={setStatus}
+            variant="strip"
+            size="sm"
+            tone="accent"
+            testId="training-inbox-filter-tabs"
+            ariaLabel="Draft status filter"
+          />
           <button onClick={load} disabled={busy}
                   data-testid="refresh-btn"
                   className="nvx-btn sm ghost" style={{ marginLeft: "auto" }}>
