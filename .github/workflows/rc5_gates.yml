@@ -54,6 +54,12 @@ jobs:
       SEMANTIC_ENGINE_V2: "true"
       ADMIN_EMAIL:    "admin@nivxray.com"
       ADMIN_PASSWORD: "ci-only-not-a-real-secret"
+      # v2 platform feature flags — MUST be set for R4/R1.2/R2.5 tests
+      # to exercise the endpoints they cover. Local dev sets these in
+      # backend/.env; CI has no such file so we mirror them here.
+      NIVX_FLAG_TRAJECTORY_ENGINE: "shadow"
+      NIVX_FLAG_CASE_ENGINE:       "shadow"
+      NIVX_FLAG_ADAPTERS:          "shadow"
 
     steps:
       - name: Checkout
