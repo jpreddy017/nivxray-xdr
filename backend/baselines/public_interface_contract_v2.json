@@ -9,6 +9,7 @@
     { "method": "GET",    "path": "/api/v2/cases/{case_id}",               "flag": "CASE_ENGINE" },
     { "method": "DELETE", "path": "/api/v2/cases/{case_id}",               "flag": "CASE_ENGINE" },
     { "method": "POST",   "path": "/api/v2/cases/{case_id}/observations",  "flag": "CASE_ENGINE + ADAPTERS" },
+    { "method": "GET",    "path": "/api/v2/cases/{case_id}/trajectory/device", "flag": "TRAJECTORY_ENGINE" },
     { "method": "POST",   "path": "/api/v2/parse",                         "flag": "ADAPTERS" }
   ],
   "response_contract": {
@@ -21,6 +22,9 @@
     },
     "/api/v2/cases/{case_id}/observations": {
       "post": { "required_keys": ["ok", "case_id", "observation_id", "event_iid", "cem_version"] }
+    },
+    "/api/v2/cases/{case_id}/trajectory/device": {
+      "get": { "required_keys": ["ok", "case_id", "lanes", "frames", "count"] }
     }
   },
   "isolation_guarantees": [

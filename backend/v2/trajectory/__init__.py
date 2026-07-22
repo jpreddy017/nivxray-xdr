@@ -13,6 +13,7 @@ from v2.trajectory.schema import (  # noqa: F401
     EntityRef,
     Lane,
     LANE_ORDER,
+    LANES,
 )
 from v2.trajectory.device import (  # noqa: F401
     build_device_trajectory,

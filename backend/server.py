@@ -207,8 +207,10 @@ api.include_router(documents_router)
 try:
     from v2.routers import cases_router as _v2_cases_router
     from v2.routers import parse_router as _v2_parse_router
+    from v2.routers import trajectory_router as _v2_trajectory_router
     api.include_router(_v2_cases_router)
     api.include_router(_v2_parse_router)
+    api.include_router(_v2_trajectory_router)
 except Exception as _v2_exc:                             # pragma: no cover
     import logging as _logging
     _logging.getLogger(__name__).info(

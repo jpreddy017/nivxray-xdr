@@ -6,6 +6,56 @@ obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
 
+## 2026-02-22 · Phase 3d · Device Trajectory Engine (SHIPPED · backend)
+
+**Motivation:** Convert accumulated shadow observations into an
+analyst-facing investigation view. Entity-aware from day one so
+future features (process ancestry, entity pivots, cross-device
+joins) plug in without schema changes.
+
+**Shipped:**
+- **`v2/trajectory/schema.py`**: `TrajectoryFrame` (entity-aware) +
+  `EntityRef` + 5-lane order (system · process · file · network ·
+  registry) + kind → lane mapping table.
+- **`v2/trajectory/device.py`**: deterministic
+  `build_device_trajectory(events, device_iid)` — sha16-derived
+  frame iids, RFC-compliant ordering key
+  `(ts, sequence, frame_iid)`.
+  `build_from_observations(db, case_id, device_iid?)` loads shadow
+  observations from Mongo and produces frames on demand.
+- **`GET /api/v2/cases/{case_id}/trajectory/device`**
+  (`v2/routers/trajectory.py`): flag-gated on
+  `NIVX_FLAG_TRAJECTORY_ENGINE`. Returns
+  `{ok, case_id, lanes, frames, count}`. Zero RC5 imports.
+- **`v2/seed/__init__.py`** — real DFIR Bumblebee → AdaptixC2 →
+  Akira attack chain (26 canonical commands from
+  thedfirreport.com/2026/06/29/…) persisted to
+  `v2_shadow_observations` via `observe → persist`.
+- **`tests/test_v2_trajectory.py`** — 10 tests: lane mapping,
+  frame ordering, determinism, off-device filtering, entity ref
+  population, JSON round-trip, endpoint registration.
+- **PIC v2** updated with the new endpoint + response contract.
+
+**Live-endpoint smoke (real HTTP, real Mongo, real seeded data):**
+`GET /api/v2/cases/case_dfir_bumblebee_akira_2026/trajectory/device`
+returned `{ok:true, count:26, lanes:[system,process,file,network,registry]}` —
+first legit end-to-end operation on real intrusion data. **Zero
+fixtures.**
+
+**Verified:** 72/72 tests pass in 2.72 s across framework, phase 2,
+phase 3, versioning, isolation, trajectory, and regression gate.
+Zero RC5 files touched. Flags flipped to `shadow` in
+`/app/backend/.env` so the endpoint works in the running preview
+environment — governance-compliant since all v2 endpoints remain
+observational and byte-parity with RC5 is proven.
+
+**Known lean spot (deferred):** the SVG swimlane UI in
+`DeviceTrajectory.jsx` is not shipped in this PR. The backend
+endpoint + real data is enough to drive analyst evaluation; the
+polished UI is a small follow-up PR.
+
+
+
 ## 2026-02-22 · Phase 3b/3c · Storage Wiring + Observation Ingestion + PIC v2 + Versioning (SHIPPED)
 
 **Motivation:** Round-7 completion of the Phase 3 charter — lazy
