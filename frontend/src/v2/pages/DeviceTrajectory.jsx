@@ -697,27 +697,164 @@ function ProcessRail({ rows, selectedKey, onPickRow }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Event glyph on a lifeline — Cisco-style symbol set
-//   · Circle-with-play (▷)   → default execution / process spawn
-//   · Circle-with-plus (+)   → file creation / write
-//   · Red hex shield         → malicious verdict override
-//   · Amber warning triangle → suspicious verdict (compact)
-// Sized 22px so they read cleanly at 1080p; grow to 26 on hover.
+// Action → activity-glyph mapping (Cisco Secure Endpoint vocabulary).
+// Each frame's action is classified into one of these buckets. The
+// disposition (verdict) is drawn as an outer ring on the disc, and for
+// MALICIOUS the whole disc is replaced by a red hexagon shield.
+// ═══════════════════════════════════════════════════════════════════
+const ACTIVITY = {
+  CREATE:    "create",     // +
+  COPY:      "copy",       // ∧
+  MOVE:      "move",       // →
+  EXECUTE:   "execute",    // ▷
+  OPEN:      "open",       // ○
+  NETWORK:   "network",    // ⇌
+  EXPLOIT:   "exploit",    // ⚡
+  RESTORE:   "restore",    // ↻
+  DETECT:    "detect",     // ✕
+  COMPROMISE:"compromise", // !?
+  SCAN:      "scan",       // 🔍
+  REBOOT:    "reboot",     // |
+};
+
+function activityOf(frame) {
+  const a = (frame.action || "").toLowerCase();
+  const lane = frame.lane;
+  // Explicit high-signal keywords first
+  if (/(ransom|locker|encrypt|removed_volume|volume_shadow)/.test(a)) return ACTIVITY.COMPROMISE;
+  if (/(dumped_lsass|dumped|stolen|ntds|credential)/.test(a))         return ACTIVITY.DETECT;
+  if (/(reverse_tunnel|c2|beacon|exfil)/.test(a))                     return ACTIVITY.NETWORK;
+  if (/(connect|tunnel|dns|network|http|beacon)/.test(a))             return ACTIVITY.NETWORK;
+  if (/(exploit|prevention|blocked)/.test(a))                         return ACTIVITY.EXPLOIT;
+  if (/(restore|rollback|revert)/.test(a))                            return ACTIVITY.RESTORE;
+  if (/(reboot|restart)/.test(a))                                     return ACTIVITY.REBOOT;
+  if (/(scan|inspect|audit)/.test(a))                                 return ACTIVITY.SCAN;
+  if (/(copy|clone)/.test(a))                                         return ACTIVITY.COPY;
+  if (/(move|rename)/.test(a))                                        return ACTIVITY.MOVE;
+  if (/(install|drop|create|add|new|write|persist|backup)/.test(a))   return ACTIVITY.CREATE;
+  if (/(open|read|query|enumerate|export|discover|list)/.test(a))     return ACTIVITY.OPEN;
+  if (/(execute|launch|spawn|ran|run|invoke|started)/.test(a))        return ACTIVITY.EXECUTE;
+  // Fall back per lane
+  if (lane === "file")     return ACTIVITY.CREATE;
+  if (lane === "network")  return ACTIVITY.NETWORK;
+  if (lane === "registry") return ACTIVITY.CREATE;
+  if (lane === "system")   return ACTIVITY.SCAN;
+  return ACTIVITY.EXECUTE;
+}
+
+// SVG activity-mark drawings, centered in a 22×22 viewBox
+function ActivityMark({ kind, color }) {
+  const c = 11; // center
+  switch (kind) {
+    case ACTIVITY.CREATE: return (
+      <g>
+        <line x1={c - 4} y1={c} x2={c + 4} y2={c}
+              stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+        <line x1={c} y1={c - 4} x2={c} y2={c + 4}
+              stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      </g>
+    );
+    case ACTIVITY.COPY: return (
+      <path d={`M ${c - 4} ${c + 2} L ${c} ${c - 3} L ${c + 4} ${c + 2}`}
+            fill="none" stroke={color} strokeWidth="1.8"
+            strokeLinecap="round" strokeLinejoin="round" />
+    );
+    case ACTIVITY.MOVE: return (
+      <g>
+        <line x1={c - 4} y1={c} x2={c + 3.5} y2={c}
+              stroke={color} strokeWidth="1.7" strokeLinecap="round" />
+        <path d={`M ${c + 1.5} ${c - 3} L ${c + 4} ${c} L ${c + 1.5} ${c + 3}`}
+              fill="none" stroke={color} strokeWidth="1.7"
+              strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+    );
+    case ACTIVITY.EXECUTE: return (
+      <polygon points={`${c - 3},${c - 4} ${c - 3},${c + 4} ${c + 4},${c}`}
+               fill={color} />
+    );
+    case ACTIVITY.OPEN: return (
+      <circle cx={c} cy={c} r="3.4" fill="none" stroke={color} strokeWidth="1.6" />
+    );
+    case ACTIVITY.NETWORK: return (
+      <g>
+        <path d={`M ${c - 4} ${c - 2} L ${c + 3} ${c - 2}`}
+              fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+        <path d={`M ${c + 1} ${c - 4.2} L ${c + 3.5} ${c - 2} L ${c + 1} ${c - 0.2}`}
+              fill="none" stroke={color} strokeWidth="1.5"
+              strokeLinecap="round" strokeLinejoin="round" />
+        <path d={`M ${c + 4} ${c + 2} L ${c - 3} ${c + 2}`}
+              fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+        <path d={`M ${c - 1} ${c + 4.2} L ${c - 3.5} ${c + 2} L ${c - 1} ${c - 0.2}`}
+              fill="none" stroke={color} strokeWidth="1.5"
+              strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+    );
+    case ACTIVITY.EXPLOIT: return (
+      <path d={`M ${c + 1} ${c - 4.5} L ${c - 3} ${c + 0.5} L ${c} ${c + 0.5}
+                 L ${c - 1} ${c + 4.5} L ${c + 3} ${c - 0.5} L ${c} ${c - 0.5} Z`}
+            fill={color} />
+    );
+    case ACTIVITY.RESTORE: return (
+      <path d={`M ${c + 4} ${c - 1}
+                 A 4 4 0 1 0 ${c - 3} ${c + 3}
+                 M ${c + 4} ${c - 3} L ${c + 4} ${c - 1} L ${c + 2} ${c - 1}`}
+            fill="none" stroke={color} strokeWidth="1.5"
+            strokeLinecap="round" strokeLinejoin="round" />
+    );
+    case ACTIVITY.DETECT: return (
+      <g stroke={color} strokeWidth="1.9" strokeLinecap="round">
+        <line x1={c - 3.5} y1={c - 3.5} x2={c + 3.5} y2={c + 3.5} />
+        <line x1={c - 3.5} y1={c + 3.5} x2={c + 3.5} y2={c - 3.5} />
+      </g>
+    );
+    case ACTIVITY.COMPROMISE: return (
+      <g fill={color}>
+        {/* Cisco-style "!?" — bang on left, query on right */}
+        <text x={c} y={c + 3.5} textAnchor="middle"
+              fontSize="9" fontWeight="900"
+              fontFamily="'IBM Plex Sans', sans-serif">!?</text>
+      </g>
+    );
+    case ACTIVITY.SCAN: return (
+      <g fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round">
+        <circle cx={c - 1} cy={c - 1} r="2.8" />
+        <line x1={c + 1.2} y1={c + 1.2} x2={c + 4} y2={c + 4} />
+      </g>
+    );
+    case ACTIVITY.REBOOT: return (
+      <line x1={c} y1={c - 4} x2={c} y2={c + 4}
+            stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+    );
+    default: return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Event glyph — Cisco Secure Endpoint symbol vocabulary applied.
+//   Base disc + activity mark + disposition ring
+//   Malicious → red hexagon shield replaces the disc (Cisco disposition)
 // ═══════════════════════════════════════════════════════════════════
 function EventGlyph({ frame, x, y, selected, onSelect }) {
   const v = verdictFor(frame);
   const meta = LANE_META[frame.lane] || LANE_META.process;
+  const kind = activityOf(frame);
+  const isMalicious = v === "malicious";
+  const isSuspicious = v === "suspicious";
+  const isBenign = v === "benign";
+
   const size = 22;
   const half = size / 2;
   const mitre0 = (frame.mitre || [])[0];
 
-  const isMalicious = v === "malicious";
-  const isFileCreate = frame.lane === "file" && !isMalicious;
-  // Neutral outline color on the disc — bright zinc for legibility on dark canvas
-  const discFill   = "#0B0B0E";
-  const discStroke = selected ? "#F59E0B"
-                    : (v === "suspicious" ? "#A16207"
-                    : "#71717A"); // zinc-500
+  // Disposition ring color
+  const ringColor = isMalicious ? VERDICT.malicious.color
+                  : isSuspicious ? "#F59E0B"
+                  : "#71717A"; // zinc-500
+
+  // Activity-mark color — lane accent for non-malicious, red for compromise-class
+  const markColor = (kind === ACTIVITY.COMPROMISE || kind === ACTIVITY.DETECT)
+    ? "#FCA5A5"
+    : (isSuspicious ? "#FCD34D" : meta.accent);
 
   return (
     <button
@@ -728,13 +865,15 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
       style={{
         left: x - half, top: y - half,
         width: size, height: size,
-        filter: selected ? "drop-shadow(0 0 6px rgba(245,158,11,0.55))" : "none",
+        filter: selected
+          ? "drop-shadow(0 0 8px rgba(245,158,11,0.7))"
+          : (isMalicious ? "drop-shadow(0 0 4px rgba(225,29,72,0.5))" : "none"),
       }}
-      title={frame.label || frame.action}
+      title={`${frame.action} · ${VERDICT[v].label}`}
     >
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {isMalicious ? (
-          /* ── red hex shield with checkmark ─────────────────────── */
+          /* red hex shield replaces the disc entirely (Cisco malicious disposition) */
           <g>
             <polygon
               points={`${half},1 ${size - 1},${half - 4} ${size - 1},${half + 4} ${half},${size - 1} 1,${half + 4} 1,${half - 4}`}
@@ -742,31 +881,15 @@ function EventGlyph({ frame, x, y, selected, onSelect }) {
               stroke={VERDICT.malicious.color}
               strokeWidth="1.6"
             />
-            <path
-              d={`M ${half - 4} ${half - 1} L ${half - 1} ${half + 3} L ${half + 4} ${half - 4}`}
-              fill="none" stroke="#FCA5A5" strokeWidth="1.6"
-              strokeLinecap="round" strokeLinejoin="round"
-            />
-          </g>
-        ) : isFileCreate ? (
-          /* ── circle with plus (file created) ───────────────────── */
-          <g>
-            <circle cx={half} cy={half} r={half - 2}
-                    fill={discFill} stroke={discStroke} strokeWidth="1.5" />
-            <line x1={half - 4} y1={half} x2={half + 4} y2={half}
-                  stroke={meta.accent} strokeWidth="1.8" strokeLinecap="round" />
-            <line x1={half} y1={half - 4} x2={half} y2={half + 4}
-                  stroke={meta.accent} strokeWidth="1.8" strokeLinecap="round" />
+            <ActivityMark kind={kind} color="#FCA5A5" />
           </g>
         ) : (
-          /* ── circle with play triangle (execution / observation) ─ */
           <g>
             <circle cx={half} cy={half} r={half - 2}
-                    fill={discFill} stroke={discStroke} strokeWidth="1.5" />
-            <polygon
-              points={`${half - 2.5},${half - 3.5} ${half - 2.5},${half + 3.5} ${half + 3.5},${half}`}
-              fill={meta.accent}
-            />
+                    fill="#0B0B0E"
+                    stroke={selected ? "#F59E0B" : ringColor}
+                    strokeWidth={selected ? 1.8 : 1.5} />
+            <ActivityMark kind={kind} color={markColor} />
           </g>
         )}
       </svg>
