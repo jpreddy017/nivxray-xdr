@@ -66,11 +66,11 @@ class TestAdapterRegistry:
         governance amendment, not an accidental bump."""
         discover()
         expected = {
-            "command_line": ("0.1.0-stub", "v1"),
-            "powershell":   ("0.1.0-stub", "v1"),
-            "cmd":          ("0.1.0-stub", "v1"),
-            "bash":         ("0.1.0-stub", "v1"),
-            "json_events":  ("0.1.0-stub", "v1"),
+            "command_line": ("0.2.0-shadow", "v1"),  # Phase 2b upgrade
+            "powershell":   ("0.1.0-stub",   "v1"),
+            "cmd":          ("0.1.0-stub",   "v1"),
+            "bash":         ("0.1.0-stub",   "v1"),
+            "json_events":  ("0.1.0-stub",   "v1"),
         }
         for name, (ver, cem) in expected.items():
             cls = ADAPTERS[name]
@@ -78,11 +78,16 @@ class TestAdapterRegistry:
             assert cls.cem_version == cem, f"{name}.cem_version drifted"
 
     def test_stub_detect_returns_zero(self):
-        """Stubs return 0.0 confidence — no accidental logic in Phase 1."""
+        """Stubs return 0.0 confidence when the ADAPTERS flag is
+        disabled (Phase-1 stubs) OR when they simply have no logic.
+        In the CI environment `flags.all_disabled()` is True, so all
+        adapters (including the Phase-2b shadow command_line) return
+        0.0 from detect()."""
         discover()
         for name, cls in ADAPTERS.items():
             assert cls().detect(b"anything") == 0.0, (
-                f"{name}.detect() must return 0.0 in Phase 1 (stub)"
+                f"{name}.detect() must return 0.0 when ADAPTERS flag "
+                "is disabled (default in CI)."
             )
 
 

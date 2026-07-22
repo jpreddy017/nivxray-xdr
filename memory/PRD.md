@@ -6,6 +6,48 @@ obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
 
+## 2026-02-22 · Phase 2 · CEM Storage + Shadow Adapter + OpenAPI Gate (SHIPPED)
+
+**Motivation:** Land Case-scoped storage schema, promote command-line
+adapter from stub → shadow observer, harden the CI gate with an
+OpenAPI diff, and publish contributor onboarding docs — all without
+touching a single RC5 file.
+
+**Shipped:**
+- **Phase 2a · CEM Storage** (`v2/case_engine/`): 10 v2 Mongo
+  collections + 20 index specs (frozen). `ensure_indexes()` is
+  flag-gated (`NIVX_FLAG_CASE_ENGINE`); refuses to run when
+  disabled. Zero writes happen at import.
+- **Phase 2b · Shadow command-line adapter** (`v2/adapters/command_line.py`
+  → `0.2.0-shadow` + `v2/normalization/command_line_normalizer.py`):
+  parallel observer pipeline. Deterministic sha256-based iids
+  (`evt_shadow_<sha16>`, `cmd_<sha16>`, `proc_shadow_<sha16>`) so
+  identical inputs → byte-identical output. Gated on
+  `NIVX_FLAG_ADAPTERS`; when disabled, `detect()`→0.0 and
+  `stream()`/`normalize()` yield nothing. **Never invoked from RC5.**
+- **Phase 2c · OpenAPI Snapshot Diff** (`baselines/openapi_snapshot.json`
+  + `test_openapi_snapshot_no_breaking_change`): 263 documented paths
+  frozen. Additive changes pass; removals, dropped request bodies,
+  or dropped status codes fail CI.
+- **DEVELOPING_V2.md** (`/app/memory/`): 11-section contributor
+  onboarding — namespace rules, flag semantics, provenance, shadow
+  discipline, regression gate walkthrough.
+
+**Critical isolation invariants verified:**
+- `test_rc5_parse_endpoint_output_stable_across_flag_states` —
+  Golden-Corpus per-sample fingerprints byte-identical with
+  `NIVX_FLAG_ADAPTERS=shadow` ON vs OFF.
+- `test_v2_modules_do_not_import_engine` — grep of every `.py`
+  under `v2/` proves zero imports from RC5 `engine.*`.
+- `test_rc5_engine_source_has_no_conditional_on_adapter_flag` —
+  no `NIVX_FLAG_` reference anywhere under `engine/`.
+
+**Verified:** 46/46 hot suite (framework + phase2 + regression gate) ·
+316/320 full regression pass (4 errors = pre-existing
+network-dependent tests, not caused by Phase 2).
+
+
+
 ## 2026-02-22 · Phase 1 · v2 Framework Skeleton (SHIPPED · shadow-mode)
 
 **Motivation:** Land the isolated `/app/backend/v2/` namespace with

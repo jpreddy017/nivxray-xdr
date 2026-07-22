@@ -19,15 +19,16 @@ T = TypeVar("T", bound=BaseAdapter)
 
 
 def register(cls: Type[T]) -> Type[T]:
-    """Class decorator that adds an adapter to the registry."""
+    """Class decorator that adds an adapter to the registry.
+
+    Idempotent under module reload: if a class with the same name is
+    already registered, the new class REPLACES it. This lets tests
+    reload adapter modules to pick up env-var-driven behaviour without
+    triggering spurious "name collision" errors.
+    """
     name = getattr(cls, "name", None)
     if not name or name == "unnamed":
         raise ValueError(f"Adapter {cls!r} must set a non-empty `name` attribute")
-    if name in ADAPTERS and ADAPTERS[name] is not cls:
-        raise ValueError(
-            f"Adapter name collision: {name!r} already registered "
-            f"({ADAPTERS[name].__module__})"
-        )
     if not isinstance(cls(), InputAdapter):
         raise TypeError(f"Adapter {cls!r} does not satisfy InputAdapter Protocol")
     ADAPTERS[name] = cls

@@ -183,6 +183,72 @@ def test_rc5_parse_response_schema(public_interface):
     assert "200" in responses, "/api/rc5/parse must document a 200 response"
 
 
+# ─── 6b · OpenAPI snapshot diff (Phase 2c) ─────────────────────────
+_OPENAPI_SNAPSHOT_PATH = Path(__file__).resolve().parents[1] / "baselines" / "openapi_snapshot.json"
+
+
+@pytest.fixture(scope="module")
+def openapi_snapshot() -> dict:
+    assert _OPENAPI_SNAPSHOT_PATH.exists(), (
+        f"OpenAPI snapshot missing: {_OPENAPI_SNAPSHOT_PATH}"
+    )
+    with _OPENAPI_SNAPSHOT_PATH.open() as f:
+        return json.load(f)
+
+
+def _current_openapi_summary() -> dict:
+    """Reduce the live OpenAPI to the same shape as the snapshot —
+    stable subset only. Adding a new endpoint is ADDITIVE and does
+    not fail the diff; removing / mutating a documented one does."""
+    from server import app
+    schema = app.openapi()
+    snap = {"openapi": schema.get("openapi"), "paths": {}}
+    for path, ops in schema.get("paths", {}).items():
+        snap["paths"][path] = {}
+        for method, spec in ops.items():
+            if method not in ("get", "post", "put", "delete", "patch"):
+                continue
+            snap["paths"][path][method] = {
+                "responses": sorted(spec.get("responses", {}).keys()),
+                "has_request_body": "requestBody" in spec,
+            }
+    return snap
+
+
+def test_openapi_snapshot_no_breaking_change(openapi_snapshot):
+    """Fail if any documented endpoint changed status codes, dropped
+    a request body, OR was removed. Additive changes (new endpoints,
+    new response codes on an endpoint) are allowed."""
+    live = _current_openapi_summary()
+    snap_paths = openapi_snapshot.get("paths", {})
+    live_paths = live.get("paths", {})
+
+    removed: list[str] = []
+    mutated: list[str] = []
+
+    for path, ops in snap_paths.items():
+        if path not in live_paths:
+            removed.append(path)
+            continue
+        for method, spec in ops.items():
+            live_spec = live_paths[path].get(method)
+            if live_spec is None:
+                removed.append(f"{method.upper()} {path}")
+                continue
+            snap_resps = set(spec.get("responses", []))
+            live_resps = set(live_spec.get("responses", []))
+            # Live must be a SUPERSET of snapshot responses (additive).
+            if not snap_resps.issubset(live_resps):
+                missing = sorted(snap_resps - live_resps)
+                mutated.append(f"{method.upper()} {path} responses regressed: missing {missing}")
+            # requestBody bit must not flip from True→False.
+            if spec.get("has_request_body") and not live_spec.get("has_request_body"):
+                mutated.append(f"{method.upper()} {path} dropped requestBody")
+
+    assert not removed, f"Endpoints removed from public API: {removed}"
+    assert not mutated, f"Endpoints mutated in breaking way: {mutated}"
+
+
 # ─── 7. Feature-flag contract: all disabled in the test env ────────
 def test_all_v2_flags_disabled_by_default():
     from v2 import flags
