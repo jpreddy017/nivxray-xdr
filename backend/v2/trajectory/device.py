@@ -20,26 +20,20 @@ def _sha16(*parts: str) -> str:
 
 
 def _label_for(event: dict[str, Any]) -> str:
+    """Prefer the semantic parser's rule label + target when present
+    (produced by the enriched command-line normalizer in Phase 3f).
+    Falls back to a generic verb + target for events lacking rules."""
+    raw = event.get("raw") or {}
+    if raw.get("rule_label") or raw.get("action"):
+        entity = raw.get("entity") or ""
+        action = raw.get("action") or event.get("kind", "").replace("_", " ")
+        target = raw.get("target") or ""
+        parts = [p for p in (entity, action, target) if p]
+        return " · ".join(parts)[:180]
     kind = event.get("kind", "")
     proc = event.get("process") or {}
     p_name = (proc.get("name") or proc.get("image") or "").strip() or "process"
-    raw = event.get("raw") or {}
-    target = ""
-    art = event.get("artefacts") or {}
-    if kind.startswith("process"):
-        target = raw.get("child_image") or raw.get("target") or p_name
-    elif kind.startswith("file"):
-        target = (art.get("file", [{}])[0] or {}).get("path", "") or raw.get("path", "")
-    elif kind.startswith("registry"):
-        r0 = (art.get("registry", [{}])[0] or {})
-        target = r0.get("key") or r0.get("value_name") or raw.get("key", "")
-    elif kind.startswith("network") or kind == "dns_query" or kind == "http_request":
-        n0 = (art.get("network", [{}])[0] or {})
-        target = n0.get("dst_ip") or n0.get("url") or raw.get("qname") or raw.get("host", "")
-    verb = kind.replace("_", " ")
-    if target:
-        return f"{p_name} · {verb} · {target}"
-    return f"{p_name} · {verb}"
+    return f"{p_name} · {kind.replace('_', ' ')}"
 
 
 def build_device_trajectory(

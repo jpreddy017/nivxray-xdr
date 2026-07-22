@@ -26,20 +26,31 @@ from v2.normalization.command_line_normalizer import CommandLineNormalizer
 
 
 def observe(text: str, *, case_id: str = "shadow-case-default") -> CanonicalEvent | None:
-    """Return a CEM event for `text`, or None when the flag is off.
+    """Return the FIRST CEM event for `text`, or None when the flag is off.
 
-    Pure function: no I/O, no side effects, safe to call anywhere.
+    For multi-emission callers (Phase 3f enriched normalizer), use
+    `observe_all()` which yields the full evidence set.
     """
     if not get_flag("ADAPTERS").observable():
         return None
+    events = list(observe_all(text, case_id=case_id))
+    return events[0] if events else None
+
+
+def observe_all(text: str, *, case_id: str = "shadow-case-default"):
+    """Yield every CEM event the semantic parser produces for `text`.
+
+    Pure generator: no I/O.
+    """
+    if not get_flag("ADAPTERS").observable():
+        return
     adapter = CommandLineAdapter()
     src = Source(kind="bytes", ref=text)
     raw_events = list(adapter.stream(src))
     if not raw_events:
-        return None
+        return
     norm = CommandLineNormalizer()
-    events = list(norm.normalize(raw_events[0], case_id=case_id))
-    return events[0] if events else None
+    yield from norm.normalize(raw_events[0], case_id=case_id)
 
 
 async def persist(db: Any, event: CanonicalEvent) -> str | None:
@@ -75,4 +86,4 @@ async def persist(db: Any, event: CanonicalEvent) -> str | None:
     return str(result.inserted_id)
 
 
-__all__ = ["observe", "persist"]
+__all__ = ["observe", "observe_all", "persist"]

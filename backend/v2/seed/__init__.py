@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio, os, sys
 from motor.motor_asyncio import AsyncIOMotorClient
 from v2.case_engine.schema import COLLECTIONS
-from v2.shadow import observe, persist
+from v2.shadow import observe, observe_all, persist
 from v2.flags import get as get_flag
 
 CASE_ID = "case_dfir_bumblebee_akira_2026"
@@ -72,15 +72,15 @@ async def main() -> int:
     await db[COLLECTIONS["shadow_observations"]].delete_many({"case_id": CASE_ID})
 
     ok = 0
+    total = 0
     for cmd in COMMANDS:
-        ev = observe(cmd, case_id=CASE_ID)
-        if ev is None:
-            continue
-        obs_id = await persist(db, ev)
-        if obs_id:
-            ok += 1
-    print(f"Seeded case={CASE_ID} · observations={ok}/{len(COMMANDS)}")
-    return 0 if ok == len(COMMANDS) else 1
+        for ev in observe_all(cmd, case_id=CASE_ID):
+            total += 1
+            obs_id = await persist(db, ev)
+            if obs_id:
+                ok += 1
+    print(f"Seeded case={CASE_ID} · commands={len(COMMANDS)} · observations={ok}/{total}")
+    return 0 if ok == total else 1
 
 
 if __name__ == "__main__":
