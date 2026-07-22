@@ -20,13 +20,14 @@ export default function Header() {
   // Primary tabs — always visible, high-usage. Routed via NavTabs
   // (variant="nav") so all pages inherit the DetectFlow design system.
   const primary = [
-    { key: "workspace",  href: "/",           label: "WORKSPACE",  icon: LayoutGrid, testId: "nav-workspace" },
-    { key: "dashboard",  href: "/dashboard",  label: "DASHBOARD",  icon: BarChart3,  testId: "nav-dashboard" },
-    { key: "batch",      href: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
-    { key: "heatmap",    href: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
-    { key: "documents",  href: "/documents",  label: "DOCUMENTS",  icon: FolderOpen, testId: "nav-documents" },
-    { key: "benchmark",  href: "/benchmark",  label: "BENCHMARK",  icon: Gauge,      testId: "nav-benchmark" },
-    { key: "battery",    href: "/battery",    label: "BATTERY",    icon: Gauge,      testId: "nav-battery" },
+    { key: "workspace",   href: "/",             label: "WORKSPACE",   icon: LayoutGrid, testId: "nav-workspace" },
+    { key: "command-hub", href: "/command-hub",  label: "COMMAND HUB", icon: Sparkles,   testId: "nav-command-hub" },
+    { key: "dashboard",   href: "/dashboard",    label: "DASHBOARD",   icon: BarChart3,  testId: "nav-dashboard" },
+    { key: "batch",       href: "/batch-test",   label: "BATCH",       icon: TestTube,   testId: "nav-batch-test" },
+    { key: "heatmap",     href: "/heatmap",      label: "HEATMAP",     icon: Grid,       testId: "nav-heatmap" },
+    { key: "documents",   href: "/documents",    label: "DOCUMENTS",   icon: FolderOpen, testId: "nav-documents" },
+    { key: "benchmark",   href: "/benchmark",    label: "BENCHMARK",   icon: Gauge,      testId: "nav-benchmark" },
+    { key: "battery",     href: "/battery",      label: "BATTERY",     icon: Gauge,      testId: "nav-battery" },
   ];
 
   // Grouped: analysis tools (secondary usage)
