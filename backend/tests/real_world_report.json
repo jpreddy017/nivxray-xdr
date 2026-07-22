@@ -1,6 +1,6 @@
 {
   "summary": {
-    "generated_at": "2026-07-21T02:41:03.816131+00:00",
+    "generated_at": "2026-07-22T02:44:11.159035+00:00",
     "total": 120,
     "mitre_hits": 117,
     "mitre_hit_rate": 0.975,
@@ -9,10 +9,10 @@
     "ioc_recall": 0.4867,
     "ioc_hits": 73,
     "ioc_total": 150,
-    "marker_hits": 31,
-    "marker_hit_rate": 0.2583,
+    "marker_hits": 32,
+    "marker_hit_rate": 0.2667,
     "avg_layers": 5.6,
-    "avg_latency_ms": 3716,
+    "avg_latency_ms": 3655,
     "per_family": {
       "Emotet": {
         "total": 2,
@@ -364,7 +364,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 87
+      "ms": 117
     },
     {
       "id": "rws_002_qakbot",
@@ -386,11 +386,10 @@
         "utf16le-or-utf8-decode",
         "hex-decode",
         "base64-decode",
-        "powershell-backtick-normalize",
         "powershell-alias-normalize",
         "crypto-detect"
       ],
-      "output_head": "\u00f4E\u0010\u0004Q\u000e\u0011\u0019UV\u0095N\u0099Q]Z\u0015\u0013\u00c2]Y0\u0099\r)\u00d0\u00deG\u0011\u0015\u0089YS\u00ba\u0019\u008d\u00d6I\u00ccj\u001dInvoke-History\u0085\u0095\u001a\u00d2\u0091\u00db\u00be\u00d9\u0014\u009e]\f\u00a2\u0091\u00941\u009d\u008d\u00b9\u001d\u00cc\u00e2\r\u0015(\u0019\u00d5L\u0099\u0098$\u00d5\u00ce\u00c8\u0018\u00da\u0014UVY\u009d\u001d\u0005\u00d5\u00904Y\f\u00dc\u0098\u00d0a\u00dd\u00cb\u000f\u00d5\u009b\u00d9X@U\u0012\u00cd\u0010\u00d2",
+      "output_head": "\u00f4E\u0010\u0004Q\u000e\u0011\u0019UV\u0095N\u0099Q]Z\u0015\u0013\u00c2]Y0\u0099\r)\u00d0\u00deG\u0011\u0015\u0089YS\u00ba\u0019\u008d\u00d6I\u00ccj\u001dInvoke-History\u0085\u0095\u001a\u00d2\u0091\u00db\u00be\u00d9\u0014\u009e]\f\u00a2\u0091\u00941\u009d\u008d\u00b9\u001d\u00cc\u00e2\r\u0015(\u0019\u00d5L\u0099\u0098$\u00d5\u00ce\u00c8\u0018\u00da\u0014UVY\u009d\u001d\u0005\u00d5\u00904Y\f\u00dc\u0098\u00d0a\u00dd\u00cb\u000f\u00dd\u0091d\u0095\u00d10U\u0012\u00cd\u0010\u00d2",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -417,7 +416,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5829
+      "ms": 5819
     },
     {
       "id": "rws_003_icedid",
@@ -466,7 +465,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 2942
+      "ms": 2995
     },
     {
       "id": "rws_004_cobaltstrike",
@@ -519,7 +518,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 9542
+      "ms": 9495
     },
     {
       "id": "rws_005_empire",
@@ -571,7 +570,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7585
+      "ms": 7218
     },
     {
       "id": "rws_006_apt29_-_cozy_bear",
@@ -618,7 +617,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 72
+      "ms": 98
     },
     {
       "id": "rws_007_asyncrat",
@@ -670,7 +669,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 4587
+      "ms": 3797
     },
     {
       "id": "rws_008_lumma_stealer",
@@ -724,7 +723,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3140
+      "ms": 3161
     },
     {
       "id": "rws_009_lockbit",
@@ -748,9 +747,11 @@
         "xor-brute",
         "powershell-backtick-normalize",
         "xor-brute",
+        "powershell-backtick-normalize",
+        "powershell-alias-normalize",
         "crypto-detect"
       ],
-      "output_head": "x\u0001c\u00f5k2A\u00ab8;v\u00e9  (\u00bf\u00eeJ\u00c3\u00ec\u00ba_\u00f7b\u0091E\u00e0\u0085&\u00f2Sgr\u00f32\u00e9 8(\u00b8&@\u00d8\u00e8\u00b4\u000b\u00af\u00e9 \tc\u00e5\u00e6\u00ef w\u00f4X7\u00af#<\u007f\u00ceN\u00c9 \u00a7Yq\u00a0?\u00c0\u00bc[ \u00f6=\u00aeZ\u0096:Hi%\u008c\u00b0a\u00c40 \u00cc.\u00fe9\u00e8\u0081\"\u00e2A\u00bbnx\t.}3\u00b4l\u00e6\u00bfMv \u00be\u00b4kEn\rY!:\u00ce\u007f$H\u00c5o\u008ccmd\u00a3\u00b7L\u00fa\u00f0\u00b1\u00bc\u00ab\u00fbf\tQ\u00e44\u008e\u00b7.\u00c0Iex\u00f7\u00f0\u00dd\u00e3s\t87-\u00ba\u00bb\u00a6\u00bb\u00d24'\u0004\u00fc\u00ff\u00df\u00b8\u00cc\u0011 \u00e9E\u00b1c>\u008954\u00e9=",
+      "output_head": "x\u0001t\u00b4\u00a8\u00bb.\u00ae#\u00ff|d\u00e5\u00a1\\~\u00e8B\u00cfid\u001a\u009eo\u0091E\u00f7\u00c4\u00e5{<bi78d\u00e5\u00b9\\y H\u00d4mjN\u00c6\u00e4 \tt\u00a4%fOr\u00ef\u009c=\"\u00e6\u00bd\u000b\u000fH\u00cc \u00e6B4\u00c92\u00c0\u00b1@\u00a5\u00f0\u00b4\u00c1_\u008d\u00f3N ForEach-Object\r\u00c4\u00a0\u00c25 \u008d5\u00bbP\u00e5\u0081/`\u00b8\u0085<\t}\t8\u00b9t\u00bc\u00ed\u0089\u00a1\u0089}(\u00ff\u00b4\u00f1\u00eem\u0005T!\u00f8CM\u00c5yH$e\u00e5\u00cc\u00a9\u0088\u00f1\u00f8\u00f0\u00bc1Pe\u0001\\\u00e4nJ0I\u00c5Is\u00bc\u00b0\u00f8\\\u008cm\u00cd3?l\u00ba!\r\u00b8\u00da9'^8x\u00b9\u00fc@\n\u00e4\u00a3b0L M><\u00a8=",
       "matched_mitre": [
         "T1027"
       ],
@@ -771,7 +772,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1153
+      "ms": 1232
     },
     {
       "id": "rws_010_bumblebee",
@@ -824,7 +825,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 80
+      "ms": 152
     },
     {
       "id": "rws_011_sliver_c2",
@@ -866,7 +867,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1871
+      "ms": 1548
     },
     {
       "id": "rws_012_meterpreter",
@@ -885,9 +886,10 @@
         "js-reconstruct",
         "xor-brute",
         "powershell-backtick-normalize",
+        "cmd-runtime-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "x\u0001{p/7-Y%ORV/D\u001bTEeGGY;`^_E8S\u0016I,I^/H1Xxix*GGbVcE,r\u0012]tuD\u0014K;Hwk]\u001f-=LKRF8x0HQSG\u0012Q8]Fnt\u0015$4MTU]\u001cg-KHl`\u0012N0/kUT\u0019j\u0016+VqG:W<W.sd\u001aZBOS_^'O\"C.T|\u000eR!+t5^L$=Ww6x$NNh}6wNH?Cjf \u0012P\"pJ~q*[\u0002W/c~,H=RH5hNGDLlJ!\u0012T!_-7F;q\u000f\u007fYs\u2026",
+      "output_head": "x\u0001af)?CY%zYT^]O/JPS*)Y;zHYMVS\u0016S:OVAH1BnopDGGx@eMBr\u0012GbsLzK;RamUq-=V]TNVx0RGUO|Q8GPh|{$4WBSUrg-Qjh|N05}S\\wj\u00161@wOTW<M8ultZBUEYVIO\"Y8RtR!1b3V\"$=Ma0pJNNrk0\u007f H?Y|`(|P\"j\\xyD[\u0002M9evBH=H3` GDVzL)|T!E;1NUq\u000feOu\\I\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -914,7 +916,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3804
+      "ms": 2715
     },
     {
       "id": "rws_013_socgholish",
@@ -960,7 +962,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4084
+      "ms": 2774
     },
     {
       "id": "rws_014_apt41_-_winnti",
@@ -1007,7 +1009,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 19
+      "ms": 74
     },
     {
       "id": "rws_015_apt28_-_fancy_bear",
@@ -1050,7 +1052,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 94
+      "ms": 118
     },
     {
       "id": "rws_016_amos_stealer_(macos)",
@@ -1099,7 +1101,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 3238
+      "ms": 2151
     },
     {
       "id": "rws_017_kinsing_(linux)",
@@ -1152,7 +1154,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 138
+      "ms": 185
     },
     {
       "id": "rws_018_xmrig_cryptominer",
@@ -1206,7 +1208,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 8968
+      "ms": 7319
     },
     {
       "id": "rws_019_apt29_(wmi)",
@@ -1229,12 +1231,12 @@
         "utf16le-or-utf8-decode",
         "base64-decode",
         "base64-decode",
-        "powershell-backtick-normalize",
         "xor-brute",
         "powershell-backtick-normalize",
+        "xor-brute",
         "crypto-detect"
       ],
-      "output_head": "\u00e4\u00bd\u00b5sm\u00fcR\u00f4;Bb\u00a0\u009f\u00e1;\n\u00acz\u00a0\u00ec,D=s\u00b5\u00b5!9\u00b9u\u00e9\u00a3m\u00aa8t\u00c6\u00f4)\u00a5\u00e0\u00ac\u00f45\u00b6\u00af\u00f0\u00ed\b\u00b51M*{ u\u00b3^4\u00ed\u00f4-,J81\u00bae-\u00d41\u00a6\u00a2b#\u0003u=@u\u00a4R(m\u00ceyi\u00a1\u00e1h\u00d95\u00a4\u00f3\u00a3-\u00ac\u00f46I0\u00ae\n,\u00ab\t\u00f0i\u00af9\u00eaY\u00f59\u00e7&i\u00b69}\u00ae\u00b4\u00e5lt\u00f14\u00f1w\u00c6-\u00acmx<s\u00e2\u00a0f1s\u00a209hpsQ\u00b0{CmdLl;\t\"|\u00ebq\u00bb\u00daxl\u00f5\u00ad=p<u>\u00e1\u00e7\u00f2\u00bd\u00a40b\u00e6|x3?8\u00ed[d\u00f35=\u00a8\u0097\u00f9,\t}4(&\u2026",
+      "output_head": "\u00e4\u00bd\u00a6\u00b8m\u00fcR\u00f4;Q\u00a9\u00a0\u009f\u00e1;\n\u00bf\u00b1\u00a0\u00ec,D=`~\u00b5!9\u00b9u\u00fahm\u00aa8t\u00c6\u00e7\u00e2\u00a5\u00e0\u00ac\u00f45\u00a5d\u00f0\u00ed\b\u00b51^\u00e1{ u\u00b3^'&\u00f4-,J8\"qe-\u00d41\u00a6\u00b1\u00a9#\u0003u=@foR(m\u00ceyzj\u00e1h\u00d95\u00a4\u00e0h-\u00ac\u00f46I#e\n,\u00ab\t\u00f0zd9\u00eaY\u00f59\u00f4\u00edi\u00b69}\u00ae\u00a7.lt\u00f14\u00f1d\r-\u00acmx<`)\u00a0f1s\u00a2#\u00f2hpsQ\u00b0h\u0088mdLl;\u001a\u00e9|\u00ebq\u00bb\u00dak\u00a7\u00f5\u00ad=p<f\u00f5\u00e1\u00e7\u00f2\u00bd\u00a4#\u00a9\u00e6|x3?+&[d\u00f35=\u00bb\\\u00f9,\t}4;\u00ed\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -1259,7 +1261,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 14629
+      "ms": 12590
     },
     {
       "id": "rws_020_amadey",
@@ -1305,7 +1307,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 43
+      "ms": 109
     },
     {
       "id": "rws_021_nanocore_rat",
@@ -1351,7 +1353,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 1149
+      "ms": 1187
     },
     {
       "id": "rws_022_smokeloader",
@@ -1406,7 +1408,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7290
+      "ms": 7207
     },
     {
       "id": "rws_023_trickbot",
@@ -1455,7 +1457,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3129
+      "ms": 3140
     },
     {
       "id": "rws_024_latrodectus",
@@ -1509,7 +1511,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 3560
+      "ms": 3563
     },
     {
       "id": "rws_025_cactus_ransomware",
@@ -1562,7 +1564,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5480
+      "ms": 5515
     },
     {
       "id": "rws_026_blackcat_-_alphv",
@@ -1605,7 +1607,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3007
+      "ms": 2911
     },
     {
       "id": "rws_027_ghostrat",
@@ -1657,7 +1659,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 3570
+      "ms": 3395
     },
     {
       "id": "rws_028_mimikatz_(lsass)",
@@ -1710,7 +1712,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 4102
+      "ms": 4109
     },
     {
       "id": "rws_029_apt10_-_menupass",
@@ -1732,7 +1734,7 @@
         "base64-decode",
         "crypto-detect"
       ],
-      "output_head": "\u00f7D\u00d4BT\u00d1TYP\u0019UT6P\u00cc4YU\u0015YP\u0093\u0095\u0094F\\\u00d4YX\u00d0\u00b1\u0011\u008d\u00be\u0015U5\u0099\u001a\u0097\u0011\u001c\\U\u0093X\u00dc\u00d8\u0018\u0091\u00115\u0099\u0014\u00c0\u00c9^\u00d0\u0094\u00d8\u00c4T\u00d1\u008a\u0091\u00db\u00b9\u001d[8T\u00d4A\u009d\fWU\u000eWQ\u00158\u001c\u00d4\u00a2\u0011\u00ccd\u00d1^\\\u0099M\u00d6\u00cd\u0098\u00c0\u0099Q\u0092\u0091\u00da\u00eb\u0011\u0011\u00e5\u00c9Xg\u0091\u001bdYQT\u00d9^I\u001d\u0014",
+      "output_head": "\u00f7D\u00d4BT\u00d1TYP\u0019UT6P\u00cc4YU\u0015YP\u0093\u0095\u0094F\\\u00d4YX\u00d0\u00b1\u0011\u008d\u00be\u0015U5\u0099\u001a\u0097\u0011\u001c\\U\u0093X\u00dc\u00d8\u0018\u0091\u00115\u0099\u0014\u00c0\u00c9^\u00d0\u0094\u00d8\u00c4T\u00d1\u008a\u0091\u00db\u00b9\u001d[8T\u00d4A\u009d\fWU\u000eWQ\u00158\u001c\u00d4\u00a2\u0011\u00ccd\u00d1^\\\u0099M\u00d6\u00cd\u0098\u00c0\u0099Q\u0092\u0091\u00da\u00eb\u0011\u0011\u00e4\u0088\u00d4j\u0091\u0016KY\u0011T\u00d9^I\u001d\u0014",
       "matched_mitre": [
         "T1027"
       ],
@@ -1751,7 +1753,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4454
+      "ms": 4450
     },
     {
       "id": "rws_030_apt41_(bits)",
@@ -1801,7 +1803,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 117
+      "ms": 199
     },
     {
       "id": "rws_031_icedid_(dll_main)",
@@ -1841,7 +1843,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 16
+      "ms": 70
     },
     {
       "id": "rws_032_avoslocker",
@@ -1861,9 +1863,10 @@
         "xor-brute",
         "powershell-backtick-normalize",
         "cmd-runtime-reconstruct",
+        "ps-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "jqa+3RMWfCXEEXeKErZ:PM:iEDEsFb\\WVAXEVOL_vsYMFONWLs[EQb:bnqJ:ePg_tGcQeX_Crdwacc_uJUl&e8KvEV$dNawuaEM[;Sur?wP_u_F>N!PSRrEsfUL\\ecMd[eKWs?Mbdfd][UMTQanDHtnSAK(AwE|T;uPI?R UMbdA=UzUsaNsJ3'e9S}uZMge]CLtwAFJ\u2026",
+      "output_head": "grvq?7Q@EgDEDIEE]JP6.Y[#n]CUgBaQEWFEDFYXMzaPYOYWPTtKQUa7povW;uFsMxUjElNFDjYtcenMtMHm6s,YzLLB-rWforqQIX6Atu\"vNFKgST7Z(FGTJuUgbVANdY~LtMqY[a6YkrGa|ZKAIW\\soCUu~EUY$S~QuB\"rHN/F$V@peF TjCgsBaC'.s TerJYcfPQ\u2026",
       "matched_mitre": [
         "T1027",
         "T1059"
@@ -1884,7 +1887,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1947
+      "ms": 1753
     },
     {
       "id": "rws_033_apt35_-_charming_kitten",
@@ -1903,9 +1906,10 @@
       "chain": [
         "xor-brute",
         "powershell-backtick-normalize",
-        "cmd-runtime-reconstruct"
+        "cmd-runtime-reconstruct",
+        "crypto-detect"
       ],
-      "output_head": "px|dg=aufgnhfyvi16L(3Wycnifx<The\\DKQJdjthudore42=vEPJ|X_ZgSwF$IBS:ADK,BP6DO[ KIE!sRS;QjKgRnI6T_Z\"WIE%YRS|wjH-^~3~aM\"GgFnERR:QGH)Zn7DqY\"WgFnEAS;ED_-By|D_M!OYE$A|P:AjKwQ~]|PaZieIR$sBS:MTHgNC2HqY!CgF|BRD\u2026",
+      "output_head": "}cty`>kqf}~blhd&/]0/L}oeusm<BicIJL\\Ql}mwbqdubo>#+{RI[dDDkXkS1ITR<TJL!YXC1GE_ QYO+bD,H{S{IjE=HJO\"AHC0WUg\u007fwO.Tz^)nkG3QjQwTJN!UKC5O{!EwL,Pj]fXFP1ADE=HsOjIHT0WE^ MwL/Tj]vWkS{]zRtbJX sXC0GEjYZO*Tj]-H{SiBDE\u2026",
       "matched_mitre": [
         "T1027"
       ],
@@ -1930,7 +1934,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3291
+      "ms": 3187
     },
     {
       "id": "rws_034_apt-c-36_(colombia)",
@@ -1971,7 +1975,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1264
+      "ms": 1309
     },
     {
       "id": "rws_035_play_ransomware",
@@ -2013,7 +2017,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 42
+      "ms": 103
     },
     {
       "id": "rws_036_apt29_(bitsadmin)",
@@ -2060,7 +2064,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 26
+      "ms": 81
     },
     {
       "id": "rws_037_oilrig_-_apt34",
@@ -2111,7 +2115,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 67
+      "ms": 139
     },
     {
       "id": "rws_038_lockbit_(sam_dump)",
@@ -2163,7 +2167,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7992
+      "ms": 7988
     },
     {
       "id": "rws_039_apt38_-_lazarus",
@@ -2219,7 +2223,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 5039
+      "ms": 5064
     },
     {
       "id": "rws_040_atomicwallet_stealer_(macos)",
@@ -2238,15 +2242,13 @@
       "chain": [
         "base64-decode",
         "base64-decode",
-        "powershell-backtick-normalize",
-        "xor-brute",
         "xor-brute",
         "xor-brute",
         "powershell-backtick-normalize",
         "xor-brute",
         "crypto-detect"
       ],
-      "output_head": "\u009f \u00ac6\u00b5\u00e3Q\u00fc\u00ed}\u00bb}P5\u00e4\u000e1:\u0086\u00e8 p\u00bd6\u00b9#=\u0006=J\u00a4\u00aa\u00c1<\u00ed\nmeO\u00b2k\u0092loHpw6h \u0088x\u00a1F'j\u0083l=\u00ba!o\u00de<={p\u00afN\u00f7dqx`\u00ac\u00f0( iiExe\nc+Sp<E d5\u00b0x\u0097\u00ac 2v\u00f0\u00c1g\u00f6x\u00ff",
+      "output_head": "J \u00bc\u00db\u00a1 Q\u00e7\u00a3\u00d4{kKp\u00ees$7\u00c3\u00e9\u00fe\u00d8\u00b3e\u00b8\u00f66\u00b5mw\u009f\u00a4\u00b1we3\nv \u00bd?`\u0089)nn(gsi\u00f5{;\u00efG\u00f2jkq7o!the\u00e3{k\u00ea\u00bczoj=Uv#;,ch uOi\u00f5\u00a03rO\u00fed\u00dd\u00adyI\u00a419\u00e9\u00b4\u00a4;l\\\u00bbe",
       "matched_mitre": [],
       "missed_mitre": [
         "T1027",
@@ -2266,7 +2268,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5836
+      "ms": 4193
     },
     {
       "id": "rws_041_apt27_-_emissary_panda",
@@ -2320,7 +2322,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 75
+      "ms": 152
     },
     {
       "id": "rws_042_vice_society",
@@ -2372,7 +2374,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5342
+      "ms": 5393
     },
     {
       "id": "rws_043_gootloader",
@@ -2421,7 +2423,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5351
+      "ms": 5368
     },
     {
       "id": "rws_044_rhadamanthys",
@@ -2476,7 +2478,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5667
+      "ms": 5699
     },
     {
       "id": "rws_045_guloader",
@@ -2523,7 +2525,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3907
+      "ms": 3967
     },
     {
       "id": "rws_046_bumblebee_(macos_variant)",
@@ -2566,7 +2568,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 39
+      "ms": 98
     },
     {
       "id": "rws_047_3cx_supply-chain",
@@ -2587,16 +2589,15 @@
         "base64-decode",
         "utf16le-or-utf8-decode",
         "base64-decode",
-        "powershell-backtick-normalize",
+        "xor-brute",
         "xor-brute",
         "powershell-backtick-normalize",
         "xor-brute",
         "powershell-backtick-normalize",
-        "xor-brute",
         "cmd-runtime-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "\t\u00ec\u00ab\u00a38\u00e3U\u00a0$t\u00fan\u00991hmm\u00a8#\u00fa\u00a2/\u00ac\u00b5\u00bct\u00b6O}&!)M+wj-ym\u00ed\u008d/\u00e51u+\u009a\u00f8\u00a9Exm\u00f7\u00a9iKcfu\u00f8'\u00b1\u00edk 3\u00edN 7A\u00bdv\u00b6 8\u00e9\u00a1\u00a9\u00d0bw4\u00f8\u00a3Yi\u00ee%{-\u00c9!>\u00f5uwne%\r\u00a1\u00e3\u0088\u00ee/\u00fa<\u00af\u001d\u00fd\u00ac\u00f52g8\u00ec\u00f8\u00f8y cx8i\u00e4u\u00ff\u00aa.M\u00ednP \u00a9\u00e7\u00f7\"\n\u00a8(decz4)\u00fa\u00a1d1\u00a2'N\u00e4\u00ed\u00cf\u00e9\u00b5\u00b2`<\u00f4hFpp\u00e2 \u00b99i\u00e5\u0083\u00b2c\t\u00b0,\u00b3\u00a5 {s'0\u00b84\u00e9=\u00a6'\u00ecgAm\u00f2\u00cdv\u2026",
+      "output_head": "\u001f\u008b\u00ef\u00fd4{\u00d0\u00d3$5\u0081@T\u00cd!;@\u00fd\u0015\r=,\u00cb\u00e5\u00b8to\u00d9\u0016 }E\nQD0*\t\"+\u0085\u00be\u000fG\u00a3 i\u00ac\u0001.\n\u001d\u0002%E-\u00c9\u00d53RA\u00b4\u00a3\u009b\u00e1\u00b0<6\u0097[.\u0003\t\u0096d\u008d0\u00a5\u0094\u00ff5I\u00eat\u00df\u00e9Yx\u00f9}\u0013h\u00c9H@*\t\u00f0\"\u0011?&\t}\n[k\u00a8|x\u00d5\u008b%tHE\u00a5M\u00e1\u00b9\u00dc\u00b5H\u0091\u00ea%\u00d22ox\u00f7\u00d7\u00ca'ADG\u00fbEg\t\u00d0#B]>6C\"\u00a4\u00f0\u00bei\u0017A\u0095\u00cb_U\u00e5\u00f7UsP\r\u00bbO\u0092x883\u00bfS\u00e5\n\u0091\u008b\u00cb]i\u00a1\u00d8\u00bbVY\u00a8?\u00c3b\u00ba\u00b0ca\u0097oB\r\u009d\u0089\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -2617,7 +2618,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 13586
+      "ms": 12782
     },
     {
       "id": "rws_048_aws_cognito_abuse",
@@ -2665,7 +2666,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 6553
+      "ms": 6583
     },
     {
       "id": "rws_049_gcp_sa_jwt_theft",
@@ -2689,7 +2690,7 @@
         "powershell-alias-normalize",
         "crypto-detect"
       ],
-      "output_head": "o\u00b0/L\u00b9!\u00de$n@x\u00e6Jl/F\u00bd\u00eaN\u00b0\u00a90p\u00e5O<\u00af\u0085\u00f1iEx'`\u00f8\u00e3\u00bal/l|\u00ea8\u00a8v<\u00b0\u00e3\\\u00f1\u00e1\u0087\u00f1*\u00d7\u00ec\u00a7\u00b4x\u00e59\u00ec\u00b6Ep\u00e9\u00dd('\u00eei\u00a8S\u00e1\u00ebY4\u00e4\u00db\u00e8\u00a9\u0001\u00b5e\u00b0\u00ec\u00f611\u00ea\u00d3\u00a4\u00abQ\u00bdcn,\u00a0c9\u00a4B\u00bc\u00a9R\u00b9\u00e5M\u00bc$\u0098t\u00e2\u00e9(  p\u00e3\rGet-History nqi\u00da(k\u00ba\u00b5\u00a3K8\u00efay\u00e3B4l\u00125f0\u00ec\u00abXu\u00be\u00d6 d\u000f\u00b9\u00a85\u00e8\u00afM\u00b9\u00e5L\u00b8a\u00a9\u00f9$\u0087\u00ec\u00ab\u0080\u00b1*:\u00a4vAui\u0087\u00e8\u00ab\\\u00f1kD\u00b8h\u0003\u2026",
+      "output_head": "o\u00b0/L\u00add\u00de$n@l\u00a3Jl/F\u00a9\u00afN\u00b0\u00a90d\u00a0O<\u00af\u0085\u00e5,Ex'`\u00ec\u00a6\u00bal/lh\u00af8\u00a8v<\u00a4\u00a6\\\u00f1\u00e1\u0087\u00e5o\u00d7\u00ec\u00a7\u00b4l\u00a09\u00ec\u00b6Ed\u00ac\u00dd('\u00ee}\u00edS\u00e1\u00ebY \u00a1\u00db\u00e8\u00a9\u0001\u00a1 \u00b0\u00ec\u00f61%\u00af\u00d3\u00a4\u00abQ\u00a9&n,\u00a0c-\u00e1B\u00bc\u00a9R\u00ad\u00a0M\u00bc$\u0098`\u00a7\u00e9(  d\u00a6\rGet-History ne,\u00da(k\u00ba\u00a1\u00e6K8\u00efam\u00a6B4l\u0012!#0\u00ec\u00abXa\u00fb\u00d6 d\u000f\u00ad\u00ed5\u00e8\u00afM\u00ad\u00a0L\u00b8a\u00a9\u00eda\u0087\u00ec\u00ab\u0080\u00a5o:\u00a4vAa,\u0087\u00e8\u00ab\\\u00e5.D\u00b8h\u0003\u2026",
       "matched_mitre": [
         "T1027"
       ],
@@ -2708,7 +2709,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 11876
+      "ms": 11868
     },
     {
       "id": "rws_050_apt29_(cognito+ps)",
@@ -2759,7 +2760,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 187
+      "ms": 289
     },
     {
       "id": "rws_051_btlo_-_emotet_(base64+utf16le)",
@@ -2802,7 +2803,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 34
+      "ms": 92
     },
     {
       "id": "rws_052_ps_string-concat_iex",
@@ -2824,7 +2825,7 @@
         "cmd-runtime-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "gtpk? CFPkTBAA[n_uP)FN\"dmSHrP_lYMAWDSIR]zcWyEN6RK`\"A\"VHD[DlE1GlTSfmICSWCmDOxif}`\"c Dor5E7AZfAb_E_cnyLtTcpf omIDPFB@YrqZTpR}M Lia2MRBiW}V&IEXE@k{Bskv\\I'MTX2%}BkVmUF2oQ i0tQguAxfzIAN!MDP}tB0WBsVGD7rB]4I\u2026",
+      "output_head": "gtpk? CFPkTBA]PZ[]E5)FN\"dmSHrP_lYMAWDSIR]zcWyEN6RK`\"A\"VHD[DlE1GlTSfmICSWCmDOxif}`\"c Dor5E7AZfAb_E_cnyLtTcpf omIDPFB@YrqZTpR}M Lia2MRBiW}V&IEXE@k{Bskv\\I'MTX2%}BkVmUF2oQ i0tQguAxfzIAN!MDP}tB0WBsVGD7rB]4\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -2847,7 +2848,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 1381
+      "ms": 1514
     },
     {
       "id": "rws_053_ps_reversed-iex",
@@ -2866,16 +2867,17 @@
       "chain": [
         "xor-brute",
         "powershell-backtick-normalize",
+        "cmd-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "csybh*dagwzi|iab3(R.?Jdyft|z%X{nYBDFOpaziotxyg*,;zXMGtQEXq_dM!OMD?UE[8itN$CcD>UEXbPZOkGdDvY{L9SJN C]D?IUX;[JN!u]D?Q{X9[JN!CcG?kk[<iZN CsGfRUY8OZNxL]S>gEX9_JO\"GND=UUL9KZNhGsGtUEXbXJO\"C]DeRU[:_IN{LMD<E|\u2026",
+      "output_head": "qxxd}+zqjjcsnbd&)L>2W}ct\u007f}|0Ye~T_]\\]{`|uhqdud~0>0{XFjAHEhEvF IXE!EHF!sfE%EvE EHE{JHDjAqEhIvQ IXE!EHE!YXE\"AXE sHE!AvE AXE EvF!{fF%sHE!EfFxBXD!UHEyJHR wHE EXD#A[E#EXQ QHEiAfFjEHE{BXD#EHE{BXF#E[EzJXE\"UqE\u2026",
       "matched_mitre": [
-        "T1027",
-        "T1059",
-        "T1059.001"
+        "T1027"
       ],
       "missed_mitre": [
         "T1027.010",
+        "T1059",
+        "T1059.001",
         "T1105",
         "T1218",
         "T1218.005"
@@ -2895,7 +2897,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 2932
+      "ms": 3009
     },
     {
       "id": "rws_054_ps_filler-char_obfuscation",
@@ -2937,7 +2939,7 @@
       "ioc_recall": 0.0,
       "undecoded": true,
       "marker_hit": false,
-      "ms": 1744
+      "ms": 1784
     },
     {
       "id": "rws_055_ps_format-operator_iex",
@@ -2976,7 +2978,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 49
+      "ms": 113
     },
     {
       "id": "rws_056_ps_deflatestream+b64",
@@ -3027,7 +3029,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 32
+      "ms": 86
     },
     {
       "id": "rws_057_ps_securestring_payload",
@@ -3072,7 +3074,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 118
+      "ms": 208
     },
     {
       "id": "rws_058_ps_clickfix_chain",
@@ -3124,7 +3126,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 7017
+      "ms": 7064
     },
     {
       "id": "rws_059_ps_reflection.assembly.load",
@@ -3147,13 +3149,14 @@
         "utf16le-or-utf8-decode",
         "base64-decode",
         "base64-decode",
+        "xor-brute",
+        "xor-brute",
         "powershell-backtick-normalize",
         "xor-brute",
-        "xor-brute",
-        "xor-brute",
+        "powershell-backtick-normalize",
         "crypto-detect"
       ],
-      "output_head": "\u00e8,\u00ac\u009d\u00e6 U 2\u00a9:a6\u00e49D#%_7<2uc(ieXe\u00ff \u00ee\u00e5\u00fa.\u00e3Zv\u00b6\u00c7}?\u00c3 5I-\u00a8p?m\u00a7?\u00ad\u00df,\u00baN\u00e6\u00fe\u00b4$ @\u00ae\u00b2\r :5xik+\u00f9.\u00f9l*e%\u00b95-[ p\u00c64\u00e3>\u00f4\u00a4\rd\u00a4R\u00a0$\\zeJa\u00f7 xr\u00fa\u00bb\u00aa\u008f\u00f5&G\u00aa:\u00b9\u00f14\u00c7\u00af)\u00c7* =\u00b0\u00ec\u00af}?%\u00b8([7\u00a4\nk\u00adD\u00bf\u00e2\u00cf \u00adK-\u00ba\u00f9\u00ec\u00a6\u00ae'`\u00e1*\"\u00c2\u00e0;T\u00e6\u00b5Zy\u00a0k\u00ff\u00a0Y\u00bd9 \u00a8\u00aa\u00b0\u00ff\u00a2\u00a5\u00e5nCl\u00a5\t( \u00b7\u00e9\u00b3\u00e2$=\u00b75\u00a1:t\u2026",
+      "output_head": "\u00ee<t\u00192e\r6\u00f31u\u00b7$%\u00f6_fh_4 5\u00bb%\u00a5x\u00a1\u0004( \u00ae\u00e8%\u00e5\"7Ia\u00c04\u00bf\u00d0!\u00eeG{t\u00ae\u00a2\u00b9\u00b5\u00e8\u00f1OthE\u00b69,6%\u00de}\u00e4\u000e fx,\u00b4c=\u00b7 \u00f62 p\u00e7\u00b3y\u00a9Z3\u00a3H}2\u00e5\u00f6\u00f9\r\u00bbxFn\u00f3\u00c8\u00a3+A\u00f3v(5 p2e\u00d9\u00bem\u00d1\u00b8f\u00a5mq\u00d2\u00b7\u00ee\u00c9t\u00b64# ,1qw\u00a8}\u00dbl\u00ee\u001b:\u00f3Y\u00f5,@$\u00b2G\u00e9a\u00e0~vn\u00f2/e*\u00ed\u00c5csD\u00faF/\u00b6}aiExez8{\u00a6\u00a1w==\u00a3\u00de\u00a2\u00fd\u0018(\u00b62\u00bes\u00e4 ss\u00f2\u00fc-o\u00b5V\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -3176,7 +3179,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 12474
+      "ms": 12358
     },
     {
       "id": "rws_060_ps_empire_stager_(btlo_shape)",
@@ -3228,7 +3231,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 74
+      "ms": 137
     },
     {
       "id": "rws_061_emotet_v2",
@@ -3277,7 +3280,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5629
+      "ms": 5588
     },
     {
       "id": "rws_062_qakbot_v2",
@@ -3300,7 +3303,7 @@
         "xor-brute",
         "crypto-detect"
       ],
-      "output_head": "\u009b|,%\u0089h\u00e2for \u00f4H` \u008c'\u00ac |\u0085\u00d8\u00a4\u00e6\u00a1,\u00b5\nIkZ.l\u00a8,xZl$\u00e9'\u00ac\u0088tM\u00da\u00ac \u00b8\u00f0\u00a2UA\u00e31r$Pl9\u00d0x':\u00ef\u00e4\u00948K\u00c9\u00e1`\u00c2$\u00e86Io>6cq\u00ed\u00b2\u00c1\u00b8y\u00e9\u00a7)\u0080\u00f0ER\u00a0%U\u00a8/_I\u00a9]\u00ea\u00ef \u00a44N\u00e8\u00b9#\u00ef e8Cc  \u00b0\u00b0#'A :\u00b2o\u00dc\u00f09w\u00e8\u00ee\u00d7'hm\u00b8N0\u00e8\u00a7",
+      "output_head": "\u009b|,%\u0089h\u00e2for \u00f4H` \u008c'\u00ac |\u0085\u00d8\u00a4\u00e6\u00a1,\u00b5\nIkZ.l\u00a8,xZl$\u00e9'\u00ac\u0088tM\u00da\u00ac \u00b8\u00f0\u00a2UA\u00e31r$Pl9\u00d0x':\u00ef\u00e4\u00948K\u00c9\u00e1`\u00c2$\u00e86Io>6cq\u00ed\u00b2\u00c1\u00b8y\u00e9\u00a7)\u0080\u00f0ER\u00a0%U\u00a8/_I\u00a9]\u00ea\u00ef \u00a44N\u00e8\u00b9#\u00ef e8Cc  \u00b0\u00b0#'A :\u00b2o\u00dd\u00b1\u00b5z\u00e8\u00e3\u00f8'(m\u00b8N0\u00e8\u00a7",
       "matched_mitre": [
         "T1027"
       ],
@@ -3321,7 +3324,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5503
+      "ms": 5520
     },
     {
       "id": "rws_063_icedid_v2",
@@ -3372,7 +3375,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 77
+      "ms": 144
     },
     {
       "id": "rws_064_cobaltstrike_v2",
@@ -3418,7 +3421,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 2287
+      "ms": 2421
     },
     {
       "id": "rws_065_empire_v2",
@@ -3438,10 +3441,9 @@
         "url-decode",
         "xor-brute",
         "powershell-backtick-normalize",
-        "cmd-runtime-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "f~vo9$KGZmPDEIZdYZsT!GD$sHW@sZYh_IIVNUMTYsR:\"W\\EZJ_yEIYqwZAVKYK1B$a sMMEkpT!{R{ATg\\J~MoGUzWna AkTM]oGDJoF%:cQOs9rEGF{VdCbGNaU]smrWIi|M\"NsJ9MFaUOVdANIkuZcAND2NyQ'Q{fP`;Zo~7UVdSRIJbNOpzBnJm\\}UYL@I9BECmB\u2026",
+      "output_head": "bwaa1)TERwJ[ALRUSTU39IU=wXTUi\\IjNGH[ACNHCeV35YTHEHWc_V]ht_O[][S?S=e0pXzKUiaZ v]mBH}JNwZaOXeUVt{?ErWHSbQFRaW<>sRZi?bGVHz[kUa[TwQTdczZAKafW=JjI<CKwWWXuXJYh`@eQLU<Ot^1Rg|Fd2Mav:JTlIHVN{MJ~wTlRcMdQIOUS?RG\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -3468,7 +3470,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1918
+      "ms": 1894
     },
     {
       "id": "rws_066_apt29_-_cozy_bear_v2",
@@ -3517,7 +3519,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 8645
+      "ms": 7874
     },
     {
       "id": "rws_067_asyncrat_v2",
@@ -3560,7 +3562,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 764
+      "ms": 813
     },
     {
       "id": "rws_068_lumma_stealer_v2",
@@ -3604,7 +3606,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 28
+      "ms": 86
     },
     {
       "id": "rws_069_lockbit_v2",
@@ -3624,11 +3626,9 @@
         "base64-decode",
         "base64-decode",
         "xor-brute",
-        "powershell-backtick-normalize",
-        "xor-brute",
         "crypto-detect"
       ],
-      "output_head": "\u001f\u008b\u00db\u00afN\u00d3+\u0099;7\u0005\u0091%\u00aa\u0011\u00eb\u00ef\u00a8B \u0092`\u00a1\u00dd\u00faX\u0084k:\u00f0\u00c4:\n\u00fdi^\u008c=\u00f2\u00deL{M]\u00f6\u00d9tAnd\u008ad\u00ddz\u00ff\u00c4WsIS\u00b6\u0097\u00f6\u00ec\u00b0\u00dbT1\u00fc\u00dc\u008ew\u0089N#\\\u00d3[$\u00d6\\PPl?9A\u0092\u009fR\u00ac\u00c8\u00d5BoF8#4\u0011^\u00d6}\u00cf\u0082z\u00c3\u00ffW\u007fC\u00a3|TV\u00b6\u0002_!\n\u0013\u0097\u00c1\u00a7s!pG\u0093\u00cf\u008d\t\u00ebP\u00f8\u00a6B\u00c5C\u00f3,\u009bb\u00f0s\u000eC\u0095\u00f7\u00c5@/\u0082\u00ed\u00ce\u00e2\u009c",
+      "output_head": "\u00f0\u00c3\u00d3\u00a4R<c\u00910+\u00ea\u00d9-\u00a1\r\u0004\u00a7\u00a0I<}(\u00a9\u00d6\u00e6\u00b7\u00ccc1\u00ec+r\u0002\u00f6u\u00b1\u00c45\u00f9\u00c2\u00a33EV\u00ea6<Iexe,\u00d5q\u00e3+\u001f{BOY\u00df\u00fe\u00e7\u00ac4\u001c9\u00f7\u00c0a?\u0081E?\u00b3\u009bS/\u00ca\u00b3\u0018Xg#\u00d6\t\u009a\u0094NC\u0080\u00ddIs\u00a9p+?\r\u00b1\u009eu\u00c4\u009e\u0095\u008b\u00f7\\c\u00ac\u00ebt_JYJW*\u0016\u00fc\u00df\u00c9\u00aco\u00ce8O\u0098\u00d3`bA\u00e3[\u00e4I\n\u00cdH\u00ef\u00c3\u00d3j\u00fbo\u00e1\u000b\u009d\u00fc\u00d9\u00a7ho\u0091\u00e6\u00d2\r\u00d4",
       "matched_mitre": [
         "T1027"
       ],
@@ -3651,7 +3651,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3667
+      "ms": 3154
     },
     {
       "id": "rws_070_bumblebee_v2",
@@ -3705,7 +3705,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 68
+      "ms": 139
     },
     {
       "id": "rws_071_sliver_c2_v2",
@@ -3765,7 +3765,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 8620
+      "ms": 8730
     },
     {
       "id": "rws_072_meterpreter_v2",
@@ -3822,7 +3822,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 9387
+      "ms": 9909
     },
     {
       "id": "rws_073_socgholish_v2",
@@ -3869,7 +3869,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 36
+      "ms": 88
     },
     {
       "id": "rws_074_apt41_-_winnti_v2",
@@ -3890,12 +3890,9 @@
         "base64-decode",
         "xor-brute",
         "powershell-backtick-normalize",
-        "xor-brute",
-        "powershell-backtick-normalize",
-        "xor-brute",
         "crypto-detect"
       ],
-      "output_head": "\u00c7it\u000e\u0088J)\n\u008b\u00b9\u00c9\u008d\f\u00e8lc)_\u00f0,iKy0\u00e3\u00bbn6=^\u00fc\u00f5}+`\u00a9ieXE\\\u008d;\u00a2\u0083\u00bcV$a\u00e6\u00d5,\t)\u0085|\u00d4(kV\u0012\u009e\n$\u00ae\u00f8\u00b0|\u00baWcK\u0096\u009cIp\u0081@\u00ef\nggI\u00e4\u00eb\u001ap\u00e3_\u0016y?)\u0099\u00e2\u00da\u008c \u00c0\u00bc\u009f\u00d2aEJ:A\u001a\u008f\u0099\u00bb \u00d6S%;B\u000e\u00d6\u001c\u00a7+\u00acub\u00d3A\u00c2~\u000f\u0093\u00b77WP&\u00c7'\u0088arn\u008b\u008e\u00ea+\u00a7\u00fe\u00a7\u0097\u0096{\u001a\rt\u00d5\u008b\u00a3\u00b9p?9aU `H\u00ec\u001bM~j\u00b7w\u00e3~\u0003\u00ee\u009c\u00eaK\u00c9.\u00f7Theq\u0089\u008diza\u0087U\u00bca\u0094w\u00a4\u2026",
+      "output_head": "\u0081\u00b8\u0010\n\u0092\u00afo\u00a6\u0086\u00a4\u00a3-Sea\u0003*\u00e6\u00df\u00e4}\nz\u00f4\u00a5j\n2'%\u00f9\u00d9:nAd\u0017m\u00aa6FACzt\u00cc\u00bf6\u00839@\u00df6H\u008e\u00a0\u00b3\u00c7Bo\u00e8\u0016Qd'\u00b36\u00f1\u00aa\u00f5T\u0003\u00ec\u00ce:Cj\u00c0\u00e7\u00ca\u00c5t\rMZ\u00ef\u00d5\u001e\u00e0B\u00d88\u00e9f\u009a\u0082}\u00d4\u0086\u00ca\u00a6\u00deuD\u008aYPE\u00a4\u008bV\u00d5#\u00cb\u009dd\u00ed\r\r\u00b6\u00bb\u00ff\u008d\u00a6o#td\rme\u0097\t3\u0098>%\u00da\u00e9\u00c9\u00b7=m\u00eb)\u00b2\u008d\u00ad\u00e4\u00e60\u00b3\u00b4\tgpk\u008fl\u00d7s\"\u00f7 \u0083og k\u00cf\u00c0\u00ebtp\u00f1\u0093\u00855\u0093\u0084\u0098THE\u0003p\u00ca\u00a6$\u00a7\u00c1\u00cdJY\u00ba!_\u00a1d3\u2026",
       "matched_mitre": [
         "T1027"
       ],
@@ -3922,7 +3919,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5338
+      "ms": 2187
     },
     {
       "id": "rws_075_apt28_-_fancy_bear_v2",
@@ -3944,11 +3941,13 @@
         "utf16le-or-utf8-decode",
         "hex-decode",
         "base64-decode",
+        "xor-brute",
         "powershell-backtick-normalize",
         "xor-brute",
+        "powershell-backtick-normalize",
         "crypto-detect"
       ],
-      "output_head": "\u00f7\u00a0e\u00f5\u00fc\u00eb\u009b e\u00d0\u00a8 \u00e90$:\u00a6\u00bb[\u00a9u\u00ebq\u00e5;5\u00a42\u00ad\u00f8\r\u00a8 \u00c6\u00e4f\u00f4(k;;i\u00c8h\u00f8\u00ef)m7 oQyh\u00a2\u00e8)\u0090l`* n\u00c5\u00e6\u00e5\u00bfe\u00f2\u00f09\u00e3`,\u00e4\u0094}n\u00ec\u00f9's,and\u00f6 \u00a2l6\u00a113mn:\u00fc\u00e5\\x\u00fbZ\u00e9\u00a7d\u00ecey\u00a0u9f\u00fbHh\u00e0 \u00e5\u00ea> \u00e3\u0092qg1e %$\u00fd\u0090\u00fc\u00a2>jeS\u00ac\u00e0\u0013`-\u00e7\u00aca\u00d4\u00fd8|\u00a9\u00a0?x;#\u00e0\u00a3)\u00aa\u00b5 \u00e2\u00e1%\u00ea",
+      "output_head": "\u00f1/exe)Qe\u00ecP \u00f8\u00a1:\u00aa\u00f0 \u00b3\u0086\u00a0\u00f5\u00a5puh\u00a8s\u00f4\u00aa\u00ce\u00e6;J c\"u  \u00f1-H\u00e2!:7\u00a75 \u00d4(\u00e8m\u00eao\u001flm.qi\u0083/e7='iz*\u00a6$9\u001d\u00b3 ?i.  765n\u00b9\u00e0\u00f2\u00a4\u00e7n&u\u00f0\u00b8e\u00d6\u00a1.D#\u00a5d\u00e3\u00e0( \u00ba; tHe\u00e4q\u00e2\u00ac\u00f7\u00a0k\u00ca\u00a4\u00fer\u00ac\u00e6-\u00f9t\u008d!n\u00f8$8_\u00ed\u00b9A\u00a3c\u00fc \u00a5\u00d1+e7\u00b2j{\u00f8\u00b1\u00fa=\u00b7^d$J ox\u00e7 ",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -3975,7 +3974,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 10188
+      "ms": 10569
     },
     {
       "id": "rws_076_amos_stealer_(macos)_v2",
@@ -4023,7 +4022,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 6198
+      "ms": 6222
     },
     {
       "id": "rws_077_kinsing_(linux)_v2",
@@ -4078,7 +4077,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 6661
+      "ms": 7122
     },
     {
       "id": "rws_078_xmrig_cryptominer_v2",
@@ -4130,7 +4129,7 @@
       "ioc_recall": 0.667,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5009
+      "ms": 5045
     },
     {
       "id": "rws_079_apt29_(wmi)_v2",
@@ -4178,7 +4177,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 8069
+      "ms": 8170
     },
     {
       "id": "rws_080_amadey_v2",
@@ -4231,7 +4230,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 5158
+      "ms": 5223
     },
     {
       "id": "rws_081_nanocore_rat_v2",
@@ -4281,7 +4280,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 5566
+      "ms": 5631
     },
     {
       "id": "rws_082_smokeloader_v2",
@@ -4333,7 +4332,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 65
+      "ms": 138
     },
     {
       "id": "rws_083_trickbot_v2",
@@ -4386,7 +4385,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 73
+      "ms": 140
     },
     {
       "id": "rws_084_latrodectus_v2",
@@ -4429,7 +4428,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 23
+      "ms": 77
     },
     {
       "id": "rws_085_cactus_ransomware_v2",
@@ -4448,14 +4447,12 @@
         "js-reconstruct",
         "url-decode",
         "xor-brute",
-        "powershell-backtick-normalize",
         "cmd-runtime-reconstruct",
         "xor-brute",
-        "powershell-backtick-normalize",
-        "cmd-runtime-reconstruct",
-        "crypto-detect"
+        "crypto-detect",
+        "ioc-extract"
       ],
-      "output_head": "}bsa+8\\@LbSARSn\\dU\"AC=\\VVIA,THEtTPJ}LjY/@gVDLLuJ}QM?tTM>DmRd2c5flPc@ZoGjgZ[KAC.-(nXTMAnduUEAxTFY->ULOj4MC;XYN1zKo}wumBt]EvXu G obJnpC@EIYYBXv@RU[llC6TFwFXHGNOVqnb\"CzU)s?~wH\\JHExEPqAG8bEXRwy?HSWcTB]hTq\u2026",
+      "output_head": "nuri+4LZL\u007f]EMMX@IJT1'B[>g[GMMAQ.PO_|AGPrQdM2LiZZEWr]sAM.nO[#Ij[u3bb0zqBaETp@wiFFDBE >3k\\M_SDnpAcMDJiEXE,/T\\Gl2iNE$PW\\5s[gprhtjEtTPoV`2S*di_ovQEEAEECE}RJL]k~Z1X\\oSQETDZEgnr6FaT/v5l}AHXNQBeULoBX>bIRUz~,\u2026",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -4479,8 +4476,8 @@
       "ioc_total": 0,
       "ioc_recall": null,
       "undecoded": false,
-      "marker_hit": false,
-      "ms": 6161
+      "marker_hit": true,
+      "ms": 5487
     },
     {
       "id": "rws_086_blackcat_-_alphv_v2",
@@ -4499,9 +4496,10 @@
       "chain": [
         "xor-brute",
         "powershell-backtick-normalize",
+        "cmd-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "eeeqp ja~w~fcipt24Q+?\\msbi=Run@B@IPpplaulqxon *-fKUMzQ\\XzP{M0YLX<PEM1ILX=\\UZ2c\\Xtf{M0g\\X?PEY2QbX?T{M1I\\X9\\UMzM\\XdWUM3c\\XwPEO3cbXeaEO1YOX=\\UN0YOX<TUM3Ar[fWkY2grX>T{N1krXd_{N1U\\X?P{N0Er[=PkN0Er[>T{N1Ur[\u2026",
+      "output_head": "|sybl+{agw~hciab7)M.?Jxyt|z!YdnYB@GPpazdhptxyc+3;zXIFkQEXz^{M!OIE UE[<BUN!OIQ#cEXth{M!qYE#UEO?Z{N#GgF IEX9RUMk[YExRU[>hENkCYD\"c{XeoEO OJE!YUX=RVN GIF\"Ak[fYkY#qwE\"Q{X<kNxLgE UEX?^{N!SwF!UkX=NkM\"GgE Uk[\u2026",
       "matched_mitre": [
         "T1027"
       ],
@@ -4526,7 +4524,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 2682
+      "ms": 2853
     },
     {
       "id": "rws_087_ghostrat_v2",
@@ -4569,7 +4567,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 12
+      "ms": 64
     },
     {
       "id": "rws_088_mimikatz_(lsass)_v2",
@@ -4614,7 +4612,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 38
+      "ms": 100
     },
     {
       "id": "rws_089_apt10_-_menupass_v2",
@@ -4660,7 +4658,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 14
+      "ms": 65
     },
     {
       "id": "rws_090_apt41_(bits)_v2",
@@ -4711,7 +4709,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 92
+      "ms": 173
     },
     {
       "id": "rws_091_icedid_(dll_main)_v2",
@@ -4761,7 +4759,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4011
+      "ms": 4063
     },
     {
       "id": "rws_092_avoslocker_v2",
@@ -4813,7 +4811,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 5961
+      "ms": 5831
     },
     {
       "id": "rws_093_apt35_-_charming_kitten_v2",
@@ -4860,7 +4858,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 41
+      "ms": 101
     },
     {
       "id": "rws_094_apt-c-36_(colombia)_v2",
@@ -4905,7 +4903,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 59
+      "ms": 79
     },
     {
       "id": "rws_095_play_ransomware_v2",
@@ -4958,7 +4956,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 5345
+      "ms": 5374
     },
     {
       "id": "rws_096_apt29_(bitsadmin)_v2",
@@ -5005,7 +5003,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5203
+      "ms": 5218
     },
     {
       "id": "rws_097_oilrig_-_apt34_v2",
@@ -5054,7 +5052,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3150
+      "ms": 3215
     },
     {
       "id": "rws_098_lockbit_(sam_dump)_v2",
@@ -5103,7 +5101,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5628
+      "ms": 5719
     },
     {
       "id": "rws_099_apt38_-_lazarus_v2",
@@ -5148,7 +5146,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 30
+      "ms": 86
     },
     {
       "id": "rws_100_atomicwallet_stealer_(macos)_v2",
@@ -5169,11 +5167,11 @@
         "base64-decode",
         "utf16le-or-utf8-decode",
         "base64-decode",
-        "powershell-backtick-normalize",
         "xor-brute",
+        "powershell-backtick-normalize",
         "crypto-detect"
       ],
-      "output_head": "Fv q\u00c4\u00a9+,o\u00e9 \u008bqs\u00a86a\u00e3Ht4\u00e5\u00a6)\u00ab\u00dc#;d\u00e8\u00e0)]e{ \u00f6\u00a9-X4b[g!\u00adL\u00b5\u0092t(\u00a5h\u00c1\u009b;b\u009fp\u00a4/\u00ec#|\u00fb$\u00bb@*\u00b4\u00a8#\u00c6 \rho\u00bcTa\u00ab^\u00f46t{\u00e9\u009cHandll \u009f\u00fb3e\u00d05g\u00d1 \u00e2\u00e7'\u00fe\u00a4\r`\u00a1\u00e0/5d\u009dt2z=%\u00eeH\u00e0n\u00e4 =eC",
+      "output_head": "F\u00a4a\u009f\u00c4\u00a9+,\u00bd\u00a8\u00ce\u008bqs\u00a8\u00e4 \rHt4\u00e5thE\u00dc#;d:\u00a1\u00c7]e{ $\u00e8\u00c3X4b[\u00b5CL\u00b5\u0092t\u00fa\u00e4\u0086\u00c1\u009b;bM1J/\u00ec#|)eU@*\u00b4\u00a8\u00f1\u0087\u00ce\rho\u00bc\u0086 E^\u00f46t\u00a9\u00a8rHand\u00be-\u00ce\u009f\u00fb3e\u0002t\u0089\u00d1 \u00e2\u00e7\u00f5\u00bfJ\r`\u00a1\u00e0\u00fdt\u008a\u009dt2z\u00efl\n\u00f5,\u00ff\u0081\u00b5\u00a3V\u0081k",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -5196,7 +5194,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 6164
+      "ms": 4904
     },
     {
       "id": "rws_101_apt27_-_emissary_panda_v2",
@@ -5245,7 +5243,7 @@
       "ioc_recall": 1.0,
       "undecoded": true,
       "marker_hit": false,
-      "ms": 5885
+      "ms": 5976
     },
     {
       "id": "rws_102_vice_society_v2",
@@ -5294,7 +5292,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5633
+      "ms": 5726
     },
     {
       "id": "rws_103_gootloader_v2",
@@ -5347,7 +5345,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 118
+      "ms": 202
     },
     {
       "id": "rws_104_rhadamanthys_v2",
@@ -5390,7 +5388,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 27
+      "ms": 82
     },
     {
       "id": "rws_105_guloader_v2",
@@ -5409,11 +5407,10 @@
         "js-reconstruct",
         "url-decode",
         "xor-brute",
-        "powershell-backtick-normalize",
         "cmd-runtime-reconstruct",
         "crypto-detect"
       ],
-      "output_head": "fexe<)PWKsG[EBCeZWaD MXtAiM\\ <NFmcCIMjOANDPF)~N>2|ZAbKWxGZkJLsCQGK<A=MMbFBO#uMAYdjMLR>f[H=p>{yW;EyV\"KCqVIE{:xLa _NAdIEx;BcbFPqGXZ\"}QNvZESNtUDL\\lYUy[aF>` zLp]Y\"SzAe{}{dw:NVSK@tI LAs;Z#_KE[F.> ",
+      "output_head": "gka|']CTPgSEI7BHHGR\"6>\\j@gTE;H]EvwWWA\u0003FXXWSE?\rJ 3PeC{5qHLlSDg#EjHPRD]OE#LnT{]6\\ nYUGh\u0003DUD-eXNt zwN\"^\rE!PWeHE,r#n_b#I=EzHKa\"Y\u0017qEKeSFVKtHXeYFE\u0013JjTJUEw-Fz@uR lIsUfNZ!E\tE{zsb}lN]UH_TjEIEXe(Y I8AEG '9",
       "matched_mitre": [
         "T1218",
         "T1218.004"
@@ -5436,7 +5433,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 1177
+      "ms": 1256
     },
     {
       "id": "rws_106_bumblebee_(macos_variant)_v2",
@@ -5456,9 +5453,10 @@
         "xor-brute",
         "powershell-backtick-normalize",
         "cmd-runtime-reconstruct",
-        "url-decode"
+        "xor-brute",
+        "crypto-detect"
       ],
-      "output_head": "|sybh*{agwziciab3(M.?Jdyyt|z%XdnYBDFPpaziptxyg*3;zXMGkQEX~_{M!OMD UE[8CUN#GcS#E{XbPUM\"WsGzR{L;KkN#CcG IEXa\\kN!ONDyZkO;O#N{DsS#g{X9_EN#ScD}RUX9_EN#ucD!Ik[;_{Z#O]DxZk[;GUN$[sG EEXeP{M O]D!UU[8_VN#C]G#Uk\u2026",
+      "output_head": "x\u0001dx2\u000enfu\u0013uob\u0019d#08!>H\reu\u007f\u0004|5@\u0011aX@-Z\\{\u0019|s~\u0004\u007fyuI92y![]e!BXl<qD\"6[^.%B[* _G >uI-5|Xp3_D!.e]t\"|L)(aG :u].9BXs?aG\"6X^w*lO),)Gx=eI-\u0017|X+<OG *u^s\"RX+<OG \fu^/9l[)<qS 6K^v*l[)$_G'\"e].5BXw3qD#6K^/%R[*<\\G :K]-%l[\u2026",
       "matched_mitre": [
         "T1027"
       ],
@@ -5483,7 +5481,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 3408
+      "ms": 9243
     },
     {
       "id": "rws_107_3cx_supply-chain_v2",
@@ -5525,7 +5523,7 @@
       "ioc_recall": 0.0,
       "undecoded": true,
       "marker_hit": false,
-      "ms": 2589
+      "ms": 2632
     },
     {
       "id": "rws_108_aws_cognito_abuse_v2",
@@ -5564,7 +5562,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 61
+      "ms": 130
     },
     {
       "id": "rws_109_gcp_sa_jwt_theft_v2",
@@ -5611,7 +5609,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 38
+      "ms": 91
     },
     {
       "id": "rws_110_apt29_(cognito+ps)_v2",
@@ -5663,7 +5661,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 144
+      "ms": 244
     },
     {
       "id": "rws_111_btlo_-_emotet_(base64+utf16le)_v2",
@@ -5718,7 +5716,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 12089
+      "ms": 12142
     },
     {
       "id": "rws_112_ps_string-concat_iex_v2",
@@ -5770,7 +5768,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 5178
+      "ms": 5246
     },
     {
       "id": "rws_113_ps_reversed-iex_v2",
@@ -5821,7 +5819,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 42
+      "ms": 101
     },
     {
       "id": "rws_114_ps_filler-char_obfuscation_v2",
@@ -5868,7 +5866,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": true,
-      "ms": 1120
+      "ms": 1167
     },
     {
       "id": "rws_115_ps_format-operator_iex_v2",
@@ -5890,12 +5888,10 @@
         "utf16le-or-utf8-decode",
         "hex-decode",
         "base64-decode",
-        "powershell-backtick-normalize",
         "xor-brute",
-        "powershell-backtick-normalize",
         "crypto-detect"
       ],
-      "output_head": "\u00b2 (\u00bb/\u00e7 d;A\u00ed\u00ad\u00a2 vys94l\u00ea\u00f9i\u00b1y\u00a4\u00b6y\u00eb>v$b\u009d\u00e9\u00e8\u0099\u00a1\u00a6Y\u00a7,\u00e8\u00a1k\u00c1\u00e5\u00ef\ba\u00eb\u00eb\u00af(. d\u00cfi.\u009f\u00a4\u00f4\u00ef/h\u00da4k\u00db$e\u00e06\u0092/kn\u00e0eG)\u00e8\u00f7\u00ec|\u00bb\u00a9.\u00a5b\u00a1\u00f9\u00e8\u009ad\u00f6\u00ed\u00ee\u00ac\u00ab\u00ac\u00a5})\u00f1\u00f3tx\u00f7,\u00a1\u00ec\u00e0d\u00a1\u00e7z\u00f04\u00ea/e\u00e9\u00e4\u00e3\u00d5and \u00e4\u0085\u00eb\u00a5 \u00adcMdv\u00b9\u00a0\u00a3d\u00ef5m\u00af{e\u00ea",
+      "output_head": "\u00fc\u00eb\u0094s j\u00a6]\u00f8\u008d-\u00ae\u0090 \u00f7<{\u00c8yh\u00a42\u00d5yv)0@(\u00f2\u00b6'P\u009dh\u00ad\u0091P\u00eb]\u00e9\u00e7TidLc\u00d6\u00cb\u00ad+\u00e8\u009d(\u00afel>$*\u00d1oH' \u00e5\\\r\u00a8\u0017\u00e4f\u00d2`\u00b7\u00d7'\u009a#\u00e4+\u008c\u0095 \u00f8\u00edjExe\u00ee\u00a6P\u00a1x\u00ad\u0092\u0095\u00bb\u00e9\u00a0g\u0017d\u00aa\u00f0\u00af\u00c80\u00ac\u00b4{\u00c5, \u00a9\u00e8\u0095\u00ec\u00e34;\u0088\" \u00e8o\u00dd \u0019\u00a1mV e\u00c0\u00e3Tm\u00a9-\u0086\u00d8\u00be\u00b6%/\u00e0\u00e0h\u00c8\u00eb\u0096\u00b8\u00a9*",
       "matched_mitre": [
         "T1027",
         "T1059",
@@ -5918,7 +5914,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 9936
+      "ms": 8477
     },
     {
       "id": "rws_116_ps_deflatestream+b64_v2",
@@ -5966,7 +5962,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 10829
+      "ms": 10938
     },
     {
       "id": "rws_117_ps_securestring_payload_v2",
@@ -6012,7 +6008,7 @@
       "ioc_recall": null,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 8286
+      "ms": 8378
     },
     {
       "id": "rws_118_ps_clickfix_chain_v2",
@@ -6062,7 +6058,7 @@
       "ioc_recall": 1.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 4670
+      "ms": 4787
     },
     {
       "id": "rws_119_ps_reflection.assembly.load_v2",
@@ -6111,7 +6107,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 9918
+      "ms": 9989
     },
     {
       "id": "rws_120_ps_empire_stager_(btlo_shape)_v2",
@@ -6137,7 +6133,7 @@
         "powershell-backtick-normalize",
         "crypto-detect"
       ],
-      "output_head": "u\u00ec\u0082\u00ae\u00e1\u00ee\u0093\u00e0\u008c\u00a0\u00a4d\u0096m\u0006?\u00a8>\u0093\u00e4\u008a\u0004\u00b4$XaF\u00fd!\u00ec%u\u00ff\u00b5\u00ae\u00ffpk\u00ce\u00f9\u00e1u$\u00a5@y\u0099\u00a4\u00ed\u00c6}#\u00a5hjv\u00f1\u00f9\u00e9\u00b8!\"q.\u00e8\u00e4w[-\u00a0\u00e18/\u00caq\u00e8\"\u00a4\u00a3D!n\u00ech_\u00b5\u00ee\u00a7l\u00ad\f\u00f5\u00ad\u0093il\u00d0\u00bdndl\u00b3\u00b4\u00b5\u00e7\u00ecqt;\u00e19\u009ch/\u00c6\u00fd \u00ff|*@5\u00fe\u00d6 \u00b5\u00a8\u00f9\u00a9\n\u00ad2:\u00ad\u00a9\u00ee\u00b9%\u00db\u00b0(\u008f\u00a4\u00b5;\u00f9+h\u00e0 \u00f6\u00f5\u00fe\u00fc\u00fci_\u00e5\u00af\u0005 c\u00b5y\u00ef\u00a5\u00a4#Qal\u00ed<h\bthe\u00a1m\u0003=\u00b9\u00f5ieXey\u0005\u00e9t\\\u00bd(2h,\u0003=\u2026",
+      "output_head": "m\u00f5h\u00b8\u00eek\u001f\u00a9s\u00a8-\u00ef\u001ddmg4\u00ab\u009e\u00e3\u00e6\u001c\u00bc\u00e1@x\u00ac\u00eb.i\u00a9<\u0000\u00bd't\u00fbb\u00a5\u00a1}\u00e0)\u00a2,xq\\\u00bc\u00f4,k, \u00e4#\u0089\u00f9pb3(I)\u00b2}\u00e9p75\u00a8$ 6 g\u00e7\u00a7(\u00ea\u00bb)\u00e7g\u00eba4\u00edr2a\u00aa`\u00ed\u00a5Vqu:\u00aba\u00e1\u00e0\u00faK\u00bdng\u00fa}P\u00b9\u00a5\te(\u00aa\u00e5(:d3\u00aa#\u00f1S\u00ac\u00fcW\u00f1 \u0081&;Q\u00f55{\u00b4\"\u00b7\u00a8 J\u00bc\u00ac\u00d1\u00ef$\u00edli\t\u00fdwww`4\u00bd3\u0090-d\u00d9a\u00e7`\u00bc:\u00bbwch\u00b0!\u00f7|\u00e1\u00ee*dhe%`db4}q\u00c0\u00f1m\u00b6\u00ab'\u00b7\u00e4e\u2026",
       "matched_mitre": [
         "T1027",
         "T1027.010",
@@ -6160,7 +6156,7 @@
       "ioc_recall": 0.0,
       "undecoded": false,
       "marker_hit": false,
-      "ms": 9583
+      "ms": 9840
     }
   ]
 }

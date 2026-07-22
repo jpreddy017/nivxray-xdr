@@ -254,10 +254,16 @@ export default function DashboardPage() {
   // the backend (`has_data`). When false the Dashboard renders "No Data
   // Available" tiles instead of "—" placeholders.
   const hasData        = golden?.has_data ?? (totalSamples != null && totalSamples > 0);
-  const categoryCoverage = golden?.category_coverage || {};
   const categoryEntries = useMemo(
-    () => Object.entries(categoryCoverage).sort((a, b) => a[0].localeCompare(b[0])),
-    [categoryCoverage],
+    () => {
+      // Feb-2026 · initialisation moved inside the memo so the identity
+      // of `categoryCoverage` is derived from `golden` alone (the only
+      // real dependency). Prevents a per-render new-object identity
+      // from busting the memo.
+      const coverage = golden?.category_coverage || {};
+      return Object.entries(coverage).sort((a, b) => a[0].localeCompare(b[0]));
+    },
+    [golden],
   );
 
   // ---- topic lists -------------------------------------------------

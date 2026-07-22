@@ -1,19 +1,25 @@
 """Phase 11.1 · Golden-Corpus Evidence-Graph coverage tests.
 
+CI wiring
+---------
+Marked `slow` — 88 samples × 3 parametric tests = 264 pipeline
+invocations. Default `pytest` runs (which use `-m "not slow"` from
+`pytest.ini`) SKIP these; a nightly full-gate run includes them via
+`pytest -m "slow or not slow"`.
+
 Acceptance criteria (user-approved plan):
     * Every Golden Corpus sample produces a **non-trivial** evidence graph
       (> 1 node — synthetic root + at least one real entity).
     * Every sample must be **integrity clean** (zero hard errors).
     * Corpus-wide statistics are surfaced so drift is observable.
-
-These tests are the Phase 11.1 acceptance gate. They must pass before
-Phase 11.2 (determinism) is admitted.
 """
 from __future__ import annotations
 
 from typing import Dict
 
 import pytest
+
+pytestmark = pytest.mark.slow
 
 from engine.evidence_graph_builder import build_evidence_graph_sidecar
 from engine.golden_corpus import GOLDEN_CORPUS

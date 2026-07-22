@@ -28,7 +28,12 @@ on:
 jobs:
   rc5-gates:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Feb-2026 · bumped from 10 → 20 to accommodate the growing corpus.
+    # `slow` tests (multi-pass corpus determinism, 88-sample parametric
+    # coverage) are excluded from the default gate below and run via a
+    # separate nightly workflow. The fast slice completes in ~30-60 s on
+    # a GitHub-hosted runner, so 20 min is generous headroom.
+    timeout-minutes: 20
 
     # Provide MongoDB for the API tests under tests/rc5/api/ which
     # exercise real FastAPI routes backed by motor/pymongo.
@@ -108,9 +113,14 @@ jobs:
         run: python -m pytest tests/rc5/unit/exec_graph/ -q --no-header
 
       # ─── Full RC5 suite in one shot (catches config drift) ─────────
-      - name: All RC5 tests
+      # Feb-2026 · `-m "not slow"` skips corpus-determinism (3× full
+      # corpus) + corpus-coverage (88 parametric samples × 3 tests).
+      # Those run in a nightly `rc5-gates-nightly.yml` job. Belt-and-
+      # braces even though `pytest.ini` addopts already excludes slow —
+      # explicit here so the intent is visible in the workflow file.
+      - name: All RC5 tests (fast slice)
         working-directory: backend
-        run: python -m pytest tests/rc5/ -q --no-header
+        run: python -m pytest tests/rc5/ -q --no-header -m "not slow"
 
       # ─── § 13 Kill-list — protects the deprecation contract ────────
       # Runs the two Python-based kill-list gates that check for NEW

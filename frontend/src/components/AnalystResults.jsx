@@ -143,6 +143,10 @@ const chip = (color, extra = {}) => ({
  * 1. Analysis Verdict
  * ------------------------------------------------------------------ */
 function VerdictPanel({ verdictCard }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `vc` is a
+  // per-render fallback; the useMemo below intentionally depends on
+  // `verdictCard` (its actual identity source), not on the fresh
+  // object literal that fires when `verdictCard` is null.
   const vc = verdictCard || {
     label: "Awaiting analysis",
     confidence: 0,

@@ -65,7 +65,8 @@ export default function KnowledgeBasePage() {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only load.
+  useEffect(() => { load(); }, []);
 
   const rebuild = async ({ synth = true } = {}) => {
     setRebuilding(true); setRebuildInfo(null); setError("");

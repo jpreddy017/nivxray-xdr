@@ -23,6 +23,9 @@ export function AuthProvider({ children }) {
       })
       .finally(() => setLoading(false));
     if (email && !user) setUser({ email });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
+    // effect: we bootstrap `user` from localStorage exactly once and let
+    // login/logout handlers manage subsequent transitions.
   }, []);
 
   const login = async (email, password) => {

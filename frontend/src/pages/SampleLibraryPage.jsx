@@ -34,6 +34,8 @@ export default function SampleLibraryPage() {
       setSamples(s.data); setDashboard(d.data);
     } catch (e) { setError(e?.response?.data?.detail || e.message); }
   };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `load` is
+  // stable within the component; only `user` / `filter` should re-trigger.
   useEffect(() => { if (user?.role === "admin") load(); }, [user, filter]);
 
   if (user?.role !== "admin") {

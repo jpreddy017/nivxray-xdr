@@ -285,6 +285,9 @@ export default function OutputView({
       setShowDiff(false);
       setShellcodeBannerDismissed(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only
+    // `shellcode?.family` matters here; a reference change to the outer
+    // `shellcode` object without a family flip is intentional no-op.
   }, [shellcode?.family]);
   const renderedBody = useMemo(() => {
     if (view === "hex") return toHexDump(output || "");
