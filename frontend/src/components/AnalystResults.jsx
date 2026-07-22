@@ -143,18 +143,20 @@ const chip = (color, extra = {}) => ({
  * 1. Analysis Verdict
  * ------------------------------------------------------------------ */
 function VerdictPanel({ verdictCard }) {
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `vc` is a
-  // per-render fallback; the useMemo below intentionally depends on
-  // `verdictCard` (its actual identity source), not on the fresh
-  // object literal that fires when `verdictCard` is null.
-  const vc = verdictCard || {
-    label: "Awaiting analysis",
-    confidence: 0,
-    risk_score: 0,
-    reason: "Run AUTO INVESTIGATE or DECODE to generate a verdict.",
-    indicators: [],
-    recommended_action: null,
-  };
+  // Wrap the fallback in useMemo so `vc` has a stable identity across
+  // renders when `verdictCard` is null — keeps downstream memo deps sane.
+  const vc = useMemo(
+    () =>
+      verdictCard || {
+        label: "Awaiting analysis",
+        confidence: 0,
+        risk_score: 0,
+        reason: "Run AUTO INVESTIGATE or DECODE to generate a verdict.",
+        indicators: [],
+        recommended_action: null,
+      },
+    [verdictCard],
+  );
   const label = vc.label || vc.verdict || "Unknown";
   const conf = Number.isFinite(vc.confidence) ? vc.confidence : 0;
   const risk = Number.isFinite(vc.risk_score) ? vc.risk_score : conf;
@@ -296,7 +298,10 @@ function VerdictPanel({ verdictCard }) {
  * 3. Chain Recipe
  * ------------------------------------------------------------------ */
 function ChainRecipePanel({ decodeTrace = [] }) {
-  const steps = Array.isArray(decodeTrace) ? decodeTrace : [];
+  const steps = useMemo(
+    () => (Array.isArray(decodeTrace) ? decodeTrace : []),
+    [decodeTrace],
+  );
   const copyBody = useMemo(
     () =>
       steps
@@ -378,7 +383,10 @@ function ChainRecipePanel({ decodeTrace = [] }) {
  * 4. MITRE
  * ------------------------------------------------------------------ */
 function MitrePanel({ mitre = [] }) {
-  const items = Array.isArray(mitre) ? mitre : [];
+  const items = useMemo(
+    () => (Array.isArray(mitre) ? mitre : []),
+    [mitre],
+  );
   const copyBody = useMemo(
     () => items.map((m) => `${m.id || ""}  ${m.technique || m.name || ""}`).join("\n"),
     [items],
@@ -602,9 +610,9 @@ function NetworkPanel({ iocs = {} }) {
  * 7. Behavior — LOLBAS + tradecraft + kill chain
  * ------------------------------------------------------------------ */
 function BehaviorPanel({ lolbas = [], tradecraft = [], killChain = [] }) {
-  const lb = Array.isArray(lolbas) ? lolbas : [];
-  const tc = Array.isArray(tradecraft) ? tradecraft : [];
-  const kc = Array.isArray(killChain) ? killChain : [];
+  const lb = useMemo(() => (Array.isArray(lolbas) ? lolbas : []), [lolbas]);
+  const tc = useMemo(() => (Array.isArray(tradecraft) ? tradecraft : []), [tradecraft]);
+  const kc = useMemo(() => (Array.isArray(killChain) ? killChain : []), [killChain]);
   const total = lb.length + tc.length + kc.length;
 
   const copyBody = useMemo(() => {

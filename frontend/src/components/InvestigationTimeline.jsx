@@ -150,9 +150,9 @@ export default function InvestigationTimeline({
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `load` is
-    // stable within this component's closure; re-running on scope /
-    // refreshKey / effectiveIid change is the exact intended semantic.
+  // `load` is stable within this component's closure; re-running on scope /
+  // refreshKey / effectiveIid change is the exact intended semantic.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveIid, refreshKey, showRecent]);
 
   return (

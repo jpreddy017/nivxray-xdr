@@ -13,7 +13,7 @@
  * Behavioural neutrality: zero verdict / scoring / analyst-visible
  * data changes. Pure visual layer.
  */
-import { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Header from "@/components/Header";
 import api from "@/lib/api";
 
@@ -211,6 +211,374 @@ const KpiCell = ({ label, value, sub, tone = "green", testId }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════
+// LatencyTrendChart — DetectFlow-style stacked-area trend chart.
+//
+// Renders REAL data returned by /api/rc5/golden/history:
+//   • Stacked area 1 (accent green) — p50 latency (ms)
+//   • Stacked area 2 (violet)       — p95 latency headroom (p95 - p50)
+//   • Overlay line (cyan)           — MITRE technique count on 2nd axis
+// Hover tooltip pins a vertical guide + reveals per-run metrics.
+//
+// All rendering is pure SVG (no chart library) to match the deterministic-
+// first / bundle-size posture and the existing DetectFlow glass aesthetic.
+// ═══════════════════════════════════════════════════════════════════
+const LatencyTrendChart = ({ history, testId = "latency-trend-chart" }) => {
+  const [hoverIdx, setHoverIdx] = useState(null);
+  const svgRef = React.useRef(null);
+
+  const pts = useMemo(
+    () => (Array.isArray(history) ? history : []),
+    [history],
+  );
+  const n = pts.length;
+
+  // Chart geometry
+  const W = 800;
+  const H = 220;
+  const PAD_L = 44;
+  const PAD_R = 40;
+  const PAD_T = 18;
+  const PAD_B = 30;
+  const innerW = W - PAD_L - PAD_R;
+  const innerH = H - PAD_T - PAD_B;
+
+  const { p95Max, mitreMax, path50, path95, mitrePath, xs, y50s, y95s, mitreYs } = useMemo(() => {
+    if (n === 0) {
+      return { p95Max: 1, mitreMax: 1, path50: "", path95: "",
+               mitrePath: "", xs: [], y50s: [], y95s: [], mitreYs: [] };
+    }
+    // Latency axis — pad max to give the top some breathing room.
+    const p95Values = pts.map(p => p.p95_ms || 0);
+    let p95Peak = Math.max(...p95Values, 0.001);
+    // Nudge the axis up 20 % so the top curve does not touch the ceiling.
+    p95Peak = p95Peak * 1.2;
+
+    const mitreValues = pts.map(p => p.mitre_technique_count || 0);
+    let mitrePeak = Math.max(...mitreValues, 1);
+    mitrePeak = Math.max(mitrePeak * 1.15, 1);
+
+    const xs_ = pts.map((_, i) =>
+      n === 1 ? PAD_L + innerW / 2 : PAD_L + (i * innerW) / (n - 1),
+    );
+    const y50s_ = pts.map(p => PAD_T + innerH - ((p.p50_ms || 0) / p95Peak) * innerH);
+    const y95s_ = pts.map(p => PAD_T + innerH - ((p.p95_ms || 0) / p95Peak) * innerH);
+    const mitreYs_ = pts.map(p =>
+      PAD_T + innerH - ((p.mitre_technique_count || 0) / mitrePeak) * innerH,
+    );
+
+    // Build area paths. p50 area: baseline (bottom) → curve → back down.
+    const linePath = (ys) =>
+      ys.map((y, i) => `${i === 0 ? "M" : "L"}${xs_[i].toFixed(2)},${y.toFixed(2)}`).join(" ");
+
+    const areaPath = (ys, baselineY) => {
+      if (!ys.length) return "";
+      const top = linePath(ys);
+      const bl = `L${xs_[xs_.length - 1].toFixed(2)},${baselineY} L${xs_[0].toFixed(2)},${baselineY} Z`;
+      return `${top} ${bl}`;
+    };
+
+    // The p50 area sits on the bottom axis; the p95 "headroom" area sits
+    // between the p50 curve and the p95 curve (rendered second so it's
+    // painted on top for a stacked look).
+    const baseline = PAD_T + innerH;
+    const p50Area = areaPath(y50s_, baseline);
+    // p95 headroom: top curve = y95, bottom curve = y50
+    const p95Top = linePath(y95s_);
+    const p95Bot = y50s_.slice().reverse().map((y, i) => {
+      const revIdx = y50s_.length - 1 - i;
+      return `L${xs_[revIdx].toFixed(2)},${y.toFixed(2)}`;
+    }).join(" ");
+    const p95Area = `${p95Top} ${p95Bot} Z`;
+
+    return {
+      p95Max: p95Peak,
+      mitreMax: mitrePeak,
+      path50: p50Area,
+      path95: p95Area,
+      mitrePath: linePath(mitreYs_),
+      xs: xs_,
+      y50s: y50s_,
+      y95s: y95s_,
+      mitreYs: mitreYs_,
+    };
+  }, [pts, n, innerH, innerW]);
+
+  const onMove = (e) => {
+    if (!svgRef.current || n === 0) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * W;
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < xs.length; i++) {
+      const d = Math.abs(xs[i] - px);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    setHoverIdx(bestIdx);
+  };
+  const onLeave = () => setHoverIdx(null);
+
+  const active = hoverIdx != null ? pts[hoverIdx] : null;
+  const activeTs = active?.ts ? active.ts.slice(0, 19).replace("T", " ") : null;
+
+  // Y-axis ticks (5 divisions)
+  const yTicks = useMemo(() => {
+    const div = 4;
+    return Array.from({ length: div + 1 }, (_, i) => {
+      const frac = i / div;
+      const y = PAD_T + innerH - frac * innerH;
+      const value = frac * p95Max;
+      return { y, value };
+    });
+  }, [p95Max, innerH]);
+
+  return (
+    <div data-testid={testId} style={{
+      marginTop: 22,
+      background: "linear-gradient(160deg, rgba(15,23,42,0.72), rgba(2,6,23,0.88))",
+      backdropFilter: "blur(18px) saturate(160%)",
+      border: "1px solid rgba(148,163,184,0.14)",
+      borderRadius: 12,
+      padding: "16px 20px",
+      position: "relative",
+      overflow: "hidden",
+      boxShadow: "0 6px 24px rgba(34,197,94,0.08), inset 0 1px 0 rgba(255,255,255,0.04)",
+    }}>
+      {/* Subtle grid backdrop — matches the DetectFlow panel style. */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none",
+        backgroundImage: "linear-gradient(rgba(148,163,184,0.04) 1px, transparent 1px), "
+                       + "linear-gradient(90deg, rgba(148,163,184,0.04) 1px, transparent 1px)",
+        backgroundSize: "40px 40px",
+        maskImage: "radial-gradient(circle at center, black 60%, transparent 95%)",
+        WebkitMaskImage: "radial-gradient(circle at center, black 60%, transparent 95%)",
+      }} />
+
+      {/* Header row */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: 8, position: "relative", zIndex: 2,
+      }}>
+        <div style={{
+          fontFamily: "JetBrains Mono, ui-monospace, monospace",
+          fontSize: 10, color: "rgba(148,163,184,0.75)",
+          letterSpacing: "0.18em", textTransform: "uppercase",
+        }}>
+          Latency &amp; MITRE Trend · Golden Corpus
+        </div>
+        <div style={{
+          display: "flex", gap: 14,
+          fontFamily: "JetBrains Mono, ui-monospace, monospace",
+          fontSize: 9, color: "rgba(148,163,184,0.7)",
+          letterSpacing: "0.12em", textTransform: "uppercase",
+        }}>
+          <LegendDot color="#22c55e" label="p50 ms" />
+          <LegendDot color="#8b5cf6" label="p95 headroom" />
+          <LegendDot color="#67e8f9" label="MITRE tech" dashed />
+          <span style={{ color: "rgba(148,163,184,0.5)" }}>
+            {n} run{n === 1 ? "" : "s"}
+          </span>
+        </div>
+      </div>
+
+      {n === 0 ? (
+        <div data-testid="latency-trend-empty" style={{
+          padding: "38px 12px",
+          textAlign: "center",
+          fontFamily: "JetBrains Mono, ui-monospace, monospace",
+          fontSize: 11, color: "rgba(148,163,184,0.55)",
+          fontStyle: "italic",
+        }}>
+          No historical runs yet · execute the Golden Corpus benchmark to populate
+        </div>
+      ) : (
+        <div style={{ position: "relative", zIndex: 2 }}>
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            width="100%" height={H}
+            data-testid="latency-trend-svg"
+            onMouseMove={onMove}
+            onMouseLeave={onLeave}
+            style={{ display: "block", cursor: n > 1 ? "crosshair" : "default" }}
+          >
+            <defs>
+              <linearGradient id="grad-p50" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%"  stopColor="#22c55e" stopOpacity="0.55" />
+                <stop offset="100%" stopColor="#22c55e" stopOpacity="0.02" />
+              </linearGradient>
+              <linearGradient id="grad-p95" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%"  stopColor="#8b5cf6" stopOpacity="0.42" />
+                <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.03" />
+              </linearGradient>
+            </defs>
+
+            {/* Y-grid + tick labels */}
+            {yTicks.map((t, i) => (
+              <g key={i}>
+                <line x1={PAD_L} x2={W - PAD_R} y1={t.y} y2={t.y}
+                      stroke="rgba(148,163,184,0.08)" strokeDasharray="2 4" />
+                <text x={PAD_L - 6} y={t.y + 3} textAnchor="end"
+                      style={{
+                        fontFamily: "JetBrains Mono, ui-monospace, monospace",
+                        fontSize: 9, fill: "rgba(148,163,184,0.5)",
+                      }}>
+                  {t.value < 1
+                    ? t.value.toFixed(2)
+                    : t.value < 10
+                    ? t.value.toFixed(1)
+                    : Math.round(t.value)}
+                </text>
+              </g>
+            ))}
+            {/* Axis label (left, ms) */}
+            <text x={PAD_L - 32} y={PAD_T + innerH / 2}
+                  transform={`rotate(-90 ${PAD_L - 32} ${PAD_T + innerH / 2})`}
+                  textAnchor="middle"
+                  style={{
+                    fontFamily: "JetBrains Mono, ui-monospace, monospace",
+                    fontSize: 9, fill: "rgba(148,163,184,0.6)",
+                    letterSpacing: "0.14em", textTransform: "uppercase",
+                  }}>
+              latency ms
+            </text>
+            {/* Axis label (right, MITRE) */}
+            <text x={W - PAD_R + 30} y={PAD_T + innerH / 2}
+                  transform={`rotate(90 ${W - PAD_R + 30} ${PAD_T + innerH / 2})`}
+                  textAnchor="middle"
+                  style={{
+                    fontFamily: "JetBrains Mono, ui-monospace, monospace",
+                    fontSize: 9, fill: "rgba(103,232,249,0.7)",
+                    letterSpacing: "0.14em", textTransform: "uppercase",
+                  }}>
+              mitre count · max {Math.round(mitreMax)}
+            </text>
+
+            {/* Areas — p95 headroom drawn first (violet, wider), then
+                p50 area over the top (green fill). */}
+            <path d={path95} fill="url(#grad-p95)" stroke="#8b5cf6"
+                  strokeOpacity="0.55" strokeWidth="1.1" />
+            <path d={path50} fill="url(#grad-p50)" stroke="#22c55e"
+                  strokeOpacity="0.85" strokeWidth="1.3"
+                  style={{ filter: "drop-shadow(0 0 4px rgba(34,197,94,0.35))" }} />
+
+            {/* MITRE overlay line (secondary axis · cyan · dashed) */}
+            <path d={mitrePath} fill="none" stroke="#67e8f9"
+                  strokeWidth="1.4" strokeDasharray="4 3"
+                  style={{ filter: "drop-shadow(0 0 4px rgba(103,232,249,0.4))" }} />
+
+            {/* Data-point dots */}
+            {xs.map((x, i) => (
+              <g key={i}>
+                <circle cx={x} cy={y95s[i]} r="2.8" fill="#8b5cf6"
+                        stroke="#0f172a" strokeWidth="1"
+                        style={{ filter: "drop-shadow(0 0 3px #8b5cf6)" }} />
+                <circle cx={x} cy={y50s[i]} r="2.6" fill="#22c55e"
+                        stroke="#0f172a" strokeWidth="1"
+                        style={{ filter: "drop-shadow(0 0 3px #22c55e)" }} />
+                <circle cx={x} cy={mitreYs[i]} r="2.2" fill="#67e8f9"
+                        stroke="#0f172a" strokeWidth="1" />
+              </g>
+            ))}
+
+            {/* Hover guide */}
+            {active && hoverIdx != null && (
+              <g pointerEvents="none">
+                <line x1={xs[hoverIdx]} x2={xs[hoverIdx]}
+                      y1={PAD_T} y2={PAD_T + innerH}
+                      stroke="rgba(103,232,249,0.55)" strokeWidth="1"
+                      strokeDasharray="3 3" />
+                <circle cx={xs[hoverIdx]} cy={y95s[hoverIdx]} r="4.2"
+                        fill="none" stroke="#8b5cf6" strokeWidth="1.4"
+                        style={{ filter: "drop-shadow(0 0 6px #8b5cf6)" }} />
+                <circle cx={xs[hoverIdx]} cy={y50s[hoverIdx]} r="4"
+                        fill="none" stroke="#22c55e" strokeWidth="1.4"
+                        style={{ filter: "drop-shadow(0 0 6px #22c55e)" }} />
+              </g>
+            )}
+
+            {/* X-axis min / max tick labels */}
+            {n > 0 && (
+              <>
+                <text x={xs[0]} y={PAD_T + innerH + 16}
+                      textAnchor="start"
+                      style={{
+                        fontFamily: "JetBrains Mono, ui-monospace, monospace",
+                        fontSize: 9, fill: "rgba(148,163,184,0.5)",
+                      }}>
+                  {pts[0]?.ts ? pts[0].ts.slice(0, 10) : ""}
+                </text>
+                <text x={xs[xs.length - 1]} y={PAD_T + innerH + 16}
+                      textAnchor="end"
+                      style={{
+                        fontFamily: "JetBrains Mono, ui-monospace, monospace",
+                        fontSize: 9, fill: "rgba(148,163,184,0.5)",
+                      }}>
+                  {pts[pts.length - 1]?.ts ? pts[pts.length - 1].ts.slice(0, 10) : ""}
+                </text>
+              </>
+            )}
+          </svg>
+
+          {/* Hover tooltip (rendered as HTML to inherit theme fonts) */}
+          {active && (
+            <div data-testid="latency-trend-tooltip" style={{
+              position: "absolute", top: 6, right: 8,
+              padding: "8px 12px",
+              background: "rgba(2,6,23,0.92)",
+              border: "1px solid rgba(103,232,249,0.35)",
+              borderRadius: 6,
+              fontFamily: "JetBrains Mono, ui-monospace, monospace",
+              fontSize: 10, lineHeight: 1.5,
+              color: "rgba(203,213,225,0.92)",
+              boxShadow: "0 4px 18px rgba(2,6,23,0.6)",
+              pointerEvents: "none",
+              minWidth: 200,
+            }}>
+              <div style={{ color: "rgba(103,232,249,0.85)",
+                            letterSpacing: "0.12em", textTransform: "uppercase",
+                            fontSize: 9, marginBottom: 4 }}>
+                {activeTs}
+              </div>
+              <TooltipRow color="#22c55e" label="p50" value={`${(active.p50_ms || 0).toFixed(2)} ms`} />
+              <TooltipRow color="#8b5cf6" label="p95" value={`${(active.p95_ms || 0).toFixed(2)} ms`} />
+              <TooltipRow color="#67e8f9" label="MITRE" value={active.mitre_technique_count ?? 0} />
+              <TooltipRow color="#86efac" label="pass" value={`${active.passed}/${active.total}`} />
+              {active.regression_count > 0 && (
+                <TooltipRow color="#fca5a5" label="regress"
+                            value={active.regression_count} />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const LegendDot = ({ color, label, dashed }) => (
+  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+    <span style={{
+      display: "inline-block",
+      width: dashed ? 14 : 8, height: dashed ? 2 : 8,
+      borderRadius: dashed ? 0 : "50%",
+      background: dashed
+        ? `repeating-linear-gradient(90deg, ${color} 0 4px, transparent 4px 7px)`
+        : color,
+      boxShadow: dashed ? "none" : `0 0 6px ${color}`,
+    }} />
+    <span style={{ color: "rgba(203,213,225,0.75)" }}>{label}</span>
+  </span>
+);
+
+const TooltipRow = ({ color, label, value }) => (
+  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+    <span style={{ color, letterSpacing: "0.08em" }}>{label}</span>
+    <span style={{ color: "rgba(226,232,240,0.95)" }}>{value}</span>
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════════════
 // Main page
 // ═══════════════════════════════════════════════════════════════════
 export default function DashboardPage() {
@@ -218,15 +586,18 @@ export default function DashboardPage() {
   const [shadow, setShadow] = useState(null);
   const [gate, setGate] = useState(null);
   const [egMetrics, setEgMetrics] = useState(null);
+  const [history, setHistory] = useState([]);
 
   const load = useCallback(async () => {
-    const [g, s, gt, eg] = await Promise.all([
+    const [g, s, gt, eg, h] = await Promise.all([
       api.get("/rc5/golden/summary").catch(() => ({ data: null })),
       api.get("/rc5/shadow/status").catch(() => ({ data: null })),
       api.get("/rc5/shadow/gate").catch(() => ({ data: null })),
       api.get("/rc5/evidence-graph/metrics").catch(() => ({ data: null })),
+      api.get("/rc5/golden/history?limit=60").catch(() => ({ data: [] })),
     ]);
     setGolden(g.data); setShadow(s.data); setGate(gt.data); setEgMetrics(eg.data);
+    setHistory(Array.isArray(h.data) ? h.data : []);
   }, []);
   useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, [load]);
 
@@ -432,6 +803,9 @@ export default function DashboardPage() {
                    value={egSuccess != null ? `${egSuccess}%` : "—"}
                    sub={`${egIntegErr} integrity err`} />
         </div>
+
+        {/* Latency & MITRE trend — Feb-2026 P1 · REAL data from /golden/history. */}
+        <LatencyTrendChart history={history} testId="latency-trend-chart" />
 
         {/* Category Coverage — populated in Feb-2026 data-integrity sprint. */}
         <div data-testid="category-coverage-panel" style={{

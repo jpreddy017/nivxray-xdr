@@ -38,10 +38,10 @@ export default function ThreatIntelPage() {
     setTotal(r.data.total);
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `loadItems`
-  // is stable; re-run only on filter changes below.
+  // `loadItems` is stable; re-run only on filter changes below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadItems(); }, [q, kind, source, severity]);
 
   if (!user) return <Navigate to="/login" replace />;

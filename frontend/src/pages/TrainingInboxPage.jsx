@@ -48,8 +48,8 @@ export default function TrainingInboxPage() {
     } finally { setBusy(false); }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `load` is
-  // stable; re-run only when `status` filter changes.
+  // `load` is stable; re-run only when `status` filter changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [status]);
 
   const runCrawl = async () => {
