@@ -129,3 +129,36 @@ async def test_report_empty_case_still_signs(_env_flags):
     # Executive summary should still exist though it'll say 0 events
     exec_sec = next(s for s in env.sections if s.id == "executive_summary")
     assert exec_sec.body.get("event_total") == 0
+
+
+@pytest.mark.asyncio
+async def test_report_pdf_is_deterministic(_env_flags):
+    """PDF bytes must be identical across two builds — reportlab
+    invariant=1 mode + envelope-sourced timestamps make this reliable."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from v2.report import build_report, render_pdf
+
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    env1 = await build_report(db, "case_dfir_bumblebee_akira_2026")
+    env2 = await build_report(db, "case_dfir_bumblebee_akira_2026")
+    pdf1 = render_pdf(env1)
+    pdf2 = render_pdf(env2)
+    assert pdf1 == pdf2, "PDF bytes differ between runs — determinism broken"
+    # Sanity — must start with the PDF magic bytes
+    assert pdf1.startswith(b"%PDF-"), "not a valid PDF"
+    assert len(pdf1) > 4000, f"PDF suspiciously small: {len(pdf1)} bytes"
+
+
+@pytest.mark.asyncio
+async def test_report_pdf_on_empty_case(_env_flags):
+    """Empty case must still produce a valid PDF."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from v2.report import build_report, render_pdf
+
+    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    db = client[os.environ["DB_NAME"]]
+    env = await build_report(db, "__no_such_case_for_pdf_test__")
+    pdf = render_pdf(env)
+    assert pdf.startswith(b"%PDF-")
+    assert len(pdf) > 1000

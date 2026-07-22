@@ -8,11 +8,11 @@ Deterministic: same case + same observations → identical JSON bytes.
 """
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 
 from deps import require_admin, db as _db
 from v2.flags import get as get_flag
-from v2.report import build_report, render_markdown
+from v2.report import build_report, render_markdown, render_pdf
 
 router = APIRouter(prefix="/v2/cases", tags=["v2-report"])
 
@@ -34,3 +34,21 @@ async def get_report_markdown(case_id: str, _: dict = Depends(require_admin)) ->
     _guard()
     env = await build_report(_db, case_id)
     return render_markdown(env)
+
+
+@router.get("/{case_id}/report.pdf")
+async def get_report_pdf(case_id: str, _: dict = Depends(require_admin)) -> Response:
+    """PDF export of the deterministic investigation report (R4 · PDF)."""
+    _guard()
+    env = await build_report(_db, case_id)
+    pdf_bytes = render_pdf(env)
+    filename = f"{case_id}.report.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Nivxray-Report-Sha256": env.signature.get("sha256", ""),
+            "X-Nivxray-Report-Schema": env.schema_version,
+        },
+    )

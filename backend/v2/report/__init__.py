@@ -19,9 +19,10 @@ from __future__ import annotations
 from .schema import ReportEnvelope, ReportSection, REPORT_SCHEMA_VERSION
 from .builder import build_report
 from .markdown import render_markdown
+from .pdf import render_pdf
 from .hashing import report_hash
 
 __all__ = [
     "ReportEnvelope", "ReportSection", "REPORT_SCHEMA_VERSION",
-    "build_report", "render_markdown", "report_hash",
+    "build_report", "render_markdown", "render_pdf", "report_hash",
 ]

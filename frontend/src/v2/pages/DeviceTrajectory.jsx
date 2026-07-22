@@ -397,7 +397,12 @@ export default function DeviceTrajectory() {
           {/* Row layout (left rail + track canvas) */}
           <div className="flex-1 flex overflow-auto">
             <ProcessRail rows={rows} selectedKey={selected ? processKeyOf(selected) : null}
-                         onPickRow={(r) => onPickEvent(r.events[0])} />
+                         onPickRow={(r) => onPickEvent(r.events[0])}
+                         onOpenAncestry={(key) => {
+                           // Strip the "bin:" prefix so the URL is human-friendly
+                           const iid = key.startsWith("bin:") ? key.slice(4) : key;
+                           navigate(`/v2/ancestry/${encodeURIComponent(caseId)}/${encodeURIComponent(iid)}`);
+                         }} />
 
             <div
               ref={canvasRef}
@@ -1032,7 +1037,7 @@ function Scrubber({ histogram, minTs, maxTs, frames }) {
 // ═══════════════════════════════════════════════════════════════════
 // Process left rail (one row per process)
 // ═══════════════════════════════════════════════════════════════════
-function ProcessRail({ rows, selectedKey, onPickRow }) {
+function ProcessRail({ rows, selectedKey, onPickRow, onOpenAncestry }) {
   return (
     <div className="shrink-0 border-r border-zinc-800 bg-zinc-950/60"
          style={{ width: LEFT_RAIL_W }}
@@ -1049,26 +1054,37 @@ function ProcessRail({ rows, selectedKey, onPickRow }) {
                    : r.worstVerdict === "suspicious" ? VERDICT.suspicious.color
                    : "#3F3F46";
           return (
-            <button key={r.key}
-              data-testid={`row-${r.key}`}
-              onClick={() => onPickRow(r)}
-              className={"w-full h-[34px] flex items-center gap-2 pl-3 pr-2 border-b border-zinc-900/70 " +
-                "text-right outline-none transition-colors duration-100 " +
-                (isSel ? "bg-amber-500/8" : "hover:bg-zinc-900/50")}
-              style={{ borderLeft: `2px solid ${vc}66` }}
-            >
-              <span className={"flex-1 truncate text-[11px] " + (isSel ? "text-amber-400" : "text-zinc-300")}
-                    style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                {r.label}
-              </span>
-              <span className="text-[9px] tracking-widest text-zinc-600 font-semibold">
-                [{r.type}]
-              </span>
-              <span className="text-[9px] text-zinc-500 tabular-nums w-6 text-right"
-                    style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                {r.events.length}
-              </span>
-            </button>
+            <div key={r.key}
+                 className={"group w-full h-[34px] flex items-center gap-2 pl-3 pr-1 border-b border-zinc-900/70 " +
+                            (isSel ? "bg-amber-500/8" : "hover:bg-zinc-900/50")}
+                 style={{ borderLeft: `2px solid ${vc}66` }}>
+              <button
+                data-testid={`row-${r.key}`}
+                onClick={() => onPickRow(r)}
+                className="flex-1 flex items-center gap-2 text-left outline-none">
+                <span className={"flex-1 truncate text-[11px] " + (isSel ? "text-amber-400" : "text-zinc-300")}
+                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {r.label}
+                </span>
+                <span className="text-[9px] tracking-widest text-zinc-600 font-semibold">
+                  [{r.type}]
+                </span>
+                <span className="text-[9px] text-zinc-500 tabular-nums w-6 text-right"
+                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {r.events.length}
+                </span>
+              </button>
+              <button
+                data-testid={`row-ancestry-${r.key}`}
+                title="Open ancestry graph"
+                onClick={(e) => { e.stopPropagation(); onOpenAncestry(r.key); }}
+                className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-amber-400
+                           w-5 h-5 flex items-center justify-center rounded-sm border border-zinc-800
+                           hover:border-amber-500/40 transition-all duration-150"
+              >
+                <ChevronRight size={11} />
+              </button>
+            </div>
           );
         })}
       </div>
@@ -1870,6 +1886,28 @@ function ReportModal({ caseId, onClose }) {
                        disabled:opacity-30"
           >
             ↓ .json
+          </button>
+          <button
+            data-testid="report-download-pdf"
+            onClick={async () => {
+              try {
+                const r = await api.get(
+                  `/v2/cases/${encodeURIComponent(caseId)}/report.pdf`,
+                  { responseType: "blob" },
+                );
+                const blob = new Blob([r.data], { type: "application/pdf" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = `${caseId}.report.pdf`; a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+              } catch (_) { /* auth or 503 — silently ignore */ }
+            }}
+            disabled={!json}
+            className="text-[10px] tracking-widest px-2.5 py-1 rounded-sm
+                       bg-amber-500 text-amber-950 hover:bg-amber-400 font-semibold
+                       transition-colors duration-150 disabled:opacity-30"
+          >
+            ↓ .pdf
           </button>
           <button
             data-testid="report-close"

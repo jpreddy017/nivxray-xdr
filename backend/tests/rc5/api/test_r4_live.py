@@ -1,8 +1,16 @@
-"""Live API tests for R4 Deterministic Investigation Report Generator."""
+"""Live API tests for R4 Deterministic Investigation Report Generator.
+
+Marked `slow` because it hits the EXTERNAL preview URL over HTTPS and
+therefore requires outbound network access — unavailable in the CI fast
+gate. Run explicitly with `-m slow` (nightly gate) or from a dev pod
+where the preview URL is reachable.
+"""
 import os
 import re
 import pytest
 import requests
+
+pytestmark = pytest.mark.slow
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://greeting-app-5782.preview.emergentagent.com").rstrip("/")
 CASE_ID = "case_dfir_bumblebee_akira_2026"
