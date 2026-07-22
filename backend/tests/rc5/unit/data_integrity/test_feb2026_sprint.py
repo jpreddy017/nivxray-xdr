@@ -74,6 +74,16 @@ class TestEmptyCorpus:
 # ─────────────────────────────────────────────────────────────────────
 # Benchmark cache — mtime invalidation + telemetry (Objective 4)
 # ─────────────────────────────────────────────────────────────────────
+# The `_load_cached_or_fresh()` path falls back to `run_and_report()`
+# — a full Real-World Stress corpus scan — when no cached
+# `REPORT_JSON` exists on disk. Local dev checkouts carry a warm
+# report so this class completes in ~0.13 s, but on cold CI runners
+# (fresh checkout, no artifact) each miss runs the full corpus and
+# blows past the per-test 60-s guard, tripping the pytest-timeout
+# thread-dump we saw on Feb-2026. Marked `slow` so the fast CI gate
+# excludes it via `-m "not slow"`; the nightly `slow or not slow`
+# gate still exercises the cache semantics end-to-end.
+@pytest.mark.slow
 class TestBenchmarkCache:
     def _reset(self):
         from routers.benchmark import _CACHE, _invalidate_cache
