@@ -24,6 +24,24 @@ from v2.flags import get as get_flag
 
 router = APIRouter(prefix="/v2/cases", tags=["v2-cases"])
 
+# Lazy index creation flag — set to True the first time any endpoint
+# in this router actually needs the v2 collections. Per Phase 3b:
+# indexes only materialise when the case-engine is genuinely used.
+_INDEXES_READY = False
+
+
+async def _lazy_ensure_indexes() -> None:
+    """Idempotently ensure v2 collection indexes exist on first use.
+
+    Never touches RC5 collections. Never runs when CASE_ENGINE flag
+    is disabled (the `_guard()` upstream already blocks that path)."""
+    global _INDEXES_READY
+    if _INDEXES_READY:
+        return
+    from v2.case_engine.store import ensure_indexes as _ei
+    await _ei(_db, force=True)   # `_guard()` proved CASE_ENGINE is at least SHADOW
+    _INDEXES_READY = True
+
 
 def _guard():
     if not get_flag("CASE_ENGINE").observable():
@@ -62,6 +80,7 @@ def _to_out(doc: dict[str, Any]) -> CaseOut:
 @router.post("", response_model=CaseOut)
 async def create_case(body: CaseCreate, user=Depends(require_admin)) -> Any:
     _guard()
+    await _lazy_ensure_indexes()
     coll = _db[COLLECTIONS["cases"]]
     doc = {
         "_id": f"case_{uuid.uuid4().hex}",
@@ -104,3 +123,53 @@ async def delete_case(case_id: str, _: dict = Depends(require_admin)) -> dict[st
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="case not found")
     return {"ok": True, "case_id": case_id, "status": "deleted"}
+
+
+# ─── Phase 3c · Observation ingestion ──────────────────────────────
+class ObservationIn(BaseModel):
+    text: str = Field(..., min_length=1, max_length=32_768)
+
+
+class ObservationOut(BaseModel):
+    ok: bool
+    case_id: str
+    observation_id: str | None
+    event_iid: str
+    cem_version: str
+
+
+@router.post("/{case_id}/observations", response_model=ObservationOut)
+async def ingest_observation(
+    case_id: str,
+    body: ObservationIn,
+    _: dict = Depends(require_admin),
+) -> Any:
+    """Shadow-mode observation ingestion.
+
+    Runs `observe() → persist()` for the supplied text against the
+    named case. Writes go ONLY to `v2_shadow_observations` — never
+    to any RC5 collection.
+    """
+    _guard()
+    if not get_flag("ADAPTERS").observable():
+        raise HTTPException(status_code=503, detail="v2 adapters disabled")
+    await _lazy_ensure_indexes()
+
+    # Confirm the case exists and isn't soft-deleted.
+    cases_coll = _db[COLLECTIONS["cases"]]
+    case = await cases_coll.find_one({"_id": case_id})
+    if not case or case.get("status") == "deleted":
+        raise HTTPException(status_code=404, detail="case not found")
+
+    from v2.shadow import observe, persist
+    event = observe(body.text, case_id=case_id)
+    if event is None:
+        raise HTTPException(status_code=500, detail="adapter produced no event")
+    obs_id = await persist(_db, event)
+    return ObservationOut(
+        ok=True,
+        case_id=case_id,
+        observation_id=obs_id,
+        event_iid=event.iid,
+        cem_version="v1",
+    )
