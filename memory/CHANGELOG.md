@@ -693,3 +693,34 @@ this reads as visual noise.
   14/14 checks passing, zero regressions. All existing data-testids
   preserved.
 
+
+## 2026-02-22 · Phase 11.3 + Cmd+K + Corpus Health + Entity Classifier UI (v1.5.8)
+
+- **Entity Classifier** (`engine/entity_classifier.py`): deterministic
+  dotted-quad classifier (ipv4 / windows_build / software_version /
+  generic_dotted_quad / unknown). Integrated into IOC extraction so
+  version literals and Windows builds are routed OUT of the IP bucket.
+  19 unit tests, byte-identical output.
+- **Correlation Engine** (`engine/correlation_engine.py`, Phase 11.3):
+  observational side-car with three reasoners (temporal spans,
+  dependency chains, contradictions). Zero verdict influence, pure
+  function. 9 unit tests including immutability + determinism.
+- **Backend endpoints**: POST /api/rc5/entities/classify,
+  /classify-token, /correlate; GET /kinds.
+- **CorpusHealthPill** (`components/CorpusHealthPill.jsx`): live-pulsing
+  green/amber chip next to the NIVXRAY wordmark. Polls /golden/summary
+  every 60 s; testid `corpus-health-pill` with data-gate attribute.
+- **QuickOpenPalette** (`components/QuickOpenPalette.jsx`): global
+  Spotlight-style command palette (Cmd+K / Ctrl+K). Real backend
+  queries against cases, samples, MITRE, training notes, batch runs,
+  documents. Fuzzy filter, recent-selections localStorage, arrow-key
+  navigation.
+- **UI polish**: BATTERY tab icon changed from Gauge to Battery
+  (unique from BENCHMARK); .nvx-btn class rewritten to match the
+  DetectFlow active-tab treatment (glowing green outline + pulsing
+  underline pseudo-element).
+- **Analyst Results** IocPanel: entity-classifier buckets now
+  colour-coded (windows_builds violet, software_versions cyan,
+  generic_dotted_quads amber) with an "ENTITY CLASSIFIER" pill.
+- **Testing**: 217 backend tests passing; testing_agent_v3_fork
+  iteration_34.json → all 9 checks green, zero regressions.
