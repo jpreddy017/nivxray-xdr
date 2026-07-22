@@ -250,6 +250,16 @@ export default function DashboardPage() {
   const egSampleCount  = egMetrics?.sample_count ?? 0;
   const egIntegErr     = egMetrics?.integrity_error_total ?? 0;
 
+  // Feb-2026 · Data-integrity sprint: honest empty-state signal from
+  // the backend (`has_data`). When false the Dashboard renders "No Data
+  // Available" tiles instead of "—" placeholders.
+  const hasData        = golden?.has_data ?? (totalSamples != null && totalSamples > 0);
+  const categoryCoverage = golden?.category_coverage || {};
+  const categoryEntries = useMemo(
+    () => Object.entries(categoryCoverage).sort((a, b) => a[0].localeCompare(b[0])),
+    [categoryCoverage],
+  );
+
   // ---- topic lists -------------------------------------------------
   const sources = useMemo(() => [
     { label: "analyst-inbox",   count: null },
@@ -415,6 +425,92 @@ export default function DashboardPage() {
                    label="Evidence Graph · Health"
                    value={egSuccess != null ? `${egSuccess}%` : "—"}
                    sub={`${egIntegErr} integrity err`} />
+        </div>
+
+        {/* Category Coverage — populated in Feb-2026 data-integrity sprint. */}
+        <div data-testid="category-coverage-panel" style={{
+          marginTop: 22,
+          background: "linear-gradient(160deg, rgba(15,23,42,0.72), rgba(2,6,23,0.88))",
+          border: "1px solid rgba(148,163,184,0.14)",
+          borderRadius: 12, padding: "16px 20px",
+          backdropFilter: "blur(12px)",
+        }}>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            marginBottom: 12,
+          }}>
+            <div style={{
+              fontFamily: "JetBrains Mono, ui-monospace, monospace",
+              fontSize: 10, color: "rgba(148,163,184,0.75)",
+              letterSpacing: "0.18em", textTransform: "uppercase",
+            }}>Category Coverage</div>
+            <div style={{
+              fontFamily: "JetBrains Mono, ui-monospace, monospace",
+              fontSize: 10, color: "rgba(148,163,184,0.6)",
+            }}>
+              {categoryEntries.length} categories · {mitreHits ?? 0} MITRE techniques
+            </div>
+          </div>
+          {hasData && categoryEntries.length > 0 ? (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+              gap: 8,
+            }}>
+              {categoryEntries.map(([cat, m]) => {
+                const rate = m.pass_rate || 0;
+                const color = rate >= 95 ? "#86efac" : rate >= 75 ? "#fcd34d" : "#fca5a5";
+                return (
+                  <div key={cat} data-testid={`category-${cat}`} style={{
+                    background: "rgba(15,23,42,0.55)",
+                    border: "1px solid rgba(148,163,184,0.10)",
+                    borderRadius: 8, padding: "10px 12px",
+                    fontFamily: "JetBrains Mono, ui-monospace, monospace",
+                  }}>
+                    <div style={{
+                      display: "flex", justifyContent: "space-between",
+                      alignItems: "baseline", gap: 8,
+                    }}>
+                      <span style={{
+                        color: "rgba(203,213,225,0.88)", fontSize: 11,
+                        overflow: "hidden", textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}>{cat}</span>
+                      <span style={{ color, fontWeight: 700, fontSize: 12 }}>
+                        {Math.round(rate)}%
+                      </span>
+                    </div>
+                    <div style={{
+                      marginTop: 5, height: 4, borderRadius: 2,
+                      background: "rgba(148,163,184,0.10)", overflow: "hidden",
+                    }}>
+                      <div style={{
+                        width: `${Math.max(0, Math.min(100, rate))}%`, height: "100%",
+                        background: color,
+                        boxShadow: `0 0 6px ${color}`,
+                      }} />
+                    </div>
+                    <div style={{
+                      marginTop: 4, fontSize: 9,
+                      color: "rgba(148,163,184,0.55)",
+                    }}>
+                      {m.passed}/{m.total} passing
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div data-testid="category-coverage-empty" style={{
+              padding: "24px 12px",
+              textAlign: "center",
+              fontFamily: "JetBrains Mono, ui-monospace, monospace",
+              fontSize: 11, color: "rgba(148,163,184,0.55)",
+              fontStyle: "italic",
+            }}>
+              No Data Available · run a Golden Corpus execution to populate
+            </div>
+          )}
         </div>
 
       </main>

@@ -2,6 +2,23 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02 · Data-Integrity Sprint (SHIPPED)
+
+**Objective:** eliminate all synthetic/stub metrics identified in the honest-gap audit. Every Dashboard/Benchmark number now traces back to a real deterministic execution.
+
+- **Category Coverage** — root cause: `/api/rc5/golden/summary` DROPPED the `category_coverage` field at the API layer. Now surfaced honestly (15 real categories · `{total, passed, pass_rate}` per category). Dashboard renders a per-category progress-bar grid. Empty state ("No Data Available") when history is missing.
+- **MITRE Technique Count** — root cause: never computed. Added `mitre_technique_ids` to `SampleResult` (populated in `_run_sample`) and aggregated to `mitre_technique_count` on `GoldenRunReport`. Deterministic sorted list. Current corpus emits **14 unique techniques**.
+- **Real Benchmark History** — `/api/rc5/golden/history` now includes `p50_ms`, `p95_ms`, `mean_ms`, `mitre_technique_count` per run and is returned in ascending time order for direct chart consumption. Frontend stubs removed / never re-introduced.
+- **Benchmark Cache Invalidation** — replaced the pure-TTL cache in `routers/benchmark.py` with a `(mtime_ns, corpus_len)` cache key. Auto-invalidates on `REPORT_JSON` regeneration or corpus change. New `GET /api/benchmark/cache/stats` surfaces `hits / misses / hit_rate / warm / age_s / key`. `/refresh` now explicitly invalidates before re-running.
+- **Frontend integration:**
+  - Dashboard now displays a Category Coverage panel with per-category bars, MITRE technique count in the header, and an explicit `No Data Available` state.
+  - Backend `has_data` boolean drives the empty-state UI honestly.
+- **Tests:** `tests/rc5/unit/data_integrity/test_feb2026_sprint.py` — 8 tests covering aggregation, empty corpus, cache miss/hit/invalidate/mtime-change, cache stats shape.
+- **Test suite:** 981 pass / 0 fail / 0 xfail (up from 973 · +8 · zero regressions). Golden Corpus 88/88 unchanged.
+- **API compatibility:** all existing fields preserved. New fields are additive — `category_coverage`, `latency`, `mitre_technique_count`, `mitre_technique_ids`, `has_data` are added; no field removed.
+
+
+
 ## 2026-02 · Priority 1-3 Sprint · Correctness + Training Inbox + Observability (SHIPPED)
 
 - **Parser:** `$env:VAR + '...'` hang fixed in `powershell_parser._parse_call_args`; anti-hang safeguard added.

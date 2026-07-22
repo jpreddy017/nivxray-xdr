@@ -255,6 +255,10 @@ class SampleResult(BaseModel):
     # engine.golden_corpus_taxonomy.CATEGORIES). Populated by
     # `_run_sample` via `category_for_sample_id`.
     category: str = "edge_case_regression"
+    # Feb-2026 · Data-integrity sprint: sorted, deterministic list of
+    # MITRE ATT&CK technique IDs observed on this sample. Enables an
+    # honest `mitre_technique_count` roll-up at report time.
+    mitre_technique_ids: List[str] = Field(default_factory=list)
 
 
 class GoldenRunReport(BaseModel):
@@ -277,6 +281,10 @@ class GoldenRunReport(BaseModel):
     # Enables honest reporting like "downloaders: 8/8 pass (100%)" or
     # "credential_access: 1/2 (50%)" instead of just an aggregate number.
     category_coverage: Dict[str, Dict[str, float]] = Field(default_factory=dict)
+    # Feb-2026 · Data-integrity sprint: unique count of MITRE ATT&CK
+    # technique IDs observed across the entire corpus this run.
+    mitre_technique_count: int = 0
+    mitre_technique_ids: List[str] = Field(default_factory=list)
     samples: List[SampleResult] = Field(default_factory=list)
 
 
@@ -346,6 +354,9 @@ def _run_sample(sample: Dict[str, Any]) -> SampleResult:
         # ── mitre check (superset)
         expected_mitre: Set[str] = set(expected.get("mitre") or [])
         got_mitre: Set[str] = {m.technique_id for m in mitre}
+        # Feb-2026 · record every observed technique id (sorted &
+        # deterministic) so the report can aggregate a unique count.
+        result.mitre_technique_ids = sorted(got_mitre)
         if expected_mitre:
             missing = expected_mitre - got_mitre
             result.mitre_ok = not missing
@@ -456,6 +467,14 @@ def run_corpus(
         newly_failing = sorted(prev_ok - cur_ok)
         regression_count = len(newly_failing)
 
+    # Feb-2026 · Data-integrity sprint: aggregate unique MITRE ATT&CK
+    # technique IDs across the entire corpus. Deterministic ordering.
+    _all_techniques: Set[str] = set()
+    for r in results:
+        _all_techniques.update(r.mitre_technique_ids or [])
+    mitre_technique_ids = sorted(_all_techniques)
+    mitre_technique_count = len(mitre_technique_ids)
+
     run_id = "g_" + hashlib.sha1(
         f"{ts.isoformat()}|{total}|{passed}".encode()
     ).hexdigest()[:12]
@@ -467,6 +486,8 @@ def run_corpus(
         newly_failing=newly_failing,
         coverage=coverage, accuracy=accuracy, latency=latency,
         category_coverage=category_coverage,
+        mitre_technique_count=mitre_technique_count,
+        mitre_technique_ids=mitre_technique_ids,
         samples=results,
     )
 

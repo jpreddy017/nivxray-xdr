@@ -48,13 +48,26 @@ async def golden_latest(_: dict = Depends(require_admin)) -> Dict[str, Any]:
 
 @router.get("/golden/summary")
 async def golden_summary(_: dict = Depends(require_admin)) -> Dict[str, Any]:
-    """Compact summary suitable for dashboard cards."""
+    """Compact summary suitable for dashboard cards.
+
+    Feb-2026 · Data-integrity sprint: `category_coverage`, `latency`,
+    `mitre_technique_count`, and `mitre_technique_ids` are now surfaced
+    honestly (previously omitted at the API layer). If no run exists,
+    empty containers are returned — the frontend treats these as
+    "No Data Available" states rather than displaying placeholders.
+    """
     report = await latest_run(db)
     if not report:
-        return {"total": 0, "passed": 0, "failed": 0, "pass_rate": 0.0,
-                "coverage": {}, "accuracy": {},
-                "regression_count": 0,
-                "newly_supported": [], "newly_failing": []}
+        return {
+            "total": 0, "passed": 0, "failed": 0, "pass_rate": 0.0,
+            "coverage": {}, "accuracy": {}, "latency": {},
+            "category_coverage": {},
+            "mitre_technique_count": 0,
+            "mitre_technique_ids": [],
+            "regression_count": 0,
+            "newly_supported": [], "newly_failing": [],
+            "has_data": False,
+        }
     return {
         "run_id": report.run_id,
         "ts": report.ts.isoformat(),
@@ -67,6 +80,11 @@ async def golden_summary(_: dict = Depends(require_admin)) -> Dict[str, Any]:
         "newly_failing": report.newly_failing,
         "coverage": report.coverage,
         "accuracy": report.accuracy,
+        "latency": report.latency,
+        "category_coverage": report.category_coverage,
+        "mitre_technique_count": report.mitre_technique_count,
+        "mitre_technique_ids": report.mitre_technique_ids,
+        "has_data": True,
     }
 
 
@@ -75,19 +93,33 @@ async def golden_history(
     limit: int = Query(default=20, ge=1, le=200),
     _: dict = Depends(require_admin),
 ) -> Any:
+    """Historical run snapshots for real trend charts.
+
+    Feb-2026 · Data-integrity sprint: now includes `latency` + MITRE
+    counts so the Dashboard can render REAL rolling trends instead of
+    the synthetic sine-wave stub. Returns entries in ascending time
+    order (oldest → newest) so a line chart plots left-to-right.
+    """
     cur = db[COLLECTION].find({}, sort=[("ts", -1)]).limit(limit)
     out = []
     async for d in cur:
         d.pop("_id", None)
+        latency = d.get("latency") or {}
         out.append({
             "run_id": d.get("run_id"),
             "ts": d.get("ts").isoformat() if d.get("ts") else None,
-            "total": d.get("total"),
-            "passed": d.get("passed"),
-            "failed": d.get("failed"),
-            "pass_rate": d.get("pass_rate"),
-            "regression_count": d.get("regression_count"),
+            "total": d.get("total") or 0,
+            "passed": d.get("passed") or 0,
+            "failed": d.get("failed") or 0,
+            "pass_rate": d.get("pass_rate") or 0.0,
+            "regression_count": d.get("regression_count") or 0,
+            "p50_ms": latency.get("p50_ms") or 0.0,
+            "p95_ms": latency.get("p95_ms") or 0.0,
+            "mean_ms": latency.get("mean_ms") or 0.0,
+            "mitre_technique_count": d.get("mitre_technique_count") or 0,
         })
+    # oldest → newest for direct consumption by chart libraries.
+    out.reverse()
     return out
 
 

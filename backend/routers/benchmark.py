@@ -32,27 +32,76 @@ from tests.real_world_stress_suite import (  # noqa: E402
 
 router = APIRouter(prefix="/benchmark", tags=["benchmark"])
 
-_CACHE: Dict[str, Any] = {"ts": 0.0, "payload": None}
-_CACHE_TTL_S = 15 * 60  # 15 minutes
+# Feb-2026 · Data-integrity sprint: automatic cache invalidation.
+# The cache is keyed on `(REPORT_JSON.mtime_ns, corpus_len)` so any
+# regeneration of the on-disk report OR change in the corpus in-memory
+# ledger auto-invalidates. TTL is a defense-in-depth outer bound.
+_CACHE: Dict[str, Any] = {
+    "key": None,          # (mtime_ns, corpus_len) tuple — or None
+    "ts": 0.0,
+    "payload": None,
+    "hits": 0,
+    "misses": 0,
+}
+_CACHE_TTL_S = 60 * 60    # 60 min hard ceiling; mtime is the real guard
+
+
+def _cache_key() -> tuple:
+    """Deterministic cache key: file mtime + corpus size. Any change to
+    the on-disk report OR the loaded corpus busts the cache."""
+    mtime = 0
+    if REPORT_JSON.exists():
+        try:
+            mtime = REPORT_JSON.stat().st_mtime_ns
+        except OSError:
+            mtime = 0
+    return (mtime, len(CORPUS))
+
+
+def _invalidate_cache() -> None:
+    """Force the next request to re-load. Called by /refresh."""
+    _CACHE["key"] = None
+    _CACHE["payload"] = None
+    _CACHE["ts"] = 0.0
 
 
 def _load_cached_or_fresh() -> Dict[str, Any]:
     now = time.time()
-    if _CACHE["payload"] and (now - _CACHE["ts"] < _CACHE_TTL_S):
+    key = _cache_key()
+    hit = (
+        _CACHE["payload"] is not None
+        and _CACHE["key"] == key
+        and (now - _CACHE["ts"] < _CACHE_TTL_S)
+    )
+    if hit:
+        _CACHE["hits"] += 1
         return _CACHE["payload"]
+    _CACHE["misses"] += 1
     # Prefer on-disk report over a fresh run — the pytest CI writes it.
+    payload: Optional[Dict[str, Any]] = None
     if REPORT_JSON.exists():
         try:
             payload = json.loads(REPORT_JSON.read_text(encoding="utf-8"))
-            _CACHE["payload"] = payload
-            _CACHE["ts"] = now
-            return payload
         except Exception:
-            pass
-    payload = run_and_report()
+            payload = None
+    if payload is None:
+        payload = run_and_report()
     _CACHE["payload"] = payload
     _CACHE["ts"] = now
+    _CACHE["key"] = key
     return payload
+
+
+def cache_stats() -> Dict[str, Any]:
+    total = _CACHE["hits"] + _CACHE["misses"]
+    return {
+        "hits": _CACHE["hits"],
+        "misses": _CACHE["misses"],
+        "hit_rate": round(_CACHE["hits"] / total, 4) if total else 0.0,
+        "warm": _CACHE["payload"] is not None,
+        "age_s": round(time.time() - _CACHE["ts"], 2) if _CACHE["ts"] else None,
+        "key": _CACHE["key"],
+    }
 
 
 @router.get("/real-world")
@@ -122,6 +171,7 @@ async def download_corpus():
 @router.post("/refresh")
 async def refresh_and_rerun():
     """Runs the corpus feed refresh + re-executes the suite. Bypasses cache."""
+    _invalidate_cache()
     try:
         from corpus_refresh import refresh_once
         refresh = await refresh_once()
@@ -130,7 +180,14 @@ async def refresh_and_rerun():
     payload = run_and_report()
     _CACHE["payload"] = payload
     _CACHE["ts"] = time.time()
+    _CACHE["key"] = _cache_key()
     return {
         "refresh": refresh,
         "summary": payload["summary"],
     }
+
+
+@router.get("/cache/stats")
+async def get_cache_stats():
+    """Cache hit/miss telemetry for the benchmark endpoint (public)."""
+    return cache_stats()

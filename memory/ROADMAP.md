@@ -3,6 +3,18 @@
 **Baseline (frozen):** RC2.3 Stable, tagged `v1.0.0-RC2.3` on GitHub · 24/31 chain-complete (77.4%) · 0 FP-IOCs · deployed to `nivxray.nivxforge.com`
 
 
+
+---
+## ✅ RETIRED — Feb-2026 Data-Integrity Sprint
+
+- ✅ Category Coverage returns real per-category `{total, passed, pass_rate}` (15 categories in current corpus).
+- ✅ MITRE Technique Count deterministic + populated (14 unique techniques observed).
+- ✅ Real benchmark history exposed on `/api/rc5/golden/history` with `p50_ms`, `p95_ms`, `mean_ms`, `mitre_technique_count` per run. All synthetic sine-wave stubs removed.
+- ✅ Benchmark cache switched to `(mtime_ns, corpus_len)` key; auto-invalidates on corpus/report change. New `/api/benchmark/cache/stats` for hit/miss telemetry.
+- ✅ Dashboard renders Category Coverage panel + explicit "No Data Available" empty state.
+- ✅ 981 tests · 0 fail · Golden Corpus 88/88 unchanged.
+
+
 ---
 ## 🚀 Frontend Performance Sprint — Phase 2 (Feb 2026 · SHIPPED to preview)
 
