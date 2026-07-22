@@ -3,6 +3,41 @@
 Chronological record of significant releases (newest first).
 
 
+## 2026-02-22 · R1.2 · Process Ancestry Panel + R4 PDF Export (SHIPPED)
+
+**R1.2 · Process Ancestry Panel**
+- New page `/v2/ancestry/:caseId/:processIid` (Amber-on-Graphite waterfall)
+- Endpoint `GET /api/v2/cases/{id}/ancestry/process/{iid}` — accepts bare
+  binary name (`cmd.exe`) or full iid, returns collapsed spawn-graph with
+  role tags (ancestor / root / descendant), verdict rollup per node,
+  MITRE aggregation, and per-node event lists
+- Reuses `v2.trajectory.build_from_observations` — same source of truth
+  as Device Trajectory + R4 Report
+- Chevron launcher (`row-ancestry-<key>`) added to Device Trajectory
+  process rail — one-click drill-down per process
+- Right drawer with role legend (empty state) and per-node evidence view
+  with verdict + MITRE + 15-event list
+- Correct behaviour on single-node graphs (current shadow-adapter shape)
+  — graph structure fills in when real EDR telemetry lands via R2.5
+
+**R4 · PDF Export**
+- New endpoint `GET /api/v2/cases/{id}/report.pdf`
+- ReportLab-based renderer (`v2/report/pdf.py`) with `invariant=1` so
+  two runs on identical inputs produce byte-identical PDFs
+- Response headers expose the report's `X-Nivxray-Report-Sha256` and
+  `X-Nivxray-Report-Schema` for downstream verification
+- Amber-filled ↓.pdf button added to the Report Modal alongside COPY
+  JSON / COPY MD / ↓.md / ↓.json
+
+**Testing**
+- Fast pytest gate: 807/807 pass (2 new PDF + 3 new ancestry tests)
+- Live-URL test module (`test_r4_live.py`) marked `pytestmark = pytest.mark.slow`
+  so it stays out of the fast gate (was causing timeouts in CI)
+- Testing agent iteration_39: 100% pass · zero bugs · retest_needed=false
+- RC5 parity intact
+
+
+
 ## 2026-02-22 · R4 · Deterministic Investigation Report Generator (SHIPPED)
 
 **Flagship shared capability** powering both Mode A (SOAR automation) and
