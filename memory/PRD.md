@@ -6,6 +6,45 @@ obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
 
+## 2026-02-22 · Phase 0 · Baseline Freeze + Governance Directive (SHIPPED)
+
+**Motivation:** Lock RC5 as a frozen, immutable investigation core
+before any next-generation work begins. Every future PR must prove
+zero regression against this baseline.
+
+**Shipped:**
+- **`/app/memory/GOVERNANCE.md`** — 22-section directive: RC5
+  immutability contract, `/v2/` namespace isolation, versioned CEM,
+  provenance contract, artifact store / knowledge layer / replay
+  slots, 3-state feature flags, regression contract, Round-5
+  amendments (Public Interface Contract, CI schema check, Phase 0
+  exit criteria, baseline refresh policy).
+- **`/app/backend/baselines/rc5_baseline.json`** — 88-sample Golden
+  Corpus baseline: 100% pass · p50 0.188 ms · p95 0.493 ms · p99
+  0.715 ms · verdict/MITRE/LOLBIN/behavior 100% · per-sample map
+  hash `sample_map_hash`. `baseline_id=6259cfd2409f10d6`.
+- **`/app/backend/baselines/public_interface_contract.json`** — 61
+  frozen endpoints across auth / rc5 / decode / investigations /
+  documents / mitre / batch / training / admin. Additive-only policy.
+- **`/app/backend/v2/flags.py`** — 3-state feature-flag registry
+  (disabled | shadow | enabled) with 11 registered flags, all
+  DISABLED by default. `flags.all_disabled()` guarantees byte-
+  identical RC5 behaviour.
+- **`/app/backend/tests/test_regression_gate.py`** — 8-check gate:
+  Golden Corpus pass · per-sample map hash · accuracy floors ·
+  latency tolerances · PIC endpoint presence · rc5/parse response
+  schema · v2 flags disabled · engine determinism.
+
+**Verified:** 268/268 tests pass across regression-gate + locale +
+entity classifier + correlation + 150+ regression suites. Zero RC5
+behaviour change.
+
+**Guarantee going forward:** any PR that regresses RC5 breaks CI at
+`tests/test_regression_gate.py` — STOP-THE-LINE event per §Round-5
+amendment A21.
+
+
+
 ## 2026-02-22 · Verdict Panel Contradiction Alert · Cmd+K Fuzzy Ranking · Corpus Sparkline · Locale Auto-Test (v1.5.9 — SHIPPED)
 
 **Motivation:** Round-4 batch of analyst-productivity refinements

@@ -386,7 +386,94 @@ Any proposed change that touches RC5 immutable components (§2) or violates the 
 
 ---
 
-**Sign-off requested.**
+## Round-5 Amendment · Phase 0 Add-ons (Approved 2026-02-22)
 
-Reply "**Phase 0 approved**" to start baseline capture + regression-gate scaffolding.
-Reply with amendments to iterate before Phase 0 begins.
+### A18 · Public Interface Contract (PIC)
+
+A version-controlled JSON contract at
+**`/app/backend/baselines/public_interface_contract.json`** enumerates
+every currently-shipped REST endpoint that is FROZEN. Its rules:
+
+- **Additive is free**: introducing new endpoints (e.g. `/api/v2/*`)
+  does NOT require a PIC amendment.
+- **Any modification / removal** of an endpoint listed in the PIC
+  requires a governance amendment and a PIC `schema_version` bump.
+- Selected endpoints (currently `/api/rc5/parse`, `/api/rc5/golden/*`,
+  `/api/auth/me`) also freeze their top-level response keys.
+  Extending a response with new fields is allowed; renaming or
+  removing existing fields is not.
+
+Enforcement: `tests/test_regression_gate.py::test_public_interface_contract_endpoints_present`
++ `test_rc5_parse_response_schema`.
+
+### A19 · Three-State Feature Flags
+
+Amends §12. Flags now carry three states:
+
+- **DISABLED** — code path is off. Zero runtime cost. Byte-identical
+  RC5 behaviour required.
+- **SHADOW** — code path runs side-by-side with RC5 but MUST NOT
+  influence any output. Used for evidence collection and regression
+  measurement.
+- **ENABLED** — code path is authoritative. Only reached after the
+  shadow phase closes its regression gate.
+
+Implementation: `/app/backend/v2/flags.py` (registry) with env keys
+prefixed `NIVX_FLAG_<NAME>` accepting values `disabled | shadow |
+enabled` (and permissive aliases). `flags.all_disabled()` MUST return
+True in the CI test environment.
+
+Enforcement: `tests/test_regression_gate.py::test_all_v2_flags_disabled_by_default`.
+
+### A20 · API Schema Compatibility Check in CI
+
+Every PR runs the OpenAPI schema check embedded in the regression
+gate. The check asserts that every frozen endpoint still declares a
+`200` response (or the previously-declared success code). Future
+extension: diff the current OpenAPI JSON against a checked-in
+`baselines/openapi_snapshot.json` and fail on breaking changes
+(removed field, changed type, changed status code). The snapshot
+regenerator lives at `tests/tools/rebaseline.py` (governance-gated).
+
+Enforcement: `tests/test_regression_gate.py::test_rc5_parse_response_schema`
+(initial coverage; extended in Phase 1).
+
+### A21 · Phase 0 Exit Criteria
+
+Phase 0 is only signed off as complete when ALL of the following are
+green in a single pytest run:
+
+1. `test_golden_corpus_all_pass` — 100% Golden Corpus pass.
+2. `test_per_sample_verdicts_unchanged` — per-sample verdict / MITRE
+   / weighted-confidence map hash equals baseline.
+3. `test_accuracy_dimensions_not_regressed` — verdict / MITRE /
+   LOLBIN / behavior / overall pass rates all ≥ baseline.
+4. `test_latency_within_tolerance` — p50 / p95 / p99 within
+   configured multipliers.
+5. `test_public_interface_contract_endpoints_present` — all frozen
+   endpoints still registered.
+6. `test_rc5_parse_response_schema` — response schema documented.
+7. `test_all_v2_flags_disabled_by_default` — no flag leaks.
+8. `test_engine_determinism` — identical input twice → identical
+   fingerprint.
+
+Only after these 8 gates are locked green may Phase 1 (adapter
+skeleton + CEM v1 shell) begin. Any regression at any later phase
+that breaks any of these gates is a **STOP-THE-LINE** event.
+
+### A22 · Baseline Refresh Policy
+
+The baseline artefact `/app/backend/baselines/rc5_baseline.json` is
+NOT freely regeneratable. Rebuilding it requires:
+
+1. A governance-approved change explicitly authorising a new
+   baseline (recorded as an amendment here).
+2. Running `python tests/tools/rebaseline.py` (Phase 1 tool — to be
+   created).
+3. Bumping the baseline `schema_version` and recording the previous
+   `baseline_id` in the amendment history.
+
+Casual `pytest --regen` behaviour is FORBIDDEN.
+
+---
+
