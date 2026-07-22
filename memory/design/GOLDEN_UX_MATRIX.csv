@@ -1,0 +1,13 @@
+tool,task_id,task_name,clicks,time_seconds,ctx_switches,scroll_distance_px,zoom_operations,heuristic_root_process_id,heuristic_parent_child_follow,heuristic_selection_visible,heuristic_history_vs_active,heuristic_spatial_orientation,heuristic_recovery,heuristic_obvious_without_training,notes
+CiscoSecureEndpoint,T1,Find parent process of first malicious execution,,,,,,,,,,,,,
+CiscoSecureEndpoint,T2,Locate first malicious execution timestamp,,,,,,,,,,,,,
+CiscoSecureEndpoint,T3,Trace all spawned child processes,,,,,,,,,,,,,
+CiscoSecureEndpoint,T4,Follow all registry-key modifications,,,,,,,,,,,,,
+CiscoSecureEndpoint,T5,Inspect outbound network connections,,,,,,,,,,,,,
+CiscoSecureEndpoint,T6,Review detections and MITRE attribution,,,,,,,,,,,,,
+NivXRay,T1,Find parent process of first malicious execution,,,,,,,,,,,,,
+NivXRay,T2,Locate first malicious execution timestamp,,,,,,,,,,,,,
+NivXRay,T3,Trace all spawned child processes,,,,,,,,,,,,,
+NivXRay,T4,Follow all registry-key modifications,,,,,,,,,,,,,
+NivXRay,T5,Inspect outbound network connections,,,,,,,,,,,,,
+NivXRay,T6,Review detections and MITRE attribution,,,,,,,,,,,,,

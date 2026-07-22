@@ -527,23 +527,47 @@ Because the engine is new and non-trivial, and because **you cannot validate a U
 * Ship `react/InvestigationCanvas.tsx` with `LifelineLayer` + `EventLayer` only.
 * Green unit tests on viewport / layout math.
 * **Marquee multi-select included** (locked decision Q1).
-* **Feature Freeze Rule (hard):**
 
-  > No investigation feature may be added until the existing interaction model behaves correctly.
+**M1 · Definition of Done** (all must pass to open M1.5):
+* TypeScript compiles with **zero errors** and **zero `any`** in engine public API.
+* Canvas renders **5 000 entities** without dropping below 30 FPS during zoom.
+* Pan (click-and-drag) and zoom (Ctrl+wheel) are functional and clamped.
+* LifelineLayer + EventLayer render correctly on the synthetic 5 k dataset.
+* Unit tests pass on viewport clamp, anchor-preserving zoom, layout ordering, virtualization visible-set.
+* Feature-freeze rule honoured: no new investigation features.
 
-  In practice, during M1 through M3:
-  * ❌ No new MITRE badges, chips, or overlays.
-  * ❌ No new filter categories or dropdowns.
-  * ❌ No new side panels or tabs.
-  * ❌ No AI / summarisation widgets.
-  * ❌ No new visualisations or embellishments.
-  * ✅ Only work that makes the canvas feel professional is in scope.
+**Milestone 1.5 — Canvas Playground / Storybook** (new; runs after M1, before M2):
+* Add Storybook to the frontend workspace (`yarn add -D @storybook/react`).
+* One story per canvas layer / feature — each rendered in isolation with a synthetic dataset:
+  * `Playground / LifelineLayer` — 20 entities across 2 bands
+  * `Playground / EventLayer` — 500 events, mixed verdicts
+  * `Playground / RelationshipLayer` — parent-child spawn tree
+  * `Playground / SelectionLayer` — hover / focus / selected / dimmed states
+  * `Playground / ZoomLayer` — zoom presets + anchor-preserving math
+  * `Playground / ScrollbarLayer` — synthetic scrollbars driven by control panel
+  * `Playground / Minimap` — click / drag interactions
+  * `Playground / StateMachines` — every transition in `INTERACTION_STATE_MACHINES.md` fired by button click, so QA can visually verify the visual outcome matches the spec table
+* Each story has a **Regression** knob that triggers the `Regression Suite` for that layer (see §22).
+* Rationale: iterate on visual and interaction components independently, without running the full application. Catches regressions early. Doubles as living documentation.
+
+**M1.5 · Definition of Done**:
+* Every layer above has at least one story.
+* Every state in `INTERACTION_STATE_MACHINES.md` §1–§4 is triggerable via a Storybook control.
+* Storybook builds under **30 seconds** and is deployable as a static site (for review by non-engineers).
 
 **Milestone 2 — Interaction complete**:
 * Selection cascade + gentle auto-scroll.
 * Keyboard nav (every shortcut from `INTERACTION_STATE_MACHINES.md` §5).
-* Shift-select + context menu + minimap + scrollbars.
+* Shift-select + context menu + minimap + custom scrollbars.
 * Every state machine transition in `INTERACTION_STATE_MACHINES.md` implemented end-to-end.
+
+**M2 · Definition of Done**:
+* Every state transition in `INTERACTION_STATE_MACHINES.md` §5 is wired and passes an interaction test.
+* Keyboard navigation reaches every state (Idle → Hover → Focus → Selected → Pinned → Compared) without a pointer.
+* Multi-select via marquee AND Shift-click both work.
+* Right panel synchronises within **100 ms** of any selection change.
+* Zero interaction regressions vs Storybook baselines.
+* Feature-freeze rule still honoured.
 
 **Milestone 2.5 — Golden UX Validation** (now positioned to evaluate a *working* prototype):
 * Pick one canonical DFIR case (Bumblebee → AdaptixC2 → Akira).
@@ -604,6 +628,79 @@ Because the engine is new and non-trivial, and because **you cannot validate a U
 * Dev-mode FPS overlay (`Ctrl+Alt+D`).
 * Load-time budget: 100 k events in < 400 ms progressive chunks.
 * Any friction item bubbled up from M2.5 / M2.75 is addressed here before general perf work.
+
+**M3 · Definition of Done**:
+* **≥ 60 FPS** sustained during pan, zoom, marquee-drag on the 100 k event synthetic dataset.
+* Virtualization enabled — visible set never exceeds render budget (~2 000 nodes on-screen).
+* **No memory leaks** — heap flat within ±5 MB over a 30-minute interactive session.
+* Large cases (100 k events / 10 k entities) remain responsive to every interaction.
+* All M2.5 / M2.75 top-3 friction items closed.
+
+---
+
+## 21 · Feature Freeze Rule (locked, applies to M1 → M3)
+
+> No investigation feature may be added until the existing interaction model behaves correctly.
+
+In practice, during M1 through M3:
+* ❌ No new MITRE badges, chips, or overlays.
+* ❌ No new filter categories or dropdowns.
+* ❌ No new side panels or tabs.
+* ❌ No AI / summarisation widgets.
+* ❌ No new visualisations or embellishments.
+* ✅ Only work that makes the canvas feel professional is in scope.
+
+Feature growth resumes at M4 once the interaction model passes M3 DoD.
+
+---
+
+## 22 · Regression Suite
+
+After every milestone, an automated regression pass runs. Failures block milestone sign-off.
+
+**Suite (`/app/frontend/src/v2/canvas_engine/__tests__/`):**
+
+| # | Category              | Verifies |
+|---|-----------------------|----------|
+| R1 | Canvas rendering      | Fixed 5 k / 20 k / 100 k datasets → deterministic Konva-node snapshot |
+| R2 | Zoom behavior         | Anchor-preserving zoom math on 12 sample cursor positions × 4 scales |
+| R3 | Selection behavior    | Every transition in `INTERACTION_STATE_MACHINES.md` §5 fires the correct state on entity, event, and relation |
+| R4 | Auto-scroll           | Off-screen selection → viewport tween lands inside 60 px inset; on-screen selection → no camera move |
+| R5 | Minimap               | Click → viewport recentres · drag rectangle → viewport tracks |
+| R6 | Keyboard shortcuts    | Every key in `INTERACTION_STATE_MACHINES.md` §17 dispatches the correct intent |
+| R7 | Layout calculations   | Deterministic band + row ordering across expert-mode toggle |
+| R8 | Entity highlighting   | Selection cascade dims non-related entities AND brightens related ones (visual snapshot diff) |
+| R9 | Virtualization        | Visible set = entities/events intersecting viewport ± margin (no missing paint, no over-paint) |
+| R10 | Performance          | 5 k dataset renders < 1 s cold; 60 FPS during pan/zoom on 100 k dataset |
+| R11 | Data contract        | Round-trip `InvestigationEntity[]` through the engine preserves every field (`meta` opaque) |
+| R12 | Accessibility        | `aria-*` attributes match state; SR announcements fire on selection |
+
+Suite runs via `yarn test:canvas` and in CI on every PR touching `/canvas_engine/`. Milestone DoD requires **all 12 rows green**.
+
+---
+
+## 23 · Future Layout Capability (post-M6)
+
+Once the engine is stable across three timeline consumers, its next expansion is **multi-layout support**. The same `InvestigationEntity[]` data feeds different visualisations:
+
+```
+                    InvestigationEntity[]
+                            │
+       ┌────────────────────┼────────────────────┐
+       ▼                    ▼                    ▼
+  Timeline View        Graph View             Table View
+       │                    │                    │
+       ├─ Device            ├─ Attack            ├─ Events
+       ├─ Process           ├─ Identity          ├─ Artifacts
+       ├─ File              ├─ Network           ├─ Processes
+       └─ Registry          └─ Relationship      └─ Evidence
+```
+
+Each layout is a **projection** — Timeline maps `entity.lifetime` to X and `entity.band` to Y; Graph maps `relationships` to edges + force-directed layout; Table maps entity/event fields to columns. The engine adds a `layoutMode: "timeline" | "graph" | "table"` prop; consumers pick per view.
+
+Rule: **every layout consumes the same `InvestigationEntity[]`. No layout invents a parallel data shape.** New visualisations become one file (the layout projector) — the interaction model, selection cascade, minimap, keyboard nav, and regression suite come for free.
+
+Timeline layouts unlock at M4–M6. Graph and Table layouts unlock at M9+ (after all timeline consumers are stable).
 
 **Milestone 4 — Device Trajectory rebuild**:
 * Trajectory page becomes ~150 LOC (chrome only).
