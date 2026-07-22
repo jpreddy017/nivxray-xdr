@@ -89,6 +89,10 @@ The `core/` folder is **zero-React**. Any React front-end can drive the engine b
 
 ## 3 · Data Contracts (`types.ts`)
 
+The following types are the **stable rendering contract** for every current and future investigation view. Adapters (Device Trajectory, Process Ancestry, File Trajectory, Network Timeline, Identity Timeline, Attack Chain, Investigation Graph) MUST project their domain data into these exact shapes before handing to the engine. No view is allowed to invent its own primary object model.
+
+The umbrella type is `InvestigationEntity` — every entity, regardless of domain (process, file, url, user, registry key…), speaks this shape:
+
 ```ts
 export type EntityKind =
   | "process" | "binary" | "file" | "url" | "ip" | "domain"
@@ -96,16 +100,27 @@ export type EntityKind =
 
 export type Verdict = "benign" | "suspicious" | "malicious" | "blocked";
 
-export interface Entity {
-  entity_iid  : string;              // stable, immutable
-  kind        : EntityKind;
-  label       : string;              // display name; "Unknown Process" for unresolved
-  first_seen  : number | string;     // ms epoch or ISO
-  last_seen   : number | string;
-  worst_verdict: Verdict;
-  band        : string;              // grouping key ("System" | "Files & Network" | …)
-  provenance? : { source?: string; adapter?: string; rule_id?: string };
-  meta?       : Record<string, unknown>;
+export interface TimeRange { start: number | string; end: number | string; }
+
+// Every entity state defined in INTERACTION_STATE_MACHINES.md is enumerated
+// here. Renderers key their visual decisions off this field.
+export type VisualState =
+  | "idle" | "hover" | "focus" | "selected" | "pinned"
+  | "emphasized" | "dimmed" | "bookmarked" | "compared" | "terminated";
+
+// ── The stable rendering contract ────────────────────────────────────
+export interface InvestigationEntity {
+  id           : string;                 // stable, unique across the case
+  type         : EntityKind;
+  label        : string;                 // "cmd.exe" · never "proc_shadow_…"
+  lifetime     : TimeRange;              // for the lifeline
+  worstVerdict : Verdict;
+  band         : string;                 // grouping key
+  events       : InvestigationEvent[];   // attached to lifeline
+  relationships: Relationship[];         // outbound edges
+  visualState  : VisualState;            // engine-driven; see state machines
+  provenance?  : { source?: string; adapter?: string; rule_id?: string };
+  meta?        : Record<string, unknown>;
 }
 
 export type EventKind =
@@ -113,9 +128,9 @@ export type EventKind =
   | "network" | "file" | "registry"
   | "detect"  | "compromise" | "exploit" | "scan" | "restore" | "quarantine";
 
-export interface Event {
-  event_iid   : string;
-  entity_iid  : string;              // owning lifeline (must match an Entity)
+export interface InvestigationEvent {
+  id          : string;
+  entityId    : string;                  // owning lifeline
   ts          : number | string;
   kind        : EventKind;
   verdict     : Verdict;
@@ -124,39 +139,51 @@ export interface Event {
   confidence? : number;
   raw?        : Record<string, unknown>;
   provenance? : { rule_id?: string; artifact_iid?: string; adapter?: string };
+  visualState : VisualState;
 }
 
-export type RelationKind =
+export type RelationshipKind =
   | "spawn" | "load" | "write" | "read" | "connect"
   | "authenticate" | "impersonate" | "modify_reg" | "signal";
 
-export interface Relation {
-  from    : string;                  // entity_iid
-  to      : string;                  // entity_iid
-  ts?     : number | string;         // relation moment (optional)
-  kind    : RelationKind;
+export interface Relationship {
+  from    : string;                     // entityId
+  to      : string;                     // entityId
+  ts?     : number | string;
+  kind    : RelationshipKind;
   verdict?: Verdict;
   label?  : string;
   meta?   : Record<string, unknown>;
+  visualState: "idle" | "highlighted" | "dimmed";
 }
 
 export interface Viewport {
   offset : { x: number; y: number };
-  scale  : number;                    // 1.0 = 100%
-  size   : { w: number; h: number };  // pixel dims of the canvas element
+  scale  : number;
+  size   : { w: number; h: number };
 }
 
-export interface CanvasStore {           // owned by the engine
-  entities  : Entity[];
-  events    : Event[];
-  relations : Relation[];
-  selection : { entityIid?: string; eventIid?: string; multi?: string[] };
-  viewport  : Viewport;
-  timeWindow?: [number, number];       // scrubber-controlled
-  expertMode: boolean;
+export interface CanvasStore {
+  entities   : InvestigationEntity[];
+  events     : InvestigationEvent[];    // union of entity.events (indexed)
+  relationships: Relationship[];
+  selection  : { entityId?: string; eventId?: string; multi?: string[] };
+  viewport   : Viewport;
+  timeWindow?: [number, number];
+  expertMode : boolean;
   reduceMotion: boolean;
 }
 ```
+
+The former `Entity / Event / Relation` names are aliased to the new names during migration:
+
+```ts
+export type Entity   = InvestigationEntity;
+export type Event    = InvestigationEvent;
+export type Relation = Relationship;
+```
+
+Rule: **every renderer consumes `InvestigationEntity[]` + `InvestigationEvent[]` + `Relationship[]`. No view invents its own primary shape.** If a domain has fields the base type doesn't capture, put them in `meta` — never in a parallel structure.
 
 ---
 
@@ -501,15 +528,53 @@ Because the engine is new and non-trivial:
   6. Review detections and their MITRE technique attribution.
 * For every task, **measure**: click count · time-to-complete · context switches · scroll distance · zoom operations.
 * Record numbers in a matrix `TASKS × { CLICKS · TIME · CTX_SW · SCROLL · ZOOM }` for both tools.
-* **Pass criterion**: NivXRay is within **10–15%** of the reference workflow efficiency on every task metric.
-* If any task is >15% behind, **that specific gap** goes to the top of the Milestone 1–3 backlog before general work.
-* Output artifact: `/app/memory/design/GOLDEN_UX_VALIDATION.md` with the matrix + top-3 gap remediation items.
+
+**M0 Quantitative UX Gates** — every one must pass, else Milestone 1 does not open:
+
+| Category                | Gate                                            |
+|-------------------------|-------------------------------------------------|
+| Workflow efficiency     | Within **10–15%** of the reference on every task metric |
+| **Framerate**           | **≥ 60 FPS** during pan, zoom, marquee-drag, selection cascade |
+| **Input latency**       | **< 16 ms** pointer-down → visual feedback      |
+| **Zoom smoothness**     | No visible frame jumps during continuous wheel zoom (per Chrome DevTools rendering panel) |
+| **Auto-scroll**         | No abrupt camera jumps · always eased or snap-in-reduced-motion |
+| **Selection response**  | Highlight visible within **100 ms** of click     |
+| **Right-panel sync**    | Evidence panel updates within **100 ms** of selection |
+| **Cold load**           | Canvas paints < **1 second** for 5 000 entities |
+| **Memory**              | No progressive heap growth over a **30-minute** interactive session (allocate-free budget) |
+
+**M0 Qualitative Analyst Heuristics** — every task must let the tester answer YES to each:
+
+1. Can I immediately identify the root process without hunting?
+2. Can I follow parent → child execution without searching?
+3. Can I tell which entities are currently selected at a glance?
+4. Can I distinguish historical events from active context?
+5. Can I navigate the canvas without losing spatial orientation?
+6. Can I recover to a known state after zooming or panning aggressively?
+7. Is the investigation flow obvious without training?
+
+* If any task is >15% behind on numbers OR fails a heuristic, **that specific gap** goes to the top of the Milestone 1–3 backlog before general work.
+* Output artifact: `/app/memory/design/GOLDEN_UX_VALIDATION.md` with the matrix + heuristic answers + top-3 gap remediation items.
 
 **Milestone 1 — core skeleton** (implementation gate):
 * `types.ts` + `core/*` + `react/InvestigationCanvas.tsx` with `LifelineLayer` + `EventLayer` only.
 * Wired via `CanvasProvider` — sibling stub components can subscribe.
 * Green unit tests for viewport / layout math.
 * **Marquee multi-select is included in this milestone** (locked decision Q1).
+
+**M1 · Feature Freeze Rule (hard):**
+
+> No investigation feature may be added until the existing interaction model behaves correctly.
+
+In practice, during Milestone 1:
+* ❌ No new MITRE badges, chips, or overlays.
+* ❌ No new filter categories or dropdowns.
+* ❌ No new side panels or tabs.
+* ❌ No AI / summarisation widgets.
+* ❌ No new visualisations or embellishments.
+* ✅ Only work that makes the canvas feel professional (pan, zoom, drag, selection cascade, glow, right-panel sync, keyboard nav, minimap, scrollbars, virtualization) is in scope.
+
+The purpose of M1 is behavior parity with the reference workflow, not feature growth. Feature growth happens in Milestones 4+ once the interaction model is done.
 
 **Milestone 2 — interaction complete**:
 * Selection cascade + auto-scroll + gentle-scroll.

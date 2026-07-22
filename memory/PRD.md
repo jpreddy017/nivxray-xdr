@@ -5,6 +5,41 @@ Build a deterministic-first analyst workspace that decodes / reconstructs
 obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
+## 2026-02-22 · Device Trajectory · Design Freeze (implementation not yet begun)
+
+**Status**: Approved architecture. Milestone 0 (Golden UX Validation) is the next gate. No code lands until M0 passes.
+
+**Design documents (normative, in `/app/memory/design/`):**
+- `UX_REVERSE_ENGINEERING.md` — 21-section interaction model + workflow spec
+- `GAP_ANALYSIS.md` — 85-item honest current-vs-target delta
+- `CANVAS_ENGINE_ARCHITECTURE.md` — reusable Investigation Canvas Engine architecture, Milestones 0-7 rollout, locked decisions Q1-Q9
+- `INTERACTION_STATE_MACHINES.md` — normative state machines for entity / event / relation / canvas globals
+
+**Locked decisions (frozen):**
+- Q1 Marquee multi-select → MVP Milestone 1
+- Q2 Cluster thresholds → configurable, no hardcoded values
+- Q3 Chronological playback → backlog
+- Q4 Ancestry / Attack Chain / Graph → reuse Canvas Engine (no second renderer)
+- Q5 Live streaming ingest → Phase 2
+- Q6 Engine language → TypeScript
+- Q7 Renderer → React Konva
+- Q8 Data fetch → external to engine (adapters project domain data into `InvestigationEntity[]`)
+- Q9 Theming → design tokens
+
+**Stable rendering contract** (every future investigation view speaks this shape):
+`InvestigationEntity + InvestigationEvent + Relationship + VisualState`.
+
+**Milestone 0 gates (quantitative + qualitative)**:
+- Workflow within 10–15% of reference on click count / time / context switches / scroll / zoom
+- ≥60 FPS · <16 ms pointer latency · <100 ms selection response · <100 ms panel sync
+- <1 s cold load for 5k entities · no heap growth over 30 min
+- 7 analyst heuristics (root process ID, parent→child follow, selection visibility, historical vs active, spatial orientation, recovery from zoom, obvious-without-training)
+
+**Milestone 1 rule (locked)**: No investigation features may be added — the canvas interaction model must feel professional before any new MITRE / filter / panel / AI work.
+
+**Backend, RC5, Semantic Engine, Report Generator, Artifact Store — untouched during this design phase.** 820/820 tests still green.
+
+
 ## 2026-02-22 · R4.1 CI Stability + R2 Artifact Store (SHIPPED)
 
 **R4.1 · Permanent CI flag-flake fix**
