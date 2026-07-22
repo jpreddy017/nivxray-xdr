@@ -156,7 +156,12 @@ function scoreMatch(needle, hay) {
   const h = String(hay || "").toLowerCase();
   if (!h) return 0;
   if (h === n) return 1000;
-  if (h.startsWith(n)) return 700 + n.length * 4 - Math.max(0, h.length - n.length) * 0.1;
+  // Prefix match — do NOT penalise by length here (that broke tie-break:
+  // "run battery" and "run benchmark" both start with "run" and the
+  // shorter label used to sneak ahead). Callers apply a stable
+  // secondary sort on the original insertion order to keep ties
+  // deterministic.
+  if (h.startsWith(n)) return 700 + n.length * 4;
   // word-boundary prefix: any token starts with the needle
   const words = h.split(/[\s._\-/:]+/);
   for (const w of words) {
@@ -311,15 +316,17 @@ export default function QuickOpenPalette() {
     if (isCommandMode) {
       const needle = q.slice(1).trim().toLowerCase();
       const ranked = commands
-        .map((c) => {
+        .map((c, idx) => {
           const s = Math.max(
             scoreMatch(needle, c.label.replace(/^>/, "")),
             scoreMatch(needle, c.sub || ""),
           );
-          return { c, s };
+          return { c, s, idx };
         })
         .filter(({ s }) => !needle || s > 0)
-        .sort((a, b) => b.s - a.s)
+        // Primary: score desc. Secondary: original index asc (stable
+        // tie-break so declaration order in buildCommands wins).
+        .sort((a, b) => (b.s - a.s) || (a.idx - b.idx))
         .map(({ c }) => ({
           __key: c.id, kind: "action",
           id: c.id, label: c.label, sub: c.sub,
@@ -360,17 +367,19 @@ export default function QuickOpenPalette() {
     // Rows with score 0 are filtered. Sort desc so exact / prefix hits
     // float to the top ("ps1" → "PowerShell" before ".ps1" doc names).
     const scored = out
-      .map((r) => {
+      .map((r, idx) => {
         const s = Math.max(
           scoreMatch(q, r.label),
           scoreMatch(q, r.sub) * 0.6,       // sub-string of subtitle matters less
           scoreMatch(q, r.kind) * 0.4,
           scoreMatch(q, String(r.id)) * 0.5,
         );
-        return { r, s };
+        return { r, s, idx };
       })
       .filter(({ s }) => s > 0)
-      .sort((a, b) => b.s - a.s)
+      // Primary: score desc. Secondary: original insertion order asc
+      // (stable tie-break — matches the natural section ordering).
+      .sort((a, b) => (b.s - a.s) || (a.idx - b.idx))
       .map(({ r }) => r);
     return scored.slice(0, 60);
   }, [q, data, isCommandMode, commands]);

@@ -6,6 +6,45 @@ obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
 
+## 2026-02-22 · Verdict Panel Contradiction Alert · Cmd+K Fuzzy Ranking · Corpus Sparkline · Locale Auto-Test (v1.5.9 — SHIPPED)
+
+**Motivation:** Round-4 batch of analyst-productivity refinements
+following user request. Every change is either a zero-verdict-influence
+overlay OR a productivity boost — no core engine mutation.
+
+**Shipped:**
+- **Contradiction Auto-Alert** (`AnalystResults.jsx` · VerdictPanel):
+  when the Phase 11.3 correlation side-car returns `contradictions[]`,
+  a red banner (`data-testid=verdict-contradiction-alert`) renders
+  inside the Verdict panel showing node IDs and kind. Purely
+  additive — verdict / confidence / risk score untouched.
+- **Cmd+K Fuzzy Ranking** (`QuickOpenPalette.jsx`): new `scoreMatch()`
+  ranks results as `exact (1000) > startsWith (700+) > word-prefix
+  (500+) > substring (300−) > subsequence (100−)`. Stable
+  secondary sort by insertion index preserves declaration order on
+  ties (`>run benchmark` now beats `>run battery`).
+- **Corpus Trend Sparkline** (`CorpusHealthPill.jsx`): hover tooltip
+  now renders an SVG 7-run pass-rate sparkline (`data-testid=
+  corpus-health-sparkline`) fed by real `GET /api/rc5/golden/history`
+  data. Gracefully hides when history < 2 rows. No mocks.
+- **Locale Auto-Test**
+  (`/app/backend/tests/test_locale_corpus_sweep.py`): 62-case
+  parametric sweep covering Cyrillic / Chinese / Arabic / Japanese /
+  Korean context keywords across network / version / build kinds.
+  Runs in ~0.4 s inside every pytest cycle. Fenced with negative-
+  space guards (bare dotted-quads in CJK/Cyrillic decorative
+  punctuation stay `generic_dotted_quad`).
+
+**Verified:**
+- Backend: 71/71 tests pass (locale sweep + entity classifier +
+  correlation engine).
+- Frontend testing agent (`iteration_36.json`): all panels + tooltip +
+  sparkline verified; single tie-break bug flagged and fixed in a
+  follow-up commit. Playwright smoke confirms `>run benchmark` now
+  ranks above `>run battery`.
+
+
+
 ## 2026-02-22 · UI Consistency Sprint (v1.5.7 — SHIPPED)
 
 **Motivation:** user flagged that the platform's pages carried five
