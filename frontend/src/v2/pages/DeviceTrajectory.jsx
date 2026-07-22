@@ -1,13 +1,22 @@
 /**
- * Device Trajectory · v2 · "Tactical Surveillance" redesign.
+ * Device Trajectory · v2 · Process-timeline redesign.
  *
- * Renders GET /api/v2/cases/{caseId}/trajectory/device as five
- * horizontal lanes (SYSTEM · PROCESS · FILES · NETWORK · REGISTRY)
- * with dense pill nodes plotted along a shared time axis.
+ * Adopted pattern (per user reference — Cisco Secure Endpoint Device
+ * Trajectory, Black Hat Asia 2023 XDR NOC blog):
+ *   - One row per process (not per event category)
+ *   - Each row has a horizontal LIFELINE spanning first→last event
+ *   - Event glyphs sit ON the lifeline (icon per event kind, halo per verdict)
+ *   - Vertical dashed SPAWN ARCS connect parent → child process rows
+ *   - Top strip is a mini HISTOGRAM SCRUBBER of event density over time
+ *   - Right-side EVENT DETAILS panel appears on selection
  *
- * Design tokens: /app/design_guidelines.json (Amber-on-Graphite palette,
- * IBM Plex Sans + Mono, zinc-based surfaces, per-lane accent, MITRE
- * chips, verdict halos, graph-paper track texture, spawn arcs).
+ * Visuals (design_guidelines.json — "Amber-on-Graphite / Tactical Surveillance"):
+ *   - zinc-950 base, zinc-800 borders, IBM Plex Sans + Mono
+ *   - Amber #F59E0B as the ONE hero accent (V2 badge, zoom active, selection)
+ *   - Per-lane accents kept small: violet SYSTEM, rose PROCESS, amber FILES,
+ *     indigo NETWORK, orange REGISTRY — used to tint event glyphs
+ *   - Verdict halos: emerald (observation) · amber (suspicious) · rose (malicious)
+ *   - No cyan/teal anywhere. No copied Cisco chrome.
  *
  * Feature-flag gated on TRAJECTORY_ENGINE. No RC5 imports.
  */
@@ -15,13 +24,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   Cpu, Activity, FileCode, Globe, Database,
-  Search, Shield, ChevronRight, Clock, PenSquare, Radar,
+  Search, Shield, ShieldAlert, ShieldCheck, ChevronRight,
+  Clock, PenSquare, Radar, Play, AlertTriangle, X,
 } from "lucide-react";
 import { isObservable } from "../flags";
 import api from "@/lib/api";
 
-// ─── Lane metadata ────────────────────────────────────────────────────
-const LANE_ORDER = ["system", "process", "file", "network", "registry"];
+// ═══════════════════════════════════════════════════════════════════
+// Lane metadata (accents applied to event glyphs, NOT full-row bands)
+// ═══════════════════════════════════════════════════════════════════
 const LANE_META = {
   system:   { label: "SYSTEM",   accent: "#8B5CF6", Icon: Cpu      },
   process:  { label: "PROCESS",  accent: "#E11D48", Icon: Activity },
@@ -29,8 +40,13 @@ const LANE_META = {
   network:  { label: "NETWORK",  accent: "#4F46E5", Icon: Globe    },
   registry: { label: "REGISTRY", accent: "#EA580C", Icon: Database },
 };
+const LANE_ORDER = ["system", "process", "file", "network", "registry"];
 
-// ─── Verdict halo ─ deterministic mapping from MITRE presence + rule fire.
+const VERDICT = {
+  benign:     { color: "#22C55E", label: "OBSERVATION",  Icon: ShieldCheck },
+  suspicious: { color: "#F59E0B", label: "SUSPICIOUS",   Icon: Shield      },
+  malicious:  { color: "#E11D48", label: "MALICIOUS",    Icon: ShieldAlert },
+};
 function verdictFor(f) {
   const hasMitre = (f.mitre || []).length > 0;
   const rule = (f.rule_id || f.provenance?.rule_id || "").toLowerCase();
@@ -38,20 +54,43 @@ function verdictFor(f) {
   if (hasMitre) return "suspicious";
   return "benign";
 }
-const VERDICT_STYLE = {
-  benign:      { ring: "rgba(34,197,94,0.28)",  border: "rgba(34,197,94,0.35)"  },
-  suspicious:  { ring: "rgba(245,158,11,0.32)", border: "rgba(245,158,11,0.55)" },
-  malicious:   { ring: "rgba(225,29,72,0.42)",  border: "rgba(225,29,72,0.85)"  },
-};
 
-// Track SVG graph-paper background (kept small to avoid inflating bundle)
-const TRACK_GRID_BG =
+// Graph-paper track backdrop
+const TRACK_BG =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'>" +
   "<path d='M48 0H0v48' fill='none' stroke='%2327272A' stroke-opacity='0.35' stroke-width='0.5'/>" +
   "<path d='M12 0v48M24 0v48M36 0v48M0 12h48M0 24h48M0 36h48' fill='none' stroke='%2327272A' stroke-opacity='0.18' stroke-width='0.5'/>" +
   "</svg>\")";
 
-// ─── Component ────────────────────────────────────────────────────────
+// Layout constants
+const ROW_H = 34;                 // per-process row height in canvas
+const LEFT_RAIL_W = 232;          // width of the process-label rail
+const CANVAS_PAD_X = 24;          // horizontal padding inside the track
+const SCRUBBER_H = 56;            // top histogram scrubber height
+
+// Extract a readable process-name label from a frame
+function processLabelOf(frame) {
+  const raw = frame.label || frame.action || "";
+  const m = raw.match(/([A-Za-z0-9_.-]+\.(?:exe|dll|msi|ps1|bat|cmd|sys|com))/i);
+  if (m) return m[1];
+  const p = (frame.process?.iid || frame.parent?.iid || "").split(/[:/\\]/).pop();
+  return p || (frame.action || "event");
+}
+// Group key: prefer readable process name so that N events from the same
+// binary collapse to ONE lifeline (Cisco Device Trajectory pattern). The
+// shadow adapter mints a unique `proc_shadow_xxxx` iid per event, which
+// would otherwise explode into one row per event.
+function processKeyOf(frame) {
+  const label = processLabelOf(frame);
+  if (label && /\.(exe|dll|msi|ps1|bat|cmd|sys|com)$/i.test(label)) {
+    return `bin:${label.toLowerCase()}`;
+  }
+  return frame.process?.iid || frame.parent?.iid || `sys:${frame.lane}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Root component
+// ═══════════════════════════════════════════════════════════════════
 export default function DeviceTrajectory() {
   const { caseId = "case_dfir_bumblebee_akira_2026" } = useParams() || {};
   const [data, setData] = useState(null);
@@ -60,10 +99,12 @@ export default function DeviceTrajectory() {
   const [zoom, setZoom] = useState("Fit");
   const [query, setQuery] = useState("");
   const searchRef = useRef(null);
-  const trackRef  = useRef(null);
+  const canvasRef = useRef(null);
+  const [canvasW, setCanvasW] = useState(1200);
+
   const enabled = isObservable("TRAJECTORY_ENGINE") || isObservable("CASE_ENGINE");
 
-  // ─── Fetch trajectory ─────────────────────────────────────────────
+  // Fetch
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
@@ -80,7 +121,19 @@ export default function DeviceTrajectory() {
     return () => { cancelled = true; };
   }, [caseId, enabled]);
 
-  // ─── Filtered frames ──────────────────────────────────────────────
+  // Observe canvas resize so nodes stay pixel-precise across viewports
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const el = canvasRef.current;
+    const ro = new ResizeObserver(entries => {
+      for (const ent of entries) setCanvasW(ent.contentRect.width);
+    });
+    ro.observe(el);
+    setCanvasW(el.clientWidth);
+    return () => ro.disconnect();
+  }, [enabled]);
+
+  // Filtered frames
   const frames = useMemo(() => {
     if (!data?.frames) return [];
     if (!query) return data.frames;
@@ -88,63 +141,113 @@ export default function DeviceTrajectory() {
     return data.frames.filter(f =>
       (f.label || "").toLowerCase().includes(q) ||
       (f.action || "").toLowerCase().includes(q) ||
+      processLabelOf(f).toLowerCase().includes(q) ||
       (f.mitre || []).some(t => t.toLowerCase().includes(q)),
     );
   }, [data, query]);
 
-  const { xForFrame, minTs, maxTs, tickTimes } = useMemo(() => {
-    if (!frames.length) {
-      return { xForFrame: () => 0, minTs: 0, maxTs: 1, tickTimes: [] };
-    }
+  // Time domain + x mapper
+  const { xForTs, minTs, maxTs, tickTimes } = useMemo(() => {
+    if (!frames.length) return { xForTs: () => 0, minTs: 0, maxTs: 1, tickTimes: [] };
     const times = frames.map(f => new Date(f.ts).getTime());
     let lo = Math.min(...times), hi = Math.max(...times);
     if (hi === lo) hi = lo + 1000;
     const span = hi - lo;
+    const usableW = Math.max(canvasW - CANVAS_PAD_X * 2, 200);
     const ticks = Array.from({ length: 9 }, (_, i) => lo + (span * i) / 8);
     return {
-      xForFrame: (f) => (new Date(f.ts).getTime() - lo) / span,
+      xForTs: (ts) => CANVAS_PAD_X + ((new Date(ts).getTime() - lo) / span) * usableW,
       minTs: lo, maxTs: hi, tickTimes: ticks,
     };
+  }, [frames, canvasW]);
+
+  // Build the per-process rows
+  const rows = useMemo(() => {
+    const byKey = new Map();
+    frames.forEach(f => {
+      const key = processKeyOf(f);
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          key,
+          label: processLabelOf(f),
+          type: (f.process?.iid ? "PROC" : (f.parent?.iid ? "PROC" : "SYS")),
+          events: [],
+          firstTs: new Date(f.ts).getTime(),
+          lastTs: new Date(f.ts).getTime(),
+          parentKey: f.parent?.iid || null,
+          worstVerdict: "benign",
+        });
+      }
+      const r = byKey.get(key);
+      r.events.push(f);
+      const ts = new Date(f.ts).getTime();
+      if (ts < r.firstTs) r.firstTs = ts;
+      if (ts > r.lastTs)  r.lastTs  = ts;
+      const v = verdictFor(f);
+      if (v === "malicious" || (v === "suspicious" && r.worstVerdict !== "malicious")) {
+        r.worstVerdict = v;
+      }
+    });
+    // Sort by first-seen ts so lifelines cascade
+    return [...byKey.values()].sort((a, b) =>
+      a.firstTs !== b.firstTs ? a.firstTs - b.firstTs : a.label.localeCompare(b.label)
+    );
   }, [frames]);
 
-  // Group frames per lane
-  const framesByLane = useMemo(() => {
-    const out = Object.fromEntries(LANE_ORDER.map(l => [l, []]));
-    frames.forEach(f => { (out[f.lane] || out.process).push(f); });
-    return out;
-  }, [frames]);
+  const rowIndex = useMemo(() => {
+    const m = new Map();
+    rows.forEach((r, i) => m.set(r.key, i));
+    return m;
+  }, [rows]);
 
-  // Aggregate top MITRE tactics + entities for the empty-state overview
+  // Spawn edges (parent → child)
+  const spawnEdges = useMemo(() => {
+    const edges = [];
+    rows.forEach(child => {
+      if (!child.parentKey) return;
+      if (!rowIndex.has(child.parentKey)) return;
+      edges.push({ parent: child.parentKey, child: child.key });
+    });
+    return edges;
+  }, [rows, rowIndex]);
+
+  // Histogram buckets (top scrubber)
+  const histogram = useMemo(() => {
+    const B = 48;
+    const arr = new Array(B).fill(0);
+    if (!frames.length) return arr;
+    const span = maxTs - minTs || 1;
+    frames.forEach(f => {
+      const t = new Date(f.ts).getTime();
+      const i = Math.min(B - 1, Math.max(0, Math.floor(((t - minTs) / span) * B)));
+      arr[i] += 1;
+    });
+    return arr;
+  }, [frames, minTs, maxTs]);
+
+  // Overview (drawer empty state)
   const overview = useMemo(() => {
     const mitreCount = new Map();
-    const entityCount = new Map();
-    let bLo, bHi;
+    const laneCount = Object.fromEntries(LANE_ORDER.map(l => [l, 0]));
     frames.forEach(f => {
       (f.mitre || []).forEach(t => mitreCount.set(t, (mitreCount.get(t) || 0) + 1));
-      ["process", "file", "network", "registry", "user"].forEach(k => {
-        const ent = f[k];
-        if (ent?.iid) entityCount.set(ent.iid, (entityCount.get(ent.iid) || 0) + 1);
-      });
-      const ts = new Date(f.ts).getTime();
-      if (!bLo || ts < bLo) bLo = ts;
-      if (!bHi || ts > bHi) bHi = ts;
+      if (laneCount[f.lane] != null) laneCount[f.lane] += 1;
     });
     return {
       mitre: [...mitreCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6),
-      entities: [...entityCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5),
-      laneCounts: LANE_ORDER.map(l => [l, framesByLane[l].length]),
-      spanMs: bLo && bHi ? bHi - bLo : 0,
+      lanes: LANE_ORDER.map(l => [l, laneCount[l]]),
+      processes: rows.length,
+      malicious: frames.filter(f => verdictFor(f) === "malicious").length,
+      suspicious: frames.filter(f => verdictFor(f) === "suspicious").length,
     };
-  }, [frames, framesByLane]);
+  }, [frames, rows]);
 
-  // ─── Keyboard nav (← / → step; `/` focus search; Esc close drawer)
+  // Keyboard nav
   useEffect(() => {
     if (!enabled) return;
     const handler = (e) => {
       if (e.key === "/" && document.activeElement?.tagName !== "INPUT") {
-        e.preventDefault();
-        searchRef.current?.focus();
-        return;
+        e.preventDefault(); searchRef.current?.focus(); return;
       }
       if (e.key === "Escape") { setSelected(null); return; }
       if (!frames.length) return;
@@ -160,36 +263,31 @@ export default function DeviceTrajectory() {
     return () => window.removeEventListener("keydown", handler);
   }, [enabled, frames, selected]);
 
-  const onSelect = useCallback((f) => setSelected(f), []);
+  const onPickEvent = useCallback((f) => setSelected(f), []);
 
-  // ─── Disabled state ───────────────────────────────────────────────
   if (!enabled) {
     return (
       <div data-testid="v2-trajectory-disabled"
-           className="min-h-screen bg-zinc-950 text-zinc-500"
+           className="min-h-screen bg-zinc-950 text-zinc-500 p-6 text-xs"
            style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-        <div className="p-6 text-xs">
-          Device Trajectory is disabled. Set{" "}
-          <code className="text-amber-500">REACT_APP_NIVX_FLAG_TRAJECTORY_ENGINE=shadow</code>{" "}
-          or{" "}
-          <code className="text-amber-500">REACT_APP_NIVX_FLAG_CASE_ENGINE=shadow</code>{" "}
-          to enable.
-        </div>
+        Device Trajectory is disabled. Set{" "}
+        <code className="text-amber-500">REACT_APP_NIVX_FLAG_TRAJECTORY_ENGINE=shadow</code>{" "}or{" "}
+        <code className="text-amber-500">REACT_APP_NIVX_FLAG_CASE_ENGINE=shadow</code>.
       </div>
     );
   }
+
+  // Total canvas height for absolute-positioned children
+  const canvasH = rows.length * ROW_H + 16;
 
   return (
     <div data-testid="v2-device-trajectory"
          className="flex flex-col h-screen overflow-hidden bg-zinc-950 text-zinc-100"
          style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
       <Header
-        caseId={caseId}
-        count={data?.count}
-        query={query}
-        setQuery={setQuery}
-        zoom={zoom}
-        setZoom={setZoom}
+        caseId={caseId} count={data?.count} totalRows={rows.length}
+        query={query} setQuery={setQuery}
+        zoom={zoom} setZoom={setZoom}
         searchRef={searchRef}
       />
 
@@ -201,45 +299,125 @@ export default function DeviceTrajectory() {
         </div>
       )}
 
+      {/* Top two-tier scrubber */}
+      <Scrubber histogram={histogram} minTs={minTs} maxTs={maxTs} frames={frames} />
+
+      {/* Main work area */}
       <div className="flex flex-1 min-h-0">
-        {/* ═══ Timeline canvas ═══ */}
         <div className="flex-1 flex flex-col min-w-0 relative">
-          {/* Lanes */}
-          <div ref={trackRef} className="flex-1 flex flex-col overflow-hidden">
-            {LANE_ORDER.map((lane, i) => (
-              <Swimlane
-                key={lane}
-                lane={lane}
-                events={framesByLane[lane]}
-                xForFrame={xForFrame}
-                selectedIid={selected?.frame_iid}
-                onSelect={onSelect}
-                zebra={i % 2 === 1}
-              />
-            ))}
+          {/* Row layout (left rail + track canvas) */}
+          <div className="flex-1 flex overflow-auto">
+            <ProcessRail rows={rows} selectedKey={selected ? processKeyOf(selected) : null}
+                         onPickRow={(r) => onPickEvent(r.events[0])} />
+
+            <div
+              ref={canvasRef}
+              className="flex-1 relative overflow-hidden"
+              style={{ backgroundImage: TRACK_BG, backgroundSize: "48px 48px" }}
+              data-testid="trajectory-canvas"
+            >
+              <div className="relative" style={{ height: canvasH }}>
+                {/* Row separators */}
+                {rows.map((r, i) => (
+                  <div key={r.key + ":sep"} className="absolute inset-x-0 border-b border-zinc-900/70"
+                       style={{ top: (i + 1) * ROW_H - 1, height: 1 }} />
+                ))}
+
+                {/* SVG overlay: lifelines + spawn arcs */}
+                <svg width={canvasW} height={canvasH}
+                     className="absolute top-0 left-0 pointer-events-none">
+                  {/* Lifelines */}
+                  {rows.map((r, i) => {
+                    const y = i * ROW_H + ROW_H / 2;
+                    const x1 = xForTs(r.firstTs);
+                    const x2 = xForTs(r.lastTs);
+                    const isSel = selected && processKeyOf(selected) === r.key;
+                    const stroke = r.worstVerdict === "malicious"
+                      ? VERDICT.malicious.color
+                      : r.worstVerdict === "suspicious"
+                        ? "#A16207" // muted amber
+                        : "#3F3F46"; // zinc-700
+                    return (
+                      <g key={r.key + ":line"}>
+                        <line x1={x1 - 4} y1={y} x2={x2 + 4} y2={y}
+                              stroke={stroke} strokeWidth={isSel ? 2 : 1}
+                              strokeOpacity={isSel ? 0.95 : 0.65} />
+                        {/* start/end tick marks */}
+                        <line x1={x1} y1={y - 5} x2={x1} y2={y + 5}
+                              stroke={stroke} strokeOpacity="0.55" strokeWidth="1" />
+                        <line x1={x2} y1={y - 5} x2={x2} y2={y + 5}
+                              stroke={stroke} strokeOpacity="0.55" strokeWidth="1" />
+                      </g>
+                    );
+                  })}
+                  {/* Spawn arcs: dashed L-shaped connector parent → child */}
+                  {spawnEdges.map(({ parent, child }, i) => {
+                    const pi = rowIndex.get(parent), ci = rowIndex.get(child);
+                    if (pi == null || ci == null) return null;
+                    const py = pi * ROW_H + ROW_H / 2;
+                    const cy = ci * ROW_H + ROW_H / 2;
+                    const childRow = rows[ci];
+                    const cx = xForTs(childRow.firstTs);
+                    return (
+                      <path key={`spawn-${i}`}
+                            d={`M ${cx} ${py} L ${cx} ${cy - 6}`}
+                            stroke="#52525B" strokeWidth="1" strokeDasharray="3 3"
+                            fill="none" opacity="0.75" />
+                    );
+                  })}
+                </svg>
+
+                {/* Selected row highlight band */}
+                {selected && (() => {
+                  const idx = rowIndex.get(processKeyOf(selected));
+                  if (idx == null) return null;
+                  return (
+                    <div className="absolute inset-x-0 pointer-events-none"
+                         style={{ top: idx * ROW_H, height: ROW_H,
+                                  background: "linear-gradient(90deg, rgba(245,158,11,0.10), rgba(245,158,11,0.04))",
+                                  borderTop: "1px solid rgba(245,158,11,0.35)",
+                                  borderBottom: "1px solid rgba(245,158,11,0.35)" }} />
+                  );
+                })()}
+
+                {/* Event glyphs */}
+                {frames.map(f => {
+                  const key = processKeyOf(f);
+                  const i = rowIndex.get(key);
+                  if (i == null) return null;
+                  const x = xForTs(f.ts);
+                  const y = i * ROW_H + ROW_H / 2;
+                  const isSel = selected?.frame_iid === f.frame_iid;
+                  return (
+                    <EventGlyph key={f.frame_iid || `${key}-${x}`}
+                                frame={f} x={x} y={y} selected={isSel}
+                                onSelect={onPickEvent} />
+                  );
+                })}
+              </div>
+
+              {/* Empty hint */}
+              {!frames.length && !err && (
+                <div className="absolute inset-0 flex items-center justify-center text-zinc-600 pointer-events-none"
+                     style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                  <div className="text-xs tracking-wider text-center">
+                    <Radar className="mx-auto mb-2 text-zinc-700" size={22} />
+                    NO TRAJECTORY FRAMES · seed observations via{" "}
+                    <code className="text-amber-500">POST /api/v2/cases/{caseId}/observations</code>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Bottom time-axis ruler */}
+          {/* Bottom ruler */}
           <TimeRuler ticks={tickTimes} zoom={zoom} minTs={minTs} maxTs={maxTs}
-                     total={frames.length} filtered={frames.length !== (data?.frames?.length ?? 0)
-                            ? (data?.frames?.length ?? 0) : null} />
-
-          {/* Empty-canvas hint */}
-          {!frames.length && !err && (
-            <div className="absolute inset-0 flex items-center justify-center text-zinc-600 pointer-events-none"
-                 style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-              <div className="text-xs tracking-wider text-center">
-                <Radar className="mx-auto mb-2 text-zinc-700" size={22} />
-                NO TRAJECTORY FRAMES · seed observations via{" "}
-                <code className="text-amber-500">POST /api/v2/cases/{caseId}/observations</code>
-              </div>
-            </div>
-          )}
+                     total={frames.length} rows={rows.length} />
         </div>
 
-        {/* ═══ Right drawer ═══ */}
         <Drawer selected={selected} onClose={() => setSelected(null)}
-                overview={overview} totalEvents={data?.count ?? 0} caseId={caseId} />
+                overview={overview} totalEvents={data?.count ?? 0} caseId={caseId}
+                frames={frames} onPickEvent={onPickEvent} />
       </div>
 
       {/* Floating Training Note CTA */}
@@ -249,8 +427,6 @@ export default function DeviceTrajectory() {
                    font-semibold text-[11px] tracking-wider shadow-lg hover:bg-amber-400
                    border border-amber-300/60 flex items-center gap-2 z-40
                    transition-colors duration-150"
-        style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}
-        onClick={() => { /* placeholder — wire to case notes API in R1.1 */ }}
       >
         <PenSquare size={12} /> TRAINING NOTE
       </button>
@@ -258,11 +434,12 @@ export default function DeviceTrajectory() {
   );
 }
 
-// ─── Header bar ───────────────────────────────────────────────────────
-function Header({ caseId, count, query, setQuery, zoom, setZoom, searchRef }) {
+// ═══════════════════════════════════════════════════════════════════
+// Header
+// ═══════════════════════════════════════════════════════════════════
+function Header({ caseId, count, totalRows, query, setQuery, zoom, setZoom, searchRef }) {
   return (
-    <header className="h-14 shrink-0 flex items-center gap-4 border-b border-zinc-800
-                       bg-zinc-950 px-4 z-20">
+    <header className="h-14 shrink-0 flex items-center gap-4 border-b border-zinc-800 bg-zinc-950 px-4 z-20">
       <div className="flex items-center gap-3">
         <div className="w-7 h-7 flex items-center justify-center rounded-sm bg-amber-500/10
                         border border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.15)]">
@@ -292,11 +469,16 @@ function Header({ caseId, count, query, setQuery, zoom, setZoom, searchRef }) {
               data-testid="event-count-label">
           {count ?? "—"}
         </span>
+        <span className="text-zinc-700 mx-1">·</span>
+        <span className="text-[10px] tracking-widest uppercase text-zinc-500 font-semibold">Procs</span>
+        <span className="text-[11px] text-zinc-200 tabular-nums"
+              style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+          {totalRows}
+        </span>
       </div>
 
       <div className="flex-1" />
 
-      {/* Search */}
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600" size={12} />
         <input
@@ -304,22 +486,19 @@ function Header({ caseId, count, query, setQuery, zoom, setZoom, searchRef }) {
           data-testid="trajectory-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="search command / mitre / entity"
-          className="pl-8 pr-3 py-1.5 w-72 bg-zinc-900 border border-zinc-700 rounded-sm
+          placeholder="search process / command / mitre"
+          className="pl-8 pr-8 py-1.5 w-72 bg-zinc-900 border border-zinc-700 rounded-sm
                      text-xs text-zinc-200 placeholder-zinc-600 outline-none
-                     focus:border-amber-500 focus:ring-1 focus:ring-amber-500
-                     transition-colors duration-150"
+                     focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors duration-150"
           style={{ fontFamily: "'IBM Plex Mono', monospace" }}
         />
         <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-600
                         border border-zinc-700 rounded px-1 bg-zinc-950 pointer-events-none">/</kbd>
       </div>
 
-      {/* Zoom presets */}
       <div className="flex items-center gap-1 border border-zinc-800 rounded-sm p-0.5" role="tablist">
         {["Fit", "1h", "24h", "7d", "30d"].map(z => (
-          <button
-            key={z}
+          <button key={z}
             data-testid={`zoom-${z}`}
             onClick={() => setZoom(z)}
             className={
@@ -338,177 +517,410 @@ function Header({ caseId, count, query, setQuery, zoom, setZoom, searchRef }) {
   );
 }
 
-// ─── Swimlane row ─────────────────────────────────────────────────────
-function Swimlane({ lane, events, xForFrame, selectedIid, onSelect, zebra }) {
-  const meta = LANE_META[lane];
-  const { Icon } = meta;
+// ═══════════════════════════════════════════════════════════════════
+// Two-tier top scrubber — day-of-month strip + hour-of-day strip, both
+// with hatched "outside window" zones (Cisco Device Trajectory pattern
+// adopted; visuals are ours).
+// ═══════════════════════════════════════════════════════════════════
+function Scrubber({ histogram, minTs, maxTs, frames }) {
+  const total = frames.length;
+  const hasData = total > 0 && maxTs > minTs;
+
+  // Build a 31-day month strip anchored on maxTs
+  const monthDays = useMemo(() => {
+    const anchor = hasData ? maxTs : Date.now();
+    const end = new Date(anchor); end.setUTCHours(0, 0, 0, 0);
+    const out = [];
+    for (let i = 30; i >= 0; i--) {
+      const d = new Date(end); d.setUTCDate(end.getUTCDate() - i);
+      out.push(d);
+    }
+    return out;
+  }, [hasData, maxTs]);
+
+  // Which days have any events?
+  const eventDayKeys = useMemo(() => {
+    const s = new Set();
+    frames.forEach(f => {
+      const d = new Date(f.ts); d.setUTCHours(0, 0, 0, 0);
+      s.add(d.toISOString().slice(0, 10));
+    });
+    return s;
+  }, [frames]);
+
+  // Which hours have events on the active day (= day of first event)?
+  const activeDayKey = hasData
+    ? new Date(minTs).toISOString().slice(0, 10)
+    : monthDays[monthDays.length - 1].toISOString().slice(0, 10);
+  const activeHours = useMemo(() => {
+    const s = new Set();
+    if (!hasData) return s;
+    frames.forEach(f => {
+      const d = new Date(f.ts);
+      const key = d.toISOString().slice(0, 10);
+      if (key === activeDayKey) s.add(d.getUTCHours());
+    });
+    return s;
+  }, [frames, hasData, activeDayKey]);
+
+  const spanLabel = hasData ? `spanning ${formatDuration(maxTs - minTs)}` : "no window";
+
   return (
-    <div
-      className="flex flex-1 min-h-[110px] border-b border-zinc-900 last:border-b-0 relative"
-      style={{ background: zebra ? "#0B0B0E" : "#0F0F12" }}
-      data-testid={`swimlane-${lane}`}
-    >
-      {/* Left header column */}
-      <div className="w-32 shrink-0 border-r border-zinc-800/80 bg-zinc-950/70 relative
-                      flex flex-col justify-center px-3 gap-1">
-        <div className="flex items-center gap-2">
-          <Icon size={13} style={{ color: meta.accent }} />
-          <span className="text-[10px] tracking-[0.24em] font-semibold text-zinc-300">
-            {meta.label}
-          </span>
+    <div className="shrink-0 border-b border-zinc-800 bg-zinc-950/95 px-4 py-2"
+         data-testid="scrubber">
+      {/* Header line */}
+      <div className="flex items-center gap-3 mb-1">
+        <div>
+          <div className="text-[9px] tracking-[0.24em] text-zinc-500 uppercase font-semibold">
+            Timeline
+          </div>
+          <div className="text-[10px] text-zinc-400"
+               style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+            <span className="text-zinc-200 tabular-nums">{total}</span> compromise events · {spanLabel}
+          </div>
         </div>
-        <div className="text-[10px] text-zinc-600 tabular-nums"
-             style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-          {events.length} evt
+        <div className="flex-1" />
+        {/* Density histogram sparkline on the right */}
+        <div className="w-64 h-6 flex items-end gap-[2px]">
+          {histogram.map((n, i) => {
+            const max = Math.max(1, ...histogram);
+            const pct = n / max;
+            return (
+              <div key={i}
+                   className={"flex-1 rounded-[1px] " + (n === 0 ? "bg-zinc-900" : "bg-amber-500/70")}
+                   style={{ height: `${Math.max(pct * 100, n === 0 ? 12 : 18)}%` }} />
+            );
+          })}
         </div>
-        {/* Left-edge accent stripe */}
-        <div className="absolute top-0 right-0 bottom-0 w-[2px]"
-             style={{ background: meta.accent, opacity: 0.45 }} />
       </div>
 
-      {/* Track (grid-paper backdrop + nodes) */}
-      <div
-        className="flex-1 relative overflow-hidden"
-        style={{ backgroundImage: TRACK_GRID_BG, backgroundSize: "48px 48px" }}
-      >
-        {events.map((f, idx) => (
-          <EventNode
-            key={f.frame_iid || `${lane}-${idx}`}
-            frame={f}
-            accent={meta.accent}
-            xFrac={xForFrame(f)}
-            selected={f.frame_iid === selectedIid}
-            onSelect={onSelect}
-          />
-        ))}
+      {/* Tier 1 · Month day strip */}
+      <div className="flex items-stretch gap-[1px] h-8 mt-1" data-testid="scrubber-month">
+        {monthDays.map((d, i) => {
+          const iso = d.toISOString().slice(0, 10);
+          const has = eventDayKeys.has(iso);
+          const isActive = iso === activeDayKey;
+          const isFirst = i === 0 || d.getUTCDate() === 1;
+          return (
+            <div key={iso}
+                 className={"flex-1 relative border-t border-b border-zinc-800/70 " +
+                            (has ? "bg-zinc-900" : "bg-zinc-950")}
+                 title={iso}>
+              {isActive && (
+                <span className="absolute top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-amber-500
+                                 shadow-[0_0_8px_rgba(245,158,11,0.9)]" />
+              )}
+              <span className={"absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[9px] tabular-nums " +
+                              (isActive ? "text-amber-400" : "text-zinc-500")}
+                    style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                {d.getUTCDate()}
+              </span>
+              {isFirst && (
+                <span className="absolute -top-3 left-0 text-[9px] uppercase tracking-widest text-zinc-600 font-semibold">
+                  {d.toLocaleString("en-US", { month: "short", timeZone: "UTC" })}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Tier 2 · Hour-of-day strip for the active day */}
+      <div className="flex items-stretch gap-[1px] h-6 mt-2" data-testid="scrubber-hour">
+        {Array.from({ length: 24 }, (_, h) => {
+          const has = activeHours.has(h);
+          return (
+            <div key={h}
+                 className={"flex-1 relative border-t border-b border-zinc-800/70 " +
+                            (has ? "bg-amber-500/25" : "bg-zinc-950")}
+                 style={!has ? {
+                   backgroundImage:
+                     "repeating-linear-gradient(135deg, transparent, transparent 3px, rgba(63,63,70,0.5) 3px, rgba(63,63,70,0.5) 4px)"
+                 } : undefined}
+                 title={`${h}:00`}>
+              {(h % 3 === 0) && (
+                <span className={"absolute bottom-0 left-1/2 -translate-x-1/2 text-[8px] tabular-nums " +
+                                (has ? "text-amber-400" : "text-zinc-600")}
+                      style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {h.toString().padStart(2, "0")}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// ─── Event pill node ──────────────────────────────────────────────────
-function EventNode({ frame, accent, xFrac, selected, onSelect }) {
+// ═══════════════════════════════════════════════════════════════════
+// Process left rail (one row per process)
+// ═══════════════════════════════════════════════════════════════════
+function ProcessRail({ rows, selectedKey, onPickRow }) {
+  return (
+    <div className="shrink-0 border-r border-zinc-800 bg-zinc-950/60"
+         style={{ width: LEFT_RAIL_W }}
+         data-testid="process-rail">
+      <div className="h-8 flex items-center px-3 border-b border-zinc-900">
+        <span className="text-[9px] tracking-[0.24em] uppercase font-semibold text-zinc-500">
+          Files & Processes
+        </span>
+      </div>
+      <div>
+        {rows.map((r, i) => {
+          const isSel = selectedKey === r.key;
+          const vc = r.worstVerdict === "malicious" ? VERDICT.malicious.color
+                   : r.worstVerdict === "suspicious" ? VERDICT.suspicious.color
+                   : "#3F3F46";
+          return (
+            <button key={r.key}
+              data-testid={`row-${r.key}`}
+              onClick={() => onPickRow(r)}
+              className={"w-full h-[34px] flex items-center gap-2 pl-3 pr-2 border-b border-zinc-900/70 " +
+                "text-right outline-none transition-colors duration-100 " +
+                (isSel ? "bg-amber-500/8" : "hover:bg-zinc-900/50")}
+              style={{ borderLeft: `2px solid ${vc}66` }}
+            >
+              <span className={"flex-1 truncate text-[11px] " + (isSel ? "text-amber-400" : "text-zinc-300")}
+                    style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                {r.label}
+              </span>
+              <span className="text-[9px] tracking-widest text-zinc-600 font-semibold">
+                [{r.type}]
+              </span>
+              <span className="text-[9px] text-zinc-500 tabular-nums w-6 text-right"
+                    style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                {r.events.length}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Event glyph on a lifeline
+// ═══════════════════════════════════════════════════════════════════
+function EventGlyph({ frame, x, y, selected, onSelect }) {
   const v = verdictFor(frame);
-  const vs = VERDICT_STYLE[v];
-  const preview = (frame.label || frame.action || "").replace(/\s+/g, " ").trim();
+  const meta = LANE_META[frame.lane] || LANE_META.process;
+  const size = 18;
+  const half = size / 2;
   const mitre0 = (frame.mitre || [])[0];
 
-  // Anchor the node so its left edge lands at the timestamp.
-  // Nodes near the right edge of the track are pulled slightly leftwards
-  // so their labels stay readable.
-  const leftPct = Math.min(Math.max(xFrac * 100, 0.3), 99.4);
-  const anchorRight = xFrac > 0.8;
+  // Malicious → red hex shield · Suspicious → amber triangle · Benign → play dot
+  const isMalicious = v === "malicious";
+  const isSuspicious = v === "suspicious";
 
   return (
     <button
-      data-testid={`event-node-${frame.frame_iid}`}
+      data-testid={`event-glyph-${frame.frame_iid}`}
       onClick={() => onSelect(frame)}
-      className="group absolute top-1/2 -translate-y-1/2 h-7 flex items-center pl-2 pr-2.5
-                 rounded-sm bg-zinc-900 hover:bg-zinc-800 cursor-pointer
-                 border border-l-[3px] text-left
-                 transition-[transform,box-shadow,background-color,border-color] duration-150
-                 hover:-translate-y-[3px] hover:z-20 focus:z-20 outline-none focus-visible:ring-1"
+      className="absolute z-10 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-amber-500
+                 transition-transform duration-150 hover:scale-125"
       style={{
-        left:  anchorRight ? "auto" : `calc(${leftPct}% - 2px)`,
-        right: anchorRight ? `calc(${100 - leftPct}% - 2px)` : "auto",
-        maxWidth: 260, minWidth: 130,
-        borderColor: selected ? "#F59E0B" : vs.border,
-        borderLeftColor: accent,
-        boxShadow: selected
-          ? "0 0 0 1px #F59E0B, 0 6px 24px -8px rgba(245,158,11,0.35)"
-          : `0 0 10px -2px ${vs.ring}`,
+        left: x - half, top: y - half,
+        width: size, height: size,
+        background: selected ? "rgba(245,158,11,0.15)" : "transparent",
+        border: selected ? "1px solid #F59E0B" : "none",
+        boxShadow: selected ? "0 0 12px rgba(245,158,11,0.35)" : "none",
       }}
+      title={frame.label || frame.action}
     >
-      {/* MITRE chip */}
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <defs>
+          <filter id={`g-${frame.frame_iid}`} x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="1.2" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        {isMalicious ? (
+          // hex shield
+          <g filter={`url(#g-${frame.frame_iid})`}>
+            <polygon points={`${half},2 ${size - 2},${half - 3} ${size - 2},${half + 3} ${half},${size - 2} 2,${half + 3} 2,${half - 3}`}
+                     fill="#450A0A" stroke={VERDICT.malicious.color} strokeWidth="1.4" />
+            <path d={`M ${half - 3} ${half - 1} L ${half - 1} ${half + 2} L ${half + 3} ${half - 3}`}
+                  fill="none" stroke="#FCA5A5" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+        ) : isSuspicious ? (
+          // amber triangle
+          <g filter={`url(#g-${frame.frame_iid})`}>
+            <polygon points={`${half},2 ${size - 2},${size - 2} 2,${size - 2}`}
+                     fill="#78350F" stroke={VERDICT.suspicious.color} strokeWidth="1.4" />
+            <line x1={half} y1={half - 2} x2={half} y2={half + 2}
+                  stroke="#FDE68A" strokeWidth="1.4" strokeLinecap="round" />
+            <circle cx={half} cy={half + 4} r="0.9" fill="#FDE68A" />
+          </g>
+        ) : (
+          // benign play dot in lane accent
+          <g>
+            <circle cx={half} cy={half} r={half - 3}
+                    fill="#0B0B0E" stroke={meta.accent} strokeWidth="1.4" />
+            <polygon points={`${half - 1.5},${half - 2.5} ${half - 1.5},${half + 2.5} ${half + 2.5},${half}`}
+                     fill={meta.accent} />
+          </g>
+        )}
+      </svg>
       {mitre0 && (
         <span
-          data-testid={`mitre-chip-${frame.frame_iid}`}
-          className="absolute -top-2 -right-1 text-[9px] leading-none px-1 py-[2px]
-                     bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-sm
-                     shadow-sm z-10"
+          className="absolute -top-3 -right-1 text-[8px] leading-none px-1 py-[1px] rounded-sm
+                     bg-zinc-800 text-zinc-300 border border-zinc-700 pointer-events-none z-20"
           style={{ fontFamily: "'IBM Plex Mono', monospace" }}
         >
           {mitre0}
         </span>
       )}
-
-      {/* Dot marker */}
-      <span className="w-1.5 h-1.5 rounded-full shrink-0 mr-2"
-            style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />
-
-      {/* Command / label */}
-      <span className="truncate text-[11px] text-zinc-300 leading-none"
-            style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-        {preview || frame.action}
-      </span>
     </button>
   );
 }
 
-// ─── Time ruler footer ────────────────────────────────────────────────
-function TimeRuler({ ticks, zoom, minTs, maxTs, total, filtered }) {
-  if (!ticks.length) {
-    return (
-      <div className="h-10 shrink-0 border-t border-zinc-800 bg-zinc-950 flex items-center
-                      px-4 text-[10px] text-zinc-600 tracking-widest"
-           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-        AWAITING OBSERVATIONS
-      </div>
-    );
-  }
+// ═══════════════════════════════════════════════════════════════════
+// Bottom ruler
+// ═══════════════════════════════════════════════════════════════════
+function TimeRuler({ ticks, zoom, minTs, maxTs, total, rows }) {
   const fmt = (ts) => new Date(ts).toISOString().replace("T", " ").slice(0, 19) + "Z";
   return (
     <div className="h-10 shrink-0 border-t border-zinc-800 bg-zinc-950 flex items-center relative"
-         style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-         data-testid="time-ruler">
-      <div className="w-32 shrink-0 h-full border-r border-zinc-800 flex items-center px-3">
+         style={{ fontFamily: "'IBM Plex Mono', monospace" }} data-testid="time-ruler">
+      <div style={{ width: LEFT_RAIL_W }}
+           className="shrink-0 h-full border-r border-zinc-800 flex items-center px-3">
         <Clock size={11} className="text-zinc-600 mr-1.5" />
         <span className="text-[9px] tracking-[0.18em] text-zinc-500 font-semibold">
           WINDOW · {zoom.toUpperCase()}
         </span>
       </div>
       <div className="flex-1 h-full relative flex items-center">
-        {/* Tick marks */}
         {ticks.map((t, i) => (
-          <span
-            key={i}
-            className="absolute top-0 bottom-0 w-px bg-zinc-800"
-            style={{ left: `${(i / (ticks.length - 1)) * 100}%` }}
-          />
+          <span key={i} className="absolute top-0 bottom-0 w-px bg-zinc-800"
+                style={{ left: `${(i / (ticks.length - 1 || 1)) * 100}%` }} />
         ))}
-        <span className="absolute left-3 text-[9px] text-zinc-500 tabular-nums">
-          {fmt(minTs)}
-        </span>
-        <span className="absolute left-1/2 -translate-x-1/2 text-[9px] text-zinc-600 tabular-nums">
-          {fmt((minTs + maxTs) / 2)}
-        </span>
-        <span className="absolute right-3 text-[9px] text-zinc-500 tabular-nums">
-          {fmt(maxTs)}
-        </span>
-      </div>
-      <div className="w-52 shrink-0 h-full border-l border-zinc-800 flex items-center justify-end px-3 gap-2">
-        <span className="text-[9px] tracking-[0.18em] text-zinc-500 font-semibold">FRAMES</span>
-        <span className="text-[11px] text-zinc-200 tabular-nums">{total}</span>
-        {filtered !== null && (
-          <span className="text-[9px] text-zinc-600 tabular-nums">/ {filtered}</span>
+        {ticks.length > 0 && (
+          <>
+            <span className="absolute left-3 text-[9px] text-zinc-500 tabular-nums">{fmt(minTs)}</span>
+            <span className="absolute left-1/2 -translate-x-1/2 text-[9px] text-zinc-600 tabular-nums">
+              {fmt((minTs + maxTs) / 2)}
+            </span>
+            <span className="absolute right-3 text-[9px] text-zinc-500 tabular-nums">{fmt(maxTs)}</span>
+          </>
         )}
+      </div>
+      <div className="w-56 shrink-0 h-full border-l border-zinc-800 flex items-center justify-end px-3 gap-2">
+        <span className="text-[9px] tracking-[0.18em] text-zinc-500 font-semibold">EVENTS</span>
+        <span className="text-[11px] text-zinc-200 tabular-nums">{total}</span>
+        <span className="text-zinc-700 mx-1">·</span>
+        <span className="text-[9px] tracking-[0.18em] text-zinc-500 font-semibold">ROWS</span>
+        <span className="text-[11px] text-zinc-200 tabular-nums">{rows}</span>
       </div>
     </div>
   );
 }
 
-// ─── Right drawer (empty ⇢ overview · selected ⇢ evidence) ────────────
-function Drawer({ selected, onClose, overview, totalEvents, caseId }) {
+// ═══════════════════════════════════════════════════════════════════
+// Right drawer (Case Overview / Activity feed / Evidence Panel)
+// ═══════════════════════════════════════════════════════════════════
+function Drawer({ selected, onClose, overview, totalEvents, caseId, frames, onPickEvent }) {
+  const [tab, setTab] = useState("overview"); // overview | activity
   return (
-    <aside
-      data-testid="v2-trajectory-drawer"
-      className="w-[380px] shrink-0 border-l border-zinc-800 bg-zinc-950/95
-                 flex flex-col overflow-hidden z-30"
-    >
-      {selected
-        ? <EvidencePanel frame={selected} onClose={onClose} />
-        : <CaseOverviewPanel overview={overview} totalEvents={totalEvents} caseId={caseId} />}
+    <aside data-testid="v2-trajectory-drawer"
+           className="w-[380px] shrink-0 border-l border-zinc-800 bg-zinc-950/95
+                      flex flex-col overflow-hidden z-30">
+      {selected ? (
+        <EvidencePanel frame={selected} onClose={onClose} />
+      ) : (
+        <>
+          {/* Tab strip */}
+          <div className="flex items-stretch border-b border-zinc-900 shrink-0">
+            <DrawerTab active={tab === "overview"} onClick={() => setTab("overview")}
+                       label="Case Overview" tid="tab-overview" />
+            <DrawerTab active={tab === "activity"} onClick={() => setTab("activity")}
+                       label="Activity" count={frames.length} tid="tab-activity" />
+          </div>
+          {tab === "overview"
+            ? <CaseOverviewPanel overview={overview} totalEvents={totalEvents} caseId={caseId} />
+            : <ActivityFeed frames={frames} onPickEvent={onPickEvent} />}
+        </>
+      )}
     </aside>
+  );
+}
+
+function DrawerTab({ active, onClick, label, count, tid }) {
+  return (
+    <button data-testid={tid}
+      onClick={onClick}
+      className={"flex-1 h-9 flex items-center justify-center gap-2 text-[10px] tracking-[0.2em] " +
+                 "font-semibold uppercase transition-colors duration-150 border-b-2 " +
+                 (active
+                   ? "text-amber-400 border-amber-500 bg-amber-500/5"
+                   : "text-zinc-500 border-transparent hover:text-zinc-300")}
+    >
+      {label}
+      {count != null && (
+        <span className={"text-[9px] px-1 rounded-sm tabular-nums " +
+                        (active ? "bg-amber-500/15 text-amber-400" : "bg-zinc-900 text-zinc-500")}
+              style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+// ─── Activity feed (chronological parent → child pairs) ──────────────
+function ActivityFeed({ frames, onPickEvent }) {
+  // Show most-recent first; each entry: [parent process name] → [event summary]
+  const items = useMemo(() => {
+    const sorted = [...frames].sort(
+      (a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime()
+    );
+    return sorted.map(f => {
+      const parentName = processLabelOf({ label: f.parent?.iid || "", action: "" }) || "—";
+      const target = processLabelOf(f);
+      return { f, parentName, target };
+    });
+  }, [frames]);
+
+  if (items.length === 0) {
+    return (
+      <div className="p-5 text-[11px] text-zinc-600"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        no activity yet
+      </div>
+    );
+  }
+  return (
+    <div className="flex-1 overflow-y-auto divide-y divide-zinc-900"
+         data-testid="activity-feed">
+      {items.map(({ f, parentName, target }, i) => {
+        const v = verdictFor(f);
+        const vColor = VERDICT[v].color;
+        return (
+          <button key={f.frame_iid || i}
+                  data-testid={`activity-item-${f.frame_iid || i}`}
+                  onClick={() => onPickEvent(f)}
+                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-zinc-900/50
+                             text-left transition-colors duration-100">
+            <span className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ background: vColor, boxShadow: `0 0 6px ${vColor}` }} />
+            <span className="text-[11px] text-zinc-300 truncate w-24"
+                  style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+              {parentName}
+            </span>
+            <ChevronRight size={11} className="text-zinc-600 shrink-0" />
+            <span className="text-[11px] text-zinc-200 truncate flex-1"
+                  style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+              {target}
+            </span>
+            <span className="text-[9px] text-zinc-600 tabular-nums shrink-0"
+                  style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+              {new Date(f.ts).toISOString().slice(11, 19)}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -524,15 +936,23 @@ function CaseOverviewPanel({ overview, totalEvents, caseId }) {
       </div>
       <div className="text-[11px] text-zinc-500 mb-5"
            style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-        Select an event on the timeline to inspect its evidence, or press{" "}
+        Select an event on a lifeline, or press{" "}
         <kbd className="border border-zinc-700 rounded px-1 text-[9px]">←</kbd>{" "}
         <kbd className="border border-zinc-700 rounded px-1 text-[9px]">→</kbd> to step through.
       </div>
 
-      {/* Event breakdown per lane */}
+      {/* Verdict counts */}
+      <SectionLabel>Verdict summary</SectionLabel>
+      <div className="mb-5 grid grid-cols-3 gap-2">
+        <VerdictTile v="malicious"  n={overview.malicious} />
+        <VerdictTile v="suspicious" n={overview.suspicious} />
+        <VerdictTile v="benign"     n={totalEvents - overview.malicious - overview.suspicious} />
+      </div>
+
+      {/* Lane breakdown */}
       <SectionLabel>Event breakdown</SectionLabel>
       <div className="mb-5 space-y-1.5">
-        {overview.laneCounts.map(([lane, n]) => {
+        {overview.lanes.map(([lane, n]) => {
           const meta = LANE_META[lane];
           const pct = totalEvents ? Math.round((n / totalEvents) * 100) : 0;
           return (
@@ -551,7 +971,6 @@ function CaseOverviewPanel({ overview, totalEvents, caseId }) {
         })}
       </div>
 
-      {/* MITRE tactics */}
       <SectionLabel>Top MITRE techniques</SectionLabel>
       <div className="mb-5 flex flex-wrap gap-1.5">
         {overview.mitre.length === 0 && (
@@ -562,8 +981,7 @@ function CaseOverviewPanel({ overview, totalEvents, caseId }) {
         )}
         {overview.mitre.map(([tid, n]) => (
           <span key={tid}
-                className="text-[10px] px-1.5 py-0.5 border border-zinc-700 rounded-sm
-                           bg-zinc-900 text-zinc-300"
+                className="text-[10px] px-1.5 py-0.5 border border-zinc-700 rounded-sm bg-zinc-900 text-zinc-300"
                 style={{ fontFamily: "'IBM Plex Mono', monospace" }}
                 data-testid={`overview-mitre-${tid}`}>
             {tid}<span className="text-zinc-600 ml-1">×{n}</span>
@@ -571,27 +989,6 @@ function CaseOverviewPanel({ overview, totalEvents, caseId }) {
         ))}
       </div>
 
-      {/* Top entities */}
-      <SectionLabel>Top entities</SectionLabel>
-      <div className="mb-5 space-y-1">
-        {overview.entities.length === 0 && (
-          <span className="text-[10px] text-zinc-600"
-                style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-            no entities extracted
-          </span>
-        )}
-        {overview.entities.map(([iid, n]) => (
-          <div key={iid} className="flex items-center gap-2 text-[10px]"
-               style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-               data-testid={`overview-entity-${iid}`}>
-            <ChevronRight size={10} className="text-zinc-600" />
-            <span className="text-zinc-400 truncate flex-1" title={iid}>{iid}</span>
-            <span className="text-zinc-600 tabular-nums">×{n}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Case reference footer */}
       <div className="mt-6 pt-4 border-t border-zinc-900">
         <SectionLabel>Case reference</SectionLabel>
         <div className="text-[10px] text-zinc-500 mt-1 break-all"
@@ -599,14 +996,31 @@ function CaseOverviewPanel({ overview, totalEvents, caseId }) {
           {caseId}
         </div>
         <div className="text-[10px] text-zinc-600 mt-1">
-          Timeline span:{" "}
+          Processes tracked:{" "}
           <span className="text-zinc-400 tabular-nums"
                 style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-            {overview.spanMs
-              ? formatDuration(overview.spanMs)
-              : "—"}
+            {overview.processes}
           </span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function VerdictTile({ v, n }) {
+  const meta = VERDICT[v];
+  return (
+    <div className="border border-zinc-900 rounded-sm p-2 bg-zinc-950/60"
+         data-testid={`verdict-tile-${v}`}>
+      <div className="flex items-center gap-1.5">
+        <meta.Icon size={11} style={{ color: meta.color }} />
+        <span className="text-[9px] tracking-widest font-semibold" style={{ color: meta.color }}>
+          {meta.label}
+        </span>
+      </div>
+      <div className="text-lg text-zinc-100 tabular-nums font-semibold mt-1 leading-none"
+           style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+        {n}
       </div>
     </div>
   );
@@ -615,17 +1029,11 @@ function CaseOverviewPanel({ overview, totalEvents, caseId }) {
 function EvidencePanel({ frame, onClose }) {
   const meta = LANE_META[frame.lane] || LANE_META.process;
   const v = verdictFor(frame);
-  const verdictLabel = v === "malicious" ? "MALICIOUS"
-                     : v === "suspicious" ? "SUSPICIOUS"
-                     : "OBSERVATION";
-  const verdictColor = v === "malicious" ? "#E11D48"
-                     : v === "suspicious" ? "#F59E0B"
-                     : "#22C55E";
+  const vMeta = VERDICT[v];
   return (
     <div className="flex-1 flex flex-col overflow-hidden" data-testid="evidence-panel">
-      {/* Header with verdict stripe */}
       <div className="px-5 pt-5 pb-4 border-b border-zinc-900 relative">
-        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: verdictColor }} />
+        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: vMeta.color }} />
         <div className="flex items-center gap-2 mb-2">
           <meta.Icon size={13} style={{ color: meta.accent }} />
           <span className="text-[10px] tracking-[0.24em] font-semibold text-zinc-400">
@@ -635,23 +1043,17 @@ function EvidencePanel({ frame, onClose }) {
           <button
             data-testid="evidence-close"
             onClick={onClose}
-            className="text-zinc-600 hover:text-zinc-300 text-[10px] tracking-wider"
+            className="text-zinc-600 hover:text-zinc-300 flex items-center gap-1 text-[10px] tracking-wider"
             style={{ fontFamily: "'IBM Plex Mono', monospace" }}
           >
-            ESC ✕
+            ESC <X size={11} />
           </button>
         </div>
-        <span
-          className="inline-block text-[9px] font-bold tracking-[0.2em] px-1.5 py-0.5 rounded-sm border"
-          style={{
-            color: verdictColor,
-            borderColor: verdictColor + "66",
-            background: verdictColor + "14",
-            fontFamily: "'IBM Plex Sans', sans-serif",
-          }}
-          data-testid="verdict-badge"
-        >
-          {verdictLabel}
+        <span className="inline-flex items-center gap-1 text-[9px] font-bold tracking-[0.2em] px-1.5 py-0.5 rounded-sm border"
+              style={{ color: vMeta.color, borderColor: vMeta.color + "66", background: vMeta.color + "14",
+                       fontFamily: "'IBM Plex Sans', sans-serif" }}
+              data-testid="verdict-badge">
+          <vMeta.Icon size={10} /> {vMeta.label}
         </span>
         <div className="mt-3 text-[12px] text-zinc-200 leading-relaxed break-words"
              style={{ fontFamily: "'IBM Plex Mono', monospace" }}
@@ -660,7 +1062,6 @@ function EvidencePanel({ frame, onClose }) {
         </div>
       </div>
 
-      {/* Body */}
       <div className="p-5 space-y-4 overflow-y-auto text-[10px]"
            style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
         <KV k="timestamp" v={frame.ts} />
@@ -697,9 +1098,8 @@ function EvidencePanel({ frame, onClose }) {
             {frame.rule_id && <KV k="rule_id" v={frame.rule_id} mono />}
             {frame.provenance?.source && <KV k="source" v={frame.provenance.source} />}
             {frame.provenance?.adapter && <KV k="adapter" v={frame.provenance.adapter} />}
-            {frame.provenance?.confidence != null && (
-              <KV k="confidence" v={String(frame.provenance.confidence)} />
-            )}
+            {frame.provenance?.confidence != null &&
+              <KV k="confidence" v={String(frame.provenance.confidence)} />}
           </KVGroup>
         )}
       </div>
@@ -707,7 +1107,7 @@ function EvidencePanel({ frame, onClose }) {
   );
 }
 
-// ─── Small subcomponents ──────────────────────────────────────────────
+// ─── Small helpers ────────────────────────────────────────────────────
 function SectionLabel({ children }) {
   return (
     <div className="text-[9px] tracking-[0.24em] font-semibold text-zinc-500 uppercase mb-2">
@@ -715,7 +1115,6 @@ function SectionLabel({ children }) {
     </div>
   );
 }
-
 function KV({ k, v, mono, muted }) {
   return (
     <div className="flex items-baseline gap-2 leading-relaxed">
@@ -727,7 +1126,6 @@ function KV({ k, v, mono, muted }) {
     </div>
   );
 }
-
 function KVGroup({ title, children }) {
   return (
     <div className="border border-zinc-900 rounded-sm p-3 bg-zinc-950/60">
@@ -738,7 +1136,6 @@ function KVGroup({ title, children }) {
     </div>
   );
 }
-
 function formatDuration(ms) {
   if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
   if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
