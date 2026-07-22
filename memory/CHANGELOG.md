@@ -724,3 +724,28 @@ this reads as visual noise.
   generic_dotted_quads amber) with an "ENTITY CLASSIFIER" pill.
 - **Testing**: 217 backend tests passing; testing_agent_v3_fork
   iteration_34.json → all 9 checks green, zero regressions.
+
+## 2026-02-22 · Live correlation + Cmd+K aliases + locale + alerts (v1.5.9)
+
+- **Correlation Auto-run**: /api/rc5/parse now returns a `correlation`
+  payload alongside `evidence_graph`. Analyst Results renders a new
+  `CorrelationPanel` (data-testid `correlation-panel`) with temporal
+  spans, dependency chains, and contradiction badges. Zero verdict
+  influence — the engine is still pure-function.
+- **Cmd+K Aliases**: typing `>` in the palette switches to command
+  mode. Aliases: `>refresh corpus`, `>run benchmark`, `>run battery`,
+  `>open recent case`, `>open training inbox`, `>open mitre heatmap`,
+  `>change password`, `>go workspace`. Every alias runs a real
+  backend action or navigation — no mocks.
+- **Corpus Regression Alerts**: `CorpusHealthPill` now tracks the
+  previous poll's gate. On PASS→FAIL flips it emits a warning toast;
+  on FAIL→PASS flips it emits a success toast. Global `<Toaster />`
+  mounted in App.js (bottom-right).
+- **Entity Classifier · Multi-locale**: `_NET_CONTEXT`,
+  `_VERSION_CONTEXT` and `_WIN_BUILD_CONTEXT` extended with Russian /
+  Chinese / Japanese / Korean / Arabic keywords. Five new unit tests
+  cover Cyrillic IPv4, Chinese IPv4 + version, Arabic IPv4 and
+  Japanese Windows build detection. Total: 24 classifier tests +
+  9 correlation tests + 217 backend tests still passing.
+- **Testing**: `testing_agent_v3_fork` iteration_35.json → all
+  targets green, zero regressions.
