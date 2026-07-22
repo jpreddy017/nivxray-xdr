@@ -2,6 +2,51 @@
 
 Chronological record of significant releases (newest first).
 
+
+## 2026-02-22 · R4 · Deterministic Investigation Report Generator (SHIPPED)
+
+**Flagship shared capability** powering both Mode A (SOAR automation) and
+Mode B (interactive analyst). Same case + same observations always produce
+byte-identical JSON and Markdown reports with a stable SHA-256 signature.
+
+- **Backend**: `/app/backend/v2/report/` (schema, builder, markdown, hashing)
+  - `POST-style` endpoints: `GET /api/v2/cases/{id}/report` (JSON)
+    and `GET /api/v2/cases/{id}/report.md` (text/plain Markdown)
+  - 10 canonical sections in fixed order: executive_summary,
+    case_metadata, verdict_rollup, mitre_coverage, process_ancestry,
+    top_entities, chronological_timeline, commandline_decoding,
+    enrichment (R3 stub), signature
+  - `generated_at` derived from newest observation ts — never wall-clock
+  - Reuses `v2.trajectory.build_from_observations` so Mode A and Mode B
+    read the exact same enriched frames
+  - Real process names surfaced (cmd.exe, powershell.exe, rustdesk.exe,
+    wbadmin.exe, msiexec.exe, locker.exe, etc.) — no synthetic
+    `proc_shadow_*` leakage
+- **Frontend**: `ReportModal` on Device Trajectory
+  - Amber `GENERATE REPORT` CTA
+  - Left section index (10 anchors) + monospace Markdown preview
+  - COPY JSON / COPY MD / DOWNLOAD .md / DOWNLOAD .json actions
+  - Signature footer with schema version and canonical-json byte length
+- **Tests**: 6/6 R4 pytest suite + 7/7 live API + 8/8 frontend flows
+  (testing agent iteration_38) — RC5 parity intact, 802/802 fast gate green
+- **Docs**: `/app/memory/ROADMAP.md` rewritten with dual-mode framing;
+  `/app/memory/ARCHITECTURE_v2.md` appendix adds Mode A + Mode B diagrams
+
+## 2026-02-22 · R1.1 · Analyst Experience (SHIPPED)
+
+- Cisco Secure Endpoint symbol vocabulary (12 activity glyphs) applied
+  to Device Trajectory in Amber-on-Graphite palette (zero vendor clone)
+- Per-process rows with dashed lifelines, two-tier calendar+hour scrubber
+  (hatched no-data zones), MITRE overlay chips on glyphs
+- Filter chips (verdict + lane + top MITRE), case selector dropdown,
+  glyph legend popover, "new since last view" localStorage badge,
+  rule-provenance hover cards
+- Evidence panel with verdict + confidence badges (High/Med/Low)
+- `GET /api/v2/cases/{id}/mitre/coverage` endpoint
+- Seed script upserts parent `v2_cases` document
+- 15/15 frontend flows + 8/8 backend flows validated (iteration_37)
+
+
 ## 2026-02 · Data-Integrity Sprint (SHIPPED)
 
 **Objective:** eliminate all synthetic/stub metrics identified in the honest-gap audit. Every Dashboard/Benchmark number now traces back to a real deterministic execution.
