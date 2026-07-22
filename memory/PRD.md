@@ -6,6 +6,58 @@ obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
 
+## 2026-02-22 · Phase 1 · v2 Framework Skeleton (SHIPPED · shadow-mode)
+
+**Motivation:** Land the isolated `/app/backend/v2/` namespace with
+adapter/parser/normalizer contracts and CEM v1 — pure framework, no
+logic — so Phase 2+ can plug in concrete adapters without touching
+RC5.
+
+**Shipped (26 new files, 0 RC5 files touched):**
+- **CEM v1 schema** (`v2/cem/v1/schema.py` + `json_schema.py`):
+  frozen dataclasses for Provenance / Entity / Relationship /
+  CanonicalEvent + JSON Schema mirrors. 44 entity kinds · 41 event
+  kinds · 27 relationship kinds locked. Version registry at
+  `v2/cem/registry.py`.
+- **Adapter framework** (`v2/adapters/`): `InputAdapter` Protocol,
+  `RawEvent` + `Source` carriers, `@register` decorator, discovery
+  driver. 5 seed adapter STUBS (command_line, powershell, cmd,
+  bash, json_events) — every stub returns 0.0 from `detect()` and
+  yields nothing from `stream()`. Adapter logic ships in later
+  phases behind `NIVX_FLAG_ADAPTERS=shadow`.
+- **Parser + Normalizer Protocols** (`v2/parser/base.py`,
+  `v2/normalization/base.py`): contract-only Phase 1 shells.
+- **Rebaseline tool** (`tests/tools/rebaseline.py`): governance-
+  gated. Requires `NIVX_REBASELINE_TICKET` env + `--i-know-what-im-doing`
+  + `--force`. Diff-first output. Dry-run supported.
+- **Framework tests** (`tests/test_v2_framework.py`): 15 checks —
+  registry determinism · Protocol conformance · adapter metadata
+  stability · CEM validation · JSON-Schema/enum parity ·
+  **RC5-isolation guard** (any `from engine…` or `import engine…`
+  inside `v2/*` fails the test).
+- **Regression gate hardening**: absolute 10 ms noise budget added
+  to `test_latency_within_tolerance` so scheduler jitter on
+  sub-ms baselines no longer flakes CI.
+
+**Verified:**
+- `tests/test_v2_framework.py` — 15/15 pass.
+- `tests/test_regression_gate.py` — 8/8 pass.
+- Combined critical suite (regression gate + framework + locale +
+  entity + correlation + 150+ regression): **98/98 pass** hot,
+  **302/304 pass** in full sweep (2 pre-existing unrelated
+  `test_analyst_v2_api` async-timing failures — not caused by
+  Phase 1).
+- `flags.all_disabled() == True` (zero v2 code path active).
+- Rebaseline dry-run produced identical `baseline_id` + `sample_map_hash`
+  — deterministic engine confirmed across runs.
+- Production sanity: Cmd+K fuzzy ranking works live on
+  `nivxray.nivxforge.com` (`>run benchmark` ranked above `>run battery`).
+
+**Guardrails held**: RC5 immutable · v2 isolation enforced by test ·
+all flags DISABLED · additive-only.
+
+
+
 ## 2026-02-22 · Phase 0 · Baseline Freeze + Governance Directive (SHIPPED)
 
 **Motivation:** Lock RC5 as a frozen, immutable investigation core
