@@ -29,13 +29,25 @@ obfuscated malware command lines with zero AI hallucinations, honest
 **Stable rendering contract** (every future investigation view speaks this shape):
 `InvestigationEntity + InvestigationEvent + Relationship + VisualState`.
 
-**Milestone 0 gates (quantitative + qualitative)**:
-- Workflow within 10–15% of reference on click count / time / context switches / scroll / zoom
-- ≥60 FPS · <16 ms pointer latency · <100 ms selection response · <100 ms panel sync
-- <1 s cold load for 5k entities · no heap growth over 30 min
-- 7 analyst heuristics (root process ID, parent→child follow, selection visibility, historical vs active, spatial orientation, recovery from zoom, obvious-without-training)
+**Milestone 0 gates (quantitative + qualitative)** — NOW RUN AT M2.5, NOT M0:
+The Golden UX Validation was moved to Milestone 2.5 (after M2 · Interaction Complete). You cannot validate a UX that does not yet exist — validation must evaluate a working interactive prototype, not documents.
 
-**Milestone 1 rule (locked)**: No investigation features may be added — the canvas interaction model must feel professional before any new MITRE / filter / panel / AI work.
+**Corrected rollout sequence** (locked per user review):
+- M0 · Architecture ✅ COMPLETE
+- M1 · Core Canvas Engine skeleton (TypeScript scaffolding, LifelineLayer + EventLayer + marquee, viewport / layout unit tests)
+- M2 · Interaction Complete (state machines · keyboard nav · minimap · scrollbars · context menu)
+- M2.5 · Golden UX Validation (working prototype vs Cisco reference; every quantitative + qualitative gate)
+- M2.75 · Analyst Dogfooding (3–5 real analysts perform the 6 tasks unassisted; friction ≥ 2 analysts observe → M3 backlog top)
+- M3 · Performance (clustering, virtualization, shadow-cache; addresses friction items first)
+- M4 · Device Trajectory rebuild (legacy `DeviceTrajectory.jsx` + `DeviceTrajectoryV2.jsx` deleted)
+- M5 · Process Ancestry migrated onto the same engine
+- M6 · File Trajectory (third consumer; only after this do we evaluate extracting the engine to `nivx-canvas-engine`)
+- M7 · Network / Registry / Identity / Attack Chain / Investigation Graph
+- M8 · Phase 2 · Live streaming ingest
+
+**Milestone 1 rule (locked)**: No investigation features may be added — the canvas interaction model must feel professional before any new MITRE / filter / panel / AI work. This freeze extends through M3.
+
+**Package extraction rule (locked)**: `nivx-canvas-engine` stays at `/app/frontend/src/v2/canvas_engine/` until Device Trajectory (M4), Process Ancestry (M5), AND File Trajectory (M6) are all sharing it successfully. Early extraction freezes an abstraction that has only served one consumer.
 
 **Backend, RC5, Semantic Engine, Report Generator, Artifact Store — untouched during this design phase.** 820/820 tests still green.
 

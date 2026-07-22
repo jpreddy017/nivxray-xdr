@@ -514,36 +514,64 @@ Storybook stories:
 
 ## 20 · Rollout Plan
 
-Because the engine is new and non-trivial:
+Because the engine is new and non-trivial, and because **you cannot validate a UX that doesn't exist yet**, the milestone order was corrected on user review:
 
-**Milestone 0 — Golden UX Validation** (gate before any code):
-* Pick one canonical DFIR case (Bumblebee → AdaptixC2 → Akira ransomware).
-* Open Cisco Secure Endpoint (reference) on one monitor, NivXRay on another.
-* Walk through **six analyst tasks** on both, in order:
+**Milestone 0 — Architecture** ✅ **COMPLETE**
+* All four normative design documents signed off. Locked decisions Q1–Q9. Stable rendering contract (`InvestigationEntity + InvestigationEvent + Relationship + VisualState`).
+* This is the point implementation opens.
+
+**Milestone 1 — Core canvas engine skeleton** (implementation gate):
+* Add TypeScript toolchain to the frontend workspace.
+* Scaffold `/app/frontend/src/v2/canvas_engine/{core,react,konva}` per §2 module tree.
+* Implement `types.ts` + `core/*` (viewport / time / layout / selection / history / virtualization).
+* Ship `react/InvestigationCanvas.tsx` with `LifelineLayer` + `EventLayer` only.
+* Green unit tests on viewport / layout math.
+* **Marquee multi-select included** (locked decision Q1).
+* **Feature Freeze Rule (hard):**
+
+  > No investigation feature may be added until the existing interaction model behaves correctly.
+
+  In practice, during M1 through M3:
+  * ❌ No new MITRE badges, chips, or overlays.
+  * ❌ No new filter categories or dropdowns.
+  * ❌ No new side panels or tabs.
+  * ❌ No AI / summarisation widgets.
+  * ❌ No new visualisations or embellishments.
+  * ✅ Only work that makes the canvas feel professional is in scope.
+
+**Milestone 2 — Interaction complete**:
+* Selection cascade + gentle auto-scroll.
+* Keyboard nav (every shortcut from `INTERACTION_STATE_MACHINES.md` §5).
+* Shift-select + context menu + minimap + scrollbars.
+* Every state machine transition in `INTERACTION_STATE_MACHINES.md` implemented end-to-end.
+
+**Milestone 2.5 — Golden UX Validation** (now positioned to evaluate a *working* prototype):
+* Pick one canonical DFIR case (Bumblebee → AdaptixC2 → Akira).
+* Open Cisco Secure Endpoint (reference) on one monitor, the new NivXRay canvas on another.
+* Walk through the six analyst tasks:
   1. Find the parent process of the first malicious execution.
   2. Locate the first malicious execution timestamp.
   3. Trace all spawned child processes of that parent.
   4. Follow every registry-key modification in the incident window.
   5. Inspect all outbound network connections from suspicious binaries.
   6. Review detections and their MITRE technique attribution.
-* For every task, **measure**: click count · time-to-complete · context switches · scroll distance · zoom operations.
-* Record numbers in a matrix `TASKS × { CLICKS · TIME · CTX_SW · SCROLL · ZOOM }` for both tools.
+* Measure `TASKS × { CLICKS · TIME · CTX_SW · SCROLL · ZOOM }` on both tools.
 
-**M0 Quantitative UX Gates** — every one must pass, else Milestone 1 does not open:
+**M2.5 Quantitative UX Gates** — every one must pass, else M3 does not open:
 
 | Category                | Gate                                            |
 |-------------------------|-------------------------------------------------|
 | Workflow efficiency     | Within **10–15%** of the reference on every task metric |
 | **Framerate**           | **≥ 60 FPS** during pan, zoom, marquee-drag, selection cascade |
 | **Input latency**       | **< 16 ms** pointer-down → visual feedback      |
-| **Zoom smoothness**     | No visible frame jumps during continuous wheel zoom (per Chrome DevTools rendering panel) |
+| **Zoom smoothness**     | No visible frame jumps during continuous wheel zoom |
 | **Auto-scroll**         | No abrupt camera jumps · always eased or snap-in-reduced-motion |
 | **Selection response**  | Highlight visible within **100 ms** of click     |
 | **Right-panel sync**    | Evidence panel updates within **100 ms** of selection |
 | **Cold load**           | Canvas paints < **1 second** for 5 000 entities |
-| **Memory**              | No progressive heap growth over a **30-minute** interactive session (allocate-free budget) |
+| **Memory**              | No progressive heap growth over a **30-minute** interactive session |
 
-**M0 Qualitative Analyst Heuristics** — every task must let the tester answer YES to each:
+**M2.5 Qualitative Analyst Heuristics** — every task must let the tester answer YES to each:
 
 1. Can I immediately identify the root process without hunting?
 2. Can I follow parent → child execution without searching?
@@ -553,51 +581,47 @@ Because the engine is new and non-trivial:
 6. Can I recover to a known state after zooming or panning aggressively?
 7. Is the investigation flow obvious without training?
 
-* If any task is >15% behind on numbers OR fails a heuristic, **that specific gap** goes to the top of the Milestone 1–3 backlog before general work.
+* If any task is >15% behind on numbers OR fails a heuristic, that specific gap goes to the top of the M3 backlog before general work.
 * Output artifact: `/app/memory/design/GOLDEN_UX_VALIDATION.md` with the matrix + heuristic answers + top-3 gap remediation items.
 
-**Milestone 1 — core skeleton** (implementation gate):
-* `types.ts` + `core/*` + `react/InvestigationCanvas.tsx` with `LifelineLayer` + `EventLayer` only.
-* Wired via `CanvasProvider` — sibling stub components can subscribe.
-* Green unit tests for viewport / layout math.
-* **Marquee multi-select is included in this milestone** (locked decision Q1).
+**Milestone 2.75 — Analyst Dogfooding** (new; runs immediately after M2.5):
+* Recruit 3–5 SOC analysts (or colleagues familiar with investigations).
+* Have each perform the same six tasks unassisted.
+* Observe (do not coach) and record answers to:
+  * Can you find the initial execution quickly?
+  * Can you trace process ancestry naturally?
+  * Is the selected entity obvious?
+  * Do you lose your place while navigating?
+  * Is panning / zooming intuitive?
+  * Does the right panel expose the information you expect?
+* Output artifact: `/app/memory/design/ANALYST_DOGFOODING.md` with observations, verbatim quotes, and top-3 friction items.
+* **Every friction item observed by ≥ 2 analysts** is added to the M3 backlog before general perf work begins.
 
-**M1 · Feature Freeze Rule (hard):**
-
-> No investigation feature may be added until the existing interaction model behaves correctly.
-
-In practice, during Milestone 1:
-* ❌ No new MITRE badges, chips, or overlays.
-* ❌ No new filter categories or dropdowns.
-* ❌ No new side panels or tabs.
-* ❌ No AI / summarisation widgets.
-* ❌ No new visualisations or embellishments.
-* ✅ Only work that makes the canvas feel professional (pan, zoom, drag, selection cascade, glow, right-panel sync, keyboard nav, minimap, scrollbars, virtualization) is in scope.
-
-The purpose of M1 is behavior parity with the reference workflow, not feature growth. Feature growth happens in Milestones 4+ once the interaction model is done.
-
-**Milestone 2 — interaction complete**:
-* Selection cascade + auto-scroll + gentle-scroll.
-* Keyboard nav.
-* Shift-select + context menu.
-* Every state machine documented in `INTERACTION_STATE_MACHINES.md` implemented end-to-end.
-
-**Milestone 3 — perf**:
-* Clustering, virtualization, cached shadow bitmaps, dev FPS overlay.
-* Configurable cluster thresholds (`clusterRadiusPx`, `expandThreshold`, `collapseThreshold`) — no hardcoded values.
+**Milestone 3 — Performance**:
+* Clustering (configurable `clusterRadiusPx`, `expandThreshold`, `collapseThreshold`).
+* Viewport virtualization (only draw items in `viewport ± margin`).
+* Cached shadow bitmaps for selection glow.
+* Dev-mode FPS overlay (`Ctrl+Alt+D`).
+* Load-time budget: 100 k events in < 400 ms progressive chunks.
+* Any friction item bubbled up from M2.5 / M2.75 is addressed here before general perf work.
 
 **Milestone 4 — Device Trajectory rebuild**:
 * Trajectory page becomes ~150 LOC (chrome only).
 * Old `DeviceTrajectory.jsx` + `DeviceTrajectoryV2.jsx` deleted.
 
 **Milestone 5 — Process Ancestry migration**:
-* Ancestry page consumes the same engine with a different Entity/Relation feed.
+* Ancestry page consumes the same engine with a different Entity/Relationship feed.
 * No new rendering engine (locked decision Q4).
 
-**Milestone 6 — new views**:
-* File Trajectory, Network Trajectory, Attack Chain, Investigation Graph.
+**Milestone 6 — File Trajectory**:
+* Third consumer of the same engine.
+* **Only after** Device + Process + File are all successfully sharing the engine, evaluate extracting it into a standalone `nivx-canvas-engine` workspace with independent versioning + Storybook.
+* Until then, the engine stays at `/app/frontend/src/v2/canvas_engine/` — early extraction would prematurely freeze an abstraction that has only served one consumer.
 
-**Milestone 7 — Phase 2 · Live streaming ingest**:
+**Milestone 7 — Additional views**:
+* Network Trajectory, Registry Timeline, Identity Timeline, Attack Chain, Investigation Graph — each is a new adapter that projects domain data into `InvestigationEntity[]`.
+
+**Milestone 8 — Phase 2 · Live streaming ingest**:
 * Canvas grows as a case is being ingested (locked decision Q5).
 
 Each milestone is independently shippable and reviewable.
