@@ -1,155 +1,129 @@
 {
-  "theme_strategy": "Dark mode strictly, modeled after enterprise SIEM platforms (Splunk ES, Elastic Security). No fluff, no gradients.",
+  "project_name": "NivXRay - Device Trajectory Redesign",
+  "theme_mode": "dark",
   "typography": {
-    "headings": {
-      "family": "Inter, Geist, sans-serif",
-      "classes": "font-sans tracking-tight font-semibold"
-    },
-    "body": {
-      "family": "Inter, Geist, sans-serif",
-      "classes": "font-sans text-slate-300"
-    },
-    "monospace_data": {
-      "family": "JetBrains Mono, Fira Code, monospace",
-      "classes": "font-mono tracking-tight",
-      "usage": "Hashes, IPs, IOCs, node IDs, T-codes, Sigma snippets"
-    },
-    "sizing_hierarchy": {
-      "H1": "text-2xl",
-      "H2": "text-xl",
-      "H3": "text-lg",
-      "H4": "text-base",
-      "Body": "text-sm",
-      "Labels_Small": "text-xs uppercase tracking-[0.1em]"
+    "strategy": "The 'Old Money Tech' variant - highly legible sans paired with dense monospace for forensics.",
+    "font_family_primary": "IBM Plex Sans, sans-serif",
+    "font_family_mono": "IBM Plex Mono, monospace",
+    "hierarchy": {
+      "h1": "text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-100",
+      "h2": "text-xl sm:text-2xl font-medium tracking-tight text-zinc-200",
+      "h3": "text-lg font-medium text-zinc-300",
+      "body": "text-sm text-zinc-400 leading-relaxed",
+      "data_mono": "text-xs font-mono tracking-tight text-zinc-300",
+      "micro_label": "text-[10px] uppercase tracking-[0.2em] font-sans text-zinc-500 font-semibold"
     }
   },
   "colors": {
+    "archetype": "Amber-on-Graphite (Tactical Surveillance)",
     "background": {
-      "base": "bg-slate-950",
-      "hex": "#020617"
-    },
-    "surface": {
-      "default": "bg-slate-900",
-      "elevated": "bg-slate-800",
-      "hex_default": "#0f172a"
+      "base": "#09090B",
+      "panel": "#18181B",
+      "swimlane_alt": "#121214",
+      "drawer": "#09090B"
     },
     "border": {
-      "default": "border-slate-800",
-      "subtle": "border-slate-800/50"
+      "subtle": "#27272A",
+      "strong": "#3F3F46",
+      "focus": "#F59E0B"
     },
     "text": {
-      "primary": "text-slate-50",
-      "secondary": "text-slate-400",
-      "muted": "text-slate-500"
+      "primary": "#FAFAFA",
+      "secondary": "#A1A1AA",
+      "muted": "#71717A",
+      "inverse": "#09090B"
     },
-    "verdict_tiers": {
-      "benign": {
-        "bg": "bg-green-500",
-        "text": "text-green-50",
-        "hex": "#22c55e"
-      },
-      "suspicious": {
-        "bg": "bg-amber-500",
-        "text": "text-amber-950",
-        "hex": "#f59e0b"
-      },
-      "malicious": {
-        "bg": "bg-red-500",
-        "text": "text-red-50",
-        "hex": "#ef4444"
-      },
-      "critical": {
-        "bg": "bg-rose-600",
-        "text": "text-rose-50",
-        "hex": "#e11d48"
-      }
+    "swimlane_accents": {
+      "SYSTEM": "#8B5CF6",
+      "PROCESS": "#E11D48",
+      "FILES": "#F59E0B",
+      "NETWORK": "#4F46E5",
+      "REGISTRY": "#EA580C"
+    },
+    "verdict_halos": {
+      "benign": "shadow-[0_0_12px_rgba(34,197,94,0.15)] border-green-500/30",
+      "suspicious": "shadow-[0_0_12px_rgba(245,158,11,0.25)] border-amber-500/50",
+      "malicious": "shadow-[0_0_15px_rgba(225,29,72,0.4)] border-rose-600"
     }
+  },
+  "grids": {
+    "global_layout": "grid-cols-1 lg:grid-cols-[1fr_380px]",
+    "timeline_lanes": "grid-rows-[auto_1fr] h-full"
   },
   "layouts": {
-    "wireframe_structure": "Enterprise Density Grid. Single pane of glass. Top Sticky Header containing Verdict Card -> Top Action Bar -> 2-Column Bento Grid -> Full-width Data Tables.",
-    "grid_system": "grid-cols-1 md:grid-cols-12 gap-4",
-    "sticky_regions": {
-      "verdict_header": "sticky top-0 z-50 w-full bg-slate-950/90 backdrop-blur-xl border-b border-slate-800 p-4 flex justify-between items-center"
-    },
-    "panel_allocations": {
-      "execution_graph": "col-span-12 lg:col-span-8 row-span-2",
-      "explainability_panel": "col-span-12 lg:col-span-4",
-      "golden_corpus_widget": "col-span-12 md:col-span-6 lg:col-span-4",
-      "shadow_run_info": "col-span-12 md:col-span-6 lg:col-span-4",
-      "cutover_gate": "col-span-12 lg:col-span-4",
-      "behavior_timeline": "col-span-12",
-      "mitre_table": "col-span-12",
-      "lolbin_table": "col-span-12 md:col-span-6",
-      "v1_v2_diff": "col-span-12 md:col-span-6"
-    }
-  },
-  "component_specs": {
-    "execution_graph": {
-      "description": "Interactive node/edge visualization of RC5 ExecGraph.",
-      "visuals": "Technical grid background (CSS repeating-linear-gradient). Nodes are square, flat, 1px border. font-mono for Node ID.",
-      "interactions": "Hover node -> highlight edges, display tooltip with node payload."
-    },
-    "behavior_timeline": {
-      "description": "Horizontal timeline of extracted behaviors grouped by tactic.",
-      "visuals": "flex overflow-x-auto gap-4 py-4. Timeline track is a solid 2px line (bg-slate-800). Behavior items are small cards (bg-slate-900 border-l-2 border-l-amber-500) sitting on the track."
-    },
-    "mitre_evidence_drilldown": {
-      "description": "Tabular list of MITRE techniques with expandable evidence.",
-      "visuals": "shadcn Table. Dense styling (py-2 instead of py-4). Row hover bg-slate-800/50. Font-mono for T-code.",
-      "interactions": "Click row -> expands to show behavior evidence strings and Sigma snippets in a sub-table with bg-slate-950."
-    },
-    "attack_navigator_btn": {
-      "description": "Deep-link to attack.mitre.org Navigator layer.",
-      "visuals": "shadcn Button, variant outline, size sm. Icon: Map or Compass (lucide-react). 'Open in ATT&CK Navigator'.",
-      "placement": "Top right of MITRE Evidence Table header."
-    },
-    "v1_v2_diff_view": {
-      "description": "Analyst diff view of previous vs new verdict/features.",
-      "visuals": "Split pane or diff block. Removed items: bg-red-950/30 text-red-400 line-through. Added items: bg-green-950/30 text-green-400."
-    },
-    "verdict_card": {
-      "description": "Top-left sticky card showing verdict, risk score, dimensions.",
-      "visuals": "Highest priority visual. Huge number for risk score (font-mono text-4xl). Verdict badge uses solid color scale. 7-dimension bars use tiny progress tracks (h-1)."
-    }
+    "page": "flex flex-col h-screen overflow-hidden bg-zinc-950 text-zinc-50 font-sans",
+    "header": "flex h-14 items-center justify-between border-b border-zinc-800 px-4 shrink-0 bg-zinc-950 z-20",
+    "main_workspace": "flex flex-1 overflow-hidden",
+    "timeline_container": "flex-1 flex flex-col overflow-hidden relative",
+    "swimlane": "flex-1 min-h-[100px] border-b border-zinc-800 relative group flex",
+    "swimlane_header": "w-32 shrink-0 border-r border-zinc-800 bg-zinc-900/50 p-2 flex flex-col justify-center items-end text-right z-10",
+    "swimlane_track": "flex-1 relative overflow-x-auto overflow-y-hidden bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6bTM5IDM5VjFoLTM4djM4aDM4eiIgZmlsbD0iIzI3MjcyYSIgZmlsbC1vcGFjaXR5PSIwLjA1IiBmaWxsLXJ1bGU9ImV2ZW5vZGQiLz48L3N2Zz4=')]",
+    "drawer": "w-[380px] shrink-0 border-l border-zinc-800 bg-zinc-950 flex flex-col transform transition-transform duration-300 ease-in-out z-30 overflow-y-auto"
   },
   "visual_enhancers": {
-    "style": "The 'Technical' Look (Grid Borders). Strict, rigid, flat.",
-    "shadows": "Minimal. No large diffuse shadows. Use 1px borders to separate surfaces.",
-    "borders": "border-slate-800 everywhere. Nested containers use border-slate-700.",
-    "gradients": "BANNED. Use flat background colors only."
+    "surface_strategy": "The 'Technical Grid' - expose the skeleton, sharp 1px borders, minimal radii (max 4px). NO glassmorphism. Solid tactical panels.",
+    "textures": "Subtle SVG grid background pattern in the timeline track to simulate a forensic cutting mat/graph paper.",
+    "nodes": "Dense, highly legible pills. 28px height. Border-left accented with lane color. Solid zinc-900 bg.",
+    "mitre_chip": "Absolute positioned, top -8px, right -4px. text-[9px] bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-sm px-1 font-mono z-10 shadow-sm",
+    "spawn_arcs": "SVG overlays connecting nodes. Use stroke-zinc-600 stroke-dasharray-4. Highlight to amber-500 on node hover."
+  },
+  "components_spec": {
+    "HeaderMetaBar": {
+      "description": "Top bar containing case ID, event count, and V2 badge.",
+      "classes": "h-14 flex items-center gap-4",
+      "v2_badge": "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.1)]",
+      "search": "relative max-w-sm w-full ml-auto. Shadcn Input tailored with mono font, bg-zinc-900 border-zinc-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+    },
+    "TimelineAxis": {
+      "description": "Sticky bottom ruler. Real UTC markings.",
+      "classes": "h-10 border-t border-zinc-800 bg-zinc-950 flex items-center px-4 text-xs font-mono text-zinc-500 relative shrink-0",
+      "tick_marks": "Absolute positioned vertical 1px lines mapping to time units."
+    },
+    "EventNode": {
+      "description": "DENSE nodes representing individual events in a swimlane.",
+      "classes": "absolute top-1/2 -translate-y-1/2 h-7 min-w-[140px] max-w-[280px] bg-zinc-900 border border-zinc-700 rounded-sm flex items-center pl-2 pr-3 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg hover:border-zinc-500 hover:z-20",
+      "icon_wrapper": "shrink-0 mr-2 opacity-80",
+      "text": "truncate text-xs font-mono text-zinc-300 leading-none"
+    },
+    "RightDrawer": {
+      "description": "Case overview (empty state) or Event Evidence panel (populated state).",
+      "classes": "p-5 flex flex-col gap-6",
+      "empty_state_sections": "MITRE Tactics Hit, Top Entities, Event Breakdown, Narrative. Use dense tabular layouts.",
+      "evidence_panel": "Rule ID, source, confidence, artifact refs, ATT&CK mapping, exact command / process ancestry."
+    },
+    "TrainingNoteCTA": {
+      "description": "Floating action button for analyst annotations.",
+      "classes": "fixed bottom-14 right-[400px] bg-amber-500 text-amber-950 px-3 py-1.5 rounded-sm font-semibold text-xs shadow-lg flex items-center gap-2 hover:bg-amber-400 z-40 transition-colors cursor-pointer border border-amber-300/50"
+    }
   },
   "motion": {
-    "philosophy": "Micro-animations only for functional feedback. No decorative motion.",
-    "interactions": "hover:bg-slate-800 transition-colors duration-150. Node expansion uses linear scale transform.",
-    "stagger": "Do not stagger table rows. High density data should render instantly."
+    "drawer": "transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+    "node_hover": "transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, border-color 0.15s ease",
+    "spawn_arcs": "SVG stroke-dashoffset animation on focus"
   },
   "accessibility": {
-    "contrast": "Ensure text-slate-400 against bg-slate-900 meets 4.5:1 ratio. Adjust if needed.",
-    "keyboard": "All expandable table rows and graph nodes must be focusable (tabIndex=0) and triggerable via Enter.",
-    "test_ids": "Every interactive element MUST have data-testid (e.g., 'verdict-badge', 'node-142', 'mitre-row-T1059')."
+    "focus_visible": "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+    "keyboard": "Implement ← / → keydown listeners for node step-through. `/` key to focus search input. `Esc` to close drawer."
   },
-  "3d_libraries": {
-    "recommendation": "None. 3D is BANNED for this strict SIEM compliance dashboard. Use 2D React Flow or custom SVG for execution graph.",
-    "alternative": "If node visualization is too complex for SVG, use vis-network or react-flow-renderer in strict 2D mode."
-  },
-  "image_urls": [],
+  "media": {},
+  "image_urls": {},
   "instructions_to_main_agent": [
-    "Build a strict dark-mode dashboard tailored for SOC analysts.",
-    "Use standard HTML/Tailwind for structural layout and shadcn/ui for complex interactive components.",
-    "Replace all default generic sans-serif fonts with JetBrains Mono or Fira Code for IPs, hashes, T-codes, and IOCs.",
-    "Do NOT use any gradients anywhere.",
-    "Implement the Execution Graph using React Flow or basic SVG components mapped over the graph data.",
-    "Implement the MITRE Evidence Drill-down using a customized shadcn Table with expandable rows (Collapsible).",
-    "Keep spacing tight (p-2, p-4) to maximize data density on the screen.",
-    "Make the Verdict Card sticky at the top of the viewport.",
-    "Bind the 5-Stage Confidence Breakdown to a series of compact Progress components.",
-    "Apply `data-testid` to all actionable components."
+    "DO NOT use generic UI layouts. This must look like a high-density forensic terminal.",
+    "USE 'IBM Plex Sans' for normal text and 'IBM Plex Mono' for ALL data points, timestamps, commands, and IDs. Add @import to load these from Google Fonts.",
+    "Enforce strict 1px borders using zinc-800 for the grid structure. NO rounded soft cards. Use 'rounded-sm' (max 4px radius).",
+    "Ensure nodes represent actual items. Use fixed height/width absolute positioning relative to their time axis in the swimlanes to mimic a proper Gantt/Timeline chart.",
+    "Draw SVG lines (spawn arcs) between parent and child nodes using standard path definitions (e.g. `<svg><path ... /></svg>`) bridging between coordinates. Mock the visual representation clearly.",
+    "For icons: Use lucide-react. Map specific icons to rows: SYSTEM (Cpu), PROCESS (Activity), FILES (FileCode), NETWORK (Globe), REGISTRY (Database).",
+    "The drawer state MUST switch entirely between Case Overview and Evidence Panel depending on selection state.",
+    "Implement data-testid on every clickable or interactive node.",
+    "Ensure dark colors are strictly derived from the zinc palette for backgrounds, avoiding all cyans or teals completely."
   ],
-  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
-    "Do not use transparent backgrounds under text that overlays images or grids.",
-    "Never center-align the main App container. Reading flow must remain natural left-to-right.",
-    "Hover states must be distinctly lighter than the active state background.",
-    "Add transition-colors for all buttons and interactive rows, but exclude transition-all.",
-    "Do not invent new components if shadcn/ui equivalents exist; adapt the primitives."
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Never use completely transparent backgrounds over content.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Add Transitions for specific interactive elements like button, input excluding transforms.",
+    "Always use specific properties for transitions (NOT transition: all).",
+    "Ensure all interactive and key informational elements include a data-testid attribute.",
+    "Use Sonner for toasts."
   ]
 }
