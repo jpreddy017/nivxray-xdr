@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "notes": "Public Interface Contract for /api/v2/* endpoints. Companion to public_interface_contract.json (which is RC5-only). Grows as v2 endpoints stabilise; may be edited freely during shadow rollout. Once an endpoint promotes from SHADOW → ENABLED it is frozen the same way RC5 endpoints are.",
+  "namespace": "/api/v2/",
+  "flag_gated": true,
+  "frozen_endpoints": [
+    { "method": "POST",   "path": "/api/v2/cases",                         "flag": "CASE_ENGINE" },
+    { "method": "GET",    "path": "/api/v2/cases",                         "flag": "CASE_ENGINE" },
+    { "method": "GET",    "path": "/api/v2/cases/{case_id}",               "flag": "CASE_ENGINE" },
+    { "method": "DELETE", "path": "/api/v2/cases/{case_id}",               "flag": "CASE_ENGINE" },
+    { "method": "POST",   "path": "/api/v2/cases/{case_id}/observations",  "flag": "CASE_ENGINE + ADAPTERS" },
+    { "method": "POST",   "path": "/api/v2/parse",                         "flag": "ADAPTERS" }
+  ],
+  "response_contract": {
+    "/api/v2/cases": {
+      "post": { "required_keys": ["id", "name", "tags", "status", "created_at", "created_by", "event_count", "entity_count"] },
+      "get":  { "returns": "array<Case>" }
+    },
+    "/api/v2/parse": {
+      "post": { "required_keys": ["ok", "cem_version", "event"] }
+    },
+    "/api/v2/cases/{case_id}/observations": {
+      "post": { "required_keys": ["ok", "case_id", "observation_id", "event_iid", "cem_version"] }
+    }
+  },
+  "isolation_guarantees": [
+    "No /api/v2/* endpoint reads or writes any RC5 collection (workspace_cases, investigation_events, rc5_golden_runs, etc.).",
+    "No /api/v2/* endpoint invokes any /api/rc5/* endpoint.",
+    "No /api/v2/* endpoint imports from engine.*.",
+    "Every /api/v2/* endpoint returns 503 when its governing flag is DISABLED."
+  ],
+  "additive_policy": "Adding new /api/v2/* endpoints is FREE — no amendment required.",
+  "promotion_policy": "Promoting an endpoint from SHADOW to ENABLED requires (a) full regression + versioning test suite green, (b) governance amendment note appended to GOVERNANCE.md, (c) response schema locked at this point in this file."
+}

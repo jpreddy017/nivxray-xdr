@@ -6,6 +6,41 @@ obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
 
+## 2026-02-22 · Phase 3b/3c · Storage Wiring + Observation Ingestion + PIC v2 + Versioning (SHIPPED)
+
+**Motivation:** Round-7 completion of the Phase 3 charter — lazy
+storage bootstrap, real observation ingestion path, dedicated PIC
+for the v2 namespace, and airtight API-versioning invariants.
+
+**Shipped:**
+- **Phase 3b · Lazy index bootstrap** (`v2/routers/cases.py`):
+  `_lazy_ensure_indexes()` runs the first time any v2 endpoint
+  actually needs the collections. Never touches RC5 storage.
+- **Phase 3c · Observation ingestion**
+  (`POST /api/v2/cases/{case_id}/observations`): validates case
+  exists → runs `observe() → persist()`. Writes only to
+  `v2_shadow_observations`. Requires both `CASE_ENGINE` **and**
+  `ADAPTERS` flags to be observable.
+- **Frontend v2 route**: `App.js` registers `V2CaseWorkspaceShell`
+  at `/v2/workspace` and `/v2/workspace/:caseId`. Hidden from every
+  primary nav; component self-guards via the `CASE_ENGINE` flag.
+- **Public Interface Contract v2**
+  (`baselines/public_interface_contract_v2.json`): 6 endpoints,
+  each flag-gated. Additive-only during shadow; frozen on
+  SHADOW→ENABLED promotion.
+- **API versioning tests** (`tests/test_v2_versioning.py`):
+  1. v2 routers never reference RC5 collections.
+  2. v2 modules never import `engine.*` or `routers.rc5_*`.
+  3. PIC v2 aligns with live routes; every entry flag-gated.
+  4. RC5 route table byte-identical when v2 flags flip ON.
+  5. RC5 PIC endpoints all still registered after v2 wire-up.
+
+**Verified:** 316/316 tests pass in 6.16 s across regression gate +
+framework + phase 2 + phase 3 + versioning + isolation + locale +
+entity + correlation + 150+ regression. Zero RC5 file mutated.
+
+
+
 ## 2026-02-22 · Phase 3 · v2 Routers + Frontend Shell + Deletion Safety (SHIPPED)
 
 **Motivation:** Land the first user-facing v2 surfaces —

@@ -35,6 +35,11 @@ const MultiLayerBatteryPage = lazy(() => import("@/pages/MultiLayerBatteryPage")
 const AnalystWorkspacePage  = lazy(() => import("@/pages/AnalystWorkspacePage"));
 const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
 
+// v2 · Additive Case Workspace shell (Phase 3+). Hidden from primary
+// navigation. Route only resolves when the CASE_ENGINE flag is at
+// least SHADOW; otherwise the component renders a disabled banner.
+const V2CaseWorkspaceShell  = lazy(() => import("@/v2/pages/CaseWorkspaceShell"));
+
 function Protected({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -94,6 +99,11 @@ function App() {
               <Route path="/battery"   element={<Protected><MultiLayerBatteryPage /></Protected>} />
               <Route path="/analyst"   element={<Protected><AnalystWorkspacePage /></Protected>} />
               <Route path="/analyst/rc5" element={<Protected><AnalystRC5Page /></Protected>} />
+              {/* v2 · Case Workspace shell — flag-gated inside the
+                  component. Reachable only via direct URL, never
+                  linked from primary navigation. */}
+              <Route path="/v2/workspace/:caseId" element={<Protected><V2CaseWorkspaceShell /></Protected>} />
+              <Route path="/v2/workspace" element={<Protected><V2CaseWorkspaceShell /></Protected>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
