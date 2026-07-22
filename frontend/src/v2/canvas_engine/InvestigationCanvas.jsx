@@ -38,6 +38,11 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Stage, Layer, Line, Rect, Circle, Text, Group, Path } from "react-konva";
 import Konva from "konva";
+import {
+  clampOffset as coreClampOffset,
+  zoomAround as coreZoomAround,
+  fit as coreFit,
+} from "./core/viewport";
 
 // ─── Defaults ────────────────────────────────────────────────────────
 const DEFAULT_TOKENS = {
@@ -151,20 +156,16 @@ export default function InvestigationCanvas({
     if (!stage) return;
 
     if (e.evt.ctrlKey || e.evt.metaKey || e.evt.altKey) {
-      // Zoom around cursor
-      const oldScale = stage.scaleX();
+      // Anchor-preserving zoom (delegated to core/viewport for determinism)
       const pointer  = stage.getPointerPosition();
       const factor   = e.evt.deltaY > 0 ? 0.92 : 1.08;
-      let newScale   = Math.max(0.15, Math.min(6, oldScale * factor));
-      const mousePointTo = {
-        x: (pointer.x - stage.x()) / oldScale,
-        y: (pointer.y - stage.y()) / oldScale,
-      };
-      setScale(newScale);
-      setOffset({
-        x: pointer.x - mousePointTo.x * newScale,
-        y: pointer.y - mousePointTo.y * newScale,
-      });
+      const next = coreZoomAround(
+        { offset, scale, size },
+        factor,
+        pointer,
+      );
+      setScale(next.scale);
+      setOffset(next.offset);
     } else {
       // Regular scroll — horizontal if shift held, else vertical
       const dx = e.evt.shiftKey ? e.evt.deltaY : e.evt.deltaX;
@@ -174,14 +175,7 @@ export default function InvestigationCanvas({
   }, [scale, size, canvasH]);
 
   function clampOffset(o, s, sz, cH, cW) {
-    const contentW = cW * s;
-    const contentH = cH * s;
-    const minX = Math.min(0, sz.w - contentW - 20);
-    const minY = Math.min(0, sz.h - contentH - 20);
-    return {
-      x: Math.max(minX, Math.min(20, o.x)),
-      y: Math.max(minY, Math.min(0, o.y)),
-    };
+    return coreClampOffset(o, s, sz, cH, cW);
   }
 
   // ── Interaction · click-and-drag pan (default Konva draggable=true on Stage) ──
@@ -275,6 +269,48 @@ export default function InvestigationCanvas({
     });
   }, [events, rowIndex, rowY, view, xForTs]);
 
+  // ── Marquee selection (Shift+drag on empty canvas, per M1 locked spec Q1) ──
+  // MUST be declared BEFORE any conditional early return (rules-of-hooks).
+  const [marquee, setMarquee] = useState(null); // { x0, y0, x1, y1 } in world coords
+  const marqueeStart = useRef(null);
+
+  const beginMarquee = useCallback((pointer) => {
+    const wx = (pointer.x - offset.x) / scale;
+    const wy = (pointer.y - offset.y) / scale;
+    marqueeStart.current = { x: wx, y: wy };
+    setMarquee({ x0: wx, y0: wy, x1: wx, y1: wy });
+  }, [offset, scale]);
+
+  const updateMarquee = useCallback((pointer) => {
+    if (!marqueeStart.current) return;
+    const wx = (pointer.x - offset.x) / scale;
+    const wy = (pointer.y - offset.y) / scale;
+    setMarquee({
+      x0: marqueeStart.current.x, y0: marqueeStart.current.y,
+      x1: wx, y1: wy,
+    });
+  }, [offset, scale]);
+
+  const commitMarquee = useCallback(() => {
+    if (!marquee) return;
+    const x0 = Math.min(marquee.x0, marquee.x1);
+    const x1 = Math.max(marquee.x0, marquee.x1);
+    const y0 = Math.min(marquee.y0, marquee.y1);
+    const y1 = Math.max(marquee.y0, marquee.y1);
+    const hits = events.filter(ev => {
+      const i = rowIndex.get(ev.rowKey);
+      if (i == null) return false;
+      const evX = xForTs(ev.ts);
+      const evY = (rowY[i] || 0) + ROW_H / 2;
+      return evX >= x0 && evX <= x1 && evY >= y0 && evY <= y1;
+    });
+    setMarquee(null);
+    marqueeStart.current = null;
+    if (hits.length) {
+      onSelect({ ...hits[0], _marquee_multi: hits.map(h => h.id) });
+    }
+  }, [marquee, events, rowIndex, rowY, xForTs, onSelect]);
+
   // ── Empty state ──
   if (!rows.length) {
     return (
@@ -295,7 +331,7 @@ export default function InvestigationCanvas({
         ref={stageRef}
         width={size.w}
         height={size.h}
-        draggable
+        draggable={!marqueeStart.current}
         x={offset.x}
         y={offset.y}
         scaleX={scale}
@@ -303,9 +339,30 @@ export default function InvestigationCanvas({
         onDragEnd={handleDragEnd}
         onWheel={handleWheel}
         onMouseDown={(e) => {
-          if (e.target === e.target.getStage()) e.target.getStage().container().style.cursor = "grabbing";
+          const stage = e.target.getStage();
+          const pointer = stage.getPointerPosition();
+          if (e.target === stage) {
+            if (e.evt.shiftKey) {
+              beginMarquee(pointer);
+              e.evt.preventDefault();
+            } else {
+              stage.container().style.cursor = "grabbing";
+            }
+          }
         }}
-        onMouseUp={(e) => { e.target.getStage().container().style.cursor = "grab"; }}
+        onMouseMove={(e) => {
+          if (marqueeStart.current) {
+            const pointer = e.target.getStage().getPointerPosition();
+            updateMarquee(pointer);
+          }
+        }}
+        onMouseUp={(e) => {
+          const stage = e.target.getStage();
+          if (marqueeStart.current) {
+            commitMarquee();
+          }
+          stage.container().style.cursor = "grab";
+        }}
       >
         {/* Grid background layer */}
         <Layer listening={false}>
@@ -391,6 +448,22 @@ export default function InvestigationCanvas({
             );
           })}
         </Layer>
+
+        {/* Marquee selection rectangle (Shift+drag on empty canvas) */}
+        {marquee && (
+          <Layer listening={false}>
+            <Rect
+              x={Math.min(marquee.x0, marquee.x1)}
+              y={Math.min(marquee.y0, marquee.y1)}
+              width={Math.abs(marquee.x1 - marquee.x0)}
+              height={Math.abs(marquee.y1 - marquee.y0)}
+              stroke={T.selectGlow}
+              strokeWidth={1 / scale}
+              dash={[4 / scale, 3 / scale]}
+              fill={`${T.selectGlow}18`}
+            />
+          </Layer>
+        )}
       </Stage>
 
       {/* Overlay controls */}
