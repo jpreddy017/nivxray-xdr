@@ -9,7 +9,26 @@ _Reusable engine that powers Device Trajectory, Process Ancestry, File / Network
 
 ## 1 · Architectural Goals
 
-1. **One engine, many views** — Device Trajectory is one of at least eight consumers.
+1. **Shared Platform Component** — the engine is a **first-class NivXRay platform component**, not a page-local helper. Every investigation view is a thin adapter on top:
+
+```
+                    Investigation Canvas Engine
+                     (shared platform component)
+                                │
+       ┌──────────┬────────────┼────────────┬──────────┬──────────┬──────────┐
+       ▼          ▼            ▼            ▼          ▼          ▼          ▼
+    Device    Process       File       Registry    Network    Identity    Attack
+   Trajectory  Ancestry   Trajectory   Timeline   Timeline   Timeline     Chain
+                                                                          │
+                                                                          ▼
+                                                             Investigation Graph
+                                                                          │
+                                                                          ▼
+                                                            Future Investigation
+                                                                     Views
+```
+
+   No view may re-implement pan / zoom / selection / minimap / virtualization. All roads lead through this engine.
 2. **Entity-first data model** — entities own lifetimes; events attach to them; relations connect them.
 3. **60 FPS on 100 000 events** — enterprise scale, not demo scale.
 4. **Deterministic layout** — same data → same visual → screenshotable in tests.
@@ -470,18 +489,37 @@ Storybook stories:
 
 Because the engine is new and non-trivial:
 
-**Milestone 1 — core skeleton** (no visual polish):
+**Milestone 0 — Golden UX Validation** (gate before any code):
+* Pick one canonical DFIR case (Bumblebee → AdaptixC2 → Akira ransomware).
+* Open Cisco Secure Endpoint (reference) on one monitor, NivXRay on another.
+* Walk through **six analyst tasks** on both, in order:
+  1. Find the parent process of the first malicious execution.
+  2. Locate the first malicious execution timestamp.
+  3. Trace all spawned child processes of that parent.
+  4. Follow every registry-key modification in the incident window.
+  5. Inspect all outbound network connections from suspicious binaries.
+  6. Review detections and their MITRE technique attribution.
+* For every task, **measure**: click count · time-to-complete · context switches · scroll distance · zoom operations.
+* Record numbers in a matrix `TASKS × { CLICKS · TIME · CTX_SW · SCROLL · ZOOM }` for both tools.
+* **Pass criterion**: NivXRay is within **10–15%** of the reference workflow efficiency on every task metric.
+* If any task is >15% behind, **that specific gap** goes to the top of the Milestone 1–3 backlog before general work.
+* Output artifact: `/app/memory/design/GOLDEN_UX_VALIDATION.md` with the matrix + top-3 gap remediation items.
+
+**Milestone 1 — core skeleton** (implementation gate):
 * `types.ts` + `core/*` + `react/InvestigationCanvas.tsx` with `LifelineLayer` + `EventLayer` only.
 * Wired via `CanvasProvider` — sibling stub components can subscribe.
 * Green unit tests for viewport / layout math.
+* **Marquee multi-select is included in this milestone** (locked decision Q1).
 
 **Milestone 2 — interaction complete**:
 * Selection cascade + auto-scroll + gentle-scroll.
 * Keyboard nav.
-* Marquee + shift-select + context menu.
+* Shift-select + context menu.
+* Every state machine documented in `INTERACTION_STATE_MACHINES.md` implemented end-to-end.
 
 **Milestone 3 — perf**:
 * Clustering, virtualization, cached shadow bitmaps, dev FPS overlay.
+* Configurable cluster thresholds (`clusterRadiusPx`, `expandThreshold`, `collapseThreshold`) — no hardcoded values.
 
 **Milestone 4 — Device Trajectory rebuild**:
 * Trajectory page becomes ~150 LOC (chrome only).
@@ -489,21 +527,40 @@ Because the engine is new and non-trivial:
 
 **Milestone 5 — Process Ancestry migration**:
 * Ancestry page consumes the same engine with a different Entity/Relation feed.
+* No new rendering engine (locked decision Q4).
 
 **Milestone 6 — new views**:
 * File Trajectory, Network Trajectory, Attack Chain, Investigation Graph.
+
+**Milestone 7 — Phase 2 · Live streaming ingest**:
+* Canvas grows as a case is being ingested (locked decision Q5).
 
 Each milestone is independently shippable and reviewable.
 
 ---
 
-## 21 · Approval Gate
+## 21 · Locked Decisions
 
-**No code lands until sections 1-20 are signed off.** After sign-off, Milestone 1 opens implementation.
+The following decisions are **frozen** as of user sign-off. Any deviation requires an explicit revision.
 
-Open questions for the user:
-* Q1 (from UX doc): Marquee multi-select — MVP or v2?
-* Q6: TypeScript vs plain JS for the engine — the whole codebase is JS today, but the engine is the strongest candidate for TS (types are the whole point). Add TS toolchain, or stay JS with JSDoc types?
-* Q7: React Konva vs raw Konva + custom reconciler — react-konva adds ~30 KB and works today. Raw Konva is faster but doubles implementation time.
-* Q8: Data-fetch layer — the engine expects entities pre-computed. Do we add a `useTrajectoryData(caseId)` hook inside the engine, or keep fetch orthogonal (current pattern)?
-* Q9: Colors — should the engine own its palette, or accept tokens (`props.tokens`) so every consumer can theme it independently? (Current design: accept tokens.)
+| # | Decision | Locked value |
+|---|---|---|
+| Q1 | Marquee multi-select                    | **In Milestone 1** (MVP, not v2)                          |
+| Q2 | Cluster thresholds                      | **Configurable**: `clusterRadiusPx=8`, `expandThreshold=0.75`, `collapseThreshold=0.45` — all overridable via props. No hardcoded values. |
+| Q3 | Chronological playback (`Space` bar)    | **Backlog** — post-MVP                                   |
+| Q4 | Ancestry / Attack Chain / Graph views   | **Reuse Canvas Engine.** Never build a second renderer.   |
+| Q5 | Live streaming ingest                   | **Phase 2** — after core rollout complete                |
+| Q6 | Language / typing                       | **TypeScript** for the engine core. Non-negotiable.      |
+| Q7 | Rendering library                       | **React Konva**. Confirmed.                              |
+| Q8 | Data fetch                              | **External to the engine.** Canvas receives normalized data (Entity/Event/Relation arrays) via props. It does not fetch, and it does not know about `axios`, API endpoints, or case IDs. |
+| Q9 | Theming                                 | **Design tokens** — consumer passes a `tokens` prop; engine has zero hardcoded colors. |
+
+Any future proposal to change these must be a written revision that supersedes this section.
+
+---
+
+## 22 · Sign-off Gate
+
+**No code lands until sections 1-21 are signed off AND Milestone 0 (Golden UX Validation) completes.** After both gates pass, Milestone 1 opens implementation.
+
+Interaction state definitions for every entity / event state (idle / hover / focus / selected / expanded / pinned / compared / dimmed) live in the companion document `/app/memory/design/INTERACTION_STATE_MACHINES.md`. That document is normative — the engine implementation must honor every state transition it specifies.

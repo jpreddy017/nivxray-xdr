@@ -383,11 +383,17 @@ Scrubbers are **not** on Konva — they're plain SVG since they're small and sta
 
 ## 21 · Approval Gate
 
-**Nothing gets implemented until sections 1-20 are signed off.** Once approved, this document is the specification for the Investigation Canvas Engine (see `CANVAS_ENGINE_ARCHITECTURE.md`).
+**Nothing gets implemented until sections 1-20 are signed off AND Milestone 0 (Golden UX Validation, see `CANVAS_ENGINE_ARCHITECTURE.md` §20) passes.** Once approved, this document is the specification for the Investigation Canvas Engine (see `CANVAS_ENGINE_ARCHITECTURE.md`).
 
-Open questions to resolve before implementation:
-- Q1: Marquee multi-select in MVP or v2?
-- Q2: Cluster-glyph threshold — `pxPerHour < 30`, or tunable per-user?
-- Q3: Chronological playback (`Space` bar) — must-have or backlog?
-- Q4: Ancestry graph — reuse the canvas engine or ship a dedicated graph view?
-- Q5: Real-time streaming (case being ingested LIVE) — MVP or v2?
+Locked decisions (see architecture doc §21 for the master list):
+- Q1 · Marquee multi-select → **MVP · Milestone 1**
+- Q2 · Cluster threshold → **Configurable**, not hardcoded
+- Q3 · Chronological playback (`Space`) → **Backlog**
+- Q4 · Ancestry / Attack Chain / Graph → **Reuse Canvas Engine**
+- Q5 · Live streaming ingest → **Phase 2**
+- Q6 · Engine language → **TypeScript**
+- Q7 · Renderer → **React Konva**
+- Q8 · Data fetch → **External to engine**
+- Q9 · Theming → **Design tokens**
+
+Interaction state machines for every entity / event state → normative document `/app/memory/design/INTERACTION_STATE_MACHINES.md`.

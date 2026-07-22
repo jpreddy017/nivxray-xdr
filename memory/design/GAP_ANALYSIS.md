@@ -79,7 +79,7 @@ Categories: **A** = Missing feature · **B** = Wrong interaction · **C** = Layo
 | C17 | Red critical dots on day scrubber (malicious event days) | ✅ | 🟢 OK |
 | C18 | Grid disappears near-fully at low zoom | Engine draws faint 48 px stripes, correct behaviour but needs opacity ramp | 🟢 close |
 
-Layout is the **strongest area** of the current work. Structural gap is small.
+Layout is the **strongest area of the surrounding chrome** — but this only measures header, filters, scrubbers, rail, right-panel tabs, and footer *dimensions*. It does **not** signal that the investigation workspace itself is close. See the "Honest Rollup" section below.
 
 ---
 
@@ -150,6 +150,16 @@ Layout is the **strongest area** of the current work. Structural gap is small.
 7. A2 — Event clustering at low zoom
 
 Everything else is meaningful but ships in the fast-follow milestones.
+
+---
+
+## Honest Rollup (revised per user feedback)
+
+The **surrounding UI chrome** — header, search, filter row, day/hour scrubbers, left rail band structure, right-panel tab set, status footer — is **reasonably aligned** with the target. Structural gap in that ring is small.
+
+The **investigation workspace itself** — the canvas, its data model, its selection cascade, its scrubber ↔ canvas interactivity, and the entire analyst traversal workflow — **still requires substantial redesign**. The category C table below is not a signal that "layout is close"; it only measures the *chrome dimensions*, not the workspace *behavior*.
+
+In other words: the frame around the painting looks about right. The painting itself is still a sketch. Do not read column C as a proxy for readiness.
 
 ---
 
