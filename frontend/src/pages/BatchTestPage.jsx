@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import PageHeader from "@/components/PageHeader";
 import api, { API_BASE } from "@/lib/api";
-import { Download, Upload, Play, FileText, AlertCircle, RefreshCw, Trash2, Pencil, Clock } from "lucide-react";
+import { Download, Upload, Play, FileText, AlertCircle, RefreshCw, Trash2, Pencil, Clock, TestTube } from "lucide-react";
 
 const MODES = ["fast", "balanced", "deep"];
 const VERDICT_COLOR = {
@@ -180,6 +180,7 @@ export default function BatchTestPage() {
           eyebrow="Batch Analyst Testing · Regression Matrix"
           title="Batch Analyst Testing"
           subtitle='Paste 1–500 payloads (one per line), upload a CSV, or click "Mine From Any File" to extract commandlines from .docx / .pdf / .xlsx / .pptx / .html / .eml / .rtf / .json / .yaml / .zip / .tar / .gz reports. Every candidate runs through the deterministic pipeline and enrichment. Export the matrix as CSV for reporting.'
+          icon={TestTube}
           tone="accent"
         />
 

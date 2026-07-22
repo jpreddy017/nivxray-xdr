@@ -50,6 +50,7 @@ export default function LearnerPage() {
           eyebrow="Auto-Archetype Learner · v1 · Feb 2026"
           title="Auto-Archetype Learner"
           subtitle="Submit failed payloads together with their expected output. The engine clusters, features and proposes a candidate archetype, then merges into the LEARNED staging file only after the NXGEC regression gate passes and a human approves."
+          icon={FlaskConical}
           tone="accent"
         />
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import OperationsPanel from "@/components/OperationsPanel";
 import RecipePanel from "@/components/RecipePanel";
 import ThreatAnalysis from "@/components/ThreatAnalysis";
@@ -37,7 +38,7 @@ import { splitCommandLines, isMultiCommandInput } from "@/lib/commandSplitter";
 import InputToolbar from "@/components/InputToolbar";
 import CorrectionRefineModal from "@/components/CorrectionRefineModal";
 import {
-  Play, Zap, Wand2, Wrench, Share2, Download, Upload, Trash2, Copy, Sparkles, X,
+  Play, Zap, Wand2, Wrench, Share2, Download, Upload, Trash2, Copy, Sparkles, X, LayoutGrid,
 } from "lucide-react";
 
 export default function WorkspacePage() {
@@ -1236,6 +1237,19 @@ export default function WorkspacePage() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }} className="App">
       <Header />
+
+      {/* Corporate hero — matches every other page. */}
+      <div style={{ padding: "16px 24px 0" }}>
+        <PageHeader
+          testId="workspace-hero"
+          eyebrow={`Analyst Workspace · ${ops.length || 87} operations · deterministic-first`}
+          title="Analyst Workspace"
+          subtitle="Paste an obfuscated command-line, drop a suspicious script, or drag any analyst artefact. The deterministic pipeline reconstructs the executable command, maps MITRE / LOLBAS / IOC / OSINT signals and produces an evidence-grounded verdict — with optional AI enrichment layered on top."
+          icon={LayoutGrid}
+          tone="accent"
+          compact
+        />
+      </div>
 
       {/* Toolbar strip */}
       <div

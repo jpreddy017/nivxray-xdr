@@ -17,6 +17,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Header from "@/components/Header";
 import PageHeader from "@/components/PageHeader";
 import api from "@/lib/api";
+import { BarChart3 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════
 // Primitives
@@ -672,6 +673,7 @@ export default function DashboardPage() {
           eyebrow={`Deterministic-First · RC5 Semantic Engine · Evidence-Graph mode: ${egMode}`}
           title="NivXRay · Detection Pipeline"
           subtitle="Live visualisation of the RC5 corpus, latency envelope, MITRE tie-ins and the observational Evidence-Graph side-car. All figures update every 60 s."
+          icon={BarChart3}
         />
 
         {/* DetectFlow pipeline panel */}

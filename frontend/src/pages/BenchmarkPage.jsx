@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import Header from "@/components/Header";
 import PageHeader from "@/components/PageHeader";
-import { CheckCircle2, XCircle, TrendingUp, TrendingDown, Download, FileText, RefreshCw } from "lucide-react";
+import { CheckCircle2, XCircle, TrendingUp, TrendingDown, Download, FileText, RefreshCw, Gauge } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -237,6 +237,7 @@ export default function BenchmarkPage() {
           eyebrow={`Real-World Stress Suite · ${data.corpus_size} curated payloads · ≥5 obfuscation layers`}
           title={`Real-World Stress · ${gateOk ? "PASSING" : "FAILING"}`}
           subtitle={`Public benchmark that stress-tests NivXRay against payload chains derived from real-world tradecraft. Last computed ${data.generated_at ? new Date(data.generated_at).toLocaleString() : "—"}.`}
+          icon={Gauge}
           tone={gateOk ? "accent" : "amber"}
         />
 

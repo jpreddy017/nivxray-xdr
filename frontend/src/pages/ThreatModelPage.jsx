@@ -13,6 +13,7 @@ import Header from "@/components/Header";
 import PageHeader from "@/components/PageHeader";
 import MoEPanel from "@/components/MoEPanel";
 import CorrectionRefineModal from "@/components/CorrectionRefineModal";
+import { ShieldAlert } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -300,6 +301,7 @@ export default function ThreatModelPage() {
             eyebrow="Architecture Threat Modelling · Deterministic-First"
             title="Threat-Model Assessor"
             subtitle="Paste a Mermaid architecture diagram — tag components with [[EXT]] [[DMZ]] [[INT]] [[DATA]] to declare trust zones. Every finding is evidence-grounded: attack paths, MITRE mapping, STRIDE per trust-boundary edge, and detection recommendations. AI enrichment is optional and never overrides the deterministic verdict."
+            icon={ShieldAlert}
             tone="violet"
           />
 
