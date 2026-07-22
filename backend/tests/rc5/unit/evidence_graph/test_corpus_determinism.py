@@ -5,6 +5,13 @@ Evidence Graph is **byte-identical** in its **canonical form** across
 all runs. Determinism is a permanent quality gate — any regression here
 is a `main` blocker.
 
+CI wiring
+---------
+These tests are marked `slow` — the default `pytest` invocation (which
+uses `-m "not slow"` from `pytest.ini`) SKIPS them so PR CI stays under
+the wall-time budget. A nightly job runs `pytest -m "slow or not slow"`
+to keep the determinism gate honest.
+
 Note on canonical form
 ----------------------
 `EvidenceGraph.to_canonical_json()` strips `source_node_ids` (which trace
@@ -24,6 +31,8 @@ from __future__ import annotations
 from typing import List
 
 import pytest
+
+pytestmark = pytest.mark.slow
 
 from engine.evidence_graph_builder import build_evidence_graph_sidecar
 from engine.golden_corpus import GOLDEN_CORPUS
