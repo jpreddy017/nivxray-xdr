@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { RefreshCw, Cloud, CheckCircle2, AlertCircle, Circle, Search, Database } from "lucide-react";
@@ -72,33 +73,25 @@ export default function ThreatIntelPage() {
       <Header />
       <div style={{ padding: 24, display: "grid", gap: 22, maxWidth: 1500, margin: "0 auto" }}>
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <div className="mono" style={{ fontSize: 11, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>
-              /// THREAT INTELLIGENCE
-            </div>
-            <h1 style={{ fontFamily: "Chivo", fontWeight: 900, fontSize: 34, margin: 0, letterSpacing: "-0.01em" }}>
-              IOC<span style={{ color: "var(--accent)" }}> ·</span> Database
-            </h1>
-            <div className="mono" style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 6 }}>
-              {stats && (
-                <>
-                  <span data-testid="ti-total">{stats.total.toLocaleString()} indicators</span>
-                  <span style={{ margin: "0 10px", color: "var(--border-strong)" }}>│</span>
-                  <span className="badge high" style={{ marginRight: 6 }}>{stats.critical.toLocaleString()} critical</span>
-                  <span className="badge medium" style={{ marginRight: 6 }}>{stats.high.toLocaleString()} high</span>
-                  <span className="badge low" style={{ marginRight: 6 }}>{stats.medium.toLocaleString()} medium</span>
-                  <span className="badge neutral">{stats.low.toLocaleString()} low</span>
-                </>
-              )}
-            </div>
-          </div>
-          {user?.role === "admin" && (
-            <button className="nvx-btn primary" onClick={doSyncAll} disabled={syncAll} data-testid="btn-sync-all">
-              <RefreshCw size={13} className={syncAll ? "spin" : ""} /> {syncAll ? "SYNCING…" : "SYNC ALL SOURCES"}
-            </button>
-          )}
-        </div>
+        <PageHeader
+          testId="threatintel-hero"
+          eyebrow="Threat Intelligence · IOC Database"
+          title="IOC · Database"
+          subtitle={
+            stats
+              ? `${stats.total.toLocaleString()} indicators · ${stats.critical.toLocaleString()} critical · ${stats.high.toLocaleString()} high · ${stats.medium.toLocaleString()} medium · ${stats.low.toLocaleString()} low`
+              : "Live IOC database aggregating multiple threat-intel sources into one queryable index."
+          }
+          icon={Database}
+          tone="amber"
+          rightSlot={
+            user?.role === "admin" ? (
+              <button className="nvx-btn primary" onClick={doSyncAll} disabled={syncAll} data-testid="btn-sync-all">
+                <RefreshCw size={13} className={syncAll ? "spin" : ""} /> {syncAll ? "SYNCING…" : "SYNC ALL SOURCES"}
+              </button>
+            ) : null
+          }
+        />
 
         {/* Sources — bulk feeds */}
         <section className="brut-border" style={{ background: "var(--surface)" }}>

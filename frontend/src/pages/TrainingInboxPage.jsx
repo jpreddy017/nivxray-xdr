@@ -12,6 +12,7 @@
  */
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import NavTabs from "@/components/NavTabs";
 import api from "@/lib/api";
 import { RefreshCw, Check, X, Trash2, ExternalLink, Rss, Play, AlertCircle } from "lucide-react";
@@ -109,15 +110,14 @@ export default function TrainingInboxPage() {
     <div data-testid="training-inbox-page">
       <Header />
       <main style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 24px" }}>
-        <div style={{ marginBottom: 12 }}>
-          <h1 style={{ fontSize: 22, margin: 0, color: "var(--text)", display: "flex", alignItems: "center", gap: 8 }}>
-            <Rss size={20} /> CTI Training-Note Inbox
-          </h1>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-dim)" }}>
-            Auto-crawled research articles from BleepingComputer, Unit 42, DFIR Report &amp; more.
-            Each match is condensed into a directive-form draft. Promote high-value drafts to activate them.
-          </p>
-        </div>
+        <PageHeader
+          testId="training-inbox-hero"
+          eyebrow="CTI Training-Note Inbox · Feb 2026"
+          title="CTI Training-Note Inbox"
+          subtitle="Auto-crawled research articles from BleepingComputer, Unit 42, DFIR Report and more. Each match is condensed into a directive-form draft. Promote high-value drafts to activate them as training notes."
+          icon={Rss}
+          tone="accent"
+        />
 
         {/* ── Feed picker + crawl controls ────────────────────────────── */}
         <div className="nvx-card" style={{ marginBottom: 12 }}>

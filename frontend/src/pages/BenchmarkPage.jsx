@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import { CheckCircle2, XCircle, TrendingUp, TrendingDown, Download, FileText, RefreshCw } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -230,25 +231,14 @@ export default function BenchmarkPage() {
       <Header />
       <main data-testid="benchmark-page" style={{ padding: "24px 28px 60px", maxWidth: 1500, margin: "0 auto" }}>
 
-        {/* Hero */}
-        <div style={{ marginBottom: 22 }}>
-          <div style={{
-            fontFamily: "JetBrains Mono, ui-monospace, monospace",
-            fontSize: 10, color: "rgba(148,163,184,0.7)",
-            letterSpacing: "0.20em", textTransform: "uppercase",
-          }}>NivXRay · Public Benchmark</div>
-          <h1 data-testid="benchmark-title" style={{
-            margin: "8px 0 4px", fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em",
-            color: gateOk ? "#86efac" : "#fca5a5",
-          }}>Real-World Stress · {gateOk ? "PASSING" : "FAILING"}</h1>
-          <div style={{
-            fontFamily: "JetBrains Mono, ui-monospace, monospace",
-            fontSize: 11, color: "rgba(148,163,184,0.65)",
-          }}>
-            {data.corpus_size} curated payloads · ≥5 obfuscation layers each · last computed{" "}
-            {data.generated_at ? new Date(data.generated_at).toLocaleString() : "—"}
-          </div>
-        </div>
+        {/* Hero — unified corporate PageHeader. */}
+        <PageHeader
+          testId="benchmark-hero"
+          eyebrow={`Real-World Stress Suite · ${data.corpus_size} curated payloads · ≥5 obfuscation layers`}
+          title={`Real-World Stress · ${gateOk ? "PASSING" : "FAILING"}`}
+          subtitle={`Public benchmark that stress-tests NivXRay against payload chains derived from real-world tradecraft. Last computed ${data.generated_at ? new Date(data.generated_at).toLocaleString() : "—"}.`}
+          tone={gateOk ? "accent" : "amber"}
+        />
 
         {/* Row 1 — 4 donut KPIs (thresholded metrics) */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 12 }}>

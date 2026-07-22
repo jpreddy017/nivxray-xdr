@@ -12,6 +12,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import api from "@/lib/api";
 import { Grid, Search, RefreshCw, Target, AlertCircle, TrendingUp } from "lucide-react";
 
@@ -81,34 +82,32 @@ export default function MitreHeatmapPage() {
     <div data-testid="mitre-heatmap-page">
       <Header />
       <main style={{ maxWidth: 1600, margin: "0 auto", padding: "16px 24px" }}>
-        <div style={{ marginBottom: 14, display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <h1 style={{ fontSize: 22, margin: 0, color: "var(--text)", display: "flex", alignItems: "center", gap: 8 }}>
-              <Grid size={20} /> MITRE ATT&CK Detection Heatmap
-            </h1>
-            <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-dim)" }}>
-              Visual coverage matrix — {data?.total_heuristics || "…"} heuristics ·{" "}
-              {data?.unique_techniques || "…"} unique techniques across{" "}
-              {data?.tactics?.length || "…"} tactics.
-            </p>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ position: "relative" }}>
-              <Search size={12} style={{ position: "absolute", left: 8, top: 8, color: "var(--text-mute)" }} />
-              <input
-                data-testid="heatmap-filter-input"
-                value={filter} onChange={e => setFilter(e.target.value)}
-                placeholder="Filter T-ID or name…"
-                style={{ padding: "4px 8px 4px 24px", background: "var(--bg-mute)",
-                          border: "1px solid var(--border)", color: "var(--text)",
-                          borderRadius: 4, fontFamily: "JetBrains Mono", fontSize: 11,
-                          width: 220 }} />
-            </div>
-            <button onClick={load} disabled={busy} className="nvx-btn sm ghost" data-testid="heatmap-refresh">
-              <RefreshCw size={12} /> REFRESH
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          testId="heatmap-hero"
+          eyebrow={`Coverage Matrix · ${data?.total_heuristics ?? "…"} heuristics · ${data?.unique_techniques ?? "…"} unique techniques · ${data?.tactics?.length ?? "…"} tactics`}
+          title="MITRE ATT&CK Detection Heatmap"
+          subtitle="Visual coverage matrix across every kill-chain tactic. Each technique cell is colour-coded by hit-count so analysts can spot strong coverage vs sparse tactics that need new signatures."
+          icon={Grid}
+          tone="amber"
+          rightSlot={
+            <>
+              <div style={{ position: "relative" }}>
+                <Search size={12} style={{ position: "absolute", left: 8, top: 8, color: "var(--text-mute)" }} />
+                <input
+                  data-testid="heatmap-filter-input"
+                  value={filter} onChange={e => setFilter(e.target.value)}
+                  placeholder="Filter T-ID or name…"
+                  style={{ padding: "4px 8px 4px 24px", background: "var(--bg-mute)",
+                            border: "1px solid var(--border)", color: "var(--text)",
+                            borderRadius: 4, fontFamily: "JetBrains Mono", fontSize: 11,
+                            width: 220 }} />
+              </div>
+              <button onClick={load} disabled={busy} className="nvx-btn sm ghost" data-testid="heatmap-refresh">
+                <RefreshCw size={12} /> REFRESH
+              </button>
+            </>
+          }
+        />
 
         {err && (
           <div className="nvx-card" style={{ marginBottom: 12, borderColor: "#ef4444" }}>

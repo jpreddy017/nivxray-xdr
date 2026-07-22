@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import ShellcodeView from "@/components/ShellcodeView";
 import api from "@/lib/api";
 import {
@@ -79,20 +80,14 @@ export default function CommandAnalyzerPage() {
       <Header />
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: 20, display: "grid", gap: 18 }}>
 
-        <div>
-          <div className="mono" style={{
-            fontSize: 11, color: "var(--accent)", letterSpacing: "0.24em", marginBottom: 6,
-          }}>
-            ▸ INTELLIGENT COMMAND-LINE ANALYZER
-          </div>
-          <div style={{ fontFamily: "Chivo", fontWeight: 800, fontSize: 26, marginBottom: 4 }}>
-            Semantic parse. Then decode.
-          </div>
-          <div className="mono" style={{ fontSize: 12, color: "var(--text-dim)", maxWidth: 780 }}>
-            Understands the interpreter, tokenises the pipeline, isolates the
-            actual encoded region — and only decodes what should be decoded.
-          </div>
-        </div>
+        <PageHeader
+          testId="analyzer-hero"
+          eyebrow="Intelligent Command-Line Analyzer"
+          title="Semantic parse. Then decode."
+          subtitle="Understands the interpreter, tokenises the pipeline, isolates the actual encoded region — and only decodes what should be decoded."
+          icon={Terminal}
+          tone="accent"
+        />
 
         <div className="card">
           <div className="card-head" style={{ padding: "10px 14px" }}>

@@ -10,6 +10,8 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
+import NavTabs from "@/components/NavTabs";
 import api from "@/lib/api";
 import {
   Inbox as InboxIcon, Layers, FlaskConical, ShieldCheck, History as HistoryIcon,
@@ -17,11 +19,11 @@ import {
 } from "lucide-react";
 
 const TABS = [
-  { key: "inbox",     label: "INBOX",     icon: InboxIcon },
-  { key: "clusters",  label: "CLUSTERS",  icon: Layers },
-  { key: "proposals", label: "PROPOSALS", icon: FlaskConical },
-  { key: "approved",  label: "APPROVED",  icon: ShieldCheck },
-  { key: "history",   label: "HISTORY",   icon: HistoryIcon },
+  { key: "inbox",     label: "INBOX",     icon: InboxIcon,   testId: "learner-tab-inbox" },
+  { key: "clusters",  label: "CLUSTERS",  icon: Layers,      testId: "learner-tab-clusters" },
+  { key: "proposals", label: "PROPOSALS", icon: FlaskConical, testId: "learner-tab-proposals" },
+  { key: "approved",  label: "APPROVED",  icon: ShieldCheck, testId: "learner-tab-approved" },
+  { key: "history",   label: "HISTORY",   icon: HistoryIcon, testId: "learner-tab-history" },
 ];
 
 const STATUS_COLOR = {
@@ -43,18 +45,24 @@ export default function LearnerPage() {
     <div data-testid="learner-page">
       <Header />
       <main style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 24px" }}>
-        <div style={{ marginBottom: 12 }}>
-          <h1 style={{ fontSize: 22, margin: 0, color: "var(--text)" }}>
-            Auto-Archetype Learner
-          </h1>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-dim)" }}>
-            Submit failed payloads + expected output. The engine clusters,
-            proposes a candidate archetype, and merges into the LEARNED staging
-            file only after NXGEC regression passes and you approve.
-          </p>
-        </div>
+        <PageHeader
+          testId="learner-hero"
+          eyebrow="Auto-Archetype Learner · v1 · Feb 2026"
+          title="Auto-Archetype Learner"
+          subtitle="Submit failed payloads together with their expected output. The engine clusters, features and proposes a candidate archetype, then merges into the LEARNED staging file only after the NXGEC regression gate passes and a human approves."
+          tone="accent"
+        />
 
-        <TabBar tab={tab} setTab={setTab} />
+        <NavTabs
+          items={TABS}
+          activeKey={tab}
+          onSelect={setTab}
+          variant="strip"
+          size="sm"
+          tone="accent"
+          testId="learner-tabs"
+          ariaLabel="Learner sections"
+        />
 
         <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 8 }}>
           STATUS · <span data-testid="learner-status">{status}</span>
@@ -69,28 +77,6 @@ export default function LearnerPage() {
           {tab === "history"   && <HistoryTab setStatus={setStatus} setErr={setErr} />}
         </div>
       </main>
-    </div>
-  );
-}
-
-
-function TabBar({ tab, setTab }) {
-  return (
-    <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
-      {TABS.map(({ key, label, icon: Icon }) => (
-        <button
-          key={key}
-          onClick={() => setTab(key)}
-          data-testid={`learner-tab-${key}`}
-          className="nvx-btn sm ghost"
-          style={{
-            color: tab === key ? "var(--accent)" : "var(--text-dim)",
-            borderColor: tab === key ? "var(--accent)" : "transparent",
-          }}
-        >
-          <Icon size={12} /> {label}
-        </button>
-      ))}
     </div>
   );
 }

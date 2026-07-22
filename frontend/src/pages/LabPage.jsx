@@ -15,6 +15,7 @@
  */
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import api from "@/lib/api";
 import {
   GraduationCap, Trophy, Zap, Target, RefreshCw, Check, X, Award, Flame,
@@ -87,22 +88,22 @@ export default function LabPage() {
     <div data-testid="lab-page">
       <Header />
       <main style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 24px" }}>
-        <div style={{ marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <h1 style={{ fontSize: 22, margin: 0, color: "var(--text)", display: "flex", alignItems: "center", gap: 8 }}>
-              <GraduationCap size={20} /> Analyst Practice Lab
-            </h1>
-            <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-dim)" }}>
-              Write your analysis in plain English. Claude grades on tradecraft understanding, impact, and recommendations — MITRE codes are revealed as learning material after you submit.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }} data-testid="lab-hud">
-            <StatChip icon={<Flame size={14} />}  label="Streak"    value={stats.streak || 0}       color="#f97316" />
-            <StatChip icon={<Trophy size={14} />} label="Best"      value={stats.best_streak || 0}  color="#eab308" />
-            <StatChip icon={<Award size={14} />}  label="Total XP"  value={stats.total_score || 0}  color="#7ee3c9" />
-            <StatChip icon={<Target size={14} />} label="Perfect"   value={stats.total_perfect || 0} color="#a855f7" />
-          </div>
-        </div>
+        <PageHeader
+          testId="lab-hero"
+          eyebrow="Analyst Practice Lab · Narrative Mode · v1.3.1"
+          title="Analyst Practice Lab"
+          subtitle="Write your analysis in plain English. Claude grades on tradecraft understanding, impact, and recommendations — MITRE codes are revealed as learning material after you submit."
+          icon={GraduationCap}
+          tone="accent"
+          rightSlot={
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }} data-testid="lab-hud">
+              <StatChip icon={<Flame size={14} />}  label="Streak"    value={stats.streak || 0}       color="#f97316" />
+              <StatChip icon={<Trophy size={14} />} label="Best"      value={stats.best_streak || 0}  color="#eab308" />
+              <StatChip icon={<Award size={14} />}  label="Total XP"  value={stats.total_score || 0}  color="#7ee3c9" />
+              <StatChip icon={<Target size={14} />} label="Perfect"   value={stats.total_perfect || 0} color="#a855f7" />
+            </div>
+          }
+        />
 
         {err && (
           <div className="nvx-card" style={{ marginBottom: 12, borderColor: "#ef4444" }}>

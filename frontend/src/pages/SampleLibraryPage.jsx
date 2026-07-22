@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import api from "@/lib/api";
 import {
   Plus, Trash2, Save, Play, ChevronRight, ChevronDown,
-  Upload, Check, X, AlertTriangle, BarChart3,
+  Upload, Check, X, AlertTriangle, BarChart3, Beaker,
 } from "lucide-react";
 
 const CATEGORY_COLORS = {
@@ -98,16 +99,14 @@ export default function SampleLibraryPage() {
     <div style={{ minHeight: "100vh", background: "var(--bg)" }} data-testid="sample-library-page">
       <Header />
       <div style={{ padding: 24, maxWidth: 1500, margin: "0 auto" }}>
-        <div className="brut-border" style={{ background: "var(--surface)", padding: 20, marginBottom: 20 }}>
-          <h1 className="mono" style={{ fontSize: 22, letterSpacing: "0.16em", margin: 0, color: "var(--accent)" }}>
-            ▸ SAMPLE LIBRARY
-          </h1>
-          <p className="mono" style={{ fontSize: 12, color: "var(--text-mute)", marginTop: 8, lineHeight: 1.6 }}>
-            Real-world encoded/obfuscated payloads with expected decoded outputs.
-            Continuous regression testing keeps NivX Cognis' coverage growing without breaking existing decoders.
-            Nightly benchmark runs automatically.
-          </p>
-        </div>
+        <PageHeader
+          testId="samples-hero"
+          eyebrow="Regression Corpus · Feb 2026"
+          title="Sample Library"
+          subtitle="Real-world encoded / obfuscated payloads paired with their expected decoded output. Continuous regression testing keeps NivXRay's decoder coverage growing without breaking existing samples. Nightly benchmark runs automatically."
+          icon={Beaker}
+          tone="accent"
+        />
 
         {/* Coverage dashboard */}
         {dashboard && (

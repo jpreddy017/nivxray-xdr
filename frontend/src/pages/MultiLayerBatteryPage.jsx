@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,23 +67,19 @@ export default function MultiLayerBatteryPage() {
       <Header />
       <div style={{ padding: "24px 32px", minHeight: "calc(100vh - 60px)" }} data-testid="multilayer-battery-page">
       {/* HEADER */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24 }}>
-        <div>
-          <div style={{ fontSize: 11, letterSpacing: 2, color: "var(--muted)", marginBottom: 4 }}>
-            REGRESSION SUITE · X-RAY v1.5.6
-          </div>
-          <h1 style={{ fontSize: 32, margin: 0, letterSpacing: -0.5 }} data-testid="battery-title">
-            MULTI-LAYER OBFUSCATION BATTERY
-          </h1>
-          <div style={{ marginTop: 6, color: "var(--muted)", fontSize: 13, fontFamily: "ui-monospace, monospace" }}>
-            {data.generated_at}
-          </div>
-        </div>
-        <Button variant="outline" onClick={rerun} disabled={rerunning} data-testid="battery-rerun-btn">
-          <RefreshCw size={14} style={{ marginRight: 6, animation: rerunning ? "spin 1s linear infinite" : "none" }} />
-          {rerunning ? "Rerunning…" : "Re-run battery"}
-        </Button>
-      </div>
+      <PageHeader
+        testId="battery-hero"
+        eyebrow={`Regression Suite · X-Ray v1.5.6 · ${data.generated_at || ""}`}
+        title="Multi-Layer Obfuscation Battery"
+        subtitle="Multi-stage regression battery that stress-tests the decoder against nested obfuscation chains. Every category runs a curated payload set and reports OK · MIXED · BROKEN · SALVAGED counters plus per-payload traces."
+        tone="accent"
+        rightSlot={
+          <Button variant="outline" onClick={rerun} disabled={rerunning} data-testid="battery-rerun-btn">
+            <RefreshCw size={14} style={{ marginRight: 6, animation: rerunning ? "spin 1s linear infinite" : "none" }} />
+            {rerunning ? "Rerunning…" : "Re-run battery"}
+          </Button>
+        }
+      />
 
       {/* KPI TILES */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>

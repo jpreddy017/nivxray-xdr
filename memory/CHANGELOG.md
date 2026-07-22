@@ -648,3 +648,48 @@ budget & loop guards, 113 tests green. Locked as `RC1_READINESS.md`.
 - /app/evidence/EVIDENCE.md · rc40_batch_report.md · rc41_report.md · rc43_ai_vs_det.md
 - /app/evidence/NivXRay_RC41_Customer_Report.pdf (459 KB, 4 screenshots embedded)
 - /app/evidence/NivXRay_RC41_Customer_Deck.pptx (297 KB, 10 slides)
+
+## 2026-02-22 · Corporate UI Consistency Sprint (v1.5.7)
+
+**Motivation** — user flagged that different pages were using different
+hero styles (font, casing, colour, subtitle formatting, decorative
+prefixes like "▸", "///", "📂"). For a corporate cyber-security tool
+this reads as visual noise.
+
+**What shipped**
+- `frontend/src/components/NavTabs.jsx` — NEW single reusable
+  navigation/tab component with two modes (`variant="nav"` for router
+  links, `variant="strip"` for state-driven tabs), sizes (`sm`/`md`),
+  tones (`accent`/`violet`/`cyan`/`amber`), badge counts, keyboard
+  focus, aria-current. Powers all primary and secondary tabs across the
+  platform. Framed/unframed via `framed` prop.
+- `frontend/src/components/NavDropdown.jsx` — restyled trigger + glass
+  menu to match `NavTabs`. Uses the same tone/hover/active language.
+- `frontend/src/components/Header.jsx` — primary tabs + dropdowns now
+  share one glass container so the whole nav bar reads as a single
+  DetectFlow surface; no more wrapping to a second line.
+- `frontend/src/components/PageHeader.jsx` — NEW single reusable page
+  hero (eyebrow · gradient title · subtitle · right-slot actions).
+  Enforces uniform typography, casing, colour, and spacing.
+- Migrated to `PageHeader`:
+  `DashboardPage`, `BenchmarkPage`, `LearnerPage`, `LabPage`,
+  `ThreatModelPage`, `CommandAnalyzerPage`, `MultiLayerBatteryPage`,
+  `TrainingInboxPage`, `BatchTestPage`, `MitreHeatmapPage`,
+  `ThreatIntelPage`, `AdminPage`, `SampleLibraryPage`, `DocumentsPage`.
+- `LearnerPage` old outline-box TabBar removed and replaced with the
+  shared `NavTabs` component.
+- `OutputView` TEXT/HEX/B64/DIFF toggles + Training-Inbox status
+  filter tabs also unified to `NavTabs`.
+- `DashboardPage` — real `/api/rc5/golden/history` data wired into a
+  bespoke DetectFlow `LatencyTrendChart` (p50 area + p95 headroom +
+  MITRE overlay + hover tooltip). No stubbed data.
+
+**Strict CI**
+- All remaining `react-hooks/exhaustive-deps` warnings resolved (7 files).
+  `CI=true yarn build` now passes with zero warnings.
+
+**Testing**
+- Frontend regression `testing_agent_v3_fork` (iteration_33.json) →
+  14/14 checks passing, zero regressions. All existing data-testids
+  preserved.
+

@@ -5,6 +5,38 @@ Build a deterministic-first analyst workspace that decodes / reconstructs
 obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
+
+## 2026-02-22 · UI Consistency Sprint (v1.5.7 — SHIPPED)
+
+**Motivation:** user flagged that the platform's pages carried five
+different hero styles (colour, casing, font, decorative prefixes),
+which reads as amateur for a corporate cyber-security product.
+
+**Shipped:**
+- `NavTabs.jsx` — single reusable nav/tab primitive (router + state
+  modes, size/tone tokens, badge counts, aria/keyboard, framed/unframed).
+- `PageHeader.jsx` — single reusable page hero (eyebrow · gradient title
+  · subtitle · right-slot). Enforces one canonical hero pattern across
+  the platform.
+- `NavDropdown.jsx` — restyled to match `NavTabs`.
+- `Header.jsx` — primary tabs + TOOLS / LEARN / ADMIN dropdowns unified
+  into one glass container; no more line-wrap.
+- `LatencyTrendChart` on `DashboardPage.jsx` — real data via
+  `/api/rc5/golden/history` (p50 · p95 · MITRE overlay · hover tooltip).
+- Migrated all high-traffic pages to `PageHeader`:
+  Dashboard · Benchmark · Learner · Lab · Threat-Model · Command
+  Analyzer · Battery · Training-Inbox · Batch · Heatmap · Threat-Intel ·
+  Admin · Sample-Library · Documents.
+- Fixed all remaining `react-hooks/exhaustive-deps` warnings; strict
+  `CI=true yarn build` passes with zero warnings.
+
+**Testing:** `testing_agent_v3_fork` iteration_33.json — 14/14
+regression checks pass, zero regressions, all data-testids preserved.
+
+**Still pending:** Generic Entity Classifier · Phase 11.3 Correlation
+Engine · optional Light-Mode toggle.
+
+
 ## RC5 · Semantic Execution Engine (in progress) — Feb 21, 2026
 
 **Motivation:** Legacy engine's semantic layer is heuristic (keyword regex

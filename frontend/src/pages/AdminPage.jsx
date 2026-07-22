@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Check, X, KeyRound, ExternalLink, Save, TestTube2, Users, BarChart3, RefreshCw, Database, Sparkles } from "lucide-react";
@@ -111,14 +112,14 @@ export default function AdminPage() {
       <Header />
 
       <div style={{ padding: 24, display: "grid", gap: 24, maxWidth: 1400, margin: "0 auto" }}>
-        <div>
-          <div className="mono" style={{ fontSize: 11, color: "var(--warn)", letterSpacing: "0.2em", marginBottom: 6 }}>
-            /// CONTROL PLANE
-          </div>
-          <h1 style={{ fontFamily: "Chivo", fontWeight: 900, fontSize: 34, margin: 0, letterSpacing: "-0.01em" }}>
-            Admin<span style={{ color: "var(--accent)" }}> ·</span> Settings
-          </h1>
-        </div>
+        <PageHeader
+          testId="admin-hero"
+          eyebrow="Control Plane · Platform Configuration"
+          title="Admin · Settings"
+          subtitle="Configure OSINT integrations, review analytics, manage users, and administer the deterministic-first analysis stack. All changes are audited."
+          icon={KeyRound}
+          tone="amber"
+        />
 
         {/* Stats */}
         {stats && (

@@ -13,6 +13,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import api, { API_BASE } from "@/lib/api";
 import { Download, Upload, Play, FileText, AlertCircle, RefreshCw, Trash2, Pencil, Clock } from "lucide-react";
 
@@ -174,18 +175,13 @@ export default function BatchTestPage() {
     <div data-testid="batch-test-page">
       <Header />
       <main style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 24px" }}>
-        <div style={{ marginBottom: 12 }}>
-          <h1 style={{ fontSize: 22, margin: 0, color: "var(--text)" }}>
-            Batch Analyst Testing
-          </h1>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-dim)" }}>
-            Paste 1–500 payloads (one per line), upload a CSV, or click&nbsp;
-            <b style={{ color: "#7ee3c9" }}>"MINE FROM ANY FILE"</b> to pull commandlines
-            out of a .docx / .pdf / .xlsx / .pptx / .html / .eml / .rtf / .json / .yaml /
-            .zip / .tar / .gz report — every candidate runs through the deterministic pipeline &amp;
-            enrichment. Export the matrix as CSV for reporting.
-          </p>
-        </div>
+        <PageHeader
+          testId="batch-hero"
+          eyebrow="Batch Analyst Testing · Regression Matrix"
+          title="Batch Analyst Testing"
+          subtitle='Paste 1–500 payloads (one per line), upload a CSV, or click "Mine From Any File" to extract commandlines from .docx / .pdf / .xlsx / .pptx / .html / .eml / .rtf / .json / .yaml / .zip / .tar / .gz reports. Every candidate runs through the deterministic pipeline and enrichment. Export the matrix as CSV for reporting.'
+          tone="accent"
+        />
 
         <div className="nvx-card" style={{ marginBottom: 12 }}>
           <div className="nvx-card-head">

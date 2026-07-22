@@ -15,6 +15,7 @@
  */
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import api from "@/lib/api";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -665,22 +666,13 @@ export default function DashboardPage() {
 
       <main style={{ padding: "24px 28px 60px", maxWidth: 1500, margin: "0 auto" }}>
 
-        {/* Hero */}
-        <div style={{ marginBottom: 20 }}>
-          <h1 data-testid="dashboard-title" style={{
-            fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: "-0.02em",
-            background: "linear-gradient(90deg, #86efac, #a7f3d0, #c4b5fd)",
-            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-          }}>NivXRay · Detection Pipeline</h1>
-          <p style={{
-            margin: "6px 0 0", fontSize: 11,
-            color: "rgba(148,163,184,0.7)",
-            fontFamily: "JetBrains Mono, ui-monospace, monospace",
-            letterSpacing: "0.10em", textTransform: "uppercase",
-          }}>
-            deterministic-first · rc5 semantic engine · evidence-graph mode: {egMode}
-          </p>
-        </div>
+        {/* Page header — unified corporate hero. */}
+        <PageHeader
+          testId="dashboard-hero"
+          eyebrow={`Deterministic-First · RC5 Semantic Engine · Evidence-Graph mode: ${egMode}`}
+          title="NivXRay · Detection Pipeline"
+          subtitle="Live visualisation of the RC5 corpus, latency envelope, MITRE tie-ins and the observational Evidence-Graph side-car. All figures update every 60 s."
+        />
 
         {/* DetectFlow pipeline panel */}
         <div data-testid="detectflow-panel" style={{

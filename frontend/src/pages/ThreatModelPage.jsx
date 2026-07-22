@@ -10,6 +10,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import MoEPanel from "@/components/MoEPanel";
 import CorrectionRefineModal from "@/components/CorrectionRefineModal";
 
@@ -294,27 +295,13 @@ export default function ThreatModelPage() {
       <Header />
       <div style={{ padding: 16, minHeight: "calc(100vh - 60px)", background: "#0a0f1c" }}>
         <div style={{ maxWidth: 1400, margin: "0 auto" }}>
-          <div style={{ marginBottom: 16 }}>
-            <h1 style={{ fontSize: 20, color: "#e2e8f0", margin: 0, fontWeight: 700 }}>
-              ▣ Threat-Model Assessor
-            </h1>
-            <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-              Paste a Mermaid architecture diagram — tag components with{" "}
-              <code style={{ background: "#1e293b", padding: "1px 4px", borderRadius: 3, color: "#a5f3fc" }}>
-                [[EXT]]
-              </code>{" "}
-              <code style={{ background: "#1e293b", padding: "1px 4px", borderRadius: 3, color: "#fbbf24" }}>
-                [[DMZ]]
-              </code>{" "}
-              <code style={{ background: "#1e293b", padding: "1px 4px", borderRadius: 3, color: "#22d3ee" }}>
-                [[INT]]
-              </code>{" "}
-              <code style={{ background: "#1e293b", padding: "1px 4px", borderRadius: 3, color: "#a855f7" }}>
-                [[DATA]]
-              </code>{" "}
-              — get attack paths, MITRE mapping, STRIDE analysis, and detection recommendations.
-            </p>
-          </div>
+          <PageHeader
+            testId="threat-model-hero"
+            eyebrow="Architecture Threat Modelling · Deterministic-First"
+            title="Threat-Model Assessor"
+            subtitle="Paste a Mermaid architecture diagram — tag components with [[EXT]] [[DMZ]] [[INT]] [[DATA]] to declare trust zones. Every finding is evidence-grounded: attack paths, MITRE mapping, STRIDE per trust-boundary edge, and detection recommendations. AI enrichment is optional and never overrides the deterministic verdict."
+            tone="violet"
+          />
 
           {/* NEW FEATURE BANNER — Feb-2026: Teach NivXRay */}
           <div

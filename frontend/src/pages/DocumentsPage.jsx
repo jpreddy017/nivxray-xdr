@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
 import Header from "@/components/Header";
+import PageHeader from "@/components/PageHeader";
 import { Upload, Trash2, RefreshCw, FileText, Download, Zap } from "lucide-react";
 
 const ACCEPT = ".pdf,.doc,.docx,.csv,.xls,.xlsx,.json,.jsonl,.txt,.log,.eml,.msg,.html,.htm,.xml,.md,.yml,.yaml,.ps1,.bat,.sh,.py,.js,.vbs";
@@ -160,26 +161,29 @@ export default function DocumentsPage() {
     <>
       <Header />
       <div style={{ padding: "20px 24px", maxWidth: 1300, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
-        <span className="mono" style={{ fontSize: 22, letterSpacing: "0.24em", color: "var(--accent)", fontWeight: 700 }}>
-          📂 DOCUMENTS
-        </span>
-        <span className="mono" style={{ fontSize: 11, color: "var(--text-dim)" }} data-testid="docs-total">
-          {items.length} / {total} · {fmtBytes(items.reduce((s, i) => s + (i.length || 0), 0))} total
-        </span>
-        <div style={{ flex: 1 }} />
-        <button className="nvx-btn" onClick={() => inputRef.current?.click()}
-                disabled={uploading} data-testid="btn-docs-upload"
-                style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
-          <Upload size={12} /> {uploading ? "UPLOADING…" : "UPLOAD FILES"}
-        </button>
-        <button className="nvx-btn ghost" onClick={load} data-testid="btn-docs-refresh">
-          <RefreshCw size={11} /> REFRESH
-        </button>
-        <input ref={inputRef} type="file" multiple hidden accept={ACCEPT}
-               onChange={(e) => upload(Array.from(e.target.files || []))}
-               data-testid="input-docs-file" />
-      </div>
+        <PageHeader
+          testId="documents-hero"
+          eyebrow={`Case Documents · ${items.length} / ${total} files · ${fmtBytes(items.reduce((s, i) => s + (i.length || 0), 0))} total`}
+          title="Documents"
+          subtitle="Upload analyst artefacts (PDF · DOC · CSV · JSON · EML · HTML · scripts · logs) and run one-click DECODE, BATCH DECODE or INGEST-AS-FIXTURE against every file. Every extracted command-line runs through the deterministic pipeline and is auto-saved as a Case."
+          icon={FileText}
+          tone="accent"
+          rightSlot={
+            <>
+              <button className="nvx-btn" onClick={() => inputRef.current?.click()}
+                      disabled={uploading} data-testid="btn-docs-upload"
+                      style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
+                <Upload size={12} /> {uploading ? "UPLOADING…" : "UPLOAD FILES"}
+              </button>
+              <button className="nvx-btn ghost" onClick={load} data-testid="btn-docs-refresh">
+                <RefreshCw size={11} /> REFRESH
+              </button>
+              <input ref={inputRef} type="file" multiple hidden accept={ACCEPT}
+                     onChange={(e) => upload(Array.from(e.target.files || []))}
+                     data-testid="input-docs-file" />
+            </>
+          }
+        />
 
       <div className="mono" style={{ fontSize: 10, color: "var(--text-dim)", marginBottom: 14, letterSpacing: "0.06em" }}>
         Supported: PDF · DOC · DOCX · CSV · XLS · XLSX · JSON · TXT · EML · HTML · MD · YAML · PS1 · BAT · SH · PY · JS · VBS · LOG (max 25 MB per file)
