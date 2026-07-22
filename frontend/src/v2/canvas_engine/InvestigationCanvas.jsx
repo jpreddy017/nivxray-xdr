@@ -44,29 +44,41 @@ import {
   fit as coreFit,
 } from "./core/viewport";
 
-// ─── Defaults ────────────────────────────────────────────────────────
+// ─── Defaults (Light · glassy-white analyst theme) ────────────────────
 const DEFAULT_TOKENS = {
-  bg:          "#24282F",
-  grid:        "#3A404A",
-  gridDim:     "#3A404A55",
-  band:        "#262B33",
-  band2:       "#2D333D",
-  border:      "#4B5563",
-  text:        "#F3F4F6",
-  textDim:     "#A8B3C2",
-  textMute:    "#646C76",
-  link:        "#5FA8FF",
-  success:     "#55C271",
-  warning:     "#F5C542",
-  critical:    "#F04B4B",
-  lifeline:    "#4A8B47",
-  lifelineDim: "#545C66",
-  selectGlow:  "#4A90FF",
+  bg:          "#F5F7FA",   // page canvas
+  bg2:         "#FFFFFF",   // pure card white
+  grid:        "#D9DEE5",
+  gridDim:     "#E4E7ED",
+  band:        "#EEF1F5",   // band header stripe
+  band2:       "#F7F9FC",
+  border:      "#C7CED8",
+  text:        "#0F172A",
+  textDim:     "#475569",
+  textMute:    "#94A3B8",
+  link:        "#2563EB",
+  success:     "#059669",   // green (create)
+  warning:     "#B7791F",   // amber (suspicious)
+  critical:    "#DC2626",   // red (malicious)
+  lifeline:    "#94A3B8",
+  lifelineDim: "#D1D5DB",
+  selectGlow:  "#2563EB",
 };
 
-const ROW_H  = 24;
-const BAND_H = 20;
-const GLYPH  = 11;
+const ROW_H  = 32;
+const BAND_H = 24;
+const AXIS_H = 22;   // time axis strip at top
+const GLYPH  = 12;   // glyph diameter — SOC-analyst dense but readable
+const LIFELINE_PAD = 20;
+
+// Format a timestamp for time-axis labels.
+function fmtTick(ms, span) {
+  const d = new Date(ms);
+  const pad = (n) => (n < 10 ? "0" + n : "" + n);
+  if (span > 24 * 3600 * 1000)  return `${pad(d.getUTCMonth() + 1)}·${pad(d.getUTCDate())}`;
+  if (span > 3600 * 1000)       return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // Public component
@@ -90,9 +102,9 @@ export default function InvestigationCanvas({
   const [scale, setScale]   = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
-  // Row + band layout
+  // Row + band layout (rows start below the top time axis strip)
   const { rowY, canvasH, bands } = useMemo(() => {
-    let y = 0;
+    let y = AXIS_H + 4;
     const rY = [];
     const bs = [];
     let curBand = null, curGroup = null;
@@ -117,10 +129,10 @@ export default function InvestigationCanvas({
   }, [rows]);
 
   // Time bounds → x mapping.
-  // Content width is fixed at 3000 CSS px at scale 1 — panning + zoom
-  // in the stage stretch it. This is virtualisation-friendly because we
-  // know deterministic content extents.
-  const CONTENT_W = 3000;
+  // Content width sizes to the current viewport so at scale=1 the timeline
+  // fills the visible area without wasted whitespace. Users zoom above 1
+  // to expand a busy region.
+  const CONTENT_W = Math.max(size.w - 24, 1000);
   const { minTs, maxTs, xForTs } = useMemo(() => {
     if (!events.length) return { minTs: 0, maxTs: 0, xForTs: () => 0 };
     const ts = events.map(e => new Date(e.ts).getTime());
@@ -269,6 +281,12 @@ export default function InvestigationCanvas({
     });
   }, [events, rowIndex, rowY, view, xForTs]);
 
+  // ── Hover state (screen-space tooltip position + event snapshot) ──
+  const [hover, setHover] = useState(null);           // { ev, x, y } in screen coords
+  const [hoverRow, setHoverRow] = useState(null);     // row.key (for row-band highlight)
+  // ── Right-click context menu ──
+  const [ctxMenu, setCtxMenu] = useState(null);       // { x, y, ev }
+
   // ── Marquee selection (Shift+drag on empty canvas, per M1 locked spec Q1) ──
   // MUST be declared BEFORE any conditional early return (rules-of-hooks).
   const [marquee, setMarquee] = useState(null); // { x0, y0, x1, y1 } in world coords
@@ -326,7 +344,8 @@ export default function InvestigationCanvas({
   return (
     <div ref={wrapperRef} data-testid={testId}
          className="relative w-full h-full overflow-hidden"
-         style={{ background: T.bg, cursor: "grab" }}>
+         style={{ background: T.bg2 || "#FFFFFF", cursor: "grab" }}
+         onClick={() => setCtxMenu(null)}>
       <Stage
         ref={stageRef}
         width={size.w}
@@ -366,68 +385,142 @@ export default function InvestigationCanvas({
       >
         {/* Grid background layer */}
         <Layer listening={false}>
-          <GridBackground contentW={CONTENT_W} contentH={canvasH} tokens={T} />
+          <GridBackground contentW={CONTENT_W} contentH={canvasH} tokens={T}
+                          minTs={minTs} maxTs={maxTs} xForTs={xForTs} />
         </Layer>
 
-        {/* Band header stripes */}
-        <Layer listening={false}>
-          {bands.map((b, i) => (
-            <Group key={b.label + i}>
-              <Rect x={0} y={b.top - BAND_H} width={CONTENT_W} height={BAND_H}
-                    fill={T.band} />
-              <Line points={[0, b.top, CONTENT_W, b.top]} stroke={T.border} strokeWidth={0.5} />
-              <Text x={12} y={b.top - BAND_H + 5} text={b.label.toUpperCase()}
-                    fontFamily="Inter, sans-serif" fontStyle="600"
-                    fontSize={9} letterSpacing={1.5} fill={T.textDim} />
-              <Text x={CONTENT_W - 40} y={b.top - BAND_H + 5} text={String(b.rows.length)}
-                    fontFamily="'IBM Plex Mono', monospace"
-                    fontSize={9} fill={T.textMute} align="right" width={30} />
-            </Group>
-          ))}
-        </Layer>
+        {/* Row hover highlight — subtle full-width band, below everything else */}
+        {hoverRow != null && rowIndex.get(hoverRow) != null && (
+          <Layer listening={false}>
+            <Rect x={0} y={rowY[rowIndex.get(hoverRow)]}
+                  width={CONTENT_W} height={ROW_H}
+                  fill={`${T.selectGlow}0F`} />
+          </Layer>
+        )}
 
-        {/* Lifelines */}
+        {/* Band header stripes with left-edge accent + count pill */}
         <Layer listening={false}>
-          {visibleRows.map((r) => {
-            const i = rowIndex.get(r.key);
-            const y = rowY[i] + ROW_H / 2;
-            const x1 = xForTs(r.firstTs) - 4;
-            const x2 = xForTs(r.lastTs)  + 4;
-            const sel = selected != null && events.some(ev => ev.id === selected && ev.rowKey === r.key);
-            const stroke = r.worstVerdict === "malicious" ? T.critical
-                         : r.worstVerdict === "suspicious" ? T.warning
-                         : sel ? T.lifeline : T.lifelineDim;
+          {bands.map((b, i) => {
+            const evCount = b.rows.reduce((acc, r) => {
+              return acc + events.filter(e => e.rowKey === r.key).length;
+            }, 0);
+            const accent = b.rows.some(r => r.worstVerdict === "malicious") ? T.critical
+                         : b.rows.some(r => r.worstVerdict === "suspicious") ? T.warning
+                         : T.selectGlow;
             return (
-              <Line key={r.key}
-                    points={[x1, y, x2, y]}
-                    stroke={stroke}
-                    strokeWidth={sel ? 1.6 : 0.8}
-                    dash={[2, 3]}
-                    opacity={sel ? 0.95 : 0.42}
-                    shadowColor={sel ? T.selectGlow : undefined}
-                    shadowBlur={sel ? 6 : 0}
-                    shadowOpacity={sel ? 0.8 : 0} />
+              <Group key={b.label + i}>
+                <Rect x={0} y={b.top - BAND_H} width={CONTENT_W} height={BAND_H}
+                      fill={T.band} />
+                {/* Left accent stripe */}
+                <Rect x={0} y={b.top - BAND_H} width={3} height={BAND_H}
+                      fill={accent} opacity={0.85} />
+                {/* Bottom hairline */}
+                <Line points={[0, b.top, CONTENT_W, b.top]} stroke={T.border} strokeWidth={0.5} />
+                {/* Band label */}
+                <Text x={14} y={b.top - BAND_H + 6} text={b.label.toUpperCase()}
+                      fontFamily="Inter, sans-serif" fontStyle="700"
+                      fontSize={10} letterSpacing={1.8} fill={T.text} />
+                {/* Row count */}
+                <Text x={130} y={b.top - BAND_H + 6}
+                      text={`${b.rows.length} ROW${b.rows.length === 1 ? "" : "S"}`}
+                      fontFamily="'IBM Plex Mono', monospace"
+                      fontSize={9} fill={T.textMute} letterSpacing={1} />
+                {/* Event count pill (right side) */}
+                <Text x={CONTENT_W - 60} y={b.top - BAND_H + 6}
+                      text={`${evCount} EV`}
+                      fontFamily="'IBM Plex Mono', monospace"
+                      fontSize={9} fill={T.textDim} letterSpacing={1} />
+              </Group>
             );
           })}
         </Layer>
 
-        {/* Spawn / parent-child edges */}
+        {/* Lifelines — SOLID ENTITY-LIFETIME BARS with inline label · verdict-colored */}
+        <Layer>
+          {visibleRows.map((r) => {
+            const i = rowIndex.get(r.key);
+            const y = rowY[i] + ROW_H / 2;
+            const sel = selected != null && events.some(ev => ev.id === selected && ev.rowKey === r.key);
+            const hov = hoverRow === r.key;
+            const isMal = r.worstVerdict === "malicious";
+            const isSus = r.worstVerdict === "suspicious";
+
+            // Bar colors — bar body is subtle tint; stroke is verdict color.
+            const stroke = isMal ? T.critical
+                         : isSus ? T.warning
+                         : (sel || hov) ? T.selectGlow : T.lifeline;
+            const fill = isMal ? "#FEE2E2"
+                       : isSus ? "#FEF3C7"
+                       : "#EEF2F7";
+            const barX0 = xForTs(r.firstTs) - 12;
+            const barX1 = xForTs(r.lastTs)  + 12;
+            const barY0 = y - ROW_H / 2 + 3;
+            const barH  = ROW_H - 6;
+            const barW  = Math.max(60, barX1 - barX0);
+
+            return (
+              <Group key={r.key}
+                     onMouseEnter={() => setHoverRow(r.key)}
+                     onMouseLeave={() => setHoverRow(null)}>
+                {/* Faint full-row dashed baseline behind the bar (for empty ends) */}
+                <Line points={[LIFELINE_PAD, y, CONTENT_W - LIFELINE_PAD, y]}
+                      stroke={T.lifelineDim} strokeWidth={0.5}
+                      dash={[1, 4]} opacity={0.25} listening={false} />
+                {/* Entity-lifetime bar */}
+                <Rect x={barX0} y={barY0}
+                      width={barW} height={barH}
+                      fill={fill}
+                      stroke={stroke}
+                      strokeWidth={sel || hov ? 1.4 : 1}
+                      cornerRadius={barH / 2}
+                      opacity={sel || hov ? 1 : 0.92}
+                      shadowColor={sel ? T.selectGlow : (isMal ? T.critical : undefined)}
+                      shadowBlur={sel ? 10 : (isMal ? 5 : 0)}
+                      shadowOpacity={sel ? 0.7 : (isMal ? 0.3 : 0)} />
+                {/* Inline entity label — small tag ABOVE the bar so events stay clean */}
+                <Text x={barX0 + 2} y={barY0 - 10}
+                      text={r.label || r.key}
+                      fontFamily="Inter, -apple-system, BlinkMacSystemFont, sans-serif"
+                      fontStyle="600"
+                      fontSize={10}
+                      fill={isMal ? T.critical : isSus ? T.warning : T.text}
+                      listening={false} />
+                {/* Event-count pill on the right side of the bar */}
+                {r.events != null && (
+                  <Text x={barX1 + 6} y={barY0 + 4}
+                        text={""}
+                        fontSize={9}
+                        listening={false} />
+                )}
+              </Group>
+            );
+          })}
+        </Layer>
+
+        {/* Spawn / parent-child edges · right-angle L-shape with arrow */}
         <Layer listening={false}>
           {edges.map((edge, i) => {
-            const fromRow = rowIndex.get(edge.from);
-            const toRow   = rowIndex.get(edge.to);
-            if (fromRow == null || toRow == null) return null;
-            const y1 = rowY[fromRow] + ROW_H / 2;
-            const y2 = rowY[toRow]   + ROW_H / 2;
-            const toRowObj = rows[toRow];
+            const fromIdx = rowIndex.get(edge.from);
+            const toIdx   = rowIndex.get(edge.to);
+            if (fromIdx == null || toIdx == null) return null;
+            const y1 = rowY[fromIdx] + ROW_H / 2;
+            const y2 = rowY[toIdx]   + ROW_H / 2;
+            const toRowObj = rows[toIdx];
             const x = xForTs(toRowObj.firstTs);
+            const going = y2 > y1;
+            const arrowY = going ? y2 - 8 : y2 + 8;
             return (
-              <Line key={i}
-                    points={[x, y1, x, y2 - 5]}
-                    stroke={T.border}
-                    strokeWidth={0.8}
-                    dash={[3, 3]}
-                    opacity={0.6} />
+              <Group key={i}>
+                {/* Vertical connector */}
+                <Line points={[x, y1, x, arrowY]}
+                      stroke={T.selectGlow}
+                      strokeWidth={1.4}
+                      opacity={0.55} />
+                {/* Arrowhead at child */}
+                <Line points={[x - 3, arrowY, x, y2, x + 3, arrowY]}
+                      stroke={T.selectGlow} strokeWidth={1.4}
+                      opacity={0.7} lineCap="round" lineJoin="round" />
+              </Group>
             );
           })}
         </Layer>
@@ -444,7 +537,11 @@ export default function InvestigationCanvas({
                           ev={ev} x={x} y={y}
                           selected={sel}
                           tokens={T}
-                          onSelect={onSelect} />
+                          scale={scale}
+                          onSelect={onSelect}
+                          onHover={(scrPos) => { setHover({ ev, ...scrPos }); setHoverRow(ev.rowKey); }}
+                          onLeave={() => { setHover(null); setHoverRow(null); }}
+                          onContext={(scrPos) => setCtxMenu({ ev, ...scrPos })} />
             );
           })}
         </Layer>
@@ -487,91 +584,187 @@ export default function InvestigationCanvas({
         contentW={CONTENT_W} contentH={canvasH}
         onScroll={(o) => setOffset(clampOffset(o, scale, size, canvasH, CONTENT_W))}
         tokens={T} />
+
+      {/* Hover tooltip — floating card near the cursor */}
+      {hover && !ctxMenu && (
+        <HoverTooltip hover={hover} tokens={T} />
+      )}
+
+      {/* Right-click context menu */}
+      {ctxMenu && (
+        <ContextMenu
+          ctx={ctxMenu} tokens={T}
+          onSelect={onSelect}
+          onClose={() => setCtxMenu(null)} />
+      )}
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// GridBackground — very subtle vertical hour columns
+// GridBackground — hourly vertical rules + optional labeled ticks
 // ═══════════════════════════════════════════════════════════════════
-function GridBackground({ contentW, contentH, tokens }) {
+function GridBackground({ contentW, contentH, tokens, minTs, maxTs, xForTs }) {
   const lines = [];
-  const step = 48;
+  const step = 64;
   for (let x = step; x < contentW; x += step) {
     lines.push(
       <Line key={x} points={[x, 0, x, contentH]}
-            stroke={tokens.grid} strokeWidth={0.4} opacity={0.35} />
+            stroke={tokens.grid} strokeWidth={0.5} opacity={0.5} />
     );
   }
-  return <>{lines}</>;
+  // Time axis strip at top
+  const axis = [];
+  if (minTs && maxTs && xForTs) {
+    const span = maxTs - minTs;
+    const ticks = 12;
+    for (let i = 0; i <= ticks; i++) {
+      const t = minTs + (span * i) / ticks;
+      const x = xForTs(t);
+      axis.push(
+        <Group key={`ax-${i}`}>
+          <Line points={[x, 0, x, 6]} stroke={tokens.textDim} strokeWidth={0.8} />
+          <Text x={x - 24} y={7} width={48} align="center"
+                text={fmtTick(t, span)}
+                fontFamily="'IBM Plex Mono', ui-monospace, monospace"
+                fontSize={9} fill={tokens.textDim} />
+        </Group>
+      );
+    }
+  }
+  return (
+    <>
+      <Rect x={0} y={0} width={contentW} height={contentH} fill={tokens.bg2 || "#FFFFFF"} />
+      {lines}
+      {/* Axis strip background */}
+      <Rect x={0} y={0} width={contentW} height={AXIS_H} fill={tokens.band} opacity={0.7} />
+      <Line points={[0, AXIS_H, contentW, AXIS_H]} stroke={tokens.border} strokeWidth={0.5} />
+      {axis}
+    </>
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// EventGlyph — tiny circle + verdict ring + activity mark inside
+// EventGlyph — activity-colored symbol (▶ red = malicious exec · + green = create · ✕ red = delete · ...)
 // ═══════════════════════════════════════════════════════════════════
-function EventGlyph({ ev, x, y, selected, tokens: T, onSelect }) {
+function EventGlyph({ ev, x, y, selected, tokens: T, scale = 1, onSelect,
+                     onHover = () => {}, onLeave = () => {}, onContext = () => {} }) {
   const isMal = ev.verdict === "malicious";
-  const ring = isMal ? T.critical
-             : ev.verdict === "suspicious" ? T.warning
-             : T.textDim;
-  const mark = isMal ? "#FCA5A5" : "#FFFFFF";
+  const isSus = ev.verdict === "suspicious";
   const [hovered, setHovered] = useState(false);
+  const hasMitre = ev.mitre && ev.mitre.length > 0;
+
+  // Per-activity color palette (verdict-aware where it makes sense).
+  const activityColor = (() => {
+    switch (ev.kind) {
+      case "execute":    return isMal ? T.critical : (isSus ? T.warning : T.textDim);
+      case "create":     return T.success;                // + is always green
+      case "delete":     return T.critical;               // ✕ is always red
+      case "network":    return isMal ? T.critical : T.link;
+      case "registry":   return isSus ? T.warning : T.textDim;
+      case "file":       return isMal ? T.critical : T.link;
+      case "detect":     return T.warning;
+      case "compromise": return T.critical;
+      case "exploit":    return T.critical;
+      case "scan":       return T.link;
+      case "restore":    return T.success;
+      default:           return isMal ? T.critical : (isSus ? T.warning : T.textDim);
+    }
+  })();
   const r = GLYPH / 2;
+  // Soft tinted disc behind the mark — improves contrast on white bg.
+  const discFill = isMal ? "#FEE2E2"
+                 : isSus ? "#FEF3C7"
+                 : ev.kind === "create" ? "#DCFCE7"
+                 : "#F1F5F9";
 
   return (
     <Group x={x} y={y}
            onClick={() => onSelect(ev)}
            onTap={() => onSelect(ev)}
-           onMouseEnter={(e) => { setHovered(true); e.target.getStage().container().style.cursor = "pointer"; }}
-           onMouseLeave={(e) => { setHovered(false); e.target.getStage().container().style.cursor = "grab"; }}
-           scaleX={hovered ? 1.3 : 1} scaleY={hovered ? 1.3 : 1}
+           onContextMenu={(e) => {
+             e.evt.preventDefault();
+             const stage = e.target.getStage();
+             const pos = stage.getPointerPosition();
+             const container = stage.container().getBoundingClientRect();
+             onContext({ x: pos.x + container.left, y: pos.y + container.top });
+           }}
+           onMouseEnter={(e) => {
+             setHovered(true);
+             const stage = e.target.getStage();
+             stage.container().style.cursor = "pointer";
+             const pos = stage.getPointerPosition();
+             const container = stage.container().getBoundingClientRect();
+             onHover({ x: pos.x + container.left, y: pos.y + container.top });
+           }}
+           onMouseLeave={(e) => {
+             setHovered(false);
+             e.target.getStage().container().style.cursor = "grab";
+             onLeave();
+           }}
+           scaleX={hovered ? 1.4 : 1} scaleY={hovered ? 1.4 : 1}
            shadowColor={selected ? T.selectGlow : (isMal ? T.critical : undefined)}
-           shadowBlur={selected ? 10 : (isMal ? 3 : 0)}
-           shadowOpacity={selected ? 0.9 : (isMal ? 0.6 : 0)}>
+           shadowBlur={selected ? 14 : (isMal ? 5 : 0)}
+           shadowOpacity={selected ? 0.85 : (isMal ? 0.35 : 0)}>
+      {/* Selection halo */}
+      {selected && (
+        <Circle radius={r + 5}
+                stroke={T.selectGlow} strokeWidth={1.2}
+                opacity={0.6} />
+      )}
+      {/* Tinted disc for contrast on white */}
       <Circle radius={r}
-              fill={isMal ? "#3B0F14" : T.bg}
-              stroke={selected ? T.selectGlow : ring}
-              strokeWidth={selected ? 1.5 : 1.1} />
-      <ActivityMark kind={ev.kind} color={mark} />
+              fill={discFill}
+              stroke={selected ? T.selectGlow : activityColor}
+              strokeWidth={selected ? 1.6 : 1.1}
+              opacity={0.95} />
+      <ActivityMark kind={ev.kind} color={activityColor} />
+      {/* MITRE indicator — small red tick above the glyph */}
+      {hasMitre && (
+        <Rect x={-1} y={-r - 5} width={2} height={4} fill={T.critical} opacity={0.9} />
+      )}
     </Group>
   );
 }
 
 function ActivityMark({ kind, color }) {
-  const w = 1.4;
+  const w = 1.6;
   switch (kind) {
     case "execute":
-      return <Line points={[-2.2, -3, -2.2, 3, 3, 0]} closed fill={color} />;
+      // Right-facing filled triangle ▶
+      return <Line points={[-2.5, -3, -2.5, 3, 3, 0]} closed fill={color} />;
     case "create":
+      // Green + (bold plus sign)
       return (
         <>
-          <Line points={[-3, 0, 3, 0]} stroke={color} strokeWidth={w} />
-          <Line points={[0, -3, 0, 3]} stroke={color} strokeWidth={w} />
+          <Line points={[-3.2, 0, 3.2, 0]} stroke={color} strokeWidth={w + 0.2} lineCap="round" />
+          <Line points={[0, -3.2, 0, 3.2]} stroke={color} strokeWidth={w + 0.2} lineCap="round" />
         </>
       );
     case "delete":
+      // Bold red ✕
       return (
         <>
-          <Line points={[-3, -3, 3, 3]} stroke={color} strokeWidth={w} />
-          <Line points={[-3, 3, 3, -3]} stroke={color} strokeWidth={w} />
+          <Line points={[-3, -3, 3, 3]} stroke={color} strokeWidth={w + 0.2} lineCap="round" />
+          <Line points={[-3, 3, 3, -3]} stroke={color} strokeWidth={w + 0.2} lineCap="round" />
         </>
       );
     case "network":
       return (
         <>
-          <Line points={[-3, -1.5, 3, -1.5]} stroke={color} strokeWidth={w} />
-          <Line points={[1.5, -3, 3, -1.5, 1.5, 0]} stroke={color} strokeWidth={w} />
-          <Line points={[-3, 1.5, 3, 1.5]} stroke={color} strokeWidth={w} />
-          <Line points={[-1.5, 3, -3, 1.5, -1.5, 0]} stroke={color} strokeWidth={w} />
+          <Line points={[-3, -1.5, 3, -1.5]} stroke={color} strokeWidth={w} lineCap="round" />
+          <Line points={[1.5, -3, 3, -1.5, 1.5, 0]} stroke={color} strokeWidth={w} lineCap="round" />
+          <Line points={[-3, 1.5, 3, 1.5]} stroke={color} strokeWidth={w} lineCap="round" />
+          <Line points={[-1.5, 3, -3, 1.5, -1.5, 0]} stroke={color} strokeWidth={w} lineCap="round" />
         </>
       );
     case "registry":
-      return <Rect x={-3} y={-3} width={6} height={6} stroke={color} strokeWidth={w} />;
+      return <Rect x={-3} y={-3} width={6} height={6} stroke={color} strokeWidth={w} cornerRadius={0.6} />;
     case "file":
       return <Path data="M -2.5 -3.5 L 1.5 -3.5 L 2.5 -2.5 L 2.5 3.5 L -2.5 3.5 Z"
                    stroke={color} strokeWidth={w} />;
     case "compromise":
-      return <Text x={-3} y={-4} text="!" fontSize={9} fontStyle="900" fill={color}
+      return <Text x={-3} y={-4} text="!" fontSize={10} fontStyle="900" fill={color}
                    fontFamily="Inter, sans-serif" align="center" width={6} />;
     case "detect":
       return <Circle radius={2} fill={color} />;
@@ -737,5 +930,102 @@ function ScrollBars({ offset, scale, size, contentW, contentH, onScroll, tokens:
         </div>
       )}
     </>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// HoverTooltip — floating card next to the hovered event glyph
+// ═══════════════════════════════════════════════════════════════════
+function HoverTooltip({ hover, tokens: T }) {
+  const { ev, x, y } = hover;
+  const isMal = ev.verdict === "malicious";
+  const isSus = ev.verdict === "suspicious";
+  const verdictPill = { background: isMal ? "#FEE2E2" : isSus ? "#FEF3C7" : "#F1F5F9",
+                        color:      isMal ? T.critical : isSus ? T.warning  : T.textDim };
+  const ts = new Date(ev.ts);
+  const pad = (n) => (n < 10 ? "0" + n : "" + n);
+  const tsStr = `${ts.getUTCFullYear()}-${pad(ts.getUTCMonth() + 1)}-${pad(ts.getUTCDate())} `
+              + `${pad(ts.getUTCHours())}:${pad(ts.getUTCMinutes())}:${pad(ts.getUTCSeconds())} UTC`;
+  return (
+    <div className="fixed pointer-events-none z-50"
+         style={{
+           left: x + 14, top: y + 14,
+           background: T.bg2 || "#FFFFFF",
+           border: `1px solid ${T.border}`,
+           borderRadius: 6,
+           boxShadow: "0 12px 32px -8px rgba(15,23,42,0.25), 0 4px 12px -2px rgba(15,23,42,0.12)",
+           padding: "10px 12px",
+           minWidth: 240, maxWidth: 360,
+           fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+         }}
+         data-testid="canvas-hover-tooltip">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[9px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider"
+              style={verdictPill}>
+          {ev.verdict}
+        </span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider"
+              style={{ color: T.textDim }}>
+          {ev.kind}
+        </span>
+      </div>
+      <div className="text-[13px] font-semibold leading-tight mb-1"
+           style={{ color: T.text }}>
+        {ev.label || "—"}
+      </div>
+      <div className="text-[10px] tabular-nums"
+           style={{ color: T.textMute, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>
+        {tsStr}
+      </div>
+      {ev.mitre && ev.mitre.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {ev.mitre.slice(0, 6).map(t => (
+            <span key={t} className="text-[9px] px-1.5 py-0.5 rounded font-semibold tabular-nums"
+                  style={{
+                    background: `${T.critical}18`, color: T.critical,
+                    fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                  }}>{t}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ContextMenu — right-click actions for an event
+// ═══════════════════════════════════════════════════════════════════
+function ContextMenu({ ctx, tokens: T, onSelect, onClose }) {
+  const { ev, x, y } = ctx;
+  const items = [
+    { label: "Focus this event", act: () => { onSelect(ev); onClose(); } },
+    { label: "Copy event IID",   act: () => { navigator.clipboard?.writeText(ev.id || ""); onClose(); } },
+    { label: "Copy timestamp",   act: () => { navigator.clipboard?.writeText(new Date(ev.ts).toISOString()); onClose(); } },
+    { label: "Copy label",       act: () => { navigator.clipboard?.writeText(ev.label || ""); onClose(); } },
+  ];
+  return (
+    <div className="fixed z-50 rounded-md py-1"
+         style={{
+           left: x, top: y,
+           background: T.bg2 || "#FFFFFF",
+           border: `1px solid ${T.border}`,
+           boxShadow: "0 12px 32px -8px rgba(15,23,42,0.28), 0 4px 12px -2px rgba(15,23,42,0.14)",
+           minWidth: 200,
+           fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+         }}
+         data-testid="canvas-context-menu"
+         onClick={(e) => e.stopPropagation()}>
+      {items.map((it, i) => (
+        <button key={i}
+                onClick={it.act}
+                className="w-full text-left px-3 py-1.5 text-[12px]"
+                style={{ color: T.text, background: "transparent" }}
+                onMouseEnter={(e) => e.currentTarget.style.background = `${T.selectGlow}15`}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+          {it.label}
+        </button>
+      ))}
+    </div>
   );
 }

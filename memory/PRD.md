@@ -5,6 +5,49 @@ Build a deterministic-first analyst workspace that decodes / reconstructs
 obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
+
+## 2026-02-22 · M2 · Investigation Canvas — Entity-Lifetime Story View (SHIPPED · frontend)
+
+**Motivation:** User criticised the M1 canvas as an "interactive scatter plot"
+and asked for a Cisco Device Trajectory–style investigation workspace where the
+canvas itself tells the attack story, not just plots dots on a grid.
+
+**Shipped (frontend only · zero backend changes):**
+- **Light "glassy-white" analyst theme** across `InvestigationCanvas` engine and
+  `DeviceTrajectoryV2` chrome. Distinctive vs Cisco's dark aesthetic without
+  copying any Cisco assets, colours, fonts, or icons.
+- **Entity-lifetime bars** — every entity (process / file / network item) is now
+  a solid rounded pill spanning `firstTs → lastTs`, coloured by worst verdict
+  (red malicious · amber suspicious · gray benign). Events attach ON the bar,
+  no longer float in empty space.
+- **Inline row labels** — process/file name sits directly above its own bar so
+  analysts read the attack chain without cross-referencing the LeftRail.
+- **Activity-coloured symbols** — small red ▶ for malicious execution, green ✚
+  for creation, red ✕ for deletion, blue arrows for network, per user brief.
+- **Time axis** at the top of the canvas with tick labels; band header stripes
+  with left-edge accent colour + row count + event count.
+- **Attack-chain ordering** — rows sort by band → worst verdict (malicious
+  first) → firstTs → label, so critical lifelines lead the eye.
+- **Parent→child spawn edges** — right-angle connectors with arrowhead
+  rendered when parent IIDs are present (seed data currently ships without
+  parents; wiring is ready for future adapters that populate them).
+- **HTML hover tooltip** — verdict pill + kind + label + UTC timestamp +
+  MITRE chips, floating card near the cursor.
+- **Right-click context menu** — Focus / Copy IID / Copy timestamp / Copy label.
+- **Auto-fit content width** — `CONTENT_W` scales to viewport width, so no
+  empty right-of-canvas wasteland.
+- **Row-hover highlight** + **selection glow halo** for the selected event.
+- **Responsive layout constants** synchronised across `InvestigationCanvas`
+  and `DeviceTrajectoryV2` (ROW_H=32, BAND_H=24) so LeftRail rows align
+  pixel-perfectly with canvas lifelines.
+
+**Files touched:**
+- `frontend/src/v2/canvas_engine/InvestigationCanvas.jsx`
+- `frontend/src/v2/pages/DeviceTrajectoryV2.jsx`
+
+**Backend / RC5:** UNTOUCHED. All 820 backend tests remain green.
+
+
 ## 2026-02-22 · Device Trajectory · Design Freeze (implementation not yet begun)
 
 **Status**: Approved architecture. Milestone 0 (Golden UX Validation) is the next gate. No code lands until M0 passes.

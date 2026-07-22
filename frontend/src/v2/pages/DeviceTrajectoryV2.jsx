@@ -30,29 +30,29 @@ import api from "@/lib/api";
 import { InvestigationCanvas } from "@/v2/canvas_engine";
 
 // ═══════════════════════════════════════════════════════════════════
-// Design tokens
+// Design tokens (Light · glassy-white analyst theme)
 // ═══════════════════════════════════════════════════════════════════
 const NX = {
-  bg:          "#1F232A",
-  panel:       "#262B33",
-  panel2:      "#2D333D",
-  canvas:      "#24282F",
-  border:      "#3A404A",
-  borderStrong:"#4B5563",
-  hover:       "#353C46",
-  selected:    "#425A7A",
-  text:        "#F3F4F6",
-  textDim:     "#A8B3C2",
-  textMute:    "#646C76",
-  link:        "#5FA8FF",
-  linkDim:     "#3D6FB0",
-  success:     "#55C271",
-  warning:     "#F5C542",
-  critical:    "#F04B4B",
-  density:     "#4A90FF",
-  lifeline:    "#4A8B47",
-  lifelineDim: "#545C66",
-  hatch:       "#3C4048",
+  bg:          "#F2F5F9",
+  panel:       "#FFFFFF",
+  panel2:      "#F7F9FC",
+  canvas:      "#FFFFFF",
+  border:      "#D5DAE1",
+  borderStrong:"#C7CED8",
+  hover:       "#EDF1F6",
+  selected:    "#DBE7FF",
+  text:        "#0F172A",
+  textDim:     "#475569",
+  textMute:    "#94A3B8",
+  link:        "#2563EB",
+  linkDim:     "#93B4EF",
+  success:     "#059669",
+  warning:     "#B7791F",
+  critical:    "#DC2626",
+  density:     "#2563EB",
+  lifeline:    "#94A3B8",
+  lifelineDim: "#D1D5DB",
+  hatch:       "#E4E7ED",
 };
 
 // Layout constants
@@ -63,8 +63,8 @@ const HOUR_H         = 44;
 const STATUS_H       = 24;
 const RAIL_W         = 168;
 const RIGHT_W        = 288;
-const ROW_H          = 24;    // per-process row
-const BAND_H         = 20;    // band header stripe
+const ROW_H          = 32;    // per-entity row · matches canvas engine
+const BAND_H         = 24;    // band header stripe · matches canvas engine
 const GLYPH          = 11;    // px, tiny
 const CANVAS_PAD_X   = 12;
 
@@ -355,18 +355,51 @@ export default function DeviceTrajectoryV2() {
       if (v === "malicious" || (v === "suspicious" && r.worstVerdict !== "malicious"))
         r.worstVerdict = v;
     });
-    // Sort: analyst band first (System block, then Files & Network)
+    // Sort — attack-chain first: (band) → (worst verdict severity DESC) → (firstTs) → (label).
+    // This puts the malicious/suspicious lifelines at the top of every band so
+    // the eye lands on the story of the attack first, not on the alphabet.
     const bandRank = (r) => (r.lane === "file" || r.lane === "network") ? 1 : 0;
+    const verdictRank = (v) => v === "malicious" ? 0 : v === "suspicious" ? 1 : 2;
     const arr = [...byKey.values()].sort((a, b) => {
       const A = expert ? ["system","process","file","network","registry"].indexOf(a.lane)
                        : bandRank(a);
       const B = expert ? ["system","process","file","network","registry"].indexOf(b.lane)
                        : bandRank(b);
       if (A !== B) return A - B;
-      return a.firstTs !== b.firstTs ? a.firstTs - b.firstTs : a.label.localeCompare(b.label);
+      const va = verdictRank(a.worstVerdict), vb = verdictRank(b.worstVerdict);
+      if (va !== vb) return va - vb;
+      if (a.firstTs !== b.firstTs) return a.firstTs - b.firstTs;
+      return a.label.localeCompare(b.label);
     });
     return arr;
   }, [frames, expert]);
+
+  // Parent → child spawn edges. Data currently ships without parent IIDs in
+  // most cases, but this correctly derives edges when they are available.
+  const edges = useMemo(() => {
+    const iidToKey = new Map();
+    rows.forEach(r => {
+      r.events.forEach(f => {
+        const iid = f.process?.iid;
+        if (iid) iidToKey.set(iid, r.key);
+      });
+    });
+    const seen = new Set();
+    const out = [];
+    rows.forEach(r => {
+      r.events.forEach(f => {
+        const pIid = f.parent?.iid;
+        if (!pIid) return;
+        const from = iidToKey.get(pIid);
+        if (!from || from === r.key) return;
+        const key = `${from}->${r.key}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({ from, to: r.key, kind: "spawn" });
+      });
+    });
+    return out;
+  }, [rows]);
 
   const rowIndex = useMemo(() => {
     const m = new Map();
@@ -496,15 +529,16 @@ export default function DeviceTrajectoryV2() {
               mitre:   f.mitre || [],
               meta:    f,
             }))}
+            edges={edges}
             selected={selected?.frame_iid || null}
             onSelect={(ev) => setSelected(ev.meta)}
             tokens={{
-              bg: NX.canvas, band: NX.panel, band2: NX.panel2,
+              bg: NX.bg, bg2: NX.canvas, band: NX.panel2, band2: NX.panel,
               border: NX.border, text: NX.text, textDim: NX.textDim,
               textMute: NX.textMute, link: NX.link, success: NX.success,
               warning: NX.warning, critical: NX.critical,
               lifeline: NX.lifeline, lifelineDim: NX.lifelineDim,
-              selectGlow: NX.link, grid: NX.border,
+              selectGlow: NX.link, grid: NX.hatch,
             }}
             emptyMessage="No events for this case."
             testId="trajectory-canvas"
@@ -956,7 +990,7 @@ function LeftRail({ groups, selectedKey, onPickRow, onOpenAncestry, expert, onTo
                   borderRight: `1px solid ${NX.border}` }}
          data-testid="left-rail">
       <div className="flex items-center justify-between px-3"
-           style={{ height: 24, borderBottom: `1px solid ${NX.border}` }}>
+           style={{ height: 26, borderBottom: `1px solid ${NX.border}` }}>
         <span className="text-[9px] tracking-[0.22em] uppercase font-semibold"
               style={{ color: NX.textDim }}>Processes</span>
         <button
