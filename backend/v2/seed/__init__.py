@@ -12,6 +12,7 @@ Invocation:
 """
 from __future__ import annotations
 import asyncio, os, sys
+from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 from v2.case_engine.schema import COLLECTIONS
 from v2.shadow import observe, observe_all, persist
@@ -71,6 +72,27 @@ async def main() -> int:
     # Idempotent — clear the case's prior seed first.
     await db[COLLECTIONS["shadow_observations"]].delete_many({"case_id": CASE_ID})
 
+    # Ensure the parent v2_cases row exists so /api/v2/cases lists it and
+    # POST /observations does not 404. Discovered by the R1.1 testing
+    # agent (report iteration_37) — seed used to only write observations.
+    await db[COLLECTIONS["cases"]].update_one(
+        {"case_id": CASE_ID},
+        {"$setOnInsert": {
+            "case_id": CASE_ID,
+            "name": "DFIR · Bumblebee → AdaptixC2 → Akira (2026)",
+            "description": (
+                "Real DFIR intrusion chain from thedfirreport.com/2026 · "
+                "Bumblebee MSI loader → AdaptixC2 → domain discovery → "
+                "credential access → LSASS dump → RustDesk persistence → "
+                "SSH reverse tunnel → Akira ransomware."
+            ),
+            "status": "open",
+            "tags": ["dfir", "bumblebee", "adaptixc2", "akira", "ransomware"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+
     ok = 0
     total = 0
     for cmd in COMMANDS:
@@ -79,6 +101,11 @@ async def main() -> int:
             obs_id = await persist(db, ev)
             if obs_id:
                 ok += 1
+    # Bump event_count on the case doc so the selector shows an accurate tally.
+    await db[COLLECTIONS["cases"]].update_one(
+        {"case_id": CASE_ID},
+        {"$set": {"event_count": ok, "last_seeded_at": datetime.now(timezone.utc).isoformat()}},
+    )
     print(f"Seeded case={CASE_ID} · commands={len(COMMANDS)} · observations={ok}/{total}")
     return 0 if ok == total else 1
 
