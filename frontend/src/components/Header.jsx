@@ -4,11 +4,12 @@ import Logo from "@/components/Logo";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import NavDropdown from "@/components/NavDropdown";
 import NavTabs from "@/components/NavTabs";
+import CorpusHealthPill from "@/components/CorpusHealthPill";
 import { useAuth } from "@/lib/auth";
 import {
   LogOut, LayoutGrid, Cog, Sparkles, Beaker, Terminal, BookOpen,
   KeyRound, Rss, TestTube, GraduationCap, Grid, Wrench, Library, Gauge, FolderOpen,
-  BarChart3,
+  BarChart3, Battery,
 } from "lucide-react";
 
 export default function Header() {
@@ -26,7 +27,7 @@ export default function Header() {
     { key: "heatmap",    href: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
     { key: "documents",  href: "/documents",  label: "DOCUMENTS",  icon: FolderOpen, testId: "nav-documents" },
     { key: "benchmark",  href: "/benchmark",  label: "BENCHMARK",  icon: Gauge,      testId: "nav-benchmark" },
-    { key: "battery",    href: "/battery",    label: "BATTERY",    icon: Gauge,      testId: "nav-battery" },
+    { key: "battery",    href: "/battery",    label: "BATTERY",    icon: Battery,    testId: "nav-battery" },
   ];
 
   // Grouped: analysis tools (secondary usage)
@@ -80,6 +81,7 @@ export default function Header() {
             </div>
           </div>
         </Link>
+        <CorpusHealthPill />
         <span style={{ color: "var(--border-strong)" }}>│</span>
 
         <nav

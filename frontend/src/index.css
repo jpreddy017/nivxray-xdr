@@ -177,64 +177,121 @@ body::before {
 
 /* Primary button */
 .nvx-btn {
-  font-family: "Chivo", sans-serif;
+  /* Feb-2026 · match the DetectFlow active-tab treatment: glass fill,
+     glowing accent border, uppercase JetBrains Mono, and a subtle
+     glow underline that turns solid on hover. */
+  position: relative;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 10px 14px;
-  border: 1px solid var(--border-strong);
-  background: transparent;
-  color: var(--text);
+  padding: 8px 14px;
+  border: 1px solid rgba(74, 168, 144, 0.55);
+  background: linear-gradient(160deg,
+    rgba(74, 168, 144, 0.14),
+    rgba(74, 168, 144, 0.02));
+  color: var(--accent);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: background-color 120ms, color 120ms, border-color 120ms;
-  border-radius: 0;
+  border-radius: 6px;
+  box-shadow: 0 0 12px rgba(74, 168, 144, 0.20),
+              inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: transform 160ms ease, background 200ms ease,
+              border-color 200ms ease, box-shadow 200ms ease,
+              color 160ms ease;
+}
+.nvx-btn::after {
+  /* Glowing underline seen on the active WORKSPACE tab. */
+  content: "";
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  opacity: 0.85;
+  transition: opacity 200ms ease, left 200ms ease, right 200ms ease;
+  pointer-events: none;
 }
 .nvx-btn:hover {
-  background: #1e2024;
+  transform: translateY(-1px);
   border-color: var(--accent);
-  color: var(--accent);
+  color: #d5f5e8;
+  background: linear-gradient(160deg,
+    rgba(74, 168, 144, 0.24),
+    rgba(74, 168, 144, 0.04));
+  box-shadow: 0 0 20px rgba(74, 168, 144, 0.35),
+              inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.nvx-btn:hover::after {
+  left: 10%;
+  right: 10%;
+  opacity: 1;
 }
 .nvx-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
+.nvx-btn:disabled::after { opacity: 0.15; }
+
+/* Solid teal variant — kept for confirm / submit actions */
 .nvx-btn.primary {
   background: var(--accent);
   color: #0a0a0c;
   border-color: var(--accent);
+  box-shadow: 0 0 14px rgba(74, 168, 144, 0.45);
 }
 .nvx-btn.primary:hover {
   background: var(--accent-hover);
   color: #0a0a0c;
   border-color: var(--accent-hover);
 }
+.nvx-btn.primary::after {
+  background: #0a0a0c;
+  box-shadow: 0 0 8px rgba(10, 10, 12, 0.6);
+}
+
+/* Warn variant */
 .nvx-btn.warn {
-  border-color: var(--warn);
+  border-color: rgba(226, 126, 93, 0.55);
   color: var(--warn);
+  background: linear-gradient(160deg,
+    rgba(226, 126, 93, 0.14),
+    rgba(226, 126, 93, 0.02));
+  box-shadow: 0 0 12px rgba(226, 126, 93, 0.22);
 }
 .nvx-btn.warn:hover {
   background: var(--warn);
   color: #0a0a0c;
+  border-color: var(--warn);
 }
+.nvx-btn.warn::after { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+
+/* Ghost — invisible until hover, then adopts the accent glow.        */
 .nvx-btn.ghost {
+  background: transparent;
   border-color: transparent;
+  color: var(--text-dim);
+  box-shadow: none;
 }
+.nvx-btn.ghost::after { opacity: 0; }
 .nvx-btn.ghost:hover {
-  border-color: var(--border-strong);
+  color: var(--accent);
+  border-color: rgba(74, 168, 144, 0.35);
+  background: rgba(74, 168, 144, 0.06);
+  box-shadow: 0 0 12px rgba(74, 168, 144, 0.18);
 }
-.nvx-btn.sm {
-  padding: 5px 10px;
-  font-size: 11px;
-}
-.nvx-btn.xs {
-  padding: 3px 7px;
-  font-size: 10px;
-  gap: 4px;
-}
+.nvx-btn.ghost:hover::after { opacity: 0.6; left: 20%; right: 20%; }
+
+.nvx-btn.sm { padding: 5px 10px; font-size: 10px; }
+.nvx-btn.xs { padding: 3px 7px;  font-size: 9px; gap: 4px; }
 
 /* Input */
 .nvx-input {

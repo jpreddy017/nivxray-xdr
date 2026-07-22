@@ -451,10 +451,24 @@ function MitrePanel({ mitre = [] }) {
  * ------------------------------------------------------------------ */
 const NETWORK_KEYS = ["urls", "domains", "hosts", "ips"];
 
+// Feb-2026 · Entity Classifier surfacing.
+// Buckets emitted by the deterministic dotted-quad classifier get a
+// per-kind colour + label so analysts can see at a glance that a
+// version literal or Windows build was correctly routed away from IPs.
+const ENTITY_KIND_META = {
+  windows_builds:       { color: "#8b5cf6", label: "WINDOWS BUILDS",     desc: "classified as Windows build number, not IPv4" },
+  software_versions:    { color: "#22d3ee", label: "SOFTWARE VERSIONS",  desc: "classified as version literal, not IPv4" },
+  generic_dotted_quads: { color: "#f59e0b", label: "GENERIC DOTTED-QUAD",desc: "no network context — held back from IP bucket" },
+  _entity_classifications: null,   // internal metadata — never rendered as a group
+};
+
 function IocPanel({ iocs = {} }) {
   const io = iocs && typeof iocs === "object" ? iocs : {};
   const nonNet = Object.entries(io).filter(
-    ([k, v]) => !NETWORK_KEYS.includes(k) && Array.isArray(v) && v.length > 0,
+    ([k, v]) =>
+      !NETWORK_KEYS.includes(k) &&
+      k !== "_entity_classifications" &&
+      Array.isArray(v) && v.length > 0,
   );
   const total = nonNet.reduce((acc, [, v]) => acc + v.length, 0);
   const copyBody = useMemo(
@@ -483,16 +497,30 @@ function IocPanel({ iocs = {} }) {
         <EmptyState text="No file / hash / registry / email IOCs surfaced." testid="ioc-empty" />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {nonNet.map(([kind, values]) => (
+          {nonNet.map(([kind, values]) => {
+            const meta = ENTITY_KIND_META[kind];
+            const tone = meta?.color || "var(--text-mute)";
+            return (
             <div key={kind} data-testid={`ioc-group-${kind}`}>
               <div
                 style={{
                   fontFamily: "JetBrains Mono, monospace", fontSize: 9,
-                  color: "var(--text-mute)", letterSpacing: "0.18em",
+                  color: tone, letterSpacing: "0.18em",
                   marginBottom: 4,
+                  display: "flex", alignItems: "center", gap: 8,
                 }}
               >
-                {kind.toUpperCase()} · {values.length}
+                <span>{(meta?.label || kind.toUpperCase())} · {values.length}</span>
+                {meta && (
+                  <span style={{
+                    padding: "1px 6px", borderRadius: 999,
+                    fontSize: 8, fontWeight: 700, letterSpacing: "0.10em",
+                    background: `${tone}22`, color: tone,
+                    border: `1px solid ${tone}55`,
+                  }} title={meta.desc}>
+                    ENTITY CLASSIFIER
+                  </span>
+                )}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {values.slice(0, 40).map((v, i) => (
@@ -501,9 +529,9 @@ function IocPanel({ iocs = {} }) {
                     data-testid={`ioc-${kind}-${i}`}
                     style={{
                       fontSize: 10, padding: "2px 6px",
-                      background: "var(--surface-2, #0a0e13)",
-                      border: "1px solid var(--border, #1e293b)",
-                      color: "var(--text-dim)",
+                      background: meta ? `${tone}12` : "var(--surface-2, #0a0e13)",
+                      border: `1px solid ${meta ? tone + "44" : "var(--border, #1e293b)"}`,
+                      color: meta ? tone : "var(--text-dim)",
                       wordBreak: "break-all",
                     }}
                   >
@@ -522,7 +550,8 @@ function IocPanel({ iocs = {} }) {
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </Panel>

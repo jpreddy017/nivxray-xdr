@@ -24,6 +24,8 @@ from engine.entity_classifier import (
     summarise,
     ALL_KINDS,
 )
+from engine.correlation_engine import correlate
+from engine.evidence_graph import EvidenceGraph, EvidenceNode, EvidenceNodeKind
 
 
 router = APIRouter(prefix="/rc5/entities", tags=["entity-classifier"])
@@ -63,6 +65,33 @@ async def classify_token_endpoint(req: ClassifyTokenRequest):
 async def kinds_endpoint():
     """List of classifier output categories — useful for UI filter panes."""
     return {"kinds": list(ALL_KINDS)}
+
+
+# ═════════════════════════════════════════════════════════════════════
+# Phase 11.3 · Correlation Engine endpoint (side-car, no verdict impact)
+# ═════════════════════════════════════════════════════════════════════
+class CorrelateRequest(BaseModel):
+    """Correlate an evidence graph provided in the request body.
+
+    The graph is expected to be in the JSON shape produced by
+    ``EvidenceGraph.model_dump()`` (i.e. a dict with `nodes`, `edges`,
+    `schema_version`). Callers that only have raw text should use
+    ``/rc5/entities/classify`` and construct a graph on their side.
+    """
+    graph: dict = Field(..., description="Serialised EvidenceGraph payload")
+
+
+@router.post("/correlate")
+async def correlate_endpoint(req: CorrelateRequest):
+    """Run the Phase 11.3 side-car correlation engine on the provided
+    graph. Zero verdict influence — this endpoint DESCRIBES relationships
+    only. Never mutates any persisted state."""
+    try:
+        graph = EvidenceGraph.model_validate(req.graph)
+    except Exception as e:  # pragma: no cover
+        return {"ok": False, "error": f"invalid graph payload: {e!s}"}
+    report = correlate(graph)
+    return {"ok": True, **report.to_dict()}
 
 
 __all__ = ["router"]

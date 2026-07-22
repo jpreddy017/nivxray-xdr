@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 // LoginPage stays eager — must render on first paint for unauth users.
 import LoginPage from "@/pages/LoginPage";
 import FloatingAddNoteButton from "@/components/FloatingAddNoteButton";
+import QuickOpenPalette from "@/components/QuickOpenPalette";
 
 // Route-based code splitting (Perf Sprint · Feb 2026). Each page below
 // ships as its own webpack chunk and downloads on-demand when the route
@@ -96,6 +97,7 @@ function App() {
             </Routes>
           </Suspense>
           <FloatingAddNoteButton />
+          <QuickOpenPalette />
         </AuthProvider>
       </BrowserRouter>
     </div>
