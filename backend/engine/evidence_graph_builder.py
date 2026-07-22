@@ -165,9 +165,20 @@ def _build(exec_graph: ExecGraph) -> EvidenceGraph:
                     source_node_ids=(xn.id,),
                 )
             elif ip is not None:
+                # Feb-2026 · attach deterministic entity-classifier metadata
+                # so downstream consumers can distinguish real IPv4 addresses
+                # from version literals / Windows build numbers even when the
+                # ExecGraph already routed them through a network node.
+                from engine.entity_classifier import classify_token as _classify
+                _cls = _classify(str(ip), "")
                 ev = EvidenceNode.build(
                     EvidenceNodeKind.ip,
                     {"ip": ip},
+                    attrs={
+                        "entity_kind": _cls.kind,
+                        "entity_confidence": round(_cls.confidence, 3),
+                        "entity_reason": _cls.reason,
+                    },
                     source_node_ids=(xn.id,),
                 )
         elif xn.kind == NodeKind.dns:

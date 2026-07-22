@@ -23,6 +23,14 @@ import re
 from typing import Any, Dict, List, Set
 
 from engine.decoder_base import BaseDecoder
+from engine.entity_classifier import (
+    classify_token,
+    _slice_context,
+    KIND_IPV4,
+    KIND_WINDOWS_BUILD,
+    KIND_SOFTWARE_VERSION,
+    KIND_GENERIC_DOTTED_QUAD,
+)
 from engine.models import (
     AnalysisContext,
     DetectResult,
@@ -76,13 +84,29 @@ def _extract_all(text: str) -> Dict[str, List[str]]:
         "sha256": set(),
         "bitcoin_addresses": set(),
         "file_paths": set(),
+        "windows_builds": set(),
+        "software_versions": set(),
+        "generic_dotted_quads": set(),
     }
+    # Track entity-classifier decisions per token so callers (evidence
+    # graph, API responses, UI) can inspect exactly *why* a dotted-quad
+    # was routed to a given bucket.
+    classifications: List[dict] = []
     for m in _RX_URL.findall(text):
         out["urls"].add(m.rstrip(".,;:)]"))
-    for m in _RX_IPV4.findall(text):
-        # Filter obvious version-string false positives ("1.0.0.1" is ambiguous
-        # but harmless to surface — the analyst reviews before action).
-        out["ips"].add(m)
+    for m in _RX_IPV4.finditer(text):
+        token = m.group(0)
+        ctx = _slice_context(text, m.start(), m.end())
+        result = classify_token(token, ctx)
+        classifications.append(result.to_dict())
+        if result.kind == KIND_IPV4:
+            out["ips"].add(token)
+        elif result.kind == KIND_WINDOWS_BUILD:
+            out["windows_builds"].add(token)
+        elif result.kind == KIND_SOFTWARE_VERSION:
+            out["software_versions"].add(token)
+        elif result.kind == KIND_GENERIC_DOTTED_QUAD:
+            out["generic_dotted_quads"].add(token)
     # Domains — but skip anything already inside an extracted URL host.
     covered = " ".join(out["urls"])
     for m in _RX_DOMAIN.findall(text):
@@ -110,7 +134,10 @@ def _extract_all(text: str) -> Dict[str, List[str]]:
         out["file_paths"].add(m)
     for m in _RX_UNIX_PATH.findall(text):
         out["file_paths"].add(m)
-    return {k: sorted(v)[:25] for k, v in out.items() if v}
+    result_map = {k: sorted(v)[:25] for k, v in out.items() if v}
+    if classifications:
+        result_map["_entity_classifications"] = classifications[:64]
+    return result_map
 
 
 class IocExtractor(BaseDecoder):

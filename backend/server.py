@@ -91,6 +91,7 @@ from routers.lab import router as lab_router
 from routers.rc5_diag import router as rc5_diag_router
 from routers.rc5_shadow import router as rc5_shadow_router
 from routers.rc5_golden import router as rc5_golden_router
+from routers.rc5_entities import router as rc5_entities_router
 from routers.public_feeds import router as public_feeds_router
 from routers.benchmark import router as benchmark_router
 from routers.multilayer_battery import router as multilayer_battery_router
@@ -193,6 +194,7 @@ api.include_router(decode_feedback_router)
 api.include_router(rc5_diag_router)
 api.include_router(rc5_shadow_router)
 api.include_router(rc5_golden_router)
+api.include_router(rc5_entities_router)
 
 # Feb 2026 — In-app Documents / Case Vault (multi-format upload)
 from routers.documents import router as documents_router
