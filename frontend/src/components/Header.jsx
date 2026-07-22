@@ -82,15 +82,39 @@ export default function Header() {
         </Link>
         <span style={{ color: "var(--border-strong)" }}>│</span>
 
-        <nav style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <nav
+          data-testid="nav-shell"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: 4,
+            borderRadius: 10,
+            background: "linear-gradient(160deg, rgba(15,23,42,0.72), rgba(2,6,23,0.62))",
+            border: "1px solid rgba(148,163,184,0.14)",
+            backdropFilter: "blur(14px) saturate(150%)",
+            WebkitBackdropFilter: "blur(14px) saturate(150%)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03), 0 4px 18px rgba(2,6,23,0.35)",
+            flexWrap: "nowrap",
+          }}
+        >
           <NavTabs
             items={primary}
             variant="nav"
             size="sm"
             tone="accent"
+            framed={false}
             testId="nav-primary"
             ariaLabel="Primary navigation"
+            style={{ padding: 0, background: "transparent", border: "none", boxShadow: "none", flexWrap: "nowrap" }}
           />
+
+          <span aria-hidden style={{
+            width: 1, height: 20,
+            background: "rgba(148,163,184,0.18)",
+            margin: "0 2px",
+            flexShrink: 0,
+          }} />
 
           <NavDropdown label="TOOLS"    icon={Wrench}  items={toolsItems} testId="nav-tools" />
           <NavDropdown label="LEARN"    icon={Library} items={learnItems} testId="nav-learn" />
