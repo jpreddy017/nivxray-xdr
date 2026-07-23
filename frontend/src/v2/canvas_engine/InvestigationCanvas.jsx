@@ -78,6 +78,7 @@ export default function InvestigationCanvas({
   onSelect = () => {},
   focusRange = null,
   onViewportChange = () => {},
+  onFocusTime = () => {},
   testId = "trajectory-canvas",
 }) {
   // ── Container sizing ─────────────────────────────────────────────
@@ -187,6 +188,9 @@ export default function InvestigationCanvas({
   const [ctxMenu,  setCtxMenu]  = useState(null);
   const [hover,    setHover]    = useState(null);
   const [hoverRow, setHoverRow] = useState(null);
+  const [rowMenu,  setRowMenu]  = useState(null);
+  const [focusedRow, setFocusedRow] = useState(null); // rowKey when "Focus row" chosen
+  const [hiddenRows, setHiddenRows] = useState(new Set()); // rowKeys hidden by "Hide others"
 
   // Space key = pan-cursor affordance
   useEffect(() => {
@@ -197,45 +201,80 @@ export default function InvestigationCanvas({
     return () => { window.removeEventListener("keydown", kd); window.removeEventListener("keyup", ku); };
   }, []);
 
-  // Mouse-wheel horizontal zoom — anchored to cursor so cursor's timestamp
-  // stays under the pointer while zooming (criterion 3 — no timestamp drift).
+  // Mouse wheel · Google-Maps semantics:
+  //   • Ctrl/Cmd + wheel → zoom (cursor-anchored, no timestamp drift)
+  //   • Shift + wheel     → horizontal pan (case-time)
+  //   • plain wheel       → vertical pan (rows)
   const onWheel = useCallback((e) => {
     e.evt.preventDefault();
     const dy = e.evt.deltaY;
-    // Cursor world position and equivalent timestamp
-    const stage = e.target.getStage ? e.target.getStage() : null;
-    const pos = stage && stage.getPointerPosition ? stage.getPointerPosition() : null;
-    const cursorScreenX = pos ? pos.x : (eventArea.x0 + eventAreaW / 2);
-    const localX = cursorScreenX - eventArea.x0;
-    const cursorWorldX = localX + hPan;
-    const cursorTs = minTs + (cursorWorldX / worldW) * (maxTs - minTs);
+    const dx = e.evt.deltaX;
+    const isZoom  = e.evt.ctrlKey || e.evt.metaKey;
+    const isHPan  = e.evt.shiftKey || Math.abs(dx) > Math.abs(dy);
 
-    const factor = dy > 0 ? 0.9 : 1.1;
-    setHZoom((z) => {
-      const next = Math.max(1, Math.min(500, z * factor));
-      // Adjust hPan so cursorTs stays at cursorScreenX after zoom.
-      const nextWorldW = eventAreaW * next;
-      const nextCursorWorldX = ((cursorTs - minTs) / (maxTs - minTs || 1)) * nextWorldW;
-      const nextPan = Math.max(0, Math.min(Math.max(0, nextWorldW - eventAreaW),
-                                            nextCursorWorldX - localX));
-      setHPan(nextPan);
-      return next;
-    });
-  }, [eventArea.x0, eventAreaW, hPan, worldW, minTs, maxTs]);
+    if (isZoom) {
+      const stage = e.target.getStage ? e.target.getStage() : null;
+      const pos = stage && stage.getPointerPosition ? stage.getPointerPosition() : null;
+      const cursorScreenX = pos ? pos.x : (eventArea.x0 + eventAreaW / 2);
+      const localX = cursorScreenX - eventArea.x0;
+      const cursorWorldX = localX + hPan;
+      const cursorTs = minTs + (cursorWorldX / worldW) * (maxTs - minTs);
+      const factor = dy > 0 ? 0.9 : 1.1;
+      setHZoom((z) => {
+        const next = Math.max(1, Math.min(500, z * factor));
+        const nextWorldW = eventAreaW * next;
+        const nextCursorWorldX = ((cursorTs - minTs) / (maxTs - minTs || 1)) * nextWorldW;
+        const nextPan = Math.max(0, Math.min(Math.max(0, nextWorldW - eventAreaW),
+                                              nextCursorWorldX - localX));
+        setHPan(nextPan);
+        return next;
+      });
+      return;
+    }
 
-  // Drag pan
+    if (isHPan) {
+      // Horizontal pan by ~40 px per wheel notch (or trackpad delta).
+      const delta = (dx !== 0 ? dx : dy) * 0.6;
+      setHPan((p) => {
+        const max = Math.max(0, worldW - eventAreaW);
+        return Math.max(0, Math.min(max, p + delta));
+      });
+      return;
+    }
+
+    // Plain wheel → vertical pan
+    setOffset((o) => clampOffset({ x: o.x, y: o.y - dy }, scale, size, canvasH, contentW));
+  }, [eventArea.x0, eventAreaW, hPan, worldW, minTs, maxTs, scale, size, canvasH, contentW]);
+
+  // Drag pan · left-click on background pans both axes.
+  // Glyphs and gutter row hit-targets have their own onClick, so left-drag
+  // there still selects. `spaceHeld` and middle-click always pan.
   const onMouseDown = (e) => {
-    if (e.evt.button === 1 || spaceHeld) {
-      draggingRef.current = { x: e.evt.clientX, y: e.evt.clientY, ox: offset.x, oy: offset.y };
+    const isMiddle = e.evt.button === 1;
+    const isLeft   = e.evt.button === 0;
+    // Konva sets e.target to the specific shape hit; if the target has no
+    // `name` attr set by us (e.g. background bands, lifelines, axis), treat
+    // as background — start pan.
+    const name = e.target.getAttr && e.target.getAttr("name");
+    const isInteractive = name === "event-glyph" || name === "row-target";
+    if (isMiddle || spaceHeld || (isLeft && !isInteractive)) {
+      draggingRef.current = { x: e.evt.clientX, y: e.evt.clientY,
+                              ox: offset.x, oy: offset.y, ohp: hPan,
+                              moved: false };
       e.target.getStage().container().style.cursor = "grabbing";
     }
   };
   const onMouseMove = (e) => {
     if (draggingRef.current) {
       const d = draggingRef.current;
-      const nx = d.ox + (e.evt.clientX - d.x);
-      const ny = d.oy + (e.evt.clientY - d.y);
-      setOffset(clampOffset({ x: nx, y: ny }, scale, size, canvasH, contentW));
+      const dxScreen = e.evt.clientX - d.x;
+      const dyScreen = e.evt.clientY - d.y;
+      if (Math.abs(dxScreen) + Math.abs(dyScreen) > 4) d.moved = true;
+      // Horizontal drag pans world time (hPan), vertical drag pans rows (offset.y).
+      const max = Math.max(0, worldW - eventAreaW);
+      const nextHp = Math.max(0, Math.min(max, d.ohp - dxScreen));
+      setHPan(nextHp);
+      setOffset(clampOffset({ x: 0, y: d.oy + dyScreen }, scale, size, canvasH, contentW));
     }
   };
   const onMouseUp = (e) => {
@@ -368,12 +407,13 @@ export default function InvestigationCanvas({
             const sel = selected && events.some(e => e.id === selected && e.rowKey === r.key);
             const isMal = r.worstVerdict === "malicious";
             const isCompromise = r.kind === "compromise";
+            const dim = focusedRow && focusedRow !== r.key;
             const stroke = isCompromise ? T.amber
-                         : isMal        ? T.red
                          : sel          ? T.blue
+                         : isMal        ? T.red
                          :                T.gray;
-            const w = (sel || isCompromise) ? 1.5 : 1;
-            const op = (isMal || isCompromise) ? 0.65 : 0.5;
+            const w = sel ? 2.5 : (isCompromise ? 1.5 : 1);
+            const op = dim ? 0.15 : (sel ? 0.95 : (isMal || isCompromise ? 0.65 : 0.5));
             return (
               <Line key={`ll-${r.key}`}
                     points={[GUTTER_W + 4, y, contentW - 4, y]}
@@ -425,8 +465,10 @@ export default function InvestigationCanvas({
             const y = rowY[i] + ROW_H / 2;
             const sel = ev.id === selected;
             const trig = triggerIds && triggerIds.has(ev.id);
+            const dim = focusedRow && focusedRow !== ev.rowKey;
             return (
-              <EventGlyph key={ev.id}
+              <Group key={ev.id} opacity={dim ? 0.18 : 1}>
+                <EventGlyph
                           ev={ev} x={x} y={y}
                           selected={sel}
                           triggered={!!trig}
@@ -434,6 +476,7 @@ export default function InvestigationCanvas({
                           onHover={(scr) => setHover({ ev, ...scr })}
                           onLeave={() => setHover(null)}
                           onContext={(scr) => setCtxMenu({ ev, ...scr })} />
+              </Group>
             );
           })}
         </Layer>
@@ -508,6 +551,7 @@ export default function InvestigationCanvas({
                 )}
                 {/* Transparent hit-target overlay on the whole gutter row */}
                 <Rect x={-offset.x} y={rowY[i]} width={GUTTER_W} height={ROW_H}
+                      name="row-target"
                       fill="rgba(0,0,0,0)"
                       onMouseEnter={(e) => {
                         setHoverRow(r.key);
@@ -520,7 +564,14 @@ export default function InvestigationCanvas({
                         if (st) st.container().style.cursor = "default";
                       }}
                       onClick={pickEvent}
-                      onTap={pickEvent} />
+                      onTap={pickEvent}
+                      onContextMenu={(e) => {
+                        e.evt.preventDefault();
+                        const stage = e.target.getStage();
+                        const pos = stage.getPointerPosition();
+                        const rect = stage.container().getBoundingClientRect();
+                        setRowMenu({ row: r, x: pos.x + rect.left, y: pos.y + rect.top });
+                      }} />
               </Group>
             );
           })}
@@ -529,11 +580,29 @@ export default function InvestigationCanvas({
       </Stage>
 
       {/* HTML overlays outside the Stage */}
-      {hover && !ctxMenu && <HoverTooltip hover={hover} />}
+      {hover && !ctxMenu && !rowMenu && <HoverTooltip hover={hover} />}
       {ctxMenu && (
         <ContextMenu ctx={ctxMenu}
                      onSelect={onSelect}
                      onClose={() => setCtxMenu(null)} />
+      )}
+      {rowMenu && (
+        <RowContextMenu ctx={rowMenu}
+                        focusedRow={focusedRow}
+                        onFocus={(rk) => { setFocusedRow(rk); setRowMenu(null); }}
+                        onShowAll={() => { setFocusedRow(null); setRowMenu(null); }}
+                        onFilterTime={(row) => {
+                          if (row.firstTs != null && row.lastTs != null) {
+                            const pad = Math.max(1, (row.lastTs - row.firstTs) * 0.10);
+                            onFocusTime({ start: row.firstTs - pad, end: row.lastTs + pad });
+                          }
+                          setRowMenu(null);
+                        }}
+                        onCopyLabel={(row) => {
+                          try { navigator.clipboard.writeText(row.label || row.key); } catch {}
+                          setRowMenu(null);
+                        }}
+                        onClose={() => setRowMenu(null)} />
       )}
 
       {/* Synthetic scrollbars — right (Y) and bottom (X) · driven by state.
@@ -646,6 +715,7 @@ function EventGlyph({ ev, x, y, selected, triggered, onSelect,
 
   return (
     <Group x={x} y={y}
+           name="event-glyph"
            onClick={() => onSelect(ev)}
            onTap={() => onSelect(ev)}
            onContextMenu={(e) => {
@@ -818,5 +888,51 @@ function ContextMenu({ ctx, onSelect, onClose }) {
         </button>
       ))}
     </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// RowContextMenu — right-click on an entity gutter row
+// ═══════════════════════════════════════════════════════════════════════
+function RowContextMenu({ ctx, focusedRow, onFocus, onShowAll,
+                          onFilterTime, onCopyLabel, onClose }) {
+  const { row, x, y } = ctx;
+  const isFocused = focusedRow === row.key;
+  const items = [
+    isFocused
+      ? { label: "Show all rows",             act: () => onShowAll() }
+      : { label: `Focus row · ${row.label}`,  act: () => onFocus(row.key) },
+    { label: "Zoom timeline to this row",     act: () => onFilterTime(row),
+      disabled: row.firstTs == null || row.lastTs == null },
+    { label: "Copy row label",                act: () => onCopyLabel(row) },
+  ];
+  return (
+    <>
+      <div className="fixed inset-0 z-40"
+           onClick={onClose}
+           onContextMenu={(e) => { e.preventDefault(); onClose(); }} />
+      <div className="fixed z-50 rounded-md py-1"
+           style={{
+             left: x, top: y,
+             background: "#FFFFFF", border: `1px solid ${T.line}`,
+             boxShadow: "0 12px 32px -8px rgba(15,23,42,0.28)",
+             minWidth: 220, fontFamily: "Inter, sans-serif",
+           }}
+           data-testid="row-context-menu"
+           onClick={(e) => e.stopPropagation()}>
+        {items.map((it, i) => (
+          <button key={i} onClick={it.act} disabled={it.disabled}
+                  className="w-full text-left px-3 py-1.5 text-[12px]"
+                  style={{ color: it.disabled ? T.inkFaint : T.ink,
+                           background: "transparent",
+                           cursor: it.disabled ? "not-allowed" : "pointer" }}
+                  onMouseEnter={(e) => { if (!it.disabled) e.currentTarget.style.background = "#EEF2FF"; }}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+            {it.label}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }

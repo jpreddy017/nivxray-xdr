@@ -136,7 +136,7 @@ export default function DeviceTrajectoryV2() {
 
   useEffect(() => { if (selected) setRightTab("evidence"); }, [selected]);
 
-  const frames = data?.frames || [];
+  const frames = useMemo(() => data?.frames || [], [data]);
 
   // ── Build attack stages from MITRE data ─────────────────────────
   const stages = useMemo(() => {
@@ -406,6 +406,15 @@ export default function DeviceTrajectoryV2() {
       if (e.key.toLowerCase() === "f") { setViewport(null); return; }
       if (e.key === "Home") { setViewport({ start: caseBounds.start, end: caseBounds.start + (caseBounds.end-caseBounds.start)*0.1 }); return; }
       if (e.key === "End")  { setViewport({ start: caseBounds.end - (caseBounds.end-caseBounds.start)*0.1, end: caseBounds.end }); return; }
+      if (e.key === "Enter") {
+        const cur = eventsSorted.find(ev => ev.id === selected);
+        if (cur) {
+          // Center viewport on the selected event · 10 % of case span.
+          const span = Math.max(1, (caseBounds.end - caseBounds.start) * 0.10);
+          setViewport({ start: cur.ts - span / 2, end: cur.ts + span / 2 });
+        }
+        return;
+      }
 
       const cur = eventsSorted.find(ev => ev.id === selected);
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -506,13 +515,18 @@ export default function DeviceTrajectoryV2() {
                                      triggerIds={triggerIds}
                                      focusRange={viewport}
                                      onViewportChange={setReportedVp}
+                                     onFocusTime={setViewport}
                                      onSelect={(ev) => setSelected(ev?.id || null)} />
               )}
             </div>
           </div>
 
           {/* Evidence pane */}
-          <EvidencePane event={selEvent} tab={rightTab} onTab={setRightTab} />
+          <EvidencePane event={selEvent} tab={rightTab} onTab={setRightTab}
+                        onFocusParent={(pIid) => {
+                          const target = events.find(e => e.meta?.entity?.iid === pIid);
+                          if (target) setSelected(target.id);
+                        }} />
         </div>
 
         {/* Status bar */}
@@ -632,6 +646,15 @@ function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
   };
   const onStripMouseDown = (e) => {
     const f = fracFromEvent(e);
+    if (e.shiftKey) {
+      // Shift+drag → marquee time-window selection (canvas + attack chain
+      // + evidence stay in sync automatically because everything is bound to
+      // the viewport).
+      dragRef.current = { startFrac: f, mode: "marquee" };
+      setViewport({ start: fracToTs(f), end: fracToTs(f) });
+      e.preventDefault();
+      return;
+    }
     const ts = fracToTs(f);
     // Click = center a viewport window equal to the current window size on the ts
     setViewport({ start: ts - vpWinMs / 2, end: ts + vpWinMs / 2 });
@@ -641,6 +664,12 @@ function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
   const onStripMouseMove = (e) => {
     if (!dragRef.current) return;
     const f = fracFromEvent(e);
+    if (dragRef.current.mode === "marquee") {
+      const a = fracToTs(dragRef.current.startFrac);
+      const b = fracToTs(f);
+      setViewport({ start: Math.min(a, b), end: Math.max(a, b) });
+      return;
+    }
     const dFrac = f - dragRef.current.startFrac;
     const dMs = dFrac * span;
     const ns = dragRef.current.initVp.start + dMs;
@@ -967,7 +996,7 @@ function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-function EvidencePane({ event, tab, onTab }) {
+function EvidencePane({ event, tab, onTab, onFocusParent }) {
   return (
     <div className="overflow-y-auto"
          style={{ background: T.paper }}
@@ -1024,18 +1053,27 @@ function EvidencePane({ event, tab, onTab }) {
           {/* SHA */}
           {(event.meta?.sha256 || event.meta?.hash) && (
             <Section label="SHA-256">
-              <div className="text-[10px] font-mono break-all" style={{ color: T.ink }}>
+              <a href={`https://www.virustotal.com/gui/file/${event.meta.sha256 || event.meta.hash}`}
+                 target="_blank" rel="noreferrer"
+                 data-testid="evidence-sha-link"
+                 className="text-[10px] font-mono break-all hover:underline"
+                 style={{ color: T.blue }}
+                 title="Open in VirusTotal">
                 {event.meta.sha256 || event.meta.hash}
-              </div>
+              </a>
             </Section>
           )}
 
           {/* Parent */}
           {event.meta?.parent?.iid && (
             <Section label="PARENT PROCESS">
-              <div className="text-[11px] font-mono" style={{ color: T.ink }}>
+              <button onClick={() => onFocusParent && onFocusParent(event.meta.parent.iid)}
+                      data-testid="evidence-parent-link"
+                      className="text-[11px] font-mono hover:underline text-left"
+                      style={{ color: T.blue, background: "none", border: 0, padding: 0 }}
+                      title="Focus parent event">
                 {event.meta.parent.label || event.meta.parent.iid}
-              </div>
+              </button>
             </Section>
           )}
 
@@ -1043,11 +1081,34 @@ function EvidencePane({ event, tab, onTab }) {
           {event.mitre && event.mitre.length > 0 && (
             <Section label="MITRE ATT&CK">
               <div className="flex flex-wrap gap-1">
-                {event.mitre.map(t => (
-                  <span key={t} className="text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold"
-                        style={{ background: T.redT, color: T.red }}>{t}</span>
-                ))}
+                {event.mitre.map(t => {
+                  const base = t.split(".")[0];
+                  const href = `https://attack.mitre.org/techniques/${base}${t.includes(".") ? "/" + t.split(".")[1] : ""}/`;
+                  return (
+                    <a key={t} href={href} target="_blank" rel="noreferrer"
+                       data-testid={`evidence-mitre-${t}`}
+                       className="text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold hover:opacity-80"
+                       style={{ background: T.redT, color: T.red }}
+                       title="Open ATT&CK technique">
+                      {t}
+                    </a>
+                  );
+                })}
               </div>
+            </Section>
+          )}
+
+          {/* IP addresses (from network / meta.destination_ip / meta.remote_ip) */}
+          {(event.meta?.remote_ip || event.meta?.destination_ip) && (
+            <Section label="REMOTE IP">
+              <a href={`https://www.abuseipdb.com/check/${event.meta.remote_ip || event.meta.destination_ip}`}
+                 target="_blank" rel="noreferrer"
+                 data-testid="evidence-ip-link"
+                 className="text-[11px] font-mono hover:underline"
+                 style={{ color: T.blue }}
+                 title="Open in AbuseIPDB">
+                {event.meta.remote_ip || event.meta.destination_ip}
+              </a>
             </Section>
           )}
 
