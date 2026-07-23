@@ -100,6 +100,7 @@ export default function DeviceTrajectoryV2() {
     verdict: { malicious: true, suspicious: true, benign: true },
     kind:    { process: true, file: true, registry: true, network: true },
   });
+  const [playing, setPlaying] = useState(false);
   // ── Unified viewport (shared across TimeRangeBox + Canvas) ────────
   // { start, end } | null. `null` = full case.
   const [viewport, setViewport] = useState(null);
@@ -388,6 +389,32 @@ export default function DeviceTrajectoryV2() {
     return { matchedIds: ids, matchedRowKeys: rk };
   }, [events, searchQuery, filters]);
 
+  // ── Playback · advances the viewport across the case timeline ─────
+  useEffect(() => {
+    if (!playing) return;
+    // Choose a viewport window = 10% of case span (or the current window if any).
+    const span = Math.max(1, caseBounds.end - caseBounds.start);
+    const winMs = viewport
+      ? Math.max(1, viewport.end - viewport.start)
+      : span * 0.10;
+    // Advance by 1/240 of case per tick @ 40 ms → ~9.6 s to walk the case.
+    const stepMs = span / 240;
+    // Start at case start if no viewport, else keep current start.
+    let start = viewport?.start ?? caseBounds.start;
+    setViewport({ start, end: start + winMs });
+    const id = setInterval(() => {
+      start += stepMs;
+      if (start + winMs >= caseBounds.end) {
+        setViewport({ start: caseBounds.end - winMs, end: caseBounds.end });
+        setPlaying(false);
+        return;
+      }
+      setViewport({ start, end: start + winMs });
+    }, 40);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, caseBounds.start, caseBounds.end]);
+
   // ── Attack-chain click: also focuses the viewport on that stage's window ─
   const handleStageSelect = useCallback((idx) => {
     if (idx === selectedStageIdx) {  // toggle off
@@ -519,7 +546,9 @@ export default function DeviceTrajectoryV2() {
                       onSelectStage={handleStageSelect}
                       caseBounds={caseBounds}
                       reportedVp={reportedVp}
-                      setViewport={setViewport} />
+                      setViewport={setViewport}
+                      playing={playing}
+                      onTogglePlay={() => setPlaying(p => !p)} />
       </div>
 
       {/* ── BOTTOM CONTAINER · Device Trajectory ──────────────────── */}
@@ -728,7 +757,8 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
 //   currently visible time-range reported by the canvas.
 // ═══════════════════════════════════════════════════════════════════
 export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
-                       caseBounds, reportedVp, setViewport }) {
+                       caseBounds, reportedVp, setViewport,
+                       playing = false, onTogglePlay = () => {} }) {
   const days = ["23","24","25","26","27","28","29","30",
                 "1","2","3","4","5","6","7","8","9","10","11","12","13","14",
                 "15","16","17","18","19","20","21","22"];
@@ -832,12 +862,26 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
         <div className="text-[10px]" style={{ color: T.inkMute }}>
           Click · drag · wheel
         </div>
-        <button onClick={() => setViewport(null)}
-                data-testid="fit-button"
-                className="text-[10px] font-mono px-1.5 py-0.5 rounded mt-1"
-                style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.inkDim }}>
-          Fit (F)
-        </button>
+        <div className="flex items-center gap-1 mt-1">
+          <button onClick={onTogglePlay}
+                  data-testid="playback-toggle"
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                  style={{
+                    background: playing ? T.amber : T.paper2,
+                    color:      playing ? "#05080F" : T.inkDim,
+                    border: `1px solid ${playing ? T.amber : T.line}`,
+                    minWidth: 44,
+                  }}
+                  title="Toggle playback">
+            {playing ? "⏸ Pause" : "▶ Play"}
+          </button>
+          <button onClick={() => setViewport(null)}
+                  data-testid="fit-button"
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                  style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.inkDim }}>
+            Fit (F)
+          </button>
+        </div>
       </div>
 
       {/* Right side — trend + day strip + hour strip */}

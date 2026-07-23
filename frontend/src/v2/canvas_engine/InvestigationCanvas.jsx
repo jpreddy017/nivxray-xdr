@@ -387,6 +387,23 @@ export default function InvestigationCanvas({
           ))}
         </Layer>
 
+        {/* 4a · Row spotlight — full-width emerald band on the selected row
+               and a soft neutral band on the hovered row. */}
+        <Layer listening={false}>
+          {rows.map((r, i) => {
+            const sel = selected && events.some(e => e.id === selected && e.rowKey === r.key);
+            const hov = hoverRow === r.key && !sel;
+            if (!sel && !hov) return null;
+            return (
+              <Rect key={`sp-${r.key}`}
+                    x={GUTTER_W + 2} y={rowY[i]}
+                    width={contentW - GUTTER_W - 4} height={ROW_H}
+                    fill={sel ? T.amber : T.ink}
+                    opacity={sel ? 0.08 : 0.04} />
+            );
+          })}
+        </Layer>
+
         {/* 4 · Row lifelines · thin 1-px neutral · red if row is malicious-heavy */}
         <Layer listening={false}>
           {rows.map((r, i) => {
@@ -397,11 +414,11 @@ export default function InvestigationCanvas({
             const filteredOut = matchedRowKeys && !matchedRowKeys.has(r.key);
             const dim = (focusedRow && focusedRow !== r.key) || filteredOut;
             const stroke = isCompromise ? T.amber
-                         : sel          ? T.blue
+                         : sel          ? T.amber
                          : isMal        ? T.red
                          :                T.gray;
             const w = sel ? 2.5 : (isCompromise ? 1.5 : 1);
-            const op = dim ? 0.10 : (sel ? 0.95 : (isMal || isCompromise ? 0.65 : 0.5));
+            const op = dim ? 0.10 : (sel ? 1.0 : (isMal || isCompromise ? 0.65 : 0.5));
             return (
               <Line key={`ll-${r.key}`}
                     points={[GUTTER_W + 4, y, contentW - 4, y]}
