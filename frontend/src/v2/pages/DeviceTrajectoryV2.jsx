@@ -362,7 +362,6 @@ export default function DeviceTrajectoryV2() {
     if (lo === hi) hi = lo + 1;
     return { start: lo, end: hi };
   }, [events]);
-  const effectiveVp = viewport || caseBounds;
 
   // ── Search + filter · derive matched event ids ───────────────────
   const { matchedIds, matchedRowKeys } = useMemo(() => {

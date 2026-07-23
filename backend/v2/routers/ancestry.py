@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from deps import require_admin, db as _db
 from v2.flags import get as get_flag
 from v2.trajectory.device import build_from_observations
+from v2.shadow.irg import enrich as irg_enrich
 
 router = APIRouter(prefix="/v2/cases", tags=["v2-ancestry"])
 
@@ -59,24 +60,49 @@ async def process_ancestry(
     if not frames:
         raise HTTPException(status_code=404, detail=f"no frames for case {case_id}")
 
-    # Build key → frames map + edges (parent-key → set(child-key))
+    # Enrich frames with the canonical IRG schema so Device Trajectory,
+    # IRG Workspace, and Process Ancestry all consume the same
+    # entity.iid / parent.iid / root.iid model. Zero drift.
+    frame_dicts = [f.to_dict() for f in frames]
+    frame_dicts = irg_enrich(frame_dicts)
+    irg_by_frame = { fd.get("frame_iid") or fd.get("id"): fd for fd in frame_dicts }
+
+    def _irg(f):
+        fid = getattr(f, "frame_iid", None) or getattr(f, "id", None)
+        return irg_by_frame.get(fid, {}) if fid else {}
+
+    # Build key → frames map + edges (parent-key → set(child-key)) using
+    # the IRG-derived parent.iid. Fall back to the legacy heuristic only
+    # when IRG has no parent for a frame (shouldn't happen — irg.py
+    # always injects one).
     frames_by_key: dict[str, list] = defaultdict(list)
     edges: dict[str, set[str]] = defaultdict(set)
     reverse_edges: dict[str, set[str]] = defaultdict(set)
+
+    # First pass — map each frame to its canonical key.
+    key_by_entity_iid: dict[str, str] = {}
     for f in frames:
         k = _process_key(f)
         frames_by_key[k].append(f)
-        parent_iid = getattr(getattr(f, "parent", None), "iid", None)
-        if parent_iid and parent_iid != k:
-            # Map parent iid to its own key by finding any frame whose
-            # process.iid matches (best-effort). Fall back to iid itself.
-            parent_key = parent_iid
-            for g in frames:
-                if getattr(getattr(g, "process", None), "iid", None) == parent_iid:
-                    parent_key = _process_key(g)
-                    break
-            edges[parent_key].add(k)
-            reverse_edges[k].add(parent_key)
+        irg = _irg(f)
+        ent_iid = (irg.get("entity") or {}).get("iid")
+        if ent_iid and ent_iid not in key_by_entity_iid:
+            key_by_entity_iid[ent_iid] = k
+
+    # Second pass — resolve edges via IRG parent.iid.
+    for f in frames:
+        k = _process_key(f)
+        irg = _irg(f)
+        parent_iid = (irg.get("parent") or {}).get("iid")
+        if not parent_iid:
+            parent_iid = getattr(getattr(f, "parent", None), "iid", None)
+        if not parent_iid:
+            continue
+        parent_key = key_by_entity_iid.get(parent_iid, parent_iid)
+        if parent_key == k:
+            continue
+        edges[parent_key].add(k)
+        reverse_edges[k].add(parent_key)
 
     # Locate the root: accept either the collapsed bin key OR a raw iid.
     root_key = process_iid
@@ -120,10 +146,12 @@ async def process_ancestry(
     def _node(key: str) -> dict[str, Any]:
         fs = frames_by_key.get(key, [])
         label = key.split(":", 1)[-1] if ":" in key else key
-        # Aggregate worst verdict + first/last ts
         verdict = "benign"
         mitre_set: set[str] = set()
         first_ts = last_ts = None
+        entity_iid = None
+        root_iid = None
+        depth = 0
         for f in fs:
             m = getattr(f, "mitre", ()) or ()
             for t in m: mitre_set.add(t)
@@ -135,10 +163,21 @@ async def process_ancestry(
             if ts:
                 if not first_ts or ts < first_ts: first_ts = ts
                 if not last_ts  or ts > last_ts:  last_ts  = ts
+            irg = _irg(f)
+            if entity_iid is None:
+                entity_iid = (irg.get("entity") or {}).get("iid")
+            if root_iid is None:
+                root_iid = (irg.get("root") or {}).get("iid")
+            d = (irg.get("execution") or {}).get("depth")
+            if isinstance(d, int) and d > depth:
+                depth = d
         return {
             "key": key, "label": label, "event_count": len(fs),
             "verdict": verdict, "mitre": sorted(mitre_set),
             "first_ts": first_ts, "last_ts": last_ts,
+            "entity_iid": entity_iid,
+            "root_iid":   root_iid,
+            "depth":      depth,
             "role": ("root" if key == root_key
                      else ("ancestor" if key in ancestors else "descendant")),
         }

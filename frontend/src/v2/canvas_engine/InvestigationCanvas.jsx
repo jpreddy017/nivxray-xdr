@@ -173,7 +173,6 @@ export default function InvestigationCanvas({
   const [hoverRow, setHoverRow] = useState(null);
   const [rowMenu,  setRowMenu]  = useState(null);
   const [focusedRow, setFocusedRow] = useState(null); // rowKey when "Focus row" chosen
-  const [hiddenRows, setHiddenRows] = useState(new Set()); // rowKeys hidden by "Hide others"
 
   // Space key = pan-cursor affordance
   useEffect(() => {
