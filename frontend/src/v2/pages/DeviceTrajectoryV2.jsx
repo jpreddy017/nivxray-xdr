@@ -23,25 +23,8 @@ import api from "@/lib/api";
 import { InvestigationCanvas } from "@/v2/canvas_engine";
 
 // ── Design tokens (Glassy-white analyst theme) ─────────────────────
-const T = {
-  bg:      "#F4F6FA",
-  paper:   "#FFFFFF",
-  paper2:  "#FAFBFD",
-  ink:     "#0B1220",
-  inkDim:  "#475569",
-  inkMute: "#64748B",
-  inkFaint:"#94A3B8",
-  line:    "#E2E8F0",
-  lineStr: "#CBD5E1",
-  red:     "#DC2626",
-  amber:   "#F5C142",
-  amberT:  "#FEF3C7",
-  green:   "#059669",
-  blue:    "#2563EB",
-  blueT:   "#DBEAFE",
-  redT:    "#FEE2E2",
-  band:    "#F8FAFC",
-};
+import { T as SharedT } from "../theme";
+export const T = SharedT;
 
 // ── Data helpers ──────────────────────────────────────────────────
 function verdictOf(f) {
@@ -458,10 +441,12 @@ export default function DeviceTrajectoryV2() {
   }
 
   const cardStyle = {
-    background: T.paper,
+    background: T.cardGradient,
     border: `1px solid ${T.line}`,
     borderRadius: 12,
-    boxShadow: "0 4px 24px -6px rgba(15,23,42,0.08)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 32px -8px rgba(0,0,0,0.65)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
     overflow: "hidden",
   };
 
@@ -539,7 +524,7 @@ export default function DeviceTrajectoryV2() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBounds }) {
+export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBounds, activeTab = "trajectory" }) {
   const [range, setRange] = useState("all");
   const options = [
     ["all", "Entire Case"], ["24h", "24 Hours"], ["7d", "7 Days"],
@@ -549,6 +534,10 @@ function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBounds }) {
   const fmt = (ts) => new Date(ts).toISOString().replace("T", " ").slice(0, 19);
   const vpStart = reportedVp?.start ?? caseBounds?.start;
   const vpEnd   = reportedVp?.end   ?? caseBounds?.end;
+  const tabs = [
+    { key: "trajectory", label: "Device Trajectory", href: `/v2/trajectory/${caseId}` },
+    { key: "irg",        label: "IRG",               href: `/v2/irg/${caseId}` },
+  ];
 
   return (
     <div className="flex items-center gap-3 px-4 py-2 flex-shrink-0"
@@ -556,18 +545,36 @@ function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBounds }) {
          data-testid="card-toolbar">
       <div className="flex items-center gap-2">
         <div className="w-6 h-6 rounded flex items-center justify-center"
-             style={{ background: "#2563EB22", border: `1px solid #2563EB55` }}>
-          <Radar size={13} color={T.blue} />
+             style={{ background: "rgba(52, 211, 153, 0.15)",
+                      border: `1px solid rgba(52, 211, 153, 0.55)` }}>
+          <Radar size={13} color={T.amber} />
         </div>
         <div>
           <div className="text-[11px] font-bold" style={{ color: T.ink }}>NivXRay</div>
           <div className="text-[9px]" style={{ color: T.inkMute }}>Investigation Workspace</div>
         </div>
       </div>
-      <div className="flex-1 max-w-xl mx-4 relative">
+      {/* Workspace tabs · same IRG data model, different visualisations */}
+      <div className="flex items-center rounded overflow-hidden ml-2"
+           style={{ background: T.paper2, border: `1px solid ${T.line}` }}
+           data-testid="workspace-tabs">
+        {tabs.map(t => (
+          <a key={t.key} href={t.href}
+             data-testid={`workspace-tab-${t.key}`}
+             className="text-[11px] font-semibold px-3 py-1.5 tracking-wide"
+             style={{
+               color: activeTab === t.key ? "#05080F" : T.inkDim,
+               background: activeTab === t.key ? T.amber : "transparent",
+               textDecoration: "none",
+             }}>
+            {t.label}
+          </a>
+        ))}
+      </div>
+      <div className="flex-1 max-w-md mx-2 relative">
         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2"
                 style={{ color: T.inkFaint }} />
-        <input type="text" placeholder="Search Device Trajectory"
+        <input type="text" placeholder="Search Investigation"
                data-testid="search-input"
                className="w-full pl-8 pr-3 py-1.5 rounded text-[12px] outline-none"
                style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }} />
@@ -608,7 +615,7 @@ function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBounds }) {
 //   viewport. Day chips click to focus that day. Yellow band reflects the
 //   currently visible time-range reported by the canvas.
 // ═══════════════════════════════════════════════════════════════════
-function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
+export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                        caseBounds, reportedVp, setViewport }) {
   const days = ["23","24","25","26","27","28","29","30",
                 "1","2","3","4","5","6","7","8","9","10","11","12","13","14",
@@ -706,8 +713,8 @@ function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
       {/* Left label */}
       <div className="px-4 py-3 flex-shrink-0" style={{ width: 156, borderRight: `1px solid ${T.line}` }}>
         <div className="flex items-center gap-2 mb-1">
-          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-               style={{ background: T.blue }}>1</div>
+          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+               style={{ background: T.amber, color: "#05080F" }}>1</div>
           <div className="text-[10px] tracking-[1.6px] font-bold" style={{ color: T.ink }}>TIME RANGE</div>
         </div>
         <div className="text-[10px]" style={{ color: T.inkMute }}>
@@ -744,9 +751,9 @@ function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                     className="flex-1 flex flex-col items-center relative"
                     style={{ background: "none", border: "none", padding: 0,
                              cursor: i === caseDayIdx ? "pointer" : "default" }}>
-              <div className={`text-[11px] ${i === caseDayIdx ? "font-bold text-white rounded flex items-center justify-center" : ""}`}
+              <div className={`text-[11px] ${i === caseDayIdx ? "font-bold rounded flex items-center justify-center" : ""}`}
                    style={i === caseDayIdx
-                     ? { background: T.ink, width: 22, height: 22 }
+                     ? { background: T.amber, color: "#0A1220", width: 22, height: 22 }
                      : { color: T.inkDim }}>
                 {d}
               </div>
@@ -794,7 +801,7 @@ function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                      left:  `${vpFracLo * 100}%`,
                      width: `${Math.max(0.5, (vpFracHi - vpFracLo) * 100)}%`,
                      background: T.amber, opacity: 0.60,
-                     border: `1.5px solid #B7791F`,
+                     border: `1.5px solid ${T.amber}`,
                    }} />
               {/* Compromise dots — one per malicious stage */}
               {stages.filter(s => s.malicious).map((s, i) => (
@@ -931,7 +938,7 @@ function TimeCompass({ stages, selectedStageIdx, onSelectStage }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
+export function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
   return (
     <div className="overflow-y-auto"
          style={{ background: T.paper }}
@@ -955,10 +962,10 @@ function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
                     className="text-left rounded p-3 transition-all"
                     style={{
                       background: isSel ? T.redT : T.paper2,
-                      border: `1px solid ${isSel ? T.red : (isMal ? "#F5C14288" : T.line)}`,
+                      border: `1px solid ${isSel ? T.red : (isMal ? "#10B98166" : T.line)}`,
                     }}>
               <div className="text-[9px] tracking-[1.5px] font-bold flex items-center gap-1"
-                   style={{ color: isSel ? T.red : (isMal ? "#B7791F" : T.inkMute) }}>
+                   style={{ color: isSel ? T.red : (isMal ? T.amber : T.inkMute) }}>
                 {String(i + 1).padStart(2, "0")} · {s.tactic}
                 {isMal && <span>★</span>}
               </div>
@@ -996,7 +1003,7 @@ function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-function EvidencePane({ event, tab, onTab, onFocusParent }) {
+export function EvidencePane({ event, tab, onTab, onFocusParent }) {
   return (
     <div className="overflow-y-auto"
          style={{ background: T.paper }}
@@ -1127,12 +1134,12 @@ function EvidencePane({ event, tab, onTab, onFocusParent }) {
           {/* Actions */}
           <Section label="ACTIONS">
             <div className="flex gap-2 flex-wrap">
-              <button className="text-[11px] px-2.5 py-1 rounded text-white font-semibold"
-                      style={{ background: T.red }}>Block SHA</button>
+              <button className="text-[11px] px-2.5 py-1 rounded font-semibold"
+                      style={{ background: T.red, color: "#0A0F18" }}>Block SHA</button>
               <button className="text-[11px] px-2.5 py-1 rounded font-medium"
-                      style={{ background: T.paper, border: `1px solid ${T.line}` }}>Allow-list</button>
+                      style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}>Allow-list</button>
               <button className="text-[11px] px-2.5 py-1 rounded font-medium"
-                      style={{ background: T.paper, border: `1px solid ${T.line}` }}
+                      style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}
                       onClick={() => navigator.clipboard?.writeText(event.id || "")}>
                 <span className="inline-flex items-center gap-1">
                   <Copy size={11} /> Copy IID
@@ -1164,7 +1171,7 @@ function Badge({ label, bg, fg }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-function StatusBar({ rows, events, selectedStageIdx, compromiseCount }) {
+export function StatusBar({ rows, events, selectedStageIdx, compromiseCount }) {
   const procCount = rows.filter(r => r.kind === "process").length;
   return (
     <div className="flex items-center px-4 font-mono text-[10px]"

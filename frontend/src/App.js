@@ -40,6 +40,7 @@ const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
 // least SHADOW; otherwise the component renders a disabled banner.
 const V2CaseWorkspaceShell  = lazy(() => import("@/v2/pages/CaseWorkspaceShell"));
 const V2DeviceTrajectory    = lazy(() => import("@/v2/pages/DeviceTrajectoryV2"));
+const V2IRGWorkspace        = lazy(() => import("@/v2/pages/IRGWorkspace"));
 const V2ProcessAncestry     = lazy(() => import("@/v2/pages/ProcessAncestry"));
 
 function Protected({ children }) {
@@ -109,6 +110,9 @@ function App() {
               {/* v2 · Device Trajectory (Phase 3e) — flag-gated inside component. */}
               <Route path="/v2/trajectory/:caseId" element={<Protected><V2DeviceTrajectory /></Protected>} />
               <Route path="/v2/trajectory"         element={<Protected><V2DeviceTrajectory /></Protected>} />
+              {/* v2 · Investigation Relationship Graph (IRG) — new top-level view */}
+              <Route path="/v2/irg/:caseId"        element={<Protected><V2IRGWorkspace /></Protected>} />
+              <Route path="/v2/irg"                element={<Protected><V2IRGWorkspace /></Protected>} />
               <Route path="/v2/ancestry/:caseId/:processIid" element={<Protected><V2ProcessAncestry /></Protected>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

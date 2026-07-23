@@ -17,26 +17,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Stage, Layer, Group, Rect, Line, Circle, Text, Path } from "react-konva";
 import { clampOffset, visibleWorldRect } from "./core/viewport";
-
-// ── Design tokens (Glassy-white analyst theme) ─────────────────────
-const T = {
-  bg:       "#F4F6FA",
-  paper:    "#FFFFFF",
-  paper2:   "#FAFBFD",
-  ink:      "#0B1220",
-  inkDim:   "#475569",
-  inkMute:  "#64748B",
-  inkFaint: "#94A3B8",
-  line:     "#E2E8F0",
-  lineStr:  "#CBD5E1",
-  green:    "#059669",
-  gray:     "#94A3B8",
-  red:      "#DC2626",
-  amber:    "#F5C142",
-  amberBg:  "#F5C14219",
-  blue:     "#2563EB",
-  band:     "#F8FAFC",
-};
+import { T } from "../theme";
 
 // ── Layout constants — MUST NOT DEVIATE from mockup ──
 const AXIS_H       = 26;   // inner canvas time ruler
@@ -361,7 +342,7 @@ export default function InvestigationCanvas({
                       text={tw.label}
                       fontFamily="'IBM Plex Mono', ui-monospace, monospace"
                       fontSize={9} fontStyle="700"
-                      fill="#B7791F" />
+                      fill={T.amber} />
               )}
             </Group>
           ))}
@@ -494,9 +475,9 @@ export default function InvestigationCanvas({
             const isSus = r.worstVerdict === "suspicious";
             const isCompromise = r.kind === "compromise";
             const isSelected = selected && events.some(e => e.id === selected && e.rowKey === r.key);
-            const fill = isCompromise ? "#B7791F"
+            const fill = isCompromise ? T.amber
                        : isMal        ? T.red
-                       : isSus        ? "#B7791F"
+                       : isSus        ? T.amber
                        :                T.ink;
             const indent = 6 + (r.indent || 0) * 14;
             const glyph = r.kind === "compromise" ? "⚠ " : (r.indentGlyph || "");
@@ -762,7 +743,7 @@ function ActivitySymbol({ kind, color, isSource, r }) {
   const w = 1.4;
   // Draw the source-outer-ring first (double-circle affordance)
   const OuterRing = isSource
-    ? <Circle radius={r + 1.5} fill="#FFFFFF" stroke={stroke} strokeWidth={1.1} />
+    ? <Circle radius={r + 1.5} fill={T.paper2} stroke={stroke} strokeWidth={1.1} />
     : null;
 
   switch (kind) {
@@ -810,9 +791,9 @@ function ActivitySymbol({ kind, color, isSource, r }) {
 function HoverTooltip({ hover }) {
   const { ev, x, y } = hover;
   const isMal = ev.verdict === "malicious";
-  const badgeBg = isMal ? "#FEE2E2" : ev.verdict === "suspicious" ? "#FEF3C7"
+  const badgeBg = isMal ? T.redT : ev.verdict === "suspicious" ? T.amberT
                 : ev.verdict === "benign" ? "#DCFCE7" : "#F1F5F9";
-  const badgeFg = isMal ? T.red : ev.verdict === "suspicious" ? "#B7791F"
+  const badgeFg = isMal ? T.red : ev.verdict === "suspicious" ? T.amber
                 : ev.verdict === "benign" ? T.green : T.inkDim;
   const ts = new Date(ev.ts);
   const p2 = (n) => (n < 10 ? "0" + n : "" + n);
@@ -822,8 +803,8 @@ function HoverTooltip({ hover }) {
     <div className="fixed pointer-events-none z-50"
          style={{
            left: x + 14, top: y + 14,
-           background: "#FFFFFF", border: `1px solid ${T.line}`, borderRadius: 6,
-           boxShadow: "0 12px 30px -8px rgba(15,23,42,0.22)",
+           background: T.paper2, border: `1px solid ${T.line}`, borderRadius: 6,
+           boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 40px -12px rgba(0,0,0,0.72)",
            padding: "10px 12px", minWidth: 240, maxWidth: 380,
            fontFamily: "Inter, sans-serif",
          }}
@@ -847,7 +828,7 @@ function HoverTooltip({ hover }) {
         <div className="flex flex-wrap gap-1 mt-2">
           {ev.mitre.slice(0, 6).map(t => (
             <span key={t} className="text-[9px] px-1.5 py-0.5 rounded font-semibold"
-                  style={{ background: "#FEE2E2", color: T.red,
+                  style={{ background: T.redT, color: T.red,
                            fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>{t}</span>
           ))}
         </div>
@@ -872,8 +853,8 @@ function ContextMenu({ ctx, onSelect, onClose }) {
     <div className="fixed z-50 rounded-md py-1"
          style={{
            left: x, top: y,
-           background: "#FFFFFF", border: `1px solid ${T.line}`,
-           boxShadow: "0 12px 32px -8px rgba(15,23,42,0.28)",
+           background: T.paper2, border: `1px solid ${T.line}`,
+           boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 40px -10px rgba(0,0,0,0.75)",
            minWidth: 200, fontFamily: "Inter, sans-serif",
          }}
          data-testid="canvas-context-menu"
@@ -882,7 +863,7 @@ function ContextMenu({ ctx, onSelect, onClose }) {
         <button key={i} onClick={it.act}
                 className="w-full text-left px-3 py-1.5 text-[12px]"
                 style={{ color: T.ink, background: "transparent" }}
-                onMouseEnter={(e) => e.currentTarget.style.background = "#EEF2FF"}
+                onMouseEnter={(e) => e.currentTarget.style.background = T.blueT}
                 onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
           {it.label}
         </button>
@@ -915,8 +896,8 @@ function RowContextMenu({ ctx, focusedRow, onFocus, onShowAll,
       <div className="fixed z-50 rounded-md py-1"
            style={{
              left: x, top: y,
-             background: "#FFFFFF", border: `1px solid ${T.line}`,
-             boxShadow: "0 12px 32px -8px rgba(15,23,42,0.28)",
+             background: T.paper2, border: `1px solid ${T.line}`,
+             boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 40px -10px rgba(0,0,0,0.75)",
              minWidth: 220, fontFamily: "Inter, sans-serif",
            }}
            data-testid="row-context-menu"
@@ -927,7 +908,7 @@ function RowContextMenu({ ctx, focusedRow, onFocus, onShowAll,
                   style={{ color: it.disabled ? T.inkFaint : T.ink,
                            background: "transparent",
                            cursor: it.disabled ? "not-allowed" : "pointer" }}
-                  onMouseEnter={(e) => { if (!it.disabled) e.currentTarget.style.background = "#EEF2FF"; }}
+                  onMouseEnter={(e) => { if (!it.disabled) e.currentTarget.style.background = T.blueT; }}
                   onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
             {it.label}
           </button>

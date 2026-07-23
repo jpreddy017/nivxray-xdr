@@ -12,3 +12,4 @@ from v2.routers.report import router as report_router  # noqa: F401
 from v2.routers.ancestry import router as ancestry_router  # noqa: F401
 from v2.routers.ingest import router as ingest_router  # noqa: F401
 from v2.routers.artifacts import router as artifacts_router  # noqa: F401
+from v2.routers.irg import router as irg_router  # noqa: F401
