@@ -119,10 +119,35 @@ export default function InvestigationCanvas({
 
   const contentW = Math.max((size.w || 800) - 24, 800);
   const eventArea = { x0: GUTTER_W + 8, x1: contentW - 8 };
-  const xForTs = useCallback(
-    (ts) => eventArea.x0 + ((ts - minTs) / (maxTs - minTs || 1)) * (eventArea.x1 - eventArea.x0),
-    [minTs, maxTs, eventArea.x0, eventArea.x1],
+  const eventAreaW = eventArea.x1 - eventArea.x0;
+
+  // ── Horizontal zoom + pan · P0-1 ─────────────────────────────────
+  // hZoom = 1 fits the whole case into eventAreaW.
+  // hPan  is the world-coord X offset (px) that scrolls left/right.
+  const [hZoom, setHZoom] = useState(1);
+  const [hPan,  setHPan]  = useState(0);
+
+  const worldW      = eventAreaW * hZoom;
+  const tsToWorldX  = useCallback(
+    (ts) => ((ts - minTs) / (maxTs - minTs || 1)) * worldW,
+    [minTs, maxTs, worldW],
   );
+  const xForTs = useCallback(
+    (ts) => eventArea.x0 + tsToWorldX(ts) - hPan,
+    [eventArea.x0, tsToWorldX, hPan],
+  );
+
+  // Currently-visible time range (used to build the ruler + tick precision)
+  const viewMinTs = minTs + (hPan / worldW) * (maxTs - minTs);
+  const viewMaxTs = viewMinTs + (eventAreaW / worldW) * (maxTs - minTs);
+  const viewSpanMs = viewMaxTs - viewMinTs;
+
+  // Clamp hPan so we cannot pan past the world edges.
+  useEffect(() => {
+    const max = Math.max(0, worldW - eventAreaW);
+    if (hPan < 0)   setHPan(0);
+    else if (hPan > max) setHPan(max);
+  }, [worldW, eventAreaW, hPan]);
 
   // ── Pan + zoom state ─────────────────────────────────────────────
   const [scale, setScale]   = useState(1);
@@ -141,12 +166,31 @@ export default function InvestigationCanvas({
     return () => { window.removeEventListener("keydown", kd); window.removeEventListener("keyup", ku); };
   }, []);
 
-  // Mouse-wheel zoom (horizontal only, per spec)
+  // Mouse-wheel horizontal zoom — anchored to cursor so cursor's timestamp
+  // stays under the pointer while zooming (criterion 3 — no timestamp drift).
   const onWheel = useCallback((e) => {
     e.evt.preventDefault();
     const dy = e.evt.deltaY;
-    setScale((s) => Math.max(0.4, Math.min(6, s * (dy > 0 ? 0.94 : 1.06))));
-  }, []);
+    // Cursor world position and equivalent timestamp
+    const stage = e.target.getStage ? e.target.getStage() : null;
+    const pos = stage && stage.getPointerPosition ? stage.getPointerPosition() : null;
+    const cursorScreenX = pos ? pos.x : (eventArea.x0 + eventAreaW / 2);
+    const localX = cursorScreenX - eventArea.x0;
+    const cursorWorldX = localX + hPan;
+    const cursorTs = minTs + (cursorWorldX / worldW) * (maxTs - minTs);
+
+    const factor = dy > 0 ? 0.9 : 1.1;
+    setHZoom((z) => {
+      const next = Math.max(1, Math.min(500, z * factor));
+      // Adjust hPan so cursorTs stays at cursorScreenX after zoom.
+      const nextWorldW = eventAreaW * next;
+      const nextCursorWorldX = ((cursorTs - minTs) / (maxTs - minTs || 1)) * nextWorldW;
+      const nextPan = Math.max(0, Math.min(Math.max(0, nextWorldW - eventAreaW),
+                                            nextCursorWorldX - localX));
+      setHPan(nextPan);
+      return next;
+    });
+  }, [eventArea.x0, eventAreaW, hPan, worldW, minTs, maxTs]);
 
   // Drag pan
   const onMouseDown = (e) => {
@@ -193,20 +237,30 @@ export default function InvestigationCanvas({
     [events, visibleRowKeys],
   );
 
-  // ── Adaptive ruler ticks ─────────────────────────────────────────
+  // ── Adaptive ruler ticks · precision derived from VISIBLE span ──
+  // Sub-second cases used to read "T+0.0s T+0.0s T+0.0s …" because the total
+  // span rounded to a single decimal. Precision now scales with the visible
+  // window: 3 decimals under 100 ms, 2 decimals under 1 s, 1 decimal to 10 s,
+  // then HH:MM:SS beyond that.
   const ticks = useMemo(() => {
     const out = [];
     const N = 8;
+    const step = viewSpanMs / N;
+    const fmt = (ts) => {
+      const rel = (ts - minTs) / 1000; // seconds since case start
+      if (viewSpanMs < 100)      return `T+${rel.toFixed(3)}s`;
+      if (viewSpanMs < 1_000)    return `T+${rel.toFixed(3)}s`;
+      if (viewSpanMs < 10_000)   return `T+${rel.toFixed(2)}s`;
+      if (viewSpanMs < 60_000)   return `T+${rel.toFixed(1)}s`;
+      return fmtTick(ts, viewSpanMs);
+    };
     for (let i = 0; i <= N; i++) {
-      const t   = minTs + (spanMs * i) / N;
-      const px  = xForTs(t);
-      const lab = spanMs < 10_000
-        ? `T+${((t - minTs) / 1000).toFixed(1)}s`
-        : fmtTick(t, spanMs);
-      out.push({ x: px, label: lab });
+      const t  = viewMinTs + step * i;
+      const px = xForTs(t);
+      out.push({ x: px, label: fmt(t) });
     }
     return out;
-  }, [minTs, spanMs, xForTs]);
+  }, [viewMinTs, viewSpanMs, minTs, xForTs]);
 
   // ── Render ───────────────────────────────────────────────────────
   return (
@@ -410,35 +464,40 @@ export default function InvestigationCanvas({
                      onClose={() => setCtxMenu(null)} />
       )}
 
-      {/* Synthetic scrollbars — right (Y) and bottom (X) · driven by offset state */}
-      <Scrollbars offset={offset} size={size}
-                  contentW={contentW} contentH={canvasH}
-                  onScroll={(o) => setOffset(clampOffset(o, scale, size, canvasH, contentW))} />
+      {/* Synthetic scrollbars — right (Y) and bottom (X) · driven by state.
+          Horizontal scrollbar reflects horizontal zoom + pan (hZoom/hPan).
+          Vertical scrollbar reflects the vertical row offset. */}
+      <Scrollbars offsetY={offset.y} setOffsetY={(y) => setOffset({ x: offset.x, y })}
+                  hPan={hPan} setHPan={setHPan}
+                  size={size}
+                  worldW={worldW} eventAreaW={eventAreaW}
+                  canvasH={canvasH} />
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Scrollbars · thin dark-theme sliders on right + bottom
+// Scrollbars · thin sliders on right + bottom
 // ═══════════════════════════════════════════════════════════════════════
-function Scrollbars({ offset, size, contentW, contentH, onScroll }) {
+function Scrollbars({ offsetY, setOffsetY, hPan, setHPan,
+                     size, worldW, eventAreaW, canvasH }) {
   const barSz = 10;
-  // Vertical (right)
-  const vRatio = size.h / Math.max(contentH, 1);
+  // Vertical (right) — canvas rows overflow
+  const vRatio = size.h / Math.max(canvasH, 1);
   const vShow  = vRatio < 1;
   const vTrackH = size.h - barSz - 4;
   const vThumbH = Math.max(28, vTrackH * vRatio);
-  const vRange  = contentH - size.h;
-  const vScroll = vRange > 0 ? Math.min(1, Math.max(0, (-offset.y) / vRange)) : 0;
+  const vRange  = canvasH - size.h;
+  const vScroll = vRange > 0 ? Math.min(1, Math.max(0, (-offsetY) / vRange)) : 0;
   const vThumbY = 2 + vScroll * (vTrackH - vThumbH);
 
-  // Horizontal (bottom)
-  const hRatio = size.w / Math.max(contentW, 1);
+  // Horizontal (bottom) — timeline zoom (visible fraction of worldW)
+  const hRatio = eventAreaW / Math.max(worldW, 1);
   const hShow  = hRatio < 1;
   const hTrackW = size.w - barSz - 4;
   const hThumbW = Math.max(28, hTrackW * hRatio);
-  const hRange  = contentW - size.w;
-  const hScroll = hRange > 0 ? Math.min(1, Math.max(0, (-offset.x) / hRange)) : 0;
+  const hRange  = worldW - eventAreaW;
+  const hScroll = hRange > 0 ? Math.min(1, Math.max(0, hPan / hRange)) : 0;
   const hThumbX = 2 + hScroll * (hTrackW - hThumbW);
 
   const dragV = useRef(null);
@@ -449,13 +508,13 @@ function Scrollbars({ offset, size, contentW, contentH, onScroll }) {
         const d = dragV.current;
         const dy = e.clientY - d.y;
         const ny = d.oy - (dy / (vTrackH - vThumbH)) * vRange;
-        onScroll({ x: offset.x, y: ny });
+        setOffsetY(ny);
       }
       if (dragH.current) {
         const d = dragH.current;
         const dx = e.clientX - d.x;
-        const nx = d.ox - (dx / (hTrackW - hThumbW)) * hRange;
-        onScroll({ x: nx, y: offset.y });
+        const nx = d.ox + (dx / (hTrackW - hThumbW)) * hRange;
+        setHPan(Math.max(0, Math.min(hRange, nx)));
       }
     };
     const up = () => { dragV.current = null; dragH.current = null;
@@ -464,20 +523,20 @@ function Scrollbars({ offset, size, contentW, contentH, onScroll }) {
     window.addEventListener("mouseup", up);
     return () => { window.removeEventListener("mousemove", mv);
                    window.removeEventListener("mouseup", up); };
-  }, [offset.x, offset.y, vTrackH, vThumbH, hTrackW, hThumbW, vRange, hRange, onScroll]);
+  }, [vTrackH, vThumbH, hTrackW, hThumbW, vRange, hRange, setOffsetY, setHPan]);
 
   return (
     <>
       {vShow && (
         <div className="absolute right-0 top-0"
              style={{ width: barSz, height: size.h - barSz,
-                      background: "#0B122055", borderLeft: `1px solid ${T.line}` }}
+                      background: "#0B122011", borderLeft: `1px solid ${T.line}` }}
              data-testid="canvas-scrollbar-y">
           <div className="absolute rounded-sm cursor-grab"
                style={{ top: vThumbY, left: 2, width: barSz - 4, height: vThumbH,
                         background: T.lineStr }}
                onMouseDown={(e) => {
-                 dragV.current = { y: e.clientY, oy: offset.y };
+                 dragV.current = { y: e.clientY, oy: offsetY };
                  document.body.style.userSelect = "none";
                }} />
         </div>
@@ -485,13 +544,13 @@ function Scrollbars({ offset, size, contentW, contentH, onScroll }) {
       {hShow && (
         <div className="absolute left-0 bottom-0"
              style={{ height: barSz, width: size.w - barSz,
-                      background: "#0B122055", borderTop: `1px solid ${T.line}` }}
+                      background: "#0B122011", borderTop: `1px solid ${T.line}` }}
              data-testid="canvas-scrollbar-x">
           <div className="absolute rounded-sm cursor-grab"
                style={{ left: hThumbX, top: 2, height: barSz - 4, width: hThumbW,
                         background: T.lineStr }}
                onMouseDown={(e) => {
-                 dragH.current = { x: e.clientX, ox: offset.x };
+                 dragH.current = { x: e.clientX, ox: hPan };
                  document.body.style.userSelect = "none";
                }} />
         </div>
