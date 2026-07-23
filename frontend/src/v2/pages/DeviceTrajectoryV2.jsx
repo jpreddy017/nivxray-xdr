@@ -15,7 +15,7 @@
  * No LeftRail — labels live inside the canvas gutter.
  * Backend untouched. All 820 tests remain green.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Radar, Search, Filter, Play, ShieldAlert, Copy } from "lucide-react";
 import { isObservable } from "../flags";
@@ -111,6 +111,12 @@ export default function DeviceTrajectoryV2() {
   const [selected, setSelected] = useState(null);
   const [selectedStageIdx, setSelectedStageIdx] = useState(null);
   const [rightTab, setRightTab] = useState("evidence");
+  // ── Unified viewport (shared across TimeRangeBox + Canvas) ────────
+  // { start, end } | null. `null` = full case.
+  const [viewport, setViewport] = useState(null);
+  // Reported viewport (from canvas) — highlights the yellow window on the
+  // hour strip while the analyst pans/zooms.
+  const [reportedVp, setReportedVp] = useState(null);
 
   const enabled = isObservable("TRAJECTORY_ENGINE") || isObservable("CASE_ENGINE");
 
@@ -129,11 +135,6 @@ export default function DeviceTrajectoryV2() {
   }, [caseId, enabled]);
 
   useEffect(() => { if (selected) setRightTab("evidence"); }, [selected]);
-  useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") { setSelected(null); setSelectedStageIdx(null); } };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, []);
 
   const frames = data?.frames || [];
 
@@ -355,6 +356,86 @@ export default function DeviceTrajectoryV2() {
     [events, selected],
   );
 
+  // ── Case time bounds ──────────────────────────────────────────────
+  const caseBounds = useMemo(() => {
+    if (!events.length) return { start: 0, end: 1 };
+    let lo = Infinity, hi = -Infinity;
+    for (const ev of events) { if (ev.ts < lo) lo = ev.ts; if (ev.ts > hi) hi = ev.ts; }
+    if (lo === hi) hi = lo + 1;
+    return { start: lo, end: hi };
+  }, [events]);
+  const effectiveVp = viewport || caseBounds;
+
+  // ── Attack-chain click: also focuses the viewport on that stage's window ─
+  const handleStageSelect = useCallback((idx) => {
+    if (idx === selectedStageIdx) {  // toggle off
+      setSelectedStageIdx(null);
+      setViewport(null);
+      return;
+    }
+    setSelectedStageIdx(idx);
+    const s = stages[idx];
+    if (!s) return;
+    // Pad the stage window by ±10 % so we don't clip the first/last event.
+    const pad = Math.max(1, (s.lastTs - s.firstTs) * 0.10);
+    setViewport({ start: s.firstTs - pad, end: s.lastTs + pad });
+  }, [selectedStageIdx, stages]);
+
+  // ── Date-range dropdown: set viewport to N hours around case end ───
+  const handleRangeChange = useCallback((range) => {
+    if (range === "all") { setViewport(null); return; }
+    const ms = { "24h": 24*3600e3, "7d": 7*24*3600e3, "30d": 30*24*3600e3, "90d": 90*24*3600e3 }[range];
+    if (!ms) return;
+    setViewport({ start: caseBounds.end - ms, end: caseBounds.end });
+  }, [caseBounds]);
+
+  // ── Keyboard navigation ───────────────────────────────────────────
+  useEffect(() => {
+    const eventsSorted = [...events].sort((a, b) => a.ts - b.ts);
+    const rowKeys = rows.map(r => r.key);
+    const eventsByRow = new Map();
+    eventsSorted.forEach(ev => {
+      if (!eventsByRow.has(ev.rowKey)) eventsByRow.set(ev.rowKey, []);
+      eventsByRow.get(ev.rowKey).push(ev);
+    });
+
+    const handler = (e) => {
+      if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+
+      if (e.key === "Escape") { setSelected(null); setSelectedStageIdx(null); setViewport(null); return; }
+      if (e.key.toLowerCase() === "f") { setViewport(null); return; }
+      if (e.key === "Home") { setViewport({ start: caseBounds.start, end: caseBounds.start + (caseBounds.end-caseBounds.start)*0.1 }); return; }
+      if (e.key === "End")  { setViewport({ start: caseBounds.end - (caseBounds.end-caseBounds.start)*0.1, end: caseBounds.end }); return; }
+
+      const cur = eventsSorted.find(ev => ev.id === selected);
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        if (!eventsSorted.length) return;
+        if (!cur) { setSelected(eventsSorted[0].id); return; }
+        const idx = eventsSorted.findIndex(ev => ev.id === cur.id);
+        const next = e.key === "ArrowRight"
+          ? eventsSorted[Math.min(eventsSorted.length - 1, idx + 1)]
+          : eventsSorted[Math.max(0, idx - 1)];
+        if (next) setSelected(next.id);
+      }
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        e.preventDefault();
+        if (!rowKeys.length) return;
+        const curRowIdx = cur ? rowKeys.indexOf(cur.rowKey) : -1;
+        const nextRowIdx = e.key === "ArrowDown"
+          ? Math.min(rowKeys.length - 1, curRowIdx + 1)
+          : Math.max(0, curRowIdx - 1);
+        const targetKey = rowKeys[nextRowIdx];
+        const list = eventsByRow.get(targetKey);
+        if (list && list.length) {
+          setSelected(list[0].id);
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [events, rows, selected, caseBounds]);
+
   const caseMeta = data?.case || {};
   const compromiseCount = stages.filter(s => s.malicious).length;
 
@@ -383,11 +464,17 @@ export default function DeviceTrajectoryV2() {
       <div className="flex-shrink-0 flex flex-col" style={cardStyle}
            data-testid="workspace-top">
         {/* Card toolbar — logo · search · filters · date range · expand · close */}
-        <CardToolbar caseId={caseId} meta={caseMeta} />
+        <CardToolbar caseId={caseId} meta={caseMeta}
+                     onRangeChange={handleRangeChange}
+                     reportedVp={reportedVp}
+                     caseBounds={caseBounds} />
         {/* 30-day overview + 24-hour selected-day strip + trend line */}
         <TimeRangeBox stages={stages}
                       selectedStageIdx={selectedStageIdx}
-                      onSelectStage={setSelectedStageIdx} />
+                      onSelectStage={handleStageSelect}
+                      caseBounds={caseBounds}
+                      reportedVp={reportedVp}
+                      setViewport={setViewport} />
       </div>
 
       {/* ── BOTTOM CONTAINER · Device Trajectory ──────────────────── */}
@@ -398,7 +485,7 @@ export default function DeviceTrajectoryV2() {
           {/* Attack chain sidebar */}
           <AttackChainSidebar stages={stages}
                               selectedIdx={selectedStageIdx}
-                              onSelect={setSelectedStageIdx} />
+                              onSelect={handleStageSelect} />
 
           {/* Timeline canvas · middle column */}
           <div className="relative flex flex-col min-h-0"
@@ -417,6 +504,8 @@ export default function DeviceTrajectoryV2() {
                                      timeWindows={timeWindows}
                                      selected={selected}
                                      triggerIds={triggerIds}
+                                     focusRange={viewport}
+                                     onViewportChange={setReportedVp}
                                      onSelect={(ev) => setSelected(ev?.id || null)} />
               )}
             </div>
@@ -436,7 +525,17 @@ export default function DeviceTrajectoryV2() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-function CardToolbar({ caseId, meta }) {
+function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBounds }) {
+  const [range, setRange] = useState("all");
+  const options = [
+    ["all", "Entire Case"], ["24h", "24 Hours"], ["7d", "7 Days"],
+    ["30d", "30 Days"], ["90d", "90 Days"],
+  ];
+  const change = (v) => { setRange(v); onRangeChange && onRangeChange(v); };
+  const fmt = (ts) => new Date(ts).toISOString().replace("T", " ").slice(0, 19);
+  const vpStart = reportedVp?.start ?? caseBounds?.start;
+  const vpEnd   = reportedVp?.end   ?? caseBounds?.end;
+
   return (
     <div className="flex items-center gap-3 px-4 py-2 flex-shrink-0"
          style={{ borderBottom: `1px solid ${T.line}` }}
@@ -455,20 +554,28 @@ function CardToolbar({ caseId, meta }) {
         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2"
                 style={{ color: T.inkFaint }} />
         <input type="text" placeholder="Search Device Trajectory"
+               data-testid="search-input"
                className="w-full pl-8 pr-3 py-1.5 rounded text-[12px] outline-none"
                style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }} />
       </div>
       <button className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px]"
-              style={{ background: T.paper, border: `1px solid ${T.line}`, color: T.ink }}>
+              style={{ background: T.paper, border: `1px solid ${T.line}`, color: T.ink }}
+              data-testid="filters-button">
         <Filter size={12} /> Filters <span style={{ color: T.inkFaint }}>▾</span>
       </button>
+      {/* Date range dropdown — drives the shared viewport */}
+      <select value={range} onChange={(e) => change(e.target.value)}
+              data-testid="range-select"
+              className="text-[11px] font-mono px-2 py-1.5 rounded outline-none cursor-pointer"
+              style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}>
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
       <div className="flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-mono"
-           style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}>
-        <span>📅</span>
-        <span>{meta.startAt || "Jul 22, 2026 00:00:00"}</span>
+           style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}
+           data-testid="viewport-display">
+        <span>{vpStart ? fmt(vpStart) : "—"}</span>
         <span style={{ color: T.inkFaint }}>→</span>
-        <span>{meta.endAt || "Jul 22, 2026 23:59:59"}</span>
-        <span style={{ color: T.inkFaint }}>▾</span>
+        <span>{vpEnd ? fmt(vpEnd) : "—"}</span>
       </div>
       <button className="w-7 h-7 rounded flex items-center justify-center"
               style={{ border: `1px solid ${T.line}` }} title="Expand">⛶</button>
@@ -483,18 +590,90 @@ function CardToolbar({ caseId, meta }) {
 //   Header row · trend sparkline · multi-day date strip (30d) with red
 //   compromise dot on the case day · selected-day hour strip with hatched
 //   "not-selected" portion.
+//   INTERACTIVE: click / drag / wheel on the hour strip drives the shared
+//   viewport. Day chips click to focus that day. Yellow band reflects the
+//   currently visible time-range reported by the canvas.
 // ═══════════════════════════════════════════════════════════════════
-function TimeRangeBox({ stages, selectedStageIdx, onSelectStage }) {
+function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
+                       caseBounds, reportedVp, setViewport }) {
   const days = ["23","24","25","26","27","28","29","30",
                 "1","2","3","4","5","6","7","8","9","10","11","12","13","14",
                 "15","16","17","18","19","20","21","22"];
   const monthMarks = { 0: "Jun", 8: "Jul" };
   const caseDayIdx = days.length - 1; // last day = Jul 22
-  const selectedHourStart = 5;   // 05:00
-  const selectedHourEnd   = 6.5; // 06:30 · matches the case window in the reference
+
+  const hourStripRef = useRef(null);
+  const dragRef      = useRef(null);
+
+  // Map ts ↔ fraction across the hour strip (0..1 = full case span).
+  const span = Math.max(1, caseBounds.end - caseBounds.start);
+  const tsToFrac = (ts) => Math.min(1, Math.max(0, (ts - caseBounds.start) / span));
+  const fracToTs = (f)  => caseBounds.start + Math.min(1, Math.max(0, f)) * span;
+
+  const vpStart = reportedVp?.start ?? caseBounds.start;
+  const vpEnd   = reportedVp?.end   ?? caseBounds.end;
+  const vpFracLo = tsToFrac(vpStart);
+  const vpFracHi = tsToFrac(vpEnd);
+  const vpWinMs  = Math.max(1, vpEnd - vpStart);
+
+  // Click a day chip → focus that day
+  const dayClick = (i) => {
+    // Only wire the case day (last chip) meaningfully. Others could be wired
+    // later once multi-day data exists.
+    if (i !== caseDayIdx) return;
+    setViewport(null);
+  };
+
+  // Hour-strip pointer utilities
+  const fracFromEvent = (e) => {
+    const r = hourStripRef.current?.getBoundingClientRect();
+    if (!r) return 0;
+    return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  };
+  const onStripMouseDown = (e) => {
+    const f = fracFromEvent(e);
+    const ts = fracToTs(f);
+    // Click = center a viewport window equal to the current window size on the ts
+    setViewport({ start: ts - vpWinMs / 2, end: ts + vpWinMs / 2 });
+    dragRef.current = { startFrac: f, mode: "pan", initVp: { start: vpStart, end: vpEnd } };
+    e.preventDefault();
+  };
+  const onStripMouseMove = (e) => {
+    if (!dragRef.current) return;
+    const f = fracFromEvent(e);
+    const dFrac = f - dragRef.current.startFrac;
+    const dMs = dFrac * span;
+    const ns = dragRef.current.initVp.start + dMs;
+    const ne = dragRef.current.initVp.end   + dMs;
+    setViewport({ start: ns, end: ne });
+  };
+  const onStripMouseUp = () => { dragRef.current = null; };
+  useEffect(() => {
+    const mv = (e) => onStripMouseMove(e);
+    const up = () => onStripMouseUp();
+    window.addEventListener("mousemove", mv);
+    window.addEventListener("mouseup", up);
+    return () => { window.removeEventListener("mousemove", mv);
+                   window.removeEventListener("mouseup", up); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vpStart, vpEnd, span]);
+
+  const onStripWheel = (e) => {
+    e.preventDefault();
+    const f = fracFromEvent(e);
+    const anchorTs = fracToTs(f);
+    const factor = e.deltaY > 0 ? 1.15 : 0.87;
+    const newWin = Math.min(span, Math.max(50, vpWinMs * factor));
+    setViewport({ start: anchorTs - (anchorTs - vpStart) * (newWin / vpWinMs),
+                  end:   anchorTs + (vpEnd - anchorTs)   * (newWin / vpWinMs) });
+  };
+
+  // Double click on the hour strip → reset viewport (Fit)
+  const onStripDoubleClick = () => setViewport(null);
 
   return (
-    <div className="flex flex-shrink-0" style={{ borderTop: `1px solid ${T.line}` }}>
+    <div className="flex flex-shrink-0" style={{ borderTop: `1px solid ${T.line}` }}
+         data-testid="time-range-box">
       {/* Left label */}
       <div className="px-4 py-3 flex-shrink-0" style={{ width: 156, borderRight: `1px solid ${T.line}` }}>
         <div className="flex items-center gap-2 mb-1">
@@ -502,7 +681,15 @@ function TimeRangeBox({ stages, selectedStageIdx, onSelectStage }) {
                style={{ background: T.blue }}>1</div>
           <div className="text-[10px] tracking-[1.6px] font-bold" style={{ color: T.ink }}>TIME RANGE</div>
         </div>
-        <div className="text-[10px]" style={{ color: T.inkMute }}>24-hour lens</div>
+        <div className="text-[10px]" style={{ color: T.inkMute }}>
+          Click · drag · wheel
+        </div>
+        <button onClick={() => setViewport(null)}
+                data-testid="fit-button"
+                className="text-[10px] font-mono px-1.5 py-0.5 rounded mt-1"
+                style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.inkDim }}>
+          Fit (F)
+        </button>
       </div>
 
       {/* Right side — trend + day strip + hour strip */}
@@ -522,7 +709,12 @@ function TimeRangeBox({ stages, selectedStageIdx, onSelectStage }) {
         {/* Day strip */}
         <div className="flex items-baseline mt-1 pr-4" style={{ paddingLeft: 40 }}>
           {days.map((d, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center relative">
+            <button key={i}
+                    data-testid={`day-chip-${i}`}
+                    onClick={() => dayClick(i)}
+                    className="flex-1 flex flex-col items-center relative"
+                    style={{ background: "none", border: "none", padding: 0,
+                             cursor: i === caseDayIdx ? "pointer" : "default" }}>
               <div className={`text-[11px] ${i === caseDayIdx ? "font-bold text-white rounded flex items-center justify-center" : ""}`}
                    style={i === caseDayIdx
                      ? { background: T.ink, width: 22, height: 22 }
@@ -538,11 +730,11 @@ function TimeRangeBox({ stages, selectedStageIdx, onSelectStage }) {
                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full"
                       style={{ background: T.red }} />
               )}
-            </div>
+            </button>
           ))}
         </div>
 
-        {/* Selected-day (Jul 22) hour strip */}
+        {/* Selected-day (Jul 22) hour strip — INTERACTIVE */}
         <div className="mt-6 relative" style={{ height: 44 }}>
           <div className="absolute left-0 top-0 bottom-0 flex items-center px-3"
                style={{ width: 68, background: T.paper2,
@@ -550,25 +742,38 @@ function TimeRangeBox({ stages, selectedStageIdx, onSelectStage }) {
             <span className="text-[11px] font-semibold" style={{ color: T.ink }}>Jul 22</span>
             <span className="ml-2 w-1.5 h-1.5 rounded-full" style={{ background: T.red }} />
           </div>
-          {/* Hour ticks + hatched region + selection window */}
           <div className="absolute inset-0 flex flex-col justify-end" style={{ paddingLeft: 76 }}>
-            <div className="relative h-6 rounded"
-                 style={{ background: `repeating-linear-gradient(45deg, ${T.paper} 0 6px, ${T.line} 6px 7px)` }}>
-              {/* Not-hatched "selected window" overlays the hatched background */}
-              <div className="absolute top-0 bottom-0 rounded"
+            <div ref={hourStripRef}
+                 data-testid="hour-strip"
+                 onMouseDown={onStripMouseDown}
+                 onWheel={onStripWheel}
+                 onDoubleClick={onStripDoubleClick}
+                 className="relative h-6 rounded select-none"
+                 style={{ cursor: "crosshair",
+                          background: `repeating-linear-gradient(45deg, ${T.paper} 0 6px, ${T.line} 6px 7px)` }}>
+              {/* Not-hatched context region */}
+              <div className="absolute top-0 bottom-0 rounded pointer-events-none"
                    style={{
-                     left: `${(0 / 24) * 100}%`,
-                     width: `${((selectedHourStart) / 24) * 100}%`,
-                     background: T.paper,
+                     left: 0, right: 0,
+                     background: T.paper, opacity: 0.35,
                      border: `1px solid ${T.line}`,
                    }} />
-              {/* Compromise time-window highlight */}
-              <div className="absolute top-0 bottom-0"
+              {/* Yellow "currently visible" window · tracks canvas viewport */}
+              <div className="absolute top-0 bottom-0 pointer-events-none"
+                   data-testid="viewport-window"
                    style={{
-                     left: `${(selectedHourStart / 24) * 100}%`,
-                     width: `${((selectedHourEnd - selectedHourStart) / 24) * 100}%`,
-                     background: T.amber, opacity: 0.55,
+                     left:  `${vpFracLo * 100}%`,
+                     width: `${Math.max(0.5, (vpFracHi - vpFracLo) * 100)}%`,
+                     background: T.amber, opacity: 0.60,
+                     border: `1.5px solid #B7791F`,
                    }} />
+              {/* Compromise dots — one per malicious stage */}
+              {stages.filter(s => s.malicious).map((s, i) => (
+                <div key={`cd-${i}`}
+                     className="absolute w-1 h-6 pointer-events-none"
+                     style={{ left: `${tsToFrac((s.firstTs + s.lastTs) / 2) * 100}%`,
+                              background: T.red, opacity: 0.55, top: 0 }} />
+              ))}
             </div>
             <div className="flex justify-between mt-1 text-[9px] font-mono" style={{ color: T.inkMute }}>
               {["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00","24:00"].map(h => (

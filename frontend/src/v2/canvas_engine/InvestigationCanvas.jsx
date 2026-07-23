@@ -68,12 +68,16 @@ function fmtTick(ms, spanMs) {
  * @param {string} props.selected      — selected event id
  * @param {Set}    props.triggerIds    — set of event ids that get a blue halo
  * @param {Function} props.onSelect    — (event) => void
+ * @param {object} props.focusRange    — optional { start, end } forces the viewport
+ * @param {Function} props.onViewportChange — ({ start, end }) => void, fires when the canvas viewport changes
  * @param {string} props.testId
  */
 export default function InvestigationCanvas({
   rows = [], events = [], edges = [], bands = [], timeWindows = [],
   selected = null, triggerIds = null,
   onSelect = () => {},
+  focusRange = null,
+  onViewportChange = () => {},
   testId = "trajectory-canvas",
 }) {
   // ── Container sizing ─────────────────────────────────────────────
@@ -148,6 +152,32 @@ export default function InvestigationCanvas({
     if (hPan < 0)   setHPan(0);
     else if (hPan > max) setHPan(max);
   }, [worldW, eventAreaW, hPan]);
+
+  // ── External viewport control · focusRange ⇄ hZoom/hPan ───────────
+  // When the parent supplies { start, end }, compute hZoom/hPan so that
+  // exactly [start, end] fits inside eventAreaW.
+  useEffect(() => {
+    if (!focusRange || focusRange.start == null || focusRange.end == null) return;
+    const span = maxTs - minTs || 1;
+    const winSpan = Math.max(1, focusRange.end - focusRange.start);
+    const nextZoom = Math.max(1, Math.min(500, span / winSpan));
+    const nextWorldW = eventAreaW * nextZoom;
+    const nextPan = Math.max(0, Math.min(Math.max(0, nextWorldW - eventAreaW),
+                                          ((focusRange.start - minTs) / span) * nextWorldW));
+    setHZoom(nextZoom);
+    setHPan(nextPan);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRange && focusRange.start, focusRange && focusRange.end, minTs, maxTs, eventAreaW]);
+
+  // Fire onViewportChange whenever visible window shifts.
+  const lastReportedRef = useRef({ s: null, e: null });
+  useEffect(() => {
+    const s = Math.round(viewMinTs);
+    const e = Math.round(viewMaxTs);
+    if (lastReportedRef.current.s === s && lastReportedRef.current.e === e) return;
+    lastReportedRef.current = { s, e };
+    onViewportChange({ start: viewMinTs, end: viewMaxTs });
+  }, [viewMinTs, viewMaxTs, onViewportChange]);
 
   // ── Pan + zoom state ─────────────────────────────────────────────
   const [scale, setScale]   = useState(1);

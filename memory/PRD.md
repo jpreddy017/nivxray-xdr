@@ -6,6 +6,51 @@ obfuscated malware command lines with zero AI hallucinations, honest
 "partial reconstruction" verdicts, and full analyst trace.
 
 
+## 2026-02-23 · Device Trajectory · Full Interactive Investigation Workspace (SHIPPED · frontend)
+
+**Motivation:** User criticised the shipped workspace as still "acting like a
+static page". Directed to make Device Trajectory behave like a professional
+SOC investigation application (Google-Maps-for-incidents) — every meaningful
+object interactive, one shared navigation state driving every panel.
+
+**Shipped (frontend only · zero backend changes):**
+- **Two-box workspace card layout** — top card = Time Range · bottom card =
+  Investigation. Same width, same 12 px radius, same margins, 12 px gap.
+- **Unified viewport state** (`viewport = {start, end} | null`) in
+  `DeviceTrajectoryV2` drives every panel. Controlled prop `focusRange`
+  fed into `InvestigationCanvas`, which fires `onViewportChange` back.
+  Bidirectional sync — no desync possible.
+- **Interactive TimeRangeBox** — hour strip click → focus timestamp · drag
+  → pan · wheel → zoom · double-click → fit · yellow band tracks canvas
+  viewport in real time.
+- **Date-range dropdown** in card toolbar (Entire Case / 24h / 7d / 30d /
+  90d) instantly resets the viewport.
+- **Attack Chain stages** — click focuses viewport on the stage's window
+  (with ±10 % padding); double-click toggles off.
+- **Entity gutter rows clickable** — clicking any row (process / file /
+  registry / network / compromise indicator) selects the earliest event
+  on that row and populates the Evidence pane. Compromise rows fall back
+  to the earliest event in their time window.
+- **Keyboard navigation** — `←` / `→` walk events by ts, `↑` / `↓` walk
+  rows, `F` fit, `Home` / `End` jump to case start/end, `Esc` clears
+  selection + viewport.
+- **Live viewport read-out** in toolbar (ISO start → ISO end).
+- **Sticky regions** — Attack Chain, Entity Gutter, Timeline header,
+  Evidence pane never scroll away. Only the canvas events area moves.
+- **Virtualization preserved** — `visibleRowKeys` / `visibleEvents` cull
+  outside-viewport rows and events; synthetic Y/X scrollbars.
+
+**Files touched:**
+- `frontend/src/v2/canvas_engine/InvestigationCanvas.jsx` — added
+  `focusRange` + `onViewportChange`, enabled listening on gutter layer
+  with per-row hit target + hover cursor + click-picks-earliest-event.
+- `frontend/src/v2/pages/DeviceTrajectoryV2.jsx` — lifted viewport
+  state, wired interactive TimeRangeBox, added date-range dropdown,
+  added stage focus, added keyboard navigation, added Fit button.
+
+**Backend / RC5:** UNTOUCHED. All 820 tests remain green.
+
+
 ## 2026-02-22 · M2 · Hero build shipped (dark theme, Cisco-methodology)
 
 Approved hero mockup at `/design/trajectory-hero.html` shipped as live code with no design drift.
