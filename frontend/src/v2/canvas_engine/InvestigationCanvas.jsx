@@ -329,14 +329,13 @@ export default function InvestigationCanvas({
              onMouseUp={onMouseUp}
              onMouseLeave={onMouseUp}>
 
-        {/* 1 · Yellow compromise TIME-WINDOW columns (behind everything) */}
+        {/* 1 · Compromise TIME-WINDOW markers — vertical boundary lines only,
+               no filled background (per user directive). */}
         <Layer listening={false}>
           {timeCols.map((tw, i) => (
             <Group key={`tw-${i}`}>
-              <Rect x={tw.x0} y={AXIS_H} width={Math.max(2, tw.x1 - tw.x0)} height={canvasH - AXIS_H}
-                    fill={T.amber} opacity={0.10} />
-              <Line points={[tw.x0, AXIS_H, tw.x0, canvasH]} stroke={T.amber} strokeWidth={0.8} opacity={0.55} />
-              <Line points={[tw.x1, AXIS_H, tw.x1, canvasH]} stroke={T.amber} strokeWidth={0.8} opacity={0.55} />
+              <Line points={[tw.x0, AXIS_H, tw.x0, canvasH]} stroke={T.amber} strokeWidth={1} opacity={0.75} />
+              <Line points={[tw.x1, AXIS_H, tw.x1, canvasH]} stroke={T.amber} strokeWidth={1} opacity={0.75} />
               {tw.label && (
                 <Text x={tw.x0 + 6} y={AXIS_H + 4}
                       text={tw.label}
@@ -403,7 +402,8 @@ export default function InvestigationCanvas({
           })}
         </Layer>
 
-        {/* 5 · Compromise-row lifetime bar (short yellow pill on compromise rows) */}
+        {/* 5 · Compromise-row lifetime line — thin horizontal green line only
+               (no filled pill, per user directive). */}
         <Layer listening={false}>
           {rows.map((r, i) => {
             if (r.kind !== "compromise") return null;
@@ -411,9 +411,9 @@ export default function InvestigationCanvas({
             const x0 = xForTs(r.firstTs);
             const x1 = xForTs(r.lastTs);
             return (
-              <Rect key={`crb-${r.key}`}
-                    x={x0} y={y - 4} width={Math.max(4, x1 - x0)} height={8}
-                    fill={T.amber} opacity={0.6} cornerRadius={4} />
+              <Line key={`crb-${r.key}`}
+                    points={[x0, y, x1, y]}
+                    stroke={T.amber} strokeWidth={1.6} opacity={0.85} />
             );
           })}
         </Layer>
