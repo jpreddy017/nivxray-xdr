@@ -291,16 +291,38 @@ export default function DeviceTrajectoryV2() {
       meta: f,
     }));
 
-    // Ancestry edges — L-connector between process rows if the child's firstTs
-    // is close to a parent's earlier event on the same tick range.
+    // Ancestry edges — P1 · IRG. Consume canonical entity.iid / parent.iid
+    // now emitted by /app/backend/v2/shadow/irg.py. Fallback to the heuristic
+    // depth-based edge when IRG fields aren't present (backwards-compat).
+    const entToKey = new Map();
+    frames.forEach(f => {
+      const eiid = f.entity?.iid;
+      if (!eiid) return;
+      const k = keyOf(f);
+      if (!entToKey.has(eiid)) entToKey.set(eiid, k);
+    });
+    const seenEdge = new Set();
     const evEdges = [];
-    for (let i = 1; i < procRows.length; i++) {
-      const child = procRows[i];
-      // Guess parent as the immediately preceding row with lower or equal depth.
-      for (let j = i - 1; j >= 0; j--) {
-        if ((procRows[j].indent || 0) < (child.indent || 0)) {
-          evEdges.push({ from: procRows[j].key, to: child.key });
-          break;
+    frames.forEach(f => {
+      const pIid = f.parent?.iid;
+      if (!pIid) return;
+      const from = entToKey.get(pIid);
+      const to   = keyOf(f);
+      if (!from || from === to) return;
+      const sig = `${from}->${to}`;
+      if (seenEdge.has(sig)) return;
+      seenEdge.add(sig);
+      evEdges.push({ from, to, kind: f.relationship?.type || "SPAWNED" });
+    });
+    // Heuristic fallback if IRG produced nothing (e.g. non-enriched case).
+    if (evEdges.length === 0) {
+      for (let i = 1; i < procRows.length; i++) {
+        const child = procRows[i];
+        for (let j = i - 1; j >= 0; j--) {
+          if ((procRows[j].indent || 0) < (child.indent || 0)) {
+            evEdges.push({ from: procRows[j].key, to: child.key });
+            break;
+          }
         }
       }
     }
