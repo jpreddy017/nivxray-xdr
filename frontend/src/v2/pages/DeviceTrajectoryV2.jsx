@@ -94,6 +94,7 @@ export default function DeviceTrajectoryV2() {
   const [selected, setSelected] = useState(null);
   const [selectedStageIdx, setSelectedStageIdx] = useState(null);
   const [rightTab, setRightTab] = useState("evidence");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   // ── Unified viewport (shared across TimeRangeBox + Canvas) ────────
   // { start, end } | null. `null` = full case.
   const [viewport, setViewport] = useState(null);
@@ -108,8 +109,14 @@ export default function DeviceTrajectoryV2() {
     let cancelled = false;
     (async () => {
       try {
-        const r = await api.get(`/v2/cases/${encodeURIComponent(caseId)}/trajectory/device?limit=1000`);
-        if (!cancelled) setData(r.data);
+        const [tRes, cRes] = await Promise.all([
+          api.get(`/v2/cases/${encodeURIComponent(caseId)}/trajectory/device?limit=1000`),
+          api.get(`/v2/cases/${encodeURIComponent(caseId)}`).catch(() => ({ data: null })),
+        ]);
+        if (cancelled) return;
+        // Merge case metadata into `data.case` so the drawer + status bar have
+        // access to hostname / status / tags / created_at / etc.
+        setData({ ...tRes.data, case: cRes.data || tRes.data.case });
       } catch (e) {
         if (!cancelled) setErr(e?.response?.data?.detail || e.message);
       }
@@ -461,7 +468,9 @@ export default function DeviceTrajectoryV2() {
         <CardToolbar caseId={caseId} meta={caseMeta}
                      onRangeChange={handleRangeChange}
                      reportedVp={reportedVp}
-                     caseBounds={caseBounds} />
+                     caseBounds={caseBounds}
+                     onDetails={() => setDrawerOpen(o => !o)}
+                     detailsOpen={drawerOpen} />
         {/* 30-day overview + 24-hour selected-day strip + trend line */}
         <TimeRangeBox stages={stages}
                       selectedStageIdx={selectedStageIdx}
@@ -519,12 +528,22 @@ export default function DeviceTrajectoryV2() {
                    selectedStageIdx={selectedStageIdx}
                    compromiseCount={compromiseCount} />
       </div>
+
+      {/* Slide-in device details drawer */}
+      <DeviceDetailsDrawer open={drawerOpen}
+                           onClose={() => setDrawerOpen(false)}
+                           caseId={caseId}
+                           meta={caseMeta}
+                           events={events}
+                           stages={stages}
+                           caseBounds={caseBounds} />
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════
-export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBounds, activeTab = "trajectory" }) {
+export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBounds,
+                              activeTab = "trajectory", onDetails, detailsOpen }) {
   const [range, setRange] = useState("all");
   const options = [
     ["all", "Entire Case"], ["24h", "24 Hours"], ["7d", "7 Days"],
@@ -599,9 +618,20 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
         <span>{vpEnd ? fmt(vpEnd) : "—"}</span>
       </div>
       <button className="w-7 h-7 rounded flex items-center justify-center"
-              style={{ border: `1px solid ${T.line}` }} title="Expand">⛶</button>
+              style={{ border: `1px solid ${T.line}`, color: T.inkDim }} title="Expand">⛶</button>
+      <button data-testid="details-toggle"
+              onClick={onDetails}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-semibold"
+              style={{
+                background: detailsOpen ? T.amber : T.paper2,
+                color:      detailsOpen ? "#05080F" : T.ink,
+                border: `1px solid ${detailsOpen ? T.amber : T.line}`,
+              }}
+              title="Toggle device details">
+        {detailsOpen ? "Hide details" : "Details"}
+      </button>
       <button className="w-7 h-7 rounded flex items-center justify-center"
-              style={{ border: `1px solid ${T.line}` }} title="Close">✕</button>
+              style={{ border: `1px solid ${T.line}`, color: T.inkDim }} title="Close">✕</button>
     </div>
   );
 }
@@ -1207,5 +1237,177 @@ function LoadingBanner() {
          data-testid="loading-banner">
       Streaming trajectory events…
     </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// DeviceDetailsDrawer — slide-in right panel (Cisco SEP pattern)
+// Shows only fields backed by real data. Fields the current backend does
+// not expose (OS, IP, Policy, Connector GUID, …) are omitted rather than
+// faked — honesty over cosmetics.
+// ═══════════════════════════════════════════════════════════════════
+function DeviceDetailsDrawer({ open, onClose, caseId, meta, events, stages, caseBounds }) {
+  const evCount = events.length;
+  const procRows = new Set(events.filter(e => e.kind === "process").map(e => e.rowKey)).size;
+  const malCount = events.filter(e => e.verdict === "malicious").length;
+  const stageCount = stages.length;
+  const malStages = stages.filter(s => s.malicious).length;
+  const topTechniques = [...new Set(stages.flatMap(s => s.techniques || []))].slice(0, 6);
+  const firstTs = caseBounds?.start;
+  const lastTs  = caseBounds?.end;
+  const durMs   = Math.max(0, (lastTs || 0) - (firstTs || 0));
+  const fmt = (ts) => ts ? new Date(ts).toISOString().replace("T", " ").slice(0, 23) + "Z" : "—";
+  const dur = () => {
+    if (durMs < 1000) return `${durMs.toFixed(0)} ms`;
+    if (durMs < 60_000) return `${(durMs/1000).toFixed(3)} s`;
+    if (durMs < 3600_000) return `${(durMs/60_000).toFixed(2)} m`;
+    return `${(durMs/3600_000).toFixed(2)} h`;
+  };
+
+  const copy = (v) => { try { navigator.clipboard.writeText(v); } catch {} };
+
+  useEffect(() => {
+    const h = (e) => { if (e.key === "Escape") onClose && onClose(); };
+    if (open) window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [open, onClose]);
+
+  return (
+    <>
+      {/* Scrim */}
+      <div className="fixed inset-0 z-40 transition-opacity"
+           style={{
+             background: "rgba(3,6,12,0.55)",
+             opacity: open ? 1 : 0,
+             pointerEvents: open ? "auto" : "none",
+             backdropFilter: "blur(3px)",
+           }}
+           onClick={onClose} />
+      {/* Drawer */}
+      <aside data-testid="device-details-drawer"
+             className="fixed top-0 right-0 h-screen z-50 flex flex-col"
+             style={{
+               width: 380,
+               background: T.cardGradient,
+               borderLeft: `1px solid ${T.line}`,
+               boxShadow: "inset 1px 0 0 rgba(255,255,255,0.03), -18px 0 40px -8px rgba(0,0,0,0.65)",
+               backdropFilter: "blur(14px)",
+               transform: open ? "translateX(0)" : "translateX(100%)",
+               transition: "transform 220ms cubic-bezier(.2,.7,.3,1)",
+             }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+             style={{ borderBottom: `1px solid ${T.line}` }}>
+          <div>
+            <div className="text-[15px] font-bold" style={{ color: T.ink }}>
+              {meta.name || "Case Details"}
+            </div>
+            <div className="text-[10px] font-mono mt-0.5" style={{ color: T.inkMute }}>
+              {caseId}
+            </div>
+          </div>
+          <button onClick={onClose}
+                  data-testid="drawer-close"
+                  className="w-7 h-7 rounded flex items-center justify-center text-[13px]"
+                  style={{ border: `1px solid ${T.line}`, color: T.inkDim }}
+                  title="Close (Esc)">✕</button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+          <DrawerSection label="Case">
+            <DrawerRow k="Status"      v={meta.status || "—"} />
+            <DrawerRow k="Created"     v={fmt(meta.created_at ? Date.parse(meta.created_at) : null)} mono />
+            <DrawerRow k="Created by"  v={meta.created_by || "—"} />
+            <DrawerRow k="Events"      v={String(meta.event_count ?? evCount)} />
+            <DrawerRow k="Processes"   v={String(procRows)} />
+          </DrawerSection>
+
+          <DrawerSection label="Time window">
+            <DrawerRow k="First event" v={fmt(firstTs)} mono />
+            <DrawerRow k="Last event"  v={fmt(lastTs)}  mono />
+            <DrawerRow k="Duration"    v={dur()} />
+          </DrawerSection>
+
+          <DrawerSection label="Attack chain">
+            <DrawerRow k="Stages"           v={`${stageCount} · ${malStages} malicious`} />
+            <DrawerRow k="Malicious events" v={String(malCount)} />
+            {topTechniques.length > 0 && (
+              <div className="pt-1">
+                <div className="text-[9px] tracking-[1.4px] font-bold mb-1"
+                     style={{ color: T.inkMute }}>TOP TECHNIQUES</div>
+                <div className="flex flex-wrap gap-1">
+                  {topTechniques.map(t => (
+                    <a key={t}
+                       href={`https://attack.mitre.org/techniques/${t.split(".")[0]}${t.includes(".") ? "/" + t.split(".")[1] : ""}/`}
+                       target="_blank" rel="noreferrer"
+                       className="text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold hover:opacity-80"
+                       style={{ background: T.amberT, color: T.amber }}>
+                      {t}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </DrawerSection>
+
+          {meta.tags && meta.tags.length > 0 && (
+            <DrawerSection label="Tags">
+              <div className="flex flex-wrap gap-1">
+                {meta.tags.map(t => (
+                  <span key={t}
+                        className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                        style={{ background: T.paper2, color: T.inkDim, border: `1px solid ${T.line}` }}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </DrawerSection>
+          )}
+
+          <DrawerSection label="Actions">
+            <div className="flex flex-col gap-1.5">
+              <DrawerAction label="Copy case ID" onClick={() => copy(caseId)} />
+              <DrawerAction label="Copy case JSON" onClick={() => copy(JSON.stringify(meta, null, 2))} />
+              <DrawerAction label="Open report generator"
+                            onClick={() => { window.location.href = `/documents?case=${encodeURIComponent(caseId)}`; }} />
+            </div>
+          </DrawerSection>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function DrawerSection({ label, children }) {
+  return (
+    <div>
+      <div className="text-[9px] tracking-[1.6px] font-bold mb-2"
+           style={{ color: T.inkMute }}>{label.toUpperCase()}</div>
+      <div className="space-y-1.5">{children}</div>
+    </div>
+  );
+}
+function DrawerRow({ k, v, mono }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <div className="text-[11px]" style={{ color: T.inkMute }}>{k}</div>
+      <div className={`text-[11px] font-semibold text-right ${mono ? "font-mono" : ""}`}
+           style={{ color: T.ink }}>
+        {v}
+      </div>
+    </div>
+  );
+}
+function DrawerAction({ label, onClick }) {
+  return (
+    <button onClick={onClick}
+            className="w-full text-left text-[11px] px-2.5 py-1.5 rounded"
+            style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = T.amber}
+            onMouseLeave={(e) => e.currentTarget.style.borderColor = T.line}>
+      {label}
+    </button>
   );
 }
