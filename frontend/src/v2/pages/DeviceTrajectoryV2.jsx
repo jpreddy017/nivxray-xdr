@@ -368,49 +368,205 @@ export default function DeviceTrajectoryV2() {
   }
 
   return (
-    <div data-testid="trajectory-v2" className="w-screen h-screen overflow-hidden"
+    <div data-testid="trajectory-v2" className="w-screen h-screen overflow-hidden p-3"
          style={{ background: T.bg, color: T.ink }}>
-      {/* [0] Case bar */}
-      <CaseBar caseId={caseId} meta={caseMeta}
-               eventCount={frames.length}
-               procCount={rows.filter(r => r.kind === "process").length}
-               compromiseCount={compromiseCount}
-               onOpenCase={(id) => navigate(`/v2/trajectory/${id}`)} />
+      {/* Workspace card — everything lives inside two aligned boxes */}
+      <div className="w-full h-full rounded-xl overflow-hidden flex flex-col"
+           style={{ background: T.paper, border: `1px solid ${T.line}`,
+                    boxShadow: "0 4px 24px -6px rgba(15,23,42,0.08)" }}>
+        {/* Card toolbar — logo · search · filters · date range · expand · close */}
+        <CardToolbar caseId={caseId} meta={caseMeta} />
 
-      {/* [1] Time compass */}
-      <TimeCompass stages={stages}
-                   selectedStageIdx={selectedStageIdx}
-                   onSelectStage={setSelectedStageIdx} />
+        {/* Box 1 · Time Range (full width, ~130 px) */}
+        <TimeRangeBox stages={stages}
+                      selectedStageIdx={selectedStageIdx}
+                      onSelectStage={setSelectedStageIdx} />
 
-      {/* [2..4] three-column body */}
-      <div className="grid" style={{ gridTemplateColumns: "232px 1fr 340px",
-                                     height: "calc(100vh - 32px - 56px - 22px)" }}>
-        {/* [2] Attack chain sidebar */}
-        <AttackChainSidebar stages={stages}
-                            selectedIdx={selectedStageIdx}
-                            onSelect={setSelectedStageIdx} />
+        {/* Box 2 · Trajectory (full width, remaining height) */}
+        <div className="grid flex-1 min-h-0"
+             style={{ gridTemplateColumns: "232px 1fr 340px",
+                      borderTop: `1px solid ${T.line}` }}>
+          {/* Attack chain sidebar */}
+          <AttackChainSidebar stages={stages}
+                              selectedIdx={selectedStageIdx}
+                              onSelect={setSelectedStageIdx} />
 
-        {/* [3] Canvas */}
-        <div className="relative" style={{ borderTop: `1px solid ${T.line}`, background: T.paper }}>
-          {err && <ErrorBanner err={err} />}
-          {!err && !frames.length && <LoadingBanner />}
-          {!err && frames.length > 0 && (
-            <InvestigationCanvas rows={rows} events={events} edges={edges} bands={bands}
-                                 timeWindows={timeWindows}
-                                 selected={selected}
-                                 triggerIds={triggerIds}
-                                 onSelect={(ev) => setSelected(ev?.id || null)} />
-          )}
+          {/* Timeline canvas · middle column */}
+          <div className="relative flex flex-col min-h-0"
+               style={{ background: T.paper }}>
+            <div className="px-4 py-2 text-[10px] tracking-[2px] font-bold flex-shrink-0"
+                 style={{ color: T.inkMute, borderBottom: `1px solid ${T.line}` }}>
+              TIMELINE · JUL 22
+            </div>
+            <div className="relative flex-1 min-h-0">
+              {err && <ErrorBanner err={err} />}
+              {!err && !frames.length && <LoadingBanner />}
+              {!err && frames.length > 0 && (
+                <InvestigationCanvas rows={rows} events={events} edges={edges} bands={bands}
+                                     timeWindows={timeWindows}
+                                     selected={selected}
+                                     triggerIds={triggerIds}
+                                     onSelect={(ev) => setSelected(ev?.id || null)} />
+              )}
+            </div>
+          </div>
+
+          {/* Evidence pane */}
+          <EvidencePane event={selEvent} tab={rightTab} onTab={setRightTab} />
         </div>
 
-        {/* [4] Evidence pane */}
-        <EvidencePane event={selEvent} tab={rightTab} onTab={setRightTab} />
+        {/* Status bar */}
+        <StatusBar rows={rows} events={events}
+                   selectedStageIdx={selectedStageIdx}
+                   compromiseCount={compromiseCount} />
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+function CardToolbar({ caseId, meta }) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-2 flex-shrink-0"
+         style={{ borderBottom: `1px solid ${T.line}` }}
+         data-testid="card-toolbar">
+      <div className="flex items-center gap-2">
+        <div className="w-6 h-6 rounded flex items-center justify-center"
+             style={{ background: "#2563EB22", border: `1px solid #2563EB55` }}>
+          <Radar size={13} color={T.blue} />
+        </div>
+        <div>
+          <div className="text-[11px] font-bold" style={{ color: T.ink }}>NivXRay</div>
+          <div className="text-[9px]" style={{ color: T.inkMute }}>Investigation Workspace</div>
+        </div>
+      </div>
+      <div className="flex-1 max-w-xl mx-4 relative">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: T.inkFaint }} />
+        <input type="text" placeholder="Search Device Trajectory"
+               className="w-full pl-8 pr-3 py-1.5 rounded text-[12px] outline-none"
+               style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }} />
+      </div>
+      <button className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px]"
+              style={{ background: T.paper, border: `1px solid ${T.line}`, color: T.ink }}>
+        <Filter size={12} /> Filters <span style={{ color: T.inkFaint }}>▾</span>
+      </button>
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-mono"
+           style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}>
+        <span>📅</span>
+        <span>{meta.startAt || "Jul 22, 2026 00:00:00"}</span>
+        <span style={{ color: T.inkFaint }}>→</span>
+        <span>{meta.endAt || "Jul 22, 2026 23:59:59"}</span>
+        <span style={{ color: T.inkFaint }}>▾</span>
+      </div>
+      <button className="w-7 h-7 rounded flex items-center justify-center"
+              style={{ border: `1px solid ${T.line}` }} title="Expand">⛶</button>
+      <button className="w-7 h-7 rounded flex items-center justify-center"
+              style={{ border: `1px solid ${T.line}` }} title="Close">✕</button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TimeRangeBox — full-width top box:
+//   Header row · trend sparkline · multi-day date strip (30d) with red
+//   compromise dot on the case day · selected-day hour strip with hatched
+//   "not-selected" portion.
+// ═══════════════════════════════════════════════════════════════════
+function TimeRangeBox({ stages, selectedStageIdx, onSelectStage }) {
+  const days = ["23","24","25","26","27","28","29","30",
+                "1","2","3","4","5","6","7","8","9","10","11","12","13","14",
+                "15","16","17","18","19","20","21","22"];
+  const monthMarks = { 0: "Jun", 8: "Jul" };
+  const caseDayIdx = days.length - 1; // last day = Jul 22
+  const selectedHourStart = 5;   // 05:00
+  const selectedHourEnd   = 6.5; // 06:30 · matches the case window in the reference
+
+  return (
+    <div className="flex flex-shrink-0" style={{ borderBottom: `1px solid ${T.line}` }}>
+      {/* Left label */}
+      <div className="px-4 py-3 flex-shrink-0" style={{ width: 156, borderRight: `1px solid ${T.line}` }}>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+               style={{ background: T.blue }}>1</div>
+          <div className="text-[10px] tracking-[1.6px] font-bold" style={{ color: T.ink }}>TIME RANGE</div>
+        </div>
+        <div className="text-[10px]" style={{ color: T.inkMute }}>24-hour lens</div>
       </div>
 
-      {/* [5] Status bar */}
-      <StatusBar rows={rows} events={events}
-                 selectedStageIdx={selectedStageIdx}
-                 compromiseCount={compromiseCount} />
+      {/* Right side — trend + day strip + hour strip */}
+      <div className="flex-1 relative py-2">
+        {/* Trend sparkline across the top */}
+        <svg viewBox="0 0 1400 24" preserveAspectRatio="none"
+             className="w-full h-6"
+             style={{ display: "block" }}>
+          <polyline fill="none" stroke={T.blue} strokeWidth="1"
+                    opacity="0.55"
+                    points="0,20 50,18 100,15 150,17 200,14 250,12 300,15 350,12 400,10
+                            450,13 500,11 550,14 600,10 650,13 700,11 750,15 800,12 850,14
+                            900,16 950,13 1000,15 1050,17 1100,14 1150,16 1200,15 1250,17
+                            1300,15 1350,13 1400,16"/>
+        </svg>
+
+        {/* Day strip */}
+        <div className="flex items-baseline mt-1 pr-4" style={{ paddingLeft: 40 }}>
+          {days.map((d, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center relative">
+              <div className={`text-[11px] ${i === caseDayIdx ? "font-bold text-white rounded flex items-center justify-center" : ""}`}
+                   style={i === caseDayIdx
+                     ? { background: T.ink, width: 22, height: 22 }
+                     : { color: T.inkDim }}>
+                {d}
+              </div>
+              {monthMarks[i] && (
+                <div className="absolute -bottom-4 text-[10px]" style={{ color: T.inkFaint }}>
+                  {monthMarks[i]}
+                </div>
+              )}
+              {i === caseDayIdx && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full"
+                      style={{ background: T.red }} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Selected-day (Jul 22) hour strip */}
+        <div className="mt-6 relative" style={{ height: 44 }}>
+          <div className="absolute left-0 top-0 bottom-0 flex items-center px-3"
+               style={{ width: 68, background: T.paper2,
+                        border: `1px solid ${T.line}`, borderRadius: 4 }}>
+            <span className="text-[11px] font-semibold" style={{ color: T.ink }}>Jul 22</span>
+            <span className="ml-2 w-1.5 h-1.5 rounded-full" style={{ background: T.red }} />
+          </div>
+          {/* Hour ticks + hatched region + selection window */}
+          <div className="absolute inset-0 flex flex-col justify-end" style={{ paddingLeft: 76 }}>
+            <div className="relative h-6 rounded"
+                 style={{ background: `repeating-linear-gradient(45deg, ${T.paper} 0 6px, ${T.line} 6px 7px)` }}>
+              {/* Not-hatched "selected window" overlays the hatched background */}
+              <div className="absolute top-0 bottom-0 rounded"
+                   style={{
+                     left: `${(0 / 24) * 100}%`,
+                     width: `${((selectedHourStart) / 24) * 100}%`,
+                     background: T.paper,
+                     border: `1px solid ${T.line}`,
+                   }} />
+              {/* Compromise time-window highlight */}
+              <div className="absolute top-0 bottom-0"
+                   style={{
+                     left: `${(selectedHourStart / 24) * 100}%`,
+                     width: `${((selectedHourEnd - selectedHourStart) / 24) * 100}%`,
+                     background: T.amber, opacity: 0.55,
+                   }} />
+            </div>
+            <div className="flex justify-between mt-1 text-[9px] font-mono" style={{ color: T.inkMute }}>
+              {["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00","24:00"].map(h => (
+                <span key={h}>{h}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
