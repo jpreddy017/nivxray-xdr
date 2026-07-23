@@ -329,15 +329,20 @@ export default function InvestigationCanvas({
              onMouseUp={onMouseUp}
              onMouseLeave={onMouseUp}>
 
-        {/* 1 · Compromise TIME-WINDOW markers — vertical boundary lines only,
-               no filled background (per user directive). */}
+        {/* 1 · Compromise TIME-WINDOW markers — short ticks at the top axis
+               only. No full-height vertical lines, no filled background.
+               (Cisco-style clean canvas; the analyst reads the compromise
+               position from the axis + the horizontal lifetime lines below.) */}
         <Layer listening={false}>
           {timeCols.map((tw, i) => (
             <Group key={`tw-${i}`}>
-              <Line points={[tw.x0, AXIS_H, tw.x0, canvasH]} stroke={T.amber} strokeWidth={1} opacity={0.75} />
-              <Line points={[tw.x1, AXIS_H, tw.x1, canvasH]} stroke={T.amber} strokeWidth={1} opacity={0.75} />
+              {/* Short tick + label under the axis */}
+              <Line points={[tw.x0, AXIS_H - 5, tw.x0, AXIS_H + 3]}
+                    stroke={T.amber} strokeWidth={1} opacity={0.9} />
+              <Line points={[tw.x1, AXIS_H - 5, tw.x1, AXIS_H + 3]}
+                    stroke={T.amber} strokeWidth={1} opacity={0.9} />
               {tw.label && (
-                <Text x={tw.x0 + 6} y={AXIS_H + 4}
+                <Text x={tw.x0 + 4} y={AXIS_H + 4}
                       text={tw.label}
                       fontFamily="'IBM Plex Mono', ui-monospace, monospace"
                       fontSize={9} fontStyle="700"
