@@ -414,6 +414,28 @@ export default function DeviceTrajectoryV2() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, playbackSpeed, caseBounds.start, caseBounds.end]);
 
+  // ── Compare Sync-Scrub · postMessage relay when embedded in an iframe ─
+  // Broadcast our reported viewport upward; accept inbound viewport writes
+  // from a sibling frame.
+  useEffect(() => {
+    if (window.parent === window) return;
+    if (!reportedVp) return;
+    window.parent.postMessage(
+      { __nvx: "viewport", start: reportedVp.start, end: reportedVp.end }, "*",
+    );
+  }, [reportedVp]);
+  useEffect(() => {
+    if (window.parent === window) return;
+    const onMsg = (e) => {
+      const d = e.data;
+      if (!d || d.__nvx !== "viewport") return;
+      if (typeof d.start !== "number" || typeof d.end !== "number") return;
+      setViewport({ start: d.start, end: d.end });
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
   // ── Attack-chain click: also focuses the viewport on that stage's window ─
   const handleStageSelect = useCallback((idx) => {
     if (idx === selectedStageIdx) {  // toggle off
@@ -612,7 +634,13 @@ export default function DeviceTrajectoryV2() {
                            meta={caseMeta}
                            events={events}
                            stages={stages}
-                           caseBounds={caseBounds} />
+                           caseBounds={caseBounds}
+                           bookmarks={bookmarks}
+                           onBookmarksChange={setBookmarks}
+                           onJumpBookmark={(bm) => {
+                             const span = Math.max(50, (caseBounds.end - caseBounds.start) * 0.10);
+                             setViewport({ start: bm.ts - span / 2, end: bm.ts + span / 2 });
+                           }} />
     </div>
   );
 }
@@ -1538,7 +1566,9 @@ function FiltersPopover({ filters, onChange, onClose }) {
 // not expose (OS, IP, Policy, Connector GUID, …) are omitted rather than
 // faked — honesty over cosmetics.
 // ═══════════════════════════════════════════════════════════════════
-function DeviceDetailsDrawer({ open, onClose, caseId, meta, events, stages, caseBounds }) {
+function DeviceDetailsDrawer({ open, onClose, caseId, meta, events, stages, caseBounds,
+                                bookmarks = [], onBookmarksChange = () => {},
+                                onJumpBookmark = () => {} }) {
   const evCount = events.length;
   const procRows = new Set(events.filter(e => e.kind === "process").map(e => e.rowKey)).size;
   const malCount = events.filter(e => e.verdict === "malicious").length;
@@ -1657,6 +1687,54 @@ function DeviceDetailsDrawer({ open, onClose, caseId, meta, events, stages, case
             </DrawerSection>
           )}
 
+          <DrawerSection label="Bookmarks">
+            {bookmarks.length === 0 ? (
+              <div className="text-[11px]" style={{ color: T.inkFaint }}>
+                Right-click the hour strip to drop a bookmark.
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {bookmarks.map(bm => (
+                  <div key={bm.id}
+                       data-testid={`drawer-bookmark-${bm.id}`}
+                       className="flex items-center gap-2 px-2 py-1 rounded"
+                       style={{ background: T.paper2, border: `1px solid ${T.line}` }}>
+                    <span className="w-2 h-2 rounded-full" style={{ background: T.blue }} />
+                    <button className="flex-1 text-left"
+                            onClick={() => onJumpBookmark(bm)}
+                            title="Jump to bookmark">
+                      <div className="text-[11px] font-semibold" style={{ color: T.ink }}>
+                        {bm.label || "Untitled bookmark"}
+                      </div>
+                      <div className="text-[9px] font-mono" style={{ color: T.inkMute }}>
+                        {new Date(bm.ts).toISOString()}
+                      </div>
+                    </button>
+                    <button onClick={() => onBookmarksChange(bookmarks.filter(x => x.id !== bm.id))}
+                            className="text-[11px]"
+                            style={{ color: T.inkFaint }}
+                            title="Delete bookmark">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DrawerSection>
+
+          <DrawerSection label="Export report">
+            <div className="flex flex-col gap-1.5">
+              <DrawerAction label="Download JSON"
+                            onClick={() => downloadReport(caseId, "report")} />
+              <DrawerAction label="Download Markdown"
+                            onClick={() => downloadReport(caseId, "report.md")} />
+              <DrawerAction label="Download PDF"
+                            onClick={() => downloadReport(caseId, "report.pdf")} />
+              <DrawerAction label="Download STIX 2.1 bundle"
+                            onClick={() => downloadReport(caseId, "report.stix.json")} />
+              <DrawerAction label="Download evidence package (.zip)"
+                            onClick={() => downloadReport(caseId, "report.bundle.zip")} />
+            </div>
+          </DrawerSection>
+
           <DrawerSection label="Actions">
             <div className="flex flex-col gap-1.5">
               <DrawerAction label="Copy case ID" onClick={() => copy(caseId)} />
@@ -1701,4 +1779,27 @@ function DrawerAction({ label, onClick }) {
       {label}
     </button>
   );
+}
+
+// Download a report artefact through the authenticated axios instance so
+// the browser sends the bearer token, then trigger a client-side download.
+async function downloadReport(caseId, format) {
+  try {
+    const r = await api.get(`/v2/cases/${encodeURIComponent(caseId)}/${format}`,
+                            { responseType: "blob" });
+    const url = URL.createObjectURL(r.data);
+    const a = document.createElement("a");
+    a.href = url;
+    const isZip = format.endsWith(".zip");
+    a.download = isZip
+      ? `${caseId}.evidence.zip`
+      : `${caseId}.${format.replace(/^report\.?/, "").replace(/\./g, "-") || "report"}${format === "report" ? ".json" : ""}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  } catch (e) {
+    // Fall back to opening in a new tab so the user still gets the file.
+    console.error("Report download failed:", e);
+  }
 }

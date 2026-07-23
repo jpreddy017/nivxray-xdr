@@ -7,7 +7,7 @@
  *
  * Route: /v2/compare/:caseA/:caseB   (fallback: same case on both sides)
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { T } from "../theme";
 
@@ -17,8 +17,35 @@ export default function CompareWorkspace() {
           caseB = "case_dfir_bumblebee_akira_2026" } = useParams() || {};
   const [a, setA] = useState(caseA);
   const [b, setB] = useState(caseB);
+  const [linked, setLinked] = useState(false);
+  const iframeA = useRef(null);
+  const iframeB = useRef(null);
+  const suppressUntilRef = useRef(0);
+
   const swap = () => { const t = a; setA(b); setB(t); };
   const apply = () => navigate(`/v2/compare/${encodeURIComponent(a)}/${encodeURIComponent(b)}`);
+
+  // Bidirectional postMessage relay — when one iframe reports a viewport
+  // change, forward it to the other. Suppress echo for 200 ms to break
+  // the feedback loop.
+  useEffect(() => {
+    if (!linked) return;
+    const onMsg = (e) => {
+      const d = e.data;
+      if (!d || d.__nvx !== "viewport") return;
+      if (Date.now() < suppressUntilRef.current) return;
+      suppressUntilRef.current = Date.now() + 200;
+      const from = e.source;
+      const target = (from === iframeA.current?.contentWindow)
+        ? iframeB.current?.contentWindow
+        : iframeA.current?.contentWindow;
+      if (target) {
+        target.postMessage({ __nvx: "viewport", start: d.start, end: d.end }, "*");
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [linked]);
 
   return (
     <div className="w-screen h-screen flex flex-col"
@@ -65,6 +92,13 @@ export default function CompareWorkspace() {
                 style={{ background: T.amber, color: "#05080F", border: `1px solid ${T.amber}` }}>
           Apply
         </button>
+        <label className="flex items-center gap-1.5 text-[11px] font-mono cursor-pointer select-none"
+               style={{ color: linked ? T.amber : T.inkDim }}
+               data-testid="compare-link-toggle">
+          <input type="checkbox" checked={linked} onChange={(e) => setLinked(e.target.checked)}
+                 data-testid="compare-link-checkbox" />
+          Link timelines
+        </label>
         <button onClick={() => navigate("/")}
                 data-testid="compare-close"
                 className="w-7 h-7 rounded flex items-center justify-center"
@@ -74,14 +108,14 @@ export default function CompareWorkspace() {
 
       {/* Split content */}
       <div className="flex-1 grid min-h-0" style={{ gridTemplateColumns: "1fr 1fr", gap: 2 }}>
-        <Pane label="A" caseId={caseA} />
-        <Pane label="B" caseId={caseB} />
+        <Pane label="A" caseId={caseA} refEl={iframeA} />
+        <Pane label="B" caseId={caseB} refEl={iframeB} />
       </div>
     </div>
   );
 }
 
-function Pane({ label, caseId }) {
+function Pane({ label, caseId, refEl }) {
   return (
     <div className="relative min-h-0"
          data-testid={`compare-pane-${label.toLowerCase()}`}
@@ -93,7 +127,8 @@ function Pane({ label, caseId }) {
            }}>
         {label}
       </div>
-      <iframe title={`Trajectory ${label}`}
+      <iframe ref={refEl}
+              title={`Trajectory ${label}`}
               src={`/v2/trajectory/${encodeURIComponent(caseId)}`}
               className="w-full h-full"
               style={{ border: "none", background: T.bg }}
