@@ -156,6 +156,7 @@ export default function InvestigationCanvas({
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [ctxMenu,  setCtxMenu]  = useState(null);
   const [hover,    setHover]    = useState(null);
+  const [hoverRow, setHoverRow] = useState(null);
 
   // Space key = pan-cursor affordance
   useEffect(() => {
@@ -407,12 +408,14 @@ export default function InvestigationCanvas({
           })}
         </Layer>
 
-        {/* 8 · Sticky-X entity gutter — labels at fixed X regardless of pan */}
-        <Layer listening={false}>
+        {/* 8 · Sticky-X entity gutter — labels at fixed X regardless of pan.
+            Rows are clickable: clicking a row selects its earliest event so the
+            evidence pane fills. */}
+        <Layer>
           <Rect x={-offset.x} y={AXIS_H} width={GUTTER_W} height={canvasH - AXIS_H}
-                fill={T.paper} />
+                fill={T.paper} listening={false} />
           <Line points={[-offset.x + GUTTER_W, AXIS_H, -offset.x + GUTTER_W, canvasH]}
-                stroke={T.line} strokeWidth={1} />
+                stroke={T.line} strokeWidth={1} listening={false} />
           {rows.map((r, i) => {
             const isMal = r.worstVerdict === "malicious";
             const isSus = r.worstVerdict === "suspicious";
@@ -425,11 +428,33 @@ export default function InvestigationCanvas({
             const indent = 6 + (r.indent || 0) * 14;
             const glyph = r.kind === "compromise" ? "⚠ " : (r.indentGlyph || "");
             const y = rowY[i] + ROW_H / 2 + 4;
+            const rowHover = hoverRow === r.key;
+            const pickEvent = () => {
+              // 1) Prefer events tagged to this exact row.
+              let picked = null;
+              for (const ev of events) {
+                if (ev.rowKey !== r.key) continue;
+                if (!picked || ev.ts < picked.ts) picked = ev;
+              }
+              // 2) Fallback (compromise rows have no direct events): pick the
+              // earliest event whose ts falls inside the row's time window.
+              if (!picked && r.firstTs != null && r.lastTs != null) {
+                for (const ev of events) {
+                  if (ev.ts < r.firstTs || ev.ts > r.lastTs) continue;
+                  if (!picked || ev.ts < picked.ts) picked = ev;
+                }
+              }
+              if (picked) onSelect(picked);
+            };
             return (
               <Group key={`gu-${r.key}`}>
                 {isSelected && (
                   <Rect x={-offset.x} y={rowY[i]} width={GUTTER_W} height={ROW_H}
-                        fill={T.blue} opacity={0.06} />
+                        fill={T.blue} opacity={0.08} listening={false} />
+                )}
+                {rowHover && !isSelected && (
+                  <Rect x={-offset.x} y={rowY[i]} width={GUTTER_W} height={ROW_H}
+                        fill={T.ink} opacity={0.04} listening={false} />
                 )}
                 <Text x={-offset.x + indent}
                       y={y - 6}
@@ -440,15 +465,32 @@ export default function InvestigationCanvas({
                       fill={fill}
                       width={GUTTER_W - indent - 30}
                       wrap="none"
-                      ellipsis={true} />
+                      ellipsis={true}
+                      listening={false} />
                 {r.eventCount != null && (
                   <Text x={-offset.x + GUTTER_W - 26} y={y - 6}
                         text={String(r.eventCount)}
                         fontFamily="'IBM Plex Mono', ui-monospace, monospace"
                         fontSize={9}
                         fill={isMal ? T.red : T.inkFaint}
-                        width={20} align="right" />
+                        width={20} align="right"
+                        listening={false} />
                 )}
+                {/* Transparent hit-target overlay on the whole gutter row */}
+                <Rect x={-offset.x} y={rowY[i]} width={GUTTER_W} height={ROW_H}
+                      fill="rgba(0,0,0,0)"
+                      onMouseEnter={(e) => {
+                        setHoverRow(r.key);
+                        const st = e.target.getStage();
+                        if (st) st.container().style.cursor = "pointer";
+                      }}
+                      onMouseLeave={(e) => {
+                        setHoverRow(null);
+                        const st = e.target.getStage();
+                        if (st) st.container().style.cursor = "default";
+                      }}
+                      onClick={pickEvent}
+                      onTap={pickEvent} />
               </Group>
             );
           })}
