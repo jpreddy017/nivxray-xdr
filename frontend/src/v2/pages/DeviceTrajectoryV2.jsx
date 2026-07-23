@@ -852,13 +852,20 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                   end:   anchorTs + (vpEnd - anchorTs)   * (newWin / vpWinMs) });
   };
 
-  // Right-click to drop a bookmark at that timestamp.
+  // Right-click to drop a labelled bookmark at that timestamp.
   const onStripContextMenu = (e) => {
     e.preventDefault();
     const f = fracFromEvent(e);
     const ts = fracToTs(f);
+    let label = "";
+    try {
+      // Non-blocking-ish native prompt keeps the interaction cheap and
+      // avoids introducing a modal component for a one-line input.
+      const iso = new Date(ts).toISOString();
+      label = window.prompt(`Bookmark name for ${iso} · leave blank for none`, "") || "";
+    } catch { /* prompt not available */ }
     const id = `bm_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    onBookmarksChange([...bookmarks, { id, ts }]);
+    onBookmarksChange([...bookmarks, { id, ts, label: label.trim() }]);
   };
 
   // Click a bookmark → jump viewport to it (center a 10 % window around it).
@@ -1013,28 +1020,52 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                      style={{ left: `${tsToFrac((s.firstTs + s.lastTs) / 2) * 100}%`,
                               background: T.red, opacity: 0.55, top: 0 }} />
               ))}
-              {/* Bookmarks — small triangles above the strip. Click jumps. */}
-              {bookmarks.map(bm => (
-                <button key={bm.id}
-                        data-testid={`bookmark-${bm.id}`}
-                        onClick={(e) => { e.stopPropagation(); jumpToBookmark(bm); }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          onBookmarksChange(bookmarks.filter(x => x.id !== bm.id));
-                        }}
-                        className="absolute"
-                        style={{
-                          left: `${tsToFrac(bm.ts) * 100}%`,
-                          top: -8, transform: "translateX(-50%)",
-                          width: 0, height: 0,
-                          borderLeft: "5px solid transparent",
-                          borderRight: "5px solid transparent",
-                          borderTop: `7px solid ${T.blue}`,
-                          background: "transparent", padding: 0, cursor: "pointer",
-                        }}
-                        title="Bookmark · click to jump · right-click to delete" />
-              ))}
+              {/* Bookmarks — label pill + triangle. Click jumps, right-click deletes. */}
+              {bookmarks.map(bm => {
+                const iso = new Date(bm.ts).toISOString();
+                const title = `${bm.label ? bm.label + " · " : ""}${iso} · click to jump · right-click to delete`;
+                return (
+                  <div key={bm.id}
+                       data-testid={`bookmark-${bm.id}`}
+                       className="absolute flex flex-col items-center"
+                       style={{
+                         left: `${tsToFrac(bm.ts) * 100}%`,
+                         top: -22,
+                         transform: "translateX(-50%)",
+                         zIndex: 5,
+                       }}>
+                    {bm.label && (
+                      <div className="text-[9px] font-mono px-1 py-0.5 rounded whitespace-nowrap mb-0.5"
+                           style={{
+                             background: T.blue,
+                             color: "#05080F",
+                             maxWidth: 120,
+                             overflow: "hidden",
+                             textOverflow: "ellipsis",
+                             boxShadow: "0 4px 10px -3px rgba(0,0,0,0.6)",
+                             pointerEvents: "none",
+                           }}
+                           title={title}>
+                        {bm.label}
+                      </div>
+                    )}
+                    <button onClick={(e) => { e.stopPropagation(); jumpToBookmark(bm); }}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onBookmarksChange(bookmarks.filter(x => x.id !== bm.id));
+                            }}
+                            style={{
+                              width: 0, height: 0,
+                              borderLeft: "5px solid transparent",
+                              borderRight: "5px solid transparent",
+                              borderTop: `7px solid ${T.blue}`,
+                              background: "transparent", padding: 0, cursor: "pointer",
+                            }}
+                            title={title} />
+                  </div>
+                );
+              })}
             </div>
             <div className="flex justify-between mt-1 text-[9px] font-mono" style={{ color: T.inkMute }}>
               {["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00","24:00"].map(h => (
