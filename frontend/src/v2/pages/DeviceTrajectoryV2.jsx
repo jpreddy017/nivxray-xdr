@@ -101,6 +101,8 @@ export default function DeviceTrajectoryV2() {
     kind:    { process: true, file: true, registry: true, network: true },
   });
   const [playing, setPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [bookmarks, setBookmarks] = useState([]);
   // ── Unified viewport (shared across TimeRangeBox + Canvas) ────────
   // { start, end } | null. `null` = full case.
   const [viewport, setViewport] = useState(null);
@@ -392,16 +394,14 @@ export default function DeviceTrajectoryV2() {
   // ── Playback · advances the viewport across the case timeline ─────
   useEffect(() => {
     if (!playing) return;
-    // Choose a viewport window = 10% of case span (or the current window if any).
     const span = Math.max(1, caseBounds.end - caseBounds.start);
     const winMs = viewport
       ? Math.max(1, viewport.end - viewport.start)
       : span * 0.10;
-    // Advance by 1/240 of case per tick @ 40 ms → ~9.6 s to walk the case.
     const stepMs = span / 240;
-    // Start at case start if no viewport, else keep current start.
     let start = viewport?.start ?? caseBounds.start;
     setViewport({ start, end: start + winMs });
+    const tickMs = Math.max(10, 40 / (playbackSpeed || 1));
     const id = setInterval(() => {
       start += stepMs;
       if (start + winMs >= caseBounds.end) {
@@ -410,10 +410,10 @@ export default function DeviceTrajectoryV2() {
         return;
       }
       setViewport({ start, end: start + winMs });
-    }, 40);
+    }, tickMs);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, caseBounds.start, caseBounds.end]);
+  }, [playing, playbackSpeed, caseBounds.start, caseBounds.end]);
 
   // ── Attack-chain click: also focuses the viewport on that stage's window ─
   const handleStageSelect = useCallback((idx) => {
@@ -548,7 +548,11 @@ export default function DeviceTrajectoryV2() {
                       reportedVp={reportedVp}
                       setViewport={setViewport}
                       playing={playing}
-                      onTogglePlay={() => setPlaying(p => !p)} />
+                      onTogglePlay={() => setPlaying(p => !p)}
+                      playbackSpeed={playbackSpeed}
+                      onSpeedChange={setPlaybackSpeed}
+                      bookmarks={bookmarks}
+                      onBookmarksChange={setBookmarks} />
       </div>
 
       {/* ── BOTTOM CONTAINER · Device Trajectory ──────────────────── */}
@@ -633,6 +637,7 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
   const tabs = [
     { key: "trajectory", label: "Device Trajectory", href: `/v2/trajectory/${caseId}` },
     { key: "irg",        label: "IRG",               href: `/v2/irg/${caseId}` },
+    { key: "compare",    label: "Compare",           href: `/v2/compare/${caseId}/${caseId}` },
   ];
   const activeFilterCount =
     Object.values(filters?.verdict || {}).filter(x => x === false).length +
@@ -758,7 +763,9 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
 // ═══════════════════════════════════════════════════════════════════
 export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                        caseBounds, reportedVp, setViewport,
-                       playing = false, onTogglePlay = () => {} }) {
+                       playing = false, onTogglePlay = () => {},
+                       playbackSpeed = 1, onSpeedChange = () => {},
+                       bookmarks = [], onBookmarksChange = () => {} }) {
   const days = ["23","24","25","26","27","28","29","30",
                 "1","2","3","4","5","6","7","8","9","10","11","12","13","14",
                 "15","16","17","18","19","20","21","22"];
@@ -846,6 +853,21 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                   end:   anchorTs + (vpEnd - anchorTs)   * (newWin / vpWinMs) });
   };
 
+  // Right-click to drop a bookmark at that timestamp.
+  const onStripContextMenu = (e) => {
+    e.preventDefault();
+    const f = fracFromEvent(e);
+    const ts = fracToTs(f);
+    const id = `bm_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    onBookmarksChange([...bookmarks, { id, ts }]);
+  };
+
+  // Click a bookmark → jump viewport to it (center a 10 % window around it).
+  const jumpToBookmark = (bm) => {
+    const win = Math.max(50, span * 0.10);
+    setViewport({ start: bm.ts - win / 2, end: bm.ts + win / 2 });
+  };
+
   // Double click on the hour strip → reset viewport (Fit)
   const onStripDoubleClick = () => setViewport(null);
 
@@ -862,7 +884,7 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
         <div className="text-[10px]" style={{ color: T.inkMute }}>
           Click · drag · wheel
         </div>
-        <div className="flex items-center gap-1 mt-1">
+        <div className="flex items-center gap-1 mt-1 flex-wrap">
           <button onClick={onTogglePlay}
                   data-testid="playback-toggle"
                   className="text-[10px] font-mono px-1.5 py-0.5 rounded"
@@ -873,14 +895,39 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                     minWidth: 44,
                   }}
                   title="Toggle playback">
-            {playing ? "⏸ Pause" : "▶ Play"}
+            {playing ? "⏸" : "▶"}
           </button>
+          {[0.5, 1, 2].map(sp => {
+            const active = playbackSpeed === sp;
+            return (
+              <button key={sp} onClick={() => onSpeedChange(sp)}
+                      data-testid={`speed-${sp}`}
+                      className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                      style={{
+                        background: active ? T.amber : T.paper2,
+                        color:      active ? "#05080F" : T.inkDim,
+                        border: `1px solid ${active ? T.amber : T.line}`,
+                      }}
+                      title={`Playback speed ${sp}×`}>
+                {sp}×
+              </button>
+            );
+          })}
           <button onClick={() => setViewport(null)}
                   data-testid="fit-button"
                   className="text-[10px] font-mono px-1.5 py-0.5 rounded"
                   style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.inkDim }}>
-            Fit (F)
+            Fit
           </button>
+          {bookmarks.length > 0 && (
+            <button onClick={() => onBookmarksChange([])}
+                    data-testid="bookmarks-clear"
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                    style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.inkDim }}
+                    title={`Clear ${bookmarks.length} bookmark(s)`}>
+              Clear ({bookmarks.length})
+            </button>
+          )}
         </div>
       </div>
 
@@ -940,6 +987,7 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                  onMouseDown={onStripMouseDown}
                  onWheel={onStripWheel}
                  onDoubleClick={onStripDoubleClick}
+                 onContextMenu={onStripContextMenu}
                  className="relative h-6 rounded select-none"
                  style={{ cursor: "crosshair",
                           background: `repeating-linear-gradient(45deg, ${T.paper} 0 6px, ${T.line} 6px 7px)` }}>
@@ -965,6 +1013,28 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                      className="absolute w-1 h-6 pointer-events-none"
                      style={{ left: `${tsToFrac((s.firstTs + s.lastTs) / 2) * 100}%`,
                               background: T.red, opacity: 0.55, top: 0 }} />
+              ))}
+              {/* Bookmarks — small triangles above the strip. Click jumps. */}
+              {bookmarks.map(bm => (
+                <button key={bm.id}
+                        data-testid={`bookmark-${bm.id}`}
+                        onClick={(e) => { e.stopPropagation(); jumpToBookmark(bm); }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onBookmarksChange(bookmarks.filter(x => x.id !== bm.id));
+                        }}
+                        className="absolute"
+                        style={{
+                          left: `${tsToFrac(bm.ts) * 100}%`,
+                          top: -8, transform: "translateX(-50%)",
+                          width: 0, height: 0,
+                          borderLeft: "5px solid transparent",
+                          borderRight: "5px solid transparent",
+                          borderTop: `7px solid ${T.blue}`,
+                          background: "transparent", padding: 0, cursor: "pointer",
+                        }}
+                        title="Bookmark · click to jump · right-click to delete" />
               ))}
             </div>
             <div className="flex justify-between mt-1 text-[9px] font-mono" style={{ color: T.inkMute }}>

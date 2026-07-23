@@ -41,6 +41,7 @@ const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
 const V2CaseWorkspaceShell  = lazy(() => import("@/v2/pages/CaseWorkspaceShell"));
 const V2DeviceTrajectory    = lazy(() => import("@/v2/pages/DeviceTrajectoryV2"));
 const V2IRGWorkspace        = lazy(() => import("@/v2/pages/IRGWorkspace"));
+const V2CompareWorkspace    = lazy(() => import("@/v2/pages/CompareWorkspace"));
 const V2ProcessAncestry     = lazy(() => import("@/v2/pages/ProcessAncestry"));
 
 function Protected({ children }) {
@@ -113,6 +114,9 @@ function App() {
               {/* v2 · Investigation Relationship Graph (IRG) — new top-level view */}
               <Route path="/v2/irg/:caseId"        element={<Protected><V2IRGWorkspace /></Protected>} />
               <Route path="/v2/irg"                element={<Protected><V2IRGWorkspace /></Protected>} />
+              {/* v2 · Side-by-side case comparison */}
+              <Route path="/v2/compare"                       element={<Protected><V2CompareWorkspace /></Protected>} />
+              <Route path="/v2/compare/:caseA/:caseB"         element={<Protected><V2CompareWorkspace /></Protected>} />
               <Route path="/v2/ancestry/:caseId/:processIid" element={<Protected><V2ProcessAncestry /></Protected>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
