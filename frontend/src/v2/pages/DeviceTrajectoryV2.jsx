@@ -367,25 +367,34 @@ export default function DeviceTrajectoryV2() {
     );
   }
 
+  const cardStyle = {
+    background: T.paper,
+    border: `1px solid ${T.line}`,
+    borderRadius: 12,
+    boxShadow: "0 4px 24px -6px rgba(15,23,42,0.08)",
+    overflow: "hidden",
+  };
+
   return (
-    <div data-testid="trajectory-v2" className="w-screen h-screen overflow-hidden p-3"
+    <div data-testid="trajectory-v2"
+         className="w-screen h-screen overflow-hidden flex flex-col p-3 gap-3"
          style={{ background: T.bg, color: T.ink }}>
-      {/* Workspace card — everything lives inside two aligned boxes */}
-      <div className="w-full h-full rounded-xl overflow-hidden flex flex-col"
-           style={{ background: T.paper, border: `1px solid ${T.line}`,
-                    boxShadow: "0 4px 24px -6px rgba(15,23,42,0.08)" }}>
+      {/* ── TOP CONTAINER · Timeline Range ────────────────────────── */}
+      <div className="flex-shrink-0 flex flex-col" style={cardStyle}
+           data-testid="workspace-top">
         {/* Card toolbar — logo · search · filters · date range · expand · close */}
         <CardToolbar caseId={caseId} meta={caseMeta} />
-
-        {/* Box 1 · Time Range (full width, ~130 px) */}
+        {/* 30-day overview + 24-hour selected-day strip + trend line */}
         <TimeRangeBox stages={stages}
                       selectedStageIdx={selectedStageIdx}
                       onSelectStage={setSelectedStageIdx} />
+      </div>
 
-        {/* Box 2 · Trajectory (full width, remaining height) */}
+      {/* ── BOTTOM CONTAINER · Device Trajectory ──────────────────── */}
+      <div className="flex-1 min-h-0 flex flex-col" style={cardStyle}
+           data-testid="workspace-bottom">
         <div className="grid flex-1 min-h-0"
-             style={{ gridTemplateColumns: "232px 1fr 340px",
-                      borderTop: `1px solid ${T.line}` }}>
+             style={{ gridTemplateColumns: "232px 1fr 340px" }}>
           {/* Attack chain sidebar */}
           <AttackChainSidebar stages={stages}
                               selectedIdx={selectedStageIdx}
@@ -393,7 +402,9 @@ export default function DeviceTrajectoryV2() {
 
           {/* Timeline canvas · middle column */}
           <div className="relative flex flex-col min-h-0"
-               style={{ background: T.paper }}>
+               style={{ background: T.paper,
+                        borderLeft: `1px solid ${T.line}`,
+                        borderRight: `1px solid ${T.line}` }}>
             <div className="px-4 py-2 text-[10px] tracking-[2px] font-bold flex-shrink-0"
                  style={{ color: T.inkMute, borderBottom: `1px solid ${T.line}` }}>
               TIMELINE · JUL 22
@@ -483,7 +494,7 @@ function TimeRangeBox({ stages, selectedStageIdx, onSelectStage }) {
   const selectedHourEnd   = 6.5; // 06:30 · matches the case window in the reference
 
   return (
-    <div className="flex flex-shrink-0" style={{ borderBottom: `1px solid ${T.line}` }}>
+    <div className="flex flex-shrink-0" style={{ borderTop: `1px solid ${T.line}` }}>
       {/* Left label */}
       <div className="px-4 py-3 flex-shrink-0" style={{ width: 156, borderRight: `1px solid ${T.line}` }}>
         <div className="flex items-center gap-2 mb-1">
@@ -689,8 +700,7 @@ function TimeCompass({ stages, selectedStageIdx, onSelectStage }) {
 function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
   return (
     <div className="overflow-y-auto"
-         style={{ background: T.paper, borderTop: `1px solid ${T.line}`,
-                  borderRight: `1px solid ${T.line}` }}
+         style={{ background: T.paper }}
          data-testid="attack-chain-sidebar">
       <div className="px-4 pt-4">
         <div className="text-[10px] tracking-[2px] font-bold" style={{ color: T.inkMute }}>
@@ -755,8 +765,7 @@ function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
 function EvidencePane({ event, tab, onTab }) {
   return (
     <div className="overflow-y-auto"
-         style={{ background: T.paper, borderTop: `1px solid ${T.line}`,
-                  borderLeft: `1px solid ${T.line}` }}
+         style={{ background: T.paper }}
          data-testid="evidence-pane">
       <div className="flex items-center gap-4 px-4 pt-3 pb-2 border-b" style={{ borderColor: T.line }}>
         {["evidence","mitre","history","artifacts"].map(k => (
