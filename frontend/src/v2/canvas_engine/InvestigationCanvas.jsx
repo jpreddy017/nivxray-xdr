@@ -60,6 +60,8 @@ export default function InvestigationCanvas({
   focusRange = null,
   onViewportChange = () => {},
   onFocusTime = () => {},
+  matchedIds = null,
+  matchedRowKeys = null,
   testId = "trajectory-canvas",
 }) {
   // ── Container sizing ─────────────────────────────────────────────
@@ -392,13 +394,14 @@ export default function InvestigationCanvas({
             const sel = selected && events.some(e => e.id === selected && e.rowKey === r.key);
             const isMal = r.worstVerdict === "malicious";
             const isCompromise = r.kind === "compromise";
-            const dim = focusedRow && focusedRow !== r.key;
+            const filteredOut = matchedRowKeys && !matchedRowKeys.has(r.key);
+            const dim = (focusedRow && focusedRow !== r.key) || filteredOut;
             const stroke = isCompromise ? T.amber
                          : sel          ? T.blue
                          : isMal        ? T.red
                          :                T.gray;
             const w = sel ? 2.5 : (isCompromise ? 1.5 : 1);
-            const op = dim ? 0.15 : (sel ? 0.95 : (isMal || isCompromise ? 0.65 : 0.5));
+            const op = dim ? 0.10 : (sel ? 0.95 : (isMal || isCompromise ? 0.65 : 0.5));
             return (
               <Line key={`ll-${r.key}`}
                     points={[GUTTER_W + 4, y, contentW - 4, y]}
@@ -451,9 +454,10 @@ export default function InvestigationCanvas({
             const y = rowY[i] + ROW_H / 2;
             const sel = ev.id === selected;
             const trig = triggerIds && triggerIds.has(ev.id);
-            const dim = focusedRow && focusedRow !== ev.rowKey;
+            const filteredOut = matchedIds && !matchedIds.has(ev.id);
+            const dim = (focusedRow && focusedRow !== ev.rowKey) || filteredOut;
             return (
-              <Group key={ev.id} opacity={dim ? 0.18 : 1}>
+              <Group key={ev.id} opacity={dim ? 0.12 : 1}>
                 <EventGlyph
                           ev={ev} x={x} y={y}
                           selected={sel}

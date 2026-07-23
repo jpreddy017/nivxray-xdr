@@ -95,6 +95,11 @@ export default function DeviceTrajectoryV2() {
   const [selectedStageIdx, setSelectedStageIdx] = useState(null);
   const [rightTab, setRightTab] = useState("evidence");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState({
+    verdict: { malicious: true, suspicious: true, benign: true },
+    kind:    { process: true, file: true, registry: true, network: true },
+  });
   // ── Unified viewport (shared across TimeRangeBox + Canvas) ────────
   // { start, end } | null. `null` = full case.
   const [viewport, setViewport] = useState(null);
@@ -356,6 +361,33 @@ export default function DeviceTrajectoryV2() {
   }, [events]);
   const effectiveVp = viewport || caseBounds;
 
+  // ── Search + filter · derive matched event ids ───────────────────
+  const { matchedIds, matchedRowKeys } = useMemo(() => {
+    const q = (searchQuery || "").trim().toLowerCase();
+    const verdictOn = filters.verdict;
+    const kindOn = filters.kind;
+    const allVerdictsOn = Object.values(verdictOn).every(Boolean);
+    const allKindsOn    = Object.values(kindOn).every(Boolean);
+    if (!q && allVerdictsOn && allKindsOn) {
+      return { matchedIds: null, matchedRowKeys: null };
+    }
+    const ids = new Set();
+    const rk  = new Set();
+    for (const ev of events) {
+      const v = ev.verdict || "benign";
+      const k = ev.kind    || "process";
+      if (verdictOn[v] === false) continue;
+      if (kindOn[k] === false) continue;
+      if (q) {
+        const hay = `${ev.label || ""} ${ev.meta?.entity?.name || ""} ${ev.rowKey || ""}`.toLowerCase();
+        if (!hay.includes(q)) continue;
+      }
+      ids.add(ev.id);
+      rk.add(ev.rowKey);
+    }
+    return { matchedIds: ids, matchedRowKeys: rk };
+  }, [events, searchQuery, filters]);
+
   // ── Attack-chain click: also focuses the viewport on that stage's window ─
   const handleStageSelect = useCallback((idx) => {
     if (idx === selectedStageIdx) {  // toggle off
@@ -470,7 +502,17 @@ export default function DeviceTrajectoryV2() {
                      reportedVp={reportedVp}
                      caseBounds={caseBounds}
                      onDetails={() => setDrawerOpen(o => !o)}
-                     detailsOpen={drawerOpen} />
+                     detailsOpen={drawerOpen}
+                     searchQuery={searchQuery}
+                     onSearch={setSearchQuery}
+                     filters={filters}
+                     onFilters={setFilters}
+                     onFullscreen={() => {
+                       const el = document.documentElement;
+                       if (document.fullscreenElement) document.exitFullscreen();
+                       else el.requestFullscreen && el.requestFullscreen();
+                     }}
+                     onClose={() => navigate("/")} />
         {/* 30-day overview + 24-hour selected-day strip + trend line */}
         <TimeRangeBox stages={stages}
                       selectedStageIdx={selectedStageIdx}
@@ -510,6 +552,8 @@ export default function DeviceTrajectoryV2() {
                                      focusRange={viewport}
                                      onViewportChange={setReportedVp}
                                      onFocusTime={setViewport}
+                                     matchedIds={matchedIds}
+                                     matchedRowKeys={matchedRowKeys}
                                      onSelect={(ev) => setSelected(ev?.id || null)} />
               )}
             </div>
@@ -543,8 +587,12 @@ export default function DeviceTrajectoryV2() {
 
 // ═══════════════════════════════════════════════════════════════════
 export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBounds,
-                              activeTab = "trajectory", onDetails, detailsOpen }) {
+                              activeTab = "trajectory", onDetails, detailsOpen,
+                              searchQuery = "", onSearch = () => {},
+                              filters, onFilters = () => {},
+                              onFullscreen = () => {}, onClose = () => {} }) {
   const [range, setRange] = useState("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const options = [
     ["all", "Entire Case"], ["24h", "24 Hours"], ["7d", "7 Days"],
     ["30d", "30 Days"], ["90d", "90 Days"],
@@ -557,6 +605,16 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
     { key: "trajectory", label: "Device Trajectory", href: `/v2/trajectory/${caseId}` },
     { key: "irg",        label: "IRG",               href: `/v2/irg/${caseId}` },
   ];
+  const activeFilterCount =
+    Object.values(filters?.verdict || {}).filter(x => x === false).length +
+    Object.values(filters?.kind    || {}).filter(x => x === false).length;
+  const copyRange = () => {
+    try {
+      const s = vpStart ? new Date(vpStart).toISOString() : "";
+      const e = vpEnd   ? new Date(vpEnd).toISOString()   : "";
+      navigator.clipboard.writeText(`${s} → ${e}`);
+    } catch {}
+  };
 
   return (
     <div className="flex items-center gap-3 px-4 py-2 flex-shrink-0"
@@ -595,14 +653,32 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
                 style={{ color: T.inkFaint }} />
         <input type="text" placeholder="Search Investigation"
                data-testid="search-input"
+               value={searchQuery}
+               onChange={(e) => onSearch(e.target.value)}
                className="w-full pl-8 pr-3 py-1.5 rounded text-[12px] outline-none"
                style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }} />
       </div>
-      <button className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px]"
-              style={{ background: T.paper, border: `1px solid ${T.line}`, color: T.ink }}
-              data-testid="filters-button">
-        <Filter size={12} /> Filters <span style={{ color: T.inkFaint }}>▾</span>
-      </button>
+      <div className="relative">
+        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px]"
+                style={{ background: filtersOpen ? T.blueT : T.paper,
+                         border: `1px solid ${filtersOpen ? T.blue : T.line}`,
+                         color: T.ink }}
+                onClick={() => setFiltersOpen(o => !o)}
+                data-testid="filters-button">
+          <Filter size={12} /> Filters
+          {activeFilterCount > 0 && (
+            <span className="text-[9px] font-mono px-1 py-0.5 rounded"
+                  style={{ background: T.amber, color: "#05080F" }}>
+              {activeFilterCount}
+            </span>
+          )}
+          <span style={{ color: T.inkFaint }}>▾</span>
+        </button>
+        {filtersOpen && (
+          <FiltersPopover filters={filters} onChange={onFilters}
+                          onClose={() => setFiltersOpen(false)} />
+        )}
+      </div>
       {/* Date range dropdown — drives the shared viewport */}
       <select value={range} onChange={(e) => change(e.target.value)}
               data-testid="range-select"
@@ -610,15 +686,19 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
               style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}>
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-mono"
-           style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}
-           data-testid="viewport-display">
+      <button onClick={copyRange}
+              className="flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-mono"
+              style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}
+              data-testid="viewport-display"
+              title="Click to copy time-window as ISO">
         <span>{vpStart ? fmt(vpStart) : "—"}</span>
         <span style={{ color: T.inkFaint }}>→</span>
         <span>{vpEnd ? fmt(vpEnd) : "—"}</span>
-      </div>
-      <button className="w-7 h-7 rounded flex items-center justify-center"
-              style={{ border: `1px solid ${T.line}`, color: T.inkDim }} title="Expand">⛶</button>
+      </button>
+      <button onClick={onFullscreen}
+              data-testid="fullscreen-toggle"
+              className="w-7 h-7 rounded flex items-center justify-center"
+              style={{ border: `1px solid ${T.line}`, color: T.inkDim }} title="Fullscreen (F11)">⛶</button>
       <button data-testid="details-toggle"
               onClick={onDetails}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-semibold"
@@ -630,7 +710,9 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
               title="Toggle device details">
         {detailsOpen ? "Hide details" : "Details"}
       </button>
-      <button className="w-7 h-7 rounded flex items-center justify-center"
+      <button onClick={onClose}
+              data-testid="close-btn"
+              className="w-7 h-7 rounded flex items-center justify-center"
               style={{ border: `1px solid ${T.line}`, color: T.inkDim }} title="Close">✕</button>
     </div>
   );
@@ -1240,6 +1322,71 @@ function LoadingBanner() {
   );
 }
 
+
+
+// ═══════════════════════════════════════════════════════════════════
+// FiltersPopover — verdict + kind toggles that drive canvas dimming
+// ═══════════════════════════════════════════════════════════════════
+function FiltersPopover({ filters, onChange, onClose }) {
+  const flip = (group, key) => onChange({
+    ...filters,
+    [group]: { ...filters[group], [key]: !filters[group][key] },
+  });
+  const setGroup = (group, on) => onChange({
+    ...filters,
+    [group]: Object.fromEntries(Object.keys(filters[group]).map(k => [k, on])),
+  });
+  const Row = ({ group, k, dot }) => (
+    <label className="flex items-center gap-2 py-1 cursor-pointer">
+      <input type="checkbox" checked={!!filters[group][k]}
+             onChange={() => flip(group, k)}
+             data-testid={`filter-${group}-${k}`} />
+      <span className="inline-block w-2 h-2 rounded-full" style={{ background: dot }} />
+      <span className="text-[11px] capitalize" style={{ color: T.ink }}>{k}</span>
+    </label>
+  );
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="absolute z-50 mt-1 rounded-md py-2 px-3"
+           data-testid="filters-popover"
+           style={{
+             right: 0,
+             minWidth: 200,
+             background: T.paper2, border: `1px solid ${T.line}`,
+             boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 40px -10px rgba(0,0,0,0.75)",
+           }}
+           onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-[9px] tracking-[1.6px] font-bold" style={{ color: T.inkMute }}>VERDICT</div>
+          <div className="flex gap-1">
+            <button onClick={() => setGroup("verdict", true)}
+                    className="text-[9px]" style={{ color: T.inkDim }}>all</button>
+            <button onClick={() => setGroup("verdict", false)}
+                    className="text-[9px]" style={{ color: T.inkDim }}>none</button>
+          </div>
+        </div>
+        <Row group="verdict" k="malicious"  dot={T.red} />
+        <Row group="verdict" k="suspicious" dot={T.amber} />
+        <Row group="verdict" k="benign"     dot={T.gray} />
+
+        <div className="flex items-center justify-between mt-3 mb-1">
+          <div className="text-[9px] tracking-[1.6px] font-bold" style={{ color: T.inkMute }}>KIND</div>
+          <div className="flex gap-1">
+            <button onClick={() => setGroup("kind", true)}
+                    className="text-[9px]" style={{ color: T.inkDim }}>all</button>
+            <button onClick={() => setGroup("kind", false)}
+                    className="text-[9px]" style={{ color: T.inkDim }}>none</button>
+          </div>
+        </div>
+        <Row group="kind" k="process"  dot={T.ink} />
+        <Row group="kind" k="file"     dot={T.blue} />
+        <Row group="kind" k="registry" dot={T.amber} />
+        <Row group="kind" k="network"  dot="#0EA5A0" />
+      </div>
+    </>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // DeviceDetailsDrawer — slide-in right panel (Cisco SEP pattern)
