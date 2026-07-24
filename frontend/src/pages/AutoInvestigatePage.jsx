@@ -367,6 +367,8 @@ export default function AutoInvestigatePage() {
             </div>
           )}
 
+          {/* Executive Investigation Card · analyst-facing 5-question summary */}
+          {result?.executive_card && <ExecutiveCard card={result.executive_card} />}
           {/* MDR INVESTIGATION — analyst-facing narrative + timeline + escalation */}
           {result?.mdr_investigation && <MdrInvestigation mdr={result.mdr_investigation} />}
           {result && <FinalIncidentSummary result={result} onExportMd={downloadMarkdown} onExportJson={downloadJson} />}
@@ -2108,6 +2110,196 @@ function MdrInvestigation({ mdr }) {
           {escal.reason}
         </div>
       )}
+    </section>
+  );
+}
+
+
+// ─── Executive Investigation Card · answers 5 questions in 15 s ─────
+const EC_VERDICT_TONE = {
+  Malicious:     "border-red-500/60 text-red-200 bg-red-500/10",
+  Suspicious:    "border-amber-500/60 text-amber-200 bg-amber-500/10",
+  "Needs Review":"border-sky-500/60 text-sky-200 bg-sky-500/10",
+  Informational: "border-emerald-500/60 text-emerald-200 bg-emerald-500/10",
+  Unknown:       "border-slate-500 text-slate-300",
+};
+const EC_STATE_TONE = {
+  complete:    "text-emerald-300",
+  partial:     "text-amber-300",
+  unavailable: "text-slate-500",
+};
+const EC_STATE_ICON = { complete: "✓", partial: "◐", unavailable: "○" };
+const EC_STATE_LABEL = { complete: "✓", partial: "Partial", unavailable: "Unavailable" };
+
+function ExecutiveCard({ card }) {
+  const {
+    verdict_pretty, confidence,
+    what_happened = {}, because = [], evidence = {},
+    unknowns = [], next_actions = [],
+    investigation_status = [], analysis_pipeline = [], completeness = {},
+  } = card || {};
+  const tone = EC_VERDICT_TONE[verdict_pretty] || EC_VERDICT_TONE.Unknown;
+  return (
+    <section className="border border-cyan-500/50 rounded-xl bg-slate-950/80 shadow-lg shadow-cyan-500/10 overflow-hidden"
+             data-testid="executive-card">
+      {/* Top bar */}
+      <div className="px-5 py-3 border-b border-slate-800 flex items-baseline flex-wrap gap-3">
+        <div className="text-[10px] tracking-[0.32em] font-bold text-cyan-300">
+          NIVXRAY INVESTIGATION SUMMARY
+        </div>
+        <span className={`ml-auto px-3 py-1 rounded-full border text-xs uppercase tracking-widest font-bold ${tone}`}
+              data-testid="ec-verdict">
+          {verdict_pretty}
+        </span>
+        <span className="text-xs font-mono text-slate-300"
+              data-testid="ec-confidence">
+          Confidence: {confidence}%
+        </span>
+      </div>
+      <div className="px-5 py-4 space-y-5 text-sm text-slate-200">
+        {/* 1) What happened? */}
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-1.5">
+            1 · What happened
+          </div>
+          <div className="text-[13px] text-slate-100 font-bold" data-testid="ec-primary-finding">
+            {what_happened.primary_finding}
+          </div>
+          {what_happened.recovered_behavior && (
+            <div className="text-[13px] text-slate-300 mt-1" data-testid="ec-recovered-behavior">
+              {what_happened.recovered_behavior}
+            </div>
+          )}
+        </div>
+        {/* 2) Why this verdict? */}
+        {because.length > 0 && (
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-1.5">
+              2 · Why this verdict
+            </div>
+            <ul className="text-[12px] text-slate-200 space-y-0.5" data-testid="ec-because">
+              {because.map((b, i) => <li key={i}>• {b}</li>)}
+            </ul>
+          </div>
+        )}
+        {/* 3) Evidence — positive & negative side by side */}
+        {(evidence.positive?.length || evidence.negative?.length) && (
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-1.5">
+              3 · Evidence
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-[12px]">
+              {(evidence.positive || []).map((e, i) => (
+                <div key={`p${i}`} className="text-emerald-200" data-testid={`ec-pos-${i}`}>
+                  <span className="text-emerald-400 mr-1">✓</span>{e}
+                </div>
+              ))}
+              {(evidence.negative || []).map((e, i) => (
+                <div key={`n${i}`} className="text-slate-400" data-testid={`ec-neg-${i}`}>
+                  <span className="text-slate-500 mr-1">✗</span>{e}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* 4) Unknowns */}
+        {unknowns.length > 0 && (
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-1.5">
+              4 · What is still unknown
+            </div>
+            <ul className="text-[12px] text-amber-200 space-y-0.5" data-testid="ec-unknowns">
+              {unknowns.map((u, i) => <li key={i}>? {u}</li>)}
+            </ul>
+          </div>
+        )}
+        {/* 5) Next actions */}
+        {next_actions.length > 0 && (
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-1.5">
+              5 · Analyst next actions
+            </div>
+            <div className="space-y-1.5" data-testid="ec-next-actions">
+              {next_actions.map((a, i) => (
+                <div key={i} className={`border rounded p-2 ${SEV_TONE[a.severity] || SEV_TONE.medium}`}>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] uppercase tracking-widest font-bold">{a.severity}</span>
+                    <span className="text-sm font-bold text-slate-100">{a.title}</span>
+                  </div>
+                  <div className="text-[12px] text-slate-300 mt-0.5">{a.why}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* Investigation Status + Analysis Pipeline · two columns */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-1.5">
+              Investigation Status
+            </div>
+            <ul className="text-[12px] space-y-0.5" data-testid="ec-status">
+              {investigation_status.map((s, i) => (
+                <li key={i} className={s.done ? "text-emerald-200" : "text-slate-500"}>
+                  <span className={s.done ? "text-emerald-400 mr-1.5" : "text-slate-600 mr-1.5"}>
+                    {s.done ? "✓" : "○"}
+                  </span>{s.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-1.5">
+              Analysis Pipeline
+            </div>
+            <ul className="text-[12px] space-y-0.5" data-testid="ec-pipeline">
+              {analysis_pipeline.map((s, i) => (
+                <li key={i} className={s.done ? "text-cyan-200" : "text-slate-500"}>
+                  <span className={s.done ? "text-cyan-400 mr-1.5" : "text-slate-600 mr-1.5"}>
+                    {s.done ? "✓" : "○"}
+                  </span>{s.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        {/* Investigation Completeness */}
+        {completeness?.dimensions && (
+          <div className="pt-2 border-t border-slate-800">
+            <div className="flex items-baseline justify-between mb-2">
+              <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold">
+                Investigation Completeness
+              </div>
+              <div className="text-[10px] font-mono text-slate-400">
+                Recommendation confidence: <span className={`font-bold ${
+                  completeness.recommendation_confidence === "High" ? "text-emerald-300"
+                  : completeness.recommendation_confidence === "Medium" ? "text-amber-300"
+                  : "text-red-300"}`}>{completeness.recommendation_confidence}</span>
+              </div>
+            </div>
+            <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-3"
+                 data-testid="ec-completeness-bar">
+              <div className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all"
+                   style={{ width: `${completeness.percent || 0}%` }} />
+            </div>
+            <div className="text-right text-[10px] font-mono text-slate-400 mb-2">
+              {completeness.percent}%
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-[12px]"
+                 data-testid="ec-completeness-dims">
+              {completeness.dimensions.map((d, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <span className={EC_STATE_TONE[d.state]}>{EC_STATE_ICON[d.state]}</span>
+                  <span className="text-slate-300">{d.label}</span>
+                  <span className={`ml-auto text-[10px] uppercase tracking-widest font-bold ${EC_STATE_TONE[d.state]}`}>
+                    {EC_STATE_LABEL[d.state]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

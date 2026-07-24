@@ -327,16 +327,139 @@ def score_verdict(behaviors: list[dict], artifacts: list[SemanticArtifact],
         if score <= 20:
             reasons.append("All observed network targets are loopback (no external comms)")
     # Verdict bands
+    # Feb-2026 · The bar for `suspicious` is intentionally low: any
+    # EncodedCommand puts the sample in the SUSPICIOUS bucket even when
+    # the recovered script is benign — because the ENCODING itself is a
+    # defense-evasion signal that warrants analyst review. Only samples
+    # with no encoding AND no notable behaviours fall to `informational`.
     if score >= 70:
         verdict = "malicious"
-    elif score >= 40:
+    elif score >= 30:
         verdict = "suspicious"
-    elif score >= 15:
-        verdict = "needs_review"
+    elif encoded_present or score >= 10:
+        verdict = "suspicious"      # bare encoded + benign body → still SUSPICIOUS
     else:
         verdict = "informational"
-    confidence = min(95, 60 + min(35, len(behaviors) * 8))
+    confidence = min(95, 50 + min(45, len(behaviors) * 10))
     return verdict, score, "; ".join(reasons) or "no notable indicators", confidence
+
+
+# ── Negative evidence detector ───────────────────────────────────
+_NEG_EVIDENCE_TABLE = [
+    ("Download",                  r"downloadstring|downloadfile|invoke-webrequest|invoke-restmethod|"
+                                  r"\.downloaddata|curl\s|wget\s|certutil\s+-urlcache|bitsadmin"),
+    ("Persistence",               r"scheduled\s*task|registry\s+run|hklm\\.*run|hkcu\\.*run|"
+                                  r"new-service|register-scheduledtask|new-scheduledtask|"
+                                  r"schtasks|new-item.*startup"),
+    ("Process injection",         r"virtualalloc|writeprocessmemory|createremotethread|"
+                                  r"createthread|ntmapviewofsection|reflection\.assembly::load|"
+                                  r"add-type.*bytes"),
+    ("Credential access",         r"mimikatz|sekurlsa|lsass|convertto-securestring|"
+                                  r"get-credential|dpapi|ntds\.dit|sam\.hive|"
+                                  r"sharphound|kerberoast"),
+    ("External network communication",
+                                  r"https?://(?!(?:localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.))"),
+    ("Anti-forensics / log tampering",
+                                  r"clear-eventlog|wevtutil\s+cl|set-mppreference|amsiinit"),
+]
+
+
+def negative_evidence(script: str) -> list[dict]:
+    """Return a checklist of behaviours we EXPLICITLY did NOT observe
+    in the recovered script. Analysts use this to know what was checked."""
+    low = script.lower()
+    out: list[dict] = []
+    for label, pattern in _NEG_EVIDENCE_TABLE:
+        observed = bool(re.search(pattern, low))
+        out.append({"category": label, "observed": observed,
+                    "check": pattern})
+    return out
+
+
+# ── NivXRay Investigation Summary block ──────────────────────────
+def format_summary_block(sr: "SemanticResult") -> str:
+    """Analyst-facing box-drawn summary — exactly the format the user
+    approved. Returns a multi-line string suitable for copy-paste into
+    a ticket or Slack message."""
+    if not sr.detected:
+        return ""
+    bar = "━" * 66
+    lines: list[str] = [bar, "NIVXRAY INVESTIGATION SUMMARY", bar, ""]
+    # Classification + confidence
+    verdict_pretty = {
+        "malicious":      "Malicious",
+        "suspicious":     "Suspicious",
+        "needs_review":   "Needs Review",
+        "informational":  "Informational",
+        "unknown":        "Unknown",
+    }.get(sr.verdict, sr.verdict.title())
+    lines.append(f"Classification    {verdict_pretty}")
+    lines.append(f"Confidence        {sr.confidence}%")
+    lines.append("")
+    # Primary finding — cmdlet + encoded flag
+    if sr.ast:
+        first = sr.ast[0]
+        primary = f"PowerShell executed with {'Base64-encoded ' if 'base64' in (sr.decode_outcome or '').lower() or True else ''}command."
+        # Actually always show 'Base64-encoded' since we came through EncodedCommand path
+        primary = "PowerShell executed with Base64-encoded command."
+        lines.append(f"Primary Finding")
+        lines.append(f"  {primary}")
+        lines.append("")
+    # Recovered behavior
+    ext_urls = [a for a in sr.artifacts if a.kind == "url" and a.classification == "external"]
+    loop_urls = [a for a in sr.artifacts if a.kind == "url" and a.classification == "loopback"]
+    if loop_urls and not ext_urls:
+        beh = f"Decoded command launches a local HTTP endpoint ({loop_urls[0].value})."
+    elif ext_urls:
+        beh = f"Decoded command references external endpoint ({ext_urls[0].value})."
+    elif sr.ast:
+        first = sr.ast[0]
+        beh = f"Decoded command invokes `{first['cmdlet']}`."
+    else:
+        beh = "Decoded content did not yield a recognisable command."
+    lines.append("Recovered Behavior")
+    lines.append(f"  {beh}")
+    lines.append("")
+    # Evidence checklist (positive)
+    lines.append("Evidence")
+    positive = ["Encoded PowerShell", "Decoded successfully"]
+    if any(a.kind == "url" for a in sr.artifacts):    positive.append("URL extracted")
+    if loop_urls:                                     positive.append(f"Localhost ({loop_urls[0].value.split('://')[1].split(':')[0]})")
+    if ext_urls:                                      positive.append(f"External URL: {ext_urls[0].value}")
+    if any(a.kind == "ip"   for a in sr.artifacts):   positive.append("IP address(es) extracted")
+    if any(a.kind == "file" for a in sr.artifacts):   positive.append("File path(s) referenced")
+    for p in positive:
+        lines.append(f"  ✓ {p}")
+    # Negative evidence — what we checked and did NOT find
+    for ne in negative_evidence(sr.recovered_script):
+        if not ne["observed"]:
+            lines.append(f"  ✗ No {ne['category'].lower()} observed")
+    lines.append("")
+    # Reason
+    lines.append("Reason for Verdict")
+    if sr.verdict == "suspicious" and loop_urls and not ext_urls:
+        lines.append("  Suspicious because an encoded PowerShell command was")
+        lines.append("  executed. However, the recovered command only opens a")
+        lines.append("  localhost endpoint. Available telemetry does not")
+        lines.append("  demonstrate malicious post-exploitation.")
+    elif sr.verdict == "malicious":
+        lines.append(f"  Malicious — {sr.verdict_reason}")
+    else:
+        lines.append(f"  {sr.verdict_reason}")
+    lines.append("")
+    # Analyst action
+    lines.append("Analyst Action")
+    if sr.verdict == "suspicious" and loop_urls and not ext_urls:
+        lines.append("  Review parent process, WinRM activity, child processes,")
+        lines.append("  and network telemetry before confirming malicious activity.")
+    elif sr.verdict == "malicious":
+        lines.append("  Escalate to Tier-2. Isolate host if not already contained.")
+        lines.append("  Rotate any exposed credentials and audit lateral movement.")
+    else:
+        lines.append("  Retain for correlation; no immediate action required.")
+    lines.append("")
+    lines.append(bar)
+    return "\n".join(lines)
 
 
 # ── Public entrypoint ────────────────────────────────────────────

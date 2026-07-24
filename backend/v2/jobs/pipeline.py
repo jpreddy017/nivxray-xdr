@@ -41,6 +41,7 @@ from v2.mdr.incident_parser import (
     escalation_decision as _mdr_escalation,
 )
 from v2.mdr.reference_urls import classify_all as _mdr_classify_urls
+from v2.mdr.executive_card import build as _mdr_executive_card
 
 # Optional bridge to the Workspace's larger decoder registry — enables
 # PowerShell binary-split, string-concat, char-array, ps-encodedcommand
@@ -82,7 +83,7 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
     sha = _sha256_of(cmdline)
     # Feb-2026 · Pipeline version tag. Bump this whenever a decoder /
     # archetype change should invalidate previously cached artifacts.
-    PIPELINE_VERSION = "v5-mdr-investigator"
+    PIPELINE_VERSION = "v6-executive-card"
     cached = await _artifact_get(sha)
     # Cache-invalidation guard. Any artifact cached BEFORE the archetype
     # bridge shipped has `layers == 0` for inputs the archetypes can now
@@ -606,6 +607,14 @@ async def run_investigation_with_progress(
             "cache_hits": cache_hits,
         },
     }
+    # Executive Investigation Card — analyst-facing top-of-page summary
+    # that answers the 5 questions in under 15 seconds. Composed AFTER
+    # every other section so it can read from the fully-populated result.
+    try:
+        result["executive_card"] = _mdr_executive_card(result)
+    except Exception as e:  # noqa: BLE001
+        log.warning("executive_card compose failed: %s", e)
+        result["executive_card"] = None
     await _emit(on_progress, {"type": "progress", "stage": "done",
                               "percent": 100,
                               "message": "Investigation complete."})
