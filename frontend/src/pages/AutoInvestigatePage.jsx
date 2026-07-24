@@ -2568,7 +2568,8 @@ function InvestigationReport({ report }) {
 
       {/* §5 Technical Summary */}
       {report.technical_summary && (
-        <TechnicalSummarySection ts={report.technical_summary} />
+        <TechnicalSummarySection ts={report.technical_summary}
+                                  mitreByTactic={report.mitre_by_tactic} />
       )}
 
       {/* §6 Recommendations */}
@@ -2599,20 +2600,25 @@ function InvestigationReport({ report }) {
         </ReportSectionCard>
       )}
 
-      {/* §7 Observed Evidence — classified, provenance-tagged */}
+      {/* §7 Supporting Evidence — evidence cards that justify every claim */}
+      {report.supporting_evidence?.length > 0 && (
+        <SupportingEvidenceSection cards={report.supporting_evidence} />
+      )}
+
+      {/* §8 Observed Evidence — classified, provenance-tagged */}
       {report.observed_evidence && (
         <ObservedEvidenceSection oe={report.observed_evidence} />
       )}
 
-      {/* §8 Observed IOCs — filtered, attacker-controlled only */}
+      {/* §9 Observed IOCs — filtered, attacker-controlled only */}
       {report.observed_iocs && (
         <ObservedIocsSection iocs={report.observed_iocs}
                               counts={report.technical_summary?.counts} />
       )}
 
-      {/* §9 Threat Intelligence */}
+      {/* §10 Threat Intelligence */}
       {report.threat_intelligence?.length > 0 && (
-        <ReportSectionCard num="9" title="THREAT INTELLIGENCE · CORRELATED"
+        <ReportSectionCard num="10" title="THREAT INTELLIGENCE · CORRELATED"
                             tone="fuchsia" testid="report-threat-intel">
           <ul className="space-y-1.5 text-[12px]">
             {report.threat_intelligence.map((ti, i) => (
@@ -2630,9 +2636,9 @@ function InvestigationReport({ report }) {
         </ReportSectionCard>
       )}
 
-      {/* §10 Limitations */}
+      {/* §11 Limitations */}
       {report.limitations?.length > 0 && (
-        <ReportSectionCard num="10" title="LIMITATIONS · EXPLICIT UNKNOWNS"
+        <ReportSectionCard num="11" title="LIMITATIONS · EXPLICIT UNKNOWNS"
                             tone="slate" testid="report-limitations">
           <ul className="space-y-1 text-[12px] text-slate-300">
             {report.limitations.map((l, i) => (
@@ -2647,12 +2653,13 @@ function InvestigationReport({ report }) {
   );
 }
 
-function TechnicalSummarySection({ ts }) {
+function TechnicalSummarySection({ ts, mitreByTactic }) {
   const files = ts.files || [];
   const procs = ts.processes || [];
   const net = ts.network || {};
+  const mitreEntries = Object.entries(mitreByTactic || {});
   return (
-    <ReportSectionCard num="5" title="TECHNICAL SUMMARY" tone="cyan"
+    <ReportSectionCard num="5" title="TECHNICAL FINDINGS" tone="cyan"
                         testid="report-technical-summary">
       {/* Hosts & users */}
       {(ts.hosts?.length > 0 || ts.users?.length > 0) && (
@@ -2667,6 +2674,32 @@ function TechnicalSummarySection({ ts }) {
               <span className="font-mono text-cyan-200">{ts.users.join(", ")}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* MITRE ATT&CK by tactic */}
+      {mitreEntries.length > 0 && (
+        <div className="mb-4" data-testid="mitre-by-tactic">
+          <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1.5 font-bold">
+            MITRE ATT&amp;CK · grouped by tactic
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {mitreEntries.map(([tactic, ids]) => (
+              <div key={tactic} className="border border-slate-800 rounded p-2 bg-slate-900/40"
+                   data-testid={`mitre-tactic-${tactic.replace(/\s+/g, '-').toLowerCase()}`}>
+                <div className="text-[10px] uppercase tracking-widest font-bold text-fuchsia-300 mb-1">
+                  {tactic}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {ids.map(id => (
+                    <span key={id} className="text-[10px] font-mono px-1.5 py-0.5 border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-200 rounded">
+                      {id}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -2782,6 +2815,52 @@ function TechnicalSummarySection({ ts }) {
           </div>
         </div>
       )}
+    </ReportSectionCard>
+  );
+}
+
+function SupportingEvidenceSection({ cards }) {
+  if (!cards || cards.length === 0) return null;
+  return (
+    <ReportSectionCard num="7" title="SUPPORTING EVIDENCE" tone="emerald"
+                        testid="report-supporting-evidence"
+                        subtitle={`${cards.length} evidence card${cards.length !== 1 ? 's' : ''}`}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {cards.map((c, i) => (
+          <div key={c.id} className="border border-slate-800 rounded-lg p-3 bg-slate-900/50"
+               data-testid={`evidence-card-${c.id}`}>
+            <div className="flex items-baseline gap-2 mb-1.5">
+              <span className="text-[10px] font-mono font-bold text-emerald-300">
+                #{c.id}
+              </span>
+              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">
+                {c.kind}
+              </span>
+              <ReportProvBadge provenance={c.provenance} />
+              <span className="ml-auto text-[10px] text-slate-500">
+                Conf: {c.confidence}%
+              </span>
+            </div>
+            <div className="text-[12px] font-semibold text-slate-100 break-all mb-1">
+              {c.title}
+            </div>
+            {c.observation && (
+              <div className="text-[11px] text-slate-400 break-all">
+                {c.observation}
+              </div>
+            )}
+            <div className="mt-2 flex items-center gap-3 text-[10px] text-slate-500">
+              {c.source && <span>Source: <span className="text-slate-300">{c.source}</span></span>}
+              {c.related_timeline && (
+                <span>Timeline: <span className="text-slate-300 font-mono">{c.related_timeline}</span></span>
+              )}
+              {c.sha256 && (
+                <span className="font-mono">SHA256: <span className="text-slate-300">{c.sha256.slice(0, 16)}…</span></span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </ReportSectionCard>
   );
 }

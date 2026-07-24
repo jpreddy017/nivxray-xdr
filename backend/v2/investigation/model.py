@@ -238,17 +238,17 @@ def build_model(raw: str,
     # ── Historical context — dedup on host / hash ────────────────
     seen_hosts = {e.hostname for e in mdr_events if e.hostname}
     if len(mdr_events) > 1:
+        host_str = ", ".join(f"`{h}`" for h in sorted(seen_hosts)) or "the affected endpoint"
         m.history.append(HistoricalItem(
             kind="same_host",
-            description=(f"{len(mdr_events)} events observed on the same "
-                         f"host{'(s)' if len(seen_hosts) > 1 else ''} "
-                         f"{sorted(seen_hosts) or '(unknown)'}."),
+            description=(f"{len(mdr_events)} related events were observed on "
+                         f"{host_str} within the investigation window."),
         ))
     hashes = {e.sha256 for e in mdr_events if e.sha256}
     if len(hashes) > 1:
         m.history.append(HistoricalItem(
             kind="multiple_hashes",
-            description=f"{len(hashes)} distinct file hashes observed in the incident."))
+            description=f"{len(hashes)} distinct file hashes were observed across the incident."))
 
     # ── Raw events (preserve everything) ─────────────────────────
     m.raw_events = [e.to_dict() for e in mdr_events]

@@ -55,7 +55,10 @@ _USER_RE = re.compile(r"\b(?:user|username|account)\s*[:=]\s*([A-Za-z0-9._\-@\\]
 _DETECT_RE = re.compile(r"\b(?:detection|alert|rule|threat)\s*(?:name)?\s*[:=]\s*([^\r\n]{4,180})", re.I)
 _THREAT_RE = re.compile(r"\b(?:threat\s+name|threat|malware\s*family|family)\s*[:=]\s*([^\r\n]{3,80})", re.I)
 _PARENT_RE = re.compile(r"\b(?:parent(?:\s*process)?|ppid)\s*[:=]\s*([A-Za-z0-9._\-\\/:() ]{2,200})", re.I)
-_PROC_RE   = re.compile(r"\b(?:process|image|executable)\s*[:=]\s*([A-Za-z0-9._\-\\/:() ]{2,200})", re.I)
+# `Process:` must NOT match inside `Parent Process:` — negative lookbehind on
+# "parent " (optional space/underscore). Also anchor to line-start-ish so
+# free-flowing text ("...the process spawned...") doesn't hijack the match.
+_PROC_RE   = re.compile(r"(?:^|\n|[|;])\s*(?<!parent )(?<!parent_)(?:process|image|executable|proc name)\s*[:=]\s*([A-Za-z0-9._\-\\/:() ]{2,200})", re.I)
 _CHILD_RE  = re.compile(r"\b(?:child(?:\s*process)?)\s*[:=]\s*([A-Za-z0-9._\-\\/:() ]{2,200})", re.I)
 _CMD_RE    = re.compile(r"\b(?:command\s*line|cmdline|command)\s*[:=]\s*([^\r\n]{3,4096})", re.I)
 _SHA256_RE = re.compile(r"\b(?:sha ?256|hash|filehash)\s*[:=]\s*([a-fA-F0-9]{64})\b", re.I)
