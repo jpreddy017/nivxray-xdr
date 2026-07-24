@@ -163,6 +163,18 @@ api.include_router(analyst_v2_router)
 from routers.auto_investigate import router as auto_investigate_router
 api.include_router(auto_investigate_router)
 
+# AUTO INVESTIGATE — Background Jobs + WebSocket streaming (P0.1).
+# Long-running investigations run off the request loop; the browser
+# gets a job_id immediately and subscribes via WS for live progress.
+from routers.auto_investigate_jobs import router as auto_investigate_jobs_router
+api.include_router(auto_investigate_jobs_router)
+
+# Decoded Artifact Store (P0.2) — content-addressed cache of every
+# decoded command. Powers Evidence Provenance and eliminates duplicate
+# decoding across investigations.
+from routers.decoded_artifacts import router as decoded_artifacts_router
+api.include_router(decoded_artifacts_router)
+
 # Enterprise Investigation Report Writer — Phase 6 (v2/report-writer).
 from routers.report_writer import router as report_writer_router
 api.include_router(report_writer_router)
@@ -341,6 +353,13 @@ async def _startup():
         log.info("[startup] TI feed sync scheduler armed (hourly)")
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] TI feed sync scheduler failed: {e}")
+    # P0.2 · Decoded Artifact Store indexes (content-addressed cache)
+    try:
+        from v2.decoded_artifacts import ensure_indexes as _ensure_artifact_indexes
+        await _ensure_artifact_indexes()
+        log.info("[startup] decoded artifact store indexes ensured")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] decoded artifact indexes failed: {e}")
 
 
 @app.on_event("shutdown")

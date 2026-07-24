@@ -29,6 +29,13 @@ const pickTimeout = (url = "") => {
   // 60s gives the backend comfortable headroom vs the previous 30s
   // that was tripping on shellcode / large-output cases.
   if (/\/cases\/save/i.test(url)) return 60_000;
+  // P0.1 · AUTO INVESTIGATE — the sync endpoint holds the request until
+  // decoding finishes; the async /jobs endpoint accepts up to 50 MB of
+  // incident text so the upload alone can take a while on slow links.
+  // 90 s on both paths keeps very large incidents from tripping a client
+  // timeout before the server has even started work.
+  if (/\/v2\/auto-investigate/i.test(url)) return TIMEOUT_LLM;
+  if (/\/v2\/report-writer/i.test(url)) return TIMEOUT_LLM;
   return TIMEOUT_DEFAULT;
 };
 

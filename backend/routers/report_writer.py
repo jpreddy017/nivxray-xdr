@@ -20,7 +20,7 @@ from v2.report_writer import build_report, render_markdown
 # Reuse the orchestrator that ships in routers/auto_investigate.py so we
 # don't duplicate command/entity detection logic.
 from routers.auto_investigate import (
-    _detect_commands, _extract_entities, _classify, _worst_verdict,
+    _detect_commands, _detect_commands_with_fallback, _extract_entities, _classify, _worst_verdict,
     _flatten_mitre, _merge_iocs, _severity, _findings as _cmd_findings,
     _executive_summary as _cmd_exec_summary, _recommendations,
     _investigation_quality, _osint_lookup, _run_single_command,
@@ -64,7 +64,7 @@ async def _run_investigation_async(raw: str) -> dict:
     if incident_bytes > MAX_INCIDENT_BYTES:
         raw = raw.encode("utf-8", errors="ignore")[:MAX_INCIDENT_BYTES].decode("utf-8", errors="ignore")
         incident_truncated = True
-    commands = _detect_commands(raw)
+    commands = _detect_commands_with_fallback(raw)
     if len(commands) > MAX_CMDS_PER_INCIDENT:
         commands_dropped = len(commands) - MAX_CMDS_PER_INCIDENT
         commands = commands[:MAX_CMDS_PER_INCIDENT]

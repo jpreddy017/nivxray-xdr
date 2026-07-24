@@ -121,6 +121,54 @@ def _detect_commands(text: str) -> list[dict]:
     return out
 
 
+# Regex fragments used by the "raw encoded payload" fallback below.
+_B64_ISH = re.compile(r"[A-Za-z0-9+/=]")
+_HEX_ISH = re.compile(r"[0-9a-fA-F]")
+
+
+def _fallback_encoded_payload(text: str) -> list[dict]:
+    """When no command binaries are found but the text looks like a raw
+    encoded payload (Base64/Hex/UTF-16LE-Base64 etc.), synthesise ONE
+    command whose command_line is the entire payload. This lets the
+    deterministic Orchestrator take a shot at peeling the layers even
+    when the analyst pasted only the encoded body — a very common
+    real-world flow ("here's what CrowdStrike surfaced, can you decode
+    it?"). Never fires when a real command binary is present.
+    """
+    stripped = text.strip()
+    if len(stripped) < 32:
+        return []
+    # Reject text that contains obvious natural-language sentences or
+    # protocol headers — those are alerts, not payloads.
+    sample = stripped[:4096]
+    total = len(sample)
+    b64_ratio = len(_B64_ISH.findall(sample)) / total
+    hex_ratio = len(_HEX_ISH.findall(sample)) / total
+    # Require the sample to be >=85% base64/hex chars AND to lack the
+    # spaces/punctuation typical of prose.
+    space_ratio = sample.count(" ") / total
+    if (b64_ratio < 0.85 and hex_ratio < 0.85):
+        return []
+    if space_ratio > 0.15:
+        return []
+    # Cap the synthetic command_line to the same size limit as a real
+    # command — the orchestrator has its own per-command budget too.
+    return [{
+        "binary": "raw_payload",
+        "command_line": stripped,
+        "offset": 0,
+    }]
+
+
+def _detect_commands_with_fallback(text: str) -> list[dict]:
+    """Public helper — real command detection with fallback to a single
+    raw-payload synthetic command when nothing else matches."""
+    cmds = _detect_commands(text)
+    if cmds:
+        return cmds
+    return _fallback_encoded_payload(text)
+
+
 def _extract_entities(text: str) -> dict[str, list[str]]:
     def uniq(seq):
         seen, out = set(), []
@@ -529,7 +577,7 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
 
     raw = body.incident_text
     # 1. Preserve raw incident (immutable) + extract commands/entities.
-    commands = _detect_commands(raw)
+    commands = _detect_commands_with_fallback(raw)
     entities = _extract_entities(raw)
 
     # Enforce per-incident guardrails.

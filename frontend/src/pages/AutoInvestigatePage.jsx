@@ -9,7 +9,7 @@
  * All heavy lifting happens in POST /api/v2/auto-investigate (deterministic
  * orchestrator over the existing engine). This component is the shell.
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api, { API_BASE } from "@/lib/api";
 import Header from "@/components/Header";
 
@@ -54,23 +54,108 @@ export default function AutoInvestigatePage() {
   const [report, setReport] = useState(null);
   const [reportProfile, setReportProfile] = useState("soc_analyst");
   const [reportLoading, setReportLoading] = useState(false);
+  // ─── P0.1 · Async / WebSocket streaming state ────────────────────
+  const [useAsync, setUseAsync] = useState(true);
+  const [progress, setProgress] = useState(null);   // { stage, percent, message, steps[], commands[], parseInfo, osint }
+  const [jobId, setJobId] = useState(null);
+  const wsRef = useRef(null);
+
+  const closeWs = useCallback(() => {
+    if (wsRef.current) {
+      try { wsRef.current.close(); } catch { /* noop */ }
+      wsRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => closeWs(), [closeWs]);
+
+  const runInvestigationSync = useCallback(async () => {
+    const r = await api.post("/v2/auto-investigate", {
+      incident_text: input, focus: focus || null,
+    });
+    setResult(r.data);
+  }, [input, focus]);
+
+  const runInvestigationAsync = useCallback(async () => {
+    closeWs();
+    setProgress({
+      stage: "queued", percent: 0, message: "Creating investigation job…",
+      steps: [], commands: [], chains: [], parseInfo: null, osint: null,
+    });
+    // 1. Create job.
+    const create = await api.post("/v2/auto-investigate/jobs", {
+      incident_text: input, focus: focus || null,
+    });
+    const { job_id: newJobId, ws_path } = create.data;
+    setJobId(newJobId);
+    // 2. Open WebSocket.
+    const token = localStorage.getItem("nvx_token") || "";
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
+    const wsBase = backendUrl.replace(/^http/i, "ws");
+    const wsUrl = `${wsBase}${ws_path}?token=${encodeURIComponent(token)}`;
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+    return new Promise((resolve, reject) => {
+      const finalize = (ok, payload) => {
+        closeWs();
+        if (ok) resolve(payload); else reject(payload);
+      };
+      ws.onmessage = (ev) => {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch { return; }
+        setProgress(prev => {
+          const p = { ...(prev || {}) };
+          const t = msg.type;
+          if (t === "progress") {
+            p.stage = msg.stage; p.percent = msg.percent; p.message = msg.message;
+            p.steps = [...(p.steps || []), { stage: msg.stage, percent: msg.percent, message: msg.message, ts: Date.now() }];
+          } else if (t === "command") {
+            p.commands = [...(p.commands || []), msg];
+          } else if (t === "decode_chain") {
+            p.chains = [...(p.chains || []), msg];
+          } else if (t === "parse_result") {
+            p.parseInfo = msg;
+          } else if (t === "osint_result") {
+            p.osint = msg;
+          }
+          return p;
+        });
+        if (msg.type === "result") {
+          setResult(msg.result);
+        } else if (msg.type === "done") {
+          if (msg.status === "complete") finalize(true, msg);
+          else finalize(false, new Error(msg.error || "Investigation failed"));
+        }
+      };
+      ws.onerror = () => finalize(false, new Error("WebSocket error"));
+      ws.onclose = (evt) => {
+        // If we haven't already resolved via `done`, treat unexpected close as failure.
+        if (evt.code !== 1000 && wsRef.current === ws) {
+          finalize(false, new Error(`WebSocket closed (code ${evt.code})`));
+        }
+      };
+    });
+  }, [input, focus, closeWs]);
 
   const runInvestigation = useCallback(async () => {
     if (!input.trim()) return;
     setLoading(true);
     setError("");
     setResult(null);
+    setReport(null);
     try {
-      const r = await api.post("/v2/auto-investigate", {
-        incident_text: input, focus: focus || null,
-      });
-      setResult(r.data);
+      if (useAsync) {
+        await runInvestigationAsync();
+      } else {
+        setProgress(null);
+        await runInvestigationSync();
+      }
     } catch (e) {
       setError(e.friendlyMessage || e.response?.data?.detail || String(e.message || e));
     } finally {
       setLoading(false);
     }
-  }, [input, focus]);
+  }, [input, useAsync, runInvestigationAsync, runInvestigationSync]);
 
   const downloadMarkdown = () => {
     if (!result) return;
@@ -183,6 +268,15 @@ export default function AutoInvestigatePage() {
                 Clear
               </button>
               <div className="flex items-center gap-1.5 text-xs ml-auto">
+                <label className="flex items-center gap-1.5 mr-3 select-none cursor-pointer"
+                       data-testid="async-toggle-label">
+                  <input type="checkbox" checked={useAsync}
+                         onChange={(e) => setUseAsync(e.target.checked)}
+                         disabled={loading}
+                         data-testid="async-toggle"
+                         className="accent-cyan-500" />
+                  <span className="text-slate-400">Live stream</span>
+                </label>
                 <span className="text-slate-500">Focus:</span>
                 {["", "persistence", "c2", "credential-access", "powershell"].map(f => (
                   <button key={f || "any"}
@@ -202,7 +296,11 @@ export default function AutoInvestigatePage() {
             )}
           </section>
 
-          {loading && (
+          {loading && useAsync && progress && (
+            <LiveProgress progress={progress} jobId={jobId} />
+          )}
+
+          {loading && !useAsync && (
             <div className="animate-pulse space-y-3">
               <div className="h-24 bg-slate-800/40 rounded-xl" />
               <div className="h-40 bg-slate-800/40 rounded-xl" />
@@ -211,6 +309,14 @@ export default function AutoInvestigatePage() {
           )}
 
           {result && <FinalIncidentSummary result={result} onExportMd={downloadMarkdown} onExportJson={downloadJson} />}
+
+          {/* P0.3 · Recursive Decode Tree + Statistics — always shown after a completed investigation */}
+          {result && (
+            <DecodeTreeSection
+              chains={result?.decode_pipeline?.chains || []}
+              stats={result?.decode_pipeline?.recursive_stats}
+            />
+          )}
 
           {/* Enterprise Report Writer trigger */}
           {result && !report && (
@@ -1082,4 +1188,327 @@ function markdownInline(s) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/\*\*(.+?)\*\*/g, '<b class="text-slate-100">$1</b>')
     .replace(/`([^`]+)`/g, '<code class="font-mono text-cyan-300">$1</code>');
+}
+
+
+// ─── Live Progress card (P0.1 · WebSocket streaming) ────────────
+const STAGE_ORDER = ["parsing", "decoding", "aggregating", "osint", "reporting", "done"];
+const STAGE_TONE = {
+  parsing:     { color: "text-sky-300",     ring: "border-sky-500/50",     bg: "bg-sky-500/10" },
+  decoding:    { color: "text-cyan-300",    ring: "border-cyan-500/50",    bg: "bg-cyan-500/10" },
+  aggregating: { color: "text-amber-300",   ring: "border-amber-500/50",   bg: "bg-amber-500/10" },
+  osint:       { color: "text-violet-300",  ring: "border-violet-500/50",  bg: "bg-violet-500/10" },
+  reporting:   { color: "text-emerald-300", ring: "border-emerald-500/50", bg: "bg-emerald-500/10" },
+  done:        { color: "text-emerald-200", ring: "border-emerald-500/70", bg: "bg-emerald-500/15" },
+};
+const CMD_STATUS_TONE = {
+  complete:      "border-emerald-500/50 text-emerald-200 bg-emerald-500/10",
+  timeout:       "border-amber-500/50 text-amber-200 bg-amber-500/10",
+  size_exceeded: "border-amber-500/50 text-amber-200 bg-amber-500/10",
+  error:         "border-red-500/50 text-red-200 bg-red-500/10",
+};
+
+function LiveProgress({ progress, jobId }) {
+  const stage = progress?.stage || "queued";
+  const percent = Math.max(0, Math.min(100, progress?.percent ?? 0));
+  const tone = STAGE_TONE[stage] || STAGE_TONE.parsing;
+  const commands = progress?.commands || [];
+  const parse = progress?.parseInfo;
+  const osint = progress?.osint;
+  const currentStageIdx = STAGE_ORDER.indexOf(stage);
+  return (
+    <section className={`border ${tone.ring} rounded-xl p-5 ${tone.bg}`}
+             data-testid="live-progress">
+      <div className="flex items-baseline justify-between mb-3">
+        <div>
+          <div className="text-[10px] tracking-[0.24em] font-bold text-cyan-300">
+            LIVE INVESTIGATION · WEBSOCKET STREAM
+          </div>
+          <h3 className={`text-lg font-bold ${tone.color}`} data-testid="live-progress-stage">
+            {stage.toUpperCase()} · {percent}%
+          </h3>
+          <p className="text-xs text-slate-300 mt-1" data-testid="live-progress-message">
+            {progress?.message || "Streaming events…"}
+          </p>
+        </div>
+        {jobId && (
+          <div className="text-[10px] font-mono text-slate-500" data-testid="live-progress-job-id">
+            Job: {jobId}
+          </div>
+        )}
+      </div>
+      {/* Progress bar */}
+      <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-4"
+           data-testid="live-progress-bar-wrap">
+        <div className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300"
+             style={{ width: `${percent}%` }}
+             data-testid="live-progress-bar" />
+      </div>
+      {/* Stage ladder */}
+      <div className="flex flex-wrap gap-2 mb-4" data-testid="live-progress-stages">
+        {STAGE_ORDER.filter(s => s !== "done").map((s, i) => {
+          const done = i < currentStageIdx || stage === "done";
+          const active = s === stage;
+          const t = STAGE_TONE[s];
+          return (
+            <span key={s}
+                  data-testid={`live-stage-${s}`}
+                  className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-widest border font-bold
+                    ${active ? `${t.color} ${t.ring} ${t.bg}`
+                             : done ? "text-emerald-300 border-emerald-600/50 bg-emerald-500/5"
+                                    : "text-slate-500 border-slate-700"}`}>
+              {done && !active && "✓ "}{s}
+            </span>
+          );
+        })}
+      </div>
+      {/* Parse info */}
+      {parse && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3" data-testid="live-parse-info">
+          <StatCell label="Commands" value={parse.commands_detected} />
+          <StatCell label="IOCs" value={parse.iocs_total} />
+          <StatCell label="Incident size" value={`${((parse.incident_bytes||0)/1024).toFixed(1)} KB`} />
+          <StatCell label="Truncated" value={parse.incident_truncated ? "Yes" : "No"}
+                    warn={parse.incident_truncated} />
+        </div>
+      )}
+      {/* Per-command decode stream */}
+      {commands.length > 0 && (
+        <div className="border border-slate-800 rounded-lg overflow-hidden" data-testid="live-command-table">
+          <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-3 px-3 py-1.5 text-[10px] uppercase tracking-widest text-slate-500 bg-slate-950/60">
+            <span>#</span><span>Binary</span><span>Bytes</span><span>Time</span><span>Status</span>
+          </div>
+          {commands.map((c, i) => (
+            <div key={i}
+                 data-testid={`live-command-row-${i}`}
+                 className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-3 px-3 py-1.5 text-xs border-t border-slate-800 items-center">
+              <span className="font-mono text-slate-500">{(c.index ?? i) + 1}</span>
+              <span className="font-mono text-slate-200 truncate">{c.binary}</span>
+              <span className="font-mono text-slate-400">{(c.bytes || 0).toLocaleString()}</span>
+              <span className="font-mono text-slate-400">{c.seconds ?? "—"}s</span>
+              <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase tracking-widest font-bold
+                ${CMD_STATUS_TONE[c.status] || "border-slate-600 text-slate-300"}`}>
+                {c.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* OSINT summary as soon as it lands */}
+      {osint && (
+        <div className="mt-3 text-xs text-slate-300" data-testid="live-osint-summary">
+          <span className="text-violet-300 font-bold">Threat Intel: </span>
+          {osint.matches} of {osint.total_lookups} indicator(s) matched local corpus
+          {Object.keys(osint.sources || {}).length > 0 && (
+            <span className="ml-2 text-slate-500">
+              · sources: {Object.keys(osint.sources).slice(0, 4).join(", ")}
+            </span>
+          )}
+        </div>
+      )}
+      {/* Decode Tree — live per-command recursive chain */}
+      {(progress?.chains || []).length > 0 && (
+        <div className="mt-4">
+          <div className="text-[10px] tracking-[0.24em] font-bold text-cyan-300 mb-2"
+               data-testid="live-decode-tree-header">
+            RECURSIVE DECODE TREE · {progress.chains.length} chain(s)
+          </div>
+          <div className="space-y-2">
+            {progress.chains.map((c, i) => (
+              <DecodeChainCard key={i} chain={c} />
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function StatCell({ label, value, warn }) {
+  return (
+    <div className={`border rounded p-2 ${warn ? "border-amber-500/40 bg-amber-500/5" : "border-slate-800 bg-slate-950/50"}`}>
+      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`text-sm font-bold ${warn ? "text-amber-300" : "text-slate-100"}`}>{value}</div>
+    </div>
+  );
+}
+
+
+// ─── Decode Tree components (P0.3 · Recursive Decode Chain) ─────
+const DECODER_TONE = {
+  "base64-decode":  { color: "text-cyan-300",    bg: "bg-cyan-500/10",    border: "border-cyan-500/40" },
+  "utf16-decode":   { color: "text-teal-300",    bg: "bg-teal-500/10",    border: "border-teal-500/40" },
+  "gzip-decode":    { color: "text-emerald-300", bg: "bg-emerald-500/10", border: "border-emerald-500/40" },
+  "hex-decode":     { color: "text-lime-300",    bg: "bg-lime-500/10",    border: "border-lime-500/40" },
+  "url-decode":     { color: "text-sky-300",     bg: "bg-sky-500/10",     border: "border-sky-500/40" },
+  "extract-wrapper":{ color: "text-violet-300",  bg: "bg-violet-500/10",  border: "border-violet-500/40" },
+  "ioc-extractor":  { color: "text-amber-300",   bg: "bg-amber-500/10",   border: "border-amber-500/40" },
+};
+function decoderTone(d) {
+  return DECODER_TONE[d] || { color: "text-slate-300", bg: "bg-slate-800/40", border: "border-slate-700" };
+}
+
+function VerdictBadge({ verdict, risk }) {
+  const tone = VERDICT_TONE[verdict] || VERDICT_TONE.unknown;
+  return (
+    <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase tracking-widest font-bold ${tone}`}>
+      {verdict}{typeof risk === "number" && verdict !== "unknown" ? ` · ${risk}` : ""}
+    </span>
+  );
+}
+
+function DecodeChainCard({ chain }) {
+  const layers = chain?.layers || [];
+  return (
+    <div className="border border-slate-700 rounded-lg bg-slate-950/60 overflow-hidden"
+         data-testid={`decode-chain-${chain.index}`}>
+      <header className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-800 bg-slate-900/40">
+        <span className="text-[10px] font-mono text-slate-500">#{chain.index + 1}</span>
+        <span className="font-mono text-sm text-cyan-300">{chain.binary}</span>
+        {chain.cache_hit && (
+          <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-widest font-bold
+                           border border-emerald-500/50 text-emerald-300 bg-emerald-500/10"
+                data-testid={`cache-hit-${chain.index}`}>
+            cache hit
+          </span>
+        )}
+        <span className="text-[10px] text-slate-500">layers: <span className="text-slate-200 font-bold">{chain.layer_count}</span></span>
+        {chain.terminal && (
+          <span className="text-[10px] text-slate-500">terminal: <span className="text-slate-200">{chain.terminal}</span></span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <VerdictBadge verdict={chain.verdict} risk={chain.risk_score} />
+          {(chain.mitre_ids || []).length > 0 && (
+            <span className="text-[10px] font-mono text-slate-400">
+              {chain.mitre_ids.slice(0, 4).join(" ")}
+              {chain.mitre_ids.length > 4 && ` +${chain.mitre_ids.length - 4}`}
+            </span>
+          )}
+        </div>
+      </header>
+      {chain.command_line && (
+        <div className="px-3 py-2 border-b border-slate-800 text-[11px] font-mono text-slate-400 break-all">
+          {chain.command_line}
+        </div>
+      )}
+      {layers.length === 0 ? (
+        <div className="px-3 py-3 text-xs text-slate-500 italic">
+          No recursive layers surfaced — the deterministic engine treated this input as terminal.
+        </div>
+      ) : (
+        <ol className="p-3 space-y-1.5" data-testid={`decode-chain-layers-${chain.index}`}>
+          {layers.map((L, i) => {
+            const tone = decoderTone(L.decoder);
+            const isLast = i === layers.length - 1;
+            const iocsInLayer = Object.entries(L.sub_iocs || {}).flatMap(([k, vs]) => vs.map(v => ({k, v})));
+            return (
+              <li key={i} className="flex items-start gap-3" data-testid={`layer-${chain.index}-${i}`}>
+                <div className="flex flex-col items-center pt-0.5" aria-hidden>
+                  <span className={`w-5 h-5 rounded-full border ${tone.border} ${tone.bg} flex items-center justify-center text-[10px] font-mono ${tone.color}`}>
+                    {L.layer ?? i}
+                  </span>
+                  {!isLast && <span className="w-px flex-1 bg-slate-800 mt-0.5" style={{ minHeight: 24 }} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className={`text-xs font-mono font-bold ${tone.color}`}>{L.decoder}</span>
+                    <span className="text-[10px] text-slate-500">conf {Math.round((L.confidence || 0) * 100)}%</span>
+                    <span className="text-[10px] text-slate-500">·</span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      {L.in_len ?? "?"}B → {L.out_len ?? "?"}B
+                    </span>
+                    <span className="text-[10px] text-slate-500">·</span>
+                    <span className="text-[10px] font-mono text-slate-400">{L.exec_ms ?? 0}ms</span>
+                  </div>
+                  {L.why && (
+                    <div className="text-[11px] text-slate-400 mt-0.5">{L.why}</div>
+                  )}
+                  {L.preview && (
+                    <pre className="mt-1 px-2 py-1 bg-slate-950/80 border border-slate-800 rounded text-[10px] font-mono text-slate-300 whitespace-pre-wrap break-all leading-snug">
+                      {L.preview}
+                    </pre>
+                  )}
+                  {iocsInLayer.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {iocsInLayer.slice(0, 8).map((it, ii) => (
+                        <span key={ii} className="px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-[10px] font-mono text-amber-200">
+                          {it.k}: {it.v}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function RecursiveStatsCard({ stats }) {
+  if (!stats) return null;
+  return (
+    <section className="border border-cyan-500/40 rounded-xl p-4 bg-cyan-500/5"
+             data-testid="recursive-stats">
+      <div className="flex items-baseline justify-between mb-3">
+        <div>
+          <div className="text-[10px] tracking-[0.24em] font-bold text-cyan-300">
+            RECURSIVE DECODE STATISTICS
+          </div>
+          <h3 className="text-lg font-bold text-slate-100">Layer breakdown</h3>
+        </div>
+        <span className={`px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest ${
+          stats.success_rate >= 90 ? "border-emerald-500/60 text-emerald-200 bg-emerald-500/10"
+          : stats.success_rate >= 50 ? "border-amber-500/60 text-amber-200 bg-amber-500/10"
+          : "border-red-500/60 text-red-200 bg-red-500/10"
+        }`} data-testid="recursive-success-rate">
+          {stats.success_rate}% success
+        </span>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+        <StatCell label="Commands" value={stats.commands_analysed} />
+        <StatCell label="Total layers" value={stats.total_layers} />
+        <StatCell label="Avg layers" value={stats.avg_layers} />
+        <StatCell label="Max depth" value={stats.max_depth} />
+        <StatCell label="Cache hits" value={stats.cache_hit_count} />
+        <StatCell label="Layer time" value={`${stats.total_layer_ms}ms`} />
+      </div>
+      {(stats.top_decoders || []).length > 0 && (
+        <div className="mt-3">
+          <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-1.5">Decoders used</div>
+          <div className="flex flex-wrap gap-1.5" data-testid="recursive-top-decoders">
+            {stats.top_decoders.map((d, i) => {
+              const tone = decoderTone(d.decoder);
+              return (
+                <span key={i}
+                      data-testid={`decoder-${d.decoder}`}
+                      className={`px-2 py-1 rounded-full text-[10px] font-mono font-bold border ${tone.color} ${tone.border} ${tone.bg}`}>
+                  {d.decoder} · <span className="text-slate-200">{d.count}</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DecodeTreeSection({ chains, stats }) {
+  if (!chains || chains.length === 0) return null;
+  return (
+    <section className="space-y-3" data-testid="decode-tree-section">
+      <RecursiveStatsCard stats={stats} />
+      <div>
+        <div className="text-[10px] tracking-[0.24em] font-bold text-cyan-300 mb-2">
+          RECURSIVE DECODE TREE · {chains.length} command chain(s)
+        </div>
+        <div className="space-y-2" data-testid="decode-tree-list">
+          {chains.map((c, i) => <DecodeChainCard key={i} chain={c} />)}
+        </div>
+      </div>
+    </section>
+  );
 }
