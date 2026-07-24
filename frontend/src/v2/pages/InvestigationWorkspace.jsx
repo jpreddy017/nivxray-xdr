@@ -30,6 +30,9 @@ import api from "@/lib/api";
 const DeviceTrajectoryV2 = lazy(() => import("./DeviceTrajectoryV2"));
 const AttackStoryTab     = lazy(() => import("./AttackStoryTab"));
 const AttackTab          = lazy(() => import("./AttackTab"));
+const ProcessTreeTab     = lazy(() => import("./ProcessTreeTab"));
+const EvidenceCard       = lazy(() => import("./EvidenceCard"));
+import { SelectionProvider, useSelection } from "./SelectionContext";
 
 // ═══════════════════════════════════════════════════════════════════
 // Tab manifest — the ONE place a new view is registered.
@@ -331,11 +334,13 @@ function ExplainabilityPanel({ inv, activeTab }) {
 // ═══════════════════════════════════════════════════════════════════
 // Main workspace
 // ═══════════════════════════════════════════════════════════════════
-export default function InvestigationWorkspace() {
+function InvestigationWorkspaceInner() {
   const { caseId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeKey = searchParams.get("tab") || "trajectory";
   const profile   = searchParams.get("profile") || "soc_balanced";
+  const focusFrameIid = searchParams.get("focus") || null;
+  const { setSelection } = useSelection();
 
   const [inv, setInv] = useState(null);
   const [err, setErr] = useState(null);
@@ -364,6 +369,20 @@ export default function InvestigationWorkspace() {
     return () => { cancelled = true; };
   }, [caseId, profile, enabled]);
 
+  // Hydrate the global selection from ?focus=<frame_iid> whenever the URL
+  // param changes AND the investigation model is ready.
+  useEffect(() => {
+    if (!inv || !focusFrameIid) return;
+    const evNode = (inv.ikg?.nodes || []).find(n => n.id === focusFrameIid);
+    if (!evNode) return;
+    // Find the executed_by process for this event, if any.
+    const eb = (inv.ikg?.edges || []).find(e => e.type === "executed_by" && e.source === focusFrameIid);
+    setSelection({
+      kind: "event", id: focusFrameIid, frame_iid: focusFrameIid,
+      process_iid: eb ? eb.target : null, source: "url",
+    });
+  }, [inv, focusFrameIid, setSelection]);
+
   const setTab = useCallback((key) => {
     const next = new URLSearchParams(searchParams);
     next.set("tab", key);
@@ -390,8 +409,8 @@ export default function InvestigationWorkspace() {
       ),
     },
     { key: "process",     label: "Process Tree",      testid: "tab-process",
-      comingSoon: "phase 3",
-      description: "Parent-child ancestry projection of the IKG — the primary DFIR view." },
+      render: () => <ProcessTreeTab inv={inv} />,
+    },
     { key: "story",       label: "Attack Story",      testid: "tab-story",
       render: () => <AttackStoryTab inv={inv} />,
     },
@@ -450,6 +469,11 @@ export default function InvestigationWorkspace() {
 
       <ExplainabilityPanel inv={inv} activeTab={active.label} />
 
+      {/* Global Evidence Card overlay — appears whenever a selection exists. */}
+      <Suspense fallback={null}>
+        <EvidenceCard inv={inv} />
+      </Suspense>
+
       <div className="px-4 py-1.5 text-[9px] font-mono flex items-center gap-3"
            style={{ background: T.paper, borderTop: `1px solid ${T.line}`,
                     color: T.inkFaint }}
@@ -469,5 +493,19 @@ export default function InvestigationWorkspace() {
         </span>
       </div>
     </div>
+  );
+}
+
+
+// ═════════════════════════════════════════════════════════════════════
+// Public export — wraps the workspace with SelectionProvider so every
+// tab (Story, Trajectory, Process Tree, Evidence Graph, ATT&CK, and the
+// global Evidence Card overlay) shares one selection.
+// ═════════════════════════════════════════════════════════════════════
+export default function InvestigationWorkspace() {
+  return (
+    <SelectionProvider>
+      <InvestigationWorkspaceInner />
+    </SelectionProvider>
   );
 }

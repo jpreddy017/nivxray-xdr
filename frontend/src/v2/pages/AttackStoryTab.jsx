@@ -9,6 +9,7 @@
  */
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { T } from "../theme";
+import { useSelection } from "./SelectionContext";
 
 const TACTIC_LABELS = {
   initial_access:      "Initial Access",
@@ -37,12 +38,28 @@ export default function AttackStoryTab({ inv }) {
   const navigate = useNavigate();
   const { caseId } = useParams();
   const [searchParams] = useSearchParams();
+  const { setSelection } = useSelection();
 
-  const jumpToTrajectory = (frameIid) => {
+  const jumpToTrajectory = (frameIid, processIid) => {
+    // Global selection first — Evidence Card + other views pick it up
+    // immediately, even before the URL change re-renders.
+    setSelection({
+      kind: "event", id: frameIid, frame_iid: frameIid,
+      process_iid: processIid || null, source: "story",
+    });
     const params = new URLSearchParams(searchParams);
     params.set("tab", "trajectory");
     if (frameIid) params.set("focus", frameIid);
     navigate(`/v2/case/${encodeURIComponent(caseId)}?${params.toString()}`);
+  };
+
+  const focusOnly = (frameIid, processIid) => {
+    // Same selection push but stay on the Story tab — Evidence Card
+    // opens beside the sentence without leaving the narrative.
+    setSelection({
+      kind: "event", id: frameIid, frame_iid: frameIid,
+      process_iid: processIid || null, source: "story",
+    });
   };
 
   if (story.length === 0) {
@@ -74,10 +91,12 @@ export default function AttackStoryTab({ inv }) {
         {story.map((s, idx) => {
           const tone = SEV_TONES[s.severity] || T.emerald;
           const firstFrame = s.frame_iids?.[0];
+          const firstProc  = s.process_iids?.[0];
           return (
             <li key={idx}
                 data-testid={`story-sentence-${idx}`}
-                className="rounded-md p-3 hover:bg-white/5 transition-colors"
+                className="rounded-md p-3 hover:bg-white/5 transition-colors cursor-pointer"
+                onClick={() => firstFrame && focusOnly(firstFrame, firstProc)}
                 style={{ background: T.paper2, border: `1px solid ${T.line}` }}>
               <div className="flex items-start gap-3">
                 <div className="text-[11px] font-mono font-bold"
@@ -120,7 +139,7 @@ export default function AttackStoryTab({ inv }) {
                     {firstFrame && (
                       <button
                         data-testid={`story-jump-${idx}`}
-                        onClick={() => jumpToTrajectory(firstFrame)}
+                        onClick={(e) => { e.stopPropagation(); jumpToTrajectory(firstFrame, firstProc); }}
                         className="ml-auto text-[10px] px-2 py-0.5 rounded font-mono
                                    hover:opacity-80 transition-opacity"
                         style={{ background: T.paper, color: T.emerald,

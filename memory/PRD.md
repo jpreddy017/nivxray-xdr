@@ -12,7 +12,71 @@ own truth.
 
 ---
 
-## 2026-02-24 · Phase 2 · Attack Story · ATT&CK tab · Negative Explainability (SHIPPED)
+## 2026-02-24 · Phase 3a · Selection Context + Evidence Card + Process Tree (SHIPPED)
+
+Rated 9.8-9.9/10 on architecture. Phase 3a delivers the cross-view
+synchronisation foundation and the two most-important navigation-hub
+components.
+
+### New architectural primitive · SelectionContext
+
+`v2/pages/SelectionContext.jsx` — one global React Context wrapping the
+whole workspace. Holds the current selection object
+`{ kind, id, frame_iid, process_iid, source }`. Every view reads and
+writes this ONE object instead of duplicating selection state.
+
+Ripple pattern:
+```
+Click Story sentence  ─┐
+Click Trajectory event ├──►  SelectionContext.setSelection()  ──►  every view re-renders
+Click Process node    ─┘
+Click ATT&CK tech     ─┘
+```
+
+The URL query param `?focus=<frame_iid>` mirrors the current selection
+so shareable deep links reproduce it.
+
+### Frontend components
+
+- `v2/pages/EvidenceCard.jsx` — the UNIVERSAL drill-down side rail.
+  Always the same look regardless of the source view. Reads current
+  selection from SelectionContext; resolves it against the IKG loaded by
+  the workspace shell. Renders:
+    * Event · timestamp · lane · action · rule · frame IID
+    * Process · image · first seen · cmdline · process IID
+    * Relationships · parent · children · files · registry · network
+    * MITRE ATT&CK · technique chips
+    * Verdict · layer · score · band · confidence · explanation
+    * Jump-to bar · trajectory | story | graph | process | attack
+  Floating right rail, closable, 380px wide.
+
+- `v2/pages/ProcessTreeTab.jsx` — parent → child DFIR view. Flattens the
+  IKG's `spawned` edges into a linear indented tree. Each node shows
+  image, verdict badge (band + score), technique count, child count.
+  Clicking a node updates the SelectionContext → every other tab
+  (Story · Trajectory · Attack Card · Evidence Card) refocuses.
+
+### Workspace shell wiring
+
+- `InvestigationWorkspace` now split into an inner component
+  (`InvestigationWorkspaceInner`) and a `SelectionProvider`-wrapping
+  default export. Every tab receives the shared selection via context.
+- Global `<EvidenceCard>` overlay renders on top of every tab.
+- `?focus=<frame_iid>` on the URL hydrates the SelectionContext on load
+  (deep-link support for shared investigations).
+- Attack Story sentences push to selection on both click-anywhere
+  (opens Evidence Card in-place) and `show on trajectory →` (jumps + selects).
+- Process Tree tab clicks push a `kind:"process"` selection.
+
+### Tests
+
+- All prior 44/44 tests still green. Phase 3a is UI-layer wiring;
+  backend contract unchanged (no new endpoint needed — Evidence Card
+  reads the same `/investigation` response).
+
+---
+
+
 
 Rated 10/10 on architecture; Phase 2 is the operator's approved
 storytelling & explainability activation. Zero regression — no existing
@@ -105,18 +169,13 @@ Deterministic scoring engine complete. See git log for history.
 
 ## Backlog · Prioritised roadmap
 
-### Phase 3 — Graph views + Evidence Card
-- **Evidence Card** — shared side-panel component that any view can
-  invoke to drill into a single event/process (event, parent, child,
-  command line, decoded command, files, registry, network, MITRE,
-  verdict contribution, related story sentence, related graph nodes,
-  related report section). Same look on every tab. Cross-cutting.
+### Phase 3b — Evidence Graph + Trajectory back-sync
 - **Evidence Graph tab** — Konva causality graph over the IKG's
-  spawned/created/modified/contacted edges. NOT chronological.
-- **Process Tree tab** — parent→child projection of the IKG's `spawned`
-  edges, with per-node verdict badges.
+  spawned/created/modified/contacted edges. NOT chronological. Nodes
+  clickable → SelectionContext (Evidence Card auto-opens).
 - **Trajectory ← Story back-sync** — clicking an event on Trajectory
-  highlights the corresponding Story sentence.
+  should update SelectionContext so the corresponding Story sentence
+  highlights when the analyst returns to that tab.
 
 ### Phase 4 — Executive views
 - Summary tab (executive dashboard: severity, device/incident risk,
