@@ -1188,21 +1188,63 @@ function Empty({ text }) {
 }
 
 function EntityGrid({ entities }) {
-  const buckets = Object.entries(entities).filter(([, v]) => Array.isArray(v) && v.length > 0);
-  if (buckets.length === 0) return <Empty text="No indicators of compromise extracted." />;
+  const SPECIAL = new Set(["user_agents", "strings"]);
+  const specialBuckets = Object.entries(entities).filter(
+    ([k, v]) => SPECIAL.has(k) && Array.isArray(v) && v.length > 0);
+  const buckets = Object.entries(entities).filter(
+    ([k, v]) => !SPECIAL.has(k) && Array.isArray(v) && v.length > 0);
+  if (buckets.length === 0 && specialBuckets.length === 0)
+    return <Empty text="No indicators of compromise extracted." />;
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-      {buckets.map(([label, values]) => (
-        <div key={label} className="border border-slate-800 rounded p-2 bg-slate-950/60">
-          <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">
-            {label} ({values.length})
+    <div className="space-y-3">
+      {buckets.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {buckets.map(([label, values]) => (
+            <div key={label} className="border border-slate-800 rounded p-2 bg-slate-950/60">
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">
+                {label} ({values.length})
+              </div>
+              <ul className="text-xs font-mono text-slate-200 space-y-0.5 break-all">
+                {values.slice(0, 6).map((v, i) => <li key={i}>{v}</li>)}
+                {values.length > 6 && <li className="text-slate-500">…{values.length - 6} more</li>}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* User-Agents get a full-width block because they're long. */}
+      {(entities.user_agents || []).length > 0 && (
+        <div className="border border-violet-500/40 rounded p-2.5 bg-violet-500/5"
+             data-testid="ioc-user-agents">
+          <div className="text-[10px] text-violet-300 uppercase tracking-widest mb-1.5 font-bold">
+            User-Agents ({entities.user_agents.length})
           </div>
-          <ul className="text-xs font-mono text-slate-200 space-y-0.5 break-all">
-            {values.slice(0, 6).map((v, i) => <li key={i}>{v}</li>)}
-            {values.length > 6 && <li className="text-slate-500">…{values.length - 6} more</li>}
+          <ul className="text-xs font-mono text-slate-200 space-y-1 break-all">
+            {entities.user_agents.map((v, i) => (
+              <li key={i} className="border-l-2 border-violet-500/40 pl-2">{v}</li>
+            ))}
           </ul>
         </div>
-      ))}
+      )}
+      {/* Extracted printable strings — dense two-column layout. */}
+      {(entities.strings || []).length > 0 && (
+        <div className="border border-amber-500/40 rounded p-2.5 bg-amber-500/5"
+             data-testid="ioc-strings">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="text-[10px] text-amber-300 uppercase tracking-widest font-bold">
+              Extracted strings ({entities.strings.length})
+            </div>
+            <div className="text-[10px] text-slate-500">from recovered payload</div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-0.5 max-h-64 overflow-y-auto">
+            {entities.strings.map((s, i) => (
+              <div key={i} className="text-[11px] font-mono text-amber-100 truncate" title={s}>
+                {s}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1500,6 +1542,68 @@ function DecodeChainCard({ chain }) {
             );
           })}
         </ol>
+      )}
+      {/* Per-chain enrichment surfaced from the recovered payload */}
+      <ChainEnrichment enrichment={chain.enrichment} chainIndex={chain.index} />
+    </div>
+  );
+}
+
+function ChainEnrichment({ enrichment, chainIndex }) {
+  if (!enrichment) return null;
+  const uas = enrichment.artefacts?.user_agents || [];
+  const strings = enrichment.strings || [];
+  const artefacts = enrichment.artefacts || {};
+  const otherBuckets = Object.entries(artefacts).filter(
+    ([k, v]) => k !== "user_agents" && Array.isArray(v) && v.length > 0);
+  if (uas.length === 0 && strings.length === 0 && otherBuckets.length === 0) return null;
+  return (
+    <div className="border-t border-slate-800 bg-slate-950/40 p-3 space-y-2"
+         data-testid={`chain-enrichment-${chainIndex}`}>
+      <div className="text-[10px] tracking-[0.24em] font-bold text-emerald-300">
+        RECOVERED PAYLOAD · ARTEFACTS
+      </div>
+      {uas.length > 0 && (
+        <div data-testid={`chain-user-agents-${chainIndex}`}>
+          <div className="text-[10px] uppercase tracking-widest text-violet-300 font-bold mb-1">User-Agent</div>
+          <ul className="text-[11px] font-mono text-slate-100 space-y-0.5 break-all">
+            {uas.map((ua, i) => (
+              <li key={i} className="border-l-2 border-violet-500/50 pl-2">{ua}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {otherBuckets.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {otherBuckets.map(([k, vs]) => (
+            <div key={k} className="border border-slate-800 rounded p-2 bg-slate-950/60">
+              <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+                {k.replace(/_/g, " ")} ({vs.length})
+              </div>
+              <ul className="text-[11px] font-mono text-slate-200 space-y-0.5 break-all">
+                {vs.slice(0, 6).map((v, i) => <li key={i}>{v}</li>)}
+                {vs.length > 6 && <li className="text-slate-500">…{vs.length - 6} more</li>}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+      {strings.length > 0 && (
+        <div data-testid={`chain-strings-${chainIndex}`}>
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-[10px] uppercase tracking-widest text-amber-300 font-bold">
+              Extracted strings ({strings.length})
+            </div>
+            <div className="text-[10px] text-slate-500">from recovered payload · GNU strings-style</div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-0.5 max-h-40 overflow-y-auto">
+            {strings.map((s, i) => (
+              <div key={i} className="text-[11px] font-mono text-amber-100 truncate" title={s}>
+                {s}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

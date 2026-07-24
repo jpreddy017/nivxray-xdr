@@ -31,6 +31,7 @@ from v2.decoded_artifacts import (
     upsert_artifact as _artifact_upsert,
     sha256_of as _sha256_of,
 )
+from v2.enrichment.strings_extractor import enrich_report as _enrich_report
 
 log = logging.getLogger("nivx.jobs.pipeline")
 
@@ -98,10 +99,13 @@ def _project_decode_chain(cmd: dict, report, status: dict, cache_hit: bool, idx:
     """Project a per-command AnalystReport into a UI-friendly recursive
     decode chain. Used by the frontend Decode Tree component."""
     layers: list[dict] = []
+    trace_previews: list[str] = []
     if report is not None:
         for step in (getattr(report, "trace", None) or []):
             # step is a Pydantic TraceStep — normalise to a plain dict
             s = step.model_dump() if hasattr(step, "model_dump") else dict(step)
+            preview = (s.get("preview") or "")
+            trace_previews.append(preview)
             layers.append({
                 "layer":      s.get("layer"),
                 "decoder":    s.get("decoder"),
@@ -110,10 +114,21 @@ def _project_decode_chain(cmd: dict, report, status: dict, cache_hit: bool, idx:
                 "in_len":     s.get("in_len"),
                 "out_len":    s.get("out_len"),
                 "exec_ms":    s.get("exec_ms"),
-                "preview":    (s.get("preview") or "")[:200],
+                "preview":    preview[:200],
                 "sub_iocs":   {k: v[:12] for k, v in (s.get("sub_iocs") or {}).items() if v},
             })
     findings = getattr(report, "findings", None)
+    # ── Strings & artefact enrichment (deterministic — surfaces UAs,
+    # extracted printable strings, file paths, registry keys etc.
+    # from the recovered payload). Purely descriptive; no verdict impact.
+    enrichment: dict = {}
+    if report is not None:
+        try:
+            report_output = getattr(report, "output", "") or ""
+            enrichment = _enrich_report(report_output, trace_previews)
+        except Exception as e:  # noqa: BLE001
+            log.warning("strings enrichment failed idx=%s: %s", idx, e)
+            enrichment = {}
     return {
         "index":         idx,
         "binary":        cmd.get("binary"),
@@ -131,6 +146,7 @@ def _project_decode_chain(cmd: dict, report, status: dict, cache_hit: bool, idx:
         "mitre_ids":     sorted({(m.id if hasattr(m, "id") else m.get("id"))
                                  for m in (getattr(findings, "mitre_techniques", None) or [])
                                  if (m.id if hasattr(m, "id") else m.get("id"))}) if findings else [],
+        "enrichment":    enrichment,
     }
 
 
@@ -260,6 +276,43 @@ async def run_investigation_with_progress(
         if entities.get("ips") or entities.get("domains") else "Benign / Informational")
     mitre = _flatten_mitre(reports)
     iocs = _merge_iocs(reports, entities)
+
+    # ── Strings & artefact aggregation across every chain ──────
+    # Surfaces User-Agents, extracted printable strings, and any URL /
+    # path / registry / cmdlet artefacts that appear inside recovered
+    # payloads but weren't already captured as first-class IOCs.
+    all_strings: list[str] = []
+    all_user_agents: list[str] = []
+    for _ch in decode_chains:
+        enr = _ch.get("enrichment") or {}
+        for s in enr.get("strings") or []:
+            if s not in all_strings:
+                all_strings.append(s)
+        for ua in (enr.get("artefacts", {}) or {}).get("user_agents") or []:
+            if ua not in all_user_agents:
+                all_user_agents.append(ua)
+        # Fold newly-surfaced network artefacts back into the top-level IOCs
+        # so the UI's IOC Summary card is complete without duplicating.
+        for u in (enr.get("artefacts", {}) or {}).get("urls") or []:
+            if u not in iocs.setdefault("urls", []):
+                iocs["urls"].append(u)
+        for h in (enr.get("artefacts", {}) or {}).get("hostnames") or []:
+            if h not in iocs.setdefault("domains", []):
+                iocs["domains"].append(h)
+        for ip in (enr.get("artefacts", {}) or {}).get("ipv4") or []:
+            if ip not in iocs.setdefault("ips", []):
+                iocs["ips"].append(ip)
+        for fp in (enr.get("artefacts", {}) or {}).get("file_paths") or []:
+            if fp not in iocs.setdefault("files", []):
+                iocs["files"].append(fp)
+        for rk in (enr.get("artefacts", {}) or {}).get("registry") or []:
+            if rk not in iocs.setdefault("registry", []):
+                iocs["registry"].append(rk)
+    if all_user_agents:
+        iocs["user_agents"] = all_user_agents
+    if all_strings:
+        # Cap to keep the report lean; the full list stays per-chain.
+        iocs["strings"] = all_strings[:80]
     severity = _severity(verdict)
     findings = _cmd_findings(reports, commands)
     summary = _cmd_exec_summary(raw, commands, verdict, classification, iocs, mitre)
