@@ -218,6 +218,7 @@ try:
     from v2.routers import investigation_router as _v2_investigation_router
     from v2.routers import ikb_router as _v2_ikb_router
     from v2.routers import ingestion_router as _v2_ingestion_router
+    from v2.routers import validation_router as _v2_validation_router
     api.include_router(_v2_cases_router)
     api.include_router(_v2_parse_router)
     api.include_router(_v2_trajectory_router)
@@ -231,6 +232,7 @@ try:
     api.include_router(_v2_investigation_router)
     api.include_router(_v2_ikb_router)
     api.include_router(_v2_ingestion_router)
+    api.include_router(_v2_validation_router)
 except Exception as _v2_exc:                             # pragma: no cover
     import logging as _logging
     _logging.getLogger(__name__).info(

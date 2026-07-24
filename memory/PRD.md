@@ -12,6 +12,118 @@ own truth.
 
 ---
 
+## 2026-02-25 · Phase 4.2 · Validation Pack — the release gate (SHIPPED)
+
+Per operator direction: **"correctness is more valuable than new
+features."** Every code change touching ingestion, normalization,
+correlation, IKG, story, or the verdict engine must now clear a
+34-dataset validation gate before merge.
+
+### ExpectedInvestigation contract
+
+`v2/ingestion/golden_corpus.py` — every Golden Corpus dataset now
+declares a full `ExpectedInvestigation` contract:
+
+```
+verdict · confidence_band · device_score_min/max · incident_score_min/max
+expected_mitre · expected_tactics_required · expected_tactics_optional
+expected_story_sequence (semantic checkpoints) · expected_story_keywords
+expected_processes · expected_parent_child · expected_iocs
+expected_workspace_tabs · expected_report_sections
+expected_verdict_reasoning · expected_explainability · expected_false_positive
+```
+
+Semantic story checkpoints (resilient to sentence wording):
+`office_spawn · powershell · encoded_execution · download · persistence ·
+credential_access · discovery · lateral_movement · c2 · impact ·
+exfiltration · benign · defense_evasion`.
+
+### Corpus (34 datasets · 4 categories)
+
+**Benign (13)** — clean_workstation · clean_server · defender_scan ·
+onedrive_sync · chrome_update · windows_update · vmware_tools · citrix ·
+vpn_client · backup_agent · monitoring_agent
+**Ambiguous (2)** — intune_deploy · enterprise_admin
+**Suspicious (8)** — powershell_encoded · lolbas_certutil · mshta ·
+wscript_download · rundll32_abuse · regsvr32_scrobj · office_macro_only ·
+onenote_phish
+**Malicious (13)** — office_phishing · cobalt_strike · ransomware ·
+info_stealer · lumma · bumblebee · icedid · qakbot · asyncrat · remcos ·
+akira · lockbit · black_basta
+
+### Runner + 11-dimension matrix
+
+`v2/validation/runner.py` — deterministic per-dataset runner. Scores
+each dimension independently and marks a dataset PASS only when every
+declared assertion holds. Ships with a `ValidationSummary` producing:
+- overall_accuracy
+- per-dimension accuracy (Verdict · Score · FP-Guard · MITRE · Story ·
+  StoryText · Processes · Parent-Child · IOCs · Workspace · Report)
+- average_investigation_ms · duration_ms
+
+### Endpoints
+
+- `GET /api/v2/validation/datasets` — list every dataset + declared assertions
+- `GET /api/v2/validation/run`      — run the full suite → matrix + metrics
+- `GET /api/v2/validation/run/{id}` — run one dataset
+
+### Frontend (`/v2/validation`)
+
+Full-color validation matrix (`ValidationPage.jsx`) with category pills,
+per-dimension pass/fail cells, per-cell tooltips showing the exact
+`expected vs got` detail, and CI metrics header.
+
+### Under-the-hood fixes required to reach 100%
+
+1. `v2/shadow/irg.py` — preserved caller-supplied `parent.name` on
+   enriched frames (previously stripped, blocking `SUSPICIOUS_PARENT`
+   signal on ingested telemetry).
+2. `v2/ingestion/canonical.py` — enriched `ces_to_cem_dict()`
+   provenance with `cmdline`, `target`, `parent_name` so the frozen
+   v3.1b Verdict Engine picks up ingested telemetry without touching
+   signals.py.
+3. `v2/ingestion/mitre_map.py` — deterministic keyword → MITRE mapper
+   (T1027 · T1059 · T1105 · T1218 · T1547 · T1543 · T1053 · T1003 ·
+   T1082 · T1021 · T1490 · T1486 · T1562 · T1071).
+
+### CI release gate
+
+`tests/test_validation_pack.py` — 8 guardrail tests. **The build fails
+on any regression:**
+- test_all_datasets_pass
+- test_overall_accuracy_is_100_percent
+- test_every_dimension_at_100_percent
+- test_benign_datasets_never_flagged_malicious
+- test_malicious_datasets_score_at_least_15
+- test_investigation_is_fast (≤ 250 ms per dataset)
+- test_categories_populated
+- test_corpus_size_at_least_30
+
+### Results · 34/34 · 100% accuracy · 4.43 ms/dataset
+
+Total suite (Phase 3 + 4.1 + 4.2): **83/83 tests green**.
+- test_ingestion_phase4 · 21/21
+- test_validation_pack  ·  8/8
+- test_investigation_ikg · 10/10
+- test_investigation_phase2 · 9/9
+- test_verdict_v3 · 9/9
+- test_verdict_v3_correlation · 12/12
+- test_verdict_v3_1b · 14/14
+
+### Approved roadmap forward
+
+1. **✅ Phase 4.1** · Investigation Ingestion Engine
+2. **✅ Phase 4.2** · Validation Pack + Golden Corpus expansion
+3. **Phase 5**  · Evidence Graph (Konva causality view over IKG edges)
+4. **Phase 5.5** · Enterprise Adapters (Defender · CrowdStrike ·
+   SentinelOne · Cisco SEP · Splunk · QRadar) — all normalize into CES
+5. **Continuous** · IKB expansion (Volumes 1-11)
+6. **Phase 6** · Real Customer Replay Validation (accuracy metrics
+   against real logs vs expected investigations)
+7. **Phase 7** · Multi-host investigations (device_group node in IKG)
+
+---
+
 ## 2026-02-25 · Phase 4.1 · Investigation Ingestion Engine (SHIPPED)
 
 Operator direction: architecture is frozen. The absolute next pivot is

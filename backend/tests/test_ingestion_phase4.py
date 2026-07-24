@@ -281,8 +281,11 @@ def test_ces_fields_locked():
 def test_golden_corpus_lists_six_datasets():
     ds = list_datasets()
     ids = {d["id"] for d in ds}
+    # Phase 4.2 expanded the corpus to 34 datasets; the original 6 must
+    # remain present.
     assert {"clean_workstation", "office_phishing", "cobalt_strike",
-            "enterprise_admin", "ransomware", "info_stealer"} == ids
+            "enterprise_admin", "ransomware", "info_stealer"} <= ids
+    assert len(ids) >= 30
 
 
 def test_golden_dataset_investigation_roundtrip():

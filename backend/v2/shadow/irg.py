@@ -180,6 +180,10 @@ def enrich(frames: list[dict]) -> list[dict]:
         f["parent"] = {
             "iid":  existing_parent.get("iid")  or pid,
             "type": existing_parent.get("type") or ("process" if pid else None),
+            # Preserve caller-supplied parent binary name — critical for the
+            # frozen v3.1b Verdict Engine's SUSPICIOUS_PARENT detector, which
+            # reads `parent.name` when the iid isn't a bare filename.
+            "name": existing_parent.get("name") or "",
         }
         f["root"] = {"iid": root_iid}
         f["relationship"] = {

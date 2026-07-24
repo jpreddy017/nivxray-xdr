@@ -494,6 +494,12 @@ function InvestigationWorkspaceInner() {
                 style={{ color: T.amber }}>
             + ingest logs
           </Link>
+          <Link to="/v2/validation"
+                data-testid="link-validation"
+                className="hover:underline mr-4"
+                style={{ color: T.blue }}>
+            validation pack →
+          </Link>
           <Link to={`/v2/trajectory/${caseId}`}
                 data-testid="link-legacy-trajectory"
                 className="hover:underline"

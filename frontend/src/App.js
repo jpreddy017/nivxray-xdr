@@ -51,6 +51,8 @@ const V2InvestigationWorkspace = lazy(() => import("@/v2/pages/InvestigationWork
 // v2 · Investigation Ingestion Engine (Phase 4.1) — drag-drop uploader,
 // canonical event schema normalizer, golden corpus seed buttons.
 const V2IngestionPage          = lazy(() => import("@/v2/pages/IngestionPage"));
+// v2 · Validation Pack (Phase 4.2) — Golden Corpus × Expected Investigation matrix.
+const V2ValidationPage         = lazy(() => import("@/v2/pages/ValidationPage"));
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -132,6 +134,8 @@ function App() {
               <Route path="/v2/case/:caseId" element={<Protected><V2InvestigationWorkspace /></Protected>} />
               {/* v2 · Investigation Ingestion Engine — drag-drop upload page */}
               <Route path="/v2/ingest" element={<Protected><V2IngestionPage /></Protected>} />
+              {/* v2 · Validation Pack — 34-dataset Golden Corpus matrix */}
+              <Route path="/v2/validation" element={<Protected><V2ValidationPage /></Protected>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
