@@ -47,6 +47,8 @@ from .weights import (
     CORROBORATION_REQUIRED,
     CORROBORATION_CAP,
 )
+from .profiles import get_profile, apply_weights, apply_family_caps
+from .progressions import match_progressions
 
 # ─── Data model ─────────────────────────────────────────────────────
 
@@ -67,6 +69,9 @@ class AggregateVerdict:
     families: list[str] = field(default_factory=list)
     mitre_tactics: list[str] = field(default_factory=list)
     correlation_bonuses: list[dict] = field(default_factory=list)
+    progressions: list[dict] = field(default_factory=list)              # NEW v3.1b
+    tactic_coverage: dict[str, dict] = field(default_factory=dict)      # NEW v3.1b
+    score_escalation: list[dict] = field(default_factory=list)          # NEW v3.1b
     children: list[str] = field(default_factory=list)  # ids of subordinate layer entries
 
     def to_dict(self) -> dict[str, Any]:
@@ -78,6 +83,7 @@ class CorrelationReport:
     """Full multi-layer correlation output for a single case."""
     engine: str = "v3.1"
     case_id: str | None = None
+    profile: str = "soc_balanced"                                        # NEW v3.1b
     events: dict[str, dict] = field(default_factory=dict)        # frame_iid → per-event verdict
     processes: dict[str, AggregateVerdict] = field(default_factory=dict)
     chains: dict[str, AggregateVerdict] = field(default_factory=dict)
@@ -88,6 +94,7 @@ class CorrelationReport:
         return {
             "engine":    self.engine,
             "case_id":   self.case_id,
+            "profile":   self.profile,
             "events":    self.events,
             "processes": {k: v.to_dict() for k, v in self.processes.items()},
             "chains":    {k: v.to_dict() for k, v in self.chains.items()},
@@ -133,11 +140,16 @@ def _tactic_of(base: str) -> str | None:
     return _TACTIC_OF_BASE.get(base)
 
 
-def _apply_family_caps(hits: list[dict]) -> tuple[int, list[dict]]:
+def _apply_family_caps(hits: list[dict],
+                       weights: dict[str, int] | None = None,
+                       family_caps: dict[str, int] | None = None) -> tuple[int, list[dict]]:
     """Group unique signal hits by family, apply anti-inflation caps.
 
-    Returns (positive_score, breakdown_list).
+    Optional `weights` / `family_caps` overrides implement profile support
+    without mutating the module-level tables.
     """
+    W = weights or WEIGHTS
+    C = family_caps or FAMILY_CAPS
     per_family: dict[str, list[dict]] = defaultdict(list)
     for h in hits:
         fam = FAMILY_OF.get(h["signal"], "execution")
@@ -146,12 +158,12 @@ def _apply_family_caps(hits: list[dict]) -> tuple[int, list[dict]]:
     total = 0
     breakdown: list[dict] = []
     for fam, hs in per_family.items():
-        raw = sum(WEIGHTS.get(h["signal"], 0) for h in hs)
-        cap = FAMILY_CAPS.get(fam, 40)
+        raw = sum(W.get(h["signal"], 0) for h in hs)
+        cap = C.get(fam, 40)
         capped = min(raw, cap)
         factor = (capped / raw) if raw > 0 else 1.0
         for h in hs:
-            w = WEIGHTS.get(h["signal"], 0)
+            w = W.get(h["signal"], 0)
             eff = int(round(w * factor))
             total += eff
             breakdown.append({
@@ -171,56 +183,53 @@ def _apply_correlation_bonuses(
     tactics: set[str],
     proc_ids_with_signals: set[str],
     lanes: set[str],
+    bonus_multiplier: float = 1.0,
 ) -> tuple[int, list[dict]]:
     """Return (bonus_total, applied_bonuses)."""
     bonuses: list[dict] = []
     total = 0
+    mul = float(bonus_multiplier or 1.0)
+
+    def _add(key: str, base_weight: int, reason: str) -> None:
+        nonlocal total
+        w = int(round(base_weight * mul))
+        bonuses.append({"signal": key, "weight": w, "base_weight": base_weight,
+                        "multiplier": mul, "reason": reason})
+        total += w
 
     # Multi-family — highest-tier only.
     n_fam = len(families - {"decay"})
     for threshold, weight, key in MULTI_FAMILY_BONUSES:
         if n_fam >= threshold:
-            bonuses.append({"signal": key, "weight": weight,
-                            "reason": f"{n_fam} distinct signal families corroborate"})
-            total += weight
+            _add(key, weight, f"{n_fam} distinct signal families corroborate")
             break
 
     # Tactic coverage — highest-tier only.
     n_tac = len(tactics)
     for threshold, weight, key in TACTIC_COVERAGE_BONUSES:
         if n_tac >= threshold:
-            bonuses.append({"signal": key, "weight": weight,
-                            "reason": f"{n_tac} MITRE tactic(s) covered"})
-            total += weight
+            _add(key, weight, f"{n_tac} MITRE tactic(s) covered")
             break
 
     # Multi-process corroboration.
     mp_key, mp_w, mp_th = MULTI_PROCESS_BONUS
     if len(proc_ids_with_signals) >= mp_th:
-        bonuses.append({"signal": mp_key, "weight": mp_w,
-                        "reason": f"{len(proc_ids_with_signals)} distinct processes contribute signals"})
-        total += mp_w
+        _add(mp_key, mp_w, f"{len(proc_ids_with_signals)} distinct processes contribute signals")
 
     # Cross-lane attack.
     xl_key, xl_w, xl_th = CROSS_LANE_BONUS
     if len(lanes) >= xl_th:
-        bonuses.append({"signal": xl_key, "weight": xl_w,
-                        "reason": f"attack spans {len(lanes)} lanes: {sorted(lanes)}"})
-        total += xl_w
+        _add(xl_key, xl_w, f"attack spans {len(lanes)} lanes: {sorted(lanes)}")
 
     # Impact chain (execution + persistence + impact).
     ic_key, ic_w, ic_reqs = IMPACT_CHAIN_BONUS
     if set(ic_reqs).issubset(families):
-        bonuses.append({"signal": ic_key, "weight": ic_w,
-                        "reason": "execution → persistence → impact chain observed"})
-        total += ic_w
+        _add(ic_key, ic_w, "execution → persistence → impact chain observed")
 
     # Credential-to-lateral chain.
     cl_key, cl_w, cl_reqs = CRED_TO_LATERAL_BONUS
     if set(cl_reqs).issubset(families):
-        bonuses.append({"signal": cl_key, "weight": cl_w,
-                        "reason": "credential → evasion → network chain observed"})
-        total += cl_w
+        _add(cl_key, cl_w, "credential → evasion → network chain observed")
 
     return total, bonuses
 
@@ -236,11 +245,14 @@ def _confidence(n_signals: int, n_procs_with_sig: int, n_lanes: int, n_tactics: 
     return min(100, c)
 
 
-def _explain(breakdown: list[dict], bonuses: list[dict], corroboration_applied: bool) -> str:
+def _explain(breakdown: list[dict], bonuses: list[dict],
+             corroboration_applied: bool, progressions: list[dict] | None = None) -> str:
     top = sorted(breakdown, key=lambda b: b["effective_weight"], reverse=True)[:3]
     parts = [f'{b["signal"]}(+{b["effective_weight"]})' for b in top]
     for b in bonuses[:2]:
         parts.append(f'{b["signal"]}(+{b["weight"]})')
+    for p in (progressions or [])[:1]:
+        parts.append(f'{p["signal"]}(+{p.get("effective_weight", p["weight"])})')
     if corroboration_applied:
         parts.append("corroboration-capped")
     return "; ".join(parts) if parts else "no signals fired"
@@ -277,10 +289,22 @@ def _collect_signals_for_frame(frame: dict, ctx: dict) -> list[dict]:
 
 # ─── Aggregation entry point ────────────────────────────────────────
 
-def correlate(frames: list[dict], case_id: str | None = None) -> CorrelationReport:
-    """Run the full multi-layer correlation on IRG-enriched frames."""
+def correlate(frames: list[dict], case_id: str | None = None,
+              profile: str | None = None) -> CorrelationReport:
+    """Run the full multi-layer correlation on IRG-enriched frames.
+
+    Optional `profile` selects an Adaptive Weight Profile (SOC Balanced,
+    Threat Hunting, DFIR, High Security, Cloud Workload, OT/ICS).
+    """
+    prof = get_profile(profile)
+    weights_override     = apply_weights(WEIGHTS, prof)
+    family_caps_override = apply_family_caps(FAMILY_CAPS, prof)
+    bonus_multiplier     = float(prof.get("bonus_multiplier", 1.0))
+    band_shift           = int(prof.get("band_shift", 0))
+    profile_id           = (profile or "soc_balanced").lower()
+
     if not frames:
-        return CorrelationReport(case_id=case_id)
+        return CorrelationReport(case_id=case_id, profile=profile_id)
 
     # 1 · Per-event scoring — build ctx (file-write counters per entity) once.
     file_writes: dict[str, int] = defaultdict(int)
@@ -335,6 +359,9 @@ def correlate(frames: list[dict], case_id: str | None = None) -> CorrelationRepo
     # 2 · Aggregate per process.
     processes: dict[str, AggregateVerdict] = {}
     for pid, hits in signals_by_process.items():
+        # child_scores at the process layer = every event's own score.
+        event_scores = [event_verdicts[fid]["score"] for fid in events_by_process[pid]
+                        if fid in event_verdicts]
         av = _aggregate_layer(
             layer="process",
             layer_id=pid,
@@ -345,6 +372,11 @@ def correlate(frames: list[dict], case_id: str | None = None) -> CorrelationRepo
             proc_ids_with_signals={pid},
             lanes=lanes_by_process[pid],
             mitre_bases=mitre_by_process[pid],
+            weights_override=weights_override,
+            family_caps_override=family_caps_override,
+            bonus_multiplier=bonus_multiplier,
+            band_shift=band_shift,
+            child_scores=event_scores,
         )
         processes[pid] = av
 
@@ -461,6 +493,8 @@ def correlate(frames: list[dict], case_id: str | None = None) -> CorrelationRepo
         for bucket in seen_signals.values():
             chain_hits.append(bucket)
 
+        # Child scores for this chain = per-process scores that we already computed.
+        child_proc_scores = [processes[pid].score for pid in desc if pid in processes]
         av = _aggregate_layer(
             layer="chain",
             layer_id=cr,
@@ -471,6 +505,11 @@ def correlate(frames: list[dict], case_id: str | None = None) -> CorrelationRepo
             proc_ids_with_signals=proc_ids_with_sig,
             lanes=lanes,
             mitre_bases=mitre_bases,
+            weights_override=weights_override,
+            family_caps_override=family_caps_override,
+            bonus_multiplier=bonus_multiplier,
+            band_shift=band_shift,
+            child_scores=child_proc_scores,
         )
         av.children = sorted(desc)
         chains[cr] = av
@@ -504,6 +543,7 @@ def correlate(frames: list[dict], case_id: str | None = None) -> CorrelationRepo
     for bucket in seen_dev_sig.values():
         device_hits.append(bucket)
 
+    chain_scores = [c.score for c in chains.values()]
     device = _aggregate_layer(
         layer="device",
         layer_id=case_id or "device",
@@ -514,6 +554,11 @@ def correlate(frames: list[dict], case_id: str | None = None) -> CorrelationRepo
         proc_ids_with_signals=device_procs,
         lanes=device_lanes,
         mitre_bases=device_mitre,
+        weights_override=weights_override,
+        family_caps_override=family_caps_override,
+        bonus_multiplier=bonus_multiplier,
+        band_shift=band_shift,
+        child_scores=chain_scores,
     )
     device.children = sorted(chains.keys())
 
@@ -530,17 +575,41 @@ def correlate(frames: list[dict], case_id: str | None = None) -> CorrelationRepo
         proc_ids_with_signals=device_procs,
         lanes=device_lanes,
         mitre_bases=device_mitre,
+        weights_override=weights_override,
+        family_caps_override=family_caps_override,
+        bonus_multiplier=bonus_multiplier,
+        band_shift=band_shift,
+        child_scores=[device.score],
     )
     incident.children = [device.id]
 
     return CorrelationReport(
         case_id=case_id,
+        profile=profile_id,
         events=event_verdicts,
         processes=processes,
         chains=chains,
         device=device,
         incident=incident,
     )
+
+
+def _tactic_coverage(mitre_bases: set[str]) -> dict[str, dict]:
+    """Deterministic per-tactic coverage summary — for the ATT&CK Wheel UI."""
+    per_tactic: dict[str, dict] = {}
+    for base in sorted(mitre_bases):
+        tac = _tactic_of(base)
+        if not tac:
+            continue
+        entry = per_tactic.setdefault(tac, {"techniques": [], "count": 0, "level": 0})
+        if base not in entry["techniques"]:
+            entry["techniques"].append(base)
+            entry["count"] += 1
+    # Level 0..3 buckets (deterministic step function).
+    for entry in per_tactic.values():
+        n = entry["count"]
+        entry["level"] = 3 if n >= 3 else (2 if n == 2 else (1 if n == 1 else 0))
+    return per_tactic
 
 
 def _aggregate_layer(
@@ -551,9 +620,14 @@ def _aggregate_layer(
     proc_ids_with_signals: set[str],
     lanes: set[str],
     mitre_bases: set[str],
+    weights_override: dict[str, int] | None = None,
+    family_caps_override: dict[str, int] | None = None,
+    bonus_multiplier: float = 1.0,
+    band_shift: int = 0,
+    child_scores: list[int] | None = None,
 ) -> AggregateVerdict:
     """Compute an AggregateVerdict from a *pre-deduplicated* set of signal hits."""
-    positive, breakdown = _apply_family_caps(hits)
+    positive, breakdown = _apply_family_caps(hits, weights_override, family_caps_override)
     families = {b["family"] for b in breakdown}
     tactics = {_tactic_of(t) for t in mitre_bases}
     tactics.discard(None)
@@ -563,24 +637,70 @@ def _aggregate_layer(
         tactics=tactics,
         proc_ids_with_signals=proc_ids_with_signals,
         lanes=lanes,
+        bonus_multiplier=bonus_multiplier,
     )
 
-    raw_score = positive + bonus_total
+    # Attack progression bonus — deterministic kill-chain pattern matcher.
+    fired_signals = {b["signal"] for b in breakdown}
+    progressions = match_progressions(fired_signals, families, tactics)
+    progression_total = int(round(sum(p["weight"] for p in progressions) * bonus_multiplier))
+    for p in progressions:
+        p["effective_weight"] = int(round(p["weight"] * bonus_multiplier))
+
+    raw_score = positive + bonus_total + progression_total
 
     # Corroboration ceiling at CORROBORATION_CAP if only high-value single-family
     # signals fired without independent corroboration (families count ≤ 1
     # AND no correlation bonuses fired).
     corroboration_applied = False
-    fired_signals = {b["signal"] for b in breakdown}
     if fired_signals & CORROBORATION_REQUIRED:
         independent_families = families - {"execution"}  # execution is often the "carrier"
         independent_families.discard("decay")
-        if not bonuses and len(independent_families) <= 1 and raw_score > CORROBORATION_CAP:
+        if not bonuses and not progressions and len(independent_families) <= 1 \
+                and raw_score > CORROBORATION_CAP:
             raw_score = CORROBORATION_CAP
             corroboration_applied = True
 
-    final = max(0, min(AGGREGATE_MAX, raw_score))
+    # Score-escalation ladder — deterministic, no randomness.
+    # Shows analysts EXACTLY why the aggregate score exceeds the raw event score.
+    if child_scores:
+        base_event_max = max(child_scores)
+    else:
+        base_event_max = positive  # for the process layer, base is just family-capped sum
+    ladder: list[dict] = []
+    running = base_event_max
+    ladder.append({"layer": "base", "score": running, "delta": 0,
+                   "reason": "max child score" if child_scores else "family-capped signal sum"})
+    if not child_scores and positive != base_event_max:
+        # Never happens because base_event_max = positive, but placeholder for clarity.
+        pass
+    for b in bonuses:
+        prev = running
+        running += b["weight"]
+        ladder.append({"layer": "correlation_bonus",
+                       "signal": b["signal"], "delta": b["weight"],
+                       "score": min(AGGREGATE_MAX, running),
+                       "reason": b["reason"]})
+    for p in progressions:
+        prev = running
+        running += p["effective_weight"]
+        ladder.append({"layer": "progression",
+                       "signal": p["signal"], "delta": p["effective_weight"],
+                       "score": min(AGGREGATE_MAX, running),
+                       "reason": p["reason"]})
+
+    final_pre_shift = max(0, min(AGGREGATE_MAX, raw_score))
+    final = max(0, min(AGGREGATE_MAX, final_pre_shift + int(band_shift or 0)))
     band = band_of(final)
+    if corroboration_applied:
+        ladder.append({"layer": "corroboration_cap", "score": final,
+                       "delta": final - running,
+                       "reason": f"corroboration ceiling applied at {CORROBORATION_CAP}"})
+    if band_shift:
+        ladder.append({"layer": "profile_band_shift", "score": final,
+                       "delta": final - final_pre_shift,
+                       "reason": f"profile band shift {band_shift:+d}"})
+
     conf = _confidence(
         n_signals=len(fired_signals),
         n_procs_with_sig=len(proc_ids_with_signals),
@@ -594,7 +714,8 @@ def _aggregate_layer(
         score=final,
         band=band,
         confidence=conf,
-        explanation=_explain(breakdown, bonuses, corroboration_applied),
+        explanation=_explain(breakdown, bonuses, corroboration_applied,
+                             progressions=progressions),
         evidence_breakdown=breakdown,
         contributing_events=contributing_events,
         contributing_processes=contributing_processes,
@@ -602,4 +723,7 @@ def _aggregate_layer(
         families=sorted(families),
         mitre_tactics=sorted(tactics),
         correlation_bonuses=bonuses,
+        progressions=progressions,
+        tactic_coverage=_tactic_coverage(mitre_bases),
+        score_escalation=ladder,
     )

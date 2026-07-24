@@ -3,13 +3,17 @@
 GET  /api/v2/cases/{case_id}/verdicts?limit=200
     → { "engine": "v3", "verdicts": [ { frame_iid, score, band, breakdown, ... } ] }
 
-GET  /api/v2/cases/{case_id}/verdicts/aggregate?limit=500
+GET  /api/v2/cases/{case_id}/verdicts/aggregate?limit=500&profile=soc_balanced
     → { "engine": "v3.1",
+        "profile":   "soc_balanced",
         "events":    { frame_iid: {...} },
         "processes": { entity_iid: {score, band, confidence, ...} },
         "chains":    { root_iid:   {score, band, confidence, ...} },
         "device":    { score, band, confidence, ... },
         "incident":  { score, band, confidence, ... } }
+
+GET  /api/v2/verdict/profiles
+    → { "profiles": [ { id, label, description, is_default, ... } ] }
 
 Read-only. Sits alongside the legacy `verdict` field on trajectory frames
 — the frontend or reports may adopt v3 at their own pace.
@@ -21,12 +25,19 @@ from deps import require_admin, db as _db
 from v2.flags import get as get_flag
 from v2.trajectory import build_from_observations
 from v2.shadow.irg import enrich as irg_enrich
-from v2.verdict import score, correlate
+from v2.verdict import score, correlate, list_profiles
 
-router = APIRouter(prefix="/v2/cases", tags=["v2-verdicts"])
+router = APIRouter(prefix="/v2", tags=["v2-verdicts"])
 
 
-@router.get("/{case_id}/verdicts")
+@router.get("/verdict/profiles")
+async def verdict_profiles(_: dict = Depends(require_admin)) -> dict:
+    if not get_flag("VERDICT_ENGINE_V3").observable():
+        raise HTTPException(status_code=503, detail="verdict engine v3 disabled")
+    return {"ok": True, "profiles": list_profiles()}
+
+
+@router.get("/cases/{case_id}/verdicts")
 async def verdicts(case_id: str, limit: int = 500,
                    _: dict = Depends(require_admin)) -> dict:
     if not get_flag("VERDICT_ENGINE_V3").observable():
@@ -72,8 +83,9 @@ async def verdicts(case_id: str, limit: int = 500,
     }
 
 
-@router.get("/{case_id}/verdicts/aggregate")
+@router.get("/cases/{case_id}/verdicts/aggregate")
 async def verdicts_aggregate(case_id: str, limit: int = 500,
+                             profile: str = "soc_balanced",
                              _: dict = Depends(require_admin)) -> dict:
     """Multi-event correlation — Verdict Engine v3.1.
 
@@ -82,6 +94,11 @@ async def verdicts_aggregate(case_id: str, limit: int = 500,
 
     Uses the IRG's canonical parent/child relationships as the correlation
     substrate. Signals are de-duplicated per layer to avoid inflation.
+
+    Query params:
+        limit    — cap the number of frames pulled (default 500, max 5000).
+        profile  — Adaptive Weight Profile id (soc_balanced · threat_hunting
+                   · dfir · high_security · cloud_workload · ot_ics).
     """
     if not get_flag("VERDICT_ENGINE_V3").observable():
         raise HTTPException(status_code=503, detail="verdict engine v3 disabled")
@@ -91,7 +108,7 @@ async def verdicts_aggregate(case_id: str, limit: int = 500,
     fdicts = [f.to_dict() for f in frames]
     fdicts = irg_enrich(fdicts)
 
-    report = correlate(fdicts, case_id=case_id)
+    report = correlate(fdicts, case_id=case_id, profile=profile)
     payload = report.to_dict()
     payload["ok"] = True
     return payload

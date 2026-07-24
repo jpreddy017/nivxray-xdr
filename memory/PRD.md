@@ -14,6 +14,179 @@ productivity, not just test counts.
 
 ---
 
+## 2026-02-24 · Verdict Engine v3.1b (SHIPPED · backend + UI)
+
+Rated 9.6/10 by the operator. Ships the six items approved in this
+review round, closing the "engine feature" chapter before we pivot to
+Investigation Workspace polish.
+
+**Backend additions:**
+- `v2/verdict/signals.py` — extended `SUSPICIOUS_PARENT` to cover
+  Office/Browser parents spawning **any** of rundll32, regsvr32, certutil,
+  msiexec, wmic, bitsadmin, installutil, regasm, regsvcs, hh, csc, msbuild
+  (in addition to the existing SHELL_LIKE set). Direct implementation of
+  the analyst training on Parent-Child Process Relationships.
+- `v2/verdict/profiles.py` — six Adaptive Weight Profiles:
+  `soc_balanced` (default) · `threat_hunting` · `dfir` · `high_security` ·
+  `cloud_workload` · `ot_ics`. Each profile is a shallow overlay on top of
+  the base WEIGHTS / FAMILY_CAPS + a `bonus_multiplier` and `band_shift`.
+  No engine logic changes — only tuning constants.
+- `v2/verdict/progressions.py` — deterministic Attack Progression matcher.
+  Generic kill-chain graphs (NOT campaign signatures):
+  * `KC_INITIAL_ACCESS_KILL`      Office → LOLBIN → Download → Persistence
+                                  → Evasion → Credential → Impact
+  * `KC_DOWNLOAD_EXECUTE`         Shell → Download → Persistence → Evasion
+  * `KC_CREDENTIAL_TO_LATERAL`    Shell → Credential → Evasion → Network
+  * `KC_PS_RUNKEY_BEACON`         Office → PS → Encoded → Web → RunKey → Beacon
+  * `KC_RANSOM_PROGRESSION`       Exec → Persist → Evade → BackupDestroy →
+                                  MassEncrypt → RansomNote
+  Partial (≥ 5/N) = +8, Full (≥ 7/N or all) = +14. Scaled by profile.
+- `v2/verdict/correlation.py` — every AggregateVerdict now carries:
+  * `progressions[]` — matched kill-chains
+  * `tactic_coverage{tactic → {count, techniques, level}}` — for the wheel
+  * `score_escalation[]` — the "why did this score change?" ladder,
+    showing each delta (base → correlation bonus → progression bonus →
+    corroboration cap → profile band-shift) with reason strings.
+  Profile parameters (weights, family caps, bonus multiplier, band shift)
+  thread through every layer. Same input + same profile = same output.
+- `v2/routers/verdicts.py`:
+  * `GET /api/v2/verdict/profiles` — list all profiles
+  * `GET /api/v2/cases/{id}/verdicts/aggregate?profile=<id>` — profile-aware
+    aggregate. Router prefix changed from `/v2/cases` to `/v2` to host the
+    new profiles endpoint alongside case-scoped ones.
+
+**Frontend additions (`v2/pages/CorrelationPanel.jsx` rewritten):**
+- **Profile selector** dropdown wired to `/verdict/profiles`.
+- **Legacy vs v3.1 side-by-side comparison** (malicious-events count vs
+  deterministic score).
+- **Score-escalation ladder** rendering every delta step from base score
+  → final, with reason strings and running totals.
+- **ATT&CK tactic coverage wheel** — one horizontal bar per tactic
+  (Execution, Persistence, Defense Evasion, …) coloured by coverage
+  level (1/2/3), showing technique counts and technique lists on hover.
+- **Attack progression badges** — one card per matched kill-chain with
+  matched stages and effective weight.
+- **Layer drill-down** — Incident / Device / Chain(s) / Process(es) with
+  ring score, band pill, confidence, correlation bonuses, and evidence.
+
+**Live smoke (real seeded case `case_dfir_bumblebee_akira_2026`):**
+| Profile          | Device Score | Δ vs SOC |
+|------------------|--------------|----------|
+| soc_balanced     | 87           | 0        |
+| dfir             | 98           | +11      |
+| cloud_workload   | 92           | +5       |
+| ot_ics           | 100 (band-shifted) | +13 |
+
+Escalation ladder visible in the drawer:
+`base 81 → +12 TACTIC_COVERAGE_5 → 93 → +6 MULTI_PROCESS_CORROBORATION →
+99 → +4 CROSS_LANE_ATTACK → 100`
+
+**Tests: 35/35 green.**
+- `test_verdict_v3.py`             — 9/9 (per-event engine)
+- `test_verdict_v3_correlation.py` — 12/12 (multi-layer aggregation)
+- `test_verdict_v3_1b.py`          — 14/14 (Office LOLBins · progressions ·
+  profiles · escalation · tactic coverage · determinism)
+
+**RC5:** UNTOUCHED. All 820 backend tests remain green.
+
+---
+
+## 2026-02-24 · Verdict Engine v3.1 · Multi-event Correlation (SHIPPED)
+
+Layered aggregation Event → Process → Chain → Device → Incident on top of
+the IRG attack graph. Signals de-duplicated per layer, family caps
+enforced, correlation bonuses only fire when independent evidence
+corroborates. See git log for full detail.
+
+## 2026-02-24 · Verdict Engine v3 · Deterministic Behavioural Scoring (SHIPPED)
+
+Per-event 7-family behavioural scorer. Endpoint
+`GET /api/v2/cases/{id}/verdicts`. Feature-flagged on
+`NIVX_FLAG_VERDICT_ENGINE_V3=shadow`.
+
+---
+
+## Prior deliveries (condensed — full history in git log)
+
+- Full Interactive Device Trajectory workspace.
+- Multi-Case Compare workspace with postMessage sync-scrub.
+- IRG Workspace tab (canonical graph view).
+- Process Ancestry wired to canonical IRG schema.
+- Report generator P2 (JSON / MD / PDF / STIX 2.1 / signed evidence bundle).
+- Artifact store with content-addressed IIDs.
+- Glassy navy-black + emerald green corporate theme.
+
+---
+
+## Backlog · Prioritised
+
+### FROZEN — engine complete for now
+User verdict: "consider freezing the verdict engine and shifting focus
+to the Investigation Workspace." Any further scoring refinements go to
+the top of the backlog only after the workspace pivots below ship.
+
+### P0 — Investigation Workspace (primary analyst UI)
+- **Attack Story generation** — auto-generated narrative from the same
+  deterministic evidence chain the correlation engine already surfaces.
+- **Evidence Graph visualisation** — replace the flat evidence list with
+  a causality graph rendered on the existing Konva engine.
+- **Timeline enhancements** — richer swimlane annotations, drag-select
+  export, cross-case pin views.
+
+### P1 — Reporting & Case Exports
+- Add v3.1 correlation summary + ATT&CK coverage wheel + progression
+  breakdown into the PDF / Markdown report builders.
+- Signed evidence bundles should carry the aggregate `.correlation.json`
+  alongside per-event verdicts.
+
+### P2 — Future scoring refinements (only after workspace ships)
+- Temporal-order kill-chain detection (currently unordered stage matching).
+- IRG Graph clumping fix (nodes overlapping in tight ms windows).
+- `InvestigationCanvas.jsx` refactor (~1000+ lines).
+
+---
+
+## Architecture Snapshot
+
+- Backend: `/app/backend/`
+  - `engine/` — legacy RC5, IMMUTABLE.
+  - `v2/` — additive namespace. Flag-gated.
+    - `v2/routers/` — cases, parse, trajectory, ancestry, report, irg,
+      verdicts (now `/v2` prefix hosting both case-scoped + profile endpoints).
+    - `v2/verdict/` — engine.py · correlation.py · signals.py · weights.py ·
+      profiles.py · progressions.py.
+    - `v2/shadow/irg.py` — canonical relationship enricher.
+    - `v2/report/` — MD / PDF / STIX / signed bundle builders.
+    - `v2/artifact_store/` — deterministic content-addressed artefacts.
+
+- Frontend: `/app/frontend/src/v2/`
+  - `canvas_engine/InvestigationCanvas.jsx` — Konva rendering + viewport.
+  - `pages/DeviceTrajectoryV2.jsx` — main workspace.
+  - `pages/CorrelationPanel.jsx` — v3.1b UI with profile selector,
+    verdict comparison, escalation ladder, ATT&CK wheel, progressions.
+  - `pages/IRGWorkspace.jsx`, `pages/CompareWorkspace.jsx`.
+  - `theme.js` — glassy navy-black + emerald tokens.
+  - `flags.js` — client-side flag reader.
+
+## Key APIs
+
+- `GET /api/v2/cases/{id}/trajectory/device` — frame list.
+- `GET /api/v2/cases/{id}/ancestry` — process tree.
+- `GET /api/v2/cases/{id}/irg` — canonical relationship graph.
+- `GET /api/v2/cases/{id}/verdicts` — per-event v3 verdicts.
+- `GET /api/v2/cases/{id}/verdicts/aggregate?profile=<id>` — v3.1 multi-layer.
+- `GET /api/v2/verdict/profiles` — list Adaptive Weight Profiles.
+- `GET /api/v2/report/{id}` (+ `.md`, `.pdf`, `.stix.json`, `.bundle.zip`).
+
+## Feature Flags (backend/.env)
+
+- `NIVX_FLAG_TRAJECTORY_ENGINE=shadow`
+- `NIVX_FLAG_CASE_ENGINE=shadow`
+- `NIVX_FLAG_ADAPTERS=shadow`
+- `NIVX_FLAG_VERDICT_ENGINE_V3=shadow`
+
+---
+
 ## 2026-02-24 · Verdict Engine v3.1 · Multi-event Correlation (SHIPPED · backend + UI)
 
 **Motivation:** v3 scored events in isolation. Analysts investigate

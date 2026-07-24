@@ -28,6 +28,15 @@ SHELL_LIKE = frozenset({
     "mshta.exe", "bash.exe", "wsl.exe",
 })
 
+# LOLBins that Office / Browser processes should never legitimately spawn.
+# Extends SHELL_LIKE to cover attacker-abused Windows utilities called out in
+# analyst training (rundll32/regsvr32/certutil/msiexec/wmic/bitsadmin).
+OFFICE_LOLBIN_CHILDREN = frozenset({
+    "rundll32.exe", "regsvr32.exe", "certutil.exe", "msiexec.exe",
+    "wmic.exe",     "bitsadmin.exe", "installutil.exe", "regasm.exe",
+    "regsvcs.exe",  "hh.exe",        "csc.exe",         "msbuild.exe",
+})
+
 OFFICE_PARENTS = frozenset({
     "winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe",
     "onenote.exe", "wordpad.exe", "msaccess.exe",
@@ -115,8 +124,12 @@ def detect_suspicious_parent(evt, ctx):
         return []
     if pb in OFFICE_PARENTS and cb in SHELL_LIKE:
         return [{"signal": "SUSPICIOUS_PARENT", "reason": f"office parent {pb} spawned shell {cb}"}]
+    if pb in OFFICE_PARENTS and cb in OFFICE_LOLBIN_CHILDREN:
+        return [{"signal": "SUSPICIOUS_PARENT", "reason": f"office parent {pb} spawned LOLBin {cb}"}]
     if pb in BROWSER_PARENTS and cb in SHELL_LIKE:
         return [{"signal": "SUSPICIOUS_PARENT", "reason": f"browser parent {pb} spawned shell {cb}"}]
+    if pb in BROWSER_PARENTS and cb in OFFICE_LOLBIN_CHILDREN:
+        return [{"signal": "SUSPICIOUS_PARENT", "reason": f"browser parent {pb} spawned LOLBin {cb}"}]
     if pb == "explorer.exe" and cb in SHELL_LIKE and "-encodedcommand" in _cmdline(evt):
         return [{"signal": "SUSPICIOUS_PARENT", "reason": f"explorer→{cb} with encoded payload"}]
     return []

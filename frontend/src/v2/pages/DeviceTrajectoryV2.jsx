@@ -1690,7 +1690,7 @@ function DeviceDetailsDrawer({ open, onClose, caseId, meta, events, stages, case
 
           {isObservable("VERDICT_ENGINE_V3") && (
             <DrawerSection label="Correlation · v3.1">
-              <CorrelationPanel caseId={caseId} />
+              <CorrelationPanel caseId={caseId} legacyMaliciousCount={malCount} />
             </DrawerSection>
           )}
 

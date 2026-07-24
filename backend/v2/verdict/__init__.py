@@ -15,7 +15,11 @@ Multi-event correlation (v3.1):
 from .engine import score, Verdict, SignalHit
 from .weights import WEIGHTS, DECAY_WEIGHTS, FAMILY_CAPS, BANDS, band_of
 from .correlation import correlate, CorrelationReport, AggregateVerdict
+from .profiles import PROFILES, get_profile, list_profiles, DEFAULT_PROFILE
+from .progressions import PROGRESSIONS, match_progressions
 
 __all__ = ["score", "Verdict", "SignalHit",
            "WEIGHTS", "DECAY_WEIGHTS", "FAMILY_CAPS", "BANDS", "band_of",
-           "correlate", "CorrelationReport", "AggregateVerdict"]
+           "correlate", "CorrelationReport", "AggregateVerdict",
+           "PROFILES", "get_profile", "list_profiles", "DEFAULT_PROFILE",
+           "PROGRESSIONS", "match_progressions"]
