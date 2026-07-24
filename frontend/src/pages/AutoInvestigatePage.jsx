@@ -369,6 +369,10 @@ export default function AutoInvestigatePage() {
 
           {/* Executive Investigation Card · analyst-facing 5-question summary */}
           {result?.executive_card && <ExecutiveCard card={result.executive_card} />}
+          {/* Investigation Narrative · analyst-quality prose */}
+          {result?.investigation_narrative?.narrative && (
+            <InvestigationNarrativeCard narrative={result.investigation_narrative} />
+          )}
           {/* MDR INVESTIGATION — analyst-facing narrative + timeline + escalation */}
           {result?.mdr_investigation && <MdrInvestigation mdr={result.mdr_investigation} />}
           {result && <FinalIncidentSummary result={result} onExportMd={downloadMarkdown} onExportJson={downloadJson} />}
@@ -2300,6 +2304,59 @@ function ExecutiveCard({ card }) {
           </div>
         )}
       </div>
+    </section>
+  );
+}
+
+
+// ─── Investigation Narrative Card ───────────────────────────────
+function InvestigationNarrativeCard({ narrative }) {
+  const paragraphs = narrative?.paragraphs || [];
+  const rules = narrative?.rules_applied || [];
+  const [showRules, setShowRules] = useState(false);
+  if (paragraphs.length === 0) return null;
+  return (
+    <section className="border border-emerald-500/40 rounded-xl bg-slate-950/70 shadow-lg shadow-emerald-500/10 overflow-hidden"
+             data-testid="investigation-narrative">
+      <div className="px-5 py-3 border-b border-slate-800 flex items-baseline gap-3">
+        <div className="text-[10px] tracking-[0.32em] font-bold text-emerald-300">
+          INVESTIGATION NARRATIVE · TIER-2 ANALYST
+        </div>
+        <button type="button"
+                onClick={() => setShowRules(!showRules)}
+                data-testid="narrative-rules-toggle"
+                className="ml-auto text-[10px] uppercase tracking-widest text-emerald-300 hover:text-emerald-200 hover:underline font-bold">
+          {showRules ? "↑ Hide" : "↓ Show"} writing rules
+        </button>
+        <button type="button"
+                onClick={() => navigator.clipboard?.writeText(narrative.narrative)}
+                data-testid="narrative-copy"
+                className="text-[10px] uppercase tracking-widest text-cyan-300 hover:text-cyan-200 hover:underline font-bold">
+          Copy
+        </button>
+      </div>
+      <div className="px-5 py-4 space-y-3 text-[13px] text-slate-100 leading-relaxed"
+           data-testid="narrative-body">
+        {paragraphs.map((p, i) => (
+          <p key={i} data-testid={`narrative-para-${i}`}
+             dangerouslySetInnerHTML={{
+               __html: p
+                 .replace(/\*\*(.+?)\*\*/g, '<strong class="text-emerald-200">$1</strong>')
+                 .replace(/`([^`]+)`/g, '<code class="text-cyan-200 font-mono text-[12px]">$1</code>')
+             }} />
+        ))}
+      </div>
+      {showRules && (
+        <div className="px-5 py-3 border-t border-slate-800 bg-slate-950/60 text-[11px] text-slate-400"
+             data-testid="narrative-rules">
+          <div className="text-[10px] uppercase tracking-widest text-emerald-300 font-bold mb-1.5">
+            Deterministic writing rules applied
+          </div>
+          <ul className="space-y-0.5">
+            {rules.map((r, i) => <li key={i}>✓ {r}</li>)}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

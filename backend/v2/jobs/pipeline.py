@@ -42,6 +42,8 @@ from v2.mdr.incident_parser import (
 )
 from v2.mdr.reference_urls import classify_all as _mdr_classify_urls
 from v2.mdr.executive_card import build as _mdr_executive_card
+from v2.investigation.model import build_model as _build_investigation_model
+from v2.investigation.narrative import compose as _compose_narrative
 
 # Optional bridge to the Workspace's larger decoder registry — enables
 # PowerShell binary-split, string-concat, char-array, ps-encodedcommand
@@ -83,7 +85,7 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
     sha = _sha256_of(cmdline)
     # Feb-2026 · Pipeline version tag. Bump this whenever a decoder /
     # archetype change should invalidate previously cached artifacts.
-    PIPELINE_VERSION = "v6-executive-card"
+    PIPELINE_VERSION = "v8-analyst-narrative"
     cached = await _artifact_get(sha)
     # Cache-invalidation guard. Any artifact cached BEFORE the archetype
     # bridge shipped has `layers == 0` for inputs the archetypes can now
@@ -615,6 +617,28 @@ async def run_investigation_with_progress(
     except Exception as e:  # noqa: BLE001
         log.warning("executive_card compose failed: %s", e)
         result["executive_card"] = None
+    # ── Phase 1 · Investigation Model ────────────────────────────
+    # The structured Investigation Model — the ONLY thing subsequent
+    # reasoning stages (correlation, timeline, narrative, root-cause,
+    # recommendations) should consume. Never parse raw text again.
+    try:
+        model = _build_investigation_model(
+            raw=raw, mdr_events=mdr_events, fis=result["final_incident_summary"],
+            osint=osint, url_buckets=url_buckets,
+        )
+        result["investigation_model"] = model.to_dict()
+    except Exception as e:  # noqa: BLE001
+        log.warning("investigation_model build failed: %s", e)
+        result["investigation_model"] = None
+    # ── Investigation Narrative (spec-compliant writing style) ───
+    # Deterministic sentence-assembly from the Investigation Model.
+    # Follows all 10 mandatory writing rules; no LLM, no template.
+    try:
+        result["investigation_narrative"] = _compose_narrative(
+            result.get("investigation_model") or {})
+    except Exception as e:  # noqa: BLE001
+        log.warning("narrative compose failed: %s", e)
+        result["investigation_narrative"] = None
     await _emit(on_progress, {"type": "progress", "stage": "done",
                               "percent": 100,
                               "message": "Investigation complete."})
