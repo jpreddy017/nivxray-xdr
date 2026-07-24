@@ -51,6 +51,9 @@ export default function AutoInvestigatePage() {
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [focus, setFocus] = useState("");
+  const [report, setReport] = useState(null);
+  const [reportProfile, setReportProfile] = useState("soc_analyst");
+  const [reportLoading, setReportLoading] = useState(false);
 
   const runInvestigation = useCallback(async () => {
     if (!input.trim()) return;
@@ -88,6 +91,33 @@ export default function AutoInvestigatePage() {
     const a = document.createElement("a");
     a.href = url;
     a.download = "nivxray-final-incident-summary.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const generateEnterpriseReport = useCallback(async () => {
+    if (!input.trim()) return;
+    setReportLoading(true);
+    try {
+      const r = await api.post("/v2/report-writer/generate/from-model", {
+        investigation: result, profile: reportProfile,
+      });
+      setReport(r.data.report);
+    } catch (e) {
+      setError(e.friendlyMessage || e.response?.data?.detail || String(e.message || e));
+    } finally {
+      setReportLoading(false);
+    }
+  }, [input, result, reportProfile]);
+
+  const downloadReportMd = () => {
+    if (!report) return;
+    const md = renderReportMarkdown(report);
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nivxray-enterprise-report-${report.profile}.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -181,10 +211,391 @@ export default function AutoInvestigatePage() {
           )}
 
           {result && <FinalIncidentSummary result={result} onExportMd={downloadMarkdown} onExportJson={downloadJson} />}
+
+          {/* Enterprise Report Writer trigger */}
+          {result && !report && (
+            <section className="border border-cyan-500/40 bg-cyan-500/5 rounded-xl p-5"
+                     data-testid="report-writer-cta">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex-1 min-w-[320px]">
+                  <div className="text-[10px] tracking-[0.24em] font-bold text-cyan-300 mb-1">
+                    ENTERPRISE REPORT WRITER
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-100">Generate MDR-grade investigation report</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Transforms this verified investigation into a 17-section customer-ready document. Deterministic — the report writer never re-investigates or infers new facts.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center rounded-lg border border-slate-700 overflow-hidden" data-testid="report-profile-tabs">
+                    {["executive", "customer", "soc_analyst", "technical"].map(p => (
+                      <button key={p}
+                              data-testid={`report-profile-${p}`}
+                              onClick={() => setReportProfile(p)}
+                              className={`px-3 py-1.5 text-[11px] font-semibold ${
+                                reportProfile === p ? "bg-cyan-500 text-slate-950" : "text-slate-300"
+                              }`}>
+                        {p.replace("_", " ")}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={generateEnterpriseReport}
+                          data-testid="generate-report-btn"
+                          disabled={reportLoading}
+                          className="px-4 py-2 text-sm rounded-lg bg-cyan-500/90 hover:bg-cyan-500 disabled:bg-slate-700 text-slate-950 font-bold">
+                    {reportLoading ? "Writing…" : "Generate Report"}
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {report && <EnterpriseReport report={report}
+                                       onExportMd={downloadReportMd}
+                                       onProfileChange={(p) => { setReportProfile(p); setReport(null); }}
+                                       onClose={() => setReport(null)} />}
         </div>
       </div>
     </div>
   );
+}
+
+// ─── Enterprise Report renderer (17 sections) ───────────────────
+function EnterpriseReport({ report, onExportMd, onClose, onProfileChange }) {
+  const s = report.sections || {};
+  const ov = s["02_incident_overview"] || {};
+  const rc = s["06_root_cause"] || {};
+  const fv = s["16_final_verdict"] || {};
+  const bi = s["13_business_impact"] || {};
+  const ti = s["11_threat_intelligence"] || {};
+  const ca = s["14_customer_actions"] || {};
+  return (
+    <article className="border border-slate-700/70 rounded-xl p-6 space-y-6"
+             data-testid="enterprise-report"
+             style={{ background: "linear-gradient(180deg, #0b1522 0%, #050c17 100%)" }}>
+      {/* Report header */}
+      <header className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-slate-800">
+        <div>
+          <div className="text-[10px] tracking-[0.24em] font-bold text-cyan-300">
+            NIVXRAY · ENTERPRISE INVESTIGATION REPORT
+          </div>
+          <h2 className="text-2xl font-bold mt-1" data-testid="report-incident-number">
+            {ov.incident_number}
+          </h2>
+          <div className="text-xs text-slate-400 mt-1 font-mono">
+            <span data-testid="report-source">{ov.detection_source}</span> · host <span className="text-slate-200">{ov.hostname}</span> · user <span className="text-slate-200">{ov.username}</span> · OS {ov.operating_system} · {ov.investigation_status}
+          </div>
+          {report.customer && (
+            <div className="mt-1 text-xs text-slate-400">Customer: <span className="text-slate-200">{report.customer}</span></div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1 rounded-full text-[10px] uppercase tracking-widest font-bold border border-cyan-500/60 text-cyan-200 bg-cyan-500/10">
+            Audience · {report.profile}
+          </span>
+          <button onClick={onExportMd} data-testid="report-export-md"
+                  className="px-3 py-1.5 text-xs border border-slate-700 rounded-lg text-slate-200 hover:bg-slate-800/60">
+            Download Markdown
+          </button>
+          <button onClick={onClose} data-testid="report-close"
+                  className="px-3 py-1.5 text-xs border border-slate-700 rounded-lg text-slate-400 hover:bg-slate-800/60">
+            Close
+          </button>
+        </div>
+      </header>
+
+      {/* Section 1 — Executive Summary */}
+      <ReportSection num={1} title="Executive Summary" testid="section-exec">
+        <div className="space-y-2 text-sm text-slate-200 leading-relaxed">
+          {(s["01_executive_summary"] || []).map((p, i) => (
+            <p key={i} dangerouslySetInnerHTML={{ __html: markdownInline(p) }} />
+          ))}
+        </div>
+      </ReportSection>
+
+      {/* Section 3 — Narrative */}
+      <ReportSection num={3} title="Investigation Narrative" testid="section-narrative">
+        <div className="text-sm text-slate-200 leading-relaxed whitespace-pre-line"
+             dangerouslySetInnerHTML={{ __html: markdownInline(s["03_investigation_narrative"] || "") }} />
+      </ReportSection>
+
+      {/* Section 4 — Timeline */}
+      <ReportSection num={4} title="Detection Timeline" testid="section-timeline">
+        <ol className="space-y-2 text-sm">
+          {(s["04_detection_timeline"] || []).map((ev, i) => (
+            <li key={i} className="border-l-2 border-cyan-500/40 pl-3">
+              <div className="font-mono text-xs text-cyan-300">{ev.time}</div>
+              <div className="text-slate-200">{ev.event}</div>
+              <div className="text-[10px] font-mono text-slate-500 mt-0.5">{ev.evidence_type}</div>
+            </li>
+          ))}
+        </ol>
+      </ReportSection>
+
+      {/* Section 5 — Attack Story */}
+      <ReportSection num={5} title="Attack Story" testid="section-attack-story">
+        <ol className="space-y-1.5 text-sm text-slate-200 list-decimal pl-5">
+          {(s["05_attack_story"] || []).map((beat, i) => <li key={i}>{beat}</li>)}
+        </ol>
+      </ReportSection>
+
+      {/* Section 6 — Root Cause */}
+      <ReportSection num={6} title="Root Cause Analysis" testid="section-root-cause">
+        <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
+          <div className="text-sm text-slate-100 font-semibold" data-testid="root-cause-finding">
+            {rc.finding}
+          </div>
+          <TraceRow record={rc} />
+        </div>
+      </ReportSection>
+
+      {/* Section 7 — Behaviours */}
+      <ReportSection num={7} title="Malware Behaviour" testid="section-behaviour">
+        <div className="grid md:grid-cols-2 gap-3">
+          {Object.entries(s["07_malware_behaviour"] || {}).map(([tactic, techs]) => (
+            <div key={tactic} className="border border-slate-800 rounded p-3 bg-slate-950/50">
+              <div className="text-[10px] tracking-widest text-slate-500 font-bold mb-2">{tactic.toUpperCase()}</div>
+              <ul className="text-xs text-slate-200 space-y-1 font-mono">
+                {techs.map((t, i) => <li key={i}>{t}</li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </ReportSection>
+
+      {/* Section 8 — Findings */}
+      <ReportSection num={8} title="Investigation Findings" testid="section-findings">
+        <ul className="space-y-2.5">
+          {(s["08_findings"] || []).map((f, i) => (
+            <li key={i} className="border-l-2 border-cyan-500/40 pl-3">
+              <div className="text-sm text-slate-100">{f.finding}</div>
+              <TraceRow record={f} />
+            </li>
+          ))}
+        </ul>
+      </ReportSection>
+
+      {/* Section 9 — Supporting Evidence */}
+      <ReportSection num={9} title="Supporting Evidence" testid="section-evidence">
+        <div className="grid md:grid-cols-2 gap-3">
+          {Object.entries(s["09_supporting_evidence"] || {}).map(([cat, d]) => (
+            <div key={cat} className="border border-slate-800 rounded p-3 bg-slate-950/50">
+              <div className="flex items-baseline justify-between mb-1">
+                <div className="text-[11px] font-bold text-slate-300 uppercase tracking-widest">{cat}</div>
+                <div className="text-[10px] font-mono text-cyan-300">{d.count}</div>
+              </div>
+              <div className="text-[11px] text-slate-400 mb-2">{d.rationale}</div>
+              <ul className="text-[11px] font-mono text-slate-200 break-all space-y-0.5">
+                {(d.samples || []).map((x, i) => <li key={i}>{x}</li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </ReportSection>
+
+      {/* Section 10 — Environmental */}
+      {(s["10_environmental"] || []).length > 0 && (
+        <ReportSection num={10} title="Environmental Findings" testid="section-environmental">
+          <ul className="space-y-2">
+            {s["10_environmental"].map((e, i) => (
+              <li key={i} className="border-l-2 border-slate-700 pl-3">
+                <div className="text-sm text-slate-100">{e.finding}</div>
+                <TraceRow record={e} />
+              </li>
+            ))}
+          </ul>
+        </ReportSection>
+      )}
+
+      {/* Section 11 — Threat Intel */}
+      <ReportSection num={11} title="Threat Intelligence" testid="section-ti">
+        <div className="grid md:grid-cols-2 gap-3">
+          <TIColumn label="Observed" data={ti.observed || {}} />
+          <TIColumn label="Correlated" data={ti.correlated || {}} />
+        </div>
+      </ReportSection>
+
+      {/* Section 12 — Assets */}
+      <ReportSection num={12} title="Affected Assets" testid="section-assets">
+        <AssetRows assets={s["12_affected_assets"] || {}} />
+      </ReportSection>
+
+      {/* Section 13 — Business Impact */}
+      <ReportSection num={13} title="Business Impact" testid="section-business">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+          {Object.entries(bi).map(([k, v]) => (
+            <div key={k} className="border border-slate-800 rounded p-2.5 bg-slate-950/60">
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide">{k.replace(/_/g, " ")}</div>
+              <div className={`font-bold ${v === "High" ? "text-red-300" : v === "Medium" ? "text-amber-300" : "text-emerald-300"}`}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </ReportSection>
+
+      {/* Section 14 — Customer Actions */}
+      <ReportSection num={14} title="Customer Actions" testid="section-actions">
+        <div className="grid md:grid-cols-3 gap-3">
+          {["immediate", "short_term", "long_term"].map(tier => (
+            <div key={tier} className="border border-slate-800 rounded p-3 bg-slate-950/50">
+              <div className="text-[10px] tracking-widest text-slate-500 font-bold mb-2">
+                {tier.replace("_", " ").toUpperCase()}
+              </div>
+              <ul className="space-y-1.5 text-sm text-slate-200 list-disc pl-4">
+                {(ca[tier] || []).map((a, i) => <li key={i}>{a}</li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </ReportSection>
+
+      {/* Section 15 — Recommendations */}
+      <ReportSection num={15} title="Recommendations" testid="section-recs">
+        <ol className="space-y-2 text-sm">
+          {(s["15_recommendations"] || []).map((r, i) => (
+            <li key={i} className="border-l-2 border-cyan-500/40 pl-3">
+              <div className="flex items-baseline gap-2">
+                <span className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border ${
+                  r.priority === "critical" ? "border-red-500/60 text-red-300" :
+                  r.priority === "high"     ? "border-amber-500/60 text-amber-300" :
+                                              "border-sky-500/60 text-sky-300"
+                }`}>{r.priority}</span>
+                <span className="text-slate-100 font-medium">{r.action}</span>
+              </div>
+              {r.rationale && <div className="text-xs text-slate-400 mt-1">{r.rationale}</div>}
+            </li>
+          ))}
+        </ol>
+      </ReportSection>
+
+      {/* Section 16 — Final verdict */}
+      <ReportSection num={16} title="Final Verdict" testid="section-verdict">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <VerdictCell label="Verdict"    value={fv.verdict} />
+          <VerdictCell label="Severity"   value={fv.severity} />
+          <VerdictCell label="Containment" value={fv.current_containment} />
+          <VerdictCell label="Confidence" value={`${fv.confidence?.score ?? 0}%`} />
+        </div>
+        <p className="mt-3 text-sm text-slate-300">Remaining risk: <span className="text-slate-100">{fv.remaining_risk}</span></p>
+      </ReportSection>
+
+      {/* Meta footer */}
+      <footer className="pt-4 border-t border-slate-800 text-[10px] text-slate-500 font-mono">
+        Generated {report.generated_at_utc} · {report.meta?.engine} · deterministic · every conclusion is evidence-traceable
+      </footer>
+    </article>
+  );
+}
+
+function ReportSection({ num, title, testid, children }) {
+  return (
+    <section data-testid={testid}>
+      <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-3">
+        <span className="text-cyan-400 mr-2">{String(num).padStart(2, "0")}</span>{title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+function TraceRow({ record }) {
+  if (!record?.evidence_source) return null;
+  return (
+    <div className="mt-1 text-[10px] font-mono text-slate-500 flex flex-wrap gap-x-3">
+      <span>Source: <span className="text-slate-300">{record.evidence_source}</span></span>
+      <span>Type: <span className={record.evidence_type === "Correlated" ? "text-sky-300" : "text-emerald-300"}>{record.evidence_type}</span></span>
+      <span>Confidence: <span className="text-slate-300">{record.confidence}</span></span>
+    </div>
+  );
+}
+
+function TIColumn({ label, data }) {
+  return (
+    <div className="border border-slate-800 rounded p-3 bg-slate-950/60">
+      <div className="text-[10px] tracking-widest text-slate-500 font-bold mb-2">{label.toUpperCase()}</div>
+      <ul className="text-xs space-y-1">
+        {Object.entries(data).map(([k, v]) => (
+          <li key={k} className="flex justify-between gap-2">
+            <span className="text-slate-400">{k.replace(/_/g, " ")}</span>
+            <span className="text-slate-100 font-mono text-right break-all">
+              {Array.isArray(v) ? (v.length ? `${v.length} · ${v.slice(0,2).join(", ")}${v.length > 2 ? "…" : ""}` : "—") :
+               typeof v === "boolean" ? (v ? "yes" : "no") :
+               v == null ? "—" : String(v)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function AssetRows({ assets }) {
+  const rows = [
+    ["Primary host", assets.primary_host],
+    ["Additional hosts", (assets.additional_hosts || []).join(", ") || "—"],
+    ["Users", (assets.users || []).join(", ") || "—"],
+    ["Network destinations", (assets.network_destinations || []).join(", ") || "—"],
+    ["Affected files", (assets.affected_files || []).join(", ") || "—"],
+    ["Registry locations", (assets.registry_locations || []).join(", ") || "—"],
+  ];
+  return (
+    <ul className="text-xs space-y-1.5">
+      {rows.map(([k, v]) => (
+        <li key={k} className="flex justify-between gap-3 border-b border-slate-900 pb-1">
+          <span className="text-slate-400 font-mono">{k}</span>
+          <span className="text-slate-100 font-mono text-right break-all max-w-[70%]">{v}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function VerdictCell({ label, value }) {
+  return (
+    <div className="border border-slate-800 rounded p-3 bg-slate-950/60 text-center">
+      <div className="text-[10px] text-slate-500 uppercase tracking-widest">{label}</div>
+      <div className="text-lg font-bold text-slate-100 mt-1">{value || "—"}</div>
+    </div>
+  );
+}
+
+function renderReportMarkdown(report) {
+  // Small local markdown export mirrors the backend one; used for
+  // faster client-side downloads (backend also exposes /generate/markdown).
+  const s = report.sections || {};
+  const ov = s["02_incident_overview"] || {};
+  const L = [];
+  L.push(`# NivXRay Investigation Report · ${ov.incident_number || ""}`);
+  L.push("");
+  L.push(`**Source:** ${ov.detection_source} · **Host:** ${ov.hostname} · **User:** ${ov.username} · **OS:** ${ov.operating_system} · **Severity:** ${ov.severity}`);
+  L.push("");
+  L.push("## 1 · Executive Summary");
+  (s["01_executive_summary"] || []).forEach(p => { L.push(p); L.push(""); });
+  L.push("## 3 · Investigation Narrative");
+  L.push(s["03_investigation_narrative"] || "");
+  L.push("");
+  L.push("## 4 · Detection Timeline");
+  (s["04_detection_timeline"] || []).forEach(e => L.push(`- \`${e.time}\` — ${e.event} (${e.evidence_type})`));
+  L.push("");
+  L.push("## 5 · Attack Story");
+  (s["05_attack_story"] || []).forEach((b, i) => L.push(`${i + 1}. ${b}`));
+  L.push("");
+  L.push("## 6 · Root Cause");
+  const rc = s["06_root_cause"] || {};
+  L.push(`**${rc.finding}**   _${rc.evidence_source} · ${rc.evidence_type} · ${rc.confidence}_`);
+  L.push("");
+  L.push("## 8 · Findings");
+  (s["08_findings"] || []).forEach(f => L.push(`- ${f.finding}   _${f.evidence_source} · ${f.evidence_type} · ${f.confidence}_`));
+  L.push("");
+  L.push("## 15 · Recommendations");
+  (s["15_recommendations"] || []).forEach(r => L.push(`- **[${r.priority}]** ${r.action} — ${r.rationale}`));
+  L.push("");
+  const fv = s["16_final_verdict"] || {};
+  L.push("## 16 · Final Verdict");
+  L.push(`- Verdict: **${fv.verdict}** · Severity: **${fv.severity}** · Containment: **${fv.current_containment}**`);
+  L.push(`- Remaining risk: ${fv.remaining_risk}`);
+  L.push("");
+  L.push(`_Generated ${report.generated_at_utc} · ${report.meta?.engine} · audience: ${report.profile}_`);
+  return L.join("\n");
 }
 
 // ─── FINAL INCIDENT SUMMARY panel ────────────────────────────────

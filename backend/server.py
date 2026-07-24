@@ -162,6 +162,10 @@ api.include_router(analyst_v2_router)
 # AUTO INVESTIGATE — Sprint 1 MVP orchestrator (v2/auto-investigate).
 from routers.auto_investigate import router as auto_investigate_router
 api.include_router(auto_investigate_router)
+
+# Enterprise Investigation Report Writer — Phase 6 (v2/report-writer).
+from routers.report_writer import router as report_writer_router
+api.include_router(report_writer_router)
 # Feb 2026 — Layer Integrity Validator + Predictive Planner
 from routers.planner import router as planner_router
 api.include_router(planner_router)

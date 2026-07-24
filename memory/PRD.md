@@ -12,6 +12,81 @@ own truth.
 
 ---
 
+## 2026-02-27 · Phase 6 · Enterprise Investigation Report Writer (SHIPPED)
+
+New DETERMINISTIC report engine that sits ON TOP of the investigation
+pipeline and never re-investigates. Consumes a verified investigation
+model → produces a 17-section MDR-grade customer-ready report.
+
+### Backend
+- `/app/backend/v2/report_writer/engine.py` — pure transformation module
+  - `build_report(inv, profile, customer)` — returns 17 sections
+  - `render_markdown(report)` — deterministic Markdown export
+- `/app/backend/routers/report_writer.py` — FastAPI router
+  - `POST /api/v2/report-writer/generate` — incident_text → report
+  - `POST /api/v2/report-writer/generate/from-model` — pre-computed → report
+  - `POST /api/v2/report-writer/generate/markdown` — direct .md download
+- Reuses the AUTO INVESTIGATE orchestrator inline for `/generate` — no
+  HTTP round-trip. Writer and investigation stay fully decoupled.
+
+### 17 Sections (all rendered)
+1. Executive Summary — 4-8 paragraphs, audience-aware
+2. Incident Overview — number, source, host, user, OS, status
+3. Investigation Narrative — analyst-prose chronological story
+4. Detection Timeline — timestamped events with evidence type
+5. Attack Story — attacker progression beats
+6. Root Cause — traceable finding; refuses to guess when evidence lacks
+7. Malware Behaviour — MITRE tactic buckets
+8. Investigation Findings — each with evidence-source/type/confidence
+9. Supporting Evidence — grouped w/ rationale per category
+10. Environmental Findings — quarantine, definitions, tooling gaps
+11. Threat Intelligence — strict Observed vs Correlated split
+12. Affected Assets — host, users, files, network, registry
+13. Business Impact — data exposure, persistence, lateral, ops
+14. Customer Actions — immediate / short-term / long-term
+15. Recommendations — prioritised with rationale + evidence
+16. Final Verdict — verdict, severity, containment, remaining risk
+17. Investigation Quality — reuses the existing dashboard
+
+### Audiences (`profile`)
+- `executive` — plain-English, no MITRE IDs, no CLI
+- `customer` — same + explicit customer-action language
+- `soc_analyst` (default) — full detail + evidence traceability
+- `technical` — soc_analyst + raw commands + hashes / registry
+
+### Evidence traceability
+Every finding wrapped in `{finding, evidence_source, evidence_type,
+confidence}` so an analyst can audit the report line by line.
+
+### Non-negotiables enforced
+- Never decodes / infers / fabricates
+- Reports "Insufficient evidence" explicitly when the pipeline could not
+  reach a conclusion
+- Raw incident preserved verbatim in the payload
+
+### UI
+- New "Generate Enterprise Report" CTA on `/auto-investigate` after
+  AUTO INVESTIGATE completes
+- Audience picker (4 profiles)
+- Renders the full 17-section report inline
+- Markdown download; Close button; profile switch
+- All 17 sections have unique `data-testid`
+
+### Verified
+Sample incident produces:
+- Incident NIVX-20260724-XXXX · CrowdStrike Falcon detection source
+- 6-paragraph Executive Summary
+- 6-paragraph analyst-prose Narrative
+- 5-event Timeline (with real `2026-07-22T13:04:54Z` first-timestamp)
+- 8-beat Attack Story
+- Root Cause: "Software installation vector — msiexec.exe launched with
+  a remote MSI package." (traceable)
+- Full behaviour, findings, supporting evidence, TI, assets, business
+  impact, actions, recommendations, verdict all rendered
+
+---
+
+
 ## 2026-02-27 · Roadmap · Reordered by operator (locked)
 
 Post-MVP priorities. NivXRay's next work is measured by investigation
