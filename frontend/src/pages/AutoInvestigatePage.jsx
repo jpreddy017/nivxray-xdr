@@ -367,6 +367,8 @@ export default function AutoInvestigatePage() {
             </div>
           )}
 
+          {/* MDR INVESTIGATION — analyst-facing narrative + timeline + escalation */}
+          {result?.mdr_investigation && <MdrInvestigation mdr={result.mdr_investigation} />}
           {result && <FinalIncidentSummary result={result} onExportMd={downloadMarkdown} onExportJson={downloadJson} />}
 
           {/* P0.3 · Recursive Decode Tree + Statistics — always shown after a completed investigation */}
@@ -1904,6 +1906,150 @@ function StringsList({ strings, testid = "strings-list", initialCap = 10 }) {
         </button>
       )}
     </div>
+  );
+}
+
+
+// ─── MDR INVESTIGATION · analyst-facing narrative ────────────────
+const ESCAL_TONE = {
+  escalate: "border-red-500/60 text-red-200 bg-red-500/10",
+  monitor:  "border-amber-500/60 text-amber-200 bg-amber-500/10",
+  close:    "border-emerald-500/60 text-emerald-200 bg-emerald-500/10",
+};
+const SEV_TONE = {
+  critical: "border-red-500/60 text-red-200 bg-red-500/10",
+  high:     "border-amber-500/60 text-amber-200 bg-amber-500/10",
+  medium:   "border-sky-500/60 text-sky-200 bg-sky-500/10",
+  low:      "border-slate-500/60 text-slate-200 bg-slate-500/10",
+  informational: "border-emerald-500/60 text-emerald-200 bg-emerald-500/10",
+};
+const URL_CLS_TONE = {
+  reference: "border-slate-600 text-slate-400 bg-slate-800/40",
+  benign:    "border-emerald-500/40 text-emerald-200 bg-emerald-500/10",
+  suspect:   "border-amber-500/60 text-amber-200 bg-amber-500/10",
+  attacker:  "border-red-500/60 text-red-200 bg-red-500/10",
+  unknown:   "border-slate-500 text-slate-300",
+};
+
+function MdrInvestigation({ mdr }) {
+  const escal = mdr.escalation || {};
+  const eTone = ESCAL_TONE[escal.decision] || ESCAL_TONE.monitor;
+  const timeline = mdr.timeline || [];
+  const recs = mdr.recommendations || [];
+  const urlBuckets = mdr.url_classification || {};
+  return (
+    <section className="border border-cyan-500/40 rounded-xl p-5 bg-slate-950/70 space-y-4"
+             data-testid="mdr-investigation">
+      {/* Header */}
+      <header className="flex flex-wrap items-baseline gap-3 border-b border-slate-800 pb-3">
+        <div>
+          <div className="text-[10px] tracking-[0.24em] font-bold text-cyan-300">
+            MDR INVESTIGATION · TIER-2 ANALYST VIEW
+          </div>
+          <h2 className="text-xl font-bold text-slate-100">Executive Summary</h2>
+        </div>
+        <span className={`ml-auto px-3 py-1 rounded-full border text-[10px] uppercase tracking-widest font-bold ${eTone}`}
+              data-testid="mdr-escalation-badge">
+          {escal.decision || "monitor"} · {escal.confidence ?? 0}%
+        </span>
+      </header>
+      {/* Narrative */}
+      <div className="text-[13px] text-slate-100 leading-relaxed space-y-2 whitespace-pre-wrap"
+           data-testid="mdr-executive-summary">
+        {mdr.executive_summary}
+      </div>
+      {/* Metadata strip */}
+      <div className="flex flex-wrap gap-4 text-[11px] border-t border-slate-800 pt-3">
+        {(mdr.hosts || []).length > 0 && (
+          <div><span className="text-slate-500 uppercase tracking-widest text-[10px]">Hosts: </span>
+            <span className="font-mono text-cyan-200">{mdr.hosts.join(", ")}</span></div>
+        )}
+        {(mdr.users || []).length > 0 && (
+          <div><span className="text-slate-500 uppercase tracking-widest text-[10px]">Users: </span>
+            <span className="font-mono text-violet-200">{mdr.users.join(", ")}</span></div>
+        )}
+        {(mdr.sources || []).length > 0 && (
+          <div><span className="text-slate-500 uppercase tracking-widest text-[10px]">Sources: </span>
+            <span className="text-slate-200">{mdr.sources.join(" · ")}</span></div>
+        )}
+      </div>
+      {/* Timeline */}
+      {timeline.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-2">
+            Timeline Reconstruction · {timeline.length} event(s)
+          </div>
+          <ol className="space-y-2 border-l-2 border-cyan-500/40 pl-4" data-testid="mdr-timeline">
+            {timeline.map((t, i) => (
+              <li key={i} className="relative" data-testid={`mdr-timeline-${i}`}>
+                <span className="absolute -left-[22px] top-1 w-3 h-3 rounded-full bg-cyan-500 border-2 border-slate-950" />
+                <div className="text-[11px] font-mono text-cyan-300">{t.ts}</div>
+                <div className="text-xs text-slate-200"
+                     dangerouslySetInnerHTML={{__html: t.summary
+                        .replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-100">$1</strong>')
+                        .replace(/`([^`]+)`/g, '<code class="text-emerald-200 font-mono">$1</code>')}} />
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {/* URL Classification */}
+      {Object.values(urlBuckets).some(b => b.length > 0) && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-2">
+            URL Classification (reference URLs are never treated as IOCs)
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2" data-testid="mdr-url-classification">
+            {["attacker", "suspect", "unknown", "reference", "benign"].map(cls => {
+              const bucket = urlBuckets[cls] || [];
+              if (bucket.length === 0) return null;
+              return (
+                <div key={cls} className={`border rounded p-2 ${URL_CLS_TONE[cls]}`}>
+                  <div className="text-[10px] uppercase tracking-widest font-bold mb-1">
+                    {cls} · {bucket.length}
+                  </div>
+                  <ul className="text-[11px] font-mono space-y-0.5 break-all">
+                    {bucket.slice(0, 5).map((u, i) => (
+                      <li key={i} title={u.reason}>{u.url}</li>
+                    ))}
+                    {bucket.length > 5 && <li className="opacity-60">…{bucket.length - 5} more</li>}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {/* Recommendations */}
+      {recs.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-2">
+            Analyst Recommendations
+          </div>
+          <div className="space-y-2" data-testid="mdr-recommendations">
+            {recs.map((r, i) => (
+              <div key={i} className={`border rounded p-2.5 ${SEV_TONE[r.severity] || SEV_TONE.medium}`}
+                   data-testid={`mdr-rec-${i}`}>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[10px] uppercase tracking-widest font-bold">
+                    {r.severity}
+                  </span>
+                  <span className="text-sm font-bold text-slate-100">{r.title}</span>
+                </div>
+                <div className="text-xs text-slate-300 mt-1">{r.why}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* Escalation rationale */}
+      {escal.reason && (
+        <div className="border-t border-slate-800 pt-3 text-xs text-slate-300">
+          <span className="text-cyan-300 uppercase tracking-widest text-[10px] font-bold">Escalation rationale · </span>
+          {escal.reason}
+        </div>
+      )}
+    </section>
   );
 }
 

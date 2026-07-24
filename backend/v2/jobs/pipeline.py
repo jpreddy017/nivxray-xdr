@@ -33,6 +33,14 @@ from v2.decoded_artifacts import (
 )
 from v2.enrichment.strings_extractor import enrich_report as _enrich_report
 from v2.semantic.ps_semantic import analyze as _ps_semantic_analyze
+from v2.mdr.incident_parser import (
+    parse_events as _mdr_parse_events,
+    build_timeline as _mdr_build_timeline,
+    compose_executive_summary as _mdr_exec_summary,
+    derive_recommendations as _mdr_recommendations,
+    escalation_decision as _mdr_escalation,
+)
+from v2.mdr.reference_urls import classify_all as _mdr_classify_urls
 
 # Optional bridge to the Workspace's larger decoder registry — enables
 # PowerShell binary-split, string-concat, char-array, ps-encodedcommand
@@ -74,7 +82,7 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
     sha = _sha256_of(cmdline)
     # Feb-2026 · Pipeline version tag. Bump this whenever a decoder /
     # archetype change should invalidate previously cached artifacts.
-    PIPELINE_VERSION = "v4-ps-semantic"
+    PIPELINE_VERSION = "v5-mdr-investigator"
     cached = await _artifact_get(sha)
     # Cache-invalidation guard. Any artifact cached BEFORE the archetype
     # bridge shipped has `layers == 0` for inputs the archetypes can now
@@ -500,6 +508,32 @@ async def run_investigation_with_progress(
         decided = 0
         confidence = 0
 
+    # ── AUTO INVESTIGATE v2 · MDR reasoning layer ─────────────
+    # Turns the raw incident text into structured events, a chronological
+    # timeline, evidence-driven recommendations and an escalation
+    # decision — replacing the old "count IOCs" behaviour with the
+    # investigation output an MDR analyst would produce.
+    try:
+        mdr_events = _mdr_parse_events(raw)
+    except Exception as e:  # noqa: BLE001
+        log.warning("MDR parse_events failed: %s", e)
+        mdr_events = []
+    mdr_timeline = _mdr_build_timeline(mdr_events) if mdr_events else []
+    # URL classification — separates attacker infra from reference /
+    # vendor URLs so recommendations never propose blocking cisco.com.
+    _ti_hits: set[str] = set()
+    for k in ("ips", "domains", "urls"):
+        for it in (osint.get("hits") or {}).get(k, []) or []:
+            if isinstance(it, dict) and it.get("value"):
+                _ti_hits.add(it["value"])
+            elif isinstance(it, str):
+                _ti_hits.add(it)
+    url_buckets = _mdr_classify_urls(iocs.get("urls") or [], raw, _ti_hits)
+    mdr_escal   = _mdr_escalation(mdr_events, url_buckets)
+    mdr_recs    = _mdr_recommendations(mdr_events, url_buckets)
+    mdr_summary = _mdr_exec_summary(mdr_events, verdict,
+                                    mdr_escal["decision"] == "escalate")
+
     result = {
         "ok": True,
         "raw_incident": raw,
@@ -554,6 +588,17 @@ async def run_investigation_with_progress(
             },
             "ioc_reputation": osint,
             "investigation_quality": quality,
+        },
+        "mdr_investigation": {
+            "executive_summary": mdr_summary,
+            "events":            [e.to_dict() for e in mdr_events],
+            "timeline":          mdr_timeline,
+            "url_classification": url_buckets,
+            "recommendations":   mdr_recs,
+            "escalation":        mdr_escal,
+            "hosts":             sorted({e.hostname for e in mdr_events if e.hostname}),
+            "users":             sorted({e.user for e in mdr_events if e.user}),
+            "sources":           sorted({e.source for e in mdr_events if e.source}),
         },
         "engine": {
             "orchestrator_reports": len(reports),
