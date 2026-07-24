@@ -158,6 +158,10 @@ api.include_router(regression_router)
 # Feb 2026 — Analyst Workspace v2 (Session 2 · Phase D — MCIP customer surface)
 from routers.analyst_v2 import router as analyst_v2_router
 api.include_router(analyst_v2_router)
+
+# AUTO INVESTIGATE — Sprint 1 MVP orchestrator (v2/auto-investigate).
+from routers.auto_investigate import router as auto_investigate_router
+api.include_router(auto_investigate_router)
 # Feb 2026 — Layer Integrity Validator + Predictive Planner
 from routers.planner import router as planner_router
 api.include_router(planner_router)

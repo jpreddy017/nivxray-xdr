@@ -34,6 +34,7 @@ const BenchmarkPage         = lazy(() => import("@/pages/BenchmarkPage"));
 const MultiLayerBatteryPage = lazy(() => import("@/pages/MultiLayerBatteryPage"));
 const AnalystWorkspacePage  = lazy(() => import("@/pages/AnalystWorkspacePage"));
 const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
+const AutoInvestigatePage   = lazy(() => import("@/pages/AutoInvestigatePage"));
 
 // v2 · Additive Case Workspace shell (Phase 3+). Hidden from primary
 // navigation. Route only resolves when the CASE_ENGINE flag is at
@@ -113,6 +114,7 @@ function App() {
               <Route path="/battery"   element={<Protected><MultiLayerBatteryPage /></Protected>} />
               <Route path="/analyst"   element={<Protected><AnalystWorkspacePage /></Protected>} />
               <Route path="/analyst/rc5" element={<Protected><AnalystRC5Page /></Protected>} />
+              <Route path="/auto-investigate" element={<Protected><AutoInvestigatePage /></Protected>} />
               {/* v2 · Case Workspace shell — flag-gated inside the
                   component. Reachable only via direct URL, never
                   linked from primary navigation. */}
