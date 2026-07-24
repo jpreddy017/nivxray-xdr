@@ -1470,7 +1470,7 @@ export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} 
               or resolved via nameByIid) instead of the raw internal IID. */}
           {event.meta?.entity?.iid && actorName && (
             <Section label={
-              event.meta.entity.type === "process" ? "ACTOR PROCESS" :
+              event.meta.entity.type === "process" ? "CHILD PROCESS" :
               event.meta.entity.type === "file"    ? "TARGET FILE" :
               event.meta.entity.type === "registry"? "TARGET REGISTRY" :
               event.meta.entity.type === "network" ? "REMOTE ENDPOINT" :
