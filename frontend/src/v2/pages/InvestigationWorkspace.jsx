@@ -35,6 +35,7 @@ const AttackTab          = lazy(() => import("./AttackTab"));
 const ProcessTreeTab     = lazy(() => import("./ProcessTreeTab"));
 const EvidenceCard       = lazy(() => import("./EvidenceCard"));
 const GlobalSearch       = lazy(() => import("./GlobalSearch"));
+const EvidenceGraphTab   = lazy(() => import("./EvidenceGraphTab"));
 import { SelectionProvider, useSelection } from "./SelectionContext";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -462,8 +463,8 @@ function InvestigationWorkspaceInner() {
       render: () => <AttackStoryTab inv={inv} />,
     },
     { key: "graph",       label: "Evidence Graph",    testid: "tab-graph",
-      comingSoon: "phase 3",
-      description: "Cause-and-effect visualisation of the IKG · not chronological — relational." },
+      render: () => <EvidenceGraphTab inv={inv} />,
+    },
     { key: "verdict",     label: "Verdict",           testid: "tab-verdict",
       comingSoon: "phase 4",
       description: "Event → Process → Chain → Device → Incident with escalation ladder, evidence breakdown, confidence." },

@@ -12,6 +12,79 @@ own truth.
 
 ---
 
+## 2026-02-27 · Phase 5 · Evidence Graph (SHIPPED)
+
+Shipped the last major UI piece on the frozen v1.0 roadmap. The
+Evidence Graph is a new tab inside the Investigation Workspace that
+projects the IKG into an entity-only causality graph.
+
+Component: `frontend/src/v2/pages/EvidenceGraphTab.jsx`
+Route: `/v2/case/:id?tab=graph`
+
+### What it answers
+- Timeline answers **when** it happened.
+- Attack Path answers **what sequence** occurred.
+- Evidence Graph answers **how the artefacts are related**.
+
+### Three graph modes
+1. **Causality (default)** — top-to-bottom depth layout: subject → action → target.
+   Best for kill-chain reading.
+2. **Entity Relationship** — processes on a vertical spine, files / registry /
+   network artefacts branch out radially. Best for impact analysis.
+3. **Time Overlay** — nodes fade by age, edges carry timestamp labels,
+   nodes are placed on horizontal type-lanes by first-seen time. Best
+   for investigation replay.
+
+### Data projection
+- Reads `inv.ikg.nodes` + `inv.ikg.edges` from
+  `/api/v2/cases/:id/investigation` — no new backend.
+- Joins `event -[executed_by]-> process` with `event -[modified|
+  contacted|deleted|spawned]-> target` to synthesise entity-to-entity
+  causal edges labelled by action.
+- Direct `process -[spawned]-> process` edges are preserved as-is.
+
+### Features
+- Zoom (wheel), Pan (drag), Fit, Reset — mouse & buttons.
+- Search box with clear-X + Esc to clear.
+- Node type filters (process / file / registry / network / service /
+  user / command) with live counts.
+- Edge type filters (spawned / created / modified / deleted / loaded /
+  injected / contacted / resolved / executed / persisted) with live
+  counts and colour swatches.
+- Time filter slider (0 → case duration).
+- Colour legend inline in the rail.
+- Empty state message when filters kill all nodes.
+- SelectionContext sync: clicking a node sets `{kind: process|event,
+  id, source: "graph"}` so every other tab (Timeline, Story, Process
+  Tree, Evidence Card, ATT&CK) reflects the same anchor.
+
+### Data-testids added
+- `evidence-graph-tab`, `graph-canvas-svg`, `graph-canvas-wrap`
+- `graph-mode-causality|entity_rel|time_overlay`
+- `graph-search-input`, `graph-search-clear`
+- `graph-node-count`, `graph-edge-count`
+- `graph-zoom-in|out`, `graph-fit`, `graph-reset`
+- `graph-filter-rail`, `graph-time-range`
+- `node-filter-<type>`, `edge-filter-<type>`
+- `graph-node-<id>`, `graph-edge-<src>-<tgt>-<type>`
+- `graph-empty`
+
+### Verified
+Smoke-tested on the seed case (case_dfir_bumblebee_akira_2026):
+27 entities · 24 causal edges · 3 modes render distinct layouts ·
+zoom / pan / fit all functional · Time Overlay shows `+time` labels
+on edges · empty-state renders when filter kills the set · toolbar
+node/edge counts update live as filters change.
+
+Workspace v1.0 is now feature-complete. Next up:
+- Saved Searches (chip lenses)
+- Report Templates (Exec Summary vs Deep-Dive)
+- Enterprise Adapters (Cisco / Defender / CrowdStrike / SentinelOne /
+  Splunk / QRadar → Canonical Event Schema)
+
+---
+
+
 ## 2026-02-27 · P0 Workspace v1.0 · Nav completion + Search UX polish (SHIPPED)
 
 Frozen the Investigation Workspace as v1.0 by finishing the platform
