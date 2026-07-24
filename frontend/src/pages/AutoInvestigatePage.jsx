@@ -369,7 +369,7 @@ export default function AutoInvestigatePage() {
 
           {/* PRIMARY DELIVERABLE — Investigation Report (spec-compliant MDR order) */}
           {result?.investigation_report && (
-            <InvestigationReport report={result.investigation_report} />
+            <InvestigationReport report={result.investigation_report} incident={input} />
           )}
 
           {/* ── ADVANCED / SUPPORTING ARTIFACTS ── */}
@@ -2370,13 +2370,6 @@ function InvestigationNarrativeCard({ narrative }) {
 
 
 
-// ─────────────────────────────────────────────────────────────────
-// INVESTIGATION REPORT — the primary analyst deliverable.
-// Consumes ONLY the deterministic Investigation Report structure
-// produced by the backend (`compose_report`). Renders in the exact
-// section order the MDR spec mandates.
-// ─────────────────────────────────────────────────────────────────
-
 const PROV_TONE = {
   Observed:            "bg-red-500/20 text-red-200 border-red-500/50",
   Decoded:             "bg-orange-500/20 text-orange-200 border-orange-500/50",
@@ -2481,7 +2474,7 @@ function ReportSectionCard({ num, title, testid, tone = "cyan", children, subtit
   );
 }
 
-function InvestigationReport({ report }) {
+function InvestigationReport({ report, incident }) {
   if (!report || report.empty) return null;
   return (
     <div className="space-y-4" data-testid="investigation-report">
@@ -2502,12 +2495,19 @@ function InvestigationReport({ report }) {
       {report.executive_summary?.length > 0 && (
         <ReportSectionCard num="1" title="EXECUTIVE SUMMARY" tone="emerald"
                             testid="report-executive-summary">
-          <div className="space-y-3 text-[13px] leading-relaxed text-slate-100">
-            {report.executive_summary.map((p, i) => (
-              <p key={i} data-testid={`exec-para-${i}`}
-                 dangerouslySetInnerHTML={{ __html: _inlineMd(p) }} />
-            ))}
-          </div>
+          <EditableSection
+            sectionId="exec-summary"
+            incident={incident}
+            aiText={report.executive_summary.join("\n\n")}
+            render={(text) => (
+              <div className="space-y-3 text-[13px] leading-relaxed text-slate-100">
+                {text.split(/\n\n+/).map((p, i) => (
+                  <p key={i} data-testid={`exec-para-${i}`}
+                     dangerouslySetInnerHTML={{ __html: _inlineMd(p) }} />
+                ))}
+              </div>
+            )}
+          />
           {/* Probable initial access — embedded, evidence-linked, admits unknowns */}
           {report.probable_initial_access?.paragraph && (
             <div className="mt-4 pt-3 border-t border-slate-800"
@@ -2525,8 +2525,15 @@ function InvestigationReport({ report }) {
                   Confidence: {report.probable_initial_access.confidence}
                 </span>
               </div>
-              <p className="text-[12px] text-slate-200 leading-relaxed"
-                 dangerouslySetInnerHTML={{ __html: _inlineMd(report.probable_initial_access.paragraph) }} />
+              <EditableSection
+                sectionId="probable-ia"
+                incident={incident}
+                aiText={report.probable_initial_access.paragraph}
+                render={(text) => (
+                  <p className="text-[12px] text-slate-200 leading-relaxed"
+                     dangerouslySetInnerHTML={{ __html: _inlineMd(text) }} />
+                )}
+              />
               {/* Explain this conclusion — evidence + alternatives + rejections */}
               <ExplainConclusion ia={report.probable_initial_access} />
             </div>
@@ -2538,12 +2545,19 @@ function InvestigationReport({ report }) {
       {report.investigation_summary?.length > 0 && (
         <ReportSectionCard num="2" title="INVESTIGATION SUMMARY" tone="cyan"
                             testid="report-investigation-summary">
-          <div className="space-y-3 text-[13px] leading-relaxed text-slate-100">
-            {report.investigation_summary.map((p, i) => (
-              <p key={i} data-testid={`inv-para-${i}`}
-                 dangerouslySetInnerHTML={{ __html: _inlineMd(p) }} />
-            ))}
-          </div>
+          <EditableSection
+            sectionId="inv-summary"
+            incident={incident}
+            aiText={report.investigation_summary.join("\n\n")}
+            render={(text) => (
+              <div className="space-y-3 text-[13px] leading-relaxed text-slate-100">
+                {text.split(/\n\n+/).map((p, i) => (
+                  <p key={i} data-testid={`inv-para-${i}`}
+                     dangerouslySetInnerHTML={{ __html: _inlineMd(p) }} />
+                ))}
+              </div>
+            )}
+          />
         </ReportSectionCard>
       )}
 
@@ -2673,10 +2687,20 @@ function InvestigationReport({ report }) {
       {report.investigation_conclusion && (
         <ReportSectionCard num="12" title="INVESTIGATION CONCLUSION"
                             tone="emerald" testid="report-investigation-conclusion">
-          <p className="text-[13px] leading-relaxed text-slate-100"
-             dangerouslySetInnerHTML={{ __html: _inlineMd(report.investigation_conclusion) }} />
+          <EditableSection
+            sectionId="inv-conclusion"
+            incident={incident}
+            aiText={report.investigation_conclusion}
+            render={(text) => (
+              <p className="text-[13px] leading-relaxed text-slate-100"
+                 dangerouslySetInnerHTML={{ __html: _inlineMd(text) }} />
+            )}
+          />
         </ReportSectionCard>
       )}
+
+      {/* §13 Analyst Notes — always editable, blank by default */}
+      <AnalystNotesSection incident={incident} />
     </div>
   );
 }
@@ -3042,6 +3066,196 @@ function ObservedIocsSection({ iocs, counts }) {
         </div>
       )}
     </ReportSectionCard>
+  );
+}
+
+// ── Analyst inline-edit primitive ────────────────────────────────
+// Wraps any deterministic report section so a Tier-2/Tier-3 analyst
+// can override the AI narrative in place. Persists to `localStorage`
+// keyed by the section-id + a hash of the raw incident, so the same
+// case reopened remembers the analyst edit.  Never mutates the
+// backend Investigation Model — "Reset to AI" always recovers the
+// deterministic output.
+function _incidentKey(incident) {
+  if (!incident) return "default";
+  let h = 0;
+  for (let i = 0; i < incident.length; i++) {
+    h = ((h << 5) - h) + incident.charCodeAt(i);
+    h |= 0;
+  }
+  return String(h);
+}
+
+function EditableSection({ sectionId, incident, aiText, onRegenerate, render, testid }) {
+  const storageKey = `nivx.edit.${sectionId}.${_incidentKey(incident)}`;
+  const [override, setOverride] = useState(() => {
+    try { return localStorage.getItem(storageKey); } catch { return null; }
+  });
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const currentText = override !== null ? override : aiText;
+  const isEdited = override !== null;
+
+  const startEdit = () => { setDraft(currentText || ""); setEditing(true); };
+  const save = () => {
+    try { localStorage.setItem(storageKey, draft); } catch {}
+    setOverride(draft); setEditing(false);
+  };
+  const cancel = () => setEditing(false);
+  const resetToAi = () => {
+    try { localStorage.removeItem(storageKey); } catch {}
+    setOverride(null); setEditing(false);
+  };
+  const regenerate = () => {
+    if (typeof onRegenerate === "function") onRegenerate();
+    resetToAi();
+  };
+
+  return (
+    <div data-testid={testid || `editable-${sectionId}`}>
+      <div className="flex items-center gap-2 mb-2">
+        {isEdited && (
+          <span className="text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 border border-amber-500/50 bg-amber-500/10 text-amber-200 rounded"
+                data-testid={`${sectionId}-edited-badge`}>
+            Analyst Edited
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-1.5 text-[10px]">
+          {!editing ? (
+            <>
+              <button type="button" onClick={startEdit}
+                      data-testid={`${sectionId}-edit-btn`}
+                      className="uppercase tracking-widest font-bold text-cyan-300 hover:text-cyan-200 hover:underline cursor-pointer px-1.5 py-0.5 rounded">
+                ✎ Edit
+              </button>
+              {isEdited && (
+                <button type="button" onClick={resetToAi}
+                        data-testid={`${sectionId}-reset-btn`}
+                        className="uppercase tracking-widest font-bold text-slate-400 hover:text-slate-200 hover:underline cursor-pointer px-1.5 py-0.5 rounded">
+                  ↺ Reset to AI
+                </button>
+              )}
+              {onRegenerate && (
+                <button type="button" onClick={regenerate}
+                        data-testid={`${sectionId}-regen-btn`}
+                        className="uppercase tracking-widest font-bold text-fuchsia-300 hover:text-fuchsia-200 hover:underline cursor-pointer px-1.5 py-0.5 rounded">
+                  ↻ Regenerate
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={save}
+                      data-testid={`${sectionId}-save-btn`}
+                      className="uppercase tracking-widest font-bold text-emerald-300 hover:text-emerald-200 hover:underline cursor-pointer px-1.5 py-0.5 rounded">
+                ✓ Save
+              </button>
+              <button type="button" onClick={cancel}
+                      data-testid={`${sectionId}-cancel-btn`}
+                      className="uppercase tracking-widest font-bold text-slate-400 hover:text-slate-200 hover:underline cursor-pointer px-1.5 py-0.5 rounded">
+                ✕ Cancel
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      {editing ? (
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          data-testid={`${sectionId}-textarea`}
+          className="w-full min-h-[180px] font-mono text-[12px] leading-relaxed bg-slate-900/60 border border-cyan-500/40 rounded p-3 text-slate-100 focus:outline-none focus:border-cyan-400"
+          spellCheck={true}
+        />
+      ) : (
+        render(currentText, isEdited)
+      )}
+    </div>
+  );
+}
+
+
+
+function AnalystNotesSection({ incident }) {
+  const storageKey = `nivx.notes.${_incidentKey(incident)}`;
+  const [notes, setNotes] = useState(() => {
+    try { return localStorage.getItem(storageKey) || ""; } catch { return ""; }
+  });
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const start = () => { setDraft(notes); setEditing(true); };
+  const save  = () => {
+    try { localStorage.setItem(storageKey, draft); } catch {}
+    setNotes(draft); setEditing(false);
+  };
+  const clear = () => {
+    try { localStorage.removeItem(storageKey); } catch {}
+    setNotes(""); setEditing(false);
+  };
+
+  return (
+    <section className="border border-slate-700 rounded-xl bg-slate-950/70 shadow overflow-hidden"
+             data-testid="analyst-notes">
+      <header className="px-5 py-3 border-b border-slate-800 flex items-baseline gap-3">
+        <span className="text-[10px] font-mono text-slate-300">§13</span>
+        <h3 className="text-[11px] tracking-[0.28em] font-bold text-slate-300">
+          ANALYST NOTES
+        </h3>
+        <span className="text-[10px] text-slate-500 ml-auto">
+          free-form · saved locally · never sent back to the model
+        </span>
+      </header>
+      <div className="px-5 py-4">
+        {editing ? (
+          <>
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Analyst observations, hypotheses, and open questions — free-form."
+              data-testid="analyst-notes-textarea"
+              className="w-full min-h-[140px] font-mono text-[12px] leading-relaxed bg-slate-900/60 border border-cyan-500/40 rounded p-3 text-slate-100 focus:outline-none focus:border-cyan-400"
+            />
+            <div className="mt-2 flex gap-2 text-[10px]">
+              <button type="button" onClick={save}
+                      data-testid="analyst-notes-save"
+                      className="uppercase tracking-widest font-bold text-emerald-300 hover:text-emerald-200 hover:underline cursor-pointer px-1.5 py-0.5">
+                ✓ Save
+              </button>
+              <button type="button" onClick={() => setEditing(false)}
+                      data-testid="analyst-notes-cancel"
+                      className="uppercase tracking-widest font-bold text-slate-400 hover:text-slate-200 hover:underline cursor-pointer px-1.5 py-0.5">
+                ✕ Cancel
+              </button>
+              {notes && (
+                <button type="button" onClick={clear}
+                        data-testid="analyst-notes-clear"
+                        className="uppercase tracking-widest font-bold text-red-300 hover:text-red-200 hover:underline cursor-pointer px-1.5 py-0.5 ml-auto">
+                  🗑 Clear all
+                </button>
+              )}
+            </div>
+          </>
+        ) : notes ? (
+          <>
+            <div className="text-[10px] flex justify-end mb-2">
+              <button type="button" onClick={start}
+                      data-testid="analyst-notes-edit-btn"
+                      className="uppercase tracking-widest font-bold text-cyan-300 hover:text-cyan-200 hover:underline cursor-pointer px-1.5 py-0.5">
+                ✎ Edit
+              </button>
+            </div>
+            <pre className="whitespace-pre-wrap text-[12px] leading-relaxed text-slate-100 font-sans"
+                 data-testid="analyst-notes-body">{notes}</pre>
+          </>
+        ) : (
+          <button type="button" onClick={start}
+                  data-testid="analyst-notes-add-btn"
+                  className="text-[11px] uppercase tracking-widest font-bold text-cyan-300 hover:text-cyan-200 hover:underline cursor-pointer border border-dashed border-cyan-500/40 rounded px-3 py-2 w-full">
+            + Add analyst notes
+          </button>
+        )}
+      </div>
+    </section>
   );
 }
 

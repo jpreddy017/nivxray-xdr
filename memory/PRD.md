@@ -1,5 +1,49 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-24 · Phase 9 · Analyst Inline Edit + Analyst Notes (SHIPPED)
+
+Highest-value new capability from the analyst PRD — analysts can now
+override any deterministic report section in place without touching the
+Investigation Model.
+
+### New primitive
+`<EditableSection>` — wraps any section, exposes:
+  · ✎ Edit   — swap the render into a full-width textarea, preserves
+              formatting (paragraphs delimited by `\n\n`).
+  · ✓ Save   — persists override to `localStorage`, keyed by section-id
+              + a hash of the raw incident text (`nivx.edit.<sec>.<hash>`).
+  · ✕ Cancel — abandons the draft, returns to the current text.
+  · ↺ Reset to AI — deletes the localStorage override and reverts to
+                    the deterministic backend output.
+  · ↻ Regenerate — optional hook; currently equivalent to Reset.
+Adds an `ANALYST EDITED` badge whenever an override is present. Never
+mutates the backend Investigation Model.
+
+### Wired into
+- §1 Executive Summary
+- §1b Probable Initial Access paragraph
+- §2 Investigation Summary
+- §12 Investigation Conclusion
+
+### New §13 Analyst Notes
+`<AnalystNotesSection>` — free-form textarea that starts blank per
+incident. Provides Add / Edit / Save / Cancel / Clear-all buttons. Also
+persisted to `localStorage` under `nivx.notes.<hash>`. Explicitly
+labelled "saved locally · never sent back to the model" so analysts
+know NivXRay treats notes as private working state.
+
+### Verified live in preview
+- Edit an executive-summary paragraph → Save → ANALYST EDITED badge
+  appears.
+- Full-page reload → override survives (localStorage persistence).
+- Reset to AI → deterministic paragraph returns, badge disappears.
+- Notes save + reload roundtrip works.
+- All 28 pytest quality gates stay green.
+
+---
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-24 · Phase 8 · Investigation Quality Benchmark (SHIPPED)
 
 Per the analyst review: no new features, only quality-gate hardening +
@@ -1198,63 +1242,3 @@ route/tab removed.
 
 ---
 
-## 2026-02-24 · Phase 1 · IKG + Unified Workspace shell (SHIPPED)
-
-`v2/investigation/{ikg.py, builder.py}` + `/v2/case/:caseId` route with
-persistent header, URL-driven tab strip, embedded Trajectory tab,
-global Explainability panel. All existing routes preserved.
-
-## 2026-02-24 · Verdict Engine v3.1b — FROZEN
-
-Deterministic scoring engine complete. See git log for history.
-
----
-
-## Backlog · Prioritised roadmap
-
-### Phase 3b — Evidence Graph + Trajectory back-sync
-- **Evidence Graph tab** — Konva causality graph over the IKG's
-  spawned/created/modified/contacted edges. NOT chronological. Nodes
-  clickable → SelectionContext (Evidence Card auto-opens).
-- **Trajectory ← Story back-sync** — clicking an event on Trajectory
-  should update SelectionContext so the corresponding Story sentence
-  highlights when the analyst returns to that tab.
-
-### Phase 4 — Executive views
-- Summary tab (executive dashboard: severity, device/incident risk,
-  confidence, timeline sparkline, recommendations).
-- Verdict tab (dedicated hierarchical verdict view with escalation
-  ladder and evidence breakdown lifted out of the drawer).
-
-### Phase 5 — Enrichment + Reports
-- Threat Intelligence tab (enrichment-only overlay on the IKG).
-- Reports tab (one-click bundle export reading from the IKG).
-
-### Phase 6 — Investigation Ingestion Engine (strategic milestone)
-Reframe NivXRay from a "consumer" of seeded telemetry to a full
-end-to-end platform. New "Investigation Input" page accepts:
-- Drag-drop file upload (multi-file · ZIP · single-file)
-- Auto-format-detection (EVTX · JSON · CSV · TXT · XML · LOG · NDJSON)
-- Auto-source-detection (Sysmon · Windows Security · Cisco SEP ·
-  Microsoft Defender · CrowdStrike · SentinelOne · Splunk · QRadar)
-- Normalisation → canonical event schema
-- Auto-populates every workspace tab and generates the full Report.
-- Reference: Splunk Lantern doc on enabling Windows Event 4688
-  command-line auditing via GPO.
-
-### Phase 7 — NivXRay Investigation Knowledge Base (IKB)
-Structured domain-knowledge foundation powering the deterministic
-engine. Reference material for detectors, correlation, story,
-explainability, and false-positive engineering.
-- Volume 1 — Process (creation · parent-child · advanced abuse)
-- Volume 2 — Sysmon Event IDs (every ID · fields · abuse · MITRE)
-- Volume 3 — Windows Security Event IDs (4624/4625/4672/…)
-- Volume 4 — Registry (Run keys · Services · IFEO · CurrentVersion)
-- Volume 5 — Network (TCP/UDP · DNS · TLS/JA3 · SMB · Kerberos ·
-  LDAP · HTTP · beaconing · exfiltration)
-- Volume 6 — Files & Filesystem (MFT · timestomping · alternate streams)
-- Volume 7 — Users, Sessions & Auth (logon types · Kerberos abuse)
-- Volume 8 — Persistence catalog (all MITRE T1547 sub-techniques)
-- Volume 9 — MITRE ATT&CK mapping (tactic → technique → sub-technique)
-- Volume 10 — Threat intelligence (IOC types · TI sources · TTP catalog)
-- Volume 11 — False-positive engineering (baselining · time · frequency
