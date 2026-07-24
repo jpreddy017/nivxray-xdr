@@ -1182,15 +1182,7 @@ function EntityGrid({ entities }) {
       {buckets.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {buckets.map(([label, values]) => (
-            <div key={label} className="border border-slate-800 rounded p-2 bg-slate-950/60">
-              <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">
-                {label} ({values.length})
-              </div>
-              <ul className="text-xs font-mono text-slate-200 space-y-0.5 break-all">
-                {values.slice(0, 6).map((v, i) => <li key={i}>{v}</li>)}
-                {values.length > 6 && <li className="text-slate-500">…{values.length - 6} more</li>}
-              </ul>
-            </div>
+            <EntityBucket key={label} label={label} values={values} />
           ))}
         </div>
       )}
@@ -1220,6 +1212,73 @@ function EntityGrid({ entities }) {
           </div>
           <StringsList strings={entities.strings} testid="ioc-strings-list" initialCap={12} />
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Expandable entity bucket (IPs / Domains / URLs / hashes / files) ───
+function EntityBucket({ label, values }) {
+  const [expanded, setExpanded] = useState(false);
+  const [openIdx, setOpenIdx] = useState(null);
+  const CAP = 6;
+  const visible = expanded ? values : values.slice(0, CAP);
+  const hasMore = values.length > CAP;
+  return (
+    <div className="border border-slate-800 rounded p-2 bg-slate-950/60"
+         data-testid={`ioc-bucket-${label}`}>
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-[10px] text-slate-500 uppercase tracking-wide">
+          {label} ({values.length})
+        </div>
+        {values.length > 0 && (
+          <button type="button"
+                  onClick={() => navigator.clipboard?.writeText(values.join("\n"))}
+                  data-testid={`ioc-bucket-${label}-copy`}
+                  className="text-[10px] text-cyan-300 hover:underline">
+            copy all
+          </button>
+        )}
+      </div>
+      <ul className="text-xs font-mono text-slate-200 space-y-0.5 break-all">
+        {visible.map((v, i) => (
+          <li key={i}>
+            <button type="button"
+                    onClick={() => setOpenIdx(openIdx === i ? null : i)}
+                    className="text-left w-full hover:text-cyan-200 hover:underline transition-colors"
+                    title={v}
+                    data-testid={`ioc-bucket-${label}-item-${i}`}>
+              {v}
+            </button>
+            {openIdx === i && (
+              <div className="mt-1 mb-1.5 border border-cyan-500/40 rounded p-2 bg-cyan-500/5"
+                   data-testid={`ioc-bucket-${label}-item-${i}-full`}>
+                <div className="flex items-baseline justify-between mb-1">
+                  <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold">
+                    Full value · {v.length} chars
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button type="button"
+                            onClick={() => navigator.clipboard?.writeText(v)}
+                            className="text-[10px] text-cyan-300 hover:underline">copy</button>
+                    <button type="button"
+                            onClick={() => setOpenIdx(null)}
+                            className="text-[10px] text-slate-400 hover:underline">close</button>
+                  </div>
+                </div>
+                <pre className="text-[11px] font-mono text-slate-100 whitespace-pre-wrap break-all leading-snug">{v}</pre>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      {hasMore && (
+        <button type="button"
+                onClick={() => setExpanded(!expanded)}
+                data-testid={`ioc-bucket-${label}-toggle`}
+                className="mt-1.5 text-[10px] uppercase tracking-widest text-cyan-300 hover:text-cyan-200 hover:underline font-bold">
+          {expanded ? `↑ Show first ${CAP}` : `↓ Show all ${values.length}`}
+        </button>
       )}
     </div>
   );
