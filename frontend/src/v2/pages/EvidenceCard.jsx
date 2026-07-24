@@ -67,11 +67,14 @@ function CaseOverview({ inv, caseId, onDownload }) {
     };
   }, [ikg]);
 
-  // Unique tactics on the device verdict (falls back to header.mitre_tactics)
+  // Unique tactics on the device verdict
   const tactics = useMemo(() => {
     const dev = inv?.verdicts?.device || {};
     return Array.from(new Set(dev.mitre_tactics || h.mitre_tactics || []));
   }, [inv, h]);
+
+  // ── Executive summary attribution (each phase → binary+technique) ──
+  const summary = useMemo(() => extractExecutiveSummary(inv), [inv]);
 
   const recommendation = useMemo(() => {
     if (band === "critical" || band === "malicious") {
@@ -88,12 +91,24 @@ function CaseOverview({ inv, caseId, onDownload }) {
 
   return (
     <>
-      <Section label="Case Overview">
+      <Section label="Executive Summary">
+        <Row label="Attack Confidence"
+             value={h.confidence != null ? `${h.confidence}%` : "—"} />
+        <Row label="Attack Duration"  value={summary.duration || "—"} />
+        <Row label="Risk"             value={String(band).toUpperCase()} />
+        <Row label="Initial Access"   value={summary.initial_access || "—"} />
+        <Row label="Execution"        value={summary.execution || "—"} />
+        <Row label="Persistence"      value={summary.persistence || "—"} />
+        <Row label="Credential Access" value={summary.credential_access || "—"} />
+        <Row label="Defense Evasion"  value={summary.defense_evasion || "—"} />
+        <Row label="C2"               value={summary.c2 || "—"} />
+        <Row label="Impact"           value={summary.impact || "—"} />
+      </Section>
+
+      <Section label="Case">
         <Row label="Case"       value={caseId} />
-        <Row label="Severity"   value={String(band).toUpperCase()} />
         <Row label="Device Risk" value={h.device_score ?? "—"} />
         <Row label="Incident"   value={h.incident_score ?? "—"} />
-        <Row label="Confidence" value={h.confidence != null ? `${h.confidence}%` : "—"} />
         <Row label="Events"     value={h.event_count} />
         <Row label="Chains"     value={h.chain_count} />
       </Section>
@@ -166,6 +181,90 @@ function CaseOverview({ inv, caseId, onDownload }) {
       </Section>
     </>
   );
+}
+
+// ─── Deterministic attribution of each ATT&CK tactic to the process
+// that fired it. Powers the "understand the case in 10 seconds" panel.
+function extractExecutiveSummary(inv) {
+  const out = {
+    duration: "", initial_access: "", execution: "", persistence: "",
+    credential_access: "", defense_evasion: "", c2: "", impact: "",
+  };
+  if (!inv) return out;
+  const nodes = inv?.ikg?.nodes || [];
+  const edges = inv?.ikg?.edges || [];
+  const nodeById = Object.fromEntries(nodes.map(n => [n.id, n]));
+
+  // Duration
+  const times = nodes.map(n => n.attrs?.first_seen)
+                     .filter(Boolean).map(t => new Date(t).getTime())
+                     .filter(t => !Number.isNaN(t));
+  if (times.length >= 2) {
+    const min = Math.min(...times), max = Math.max(...times);
+    const ms = max - min;
+    if (ms < 60_000)          out.duration = `${Math.round(ms / 1000)} s`;
+    else if (ms < 3600_000)   out.duration = `${Math.round(ms / 60_000)} min`;
+    else                       out.duration = `${(ms / 3600_000).toFixed(1)} h`;
+  }
+
+  // Index technique nodes by their technique_id so we can find the
+  // process that fired each one via: technique ← maps_to ← event → executed_by → process
+  const techIdToProc = new Map();       // "T1059" → Set(process labels)
+  const techIdToId   = new Map();       // "T1059" → node.id  (for edge lookup)
+  for (const n of nodes) {
+    if (n.type !== "technique") continue;
+    const tid = n.attrs?.technique_id || n.label;
+    if (!tid) continue;
+    techIdToId.set(tid, n.id);
+    techIdToProc.set(tid, new Set());
+  }
+  for (const e of edges) {
+    if (e.type !== "maps_to") continue;
+    const tech = nodeById[e.target];
+    if (!tech || tech.type !== "technique") continue;
+    const tid = tech.attrs?.technique_id || tech.label;
+    if (!tid) continue;
+    const eb = edges.find(x => x.type === "executed_by" && x.source === e.source);
+    const proc = eb ? nodeById[eb.target] : null;
+    const label = proc?.label || "";
+    if (label) techIdToProc.get(tid)?.add(label);
+  }
+
+  // Use the device verdict's tactic_coverage as the ground truth for
+  // which techniques belong to which tactic.
+  const cov = inv?.verdicts?.device?.tactic_coverage || {};
+  const pickTactic = (...names) => {
+    for (const n of names) {
+      const rec = cov[n];
+      if (!rec) continue;
+      const techs = (rec.techniques || []).slice(0, 3);
+      if (!techs.length) continue;
+      const parts = [];
+      for (const t of techs) {
+        // Accept both bare id ("T1059") and sub ("T1059.001")
+        const procs = Array.from(techIdToProc.get(t) || []);
+        // Fall back to bases if no exact match
+        if (!procs.length) {
+          const base = t.split(".", 1)[0];
+          for (const [k, v] of techIdToProc.entries()) {
+            if (k === base) procs.push(...Array.from(v));
+          }
+        }
+        if (procs.length) parts.push(`${procs[0]} (${t})`);
+        else              parts.push(t);
+      }
+      return Array.from(new Set(parts)).slice(0, 2).join(" · ");
+    }
+    return "";
+  };
+  out.initial_access    = pickTactic("initial_access", "initial-access");
+  out.execution         = pickTactic("execution");
+  out.persistence       = pickTactic("persistence");
+  out.credential_access = pickTactic("credential_access", "credential-access");
+  out.defense_evasion   = pickTactic("defense_evasion", "defense-evasion");
+  out.c2                = pickTactic("command_and_control", "command-and-control", "c2");
+  out.impact            = pickTactic("impact");
+  return out;
 }
 
 // ═════════════════════════════════════════════════════════════════════
