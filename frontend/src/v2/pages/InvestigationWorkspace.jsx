@@ -28,6 +28,8 @@ import { isObservable } from "../flags";
 import api from "@/lib/api";
 
 const DeviceTrajectoryV2 = lazy(() => import("./DeviceTrajectoryV2"));
+const AttackStoryTab     = lazy(() => import("./AttackStoryTab"));
+const AttackTab          = lazy(() => import("./AttackTab"));
 
 // ═══════════════════════════════════════════════════════════════════
 // Tab manifest — the ONE place a new view is registered.
@@ -172,53 +174,53 @@ function PlaceholderView({ tab }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Global collapsible Explainability panel
-// Renders on every tab. Content is a Phase-1 minimal — full deterministic
-// reasoning engine ships in Phase 4.
+// Global collapsible Explainability panel — Phase 2 upgrade.
+// Supports POSITIVE ("Why is this <band>?") + NEGATIVE
+// ("Why isn't this ransomware / credential-theft / lateral-movement /
+// persistence / beaconing?") deterministic reasoning. Both modes read
+// exclusively from the IKG-driven Investigation object — no LLM.
 // ═══════════════════════════════════════════════════════════════════
 function ExplainabilityPanel({ inv, activeTab }) {
   const [open, setOpen] = useState(false);
+  const [question, setQuestion] = useState("positive");
+  const [negatives, setNegatives] = useState({});   // pattern_id → response
+  const { caseId } = useParams();
+
   const h = inv?.header || {};
-  const dv = inv?.verdicts?.device;
-
-  const reasons = useMemo(() => {
-    if (!dv) return [];
-    const out = [];
-    // 1 · Top 3 evidence signals (deterministic sort by effective_weight).
-    const evi = [...(dv.evidence_breakdown || [])]
-      .sort((a, b) => (b.effective_weight || 0) - (a.effective_weight || 0))
-      .slice(0, 3);
-    evi.forEach(e => out.push({
-      kind: "evidence", weight: e.effective_weight,
-      text: `${e.signal.replaceAll("_", " ").toLowerCase()} detected · +${e.effective_weight}`,
-      detail: e.reason,
-    }));
-    // 2 · Correlation bonuses.
-    (dv.correlation_bonuses || []).forEach(b => out.push({
-      kind: "bonus", weight: b.weight,
-      text: `${b.signal.replaceAll("_", " ").toLowerCase()} · +${b.weight}`,
-      detail: b.reason,
-    }));
-    // 3 · Progressions.
-    (dv.progressions || []).forEach(p => out.push({
-      kind: "progression", weight: p.effective_weight || p.weight,
-      text: `${p.label} · +${p.effective_weight || p.weight}`,
-      detail: p.reason,
-    }));
-    // 4 · Tactic coverage summary line.
-    const nTactics = Object.keys(dv.tactic_coverage || {}).length;
-    if (nTactics > 0) {
-      out.push({
-        kind: "coverage",
-        text: `${nTactics} MITRE tactic${nTactics > 1 ? "s" : ""} covered`,
-        detail: Object.keys(dv.tactic_coverage).join(", "),
-      });
-    }
-    return out;
-  }, [dv]);
-
   const band = h.verdict_band || "benign";
   const tone = BAND_TONES[band] || BAND_TONES.benign;
+  const patterns = inv?.explainability?.negative_patterns || [];
+  const positive = inv?.explainability?.positive || { reasons: [] };
+
+  // Fetch a negative-reasoning response on demand (cached).
+  useEffect(() => {
+    if (question === "positive" || !caseId) return;
+    if (negatives[question]) return;
+    api.get(`/v2/cases/${encodeURIComponent(caseId)}/investigation/explain/${question}`)
+       .then(r => setNegatives(n => ({ ...n, [question]: r.data })))
+       .catch(() => {});
+  }, [question, caseId, negatives]);
+
+  const view = useMemo(() => {
+    if (question === "positive") {
+      return {
+        header: `Why is this`,
+        headerTail: band,
+        reasons: (positive.reasons || []).map(r => ({
+          kind: r.kind, text: r.text, detail: r.detail,
+        })),
+        verdictLine: null,
+      };
+    }
+    const neg = negatives[question];
+    if (!neg) return { header: "Loading…", headerTail: "", reasons: [], verdictLine: null };
+    return {
+      header: `Why isn't this ${neg.label?.toLowerCase()}?`,
+      headerTail: "",
+      reasons: neg.reasons || [],
+      verdictLine: neg.verdict_line,
+    };
+  }, [question, positive, negatives, band]);
 
   return (
     <div data-testid="explainability-panel"
@@ -233,7 +235,9 @@ function ExplainabilityPanel({ inv, activeTab }) {
         <span className="text-[10px] tracking-[1.5px] font-bold"
               style={{ color: T.inkMute }}>EXPLAIN</span>
         <span className="text-[12px]" style={{ color: T.ink }}>
-          Why is this <span style={{ color: tone }}>{band}</span>?
+          {view.header}
+          {view.headerTail && <span style={{ color: tone }}> {view.headerTail}</span>}
+          {question === "positive" && "?"}
         </span>
         <span className="ml-auto text-[9px] font-mono" style={{ color: T.inkFaint }}>
           {activeTab} view · deterministic · no LLM
@@ -241,38 +245,81 @@ function ExplainabilityPanel({ inv, activeTab }) {
       </button>
 
       {open && (
-        <div className="px-4 pb-4 pt-1 border-t space-y-1"
-             style={{ borderColor: T.line, maxHeight: 260, overflowY: "auto" }}>
-          {reasons.length === 0 ? (
-            <div className="text-[11px]" style={{ color: T.inkFaint }}
-                 data-testid="explainability-empty">
-              No evidence fired. Classification remains {band.toUpperCase()}.
-            </div>
-          ) : (
-            reasons.map((r, i) => (
-              <div key={i}
-                   data-testid={`explainability-reason-${i}`}
-                   className="flex items-baseline gap-3 text-[11px]"
-                   style={{ color: T.inkDim }}>
-                <span className="font-mono font-bold"
-                      style={{ color: r.kind === "bonus" ? "#7DB1D6"
-                                    : r.kind === "progression" ? "#FCA5A5"
-                                    : r.kind === "coverage" ? "#4ADE80" : "#F5A34C",
-                               minWidth: 90 }}>
-                  {r.kind}
-                </span>
-                <span style={{ color: T.ink }}>{r.text}</span>
-                {r.detail && (
-                  <span className="text-[10px] flex-1 truncate"
-                        style={{ color: T.inkFaint }} title={r.detail}>
-                    · {r.detail}
-                  </span>
-                )}
+        <div className="px-4 pb-4 pt-1 border-t"
+             style={{ borderColor: T.line, maxHeight: 340, overflowY: "auto" }}>
+          <div className="flex flex-wrap gap-1.5 mb-3 pt-2"
+               data-testid="explainability-question-picker">
+            <button onClick={() => setQuestion("positive")}
+                    data-testid="explain-q-positive"
+                    className="text-[10px] px-2 py-1 rounded font-mono transition-colors"
+                    style={{
+                      background: question === "positive" ? T.paper2 : "transparent",
+                      color:      question === "positive" ? T.ink : T.inkMute,
+                      border: `1px solid ${question === "positive" ? tone : T.line}`,
+                    }}>
+              Why is this {band}?
+            </button>
+            {patterns.map(p => (
+              <button key={p.id}
+                      onClick={() => setQuestion(p.id)}
+                      data-testid={`explain-q-${p.id}`}
+                      className="text-[10px] px-2 py-1 rounded font-mono transition-colors"
+                      style={{
+                        background: question === p.id ? T.paper2 : "transparent",
+                        color:      question === p.id ? T.ink : T.inkMute,
+                        border: `1px solid ${question === p.id ? "#4ADE80" : T.line}`,
+                      }}>
+                Why isn't this {p.label.toLowerCase()}?
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-1">
+            {view.reasons.length === 0 ? (
+              <div className="text-[11px]" style={{ color: T.inkFaint }}
+                   data-testid="explainability-empty">
+                No evidence to explain.
               </div>
-            ))
+            ) : (
+              view.reasons.map((r, i) => (
+                <div key={i}
+                     data-testid={`explainability-reason-${i}`}
+                     className="flex items-baseline gap-3 text-[11px]"
+                     style={{ color: T.inkDim }}>
+                  <span className="font-mono font-bold"
+                        style={{ color:
+                                    r.kind === "missing"     ? "#F87171"
+                                  : r.kind === "present"     ? "#4ADE80"
+                                  : r.kind === "bonus"       ? "#7DB1D6"
+                                  : r.kind === "progression" ? "#FCA5A5"
+                                  : r.kind === "coverage"    ? "#4ADE80"
+                                                             : "#F5A34C",
+                                 minWidth: 90 }}>
+                    {r.kind}
+                  </span>
+                  <span style={{ color: T.ink }}>{r.text}</span>
+                  {r.detail && (
+                    <span className="text-[10px] flex-1 truncate"
+                          style={{ color: T.inkFaint }} title={r.detail}>
+                      · {r.detail}
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {view.verdictLine && (
+            <div data-testid="explainability-verdict-line"
+                 className="mt-3 text-[11px] font-mono px-3 py-2 rounded"
+                 style={{ background: T.paper2, color: T.ink,
+                          border: `1px solid ${T.line}` }}>
+              {view.verdictLine}
+            </div>
           )}
-          <div className="pt-2 text-[9px] font-mono"
-               style={{ color: T.inkFaint, borderTop: `1px solid ${T.line}` }}>
+
+          <div className="pt-3 text-[9px] font-mono"
+               style={{ color: T.inkFaint }}>
             Reasoned from the Investigation Knowledge Graph · {inv?.ikg?.stats?.nodes || 0} nodes · {inv?.ikg?.stats?.edges || 0} edges
           </div>
         </div>
@@ -346,8 +393,8 @@ export default function InvestigationWorkspace() {
       comingSoon: "phase 3",
       description: "Parent-child ancestry projection of the IKG — the primary DFIR view." },
     { key: "story",       label: "Attack Story",      testid: "tab-story",
-      comingSoon: "phase 2",
-      description: "Deterministic incident narrative · every sentence linked to IKG evidence." },
+      render: () => <AttackStoryTab inv={inv} />,
+    },
     { key: "graph",       label: "Evidence Graph",    testid: "tab-graph",
       comingSoon: "phase 3",
       description: "Cause-and-effect visualisation of the IKG · not chronological — relational." },
@@ -355,8 +402,8 @@ export default function InvestigationWorkspace() {
       comingSoon: "phase 4",
       description: "Event → Process → Chain → Device → Incident with escalation ladder, evidence breakdown, confidence." },
     { key: "attack",      label: "ATT&CK",            testid: "tab-attack",
-      comingSoon: "phase 2",
-      description: "Tactic coverage wheel, technique list, kill chain, Navigator export, STIX." },
+      render: () => <AttackTab inv={inv} />,
+    },
     { key: "ti",          label: "Threat Intelligence", testid: "tab-ti",
       comingSoon: "phase 5",
       description: "Enrichment only. Never influences the deterministic verdict." },

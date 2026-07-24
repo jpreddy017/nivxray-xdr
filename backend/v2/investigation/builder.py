@@ -23,6 +23,9 @@ from typing import Any
 from .ikg import InvestigationKnowledgeGraph, Node
 from v2.shadow.irg import enrich as irg_enrich
 from v2.verdict import correlate
+from .attack_story import build_attack_story
+from .attack_mapping import build_attack_mapping
+from .explainability import why_is_this, why_is_this_not, list_patterns as list_negative_patterns
 
 
 ENGINE_VERSION = {
@@ -40,6 +43,9 @@ class Investigation:
     header: dict[str, Any] = field(default_factory=dict)
     ikg:     dict[str, Any] = field(default_factory=dict)
     verdicts: dict[str, Any] = field(default_factory=dict)
+    story:    list[dict]    = field(default_factory=list)      # Phase 2 view
+    attack_mapping: dict[str, Any] = field(default_factory=dict)  # Phase 2 view
+    explainability: dict[str, Any] = field(default_factory=dict)  # Phase 2 view
     profile: str = "soc_balanced"
     engine_version: dict[str, str] = field(default_factory=lambda: dict(ENGINE_VERSION))
 
@@ -219,5 +225,13 @@ def build_investigation(frames: list[dict], case_id: str,
         header=header,
         ikg=ikg.to_dict(),
         verdicts=corr.to_dict(),
+        story=build_attack_story(enriched, ikg.to_dict(), corr.to_dict()),
+        attack_mapping=build_attack_mapping(ikg.to_dict(),
+                                            corr.device.to_dict() if corr.device else None),
+        explainability={
+            "positive":         why_is_this(corr.device.to_dict() if corr.device else {},
+                                            ikg.stats()),
+            "negative_patterns": list_negative_patterns(),
+        },
         profile=prof,
     )

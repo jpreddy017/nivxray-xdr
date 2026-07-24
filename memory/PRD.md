@@ -2,15 +2,183 @@
 
 ## Vision (2026-02-24)
 
-NivXRay is **NOT** a device trajectory viewer, **NOT** a malware detector,
-**NOT** a verdict engine. It is a **deterministic enterprise investigation
-platform** that reconstructs attack behaviour, explains why it reached its
-conclusions, and helps analysts investigate any cyberattack — from initial
-access to impact — using a single unified workspace built on the
-**Investigation Knowledge Graph (IKG)**.
+NivXRay is a **deterministic enterprise investigation platform** that
+reconstructs attack behaviour, explains why it reached its conclusions,
+and helps analysts investigate any cyberattack — from initial access to
+impact — using a single unified workspace built on the **Investigation
+Knowledge Graph (IKG)**. Every existing tab and route is preserved.
+Every new capability is a projection of the IKG. Nothing calculates its
+own truth.
 
-Every existing tab and route is preserved. Every new capability is a
-projection of the IKG. Nothing calculates its own truth.
+---
+
+## 2026-02-24 · Phase 2 · Attack Story · ATT&CK tab · Negative Explainability (SHIPPED)
+
+Rated 10/10 on architecture; Phase 2 is the operator's approved
+storytelling & explainability activation. Zero regression — no existing
+route/tab removed.
+
+### Backend
+
+- `v2/investigation/attack_story.py` — deterministic sentence generator
+  that traverses the IKG's `spawned` edges + reads process-level signals
+  from the correlation output. Emits sentences with `text`, `tactic`,
+  `severity`, `frame_iids`, `process_iids`, `signals`, `evidence_ref`.
+  Sentence types covered: Initial Spawn (Office/Browser → LOLBin) ·
+  Encoded Execution · Download Cradle · Persistence · Credential Access
+  · Defense Evasion · Command-and-Control · Impact/Ransomware. Fallback
+  sentence when no explicit pattern matches but the device is non-benign.
+- `v2/investigation/attack_mapping.py` — ATT&CK projection of the IKG:
+  per-tactic technique buckets (level 1..3), kill-chain view (every
+  canonical tactic marked ✓ / ○), MITRE Navigator v4.5 layer JSON
+  ready for export, STIX 2.1 technique-id handoff.
+- `v2/investigation/explainability.py` — POSITIVE ("Why is this
+  <band>?") and NEGATIVE ("Why isn't this ransomware / credential-theft
+  / lateral-movement / persistence / beaconing?") deterministic
+  reasoning. Each attack pattern declares `required` and `supporting`
+  signals with min-threshold rules. `have_required` / `missing_required`
+  arrays surface exactly which required behaviours are absent.
+- `builder.py` extended — Investigation object now carries `story`,
+  `attack_mapping`, `explainability` (positive + negative_patterns list).
+- New endpoint: `GET /api/v2/cases/{id}/investigation/explain/{pattern_id}`
+  for on-demand negative reasoning.
+
+### Frontend
+
+- `v2/pages/AttackStoryTab.jsx` — analyst-facing narrative view. Each
+  sentence card shows: tactic pill · severity · fired signals · event/
+  process counts · **"show on trajectory →"** button that navigates to
+  `?tab=trajectory&focus=<frame_iid>` (Story→Trajectory sync via URL).
+- `v2/pages/AttackTab.jsx` — dedicated ATT&CK view:
+  * Coverage bars per tactic (level 1..3, color-coded blue/orange/red)
+  * Kill chain (every canonical tactic, covered ✓ / gap ○)
+  * Technique cards grouped by tactic
+  * **Export Navigator JSON** — downloads MITRE Navigator v4.5 layer
+  * **Export STIX 2.1** — piggybacks the existing report endpoint
+- `InvestigationWorkspace.jsx` — Explainability panel upgraded with a
+  question-picker: "Why is this <band>?" (positive · pre-computed) +
+  one button per attack pattern for "Why isn't this <pattern>?"
+  (negative · lazy-loaded per pattern). Verdict line rendered as a
+  monospaced footer summary of the reasoning.
+
+### Backend tests: 9/9 new Phase 2 tests green
+
+- `tests/test_investigation_phase2.py` covers story emission (Office →
+  LOLBin), determinism, evidence links, ATT&CK mapping population and
+  Navigator schema, ATT&CK determinism, positive explainability
+  reasons, negative ransomware (both matches and no-matches cases),
+  unknown-pattern error handling.
+
+### Cumulative test status (44/44 verdict + IKG tests green)
+
+- test_verdict_v3.py                — 9/9
+- test_verdict_v3_correlation.py    — 12/12
+- test_verdict_v3_1b.py             — 14/14
+- test_investigation_ikg.py         — 10/10
+- test_investigation_phase2.py      —  9/9
+- RC5 backend suite                 — 820/820 (untouched)
+
+### Live smoke on `case_dfir_bumblebee_akira_2026`
+
+- Story: at least 1 sentence emitted from real data (`wbadmin.exe
+  accessed credential material`).
+- ATT&CK: 6 tactics · 21 techniques · 18 unique bases. Navigator
+  layer JSON exports cleanly.
+- Negative "Why isn't this ransomware?" returns:
+  `matches: false · missing_required: [BACKUP_DESTRUCTION,
+  MASS_FILE_ENCRYPTION, RANSOM_NOTE_CREATION] · verdict: Classification
+  remains as-is: not enough ransomware-specific evidence.`
+
+---
+
+## 2026-02-24 · Phase 1 · IKG + Unified Workspace shell (SHIPPED)
+
+`v2/investigation/{ikg.py, builder.py}` + `/v2/case/:caseId` route with
+persistent header, URL-driven tab strip, embedded Trajectory tab,
+global Explainability panel. All existing routes preserved.
+
+## 2026-02-24 · Verdict Engine v3.1b — FROZEN
+
+Deterministic scoring engine complete. See git log for history.
+
+---
+
+## Backlog · Prioritised roadmap
+
+### Phase 3 — Graph views + Evidence Card
+- **Evidence Card** — shared side-panel component that any view can
+  invoke to drill into a single event/process (event, parent, child,
+  command line, decoded command, files, registry, network, MITRE,
+  verdict contribution, related story sentence, related graph nodes,
+  related report section). Same look on every tab. Cross-cutting.
+- **Evidence Graph tab** — Konva causality graph over the IKG's
+  spawned/created/modified/contacted edges. NOT chronological.
+- **Process Tree tab** — parent→child projection of the IKG's `spawned`
+  edges, with per-node verdict badges.
+- **Trajectory ← Story back-sync** — clicking an event on Trajectory
+  highlights the corresponding Story sentence.
+
+### Phase 4 — Executive views
+- Summary tab (executive dashboard: severity, device/incident risk,
+  confidence, timeline sparkline, recommendations).
+- Verdict tab (dedicated hierarchical verdict view with escalation
+  ladder and evidence breakdown lifted out of the drawer).
+
+### Phase 5 — Enrichment + Reports
+- Threat Intelligence tab (enrichment-only overlay on the IKG).
+- Reports tab (one-click bundle export reading from the IKG).
+
+### Phase 6 — Investigation Ingestion Engine (strategic milestone)
+Reframe NivXRay from a "consumer" of seeded telemetry to a full
+end-to-end platform. New "Investigation Input" page accepts:
+- Drag-drop file upload (multi-file · ZIP · single-file)
+- Auto-format-detection (EVTX · JSON · CSV · TXT · XML · LOG · NDJSON)
+- Auto-source-detection (Sysmon · Windows Security · Cisco SEP ·
+  Microsoft Defender · CrowdStrike · SentinelOne · Splunk · QRadar)
+- Normalisation → canonical event schema
+- Auto-populates every workspace tab and generates the full Report.
+- Reference: Splunk Lantern doc on enabling Windows Event 4688
+  command-line auditing via GPO.
+
+### Phase 7 — NivXRay Investigation Knowledge Base (IKB)
+Structured domain-knowledge foundation powering the deterministic
+engine. Reference material for detectors, correlation, story,
+explainability, and false-positive engineering.
+- Volume 1 — Process (creation · parent-child · advanced abuse)
+- Volume 2 — Sysmon Event IDs (every ID · fields · abuse · MITRE)
+- Volume 3 — Windows Security Event IDs (4624/4625/4672/…)
+- Volume 4 — Registry (Run keys · Services · IFEO · CurrentVersion)
+- Volume 5 — Network (TCP/UDP · DNS · TLS/JA3 · SMB · Kerberos ·
+  LDAP · HTTP · beaconing · exfiltration)
+- Volume 6 — Files & Filesystem (MFT · timestomping · alternate streams)
+- Volume 7 — Users, Sessions & Auth (logon types · Kerberos abuse)
+- Volume 8 — Persistence catalog (all MITRE T1547 sub-techniques)
+- Volume 9 — MITRE ATT&CK mapping (tactic → technique → sub-technique)
+- Volume 10 — Threat intelligence (IOC types · TI sources · TTP catalog)
+- Volume 11 — False-positive engineering (baselining · time · frequency
+  · environment · context · evidence layering)
+
+### Constraint
+Every phase MUST preserve every existing route and workflow.
+
+---
+
+## Key APIs
+
+- `GET /api/v2/cases/{id}/investigation?profile=<id>` — **the unified investigation**.
+- `GET /api/v2/cases/{id}/investigation/explain/{pattern_id}` — negative explainability.
+- `GET /api/v2/cases/{id}/verdicts` — per-event verdicts (v3).
+- `GET /api/v2/cases/{id}/verdicts/aggregate?profile=<id>` — v3.1 multi-layer.
+- `GET /api/v2/verdict/profiles` — Adaptive Weight Profiles.
+- (Legacy trajectory + IRG + ancestry + report endpoints all preserved.)
+
+## Feature Flags
+
+- `NIVX_FLAG_TRAJECTORY_ENGINE=shadow`
+- `NIVX_FLAG_CASE_ENGINE=shadow`
+- `NIVX_FLAG_ADAPTERS=shadow`
+- `NIVX_FLAG_VERDICT_ENGINE_V3=shadow` — gates every v2 investigation
+  capability.
 
 ## Data flow — single source of truth
 
