@@ -15,7 +15,10 @@ const NODE_H     = 22;
 const NODE_MIN_W = 92;
 const AXIS_H     = 26;
 const ROW_GAP    = 60;
-const PAD_X      = 24;
+// Left/right gutter must reserve at least half a node width plus a
+// small margin so the first / last node on any depth row is fully
+// visible instead of being clipped by the Stage edge.
+const PAD_X      = NODE_MIN_W / 2 + 14;   // 60px — was 24 (clipped nodes)
 
 const TYPE_COLOR = {
   process:  T.ink,
@@ -331,6 +334,101 @@ export default function IRGGraphCanvas({
           })}
         </Layer>
       </Stage>
+
+      {/* Horizontal scrollbar overlay — always visible when the graph is
+          wider than the viewport. Provides an obvious affordance that the
+          canvas is pannable and lets the user click / drag to pan the
+          shared viewport. */}
+      <HScrollbar
+        contentW={contentW}
+        worldW={worldW}
+        hPan={hPan}
+        onPan={(next) => {
+          const maxP = Math.max(0, worldW - (contentW - PAD_X * 2));
+          setHPan(Math.max(0, Math.min(maxP, next)));
+        }}
+      />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HScrollbar — thin, always-visible scrollbar pinned to the bottom of
+// the IRG canvas. Behaves like a native scrollbar (click-jump + drag)
+// and only renders when the underlying content overflows.
+// ═══════════════════════════════════════════════════════════════════
+function HScrollbar({ contentW, worldW, hPan, onPan }) {
+  const viewportW = Math.max(1, contentW - PAD_X * 2);
+  const overflow  = worldW - viewportW;
+  const trackRef  = useRef(null);
+  const dragRef   = useRef(null);
+
+  const trackW  = Math.max(0, contentW - 24);
+  const thumbW  = Math.max(28, (viewportW / worldW) * trackW);
+  const thumbX  = (hPan / Math.max(1, overflow)) * (trackW - thumbW);
+
+  const onMove = useCallback((e) => {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dPan = (dx / Math.max(1, trackW - thumbW)) * overflow;
+    onPan(dragRef.current.startPan + dPan);
+  }, [trackW, thumbW, overflow, onPan]);
+  const onUp = useCallback(() => { dragRef.current = null; }, []);
+  useEffect(() => {
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [onMove, onUp]);
+
+  if (overflow <= 1) return null;  // no scroll needed
+
+  const onTrackMouseDown = (e) => {
+    const r = trackRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const clickX = e.clientX - r.left;
+    // If clicked outside the thumb, jump the thumb to that spot.
+    if (clickX < thumbX || clickX > thumbX + thumbW) {
+      const targetX = Math.max(0, Math.min(trackW - thumbW, clickX - thumbW / 2));
+      const frac = targetX / Math.max(1, trackW - thumbW);
+      onPan(frac * overflow);
+    }
+    dragRef.current = { startX: e.clientX, startPan: hPan };
+    e.preventDefault();
+  };
+
+  return (
+    <div
+      ref={trackRef}
+      data-testid="irg-hscroll"
+      onMouseDown={onTrackMouseDown}
+      style={{
+        position: "absolute",
+        left: 12, right: 12, bottom: 6,
+        height: 10,
+        background: "rgba(148,163,184,0.08)",
+        border: "1px solid rgba(148,163,184,0.15)",
+        borderRadius: 5,
+        cursor: "pointer",
+        zIndex: 5,
+      }}
+      title="Scroll IRG timeline"
+    >
+      <div
+        data-testid="irg-hscroll-thumb"
+        style={{
+          position: "absolute",
+          left: thumbX,
+          top: 1,
+          bottom: 1,
+          width: thumbW,
+          background: dragRef.current ? T.amber : "rgba(203,213,225,0.55)",
+          borderRadius: 4,
+          transition: dragRef.current ? "none" : "background 120ms ease",
+        }}
+      />
     </div>
   );
 }

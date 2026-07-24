@@ -450,7 +450,7 @@ function InvestigationWorkspaceInner() {
             </div>
             {view === "attack_path"
               ? <AttackPathView inv={inv} />
-              : <DeviceTrajectoryV2 />}
+              : <DeviceTrajectoryV2 embedded />}
           </div>
         );
       },
@@ -485,6 +485,55 @@ function InvestigationWorkspaceInner() {
       <div data-testid="workspace-disabled"
            className="p-8 text-[12px]" style={{ color: T.inkFaint }}>
         Investigation Workspace requires VERDICT_ENGINE_V3 to be observable.
+      </div>
+    );
+  }
+
+  // ─── Graceful "case not found" empty state (P0.3 Route QA) ──────
+  // When the backend rejects the case lookup (404 or any error) OR the
+  // returned investigation is fully empty (no events, no IKG nodes),
+  // replace the workspace body with an actionable empty card rather than
+  // letting downstream tabs render against `null` / zero data.
+  const invIsEmpty = inv && !loading &&
+    (inv.header?.event_count ?? 0) === 0;
+  if ((err && !inv) || invIsEmpty) {
+    const looksLikeNotFound = invIsEmpty || /not.?found|404|no such|missing/i.test(String(err));
+    return (
+      <div data-testid="investigation-workspace-empty"
+           className="flex flex-col"
+           style={{ background: T.bg, color: T.ink, minHeight: "100vh" }}>
+        <Header />
+        <div className="flex-1 flex items-center justify-center px-6 py-16">
+          <div className="max-w-md text-center rounded-xl p-8"
+               style={{ background: T.paper, border: `1px solid ${T.line}`,
+                        boxShadow: "0 8px 32px -8px rgba(0,0,0,0.55)" }}>
+            <div className="text-[10px] tracking-[0.24em] font-bold mb-2"
+                 style={{ color: T.inkFaint }}>
+              NIVXRAY · INVESTIGATION
+            </div>
+            <h1 className="text-xl font-bold mb-2" style={{ color: T.ink }}>
+              {looksLikeNotFound ? "Case not found" : "Investigation failed to load"}
+            </h1>
+            <p className="text-[12px] mb-6" style={{ color: T.inkMute }}>
+              {looksLikeNotFound
+                ? <>The case <code style={{ color: T.amber }}>{caseId}</code> does not exist in the Investigation Knowledge Graph. It may have been deleted, or the ID is mistyped.</>
+                : <>An error occurred while loading this case: <code style={{ color: "#F87171" }}>{String(err)}</code></>}
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <Link to="/" data-testid="empty-back-workspace"
+                    className="text-[11px] font-semibold px-3 py-2 rounded"
+                    style={{ background: T.amber, color: "#05080F", textDecoration: "none" }}>
+                ← Back to workspace
+              </Link>
+              <Link to="/v2/ingest" data-testid="empty-open-ingest"
+                    className="text-[11px] font-semibold px-3 py-2 rounded"
+                    style={{ background: T.paper2, color: T.ink,
+                             border: `1px solid ${T.line}`, textDecoration: "none" }}>
+                Ingest new evidence →
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

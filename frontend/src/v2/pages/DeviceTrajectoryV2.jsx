@@ -71,6 +71,24 @@ function isSourceOf(f) {
   // events are usually the target of the action.
   return f.lane === "process" || f.lane === "system";
 }
+// Produce a human-friendly event title. The backend emits raw triplets
+// (e.g. `backup_EA · created_domain_user · backup_EA`) which repeat when
+// subject and target are the same entity — analysts read that as a
+// duplication bug. This helper collapses same-entity triplets to
+// `<entity> · <action>` and prefers action-verbs over raw actions.
+function friendlyLabel(f) {
+  const raw = String(f.label || "").trim();
+  const action = String(f.action || "").trim();
+  if (raw) {
+    const parts = raw.split(/\s+·\s+/);
+    if (parts.length === 3 && parts[0] === parts[2]) {
+      return `${parts[0]} · ${parts[1]}`;
+    }
+    return raw;
+  }
+  const ent = f.entity?.name || "event";
+  return action ? `${ent} · ${action}` : ent;
+}
 // MITRE technique prefix → tactic name.
 const TACTIC = {
   T1189: "INITIAL ACCESS", T1204: "INITIAL ACCESS",
@@ -88,7 +106,7 @@ function tacticOf(tech) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-export default function DeviceTrajectoryV2() {
+export default function DeviceTrajectoryV2({ embedded = false }) {
   const navigate = useNavigate();
   const { caseId = "case_dfir_bumblebee_akira_2026" } = useParams() || {};
   const [data, setData]         = useState(null);
@@ -137,6 +155,18 @@ export default function DeviceTrajectoryV2() {
   useEffect(() => { if (selected) setRightTab("evidence"); }, [selected]);
 
   const frames = useMemo(() => data?.frames || [], [data]);
+
+  // Map of entity IID → friendly name, built from all frames' entities.
+  // Enables the Evidence pane to resolve `parent.iid` back to a real
+  // process/file/registry name instead of showing the raw internal ID.
+  const nameByIid = useMemo(() => {
+    const m = {};
+    for (const f of frames) {
+      const e = f.entity;
+      if (e?.iid && e?.name) m[e.iid] = e.name;
+    }
+    return m;
+  }, [frames]);
 
   // ── Build attack stages from MITRE data ─────────────────────────
   const stages = useMemo(() => {
@@ -287,7 +317,7 @@ export default function DeviceTrajectoryV2() {
       kind: activityOf(f),
       verdict: verdictOf(f),
       source: isSourceOf(f),
-      label: f.label || f.action,
+      label: friendlyLabel(f),
       mitre: f.mitre || [],
       meta: f,
     }));
@@ -391,6 +421,62 @@ export default function DeviceTrajectoryV2() {
     }
     return { matchedIds: ids, matchedRowKeys: rk };
   }, [events, searchQuery, filters]);
+
+  // ── Search-driven focus ──────────────────────────────────────────
+  // When the analyst types a query that resolves to at least one
+  // matching event, auto-select the earliest match so the Evidence
+  // pane populates AND focus the timeline viewport on the matched
+  // time window. Feels like a real search: type → the workspace jumps.
+  useEffect(() => {
+    if (!matchedIds || matchedIds.size === 0) return;
+    if (selected && matchedIds.has(selected)) return;   // already on a match
+    const matches = events.filter(e => matchedIds.has(e.id))
+                          .sort((a, b) => a.ts - b.ts);
+    if (!matches.length) return;
+    setSelected(matches[0].id);
+    // Frame the viewport around the matched span so the canvas visibly
+    // "jumps" to the results.
+    const lo = matches[0].ts;
+    const hi = matches[matches.length - 1].ts;
+    const pad = Math.max(50, (hi - lo) * 0.15 || (caseBounds.end - caseBounds.start) * 0.05);
+    setViewport({ start: lo - pad, end: hi + pad });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedIds]);
+
+  // ── Attack Chain sidebar filtering ───────────────────────────────
+  // When a search / filter narrows the frames, show only stages that
+  // have at least one matching frame so the sidebar reflects the
+  // current query context instead of the entire attack.
+  const visibleStages = useMemo(() => {
+    if (!matchedIds || matchedIds.size === 0) return stages;
+    return stages.filter(s =>
+      (s.frames || []).some(f => matchedIds.has(f.frame_iid)),
+    );
+  }, [stages, matchedIds]);
+
+  // ── Timeline canvas filtering ────────────────────────────────────
+  // When a search / filter is active, keep only rows that contain at
+  // least one matching event, keep only matching events, and drop
+  // edges whose endpoints were filtered out. This makes the whole
+  // workspace behave like a real search: type → only relevant data.
+  const filteredRows   = useMemo(() => {
+    if (!matchedRowKeys || matchedRowKeys.size === 0) return rows;
+    return rows.filter(r => matchedRowKeys.has(r.key) || r.kind === "compromise");
+  }, [rows, matchedRowKeys]);
+  const filteredEvents = useMemo(() => {
+    if (!matchedIds || matchedIds.size === 0) return events;
+    return events.filter(e => matchedIds.has(e.id));
+  }, [events, matchedIds]);
+  const filteredEdges  = useMemo(() => {
+    if (!matchedRowKeys || matchedRowKeys.size === 0) return edges;
+    return edges.filter(e => matchedRowKeys.has(e.from) && matchedRowKeys.has(e.to));
+  }, [edges, matchedRowKeys]);
+  const filteredBands  = useMemo(() => {
+    if (!matchedRowKeys || matchedRowKeys.size === 0) return bands;
+    return bands
+      .map(b => ({ ...b, rows: (b.rows || []).filter(r => matchedRowKeys.has(r.key)) }))
+      .filter(b => b.rows.length > 0);
+  }, [bands, matchedRowKeys]);
 
   // ── Playback · advances the viewport across the case timeline ─────
   useEffect(() => {
@@ -541,11 +627,11 @@ export default function DeviceTrajectoryV2() {
 
   return (
     <div className="flex flex-col"
-         style={{ minHeight: "100vh", background: T.bg, color: T.ink }}>
-      <Header />
+         style={{ minHeight: embedded ? "auto" : "100vh", background: T.bg, color: T.ink }}>
+      {!embedded && <Header />}
     <div data-testid="trajectory-v2"
          className="w-full overflow-hidden flex flex-col p-3 gap-3"
-         style={{ flex: "1 1 0", minHeight: 0, height: "calc(100vh - 56px)", background: T.bg, color: T.ink }}>
+         style={{ flex: "1 1 0", minHeight: 0, height: embedded ? "calc(100vh - 120px)" : "calc(100vh - 56px)", background: T.bg, color: T.ink }}>
       {/* ── TOP CONTAINER · Timeline Range ────────────────────────── */}
       <div className="flex-shrink-0 flex flex-col" style={cardStyle}
            data-testid="workspace-top">
@@ -587,7 +673,7 @@ export default function DeviceTrajectoryV2() {
         <div className="grid flex-1 min-h-0"
              style={{ gridTemplateColumns: "232px 1fr 340px" }}>
           {/* Attack chain sidebar */}
-          <AttackChainSidebar stages={stages}
+          <AttackChainSidebar stages={visibleStages}
                               selectedIdx={selectedStageIdx}
                               onSelect={handleStageSelect} />
 
@@ -603,8 +689,16 @@ export default function DeviceTrajectoryV2() {
             <div className="relative flex-1 min-h-0">
               {err && <ErrorBanner err={err} />}
               {!err && !frames.length && <LoadingBanner />}
-              {!err && frames.length > 0 && (
-                <InvestigationCanvas rows={rows} events={events} edges={edges} bands={bands}
+              {!err && frames.length > 0 && filteredRows.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center text-[11px]"
+                     data-testid="canvas-no-match"
+                     style={{ color: T.inkMute }}>
+                  No events match &quot;{searchQuery}&quot;. Press Esc or clear the search to see all events.
+                </div>
+              )}
+              {!err && frames.length > 0 && filteredRows.length > 0 && (
+                <InvestigationCanvas rows={filteredRows} events={filteredEvents}
+                                     edges={filteredEdges} bands={filteredBands}
                                      timeWindows={timeWindows}
                                      selected={selected}
                                      triggerIds={triggerIds}
@@ -620,6 +714,7 @@ export default function DeviceTrajectoryV2() {
 
           {/* Evidence pane */}
           <EvidencePane event={selEvent} tab={rightTab} onTab={setRightTab}
+                        nameByIid={nameByIid}
                         onFocusParent={(pIid) => {
                           const target = events.find(e => e.meta?.entity?.iid === pIid);
                           if (target) setSelected(target.id);
@@ -627,7 +722,7 @@ export default function DeviceTrajectoryV2() {
         </div>
 
         {/* Status bar */}
-        <StatusBar rows={rows} events={events}
+        <StatusBar rows={filteredRows} events={filteredEvents}
                    selectedStageIdx={selectedStageIdx}
                    compromiseCount={compromiseCount} />
       </div>
@@ -1293,7 +1388,16 @@ export function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-export function EvidencePane({ event, tab, onTab, onFocusParent }) {
+export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} }) {
+  // Resolve friendly names for the actor (entity) and its parent so
+  // the analyst never has to read raw internal IIDs.
+  const actorName = event?.meta?.entity?.name ||
+                    (event?.meta?.entity?.iid && nameByIid[event.meta.entity.iid]) ||
+                    event?.meta?.entity?.iid || null;
+  const parentName = event?.meta?.parent?.name ||
+                     event?.meta?.parent?.label ||
+                     (event?.meta?.parent?.iid && nameByIid[event.meta.parent.iid]) ||
+                     event?.meta?.parent?.iid || null;
   return (
     <div className="overflow-y-auto"
          style={{ background: T.paper }}
@@ -1361,6 +1465,32 @@ export function EvidencePane({ event, tab, onTab, onFocusParent }) {
             </Section>
           )}
 
+          {/* Actor / Source process — the entity that performed this event.
+              Displays the friendly process/file/registry name (from entity.name
+              or resolved via nameByIid) instead of the raw internal IID. */}
+          {event.meta?.entity?.iid && actorName && (
+            <Section label={
+              event.meta.entity.type === "process" ? "ACTOR PROCESS" :
+              event.meta.entity.type === "file"    ? "TARGET FILE" :
+              event.meta.entity.type === "registry"? "TARGET REGISTRY" :
+              event.meta.entity.type === "network" ? "REMOTE ENDPOINT" :
+              "SUBJECT"
+            }>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono" style={{ color: T.ink }}
+                      data-testid="evidence-actor-name">
+                  {actorName}
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+                      style={{ background: T.paper2, border: `1px solid ${T.line}`,
+                               color: T.inkFaint }}
+                      title={event.meta.entity.iid}>
+                  {event.meta.entity.iid.slice(0, 20)}…
+                </span>
+              </div>
+            </Section>
+          )}
+
           {/* Parent */}
           {event.meta?.parent?.iid && (
             <Section label="PARENT PROCESS">
@@ -1368,8 +1498,8 @@ export function EvidencePane({ event, tab, onTab, onFocusParent }) {
                       data-testid="evidence-parent-link"
                       className="text-[11px] font-mono hover:underline text-left"
                       style={{ color: T.blue, background: "none", border: 0, padding: 0 }}
-                      title="Focus parent event">
-                {event.meta.parent.label || event.meta.parent.iid}
+                      title={`Focus parent · ${event.meta.parent.iid}`}>
+                {parentName}
               </button>
             </Section>
           )}

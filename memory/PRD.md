@@ -12,6 +12,84 @@ own truth.
 
 ---
 
+## 2026-02-27 · P0 Workspace v1.0 · Nav completion + Search UX polish (SHIPPED)
+
+Frozen the Investigation Workspace as v1.0 by finishing the platform
+before adding new capabilities. Only additive UX and correctness fixes
+— no engine or IKG changes.
+
+### P0.1 · Global navigation completeness
+Every analyst-facing route now renders the global `<Header />` so users
+can never get trapped inside a child view:
+- `/analyst`, `/analyst/rc5`
+- `/v2/trajectory`, `/v2/irg`, `/v2/compare`
+- `/v2/ancestry/:caseId/:processIid`
+- `/v2/workspace`, `/v2/case/:id`, `/v2/ingest`, `/v2/validation`
+
+`DeviceTrajectoryV2` accepts an `embedded` prop so it can be nested
+inside `InvestigationWorkspace` without double-rendering the header.
+
+### P0.2 · Evidence pane correctness (Feb-27 hotfix)
+- Added a new `ACTOR PROCESS` / `TARGET FILE` / `TARGET REGISTRY` /
+  `REMOTE ENDPOINT` section that shows the friendly `entity.name`
+  instead of the raw internal IID.
+- `PARENT PROCESS` now resolves `parent.iid` against a case-wide
+  `nameByIid` map so analysts see e.g. `explorer.exe` rather than
+  `ent_process_836d89a0af6b`.
+- Event titles that repeat the same subject and target (e.g.
+  `backup_EA · created_domain_user · backup_EA`) are collapsed to
+  `<entity> · <action>` for readability.
+
+### P0.3 · Route QA · graceful empty state
+- `/v2/case/:id` for a non-existent or empty case now renders an
+  actionable "Case not found" card with **Back to workspace** and
+  **Ingest new evidence** CTAs instead of an empty workspace shell.
+
+### P0.4 · IRG canvas clipping + horizontal scrollbar
+- Increased `PAD_X` in `IRGGraphCanvas` from 24 → 60 so the leftmost
+  node fits fully inside the Konva stage (was clipping "cmd.exe" to
+  ":md.exe" on depth-0 rows).
+- Added a persistent HTML `HScrollbar` overlay on the IRG canvas —
+  visible whenever the graph overflows the viewport, drag / click-jump
+  supported. Provides an obvious pan affordance.
+
+### P0.5 · Universal search behaviour (Device Trajectory + IRG)
+Search now behaves like every other enterprise investigation tool —
+type a query and **only relevant data** is shown across all three
+panels:
+
+- Attack Chain sidebar keeps only stages that contain at least one
+  matching frame.
+- Timeline canvas / IRG graph keeps only rows / entities that match
+  (plus the neighbourhood in IRG so relationships are visible).
+- Evidence pane auto-populates with the first matching event so the
+  analyst never sees a blank right rail after typing.
+- Empty-result state renders `No events match "<q>"` in the canvas.
+- IRG header shows `X ENTITIES · Y RELATIONSHIPS · filtered by "<q>"`.
+
+Files touched (additive · no engine/IKG mutation):
+- `frontend/src/pages/AnalystWorkspacePage.jsx`
+- `frontend/src/pages/AnalystRC5Page.jsx`
+- `frontend/src/v2/pages/DeviceTrajectoryV2.jsx`
+- `frontend/src/v2/pages/IRGWorkspace.jsx`
+- `frontend/src/v2/pages/CompareWorkspace.jsx`
+- `frontend/src/v2/pages/ProcessAncestry.jsx`
+- `frontend/src/v2/pages/CaseWorkspaceShell.jsx`
+- `frontend/src/v2/pages/InvestigationWorkspace.jsx` (empty-state card + `embedded` DeviceTrajectoryV2)
+- `frontend/src/v2/canvas_engine/IRGGraphCanvas.jsx` (padding + scrollbar)
+
+Verified: testing_agent_v3_fork iteration_40 — 10/10 routes pass
+nav-shell check. Post-fix smoke tests confirm search filters both
+Trajectory (2 matched stages / auto-populated evidence) and IRG
+(3 entities / 2 relationships / attack chain narrowed).
+
+Backlog frozen: UI is now v1.0. Next up = **Phase 5 · Evidence Graph
+Visualisation** (interactive causality graph over the IKG's
+spawned/created/modified/contacted/loaded edges).
+
+---
+
+
 ## 2026-02-25 · Phase 4.2 · Validation Pack — the release gate (SHIPPED)
 
 Per operator direction: **"correctness is more valuable than new

@@ -29,6 +29,7 @@ export default function IRGWorkspace() {
   const [rightTab, setRightTab] = useState("evidence");
   const [viewport, setViewport] = useState(null);
   const [reportedVp, setReportedVp] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch both IRG + trajectory (trajectory is needed for stages + evidence).
   useEffect(() => {
@@ -50,6 +51,17 @@ export default function IRGWorkspace() {
   const frames = useMemo(() => traj?.frames || [], [traj]);
   const events = useMemo(() => framesToEvents(frames), [frames]);
   const stages = useMemo(() => framesToStages(frames), [frames]);
+
+  // Map of entity IID → friendly name, so the Evidence pane can resolve
+  // parent.iid to a human-readable process/file/registry name.
+  const nameByIid = useMemo(() => {
+    const m = {};
+    for (const f of frames) {
+      const e = f.entity;
+      if (e?.iid && e?.name) m[e.iid] = e.name;
+    }
+    return m;
+  }, [frames]);
 
   const caseBounds = useMemo(() => {
     let lo = Infinity, hi = -Infinity;
@@ -116,6 +128,56 @@ export default function IRGWorkspace() {
   const compromiseCount = stages.filter(s => s.malicious).length;
   const rows = [];
 
+  // ── Search-driven filtering (matches Device Trajectory behaviour) ──
+  const q = (searchQuery || "").trim().toLowerCase();
+  const matchedIids = useMemo(() => {
+    if (!q) return null;
+    const out = new Set();
+    for (const n of graph.nodes) {
+      const hay = `${n.name || ""} ${n.iid || ""} ${n.type || ""}`.toLowerCase();
+      if (hay.includes(q)) out.add(n.iid);
+    }
+    return out;
+  }, [q, graph.nodes]);
+
+  // When a query is active, keep only nodes that either match directly
+  // OR are connected (source/target) to a matched node, so the analyst
+  // sees the neighbourhood of the search hit, not an empty canvas.
+  const { visibleNodes, visibleEdges } = useMemo(() => {
+    if (!matchedIids || matchedIids.size === 0) {
+      return { visibleNodes: graph.nodes, visibleEdges: graph.edges };
+    }
+    const keep = new Set(matchedIids);
+    for (const e of graph.edges) {
+      if (matchedIids.has(e.source) || matchedIids.has(e.target)) {
+        keep.add(e.source); keep.add(e.target);
+      }
+    }
+    const nodes = graph.nodes.filter(n => keep.has(n.iid));
+    const edges = graph.edges.filter(e => keep.has(e.source) && keep.has(e.target));
+    return { visibleNodes: nodes, visibleEdges: edges };
+  }, [graph, matchedIids]);
+
+  const visibleStages = useMemo(() => {
+    if (!matchedIids || matchedIids.size === 0) return stages;
+    return stages.filter(s =>
+      (s.frames || []).some(f =>
+        matchedIids.has(f.entity?.iid) || matchedIids.has(f.parent?.iid),
+      ),
+    );
+  }, [stages, matchedIids]);
+
+  // Auto-select first matched entity so the Evidence pane populates.
+  useEffect(() => {
+    if (!matchedIids || matchedIids.size === 0) return;
+    if (selected && matchedIids.has(selected)) return;
+    const first = [...matchedIids][0];
+    setSelected(first);
+    const ev = events.find(e => e.meta?.entity?.iid === first);
+    if (ev) setSelectedEventId(ev.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedIids]);
+
   return (
     <div className="flex flex-col"
          style={{ minHeight: "100vh", background: T.bg, color: T.ink }}>
@@ -129,7 +191,9 @@ export default function IRGWorkspace() {
                      activeTab="irg"
                      onRangeChange={handleRangeChange}
                      reportedVp={reportedVp}
-                     caseBounds={caseBounds} />
+                     caseBounds={caseBounds}
+                     searchQuery={searchQuery}
+                     onSearch={setSearchQuery} />
         <TimeRangeBox stages={stages}
                       selectedStageIdx={selectedStageIdx}
                       onSelectStage={handleStageSelect}
@@ -142,7 +206,7 @@ export default function IRGWorkspace() {
       <div className="flex-1 min-h-0 flex flex-col" style={cardStyle}>
         <div className="grid flex-1 min-h-0"
              style={{ gridTemplateColumns: "232px 1fr 340px" }}>
-          <AttackChainSidebar stages={stages}
+          <AttackChainSidebar stages={visibleStages}
                               selectedIdx={selectedStageIdx}
                               onSelect={handleStageSelect} />
           <div className="relative flex flex-col min-h-0"
@@ -151,13 +215,21 @@ export default function IRGWorkspace() {
                         borderRight: `1px solid ${T.line}` }}>
             <div className="px-4 py-2 text-[10px] tracking-[2px] font-bold flex-shrink-0"
                  style={{ color: T.inkMute, borderBottom: `1px solid ${T.line}` }}>
-              IRG · {graph.nodes.length} ENTITIES · {graph.edges.length} RELATIONSHIPS
+              IRG · {visibleNodes.length} ENTITIES · {visibleEdges.length} RELATIONSHIPS
+              {matchedIids && matchedIids.size > 0 && (
+                <span className="ml-2" style={{ color: T.amber }}>
+                  · filtered by &quot;{searchQuery}&quot;
+                </span>
+              )}
             </div>
             <div className="relative flex-1 min-h-0">
               {err && <Banner err={err} />}
               {!err && !graph.nodes.length && <Banner msg="Loading investigation relationship graph…" />}
-              {!err && graph.nodes.length > 0 && (
-                <IRGGraphCanvas nodes={graph.nodes} edges={graph.edges}
+              {!err && graph.nodes.length > 0 && visibleNodes.length === 0 && (
+                <Banner msg={`No entities match "${searchQuery}". Clear the search to see the full graph.`} />
+              )}
+              {!err && visibleNodes.length > 0 && (
+                <IRGGraphCanvas nodes={visibleNodes} edges={visibleEdges}
                                 selected={selected}
                                 focusRange={viewport}
                                 onViewportChange={setReportedVp}
@@ -166,6 +238,7 @@ export default function IRGWorkspace() {
             </div>
           </div>
           <EvidencePane event={selEvent} tab={rightTab} onTab={setRightTab}
+                        nameByIid={nameByIid}
                         onFocusParent={(pIid) => {
                           setSelected(pIid);
                           const ev = events.find(e => e.meta?.entity?.iid === pIid);
@@ -201,6 +274,19 @@ function tsMs(ts) {
 
 // Minimal projections from trajectory frames — same shape the shared
 // EvidencePane / AttackChainSidebar / TimeRangeBox already expect.
+function friendlyLabel(f) {
+  const raw = String(f.label || "").trim();
+  const action = String(f.action || "").trim();
+  if (raw) {
+    const parts = raw.split(/\s+·\s+/);
+    if (parts.length === 3 && parts[0] === parts[2]) {
+      return `${parts[0]} · ${parts[1]}`;
+    }
+    return raw;
+  }
+  const ent = f.entity?.name || "event";
+  return action ? `${ent} · ${action}` : ent;
+}
 function framesToEvents(frames) {
   return frames.map((f, i) => ({
     id:      f.frame_iid || f.event?.iid || `f${i}`,
@@ -208,7 +294,7 @@ function framesToEvents(frames) {
     rowKey:  (f.entity?.iid || f.parent?.iid || "unknown"),
     kind:    f.lane || "process",
     verdict: f.verdict || "benign",
-    label:   f.label || f.action || "",
+    label:   friendlyLabel(f),
     mitre:   f.mitre || [],
     meta:    f,
   }));
