@@ -89,7 +89,7 @@ NEVER_IOC_HOSTS = {
 
 # Deterministic structural key set (Gate G11)
 EXPECTED_TOP_KEYS = {
-    "confidence", "verdict", "ti_summary", "executive_summary",
+    "confidence", "verdict", "ti_summary", "citations", "executive_summary",
     "known_vs_unknown", "probable_initial_access", "investigation_summary",
     "timeline", "attack_story", "technical_summary", "mitre_by_tactic",
     "mitre_techniques", "negative_findings", "recommendations",

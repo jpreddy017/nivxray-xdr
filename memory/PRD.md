@@ -1,5 +1,43 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-24 · Phase 9.2 · Final Analyst UX Polish (SHIPPED — 28/28 gates green)
+
+### Investigation Dashboard grid (§5 header)
+`<TechnicalDashboardGrid>` — replaces paragraph-heavy Technical Summary
+with 8 categorized fact cards: Detection · Timeline · Host · User ·
+Process Analysis · File Analysis · Network Analysis · Registry. Each
+card shows the 2-4 highest-signal facts (parent→child chain, LOLBIN
+count, executed/quarantined counts, attacker URLs / IPs, refs
+filtered, persistence status). Scannable in 5 seconds.
+
+### Evidence-linked conclusions
+Every paragraph in the Executive Summary and Investigation Summary now
+ends with an `Evidence: [E1] [E2] [E3]` citation strip. Backend
+`_citations_for_summary()` maps para-index → Supporting-Evidence card
+IDs deterministically by evidence kind (Detection / Process / File /
+Network / Threat / Historical). Clicking a citation button smoothly
+scrolls to the referenced Supporting Evidence card and briefly
+outlines it in emerald — analysts can jump from claim to evidence in
+one click.
+
+### Executive Summary cleansed (from 9.1) + still enforced
+No vendor-TI language leaks into the exec summary.
+
+### Regression suite
+`EXPECTED_TOP_KEYS` extended to include `citations`. All 28 quality
+gates remain green.
+
+### Verified live in preview
+- Dashboard grid renders with correct counts across all vendor samples.
+- 6 citation buttons on the SharpHound sample (E1 · E2 · E3 wired into
+  paragraphs 1, 2, and 3 of Executive + Investigation Summary).
+- Clicking `E1` scrolls to Evidence card E1 and outlines it briefly.
+- All 28 pytest quality gates remain green.
+
+---
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-24 · Phase 9.1 · Investigation Verdict + TI Summary + Exec Cleanse (SHIPPED)
 
 Highest-impact analyst-UX improvements from the Phase 9 spec — no
@@ -1198,52 +1236,3 @@ so shareable deep links reproduce it.
   (`InvestigationWorkspaceInner`) and a `SelectionProvider`-wrapping
   default export. Every tab receives the shared selection via context.
 - Global `<EvidenceCard>` overlay renders on top of every tab.
-- `?focus=<frame_iid>` on the URL hydrates the SelectionContext on load
-  (deep-link support for shared investigations).
-- Attack Story sentences push to selection on both click-anywhere
-  (opens Evidence Card in-place) and `show on trajectory →` (jumps + selects).
-- Process Tree tab clicks push a `kind:"process"` selection.
-
-### Tests
-
-- All prior 44/44 tests still green. Phase 3a is UI-layer wiring;
-  backend contract unchanged (no new endpoint needed — Evidence Card
-  reads the same `/investigation` response).
-
----
-
-
-
-Rated 10/10 on architecture; Phase 2 is the operator's approved
-storytelling & explainability activation. Zero regression — no existing
-route/tab removed.
-
-### Backend
-
-- `v2/investigation/attack_story.py` — deterministic sentence generator
-  that traverses the IKG's `spawned` edges + reads process-level signals
-  from the correlation output. Emits sentences with `text`, `tactic`,
-  `severity`, `frame_iids`, `process_iids`, `signals`, `evidence_ref`.
-  Sentence types covered: Initial Spawn (Office/Browser → LOLBin) ·
-  Encoded Execution · Download Cradle · Persistence · Credential Access
-  · Defense Evasion · Command-and-Control · Impact/Ransomware. Fallback
-  sentence when no explicit pattern matches but the device is non-benign.
-- `v2/investigation/attack_mapping.py` — ATT&CK projection of the IKG:
-  per-tactic technique buckets (level 1..3), kill-chain view (every
-  canonical tactic marked ✓ / ○), MITRE Navigator v4.5 layer JSON
-  ready for export, STIX 2.1 technique-id handoff.
-- `v2/investigation/explainability.py` — POSITIVE ("Why is this
-  <band>?") and NEGATIVE ("Why isn't this ransomware / credential-theft
-  / lateral-movement / persistence / beaconing?") deterministic
-  reasoning. Each attack pattern declares `required` and `supporting`
-  signals with min-threshold rules. `have_required` / `missing_required`
-  arrays surface exactly which required behaviours are absent.
-- `builder.py` extended — Investigation object now carries `story`,
-  `attack_mapping`, `explainability` (positive + negative_patterns list).
-- New endpoint: `GET /api/v2/cases/{id}/investigation/explain/{pattern_id}`
-  for on-demand negative reasoning.
-
-### Frontend
-
-- `v2/pages/AttackStoryTab.jsx` — analyst-facing narrative view. Each
-  sentence card shows: tactic pill · severity · fired signals · event/

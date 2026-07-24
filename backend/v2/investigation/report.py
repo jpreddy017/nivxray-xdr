@@ -915,6 +915,34 @@ def _threat_intel_summary(im: dict) -> dict:
     }
 
 
+# ── Citations: link narrative paragraphs → Supporting-Evidence card IDs
+def _cite(evidence_cards: list[dict], want: list[str]) -> list[str]:
+    """Return the subset of card IDs whose `kind` starts with any prefix in
+    `want`. Deterministic — order matches the card list."""
+    out: list[str] = []
+    for c in evidence_cards or []:
+        k = (c.get("kind") or "").lower()
+        for w in want:
+            if k.startswith(w.lower()):
+                out.append(c.get("id"))
+                break
+    return out
+
+
+def _citations_for_summary(evidence_cards: list[dict]) -> dict:
+    """Return `{para_index: [E-ids]}` so the UI can print a citation
+    strip under each Executive/Investigation Summary paragraph."""
+    return {
+        "executive_p1":     _cite(evidence_cards, ["Detection", "Process", "File"]),
+        "executive_p2":     _cite(evidence_cards, ["Network", "Threat", "Historical"]),
+        "investigation_p1": _cite(evidence_cards, ["Detection"]),
+        "investigation_p2": _cite(evidence_cards, ["Process"]),
+        "investigation_p3": _cite(evidence_cards, ["File"]),
+        "investigation_p4": _cite(evidence_cards, ["Network", "Threat"]),
+        "investigation_p5": _cite(evidence_cards, ["Historical"]),
+    }
+
+
 # ── Known vs Unknown (Cisco MDR staple) ──────────────────────────
 def _known_vs_unknown(im: dict, files: list[dict], entcls: dict, ia: dict) -> dict:
     events = im.get("raw_events") or []
@@ -1057,6 +1085,7 @@ def compose_report(im: dict) -> dict:
             "confidence":             {},
             "verdict":                {},
             "ti_summary":             {"empty": True},
+            "citations":              {},
             "executive_summary":      [],
             "known_vs_unknown":       {"known": [], "unknown": []},
             "probable_initial_access": {"paragraph": "", "confidence": "None", "evidence": [], "vector": "", "ruled_out": []},
@@ -1147,10 +1176,14 @@ def compose_report(im: dict) -> dict:
     verdict   = _investigation_verdict(im, files, entcls, ia, conf, neg)
     ti_summary = _threat_intel_summary(im)
 
+    supporting_cards = _supporting_evidence(im, tl, entcls, files, processes)
+    citations = _citations_for_summary(supporting_cards)
+
     return {
         "verdict":              verdict,
         "confidence":           conf,
         "executive_summary":    _executive_summary(im, tl, entcls, files),
+        "citations":            citations,
         "known_vs_unknown":     kvu,
         "probable_initial_access": ia,
         "investigation_summary":_investigation_summary(im, tl, entcls, files),
@@ -1161,7 +1194,7 @@ def compose_report(im: dict) -> dict:
         "mitre_techniques":     _mitre_with_reasons(im, mitre_bt),
         "negative_findings":    neg,
         "recommendations":      recs,
-        "supporting_evidence":  _supporting_evidence(im, tl, entcls, files, processes),
+        "supporting_evidence":  supporting_cards,
         "observed_evidence":    _observed_evidence(entcls, files, processes),
         "observed_iocs":        entcls.get("iocs") or {},
         "threat_intelligence":  im.get("ti") or [],

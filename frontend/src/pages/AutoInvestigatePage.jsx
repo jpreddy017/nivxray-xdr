@@ -2507,8 +2507,11 @@ function InvestigationReport({ report, incident }) {
             render={(text) => (
               <div className="space-y-3 text-[13px] leading-relaxed text-slate-100">
                 {text.split(/\n\n+/).map((p, i) => (
-                  <p key={i} data-testid={`exec-para-${i}`}
-                     dangerouslySetInnerHTML={{ __html: _inlineMd(p) }} />
+                  <div key={i}>
+                    <p data-testid={`exec-para-${i}`}
+                       dangerouslySetInnerHTML={{ __html: _inlineMd(p) }} />
+                    <CitationStrip ids={(report.citations || {})[`executive_p${i+1}`]} />
+                  </div>
                 ))}
               </div>
             )}
@@ -2557,8 +2560,11 @@ function InvestigationReport({ report, incident }) {
             render={(text) => (
               <div className="space-y-3 text-[13px] leading-relaxed text-slate-100">
                 {text.split(/\n\n+/).map((p, i) => (
-                  <p key={i} data-testid={`inv-para-${i}`}
-                     dangerouslySetInnerHTML={{ __html: _inlineMd(p) }} />
+                  <div key={i}>
+                    <p data-testid={`inv-para-${i}`}
+                       dangerouslySetInnerHTML={{ __html: _inlineMd(p) }} />
+                    <CitationStrip ids={(report.citations || {})[`investigation_p${i+1}`]} />
+                  </div>
                 ))}
               </div>
             )}
@@ -2715,6 +2721,120 @@ function InvestigationReport({ report, incident }) {
   );
 }
 
+function TechnicalDashboardGrid({ ts }) {
+  const procs = ts.processes || [];
+  const files = ts.files || [];
+  const net = ts.network || {};
+  // Compact aggregation — deterministic, readable at a glance.
+  const parent = procs.find(p => p.role === "parent") || procs[0] || {};
+  const execFiles = files.filter(f => f.classification === "Executed").length;
+  const qFiles    = files.filter(f => f.classification === "Quarantined").length;
+  const bFiles    = files.filter(f => f.classification === "Blocked").length;
+  const dFiles    = files.filter(f => f.classification === "Downloaded").length;
+  const lolbins   = procs.filter(p => p.reputation === "LOLBIN").length;
+
+  const cellsCommon = "border border-slate-800 rounded-lg p-3 bg-slate-900/40";
+  const label = "text-[9px] uppercase tracking-widest font-bold text-slate-400 mb-1";
+  const kv = "text-[11px] text-slate-100 flex justify-between gap-2";
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5"
+         data-testid="technical-dashboard-grid">
+      {/* Detection */}
+      <div className={cellsCommon} data-testid="dash-detection">
+        <div className={label}>Detection</div>
+        <div className={kv}><span className="text-slate-500">Product</span>
+          <span className="font-mono text-cyan-200 truncate">{ts.incident?.detection_sources?.[0] || "—"}</span></div>
+        <div className={kv}><span className="text-slate-500">Name</span>
+          <span className="font-mono truncate">{ts.incident?.alert_names?.[0] || "—"}</span></div>
+        <div className={kv}><span className="text-slate-500">Severity</span>
+          <span className="font-mono">{ts.incident?.severity || "—"}</span></div>
+      </div>
+
+      {/* Timeline */}
+      <div className={cellsCommon} data-testid="dash-timeline">
+        <div className={label}>Timeline</div>
+        <div className={kv}><span className="text-slate-500">First seen</span>
+          <span className="font-mono text-cyan-200 truncate">{ts.incident?.first_seen || "—"}</span></div>
+        <div className={kv}><span className="text-slate-500">Last seen</span>
+          <span className="font-mono truncate">{ts.incident?.last_seen || "—"}</span></div>
+        <div className={kv}><span className="text-slate-500">Events</span>
+          <span className="font-mono">{ts.incident?.event_count ?? procs.length + files.length}</span></div>
+      </div>
+
+      {/* Host */}
+      <div className={cellsCommon} data-testid="dash-host">
+        <div className={label}>Host</div>
+        <div className={kv}><span className="text-slate-500">Hostname</span>
+          <span className="font-mono text-cyan-200 truncate">{(ts.hosts || [])[0] || "—"}</span></div>
+        <div className={kv}><span className="text-slate-500">Count</span>
+          <span className="font-mono">{(ts.hosts || []).length}</span></div>
+      </div>
+
+      {/* User */}
+      <div className={cellsCommon} data-testid="dash-user">
+        <div className={label}>User</div>
+        <div className={kv}><span className="text-slate-500">Username</span>
+          <span className="font-mono text-cyan-200 truncate">{(ts.users || [])[0] || "—"}</span></div>
+        <div className={kv}><span className="text-slate-500">Count</span>
+          <span className="font-mono">{(ts.users || []).length}</span></div>
+      </div>
+
+      {/* Process */}
+      <div className={cellsCommon} data-testid="dash-process">
+        <div className={label}>Process Analysis</div>
+        <div className={kv}><span className="text-slate-500">Chain</span>
+          <span className="font-mono text-cyan-200 truncate">
+            {parent.parent ? `${parent.parent} → ${parent.process}` : (parent.process || "—")}
+          </span></div>
+        <div className={kv}><span className="text-slate-500">Total</span>
+          <span className="font-mono">{procs.length}</span></div>
+        <div className={kv}><span className="text-slate-500">LOLBIN</span>
+          <span className="font-mono">{lolbins}</span></div>
+      </div>
+
+      {/* Files */}
+      <div className={cellsCommon} data-testid="dash-files">
+        <div className={label}>File Analysis</div>
+        <div className={kv}><span className="text-slate-500">Total</span>
+          <span className="font-mono text-cyan-200">{files.length}</span></div>
+        <div className={kv}><span className="text-slate-500">Executed</span>
+          <span className={`font-mono ${execFiles > 0 ? "text-red-300" : "text-slate-400"}`}>{execFiles}</span></div>
+        <div className={kv}><span className="text-slate-500">Quarantined</span>
+          <span className={`font-mono ${qFiles > 0 ? "text-emerald-300" : "text-slate-400"}`}>{qFiles}</span></div>
+        <div className={kv}><span className="text-slate-500">Blocked / Downloaded</span>
+          <span className="font-mono">{bFiles} / {dFiles}</span></div>
+      </div>
+
+      {/* Network */}
+      <div className={cellsCommon} data-testid="dash-network">
+        <div className={label}>Network Analysis</div>
+        <div className={kv}><span className="text-slate-500">Attacker URLs</span>
+          <span className={`font-mono ${(net.ioc_urls?.length || 0) > 0 ? "text-red-300" : "text-slate-400"}`}>
+            {net.ioc_urls?.length || 0}
+          </span></div>
+        <div className={kv}><span className="text-slate-500">Attacker IPs</span>
+          <span className={`font-mono ${(net.ioc_ips?.length || 0) > 0 ? "text-red-300" : "text-slate-400"}`}>
+            {net.ioc_ips?.length || 0}
+          </span></div>
+        <div className={kv}><span className="text-slate-500">Refs filtered</span>
+          <span className="font-mono text-slate-400">{net.reference_urls?.length || 0}</span></div>
+      </div>
+
+      {/* Registry (compact) */}
+      <div className={cellsCommon} data-testid="dash-registry">
+        <div className={label}>Registry</div>
+        <div className={kv}><span className="text-slate-500">Keys modified</span>
+          <span className="font-mono text-slate-400">{ts.registry_count ?? 0}</span></div>
+        <div className={kv}><span className="text-slate-500">Persistence</span>
+          <span className={`font-mono ${ts.persistence_count > 0 ? "text-red-300" : "text-emerald-300"}`}>
+            {ts.persistence_count > 0 ? `${ts.persistence_count} keys` : "Not observed"}
+          </span></div>
+      </div>
+    </div>
+  );
+}
+
 function TechnicalSummarySection({ ts, mitreByTactic, mitreTechniques }) {
   const files = ts.files || [];
   const procs = ts.processes || [];
@@ -2739,6 +2859,10 @@ function TechnicalSummarySection({ ts, mitreByTactic, mitreTechniques }) {
           )}
         </div>
       )}
+
+      {/* Investigation Dashboard — categorized fact grid (Detection ·
+          Timeline · Host · User · Process · Network · Files · Registry) */}
+      <TechnicalDashboardGrid ts={ts} />
 
       {/* MITRE ATT&CK by tactic — with technique names + reasons */}
       {mitreEntries.length > 0 && (
@@ -3266,6 +3390,34 @@ function AnalystNotesSection({ incident }) {
         )}
       </div>
     </section>
+  );
+}
+
+function CitationStrip({ ids }) {
+  if (!ids || ids.length === 0) return null;
+  const jump = (id) => {
+    const el = document.querySelector(`[data-testid="evidence-card-${id}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.style.transition = "outline 0.3s";
+      el.style.outline = "2px solid rgb(52, 211, 153)";
+      setTimeout(() => { el.style.outline = ""; }, 1400);
+    }
+  };
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1"
+         data-testid={`citation-strip-${ids.join("-")}`}>
+      <span className="text-[9px] uppercase tracking-widest font-bold text-slate-500">
+        Evidence:
+      </span>
+      {ids.map(id => (
+        <button key={id} type="button" onClick={() => jump(id)}
+                data-testid={`cite-${id}`}
+                className="text-[10px] font-mono font-bold px-1.5 py-0.5 border border-emerald-500/50 bg-emerald-500/10 text-emerald-200 rounded hover:bg-emerald-500/20 cursor-pointer">
+          {id}
+        </button>
+      ))}
+    </div>
   );
 }
 
