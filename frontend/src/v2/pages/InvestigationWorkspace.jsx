@@ -26,8 +26,10 @@ import { useParams, useSearchParams, Link } from "react-router-dom";
 import { T } from "../theme";
 import { isObservable } from "../flags";
 import api from "@/lib/api";
+import Header from "@/components/Header";
 
 const DeviceTrajectoryV2 = lazy(() => import("./DeviceTrajectoryV2"));
+const AttackPathView     = lazy(() => import("./AttackPathView"));
 const AttackStoryTab     = lazy(() => import("./AttackStoryTab"));
 const AttackTab          = lazy(() => import("./AttackTab"));
 const ProcessTreeTab     = lazy(() => import("./ProcessTreeTab"));
@@ -405,12 +407,53 @@ function InvestigationWorkspaceInner() {
       comingSoon: "phase 4",
       description: "Executive view · severity, device risk, incident risk, confidence, timeline, recommendations." },
     { key: "trajectory",  label: "Device Trajectory", testid: "tab-trajectory",
-      render: () => (
-        <div style={{ minHeight: "70vh" }}
-             data-testid="workspace-trajectory-embed">
-          <DeviceTrajectoryV2 />
-        </div>
-      ),
+      render: () => {
+        const view = searchParams.get("traj_view") || "timeline";
+        const setView = (v) => {
+          const next = new URLSearchParams(searchParams);
+          next.set("traj_view", v);
+          setSearchParams(next, { replace: true });
+        };
+        return (
+          <div style={{ minHeight: "70vh" }}
+               data-testid="workspace-trajectory-embed">
+            {/* Timeline ↔ Attack Path toggle */}
+            <div className="flex items-center gap-2 px-4 py-2 border-b"
+                 style={{ borderColor: T.line, background: T.paper }}
+                 data-testid="traj-view-toggle">
+              <span className="text-[9px] tracking-[1.4px] font-bold mr-2"
+                    style={{ color: T.inkMute }}>VIEW</span>
+              {[
+                { k: "timeline",    label: "Timeline",    hint: "Chronological event flow" },
+                { k: "attack_path", label: "Attack Path", hint: "Causality — spawned · created · contacted" },
+              ].map(({ k, label, hint }) => {
+                const active = view === k;
+                return (
+                  <button key={k}
+                          data-testid={`traj-view-${k}`}
+                          onClick={() => setView(k)}
+                          title={hint}
+                          className="text-[10px] px-2.5 py-1 rounded font-mono uppercase tracking-[1.4px] transition-colors"
+                          style={{
+                            background: active ? T.paper2 : "transparent",
+                            color:      active ? T.ink : T.inkMute,
+                            border: `1px solid ${active ? "#4ADE80" : T.line}`,
+                          }}>
+                    {active ? "● " : "○ "}{label}
+                  </button>
+                );
+              })}
+              <span className="ml-auto text-[9px] font-mono"
+                    style={{ color: T.inkFaint }}>
+                Switch between chronology and causality without leaving the tab
+              </span>
+            </div>
+            {view === "attack_path"
+              ? <AttackPathView inv={inv} />
+              : <DeviceTrajectoryV2 />}
+          </div>
+        );
+      },
     },
     { key: "process",     label: "Process Tree",      testid: "tab-process",
       render: () => <ProcessTreeTab inv={inv} />,
@@ -433,7 +476,7 @@ function InvestigationWorkspaceInner() {
     { key: "reports",     label: "Reports",           testid: "tab-reports",
       comingSoon: "phase 5",
       description: "One-click export · Exec Summary → Attack Story → Evidence Graph → ATT&CK → IOCs → Timeline → Verdict → Recommendations → Appendix." },
-  ]), []);
+  ]), [inv, searchParams, setSearchParams]);
 
   const active = TABS.find(t => t.key === activeKey) || TABS[1];
 
@@ -450,12 +493,13 @@ function InvestigationWorkspaceInner() {
     <div data-testid="investigation-workspace"
          className="flex flex-col"
          style={{ background: T.bg, color: T.ink, minHeight: "100vh" }}>
+      <Header />
       <PersistentHeader inv={inv} loading={loading}
                         profile={profile} onProfile={setProfile}
                         profiles={profiles} />
       <TabStrip tabs={TABS} activeKey={active.key} onTab={setTab} />
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0" style={{ paddingRight: 400 }}>
         {err && (
           <div className="p-6 text-[12px]" style={{ color: "#F87171" }}
                data-testid="workspace-error">
@@ -473,9 +517,9 @@ function InvestigationWorkspaceInner() {
 
       <ExplainabilityPanel inv={inv} activeTab={active.label} />
 
-      {/* Global Evidence Card overlay — appears whenever a selection exists. */}
+      {/* Global Evidence Card overlay — always visible on the right rail. */}
       <Suspense fallback={null}>
-        <EvidenceCard inv={inv} />
+        <EvidenceCard inv={inv} caseId={caseId} />
       </Suspense>
 
       <div className="px-4 py-1.5 text-[9px] font-mono flex items-center gap-3"
