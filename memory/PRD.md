@@ -1,5 +1,13 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## Latest checkpoint · 2026-02-24 · P0.1 + P0.2 + P0.3 shipped
+- **P0.1 · Background Jobs + WebSocket streaming** — `POST /api/v2/auto-investigate/jobs` returns `{job_id, ws_path}` immediately, worker runs off the request loop, `WS /api/v2/auto-investigate/jobs/{id}/ws?token=<jwt>` streams `progress|parse_result|command|decode_chain|osint_result|result|done` events. Late-joining clients replay full history from `db.v2_ai_jobs`.
+- **P0.2 · Decoded Artifact Store** (content-addressed cache, `db.v2_decoded_payloads`) — every command is SHA-256 keyed. Cache-hit skips the decoder entirely and reconstructs `AnalystReport` from Mongo; provenance (`first_seen`, `last_seen`, `hit_count`, `seen_in_jobs[]`, `sources[]`) is bumped on every reuse. Exposed via `GET /api/v2/decoded-artifacts`, `.../stats/summary`, `.../{sha256}`.
+- **P0.3 · Recursive Decode Chain + Decode Tree UI + Recursive Statistics** — `decode_pipeline.chains[]` (per-command layers with decoder/confidence/in-out bytes/exec_ms/preview/sub_iocs) and `decode_pipeline.recursive_stats` (total_layers, avg_layers, max_depth, top_decoders, success_rate, cache_hit_count). Frontend renders a live-updating decode tree during the run and a full breakdown afterward.
+- **Parity** — sync `POST /api/v2/auto-investigate` now delegates to the same enterprise pipeline; both paths share cache, chains, and recursive stats.
+- **Raw-payload fallback** — pastes of raw Base64/Hex blobs without a `powershell.exe` / `cmd.exe` prefix now synthesise a `binary=raw_payload` command so the deterministic decoder still runs (previously → "no analysis").
+- **Robustness** — client timeout for `/v2/auto-investigate*` bumped to 90s so large-incident uploads don't trip a spurious axios timeout.
+
 ## Vision (2026-02-24)
 
 NivXRay is a **deterministic enterprise investigation platform** that

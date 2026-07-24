@@ -575,128 +575,16 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
     if not body.incident_text or not body.incident_text.strip():
         raise HTTPException(status_code=400, detail="incident_text must be non-empty")
 
-    raw = body.incident_text
-    # 1. Preserve raw incident (immutable) + extract commands/entities.
-    commands = _detect_commands_with_fallback(raw)
-    entities = _extract_entities(raw)
-
-    # Enforce per-incident guardrails.
-    incident_bytes = len(raw.encode("utf-8", errors="ignore"))
-    incident_truncated = False
-    if incident_bytes > MAX_INCIDENT_BYTES:
-        raw = raw.encode("utf-8", errors="ignore")[:MAX_INCIDENT_BYTES].decode("utf-8", errors="ignore")
-        incident_truncated = True
-    if len(commands) > MAX_CMDS_PER_INCIDENT:
-        commands_dropped = len(commands) - MAX_CMDS_PER_INCIDENT
-        commands = commands[:MAX_CMDS_PER_INCIDENT]
-    else:
-        commands_dropped = 0
-
-    # 2. Fan out per command to the deterministic Orchestrator with
-    # per-command budgets so one oversized payload cannot stall the pipeline.
-    reports: list = []
-    decode_statuses: list[dict] = []
-    for cmd in commands:
-        report, status = _run_single_command(cmd)
-        decode_statuses.append(status)
-        if report is not None:
-            reports.append(report)
-        else:
-            log.info("command '%s' skipped (%s)", cmd.get("binary"), status.get("status"))
-
-    # 3. Aggregate.
-    verdict = _worst_verdict(reports) if reports else "unknown"
-    classification = _classify(reports) if reports else (
-        "Suspicious (no decodable commands)" if entities.get("ips") or entities.get("domains")
-        else "Benign / Informational")
-    mitre = _flatten_mitre(reports)
-    iocs = _merge_iocs(reports, entities)
-    severity = _severity(verdict)
-    findings = _findings(reports, commands)
-    summary = _executive_summary(raw, commands, verdict, classification, iocs, mitre)
-    recs = _recommendations(verdict, mitre, iocs)
-    # OSINT enrichment — deterministic, offline, lookups against local ioc DB.
-    osint = await _osint_lookup(entities, iocs)
-    quality = _investigation_quality(raw, commands, entities, reports, mitre, iocs)
-    # Overwrite the TI-matches count with real OSINT hits so the Quality
-    # Dashboard reflects actual reputation rather than a proxy.
-    if osint.get("summary", {}).get("matches") is not None:
-        quality.setdefault("coverage", {})["threat_intel_matches"] = osint["summary"]["matches"]
-    # Truthful failed_decodes tally that includes timeouts & size-exceeds,
-    # not just exceptions.
-    n_failed = sum(1 for s in decode_statuses if s.get("status") != "complete")
-    quality.setdefault("command_analysis", {})["failed_decodes"] = n_failed
-    quality["command_analysis"]["commands_decoded"] = len(reports)
-    quality["command_analysis"]["decode_ratio"]    = f"{len(reports)}/{len(commands)}" if commands else "0/0"
-
-    # Confidence = fraction of commands that reached a non-unknown
-    # verdict, capped at 100.
-    if reports:
-        decided = sum(
-            1 for r in reports
-            if (getattr(r.findings, "verdict", None) or "unknown") not in ("unknown",)
-        )
-        confidence = int(round(100 * decided / max(1, len(reports))))
-    else:
-        confidence = 0
-
-    return {
-        "ok": True,
-        "raw_incident": raw,                     # ← never modified
-        "focus": body.focus,
-        "detected": {
-            "commands": commands,
-            "entities": entities,
-        },
-        "decode_pipeline": {
-            "statuses": decode_statuses,
-            "budgets": {
-                "max_command_bytes":   MAX_CMD_BYTES,
-                "max_command_seconds": MAX_CMD_SECONDS,
-                "max_commands_per_incident": MAX_CMDS_PER_INCIDENT,
-                "max_incident_bytes":  MAX_INCIDENT_BYTES,
-            },
-            "guardrails_triggered": {
-                "incident_truncated": incident_truncated,
-                "commands_dropped":   commands_dropped,
-                "timeouts":     sum(1 for s in decode_statuses if s.get("status") == "timeout"),
-                "size_exceeded": sum(1 for s in decode_statuses if s.get("status") == "size_exceeded"),
-                "errors":       sum(1 for s in decode_statuses if s.get("status") == "error"),
-            },
-        },
-        "final_incident_summary": {
-            "executive_summary": summary,
-            "classification": classification,
-            "severity": severity,
-            "confidence": {
-                "score": confidence,
-                "reason": (f"{decided}/{len(reports)} decoded commands reached a "
-                           f"deterministic verdict") if reports
-                          else "no decodable commands present — verdict driven by IOCs",
-            },
-            "verdict": verdict,
-            "findings": findings,
-            "mitre_attack": mitre,
-            "iocs": iocs,
-            "recommendations": recs,
-            "evidence_counts": {
-                "commands": len(commands),
-                "processes": len({c["binary"] for c in commands}),
-                "ips": len(entities.get("ips", [])),
-                "domains": len(entities.get("domains", [])),
-                "urls": len(entities.get("urls", [])),
-                "hashes": (len(entities.get("sha256", []))
-                           + len(entities.get("sha1", []))
-                           + len(entities.get("md5", []))),
-                "files": len(entities.get("files", [])),
-                "registry": len(entities.get("registry", [])),
-                "users": len(entities.get("users", [])),
-            },
-            "ioc_reputation": osint,
-            "investigation_quality": quality,
-        },
-        "engine": {
-            "orchestrator_reports": len(reports),
-            "version": "auto-investigate-v1",
-        },
-    }
+    # Delegate to the shared enterprise pipeline so both the sync path
+    # and the async /jobs path produce identical FinalIncidentSummary
+    # payloads, including decode_pipeline.chains[], recursive_stats,
+    # and the Decoded Artifact Store cache. Lazy import avoids a
+    # circular dependency (pipeline imports helpers from this module).
+    from v2.jobs.pipeline import run_investigation_with_progress
+    result = await run_investigation_with_progress(
+        body.incident_text, focus=body.focus, on_progress=None, job_id=None,
+    )
+    # Preserve the historical `version` string so external consumers
+    # can still pin behaviour.
+    result.setdefault("engine", {})["version"] = "auto-investigate-v1"
+    return result
