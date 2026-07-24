@@ -20,6 +20,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Radar, Search, Filter, Play, ShieldAlert, Copy } from "lucide-react";
 import { isObservable } from "../flags";
 import api from "@/lib/api";
+import Header from "@/components/Header";
 import { InvestigationCanvas } from "@/v2/canvas_engine";
 import CorrelationPanel from "./CorrelationPanel";
 
@@ -539,9 +540,12 @@ export default function DeviceTrajectoryV2() {
   };
 
   return (
+    <div className="flex flex-col"
+         style={{ minHeight: "100vh", background: T.bg, color: T.ink }}>
+      <Header />
     <div data-testid="trajectory-v2"
-         className="w-screen h-screen overflow-hidden flex flex-col p-3 gap-3"
-         style={{ background: T.bg, color: T.ink }}>
+         className="w-full overflow-hidden flex flex-col p-3 gap-3"
+         style={{ flex: "1 1 0", minHeight: 0, height: "calc(100vh - 56px)", background: T.bg, color: T.ink }}>
       {/* ── TOP CONTAINER · Timeline Range ────────────────────────── */}
       <div className="flex-shrink-0 flex flex-col" style={cardStyle}
            data-testid="workspace-top">
@@ -642,6 +646,7 @@ export default function DeviceTrajectoryV2() {
                              const span = Math.max(50, (caseBounds.end - caseBounds.start) * 0.10);
                              setViewport({ start: bm.ts - span / 2, end: bm.ts + span / 2 });
                            }} />
+    </div>
     </div>
   );
 }

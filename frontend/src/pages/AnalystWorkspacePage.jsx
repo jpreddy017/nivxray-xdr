@@ -18,6 +18,7 @@
  */
 import React, { useState, useMemo, useCallback } from "react";
 import api, { API_BASE } from "@/lib/api";
+import Header from "@/components/Header";
 
 const verdictBadge = {
   malicious:    "bg-red-600/20 text-red-300 border-red-500/40",
@@ -115,7 +116,9 @@ export default function AnalystWorkspacePage() {
   }, [input]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-6 py-8">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <Header />
+      <div className="px-6 py-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <header className="flex items-center justify-between">
           <div>
@@ -430,6 +433,7 @@ export default function AnalystWorkspacePage() {
             </Card>
           </>
         )}
+      </div>
       </div>
     </div>
   );

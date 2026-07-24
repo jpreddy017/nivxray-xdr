@@ -16,6 +16,7 @@
  */
 import React, { useState, useEffect, useCallback } from "react";
 import api, { API_BASE } from "@/lib/api";
+import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -171,7 +172,9 @@ const AnalystRC5Page = () => {
   }, [rc5]);
 
   return (
-    <div className="min-h-screen bg-[#0e1116] text-slate-100 p-6" data-testid="analyst-rc5-page">
+    <div className="min-h-screen bg-[#0e1116] text-slate-100" data-testid="analyst-rc5-page">
+      <Header />
+      <div className="p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <header className="flex items-baseline justify-between">
           <div>
@@ -255,6 +258,7 @@ const AnalystRC5Page = () => {
         {rc5 && <ResultsPanel rc5={rc5}
                               onNavJson={downloadNavigatorJson}
                               onOpenNav={() => openInNavigator(rc5.mitre_navigator)} />}
+      </div>
       </div>
     </div>
   );

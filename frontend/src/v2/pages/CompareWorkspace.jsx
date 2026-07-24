@@ -9,6 +9,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import Header from "@/components/Header";
 import { T } from "../theme";
 
 export default function CompareWorkspace() {
@@ -48,8 +49,11 @@ export default function CompareWorkspace() {
   }, [linked]);
 
   return (
-    <div className="w-screen h-screen flex flex-col"
-         style={{ background: T.bg, color: T.ink }}
+    <div className="flex flex-col"
+         style={{ minHeight: "100vh", background: T.bg, color: T.ink }}>
+      <Header />
+    <div className="w-full flex flex-col overflow-hidden"
+         style={{ flex: "1 1 0", minHeight: 0, height: "calc(100vh - 56px)", background: T.bg, color: T.ink }}
          data-testid="compare-workspace">
       {/* Header bar — case pickers */}
       <div className="flex items-center gap-3 px-4 py-2 flex-shrink-0"
@@ -111,6 +115,7 @@ export default function CompareWorkspace() {
         <Pane label="A" caseId={caseA} refEl={iframeA} />
         <Pane label="B" caseId={caseB} refEl={iframeB} />
       </div>
+    </div>
     </div>
   );
 }

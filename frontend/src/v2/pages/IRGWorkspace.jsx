@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "@/lib/api";
+import Header from "@/components/Header";
 import { T } from "../theme";
 import IRGGraphCanvas from "../canvas_engine/IRGGraphCanvas";
 import {
@@ -116,9 +117,12 @@ export default function IRGWorkspace() {
   const rows = [];
 
   return (
+    <div className="flex flex-col"
+         style={{ minHeight: "100vh", background: T.bg, color: T.ink }}>
+      <Header />
     <div data-testid="irg-workspace"
-         className="w-screen h-screen overflow-hidden flex flex-col p-3 gap-3"
-         style={{ background: T.bg, color: T.ink }}>
+         className="w-full overflow-hidden flex flex-col p-3 gap-3"
+         style={{ flex: "1 1 0", minHeight: 0, height: "calc(100vh - 56px)", background: T.bg, color: T.ink }}>
       {/* Top card · toolbar + time range */}
       <div className="flex-shrink-0 flex flex-col" style={cardStyle}>
         <CardToolbar caseId={caseId} meta={caseMeta}
@@ -172,6 +176,7 @@ export default function IRGWorkspace() {
                    selectedStageIdx={selectedStageIdx}
                    compromiseCount={compromiseCount} />
       </div>
+    </div>
     </div>
   );
 }

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { isObservable } from "../flags";
 import api from "@/lib/api";
+import Header from "@/components/Header";
 
 const VERDICT = {
   benign:     { color: "#22C55E", label: "OBSERVATION", Icon: ShieldCheck },
@@ -103,9 +104,12 @@ export default function ProcessAncestry() {
   }
 
   return (
+    <div className="flex flex-col"
+         style={{ minHeight: "100vh", background: "#09090b" }}>
+      <Header />
     <div data-testid="v2-process-ancestry"
-         className="flex flex-col h-screen overflow-hidden bg-zinc-950 text-zinc-100"
-         style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+         className="flex flex-col overflow-hidden bg-zinc-950 text-zinc-100"
+         style={{ fontFamily: "'IBM Plex Sans', sans-serif", flex: "1 1 0", minHeight: 0, height: "calc(100vh - 56px)" }}>
 
       {/* Header */}
       <header className="h-14 shrink-0 flex items-center gap-4 border-b border-zinc-800 bg-zinc-950 px-4 z-20">
@@ -245,6 +249,7 @@ export default function ProcessAncestry() {
           )}
         </aside>
       </div>
+    </div>
     </div>
   );
 }
