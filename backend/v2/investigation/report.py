@@ -104,22 +104,9 @@ def _executive_summary(im: dict, tl: list[dict], entcls: dict, files: list[dict]
 
     p1 = " ".join(p1_bits)
 
-    # ── Paragraph 2 — Assessment, correlation, next step
+    # ── Paragraph 2 — Assessment, containment, next step ──────────
     p2_bits: list[str] = []
     ioc_urls = (entcls.get("iocs") or {}).get("urls") or []
-    if threat:
-        fam = _family_of(threat)
-        p2_bits.append(
-            f"Threat intelligence classified the observed activity as **{threat}**"
-            + (f" ({fam})" if fam else "") + ".")
-    elif ti:
-        fams = sorted({_family_of(t.get("value") or t.get("family") or "")
-                       for t in ti} - {""})
-        if fams:
-            p2_bits.append(
-                f"Threat-intelligence enrichment aligned the observed tooling with "
-                f"{' and '.join(fams[:2])}.")
-
     kill = _guess_kill_chain(im)
     p2_bits.append(f"The observed sequence is consistent with **{kill}**.")
 
@@ -130,9 +117,9 @@ def _executive_summary(im: dict, tl: list[dict], entcls: dict, files: list[dict]
     elif quarantined:
         p2_bits.append(
             "Because the endpoint quarantined the file before execution, the immediate "
-            "risk is contained; deeper host-side visibility (Orbital or equivalent) "
-            "should still confirm no residual persistence, credential access, or "
-            "outbound C2 activity preceded quarantine.")
+            "risk is contained; deeper host-side visibility should still confirm no "
+            "residual persistence, credential access, or outbound C2 activity preceded "
+            "quarantine.")
     else:
         p2_bits.append(
             "Execution could not be confirmed from the supplied telemetry; further "
@@ -846,6 +833,88 @@ def _probable_initial_access(im: dict) -> dict:
             "ruled_out": []}
 
 
+def _investigation_verdict(im: dict, files: list[dict], entcls: dict,
+                            ia: dict, conf: dict, neg: list[dict]) -> dict:
+    """5-second answer card. Every field is a short label — no prose."""
+    events = im.get("raw_events") or []
+    executed    = any(f.get("classification") == "Executed"    for f in files)
+    quarantined = any(f.get("classification") == "Quarantined" for f in files)
+    blocked     = any(f.get("classification") == "Blocked"     for f in files)
+    txt = " ".join((e.get("process","") + " " + e.get("child_process","") + " " +
+                    e.get("command_line","")).lower() for e in events)
+
+    def _flag(observed: bool) -> str:
+        return "Observed" if observed else "Not Observed"
+
+    persistence = any(kw in txt for kw in ("run\\", "runonce", "schtasks", "sc create")) \
+                  or bool(im.get("registry"))
+    cred_access = any(kw in txt for kw in ("mimikatz", "lsass", "sekurlsa"))
+    lateral     = any(kw in txt for kw in ("psexec", "wmic /node", "smbexec")) \
+                  or bool(im.get("auth"))
+    net_out     = bool((entcls.get("iocs") or {}).get("urls")) \
+                  or bool((entcls.get("iocs") or {}).get("ips"))
+
+    if executed:
+        status = "Active — post-execution containment required"
+    elif quarantined:
+        status = "Contained — quarantined at source"
+    elif blocked:
+        status = "Contained — blocked at source"
+    elif not events:
+        status = "Insufficient telemetry"
+    else:
+        status = "Under investigation"
+
+    classification = "Suspicious endpoint activity"
+    if events and events[0].get("detection_name"):
+        classification = events[0]["detection_name"]
+
+    return {
+        "classification":         classification,
+        "current_status":         status,
+        "execution":              _flag(executed),
+        "persistence":            _flag(persistence),
+        "credential_access":      _flag(cred_access),
+        "lateral_movement":       _flag(lateral),
+        "network_communication":  _flag(net_out),
+        "containment":            "Yes" if (quarantined or blocked) else
+                                   ("No — active" if executed else "Pending"),
+        "customer_action_required": "Yes" if (executed or ia.get("confidence") in
+                                                ("High", "Medium")) else "Recommended",
+        "confidence":             conf.get("overall", "Low"),
+    }
+
+
+def _threat_intel_summary(im: dict) -> dict:
+    """Collapse per-vendor TI records into one unified summary card so the
+    report doesn't dump raw vendor output."""
+    ti = im.get("ti") or []
+    if not ti:
+        return {"empty": True}
+    indicators = sorted({t.get("value") for t in ti if t.get("value")})
+    sources = sorted({t.get("source") for t in ti if t.get("source")})
+    verdicts = [t.get("verdict") for t in ti if t.get("verdict")]
+    families = sorted({t.get("family") for t in ti if t.get("family")})
+    categories = sorted({t.get("kind") for t in ti if t.get("kind")})
+    # Overall reputation — worst-of the verdicts, capped
+    order = ["clean", "unknown", "suspicious", "malicious"]
+    v_scores = [order.index(v.lower()) if v and v.lower() in order else 1
+                for v in verdicts]
+    worst = max(v_scores) if v_scores else 1
+    overall_reputation = order[worst].title() if v_scores else "Unknown"
+    confidence = "High" if worst >= 3 else "Medium" if worst >= 2 else "Low"
+    return {
+        "empty":              False,
+        "indicators":         indicators,
+        "overall_reputation": overall_reputation,
+        "confidence":         confidence,
+        "families":           families,
+        "categories":         categories,
+        "sources":            sources,
+        "hit_count":          len(ti),
+    }
+
+
 # ── Known vs Unknown (Cisco MDR staple) ──────────────────────────
 def _known_vs_unknown(im: dict, files: list[dict], entcls: dict, ia: dict) -> dict:
     events = im.get("raw_events") or []
@@ -986,6 +1055,8 @@ def compose_report(im: dict) -> dict:
     if not im:
         return {
             "confidence":             {},
+            "verdict":                {},
+            "ti_summary":             {"empty": True},
             "executive_summary":      [],
             "known_vs_unknown":       {"known": [], "unknown": []},
             "probable_initial_access": {"paragraph": "", "confidence": "None", "evidence": [], "vector": "", "ruled_out": []},
@@ -1073,8 +1144,11 @@ def compose_report(im: dict) -> dict:
     kvu       = _known_vs_unknown(im, files, entcls, ia)
     conclusion = _investigation_conclusion(im, files, entcls, recs, neg)
     conf      = _investigation_confidence(im, files, entcls, recs)
+    verdict   = _investigation_verdict(im, files, entcls, ia, conf, neg)
+    ti_summary = _threat_intel_summary(im)
 
     return {
+        "verdict":              verdict,
         "confidence":           conf,
         "executive_summary":    _executive_summary(im, tl, entcls, files),
         "known_vs_unknown":     kvu,
@@ -1091,6 +1165,7 @@ def compose_report(im: dict) -> dict:
         "observed_evidence":    _observed_evidence(entcls, files, processes),
         "observed_iocs":        entcls.get("iocs") or {},
         "threat_intelligence":  im.get("ti") or [],
+        "ti_summary":           ti_summary,
         "limitations":          _limitations(im, files),
         "investigation_conclusion": conclusion,
         "empty":                False,

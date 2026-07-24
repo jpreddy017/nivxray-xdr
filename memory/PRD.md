@@ -1,5 +1,54 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-24 · Phase 9.1 · Investigation Verdict + TI Summary + Exec Cleanse (SHIPPED)
+
+Highest-impact analyst-UX improvements from the Phase 9 spec — no
+architectural churn, no new APIs.
+
+### Investigation Verdict card (§0)
+New `<InvestigationVerdictCard>` — a compact 8-flag card at the very
+top of the report so an analyst gets the answer in five seconds:
+  · Classification (e.g. "Suspicious PowerShell Execution")
+  · Current Status ("Contained · quarantined at source" / "Active —
+                    post-execution containment required" / "Under investigation")
+  · Execution / Persistence / Credential Access / Lateral Movement /
+    Network Communication — Observed / Not Observed pills.
+  · Containment — Yes / No — active / Pending
+  · Customer Action Required — Yes / Recommended
+  · Confidence — High / Medium / Low
+Backend: `_investigation_verdict()` in `report.py`, deterministic —
+same telemetry always produces the same verdict.
+
+### Threat Intelligence Summary (§10)
+`<ThreatIntelSummaryCard>` — replaces the per-vendor TI dump with a
+unified card:
+  · Overall reputation (worst-of-verdicts, capped)
+  · Confidence band
+  · Indicators (up to 8 visible, scrollable)
+  · Families / Categories / Sources-consulted pills
+Backend: `_threat_intel_summary()` collapses TI records deterministically.
+
+### Executive Summary cleansed
+Removed the "Threat intelligence classified the observed activity as
+**Win.HackTool.SharpHound**" sentence — TI/vendor language does not
+belong in the executive summary (per analyst spec).  Paragraph 2 now
+opens with the kill-chain assessment and moves straight to containment
+and next-step recommendations.
+
+### Regression suite updated + green
+`test_investigation_quality.py` — `EXPECTED_TOP_KEYS` extended to
+include `verdict` and `ti_summary`. All 28 quality gates pass.
+
+### Verified in preview
+- Verdict card renders with the correct semantic pills (Network Comm
+  `Observed`, everything else `Not Observed`, Customer Action `Yes`).
+- Exec summary no longer contains "Threat intelligence classified".
+- TI Summary card renders when TI hits exist; hidden cleanly when none.
+
+---
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-24 · Phase 9 · Analyst Inline Edit + Analyst Notes (SHIPPED)
 
 Highest-value new capability from the analyst PRD — analysts can now
@@ -1198,47 +1247,3 @@ route/tab removed.
 
 - `v2/pages/AttackStoryTab.jsx` — analyst-facing narrative view. Each
   sentence card shows: tactic pill · severity · fired signals · event/
-  process counts · **"show on trajectory →"** button that navigates to
-  `?tab=trajectory&focus=<frame_iid>` (Story→Trajectory sync via URL).
-- `v2/pages/AttackTab.jsx` — dedicated ATT&CK view:
-  * Coverage bars per tactic (level 1..3, color-coded blue/orange/red)
-  * Kill chain (every canonical tactic, covered ✓ / gap ○)
-  * Technique cards grouped by tactic
-  * **Export Navigator JSON** — downloads MITRE Navigator v4.5 layer
-  * **Export STIX 2.1** — piggybacks the existing report endpoint
-- `InvestigationWorkspace.jsx` — Explainability panel upgraded with a
-  question-picker: "Why is this <band>?" (positive · pre-computed) +
-  one button per attack pattern for "Why isn't this <pattern>?"
-  (negative · lazy-loaded per pattern). Verdict line rendered as a
-  monospaced footer summary of the reasoning.
-
-### Backend tests: 9/9 new Phase 2 tests green
-
-- `tests/test_investigation_phase2.py` covers story emission (Office →
-  LOLBin), determinism, evidence links, ATT&CK mapping population and
-  Navigator schema, ATT&CK determinism, positive explainability
-  reasons, negative ransomware (both matches and no-matches cases),
-  unknown-pattern error handling.
-
-### Cumulative test status (44/44 verdict + IKG tests green)
-
-- test_verdict_v3.py                — 9/9
-- test_verdict_v3_correlation.py    — 12/12
-- test_verdict_v3_1b.py             — 14/14
-- test_investigation_ikg.py         — 10/10
-- test_investigation_phase2.py      —  9/9
-- RC5 backend suite                 — 820/820 (untouched)
-
-### Live smoke on `case_dfir_bumblebee_akira_2026`
-
-- Story: at least 1 sentence emitted from real data (`wbadmin.exe
-  accessed credential material`).
-- ATT&CK: 6 tactics · 21 techniques · 18 unique bases. Navigator
-  layer JSON exports cleanly.
-- Negative "Why isn't this ransomware?" returns:
-  `matches: false · missing_required: [BACKUP_DESTRUCTION,
-  MASS_FILE_ENCRYPTION, RANSOM_NOTE_CREATION] · verdict: Classification
-  remains as-is: not enough ransomware-specific evidence.`
-
----
-

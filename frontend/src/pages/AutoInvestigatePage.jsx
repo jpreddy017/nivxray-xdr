@@ -2478,6 +2478,11 @@ function InvestigationReport({ report, incident }) {
   if (!report || report.empty) return null;
   return (
     <div className="space-y-4" data-testid="investigation-report">
+      {/* §0 Investigation Verdict — 5-second answer card */}
+      {report.verdict && Object.keys(report.verdict).length > 0 && (
+        <InvestigationVerdictCard verdict={report.verdict} />
+      )}
+
       {/* Confidence card — the FIRST thing an analyst sees */}
       {report.confidence && Object.keys(report.confidence).length > 0 && (
         <InvestigationConfidenceCard confidence={report.confidence} />
@@ -2649,7 +2654,12 @@ function InvestigationReport({ report, incident }) {
                               counts={report.technical_summary?.counts} />
       )}
 
-      {/* §10 Threat Intelligence */}
+      {/* §10 Threat Intelligence Summary — unified, not per-vendor dump */}
+      {report.ti_summary && !report.ti_summary.empty && (
+        <ThreatIntelSummaryCard ti={report.ti_summary} />
+      )}
+
+      {/* §10b Threat Intelligence — raw correlations (collapsible)  */}
       {report.threat_intelligence?.length > 0 && (
         <ReportSectionCard num="10" title="THREAT INTELLIGENCE · CORRELATED"
                             tone="fuchsia" testid="report-threat-intel">
@@ -3511,6 +3521,149 @@ function RecommendationsGrouped({ recs }) {
 // Investigation Report is supporting evidence. Analysts open this
 // only when they want to see raw decoder output, entity buckets, and
 // the legacy narrative composer.
+// ─────────────────────────────────────────────────────────────────
+function InvestigationVerdictCard({ verdict }) {
+  const statusTone = (verdict.current_status || "").toLowerCase().includes("contained")
+    ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-200"
+    : (verdict.current_status || "").toLowerCase().includes("active")
+      ? "border-red-500/60 bg-red-500/10 text-red-200"
+      : "border-amber-500/60 bg-amber-500/10 text-amber-200";
+  const bandTone = {
+    Observed:      "bg-red-500/15 text-red-200 border-red-500/50",
+    "Not Observed": "bg-emerald-500/10 text-emerald-200 border-emerald-500/40",
+    Yes:           "bg-emerald-500/15 text-emerald-200 border-emerald-500/50",
+    "No — active": "bg-red-500/15 text-red-200 border-red-500/50",
+    Pending:       "bg-amber-500/10 text-amber-200 border-amber-500/40",
+    Recommended:   "bg-amber-500/10 text-amber-200 border-amber-500/40",
+    High:          "bg-emerald-500/15 text-emerald-200 border-emerald-500/50",
+    Medium:        "bg-amber-500/10 text-amber-200 border-amber-500/40",
+    Low:           "bg-slate-500/15 text-slate-200 border-slate-500/40",
+    None:          "bg-slate-500/10 text-slate-300 border-slate-700",
+  };
+  const Row = ({ label, value, tid }) => (
+    <div data-testid={tid}>
+      <div className="text-[9px] uppercase tracking-widest font-bold text-slate-400 mb-1">
+        {label}
+      </div>
+      <span className={`inline-block text-[11px] font-bold px-2 py-0.5 border rounded ${bandTone[value] || "border-slate-700 text-slate-300 bg-slate-800/50"}`}>
+        {value}
+      </span>
+    </div>
+  );
+  return (
+    <section className="border border-red-500/40 rounded-xl bg-slate-950/70 shadow-lg shadow-red-500/10 overflow-hidden"
+             data-testid="investigation-verdict">
+      <header className="px-5 py-3 border-b border-slate-800 flex items-baseline gap-3">
+        <span className="text-[10px] tracking-[0.28em] font-bold text-red-300">
+          INVESTIGATION VERDICT
+        </span>
+        <span className="text-[10px] text-slate-500 ml-auto">
+          five-second answer · scan before reading further
+        </span>
+      </header>
+      <div className="px-5 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+          <div data-testid="verdict-classification">
+            <div className="text-[9px] uppercase tracking-widest font-bold text-slate-400 mb-1">Classification</div>
+            <div className="text-[13px] font-semibold text-slate-100">{verdict.classification}</div>
+          </div>
+          <div data-testid="verdict-current-status">
+            <div className="text-[9px] uppercase tracking-widest font-bold text-slate-400 mb-1">Current Status</div>
+            <span className={`inline-block text-[11px] font-bold px-2 py-0.5 border rounded ${statusTone}`}>
+              {verdict.current_status}
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          <Row label="Execution"        value={verdict.execution}             tid="verdict-execution" />
+          <Row label="Persistence"      value={verdict.persistence}           tid="verdict-persistence" />
+          <Row label="Credential Access" value={verdict.credential_access}    tid="verdict-cred-access" />
+          <Row label="Lateral Movement" value={verdict.lateral_movement}      tid="verdict-lateral" />
+          <Row label="Network Comm"     value={verdict.network_communication} tid="verdict-network" />
+          <Row label="Containment"      value={verdict.containment}           tid="verdict-containment" />
+          <Row label="Customer Action"  value={verdict.customer_action_required} tid="verdict-action" />
+          <Row label="Confidence"       value={verdict.confidence}            tid="verdict-confidence" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ThreatIntelSummaryCard({ ti }) {
+  const repTone = {
+    Malicious:  "text-red-200 border-red-500/60 bg-red-500/10",
+    Suspicious: "text-amber-200 border-amber-500/60 bg-amber-500/10",
+    Unknown:    "text-slate-300 border-slate-500/60 bg-slate-500/10",
+    Clean:      "text-emerald-200 border-emerald-500/60 bg-emerald-500/10",
+  };
+  return (
+    <ReportSectionCard num="10" title="THREAT INTELLIGENCE SUMMARY" tone="fuchsia"
+                        testid="ti-summary" subtitle={`${ti.hit_count} correlation(s) unified`}>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div data-testid="ti-summary-reputation">
+          <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">
+            Overall Reputation
+          </div>
+          <span className={`inline-block text-[13px] font-bold px-2 py-0.5 border rounded ${repTone[ti.overall_reputation] || repTone.Unknown}`}>
+            {ti.overall_reputation}
+          </span>
+          <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-3 mb-1">
+            Confidence
+          </div>
+          <span className="text-[12px] text-slate-100">{ti.confidence}</span>
+        </div>
+        <div data-testid="ti-summary-indicators">
+          <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">
+            Indicators ({ti.indicators?.length || 0})
+          </div>
+          <ul className="space-y-0.5 max-h-24 overflow-auto">
+            {(ti.indicators || []).slice(0, 8).map((v, i) => (
+              <li key={i} className="text-[11px] font-mono text-slate-100 break-all">{v}</li>
+            ))}
+          </ul>
+          {(ti.families?.length > 0) && (
+            <>
+              <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-3 mb-1">
+                Families
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {ti.families.map((f, i) => (
+                  <span key={i} className="text-[10px] font-mono px-1.5 py-0.5 border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-200 rounded">{f}</span>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        <div data-testid="ti-summary-sources">
+          <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">
+            Sources consulted
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {(ti.sources || []).map((s, i) => (
+              <span key={i} className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 border border-slate-600 bg-slate-800/60 text-slate-200 rounded">{s}</span>
+            ))}
+          </div>
+          {(ti.categories?.length > 0) && (
+            <>
+              <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-3 mb-1">
+                Categories
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {ti.categories.map((c, i) => (
+                  <span key={i} className="text-[10px] font-mono px-1.5 py-0.5 border border-slate-600 bg-slate-800/60 text-slate-200 rounded">{c}</span>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </ReportSectionCard>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Collapsible "Advanced" section — everything below the main
+// Investigation Report is supporting evidence.
 // ─────────────────────────────────────────────────────────────────
 function AdvancedArtifactsSection({ children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
