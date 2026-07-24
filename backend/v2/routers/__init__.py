@@ -16,3 +16,4 @@ from v2.routers.irg import router as irg_router  # noqa: F401
 from v2.routers.verdicts import router as verdicts_router  # noqa: F401
 from v2.routers.investigation import router as investigation_router  # noqa: F401
 from v2.routers.ikb import router as ikb_router  # noqa: F401
+from v2.routers.ingestion import router as ingestion_router  # noqa: F401

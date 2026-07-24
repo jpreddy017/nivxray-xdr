@@ -13,6 +13,7 @@ from v2.flags import get as get_flag
 from v2.trajectory import build_from_observations
 from v2.investigation import build_investigation
 from v2.investigation.explainability import why_is_this_not, list_patterns
+from v2.ingestion.frame_enrich import enrich_frames_from_observations
 
 router = APIRouter(prefix="/v2/cases", tags=["v2-investigation"])
 
@@ -27,6 +28,7 @@ async def investigation(case_id: str, limit: int = 500,
     frames = await build_from_observations(_db, case_id=case_id,
                                            limit=max(1, min(limit, 5000)))
     fdicts = [f.to_dict() for f in frames]
+    await enrich_frames_from_observations(_db, case_id, fdicts)
     inv = build_investigation(fdicts, case_id=case_id, profile=profile)
     payload = inv.to_dict()
     payload["ok"] = True
@@ -42,6 +44,7 @@ async def investigation_explain_negative(case_id: str, pattern_id: str,
         raise HTTPException(status_code=503, detail="verdict engine v3 disabled")
     frames = await build_from_observations(_db, case_id=case_id, limit=500)
     fdicts = [f.to_dict() for f in frames]
+    await enrich_frames_from_observations(_db, case_id, fdicts)
     inv = build_investigation(fdicts, case_id=case_id, profile=profile)
     dev = (inv.verdicts or {}).get("device") or {}
     result = why_is_this_not(pattern_id, dev)

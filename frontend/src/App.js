@@ -48,6 +48,9 @@ const V2ProcessAncestry     = lazy(() => import("@/v2/pages/ProcessAncestry"));
 // stays live. Loads the Investigation Knowledge Graph (IKG) and embeds
 // the Trajectory canvas as one tab.
 const V2InvestigationWorkspace = lazy(() => import("@/v2/pages/InvestigationWorkspace"));
+// v2 · Investigation Ingestion Engine (Phase 4.1) — drag-drop uploader,
+// canonical event schema normalizer, golden corpus seed buttons.
+const V2IngestionPage          = lazy(() => import("@/v2/pages/IngestionPage"));
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -127,6 +130,8 @@ function App() {
                   the IKG once and hosts every view. Legacy routes remain
                   untouched; existing links keep working. */}
               <Route path="/v2/case/:caseId" element={<Protected><V2InvestigationWorkspace /></Protected>} />
+              {/* v2 · Investigation Ingestion Engine — drag-drop upload page */}
+              <Route path="/v2/ingest" element={<Protected><V2IngestionPage /></Protected>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

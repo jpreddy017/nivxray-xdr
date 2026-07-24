@@ -488,6 +488,12 @@ function InvestigationWorkspaceInner() {
         <span>·</span>
         <span>profile {inv?.profile || profile}</span>
         <span className="ml-auto">
+          <Link to="/v2/ingest"
+                data-testid="link-ingestion"
+                className="hover:underline mr-4"
+                style={{ color: T.amber }}>
+            + ingest logs
+          </Link>
           <Link to={`/v2/trajectory/${caseId}`}
                 data-testid="link-legacy-trajectory"
                 className="hover:underline"

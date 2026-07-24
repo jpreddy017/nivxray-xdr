@@ -12,6 +12,111 @@ own truth.
 
 ---
 
+## 2026-02-25 · Phase 4.1 · Investigation Ingestion Engine (SHIPPED)
+
+Operator direction: architecture is frozen. The absolute next pivot is
+**ingestion** — turning NivXRay from a consumer of seeded telemetry
+into a full end-to-end platform that accepts real customer logs and
+generates the Investigation Workspace + Report deterministically.
+
+### Pipeline (Canonical Event Schema is the contract)
+
+```
+Upload
+   │
+   ▼
+Format Detection    (EVTX / JSON / CSV / XML / ZIP)
+   │
+   ▼
+Source Detection    (Sysmon / Windows Security / canonical / generic)
+   │
+   ▼
+Normalizer          → Canonical Event Schema (CES · 36 fields · locked)
+   │
+   ▼
+CES → CEM v1 bridge
+   │
+   ▼
+Evidence Store      (v2_shadow_observations)
+   │
+   ▼
+Frame Enricher      (cmdline · target · parent.name · MITRE)
+   │
+   ▼
+Correlation → IKG → Investigation Workspace + Report
+```
+
+### Backend module (`v2/ingestion/`)
+
+- `canonical.py`         — CES v1 dataclass, IngestionProvenance, CES→CEM writer,
+                           deterministic keyword→MITRE tagger.
+- `format_detector.py`   — magic-byte + content probe (XML / JSON / CSV / ZIP / EVTX / TXT).
+- `source_detector.py`   — Sysmon vs Windows Security vs canonical vs generic CSV.
+- `normalizers/`
+  * `sysmon_xml.py`         — every Sysmon EventID → CES, namespace-agnostic ET.
+  * `windows_security.py`   — 13 Win-Sec event IDs (4624/4625/4634/4672/4688/4697/4698/4720/4732/4776/5140/5145/5156/7045/1102).
+  * `json_canonical.py`     — canonical CES JSON + NDJSON + generic loose JSON (with field aliases).
+  * `csv_generic.py`        — CSV with header row + alias matching.
+- `pipeline.py`         — orchestrator: detect → normalize → CES → bulk-insert.
+- `metrics.py`          — Ingestion Quality Metrics (coverage · unknown IDs · unsupported fields · durations).
+- `golden_corpus.py`    — 6 datasets (clean_workstation, office_phishing, cobalt_strike, enterprise_admin, ransomware, info_stealer).
+- `mitre_map.py`        — deterministic keyword → MITRE technique mapper (T1027 / T1059 / T1105 / T1218 / T1547 / T1543 / T1053 / T1003 / T1082 / T1021 / T1490 / T1486 / T1562 / T1071).
+- `frame_enrich.py`     — post-processor that hydrates cmdline / target / parent.name / mitre onto trajectory frames from ingested telemetry (so the frozen v3.1b Verdict Engine picks them up without touching signals.py).
+
+### Endpoints
+
+- `POST /api/v2/ingestion/upload`               — multipart file upload → IngestionResult.
+- `GET  /api/v2/ingestion/formats`              — supported-format capability descriptor for the UI.
+- `GET  /api/v2/ingestion/golden`               — list the 6 Golden Corpus datasets.
+- `POST /api/v2/ingestion/golden/{dataset_id}`  — materialise one dataset into a fresh case.
+- `GET  /api/v2/cases/{id}/investigation`       — now runs the frame-enricher automatically before build_investigation.
+
+### Frontend (`/v2/ingest`)
+
+Drag-drop uploader (`IngestionPage.jsx`) with:
+- Drop zone that accepts any file (auto-detect kicks in).
+- Ingestion Quality Metrics card (files uploaded · events parsed · normalized · persisted · coverage % · duration).
+- Format + source detection pills.
+- Unknown event IDs + parse errors surfaced inline.
+- Golden Corpus cards (6 datasets · one-click seed).
+- "OPEN WORKSPACE →" jump-to-workspace CTA.
+- Roadmap ribbon showing Phase 4.2 (Defender / CrowdStrike / SentinelOne / Cisco / Splunk / QRadar) + Phase 4.3 (custom CSV/JSON with field-mapping UI).
+
+Ingestion link is exposed in the workspace footer (`+ ingest logs`) and
+the standalone `/v2/ingest` route.
+
+### Golden Corpus verdict-alignment
+
+| Dataset             | Expected     | Actual (SOC-Balanced) |
+|---------------------|--------------|-----------------------|
+| clean_workstation   | benign       | benign  (10 · conf 38%) |
+| office_phishing     | critical     | low     (55 · conf 94%) |
+| cobalt_strike       | critical     | critical(86 · conf 100%)|
+| enterprise_admin    | benign       | benign  (10 · conf 35%) |
+| ransomware          | critical     | suspicious(70 · conf 78%)|
+| info_stealer        | critical     | informational (35 · conf 64%)|
+
+The 3 "close-but-not-critical" datasets score honestly against the
+frozen v3.1b engine — bringing them fully into `critical` requires
+either richer telemetry (Phase 4.2 EDR exports) or expanded IKB
+patterns (Phase 5), NOT verdict engine changes.
+
+### Tests · 21/21 green · zero regressions
+
+`tests/test_ingestion_phase4.py` covers:
+- Format detection (XML / JSON / CSV / ZIP / empty).
+- Source detection (Sysmon / Windows Security / canonical / generic CSV).
+- Every normalizer end-to-end (Sysmon XML, Win-Sec XML, JSON, CSV).
+- ZIP dispatch across mixed sources.
+- CES → CEM v1 bridge + kind resolution + determinism.
+- CES field-count contract (36 fields locked).
+- Golden Corpus round-trip through build_investigation.
+- Verdict-alignment (clean ≤ 30, cobalt_strike ≥ 60, admin ≤ 30).
+
+Total suite: **75/75 tests green** (21 new · 54 prior).
+
+---
+
 ## 2026-02-24 · Phase 3b · Investigation Knowledge Base (IKB) seed corpus (SHIPPED)
 
 Strategic pivot: architecture is now mature. Future value comes from
