@@ -1545,6 +1545,137 @@ function DecodeChainCard({ chain }) {
       )}
       {/* Per-chain enrichment surfaced from the recovered payload */}
       <ChainEnrichment enrichment={chain.enrichment} chainIndex={chain.index} />
+      {/* Deterministic PowerShell semantic pass */}
+      <ChainSemantic semantic={chain.semantic} chainIndex={chain.index} />
+    </div>
+  );
+}
+
+const CLS_TONE = {
+  loopback:   "border-emerald-500/60 text-emerald-200 bg-emerald-500/10",
+  private:    "border-sky-500/60 text-sky-200 bg-sky-500/10",
+  link_local: "border-sky-500/60 text-sky-200 bg-sky-500/10",
+  external:   "border-red-500/60 text-red-200 bg-red-500/10",
+  multicast:  "border-amber-500/60 text-amber-200 bg-amber-500/10",
+  reserved:   "border-slate-500/60 text-slate-200 bg-slate-500/10",
+  invalid:    "border-slate-600 text-slate-400",
+};
+
+function ChainSemantic({ semantic, chainIndex }) {
+  if (!semantic || !semantic.detected) return null;
+  const ast = semantic.ast || [];
+  const arts = semantic.artifacts || [];
+  const behaviors = semantic.behaviors || [];
+  const outcomeTone = {
+    fully_decoded:     "border-emerald-500/50 text-emerald-200 bg-emerald-500/10",
+    partially_decoded: "border-amber-500/50 text-amber-200 bg-amber-500/10",
+    encrypted_payload: "border-red-500/50 text-red-200 bg-red-500/10",
+    unsupported_encoding: "border-slate-600 text-slate-400 bg-slate-800/40",
+  }[semantic.decode_outcome] || "border-slate-600 text-slate-400";
+  return (
+    <div className="border-t border-cyan-500/30 bg-slate-950/60 p-3 space-y-3"
+         data-testid={`chain-semantic-${chainIndex}`}>
+      <div className="flex flex-wrap items-baseline gap-2">
+        <div className="text-[10px] tracking-[0.24em] font-bold text-cyan-300">
+          POWERSHELL SEMANTIC ANALYSIS
+        </div>
+        <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase tracking-widest font-bold ${outcomeTone}`}
+              data-testid={`semantic-outcome-${chainIndex}`}>
+          {(semantic.decode_outcome || "").replace(/_/g, " ")}
+        </span>
+        <VerdictBadge verdict={semantic.verdict} risk={semantic.risk_score} />
+        <span className="text-[10px] text-slate-400 font-mono">
+          conf {semantic.confidence}%
+        </span>
+      </div>
+      {semantic.recovered_script && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">Recovered PowerShell</div>
+          <pre className="px-2 py-1.5 bg-slate-950/80 border border-slate-800 rounded text-[11px] font-mono text-emerald-200 whitespace-pre-wrap break-all leading-snug"
+               data-testid={`semantic-recovered-${chainIndex}`}>
+            {semantic.recovered_script}
+          </pre>
+        </div>
+      )}
+      {ast.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+            AST · {ast.length} step(s)
+          </div>
+          <div className="space-y-1" data-testid={`semantic-ast-${chainIndex}`}>
+            {ast.map((s, i) => (
+              <div key={i} className="text-[11px] font-mono text-slate-200 flex items-baseline gap-2">
+                <span className="text-slate-500">L{s.line_no + 1}</span>
+                <span className="text-cyan-300 font-bold">{s.cmdlet}</span>
+                {s.alias && (
+                  <span className="text-[10px] text-slate-500">
+                    (alias: <span className="text-violet-300">{s.alias}</span>)
+                  </span>
+                )}
+                <span className="text-slate-400 truncate">
+                  {(s.args || []).map(a => `"${a}"`).join(" ")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {arts.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+            Extracted artefacts
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {arts.map((a, i) => (
+              <span key={i}
+                    title={a.evidence}
+                    data-testid={`semantic-artifact-${chainIndex}-${i}`}
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-mono border ${
+                      a.classification && CLS_TONE[a.classification] || "border-slate-700 text-slate-300"
+                    }`}>
+                <span className="text-slate-500">{a.kind}:</span> {a.value}
+                {a.classification && (
+                  <span className="ml-1 text-[9px] opacity-80">· {a.classification}</span>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {behaviors.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+            Behaviors (evidence-weighted)
+          </div>
+          <div className="space-y-0.5">
+            {behaviors.map((b, i) => (
+              <div key={i} className="text-[11px] flex items-baseline gap-2"
+                   data-testid={`semantic-behavior-${chainIndex}-${i}`}>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                  b.weight >= 30 ? "border-red-500/60 text-red-200 bg-red-500/10"
+                  : b.weight >= 15 ? "border-amber-500/60 text-amber-200 bg-amber-500/10"
+                  : b.weight > 0 ? "border-sky-500/60 text-sky-200 bg-sky-500/10"
+                  : "border-emerald-500/60 text-emerald-200 bg-emerald-500/10"
+                }`}>
+                  {b.category} +{b.weight}
+                </span>
+                <span className="text-slate-400 truncate">{b.evidence}</span>
+                {(b.mitre || []).length > 0 && (
+                  <span className="text-[10px] font-mono text-slate-500 ml-auto">
+                    {b.mitre.join(" ")}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {semantic.verdict_reason && (
+        <div className="text-[11px] text-slate-300 pt-1 border-t border-slate-800">
+          <span className="text-cyan-300 font-bold uppercase tracking-widest text-[10px]">Verdict rationale · </span>
+          {semantic.verdict_reason}
+        </div>
+      )}
     </div>
   );
 }

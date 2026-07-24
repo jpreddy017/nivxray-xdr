@@ -32,6 +32,7 @@ from v2.decoded_artifacts import (
     sha256_of as _sha256_of,
 )
 from v2.enrichment.strings_extractor import enrich_report as _enrich_report
+from v2.semantic.ps_semantic import analyze as _ps_semantic_analyze
 
 # Optional bridge to the Workspace's larger decoder registry — enables
 # PowerShell binary-split, string-concat, char-array, ps-encodedcommand
@@ -73,7 +74,7 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
     sha = _sha256_of(cmdline)
     # Feb-2026 · Pipeline version tag. Bump this whenever a decoder /
     # archetype change should invalidate previously cached artifacts.
-    PIPELINE_VERSION = "v3-archetype-bridge"
+    PIPELINE_VERSION = "v4-ps-semantic"
     cached = await _artifact_get(sha)
     # Cache-invalidation guard. Any artifact cached BEFORE the archetype
     # bridge shipped has `layers == 0` for inputs the archetypes can now
@@ -193,6 +194,7 @@ def _project_decode_chain(cmd: dict, report, status: dict, cache_hit: bool, idx:
     the RC5 Orchestrator; they render at the top of the tree."""
     layers: list[dict] = list(archetype_layers or [])
     trace_previews: list[str] = [L.get("preview", "") for L in layers]
+    input_cmdline = (cmd.get("command_line") or "")
     if report is not None:
         for step in (getattr(report, "trace", None) or []):
             s = step.model_dump() if hasattr(step, "model_dump") else dict(step)
@@ -210,6 +212,37 @@ def _project_decode_chain(cmd: dict, report, status: dict, cache_hit: bool, idx:
                 "sub_iocs":   {k: v[:12] for k, v in (s.get("sub_iocs") or {}).items() if v},
             })
     findings = getattr(report, "findings", None)
+    # ── PowerShell semantic decode (v3 · spec-compliant) ──────
+    # Runs an AST-level pass on the recovered PowerShell to produce
+    # evidence-weighted verdicts, loopback classification, MITRE from
+    # observed behaviours only, and a proper decode tree tail.
+    semantic: dict = {}
+    try:
+        sr = _ps_semantic_analyze(input_cmdline)
+        if sr.detected:
+            semantic = sr.to_dict()
+            # Append synthetic layers to the tail of the chain so the UI
+            # renders EncodedCommand → Base64 → UTF16LE → PowerShell AST
+            # as a continuous story.
+            _last_layer = max([l.get("layer") or 0 for l in layers] or [0])
+            if semantic.get("recovered_script"):
+                layers.append({
+                    "layer":      _last_layer + 1,
+                    "decoder":    "powershell-ast",
+                    "confidence": semantic.get("confidence", 0) / 100.0,
+                    "why":        (f"Recovered PowerShell parsed into "
+                                   f"{len(semantic.get('ast') or [])}-step AST; "
+                                   f"decode_outcome={semantic.get('decode_outcome')}"),
+                    "in_len":     len(input_cmdline.encode("utf-8", errors="ignore")),
+                    "out_len":    len(semantic["recovered_script"].encode("utf-8", errors="ignore")),
+                    "exec_ms":    0,
+                    "preview":    semantic["recovered_script"][:200],
+                    "sub_iocs":   {"urls":  [a["value"] for a in semantic["artifacts"] if a["kind"]=="url"][:8],
+                                   "ips":   [a["value"] for a in semantic["artifacts"] if a["kind"]=="ip"][:8]},
+                    "source":     "ps_semantic",
+                })
+    except Exception as e:  # noqa: BLE001
+        log.warning("ps semantic analyze failed idx=%s: %s", idx, e)
     # Only run string enrichment when the decoder actually peeled at
     # least one layer — otherwise we'd emit the raw input as a "string"
     # which pollutes the IOC Summary (see the user's report where the
@@ -226,6 +259,19 @@ def _project_decode_chain(cmd: dict, report, status: dict, cache_hit: bool, idx:
         except Exception as e:  # noqa: BLE001
             log.warning("strings enrichment failed idx=%s: %s", idx, e)
             enrichment = {}
+    # If the semantic pass produced a decisive verdict, prefer it over
+    # the RC5 Orchestrator's coarse label — spec: verdict must be
+    # evidence-weighted, not rule-triggered on "EncodedCommand exists".
+    chain_verdict = (getattr(findings, "verdict", None) if findings else None) or "unknown"
+    chain_risk    = int(getattr(findings, "risk_score", 0) or 0) if findings else 0
+    chain_mitre   = sorted({(m.id if hasattr(m, "id") else m.get("id"))
+                            for m in (getattr(findings, "mitre_techniques", None) or [])
+                            if (m.id if hasattr(m, "id") else m.get("id"))}) if findings else []
+    if semantic and semantic.get("verdict") and semantic["verdict"] != "unknown":
+        chain_verdict = semantic["verdict"]
+        chain_risk    = semantic.get("risk_score", chain_risk)
+        # Union MITRE — semantic MITRE is behavior-driven and always trustworthy.
+        chain_mitre = sorted(set(chain_mitre) | set(semantic.get("mitre_ids") or []))
     return {
         "index":         idx,
         "binary":        cmd.get("binary"),
@@ -239,12 +285,11 @@ def _project_decode_chain(cmd: dict, report, status: dict, cache_hit: bool, idx:
         "layer_count":   len(layers),
         "archetype_id":  status.get("archetype_id"),
         "terminal":      getattr(report, "terminal", None) if report else None,
-        "verdict":       (getattr(findings, "verdict", None) if findings else None) or "unknown",
-        "risk_score":    int(getattr(findings, "risk_score", 0) or 0) if findings else 0,
-        "mitre_ids":     sorted({(m.id if hasattr(m, "id") else m.get("id"))
-                                 for m in (getattr(findings, "mitre_techniques", None) or [])
-                                 if (m.id if hasattr(m, "id") else m.get("id"))}) if findings else [],
+        "verdict":       chain_verdict,
+        "risk_score":    chain_risk,
+        "mitre_ids":     chain_mitre,
         "enrichment":    enrichment,
+        "semantic":      semantic or None,
     }
 
 
