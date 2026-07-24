@@ -339,7 +339,149 @@ function FinalIncidentSummary({ result, onExportMd, onExportJson }) {
           ))}
         </div>
       </Section>
+
+      {/* Investigation Quality Dashboard — deterministic scorecard */}
+      {fis.investigation_quality && (
+        <QualityDashboard q={fis.investigation_quality} />
+      )}
     </section>
+  );
+}
+
+// ─── Investigation Quality Dashboard ────────────────────────────
+function QualityDashboard({ q }) {
+  const completeness = q.overall?.investigation_completeness ?? 0;
+  const ready        = !!q.overall?.ready_for_analyst_review;
+  return (
+    <section className="border rounded-xl p-5"
+             data-testid="fis-quality"
+             style={{
+               background: "linear-gradient(135deg, #0a1628 0%, #051020 100%)",
+               borderColor: ready ? "rgba(52,211,153,0.35)" : "rgba(245,158,11,0.35)",
+             }}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-[10px] tracking-[0.24em] font-bold text-slate-400">
+            INVESTIGATION QUALITY
+          </div>
+          <div className="text-lg font-bold mt-1"
+               style={{ color: ready ? "#4ADE80" : "#F59E0B" }}
+               data-testid="quality-headline">
+            Overall Completeness · {completeness}%
+          </div>
+        </div>
+        <div className="text-right">
+          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+            ready ? "text-emerald-300 border-emerald-500/50 bg-emerald-500/10"
+                  : "text-amber-300 border-amber-500/50 bg-amber-500/10"
+          }`} data-testid="quality-ready">
+            {ready ? "READY FOR ANALYST REVIEW" : "REVIEW GAPS BELOW"}
+          </span>
+        </div>
+      </div>
+
+      {/* Completeness bar */}
+      <div className="mb-5">
+        <div className="h-2 rounded-full overflow-hidden bg-slate-800/60">
+          <div className="h-full rounded-full transition-all"
+               style={{
+                 width: `${completeness}%`,
+                 background: ready
+                   ? "linear-gradient(90deg,#10B981,#4ADE80)"
+                   : "linear-gradient(90deg,#F59E0B,#FCD34D)",
+               }} />
+        </div>
+        <div className="mt-1 flex justify-between text-[9px] font-mono text-slate-500">
+          {Object.entries(q.overall?.axes || {}).map(([k, v]) => (
+            <span key={k} title={`${k}: ${v}%`}>{k} {v}%</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+        <FlagGroup title="Evidence Processing" data={q.evidence_processing} />
+        <KVGroup   title="Command Analysis"   data={q.command_analysis} highlight={{ decode_ratio: true, failed_decodes: true }} />
+        <KVGroup   title="Coverage"           data={q.coverage} />
+        <NumberGroup title="Confidence"       data={q.confidence} />
+        <FlagGroup title="Validation"         data={q.validation} />
+      </div>
+    </section>
+  );
+}
+
+function FlagGroup({ title, data }) {
+  return (
+    <div className="border border-slate-800 rounded-lg p-3 bg-slate-950/50">
+      <div className="text-[10px] tracking-widest text-slate-500 font-bold mb-2">{title.toUpperCase()}</div>
+      <ul className="space-y-1">
+        {Object.entries(data || {}).map(([k, v]) => (
+          <li key={k}
+              data-testid={`quality-flag-${k}`}
+              className="flex items-center justify-between">
+            <span className="text-slate-300 font-mono text-[11px]">
+              {k.replace(/_/g, " ")}
+            </span>
+            <span className={`font-bold text-[10px] px-2 py-0.5 rounded ${
+              v ? "text-emerald-300 bg-emerald-500/10 border border-emerald-500/40"
+                : "text-red-300 bg-red-500/10 border border-red-500/40"
+            }`}>
+              {v ? "PASS" : "FAIL"}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function KVGroup({ title, data, highlight = {} }) {
+  return (
+    <div className="border border-slate-800 rounded-lg p-3 bg-slate-950/50">
+      <div className="text-[10px] tracking-widest text-slate-500 font-bold mb-2">{title.toUpperCase()}</div>
+      <ul className="space-y-1">
+        {Object.entries(data || {}).map(([k, v]) => (
+          <li key={k}
+              data-testid={`quality-kv-${k}`}
+              className="flex items-center justify-between">
+            <span className="text-slate-300 font-mono text-[11px]">
+              {k.replace(/_/g, " ")}
+            </span>
+            <span className={`font-mono font-bold text-[11px] ${
+              highlight[k] && String(v).includes("/") ? "text-cyan-300"
+                : highlight[k] && v > 0                ? "text-amber-300"
+                : "text-slate-100"
+            }`}>{String(v)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function NumberGroup({ title, data }) {
+  return (
+    <div className="border border-slate-800 rounded-lg p-3 bg-slate-950/50">
+      <div className="text-[10px] tracking-widest text-slate-500 font-bold mb-2">{title.toUpperCase()}</div>
+      <ul className="space-y-2">
+        {Object.entries(data || {}).map(([k, v]) => (
+          <li key={k} data-testid={`quality-conf-${k}`}>
+            <div className="flex justify-between text-[11px]">
+              <span className="text-slate-300 font-mono">{k.replace(/_/g, " ")}</span>
+              <span className="font-mono font-bold text-slate-100">{v}%</span>
+            </div>
+            <div className="h-1 mt-1 rounded-full bg-slate-800/60 overflow-hidden">
+              <div className="h-full rounded-full"
+                   style={{
+                     width: `${v}%`,
+                     background: v >= 80 ? "#10B981"
+                                : v >= 50 ? "#F59E0B"
+                                :           "#EF4444",
+                   }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
