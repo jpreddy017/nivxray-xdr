@@ -81,6 +81,9 @@ _DOC_HOSTS = {
     # Public code / dev
     "github.com", "githubusercontent.com", "gitlab.com", "bitbucket.org",
     "pypi.org", "npmjs.com", "stackoverflow.com", "stackexchange.com",
+    # SIEM / vendor consoles missing from earlier passes
+    "splunk.com", "splunkcloud.com", "ibm.com", "qradar.ibm.com",
+    "logrhythm.com", "exabeam.com", "arcsight.com",
 }
 _INTERNAL_TLDS = (".local", ".internal", ".lan", ".corp", ".intra", ".arpa")
 

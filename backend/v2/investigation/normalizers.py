@@ -127,7 +127,13 @@ def _get(doc: dict, *keys, default=""):
                 v = None
                 break
         if v not in (None, "", []):
-            return v
+            # Coerce list → first non-empty string (SentinelOne uses list values)
+            if isinstance(v, list):
+                v = ", ".join(str(x) for x in v if x) or default
+            # Coerce dict → str repr (safe fallback; shouldn't be common)
+            elif isinstance(v, dict):
+                continue
+            return v if isinstance(v, str) else str(v)
     return default
 
 

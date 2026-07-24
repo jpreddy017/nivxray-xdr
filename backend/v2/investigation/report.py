@@ -22,6 +22,7 @@ Deterministic. Same input → byte-identical output.
 """
 from __future__ import annotations
 
+import re as _re
 from typing import Any
 
 from .classifiers import (
@@ -1006,11 +1007,60 @@ def compose_report(im: dict) -> dict:
         }
 
     # Reuse classifiers/timeline to keep every stage on the same model.
+    # Harvest URLs / IPs / domains from BOTH the pre-classified network
+    # bucket (populated by the FIS/OSINT pipeline) AND directly from
+    # event command lines / paths, so the report is self-sufficient from
+    # the model — no external enrichment layer required for the URL bucket
+    # to be populated.  This makes the regression corpus and any offline
+    # replay produce the same output as the live pipeline.
+    _URL_RE  = _re.compile(r"https?://[^\s\"'<>)]+", _re.I)
+    _IP_RE   = _re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+    _HOST_RE = _re.compile(r"\b([a-z0-9][a-z0-9\-]*(?:\.[a-z0-9\-]+)+)\b", _re.I)
+
+    from_events_text: list[str] = []
+    for e in im.get("raw_events") or []:
+        for k in ("command_line", "path", "message"):
+            v = e.get(k)
+            if v:
+                from_events_text.append(str(v))
+    # Also scan the ORIGINAL incident text — URLs / IPs that arrive as
+    # free-standing reference lines ("Attacker URL: https://…") aren't
+    # captured by any adapter field, but the report should still surface
+    # them (correctly classified) in the Observed Evidence bucket.
+    if im.get("raw_text"):
+        from_events_text.append(im["raw_text"])
+    joined_events_text = " ".join(from_events_text)
+
+    urls_bucket = list({n.get("url") for n in (im.get("network") or []) if n.get("url")})
+    urls_bucket += [m.group(0).rstrip('.,;)"\'')
+                    for m in _URL_RE.finditer(joined_events_text)]
+    urls_bucket = sorted(set(u for u in urls_bucket if u))
+
+    doms_from_urls = set()
+    for u in urls_bucket:
+        try:
+            from urllib.parse import urlparse
+            h = (urlparse(u).hostname or "").lower()
+            if h: doms_from_urls.add(h)
+        except Exception:
+            pass
+    domains_bucket = sorted(
+        {n.get("domain") for n in (im.get("network") or []) if n.get("domain")}
+        | set((im.get("assets") or {}).get("domains") or [])
+        | doms_from_urls
+        | {h.lower() for h in _HOST_RE.findall(joined_events_text)
+           if "." in h and not any(h.lower().endswith("." + x) for x in
+                                    ("exe", "dll", "ps1", "sct", "msi",
+                                     "docm", "sys", "vbs", "js", "hta"))}
+    )
+    ips_bucket = sorted(
+        {n.get("dst") for n in (im.get("network") or []) if n.get("dst")}
+        | set(_IP_RE.findall(joined_events_text))
+    )
     entities = {
-        "urls":    [n.get("url") for n in (im.get("network") or []) if n.get("url")],
-        "domains": list({n.get("domain") for n in (im.get("network") or []) if n.get("domain")}
-                        | set((im.get("assets") or {}).get("domains") or [])),
-        "ips":     list({n.get("dst") for n in (im.get("network") or []) if n.get("dst")}),
+        "urls":    urls_bucket,
+        "domains": domains_bucket,
+        "ips":     [ip for ip in ips_bucket if ip],
     }
     entcls    = classify_entities(entities)
     files     = [classify_file(f) for f in (im.get("files") or [])]

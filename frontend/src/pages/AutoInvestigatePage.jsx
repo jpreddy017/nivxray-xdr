@@ -2527,14 +2527,8 @@ function InvestigationReport({ report }) {
               </div>
               <p className="text-[12px] text-slate-200 leading-relaxed"
                  dangerouslySetInnerHTML={{ __html: _inlineMd(report.probable_initial_access.paragraph) }} />
-              {report.probable_initial_access.evidence?.length > 0 && (
-                <ul className="mt-1.5 space-y-0.5">
-                  {report.probable_initial_access.evidence.map((ev, i) => (
-                    <li key={i} className="text-[11px] text-slate-400"
-                        dangerouslySetInnerHTML={{ __html: _inlineMd(ev) }} />
-                  ))}
-                </ul>
-              )}
+              {/* Explain this conclusion — evidence + alternatives + rejections */}
+              <ExplainConclusion ia={report.probable_initial_access} />
             </div>
           )}
         </ReportSectionCard>
@@ -3048,6 +3042,63 @@ function ObservedIocsSection({ iocs, counts }) {
         </div>
       )}
     </ReportSectionCard>
+  );
+}
+
+function ExplainConclusion({ ia }) {
+  const [open, setOpen] = useState(false);
+  const hasContent = (ia?.evidence?.length || 0) + (ia?.ruled_out?.length || 0) > 0;
+  if (!hasContent) return null;
+  return (
+    <div className="mt-2" data-testid="explain-conclusion">
+      <button type="button"
+              onClick={() => setOpen(v => !v)}
+              data-testid="explain-conclusion-toggle"
+              className="text-[10px] tracking-widest font-bold uppercase text-cyan-300 hover:text-cyan-200 hover:underline cursor-pointer">
+        {open ? "↑ Hide reasoning" : "↓ Explain this conclusion"}
+      </button>
+      {open && (
+        <div className="mt-2 border border-cyan-500/30 rounded-lg bg-slate-950/60 p-3 space-y-3"
+             data-testid="explain-conclusion-body">
+          {ia.evidence?.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-widest font-bold text-emerald-300 mb-1">
+                Evidence used
+              </div>
+              <ul className="space-y-0.5">
+                {ia.evidence.map((ev, i) => (
+                  <li key={i} className="text-[11px] text-slate-300"
+                      dangerouslySetInnerHTML={{ __html: _inlineMd(ev) }} />
+                ))}
+              </ul>
+            </div>
+          )}
+          {ia.ruled_out?.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">
+                Alternatives considered · ruled out
+              </div>
+              <ul className="space-y-1">
+                {ia.ruled_out.map((r, i) => (
+                  <li key={i} className="text-[11px]" data-testid={`ruled-out-${i}`}>
+                    <span className="text-slate-100 font-semibold">{r.vector}</span>
+                    <div className="text-slate-500 mt-0.5 pl-3 border-l border-slate-700">
+                      {r.reason}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="text-[10px] text-slate-500 italic pt-1 border-t border-slate-800">
+            Reasoning is deterministic — same evidence always produces the same conclusion.
+            Attribution is capped at {ia.confidence} confidence because the required signals
+            were {ia.confidence === "High" ? "fully present" : "only partially observed"} in
+            the available telemetry.
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

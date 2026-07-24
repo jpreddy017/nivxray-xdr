@@ -133,6 +133,10 @@ class InvestigationModel:
     # Free-form structured events surfaced by the incident parser but
     # not yet classified into one of the above buckets.
     raw_events: list[dict]          = field(default_factory=list)
+    # Original incident text — preserved so downstream stages (e.g. the
+    # URL / IP harvester in the report composer) can operate without an
+    # external enrichment layer.
+    raw_text:   str                 = ""
     # Diagnostic — which spec-mandated evidence buckets have data?
     coverage:  dict                 = field(default_factory=dict)
 
@@ -252,6 +256,7 @@ def build_model(raw: str,
 
     # ── Raw events (preserve everything) ─────────────────────────
     m.raw_events = [e.to_dict() for e in mdr_events]
+    m.raw_text = raw or ""
     m.coverage = m._coverage()
     return m
 

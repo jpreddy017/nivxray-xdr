@@ -1,0 +1,6 @@
+{"AlertId": "da637123456789", "MachineId": "m-1a2b3c4d", "alertCreationTime": "2026-07-23T08:44:12Z", "title": "Suspicious Office Macro Execution", "threatName": "TrojanDownloader:O97M/Emotet", "computerDnsName": "SALES-LT-07", "userName": "kaitlin.reid", "IncidentId": 55123, "Category": "Execution", "evidence": [{"parentProcessImageFile": "winword.exe", "processImageFile": "powershell.exe", "processCommandLine": "powershell.exe -Enc JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdA==", "sha256": "beefcafe1122334455667788990011223344556677889900aabbccddeeff0011", "filePath": "C:\\Users\\kaitlin.reid\\AppData\\Local\\Temp\\invoice.docm", "remediationAction": "quarantined"}]}
+
+References:
+https://security.microsoft.com/incidents/55123
+https://learn.microsoft.com/en-us/defender-endpoint
+Attacker URL: http://185.142.223.13/emotet-loader
