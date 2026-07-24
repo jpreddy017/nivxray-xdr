@@ -42,6 +42,18 @@ log = logging.getLogger("nivx.routers.auto_investigate")
 # rather than blocking the pipeline.
 MAX_CMD_BYTES        = int(os.environ.get("NIVX_AUTO_MAX_CMD_BYTES", 25 * 1024 * 1024))  # 25 MB
 MAX_CMD_SECONDS      = float(os.environ.get("NIVX_AUTO_MAX_CMD_SECONDS", 20.0))
+MAX_ORCH_WORKERS     = int(os.environ.get("NIVX_AUTO_MAX_ORCH_WORKERS", 8))
+
+# Module-level executor for the deterministic Orchestrator. See the
+# long comment in `_run_single_command` — we deliberately avoid the
+# per-call `with ThreadPoolExecutor(...)` pattern because its
+# `shutdown(wait=True)` blocks on runaway threads and defeats the
+# per-command timeout. This shared pool absorbs orphan threads without
+# stalling the request-response cycle. Threads are daemons so a
+# process shutdown does not hang on them.
+_ORCH_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=MAX_ORCH_WORKERS, thread_name_prefix="nivx-orch",
+)
 MAX_CMDS_PER_INCIDENT = int(os.environ.get("NIVX_AUTO_MAX_CMDS", 25))
 MAX_INCIDENT_BYTES   = int(os.environ.get("NIVX_AUTO_MAX_INCIDENT_BYTES", 50 * 1024 * 1024))
 
@@ -538,20 +550,28 @@ def _run_single_command(cmd: dict) -> tuple[Any | None, dict]:
         return None, status
     t0 = time.perf_counter()
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-            fut = ex.submit(lambda: Orchestrator(AnalysisContext(budget=new_budget())).run(cmdline))
-            try:
-                report = fut.result(timeout=MAX_CMD_SECONDS)
-            except concurrent.futures.TimeoutError:
-                fut.cancel()
-                status.update(status="timeout",
-                              seconds=round(time.perf_counter() - t0, 2),
-                              message=(f"Recursive decoding exceeded the "
-                                       f"{MAX_CMD_SECONDS:.0f}s per-command budget. "
-                                       "Partial decoding was preserved; the "
-                                       "surrounding investigation continued with "
-                                       "the remaining evidence."))
-                return None, status
+        # NOTE: We use a MODULE-LEVEL executor (see top of file) instead of
+        # a per-call `with ThreadPoolExecutor(...)` context. The context
+        # manager calls `shutdown(wait=True)` on exit which blocks until
+        # the runaway thread finishes — defeating the entire timeout.
+        # With the module-level executor, the timeout returns control
+        # immediately; the orphan thread eventually finishes on its own
+        # inside the shared pool without blocking any request.
+        fut = _ORCH_EXECUTOR.submit(
+            lambda: Orchestrator(AnalysisContext(budget=new_budget())).run(cmdline)
+        )
+        try:
+            report = fut.result(timeout=MAX_CMD_SECONDS)
+        except concurrent.futures.TimeoutError:
+            fut.cancel()  # no-op for a running thread but frees pending futures
+            status.update(status="timeout",
+                          seconds=round(time.perf_counter() - t0, 2),
+                          message=(f"Recursive decoding exceeded the "
+                                   f"{MAX_CMD_SECONDS:.0f}s per-command budget. "
+                                   "Partial decoding was preserved; the "
+                                   "surrounding investigation continued with "
+                                   "the remaining evidence."))
+            return None, status
     except Exception as e:  # noqa: BLE001
         status.update(status="error",
                       seconds=round(time.perf_counter() - t0, 2),

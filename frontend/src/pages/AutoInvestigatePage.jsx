@@ -82,58 +82,116 @@ export default function AutoInvestigatePage() {
       stage: "queued", percent: 0, message: "Creating investigation job…",
       steps: [], commands: [], chains: [], parseInfo: null, osint: null,
     });
-    // 1. Create job.
+    // 1. Create job — backend spawns worker off the request loop.
     const create = await api.post("/v2/auto-investigate/jobs", {
       incident_text: input, focus: focus || null,
     });
     const { job_id: newJobId, ws_path } = create.data;
     setJobId(newJobId);
-    // 2. Open WebSocket.
-    const token = localStorage.getItem("nvx_token") || "";
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
-    const wsBase = backendUrl.replace(/^http/i, "ws");
-    const wsUrl = `${wsBase}${ws_path}?token=${encodeURIComponent(token)}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+
+    // Helper: fold a WS/polled snapshot into progress state.
+    const applyStreamEvent = (msg) => {
+      setProgress(prev => {
+        const p = { ...(prev || {}) };
+        const t = msg.type;
+        if (t === "progress") {
+          p.stage = msg.stage; p.percent = msg.percent; p.message = msg.message;
+          p.steps = [...(p.steps || []), { stage: msg.stage, percent: msg.percent, message: msg.message, ts: Date.now() }];
+        } else if (t === "command") {
+          p.commands = [...(p.commands || []), msg];
+        } else if (t === "decode_chain") {
+          p.chains = [...(p.chains || []), msg];
+        } else if (t === "parse_result") {
+          p.parseInfo = msg;
+        } else if (t === "osint_result") {
+          p.osint = msg;
+        }
+        return p;
+      });
+    };
+
     return new Promise((resolve, reject) => {
+      let finalized = false;
       const finalize = (ok, payload) => {
+        if (finalized) return;
+        finalized = true;
         closeWs();
         if (ok) resolve(payload); else reject(payload);
       };
-      ws.onmessage = (ev) => {
-        let msg;
-        try { msg = JSON.parse(ev.data); } catch { return; }
-        setProgress(prev => {
-          const p = { ...(prev || {}) };
-          const t = msg.type;
-          if (t === "progress") {
-            p.stage = msg.stage; p.percent = msg.percent; p.message = msg.message;
-            p.steps = [...(p.steps || []), { stage: msg.stage, percent: msg.percent, message: msg.message, ts: Date.now() }];
-          } else if (t === "command") {
-            p.commands = [...(p.commands || []), msg];
-          } else if (t === "decode_chain") {
-            p.chains = [...(p.chains || []), msg];
-          } else if (t === "parse_result") {
-            p.parseInfo = msg;
-          } else if (t === "osint_result") {
-            p.osint = msg;
+
+      // ─── (a) Best-effort WebSocket · instant updates if ingress supports WS upgrade ───
+      try {
+        const token = localStorage.getItem("nvx_token") || "";
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
+        const wsBase = backendUrl.replace(/^http/i, "ws");
+        const wsUrl = `${wsBase}${ws_path}?token=${encodeURIComponent(token)}`;
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+        ws.onmessage = (ev) => {
+          let msg;
+          try { msg = JSON.parse(ev.data); } catch { return; }
+          applyStreamEvent(msg);
+          if (msg.type === "result") setResult(msg.result);
+          if (msg.type === "done") {
+            if (msg.status === "complete") finalize(true, msg);
+            else finalize(false, new Error(msg.error || "Investigation failed"));
           }
-          return p;
-        });
-        if (msg.type === "result") {
-          setResult(msg.result);
-        } else if (msg.type === "done") {
-          if (msg.status === "complete") finalize(true, msg);
-          else finalize(false, new Error(msg.error || "Investigation failed"));
+        };
+        // If WS fails or closes early, we swallow the error — polling below
+        // is the source of truth and will always terminate the promise.
+        ws.onerror = () => { /* polling fallback covers this */ };
+        ws.onclose = () => { /* polling fallback covers this */ };
+      } catch { /* WebSocket unsupported / blocked — polling handles it */ }
+
+      // ─── (b) HTTP polling · always-on safety net for prod ingress that blocks WS ───
+      // Progress steps + decode statuses are persisted to Mongo on every
+      // event, so a 1.5 s poll delivers the full experience even without
+      // WebSocket. Backs off to 3 s after 60 s to reduce chatter on
+      // slow-running jobs.
+      let attempts = 0;
+      const pollOnce = async () => {
+        if (finalized) return;
+        attempts += 1;
+        try {
+          const snap = (await api.get(`/v2/auto-investigate/jobs/${newJobId}`)).data;
+          // Fold the DB snapshot into progress state without clobbering
+          // richer data already delivered by WS.
+          setProgress(prev => {
+            const p = { ...(prev || {}) };
+            const prog = snap.progress || {};
+            if (prog.stage) p.stage = prog.stage;
+            if (typeof prog.percent === "number") p.percent = prog.percent;
+            if (prog.message) p.message = prog.message;
+            const steps = prog.steps || [];
+            if (steps.length > (p.steps?.length || 0)) p.steps = steps;
+            const cmds = snap.decode_statuses || [];
+            if (cmds.length > (p.commands?.length || 0)) {
+              p.commands = cmds.map((s, i) => ({ ...s, index: s.index ?? i }));
+            }
+            // Chains only appear inside the final result — surface them
+            // as soon as the result lands.
+            const chains = snap?.result?.decode_pipeline?.chains || [];
+            if (chains.length > (p.chains?.length || 0)) p.chains = chains;
+            const rs = snap?.result?.decode_pipeline?.recursive_stats;
+            if (rs && !p.osint?.matches && snap?.result?.final_incident_summary?.ioc_reputation?.summary) {
+              const s = snap.result.final_incident_summary.ioc_reputation.summary;
+              p.osint = { matches: s.matches, total_lookups: s.total_lookups,
+                          sources: snap.result.final_incident_summary.ioc_reputation.sources || {} };
+            }
+            return p;
+          });
+          if (snap.result) setResult(snap.result);
+          if (snap.status === "complete") return finalize(true, { status: "complete" });
+          if (snap.status === "failed") return finalize(false, new Error(snap.error || "Investigation failed"));
+        } catch (e) {
+          // Transient network / auth hiccup — keep polling.
+          console.warn("[auto-investigate] poll error:", e?.message || e);
         }
+        const nextDelay = attempts > 40 ? 3000 : 1500;
+        setTimeout(pollOnce, nextDelay);
       };
-      ws.onerror = () => finalize(false, new Error("WebSocket error"));
-      ws.onclose = (evt) => {
-        // If we haven't already resolved via `done`, treat unexpected close as failure.
-        if (evt.code !== 1000 && wsRef.current === ws) {
-          finalize(false, new Error(`WebSocket closed (code ${evt.code})`));
-        }
-      };
+      // Give the WS a beat to open first (avoid duplicate first paint).
+      setTimeout(pollOnce, 1200);
     });
   }, [input, focus, closeWs]);
 
