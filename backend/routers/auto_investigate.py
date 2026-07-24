@@ -63,7 +63,7 @@ RE_SHA256 = re.compile(r"\b[a-fA-F0-9]{64}\b")
 RE_SHA1   = re.compile(r"\b[a-fA-F0-9]{40}\b")
 RE_MD5    = re.compile(r"\b[a-fA-F0-9]{32}\b")
 RE_FILE   = re.compile(
-    r"(?:[A-Za-z]:\\|\\\\|/)[^\s\"'<>]{2,200}\."
+    r"(?:[A-Za-z]:\\|\\\\|/)[^\r\n\"'<>]{2,220}\."
     r"(?:exe|dll|ps1|bat|cmd|vbs|js|hta|msi|sys|lnk|bin|scr|zip|"
     r"7z|rar|tar|gz|iso|img|doc|docx|xls|xlsx|pdf|txt|log)",
     re.IGNORECASE,

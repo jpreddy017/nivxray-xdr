@@ -5,19 +5,24 @@ NEVER infers. Consumes a *verified* investigation model (produced by
 the AUTO INVESTIGATE orchestrator) and transforms it into an MDR-grade
 report with 17 structured sections.
 
-Audiences:
-  • executive    — plain-English, 4-8 paragraphs, no CLI, no MITRE IDs
-  • customer     — same as executive + explicit customer-action language
-  • soc_analyst  — full detail, evidence traceability, MITRE IDs
-  • technical    — soc_analyst + raw command lines + hashes / registry
-
-Every sentence maps back to an evidence source. Nothing hallucinates.
+Phase 6.5 upgrade: paragraph-level wording is delegated to
+`narrative_composer.py` — a template library that enforces the
+Enterprise Writing Guide and removes tool-centric phrasing.
 """
 from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
 from typing import Any
+
+from .narrative_composer import (
+    compose_executive_summary,
+    compose_narrative,
+    compose_findings,
+    compose_evidence_limitations,
+    compose_recommendations,
+    sanitize,
+)
 
 
 # ─── Templated micro-sentences ─────────────────────────────────
@@ -43,15 +48,18 @@ def _fact(finding: str, source: str, ev_type: str, confidence: str) -> dict:
 # ─── Extraction helpers ────────────────────────────────────────
 def _find_hosts(text: str) -> list[str]:
     """Best-effort host extraction from the raw incident narrative."""
-    m = re.findall(r"\b(?:host|endpoint|device|hostname)[\s:=]+([A-Za-z0-9._-]{2,60})",
-                   text or "", flags=re.IGNORECASE)
-    return list(dict.fromkeys(m))
+    hits = re.findall(
+        r"\b(?:host|hostname|device)\s*[:=]\s*([A-Za-z][A-Za-z0-9._-]{2,60})",
+        text or "", flags=re.IGNORECASE)
+    STOP = {"incident", "detection", "detected", "under", "warrants", "the"}
+    return [h.rstrip(".") for h in dict.fromkeys(hits) if h.lower().rstrip(".") not in STOP]
 
 
 def _find_users(text: str) -> list[str]:
-    m = re.findall(r"\b(?:user|username|account|logged.?in.?as|for user)[\s:=]+([A-Z0-9\\._-]{2,80})",
-                   text or "", flags=re.IGNORECASE)
-    return list(dict.fromkeys(m))
+    hits = re.findall(
+        r"\b(?:user|username|account)\s*[:=]\s*([A-Z0-9][A-Z0-9\\._-]{2,80})",
+        text or "", flags=re.IGNORECASE)
+    return [u.rstrip(".") for u in dict.fromkeys(hits)]
 
 
 def _pick_root_cause(commands: list, iocs: dict, mitre: list, raw: str) -> dict:
@@ -469,7 +477,9 @@ def build_report(inv: dict, profile: str = "soc_analyst",
         raw,
     )
     behaviours = _behaviours(fis.get("mitre_attack", []) or [])
+    # Phase 6.5 — template-driven Environmental + Evidence Limitations.
     env_flags  = _environment_flags(raw, quality)
+    limitations = compose_evidence_limitations(inv, profile=profile)
 
     ti = {
         "observed": {
@@ -509,21 +519,21 @@ def build_report(inv: dict, profile: str = "soc_analyst",
         "customer": customer,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "sections": {
-            "01_executive_summary":   _executive_summary(inv, hosts, users, profile),
+            "01_executive_summary":   compose_executive_summary(inv, profile=profile),
             "02_incident_overview":   _incident_overview(inv, hosts, users),
-            "03_investigation_narrative": _narrative(inv, hosts, users),
+            "03_investigation_narrative": compose_narrative(inv, profile=profile),
             "04_detection_timeline":  _timeline(inv),
             "05_attack_story":        _attack_story(inv),
             "06_root_cause":          root_cause,
             "07_malware_behaviour":   behaviours,
-            "08_findings":            _findings(inv),
+            "08_findings":            compose_findings(inv, profile=profile),
             "09_supporting_evidence": _supporting_evidence(inv),
-            "10_environmental":       env_flags,
+            "10_environmental":       env_flags + limitations,  # Phase 6.5: merged
             "11_threat_intelligence": ti,
             "12_affected_assets":     affected_assets,
             "13_business_impact":     business_impact,
             "14_customer_actions":    _customer_actions(fis),
-            "15_recommendations":     _recommendations(inv),
+            "15_recommendations":     compose_recommendations(inv, profile=profile),
             "16_final_verdict": {
                 "verdict":             fis.get("verdict"),
                 "classification":      fis.get("classification"),

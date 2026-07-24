@@ -12,6 +12,64 @@ own truth.
 
 ---
 
+## 2026-02-27 · Phase 6.5 · Narrative Template Library (SHIPPED)
+
+Not a new engine. Not an LLM. A deterministic template library that
+turns raw investigation facts into paragraph-quality analyst prose to
+Cisco/CrowdStrike/Mandiant MDR standards.
+
+### `/app/backend/v2/report_writer/narrative_composer.py`
+- `TEMPLATES` dict — 25+ finding-type templates each with
+  `executive / customer / soc_analyst / technical` variants
+- Enterprise Writing Guide sanitiser — rewrites tool-centric wording
+  (`NivXRay extracted…` → `The investigation identified…`), replaces
+  weak verbs (`detected` → `identified during analysis`)
+- Higher-level composers:
+  - `compose_executive_summary(inv, profile)` — 6–9 investigation-first paragraphs
+  - `compose_narrative(inv, profile)` — analyst-prose chronological story
+  - `compose_findings(inv, profile)` — template-driven findings with traceability
+  - `compose_evidence_limitations(inv, profile)` — deterministic "what we could NOT determine" section
+  - `compose_recommendations(inv, profile)` — Why · Expected outcome · Evidence triad
+
+### Executive Summary now opens like a Cisco MDR analyst wrote it
+- Opens with the actual detection timestamp + source ("On {ts} Cisco XDR identified…")
+- Names the specific filename, host, user
+- Lists integrations involved
+- Uses the exact Startup path (spaces preserved)
+- References the file hash for TI validation
+- Includes environmental gaps inline (Orbital unavailable, AV outdated)
+- Ends with completeness footer and traceability guarantee
+
+### Extraction upgrades
+- Host / user regex tightened (require `[:=]`, strip trailing periods,
+  filter noise words like "incident")
+- Filename picker prefers explicit `File: (X)` mentions, then
+  Startup / AppData paths, then main exe over loader dll
+- Startup path regex preserves spaces inside filenames
+- CES file entity regex allows spaces so `Windows 10 Latest Softwares.exe`
+  is captured intact
+
+### Evidence Limitations
+Now a merged part of §10 Environmental: reports "Available evidence was
+insufficient to determine…" explicitly (never guesses), plus
+outdated-AV, missing-forensic-snapshot, and no-TI-matches limitations
+whenever the raw text or Quality Dashboard confirms them.
+
+### Result
+On the Cisco-XDR-style incident the Executive Summary now reads:
+> On **2026-06-15T07:00:28.000+00:00** Cisco XDR identified the execution
+> of `Windows 10 Latest Softwares.exe` on **WKS-HR-04** under user
+> account `Hassan.nazim`… For this host, deeper forensic tooling (Orbital
+> and forensic snapshot) was unavailable at investigation time and the
+> endpoint's anti-virus definitions were outdated, which may have
+> contributed to the successful execution of the payload…
+
+Directly comparable to a real Cisco MDR report — every conclusion is
+still evidence-traceable and no LLM was invoked.
+
+---
+
+
 ## 2026-02-27 · Phase 6 · Enterprise Investigation Report Writer (SHIPPED)
 
 New DETERMINISTIC report engine that sits ON TOP of the investigation
