@@ -295,6 +295,22 @@ def _ps_binary_split_decode(data: str) -> str:
     if not delim_m:
         return ""
     delims = delim_m.group(1)
+    # Feb-2026 fix — Invoke-Obfuscation sometimes seeds its junk-delimiter
+    # string with a character that ALSO happens to be a valid data char
+    # (e.g. `'l@>{r<m0a&'` for a base-2 payload includes `0`). If we split
+    # on `0`, we shred every real chunk into single-bit garbage. Strip any
+    # data-alphabet char out of the delimiter set — the remaining chars
+    # are still enough to segment the payload, and no valid data byte is
+    # ever the sole boundary.
+    if base == 2:
+        _data_chars = set("01")
+    elif base == 10:
+        _data_chars = set("0123456789")
+    else:
+        _data_chars = set("0123456789abcdefABCDEF")
+    cleaned = "".join(c for c in delims if c not in _data_chars)
+    if cleaned:
+        delims = cleaned
 
     # Extract the largest data-looking single-quoted string that contains
     # digits + at least one of the delimiter characters. This is the payload.

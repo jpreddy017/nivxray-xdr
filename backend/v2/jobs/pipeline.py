@@ -33,6 +33,16 @@ from v2.decoded_artifacts import (
 )
 from v2.enrichment.strings_extractor import enrich_report as _enrich_report
 
+# Optional bridge to the Workspace's larger decoder registry — enables
+# PowerShell binary-split, string-concat, char-array, ps-encodedcommand
+# multi-layer patterns that the RC5 Orchestrator's smart-detection alone
+# doesn't catch. Wraps `wrapper_archetypes.try_archetypes()` inside a
+# `try/except` so a missing module never breaks the pipeline.
+try:
+    from wrapper_archetypes import try_archetypes as _try_archetypes  # type: ignore
+except Exception:  # pragma: no cover
+    _try_archetypes = None  # type: ignore
+
 log = logging.getLogger("nivx.jobs.pipeline")
 
 ProgressCB = Callable[[dict], Awaitable[None]]
@@ -51,7 +61,14 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
     """Try the Decoded Artifact Store first. On hit, reconstruct the
     AnalystReport from the cached dict and skip the decoder entirely.
     On miss, run the deterministic decoder and persist the result.
-    Returns `(report_or_None, status_dict, cache_hit: bool)`."""
+    Returns `(report_or_None, status_dict, cache_hit: bool, archetype_layers)`.
+
+    `archetype_layers` is a list of extra layer dicts recovered from the
+    Workspace's `wrapper_archetypes` registry BEFORE we hand off to the
+    RC5 Orchestrator — this bridges the ~200-op Workspace decoders into
+    Auto Investigate (e.g. PS binary-split, string-concat, char-array,
+    ps-encodedcommand multi-layer) which the RC5 registry alone misses.
+    """
     cmdline = cmd.get("command_line") or ""
     sha = _sha256_of(cmdline)
     cached = await _artifact_get(sha)
@@ -62,7 +79,6 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
             log.warning("cache reconstruct failed sha=%s: %s", sha, e)
             report = None
         if report is not None:
-            # Bump provenance so hit_count reflects reality.
             await _artifact_upsert(
                 command_binary=cmd.get("binary") or "",
                 command_line=cmdline,
@@ -78,31 +94,80 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
                 "message": ("Decoded artifact reused from cache — identical "
                             "command decoded previously."),
             }
-            return report, status, True
-    # Cache miss — run the deterministic decoder.
-    report, status = await asyncio.to_thread(_run_single_command, cmd)
+            # Cached artefacts already include archetype layers baked into
+            # the AnalystReport.trace — no extra ones to inject.
+            return report, status, True, []
+
+    # ── Cache miss ───────────────────────────────────────────────
+    # 1) Pre-decode using the Workspace's `wrapper_archetypes` — this
+    #    catches PS binary-split, string-concat, char-array, ps-encoded-
+    #    command multi-layer and other patterns the RC5 Orchestrator's
+    #    smart-detection doesn't include. If a chain fires, its OUTPUT
+    #    becomes the input we hand to the Orchestrator so it can peel
+    #    additional layers (base64 inside a decoded PS command, etc.).
+    archetype_layers: list[dict] = []
+    orchestrator_input = cmdline
+    if _try_archetypes is not None:
+        try:
+            arch = await asyncio.to_thread(_try_archetypes, cmdline)
+        except Exception as e:  # noqa: BLE001
+            log.warning("archetype pre-decode failed: %s", e)
+            arch = None
+        if isinstance(arch, dict) and arch.get("output"):
+            orchestrator_input = arch["output"]
+            for i, step in enumerate(arch.get("steps") or []):
+                archetype_layers.append({
+                    "layer":      -1 * (len(arch["steps"]) - i),  # negative → renders BEFORE RC5 layers
+                    "decoder":    step.get("op") or arch.get("archetype_id") or "archetype",
+                    "confidence": 0.9,
+                    "why":        arch.get("archetype_desc") or "Workspace archetype match",
+                    "in_len":     len(cmdline.encode("utf-8", errors="ignore")),
+                    "out_len":    len(orchestrator_input.encode("utf-8", errors="ignore")),
+                    "exec_ms":    0,
+                    "preview":    orchestrator_input[:200],
+                    "sub_iocs":   {},
+                    "source":     "wrapper_archetype",
+                })
+
+    # 2) Run the RC5 deterministic decoder on the (possibly pre-decoded) input.
+    def _run_with_replacement():
+        # Copy cmd but swap in the archetype-decoded line so RC5 sees it.
+        cmd2 = dict(cmd)
+        cmd2["command_line"] = orchestrator_input
+        return _run_single_command(cmd2)
+    report, status = await asyncio.to_thread(_run_with_replacement)
     status["sha256"] = sha
+    if archetype_layers:
+        status["archetype_id"] = archetype_layers[-1]["decoder"]
     if report is not None:
         try:
+            report_dict = report.model_dump()
+            # Bake archetype layers into the persisted report.trace so a
+            # cache-hit next time still shows the full chain.
+            if archetype_layers:
+                existing_trace = report_dict.get("trace") or []
+                report_dict["trace"] = archetype_layers + existing_trace
             await _artifact_upsert(
                 command_binary=cmd.get("binary") or "",
                 command_line=cmdline,
-                report_dict=report.model_dump(),
+                report_dict=report_dict,
                 job_id=job_id,
             )
         except Exception as e:  # noqa: BLE001
             log.warning("artifact upsert failed sha=%s: %s", sha, e)
-    return report, status, False
+    return report, status, False, archetype_layers
 
 
-def _project_decode_chain(cmd: dict, report, status: dict, cache_hit: bool, idx: int) -> dict:
+def _project_decode_chain(cmd: dict, report, status: dict, cache_hit: bool, idx: int,
+                          archetype_layers: list[dict] | None = None) -> dict:
     """Project a per-command AnalystReport into a UI-friendly recursive
-    decode chain. Used by the frontend Decode Tree component."""
-    layers: list[dict] = []
-    trace_previews: list[str] = []
+    decode chain. Used by the frontend Decode Tree component.
+    `archetype_layers` are Workspace-registry layers that fired BEFORE
+    the RC5 Orchestrator; they render at the top of the tree."""
+    layers: list[dict] = list(archetype_layers or [])
+    trace_previews: list[str] = [L.get("preview", "") for L in layers]
     if report is not None:
         for step in (getattr(report, "trace", None) or []):
-            # step is a Pydantic TraceStep — normalise to a plain dict
             s = step.model_dump() if hasattr(step, "model_dump") else dict(step)
             preview = (s.get("preview") or "")
             trace_previews.append(preview)
@@ -118,21 +183,26 @@ def _project_decode_chain(cmd: dict, report, status: dict, cache_hit: bool, idx:
                 "sub_iocs":   {k: v[:12] for k, v in (s.get("sub_iocs") or {}).items() if v},
             })
     findings = getattr(report, "findings", None)
-    # ── Strings & artefact enrichment (deterministic — surfaces UAs,
-    # extracted printable strings, file paths, registry keys etc.
-    # from the recovered payload). Purely descriptive; no verdict impact.
+    # Only run string enrichment when the decoder actually peeled at
+    # least one layer — otherwise we'd emit the raw input as a "string"
+    # which pollutes the IOC Summary (see the user's report where the
+    # entire PS command showed up as a STRINGS entry).
     enrichment: dict = {}
-    if report is not None:
+    input_cmdline = (cmd.get("command_line") or "")
+    if report is not None and layers:
         try:
             report_output = getattr(report, "output", "") or ""
-            enrichment = _enrich_report(report_output, trace_previews)
+            # Skip enrichment if the "recovered" output is essentially the
+            # same as the input (nothing was decoded — pure noise).
+            if report_output and report_output.strip() != input_cmdline.strip():
+                enrichment = _enrich_report(report_output, trace_previews)
         except Exception as e:  # noqa: BLE001
             log.warning("strings enrichment failed idx=%s: %s", idx, e)
             enrichment = {}
     return {
         "index":         idx,
         "binary":        cmd.get("binary"),
-        "command_line":  (cmd.get("command_line") or "")[:400],
+        "command_line":  input_cmdline[:400],
         "sha256":        status.get("sha256"),
         "status":        status.get("status"),
         "cache_hit":     cache_hit,
@@ -140,6 +210,7 @@ def _project_decode_chain(cmd: dict, report, status: dict, cache_hit: bool, idx:
                           else int(getattr(report, "elapsed_ms", 0) or 0) if report else 0,
         "layers":        layers,
         "layer_count":   len(layers),
+        "archetype_id":  status.get("archetype_id"),
         "terminal":      getattr(report, "terminal", None) if report else None,
         "verdict":       (getattr(findings, "verdict", None) if findings else None) or "unknown",
         "risk_score":    int(getattr(findings, "risk_score", 0) or 0) if findings else 0,
@@ -236,13 +307,14 @@ async def run_investigation_with_progress(
             "message": (f"Decoding command {idx + 1}/{len(commands)}: "
                         f"{cmd.get('binary')}"),
         })
-        report, status, was_hit = await _decode_with_cache(cmd, job_id)
+        report, status, was_hit, archetype_layers = await _decode_with_cache(cmd, job_id)
         decode_statuses.append(status)
         if was_hit:
             cache_hits += 1
         if report is not None:
             reports.append(report)
-        chain = _project_decode_chain(cmd, report, status, was_hit, idx)
+        chain = _project_decode_chain(cmd, report, status, was_hit, idx,
+                                       archetype_layers=archetype_layers)
         decode_chains.append(chain)
         await _emit(on_progress, {
             "type": "command",
