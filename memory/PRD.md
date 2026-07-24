@@ -1,16 +1,180 @@
-# NivXRay — Deterministic-First Malware Command Intelligence Platform (MCIP)
+# NivXRay — Enterprise Attack Investigation Platform
 
-## Original Problem Statement
-Build a deterministic-first analyst workspace that decodes / reconstructs
-obfuscated malware command lines with zero AI hallucinations, honest
-"partial reconstruction" verdicts, and full analyst trace.
+## Vision (2026-02-24)
 
-Continue building an interactive, entity-centric investigation
-workspace matching the analytical depth of Cisco Secure Endpoint —
-reconstructing attacks with chronologies, parent-child execution chains,
-and high-density evidence. RC5 backend remains immutable; all
-additions live under `/v2/`. Success is measured by subjective analyst
-productivity, not just test counts.
+NivXRay is **NOT** a device trajectory viewer, **NOT** a malware detector,
+**NOT** a verdict engine. It is a **deterministic enterprise investigation
+platform** that reconstructs attack behaviour, explains why it reached its
+conclusions, and helps analysts investigate any cyberattack — from initial
+access to impact — using a single unified workspace built on the
+**Investigation Knowledge Graph (IKG)**.
+
+Every existing tab and route is preserved. Every new capability is a
+projection of the IKG. Nothing calculates its own truth.
+
+## Data flow — single source of truth
+
+```
+Telemetry → Normalize → Decode → Execution Graph → Verdict Engine
+                                          → Correlation Engine
+                                          → Investigation Knowledge Graph
+                                                     │
+                     ┌──────────────┬─────────────────┼────────────────┬────────┐
+                     ▼              ▼                 ▼                ▼        ▼
+                  Summary       Trajectory       Process Tree     Attack Story  …
+                     ▼              ▼                 ▼                ▼        ▼
+                  Verdict         ATT&CK       Evidence Graph          TI     Reports
+                                        │
+                                        └──── Explainability (global collapsible panel)
+```
+
+---
+
+## 2026-02-24 · Phase 1 · IKG + Unified Workspace shell (SHIPPED · backend + UI)
+
+**Zero-regression architectural pivot.** Every existing route
+(`/`, `/analyst`, `/v2/trajectory/{id}`, `/v2/irg`, `/v2/compare`,
+`/dashboard`, …) stays live. The new workspace is additive.
+
+### Backend
+
+- `v2/investigation/ikg.py` — the Investigation Knowledge Graph with
+  13 node types (process/file/registry/network/module/service/task/event/
+  technique/tactic/verdict/device/incident) and 14 edge verbs
+  (created/modified/deleted/contacted/loaded/installed/spawned/executed_by/
+  maps_to/covers/contributes_to/rollup_of/hosted_on/part_of).
+- `v2/investigation/builder.py` — composes telemetry → IRG enrichment →
+  verdict engine → correlation engine → IKG. Emits an `Investigation`
+  object carrying `header`, `ikg`, `verdicts`, `profile`, `engine_version`.
+- `v2/routers/investigation.py` — new endpoint
+  `GET /api/v2/cases/{case_id}/investigation?profile=<id>`.
+- Wired into `server.py`. All 820 RC5 tests + 35 verdict tests unchanged.
+
+**Live smoke on `case_dfir_bumblebee_akira_2026`:**
+- IKG: 131 nodes / 209 edges
+- Node types: incident 1 · device 1 · process 21 · file 5 · network 1 ·
+  event 53 · technique 21 · verdict 28
+- Edge types: part_of · hosted_on · executed_by · spawned · maps_to ·
+  modified · contacted · deleted · contributes_to · rollup_of
+- Header: severity=critical · device_score=87 · incident_score=87 · conf=100%
+
+### Frontend
+
+- `v2/pages/InvestigationWorkspace.jsx` — the workspace shell.
+  * Persistent header (Case · Severity · Device Risk · Incident Risk ·
+    Confidence · Verdict · Events · Processes · Chains · Profile picker
+    · engine chip).
+  * URL-driven tab router (`?tab=<view>`) — shareable deep links.
+  * Tab strip: Summary · Device Trajectory · Process Tree · Attack Story ·
+    Evidence Graph · Verdict · ATT&CK · Threat Intelligence · Reports
+    (7 of them marked `·soon` for Phase 2-5; Trajectory active).
+  * Trajectory tab embeds the existing `DeviceTrajectoryV2` canvas with
+    ZERO refactor.
+  * Global collapsible **Explainability panel** — deterministic
+    "Why is this <band>?" reasoning built from the IKG (top-3 evidence
+    signals + correlation bonuses + progressions + tactic coverage).
+  * Footer strip with IKG version, profile, and legacy-trajectory link
+    (proves nothing was removed).
+- `App.js` — new route `/v2/case/:caseId`. All existing routes untouched.
+
+**Tests:**
+- `tests/test_investigation_ikg.py` — 10/10 green (edge dedup · type
+  validation · builder end-to-end · determinism · spawn edges · verdict
+  hierarchy · profile flow-through · engine version).
+
+**All previous verdict / correlation suites still 35/35 green.**
+
+---
+
+## 2026-02-24 · Verdict Engine v3.1b — FROZEN
+
+Rated 9.6/10 by the operator. No further engine changes except bug
+fixes. See git log for full v3 → v3.1 → v3.1b history:
+- v3   — Deterministic per-event scoring, 7 families, 7-band output.
+- v3.1 — Multi-event correlation (Event → Process → Chain → Device → Incident).
+- v3.1b — Office LOLBin parents · Attack progression matcher · 6 Adaptive
+          weight profiles · Score-escalation ladder · ATT&CK coverage
+          wheel · Legacy-vs-modern verdict comparison UI.
+
+---
+
+## Backlog · Prioritised roadmap (adjusted per operator direction)
+
+### Phase 2 — Storytelling + Explainability activation
+- **Attack Story tab** — deterministic sentence generator that traverses
+  the IKG's parent→child + rollup chains. Every sentence links to its
+  IKG evidence node. No LLM.
+- **ATT&CK tab** — dedicated Coverage Wheel + technique list + tactic
+  list + kill-chain diagram + Navigator JSON + STIX 2.1 export.
+  (Move the wheel out of the Verdict/Correlation panel per operator's
+  "one responsibility per tab" rule.)
+- **Explainability panel** upgrade — support "Why isn't this
+  ransomware?" style *negative* questions by scanning the IKG for the
+  absence of impact-family signals.
+
+### Phase 3 — Graph views
+- **Evidence Graph tab** — Konva causality graph over the IKG's
+  spawned/created/modified/contacted edges. NOT chronological.
+- **Process Tree tab** — parent→child projection of the IKG's `spawned`
+  edges, with per-node verdict badges.
+
+### Phase 4 — Executive views
+- **Summary tab** — Executive dashboard (severity, device/incident risk,
+  confidence, timeline sparkline, recommendations).
+- **Verdict tab** — dedicated hierarchical verdict view with the
+  escalation ladder and evidence breakdown lifted out of the drawer.
+
+### Phase 5 — Enrichment + Reports
+- **Threat Intelligence tab** — enrichment-only overlay on the IKG.
+  Never influences the deterministic verdict.
+- **Reports tab** — one-click export (Executive Summary → Attack Story
+  → Evidence Graph → ATT&CK Summary → IOC Summary → Timeline → Verdict
+  Explanation → Recommendations → Appendix), reading from the same IKG.
+- Refactor the existing PDF/MD/STIX builders to consume `Investigation`
+  instead of raw frames.
+
+### Constraint
+Every phase MUST preserve every existing route and workflow.
+
+---
+
+## Architecture Snapshot
+
+- Backend: `/app/backend/`
+  - `engine/` — RC5, IMMUTABLE.
+  - `v2/`
+    - `investigation/` — ikg.py · builder.py (**Phase 1 SSOT**).
+    - `verdict/` — engine.py · correlation.py · signals.py · weights.py
+      · profiles.py · progressions.py (**FROZEN v3.1b**).
+    - `shadow/irg.py` — canonical relationship enricher.
+    - `report/` — MD / PDF / STIX / signed bundle builders.
+    - `routers/` — cases · parse · trajectory · ancestry · report · irg ·
+      verdicts · **investigation** (new).
+
+- Frontend: `/app/frontend/src/`
+  - `pages/` — WorkspacePage (analyzer) · AnalystWorkspacePage · … (all preserved).
+  - `v2/pages/`
+    - `InvestigationWorkspace.jsx` — Phase 1 shell.
+    - `DeviceTrajectoryV2.jsx` — embedded as Trajectory tab.
+    - `IRGWorkspace.jsx` · `CompareWorkspace.jsx` · `ProcessAncestry.jsx` · `CaseWorkspaceShell.jsx` — all preserved.
+  - `v2/theme.js` — glassy navy-black + emerald tokens.
+  - `v2/flags.js` — client-side flag reader.
+
+## Key APIs
+
+- `GET /api/v2/cases/{id}/investigation?profile=<id>` — **the unified investigation**.
+- `GET /api/v2/cases/{id}/verdicts` — per-event verdicts (v3).
+- `GET /api/v2/cases/{id}/verdicts/aggregate?profile=<id>` — v3.1 multi-layer.
+- `GET /api/v2/verdict/profiles` — list Adaptive Weight Profiles.
+- (Legacy trajectory + IRG + ancestry + report endpoints all preserved.)
+
+## Feature Flags (backend/.env)
+
+- `NIVX_FLAG_TRAJECTORY_ENGINE=shadow`
+- `NIVX_FLAG_CASE_ENGINE=shadow`
+- `NIVX_FLAG_ADAPTERS=shadow`
+- `NIVX_FLAG_VERDICT_ENGINE_V3=shadow` — gates both the aggregate endpoint
+  AND the entire Investigation Workspace.
 
 ---
 

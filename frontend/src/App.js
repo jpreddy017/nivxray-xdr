@@ -43,6 +43,11 @@ const V2DeviceTrajectory    = lazy(() => import("@/v2/pages/DeviceTrajectoryV2")
 const V2IRGWorkspace        = lazy(() => import("@/v2/pages/IRGWorkspace"));
 const V2CompareWorkspace    = lazy(() => import("@/v2/pages/CompareWorkspace"));
 const V2ProcessAncestry     = lazy(() => import("@/v2/pages/ProcessAncestry"));
+// v2 · Unified Investigation Workspace shell (Phase 1 of the Enterprise
+// Attack Investigation Platform pivot). Additive — every existing route
+// stays live. Loads the Investigation Knowledge Graph (IKG) and embeds
+// the Trajectory canvas as one tab.
+const V2InvestigationWorkspace = lazy(() => import("@/v2/pages/InvestigationWorkspace"));
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -118,6 +123,10 @@ function App() {
               <Route path="/v2/compare"                       element={<Protected><V2CompareWorkspace /></Protected>} />
               <Route path="/v2/compare/:caseA/:caseB"         element={<Protected><V2CompareWorkspace /></Protected>} />
               <Route path="/v2/ancestry/:caseId/:processIid" element={<Protected><V2ProcessAncestry /></Protected>} />
+              {/* v2 · Unified Investigation Workspace (Phase 1) — reads
+                  the IKG once and hosts every view. Legacy routes remain
+                  untouched; existing links keep working. */}
+              <Route path="/v2/case/:caseId" element={<Protected><V2InvestigationWorkspace /></Protected>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
