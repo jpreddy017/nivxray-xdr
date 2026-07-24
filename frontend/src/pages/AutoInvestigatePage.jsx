@@ -367,22 +367,29 @@ export default function AutoInvestigatePage() {
             </div>
           )}
 
-          {/* Executive Investigation Card · analyst-facing 5-question summary */}
-          {result?.executive_card && <ExecutiveCard card={result.executive_card} />}
-          {/* Investigation Narrative · analyst-quality prose */}
-          {result?.investigation_narrative?.narrative && (
-            <InvestigationNarrativeCard narrative={result.investigation_narrative} />
+          {/* PRIMARY DELIVERABLE — Investigation Report (spec-compliant MDR order) */}
+          {result?.investigation_report && (
+            <InvestigationReport report={result.investigation_report} />
           )}
-          {/* MDR INVESTIGATION — analyst-facing narrative + timeline + escalation */}
-          {result?.mdr_investigation && <MdrInvestigation mdr={result.mdr_investigation} />}
-          {result && <FinalIncidentSummary result={result} onExportMd={downloadMarkdown} onExportJson={downloadJson} />}
 
-          {/* P0.3 · Recursive Decode Tree + Statistics — always shown after a completed investigation */}
+          {/* ── ADVANCED / SUPPORTING ARTIFACTS ── */}
           {result && (
-            <DecodeTreeSection
-              chains={result?.decode_pipeline?.chains || []}
-              stats={result?.decode_pipeline?.recursive_stats}
-            />
+            <AdvancedArtifactsSection defaultOpen={false}>
+              {/* Executive Investigation Card · analyst-facing 5-question summary */}
+              {result?.executive_card && <ExecutiveCard card={result.executive_card} />}
+              {/* Investigation Narrative · analyst-quality prose (legacy composer) */}
+              {result?.investigation_narrative?.narrative && (
+                <InvestigationNarrativeCard narrative={result.investigation_narrative} />
+              )}
+              {/* MDR INVESTIGATION — analyst-facing narrative + timeline + escalation */}
+              {result?.mdr_investigation && <MdrInvestigation mdr={result.mdr_investigation} />}
+              <FinalIncidentSummary result={result} onExportMd={downloadMarkdown} onExportJson={downloadJson} />
+              {/* P0.3 · Recursive Decode Tree + Statistics — advanced decoder view */}
+              <DecodeTreeSection
+                chains={result?.decode_pipeline?.chains || []}
+                stats={result?.decode_pipeline?.recursive_stats}
+              />
+            </AdvancedArtifactsSection>
           )}
 
           {/* Enterprise Report Writer trigger */}
@@ -2355,6 +2362,589 @@ function InvestigationNarrativeCard({ narrative }) {
           <ul className="space-y-0.5">
             {rules.map((r, i) => <li key={i}>✓ {r}</li>)}
           </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+
+
+// ─────────────────────────────────────────────────────────────────
+// INVESTIGATION REPORT — the primary analyst deliverable.
+// Consumes ONLY the deterministic Investigation Report structure
+// produced by the backend (`compose_report`). Renders in the exact
+// section order the MDR spec mandates.
+// ─────────────────────────────────────────────────────────────────
+
+const PROV_TONE = {
+  Observed:            "bg-red-500/20 text-red-200 border-red-500/50",
+  Decoded:             "bg-orange-500/20 text-orange-200 border-orange-500/50",
+  ThreatIntelligence:  "bg-fuchsia-500/20 text-fuchsia-200 border-fuchsia-500/50",
+  Console:             "bg-slate-500/20 text-slate-300 border-slate-500/40",
+  Documentation:       "bg-slate-500/20 text-slate-300 border-slate-500/40",
+  Historical:          "bg-purple-500/20 text-purple-200 border-purple-500/50",
+  Internal:            "bg-sky-500/20 text-sky-200 border-sky-500/50",
+  Loopback:            "bg-sky-500/20 text-sky-200 border-sky-500/50",
+  Derived:             "bg-emerald-500/20 text-emerald-200 border-emerald-500/50",
+};
+
+const FILE_CLS_TONE = {
+  Executed:    "bg-red-500/25 text-red-100 border-red-500/60",
+  Quarantined: "bg-emerald-500/20 text-emerald-100 border-emerald-500/60",
+  Blocked:     "bg-emerald-500/20 text-emerald-100 border-emerald-500/60",
+  Downloaded:  "bg-amber-500/25 text-amber-100 border-amber-500/60",
+  Created:     "bg-sky-500/20 text-sky-100 border-sky-500/50",
+  Modified:    "bg-sky-500/20 text-sky-100 border-sky-500/50",
+  Deleted:     "bg-slate-500/20 text-slate-200 border-slate-500/50",
+  Moved:       "bg-slate-500/20 text-slate-200 border-slate-500/50",
+  Observed:    "bg-slate-600/20 text-slate-300 border-slate-500/40",
+};
+
+const REP_TONE = {
+  LOLBIN:  "text-amber-300",
+  Malware: "text-red-300",
+  Trusted: "text-emerald-300",
+};
+
+const TL_KIND_ICON = {
+  detection: "🎯", process: "⚙", file: "📄", network: "🌐",
+  registry: "🗝", auth: "🔐", ti: "🧭", history: "↩",
+};
+
+function _inlineMd(s) {
+  if (typeof s !== "string") return "";
+  return s
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-emerald-200">$1</strong>')
+    .replace(/`([^`]+)`/g, '<code class="text-cyan-200 font-mono text-[12px]">$1</code>');
+}
+
+function ReportProvBadge({ provenance }) {
+  const tone = PROV_TONE[provenance] || PROV_TONE.Observed;
+  return (
+    <span className={`inline-block text-[9px] font-bold uppercase tracking-widest border rounded px-1.5 py-0.5 ${tone}`}
+          data-testid={`prov-badge-${provenance}`}>
+      {provenance}
+    </span>
+  );
+}
+
+function ExpandableList({ items, initialCap = 8, renderItem, testid }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!items || items.length === 0) return null;
+  const visible = expanded ? items : items.slice(0, initialCap);
+  const hasMore = items.length > initialCap;
+  return (
+    <div data-testid={testid}>
+      <ul className="space-y-1">
+        {visible.map((it, i) => (
+          <li key={i} data-testid={`${testid}-item-${i}`}>{renderItem(it, i)}</li>
+        ))}
+      </ul>
+      {hasMore && (
+        <button type="button"
+                onClick={() => setExpanded(v => !v)}
+                data-testid={`${testid}-toggle`}
+                className="mt-2 text-[10px] uppercase tracking-widest text-cyan-300 hover:text-cyan-200 hover:underline font-bold cursor-pointer">
+          {expanded ? `↑ Show first ${initialCap}` : `↓ Show all ${items.length}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ReportSectionCard({ num, title, testid, tone = "cyan", children, subtitle }) {
+  const toneMap = {
+    cyan:    "border-cyan-500/40 shadow-cyan-500/10",
+    emerald: "border-emerald-500/40 shadow-emerald-500/10",
+    amber:   "border-amber-500/40 shadow-amber-500/10",
+    fuchsia: "border-fuchsia-500/40 shadow-fuchsia-500/10",
+    slate:   "border-slate-700 shadow-slate-500/5",
+  };
+  const titleTone = {
+    cyan: "text-cyan-300", emerald: "text-emerald-300",
+    amber: "text-amber-300", fuchsia: "text-fuchsia-300",
+    slate: "text-slate-300",
+  };
+  return (
+    <section className={`border ${toneMap[tone]} rounded-xl bg-slate-950/70 shadow-lg overflow-hidden`}
+             data-testid={testid}>
+      <header className="px-5 py-3 border-b border-slate-800 flex items-baseline gap-3">
+        <span className={`text-[10px] font-mono ${titleTone[tone]}`}>§{num}</span>
+        <h3 className={`text-[11px] tracking-[0.28em] font-bold ${titleTone[tone]}`}>
+          {title}
+        </h3>
+        {subtitle && <span className="text-[10px] text-slate-500 ml-auto">{subtitle}</span>}
+      </header>
+      <div className="px-5 py-4">{children}</div>
+    </section>
+  );
+}
+
+function InvestigationReport({ report }) {
+  if (!report || report.empty) return null;
+  return (
+    <div className="space-y-4" data-testid="investigation-report">
+      {/* §1 Executive Summary */}
+      {report.executive_summary?.length > 0 && (
+        <ReportSectionCard num="1" title="EXECUTIVE SUMMARY" tone="emerald"
+                            testid="report-executive-summary">
+          <div className="space-y-3 text-[13px] leading-relaxed text-slate-100">
+            {report.executive_summary.map((p, i) => (
+              <p key={i} data-testid={`exec-para-${i}`}
+                 dangerouslySetInnerHTML={{ __html: _inlineMd(p) }} />
+            ))}
+          </div>
+        </ReportSectionCard>
+      )}
+
+      {/* §2 Investigation Summary — chronological analyst prose */}
+      {report.investigation_summary?.length > 0 && (
+        <ReportSectionCard num="2" title="INVESTIGATION SUMMARY" tone="cyan"
+                            testid="report-investigation-summary">
+          <div className="space-y-3 text-[13px] leading-relaxed text-slate-100">
+            {report.investigation_summary.map((p, i) => (
+              <p key={i} data-testid={`inv-para-${i}`}
+                 dangerouslySetInnerHTML={{ __html: _inlineMd(p) }} />
+            ))}
+          </div>
+        </ReportSectionCard>
+      )}
+
+      {/* §3 Timeline */}
+      {report.timeline?.length > 0 && (
+        <ReportSectionCard num="3" title="TIMELINE · RECONSTRUCTED"
+                            tone="cyan" testid="report-timeline"
+                            subtitle={`${report.timeline.length} events`}>
+          <ol className="space-y-2 text-[12px]">
+            {report.timeline.map((r, i) => (
+              <li key={i} className="grid grid-cols-[16px_150px_1fr_auto] gap-2 items-start"
+                  data-testid={`tl-row-${i}`}>
+                <span className="text-slate-500">{TL_KIND_ICON[r.kind] || "·"}</span>
+                <span className="text-[10px] font-mono text-slate-400 pt-0.5">{r.ts_display}</span>
+                <div>
+                  <div className="text-slate-100">
+                    <span className="text-cyan-300 font-semibold">{r.actor}</span>{" "}
+                    <span className="text-slate-500 italic">{r.action}</span>{" "}
+                    <span className="text-slate-100 font-mono break-all">{r.target}</span>
+                  </div>
+                  {r.evidence && (
+                    <div className="text-[11px] text-slate-500 mt-0.5">{r.evidence}</div>
+                  )}
+                </div>
+                <ReportProvBadge provenance={r.provenance} />
+              </li>
+            ))}
+          </ol>
+        </ReportSectionCard>
+      )}
+
+      {/* §4 Attack Story */}
+      {report.attack_story?.length > 0 && (
+        <ReportSectionCard num="4" title="ATTACK STORY" tone="fuchsia"
+                            testid="report-attack-story">
+          <ol className="space-y-3">
+            {report.attack_story.map((b, i) => (
+              <li key={i} className="border-l-2 border-fuchsia-500/50 pl-3"
+                  data-testid={`atk-beat-${i}`}>
+                <div className="text-[10px] tracking-[0.2em] font-bold text-fuchsia-300 uppercase">
+                  {b.tactic}
+                </div>
+                <div className="text-[13px] text-slate-100 mt-0.5"
+                     dangerouslySetInnerHTML={{ __html: _inlineMd(b.beat) }} />
+                {b.evidence?.length > 0 && (
+                  <ul className="mt-1 space-y-0.5">
+                    {b.evidence.map((ev, j) => (
+                      <li key={j} className="text-[11px] text-slate-500"
+                          dangerouslySetInnerHTML={{ __html: _inlineMd(ev) }} />
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ol>
+        </ReportSectionCard>
+      )}
+
+      {/* §5 Technical Summary */}
+      {report.technical_summary && (
+        <TechnicalSummarySection ts={report.technical_summary} />
+      )}
+
+      {/* §6 Recommendations */}
+      {report.recommendations?.length > 0 && (
+        <ReportSectionCard num="6" title="RECOMMENDATIONS · EVIDENCE-LINKED"
+                            tone="amber" testid="report-recommendations">
+          <ul className="space-y-2.5">
+            {report.recommendations.map((r, i) => (
+              <li key={i} className="border-l-2 border-amber-500/50 pl-3"
+                  data-testid={`rec-${i}`}>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[10px] tracking-widest font-bold uppercase text-amber-300">
+                    {r.priority}
+                  </span>
+                  <span className="text-[13px] font-semibold text-slate-100">
+                    {r.action}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Why: {r.why}</div>
+                {r.evidence && (
+                  <div className="text-[10px] text-slate-500 mt-0.5 italic">
+                    Evidence: {r.evidence}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </ReportSectionCard>
+      )}
+
+      {/* §7 Observed Evidence — classified, provenance-tagged */}
+      {report.observed_evidence && (
+        <ObservedEvidenceSection oe={report.observed_evidence} />
+      )}
+
+      {/* §8 Observed IOCs — filtered, attacker-controlled only */}
+      {report.observed_iocs && (
+        <ObservedIocsSection iocs={report.observed_iocs}
+                              counts={report.technical_summary?.counts} />
+      )}
+
+      {/* §9 Threat Intelligence */}
+      {report.threat_intelligence?.length > 0 && (
+        <ReportSectionCard num="9" title="THREAT INTELLIGENCE · CORRELATED"
+                            tone="fuchsia" testid="report-threat-intel">
+          <ul className="space-y-1.5 text-[12px]">
+            {report.threat_intelligence.map((ti, i) => (
+              <li key={i} className="flex items-center gap-2" data-testid={`ti-row-${i}`}>
+                <span className="text-[9px] uppercase tracking-widest bg-fuchsia-500/20 border border-fuchsia-500/50 text-fuchsia-200 rounded px-1.5 py-0.5 font-bold">
+                  {ti.kind || "match"}
+                </span>
+                <span className="font-mono text-slate-100 break-all">{ti.value}</span>
+                {ti.family && <span className="text-fuchsia-300">· {ti.family}</span>}
+                {ti.verdict && <span className="text-slate-400">· {ti.verdict}</span>}
+                <span className="text-slate-500 text-[10px] ml-auto">{ti.source}</span>
+              </li>
+            ))}
+          </ul>
+        </ReportSectionCard>
+      )}
+
+      {/* §10 Limitations */}
+      {report.limitations?.length > 0 && (
+        <ReportSectionCard num="10" title="LIMITATIONS · EXPLICIT UNKNOWNS"
+                            tone="slate" testid="report-limitations">
+          <ul className="space-y-1 text-[12px] text-slate-300">
+            {report.limitations.map((l, i) => (
+              <li key={i} className="flex gap-2" data-testid={`lim-${i}`}>
+                <span className="text-slate-500">·</span><span>{l}</span>
+              </li>
+            ))}
+          </ul>
+        </ReportSectionCard>
+      )}
+    </div>
+  );
+}
+
+function TechnicalSummarySection({ ts }) {
+  const files = ts.files || [];
+  const procs = ts.processes || [];
+  const net = ts.network || {};
+  return (
+    <ReportSectionCard num="5" title="TECHNICAL SUMMARY" tone="cyan"
+                        testid="report-technical-summary">
+      {/* Hosts & users */}
+      {(ts.hosts?.length > 0 || ts.users?.length > 0) && (
+        <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[12px]">
+          {ts.hosts?.length > 0 && (
+            <div><span className="text-slate-500">Hosts:</span>{" "}
+              <span className="font-mono text-cyan-200">{ts.hosts.join(", ")}</span>
+            </div>
+          )}
+          {ts.users?.length > 0 && (
+            <div><span className="text-slate-500">Users:</span>{" "}
+              <span className="font-mono text-cyan-200">{ts.users.join(", ")}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Process chain */}
+      {procs.length > 0 && (
+        <div className="mb-4">
+          <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1.5 font-bold">
+            Process Chain ({procs.length})
+          </div>
+          <ExpandableList items={procs} initialCap={6} testid="proc-list"
+            renderItem={(p, i) => (
+              <div className="border border-slate-800 rounded p-2 bg-slate-900/40">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400">
+                    {p.role || "process"}
+                  </span>
+                  {p.reputation && (
+                    <span className={`text-[9px] uppercase tracking-widest font-bold ${REP_TONE[p.reputation] || "text-slate-300"}`}>
+                      {p.reputation}
+                    </span>
+                  )}
+                  <ReportProvBadge provenance={p.provenance} />
+                </div>
+                <div className="text-[12px] mt-1 font-mono">
+                  {p.parent && <span className="text-slate-400">{p.parent} → </span>}
+                  <span className="text-cyan-200">{p.process}</span>
+                  {p.child && <span className="text-slate-400"> → {p.child}</span>}
+                </div>
+                {p.command_line && (
+                  <div className="text-[11px] text-slate-400 mt-1 break-all font-mono">
+                    <span className="text-slate-500">cmd:</span> {p.command_line.slice(0, 240)}
+                    {p.command_line.length > 240 ? "…" : ""}
+                  </div>
+                )}
+                {(p.hostname || p.user || p.ts) && (
+                  <div className="text-[10px] text-slate-500 mt-1 flex gap-3">
+                    {p.hostname && <span>host: <span className="text-slate-300">{p.hostname}</span></span>}
+                    {p.user && <span>user: <span className="text-slate-300">{p.user}</span></span>}
+                    {p.ts && <span>at: <span className="text-slate-300">{p.ts}</span></span>}
+                  </div>
+                )}
+              </div>
+            )}
+          />
+        </div>
+      )}
+
+      {/* File classification */}
+      {files.length > 0 && (
+        <div className="mb-4">
+          <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1.5 font-bold">
+            Files ({files.length}) — classified by behaviour
+          </div>
+          <ExpandableList items={files} initialCap={6} testid="file-list"
+            renderItem={(f, i) => (
+              <div className="border border-slate-800 rounded p-2 bg-slate-900/40">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className={`text-[9px] uppercase tracking-widest font-bold border rounded px-1.5 py-0.5 ${FILE_CLS_TONE[f.classification] || FILE_CLS_TONE.Observed}`}>
+                    {f.classification}
+                  </span>
+                  {f.reputation && (
+                    <span className={`text-[9px] uppercase tracking-widest font-bold ${REP_TONE[f.reputation] || "text-slate-300"}`}>
+                      {f.reputation}
+                    </span>
+                  )}
+                  <ReportProvBadge provenance={f.provenance} />
+                </div>
+                <div className="text-[12px] font-mono mt-1 break-all text-slate-100">
+                  {f.path || f.name}
+                </div>
+                {(f.sha256 || f.sha1 || f.md5) && (
+                  <div className="text-[10px] text-slate-500 mt-1 space-x-2 font-mono">
+                    {f.sha256 && <span>SHA256: {f.sha256.slice(0, 24)}…</span>}
+                    {f.md5 && <span>MD5: {f.md5.slice(0, 16)}…</span>}
+                  </div>
+                )}
+                <div className="text-[10px] text-slate-500 mt-0.5 italic">{f.reason}</div>
+              </div>
+            )}
+          />
+        </div>
+      )}
+
+      {/* Network */}
+      {(net.ioc_urls?.length > 0 || net.reference_urls?.length > 0) && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1.5 font-bold">
+            Network — attacker vs reference
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <div className="text-[10px] text-red-300 mb-1">ATTACKER-CONTROLLED ({net.ioc_urls?.length || 0})</div>
+              <ExpandableList items={net.ioc_urls || []} initialCap={5} testid="net-ioc-urls"
+                renderItem={(u) => (
+                  <div className="font-mono text-[11px] text-red-100 border-l-2 border-red-500/60 pl-2 break-all">
+                    {u.value}
+                  </div>
+                )}
+              />
+            </div>
+            <div>
+              <div className="text-[10px] text-slate-400 mb-1">
+                REFERENCES / CONSOLE ({net.reference_urls?.length || 0}) — NOT IOCs
+              </div>
+              <ExpandableList items={net.reference_urls || []} initialCap={5} testid="net-ref-urls"
+                renderItem={(u) => (
+                  <div className="font-mono text-[11px] text-slate-500 border-l-2 border-slate-700 pl-2 break-all">
+                    <ReportProvBadge provenance={u.provenance} /> {u.value}
+                  </div>
+                )}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </ReportSectionCard>
+  );
+}
+
+function ObservedEvidenceSection({ oe }) {
+  const urls = oe.urls || [];
+  const domains = oe.domains || [];
+  const ips = oe.ips || [];
+  if (urls.length + domains.length + ips.length === 0) return null;
+  return (
+    <ReportSectionCard num="7" title="OBSERVED EVIDENCE · CLASSIFIED"
+                        tone="slate" testid="report-observed-evidence"
+                        subtitle="every artifact tagged with provenance">
+      {urls.length > 0 && (
+        <div className="mb-3">
+          <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">
+            URLs ({urls.length})
+          </div>
+          <ExpandableList items={urls} initialCap={6} testid="oe-urls"
+            renderItem={(u) => (
+              <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline text-[11px]">
+                <ReportProvBadge provenance={u.provenance} />
+                <div>
+                  <span className="font-mono text-slate-100 break-all">{u.value}</span>
+                  <div className="text-[10px] text-slate-500">{u.reason}</div>
+                </div>
+              </div>
+            )}
+          />
+        </div>
+      )}
+      {domains.length > 0 && (
+        <div className="mb-3">
+          <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">
+            Domains ({domains.length})
+          </div>
+          <ExpandableList items={domains} initialCap={6} testid="oe-domains"
+            renderItem={(d) => (
+              <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline text-[11px]">
+                <ReportProvBadge provenance={d.provenance} />
+                <div>
+                  <span className="font-mono text-slate-100">{d.value}</span>
+                  <div className="text-[10px] text-slate-500">{d.reason}</div>
+                </div>
+              </div>
+            )}
+          />
+        </div>
+      )}
+      {ips.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 font-bold">
+            IPs ({ips.length})
+          </div>
+          <ExpandableList items={ips} initialCap={6} testid="oe-ips"
+            renderItem={(ip) => (
+              <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline text-[11px]">
+                <ReportProvBadge provenance={ip.provenance} />
+                <div>
+                  <span className="font-mono text-slate-100">{ip.value}</span>
+                  <div className="text-[10px] text-slate-500">{ip.reason}</div>
+                </div>
+              </div>
+            )}
+          />
+        </div>
+      )}
+    </ReportSectionCard>
+  );
+}
+
+function ObservedIocsSection({ iocs, counts }) {
+  const urls = iocs?.urls || [];
+  const domains = iocs?.domains || [];
+  const ips = iocs?.ips || [];
+  const total = urls.length + domains.length + ips.length;
+  const filtered = counts ? (counts.urls_reference || 0) : 0;
+  return (
+    <ReportSectionCard num="8" title="OBSERVED IOCS · ATTACKER-CONTROLLED"
+                        tone="cyan" testid="report-observed-iocs"
+                        subtitle={filtered > 0
+                          ? `${total} IOC(s) · ${filtered} reference(s) filtered`
+                          : `${total} IOC(s)`}>
+      {total === 0 ? (
+        <div className="text-[12px] text-slate-400 italic" data-testid="iocs-empty">
+          No attacker-controlled indicators surfaced.
+          {filtered > 0 && ` (${filtered} vendor / console / documentation URL(s) were correctly filtered out.)`}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {urls.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-red-300 mb-1 font-bold">
+                URLs ({urls.length})
+              </div>
+              <ExpandableList items={urls} initialCap={6} testid="ioc-urls"
+                renderItem={(u) => (
+                  <div className="font-mono text-[11px] text-red-100 border-l-2 border-red-500/60 pl-2 break-all">
+                    {u.value}
+                  </div>
+                )}
+              />
+            </div>
+          )}
+          {domains.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-red-300 mb-1 font-bold">
+                Domains ({domains.length})
+              </div>
+              <ExpandableList items={domains} initialCap={6} testid="ioc-domains"
+                renderItem={(d) => (
+                  <div className="font-mono text-[11px] text-red-100 border-l-2 border-red-500/60 pl-2 break-all">
+                    {d.value}
+                  </div>
+                )}
+              />
+            </div>
+          )}
+          {ips.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-red-300 mb-1 font-bold">
+                IPs ({ips.length})
+              </div>
+              <ExpandableList items={ips} initialCap={6} testid="ioc-ips"
+                renderItem={(ip) => (
+                  <div className="font-mono text-[11px] text-red-100 border-l-2 border-red-500/60 pl-2 break-all">
+                    {ip.value}
+                  </div>
+                )}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </ReportSectionCard>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Collapsible "Advanced" section — everything below the main
+// Investigation Report is supporting evidence. Analysts open this
+// only when they want to see raw decoder output, entity buckets, and
+// the legacy narrative composer.
+// ─────────────────────────────────────────────────────────────────
+function AdvancedArtifactsSection({ children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="border border-slate-800 rounded-xl bg-slate-950/50"
+             data-testid="advanced-artifacts">
+      <button type="button"
+              onClick={() => setOpen(v => !v)}
+              data-testid="advanced-toggle"
+              className="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-900/50 cursor-pointer transition-colors text-left">
+        <span className="text-[10px] tracking-[0.24em] font-bold text-slate-400">
+          {open ? "▼" : "▶"} ADVANCED · RAW ARTIFACTS · DECODER OUTPUT
+        </span>
+        <span className="text-[10px] text-slate-500 ml-auto">
+          {open ? "click to collapse" : "click to expand — supporting evidence, not the primary report"}
+        </span>
+      </button>
+      {open && (
+        <div className="px-5 pb-5 pt-2 space-y-4" data-testid="advanced-content">
+          {children}
         </div>
       )}
     </section>

@@ -44,6 +44,7 @@ from v2.mdr.reference_urls import classify_all as _mdr_classify_urls
 from v2.mdr.executive_card import build as _mdr_executive_card
 from v2.investigation.model import build_model as _build_investigation_model
 from v2.investigation.narrative import compose as _compose_narrative
+from v2.investigation.report import compose_report as _compose_investigation_report
 
 # Optional bridge to the Workspace's larger decoder registry — enables
 # PowerShell binary-split, string-concat, char-array, ps-encodedcommand
@@ -639,6 +640,16 @@ async def run_investigation_with_progress(
     except Exception as e:  # noqa: BLE001
         log.warning("narrative compose failed: %s", e)
         result["investigation_narrative"] = None
+    # ── Investigation Report (full MDR spec — Exec Summary, Investigation
+    # Summary, Timeline, Attack Story, Technical Summary, Recommendations,
+    # Observed Evidence, Observed IOCs, TI, Limitations). Consumes ONLY the
+    # Investigation Model + deterministic classifiers. Zero raw-JSON reads.
+    try:
+        result["investigation_report"] = _compose_investigation_report(
+            result.get("investigation_model") or {})
+    except Exception as e:  # noqa: BLE001
+        log.warning("investigation_report compose failed: %s", e)
+        result["investigation_report"] = None
     await _emit(on_progress, {"type": "progress", "stage": "done",
                               "percent": 100,
                               "message": "Investigation complete."})

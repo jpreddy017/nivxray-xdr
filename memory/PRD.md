@@ -1,5 +1,62 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-24 · Phase 7 · Investigation Engine v3 — MDR Report Composer (SHIPPED)
+
+Full architectural pivot from decoder/IOC-extractor to enterprise MDR
+investigation workspace. AUTO INVESTIGATE now produces a professional,
+analyst-quality report as its PRIMARY deliverable; entity buckets and
+decoder output are demoted to a collapsed "Advanced" section.
+
+### New backend modules (all deterministic, zero LLM)
+- `v2/investigation/classifiers.py`
+  - `classify_url / classify_domain / classify_ip` — provenance-tagged
+    Reference / Console / Documentation / Internal / Loopback / Observed
+  - `classify_file` — behaviour-driven: Executed / Quarantined / Blocked /
+    Downloaded / Created / Deleted / Moved + reputation (LOLBIN / Malware
+    / Trusted)
+  - `classify_processes` — role (parent/child/leaf) + reputation
+  - `classify_entities` — bucket into `iocs` vs `references`
+  - **Cisco / Umbrella / VirusTotal / MITRE / Microsoft / Talos / Akamai /
+    DigiCert / any.run / hybrid-analysis / GitHub / Stack Overflow etc.
+    are NEVER classified as IOCs.**
+- `v2/investigation/timeline.py`
+  - Chronological event fusion from the Investigation Model
+  - Emits rows with `{ts, actor, action, target, evidence, provenance, kind}`
+- `v2/investigation/report.py` — the MDR Report Composer
+  - Consumes ONLY the Investigation Model + classifiers/timeline
+  - Emits: Executive Summary · Investigation Summary · Timeline ·
+    Attack Story · Technical Summary · Recommendations ·
+    Observed Evidence · Observed IOCs · Threat Intelligence · Limitations
+  - Never reads raw JSON, regex output, decoder output or entity lists
+
+### Pipeline
+`v2/jobs/pipeline.py` now emits `result["investigation_report"]` as the
+final stage after `investigation_model` + `investigation_narrative`.
+
+### Frontend (`AutoInvestigatePage.jsx`)
+- **New primary component**: `<InvestigationReport>` — renders §1-§10 in
+  spec-mandated order.
+- **New reusable**: `<ExpandableList>` with a proper `<button>` toggle —
+  fixes the long-standing "Show all / ...more" click issue.
+- **UI reorder**: Investigation Report renders FIRST. Legacy
+  ExecutiveCard / MdrInvestigation / FinalIncidentSummary / DecodeTree /
+  Entity buckets are all moved BELOW into `<AdvancedArtifactsSection>`
+  (collapsed by default).
+
+### Verified in preview (screenshots captured)
+- 22 IOCs · 8 references filtered on a 19-URL synthetic incident
+- Provenance badges rendered: OBSERVED · CONSOLE · DOCUMENTATION · INTERNAL
+- "↓ Show all 19" → click → "↑ Show first 6" → click → "↓ Show all 19"
+  proven functional across `<ExpandableList>` and the legacy `EntityBucket`
+- Executive Summary opens with real timestamp + source + host + user
+- Timeline reconstructed chronologically with icons + provenance tags
+- Attack Story surfaces tactic beats (Initial Detection · Discovery /
+  Credential Access · Lateral Movement) from a SharpHound / WinRM incident
+
+---
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## Latest checkpoint · 2026-02-24 · P0.1 + P0.2 + P0.3 shipped
 - **P0.1 · Background Jobs + WebSocket streaming** — `POST /api/v2/auto-investigate/jobs` returns `{job_id, ws_path}` immediately, worker runs off the request loop, `WS /api/v2/auto-investigate/jobs/{id}/ws?token=<jwt>` streams `progress|parse_result|command|decode_chain|osint_result|result|done` events. Late-joining clients replay full history from `db.v2_ai_jobs`.
 - **P0.2 · Decoded Artifact Store** (content-addressed cache, `db.v2_decoded_payloads`) — every command is SHA-256 keyed. Cache-hit skips the decoder entirely and reconstructs `AnalystReport` from Mongo; provenance (`first_seen`, `last_seen`, `hit_count`, `seen_in_jobs[]`, `sources[]`) is bumped on every reuse. Exposed via `GET /api/v2/decoded-artifacts`, `.../stats/summary`, `.../{sha256}`.
