@@ -2485,6 +2485,11 @@ function InvestigationReport({ report }) {
   if (!report || report.empty) return null;
   return (
     <div className="space-y-4" data-testid="investigation-report">
+      {/* Confidence card — the FIRST thing an analyst sees */}
+      {report.confidence && Object.keys(report.confidence).length > 0 && (
+        <InvestigationConfidenceCard confidence={report.confidence} />
+      )}
+
       {/* §1 Executive Summary */}
       {report.executive_summary?.length > 0 && (
         <ReportSectionCard num="1" title="EXECUTIVE SUMMARY" tone="emerald"
@@ -2495,6 +2500,35 @@ function InvestigationReport({ report }) {
                  dangerouslySetInnerHTML={{ __html: _inlineMd(p) }} />
             ))}
           </div>
+          {/* Probable initial access — embedded, evidence-linked, admits unknowns */}
+          {report.probable_initial_access?.paragraph && (
+            <div className="mt-4 pt-3 border-t border-slate-800"
+                 data-testid="probable-initial-access">
+              <div className="flex items-baseline gap-2 mb-1.5">
+                <span className="text-[10px] tracking-widest font-bold text-amber-300 uppercase">
+                  Probable Initial Access
+                </span>
+                <span className={`text-[9px] uppercase tracking-widest border rounded px-1.5 py-0.5 font-bold ${
+                  {High:"text-emerald-200 border-emerald-500/60 bg-emerald-500/10",
+                   Medium:"text-amber-200 border-amber-500/60 bg-amber-500/10",
+                   Low:"text-slate-300 border-slate-500/60 bg-slate-500/10",
+                   None:"text-slate-400 border-slate-700 bg-slate-800/40"}[report.probable_initial_access.confidence] || ""
+                }`}>
+                  Confidence: {report.probable_initial_access.confidence}
+                </span>
+              </div>
+              <p className="text-[12px] text-slate-200 leading-relaxed"
+                 dangerouslySetInnerHTML={{ __html: _inlineMd(report.probable_initial_access.paragraph) }} />
+              {report.probable_initial_access.evidence?.length > 0 && (
+                <ul className="mt-1.5 space-y-0.5">
+                  {report.probable_initial_access.evidence.map((ev, i) => (
+                    <li key={i} className="text-[11px] text-slate-400"
+                        dangerouslySetInnerHTML={{ __html: _inlineMd(ev) }} />
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </ReportSectionCard>
       )}
 
@@ -2569,35 +2603,18 @@ function InvestigationReport({ report }) {
       {/* §5 Technical Summary */}
       {report.technical_summary && (
         <TechnicalSummarySection ts={report.technical_summary}
-                                  mitreByTactic={report.mitre_by_tactic} />
+                                  mitreByTactic={report.mitre_by_tactic}
+                                  mitreTechniques={report.mitre_techniques} />
       )}
 
-      {/* §6 Recommendations */}
-      {report.recommendations?.length > 0 && (
-        <ReportSectionCard num="6" title="RECOMMENDATIONS · EVIDENCE-LINKED"
-                            tone="amber" testid="report-recommendations">
-          <ul className="space-y-2.5">
-            {report.recommendations.map((r, i) => (
-              <li key={i} className="border-l-2 border-amber-500/50 pl-3"
-                  data-testid={`rec-${i}`}>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[10px] tracking-widest font-bold uppercase text-amber-300">
-                    {r.priority}
-                  </span>
-                  <span className="text-[13px] font-semibold text-slate-100">
-                    {r.action}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">Why: {r.why}</div>
-                {r.evidence && (
-                  <div className="text-[10px] text-slate-500 mt-0.5 italic">
-                    Evidence: {r.evidence}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        </ReportSectionCard>
+      {/* Negative findings — what we explicitly did NOT observe */}
+      {report.negative_findings?.length > 0 && (
+        <NegativeFindingsSection findings={report.negative_findings} />
+      )}
+
+      {/* §6 Recommendations — grouped by tier */}
+      {report.recommendations && (
+        <RecommendationsGrouped recs={report.recommendations} />
       )}
 
       {/* §7 Supporting Evidence — evidence cards that justify every claim */}
@@ -2649,15 +2666,25 @@ function InvestigationReport({ report }) {
           </ul>
         </ReportSectionCard>
       )}
+
+      {/* §12 Investigation Conclusion — the dedicated closing paragraph */}
+      {report.investigation_conclusion && (
+        <ReportSectionCard num="12" title="INVESTIGATION CONCLUSION"
+                            tone="emerald" testid="report-investigation-conclusion">
+          <p className="text-[13px] leading-relaxed text-slate-100"
+             dangerouslySetInnerHTML={{ __html: _inlineMd(report.investigation_conclusion) }} />
+        </ReportSectionCard>
+      )}
     </div>
   );
 }
 
-function TechnicalSummarySection({ ts, mitreByTactic }) {
+function TechnicalSummarySection({ ts, mitreByTactic, mitreTechniques }) {
   const files = ts.files || [];
   const procs = ts.processes || [];
   const net = ts.network || {};
   const mitreEntries = Object.entries(mitreByTactic || {});
+  const mtLookup = Object.fromEntries((mitreTechniques || []).map(m => [m.id, m]));
   return (
     <ReportSectionCard num="5" title="TECHNICAL FINDINGS" tone="cyan"
                         testid="report-technical-summary">
@@ -2677,26 +2704,43 @@ function TechnicalSummarySection({ ts, mitreByTactic }) {
         </div>
       )}
 
-      {/* MITRE ATT&CK by tactic */}
+      {/* MITRE ATT&CK by tactic — with technique names + reasons */}
       {mitreEntries.length > 0 && (
         <div className="mb-4" data-testid="mitre-by-tactic">
           <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1.5 font-bold">
             MITRE ATT&amp;CK · grouped by tactic
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="space-y-2">
             {mitreEntries.map(([tactic, ids]) => (
               <div key={tactic} className="border border-slate-800 rounded p-2 bg-slate-900/40"
                    data-testid={`mitre-tactic-${tactic.replace(/\s+/g, '-').toLowerCase()}`}>
-                <div className="text-[10px] uppercase tracking-widest font-bold text-fuchsia-300 mb-1">
+                <div className="text-[10px] uppercase tracking-widest font-bold text-fuchsia-300 mb-1.5">
                   {tactic}
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {ids.map(id => (
-                    <span key={id} className="text-[10px] font-mono px-1.5 py-0.5 border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-200 rounded">
-                      {id}
-                    </span>
-                  ))}
-                </div>
+                <ul className="space-y-1.5">
+                  {ids.map(id => {
+                    const enriched = mtLookup[id];
+                    const name = enriched?.name;
+                    const reason = enriched?.reason;
+                    return (
+                      <li key={id} className="text-[11px]">
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 border border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-200 rounded">
+                            {id}
+                          </span>
+                          {name && (
+                            <span className="text-slate-100 font-semibold">{name}</span>
+                          )}
+                        </div>
+                        {reason && (
+                          <div className="text-slate-400 mt-0.5 pl-2 border-l border-fuchsia-500/30">
+                            {reason}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             ))}
           </div>
@@ -2995,6 +3039,150 @@ function ObservedIocsSection({ iocs, counts }) {
           )}
         </div>
       )}
+    </ReportSectionCard>
+  );
+}
+
+function InvestigationConfidenceCard({ confidence }) {
+  const bandTone = {
+    High:   "text-emerald-200 border-emerald-500/60 bg-emerald-500/10",
+    Medium: "text-amber-200 border-amber-500/60 bg-amber-500/10",
+    Low:    "text-slate-300 border-slate-500/60 bg-slate-500/10",
+    None:   "text-slate-400 border-slate-700 bg-slate-800/40",
+  };
+  const meter = (n) => Math.max(0, Math.min(100, n || 0));
+  const meterTone = (n) => n >= 80 ? "bg-emerald-400" : n >= 50 ? "bg-amber-400" : "bg-red-400";
+  return (
+    <section className="border border-emerald-500/40 rounded-xl bg-slate-950/70 shadow-lg shadow-emerald-500/10 overflow-hidden"
+             data-testid="investigation-confidence">
+      <header className="px-5 py-3 border-b border-slate-800 flex items-baseline gap-3">
+        <span className="text-[10px] tracking-[0.28em] font-bold text-emerald-300">
+          INVESTIGATION CONFIDENCE
+        </span>
+        <span className="text-[10px] text-slate-500 ml-auto">
+          how much analysts can trust the conclusions
+        </span>
+      </header>
+      <div className="px-5 py-4 grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="md:col-span-1">
+          <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">
+            Overall
+          </div>
+          <div className={`inline-flex items-center justify-center min-w-[80px] px-3 py-1.5 border rounded-lg text-[13px] font-bold ${bandTone[confidence.overall] || bandTone.Low}`}
+               data-testid="conf-overall">
+            {confidence.overall}
+          </div>
+        </div>
+        <ConfBar label="Evidence completeness"
+                 pct={meter(confidence.evidence_completeness)}
+                 tone={meterTone(meter(confidence.evidence_completeness))}
+                 testid="conf-evidence" />
+        <ConfBar label="Timeline completeness"
+                 pct={meter(confidence.timeline_completeness)}
+                 tone={meterTone(meter(confidence.timeline_completeness))}
+                 testid="conf-timeline" />
+        <ConfBand label="Execution confidence" band={confidence.execution_confidence}
+                   bandTone={bandTone} testid="conf-execution" />
+        <ConfBand label="Root cause confidence" band={confidence.root_cause_confidence}
+                   bandTone={bandTone} testid="conf-root-cause" />
+      </div>
+    </section>
+  );
+}
+
+function ConfBar({ label, pct, tone, testid }) {
+  return (
+    <div data-testid={testid}>
+      <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">
+        {label}
+      </div>
+      <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+        <div className={`h-full ${tone}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="text-[11px] text-slate-300 mt-1 font-mono">{pct}%</div>
+    </div>
+  );
+}
+
+function ConfBand({ label, band, bandTone, testid }) {
+  return (
+    <div data-testid={testid}>
+      <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">
+        {label}
+      </div>
+      <div className={`inline-flex items-center justify-center px-3 py-1.5 border rounded-lg text-[12px] font-bold ${bandTone[band] || bandTone.Low}`}>
+        {band || "Low"}
+      </div>
+    </div>
+  );
+}
+
+function NegativeFindingsSection({ findings }) {
+  return (
+    <ReportSectionCard num="5b" title="NEGATIVE FINDINGS · EXPLICITLY NOT OBSERVED"
+                        tone="slate" testid="report-negative-findings"
+                        subtitle="what the investigation considered and did not find">
+      <ul className="space-y-1.5">
+        {findings.map((n, i) => (
+          <li key={i} className="grid grid-cols-[auto_1fr] gap-2 items-baseline text-[12px]"
+              data-testid={`neg-${i}`}>
+            <span className={`text-[10px] uppercase tracking-widest font-bold border rounded px-1.5 py-0.5 ${
+              n.observed
+                ? "text-amber-200 border-amber-500/50 bg-amber-500/10"
+                : "text-emerald-200 border-emerald-500/50 bg-emerald-500/10"
+            }`}>
+              {n.observed ? "OBSERVED" : "NOT OBSERVED"}
+            </span>
+            <div>
+              <div className="font-semibold text-slate-100">{n.category}</div>
+              <div className="text-[11px] text-slate-400">{n.context}</div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </ReportSectionCard>
+  );
+}
+
+function RecommendationsGrouped({ recs }) {
+  const tiers = [
+    ["immediate",  "IMMEDIATE",  "text-red-300 border-red-500/60"],
+    ["short_term", "SHORT-TERM", "text-amber-300 border-amber-500/60"],
+    ["long_term",  "LONG-TERM",  "text-cyan-300 border-cyan-500/60"],
+  ];
+  const total = tiers.reduce((sum, [k]) => sum + ((recs[k] || []).length), 0);
+  if (total === 0) return null;
+  return (
+    <ReportSectionCard num="6" title="RECOMMENDATIONS · BY PRIORITY"
+                        tone="amber" testid="report-recommendations"
+                        subtitle={`${total} evidence-linked actions`}>
+      <div className="space-y-4">
+        {tiers.map(([key, label, tone]) => {
+          const items = recs[key] || [];
+          if (items.length === 0) return null;
+          return (
+            <div key={key} data-testid={`recs-${key}`}>
+              <div className={`inline-block text-[10px] tracking-widest font-bold uppercase px-2 py-0.5 rounded border ${tone} mb-2`}>
+                {label}
+              </div>
+              <ul className="space-y-2">
+                {items.map((r, i) => (
+                  <li key={i} className="border-l-2 border-amber-500/40 pl-3"
+                      data-testid={`recs-${key}-${i}`}>
+                    <div className="text-[13px] font-semibold text-slate-100">{r.action}</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Why: {r.why}</div>
+                    {r.evidence && (
+                      <div className="text-[10px] text-slate-500 mt-0.5 italic">
+                        Evidence: {r.evidence}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
     </ReportSectionCard>
   );
 }

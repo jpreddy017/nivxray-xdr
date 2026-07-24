@@ -1,5 +1,65 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-24 · Phase 7.2 · Cisco-MDR Grade Investigation (SHIPPED)
+
+Closes the last 1.5 points of the analyst review. All changes are report
+quality — no new APIs, no case management, no PDF export.
+
+### New report sections
+- **Investigation Confidence card** (top of report) — Overall · Evidence
+  completeness % · Timeline completeness % · Execution confidence ·
+  Root-cause confidence. Every value derived deterministically from the
+  Investigation Model coverage.
+- **Probable Initial Access** paragraph inside Executive Summary —
+  evidence-linked, admits unknowns explicitly, never overclaims. Not a
+  separate engine, just a paragraph. WinRM / Office / MSI / generic
+  vectors supported today.
+- **Negative Findings** (§5b) — explicitly enumerates categories that
+  were considered and NOT observed: Persistence · Scheduled tasks /
+  service creation · Autorun / registry mods · Credential access ·
+  Lateral movement · Data exfiltration · Ransomware.
+- **MITRE with reasons** — technique-ID chip PLUS technique name PLUS a
+  one-line why-it-fired explanation. Deterministic catalogue of the 22
+  techniques the parser sees most often.
+- **Recommendations grouped by tier** — Immediate / Short-Term /
+  Long-Term with three coloured tier headers. WinRM-aware Immediate
+  actions, MFA / script-block-logging / baseline items under Long-Term.
+- **Investigation Conclusion** (§12) — dedicated closing paragraph that
+  gives the customer a clear answer. Combines the reconstructed kill
+  chain, the file-action outcome, the negative-finding sweep, and a
+  next-step recommendation.
+
+### Narrative voice upgrade
+- Investigation Summary paragraph 2 now reads like Cisco MDR:
+  > "Process telemetry indicates that the observed activity originated
+  > from `wsmprovhost.exe` — the Windows Remote Management (WinRM) host
+  > process, which launched `powershell.exe` under the `Administrator`
+  > account. This execution chain is commonly associated with remote
+  > administrative activity and provides the context for the subsequent
+  > detection."
+- Executive Summary opens with "Following an ongoing investigation of
+  {sensor} telemetry, at {ts} UTC {sensor} identified …".
+
+### Frontend
+- `<InvestigationConfidenceCard>` — 5-column meter card with two
+  progress-bar sub-scores and three band pills.
+- `<NegativeFindingsSection>` — 7-row list with NOT-OBSERVED /
+  OBSERVED status pills.
+- `<RecommendationsGrouped>` — three tier headers with coloured pills.
+- MITRE renderer now shows technique NAME + one-line reason under each ID.
+- New §12 Investigation Conclusion card at the bottom of the report.
+
+### Verified in preview
+- 23 data-testids present and rendering on the sample Cisco Secure
+  Endpoint · SharpHound · WinRM incident.
+- Report reads end-to-end like a Tier-2/Tier-3 MDR analyst wrote it;
+  every conclusion is evidence-backed with a supporting card or a
+  reason line; every unobserved category is called out explicitly.
+
+---
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-24 · Phase 7.1 · Investigation Quality Pass (SHIPPED)
 
 Guiding principle locked in: **NivXRay competes on investigation quality,

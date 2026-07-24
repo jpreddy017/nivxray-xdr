@@ -202,18 +202,24 @@ def _investigation_summary(im: dict, tl: list[dict], entcls: dict, files: list[d
     detection = (e0.get("detection_name") or "").strip()
     host = (e0.get("hostname") or "").strip()
     user = (e0.get("user") or "").strip()
-    p1 = (f"At {ts} UTC, " if ts else "") + f"{source} detected"
-    p1 += f" **{detection}**" if detection else " suspicious endpoint activity"
+    # Cisco-MDR style opener: name the sensor + subject before the object.
+    p1 = (f"Following an ongoing investigation of {source} telemetry, at "
+          f"{ts} UTC " if ts else f"{source} telemetry indicates that ")
+    if ts:
+        p1 += f"{source} identified"
+    else:
+        p1 = f"{source} identified"
+    p1 += f" **{detection}**" if detection else " suspicious endpoint behaviour"
     if host: p1 += f" on host `{host}`"
-    if user: p1 += f" under user account `{user}`"
+    if user: p1 += f" running under user account `{user}`"
     p1 += "."
-    # Why did it fire? Threat name + technical context.
     if e0.get("threat_name"):
-        p1 += f" The alert was raised on the observed artefact **{e0['threat_name']}**"
         why_desc = _describe_process(e0.get("process") or "")
+        p1 += (f" The detection triggered on the observed artefact "
+               f"**{e0['threat_name']}**")
         if why_desc:
-            p1 += f", which is associated with {why_desc}"
-        p1 += "."
+            p1 += f", which was launched through {why_desc}"
+        p1 += ". This context is consistent with post-exploitation tooling activity."
     paras.append(p1)
 
     # ── Paragraph 2 — Process chain, execution semantics ───────────
@@ -222,21 +228,37 @@ def _investigation_summary(im: dict, tl: list[dict], entcls: dict, files: list[d
     child = (e0.get("child_process") or "").strip()
     cmd = (e0.get("command_line") or "").strip()
     if parent and process and _basename(parent) != _basename(process):
-        p2 = f"Process telemetry shows {_process_chain_desc(parent, process, child)}."
-        if cmd:
-            # Show the command line — but if it's an EncodedCommand blob,
-            # truncate to keep the paragraph readable.
-            cmd_display = cmd[:180] + ("…" if len(cmd) > 180 else "")
-            p2 += f" The observed command line was `{cmd_display}`."
+        pn, prn = _basename(parent), _basename(process)
+        why_par = _describe_process(parent)
         why_p = _describe_process(process)
-        if why_p:
-            p2 += (f" `{_basename(process)}` is {why_p}.")
+        p2 = ("Process telemetry indicates that the observed activity originated "
+              f"from `{parent}`")
+        if why_par:
+            p2 += f" — {why_par}"
+        p2 += f", which launched `{process}`"
+        if user:
+            p2 += f" under the `{user}` account"
+        p2 += "."
+        if why_p and "PowerShell" in why_p:
+            p2 += (" This execution chain is commonly associated with remote "
+                   "administrative activity and provides the context for the "
+                   "subsequent detection.")
+        elif why_p:
+            p2 += f" The child process `{prn}` is {why_p}."
+        if child:
+            p2 += f" A downstream child process `{child}` was also observed."
+        if cmd:
+            cmd_display = cmd[:200] + ("…" if len(cmd) > 200 else "")
+            p2 += (" The associated command line was recorded as "
+                   f"`{cmd_display}`, which corresponds to standard PowerShell "
+                   "invocation syntax.") if "powershell" in cmd.lower() else (
+                   f" The associated command line was recorded as `{cmd_display}`.")
         paras.append(p2)
     elif process:
         p2 = (f"The activity involved `{process}`" +
               (f", executed under user account `{user}`" if user else "") + ".")
         if cmd:
-            p2 += f" Command line: `{cmd[:180]}{'…' if len(cmd) > 180 else ''}`."
+            p2 += f" Command line: `{cmd[:200]}{'…' if len(cmd) > 200 else ''}`."
         paras.append(p2)
 
     # ── Paragraph 3 — File behaviour ───────────────────────────────
@@ -419,61 +441,101 @@ def _technical_summary(im: dict, entcls: dict,
     }
 
 
-# ── Recommendations (evidence-linked) ────────────────────────────
-def _recommendations(im: dict, tl: list[dict], files: list[dict]) -> list[dict]:
-    recs: list[dict] = []
+# ── Recommendations (evidence-linked, priority-grouped) ─────────
+def _recommendations(im: dict, tl: list[dict], files: list[dict]) -> dict:
+    imm: list[dict] = []
+    short: list[dict] = []
+    long_: list[dict] = []
     events = im.get("raw_events") or []
     hosts = (im.get("assets") or {}).get("hosts") or []
     users = (im.get("assets") or {}).get("users") or []
     executed = [f for f in files if f.get("classification") == "Executed"]
     quarantined = [f for f in files if f.get("classification") == "Quarantined"]
     ti = im.get("ti") or []
+    txt = " ".join((e.get("process","") + " " + e.get("parent_process","") + " "
+                    + e.get("child_process","")).lower() for e in events)
+    winrm = "wsmprov" in txt or "winrm" in txt
 
-    # Immediate
+    # ── Immediate ────────────────────────────────────────────────
     if executed:
-        recs.append({
-            "priority": "Immediate",
-            "action":   (f"Isolate host `{hosts[0]}`" if hosts else "Isolate affected endpoint"),
-            "why":      "Execution telemetry confirms payload ran on the endpoint.",
+        imm.append({
+            "action": (f"Isolate host `{hosts[0]}`" if hosts else "Isolate the affected endpoint"),
+            "why":    "Execution telemetry confirms the payload ran on the endpoint.",
             "evidence": f"file `{executed[0].get('name')}` classified as Executed",
         })
     elif quarantined:
-        recs.append({
-            "priority": "Immediate",
-            "action":   "Confirm quarantine integrity and hunt for residual persistence",
-            "why":      "Endpoint quarantined the file but persistence, credential access "
-                        "or lateral movement may have preceded quarantine.",
+        imm.append({
+            "action": "Verify the quarantine record was successful and the file has not returned",
+            "why":    ("The endpoint agent quarantined the file, but analyst review is "
+                       "required to confirm the record was applied to disk and no copies "
+                       "remain on the host."),
             "evidence": f"file `{quarantined[0].get('name')}` classified as Quarantined",
         })
+    if winrm:
+        imm.append({
+            "action": ("Validate whether the observed WinRM session was authorised and, "
+                       "if not, terminate the session on the endpoint"),
+            "why":    "WinRM is commonly abused for stealthy remote administration.",
+            "evidence": "`wsmprovhost.exe` observed as ancestor of the detected process",
+        })
 
-    # Short-term
+    # ── Short-Term ───────────────────────────────────────────────
     if users:
-        recs.append({
-            "priority": "Short-Term",
-            "action":   f"Reset credentials for `{users[0]}` and audit their recent activity",
-            "why":      "Credentials associated with the detection should be treated as suspect "
-                        "until evidence of misuse is ruled out.",
+        short.append({
+            "action": f"Reset credentials for `{users[0]}` and audit their recent activity",
+            "why":    ("Credentials associated with the detection should be treated as "
+                       "suspect until misuse is explicitly ruled out."),
             "evidence": "user observed as detection principal",
         })
-
+    if "sharphound" in txt or "sh.exe" in txt:
+        short.append({
+            "action": ("Review Active Directory access and enumeration logs for the "
+                       "affected account across the last 7 days"),
+            "why":    ("SharpHound-style tooling enumerates AD to build attack paths; "
+                       "residual enumeration data may still be accessible to the attacker."),
+            "evidence": "SharpHound-associated detection observed",
+        })
     if ti:
-        recs.append({
-            "priority": "Short-Term",
-            "action":   "Ingest matched IOCs into perimeter blocklists and EDR-hunt across the fleet",
-            "why":      "Threat-intelligence enrichment produced correlations; broad-hunt reduces "
-                        "the risk of re-infection or spread.",
+        short.append({
+            "action": ("Ingest matched IOCs into perimeter blocklists and EDR-hunt "
+                       "across the fleet"),
+            "why":    ("Threat-intelligence correlations produced hits; a broad hunt "
+                       "reduces the risk of re-infection or spread to adjacent hosts."),
             "evidence": f"{len(ti)} TI correlation(s) identified",
         })
-
-    # Long-term
-    recs.append({
-        "priority": "Long-Term",
-        "action":   "Baseline PowerShell / LOLBIN usage in the environment",
-        "why":      "Deterministic detection quality improves when normal script activity is "
-                    "characterised — reduces false-positive noise on future incidents.",
-        "evidence": "spec-mandated hygiene item, not derived from this incident",
+    short.append({
+        "action": ("Search for related detections on the same host, user, and hash "
+                   "across the last 30 days"),
+        "why":    ("Endpoint detections rarely arrive in isolation; earlier alerts "
+                   "on the same principals may reveal the original access vector."),
+        "evidence": "spec-mandated correlation sweep",
     })
-    return recs
+
+    # ── Long-Term ────────────────────────────────────────────────
+    if winrm:
+        long_.append({
+            "action": ("Restrict WinRM access to explicit administrative subnets and "
+                       "require multi-factor authentication for remote PowerShell"),
+            "why":    ("The current alert would have been prevented by network-scoping "
+                       "WinRM to a hardened jump host."),
+            "evidence": "WinRM was reachable from a non-hardened source",
+        })
+    long_.append({
+        "action": "Baseline PowerShell / LOLBIN usage across the environment",
+        "why":    ("Deterministic detection quality improves when normal script "
+                   "activity is characterised — reduces false-positive noise on "
+                   "future incidents."),
+        "evidence": "hygiene item, not derived from this incident",
+    })
+    long_.append({
+        "action": ("Enable PowerShell script-block logging (Event ID 4104) and "
+                   "module logging on all Windows endpoints"),
+        "why":    ("Without these logs, encoded-command payloads cannot be reconstructed "
+                   "post-incident."),
+        "evidence": "hygiene item, not derived from this incident",
+    })
+
+    return {"immediate": imm, "short_term": short, "long_term": long_}
 
 
 # ── Observed Evidence ─────────────────────────────────────────────
@@ -612,6 +674,247 @@ def _supporting_evidence(im: dict, tl: list[dict], entcls: dict,
     return cards
 
 
+# ── MITRE ATT&CK with technique names + why-it-fired ─────────────
+# Small deterministic catalogue — only techniques the parser sees.
+_MITRE_CATALOG = {
+    "T1059":     ("Command and Scripting Interpreter",
+                  "The alert involved script-interpreter execution — a common execution "
+                  "vector for both benign automation and post-exploitation tooling."),
+    "T1059.001": ("PowerShell",
+                  "PowerShell was observed running in a context that matches the ATT&CK "
+                  "PowerShell sub-technique."),
+    "T1059.003": ("Windows Command Shell",
+                  "cmd.exe was observed executing a command sequence in the process chain."),
+    "T1027":     ("Obfuscated Files or Information",
+                  "Encoded or otherwise obfuscated content was surfaced — commonly used "
+                  "to hide payload intent from casual review."),
+    "T1140":     ("Deobfuscate/Decode Files or Information",
+                  "The pipeline decoded content that had been obfuscated in the incident."),
+    "T1218":     ("System Binary Proxy Execution (LOLBIN)",
+                  "A signed Windows binary was observed executing attacker-supplied code."),
+    "T1218.005": ("Mshta",
+                  "mshta.exe was observed executing a scriptlet."),
+    "T1055":     ("Process Injection",
+                  "Behaviour consistent with in-memory code injection was observed."),
+    "T1562":     ("Impair Defenses",
+                  "Behaviour consistent with disabling or bypassing endpoint defences was observed."),
+    "T1105":     ("Ingress Tool Transfer",
+                  "Outbound download activity to attacker-controlled infrastructure was observed."),
+    "T1071":     ("Application Layer Protocol",
+                  "Outbound HTTP/HTTPS activity to attacker-controlled infrastructure was observed."),
+    "T1547":     ("Boot or Logon Autostart Execution",
+                  "Registry or startup-folder writes consistent with persistence were observed."),
+    "T1547.001": ("Registry Run Keys / Startup Folder",
+                  "A Run/RunOnce key or Startup folder write consistent with persistence was observed."),
+    "T1543":     ("Create or Modify System Process",
+                  "Service creation or modification consistent with persistence was observed."),
+    "T1053":     ("Scheduled Task/Job",
+                  "Scheduled-task creation consistent with persistence was observed."),
+    "T1003":     ("OS Credential Dumping",
+                  "Behaviour consistent with LSASS access / credential extraction was observed."),
+    "T1552":     ("Unsecured Credentials",
+                  "Access to plaintext credential material was observed."),
+    "T1082":     ("System Information Discovery",
+                  "Reconnaissance of the host operating system and configuration was observed."),
+    "T1087":     ("Account Discovery",
+                  "Active-Directory account enumeration was observed — typically driven by "
+                  "SharpHound / BloodHound-style tooling."),
+    "T1069":     ("Permission Groups Discovery",
+                  "Enumeration of AD groups was observed."),
+    "T1021":     ("Remote Services",
+                  "Remote-service usage (WinRM / RDP / SMB) was observed in the chain."),
+    "T1021.006": ("Windows Remote Management",
+                  "WinRM (`wsmprovhost.exe`) was observed as ancestor of the detected process."),
+    "T1486":     ("Data Encrypted for Impact",
+                  "Behaviour consistent with pre-encryption / ransomware activity was observed."),
+    "T1490":     ("Inhibit System Recovery",
+                  "Backup destruction / shadow-copy deletion behaviour was observed."),
+}
+
+
+def _mitre_with_reasons(im: dict, mitre_by_tactic: dict) -> list[dict]:
+    """Flatten mitre_by_tactic into rich rows the UI can render as cards."""
+    rows: list[dict] = []
+    for tactic, ids in (mitre_by_tactic or {}).items():
+        for tid in ids:
+            name, reason = _MITRE_CATALOG.get(tid) or _MITRE_CATALOG.get(tid.split(".")[0]) \
+                          or ("(technique)", "Observed in the incident telemetry.")
+            rows.append({
+                "id": tid, "tactic": tactic, "name": name, "reason": reason,
+            })
+    return rows
+
+
+# ── Negative findings (Cisco-MDR staple) ─────────────────────────
+def _negative_findings(im: dict, files: list[dict], entcls: dict) -> list[dict]:
+    """Explicitly enumerate categories that were NOT observed. This is the
+    signal analysts trust most: 'the report considered X and did not find it'."""
+    events = im.get("raw_events") or []
+    txt = " ".join((e.get("process","") + " " + e.get("child_process","") + " " +
+                    e.get("command_line","") + " " + e.get("detection_name","")).lower()
+                   for e in events)
+
+    def _neg(category, observed, ctx=""):
+        return {"category": category, "observed": bool(observed), "context": ctx}
+
+    return [
+        _neg("Persistence mechanisms",
+             bool(im.get("registry")) or ("run\\" in txt) or ("runonce" in txt),
+             "No Run/RunOnce registry writes, Startup-folder drops, or persistence primitives observed."),
+        _neg("Scheduled tasks / service creation",
+             any(kw in txt for kw in ["schtasks", "sc.exe", "sc create", "at.exe"]),
+             "No new scheduled tasks or service creations were surfaced in the telemetry."),
+        _neg("Autorun / registry modifications",
+             bool(im.get("registry")),
+             "No registry modifications were observed for standard autorun locations."),
+        _neg("Credential access",
+             any(kw in txt for kw in ["mimikatz", "lsass", "sekurlsa", "hashdump", "credmgr"]),
+             "No LSASS access, credential-dumping tooling, or hash extraction behaviours were observed."),
+        _neg("Lateral movement",
+             any(kw in txt for kw in ["psexec", "wmic /node", "sc.exe \\\\", "at \\\\", "smbexec"]),
+             "No PsExec, remote-service execution, or SMB-based lateral movement was observed."),
+        _neg("Data exfiltration",
+             any(kw in txt for kw in ["exfil", "rclone", "7z ", "zip -r", "curl -T"]),
+             "No archive-and-upload behaviours or known exfiltration tools were observed."),
+        _neg("Ransomware / impact",
+             any(kw in txt for kw in ["ransom", "encrypt", "vssadmin", "wbadmin delete",
+                                       "bcdedit /set", "cipher /w"]),
+             "No shadow-copy deletion, backup-destruction, or mass-encryption behaviour was observed."),
+    ]
+
+
+# ── Probable initial access (paragraph — NOT a separate engine) ──
+def _probable_initial_access(im: dict) -> dict:
+    """One evidence-linked paragraph. Explicitly admits when evidence is
+    insufficient rather than overclaiming."""
+    events = im.get("raw_events") or []
+    if not events:
+        return {
+            "paragraph": ("Available telemetry is insufficient to determine the initial "
+                          "access vector for this incident. Authentication logs (Windows "
+                          "Event IDs 4624 / 4625 / 4776), remote-management session records, "
+                          "and email-security telemetry would be required to make a defensible "
+                          "assessment."),
+            "confidence": "None",
+            "evidence":   [],
+        }
+    txt = " ".join((e.get("process","") + " " + e.get("parent_process","") + " " +
+                    e.get("command_line","")).lower() for e in events)
+    ev: list[str] = []
+    if "wsmprov" in txt or "winrm" in txt:
+        ev.append("`wsmprovhost.exe` (WinRM host) observed as ancestor process")
+        if "powershell" in txt:
+            ev.append("PowerShell child process launched in the same session")
+        conf = "Medium"
+        para = ("Probable Initial Access: Based on the available telemetry, the activity "
+                "appears to have originated from a remote Windows Remote Management (WinRM) "
+                "administrative session. However, the available evidence is insufficient to "
+                "determine how the session was established or whether it was authorised. "
+                "Additional authentication events (Windows Event IDs 4624 / 4625 / 4776), "
+                "WinRM operational logs, and firewall records for the affected endpoint "
+                "are required to confirm the initial access vector.")
+        return {"paragraph": para, "confidence": conf, "evidence": ev}
+    if any(o in txt for o in ("winword", "excel", "outlook", "powerpnt")):
+        ev.append("Office application observed as ancestor process")
+        return {"paragraph": (
+            "Probable Initial Access: The presence of an Office application as ancestor "
+            "process, followed by scripting-engine or LOLBIN execution, is consistent with "
+            "phishing / macro-enabled document delivery. Confirmation requires the original "
+            "email artefact, the document itself, and the user's browsing history around the "
+            "detection timestamp."),
+                "confidence": "Medium", "evidence": ev}
+    if "msiexec" in txt:
+        ev.append("`msiexec.exe` observed running with a remote package URL")
+        return {"paragraph": (
+            "Probable Initial Access: The observed `msiexec` invocation referencing a "
+            "remote package is consistent with a software-installation vector. Additional "
+            "context — whether the installation was initiated by the user, a management tool, "
+            "or an attacker-supplied link — is required to confirm."),
+                "confidence": "Medium", "evidence": ev}
+    return {"paragraph": (
+        "Probable Initial Access: The available telemetry does not surface a single "
+        "high-confidence initial-access candidate. Additional evidence from authentication "
+        "logs, browser history, and email-security telemetry is required before an "
+        "initial-access vector can be attributed."),
+            "confidence": "Low", "evidence": []}
+
+
+# ── Investigation Conclusion ──────────────────────────────────────
+def _investigation_conclusion(im: dict, files: list[dict], entcls: dict,
+                              recs: dict, neg: list[dict]) -> str:
+    events = im.get("raw_events") or []
+    if not events:
+        return ("Available telemetry was insufficient to reconstruct a coherent activity "
+                "chain. This assessment reflects only what the supplied evidence supports. "
+                "Additional endpoint telemetry is required before a defensible verdict can "
+                "be issued.")
+    executed = [f for f in files if f.get("classification") == "Executed"]
+    quarantined = [f for f in files if f.get("classification") == "Quarantined"]
+    hosts = (im.get("assets") or {}).get("hosts") or []
+    kill = _guess_kill_chain(im)
+    parts: list[str] = []
+    parts.append(
+        f"Available telemetry indicates that {hosts[0] if hosts else 'the affected endpoint'} "
+        f"experienced activity consistent with {kill}"
+    )
+    if quarantined and not executed:
+        parts.append(", and that the detected executable was **quarantined** before "
+                     "execution completed")
+    elif executed:
+        parts.append(", with **execution telemetry confirming** the payload ran on the endpoint")
+    parts.append(".")
+    # Negative-finding summary — Cisco style
+    unobs = [n["category"].lower() for n in neg if not n["observed"]]
+    if unobs:
+        parts.append(" No evidence of "
+                     + _join_natural(unobs[:4])
+                     + " was identified within the available telemetry, which reduces the "
+                       "estimated post-exploitation impact of the observed activity.")
+    hist = im.get("history") or []
+    if hist:
+        parts.append(" Historical detections on the same endpoint increase the investigative "
+                     "priority; however, the immediate threat appears contained.")
+    parts.append(" Additional validation with the customer is recommended to confirm whether "
+                 "the observed administrative activity was authorised and to review any "
+                 "downstream activity on the affected accounts.")
+    return "".join(parts)
+
+
+# ── Investigation Confidence card ─────────────────────────────────
+def _investigation_confidence(im: dict, files: list[dict], entcls: dict,
+                              recs: dict) -> dict:
+    events = im.get("raw_events") or []
+    coverage = im.get("coverage") or {}
+    have = sum(1 for v in coverage.values() if v)
+    total = max(1, len(coverage))
+    evidence_completeness = int(round(100 * have / total))
+    # Timeline completeness = fraction of events with a real timestamp
+    ts_present = sum(1 for e in events if e.get("ts_raw"))
+    timeline_completeness = (int(round(100 * ts_present / max(1, len(events))))
+                             if events else 0)
+    executed = any(f.get("classification") == "Executed" for f in files)
+    quarantined = any(f.get("classification") == "Quarantined" for f in files)
+    execution_conf = ("High" if executed
+                      else ("High" if quarantined else "Low"))
+    # Root-cause confidence — driven by whether a probable IA vector was found
+    ia = _probable_initial_access(im)
+    root_cause_conf = ia.get("confidence") or "Low"
+    # Overall — worst-of the sub-scores, but not below evidence_completeness bracket
+    def _band(n):
+        return "High" if n >= 80 else "Medium" if n >= 50 else "Low"
+    scores = [_band(evidence_completeness), _band(timeline_completeness),
+              execution_conf, root_cause_conf]
+    order = {"None": 0, "Low": 1, "Medium": 2, "High": 3}
+    overall = min(scores, key=lambda b: order.get(b, 0))
+    return {
+        "overall":                 overall,
+        "evidence_completeness":   evidence_completeness,
+        "timeline_completeness":   timeline_completeness,
+        "execution_confidence":    execution_conf,
+        "root_cause_confidence":   root_cause_conf,
+    }
+
+
 def _limitations(im: dict, files: list[dict]) -> list[str]:
     lims: list[str] = []
     if not (im.get("raw_events") or []):
@@ -635,19 +938,24 @@ def compose_report(im: dict) -> dict:
     """Return the full spec-mandated report structure."""
     if not im:
         return {
-            "executive_summary":    [],
-            "investigation_summary": [],
-            "timeline":             [],
-            "attack_story":         [],
-            "technical_summary":    {},
-            "mitre_by_tactic":      {},
-            "recommendations":      [],
-            "supporting_evidence":  [],
-            "observed_evidence":    {},
-            "observed_iocs":        {},
-            "threat_intelligence":  [],
-            "limitations":          [],
-            "empty":                True,
+            "confidence":             {},
+            "executive_summary":      [],
+            "probable_initial_access": {"paragraph": "", "confidence": "None", "evidence": []},
+            "investigation_summary":  [],
+            "timeline":               [],
+            "attack_story":           [],
+            "technical_summary":      {},
+            "mitre_by_tactic":        {},
+            "mitre_techniques":       [],
+            "negative_findings":      [],
+            "recommendations":        {"immediate": [], "short_term": [], "long_term": []},
+            "supporting_evidence":    [],
+            "observed_evidence":      {},
+            "observed_iocs":          {},
+            "threat_intelligence":    [],
+            "limitations":            [],
+            "investigation_conclusion": "",
+            "empty":                  True,
         }
 
     # Reuse classifiers/timeline to keep every stage on the same model.
@@ -661,19 +969,30 @@ def compose_report(im: dict) -> dict:
     files     = [classify_file(f) for f in (im.get("files") or [])]
     processes = classify_processes(im.get("processes") or [])
     tl        = _build_timeline(im)
+    mitre_bt  = _mitre_by_tactic(im)
+    recs      = _recommendations(im, tl, files)
+    neg       = _negative_findings(im, files, entcls)
+    ia        = _probable_initial_access(im)
+    conclusion = _investigation_conclusion(im, files, entcls, recs, neg)
+    conf      = _investigation_confidence(im, files, entcls, recs)
 
     return {
+        "confidence":           conf,
         "executive_summary":    _executive_summary(im, tl, entcls, files),
+        "probable_initial_access": ia,
         "investigation_summary":_investigation_summary(im, tl, entcls, files),
         "timeline":             tl,
         "attack_story":         _attack_story(im, tl),
         "technical_summary":    _technical_summary(im, entcls, files, processes),
-        "mitre_by_tactic":      _mitre_by_tactic(im),
-        "recommendations":      _recommendations(im, tl, files),
+        "mitre_by_tactic":      mitre_bt,
+        "mitre_techniques":     _mitre_with_reasons(im, mitre_bt),
+        "negative_findings":    neg,
+        "recommendations":      recs,
         "supporting_evidence":  _supporting_evidence(im, tl, entcls, files, processes),
         "observed_evidence":    _observed_evidence(entcls, files, processes),
         "observed_iocs":        entcls.get("iocs") or {},
         "threat_intelligence":  im.get("ti") or [],
         "limitations":          _limitations(im, files),
+        "investigation_conclusion": conclusion,
         "empty":                False,
     }
