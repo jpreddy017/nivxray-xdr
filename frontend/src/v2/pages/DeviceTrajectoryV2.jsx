@@ -817,8 +817,21 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
                data-testid="search-input"
                value={searchQuery}
                onChange={(e) => onSearch(e.target.value)}
-               className="w-full pl-8 pr-3 py-1.5 rounded text-[12px] outline-none"
+               onKeyDown={(e) => { if (e.key === "Escape") onSearch(""); }}
+               className="w-full pl-8 pr-8 py-1.5 rounded text-[12px] outline-none"
                style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }} />
+        {searchQuery && (
+          <button onClick={() => onSearch("")}
+                  data-testid="search-clear"
+                  aria-label="Clear search"
+                  title="Clear search (Esc)"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full
+                             flex items-center justify-center text-[11px] font-bold"
+                  style={{ background: T.paper, color: T.inkDim,
+                           border: `1px solid ${T.line}`, cursor: "pointer" }}>
+            ×
+          </button>
+        )}
       </div>
       <div className="relative">
         <button className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px]"
