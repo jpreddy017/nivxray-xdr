@@ -19,17 +19,31 @@ from __future__ import annotations
 
 import os
 import re
+import time
+import signal
 import logging
+import asyncio
+import concurrent.futures
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from deps import get_current_user
+from deps import get_current_user, db
 from engine import AnalysisContext, Orchestrator
 from engine.config import new_budget
 
 log = logging.getLogger("nivx.routers.auto_investigate")
+
+# ─── Per-command decoder guardrails ─────────────────────────────
+# Enforced so one oversized PowerShell EncodedCommand payload cannot
+# stall the entire investigation. Every command runs in isolation with
+# its own budget; commands that exceed a limit produce a partial report
+# rather than blocking the pipeline.
+MAX_CMD_BYTES        = int(os.environ.get("NIVX_AUTO_MAX_CMD_BYTES", 25 * 1024 * 1024))  # 25 MB
+MAX_CMD_SECONDS      = float(os.environ.get("NIVX_AUTO_MAX_CMD_SECONDS", 20.0))
+MAX_CMDS_PER_INCIDENT = int(os.environ.get("NIVX_AUTO_MAX_CMDS", 25))
+MAX_INCIDENT_BYTES   = int(os.environ.get("NIVX_AUTO_MAX_INCIDENT_BYTES", 50 * 1024 * 1024))
 
 router = APIRouter(prefix="/v2/auto-investigate", tags=["auto-investigate"])
 
@@ -47,7 +61,7 @@ COMMAND_BINARIES = [
 ]
 COMMAND_PATTERN = re.compile(
     r"(?im)(?:^|[\s>`\"'\[\(])(" + "|".join(re.escape(b) for b in COMMAND_BINARIES) +
-    r")(?:\.exe)?\b([^\r\n]{0,600})",
+    r")(?:\.exe)?\b([^\r\n]{0,20000000})",
 )
 
 # ─── Entity extraction (IOCs) ────────────────────────────────────
@@ -369,6 +383,137 @@ def _investigation_quality(raw: str, commands: list, entities: dict, reports: li
     }
 
 
+# ─── OSINT / TI enrichment ──────────────────────────────────────
+# We query the local `db.iocs` collection (populated by ti_feed_sync.py
+# via urlhaus / feodo / blocklist_de / OTX / ThreatFox / MalwareBazaar /
+# AbuseIPDB / VirusTotal / …) for exact-value hits and return per-IOC
+# reputation records. All lookups are exact-match — never fuzzy — so the
+# report writer can safely quote reputation as observed fact.
+
+async def _osint_lookup(entities: dict, iocs: dict) -> dict:
+    """Return `{by_value, by_kind, sources, summary}` for every extracted
+    IP / domain / URL / hash. Empty when the ioc collection is empty or
+    no matches exist. Best-effort — swallows errors so a TI outage never
+    breaks the investigation."""
+    out = {"by_value": {}, "by_kind": {},
+           "sources": {}, "summary": {"total_lookups": 0, "matches": 0}}
+    # Combine values from both `entities` (from raw regex extraction) and
+    # per-command orchestrator IOCs (which already dedupe).
+    candidates: list[tuple[str, str]] = []   # [(kind, value)]
+    def _add(kind, vs):
+        for v in (vs or []):
+            if v and (kind, v) not in candidates:
+                candidates.append((kind, v))
+    _add("ip",     iocs.get("ips") or entities.get("ips"))
+    _add("domain", iocs.get("domains") or entities.get("domains"))
+    _add("url",    iocs.get("urls") or entities.get("urls"))
+    _add("sha256", iocs.get("sha256") or entities.get("sha256"))
+    _add("sha1",   iocs.get("sha1")   or entities.get("sha1"))
+    _add("md5",    iocs.get("md5")    or entities.get("md5"))
+    out["summary"]["total_lookups"] = len(candidates)
+    if not candidates:
+        return out
+    try:
+        for kind, value in candidates:
+            docs = await db.iocs.find({"value": value}, {"_id": 0}).to_list(20)
+            if not docs:
+                continue
+            worst_sev = _worst_ioc_sev([d.get("severity") for d in docs])
+            sources = sorted({d.get("source") for d in docs if d.get("source")})
+            score   = max(
+                (int(d["confidence"]) for d in docs if isinstance(d.get("confidence"), (int, float))),
+                default=0,
+            )
+            rec = {
+                "kind": kind, "value": value,
+                "sources": sources, "hit_count": len(docs),
+                "severity": worst_sev, "confidence": score,
+                "malware_families": sorted({t for d in docs
+                                            for t in (d.get("tags") or [])
+                                            if _looks_like_family(t)})[:5],
+                "first_seen": min((d.get("first_seen") for d in docs
+                                   if d.get("first_seen")), default=None),
+                "last_seen":  max((d.get("last_seen")  for d in docs
+                                   if d.get("last_seen")),  default=None),
+            }
+            out["by_value"][value] = rec
+            out["by_kind"].setdefault(kind, []).append(rec)
+            for s in sources:
+                out["sources"][s] = out["sources"].get(s, 0) + 1
+        out["summary"]["matches"] = len(out["by_value"])
+    except Exception as e:  # noqa: BLE001
+        log.warning("OSINT lookup failed: %s", e)
+    return out
+
+
+_SEV_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
+def _worst_ioc_sev(sevs) -> str:
+    best, rank = "medium", -1
+    for s in sevs:
+        r = _SEV_RANK.get((s or "").lower(), 0)
+        if r > rank:
+            best, rank = (s or "medium").lower(), r
+    return best
+
+
+def _looks_like_family(tag: str) -> bool:
+    if not tag: return False
+    t = tag.lower()
+    if any(t.startswith(p) for p in ("cve-", "campaign-", "actor-")):
+        return False
+    return bool(re.match(r"^[a-z][a-z0-9._/-]{2,30}$", t))
+
+
+def _run_single_command(cmd: dict) -> tuple[Any | None, dict]:
+    """Run the deterministic Orchestrator against ONE command and return
+    `(report_or_None, status_dict)`. The status dict is always populated
+    and always safe to persist. Guardrails:
+      • Command bytes over MAX_CMD_BYTES → refuse, status='size_exceeded'
+      • Wall-clock over MAX_CMD_SECONDS → cancel, status='timeout'
+      • Any other exception → status='error' with message
+    Every path returns quickly so downstream commands never block.
+    """
+    cmdline = cmd.get("command_line") or ""
+    n_bytes = len(cmdline.encode("utf-8", errors="ignore"))
+    status  = {"binary": cmd.get("binary"),
+               "bytes": n_bytes,
+               "budget_bytes": MAX_CMD_BYTES,
+               "budget_seconds": MAX_CMD_SECONDS}
+    if n_bytes > MAX_CMD_BYTES:
+        status.update(status="size_exceeded",
+                      message=(f"Command payload ({n_bytes:,} bytes) exceeds "
+                               f"the configured decode-size budget "
+                               f"({MAX_CMD_BYTES:,} bytes). Recursive decoding "
+                               "was skipped for this command; the surrounding "
+                               "investigation continued with the remaining "
+                               "evidence."))
+        return None, status
+    t0 = time.perf_counter()
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+            fut = ex.submit(lambda: Orchestrator(AnalysisContext(budget=new_budget())).run(cmdline))
+            try:
+                report = fut.result(timeout=MAX_CMD_SECONDS)
+            except concurrent.futures.TimeoutError:
+                fut.cancel()
+                status.update(status="timeout",
+                              seconds=round(time.perf_counter() - t0, 2),
+                              message=(f"Recursive decoding exceeded the "
+                                       f"{MAX_CMD_SECONDS:.0f}s per-command budget. "
+                                       "Partial decoding was preserved; the "
+                                       "surrounding investigation continued with "
+                                       "the remaining evidence."))
+                return None, status
+    except Exception as e:  # noqa: BLE001
+        status.update(status="error",
+                      seconds=round(time.perf_counter() - t0, 2),
+                      message=f"Decoder error: {type(e).__name__}: {e}")
+        return None, status
+    status.update(status="complete",
+                  seconds=round(time.perf_counter() - t0, 2))
+    return report, status
+
+
 # ─── API ────────────────────────────────────────────────────────
 class IncidentIn(BaseModel):
     incident_text: str = Field(..., description="Raw pasted incident text")
@@ -387,15 +532,29 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
     commands = _detect_commands(raw)
     entities = _extract_entities(raw)
 
-    # 2. Fan out per command to the deterministic Orchestrator.
-    reports = []
+    # Enforce per-incident guardrails.
+    incident_bytes = len(raw.encode("utf-8", errors="ignore"))
+    incident_truncated = False
+    if incident_bytes > MAX_INCIDENT_BYTES:
+        raw = raw.encode("utf-8", errors="ignore")[:MAX_INCIDENT_BYTES].decode("utf-8", errors="ignore")
+        incident_truncated = True
+    if len(commands) > MAX_CMDS_PER_INCIDENT:
+        commands_dropped = len(commands) - MAX_CMDS_PER_INCIDENT
+        commands = commands[:MAX_CMDS_PER_INCIDENT]
+    else:
+        commands_dropped = 0
+
+    # 2. Fan out per command to the deterministic Orchestrator with
+    # per-command budgets so one oversized payload cannot stall the pipeline.
+    reports: list = []
+    decode_statuses: list[dict] = []
     for cmd in commands:
-        try:
-            ctx = AnalysisContext(budget=new_budget())
-            report = Orchestrator(ctx).run(cmd["command_line"])
+        report, status = _run_single_command(cmd)
+        decode_statuses.append(status)
+        if report is not None:
             reports.append(report)
-        except Exception as e:  # noqa: BLE001
-            log.warning("orchestrator failed for '%s': %s", cmd["binary"], e)
+        else:
+            log.info("command '%s' skipped (%s)", cmd.get("binary"), status.get("status"))
 
     # 3. Aggregate.
     verdict = _worst_verdict(reports) if reports else "unknown"
@@ -408,7 +567,19 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
     findings = _findings(reports, commands)
     summary = _executive_summary(raw, commands, verdict, classification, iocs, mitre)
     recs = _recommendations(verdict, mitre, iocs)
+    # OSINT enrichment — deterministic, offline, lookups against local ioc DB.
+    osint = await _osint_lookup(entities, iocs)
     quality = _investigation_quality(raw, commands, entities, reports, mitre, iocs)
+    # Overwrite the TI-matches count with real OSINT hits so the Quality
+    # Dashboard reflects actual reputation rather than a proxy.
+    if osint.get("summary", {}).get("matches") is not None:
+        quality.setdefault("coverage", {})["threat_intel_matches"] = osint["summary"]["matches"]
+    # Truthful failed_decodes tally that includes timeouts & size-exceeds,
+    # not just exceptions.
+    n_failed = sum(1 for s in decode_statuses if s.get("status") != "complete")
+    quality.setdefault("command_analysis", {})["failed_decodes"] = n_failed
+    quality["command_analysis"]["commands_decoded"] = len(reports)
+    quality["command_analysis"]["decode_ratio"]    = f"{len(reports)}/{len(commands)}" if commands else "0/0"
 
     # Confidence = fraction of commands that reached a non-unknown
     # verdict, capped at 100.
@@ -428,6 +599,22 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
         "detected": {
             "commands": commands,
             "entities": entities,
+        },
+        "decode_pipeline": {
+            "statuses": decode_statuses,
+            "budgets": {
+                "max_command_bytes":   MAX_CMD_BYTES,
+                "max_command_seconds": MAX_CMD_SECONDS,
+                "max_commands_per_incident": MAX_CMDS_PER_INCIDENT,
+                "max_incident_bytes":  MAX_INCIDENT_BYTES,
+            },
+            "guardrails_triggered": {
+                "incident_truncated": incident_truncated,
+                "commands_dropped":   commands_dropped,
+                "timeouts":     sum(1 for s in decode_statuses if s.get("status") == "timeout"),
+                "size_exceeded": sum(1 for s in decode_statuses if s.get("status") == "size_exceeded"),
+                "errors":       sum(1 for s in decode_statuses if s.get("status") == "error"),
+            },
         },
         "final_incident_summary": {
             "executive_summary": summary,
@@ -457,6 +644,7 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
                 "registry": len(entities.get("registry", [])),
                 "users": len(entities.get("users", [])),
             },
+            "ioc_reputation": osint,
             "investigation_quality": quality,
         },
         "engine": {

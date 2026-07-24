@@ -23,7 +23,9 @@ from routers.auto_investigate import (
     _detect_commands, _extract_entities, _classify, _worst_verdict,
     _flatten_mitre, _merge_iocs, _severity, _findings as _cmd_findings,
     _executive_summary as _cmd_exec_summary, _recommendations,
-    _investigation_quality,
+    _investigation_quality, _osint_lookup, _run_single_command,
+    MAX_CMD_BYTES, MAX_CMD_SECONDS, MAX_CMDS_PER_INCIDENT,
+    MAX_INCIDENT_BYTES,
 )
 from engine import AnalysisContext, Orchestrator
 from engine.config import new_budget
@@ -48,17 +50,33 @@ class GenerateFromModelIn(BaseModel):
 
 
 def _run_investigation(raw: str) -> dict:
-    """Reuse the AUTO INVESTIGATE orchestrator logic inline so we do not
-    trigger an HTTP round-trip. Produces the exact same shape."""
+    """Sync wrapper — retained for backwards compatibility."""
+    import asyncio
+    return asyncio.run(_run_investigation_async(raw))
+
+
+async def _run_investigation_async(raw: str) -> dict:
+    """Guarded orchestrator loop shared with the auto-investigate router.
+    One oversized command cannot stall the pipeline; every command has
+    its own decode budget."""
+    incident_bytes = len(raw.encode("utf-8", errors="ignore"))
+    incident_truncated = False
+    if incident_bytes > MAX_INCIDENT_BYTES:
+        raw = raw.encode("utf-8", errors="ignore")[:MAX_INCIDENT_BYTES].decode("utf-8", errors="ignore")
+        incident_truncated = True
     commands = _detect_commands(raw)
+    if len(commands) > MAX_CMDS_PER_INCIDENT:
+        commands_dropped = len(commands) - MAX_CMDS_PER_INCIDENT
+        commands = commands[:MAX_CMDS_PER_INCIDENT]
+    else:
+        commands_dropped = 0
     entities = _extract_entities(raw)
-    reports = []
+    reports, decode_statuses = [], []
     for cmd in commands:
-        try:
-            ctx = AnalysisContext(budget=new_budget())
-            reports.append(Orchestrator(ctx).run(cmd["command_line"]))
-        except Exception as e:  # noqa: BLE001
-            log.warning("orchestrator failed for %s: %s", cmd["binary"], e)
+        report, status = _run_single_command(cmd)
+        decode_statuses.append(status)
+        if report is not None:
+            reports.append(report)
     verdict = _worst_verdict(reports) if reports else "unknown"
     classification = _classify(reports) if reports else (
         "Suspicious (no decodable commands)" if entities.get("ips") or entities.get("domains")
@@ -69,13 +87,34 @@ def _run_investigation(raw: str) -> dict:
     findings = _cmd_findings(reports, commands)
     summary = _cmd_exec_summary(raw, commands, verdict, classification, iocs, mitre)
     recs = _recommendations(verdict, mitre, iocs)
+    osint = await _osint_lookup(entities, iocs)
     quality = _investigation_quality(raw, commands, entities, reports, mitre, iocs)
+    if osint.get("summary", {}).get("matches") is not None:
+        quality.setdefault("coverage", {})["threat_intel_matches"] = osint["summary"]["matches"]
+    n_failed = sum(1 for s in decode_statuses if s.get("status") != "complete")
+    quality.setdefault("command_analysis", {})["failed_decodes"] = n_failed
+    quality["command_analysis"]["commands_decoded"] = len(reports)
+    quality["command_analysis"]["decode_ratio"]    = f"{len(reports)}/{len(commands)}" if commands else "0/0"
     decided = sum(1 for r in reports if (getattr(r.findings, "verdict", None) or "unknown") != "unknown") if reports else 0
     confidence = int(round(100 * decided / max(1, len(reports)))) if reports else 0
     return {
         "ok": True,
         "raw_incident": raw,
         "detected": {"commands": commands, "entities": entities},
+        "decode_pipeline": {
+            "statuses": decode_statuses,
+            "budgets": {"max_command_bytes": MAX_CMD_BYTES,
+                        "max_command_seconds": MAX_CMD_SECONDS,
+                        "max_commands_per_incident": MAX_CMDS_PER_INCIDENT,
+                        "max_incident_bytes": MAX_INCIDENT_BYTES},
+            "guardrails_triggered": {
+                "incident_truncated": incident_truncated,
+                "commands_dropped":   commands_dropped,
+                "timeouts":     sum(1 for s in decode_statuses if s.get("status") == "timeout"),
+                "size_exceeded": sum(1 for s in decode_statuses if s.get("status") == "size_exceeded"),
+                "errors":       sum(1 for s in decode_statuses if s.get("status") == "error"),
+            },
+        },
         "final_incident_summary": {
             "executive_summary": summary,
             "classification": classification,
@@ -101,6 +140,7 @@ def _run_investigation(raw: str) -> dict:
                 "registry": len(entities.get("registry", [])),
                 "users": len(entities.get("users", [])),
             },
+            "ioc_reputation": osint,
             "investigation_quality": quality,
         },
     }
@@ -112,7 +152,7 @@ async def generate(body: GenerateIn, user=Depends(get_current_user)):
         raise HTTPException(400, "incident_text must be non-empty")
     if body.profile not in ("executive", "customer", "soc_analyst", "technical"):
         raise HTTPException(400, f"unknown profile '{body.profile}'")
-    inv = _run_investigation(body.incident_text)
+    inv = await _run_investigation_async(body.incident_text)
     report = build_report(inv, profile=body.profile, customer=body.customer)
     return {"ok": True, "report": report, "investigation": inv}
 
@@ -127,7 +167,7 @@ async def generate_from_model(body: GenerateFromModelIn, user=Depends(get_curren
 
 @router.post("/generate/markdown")
 async def generate_markdown(body: GenerateIn, user=Depends(get_current_user)):
-    inv = _run_investigation(body.incident_text)
+    inv = await _run_investigation_async(body.incident_text)
     report = build_report(inv, profile=body.profile, customer=body.customer)
     md = render_markdown(report)
     return Response(content=md, media_type="text/markdown")

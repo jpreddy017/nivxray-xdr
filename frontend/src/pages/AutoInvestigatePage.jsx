@@ -720,6 +720,50 @@ function FinalIncidentSummary({ result, onExportMd, onExportJson }) {
         </Section>
       </div>
 
+      {/* OSINT / TI reputation — deterministic lookups against the local ioc DB */}
+      {fis.ioc_reputation && (
+        <Section title={`IOC Reputation · ${fis.ioc_reputation.summary?.matches || 0} of ${fis.ioc_reputation.summary?.total_lookups || 0} matched`}
+                 testid="fis-ioc-reputation">
+          {(fis.ioc_reputation.summary?.matches || 0) === 0
+            ? <Empty text="No external Threat Intelligence correlations were available for the extracted IOCs at the time of investigation. Recommend re-checking against VirusTotal / Talos / MISP over the coming days." />
+            : <div className="space-y-2">
+                <div className="text-[10px] font-mono text-slate-500">
+                  Sources contributing: {Object.entries(fis.ioc_reputation.sources || {}).map(([s, n]) => `${s} (${n})`).join(" · ")}
+                </div>
+                <table className="w-full text-xs">
+                  <thead className="text-slate-500 text-left border-b border-slate-800">
+                    <tr>
+                      <th className="py-1">Kind</th>
+                      <th className="py-1">Indicator</th>
+                      <th className="py-1">Sources</th>
+                      <th className="py-1">Severity</th>
+                      <th className="py-1">Family</th>
+                      <th className="py-1 text-right">Hits</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.values(fis.ioc_reputation.by_value || {}).slice(0, 12).map((r, i) => (
+                      <tr key={i} className="border-b border-slate-900 align-top" data-testid={`fis-osint-row-${i}`}>
+                        <td className="py-1.5 font-mono text-slate-400">{r.kind}</td>
+                        <td className="py-1.5 font-mono text-slate-200 break-all max-w-[26ch] truncate" title={r.value}>{r.value}</td>
+                        <td className="py-1.5 text-slate-300">{(r.sources || []).join(", ")}</td>
+                        <td className="py-1.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] uppercase border ${
+                            r.severity === "critical" ? "border-red-500/60 text-red-300" :
+                            r.severity === "high"     ? "border-amber-500/60 text-amber-300" :
+                                                        "border-sky-500/60 text-sky-300"
+                          }`}>{r.severity}</span>
+                        </td>
+                        <td className="py-1.5 text-slate-300 font-mono">{(r.malware_families || [])[0] || "—"}</td>
+                        <td className="py-1.5 text-right text-cyan-300 font-mono">{r.hit_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>}
+        </Section>
+      )}
+
       {/* Recommendations */}
       <Section title="Recommendations" testid="fis-recommendations">
         <ol className="space-y-2 text-sm">
@@ -755,7 +799,76 @@ function FinalIncidentSummary({ result, onExportMd, onExportJson }) {
       {fis.investigation_quality && (
         <QualityDashboard q={fis.investigation_quality} />
       )}
+
+      {/* Decode pipeline status — surfaces per-command timeouts, size caps, errors */}
+      {result.decode_pipeline && <DecodePipelineStatus dp={result.decode_pipeline} />}
     </section>
+  );
+}
+
+function DecodePipelineStatus({ dp }) {
+  const gt = dp.guardrails_triggered || {};
+  const bad = (gt.timeouts || 0) + (gt.size_exceeded || 0) + (gt.errors || 0)
+            + (gt.commands_dropped || 0) + (gt.incident_truncated ? 1 : 0);
+  return (
+    <Section title={`Decoder Pipeline · ${(dp.statuses || []).length} commands processed`}
+             testid="fis-decode-pipeline">
+      {bad === 0 && (
+        <div className="text-sm text-emerald-300" data-testid="decode-pipeline-clean">
+          ✓ Every extracted command completed within the configured decode budget.
+          Investigation is complete.
+        </div>
+      )}
+      {bad > 0 && (
+        <div className="text-sm text-amber-300 mb-3" data-testid="decode-pipeline-partial">
+          ⚠ Investigation completed with partial results.
+          {gt.timeouts     ? ` ${gt.timeouts} command(s) exceeded the per-command time budget.` : ""}
+          {gt.size_exceeded? ` ${gt.size_exceeded} command(s) exceeded the payload-size budget.` : ""}
+          {gt.errors       ? ` ${gt.errors} command(s) errored during decoding.` : ""}
+          {gt.commands_dropped ? ` ${gt.commands_dropped} additional command(s) were skipped after reaching the per-incident cap.` : ""}
+          {gt.incident_truncated ? " The incident text was truncated to fit the maximum incident size." : ""}
+          &nbsp;The remainder of the investigation continued on the successfully-decoded evidence.
+        </div>
+      )}
+      <details className="text-xs">
+        <summary className="cursor-pointer text-slate-400 hover:text-slate-200">
+          Show per-command decode status ({(dp.statuses || []).length})
+        </summary>
+        <table className="w-full mt-2 text-xs">
+          <thead>
+            <tr className="text-slate-500 text-left border-b border-slate-800">
+              <th className="py-1">#</th><th className="py-1">Binary</th>
+              <th className="py-1">Status</th><th className="py-1 text-right">Bytes</th>
+              <th className="py-1 text-right">Time</th><th className="py-1">Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(dp.statuses || []).map((s, i) => (
+              <tr key={i} className="border-b border-slate-900" data-testid={`decode-row-${i}`}>
+                <td className="py-1 text-slate-500 font-mono">{i + 1}</td>
+                <td className="py-1 font-mono text-cyan-300">{s.binary}</td>
+                <td className="py-1">
+                  <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${
+                    s.status === "complete"      ? "text-emerald-300 border-emerald-500/50 bg-emerald-500/10" :
+                    s.status === "timeout"       ? "text-amber-300 border-amber-500/50 bg-amber-500/10" :
+                    s.status === "size_exceeded" ? "text-orange-300 border-orange-500/50 bg-orange-500/10" :
+                                                    "text-red-300 border-red-500/50 bg-red-500/10"
+                  }`}>{s.status}</span>
+                </td>
+                <td className="py-1 text-right font-mono text-slate-300">{(s.bytes || 0).toLocaleString()}</td>
+                <td className="py-1 text-right font-mono text-slate-300">{s.seconds != null ? `${s.seconds}s` : "—"}</td>
+                <td className="py-1 text-slate-400 max-w-md">{s.message || ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="mt-2 text-[10px] font-mono text-slate-500">
+          Budgets: {(dp.budgets?.max_command_bytes || 0).toLocaleString()} bytes / command ·
+          &nbsp;{dp.budgets?.max_command_seconds}s / command ·
+          &nbsp;{dp.budgets?.max_commands_per_incident} commands / incident
+        </div>
+      </details>
+    </Section>
   );
 }
 

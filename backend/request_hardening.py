@@ -31,11 +31,23 @@ _LLM_PATHS = (
     "/api/moe/analyze",     # MoE panel: 3 parallel Claude reviewers + synth
     "/api/threat-model/enrich",   # threat-model deterministic + MoE enrichment
     "/api/cases/",           # SAVE-with-reinvestigate + /cases/{id}/reinvestigate
+    "/api/v2/auto-investigate",     # deterministic per-command budget already inside
+    "/api/v2/report-writer/",       # invokes auto-investigate internally
 )
 _DEFAULT_TIMEOUT_S = 30
-_LLM_TIMEOUT_S     = 85
+_LLM_TIMEOUT_S     = 120
 # Frontend cap is 500 KB — enforce here too as a hard safety net.
 _MAX_BODY_BYTES    = 512 * 1024
+# Endpoints that legitimately accept large real-world incident text
+# (multi-megabyte PowerShell EncodedCommand payloads, EVTX chunks, etc.).
+# They have their OWN per-command guardrails, so we raise the middleware
+# ceiling for these paths only.
+_LARGE_BODY_PATHS  = (
+    "/api/v2/auto-investigate",
+    "/api/v2/report-writer/",
+    "/api/v2/ingestion/",
+)
+_MAX_LARGE_BODY_BYTES = 50 * 1024 * 1024   # 50 MB
 
 
 def _timeout_for(path: str) -> float:
@@ -51,16 +63,19 @@ class RequestHardeningMiddleware(BaseHTTPMiddleware):
         # Only inspect Content-Length; DO NOT `await request.body()` here
         # (that would break FastAPI's downstream body reading).
         cl = request.headers.get("content-length")
-        if cl and cl.isdigit() and int(cl) > _MAX_BODY_BYTES:
-            log.warning(f"[{rid}] 413 payload_too_large path={request.url.path} cl={cl}")
+        path = request.url.path
+        large_ok = any(path.startswith(p) for p in _LARGE_BODY_PATHS)
+        cap = _MAX_LARGE_BODY_BYTES if large_ok else _MAX_BODY_BYTES
+        if cl and cl.isdigit() and int(cl) > cap:
+            log.warning(f"[{rid}] 413 payload_too_large path={path} cl={cl} cap={cap}")
             return JSONResponse(
                 status_code=413,
                 content={
-                    "detail": f"Payload too large — max {_MAX_BODY_BYTES//1024}KB. "
+                    "detail": f"Payload too large — max {cap//1024}KB. "
                               f"Split into stages via /decode/chain, or reduce input.",
                     "request_id": rid,
                     "content_length": int(cl),
-                    "limit": _MAX_BODY_BYTES,
+                    "limit": cap,
                 },
                 headers={"X-Request-ID": rid},
             )

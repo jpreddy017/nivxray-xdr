@@ -523,21 +523,40 @@ def compose_executive_summary(inv: dict, profile: str = "customer") -> list[str]
         )
 
     # ── 6. Threat Intelligence reputation ──────────────────────
+    rep_by_val = (fis.get("ioc_reputation", {}) or {}).get("by_value", {})
+    rep_sources_total = (fis.get("ioc_reputation", {}) or {}).get("sources", {})
     if hash_txt:
-        ti_matches = quality.get("coverage", {}).get("threat_intel_matches", 0)
-        if ti_matches:
+        hit = rep_by_val.get(hashes[0]) if hashes else None
+        if hit:
+            fam = (hit.get("malware_families") or [None])[0]
+            fam_txt = f" and classified as `{fam}`" if fam else ""
             paras.append(
-                f"The extracted file hash `{hash_txt}` correlated to "
-                f"{ti_matches} external Threat Intelligence source(s), reinforcing "
-                "the malicious classification with independent reputation data."
+                f"The extracted file hash `{hash_txt}` was flagged by "
+                f"**{hit.get('hit_count', 0)}** external Threat Intelligence "
+                f"source(s) — {', '.join(hit.get('sources', []))}"
+                f"{fam_txt}. This independent reputation data confirms the "
+                "malicious classification with sources outside the investigated "
+                "environment."
             )
         else:
             paras.append(
-                f"The extracted file hash `{hash_txt}` should be validated against "
-                "external Threat Intelligence feeds (VirusTotal, Talos, MISP) to "
-                "confirm known-bad reputation and to attribute the sample to a "
-                "specific malware family or campaign."
+                f"The extracted file hash `{hash_txt}` did not correlate to any "
+                "internal OSINT feed at the time of investigation. The hash "
+                "should be re-checked against VirusTotal, Talos, and MISP "
+                "periodically over the coming days as attribution may still emerge."
             )
+    # Network-IOC reputation summary (IPs / domains / URLs)
+    net_hits = [rep_by_val[v] for v in rep_by_val
+                if rep_by_val[v].get("kind") in ("ip", "domain", "url")]
+    if net_hits:
+        srcs = sorted({s for h in net_hits for s in h.get("sources", [])})
+        paras.append(
+            f"**{len(net_hits)}** of the extracted network indicator(s) also "
+            f"matched entries in the local Threat Intelligence store, with "
+            f"reputation data drawn from {', '.join(srcs)}. These indicators "
+            "should be blocked at the perimeter and used for retrospective "
+            "hunting across the fleet."
+        )
     if signed_missing:
         paras.append(
             "Digital signature verification could not confirm a valid Authenticode "

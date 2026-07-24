@@ -12,6 +12,111 @@ own truth.
 
 ---
 
+## 2026-02-27 · Phase 6.7 · Decoder Pipeline Scalability (SHIPPED)
+
+Fixes the "one huge EncodedCommand kills the whole investigation"
+scaling gap. Every extracted command now decodes in isolation with its
+own budget; guardrail breaches produce partial results, never
+timeouts.
+
+### Backend
+- `_run_single_command(cmd)` in `routers/auto_investigate.py`:
+  - ThreadPoolExecutor wraps the Orchestrator call
+  - `MAX_CMD_SECONDS` per-command wall-clock (default 20 s)
+  - `MAX_CMD_BYTES` per-command payload cap (default 25 MB)
+  - Returns `(report_or_None, status_dict)` — status always populated
+- Per-incident guardrails:
+  - `MAX_INCIDENT_BYTES` (default 50 MB)
+  - `MAX_CMDS_PER_INCIDENT` (default 25) — extra commands are dropped
+  - Incident text truncated (never mutated) if it exceeds the cap
+- Response now includes `decode_pipeline`:
+  ```
+  {
+    "statuses": [{binary, status, bytes, seconds, message}, …],
+    "budgets":  {max_command_bytes, max_command_seconds, …},
+    "guardrails_triggered": {timeouts, size_exceeded, errors,
+                             commands_dropped, incident_truncated}
+  }
+  ```
+- Quality Dashboard's `command_analysis.failed_decodes` now reflects
+  real timeouts + size_exceeded + errors (was only exceptions).
+- Command-line capture regex expanded from 600 chars → 20 MB so real
+  EncodedCommand payloads reach the decoder intact.
+
+### Middleware (request_hardening.py)
+- Added `/api/v2/auto-investigate` and `/api/v2/report-writer/` to
+  `_LLM_PATHS` — hard timeout raised to 120 s
+- New `_LARGE_BODY_PATHS` allow-list — auto-investigate, report-writer,
+  and ingestion routes now accept up to 50 MB payloads (was 500 KB global)
+- Every other endpoint keeps the 500 KB / 30 s posture
+
+### Frontend
+- New "DECODER PIPELINE · N commands processed" card on the Auto
+  Investigate page — emerald "all clean" banner OR amber
+  "partial results" banner + expandable per-command table with
+  status pills (COMPLETE / TIMEOUT / SIZE_EXCEEDED / ERROR),
+  bytes, seconds, and analyst-facing message per command.
+- Budgets footer shows the configured limits so analysts always see
+  which policy applied.
+
+### Verified end-to-end
+- 2.7 MB PowerShell EncodedCommand: total 14.5 s (was 500 KB hard cap)
+- 47 MB incident with 20 MB PowerShell command inside: 8.5 s total,
+  all 3 commands COMPLETE, verdict malicious, decode ratio 3/3
+- Empty case: emerald "Every extracted command completed within the
+  configured decode budget" banner
+- All values configurable via env: `NIVX_AUTO_MAX_CMD_BYTES`,
+  `NIVX_AUTO_MAX_CMD_SECONDS`, `NIVX_AUTO_MAX_CMDS`,
+  `NIVX_AUTO_MAX_INCIDENT_BYTES`
+
+---
+
+
+## 2026-02-27 · Phase 6.6 · Automatic OSINT / TI Enrichment (SHIPPED)
+
+Every IOC extracted during AUTO INVESTIGATE is now auto-validated
+against the local `db.iocs` collection (19,424+ indicators from OTX /
+URLhaus / Feodo / BlocklistDE / ThreatFox / MalwareBazaar / AbuseIPDB /
+VirusTotal-Enterprise / Talos, kept fresh by `ti_feed_sync.py`).
+
+### Backend
+- New `_osint_lookup(entities, iocs)` in `routers/auto_investigate.py`:
+  - Exact-value queries — never fuzzy — so reputation can be quoted
+    as observed fact
+  - Returns per-IOC `{sources, hit_count, severity, malware_families,
+    first_seen, last_seen}` plus aggregate `{summary, sources}`
+  - Best-effort — TI outage never breaks the investigation
+- Response now includes `final_incident_summary.ioc_reputation`
+- `investigation_quality.coverage.threat_intel_matches` now reflects
+  real matches instead of a proxy
+- Report writer's inline orchestrator (`_run_investigation_async`)
+  performs the same enrichment so `/report-writer/generate` benefits
+
+### Frontend
+- New "IOC REPUTATION · X of Y matched" section on the Auto Investigate
+  page — table with Kind · Indicator · Sources · Severity · Family · Hits
+- Empty-state message when no matches: "No external Threat Intelligence
+  correlations were available … Recommend re-checking against
+  VirusTotal / Talos / MISP over the coming days."
+
+### Narrative Composer
+- Executive Summary now says (deterministically):
+  > "3 of the extracted network indicator(s) also matched entries in
+  > the local Threat Intelligence store, with reputation data drawn
+  > from otx. These indicators should be blocked at the perimeter…"
+- File-hash paragraph now cites vendor count, sources, and family when
+  a real hit exists
+
+### Verified
+Sample incident with 3 real OTX-known IPs (172.235.128.52,
+179.43.185.226, 209.99.186.235) returned MEDIUM severity across otx,
+malware families `cmsmap`, `blackfile`, `botnet` — surfaced in both
+the FinalIncidentSummary reputation card and the Enterprise Report
+Executive Summary paragraph.
+
+---
+
+
 ## 2026-02-27 · Phase 6.5 · Narrative Template Library (SHIPPED)
 
 Not a new engine. Not an LLM. A deterministic template library that
