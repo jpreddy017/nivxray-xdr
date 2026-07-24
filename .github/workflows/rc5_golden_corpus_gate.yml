@@ -59,7 +59,14 @@ jobs:
         run: |
           cd head/backend
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          # CI runs deterministic tests only — filter Emergent-private
+          # wheels (emergentintegrations, litellm) that live on a private
+          # CDN and aren't needed by any test in the RC5 gate. Mirrors the
+          # pattern already proven in rc4x_quality_gate.yml + rc5_gates.yml.
+          grep -Ev "^(emergentintegrations|litellm)([=<>~ ]|$| @ )" \
+            requirements.txt > requirements-ci.txt
+          pip install -r requirements-ci.txt \
+            --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
 
       - name: Run RC5 test suite on HEAD (must be 100% green)
         run: |
@@ -84,7 +91,13 @@ jobs:
         run: |
           cd base/backend
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          # Same filter as the head-install step above. `|| true` on the
+          # grep so this step still succeeds if the base branch predates
+          # the two private-CDN packages.
+          grep -Ev "^(emergentintegrations|litellm)([=<>~ ]|$| @ )" \
+            requirements.txt > requirements-ci.txt || cp requirements.txt requirements-ci.txt
+          pip install -r requirements-ci.txt \
+            --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
 
       - name: Run Golden Corpus on BASE (best-effort, tolerates schema drift)
         if: github.event_name == 'pull_request'
