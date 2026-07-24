@@ -26,6 +26,7 @@ from v2.verdict import correlate
 from .attack_story import build_attack_story
 from .attack_mapping import build_attack_mapping
 from .explainability import why_is_this, why_is_this_not, list_patterns as list_negative_patterns
+from v2.ikb import all_entries as ikb_all_entries
 
 
 ENGINE_VERSION = {
@@ -43,9 +44,10 @@ class Investigation:
     header: dict[str, Any] = field(default_factory=dict)
     ikg:     dict[str, Any] = field(default_factory=dict)
     verdicts: dict[str, Any] = field(default_factory=dict)
-    story:    list[dict]    = field(default_factory=list)      # Phase 2 view
-    attack_mapping: dict[str, Any] = field(default_factory=dict)  # Phase 2 view
-    explainability: dict[str, Any] = field(default_factory=dict)  # Phase 2 view
+    story:    list[dict]    = field(default_factory=list)
+    attack_mapping: dict[str, Any] = field(default_factory=dict)
+    explainability: dict[str, Any] = field(default_factory=dict)
+    ikb:            dict[str, Any] = field(default_factory=dict)   # NEW Phase 3b
     profile: str = "soc_balanced"
     engine_version: dict[str, str] = field(default_factory=lambda: dict(ENGINE_VERSION))
 
@@ -220,6 +222,20 @@ def build_investigation(frames: list[dict], case_id: str,
         "correlation_bonuses": [b["signal"] for b in (dv.correlation_bonuses if dv else [])],
     }
 
+    # 6 · IKB projection — attach only the KB entries relevant to this
+    #     investigation (matching by binary name on observed process nodes).
+    observed_bins = {(n.attrs.get("name") or n.label or "").lower()
+                     for n in ikg.by_type("process")}
+    relevant_ikb: list[dict] = []
+    for entry in ikb_all_entries():
+        if entry.kind == "windows_binary":
+            if entry.label.lower() in observed_bins:
+                relevant_ikb.append(entry.to_dict())
+        else:
+            # Non-binary entries (Sysmon, LOLBAS, Event 4624/4688, XOR, baselines)
+            # are always attached — analysts always benefit from the context.
+            relevant_ikb.append(entry.to_dict())
+
     return Investigation(
         case_id=case_id,
         header=header,
@@ -232,6 +248,10 @@ def build_investigation(frames: list[dict], case_id: str,
             "positive":         why_is_this(corr.device.to_dict() if corr.device else {},
                                             ikg.stats()),
             "negative_patterns": list_negative_patterns(),
+        },
+        ikb={
+            "count":   len(relevant_ikb),
+            "entries": relevant_ikb,
         },
         profile=prof,
     )

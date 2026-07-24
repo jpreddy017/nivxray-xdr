@@ -30,11 +30,16 @@ SHELL_LIKE = frozenset({
 
 # LOLBins that Office / Browser processes should never legitimately spawn.
 # Extends SHELL_LIKE to cover attacker-abused Windows utilities called out in
-# analyst training (rundll32/regsvr32/certutil/msiexec/wmic/bitsadmin).
+# analyst training + LOLBAS project (lolbas-project.github.io) + recent
+# in-the-wild abuse (Windows Error Reporting, svchost side-loading, etc.).
 OFFICE_LOLBIN_CHILDREN = frozenset({
     "rundll32.exe", "regsvr32.exe", "certutil.exe", "msiexec.exe",
     "wmic.exe",     "bitsadmin.exe", "installutil.exe", "regasm.exe",
     "regsvcs.exe",  "hh.exe",        "csc.exe",         "msbuild.exe",
+    "mavinject.exe", "werfault.exe", "wer.exe",   # WER-abuse (2024-2026 campaigns)
+    "presentationhost.exe", "atbroker.exe", "ie4uinit.exe",
+    "forfiles.exe", "conhost.exe", "cmstp.exe",
+    "explorer.exe",   # Office → explorer is anomalous
 })
 
 OFFICE_PARENTS = frozenset({

@@ -32,6 +32,7 @@ const AttackStoryTab     = lazy(() => import("./AttackStoryTab"));
 const AttackTab          = lazy(() => import("./AttackTab"));
 const ProcessTreeTab     = lazy(() => import("./ProcessTreeTab"));
 const EvidenceCard       = lazy(() => import("./EvidenceCard"));
+const GlobalSearch       = lazy(() => import("./GlobalSearch"));
 import { SelectionProvider, useSelection } from "./SelectionContext";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -94,6 +95,9 @@ function PersistentHeader({ inv, loading, profile, onProfile, profiles }) {
       <HeaderKV label="Chains"    value={h.chain_count ?? "—"} />
 
       <div className="ml-auto flex items-center gap-3">
+        <Suspense fallback={null}>
+          <GlobalSearch inv={inv} />
+        </Suspense>
         {profiles?.length > 0 && (
           <label className="flex items-center gap-2" data-testid="workspace-profile-selector">
             <span className="text-[9px] tracking-[1.4px] font-bold"

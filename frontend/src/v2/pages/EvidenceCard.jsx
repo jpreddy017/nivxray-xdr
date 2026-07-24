@@ -72,6 +72,17 @@ export default function EvidenceCard({ inv }) {
     return { eventNode, processNode };
   }, [selection, nodeById, edges]);
 
+  // IKB lookup — HAS to be called before any early return (rules of hooks).
+  const kbEntry = useMemo(() => {
+    const pn = view?.processNode;
+    if (!pn) return null;
+    const label = String(pn.label || "").toLowerCase();
+    for (const e of (inv?.ikb?.entries || [])) {
+      if (e.kind === "windows_binary" && e.label?.toLowerCase() === label) return e;
+    }
+    return null;
+  }, [view, inv]);
+
   if (!selection || !view || (!view.eventNode && !view.processNode)) return null;
 
   const { eventNode, processNode } = view;
@@ -216,6 +227,53 @@ export default function EvidenceCard({ inv }) {
             {processVerdictNode.attrs?.explanation && (
               <Row label="Explanation"
                    value={processVerdictNode.attrs.explanation} mono={false} />
+            )}
+          </Section>
+        )}
+
+        {kbEntry && (
+          <Section label="Knowledge Base">
+            <Row label="Category"    value={kbEntry.category}    mono={false} />
+            <Row label="Description" value={kbEntry.description} mono={false} />
+            {kbEntry.common_abuse?.length > 0 && (
+              <div className="mt-2">
+                <div className="text-[9px] tracking-[1.2px] font-bold mb-1"
+                     style={{ color: T.inkMute }}>KNOWN ABUSE PATTERNS</div>
+                <div className="space-y-1">
+                  {kbEntry.common_abuse.slice(0, 4).map((a, i) => (
+                    <div key={i} className="text-[10px]" style={{ color: T.inkDim }}
+                         data-testid={`ec-kb-abuse-${i}`}>
+                      <span className="font-mono font-bold"
+                            style={{ color: a.severity === "critical" ? "#F87171"
+                                          : a.severity === "high"     ? "#F5A34C"
+                                                                       : "#D4C069" }}>
+                        [{a.severity}]
+                      </span>{" "}
+                      <span style={{ color: T.ink }}>{a.pattern}</span>
+                      {a.reason && (
+                        <span style={{ color: T.inkFaint }}> — {a.reason}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {kbEntry.detection_guidance?.length > 0 && (
+              <div className="mt-2">
+                <div className="text-[9px] tracking-[1.2px] font-bold mb-1"
+                     style={{ color: T.inkMute }}>DETECTION GUIDANCE</div>
+                {kbEntry.detection_guidance.slice(0, 3).map((g, i) => (
+                  <div key={i} className="text-[10px]" style={{ color: T.inkDim }}>
+                    · {g}
+                  </div>
+                ))}
+              </div>
+            )}
+            {kbEntry.references?.length > 0 && (
+              <div className="mt-2 text-[9px] font-mono"
+                   style={{ color: T.inkFaint }}>
+                {kbEntry.references.length} reference(s) · IKB v1
+              </div>
             )}
           </Section>
         )}

@@ -12,7 +12,96 @@ own truth.
 
 ---
 
-## 2026-02-24 · Phase 3a · Selection Context + Evidence Card + Process Tree (SHIPPED)
+## 2026-02-24 · Phase 3b · Investigation Knowledge Base (IKB) seed corpus (SHIPPED)
+
+Strategic pivot: architecture is now mature. Future value comes from
+**detection intelligence** (IKB corpus), not more UI.
+
+### IKB corpus · 10 seed entries
+
+`/app/backend/v2/ikb/{schema.py, entries.py}` — structured, machine-readable
+domain knowledge. Every entry conforms to a single schema and is consumed
+by signals, story, explainability, and (Phase 5) ingestion.
+
+Entries shipped:
+1. `telemetry_source:sysmon`               — every Sysmon Event ID → IKG mapping.
+2. `windows_event:4624`                    — successful logon (all logon types + fields).
+3. `windows_event:4688`                    — process creation (with GPO cmdline-audit).
+4. `windows_binary:svchost.exe`            — service-host semantics, flags, abuse.
+5. `windows_binary:werfault.exe`           — WER-abuse (BleepingComputer 2024-2026).
+6. `lolbas:corpus`                         — LOLBAS project · principle + high-risk bins.
+7. `decoder:xor`                           — XOR cipher decode strategy.
+8. `enterprise_baseline:windows_update`    — legitimate WU baseline.
+9. `enterprise_baseline:onedrive`          — cloud-sync baseline.
+10. `enterprise_baseline:chrome_updater`   — Chrome auto-update baseline.
+
+Each entry declares: `normal_behavior`, `common_abuse[]` (with severity +
+MITRE), `detection_guidance[]`, `false_positives[]`, `mitre[]`,
+`correlation_rules[]`, `references[]`. Full reference-link provenance
+preserved for every entry.
+
+### Backend endpoints
+
+- `GET /api/v2/ikb`            — list all entries (10)
+- `GET /api/v2/ikb/{entry_id}` — single entry lookup
+- `investigation.ikb` — the Investigation response now carries a filtered
+  view: windows_binary entries auto-attach when observed on the device;
+  non-binary entries (Sysmon, LOLBAS, 4624/4688, XOR, baselines) are
+  always attached. Live case surfaces 8 relevant entries.
+
+### Frontend wiring
+
+- **Evidence Card** now shows a `Knowledge Base` section whenever the
+  selected process has a matching KB entry. Displays category,
+  description, top-4 abuse patterns (severity-colored), top-3 detection
+  guidance lines, and reference count.
+- **Global Search** now includes IKB entries as `IKB` results (purple
+  pill). Searching "svchost" surfaces both the observed process AND its
+  KB entry side-by-side.
+
+### Tests: 54/54 green
+
+`test_verdict_v3.py` (9) · `test_verdict_v3_correlation.py` (12) ·
+`test_verdict_v3_1b.py` (14) · `test_investigation_ikg.py` (10) ·
+`test_investigation_phase2.py` (9). RC5: untouched.
+
+---
+
+## Updated strategic roadmap (locked per operator direction)
+
+**Track A — Product (architecture frozen)**
+- Phase 3b remaining · Evidence Graph · Trajectory back-sync
+- Phase 4 · Summary tab · Verdict tab · Reports (IKG-driven)
+- Phase 4.5 · Analyst Notes · Saved Investigation Views · Bookmarks
+
+**Track B — Detection Intelligence (primary investment)**
+- Phase 5 · Expand IKB corpus:
+  * Volumes 1-11 outlined in the operator brief (Process · Sysmon Event IDs
+    · Windows Security Event IDs · Registry persistence · Network · Files
+    · Users/Sessions/Auth · Persistence catalog · MITRE mapping · TI ·
+    False-positive engineering).
+  * Enterprise baselines: Windows Update ✓ · OneDrive ✓ · Chrome Updater ✓
+    · Microsoft Defender · SCCM · Intune · Backup Agents · VMware Tools ·
+    Citrix · VPN Clients (pending).
+  * Detection rule imports: Sigma · Snort · YARA.
+
+**Track C — Ingestion (Phase 6)**
+Investigation Ingestion Engine — drag-and-drop upload accepting EVTX,
+JSON, CSV, TXT, LOG, XML, ZIP, Sysmon exports, Cisco SEP, Microsoft
+Defender, CrowdStrike, SentinelOne, Splunk, QRadar. Every source
+normalises into the canonical IKG schema. Once shipped, an analyst can
+drop a ZIP of logs and get the full workspace + report auto-populated.
+
+**Frozen · will NOT change**
+- Investigation Knowledge Graph (IKG) — schema
+- SelectionContext — selection propagation model
+- Evidence Card — universal drill-down component
+- Unified Workspace shell — layout, tab strip, explainability rail
+- Verdict Engine v3.1b — deterministic scoring
+
+---
+
+
 
 Rated 9.8-9.9/10 on architecture. Phase 3a delivers the cross-view
 synchronisation foundation and the two most-important navigation-hub
