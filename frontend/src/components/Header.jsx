@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth";
 import {
   LogOut, LayoutGrid, Cog, Sparkles, Beaker, Terminal, BookOpen,
   KeyRound, Rss, TestTube, GraduationCap, Grid, Wrench, Library, Gauge, FolderOpen,
-  BarChart3, Battery, Radar,
+  BarChart3, Battery, Radar, Upload, ShieldCheck,
 } from "lucide-react";
 
 export default function Header() {
@@ -22,7 +22,9 @@ export default function Header() {
   // (variant="nav") so all pages inherit the DetectFlow design system.
   const primary = [
     { key: "workspace",  href: "/",           label: "WORKSPACE",  icon: LayoutGrid, testId: "nav-workspace" },
+    { key: "ingest",     href: "/v2/ingest",  label: "INGEST",     icon: Upload,     testId: "nav-ingest" },
     { key: "trajectory", href: "/v2/trajectory", label: "TRAJECTORY", icon: Radar,   testId: "nav-trajectory" },
+    { key: "validation", href: "/v2/validation", label: "VALIDATION", icon: ShieldCheck, testId: "nav-validation" },
     { key: "dashboard",  href: "/dashboard",  label: "DASHBOARD",  icon: BarChart3,  testId: "nav-dashboard" },
     { key: "batch",      href: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
     { key: "heatmap",    href: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
