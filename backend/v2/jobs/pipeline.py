@@ -34,8 +34,7 @@ from v2.decoded_artifacts import (
 from v2.enrichment.strings_extractor import enrich_report as _enrich_report
 from v2.semantic.ps_semantic import analyze as _ps_semantic_analyze
 from v2.mdr.incident_parser import (
-    parse_events as _mdr_parse_events,
-    build_timeline as _mdr_build_timeline,
+    parse_events as _mdr_parse_events,    build_timeline as _mdr_build_timeline,
     compose_executive_summary as _mdr_exec_summary,
     derive_recommendations as _mdr_recommendations,
     escalation_decision as _mdr_escalation,
@@ -518,10 +517,15 @@ async def run_investigation_with_progress(
     # decision — replacing the old "count IOCs" behaviour with the
     # investigation output an MDR analyst would produce.
     try:
-        mdr_events = _mdr_parse_events(raw)
+        from v2.investigation.normalizers import normalize as _v2_normalize
+        mdr_events = _v2_normalize(raw)
     except Exception as e:  # noqa: BLE001
-        log.warning("MDR parse_events failed: %s", e)
-        mdr_events = []
+        log.warning("v2 normalize failed, falling back to regex: %s", e)
+        try:
+            mdr_events = _mdr_parse_events(raw)
+        except Exception as e2:  # noqa: BLE001
+            log.warning("MDR parse_events failed: %s", e2)
+            mdr_events = []
     mdr_timeline = _mdr_build_timeline(mdr_events) if mdr_events else []
     # URL classification — separates attacker infra from reference /
     # vendor URLs so recommendations never propose blocking cisco.com.

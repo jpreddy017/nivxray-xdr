@@ -797,6 +797,8 @@ def _probable_initial_access(im: dict) -> dict:
                           "assessment."),
             "confidence": "None",
             "evidence":   [],
+            "vector":     "Insufficient evidence",
+            "ruled_out":  [],
         }
     txt = " ".join((e.get("process","") + " " + e.get("parent_process","") + " " +
                     e.get("command_line","")).lower() for e in events)
@@ -813,7 +815,8 @@ def _probable_initial_access(im: dict) -> dict:
                 "Additional authentication events (Windows Event IDs 4624 / 4625 / 4776), "
                 "WinRM operational logs, and firewall records for the affected endpoint "
                 "are required to confirm the initial access vector.")
-        return {"paragraph": para, "confidence": conf, "evidence": ev}
+        return {"paragraph": para, "confidence": conf, "evidence": ev,
+                "vector": "Remote WinRM / PowerShell Remoting", "ruled_out": []}
     if any(o in txt for o in ("winword", "excel", "outlook", "powerpnt")):
         ev.append("Office application observed as ancestor process")
         return {"paragraph": (
@@ -822,7 +825,8 @@ def _probable_initial_access(im: dict) -> dict:
             "phishing / macro-enabled document delivery. Confirmation requires the original "
             "email artefact, the document itself, and the user's browsing history around the "
             "detection timestamp."),
-                "confidence": "Medium", "evidence": ev}
+                "confidence": "Medium", "evidence": ev,
+                "vector": "Phishing / macro-enabled document", "ruled_out": []}
     if "msiexec" in txt:
         ev.append("`msiexec.exe` observed running with a remote package URL")
         return {"paragraph": (
@@ -830,13 +834,55 @@ def _probable_initial_access(im: dict) -> dict:
             "remote package is consistent with a software-installation vector. Additional "
             "context — whether the installation was initiated by the user, a management tool, "
             "or an attacker-supplied link — is required to confirm."),
-                "confidence": "Medium", "evidence": ev}
+                "confidence": "Medium", "evidence": ev,
+                "vector": "Remote MSI installation", "ruled_out": []}
     return {"paragraph": (
         "Probable Initial Access: The available telemetry does not surface a single "
         "high-confidence initial-access candidate. Additional evidence from authentication "
         "logs, browser history, and email-security telemetry is required before an "
         "initial-access vector can be attributed."),
-            "confidence": "Low", "evidence": []}
+            "confidence": "Low", "evidence": [], "vector": "Initial access cannot be determined",
+            "ruled_out": []}
+
+
+# ── Known vs Unknown (Cisco MDR staple) ──────────────────────────
+def _known_vs_unknown(im: dict, files: list[dict], entcls: dict, ia: dict) -> dict:
+    events = im.get("raw_events") or []
+    known: list[str] = []
+    unknown: list[str] = []
+    if events and events[0].get("detection_name"):
+        known.append(
+            f"{events[0].get('source') or 'Endpoint sensor'} detection "
+            f"`{events[0]['detection_name']}` raised at "
+            f"{events[0].get('ts_raw') or 'unknown time'}")
+    if any(f.get("classification") == "Executed" for f in files):
+        known.append("Execution telemetry present — payload ran on the endpoint")
+    if any(f.get("classification") == "Quarantined" for f in files):
+        known.append("Endpoint agent quarantined the file before execution")
+    for e in events[:1]:
+        if e.get("parent_process") and e.get("process"):
+            known.append(f"Process chain observed: `{e['parent_process']}` → `{e['process']}`")
+    if (entcls.get("iocs") or {}).get("urls"):
+        known.append(f"{len(entcls['iocs'].get('urls', []))} attacker-controlled URL(s) surfaced")
+    if im.get("ti"):
+        known.append(f"{len(im['ti'])} threat-intelligence correlation(s) identified")
+
+    if not any(f.get("classification") == "Executed" for f in files):
+        unknown.append("Whether the detected payload actually executed on the endpoint")
+    if ia.get("confidence") in ("Low", "Medium", "None"):
+        unknown.append(
+            f"How the initial access was obtained "
+            f"(current attribution confidence: {ia.get('confidence')})")
+    if not im.get("auth"):
+        unknown.append("Whether the associated user credentials were compromised or misused")
+    if not im.get("network") or not any(
+            n.get("classification") in ("attacker", "unknown")
+            for n in (im.get("network") or [])):
+        unknown.append("Whether additional payloads were downloaded from attacker infrastructure")
+    if not any(e.get("user") for e in events):
+        unknown.append("Which user account initiated the observed activity")
+    unknown.append("Whether the observed administrative activity was authorised by the customer")
+    return {"known": known, "unknown": unknown}
 
 
 # ── Investigation Conclusion ──────────────────────────────────────
@@ -940,7 +986,8 @@ def compose_report(im: dict) -> dict:
         return {
             "confidence":             {},
             "executive_summary":      [],
-            "probable_initial_access": {"paragraph": "", "confidence": "None", "evidence": []},
+            "known_vs_unknown":       {"known": [], "unknown": []},
+            "probable_initial_access": {"paragraph": "", "confidence": "None", "evidence": [], "vector": "", "ruled_out": []},
             "investigation_summary":  [],
             "timeline":               [],
             "attack_story":           [],
@@ -973,12 +1020,14 @@ def compose_report(im: dict) -> dict:
     recs      = _recommendations(im, tl, files)
     neg       = _negative_findings(im, files, entcls)
     ia        = _probable_initial_access(im)
+    kvu       = _known_vs_unknown(im, files, entcls, ia)
     conclusion = _investigation_conclusion(im, files, entcls, recs, neg)
     conf      = _investigation_confidence(im, files, entcls, recs)
 
     return {
         "confidence":           conf,
         "executive_summary":    _executive_summary(im, tl, entcls, files),
+        "known_vs_unknown":     kvu,
         "probable_initial_access": ia,
         "investigation_summary":_investigation_summary(im, tl, entcls, files),
         "timeline":             tl,

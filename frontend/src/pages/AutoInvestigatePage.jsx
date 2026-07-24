@@ -2490,6 +2490,14 @@ function InvestigationReport({ report }) {
         <InvestigationConfidenceCard confidence={report.confidence} />
       )}
 
+      {/* Known vs Unknown — clear evidence/gaps separation */}
+      {report.known_vs_unknown && (
+        (report.known_vs_unknown.known?.length > 0 ||
+         report.known_vs_unknown.unknown?.length > 0) && (
+          <KnownVsUnknownSection kvu={report.known_vs_unknown} />
+        )
+      )}
+
       {/* §1 Executive Summary */}
       {report.executive_summary?.length > 0 && (
         <ReportSectionCard num="1" title="EXECUTIVE SUMMARY" tone="emerald"
@@ -3040,6 +3048,52 @@ function ObservedIocsSection({ iocs, counts }) {
         </div>
       )}
     </ReportSectionCard>
+  );
+}
+
+function KnownVsUnknownSection({ kvu }) {
+  return (
+    <section className="border border-cyan-500/40 rounded-xl bg-slate-950/70 shadow-lg shadow-cyan-500/10 overflow-hidden"
+             data-testid="known-vs-unknown">
+      <header className="px-5 py-3 border-b border-slate-800 flex items-baseline gap-3">
+        <span className="text-[10px] tracking-[0.28em] font-bold text-cyan-300">
+          KNOWN vs UNKNOWN
+        </span>
+        <span className="text-[10px] text-slate-500 ml-auto">
+          evidence-backed facts vs unanswered questions
+        </span>
+      </header>
+      <div className="px-5 py-4 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div data-testid="kvu-known">
+          <div className="text-[10px] uppercase tracking-widest font-bold text-emerald-300 mb-2">
+            Known · evidence-backed
+          </div>
+          <ul className="space-y-1.5">
+            {kvu.known?.length ? kvu.known.map((k, i) => (
+              <li key={i} className="text-[12px] text-slate-100 flex gap-2 items-start"
+                  data-testid={`known-${i}`}>
+                <span className="text-emerald-400 mt-0.5">✓</span>
+                <span dangerouslySetInnerHTML={{ __html: _inlineMd(k) }} />
+              </li>
+            )) : <li className="text-[12px] text-slate-500 italic">No structured evidence surfaced.</li>}
+          </ul>
+        </div>
+        <div data-testid="kvu-unknown">
+          <div className="text-[10px] uppercase tracking-widest font-bold text-amber-300 mb-2">
+            Unknown · unanswered
+          </div>
+          <ul className="space-y-1.5">
+            {kvu.unknown?.length ? kvu.unknown.map((u, i) => (
+              <li key={i} className="text-[12px] text-slate-100 flex gap-2 items-start"
+                  data-testid={`unknown-${i}`}>
+                <span className="text-amber-400 mt-0.5">?</span>
+                <span dangerouslySetInnerHTML={{ __html: _inlineMd(u) }} />
+              </li>
+            )) : <li className="text-[12px] text-slate-500 italic">No open questions identified.</li>}
+          </ul>
+        </div>
+      </div>
+    </section>
   );
 }
 

@@ -1,5 +1,59 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-24 · Phase 7.3 · Cross-Source Consistency + Reasoning Engine (SHIPPED)
+
+Highest-priority pivot per analyst review: NivXRay is now vendor-agnostic.
+Same investigation quality regardless of the security product that emitted
+the telemetry.
+
+### Vendor Normalization Layer (new)
+- `v2/investigation/normalizers.py` — deterministic adapters for
+  **Cisco XDR · Cisco Secure Endpoint · CrowdStrike Falcon · Microsoft
+  Defender · SentinelOne · Sysmon · QRadar · Splunk · Generic JSON**.
+- Auto-detection by signature keys (e.g. `falcon_host_link` +
+  `device_id` + `behaviors` → CrowdStrike).
+- Extracts every JSON block embedded in the pasted incident text, runs
+  the adapter, then folds the regex-parsed text-only fields on top.
+  Result: a single `list[IncidentEvent]` fed into the same
+  Investigation Model + Narrative Engine.
+- Verified live: CrowdStrike Falcon JSON produces the identical
+  Cisco-MDR-quality Executive Summary, Investigation Summary, Timeline,
+  Attack Story, Technical Findings, MITRE-by-tactic, Recommendations,
+  and Investigation Conclusion.
+
+### Root-cause reasoning engine (new)
+- `v2/investigation/report.py::_ia_signals()` + `_IA_VECTORS`
+- Signal-based scoring — 13 candidate vectors declare `required` +
+  `supporting` signals. The engine picks the top-scoring vector; if no
+  vector meets its required-threshold, the report explicitly says the
+  initial access cannot be determined and lists what evidence would be
+  needed.
+- Vectors covered: WinRM · RDP · SSH · PsExec · SMB · WMI · Phishing ·
+  MSI · Web download · Email attachment · USB · Scheduled Task · VPN.
+- Confidence bands: High ≥ 85 · Medium ≥ 65 · Low < 65 — anchored to
+  concrete signal counts, not templates.
+
+### Known vs Unknown (new)
+- `_known_vs_unknown()` — deterministic split of what evidence supports
+  ("Process chain observed", "Endpoint quarantined the file") vs what
+  remains unanswered ("Whether the payload executed", "How initial
+  access was obtained").
+- New `<KnownVsUnknownSection>` at the top of the report, right below
+  the Confidence card.
+
+### Verified live in preview
+- 18 report data-testids rendering on a CrowdStrike Falcon JSON input.
+- Executive Summary correctly opens with "CrowdStrike Falcon detected
+  credential_theft on host WKS-HR-04 under user account backup_EA".
+- Reasoning engine returned "Remote WinRM / PowerShell Remoting" at
+  Medium confidence with two evidence bullets.
+- Known list: 5 evidence-backed facts. Unknown list: 4 unanswered
+  questions.
+
+---
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-24 · Phase 7.2 · Cisco-MDR Grade Investigation (SHIPPED)
 
 Closes the last 1.5 points of the analyst review. All changes are report
@@ -1198,63 +1252,3 @@ Telemetry → Normalize → Decode → Execution Graph → Verdict Engine
   13 node types (process/file/registry/network/module/service/task/event/
   technique/tactic/verdict/device/incident) and 14 edge verbs
   (created/modified/deleted/contacted/loaded/installed/spawned/executed_by/
-  maps_to/covers/contributes_to/rollup_of/hosted_on/part_of).
-- `v2/investigation/builder.py` — composes telemetry → IRG enrichment →
-  verdict engine → correlation engine → IKG. Emits an `Investigation`
-  object carrying `header`, `ikg`, `verdicts`, `profile`, `engine_version`.
-- `v2/routers/investigation.py` — new endpoint
-  `GET /api/v2/cases/{case_id}/investigation?profile=<id>`.
-- Wired into `server.py`. All 820 RC5 tests + 35 verdict tests unchanged.
-
-**Live smoke on `case_dfir_bumblebee_akira_2026`:**
-- IKG: 131 nodes / 209 edges
-- Node types: incident 1 · device 1 · process 21 · file 5 · network 1 ·
-  event 53 · technique 21 · verdict 28
-- Edge types: part_of · hosted_on · executed_by · spawned · maps_to ·
-  modified · contacted · deleted · contributes_to · rollup_of
-- Header: severity=critical · device_score=87 · incident_score=87 · conf=100%
-
-### Frontend
-
-- `v2/pages/InvestigationWorkspace.jsx` — the workspace shell.
-  * Persistent header (Case · Severity · Device Risk · Incident Risk ·
-    Confidence · Verdict · Events · Processes · Chains · Profile picker
-    · engine chip).
-  * URL-driven tab router (`?tab=<view>`) — shareable deep links.
-  * Tab strip: Summary · Device Trajectory · Process Tree · Attack Story ·
-    Evidence Graph · Verdict · ATT&CK · Threat Intelligence · Reports
-    (7 of them marked `·soon` for Phase 2-5; Trajectory active).
-  * Trajectory tab embeds the existing `DeviceTrajectoryV2` canvas with
-    ZERO refactor.
-  * Global collapsible **Explainability panel** — deterministic
-    "Why is this <band>?" reasoning built from the IKG (top-3 evidence
-    signals + correlation bonuses + progressions + tactic coverage).
-  * Footer strip with IKG version, profile, and legacy-trajectory link
-    (proves nothing was removed).
-- `App.js` — new route `/v2/case/:caseId`. All existing routes untouched.
-
-**Tests:**
-- `tests/test_investigation_ikg.py` — 10/10 green (edge dedup · type
-  validation · builder end-to-end · determinism · spawn edges · verdict
-  hierarchy · profile flow-through · engine version).
-
-**All previous verdict / correlation suites still 35/35 green.**
-
----
-
-## 2026-02-24 · Verdict Engine v3.1b — FROZEN
-
-Rated 9.6/10 by the operator. No further engine changes except bug
-fixes. See git log for full v3 → v3.1 → v3.1b history:
-- v3   — Deterministic per-event scoring, 7 families, 7-band output.
-- v3.1 — Multi-event correlation (Event → Process → Chain → Device → Incident).
-- v3.1b — Office LOLBin parents · Attack progression matcher · 6 Adaptive
-          weight profiles · Score-escalation ladder · ATT&CK coverage
-          wheel · Legacy-vs-modern verdict comparison UI.
-
----
-
-## Backlog · Prioritised roadmap (adjusted per operator direction)
-
-### Phase 2 — Storytelling + Explainability activation
-- **Attack Story tab** — deterministic sentence generator that traverses
