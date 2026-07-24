@@ -88,6 +88,7 @@ async def upsert_artifact(
     report_dict: dict,
     job_id: str | None = None,
     source: str = "AUTO_INVESTIGATE",
+    pipeline_version: str = "",
 ) -> tuple[str, bool]:
     """Insert (or refresh) an artifact keyed by SHA-256 of the command
     line. Returns `(sha256, was_new)`. `was_new` is False for a cache hit
@@ -120,6 +121,7 @@ async def upsert_artifact(
         "command_line":   command_line[:2048],
         "command_full_bytes": len(command_line.encode("utf-8", errors="ignore")),
         "report":         report_dict,
+        "pipeline_version": pipeline_version,
         **_report_summary(report_dict),
         "provenance": {
             "first_seen":   now,

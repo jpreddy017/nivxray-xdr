@@ -71,7 +71,32 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
     """
     cmdline = cmd.get("command_line") or ""
     sha = _sha256_of(cmdline)
+    # Feb-2026 · Pipeline version tag. Bump this whenever a decoder /
+    # archetype change should invalidate previously cached artifacts.
+    PIPELINE_VERSION = "v3-archetype-bridge"
     cached = await _artifact_get(sha)
+    # Cache-invalidation guard. Any artifact cached BEFORE the archetype
+    # bridge shipped has `layers == 0` for inputs the archetypes can now
+    # decode. Force a fresh run whenever a cached report either
+    # (a) predates the current pipeline version or (b) recovered zero
+    # layers — the deterministic engine has probably been upgraded since
+    # then and deserves another shot.
+    if cached and cached.get("report"):
+        _rep = cached["report"] or {}
+        _layers = len(_rep.get("trace") or [])
+        _cached_version = cached.get("pipeline_version") or ""
+        if _layers == 0 or _cached_version != PIPELINE_VERSION:
+            log.info("cache invalidated sha=%s layers=%s ver=%s → re-running",
+                     sha, _layers, _cached_version)
+            # DELETE the stale doc so the upcoming upsert writes a fresh
+            # report — the default upsert path only bumps provenance
+            # when a doc already exists.
+            try:
+                from deps import db as _db
+                await _db["v2_decoded_payloads"].delete_one({"_id": sha})
+            except Exception as e:  # noqa: BLE001
+                log.warning("stale cache delete failed sha=%s: %s", sha, e)
+            cached = None
     if cached and cached.get("report"):
         try:
             report = AnalystReport(**cached["report"])
@@ -84,6 +109,7 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
                 command_line=cmdline,
                 report_dict=cached["report"],
                 job_id=job_id,
+                pipeline_version=PIPELINE_VERSION,
             )
             status = {
                 "binary": cmd.get("binary"),
@@ -152,6 +178,7 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
                 command_line=cmdline,
                 report_dict=report_dict,
                 job_id=job_id,
+                pipeline_version=PIPELINE_VERSION,
             )
         except Exception as e:  # noqa: BLE001
             log.warning("artifact upsert failed sha=%s: %s", sha, e)
