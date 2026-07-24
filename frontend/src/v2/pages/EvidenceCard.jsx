@@ -24,6 +24,52 @@ const BAND_TONES = {
   suspicious: "#F5A34C", malicious: "#F87171", critical: "#FCA5A5",
 };
 
+// ─── MITRE technique ID → human-readable name (analyst-friendly).
+// The engine emits IDs; analysts read this dictionary.
+const TECHNIQUE_NAMES = {
+  T1003:     "OS Credential Dumping",
+  "T1003.001":"LSASS Memory",
+  T1021:     "Remote Services",
+  "T1021.002":"SMB / Admin Shares",
+  "T1021.006":"WinRM",
+  T1027:     "Obfuscated Files or Information",
+  T1041:     "Exfiltration Over C2",
+  T1053:     "Scheduled Task/Job",
+  "T1053.005":"Scheduled Task",
+  T1059:     "Command and Scripting Interpreter",
+  "T1059.001":"PowerShell",
+  "T1059.003":"Windows Command Shell",
+  "T1059.005":"Visual Basic",
+  T1071:     "Application Layer Protocol",
+  "T1071.001":"Web Protocols",
+  T1082:     "System Information Discovery",
+  T1105:     "Ingress Tool Transfer",
+  T1140:     "Deobfuscate/Decode Files",
+  T1197:     "BITS Jobs",
+  T1218:     "Signed Binary Proxy Execution",
+  "T1218.005":"Mshta",
+  "T1218.007":"Msiexec",
+  "T1218.010":"Regsvr32",
+  "T1218.011":"Rundll32",
+  T1486:     "Data Encrypted for Impact",
+  T1490:     "Inhibit System Recovery",
+  T1543:     "Create or Modify System Process",
+  "T1543.003":"Windows Service",
+  T1547:     "Boot or Logon Autostart Execution",
+  "T1547.001":"Registry Run Keys / Startup Folder",
+  "T1547.004":"Winlogon Helper DLL",
+  T1562:     "Impair Defenses",
+  "T1562.001":"Disable or Modify Tools",
+};
+
+const techName = (id) => TECHNIQUE_NAMES[id] || TECHNIQUE_NAMES[String(id).split(".",1)[0]] || "";
+
+// Any label starting with `ent_`, `proc_`, `evt_`, `net_`, `file_`, `reg_`
+// is an internal graph iid → never surface it. Fallback = the type label.
+const _INTERNAL_ID_RE = /^(ent|proc|evt|net|file|reg|cmd|user|dev)_[0-9a-f]{4,}/i;
+const readableName = (label, fallback = "process") =>
+  (!label || _INTERNAL_ID_RE.test(String(label))) ? fallback : String(label);
+
 function Row({ label, value, mono = true }) {
   if (value === null || value === undefined || value === "") return null;
   return (
@@ -49,8 +95,69 @@ function Section({ label, children }) {
   );
 }
 
+// Kill-chain order — the visual progress bar walks these left → right.
+const KILL_CHAIN = [
+  { key: "initial_access",    short: "Initial Access" },
+  { key: "execution",         short: "Execution" },
+  { key: "persistence",       short: "Persistence" },
+  { key: "defense_evasion",   short: "Defense Evasion" },
+  { key: "credential_access", short: "Credential Access" },
+  { key: "discovery",         short: "Discovery" },
+  { key: "lateral_movement",  short: "Lateral Movement" },
+  { key: "c2",                short: "C2" },
+  { key: "impact",            short: "Impact" },
+];
+
+// Human-friendly label for the "current stage" indicator on the Case Status.
+function currentStage(summary) {
+  const observed = KILL_CHAIN.filter(k => summary[k.key]);
+  return observed.length ? observed[observed.length - 1].short : "Reconnaissance";
+}
+
+function AttackProgress({ summary }) {
+  const observed = new Set(KILL_CHAIN.filter(k => summary[k.key]).map(k => k.key));
+  const pct = Math.round((observed.size / KILL_CHAIN.length) * 100);
+  return (
+    <div data-testid="attack-progress">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[9px] tracking-[1.5px] font-bold"
+              style={{ color: T.inkMute }}>ATTACK PROGRESS</span>
+        <span className="text-[10px] font-mono font-bold"
+              style={{ color: T.ink }}>{observed.size}/{KILL_CHAIN.length} · {pct}%</span>
+      </div>
+      <div className="flex gap-0.5 mb-2">
+        {KILL_CHAIN.map(k => (
+          <div key={k.key}
+               data-testid={`ap-cell-${k.key}`}
+               title={`${k.short} · ${observed.has(k.key) ? "OBSERVED" : "not observed"}`}
+               className="flex-1 h-2 rounded-sm"
+               style={{ background: observed.has(k.key)
+                                    ? "#F87171"
+                                    : "rgba(255,255,255,0.06)" }} />
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-x-2 gap-y-0.5">
+        {KILL_CHAIN.map(k => {
+          const hit = observed.has(k.key);
+          return (
+            <div key={k.key} className="flex items-center gap-1 text-[10px] font-mono">
+              <span style={{ color: hit ? "#F87171" : T.inkFaint }}>
+                {hit ? "✔" : "·"}
+              </span>
+              <span style={{ color: hit ? T.ink : T.inkMute }}>
+                {k.short}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
 // ─── Case Overview (empty-selection default) ──────────────────────
-function CaseOverview({ inv, caseId, onDownload }) {
+function CaseOverview({ inv, caseId, onDownload, onTacticSelect }) {
   const h = inv?.header || {};
   const band = h.verdict_band || "benign";
   const tone = BAND_TONES[band] || BAND_TONES.benign;
@@ -64,6 +171,7 @@ function CaseOverview({ inv, caseId, onDownload }) {
       registry:  nodes.filter(n => n.type === "registry").length,
       network:   nodes.filter(n => n.type === "network").length,
       techniques:nodes.filter(n => n.type === "technique").length,
+      evidence:  nodes.filter(n => ["file","registry","network"].includes(n.type)).length,
     };
   }, [ikg]);
 
@@ -75,6 +183,17 @@ function CaseOverview({ inv, caseId, onDownload }) {
 
   // ── Executive summary attribution (each phase → binary+technique) ──
   const summary = useMemo(() => extractExecutiveSummary(inv), [inv]);
+
+  // "Investigation Complete" heuristic — presence of core artefacts.
+  const investComplete = useMemo(() => {
+    let hit = 0, total = 5;
+    if ((h.event_count || 0) > 0)        hit++;
+    if (counts.processes > 0)            hit++;
+    if (counts.techniques > 0)           hit++;
+    if (story.length > 0)                hit++;
+    if (h.confidence != null)            hit++;
+    return Math.round(hit / total * 100);
+  }, [h, counts, story]);
 
   const recommendation = useMemo(() => {
     if (band === "critical" || band === "malicious") {
@@ -89,28 +208,59 @@ function CaseOverview({ inv, caseId, onDownload }) {
     return "No malicious activity observed. Case may be closed after standard analyst review.";
   }, [band]);
 
+  const stage = currentStage(summary);
+
   return (
     <>
-      <Section label="Executive Summary">
-        <Row label="Attack Confidence"
-             value={h.confidence != null ? `${h.confidence}%` : "—"} />
-        <Row label="Attack Duration"  value={summary.duration || "—"} />
-        <Row label="Risk"             value={String(band).toUpperCase()} />
-        <Row label="Initial Access"   value={summary.initial_access || "—"} />
-        <Row label="Execution"        value={summary.execution || "—"} />
-        <Row label="Persistence"      value={summary.persistence || "—"} />
-        <Row label="Credential Access" value={summary.credential_access || "—"} />
-        <Row label="Defense Evasion"  value={summary.defense_evasion || "—"} />
-        <Row label="C2"               value={summary.c2 || "—"} />
-        <Row label="Impact"           value={summary.impact || "—"} />
+      {/* Case Status — the "dashboard within the case". */}
+      <div className="rounded-md px-3 py-2.5 mb-1"
+           style={{ background: T.paper2, border: `1px solid ${T.line}` }}
+           data-testid="ec-case-status">
+        <div className="text-[9px] tracking-[1.5px] font-bold mb-1.5"
+             style={{ color: T.inkMute }}>CASE STATUS</div>
+        <div className="grid grid-cols-2 gap-y-0.5">
+          <Row label="Risk"          value={String(band).toUpperCase()} />
+          <Row label="Confidence"    value={h.confidence != null ? `${h.confidence}%` : "—"} />
+          <Row label="Stage"         value={stage} />
+          <Row label="Duration"      value={summary.duration || "—"} />
+          <Row label="Techniques"    value={counts.techniques} />
+          <Row label="Processes"     value={counts.processes} />
+          <Row label="Evidence"      value={counts.evidence} />
+          <Row label="Investigation" value={`${investComplete}%`} />
+        </div>
+      </div>
+
+      <Section label="Attack Progress">
+        <AttackProgress summary={summary} />
       </Section>
 
-      <Section label="Case">
-        <Row label="Case"       value={caseId} />
-        <Row label="Device Risk" value={h.device_score ?? "—"} />
-        <Row label="Incident"   value={h.incident_score ?? "—"} />
-        <Row label="Events"     value={h.event_count} />
-        <Row label="Chains"     value={h.chain_count} />
+      <Section label="Executive Summary">
+        {KILL_CHAIN.map(({ key, short }) => {
+          const val = summary[key];
+          const observed = Boolean(val);
+          return (
+            <button key={key}
+                    data-testid={`ec-exec-${key}`}
+                    onClick={() => observed && onTacticSelect(key, val)}
+                    disabled={!observed}
+                    className="w-full text-left flex items-baseline gap-3 text-[11px] py-1 rounded transition-colors"
+                    style={{
+                      background: "transparent",
+                      cursor: observed ? "pointer" : "default",
+                      opacity: observed ? 1 : 0.55,
+                    }}>
+              <span className="text-[9px] tracking-[1.2px] font-bold"
+                    style={{ color: observed ? "#F87171" : T.inkMute, minWidth: 100 }}>
+                {short}
+              </span>
+              <span className="flex-1 min-w-0 font-mono truncate"
+                    style={{ color: observed ? T.ink : T.inkFaint }}
+                    title={observed ? val : "Not Observed"}>
+                {observed ? val : "Not Observed"}
+              </span>
+            </button>
+          );
+        })}
       </Section>
 
       {story.length > 0 && (
@@ -122,22 +272,12 @@ function CaseOverview({ inv, caseId, onDownload }) {
                    style={{ color: T.inkDim }}>
                 <span className="font-mono text-[10px] mr-2"
                       style={{ color: tone }}>›</span>
-                {s.text || s.sentence || ""}
+                {readableStorySentence(s.text || s.sentence || "")}
               </div>
             ))}
           </div>
         </Section>
       )}
-
-      <Section label="IKG Counts">
-        <div className="grid grid-cols-2 gap-y-0.5">
-          <Row label="Processes" value={counts.processes} />
-          <Row label="Files"     value={counts.files} />
-          <Row label="Registry"  value={counts.registry} />
-          <Row label="Network"   value={counts.network} />
-          <Row label="Techniques" value={counts.techniques} />
-        </div>
-      </Section>
 
       {tactics.length > 0 && (
         <Section label="MITRE Tactics">
@@ -181,6 +321,16 @@ function CaseOverview({ inv, caseId, onDownload }) {
       </Section>
     </>
   );
+}
+
+// Replace `ent_process_a5fb…` and similar internal ids in any string.
+function readableStorySentence(s) {
+  return String(s).replace(/ent_process_[0-9a-f]+/gi, "process")
+                  .replace(/ent_file_[0-9a-f]+/gi, "file")
+                  .replace(/ent_network_[0-9a-f]+/gi, "endpoint")
+                  .replace(/ent_registry_[0-9a-f]+/gi, "registry key")
+                  .replace(/proc_[0-9a-f]+/gi, "process")
+                  .replace(/evt_[0-9a-f]+/gi, "event");
 }
 
 // ─── Deterministic attribution of each ATT&CK tactic to the process
@@ -242,16 +392,18 @@ function extractExecutiveSummary(inv) {
       const parts = [];
       for (const t of techs) {
         // Accept both bare id ("T1059") and sub ("T1059.001")
-        const procs = Array.from(techIdToProc.get(t) || []);
+        const procs = Array.from(techIdToProc.get(t) || []).map(p => readableName(p, ""));
+        const cleaned = procs.filter(Boolean);
         // Fall back to bases if no exact match
-        if (!procs.length) {
+        if (!cleaned.length) {
           const base = t.split(".", 1)[0];
           for (const [k, v] of techIdToProc.entries()) {
-            if (k === base) procs.push(...Array.from(v));
+            if (k === base) cleaned.push(...Array.from(v).map(p => readableName(p, "")).filter(Boolean));
           }
         }
-        if (procs.length) parts.push(`${procs[0]} (${t})`);
-        else              parts.push(t);
+        const tn = techName(t);
+        const label = tn ? `${tn} (${t})` : t;
+        parts.push(cleaned.length ? `${cleaned[0]} → ${label}` : label);
       }
       return Array.from(new Set(parts)).slice(0, 2).join(" · ");
     }
@@ -367,6 +519,16 @@ export default function EvidenceCard({ inv }) {
   const modified     = relByType("modified");
   const contactedNet = relByType("contacted");
 
+  // Executive-Summary click handler — jumps the workspace to Attack
+  // Story with a `?tactic=` focus param so downstream tabs highlight.
+  const onTacticSelect = useCallback((tactic /* , valStr */) => {
+    const p = new URLSearchParams(searchParams);
+    p.set("tab", "story");
+    p.set("tactic", tactic);
+    setSearchParams(p, { replace: false });
+    toast.success(`Focused Attack Story on ${tactic.replace(/_/g," ")}`);
+  }, [searchParams, setSearchParams]);
+
   return (
     <div data-testid="evidence-card"
          className="fixed right-0 top-[132px] bottom-14 z-40 flex flex-col"
@@ -405,7 +567,8 @@ export default function EvidenceCard({ inv }) {
       {/* Body — scrolls independently */}
       <div className="flex-1 overflow-y-auto p-3" data-testid="ec-body">
         {showOverview ? (
-          <CaseOverview inv={inv} caseId={caseId} onDownload={download} />
+          <CaseOverview inv={inv} caseId={caseId} onDownload={download}
+                        onTacticSelect={onTacticSelect} />
         ) : (
           <>
             {eventNode && (

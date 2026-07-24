@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { T } from "@/v2/theme";
+import Header from "@/components/Header";
 
 const DIM_ORDER = [
   "Verdict", "Score", "FP-Guard", "MITRE",
@@ -93,10 +94,11 @@ export default function ValidationPage() {
       data-testid="validation-page"
       style={{
         minHeight: "100vh", background: T.bg, color: T.ink,
-        padding: "40px 32px",
         fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
+      <Header />
+      <div style={{ padding: "40px 32px" }}>
       <div style={{ maxWidth: 1360, margin: "0 auto" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
@@ -267,6 +269,7 @@ export default function ValidationPage() {
           new datasets to `v2/ingestion/golden_corpus.py` with their
           ExpectedInvestigation contract.
         </div>
+      </div>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import PageHeader from "@/components/PageHeader";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Check, X, KeyRound, ExternalLink, Save, TestTube2, Users, BarChart3, RefreshCw, Database, Sparkles } from "lucide-react";
+import { Check, X, KeyRound, ExternalLink, Save, TestTube2, Users, BarChart3, RefreshCw, Database, Sparkles, Upload, ShieldCheck, Gauge, Battery } from "lucide-react";
 import { Link } from "react-router-dom";
 import TrainingNotesCard from "@/components/TrainingNotesCard";
 import ConfusionMatrixCard from "@/components/ConfusionMatrixCard";
@@ -159,6 +159,73 @@ export default function AdminPage() {
             </div>
             <Link to="/admin/models" className="nvx-btn primary" data-testid="admin-open-model-studio">
               <Sparkles size={13} /> OPEN STUDIO
+            </Link>
+          </div>
+        </section>
+
+        {/* Investigation Ingestion Engine (Phase 4.1) — quick-link */}
+        <section className="brut-border" style={{ background: "var(--surface)" }} data-testid="ingest-link-card">
+          <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>▸ INVESTIGATION INGESTION</div>
+              <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)", marginTop: 6, lineHeight: 1.5 }}>
+                Drop Sysmon XML, Windows Security XML, JSON/NDJSON, CSV, or ZIP bundles. Format &amp; source
+                are auto-detected, events normalize into the Canonical Event Schema, and a full Investigation
+                Workspace is generated deterministically. Also hosts the 34-dataset Golden Corpus seed
+                buttons for one-click benchmark cases.
+              </div>
+            </div>
+            <Link to="/v2/ingest" className="nvx-btn primary" data-testid="admin-open-ingest">
+              <Upload size={13} /> OPEN INGEST
+            </Link>
+          </div>
+        </section>
+
+        {/* Validation Pack (Phase 4.2) — quick-link */}
+        <section className="brut-border" style={{ background: "var(--surface)" }} data-testid="validation-link-card">
+          <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>▸ VALIDATION PACK</div>
+              <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)", marginTop: 6, lineHeight: 1.5 }}>
+                Runs every Golden Corpus dataset through the full ingestion → correlation → IKG → story →
+                verdict pipeline and scores 11 dimensions (verdict · MITRE · story · processes · IOCs · …).
+                This is the release gate — accuracy regressions fail the build.
+              </div>
+            </div>
+            <Link to="/v2/validation" className="nvx-btn primary" data-testid="admin-open-validation">
+              <ShieldCheck size={13} /> OPEN VALIDATION
+            </Link>
+          </div>
+        </section>
+
+        {/* Benchmark — quick-link */}
+        <section className="brut-border" style={{ background: "var(--surface)" }} data-testid="benchmark-link-card">
+          <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>▸ BENCHMARK</div>
+              <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)", marginTop: 6, lineHeight: 1.5 }}>
+                Performance benchmarking suite — measures decoder throughput, verdict engine latency,
+                and end-to-end investigation build times across the corpus.
+              </div>
+            </div>
+            <Link to="/benchmark" className="nvx-btn primary" data-testid="admin-open-benchmark">
+              <Gauge size={13} /> OPEN BENCHMARK
+            </Link>
+          </div>
+        </section>
+
+        {/* Battery — quick-link */}
+        <section className="brut-border" style={{ background: "var(--surface)" }} data-testid="battery-link-card">
+          <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="mono" style={{ fontSize: 11, letterSpacing: "0.24em", color: "var(--accent)" }}>▸ BATTERY</div>
+              <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)", marginTop: 6, lineHeight: 1.5 }}>
+                Adversarial regression battery — replays every historical failure to guarantee no
+                previously-fixed detection has regressed.
+              </div>
+            </div>
+            <Link to="/battery" className="nvx-btn primary" data-testid="admin-open-battery">
+              <Battery size={13} /> OPEN BATTERY
             </Link>
           </div>
         </section>

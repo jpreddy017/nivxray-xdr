@@ -20,17 +20,15 @@ export default function Header() {
 
   // Primary tabs — always visible, high-usage. Routed via NavTabs
   // (variant="nav") so all pages inherit the DetectFlow design system.
+  // Admin-only tools (INGEST · VALIDATION · BENCHMARK · BATTERY) live
+  // inside Admin → quick-links (see AdminPage.jsx).
   const primary = [
     { key: "workspace",  href: "/",           label: "WORKSPACE",  icon: LayoutGrid, testId: "nav-workspace" },
-    { key: "ingest",     href: "/v2/ingest",  label: "INGEST",     icon: Upload,     testId: "nav-ingest" },
     { key: "trajectory", href: "/v2/trajectory", label: "TRAJECTORY", icon: Radar,   testId: "nav-trajectory" },
-    { key: "validation", href: "/v2/validation", label: "VALIDATION", icon: ShieldCheck, testId: "nav-validation" },
     { key: "dashboard",  href: "/dashboard",  label: "DASHBOARD",  icon: BarChart3,  testId: "nav-dashboard" },
     { key: "batch",      href: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
     { key: "heatmap",    href: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
     { key: "documents",  href: "/documents",  label: "DOCUMENTS",  icon: FolderOpen, testId: "nav-documents" },
-    { key: "benchmark",  href: "/benchmark",  label: "BENCHMARK",  icon: Gauge,      testId: "nav-benchmark" },
-    { key: "battery",    href: "/battery",    label: "BATTERY",    icon: Battery,    testId: "nav-battery" },
   ];
 
   // Grouped: analysis tools (secondary usage)

@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { T } from "@/v2/theme";
+import Header from "@/components/Header";
 
 // ─── Small primitives ────────────────────────────────────────────────
 const Pill = ({ children, tone = "neutral" }) => {
@@ -174,10 +175,11 @@ export default function IngestionPage() {
         minHeight: "100vh",
         background: T.bg,
         color: T.ink,
-        padding: "40px 32px",
         fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
+      <Header />
+      <div style={{ padding: "40px 32px" }}>
       <div style={{ maxWidth: 1120, margin: "0 auto" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
@@ -325,6 +327,7 @@ export default function IngestionPage() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
