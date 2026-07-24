@@ -21,6 +21,7 @@ import { Radar, Search, Filter, Play, ShieldAlert, Copy } from "lucide-react";
 import { isObservable } from "../flags";
 import api from "@/lib/api";
 import { InvestigationCanvas } from "@/v2/canvas_engine";
+import CorrelationPanel from "./CorrelationPanel";
 
 // ── Design tokens (Glassy-white analyst theme) ─────────────────────
 import { T as SharedT } from "../theme";
@@ -1684,6 +1685,12 @@ function DeviceDetailsDrawer({ open, onClose, caseId, meta, events, stages, case
                   </span>
                 ))}
               </div>
+            </DrawerSection>
+          )}
+
+          {isObservable("VERDICT_ENGINE_V3") && (
+            <DrawerSection label="Correlation · v3.1">
+              <CorrelationPanel caseId={caseId} />
             </DrawerSection>
           )}
 

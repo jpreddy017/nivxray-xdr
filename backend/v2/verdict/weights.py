@@ -120,6 +120,51 @@ BANDS: list[tuple[str, int, int]] = [
 CORROBORATION_CAP = 70
 
 
+# ─── Correlation Engine v3.1 · Multi-event Aggregation Config ─────────────
+#
+# Deterministic bonuses applied at the *aggregate* layers (process / chain /
+# device / incident) — NEVER at the single-event layer, so per-event scoring
+# stays byte-identical to v3.
+#
+# Bonuses reward *independent* corroboration. Duplicated signals across
+# events of the same process do NOT re-fire. Signals fired by *distinct*
+# processes in the same chain do count as independent corroboration.
+
+# Multi-family bonus tiers — pick the highest tier whose threshold is met.
+MULTI_FAMILY_BONUSES: list[tuple[int, int, str]] = [
+    (5, 14, "MULTI_FAMILY_5"),   # ≥5 distinct families corroborate
+    (4, 10, "MULTI_FAMILY_4"),
+    (3,  6, "MULTI_FAMILY_3"),
+]
+
+# MITRE tactic-base coverage bonus (T1003 / T1055 / T1547 / … distinct bases).
+TACTIC_COVERAGE_BONUSES: list[tuple[int, int, str]] = [
+    (5, 12, "TACTIC_COVERAGE_5"),
+    (3,  6, "TACTIC_COVERAGE_3"),
+]
+
+# Signals from ≥2 distinct processes with high-value signals fired.
+MULTI_PROCESS_BONUS      = ("MULTI_PROCESS_CORROBORATION", 6, 2)   # (key, weight, threshold)
+# Signals span across ≥3 lanes (process + file + network / registry).
+CROSS_LANE_BONUS         = ("CROSS_LANE_ATTACK", 4, 3)
+# Impact chain: execution + persistence + impact families all present.
+IMPACT_CHAIN_BONUS       = ("IMPACT_CHAIN", 10, ("execution", "persistence", "impact"))
+# Credential-to-lateral chain (credential + evasion + network).
+CRED_TO_LATERAL_BONUS    = ("CREDENTIAL_TO_LATERAL", 8, ("credential", "evasion", "network"))
+
+# Aggregate scoring hard cap.
+AGGREGATE_MAX = 100
+
+# Confidence formula weights — deterministic function of evidence density.
+CONF_WEIGHTS = {
+    "per_unique_signal":       10,
+    "per_process_with_signal":  5,
+    "per_lane":                 3,
+    "per_mitre_base":           5,
+    "min_when_any_signal":     15,   # floor once at least one signal fires
+}
+
+
 def band_of(score: int) -> str:
     for name, lo, hi in BANDS:
         if lo <= score <= hi:

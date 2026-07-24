@@ -25,6 +25,7 @@ const KNOWN_FLAGS = [
   "KNOWLEDGE_LAYER",
   "NEGATIVE_EVIDENCE",
   "COPILOT",
+  "VERDICT_ENGINE_V3",
 ];
 
 function readOverride(name) {
