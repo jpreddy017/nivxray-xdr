@@ -10,6 +10,7 @@
  * orchestrator over the existing engine). This component is the shell.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import React from "react";
 import api, { API_BASE } from "@/lib/api";
 import Header from "@/components/Header";
 
@@ -831,28 +832,7 @@ function FinalIncidentSummary({ result, onExportMd, onExportJson }) {
       <Section title="Investigation Findings" testid="fis-findings">
         {(fis.findings || []).length === 0
           ? <Empty text="No per-command findings produced." />
-          : <table className="w-full text-sm">
-              <thead className="text-slate-400 text-left border-b border-slate-800">
-                <tr><th className="py-2">Command</th><th className="py-2">Verdict</th><th className="py-2 text-right">Risk</th><th className="py-2">Why</th></tr>
-              </thead>
-              <tbody>
-                {fis.findings.map((f, i) => (
-                  <tr key={i} className="border-b border-slate-900 align-top">
-                    <td className="py-2 font-mono text-slate-200 max-w-[24ch] truncate" title={f.command_line}>
-                      <span className="text-cyan-300 mr-1">{f.binary}</span>
-                      {f.command_line?.slice(f.binary.length).slice(0, 30)}…
-                    </td>
-                    <td className="py-2">
-                      <span className={`px-2 py-0.5 rounded text-[10px] uppercase border ${VERDICT_TONE[f.verdict] || VERDICT_TONE.unknown}`}>
-                        {f.verdict}
-                      </span>
-                    </td>
-                    <td className="py-2 text-right font-mono text-slate-300">{f.risk_score ?? "—"}</td>
-                    <td className="py-2 text-slate-400 text-xs">{f.why}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>}
+          : <FindingsTable findings={fis.findings} />}
       </Section>
 
       {/* MITRE + IOC */}
@@ -1226,7 +1206,7 @@ function EntityGrid({ entities }) {
           </ul>
         </div>
       )}
-      {/* Extracted printable strings — dense two-column layout. */}
+      {/* Extracted printable strings — dense two-column layout with expansion. */}
       {(entities.strings || []).length > 0 && (
         <div className="border border-amber-500/40 rounded p-2.5 bg-amber-500/5"
              data-testid="ioc-strings">
@@ -1234,15 +1214,9 @@ function EntityGrid({ entities }) {
             <div className="text-[10px] text-amber-300 uppercase tracking-widest font-bold">
               Extracted strings ({entities.strings.length})
             </div>
-            <div className="text-[10px] text-slate-500">from recovered payload</div>
+            <div className="text-[10px] text-slate-500">click any string to expand · from recovered payload</div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-0.5 max-h-64 overflow-y-auto">
-            {entities.strings.map((s, i) => (
-              <div key={i} className="text-[11px] font-mono text-amber-100 truncate" title={s}>
-                {s}
-              </div>
-            ))}
-          </div>
+          <StringsList strings={entities.strings} testid="ioc-strings-list" initialCap={12} />
         </div>
       )}
     </div>
@@ -1725,15 +1699,9 @@ function ChainEnrichment({ enrichment, chainIndex }) {
             <div className="text-[10px] uppercase tracking-widest text-amber-300 font-bold">
               Extracted strings ({strings.length})
             </div>
-            <div className="text-[10px] text-slate-500">from recovered payload · GNU strings-style</div>
+            <div className="text-[10px] text-slate-500">click to expand · GNU strings-style</div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-0.5 max-h-40 overflow-y-auto">
-            {strings.map((s, i) => (
-              <div key={i} className="text-[11px] font-mono text-amber-100 truncate" title={s}>
-                {s}
-              </div>
-            ))}
-          </div>
+          <StringsList strings={strings} testid={`chain-strings-list-${chainIndex}`} initialCap={8} />
         </div>
       )}
     </div>
@@ -1805,3 +1773,137 @@ function DecodeTreeSection({ chains, stats }) {
     </section>
   );
 }
+
+// ─── Expandable Findings table (click-to-expand row) ──────────────
+function FindingsTable({ findings }) {
+  const [openIdx, setOpenIdx] = useState(null);
+  return (
+    <table className="w-full text-sm" data-testid="fis-findings-table">
+      <thead className="text-slate-400 text-left border-b border-slate-800">
+        <tr>
+          <th className="py-2 w-6"></th>
+          <th className="py-2">Command</th>
+          <th className="py-2">Verdict</th>
+          <th className="py-2 text-right">Risk</th>
+          <th className="py-2">Why</th>
+        </tr>
+      </thead>
+      <tbody>
+        {findings.map((f, i) => {
+          const open = openIdx === i;
+          const cmdBody = (f.command_line || "").slice((f.binary || "").length);
+          return (
+            <React.Fragment key={i}>
+              <tr
+                  data-testid={`finding-row-${i}`}
+                  onClick={() => setOpenIdx(open ? null : i)}
+                  className="border-b border-slate-900 align-top cursor-pointer hover:bg-slate-800/40 transition-colors">
+                <td className="py-2 font-mono text-slate-500 select-none">
+                  {open ? "▼" : "▶"}
+                </td>
+                <td className="py-2 font-mono text-slate-200 max-w-[28ch] truncate" title={f.command_line}>
+                  <span className="text-cyan-300 mr-1">{f.binary}</span>
+                  {cmdBody.slice(0, 40)}{cmdBody.length > 40 ? "…" : ""}
+                </td>
+                <td className="py-2">
+                  <span className={`px-2 py-0.5 rounded text-[10px] uppercase border ${VERDICT_TONE[f.verdict] || VERDICT_TONE.unknown}`}>
+                    {f.verdict}
+                  </span>
+                </td>
+                <td className="py-2 text-right font-mono text-slate-300">{f.risk_score ?? "—"}</td>
+                <td className="py-2 text-slate-400 text-xs max-w-[48ch] truncate" title={f.why}>{f.why}</td>
+              </tr>
+              {open && (
+                <tr data-testid={`finding-detail-${i}`}>
+                  <td></td>
+                  <td colSpan={4} className="pb-3">
+                    <div className="border border-cyan-500/30 rounded-lg p-3 bg-slate-950/60 space-y-2">
+                      <div>
+                        <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-1">Full command</div>
+                        <pre className="px-2 py-1.5 bg-slate-900/80 border border-slate-800 rounded text-[11px] font-mono text-slate-100 whitespace-pre-wrap break-all">{f.command_line || "—"}</pre>
+                      </div>
+                      {f.why && (
+                        <div>
+                          <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-1">Risk rationale</div>
+                          <div className="text-xs text-slate-300 leading-relaxed">{f.why}</div>
+                        </div>
+                      )}
+                      {(f.mitre_ids || []).length > 0 && (
+                        <div>
+                          <div className="text-[10px] uppercase tracking-widest text-cyan-300 font-bold mb-1">MITRE (per-command)</div>
+                          <div className="flex flex-wrap gap-1">
+                            {f.mitre_ids.map((m, mi) => (
+                              <a key={mi}
+                                 href={`https://attack.mitre.org/techniques/${m.split(".")[0]}/${m.includes(".") ? m.split(".")[1] + "/" : ""}`}
+                                 target="_blank" rel="noreferrer"
+                                 className="px-1.5 py-0.5 rounded text-[10px] font-mono border border-cyan-500/40 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20">
+                                {m}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+// ─── Expandable strings list (click item = full text, "show all" toggle) ─
+function StringsList({ strings, testid = "strings-list", initialCap = 10 }) {
+  const [showAll, setShowAll] = useState(false);
+  const [expanded, setExpanded] = useState(null);
+  const visible = showAll ? strings : strings.slice(0, initialCap);
+  return (
+    <div data-testid={testid}>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-0.5 max-h-72 overflow-y-auto">
+        {visible.map((s, i) => (
+          <button key={i}
+                  type="button"
+                  data-testid={`${testid}-item-${i}`}
+                  onClick={() => setExpanded(expanded === i ? null : i)}
+                  className="text-left text-[11px] font-mono text-amber-100 truncate hover:text-amber-300 hover:underline transition-colors"
+                  title={s}>
+            {s}
+          </button>
+        ))}
+      </div>
+      {expanded !== null && (
+        <div className="mt-2 border border-amber-500/40 rounded p-2 bg-amber-500/5"
+             data-testid={`${testid}-expanded`}>
+          <div className="flex items-baseline justify-between mb-1">
+            <div className="text-[10px] uppercase tracking-widest text-amber-300 font-bold">
+              String #{expanded + 1} · {visible[expanded].length} chars
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button"
+                      onClick={() => navigator.clipboard?.writeText(visible[expanded])}
+                      className="text-[10px] text-cyan-300 hover:underline">copy</button>
+              <button type="button"
+                      onClick={() => setExpanded(null)}
+                      className="text-[10px] text-slate-400 hover:underline">close</button>
+            </div>
+          </div>
+          <pre className="text-[11px] font-mono text-amber-100 whitespace-pre-wrap break-all leading-snug">
+            {visible[expanded]}
+          </pre>
+        </div>
+      )}
+      {strings.length > initialCap && (
+        <button type="button"
+                onClick={() => setShowAll(!showAll)}
+                data-testid={`${testid}-toggle`}
+                className="mt-2 text-[10px] uppercase tracking-widest text-cyan-300 hover:text-cyan-200 hover:underline font-bold">
+          {showAll ? `↑ Show first ${initialCap}` : `↓ Show all ${strings.length}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
