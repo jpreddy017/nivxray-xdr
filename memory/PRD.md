@@ -12,6 +12,62 @@ own truth.
 
 ---
 
+## 2026-02-27 · Roadmap · Reordered by operator (locked)
+
+Post-MVP priorities. NivXRay's next work is measured by investigation
+QUALITY, not UI polish.
+
+1. **Phase 5.5 · Enterprise Adapters** (highest ROI)
+   - Cisco Secure Endpoint / Cisco XDR → Canonical Event Schema first.
+   - Once Cisco is proven, CrowdStrike / SentinelOne / Defender /
+     QRadar / Splunk follow the same pattern.
+   - Goal: remove manual copy/paste; validate CES robustness on real
+     customer telemetry.
+
+2. **Phase 6 · Investigation Accuracy**
+   - Better incident parser (structured JSON alerts, multi-line CLI, XML)
+   - Safe command extraction (allow-list, no decoder over narrative)
+   - Multi-command detection & correlation across pastes
+   - Nested / recursive Base64 · Hex · URL · XOR decoding
+   - Confidence scoring (deterministic, evidence-linked)
+   - Root-cause identification (first observed → impact chain)
+   - Analyst reasoning engine (why this verdict + why not X)
+
+3. **Phase 7 · AI Narrative Layer (OPTIONAL)**
+   - AI never alters Evidence / Timeline / MITRE / Verdict / Confidence
+     / IOCs. Only rewrites presentation.
+
+4. **Phase 8 · Report Templates**
+   - Executive Summary · Technical Deep-Dive · SOC Handover ·
+     ServiceNow Work Notes · Customer Incident Report · IOC Package ·
+     RCA · CISO Summary. All derived from the same investigation payload.
+
+5. **Phase 9 · Collaboration**
+   - Share investigation links · Evidence Graph deep links · Comments
+     · Analyst notes · Case bookmarks · History · Version compare.
+
+6. **Phase 10 · Saved Searches**
+   - Chip lenses for `powershell.exe`, `rundll32.exe`, `T1059`,
+     `Credential Access`, `Persistence`, `High Severity`,
+     `Unsigned Executables`.
+
+### New requirement: Investigation Quality Dashboard
+After every AUTO INVESTIGATE run, surface a small scorecard so
+analysts immediately trust (or question) the report:
+- Commands Parsed / Commands Decoded ratio
+- MITRE Technique coverage
+- Timeline Confidence %
+- Threat Intel Matches count
+- IOC Extraction count
+- Evidence Correlation PASS/FAIL
+- Investigation Completeness %
+
+Highlights gaps before an analyst forwards the summary to a customer
+or CISO.
+
+---
+
+
 ## 2026-02-27 · Phase 5 · Evidence Graph (SHIPPED)
 
 Shipped the last major UI piece on the frozen v1.0 roadmap. The
