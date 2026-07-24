@@ -66,6 +66,7 @@ FLAG_NAMES: Final[tuple[str, ...]] = (
     "KNOWLEDGE_LAYER",
     "NEGATIVE_EVIDENCE",
     "COPILOT",
+    "VERDICT_ENGINE_V3",
 )
 
 
