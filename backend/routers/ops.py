@@ -406,6 +406,104 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     """
     from analysis_core import deterministic_best_decode
 
+    # ── PowerShell -EncodedCommand deterministic short-circuit (Jul-2026) ──
+    # Locked with SOC user 2026-07-25: when the input is a
+    # `powershell.exe … -EncodedCommand <BLOB>` invocation whose blob
+    # FAILS the deterministic recovery chain, return a structured
+    # `decode_error` response IMMEDIATELY. This prevents:
+    #   • xor-brute running 4× on corrupted UTF-16LE bytes,
+    #   • the OUTPUT panel rendering latin-1 garbage,
+    #   • the Investigation Summary fabricating a "Malicious 70/100" verdict.
+    # On successful recovery this preamble is a no-op — the legacy
+    # deterministic pipeline runs unchanged.
+    try:
+        _ps_enc_m = re.search(
+            r"powershell(?:\.exe)?[^\n]*?\-e(?:nc|c|ncodedcommand)?\s+"
+            r"([A-Za-z0-9+/=]{16,})",
+            body.input or "", re.IGNORECASE,
+        )
+        if _ps_enc_m:
+            from v2.semantic.ps_recovery import recover_powershell_from_b64
+            _blob = _ps_enc_m.group(1).strip("= ").rstrip("=")
+            _blob = _blob + "=" * ((-len(_blob)) % 4)
+            _rep = recover_powershell_from_b64(_blob)
+            if _rep.status == "decode_error":
+                return {
+                    "recipe": [
+                        {"op": "ps-encodedcommand-recovery", "args": {},
+                         "reason": "PowerShell EncodedCommand deterministic decode"}
+                    ],
+                    "output": "",   # explicit — NEVER leak binary garbage
+                    "output_raw": "",
+                    "notes": [
+                        "PowerShell -EncodedCommand blob detected — deterministic recovery chain executed.",
+                        (f"Base64 decoded ({_rep.b64_bytes} bytes) but UTF-16LE strict "
+                         f"validation failed at byte offset {_rep.first_invalid_offset}: "
+                         f"{_rep.invalid_reason}."),
+                        "Downstream decoders (xor-brute, etc.) intentionally skipped.",
+                    ],
+                    "detected_type": {
+                        "type":  "powershell_encoded_decode_error",
+                        "label": ("PowerShell -EncodedCommand blob detected — "
+                                  "recovery chain failed"),
+                    },
+                    "engine": "ps-encodedcommand-recovery",
+                    "reached_shellcode": False,
+                    "confidence": 0,
+                    "score": 0,
+                    "terminal": "decode-error",
+                    "trace": [{
+                        "op": "ps-encodedcommand-recovery",
+                        "args": {
+                            "decode_error":         True,
+                            "b64_bytes":            _rep.b64_bytes,
+                            "b64_status":           _rep.b64_status,
+                            "first_invalid_offset": _rep.first_invalid_offset,
+                            "invalid_reason":       _rep.invalid_reason,
+                            "hex_preview":          _rep.hex_preview,
+                            "possible_causes":      list(_rep.possible_causes),
+                            "recovery_attempts":    [a.to_dict() for a in _rep.attempts],
+                        },
+                        "reason": "PowerShell EncodedCommand recovery chain exhausted",
+                        "output_preview": "",
+                        "output_length": 0,
+                    }],
+                    "chain_ids": ["ps-encodedcommand-recovery"],
+                    "iocs":   {"ips": [], "urls": [], "domains": [], "emails": [],
+                                "file_paths": [], "bitcoin_addresses": [],
+                                "hashes": {"md5": [], "sha1": [], "sha256": []}},
+                    "mitre":  [], "lolbas": [], "tradecraft": [],
+                    "verdict": "decode_error",
+                    "verdict_card": {
+                        "verdict": "decode_error",
+                        "risk_score": 0, "score": 0, "confidence": 0,
+                        "headline": "Decode failure — recovery chain exhausted",
+                        "why": (
+                            f"Base64 decoded successfully ({_rep.b64_bytes} bytes) but "
+                            f"no decoder in the recovery chain produced valid PowerShell text. "
+                            f"UTF-16LE strict validation failed at byte offset "
+                            f"{_rep.first_invalid_offset}."
+                        ),
+                    },
+                    "decode_error": {
+                        "status":               _rep.status,
+                        "b64_bytes":            _rep.b64_bytes,
+                        "b64_status":           _rep.b64_status,
+                        "b64_reason":           _rep.b64_reason,
+                        "first_invalid_offset": _rep.first_invalid_offset,
+                        "invalid_reason":       _rep.invalid_reason,
+                        "hex_preview":          _rep.hex_preview,
+                        "possible_causes":      list(_rep.possible_causes),
+                        "attempts":             [a.to_dict() for a in _rep.attempts],
+                        "blob_length":          len(_blob),
+                    },
+                    "custom_recipes_matched": [],
+                }
+    except Exception:
+        # Preamble must never break the pipeline — fall through to legacy.
+        pass
+    # ──────────────────────────────────────────────────────────────────────
+
     # ── Multi-fragment auto-split (v1.3.1) ─────────────────────────────
     raw_input = body.input or ""
     _has_br = bool(re.search(r"(?i)<\s*br\s*/?\s*>", raw_input))

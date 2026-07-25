@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import time
 from typing import List, Optional, Set, Tuple
 
@@ -796,8 +797,131 @@ def _run_intelligence_pass(payload: str, fingerprint: Fingerprint,
 class Orchestrator:
     """Run the deterministic recursive decode + intelligence pipeline."""
 
+    # PowerShell -EncodedCommand invocation pattern (case-insensitive).
+    # Matches `powershell.exe -exec bypass -enc <BLOB>` and variants.
+    _PS_ENC_RE = re.compile(
+        r"powershell(?:\.exe)?[^\n]*?\-e(?:nc|c|ncodedcommand)?\s+"
+        r"([A-Za-z0-9+/=]{16,})",
+        re.IGNORECASE,
+    )
+
     def __init__(self, ctx: Optional[AnalysisContext] = None):
         self.ctx = ctx or AnalysisContext()
+
+    # ── PowerShell -EncodedCommand deterministic short-circuit ──────
+    def _maybe_short_circuit_ps_encoded(
+        self, payload: str, ctx, exec_report, log,
+    ):
+        """Detect a PowerShell `-EncodedCommand` invocation. If present,
+        delegate decode to `recover_powershell_from_b64()` and either
+        return a terminal `AnalystReport` (on decode failure) OR a
+        replacement `current` string (recovered PS script) for the
+        main loop to continue enrichment.
+
+        Returns:
+            None                       — input is not a PS EncodedCommand
+            str                        — recovered PowerShell script; loop continues
+            {"report": AnalystReport}  — terminal decode_error report; loop stops
+        """
+        m = self._PS_ENC_RE.search(payload or "")
+        if not m:
+            return None
+        blob = m.group(1).strip("= ").rstrip("=")
+        # Restore correct padding
+        pad = (-len(blob)) % 4
+        blob = blob + "=" * pad
+        # Lazy import to keep engine bootstrapping cheap
+        from v2.semantic.ps_recovery import recover_powershell_from_b64
+        report = recover_powershell_from_b64(blob)
+        # Log an "accepted" entry so the plugin report shows the preamble ran
+        log(plugin="ps-encodedcommand-recovery", layer=0,
+            outcome="accepted" if report.status == "ok" else "decode_error",
+            detect_confidence=1.0,
+            detect_reason=("Detected `powershell.exe … -EncodedCommand <BLOB>` — "
+                           "delegating to deterministic Phase 9.4 recovery chain."),
+            reason=(f"recovery status={report.status}; winner={report.winner or 'none'}; "
+                    f"attempts={len(report.attempts)}"),
+            exec_ms=0,
+            signals_emitted=(report.status == "ok"))
+        if report.status == "ok":
+            # Emit a synthetic TraceStep so the Workspace UI sees the
+            # recovery step alongside the rest of the recipe.
+            step = TraceStep(
+                layer=0,
+                decoder="ps-encodedcommand-recovery",
+                confidence=0.98,
+                why=(f"Base64 → {report.winner} recovery chain succeeded on the "
+                     f"PowerShell EncodedCommand blob ({len(blob)} b64 chars → "
+                     f"{report.b64_bytes} bytes → {len(report.recovered_script)} chars)."),
+                in_len=len(payload),
+                out_len=len(report.recovered_script),
+                exec_ms=0,
+                preview=report.recovered_script[:200],
+                sub_iocs={},
+                args={"recovery_winner": report.winner,
+                       "attempts": [a.decoder for a in report.attempts]},
+            )
+            ctx.trace.add_step(step)
+            return report.recovered_script
+        # Failed — build a terminal AnalystReport that the UI renders
+        # as a Decode Failure card. NO further decoders run, NO garbage
+        # is emitted as `output`.
+        terminal_step = TraceStep(
+            layer=0,
+            decoder="ps-encodedcommand-recovery",
+            confidence=0.0,
+            why=("PowerShell EncodedCommand blob detected but no decoder "
+                 "in the recovery chain produced valid PowerShell text. "
+                 "Semantic analysis intentionally halted — the Workspace "
+                 "will render a Decode Failure card instead of raw bytes."),
+            in_len=len(payload),
+            out_len=0,
+            exec_ms=0,
+            preview="",
+            sub_iocs={},
+            args={
+                "b64_bytes": report.b64_bytes,
+                "b64_status": report.b64_status,
+                "first_invalid_offset": report.first_invalid_offset,
+                "invalid_reason": report.invalid_reason,
+                "hex_preview": report.hex_preview,
+                "possible_causes": list(report.possible_causes),
+                "recovery_attempts": [a.to_dict() for a in report.attempts],
+                "decode_error": True,
+            },
+        )
+        ctx.trace.add_step(terminal_step)
+        findings = Findings()
+        breakdown = _compute_confidence_breakdown(findings)
+        findings.risk_score = breakdown.total
+        findings.verdict = "decode_error"
+        exec_report.layers_run = 1
+        return {"report": AnalystReport(
+            output="",  # explicit — never leak binary garbage
+            trace=[terminal_step],
+            fingerprint_history=[],
+            terminal="decode-error",
+            stopped_reason=(
+                f"PowerShell -EncodedCommand recovery chain exhausted "
+                f"without producing valid PowerShell text. Base64 decoded "
+                f"successfully ({report.b64_bytes} bytes) but UTF-16LE "
+                f"validation failed at byte offset "
+                f"{report.first_invalid_offset}: {report.invalid_reason}. "
+                f"Downstream decoders (xor-brute etc.) intentionally skipped."
+            ),
+            elapsed_ms=0,
+            engine="orchestrator-v1",
+            findings=findings,
+            executive_summary=(
+                "Decode failure — no decoder in the deterministic recovery "
+                "chain produced a valid PowerShell script from the "
+                "EncodedCommand blob. See the Decode Failure card for the "
+                "full attempt log and possible causes."
+            ),
+            investigation_steps=[],
+            confidence_breakdown=breakdown,
+            plugin_report=exec_report,
+        )}
 
     def run(self, payload: str) -> AnalystReport:
         ctx = self.ctx
@@ -870,6 +994,36 @@ class Orchestrator:
 
         def _log(**kw):
             exec_report.entries.append(PluginExecutionEntry(**kw))
+
+        # ── PowerShell -EncodedCommand preamble (Jul-2026) ────────────
+        # If the raw input is a `powershell.exe … -enc[odedcommand] <BLOB>`
+        # invocation, DELEGATE decode to the deterministic Phase 9.4
+        # `recover_powershell_from_b64()` recovery chain. This bypasses
+        # the generic candidate-scoring loop that could otherwise pick
+        # xor-brute on corrupted UTF-16LE bytes (bug reported 2026-07-25:
+        # xor-brute ran 4× on the same corrupted blob and rendered
+        # binary garbage in the Workspace DECODED OUTPUT panel).
+        #
+        # This preamble ALWAYS runs first — it either:
+        #   (a) short-circuits the pipeline with a `decode-error` terminal
+        #       and a structured Decode Failure report, OR
+        #   (b) replaces `current` with the recovered PowerShell script
+        #       and hands control back to the normal candidate loop for
+        #       downstream intelligence enrichment.
+        _ps_enc_result = self._maybe_short_circuit_ps_encoded(
+            current, ctx, exec_report, _log,
+        )
+        if _ps_enc_result is not None:
+            # Preamble either produced a terminal report (return early) or
+            # a new `current` string for continued analysis.
+            if isinstance(_ps_enc_result, dict) and "report" in _ps_enc_result:
+                return _ps_enc_result["report"]
+            if isinstance(_ps_enc_result, str):
+                current = _ps_enc_result
+                current_fp = fingerprint_compute(current)
+                ctx.trace.add_fingerprint(current_fp)
+                seen_hashes.add(_short_hash(current))
+                depth = 1
 
         while True:
             # 1. Budget check

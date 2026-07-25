@@ -10,6 +10,7 @@ import AttackPathClean from "@/components/AttackPathClean";
 import FinalSummary from "@/components/FinalSummary";
 import ShellcodeView from "@/components/ShellcodeView";
 import OutputView from "@/components/OutputView";
+import WorkspaceDecodeFailureCard from "@/components/investigation/WorkspaceDecodeFailureCard";
 import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
@@ -726,6 +727,9 @@ export default function WorkspacePage() {
         l3_metadata: r.data.l3_metadata || null,
         // v1.5.5 — TI Shield renders immediately on primary decode
         ti_shield:   r.data.ti_shield || (a?.ti_shield) || [],
+        // Jul-2026 — PowerShell EncodedCommand deterministic decode-error card
+        terminal:    r.data.terminal || null,
+        decode_error: r.data.decode_error || null,
       }));
 
       // Step 2 · AI fallback if confidence low OR archetype didn't match AND output is trivial
@@ -810,6 +814,16 @@ export default function WorkspacePage() {
       }
 
       setDetected(r.data.detected_type || null);
+      // Jul-2026 — PowerShell EncodedCommand decode-error state.
+      // Keep analysis populated so <WorkspaceDecodeFailureCard/> renders
+      // when the deterministic recovery chain fails on a corrupt blob.
+      setAnalysis((a) => ({
+        ...(a || {}),
+        engine:        r.data.engine || (a?.engine) || null,
+        terminal:      r.data.terminal || null,
+        decode_error:  r.data.decode_error || null,
+        verdict_card:  r.data.verdict_card || (a?.verdict_card) || null,
+      }));
       setChain((r.data.recipe || []).map((s, i) => ({
         op: s.op, reason: s.reason || "",
         output_preview: r.data.trace?.[i]?.output_preview || r.data.steps_output?.[i]?.output_preview || "",
@@ -1685,6 +1699,17 @@ export default function WorkspacePage() {
           intentionally not rendered.
        */}
       {/* {verdictCard && (<VerdictCard verdict={verdictCard} testidPrefix="workspace-verdict" />)} */}
+
+      {/* Jul-2026 · PowerShell EncodedCommand Decode Failure Card
+          — Locked with SOC user 2026-07-25. When the deterministic
+          recovery chain fails, this card supersedes the OUTPUT panel's
+          garbage rendering with a structured, hex-only preview + full
+          list of recovery attempts + possible causes. It always
+          renders at the top of the results section so the analyst
+          sees it before scrolling to the OUTPUT box. */}
+      {(analysis?.terminal === "decode-error" || analysis?.decode_error) && (
+        <WorkspaceDecodeFailureCard err={analysis.decode_error} />
+      )}
 
       {/* ▲ ANALYST RESULTS · 7 CANONICAL PANELS (P0.2 · RC2.9) */}
       <AnalystResults
