@@ -449,8 +449,8 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                     },
                     "engine": "ps-encodedcommand-recovery",
                     "reached_shellcode": False,
-                    "confidence": 0,
-                    "score": 0,
+                    "confidence": None,   # explicit — never imply benign
+                    "score": None,
                     "terminal": "decode-error",
                     "trace": [{
                         "op": "ps-encodedcommand-recovery",
@@ -458,11 +458,16 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                             "decode_error":         True,
                             "b64_bytes":            _rep.b64_bytes,
                             "b64_status":           _rep.b64_status,
+                            "b64_reason":           _rep.b64_reason,
                             "first_invalid_offset": _rep.first_invalid_offset,
                             "invalid_reason":       _rep.invalid_reason,
                             "hex_preview":          _rep.hex_preview,
                             "possible_causes":      list(_rep.possible_causes),
                             "recovery_attempts":    [a.to_dict() for a in _rep.attempts],
+                            "partial_recovery":     dict(_rep.partial_recovery),
+                            "confidence_band":      _rep.confidence_band,
+                            "confidence_reason":    _rep.confidence_reason,
+                            "recovered_layers":     _rep.recovered_layers,
                         },
                         "reason": "PowerShell EncodedCommand recovery chain exhausted",
                         "output_preview": "",
@@ -474,9 +479,17 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                                 "hashes": {"md5": [], "sha1": [], "sha256": []}},
                     "mitre":  [], "lolbas": [], "tradecraft": [],
                     "verdict": "decode_error",
+                    "verdict_display": "Undetermined",
+                    "confidence_band": _rep.confidence_band,
+                    "recovered_layers": _rep.recovered_layers,
                     "verdict_card": {
                         "verdict": "decode_error",
-                        "risk_score": 0, "score": 0, "confidence": 0,
+                        "verdict_display": "Undetermined",
+                        "risk_score": None,   # explicit — do NOT imply benign
+                        "score": None,
+                        "confidence": _rep.confidence_band,
+                        "confidence_band": _rep.confidence_band,
+                        "recovered_layers": _rep.recovered_layers,
                         "headline": "Decode failure — recovery chain exhausted",
                         "why": (
                             f"Base64 decoded successfully ({_rep.b64_bytes} bytes) but "
@@ -496,6 +509,10 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                         "possible_causes":      list(_rep.possible_causes),
                         "attempts":             [a.to_dict() for a in _rep.attempts],
                         "blob_length":          len(_blob),
+                        "partial_recovery":     dict(_rep.partial_recovery),
+                        "confidence_band":      _rep.confidence_band,
+                        "confidence_reason":    _rep.confidence_reason,
+                        "recovered_layers":     _rep.recovered_layers,
                     },
                     "custom_recipes_matched": [],
                 }

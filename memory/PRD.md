@@ -1,5 +1,84 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-25 · Decoder Correctness Fix — Workspace never renders binary garbage (SHIPPED)
+
+### The bug that was reported (locked with SOC user 2026-07-25)
+The Workspace was rendering `QK,9RIi8cIw*,IOKd9eI+8!I\**ILKi9yI…` — binary garbage
+from a latin-1 fallback — when given a corrupted PowerShell `-EncodedCommand`
+payload. Worse, it then fabricated a `Malicious · 70/100` verdict from that
+garbage. Both the RC2 orchestrator (xor-brute ran 4× on the corrupt bytes) and
+Phase 9.4 `ps_semantic.decode_powershell_encoded()` (silent latin-1 fallback)
+were complicit.
+
+### Contract shipped
+1. **Deterministic recovery chain** (`v2/semantic/ps_recovery.py`):
+   Base64 → UTF-16LE strict → compression sniff (gzip/zlib/bzip2/xz/zstd) →
+   UTF-8 strict → ASCII strict → UTF-16BE strict → XOR-brute (only if entropy
+   allows). Every attempt records status (attempted/succeeded/failed/skipped)
+   + plain-English reason.
+2. **`looks_like_powershell()` validator** — requires ≥90% printable ASCII AND
+   at least one PS-ish token or alphabetic content. Kills the latin-1 fallback.
+3. **Verdict is `Undetermined`, NOT `0/100`** — a decode failure is not the
+   same as "safe". `verdict_display: "Undetermined"`, `risk_score: null`,
+   `confidence: null`.
+4. **Best-effort partial recovery** — the readable prefix (`iex (New-Object S…`)
+   is surfaced as diagnostic context, walking char-by-char and stopping at the
+   first non-printable-ASCII code point. NEVER promoted to `recovered_script`;
+   the AST, behavior extractor, and verdict engine remain skipped.
+5. **Decode confidence banding** — `high` (strict encoding wins), `medium`
+   (compression / XOR fallback), `low` (partial only), `none` (nothing decoded).
+   Plus `recovered_layers: X/Y` metric.
+6. **NO automatic "repair"** — inventing bytes is off-limits. Repair
+   suggestions would be a separate, explicitly-labeled heuristic feature.
+7. **Orchestrator preamble** — the RC2 orchestrator and `/api/decode/smart`
+   both short-circuit PowerShell EncodedCommand payloads through the recovery
+   chain BEFORE the generic candidate loop. Result: xor-brute NEVER runs on
+   PS EncodedCommand bytes.
+
+### UI
+- New `WorkspaceDecodeFailureCard` component renders at the TOP of Analyst
+  Results whenever `decodeTrace` contains a `ps-encodedcommand-recovery` step
+  with `args.decode_error=true`. Includes confidence badge, verdict badge
+  ("Undetermined"), layers metric, partial recovery block (with clear
+  "diagnostic only" label), hex preview (bytes as hex, never chars), possible
+  causes, and full recovery attempts list.
+- Phase 9.4 `SemanticIntelligencePanel` also renders a Decode Failure card
+  in the AUTO INVESTIGATE workspace on decode_error.
+
+### Regression coverage
+- **59/59** backend pytest passing:
+  - 30 pre-existing (test_investigation_quality.py + test_ps_encodedcommand_xor_guard.py)
+  - 16 Phase 9.4 (test_ps_semantic_v2.py)
+  - 13 new decode-error contract tests (test_ps_decode_error_contract.py):
+    - test_corrupted_blob_returns_decode_error_not_garbage
+    - test_corrupted_blob_halts_semantic_pipeline
+    - test_decode_error_timeline_records_every_attempt
+    - test_decode_error_lists_all_possible_causes
+    - test_decode_error_hex_preview_is_hex_not_text
+    - test_valid_encodedcommand_still_recovers_and_scores
+    - test_recovery_module_rejects_latin1_garbage
+    - test_recovery_module_accepts_clean_utf16le
+    - test_recovery_module_recovers_gzip_wrapped_payload
+    - test_partial_recovery_extracts_readable_prefix
+    - test_confidence_band_low_on_partial_recovery
+    - test_confidence_band_high_on_clean_utf16le
+    - test_verdict_never_zero_on_decode_error
+- The exact user-reported failing sample is now a permanent negative
+  regression test (`_CORRUPT_BLOB` constant in the contract test).
+
+### Files touched
+- Created: `/app/backend/v2/semantic/ps_recovery.py`
+- Created: `/app/frontend/src/components/investigation/WorkspaceDecodeFailureCard.jsx`
+- Created: `/app/backend/tests/test_ps_decode_error_contract.py`
+- Modified: `/app/backend/v2/semantic/ps_semantic.py` (delegates decode to recovery chain, halts on decode_error)
+- Modified: `/app/backend/engine/orchestrator.py` (added `_maybe_short_circuit_ps_encoded()` preamble)
+- Modified: `/app/backend/routers/ops.py` (top-of-endpoint preamble for `/api/decode/smart` with structured response)
+- Modified: `/app/frontend/src/pages/WorkspacePage.jsx` (mounts the card sourced from `decodeTrace`)
+- Modified: `/app/frontend/src/components/investigation/SemanticIntelligencePanel.jsx` (renders card in AUTO INVESTIGATE view)
+
+---
+
+
 ## 2026-07-25 · Phase 9.4 · PowerShell Semantic Intelligence (SHIPPED)
 
 ### Delivered

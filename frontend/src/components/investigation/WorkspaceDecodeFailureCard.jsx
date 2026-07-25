@@ -30,15 +30,30 @@ const STATUS = {
 
 export default function WorkspaceDecodeFailureCard({ err }) {
   if (!err || !err.status) return null;
+  const confTone = {
+    high:   "border-emerald-500/60 text-emerald-100 bg-emerald-500/15",
+    medium: "border-amber-500/60 text-amber-100 bg-amber-500/15",
+    low:    "border-sky-500/60 text-sky-100 bg-sky-500/15",
+    none:   "border-red-500/60 text-red-100 bg-red-600/15",
+  }[err.confidence_band] || "border-slate-600 text-slate-300";
   return (
     <div className={CARD_BG} data-testid="workspace-decode-error-card">
-      <div className="flex items-baseline gap-2 mb-2">
+      <div className="flex flex-wrap items-baseline gap-2 mb-2">
         <span className={`${HDR} text-red-200`}>
           Decode Failure · analysis halted
         </span>
+        <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase tracking-widest font-bold ${confTone}`}
+              data-testid="workspace-decode-error-confidence"
+              title={err.confidence_reason || ""}>
+          confidence · {err.confidence_band || "none"}
+        </span>
+        <span className="px-2 py-0.5 rounded-full border border-slate-600 text-slate-300 text-[10px] uppercase tracking-widest font-mono"
+              data-testid="workspace-decode-error-layers">
+          {err.recovered_layers || "0/0"} layers
+        </span>
         <span className="ml-auto px-2 py-0.5 rounded-full border border-red-500/70
                          bg-red-600/30 text-red-100 text-[10px] uppercase tracking-widest font-bold">
-          decode_error
+          verdict · Undetermined
         </span>
       </div>
 
@@ -68,6 +83,37 @@ export default function WorkspaceDecodeFailureCard({ err }) {
         <div className="text-[11px] text-slate-300 mb-2 pl-6">
           <span className="text-slate-500 uppercase text-[9px] tracking-widest mr-2">Reason</span>
           <span className="font-mono">{err.invalid_reason}</span>
+        </div>
+      )}
+
+      {err.confidence_reason && (
+        <div className="text-[11px] text-slate-300 mb-2 pl-6"
+             data-testid="workspace-decode-error-confidence-reason">
+          <span className="text-slate-500 uppercase text-[9px] tracking-widest mr-2">Confidence</span>
+          <span>{err.confidence_reason}</span>
+        </div>
+      )}
+
+      {/* Partial recovery — best-effort, clearly labeled */}
+      {err.partial_recovery && err.partial_recovery.prefix_text && (
+        <div className="mb-3 p-2 rounded border border-sky-500/40 bg-sky-950/25"
+             data-testid="workspace-decode-error-partial">
+          <div className="flex flex-wrap items-baseline gap-2 mb-1">
+            <span className="text-[10px] uppercase tracking-widest font-bold text-sky-300">
+              Partial Recovery · diagnostic only
+            </span>
+            <span className="text-[10px] font-mono text-slate-400 ml-auto">
+              {err.partial_recovery.prefix_bytes} bytes recovered · {err.partial_recovery.corrupted_bytes} bytes corrupted
+            </span>
+          </div>
+          <pre className="px-2 py-1 bg-slate-950/80 border border-slate-800 rounded text-[11px]
+                          font-mono text-emerald-200 whitespace-pre-wrap break-all leading-snug"
+               data-testid="workspace-decode-error-partial-text">
+            {err.partial_recovery.prefix_text}
+          </pre>
+          <div className="text-[10px] text-slate-400 italic mt-1">
+            {err.partial_recovery.confidence_note}
+          </div>
         </div>
       )}
 
@@ -125,9 +171,9 @@ export default function WorkspaceDecodeFailureCard({ err }) {
       )}
 
       <div className="mt-2 pt-2 border-t border-red-500/20 text-[10.5px] text-slate-400 italic">
-        Semantic analysis intentionally halted — no AST, no behavior extraction,
-        and no verdict scoring is performed on unrecovered payloads.
-        xor-brute and other legacy decoders were skipped on purpose.
+        Verdict intentionally left as <b>Undetermined</b> — a decode failure is not
+        the same as "safe." Semantic analysis halted; xor-brute and other legacy
+        decoders were skipped on purpose. Never rendered binary garbage.
       </div>
     </div>
   );

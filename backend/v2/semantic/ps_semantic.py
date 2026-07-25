@@ -556,6 +556,10 @@ def analyze(cmdline: str) -> SemanticResult:
                 "invalid_reason":       recovery_report.invalid_reason,
                 "hex_preview":          recovery_report.hex_preview,
                 "blob_length":          len(encoded_blob or ""),
+                "partial_recovery":     dict(recovery_report.partial_recovery),
+                "confidence_band":      recovery_report.confidence_band,
+                "confidence_reason":    recovery_report.confidence_reason,
+                "recovered_layers":     recovery_report.recovered_layers,
             }
             r.verdict = "unknown"
             r.verdict_reason = ("Decode failure — no decoder in the recovery "

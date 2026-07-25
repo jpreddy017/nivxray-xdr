@@ -176,6 +176,21 @@ class DecodeReport:
     first_invalid_offset: int | None = None
     invalid_reason: str = ""
     hex_preview: str = ""
+    # ── Partial recovery (Jul-2026, locked with SOC user 2026-07-25) ──
+    # When strict UTF-16LE fails, we ALSO try to decode the byte range
+    # 0..first_invalid_offset. If that prefix passes a relaxed PS validator
+    # (≥ 8 chars printable ASCII with PS-ish tokens), it's surfaced as a
+    # `partial_recovery` block — clearly labeled as best-effort, NEVER
+    # promoted to `recovered_script`. Analysts get "iex (New-Object S…"
+    # visibility even on corrupted blobs, without the engine claiming
+    # authoritative reconstruction.
+    partial_recovery: dict = field(default_factory=dict)
+    # ── Confidence scoring ──
+    # confidence_band: "high" | "medium" | "low" | "none"
+    # recovered_layers: X of Y decoders that produced usable output
+    confidence_band: str = "none"
+    recovered_layers: str = "0/0"
+    confidence_reason: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -190,6 +205,10 @@ class DecodeReport:
             "first_invalid_offset": self.first_invalid_offset,
             "invalid_reason": self.invalid_reason,
             "hex_preview": self.hex_preview,
+            "partial_recovery":  dict(self.partial_recovery),
+            "confidence_band":   self.confidence_band,
+            "recovered_layers":  self.recovered_layers,
+            "confidence_reason": self.confidence_reason,
         }
 
 
@@ -279,6 +298,7 @@ def recover_powershell_from_b64(blob: str) -> DecodeReport:
             on_fail_reason="")
         if winner is not None:
             r.status = "ok"; r.winner = "utf16le_strict"; r.recovered_script = winner
+            _annotate_confidence_and_partial(r, raw)
             return r
 
     # 2b. Compression sniff -----------------------------------------------
@@ -311,6 +331,7 @@ def recover_powershell_from_b64(blob: str) -> DecodeReport:
                     r.status = "ok"
                     r.winner = f"{algo}_then_{enc.replace('-','_')}"
                     r.recovered_script = winner
+                    _annotate_confidence_and_partial(r, raw)
                     return r
     else:
         r.attempts.append(DecodeAttempt(
@@ -327,6 +348,7 @@ def recover_powershell_from_b64(blob: str) -> DecodeReport:
                          f"{meta.get('first_invalid_offset')}: {meta.get('reason','')}"))
     if winner is not None:
         r.status = "ok"; r.winner = "utf8_strict"; r.recovered_script = winner
+        _annotate_confidence_and_partial(r, raw)
         return r
 
     # 2d. ASCII strict -----------------------------------------------------
@@ -339,6 +361,7 @@ def recover_powershell_from_b64(blob: str) -> DecodeReport:
                          f"{meta.get('first_invalid_offset')}: {meta.get('reason','')}"))
     if winner is not None:
         r.status = "ok"; r.winner = "ascii_strict"; r.recovered_script = winner
+        _annotate_confidence_and_partial(r, raw)
         return r
 
     # 2e. UTF-16BE strict --------------------------------------------------
@@ -351,6 +374,7 @@ def recover_powershell_from_b64(blob: str) -> DecodeReport:
                          f"{meta.get('first_invalid_offset')}: {meta.get('reason','')}"))
     if winner is not None:
         r.status = "ok"; r.winner = "utf16be_strict"; r.recovered_script = winner
+        _annotate_confidence_and_partial(r, raw)
         return r
 
     # 2f. XOR-brute (narrow, LAST resort) ---------------------------------
@@ -363,6 +387,7 @@ def recover_powershell_from_b64(blob: str) -> DecodeReport:
         on_fail_reason=meta.get("reason", "XOR brute produced no plausible text"))
     if winner is not None:
         r.status = "ok"; r.winner = "xor_brute"; r.recovered_script = winner
+        _annotate_confidence_and_partial(r, raw)
         return r
 
     # 3. All decoders exhausted → structured decode_error ------------------
@@ -374,4 +399,121 @@ def recover_powershell_from_b64(blob: str) -> DecodeReport:
         "Payload is not a PowerShell EncodedCommand — could be shellcode "
         "or a binary blob mistakenly Base64-wrapped.",
     ]
+    _annotate_confidence_and_partial(r, raw)
     return r
+
+
+def _annotate_confidence_and_partial(r: DecodeReport, raw: bytes) -> None:
+    """Populate `partial_recovery`, `confidence_band`, and
+    `recovered_layers` on the report.
+
+    Contract (locked with SOC user 2026-07-25):
+        • `partial_recovery` is BEST-EFFORT DIAGNOSTIC only. It shows the
+          analyst the readable prefix that decoded cleanly before
+          corruption, but is NEVER promoted to `recovered_script` and
+          NEVER used by the AST / behavior extractor. It ships with a
+          label saying so.
+        • Automatic "repair" (inventing bytes) is intentionally NOT
+          performed. Any suggested clean version would need to be a
+          separate, explicitly-labeled heuristic feature.
+        • Confidence bands are: high | medium | low | none.
+    """
+    # ── Best-effort partial recovery — read the readable prefix ──
+    # Only meaningful when UTF-16LE strict failed at a byte offset AND
+    # some bytes ARE decodable. We NEVER stitch reconstructed bytes.
+    if r.status == "decode_error":
+        # Walk back from `first_invalid_offset` (or end-of-buffer) trying
+        # progressively shorter prefixes until we find one that decodes
+        # cleanly under UTF-16LE / UTF-8 / ASCII AND passes the relaxed
+        # PS validator. This handles the common case where corruption
+        # starts BEFORE the reported invalid offset (e.g. a stray
+        # high-order byte on the ASCII half of a UTF-16LE pair — Python's
+        # strict decoder often reports the failure a few bytes later).
+        max_offset = r.first_invalid_offset if r.first_invalid_offset else len(raw)
+        # Cap so we don't spend forever on huge payloads
+        max_offset = min(max_offset, 4096)
+        for offset in range(max_offset - (max_offset % 2), 7, -2):
+            prefix_bytes = raw[:offset]
+            for enc in ("utf-16-le", "utf-8", "ascii"):
+                try:
+                    prefix_txt = prefix_bytes.decode(enc, errors="strict")
+                except UnicodeDecodeError:
+                    continue
+                except LookupError:
+                    continue
+                # Walk char-by-char and stop at first non-printable-ASCII.
+                # Prevents CJK / non-BMP garbage from bleeding into the
+                # analyst-facing prefix (UTF-16LE happily decodes corrupted
+                # byte pairs into random Unicode code points).
+                clean = []
+                for c in prefix_txt:
+                    if 0x20 <= ord(c) <= 0x7e or c in "\n\r\t":
+                        clean.append(c)
+                    else:
+                        break
+                trimmed = "".join(clean).strip("\x00").rstrip()
+                if len(trimmed) >= 6 and any(c.isalpha() for c in trimmed):
+                    r.partial_recovery = {
+                        "prefix_text":       trimmed,
+                        "prefix_encoding":   enc,
+                        "prefix_bytes":      len(trimmed.encode(enc, errors="replace")),
+                        "corrupted_bytes":   max(0, len(raw) - len(trimmed.encode(enc, errors="replace"))),
+                        "corruption_offset": r.first_invalid_offset,
+                        "confidence_note": (
+                            "Diagnostic only — the readable prefix that decoded "
+                            f"cleanly as {enc} before corruption. "
+                            "NOT promoted to `recovered_script`; the AST, behavior "
+                            "extractor, and verdict engine are still skipped."
+                        ),
+                    }
+                    break
+            if r.partial_recovery:
+                break
+
+    # ── Confidence banding ──
+    attempted = [a for a in r.attempts if a.decoder != "base64_decode"]
+    succeeded = [a for a in attempted if a.status == "succeeded"]
+    r.recovered_layers = f"{len(succeeded)}/{max(1, len(attempted))}"
+
+    if r.status == "ok":
+        # `high` when strict encoding wins; `medium` when a lossy fallback
+        # wins (compression / XOR / UTF-16BE); `low` should not happen on ok.
+        if r.winner in ("utf16le_strict",):
+            r.confidence_band = "high"
+            r.confidence_reason = (
+                "Full recovery via UTF-16LE strict — the canonical "
+                "PowerShell -EncodedCommand encoding contract.")
+        elif r.winner in ("utf8_strict", "ascii_strict", "utf16be_strict"):
+            r.confidence_band = "high"
+            r.confidence_reason = (
+                f"Full recovery via {r.winner} strict decode — "
+                "single-encoding path, no ambiguity.")
+        elif r.winner.startswith("gzip_") or r.winner.startswith("zlib_"):
+            r.confidence_band = "medium"
+            r.confidence_reason = (
+                "Recovery via compression fallback — decompression succeeded "
+                "and inner text passed the PowerShell validity heuristic, "
+                "but nested encodings inherently carry a small ambiguity risk.")
+        elif r.winner == "xor_brute":
+            r.confidence_band = "medium"
+            r.confidence_reason = (
+                "Recovery via single-byte XOR brute-force — key was selected "
+                "by printable-ASCII scoring; verify against the payload's "
+                "expected structure before trusting downstream signals.")
+        else:
+            r.confidence_band = "medium"
+            r.confidence_reason = f"Recovery via {r.winner} — heuristic path."
+    else:
+        # `low` when we have a partial prefix; `none` when nothing decoded.
+        if r.partial_recovery:
+            r.confidence_band = "low"
+            r.confidence_reason = (
+                "No decoder produced a complete PowerShell script. A readable "
+                "prefix was recovered from the head of the payload — presented "
+                "as diagnostic context only, NOT as an authoritative decode.")
+        else:
+            r.confidence_band = "none"
+            r.confidence_reason = (
+                "No decoder in the recovery chain produced any usable text. "
+                "The payload is likely corrupted, encrypted, or uses an "
+                "obfuscation the engine has not been taught.")

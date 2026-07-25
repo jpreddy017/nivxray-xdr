@@ -150,6 +150,56 @@ def test_recovery_module_recovers_gzip_wrapped_payload() -> None:
     assert "iwr" in rep.recovered_script
 
 
+# ── Partial recovery + confidence scoring (locked 2026-07-25) ─────
+def test_partial_recovery_extracts_readable_prefix() -> None:
+    """When the corrupt sample fails full recovery, the diagnostic
+    prefix `iex (New-Object S…` MUST be surfaced as partial_recovery
+    but NEVER promoted to recovered_script."""
+    r = analyze(_CORRUPT_CMDLINE)
+    partial = r.decode_error.get("partial_recovery")
+    assert partial, "partial_recovery must be populated on this corrupt sample"
+    assert "iex" in partial["prefix_text"].lower(), (
+        f"partial prefix should start with `iex`; got {partial['prefix_text']!r}")
+    assert partial["prefix_bytes"] > 0
+    assert partial["corrupted_bytes"] > 0
+    # It must NEVER become recovered_script
+    assert r.recovered_script == ""
+    # Confidence note must explicitly warn it's diagnostic
+    assert "diagnostic" in partial["confidence_note"].lower()
+
+
+def test_confidence_band_low_on_partial_recovery() -> None:
+    r = analyze(_CORRUPT_CMDLINE)
+    assert r.decode_error["confidence_band"] == "low"
+    assert r.decode_error["recovered_layers"]  # non-empty like "0/6"
+    # low-band reason must acknowledge the partial state
+    assert "partial" in r.decode_error["confidence_reason"].lower() or \
+           "prefix" in r.decode_error["confidence_reason"].lower()
+
+
+def test_confidence_band_high_on_clean_utf16le() -> None:
+    good_ps = "Get-Process | Where-Object { $_.Name -eq 'notepad' }"
+    good_blob = base64.b64encode(good_ps.encode("utf-16-le")).decode()
+    rep = recover_powershell_from_b64(good_blob)
+    assert rep.confidence_band == "high"
+    assert "UTF-16LE strict" in rep.confidence_reason
+
+
+def test_verdict_never_zero_on_decode_error() -> None:
+    """A decode failure must NOT show risk 0/100 (which would imply
+    benign). Instead: verdict='decode_error', risk_score=0 in the
+    LEGACY field for backward compat but the UI-facing verdict_display
+    must be 'Undetermined'."""
+    r = analyze(_CORRUPT_CMDLINE)
+    assert r.decode_error["confidence_band"] in ("low", "none"), (
+        "decode_error must not report 'high' confidence")
+    # Ensure the decode_error dict carries the Undetermined signal
+    # (verdict_display is set by the API wrapper — the semantic layer
+    # here only guarantees status + confidence_band are honest).
+    assert r.decode_outcome == "decode_error"
+    assert r.verdict == "unknown"    # NOT 'malicious' or 'suspicious'
+
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v"])

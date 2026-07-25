@@ -1706,10 +1706,33 @@ export default function WorkspacePage() {
           garbage rendering with a structured, hex-only preview + full
           list of recovery attempts + possible causes. It always
           renders at the top of the results section so the analyst
-          sees it before scrolling to the OUTPUT box. */}
-      {(analysis?.terminal === "decode-error" || analysis?.decode_error) && (
-        <WorkspaceDecodeFailureCard err={analysis.decode_error} />
-      )}
+          sees it before scrolling to the OUTPUT box.
+          Source of truth: the `ps-encodedcommand-recovery` step in
+          `decodeTrace` — args carries the full DecodeReport. */}
+      {(() => {
+        const step = (decodeTrace || []).find(
+          s => s && (s.op === "ps-encodedcommand-recovery" || s.decoder === "ps-encodedcommand-recovery")
+                 && s.args && s.args.decode_error
+        );
+        if (!step) return null;
+        const a = step.args || {};
+        const err = {
+          status: "decode_error",
+          b64_bytes: a.b64_bytes,
+          b64_status: a.b64_status || "succeeded",
+          b64_reason: a.b64_reason || (a.b64_bytes ? `decoded to ${a.b64_bytes} bytes` : ""),
+          first_invalid_offset: a.first_invalid_offset,
+          invalid_reason: a.invalid_reason,
+          hex_preview: a.hex_preview,
+          possible_causes: a.possible_causes || [],
+          attempts: a.recovery_attempts || a.attempts || [],
+          partial_recovery: a.partial_recovery || {},
+          confidence_band: a.confidence_band || "none",
+          confidence_reason: a.confidence_reason || "",
+          recovered_layers: a.recovered_layers || "0/0",
+        };
+        return <WorkspaceDecodeFailureCard err={err} />;
+      })()}
 
       {/* ▲ ANALYST RESULTS · 7 CANONICAL PANELS (P0.2 · RC2.9) */}
       <AnalystResults
