@@ -370,7 +370,7 @@ export default function AutoInvestigatePage() {
 
           {/* PRIMARY DELIVERABLE — Investigation Report (spec-compliant MDR order) */}
           {result?.investigation_report && (
-            <InvestigationReport report={result.investigation_report} incident={input} />
+            <InvestigationReport report={result.investigation_report} incident={input} pipeline={result} />
           )}
 
           {/* ── ADVANCED / SUPPORTING ARTIFACTS ── */}
@@ -2486,13 +2486,46 @@ function ReportSectionCard({ num, title, testid, tone = "cyan", children, subtit
   );
 }
 
-function InvestigationReport({ report, incident }) {
+function InvestigationReport({ report, incident, pipeline }) {
+  // Verdict Uplift (2026-07-25) — aggregate Phase 9.4 verdict_breakdown from
+  // all chains so the top card can show the 4 sub-score bars + MITRE/IOC/LOLBIN
+  // counts. Uses MAX of each sub-score across chains (worst-case posture).
+  const uplift = React.useMemo(() => {
+    const chains = pipeline?.decode_pipeline?.chains || [];
+    if (!chains.length) return null;
+    let risk = 0, behavior = 0, ioc = 0, obf = 0;
+    const mitre = new Set(), lolbins = new Set();
+    let iocCount = 0, worstVerdict = null, worstConf = 0;
+    const rank = { malicious: 4, suspicious: 3, needs_review: 2, informational: 1, benign: 0, decode_error: -1 };
+    for (const c of chains) {
+      const sem = c?.semantic || {};
+      const vb = sem.verdict_breakdown || {};
+      risk     = Math.max(risk, vb.risk_score || 0);
+      behavior = Math.max(behavior, vb.behavior_score || 0);
+      ioc      = Math.max(ioc, vb.ioc_score || 0);
+      obf      = Math.max(obf, vb.obfuscation_score || 0);
+      (sem.mitre_ids || []).forEach(m => mitre.add(m));
+      (sem.behaviors_v2 || []).forEach(b => {
+        if (b.id === "lolbin_abuse") lolbins.add(c.binary || "lolbin");
+      });
+      if (c.binary) lolbins.add(c.binary);
+      const arts = sem.artifacts || [];
+      iocCount += arts.filter(a => a.kind === "url" || a.kind === "ip" || a.kind === "host").length;
+      const v = vb.verdict;
+      if (v && (rank[v] ?? -2) > (rank[worstVerdict] ?? -2)) {
+        worstVerdict = v; worstConf = vb.confidence || 0;
+      }
+    }
+    return { risk, behavior, ioc, obf,
+             mitreCount: mitre.size, iocCount, lolbins: [...lolbins],
+             worstVerdict, worstConf };
+  }, [pipeline]);
   if (!report || report.empty) return null;
   return (
     <div className="space-y-4" data-testid="investigation-report">
       {/* §0 Investigation Verdict — 5-second answer card */}
       {report.verdict && Object.keys(report.verdict).length > 0 && (
-        <InvestigationVerdictCard verdict={report.verdict} />
+        <InvestigationVerdictCard verdict={report.verdict} uplift={uplift} />
       )}
 
       {/* Confidence card — the FIRST thing an analyst sees */}
@@ -3686,7 +3719,7 @@ function RecommendationsGrouped({ recs }) {
 // only when they want to see raw decoder output, entity buckets, and
 // the legacy narrative composer.
 // ─────────────────────────────────────────────────────────────────
-function InvestigationVerdictCard({ verdict }) {
+function InvestigationVerdictCard({ verdict, uplift }) {
   const statusTone = (verdict.current_status || "").toLowerCase().includes("contained")
     ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-200"
     : (verdict.current_status || "").toLowerCase().includes("active")
@@ -3748,6 +3781,76 @@ function InvestigationVerdictCard({ verdict }) {
           <Row label="Customer Action"  value={verdict.customer_action_required} tid="verdict-action" />
           <Row label="Confidence"       value={verdict.confidence}            tid="verdict-confidence" />
         </div>
+        {/* Verdict Uplift (2026-07-25) — sub-score bars + MITRE/IOC/LOLBIN counts.
+            Aggregated MAX across all chains so the analyst sees worst-case posture
+            without scrolling. */}
+        {uplift && (
+          <div className="mt-4 pt-3 border-t border-slate-800"
+               data-testid="verdict-uplift">
+            <div className="flex items-baseline gap-3 mb-2">
+              <span className="text-[10px] tracking-[0.24em] font-bold text-red-300 uppercase">
+                Sub-score breakdown
+              </span>
+              {uplift.worstVerdict && (
+                <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase tracking-widest font-bold ${
+                  uplift.worstVerdict === "malicious"    ? "border-red-500/70 bg-red-600/25 text-red-100"
+                  : uplift.worstVerdict === "suspicious" ? "border-amber-500/60 bg-amber-500/15 text-amber-100"
+                  : uplift.worstVerdict === "decode_error" ? "border-red-500/70 bg-red-600/20 text-red-100"
+                  : "border-slate-600 bg-slate-500/10 text-slate-200"
+                }`} data-testid="uplift-worst-verdict">
+                  {uplift.worstVerdict.replace(/_/g, " ")}
+                </span>
+              )}
+              <span className="ml-auto text-[10px] font-mono text-slate-500">
+                max across {uplift ? "all" : 0} chain(s) · confidence {uplift.worstConf || 0}%
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+              {[
+                { label: "Risk",         value: uplift.risk,     tid: "uplift-risk" },
+                { label: "Behavior",     value: uplift.behavior, tid: "uplift-behavior" },
+                { label: "IOC",          value: uplift.ioc,      tid: "uplift-ioc" },
+                { label: "Obfuscation",  value: uplift.obf,      tid: "uplift-obf" },
+              ].map(({ label, value, tid }) => {
+                const pct = Math.max(0, Math.min(100, value || 0));
+                const barColor = pct >= 75 ? "bg-red-500" : pct >= 40 ? "bg-amber-500" : pct >= 15 ? "bg-sky-500" : "bg-slate-600";
+                return (
+                  <div key={label} data-testid={tid} className="flex flex-col gap-1">
+                    <div className="flex items-baseline justify-between text-[10px] uppercase tracking-widest text-slate-400">
+                      <span>{label}</span>
+                      <span className="font-mono font-bold text-slate-100 text-[11px]">{pct}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                      <div className={`h-full ${barColor} transition-all duration-500`}
+                           style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-[11px]">
+              <div className="px-2 py-1.5 border border-slate-800 rounded bg-slate-900/40 flex items-baseline gap-2"
+                   data-testid="uplift-mitre-count">
+                <span className="text-[9px] uppercase tracking-widest text-slate-500">MITRE</span>
+                <span className="font-mono font-bold text-slate-100 ml-auto">{uplift.mitreCount}</span>
+              </div>
+              <div className="px-2 py-1.5 border border-slate-800 rounded bg-slate-900/40 flex items-baseline gap-2"
+                   data-testid="uplift-ioc-count">
+                <span className="text-[9px] uppercase tracking-widest text-slate-500">IOCs</span>
+                <span className="font-mono font-bold text-slate-100 ml-auto">{uplift.iocCount}</span>
+              </div>
+              <div className="px-2 py-1.5 border border-slate-800 rounded bg-slate-900/40 flex items-baseline gap-2 min-w-0"
+                   data-testid="uplift-lolbin"
+                   title={uplift.lolbins.join(", ")}>
+                <span className="text-[9px] uppercase tracking-widest text-slate-500">LOLBIN</span>
+                <span className="font-mono text-slate-200 ml-auto truncate">
+                  {uplift.lolbins.slice(0, 2).join(", ") || "—"}
+                  {uplift.lolbins.length > 2 && ` +${uplift.lolbins.length - 2}`}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

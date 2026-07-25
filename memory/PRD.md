@@ -1,5 +1,43 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-25 · Verdict Uplift (SHIPPED)
+
+**Priority 1 of the analyst-experience roadmap. Ships the 5-second-answer card.**
+
+### Delivered
+- `InvestigationVerdictCard` now accepts an `uplift` prop populated by a
+  `React.useMemo` aggregator in `InvestigationReport`.
+- Aggregation takes **MAX** across all Phase 9.4 chains for `risk_score`,
+  `behavior_score`, `ioc_score`, `obfuscation_score` (worst-case posture).
+- New "SUB-SCORE BREAKDOWN" row inside the verdict card:
+  - Colour-graded verdict pill (`malicious` / `suspicious` / `decode_error` / …)
+  - Four score bars (Risk / Behavior / IOC / Obfuscation) with dynamic bar
+    color (red ≥ 75, amber ≥ 40, sky ≥ 15, slate otherwise)
+  - "max across all chain(s) · confidence NN%" caption
+- Compact counts row: **MITRE ID count · IOC count · LOLBIN binaries**.
+- Every element has a `data-testid`: `verdict-uplift`,
+  `uplift-worst-verdict`, `uplift-risk`, `uplift-behavior`, `uplift-ioc`,
+  `uplift-obf`, `uplift-mitre-count`, `uplift-ioc-count`, `uplift-lolbin`.
+
+### Rationale
+The decoder milestone is closed — feature-complete at 95 gates green. Focus
+now shifts to analyst UX. The 5-second-answer card gives an analyst the
+verdict, sub-scores, and coverage counts BEFORE they scroll or click into any
+section.
+
+### Approved roadmap (next sessions)
+1. ✅ Verdict Uplift (this delivery) — DONE
+2. 🔵 Behavior Storyline — deterministic Executive + Technical narrative from behavior tags
+3. 🔵 Decode Coverage Dashboard — 8-layer checklist (Payload Extract / Base64 / UTF-16LE / PS / AST / Behavior / IOC / MITRE) + coverage %
+4. 🔵 Investigation Confidence Panel — Evidence sources present + missing + assessment paragraph (REPLACES the earlier "Detection Coverage" idea per user 2026-07-25)
+5. ⚪ Repair Candidates — experimental, low priority, always labeled speculative
+
+### Files touched
+- `/app/frontend/src/pages/AutoInvestigatePage.jsx` (`InvestigationReport`: added useMemo aggregator + `pipeline` prop threading; `InvestigationVerdictCard`: added `uplift` prop and sub-score section)
+
+---
+
+
 ## 2026-07-25 · Decoder Milestone CLOSED · Corpus Expansion (SHIPPED)
 
 ### Decoder Milestone — Frozen as Stable Baseline v1
