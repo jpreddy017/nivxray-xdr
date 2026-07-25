@@ -1629,6 +1629,7 @@ function ChainSemantic({ semantic, chainIndex }) {
     fully_decoded:     "border-emerald-500/50 text-emerald-200 bg-emerald-500/10",
     partially_decoded: "border-amber-500/50 text-amber-200 bg-amber-500/10",
     encrypted_payload: "border-red-500/50 text-red-200 bg-red-500/10",
+    decode_error:      "border-red-500/70 text-red-200 bg-red-600/20",
     unsupported_encoding: "border-slate-600 text-slate-400 bg-slate-800/40",
   }[semantic.decode_outcome] || "border-slate-600 text-slate-400";
   return (

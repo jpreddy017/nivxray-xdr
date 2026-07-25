@@ -36,6 +36,10 @@ from v2.semantic.ps_behaviors import (
 )
 from v2.semantic.ps_decode_trace import DecodeTrace as _DecodeTrace
 from v2.semantic.ps_verdict import compute_verdict as _compute_verdict_v2
+from v2.semantic.ps_recovery import (
+    recover_powershell_from_b64 as _recover_ps,
+    looks_like_powershell as _looks_like_powershell,
+)
 
 # ── Alias normalization table (PowerShell built-ins) ──────────────
 _ALIASES = {
@@ -133,6 +137,7 @@ class SemanticResult:
     verdict_breakdown: dict = field(default_factory=dict)       # risk/behavior/ioc/obfuscation
     ast_tree: dict = field(default_factory=dict)                # rich AST for UI
     resolved_variables: dict = field(default_factory=dict)      # constant-folded values
+    decode_error: dict = field(default_factory=dict)            # {status, attempts, causes, ...}
 
     def to_dict(self) -> dict:
         return {
@@ -158,6 +163,7 @@ class SemanticResult:
             "verdict_breakdown": self.verdict_breakdown,
             "ast_tree":          self.ast_tree,
             "resolved_variables": self.resolved_variables,
+            "decode_error":      self.decode_error,
         }
 
 
@@ -199,22 +205,18 @@ def extract_encoded_blob(cmdline: str) -> str | None:
 
 
 def decode_powershell_encoded(cmdline: str) -> str | None:
-    """Return the recovered PowerShell script or None."""
+    """Return the recovered PowerShell script or None.
+
+    STRICT: never returns latin-1 garbage. Delegates to the deterministic
+    `recover_powershell_from_b64()` chain which validates every candidate
+    with `looks_like_powershell()`.
+    """
     blob = extract_encoded_blob(cmdline)
     if not blob:
         return None
-    try:
-        raw = base64.b64decode(blob, validate=False)
-    except Exception:
-        return None
-    # PS -EncodedCommand is UTF-16LE by contract; fall back to utf-8 if needed.
-    for enc in ("utf-16-le", "utf-8", "latin-1"):
-        try:
-            text = raw.decode(enc)
-            if text and text.isprintable() or "\n" in text or any(c.isalpha() for c in text):
-                return text.strip()
-        except Exception:
-            continue
+    report = _recover_ps(blob)
+    if report.status == "ok":
+        return report.recovered_script.strip() or None
     return None
 
 
@@ -510,29 +512,90 @@ def analyze(cmdline: str) -> SemanticResult:
                       reason="No `-EncodedCommand` flag present in the command line.",
                       input_val=cmdline)
 
-    script = decode_powershell_encoded(cmdline)
-    if script is None:
-        # Not encoded — still try to parse the tail after `powershell.exe`.
+    script = None
+    recovery_report = None
+    if encoded:
+        recovery_report = _recover_ps(encoded_blob)
+        # Fold every recovery attempt into the timeline as its own step.
+        # Base64 attempt
+        trace.add("base64_decode",
+                  status=("applied" if recovery_report.b64_status == "succeeded"
+                          else "failed"),
+                  reason=recovery_report.b64_reason,
+                  input_val=encoded_blob or "",
+                  output_val=(recovery_report.hex_preview or ""),
+                  meta={"b64_bytes": recovery_report.b64_bytes,
+                        "hex_preview": recovery_report.hex_preview})
+        # Each decoder attempt from the recovery chain
+        for att in recovery_report.attempts:
+            if att.decoder == "base64_decode":
+                continue    # already emitted above
+            trace.add(
+                att.decoder,
+                status=("applied" if att.status == "succeeded"
+                        else ("skipped" if att.status == "skipped" else "failed")),
+                reason=att.reason,
+                input_val="",
+                output_val="",
+                meta=att.meta,
+            )
+        if recovery_report.status == "ok":
+            script = recovery_report.recovered_script
+        else:
+            # Halt semantic analysis — return a structured decode_error.
+            r.decode_outcome = "decode_error"
+            r.detected = True   # PowerShell WAS present, but we couldn't decode it
+            r.decode_error = {
+                "status":               recovery_report.status,
+                "b64_bytes":            recovery_report.b64_bytes,
+                "b64_status":           recovery_report.b64_status,
+                "b64_reason":           recovery_report.b64_reason,
+                "attempts":             [a.to_dict() for a in recovery_report.attempts],
+                "possible_causes":      list(recovery_report.possible_causes),
+                "first_invalid_offset": recovery_report.first_invalid_offset,
+                "invalid_reason":       recovery_report.invalid_reason,
+                "hex_preview":          recovery_report.hex_preview,
+                "blob_length":          len(encoded_blob or ""),
+            }
+            r.verdict = "unknown"
+            r.verdict_reason = ("Decode failure — no decoder in the recovery "
+                                 "chain produced valid PowerShell text. "
+                                 "Semantic analysis intentionally halted.")
+            r.confidence = 0
+            r.risk_score = 0
+            trace.add("semantic_halt", status="skipped",
+                      reason=("Recovery chain exhausted without producing a "
+                              "valid PowerShell script — AST, behavior "
+                              "extraction, and verdict scoring intentionally "
+                              "skipped to avoid rendering binary garbage."),
+                      input_val="", output_val="")
+            r.decode_timeline = trace.to_list()
+            return r
+    else:
+        # Not encoded — try to use the raw tail
         m = re.search(r"powershell(?:\.exe)?\s+(.*)", cmdline, re.I | re.S)
         if m:
-            script = m.group(1)
-            trace.add("bare_ps_extract", status="applied",
-                      reason="Non-encoded PowerShell; using the raw tail after `powershell.exe`.",
-                      input_val=cmdline, output_val=script)
-        else:
+            candidate = m.group(1).strip()
+            ok, why = _looks_like_powershell(candidate, min_len=3)
+            if ok:
+                script = candidate
+                trace.add("bare_ps_extract", status="applied",
+                          reason=("Non-encoded PowerShell; using the raw tail "
+                                  "after `powershell.exe`."),
+                          input_val=cmdline, output_val=script)
+            else:
+                trace.add("bare_ps_extract", status="failed",
+                          reason=f"raw tail after `powershell.exe` rejected: {why}",
+                          input_val=cmdline)
+        if script is None:
             r.decode_outcome = "unsupported_encoding"
             trace.skipped("ps_ast_parser",
                           reason="No decodable script content — pipeline halts.",
                           input_val=cmdline)
             r.decode_timeline = trace.to_list()
             return r
-    else:
-        trace.add("base64_utf16le_decode", status="applied",
-                  reason=("Base64 → UTF-16LE decode succeeded — Windows "
-                          "PowerShell EncodedCommand contract."),
-                  input_val=encoded_blob or "", output_val=script)
     r.detected = True
-    r.recovered_script = script.strip()
+    r.recovered_script = (script or "").strip()
 
     # ── Phase 9.4 · Semantic AST parse ────────────────────────────
     ast_script: _AstScript = _ast_parse(r.recovered_script)

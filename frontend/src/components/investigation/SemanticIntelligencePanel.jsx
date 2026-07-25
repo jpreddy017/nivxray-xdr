@@ -388,12 +388,131 @@ function ASTStatements({ statements }) {
 }
 
 
+function DecodeFailureCard({ err, chainIndex }) {
+  if (!err || !err.status) return null;
+  return (
+    <div className="border border-red-500/60 bg-red-950/30 rounded-md p-3"
+         data-testid={`semantic-v2-decode-error-${chainIndex}`}>
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="text-[10px] tracking-[0.24em] font-bold text-red-200 uppercase">
+          Decode Failure · analysis halted
+        </span>
+        <span className="ml-auto px-2 py-0.5 rounded-full border border-red-500/70
+                         bg-red-600/30 text-red-100 text-[10px] uppercase tracking-widest font-bold">
+          decode_error
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2 text-[11px]">
+        <div className="flex items-baseline gap-2">
+          <span className={`w-4 text-[13px] font-bold ${
+            err.b64_status === "succeeded" ? "text-emerald-400" : "text-red-400"
+          }`}>{err.b64_status === "succeeded" ? "✓" : "✗"}</span>
+          <span className="text-slate-200 font-bold">Base64 decoded</span>
+          <span className="text-slate-500">·</span>
+          <span className="text-slate-400 font-mono">{err.b64_reason}</span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="w-4 text-[13px] font-bold text-red-400">✗</span>
+          <span className="text-slate-200 font-bold">UTF-16LE validation failed</span>
+          {err.first_invalid_offset != null && (
+            <span className="text-slate-400 font-mono">
+              at byte {err.first_invalid_offset}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {err.invalid_reason && (
+        <div className="text-[11px] text-slate-300 mb-2 pl-6">
+          <span className="text-slate-500 uppercase text-[9px] tracking-widest mr-2">Reason</span>
+          <span className="font-mono">{err.invalid_reason}</span>
+        </div>
+      )}
+
+      {err.hex_preview && (
+        <div className="mb-2">
+          <div className="text-[9px] uppercase tracking-widest text-slate-500 mb-1">
+            Hex preview (first {Math.min(64, (err.hex_preview.length || 0) / 2)} bytes)
+          </div>
+          <pre className="px-2 py-1 bg-slate-950/80 border border-slate-800 rounded text-[10px]
+                          font-mono text-amber-200 whitespace-pre-wrap break-all leading-snug"
+               data-testid={`semantic-v2-decode-error-hex-${chainIndex}`}>
+            {err.hex_preview.replace(/(.{2})/g, "$1 ").trim()}
+          </pre>
+        </div>
+      )}
+
+      {(err.possible_causes || []).length > 0 && (
+        <div className="mb-2">
+          <div className="text-[9px] uppercase tracking-widest text-slate-500 mb-1">
+            Possible causes
+          </div>
+          <ul className="text-[11px] text-slate-300 space-y-0.5"
+              data-testid={`semantic-v2-decode-error-causes-${chainIndex}`}>
+            {err.possible_causes.map((c, i) => (
+              <li key={i} className="flex gap-1.5">
+                <span className="text-red-400 mt-0.5">▸</span>
+                <span>{c}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(err.attempts || []).length > 0 && (
+        <div>
+          <div className="text-[9px] uppercase tracking-widest text-slate-500 mb-1">
+            Recovery attempts ({err.attempts.length})
+          </div>
+          <div className="space-y-1"
+               data-testid={`semantic-v2-decode-error-attempts-${chainIndex}`}>
+            {err.attempts.map((a, i) => (
+              <div key={i}
+                   data-testid={`semantic-v2-decode-error-attempt-${chainIndex}-${i}`}
+                   className={`flex flex-wrap items-baseline gap-2 text-[10.5px] px-2 py-1 rounded border ${
+                     a.status === "succeeded" ? "border-emerald-500/50 bg-emerald-500/5"
+                     : a.status === "skipped" ? "border-slate-700 bg-slate-800/30"
+                     : "border-red-500/40 bg-red-500/5"
+                   }`}>
+                <span className="font-mono font-bold text-slate-200">{a.decoder}</span>
+                <span className={`px-1.5 py-0 rounded text-[9px] uppercase tracking-widest font-bold border ${
+                  a.status === "succeeded" ? "border-emerald-500/60 text-emerald-200"
+                  : a.status === "skipped" ? "border-slate-600/60 text-slate-300"
+                  : "border-red-500/60 text-red-200"
+                }`}>{a.status}</span>
+                <span className="text-slate-400 font-mono flex-1 min-w-0 break-words">
+                  {a.reason}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-2 pt-2 border-t border-red-500/20 text-[10.5px] text-slate-400 italic">
+        Semantic analysis intentionally halted — no AST, no behavior extraction,
+        and no verdict scoring is performed on unrecovered payloads. This card is
+        the ONLY output for this chain.
+      </div>
+    </div>
+  );
+}
+
+
 export default function SemanticIntelligencePanel({ semantic, chainIndex, onHighlight }) {
   if (!semantic || !semantic.detected) return null;
+
+  // Decode-error path — render only the failure card, halt all other UI.
+  const decodeError = semantic.decode_error;
+  const hasDecodeError = semantic.decode_outcome === "decode_error"
+                          || (decodeError && decodeError.status === "decode_error");
+
   const hasV2 = (semantic.behaviors_v2 && semantic.behaviors_v2.length) ||
                 (semantic.decode_timeline && semantic.decode_timeline.length) ||
                 (semantic.verdict_breakdown && semantic.verdict_breakdown.verdict);
-  if (!hasV2) return null;
+  if (!hasV2 && !hasDecodeError) return null;
+
   return (
     <div className="border-t border-cyan-500/30 bg-slate-950/40 p-3 space-y-3"
          data-testid={`semantic-v2-panel-${chainIndex}`}>
@@ -405,15 +524,27 @@ export default function SemanticIntelligencePanel({ semantic, chainIndex, onHigh
           NivXRay-native taxonomy · deterministic
         </span>
       </div>
-      <ExplainableVerdict vb={semantic.verdict_breakdown} chainIndex={chainIndex} />
-      <BehaviorCards behaviors={semantic.behaviors_v2}
-                     chainIndex={chainIndex}
-                     onHighlight={onHighlight} />
-      <DecodeTimeline steps={semantic.decode_timeline} chainIndex={chainIndex} />
-      <EvidenceGraph graph={semantic.evidence_graph} chainIndex={chainIndex} />
-      <ASTViewer tree={semantic.ast_tree}
-                 resolvedVars={semantic.resolved_variables}
-                 chainIndex={chainIndex} />
+
+      {hasDecodeError ? (
+        <>
+          <DecodeFailureCard err={decodeError} chainIndex={chainIndex} />
+          {/* Even on failure, we still show the timeline so the analyst can
+              audit every decoder decision. */}
+          <DecodeTimeline steps={semantic.decode_timeline} chainIndex={chainIndex} />
+        </>
+      ) : (
+        <>
+          <ExplainableVerdict vb={semantic.verdict_breakdown} chainIndex={chainIndex} />
+          <BehaviorCards behaviors={semantic.behaviors_v2}
+                         chainIndex={chainIndex}
+                         onHighlight={onHighlight} />
+          <DecodeTimeline steps={semantic.decode_timeline} chainIndex={chainIndex} />
+          <EvidenceGraph graph={semantic.evidence_graph} chainIndex={chainIndex} />
+          <ASTViewer tree={semantic.ast_tree}
+                     resolvedVars={semantic.resolved_variables}
+                     chainIndex={chainIndex} />
+        </>
+      )}
     </div>
   );
 }

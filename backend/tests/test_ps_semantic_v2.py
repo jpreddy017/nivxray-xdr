@@ -154,7 +154,8 @@ def test_analyze_decode_timeline_explains_every_step() -> None:
     kinds = {s["decoder"] for s in steps}
     assert "input_scanner" in kinds
     assert "extract_encodedcommand" in kinds
-    assert "base64_utf16le_decode" in kinds
+    assert "base64_decode" in kinds
+    assert "utf16le_strict" in kinds
     assert "ps_ast_parser" in kinds
     assert "behavior_extractor_v2" in kinds
     # Every step has a reason
