@@ -303,6 +303,33 @@ class XorBruteDecoder(BaseDecoder):
     def detect(self, payload: str, fingerprint: Fingerprint, ctx: AnalysisContext) -> DetectResult:
         if len(payload) < self._MIN_LEN:
             return DetectResult(confidence=0.0, why="Too short for XOR brute")
+        # Feb 2026 · UTF-16LE POWERSHELL ENCODEDCOMMAND SKIP GUARD ────
+        # Adversarial report (2026-07-24): xor-brute was clobbering
+        # `powershell.exe -enc <base64>` payloads. After base64-decode
+        # the buffer is UTF-16LE ASCII (every other byte is 0x00), which
+        # passed the "high entropy + repeating byte" heuristics below
+        # and produced binary garbage.  Refuse the buffer at the door —
+        # the UTF-16LE decoder MUST run before xor-brute.
+        try:
+            _b = payload.encode("latin-1", errors="replace")
+        except Exception:
+            _b = b""
+        if len(_b) >= 4:
+            _pairs = min(len(_b) // 2, 512)
+            if _pairs >= 8:
+                _nul_odd = sum(1 for i in range(1, 2 * _pairs, 2) if _b[i] == 0)
+                _ascii_even = sum(1 for i in range(0, 2 * _pairs, 2)
+                                   if 0x20 <= _b[i] <= 0x7E)
+                # Classic UTF-16LE ASCII fingerprint:
+                #   >85% of odd bytes are NUL AND
+                #   >70% of even bytes are printable ASCII
+                if _nul_odd / _pairs >= 0.85 and _ascii_even / _pairs >= 0.70:
+                    return DetectResult(
+                        confidence=0.0,
+                        why=("Buffer is UTF-16LE encoded ASCII text — likely a "
+                             "base64-decoded PowerShell -EncodedCommand payload. "
+                             "UTF-16LE decoder must run before xor-brute."),
+                    )
         # Feb 2026 · CLEAN-ENCODED SKIP GUARD ────────────────────────────
         # Refuse to XOR-brute a buffer that IS ALREADY a clean encoded
         # string (base64 / URL-encoded / hex). This is the "one more decode

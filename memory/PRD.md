@@ -1,5 +1,40 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-24 · Phase 9.3 · Decoder Race Fix: xor-brute must not clobber PowerShell -EncodedCommand (SHIPPED)
+
+### Bug
+Adversarial payload report: `powershell.exe -exec bypass -enc <base64>`
+was rendering as binary garbage (`QK,9RIi8cIw*,IOKd9eI+8!...`) because
+after base64-decode the buffer (UTF-16LE ASCII) had high entropy +
+repeating NUL bytes → passed xor-brute's "high-entropy + repeating
+byte" heuristics → xor-brute clobbered the real PowerShell string.
+
+### Fix
+`decoders/xor_brute.py::XorBruteDecoder.detect()` — new
+**UTF-16LE POWERSHELL ENCODEDCOMMAND SKIP GUARD** at the top:
+  - Latin-1 view of the payload → count NULs at odd positions and
+    printable ASCII at even positions
+  - If ≥85% odd-NUL AND ≥70% even-ASCII → return confidence=0.0
+    with reason "UTF-16LE decoder must run before xor-brute"
+  - Existing `utf16-decode` plugin (confidence 0.9) then wins the
+    decoder race and recovers the original IEX + WebClient +
+    DownloadString invocation.
+
+### Regression
+`/app/backend/tests/test_ps_encodedcommand_xor_guard.py` — 2 new tests:
+  1. `test_xor_brute_refuses_utf16le_powershell_payload` — asserts
+      xor-brute returns conf=0.0 with the correct guard reason.
+  2. `test_utf16_decoder_wins_the_race_and_recovers_the_command` —
+      asserts utf16-decode outranks xor-brute, and that the recovered
+      text contains `New-Object · System.Net.WebClient ·
+      DownloadString · http://update.local/p.ps1`.
+Both green. Combined with the existing 28 investigation-quality gates
+→ **30/30 tests passing.**
+
+---
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-24 · Phase 9.2 · Final Analyst UX Polish (SHIPPED — 28/28 gates green)
 
 ### Investigation Dashboard grid (§5 header)
@@ -1198,41 +1233,3 @@ components.
 whole workspace. Holds the current selection object
 `{ kind, id, frame_iid, process_iid, source }`. Every view reads and
 writes this ONE object instead of duplicating selection state.
-
-Ripple pattern:
-```
-Click Story sentence  ─┐
-Click Trajectory event ├──►  SelectionContext.setSelection()  ──►  every view re-renders
-Click Process node    ─┘
-Click ATT&CK tech     ─┘
-```
-
-The URL query param `?focus=<frame_iid>` mirrors the current selection
-so shareable deep links reproduce it.
-
-### Frontend components
-
-- `v2/pages/EvidenceCard.jsx` — the UNIVERSAL drill-down side rail.
-  Always the same look regardless of the source view. Reads current
-  selection from SelectionContext; resolves it against the IKG loaded by
-  the workspace shell. Renders:
-    * Event · timestamp · lane · action · rule · frame IID
-    * Process · image · first seen · cmdline · process IID
-    * Relationships · parent · children · files · registry · network
-    * MITRE ATT&CK · technique chips
-    * Verdict · layer · score · band · confidence · explanation
-    * Jump-to bar · trajectory | story | graph | process | attack
-  Floating right rail, closable, 380px wide.
-
-- `v2/pages/ProcessTreeTab.jsx` — parent → child DFIR view. Flattens the
-  IKG's `spawned` edges into a linear indented tree. Each node shows
-  image, verdict badge (band + score), technique count, child count.
-  Clicking a node updates the SelectionContext → every other tab
-  (Story · Trajectory · Attack Card · Evidence Card) refocuses.
-
-### Workspace shell wiring
-
-- `InvestigationWorkspace` now split into an inner component
-  (`InvestigationWorkspaceInner`) and a `SelectionProvider`-wrapping
-  default export. Every tab receives the shared selection via context.
-- Global `<EvidenceCard>` overlay renders on top of every tab.
