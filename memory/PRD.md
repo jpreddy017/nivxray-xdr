@@ -1,5 +1,45 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-25 · Decoder Milestone CLOSED · Corpus Expansion (SHIPPED)
+
+### Decoder Milestone — Frozen as Stable Baseline v1
+- Baseline contract: `/app/backend/tests/DECODER_BASELINE.md`
+- 6 non-negotiable invariants documented (no binary garbage, no fabricated
+  verdict, no XOR-brute on -EncodedCommand, every attempt logged, honest
+  confidence bands, no automatic "repair").
+- Regression floor: **95 gates green** (85 backend pytest + 10 real-world).
+- From this point forward, every PR touching the decoder must pass this gate.
+
+### Corpus Expansion — Living Regression Suite (Priority 1)
+- New module `/app/backend/tests/corpus/samples.py` — @sample decorator
+  registers each entry with expected assertions in a single line.
+- New gate `/app/backend/tests/test_corpus_regression.py` — parametrised
+  pytest that iterates over every sample and asserts decode outcome,
+  must-contain / must-not-contain, behavior IDs, verdict band, MITRE IDs,
+  confidence band.
+- **21 samples across 5 categories:**
+  - `malware_families` (5): Empire, Sliver, Cobalt Strike, PoshC2, Metasploit
+  - `obfuscation` (5): Invoke-Obfuscation `-f`, nested Base64, GZip, Deflate, char[] join
+  - `defense_evasion` (3): AMSI bypass, Defender tampering, Add-Type Win32
+  - `downloaders` (5): WebClient, IWR, BITS, CertUtil, MSHTA
+  - `benign` (6): Get-Process, Get-Service, AD user enum, Exchange, Defender
+     admin, WinEvent — all must NEVER be flagged malicious (false-positive gate)
+- `test_corpus_covers_all_five_categories` enforces ≥ 3 samples per category
+  so the taxonomy stays balanced.
+- `test_corpus_prevents_false_positives_on_benign` guarantees no benign
+  sample gets a malicious verdict — critical for analyst trust.
+
+### Approved next-session order
+1. ✅ Corpus Expansion (this delivery) — DONE
+2. 🔵 Verdict Uplift — move 4 sub-score bars beside the INVESTIGATION VERDICT card
+3. 🔵 Behavior Storyline — Executive + Technical narrative + Timeline + MITRE + IOC summary
+4. 🔵 Decode Coverage Dashboard — layer checklist (Base64 / UTF-16LE / PS / AST / Behavior / MITRE) + coverage %
+5. 🟡 Detection Coverage Dashboard — decoder/behavior/MITRE/IOC/LOLBIN coverage bars (new, added by user 2026-07-25)
+6. ⚪ Repair Candidates — experimental, low priority, always clearly labeled speculative
+
+---
+
+
 ## 2026-07-25 · Decoder Correctness Fix — Workspace never renders binary garbage (SHIPPED)
 
 ### The bug that was reported (locked with SOC user 2026-07-25)
