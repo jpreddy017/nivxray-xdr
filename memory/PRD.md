@@ -1,5 +1,72 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-25 · Phase 9.4 · PowerShell Semantic Intelligence (SHIPPED)
+
+### Delivered
+- **Hand-rolled deterministic PowerShell AST engine** (`v2/semantic/ps_ast.py`) —
+  tokenizer + recursive-descent parser + constant-fold resolver. Handles
+  assignments, pipelines, method chains, `-f` format, `-join`, char arrays,
+  `[Type]::Member` static calls, `.Method(...)` invocations, subexpressions,
+  backtick escapes, splatting. Zero external deps; NO pwsh required. Designed
+  as an abstraction layer so a native pwsh parser could be swapped in later
+  without changing extractors.
+- **NivXRay-native behavior taxonomy** (`v2/semantic/ps_behaviors.py`) — 32
+  analyst-observable behavior tags (Execution Policy Bypass, Encoded Command,
+  Invoke-Expression, WebClient DownloadString/File, Invoke-WebRequest/RestMethod,
+  BITS, Reflection, AMSI Bypass, Memory Execution, Fileless Execution, LOLBIN
+  Abuse, Remote Script Download, Payload Decode/Decompression, Registry Run
+  Key, Scheduled Task, Service Creation, Credential Access, Persistence,
+  Process Injection, Network Beaconing, C2 Communication, External Network,
+  Local Network Only, Lateral Movement, Privilege Escalation, Defender Tamper,
+  Defense Evasion, String Reconstruction, Char-Array Join, Process Spawn).
+  MITRE ATT&CK IDs attached as a **mapping**, never as identity.
+- **Explainable Decode Timeline** (`v2/semantic/ps_decode_trace.py`) — every
+  decoder step (`input_scanner`, `extract_encodedcommand`,
+  `base64_utf16le_decode`, `ps_ast_parser`, `behavior_extractor_v2`) records
+  status (applied/skipped/failed), plain-English reason, byte transformation
+  (in_len → out_len), duration ms, input/output hash, preview.
+- **Explainable Verdict** (`v2/semantic/ps_verdict.py`) — split the flat
+  `Malicious 70` into 4 sub-scores: risk / behavior / ioc / obfuscation,
+  each 0-100, plus an analyst rationale array and top-signals ranked list.
+  Critical behavior floors composite at 75 (malicious band).
+- **Investigation Evidence Graph** — 4-lane graph (Decoder Chain, Script,
+  Behaviors, IOCs) with 3 edge kinds (`derives_from`, `witnesses`, `observes`).
+- **UI Workspace Upgrade** (`components/investigation/SemanticIntelligencePanel.jsx`)
+  — Explainable Verdict card + Behavior Cards grid + Full Decode Timeline
+  stepper + 4-lane Evidence Graph + collapsible AST Tree viewer with resolved
+  variables. Advanced accordion auto-expands when v2 data is present.
+
+### Backward compatibility
+- Legacy `behaviors`, `ast`, `verdict`, `verdict_reason`, `mitre_ids`,
+  `decode_outcome`, `confidence`, `risk_score` fields on `SemanticResult`
+  are UNCHANGED. `to_dict()` only ADDS new keys: `behaviors_v2`,
+  `evidence_graph`, `decode_timeline`, `verdict_breakdown`, `ast_tree`,
+  `resolved_variables`.
+- Pre-existing `chain-semantic-*` UI block still renders below the new v2 panel.
+
+### Regression
+- 46/46 backend pytest passing (30 pre-existing + 16 new in
+  `tests/test_ps_semantic_v2.py`).
+- Testing agent added 5 new API contract tests (`test_phase94_api_contract.py`)
+  — all 5 pass against live `POST /api/v2/auto-investigate`.
+- Frontend E2E via testing agent: all Phase 9.4 data-testids resolve,
+  legacy `chain-semantic-*` still present.
+
+### Files touched
+- Created: `/app/backend/v2/semantic/{ps_ast,ps_behaviors,ps_decode_trace,ps_verdict}.py`
+- Created: `/app/backend/tests/{test_ps_semantic_v2,test_phase94_api_contract}.py`
+- Created: `/app/frontend/src/components/investigation/SemanticIntelligencePanel.jsx`
+- Modified: `/app/backend/v2/semantic/ps_semantic.py` (analyze() populates 9.4 fields)
+- Modified: `/app/backend/v2/jobs/pipeline.py` (PIPELINE_VERSION → v9-ps-semantic-intelligence)
+- Modified: `/app/frontend/src/pages/AutoInvestigatePage.jsx` (mounts new panel + auto-expand)
+
+### Deferred to next session (P2)
+- Adversarial corpus expansion — nested Base64, GZip stagers, Empire/Sliver
+  PS beacons, more `-f`/join permutations in the golden corpus.
+
+---
+
+
 ## 2026-07-24 · Phase 9.3 · Decoder Race Fix: xor-brute must not clobber PowerShell -EncodedCommand (SHIPPED)
 
 ### Bug

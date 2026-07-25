@@ -375,7 +375,15 @@ export default function AutoInvestigatePage() {
 
           {/* ── ADVANCED / SUPPORTING ARTIFACTS ── */}
           {result && (
-            <AdvancedArtifactsSection defaultOpen={false}>
+            <AdvancedArtifactsSection
+              defaultOpen={Boolean(
+                (result?.decode_pipeline?.chains || []).find(
+                  c => c?.semantic?.behaviors_v2?.length ||
+                       c?.semantic?.decode_timeline?.length ||
+                       c?.semantic?.verdict_breakdown?.verdict
+                )
+              )}
+            >
               {/* Executive Investigation Card · analyst-facing 5-question summary */}
               {result?.executive_card && <ExecutiveCard card={result.executive_card} />}
               {/* Investigation Narrative · analyst-quality prose (legacy composer) */}
