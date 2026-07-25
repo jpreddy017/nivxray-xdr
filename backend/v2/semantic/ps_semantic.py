@@ -28,6 +28,15 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
+# Phase 9.4 · NivXRay Semantic Intelligence
+from v2.semantic.ps_ast import parse as _ast_parse, Script as _AstScript
+from v2.semantic.ps_behaviors import (
+    extract_behaviors as _extract_behaviors_v2,
+    build_evidence_graph as _build_evidence_graph,
+)
+from v2.semantic.ps_decode_trace import DecodeTrace as _DecodeTrace
+from v2.semantic.ps_verdict import compute_verdict as _compute_verdict_v2
+
 # ── Alias normalization table (PowerShell built-ins) ──────────────
 _ALIASES = {
     "start": "Start-Process", "saps": "Start-Process",
@@ -117,6 +126,13 @@ class SemanticResult:
     risk_score: int = 0
     mitre_ids: list[str] = field(default_factory=list)
     decode_outcome: str = "unsupported_encoding"
+    # ── Phase 9.4 · Semantic Intelligence ────────────────────────
+    behaviors_v2: list[dict] = field(default_factory=list)     # NivXRay-native taxonomy
+    evidence_graph: dict = field(default_factory=dict)          # {nodes, edges}
+    decode_timeline: list[dict] = field(default_factory=list)   # explainable decoder trace
+    verdict_breakdown: dict = field(default_factory=dict)       # risk/behavior/ioc/obfuscation
+    ast_tree: dict = field(default_factory=dict)                # rich AST for UI
+    resolved_variables: dict = field(default_factory=dict)      # constant-folded values
 
     def to_dict(self) -> dict:
         return {
@@ -135,6 +151,13 @@ class SemanticResult:
             "risk_score":     self.risk_score,
             "mitre_ids":      self.mitre_ids,
             "decode_outcome": self.decode_outcome,
+            # Phase 9.4
+            "behaviors_v2":      self.behaviors_v2,
+            "evidence_graph":    self.evidence_graph,
+            "decode_timeline":   self.decode_timeline,
+            "verdict_breakdown": self.verdict_breakdown,
+            "ast_tree":          self.ast_tree,
+            "resolved_variables": self.resolved_variables,
         }
 
 
@@ -468,18 +491,62 @@ def analyze(cmdline: str) -> SemanticResult:
     r = SemanticResult()
     if not cmdline or not re.search(r"powershell", cmdline, re.I):
         return r
-    encoded = extract_encoded_blob(cmdline) is not None
+    encoded_blob = extract_encoded_blob(cmdline)
+    encoded = encoded_blob is not None
+
+    # ── Phase 9.4 · Explainable Decode Trace ─────────────────────
+    trace = _DecodeTrace()
+    trace.add("input_scanner", status="applied",
+              reason=("Detected `powershell.exe` invocation in command line; "
+                      "beginning semantic decode pipeline."),
+              input_val=cmdline, output_val=cmdline)
+    if encoded:
+        trace.add("extract_encodedcommand", status="applied",
+                  reason=("Located `-EncodedCommand` flag; extracted "
+                          f"{len(encoded_blob)}-char Base64 blob."),
+                  input_val=cmdline, output_val=encoded_blob or "")
+    else:
+        trace.skipped("extract_encodedcommand",
+                      reason="No `-EncodedCommand` flag present in the command line.",
+                      input_val=cmdline)
+
     script = decode_powershell_encoded(cmdline)
     if script is None:
         # Not encoded — still try to parse the tail after `powershell.exe`.
         m = re.search(r"powershell(?:\.exe)?\s+(.*)", cmdline, re.I | re.S)
         if m:
             script = m.group(1)
+            trace.add("bare_ps_extract", status="applied",
+                      reason="Non-encoded PowerShell; using the raw tail after `powershell.exe`.",
+                      input_val=cmdline, output_val=script)
         else:
             r.decode_outcome = "unsupported_encoding"
+            trace.skipped("ps_ast_parser",
+                          reason="No decodable script content — pipeline halts.",
+                          input_val=cmdline)
+            r.decode_timeline = trace.to_list()
             return r
+    else:
+        trace.add("base64_utf16le_decode", status="applied",
+                  reason=("Base64 → UTF-16LE decode succeeded — Windows "
+                          "PowerShell EncodedCommand contract."),
+                  input_val=encoded_blob or "", output_val=script)
     r.detected = True
     r.recovered_script = script.strip()
+
+    # ── Phase 9.4 · Semantic AST parse ────────────────────────────
+    ast_script: _AstScript = _ast_parse(r.recovered_script)
+    trace.add("ps_ast_parser", status="applied",
+              reason=(f"Parsed recovered script into an AST with "
+                      f"{len(ast_script.statements)} statement(s) and "
+                      f"{len(ast_script.tokens)} token(s)."),
+              input_val=r.recovered_script,
+              output_val=str(len(ast_script.statements)),
+              meta={"statements": len(ast_script.statements),
+                    "tokens": len(ast_script.tokens),
+                    "resolved_vars": len(ast_script.variables)})
+
+    # Legacy AST (backward-compat) — flat regex-based cmdlet list
     r.ast = parse_ast(r.recovered_script)
     r.artifacts = extract_artifacts(r.recovered_script, r.ast)
     r.behaviors = classify_behaviors(r.recovered_script, r.ast, r.artifacts)
@@ -490,4 +557,41 @@ def analyze(cmdline: str) -> SemanticResult:
     r.confidence = conf
     r.mitre_ids = sorted({m for b in r.behaviors for m in b["mitre"]})
     r.decode_outcome = "fully_decoded" if r.ast else "partially_decoded"
+
+    # ── Phase 9.4 · NivXRay-native behavior extraction ────────────
+    v2_behaviors = _extract_behaviors_v2(ast_script)
+    r.behaviors_v2 = [b.to_dict() for b in v2_behaviors]
+    trace.add("behavior_extractor_v2", status="applied",
+              reason=(f"Extracted {len(v2_behaviors)} NivXRay-native "
+                      "behavior tag(s) from AST + text-level signals."),
+              input_val=r.recovered_script,
+              output_val=", ".join(b.id for b in v2_behaviors) or "(none)")
+
+    # IOC statistics for the verdict engine
+    ext_urls = sum(1 for a in r.artifacts
+                    if a.kind == "url" and a.classification == "external")
+    ext_ips  = sum(1 for a in r.artifacts
+                    if a.kind == "ip"  and a.classification == "external")
+    ioc_stats = {
+        "external_urls":   ext_urls,
+        "external_ips":    ext_ips,
+        "ti_hits":         0,
+        "hashes":          0,
+        "decoder_layers":  len(trace.steps),
+    }
+    breakdown = _compute_verdict_v2(v2_behaviors, ioc_stats,
+                                     trace.to_list(),
+                                     encoded_present=encoded)
+    r.verdict_breakdown = breakdown.to_dict()
+
+    # Evidence graph
+    r.evidence_graph = _build_evidence_graph(ast_script, v2_behaviors,
+                                              decoder_layers=trace.to_list())
+    r.ast_tree = ast_script.to_dict()
+    r.resolved_variables = dict(ast_script.variables)
+    r.decode_timeline = trace.to_list()
+
+    # Union MITRE with v2 behaviors — never regress detection.
+    r.mitre_ids = sorted(set(r.mitre_ids)
+                          | {m for b in v2_behaviors for m in b.mitre})
     return r

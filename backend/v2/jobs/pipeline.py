@@ -85,7 +85,7 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
     sha = _sha256_of(cmdline)
     # Feb-2026 · Pipeline version tag. Bump this whenever a decoder /
     # archetype change should invalidate previously cached artifacts.
-    PIPELINE_VERSION = "v8-analyst-narrative"
+    PIPELINE_VERSION = "v9-ps-semantic-intelligence"
     cached = await _artifact_get(sha)
     # Cache-invalidation guard. Any artifact cached BEFORE the archetype
     # bridge shipped has `layers == 0` for inputs the archetypes can now

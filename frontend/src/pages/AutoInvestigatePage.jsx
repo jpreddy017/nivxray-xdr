@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import React from "react";
 import api, { API_BASE } from "@/lib/api";
 import Header from "@/components/Header";
+import SemanticIntelligencePanel from "@/components/investigation/SemanticIntelligencePanel";
 
 const SEVERITY_TONE = {
   Critical:      { bg: "#450a0a", fg: "#fecaca", border: "#7f1d1d" },
@@ -1595,6 +1596,8 @@ function DecodeChainCard({ chain }) {
       <ChainEnrichment enrichment={chain.enrichment} chainIndex={chain.index} />
       {/* Deterministic PowerShell semantic pass */}
       <ChainSemantic semantic={chain.semantic} chainIndex={chain.index} />
+      {/* Phase 9.4 — NivXRay-native Semantic Intelligence */}
+      <SemanticIntelligencePanel semantic={chain.semantic} chainIndex={chain.index} />
     </div>
   );
 }
