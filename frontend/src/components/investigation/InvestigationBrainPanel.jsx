@@ -145,7 +145,7 @@ export function InvestigationBrainPanel({ investigation }) {
           marginBottom: 4,
         }}
       >
-        Investigation Brain
+        Investigation Summary
       </div>
       <div style={{ fontSize: 11, color: "#8fa5c2", marginBottom: 12 }}>
         Deterministic pipeline · coverage: {(investigation.coverage || []).join(" → ")}

@@ -1794,34 +1794,81 @@ export default function WorkspacePage() {
         return <WorkspaceDecodeFailureCard err={err} />;
       })()}
 
-      {/* ▲ ANALYST RESULTS · 7 CANONICAL PANELS (P0.2 · RC2.9) */}
-      <AnalystResults
-        verdictCard={verdictCard}
-        output={output}
-        decodeTrace={decodeTrace}
-        decodeConfidence={decodeConfidence}
-        analysis={analysis}
-      />
-
-      {/* ▲ Phase 4 · Unified Investigation Brain (2026-07-29) —
-          renders the IU → CRE → RTE → Intent pipeline as a single
-          investigation flow. Consumes `r.data.investigation` from
-          /decode/smart. */}
+      {/* ▲ v1.3.0 · Investigation Summary — sole verdict authority.
+          The Investigation Brain (IU → CRE → RTE → Intent → Verdict
+          → Graph → Report) is the SINGLE analyst-facing verdict
+          source. Consumes `r.data.investigation` from /decode/smart. */}
       {investigation && (
         <div data-testid="workspace-investigation-brain">
           <InvestigationBrainPanel investigation={investigation} />
         </div>
       )}
 
-      {/* ▲ Phase 9.4 · Semantic Intelligence (2026-07-27) — mounts the
-          SAME recursive deobfuscation + Behavior Storyline + Semantic
-          panels that /auto-investigate uses, so both entry points give
-          the analyst the identical evidence-driven experience. Consumes
-          `r.data.semantic` from /decode/smart. */}
+      {/* ▲ Legacy trace · rc2-orchestrator output — retired from the
+          analyst-facing verdict surface on 2026-07-29 (v1.3.0). Kept
+          here inside a collapsed developer-diagnostics block so we
+          can still validate the new pipeline against legacy signals
+          during transition. Never generates the primary verdict. */}
+      {(verdictCard || analysis || output) && (
+        <details
+          data-testid="workspace-legacy-trace"
+          style={{
+            margin: "16px",
+            padding: "10px 14px",
+            background: "#0a1220",
+            border: "1px dashed #2a3f5a",
+            borderRadius: 8,
+            color: "#7d95b3",
+            fontSize: 12,
+          }}
+        >
+          <summary
+            style={{ cursor: "pointer", color: "#8fa5c2", fontSize: 11,
+                      letterSpacing: 0.8, textTransform: "uppercase" }}
+          >
+            Developer view · legacy rc2-orchestrator trace (not analyst-facing)
+          </summary>
+          <div style={{ marginTop: 8 }}>
+            <AnalystResults
+              verdictCard={verdictCard}
+              output={output}
+              decodeTrace={decodeTrace}
+              decodeConfidence={decodeConfidence}
+              analysis={analysis}
+            />
+          </div>
+        </details>
+      )}
+
+      {/* ▲ Phase 9.4 · Semantic Intelligence (2026-07-27) —
+          RETIRED from the analyst-facing verdict surface on v1.3.0.
+          Its Behavior Storyline / Executive Summary formerly produced
+          a second "Runtime Dependent" verdict that competed with the
+          Investigation Brain. Kept behind a developer disclosure so
+          we can still validate storyline output during transition. */}
       {semantic && (
-        <div data-testid="workspace-semantic-intelligence">
-          <SemanticIntelligencePanel semantic={semantic} chainIndex={0} />
-        </div>
+        <details
+          data-testid="workspace-semantic-intelligence"
+          style={{
+            margin: "16px",
+            padding: "10px 14px",
+            background: "#0a1220",
+            border: "1px dashed #2a3f5a",
+            borderRadius: 8,
+            color: "#7d95b3",
+            fontSize: 12,
+          }}
+        >
+          <summary
+            style={{ cursor: "pointer", color: "#8fa5c2", fontSize: 11,
+                      letterSpacing: 0.8, textTransform: "uppercase" }}
+          >
+            Developer view · legacy semantic storyline (not analyst-facing)
+          </summary>
+          <div style={{ marginTop: 8 }}>
+            <SemanticIntelligencePanel semantic={semantic} chainIndex={0} />
+          </div>
+        </details>
       )}
 
       {/* RC3.1 · IR HANDOFF EXPORT — downloadable SOC brief from the
