@@ -1,5 +1,37 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-27 · Corpus Phase 3 · Batch 1 — Multi-Stage Execution (SHIPPED)
+
+### Delivered (Cluster E + F)
+- **Nested IEX peeling** with unbalanced-quote guard — payloads that
+  embed quotes are no longer truncated.
+- **`[ScriptBlock]::Create`** — static literals resolved; dynamic
+  arguments emit `encryption_detected · dynamic_execution`.
+- **`Invoke-Command -ScriptBlock`** literal peel.
+- **Reflection / AppDomain / Activator** primitives classified
+  (`encryption_detected · reflection`) — **NEVER loaded**. Static-source
+  invariant test locks this permanently.
+- 10 golden samples + 13 regression tests. **194/194 tests green**
+  (13 new Phase 3 + 181 pre-existing).
+
+### Phase 3 · Remaining (Batch 2)
+- Dynamic method invocation — `$m = $obj.GetType().GetMethod("..."); $m.Invoke(...)`
+- `[Type]::GetType("...")` static resolution
+- Environment-variable reconstruction (`$env:PATH`, `$env:LOCALAPPDATA`)
+  — surface as `environment_dependent`, never substitute live values
+- Performance-Baseline CI Gate — compare each run against
+  `tests/reports/phase2_batch2_perf.json`; fail on >20% regression
+- Final Phase 3 regression suite
+
+### Decoder Completion Goal (locked)
+Once Phase 3 (both batches) + Phase 4 + Performance CI are done AND
+the corpus consistently produces the final decoded payload for
+deterministically recoverable samples, the decoder is considered
+feature-complete. Further decoder work is driven by:
+- Real customer samples
+- Regression failures
+- Confirmed malware techniques observed in the field
+
 ## 2026-07-27 · Corpus Phase 2 · Batch 2 — AES + Nested Chains + Perf (SHIPPED)
 
 ### Delivered (Batch 2)

@@ -1128,6 +1128,177 @@ def _detect_runtime_key_boundary(txt: str, stages: list[Stage],
     return False
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  PHASE 3 · Cluster E + F — Multi-Stage Execution (2026-07-27)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── Nested IEX / Invoke-Expression peeling ───────────────────────
+# Matches `IEX('literal')` or `Invoke-Expression 'literal'` where the
+# argument is a single-quoted OR double-quoted string literal. Removes
+# ONE layer per iteration — the recursive loop peels multi-level nests
+# automatically (deterministic, up to MAX_STAGES).
+_IEX_LITERAL_RE = re.compile(
+    r"(?ixs)"
+    r"\b(?:iex|invoke-expression)\s*\(?\s*"
+    r"(['\"])(.{3,4000}?)\1\s*\)?"
+)
+
+
+def _resolve_nested_iex(txt: str, stages: list[Stage]) -> tuple[str, bool]:
+    """Peel one IEX-of-literal layer. Only fires when the argument is a
+    literal string AND the match consumes cleanly (nothing unexpected
+    after the closing quote). Prevents non-greedy `.*?` from truncating
+    PowerShell payloads that legitimately embed quotes."""
+    m = _IEX_LITERAL_RE.search(txt)
+    if not m:
+        return txt, False
+    quote = m.group(1)
+    inner = m.group(2)
+    # Reject when the argument contains an un-doubled instance of its
+    # own wrapping quote — non-greedy `.*?` will have truncated.
+    if quote in inner:
+        return txt, False
+    # Reject when there's more content after the closing quote that
+    # looks like a leaked payload character (`'`, `"`, another letter).
+    # Only whitespace, `)`, `;` or EOF are acceptable trailers.
+    trailer = txt[m.end():m.end() + 3]
+    if trailer and not re.match(r"^[\s\);]*$", trailer):
+        return txt, False
+    if not re.search(r"(?i)invoke|iex|write-|new-|[a-z]{5,}", inner):
+        return txt, False
+    replacement = inner
+    txt = txt[:m.start()] + replacement + txt[m.end():]
+    stages.append(Stage(
+        n=len(stages) + 1,
+        technique="Peel nested Invoke-Expression",
+        evidence=(f"Removed one `IEX(...)` / `Invoke-Expression '...'` "
+                   f"wrapper (recovered {len(inner)} chars)."),
+        before=(m.group(0)[:80]), after=inner[:200],
+        confidence=90,
+    ))
+    return txt, True
+
+
+# ── ScriptBlock::Create resolver ─────────────────────────────────
+# Static:   [ScriptBlock]::Create("literal")   → replace with the literal
+# Dynamic:  [ScriptBlock]::Create($x)           → emit dynamic_execution
+_SCRIPTBLOCK_LITERAL_RE = re.compile(
+    r"(?ixs)"
+    r"\[?\s*(?:(?:system\.)?management\.automation\.)?scriptblock\]?\s*::\s*create\s*\(\s*"
+    r"(['\"])(.{1,4000}?)\1\s*\)"
+)
+_SCRIPTBLOCK_DYNAMIC_RE = re.compile(
+    r"(?ixs)"
+    r"\[?\s*(?:(?:system\.)?management\.automation\.)?scriptblock\]?\s*::\s*create\s*\(\s*"
+    r"(\$\w+|[^'\")]{3,120}?)\s*\)"
+)
+
+
+def _resolve_scriptblock_create(txt: str, stages: list[Stage],
+                                   r: "DeobfuscationReport") -> tuple[str, bool]:
+    m = _SCRIPTBLOCK_LITERAL_RE.search(txt)
+    if m:
+        inner = m.group(2)
+        txt = txt[:m.start()] + inner + txt[m.end():]
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="Resolve [ScriptBlock]::Create (static literal)",
+            evidence=(f"Extracted the literal ScriptBlock body "
+                       f"({len(inner)} chars) — the recursive loop will "
+                       "keep decoding whatever remains."),
+            before=m.group(0)[:80], after=inner[:200],
+            confidence=95,
+        ))
+        return txt, True
+    m = _SCRIPTBLOCK_DYNAMIC_RE.search(txt)
+    if m and "'" not in m.group(1) and '"' not in m.group(1):
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="[ScriptBlock]::Create · dynamic argument",
+            evidence=(f"ScriptBlock is created from a runtime expression "
+                       f"(`{m.group(1)[:40]}`). Refusing to fabricate the "
+                       "resulting script."),
+            before=m.group(0)[:120], after="",
+            status="encryption_detected",
+            unsupported_reason=KnownUnsupportedReason.DYNAMIC_EXECUTION,
+            confidence=85,
+        ))
+        r.unsupported_reasons.append({
+            "reason":    KnownUnsupportedReason.DYNAMIC_EXECUTION,
+            "evidence":  m.group(0)[:120],
+            "component": "scriptblock_create",
+        })
+        # Neutralize so we don't re-emit on next iteration
+        replacement = f"'__nvx_scriptblock_dynamic__'"
+        txt = txt[:m.start()] + replacement + txt[m.end():]
+        return txt, True
+    return txt, False
+
+
+# ── Invoke-Command -ScriptBlock { literal } ──────────────────────
+_INVOKE_COMMAND_SB_RE = re.compile(
+    r"(?ixs)"
+    r"\binvoke-command\b[^{]*?-scriptblock\s*\{\s*(.{3,4000}?)\s*\}"
+)
+
+
+def _resolve_invoke_command(txt: str, stages: list[Stage]) -> tuple[str, bool]:
+    m = _INVOKE_COMMAND_SB_RE.search(txt)
+    if not m:
+        return txt, False
+    inner = m.group(1)
+    txt = txt[:m.start()] + inner + txt[m.end():]
+    stages.append(Stage(
+        n=len(stages) + 1,
+        technique="Peel Invoke-Command -ScriptBlock",
+        evidence=(f"Extracted the ScriptBlock body from an Invoke-Command "
+                   f"invocation ({len(inner)} chars)."),
+        before=m.group(0)[:80], after=inner[:200],
+        confidence=92,
+    ))
+    return txt, True
+
+
+# ── Reflection.Assembly.Load / AppDomain.Load / Activator ───────
+# NEVER load. Emit a structured stage that classifies the primitive
+# and stops the recursive engine on this branch.
+_REFLECTION_RE = re.compile(
+    r"(?ixs)"
+    r"\[?\s*(?:system\.)?reflection\.assembly\]?\s*::\s*(?:load|loadfrom|loadfile)\s*\("
+    r"|\[?\s*(?:system\.)?appdomain\]?[^)]*?\.\s*load\s*\("
+    r"|\[?\s*(?:system\.)?activator\]?\s*::\s*createinstance\s*\("
+)
+
+
+def _resolve_reflection(txt: str, stages: list[Stage],
+                          r: "DeobfuscationReport") -> tuple[str, bool]:
+    if any(s.unsupported_reason == KnownUnsupportedReason.REFLECTION
+            for s in stages):
+        return txt, False
+    m = _REFLECTION_RE.search(txt)
+    if not m:
+        return txt, False
+    call = m.group(0)
+    stages.append(Stage(
+        n=len(stages) + 1,
+        technique="Reflection / dynamic assembly load detected",
+        evidence=(f"In-memory assembly loading primitive detected "
+                   f"(`{call.strip()[:80]}`). NivXRay never loads assemblies — "
+                   "this branch of the analysis stops here."),
+        before=call[:80], after="",
+        status="encryption_detected",
+        unsupported_reason=KnownUnsupportedReason.REFLECTION,
+        confidence=95,
+    ))
+    r.unsupported_reasons.append({
+        "reason":    KnownUnsupportedReason.REFLECTION,
+        "evidence":  call.strip()[:120],
+        "component": "reflection_assembly_load",
+    })
+    return txt, False   # Do NOT rewrite; leave the primitive so the
+                          # boundary detector still surfaces it.
+
+
 # ── Boundary detection ───────────────────────────────────────────
 _BOUNDARY_RE = re.compile(
     r"\b(invoke-expression|iex|invoke-command|start-process|"
@@ -1173,6 +1344,16 @@ def deobfuscate(script: str) -> DeobfuscationReport:
         current, _ = _resolve_utf16le_base64(current, r.stages)
         current, _ = _resolve_static_base64(current, r.stages)
         current, _ = _resolve_aliases(current, r.stages)
+        # ── Phase 3 · Multi-stage execution ───────────────────────
+        # These come AFTER base64/alias so IEX('base64...') is peeled
+        # in one iteration and the inner script becomes the next round's
+        # input. Reflection is emitted (never executed) — it BOTH stops
+        # its own branch AND leaves the primitive text intact so the
+        # boundary detector still reports it.
+        current, _ = _resolve_nested_iex(current, r.stages)
+        current, _ = _resolve_scriptblock_create(current, r.stages, r)
+        current, _ = _resolve_invoke_command(current, r.stages)
+        current, _ = _resolve_reflection(current, r.stages, r)
         if current == prev:
             r.stopped_reason = "fixed_point (no further deterministic transforms)"
             hit_max = False

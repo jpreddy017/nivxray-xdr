@@ -1174,3 +1174,44 @@ this reads as visual noise.
   crypto_status across 3 successive runs.
 - **Regression status**: **181/181 tests green** (18 new Batch 2 +
   163 pre-existing).
+
+## 2026-07-27 · Corpus Phase 3 · Batch 1 — Multi-Stage Execution (v1.7.3)
+
+- **Cluster E resolvers** (`v2/semantic/ps_deobfuscate.py`):
+  - `Peel nested Invoke-Expression` — `IEX 'literal'` /
+    `Invoke-Expression "literal"` peeling with an unbalanced-quote
+    guard so nested-quote payloads are NOT truncated. The recursive
+    loop peels multi-level nests automatically.
+  - `Resolve [ScriptBlock]::Create (static literal)` — peels
+    literal ScriptBlock bodies.
+  - `[ScriptBlock]::Create · dynamic argument` — emits
+    `encryption_detected · dynamic_execution` and neutralises the
+    call so it doesn't fabricate output.
+- **Cluster F resolvers**:
+  - `Peel Invoke-Command -ScriptBlock` — extracts a literal
+    ScriptBlock body from an Invoke-Command invocation.
+  - `Reflection / dynamic assembly load detected` — matches
+    `[Reflection.Assembly]::Load{,From,File}`,
+    `[AppDomain]::CurrentDomain.Load`, and
+    `[Activator]::CreateInstance`. NEVER loads. Emits
+    `encryption_detected · reflection` and leaves the primitive in
+    the working text so the boundary detector still surfaces it.
+- **Corpus Phase 3 Batch 1** at
+  `tests/corpus/phase3_exec_samples.py` — 10 samples:
+  - 4 nested IEX (1-level, 2-level, 3-level base64, 5-level base64)
+  - ScriptBlock literal + dynamic
+  - Invoke-Command literal
+  - Reflection.Assembly.Load
+  - AppDomain.Load
+  - Activator.CreateInstance
+- **Regression suite** at
+  `tests/test_corpus_phase3_batch1_regression.py` — 13 tests:
+  - 10 per-sample golden checks
+  - Workspace ↔ Auto-Investigate parity
+  - Deterministic replay
+  - "Reflection never loaded" static-source invariant
+- **Regression status**: **194/194 targeted tests green**
+  (13 new Phase 3 + 181 pre-existing).
+- Live API verified: 3-level nested-base64 IEX → target payload
+  visible; Reflection.Assembly.Load → `unsupported_reason:
+  reflection`, `crypto_status: encryption_detected`.
