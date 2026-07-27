@@ -1,5 +1,81 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-29 (Trust) · Trust Metrics Harness · SHIPPED
+
+### Delivered — measuring analyst trust, not feature count
+- **Trust Metrics harness** (`v2/investigation/trust/`) — reproducible
+  scorecard that measures whether NivXRay's conclusions can be
+  relied upon. Not another feature; a measurement framework for
+  every future PR.
+- **Four locked metrics** (per user directive):
+  - **Accuracy**       — verdict band matches analyst ground truth
+  - **Honesty**        — every claim is evidence-supported; verdict
+                          may only cite evidence a fired intent
+                          actually produced; forbidden-word list per
+                          sample (no "Cobalt Strike", no "campaign",
+                          no "APT" without evidence)
+  - **Explainability** — every fired intent carries canonical evidence
+                          AND is reachable in the Evidence Graph
+  - **Unknown Handling** — samples marked `must_admit_unknown` must
+                          admit uncertainty (RUNTIME_DEPENDENT verdict
+                          or intent); over-claiming certainty = HARD FAIL
+- **Deferred** — Coverage (statistically weak at 10 samples) and
+  Consistency (already covered by existing determinism suites).
+- **10 curated real-world samples**:
+  - T01 benign Write-Host · T02 benign Get-Process
+  - T03 download-and-run cradle · T04 registry Run persistence
+  - T05 LSASS dump via comsvcs.dll · T06 reflective AMSI bypass
+  - T07 runtime-dependent reflection load
+  - T08 PowerView AD enumeration · T09 WMIC→PS EncodedCommand cradle
+  - T10 IWR download-only (ambiguous — must remain SUSPICIOUS not MALICIOUS)
+- **CLI**: `python -m v2.investigation.trust tests/trust_corpus/`
+  → per-sample PASS/FAIL + aggregate scorecard, optional
+  `--json PATH` + `--fail-under FRAC` for CI.
+- **Permanent CI gate**: `test_trust_metrics_gate.py` blocks any
+  PR that drops:
+  - accuracy < 90 %, or
+  - honesty < 100 %, or
+  - explainability < 100 %, or
+  - unknown_handling < 100 %, or
+  - any hard failures.
+
+### What the harness immediately surfaced (fixed in-flight)
+- **Verdict rule refinement**: single HIGH-risk `defense_evasion`
+  (AMSI bypass / ETW patch / Defender tamper) now promotes verdict
+  to MALICIOUS — these primitives have no legitimate use. Previously
+  required a co-occurring staging intent, missing bare AMSI bypasses.
+- **Discovery rule tightened** (already delivered in Phase 5): single
+  low-signal primitives (Get-Process, whoami, ipconfig) no longer
+  fire on their own — prevents FP on benign admin activity.
+
+### Current scorecard
+- 10 / 10 samples pass · **100 % Accuracy · 100 % Honesty ·
+  100 % Explainability · 100 % Unknown Handling · 0 hard failures**.
+
+### Regression coverage
+- **312 / 312 tests green** across all workspace suites
+  (7 new Trust gate tests + 27 Verdict/Graph + 43 Phase 4 +
+  30 RTE + 205 pre-existing baseline).
+
+### Roadmap update — trust-first from here on
+- ✅ **Phases 1-5** · CRE · IU · RTE · Intent · Evidence Graph · Verdict
+- ✅ **Trust Metrics harness** (this delivery)
+- 🟡 **Expand curated corpus** to 30-50 samples driven by real analyst
+    misses — every FP / FN in production becomes a new corpus entry
+- 🟡 **Analyst report generation** — deterministic MDR-quality report
+    from the Investigation payload
+- 🟡 **Behavior correlation** with conservative language only
+
+### Engineering philosophy
+> "The purpose is not to measure feature count; it is to measure
+>  analyst trust. Every new capability is evaluated by a single
+>  question: Does it measurably increase analyst trust?"
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-29 (Phase 5) · Evidence Graph + Verdict Uplift · SHIPPED
 
 ### Delivered

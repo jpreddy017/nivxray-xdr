@@ -1,0 +1,20 @@
+id: T07_runtime_dependent_reflection
+title: Runtime-dependent — reflective assembly load with unseen bytes
+provenance: MITRE T1620 · public red-team examples
+input: '[Reflection.Assembly]::Load([Convert]::FromBase64String($enc))'
+expected_verdict: runtime_dependent
+must_fire_intents:
+  - runtime_dependent
+must_not_fire:
+  - staging
+  - credential_access
+  - persistence
+forbidden_words_in_verdict:
+  - credential theft
+  - ransomware
+  - cobalt strike
+must_admit_unknown: true
+notes: >
+  The tool cannot see the assembly bytes ($enc is a runtime variable).
+  Honesty test — the tool must ADMIT it does not know what will
+  execute. Any verdict other than runtime_dependent is a HARD FAIL.

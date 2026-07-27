@@ -1,0 +1,19 @@
+id: T04_registry_run_persistence
+title: Malicious — registry Run key persistence
+provenance: MITRE ATT&CK T1547.001 canonical example
+input: 'New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name Updater -Value "C:\Users\Public\payload.exe" -PropertyType String -Force'
+expected_verdict: malicious
+must_fire_intents:
+  - persistence
+must_not_fire:
+  - staging
+  - credential_access
+forbidden_words_in_verdict:
+  - credential theft
+  - APT
+  - group
+must_admit_unknown: false
+notes: >
+  HKCU Run key modification is a canonical autorun persistence
+  primitive. Verdict must be malicious with a persistence intent
+  cited.

@@ -102,10 +102,10 @@ def assess_verdict(intents: list[Intent]) -> Verdict:
     )
     high_evasion = _has(intents, IntentCategory.DEFENSE_EVASION, _HIGH_RISK)
 
-    # ── Malicious: multi-tactic high-risk combinations ─────────
-    if fetch_and_run or creds_or_persist or (
-        high_evasion and _has(intents, IntentCategory.STAGING, _HIGH_RISK)
-    ):
+    # ── Malicious: multi-tactic high-risk combinations
+    # ── OR a single HIGH-risk defense-evasion primitive (AMSI /
+    # ──   ETW / Defender tamper have no legitimate use).
+    if fetch_and_run or creds_or_persist or high_evasion:
         drivers = [i.category.value for i in top
                     if i.risk == RiskBand.HIGH][:3]
         reason = (
