@@ -83,6 +83,16 @@ consumer — a future v1.5.x task.
 > Trust Corpus expansion drive future development rather than
 > adding more foundational architecture."
 
+### Release-engineer follow-ups (recorded 2026-07-27 · release review)
+Non-blocking items to open as tickets for v1.4.1 / v1.5.0:
+
+| # | Item | Type | Priority |
+| --- | ---- | ---- | -------- |
+| FU-1 | Diff `WorkspacePage.jsx` against last known-good baseline (verification only, not a bug fix) | Verification | P2 |
+| FU-2 | Re-run the persistence smoke test via the deployed HTTPS API (curl escape bit the earlier run — in-process passed) | Verification | P2 |
+| FU-3 | Rename `BASELINE_TESTS` → `INVESTIGATION_BASELINE_TESTS` so the scope is unambiguous | Cosmetic / accuracy | P3 |
+| FU-4 | Run the full repository test suite in CI (not the timeout-bound shell) so any regressions outside the investigation suite are visible | CI hardening | P2 |
+
 Backlog (P-order, unchanged):
 1. Static Control Flow (Phase 4.5) — model `if/else`, `try/catch`,
    loops as branch sub-graphs feeding the SAME canonical graph.
