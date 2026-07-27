@@ -1,5 +1,78 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-29 (Analyst Report) · Flagship Deterministic MDR Report · SHIPPED
+
+### Delivered — per user directive, analyst value over feature count
+- **Analyst Report generator** (`v2/investigation/analyst_report/`) —
+  deterministic 8-section report consumable by customers or
+  management. Zero LLM · zero fabrication · every conclusion cites
+  canonical Evidence:
+  1. **Executive Summary** — verdict band + primary observed behaviour
+  2. **Observed Behaviors** — intent categories + risk bands + confidence
+  3. **Intent** — analyst-facing purpose narrative
+  4. **Evidence** — deduped canonical citations grouped by intent
+  5. **MITRE ATT&CK** — dedup'd technique IDs + human-readable names
+     (24 techniques catalogued in-code — no bare ID rendered)
+  6. **IOCs** — URL / IP / domain / registry / file paths extracted
+     from evidence text only (never fabricated)
+  7. **Unknowns** — enumerated runtime-dependent aspects the tool
+     honestly cannot resolve
+  8. **Recommended Next Steps** — per-intent catalogue with
+     priority (immediate / short_term / long_term) and rationale
+- **Investigation-specific Confidence signals** (analyst-facing):
+  `confidence`, `evidence_strength`, `unknowns_present`, `reasoning` —
+  reflecting THIS investigation, NOT engineering QA metrics.
+- **Engineering Trust score kept OUT of analyst UI** per user
+  directive — reserved for CI / release validation only.
+- **Workspace UI integration** — new panels inside `InvestigationBrainPanel`:
+  - `brain-signals` — 4-column confidence tape
+  - `brain-report` — executive summary + unknowns + recommendations
+    + IOCs + MITRE — all data-testid'd for regression coverage
+
+### Honesty guardrails locked as regression
+- Report must NEVER mention specific malware families
+  (Cobalt Strike / Empire / Sliver / Meterpreter / APT29 / etc.)
+  without evidence — enforced by
+  `test_report_never_mentions_specific_malware_family`.
+- Report confidence_signals must contain ONLY investigation-specific
+  fields; engineering fields (`accuracy`, `honesty`, `tests_passing`)
+  are explicitly forbidden.
+- IOCs must be traceable to real observations in the input /
+  effective payload / intent evidence — enforced by
+  `test_report_iocs_come_from_evidence_only`.
+- MITRE IDs must always have human-readable names.
+
+### Regression coverage
+- **12 new Analyst Report tests** locking every honesty and
+  determinism guarantee.
+- **324 / 324 tests green** across all workspace suites (12 new +
+  7 Trust gate + 27 Verdict/Graph + 43 Phase 4 + 30 RTE + 205
+  pre-existing baseline).
+- Live end-to-end verified on preview: MALICIOUS · conf 93 with
+  Executive Summary + 2 Unknowns + 3 Immediate/Short-term
+  Recommendations + 1 IOC + 2 MITRE techniques.
+
+### Alignment with user directive
+> "Reports become one of NivXRay's flagship features. Not just Verdict
+>  but Executive Summary → Observed Behaviors → Intent → Evidence →
+>  MITRE → IOCs → Unknowns → Recommended Next Steps. This is something
+>  analysts can send directly to customers or management."
+
+Every section on the user's spec is now delivered, deterministically,
+with evidence traceability. No engineering trust score surfaced in
+the analyst UI.
+
+### Next validation priorities
+- Expand `tests/trust_corpus/` sample by sample from real analyst
+  misses (FPs / FNs from production)
+- Add analyst-report golden samples to the same corpus so the report's
+  Recommendations / Unknowns / IOCs are regression-locked per sample
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-29 (Trust) · Trust Metrics Harness · SHIPPED
 
 ### Delivered — measuring analyst trust, not feature count

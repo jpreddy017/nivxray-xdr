@@ -33,7 +33,7 @@ def test_wmic_encodedcommand_download_cradle():
 
     r = investigate(cmd)
 
-    assert r.coverage == ["iu", "cre", "rte", "intent", "verdict", "graph"]
+    assert r.coverage == ["iu", "cre", "rte", "intent", "verdict", "graph", "report"]
     assert r.iu.primary_type == ArtefactType.COMMAND_LINE
     assert Capability.CRE in r.iu.dispatch
     assert r.cre is not None
@@ -106,7 +106,7 @@ def test_pipeline_to_dict_serialization():
     d = investigate(cmd).to_dict()
     assert set(d.keys()) == {
         "input", "iu", "cre", "rte", "intent", "verdict", "graph",
-        "coverage", "determinism_hash"
+        "report", "coverage", "determinism_hash"
     }
     # Every stage has its determinism proof.
     assert d["iu"]["determinism_hash"]

@@ -35,6 +35,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from .analyst_report import AnalystReport, generate as build_report
 from .cre import reconstruct
 from .cre.models import CommandReconstruction
 from .graph import EvidenceGraph, build as build_graph
@@ -47,7 +48,7 @@ from .verdict import Verdict, assess_verdict
 # Every capability the Brain currently supports. The pipeline
 # emits a ``coverage`` map so callers can see WHICH stages fired
 # on this specific artefact — an audit trail for regression proofs.
-_SUPPORTED = {"iu", "cre", "rte", "intent", "verdict", "graph"}
+_SUPPORTED = {"iu", "cre", "rte", "intent", "verdict", "graph", "report"}
 
 
 @dataclass
@@ -63,6 +64,7 @@ class InvestigationResult:
     intent:             IntentAssessment
     verdict:            Verdict
     graph:              EvidenceGraph
+    report:             AnalystReport | None = None
     coverage:           list[str] = field(default_factory=list)
     determinism_hash:   str = ""
 
@@ -75,6 +77,7 @@ class InvestigationResult:
             "intent":            self.intent.to_dict(),
             "verdict":           self.verdict.to_dict(),
             "graph":             self.graph.to_dict(),
+            "report":            self.report.to_dict() if self.report else None,
             "coverage":          list(self.coverage),
             "determinism_hash":  self.determinism_hash,
         }
@@ -151,6 +154,9 @@ def investigate(text: str) -> InvestigationResult:
         graph=graph,
         coverage=coverage,
     )
+    # ── 7. Analyst Report — flagship deterministic MDR output ──
+    result.report = build_report(result)
+    result.coverage.append("report")
     result.determinism_hash = _hash(result)
     return result
 

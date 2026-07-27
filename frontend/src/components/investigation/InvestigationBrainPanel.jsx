@@ -104,6 +104,8 @@ export function InvestigationBrainPanel({ investigation }) {
   const intent = investigation?.intent;
   const verdict = investigation?.verdict;
   const graph = investigation?.graph;
+  const report = investigation?.report;
+  const signals = report?.confidence_signals || {};
 
   const intentsSorted = useMemo(() => {
     if (!intent?.intents) return [];
@@ -219,6 +221,147 @@ export function InvestigationBrainPanel({ investigation }) {
                 ))}
               </div>
             </details>
+          )}
+        </div>
+      )}
+
+      {/* ── Investigation Signals — per-investigation cues, NOT
+          engineering QA metrics. Locked with user directive. */}
+      {report && (
+        <div
+          data-testid="brain-signals"
+          style={{
+            marginBottom: 14,
+            padding: 10,
+            borderRadius: 8,
+            background: "#0b1522",
+            border: "1px solid #22344b",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 20,
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 10, color: "#5ec8ff", letterSpacing: 0.6 }}>
+              CONFIDENCE
+            </div>
+            <div data-testid="brain-signal-confidence"
+                 style={{ color: "#e5edf7", fontSize: 13, textTransform: "capitalize" }}>
+              {signals.confidence || "—"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: "#5ec8ff", letterSpacing: 0.6 }}>
+              EVIDENCE
+            </div>
+            <div data-testid="brain-signal-evidence"
+                 style={{ color: "#e5edf7", fontSize: 13, textTransform: "capitalize" }}>
+              {signals.evidence_strength || "—"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: "#5ec8ff", letterSpacing: 0.6 }}>
+              UNKNOWNS
+            </div>
+            <div data-testid="brain-signal-unknowns"
+                 style={{ color: "#e5edf7", fontSize: 13 }}>
+              {signals.unknowns_present === "yes" ? "present" : "none"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: "#5ec8ff", letterSpacing: 0.6 }}>
+              REASONING
+            </div>
+            <div data-testid="brain-signal-reasoning"
+                 style={{ color: "#e5edf7", fontSize: 13 }}>
+              {(signals.reasoning || "—").replace(/_/g, " ")}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Analyst Report (deterministic, evidence-anchored) ─── */}
+      {report && (
+        <div
+          data-testid="brain-report"
+          style={{
+            marginBottom: 14,
+            padding: 12,
+            borderRadius: 8,
+            background: "#0b1522",
+            border: "1px solid #22344b",
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#ffd166",
+                        letterSpacing: 0.7, textTransform: "uppercase", marginBottom: 6 }}>
+            Analyst Report
+          </div>
+          <div data-testid="brain-report-summary" style={{ marginBottom: 10, color: "#e5edf7" }}>
+            {report.executive_summary}
+          </div>
+          {(report.unknowns || []).length > 0 && (
+            <div data-testid="brain-report-unknowns" style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: "#5ec8ff", marginBottom: 4 }}>
+                UNKNOWNS ({report.unknowns.length})
+              </div>
+              {report.unknowns.map((u, i) => (
+                <div key={i} style={{ fontSize: 12, color: "#a4c4e6", marginBottom: 4 }}>
+                  · {u}
+                </div>
+              ))}
+            </div>
+          )}
+          {(report.recommendations || []).length > 0 && (
+            <div data-testid="brain-report-recommendations">
+              <div style={{ fontSize: 11, color: "#5ec8ff", marginBottom: 4 }}>
+                RECOMMENDED NEXT STEPS ({report.recommendations.length})
+              </div>
+              {report.recommendations.map((r, i) => (
+                <div key={i}
+                     data-testid={`brain-report-rec-${i}`}
+                     style={{ padding: 6, marginBottom: 4, background: "#02080f",
+                              border: "1px solid #143047", borderRadius: 4, fontSize: 12 }}>
+                  <span style={{ color: "#ffb347", textTransform: "uppercase",
+                                 fontSize: 10, marginRight: 6 }}>
+                    {r.priority.replace("_", " ")}
+                  </span>
+                  <span style={{ color: "#e5edf7" }}>{r.action}</span>
+                  <div style={{ marginTop: 2, color: "#8fa5c2", fontSize: 11 }}>
+                    {r.rationale}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {(report.iocs || []).length > 0 && (
+            <div data-testid="brain-report-iocs" style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: "#5ec8ff", marginBottom: 4 }}>
+                IOCS ({report.iocs.length})
+              </div>
+              {report.iocs.map((ioc, i) => (
+                <div key={i} style={{ fontFamily: "ui-monospace, monospace",
+                                        fontSize: 11, color: "#a4c4e6", marginBottom: 2 }}>
+                  <span style={{ color: "#c084fc" }}>[{ioc.kind}]</span>{" "}
+                  {ioc.value}
+                </div>
+              ))}
+            </div>
+          )}
+          {(report.mitre || []).length > 0 && (
+            <div data-testid="brain-report-mitre" style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: "#5ec8ff", marginBottom: 4 }}>
+                MITRE ATT&amp;CK ({report.mitre.length})
+              </div>
+              {report.mitre.map((m, i) => (
+                <span key={i} style={{ display: "inline-block",
+                                        padding: "2px 8px", marginRight: 4, marginBottom: 4,
+                                        background: "#1b0033", color: "#c084fc",
+                                        border: "1px solid #c084fc55", borderRadius: 4,
+                                        fontSize: 11, fontFamily: "ui-monospace, monospace" }}>
+                  {m.id} · {m.name}
+                </span>
+              ))}
+            </div>
           )}
         </div>
       )}
