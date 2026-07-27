@@ -924,3 +924,45 @@ this reads as visual noise.
   9 correlation tests + 217 backend tests still passing.
 - **Testing**: `testing_agent_v3_fork` iteration_35.json → all
   targets green, zero regressions.
+
+## 2026-07-27 · P0 Frontend Unblock + P1 Behavior Storyline (v1.6.0)
+
+- **P0 Frontend Unblock (SemanticIntelligencePanel.jsx)**: Removed a
+  duplicate `export default function SemanticIntelligencePanel(...)`
+  block and 4 orphaned closing JSX tags at lines 552–555 that were
+  causing `Parsing error: Unexpected token (552:9)`. Added the
+  missing `DeobfuscationChain` React component that renders every
+  deterministic transformation stage (technique, evidence,
+  before → after diff, offset) plus the final resolved payload and
+  the execution boundary op (when the recursive decoder halts at
+  `Invoke-Expression`, `Add-Type`, `Reflection.Assembly`, etc.).
+- **P1 Behavior Storyline (`v2/semantic/ps_storyline.py`)**: New
+  pure-function deterministic module. Consumes the recovered script
+  + `behaviors_v2` + `artifacts` + `deobfuscation` +
+  `verdict_breakdown` and emits `{executive_summary, sections[],
+  attack_narrative, mitre_techniques[]}`. Sections: initial
+  execution, deobfuscation chain summary, final decoded script,
+  process behavior, network behavior, file activity, registry
+  activity, persistence, credential access, defense evasion. Every
+  section is explicitly marked `observed`/`not observed` with an
+  evidence-linked narrative. NO LLM. NO guesswork.
+- **Frontend `BehaviorStoryline` component** rendered inside
+  `SemanticIntelligencePanel.jsx`. Executive summary card, final
+  decoded script pre-block, per-category tiles with observed/not
+  observed badges, MITRE roll-up chips, and the consolidated
+  attack narrative. Testids: `semantic-v2-story-{exec,final,
+  deobsum,sections,section-<key>,flag-<key>,mitre-<key>,
+  mitre-all,narrative}-<chainIndex>`.
+- **Backend wiring**: `ps_semantic.py` now populates
+  `SemanticResult.storyline` and returns it in `to_dict()`.
+- **Tests**: `tests/test_ps_storyline.py` (5 tests) all pass. Full
+  Phase 9.4 + deobfuscator + semantic v2 + corpus regression suite
+  (137 tests) green. Testing subagent iteration_44.json: frontend
+  100% on `/auto-investigate` for both octal char reconstruction
+  and base64 `-EncodedCommand` payloads. Octal payload correctly
+  decoded to `Write-Host 'Hello, from PowerShell!'` and every
+  stage is visible + expandable in the DeobfuscationChain card.
+- **Known FYI**: `SemanticIntelligencePanel` mounts only on
+  `/auto-investigate`; the legacy `/workspace` tab uses the older
+  chain analyzer. Whether to mount the new Storyline on `/workspace`
+  as well is a UX decision the user can call.
