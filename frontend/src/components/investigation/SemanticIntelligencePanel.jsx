@@ -500,57 +500,280 @@ function DecodeFailureCard({ err, chainIndex }) {
 }
 
 
-export default function SemanticIntelligencePanel({ semantic, chainIndex, onHighlight }) {
-  if (!semantic || !semantic.detected) return null;
+// ── Recursive Deobfuscation Chain (2026-07-25) ─────────────────────────
+// Renders every deterministic transformation applied to the payload — from
+// the analyst-visible raw script down to the final resolved form. Each stage
+// shows the technique, evidence, and a before → after diff so a SOC analyst
+// can audit exactly WHY the platform reached its final decoded payload.
+function DeobfuscationChain({ deob, chainIndex }) {
+  const [expanded, setExpanded] = useState({});
+  if (!deob || !deob.stages || deob.stages.length === 0) {
+    // If there are no stages but a report exists, still surface the stop
+    // reason so analysts know the deobfuscator actually ran.
+    if (!deob || !deob.stopped_reason) return null;
+    return (
+      <div className={CARD} data-testid={`semantic-v2-deob-${chainIndex}`}>
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className={SECTION_HEADER}>Recursive Deobfuscation</span>
+          <span className="ml-auto text-[9px] uppercase tracking-widest text-slate-500 font-mono">
+            0 stages · {deob.stopped_reason}
+          </span>
+        </div>
+        <div className="text-[11px] text-slate-400 italic">
+          No deterministic transformations were applicable to this payload.
+        </div>
+      </div>
+    );
+  }
 
-  // Decode-error path — render only the failure card, halt all other UI.
-  const decodeError = semantic.decode_error;
-  const hasDecodeError = semantic.decode_outcome === "decode_error"
-                          || (decodeError && decodeError.status === "decode_error");
+  const stages = deob.stages;
+  const stopReason = deob.stopped_reason || "fixed_point";
+  const boundary = deob.boundary_op || "";
+  const boundaryTone = boundary
+    ? "border-amber-500/60 text-amber-100 bg-amber-500/15"
+    : "border-emerald-500/50 text-emerald-100 bg-emerald-500/10";
 
-  const hasV2 = (semantic.behaviors_v2 && semantic.behaviors_v2.length) ||
-                (semantic.decode_timeline && semantic.decode_timeline.length) ||
-                (semantic.verdict_breakdown && semantic.verdict_breakdown.verdict);
-  if (!hasV2 && !hasDecodeError) return null;
+  const toggle = (i) =>
+    setExpanded((s) => ({ ...s, [i]: !s[i] }));
 
   return (
-    <div className="border-t border-cyan-500/30 bg-slate-950/40 p-3 space-y-3"
-         data-testid={`semantic-v2-panel-${chainIndex}`}>
-      <div className="flex items-baseline gap-2">
-        <span className="text-[10px] tracking-[0.24em] font-bold text-cyan-200 uppercase">
-          PowerShell Semantic Intelligence · Phase 9.4
+    <div className={CARD} data-testid={`semantic-v2-deob-${chainIndex}`}>
+      <div className="flex items-baseline gap-2 flex-wrap mb-2">
+        <span className={SECTION_HEADER}>Recursive Deobfuscation</span>
+        <span className="text-[9px] font-mono text-slate-500">
+          {stages.length} deterministic stage{stages.length === 1 ? "" : "s"}
         </span>
-        <span className="text-[9px] font-mono text-slate-500 ml-auto">
-          NivXRay-native taxonomy · deterministic
+        <span className={`ml-auto px-2 py-0.5 rounded-full border text-[9px] uppercase tracking-widest font-bold ${boundaryTone}`}
+              data-testid={`semantic-v2-deob-stop-${chainIndex}`}>
+          {boundary ? `boundary · ${boundary}` : "fully resolved"}
         </span>
       </div>
 
-      {hasDecodeError ? (
-        <>
-          <DecodeFailureCard err={decodeError} chainIndex={chainIndex} />
-          {/* Even on failure, we still show the timeline so the analyst can
-              audit every decoder decision. */}
-          <DecodeTimeline steps={semantic.decode_timeline} chainIndex={chainIndex} />
-        </>
-      ) : (
-        <>
-          <ExplainableVerdict vb={semantic.verdict_breakdown} chainIndex={chainIndex} />
-          <DeobfuscationChain deob={semantic.deobfuscation} chainIndex={chainIndex} />
-          <BehaviorCards behaviors={semantic.behaviors_v2}
-                         chainIndex={chainIndex}
-                         onHighlight={onHighlight} />
-          <DecodeTimeline steps={semantic.decode_timeline} chainIndex={chainIndex} />
-          <EvidenceGraph graph={semantic.evidence_graph} chainIndex={chainIndex} />
-          <ASTViewer tree={semantic.ast_tree}
-                     resolvedVars={semantic.resolved_variables}
-                     chainIndex={chainIndex} />
-        </>
-      )}
+      {/* Stage-by-stage transform log */}
+      <ol className="space-y-1.5 mb-3"
+          data-testid={`semantic-v2-deob-stages-${chainIndex}`}>
+        {stages.map((st, i) => {
+          const isOpen = !!expanded[i];
+          return (
+            <li key={i}
+                data-testid={`semantic-v2-deob-stage-${chainIndex}-${i}`}
+                className="border border-cyan-500/20 rounded bg-slate-900/60">
+              <button
+                type="button"
+                onClick={() => toggle(i)}
+                data-testid={`semantic-v2-deob-toggle-${chainIndex}-${i}`}
+                className="w-full flex items-baseline gap-2 px-2 py-1.5 text-left hover:bg-slate-900/80 transition-colors">
+                <span className="w-6 shrink-0 text-[10px] font-mono font-bold text-cyan-300">
+                  #{st.n ?? i + 1}
+                </span>
+                <span className="text-[11px] font-bold text-slate-100">{st.technique}</span>
+                <span className="text-[10px] text-slate-400 font-mono flex-1 min-w-0 truncate">
+                  {st.evidence}
+                </span>
+                {typeof st.offset === "number" && (
+                  <span className="text-[9px] font-mono text-slate-500">
+                    @{st.offset}
+                  </span>
+                )}
+                <span className="text-[10px] text-cyan-300">{isOpen ? "▾" : "▸"}</span>
+              </button>
+              {isOpen && (
+                <div className="px-2 pb-2 pt-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-[9px] uppercase tracking-widest text-slate-500 mb-0.5">Before</div>
+                    <pre className="px-2 py-1 bg-slate-950/80 border border-slate-800 rounded
+                                    text-[10px] font-mono text-amber-200 whitespace-pre-wrap
+                                    break-all leading-snug max-h-32 overflow-auto"
+                         data-testid={`semantic-v2-deob-before-${chainIndex}-${i}`}>
+                      {st.before || "(empty)"}
+                    </pre>
+                  </div>
+                  <div>
+                    <div className="text-[9px] uppercase tracking-widest text-slate-500 mb-0.5">After</div>
+                    <pre className="px-2 py-1 bg-slate-950/80 border border-slate-800 rounded
+                                    text-[10px] font-mono text-emerald-200 whitespace-pre-wrap
+                                    break-all leading-snug max-h-32 overflow-auto"
+                         data-testid={`semantic-v2-deob-after-${chainIndex}-${i}`}>
+                      {st.after || "(empty)"}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+
+      {/* Final resolved payload */}
+      <div>
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className={SUB_HEADER}>Final resolved payload</span>
+          <span className="ml-auto text-[9px] font-mono text-slate-500">
+            stop reason · {stopReason}
+          </span>
+        </div>
+        <pre className="px-2 py-1.5 bg-slate-950/90 border border-emerald-500/40 rounded
+                        text-[11px] font-mono text-emerald-100 whitespace-pre-wrap
+                        break-all leading-snug max-h-48 overflow-auto"
+             data-testid={`semantic-v2-deob-final-${chainIndex}`}>
+          {deob.final || "(empty)"}
+        </pre>
+        {boundary && (
+          <div className="mt-1 text-[10px] text-amber-300 italic"
+               data-testid={`semantic-v2-deob-boundary-${chainIndex}`}>
+            Deobfuscation halted at execution boundary <span className="font-mono font-bold">{boundary}</span>
+            {" "}— evaluating further would require running PowerShell, which NivXRay
+            intentionally never does.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+
+// ── Behavior Storyline (2026-07-27) ────────────────────────────────────
+// Deterministic, evidence-driven attack narrative. Renders exec summary +
+// categorized sections (initial execution, network, files, registry, etc.)
+// each explicitly labeled as "observed" or "not observed" with a natural-
+// language, evidence-linked explanation. NEVER generated by an LLM.
+const SECTION_TONE = {
+  observed_high:   "border-red-500/60 bg-red-500/10",
+  observed_medium: "border-amber-500/60 bg-amber-500/10",
+  observed_info:   "border-cyan-500/40 bg-cyan-500/5",
+  none:            "border-slate-700/60 bg-slate-800/20",
+};
+
+function _sectionTone(sec) {
+  if (!sec.observed) return SECTION_TONE.none;
+  const sev = (sec.evidence || [])
+    .filter((e) => e.kind === "behavior")
+    .map((e) => e.severity);
+  if (sev.includes("critical") || sev.includes("high"))
+    return SECTION_TONE.observed_high;
+  if (sev.includes("medium")) return SECTION_TONE.observed_medium;
+  return SECTION_TONE.observed_info;
+}
+
+function BehaviorStoryline({ story, chainIndex }) {
+  if (!story || !story.sections || story.sections.length === 0) return null;
+
+  const finalScriptSec = story.sections.find(
+    (s) => s.key === "final_decoded_script");
+  const deobSummarySec = story.sections.find(
+    (s) => s.key === "deobfuscation_chain");
+  const categorySecs = story.sections.filter(
+    (s) => s.key !== "final_decoded_script" && s.key !== "deobfuscation_chain");
+
+  return (
+    <div className={CARD} data-testid={`semantic-v2-story-${chainIndex}`}>
+      <div className="flex items-baseline gap-2 flex-wrap mb-2">
+        <span className={SECTION_HEADER}>Behavior Storyline</span>
+        <span className="text-[9px] font-mono text-slate-500 ml-auto">
+          deterministic · evidence-driven
+        </span>
+      </div>
+
+      {/* Executive summary */}
+      <div className="mb-3 px-2 py-1.5 border border-cyan-500/40 bg-cyan-500/5 rounded"
+           data-testid={`semantic-v2-story-exec-${chainIndex}`}>
+        <div className={SUB_HEADER}>Executive Summary</div>
+        <div className="text-[12px] text-slate-100 leading-snug">
+          {story.executive_summary}
+        </div>
+      </div>
+
+      {/* Final decoded script (echoed here for analyst convenience) */}
+      {finalScriptSec && finalScriptSec.observed && (
+        <div className="mb-3">
+          <div className={SUB_HEADER}>Final Decoded Script</div>
+          <pre className="px-2 py-1.5 bg-slate-950/90 border border-emerald-500/40 rounded
+                          text-[11px] font-mono text-emerald-100 whitespace-pre-wrap
+                          break-all leading-snug max-h-48 overflow-auto"
+               data-testid={`semantic-v2-story-final-${chainIndex}`}>
+            {finalScriptSec.narrative}
+          </pre>
         </div>
       )}
+
+      {/* Deobfuscation chain summary */}
+      {deobSummarySec && (
+        <div className="mb-3 px-2 py-1.5 border border-slate-700/60 bg-slate-900/50 rounded"
+             data-testid={`semantic-v2-story-deobsum-${chainIndex}`}>
+          <div className={SUB_HEADER}>Deobfuscation Chain</div>
+          <div className="text-[11px] text-slate-200 leading-snug">
+            {deobSummarySec.narrative}
+          </div>
+        </div>
+      )}
+
+      {/* Category sections */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3"
+           data-testid={`semantic-v2-story-sections-${chainIndex}`}>
+        {categorySecs.map((sec) => (
+          <div key={sec.key}
+               data-testid={`semantic-v2-story-section-${sec.key}-${chainIndex}`}
+               className={`border rounded px-2 py-1.5 ${_sectionTone(sec)}`}>
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-200">
+                {sec.title}
+              </span>
+              <span className={`ml-auto text-[9px] uppercase tracking-widest font-bold ${
+                sec.observed ? "text-emerald-300" : "text-slate-500"
+              }`}
+                    data-testid={`semantic-v2-story-flag-${sec.key}-${chainIndex}`}>
+                {sec.observed ? "observed" : "not observed"}
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-300 leading-snug">
+              {sec.narrative}
+            </div>
+            {sec.mitre && sec.mitre.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1"
+                   data-testid={`semantic-v2-story-mitre-${sec.key}-${chainIndex}`}>
+                {sec.mitre.map((m) => (
+                  <span key={m}
+                        className="px-1.5 py-0 rounded border border-cyan-500/40
+                                   text-[9px] font-mono font-bold text-cyan-200
+                                   bg-cyan-500/10">
+                    {m}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* MITRE roll-up */}
+      {story.mitre_techniques && story.mitre_techniques.length > 0 && (
+        <div className="mb-3">
+          <div className={SUB_HEADER}>MITRE ATT&CK Techniques (mapped)</div>
+          <div className="flex flex-wrap gap-1"
+               data-testid={`semantic-v2-story-mitre-all-${chainIndex}`}>
+            {story.mitre_techniques.map((m) => (
+              <span key={m.id}
+                    title={`Contributed by: ${m.sections.join(", ")}`}
+                    className="px-2 py-0.5 rounded-full border border-cyan-500/50
+                               text-[10px] font-mono font-bold text-cyan-100
+                               bg-cyan-500/15">
+                {m.id}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Consolidated attack narrative */}
+      <div>
+        <div className={SUB_HEADER}>Attack Narrative</div>
+        <pre className="px-2 py-1.5 bg-slate-950/80 border border-slate-700/60 rounded
+                        text-[11px] font-mono text-slate-100 whitespace-pre-wrap
+                        break-words leading-snug"
+             data-testid={`semantic-v2-story-narrative-${chainIndex}`}>
+          {story.attack_narrative}
+        </pre>
+      </div>
     </div>
   );
 }
@@ -591,6 +814,8 @@ export default function SemanticIntelligencePanel({ semantic, chainIndex, onHigh
       ) : (
         <>
           <ExplainableVerdict vb={semantic.verdict_breakdown} chainIndex={chainIndex} />
+          <BehaviorStoryline story={semantic.storyline} chainIndex={chainIndex} />
+          <DeobfuscationChain deob={semantic.deobfuscation} chainIndex={chainIndex} />
           <BehaviorCards behaviors={semantic.behaviors_v2}
                          chainIndex={chainIndex}
                          onHighlight={onHighlight} />

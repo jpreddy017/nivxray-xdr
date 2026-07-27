@@ -1,7 +1,7 @@
 {
-  "total": 65,
+  "total": 66,
   "passed": 27,
-  "hit_rate": 0.4154,
+  "hit_rate": 0.4091,
   "threshold": 0.6,
   "results": [
     {
@@ -281,7 +281,7 @@
     },
     {
       "sha1": "8064f1b8d1e57ae9b384076d70eeed9b47ac6bf4",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "2025-02-14T12:34:56Z INFO service started",
       "ok": false
@@ -334,14 +334,14 @@
       "sha1": "1584af34536103c086f163f599640acbb9f26155",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "whoami && netstat -ano",
+      "output_head": "cmd /c \"whoami && netstat -ano\"",
       "ok": false
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "powershell -e ABC",
+      "output_head": "ABC",
       "ok": false
     },
     {
@@ -357,7 +357,7 @@
       "sha1": "f18d46780fda16ff0927300bdc7cd4f7112bf2da",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "print(1+1)",
+      "output_head": "python -c 'print(1+1)'",
       "ok": false
     },
     {
@@ -404,9 +404,9 @@
     },
     {
       "sha1": "9dab0c64d545d383773f8738c8f89e80183784e6",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE=';            var b=atob(d);            var l=document.createElement('a');            l.download='pay",
       "ok": false
     },
     {
@@ -439,9 +439,9 @@
     },
     {
       "sha1": "892ed1156a4390ee17d9583a72b5c90eb1eca957",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUM=';        var b=atob(d);        var l=document.createElement('a');        l.download='stager.js';    ",
+      "output_head": "binary-C",
       "ok": false
     },
     {
@@ -725,6 +725,13 @@
       ],
       "output_head": "Write-Output hello",
       "ok": true
+    },
+    {
+      "sha1": "566b78692dc51d1927650a5bbaad8c507388c0aa",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "\"C:\\Program Files (x86)\\Kodak\\Prinergy Evo 9.0.0.0\\bin\\JFloatLicMgrD.exe\" -c",
+      "ok": false
     }
   ]
 }

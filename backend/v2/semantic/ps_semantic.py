@@ -41,6 +41,7 @@ from v2.semantic.ps_recovery import (
     looks_like_powershell as _looks_like_powershell,
 )
 from v2.semantic.ps_deobfuscate import deobfuscate as _deobfuscate
+from v2.semantic.ps_storyline import build_storyline as _build_storyline
 
 # ── Alias normalization table (PowerShell built-ins) ──────────────
 _ALIASES = {
@@ -140,6 +141,7 @@ class SemanticResult:
     resolved_variables: dict = field(default_factory=dict)      # constant-folded values
     decode_error: dict = field(default_factory=dict)            # {status, attempts, causes, ...}
     deobfuscation: dict = field(default_factory=dict)           # recursive decode chain (2026-07-25)
+    storyline: dict = field(default_factory=dict)                # behavior storyline (2026-07-27)
 
     def to_dict(self) -> dict:
         return {
@@ -167,6 +169,7 @@ class SemanticResult:
             "resolved_variables": self.resolved_variables,
             "decode_error":      self.decode_error,
             "deobfuscation":     self.deobfuscation,
+            "storyline":         self.storyline,
         }
 
 
@@ -709,4 +712,17 @@ def analyze(cmdline: str) -> SemanticResult:
     # Union MITRE with v2 behaviors — never regress detection.
     r.mitre_ids = sorted(set(r.mitre_ids)
                           | {m for b in v2_behaviors for m in b.mitre})
+
+    # ── Behavior Storyline (2026-07-27) ───────────────────────────
+    # Deterministic, evidence-driven narrative built from the final
+    # decoded payload plus behaviors + artifacts + deob chain.
+    r.storyline = _build_storyline(
+        recovered_script=r.recovered_script,
+        behaviors_v2=r.behaviors_v2,
+        artifacts=[{"kind": a.kind, "value": a.value,
+                    "classification": a.classification,
+                    "evidence": a.evidence} for a in r.artifacts],
+        deobfuscation=r.deobfuscation,
+        verdict_breakdown=r.verdict_breakdown,
+    )
     return r
