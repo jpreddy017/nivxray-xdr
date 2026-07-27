@@ -406,6 +406,47 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     """
     from analysis_core import deterministic_best_decode
 
+    # ── Atomic-IOC guard (v1.3.2 · 2026-07-29) ─────────────────
+    # Bare filenames / URLs / IPs / domains / paths / registry keys /
+    # hashes are NOT decoding candidates. Applying XOR/ROT/base64
+    # brute-force on a bare filename produces meaningless output like
+    # "sc|nc%ini" and a fabricated "Suspicious xor→rot-n" verdict.
+    # Short-circuit the WHOLE legacy chain-decode for these — the
+    # Investigation Brain will still attach an "atomic IOC · no
+    # decoding required" report below via the additive
+    # ``investigation`` field. Never breaks well-formed adversarial
+    # inputs (multi-line, spaces, or non-IOC shapes).
+    try:
+        from v2.investigation.pipeline import _atomic_ioc_kind
+        _atomic_kind = _atomic_ioc_kind(body.input or "")
+    except Exception:
+        _atomic_kind = None
+    if _atomic_kind is not None:
+        from v2.investigation.pipeline import investigate as _inv
+        _res = _inv(body.input or "")
+        return {
+            "recipe": [
+                {"op": "atomic-ioc-passthrough", "args": {},
+                 "reason": f"Input is a bare {_atomic_kind} — no decoding applicable"}
+            ],
+            "output": body.input,
+            "input": body.input,
+            "confidence": 100,
+            "confidence_source": "atomic_ioc_guard",
+            "trace": [{
+                "op": "atomic-ioc-passthrough",
+                "in":  body.input,
+                "out": body.input,
+                "reason": (f"Input classified as bare {_atomic_kind}. "
+                           "Legacy chain-decode skipped — atomic IOCs are "
+                           "surfaced as-is and cannot be brute-forced into "
+                           "meaningful plaintext."),
+            }],
+            "atomic_ioc": {"kind": _atomic_kind, "value": (body.input or "").strip()},
+            "semantic": {},
+            "investigation": _res.to_dict(),
+        }
+
     # ── PowerShell -EncodedCommand deterministic short-circuit (Jul-2026) ──
     # Locked with SOC user 2026-07-25: when the input is a
     # `powershell.exe … -EncodedCommand <BLOB>` invocation whose blob

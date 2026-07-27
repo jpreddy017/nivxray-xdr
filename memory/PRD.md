@@ -1,5 +1,61 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-29 · v1.3.2 · Atomic-IOC honesty guard
+
+### SME false-positive report driving this fix
+Analyst pasted `scwxc.exe` (a bare filename from the earlier BITS
+investigation) into the Workspace. Legacy chain-decode responded
+with:
+    Verdict:  Suspicious · 65/100
+    Chain:    xor → rot-n
+    Output:   sc|nc%ini
+
+This is the "invents meaningless decodes from ordinary strings"
+pattern — brute-force transforms applied to atomic IOCs.
+
+### Fix (generic capability, not sample-specific)
+- **New `_atomic_ioc_kind()`** in `v2/investigation/pipeline.py`
+  recognises 9 atomic IOC grammars: filename, url, ipv4, domain,
+  windows_path, registry, sha256, sha1, md5.
+- **Pipeline short-circuit**: when input matches an atomic IOC
+  grammar, Investigation Brain skips CRE + RTE + intent inference
+  entirely. Verdict is forced to `BENIGN · confidence 0` with
+  band → `unknown`, and the report explicitly states
+  "*Bare {kind} in isolation — no adversarial signal is observable
+  without surrounding context.*"
+- **Report override**: atomic IOC surfaces as an explicit IOC entry
+  in the analyst report; MITRE / behaviors / recommendations
+  cleared so nothing adversarial is inferred from the bare artefact.
+- **Endpoint-level guard**: `/api/decode/smart` skips the entire
+  legacy chain-decode when input is atomic — returns
+  `{recipe: [atomic-ioc-passthrough], output: <input>, atomic_ioc,
+  investigation}` so the "xor → rot-n" fabrication cannot render.
+
+### Trust Corpus grew to 12 samples
+- **T12 · atomic_ioc_bare_filename** locks the exact SME case:
+  `scwxc.exe` → BENIGN · conf 0 · single filename IOC · zero
+  intents · forbidden_words_in_verdict includes `xor` and `rot`.
+- All 12/12 samples pass · **100 % Accuracy · Honesty ·
+  Explainability · Unknown Handling · Investigation Integrity** ·
+  0 hard failures.
+
+### Regression coverage
+- 211/211 tests green across every v1.3.x critical gate suite.
+- Trust Metrics gate now protects against XOR/ROT brute-force
+  re-emerging on atomic IOCs.
+
+### Engineering workflow (locked)
+```
+Customer case → SME review → Ground truth → Corpus → Generic fix
+  → Regression → Deploy
+```
+Every SME false positive becomes a permanent regression sample.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-29 · **v1.0 · Investigation Brain baseline · FROZEN**
 
 Per Product Owner directive: architecture is now frozen. From this
