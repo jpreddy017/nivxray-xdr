@@ -238,6 +238,298 @@ def _resolve_aliases(txt: str, stages: list[Stage]) -> tuple[str, bool]:
     return txt, changed
 
 
+# ── Invoke-Obfuscation token peel ────────────────────────────────
+# PowerShell has two invocation operators that accept a STRING literal
+# in place of a bare identifier — enabling analysts to hide the real
+# cmdlet / operator name from static scanners:
+#   &("Invoke-Expression") $arg     ≡ Invoke-Expression $arg
+#   .("Foreach-Object") { ... }     ≡ Foreach-Object { ... }
+#   .("%") { ... }                  ≡ % { ... }
+# When the argument is a literal quoted string of a valid identifier /
+# alias, this transform is 100% deterministic — no execution required.
+# Also handles `${_}` → `$_` (dollar-brace variable form).
+_CALL_OP_RE = re.compile(
+    r"""(?x)
+    (?P<op>[&.])\s*\(\s*['"]
+    (?P<name>[A-Za-z%?][A-Za-z0-9\-_]*)
+    ['"]\s*\)
+    """
+)
+_DOLLAR_BRACE_RE = re.compile(r"\$\{(\w{1,64})\}")
+
+
+def _resolve_call_operator_token(txt: str, stages: list[Stage]) -> tuple[str, bool]:
+    changed = False
+    new_txt, n = _CALL_OP_RE.subn(lambda m: m.group("name"), txt)
+    if n:
+        changed = True
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="Peel &(...)/.(...) invocation operator",
+            evidence=(f"Unwrapped {n} occurrence(s) of the PowerShell "
+                       "call / dot-source invocation operator against a "
+                       "literal quoted identifier (classic Invoke-Obfuscation "
+                       "token-obfuscation trick — deterministic; no execution)."),
+            before="", after=new_txt[:200],
+            confidence=95,
+        ))
+        txt = new_txt
+    new_txt, n = _DOLLAR_BRACE_RE.subn(lambda m: "$" + m.group(1), txt)
+    if n:
+        changed = True
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="Normalize `${var}` → `$var`",
+            evidence=(f"Rewrote {n} dollar-brace variable reference(s) into the "
+                       "plain-dollar form so downstream resolvers see the same "
+                       "identifier shape."),
+            before="", after=new_txt[:200],
+            confidence=99,
+        ))
+        txt = new_txt
+    return txt, changed
+
+
+# ── [Type]("StringLiteral") → [String] type-coercion peel ────────
+# PowerShell's `[Type]("Name")` cast returns the runtime Type object
+# corresponding to `Name`. When the argument is a literal string
+# naming a supported type, we can statically substitute the type
+# literal — a very common Invoke-Obfuscation trick to hide
+# `[Convert]::FromBase64String`, `[String]::Join`, etc.
+_TYPE_NAME_COERCION_RE = re.compile(
+    r"""(?ix)
+    \[\s*Type\s*\]\s*\(\s*['"]
+    (?P<name>[A-Za-z][A-Za-z0-9\.]{1,64})
+    ['"]\s*\)
+    """
+)
+_KNOWN_PS_TYPES = {
+    "string", "convert", "char", "byte", "int", "int16", "int32", "int64",
+    "uint16", "uint32", "uint64", "double", "single", "decimal", "boolean",
+    "datetime", "guid", "regex", "array", "hashtable", "object", "math",
+    "environment", "console", "type", "reflection.assembly",
+    "system.text.encoding", "system.io.file", "system.net.webclient",
+    "system.string", "system.convert", "system.char",
+}
+
+
+def _resolve_type_string_coercion(txt: str, stages: list[Stage],
+                                   var_scope: dict[str, str]) -> tuple[str, bool]:
+    changed = False
+    for m in list(_TYPE_NAME_COERCION_RE.finditer(txt)):
+        name = m.group("name")
+        if name.lower() not in _KNOWN_PS_TYPES:
+            continue
+        # Canonicalize a few common short forms so downstream regex
+        # matchers see the expected identifier shape.
+        canon_map = {"string": "String", "convert": "Convert",
+                     "char": "Char", "int": "Int32", "regex": "Regex"}
+        canon = canon_map.get(name.lower(), name)
+        replacement = f"[{canon}]"
+        txt = txt[:m.start()] + replacement + txt[m.end():]
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="Peel [Type]('Name') type coercion",
+            evidence=(f"Resolved `[Type]('{name}')` → `[{canon}]` — a "
+                       "PowerShell type-name-from-string coercion. Fully "
+                       "deterministic when the argument is a literal."),
+            before=m.group(0)[:80], after=replacement,
+            confidence=97,
+        ))
+        # Track scope: if this appears in `$var = [X]` assignment form
+        # (the exact literal that follows a `$var = ` prefix), remember
+        # it so `Get-Variable` dereferences can be resolved later.
+        preceding = txt[:m.start()]
+        assign = re.search(r"\$([A-Za-z_]\w{0,63})\s*=\s*$", preceding)
+        if assign:
+            var_scope[assign.group(1).lower()] = replacement
+        changed = True
+        break  # Restart — text shifted
+    return txt, changed
+
+
+# ── Get-Variable "var"."Value" → $var value (using tracked scope) ─
+_GET_VAR_DEREF_RE = re.compile(
+    r"""(?ix)
+    \(\s*Get-Variable\s+
+    (?:\(\s*)?          # optional wrapping paren around the name arg
+    ['"](?P<name>[A-Za-z_]\w{0,63})['"]
+    \s*\)?              # optional closing paren for that wrap
+    \s*\)
+    \s*\.\s*['"]?Value['"]?
+    """
+)
+
+
+def _resolve_get_variable_deref(txt: str, stages: list[Stage],
+                                 var_scope: dict[str, str]) -> tuple[str, bool]:
+    changed = False
+    for m in list(_GET_VAR_DEREF_RE.finditer(txt)):
+        name = m.group("name").lower()
+        if name not in var_scope:
+            continue   # No safe substitution; refuse rather than fabricate
+        value = var_scope[name]
+        txt = txt[:m.start()] + value + txt[m.end():]
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="Resolve (Get-Variable ...).Value dereference",
+            evidence=(f"Rewrote `(Get-Variable '{name}').Value` → `{value}` "
+                       "using the tracked literal type assignment. Refuses "
+                       "to substitute when the variable's value was not "
+                       "statically observed."),
+            before=m.group(0)[:80], after=value,
+            confidence=93,
+        ))
+        changed = True
+        break
+    return txt, changed
+
+
+# ── $var::(...) static access → [Type]::(...) when var is a tracked type
+_VAR_STATIC_ACCESS_RE = re.compile(r"\$([A-Za-z_]\w{0,63})\s*::")
+
+
+def _resolve_var_static_access(txt: str, stages: list[Stage],
+                                var_scope: dict[str, str]) -> tuple[str, bool]:
+    changed = False
+    for m in list(_VAR_STATIC_ACCESS_RE.finditer(txt)):
+        name = m.group(1).lower()
+        if name not in var_scope:
+            continue
+        value = var_scope[name]     # e.g. "[Convert]"
+        if not (value.startswith("[") and value.endswith("]")):
+            continue
+        replacement = f"{value}::"
+        txt = txt[:m.start()] + replacement + txt[m.end():]
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="Rewrite $var:: → [Type]::",
+            evidence=(f"Variable `${name}` was tracked as literal type "
+                       f"`{value}`; rewriting `${name}::` → `{value}::` so "
+                       "the standard static-method resolver can proceed."),
+            before=m.group(0)[:80], after=replacement,
+            confidence=95,
+        ))
+        changed = True
+        break
+    return txt, changed
+
+
+# ── [Type]::("methodName") → [Type]::methodName ──────────────────
+# Invoke-Obfuscation frequently wraps the static-method name in a
+# string literal + parens to hide it from static scanners.
+_STATIC_METHOD_BY_STRING_RE = re.compile(
+    r"""(?x)
+    (?P<lhs>\]\s*::)
+    \s*\(\s*['"]
+    (?P<name>[A-Za-z_]\w{0,63})
+    ['"]\s*\)
+    """
+)
+# Same trick without parens — `[Type]::"methodName"(args)`
+_STATIC_METHOD_BY_QUOTED_RE = re.compile(
+    r"""(?x)
+    (?P<lhs>\]\s*::)
+    \s*['"]
+    (?P<name>[A-Za-z_]\w{0,63})
+    ['"]
+    (?=\s*[\(\.])
+    """
+)
+# `[Type]::Method.Invoke(args)` → `[Type]::Method(args)`  — the
+# `.Invoke(...)` on a static-method reference is functionally identical
+# to a direct call (deterministic + no execution).
+_METHOD_INVOKE_RE = re.compile(
+    r"""(?x)
+    (?P<pre>\]\s*::\s*[A-Za-z_]\w{0,63})
+    \s*\.\s*Invoke\s*
+    (?P<args>\()
+    """,
+    re.IGNORECASE,
+)
+# `[String]::Join(delim, singleStringLiteral)` — when the second arg is
+# a bare string literal (possibly wrapped in `(...)` groupings), Join
+# returns that literal. Fully deterministic; safe to fold.
+_STRING_JOIN_LITERAL_RE = re.compile(
+    r"""(?x)
+    \[\s*String\s*\]\s*::\s*Join\s*\(
+    \s*(?P<delim>['"][^'"]{0,64}['"])\s*,\s*
+    \(?                          # optional wrapping paren(s)
+    \s*
+    (?P<val>'(?:[^']|'')*'|"(?:[^"]|"")*")
+    \s*
+    \)?                          # optional closing paren
+    \s*\)
+    """,
+    re.IGNORECASE,
+)
+
+
+def _resolve_static_method_by_string(txt: str, stages: list[Stage]) -> tuple[str, bool]:
+    changed = False
+    new_txt, n = _STATIC_METHOD_BY_STRING_RE.subn(
+        lambda m: m.group("lhs") + m.group("name"), txt
+    )
+    if n:
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="Peel [Type]::(\"method\") string-method call",
+            evidence=(f"Unwrapped {n} occurrence(s) of the "
+                       "`[Type]::('methodName')` static-method-by-string "
+                       "obfuscation pattern into `[Type]::methodName`."),
+            before="", after=new_txt[:200],
+            confidence=95,
+        ))
+        txt = new_txt
+        changed = True
+    new_txt, n = _STATIC_METHOD_BY_QUOTED_RE.subn(
+        lambda m: m.group("lhs") + m.group("name"), txt
+    )
+    if n:
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique='Peel [Type]::"method"(...) quoted-method call',
+            evidence=(f"Unwrapped {n} occurrence(s) of the "
+                       "`[Type]::\"methodName\"(...)` obfuscation pattern "
+                       "into `[Type]::methodName(...)`."),
+            before="", after=new_txt[:200],
+            confidence=95,
+        ))
+        txt = new_txt
+        changed = True
+    new_txt, n = _METHOD_INVOKE_RE.subn(
+        lambda m: m.group("pre") + m.group("args"), txt
+    )
+    if n:
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="Peel [Type]::Method.Invoke(...) reflection",
+            evidence=(f"Rewrote {n} occurrence(s) of "
+                       "`[Type]::Method.Invoke(args)` → "
+                       "`[Type]::Method(args)` — functionally identical, "
+                       "no execution required."),
+            before="", after=new_txt[:200],
+            confidence=95,
+        ))
+        txt = new_txt
+        changed = True
+    # `[String]::Join(delim, 'literal')` → `'literal'`
+    for m in list(_STRING_JOIN_LITERAL_RE.finditer(txt)):
+        val = m.group("val")
+        txt = txt[:m.start()] + val + txt[m.end():]
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="Fold [String]::Join(_, 'literal') → 'literal'",
+            evidence=("`[String]::Join(delimiter, singleStringLiteral)` "
+                       "returns the literal unchanged — deterministic fold."),
+            before=m.group(0)[:80], after=val[:80],
+            confidence=95,
+        ))
+        changed = True
+        break
+    return txt, changed
+
+
 # ── Numeric char-array reconstruction (octal/hex/decimal) ────────
 # Matches things like:
 #   (127,162,151,164,145) | %{ [char]([Convert]::ToInt16(([string]$_),8)) }
@@ -309,7 +601,19 @@ def _resolve_numeric_char_reconstruction(txt: str, stages: list[Stage]) -> tuple
         head_prefix = re.search(r"\[char(?:\[\s*\])?\s*\]\s*$", txt[:span_start], re.I)
         if head_prefix:
             span_start = head_prefix.start()
-        replacement = f"'{recovered}'"
+        # Choose the quote style that doesn't collide with characters in the
+        # recovered payload — single-quote wrap if the payload contains
+        # double quotes, otherwise double-quote wrap. This keeps the
+        # emitted literal parseable by downstream regex-based resolvers.
+        if '"' in recovered and "'" not in recovered:
+            replacement = f"'{recovered}'"
+        elif "'" in recovered and '"' not in recovered:
+            replacement = f'"{recovered}"'
+        elif "'" in recovered and '"' in recovered:
+            # Fall back to PS-escaped single-quote form (doubled quotes)
+            replacement = "'" + recovered.replace("'", "''") + "'"
+        else:
+            replacement = f"'{recovered}'"
         txt = txt[:span_start] + replacement + txt[span_end:]
         stages.append(Stage(
             n=len(stages) + 1,
@@ -1447,9 +1751,18 @@ def deobfuscate(script: str) -> DeobfuscationReport:
         return r
     current = script
     hit_max = True
+    var_scope: dict[str, str] = {}
     for _ in range(MAX_STAGES):
         prev = current
         current, _ = _resolve_backticks(current, r.stages)
+        # Invoke-Obfuscation token peel — MUST run BEFORE alias
+        # expansion and BEFORE numeric char reconstruction so downstream
+        # resolvers see plain `[Convert]::ToInt16(...,8)` etc.
+        current, _ = _resolve_call_operator_token(current, r.stages)
+        current, _ = _resolve_type_string_coercion(current, r.stages, var_scope)
+        current, _ = _resolve_get_variable_deref(current, r.stages, var_scope)
+        current, _ = _resolve_var_static_access(current, r.stages, var_scope)
+        current, _ = _resolve_static_method_by_string(current, r.stages)
         current, _ = _resolve_format(current, r.stages)
         current, _ = _resolve_concat(current, r.stages)
         current, _ = _resolve_numeric_char_reconstruction(current, r.stages)

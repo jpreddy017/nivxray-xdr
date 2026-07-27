@@ -281,7 +281,7 @@
     },
     {
       "sha1": "8064f1b8d1e57ae9b384076d70eeed9b47ac6bf4",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
       "output_head": "2025-02-14T12:34:56Z INFO service started",
       "ok": false
@@ -339,9 +339,9 @@
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "ABC",
+      "output_head": "powershell -e ABC",
       "ok": false
     },
     {
@@ -397,23 +397,23 @@
     },
     {
       "sha1": "888ca0494ea03d52b32013c26f891ade2f651b1b",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "output_head": "binary-A",
       "ok": false
     },
     {
       "sha1": "9dab0c64d545d383773f8738c8f89e80183784e6",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE=';            var b=atob(d);            var l=document.createElement('a');            l.download='pay",
+      "output_head": "binary-A",
       "ok": false
     },
     {
       "sha1": "f9f75777c6ec5ce767f90a3564eba599398a4d58",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
       "ok": false
     },
     {
@@ -439,9 +439,9 @@
     },
     {
       "sha1": "892ed1156a4390ee17d9583a72b5c90eb1eca957",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-C",
+      "output_head": "var d='YmluYXJ5LUM=';        var b=atob(d);        var l=document.createElement('a');        l.download='stager.js';    ",
       "ok": false
     },
     {

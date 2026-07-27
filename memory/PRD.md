@@ -1,5 +1,100 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-28 · Workspace Stabilization Directive · P0 Audit CLOSED
+
+### Directive
+Per the user's Workspace Stabilization Directive: the release gate is
+"the Workspace produces correct, deterministic, explainable
+investigations for every supported command line" — NOT "pytest 202/202
+pass". Defects are triaged by ANALYST-IMPACT (P0 wrong output → P1
+wrong metadata → P2 cosmetic), never by owning component.
+
+### Delivered (P0 fixes · zero-defect audit)
+- **End-to-end Workspace Validation Corpus** (`tests/workspace_audit.py`)
+  — 16 curated command lines covering plain PS, `-EncodedCommand`,
+  multi-layer obfuscation, download cradles, non-PS LOLBAS
+  (`mshta`, `rundll32`, `regsvr32`, `cscript`, `certutil`, `bitsadmin`,
+  `msiexec`, `installutil`, `regasm`, `regsvcs`, `msbuild`), AES-CBC
+  crypto, reflection with runtime keys, and the user-supplied
+  fully-layered Invoke-Obfuscation sample. Every sample audits 10+
+  analyst-visible sections and emits a structured defect report at
+  `tests/reports/workspace_audit_report.json` with severity + owning
+  component + reproducer.
+- **Audit results: 33 defects (7 P0 + 26 P1) → 0 defects.** Root-caused
+  and fixed:
+  - `_PS_MARKER_RE` was too narrow — `Get-Process`, `Where-Object`, and
+    every generic `Verb-Noun` cmdlet were being silently dropped.
+    Broadened to catch the full PowerShell cmdlet identifier space.
+  - **Non-PowerShell LOLBAS commands** produced no investigation at
+    all (no verdict, no IOCs, no exec summary). Added `_analyze_lolbas`
+    path in `v2/semantic/ps_semantic.py` — deterministic investigator
+    for the 11 canonical LOLBINs; produces `detected + recovered_script +
+    artifacts + behaviors_v2 + mitre_ids + verdict + storyline` from
+    the raw command line without decoding. The binary itself is surfaced
+    as a `file` IOC so the analyst can pivot even when the command
+    args contain no URL.
+  - **`-EncodedCommand` behavior + MITRE not emitted after decode.** The
+    AST-based extractor never saw the `-EncodedCommand` flag because
+    the decoded script no longer contains it. Added a top-level
+    injection so `encoded_command` behavior + `T1027 / T1059.001`
+    always fire when `encoded=True`.
+- **Invoke-Obfuscation full-stack peel** (`v2/semantic/ps_deobfuscate.py`)
+  — 6 new deterministic resolvers, no execution:
+  - `[Type]("StringLiteral")` → `[String]` type-name-from-string coercion
+  - `&("Cmdlet")` / `.("Alias")` → bare identifier (Invoke-Expression,
+    `%`, ForEach-Object, Get-Variable, etc.)
+  - `${var}` → `$var` dollar-brace normalization
+  - `(Get-Variable "name").Value` → tracked literal type
+  - `$var::Method(...)` → `[Type]::Method(...)` when `$var` was
+    tracked to a literal type
+  - `[Type]::("method")` / `[Type]::"method"(...)` / `.Invoke(...)` →
+    unwrapped static-method calls
+  - `[String]::Join(delim, 'literal')` → `'literal'` fold
+  - Result: the user's 200-char fully-layered obfuscation sample now
+    deterministically peels to `Write-Host 'Hello, from PowerShell!'`
+    with a boundary op of `Invoke-Expression` — exactly as specified.
+- **Permanent CI gate** — new `tests/test_workspace_audit_gate.py`
+  asserts zero P0 + P1 defects AND that every mandated
+  analyst-visible category remains in the corpus. This makes the
+  Workspace release gate mandatory on every future PR.
+
+### Non-regressions
+- 120/120 workspace-related tests green
+  (`test_workspace_audit_gate`, `test_perf_baseline_ci_gate`, all
+  `test_corpus_phase{1,2,2_batch2,3_batch1,3_batch2}_regression`,
+  `test_ps_semantic_v2`, `test_ps_deobfuscator`, `test_ps_storyline`,
+  `test_ps_encodedcommand_xor_guard`, `test_encodedcommand_coverage`,
+  `test_rc42_semantic_mini`).
+- The 3 unrelated pre-existing failures (docs_explain LLM setup,
+  `test_v2_phase2` normalizer artefacts tuple index, RC5 orchestrator
+  v2-flag grep) were verified as pre-existing on `git HEAD` before
+  this work and are not regressions.
+
+### Files touched
+- Created: `/app/backend/tests/test_workspace_audit_gate.py` (CI gate)
+- Updated: `/app/backend/tests/workspace_audit.py` (+ user's
+  Invoke-Obfuscation regression sample)
+- Updated: `/app/backend/v2/semantic/ps_semantic.py`
+  (broadened PS marker, `_analyze_lolbas`, `encoded_command`
+  injection)
+- Updated: `/app/backend/v2/semantic/ps_deobfuscate.py`
+  (6 new Invoke-Obfuscation resolvers + tracked var scope + safer
+  quote wrapping for reconstructed strings)
+
+### Next
+Blocked → Ready:
+- Investigation workflows enhancements (Evidence Graph, Process Tree
+  correlation, Timeline correlation, IOC enrichment, STIX/Sigma/YARA)
+Still deferred per user directive:
+- Phase 4 Download Cradles / LOLBAS decoder expansion (superseded by
+  the LOLBAS analyzer path shipped here)
+- Decode Coverage Dashboard + Investigation Confidence Panel
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-27 · Corpus Phase 3 · Batch 1 — Multi-Stage Execution (SHIPPED)
 
 ### Delivered (Cluster E + F)

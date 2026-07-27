@@ -493,6 +493,190 @@ def format_summary_block(sr: "SemanticResult") -> str:
     return "\n".join(lines)
 
 
+# ── LOLBAS binaries catalogue (non-PowerShell command-line LOLBINs) ─
+# Maps a LOLBAS binary name (lowercase, without .exe) to the analyst-
+# facing display name, its ATT&CK sub-technique, and the primary
+# behavior tag from the NivXRay taxonomy. When a command line contains
+# one of these binaries but no PowerShell markers, the Workspace still
+# investigates it deterministically.
+_LOLBAS_CATALOGUE: dict[str, dict[str, Any]] = {
+    "mshta":       {"display": "mshta.exe",       "mitre": ["T1218.005"],
+                    "behaviors": ["lolbin_abuse", "defense_evasion"]},
+    "rundll32":    {"display": "rundll32.exe",    "mitre": ["T1218.011"],
+                    "behaviors": ["lolbin_abuse", "defense_evasion"]},
+    "regsvr32":    {"display": "regsvr32.exe",    "mitre": ["T1218.010"],
+                    "behaviors": ["lolbin_abuse", "defense_evasion"]},
+    "cscript":     {"display": "cscript.exe",     "mitre": ["T1059.007", "T1218"],
+                    "behaviors": ["lolbin_abuse"]},
+    "wscript":     {"display": "wscript.exe",     "mitre": ["T1059.005", "T1218"],
+                    "behaviors": ["lolbin_abuse"]},
+    "certutil":    {"display": "certutil.exe",    "mitre": ["T1140", "T1105"],
+                    "behaviors": ["lolbin_abuse", "payload_decode"]},
+    "bitsadmin":   {"display": "bitsadmin.exe",   "mitre": ["T1197", "T1105"],
+                    "behaviors": ["lolbin_abuse", "bits_download"]},
+    "msiexec":     {"display": "msiexec.exe",     "mitre": ["T1218.007"],
+                    "behaviors": ["lolbin_abuse"]},
+    "installutil": {"display": "installutil.exe", "mitre": ["T1218.004"],
+                    "behaviors": ["lolbin_abuse", "defense_evasion"]},
+    "regasm":      {"display": "regasm.exe",      "mitre": ["T1218.009"],
+                    "behaviors": ["lolbin_abuse", "defense_evasion"]},
+    "regsvcs":     {"display": "regsvcs.exe",     "mitre": ["T1218.009"],
+                    "behaviors": ["lolbin_abuse", "defense_evasion"]},
+    "msbuild":     {"display": "msbuild.exe",     "mitre": ["T1127.001"],
+                    "behaviors": ["lolbin_abuse", "defense_evasion"]},
+}
+
+_LOLBAS_RE = re.compile(
+    r"(?i)\b(" + "|".join(re.escape(k) for k in _LOLBAS_CATALOGUE) + r")(?:\.exe)?\b"
+)
+
+
+def _analyze_lolbas(cmdline: str, r: SemanticResult) -> SemanticResult:
+    """Deterministic investigator for non-PowerShell LOLBAS command lines.
+
+    Runs when `_PS_MARKER_RE` fails on the input but a known LOLBAS
+    binary is present. The command line IS the payload — no decode
+    happens. Extracts artifacts (URLs, hosts, files, registry keys),
+    emits LOLBAS-specific behavior tags with MITRE mappings, computes
+    the verdict, and builds an executive summary so the Workspace
+    always has an analyst-ready investigation.
+    """
+    m = _LOLBAS_RE.search(cmdline)
+    if not m:
+        return r
+    binary_key = m.group(1).lower()
+    entry = _LOLBAS_CATALOGUE[binary_key]
+
+    trace = _DecodeTrace()
+    trace.add("lolbas_scanner", status="applied",
+              reason=(f"Detected LOLBAS binary `{entry['display']}` in a "
+                      f"non-PowerShell command line; the command itself is "
+                      f"the payload — no decode required."),
+              input_val=cmdline, output_val=cmdline)
+
+    r.detected = True
+    r.recovered_script = cmdline.strip()
+    r.decode_outcome = "fully_decoded"
+
+    # Extract IOCs (URLs, IPs, hosts, files, registry) — the same
+    # regex-based extractor used for PowerShell scripts works on any
+    # text so we get URL classification for free.
+    r.ast = []  # non-PS AST is out of scope; entity extraction only
+    r.artifacts = extract_artifacts(cmdline, r.ast)
+
+    # The LOLBAS binary itself is an analyst-facing IOC — surface it
+    # as a `file` artifact so downstream IOC panels always show
+    # something for LOLBAS samples whose arguments are not URLs
+    # (e.g. `mshta.exe "javascript:..."` or `rundll32.exe javascript:...`).
+    seen_files = {a.value for a in r.artifacts if a.kind == "file"}
+    if entry["display"] not in seen_files:
+        r.artifacts.append(SemanticArtifact(
+            kind="file", value=entry["display"],
+            classification="lolbas",
+            evidence=(f"LOLBAS binary `{entry['display']}` invoked directly — "
+                       "IOC surfaced so analysts can pivot on this indicator."),
+        ))
+
+    # Emit LOLBAS behavior tags. Every LOLBAS binary carries at least
+    # `lolbin_abuse` (T1218). Some carry additional tags for their
+    # specific abuse patterns (e.g. certutil → payload_decode).
+    from v2.semantic.ps_behaviors import _mk, TAXONOMY
+    v2_behaviors = []
+    for bid in entry["behaviors"]:
+        if bid not in TAXONOMY:
+            continue
+        v2_behaviors.append(_mk(
+            bid, confidence=90,
+            rationale=(f"LOLBAS binary `{entry['display']}` invoked directly "
+                       "on the command line — a well-documented Windows "
+                       "living-off-the-land technique."),
+        ))
+    # External URL / host adds C2 / download tags
+    has_external = any(a.classification == "external"
+                        for a in r.artifacts if a.kind in ("url", "host"))
+    if has_external and "remote_script_download" in TAXONOMY:
+        v2_behaviors.append(_mk(
+            "remote_script_download", confidence=85,
+            rationale=(f"`{entry['display']}` references an external URL — "
+                       "consistent with remote payload retrieval via "
+                       "living-off-the-land binary."),
+        ))
+    if has_external and "external_network" in TAXONOMY:
+        v2_behaviors.append(_mk(
+            "external_network", confidence=85,
+            rationale="External URL / host observed in LOLBAS command line.",
+        ))
+
+    r.behaviors_v2 = [b.to_dict() for b in v2_behaviors]
+    trace.add("behavior_extractor_v2", status="applied",
+              reason=(f"Extracted {len(v2_behaviors)} LOLBAS behavior "
+                      "tag(s) from the command line."),
+              input_val=cmdline,
+              output_val=", ".join(b.id for b in v2_behaviors) or "(none)")
+
+    # Union MITRE (behaviors + LOLBAS-specific)
+    mitre_ids = set(entry["mitre"]) | {m for b in v2_behaviors for m in b.mitre}
+    r.mitre_ids = sorted(mitre_ids)
+
+    # Legacy behaviors list (for backward compat with older UI code)
+    r.behaviors = [
+        {"category": "LOLBIN Abuse",
+         "evidence": f"`{entry['display']}` invoked directly on the command line",
+         "weight": 40, "mitre": entry["mitre"]}
+    ]
+    if has_external:
+        r.behaviors.append({
+            "category": "External Network Communication",
+            "evidence": "Command references an external URL / host.",
+            "weight": 20, "mitre": ["T1071.001"],
+        })
+
+    # Verdict via the v2 engine (same one PowerShell uses) so scoring
+    # stays consistent across both entry paths.
+    ext_urls = sum(1 for a in r.artifacts
+                    if a.kind == "url" and a.classification == "external")
+    ext_ips  = sum(1 for a in r.artifacts
+                    if a.kind == "ip"  and a.classification == "external")
+    ioc_stats = {
+        "external_urls":  ext_urls,
+        "external_ips":   ext_ips,
+        "ti_hits":        0,
+        "hashes":         0,
+        "decoder_layers": len(trace.steps),
+    }
+    breakdown = _compute_verdict_v2(v2_behaviors, ioc_stats,
+                                     trace.to_list(),
+                                     encoded_present=False)
+    r.verdict_breakdown = breakdown.to_dict()
+    r.verdict = breakdown.verdict
+    r.risk_score = breakdown.risk_score
+    r.confidence = breakdown.confidence
+    r.verdict_reason = (f"LOLBAS binary `{entry['display']}` detected. "
+                          "Verdict derived from behavior + IOC evidence.")
+
+    # Storyline so Workspace has an executive summary + attack narrative
+    r.storyline = _build_storyline(
+        recovered_script=r.recovered_script,
+        behaviors_v2=r.behaviors_v2,
+        artifacts=[{"kind": a.kind, "value": a.value,
+                    "classification": a.classification,
+                    "evidence": a.evidence} for a in r.artifacts],
+        deobfuscation={"stages": [], "final": r.recovered_script,
+                        "boundary_op": None, "stopped_reason": "lolbas_direct_execution"},
+        verdict_breakdown=r.verdict_breakdown,
+    )
+
+    # Populate the shape the audit / UI expect
+    r.deobfuscation = {
+        "stages": [],
+        "final": r.recovered_script,
+        "boundary_op": None,
+        "stopped_reason": "lolbas_direct_execution",
+    }
+    r.decode_timeline = trace.to_list()
+    return r
+
+
 # ── Public entrypoint ────────────────────────────────────────────
 def analyze(cmdline: str) -> SemanticResult:
     """Full deterministic semantic pass over a PowerShell command line."""
@@ -509,6 +693,7 @@ def analyze(cmdline: str) -> SemanticResult:
     _PS_MARKER_RE = re.compile(
         r"(?ix)"
         r"\bpowershell(?:\.exe)?\b"                          # explicit exe
+        r"|\bpwsh(?:\.exe)?\b"                                # PowerShell 7+
         r"|-encodedcommand\b|-enc\b|-ec\b"                    # encoded-command flags
         r"|\biex\b|\binvoke-expression\b|\binvoke-webrequest\b|\binvoke-restmethod\b"
         r"|\[string\]::(?:join|format)\b"                     # .NET String static ops
@@ -516,12 +701,30 @@ def analyze(cmdline: str) -> SemanticResult:
         r"|\[convert\]::(?:toint16|toint32|frombase64string)\b"
         r"|\[system\.text\.encoding\]::"                       # PS-specific .NET path
         r"|\[type\]\(\s*['\"]"                                 # [Type]("Foo") type coercion
-        r"|\bwrite-host\b|\bwrite-output\b|\bset-variable\b|\bnew-object\b"
-        r"|\bget-content\b|\bstart-process\b|\bnew-item\b"
         r"|\[reflection\.assembly\]|\[activator\]::"
+        # Generic PowerShell Verb-Noun cmdlets (Get-Process, Where-Object,
+        # ForEach-Object, Set-Variable, New-Item, Test-Path, etc.). This
+        # is the analyst-visible signature — audit sample
+        # `plain_get_process` was previously silently dropped because
+        # `Get-Process` did not match any of the enumerated patterns above.
+        r"|\b(?:Get|Set|New|Add|Remove|Clear|Copy|Move|Rename|Test|Start|Stop|"
+        r"Restart|Suspend|Resume|Write|Read|Out|Import|Export|ConvertTo|"
+        r"ConvertFrom|Select|Where|ForEach|Sort|Group|Measure|Format|"
+        r"Compare|Enter|Exit|Invoke|Register|Unregister|Enable|Disable|"
+        r"Install|Uninstall|Update|Publish|Save|Show|Hide|Send|Receive|"
+        r"Push|Pop|Trace|Debug|Wait|Watch|Split|Join|Find|Search|"
+        r"Resolve|Protect|Unprotect|Grant|Revoke|Lock|Unlock)-[A-Z][A-Za-z0-9]+\b"
     )
     if not _PS_MARKER_RE.search(cmdline):
-        return r
+        # Not PowerShell — but the Workspace must still investigate
+        # non-PowerShell LOLBAS command lines (mshta, rundll32, regsvr32,
+        # cscript, wscript, certutil, bitsadmin, msiexec, installutil,
+        # regasm, regsvcs, msbuild). These bypass PowerShell entirely
+        # yet remain among the most-abused Windows LOLBINs. The audit
+        # revealed all six LOLBAS samples produced no analyst output at
+        # all — no verdict, no IOCs, no executive summary. This path
+        # closes that gap.
+        return _analyze_lolbas(cmdline, r)
     encoded_blob = extract_encoded_blob(cmdline)
     encoded = encoded_blob is not None
 
@@ -714,6 +917,21 @@ def analyze(cmdline: str) -> SemanticResult:
                 rationale=("Detected during deterministic deobfuscation — "
                            "the raw script used this obfuscation trick "
                            "before it was unwrapped by the decode chain."),
+            ))
+    # Inject the `encoded_command` behavior when the input carried a
+    # `-EncodedCommand` flag. After decoding, the flag itself is gone
+    # from the recovered script so the AST-based behavior extractor
+    # cannot see it — but analysts still need to see that the payload
+    # was obfuscated at the command-line layer (T1027 + T1059.001).
+    if encoded:
+        from v2.semantic.ps_behaviors import _mk, TAXONOMY   # local import
+        existing_ids = {b.id for b in v2_behaviors}
+        if "encoded_command" in TAXONOMY and "encoded_command" not in existing_ids:
+            v2_behaviors.append(_mk(
+                "encoded_command", confidence=95,
+                rationale=("Command line invoked PowerShell with an "
+                           "`-EncodedCommand` Base64 payload — a classic "
+                           "obfuscation / defense-evasion technique."),
             ))
     r.behaviors_v2 = [b.to_dict() for b in v2_behaviors]
     trace.add("behavior_extractor_v2", status="applied",
