@@ -15,7 +15,7 @@ platform's deploy output and appended here for permanent record.
 | ----- | ----- |
 | **Release** | NivXRay v1.4.0 |
 | **Release Date** | 2026-07-27 |
-| **Deployed Commit SHA** | `<capture at Deploy time>` |
+| **Deployed Commit SHA** | `c6ccc2b61f8cf6c3e7f4e7b2d06850cfe52a464f` |
 | **Behaviour Graph Schema** | `1.0.0` (frozen · CI-locked) |
 | **Investigation Baseline** | `iu → cre → rte → intent → behaviour → verdict → graph → report` |
 
@@ -40,6 +40,13 @@ platform's deploy output and appended here for permanent record.
 | Unknown Handling | **PASS** (100 %) |
 | Investigation Integrity | **PASS** (100 %) |
 | Hard Failures | **0** |
+
+### Provenance
+
+- **PR**: v1.4.0: Investigation Brain Stabilization & Behavior Graph Schema Freeze
+- **Merged from**: `feature/rc2.1b` → `main`
+- **Merge SHA (canonical)**: [`c6ccc2b`](https://github.com/jana017/NivXRAY_NivXForge/commit/c6ccc2b61f8cf6c3e7f4e7b2d06850cfe52a464f)
+- **Merge date**: 2026-07-27
 
 ### Production Smoke (post-deploy · to be re-run on LIVE URL)
 
