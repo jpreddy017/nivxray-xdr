@@ -1,29 +1,20 @@
 """CMD wrapper — `cmd /c "<inner>"` and `cmd /k "<inner>"`.
 
-Also handles the unquoted form `cmd /c inner…` (cmd's own grammar
-accepts a bare inner command after `/c` when no embedded quotes are
-present)."""
+Uses the shared escape-aware quoted-string scanner so nested wrapper
+chains (`cmd /c "powershell -C \\"…\\""`) survive peeling.
+"""
 from __future__ import annotations
 
 import re
 
 from ..models import WrapperChainStep
+from ._quoting import extract_quoted, normalize_escaped_quotes
 
-_CMD_QUOTED_RE = re.compile(
-    r"""(?ix)
-    ^\s*(?:c:\\[^\s]*\\)?cmd(?:\.exe)?\s+
-    (?:/[a-z]\s+)*                               # /d /s /q etc.
-    (?P<verb>/c|/k|/r)\s+
-    (?P<q>['"])(?P<inner>.*)(?P=q)\s*$
-    """,
-    re.DOTALL,
-)
-_CMD_BARE_RE = re.compile(
+_CMD_HEAD_RE = re.compile(
     r"""(?ix)
     ^\s*(?:c:\\[^\s]*\\)?cmd(?:\.exe)?\s+
     (?:/[a-z]\s+)*
     (?P<verb>/c|/k|/r)\s+
-    (?P<inner>\S.*)$
     """,
     re.DOTALL,
 )
@@ -34,34 +25,49 @@ class CmdWrapper:
 
     def match(self, cmdline: str) -> bool:
         low = cmdline.lstrip().lower()
-        return low.startswith("cmd ") or low.startswith("cmd.exe ") or \
-               low.startswith("c:\\") and "cmd" in low[:64]
+        return (low.startswith("cmd ") or low.startswith("cmd.exe ") or
+                (low.startswith("c:\\") and "cmd" in low[:64]))
 
     def extract(self, cmdline: str) -> WrapperChainStep | None:
-        m = _CMD_QUOTED_RE.match(cmdline)
-        conf = 100
-        note = "quoted"
-        if not m:
-            m = _CMD_BARE_RE.match(cmdline)
-            conf = 90
-            note = "bare (no surrounding quotes on the inner command)"
+        m = _CMD_HEAD_RE.match(cmdline)
         if not m:
             return None
-        inner = m.group("inner").strip()
-        # Peel doubled escape sequences `\"` → `"` that cmd introduces
-        # inside its own quoting (e.g. when nested via wmic).
-        normalized = inner.replace('\\"', '"').replace('\\\\', '\\').strip()
+        verb = m.group("verb").lower()
+        rest = cmdline[m.end():]
+        # Quoted form: `cmd /c "..."`
+        if rest.startswith('"'):
+            got = extract_quoted(rest, 0)
+            if got:
+                inner, _ = got
+                normalized = normalize_escaped_quotes(inner).strip()
+                return WrapperChainStep(
+                    wrapper=self.NAME,
+                    command=verb,
+                    inner_command=inner,
+                    normalized_command=normalized,
+                    evidence=(
+                        f"Matched CMD `{verb}` quoted form — wrapper "
+                        "executes the inner command in a new cmd "
+                        "shell. Escape-aware quote scanner handles "
+                        "nested `\\\"…\\\"` sequences."
+                    ),
+                    confidence=100,
+                )
+        # Bare form: `cmd /c foo bar baz` (no surrounding quotes)
+        inner = rest.strip()
+        if not inner:
+            return None
         return WrapperChainStep(
             wrapper=self.NAME,
-            command=m.group("verb").lower(),
+            command=verb,
             inner_command=inner,
-            normalized_command=normalized,
+            normalized_command=inner,
             evidence=(
-                f"Matched CMD `{m.group('verb')}` {note} form — the "
-                "wrapper executes the inner command in a new cmd shell. "
-                "Extraction proved by CMD's own argument grammar."
+                f"Matched CMD `{verb}` bare form (no surrounding quotes "
+                "on the inner command). Wrapper executes the trailing "
+                "arguments as one command line in a new cmd shell."
             ),
-            confidence=conf,
+            confidence=90,
         )
 
 

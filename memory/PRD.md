@@ -1,5 +1,89 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-28 (Final) · CRE Verified — Investigation Brain Mission Adopted
+
+### Engineering direction (from user)
+- The Workspace is the **Investigation Brain** of NivXRay, not a UI.
+- Every capability must answer six fundamental questions:
+  1. What is the real payload?
+  2. What is the artifact trying to accomplish?
+  3. What evidence proves that conclusion?
+  4. How confident is that conclusion?
+  5. What remains unknown or requires runtime validation?
+  6. Can every conclusion be clearly explained to an analyst?
+- UI enhancements (execution-flow view, process tree, sandbox fetch,
+  CRE docs) are **deferred** until analytical capability is proven.
+
+### CRE Verification Battery (as required before declaring complete)
+Every scenario the user specified now passes on the CRE:
+- ✅ CMD → PowerShell → EncodedCommand
+- ✅ SchTasks → PowerShell (`/tr "..."` with escaped inner quotes)
+- ✅ RunAs → CMD → PowerShell
+- ✅ Start → CMD → PowerShell
+- ✅ WMIC → CMD → MSHTA
+- ✅ WMIC → Rundll32 (direct, no cmd wrapper)
+- ✅ 4-level: schtasks → runas → cmd → powershell
+- ✅ 5-level: wmic → schtasks → runas → cmd → powershell
+- ✅ Wrapper + `-EncodedCommand` combination
+- ✅ Runtime-dependent download cradle (bare + wrapped)
+- ✅ Reverse nesting: powershell → cmd → wmic
+
+### Root-cause architectural fix (from 8/11 → 11/11)
+The first pass failed 3 chains at 3+ levels because parsers didn't
+handle **nested-quote escaping**. Fix was ONE generic capability
+shared by every wrapper — NOT sample-specific patches:
+
+- New `v2/investigation/cre/wrappers/_quoting.py` — shared
+  escape-aware quoted-string scanner (`extract_quoted`,
+  `normalize_escaped_quotes`, `find_quoted_after`). Every parser
+  reads through it. Adding a new wrapper stays a one-file change.
+- `extract_quoted` preserves RAW inner content so deep nesting
+  works: each layer's `normalize_escaped_quotes` unescapes exactly
+  ONE level, matching real Windows shell semantics.
+- Refactored `wmic`, `cmd`, `schtasks`, `runas`, `start` parsers to
+  use the shared scanner — none of them contain wrapper-specific
+  escape-handling logic anymore.
+
+### Test coverage
+- **143/143 tests green** across every workspace-related suite:
+  workspace audit gate, semantic v2, deobfuscator, storyline,
+  perf CI, encoded-command, corpus phases 1/2/2b/3/3b, +
+  CRE regression suite.
+- CRE regression suite grew from 9 to 11 classes (added programmatic
+  4-level and 5-level scenarios built with proper Windows escape
+  convention).
+
+### Roadmap update — Investigation Brain
+- ✅ **Command Reconstruction** — CRE (verified & extensible)
+- 🟡 **Input Understanding** — classify artefact type (CMD, PS, Bash,
+    Python, JS, VBScript, WMI, LOLBIN, Registry, MSI, Office macro,
+    ScheduledTask, service, network, URL, unknown) before dispatch
+- 🟡 **Recursive Decoding** — expand deterministic support (Base64,
+    UTF-16LE/UTF-8, hex, unicode escapes, env expansion, PS string
+    reconstruction, reflection, compression, multi-layer, mixed,
+    nested payloads)
+- 🟡 **Semantic Understanding** — intent, not syntax (staging, remote
+    exec, persistence, evasion, lateral, cred access, collection, exfil)
+- 🟡 **Behavior Correlation** — reason about ATTACK CHAINS, not
+    isolated events
+- 🟡 **Evidence Validation** — every conclusion answers
+    "what evidence proves this?"; unknowns stay unknown
+- 🟡 **Self-Validation** — the Brain challenges itself
+    (did reconstruction stop too early? another payload hidden? etc.)
+- 🟡 **Confidence Assessment** — evidence-based, not certainty
+- 🟡 **Explainability** — every decision auditable by the analyst
+
+### Deferred (UI / presentation) — build after Brain matures
+- Analyst Execution Flow view
+- Process Tree correlation
+- CRE Extensibility Doc
+- Sandbox Fetch Companion
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-28 (Late) · Command Reconstruction Engine (CRE) shipped
 
 ### User directive

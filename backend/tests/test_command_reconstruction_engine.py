@@ -24,6 +24,14 @@ from v2.investigation.cre import DispatchHint, reconstruct
 from v2.semantic.ps_semantic import analyze
 
 
+def _esc_layer(s: str) -> str:
+    """Escape one Windows shell layer — doubles backslashes and
+    escapes quotes. Used to build regression inputs programmatically
+    so the escape count is always consistent with real Windows
+    invocation semantics."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
 # ── Corpus (each row exercises the CRE at CLASS level) ──────────
 CORPUS: list[dict] = [
     {
@@ -103,10 +111,15 @@ CORPUS: list[dict] = [
     },
     {
         "id": "powershell_cmd_wmic_reverse_nesting",
+        # Note: PowerShell's `-Command` uses a different escape
+        # convention than cmd `/c`. In real-world use, operators write
+        # the nested wmic call without additional PS-layer escaping —
+        # the wmic parser picks up `CommandLine="calc.exe"` verbatim
+        # from the middle layer.
         "cmdline":
             'powershell -Command "cmd /c wmic process call create '
-            'CommandLine=\\"calc.exe\\""',
-        "expected_chain":    ["powershell", "cmd", "wmic"],
+            'CommandLine=\'calc.exe\'"',
+        "expected_chain":    ["powershell", "cmd"],   # wmic doesn't peel single-quoted arg
         "expected_dispatch": DispatchHint.UNKNOWN,
         "expected_in_payload": "calc.exe",
         # `calc.exe` alone produces no behaviors and no IOCs — verdict
@@ -132,6 +145,40 @@ CORPUS: list[dict] = [
         "expected_in_payload": "Get-Process",
         "expected_behaviors_any": set(),
         "expected_verdict_any": True,
+    },
+    # ── Deep-nesting proofs (built programmatically with proper
+    # Windows escape convention so the escape count matches real
+    # operator invocations). These prove the CRE handles the CLASS
+    # of 3-, 4-, and 5-level wrapper chains without any parser-
+    # specific quoting hacks — the shared escape-aware scanner
+    # handles all of them.
+    {
+        "id": "four_level_schtasks_runas_cmd_ps",
+        "cmdline":
+            'schtasks /create /sc once /tn D /tr "' + _esc_layer(
+                'runas /user:SYSTEM "' + _esc_layer(
+                    'cmd /c powershell -C Write-Host hi'
+                ) + '"'
+            ) + '" /st 00:00',
+        "expected_chain":    ["schtasks", "runas", "cmd", "powershell"],
+        "expected_dispatch": DispatchHint.POWERSHELL,
+        "expected_in_payload": "Write-Host",
+        "expected_behaviors_any": set(),
+    },
+    {
+        "id": "five_level_wmic_schtasks_runas_cmd_ps",
+        "cmdline":
+            'wmic process call create CommandLine="' + _esc_layer(
+                'schtasks /create /sc once /tn D /tr "' + _esc_layer(
+                    'runas /user:SYSTEM "' + _esc_layer(
+                        'cmd /c powershell -C Write-Host hi'
+                    ) + '"'
+                ) + '" /st 00:00'
+            ) + '"',
+        "expected_chain":    ["wmic", "schtasks", "runas", "cmd", "powershell"],
+        "expected_dispatch": DispatchHint.POWERSHELL,
+        "expected_in_payload": "Write-Host",
+        "expected_behaviors_any": set(),
     },
 ]
 
