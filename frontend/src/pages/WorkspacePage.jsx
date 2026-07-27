@@ -639,7 +639,18 @@ export default function WorkspacePage() {
     try {
       const r = await api.post("/decode/smart", { input });
       const d = r.data || {};
-      setOutput(d.output || "");
+      // Prefer semantic v2 deep-decode when it resolved a strictly
+      // deeper payload than the RC2 orchestrator (see comment in
+      // AUTO-INVESTIGATE handler for the full rationale).
+      const _fSemFinal =
+        d?.semantic?.deobfuscation?.final ||
+        d?.semantic?.recovered_script || "";
+      const _fRawOut = d.output || "";
+      const _fPreferSem =
+        !!_fSemFinal &&
+        _fSemFinal !== _fRawOut &&
+        _fSemFinal.length < String(input).length;
+      setOutput(_fPreferSem ? _fSemFinal : _fRawOut);
       setSteps((d.recipe || []).map((s) => ({ op: s.op, args: s.args || {} })));
       setChain(d.chain || []);
       setDecodeTrace(d.chain || []);
@@ -711,7 +722,22 @@ export default function WorkspacePage() {
           : `Smart/magic race — ${eng}`,
       });
       setSteps((r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} })));
-      setOutput(r.data.output || "");
+      // Prefer the semantic v2 deep-decoded payload (Invoke-Obfuscation
+      // peel + [Type]() coercion + get-variable deref + numeric char
+      // reconstruction) over the shallow RC2 orchestrator output when
+      // semantic v2 actually resolved further layers. Without this the
+      // "RECOVERED PAYLOAD" panel would show output == input for
+      // heavily-token-obfuscated PowerShell samples even though the
+      // Semantic Intelligence panel below has the correct final payload.
+      const semanticFinal =
+        r.data?.semantic?.deobfuscation?.final ||
+        r.data?.semantic?.recovered_script || "";
+      const rc2Output = r.data.output || "";
+      const preferSemantic =
+        !!semanticFinal &&
+        semanticFinal !== rc2Output &&
+        semanticFinal.length < String(r.data.input || rc2Output).length;
+      setOutput(preferSemantic ? semanticFinal : rc2Output);
       if (r.data.trace) setDecodeTrace(r.data.trace);
       setReachedShellcode(!!r.data.reached_shellcode);
       setDecodeConfidence(conf);
@@ -1039,9 +1065,28 @@ export default function WorkspacePage() {
       const _rawOut = r.data.output || "";
       const _lastTraceLayer = (r.data.trace || []).slice(-1)[0];
       const _outEqInput = _rawOut && _rawOut === input;
-      setOutput(_outEqInput && _lastTraceLayer?.output_preview
-                  ? _lastTraceLayer.output_preview
-                  : _rawOut);
+      // 2026-07-28 · Workspace Stabilization Directive: when the semantic
+      // v2 engine (Invoke-Obfuscation peel + [Type]() coercion + numeric
+      // char reconstruction) resolved a genuinely deeper payload than the
+      // RC2 orchestrator, surface THAT as the RECOVERED PAYLOAD. Without
+      // this override the analyst sees the shallow RC2 recovery even
+      // though the Semantic Intelligence panel below has already peeled
+      // the whole obfuscation chain to `Write-Host '…'` (audited sample
+      // `invoke_obfuscation_full_stack`).
+      const _semFinal =
+        r.data?.semantic?.deobfuscation?.final ||
+        r.data?.semantic?.recovered_script || "";
+      const _preferSem =
+        !!_semFinal &&
+        _semFinal !== _rawOut &&
+        _semFinal.length < String(input).length;
+      setOutput(
+        _preferSem
+          ? _semFinal
+          : (_outEqInput && _lastTraceLayer?.output_preview
+              ? _lastTraceLayer.output_preview
+              : _rawOut)
+      );
       setDetected(r.data.detected_type || null);
       const newChain = (r.data.recipe || []).map((s, i) => ({
         op: s.op, reason: s.reason || "",

@@ -208,12 +208,18 @@ def _resolve_concat(txt: str, stages: list[Stage]) -> tuple[str, bool]:
 
 # ── Backtick escape strip ────────────────────────────────────────
 def _resolve_backticks(txt: str, stages: list[Stage]) -> tuple[str, bool]:
-    new_txt = re.sub(r"`([a-zA-Z_])", r"\1", txt)
+    # PowerShell backtick escapes any following char inside a double-quoted
+    # string. Only a handful (`n `t `r `0 `a `b `f `v `e) have special
+    # meaning; every other backtick+char pair renders as the char itself.
+    # Invoke-Obfuscation exploits this to hide identifiers like
+    # `[Convert]::"t`OinT`16"` — statically these must strip to
+    # `[Convert]::"tOinT16"` so downstream regex-based resolvers can fire.
+    new_txt = re.sub(r"`([A-Za-z0-9_])", r"\1", txt)
     if new_txt != txt:
         stages.append(Stage(
             n=len(stages) + 1,
             technique="Resolve backtick escapes",
-            evidence="Stripped PowerShell backtick escapes.",
+            evidence="Stripped PowerShell backtick escapes (letters + digits).",
             before=txt[:200], after=new_txt[:200],
         ))
         return new_txt, True
