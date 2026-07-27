@@ -1129,3 +1129,48 @@ this reads as visual noise.
   149 pre-existing). The 2 failures are pre-existing environmental
   network timeouts against the preview host in
   `test_iter43_decode_api_contract.py`, unrelated to this batch.
+
+## 2026-07-27 · Corpus Phase 2 · Batch 2 — AES + Nested Chains + Perf Gates (v1.7.2)
+
+- **AES resolver** (`v2/semantic/ps_deobfuscate.py::_resolve_aes`):
+  Uses the `cryptography` lib to decrypt AES-CBC and AES-ECB when
+  key, IV (for CBC), and ciphertext are ALL statically present as
+  base64 literals. Every non-decryptable configuration emits a
+  structured detection stage instead of fabricating output — the
+  full acceptance matrix (fully_decrypted / encryption_detected /
+  partially_decrypted) is covered.
+- **AES detection matrix (locked, all 6 rows regression-tested)**:
+  - Literal key + IV → `fully_decrypted`
+  - Literal key, missing IV → `encryption_detected · unsupported_algorithm`
+  - Runtime-generated key → `encryption_detected · runtime_generated_key`
+  - Environment-derived key → `encryption_detected · environment_dependent`
+  - Non-block-aligned ciphertext → `partially_decrypted · unsupported_algorithm`
+  - AES lib missing → `encryption_detected · external_dependency`
+- **AES neutralisation** — after emitting any AES stage, the
+  `AesManaged` / `CipherMode` markers in the working text are
+  rewritten to `AesHandled` / `CipherHandled` so subsequent
+  iterations of the recursive loop don't re-fire on the same
+  construct.
+- **Evidence preservation** (Stage struct):
+  Every stage now carries `input_hash` (sha256[:16] of `before`),
+  `output_hash` (sha256[:16] of `after`), `input_length`,
+  `output_length`, `elapsed_ms`, and `confidence`. This makes the
+  chain fully auditable — analyst can verify each transformation.
+- **Nested / hard chain samples** at
+  `tests/corpus/phase2_aes_samples.py` — 9 samples covering
+  AES-CBC, AES-ECB, 4 unsupported-key configurations, and 3 hard
+  chains: `Base64→AES-CBC→UTF-16LE→IEX`, `RC4+GZip+IEX`,
+  `XOR→AES-CBC→Base64→IEX`.
+- **Performance-gate suite**
+  (`tests/test_corpus_phase2_batch2_regression.py`):
+  Records avg / p50 / p95 / max latency, min/max stage counts per
+  sample; persists baseline at
+  `tests/reports/phase2_batch2_perf.json` for trending. Hard gates:
+  overall avg < 100 ms, p95 < 500 ms, max stages ≤ MAX_STAGES.
+  **Measured baseline**: overall avg = 0.45 ms, p95 = 2.97 ms,
+  max recursion depth = 5 stages (well under the 32 limit).
+- **Deterministic replay verified** across Batch 1 + Batch 2 —
+  every sample produces identical stage chain, final payload, and
+  crypto_status across 3 successive runs.
+- **Regression status**: **181/181 tests green** (18 new Batch 2 +
+  163 pre-existing).

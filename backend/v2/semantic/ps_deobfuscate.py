@@ -19,8 +19,10 @@ from __future__ import annotations
 import base64
 import binascii
 import gzip as _gzip_lib
+import hashlib as _hashlib
 import io as _io
 import re
+import time as _time
 import zlib as _zlib_lib
 from dataclasses import dataclass, field, asdict
 
@@ -28,6 +30,14 @@ try:
     import brotli as _brotli_lib          # type: ignore
 except Exception:                          # pragma: no cover
     _brotli_lib = None                     # runtime-optional
+
+try:
+    from cryptography.hazmat.primitives.ciphers import (
+        Cipher as _Cipher, algorithms as _algs, modes as _modes,
+    )
+    _AES_LIB_OK = True
+except Exception:                          # pragma: no cover
+    _AES_LIB_OK = False
 
 
 MAX_STAGES = 32
@@ -59,13 +69,19 @@ class Stage:
     after: str              # snippet after transformation (≤ 200 chars)
     offset: int = 0         # position in the payload where the transform applied
     # ── Phase 2 · Crypto classification (2026-07-27) ────────────────
-    # Every crypto stage MUST classify itself. Never fabricate. Values:
-    #   None                    — non-crypto stage
-    #   "fully_decrypted"       — key was static, plaintext recovered
-    #   "partially_decrypted"   — partial success (e.g. XOR revealed keywords)
-    #   "encryption_detected"   — algorithm identified, key unavailable/dynamic
     status: str | None = None
-    unsupported_reason: str | None = None  # see KnownUnsupportedReason.*
+    unsupported_reason: str | None = None
+    # ── Phase 2 · Batch 2 · Evidence preservation (2026-07-27) ──────
+    # These fields make the chain fully auditable — analyst can verify
+    # input_hash → output_hash for every transformation, and see how
+    # long each step took plus the deobfuscator's self-reported
+    # confidence in the transform.
+    input_hash:    str | None = None      # sha256[:16] of `before` (transformed slice)
+    output_hash:   str | None = None      # sha256[:16] of `after`
+    input_length:  int = 0
+    output_length: int = 0
+    elapsed_ms:    float = 0.0
+    confidence:    int = 95               # deobfuscator's confidence 0-100
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -780,6 +796,276 @@ def _resolve_rc4(txt: str, stages: list[Stage]) -> tuple[str, bool]:
     return txt, False
 
 
+# ── AES-CBC / AES-ECB (static literal key + IV) ──────────────────
+# Matches idioms seen in Empire / Cobalt Strike / PoshC2:
+#
+#   $key = [Convert]::FromBase64String("...")          # OR "raw ascii key"
+#   $iv  = [Convert]::FromBase64String("...")          # required for CBC
+#   $ct  = [Convert]::FromBase64String("...")
+#   $aes = [Security.Cryptography.AesManaged]::new()
+#   $aes.Key = $key
+#   $aes.IV  = $iv
+#   $aes.Mode = [Security.Cryptography.CipherMode]::CBC   # or ECB
+#   $plain = $aes.CreateDecryptor().TransformFinalBlock($ct,0,$ct.Length)
+#
+# Deterministic — decodes only when key, IV (for CBC), and ciphertext
+# are ALL literal base64/string. Never guesses keys.
+_AES_KEY_RE = re.compile(
+    r"(?ixs)"
+    r"\$\w+\s*=\s*"
+    r"(?:\[?\s*(?:system\.)?convert\]?\s*::\s*frombase64string\s*\(\s*"
+    r"(['\"])([A-Za-z0-9+/=]{16,})\1\s*\)"
+    r"|(?:\[text\.encoding\]::(?:utf8|ascii)\.getbytes\s*\(\s*)?"
+    r"['\"]([^'\"]{5,64})['\"]\s*\)?)"
+)
+_AES_IV_RE = re.compile(
+    r"(?ixs)"
+    r"\$\w+\s*=\s*\[?\s*(?:system\.)?convert\]?\s*::\s*frombase64string\s*\(\s*"
+    r"(['\"])([A-Za-z0-9+/=]{16,})\1\s*\)"
+)
+_AES_CT_RE = re.compile(
+    r"(?ixs)"
+    r"\$\w+\s*=\s*\[?\s*(?:system\.)?convert\]?\s*::\s*frombase64string\s*\(\s*"
+    r"(['\"])([A-Za-z0-9+/=]{16,})\1\s*\)"
+)
+# Loose signature: presence of AesManaged / AesCryptoServiceProvider
+# plus a mode selector.
+_AES_SIG_RE = re.compile(
+    r"(?ixs)"
+    r"\[?\s*(?:system\.)?(?:security\.cryptography\.)?"
+    r"(?:aesmanaged|aescryptoserviceprovider|aescng|aes)\]?"
+    r".{0,600}?"
+    r"(?:ciphermode\]?\s*::\s*(cbc|ecb)"
+    r"|\.mode\s*=\s*\[?\s*(?:system\.)?(?:security\.cryptography\.)?ciphermode\]?\s*::\s*(cbc|ecb))"
+)
+
+
+def _pkcs7_strip(data: bytes) -> bytes:
+    if not data:
+        return data
+    pad = data[-1]
+    if 0 < pad <= 16 and data[-pad:] == bytes([pad]) * pad:
+        return data[:-pad]
+    return data
+
+
+def _try_decode_text(raw: bytes) -> str | None:
+    """Try UTF-8 → UTF-16LE → ASCII in the order that best matches
+    typical PowerShell payloads. Returns None if the bytes don't look
+    like text."""
+    if not raw:
+        return None
+    _has_null = raw.count(b"\x00") >= max(1, len(raw) // 4) and raw[:1] != b"\x00"
+    order = (("utf-16-le", "utf-8", "ascii") if _has_null
+             else ("utf-8", "utf-16-le", "ascii"))
+    for enc in order:
+        try:
+            s = raw.decode(enc, errors="strict")
+            if len(s) >= 3 and any(c.isalpha() for c in s):
+                return s
+        except Exception:
+            continue
+    return None
+
+
+def _resolve_aes(txt: str, stages: list[Stage],
+                  r: "DeobfuscationReport") -> tuple[str, bool]:
+    """Detect + decrypt AES-CBC / AES-ECB when key, IV (for CBC), and
+    ciphertext are ALL statically present. Emits structured
+    classifications for every other case per the acceptance matrix."""
+    sig = _AES_SIG_RE.search(txt)
+    if not sig:
+        return txt, False
+    mode = (sig.group(1) or sig.group(2) or "").lower()
+    if not mode:
+        return txt, False
+
+    def _neutralize(t: str) -> str:
+        """Rewrite `AesManaged`/`CipherMode::CBC|ECB` markers so this
+        resolver does not re-fire on later iterations of the loop."""
+        t = re.sub(r"(?i)AesManaged|AesCryptoServiceProvider|AesCng",
+                    "AesHandled", t)
+        t = re.sub(r"(?i)CipherMode\]?\s*::\s*(cbc|ecb)",
+                    "CipherHandled", t)
+        return t
+
+    # Runtime-key gate first — never fabricate.
+    for pat, reason, label in _RUNTIME_KEY_SOURCES:
+        if re.search(pat, txt, re.IGNORECASE):
+            stages.append(Stage(
+                n=len(stages) + 1,
+                technique=f"AES detected · runtime-derived key ({label})",
+                evidence=(f"AES-{mode.upper()} primitive present, but the key "
+                           f"originates from a runtime source (`{re.search(pat, txt, re.I).group(0)}`)."
+                           " Refusing to fabricate plaintext."),
+                before="", after="",
+                status="encryption_detected",
+                unsupported_reason=reason,
+                confidence=90,
+            ))
+            r.unsupported_reasons.append({
+                "reason": reason, "component": "aes_key_source",
+                "evidence": re.search(pat, txt, re.I).group(0),
+            })
+            return _neutralize(txt), True
+
+    # Gather up to 3 base64 literals in order — key, iv (if CBC), ct.
+    b64s = list(re.finditer(
+        r"\[?\s*(?:system\.)?convert\]?\s*::\s*frombase64string\s*\(\s*"
+        r"(['\"])([A-Za-z0-9+/=]{16,})\1\s*\)",
+        txt, re.IGNORECASE))
+    if mode == "cbc" and len(b64s) < 3:
+        # Missing IV or missing ciphertext — classify without decrypting.
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="AES-CBC detected · missing IV or ciphertext",
+            evidence=(f"AES-CBC primitive detected but fewer than 3 static "
+                       f"base64 literals present ({len(b64s)}). Refusing to "
+                       "fabricate plaintext."),
+            before="", after="",
+            status="encryption_detected",
+            unsupported_reason=KnownUnsupportedReason.UNSUPPORTED_ALGORITHM,
+            confidence=85,
+        ))
+        r.unsupported_reasons.append({
+            "reason":    "missing_iv_or_ciphertext",
+            "component": "aes_cbc",
+            "evidence":  f"static_b64_literals={len(b64s)}",
+        })
+        return _neutralize(txt), True
+    if mode == "ecb" and len(b64s) < 2:
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="AES-ECB detected · missing ciphertext",
+            evidence=("AES-ECB primitive detected but fewer than 2 static "
+                       "base64 literals present. Refusing to fabricate plaintext."),
+            before="", after="",
+            status="encryption_detected",
+            unsupported_reason=KnownUnsupportedReason.UNSUPPORTED_ALGORITHM,
+            confidence=85,
+        ))
+        return _neutralize(txt), True
+
+    if not _AES_LIB_OK:
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique=f"AES-{mode.upper()} detected · crypto lib unavailable",
+            evidence=("AES construction present but the `cryptography` "
+                       "Python lib is not installed in this pod."),
+            before="", after="",
+            status="encryption_detected",
+            unsupported_reason=KnownUnsupportedReason.EXTERNAL_DEPENDENCY,
+            confidence=80,
+        ))
+        return _neutralize(txt), True
+
+    try:
+        key = base64.b64decode(b64s[0].group(2), validate=False)
+        if mode == "cbc":
+            iv  = base64.b64decode(b64s[1].group(2), validate=False)
+            ct  = base64.b64decode(b64s[2].group(2), validate=False)
+        else:
+            iv  = None
+            ct  = base64.b64decode(b64s[1].group(2), validate=False)
+    except binascii.Error:
+        return txt, False
+
+    if len(key) not in (16, 24, 32):
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique=f"AES-{mode.upper()} detected · non-standard key length",
+            evidence=f"Key length {len(key)} bytes — not a valid AES key size (16/24/32).",
+            before="", after="",
+            status="encryption_detected",
+            unsupported_reason=KnownUnsupportedReason.UNSUPPORTED_ALGORITHM,
+            confidence=80,
+        ))
+        return _neutralize(txt), True
+    if mode == "cbc" and len(iv) != 16:
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="AES-CBC detected · invalid IV length",
+            evidence=f"IV length {len(iv)} bytes — must be exactly 16.",
+            before="", after="",
+            status="encryption_detected",
+            unsupported_reason=KnownUnsupportedReason.UNSUPPORTED_ALGORITHM,
+            confidence=80,
+        ))
+        return _neutralize(txt), True
+    if len(ct) < 16 or len(ct) % 16 != 0:
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique=f"AES-{mode.upper()} detected · corrupted ciphertext",
+            evidence=(f"Ciphertext length {len(ct)} bytes is not a positive "
+                       "multiple of 16 — cannot deterministically decrypt."),
+            before=b64s[-1].group(2)[:80], after="",
+            status="partially_decrypted",
+            unsupported_reason=KnownUnsupportedReason.UNSUPPORTED_ALGORITHM,
+            confidence=60,
+        ))
+        return _neutralize(txt), True
+
+    try:
+        cipher = _Cipher(_algs.AES(key),
+                          _modes.CBC(iv) if mode == "cbc" else _modes.ECB())
+        dec = cipher.decryptor()
+        plain = dec.update(ct) + dec.finalize()
+        plain = _pkcs7_strip(plain)
+    except Exception:
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique=f"AES-{mode.upper()} decrypt failed",
+            evidence="AES primitives failed to decrypt with the provided static key/IV/ciphertext.",
+            before=b64s[-1].group(2)[:80], after="",
+            status="partially_decrypted",
+            unsupported_reason=KnownUnsupportedReason.UNKNOWN_ALGORITHM,
+            confidence=50,
+        ))
+        return _neutralize(txt), True
+
+    decoded = _try_decode_text(plain)
+    if not decoded:
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique=f"AES-{mode.upper()} decrypted · plaintext unverifiable",
+            evidence=(f"AES-{mode.upper()} decrypted {len(plain)} bytes, but "
+                       "the output does not look like text — refusing to "
+                       "fabricate a script."),
+            before=b64s[-1].group(2)[:80], after="",
+            status="partially_decrypted",
+            unsupported_reason=KnownUnsupportedReason.UNKNOWN_ALGORITHM,
+            confidence=55,
+        ))
+        return _neutralize(txt), True
+
+    # Replace ONLY the ciphertext base64 sub-expression with the decrypted
+    # plaintext literal so the outer IEX / wrapper stays visible.
+    ct_match = b64s[-1]
+    b64_call_start = txt.rfind("FromBase64String", 0, ct_match.start(2))
+    if b64_call_start == -1:
+        return txt, False
+    i = b64_call_start
+    while i > 0 and txt[i - 1] not in "\n;( \t":
+        i -= 1
+    replace_start = i
+    replace_end = ct_match.end(2) + 1
+    while replace_end < len(txt) and txt[replace_end - 1] != ")":
+        replace_end += 1
+    txt = txt[:replace_start] + f"'{decoded}'" + txt[replace_end:]
+    stages.append(Stage(
+        n=len(stages) + 1,
+        technique=f"AES-{mode.upper()} decrypt (static key + IV)"
+                   if mode == "cbc" else "AES-ECB decrypt (static key)",
+        evidence=(f"Applied AES-{mode.upper()} with a {len(key) * 8}-bit key "
+                   f"over a {len(ct)}-byte ciphertext; recovered "
+                   f"{len(decoded)} chars."),
+        before=ct_match.group(2)[:80], after=decoded[:200],
+        status="fully_decrypted",
+        confidence=95,
+    ))
+    return _neutralize(txt), True
+
+
 # ── Runtime-generated key detection (RC4 / XOR variants) ──────────
 # When we see the shape of a keyed decrypt but the key is derived from
 # a runtime source (env var, Get-Random, DateTime, network fetch, user
@@ -859,6 +1145,7 @@ def _detect_boundary(txt: str) -> str | None:
 # ── Public entrypoint ────────────────────────────────────────────
 def deobfuscate(script: str) -> DeobfuscationReport:
     """Run the recursive deterministic decode loop."""
+    _t_start = _time.perf_counter()
     r = DeobfuscationReport(original=script or "", final=script or "")
     if not script:
         r.stopped_reason = "empty input"
@@ -880,6 +1167,7 @@ def deobfuscate(script: str) -> DeobfuscationReport:
         current, _ = _resolve_multibyte_xor(current, r.stages)
         current, _ = _resolve_static_xor(current, r.stages)
         current, _ = _resolve_rolling_xor(current, r.stages)
+        current, _ = _resolve_aes(current, r.stages, r)
         current, _ = _resolve_rc4(current, r.stages)
         # UTF-16LE wrapper before plain base64 for the same reason.
         current, _ = _resolve_utf16le_base64(current, r.stages)
@@ -920,6 +1208,22 @@ def deobfuscate(script: str) -> DeobfuscationReport:
         if s.status and _CRYPTO_STATUS_RANK.get(s.status, -1) > \
                 _CRYPTO_STATUS_RANK.get(r.crypto_status, -1):
             r.crypto_status = s.status
+
+    # ── Evidence preservation · post-populate (2026-07-27) ───────
+    # Hash + length are computed AFTER the loop so we don't slow the
+    # hot path with per-resolver hashing. Total decoder wall-clock is
+    # spread evenly across all stages for a proxy elapsed_ms value.
+    total_elapsed_ms = (_time.perf_counter() - _t_start) * 1000.0
+    per_stage_ms = (total_elapsed_ms / len(r.stages)) if r.stages else 0.0
+    for st in r.stages:
+        b_bytes = (st.before or "").encode("utf-8", errors="ignore")
+        a_bytes = (st.after  or "").encode("utf-8", errors="ignore")
+        st.input_hash    = _hashlib.sha256(b_bytes).hexdigest()[:16]
+        st.output_hash   = _hashlib.sha256(a_bytes).hexdigest()[:16]
+        st.input_length  = len(b_bytes)
+        st.output_length = len(a_bytes)
+        if not st.elapsed_ms:
+            st.elapsed_ms = round(per_stage_ms, 3)
 
     r.final = current
     return r

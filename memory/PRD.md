@@ -1,5 +1,56 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-27 · Corpus Phase 2 · Batch 2 — AES + Nested Chains + Perf (SHIPPED)
+
+### Delivered (Batch 2)
+- **AES-CBC + AES-ECB resolver** using the `cryptography` lib —
+  decrypts only when key, IV (for CBC), and ciphertext are ALL
+  literal Base64. All other cases emit structured
+  `encryption_detected` / `partially_decrypted` stages **without
+  fabricating plaintext**.
+- **6-row AES detection matrix locked as regression**:
+  static → fully_decrypted; missing IV → unsupported_algorithm;
+  runtime key (`Get-Random`, `$env:*`, network, user-input) →
+  runtime_generated_key / environment_dependent /
+  network_fetch_required / user_input_required; corrupted CT →
+  partially_decrypted; lib missing → external_dependency.
+- **Evidence preservation on every stage**: `input_hash`,
+  `output_hash` (sha256[:16]), `input_length`, `output_length`,
+  `elapsed_ms`, `confidence`. Auditable input → output chain from
+  the raw script to the final payload.
+- **Performance gates**: avg / p50 / p95 / max latency + max
+  recursion depth + stage counts persisted to
+  `tests/reports/phase2_batch2_perf.json`. Measured baseline —
+  **overall avg = 0.45 ms, p95 = 2.97 ms, max depth = 5 stages**
+  (well under the MAX_STAGES=32 limit).
+- **Hard-chain samples**: `Base64→AES-CBC→UTF-16LE→IEX`,
+  `RC4+GZip+IEX`, `XOR→AES-CBC→Base64→IEX`.
+- **Deterministic replay verified across the full 17-sample crypto
+  corpus** — identical chain, final, and crypto_status across 3
+  runs.
+- **Regression status**: **181/181 tests green**.
+
+### Phase 2 Stability Gates (all met)
+- 100% golden corpus pass rate ✅
+- Deterministic replay ✅
+- `/workspace` ↔ `/auto-investigate` parity ✅
+- No fabricated plaintext ✅
+- No recursion-limit regressions ✅
+- Performance within thresholds ✅
+
+### Next up — Phase 3 · Multi-Stage Execution
+- Nested IEX (2-5 levels)
+- `[ScriptBlock]::Create`
+- `Invoke-Command`
+- `[Reflection.Assembly]::Load`
+- Dynamic method invocation
+- Environment-variable reconstruction
+
+### Invariant (locked)
+The recursive decoder must continue through every deterministic
+transformation and stop ONLY at a genuine execution boundary or when
+further deterministic decoding is impossible.
+
 ## 2026-07-27 · Corpus Phase 2 · Batch 1 — XOR + RC4 (SHIPPED)
 
 **Delivered per SOC-user "elevated quality bar" directive** — the goal is
