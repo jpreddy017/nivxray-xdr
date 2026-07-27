@@ -54,7 +54,7 @@ platform's deploy output and appended here for permanent record.
 | ------ | -------- | ------ |
 | Atomic IOC (`scwxc.exe`) | `benign · 0` · zero behaviour nodes | `<capture>` |
 | Benign (`Write-Host`) | `benign · 60` · zero behaviour nodes | `<capture>` |
-| Download → Execute (`iwr … -OutFile a.exe; Start-Process a.exe`) | `malicious · 93` · `[download, write_file, remote_execution, execute]` | `<capture>` |
+| Download → Execute (`iwr … -OutFile a.exe; Start-Process a.exe`) | `malicious · 93` · `[download, write_file, remote_execution, execute]` | **PASS · 2026-07-27 · verified on `nivxray.nivxforge.com`** |
 | Persistence (`HKCU:\…\Run`) — validate via UI or properly-escaped HTTP | `malicious · 90` · `[persistence]` | `<capture>` |
 
 ### Determinism guarantees
@@ -87,6 +87,7 @@ until each consumer has a migration path.
 | FU-2 | Re-run persistence smoke via deployed HTTPS API (shell escape bit the earlier curl) | Verification | P2 |
 | FU-3 | Rename `BASELINE_TESTS` → `INVESTIGATION_BASELINE_TESTS` for scope clarity | Cosmetic | P3 |
 | FU-4 | Run full repo `pytest tests/` in CI (unblock timeout-bound shell) | CI hardening | P2 |
+| FU-5 | Legacy `NIVXRAY INVESTIGATION SUMMARY` block (rc2-orchestrator) still visible at bottom of Workspace and shows a *different* verdict (Runtime Dependent · 55) than Investigation Brain (Malicious · 93). Hide or replace with the Investigation Brain summary so analysts cannot copy the stale verdict. Observed on `nivxray.nivxforge.com` during v1.4.0 chain smoke test 2026-07-27 | UX / correctness | **P1** |
 
 ### v1.5.0 theme direction (agreed with reviewer)
 
