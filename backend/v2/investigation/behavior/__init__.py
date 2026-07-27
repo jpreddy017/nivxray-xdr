@@ -26,6 +26,7 @@ from __future__ import annotations
 
 from .builder import build
 from .models import (
+    BEHAVIOR_GRAPH_SCHEMA_VERSION,
     BehaviorArgKind,
     BehaviorEdge,
     BehaviorEdgeKind,
@@ -36,6 +37,7 @@ from .models import (
 
 __all__ = [
     "build",
+    "BEHAVIOR_GRAPH_SCHEMA_VERSION",
     "BehaviorArgKind",
     "BehaviorEdge",
     "BehaviorEdgeKind",

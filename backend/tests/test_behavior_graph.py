@@ -143,7 +143,7 @@ def test_analyst_report_exposes_behavior_graph():
     r = investigate(CHAIN_SAMPLE)
     bg = r.report.behavior_graph
     assert isinstance(bg, dict)
-    assert set(bg.keys()) == {"nodes", "edges"}
+    assert set(bg.keys()) == {"schema_version", "nodes", "edges"}
     assert len(bg["nodes"]) == len(r.behavior.nodes)
     assert len(bg["edges"]) == len(r.behavior.edges)
 

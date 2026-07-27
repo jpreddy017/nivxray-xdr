@@ -9,6 +9,11 @@ The behaviour taxonomy is intentionally SMALL. The SME directive:
     "Start with the behaviours you already support. As new real-world
      samples arrive through the Trust Corpus, add new behaviour types
      only when they are justified."
+
+Schema is a *versioned contract* — see ``BEHAVIOR_GRAPH_SCHEMA.md``
+at the repo root. Any change to the enums below requires bumping
+:data:`BEHAVIOR_GRAPH_SCHEMA_VERSION` in the same commit, or the
+``tests/test_behavior_graph_schema_freeze.py`` regression fails.
 """
 from __future__ import annotations
 
@@ -17,6 +22,14 @@ from enum import Enum
 from typing import Any
 
 from ..evidence import Evidence
+
+# ── Behaviour Graph schema version ─────────────────────────────
+# Bump according to the rules in ``BEHAVIOR_GRAPH_SCHEMA.md``:
+#   * add a new BehaviorKind / EdgeKind / ArgKind → MINOR bump
+#   * remove or rename an existing member          → MAJOR bump
+#   * change the semantic meaning of a member      → MAJOR bump
+# Non-schema changes (builders, formatters, docs)  → no bump.
+BEHAVIOR_GRAPH_SCHEMA_VERSION = "1.0.0"
 
 
 class BehaviorKind(str, Enum):
@@ -139,12 +152,16 @@ class BehaviorGraph:
     Deterministic — same intent set → same graph. Analyst Report
     surfaces this graph so future correlation engines can pivot on
     normalised behaviours instead of raw commands.
+
+    The emitted ``schema_version`` lets downstream consumers detect
+    contract drift without having to inspect the enum members.
     """
     nodes: list[BehaviorNode] = field(default_factory=list)
     edges: list[BehaviorEdge] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "schema_version": BEHAVIOR_GRAPH_SCHEMA_VERSION,
             "nodes": [n.to_dict() for n in self.nodes],
             "edges": [e.to_dict() for e in self.edges],
         }
@@ -193,6 +210,7 @@ class BehaviorGraph:
 
 
 __all__ = [
+    "BEHAVIOR_GRAPH_SCHEMA_VERSION",
     "BehaviorArg",
     "BehaviorArgKind",
     "BehaviorEdge",

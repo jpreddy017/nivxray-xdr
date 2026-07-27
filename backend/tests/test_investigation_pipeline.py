@@ -119,7 +119,7 @@ def test_pipeline_to_dict_serialization():
     assert d["graph"]["nodes"] and d["graph"]["edges"]
     # Canonical Behaviour Graph is a top-level artefact and mirrors
     # into the analyst report so downstream consumers can pick either.
-    assert set(d["behavior"].keys()) == {"nodes", "edges"}
+    assert set(d["behavior"].keys()) == {"schema_version", "nodes", "edges"}
     # Final layer content is analyst-readable.
     layers = d["rte"]["artifacts"]
     assert layers and any("DownloadString" in a["content"] for a in layers)

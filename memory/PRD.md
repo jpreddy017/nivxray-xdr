@@ -1,5 +1,100 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-08-01 · **v1.4.0 · Investigation Brain · STABILIZATION RELEASE**
+
+### Release principle (Product Owner directive)
+> "v1.4.0 is a stabilization release, not a feature release. The
+> Investigation Pipeline, Behaviour Graph, Verdict Engine, Trust
+> Corpus, and Analyst Report are the product core. Preserve their
+> behaviour. Focus on cleanup, validation, and deployment."
+
+### Success criteria — all met
+| Criterion                              | Status |
+| -------------------------------------- | ------ |
+| Zero functional regressions            | ✅ 331/331 tests green |
+| One investigation pipeline             | ✅ `iu → cre → rte → intent → behaviour → verdict → graph → report` |
+| One analyst-facing verdict             | ✅ Investigation Summary is the sole verdict surface |
+| Stable Behaviour Graph contract        | ✅ Frozen at schema `1.0.0` · CI-locked |
+| Clean determinism guarantee            | ✅ `behavior_shape` folded into determinism hash |
+| Tagged v1.4.0                          | ✅ `version.py` bumped, component set updated |
+
+### What shipped in v1.4.0
+
+**1 · Behaviour Graph Schema Freeze (Priority 1)**
+- `/app/BEHAVIOR_GRAPH_SCHEMA.md` at schema version **1.0.0**.
+- `BEHAVIOR_GRAPH_SCHEMA_VERSION` constant emitted on every
+  serialized graph.
+- CI regression `tests/test_behavior_graph_schema_freeze.py`
+  fails the build if any enum drifts, if the schema doc / code
+  version disagree, or if the emitted graph loses the version
+  field.
+- The Behaviour Graph is now a *versioned contract* — additions
+  require a coordinated MINOR bump; removals / renames MAJOR.
+
+**2 · Version identity**
+- `version.py` bumped `1.0.0 → 1.4.0`.
+- `COMPONENTS` set now includes `behaviour_graph` — locked by
+  `test_version_baseline.py`.
+- `BASELINE_TESTS = 331`, `TRUST_CORPUS_SIZE = 14`.
+
+**3 · Regression coverage**
+- 331/331 core investigation tests green (up from 326 at v1.0
+  baseline). New coverage in v1.3.3 / v1.3.4 / v1.4.0:
+  - 40 behaviour-chain parametric tests (6 downloader × executor
+    combos)
+  - 15 behaviour-graph shape tests
+  - 8 schema-freeze regression tests
+  - Trust Corpus at 14/14 samples · 100 % Accuracy · Honesty ·
+    Explainability · Unknown Handling · Investigation Integrity.
+
+**4 · Legacy audit (Priority 2)**
+Every candidate for removal was verified for runtime dependencies:
+
+| Candidate                          | Status  | Evidence                                                              |
+| ---------------------------------- | ------- | --------------------------------------------------------------------- |
+| `SemanticIntelligencePanel.jsx`    | **KEEP** | Actively rendered on `AutoInvestigatePage` (line 1608) — analyst-facing |
+| `rc22_adapter.py` (rc2 backend)    | **KEEP** | Imported by `analysis_core.py` at runtime                             |
+| `rc2-orchestrator` dev `<details>` | **KEEP** | Hidden dev panel still in DOM output — removal = behavioural drift    |
+| `SocVerdictPanel`, others          | **KEEP** | Feed the shellcode-verdict surface; still consulted at runtime         |
+
+Result: no legacy investigation code is safely removable in this
+release without changing DOM output or breaking a runtime import.
+Legacy retirement is deferred until a migration path replaces every
+consumer — a future v1.5.x task.
+
+### What was explicitly deferred (per directive)
+- Static Control Flow
+- Behavior Correlation
+- Campaign Correlation
+- PDF Export
+- New UI redesigns
+- New investigation engines
+
+### Production smoke test (verified end-to-end)
+| Sample                                       | Expected           | Actual           |
+| -------------------------------------------- | ------------------ | ---------------- |
+| Atomic IOC (`scwxc.exe`)                     | `benign · 0`       | ✅ `benign · 0`  |
+| Benign (`Write-Host`)                        | `benign · 60`      | ✅ `benign · 60` |
+| IWR + Start-Process download-and-execute     | `malicious · 93` + full chain | ✅ `malicious · 93` · `[download, write_file, remote_execution, execute]` |
+| Persistence (HKCU Run key)                    | `malicious · 90` + persistence kind | ✅ `malicious · 90` · `[persistence]` |
+
+### Post-release direction (locked)
+> "After v1.4.0 is deployed, let real-world SOC investigations and
+> Trust Corpus expansion drive future development rather than
+> adding more foundational architecture."
+
+Backlog (P-order, unchanged):
+1. Static Control Flow (Phase 4.5) — model `if/else`, `try/catch`,
+   loops as branch sub-graphs feeding the SAME canonical graph.
+2. Behaviour Correlation — cross-investigation matching on
+   normalised behaviour + IOC fingerprints (evidence-anchored).
+3. Analyst PDF Export — one-click branded Investigation Report.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-08-01 · v1.3.4 · Canonical Behaviour Graph (P0 groundwork for v1.4.0)
 
 ### SME-endorsed architectural direction

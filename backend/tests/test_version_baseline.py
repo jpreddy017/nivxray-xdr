@@ -1,14 +1,21 @@
-"""NivXRay v1.0 · Investigation Brain baseline lock.
+"""NivXRay v1.4 · Investigation Brain baseline lock.
 
 Freezes the component set and version identity that constitutes the
-v1.0 baseline. Adding a new component or bumping the major version
+v1.4 baseline. Adding a new component or bumping the major version
 requires deliberate change to this file — the CI gate prevents
 accidental architectural drift.
 
-Per Product Owner directive (2026-07-29):
+Per Product Owner directive (2026-07-29 · reaffirmed 2026-08-01):
     "Freeze the core architecture. From now on, evolve the platform
      primarily through real-world corpus expansion, regression-driven
      improvements, analyst workflow enhancements, and report quality."
+
+v1.4.0 (2026-08-01) added the ``behaviour_graph`` component — a
+lightweight *translator* over the existing Intent Layer, not a new
+detection engine. Its schema is CI-locked (see
+``tests/test_behavior_graph_schema_freeze.py``) and its contract is
+documented in ``/app/BEHAVIOR_GRAPH_SCHEMA.md`` at schema version
+``1.0.0``.
 """
 from __future__ import annotations
 
@@ -20,6 +27,7 @@ BASELINE_COMPONENTS = frozenset({
     "command_reconstruction_engine",
     "recursive_transformation_engine",
     "semantic_intent_layer",
+    "behaviour_graph",
     "verdict_uplift",
     "evidence_graph",
     "analyst_report",

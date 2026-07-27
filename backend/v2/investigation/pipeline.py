@@ -261,7 +261,11 @@ def investigate(text: str) -> InvestigationResult:
         result.report.observed_behaviors = []
         result.report.intent_narrative = []
         result.report.evidence         = []
-        result.report.behavior_graph   = {"nodes": [], "edges": []}
+        result.report.behavior_graph   = {
+            "schema_version": result.behavior.to_dict().get("schema_version", ""),
+            "nodes": [],
+            "edges": [],
+        }
         result.report.confidence_signals = {
             "confidence":        "unknown",
             "evidence_strength": "insufficient",

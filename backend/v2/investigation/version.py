@@ -1,26 +1,23 @@
 """NivXRay Investigation Brain — version identity.
 
-Locked as the stable baseline on 2026-07-29 per Product Owner
-directive:
-
-    "Deploy this version as the stable Investigation Brain baseline.
-     Freeze the core architecture. From now on, evolve the platform
-     primarily through real-world corpus expansion, regression-driven
-     improvements, analyst workflow enhancements, and report quality."
+v1.4.0 (2026-08-01) — Stabilization release. The Behaviour Graph is
+now a versioned, CI-locked contract. No pipeline / verdict / analyst-
+output behaviour changed from v1.3.4 — this is purely the freeze,
+regression-lock, and legacy-audit release.
 
 Semantic versioning:
-    v1.0.z  — corpus expansion + regression-driven fixes only
+    v1.z.y  — corpus expansion + regression-driven fixes only
     v1.y.0  — new analyst-facing capability that does not add engines
     v2.0.0  — reserved for a genuine architectural change proven
               necessary by repeated real-world evidence
 """
 from __future__ import annotations
 
-VERSION            = "1.0.0"
+VERSION            = "1.4.0"
 CODENAME           = "Investigation Brain"
-RELEASE_DATE       = "2026-07-29"
-BASELINE_TESTS     = 326
-TRUST_CORPUS_SIZE  = 11
+RELEASE_DATE       = "2026-08-01"
+BASELINE_TESTS     = 331
+TRUST_CORPUS_SIZE  = 14
 ARCHITECTURE_FROZEN = True   # do not introduce new engines without SME evidence
 
 # The stable component set at this baseline. Adding a component here
@@ -30,6 +27,7 @@ COMPONENTS: tuple[str, ...] = (
     "command_reconstruction_engine",
     "recursive_transformation_engine",
     "semantic_intent_layer",
+    "behaviour_graph",
     "verdict_uplift",
     "evidence_graph",
     "analyst_report",
