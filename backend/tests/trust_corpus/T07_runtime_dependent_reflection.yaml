@@ -14,6 +14,10 @@ forbidden_words_in_verdict:
   - ransomware
   - cobalt strike
 must_admit_unknown: true
+expected_confidence_band: high
+expected_mitre: []
+expected_behaviors:
+  - runtime-dependent
 notes: >
   The tool cannot see the assembly bytes ($enc is a runtime variable).
   Honesty test — the tool must ADMIT it does not know what will

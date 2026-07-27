@@ -21,16 +21,19 @@ def main(argv: list[str] | None = None) -> int:
     report = score(samples)
 
     print(f"Trust Metrics Report · {report.total_samples} sample(s)")
-    print(f"  accuracy         : {report.accuracy * 100:5.1f}%")
-    print(f"  honesty          : {report.honesty * 100:5.1f}%")
-    print(f"  explainability   : {report.explainability * 100:5.1f}%")
-    print(f"  unknown_handling : {report.unknown_handling * 100:5.1f}%")
-    print(f"  hard_failures    : {report.hard_failures}")
+    print(f"  accuracy                 : {report.accuracy * 100:5.1f}%")
+    print(f"  honesty                  : {report.honesty * 100:5.1f}%")
+    print(f"  explainability           : {report.explainability * 100:5.1f}%")
+    print(f"  unknown_handling         : {report.unknown_handling * 100:5.1f}%")
+    print(f"  investigation_integrity  : {report.investigation_integrity * 100:5.1f}%")
+    print(f"  hard_failures            : {report.hard_failures}")
     print()
     for s in report.per_sample:
         badge = "PASS" if s.passed else "FAIL"
+        integ = (f" · integrity {s.integrity_hits}/{s.integrity_total}"
+                 if s.integrity_total else "")
         print(f"  [{badge}] {s.sample_id}"
-              f" (verdict: expected={s.verdict_expected} actual={s.verdict_actual})")
+              f" (verdict: expected={s.verdict_expected} actual={s.verdict_actual}){integ}")
         for f in s.failures:
             print(f"         · {f}")
 

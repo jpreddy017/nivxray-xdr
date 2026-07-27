@@ -35,6 +35,12 @@ def _from_dict(d: dict, *, source: str) -> SampleSpec:
         must_not_fire=list(d.get("must_not_fire", [])),
         forbidden_words_in_verdict=list(d.get("forbidden_words_in_verdict", [])),
         must_admit_unknown=bool(d.get("must_admit_unknown", False)),
+        expected_confidence_band=d.get("expected_confidence_band"),
+        expected_iocs=list(d.get("expected_iocs", [])),
+        expected_mitre=list(d.get("expected_mitre", [])),
+        expected_behaviors=list(d.get("expected_behaviors", [])),
+        expected_evidence=list(d.get("expected_evidence", [])),
+        min_recommendations=d.get("min_recommendations"),
         notes=d.get("notes", ""),
     )
 

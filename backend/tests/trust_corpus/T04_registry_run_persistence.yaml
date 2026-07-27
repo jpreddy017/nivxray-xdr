@@ -13,6 +13,12 @@ forbidden_words_in_verdict:
   - APT
   - group
 must_admit_unknown: false
+expected_confidence_band: high
+expected_mitre:
+  - T1547.001
+expected_behaviors:
+  - persistence
+min_recommendations: 1
 notes: >
   HKCU Run key modification is a canonical autorun persistence
   primitive. Verdict must be malicious with a persistence intent

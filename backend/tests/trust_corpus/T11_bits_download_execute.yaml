@@ -31,10 +31,20 @@ forbidden_words_in_verdict:
   - campaign
   - APT
 must_admit_unknown: false
+expected_confidence_band: high
+expected_iocs:
+  - {kind: url, value: 'http://georgeprapas.com/cem/VVZMYLHaSOcblqo.exe'}
+  - {kind: file, value: 'scwxc.exe'}
+expected_mitre:
+  - T1197
+  - T1204.002
+expected_behaviors:
+  - remote source
+  - staging
+expected_evidence:
+  - start-bitstransfer
+  - invoke-item
+min_recommendations: 2
 notes: >
   BITS download of a remote executable followed by Invoke-Item is the
-  canonical Living-off-the-Land download-and-execute pattern. The
-  binary contents are unknown but the behaviour is known — verdict
-  must be MALICIOUS. This sample was previously mis-classified as
-  runtime_dependent because Invoke-Item was missing from the local
-  execution primitives. Analyst-provided ground truth 2026-07-29.
+  canonical Living-off-the-Land download-and-execute pattern.

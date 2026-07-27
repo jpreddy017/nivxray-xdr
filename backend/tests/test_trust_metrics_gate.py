@@ -95,11 +95,25 @@ def test_trust_report_shape_is_stable(report):
     d = report.to_dict()
     expected = {
         "total_samples", "accuracy", "honesty", "explainability",
-        "unknown_handling", "hard_failures", "per_sample",
+        "unknown_handling", "investigation_integrity",
+        "hard_failures", "per_sample",
     }
     assert set(d.keys()) == expected
     for s in d["per_sample"]:
         assert set(s.keys()) >= {
             "sample_id", "passed", "verdict_actual",
             "verdict_expected", "failures", "warnings",
+            "integrity_score", "integrity_total", "integrity_hits",
         }
+
+
+def test_investigation_integrity_locked_at_100(report):
+    """Investigation Integrity — declared analyst-output expectations
+    that matched. 100 % means every declared IOC, MITRE ID, behaviour,
+    evidence tag, confidence band, and recommendation count matched
+    the corpus ground truth. Zero tolerance for regression."""
+    assert report.investigation_integrity >= 1.0, (
+        f"investigation_integrity dropped below 100% "
+        f"(currently {report.investigation_integrity * 100:.1f}%). "
+        "Declared analyst-output expectations must never regress silently."
+    )

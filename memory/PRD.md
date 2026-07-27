@@ -1,5 +1,89 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-29 · **v1.0 · Investigation Brain baseline · FROZEN**
+
+Per Product Owner directive: architecture is now frozen. From this
+point forward the platform evolves through corpus expansion,
+regression-driven fixes, and analyst-workflow enhancements — never
+new engines unless repeated real-world evidence demonstrates the
+current architecture cannot model a class of investigations.
+
+### v1.0 Component Set (frozen)
+1. Input Understanding (IU)
+2. Command Reconstruction Engine (CRE)
+3. Recursive Transformation Engine (RTE)
+4. Semantic Intent Layer
+5. Verdict Uplift
+6. Evidence Graph
+7. Analyst Report
+8. Trust Metrics Harness
+
+Enforced by `test_version_baseline.py` — adding a 9th component
+requires a deliberate edit to the baseline test.
+
+### Investigation Integrity metric (delivered)
+- **NEW: `investigation_integrity`** — mean per-sample fraction of
+  DECLARED analyst-output expectations that matched ground truth.
+  Missing declarations are "not asserted" — corpus samples can
+  evolve incrementally without breaking existing tests.
+- Corpus samples can now declare, per-field:
+  - `expected_verdict`
+  - `expected_confidence_band` ("high" | "medium" | "low" | "unknown")
+  - `must_fire_intents` / `must_not_fire`
+  - `expected_iocs` — list of `{kind, value}` pairs
+  - `expected_mitre` — list of technique IDs
+  - `expected_behaviors` — substrings that must appear in observed
+    behaviour category+purpose
+  - **`expected_evidence`** — tags that must appear in some fired-intent
+    evidence source / observation / meta — ensures the RIGHT verdict
+    is reached for the RIGHT reasons
+  - `min_recommendations`
+  - `must_admit_unknown`
+  - `forbidden_words_in_verdict`
+- Any regression in IOC extraction, MITRE mapping, behaviour
+  generation, evidence tags, confidence bands, or recommendation
+  count fails the corresponding sample immediately.
+
+### Current v1.0 scorecard
+- 11 / 11 corpus samples pass
+- 35 / 35 individual analyst-output expectations pass
+  (across 6 samples that declare extended ground truth)
+- **Accuracy 100 % · Honesty 100 % · Explainability 100 % ·
+  Unknown Handling 100 % · Investigation Integrity 100 % ·
+  0 hard failures**
+- Regression: **331 / 331 tests green**
+
+### Files delivered this session (final v1.0 push)
+- `v2/investigation/version.py` — canonical version identity + frozen
+  component list
+- `v2/investigation/trust/models.py` — extended `SampleSpec` +
+  `investigation_integrity` metric on `TrustReport` and
+  `SampleResult`
+- `v2/investigation/trust/runner.py` — declared-only expectation
+  scoring, evidence-tag matcher (normalises spaces/-/_ for
+  robust analyst tagging)
+- `v2/investigation/trust/__main__.py` — CLI shows integrity per
+  sample and aggregate
+- `tests/trust_corpus/T03,T04,T05,T07,T09,T11.yaml` — extended
+  ground truth on the six highest-signal samples
+- `tests/test_trust_metrics_gate.py` — new
+  `test_investigation_integrity_locked_at_100`
+- `tests/test_version_baseline.py` — v1.0 component-set lock
+
+### Engineering workflow (locked)
+```
+Customer case → SME review → If incorrect → Ground truth →
+  Corpus → Generic fix → Regression → Deploy
+```
+Every validated FP/FN becomes a permanent Trust Corpus regression.
+Sample-specific patches are out; generic capability improvements
+are in.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-29 (Corpus-driven refinement) · BITS download-execute pattern locked in
 
 ### Delivered — validation-driven refinement per analyst SME review

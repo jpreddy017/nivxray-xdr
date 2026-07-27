@@ -1,145 +1,145 @@
 {
-  "generated_at": 1785160928.314078,
+  "generated_at": 1785161792.415731,
   "gates": {
-    "avg_ms": 0.6591176470588236,
-    "p95_ms": 6.025,
+    "avg_ms": 0.6956470588235294,
+    "p95_ms": 11.062,
     "max_stages": 5,
     "max_stages_limit": 32
   },
   "per_sample": {
     "crypto_xor_singlebyte": {
-      "avg_ms": 0.241,
-      "p50_ms": 0.235,
-      "p95_ms": 0.306,
-      "max_ms": 0.306,
+      "avg_ms": 0.245,
+      "p50_ms": 0.238,
+      "p95_ms": 0.303,
+      "max_ms": 0.303,
       "stages_min": 2,
       "stages_max": 2
     },
     "crypto_xor_multibyte": {
-      "avg_ms": 0.399,
-      "p50_ms": 0.397,
-      "p95_ms": 0.413,
-      "max_ms": 0.413,
+      "avg_ms": 0.401,
+      "p50_ms": 0.401,
+      "p95_ms": 0.416,
+      "max_ms": 0.416,
       "stages_min": 2,
       "stages_max": 2
     },
     "crypto_xor_rolling": {
-      "avg_ms": 0.237,
-      "p50_ms": 0.233,
-      "p95_ms": 0.259,
-      "max_ms": 0.259,
+      "avg_ms": 0.243,
+      "p50_ms": 0.242,
+      "p95_ms": 0.256,
+      "max_ms": 0.256,
       "stages_min": 2,
       "stages_max": 2
     },
     "crypto_rc4_static_key": {
-      "avg_ms": 0.327,
-      "p50_ms": 0.323,
-      "p95_ms": 0.34,
-      "max_ms": 0.34,
+      "avg_ms": 0.33,
+      "p50_ms": 0.326,
+      "p95_ms": 0.342,
+      "max_ms": 0.342,
       "stages_min": 2,
       "stages_max": 2
     },
     "crypto_rc4_b64_wrapper": {
-      "avg_ms": 0.373,
-      "p50_ms": 0.372,
-      "p95_ms": 0.387,
-      "max_ms": 0.387,
+      "avg_ms": 0.377,
+      "p50_ms": 0.377,
+      "p95_ms": 0.39,
+      "max_ms": 0.39,
       "stages_min": 1,
       "stages_max": 1
     },
     "crypto_runtime_env_key": {
-      "avg_ms": 0.139,
-      "p50_ms": 0.136,
-      "p95_ms": 0.151,
-      "max_ms": 0.151,
+      "avg_ms": 0.144,
+      "p50_ms": 0.142,
+      "p95_ms": 0.154,
+      "max_ms": 0.154,
       "stages_min": 3,
       "stages_max": 3
     },
     "crypto_runtime_random_key": {
-      "avg_ms": 0.159,
-      "p50_ms": 0.156,
-      "p95_ms": 0.168,
-      "max_ms": 0.168,
+      "avg_ms": 0.175,
+      "p50_ms": 0.162,
+      "p95_ms": 0.277,
+      "max_ms": 0.277,
       "stages_min": 3,
       "stages_max": 3
     },
     "crypto_runtime_network_key": {
-      "avg_ms": 0.233,
-      "p50_ms": 0.233,
-      "p95_ms": 0.243,
-      "max_ms": 0.243,
+      "avg_ms": 0.238,
+      "p50_ms": 0.236,
+      "p95_ms": 0.252,
+      "max_ms": 0.252,
       "stages_min": 3,
       "stages_max": 3
     },
     "crypto_aes_cbc_static": {
-      "avg_ms": 1.192,
-      "p50_ms": 1.185,
+      "avg_ms": 1.205,
+      "p50_ms": 1.2,
+      "p95_ms": 1.272,
+      "max_ms": 1.272,
+      "stages_min": 4,
+      "stages_max": 4
+    },
+    "crypto_aes_ecb_static": {
+      "avg_ms": 1.625,
+      "p50_ms": 0.677,
+      "p95_ms": 11.062,
+      "max_ms": 11.062,
+      "stages_min": 3,
+      "stages_max": 3
+    },
+    "crypto_aes_cbc_missing_iv": {
+      "avg_ms": 0.747,
+      "p50_ms": 0.743,
+      "p95_ms": 0.784,
+      "max_ms": 0.784,
+      "stages_min": 4,
+      "stages_max": 4
+    },
+    "crypto_aes_runtime_env_key": {
+      "avg_ms": 0.817,
+      "p50_ms": 0.819,
+      "p95_ms": 0.826,
+      "max_ms": 0.826,
+      "stages_min": 4,
+      "stages_max": 4
+    },
+    "crypto_aes_runtime_random_key": {
+      "avg_ms": 0.814,
+      "p50_ms": 0.814,
+      "p95_ms": 0.823,
+      "max_ms": 0.823,
+      "stages_min": 4,
+      "stages_max": 4
+    },
+    "crypto_aes_corrupted_ct": {
+      "avg_ms": 1.044,
+      "p50_ms": 1.039,
+      "p95_ms": 1.061,
+      "max_ms": 1.061,
+      "stages_min": 4,
+      "stages_max": 4
+    },
+    "chain_base64_aes_utf16_iex": {
+      "avg_ms": 1.231,
+      "p50_ms": 1.229,
       "p95_ms": 1.257,
       "max_ms": 1.257,
       "stages_min": 4,
       "stages_max": 4
     },
-    "crypto_aes_ecb_static": {
-      "avg_ms": 1.156,
-      "p50_ms": 0.669,
-      "p95_ms": 6.025,
-      "max_ms": 6.025,
-      "stages_min": 3,
-      "stages_max": 3
-    },
-    "crypto_aes_cbc_missing_iv": {
-      "avg_ms": 0.738,
-      "p50_ms": 0.733,
-      "p95_ms": 0.766,
-      "max_ms": 0.766,
-      "stages_min": 4,
-      "stages_max": 4
-    },
-    "crypto_aes_runtime_env_key": {
-      "avg_ms": 0.805,
-      "p50_ms": 0.804,
-      "p95_ms": 0.815,
-      "max_ms": 0.815,
-      "stages_min": 4,
-      "stages_max": 4
-    },
-    "crypto_aes_runtime_random_key": {
-      "avg_ms": 0.803,
-      "p50_ms": 0.804,
-      "p95_ms": 0.81,
-      "max_ms": 0.81,
-      "stages_min": 4,
-      "stages_max": 4
-    },
-    "crypto_aes_corrupted_ct": {
-      "avg_ms": 1.028,
-      "p50_ms": 1.027,
-      "p95_ms": 1.043,
-      "max_ms": 1.043,
-      "stages_min": 4,
-      "stages_max": 4
-    },
-    "chain_base64_aes_utf16_iex": {
-      "avg_ms": 1.213,
-      "p50_ms": 1.211,
-      "p95_ms": 1.238,
-      "max_ms": 1.238,
-      "stages_min": 4,
-      "stages_max": 4
-    },
     "chain_rc4_gzip_iex": {
-      "avg_ms": 0.69,
-      "p50_ms": 0.681,
-      "p95_ms": 0.748,
-      "max_ms": 0.748,
+      "avg_ms": 0.695,
+      "p50_ms": 0.686,
+      "p95_ms": 0.761,
+      "max_ms": 0.761,
       "stages_min": 3,
       "stages_max": 3
     },
     "chain_xor_aes_base64": {
-      "avg_ms": 1.472,
-      "p50_ms": 1.46,
-      "p95_ms": 1.528,
-      "max_ms": 1.528,
+      "avg_ms": 1.495,
+      "p50_ms": 1.49,
+      "p95_ms": 1.551,
+      "max_ms": 1.551,
       "stages_min": 5,
       "stages_max": 5
     }

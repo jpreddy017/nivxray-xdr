@@ -12,6 +12,10 @@ forbidden_words_in_verdict:
   - APT
   - actor
 must_admit_unknown: false
+expected_confidence_band: high
+expected_mitre:
+  - T1003.001
+min_recommendations: 1
 notes: >
   The comsvcs.dll MiniDump primitive is the textbook fileless LSASS
   dump. Verdict must be malicious with credential_access cited.

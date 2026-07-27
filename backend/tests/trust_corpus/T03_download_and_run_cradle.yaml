@@ -15,7 +15,22 @@ forbidden_words_in_verdict:
   - cobalt strike
   - campaign
 must_admit_unknown: false
+expected_confidence_band: high
+expected_iocs:
+  - {kind: url, value: 'http://evil.example.com/stage2.ps1'}
+expected_mitre:
+  - T1105
+  - T1059.001
+expected_behaviors:
+  - remote source
+  - staging
+expected_evidence:
+  - webclient.downloadstring
+  - invoke-expression
+min_recommendations: 2
 notes: >
   Two high-risk intents fire together (staging + remote_execution).
+  Verdict must be malicious. Tool must NEVER attribute a specific
+  malware family without evidence — the remote content is unknown.
   Verdict must be malicious. Tool must NEVER attribute a specific
   malware family without evidence — the remote content is unknown.
