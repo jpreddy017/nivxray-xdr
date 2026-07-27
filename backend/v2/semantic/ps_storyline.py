@@ -313,6 +313,42 @@ def build_storyline(*, recovered_script: str,
         "evidence": [{"kind": "script_length", "value": len(final_script)}],
     })
 
+    # ── Runtime Dependency section ──────────────────────────────
+    # Explicit analyst-facing section that says "the substance of the
+    # payload lives in a remote resource that was not retrieved". This
+    # replaces the previous behavior of silently classifying the sample
+    # as Malicious (P0 fix — 2026-07-28).
+    runtime_dep_b = idx.get("runtime_dependent")
+    fetch_urls = [a for a in artifacts
+                   if a.get("kind") == "url"
+                   and a.get("classification") == "external"]
+    if runtime_dep_b:
+        url_list = ", ".join(a["value"] for a in fetch_urls[:5]) or "(no URL captured)"
+        rt_narrative = (
+            "The command fetches remote content that was NOT retrieved "
+            f"during Workspace analysis. External endpoint(s): {url_list}. "
+            "The final payload cannot be determined statically — the "
+            "verdict here reflects only what is observable in the command "
+            "line, not the intent of the remote payload. Re-run the "
+            "investigation against the actual downloaded content in a "
+            "sandbox to close the loop."
+        )
+        sections.append({
+            "key": "runtime_dependency",
+            "title": "Runtime Dependency",
+            "observed": True,
+            "narrative": rt_narrative,
+            "mitre": ["T1105"],
+            "evidence": (
+                [{"kind": "behavior", "id": runtime_dep_b["id"],
+                  "confidence": runtime_dep_b.get("confidence"),
+                  "severity": runtime_dep_b.get("severity")}]
+                + [{"kind": "url", "value": a["value"],
+                    "classification": a.get("classification")}
+                   for a in fetch_urls[:5]]
+            ),
+        })
+
     for key, title, ids in SECTION_MAP:
         matched = [b for bid in ids if (b := idx.get(bid))]
         mitre = sorted({m for b in matched for m in (b.get("mitre") or [])})

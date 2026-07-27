@@ -289,12 +289,20 @@ def _classify(indicators: List[Dict[str, str]],
             ),
         }
 
-    # Malicious — hard evidence of exec-format / shellcode prologue / active
-    # URL / malware family match / LOLBAS abuse.
+    # Malicious — hard evidence of exec-format / shellcode prologue /
+    # malware family match. NOTE (P0 fix — 2026-07-28):
+    #   • a mere "URL surfaced" is NOT enough evidence to auto-elevate
+    #     to Malicious — the script has *runtime-dependent* behavior.
+    #   • a LOLBAS binary alone (wmic.exe, mshta.exe, rundll32.exe…) is
+    #     ALSO not enough — they are lawful Windows administration tools.
+    #     LOLBAS is a *suspicious* signal, not a *malicious* one, unless
+    #     combined with malware-family / PE / shellcode / active-payload
+    #     evidence.
+    # Analysts must never see a "Malicious 95" verdict from URL or
+    # LOLBAS alone — that verdict is what erodes trust in the workspace.
     hard = [i for i in positive if any(k in i["label"] for k in (
         "PE header validated", "ELF magic", "prologue", "MSFvenom",
-        "URL surfaced", "URL indicator", "Malware family match",
-        "LOLBAS binary",
+        "Malware family match",
     ))]
     if hard:
         return {
@@ -304,6 +312,50 @@ def _classify(indicators: List[Dict[str, str]],
             "recommended_action": (
                 "Contain source host, hunt for parent process, submit to "
                 "sandbox / VirusTotal, and correlate URL / MITRE mapping."
+            ),
+        }
+
+    # ── Runtime Dependent — the payload fetches remote content whose
+    # substance has not been retrieved / statically analyzed. Analysts
+    # need to see that the verdict CANNOT be closed on observable
+    # evidence alone. Never fabricate a "Malicious" verdict from a URL.
+    url_indicators = [i for i in positive
+                       if "URL surfaced" in i["label"]
+                       or "URL indicator" in i["label"]]
+    lolbas_indicators = [i for i in positive
+                          if "LOLBAS binary" in i["label"]]
+    non_runtime_positives = [i for i in positive
+                              if i not in url_indicators
+                              and i not in lolbas_indicators
+                              and "Host / domain indicator" not in i["label"]
+                              and "IP indicator" not in i["label"]
+                              and "MITRE ATT&CK" not in i["label"]]
+    if url_indicators and not non_runtime_positives:
+        u = url_indicators[0]["label"].split(":", 1)[-1].strip()
+        lolbas_note = ""
+        if lolbas_indicators:
+            names = ", ".join(sorted({
+                i["label"].split(":", 1)[-1].strip()
+                for i in lolbas_indicators
+            }))
+            lolbas_note = (f" LOLBAS binaries observed on the invocation "
+                           f"path ({names}) — lawful Windows binaries when "
+                           f"used administratively; treat as suspicious "
+                           f"signal, not conclusive.")
+        return {
+            "label":      "Runtime Dependent",
+            "confidence": 55,
+            "reason":     (
+                f"The command fetches remote content from {u} but the "
+                "downloaded resource was not retrieved during Workspace "
+                "analysis. Final payload cannot be determined statically."
+                + lolbas_note
+            ),
+            "recommended_action": (
+                "Retrieve the URL in a sandbox and re-run Workspace analysis "
+                "against the actual downloaded content — the verdict here "
+                "reflects only what is observable in the command line, not "
+                "the intent of the remote payload."
             ),
         }
 

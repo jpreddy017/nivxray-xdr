@@ -756,9 +756,16 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
     domains = _uniq([d for d in dom_re.findall(text) if d.lower() not in url_hosts])
     file_paths = _uniq(re.findall(r"(?:[a-zA-Z]:\\|/)[^\s\"'<>|]{4,}\.(?:exe|dll|ps1|vbs|js|bat|hta|cmd|scr|msi|zip|rar|7z|txt|dat|bin|tmp|pdb)\b", text))
     regkeys = _uniq(re.findall(r"\b(?:HKLM|HKCU|HKCR|HKU|HKCC|HKEY_[A-Z_]+)[:\\][^\s\"'<>|]{4,}", text, re.I))
-    md5     = _uniq(re.findall(r"\b[a-f0-9]{32}\b", text, re.I))
-    sha1    = _uniq(re.findall(r"\b[a-f0-9]{40}\b", text, re.I))
-    sha256  = _uniq(re.findall(r"\b[a-f0-9]{64}\b", text, re.I))
+    # Mask URLs (and reversed-URL substrings that end in `//:sptth`)
+    # so hash regexes never fire on URL path segments — P0 correctness
+    # fix (2026-07-28).
+    _hash_scan = _URL_RE.sub(lambda m: " " * (m.end() - m.start()), text)
+    _hash_scan = re.sub(r"[^\s\"'<>\)|&;`]{3,}//:s?ptth",
+                         lambda m: " " * (m.end() - m.start()),
+                         _hash_scan, flags=re.IGNORECASE)
+    md5     = _uniq(re.findall(r"\b[a-f0-9]{32}\b", _hash_scan, re.I))
+    sha1    = _uniq(re.findall(r"\b[a-f0-9]{40}\b", _hash_scan, re.I))
+    sha256  = _uniq(re.findall(r"\b[a-f0-9]{64}\b", _hash_scan, re.I))
     return {
         "urls": urls, "ips": ips, "domains": domains,
         "file_paths": file_paths, "regkeys": regkeys,

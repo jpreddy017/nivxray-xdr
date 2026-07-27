@@ -94,6 +94,20 @@ def _extract_all(text: str) -> Dict[str, List[str]]:
     classifications: List[dict] = []
     for m in _RX_URL.findall(text):
         out["urls"].add(m.rstrip(".,;:)]"))
+    # ── URL-segment mask ────────────────────────────────────────
+    # Hash regexes match ANY 32/40/64-char hex sequence — including
+    # URL path segments (GitHub Gist IDs, S3 keys, blob paths, etc.).
+    # Mask URL substrings so the hash regexes cannot fire inside a URL
+    # path. Without this the analyst sees false-positive MD5 / SHA1
+    # IOCs derived from URL segments (e.g. a GitHub Gist ID becomes a
+    # "malware MD5") — a P0 correctness bug that erodes analyst trust.
+    # Also strip reversed-URL substrings (ops.py reverses layers to
+    # catch dEsRevER-style obfuscation — but a reversed URL still
+    # contains the same hex path chars that would look like a hash).
+    hash_scan_text = _RX_URL.sub(lambda m: " " * (m.end() - m.start()), text)
+    hash_scan_text = re.sub(r"[^\s\"'<>\)|&;`]{3,}//:s?ptth",
+                             lambda m: " " * (m.end() - m.start()),
+                             hash_scan_text, flags=re.IGNORECASE)
     for m in _RX_IPV4.finditer(text):
         token = m.group(0)
         ctx = _slice_context(text, m.start(), m.end())
@@ -115,13 +129,13 @@ def _extract_all(text: str) -> Dict[str, List[str]]:
         out["domains"].add(m)
     for m in _RX_EMAIL.findall(text):
         out["emails"].add(m)
-    for m in _RX_SHA256.findall(text):
+    for m in _RX_SHA256.findall(hash_scan_text):
         out["sha256"].add(m.lower())
-    for m in _RX_SHA1.findall(text):
+    for m in _RX_SHA1.findall(hash_scan_text):
         # SHA1 length collides with nothing but MD5+extra; SHA256 was already
         # stripped by the negative-lookbehind logic upstream.
         out["sha1"].add(m.lower())
-    for m in _RX_MD5.findall(text):
+    for m in _RX_MD5.findall(hash_scan_text):
         # MD5 sequences that also appear inside a SHA1/SHA256 hit are already
         # consumed by the longer patterns via non-overlapping findall.
         # De-dupe against sha1/sha256 to keep the analyst report tidy.

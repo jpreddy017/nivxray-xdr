@@ -79,6 +79,14 @@ TAXONOMY: dict[str, dict] = {
     "external_network":         {"name": "External Network Communication","severity": "medium", "mitre": ["T1071.001"]},
     "local_network_only":       {"name": "Local Network Only",            "severity": "info",   "mitre": []},
     "lateral_movement":         {"name": "Lateral Movement",              "severity": "high",   "mitre": ["T1021"]},
+
+    # ── Runtime-dependent behavior ────────────────────────────────
+    # The command's true intent depends on the RESPONSE of a remote
+    # resource that was NOT retrieved during Workspace analysis. This
+    # tag caps the verdict at Runtime Dependent (never Malicious) so
+    # analysts see explicitly that the conclusion cannot be closed on
+    # observable evidence alone (P0 fix — 2026-07-28).
+    "runtime_dependent":        {"name": "Runtime-Dependent Payload",     "severity": "info",   "mitre": []},
 }
 
 
@@ -375,6 +383,38 @@ def _c2_correlation(behaviors: list[Behavior]) -> None:
                                         "download-and-execute chain typical of C2 stagers.")))
 
 
+def _runtime_dependency_signal(behaviors: list[Behavior]) -> None:
+    """Emit a `runtime_dependent` tag whenever the payload's substance
+    lives in a remote resource that was NOT retrieved during Workspace
+    analysis. This tag is what caps the verdict at "Runtime Dependent"
+    (never Malicious) so analysts see explicitly that the conclusion
+    cannot be closed on observable evidence alone.
+
+    Analyst-impact P0 fix (2026-07-28): a command that merely downloads
+    remote content and prints it (e.g. `Write-Host (DownloadString…)`)
+    was previously auto-classified as Malicious. It is NOT malicious on
+    the evidence available — it is *runtime-dependent* pending sandbox
+    retrieval of the remote resource."""
+    ids = {b.id for b in behaviors}
+    fetch_primitives = {
+        "webclient_downloadstring", "webclient_downloadfile",
+        "invoke_webrequest", "invoke_restmethod",
+        "bits_download", "remote_script_download",
+    }
+    if ids & fetch_primitives and "runtime_dependent" not in ids:
+        which = sorted(ids & fetch_primitives)[0]
+        behaviors.append(_mk(
+            "runtime_dependent", confidence=95,
+            rationale=(
+                f"Command invokes `{which}` — the substance of the "
+                "payload lives in the remote response body and was NOT "
+                "retrieved by the Workspace. Verdict must be capped at "
+                "Runtime Dependent; do not infer maliciousness from the "
+                "URL alone."
+            ),
+        ))
+
+
 def _dedupe(behaviors: list[Behavior]) -> list[Behavior]:
     """Collapse duplicate behaviors — keep the highest-confidence + union
     of evidence spans."""
@@ -421,6 +461,7 @@ def extract_behaviors(script: Script) -> list[Behavior]:
     # naked-script corpus expansion.
     _text_fallback_behaviors(script, out)
     _c2_correlation(out)
+    _runtime_dependency_signal(out)
     return _dedupe(out)
 
 
@@ -430,13 +471,27 @@ _TEXT_COMPRESSION_RE = re.compile(
     r"\b(?:gzip|deflate|brotli)stream\b|compressionmode\b|readtoend\(\)",
     re.IGNORECASE,
 )
+_TEXT_DOWNLOADSTRING_RE = re.compile(
+    r"\bdownloadstring\s*\(", re.IGNORECASE)
+_TEXT_DOWNLOADFILE_RE = re.compile(
+    r"\bdownloadfile\s*\(", re.IGNORECASE)
+_TEXT_WEBCLIENT_RE = re.compile(
+    r"\bnet\.webclient\b|\bsystem\.net\.webclient\b|"
+    r"\bnew-object\s+(?:system\.)?net\.webclient\b",
+    re.IGNORECASE,
+)
+_TEXT_INVOKE_WEBREQUEST_RE = re.compile(
+    r"\binvoke-webrequest\b|\biwr\b", re.IGNORECASE)
+_TEXT_INVOKE_RESTMETHOD_RE = re.compile(
+    r"\binvoke-restmethod\b|\birm\b", re.IGNORECASE)
 
 
 def _text_fallback_behaviors(script: "Script", out: list["Behavior"]) -> None:
     """Emit high-severity behaviors purely from a text-level scan when
     the AST call extractor missed them (common on naked scripts that
     the AST parser can't fully walk, e.g. `Invoke-Expression $s` after
-    a semicolon on the same line)."""
+    a semicolon on the same line, or a WebClient chain nested inside a
+    wmic / cmd command-line wrapper)."""
     ids_present = {b.id for b in out}
     src = script.src or ""
     if _TEXT_INVOKE_EXPR_RE.search(src) and "invoke_expression" not in ids_present:
@@ -457,6 +512,30 @@ def _text_fallback_behaviors(script: "Script", out: list["Behavior"]) -> None:
                                     "over a Base64 blob — a common evasion trick to "
                                     "hide a text payload behind another format."),
                         evidence=[{"kind": "text_match", "value": "CompressionStream"}]))
+    # Analyst-impact P0 fix (2026-07-28): fetch primitives must fire even
+    # when nested inside a wmic / cmd wrapper the AST parser can't fully
+    # walk. Without these text-level fallbacks the Runtime Dependency
+    # section never surfaces and the verdict silently defaults to
+    # Suspicious/Malicious.
+    if _TEXT_DOWNLOADSTRING_RE.search(src) and "webclient_downloadstring" not in ids_present:
+        out.append(_mk("webclient_downloadstring", confidence=95,
+                        rationale=("Script uses `.DownloadString(...)` — fetches a "
+                                    "remote string into memory. Classic staged-delivery "
+                                    "primitive; substance lives in the remote response."),
+                        evidence=[{"kind": "text_match", "value": "DownloadString"}]))
+    if _TEXT_DOWNLOADFILE_RE.search(src) and "webclient_downloadfile" not in ids_present:
+        out.append(_mk("webclient_downloadfile", confidence=95,
+                        rationale=("Script uses `.DownloadFile(...)` — writes a remote "
+                                    "payload to disk."),
+                        evidence=[{"kind": "text_match", "value": "DownloadFile"}]))
+    if _TEXT_INVOKE_WEBREQUEST_RE.search(src) and "invoke_webrequest" not in ids_present:
+        out.append(_mk("invoke_webrequest", confidence=85,
+                        rationale="Script issues an `Invoke-WebRequest` / `IWR` HTTP request.",
+                        evidence=[{"kind": "text_match", "value": "Invoke-WebRequest"}]))
+    if _TEXT_INVOKE_RESTMETHOD_RE.search(src) and "invoke_restmethod" not in ids_present:
+        out.append(_mk("invoke_restmethod", confidence=85,
+                        rationale="Script issues an `Invoke-RestMethod` / `IRM` HTTP request.",
+                        evidence=[{"kind": "text_match", "value": "Invoke-RestMethod"}]))
 
 
 # ── Evidence Graph builder ───────────────────────────────────────

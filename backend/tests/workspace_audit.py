@@ -108,6 +108,22 @@ CORPUS = [
      '.("%") { ( [CHAR] (  $Pz2sB0::"tOinT16"(( [sTring]${_}) ,8)))})) )',
      "Write-Host 'Hello, from PowerShell!'", None,
      ["T1027", "T1027.010"], ["char_array_join", "payload_decode"]),
+    # User-reported P0 (2026-07-28) — wmic → cmd → PowerShell → WebClient.
+    # DownloadString chain. Workspace MUST:
+    #   • Extract URL + domain
+    #   • NOT hallucinate MD5 / SHA1 from URL path segments
+    #   • Emit `runtime_dependent` behavior + Runtime Dependency section
+    #   • Cap verdict at Runtime Dependent — NEVER Malicious (URL alone
+    #     is not sufficient evidence of maliciousness)
+    ("wmic_cmd_powershell_downloadstring", "download_cradle",
+     'wmic process call create CommandLine="cmd /c powershell.exe -C '
+     'Write-Host ([Net.WebClient]::new().DownloadString('
+     "'https://gist.githubusercontent.com/mgraeber-rc/"
+     "25ebfac64a2ba5ca22639da9c1aefcfd/raw/"
+     "d0c4f7338ebc2f8d5349b66b2e31cf239297053f/tweet.txt'))\"",
+     "gist.githubusercontent.com", None,
+     ["T1105", "T1059.001", "T1071.001"],
+     ["webclient_downloadstring", "runtime_dependent"]),
 ]
 
 

@@ -357,10 +357,13 @@ def extract_iocs(data: bytes) -> Dict[str, List[str]]:
         except Exception:
             pass
     domains = uniq(d for d in _DOMAIN_RE.findall(text) if d.lower() not in url_dom)
+    # Mask URL substrings so hash regexes don't match URL path segments
+    # (GitHub Gist IDs, S3 keys, blob paths, etc.) as MD5 / SHA1 IOCs.
+    _hash_txt = _URL_RE.sub(lambda m: " " * (m.end() - m.start()), text)
     hashes  = {
-        "md5":    uniq(_MD5_RE.findall(text)),
-        "sha1":   uniq(_SHA1_RE.findall(text)),
-        "sha256": uniq(_SHA256_RE.findall(text)),
+        "md5":    uniq(_MD5_RE.findall(_hash_txt)),
+        "sha1":   uniq(_SHA1_RE.findall(_hash_txt)),
+        "sha256": uniq(_SHA256_RE.findall(_hash_txt)),
     }
     regkeys = uniq(_REGKEY_RE.findall(text))
     mutexes = uniq(_MUTEX_RE.findall(text))

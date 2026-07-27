@@ -648,9 +648,19 @@ def _ext_domains(data: str) -> str:
 
 @op("extract-hashes", "Extract Hashes", "Extractors", "Extract MD5/SHA1/SHA256 hashes.")
 def _ext_hashes(data: str) -> str:
-    md5 = re.findall(r"\b[a-fA-F0-9]{32}\b", data)
-    sha1 = re.findall(r"\b[a-fA-F0-9]{40}\b", data)
-    sha256 = re.findall(r"\b[a-fA-F0-9]{64}\b", data)
+    # Mask URL substrings (and reversed-URL substrings) so hash regexes
+    # never match URL path segments as MD5 / SHA1 / SHA256 IOCs.
+    # Analyst-impact P0 fix (2026-07-28) — a GitHub Gist ID being
+    # surfaced as a "malware MD5" was eroding analyst trust.
+    _scan = re.sub(r"https?://[^\s\"'<>\)|&;`]+",
+                    lambda m: " " * (m.end() - m.start()),
+                    data, flags=re.IGNORECASE)
+    _scan = re.sub(r"[^\s\"'<>\)|&;`]{3,}//:s?ptth",
+                    lambda m: " " * (m.end() - m.start()),
+                    _scan, flags=re.IGNORECASE)
+    md5 = re.findall(r"\b[a-fA-F0-9]{32}\b", _scan)
+    sha1 = re.findall(r"\b[a-fA-F0-9]{40}\b", _scan)
+    sha256 = re.findall(r"\b[a-fA-F0-9]{64}\b", _scan)
     lines = [f"MD5:    {h}" for h in md5] + [f"SHA1:   {h}" for h in sha1] + [f"SHA256: {h}" for h in sha256]
     return "\n".join(lines)
 
@@ -1603,9 +1613,33 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
     ))
     emails = list(dict.fromkeys(re.findall(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}", r)))
     doms = list(dict.fromkeys(re.findall(r"\b(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b", r.lower())))
-    md5 = list(dict.fromkeys(re.findall(r"\b[a-fA-F0-9]{32}\b", text)))
-    sha1 = list(dict.fromkeys(re.findall(r"\b[a-fA-F0-9]{40}\b", text)))
-    sha256 = list(dict.fromkeys(re.findall(r"\b[a-fA-F0-9]{64}\b", text)))
+    # Mask URL substrings so hash regexes never match URL path segments
+    # (GitHub Gist IDs, S3 keys, blob paths…) as MD5 / SHA1 IOCs.
+    # Analyst-impact P0 fix (2026-07-28): a Gist ID was previously
+    # surfaced as a "malware MD5" — a false positive that eroded trust.
+    # We also strip reversed-URL substrings (the callsite in ops.py
+    # scans reversed copies of every layer to catch `dEsRevER-` style
+    # obfuscation — but a reversed URL still contains the same hex path
+    # segments and those must NOT be classified as hashes). Additionally
+    # mask stand-alone slash-delimited hex path segments — the payload
+    # extractor sometimes emits URL fragments *without* the `https://`
+    # prefix, e.g. `rc/25ebfac.../raw/d0c4f7.../tweet.txt`, and a hex
+    # segment surrounded by `/` slashes is a path component, not a hash.
+    _hash_scan = re.sub(r"https?://[^\s\"'<>\)|&;`]+",
+                         lambda m: " " * (m.end() - m.start()),
+                         text, flags=re.IGNORECASE)
+    _hash_scan = re.sub(r"[^\s\"'<>\)|&;`]{3,}//:s?ptth",
+                         lambda m: " " * (m.end() - m.start()),
+                         _hash_scan, flags=re.IGNORECASE)
+    # Slash-delimited hex path segment (URL / filesystem path with hex
+    # component). `/([a-f0-9]{32,64})/` — always a path component,
+    # never a stand-alone hash IOC.
+    _hash_scan = re.sub(r"(?<=/)[a-fA-F0-9]{32,64}(?=/)",
+                         lambda m: " " * (m.end() - m.start()),
+                         _hash_scan)
+    md5 = list(dict.fromkeys(re.findall(r"\b[a-fA-F0-9]{32}\b", _hash_scan)))
+    sha1 = list(dict.fromkeys(re.findall(r"\b[a-fA-F0-9]{40}\b", _hash_scan)))
+    sha256 = list(dict.fromkeys(re.findall(r"\b[a-fA-F0-9]{64}\b", _hash_scan)))
     bitcoin = list(dict.fromkeys(re.findall(r"\b(?:bc1[a-z0-9]{25,90}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\b", text)))
     # Filter obvious FPs from domain match:
     #  1. Anything that also parsed as an IPv4 literal.

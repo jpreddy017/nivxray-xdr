@@ -95,10 +95,31 @@ def compute_verdict(behaviors: list, ioc_stats: dict, decode_trace_steps: list,
         composite = max(composite, 75)
     if high_count >= 2:
         composite = max(composite, 55)
+
+    # ── Runtime-dependent cap ───────────────────────────────────
+    # If the payload's substance is fetched from a remote resource that
+    # was not retrieved (runtime_dependent tag) AND no execution of the
+    # fetched content has been observed statically (no invoke_expression
+    # over the downloaded string, no c2_communication chain), CAP the
+    # composite score below the Malicious band. Analysts must never see
+    # "Malicious 95" from a URL alone (P0 fix — 2026-07-28).
+    behavior_ids = {getattr(b, "id", None) or (isinstance(b, dict) and b.get("id"))
+                     for b in behaviors}
+    runtime_dep = "runtime_dependent" in behavior_ids
+    static_exec_of_fetched = ("c2_communication" in behavior_ids or
+                              ("invoke_expression" in behavior_ids and
+                                behavior_ids & {"webclient_downloadstring",
+                                                 "invoke_webrequest",
+                                                 "invoke_restmethod"}))
+    if runtime_dep and not static_exec_of_fetched and critical_count == 0:
+        composite = min(composite, 39)   # keep below Suspicious threshold if benign look
+
     risk_score = _bucket(composite)
 
     # Verdict banding
-    if risk_score >= 75:
+    if runtime_dep and not static_exec_of_fetched and risk_score < 75:
+        verdict = "runtime_dependent"
+    elif risk_score >= 75:
         verdict = "malicious"
     elif risk_score >= 40:
         verdict = "suspicious"

@@ -956,6 +956,19 @@ def analyze(cmdline: str) -> SemanticResult:
                                      trace.to_list(),
                                      encoded_present=encoded)
     r.verdict_breakdown = breakdown.to_dict()
+    # ── Verdict authority: v2 engine wins for the new taxonomy ──
+    # The legacy `score_verdict()` above sets `r.verdict` + `r.risk_score`
+    # from the pre-9.4 heuristics — it does not know about the
+    # `runtime_dependent` band and will happily emit "suspicious" or
+    # "malicious" for a script that merely fetches remote content. The
+    # v2 breakdown does know, so it is authoritative for the analyst-
+    # facing top-level verdict + risk fields (P0 fix — 2026-07-28).
+    r.verdict = breakdown.verdict
+    r.risk_score = breakdown.risk_score
+    r.confidence = breakdown.confidence
+    r.mitre_ids = sorted(set(r.mitre_ids or []) | {
+        m for b in r.behaviors_v2 for m in (b.get("mitre") or [])
+    })
 
     # Evidence graph
     r.evidence_graph = _build_evidence_graph(ast_script, v2_behaviors,

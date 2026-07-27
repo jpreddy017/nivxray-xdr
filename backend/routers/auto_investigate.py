@@ -239,13 +239,19 @@ def _extract_entities(text: str) -> dict[str, list[str]]:
             seen.add(k)
             out.append(x)
         return out
+    # ── URL-segment mask ─────────────────────────────────────────
+    # Hash regexes are just 32/40/64 hex — they will happily match
+    # inside a URL path (GitHub Gist IDs, S3 keys, blob paths…).
+    # Mask URLs out before running hash regexes so the analyst never
+    # sees false-positive MD5 / SHA1 IOCs derived from URL segments.
+    _url_stripped = RE_URL.sub(lambda m: " " * (m.end() - m.start()), text)
     return {
         "ips":      uniq(RE_IP.findall(text)),
         "urls":     uniq(RE_URL.findall(text)),
         "domains":  uniq(RE_DOMAIN.findall(text)),
-        "sha256":   uniq(RE_SHA256.findall(text)),
-        "sha1":     uniq(RE_SHA1.findall(text)),
-        "md5":      uniq(RE_MD5.findall(text)),
+        "sha256":   uniq(RE_SHA256.findall(_url_stripped)),
+        "sha1":     uniq(RE_SHA1.findall(_url_stripped)),
+        "md5":      uniq(RE_MD5.findall(_url_stripped)),
         "files":    uniq(RE_FILE.findall(text)),
         "registry": uniq(RE_REG.findall(text)),
         "users":    uniq(RE_USER.findall(text)),
