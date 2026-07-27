@@ -37,15 +37,17 @@ from typing import Any
 
 from .cre import reconstruct
 from .cre.models import CommandReconstruction
+from .graph import EvidenceGraph, build as build_graph
 from .intent import IntentAssessment, assess as assess_intent
 from .iu import classify
 from .iu.models import ArtefactClassification, Capability
 from .rte import TransformationChain, transform as run_rte
+from .verdict import Verdict, assess_verdict
 
 # Every capability the Brain currently supports. The pipeline
 # emits a ``coverage`` map so callers can see WHICH stages fired
 # on this specific artefact — an audit trail for regression proofs.
-_SUPPORTED = {"iu", "cre", "rte", "intent"}
+_SUPPORTED = {"iu", "cre", "rte", "intent", "verdict", "graph"}
 
 
 @dataclass
@@ -59,6 +61,8 @@ class InvestigationResult:
     cre:                CommandReconstruction | None
     rte:                TransformationChain
     intent:             IntentAssessment
+    verdict:            Verdict
+    graph:              EvidenceGraph
     coverage:           list[str] = field(default_factory=list)
     determinism_hash:   str = ""
 
@@ -69,6 +73,8 @@ class InvestigationResult:
             "cre":               self.cre.to_dict() if self.cre else None,
             "rte":               self.rte.to_dict(),
             "intent":            self.intent.to_dict(),
+            "verdict":           self.verdict.to_dict(),
+            "graph":             self.graph.to_dict(),
             "coverage":          list(self.coverage),
             "determinism_hash":  self.determinism_hash,
         }
@@ -124,12 +130,25 @@ def investigate(text: str) -> InvestigationResult:
     intent_result = assess_intent(final_text, meta=intent_meta)
     coverage.append("intent")
 
+    # ── 5. Verdict Uplift — deterministic aggregation ──────────
+    verdict_result = assess_verdict(intent_result.intents)
+    coverage.append("verdict")
+
+    # ── 6. Evidence Graph — homogeneous DAG for explainability ─
+    graph = build_graph(
+        input_text=text, iu=iu_result, cre=cre_result,
+        rte=rte_result, intent=intent_result,
+    )
+    coverage.append("graph")
+
     result = InvestigationResult(
         input=text,
         iu=iu_result,
         cre=cre_result,
         rte=rte_result,
         intent=intent_result,
+        verdict=verdict_result,
+        graph=graph,
         coverage=coverage,
     )
     result.determinism_hash = _hash(result)
@@ -144,6 +163,9 @@ def _hash(result: InvestigationResult) -> str:
         "cre_hash":    result.cre.determinism_hash if result.cre else None,
         "rte_hash":    result.rte.determinism_hash,
         "intent_hash": result.intent.determinism_hash,
+        "verdict":     result.verdict.band.value,
+        "verdict_conf": result.verdict.confidence,
+        "graph_size": [len(result.graph.nodes), len(result.graph.edges)],
         "coverage":    result.coverage,
     }, sort_keys=True, ensure_ascii=False).encode()
     return hashlib.sha256(blob).hexdigest()
