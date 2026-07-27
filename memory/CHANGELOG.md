@@ -966,3 +966,47 @@ this reads as visual noise.
   `/auto-investigate`; the legacy `/workspace` tab uses the older
   chain analyzer. Whether to mount the new Storyline on `/workspace`
   as well is a UX decision the user can call.
+
+## 2026-07-27 · Workspace ↔ Auto-Investigate Parity (v1.6.1)
+
+- **Product parity locked (SOC user requirement)**: Both `/workspace`
+  and `/auto-investigate` now consume the same investigation pipeline
+  and render identical Semantic Intelligence output for the same
+  input, including recursive deobfuscation stages, final decoded
+  payload, execution boundary, Behavior Storyline, and MITRE ATT&CK
+  roll-up.
+- **Naked-PS fallback** (`routers/auto_investigate.py`):
+  `_fallback_naked_powershell` synthesises a `powershell.exe -NoP
+  -Command "…"` command when the raw input has strong PowerShell
+  markers (`[String]::Join`, `[Convert]::ToInt16`, `[char][]`,
+  `[Type]("…")`, `-f` formatter, `Invoke-Expression`, Verb-Noun
+  cmdlets, etc.) but no explicit command binary. Placed BEFORE the
+  base64/hex fallback so naked-PS never gets misclassified as raw
+  telemetry.
+- **`ps_semantic.analyze` gate broadened**
+  (`v2/semantic/ps_semantic.py`): now accepts naked PowerShell (no
+  `powershell.exe` wrapper) via a shared `_PS_MARKER_RE`, and a
+  `naked_ps_extract` fallback populates `script` from the raw cmdline
+  when the wrapper regex fails.
+- **`/decode/smart` normalization**
+  (`routers/ops.py`): before running the semantic analyzer, the
+  Workspace endpoint routes naked PS scripts through the same
+  `_fallback_naked_powershell` helper the Auto-Investigate pipeline
+  uses. This eliminates output drift between the two tabs (e.g.
+  T1059.001 previously only surfaced on Auto-Investigate).
+- **Frontend WorkspacePage**
+  (`frontend/src/pages/WorkspacePage.jsx`): imports
+  `SemanticIntelligencePanel`; stores `semantic` state; sets it in
+  all three `/decode/smart` handlers (revertToFlatDecode,
+  autoInvestigate, nivxrayDecode); clears it in `clearAll()`; renders
+  `<SemanticIntelligencePanel semantic={semantic} chainIndex={0} />`
+  inside `<div data-testid="workspace-semantic-intelligence">` right
+  after `<AnalystResults/>`.
+- **Testing subagent iteration_46.json**: 6/6 frontend acceptance
+  criteria pass — recursive deob (2 stages: `Resolve .NET string
+  format`, `Octal ASCII reconstruction`), final decoded payload
+  `Write-Host 'Hello, from PowerShell!'`, execution boundary
+  `Invoke-Expression`, storyline sections observed/not-observed
+  correctly labelled, MITRE `T1027, T1027.010, T1059.001` present on
+  BOTH tabs. Ordinary EDR `-EncodedCommand` regression still passes.
+- **Backend regression**: 126 pytest tests still green.

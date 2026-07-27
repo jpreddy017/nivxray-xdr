@@ -1,5 +1,49 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-27 · Workspace ↔ Auto-Investigate Parity (SHIPPED)
+
+**SOC user requirement locked**: both `/workspace` and `/auto-investigate`
+must consume the same investigation pipeline and produce IDENTICAL
+Semantic Intelligence output for the same input.
+
+### Delivered
+- Naked-PowerShell fallback in `routers/auto_investigate.py`
+  (`_fallback_naked_powershell`) — wraps scripts with strong PS markers
+  in `powershell.exe -NoP -Command "..."` so they hit the same
+  semantic analyzer as legitimate command lines.
+- `ps_semantic.analyze` gate broadened to accept naked PS scripts via
+  `_PS_MARKER_RE` + `naked_ps_extract` trace step.
+- `/decode/smart` (`routers/ops.py`) attaches `result.semantic =
+  ps_semantic.analyze(normalized_input).to_dict()` on every path and
+  normalizes naked-PS through the same `_fallback_naked_powershell`
+  helper so both tabs return identical semantic output (including
+  T1059.001 for `-NoP` recognition).
+- `WorkspacePage.jsx` mounts `SemanticIntelligencePanel` inside
+  `[data-testid=workspace-semantic-intelligence]` right after
+  `AnalystResults`; stores `semantic` state and clears it in
+  `clearAll()`.
+
+### Acceptance payload (locked)
+```
+$cmDwhy =[TyPe]("{0}{1}" -f 'S','TrING');
+$out=[String]::Join([char]0,[char[]]((127,162,...,47)
+    | %{ [char][Convert]::ToInt16($_,8) }));
+Invoke-Expression $out
+```
+Pasting into either `/workspace` or `/auto-investigate` produces:
+- Stage 1 · `Resolve .NET string format` — `"{0}{1}" -f 'S','TrING' → 'STrING'`
+- Stage 2 · `Octal ASCII reconstruction` — decodes to `Write-Host 'Hello, from PowerShell!'`
+- Execution boundary · `Invoke-Expression`
+- Behavior Storyline · Executive Summary + per-category observed/not-observed tiles + Attack Narrative
+- MITRE · `T1027`, `T1027.010`, `T1059.001`
+
+### Verification
+- Backend: 126 pytest tests green (phase 9.4, deobfuscator, semantic
+  v2, storyline, corpus regression, decode API contract, AMSI, AST,
+  normalizer).
+- Frontend: testing subagent iteration_46.json — 6/6 pass on both
+  tabs. Ordinary EDR `-EncodedCommand` payload regression also passes.
+
 ## 2026-07-27 · Recursive Deobfuscation UI + Behavior Storyline (SHIPPED)
 
 **Priority 1 (P0 unblock) + Priority 2 (Behavior Storyline) delivered.**

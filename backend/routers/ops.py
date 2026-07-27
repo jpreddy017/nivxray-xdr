@@ -1605,11 +1605,23 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     # is intentionally best-effort.
     try:
         from v2.semantic.ps_semantic import analyze as _ps_semantic_analyze
-        # Analyze the ORIGINAL raw input so PowerShell -EncodedCommand
-        # blobs, -f/-join concatenation, and octal char[] reconstructions
-        # are all discovered by the semantic engine (which does its own
-        # decode + recursive deobfuscation internally).
-        _sr = _ps_semantic_analyze(body.input or "")
+        # For product parity with /auto-investigate: when the raw input
+        # is a naked PowerShell script (no `powershell.exe` wrapper) we
+        # synthesise the SAME wrapper the auto-investigate fallback uses
+        # so both endpoints normalize their input identically and
+        # therefore produce identical semantic output (verdict, MITRE,
+        # storyline, etc.). See routers/auto_investigate::
+        # _fallback_naked_powershell.
+        _sem_input = body.input or ""
+        try:
+            from routers.auto_investigate import _fallback_naked_powershell as _nps
+            if _sem_input and "powershell" not in _sem_input.lower():
+                _naked = _nps(_sem_input)
+                if _naked:
+                    _sem_input = _naked[0]["command_line"]
+        except Exception:
+            pass
+        _sr = _ps_semantic_analyze(_sem_input)
         if _sr and _sr.detected:
             result["semantic"] = _sr.to_dict()
         else:
