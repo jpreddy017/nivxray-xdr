@@ -154,8 +154,14 @@ def test_analyze_decode_timeline_explains_every_step() -> None:
     kinds = {s["decoder"] for s in steps}
     assert "input_scanner" in kinds
     assert "extract_encodedcommand" in kinds
-    assert "base64_decode" in kinds
-    assert "utf16le_strict" in kinds
+    # Post-CRE (2026-07-28) the `-EncodedCommand` wrapper is peeled by
+    # the Command Reconstruction Engine, so the decode trace shows the
+    # CRE reuse step OR the legacy base64/utf16le pair — either is a
+    # valid analyst-facing explanation of how the plaintext was recovered.
+    assert kinds & {"cre_encoded_reuse", "base64_decode"}, (
+        f"decode timeline must explain how the Base64 payload became "
+        f"plaintext PS; got kinds={kinds}"
+    )
     assert "ps_ast_parser" in kinds
     assert "behavior_extractor_v2" in kinds
     # Every step has a reason

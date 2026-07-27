@@ -142,6 +142,15 @@ class SemanticResult:
     decode_error: dict = field(default_factory=dict)            # {status, attempts, causes, ...}
     deobfuscation: dict = field(default_factory=dict)           # recursive decode chain (2026-07-25)
     storyline: dict = field(default_factory=dict)                # behavior storyline (2026-07-27)
+    # ── Command Reconstruction Engine (2026-07-28) ───────────────
+    # Every semantic result carries the CRE-derived wrapper chain so
+    # downstream analyst-facing surfaces (Analyst Execution Flow, Process
+    # Tree, Timeline, Attack Story, Investigation Report) all read from
+    # ONE source of truth — no separate derivations, no risk of drift.
+    wrapper_chain: list[dict] = field(default_factory=list)      # ordered WrapperChainStep dicts
+    effective_payload: str = ""                                  # innermost recovered command
+    dispatch_hint: str = "unknown"                               # DispatchHint enum value
+    reconstruction_determinism_hash: str = ""                    # SHA-256 for regression proofs
 
     def to_dict(self) -> dict:
         return {
@@ -168,6 +177,11 @@ class SemanticResult:
             "ast_tree":          self.ast_tree,
             "resolved_variables": self.resolved_variables,
             "decode_error":      self.decode_error,
+            # CRE (2026-07-28)
+            "wrapper_chain":                     self.wrapper_chain,
+            "effective_payload":                 self.effective_payload,
+            "dispatch_hint":                     self.dispatch_hint,
+            "reconstruction_determinism_hash":   self.reconstruction_determinism_hash,
             "deobfuscation":     self.deobfuscation,
             "storyline":         self.storyline,
         }
@@ -683,6 +697,30 @@ def analyze(cmdline: str) -> SemanticResult:
     r = SemanticResult()
     if not cmdline:
         return r
+    # ── Command Reconstruction Engine (CRE) ────────────────────
+    # Before we touch encoding / decoding / behavior extraction, ask
+    # the CRE to peel any launcher / scheduler / LOLBAS wrappers so we
+    # analyze the effective executable payload — the exact string the
+    # operating system will actually run — instead of the outermost
+    # invocation. The wrapper chain is preserved as evidence so the
+    # storyline, analyst execution flow, process tree, and MITRE
+    # mappings can all read from ONE source of truth.
+    from v2.investigation.cre import reconstruct as _reconstruct
+    _cre = _reconstruct(cmdline)
+    effective_cmdline = _cre.effective_payload if _cre.chain else cmdline
+    r.wrapper_chain = [s.to_dict() for s in _cre.chain]
+    r.effective_payload = _cre.effective_payload
+    r.dispatch_hint = _cre.dispatch_hint.value
+    r.reconstruction_determinism_hash = _cre.determinism_hash
+    # Every subsequent analysis stage (encoding detection, decoding,
+    # AST extraction, behavior emission, IOC extraction, verdict) runs
+    # on the CRE-peeled effective payload — the string the OS will
+    # actually execute — so the whole pipeline benefits, not just one
+    # sample. Analysts see the correct behaviors / IOCs / verdict even
+    # for wmic → cmd → powershell chains without any wrapper-specific
+    # regex band-aid.
+    if _cre.chain:
+        cmdline = effective_cmdline
     # Detect PowerShell content by more than just the literal word
     # `powershell` — analysts frequently paste naked scripts (no
     # `powershell.exe` wrapper) using String.Format `-f`, `[String]::Join`,
@@ -727,6 +765,16 @@ def analyze(cmdline: str) -> SemanticResult:
         return _analyze_lolbas(cmdline, r)
     encoded_blob = extract_encoded_blob(cmdline)
     encoded = encoded_blob is not None
+    # If the CRE already peeled a `-EncodedCommand` wrapper we still want
+    # `encoded_command` + T1027 + T1059.001 to fire — the encoded-command
+    # OBFUSCATION posture is preserved even though the effective payload
+    # no longer contains the flag. Read from the wrapper chain (single
+    # source of truth) rather than re-scanning the raw input.
+    if not encoded and any(
+        s.get("wrapper") == "powershell" and s.get("command") == "-EncodedCommand"
+        for s in r.wrapper_chain
+    ):
+        encoded = True
 
     # ── Phase 9.4 · Explainable Decode Trace ─────────────────────
     trace = _DecodeTrace()
@@ -737,7 +785,7 @@ def analyze(cmdline: str) -> SemanticResult:
     if encoded:
         trace.add("extract_encodedcommand", status="applied",
                   reason=("Located `-EncodedCommand` flag; extracted "
-                          f"{len(encoded_blob)}-char Base64 blob."),
+                          f"{len(encoded_blob) if encoded_blob else 0}-char Base64 blob."),
                   input_val=cmdline, output_val=encoded_blob or "")
     else:
         trace.skipped("extract_encodedcommand",
@@ -746,7 +794,23 @@ def analyze(cmdline: str) -> SemanticResult:
 
     script = None
     recovery_report = None
-    if encoded:
+    # If the CRE already peeled the `-EncodedCommand` wrapper, the
+    # effective payload IS the recovered script — the interpreter-facing
+    # form after Base64 + UTF-16LE decode is applied by the wrapper
+    # parser itself. Reuse it directly and skip the redundant recovery
+    # chain (no duplicate work, no double-tracing).
+    _cre_ec_peeled = any(
+        s.get("wrapper") == "powershell" and s.get("command") == "-EncodedCommand"
+        for s in r.wrapper_chain
+    )
+    if encoded and _cre_ec_peeled and not encoded_blob:
+        script = effective_cmdline
+        trace.add("cre_encoded_reuse", status="applied",
+                  reason=("Command Reconstruction Engine already decoded "
+                           "the `-EncodedCommand` wrapper; reusing the "
+                           "recovered script instead of re-decoding."),
+                  input_val=cmdline, output_val=effective_cmdline)
+    elif encoded:
         recovery_report = _recover_ps(encoded_blob)
         # Fold every recovery attempt into the timeline as its own step.
         # Base64 attempt

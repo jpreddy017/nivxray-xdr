@@ -1,5 +1,107 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-28 (Late) · Command Reconstruction Engine (CRE) shipped
+
+### User directive
+"Every fix must improve the Workspace pipeline, not just the reported
+sample." Sample-specific patches are prohibited. All fixes must
+generalize to the CLASS of command lines and become foundational
+Workspace capabilities.
+
+### What shipped — CRE as a first-class pipeline stage
+
+The **Command Reconstruction Engine (CRE)** is a new deterministic,
+recursive, table-driven, evidence-preserving stage that reconstructs
+the *effective executable payload* the OS will actually run — for any
+nested Windows command-line invocation — and hands that payload to
+every downstream engine as the single source of truth.
+
+Pipeline (post-CRE):
+```
+raw cmdline
+     │
+     ▼
+ Command Reconstruction Engine  ← NEW
+     │  · wrapper detection
+     │  · wrapper extraction
+     │  · nested launcher resolution
+     │  · parameter normalization
+     │  · effective payload reconstruction
+     │  · invocation chain construction
+     │  · evidence preservation
+     ▼
+ Semantic Analysis → Behaviors → IOCs → ATT&CK → Verdict → Workspace
+```
+
+### Modules delivered
+- `v2/investigation/cre/__init__.py`             — public `reconstruct()` surface
+- `v2/investigation/cre/models.py`               — `WrapperChainStep` + `CommandReconstruction` (canonical objects with `execution_flow()` helper)
+- `v2/investigation/cre/engine.py`               — recursive orchestrator + dispatch classifier + determinism-hash
+- `v2/investigation/cre/wrappers/__init__.py`    — `WrapperParser` Protocol + registry (add-a-file extensibility)
+- `v2/investigation/cre/wrappers/wmic.py`        — wmic process call create CommandLine="…"
+- `v2/investigation/cre/wrappers/cmd.py`         — cmd /c "…" | /k "…" (quoted + bare)
+- `v2/investigation/cre/wrappers/powershell.py`  — -Command / -c / -File / -EncodedCommand
+- `v2/investigation/cre/wrappers/schtasks.py`    — schtasks /create … /tr "…"
+- `v2/investigation/cre/wrappers/runas.py`       — runas /user:… "…"
+- `v2/investigation/cre/wrappers/pcalua.py`      — pcalua.exe -a … -c "…"
+- `v2/investigation/cre/wrappers/start.py`       — start "" "…" | start "…"
+
+Every wrapper is a standalone parser module implementing
+`WrapperParser.NAME / match / extract`. Adding a new wrapper
+(e.g. `psexec`, `at`) is a one-file change with no engine
+modifications required — this satisfies the "extensible by
+configuration" directive.
+
+### Integration
+- `v2/semantic/ps_semantic.py`
+  * Calls `reconstruct(cmdline)` at the top of `analyze()`; the
+    effective payload becomes the working command line for every
+    subsequent stage (encoding detect, decode, AST, behavior,
+    IOC, verdict).
+  * `-EncodedCommand` is now peeled by the CRE `powershell` parser;
+    the semantic engine reuses the already-decoded script via a new
+    `cre_encoded_reuse` trace step (no duplicate decoding work).
+  * `SemanticResult` grew four CRE fields: `wrapper_chain`,
+    `effective_payload`, `dispatch_hint`,
+    `reconstruction_determinism_hash`.
+
+### Verified end-to-end via live `/api/decode/smart`
+Sample: `wmic process call create CommandLine="cmd /c powershell.exe -C Write-Host ([Net.WebClient]::new().DownloadString('https://gist.…tweet.txt'))"`
+- Wrapper chain: `wmic → process call create` → `cmd → /c` → `powershell → -Command`
+- Effective payload: `Write-Host ([Net.WebClient]::new().DownloadString('https://gist.…tweet.txt'))`
+- Dispatch hint: `powershell`
+- Verdict: `runtime_dependent · 34`
+- Behaviors: `webclient_downloadstring · external_network · runtime_dependent`
+- IOC hash false positives: **eliminated**
+- Determinism hash: proves byte-identical output across runs
+
+### Regressions locked
+- `tests/test_command_reconstruction_engine.py` — 9-case parametrized
+  suite covering wmic→cmd→powershell / wmic→cmd→mshta /
+  wmic→cmd→rundll32 / schtasks→powershell-EC /
+  runas→powershell→IEX / pcalua→mshta / powershell→cmd→wmic
+  (reverse nesting) / plain cmd→ps / bare PS. Every sample validates
+  8 canonical fields (wrapper chain, effective payload, decode chain,
+  dispatch hint, evidence, determinism, behaviors, verdict).
+- Registry-contract test proves every parser honors the `WrapperParser`
+  protocol (guardrail against extensibility drift).
+- Workspace Audit corpus retained (17/17 samples clean, 0 P0/P1/P2).
+- **139/139 workspace-related tests green** (CRE + audit gate + all
+  corpus phase 1/2/2b2/3/3b2 regressions + perf CI gate + encoded
+  command + rc42 semantic + ps deobfuscator + storyline).
+
+### Engineering template adopted
+Every future Workspace bug will be answered with:
+1. Which pipeline stage failed
+2. The generic architectural fix (never a sample-specific regex)
+3. Acceptance criteria for the class (not the sample)
+4. Regression strategy with 3–5+ variants of the same class
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-28 · Workspace Stabilization Directive · P0 Audit CLOSED
 
 ### Directive

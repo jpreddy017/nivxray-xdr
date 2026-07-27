@@ -490,8 +490,16 @@ def _text_fallback_behaviors(script: "Script", out: list["Behavior"]) -> None:
     """Emit high-severity behaviors purely from a text-level scan when
     the AST call extractor missed them (common on naked scripts that
     the AST parser can't fully walk, e.g. `Invoke-Expression $s` after
-    a semicolon on the same line, or a WebClient chain nested inside a
-    wmic / cmd command-line wrapper)."""
+    a semicolon on the same line).
+
+    NOTE (2026-07-28): the wmic/cmd wrapper case that previously needed
+    `.DownloadString` text-fallbacks is now handled by the Command
+    Reconstruction Engine, which peels the wrapper chain BEFORE
+    semantic analysis so the AST parser sees the bare PowerShell payload.
+    The fetch-primitive text scans below remain as a safety net for
+    naked scripts whose PS AST fails to recognize a call — they are
+    NOT wrapper-specific patches.
+    """
     ids_present = {b.id for b in out}
     src = script.src or ""
     if _TEXT_INVOKE_EXPR_RE.search(src) and "invoke_expression" not in ids_present:
