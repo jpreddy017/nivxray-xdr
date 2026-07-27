@@ -535,6 +535,62 @@ export default function SemanticIntelligencePanel({ semantic, chainIndex, onHigh
       ) : (
         <>
           <ExplainableVerdict vb={semantic.verdict_breakdown} chainIndex={chainIndex} />
+          <DeobfuscationChain deob={semantic.deobfuscation} chainIndex={chainIndex} />
+          <BehaviorCards behaviors={semantic.behaviors_v2}
+                         chainIndex={chainIndex}
+                         onHighlight={onHighlight} />
+          <DecodeTimeline steps={semantic.decode_timeline} chainIndex={chainIndex} />
+          <EvidenceGraph graph={semantic.evidence_graph} chainIndex={chainIndex} />
+          <ASTViewer tree={semantic.ast_tree}
+                     resolvedVars={semantic.resolved_variables}
+                     chainIndex={chainIndex} />
+        </>
+      )}
+    </div>
+  );
+}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+export default function SemanticIntelligencePanel({ semantic, chainIndex, onHighlight }) {
+  if (!semantic || !semantic.detected) return null;
+
+  // Decode-error path — render only the failure card, halt all other UI.
+  const decodeError = semantic.decode_error;
+  const hasDecodeError = semantic.decode_outcome === "decode_error"
+                          || (decodeError && decodeError.status === "decode_error");
+
+  const hasV2 = (semantic.behaviors_v2 && semantic.behaviors_v2.length) ||
+                (semantic.decode_timeline && semantic.decode_timeline.length) ||
+                (semantic.verdict_breakdown && semantic.verdict_breakdown.verdict);
+  if (!hasV2 && !hasDecodeError) return null;
+
+  return (
+    <div className="border-t border-cyan-500/30 bg-slate-950/40 p-3 space-y-3"
+         data-testid={`semantic-v2-panel-${chainIndex}`}>
+      <div className="flex items-baseline gap-2">
+        <span className="text-[10px] tracking-[0.24em] font-bold text-cyan-200 uppercase">
+          PowerShell Semantic Intelligence · Phase 9.4
+        </span>
+        <span className="text-[9px] font-mono text-slate-500 ml-auto">
+          NivXRay-native taxonomy · deterministic
+        </span>
+      </div>
+
+      {hasDecodeError ? (
+        <>
+          <DecodeFailureCard err={decodeError} chainIndex={chainIndex} />
+          {/* Even on failure, we still show the timeline so the analyst can
+              audit every decoder decision. */}
+          <DecodeTimeline steps={semantic.decode_timeline} chainIndex={chainIndex} />
+        </>
+      ) : (
+        <>
+          <ExplainableVerdict vb={semantic.verdict_breakdown} chainIndex={chainIndex} />
           <BehaviorCards behaviors={semantic.behaviors_v2}
                          chainIndex={chainIndex}
                          onHighlight={onHighlight} />

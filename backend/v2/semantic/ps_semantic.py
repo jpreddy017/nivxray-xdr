@@ -40,6 +40,7 @@ from v2.semantic.ps_recovery import (
     recover_powershell_from_b64 as _recover_ps,
     looks_like_powershell as _looks_like_powershell,
 )
+from v2.semantic.ps_deobfuscate import deobfuscate as _deobfuscate
 
 # ── Alias normalization table (PowerShell built-ins) ──────────────
 _ALIASES = {
@@ -138,6 +139,7 @@ class SemanticResult:
     ast_tree: dict = field(default_factory=dict)                # rich AST for UI
     resolved_variables: dict = field(default_factory=dict)      # constant-folded values
     decode_error: dict = field(default_factory=dict)            # {status, attempts, causes, ...}
+    deobfuscation: dict = field(default_factory=dict)           # recursive decode chain (2026-07-25)
 
     def to_dict(self) -> dict:
         return {
@@ -164,6 +166,7 @@ class SemanticResult:
             "ast_tree":          self.ast_tree,
             "resolved_variables": self.resolved_variables,
             "decode_error":      self.decode_error,
+            "deobfuscation":     self.deobfuscation,
         }
 
 
@@ -601,6 +604,36 @@ def analyze(cmdline: str) -> SemanticResult:
     r.detected = True
     r.recovered_script = (script or "").strip()
 
+    # ── Recursive deterministic deobfuscation (2026-07-25) ────────
+    # Runs safe .NET-style transforms (String.Format, concat, octal/hex/
+    # decimal char reconstruction, Convert.FromBase64String, alias
+    # expansion) until fixed-point or an execution boundary is hit.
+    # The FINAL text becomes the recovered_script for AST/behavior work.
+    _deob = _deobfuscate(r.recovered_script)
+    r.deobfuscation = _deob.to_dict()
+    _deob_behavior_hints: list[str] = []
+    if _deob.stages:
+        r.recovered_script = _deob.final.strip()
+        trace.add("deobfuscator", status="applied",
+                  reason=(f"Recursive deterministic decode chain ran "
+                          f"{len(_deob.stages)} stage(s); stopped: "
+                          f"{_deob.stopped_reason}."),
+                  input_val=script, output_val=r.recovered_script,
+                  meta={"stages":  [s.to_dict() for s in _deob.stages],
+                         "boundary": _deob.boundary_op})
+        # Preserve OBFUSCATION-TECHNIQUE behavior signals — the raw
+        # script contained these tricks even though the deobfuscator has
+        # unwrapped them. Analysts must still see the obfuscation posture.
+        for st in _deob.stages:
+            t = st.technique.lower()
+            if "format" in t or "concat" in t:
+                _deob_behavior_hints.append("string_reconstruction")
+            if "char" in t or "octal" in t or "hex" in t or "decimal" in t or "binary" in t:
+                _deob_behavior_hints.append("char_array_join")
+                _deob_behavior_hints.append("payload_decode")
+            if "base64" in t:
+                _deob_behavior_hints.append("payload_decode")
+
     # ── Phase 9.4 · Semantic AST parse ────────────────────────────
     ast_script: _AstScript = _ast_parse(r.recovered_script)
     trace.add("ps_ast_parser", status="applied",
@@ -627,6 +660,21 @@ def analyze(cmdline: str) -> SemanticResult:
 
     # ── Phase 9.4 · NivXRay-native behavior extraction ────────────
     v2_behaviors = _extract_behaviors_v2(ast_script)
+    # Inject deobfuscation-technique hints as synthetic behaviors so the
+    # OBFUSCATION posture is preserved even when the deobfuscator has
+    # already unwrapped the tricks.
+    if _deob_behavior_hints:
+        from v2.semantic.ps_behaviors import _mk, TAXONOMY   # local import
+        existing_ids = {b.id for b in v2_behaviors}
+        for hint in dict.fromkeys(_deob_behavior_hints):
+            if hint in existing_ids or hint not in TAXONOMY:
+                continue
+            v2_behaviors.append(_mk(
+                hint, confidence=85,
+                rationale=("Detected during deterministic deobfuscation — "
+                           "the raw script used this obfuscation trick "
+                           "before it was unwrapped by the decode chain."),
+            ))
     r.behaviors_v2 = [b.to_dict() for b in v2_behaviors]
     trace.add("behavior_extractor_v2", status="applied",
               reason=(f"Extracted {len(v2_behaviors)} NivXRay-native "

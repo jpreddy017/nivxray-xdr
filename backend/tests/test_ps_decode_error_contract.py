@@ -109,7 +109,9 @@ def test_valid_encodedcommand_still_recovers_and_scores() -> None:
     r = analyze(f"powershell.exe -NoP -W Hidden -ExecutionPolicy Bypass -EncodedCommand {good_blob}")
     assert r.decode_outcome == "fully_decoded"
     assert r.decode_error == {}   # no failure card
-    assert r.recovered_script.startswith("IEX")
+    # Post-deobfuscation the alias IEX is expanded to Invoke-Expression.
+    assert (r.recovered_script.lower().startswith("iex")
+            or "invoke-expression" in r.recovered_script.lower())
     assert r.behaviors_v2, "v2 behaviors must be populated on happy path"
     assert r.verdict_breakdown.get("verdict") == "malicious"
 

@@ -69,7 +69,7 @@ def _enc(ps: str, flags: str = "-nop -w hidden -exec bypass") -> str:
 # ── 1. MALWARE FAMILIES ──────────────────────────────────────────
 @sample(id="empire_v1", category="malware_families", label="Empire launcher",
         outcome="fully_decoded",
-        must_contain=["webclient", "downloadstring", "iex"],
+        must_contain=["webclient", "downloadstring", "invoke-expression"],
         behaviors=["invoke_expression", "external_network"],
         verdict={"malicious", "suspicious"},
         mitre_any=["T1059.001", "T1105"])
@@ -124,7 +124,7 @@ def s_poshc2():
 
 @sample(id="metasploit_v1", category="malware_families", label="Metasploit web_delivery PS",
         outcome="fully_decoded",
-        must_contain=["downloadstring", "iex"],
+        must_contain=["downloadstring", "invoke-expression"],
         behaviors=["invoke_expression", "webclient_downloadstring"],
         verdict={"malicious", "suspicious"})
 def s_msf():
@@ -147,7 +147,7 @@ def s_invobf_f():
 
 @sample(id="nested_base64", category="obfuscation", label="Nested Base64 wrapper",
         outcome="fully_decoded",
-        must_contain=["frombase64string"],
+        must_contain=["downloadstring"],
         behaviors=["payload_decode"],
         verdict={"malicious", "suspicious", "needs_review"})
 def s_nested_b64():
