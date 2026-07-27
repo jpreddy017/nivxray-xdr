@@ -40,6 +40,8 @@ def _from_dict(d: dict, *, source: str) -> SampleSpec:
         expected_mitre=list(d.get("expected_mitre", [])),
         expected_behaviors=list(d.get("expected_behaviors", [])),
         expected_evidence=list(d.get("expected_evidence", [])),
+        expected_behavior_kinds=list(d.get("expected_behavior_kinds", [])),
+        expected_behavior_chain=list(d.get("expected_behavior_chain", [])),
         min_recommendations=d.get("min_recommendations"),
         notes=d.get("notes", ""),
     )

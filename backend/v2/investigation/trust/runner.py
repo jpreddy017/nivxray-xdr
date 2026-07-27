@@ -225,6 +225,31 @@ def score(samples: list[SampleSpec]) -> TrustReport:
                     f"got {n}"
                 )
 
+        # ── Canonical Behaviour Graph expectations ────────────────
+        # Each declared kind must be present at least once in the
+        # emitted graph. Missing declarations are "not asserted".
+        actual_kinds = set(result.behavior.kinds())
+        for kind in spec.expected_behavior_kinds:
+            integrity_total += 1
+            if kind in actual_kinds:
+                integrity_hits += 1
+            else:
+                failures.append(
+                    f"expected behaviour kind `{kind}` not present in graph "
+                    f"(got {sorted(actual_kinds)})"
+                )
+        # ``expected_behavior_chain`` — the given kinds must be
+        # connected via typed edges in the given order.
+        if spec.expected_behavior_chain:
+            integrity_total += 1
+            if result.behavior.has_chain(*spec.expected_behavior_chain):
+                integrity_hits += 1
+            else:
+                failures.append(
+                    f"expected behaviour chain `{ ' → '.join(spec.expected_behavior_chain) }` "
+                    "not reachable via typed edges"
+                )
+
         sample_integrity = (integrity_hits / integrity_total) if integrity_total else 1.0
 
         per_sample.append(SampleResult(

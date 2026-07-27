@@ -34,6 +34,15 @@ expected_behaviors:
 expected_evidence:
   - certutil
   - chain:certutil
+expected_behavior_kinds:
+  - download
+  - write_file
+  - remote_execution
+  - execute
+expected_behavior_chain:
+  - download
+  - write_file
+  - execute
 min_recommendations: 2
 notes: >
   LOLBin variant of the download-and-execute chain: certutil is

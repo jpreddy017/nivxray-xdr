@@ -37,6 +37,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from .analyst_report import AnalystReport, generate as build_report
+from .behavior import BehaviorGraph, build as build_behavior
 from .cre import reconstruct
 from .cre.models import CommandReconstruction
 from .graph import EvidenceGraph, build as build_graph
@@ -49,7 +50,7 @@ from .verdict import Verdict, assess_verdict
 # Every capability the Brain currently supports. The pipeline
 # emits a ``coverage`` map so callers can see WHICH stages fired
 # on this specific artefact — an audit trail for regression proofs.
-_SUPPORTED = {"iu", "cre", "rte", "intent", "verdict", "graph", "report"}
+_SUPPORTED = {"iu", "cre", "rte", "intent", "behavior", "verdict", "graph", "report"}
 
 
 # ── Atomic-IOC grammars ────────────────────────────────────────
@@ -95,6 +96,7 @@ class InvestigationResult:
     cre:                CommandReconstruction | None
     rte:                TransformationChain
     intent:             IntentAssessment
+    behavior:           BehaviorGraph
     verdict:            Verdict
     graph:              EvidenceGraph
     report:             AnalystReport | None = None
@@ -108,6 +110,7 @@ class InvestigationResult:
             "cre":               self.cre.to_dict() if self.cre else None,
             "rte":               self.rte.to_dict(),
             "intent":            self.intent.to_dict(),
+            "behavior":          self.behavior.to_dict(),
             "verdict":           self.verdict.to_dict(),
             "graph":             self.graph.to_dict(),
             "report":            self.report.to_dict() if self.report else None,
@@ -186,7 +189,15 @@ def investigate(text: str) -> InvestigationResult:
     if atomic_kind is not None:
         intent_result = assess_intent("")   # empty → zero intents, safe summary
 
-    # ── 5. Verdict Uplift — deterministic aggregation ──────────
+    # ── 5. Canonical Behaviour Graph ───────────────────────────
+    # Lightweight abstraction over the Intent Layer that gives the
+    # Verdict Engine, Analyst Report, and future Behaviour Correlation
+    # a single normalised vocabulary. Deterministic — same intent set
+    # always produces the same graph.
+    behavior_graph = build_behavior(intent_result, final_text)
+    coverage.append("behavior")
+
+    # ── 6. Verdict Uplift — deterministic aggregation ──────────
     verdict_result = assess_verdict(intent_result.intents)
     # Atomic IOC: force verdict confidence to 0 so the analyst-facing
     # band renders as "unknown" (not "low"), honestly reflecting that
@@ -212,6 +223,7 @@ def investigate(text: str) -> InvestigationResult:
         cre=cre_result,
         rte=rte_result,
         intent=intent_result,
+        behavior=behavior_graph,
         verdict=verdict_result,
         graph=graph,
         coverage=coverage,
@@ -249,6 +261,7 @@ def investigate(text: str) -> InvestigationResult:
         result.report.observed_behaviors = []
         result.report.intent_narrative = []
         result.report.evidence         = []
+        result.report.behavior_graph   = {"nodes": [], "edges": []}
         result.report.confidence_signals = {
             "confidence":        "unknown",
             "evidence_strength": "insufficient",
@@ -271,6 +284,7 @@ def _hash(result: InvestigationResult) -> str:
         "verdict":     result.verdict.band.value,
         "verdict_conf": result.verdict.confidence,
         "graph_size": [len(result.graph.nodes), len(result.graph.edges)],
+        "behavior_shape": result.behavior.kinds(),
         "coverage":    result.coverage,
     }, sort_keys=True, ensure_ascii=False).encode()
     return hashlib.sha256(blob).hexdigest()

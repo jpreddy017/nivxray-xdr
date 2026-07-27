@@ -460,6 +460,7 @@ def generate(result: "InvestigationResult") -> AnalystReport:
         unknowns=_unknowns(result),
         recommendations=_recommendations(intents, result.verdict.band),
         confidence_signals=_confidence_signals(result),
+        behavior_graph=result.behavior.to_dict(),
     )
 
 

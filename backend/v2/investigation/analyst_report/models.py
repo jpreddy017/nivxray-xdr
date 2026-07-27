@@ -75,6 +75,10 @@ class AnalystReport:
     # Investigation-specific confidence signals shown to analysts —
     # NOT engineering quality metrics. Locked with user directive.
     confidence_signals:   dict[str, str] = field(default_factory=dict)
+    # Canonical Behaviour Graph — the shared language between the
+    # Verdict Engine, Analyst Report, and future Behaviour Correlation.
+    # Deterministic — derived directly from the intent set.
+    behavior_graph:       dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -87,6 +91,7 @@ class AnalystReport:
             "unknowns":           list(self.unknowns),
             "recommendations":    [r.to_dict() for r in self.recommendations],
             "confidence_signals": dict(self.confidence_signals),
+            "behavior_graph":     dict(self.behavior_graph),
         }
 
 

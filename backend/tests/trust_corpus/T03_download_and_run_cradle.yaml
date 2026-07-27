@@ -27,6 +27,9 @@ expected_behaviors:
 expected_evidence:
   - webclient.downloadstring
   - invoke-expression
+expected_behavior_kinds:
+  - download
+  - remote_execution
 min_recommendations: 2
 notes: >
   Two high-risk intents fire together (staging + remote_execution).

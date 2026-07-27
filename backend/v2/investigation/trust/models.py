@@ -54,6 +54,15 @@ class SampleSpec:
     expected_mitre:            list[str]  = field(default_factory=list)  # ["T1197", …]
     expected_behaviors:        list[str]  = field(default_factory=list)  # substrings that must appear in an observed-behavior purpose
     expected_evidence:         list[str]  = field(default_factory=list)  # tags that must appear in any evidence source / observation / meta
+    # Canonical Behaviour Graph expectations (2026-08-01 · v1.3.4).
+    # ``expected_behavior_kinds`` — each kind (e.g. ``download``) must
+    #   appear at least once in the emitted behaviour graph.
+    # ``expected_behavior_chain`` — the listed kinds must be connected
+    #   by ``writes_to`` / ``executes`` / ``then`` edges in the given
+    #   order. Enforces the Verdict Engine reasons over normalised
+    #   chains, not individual commands.
+    expected_behavior_kinds:   list[str]  = field(default_factory=list)
+    expected_behavior_chain:   list[str]  = field(default_factory=list)
     min_recommendations:       int | None = None
     notes:                str = ""
 

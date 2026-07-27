@@ -1,5 +1,112 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-08-01 · v1.3.4 · Canonical Behaviour Graph (P0 groundwork for v1.4.0)
+
+### SME-endorsed architectural direction
+> "Formalize normalized chains into reusable graph nodes. The
+> Behaviour Graph becomes the common language between the Verdict
+> Engine, Evidence Graph, Analyst Report, and future Behaviour
+> Correlation. Start with the behaviours current detections require;
+> add new kinds only when a real-world sample proves the gap."
+
+### Canonical data flow (locked)
+```
+Input → IU → CRE / RTE → Intent Layer → Behaviour Graph
+   → Verdict Engine → Evidence Graph → Analyst Report
+   → Behaviour Correlation (future)
+```
+
+### What shipped
+- **New module** `v2/investigation/behavior/` — lightweight
+  translator over the existing Intent Layer (no new detection).
+  - `BehaviorKind` closed taxonomy: `download`, `write_file`,
+    `execute`, `remote_execution`, `network_connection`,
+    `registry_modification`, `process_creation`, `persistence`,
+    `defense_evasion`, `discovery`, `credential_access`,
+    `runtime_dependent`.
+  - `BehaviorEdgeKind` typed relationships: `then`, `writes_to`,
+    `executes`, `targets`.
+  - `BehaviorArg` typed IOC arguments (`url`, `domain`, `ip`,
+    `file`, `registry`, `process`).
+  - `BehaviorGraph.has_chain(*kinds)` — the primitive the Verdict
+    Engine and future Behaviour Correlation call; walks typed
+    edges to answer "did this chain of behaviours occur?".
+- **Pipeline** wires the graph in between `intent` and `verdict`
+  stages. Coverage now: `iu → cre → rte → intent → behavior →
+  verdict → graph → report`.
+- **Determinism hash** now includes `behavior_shape` so replay
+  regressions catch graph-layout drift.
+- **Analyst Report** surfaces the canonical graph as a first-class
+  field `behavior_graph` (nodes + edges). Downstream engines and
+  the UI pivot on normalised behaviours instead of raw commands.
+
+### Chain semantics — evidence-anchored
+For a download-and-execute cradle, the graph now looks like::
+
+    b#001 download           (args: url=…, domain=…)
+       │ writes_to
+       ▼
+    b#002 write_file         (args: file=a.exe)
+       │ then                        │ executes
+       ▼                              │
+    b#003 remote_execution           │
+       │ executes                     ▼
+       └──────────────────────► b#004 execute (args: file=a.exe)
+
+- Every node cites the canonical Evidence emitted by its source
+  Intent. **A behaviour without evidence is a fabrication and
+  cannot be emitted** — enforced by regression test.
+- Determinism proven: replay of the same input yields byte-
+  identical graphs.
+- Honesty preserved: download-only samples emit `download` (and
+  `write_file` when the destination is known) but NOT
+  `remote_execution` / `execute`. Confirmed via corpus + tests.
+
+### Trust Corpus grew its ground truth
+Every relevant corpus sample now declares its expected canonical
+graph shape:
+- **T13 · iwr_outfile_startprocess** — `expected_behavior_kinds:
+  [download, write_file, remote_execution, execute]` +
+  `expected_behavior_chain: [download, write_file, execute]`.
+- **T14 · certutil_start_chain** — identical expectations, LOLBin
+  downloader form.
+- **T03 · download_and_run_cradle** — `[download,
+  remote_execution]`.
+- **T04 · registry_run_persistence** — `[persistence]`.
+- All 14/14 samples pass — **100% Accuracy · Honesty ·
+  Explainability · Unknown Handling · Investigation Integrity**
+  with the new behaviour expectations layered in. Zero hard
+  failures.
+
+### Regression coverage
+- New `tests/test_behavior_graph.py` — 15 tests covering the
+  canonical chain shape, edge typing, arg propagation, evidence
+  requirements, taxonomy closure, atomic-IOC / benign empty-graph
+  invariants, and analyst-report exposure.
+- Updated `test_pipeline_to_dict_serialization` +
+  `test_report_has_all_required_sections` to lock in the new
+  `behavior` + `behavior_graph` contract.
+- 323/323 targeted investigation tests green (up from 308).
+
+### Definition of Done (locked)
+| Item | Status |
+| --- | --- |
+| Existing behaviour-chain logic emits canonical Behaviour nodes | ✅ |
+| Analyst Report includes `behavior_graph` | ✅ |
+| Trust Corpus validates expected graph shapes | ✅ |
+| No regression in verdicts or explainability | ✅ (14/14 samples · 100 %) |
+| Deterministic replay | ✅ (`behavior_shape` in hash) |
+
+### Engineering guideline (kept)
+> Extend the taxonomy only when a Trust Corpus sample proves the
+> gap. Static Control Flow (P2) will emit nodes into the SAME
+> graph — no separate representation.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-08-01 · v1.3.3 · Generic Download → Write → Execute chain
 
 ### Analyst false-negative reports driving this fix

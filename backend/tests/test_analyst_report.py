@@ -48,7 +48,7 @@ def test_report_has_all_required_sections():
     required = {
         "executive_summary", "observed_behaviors", "intent_narrative",
         "evidence", "mitre", "iocs", "unknowns", "recommendations",
-        "confidence_signals",
+        "confidence_signals", "behavior_graph",
     }
     assert set(d.keys()) == required
 

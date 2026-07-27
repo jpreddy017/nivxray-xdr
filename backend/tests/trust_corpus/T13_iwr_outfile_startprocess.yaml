@@ -33,6 +33,15 @@ expected_behaviors:
 expected_evidence:
   - invoke-webrequest
   - chain:parameter
+expected_behavior_kinds:
+  - download
+  - write_file
+  - remote_execution
+  - execute
+expected_behavior_chain:
+  - download
+  - write_file
+  - execute
 min_recommendations: 2
 notes: >
   Canonical download-and-execute cradle: Invoke-WebRequest writes the
