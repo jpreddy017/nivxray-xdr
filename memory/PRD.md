@@ -1,5 +1,53 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-28 (Phase 2) · Input Understanding Stage · SHIPPED
+
+### Delivered — every user-requested architectural adjustment adopted
+- **Multi-artefact hierarchy** (`ArtefactClassification.embedded[]` is a
+  first-class list of nested findings, not a hint list).
+- **Capability-based dispatch** (`ArtefactClassification.dispatch[]` is
+  a list of `Capability` enums — CRE, DECODER, SEMANTIC, IOC, MITRE,
+  VERDICT, JAVASCRIPT_ENGINE, VBSCRIPT_ENGINE, OFFICE_ENGINE,
+  REGISTRY_ENGINE — enabling multiple engines to cooperate on a
+  single input).
+- **Canonical Evidence object** — new `v2/investigation/evidence.py`
+  defining `Evidence(source, observation, confidence, rationale, meta)`.
+  Immutable, truthful, evidence-graph-ready. Every downstream engine
+  (CRE, Decoder, Semantic, Behavior, IOC, ATT&CK, Verdict) will emit
+  this same shape going forward — Phase 5 Evidence Graph consumes it
+  directly with no per-engine adapters.
+
+### Modules delivered
+- `v2/investigation/evidence.py`                  — canonical Evidence primitive
+- `v2/investigation/iu/__init__.py`               — public `classify()`
+- `v2/investigation/iu/models.py`                 — `ArtefactType`, `Capability`, `ArtefactClassification`
+- `v2/investigation/iu/engine.py`                 — deterministic multi-artefact scanner + determinism-hash
+- `v2/investigation/iu/detectors/__init__.py`     — `ArtefactDetector` Protocol + registry
+- 6 detectors: `command_line`, `powershell_script`, `bash`, `python`, `javascript`, `vbscript`
+  (structural + weak marker tiers so real analyst intent — e.g.
+  `Sub…End Sub` outranking incidental PS tokens inside a VBA string —
+  is honored)
+
+### Regression coverage
+- **62 IU test cases** validating primary type + embedded[] + dispatch[]
+  + evidence[] + determinism per sample.
+- **Mixed-artefact scenarios verified** (user's explicit requirement):
+  wmic→cmd→ps · ps→js · office-macro→ps · bash→python · ps-encoded-bytes.
+- Engine safety: never raises on empty/None input; every detector
+  honors the ArtefactDetector protocol (registry-contract guardrail).
+- **205/205 tests green** across every workspace-related suite
+  (Phase 2 additive with zero regressions to Phase 1).
+
+### Phase 3 next up — Recursive Decoding Depth
+Per the approved roadmap: expand deterministic decoder chain to cover
+mixed / multi-stage / reflection / compression combinations that
+currently stop one layer short.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-28 (Final) · CRE Verified — Investigation Brain Mission Adopted
 
 ### Engineering direction (from user)
