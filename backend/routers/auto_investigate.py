@@ -172,12 +172,59 @@ def _fallback_encoded_payload(text: str) -> list[dict]:
     }]
 
 
+def _fallback_naked_powershell(text: str) -> list[dict]:
+    """When no command binaries are found and the text isn't a pure
+    base64/hex blob, but still exhibits strong PowerShell markers
+    (`-f` string format + `[String]::Join` + `[char]` reconstruction +
+    `Invoke-Expression`, etc.), synthesise a single `powershell`
+    command whose command_line prepends `powershell.exe -Command` to
+    the script. This lets the /auto-investigate pipeline hand the
+    script off to the ps_semantic analyzer + recursive deobfuscator
+    (locked with SOC user 2026-07-27 so /workspace + /auto-investigate
+    produce identical output for naked-script paste-ins).
+    """
+    stripped = (text or "").strip()
+    if len(stripped) < 20 or len(stripped.encode("utf-8", "ignore")) > 200_000:
+        return []
+    if not _PS_NAKED_MARKER_RE.search(stripped):
+        return []
+    # Prefix with `powershell.exe -Command "..."` — the downstream
+    # `_run_single_command` -> `_ps_semantic_analyze` gate expects a
+    # PS invocation shape.
+    inner = stripped.replace('"', '`"')  # escape inner double quotes PS-style
+    cmdline = f'powershell.exe -NoP -Command "{inner}"'
+    return [{
+        "binary":       "powershell",
+        "command_line": cmdline,
+        "offset":       0,
+    }]
+
+
+# PowerShell markers that trigger the naked-script fallback above.
+# Kept in sync with v2/semantic/ps_semantic.py::_PS_MARKER_RE.
+_PS_NAKED_MARKER_RE = re.compile(
+    r"(?ix)"
+    r"\biex\b|\binvoke-expression\b|\binvoke-webrequest\b|\binvoke-restmethod\b"
+    r"|\[string\]::(?:join|format)\b"
+    r"|\[char\s*\[\s*\]\s*\]|\[char\]\s*\("
+    r"|\[convert\]::(?:toint16|toint32|frombase64string)\b"
+    r"|\[system\.text\.encoding\]::"
+    r"|\[type\]\(\s*['\"]"
+    r"|\bwrite-host\b|\bwrite-output\b|\bset-variable\b|\bnew-object\b"
+    r"|\bget-content\b|\bstart-process\b|\bnew-item\b"
+    r"|\[reflection\.assembly\]|\[activator\]::"
+)
+
+
 def _detect_commands_with_fallback(text: str) -> list[dict]:
     """Public helper — real command detection with fallback to a single
     raw-payload synthetic command when nothing else matches."""
     cmds = _detect_commands(text)
     if cmds:
         return cmds
+    naked_ps = _fallback_naked_powershell(text)
+    if naked_ps:
+        return naked_ps
     return _fallback_encoded_payload(text)
 
 
