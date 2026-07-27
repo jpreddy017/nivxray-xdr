@@ -52,8 +52,8 @@ platform's deploy output and appended here for permanent record.
 
 | Sample | Expected | Result |
 | ------ | -------- | ------ |
-| Atomic IOC (`scwxc.exe`) | `benign · 0` · zero behaviour nodes | `<capture>` |
-| Benign (`Write-Host`) | `benign · 60` · zero behaviour nodes | `<capture>` |
+| Atomic IOC (`scwxc.exe`) | `benign · 0` · zero behaviour nodes | **PASS · 2026-07-27 · verified on `nivxray.nivxforge.com`** |
+| Benign (`Write-Host`) | `benign · 60` · zero behaviour nodes | **PASS · 2026-07-27 · verified on `nivxray.nivxforge.com`** |
 | Download → Execute (`iwr … -OutFile a.exe; Start-Process a.exe`) | `malicious · 93` · `[download, write_file, remote_execution, execute]` | **PASS · 2026-07-27 · verified on `nivxray.nivxforge.com`** |
 | Persistence (`HKCU:\…\Run`) — validate via UI or properly-escaped HTTP | `malicious · 90` · `[persistence]` | **PASS · 2026-07-27 · verified on `nivxray.nivxforge.com`** |
 
