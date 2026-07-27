@@ -1,5 +1,55 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-29 (Corpus-driven refinement) · BITS download-execute pattern locked in
+
+### Delivered — validation-driven refinement per analyst SME review
+- **Gap closed**: the `remote_execution` intent rule now recognises
+  `Invoke-Item` (T1204.002 · User Execution: Malicious File) and
+  `Start-Process` as local-execution primitives. Combined with a
+  fetch primitive (Start-BitsTransfer / DownloadFile / IWR-OutFile)
+  this fires the canonical download-and-execute cradle → **MALICIOUS**
+  verdict, no longer runtime_dependent.
+- **IOC extraction upgraded**: env-variable paths
+  (`$env:temp + '\file.exe'`) and bare quoted executable names are
+  now extracted as `file` IOCs. Also fixed URL regex trailing-quote
+  capture (removed `'` from the URL char-class).
+- **New MITRE technique catalogued**: T1204.002 → "User Execution:
+  Malicious File" so no bare-ID rendering in the Analyst Report.
+- **T11 sample locked into Trust Corpus**: the exact BITS download +
+  Invoke-Item cradle flagged in SME review is now
+  `T11_bits_download_execute.yaml` with expected_verdict=malicious,
+  must_fire_intents=[staging, remote_execution]. Failure of this
+  sample would now fail the CI gate.
+
+### Trust Metrics scorecard (11 samples)
+- **100% Accuracy · 100% Honesty · 100% Explainability ·
+  100% Unknown Handling · 0 hard failures**.
+- Live output on the SME sample:
+  - Verdict: **MALICIOUS · confidence 93** — "*High-risk adversarial
+    intent chain detected: remote_execution + staging*"
+  - Intents: staging (T1197 BITS Jobs) + remote_execution (T1204.002)
+    + runtime_dependent
+  - IOCs: `http://georgeprapas.com/cem/VVZMYLHaSOcblqo.exe`,
+    `scwxc.exe`
+  - MITRE: `T1197 · BITS Jobs`, `T1204.002 · User Execution:
+    Malicious File`
+
+### Regression coverage
+- 326/326 tests green across all workspace suites (7 Trust gate + 12
+  Analyst Report + 27 Verdict/Graph + 43 Semantic Intent + 30 RTE +
+  205 pre-existing baseline).
+
+### Engineering philosophy honoured
+Every SME finding became either a corpus entry (regression sample)
+or a generic rule/pipeline capability improvement — never a
+sample-specific patch. This is the validation-driven improvement
+loop the Trust Metrics harness was built to enable.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-29 (Analyst Report) · Flagship Deterministic MDR Report · SHIPPED
 
 ### Delivered — per user directive, analyst value over feature count

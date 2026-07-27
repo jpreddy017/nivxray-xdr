@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 _MITRE_NAMES: dict[str, str] = {
     "T1105":     "Ingress Tool Transfer",
     "T1197":     "BITS Jobs",
+    "T1204.002": "User Execution: Malicious File",
     "T1027":     "Obfuscated Files or Information",
     "T1059.001": "PowerShell",
     "T1218.005": "Signed Binary Proxy Execution: Mshta",
@@ -49,10 +50,17 @@ _MITRE_NAMES: dict[str, str] = {
 }
 
 
-_URL_RE      = re.compile(r"(?i)\bhttps?://[a-z0-9\-._~%!$&'()*+,;=:@/?#\[\]]+")
+_URL_RE      = re.compile(r"(?i)\bhttps?://[a-z0-9\-._~%!$&()*+,;=:@/?#\[\]]+")
 _IPV4_RE     = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
 _REG_RE      = re.compile(r"(?i)HK(?:LM|CU|CR|U|CC)[:\\][^\s\"'`]+")
 _FILE_RE     = re.compile(r"(?i)\b[A-Z]:\\[^\s\"'`]+")
+# Env-var paths — capture just the filename dropped after the env
+# variable, regardless of intervening whitespace / `+` concatenation.
+_ENV_PATH_RE = re.compile(
+    r"(?i)\$env:(?:temp|appdata|localappdata|programdata|public|userprofile|windir|systemroot)"
+    r"[^\n]{0,80}?\\([A-Za-z0-9._\-]+\.(?:exe|dll|ps1|bat|cmd|vbs|js|hta|scr|msi))"
+)
+_BARE_EXE_RE = re.compile(r"(?i)['\"]([A-Za-z0-9._\-]+\.(?:exe|dll|ps1|bat|cmd|vbs|js|hta|scr|msi))['\"]")
 
 
 # ── Recommendation catalogue — one per intent category, conservative
@@ -138,6 +146,17 @@ def _extract_iocs(intents: list[Intent], effective_payload: str) -> list[IOC]:
     for f in _dedup(_FILE_RE.findall(text_pool)):
         iocs.append(IOC(kind="file", value=f,
                          context="Filesystem path referenced in the payload"))
+    for env_file in _dedup(_ENV_PATH_RE.findall(text_pool)):
+        iocs.append(IOC(kind="file", value=env_file,
+                         context="Filename dropped into an environment-variable path (e.g. %TEMP%)"))
+    # Bare quoted executable names (e.g. "'scwxc.exe'"). Skip anything
+    # already emitted as an env-path finding above.
+    seen_names = {i.value for i in iocs if i.kind == "file"}
+    for name in _dedup(_BARE_EXE_RE.findall(text_pool)):
+        if name in seen_names:
+            continue
+        iocs.append(IOC(kind="file", value=name,
+                         context="Executable / script filename referenced in the payload"))
     return iocs
 
 

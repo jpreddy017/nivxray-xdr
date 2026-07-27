@@ -22,6 +22,12 @@ _EXEC_PRIMITIVES: list[tuple[re.Pattern, str, str]] = [
     (re.compile(r"(?i)\brundll32(?:\.exe)?\b[^\n]*https?://"),  "rundll32 remote",         "T1218.011"),
     (re.compile(r"(?i)\bregsvr32(?:\.exe)?\b[^\n]*/i:https?://"), "regsvr32 remote",       "T1218.010"),
     (re.compile(r"(?i)\b\.Invoke\s*\("),                        "reflective .Invoke()",    "T1059.001"),
+    # Local execution of a downloaded artefact — Invoke-Item, Start-Process,
+    # or bare call operator `& $path`. Combined with a fetch primitive
+    # (see _FETCH_MARKER) this is the canonical download-and-execute cradle
+    # even when the interpreter is not another script host.
+    (re.compile(r"(?i)\bInvoke-Item\b"),                        "Invoke-Item",             "T1204.002"),
+    (re.compile(r"(?i)\bStart-Process\b"),                      "Start-Process",           "T1204.002"),
 ]
 
 _FETCH_MARKER = re.compile(
