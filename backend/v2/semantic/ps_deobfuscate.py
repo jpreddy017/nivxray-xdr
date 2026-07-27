@@ -1299,6 +1299,130 @@ def _resolve_reflection(txt: str, stages: list[Stage],
                           # boundary detector still surfaces it.
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  PHASE 3 · Cluster G — Dynamic invocation, [Type]::GetType, env-var reconstruction
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Dynamic method invocation:
+#   $m = $obj.GetType().GetMethod("Foo"); $m.Invoke($obj, @($a, $b))
+_DYNAMIC_INVOKE_RE = re.compile(
+    r"(?ixs)"
+    r"\.\s*gettype\s*\(\s*\)\s*\.\s*getmethod\s*\(\s*['\"]([^'\"]{1,80})['\"]\s*\)"
+    r".{0,400}?"
+    r"\.\s*invoke\s*\("
+)
+
+
+def _resolve_dynamic_method_invocation(txt: str, stages: list[Stage],
+                                          r: "DeobfuscationReport") -> tuple[str, bool]:
+    if any(s.unsupported_reason == KnownUnsupportedReason.DYNAMIC_EXECUTION
+            and "GetMethod" in s.evidence
+            for s in stages):
+        return txt, False
+    m = _DYNAMIC_INVOKE_RE.search(txt)
+    if not m:
+        return txt, False
+    method_name = m.group(1)
+    stages.append(Stage(
+        n=len(stages) + 1,
+        technique="Dynamic method invocation detected",
+        evidence=(f"Runtime reflection via `GetType().GetMethod('{method_name}')."
+                   "Invoke(...)`. NivXRay does not follow dynamic invocations — "
+                   "the branch is classified without fabricating output."),
+        before=m.group(0)[:120], after="",
+        status="encryption_detected",
+        unsupported_reason=KnownUnsupportedReason.DYNAMIC_EXECUTION,
+        confidence=90,
+    ))
+    r.unsupported_reasons.append({
+        "reason":    KnownUnsupportedReason.DYNAMIC_EXECUTION,
+        "evidence":  f"GetType().GetMethod('{method_name}').Invoke(...)",
+        "component": "dynamic_method_invocation",
+    })
+    return txt, False
+
+
+# [Type]::GetType("literal") — replace with the resolved type name so
+# downstream regexes can see it. Dynamic argument → dynamic_execution.
+_TYPE_GETTYPE_LITERAL_RE = re.compile(
+    r"(?ixs)"
+    r"\[\s*type\s*\]\s*::\s*gettype\s*\(\s*(['\"])([^'\"]{3,120})\1\s*\)"
+)
+_TYPE_GETTYPE_DYNAMIC_RE = re.compile(
+    r"(?ixs)"
+    r"\[\s*type\s*\]\s*::\s*gettype\s*\(\s*(\$\w+)\s*\)"
+)
+
+
+def _resolve_type_gettype(txt: str, stages: list[Stage],
+                            r: "DeobfuscationReport") -> tuple[str, bool]:
+    m = _TYPE_GETTYPE_LITERAL_RE.search(txt)
+    if m:
+        typename = m.group(2)
+        replacement = f"'{typename}'"
+        txt = txt[:m.start()] + replacement + txt[m.end():]
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="Resolve [Type]::GetType (literal)",
+            evidence=(f"Statically resolved `[Type]::GetType('{typename[:60]}')` "
+                       "to its typename literal."),
+            before=m.group(0)[:80], after=typename[:80],
+            confidence=95,
+        ))
+        return txt, True
+    m = _TYPE_GETTYPE_DYNAMIC_RE.search(txt)
+    if m:
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique="[Type]::GetType · dynamic argument",
+            evidence=(f"`[Type]::GetType({m.group(1)})` — argument comes from "
+                       "a runtime variable. Refusing to resolve dynamically."),
+            before=m.group(0)[:80], after="",
+            status="encryption_detected",
+            unsupported_reason=KnownUnsupportedReason.DYNAMIC_EXECUTION,
+            confidence=85,
+        ))
+        r.unsupported_reasons.append({
+            "reason":    KnownUnsupportedReason.DYNAMIC_EXECUTION,
+            "evidence":  f"[Type]::GetType({m.group(1)})",
+            "component": "type_gettype",
+        })
+        # Neutralize so we don't re-emit next iteration.
+        txt = txt[:m.start()] + "'__nvx_type_dynamic__'" + txt[m.end():]
+        return txt, True
+    return txt, False
+
+
+# Environment variable reconstruction: `$env:FOO`, `[Environment]::GetEnvironmentVariable("FOO")`
+# The value is NEVER substituted — we surface `environment_dependent` in the
+# unsupported_reasons list so the analyst knows this branch depends on
+# runtime state.
+_ENV_VAR_RE = re.compile(
+    r"(?i)"
+    r"(?:\$env:(\w{1,64})"
+    r"|\[\s*environment\s*\]\s*::\s*getenvironmentvariable\s*\(\s*['\"]([^'\"]{1,64})['\"]\s*\))"
+)
+
+
+def _detect_env_var_reconstruction(txt: str,
+                                       r: "DeobfuscationReport") -> None:
+    """Non-mutating scan — surfaces `environment_dependent` for every
+    unique env-var reference. Never rewrites the text."""
+    seen: set[str] = {u["evidence"] for u in r.unsupported_reasons
+                       if u.get("component") == "env_var_reconstruction"}
+    for m in _ENV_VAR_RE.finditer(txt):
+        name = m.group(1) or m.group(2) or ""
+        ev = f"$env:{name}" if m.group(1) else f"GetEnvironmentVariable({name!r})"
+        if ev in seen:
+            continue
+        seen.add(ev)
+        r.unsupported_reasons.append({
+            "reason":    KnownUnsupportedReason.ENVIRONMENT_DEPENDENT,
+            "evidence":  ev,
+            "component": "env_var_reconstruction",
+        })
+
+
 # ── Boundary detection ───────────────────────────────────────────
 _BOUNDARY_RE = re.compile(
     r"\b(invoke-expression|iex|invoke-command|start-process|"
@@ -1354,6 +1478,9 @@ def deobfuscate(script: str) -> DeobfuscationReport:
         current, _ = _resolve_scriptblock_create(current, r.stages, r)
         current, _ = _resolve_invoke_command(current, r.stages)
         current, _ = _resolve_reflection(current, r.stages, r)
+        # ── Phase 3 Batch 2 · Cluster G ─────────────────────────
+        current, _ = _resolve_type_gettype(current, r.stages, r)
+        current, _ = _resolve_dynamic_method_invocation(current, r.stages, r)
         if current == prev:
             r.stopped_reason = "fixed_point (no further deterministic transforms)"
             hit_max = False
@@ -1374,6 +1501,9 @@ def deobfuscate(script: str) -> DeobfuscationReport:
     # whose key comes from env/network/user/random, log a metadata stage
     # and leave the ciphertext intact for the analyst.
     _detect_runtime_key_boundary(current, r.stages, r)
+    # Environment-variable reconstruction — surface every $env:X reference
+    # in the report's unsupported_reasons without substituting live values.
+    _detect_env_var_reconstruction(current, r)
 
     # After the loop, check if a true execution boundary remains
     boundary = _detect_boundary(current)
