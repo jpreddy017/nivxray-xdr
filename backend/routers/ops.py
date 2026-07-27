@@ -1597,6 +1597,30 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # in a mis-configured pod; downstream code paths are unaffected.
         log.exception("RC5 stub emission failed (safe to ignore during Phase 1)")
 
+    # ── Phase 9.4 · Semantic Intelligence (2026-07-27) ────────────────
+    # Mirror the /v2/auto-investigate contract on /decode/smart so the
+    # classic Workspace sees the SAME recursive deobfuscation +
+    # Behavior Storyline + Semantic Intelligence panels as
+    # Auto-Investigate. Never break the endpoint on failure — the field
+    # is intentionally best-effort.
+    try:
+        from v2.semantic.ps_semantic import analyze as _ps_semantic_analyze
+        # Analyze the ORIGINAL raw input so PowerShell -EncodedCommand
+        # blobs, -f/-join concatenation, and octal char[] reconstructions
+        # are all discovered by the semantic engine (which does its own
+        # decode + recursive deobfuscation internally).
+        _sr = _ps_semantic_analyze(body.input or "")
+        if _sr and _sr.detected:
+            result["semantic"] = _sr.to_dict()
+        else:
+            # Emit an empty semantic block so the frontend can rely on
+            # the KEY existing (matches Auto-Investigate's contract).
+            result.setdefault("semantic", {})
+    except Exception:  # noqa: BLE001
+        log.exception("ps_semantic analyze on /decode/smart failed "
+                       "(safe — semantic block set to empty)")
+        result.setdefault("semantic", {})
+
     return result
 
 

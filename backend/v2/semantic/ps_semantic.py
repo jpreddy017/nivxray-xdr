@@ -497,7 +497,30 @@ def format_summary_block(sr: "SemanticResult") -> str:
 def analyze(cmdline: str) -> SemanticResult:
     """Full deterministic semantic pass over a PowerShell command line."""
     r = SemanticResult()
-    if not cmdline or not re.search(r"powershell", cmdline, re.I):
+    if not cmdline:
+        return r
+    # Detect PowerShell content by more than just the literal word
+    # `powershell` — analysts frequently paste naked scripts (no
+    # `powershell.exe` wrapper) using String.Format `-f`, `[String]::Join`,
+    # `[Convert]::ToInt16`, `Invoke-Expression`, or cmdlet patterns like
+    # `Verb-Noun`. Any strong PowerShell marker triggers analysis so the
+    # Workspace and Auto-Investigate produce the same output on the same
+    # sample (2026-07-27 · SOC user).
+    _PS_MARKER_RE = re.compile(
+        r"(?ix)"
+        r"\bpowershell(?:\.exe)?\b"                          # explicit exe
+        r"|-encodedcommand\b|-enc\b|-ec\b"                    # encoded-command flags
+        r"|\biex\b|\binvoke-expression\b|\binvoke-webrequest\b|\binvoke-restmethod\b"
+        r"|\[string\]::(?:join|format)\b"                     # .NET String static ops
+        r"|\[char\s*\[\s*\]\s*\]|\[char\]\s*\("                # char[] / [char]( ... )
+        r"|\[convert\]::(?:toint16|toint32|frombase64string)\b"
+        r"|\[system\.text\.encoding\]::"                       # PS-specific .NET path
+        r"|\[type\]\(\s*['\"]"                                 # [Type]("Foo") type coercion
+        r"|\bwrite-host\b|\bwrite-output\b|\bset-variable\b|\bnew-object\b"
+        r"|\bget-content\b|\bstart-process\b|\bnew-item\b"
+        r"|\[reflection\.assembly\]|\[activator\]::"
+    )
+    if not _PS_MARKER_RE.search(cmdline):
         return r
     encoded_blob = extract_encoded_blob(cmdline)
     encoded = encoded_blob is not None
@@ -597,6 +620,20 @@ def analyze(cmdline: str) -> SemanticResult:
                 trace.add("bare_ps_extract", status="failed",
                           reason=f"raw tail after `powershell.exe` rejected: {why}",
                           input_val=cmdline)
+        # Naked PowerShell — no `powershell.exe` wrapper. Analysts often
+        # paste scripts directly. Accept the raw cmdline as the script
+        # when it exhibits strong PowerShell markers (locked with SOC
+        # user 2026-07-27 so /workspace matches /auto-investigate).
+        if script is None:
+            candidate = (cmdline or "").strip()
+            ok, why = _looks_like_powershell(candidate, min_len=3)
+            if ok:
+                script = candidate
+                trace.add("naked_ps_extract", status="applied",
+                          reason=("No `powershell.exe` wrapper detected — "
+                                  "treating the raw input as a naked "
+                                  "PowerShell script."),
+                          input_val=cmdline, output_val=script)
         if script is None:
             r.decode_outcome = "unsupported_encoding"
             trace.skipped("ps_ast_parser",

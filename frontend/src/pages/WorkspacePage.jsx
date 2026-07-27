@@ -16,8 +16,8 @@ import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
 import { buildFallbackGraph } from "@/lib/fallbackGraph";
 import GuidanceBanner, { getGuidanceGlowStyle } from "@/components/GuidanceBanner";
-import SocVerdictPanel from "@/components/SocVerdictPanel";
-import VerdictCard from "@/components/VerdictCard";
+import SocVerdictPanel from "@/components/SocVerdictPanel";import VerdictCard from "@/components/VerdictCard";
+import SemanticIntelligencePanel from "@/components/investigation/SemanticIntelligencePanel";
 import AnalystQuickActions from "@/components/AnalystQuickActions";
 import AnalystResults from "@/components/AnalystResults";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
@@ -99,6 +99,10 @@ export default function WorkspacePage() {
   const [showMoePanel, setShowMoePanel] = useState(false);
   // Predicted process tree (fed to both ProcessTreeView + SocVerdictPanel mini)
   const [predictedTree, setPredictedTree] = useState(null);
+  // Phase 9.4 · Semantic Intelligence — mirrors Auto-Investigate contract so
+  // the Workspace surfaces the SAME recursive deobfuscation +
+  // Behavior Storyline + Semantic panels as /auto-investigate.
+  const [semantic, setSemantic] = useState(null);
   // Learning Feedback Loop
   const [boost, setBoost] = useState(null);
   const [boostHit, setBoostHit] = useState(false);
@@ -492,6 +496,7 @@ export default function WorkspacePage() {
     // the next test. Previously CLEAR only reset input & trace, leaving
     // the previous verdict card and analysis blob visible.
     setVerdictCard(null);
+    setSemantic(null);
     try { localStorage.removeItem("nvx.pendingInput"); } catch {}
   };
 
@@ -641,6 +646,7 @@ export default function WorkspacePage() {
       setDecodeWinnerEngine(d.engine || null);
       setDecodeConfidence(d.confidence ?? null);
       setReachedShellcode(!!d.reached_shellcode);
+      setSemantic(d.semantic || null);
       // Wipe stale chain-aggregated analysis so ATT&CK / IOC panels re-derive from single blob.
       setAnalysis({
         iocs: d.iocs || {},
@@ -712,6 +718,7 @@ export default function WorkspacePage() {
       setDecodeWinnerEngine(eng);
       setBoost(r.data.boost || null);
       setBoostHit(!!r.data.boost_hit);
+      setSemantic(r.data.semantic || null);
       setNivxrayTrace([...trace]);
       // v1.5.1 — populate analysis with Zero-Miss escalation ladder so the
       // EscalationLadder component renders immediately on primary decode
@@ -1047,6 +1054,7 @@ export default function WorkspacePage() {
       setDecodeWinnerEngine(r.data.engine || null);
       setDecodeConfidence(r.data.confidence ?? null);
       setReachedShellcode(!!r.data.reached_shellcode);
+      setSemantic(r.data.semantic || null);
       // P0.2 · RC2.9 — surface the backend verdict card immediately so
       // the top "Analysis Verdict" panel populates from the deterministic
       // decode step, not just after the async /analyze job finishes.
@@ -1742,6 +1750,17 @@ export default function WorkspacePage() {
         decodeConfidence={decodeConfidence}
         analysis={analysis}
       />
+
+      {/* ▲ Phase 9.4 · Semantic Intelligence (2026-07-27) — mounts the
+          SAME recursive deobfuscation + Behavior Storyline + Semantic
+          panels that /auto-investigate uses, so both entry points give
+          the analyst the identical evidence-driven experience. Consumes
+          `r.data.semantic` from /decode/smart. */}
+      {semantic && (
+        <div data-testid="workspace-semantic-intelligence">
+          <SemanticIntelligencePanel semantic={semantic} chainIndex={0} />
+        </div>
+      )}
 
       {/* RC3.1 · IR HANDOFF EXPORT — downloadable SOC brief from the
           Verdict header. Backend already exposes /api/v2/analyze/report
