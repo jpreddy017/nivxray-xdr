@@ -18,6 +18,7 @@ import { buildFallbackGraph } from "@/lib/fallbackGraph";
 import GuidanceBanner, { getGuidanceGlowStyle } from "@/components/GuidanceBanner";
 import SocVerdictPanel from "@/components/SocVerdictPanel";import VerdictCard from "@/components/VerdictCard";
 import SemanticIntelligencePanel from "@/components/investigation/SemanticIntelligencePanel";
+import InvestigationBrainPanel from "@/components/investigation/InvestigationBrainPanel";
 import AnalystQuickActions from "@/components/AnalystQuickActions";
 import AnalystResults from "@/components/AnalystResults";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
@@ -103,6 +104,8 @@ export default function WorkspacePage() {
   // the Workspace surfaces the SAME recursive deobfuscation +
   // Behavior Storyline + Semantic panels as /auto-investigate.
   const [semantic, setSemantic] = useState(null);
+  // Phase 4 · Unified Investigation Brain payload (IU → CRE → RTE → Intent)
+  const [investigation, setInvestigation] = useState(null);
   // Learning Feedback Loop
   const [boost, setBoost] = useState(null);
   const [boostHit, setBoostHit] = useState(false);
@@ -497,6 +500,7 @@ export default function WorkspacePage() {
     // the previous verdict card and analysis blob visible.
     setVerdictCard(null);
     setSemantic(null);
+    setInvestigation(null);
     try { localStorage.removeItem("nvx.pendingInput"); } catch {}
   };
 
@@ -658,6 +662,7 @@ export default function WorkspacePage() {
       setDecodeConfidence(d.confidence ?? null);
       setReachedShellcode(!!d.reached_shellcode);
       setSemantic(d.semantic || null);
+      setInvestigation(d.investigation || null);
       // Wipe stale chain-aggregated analysis so ATT&CK / IOC panels re-derive from single blob.
       setAnalysis({
         iocs: d.iocs || {},
@@ -745,6 +750,7 @@ export default function WorkspacePage() {
       setBoost(r.data.boost || null);
       setBoostHit(!!r.data.boost_hit);
       setSemantic(r.data.semantic || null);
+      setInvestigation(r.data.investigation || null);
       setNivxrayTrace([...trace]);
       // v1.5.1 — populate analysis with Zero-Miss escalation ladder so the
       // EscalationLadder component renders immediately on primary decode
@@ -1100,6 +1106,7 @@ export default function WorkspacePage() {
       setDecodeConfidence(r.data.confidence ?? null);
       setReachedShellcode(!!r.data.reached_shellcode);
       setSemantic(r.data.semantic || null);
+      setInvestigation(r.data.investigation || null);
       // P0.2 · RC2.9 — surface the backend verdict card immediately so
       // the top "Analysis Verdict" panel populates from the deterministic
       // decode step, not just after the async /analyze job finishes.
@@ -1795,6 +1802,16 @@ export default function WorkspacePage() {
         decodeConfidence={decodeConfidence}
         analysis={analysis}
       />
+
+      {/* ▲ Phase 4 · Unified Investigation Brain (2026-07-29) —
+          renders the IU → CRE → RTE → Intent pipeline as a single
+          investigation flow. Consumes `r.data.investigation` from
+          /decode/smart. */}
+      {investigation && (
+        <div data-testid="workspace-investigation-brain">
+          <InvestigationBrainPanel investigation={investigation} />
+        </div>
+      )}
 
       {/* ▲ Phase 9.4 · Semantic Intelligence (2026-07-27) — mounts the
           SAME recursive deobfuscation + Behavior Storyline + Semantic

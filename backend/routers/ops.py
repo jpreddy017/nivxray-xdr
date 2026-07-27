@@ -1633,6 +1633,20 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                        "(safe — semantic block set to empty)")
         result.setdefault("semantic", {})
 
+    # ── Phase 4 · Unified Investigation Brain (2026-07-29) ────────────
+    # Attach the IU → CRE → RTE → Intent output as a single first-class
+    # field so the Workspace UI (and the Evidence Graph) can consume one
+    # homogeneous payload. Additive — the field is best-effort and never
+    # breaks the endpoint.
+    try:
+        from v2.investigation.pipeline import investigate as _run_investigation
+        _inv = _run_investigation(body.input or "")
+        result["investigation"] = _inv.to_dict()
+    except Exception:  # noqa: BLE001
+        log.exception("investigation pipeline on /decode/smart failed "
+                       "(safe — investigation block omitted)")
+        result.setdefault("investigation", None)
+
     return result
 
 

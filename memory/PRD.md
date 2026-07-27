@@ -1,5 +1,112 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-29 (Phase 4) · Semantic Intent Layer + Unified Investigation Pipeline · SHIPPED
+
+### Delivered — every directive from the user honoured
+- **Semantic Intent Layer** (`v2/investigation/intent/`): translates
+  low-level syntax findings into analyst-facing intent. Instead of
+  "Uses DownloadString", the Brain now says:
+  > **Purpose**: Retrieve additional content from a remote source via
+  > `WebClient.DownloadString`. The retrieved content becomes the next
+  > stage of execution.
+  > **Risk**: HIGH.
+  > **Rationale**: Fetch primitive detected in the effective payload —
+  > the artefact is staging further code. Final behaviour depends on
+  > what the remote source returns.
+  > **Evidence**: `DownloadString()` invocation + remote URL.
+- **7 canonical intent rules** shipped:
+  `staging`, `remote_execution`, `defense_evasion`, `discovery`,
+  `persistence`, `credential_access`, `runtime_dependent`. Every rule
+  is a pluggable one-file module; adding a new intent category is a
+  one-file change.
+- **Runtime-dependent outcomes stay unknown** — the `RUNTIME_DEPENDENT`
+  intent MUST use `RiskBand.UNKNOWN`. The Brain never fabricates
+  certainty about behaviour it cannot know statically (locked as
+  regression invariant).
+- **Unified Investigation Pipeline** (`v2/investigation/pipeline.py`):
+  single `investigate(text)` entry point orchestrating
+  `IU → CRE → RTE → Intent` as one flow. Returns a homogeneous
+  `InvestigationResult` — analysts and downstream engines never need
+  to know the individual stages are separate.
+- **Workspace UI integration** — new `InvestigationBrainPanel`
+  component renders the full pipeline as a single investigation flow
+  (four numbered sections, one determinism hash, per-intent Evidence
+  drill-down). Mounted on the Workspace above the legacy Semantic
+  Intelligence panel; wired to the additive `investigation` field on
+  `/api/decode/smart`.
+
+### Modules delivered
+- `v2/investigation/intent/__init__.py`             — public `assess()`
+- `v2/investigation/intent/models.py`               — `Intent`, `IntentAssessment`, `IntentCategory`, `RiskBand`
+- `v2/investigation/intent/engine.py`               — deterministic rule orchestrator + determinism hash
+- `v2/investigation/intent/rules/__init__.py`       — `IntentRule` Protocol + registry
+- 7 pluggable rules: `staging`, `remote_execution`, `defense_evasion`,
+  `discovery`, `persistence`, `credential_access`, `runtime_dependent`
+- `v2/investigation/pipeline.py`                    — unified `investigate()` orchestrator
+- `routers/ops.py`                                  — additive `investigation` field on `/decode/smart`
+- `frontend/src/components/investigation/InvestigationBrainPanel.jsx` — unified Brain panel
+
+### Regression coverage
+- **43 Phase 4 tests**: 34 golden-sample tests (10 samples × 3 dimensions)
+  + 8 pipeline tests + 1 registry-contract test.
+- Invariants locked:
+  1. every Intent carries at least one canonical `Evidence` object,
+  2. `RUNTIME_DEPENDENT` always uses `RiskBand.UNKNOWN`,
+  3. intents ordered by descending confidence for determinism,
+  4. identical input yields byte-identical `determinism_hash`,
+  5. benign inputs (Get-Process etc.) never fire adversarial intents,
+  6. pipeline serialises to a JSON-safe dict with every stage's proof.
+- **278/278 tests green** across every workspace-related suite
+  (43 new Phase 4 + 235 pre-existing Phase 1 CRE + Phase 2 IU + Phase 3 RTE
+  + workspace audit + corpus + deobfuscator + storyline + perf CI).
+- Live end-to-end verified via `/api/decode/smart` — the WMIC → CMD →
+  PowerShell EncodedCommand → download-cradle sample produces the
+  full IU + CRE + RTE + Intent payload with `staging`,
+  `remote_execution`, and `runtime_dependent` intents fired.
+
+### Analyst experience
+The Workspace now renders every investigation as ONE flow:
+```
+1 · INPUT UNDERSTANDING  →  What is this?
+        ↓
+2 · COMMAND RECONSTRUCTION  →  What will actually execute?
+        ↓
+3 · RECURSIVE TRANSFORMATION  →  Reveal the hidden payload
+        ↓
+4 · SEMANTIC INTENT  →  Why does it matter?
+```
+
+### Roadmap update
+- ✅ **Phase 1 · CRE**  — Command Reconstruction
+- ✅ **Phase 2 · IU**   — Input Understanding
+- ✅ **Phase 3 · RTE**  — Recursive Transformation Engine
+- ✅ **Phase 4 · Intent** — Semantic Intent Layer (this delivery)
+- 🟡 **Phase 5 · Evidence Graph** — homogeneous DAG over canonical Evidence
+- 🟡 **Phase 6 · Behavior Correlation** — attack-chain reasoning
+- 🟡 **Deferred · Execution Simulation** (per user directive)
+- 🟡 **Phase 7 · Self-Validation**
+- 🟡 **Phase 8 · Analyst Report Generation**
+
+### Engineering philosophy honoured
+Every intent rule was chosen because it maps directly to what an
+analyst asks when triaging a suspicious script:
+    "Is it fetching more code?"   → STAGING
+    "Is it running that code?"    → REMOTE_EXECUTION
+    "Is it hiding from us?"       → DEFENSE_EVASION
+    "Is it looking around?"       → DISCOVERY
+    "Will it stick around?"       → PERSISTENCE
+    "Is it after credentials?"    → CREDENTIAL_ACCESS
+    "Do we know what it does?"    → RUNTIME_DEPENDENT (honest unknown)
+
+No new RTE plugins were added this session — per the user directive,
+transformation plugins will only be built when real-world samples
+prove a genuine gap.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-29 (Phase 3) · Recursive Transformation Engine (RTE) · SHIPPED
 
 ### Delivered — every architectural directive from the user honoured
