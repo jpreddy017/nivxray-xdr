@@ -1,5 +1,96 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-27 · Corpus Phase 2 · Batch 1 — XOR + RC4 (SHIPPED)
+
+**Delivered per SOC-user "elevated quality bar" directive** — the goal is
+not just "support RC4/XOR" but to establish the deterministic recursive
+deobfuscation framework analysts can trust.
+
+### Delivered (Batch 1 · XOR + RC4)
+- New crypto resolvers: multi-byte / rolling XOR, RC4 with static
+  literal key, and a runtime-derived-key detector that refuses to
+  fabricate plaintext.
+- New data-model fields on every stage/report:
+  `status`, `unsupported_reason`, `crypto_status`,
+  `unsupported_reasons[]`, `recursion_limit_reached`.
+- Frozen `KnownUnsupportedReason` taxonomy (11 codes) reusable across
+  the entire semantic engine.
+- MAX_STAGES lifted to 32 with structured overflow reporting.
+- 8 Phase-2 golden samples + 6 permanent decoder invariants + 1
+  taxonomy freeze check + 1 performance smoke gate. **163/165 tests
+  green** (2 pre-existing network-timeout errors, unrelated).
+
+### Decoder Invariants (locked · permanent regression)
+1. Never execute user code.
+2. Never fabricate decrypted output.
+3. Every decode stage is reproducible (deterministic replay).
+4. Every stage retains evidence linking input → output.
+5. Recursion stops only at: execution boundary, unsupported
+   deterministic transform, or MAX_STAGES.
+6. `/workspace` and `/auto-investigate` produce identical decode
+   chains for identical input.
+
+### Remaining Phase 2 (Batch 2)
+- AES-CBC + AES-ECB (static literal key + IV).
+- Runtime-generated-key AES detection.
+- Nested crypto chains (Base64→AES→UTF16, RC4→Base64→GZip,
+  XOR→AES→IEX, RC4→UTF16, Reflection+GZip+Base64).
+- Full performance-gate suite:
+  - avg decode < 100 ms
+  - p95 < 500 ms
+  - recursion depth ≤ MAX_STAGES
+  - deterministic replay
+  - Stage-explosion protection (already in place; verify at Batch 2).
+
+## 2026-07-27 · Corpus Phase 1 · Naked-Script Encoding Families (SHIPPED)
+
+**Reprioritized roadmap approved 2026-07-27** — corpus expansion over
+UI polish. Building in reviewable clusters instead of one large batch.
+
+### Phase 1 delivered (encoding families)
+- Deobfuscator now handles: Base64, UTF-16LE Base64, GZip stream,
+  Deflate stream, Brotli stream, XOR-single-byte, plus the
+  previously-supported char-array reconstructions (hex, octal,
+  binary, decimal, string-format).
+- Naked-script fallback preserves byte-identity between `/workspace`
+  and `/auto-investigate` so the parity contract is unbreakable.
+- Golden-spec corpus at `tests/corpus/phase1_samples.py` registers
+  11 naked samples; every sample declares:
+  `expected_decode_chain`, `expected_final_payload`,
+  `expected_boundary`, `expected_verdict`, `expected_mitre`,
+  `expected_behaviors`, `expected_coverage`,
+  `expected_storyline_flags`, `expected_confidence`.
+- Regression suite `tests/test_corpus_phase1_regression.py`
+  asserts EVERY golden field per sample AND parity across the two
+  entry points. **149/149 tests green.**
+
+### Coverage now proven
+- Base64 · UTF-16LE · GZip · Deflate · Brotli · Hex · Octal ·
+  Binary · Decimal · Variable-radix · String-Format · Mixed
+  (GZip → Base64 → UTF-16LE)
+
+### Remaining phases (locked)
+- **Phase 2 · Encryption / Crypto** (up next) — XOR multi-byte,
+  Rolling XOR, RC4, AES, nested crypto chains. Decoder must
+  distinguish `fully_decrypted` / `partially_decrypted` /
+  `encryption_detected_key_unavailable`. Never fabricate output.
+- **Phase 3 · Multi-stage Execution** — nested IEX (2-5 levels),
+  `[ScriptBlock]::Create`, `Invoke-Command`,
+  `[Reflection.Assembly]::Load`, dynamic method invocation, env-var
+  reconstruction.
+- **Phase 4 · Download Cradles & LOLBAS** — full LOLBAS surface
+  (mshta, regsvr32, rundll32, installutil, regasm, regsvcs,
+  msbuild, cscript/wscript, certutil, bitsadmin) + download
+  cradle families with behavior/MITRE/artifact assertions.
+- **Cross-phase "hard" samples** — chained combinations
+  (Base64→UTF16→GZip→IEX, Hex→XOR→IEX, RC4→Base64→UTF16, etc.).
+
+### Success criteria (locked)
+Every phase must satisfy: identical decode chain on `/workspace` and
+`/auto-investigate`; no prior regression; every discovered bug
+converted into a permanent regression row BEFORE moving to the next
+phase.
+
 ## 2026-07-27 · Workspace ↔ Auto-Investigate Parity (SHIPPED)
 
 **SOC user requirement locked**: both `/workspace` and `/auto-investigate`

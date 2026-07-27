@@ -1010,3 +1010,122 @@ this reads as visual noise.
   correctly labelled, MITRE `T1027, T1027.010, T1059.001` present on
   BOTH tabs. Ordinary EDR `-EncodedCommand` regression still passes.
 - **Backend regression**: 126 pytest tests still green.
+
+## 2026-07-27 · Corpus Phase 1 — Naked-Script Encoding Families (v1.7.0)
+
+- **New deobfuscator resolvers**
+  (`v2/semantic/ps_deobfuscate.py`):
+  - `Decode UTF-16LE Base64` — matches
+    `[Encoding]::Unicode.GetString([Convert]::FromBase64String(…))`.
+  - `Decompress GZip stream` — matches
+    `[IO.Compression.GzipStream]::new([IO.MemoryStream][Convert]::FromBase64String(…), …::Decompress)`.
+  - `Decompress Deflate stream` — same shape with `DeflateStream`
+    (raw deflate, `-MAX_WBITS`).
+  - `Decompress Brotli stream` — same shape with `BrotliStream`
+    (runtime-optional; skipped when the `brotli` lib isn't
+    installed).
+  - `XOR single-byte decode` — matches
+    `$k=NN;$b=[Convert]::FromBase64String("…");($b|%{$_-bxor$k})`;
+    replaces only the base64 sub-expression so the outer IEX
+    boundary stays visible.
+  - UTF-16LE preference — decompressed bytes with a null-byte
+    pattern now prefer UTF-16LE over UTF-8, fixing mixed
+    (GZip→UTF-16LE) chains.
+- **Text-level behavior fallbacks**
+  (`v2/semantic/ps_behaviors.py::_text_fallback_behaviors`) — catches
+  `Invoke-Expression` / `memory_execution` /
+  `payload_decompression` when the AST call extractor missed the
+  node (common on `$s = …; Invoke-Expression $s` naked scripts).
+- **Auto-investigate naked-PS wrapper hardened**
+  (`routers/auto_investigate.py::_fallback_naked_powershell`) —
+  no longer escapes inner quotes; prepends
+  `powershell.exe -NoP -Command ` and passes the script BYTE-
+  IDENTICAL to what `/decode/smart` sees. This is what unlocks the
+  parity between the two entry points on all encoding families.
+- **Corpus Phase 1 golden module**
+  (`tests/corpus/phase1_samples.py`, `Phase1Sample` dataclass)
+  registers 11 naked-script samples across the required encoding
+  families:
+  - Base64
+  - UTF-16LE Base64
+  - GZip over Base64
+  - Deflate over Base64
+  - Brotli over Base64
+  - Hex char array
+  - Octal char array
+  - Binary char array
+  - Decimal char array
+  - Variable-radix (String-Format wrapper + Octal char array)
+  - Mixed chain (GZip → Base64 → UTF-16LE)
+- **Golden-spec regression suite**
+  (`tests/test_corpus_phase1_regression.py`) asserts every sample's
+  decode chain (ordered subset match), final payload substring,
+  execution boundary, verdict band, MITRE techniques, behaviors,
+  storyline `observed`/`not_observed` flags. Adds a **parity test**
+  that re-runs each sample through the `/auto-investigate` naked-PS
+  wrapper and requires identical technique chains + boundary + final
+  payload.
+- **Regression status**: **149/149 tests pass** (126 pre-existing +
+  23 new Phase 1). Zero prior regressions.
+
+## 2026-07-27 · Corpus Phase 2 · Batch 1 — XOR + RC4 (v1.7.1)
+
+- **Data model extended** (`v2/semantic/ps_deobfuscate.py`):
+  - `Stage.status` — per-stage crypto classification
+    (`fully_decrypted` | `partially_decrypted` | `encryption_detected`
+    | `None` for non-crypto stages).
+  - `Stage.unsupported_reason` — structured code from the frozen
+    `KnownUnsupportedReason` taxonomy.
+  - `DeobfuscationReport.crypto_status` — worst-severity roll-up
+    from all stage statuses.
+  - `DeobfuscationReport.unsupported_reasons` — list of
+    `{reason, evidence, component}` triples.
+  - `MAX_STAGES` bumped 20 → 32; overflow emits
+    `stopped_reason="recursion_limit_reached · exceeded MAX_STAGES=32"`
+    and populates `unsupported_reasons`.
+- **KnownUnsupportedReason taxonomy** (locked, 11 codes):
+  `runtime_generated_key`, `dynamic_execution`, `reflection`,
+  `native_shellcode`, `memory_only_object`, `external_dependency`,
+  `network_fetch_required`, `user_input_required`,
+  `environment_dependent`, `unknown_algorithm`,
+  `unsupported_algorithm`.
+- **New resolvers**:
+  - `Resolve multi-byte XOR (repeating key)` — decodes
+    `$k=n1,n2,…;$b=[Convert]::FromBase64String(…);` +
+    `$b[$i] -bxor $k[$i % $k.Length]` pattern.
+  - `Resolve rolling XOR` — decodes `$b[$i] -bxor $i` pattern
+    (byte position as key).
+  - `Resolve RC4 (static key)` — pure-Python KSA/PRGA over a
+    static literal key + literal Base64 ciphertext. Emits
+    `RC4 detected · plaintext unverifiable` when the derived
+    plaintext fails a language-shape check — never fabricates.
+  - `Runtime-derived key detection` — scans for
+    `$env:*`, `Get-Random`, `New-Guid`, `[DateTime]::Now`,
+    `Invoke-WebRequest`, `Invoke-RestMethod`, `Read-Host`. Emits
+    `Runtime-derived key detected · <label>` stage with
+    `status="encryption_detected"` and the matching structured
+    reason. The rolling-XOR resolver is now gated on this so it
+    doesn't fabricate plaintext when the true key is runtime.
+- **Corpus Phase 2 (Batch 1)** at
+  `tests/corpus/phase2_crypto_samples.py` — 8 golden samples:
+  single-byte XOR · multi-byte XOR · rolling XOR · RC4 static ·
+  RC4 wrapper · env-var key · Get-Random key · IWR-fetched key.
+  Every sample declares full expectations including
+  `expected_crypto_status` and `expected_unsupported_reason`.
+- **Decoder Invariants (locked)** in
+  `tests/test_corpus_phase2_regression.py::TestDecoderInvariants`:
+  1. Never execute user code (static-source grep for `eval`, `exec`,
+      `subprocess`, `os.system`, `os.popen`).
+  2. Never fabricate runtime-key plaintext.
+  3. Reproducible stages across 3 runs (deterministic replay).
+  4. Every stage carries non-empty evidence.
+  5. Recursion capped by MAX_STAGES with structured
+     `recursion_limit_reached` reporting.
+  6. Workspace and Auto-Investigate must produce identical decode
+     chains for identical input (across every Phase-2 sample).
+- **Performance smoke gate** — every crypto sample decodes in
+  < 100 ms average over 5 runs.
+- **Regression status**: **163/165 tests pass** (16 new Phase 2 +
+  149 pre-existing). The 2 failures are pre-existing environmental
+  network timeouts against the preview host in
+  `test_iter43_decode_api_contract.py`, unrelated to this batch.

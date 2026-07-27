@@ -177,22 +177,23 @@ def _fallback_naked_powershell(text: str) -> list[dict]:
     base64/hex blob, but still exhibits strong PowerShell markers
     (`-f` string format + `[String]::Join` + `[char]` reconstruction +
     `Invoke-Expression`, etc.), synthesise a single `powershell`
-    command whose command_line prepends `powershell.exe -Command` to
-    the script. This lets the /auto-investigate pipeline hand the
-    script off to the ps_semantic analyzer + recursive deobfuscator
-    (locked with SOC user 2026-07-27 so /workspace + /auto-investigate
-    produce identical output for naked-script paste-ins).
+    command whose command_line prepends `powershell.exe -NoP -Command`
+    to the script AS-IS (no quoting or escaping). This lets the
+    /auto-investigate pipeline hand the script off to the ps_semantic
+    analyzer + recursive deobfuscator while keeping the payload
+    byte-identical to what /decode/smart sees — so both endpoints
+    produce identical decode chains (locked with SOC user 2026-07-27).
     """
     stripped = (text or "").strip()
     if len(stripped) < 20 or len(stripped.encode("utf-8", "ignore")) > 200_000:
         return []
     if not _PS_NAKED_MARKER_RE.search(stripped):
         return []
-    # Prefix with `powershell.exe -Command "..."` — the downstream
-    # `_run_single_command` -> `_ps_semantic_analyze` gate expects a
-    # PS invocation shape.
-    inner = stripped.replace('"', '`"')  # escape inner double quotes PS-style
-    cmdline = f'powershell.exe -NoP -Command "{inner}"'
+    # No quoting — the downstream `bare_ps_extract` in ps_semantic will
+    # take everything after `powershell.exe ` as the script, and every
+    # decoder regex (base64, compression, xor) will see identical
+    # characters to /decode/smart.
+    cmdline = f"powershell.exe -NoP -Command {stripped}"
     return [{
         "binary":       "powershell",
         "command_line": cmdline,

@@ -416,8 +416,47 @@ def extract_behaviors(script: Script) -> list[Behavior]:
     _extract_from_ident_context(script, out)
     _extract_url_ip_behaviors(script, out)
     _string_reconstruction_signal(script, out)
+    # Text-level fallbacks — catch behaviors whose call node the AST
+    # parser missed. Locked with SOC user 2026-07-27 during Phase 1
+    # naked-script corpus expansion.
+    _text_fallback_behaviors(script, out)
     _c2_correlation(out)
     return _dedupe(out)
+
+
+# ── Text-level fallbacks ─────────────────────────────────────────
+_TEXT_INVOKE_EXPR_RE = re.compile(r"\b(?:iex|invoke-expression)\b", re.IGNORECASE)
+_TEXT_COMPRESSION_RE = re.compile(
+    r"\b(?:gzip|deflate|brotli)stream\b|compressionmode\b|readtoend\(\)",
+    re.IGNORECASE,
+)
+
+
+def _text_fallback_behaviors(script: "Script", out: list["Behavior"]) -> None:
+    """Emit high-severity behaviors purely from a text-level scan when
+    the AST call extractor missed them (common on naked scripts that
+    the AST parser can't fully walk, e.g. `Invoke-Expression $s` after
+    a semicolon on the same line)."""
+    ids_present = {b.id for b in out}
+    src = script.src or ""
+    if _TEXT_INVOKE_EXPR_RE.search(src) and "invoke_expression" not in ids_present:
+        out.append(_mk("invoke_expression", confidence=90,
+                        rationale=("Script contains `Invoke-Expression`/`IEX` — "
+                                    "dynamically evaluates recovered strings, a "
+                                    "hallmark of fileless PS."),
+                        evidence=[{"kind": "text_match", "value": "Invoke-Expression"}]))
+        if "memory_execution" not in ids_present:
+            out.append(_mk("memory_execution", confidence=80,
+                            rationale=("`Invoke-Expression` executes code entirely "
+                                        "in-memory — no persistent artefact is written."),
+                            evidence=[{"kind": "text_match", "value": "Invoke-Expression"}]))
+    if _TEXT_COMPRESSION_RE.search(src) and "payload_decompression" not in ids_present:
+        out.append(_mk("payload_decompression", confidence=85,
+                        rationale=("Script uses a compression stream "
+                                    "(`GzipStream` / `DeflateStream` / `BrotliStream`) "
+                                    "over a Base64 blob — a common evasion trick to "
+                                    "hide a text payload behind another format."),
+                        evidence=[{"kind": "text_match", "value": "CompressionStream"}]))
 
 
 # ── Evidence Graph builder ───────────────────────────────────────
