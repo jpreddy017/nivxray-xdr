@@ -1,5 +1,91 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-29 (Phase 3) · Recursive Transformation Engine (RTE) · SHIPPED
+
+### Delivered — every architectural directive from the user honoured
+- **Transformation-based, NOT decoder-based**: `v2/investigation/rte/`
+  implements a generic recursive loop that repeatedly applies the
+  highest-confidence deterministic transformation, reclassifies via
+  Input Understanding, and continues until *no additional deterministic
+  transformation remains*. The engine is transformation-agnostic —
+  adding a new transformation is a one-file change under
+  `transformations/`.
+- **Every step emits canonical Evidence** — the same
+  `Evidence(source, observation, confidence, rationale, meta)` shape
+  as CRE / IU, so Phase 5 Evidence Graph consumes RTE directly with
+  no adapters.
+- **Reclassifies after every transformation** — Input Understanding
+  runs on every new layer so a `command_line` → `powershell_script`
+  → `base64` transition dispatches the correct engines at each
+  layer boundary.
+- **Preserves every intermediate artefact** — layer 0 is the original
+  input; every layer above it is reachable via `chain.artifacts[i]`
+  with `content_hash`, `parent_hash`, and full IU classification.
+- **Principled stop reasons only**: `NO_TRANSFORMATION`, `LOOP`
+  (content-hash guard), `MAX_DEPTH` (default 24), `UNSUPPORTED`,
+  `EMPTY_INPUT`. The engine NEVER halts with "decoder finished".
+- **Deterministic replay** — every chain carries a
+  `determinism_hash` computed over the canonical serialization;
+  identical input produces byte-identical output across runs.
+
+### Modules delivered
+- `v2/investigation/rte/__init__.py`                        — public `transform()`
+- `v2/investigation/rte/models.py`                          — `Artifact`, `TransformationStep`, `TransformationChain`, `StopReason`
+- `v2/investigation/rte/engine.py`                          — generic recursive orchestrator + loop guard + determinism hash
+- `v2/investigation/rte/transformations/__init__.py`        — `Transformation` Protocol + registry
+- 10 transformation plugins:
+  - `ps_encoded_command`    — peel `-EncodedCommand <b64>`
+  - `ps_format_string`      — `"{0}{1}" -f 'a','b'`
+  - `ps_char_array`         — `(N,N,N) | %{[char]…}`
+  - `ps_iex_peel`           — `iex 'literal'`
+  - `ps_static_base64`      — `[Convert]::FromBase64String("…")` (+ UTF-16LE composite)
+  - `ps_compression_stream` — `[IO.Compression.GzipStream](…FromBase64String("…"))`
+  - `base64_utf16le`        — bare b64 → UTF-16LE text
+  - `base64_utf8`           — bare b64 → UTF-8 text
+  - `base64_bytes`          — b64 → opaque hex (feeds gzip/zlib)
+  - `gzip_stream` · `zlib_stream` · `hex_string`
+
+### Regression coverage
+- **30 RTE test cases** across 9 golden samples:
+  `ps_encoded_command`, `bare_b64_utf16le`, `format_string`,
+  `numeric_char_array`, `gzip_over_base64`, `zlib_over_base64`,
+  `format_then_b64` (2-layer), `enc_then_static_b64` (2-layer),
+  `hex_string_text`.
+- Invariants locked as permanent regression:
+  1. every step carries at least one canonical `Evidence` object,
+  2. deterministic replay produces identical `determinism_hash`,
+  3. `stop_reason` is always principled (never "decoder finished"),
+  4. every intermediate layer is preserved with correct parent hashes,
+  5. IU reclassification runs on every new layer,
+  6. empty input halts safely with `EMPTY_INPUT`,
+  7. `max_depth` cap engages reliably,
+  8. plugin registry contract enforced.
+- **235/235 tests green** across every workspace-related suite
+  (30 new RTE + 205 pre-existing Phase 1 CRE + Phase 2 IU + workspace
+  audit + corpus + deobfuscator + storyline + perf CI).
+
+### Roadmap update
+- ✅ **Phase 1 · CRE** — Command Reconstruction (verified, extensible)
+- ✅ **Phase 2 · IU**  — Input Understanding (multi-artefact, capability dispatch)
+- ✅ **Phase 3 · RTE** — Recursive Transformation Engine (this delivery)
+- 🟡 **Phase 4 · Semantic Intent Layer** — infer INTENT from decoded artefacts
+- 🟡 **Phase 4.5 · Execution Simulation** — static control-flow reconstruction
+- 🟡 **Phase 5 · Evidence Graph** — homogeneous DAG over the canonical Evidence primitive
+- 🟡 **Phase 6 · Behavior Correlation** — reason about attack chains
+- 🟡 **Phase 7 · Self-Validation** — the Brain challenges itself
+- 🟡 **Phase 8 · Analyst Report Generation** — deterministic MDR-quality output
+
+### Guiding principle honoured
+Every new capability answers one question: "Does this help the
+Workspace understand the artifact more accurately, or is it merely
+another parser?" — the RTE is the former: it turns a bag of parsers
+into an evidence-preserving transformation graph.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-28 (Phase 2) · Input Understanding Stage · SHIPPED
 
 ### Delivered — every user-requested architectural adjustment adopted
