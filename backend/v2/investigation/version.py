@@ -13,11 +13,11 @@ Semantic versioning:
 """
 from __future__ import annotations
 
-VERSION            = "1.4.0"
+VERSION            = "1.4.1"
 CODENAME           = "Investigation Brain"
 RELEASE_DATE       = "2026-07-27"
-BASELINE_TESTS     = 331
-TRUST_CORPUS_SIZE  = 14
+BASELINE_TESTS     = 332
+TRUST_CORPUS_SIZE  = 15
 ARCHITECTURE_FROZEN = True   # do not introduce new engines without SME evidence
 
 # The stable component set at this baseline. Adding a component here

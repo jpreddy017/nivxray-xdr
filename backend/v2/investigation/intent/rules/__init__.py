@@ -48,6 +48,11 @@ from .discovery import RULE as _R_DISCOVERY                      # noqa: E402
 from .persistence import RULE as _R_PERSISTENCE                  # noqa: E402
 from .credential_access import RULE as _R_CREDS                  # noqa: E402
 from .runtime_dependent import RULE as _R_RUNTIME_DEP            # noqa: E402
+from .lateral_admin import (                                     # noqa: E402
+    PSEXEC_RULE      as _R_PSEXEC,
+    REMOTE_MGMT_RULE as _R_REMOTE_MGMT,
+    FIREWALL_RULE    as _R_FIREWALL,
+)
 
 
 INTENT_RULE_REGISTRY: list[IntentRule] = [
@@ -58,6 +63,9 @@ INTENT_RULE_REGISTRY: list[IntentRule] = [
     _R_PERSISTENCE,
     _R_CREDS,
     _R_RUNTIME_DEP,
+    _R_PSEXEC,
+    _R_REMOTE_MGMT,
+    _R_FIREWALL,
 ]
 
 __all__ = ["IntentRule", "INTENT_RULE_REGISTRY"]

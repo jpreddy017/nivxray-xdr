@@ -173,7 +173,7 @@ def _simple_node(intent: Intent, kind: BehaviorKind, purpose: str,
 _SIMPLE_MAPPING: dict[IntentCategory, tuple[BehaviorKind, str]] = {
     IntentCategory.DEFENSE_EVASION: (
         BehaviorKind.DEFENSE_EVASION,
-        "Disables or tampers with defensive tooling (AMSI, ETW, Defender).",
+        "Disables or tampers with defensive tooling (AMSI, ETW, Defender, firewall).",
     ),
     IntentCategory.DISCOVERY: (
         BehaviorKind.DISCOVERY,
@@ -182,6 +182,11 @@ _SIMPLE_MAPPING: dict[IntentCategory, tuple[BehaviorKind, str]] = {
     IntentCategory.CREDENTIAL_ACCESS: (
         BehaviorKind.CREDENTIAL_ACCESS,
         "Extracts cached, interactive, or stored credentials.",
+    ),
+    IntentCategory.LATERAL_MOVEMENT: (
+        BehaviorKind.LATERAL_MOVEMENT,
+        "Credentialed remote execution / remote-management enablement — "
+        "establishes remote administration capability.",
     ),
     IntentCategory.RUNTIME_DEPENDENT: (
         BehaviorKind.RUNTIME_DEPENDENT,
@@ -211,11 +216,12 @@ def build(assessment: IntentAssessment,
     _PRIORITY = {
         IntentCategory.STAGING:          0,
         IntentCategory.REMOTE_EXECUTION: 1,
-        IntentCategory.PERSISTENCE:      2,
-        IntentCategory.DEFENSE_EVASION:  3,
-        IntentCategory.CREDENTIAL_ACCESS: 4,
-        IntentCategory.DISCOVERY:        5,
-        IntentCategory.RUNTIME_DEPENDENT: 6,
+        IntentCategory.LATERAL_MOVEMENT: 2,
+        IntentCategory.PERSISTENCE:      3,
+        IntentCategory.DEFENSE_EVASION:  4,
+        IntentCategory.CREDENTIAL_ACCESS: 5,
+        IntentCategory.DISCOVERY:        6,
+        IntentCategory.RUNTIME_DEPENDENT: 7,
     }
     ordered = sorted(assessment.intents,
                       key=lambda i: (_PRIORITY.get(i.category, 99),

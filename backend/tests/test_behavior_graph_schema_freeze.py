@@ -48,6 +48,7 @@ _EXPECTED_KIND_NAMES = {
     "registry_modification",
     "process_creation",
     "persistence",
+    "lateral_movement",
     "defense_evasion",
     "discovery",
     "credential_access",
@@ -55,7 +56,7 @@ _EXPECTED_KIND_NAMES = {
 }
 _EXPECTED_EDGE_NAMES = {"then", "writes_to", "executes", "targets"}
 _EXPECTED_ARG_NAMES = {"url", "domain", "ip", "file", "registry", "process"}
-_EXPECTED_SCHEMA_VERSION = "1.0.0"
+_EXPECTED_SCHEMA_VERSION = "1.1.0"
 
 
 def test_schema_version_constant_matches_expected():

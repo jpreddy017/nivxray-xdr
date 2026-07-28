@@ -29,7 +29,7 @@ from ..evidence import Evidence
 #   * remove or rename an existing member          → MAJOR bump
 #   * change the semantic meaning of a member      → MAJOR bump
 # Non-schema changes (builders, formatters, docs)  → no bump.
-BEHAVIOR_GRAPH_SCHEMA_VERSION = "1.0.0"
+BEHAVIOR_GRAPH_SCHEMA_VERSION = "1.1.0"
 
 
 class BehaviorKind(str, Enum):
@@ -49,7 +49,8 @@ class BehaviorKind(str, Enum):
     REGISTRY_MODIFICATION   = "registry_modification"    # write / delete a registry value
     PROCESS_CREATION        = "process_creation"         # spawn a subprocess
     PERSISTENCE             = "persistence"              # survives reboot (Run key, task, service)
-    DEFENSE_EVASION         = "defense_evasion"          # AMSI / ETW / Defender tamper
+    LATERAL_MOVEMENT        = "lateral_movement"         # credentialed remote execution / remote-management enablement
+    DEFENSE_EVASION         = "defense_evasion"          # AMSI / ETW / Defender / firewall tamper
     DISCOVERY               = "discovery"                # host / user / network enumeration
     CREDENTIAL_ACCESS       = "credential_access"        # LSASS, DPAPI, browser stores
     RUNTIME_DEPENDENT       = "runtime_dependent"        # behaviour resolves only at runtime

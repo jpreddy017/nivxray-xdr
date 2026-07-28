@@ -1,7 +1,7 @@
 # NivXRay · Behaviour Graph Schema
 
-**Schema version:** `1.0.0`
-**Frozen:** 2026-08-01
+**Schema version:** `1.1.0`
+**Frozen:** 2026-07-27
 **Contract owner:** Investigation Brain (`v2/investigation/behavior/`)
 
 The Behaviour Graph is the **canonical semantic layer** of the
@@ -63,7 +63,8 @@ emitted.
 | `registry_modification`  | Write / delete a registry value                                    |
 | `process_creation`       | Spawn a subprocess                                                 |
 | `persistence`            | Mechanism that survives reboot (Run key, task, service, WMI sub.)  |
-| `defense_evasion`        | AMSI / ETW / Defender / logging tamper                             |
+| `lateral_movement`       | Credentialed remote execution / remote-management enablement (PsExec, WinRM, PSRemoting) |
+| `defense_evasion`        | AMSI / ETW / Defender / firewall / logging tamper                  |
 | `discovery`              | Host / user / directory / network enumeration                      |
 | `credential_access`      | Extract cached, interactive, or stored credentials                 |
 | `runtime_dependent`      | Final behaviour cannot be determined without runtime data          |

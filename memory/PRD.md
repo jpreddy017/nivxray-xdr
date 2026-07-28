@@ -1,5 +1,52 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-27 · **v1.4.1 · Verdict Composition Scoring + Lateral-Movement Detection**
+
+### Trigger (P0 SME review · post-v1.4.0 discovery)
+The PsExec + WinRM + firewall reconfiguration sample returned `BENIGN · 60` from the Investigation Brain because the Verdict Engine reasoned over *isolated indicators* ("no downloader ∧ no known family → benign") instead of scoring **behaviour composition**. Meanwhile the legacy Analyst Summary over-inferred to *"textbook ransomware pre-deployment · APT infrastructure setup"* — attribution words with no supporting evidence.
+
+### What shipped in v1.4.1
+
+1. **Three new intent rules** (`intent/rules/lateral_admin.py`):
+   - `PsExecCredentialedRule` → fires `LATERAL_MOVEMENT` when PsExec runs with explicit `-u` AND `-p` on the command line. Emits Evidence for host target, exposed user, exposed password, and `-h`/`-s` elevation. MITRE `T1021.002 · T1078 · T1552.001 · T1548`.
+   - `RemoteManagementEnablementRule` → fires `LATERAL_MOVEMENT` for `Enable-PSRemoting`, `Set-Service WinRM Automatic`, `Start-Service WinRM`, `winrm quickconfig`. MITRE `T1021.006 · T1543.003`.
+   - `FirewallConfigurationRule` → fires `DEFENSE_EVASION` for `Enable-NetFirewallRule` and `netsh advfirewall`. MITRE `T1562.004`.
+
+2. **Verdict Engine composition scoring** — new rule: HIGH-risk `LATERAL_MOVEMENT` + HIGH-risk `DEFENSE_EVASION` composed together produces `MALICIOUS`. Standalone `LATERAL_MOVEMENT` alone stays `SUSPICIOUS` (dual-use activity — cannot be resolved without authorisation evidence).
+
+3. **Behaviour Graph schema `1.0.0 → 1.1.0` (MINOR bump)** — added canonical node kind `lateral_movement`. Schema doc `/app/BEHAVIOR_GRAPH_SCHEMA.md`, CI freeze test, and `BEHAVIOR_GRAPH_SCHEMA_VERSION` constant all bumped in the same commit. Freeze test still enforces zero-drift.
+
+4. **New evidence-anchored recommendations** for `LATERAL_MOVEMENT` — three action items that separate authorisation-verification, credential rotation, and historical audit. No attribution language.
+
+5. **Trust Corpus grew to 15 samples** (T15 · `psexec_winrm_lateral_admin`) with declared expected verdict, behaviour kinds, MITRE, IOCs, and a `forbidden_words_in_verdict` list enforcing zero attribution words (`ransomware`, `APT`, `campaign`, `textbook`, `family`).
+
+### Acceptance criteria met
+| Criterion | Status |
+| --- | --- |
+| Investigation Brain no longer returns `BENIGN` on the T15 sample | ✅ `MALICIOUS · 90` |
+| No unsupported attribution (ransomware / APT / campaign / textbook / family) | ✅ zero leaks |
+| Verdict derived from Behaviour Graph composition | ✅ `lateral_movement + defense_evasion` |
+| Behaviour Graph schema bumped to `1.1.0` · CI-locked | ✅ freeze test green |
+| T15 corpus regression added and locked | ✅ 15/15 samples |
+| All existing tests remain green | ✅ 331/331 targeted regression |
+| Determinism preserved | ✅ hash stable across replays |
+
+### Regression + smoke
+- 331/331 targeted investigation regression green.
+- Trust Corpus 15/15 · 100% Accuracy · Honesty · Explainability · Unknown Handling · Investigation Integrity.
+- Behaviour Graph Schema Freeze CI: 8/8 green at v `1.1.0`.
+- End-to-end HTTPS smoke on the LIVE URL returned `MALICIOUS · 90` · behaviour kinds `[lateral_movement, defense_evasion]` · schema `1.1.0` · MITRE `T1021.002 · T1078 · T1552.001 · T1548 · T1021.006 · T1562.004`.
+
+### Explicit non-goals for v1.4.1
+- No new decoders / no new engines / no PDF export.
+- No refactor of IU / CRE / RTE.
+- The frontend Analyst Summary (legacy AI panel) that over-attributes to *ransomware/APT* still needs to be gated in v1.4.2 — the Investigation Brain layer is now correct; a follow-up UI patch will hide/replace the legacy summary block on Workspace (FU-5 remains open).
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-08-01 · **v1.4.0 · Investigation Brain · STABILIZATION RELEASE**
 
 ### Release principle (Product Owner directive)

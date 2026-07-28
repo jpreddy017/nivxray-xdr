@@ -1,0 +1,43 @@
+id: T15_psexec_winrm_lateral_admin
+title: Malicious composition — PsExec + WinRM enablement + firewall reconfiguration
+provenance: SME review 2026-07-27 · post-v1.4.0 discovery of missing lateral-movement detection
+input: |
+  PsExec.exe \\10.253.34.27 -u .\mativadmin -p BlackCloud@53 -h powershell -Command "Enable-PSRemoting -Force -SkipNetworkProfileCheck; Set-Service WinRM -StartupType Automatic; Start-Service WinRM; Enable-NetFirewallRule -DisplayGroup 'Windows Remote Management'; Enable-NetFirewallRule -DisplayGroup 'File and Printer Sharing'"
+expected_verdict: malicious
+must_fire_intents:
+  - lateral_movement
+  - defense_evasion
+must_not_fire:
+  - staging
+  - remote_execution
+forbidden_words_in_verdict:
+  - ransomware
+  - APT
+  - campaign
+  - textbook
+  - family
+must_admit_unknown: false
+expected_confidence_band: high
+expected_iocs:
+  - {kind: ip,   value: '10.253.34.27'}
+expected_mitre:
+  - T1021.002
+  - T1562.004
+expected_behaviors:
+  - lateral_movement
+  - defense_evasion
+expected_evidence:
+  - psexec
+  - winrm
+  - firewall
+expected_behavior_kinds:
+  - lateral_movement
+  - defense_evasion
+min_recommendations: 2
+notes: >
+  Credentialed remote administration composition — dual-use payload
+  (legitimate admin OR post-compromise lateral movement). The Verdict
+  Engine must score the COMPOSITION (LATERAL_MOVEMENT + DEFENSE_EVASION)
+  and escalate to MALICIOUS. Attribution words (ransomware / APT /
+  campaign / textbook) MUST NOT appear — the Trust Corpus enforces
+  the honesty rule.

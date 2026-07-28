@@ -101,13 +101,27 @@ def assess_verdict(intents: list[Intent]) -> Verdict:
         or _has(intents, IntentCategory.PERSISTENCE, _HIGH_RISK)
     )
     high_evasion = _has(intents, IntentCategory.DEFENSE_EVASION, _HIGH_RISK)
+    # Credentialed remote administration is dual-use: legitimate admin
+    # OR post-compromise lateral movement. Fire MALICIOUS only when
+    # LATERAL_MOVEMENT co-occurs with DEFENSE_EVASION (firewall
+    # reconfiguration) — the composition strongly indicates covert
+    # remote-management setup. Standalone LATERAL_MOVEMENT stays
+    # SUSPICIOUS so the analyst can distinguish authorised admin.
+    lateral_admin_composed = (
+        _has(intents, IntentCategory.LATERAL_MOVEMENT, _HIGH_RISK)
+        and high_evasion
+    )
 
     # ── Malicious: multi-tactic high-risk combinations
     # ── OR a single HIGH-risk defense-evasion primitive (AMSI /
     # ──   ETW / Defender tamper have no legitimate use).
-    if fetch_and_run or creds_or_persist or high_evasion:
-        drivers = [i.category.value for i in top
-                    if i.risk == RiskBand.HIGH][:3]
+    if fetch_and_run or creds_or_persist or high_evasion or lateral_admin_composed:
+        drivers: list[str] = []
+        for i in top:
+            if i.risk == RiskBand.HIGH and i.category.value not in drivers:
+                drivers.append(i.category.value)
+            if len(drivers) >= 3:
+                break
         reason = (
             "High-risk adversarial intent chain detected: "
             + " + ".join(drivers)

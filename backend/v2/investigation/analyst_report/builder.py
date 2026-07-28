@@ -107,6 +107,23 @@ _RECS: dict[IntentCategory, list[Recommendation]] = {
             rationale="Credential-access primitives typically extract cached / interactive credentials that are now considered compromised.",
         ),
     ],
+    IntentCategory.LATERAL_MOVEMENT: [
+        Recommendation(
+            priority="immediate",
+            action="Verify whether the remote administrative activity was authorised — cross-check the acting principal against change-management tickets and approved administrator lists.",
+            rationale="Credentialed remote execution is dual-use (legitimate admin OR post-compromise lateral movement). Only authorisation evidence can distinguish the two.",
+        ),
+        Recommendation(
+            priority="immediate",
+            action="Rotate the credentials exposed on the command line and hunt for reuse across the environment.",
+            rationale="Explicit `-u` / `-p` arguments to PsExec / WinRM tools leak credential material into process arguments — those credentials must be considered compromised.",
+        ),
+        Recommendation(
+            priority="short_term",
+            action="Audit WinRM / PsExec activity on the target host and correlate with authentication logs for the acting account.",
+            rationale="Establishing remote-management capability is a common lateral-movement precursor; historical usage tells you if this is business-as-usual or novel.",
+        ),
+    ],
     IntentCategory.DISCOVERY: [
         Recommendation(
             priority="short_term",
