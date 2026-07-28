@@ -1,7 +1,7 @@
 {
-  "total": 66,
+  "total": 67,
   "passed": 27,
-  "hit_rate": 0.4091,
+  "hit_rate": 0.403,
   "threshold": 0.6,
   "results": [
     {
@@ -334,7 +334,7 @@
       "sha1": "1584af34536103c086f163f599640acbb9f26155",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "whoami && netstat -ano",
+      "output_head": "cmd /c \"whoami && netstat -ano\"",
       "ok": false
     },
     {
@@ -357,7 +357,7 @@
       "sha1": "f18d46780fda16ff0927300bdc7cd4f7112bf2da",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "print(1+1)",
+      "output_head": "python -c 'print(1+1)'",
       "ok": false
     },
     {
@@ -376,16 +376,16 @@
     },
     {
       "sha1": "940b661e76ae57f083336270cf9646b56a91c2d7",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE=';    var b=atob(d);    var l=document.createElement('a');    l.download='payload.exe';    l.href=URL",
+      "output_head": "binary-A",
       "ok": false
     },
     {
       "sha1": "74922dfbd46d5c3ec773a59cd4d6868acc352b50",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
       "ok": false
     },
     {
@@ -397,9 +397,9 @@
     },
     {
       "sha1": "888ca0494ea03d52b32013c26f891ade2f651b1b",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
       "ok": false
     },
     {
@@ -411,9 +411,9 @@
     },
     {
       "sha1": "f9f75777c6ec5ce767f90a3564eba599398a4d58",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "output_head": "binary-A",
       "ok": false
     },
     {
@@ -713,7 +713,9 @@
     {
       "sha1": "f87fa6b84bf4799448d1eca995e96ac9e533473e",
       "engine": "llm-l3",
-      "chain": [],
+      "chain": [
+        "cmd-deobfuscate"
+      ],
       "output_head": "powershell.exe -NoProfile -eXecUtIonPoLicY UnReStRiCtEd",
       "ok": false
     },
@@ -731,6 +733,13 @@
       "engine": "llm-l3",
       "chain": [],
       "output_head": "\"C:\\Program Files (x86)\\Kodak\\Prinergy Evo 9.0.0.0\\bin\\JFloatLicMgrD.exe\" -c",
+      "ok": false
+    },
+    {
+      "sha1": "de6c8bd5d224bc6e8eac248ae887cda63f4a6c5c",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "Write-Host \"Hello, world\"",
       "ok": false
     }
   ]
