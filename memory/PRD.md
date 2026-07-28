@@ -1,5 +1,76 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+
+## 2026-02-XX · **v1.5.2 · Recipe Replay + Reflective-Injection Intent Coverage**
+
+### Trigger
+Analyst screenshot on production `nivxray.nivxforge.com` — decoding a
+PowerShell EncodedCommand+Gzip+reflective-shellcode sample showed
+**two visible defects**:
+1. `X-RAY: Unknown operation: ps-encodedcommand-recovery` red badge on
+   step 02 of the DECODE recipe (analyst thought decode was broken).
+2. Investigation Brain returned **BENIGN · 60** on a fully recovered
+   textbook Metasploit-style reflective shellcode loader — contradicted
+   by the legacy engine which correctly said Malicious 70.
+
+### Root causes
+- **Fix 1**: `ps-encodedcommand-recovery` is emitted as a recipe step by
+  the RC22 orchestrator but was never registered in
+  `operations.OPERATIONS` → `/api/recipe/run` raised ValueError.
+- **Fix 2**: `intent/rules/defense_evasion.py` had signatures for
+  AMSI/ETW/Defender/AmsiUtils/ExecutionPolicy/HiddenWindow but NONE
+  for the canonical reflective-injection primitives
+  (`VirtualAlloc + 0x40`, `Marshal.Copy → IntPtr`,
+  `GetDelegateForFunctionPointer`, `Microsoft.Win32.UnsafeNativeMethods`).
+
+### What shipped
+- **Fix 1** · `operations.py` registers `ps-encodedcommand-recovery` as
+  an idempotent byte-for-byte alias of `powershell-encoded`
+  (base64→UTF-16LE decode). Recipe replay now reproduces the L1
+  artefact instead of red-erroring.
+- **Fix 2** · Five new signatures on `defense_evasion.py` (T1055):
+  * RWX shellcode allocation (HIGH)
+  * Delegate-invoked function pointer (HIGH)
+  * Reflective Win32 API resolution — `Microsoft.Win32.UnsafeNativeMethods` (HIGH)
+  * Shellcode copy to unmanaged memory — `Marshal.Copy(...,IntPtr)` (HIGH)
+  * In-memory dynamic assembly build — `DefineDynamicAssembly(...Run)` (MEDIUM)
+  Regexes are multiline-tolerant and bounded (0-400 chars) to prevent
+  runaway backtracking.
+- **Regression suite** · `tests/test_v152_recipe_and_reflective_injection.py`
+  (7 tests: op-registration, alias byte-equivalence, end-to-end recipe
+  run, primitive detection, HIGH-risk assignment, end-to-end MALICIOUS
+  verdict, benign-admin false-positive protection).
+- **Golden Corpus** · New locked sample
+  `trust_corpus/PS_ENCODEDCOMMAND_GZIP_REFLECTIVE_LOADER_002.yaml`
+  (the ~7.6 KB production sample from the SME screenshot). Trust
+  harness confirms `passed=True · verdict=malicious · integrity 3/3`.
+  Any future PR that regresses reflective-injection detection will now
+  fail the trust gate immediately.
+
+### Verified acceptance criteria
+| Criterion | Result |
+| --- | --- |
+| `POST /api/recipe/run` step `ps-encodedcommand-recovery` → 0 errors | ✅ 2832 bytes recovered |
+| `POST /api/decode/smart` on reflective loader → Brain `band=malicious` | ✅ confidence 90 |
+| 3 HIGH-risk `defense_evasion` intents fire on L2 payload | ✅ RWX + Delegate + Win32 refl |
+| Benign admin scripts do NOT trigger reflective-injection signatures | ✅ |
+| 7 / 7 new tests · 154 / 154 targeted intent+verdict+decoder suite | ✅ |
+| Determinism preserved | ✅ hash stable across runs |
+
+### Non-goals kept
+- No schema bump (still `1.1.0`).
+- No CRE / IU / RTE refactor.
+- v1.6.0 Semantic Variable Resolution deferred until v1.5.2 lock-in.
+
+### Files touched
+- `backend/operations.py` — one 15-line alias registration block.
+- `backend/v2/investigation/intent/rules/defense_evasion.py` — five
+  new signatures + regex hardening.
+- `backend/tests/test_v152_recipe_and_reflective_injection.py` — new.
+- `RELEASES.md` · `memory/PRD.md` — this record.
+
+---
+
 ## 2026-07-28 · **v1.4.2 · Evidence vs Interpretation Hygiene**
 
 ### Trigger (SME review of v1.4.1 · rating 9.5/10)

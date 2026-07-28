@@ -339,9 +339,9 @@
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "powershell -e ABC",
+      "output_head": "ABC",
       "ok": false
     },
     {
@@ -357,7 +357,7 @@
       "sha1": "f18d46780fda16ff0927300bdc7cd4f7112bf2da",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "python -c 'print(1+1)'",
+      "output_head": "print(1+1)",
       "ok": false
     },
     {
@@ -713,9 +713,7 @@
     {
       "sha1": "f87fa6b84bf4799448d1eca995e96ac9e533473e",
       "engine": "llm-l3",
-      "chain": [
-        "cmd-deobfuscate"
-      ],
+      "chain": [],
       "output_head": "powershell.exe -NoProfile -eXecUtIonPoLicY UnReStRiCtEd",
       "ok": false
     },

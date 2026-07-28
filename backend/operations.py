@@ -1431,6 +1431,30 @@ for _label in (
     }
 
 
+# Feb 2026 · v1.5.2 · The RC22 orchestrator emits the trace marker
+# `ps-encodedcommand-recovery` as step 02 of every EncodedCommand recipe.
+# Historically it was NOT registered here, so replaying the recipe from the
+# Workspace UI produced a red "Unknown operation: ps-encodedcommand-recovery"
+# badge — analysts perceived the decode as broken even when the smart_decode
+# backend had successfully peeled the payload. We register it now as an alias
+# for the real `powershell-encoded` decoder so replay reproduces the same L1
+# base64+UTF-16LE recovery byte-for-byte. Kept behind an `if` so registration
+# is idempotent and does not fight with the actual `@op` decorator ordering.
+if "powershell-encoded" in OPERATIONS and "ps-encodedcommand-recovery" not in OPERATIONS:
+    OPERATIONS["ps-encodedcommand-recovery"] = {
+        "id": "ps-encodedcommand-recovery",
+        "name": "PowerShell -EncodedCommand Recovery",
+        "category": "Deobfuscation",
+        "description": (
+            "Deterministic PowerShell -EncodedCommand recovery: base64 → "
+            "UTF-16LE strict decode. Alias of `powershell-encoded`; emitted "
+            "by the RC22 orchestrator as the L0→L1 marker in the recipe."
+        ),
+        "args": [],
+        "fn": OPERATIONS["powershell-encoded"]["fn"],
+    }
+
+
 # ==== helpers ================================================================
 def _clean(s: str) -> str:
     return re.sub(r"\s+", "", s)

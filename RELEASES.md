@@ -9,6 +9,75 @@ platform's deploy output and appended here for permanent record.
 
 ---
 
+## v1.5.2 — Recipe Replay + Reflective-Injection Intent Coverage
+
+| Field | Value |
+| ----- | ----- |
+| **Release** | NivXRay v1.5.2 |
+| **Release Date** | 2026-02-XX (post-v1.5.1 verification) |
+| **Behaviour Graph Schema** | `1.1.0` (unchanged) |
+| **Investigation Baseline** | `iu → cre → rte → intent → behaviour → verdict → graph → report` |
+
+### Trigger
+Analyst screenshot on the deployed `nivxray.nivxforge.com` workspace
+showed two production defects on a canonical PowerShell EncodedCommand
++ Gzip + reflective-shellcode sample:
+
+1. **Recipe replay red-error** — pressing DECODE surfaced
+   `X-RAY: Unknown operation: ps-encodedcommand-recovery` on step 02
+   of the auto-generated recipe. Root cause: the RC22 orchestrator has
+   always emitted this op-id as the L0→L1 marker of every
+   EncodedCommand recipe, but it was NEVER registered in
+   `operations.OPERATIONS`, so `/api/recipe/run` raised ValueError.
+2. **Brain BENIGN false-negative on reflective shellcode loader** —
+   the L2 recovered plaintext was a textbook reflective PowerShell
+   shellcode loader (`VirtualAlloc(...,0x40)` + `Marshal.Copy(...,IntPtr)`
+   + `GetDelegateForFunctionPointer` + `Microsoft.Win32.UnsafeNativeMethods`
+   reflection). The Investigation Brain returned
+   `BENIGN · confidence 60 · "No adversarial intent was inferred"`
+   while the legacy engine correctly said Malicious 70. Root cause:
+   the Defense-Evasion rule had no signatures for the canonical
+   reflective-injection primitives.
+
+### What shipped
+- `operations.py` · alias registration for
+  `ps-encodedcommand-recovery` → delegates byte-for-byte to
+  `powershell-encoded` (`fn` re-exported, idempotent guard).
+- `intent/rules/defense_evasion.py` · five new HIGH-risk (T1055) /
+  MEDIUM (T1055) signatures — RWX shellcode allocation,
+  Delegate-invoked function pointer, Reflective Win32 API resolution,
+  Shellcode copy to unmanaged memory, In-memory dynamic assembly build.
+  Multiline-tolerant regexes; bounded to prevent runaway backtracking.
+- `tests/test_v152_recipe_and_reflective_injection.py` · 7 regression
+  tests locking both fixes (op-registration, alias byte-equivalence,
+  recipe replay end-to-end, reflective-injection detection at HIGH
+  risk, end-to-end MALICIOUS verdict, benign-admin false-positive
+  protection).
+- `tests/trust_corpus/PS_ENCODEDCOMMAND_GZIP_REFLECTIVE_LOADER_002.yaml`
+  · new locked Golden Corpus entry (the ~7.6 KB SME production sample
+  that triggered v1.5.2). Trust harness passes it with
+  `verdict=malicious · integrity 3/3`. Guarantees any future rule
+  change that regresses reflective-injection detection fails the
+  trust gate immediately.
+
+### Verified acceptance criteria
+| Criterion | Result |
+| --- | --- |
+| `/api/recipe/run` with step `ps-encodedcommand-recovery` → 0 errors | ✅ 2832-byte L1 recovered |
+| `/api/decode/smart` on the reflective loader → Brain verdict MALICIOUS | ✅ band=`malicious`, confidence 90 |
+| 3 HIGH-risk `defense_evasion` intents fire on the L2 recovered payload | ✅ RWX + Delegate + Win32-reflection |
+| Benign admin scripts do NOT trigger reflective-injection signatures | ✅ (tested) |
+| 7 / 7 new v1.5.2 tests · 154 / 154 targeted intent+verdict+decoder suite | ✅ |
+| Determinism preserved | ✅ hash stable across runs |
+| No schema-version bump | ✅ still `1.1.0` |
+
+### Non-goals (kept)
+- Behavior Graph resource-layer expansion — deferred to future backlog.
+- v1.6.0 Semantic Variable Resolution — begins after v1.5.2 lock-in.
+
+---
+
+
 ## v1.4.0 — Investigation Brain · Stabilization + Behaviour Graph Schema Freeze
 
 | Field | Value |
