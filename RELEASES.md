@@ -114,6 +114,152 @@ Not a grab bag — organised around three themes:
 
 ---
 
+## v1.5.0 — Decoder Convergence
+
+| Field | Value |
+| ----- | ----- |
+| **Release** | NivXRay v1.5.0 |
+| **Release Date** | 2026-07-28 |
+| **Behaviour Graph Schema** | `1.1.0` (unchanged) |
+| **Recursive Transformation Engine** | max depth **24 → 64** |
+| **New RTE plugin** | `ps_indirect_compression_stream` (variable-bound base64 → compression) |
+| **Trust Corpus additions** | `PS_ENCODEDCOMMAND_GZIP_STAGE2_001` (locked) |
+| **Change scope** | Backend only · additive (no decoder rewrites) |
+
+### The failing sample (P0)
+
+Real-world sample supplied by SOC lead 2026-07-28:
+
+```
+%COMSPEC% /b /c start /b /min powershell -nop -w hidden -encodedcommand
+JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAE0AZQBtAG8AcgB5AFMAdAByAGUA…
+```
+
+The RTE was exiting at L1 with `stop_reason = NO_TRANSFORMATION`
+after decoding `-EncodedCommand` — despite the recovered
+PowerShell being the extremely common variable-bound base64 +
+GzipStream loader idiom.
+
+### Root cause
+
+`_resolve_compression_stream` in `/app/backend/v2/semantic/ps_deobfuscate.py`
+uses `_COMPRESSION_RE` which requires source order:
+
+```
+[IO.Compression.GzipStream]  …  [Convert]::FromBase64String("<literal>")  …  ::Decompress
+```
+
+But the sample uses the equally-common reversed order:
+
+```
+$s = New-Object IO.MemoryStream(,[Convert]::FromBase64String("<literal>"));
+… [IO.Compression.GzipStream]($s, …, ::Decompress) …
+```
+
+The strict-order regex cannot match this shape, so
+`ps_compression_stream.applicable()` returned `None`, no
+transformation was scheduled, and the RTE terminated cleanly with
+`NO_TRANSFORMATION`. **This is an orchestration/extraction gap,
+not a missing decoder** — the underlying gzip inflate primitive
+(`_decompress` in the same module) already existed and was
+already correct.
+
+### Fix (generic, deterministic, class-level)
+
+1. **New generic resolver**
+   `_resolve_variable_bound_compression_stream` in
+   `v2/semantic/ps_deobfuscate.py`. Two-pass linking:
+   - Pass 1: index every `$VAR = … [Convert]::FromBase64String("<lit>") …`
+     assignment (with optional `New-Object IO.MemoryStream(,…)` wrap)
+     by variable name.
+   - Pass 2: find every `IO.Compression.(gzip|deflate|brotli)Stream($VAR, …, ::Decompress)`
+     consumer. First match on a shared variable name → deterministic
+     decompress + inline of the recovered plaintext.
+   - Reuses the existing `_decompress` primitive → no new decoders.
+
+2. **New RTE plugin**
+   `v2/investigation/rte/transformations/ps_indirect_compression_stream.py`
+   surfaces the resolver to the engine at confidence **94**.
+   Registered in `TRANSFORMATION_REGISTRY` **before** the strict-order
+   `ps_compression_stream` so its (larger) surface area wins on ties.
+
+3. **RTE depth cap**: `DEFAULT_MAX_DEPTH: 24 → 64` per spec.
+   Stopping conditions unchanged: `NO_TRANSFORMATION` / `LOOP` (via
+   SHA-256 hash reappearance) / `MAX_DEPTH` / `UNSUPPORTED`.
+
+### Verification
+
+| Check | Result |
+| ----- | ------ |
+| Reproducer without fix — layers | **2** (`NO_TRANSFORMATION` at L1) ❌ |
+| Reproducer WITH fix — layers | **3** (`ps_encoded_command` → `ps_indirect_compression_stream`) ✅ |
+| Stage-3 plaintext recovered byte-for-byte | ✅ |
+| Determinism (2 independent runs) | identical hash `576e3b4f0efd7f1d` ✅ |
+| RTE latency (full 3-layer chain) | **21.8 ms** (target ≤ 500 ms) ✅ |
+| Strict-order compression regression | still fires ✅ (`test_reverse_order_compression_still_works`) |
+| No fabrication guard (consumer missing) | resolver silent ✅ |
+| No fabrication guard (variable mismatch) | resolver silent ✅ |
+| Registry order (indirect before strict) | asserted ✅ |
+| Locked pytest suite (`test_decoder_convergence_v150.py`) | **10 / 10 PASS** ✅ |
+| Existing decoder / RTE / behavior / verdict / investigation suites | **244 PASS**, 3 pre-existing failures unrelated to this change ✅ |
+| Golden Corpus entry `PS_ENCODEDCOMMAND_GZIP_STAGE2_001` | added ✅ |
+
+### Deliverable — Decoder Timeline (from the actual engine)
+
+```
+STAGE 1
+  Input:      %COMSPEC% /b /c start /b /min powershell -nop -w hidden -enc <blob>
+  Selected:   ps_encoded_command
+  Reason:     command line contains -EncodedCommand with valid UTF-16LE base64
+  Confidence: 98
+  Result:     PASS   1204 chars → 424 chars
+
+STAGE 2
+  Input:      $s = New-Object IO.MemoryStream(,[Convert]::FromBase64String("H4sI…"));
+              IEX (…GzipStream($s, ::Decompress)…).ReadToEnd();
+  Selected:   ps_indirect_compression_stream           ← v1.5.0
+  Reason:     variable-bound base64 assignment linked to same-variable
+              GzipStream consumer; deterministic decompress
+  Confidence: 94
+  Result:     PASS   424 chars → 172 chars
+
+STAGE 3
+  Input:      Write-Host "STAGE-3 payload …"; New-ItemProperty -Path HKCU:\… -Name Backdoor …
+  Selected:   NONE
+  Reason:     plaintext PowerShell — no further deterministic transformation applies
+  Result:     STOP · stop_reason = NO_TRANSFORMATION (principled convergence)
+
+Determinism hash: 576e3b4f0efd7f1d (stable across runs)
+Total RTE latency: 21.8 ms
+```
+
+### Files touched
+
+- `backend/v2/semantic/ps_deobfuscate.py` — new resolver
+- `backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py` — new plugin (created)
+- `backend/v2/investigation/rte/transformations/__init__.py` — registry update
+- `backend/v2/investigation/rte/engine.py` — `DEFAULT_MAX_DEPTH: 24 → 64`
+- `backend/tests/test_decoder_convergence_v150.py` — 10 locked regressions (created)
+- `backend/tests/trust_corpus/PS_ENCODEDCOMMAND_GZIP_STAGE2_001.yaml` — Golden Corpus entry (created)
+- `RELEASES.md` — this ledger
+- `memory/PRD.md` — release entry
+
+### Rollback plan
+
+Revert commits touching the four backend files above. The new plugin
+is purely additive — removing it degrades the engine to v1.4.3
+behaviour without breaking any other stage. The `DEFAULT_MAX_DEPTH`
+bump is a single-line change.
+
+### v1.5.0 phase 3 status (Resource Nodes)
+
+The originally-planned v1.5.0 (Process → Resource → Behavior graph
+expansion, schema bump to 1.2.0) is **rescheduled to v1.6.0** per
+SOC lead direction — decoder correctness for real-world samples
+took priority.
+
+---
+
 ## v1.4.3 — FU-5 · Legacy Verdict Surface Retirement (Feature-Flag Hide)
 
 | Field | Value |

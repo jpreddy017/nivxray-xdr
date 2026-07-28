@@ -3142,3 +3142,56 @@ Actual removal scheduled for v1.5.x after one stable release cycle.
 **Files touched**: `frontend/src/pages/WorkspacePage.jsx`, `RELEASES.md`,
 `memory/PRD.md`.
 
+
+---
+
+## v1.5.0 — Decoder Convergence (2026-07-28) · P0
+
+**Problem**: The RTE was exiting at layer 1 with `stop_reason = NO_TRANSFORMATION`
+on a real-world SOC sample of the shape
+`CMD → PS -EncodedCommand → UTF-16LE → variable-bound base64+gzip → Stage-2 PS`.
+Users saw `Output = Input` after the first decode step, breaking every
+downstream capability (verdict, MITRE, behaviour graph, analyst report).
+
+**Root cause**: `_resolve_compression_stream` in
+`v2/semantic/ps_deobfuscate.py` requires source order `GzipStream …
+FromBase64String("<lit>") … Decompress`, but the common idiom binds
+the base64 to a variable FIRST (`$s = FromBase64String("…")`) and then
+consumes it (`GzipStream($s, …Decompress)`). Orchestration gap, not a
+missing decoder — the `_decompress` primitive was already correct.
+
+**Fix** (generic, deterministic, class-level, no sample-specific
+patches):
+- New resolver `_resolve_variable_bound_compression_stream` in
+  `ps_deobfuscate.py` — two-pass linking of literal-base64 assignments
+  to same-variable compression consumers. Reuses `_decompress`.
+- New RTE plugin `ps_indirect_compression_stream` at confidence 94,
+  registered in `TRANSFORMATION_REGISTRY` BEFORE the strict-order
+  `ps_compression_stream`.
+- `DEFAULT_MAX_DEPTH: 24 → 64` per the v1.5.0 spec.
+
+**Verification**:
+- Reproducer: RTE now converges to 3 layers, stage-3 plaintext
+  recovered byte-for-byte, `NO_TRANSFORMATION` stop at L2 (principled).
+- Determinism: two runs → identical hash `576e3b4f0efd7f1d`.
+- RTE latency: **21.8 ms** (target ≤ 500 ms).
+- 10 locked pytest regressions in `tests/test_decoder_convergence_v150.py`.
+- 244 additional decoder/behaviour/verdict/investigation tests pass;
+  the 3 remaining failures are pre-existing (identical without this
+  change).
+- Golden Corpus: locked entry `PS_ENCODEDCOMMAND_GZIP_STAGE2_001`
+  in `backend/tests/trust_corpus/`.
+
+**Rescheduled**: The originally-planned v1.5.0 "Resource Nodes"
+(Behavior Graph schema 1.2.0) is deferred to v1.6.0 per SOC lead
+direction — decoder correctness took priority.
+
+**Files touched**:
+`backend/v2/semantic/ps_deobfuscate.py`,
+`backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py`,
+`backend/v2/investigation/rte/transformations/__init__.py`,
+`backend/v2/investigation/rte/engine.py`,
+`backend/tests/test_decoder_convergence_v150.py`,
+`backend/tests/trust_corpus/PS_ENCODEDCOMMAND_GZIP_STAGE2_001.yaml`,
+`RELEASES.md`, `memory/PRD.md`.
+

@@ -1,0 +1,73 @@
+id: PS_ENCODEDCOMMAND_GZIP_STAGE2_001
+title: Malicious — CMD → PS -EncodedCommand → UTF-16LE → variable-bound base64+gzip → Stage-2 PS
+provenance: >
+  Real-world sample provided by SOC lead 2026-07-28.
+  Introduced as the primary regression for v1.5.0 Decoder Convergence
+  after the Recursive Transformation Engine was observed exiting at
+  L1 with stop_reason=NO_TRANSFORMATION on this idiom (see RELEASES.md
+  and tests/test_decoder_convergence_v150.py for the trace).
+
+# Locked corpus entry — DO NOT EDIT WITHOUT A RELEASE NOTE.
+# The Golden decoder chain shape MUST remain:
+#
+#   L0  CMD wrapper (%COMSPEC% start powershell -encodedcommand …)
+#   L1  UTF-16LE-decoded PowerShell containing
+#         $s = New-Object IO.MemoryStream(,[Convert]::FromBase64String("<gzip-b64>"));
+#         IEX (New-Object IO.StreamReader(
+#                 New-Object IO.Compression.GzipStream(
+#                     $s, [IO.Compression.CompressionMode]::Decompress))).ReadToEnd();
+#   L2  gzip-decompressed Stage-2 PowerShell
+#
+# If any future decoder change causes this sample to stop at fewer
+# than 3 layers OR to produce a non-deterministic output hash, CI
+# MUST fail — see tests/test_decoder_convergence_v150.py.
+input: >-
+  %COMSPEC% /b /c start /b /min powershell -nop -w hidden -encodedcommand
+  JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAE0AZQBtAG8AcgB5AFMAdAByAGUAYQBtACgALABbAEMAbwBuAHYAZQByAHQAXQA6ADoARgByAG8AbQBCAGEAcwBlADYANABTAHQAcgBpAG4AZwAoACIASAA0AHMASQBBAEEAQQBBAEEAQQBBAEEAQQBQAFYAWQBiAFcALwBpAE8ATAA0ADkAOwBWAFEATABxAG8AZgB2AG8AZgAiACkAKQA7AEkARQBYACAAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAASQBPAC4AUwB0AHIAZQBhAG0AUgBlAGEAZABlAHIAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAASQBPAC4AQwBvAG0AcAByAGUAcwBzAGkAbwBuAC4ARwB6AGkAcABTAHQAcgBlAGEAbQAoACQAcwAsAFsASQBPAC4AQwBvAG0AcAByAGUAcwBzAGkAbwBuAC4AQwBvAG0AcAByAGUAcwBzAGkAbwBuAE0AbwBkAGUAXQA6ADoARABlAGMAbwBtAHAAcgBlAHMAcwApACkAKQAuAFIAZQBhAGQAVABvAEUAbgBkACgAKQA7AA==
+
+# NOTE: the input above is a MINIMAL SHAPE PROBE. The full field
+# sample supplied by the SOC lead is much larger (~7.6 KB) and lives
+# in the pytest suite (tests/test_decoder_convergence_v150.py) which
+# rebuilds the exact bytes from a KNOWN stage-3 plaintext, giving us
+# byte-for-byte verification without embedding a huge blob here.
+
+expected_verdict: malicious
+must_fire_intents:
+  - persistence
+  - runtime_dependent
+must_not_fire:
+  - credential_access
+forbidden_words_in_verdict:
+  - empire
+  - cobalt strike
+  - ransomware
+  - campaign
+must_admit_unknown: false
+expected_confidence_band: high
+expected_iocs: []
+expected_mitre:
+  - T1059.001    # PowerShell
+  - T1027        # Obfuscated Files or Information
+  - T1547.001    # Registry Run Keys persistence (stage-3 payload)
+expected_behaviors:
+  - obfuscated command
+  - persistence
+min_recommendations: 2
+# v1.5.0 Decoder Convergence assertions — these are what the pytest
+# suite checks. Kept here as human-readable documentation of the
+# corpus contract.
+decoder_convergence:
+  min_layers: 3
+  required_transformations:
+    - ps_encoded_command
+    - ps_indirect_compression_stream
+  forbidden_stop_reason_at_l1: no_transformation
+  deterministic: true
+notes: >
+  This sample exercises the exact class of failure that motivated
+  v1.5.0. Prior to v1.5.0 the pipeline stopped at L1 because
+  _resolve_compression_stream required GzipStream to appear BEFORE
+  FromBase64String in source order — this sample reverses that
+  order (base64 is bound to $s first, then GzipStream reads $s).
+  The generic fix (ps_indirect_compression_stream) links
+  assignments and consumers by variable name.

@@ -26,9 +26,12 @@ from .models import (
 )
 from .transformations import TRANSFORMATION_REGISTRY, Transformation
 
-# Safety cap. 24 layers is far beyond any real-world sample we've
-# seen (the deepest observed adversarial chain to date is 8 layers).
-DEFAULT_MAX_DEPTH = 24
+# Safety cap. Historical observation cap was 24; v1.5.0 raised it to
+# 64 (2026-07-28) to accommodate multi-stage PowerShell loaders that
+# chain UTF-16LE base64 → gzip → base64 → deflate → … The stopping
+# invariants (NO_TRANSFORMATION, LOOP via content-hash, MAX_DEPTH,
+# UNSUPPORTED) remain the sole termination conditions.
+DEFAULT_MAX_DEPTH = 64
 
 
 def _hash(content: str) -> str:

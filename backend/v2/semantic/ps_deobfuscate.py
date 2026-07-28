@@ -798,6 +798,138 @@ def _resolve_compression_stream(txt: str, stages: list[Stage]) -> tuple[str, boo
     return txt, False
 
 
+# ── v1.5.0 Decoder Convergence · Variable-bound compression stream ──
+#
+# The classic Windows evasion idiom (Empire / SharpHound / Metasploit /
+# handwritten loaders) binds the base64 to a variable BEFORE the
+# compression stream is instantiated:
+#
+#     $s = New-Object IO.MemoryStream(,[Convert]::FromBase64String("H4sI..."));
+#     IEX (New-Object IO.StreamReader(
+#            New-Object IO.Compression.GzipStream(
+#              $s, [IO.Compression.CompressionMode]::Decompress))).ReadToEnd();
+#
+# The strict-order `_COMPRESSION_RE` above cannot match this shape
+# because `FromBase64String("...")` appears BEFORE `GzipStream(...)` in
+# source order. This resolver handles that class of idiom generically
+# by two-pass linking: find `$VAR = … FromBase64String("<lit>") …`
+# assignments, then find `GzipStream/DeflateStream/BrotliStream($VAR,
+# …, Decompress)` references on the same variable name.
+#
+# Deterministic: only fires when the base64 argument is a LITERAL
+# string, the variable name matches exactly, and decompression
+# succeeds. Never executes user code. Never emulates.
+_VAR_B64_ASSIGN_RE = re.compile(
+    r"(?ixs)"
+    r"\$(\w+)\s*=\s*"                                                       # group 1 = $VAR
+    r"(?:new-object\s+(?:system\.)?io\.memorystream\s*\(\s*,?\s*)?"          # optional MemoryStream wrap
+    r"\[?\s*(?:system\.)?convert\]?\s*::\s*frombase64string\s*\(\s*"          # [Convert]::FromBase64String(
+    r"(['\"])([A-Za-z0-9+/=]{16,})\2\s*\)"                                    # group 2 = quote, group 3 = blob
+)
+
+_VAR_COMPRESSION_CONSUMER_RE = re.compile(
+    r"(?ixs)"
+    r"\[?\s*(?:system\.)?io\.compression\.(gzip|deflate|brotli)stream\]?"
+    r"\s*(?:::new)?\s*"
+    r"\(\s*\$(\w+)\s*,\s*"                                                    # ($VAR ,
+    r".{0,200}?compressionmode\]?\s*::\s*decompress"
+)
+
+
+def _resolve_variable_bound_compression_stream(txt: str, stages: list[Stage]) -> tuple[str, bool]:
+    """Recognise `$VAR = FromBase64String("<lit>"); GzipStream($VAR, …Decompress)`.
+
+    Generic class fix for the variable-bound-base64 compression idiom.
+    Reuses :func:`_decompress` so gzip / deflate / brotli are all
+    handled deterministically without adding new decoders.
+    """
+    # Pass 1: index every literal-base64 assignment by variable name.
+    assignments: dict[str, tuple[re.Match[str], str]] = {}
+    for m in _VAR_B64_ASSIGN_RE.finditer(txt):
+        var = m.group(1)
+        blob = m.group(3)
+        # Last assignment wins (deterministic even in the presence of shadowing).
+        assignments[var] = (m, blob)
+    if not assignments:
+        return txt, False
+    # Pass 2: find the first compression consumer whose variable was
+    # assigned to a literal-base64 blob. Deterministic by earliest-
+    # source-offset match.
+    consumer_matches = sorted(
+        _VAR_COMPRESSION_CONSUMER_RE.finditer(txt),
+        key=lambda m: m.start(),
+    )
+    for cm in consumer_matches:
+        kind = cm.group(1).lower()
+        var = cm.group(2)
+        if var not in assignments:
+            continue
+        assign_m, blob = assignments[var]
+        try:
+            raw = base64.b64decode(blob, validate=False)
+        except binascii.Error:
+            continue
+        decompressed = _decompress(kind, raw)
+        if decompressed is None:
+            continue
+        # Same encoding-selection heuristic as the strict-order resolver.
+        decoded = None
+        has_null_pattern = (
+            len(decompressed) >= 4
+            and decompressed.count(b"\x00") >= max(1, len(decompressed) // 4)
+            and decompressed[0:1] != b"\x00"
+        )
+        enc_order = (
+            ("utf-16-le", "utf-8", "ascii") if has_null_pattern
+            else ("utf-8", "utf-16-le", "ascii")
+        )
+        for enc in enc_order:
+            try:
+                decoded = decompressed.decode(enc, errors="strict")
+                break
+            except Exception:
+                continue
+        if decoded is None or len(decoded) < 3 or not any(c.isalpha() for c in decoded):
+            continue
+        label, kind_str = _COMPRESSION_TECHNIQUE[kind]
+        # Replace the ENTIRE assign→consume region with the recovered
+        # plaintext. We pick a span that starts at the assignment and
+        # ends at the closing paren of the consumer's StreamReader /
+        # ReadToEnd chain (best-effort: extend to the next `;` after the
+        # consumer, or to end-of-line if no `;`). This makes the next
+        # RTE layer the recovered PS itself rather than a mangled hybrid.
+        end = cm.end()
+        tail = txt[end:]
+        # Walk to the next top-level `;` or newline, whichever comes first.
+        stop = len(tail)
+        depth = 0
+        for i, ch in enumerate(tail):
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+            elif ch in (";", "\n") and depth <= 0:
+                stop = i + 1
+                break
+        end += stop
+        replacement = decoded
+        new_txt = txt[:assign_m.start()] + replacement + txt[end:]
+        stages.append(Stage(
+            n=len(stages) + 1,
+            technique=label,
+            evidence=(
+                f"Recognised variable-bound `${var} = FromBase64String(\"…\")` "
+                f"assignment followed by `[IO.Compression.{kind_str.title()}Stream]"
+                f"(${var}, …::Decompress)` and statically decompressed the "
+                f"{len(blob)}-char blob (recovered {len(decoded)} chars)."
+            ),
+            before=blob[:80],
+            after=decoded[:200],
+        ))
+        return new_txt, True
+    return txt, False
+
+
 # ── XOR loop over a byte array with a static key ──────────────────
 # Matches the common Invoke-Obfuscation / Empire pattern:
 #   $k=0x2A; $b=[Convert]::FromBase64String("..."); ($b|%{$_-bxor$k})

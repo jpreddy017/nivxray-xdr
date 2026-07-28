@@ -64,6 +64,9 @@ from .ps_iex_peel import TRANSFORMATION as _T_PS_IEX                  # noqa: E4
 from .ps_encoded_command import TRANSFORMATION as _T_PS_ENC           # noqa: E402
 from .ps_static_base64 import TRANSFORMATION as _T_PS_STATIC_B64      # noqa: E402
 from .ps_compression_stream import TRANSFORMATION as _T_PS_COMPRESS   # noqa: E402
+from .ps_indirect_compression_stream import (                          # noqa: E402
+    TRANSFORMATION as _T_PS_INDIRECT_COMPRESS,
+)
 
 
 TRANSFORMATION_REGISTRY: list[Transformation] = [
@@ -78,8 +81,12 @@ TRANSFORMATION_REGISTRY: list[Transformation] = [
     _T_PS_IEX,
     # PS-embedded static base64 and compression calls come next so a
     # `[Convert]::FromBase64String("...")` inside a larger script fires
-    # before the whole-artefact base64 plugins.
+    # before the whole-artefact base64 plugins. The variable-bound
+    # compression handler runs BEFORE the strict-order one because it
+    # covers a strictly larger surface (both idioms) and has slightly
+    # higher confidence when it matches.
     _T_PS_STATIC_B64,
+    _T_PS_INDIRECT_COMPRESS,   # v1.5.0 · variable-bound base64 → compression
     _T_PS_COMPRESS,
     # Raw binary encodings — order matters: UTF-16LE-decoded base64
     # (the classic Windows form) is preferred over utf-8/latin-1 base64
