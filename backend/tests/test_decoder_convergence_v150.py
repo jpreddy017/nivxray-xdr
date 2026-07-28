@@ -412,6 +412,159 @@ def test_diagnostic_included_in_determinism_hash():
     assert chain_ok.determinism_hash != chain_bad.determinism_hash
 
 
+# ── v1.5.0 follow-up · Stable machine-readable diagnostic codes ──
+#
+# Analysts, dashboards, and CI key off codes (DX1xxx / DX2xxx) instead
+# of parsing free-text reasons. Codes are stable across releases —
+# once assigned a number NEVER changes meaning.
+
+
+def test_diagnostic_code_registry_is_complete_and_stable():
+    """Every code the plugin can emit MUST be in the canonical
+    :mod:`diagnostic_codes` registry, and every registered code must
+    keep its assigned meaning."""
+    from v2.investigation.rte import diagnostic_codes as dc
+    # The codes the resolver / engine emits must all be registered.
+    for expected in [
+        dc.CODE_INVALID_BASE64_LENGTH,
+        dc.CODE_INVALID_BASE64_ALPHABET,
+        dc.CODE_GZIP_DECOMPRESSION_FAILED,
+        dc.CODE_DEFLATE_DECOMPRESSION_FAILED,
+        dc.CODE_BROTLI_DECOMPRESSION_FAILED,
+        dc.CODE_UNSUPPORTED_COMPRESSION_STREAM,
+        dc.CODE_NO_TRANSFORMATION,
+        dc.CODE_MAX_DEPTH_REACHED,
+        dc.CODE_LOOP_DETECTED,
+    ]:
+        assert expected in dc.DIAGNOSTIC_CODES, f"missing code {expected}"
+    # Stability guard — hard-coded expected numeric values.
+    assert dc.CODE_INVALID_BASE64_LENGTH        == "DX1001"
+    assert dc.CODE_INVALID_BASE64_ALPHABET      == "DX1002"
+    assert dc.CODE_GZIP_DECOMPRESSION_FAILED    == "DX1101"
+    assert dc.CODE_DEFLATE_DECOMPRESSION_FAILED == "DX1102"
+    assert dc.CODE_NO_TRANSFORMATION            == "DX2002"
+    assert dc.CODE_MAX_DEPTH_REACHED            == "DX2001"
+
+
+def test_corrupt_gzip_emits_dx1001_or_dx1101_with_structured_meta():
+    """The plugin-level diagnostic must carry a stable code AND the
+    canonical structured meta fields (blob_length, blob_mod4,
+    expected_padding, inflate_attempted, magic_bytes,
+    inflate_exception, stage)."""
+    import gzip
+    truncated = gzip.compress(b"unreachable")[:-8]
+    blob = base64.b64encode(truncated).decode("ascii")
+    stage2 = (
+        f'$s=New-Object IO.MemoryStream(,'
+        f'[Convert]::FromBase64String("{blob}"));'
+        f'IEX (New-Object IO.StreamReader('
+        f'New-Object IO.Compression.GzipStream('
+        f'$s,[IO.Compression.CompressionMode]::Decompress))).ReadToEnd();'
+    )
+    enc = base64.b64encode(stage2.encode("utf-16-le")).decode("ascii")
+    chain = transform(f"powershell -encodedcommand {enc}",
+                       max_depth=DEFAULT_MAX_DEPTH)
+    plugin_diags = [d for d in chain.diagnostics
+                     if d.detector == "ps_indirect_compression_stream"]
+    assert plugin_diags, "no plugin diagnostic emitted"
+    d = plugin_diags[0]
+    # Aligned base64 (mod4 == 0) → inflate failure → DX1101 exactly.
+    # (This test constructs an aligned blob so we get the pure gzip
+    # code, not DX1001.)
+    assert d.code == "DX1101", f"expected DX1101, got {d.code}"
+    assert d.failure_type == "GZIP_DECOMPRESSION_ERROR"
+    # Canonical structured meta contract
+    for req_key in (
+        "blob_length", "blob_mod4", "expected_padding",
+        "inflate_attempted", "magic_bytes", "bytes_available",
+        "inflate_exception", "compression_kind", "variable", "stage",
+    ):
+        assert req_key in d.meta, f"meta missing {req_key!r}: {d.meta}"
+    assert d.meta["compression_kind"] == "gzip"
+    assert d.meta["inflate_attempted"] is True
+    assert d.meta["magic_bytes"].startswith("1f8b")
+
+
+def test_misaligned_base64_promotes_to_dx1001_root_cause():
+    """When base64 length is invalid AND inflate also fails, the code
+    must be the root-cause DX1001 (invalid length), not the surface
+    DX1101 (inflate failed). Analysts should key off root causes."""
+    # Build a misaligned blob (mod 4 = 3) — the resolver's diagnose()
+    # promotes to DX1001 because that's the deeper reason inflate fails.
+    import gzip
+    good = base64.b64encode(gzip.compress(b"x")).decode()
+    # Chop the last char to force length mod 4 = 3.
+    while len(good) % 4 != 3:
+        good = good[:-1]
+    stage2 = (
+        f'$s=New-Object IO.MemoryStream(,'
+        f'[Convert]::FromBase64String("{good}"));'
+        f'IEX (New-Object IO.StreamReader('
+        f'New-Object IO.Compression.GzipStream('
+        f'$s,[IO.Compression.CompressionMode]::Decompress))).ReadToEnd();'
+    )
+    enc = base64.b64encode(stage2.encode("utf-16-le")).decode("ascii")
+    chain = transform(f"powershell -encodedcommand {enc}",
+                       max_depth=DEFAULT_MAX_DEPTH)
+    plugin_diags = [d for d in chain.diagnostics
+                     if d.detector == "ps_indirect_compression_stream"]
+    assert plugin_diags, "no plugin diagnostic emitted"
+    d = plugin_diags[0]
+    assert d.code == "DX1001", f"expected DX1001 root-cause, got {d.code}"
+    assert d.failure_type == "INVALID_BASE64_LENGTH"
+    assert d.meta["blob_mod4"] == 3
+
+
+def test_engine_emits_dx2002_on_no_transformation_stop():
+    """Every ``NO_TRANSFORMATION`` termination MUST carry a DX2002
+    orchestration diagnostic so dashboards see a canonical
+    ``chain-stopped-here`` marker even without plugin diagnostics."""
+    chain = transform('Write-Host "no transforms here"',
+                       max_depth=DEFAULT_MAX_DEPTH)
+    engine_diags = [d for d in chain.diagnostics if d.detector == "rte.engine"]
+    assert engine_diags, "no engine-level orchestration diagnostic"
+    d = engine_diags[0]
+    assert d.code == "DX2002"
+    assert d.failure_type == "NO_FURTHER_DETERMINISTIC_TRANSFORMATION"
+    assert d.meta["stop_reason"] == "no_transformation"
+
+
+def test_engine_emits_dx2001_on_max_depth_stop():
+    """A chain that hits the depth cap must be tagged with DX2001."""
+    core = 'Write-Host x'
+    payload = core
+    for _ in range(10):
+        payload = base64.b64encode(payload.encode()).decode()
+    # Force a low cap so we hit MAX_DEPTH deterministically.
+    chain = transform(payload, max_depth=3)
+    engine_diags = [d for d in chain.diagnostics if d.detector == "rte.engine"]
+    assert engine_diags, "no engine-level orchestration diagnostic"
+    assert engine_diags[0].code == "DX2001"
+    assert engine_diags[0].failure_type == "MAX_RECURSION_DEPTH_REACHED"
+
+
+def test_successful_decode_still_emits_dx2002_at_terminal_layer():
+    """Success paths still end with NO_TRANSFORMATION at the terminal
+    plaintext layer — the engine-level DX2002 must be present there
+    too so dashboards get a uniform ``chain-terminated`` event."""
+    import gzip
+    stage3 = 'Write-Host "clean success"'
+    blob = base64.b64encode(gzip.compress(stage3.encode())).decode()
+    stage2 = (
+        f'$s=New-Object IO.MemoryStream(,'
+        f'[Convert]::FromBase64String("{blob}"));'
+        f'IEX (New-Object IO.StreamReader('
+        f'New-Object IO.Compression.GzipStream('
+        f'$s,[IO.Compression.CompressionMode]::Decompress))).ReadToEnd();'
+    )
+    enc = base64.b64encode(stage2.encode("utf-16-le")).decode("ascii")
+    chain = transform(f"powershell -encodedcommand {enc}",
+                       max_depth=DEFAULT_MAX_DEPTH)
+    engine_diags = [d for d in chain.diagnostics if d.detector == "rte.engine"]
+    assert engine_diags, "success path missing terminal orchestration diagnostic"
+    assert engine_diags[0].code == "DX2002"
+
+
 # ── v1.5.0 · Performance guard ───────────────────────────────────
 #
 # Correctness corpus proves what decodes correctly. Performance corpus

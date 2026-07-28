@@ -28,6 +28,14 @@ import zlib as _zlib_lib
 from typing import TYPE_CHECKING
 
 from ...evidence import Evidence
+from ..diagnostic_codes import (
+    CODE_BROTLI_DECOMPRESSION_FAILED,
+    CODE_DEFLATE_DECOMPRESSION_FAILED,
+    CODE_GZIP_DECOMPRESSION_FAILED,
+    CODE_INVALID_BASE64_ALPHABET,
+    CODE_INVALID_BASE64_LENGTH,
+    CODE_UNSUPPORTED_COMPRESSION_STREAM,
+)
 from ..models import Artifact
 
 if TYPE_CHECKING:  # avoid runtime circular import
@@ -74,10 +82,10 @@ _DIAG_CONSUMER_RE = re.compile(
 )
 
 
-def _diagnose_pattern(txt: str) -> tuple[str, str, str, dict] | None:
-    """Return ``(kind, var, reason, meta)`` for a detected-but-uncoded
-    variable-bound compression pattern, or ``None`` if no such pattern
-    exists.
+def _diagnose_pattern(txt: str) -> tuple[str, str, str, dict, str, str] | None:
+    """Return ``(kind, var, reason, meta, code, failure_type)`` for a
+    detected-but-uncoded variable-bound compression pattern, or
+    ``None`` if no such pattern exists.
 
     Kept separate from the "success" resolver so diagnostics can never
     accidentally emit fabricated content.
@@ -95,6 +103,13 @@ def _diagnose_pattern(txt: str) -> tuple[str, str, str, dict] | None:
     Never assert the cause ("this is chat-transmission corruption").
     The engine cannot prove *why* a payload is incomplete — only that
     it is.
+
+    Machine-readable payload (v1.5.0 follow-up)
+    -------------------------------------------
+    Every return also carries a stable ``code`` (from
+    :mod:`v2.investigation.rte.diagnostic_codes`) and a
+    ``failure_type`` string. Consumers should key off these instead of
+    parsing ``reason`` text.
     """
     assignments: dict[str, str] = {}
     for m in _DIAG_ASSIGN_RE.finditer(txt):
@@ -107,6 +122,11 @@ def _diagnose_pattern(txt: str) -> tuple[str, str, str, dict] | None:
         "limits, EDR field-length caps, or transport corruption — "
         "the decoder cannot determine the specific cause."
     )
+    _COMPRESSION_CODES = {
+        "gzip":    (CODE_GZIP_DECOMPRESSION_FAILED,    "GZIP_DECOMPRESSION_ERROR"),
+        "deflate": (CODE_DEFLATE_DECOMPRESSION_FAILED, "DEFLATE_DECOMPRESSION_ERROR"),
+        "brotli":  (CODE_BROTLI_DECOMPRESSION_FAILED,  "BROTLI_DECOMPRESSION_ERROR"),
+    }
 
     for cm in _DIAG_CONSUMER_RE.finditer(txt):
         var = cm.group(2)
@@ -115,7 +135,17 @@ def _diagnose_pattern(txt: str) -> tuple[str, str, str, dict] | None:
         kind = cm.group(1).lower()
         blob = assignments[var]
 
-        # Layer 1: base64 alignment check (deterministic).
+        # ── Machine-readable fact set (always present) ──────────
+        base_meta: dict = {
+            "blob_length":     len(blob),
+            "blob_mod4":       len(blob) % 4,
+            "expected_padding": (-len(blob)) % 4,
+            "inflate_attempted": False,
+            "compression_kind": kind,
+            "variable":         var,
+        }
+
+        # ── Layer 1 · base64 alignment (deterministic fact) ─────
         alignment_fact = None
         if len(blob) % 4 != 0:
             alignment_fact = (
@@ -124,23 +154,29 @@ def _diagnose_pattern(txt: str) -> tuple[str, str, str, dict] | None:
                 f"appears incomplete or malformed."
             )
 
-        # Layer 2: try to decode. If it fails, report the exact
-        # exception — no interpretation.
+        # ── Layer 2 · base64 decode ─────────────────────────────
         try:
             raw = base64.b64decode(blob + "=" * (-len(blob) % 4), validate=False)
         except binascii.Error as exc:
+            # Base64 alphabet violation.
             reason = (
                 (alignment_fact + " " if alignment_fact else "")
                 + f"Base64 decode failed: {exc}. "
                 + _COMMON_CAUSES
             )
-            return (
-                kind, var, reason,
-                {"blob_chars": len(blob), "mod4_offset": len(blob) % 4},
-            )
+            meta = {
+                **base_meta,
+                "base64_exception": f"{type(exc).__name__}: {exc}",
+            }
+            return (kind, var, reason, meta,
+                    CODE_INVALID_BASE64_ALPHABET,
+                    "INVALID_BASE64_ALPHABET")
 
-        # Layer 3: try to decompress. Report the deterministic exception
-        # verbatim; do not claim a cause.
+        # ── Layer 3 · decompression ─────────────────────────────
+        base_meta["inflate_attempted"] = True
+        base_meta["bytes_available"]   = len(raw)
+        base_meta["magic_bytes"]       = raw[:4].hex()
+
         try:
             if kind == "gzip":
                 _gzip_lib.decompress(raw)
@@ -150,43 +186,53 @@ def _diagnose_pattern(txt: str) -> tuple[str, str, str, dict] | None:
                 try:
                     import brotli  # noqa: WPS433
                 except ImportError:
-                    return (
-                        kind, var,
-                        (
-                            "Detected Brotli compression consumer but the "
-                            "`brotli` library is not installed in this "
-                            "runtime, so the payload cannot be inflated here."
-                        ),
-                        {"blob_chars": len(blob), "raw_bytes": len(raw)},
+                    reason = (
+                        "Detected Brotli compression consumer but the "
+                        "`brotli` library is not installed in this "
+                        "runtime, so the payload cannot be inflated here."
                     )
+                    return (kind, var, reason, base_meta,
+                            CODE_UNSUPPORTED_COMPRESSION_STREAM,
+                            "BROTLI_LIBRARY_UNAVAILABLE")
                 brotli.decompress(raw)
-            # If we reach here decompression succeeded — the resolver
-            # should have fired. Keep iterating in case another
-            # consumer on this artefact is the failing one.
+            # Decompression succeeded — the resolver should have fired
+            # and inlined. Fall through to the next consumer if any.
             continue
         except Exception as exc:
-            # State the fact (blob length + failure), not the cause.
+            # Report facts, list causes as possibilities.
             reason_parts = []
             if alignment_fact:
                 reason_parts.append(alignment_fact)
+                # Base64 length invalid AND inflate failed — attribute
+                # to the more root-cause code (invalid length).
+                code_for_alignment_failure = CODE_INVALID_BASE64_LENGTH
             else:
                 reason_parts.append(
                     f"Base64 payload decoded to {len(raw)} bytes "
                     f"(length={len(blob)} characters, aligned)."
                 )
+                code_for_alignment_failure = None
             reason_parts.append(
                 f"{kind.title()} inflate failed: {type(exc).__name__}: {exc}."
             )
             reason_parts.append(_COMMON_CAUSES)
-            return (
-                kind, var, " ".join(reason_parts),
-                {
-                    "blob_chars":  len(blob),
-                    "raw_bytes":   len(raw),
-                    "magic_bytes": raw[:4].hex(),
-                    "mod4_offset": len(blob) % 4,
-                },
+            code, failure_type = _COMPRESSION_CODES.get(
+                kind,
+                (CODE_UNSUPPORTED_COMPRESSION_STREAM,
+                 "UNKNOWN_COMPRESSION_STREAM"),
             )
+            # If the root cause is the base64 alignment, expose that
+            # more-specific code — analysts can then key dashboards
+            # off DX1001 instead of DX1101 for this class of failure.
+            if code_for_alignment_failure is not None:
+                code = code_for_alignment_failure
+                failure_type = "INVALID_BASE64_LENGTH"
+            meta = {
+                **base_meta,
+                "inflate_exception": f"{type(exc).__name__}: {exc}",
+            }
+            return (kind, var, " ".join(reason_parts), meta,
+                    code, failure_type)
     return None
 
 
@@ -257,7 +303,12 @@ class PsIndirectCompressionStreamTransformation:
         d = _diagnose_pattern(artifact.content)
         if d is None or DecodeDiagnostic is None:
             return None
-        kind, var, reason, meta = d
+        kind, var, reason, meta, code, failure_type = d
+        # Stage numbering — analyst-facing. Layer 0 is the input; the
+        # first transformation would emit at stage 1. The stage this
+        # diagnostic *would* correspond to is one past the current
+        # artefact's layer.
+        meta = {**meta, "stage": artifact.layer + 1}
         return DecodeDiagnostic(
             layer=artifact.layer,
             detector=self.NAME,
@@ -268,6 +319,8 @@ class PsIndirectCompressionStreamTransformation:
             outcome="decode_failed",
             reason=reason,
             meta=meta,
+            code=code,
+            failure_type=failure_type,
         )
 
 

@@ -234,8 +234,71 @@ def transform(text: str, *, max_depth: int = DEFAULT_MAX_DEPTH) -> Transformatio
         stop_reason=stop_reason,
         diagnostics=diagnostics_at_stop,
     )
+    # Engine-level DX2xxx orchestration diagnostic. Emitted regardless
+    # of plugin diagnostics so downstream dashboards always have a
+    # machine-readable "why did the pipeline stop" code alongside any
+    # plugin-emitted DX1xxx codes.
+    _emit_orchestration_diagnostic(chain)
     chain.determinism_hash = _chain_hash(chain)
     return chain
+
+
+def _emit_orchestration_diagnostic(chain: TransformationChain) -> None:
+    """Append the canonical engine-level ``DecodeDiagnostic`` for the
+    chain's :class:`StopReason`. Kept idempotent — safe to call once
+    at the end of ``transform``.
+    """
+    # Local import avoids the models ↔ diagnostic_codes ordering trap.
+    from .diagnostic_codes import (
+        CODE_LOOP_DETECTED,
+        CODE_MAX_DEPTH_REACHED,
+        CODE_NO_TRANSFORMATION,
+    )
+    from .models import DecodeDiagnostic
+
+    reason_map = {
+        StopReason.NO_TRANSFORMATION: (
+            CODE_NO_TRANSFORMATION,
+            "NO_FURTHER_DETERMINISTIC_TRANSFORMATION",
+            "The Recursive Transformation Engine could not find any "
+            "deterministic transformation to apply to the current layer. "
+            "This is the principled convergence state; the artefact is "
+            "treated as effective plaintext for downstream analysis.",
+        ),
+        StopReason.MAX_DEPTH: (
+            CODE_MAX_DEPTH_REACHED,
+            "MAX_RECURSION_DEPTH_REACHED",
+            "The recursive transformation loop hit the safety depth cap "
+            "before converging. The remaining layers were not explored; "
+            "raise ``max_depth`` if a legitimate deep chain is expected.",
+        ),
+        StopReason.LOOP: (
+            CODE_LOOP_DETECTED,
+            "RECURSION_LOOP_DETECTED",
+            "A transformation would have produced a previously-seen "
+            "layer (content-hash reappearance). Halted to prevent "
+            "infinite recursion.",
+        ),
+    }
+    entry = reason_map.get(chain.stop_reason)
+    if entry is None:
+        return
+    code, failure_type, reason = entry
+    final_layer = chain.artifacts[-1].layer if chain.artifacts else 0
+    chain.diagnostics.append(DecodeDiagnostic(
+        layer=final_layer,
+        detector="rte.engine",
+        attempted=f"stop_reason={chain.stop_reason.value}",
+        outcome="orchestration",
+        reason=reason,
+        meta={
+            "stage":       final_layer + 1,
+            "stop_reason": chain.stop_reason.value,
+            "depth":       chain.depth,
+        },
+        code=code,
+        failure_type=failure_type,
+    ))
 
 
 def _chain_hash(chain: TransformationChain) -> str:
@@ -256,12 +319,16 @@ def _chain_hash(chain: TransformationChain) -> str:
         "stop": chain.stop_reason.value,
         # v1.5.0 · include diagnostics in the determinism hash so
         # analysts can trust that identical inputs also produce
-        # identical failure-explanations.
+        # identical failure-explanations. ``code`` and ``failure_type``
+        # are the stable machine-readable identifiers introduced in the
+        # v1.5.0 follow-up.
         "diagnostics": [{
-            "layer":     d.layer,
-            "detector":  d.detector,
-            "outcome":   d.outcome,
-            "attempted": d.attempted,
+            "layer":        d.layer,
+            "detector":     d.detector,
+            "outcome":      d.outcome,
+            "attempted":    d.attempted,
+            "code":         d.code,
+            "failure_type": d.failure_type,
         } for d in chain.diagnostics],
     }, sort_keys=True, ensure_ascii=False).encode()
     return hashlib.sha256(blob).hexdigest()

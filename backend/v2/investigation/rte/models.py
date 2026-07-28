@@ -103,6 +103,14 @@ class DecodeDiagnostic:
     so the analyst can see WHY the pipeline stopped instead of a silent
     ``no_transformation``. Diagnostics MUST be evidence-anchored and
     MUST NOT fabricate a decoded value.
+
+    Machine-readable fields (v1.5.0 follow-up)
+    ------------------------------------------
+    ``code`` and ``failure_type`` provide a stable, dashboardable
+    identifier for the failure class. See
+    :mod:`v2.investigation.rte.diagnostic_codes` for the canonical
+    registry. Consumers should treat unknown codes as opaque and fall
+    back to :attr:`reason` for human context.
     """
     layer: int                 # the artifact layer this diagnostic refers to
     detector: str              # which transformation plugin produced it
@@ -110,6 +118,8 @@ class DecodeDiagnostic:
     outcome: str               # "decode_failed" / "detection_only" / "malformed_input"
     reason: str                # deterministic explanation for the analyst
     meta: dict[str, Any] = field(default_factory=dict)
+    code: str = ""             # stable machine-readable code (DXxxxx) — v1.5.0
+    failure_type: str = ""     # stable enum-style string keyed to ``code`` — v1.5.0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

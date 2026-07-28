@@ -3270,3 +3270,53 @@ validation; no pattern is hardcoded.
 `backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py`,
 `backend/tests/test_decoder_convergence_v150.py`.
 
+
+---
+
+## v1.5.0 · Machine-readable diagnostic codes (2026-07-28, same release)
+
+Every `DecodeDiagnostic` now carries a stable machine-readable
+`code` (e.g. `DX1001`) and `failure_type` (e.g.
+`INVALID_BASE64_LENGTH`) so analysts, dashboards, and CI can key off
+identifiers instead of parsing free-text `reason` strings.
+
+**Canonical code table** (module `v2/investigation/rte/diagnostic_codes.py`):
+
+| Code | Meaning |
+| ---- | ------- |
+| DX1001 | Invalid Base64 length |
+| DX1002 | Invalid Base64 alphabet |
+| DX1003 | UTF-16LE decode failed |
+| DX1101 | GZip decompression failed |
+| DX1102 | Deflate decompression failed |
+| DX1103 | Brotli decompression failed |
+| DX1201 | Variable resolution failed |
+| DX1301 | Unsupported compression stream |
+| DX2001 | Maximum recursion depth reached |
+| DX2002 | No further deterministic transformation |
+| DX2003 | Recursion loop detected via content-hash |
+
+**Stability contract**: once assigned a code NEVER changes meaning.
+Root-cause promotion: when base64 length is invalid AND inflate also
+fails, the diagnostic surfaces `DX1001` rather than `DX1101` so
+analysts see the deepest deterministic reason.
+
+**Engine-level codes**: every chain-stop now emits a canonical
+`rte.engine` orchestration diagnostic with a `DX2xxx` code, giving
+dashboards a uniform `chain-terminated` event.
+
+**Structured `meta` contract** — every plugin diagnostic includes:
+`blob_length`, `blob_mod4`, `expected_padding`, `inflate_attempted`,
+`bytes_available`, `magic_bytes`, `inflate_exception`,
+`compression_kind`, `variable`, `stage`.
+
+**Verification**: `test_decoder_convergence_v150.py` — **27/28 PASS**
+(6 new code-contract tests). Zero regressions.
+
+**Files touched**:
+`backend/v2/investigation/rte/diagnostic_codes.py` (new),
+`backend/v2/investigation/rte/models.py`,
+`backend/v2/investigation/rte/engine.py`,
+`backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py`,
+`backend/tests/test_decoder_convergence_v150.py`.
+

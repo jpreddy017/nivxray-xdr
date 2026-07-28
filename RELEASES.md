@@ -356,12 +356,76 @@ sample-specific regex has been introduced.
 | Zero-regression on 210+ decoder / behaviour / verdict / investigation tests | ✅ (3 pre-existing failures unchanged) |
 | API surface exposes `investigation.rte.diagnostics[]` | ✅ |
 
-### Files touched (this delta)
+### 5 · Machine-readable diagnostic codes (v1.5.0 · added 2026-07-28)
 
-- `backend/v2/investigation/rte/models.py` — `DecodeDiagnostic` dataclass, `TransformationChain.diagnostics` field, serialised in `to_dict()`, included in the determinism hash.
-- `backend/v2/investigation/rte/engine.py` — `_collect_diagnostics()` helper; called at the `NO_TRANSFORMATION` stop point; diagnostics threaded into `TransformationChain`.
-- `backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py` — new `diagnose(artifact)` method, detection-only regexes, `_diagnose_pattern()` helper.
-- `backend/tests/test_decoder_convergence_v150.py` — 12 new tests (diverse variables, deflate variant, no-MemoryStream wrap, benign guard, corrupt-payload diagnostic, no-double-report, determinism-of-diagnostics, deep-recursion perf).
+Analysts, dashboards, and CI now key off stable codes instead of
+parsing free-text `reason` strings. Every `DecodeDiagnostic` carries
+two new fields — `code` (e.g. `"DX1001"`) and `failure_type` (e.g.
+`"INVALID_BASE64_LENGTH"`) — plus a canonical structured `meta`
+contract. Codes are namespaced: `DX1xxx` = extraction failures,
+`DX2xxx` = engine / orchestration halts.
+
+**Canonical code table** — new module
+`v2/investigation/rte/diagnostic_codes.py`:
+
+| Code | Category | Meaning |
+| ---- | -------- | ------- |
+| **DX1001** | extraction | Invalid Base64 length |
+| **DX1002** | extraction | Invalid Base64 alphabet |
+| **DX1003** | extraction | UTF-16LE decode failed |
+| **DX1101** | extraction | GZip decompression failed |
+| **DX1102** | extraction | Deflate decompression failed |
+| **DX1103** | extraction | Brotli decompression failed |
+| **DX1201** | extraction | Variable resolution failed |
+| **DX1301** | extraction | Unsupported compression stream |
+| **DX2001** | orchestration | Maximum recursion depth reached |
+| **DX2002** | orchestration | No further deterministic transformation |
+| **DX2003** | orchestration | Recursion loop detected via content-hash |
+
+Stability contract: once a code is assigned, its meaning NEVER
+changes. New codes get new numbers; deprecated codes are marked,
+never reused. A hard-coded regression test
+(`test_diagnostic_code_registry_is_complete_and_stable`) pins the
+numeric values so accidental drift fails CI.
+
+**Root-cause promotion**: when base64 length is invalid AND
+downstream inflate also fails, the diagnostic surfaces the root-cause
+code (`DX1001`) rather than the surface code (`DX1101`). Analysts
+key dashboards off the deepest deterministic reason.
+
+**Engine-level codes**: `_emit_orchestration_diagnostic()` in
+`engine.py` appends a canonical `rte.engine` diagnostic at every
+chain stop — so every terminated pipeline carries a
+`chain-stopped-here` event with a stable code regardless of whether
+any plugin emitted a DX1xxx.
+
+**Structured meta contract** — every plugin diagnostic includes:
+`blob_length`, `blob_mod4`, `expected_padding`, `inflate_attempted`,
+`bytes_available` (present when inflate was attempted), `magic_bytes`
+(hex), `inflate_exception` (present on inflate failure),
+`compression_kind`, `variable`, and `stage` (1-based analyst-facing
+stage number).
+
+**Verification (codes delta)**:
+
+| Check | Result |
+| ----- | ------ |
+| `test_diagnostic_code_registry_is_complete_and_stable` | ✅ (all codes registered, DX1001/DX1101/DX2001/DX2002 pinned) |
+| `test_corrupt_gzip_emits_dx1001_or_dx1101_with_structured_meta` | ✅ (aligned blob → DX1101 exactly; canonical meta keys present) |
+| `test_misaligned_base64_promotes_to_dx1001_root_cause` | ✅ (root-cause promotion) |
+| `test_engine_emits_dx2002_on_no_transformation_stop` | ✅ |
+| `test_engine_emits_dx2001_on_max_depth_stop` | ✅ |
+| `test_successful_decode_still_emits_dx2002_at_terminal_layer` | ✅ (uniform chain-terminated event) |
+| Full v1.5.0 suite | **27 / 28 PASS** (1 non-ASCII skipped intentionally) |
+| Zero regression on 200+ decoder / behaviour / verdict tests | ✅ (3 pre-existing failures unchanged) |
+
+**Files touched (codes delta)**:
+
+- `backend/v2/investigation/rte/diagnostic_codes.py` — new registry module
+- `backend/v2/investigation/rte/models.py` — `DecodeDiagnostic.code` and `.failure_type` fields
+- `backend/v2/investigation/rte/engine.py` — `_emit_orchestration_diagnostic()`; codes included in `_chain_hash()` so drift changes the determinism fingerprint
+- `backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py` — `_diagnose_pattern()` returns codes + structured meta; `diagnose()` wraps them into `DecodeDiagnostic`
+- `backend/tests/test_decoder_convergence_v150.py` — 6 new tests locking the code contract
 
 ---
 
