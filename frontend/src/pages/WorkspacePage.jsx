@@ -671,14 +671,31 @@ export default function WorkspacePage() {
     try {
       const r = await api.post("/decode/smart", { input });
       const d = r.data || {};
-      // Prefer semantic v2 deep-decode when it resolved a strictly
-      // deeper payload than the RC2 orchestrator (see comment in
-      // AUTO-INVESTIGATE handler for the full rationale).
+      // Feb 2026 · v1.5.3 · OUTPUT panel authority.
+      // The v1.5.1 backend hotfix promotes the RTE decoder trace and the
+      // deepest recovered artefact (L2 for the reflective-loader class)
+      // into ``d.output`` with a header line beginning
+      // ``═══ INVESTIGATION BRAIN · RTE DECODER TRACE``.
+      //
+      // When that header is present, ``d.output`` is the AUTHORITATIVE
+      // analyst-facing output: it already contains the deepest layer,
+      // the per-stage confidence table, and the DX diagnostics chain.
+      // The frontend must NOT downgrade it to a shorter ``semantic
+      // deobfuscation.final`` (which only carries L1). Previously the
+      // preference logic below unconditionally chose the shorter
+      // "semantic final" when it existed, causing the OUTPUT panel to
+      // display L1 (`$s = New-Object IO.MemoryStream(...)`) instead of
+      // L2 (`Set-StrictMode … func_get_proc_address …`) even though
+      // the RTE, Semantic Intent, and Verdict panels correctly showed
+      // the L2 reflective-loader plaintext. Reported by SME 2026-02-XX.
       const _fSemFinal =
         d?.semantic?.deobfuscation?.final ||
         d?.semantic?.recovered_script || "";
       const _fRawOut = d.output || "";
+      const _rteBrainAuthority =
+        _fRawOut.includes("INVESTIGATION BRAIN · RTE DECODER TRACE");
       const _fPreferSem =
+        !_rteBrainAuthority &&
         !!_fSemFinal &&
         _fSemFinal !== _fRawOut &&
         _fSemFinal.length < String(input).length;
@@ -762,11 +779,18 @@ export default function WorkspacePage() {
       // "RECOVERED PAYLOAD" panel would show output == input for
       // heavily-token-obfuscated PowerShell samples even though the
       // Semantic Intelligence panel below has the correct final payload.
+      // Feb 2026 · v1.5.3 · OUTPUT panel authority (same rationale as
+      // the DECODE handler above). If ``d.output`` carries the v1.5.1
+      // RTE brain-block header, it is the authoritative deepest-layer
+      // rendering; never downgrade to a shorter semantic final.
       const semanticFinal =
         r.data?.semantic?.deobfuscation?.final ||
         r.data?.semantic?.recovered_script || "";
       const rc2Output = r.data.output || "";
+      const _autoRteBrainAuthority =
+        rc2Output.includes("INVESTIGATION BRAIN · RTE DECODER TRACE");
       const preferSemantic =
+        !_autoRteBrainAuthority &&
         !!semanticFinal &&
         semanticFinal !== rc2Output &&
         semanticFinal.length < String(r.data.input || rc2Output).length;
