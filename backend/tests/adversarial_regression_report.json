@@ -341,7 +341,7 @@
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "ABC",
+      "output_head": "\ufffd\ufffd",
       "ok": false
     },
     {
@@ -357,7 +357,7 @@
       "sha1": "f18d46780fda16ff0927300bdc7cd4f7112bf2da",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "print(1+1)",
+      "output_head": "python -c 'print(1+1)'",
       "ok": false
     },
     {
@@ -404,9 +404,9 @@
     },
     {
       "sha1": "9dab0c64d545d383773f8738c8f89e80183784e6",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE=';            var b=atob(d);            var l=document.createElement('a');            l.download='pay",
+      "output_head": "binary-A",
       "ok": false
     },
     {
