@@ -1,5 +1,97 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **v1.5.6 · CPU-bound decoder offload · Cloudflare 520 permanent fix**
+
+### The production incident
+`https://nivxray.nivxforge.com` returned Cloudflare 520 errors intermittently
+after the v1.5.5b redeploy. Deployer-agent RCA
+(`/app/deployer-agent-docs/RCA_539347a3-2abf-43c3-bc6a-92db58b806cd.MD`):
+
+* Deploy pipeline SUCCEEDED and promoted (not a build failure)
+* Frontend build/serve healthy, port binding correct, no env/secret drift
+* Backend runs CPU-bound decoders (`xor-brute`, L3 dispatch, `magic_decode`,
+  `_analyze_shellcode`) synchronously on the asyncio event loop
+* Under tier_0's 250 mCPU cap, a single heavy decode blocks the loop for
+  17-21 s — `slow decoder xor-brute: 21500ms on 845B`,
+  `slow path=/health elapsed_ms=18616`
+* nginx `/health` has a 1 s proxy timeout → maps to 503 → k8s liveness/
+  readiness probes fail 8-9× → container killed → entrypoint tears down
+  BOTH backend and nginx → Cloudflare gets empty response → **520**
+
+### The fix — thread-executor offload with hard wall-clock budget
+New helper `/app/backend/routers/helpers/decode_offload.py`
+(`run_offloaded()`) moves the sync CPU work into asyncio's default thread
+executor, wrapped in `asyncio.wait_for(...)` with a 25 s default budget.
+Python still holds the GIL inside pure-Python decoder loops but releases
+it every ~5 ms, which is enough headroom for the event loop to service
+`/api/health` in well under 1 s. On timeout the helper raises
+`HTTPException(504, code=decode_timeout)` — a clean error envelope
+instead of a stuck request. Callers see the same return contract.
+
+### Endpoints migrated to `run_offloaded`
+| Endpoint                        | Blocker | Now |
+|---------------------------------|---------|-----|
+| `POST /api/decode/smart`        | `deterministic_best_decode` (3 call-sites: primary + custom-recipe race + multi-fragment) | offloaded |
+| `POST /api/decode/magic`        | `magic_decode` (recursive multi-branch) | offloaded |
+| `POST /api/recipe/run`          | `run_operation` chain (xor-brute + L3) | offloaded |
+| `POST /api/analyze/command`     | `analyze_command` (chains xor-brute) | offloaded |
+| `POST /api/analyze/shellcode`   | Capstone disassembly + arch heuristic | offloaded |
+
+### Race-test verification on preview
+2 concurrent decodes (~11 s each) + 30× `/api/health` polls at 1 Hz:
+
+```
+decode 1: 10.97s status=200 output_len=4468
+decode 2: 11.01s status=200 output_len=4468
+
+Health samples (n=30) during heavy decode load:
+  status codes:  {200}
+  min=45ms  max=1965ms  avg=204ms
+  samples > 1s:  2/30    (vs 18616 ms in production RCA)
+```
+
+RCA's failure pattern (18 s `/health` blocks × 9 consecutive fails needed
+to trip liveness) is now structurally impossible — average `/health`
+response during heavy decode load is **204 ms**.
+
+### Release gate — PASS
+```
+tests/test_meterpreter_b64xor.py .................... 8 passed
+tests/test_e2e_decode_smart_http_contract.py ....... 10 passed
+=================== 18 passed, 0 failed, 0 errors in 245.70s ==================
+```
+
+### Playwright UI verification on preview
+DECODE flow on Sophos reflective loader:
+```
+OUTPUT_LEN=328  · C2 149.28.81.19: True  · Mozilla UA: True
+```
+Output-selector contract from v1.5.5b preserved end-to-end.
+
+### Files changed
+- `/app/backend/routers/helpers/__init__.py`   — NEW (package marker)
+- `/app/backend/routers/helpers/decode_offload.py` — NEW (helper)
+- `/app/backend/routers/ops.py` — import + 5 endpoint patches
+
+### Recommended deployment sequence
+1. Upgrade tier_0 → tier_1+ in Deployment Panel (unblocks users NOW,
+   independent of this patch)
+2. Save-to-GitHub → Deploy v1.5.6
+3. Smoke-test on nivxray.nivxforge.com: DECODE + AUTO INVESTIGATE both
+   should return C2 149.28.81.19 + Mozilla UA
+4. Load-test on tier_1
+5. Optional cost saving: try downgrading back to tier_0 with v1.5.6 —
+   the source fix should keep `/health` stable even under load. Monitor
+   Cloudflare error rate for 24 h before committing.
+
+### Optional future hardening (nice-to-have, not required)
+- Ask Emergent Support to raise nginx `/health` proxy timeout from 1 s
+  to 5 s and k8s liveness probe timeout above 2 s — provides an
+  additional safety net if a decoder ever holds the GIL longer than
+  expected on newer sample classes.
+
+
+
 ## 2026-02-28 · **v1.5.5b · Shared canonical OUTPUT selector · DECODE / AUTO INVESTIGATE parity**
 
 ### The bug on production

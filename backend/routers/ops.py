@@ -222,15 +222,27 @@ async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
 @router.post("/decode/magic")
 async def decode_magic(body: MagicIn, user=Depends(get_current_user)):
     """Recursive multi-branch auto-decoder — returns top-N candidate chains + scores."""
-    return magic_decode(body.input, max_depth=body.max_depth,
-                        max_branches=body.max_branches, top_n=body.top_n)
+    # v1.5.6 · magic_decode explores up to `max_branches × max_depth`
+    # decoder combinations synchronously; on tier_0 this can easily
+    # exceed 20s and block `/api/health`. Offload to thread executor.
+    return await run_offloaded(
+        magic_decode,
+        body.input,
+        max_depth=body.max_depth,
+        max_branches=body.max_branches,
+        top_n=body.top_n,
+    )
 
 
 @router.post("/analyze/command")
 async def analyze_command_endpoint(body: CommandAnalyzeIn, user=Depends(get_current_user)):
     """Intelligent Command-Line Analysis Engine — semantic parsing first."""
     from command_analyzer import analyze_command as _ac
-    return _ac(body.input, force_decode_span=body.force_decode_span)
+    # v1.5.6 · analyzer chains xor-brute internally for defanged decode —
+    # same starvation risk, same offload treatment.
+    return await run_offloaded(
+        _ac, body.input, force_decode_span=body.force_decode_span,
+    )
 
 
 @router.post("/analyze/shellcode")
@@ -258,7 +270,12 @@ async def analyze_shellcode(body: ShellcodeIn, user=Depends(get_current_user)):
     if not data:
         data = raw_in.encode("utf-8", errors="replace")
         src = "utf8"
-    result = _analyze_shellcode(data, arch=body.arch, max_insns=body.max_insns)
+    # v1.5.6 · Capstone disassembly is C-extension (releases GIL) but
+    # the pre-analysis extract-strings + arch-heuristic pass is pure
+    # Python and can stall on large payloads. Offload the whole thing.
+    result = await run_offloaded(
+        _analyze_shellcode, data, arch=body.arch, max_insns=body.max_insns,
+    )
     result["input_source"] = src
     result["input_bytes"] = len(data)
     return result
