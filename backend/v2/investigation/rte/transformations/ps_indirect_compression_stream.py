@@ -81,34 +81,66 @@ def _diagnose_pattern(txt: str) -> tuple[str, str, str, dict] | None:
 
     Kept separate from the "success" resolver so diagnostics can never
     accidentally emit fabricated content.
+
+    Diagnostic-wording discipline
+    -----------------------------
+    Only report what the decoder can deterministically prove:
+
+        * the extracted base64 length,
+        * ``length mod 4`` (base64 alignment),
+        * base64 decode failure with the underlying exception,
+        * decompression failure with the underlying exception,
+        * possible causes listed as *possibilities*, never conclusions.
+
+    Never assert the cause ("this is chat-transmission corruption").
+    The engine cannot prove *why* a payload is incomplete — only that
+    it is.
     """
     assignments: dict[str, str] = {}
     for m in _DIAG_ASSIGN_RE.finditer(txt):
         assignments[m.group(1)] = m.group(3)
     if not assignments:
         return None
+
+    _COMMON_CAUSES = (
+        "This commonly occurs due to copy/paste truncation, logging "
+        "limits, EDR field-length caps, or transport corruption — "
+        "the decoder cannot determine the specific cause."
+    )
+
     for cm in _DIAG_CONSUMER_RE.finditer(txt):
         var = cm.group(2)
         if var not in assignments:
             continue
         kind = cm.group(1).lower()
         blob = assignments[var]
-        # We got a positive detection; try decode to figure out the
-        # deterministic failure reason for the analyst.
-        b64_reason = None
+
+        # Layer 1: base64 alignment check (deterministic).
+        alignment_fact = None
         if len(blob) % 4 != 0:
-            b64_reason = (
-                f"Base64 blob is {len(blob)} chars, misaligned mod 4 "
-                f"({len(blob) % 4}). Likely truncated or transmission-corrupted."
+            alignment_fact = (
+                f"Detected invalid Base64 length ({len(blob)} characters, "
+                f"length mod 4 = {len(blob) % 4}). The embedded payload "
+                f"appears incomplete or malformed."
             )
+
+        # Layer 2: try to decode. If it fails, report the exact
+        # exception — no interpretation.
         try:
             raw = base64.b64decode(blob + "=" * (-len(blob) % 4), validate=False)
         except binascii.Error as exc:
-            return (
-                kind, var,
-                f"Base64 decode failed: {exc}",
-                {"blob_chars": len(blob)},
+            reason = (
+                (alignment_fact + " " if alignment_fact else "")
+                + f"Base64 decode failed: {exc}. "
+                + _COMMON_CAUSES
             )
+            return (
+                kind, var, reason,
+                {"blob_chars": len(blob), "mod4_offset": len(blob) % 4},
+            )
+
+        # Layer 3: try to decompress. Report the deterministic exception
+        # verbatim; do not claim a cause.
         try:
             if kind == "gzip":
                 _gzip_lib.decompress(raw)
@@ -120,26 +152,39 @@ def _diagnose_pattern(txt: str) -> tuple[str, str, str, dict] | None:
                 except ImportError:
                     return (
                         kind, var,
-                        "Brotli library not installed at runtime.",
+                        (
+                            "Detected Brotli compression consumer but the "
+                            "`brotli` library is not installed in this "
+                            "runtime, so the payload cannot be inflated here."
+                        ),
                         {"blob_chars": len(blob), "raw_bytes": len(raw)},
                     )
                 brotli.decompress(raw)
-            # If decode succeeds here, the resolver should have fired —
-            # so there's no diagnostic to emit (falls through to None
-            # after this loop). But because iteration might visit
-            # multiple consumers, continue rather than return.
+            # If we reach here decompression succeeded — the resolver
+            # should have fired. Keep iterating in case another
+            # consumer on this artefact is the failing one.
             continue
         except Exception as exc:
-            reason = f"{kind.title()} inflate failed: {type(exc).__name__}: {exc}"
-            if b64_reason:
-                reason = b64_reason + " " + reason
+            # State the fact (blob length + failure), not the cause.
+            reason_parts = []
+            if alignment_fact:
+                reason_parts.append(alignment_fact)
+            else:
+                reason_parts.append(
+                    f"Base64 payload decoded to {len(raw)} bytes "
+                    f"(length={len(blob)} characters, aligned)."
+                )
+            reason_parts.append(
+                f"{kind.title()} inflate failed: {type(exc).__name__}: {exc}."
+            )
+            reason_parts.append(_COMMON_CAUSES)
             return (
-                kind, var, reason,
+                kind, var, " ".join(reason_parts),
                 {
-                    "blob_chars":    len(blob),
-                    "raw_bytes":     len(raw),
-                    "magic_bytes":   raw[:4].hex(),
-                    "mod4_offset":   len(blob) % 4,
+                    "blob_chars":  len(blob),
+                    "raw_bytes":   len(raw),
+                    "magic_bytes": raw[:4].hex(),
+                    "mod4_offset": len(blob) % 4,
                 },
             )
     return None

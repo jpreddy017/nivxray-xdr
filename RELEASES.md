@@ -286,10 +286,27 @@ so silent halts destroy analyst trust.
   successfully never emits a duplicate diagnostic.
 - Diagnostics contribute to the chain's determinism hash — a change
   in the failure reason changes the fingerprint.
-- `ps_indirect_compression_stream.diagnose()` explains:
-  `Base64 blob is <N> chars, misaligned mod 4 (<M>). Likely truncated…
-   Gzip inflate failed: <exception>`
+- `ps_indirect_compression_stream.diagnose()` explains, e.g.:
+  ```
+  Detected invalid Base64 length (2635 characters, length mod 4 = 3).
+  The embedded payload appears incomplete or malformed.
+  Gzip inflate failed: error: Error -3 while decompressing data:
+  invalid distance too far back.
+  This commonly occurs due to copy/paste truncation, logging limits,
+  EDR field-length caps, or transport corruption — the decoder cannot
+  determine the specific cause.
+  ```
   with meta `{blob_chars, raw_bytes, magic_bytes, mod4_offset}`.
+
+**Wording discipline (v1.5.0 evidence gate)** — the diagnostic
+reports ONLY what the decoder can deterministically prove:
+extracted base64 length, ``length mod 4``, decode exception, inflate
+exception. Possible causes (copy/paste truncation, logging limits,
+EDR field caps, transport corruption) are listed as **possibilities**,
+never conclusions. A regression test (`test_corrupt_gzip_payload_emits_deterministic_diagnostic`)
+asserts the diagnostic never over-claims phrases like "this is chat-
+transmission corruption", "the payload is truncated", or "definitely
+corrupted".
 
 ### 2 · Diverse-family coverage (Sophos class)
 

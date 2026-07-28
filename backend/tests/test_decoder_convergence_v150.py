@@ -316,7 +316,13 @@ def test_corrupt_gzip_payload_emits_deterministic_diagnostic():
     """Detected-but-uncoded path: the base64 blob has valid gzip magic
     bytes but a broken DEFLATE stream (real-world truncation).
     Expect a diagnostic explaining the failure, deterministic across
-    runs, and included in the chain's determinism hash."""
+    runs, and included in the chain's determinism hash.
+
+    Wording discipline (v1.5.0 follow-up): the diagnostic must state
+    only what the decoder can deterministically prove (base64 length,
+    inflate exception) and MUST NOT assert a cause ("this is chat
+    corruption") — only list *possible* causes.
+    """
     import gzip
     good = gzip.compress(b"unreachable")
     truncated = good[:-8]  # chop the CRC + size trailer so DEFLATE breaks
@@ -339,7 +345,23 @@ def test_corrupt_gzip_payload_emits_deterministic_diagnostic():
     d = a.diagnostics[0]
     assert d.detector == "ps_indirect_compression_stream"
     assert d.outcome == "decode_failed"
-    assert "Gzip inflate failed" in d.reason or "Base64" in d.reason
+    # Wording discipline — MUST report the fact, and list causes as
+    # POSSIBILITIES only. Never assert a specific cause.
+    assert "Gzip inflate failed" in d.reason, (
+        f"reason missing deterministic fact: {d.reason!r}"
+    )
+    assert "commonly occurs" in d.reason, (
+        f"reason missing possible-causes phrasing: {d.reason!r}"
+    )
+    # These would be over-claims — must NOT appear (evidence discipline).
+    for over_claim in [
+        "this is chat-transmission corruption",
+        "the payload is truncated",     # absolute claim
+        "definitely corrupted",
+    ]:
+        assert over_claim.lower() not in d.reason.lower(), (
+            f"diagnostic over-claims cause: {over_claim!r} in {d.reason!r}"
+        )
     assert d.meta.get("magic_bytes", "").startswith("1f8b")
 
 

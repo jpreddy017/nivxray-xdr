@@ -3222,10 +3222,20 @@ carries a per-layer, deterministic explanation of WHY the pipeline
 stopped. Diagnostics contribute to the chain's determinism hash.
 
 On the canonical sample the analyst now sees:
-`Base64 blob is 2635 chars, misaligned mod 4 (3). Likely truncated
-or transmission-corrupted. Gzip inflate failed: invalid distance too
-far back` with meta `{blob_chars, raw_bytes, magic_bytes,
+`Detected invalid Base64 length (2635 characters, length mod 4 = 3).
+The embedded payload appears incomplete or malformed. Gzip inflate
+failed: <exact zlib exception>. This commonly occurs due to
+copy/paste truncation, logging limits, EDR field-length caps, or
+transport corruption — the decoder cannot determine the specific
+cause.` with meta `{blob_chars, raw_bytes, magic_bytes,
 mod4_offset}`.
+
+**Wording discipline (evidence gate)** — the diagnostic reports only
+what the decoder can deterministically prove: base64 length, mod 4,
+decode/inflate exception. Possible causes are listed as
+possibilities, never asserted. A regression test asserts the
+diagnostic never over-claims phrases like "this is chat-transmission
+corruption", "the payload is truncated", or "definitely corrupted".
 
 **2. Diverse-family coverage** — new parametrised tests prove class-
 level generalisation: variable names `$s`, `$ms`, `$stream`,
