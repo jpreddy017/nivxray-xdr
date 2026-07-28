@@ -193,6 +193,69 @@ export function InvestigationBrainPanel({ investigation }) {
           >
             {verdict.reason}
           </div>
+
+          {/* v1.4.2 · Structured reasoning block — observed / composition
+              / conclusion / ambiguity. Renders only when the backend
+              supplied a populated block. Everything is a deterministic
+              projection of fired intents; nothing invented. */}
+          {verdict.reasoning && (verdict.reasoning.observed?.length > 0
+              || verdict.reasoning.composition?.length > 0
+              || verdict.reasoning.ambiguity) && (
+            <div
+              data-testid="brain-verdict-reasoning"
+              style={{
+                marginTop: 10,
+                padding: 10,
+                background: "#00000033",
+                borderRadius: 6,
+                borderLeft: "3px solid #5ec8ff",
+              }}
+            >
+              {verdict.reasoning.observed?.length > 0 && (
+                <div style={{ marginBottom: 8 }} data-testid="brain-reasoning-observed">
+                  <div style={{ fontSize: 10, color: "#5ec8ff", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+                    Observed
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: "#e5edf7", fontSize: 12 }}>
+                    {verdict.reasoning.observed.map((line, i) => (
+                      <li key={i} style={{ marginBottom: 2 }}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {verdict.reasoning.composition?.length > 0 && (
+                <div style={{ marginBottom: 8 }} data-testid="brain-reasoning-composition">
+                  <div style={{ fontSize: 10, color: "#5ec8ff", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+                    Behaviour composition
+                  </div>
+                  <div style={{ color: "#e5edf7", fontSize: 12, fontFamily: "ui-monospace, monospace" }}>
+                    {verdict.reasoning.composition.map(c => c.replace(/_/g, " ")).join("  +  ")}
+                  </div>
+                </div>
+              )}
+              {verdict.reasoning.conclusion && (
+                <div style={{ marginBottom: verdict.reasoning.ambiguity ? 8 : 0 }} data-testid="brain-reasoning-conclusion">
+                  <div style={{ fontSize: 10, color: "#5ec8ff", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+                    Conclusion
+                  </div>
+                  <div style={{ color: "#e5edf7", fontSize: 12 }}>
+                    {verdict.reasoning.conclusion}
+                  </div>
+                </div>
+              )}
+              {verdict.reasoning.ambiguity && (
+                <div data-testid="brain-reasoning-ambiguity">
+                  <div style={{ fontSize: 10, color: "#f5c86b", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+                    Honest ambiguity
+                  </div>
+                  <div style={{ color: "#f5c86b", fontSize: 12 }}>
+                    {verdict.reasoning.ambiguity}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {(verdict.evidence || []).length > 0 && (
             <details style={{ marginTop: 8 }} data-testid="brain-verdict-evidence">
               <summary style={{ cursor: "pointer", fontSize: 11, color: "#5ec8ff" }}>

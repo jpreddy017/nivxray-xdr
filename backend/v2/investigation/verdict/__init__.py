@@ -33,17 +33,28 @@ class Verdict:
     Fields:
         band       — canonical verdict band.
         reason     — one plain-English sentence describing WHY.
+                     Kept flat for backward compatibility; the
+                     structured `reasoning` block is the analyst-
+                     facing source of truth going forward (v1.4.2+).
         confidence — 0-100 confidence derived from supporting intents.
         top_intents — the up-to-3 highest-confidence intents that
                       drove the verdict, so the analyst can drill in.
         evidence   — canonical Evidence objects that support the
                       verdict — always drawn from the fired intents.
+        reasoning  — the structured explanation: what was observed,
+                     which categories composed the verdict, the
+                     conclusion sentence, and any dual-use ambiguity
+                     the engine could not resolve statically. Never
+                     invents anything — every ``observed`` line is
+                     an Intent purpose, every ``composition`` entry
+                     is a fired IntentCategory.
     """
     band:        VerdictBand
     reason:      str
     confidence:  int
     top_intents: list[Intent] = field(default_factory=list)
     evidence:    list[Evidence] = field(default_factory=list)
+    reasoning:   dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -52,7 +63,37 @@ class Verdict:
             "confidence":  self.confidence,
             "top_intents": [i.to_dict() for i in self.top_intents],
             "evidence":    [e.to_dict() for e in self.evidence],
+            "reasoning":   dict(self.reasoning),
         }
+
+
+def _reasoning(intents: list[Intent], composition: list[str],
+                conclusion: str, ambiguity: str = "") -> dict[str, Any]:
+    """Build the structured reasoning block. Deterministic — same
+    intents, same composition → same block.
+
+    * ``observed`` — one line per fired intent, ordered by (confidence
+      desc, category name). These are the intents' own ``purpose``
+      strings — nothing invented.
+    * ``composition`` — the intent categories the verdict rule used.
+    * ``conclusion`` — the analyst-facing sentence.
+    * ``ambiguity`` — the honesty caveat for dual-use compositions
+      (empty for clear-cut cases).
+    """
+    ordered = sorted(intents, key=lambda i: (-i.confidence, i.category.value))
+    seen: set[str] = set()
+    observed: list[str] = []
+    for i in ordered:
+        if i.purpose in seen:
+            continue
+        seen.add(i.purpose)
+        observed.append(i.purpose)
+    return {
+        "observed":    observed,
+        "composition": list(composition),
+        "conclusion":  conclusion,
+        "ambiguity":   ambiguity,
+    }
 
 
 # ── Deterministic verdict rules ────────────────────────────────
@@ -90,6 +131,13 @@ def assess_verdict(intents: list[Intent]) -> Verdict:
             confidence=60,
             top_intents=[],
             evidence=[],
+            reasoning=_reasoning(
+                intents=[],
+                composition=[],
+                conclusion=("No adversarial intent was inferred — no fired "
+                             "intents to compose. Artefact appears benign."),
+                ambiguity="",
+            ),
         )
 
     fetch_and_run = (
@@ -127,12 +175,28 @@ def assess_verdict(intents: list[Intent]) -> Verdict:
             + " + ".join(drivers)
             + ". Behaviour is consistent with malicious execution."
         )
+        ambiguity = ""
+        if lateral_admin_composed and not (fetch_and_run or creds_or_persist):
+            ambiguity = (
+                "Credentialed remote administration and firewall reconfiguration "
+                "are dual-use primitives — legitimate administration cannot be "
+                "ruled out from the artefact alone. Cross-check against approved "
+                "change tickets and authentication logs before concluding intent."
+            )
         return Verdict(
             band=VerdictBand.MALICIOUS,
             reason=reason,
             confidence=min(95, max(i.confidence for i in top)),
             top_intents=top,
             evidence=evidence,
+            reasoning=_reasoning(
+                intents=top,
+                composition=drivers,
+                conclusion=("High-confidence malicious operational sequence. "
+                             + " + ".join(drivers) + " observed together — "
+                             "this composition is not consistent with routine activity."),
+                ambiguity=ambiguity,
+            ),
         )
 
     # ── Runtime dependent: only unknowns fired ─────────────────
@@ -146,11 +210,21 @@ def assess_verdict(intents: list[Intent]) -> Verdict:
             confidence=max(i.confidence for i in intents),
             top_intents=top,
             evidence=evidence,
+            reasoning=_reasoning(
+                intents=top,
+                composition=[i.category.value for i in top],
+                conclusion=("Behaviour resolves only at runtime — verdict "
+                             "cannot be determined statically."),
+                ambiguity=("Static analysis exhausted; live-fetch or sandbox "
+                             "reproduction required to obtain the runtime-only "
+                             "content."),
+            ),
         )
 
     # ── Suspicious: any high-risk intent that didn't hit a
     # ── malicious combination, OR a mix of medium-risk intents.
     reason_lead = top[0].purpose if top else "Suspicious intent observed."
+    composition = [i.category.value for i in top] if top else []
     return Verdict(
         band=VerdictBand.SUSPICIOUS,
         reason=(
@@ -159,6 +233,15 @@ def assess_verdict(intents: list[Intent]) -> Verdict:
         confidence=min(85, max(i.confidence for i in top)) if top else 60,
         top_intents=top,
         evidence=evidence,
+        reasoning=_reasoning(
+            intents=top,
+            composition=composition,
+            conclusion=("Behaviour is suspicious but does not compose into "
+                         "a canonical malicious sequence. Analyst review required."),
+            ambiguity=("Individual intents fired but their composition is "
+                         "ambiguous — additional context (authorisation, "
+                         "environment, follow-on activity) is needed."),
+        ),
     )
 
 

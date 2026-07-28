@@ -71,8 +71,8 @@ class PsExecCredentialedRule:
                 observation=f"PsExec targeting \\\\{target_host}",
                 confidence=90,
                 rationale=(
-                    "PsExec invoked against a remote host — canonical "
-                    "credentialed remote-execution primitive."
+                    "PsExec invoked against a remote host — credentialed "
+                    "remote-execution primitive."
                 ),
                 meta={"primitive": "psexec", "target": target_host, "mitre": "T1021.002"},
             ),
@@ -81,46 +81,49 @@ class PsExecCredentialedRule:
                 observation=f"-u {user_m.group(1)}",
                 confidence=90,
                 rationale=("Explicit user credential passed on the command line — "
-                            "cleartext credential exposure."),
+                            "authenticates as a specific principal on the remote host."),
                 meta={"primitive": "psexec:-u", "user": user_m.group(1), "mitre": "T1078"},
             ),
             Evidence(
                 source="intent.psexec_credentialed",
                 observation="-p <redacted>",
                 confidence=90,
-                rationale=("Explicit password passed on the command line — "
-                            "credential material exposed in process arguments."),
-                meta={"primitive": "psexec:-p", "mitre": "T1552.001"},
+                rationale=("Explicit password on the command line — credential "
+                            "material is exposed in process arguments (no MITRE "
+                            "mapping cited without corroborating discovery evidence)."),
+                meta={"primitive": "psexec:-p"},
             ),
         ]
         if elevated:
             evidence.append(Evidence(
                 source="intent.psexec_credentialed",
-                observation="-h / -s (elevated remote execution)",
+                observation="-h / -s (elevated remote session)",
                 confidence=90,
-                rationale=("PsExec `-h` / `-s` elevates the remote session to "
-                            "SYSTEM integrity — full-host administrative capability."),
-                meta={"primitive": "psexec:elev", "mitre": "T1548"},
+                rationale=("PsExec `-h` / `-s` requests an elevated / SYSTEM-integrity "
+                            "session on the remote host. Legitimate admins use this too; "
+                            "no elevation-abuse ATT&CK ID is emitted without a "
+                            "corroborating bypass pattern."),
+                meta={"primitive": "psexec:elev"},
             ))
 
         return [Intent(
             category=IntentCategory.LATERAL_MOVEMENT,
             purpose=(
-                f"Credentialed remote execution against {target_host} via PsExec"
-                + (" with SYSTEM-integrity elevation" if elevated else "")
-                + ". Explicit user credential is exposed on the command line."
+                f"PsExec remote execution against {target_host} with explicit "
+                "credentials on the command line"
+                + (" and elevated-session request" if elevated else "")
+                + "."
             ),
             risk=RiskBand.HIGH,
             rationale=(
                 "PsExec + explicit credentials + a remote target is the "
                 "canonical credentialed-remote-execution primitive. "
-                "Legitimate administration or post-compromise lateral "
-                "movement cannot be distinguished from the artefact alone."
+                "Legitimate administration or post-compromise activity "
+                "cannot be distinguished from the artefact alone."
             ),
             evidence=evidence,
             confidence=90,
-            mitre_ids=["T1021.002", "T1078", "T1552.001"]
-                        + (["T1548"] if elevated else []),
+            mitre_ids=["T1021.002", "T1078"],
         )]
 
 
@@ -163,15 +166,17 @@ class RemoteManagementEnablementRule:
         return [Intent(
             category=IntentCategory.LATERAL_MOVEMENT,
             purpose=(
-                "Enables PowerShell Remoting / WinRM and configures the "
-                "service for persistent remote-management capability."
+                "Enables PowerShell Remoting and configures the WinRM "
+                "service for automatic startup — establishes a persistent "
+                "remote-command channel on the host."
             ),
             risk=RiskBand.HIGH,
             rationale=(
-                "The artefact opens a remote-management channel that "
-                "survives reboots. Legitimate administration OR post-"
-                "compromise lateral-movement enablement — cannot be "
-                "distinguished from the artefact alone."
+                "Observation: WinRM / PSRemoting is being turned on. "
+                "Interpretation is dual-use — legitimate administration or "
+                "post-compromise remote-management enablement. Verdict Engine "
+                "scores composition with other observed behaviours; the "
+                "observation itself is not attribution."
             ),
             evidence=evidence,
             confidence=88,
@@ -180,8 +185,11 @@ class RemoteManagementEnablementRule:
 
 
 class FirewallConfigurationRule:
-    """Fires DEFENSE_EVASION when firewall rules are modified to allow
-    remote-management or file-sharing traffic."""
+    """Emits ``firewall_configuration`` observation via the
+    DEFENSE_EVASION intent category (schema `1.1.0` reuses that
+    kind — the observation-form purpose keeps the analyst-facing
+    text neutral). ATT&CK label ``T1562.004`` is attached as a
+    tag on the intent, not the behaviour name."""
     NAME = "firewall_configuration"
 
     def detect(self, artefact_text: str, meta: dict) -> list[Intent]:
@@ -199,8 +207,9 @@ class FirewallConfigurationRule:
             source="intent.firewall_configuration",
             observation=h,
             confidence=85,
-            rationale=("Modifies Windows Firewall rules — typically to "
-                        "open remote-management or file-sharing channels."),
+            rationale=("Modifies Windows Firewall rules — observation only. "
+                        "Whether this represents administration or evasion is "
+                        "resolved by composition with other observed behaviours."),
             meta={"primitive": h, "mitre": "T1562.004"},
         ) for h in hits]
         for grp in groups[:4]:
@@ -208,21 +217,23 @@ class FirewallConfigurationRule:
                 source="intent.firewall_configuration",
                 observation=f"-DisplayGroup '{grp}'",
                 confidence=85,
-                rationale=f"Firewall rule group `{grp}` enabled.",
+                rationale=f"Firewall rule group `{grp}` enabled — observation only.",
                 meta={"primitive": "fw:group", "group": grp, "mitre": "T1562.004"},
             ))
 
         return [Intent(
             category=IntentCategory.DEFENSE_EVASION,
             purpose=(
-                "Modifies Windows Firewall to permit remote-management "
-                "or file-sharing traffic."
+                "Modifies Windows Firewall rules — opens or reconfigures "
+                "network-management or file-sharing channels on the host."
             ),
             risk=RiskBand.HIGH,
             rationale=(
-                "Firewall modification that opens WinRM / SMB channels "
-                "is a defense-evasion primitive when combined with "
-                "remote-management enablement."
+                "Observation: firewall rules are being changed. "
+                "Interpretation as `defense_evasion` is only warranted when "
+                "composed with credentialed remote execution or remote-"
+                "management enablement — the Verdict Engine handles the "
+                "composition, this rule only reports what was observed."
             ),
             evidence=evidence,
             confidence=85,

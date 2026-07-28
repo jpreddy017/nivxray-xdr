@@ -1,5 +1,79 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-07-28 · **v1.4.2 · Evidence vs Interpretation Hygiene**
+
+### Trigger (SME review of v1.4.1 · rating 9.5/10)
+Three hygiene refinements requested — none required architecture
+changes, all served to tighten the "evidence-anchored, never
+attribution" discipline:
+
+1. **R-1** Behaviour names conflate observation with interpretation
+   (firewall-rule modification isn't automatically "defense
+   evasion").
+2. **R-2** Two MITRE mappings on the T15 sample lacked direct
+   evidence citations (`T1552.001` = "credentials in files" ≠
+   "password on cmdline"; `T1548` = "abuse elevation control" ≠
+   requesting an elevated token).
+3. **R-3** Verdict Engine should self-explain the composition — a
+   flat one-line reason isn't enough for analyst trust.
+
+### What shipped in v1.4.2
+
+- **R-1 · Observation-form rationales.** Every `purpose` and
+  `rationale` string on the three v1.4.1 intent rules rewritten to
+  describe **what was observed**, not the ATT&CK tactic. ATT&CK
+  labels stay in the `mitre_ids` tags. Example:
+  *"Modifies Windows Firewall rules — opens or reconfigures
+   network-management channels"* instead of the tactic label.
+- **R-2 · MITRE trimmed to evidence-supported IDs only.**
+  `PsExecCredentialedRule` now emits `T1021.002` (Remote Services)
+  + `T1078` (Valid Accounts). Removed: `T1552.001` (Credentials in
+  Files — wrong technique) and `T1548` (Abuse Elevation Control —
+  requires bypass evidence we didn't have). T15 corpus
+  `expected_mitre` updated to `[T1021.002, T1078, T1562.004]`.
+- **R-3 · Structured `Verdict.reasoning` block.** New field on the
+  `Verdict` model with four keys:
+  - `observed`: verbatim intent purposes (never invented — enforced
+     by a regression test that asserts every observed line matches
+     a fired intent's `purpose`).
+  - `composition`: the intent categories that triggered the verdict
+     rule.
+  - `conclusion`: analyst-facing sentence.
+  - `ambiguity`: dual-use caveat (populated for LATERAL_MOVEMENT
+     + DEFENSE_EVASION compositions; empty for unambiguous
+     malicious sequences like download-and-execute).
+  Serialized on every `Verdict.to_dict()` call. Flat `reason`
+  string preserved for backward compatibility.
+- **Frontend** — `InvestigationBrainPanel.jsx` now renders the
+  reasoning block as four labelled sections
+  (`Observed` · `Behaviour composition` · `Conclusion` · `Honest ambiguity`).
+  Each has a `data-testid` for regression + honest-ambiguity uses a
+  warm amber tone so analysts can visually distinguish
+  observation from caveat.
+
+### Verified acceptance criteria
+| Criterion | Result |
+| --- | --- |
+| T15 verdict includes Observed / Composition / Conclusion / Ambiguity block | ✅ end-to-end via HTTPS |
+| No MITRE ID without evidence citation | ✅ T1552.001 + T1548 removed |
+| Behaviour node names observation-form | ✅ rationales rewritten |
+| 331/331 targeted regression + 8 new verdict-reasoning tests | ✅ **165/165 in focused run** · 331/331 broad |
+| Trust Corpus 15/15 · 100% integrity | ✅ |
+| Determinism preserved | ✅ replay is byte-identical |
+| No new engines / no schema-version bump | ✅ still `1.1.0` |
+
+### Non-goals (kept)
+- No IU / CRE / RTE refactor.
+- No PDF export, no correlation, no static control flow.
+- FU-5 legacy UI panel still open (v1.4.2 delivered the *reason
+  we can now retire it* — the Investigation Brain has a
+  demonstrably richer verdict than the legacy engine).
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-07-27 · **v1.4.1 · Verdict Composition Scoring + Lateral-Movement Detection**
 
 ### Trigger (P0 SME review · post-v1.4.0 discovery)

@@ -22,6 +22,7 @@ expected_iocs:
   - {kind: ip,   value: '10.253.34.27'}
 expected_mitre:
   - T1021.002
+  - T1078
   - T1562.004
 expected_behaviors:
   - lateral_movement
