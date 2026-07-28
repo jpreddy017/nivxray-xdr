@@ -262,14 +262,21 @@ export default function OutputView({
   );
 
   // Fix A · Feb-2026 — Whole-payload binary garble detection. Fires when
-  // the decoded output is high-entropy / low-printable AND neither a
-  // known-prologue shellcode nor a terminal-tail case has already claimed
-  // the render. We hide the raw bytes from the TEXT textarea by default
-  // (opt-in via `[SHOW RAW BYTES ANYWAY]`) and surface a banner directing
-  // the analyst to the HEX view + IOC panels.
+  // the decoded output is high-entropy / low-printable AND no terminal-tail
+  // case has claimed the render. We hide the raw bytes from the TEXT
+  // textarea by default (opt-in via `[SHOW RAW BYTES ANYWAY]`) and surface
+  // a banner directing the analyst to the HEX view + IOC panels.
+  //
+  // Feb-2026 SME-directive · v1.5.5 · The TERMINAL ARTIFACT for a
+  // shellcode-terminating chain IS the extracted intel (C2 IPs, UA,
+  // API imports, strings) — NOT the raw bytes. So we now compute
+  // binaryPayload EVEN when a shellcode prologue was detected, so the
+  // OUTPUT TEXT view surfaces `formatExtractedIntel(...)` (rather than
+  // rendering the raw binary body). Raw bytes remain visible in HEX
+  // (auto-selected when shellcode detected) and via [SHOW RAW BYTES].
   const binaryPayload = useMemo(
-    () => (shellcode || terminalTail ? null : detectBinaryPayload(output || "")),
-    [output, shellcode, terminalTail],
+    () => (terminalTail ? null : detectBinaryPayload(output || "")),
+    [output, terminalTail],
   );
 
   // Reset the raw-binary opt-in whenever the underlying output changes.

@@ -48,7 +48,16 @@ class TestMeterpreterB64XorRunner:
 
     def test_pipeline_reaches_meterpreter_shellcode(self):
         r = deterministic_best_decode(METERPRETER_PS_ONE_LINER, analysis_mode="deep")
-        assert r.get("engine") == "magic"
+        # v1.5.x · The winning-engine label evolved from the legacy
+        # `magic` orchestrator to the RC2 pipeline (`rc2-orchestrator`)
+        # once the pluggable decoder registry replaced the monolithic
+        # magic scorer. Both labels are accepted here so a future
+        # engine rename does not force a lockstep test rewrite —
+        # the invariant this test really enforces (recovered
+        # shellcode with correct XOR key) is asserted below.
+        assert r.get("engine") in ("magic", "rc2-orchestrator"), (
+            f"unexpected engine label: {r.get('engine')!r}"
+        )
         assert r.get("reached_shellcode") is True, \
             "pipeline must reach a shellcode-terminal state"
         chain = [s.get("op") for s in r.get("steps", [])]

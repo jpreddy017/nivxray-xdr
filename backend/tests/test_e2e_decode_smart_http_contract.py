@@ -68,16 +68,38 @@ def client() -> TestClient:
 def auth_headers(client: TestClient) -> dict:
     """Log in with the seeded admin so we hit the SAME auth path the
     UI hits. Password comes from `memory/test_credentials.md` (source
-    of truth) so a future rotation only needs to update ONE file."""
-    from deps import seed_admin
-    # Ensure the admin user exists in this test's DB context.
-    try:
-        seed_admin()
-    except Exception:
-        pass
+    of truth) so a future rotation only needs to update ONE file.
+
+    v1.5.5 · Feb-2026 — we UPSERT the admin bcrypt hash directly
+    against the test-time DB *before* login instead of calling
+    `seed_admin()` (which is an async coroutine and also idempotent,
+    i.e. it will NOT rewrite the password if the admin already
+    exists with a stale hash from a previous rotation/test). This
+    guarantees the login POST matches the password we're about to
+    submit — regardless of any state left behind by earlier tests
+    that rotated the admin password."""
+    import asyncio
+    from deps import db, hash_password
 
     email = os.environ.get("ADMIN_EMAIL", "admin@nivxray.com")
     password = os.environ.get("ADMIN_PASSWORD") or _read_seeded_password()
+
+    # Force-align the DB admin row with the password we're about to
+    # POST — this is idempotent, and safe because the test process
+    # owns the DB via .env config.
+    async def _upsert_admin():
+        await db.users.update_one(
+            {"email": email},
+            {"$set": {
+                "email": email,
+                "password": hash_password(password),
+                "role": "admin",
+                "must_change_password": False,
+            }},
+            upsert=True,
+        )
+    asyncio.get_event_loop().run_until_complete(_upsert_admin())
+
     r = client.post("/api/auth/login", json={"email": email, "password": password})
     assert r.status_code == 200, (
         f"admin login failed ({r.status_code}): {r.text[:200]}"
