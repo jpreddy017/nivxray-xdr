@@ -24,6 +24,7 @@ from operations import (
 from smart_decoder import smart_decode
 from magic_decoder import magic_decode
 import models_studio as ms
+from routers.helpers.decode_offload import run_offloaded
 
 log = logging.getLogger("nivx.routers.ops")
 
@@ -139,21 +140,30 @@ async def get_examples(user=Depends(get_current_user)):
 
 @router.post("/recipe/run", response_model=RunRecipeOut)
 async def run_recipe(body: RunRecipeIn, user=Depends(get_current_user)):
-    current = body.input
-    steps_output: List[Dict[str, Any]] = []
-    errors: List[Dict[str, str]] = []
-    for i, step in enumerate(body.steps):
-        try:
-            current = run_operation(step.op, current, step.args)
-            steps_output.append({
-                "index": i, "op": step.op,
-                "output_preview": current[:400],
-                "output_length": len(current),
-            })
-        except Exception as e:
-            errors.append({"index": str(i), "op": step.op, "error": str(e)})
-            steps_output.append({"index": i, "op": step.op, "error": str(e)})
-            break
+    # v1.5.6 · Offload the whole recipe replay onto a thread executor.
+    # A single recipe can chain 10+ ops including xor-brute/L3 that
+    # each hold the GIL for seconds. Running the full loop off-loop
+    # keeps `/api/health` responsive throughout.
+    def _replay():
+        current = body.input
+        steps_output: List[Dict[str, Any]] = []
+        errors: List[Dict[str, str]] = []
+        for i, step in enumerate(body.steps):
+            try:
+                nxt = run_operation(step.op, current, step.args)
+                current = nxt
+                steps_output.append({
+                    "index": i, "op": step.op,
+                    "output_preview": current[:400],
+                    "output_length": len(current),
+                })
+            except Exception as e:
+                errors.append({"index": str(i), "op": step.op, "error": str(e)})
+                steps_output.append({"index": i, "op": step.op, "error": str(e)})
+                break
+        return current, steps_output, errors
+
+    current, steps_output, errors = await run_offloaded(_replay)
     return RunRecipeOut(
         output=current, steps_output=steps_output,
         detected_type=detect_payload_type(current), errors=errors,
@@ -288,7 +298,15 @@ async def _decode_multi_fragment(fragments: List[str], body: AutoIn, user) -> Di
 
     for idx, frag in enumerate(fragments, 1):
         try:
-            det = deterministic_best_decode(frag, analysis_mode=body.analysis_mode or "balanced")
+            # v1.5.6 · offload per-fragment decode so multi-fragment
+            # requests don't compound event-loop blocking.
+            det = await run_offloaded(
+                deterministic_best_decode,
+                frag,
+                analysis_mode=body.analysis_mode or "balanced",
+            )
+        except HTTPException:
+            raise
         except Exception as e:
             det = {"output": frag, "steps": [], "score": 0.0, "engine": "error", "notes": [f"decode error: {e}"]}
         f_out = det.get("output") or ""
@@ -592,9 +610,13 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                 # to `xor-brute` and reaches actual shellcode). If deterministic
                 # goes DEEPER (more steps) or REACHES SHELLCODE, prefer it.
                 try:
-                    det_race = deterministic_best_decode(
-                        body.input, analysis_mode=body.analysis_mode or "balanced"
+                    det_race = await run_offloaded(
+                        deterministic_best_decode,
+                        body.input,
+                        analysis_mode=body.analysis_mode or "balanced",
                     )
+                except HTTPException:
+                    raise
                 except Exception:
                     det_race = None
                 _custom_chain_len = len(steps_for_run)
@@ -637,7 +659,15 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             pass
 
     # Deterministic best-of race (smart vs magic) — this is the key upgrade
-    det = deterministic_best_decode(body.input, analysis_mode=body.analysis_mode or "balanced")
+    # v1.5.6 · offloaded to thread executor so the asyncio event loop stays
+    # free to service `/api/health` while heavy decoders (xor-brute, L3
+    # dispatch) run — prevents tier_0 CPU-starvation → nginx 503 →
+    # k8s liveness kill → Cloudflare 520 loop.
+    det = await run_offloaded(
+        deterministic_best_decode,
+        body.input,
+        analysis_mode=body.analysis_mode or "balanced",
+    )
 
     # ── RC4.1 · Crypto-API honest-verdict annotation ─────────────────────
     # Runs unconditionally on the raw input so the annotator fires even when
