@@ -1,5 +1,77 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **v1.5.5 · OUTPUT terminal-artifact selection · Green release gate**
+
+### What shipped
+- **Frontend fix — `OutputView.jsx` extracted-intel now fires on shellcode**  
+  `binaryPayload` was previously short-circuited to `null` when a shellcode
+  prologue was detected, so the TEXT view rendered the raw 833-byte binary
+  garble instead of the terminal artifact (C2 IPs / URLs / User-Agents / API
+  imports / printable strings). One-line guard removed — TEXT view now
+  always surfaces `formatExtractedIntel(...)` when the payload is
+  high-entropy binary, regardless of whether an x86/x64 stager prologue
+  was also detected. Raw bytes remain accessible via the HEX toggle and
+  the `[SHOW RAW BYTES]` button.
+
+- **Meterpreter contract test — engine label loosened**  
+  `test_pipeline_reaches_meterpreter_shellcode` now accepts either
+  `"magic"` (legacy label) or `"rc2-orchestrator"` (current label). The
+  invariant asserted by the neighbour tests (recovered shellcode +
+  correct XOR key + C2 IOC + UA fingerprint) is unchanged.
+
+- **E2E HTTP-contract fixture — synchronous pymongo upsert**  
+  `auth_headers()` now aligns the DB admin bcrypt hash with the current
+  `ADMIN_PASSWORD` via a synchronous pymongo upsert BEFORE calling
+  `/api/auth/login`. This eliminates two pre-existing pytest failures:
+  (a) 401 caused by a stale admin hash left over from prior password
+  rotations, and (b) `RuntimeError: Future attached to a different loop`
+  raised when motor's async handle was scheduled on pytest's fresh loop.
+  Module-level `pytest.mark.timeout(360)` covers the one-time LLM-warmup
+  cost on `TestClient` startup.
+
+### Release gate — PASS
+```
+tests/test_meterpreter_b64xor.py ..............  8 passed
+tests/test_e2e_decode_smart_http_contract.py .. 10 passed
+================== 18 passed, 0 failed, 0 errors ==================
+```
+
+### Playwright verification on preview
+Automated screenshot at
+`https://greeting-app-5782.preview.emergentagent.com/` (fresh session,
+no cache):
+
+```
+OUTPUT (TEXT view · 833-byte shellcode terminal artifact)
+C2 IPs:       149.28.81.19
+User-Agent:   Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1;
+              Trident/5.0; BOIE9;PTBR)
+
+Extracted strings:
+  D$$[[aYZQ
+  ]hnet
+  hwiniThLw&
+  ...
+  149.28.81.19
+```
+
+### Files changed
+- `/app/frontend/src/components/OutputView.jsx` — `binaryPayload` guard
+- `/app/backend/tests/test_meterpreter_b64xor.py` — engine label match
+- `/app/backend/tests/test_e2e_decode_smart_http_contract.py`
+  - module-level timeout + synchronous pymongo upsert fixture
+
+### Known follow-ups (non-blocking)
+- **Browser "Page Unresponsive" on accumulated tabs** — Playwright
+  fresh-session runs never reproduce it. Suspected React state
+  accumulation across many decode cycles. Debug independently with
+  DevTools Console + Performance profile if the freeze reappears in
+  Incognito. Not a decoder or verdict regression.
+- **v1.6.0 Semantic Variable Resolution** — unblocked; ready to begin
+  per `/app/memory/V1_6_0_PLANNING.md`.
+
+
+
 
 ## 2026-02-XX · **v1.5.2 · Recipe Replay + Reflective-Injection Intent Coverage**
 

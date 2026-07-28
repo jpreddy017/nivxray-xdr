@@ -50,6 +50,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 
+# Module-level timeout — the module-scoped `client` fixture pays a
+# one-time ~120s LLM-warmup cost on the FIRST test that requests it
+# (litellm import chain fires on server startup). Subsequent tests
+# reuse the cached fixture so they need only ~30-60s each. We set the
+# per-test budget to 360s so the first test doesn't timeout on the
+# amortized startup + one decode call while every other test still
+# has plenty of headroom. Feb-2026 · v1.5.5 · SME release-gate.
+pytestmark = pytest.mark.timeout(360)
+
+
 # ── Bootstrapping ──────────────────────────────────────────────
 
 @pytest.fixture(scope="module")
@@ -77,18 +87,27 @@ def auth_headers(client: TestClient) -> dict:
     exists with a stale hash from a previous rotation/test). This
     guarantees the login POST matches the password we're about to
     submit — regardless of any state left behind by earlier tests
-    that rotated the admin password."""
-    import asyncio
-    from deps import db, hash_password
+    that rotated the admin password.
+
+    We use a *synchronous* pymongo connection (NOT the async motor
+    handle bound to the server's event loop) so this fixture can be
+    called from pytest's synchronous fixture stack without hitting
+    the classic ``RuntimeError: got Future … attached to a different
+    loop`` failure motor raises when its coroutine is scheduled on a
+    fresh loop."""
+    from pymongo import MongoClient
+    from deps import hash_password
 
     email = os.environ.get("ADMIN_EMAIL", "admin@nivxray.com")
     password = os.environ.get("ADMIN_PASSWORD") or _read_seeded_password()
 
     # Force-align the DB admin row with the password we're about to
-    # POST — this is idempotent, and safe because the test process
-    # owns the DB via .env config.
-    async def _upsert_admin():
-        await db.users.update_one(
+    # POST — idempotent, synchronous, no async-loop crossover.
+    mongo_url = os.environ["MONGO_URL"]
+    db_name = os.environ["DB_NAME"]
+    sync_client = MongoClient(mongo_url)
+    try:
+        sync_client[db_name].users.update_one(
             {"email": email},
             {"$set": {
                 "email": email,
@@ -98,7 +117,8 @@ def auth_headers(client: TestClient) -> dict:
             }},
             upsert=True,
         )
-    asyncio.get_event_loop().run_until_complete(_upsert_admin())
+    finally:
+        sync_client.close()
 
     r = client.post("/api/auth/login", json={"email": email, "password": password})
     assert r.status_code == 200, (
