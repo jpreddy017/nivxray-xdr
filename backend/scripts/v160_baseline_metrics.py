@@ -130,6 +130,8 @@ def collect_baseline(n: int = 5) -> dict[str, Any]:
     latencies_max = [s["latency_max_ms"] for s in per_sample]
     depths        = [s["rte_depth"] or 0 for s in per_sample]
     steps         = [s["rte_steps"] for s in per_sample]
+    diags_count   = [len(s["diagnostics"]) for s in per_sample]
+    input_bytes   = [s["input_bytes"] for s in per_sample]
     hashes_stable = all(s["determinism_hash_stable"] for s in per_sample)
 
     # Corpus pass rate (verdict-band match)
@@ -156,6 +158,8 @@ def collect_baseline(n: int = 5) -> dict[str, Any]:
             "rte_depth_min":       min(depths),
             "rte_depth_max":       max(depths),
             "rte_steps_max":       max(steps),
+            "max_diagnostics":     max(diags_count) if diags_count else 0,
+            "max_input_bytes":     max(input_bytes) if input_bytes else 0,
             "determinism_hash_stable_all": hashes_stable,
             "pass_rate":           round(pass_hits / len(per_sample), 4),
             "pass_count":          pass_hits,
@@ -191,6 +195,77 @@ def render_markdown(data: dict[str, Any]) -> str:
     L.append(f"| False-positive rate (benign → mal/susp) | **{a['false_positive_rate']*100:.2f} %** ({a['false_positive_count']}) |")
     L.append(f"| Determinism hash stable across all samples | **{a['determinism_hash_stable_all']}** |")
     L.append("")
+
+    # ── Known limitations (SME steer 2026-02-XX) ────────────────
+    L.append("## Known Limitations · locked exceptions")
+    L.append("")
+    L.append("Per SME steer: any sample that does NOT match its expected")
+    L.append("verdict is documented here as an explicit known limitation —")
+    L.append("never silently normalised as \"acceptable\". Every entry must")
+    L.append("carry an exit criterion tied to a specific release milestone.")
+    L.append("")
+    failing = [s for s in data["per_sample"] if not s["actual_matches_expected"]]
+    if not failing:
+        L.append("_None. Corpus pass-rate is 100 %._")
+    else:
+        L.append("| sample_id | expected | actual | root cause | exit criterion |")
+        L.append("| --- | --- | --- | --- | --- |")
+        for s in failing:
+            root = ",".join(s["diagnostics"]) or "—"
+            crit = _known_exit_criterion(s["sample_id"])
+            L.append(
+                f"| `{s['sample_id']}` | {s['expected_verdict']} | "
+                f"{s['verdict_band']} | {root} | {crit} |"
+            )
+    L.append("")
+    L.append("### v1.6.0 corpus exit criterion")
+    L.append("")
+    L.append("**Corpus pass rate MUST reach 100 % on the maintained Golden")
+    L.append("Corpus at v1.6.0 GA — OR — every remaining exception MUST be")
+    L.append("moved to a dedicated `unsupported_patterns/` corpus subdirectory")
+    L.append("with an explicit `unsupported_pattern: true` YAML flag and a")
+    L.append("public rationale for why the pattern is out of scope.**")
+    L.append("")
+    L.append("This prevents \"known gap\" entries from quietly persisting.")
+    L.append("")
+
+    # ── Complexity budget (SME steer 2026-02-XX) ────────────────
+    L.append("## Complexity Budget · pre-resolver baseline")
+    L.append("")
+    L.append("Metrics measurable today (v1.5.2, no def-use resolver yet).")
+    L.append("Every future PR must ALSO run against this budget so a more")
+    L.append("sophisticated resolver never silently increases algorithmic")
+    L.append("complexity beyond the declared ceilings.")
+    L.append("")
+    L.append("| Metric | Today (v1.5.2 max) | v1.6.0 GA ceiling | Rationale |")
+    L.append("| --- | ---: | ---: | --- |")
+    L.append(f"| Input bytes | {a['max_input_bytes']:,} | 65,536 | Reject inputs > 64 KB with `DX4001 · OVERSIZED_INPUT`. |")
+    L.append(f"| RTE recursion depth | {a['rte_depth_max']} | 32 | Existing RTE cap — unchanged. |")
+    L.append(f"| RTE steps count | {a['rte_steps_max']} | 64 | Existing RTE cap — unchanged. |")
+    L.append(f"| Diagnostics per decode | {a['max_diagnostics']} | 32 | Existing cap — unchanged. |")
+    L.append(f"| Peak RSS (KB) | {a['peak_rss_kb']:,} | 65,536 (~64 MB) | 2× headroom over today's peak. |")
+    L.append(f"| Latency P95 (ms) | {a['latency_p95_ms_max']:.1f} | {a['latency_p95_ms_max']*1.15:.1f} | 15 % ceiling — hard fail above. |")
+    L.append("")
+    L.append("### Post-resolver ceilings (targets for P1.1 onwards)")
+    L.append("")
+    L.append("These are BUDGETS, not measurements. Each metric is instrumented")
+    L.append("by the resolver itself when it lands and reported per decode via")
+    L.append("the new `resolver_trace` block in the investigation JSON.")
+    L.append("")
+    L.append("| Metric | Ceiling | If exceeded |")
+    L.append("| --- | ---: | --- |")
+    L.append("| Max AST nodes / decode | 8,192 | `DX3005 · AST_BUDGET_EXCEEDED` → resolver aborts, plugin falls back to Unresolved(reason=budget). |")
+    L.append("| Max symbol count / decode | 512 | `DX3006 · SYMBOL_BUDGET_EXCEEDED` → same behaviour. |")
+    L.append("| Max definition edges / decode | 2,048 | `DX3007 · DEFS_BUDGET_EXCEEDED` → same behaviour. |")
+    L.append("| Max use edges / decode | 4,096 | `DX3008 · USES_BUDGET_EXCEEDED` → same behaviour. |")
+    L.append("| Max resolver iterations / call | 32 | `DX3009 · RESOLVER_ITER_EXCEEDED` → returns `Unresolved(reason=depth_exceeded)`. |")
+    L.append("| Per-decode wall time in resolver | 250 ms | `DX3010 · RESOLVER_TIME_EXCEEDED` → same behaviour. |")
+    L.append("")
+    L.append("Adding a new sample that hits a ceiling is a **signal**, not a")
+    L.append("bug: it means the corpus has grown a new complexity class that")
+    L.append("must be classified before we bump the ceiling.")
+    L.append("")
+
     L.append("## Per-sample")
     L.append("")
     L.append("| sample_id | bytes | depth | steps | stop | P50 ms | P95 ms | verdict | expected | ✓ | DX |")
@@ -216,11 +291,32 @@ def render_markdown(data: dict[str, Any]) -> str:
     L.append("- Any sample flips from ✅ to ❌  → **HARD FAIL**.")
     L.append("- Any determinism hash becomes unstable  → **HARD FAIL**.")
     L.append("- False-positive rate ↑ from 0  → **HARD FAIL**.")
+    L.append("- Any complexity-budget ceiling exceeded → **HARD FAIL**.")
     L.append("- Peak RSS ↑ > 25 %  → soft fail (review, may be legitimate).")
     L.append("")
     L.append("_This file is generated. Do NOT edit by hand — re-run the")
     L.append("script to refresh._")
     return "\n".join(L)
+
+
+# ── Known-limitations exit-criterion registry ───────────────────
+_KNOWN_EXIT_CRITERIA = {
+    "PS_ENCODEDCOMMAND_GZIP_STAGE2_001": (
+        "**v1.6.0 GA**: either fires `must_fire_intents` on the L1 partial "
+        "recovery (moving pass_rate to 100 %), OR relocated to "
+        "`unsupported_patterns/` corpus with `unsupported_pattern: true` "
+        "and an explicit rationale (corrupt-inner-b64 mod-4=3 is an "
+        "unrecoverable class; verdict `benign` is the honest static "
+        "conclusion — this may be the correct classification)."
+    ),
+}
+
+
+def _known_exit_criterion(sample_id: str) -> str:
+    return _KNOWN_EXIT_CRITERIA.get(
+        sample_id,
+        "**v1.6.0**: root-cause + attach an exit criterion here.",
+    )
 
 
 def main() -> int:

@@ -372,8 +372,12 @@ Each of P1-P3 lands as its own PR with its own regression proof
 
 ## 8 · Exit criteria (for the v1.6.0 GA tag)
 
-1. Trust corpus at 100 % · investigation integrity ≥ 95 %
-   (up from today's 94.1 %; each newly-added sample counts).
+1. Trust corpus at **100 %** on the maintained Golden Corpus — OR every
+   remaining exception explicitly relocated to
+   `tests/trust_corpus/unsupported_patterns/` with
+   `unsupported_pattern: true` and a public rationale (per SME steer
+   2026-02-XX; see `memory/V1_6_0_BASELINE_METRICS.md` § "Known
+   Limitations"). No silent normalisation of "known gaps".
 2. E2E HTTP contract test 10/10 passing.
 3. 5 net-new corpus samples locked (synthetic 3-5 + Nishang + Empire).
 4. Full regression suite green at the same numbers as v1.5.2 baseline.
@@ -382,11 +386,17 @@ Each of P1-P3 lands as its own PR with its own regression proof
 6. Analyst report renders a Resolver Trace when the resolver fires.
 7. Every migrated regex site cites its DX3xxx counterpart in the
    trace when the resolver contributed to the decision.
-8. **Baseline metrics delta** (per SME steer): no phase regressed P95
-   latency by > 15 %, no phase dropped the corpus pass-rate by even
-   one sample, false-positive rate on benign corpus remained zero,
-   and every stage's determinism hash is stable across two runs of
-   the full corpus.
+8. **Baseline metrics delta**: no phase regressed P95 latency by
+   > 15 %, no phase dropped the corpus pass-rate by even one sample,
+   false-positive rate on benign corpus remained zero, and every
+   stage's determinism hash is stable across two runs of the full
+   corpus.
+9. **Complexity budgets** (per SME steer 2026-02-XX; see
+   `V1_6_0_BASELINE_METRICS.md` § "Complexity Budget") not exceeded
+   by any corpus sample: AST nodes ≤ 8,192 · symbols ≤ 512 ·
+   def edges ≤ 2,048 · use edges ≤ 4,096 · resolver iterations ≤ 32 ·
+   resolver wall-time ≤ 250 ms. Ceilings breached → new diagnostics
+   DX3005-DX3010 fire and the plugin returns `Unresolved(reason=budget)`.
 
 ---
 
