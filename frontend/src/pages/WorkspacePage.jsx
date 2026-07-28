@@ -838,7 +838,13 @@ export default function WorkspacePage() {
       }));
 
       // Step 2 · AI fallback if confidence low OR archetype didn't match AND output is trivial
-      const shouldFallback = conf < 40 && !eng.startsWith("archetype:");
+      // Feb 2026 · v1.5.4 · skip fallback when the primary decode already
+      // ran a complete linear recipe (≥ 4 steps means we peeled at least
+      // one non-trivial obfuscation chain). Prevents the double-decode
+      // that pinned the browser tab at ~2 minutes and produced the
+      // "Page Unresponsive" dialog reported by SME 2026-02-XX.
+      const _recipeCompleted = Array.isArray(r.data?.recipe) && r.data.recipe.length >= 4;
+      const shouldFallback = conf < 40 && !eng.startsWith("archetype:") && !_recipeCompleted;
       if (shouldFallback) {
         trace.push({
           step: "ai-fallback",
@@ -1159,24 +1165,6 @@ export default function WorkspacePage() {
               ? _lastTraceLayer.output_preview
               : _rawOut)
       );
-      // Feb 2026 · v1.5.4 · Terminal recipe replay for shellcode-extraction.
-      // If /decode/smart returned a multi-step recipe (typically the
-      // full 11-step PS-encodedcommand + gzip + XOR-brute + family
-      // chain), the RTE only ran the iterative deterministic head of
-      // it — the terminal XOR + crypto + family stages that produce
-      // the analyst-facing "EXTRACTED INTEL FROM N BYTE SHELLCODE"
-      // rendering live in the linear recipe orchestrator. Run it now
-      // and use its result as the authoritative OUTPUT so the
-      // analyst sees the shellcode + C2 + User-Agent + strings.
-      try {
-        if (newSteps.length >= 4) {
-          const rr = await api.post("/recipe/run", { input, steps: newSteps });
-          const _terminal = rr?.data?.output || "";
-          if (_terminal && _terminal !== _rawOut && _terminal !== _semFinal) {
-            setOutput(_terminal);
-          }
-        }
-      } catch (_e) { /* non-fatal — keep the current output */ }
       setDetected(r.data.detected_type || null);
       const newChain = (r.data.recipe || []).map((s, i) => ({
         op: s.op, reason: s.reason || "",
