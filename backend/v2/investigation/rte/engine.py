@@ -285,6 +285,18 @@ def _emit_orchestration_diagnostic(chain: TransformationChain) -> None:
         return
     code, failure_type, reason = entry
     final_layer = chain.artifacts[-1].layer if chain.artifacts else 0
+    # v1.5.0 · causal linkage: if a plugin already emitted a diagnostic
+    # on this same layer, THAT is the root cause and the orchestration
+    # halt is the effect. Point ``caused_by`` at the most-recent
+    # plugin diagnostic's code so the UI can render a directed graph
+    # (e.g. `DX2002 ← DX1001 ← blob_length=2635`) rather than a flat
+    # list.
+    from .diagnostic_codes import severity_of
+    caused_by = ""
+    for prior in reversed(chain.diagnostics):
+        if prior.detector != "rte.engine" and prior.layer == final_layer:
+            caused_by = prior.code
+            break
     chain.diagnostics.append(DecodeDiagnostic(
         layer=final_layer,
         detector="rte.engine",
@@ -298,6 +310,8 @@ def _emit_orchestration_diagnostic(chain: TransformationChain) -> None:
         },
         code=code,
         failure_type=failure_type,
+        severity=severity_of(code),
+        caused_by=caused_by,
     ))
 
 
@@ -329,6 +343,8 @@ def _chain_hash(chain: TransformationChain) -> str:
             "attempted":    d.attempted,
             "code":         d.code,
             "failure_type": d.failure_type,
+            "severity":     d.severity,
+            "caused_by":    d.caused_by,
         } for d in chain.diagnostics],
     }, sort_keys=True, ensure_ascii=False).encode()
     return hashlib.sha256(blob).hexdigest()

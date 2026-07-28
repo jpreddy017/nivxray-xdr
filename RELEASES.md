@@ -419,13 +419,76 @@ stage number).
 | Full v1.5.0 suite | **27 / 28 PASS** (1 non-ASCII skipped intentionally) |
 | Zero regression on 200+ decoder / behaviour / verdict tests | ✅ (3 pre-existing failures unchanged) |
 
-**Files touched (codes delta)**:
+### 6 · Causal chaining, severity, reserved ranges (v1.5.0 · 2026-07-28)
 
-- `backend/v2/investigation/rte/diagnostic_codes.py` — new registry module
-- `backend/v2/investigation/rte/models.py` — `DecodeDiagnostic.code` and `.failure_type` fields
-- `backend/v2/investigation/rte/engine.py` — `_emit_orchestration_diagnostic()`; codes included in `_chain_hash()` so drift changes the determinism fingerprint
-- `backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py` — `_diagnose_pattern()` returns codes + structured meta; `diagnose()` wraps them into `DecodeDiagnostic`
-- `backend/tests/test_decoder_convergence_v150.py` — 6 new tests locking the code contract
+Three final finishers applied on top of the code registry so v1.5.0
+is production-shaped for automation and dashboards:
+
+**a. Causal chaining (`caused_by`)** — every `DecodeDiagnostic` now
+carries an optional `caused_by` field pointing at the code of the
+upstream diagnostic that caused it. The engine-level DX2xxx
+orchestration diagnostic looks back on the same layer for the most
+recent plugin diagnostic and links to it. Never fabricated — when
+no plugin fired, `caused_by` is empty. The UI can render a directed
+graph instead of a flat list:
+
+```
+DX2002  [info]   NO_FURTHER_DETERMINISTIC_TRANSFORMATION   ← caused_by=DX1001
+  ↑
+DX1001  [error]  INVALID_BASE64_LENGTH                     (root)
+  ↑
+blob_length=2635, blob_mod4=3, inflate_exception=…
+```
+
+**b. Severity** — every code has one of `error` / `warning` /
+`info`. `severity_of(code)` degrades gracefully to `"unknown"` for
+future codes so older dashboards never break. Canonical assignment:
+
+| Code | Severity |
+| ---- | -------- |
+| DX1001 / DX1002 / DX1003 / DX1101 / DX1102 / DX1103 | **error** |
+| DX1201 / DX2001 / DX2003 | **warning** |
+| DX1301 / DX2002 | **info** |
+
+**c. Reserved ranges for v2.0** — the registry module docstring
+pre-allocates all ten hundred-blocks so future subsystems don't
+collide:
+
+| Range | Subsystem | Status |
+| ----- | --------- | ------ |
+| DX1xxx | Decoder / extraction | live |
+| DX2xxx | RTE engine / orchestration | live |
+| DX3xxx | Semantic resolver (def-use, variable chains) | reserved for v1.6.0+ |
+| DX4xxx | Crypto (XOR / RC4 / AES) | reserved for v1.6.0+ |
+| DX5xxx | IOC extraction | reserved for v1.6.0+ |
+| DX6xxx | Parser (PS AST, CMD tokeniser) | reserved for v1.7.0+ |
+| DX7xxx | Output / evidence validation | reserved for v1.7.0+ |
+| DX8xxx | Corpus / regression harness | reserved for v1.7.0+ |
+| DX9xxx | Internal / infrastructure | reserved |
+
+A regression test (`test_reserved_ranges_documented_and_no_cross_range_conflicts`)
+enforces that every registered code lives in its declared range.
+
+**Verification (finalizers delta)**:
+
+| Check | Result |
+| ----- | ------ |
+| `test_orchestration_diagnostic_links_to_plugin_root_cause` | ✅ (DX2002 caused_by=DX1001) |
+| `test_orchestration_diagnostic_has_no_cause_when_no_plugin_fired` | ✅ (caused_by never fabricated) |
+| `test_severity_is_populated_and_stable` | ✅ (registry pinned) |
+| `test_diagnostic_severity_reaches_the_chain` | ✅ |
+| `test_reserved_ranges_documented_and_no_cross_range_conflicts` | ✅ |
+| `test_causal_link_included_in_determinism_hash` | ✅ |
+| Full v1.5.0 suite | **33 / 34 PASS** (1 non-ASCII skipped) |
+| Zero regression on 200+ decoder/behaviour/verdict tests | ✅ (3 pre-existing failures unchanged) |
+
+**Files touched (finalizers delta)**:
+
+- `backend/v2/investigation/rte/diagnostic_codes.py` — `DiagnosticCodeMeta.severity`, `severity_of()`, reserved-range docstring for v2.0
+- `backend/v2/investigation/rte/models.py` — `DecodeDiagnostic.severity`, `DecodeDiagnostic.caused_by`
+- `backend/v2/investigation/rte/engine.py` — engine diagnostic populates `severity` and `caused_by` (looks back at prior plugin diagnostics on the same layer); new fields included in `_chain_hash()`
+- `backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py` — plugin diagnostic populates `severity`, sets `caused_by=""` (root cause of its own layer)
+- `backend/tests/test_decoder_convergence_v150.py` — 6 new tests locking the causal graph, severity, reserved-range contracts
 
 ---
 

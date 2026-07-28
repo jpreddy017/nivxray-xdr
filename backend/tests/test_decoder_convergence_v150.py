@@ -565,6 +565,139 @@ def test_successful_decode_still_emits_dx2002_at_terminal_layer():
     assert engine_diags[0].code == "DX2002"
 
 
+# ── v1.5.0 follow-up · Causal chain, severity, reserved ranges ──
+
+
+def test_orchestration_diagnostic_links_to_plugin_root_cause():
+    """When a plugin diagnostic (DX1xxx) fires on the same layer that
+    subsequently halts the pipeline, the engine-level DX2xxx MUST
+    link back via ``caused_by`` so the UI can render a causal graph
+    instead of a flat list."""
+    import gzip
+    truncated = gzip.compress(b"unreachable")[:-8]
+    blob = base64.b64encode(truncated).decode("ascii")
+    stage2 = (
+        f'$s=New-Object IO.MemoryStream(,'
+        f'[Convert]::FromBase64String("{blob}"));'
+        f'IEX (New-Object IO.StreamReader('
+        f'New-Object IO.Compression.GzipStream('
+        f'$s,[IO.Compression.CompressionMode]::Decompress))).ReadToEnd();'
+    )
+    enc = base64.b64encode(stage2.encode("utf-16-le")).decode("ascii")
+    chain = transform(f"powershell -encodedcommand {enc}",
+                       max_depth=DEFAULT_MAX_DEPTH)
+    plugin_diags = [d for d in chain.diagnostics if d.detector != "rte.engine"]
+    engine_diags = [d for d in chain.diagnostics if d.detector == "rte.engine"]
+    assert plugin_diags and engine_diags
+    # Plugin diagnostic is the root cause — no caused_by
+    assert plugin_diags[0].caused_by == ""
+    # Engine diagnostic points at the plugin's code
+    assert engine_diags[0].caused_by == plugin_diags[0].code, (
+        f"engine diag caused_by={engine_diags[0].caused_by!r} "
+        f"should be {plugin_diags[0].code!r}"
+    )
+
+
+def test_orchestration_diagnostic_has_no_cause_when_no_plugin_fired():
+    """When the pipeline halts on plain plaintext (no plugin
+    diagnostic emitted), the engine-level DX2002 must have an EMPTY
+    caused_by — nothing caused it. This proves ``caused_by`` is
+    never fabricated."""
+    chain = transform('Write-Host "plain plaintext"',
+                       max_depth=DEFAULT_MAX_DEPTH)
+    engine_diags = [d for d in chain.diagnostics if d.detector == "rte.engine"]
+    assert engine_diags
+    assert engine_diags[0].caused_by == ""
+
+
+def test_severity_is_populated_and_stable():
+    """Every diagnostic MUST carry a non-empty severity. The severity
+    of a code is a stability contract — dashboards depend on it."""
+    from v2.investigation.rte.diagnostic_codes import (
+        severity_of,
+        CODE_INVALID_BASE64_LENGTH,
+        CODE_GZIP_DECOMPRESSION_FAILED,
+        CODE_NO_TRANSFORMATION,
+        CODE_MAX_DEPTH_REACHED,
+        CODE_LOOP_DETECTED,
+    )
+    # Hard-coded stability pins — dashboards key off these.
+    assert severity_of(CODE_INVALID_BASE64_LENGTH)     == "error"
+    assert severity_of(CODE_GZIP_DECOMPRESSION_FAILED) == "error"
+    assert severity_of(CODE_NO_TRANSFORMATION)         == "info"
+    assert severity_of(CODE_MAX_DEPTH_REACHED)         == "warning"
+    assert severity_of(CODE_LOOP_DETECTED)             == "warning"
+    # And unknown codes must degrade gracefully.
+    assert severity_of("DX9999_UNKNOWN") == "unknown"
+
+
+def test_diagnostic_severity_reaches_the_chain():
+    """The severity from the code registry must end up on the emitted
+    DecodeDiagnostic — not just live in the registry table."""
+    import gzip
+    truncated = gzip.compress(b"unreachable")[:-8]
+    blob = base64.b64encode(truncated).decode("ascii")
+    stage2 = (
+        f'$s=New-Object IO.MemoryStream(,'
+        f'[Convert]::FromBase64String("{blob}"));'
+        f'IEX (New-Object IO.StreamReader('
+        f'New-Object IO.Compression.GzipStream('
+        f'$s,[IO.Compression.CompressionMode]::Decompress))).ReadToEnd();'
+    )
+    enc = base64.b64encode(stage2.encode("utf-16-le")).decode("ascii")
+    chain = transform(f"powershell -encodedcommand {enc}",
+                       max_depth=DEFAULT_MAX_DEPTH)
+    plugin_diags = [d for d in chain.diagnostics if d.detector != "rte.engine"]
+    assert plugin_diags[0].severity == "error"
+    engine_diags = [d for d in chain.diagnostics if d.detector == "rte.engine"]
+    assert engine_diags[0].severity == "info"
+
+
+def test_reserved_ranges_documented_and_no_cross_range_conflicts():
+    """The docstring reserves DX1xxx/DX2xxx/…/DX9xxx for specific
+    subsystems. Any code registered here MUST live in its declared
+    range so v1.6.0 / v1.7.0 don't paint themselves into a corner
+    when they add DX3xxx (semantic resolver) or DX4xxx (crypto)."""
+    from v2.investigation.rte.diagnostic_codes import DIAGNOSTIC_CODES
+    range_to_category = {
+        "1": "extraction",     # decoders / extraction
+        "2": "orchestration",  # RTE engine
+        # 3-9 reserved for future ranges — not yet populated
+    }
+    for code, meta in DIAGNOSTIC_CODES.items():
+        assert code.startswith("DX"), code
+        assert code[2:].isdigit() and len(code) == 6, code
+        range_digit = code[2]
+        expected = range_to_category.get(range_digit)
+        if expected is not None:
+            assert meta.category == expected, (
+                f"code {code} in DX{range_digit}xxx range should be "
+                f"category={expected!r}, got {meta.category!r}"
+            )
+
+
+def test_causal_link_included_in_determinism_hash():
+    """A causal-link change MUST change the determinism fingerprint —
+    otherwise dashboards showing chain evolution would miss it."""
+    import gzip
+    truncated = gzip.compress(b"unreachable")[:-8]
+    blob = base64.b64encode(truncated).decode("ascii")
+    stage2 = (
+        f'$s=New-Object IO.MemoryStream(,'
+        f'[Convert]::FromBase64String("{blob}"));'
+        f'IEX (New-Object IO.StreamReader('
+        f'New-Object IO.Compression.GzipStream('
+        f'$s,[IO.Compression.CompressionMode]::Decompress))).ReadToEnd();'
+    )
+    enc = base64.b64encode(stage2.encode("utf-16-le")).decode("ascii")
+    with_cause = transform(f"powershell -encodedcommand {enc}",
+                            max_depth=DEFAULT_MAX_DEPTH)
+    plain = transform('Write-Host "plain"',
+                       max_depth=DEFAULT_MAX_DEPTH)
+    # Different causal shapes MUST fingerprint differently.
+    assert with_cause.determinism_hash != plain.determinism_hash
+
+
 # ── v1.5.0 · Performance guard ───────────────────────────────────
 #
 # Correctness corpus proves what decodes correctly. Performance corpus

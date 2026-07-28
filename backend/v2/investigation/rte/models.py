@@ -120,6 +120,10 @@ class DecodeDiagnostic:
     meta: dict[str, Any] = field(default_factory=dict)
     code: str = ""             # stable machine-readable code (DXxxxx) — v1.5.0
     failure_type: str = ""     # stable enum-style string keyed to ``code`` — v1.5.0
+    severity: str = "info"     # "error" | "warning" | "info" — v1.5.0 follow-up
+    caused_by: str = ""        # code of the upstream diagnostic that caused this
+                               # (empty = root cause). Enables the UI to render
+                               # a causal graph rather than a flat list.
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

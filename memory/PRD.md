@@ -3320,3 +3320,42 @@ dashboards a uniform `chain-terminated` event.
 `backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py`,
 `backend/tests/test_decoder_convergence_v150.py`.
 
+
+---
+
+## v1.5.0 · Causal chaining · severity · reserved ranges (2026-07-28)
+
+Three finalizers on the diagnostic system so v1.5.0 ships production-
+shaped:
+
+**1. Causal chaining** — `DecodeDiagnostic.caused_by` points at the
+code of the upstream diagnostic that caused it (empty = root cause).
+The engine-level DX2xxx orchestration diagnostic looks back at the
+most recent plugin diagnostic on the same layer and links to it. On
+the canonical sample the analyst now sees a directed graph:
+
+    DX2002 [info]  NO_FURTHER_DETERMINISTIC_TRANSFORMATION   ← caused_by=DX1001
+    DX1001 [error] INVALID_BASE64_LENGTH                     (root)
+
+**2. Severity** — every code carries `error` / `warning` / `info`.
+`severity_of(code)` returns `"unknown"` for future codes so older
+dashboards never break.
+
+**3. Reserved ranges for v2.0** — the registry docstring pre-
+allocates DX3xxx (semantic resolver), DX4xxx (crypto), DX5xxx (IOC),
+DX6xxx (parser), DX7xxx (output validation), DX8xxx (corpus),
+DX9xxx (internal). A CI test enforces every registered code lives
+in its declared range.
+
+**Verification**: `test_decoder_convergence_v150.py` — **33/34
+PASS** (6 new tests locking causal graph, severity, reserved ranges,
+determinism inclusion). Zero new regressions on the 200+ adjacent
+suite.
+
+**Files touched**:
+`backend/v2/investigation/rte/diagnostic_codes.py`,
+`backend/v2/investigation/rte/models.py`,
+`backend/v2/investigation/rte/engine.py`,
+`backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py`,
+`backend/tests/test_decoder_convergence_v150.py`.
+

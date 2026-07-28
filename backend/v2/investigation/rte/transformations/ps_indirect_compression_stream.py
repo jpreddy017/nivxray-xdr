@@ -35,6 +35,7 @@ from ..diagnostic_codes import (
     CODE_INVALID_BASE64_ALPHABET,
     CODE_INVALID_BASE64_LENGTH,
     CODE_UNSUPPORTED_COMPRESSION_STREAM,
+    severity_of,
 )
 from ..models import Artifact
 
@@ -321,6 +322,12 @@ class PsIndirectCompressionStreamTransformation:
             meta=meta,
             code=code,
             failure_type=failure_type,
+            severity=severity_of(code),
+            # Plugin-level diagnostic — this IS the root cause in its
+            # own layer, so ``caused_by`` is empty. The engine-level
+            # orchestration diagnostic (DX2xxx) that fires after this
+            # will point back to us via its own ``caused_by``.
+            caused_by="",
         )
 
 
