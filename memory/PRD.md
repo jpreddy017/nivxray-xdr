@@ -69,6 +69,26 @@ attribution" discipline:
   we can now retire it* — the Investigation Brain has a
   demonstrably richer verdict than the legacy engine).
 
+### v1.4.2 patch · Literal-escape normalisation (2026-07-28)
+SME retested the T15 sample via the production paste flow and saw
+`SUSPICIOUS · 85` instead of `MALICIOUS · 90`. Root cause: the
+sample arrived with literal `\n` two-character escape sequences
+(JSON-envelope artefact) instead of real newlines. Word-boundary
+regexes then matched on glued tokens (`nEnable-PSRemoting`) instead
+of the real `Enable-PSRemoting`.
+
+**Fix**: added a lightweight `_normalise()` helper at the top of
+`intent/rules/lateral_admin.py` that converts literal `\n`, `\r\n`,
+`\r`, and `\t` escape sequences to their real characters before
+any pattern matching. Applied to all three v1.4.1 rules.
+
+**Verified**: the exact screenshot payload now returns
+`MALICIOUS · 90` · behaviour composition `[lateral_movement,
+defense_evasion]` · MITRE `[T1021.002, T1078, T1021.006, T1562.004]`
+· dual-use ambiguity caveat surfaced. 342/342 tests green (+ 3 new
+`test_literal_escape_normalisation.py` regression tests locking
+the behaviour).
+
 ---
 
 

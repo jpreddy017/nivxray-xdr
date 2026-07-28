@@ -20,6 +20,23 @@ import re
 from ...evidence import Evidence
 from ..models import Intent, IntentCategory, RiskBand
 
+# ── Text normalisation ─────────────────────────────────────────
+# Analyst pastes / SIEM tickets frequently arrive with LITERAL escape
+# sequences (``\n``, ``\t``, ``\r``) instead of real newlines because
+# the payload rode through a JSON envelope or PDF copy-paste. Word-
+# boundary regexes then match on a glued token like ``nEnable-PSRemoting``
+# instead of ``Enable-PSRemoting``. We normalise once at the top of
+# every rule — cheap, deterministic, no schema impact.
+def _normalise(text: str) -> str:
+    if not text:
+        return ""
+    return (text
+              .replace("\\r\\n", "\n")
+              .replace("\\n",   "\n")
+              .replace("\\r",   "\n")
+              .replace("\\t",   "\t"))
+
+
 # ── PsExec with explicit credentials on the command line ───────
 # ``PsExec.exe \\host -u user -p password [command]`` — the smoking
 # gun for credentialed remote execution. Requires BOTH `-u` AND `-p`
@@ -53,7 +70,7 @@ class PsExecCredentialedRule:
     NAME = "psexec_credentialed"
 
     def detect(self, artefact_text: str, meta: dict) -> list[Intent]:
-        text = artefact_text or ""
+        text = _normalise(artefact_text or "")
         if not _PSEXEC_RE.search(text):
             return []
         user_m = _PSEXEC_USER_RE.search(text)
@@ -133,7 +150,7 @@ class RemoteManagementEnablementRule:
     NAME = "remote_management_enablement"
 
     def detect(self, artefact_text: str, meta: dict) -> list[Intent]:
-        text = artefact_text or ""
+        text = _normalise(artefact_text or "")
         hits: list[tuple[str, str]] = []
         if _ENABLE_PSREMOTING_RE.search(text):
             hits.append(("Enable-PSRemoting", "T1021.006"))
@@ -193,7 +210,7 @@ class FirewallConfigurationRule:
     NAME = "firewall_configuration"
 
     def detect(self, artefact_text: str, meta: dict) -> list[Intent]:
-        text = artefact_text or ""
+        text = _normalise(artefact_text or "")
         hits: list[str] = []
         for m in _ENABLE_FW_RULE_RE.finditer(text):
             hits.append("Enable-NetFirewallRule")

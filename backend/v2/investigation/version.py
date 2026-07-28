@@ -16,7 +16,7 @@ from __future__ import annotations
 VERSION            = "1.4.2"
 CODENAME           = "Investigation Brain"
 RELEASE_DATE       = "2026-07-28"
-BASELINE_TESTS     = 332
+BASELINE_TESTS     = 342
 TRUST_CORPUS_SIZE  = 15
 ARCHITECTURE_FROZEN = True   # do not introduce new engines without SME evidence
 
