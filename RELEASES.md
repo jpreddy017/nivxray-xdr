@@ -260,6 +260,94 @@ took priority.
 
 ---
 
+## v1.5.0 · SOC-review follow-ups (same release · 2026-07-28)
+
+Follow-up work driven by the SOC lead's post-review comments. All
+additive; the correctness contract from the v1.5.0 base is
+unchanged.
+
+### 1 · Failure-reporting (DoD gate — critical)
+
+Prior to this delta, when the resolver *detected* a variable-bound
+`$VAR = FromBase64String("<lit>") … [IO.Compression.*Stream]($VAR,
+…)` pattern but decompression failed (base64 truncated, DEFLATE
+corrupt), the RTE returned `stop_reason = no_transformation` and the
+analyst had **no idea why** the pipeline stopped. The Sophos-class
+family the corpus targets frequently transits chats / doc exports
+that can lose a single character in a multi-kilobyte base64 blob —
+so silent halts destroy analyst trust.
+
+**Fix** — new deterministic RTE protocol:
+- `DecodeDiagnostic` dataclass (`layer, detector, attempted, outcome, reason, meta`).
+- `TransformationChain.diagnostics: list[DecodeDiagnostic]` (empty by default).
+- Engine `_collect_diagnostics()` polls every plugin's optional
+  `diagnose(artifact)` method **only** when about to stop with
+  `NO_TRANSFORMATION`. No fabrication: a plugin that can decode
+  successfully never emits a duplicate diagnostic.
+- Diagnostics contribute to the chain's determinism hash — a change
+  in the failure reason changes the fingerprint.
+- `ps_indirect_compression_stream.diagnose()` explains:
+  `Base64 blob is <N> chars, misaligned mod 4 (<M>). Likely truncated…
+   Gzip inflate failed: <exception>`
+  with meta `{blob_chars, raw_bytes, magic_bytes, mod4_offset}`.
+
+### 2 · Diverse-family coverage (Sophos class)
+
+New parametrised tests in `test_decoder_convergence_v150.py` prove
+the resolver is class-level, not sample-specific:
+- variable names `$s`, `$ms`, `$stream`, `$randomIdent42` all handled
+- `DeflateStream` variant handled by the same resolver (kind captured
+  by regex group, not hardcoded)
+- `New-Object IO.MemoryStream` wrap optional (some real samples skip
+  it)
+- benign administrative PS reading a `.gz` file MUST NOT trigger the
+  resolver — locked false-positive guard
+
+### 3 · Performance corpus
+
+`test_deep_recursion_terminates_within_budget` builds a 30-layer
+nested base64 chain and asserts full RTE convergence in **< 2 s**
+with ≥ 20 layers peeled. Proves the scheduler is not quadratic.
+
+### 4 · Decoder-trace API
+
+`TransformationChain.to_dict()` now surfaces `artifacts[]`, `steps[]`,
+`stop_reason`, `depth`, `final_layer`, `determinism_hash`, and the
+new `diagnostics[]` field. Already reachable via
+`POST /api/decode/smart → investigation.rte` — no new endpoint
+required, no schema break.
+
+### Sophos reference (validation-only)
+
+The [Sophos "Decoding Malicious PowerShell Activity" case study]
+documents the exact `CMD → PS -EncodedCommand → UTF-16LE base64 →
+variable-bound base64+gzip → recovered PS` chain that the v1.5.0
+corpus sample instantiates. Referenced here as validation of the
+**strategy** — no pattern from the article is hardcoded, no
+sample-specific regex has been introduced.
+
+### Verification (follow-ups delta)
+
+| Check | Result |
+| ----- | ------ |
+| `test_decoder_convergence_v150.py` (base + follow-ups) | **21 / 22 PASS** (1 non-ASCII PS identifier skipped intentionally) |
+| Diverse-family (5 tests, 4 vars × 2 kinds) | ✅ |
+| False-positive guard (benign admin PS) | ✅ |
+| Diagnostic path (3 tests) | ✅ |
+| Perf guard (30-layer chain) | ✅ (converges < 2 s, ≥ 20 layers peeled) |
+| Determinism includes diagnostics | ✅ |
+| Zero-regression on 210+ decoder / behaviour / verdict / investigation tests | ✅ (3 pre-existing failures unchanged) |
+| API surface exposes `investigation.rte.diagnostics[]` | ✅ |
+
+### Files touched (this delta)
+
+- `backend/v2/investigation/rte/models.py` — `DecodeDiagnostic` dataclass, `TransformationChain.diagnostics` field, serialised in `to_dict()`, included in the determinism hash.
+- `backend/v2/investigation/rte/engine.py` — `_collect_diagnostics()` helper; called at the `NO_TRANSFORMATION` stop point; diagnostics threaded into `TransformationChain`.
+- `backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py` — new `diagnose(artifact)` method, detection-only regexes, `_diagnose_pattern()` helper.
+- `backend/tests/test_decoder_convergence_v150.py` — 12 new tests (diverse variables, deflate variant, no-MemoryStream wrap, benign guard, corrupt-payload diagnostic, no-double-report, determinism-of-diagnostics, deep-recursion perf).
+
+---
+
 ## v1.4.3 — FU-5 · Legacy Verdict Surface Retirement (Feature-Flag Hide)
 
 | Field | Value |

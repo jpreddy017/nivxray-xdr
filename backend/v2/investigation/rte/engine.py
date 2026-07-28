@@ -20,6 +20,7 @@ from ..evidence import Evidence
 from ..iu import classify
 from .models import (
     Artifact,
+    DecodeDiagnostic,
     StopReason,
     TransformationChain,
     TransformationStep,
@@ -69,6 +70,37 @@ def _pick(artifact: Artifact) -> tuple[Transformation, Evidence] | None:
     return best
 
 
+def _collect_diagnostics(artifact: Artifact) -> list[DecodeDiagnostic]:
+    """Ask every transformation plugin if it *detected* a pattern on
+    this artifact but couldn't decode it.
+
+    Called only at the point where the engine is about to stop with
+    ``NO_TRANSFORMATION`` — the analyst deserves to know WHY. Any plugin
+    that exposes an optional ``diagnose(artifact)`` method may return a
+    :class:`DecodeDiagnostic` (or list thereof) explaining the
+    detected-but-uncoded state.
+
+    Determinism guarantee: diagnostics are returned in registry order
+    and a raising plugin never derails the whole diagnostic pass.
+    """
+    diags: list[DecodeDiagnostic] = []
+    for t in TRANSFORMATION_REGISTRY:
+        diagnose = getattr(t, "diagnose", None)
+        if diagnose is None:
+            continue
+        try:
+            result = diagnose(artifact)
+        except Exception:
+            continue
+        if result is None:
+            continue
+        if isinstance(result, DecodeDiagnostic):
+            diags.append(result)
+        elif isinstance(result, list):
+            diags.extend(d for d in result if isinstance(d, DecodeDiagnostic))
+    return diags
+
+
 def transform(text: str, *, max_depth: int = DEFAULT_MAX_DEPTH) -> TransformationChain:
     """Run the recursive transformation loop on ``text``.
 
@@ -92,6 +124,7 @@ def transform(text: str, *, max_depth: int = DEFAULT_MAX_DEPTH) -> Transformatio
     steps: list[TransformationStep] = []
     seen: set[str] = {original.content_hash}
     stop_reason = StopReason.NO_TRANSFORMATION
+    diagnostics_at_stop: list[DecodeDiagnostic] = []
 
     while True:
         current = artifacts[-1]
@@ -102,6 +135,11 @@ def transform(text: str, *, max_depth: int = DEFAULT_MAX_DEPTH) -> Transformatio
         picked = _pick(current)
         if picked is None:
             stop_reason = StopReason.NO_TRANSFORMATION
+            # Before stopping, ask every plugin for a diagnostic on the
+            # current layer. This gives the analyst a deterministic
+            # "why did the pipeline stop" explanation instead of a
+            # silent NO_TRANSFORMATION — required by v1.5.0 DoD.
+            diagnostics_at_stop = _collect_diagnostics(current)
             break
 
         transformation, applicability_ev = picked
@@ -194,6 +232,7 @@ def transform(text: str, *, max_depth: int = DEFAULT_MAX_DEPTH) -> Transformatio
         artifacts=artifacts,
         steps=steps,
         stop_reason=stop_reason,
+        diagnostics=diagnostics_at_stop,
     )
     chain.determinism_hash = _chain_hash(chain)
     return chain
@@ -215,6 +254,15 @@ def _chain_hash(chain: TransformationChain) -> str:
             "conf":     s.confidence,
         } for s in chain.steps],
         "stop": chain.stop_reason.value,
+        # v1.5.0 · include diagnostics in the determinism hash so
+        # analysts can trust that identical inputs also produce
+        # identical failure-explanations.
+        "diagnostics": [{
+            "layer":     d.layer,
+            "detector":  d.detector,
+            "outcome":   d.outcome,
+            "attempted": d.attempted,
+        } for d in chain.diagnostics],
     }, sort_keys=True, ensure_ascii=False).encode()
     return hashlib.sha256(blob).hexdigest()
 

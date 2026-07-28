@@ -3195,3 +3195,68 @@ direction — decoder correctness took priority.
 `backend/tests/trust_corpus/PS_ENCODEDCOMMAND_GZIP_STAGE2_001.yaml`,
 `RELEASES.md`, `memory/PRD.md`.
 
+
+---
+
+## v1.5.0 · SOC-review follow-ups (2026-07-28, same release)
+
+Additive follow-ups after the SOC lead's post-review of the v1.5.0
+base. All changes preserve the existing correctness contract; the
+principled stopping invariants (`NO_TRANSFORMATION`, `LOOP`,
+`MAX_DEPTH`, `UNSUPPORTED`) are unchanged.
+
+**1. Failure-reporting (DoD gate)**
+
+Prior behaviour: when the resolver detected a variable-bound
+`$VAR = FromBase64String("<lit>") … [IO.Compression.*Stream]($VAR,…)`
+pattern but decompression failed (base64 truncated, DEFLATE corrupt),
+the RTE returned `stop_reason = no_transformation` silently. On the
+canonical sample `PS_ENCODEDCOMMAND_GZIP_STAGE2_001` — whose inner
+base64 blob was 2635 chars (mod 4 = 3), likely truncated in chat
+transit — this manifested as `Output = Input` to the analyst.
+
+New behaviour: engine `_collect_diagnostics()` polls every plugin's
+optional `diagnose(artifact)` method at the `NO_TRANSFORMATION` stop
+point. `TransformationChain.diagnostics: list[DecodeDiagnostic]`
+carries a per-layer, deterministic explanation of WHY the pipeline
+stopped. Diagnostics contribute to the chain's determinism hash.
+
+On the canonical sample the analyst now sees:
+`Base64 blob is 2635 chars, misaligned mod 4 (3). Likely truncated
+or transmission-corrupted. Gzip inflate failed: invalid distance too
+far back` with meta `{blob_chars, raw_bytes, magic_bytes,
+mod4_offset}`.
+
+**2. Diverse-family coverage** — new parametrised tests prove class-
+level generalisation: variable names `$s`, `$ms`, `$stream`,
+`$randomIdent42`; `DeflateStream` variant; optional `MemoryStream`
+wrap; benign administrative PS reading a `.gz` file (false-positive
+guard, must NOT trigger the resolver).
+
+**3. Performance corpus** — 30-layer nested base64 chain converges
+in < 2 s with ≥ 20 layers peeled. Proves the scheduler is not
+quadratic.
+
+**4. Decoder-trace API** — `TransformationChain.to_dict()` surfaces
+`artifacts[]`, `steps[]`, `stop_reason`, `depth`, `final_layer`,
+`determinism_hash`, and `diagnostics[]` — reachable through
+`POST /api/decode/smart → investigation.rte`.
+
+**5. Sophos reference** — validation-only. The
+[Sophos case study](https://community.sophos.com/) documents this
+exact `CMD → PS -EncodedCommand → UTF-16LE → variable-bound
+base64+gzip → recovered PS` family. Referenced as strategy
+validation; no pattern is hardcoded.
+
+**Verification**:
+- `test_decoder_convergence_v150.py` — **21 / 22 PASS** (1 non-ASCII
+  identifier skipped intentionally).
+- Zero regression on 210+ decoder / behaviour / verdict /
+  investigation tests.
+
+**Files touched**:
+`backend/v2/investigation/rte/models.py`,
+`backend/v2/investigation/rte/engine.py`,
+`backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py`,
+`backend/tests/test_decoder_convergence_v150.py`.
+

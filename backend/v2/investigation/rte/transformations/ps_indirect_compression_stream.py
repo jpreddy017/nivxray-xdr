@@ -20,12 +20,22 @@ which links assignments and consumers by variable name.
 Deterministic — only fires when the base64 argument is a LITERAL,
 the variable name matches exactly, and decompression succeeds.
 """
-from __future__ import annotations
-
+import base64
+import binascii
+import gzip as _gzip_lib
 import re
+import zlib as _zlib_lib
+from typing import TYPE_CHECKING
 
 from ...evidence import Evidence
 from ..models import Artifact
+
+if TYPE_CHECKING:  # avoid runtime circular import
+    from ..models import DecodeDiagnostic
+try:
+    from ..models import DecodeDiagnostic
+except Exception:  # pragma: no cover - forward compat
+    DecodeDiagnostic = None  # type: ignore
 
 
 def _resolve():
@@ -43,6 +53,96 @@ _CONSUMER_MARKER_RE = re.compile(
     r"(?i)io\.compression\.(?:gzip|deflate|brotli)stream|"
     r"deflatestream|gzipstream|brotlistream",
 )
+
+# Detection-only regexes used by ``diagnose()``. Duplicated (not
+# imported) from ps_deobfuscate so a failure to hot-reload one file
+# never breaks diagnostics on the other. Kept intentionally minimal —
+# only the SHAPE, not the value, matters for diagnostics.
+_DIAG_ASSIGN_RE = re.compile(
+    r"(?ixs)"
+    r"\$(\w+)\s*=\s*"
+    r"(?:new-object\s+(?:system\.)?io\.memorystream\s*\(\s*,?\s*)?"
+    r"\[?\s*(?:system\.)?convert\]?\s*::\s*frombase64string\s*\(\s*"
+    r"(['\"])([^'\"]{16,})\2\s*\)"
+)
+_DIAG_CONSUMER_RE = re.compile(
+    r"(?ixs)"
+    r"\[?\s*(?:system\.)?io\.compression\.(gzip|deflate|brotli)stream\]?"
+    r"\s*(?:::new)?\s*"
+    r"\(\s*\$(\w+)\s*,\s*"
+    r".{0,200}?compressionmode\]?\s*::\s*decompress"
+)
+
+
+def _diagnose_pattern(txt: str) -> tuple[str, str, str, dict] | None:
+    """Return ``(kind, var, reason, meta)`` for a detected-but-uncoded
+    variable-bound compression pattern, or ``None`` if no such pattern
+    exists.
+
+    Kept separate from the "success" resolver so diagnostics can never
+    accidentally emit fabricated content.
+    """
+    assignments: dict[str, str] = {}
+    for m in _DIAG_ASSIGN_RE.finditer(txt):
+        assignments[m.group(1)] = m.group(3)
+    if not assignments:
+        return None
+    for cm in _DIAG_CONSUMER_RE.finditer(txt):
+        var = cm.group(2)
+        if var not in assignments:
+            continue
+        kind = cm.group(1).lower()
+        blob = assignments[var]
+        # We got a positive detection; try decode to figure out the
+        # deterministic failure reason for the analyst.
+        b64_reason = None
+        if len(blob) % 4 != 0:
+            b64_reason = (
+                f"Base64 blob is {len(blob)} chars, misaligned mod 4 "
+                f"({len(blob) % 4}). Likely truncated or transmission-corrupted."
+            )
+        try:
+            raw = base64.b64decode(blob + "=" * (-len(blob) % 4), validate=False)
+        except binascii.Error as exc:
+            return (
+                kind, var,
+                f"Base64 decode failed: {exc}",
+                {"blob_chars": len(blob)},
+            )
+        try:
+            if kind == "gzip":
+                _gzip_lib.decompress(raw)
+            elif kind == "deflate":
+                _zlib_lib.decompress(raw, -_zlib_lib.MAX_WBITS)
+            elif kind == "brotli":
+                try:
+                    import brotli  # noqa: WPS433
+                except ImportError:
+                    return (
+                        kind, var,
+                        "Brotli library not installed at runtime.",
+                        {"blob_chars": len(blob), "raw_bytes": len(raw)},
+                    )
+                brotli.decompress(raw)
+            # If decode succeeds here, the resolver should have fired —
+            # so there's no diagnostic to emit (falls through to None
+            # after this loop). But because iteration might visit
+            # multiple consumers, continue rather than return.
+            continue
+        except Exception as exc:
+            reason = f"{kind.title()} inflate failed: {type(exc).__name__}: {exc}"
+            if b64_reason:
+                reason = b64_reason + " " + reason
+            return (
+                kind, var, reason,
+                {
+                    "blob_chars":    len(blob),
+                    "raw_bytes":     len(raw),
+                    "magic_bytes":   raw[:4].hex(),
+                    "mod4_offset":   len(blob) % 4,
+                },
+            )
+    return None
 
 
 class PsIndirectCompressionStreamTransformation:
@@ -95,6 +195,35 @@ class PsIndirectCompressionStreamTransformation:
             },
         )
         return new_content, [ev]
+
+    def diagnose(self, artifact: Artifact):
+        """Optional RTE protocol · emit a deterministic explanation when
+        the plugin DETECTED a variable-bound compression pattern but
+        could not decode it (corrupt / truncated / unsupported payload).
+
+        Called by the engine only when the main loop is about to stop
+        with ``NO_TRANSFORMATION`` — the analyst deserves to see the
+        reason, not a silent halt.
+        """
+        # If applicable() would have fired we don't want a duplicate
+        # diagnostic — the transformation itself will handle it.
+        if self._try(artifact) is not None:
+            return None
+        d = _diagnose_pattern(artifact.content)
+        if d is None or DecodeDiagnostic is None:
+            return None
+        kind, var, reason, meta = d
+        return DecodeDiagnostic(
+            layer=artifact.layer,
+            detector=self.NAME,
+            attempted=(
+                f"variable-bound `${var} = [Convert]::FromBase64String(\"…\")` "
+                f"→ `[IO.Compression.{kind.title()}Stream]($ {var}, …::Decompress)`"
+            ),
+            outcome="decode_failed",
+            reason=reason,
+            meta=meta,
+        )
 
 
 TRANSFORMATION = PsIndirectCompressionStreamTransformation()

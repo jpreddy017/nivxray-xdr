@@ -89,6 +89,32 @@ class TransformationStep:
         return d
 
 
+@dataclass(frozen=True)
+class DecodeDiagnostic:
+    """A per-layer diagnostic emitted when a transformation *detected*
+    a plausible pattern but could not decode it deterministically.
+
+    Introduced in v1.5.0 to satisfy the DoD requirement:
+
+        "Reports deterministic failure reasons when decoding cannot
+         continue."
+
+    Diagnostics are surfaced through :attr:`TransformationChain.diagnostics`
+    so the analyst can see WHY the pipeline stopped instead of a silent
+    ``no_transformation``. Diagnostics MUST be evidence-anchored and
+    MUST NOT fabricate a decoded value.
+    """
+    layer: int                 # the artifact layer this diagnostic refers to
+    detector: str              # which transformation plugin produced it
+    attempted: str             # short description of what was attempted
+    outcome: str               # "decode_failed" / "detection_only" / "malformed_input"
+    reason: str                # deterministic explanation for the analyst
+    meta: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 @dataclass
 class TransformationChain:
     """Full history of transformations applied to the original input.
@@ -102,6 +128,11 @@ class TransformationChain:
     steps: list[TransformationStep]
     stop_reason: StopReason
     determinism_hash: str = ""
+    # v1.5.0 — per-layer decode diagnostics. Populated by transformation
+    # plugins whose ``diagnose()`` reports a "detected but couldn't
+    # decode" outcome (e.g. base64 misaligned, gzip truncated, XOR key
+    # ambiguous). See :class:`DecodeDiagnostic`.
+    diagnostics: list[DecodeDiagnostic] = field(default_factory=list)
 
     @property
     def final(self) -> Artifact:
@@ -119,6 +150,7 @@ class TransformationChain:
             "depth":            self.depth,
             "final_layer":      self.final.layer,
             "determinism_hash": self.determinism_hash,
+            "diagnostics":      [d.to_dict() for d in self.diagnostics],
         }
 
 
@@ -127,4 +159,5 @@ __all__ = [
     "TransformationStep",
     "TransformationChain",
     "StopReason",
+    "DecodeDiagnostic",
 ]
