@@ -156,7 +156,13 @@ def _simulate_safe_builtin(payload: str) -> str | None:
     "canonicalizes execution-policy values, and — for safe built-ins like "
     "Write-Host / Write-Output / Echo / Out-Host — produces a deterministic "
     "Runtime Output (Simulation). Never emulates Invoke-Expression, external "
-    "binaries, network activity, or anything with side effects.")
+    "binaries, network activity, or anything with side effects.",
+    # v1.5.3 · accepts-contract declaration. This op is a text
+    # transform on PowerShell / cmd source; it MUST NOT run on binary
+    # artefacts (shellcode, gzip bytes, PE images) because it will
+    # silently rewrite them into a "normalised" text string and
+    # corrupt every downstream decoder in the recipe.
+    accepts=["powershell_script", "cmd_script", "text"])
 def op_powershell_normalize(data: str, args: Dict[str, Any] | None = None) -> str:
     src = (data or "").strip()
     if not src:

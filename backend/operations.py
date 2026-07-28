@@ -17,7 +17,53 @@ from payload_sanitizer import sanitize_encapsulated_payload
 OPERATIONS: Dict[str, Dict[str, Any]] = {}
 
 
-def op(op_id: str, name: str, category: str, description: str = "", args: Optional[List[Dict[str, Any]]] = None):
+# ── Feb 2026 · v1.5.3 · Artefact-type contract ─────────────────────
+# Every decoder declares which artefact types it accepts. The
+# orchestrator skips a decoder when the current artefact's type is
+# outside that set — with the previous artefact passed through
+# UNCHANGED. This prevents text transforms from mangling raw shellcode
+# (SME feedback 2026-02-XX after the reflective-loader recipe corrupted
+# 834-byte shellcode via powershell-alias-normalize).
+#
+# Types are open strings (extension is a matter of just declaring a new
+# label). The starter set covers every artefact NivXRay produces today:
+#
+#   "text"              generic printable text (default; safe fallback)
+#   "powershell_script" PowerShell source
+#   "cmd_script"        cmd.exe / batch source
+#   "base64"            printable base64 characters only
+#   "hex"               printable hex characters only
+#   "binary"            arbitrary bytes (shellcode, gzip, PE, .NET, …)
+#   "shellcode"         raw machine code (a specialisation of binary)
+#   "pe"                PE/COFF image
+#   "dotnet"            .NET managed assembly
+def _classify_artifact(data: str) -> str:
+    """Return the coarsest artefact-type label for ``data``. Deterministic,
+    side-effect-free, safe on empty input."""
+    if not isinstance(data, str) or not data:
+        return "text"
+    sample = data[:4096]
+    non_printable = sum(
+        1 for c in sample
+        if (ord(c) < 0x20 and c not in "\t\n\r") or ord(c) > 0x7E
+    )
+    if "\x00" in sample or (non_printable / len(sample)) > 0.30:
+        return "binary"
+    lo = sample.lstrip()[:512].lower()
+    if any(tok in lo for tok in (
+        "$s=new-object", "$s =new-object", "iex ", "iex(", "invoke-expression",
+        "new-object io.", "[convert]::frombase64string", "set-strictmode",
+        "get-childitem", "invoke-webrequest", "$doit", "powershell -",
+    )):
+        return "powershell_script"
+    if lo.startswith(("cmd ", "cmd.exe", "%comspec%", "@echo", "@set ")):
+        return "cmd_script"
+    return "text"
+
+
+def op(op_id: str, name: str, category: str, description: str = "",
+       args: Optional[List[Dict[str, Any]]] = None,
+       accepts: Optional[List[str]] = None):
     def deco(fn):
         OPERATIONS[op_id] = {
             "id": op_id,
@@ -25,6 +71,10 @@ def op(op_id: str, name: str, category: str, description: str = "", args: Option
             "category": category,
             "description": description,
             "args": args or [],
+            # Any op that doesn't declare `accepts` is legacy — treated as
+            # accepting every type to preserve pre-v1.5.3 behaviour. New
+            # ops SHOULD declare it explicitly.
+            "accepts": accepts,
             "fn": fn,
         }
         return fn
@@ -41,7 +91,17 @@ def list_operations() -> List[Dict[str, Any]]:
 def run_operation(op_id: str, data: str, args: Optional[Dict[str, Any]] = None) -> str:
     if op_id not in OPERATIONS:
         raise ValueError(f"Unknown operation: {op_id}")
-    fn = OPERATIONS[op_id]["fn"]
+    spec = OPERATIONS[op_id]
+    # v1.5.3 · Accepts-contract gate — orchestrator-level skip so a
+    # decoder's own function is never invoked with an incompatible
+    # artefact type. Skip is a PASS-THROUGH (data unchanged), never a
+    # rewrite: this preserves the exact bytes for downstream decoders.
+    accepts = spec.get("accepts")
+    if accepts:
+        actual = _classify_artifact(data)
+        if actual not in accepts:
+            return data
+    fn = spec["fn"]
     # Filter args to only the kwargs `fn` actually accepts. The
     # orchestrator's plugin detect() often returns diagnostic args
     # (`token_count`, `density`, `printable_ratio`, `urlsafe`, …) that

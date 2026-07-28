@@ -246,6 +246,10 @@ def normalize_aliases(src: str) -> Tuple[str, List[Dict[str, Any]]]:
     "``Get-ChildItem``, ``iwr`` → ``Invoke-WebRequest``, etc.). Preserves "
     "string literals. No execution, no sandbox, no AI.",
     [],
+    # v1.5.3 · declare the artefact-type contract. This op only makes
+    # sense on PowerShell source text — the orchestrator will pass-
+    # through any binary / shellcode artefact instead of invoking us.
+    accepts=["powershell_script", "text"],
 )
 def op_powershell_alias_normalize(data: str, args: Dict[str, Any] | None = None) -> str:
     normalized, trace = normalize_aliases(data)

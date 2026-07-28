@@ -772,29 +772,43 @@ export default function WorkspacePage() {
           : `Smart/magic race — ${eng}`,
       });
       setSteps((r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} })));
-      // Prefer the semantic v2 deep-decoded payload (Invoke-Obfuscation
-      // peel + [Type]() coercion + get-variable deref + numeric char
-      // reconstruction) over the shallow RC2 orchestrator output when
-      // semantic v2 actually resolved further layers. Without this the
-      // "RECOVERED PAYLOAD" panel would show output == input for
-      // heavily-token-obfuscated PowerShell samples even though the
-      // Semantic Intelligence panel below has the correct final payload.
-      // Feb 2026 · v1.5.3 · OUTPUT panel authority (same rationale as
-      // the DECODE handler above). If ``d.output`` carries the v1.5.1
-      // RTE brain-block header, it is the authoritative deepest-layer
-      // rendering; never downgrade to a shorter semantic final.
-      const semanticFinal =
-        r.data?.semantic?.deobfuscation?.final ||
-        r.data?.semantic?.recovered_script || "";
-      const rc2Output = r.data.output || "";
-      const _autoRteBrainAuthority =
-        rc2Output.includes("INVESTIGATION BRAIN · RTE DECODER TRACE");
-      const preferSemantic =
-        !_autoRteBrainAuthority &&
-        !!semanticFinal &&
-        semanticFinal !== rc2Output &&
-        semanticFinal.length < String(r.data.input || rc2Output).length;
-      setOutput(preferSemantic ? semanticFinal : rc2Output);
+      // Feb 2026 · v1.5.4 · Run the full recipe chain to reach terminal
+      // shellcode / extracted-intel.
+      //
+      // `/decode/smart` returns `r.data.output` which is the v1.5.1-promoted
+      // RTE brain-block trace + the deepest RTE artefact (L2 PowerShell
+      // text for the reflective-loader class). But the RTE only handles
+      // ITERATIVE deterministic transformations — it does NOT run the
+      // XOR-brute / crypto-detect / family-fingerprint TERMINAL steps
+      // that peel the base64-decoded shellcode blob into readable
+      // C2 / User-Agent / strings intel. Those live in the linear
+      // recipe chain.
+      //
+      // To surface the exact analyst-facing output the SME asked for
+      // (EXTRACTED INTEL FROM N BYTE SHELLCODE with C2 IPs + UA +
+      // strings), we run the recipe returned by `/decode/smart`
+      // through `/recipe/run` and use ITS terminal output as the
+      // authoritative OUTPUT panel value.
+      let _finalOut = r.data.output || "";
+      try {
+        const recipe = r.data.recipe || [];
+        if (recipe.length) {
+          const rr = await api.post("/recipe/run", {
+            input,
+            steps: recipe.map((s) => ({ op: s.op, args: s.args || {} })),
+          });
+          const _terminalOut = rr?.data?.output || "";
+          // Only override when the recipe reached a DIFFERENT (deeper)
+          // artefact than the RTE brain block — protects against
+          // shallow-chain samples where /recipe/run terminates early.
+          if (_terminalOut && _terminalOut !== r.data.output) {
+            _finalOut = _terminalOut;
+          }
+        }
+      } catch (_e) {
+        // Recipe replay failure is non-fatal — fall back to d.output.
+      }
+      setOutput(_finalOut);
       if (r.data.trace) setDecodeTrace(r.data.trace);
       setReachedShellcode(!!r.data.reached_shellcode);
       setDecodeConfidence(conf);
@@ -1145,6 +1159,24 @@ export default function WorkspacePage() {
               ? _lastTraceLayer.output_preview
               : _rawOut)
       );
+      // Feb 2026 · v1.5.4 · Terminal recipe replay for shellcode-extraction.
+      // If /decode/smart returned a multi-step recipe (typically the
+      // full 11-step PS-encodedcommand + gzip + XOR-brute + family
+      // chain), the RTE only ran the iterative deterministic head of
+      // it — the terminal XOR + crypto + family stages that produce
+      // the analyst-facing "EXTRACTED INTEL FROM N BYTE SHELLCODE"
+      // rendering live in the linear recipe orchestrator. Run it now
+      // and use its result as the authoritative OUTPUT so the
+      // analyst sees the shellcode + C2 + User-Agent + strings.
+      try {
+        if (newSteps.length >= 4) {
+          const rr = await api.post("/recipe/run", { input, steps: newSteps });
+          const _terminal = rr?.data?.output || "";
+          if (_terminal && _terminal !== _rawOut && _terminal !== _semFinal) {
+            setOutput(_terminal);
+          }
+        }
+      } catch (_e) { /* non-fatal — keep the current output */ }
       setDetected(r.data.detected_type || null);
       const newChain = (r.data.recipe || []).map((s, i) => ({
         op: s.op, reason: s.reason || "",
@@ -2349,41 +2381,11 @@ export default function WorkspacePage() {
           )}
 
           {/* Output Card — real-time preview + view toggles + byte diff */}
-          {/* Feb 2026 · v1.5.3 · OUTPUT panel authoritative source-of-truth.
-              The `output` React state is set from at least 12 different
-              sites (recipe replay, live preview, case restore, chain
-              aggregation, magic-decode …) and any of them can overwrite
-              the deep-decoded content with a shallower intermediate
-              layer. Reported by SME: after DECODE, the analyst report
-              and Recursive Transformation panels correctly show the L2
-              reflective-loader plaintext, but the OUTPUT panel below
-              was showing the L1 wrapper (`$s=New-Object IO.MemoryStream…`).
-
-              We deterministically override the displayed value with the
-              DEEPEST RTE artefact when the current pipeline reports a
-              successful multi-layer decode. `investigation` state is set
-              only by the primary decode handlers and carries the RTE's
-              own authoritative trace, so this override never fabricates
-              a value the analyst hasn't seen elsewhere in the workspace. */}
-          {(() => {
-            const _rteArts = investigation?.rte?.artifacts;
-            const _deep   = Array.isArray(_rteArts) && _rteArts.length >= 2
-              ? (_rteArts[_rteArts.length - 1]?.content || "")
-              : "";
-            // Only override when the RTE clearly decoded deeper than what
-            // the current `output` state carries (guards against wiping
-            // legitimate non-RTE outputs from magic-decode / chain-mode).
-            const _displayed = (
-              _deep &&
-              _deep.length > 200 &&
-              _deep.length > (output?.length || 0)
-            ) ? _deep : output;
-            return (
-              <OutputView
-                input={input}
-                output={_displayed}
-                livePreview={livePreview}
-                actions={<>
+          <OutputView
+            input={input}
+            output={output}
+            livePreview={livePreview}
+            actions={<>
               <button className="nvx-btn sm" onClick={() => analyze({ describe: true, aiVerdict: true })} disabled={analyzing || !output} data-testid="btn-ai-describe">
                 <Sparkles size={11} /> AI DESCRIBE
               </button>
@@ -2418,8 +2420,6 @@ export default function WorkspacePage() {
               </button>
             </>}
           />
-            );
-          })()}
 
           {/* IOC enrichment pills — populated after ENRICH IOCs is clicked */}
           {iocEnrichment && iocEnrichment.length > 0 && (
