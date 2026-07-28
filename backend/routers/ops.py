@@ -1688,6 +1688,69 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                        "(safe — investigation block omitted)")
         result.setdefault("investigation", None)
 
+    # ── v1.5.1 · Surface the RTE recovered payload into the analyst-
+    #   facing ``output`` field so the Workspace UI stops rendering the
+    #   pre-v1.3.0 orchestrator's garbage-bytes text when the RTE
+    #   actually decoded a layer. Also inlines the machine-readable
+    #   diagnostic codes (DX1001 / DX2002 / …) as a header block so
+    #   analysts and dashboards see them without opening the raw JSON.
+    #
+    #   Trigger: RTE peeled ≥ 1 layer (i.e. at least one transformation
+    #   fired successfully). If it didn't, leave the legacy ``output``
+    #   untouched so we never regress simple non-transform samples.
+    #
+    #   Safety: wrapped in try/except so a malformed investigation
+    #   dict can never break /decode/smart. Additive-only.
+    try:
+        _rte = (result.get("investigation") or {}).get("rte") or {}
+        _arts = _rte.get("artifacts") or []
+        _steps = _rte.get("steps") or []
+        _diags = _rte.get("diagnostics") or []
+        if len(_arts) >= 2 and len(_steps) >= 1:
+            _final = (_arts[-1].get("content") or "")
+            _header_lines = [
+                "━" * 66,
+                "▼ INVESTIGATION BRAIN · RTE DECODER TRACE",
+                "━" * 66,
+                f"  stop_reason:      {_rte.get('stop_reason')}",
+                f"  depth:            {_rte.get('depth')}   layers: {len(_arts)}   steps: {len(_steps)}",
+                f"  determinism_hash: {(_rte.get('determinism_hash') or '')[:16]}",
+            ]
+            for _s in _steps:
+                _header_lines.append(
+                    f"  step: {_s.get('transformation')}  "
+                    f"L{_s.get('input_layer')}→L{_s.get('output_layer')}  "
+                    f"conf={_s.get('confidence')}"
+                )
+            if _diags:
+                _header_lines.append("")
+                _header_lines.append("  DIAGNOSTICS:")
+                for _d in _diags:
+                    _sev = (_d.get("severity") or "").upper()
+                    _cause = _d.get("caused_by") or ""
+                    _cause_str = f"  ← caused_by={_cause}" if _cause else "  (root)"
+                    _header_lines.append(
+                        f"    [{_sev:>7}] {_d.get('code')} "
+                        f"{_d.get('failure_type') or ''}{_cause_str}"
+                    )
+                    _reason = (_d.get("reason") or "").strip()
+                    if _reason:
+                        _header_lines.append(f"             {_reason[:220]}")
+            _header_lines.append("━" * 66)
+            _header_lines.append("▼ RECOVERED PAYLOAD (final RTE layer)")
+            _header_lines.append("━" * 66)
+            _brain_block = "\n".join(_header_lines) + "\n" + _final
+            # Preserve the legacy output verbatim in ``output_legacy`` in
+            # case any UI consumer still keys off the old formatting.
+            _legacy = result.get("output") or ""
+            result["output_legacy"] = _legacy
+            result["output"] = _brain_block
+    except Exception:  # noqa: BLE001
+        log.exception(
+            "v1.5.1 · failed to promote RTE last-layer content into "
+            "top-level output (safe — legacy output preserved)"
+        )
+
     return result
 
 
