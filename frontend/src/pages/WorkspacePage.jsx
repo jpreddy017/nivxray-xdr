@@ -2349,11 +2349,41 @@ export default function WorkspacePage() {
           )}
 
           {/* Output Card — real-time preview + view toggles + byte diff */}
-          <OutputView
-            input={input}
-            output={output}
-            livePreview={livePreview}
-            actions={<>
+          {/* Feb 2026 · v1.5.3 · OUTPUT panel authoritative source-of-truth.
+              The `output` React state is set from at least 12 different
+              sites (recipe replay, live preview, case restore, chain
+              aggregation, magic-decode …) and any of them can overwrite
+              the deep-decoded content with a shallower intermediate
+              layer. Reported by SME: after DECODE, the analyst report
+              and Recursive Transformation panels correctly show the L2
+              reflective-loader plaintext, but the OUTPUT panel below
+              was showing the L1 wrapper (`$s=New-Object IO.MemoryStream…`).
+
+              We deterministically override the displayed value with the
+              DEEPEST RTE artefact when the current pipeline reports a
+              successful multi-layer decode. `investigation` state is set
+              only by the primary decode handlers and carries the RTE's
+              own authoritative trace, so this override never fabricates
+              a value the analyst hasn't seen elsewhere in the workspace. */}
+          {(() => {
+            const _rteArts = investigation?.rte?.artifacts;
+            const _deep   = Array.isArray(_rteArts) && _rteArts.length >= 2
+              ? (_rteArts[_rteArts.length - 1]?.content || "")
+              : "";
+            // Only override when the RTE clearly decoded deeper than what
+            // the current `output` state carries (guards against wiping
+            // legitimate non-RTE outputs from magic-decode / chain-mode).
+            const _displayed = (
+              _deep &&
+              _deep.length > 200 &&
+              _deep.length > (output?.length || 0)
+            ) ? _deep : output;
+            return (
+              <OutputView
+                input={input}
+                output={_displayed}
+                livePreview={livePreview}
+                actions={<>
               <button className="nvx-btn sm" onClick={() => analyze({ describe: true, aiVerdict: true })} disabled={analyzing || !output} data-testid="btn-ai-describe">
                 <Sparkles size={11} /> AI DESCRIBE
               </button>
@@ -2388,6 +2418,8 @@ export default function WorkspacePage() {
               </button>
             </>}
           />
+            );
+          })()}
 
           {/* IOC enrichment pills — populated after ENRICH IOCs is clicked */}
           {iocEnrichment && iocEnrichment.length > 0 && (
