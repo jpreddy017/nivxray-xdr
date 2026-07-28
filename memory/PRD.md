@@ -3359,3 +3359,55 @@ suite.
 `backend/v2/investigation/rte/transformations/ps_indirect_compression_stream.py`,
 `backend/tests/test_decoder_convergence_v150.py`.
 
+
+---
+
+## v1.5.0 · FEATURE-FROZEN + RELEASE-METRICS SNAPSHOT (2026-07-28)
+
+**Branch policy:** No new features on `v1.5.x`. All new engineering
+effort routes to `v1.6.0`.
+
+**Measured release-quality snapshot** (reproducible via
+`python3 scripts/v1_5_0_release_metrics.py` on any commit):
+
+- Golden Corpus pass rate: **100 %**
+- Decoder-convergence pytest: **33 passed / 1 skipped** (34 total)
+- Broader adjacent regression: **209 passed** (3 unrelated
+  pre-existing failures held baseline)
+- Median decode latency (typical 3-stage sample): **0.71 ms**
+- Median decode latency (30-layer stress): **309.15 ms**
+- P99 across all samples: **≈ 314 ms** (target ≤ 500 ms; ≥ 37 %
+  headroom)
+- Determinism: **stable across all 5 canonical samples** (three
+  independent runs each, identical `determinism_hash`)
+- Diagnostic codes registered: **11** (6 error · 3 warning · 2
+  info)
+- False-positive corpus: **PASS**
+- Reserved DX-code ranges for v2.0: `DX3xxx – DX9xxx` pre-allocated
+- `DEFAULT_MAX_DEPTH`: **64**; max recursion depth exercised: 30
+  layers
+
+**Operational go-live checklist**:
+
+1. ☐ Deploy `v1.5.0` to staging.
+2. ☐ Smoke tests: valid `-EncodedCommand` + malformed sample +
+   benign admin PS + 3 malware families.
+3. ☐ Verify telemetry (P95 ≤ 500 ms; success rate ≥ v1.4.3;
+   no `DX2001`/`DX2003` spikes).
+4. ☐ Production deploy.
+5. ☐ 72 h monitoring.
+6. ☐ Tag + lock branch.
+
+**Routed to v1.6.0+**: semantic variable-resolution
+(`DX3xxx`), helper-variable chains, corpus auto-growth
+(`DX8xxx`), advanced PowerShell semantic graph. **Routed to
+v1.7.0+**: crypto semantic analysis (`DX4xxx`), full AST /
+data-flow (`DX6xxx`), IOC extraction (`DX5xxx`), output
+validation (`DX7xxx`). **v2.0**: cross-language correlation,
+automatic decoder recommendations.
+
+**Files touched (freeze delta)**:
+`V1_5_0_RELEASE_METRICS.md` (created),
+`scripts/v1_5_0_release_metrics.py` (created),
+`RELEASES.md`, `memory/PRD.md`.
+

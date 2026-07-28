@@ -492,6 +492,64 @@ enforces that every registered code lives in its declared range.
 
 ---
 
+## v1.5.0 · Feature freeze + release-metrics snapshot (2026-07-28)
+
+**Status:** ✅ v1.5.0 is feature-frozen. No new features on
+`v1.5.x`. All new engineering effort routes to `v1.6.0`.
+
+### Measured release-quality snapshot
+
+See `/app/V1_5_0_RELEASE_METRICS.md` — reproducible via
+`python3 scripts/v1_5_0_release_metrics.py` on any commit.
+
+| Metric | Value |
+| ------ | ----- |
+| Golden Corpus pass rate | **100 %** |
+| Decoder-convergence tests | **33 passed · 1 skipped** |
+| Adjacent regression suite | **209 passed** (3 unrelated pre-existing failures held baseline) |
+| Median decode latency (typical 3-stage) | **0.71 ms** |
+| Median decode latency (30-layer stress) | **309.15 ms** |
+| P99 across all samples | **≈ 314 ms** (target ≤ 500 ms) |
+| Determinism | **stable across all 5 canonical samples** |
+| Diagnostic codes registered | **11** (6 error · 3 warning · 2 info) |
+| False-positive corpus | **PASS** |
+| Reserved DX-code ranges for v2.0 | `DX3xxx – DX9xxx` pre-allocated |
+| `DEFAULT_MAX_DEPTH` | **64** |
+| Max recursion depth exercised | **30 layers** |
+
+### Operational go-live checklist
+
+1. ☐ Deploy `v1.5.0` to staging.
+2. ☐ Run smoke tests on: valid `-EncodedCommand`, malformed
+   sample, benign administrative PS, at least three malware
+   families.
+3. ☐ Verify telemetry (P95 ≤ 500 ms, decoder-success ≥ v1.4.3
+   baseline, no unexpected `DX2001`/`DX2003` spikes).
+4. ☐ Deploy to production.
+5. ☐ Monitor for ≥ 72 h.
+6. ☐ Tag the release and lock the branch.
+
+### Routed to v1.6.0+
+
+| Feature | Target release |
+| ------- | -------------- |
+| Semantic variable-resolution (def-use analysis) | v1.6.0 (`DX3xxx` range) |
+| Helper-variable chains (`$a = FromBase64String; $b = $a; GzipStream($b, …)`) | v1.6.0 |
+| Corpus auto-growth with categories | v1.6.0 (`DX8xxx` range) |
+| Advanced PowerShell semantic graph | v1.6.0 |
+| Crypto semantic analysis (XOR / RC4 / AES) | v1.7.0 (`DX4xxx` range) |
+| Full PowerShell AST / data-flow engine | v1.7.0 (`DX6xxx` range) |
+| Cross-language correlation (CMD → PS → JS → .NET) | v2.0 |
+| Automatic decoder recommendations | v2.0 |
+
+### Files touched (freeze delta)
+
+- `V1_5_0_RELEASE_METRICS.md` (created) — reproducible metrics dashboard.
+- `scripts/v1_5_0_release_metrics.py` (created) — probe that regenerates the numbers on any commit.
+- `RELEASES.md` — this freeze notice.
+
+---
+
 ## v1.4.3 — FU-5 · Legacy Verdict Surface Retirement (Feature-Flag Hide)
 
 | Field | Value |
