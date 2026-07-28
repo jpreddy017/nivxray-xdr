@@ -1,5 +1,72 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **v1.5.5b · Shared canonical OUTPUT selector · DECODE / AUTO INVESTIGATE parity**
+
+### The bug on production
+`nivxray.nivxforge.com` still surfaced the L1 recovered PowerShell
+(`$s=New-Object IO.MemoryStream(,[Convert]::FromBase64String("H4s…`,
+~2846 B) as OUTPUT for the Sophos reflective-loader sample. SME's
+diagnosis was correct: the decoder pipeline reached
+`family-meterpreter` (all 11 layers OK, `reached_shellcode:true`), but
+the frontend picked the WRONG artifact for the OUTPUT panel.
+
+### Root cause — divergent output-selection between two flows
+`WorkspacePage.jsx` had TWO independent implementations for choosing
+which decoded artifact lands in `OUTPUT`:
+
+* `runNivxrayDecode` (DECODE button) — correctly replayed
+  `/api/recipe/run` and used its terminal output. Verified by v1.5.5.
+
+* `autoInvestigate` (AUTO INVESTIGATE button) — used
+  `semantic.deobfuscation.final` whenever it was **shorter than the
+  raw input**. For the reflective-loader sample the semantic peel
+  returns the L1 PowerShell (2832 chars, shorter than the 2846-char
+  input), so `_preferSem` fired → OUTPUT rendered L1 instead of the
+  833-byte terminal shellcode.
+
+### The fix — single source of truth
+New helper `/app/frontend/src/lib/selectCanonicalOutput.js` picks the
+canonical OUTPUT artifact via a documented priority ladder:
+
+```
+1. /recipe/run terminal output    (raw shellcode with inline C2/UA/API)
+2. semantic.deobfuscation.final    (Invoke-Obfuscation peel fallback)
+3. trace-tail preview              (raw-input-echo safety net, PROD-BUG-4)
+4. /decode/smart output            (RTE brain-block default)
+```
+
+Both `runNivxrayDecode` and `autoInvestigate` now call this one
+function. Impossible for the two flows to diverge again.
+
+### Playwright verification on preview (fresh session)
+Same reflective-loader sample paste, back-to-back:
+
+```
+FLOW 1 · DECODE          → OUTPUT 328 chars · C2 149.28.81.19 · Mozilla UA ✓
+FLOW 2 · AUTO INVESTIGATE → OUTPUT 328 chars · C2 149.28.81.19 · Mozilla UA ✓
+OUTPUTS MATCH: True
+```
+
+### Release gate — PASS
+```
+tests/test_meterpreter_b64xor.py .................... 8 passed
+tests/test_e2e_decode_smart_http_contract.py ....... 10 passed
+=================== 18 passed, 0 failed, 0 errors ==================
+```
+
+### Files changed
+- `/app/frontend/src/lib/selectCanonicalOutput.js` — NEW
+- `/app/frontend/src/pages/WorkspacePage.jsx`
+  - `runNivxrayDecode` — replaced inline `/recipe/run` block with helper
+  - `autoInvestigate` — replaced `_preferSem`/`_outEqInput` block with helper
+  - import of `selectCanonicalOutput`
+
+### Production redeploy required
+This is a frontend-only change. Preview is verified; production still
+needs Save-to-GitHub + Deploy to pick up the fix.
+
+
+
 ## 2026-02-28 · **v1.5.5 · OUTPUT terminal-artifact selection · Green release gate**
 
 ### What shipped

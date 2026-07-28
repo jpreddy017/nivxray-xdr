@@ -15,6 +15,7 @@ import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
 import { buildFallbackGraph } from "@/lib/fallbackGraph";
+import { selectCanonicalOutput } from "@/lib/selectCanonicalOutput";
 import GuidanceBanner, { getGuidanceGlowStyle } from "@/components/GuidanceBanner";
 import SocVerdictPanel from "@/components/SocVerdictPanel";import VerdictCard from "@/components/VerdictCard";
 import SemanticIntelligencePanel from "@/components/investigation/SemanticIntelligencePanel";
@@ -772,43 +773,12 @@ export default function WorkspacePage() {
           : `Smart/magic race — ${eng}`,
       });
       setSteps((r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} })));
-      // Feb 2026 · v1.5.4 · Run the full recipe chain to reach terminal
-      // shellcode / extracted-intel.
-      //
-      // `/decode/smart` returns `r.data.output` which is the v1.5.1-promoted
-      // RTE brain-block trace + the deepest RTE artefact (L2 PowerShell
-      // text for the reflective-loader class). But the RTE only handles
-      // ITERATIVE deterministic transformations — it does NOT run the
-      // XOR-brute / crypto-detect / family-fingerprint TERMINAL steps
-      // that peel the base64-decoded shellcode blob into readable
-      // C2 / User-Agent / strings intel. Those live in the linear
-      // recipe chain.
-      //
-      // To surface the exact analyst-facing output the SME asked for
-      // (EXTRACTED INTEL FROM N BYTE SHELLCODE with C2 IPs + UA +
-      // strings), we run the recipe returned by `/decode/smart`
-      // through `/recipe/run` and use ITS terminal output as the
-      // authoritative OUTPUT panel value.
-      let _finalOut = r.data.output || "";
-      try {
-        const recipe = r.data.recipe || [];
-        if (recipe.length) {
-          const rr = await api.post("/recipe/run", {
-            input,
-            steps: recipe.map((s) => ({ op: s.op, args: s.args || {} })),
-          });
-          const _terminalOut = rr?.data?.output || "";
-          // Only override when the recipe reached a DIFFERENT (deeper)
-          // artefact than the RTE brain block — protects against
-          // shallow-chain samples where /recipe/run terminates early.
-          if (_terminalOut && _terminalOut !== r.data.output) {
-            _finalOut = _terminalOut;
-          }
-        }
-      } catch (_e) {
-        // Recipe replay failure is non-fatal — fall back to d.output.
-      }
-      setOutput(_finalOut);
+      // Feb 2026 · v1.5.5 · Shared canonical output selector — see
+      // /app/frontend/src/lib/selectCanonicalOutput.js for the priority
+      // ladder. Guarantees DECODE and AUTO INVESTIGATE both surface
+      // the same terminal artifact (SME parity directive).
+      const _sel = await selectCanonicalOutput({ api, input, smartResp: r.data });
+      setOutput(_sel.text);
       if (r.data.trace) setDecodeTrace(r.data.trace);
       setReachedShellcode(!!r.data.reached_shellcode);
       setDecodeConfidence(conf);
@@ -1132,39 +1102,13 @@ export default function WorkspacePage() {
       const r = await api.post("/decode/smart", { input });
       const newSteps = (r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} }));
       setSteps(newSteps);
-      // RC3.1.1 hotfix (PROD-BUG-4): OUTPUT panel was echoing INPUT when
-      // the deterministic engine returned the raw input (e.g. PE binary
-      // decoded from base64 — result.output is the raw PE bytes, but the
-      // report-synthesis path in ops.py may prepend an Investigation
-      // Summary and the raw output tail can look identical to the input
-      // in the OUTPUT panel because the browser can't render binary).
-      // Prefer the terminal-layer preview when available and when the
-      // raw `r.data.output` byte-matches the raw input (safety net).
-      const _rawOut = r.data.output || "";
-      const _lastTraceLayer = (r.data.trace || []).slice(-1)[0];
-      const _outEqInput = _rawOut && _rawOut === input;
-      // 2026-07-28 · Workspace Stabilization Directive: when the semantic
-      // v2 engine (Invoke-Obfuscation peel + [Type]() coercion + numeric
-      // char reconstruction) resolved a genuinely deeper payload than the
-      // RC2 orchestrator, surface THAT as the RECOVERED PAYLOAD. Without
-      // this override the analyst sees the shallow RC2 recovery even
-      // though the Semantic Intelligence panel below has already peeled
-      // the whole obfuscation chain to `Write-Host '…'` (audited sample
-      // `invoke_obfuscation_full_stack`).
-      const _semFinal =
-        r.data?.semantic?.deobfuscation?.final ||
-        r.data?.semantic?.recovered_script || "";
-      const _preferSem =
-        !!_semFinal &&
-        _semFinal !== _rawOut &&
-        _semFinal.length < String(input).length;
-      setOutput(
-        _preferSem
-          ? _semFinal
-          : (_outEqInput && _lastTraceLayer?.output_preview
-              ? _lastTraceLayer.output_preview
-              : _rawOut)
-      );
+      // Feb 2026 · v1.5.5 · Shared canonical output selector — same
+      // helper the DECODE button uses, so both flows always land the
+      // same terminal artifact in the OUTPUT panel. See
+      // /app/frontend/src/lib/selectCanonicalOutput.js for the
+      // priority ladder (recipe → semantic → trace-tail → smart).
+      const _sel = await selectCanonicalOutput({ api, input, smartResp: r.data });
+      setOutput(_sel.text);
       setDetected(r.data.detected_type || null);
       const newChain = (r.data.recipe || []).map((s, i) => ({
         op: s.op, reason: s.reason || "",
