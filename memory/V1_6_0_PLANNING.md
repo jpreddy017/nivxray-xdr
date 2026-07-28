@@ -35,13 +35,21 @@ resolver instead of scanning text.
 
 ## 2 · Non-goals of v1.6.0
 
-| Non-goal | Rationale |
-| --- | --- |
-| Full PowerShell parser | AST slicing is enough for def-use; a full parser is a v1.7.x concern. |
-| Runtime evaluation | Determinism directive is inviolable. No `Invoke-Expression`, no eval. |
-| New intent categories | The intent surface is orthogonal; v1.5.2 already covered reflective injection. |
-| Frontend refactor | `OutputView` still consumes the v1.5.1 promoted text. Deferred to v1.6.1. |
-| Deprecating any existing regex prematurely | Every regex site keeps its current behaviour as a **fallback** during migration; the resolver only *upgrades* the accuracy — never regresses it. |
+**Hard constraints — any PR that violates one of these MUST be
+rejected regardless of technical merit:**
+
+| Non-goal | Why | Enforcement |
+| --- | --- | --- |
+| **NOT executing PowerShell** | The determinism directive is inviolable. No `Invoke-Expression`, no `.Invoke()`, no `subprocess.run(["powershell", ...])`, no sandbox shell-outs. | Grep gate in CI: any commit touching v1.6.0 files that imports `subprocess`, `pexpect`, or matches `powershell.*-` outside a comment fails. |
+| **NOT emulating .NET** | Emulating `System.Reflection.Assembly.Load`, delegates, or CLR type resolution would double the surface area and eventually converge on "execute PS anyway". Resolver only substitutes LITERAL values. | Code review rule; the resolver interface exposes `Literal` / `Unresolved` only — never `Emulated`. |
+| **NOT adding AI reasoning into deterministic decoding** | The Investigation Brain philosophy is analyst-reproducible. LLM calls belong to the enrichment layer (`smart_decode → ai_enrich`), NEVER to the RTE / def-use resolver. | Import gate in CI: `v2/investigation/rte/**` and the new `v2/semantic/def_use/**` MUST NOT import `emergentintegrations`, `openai`, `anthropic`, `google.generativeai`, or `litellm`. |
+| **NOT changing the scoring engine** | Verdict thresholds, band composition rules, and confidence math stay exactly as in v1.5.2. Resolver adds *evidence*, not scoring. | `test_verdict_reasoning.py` + `test_verdict_v3.py` remain byte-identical pass sets between v1.5.2 and v1.6.0. |
+| **NOT changing existing diagnostic code semantics** | Every `DX1xxx` / `DX2xxx` code keeps its exact meaning, severity, causal-chain contract, and JSON shape. Resolver events use the reserved `DX3xxx` range only. | `test_decoder_convergence_v150.py::test_diagnostic_code_registry_is_complete_and_stable` remains green; `DX3xxx` codes ADD to the registry, they never mutate existing entries. |
+| Full PowerShell parser | AST slicing is enough for def-use; a full parser is a v1.7.x concern. | Architectural — the resolver's `Statement` type is deliberately minimal (Assign/Update/Consume/Alias/None); adding branches (`If`/`For`/`Try`) is out of scope. |
+| Runtime evaluation | See #1 above. | (Same enforcement.) |
+| New intent categories | The intent surface is orthogonal; v1.5.2 already covered reflective injection. | `IntentCategory` enum unchanged in v1.6.0. |
+| Frontend refactor | `OutputView` still consumes the v1.5.1 promoted text. Deferred to v1.6.1. | No `frontend/**` files touched by v1.6.0 PRs. |
+| Deprecating any existing regex prematurely | See §6 P3 — regex sites migrate over one FULL release cycle, never in the same PR that ships the resolver. | Two-PR rule for every migrated regex site. |
 
 ---
 
@@ -83,7 +91,69 @@ in the P0.1 milestone below).*
 
 ---
 
-## 4 · Def-use graph architecture (design sketch)
+## 4 · Def-use resolver architecture
+
+### 4.0 · The pipeline shape (deliberately generic, not PS-specific)
+
+The resolver is structured as a classical compiler-frontend chain so
+adding support for JScript, VBScript, or T-SQL later is a matter of
+swapping the Lexer + Statement classifier — every downstream stage is
+language-neutral by design:
+
+```
+    ┌───────────────────────────────────────────────────────────────┐
+    │  Recovered artefact text (from RTE layer N)                    │
+    └───────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+    ┌───────────────────────────────────────────────────────────────┐
+    │  1 · Lexer                                                     │
+    │      Tokens (String, Number, Identifier, Operator, Comment,   │
+    │      HereString, etc.). Language-specific ONLY at this stage.  │
+    └───────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+    ┌───────────────────────────────────────────────────────────────┐
+    │  2 · AST / simplified syntax tree                              │
+    │      Statement · Expression · CallExpr · Literal · VarRef      │
+    │      Language-neutral node vocabulary from here down.          │
+    └───────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+    ┌───────────────────────────────────────────────────────────────┐
+    │  3 · Symbol table                                              │
+    │      Symbol → ordered list of Statements that touch it.        │
+    └───────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+    ┌───────────────────────────────────────────────────────────────┐
+    │  4 · Definition graph (defs)                                   │
+    │      Per-symbol: every statement that writes to it.            │
+    └───────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+    ┌───────────────────────────────────────────────────────────────┐
+    │  5 · Use graph (uses)                                          │
+    │      Per-symbol: every statement that reads it (with position).│
+    └───────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+    ┌───────────────────────────────────────────────────────────────┐
+    │  6 · Resolver                                                  │
+    │      value_of(symbol, at_pos) — walks defs backward through    │
+    │      concat / format / alias until Literal or Unresolved.      │
+    └───────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+    ┌───────────────────────────────────────────────────────────────┐
+    │  7 · Transformation adapters                                   │
+    │      ps_indirect_compression_stream, ps_encoded_command, …     │
+    │      call resolver.value_of() instead of scanning text.        │
+    └───────────────────────────────────────────────────────────────┘
+```
+
+Each numbered box is a separate module — testable in isolation, all
+deterministic, all side-effect-free. No regex escalation loop.
 
 ### 4.1 · Data model
 
@@ -187,12 +257,35 @@ independently shippable behind a feature flag
 - **P0.2** Extend the Decode Trace Report (already built for v1.5.2)
   with a "Resolver Trace" section — a no-op stub while resolver is
   off, so the tracing shape is finalised before the resolver ships.
+- **P0.5 · Baseline Metrics (added per SME steer 2026-02-XX).** Before
+  any Phase-1 code lands, capture the CURRENT decoder performance
+  and behaviour envelope so every subsequent phase can be compared
+  against a locked baseline. Metrics to capture per corpus sample
+  AND aggregated across the corpus:
+
+    * average decode latency (P50 / P95 / max over N runs)
+    * RTE recursion depth (min / max / mean)
+    * number of transformations fired
+    * peak process RSS during decode
+    * corpus pass rate (trust harness `accuracy`)
+    * false-positive rate (benign corpus samples that verdict
+      Malicious or Suspicious — should be zero today, must remain
+      zero after each phase)
+    * determinism-hash stability (2 identical runs → 2 identical
+      hashes for the ENTIRE pipeline)
+
+  Baseline artefact: `memory/V1_6_0_BASELINE_METRICS.md`. Every
+  phase's PR description MUST include a delta table against these
+  numbers. A phase that regresses P95 latency by > 15 % or drops
+  corpus pass-rate by even one sample is a **HARD FAIL** — the PR
+  cannot merge until the regression is understood or eliminated.
 
 ### P1 · Def-use resolver core
 
-- **P1.1** Data model + AST slicer (§4.1, §4.2). Standalone module at
-  `v2/semantic/def_use/{__init__.py, slicer.py, models.py, resolver.py}`.
-  No production caller yet.
+- **P1.1** Data model + Lexer + AST slicer (§4.0 boxes 1-2, §4.1,
+  §4.2). Standalone module tree at
+  `v2/semantic/def_use/{__init__.py, lexer.py, ast.py, symbols.py,
+  defuse.py, resolver.py, models.py}`. **No production caller yet.**
 - **P1.2** Resolver unit tests — 40+ cases covering: single-def,
   redef, alias, concat, format-op, cycle, depth budget, dynamic expr,
   interpolation, subexpression-assign, string-op resolved name.
@@ -206,20 +299,51 @@ independently shippable behind a feature flag
 
 ### P2 · Wiring the resolver into the RTE
 
+**Feature-flag discipline (per SME steer 2026-02-XX): the flag is a
+HARD ISOLATION SWITCH. No hybrid "try resolver, fall back to regex"
+paths. Every migrated site branches at the top:**
+
+```python
+if _RESOLVER_ENABLED:
+    literal = resolver.value_of(sym, at_pos)
+    if isinstance(literal, Literal):
+        return _decode(literal.value)
+    return _diagnose(literal.reason)      # DX3xxx path
+else:
+    # verbatim v1.5.2 code path — untouched, byte-identical output
+    return _legacy_regex_path(text)
+```
+
+This guarantees:
+
+* Flag = OFF → the entire v1.5.2 code path executes with ZERO
+  behavioural drift. Rollback is a single env-var change.
+* Flag = ON  → the entire code path is resolver-driven. There is no
+  mixed state to reason about, no "one regex fired, one resolver
+  fired" cross-contamination, no ambiguous provenance in the
+  determinism hash.
+
+The trust harness runs the corpus TWICE per PR (once with flag OFF
+against the v1.5.2 baseline, once with flag ON against the v1.6.0
+targets). Both must be green.
+
 - **P2.1** `ps_indirect_compression_stream` grows a
-  **resolver-first** path: try resolver, fall back to today's regex
-  if resolver returns `Unresolved`. Feature-flag gated.
+  **flag-gated cutover branch** (structure above). Flag defaults to
+  OFF. No production caller sees resolver output yet.
 - **P2.2** Same treatment for `ps_encoded_command` (variable-bound
   base64 in the EncodedCommand slot — currently never observed but
-  the SME reference blog #6 shows the shape exists).
+  the SME reference blog shows the shape exists).
 - **P2.3** Flip `INVESTIGATION_DEF_USE_RESOLVER=on` by default. Trust
   corpus samples 3-10 flip from `resolver_off_expected` to full
-  ground-truth. If any regresses → fail CI → rollback flag.
+  ground-truth. Baseline-metrics delta table MUST be attached to
+  the flip PR. If any sample regresses OR P95 latency exceeds
+  baseline by > 15 % → fail CI → rollback flag.
 - **P2.4** Migrate `_VAR_B64_ASSIGN_RE`,
   `_VAR_COMPRESSION_CONSUMER_RE`, `_DIAG_ASSIGN_RE` in
   `ps_deobfuscate.py` and `ps_indirect_compression_stream.py` to
-  thin adapters that call the resolver. Keep old regex around as
-  `# LEGACY fallback` for one release cycle, then delete in v1.6.1.
+  hard-switched adapters (still flag-gated). Legacy regex kept in
+  the else-branch verbatim for one release cycle, then removed in
+  P3.1 once the flag has flipped and stayed on for a full release.
 
 ### P3 · Retire the multi-hop regexes
 
@@ -258,6 +382,11 @@ Each of P1-P3 lands as its own PR with its own regression proof
 6. Analyst report renders a Resolver Trace when the resolver fires.
 7. Every migrated regex site cites its DX3xxx counterpart in the
    trace when the resolver contributed to the decision.
+8. **Baseline metrics delta** (per SME steer): no phase regressed P95
+   latency by > 15 %, no phase dropped the corpus pass-rate by even
+   one sample, false-positive rate on benign corpus remained zero,
+   and every stage's determinism hash is stable across two runs of
+   the full corpus.
 
 ---
 
