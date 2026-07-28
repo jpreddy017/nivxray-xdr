@@ -113,3 +113,62 @@ Not a grab bag — organised around three themes:
 > foundational architecture."
 
 ---
+
+## v1.4.3 — FU-5 · Legacy Verdict Surface Retirement (Feature-Flag Hide)
+
+| Field | Value |
+| ----- | ----- |
+| **Release** | NivXRay v1.4.3 |
+| **Release Date** | 2026-07-28 |
+| **Behaviour Graph Schema** | `1.1.0` (unchanged) |
+| **Investigation Baseline** | `iu → cre → rte → intent → behaviour → verdict → graph → report` |
+| **Change surface** | Frontend only · `/app/frontend/src/pages/WorkspacePage.jsx` |
+| **Backend change** | **NONE** (zero behavioural drift) |
+
+### Problem addressed
+
+FU-5 (P0 from v1.4.0 smoke): the workspace was still rendering
+multiple legacy verdict surfaces below the Investigation Brain that
+could emit **weaker, contradictory** verdicts (e.g. `Suspicious · 45`
+next to Brain's `MALICIOUS · 90`). Analysts could accidentally
+copy the stale verdict into a SOC ticket.
+
+### Fix
+
+A single module-level feature flag `SHOW_LEGACY_INVESTIGATION_SUMMARY = false`
+in `WorkspacePage.jsx` gates five legacy verdict surfaces:
+
+| # | Component | Location | Reason gated |
+| - | --------- | -------- | ------------ |
+| 1 | `SocVerdictPanel` | above workspace | client-side one-line shellcode verdict |
+| 2 | `AnalystQuickActions` | strip below SOC verdict | synthesises verdict from legacy `verdictCard` |
+| 3 | `AnalystResults` (in `<details>`) | below Brain | 7-panel legacy rc2-orchestrator verdict view |
+| 4 | `SemanticIntelligencePanel` (in `<details>`) | below Brain | legacy "Behavior Storyline" verdict |
+| 5 | `FinalSummary` | below process tree | "NIVXRAY — FINAL INVESTIGATION SUMMARY" card |
+
+Preserved (not gated · non-verdict analyst content):
+`OutputView`, `EscalationLadder`, `TIShieldPanel`, `AttackGraph`,
+`AttackPathClean`, `ProcessTreeView`, `IOC enrichment strip`,
+`IR handoff strip`, `Refine launcher`, `ThreatAnalysis`.
+
+### Verification
+
+| Check | Result |
+| ----- | ------ |
+| Frontend webpack build | **Compiled successfully** |
+| Legacy panels DOM count (post-`/decode/smart`) | **0 / 0 / 0** |
+| Brain panel DOM count | **1** (`workspace-investigation-brain`) |
+| `"FINAL SUMMARY"` / `"NIVXRAY — FINAL INVESTIGATION SUMMARY"` in DOM | **not present** |
+| Smoke sample (`Invoke-Command … net user backdoor … Set-MpPreference`) | Brain reports **MALICIOUS · confidence 90** as sole verdict |
+| Backend regression (Investigation / Behaviour / Verdict) | **199 / 201 PASS** (2 pre-existing legacy-verdict-card failures unrelated to this change) |
+| `git diff` scope | `frontend/src/pages/WorkspacePage.jsx` only |
+
+### Rollback plan
+
+Flip the flag: `const SHOW_LEGACY_INVESTIGATION_SUMMARY = true;`
+No code deletion, no imports removed. Actual removal of the gated
+components is scheduled for **v1.5.x** after one stable release
+cycle with no regressions, once runtime dependency analysis confirms
+the legacy components have no remaining consumers.
+
+---

@@ -43,6 +43,34 @@ import {
   Play, Zap, Wand2, Wrench, Share2, Download, Upload, Trash2, Copy, Sparkles, X, LayoutGrid,
 } from "lucide-react";
 
+/**
+ * FU-5 · v1.4.3 · Feature-flag hide of legacy verdict surfaces
+ * ---------------------------------------------------------------
+ * The Investigation Brain (IU → CRE → RTE → Intent → Behavior Graph →
+ * Verdict → Evidence Graph → Analyst Report) is the SOLE analyst-facing
+ * verdict authority as of v1.3.0. Prior to v1.4.3, several legacy
+ * verdict-producing panels still rendered on the workspace and could
+ * emit conflicting verdicts (e.g. "Suspicious 45" while the Brain said
+ * "Malicious 90"), destroying analyst trust.
+ *
+ * This flag GATES (not removes) those panels so we can toggle them back
+ * if a hidden runtime dependency is discovered during the v1.4.x
+ * stabilization cycle. Actual code removal is scheduled for v1.5.x
+ * after one stable release with no regressions.
+ *
+ * Panels gated by this flag:
+ *   1. SocVerdictPanel        — client-side shellcode "one-line verdict"
+ *   2. AnalystQuickActions    — synthesises verdict from legacy verdictCard
+ *   3. AnalystResults         — 7-panel legacy analyst view (rc2-orchestrator)
+ *   4. SemanticIntelligencePanel — legacy "Behavior Storyline" verdict
+ *   5. FinalSummary           — "NIVXRAY — FINAL INVESTIGATION SUMMARY" card
+ *
+ * NOT gated (analyst-facing, non-verdict): decoded output, IOC enrichment,
+ * attack graph, kill-chain path, escalation ladder, TI shield, process tree,
+ * threat analysis panel, IR handoff / refine strips.
+ */
+const SHOW_LEGACY_INVESTIGATION_SUMMARY = false;
+
 export default function WorkspacePage() {
   const [ops, setOps] = useState([]);
   const [examples, setExamples] = useState([]);
@@ -1667,19 +1695,28 @@ export default function WorkspacePage() {
 
       {/* SOC VERDICT — appears above the workspace whenever a decode
           terminates on known shellcode / PE / ELF. Google-AI-style one-line
-          verdict + copy-to-clipboard SOC ticket. */}
-      <SocVerdictPanel
-        output={output}
-        confidence={decodeConfidence}
-        winnerEngine={decodeWinnerEngine}
-        predictedTree={predictedTree}
-      />
+          verdict + copy-to-clipboard SOC ticket.
+
+          FU-5 (v1.4.3): Gated behind SHOW_LEGACY_INVESTIGATION_SUMMARY —
+          this panel produces a competing verdict surface. The Investigation
+          Brain is the sole analyst-facing verdict authority. */}
+      {SHOW_LEGACY_INVESTIGATION_SUMMARY && (
+        <SocVerdictPanel
+          output={output}
+          confidence={decodeConfidence}
+          winnerEngine={decodeWinnerEngine}
+          predictedTree={predictedTree}
+        />
+      )}
 
       {/* ▲ RC4.5.7 · Analyst Quick Actions — Executive summary,
           confidence breakdown, and one-click block-rule generation.
           Pure UI synthesis from existing verdict_card + iocs — zero
-          backend changes, zero decoder-engine touch. */}
-      {(verdictCard || analysis) && (
+          backend changes, zero decoder-engine touch.
+
+          FU-5 (v1.4.3): Gated — synthesises verdict/confidence from the
+          legacy verdictCard which competes with the Investigation Brain. */}
+      {SHOW_LEGACY_INVESTIGATION_SUMMARY && (verdictCard || analysis) && (
         <div style={{ padding: "0 16px 12px" }}>
           <AnalystQuickActions
             result={{
@@ -1808,8 +1845,12 @@ export default function WorkspacePage() {
           analyst-facing verdict surface on 2026-07-29 (v1.3.0). Kept
           here inside a collapsed developer-diagnostics block so we
           can still validate the new pipeline against legacy signals
-          during transition. Never generates the primary verdict. */}
-      {(verdictCard || analysis || output) && (
+          during transition. Never generates the primary verdict.
+
+          FU-5 (v1.4.3): Fully gated behind SHOW_LEGACY_INVESTIGATION_SUMMARY
+          — even the collapsed disclosure emits a competing verdict when
+          expanded. */}
+      {SHOW_LEGACY_INVESTIGATION_SUMMARY && (verdictCard || analysis || output) && (
         <details
           data-testid="workspace-legacy-trace"
           style={{
@@ -1845,8 +1886,10 @@ export default function WorkspacePage() {
           Its Behavior Storyline / Executive Summary formerly produced
           a second "Runtime Dependent" verdict that competed with the
           Investigation Brain. Kept behind a developer disclosure so
-          we can still validate storyline output during transition. */}
-      {semantic && (
+          we can still validate storyline output during transition.
+
+          FU-5 (v1.4.3): Fully gated behind SHOW_LEGACY_INVESTIGATION_SUMMARY. */}
+      {SHOW_LEGACY_INVESTIGATION_SUMMARY && semantic && (
         <details
           data-testid="workspace-semantic-intelligence"
           style={{
@@ -2500,8 +2543,13 @@ export default function WorkspacePage() {
             />
           )}
 
-          {/* Final Summary — executive briefing derived from AI describe */}
-          {analysis?.description && (
+          {/* Final Summary — executive briefing derived from AI describe.
+
+              FU-5 (v1.4.3): Gated behind SHOW_LEGACY_INVESTIGATION_SUMMARY.
+              This is the "NIVXRAY — FINAL INVESTIGATION SUMMARY" card whose
+              risk + AI verdict badges (e.g. "Suspicious · 45/100") competed
+              with the Investigation Brain's authoritative verdict. */}
+          {SHOW_LEGACY_INVESTIGATION_SUMMARY && analysis?.description && (
             <FinalSummary
               description={analysis.description}
               verdict={analysis.ai_verdict}

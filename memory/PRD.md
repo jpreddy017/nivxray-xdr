@@ -3105,3 +3105,40 @@ components.
 whole workspace. Holds the current selection object
 `{ kind, id, frame_iid, process_iid, source }`. Every view reads and
 writes this ONE object instead of duplicating selection state.
+
+---
+
+## v1.4.3 — FU-5 · Legacy Verdict Surface Retirement (2026-07-28)
+
+**Problem**: The workspace was still rendering multiple legacy verdict
+panels (`SocVerdictPanel`, `AnalystQuickActions`, `AnalystResults`,
+`SemanticIntelligencePanel`, `FinalSummary`) below the Investigation
+Brain. These emitted weaker/contradictory verdicts (e.g. `Suspicious · 45`
+vs the Brain's `MALICIOUS · 90`), destroying analyst trust and letting
+stale verdicts leak into SOC tickets.
+
+**Fix**: Module-level feature flag `SHOW_LEGACY_INVESTIGATION_SUMMARY = false`
+in `/app/frontend/src/pages/WorkspacePage.jsx` gates all 5 legacy verdict
+surfaces. Zero backend change. Zero behaviour drift. Non-verdict analyst
+content (decoded output, attack graph, kill-chain path, IOC enrichment,
+process tree, threat analysis, IR handoff / refine strips) is fully
+preserved.
+
+**Verification**:
+- Frontend compiled successfully.
+- Post-`/decode/smart` DOM: `final-summary-card=0`, `workspace-legacy-trace=0`,
+  `workspace-semantic-intelligence=0`, `workspace-investigation-brain=1`.
+- Text `"NIVXRAY — FINAL INVESTIGATION SUMMARY"` / `"FINAL SUMMARY"` — not
+  present in DOM.
+- Investigation Brain reports **MALICIOUS · confidence 90** as sole verdict
+  on the `Invoke-Command ... net user backdoor ... Set-MpPreference` smoke.
+- Investigation/Behaviour/Verdict targeted regression: **199 / 201 PASS**
+  (2 pre-existing legacy `verdict_card_never_null` failures — unrelated to
+  this UI-only change).
+
+**Rollback**: Flip the flag to `true`. No code deletion, no imports removed.
+Actual removal scheduled for v1.5.x after one stable release cycle.
+
+**Files touched**: `frontend/src/pages/WorkspacePage.jsx`, `RELEASES.md`,
+`memory/PRD.md`.
+
