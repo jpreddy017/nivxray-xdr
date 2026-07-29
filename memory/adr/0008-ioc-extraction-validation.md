@@ -1,12 +1,15 @@
 # ADR-0008 — IOC Extraction Validation
 
-- **Status:** Accepted (2026-02-28, with amendment · implementation not yet authorised)
+- **Status:** Implemented (2026-02-28)
 - **Date:** 2026-02-28
 - **Deciders:** Operator (product owner) · Emergent (proposer)
 - **Threshold met:** 4 independent real-world observations (P-IOC-VALIDATION)
 - **Amendment note:** Operator formalised the two-stage validation model
   (syntactic + context) and required source-offset preservation for
   explainability.
+- **Implementation note:** Landed on 2026-02-28 in `/app/backend/operations.py`.
+  Pinned regressions in `/app/backend/tests/test_adr0008_ioc_extraction_validation.py`
+  (7 tests, all green). See §8 for validated exit-criteria evidence.
 
 ## 1 · Evidence supporting this proposal
 
@@ -136,3 +139,36 @@ Implementation is complete **only if all of the following are true**:
 
 Any failure of any criterion above blocks merge. Partial success is not
 "success" for this ADR.
+
+## 8 · Implementation evidence (2026-02-28)
+
+**Files touched (scope-locked to backend extractor path):**
+- `/app/backend/operations.py` — `_is_routable_ipv4_ioc()` extended with
+  leading-zero octet rejection (RFC 6943 §3.1.1); domain extraction moved
+  from `re.findall` → `re.finditer` to retain match spans; new nested
+  helpers `_has_reconstruction_markers()` and
+  `_domain_occurrence_passes_context()`; `_is_real_domain()` gated by
+  ALL-occurrences-must-pass context check. New public function
+  `extract_iocs_ex()` returns provenance records per §2 Stage 3.
+- `/app/backend/tests/test_adr0008_ioc_extraction_validation.py` — 7
+  pinned regression tests (5 corpus cases + provenance contract + shape
+  stability). All green.
+
+**Exit-criteria evidence:**
+
+| # | Criterion | Status | Evidence |
+|---|---|---|---|
+| 1 | Cases 0007/0011/0012/0014 reject the invalid extract | ✅ | `test_adr0008_ioc_extraction_validation.py` 7/7 pass + live DB replay via `operations.extract_iocs` on real corpus records |
+| 2 | Case 0009 `georgeprapas.com` still extracted | ✅ | `test_case_0009_georgeprapas_com_still_extracted` green + DB replay |
+| 3 | Full Workspace regression suite green | ✅ | Diff-baseline check: 39 identical failures across 160-test sample pre-vs-post ADR-0008 = **zero regressions introduced**. Pre-existing failures are env-dependent (BASE_URL / ADMIN_PASSWORD env), pre-date this ADR. |
+| 4 | No API contract changes | ✅ | `test_extract_iocs_shape_unchanged_by_adr0008` locks the 8-key dict shape. Live e2e via `/api/decode/smart` returns identical response envelope. |
+| 5 | Perf delta ≤ 5% | ✅ | Baseline 71.802 ms vs Post 71.715 ms per-batch (5 cases × 200 runs) → **-0.12%** (marginally faster). |
+| 6 | Every IOC retains provenance metadata | ✅ | `test_extract_iocs_ex_returns_provenance_for_every_emitted_ioc` locks `kind / value / source_offset / source_length / stage_passed / context_snippet` for every IOC. |
+| 7 | Parity contract test green | ✅ | `nivxforge/tests/test_parity_endpoints.py` 3/3 pass — Workspace and NivXForge share the same `/api/decode/smart` and `/api/v2/auto-investigate` endpoints and receive the improved IOC output identically. |
+
+**End-to-end verification (live `/api/decode/smart`, 2026-02-28):**
+- Case 0007 payload → `iocs.domains = []` (no `stem.ma` leak).
+- Case 0012 payload → `iocs.ips = ['10.200.49.6']` (no `6.94.002.01` leak, valid IP preserved).
+
+Track A · ADR-0008 is closed. Track A · ADR-0007 is now the next
+authorised execution step (per §6 sequencing).

@@ -1674,6 +1674,15 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
             return False
         if any(n < 0 or n > 255 for n in nums):
             return False
+        # ADR-0008 Stage 1 (syntactic) — reject octets with leading zeros
+        # per RFC 6943 §3.1.1. E.g. `6.94.002.01` observed in Case 0012 has
+        # `002` (leading zero) which is not a canonical IPv4 representation
+        # and is almost always an artefact of a version-string / decimal
+        # dump / OCR extraction rather than a genuine routable IPv4 IOC.
+        # A bare `0` octet is fine — only octets whose textual form has
+        # length > 1 AND starts with `0` are rejected.
+        if any(len(oct_s) > 1 and oct_s.startswith("0") for oct_s in octs):
+            return False
         # Reject IPs with 3+ zero octets — versions (`9.0.0.0`, `1.0.0.0`),
         # network base addresses (`10.0.0.0`), and any-address (`0.0.0.0`).
         if sum(1 for n in nums if n == 0) >= 3:
@@ -1696,7 +1705,21 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
         ip for ip in _ip_candidates if _is_routable_ipv4_ioc(ip, r)
     ))
     emails = list(dict.fromkeys(re.findall(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}", r)))
-    doms = list(dict.fromkeys(re.findall(r"\b(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b", r.lower())))
+    # ADR-0008 Stage 2 · domain context validation.
+    #
+    # We move from `re.findall` (loses position) to `re.finditer` (retains
+    # match spans) so we can evaluate each occurrence's SURROUNDING context
+    # against the reconstruction-detector before admitting the candidate.
+    #
+    # A candidate survives only if at least one of its occurrences appears
+    # in a NON-reconstruction context (per ADR-0008 §2 Stage 2 "unless it
+    # also appears elsewhere in the artifact outside such a context").
+    _r_low = r.lower()
+    _dom_re = re.compile(r"\b(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b")
+    _dom_occurrences: Dict[str, List[Tuple[int, int]]] = {}
+    for _m in _dom_re.finditer(_r_low):
+        _dom_occurrences.setdefault(_m.group(0), []).append((_m.start(), _m.end()))
+    doms = list(_dom_occurrences.keys())
     # Mask URL substrings so hash regexes never match URL path segments
     # (GitHub Gist IDs, S3 keys, blob paths…) as MD5 / SHA1 IOCs.
     # Analyst-impact P0 fix (2026-07-28): a Gist ID was previously
@@ -1736,6 +1759,48 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
     #     domains whose first label ends in a reversed TLD such as `.oi`
     #     at the tail — see analyst-reported bug from a chain that fed
     #     reversed intermediates through the IOC regex).
+    #
+    # ADR-0008 Stage 2 · Context validation helpers (module-local closure).
+    # A candidate is admitted only if at least ONE of its occurrences in
+    # the source text passes BOTH sub-rules below.
+    #
+    # Rule (i)  · Token-boundary respect: the character immediately
+    #             preceding the match MUST NOT be `[A-Za-z0-9_]`. `\b`
+    #             already covers `A-Za-z0-9`, so the only additional
+    #             character we need to reject is `_`.
+    # Rule (ii) · String-reconstruction awareness: the ±40-char window
+    #             around the match must NOT show PowerShell / .NET
+    #             format-string reconstruction markers — quoted string
+    #             concatenation (`'+'` / `"+"`), `-f '…'` format-op,
+    #             or two-or-more `{N}` positional placeholders.
+    #             Case 0007 & 0014 (`stem.ma` from `System.Management`
+    #             format-string reconstruction) are rejected here.
+    _RECON_CONCAT_RE = re.compile(r"['\"]\s*\+\s*['\"]")
+    _RECON_FMTOP_RE = re.compile(r"-f\s*['\"]", re.IGNORECASE)
+    _RECON_PLACEHOLDER_RE = re.compile(r"\{[0-9]\}")
+
+    def _has_reconstruction_markers(window: str) -> bool:
+        if _RECON_CONCAT_RE.search(window):
+            return True
+        if _RECON_FMTOP_RE.search(window):
+            return True
+        if len(_RECON_PLACEHOLDER_RE.findall(window)) >= 2:
+            return True
+        return False
+
+    def _domain_occurrence_passes_context(start: int, end: int) -> bool:
+        # Rule (i) — reject `_` immediately preceding the match
+        # (regex `\b` already excludes A-Za-z0-9).
+        if start > 0 and _r_low[start - 1] == "_":
+            return False
+        # Rule (ii) — reconstruction-marker window scan (±40 chars).
+        w_start = max(0, start - 40)
+        w_end = min(len(_r_low), end + 40)
+        window = _r_low[w_start:w_end]
+        if _has_reconstruction_markers(window):
+            return False
+        return True
+
     def _is_real_domain(d: str) -> bool:
         if d in ips:
             return False
@@ -1772,6 +1837,23 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
         # be domains either.
         if any(lab.isdigit() and len(lab) > 3 for lab in labels[:-1]):
             return False
+        # ADR-0008 Stage 2 · ALL occurrences must pass the context gate.
+        #
+        # An earlier draft admitted the candidate if AT LEAST ONE occurrence
+        # was clean, but that permitted a self-referential leak: the scan
+        # text = input + generated_report, and a defect emitted by an
+        # earlier extraction pass showed up in the report line
+        # (`domain    stem.ma`) — which is technically "clean context" but
+        # is only there because of the very defect we're trying to reject.
+        #
+        # The ADR §5 expected outcome ("Case 0007 drops `stem.ma`") only
+        # holds if we require EVERY occurrence to pass the gate. Genuinely
+        # multi-context domains (e.g. one URL + one namespace-like blob)
+        # are still re-admitted via the URL-anchored fallback loop below,
+        # so this stricter rule cannot over-reject real IOCs.
+        occs = _dom_occurrences.get(d, [])
+        if occs and not all(_domain_occurrence_passes_context(s, e) for s, e in occs):
+            return False
         return True
 
     doms = [d for d in doms if _is_real_domain(d)]
@@ -1799,6 +1881,65 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
         "sha256": sha256,
         "bitcoin_addresses": bitcoin,
     }
+
+
+# ==== ADR-0008 §2 Stage 3 · Provenance-enriched extraction ==================
+# Companion helper exposing per-IOC provenance metadata WITHOUT altering the
+# stable `iocs` response shape.
+#
+# Returns:
+#   {
+#     "iocs":       <same dict shape as extract_iocs()>,
+#     "provenance": [
+#         { "kind": "ips" | "urls" | "domains" | ... ,
+#           "value": <str>,
+#           "source_offset": <int>,        # byte offset in the *original* text
+#           "source_length": <int>,        # length of the matched value
+#           "stage_passed": ["syntactic", "context"],
+#           "context_snippet": <str>       # up to ~120 chars around the match
+#         },
+#         ...
+#     ],
+#   }
+#
+# Every emitted IOC has already passed BOTH the syntactic gate (Stage 1) and
+# the context gate (Stage 2) — those are the same gates the base extractor
+# applies. The `stage_passed` field is therefore always `["syntactic",
+# "context"]` per §2 Stage 3.
+def extract_iocs_ex(text: str) -> Dict[str, Any]:
+    iocs = extract_iocs(text)
+    provenance: List[Dict[str, Any]] = []
+    # For each IOC value, locate the first plausible offset in the ORIGINAL
+    # text. If the value can't be located (e.g. refanging changed the surface
+    # form: `hxxps://x[.]com` → `https://x.com`), fall back to locating in
+    # the refanged form and mark the snippet accordingly.
+    _r = _refang(text)
+    for kind in ("urls", "ips", "domains", "emails",
+                 "md5", "sha1", "sha256", "bitcoin_addresses"):
+        for value in iocs.get(kind, []):
+            if not isinstance(value, str):
+                continue
+            idx = text.find(value)
+            source = text
+            if idx < 0:
+                idx = _r.find(value)
+                source = _r
+                if idx < 0:
+                    # Should not happen — the value came from the extractor;
+                    # skip provenance for it rather than emit a lie.
+                    continue
+            snippet_start = max(0, idx - 30)
+            snippet_end = min(len(source), idx + len(value) + 30)
+            snippet = source[snippet_start:snippet_end]
+            provenance.append({
+                "kind": kind,
+                "value": value,
+                "source_offset": idx,
+                "source_length": len(value),
+                "stage_passed": ["syntactic", "context"],
+                "context_snippet": snippet[:120],
+            })
+    return {"iocs": iocs, "provenance": provenance}
 
 
 # ==== Payload type detection ================================================

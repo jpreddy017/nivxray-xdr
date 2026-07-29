@@ -1,5 +1,35 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **Track A · ADR-0008 · IOC Extraction Validation · IMPLEMENTED**
+
+### Shipped
+- **Two-stage IOC validation** in `/app/backend/operations.py`:
+  - **Stage 1 (syntactic):** IPv4 leading-zero octet rejection (RFC 6943 §3.1.1) — `6.94.002.01` no longer extracted; `10.0.0.5` unaffected. Octet range validation retained.
+  - **Stage 2 (context):** Domain extraction respects surrounding tokens — mid-identifier matches like `stem.ma` inside `System.Management.Automation` format-string reconstructions are rejected. All occurrences must pass a ±40-char window scan for reconstruction markers (`'+'`, `-f'`, `{N}` placeholders).
+- **`extract_iocs_ex()`** companion function returns `{iocs, provenance}` — every emitted IOC carries `kind / value / source_offset / source_length / stage_passed / context_snippet` per ADR §2 Stage 3. Base `extract_iocs()` signature and response shape unchanged.
+- **7 pinned regression tests** in `/app/backend/tests/test_adr0008_ioc_extraction_validation.py` — all green, covering Corpus v1 Cases 0007, 0009, 0011, 0012, 0014 + provenance + shape stability.
+
+### Exit criteria (all 7 met)
+1. ✅ Cases 0007/0011/0012/0014 reject the invalid extract (live DB replay + pinned tests)
+2. ✅ Case 0009 `georgeprapas.com` still extracted (non-regression)
+3. ✅ Zero regressions vs. baseline — 39 pre-existing failures IDENTICAL across 160-test diff sample pre-vs-post ADR-0008
+4. ✅ No API contract changes — `iocs` dict shape locked by test
+5. ✅ Perf delta -0.12% (5 cases × 200 runs; 71.802 ms → 71.715 ms; well under ≤5% budget)
+6. ✅ Every IOC carries provenance metadata via `extract_iocs_ex()`
+7. ✅ Parity contract test 3/3 green — Workspace + NivXForge continue to share endpoints
+
+### Governance
+- ADR-0008 status: **Accepted → Implemented** (2026-02-28).
+- CAPABILITY_REGISTRY.md updated: IOC Extraction Validation row → Implemented.
+- North Star narrative reference exemplar logged at `/app/memory/evidence/nivxforge_narrative_report_reference.md` (Track B / future ADR-0009+ reference; NOT acted on).
+
+### Next
+- **Track A · ADR-0007 (Verdict-Evidence Gating)** — now the sole authorised next execution step per the locked sequencing (§6 of ADR-0008).
+- Then: 20-case Workspace ↔ NivXForge parity validation against Corpus v1.
+- Then: Phase 2 evidence collection (50-100 `analyst_corrections`).
+
+
+
 ## 2026-02-28 · **Track B · NivXForge Platform Shell (UX-only, zero analytical impact)**
 
 ### Shipped
