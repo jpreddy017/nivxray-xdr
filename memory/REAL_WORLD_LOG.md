@@ -4,7 +4,17 @@ _Started 2026-02-28. Purpose: let real SOC cases (not guesses) prioritize v1.6.0
 
 **Status:** Feature development frozen at v1.6.0 Phase 1a. This log is the sole input for unfreezing.
 
+> ### 🔒 CORPUS v1 · FROZEN 2026-02-28
+>
+> Cases **0001, 0003–0022** (20 total) constitute the immutable v1 baseline for
+> NivXForge. Historical expected outputs are never edited. New cases append
+> only. Version-bump rules and full discipline in `CORPUS_VERSIONING.md`.
+>
+> v1 anchors: **ADR-0007** (§6 pins) · **ADR-0008** (§6 pins).
+> Reference-quality cases: **0003, 0009, 0018, 0019, 0020**.
+
 ---
+
 
 ## How this log drives the roadmap
 
