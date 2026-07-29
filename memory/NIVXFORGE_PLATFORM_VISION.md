@@ -239,3 +239,76 @@ overrides the other.
 
 The vision names the destination. The governance model names how each step is
 earned.
+
+---
+
+## 8 · Outcome-based success framework (adopted 2026-02-28 · replaces future artifact reviews)
+
+From this point forward, success is measured by **analyst outcomes**, not by
+built features.
+
+### 8.1 The wrong question vs the right question
+
+| Wrong question                              | Right question                                                        |
+| ------------------------------------------- | --------------------------------------------------------------------- |
+| Did we build Investigation Brain?           | Did Investigation Brain reduce analyst effort?                         |
+| Did we build Attack Story?                  | Did Attack Story help analysts understand the attack faster?          |
+| Did we build Evidence Explorer?             | Did Evidence Explorer reduce time spent hunting for evidence?         |
+| Did we build Threat Intelligence?           | Did TI reduce context-switching to external tools?                     |
+| Did we build Ask NivXForge?                 | Did it answer investigation questions accurately using evidence?      |
+
+A feature that ships without reducing analyst effort is not a delivered
+capability. It is a technical artifact awaiting evidence of value.
+
+### 8.2 The success milestone
+
+The analyst workflow, when NivXForge has achieved its identity, should
+naturally be:
+
+```
+Alert arrives
+    │
+    ▼
+Open NivXForge
+    │
+    ▼
+Paste or upload artifact
+    │
+    ▼
+Understand the attack from ONE screen
+    │
+    ▼
+Ask follow-up questions (Ask NivXForge)
+    │
+    ▼
+Generate the report
+    │
+    ▼
+Return to Workspace only to manage the incident
+```
+
+When that becomes the normal workflow — measured by analyst behaviour, not
+feature checklists — NivXForge has crossed from "another page" to "the
+primary investigation platform."
+
+### 8.3 Outcome signals to record
+
+The next entries in `REAL_WORLD_LOG.md` should capture, per case, an
+outcome-layer stanza in addition to the frozen 9-category analytical review:
+
+- Which surface the analyst used (NivXForge or Workspace).
+- Time from artifact-received → attack-understood.
+- Number of external tools consulted mid-investigation.
+- Whether the generated report was usable without editing.
+- Whether follow-up questions were answered by evidence-cited output.
+
+These become the *outcome layer* of the corpus — orthogonal to the
+9-category evaluation of NivXRay's analytical correctness. Both layers
+matter; both are evidence-driven.
+
+### 8.4 What NOT to do
+
+- No more vision documents. Vision is frozen.
+- No more roadmap re-plans. Roadmap is: engine (Track A) → Investigate depth (Track B, evidence-gated) → measured outcomes.
+- No feature is "done" because it shipped. It is "done" when it moved the metric.
+
