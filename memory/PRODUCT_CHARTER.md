@@ -197,6 +197,62 @@ Ship Phase 1a only when the SME acceptance sample
 - Explicit `Classification: Application CLI (unknown vendor)` header
 - Explicit `Unknowns:` block listing what cannot be concluded
 
+##### Phase 1a Definition-of-Done — gold-standard report
+
+The plain-text CLI acceptance sample MUST produce output structurally
+equivalent to this reference (SME-ratified 2026-02-28). Wording may
+vary; structure and omissions may NOT.
+
+```
+Classification
+  Application Command Line
+
+Summary
+  This artifact contains application-style command-line arguments.
+  No scripting constructs, encoded payloads, execution primitives,
+  network indicators, or persistence mechanisms were identified.
+  The available evidence is insufficient to determine the associated
+  software or its runtime behavior.
+
+Observed
+  ✓ Plain-text arguments
+  ✓ Configuration-style flags
+  ✓ Numeric option values
+
+Unknowns
+  • Executable
+  • Vendor
+  • Runtime context
+  • Parent process
+  • Actual behavior
+
+Verdict
+  Unknown
+
+Confidence
+  Medium
+```
+
+**Omissions matter as much as inclusions.** The following MUST NOT
+appear anywhere in the report:
+- `Zoom` (any form — "Zoom", "Zoom-related", "likely Zoom")
+- `Legitimate application` (or `legitimate` in a conclusion)
+- `Benign` (as a verdict for insufficient-evidence cases)
+- `No action required` (any phrasing)
+
+##### The universal quality gate
+
+Every investigation feature added from v1.6.0 onward MUST satisfy
+this single test:
+
+> **If an experienced SOC analyst asks "Why did the engine conclude
+> that?", the report should already contain the answer.**
+
+If the answer isn't in the report, the feature isn't done. This
+supersedes any other acceptance criterion and applies to Semantic
+Command Understanding, Evidence-backed Reasoning, Application
+Recognition, and every panel in the Workspace.
+
 ### Phase 2 · Evidence-backed Reasoning (P0)
 _Every conclusion must be traceable to evidence._
 
