@@ -15,8 +15,7 @@
  * /app/memory/adr/0006-nivxforge-first-class-analyst-platform.md §2.1.
  */
 import { useCallback, useMemo, useRef, useState } from "react";
-import Header from "../../components/Header";
-import NivxForgeSubNav from "../components/NivxForgeSubNav";
+import NivxForgeLayout from "../components/NivxForgeLayout";
 import VerdictCard from "../../components/VerdictCard";
 import OutputView from "../../components/OutputView";
 import TIShieldPanel from "../../components/TIShieldPanel";
@@ -221,9 +220,7 @@ export default function InvestigatePage() {
   const brainInvestigation = decodeResult?.investigation || autoResult?.investigation || autoResult;
 
   return (
-    <div>
-      <Header />
-      <NivxForgeSubNav active="investigate" />
+    <NivxForgeLayout>
       <div style={S.page} data-testid="nivxforge-investigate-page">
         <div style={S.hero}>
           <div style={S.eyebrow}>NivXForge · Analyst Workspace</div>
@@ -342,6 +339,6 @@ export default function InvestigatePage() {
           </div>
         ) : null}
       </div>
-    </div>
+    </NivxForgeLayout>
   );
 }

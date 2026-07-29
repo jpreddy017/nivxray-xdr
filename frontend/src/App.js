@@ -59,6 +59,12 @@ const V2ValidationPage         = lazy(() => import("@/v2/pages/ValidationPage"))
 // /api/nivxforge/preview/* GET endpoints only.
 const NivxForgePreviewPage     = lazy(() => import("@/nivxforge/pages/PreviewPage"));
 const NivxForgeInvestigatePage = lazy(() => import("@/nivxforge/pages/InvestigatePage"));
+const NivxForgeDashboardPage   = lazy(() => import("@/nivxforge/pages/DashboardPage"));
+const NivxForgeThreatIntelPage    = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ThreatIntelPage })));
+const NivxForgeThreatHuntingPage  = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ThreatHuntingPage })));
+const NivxForgeKnowledgeBasePage  = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.KnowledgeBasePage })));
+const NivxForgeReportsPage        = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ReportsPage })));
+const NivxForgeHistoryPage        = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.HistoryPage })));
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -142,9 +148,15 @@ function App() {
               <Route path="/v2/ingest" element={<Protected><V2IngestionPage /></Protected>} />
               {/* v2 · Validation Pack — 34-dataset Golden Corpus matrix */}
               <Route path="/v2/validation" element={<Protected><V2ValidationPage /></Protected>} />
-              {/* NivXForge (ADR-0006 · Phase 1) · analyst-parity surface + governance */}
-              <Route path="/nivxforge"              element={<Protected><NivxForgeInvestigatePage /></Protected>} />
+              {/* NivXForge (ADR-0006 · Phase 1 + platform shell) · analyst-parity surface + governance */}
+              <Route path="/nivxforge"              element={<Protected><NivxForgeDashboardPage /></Protected>} />
+              <Route path="/nivxforge/dashboard"    element={<Protected><NivxForgeDashboardPage /></Protected>} />
               <Route path="/nivxforge/investigate"  element={<Protected><NivxForgeInvestigatePage /></Protected>} />
+              <Route path="/nivxforge/threat-intel" element={<Protected><NivxForgeThreatIntelPage /></Protected>} />
+              <Route path="/nivxforge/hunting"      element={<Protected><NivxForgeThreatHuntingPage /></Protected>} />
+              <Route path="/nivxforge/knowledge"    element={<Protected><NivxForgeKnowledgeBasePage /></Protected>} />
+              <Route path="/nivxforge/reports"      element={<Protected><NivxForgeReportsPage /></Protected>} />
+              <Route path="/nivxforge/history"      element={<Protected><NivxForgeHistoryPage /></Protected>} />
               <Route path="/nivxforge/governance"   element={<Protected><NivxForgePreviewPage /></Protected>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

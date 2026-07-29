@@ -11,8 +11,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import Header from "../../components/Header";
-import NivxForgeSubNav from "../components/NivxForgeSubNav";
+import NivxForgeLayout from "../components/NivxForgeLayout";
 import api from "../../lib/api";
 
 const S = {
@@ -100,9 +99,7 @@ export default function PreviewPage() {
   }, [gov]);
 
   return (
-    <div>
-      <Header />
-      <NivxForgeSubNav active="governance" />
+    <NivxForgeLayout>
       <div style={S.page} data-testid="nivxforge-preview-page">
         <div style={S.hero}>
           <div style={S.eyebrow}>Evidence-Driven Preview</div>
@@ -270,6 +267,6 @@ export default function PreviewPage() {
           ) : <div style={S.err}>Loading…</div>}
         </div>
       </div>
-    </div>
+    </NivxForgeLayout>
   );
 }

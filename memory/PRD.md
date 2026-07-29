@@ -1,5 +1,34 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **Track B · NivXForge Platform Shell (UX-only, zero analytical impact)**
+
+### Shipped
+- **Left sidebar (`NivxForgeSidebar`)** with 8 sections: Dashboard · Investigate · Threat Intelligence · Threat Hunting · Knowledge Base · Reports · History · Governance. Placeholder sections carry a "SOON" chip.
+- **Dashboard (`/nivxforge` and `/nivxforge/dashboard`)** — landing page with 6 metric cards derived from `/api/nivxforge/preview/platform-health` + Quick-Start bar. No new backend calls.
+- **Placeholder pages** at `/nivxforge/threat-intel`, `/hunting`, `/knowledge`, `/reports`, `/history` — each documents planned capabilities and an explicit "Governance gate" pointing to `OPERATIONAL_LOOP.md`.
+- **`NivxForgeLayout`** — wraps every NivXForge route with Header + Sidebar + main. Investigate + Governance pages refactored to render inside the layout; removed the old `NivxForgeSubNav` (superseded).
+- All routes lazy-loaded via `React.lazy`.
+
+### Governance impact — zero
+- No backend routes added or changed. No API contract change. No verdict or IOC logic touched. ADR-0007/0008 execution contract unchanged.
+- **NivXForge suite 49/49 PASS** unchanged. Parity contract test unchanged.
+
+### Rationale
+Operator directive 2026-02-28: split roadmap into Track A (Engine · evidence-driven) and Track B (Product · UX-driven). Product-experience decisions (navigation, dashboard, section shell) don't require corpus evidence. Analytical capabilities behind each section still do.
+
+### Files changed
+- Added: `/app/frontend/src/nivxforge/components/NivxForgeSidebar.jsx` · `NivxForgeLayout.jsx` · `pages/DashboardPage.jsx` · `pages/PlaceholderPage.jsx` · `pages/PlaceholderSections.jsx`
+- Modified: `/app/frontend/src/App.js` (added 6 new routes; `/nivxforge` now defaults to Dashboard) · `pages/InvestigatePage.jsx` (uses Layout) · `pages/PreviewPage.jsx` (uses Layout)
+- Removed: `/app/frontend/src/nivxforge/components/NivxForgeSubNav.jsx` (superseded by Sidebar)
+
+### Governance lock still holds
+- Track A next step remains: **implement ADR-0008 → ADR-0007 → 20-case parity validation → Phase 2** — under the Mandatory Verification Pipeline.
+- Track B is done for this phase. Further platform-surface work (Investigation Brain, Attack Story, Evidence Explorer, real TI, etc.) requires evidence-backed ADRs when the time comes.
+
+---
+
+
+
 ## 2026-02-28 · **20-Case Evidence Corpus + ADR-0007/0008 Authorised (implementation deferred to fresh session)**
 
 ### Shipped in this session
