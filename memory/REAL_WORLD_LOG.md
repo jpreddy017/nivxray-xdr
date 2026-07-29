@@ -81,3 +81,187 @@ Cisco XDR · QRadar · Microsoft Defender · Secure Endpoint · Umbrella · Iron
   - Regression tests: `/app/backend/tests/test_ps_ascii_xor_iex_output_selection.py` (3 invariants: handler-correct, engine-name-stable, recipe-replay-not-self-reproducible).
   - Verdict-band separate concern: `MALICIOUS 100/100` on a Hello-World payload is a distinct false-positive driven by YARA-pattern presence alone. Not addressed in this fix — logged as a future capability gap once more evidence accumulates (see Missing-Evidence table).
 
+
+
+---
+
+## Historical case-mining batch · 2026-02-28
+
+**Scope:** First batch of 5 workspace_cases sampled by verdict class (2 Malicious, 1
+Suspicious, 1 Partial, 1 Corrupted), reviewed against the frozen 9-category template
+in `OPERATIONAL_LOOP.md` under the three-tier evidence discipline (Observable /
+Inference / Hypothesis).
+
+Reviews evaluate the *stored* verdict/output/IOCs/MITRE from each case as of the
+saved run. Re-execution of the artifact was not required — the stored output is
+the historical truth being scored.
+
+**Numbering note:** Case 0002 (Meterpreter reverse_http) remains pending Option A
+screenshots. Historical batch is numbered 0003–0007 to reserve 0002 for the
+live-user case in flight.
+
+---
+
+### Case 0003 — 2026-07-21 — PowerShell byte-array shellcode loader (`ToInvestigate`)
+
+- Vendor / Source:            Analyst-saved workspace case `094ca4bf-c6d6…`
+- Sample class:               ps-encoded (byte-array + Base64 + multi-byte XOR + x86 shellcode)
+- Original artifact:          `[Byte[]]$var_code = [System.Convert]::FromBase64String('38uqIyMjQ6rGEvFH…')`
+- NivXRay stored output:      Verdict `Malicious 80/100`; 10 indicators; IOCs `ips=[149.28.81.19]`; MITRE `T1140, T1027, T1055, T1620`; reason `"MSFvenom x86 prologue (cld · call) — first 2 bytes: fc e8"`
+
+**Three-tier evidence separation**
+- Observable evidence:        `fc e8` x86 prologue bytes; decoded shellcode fragments `hnet`, `hwiniThLw&`, `WWWWWh:Vy`, `D$$[[aYZQ`, `RRRSRPh`; IP `149.28.81.19`; multi-byte XOR key recovered; base64 layer peeled
+- Evidence-based inference:   Metasploit / Cobalt Strike x86 stager (WinINet imports, IE9 UA present in shellcode)
+- Analyst hypothesis (excluded from scoring): specific stager variant (reverse_http vs reverse_https), campaign attribution
+
+**Nine-category review**
+
+| Category                | Assessment              | Reasoning                                                                                                     |
+| ----------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Evidence Sufficiency    | **Sufficient**          | Enough observable evidence for a malicious x86 shellcode verdict.                                              |
+| Decode Completeness     | **Pass**                | Base64 + multi-byte XOR peeled; shellcode exposed with recognisable fragments.                                 |
+| IOC Completeness        | **Pass**                | `149.28.81.19` extracted from shellcode; no URL/domain present in the payload to extract.                     |
+| MITRE Mapping           | **Appropriate**         | T1140, T1027, T1055, T1620 all supported by observable evidence.                                              |
+| Verdict                 | **Useful**              | "Malicious 80%" with 10 indicators is appropriate given the evidence.                                          |
+| Explanation Quality     | **Clear**               | Reason cites specific bytes (`fc e8`) and technique labels traceable to indicators.                            |
+| Evidence Traceability   | **Yes**                 | Every indicator maps to an observable fact.                                                                    |
+| Analyst Notes           | —                       | Would have added T1071.001 (App-layer C2 protocol) given IP + UA present in shellcode; not a defect — the shellcode was static and network protocol is an inference. |
+| Action                  | **No Action**           | First observation; no gap identified.                                                                          |
+
+---
+
+### Case 0004 — 2026-07-20 — Multi-layer numeric-obfuscated PowerShell (`Big Whale`)
+
+- Vendor / Source:            Analyst-saved workspace case `308e5a61-20ef…`
+- Sample class:               ps-encoded (Base64 UTF-16 wrapper → numeric-delta obfuscation layer)
+- Original artifact:          `powershell.exe -e XwAnAFwAeAAzAGIAXAB4ADMANABcAHgAMwBjAFwAeAAzADgA…`
+- NivXRay stored output:      Verdict `Malicious 70/100`; 6 indicators; IOCs empty; MITRE `T1059.001, T1027.010, T1027`; reason `"LOLBAS binary observed: powershell.exe"`
+
+**Three-tier evidence separation**
+- Observable evidence:        `powershell.exe -e` prefix; Base64 peeled to UTF-16 hex-escape string; further decode yields numeric-delta layer `;4<8;<8650786…` (unresolved)
+- Evidence-based inference:   Heavy multi-layer obfuscation is itself a strong malicious signal; the final payload is not reached
+- Analyst hypothesis (excluded): whether the final payload is a loader vs cred stealer
+
+**Nine-category review**
+
+| Category                | Assessment              | Reasoning                                                                                                     |
+| ----------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Evidence Sufficiency    | **Partially Sufficient**| Enough to warrant *malicious class*; not enough for specific technique attribution since decode stopped early. |
+| Decode Completeness     | **Partial**             | Decoder terminated at the numeric-delta layer; the final payload was not surfaced.                             |
+| IOC Completeness        | **Partial**             | 0 IOCs — but the unresolved layer prevents extraction. Not a miss on the current decode depth; a decode-depth issue. |
+| MITRE Mapping           | **Appropriate**         | T1059.001 + T1027.010 justified.                                                                              |
+| Verdict                 | **Too Weak**            | 70% Malicious with "LOLBAS binary observed" as the primary indicator understates the case — multi-layer nesting is a stronger signal than LOLBAS presence alone. |
+| Explanation Quality     | **Partial**             | Reason cites LOLBAS but does not flag decode-chain incompleteness — analysts reading this may miss that the true payload is unrevealed. |
+| Evidence Traceability   | **Yes**                 | Indicators tie back to observed facts.                                                                        |
+| Analyst Notes           | —                       | Pattern to watch: does NivXRay's decoder terminate on the numeric-delta layer often? If so, this is a decoder-depth gap. Log as candidate recurring pattern **P-DECODER-DEPTH**. |
+| Action                  | **Monitor**             | First occurrence of the pattern; no ADR.                                                                       |
+
+---
+
+### Case 0005 — 2026-07-19 — Base32 nested benign training string (`April`)
+
+- Vendor / Source:            Analyst-saved workspace case `34c374fb-a32a…`
+- Sample class:               training-artifact (Base32 → Base64 → Base64 → plaintext)
+- Original artifact:          `GQ4SANJQEA2TIIBTGIQDIOJAGUYCANJSEAZTEIBUHEQDIOBAGQ4SAMZSEA2TIIBVGMQDGMRAGQ4SANJQEA2TAIBTGIQDIOJA…`
+- NivXRay stored output:      Verdict `Suspicious 80/100`; 5 indicators; IOCs empty; MITRE `T1027`; reason `"MITRE ATT&CK T1027 — Standalone long base64 blob"`
+- Decoded content:            `"SOC Challenge: If you can read this, you decoded it correctly."`
+
+**Three-tier evidence separation**
+- Observable evidence:        Decoded plaintext is a benign training string; no IOCs; no malicious API surface; no LOLBAS invocation
+- Evidence-based inference:   BENIGN — training / CTF challenge artifact
+- Analyst hypothesis (excluded): None
+
+**Nine-category review**
+
+| Category                | Assessment              | Reasoning                                                                                                     |
+| ----------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Evidence Sufficiency    | **Sufficient**          | Decoded text is unambiguous.                                                                                   |
+| Decode Completeness     | **Pass**                | Full Base32 → Base64 → Base64 chain resolved to plaintext.                                                     |
+| IOC Completeness        | **Pass**                | Nothing to extract (benign content).                                                                          |
+| MITRE Mapping           | **Missing**             | T1027 mapped on encoding **form** alone; content is benign. Applying ATT&CK to a training string overstates severity. |
+| Verdict                 | **Too Strong**          | "Suspicious 80%" for text that literally says "you decoded it correctly." The verdict is driven by encoding structure, not decoded content. |
+| Explanation Quality     | **Poor**                | Reason cites T1027 (structural signal) rather than the benign decoded content the analyst can see.             |
+| Evidence Traceability   | **Yes** (technically)   | Trail is traceable, but traces back to *encoding form* not *decoded content*.                                  |
+| Analyst Notes           | —                       | This is the **verdict-evidence gating** pattern (previously deferred issue, handoff §"Pending"). The gap: verdict driven by structural signal even when decoded content is provably benign. Log as recurring-pattern candidate **P-VERDICT-STRUCTURAL**. |
+| Action                  | **Monitor**             | 1st observation of this specific pattern in the historical batch; no ADR.                                       |
+
+---
+
+### Case 0006 — 2026-07-21 — Trivial "hello world" test case
+
+- Vendor / Source:            Auto-generated test case `9f3b4d83-229c…` (`TEST_case_feb2026_351733`)
+- Sample class:               test-artifact (Base64 → plaintext)
+- Original artifact:          `aGVsbG8gd29ybGQ=`
+- NivXRay stored output:      Verdict card label `Partial Decode` · confidence 25; investigation-summary block inside output text says `"Suspicious · 45/100"`; 0 indicators on verdict card; IOCs empty; MITRE `[]`
+
+**Three-tier evidence separation**
+- Observable evidence:        Decoded plaintext = `"hello world"` (11 chars ASCII); no IOCs; no API surface; no LOLBAS
+- Evidence-based inference:   BENIGN
+- Analyst hypothesis (excluded): None
+
+**Nine-category review**
+
+| Category                | Assessment              | Reasoning                                                                                                     |
+| ----------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Evidence Sufficiency    | **Sufficient**          | Output is 11 ASCII chars, clearly benign.                                                                     |
+| Decode Completeness     | **Pass**                | Base64 correctly resolved.                                                                                    |
+| IOC Completeness        | **Pass**                | Nothing to extract.                                                                                            |
+| MITRE Mapping           | **Appropriate**         | Empty list is correct for benign text.                                                                        |
+| Verdict                 | **Too Strong**          | Summary block claims "Suspicious 45/100" for `"hello world"`. Verdict card label is "Partial Decode" — two conflicting surfaces for the same case. |
+| Explanation Quality     | **Poor**                | Verdict card has 0 indicators, empty `reason`. Summary block asserts 45/100 without cited evidence.            |
+| Evidence Traceability   | **No**                  | "Suspicious 45/100" in summary block is not backed by any indicator.                                          |
+| Analyst Notes           | —                       | Second observation of **P-VERDICT-STRUCTURAL** (encoding form driving verdict). Also surfaces a distinct UI gap: verdict card label ≠ summary block verdict. Marked as note-only since case is a synthetic test. |
+| Action                  | **Monitor**             | Same recurring pattern candidate as Case 0005 (P-VERDICT-STRUCTURAL); no ADR yet.                             |
+
+---
+
+### Case 0007 — 2026-07-18 — AMSI-bypass PowerShell with corrupted GZIP inner layer (`Corrupted_Gzip`)
+
+- Vendor / Source:            Analyst-saved workspace case `301f850c-43d6…`
+- Sample class:               ps-encoded + gzip (corrupted) — AMSI / ScriptBlockLogging bypass in outer PowerShell
+- Original artifact:          `-noni -nop -w hidden -c $smrA=((''+'E'+'n{0}b'+'leSc'+'ri{2'+'}tBloc{3}{1}ogging')-f'a','L','p','k'); … $zeXlF=[Ref].Assembly.GetType(…) …`
+- NivXRay stored output:      Verdict card label `None` · empty reason · 0 indicators; output = `[GZIP_CORRUPT] error: Error -3 while decompressing data`; IOCs `domains=[stem.ma]`; MITRE `null`
+
+**Three-tier evidence separation**
+- Observable evidence:        `EnableScriptBlockLogging` string being reconstructed via `-f` format-string obfuscation in the OUTER (successfully decoded) PowerShell; `[Ref].Assembly.GetType(…)` reflection reference; `-noni -nop -w hidden` execution flags; inner gzip layer corrupt
+- Evidence-based inference:   Anti-logging / Defender-tamper pattern (T1562.001 or T1562.006); reflection-based bypass — commonly seen in loader stagers
+- Analyst hypothesis (excluded): Which specific bypass family (Empire, PowerSploit, custom)
+
+**Nine-category review**
+
+| Category                | Assessment              | Reasoning                                                                                                     |
+| ----------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Evidence Sufficiency    | **Sufficient**          | The RAW INPUT alone contains enough evidence for at least Suspicious — decode failure of the inner layer does not remove upstream observations. |
+| Decode Completeness     | **Fail**                | Gzip layer corrupt; salvage disabled. Acceptable per corpus policy.                                            |
+| IOC Completeness        | **Partial**             | Extracted `stem.ma` domain, but missed the primary signal: `EnableScriptBlockLogging` reconstruction is present in the input.  |
+| MITRE Mapping           | **Missing**             | Should have flagged **T1562.001** (Impair Defenses) or **T1562.006** (Indicator Blocking). Instead: MITRE = `null`. |
+| Verdict                 | **Too Weak**            | Verdict card label `None`. When one decoder step fails, upstream findings appear to be discarded rather than preserved. |
+| Explanation Quality     | **Poor**                | 0 indicators, empty reason, no analyst-facing explanation of why the verdict is null.                          |
+| Evidence Traceability   | **No**                  | No traceable indicators produced.                                                                              |
+| Analyst Notes           | —                       | This is a distinct pattern from P-VERDICT-STRUCTURAL. It is **verdict-collapse-on-chain-failure**: when a mid-chain decoder fails, the platform emits a null/None verdict card even when the raw input contains strong signals. Log as candidate recurring pattern **P-CHAIN-FAILURE-VERDICT-COLLAPSE**. |
+| Action                  | **Monitor**             | First observation of this pattern; no ADR.                                                                     |
+
+---
+
+## Batch summary · patterns emerging across Cases 0001–0007
+
+Three candidate recurring patterns identified. **None** yet meets the ≥3-case
+threshold for ADR drafting. All remain **Monitor** only.
+
+| Pattern code                          | Description                                                                                       | Cases observed          | Count |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------- | ----- |
+| **P-VERDICT-STRUCTURAL**              | Verdict driven by encoding structure (base64/base32 length, YARA form) even when decoded content is benign. | 0001 (aside), 0005, 0006 | 2–3   |
+| **P-DECODER-DEPTH**                   | Decoder terminates at an intermediate obfuscation layer; final payload unrevealed.                | 0004                    | 1     |
+| **P-CHAIN-FAILURE-VERDICT-COLLAPSE**  | When a mid-chain decoder step fails, upstream findings are dropped and verdict card goes to null/None. | 0007                    | 1     |
+
+**Note on P-VERDICT-STRUCTURAL:** Case 0001's Case-0001 entry (top of this file)
+explicitly noted this as a *"separate concern, not addressed in this fix, logged
+as a future capability gap once more evidence accumulates."* Case 0005 and Case
+0006 are new independent observations. Count is currently **2 unambiguous** (0005,
+0006) plus 1 partial (0001's aside). If Case 0002 (in flight) or any subsequent
+case exhibits the same pattern, the ≥3 threshold will be crossed and an ADR
+proposal (ADR-0007 · Verdict-Evidence Gating) will be drafted.
+
+**No code changes made in this batch.** This is evidence-collection only, per the
+2026-02-28 operator directive.
+
