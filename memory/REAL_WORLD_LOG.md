@@ -741,3 +741,58 @@ Two patterns at count = 2 are one independent observation away from ADR:
 5. **The corpus should now be treated as a permanent asset**, not a snapshot.
    Every future real case appends to it under the same 9-category discipline.
 
+
+---
+
+## Case 0002 — LIVE · Meterpreter reverse_http · encoded PS + gzip + XOR shellcode (2026-02-28)
+
+- Source: Operator-supplied live run on `/nivxforge/investigate` (Auto Investigate mode)
+- Sample class: **ps-encoded → gzip → base64 → multi-byte-XOR → x86 shellcode**
+- Verified via cross-surface comparison against Workspace `/analyze` output on the same artifact.
+
+### Observable evidence (Workspace + NivXForge · they agree on this)
+- Base64 → GZIP → Base64 → multi-byte-XOR chain successfully peeled
+- Decoded to 833-byte x86 shellcode (Workspace auto-labels: "SHELLCODE DECODED — MSFvenom cld;call — x86 stager")
+- C2 IP `149.28.81.19` extracted from shellcode
+- User-Agent `Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; BOIE9;PTBR)` — canonical Meterpreter reverse_http stager UA
+- Inner recovered PowerShell = PowerSploit-style reflective loader (`GetProcAddress` via `Microsoft.Win32.UnsafeNativeMethods` reflection)
+
+### Confirmed defects (operator-verified from screenshots)
+
+| ID | Defect | Severity | Pattern |
+|---|---|---|---|
+| **C** | L-FINAL DECODED PAYLOAD panel renders raw shellcode bytes as garbled text; Workspace auto-switches to HEX + Capstone disassembly view for the same bytes and adds an explicit "SHELLCODE DECODED" banner. **NivXForge ≠ Workspace on presentation**, though backend agrees. | ⭐⭐⭐⭐⭐ | **P-SHELLCODE-PRESENTATION-GAP** (new · 1st) — NivXForge does not reuse Workspace's shellcode-detection + auto-view-switch rendering |
+| **A** | Two different confidence values on the same page: SOC Verdict card = 70%, Investigation Summary block = 90%. | ⭐⭐⭐⭐ | **P-VERDICT-DUAL-SURFACE** — now 3rd occurrence (0006, 0013, 0002) → **crosses ADR threshold** |
+| **B** | Analyst Report MITRE row shows `T1055 · T1055` — same technique duplicated. | ⭐⭐⭐ | **P-MITRE-DEDUP-MISS** (new · 1st) — rendering / dedup defect |
+| D | T1620 (Reflective Code Loading) not surfaced in Analyst Report MITRE list despite Semantic Intent block referencing reflection. | ⭐⭐ | **NOT LOGGED as defect** — operator directive: verify backend emission vs UI filtering before classifying. Deferred to backend inspection in a future session. |
+
+### Nine-category review (aggregated across the defects)
+
+| Category | Assessment | Reason |
+|---|---|---|
+| Evidence Sufficiency | Sufficient | Shellcode + UA + IP are unambiguous |
+| Decode Completeness | Pass | Full chain peeled correctly |
+| IOC Completeness | Pass | `149.28.81.19` extracted (Meterpreter UA extracted by Workspace but not surfaced as IOC in either — noted, not scored as defect this batch) |
+| MITRE Mapping | Partial | Under-selected (only `T1055 · T1055` in Analyst Report); other techniques present elsewhere — see Defect B |
+| Verdict | Useful (label) · Inconsistent (confidence) | Malicious label correct on both surfaces; **confidence disagrees**: 70% vs 90% (Defect A) |
+| Explanation Quality | Partial | Analyst Report clear; L-FINAL rendering (Defect C) misleads |
+| Evidence Traceability | Partial | Verdict traceable; L-FINAL layer traceability broken by mislabelled panel |
+| Analyst Notes | See defect table + presentation observations | — |
+| Action | **Monitor + 1 ADR threshold crossed (P-VERDICT-DUAL-SURFACE)** | ADR-0009 candidate ready to draft on operator directive |
+
+### Pattern-register updates (post-Case 0002)
+
+| Pattern | Count | First / Last | Component | Status change |
+|---|---|---|---|---|
+| P-VERDICT-DUAL-SURFACE | 3 (0006, 0013, **0002**) | 0006 / 0002 | Verdict rendering | **≥3 threshold reached — ADR-0009 candidate (Verdict Surface Consistency)** |
+| P-SHELLCODE-PRESENTATION-GAP | 1 (0002) | 0002 / 0002 | NivXForge InvestigatePage · shellcode rendering | Monitor (new) |
+| P-MITRE-DEDUP-MISS | 1 (0002) | 0002 / 0002 | Analyst Report MITRE row rendering | Monitor (new) |
+
+### Operator directive captured (2026-02-28)
+
+- **Defect C** is the most serious — Workspace shows structured shellcode intel (C2 IP + UA extracted, Capstone disassembly available); NivXForge shows garbled text with a misleading title. This is a Track-B UX gap since the underlying backend is correct. Not a parity-contract violation, but a violation of the North Star (analyst-understanding time).
+- **Defect A** — the single-canonical-verdict-object rearchitecture the operator described would eliminate 70%/90% conflicts and the two-surface disagreement class of bugs at its root. That would be part of the ADR-0009 scope.
+- **Defect D** — deferred pending backend inspection.
+
+### No code changes made in this entry.
+
