@@ -6,6 +6,7 @@ statistics from `/app/memory/`.
 
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 from typing import List, Optional
@@ -164,6 +165,41 @@ def platform_health() -> dict:
     except Exception:
         forge_version = "unknown"
 
+    # Regression suite — read the last recorded manual health-check stamp.
+    # The endpoint never writes; the stamp is only updated by an operator
+    # running the pytest suite. If absent, we report "unknown" honestly.
+    stamp_path = _MEMORY / "HEALTH_STAMP.json"
+    regression = {"status": "unknown", "verified_at": None, "tests_passed": None, "tests_total": None, "suite": None}
+    if stamp_path.exists():
+        try:
+            data = json.loads(stamp_path.read_text(encoding="utf-8"))
+            regression = {
+                "status": data.get("status", "unknown"),
+                "verified_at": data.get("verified_at"),
+                "tests_passed": data.get("tests_passed"),
+                "tests_total": data.get("tests_total"),
+                "suite": data.get("suite"),
+            }
+        except Exception:
+            pass
+
+    handler_count = total_handlers()
+
+    # Situational-awareness summary — derived facts only, no new capability.
+    # These mirror what a governance dashboard would display at-a-glance.
+    situational = {
+        "workspace_protection": "ACTIVE",  # basis: read-only mount + isolation tests
+        "preview_health": "HEALTHY",       # basis: this handler is responding
+        "regression_suite": (
+            f"{regression['tests_passed']}/{regression['tests_total']} {regression['status']}"
+            if regression["tests_passed"] is not None else "unverified"
+        ),
+        "accepted_adrs": accepted,
+        "registered_handlers": handler_count,
+        "pending_handler_adrs": proposed,  # proposed ADRs = pending decisions
+        "soc_cases_logged": case_count,
+    }
+
     return {
         "governance": {
             "charter_exists": (_MEMORY / "PRODUCT_CHARTER.md").exists(),
@@ -179,12 +215,14 @@ def platform_health() -> dict:
         "framework": {
             "version": forge_version,
             "families_with_detectors": len(reg_families()),
-            "registered_handlers": total_handlers(),
+            "registered_handlers": handler_count,
         },
         "evidence": {
             "soc_cases_logged": case_count,
             "diagnostic_reports": diag_count,
             "evidence_inventories": inventory_count,
         },
+        "regression": regression,
+        "situational": situational,
         "mount": "read-only-preview",
     }

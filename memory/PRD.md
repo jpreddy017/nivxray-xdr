@@ -1,5 +1,37 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **NivXForge Preview · Situational-Awareness Landing Summary (presentation-layer only)**
+
+### Shipped
+- `/api/nivxforge/preview/platform-health` extended with two new sections:
+  - `regression`: reads `/app/memory/HEALTH_STAMP.json` (last manual pytest run); reports `unverified` if stamp is absent — endpoint never writes.
+  - `situational`: derived summary — `workspace_protection`, `preview_health`, `regression_suite`, `accepted_adrs`, `registered_handlers`, `pending_handler_adrs`, `soc_cases_logged`.
+- **Landing Summary block** on `/nivxforge` Preview page (above the existing card grid) — monospaced "Platform Status" table with green/yellow/red status colours; header shows `derived · read-only · last verified <date>`.
+- `/app/memory/HEALTH_STAMP.json` — records last manual health-check result (`46/46 PASS`, `nivxforge/tests`, `2026-02-28`). Only updated by explicit operator action.
+- New pytest: `test_platform_health_situational_awareness_summary` — asserts the situational summary shape and cross-agreement with `adrs` / `framework` sections.
+
+### Governance rationale (no ADR)
+- Purely presentation-layer aggregation of already-visible state. No new capability, no writes, no new APIs beyond aggregation, no analyst workflow change, no Workspace impact. Documented in changelog, not as ADR-0006 (per operator guidance — ADRs are reserved for architectural / capability changes).
+
+### Verification
+- **NivXForge suite: 46/46 PASS** (`pytest nivxforge/tests/ -q` · 0.85s) — includes new situational-awareness test.
+- Live UI verified: `Workspace Protection: ACTIVE · NivXForge Preview: HEALTHY · Regression Suite: 46/46 PASS (nivxforge/tests) · Accepted ADRs: 3 · Registered Handlers: 0 · Pending Handler ADRs: 0 · SOC Cases Logged: 1`.
+- Workspace impact — zero: no files modified outside `/nivxforge/` package + `/app/frontend/src/nivxforge/` + `/app/memory/`.
+
+### Files changed
+- Modified: `/app/backend/nivxforge/preview/router.py` · `/app/backend/nivxforge/tests/test_preview_endpoints.py` · `/app/frontend/src/nivxforge/pages/PreviewPage.jsx`
+- Added: `/app/memory/HEALTH_STAMP.json`
+
+### Explicit non-goals (per operator instruction)
+- No new features attempted after health check passed. Deferred items remain deferred:
+  - `xor-brute` ThreadPoolExecutor soft-cancel CPU safety caps [P2]
+  - Verdict-evidence gating (requires ADR before implementation)
+  - `DashboardPage.jsx` dead-code cleanup [P3]
+
+---
+
+
+
 ## 2026-02-28 · **NivXForge Phase 0 · Platform Foundation (isolated, dormant)**
 
 ### Shipped

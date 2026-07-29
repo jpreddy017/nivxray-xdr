@@ -80,7 +80,7 @@ def test_platform_health_reports_all_sections():
     r = c.get("/api/nivxforge/preview/platform-health")
     assert r.status_code == 200
     body = r.json()
-    for key in ("governance", "adrs", "framework", "evidence", "mount"):
+    for key in ("governance", "adrs", "framework", "evidence", "mount", "situational", "regression"):
         assert key in body, f"platform-health missing section: {key}"
     # ADRs accepted count includes 0001, 0004, 0005 at time of writing.
     assert body["adrs"]["accepted"] >= 3
@@ -89,6 +89,28 @@ def test_platform_health_reports_all_sections():
     # Case 0001 is logged in REAL_WORLD_LOG.md.
     assert body["evidence"]["soc_cases_logged"] >= 1
     assert body["mount"] == "read-only-preview"
+
+
+def test_platform_health_situational_awareness_summary():
+    """Situational-awareness summary — derived, read-only, no new capability."""
+    c = _client()
+    r = c.get("/api/nivxforge/preview/platform-health")
+    assert r.status_code == 200
+    sa = r.json()["situational"]
+    # These keys back the Landing Summary card on the Preview UI.
+    for key in (
+        "workspace_protection", "preview_health", "regression_suite",
+        "accepted_adrs", "registered_handlers", "pending_handler_adrs",
+        "soc_cases_logged",
+    ):
+        assert key in sa, f"situational missing key: {key}"
+    assert sa["workspace_protection"] == "ACTIVE"
+    assert sa["preview_health"] == "HEALTHY"
+    # accepted_adrs and situational must agree with the adrs section.
+    body = r.json()
+    assert sa["accepted_adrs"] == body["adrs"]["accepted"]
+    assert sa["pending_handler_adrs"] == body["adrs"]["proposed"]
+    assert sa["registered_handlers"] == body["framework"]["registered_handlers"]
 
 
 def test_preview_endpoints_are_get_only():

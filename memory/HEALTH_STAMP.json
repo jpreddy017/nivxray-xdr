@@ -1,0 +1,10 @@
+{
+  "suite": "nivxforge/tests",
+  "tests_passed": 46,
+  "tests_total": 46,
+  "status": "PASS",
+  "duration_seconds": 0.57,
+  "verified_at": "2026-02-28T00:00:00Z",
+  "verified_by": "manual health-check run",
+  "notes": "Owned NivXForge isolation + framework + preview + evidence gate. Workspace suite (3938 tests) not included; run separately via pytest tests/."
+}

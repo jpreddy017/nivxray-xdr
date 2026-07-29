@@ -32,6 +32,20 @@ const S = {
   pre: { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, whiteSpace: "pre-wrap", background: "var(--bg, #020617)", border: "1px solid var(--border, #1e293b)", padding: 14, borderRadius: 8, maxHeight: 520, overflow: "auto", color: "var(--text, #e2e8f0)" },
   section: { marginTop: 22 },
   err: { color: "#f87171", fontSize: 13 },
+
+  // Situational-awareness summary — monospaced status table, read-only.
+  saWrap: { marginBottom: 26, background: "var(--panel, #0f172a)", border: "1px solid var(--border, #1e293b)", borderRadius: 10, padding: "18px 20px" },
+  saHead: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 },
+  saTitle: { fontSize: 12, letterSpacing: "0.22em", color: "var(--text-secondary, #94a3b8)", textTransform: "uppercase", fontWeight: 600 },
+  saSub: { fontSize: 11, color: "var(--text-secondary, #94a3b8)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" },
+  saTable: { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 13, display: "grid", gridTemplateColumns: "minmax(220px, max-content) 1fr", rowGap: 4, columnGap: 24 },
+  saLabel: { color: "var(--text-secondary, #94a3b8)" },
+  saValueActive: { color: "#4ade80", fontWeight: 600 },
+  saValueHealthy: { color: "#4ade80", fontWeight: 600 },
+  saValuePass: { color: "#4ade80", fontWeight: 600 },
+  saValueUnverified: { color: "#facc15", fontWeight: 600 },
+  saValueFail: { color: "#f87171", fontWeight: 600 },
+  saValueNeutral: { color: "var(--text, #e2e8f0)" },
 };
 
 function statusChip(status) {
@@ -98,6 +112,49 @@ export default function PreviewPage() {
           </div>
           {err ? <div style={{ ...S.banner, borderColor: "#f87171", color: "#f87171" }}>{err}</div> : null}
         </div>
+
+        {health?.situational ? (
+          <div style={S.saWrap} data-testid="situational-awareness">
+            <div style={S.saHead}>
+              <div style={S.saTitle}>Platform Status</div>
+              <div style={S.saSub}>
+                derived · read-only · {health.regression?.verified_at
+                  ? `last verified ${new Date(health.regression.verified_at).toISOString().slice(0, 10)}`
+                  : "unverified"}
+              </div>
+            </div>
+            <div style={S.saTable}>
+              <div style={S.saLabel}>Workspace Protection</div>
+              <div style={S.saValueActive} data-testid="sa-workspace-protection">{health.situational.workspace_protection}</div>
+
+              <div style={S.saLabel}>NivXForge Preview</div>
+              <div style={S.saValueHealthy} data-testid="sa-preview-health">{health.situational.preview_health}</div>
+
+              <div style={S.saLabel}>Regression Suite</div>
+              <div
+                style={health.situational.regression_suite.includes("PASS") ? S.saValuePass
+                     : health.situational.regression_suite === "unverified" ? S.saValueUnverified
+                     : S.saValueFail}
+                data-testid="sa-regression-suite"
+              >
+                {health.situational.regression_suite}
+                {health.regression?.suite ? <span style={{ opacity: 0.6, fontWeight: 400 }}> ({health.regression.suite})</span> : null}
+              </div>
+
+              <div style={S.saLabel}>Accepted ADRs</div>
+              <div style={S.saValueNeutral} data-testid="sa-accepted-adrs">{health.situational.accepted_adrs}</div>
+
+              <div style={S.saLabel}>Registered Handlers</div>
+              <div style={S.saValueNeutral} data-testid="sa-registered-handlers">{health.situational.registered_handlers}</div>
+
+              <div style={S.saLabel}>Pending Handler ADRs</div>
+              <div style={S.saValueNeutral} data-testid="sa-pending-handler-adrs">{health.situational.pending_handler_adrs}</div>
+
+              <div style={S.saLabel}>SOC Cases Logged</div>
+              <div style={S.saValueNeutral} data-testid="sa-soc-cases">{health.situational.soc_cases_logged}</div>
+            </div>
+          </div>
+        ) : null}
 
         <div style={S.grid}>
           <div style={S.card} data-testid="card-platform-health">
