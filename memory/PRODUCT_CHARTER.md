@@ -378,6 +378,28 @@ Instead run one review session that answers only three questions:
 The answers to these three questions define Phase 1b's scope.
 Anything not required by the answers is deferred.
 
+### Corpus quality review (every 20–30 cases)
+
+_Counts alone don't tell you whether the corpus is trustworthy.
+Before treating the Missing-Evidence tally as roadmap evidence,
+run a short quality pass on the corpus itself and answer:_
+
+1. **Representativeness** — are these cases representative of the
+   environments NivXRay is meant to serve?
+2. **Source balance** — are we over-represented by a single alert
+   source (e.g., 40 Cisco XDR cases and 2 Defender)?
+3. **Family balance** — are we over-represented by a single
+   malware / behaviour family (e.g., 25 encoded-PowerShell and
+   nothing else)?
+4. **Inter-analyst agreement** — would another experienced
+   analyst reviewing the same artifacts reach the same outcome
+   bucket? If uncertain, mark the case `needs second review`
+   before counting it toward the tally.
+
+If any answer indicates skew, the corpus is **not yet ready** to
+justify Phase 1b, regardless of raw case count. Broaden the
+collection before revisiting the scorecard.
+
 ### Project Health Scorecard (updated after every review session)
 
 _This is the objective go / no-go signal. Do not open Phase 1b
