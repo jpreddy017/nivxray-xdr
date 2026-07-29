@@ -41,6 +41,7 @@ reaches Active).
 | NivXForge Analyst-Parity Surface | ADR-0006 (Phase 1) | Active | (positioning) | v1 | `test_parity_endpoints` | — | NivXForge frontend | v1.6.0 | — |
 | **Verdict-Evidence Gating** | ADR-0007 | **Accepted (impl pending)** | 0005, 0006, 0013, 0017, 0022 | v1 | see ADR §6 | 0003, 0009, 0018, 0019, 0020 | Verdict Engine | pending | — |
 | **IOC Extraction Validation** | ADR-0008 | **Accepted (impl pending)** | 0007, 0011, 0012, 0014 | v1 | see ADR §6 | 0009 | IOC Extractor | pending | — |
+| **Canonical Investigation View Model** | ADR-0009 | **Proposed (impl PARKED behind Track A)** | 0002, 0006, 0013 | v1 | see ADR §6 | 0003, 0009, 0018, 0019, 0020 | NivXForge frontend rendering | pending | — |
 
 ### Lifecycle field semantics
 
