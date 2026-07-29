@@ -232,4 +232,55 @@ def from_analysis_result(result: Dict[str, Any], *,
         if fs.verdict:
             fs.stages.append(StageRecord(name="reasoning", status="completed"))
 
+    # ── /api/v2/auto-investigate FALLBACK · read its distinct envelope ──
+    # ADR-0009 parity remediation (2026-02-28): auto-investigate returns
+    # `executive_card` (not `verdict_card`), `decode_pipeline.chains[].layers`
+    # (not `layer_trace`), and `mdr_investigation.recommendations`.  Read
+    # them here so the CIM has content parity across both endpoints.
+    if not fs.verdict and isinstance(result.get("executive_card"), dict):
+        ec = result["executive_card"]
+        verdict_label = str(ec.get("verdict_pretty") or ec.get("verdict") or "").strip()
+        if verdict_label:
+            fs.verdict = VerdictRecord(
+                label=verdict_label.title() if verdict_label.islower() else verdict_label,
+                confidence_pct=int(ec.get("confidence") or 0),
+                reasons=[str(ec.get("because") or "")[:200]] if ec.get("because") else [],
+            )
+    if not fs.decoder_chain and isinstance(result.get("decode_pipeline"), dict):
+        chains = result["decode_pipeline"].get("chains") or []
+        if isinstance(chains, list):
+            for ch in chains:
+                layers = (ch or {}).get("layers") or []
+                for i, lyr in enumerate(layers):
+                    if not isinstance(lyr, dict):
+                        continue
+                    fs.decoder_chain.append(DecoderLayer(
+                        idx=len(fs.decoder_chain),
+                        op=str(lyr.get("decoder") or "decode"),
+                        input_kind="", output_kind="",
+                        output_preview=str(lyr.get("preview") or "")[:200],
+                    ))
+                    # Sub-IOCs recovered by each layer
+                    sub = lyr.get("sub_iocs") or {}
+                    if isinstance(sub, dict):
+                        for k, vs in sub.items():
+                            if not isinstance(vs, list):
+                                continue
+                            kind = "url" if "url" in k else "domain" if "domain" in k else "ip" if "ip" in k else "hash" if k in ("md5","sha1","sha256") else None
+                            if not kind:
+                                continue
+                            for v in vs:
+                                if isinstance(v, str) and v:
+                                    fs.iocs.append(IOCRecord(
+                                        kind=kind, value=v,
+                                        normalized_value=v.lower() if kind in ("domain","url","email") else v,
+                                        stage_passed=["syntactic","context"],
+                                    ))
+
+    # ── Adapter for mdr_investigation.recommendations ──
+    if isinstance(result.get("mdr_investigation"), dict):
+        for rec in (result["mdr_investigation"].get("recommendations") or [])[:5]:
+            if isinstance(rec, dict) and rec.get("title"):
+                fs.reasoning_notes.append(str(rec.get("title") or "")[:200])
+
     return fs

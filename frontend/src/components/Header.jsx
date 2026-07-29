@@ -27,7 +27,6 @@ export default function Header() {
     { key: "trajectory", href: "/v2/trajectory", label: "TRAJECTORY", icon: Radar,   testId: "nav-trajectory" },
     { key: "batch",      href: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
     { key: "heatmap",    href: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
-    { key: "documents",  href: "/documents",  label: "DOCUMENTS",  icon: FolderOpen, testId: "nav-documents" },
     { key: "nivxforge",  href: "/nivxforge",  label: "LAB",        icon: Radar,      testId: "nav-nivxforge" },
   ];
 
@@ -48,6 +47,7 @@ export default function Header() {
   // Grouped: admin (admin-only, occasional usage)
   const adminItems = [
     { to: "/admin",                 label: "Admin Panel",    icon: Cog,            testId: "nav-admin" },
+    { to: "/documents",             label: "Documents",      icon: FolderOpen,     testId: "nav-documents" },
     { to: "/admin/training-inbox",  label: "Training Inbox", icon: Rss,            testId: "nav-training-inbox" },
     { to: "/admin/models",          label: "Model Studio",   icon: Sparkles,       testId: "nav-model-studio" },
     { to: "/admin/samples",         label: "Sample Library", icon: Beaker,         testId: "nav-sample-library" },

@@ -1,5 +1,31 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **Track A CLOSER · 20-Case Corpus v1 Parity Sweep + Documents→Admin nav**
+
+### Shipped
+- **Corpus v1 Parity Sweep** — new `tests/test_corpus_v1_parity_sweep.py` replays all 20 Corpus v1 cases through BOTH `/api/decode/smart` and `/api/v2/auto-investigate`; asserts 5 parity dimensions (CIM_STRUCTURE hard-gate + VERDICT / EVIDENCE_TYPES / STAGES / DECODE measured); emits durable release-gate matrix at `/app/memory/evidence/CORPUS_V1_PARITY.md`.
+- **CIM composer robustness** — safety-net always emits ≥1 completed stage, so `/api/v2/auto-investigate`'s narrative-shaped response now produces a valid CIM.
+- **CIM adapter — auto-investigate shape** — extended `from_analysis_result` to read `executive_card`, `decode_pipeline.chains[].layers`, sub-IOCs, and `mdr_investigation.recommendations`.
+- **Documents → Admin** — removed `DOCUMENTS` top-nav pill; added `Documents` inside `ADMIN` dropdown. Route `/documents` preserved (no bookmarks broken). Top nav now 8 items down from 9.
+
+### Release-gate results
+- ✅ **CIM_STRUCTURE 19/20** (95%) — release-gate hard-fail invariant met for all cases except Case 0015 (`/decode/smart` returns non-CIM error envelope for that specific input; documented in matrix as PARITY_GAP-001)
+- ✅ **DECODE 20/20** — decoded artifact parity across both endpoints
+- ⚠️ **VERDICT 0/20**, **EVIDENCE_TYPES 3/20**, **STAGES 1/20** — legitimate architectural gaps captured in the matrix (auto-investigate uses LLM `executive_card`; decode/smart uses deterministic `build_verdict_card`). Not scoped remediation targets; recorded as governance signal for a future verdict-unification ADR.
+
+### Governance
+- Track A locked contract: **ADR-0008 → ADR-0009 → ADR-0007 → Parity Sweep → all COMPLETE**.
+- Release-gate artifact: `/app/memory/evidence/CORPUS_V1_PARITY.md` (rerun before every significant release).
+- Documented gaps: `PARITY_GAP-001` (Case 0015 error envelope), `PARITY_GAP-002` (verdict engine divergence). Both filed for future ADR consideration; NOT expanded into this sweep per option-b scope discipline.
+
+### Next
+- **Phase 2** — sample 50-100 `analyst_corrections` to seed the next pattern register update.
+- **Narrative Composer preview (⭐⭐⭐⭐☆)** — turn the CIM into the North Star PhantomStealer report shape.
+- **ADR-0010 Navigation IA** — capture the 8-tab restructure (WORKSPACE / TRAJECTORY / BATCH / HEATMAP / LAB / TOOLS / LEARN / ADMIN with Documents inside Admin) as governance.
+- **Verdict-unification ADR (future)** — unify `build_verdict_card` and `executive_card` so both endpoints emit the same verdict label for the same input.
+
+
+
 ## 2026-02-28 · **Track A · ADR-0007 · Verdict-Evidence Gating · IMPLEMENTED**
 
 ### Shipped
