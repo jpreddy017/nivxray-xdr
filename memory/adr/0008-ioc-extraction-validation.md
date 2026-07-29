@@ -116,3 +116,23 @@ Before promotion from Proposed → Accepted, the operator MUST review:
 - **Full Workspace pytest suite** (`/app/backend/tests/`, ~3938 tests) must remain green.
 - Every emitted IOC MUST carry `source_offset`, `source_length`, `stage_passed`, `context_snippet` per §2 Stage 3.
 - Zero changes to API contract (`iocs` field shape unchanged; only content differs).
+
+## 7 · Exit Criteria (success gate — added by operator 2026-02-28)
+
+Implementation is complete **only if all of the following are true**:
+
+1. All pinned regression cases (0007, 0011, 0012, 0014) pass — invalid extracts
+   are rejected as specified.
+2. Non-regression Case 0009 remains unchanged — `georgeprapas.com` still extracted.
+3. Full Workspace regression suite passes (currently ~3938 tests).
+4. No API contract changes — `iocs` response shape stable.
+5. **No measurable performance regression** — IOC-extraction latency delta ≤ 5%
+   against a pre-change baseline captured on the pinned cases.
+6. Every extracted IOC retains `source_offset`, `source_length`, `stage_passed`,
+   `context_snippet` provenance per §2 Stage 3.
+7. The parity contract test (`nivxforge/tests/test_parity_endpoints.py`)
+   remains green — Workspace and NivXForge continue to consume the same
+   endpoint, and both surfaces receive the improved IOC output identically.
+
+Any failure of any criterion above blocks merge. Partial success is not
+"success" for this ADR.

@@ -120,3 +120,23 @@ Before promotion from Proposed → Accepted, the operator MUST review:
 - Full Workspace pytest suite must remain green.
 - Structural indicators MUST still surface in explanations (they are informational, not verdict-driving).
 - Zero API contract change — only verdict labels and confidence differ for structurally-driven cases.
+
+## 7 · Exit Criteria (success gate — added by operator 2026-02-28)
+
+Implementation is complete **only if all of the following are true**:
+
+1. All pinned regression cases (0005, 0006, 0013, 0017, 0022) produce the
+   expected verdict changes per §6 pinned deltas.
+2. Non-regression cases (0003, 0009, 0018, 0019, 0020) remain unchanged in
+   verdict label and confidence within a ±5-point band.
+3. **No increase in false negatives** across the reference-quality corpus —
+   verdicts previously scored "Useful" MUST NOT drop below "Useful" after
+   the change.
+4. Full Workspace regression suite passes (currently ~3938 tests).
+5. No API contract changes.
+6. The parity contract test (`nivxforge/tests/test_parity_endpoints.py`)
+   remains green — Workspace and NivXForge continue to consume the same
+   endpoint, and both surfaces receive the same verdict.
+
+Any failure of any criterion above blocks merge. Partial success is not
+"success" for this ADR.

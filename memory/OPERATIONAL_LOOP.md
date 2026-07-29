@@ -165,3 +165,54 @@ Worked example (Case 0002 pattern):
 - **`REASONING_ENGINE_VISION.md`** defines the long-horizon target for analytical
   quality (Analyst Brain).
 - **This document** defines the *daily operating loop* that connects the two.
+
+---
+
+## Implementation-phase rules (adopted 2026-02-28 · applies to every accepted ADR)
+
+Once an ADR is Accepted and moves to implementation:
+
+### Rule 1 · Every ADR MUST carry an Exit Criteria section
+No ADR is "implemented" without an explicit success gate. The gate MUST include:
+pinned regression cases with expected outcomes; non-regression pins; full
+Workspace regression suite requirement; API-contract stability; and — where
+applicable — a performance-regression ceiling. Partial success is not success.
+
+### Rule 2 · Sequential implementation when multiple ADRs are queued
+If two or more ADRs are simultaneously Accepted:
+- Land them **one at a time**, in the order specified by their §7 sequencing.
+- Between ADRs, run each ADR's pinned regression suite AND the full Workspace
+  suite AND the parity contract test.
+- Do **NOT** overlap ADR implementation with Phase-2 evidence-collection
+  activities (e.g., sampling new corpora). Sequential attribution makes every
+  behavioural change traceable to the ADR that caused it.
+
+### Rule 3 · Parity contract remains a merge gate
+Every implementation MUST leave `nivxforge/tests/test_parity_endpoints.py`
+green. The invariant is:
+
+```
+                    Shared FastAPI backend
+                            │
+             ┌──────────────┴──────────────┐
+             │                             │
+        Workspace                      NivXForge
+             │                             │
+             └────── Same analytical ──────┘
+                       results
+```
+
+The goal is not identical UI — it is identical analytical results from the
+shared backend. If an ADR would break this invariant, it must be re-scoped
+before implementation.
+
+### Rule 4 · Post-implementation verification
+After both/all ADRs in a batch are landed:
+1. Run each ADR's pinned regression.
+2. Run the full Workspace regression suite.
+3. Run the NivXForge suite.
+4. Run the parity contract test.
+5. Re-evaluate the cases the ADR was drafted to fix — confirm they now behave
+   as the ADR predicted.
+6. Only after (1–5) are all green: proceed to the next Phase (e.g. new corpus
+   sampling, Analyst Scorecard, etc.).
