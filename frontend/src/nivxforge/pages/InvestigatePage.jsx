@@ -190,9 +190,7 @@ export default function InvestigatePage() {
     if (!canSubmit) return;
     setLoading(true); setErr(""); setResult(null); setMode("auto");
     try {
-      const r = await api.post("/v2/auto-investigate", {
-        incident_text: input, focus: focus || null,
-      });
+      const r = await api.post("/v2/auto-investigate", { incident_text: input, focus: focus || null });
       setResult(r.data);
     } catch (e) {
       setErr(e?.friendlyMessage || e?.response?.data?.detail || String(e?.message || e));
@@ -217,7 +215,7 @@ export default function InvestigatePage() {
   // ─── Result renderers ──────────────────────────────────────────────
   const decodeResult = mode === "decode" && result ? result : null;
   const autoResult   = mode === "auto"   && result ? result : null;
-  const brainInvestigation = decodeResult?.investigation || autoResult?.investigation || autoResult;
+  const brainInvestigation = decodeResult?.investigation;
 
   return (
     <NivxForgeLayout>
@@ -321,21 +319,130 @@ export default function InvestigatePage() {
 
         {autoResult ? (
           <div data-testid="investigate-result-auto">
-            {brainInvestigation ? (
-              <div style={S.section}>
-                <InvestigationBrainPanel investigation={brainInvestigation} />
+            {/* Executive Card — the canonical auto-investigate verdict surface */}
+            {autoResult.executive_card ? (() => {
+              const ec = autoResult.executive_card;
+              return (
+                <div style={{ ...S.listCard, marginTop: 22 }} data-testid="auto-executive-card">
+                  <div style={S.cardH}>Executive Verdict</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: /malicious/i.test(ec.verdict_pretty || ec.verdict || "") ? "#f87171" : "#facc15" }}>
+                    {ec.verdict_pretty || ec.verdict} · confidence {ec.confidence ?? "—"}%
+                  </div>
+                  {ec.what_happened?.primary_finding ? (
+                    <div style={{ marginTop: 10, fontSize: 13, color: "var(--text, #e2e8f0)" }}>
+                      <strong>Primary finding:</strong> {ec.what_happened.primary_finding}
+                    </div>
+                  ) : null}
+                  {ec.what_happened?.recovered_behavior ? (
+                    <div style={{ marginTop: 6, fontSize: 13, color: "var(--text, #e2e8f0)" }}>
+                      <strong>Recovered behavior:</strong> {ec.what_happened.recovered_behavior}
+                    </div>
+                  ) : null}
+                  {Array.isArray(ec.because) && ec.because.length ? (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={S.cardH}>Because</div>
+                      <ul style={{ paddingLeft: 20, fontSize: 13, color: "var(--text, #e2e8f0)", lineHeight: 1.7 }}>
+                        {ec.because.map((b, i) => <li key={i}>{b}</li>)}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {Array.isArray(ec.evidence?.positive) && ec.evidence.positive.length ? (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={S.cardH}>Evidence</div>
+                      <ul style={{ paddingLeft: 20, fontSize: 12, color: "var(--text-secondary, #94a3b8)", lineHeight: 1.7 }}>
+                        {ec.evidence.positive.slice(0, 12).map((e, i) => <li key={i} style={{ color: "#4ade80" }}>{e}</li>)}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })() : null}
+
+            {/* Final Incident Summary — MITRE + IOCs + classification */}
+            {autoResult.final_incident_summary ? (() => {
+              const fis = autoResult.final_incident_summary;
+              return (
+                <>
+                  <div style={{ ...S.listCard, marginTop: 22 }} data-testid="auto-classification">
+                    <div style={S.cardH}>Classification</div>
+                    <div style={{ fontSize: 15, color: "var(--text, #e2e8f0)" }}>
+                      {fis.classification || "—"} · severity <strong>{fis.severity || "—"}</strong> · verdict <strong>{fis.verdict || "—"}</strong>
+                    </div>
+                    {Array.isArray(fis.executive_summary) && fis.executive_summary.length ? (
+                      <div style={{ marginTop: 10, fontSize: 13, color: "var(--text-secondary, #94a3b8)", lineHeight: 1.6 }}>
+                        {fis.executive_summary.map((p, i) => <p key={i}>{p}</p>)}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {Array.isArray(fis.mitre_attack) && fis.mitre_attack.length ? (
+                    <div style={{ ...S.listCard, marginTop: 18 }} data-testid="auto-mitre">
+                      <div style={S.cardH}>MITRE ATT&CK ({fis.mitre_attack.length})</div>
+                      <div style={S.chipStrip}>
+                        {fis.mitre_attack.map((t, i) => (
+                          <span key={i} style={S.chip}>
+                            <span style={{ color: "#7dd3fc" }}>{t.id}</span> · {t.technique}
+                            {t.tactic ? <span style={{ opacity: 0.7 }}> · {t.tactic}</span> : null}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div style={{ marginTop: 18 }}><IocsPanel iocs={fis.iocs} /></div>
+                </>
+              );
+            })() : null}
+
+            {/* Investigation Narrative */}
+            {autoResult.investigation_narrative?.narrative ? (
+              <div style={{ ...S.listCard, marginTop: 22 }} data-testid="auto-narrative">
+                <div style={S.cardH}>Investigation Narrative</div>
+                <div style={{ fontSize: 13, color: "var(--text, #e2e8f0)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                  {autoResult.investigation_narrative.narrative}
+                </div>
               </div>
             ) : null}
-            {autoResult.verdict_card ? (
-              <div style={S.section}><VerdictCard verdict={autoResult.verdict_card} testidPrefix="verdict-auto" /></div>
+
+            {/* Decode Pipeline chains — show recovered/decoded commands */}
+            {Array.isArray(autoResult.decode_pipeline?.chains) && autoResult.decode_pipeline.chains.length ? (
+              <div style={{ ...S.listCard, marginTop: 18 }} data-testid="auto-decode-chains">
+                <div style={S.cardH}>Decode Chains ({autoResult.decode_pipeline.chains.length})</div>
+                {autoResult.decode_pipeline.chains.map((ch, i) => (
+                  <div key={i} style={{ marginTop: i ? 12 : 0, fontFamily: "ui-monospace", fontSize: 12 }}>
+                    <div style={{ color: "var(--text-secondary, #94a3b8)" }}>#{ch.index} · {ch.binary} · {ch.layers?.length || 0} layers</div>
+                    <div style={{ marginTop: 4, color: "var(--text, #e2e8f0)", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                      {(ch.command_line || "").slice(0, 220)}{(ch.command_line || "").length > 220 ? "…" : ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : null}
-            <div style={S.section}><IocsPanel iocs={autoResult.iocs || autoResult.final_incident_summary?.iocs} /></div>
-            <div style={S.section}>
-              <MitrePanel
-                mitre={autoResult.mitre || autoResult.final_incident_summary?.mitre}
-                mitre_v2={autoResult.mitre_v2}
-              />
-            </div>
+
+            {/* MDR Investigation escalation & recommendations */}
+            {autoResult.mdr_investigation ? (() => {
+              const m = autoResult.mdr_investigation;
+              return (
+                <div style={{ ...S.listCard, marginTop: 18 }} data-testid="auto-mdr">
+                  <div style={S.cardH}>MDR Escalation</div>
+                  {m.escalation ? (
+                    <div style={{ fontSize: 13, color: "var(--text, #e2e8f0)" }}>
+                      Decision: <strong>{m.escalation.decision}</strong> · confidence {m.escalation.confidence}% — {m.escalation.reason}
+                    </div>
+                  ) : null}
+                  {Array.isArray(m.recommendations) && m.recommendations.length ? (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={S.cardH}>Recommendations</div>
+                      <ul style={{ paddingLeft: 20, fontSize: 12, color: "var(--text-secondary, #94a3b8)", lineHeight: 1.7 }}>
+                        {m.recommendations.slice(0, 8).map((r, i) => (
+                          <li key={i}>[{r.severity}] <strong>{r.title}</strong> — {r.why}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })() : null}
           </div>
         ) : null}
       </div>
