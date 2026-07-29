@@ -1798,6 +1798,26 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             "top-level output (safe — legacy output preserved)"
         )
 
+    # ═══════════════════════════════════════════════════════════════════
+    # ADR-0009 · Additive Canonical Investigation Model (CIM) field.
+    # `investigation` is a serialization of the CIM built from the
+    # in-process analysis result — never from HTTP JSON. If composition
+    # fails for any reason, the endpoint still returns its legacy response
+    # (the CIM is purely additive; no existing consumer depends on it).
+    # ═══════════════════════════════════════════════════════════════════
+    try:
+        from nivxforge.cim import compose as _cim_compose
+        from nivxforge.cim.fact_substrate import from_analysis_result as _cim_facts
+        _facts = _cim_facts(
+            result,
+            input_text=(body.input if hasattr(body, "input") else ""),
+            source_endpoint="/api/decode/smart",
+        )
+        _inv = _cim_compose.from_facts(_facts)
+        result["investigation"] = _inv.model_dump(mode="json")
+    except Exception:  # noqa: BLE001
+        log.exception("ADR-0009 · CIM composition failed (safe — legacy response preserved)")
+
     return result
 
 

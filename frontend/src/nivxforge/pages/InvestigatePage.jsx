@@ -21,6 +21,7 @@ import OutputView from "../../components/OutputView";
 import TIShieldPanel from "../../components/TIShieldPanel";
 import { InvestigationBrainPanel } from "../../components/investigation/InvestigationBrainPanel";
 import InputToolbar from "../../components/InputToolbar";
+import CIMInvestigation from "../cim/CIMInvestigation";
 import api from "../../lib/api";
 
 const S = {
@@ -175,27 +176,32 @@ export default function InvestigatePage() {
 
   const canSubmit = input.trim().length > 0 && !loading;
 
-  const runDecode = useCallback(async () => {
-    if (!canSubmit) return;
-    setLoading(true); setErr(""); setResult(null); setMode("decode");
-    try {
-      const r = await api.post("/decode/smart", { input });
-      setResult(r.data);
-    } catch (e) {
-      setErr(e?.friendlyMessage || e?.response?.data?.detail || String(e?.message || e));
-    } finally { setLoading(false); }
-  }, [input, canSubmit]);
+  // ADR-0009 §2.4 · One adaptive action.
+  // The engine decides which pipeline to run. Light heuristic:
+  //   multi-line + incident-shaped keywords → /api/v2/auto-investigate
+  //   otherwise                              → /api/decode/smart
+  // Both endpoints now return the additive `investigation` (CIM) field.
+  const detectPipeline = useCallback((text) => {
+    const raw = text || "";
+    const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length < 3) return "decode";
+    const incidentSignals = /\b(incident|alert|detection|malware|SIEM|SOC|IOC|SHA256|MD5|host\s*=|user\s*=)\b/i;
+    return incidentSignals.test(raw) ? "auto" : "decode";
+  }, []);
 
-  const runAuto = useCallback(async () => {
+  const runInvestigate = useCallback(async () => {
     if (!canSubmit) return;
-    setLoading(true); setErr(""); setResult(null); setMode("auto");
+    const pipeline = detectPipeline(input);
+    setLoading(true); setErr(""); setResult(null); setMode(pipeline);
     try {
-      const r = await api.post("/v2/auto-investigate", { incident_text: input, focus: focus || null });
+      const r = pipeline === "auto"
+        ? await api.post("/v2/auto-investigate", { incident_text: input, focus: focus || null })
+        : await api.post("/decode/smart", { input });
       setResult(r.data);
     } catch (e) {
       setErr(e?.friendlyMessage || e?.response?.data?.detail || String(e?.message || e));
     } finally { setLoading(false); }
-  }, [input, focus, canSubmit]);
+  }, [input, focus, canSubmit, detectPipeline]);
 
   const onFile = useCallback(async (ev) => {
     const f = ev.target.files?.[0]; if (!f) return;
@@ -216,12 +222,14 @@ export default function InvestigatePage() {
   const decodeResult = mode === "decode" && result ? result : null;
   const autoResult   = mode === "auto"   && result ? result : null;
   const brainInvestigation = decodeResult?.investigation;
+  // ADR-0009 · Additive CIM (present on both endpoints).
+  const cimInvestigation = (decodeResult || autoResult)?.investigation || null;
 
   return (
     <NivxForgeLayout>
       <div style={S.page} data-testid="nivxforge-investigate-page">
         <div style={S.hero}>
-          <div style={S.eyebrow}>NivXForge · Analyst Workspace</div>
+          <div style={S.eyebrow}>Lab · Analyst Workspace</div>
           <h1 style={S.h1}>Investigate</h1>
           <p style={S.sub}>
             Paste a command line, script, incident excerpt, or upload a file. The same backend that powers
@@ -253,19 +261,11 @@ export default function InvestigatePage() {
             <button
               type="button"
               style={{ ...S.btn, ...(canSubmit ? {} : S.btnDisabled) }}
-              onClick={runDecode}
+              onClick={runInvestigate}
               disabled={!canSubmit}
-              data-testid="investigate-decode-btn"
-              title="Recursive decode + verdict + IOCs + MITRE (same as Workspace)"
-            >Decode</button>
-            <button
-              type="button"
-              style={{ ...S.btnGhost, ...(canSubmit ? {} : S.btnDisabled) }}
-              onClick={runAuto}
-              disabled={!canSubmit}
-              data-testid="investigate-auto-btn"
-              title="Deterministic auto-investigate (same as Workspace)"
-            >Auto Investigate</button>
+              data-testid="investigate-run-btn"
+              title="One adaptive investigation · engine picks the pipeline (ADR-0009 §2.4)"
+            >🔍 Investigate</button>
             <input
               type="text"
               value={focus}
@@ -281,12 +281,17 @@ export default function InvestigatePage() {
           </div>
 
           <div style={S.parityBanner} data-testid="investigate-parity-banner">
-            One backend, two surfaces · calls <code>/api/decode/smart</code> and <code>/api/v2/auto-investigate</code> — same endpoints Workspace uses (ADR-0006 §2.1).
+            One adaptive action · engine chooses <code>/api/decode/smart</code> or <code>/api/v2/auto-investigate</code> based on input shape (ADR-0009 §2.4). Every result is a Canonical Investigation Model (ADR-0009).
           </div>
 
           {loading ? <div style={S.loading} data-testid="investigate-loading">Analyzing…</div> : null}
           {err ? <div style={S.err} data-testid="investigate-error">{err}</div> : null}
         </div>
+
+        {/* ─── ADR-0009 · Canonical Investigation Model · rendered first ─── */}
+        {cimInvestigation ? (
+          <CIMInvestigation investigation={cimInvestigation} />
+        ) : null}
 
         {/* ─── Result columns ─────────────────────────────────────────── */}
         {decodeResult ? (

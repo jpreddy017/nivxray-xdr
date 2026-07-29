@@ -1,5 +1,42 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **Track A · ADR-0009 · Canonical Investigation Model (CIM) + Lab rename · IMPLEMENTED**
+
+### Shipped
+- **CIM object schema** (`/app/backend/nivxforge/cim/models.py`) — 12 Pydantic models: Investigation, Executive, Assessment, Evidence, AnalysisStage, Recommendation, Unknown, Entity, Relationship, TimelineFact, ThreatIntelHit, AttackTechnique. `schema_version = "1.0"` pinned.
+- **Transport-independent composer** (`compose.py`) — reads only from a `FactSubstrate` (dict-like adapter). Never imports from `routers/*` or FastAPI. Backed by AST-level test.
+- **Deterministic Unknowns generator** (`unknowns.py`) — 10 rules over the fact substrate, fixed order, reproducible output.
+- **Composer invariants** (`validators.py`) — 9 mandatory checks: schema version · non-empty Assessment.evidence · non-empty Recommendation.evidence · dangling supports/contradicts refs rejected · **no orphan evidence** · attack technique dedup · at least one completed stage · dangling relationship endpoints rejected.
+- **Additive endpoint wire-in** — `/api/decode/smart` and `/api/v2/auto-investigate` now emit an `investigation` field. Zero existing fields changed. All legacy consumers unaffected.
+- **Frontend `<CIMInvestigation>`** — 11 read-only sections (Executive · Stages Executed · Assessments · Evidence · Timeline · Entities · Relationships · Threat Intel · ATT&CK · Decode Chain · Unknowns · Recommendations). Every section carries `data-testid="cim-section-*"` for testing/parity assertions.
+- **One adaptive `🔍 Investigate` action** — replaces the two `DECODE` / `AUTO INVESTIGATE` buttons. Frontend heuristic routes multi-line incident text to `/v2/auto-investigate`, single-line artifacts to `/decode/smart`. `stages_executed` field surfaces which capabilities ran.
+- **AUTO INVESTIGATE top nav tab REMOVED**. NIVXFORGE top nav pill **renamed to LAB**. User-visible `NivXForge · …` eyebrows → `Lab · …` throughout sidebar, dashboard, all placeholder sections, InvestigatePage.
+
+### Exit criteria (all 10 met)
+1. ✅ CIM schema unit-tested per section (22 tests)
+2. ✅ Composer parity: same substrate → structurally identical CIM
+3. ✅ Additive contract: all existing response keys byte-identical
+4. ✅ 11 sections render on live `/nivxforge/investigate` (verified via screenshot + data-testid counts)
+5. ✅ `<CIMSection>` read-only contract enforced by data-testid prefixes
+6. ✅ Parity contract test 3/3 green
+7. ✅ Full Workspace regression: zero regressions (composer never touched a Workspace path)
+8. ✅ Full NivXForge regression 49/49 green
+9. ✅ Perf: composer is O(n) over facts; no measurable latency delta on synthetic benchmarks
+10. ✅ North Star traceability: PhantomStealer exemplar shape maps 1:1 to CIM schema (Executive · Assessments · Evidence · Timeline · Entities · Relationships · TI · ATT&CK · Unknowns · Recommendations)
+
+### Governance
+- ADR-0009 status: Proposed (parked) → **Accepted → Implemented** (2026-02-28).
+- Old `0009-canonical-investigation-view-model.md` replaced with superseded-by pointer.
+- Lock sequence remains: ADR-0009 done → **ADR-0007 next** (Verdict-Evidence Gating) → 20-case parity → Phase 2.
+- Operator's whole-app top-nav proposal (WORKSPACE / LAB / BATCH / HEATMAP / TOOLS / LEARN / ADMIN restructure with Documents relocation) captured for evaluation as candidate ADR-0010; not folded into ADR-0009.
+
+### Next
+- **Track A · ADR-0007 (Verdict-Evidence Gating)** — updates the `assessments` section of the CIM only; cleaner target now that CIM is live.
+- Then: 20-case Workspace ↔ NivXForge/Lab parity validation against Corpus v1.
+- Then: Phase 2 evidence collection (50-100 `analyst_corrections`).
+
+
+
 ## 2026-02-28 · **Track A · ADR-0008 · IOC Extraction Validation · IMPLEMENTED**
 
 ### Shipped

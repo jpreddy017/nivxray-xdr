@@ -661,4 +661,24 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
     # Preserve the historical `version` string so external consumers
     # can still pin behaviour.
     result.setdefault("engine", {})["version"] = "auto-investigate-v1"
+
+    # ═══════════════════════════════════════════════════════════════════
+    # ADR-0009 · Additive CIM field (see routers/ops.py wire-in comment).
+    # ═══════════════════════════════════════════════════════════════════
+    try:
+        from nivxforge.cim import compose as _cim_compose
+        from nivxforge.cim.fact_substrate import from_analysis_result as _cim_facts
+        _facts = _cim_facts(
+            result,
+            input_text=body.incident_text,
+            source_endpoint="/api/v2/auto-investigate",
+        )
+        _inv = _cim_compose.from_facts(_facts)
+        result["investigation"] = _inv.model_dump(mode="json")
+    except Exception:  # noqa: BLE001
+        import logging
+        logging.getLogger(__name__).exception(
+            "ADR-0009 · CIM composition failed (safe — legacy response preserved)"
+        )
+
     return result

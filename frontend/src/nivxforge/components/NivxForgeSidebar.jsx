@@ -88,7 +88,7 @@ export default function NivxForgeSidebar() {
     <aside style={S.aside} data-testid="nivxforge-sidebar">
       <div style={S.brand}>
         <div style={S.eyebrow}>Platform</div>
-        <div style={S.brandName}>NivXForge</div>
+        <div style={S.brandName}>Lab</div>
         <div style={S.brandSub}>Analyst Investigation Console</div>
       </div>
 

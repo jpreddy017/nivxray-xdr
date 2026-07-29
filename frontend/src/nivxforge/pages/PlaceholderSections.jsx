@@ -8,7 +8,7 @@ export function ThreatIntelPage() {
   return (
     <PlaceholderPage
       testid="nivxforge-threat-intel"
-      eyebrow="NivXForge · Threat Intelligence"
+      eyebrow="Lab · Threat Intelligence"
       title="Threat Intelligence"
       description="IOC and infrastructure lookup, malware family identification, and historical sightings — grounded in the same enrichment sources the Investigate pipeline already uses."
       plannedFeatures={[
@@ -26,7 +26,7 @@ export function ThreatHuntingPage() {
   return (
     <PlaceholderPage
       testid="nivxforge-threat-hunting"
-      eyebrow="NivXForge · Threat Hunting"
+      eyebrow="Lab · Threat Hunting"
       title="Threat Hunting"
       description="Query the corpus of past investigations for recurring IOCs, commands, YARA hits, and ATT&CK chains. Turns operational history into a hunting asset."
       plannedFeatures={[
@@ -45,7 +45,7 @@ export function KnowledgeBasePage() {
   return (
     <PlaceholderPage
       testid="nivxforge-knowledge"
-      eyebrow="NivXForge · Knowledge Base"
+      eyebrow="Lab · Knowledge Base"
       title="Knowledge Base"
       description="Analyst reference material — malware family notes, LOLBAS index, ATT&CK navigator, detection rules, and playbooks."
       plannedFeatures={[
@@ -64,7 +64,7 @@ export function ReportsPage() {
   return (
     <PlaceholderPage
       testid="nivxforge-reports"
-      eyebrow="NivXForge · Reports"
+      eyebrow="Lab · Reports"
       title="Reports"
       description="One-click investigation reports for SOC, IR, and executive audiences. Every report cites the underlying evidence — no fabricated narrative."
       plannedFeatures={[
@@ -83,7 +83,7 @@ export function HistoryPage() {
   return (
     <PlaceholderPage
       testid="nivxforge-history"
-      eyebrow="NivXForge · History"
+      eyebrow="Lab · History"
       title="History"
       description="Searchable archive of previous investigations. Compare artifacts across time and identify recurring TTPs in your own operational corpus."
       plannedFeatures={[

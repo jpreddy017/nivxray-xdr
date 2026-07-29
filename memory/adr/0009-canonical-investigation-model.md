@@ -9,6 +9,11 @@
   3. **Unknowns are DETERMINISTICALLY generated** by rules over the fact substrate (missing process → "unknown parent"; missing network telemetry → "no network evidence"), never manually authored. Reproducible.
   4. **Every Assessment references supporting Evidence IDs.** Explainability by design: clicking any conclusion jumps to the evidence backing it.
   5. **One adaptive Investigate action, not two.** The `DECODE` and `AUTO INVESTIGATE` buttons collapse into a single `🔍 Investigate` action. The engine auto-detects input type and runs only the necessary modules (Normalize · Decode · Deobfuscate · IOC extract · TI · Behavior · Reasoning · ...). Decode becomes a *capability*, not a *feature* — surfaced as a section of the investigation ("Decode Chain") rather than a separate button. A new CIM field `stages_executed` gives analysts transparent visibility into which capabilities ran on this artifact.
+  6. **CIM is transport-independent.** APIs do not *own* the Investigation object; they *serialize* it if asked. Workspace, NivXForge, Reports, and future CLI/gRPC/API consumers all consume the same Investigation object. The Presentation Layer is a fan-out (§2.7), not an owner.
+  7. **CIM is versioned from v1.0.** `Investigation.schema_version = "1.0"` on day one. Non-breaking additions bump the minor; breaking changes bump the major and require a new ADR.
+  8. **AnalysisStage status is a fixed enum**, not free text: `completed | skipped | failed | error`. UIs render however they want; the object is machine-readable.
+  9. **Recommendations MUST reference Evidence IDs too.** Same merge-gate rule as Assessment (§2.1.b). Unsupported advice is a governance failure.
+  10. **No orphan evidence.** Every Evidence in a CIM must be referenced by at least one of: an Assessment.evidence · a Recommendation.evidence · an Unknown.evidence · a TimelineFact.evidence · a Relationship.evidence · a ThreatIntelHit.evidence · an AttackTechnique.evidence. Otherwise it is dead data and the composer rejects the CIM.
 - **Deciders:** Operator (product owner) · Emergent (proposer)
 - **Threshold met:** Multiple independent evidence streams:
   - **UX architectural gap** — 2026-02-28 operator diagnostic + screenshot: NivXForge landing = input box + two buttons; no post-analysis workspace; missing destination for the investigation to land in.
@@ -54,6 +59,7 @@ no surface re-derives.
 
 ```
 Investigation                       # root
+├── schema_version = "1.0"          # semver — bump minor for additive, major for breaking
 ├── id                              # stable investigation identifier
 ├── case_id                         # optional link to workspace_cases row
 ├── created_at                      # UTC ISO8601
@@ -128,8 +134,8 @@ AnalysisStage
 │                          # "ti_enrich" | "behavior" | "mitre_map" | "reasoning" |
 │                          # "pe_static" | "office_parse" | "pdf_parse" | "url_analyze" |
 │                          # "sysmon_parse" | "email_parse" | "sigma_match" | "yara_match"
-├── status                 # "ran" | "skipped" | "failed"
-├── reason                 # optional — why skipped/failed (e.g. "input not b64 encoded")
+├── status                 # "completed" | "skipped" | "failed" | "error"
+├── reason                 # optional — why skipped/failed (e.g. "input_not_pe")
 ├── started_at             # UTC ISO8601
 ├── duration_ms            # int
 └── evidence_produced      # list of Evidence.id — what this stage contributed
@@ -140,6 +146,23 @@ ran on this artifact — the analyst sees `✓ Decode · ✓ IOC Extraction ·
 skipped: PE Static (not a PE) · ✓ TI Enrich · ✓ Reasoning` in the UI.
 That transparency is the tradeoff that makes "one adaptive Investigate
 action" (§2.4) safe.
+
+### 2.1.d Recommendation — also evidence-backed
+
+```
+Recommendation
+├── id                     # stable "R-001"..."R-NNN"
+├── kind                   # "immediate" | "hunt" | "harden" | "escalate"
+├── text                   # short imperative statement ("Isolate endpoint")
+├── evidence               # NON-EMPTY list of Evidence.id refs — REQUIRED
+└── rationale              # why the referenced evidence supports the action
+```
+
+**Governance rule (merge-gate):** `len(recommendation.evidence) >= 1` for
+every Recommendation. Same rule as Assessment (§2.1.b). Unsupported
+advice is a governance failure — the composer's validator rejects the
+CIM and the endpoint returns 500 rather than surfacing action-guidance
+without backing.
 
 ### 2.2 Deterministic Unknowns generator
 
@@ -293,6 +316,57 @@ result["investigation"] = compose.from_facts(facts).model_dump()
 No new HTTP routes. No changes to existing response fields. Existing
 consumers (Workspace, current NivXForge InvestigatePage) continue
 reading `iocs`, `verdict_card`, etc., unchanged.
+
+### 2.7 Presentation Layer — CIM is transport-independent
+
+APIs do NOT own the Investigation object. They are one consumer in a
+fan-out:
+
+```
+                      ┌─────────────────────┐
+                      │  Investigation      │  (system of record)
+                      └──────────┬──────────┘
+                                 │
+      ┌──────────┬───────────────┼───────────────┬──────────┐
+      ▼          ▼               ▼               ▼          ▼
+    API      Workspace       NivXForge        Report    Future CLI
+ (serialize) (renderer)      (renderer)     (composer)   (formatter)
+```
+
+- The composer produces an Investigation.
+- The API serializes it (adds it as `investigation` in the HTTP JSON —
+  a *serialization*, not ownership).
+- Workspace and NivXForge render sections from the same object.
+- Reports (future ADR-0010) compose narrative from the same object.
+- Any future surface (CLI, gRPC, dashboard export) reads the same object.
+
+Concretely: `compose.from_facts()` returns a `Investigation` Pydantic
+model. `routers/ops.py` calls `investigation.model_dump()` at the
+serialization step only. If we later add a CLI, it imports `compose`
+directly and formats however it wants — the CIM never had to know a
+CLI existed.
+
+### 2.8 Composer invariants (validator gates)
+
+`validators.py` enforces the following invariants before the composer
+returns a CIM. Any violation raises `CIMValidationError`, which the
+endpoint surfaces as HTTP 500 with a governance error code — never a
+silent partial CIM.
+
+1. **schema_version present** and matches the current major supported by the composer.
+2. **Every Assessment.evidence is non-empty.** (§2.1.b merge-gate.)
+3. **Every Recommendation.evidence is non-empty.** (§2.1.d merge-gate.)
+4. **Every Evidence.supports and Evidence.contradicts reference existing Assessment.id.** No dangling references.
+5. **No orphan Evidence.** Every Evidence must be referenced by at least one of:
+   - `Assessment.evidence` · `Recommendation.evidence` · `Unknown.evidence` ·
+   - `TimelineFact.evidence` · `Relationship.evidence` ·
+   - `ThreatIntelHit.evidence` · `AttackTechnique.evidence` ·
+   - `Entity.evidence` (entity is anchored on evidence like an IOC hit).
+   Orphan Evidence is dead data → composer rejects.
+6. **AttackTechnique list is deduplicated** (no two entries with the same technique id).
+7. **stages_executed contains at least one stage with status="completed"** for any Investigation produced from a non-empty input.
+8. **All entity references in Relationship.source/target refer to existing Entity.id.**
+9. **schema_version and produced_at set.**
 
 ## 3 · Scope (small on purpose)
 

@@ -64,7 +64,7 @@ export default function DashboardPage() {
     <NivxForgeLayout>
       <div style={S.page} data-testid="nivxforge-dashboard">
         <div style={S.hero}>
-          <div style={S.eyebrow}>NivXForge · Dashboard</div>
+          <div style={S.eyebrow}>Lab · Dashboard</div>
           <h1 style={S.h1}>Analyst Investigation Console</h1>
           <p style={S.sub}>
             Real-time platform status derived from the frozen evidence corpus and governance state.
@@ -87,7 +87,7 @@ export default function DashboardPage() {
             <div style={{ ...S.metric, ...(s.preview_health === "HEALTHY" ? S.ok : {}) }}>
               {s.preview_health || "—"}
             </div>
-            <div style={S.metricSub}>NivXForge preview state</div>
+            <div style={S.metricSub}>Lab preview state</div>
           </div>
 
           <div style={S.card} data-testid="dash-card-regression">

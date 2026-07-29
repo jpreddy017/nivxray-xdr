@@ -41,7 +41,7 @@ reaches Active).
 | NivXForge Analyst-Parity Surface | ADR-0006 (Phase 1) | Active | (positioning) | v1 | `test_parity_endpoints` | — | NivXForge frontend | v1.6.0 | — |
 | **Verdict-Evidence Gating** | ADR-0007 | **Accepted (impl pending)** | 0005, 0006, 0013, 0017, 0022 | v1 | see ADR §6 | 0003, 0009, 0018, 0019, 0020 | Verdict Engine | pending | — |
 | **IOC Extraction Validation** | ADR-0008 | **Implemented** (2026-02-28) | 0007, 0011, 0012, 0014 | v1 | see ADR §6 | 0009 | IOC Extractor | 7/7 pins green + parity + perf ≤0.5% + zero regressions across 160-test diff sample | — |
-| **Canonical Investigation View Model** | ADR-0009 | **Proposed (impl PARKED behind Track A)** | 0002, 0006, 0013 | v1 | see ADR §6 | 0003, 0009, 0018, 0019, 0020 | NivXForge frontend rendering | pending | — |
+| **Canonical Investigation Model (CIM) & Investigation Workspace** | ADR-0009 | **Implemented** (2026-02-28) | 0002, 0006, 0013 + North Star + UX diagnostic | v1 | see ADR §6 · 22/22 pytest pins green | 0003, 0009, 0018, 0019, 0020 | `nivxforge/cim/` composer + `<CIMSection>` frontend | 99/99 pins green (CIM 22 + ADR-0008 7 + IOC filters 21 + NivXForge 49); zero-orphan invariant; live e2e wire-in on `/api/decode/smart` + `/api/v2/auto-investigate` | — |
 
 ### Lifecycle field semantics
 
