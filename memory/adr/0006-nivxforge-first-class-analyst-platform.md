@@ -1,10 +1,22 @@
 # ADR-0006 — NivXForge as a First-Class Analyst Platform
 
-- **Status:** Proposed
+- **Status:** Accepted (Phase 1 approved 2026-02-28)
 - **Date:** 2026-02-28
 - **Deciders:** Operator (product owner) · Emergent (implementation)
 - **Supersedes / Amends:** Extends ADR-0005 (router mount for read-only preview).
 - **Does not affect:** ADR-0001 (framework), ADR-0004 (attribution accuracy).
+
+## Approval record
+
+Phase 1 approved with these constraints (operator directive, 2026-02-28):
+- Presentation-layer only. No new reasoning engines, hypothesis engine, correlation
+  engine, recommendation engine, learning engine, confidence model, or changes to
+  verdict logic or the deterministic decode pipeline.
+- Reuse existing Workspace APIs and components wherever practical.
+- One source of truth for decode / investigation / IOC extraction / MITRE mapping /
+  verdict / report generation. No backend duplication.
+- Acceptance: same investigation artifact → equivalent analysis results from either
+  Workspace or NivXForge, with no regression in existing functionality.
 
 ## 1. Context
 
