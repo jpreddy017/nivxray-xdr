@@ -211,6 +211,7 @@ class SimilarCase(BaseModel):
 # ---------------------------------------------------------------------------
 class Findings(BaseModel):
     verdict: str = "unknown"                # benign | suspicious | malicious | needs_review | unknown
+    verdict_reason: str = ""                # v1.6.0 Phase 1a — analyst-facing "why this verdict" narrative (Charter Rule 3/6)
     risk_score: int = 0                     # 0..100
     iocs: IOCBundle = Field(default_factory=IOCBundle)
     mitre_techniques: List[MitreHint] = Field(default_factory=list)

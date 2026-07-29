@@ -23,7 +23,11 @@ class VerdictBand(str, Enum):
     MALICIOUS         = "malicious"
     SUSPICIOUS        = "suspicious"
     RUNTIME_DEPENDENT = "runtime_dependent"
-    BENIGN            = "benign"
+    UNKNOWN           = "unknown"      # v1.6.0 Phase 1a — insufficient evidence
+    BENIGN            = "benign"       # RESERVED — requires POSITIVE evidence
+                                        # (signed binary, allow-listed hash,
+                                        # verified publisher). Never assign
+                                        # from mere absence of malicious signals.
 
 
 @dataclass
@@ -124,19 +128,39 @@ def assess_verdict(intents: list[Intent]) -> Verdict:
         evidence.extend(i.evidence)
 
     if not intents:
+        # v1.6.0 Phase 1a · SME-ratified refactor — NEVER conclude
+        # BENIGN from absence of malicious indicators (Charter Rule 1
+        # & Rule 4). The correct verdict when no adversarial intents
+        # fire is UNKNOWN with an explicit "insufficient evidence"
+        # reason so the analyst knows what would be needed to reach
+        # a stronger conclusion. Confidence is retained (not zeroed)
+        # and reflects how confident we are that we CANNOT classify,
+        # given the available evidence.
         return Verdict(
-            band=VerdictBand.BENIGN,
-            reason=("No adversarial intent was inferred from the effective "
-                     "payload. The artefact appears benign."),
-            confidence=60,
+            band=VerdictBand.UNKNOWN,
+            reason=(
+                "The available evidence is insufficient to determine "
+                "whether the artefact is benign or malicious. Additional "
+                "context — such as the executable, parent process, "
+                "digital signature, or runtime behaviour — is required."
+            ),
+            confidence=50,
             top_intents=[],
             evidence=[],
             reasoning=_reasoning(
                 intents=[],
                 composition=[],
-                conclusion=("No adversarial intent was inferred — no fired "
-                             "intents to compose. Artefact appears benign."),
-                ambiguity="",
+                conclusion=(
+                    "No adversarial intent fired and no positive evidence "
+                    "of legitimacy was observed. Verdict is UNKNOWN — "
+                    "not a benign classification."
+                ),
+                ambiguity=(
+                    "Unknowns: executable identity, vendor, digital "
+                    "signature, parent process, runtime context, and "
+                    "actual behaviour. Any of these would refine the "
+                    "verdict toward MALICIOUS, SUSPICIOUS, or BENIGN."
+                ),
             ),
         )
 

@@ -314,9 +314,19 @@ def _unknowns(result: "InvestigationResult") -> list[str]:
 def _executive_summary(result: "InvestigationResult") -> str:
     v = result.verdict
     top = v.top_intents[0] if v.top_intents else None
+    # v1.6.0 Phase 1a · SME-ratified — UNKNOWN uses insufficient-evidence
+    # narrative. BENIGN is now reserved for cases with POSITIVE evidence
+    # of legitimacy (signed binary, allow-listed hash, etc.).
+    if v.band == VerdictBand.UNKNOWN:
+        return ("The available evidence is insufficient to determine whether "
+                "the artefact is benign or malicious. Additional context — "
+                "such as the executable, parent process, digital signature, "
+                "or runtime behaviour — is required to refine this verdict.")
     if v.band == VerdictBand.BENIGN:
-        return ("Static analysis found no adversarial intent in the effective "
-                 "payload. The artefact appears benign and no immediate action is required.")
+        # Reachable only when positive-legitimacy evidence has been
+        # collected (v1.6.0 backlog — signer / hash-allowlist paths).
+        return ("The artefact is assessed as BENIGN based on positive "
+                "evidence of legitimacy. " + (v.reason or ""))
     lead = {
         VerdictBand.MALICIOUS:         "The artefact is assessed as MALICIOUS.",
         VerdictBand.SUSPICIOUS:        "The artefact is assessed as SUSPICIOUS.",

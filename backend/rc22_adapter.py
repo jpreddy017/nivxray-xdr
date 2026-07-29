@@ -351,6 +351,10 @@ def try_orchestrator_first(
         "verdict":           _capped_verdict,
         "risk_score":        _capped_risk,
         "verdict_cap_reason": _cap_reason,
+        # v1.6.0 Phase 1a · SME-ratified — surface the analyst-facing
+        # verdict reason so the workspace UI can render "why this
+        # verdict" alongside the band (Charter Rule 3 & Rule 6).
+        "verdict_reason":    findings.verdict_reason or "",
         "family":            {
             "family":     findings.family.family,
             "confidence": findings.family.confidence,

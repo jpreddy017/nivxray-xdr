@@ -501,7 +501,12 @@ def format_summary_block(sr: "SemanticResult") -> str:
         lines.append("  Escalate to Tier-2. Isolate host if not already contained.")
         lines.append("  Rotate any exposed credentials and audit lateral movement.")
     else:
-        lines.append("  Retain for correlation; no immediate action required.")
+        # v1.6.0 Phase 1a · SME-ratified — never recommend "no action
+        # required" from absence of malicious signals. Direct the
+        # analyst to the evidence gap instead.
+        lines.append("  Retain for correlation. Available evidence is insufficient")
+        lines.append("  to confirm or rule out malicious activity — additional context")
+        lines.append("  (executable, parent process, signature, runtime behaviour) required.")
     lines.append("")
     lines.append(bar)
     return "\n".join(lines)

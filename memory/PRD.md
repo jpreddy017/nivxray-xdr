@@ -1,5 +1,49 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **v1.6.0 Phase 1a · Tri-state verdict + pre-Charter heuristics removed**
+
+### Shipped
+- **`VerdictBand.UNKNOWN`** added to `v2/investigation/verdict/__init__.py`; `BENIGN` explicitly reserved for future POSITIVE-evidence paths (signed binary, allow-listed hash, verified publisher)
+- **Benign-from-absence heuristic DELETED** — no-intents path now returns `UNKNOWN, conf=50, reason="insufficient evidence"` (Charter Rule 4)
+- **`Findings.verdict_reason`** — new field on `engine/models.py`; every verdict now carries an analyst-facing "why this verdict" narrative (Charter Rule 3 & Rule 6)
+- **`obfuscation-chain` risk downgrade FIXED** — was firing +5 risk on plain-text CLIs whose base64/xor decoders produced EMPTY output. Now counts only PRODUCTIVE peels (Charter Rule 1)
+- **Analyst-report narratives rewritten** — "appears benign / no immediate action required" replaced with "available evidence is insufficient / additional context required"
+- **`verdict_reason` surfaced** through the RC2.2 adapter to the top-level API response for frontend consumption
+- **Frontend UNKNOWN badge styling** — neutral slate (`#1e232b/#9aa4b2/#6b7280`) so analysts never mistake "we don't know" for "it's safe"
+
+### SME acceptance sample — verified live on preview
+Input: `--runaszvideo=TRUE ... --haszoomim=1`
+Output (Investigation Summary panel):
+```
+UNKNOWN  confidence 50
+The available evidence is insufficient to determine whether the artefact
+is benign or malicious. Additional context — such as the executable,
+parent process, digital signature, or runtime behaviour — is required.
+
+CONCLUSION: No adversarial intent fired and no positive evidence of
+legitimacy was observed. Verdict is UNKNOWN — not a benign classification.
+
+HONEST AMBIGUITY: Unknowns: executable identity, vendor, digital
+signature, parent process, runtime context, and actual behaviour.
+```
+
+### Regression gate — PASS (22/22)
+- `tests/test_meterpreter_b64xor.py` — 8 passed ✅
+- `tests/test_e2e_decode_smart_http_contract.py` — 10 passed ✅
+- `tests/test_phase1a_plain_text_cli.py` — 4 passed ✅ (NEW · SME Definition-of-Done gate)
+
+### Files changed
+- `/app/backend/v2/investigation/verdict/__init__.py` — VerdictBand.UNKNOWN; no-intents path
+- `/app/backend/v2/investigation/analyst_report/builder.py` — executive summary rewritten
+- `/app/backend/v2/semantic/ps_semantic.py` — "no immediate action" phrase removed
+- `/app/backend/engine/models.py` — `Findings.verdict_reason` field
+- `/app/backend/engine/orchestrator.py` — productive-peels count; verdict_reason population
+- `/app/backend/rc22_adapter.py` — `verdict_reason` surfaced to API response
+- `/app/backend/tests/test_phase1a_plain_text_cli.py` — NEW · Definition-of-Done gate
+- `/app/frontend/src/components/investigation/InvestigationBrainPanel.jsx` — UNKNOWN badge styling
+
+
+
 ## 2026-02-28 · **v1.5.8 · IOC persistence + Deterministic FLOW baseline**
 
 ### Shipped

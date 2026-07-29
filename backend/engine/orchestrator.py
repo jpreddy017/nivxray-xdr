@@ -316,7 +316,8 @@ def _aggregate_findings(trace: List[TraceStep]) -> Findings:
 
 
 def _compute_confidence_breakdown(findings: Findings, decode_depth: int = 0,
-                                    trace_decoders: Optional[List[str]] = None) -> ConfidenceBreakdown:
+                                    trace_decoders: Optional[List[str]] = None,
+                                    productive_peels: int = 0) -> ConfidenceBreakdown:
     """Explainable risk_score — one RiskContribution per signal source.
 
     RC3.1 rebalance (verdict precision 15/31 → ≥28/31):
@@ -476,12 +477,16 @@ def _compute_confidence_breakdown(findings: Findings, decode_depth: int = 0,
             total += 10
 
     total = min(100, total)
-    # Fallback chain-depth signal — when nothing else scored but we did
-    # peel ≥1 encoding layer, keep the analyst in the "needs_review" band.
-    if total == 0 and decode_depth >= 2:
+    # v1.6.0 Phase 1a · SME-ratified — only fires when the decoder
+    # PEELED meaningful content. Attempted decoders whose output is
+    # empty are not evidence of obfuscation and must not upgrade
+    # UNKNOWN to needs_review (Charter Rule 1).
+    if total == 0 and productive_peels >= 2:
         contribs.append(RiskContribution(
             source="obfuscation-chain", points=5,
-            detail=f"Peeled {decode_depth} decode layer(s) without additional signals",
+            detail=(f"Peeled {productive_peels} encoding layer(s) with "
+                    "meaningful output but no additional signals — "
+                    "analyst review advised"),
         ))
         total = 5
     if total >= 70:
@@ -1379,9 +1384,56 @@ class Orchestrator:
             findings,
             decode_depth=len(ctx.trace.steps),
             trace_decoders=[s.decoder for s in ctx.trace.steps],
+            # v1.6.0 Phase 1a · SME-ratified — count ONLY decoders that
+            # produced meaningful output. Attempted decoders whose
+            # output is empty are not evidence of obfuscation.
+            productive_peels=sum(
+                1 for s in ctx.trace.steps
+                if getattr(s, "output_length", None) or (
+                    getattr(s, "output", None) and len(str(s.output)) > 0
+                )
+            ),
         )
         findings.risk_score = breakdown.total
         findings.verdict = breakdown.verdict
+
+        # v1.6.0 Phase 1a · SME-ratified — every verdict carries an
+        # analyst-facing "why this verdict" narrative (Charter Rule 3
+        # & Rule 6). UNKNOWN specifically explains the evidence gap
+        # so analysts know what would refine the classification.
+        if breakdown.verdict == "unknown":
+            findings.verdict_reason = (
+                "The available evidence is insufficient to determine "
+                "whether the artefact is benign or malicious. Additional "
+                "context — such as the executable, parent process, "
+                "digital signature, or runtime behaviour — is required "
+                "to refine this verdict."
+            )
+        elif breakdown.verdict == "needs_review":
+            findings.verdict_reason = (
+                "Peeled encoding layers or peripheral signals were "
+                "observed but no adversarial intent fired. Analyst "
+                "review advised — additional context may promote or "
+                "clear this artefact."
+            )
+        elif breakdown.verdict == "malicious":
+            findings.verdict_reason = (
+                f"Malicious verdict driven by risk contributions totalling "
+                f"{breakdown.total}/100. See risk breakdown for the "
+                f"specific evidence chain."
+            )
+        elif breakdown.verdict == "suspicious":
+            findings.verdict_reason = (
+                f"Suspicious verdict driven by risk contributions totalling "
+                f"{breakdown.total}/100. Positive indicators are present "
+                f"but did not reach the malicious threshold."
+            )
+        elif breakdown.verdict == "benign":
+            findings.verdict_reason = (
+                "Benign verdict requires positive evidence of legitimacy "
+                "(signed binary, allow-listed hash, verified publisher). "
+                "See supporting evidence."
+            )
 
         # RC2.1a — promote terminal state if the intelligence pass surfaced
         # a high-confidence family match. The main decode loop couldn't do

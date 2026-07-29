@@ -24,6 +24,7 @@ const CATEGORY_COLORS = {
   exfiltration:       { bg: "#3a0028", fg: "#ff8ec7", label: "EXFIL" },
   impact:             { bg: "#3a0000", fg: "#ff3838", label: "IMPACT" },
   runtime_dependent:  { bg: "#1c2938", fg: "#8fa5c2", label: "RUNTIME DEPENDENT" },
+  unknown:            { bg: "#1e232b", fg: "#9aa4b2", label: "UNKNOWN" },
 };
 
 const RISK_COLORS = {
@@ -116,6 +117,10 @@ export function InvestigationBrainPanel({ investigation }) {
     malicious:         { bg: "#3a0000", fg: "#ff5252", border: "#ff5252" },
     suspicious:        { bg: "#3a2400", fg: "#ffb347", border: "#ffb347" },
     runtime_dependent: { bg: "#1c2938", fg: "#8fa5c2", border: "#5ec8ff" },
+    // v1.6.0 Phase 1a · UNKNOWN = insufficient evidence (neutral slate).
+    // Distinct from BENIGN (positive evidence) so analysts never
+    // mistake "we don't know" for "it's safe" (Charter Rule 4).
+    unknown:           { bg: "#1e232b", fg: "#9aa4b2", border: "#6b7280" },
     benign:            { bg: "#062b18", fg: "#5ee3c4", border: "#5ee3c4" },
   };
 
@@ -163,8 +168,8 @@ export function InvestigationBrainPanel({ investigation }) {
             marginBottom: 14,
             padding: 14,
             borderRadius: 8,
-            background: (verdictColors[verdict.band] || verdictColors.benign).bg,
-            border: `2px solid ${(verdictColors[verdict.band] || verdictColors.benign).border}`,
+            background: (verdictColors[verdict.band] || verdictColors.unknown).bg,
+            border: `2px solid ${(verdictColors[verdict.band] || verdictColors.unknown).border}`,
           }}
         >
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
@@ -175,7 +180,7 @@ export function InvestigationBrainPanel({ investigation }) {
                 fontWeight: 700,
                 letterSpacing: 1.4,
                 textTransform: "uppercase",
-                color: (verdictColors[verdict.band] || verdictColors.benign).fg,
+                color: (verdictColors[verdict.band] || verdictColors.unknown).fg,
               }}
             >
               {verdict.band.replace("_", " ")}
