@@ -1,9 +1,25 @@
 # NivXForge Platform Vision · The Analyst-Visible Roadmap
 
-**Status:** Long-horizon roadmap (adopted 2026-02-28)
-**Classification:** Vision — NOT a build order · governance lock still holds
+**Status:** Vision FROZEN 2026-02-28 · no further vision documents authorised
+**Classification:** Long-horizon roadmap — NOT a build order
 **Sequencing:** Activates ONLY after ADR-0007 and ADR-0008 are Active and Phase 2
 evidence collection is complete.
+
+> ### 🔒 Vision docs frozen 2026-02-28
+>
+> No further vision or roadmap documents are authorised. The next meaningful
+> milestone is not another design discussion — it is an analyst opening
+> Investigate, analysing a real PowerShell sample, understanding the attack
+> from a single screen, and generating a report without switching tools.
+>
+> **The single evaluation metric for every future capability:**
+> *Does this reduce the time it takes an analyst to understand and explain an investigation?*
+>
+> If yes → belongs in Investigate.
+> If no  → belongs elsewhere, or not at all.
+>
+> Governance / engineering diagnostics stay in Governance — they are not
+> part of the analyst workflow.
 
 ---
 
