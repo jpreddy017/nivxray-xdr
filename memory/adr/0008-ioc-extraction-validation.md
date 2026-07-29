@@ -103,12 +103,16 @@ Before promotion from Proposed → Accepted, the operator MUST review:
 
 ## 6 · Approval gate
 
-Do NOT implement until this ADR is marked **Accepted** by the operator and a
-Phase-1a scope is defined.
+**Implementation AUTHORISED by operator on 2026-02-28.** Land BEFORE ADR-0007.
 
-## 7 · Relationship to ADR-0007
+### Regression pins (mandatory · must be green before merge)
+- Case 0007 · workspace_cases `301f850c-43d6-40fb-aaac-97c5c399ded1` — `stem.ma` must NOT be extracted (context-validation rejects mid-identifier `System.Management.stem.Ma`).
+- Case 0011 · workspace_cases `931851d1-55dd-4e8f-ad22-5301ca855cb0` — `1.0.0.721` must NOT be extracted (octet > 255).
+- Case 0012 · workspace_cases `51448969-604b-41e6-8e53-0af848b79616` — `6.94.002.01` must NOT be extracted (leading-zero octet); `10.200.49.6` MUST still be extracted.
+- Case 0014 · workspace_cases `50215553-…` — same `stem.ma` reject as Case 0007.
+- Case 0009 · workspace_cases `69bcf510-…` — `georgeprapas.com` MUST still be extracted (non-regression).
 
-ADR-0007 and ADR-0008 are **independent**. Either can be accepted / rejected
-without affecting the other. However, if both are accepted, ADR-0008 SHOULD
-land first — cleaner IOCs improve the fidelity of the content-source
-indicators that ADR-0007 depends on.
+### Additional requirements
+- **Full Workspace pytest suite** (`/app/backend/tests/`, ~3938 tests) must remain green.
+- Every emitted IOC MUST carry `source_offset`, `source_length`, `stage_passed`, `context_snippet` per §2 Stage 3.
+- Zero changes to API contract (`iocs` field shape unchanged; only content differs).

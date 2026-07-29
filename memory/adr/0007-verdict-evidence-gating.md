@@ -100,5 +100,23 @@ Before promotion from Proposed → Accepted, the operator MUST review:
 
 ## 6 · Approval gate
 
-Do NOT implement until this ADR is marked **Accepted** by the operator and a
-Phase-1a scope is defined.
+**Implementation AUTHORISED by operator on 2026-02-28. Land AFTER ADR-0008 is green.**
+
+### Regression pins (mandatory · must all reach a lower/appropriate verdict after change)
+- Case 0005 · workspace_cases `34c374fb-…` — "SOC Challenge" string · CURRENT Suspicious 80 → EXPECTED ≤ Informational (no behavioral indicator).
+- Case 0006 · workspace_cases `9f3b4d83-…` — `"hello world"` · CURRENT Suspicious 45 → EXPECTED Partial Decode / Informational.
+- Case 0013 · workspace_cases `02adf58d-…` — `start-process notepad` · CURRENT Malicious 70 → EXPECTED ≤ Informational.
+- Case 0017 · workspace_cases `36d8cd4d-…` — `powershell -e ABC` · CURRENT Malicious 70 → EXPECTED ≤ Informational.
+- Case 0022 · workspace_cases `bf40adbe-…` — 428-char base64 → gibberish · CURRENT Malicious 70 → EXPECTED ≤ Suspicious (no behavioral indicator; `te.exe` substring extraction is unreliable — see also new pattern P-LOLBAS-SUBSTRING-FALSE-POSITIVE).
+
+### Non-regression pins (verdict MUST stay Malicious after change)
+- Case 0003 · `094ca4bf-…` — shellcode loader (behavioral: MSFvenom prologue, `149.28.81.19`).
+- Case 0009 · `69bcf510-…` — BITS + URL + `.exe` download (behavioral: URL in decoded).
+- Case 0018 · `5659a288-…` — ClickFix (behavioral: URL in decoded, `.lol` TLD).
+- Case 0019 · `9f7e133a-…` — LSASS/comsvcs.dll (behavioral: T1003.001 semantic match).
+- Case 0020 · `658c7e83-…` — encoded PS with URL (behavioral: `https://10.2.27.30` in decoded).
+
+### Additional requirements
+- Full Workspace pytest suite must remain green.
+- Structural indicators MUST still surface in explanations (they are informational, not verdict-driving).
+- Zero API contract change — only verdict labels and confidence differ for structurally-driven cases.

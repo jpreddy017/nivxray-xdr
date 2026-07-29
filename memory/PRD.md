@@ -1,5 +1,66 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **20-Case Evidence Corpus + ADR-0007/0008 Authorised (implementation deferred to fresh session)**
+
+### Shipped in this session
+- **20 real cases evaluated** (0001 + 0003–0022) using the frozen 9-category
+  template. Full report in `/app/memory/REAL_WORLD_LOG.md` §20-CASE FORMAL REPORT.
+- **`PLATFORM_POSITIONING.md`** recorded — NivXForge = primary analyst platform;
+  Workspace = case-management system of record. Long-horizon vision, not a build order.
+- **`OPERATIONAL_LOOP.md`** now carries the frozen 9-category case-review template,
+  the three-tier evidence discipline (Observable / Inference / Hypothesis), and
+  the "Evidence Sufficiency" fairness gate.
+- **ADR-0007 · Verdict-Evidence Gating** — Accepted with operator amendment
+  (behavioural/semantic-indicator gate, not just "decoded content").
+  **Implementation authorised for a future session — NOT started here.**
+- **ADR-0008 · IOC Extraction Validation** — Accepted with operator amendment
+  (two-stage syntactic + context validation, source-offset provenance).
+  **Implementation authorised — MUST land BEFORE ADR-0007.**
+
+### Reason implementation was not started in this session
+Both ADRs touch the Workspace analytical pipeline (IOC extractor + verdict
+composer). Correct implementation requires exploring Workspace code that has
+been intentionally protected, writing new pinned regression tests, and running
+the full ~3938-test Workspace suite. Remaining context budget in this session
+would risk landing an under-tested change — contrary to the evidence-driven
+discipline the corpus was built to protect. Handoff to a fresh session is safer.
+
+### For the fresh session — start here
+1. Read `/app/memory/adr/0008-ioc-extraction-validation.md` §6 for pinned cases
+   and required non-regression checks.
+2. Read `/app/memory/adr/0007-verdict-evidence-gating.md` §6 for pinned cases.
+3. Sequencing: **ADR-0008 first**, run pinned regressions + full Workspace suite,
+   then ADR-0007 with its own pinned regression.
+4. Case artifacts live in MongoDB `workspace_cases` collection under the IDs
+   listed in each ADR's §6.
+5. After both ADRs are green, begin Phase 2: sample 50–100 records from
+   `analyst_corrections` (632 total) to assess signal quality before scaling.
+6. **Analyst Scorecard** (read-only, derived from `REAL_WORLD_LOG.md`) may be
+   added on the NivXForge Governance tab — no manual scoring, no AI summaries.
+
+### Governance state at end of session
+- Workspace Protection: ACTIVE
+- NivXForge Preview: HEALTHY (Investigate + Governance sub-nav)
+- Regression Suite: 49/49 PASS (`nivxforge/tests`)
+- Accepted ADRs: 5 (0001, 0004, 0005, 0006, 0007, 0008)
+- Registered Handlers: 0
+- Pending Handler ADRs: 0
+- SOC Cases Logged: 20 (0001, 0003–0022; Case 0002 still reserved for live Meterpreter)
+
+### Files touched this session
+- Added: `/app/memory/adr/0006-nivxforge-first-class-analyst-platform.md` · `/app/memory/adr/0007-verdict-evidence-gating.md` · `/app/memory/adr/0008-ioc-extraction-validation.md` · `/app/memory/DESIGN_NIVXFORGE_ANALYST_PLATFORM.md` · `/app/memory/REASONING_ENGINE_VISION.md` · `/app/memory/OPERATIONAL_LOOP.md` · `/app/memory/PLATFORM_POSITIONING.md` · `/app/memory/HEALTH_STAMP.json`
+- Modified (governance-only, no code): `/app/memory/PRD.md` · `/app/memory/REAL_WORLD_LOG.md`
+- Modified (frontend, Phase 1 ADR-0006): `/app/frontend/src/App.js` · `/app/frontend/src/nivxforge/pages/PreviewPage.jsx`
+- Added (frontend, Phase 1 ADR-0006): `/app/frontend/src/nivxforge/pages/InvestigatePage.jsx` · `/app/frontend/src/nivxforge/components/NivxForgeSubNav.jsx`
+- Added (backend, Phase 1 ADR-0006): `/app/backend/nivxforge/tests/test_parity_endpoints.py`
+- Modified (backend, Phase 1 ADR-0006): `/app/backend/nivxforge/preview/router.py` · `/app/backend/nivxforge/tests/test_preview_endpoints.py`
+
+**No modifications to `/app/backend/` outside the `nivxforge/` package.**
+
+---
+
+
+
 ## 2026-02-28 · **ADR-0006 · Phase 1 · NivXForge as First-Class Analyst Platform (analyst-parity surface)**
 
 ### Shipped
