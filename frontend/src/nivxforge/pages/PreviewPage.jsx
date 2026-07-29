@@ -47,19 +47,21 @@ export default function PreviewPage() {
   const [inv, setInv] = useState(null);
   const [diag, setDiag] = useState(null);
   const [fw, setFw] = useState(null);
+  const [health, setHealth] = useState(null);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const [g, a, i, d, f] = await Promise.all([
+        const [g, a, i, d, f, h] = await Promise.all([
           api.get("/nivxforge/preview/governance"),
           api.get("/nivxforge/preview/adrs"),
           api.get("/nivxforge/preview/evidence-inventory"),
           api.get("/nivxforge/preview/diagnostics"),
           api.get("/nivxforge/preview/framework-status"),
+          api.get("/nivxforge/preview/platform-health"),
         ]);
-        setGov(g.data); setAdrs(a.data); setInv(i.data); setDiag(d.data); setFw(f.data);
+        setGov(g.data); setAdrs(a.data); setInv(i.data); setDiag(d.data); setFw(f.data); setHealth(h.data);
       } catch (e) {
         setErr(e?.message || "Failed to load Preview data");
       }
@@ -98,6 +100,20 @@ export default function PreviewPage() {
         </div>
 
         <div style={S.grid}>
+          <div style={S.card} data-testid="card-platform-health">
+            <div style={S.cardH}>Platform Health</div>
+            {health ? (
+              <>
+                <div style={S.row}><span>Framework version</span><span style={{ fontFamily: "ui-monospace", color: "#7dd3fc" }}>{health.framework.version}</span></div>
+                <div style={S.row}><span>Accepted ADRs</span><span style={{ fontFamily: "ui-monospace" }}>{health.adrs.accepted} / {health.adrs.total}</span></div>
+                <div style={S.row}><span>Registered handlers</span><span style={{ fontFamily: "ui-monospace" }}>{health.framework.registered_handlers}</span></div>
+                <div style={S.row}><span>SOC cases logged</span><span style={{ fontFamily: "ui-monospace" }}>{health.evidence.soc_cases_logged}</span></div>
+                <div style={S.row}><span>Diagnostic reports</span><span style={{ fontFamily: "ui-monospace" }}>{health.evidence.diagnostic_reports}</span></div>
+                <div style={{ ...S.row, borderBottom: "none" }}><span>Mount mode</span><span style={{ ...S.chip, ...S.chipAccepted }}>{health.mount}</span></div>
+              </>
+            ) : <div style={S.err}>Loading…</div>}
+          </div>
+
           <div style={S.card} data-testid="card-governance">
             <div style={S.cardH}>Governance Documents</div>
             {gov ? govRows : <div style={S.err}>Loading…</div>}

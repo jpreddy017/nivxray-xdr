@@ -75,6 +75,22 @@ def test_framework_status_reports_empty_handlers_by_default():
     assert "note" in body
 
 
+def test_platform_health_reports_all_sections():
+    c = _client()
+    r = c.get("/api/nivxforge/preview/platform-health")
+    assert r.status_code == 200
+    body = r.json()
+    for key in ("governance", "adrs", "framework", "evidence", "mount"):
+        assert key in body, f"platform-health missing section: {key}"
+    # ADRs accepted count includes 0001, 0004, 0005 at time of writing.
+    assert body["adrs"]["accepted"] >= 3
+    # Framework ships zero handlers by design (ADR-0001 §3).
+    assert body["framework"]["registered_handlers"] == 0
+    # Case 0001 is logged in REAL_WORLD_LOG.md.
+    assert body["evidence"]["soc_cases_logged"] >= 1
+    assert body["mount"] == "read-only-preview"
+
+
 def test_preview_endpoints_are_get_only():
     # Fail any non-GET method → 405 Method Not Allowed
     c = _client()

@@ -126,3 +126,65 @@ def framework_status() -> dict:
 def real_world_log() -> dict:
     """Return the SOC case log markdown."""
     return {"markdown": _read("REAL_WORLD_LOG.md"), "filename": "REAL_WORLD_LOG.md"}
+
+
+@router.get("/platform-health")
+def platform_health() -> dict:
+    """At-a-glance platform maturity — read-only, computed on request.
+
+    Aggregates already-visible signals into a single card:
+      - Governance version (from PRODUCT_CHARTER.md if a version line exists)
+      - Accepted ADR count
+      - Framework version + registered handler count
+      - Evidence corpus size (Cases logged in REAL_WORLD_LOG.md)
+      - Diagnostic count
+    """
+    # ADRs · count Accepted status by re-parsing (cheap, no state)
+    adr_dir = _MEMORY / "adr"
+    accepted = proposed = other = 0
+    if adr_dir.is_dir():
+        for p in adr_dir.glob("[0-9]*.md"):
+            text = p.read_text(encoding="utf-8", errors="replace")
+            m = re.search(r"^\-\s*\*\*Status:\*\*\s*(\w+)", text, re.MULTILINE)
+            s = (m.group(1).lower() if m else "unknown")
+            if s == "accepted": accepted += 1
+            elif s == "proposed": proposed += 1
+            else: other += 1
+
+    # SOC cases — count "### Case NNNN" headers in REAL_WORLD_LOG.md
+    log_text = _read("REAL_WORLD_LOG.md")
+    case_count = len(re.findall(r"^###\s+Case\s+\d{4}", log_text, re.MULTILINE))
+
+    diag_count = len(list(_MEMORY.glob("DIAGNOSTIC_*.md")))
+    inventory_count = len(list(_MEMORY.glob("EVIDENCE_INVENTORY_*.md")))
+
+    # Framework version from the package __version__
+    try:
+        from nivxforge import __version__ as forge_version
+    except Exception:
+        forge_version = "unknown"
+
+    return {
+        "governance": {
+            "charter_exists": (_MEMORY / "PRODUCT_CHARTER.md").exists(),
+            "north_star_exists": (_MEMORY / "NORTH_STAR.md").exists(),
+            "roadmap_exists": (_MEMORY / "IMPLEMENTATION_ROADMAP.md").exists(),
+        },
+        "adrs": {
+            "accepted": accepted,
+            "proposed": proposed,
+            "other": other,
+            "total": accepted + proposed + other,
+        },
+        "framework": {
+            "version": forge_version,
+            "families_with_detectors": len(reg_families()),
+            "registered_handlers": total_handlers(),
+        },
+        "evidence": {
+            "soc_cases_logged": case_count,
+            "diagnostic_reports": diag_count,
+            "evidence_inventories": inventory_count,
+        },
+        "mount": "read-only-preview",
+    }
