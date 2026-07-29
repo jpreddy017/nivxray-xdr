@@ -1,7 +1,7 @@
 {
-  "total": 67,
+  "total": 70,
   "passed": 27,
-  "hit_rate": 0.403,
+  "hit_rate": 0.3857,
   "threshold": 0.6,
   "results": [
     {
@@ -334,14 +334,14 @@
       "sha1": "1584af34536103c086f163f599640acbb9f26155",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "cmd /c \"whoami && netstat -ano\"",
+      "output_head": "whoami && netstat -ano",
       "ok": false
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "\ufffd\ufffd",
+      "output_head": "\u00ff\u0000",
       "ok": false
     },
     {
@@ -383,16 +383,16 @@
     },
     {
       "sha1": "74922dfbd46d5c3ec773a59cd4d6868acc352b50",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "output_head": "binary-A",
       "ok": false
     },
     {
       "sha1": "a3000b7c7aac53570a950f75827a60847132ed73",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE=';        var b=atob(d);        var l=document.createElement('a');        l.download='payload.exe';  ",
+      "output_head": "binary-A",
       "ok": false
     },
     {
@@ -404,9 +404,9 @@
     },
     {
       "sha1": "9dab0c64d545d383773f8738c8f89e80183784e6",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE=';            var b=atob(d);            var l=document.createElement('a');            l.download='pay",
       "ok": false
     },
     {
@@ -439,9 +439,9 @@
     },
     {
       "sha1": "892ed1156a4390ee17d9583a72b5c90eb1eca957",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-C",
+      "output_head": "var d='YmluYXJ5LUM=';        var b=atob(d);        var l=document.createElement('a');        l.download='stager.js';    ",
       "ok": false
     },
     {
@@ -738,6 +738,27 @@
       "engine": "llm-l3",
       "chain": [],
       "output_head": "Write-Host \"Hello, world\"",
+      "ok": false
+    },
+    {
+      "sha1": "4233fb8417a5278a07306a7704110ef2a0d5a1d8",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "--runaszvideo=TRUE\n    --useroption=2347222064534913024\n    --useroption2=1152956688981395520\n    --useroption3=69176006",
+      "ok": false
+    },
+    {
+      "sha1": "9ea26a3711c1c10b506157a14833c46840544ce5",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "--runaszvideo=TRUE\n    --useroption=2347222064534913024\n    --useroption2=1152956688981395520\n    --haszoomim=1",
+      "ok": false
+    },
+    {
+      "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
       "ok": false
     }
   ]
