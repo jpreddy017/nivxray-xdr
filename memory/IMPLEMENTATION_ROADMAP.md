@@ -17,7 +17,7 @@ Observed Need
     ↓
 Repeated Evidence     (≥ N similar real cases in REAL_WORLD_LOG.md)
     ↓
-Architecture Decision Record (ADR)     (rationale + tradeoffs, checked into repo)
+Architecture Decision Record (ADR)     (see structure below · checked into /app/memory/adr/)
     ↓
 Charter compatibility check            (no Rule 1-7 violation)
     ↓
@@ -34,6 +34,25 @@ Release
 
 No shortcut. No exceptions. If it's not in the North Star it doesn't
 even reach the gate.
+
+### ADR structure (mandatory for every Phase beyond Phase 0)
+
+Every ADR under `/app/memory/adr/` must contain the following six
+sections. Anything less is not eligible for §3 promotion.
+
+1. **Problem Statement** — What recurring evidence are we addressing?
+2. **Supporting Evidence** — Which real SOC cases (by Case number in
+   `REAL_WORLD_LOG.md`) demonstrate the need?
+3. **Proposed Change** — What capability will be added? Which North Star
+   item does it lift into the Roadmap?
+4. **Alternatives Considered** — Why this approach over the others?
+5. **Workspace Impact** — Explicit: is any Workspace file affected?
+   If yes, name every file and justify against the Workspace Protection
+   Policy (§7 of `NORTH_STAR.md`).
+6. **Success Criteria** — How will we measure whether the change solved
+   the problem? What regression / benchmark / compat tests prove it?
+
+See `/app/memory/adr/README.md` for the template.
 
 ---
 
