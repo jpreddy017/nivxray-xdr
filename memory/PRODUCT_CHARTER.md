@@ -378,6 +378,36 @@ Instead run one review session that answers only three questions:
 The answers to these three questions define Phase 1b's scope.
 Anything not required by the answers is deferred.
 
+### Project Health Scorecard (updated after every review session)
+
+_This is the objective go / no-go signal. Do not open Phase 1b
+until "Phase 1b justified?" reads `Yes`._
+
+| Metric                    | Current |
+|---------------------------|---------|
+| Real SOC cases reviewed   | 0       |
+| `Unknown` verdicts        | 0       |
+| Incorrect verdicts        | 0       |
+| Top missing evidence      | —       |
+| Phase 1b justified?       | No      |
+
+Update rules:
+- **Real SOC cases reviewed** — count of entries in `REAL_WORLD_LOG.md`.
+- **`Unknown` verdicts** — subset where the engine emitted `Unknown`.
+- **Incorrect verdicts** — verdict did not match the analyst's expected conclusion (any band).
+- **Top missing evidence** — highest-count row from the Missing-Evidence tally.
+- **Phase 1b justified?** — `Yes` only when the top missing-evidence
+  bucket both (a) accounts for ≥30% of incorrect-or-`Unknown` cases
+  and (b) has ≥20 supporting cases logged.
+
+### Handoff instruction (mandatory first read for any new engineer / agent)
+
+> **Do not write Phase 1b code until the Validation Mode exit
+> criteria in this section are satisfied.** Read the scorecard
+> above. If `Phase 1b justified?` is `No`, the correct next
+> action is to help the analyst investigate and log real cases —
+> not to write new heuristics.
+
 ---
 
 ## 5 · Post-v1.6.0 backlog (deferred)
