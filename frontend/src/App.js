@@ -58,6 +58,7 @@ const V2ValidationPage         = lazy(() => import("@/v2/pages/ValidationPage"))
 // ADR-0005 authorised the router mount (2026-02-28); this page consumes
 // /api/nivxforge/preview/* GET endpoints only.
 const NivxForgePreviewPage     = lazy(() => import("@/nivxforge/pages/PreviewPage"));
+const NivxForgeInvestigatePage = lazy(() => import("@/nivxforge/pages/InvestigatePage"));
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -141,8 +142,10 @@ function App() {
               <Route path="/v2/ingest" element={<Protected><V2IngestionPage /></Protected>} />
               {/* v2 · Validation Pack — 34-dataset Golden Corpus matrix */}
               <Route path="/v2/validation" element={<Protected><V2ValidationPage /></Protected>} />
-              {/* NivXForge (Preview) · read-only Evidence-Driven Preview */}
-              <Route path="/nivxforge" element={<Protected><NivxForgePreviewPage /></Protected>} />
+              {/* NivXForge (ADR-0006 · Phase 1) · analyst-parity surface + governance */}
+              <Route path="/nivxforge"              element={<Protected><NivxForgeInvestigatePage /></Protected>} />
+              <Route path="/nivxforge/investigate"  element={<Protected><NivxForgeInvestigatePage /></Protected>} />
+              <Route path="/nivxforge/governance"   element={<Protected><NivxForgePreviewPage /></Protected>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

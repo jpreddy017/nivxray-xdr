@@ -12,6 +12,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Header from "../../components/Header";
+import NivxForgeSubNav from "../components/NivxForgeSubNav";
 import api from "../../lib/api";
 
 const S = {
@@ -101,6 +102,7 @@ export default function PreviewPage() {
   return (
     <div>
       <Header />
+      <NivxForgeSubNav active="governance" />
       <div style={S.page} data-testid="nivxforge-preview-page">
         <div style={S.hero}>
           <div style={S.eyebrow}>Evidence-Driven Preview</div>

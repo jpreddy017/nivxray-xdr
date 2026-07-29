@@ -1,5 +1,67 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **ADR-0006 · Phase 1 · NivXForge as First-Class Analyst Platform (analyst-parity surface)**
+
+### Shipped
+- **ADR-0006 Accepted** with operator-approved Phase 1 guardrails (presentation-only,
+  reuse existing APIs, no reasoning engine, no verdict-logic changes, no backend
+  changes).
+- New route: `/nivxforge/investigate` (also served at `/nivxforge`) — full analyst
+  surface with paste input, file upload, `[DECODE]`, `[AUTO INVESTIGATE]`, focus field.
+  Renders **VerdictCard**, **OutputView**, **TIShieldPanel**, **IOCs**, **MITRE**,
+  **Behaviors**, and **InvestigationBrainPanel** (all reused from `/components/*`).
+- Governance moved to `/nivxforge/governance` (existing PreviewPage, now under a
+  sub-nav). Legacy `/nivxforge` redirect points at the analyst surface.
+- **NivxForgeSubNav** component — pill-tab strip (Investigate · Governance) with a
+  live "46/46 PASS · ACTIVE" health pill linked to Governance.
+- **Parity contract test** (`test_parity_endpoints.py`, 3 tests) — static assertions
+  that Workspace and NivXForge call the *same* `/api/decode/smart` and
+  `/api/v2/auto-investigate` endpoints and that NivXForge never introduces a
+  NivXForge-owned analytical endpoint. Catches divergence at PR time.
+- **Reasoning Engine Vision** recorded in `/app/memory/REASONING_ENGINE_VISION.md`
+  as long-horizon operating vision (NOT a build ticket). Operator principles §3.2-§3.5
+  now govern any future reasoning-layer ADR.
+
+### Backend impact — zero
+- No backend routes added, changed, or removed.
+- `nivxforge` Python package still imports zero Workspace modules.
+- No modifications to `/app/backend/routers/`, `/engine/`, `/decoders/`, `/heuristics/`,
+  `/knowledge_base/`, `/extractors/`, `/enrichment/`, `file_extractors.py`, or `server.py`.
+
+### Frontend impact
+- Added: `/app/frontend/src/nivxforge/pages/InvestigatePage.jsx` (~290 lines) ·
+  `/app/frontend/src/nivxforge/components/NivxForgeSubNav.jsx` (~90 lines).
+- Modified: `/app/frontend/src/App.js` (2 new routes) ·
+  `/app/frontend/src/nivxforge/pages/PreviewPage.jsx` (added sub-nav mount).
+- No changes to `WorkspacePage.jsx`, `AutoInvestigatePage.jsx`, or any file under
+  `/app/frontend/src/components/` (all analyst primitives reused as-is).
+
+### Verification
+- **NivXForge suite: 49/49 PASS** (`pytest nivxforge/tests/ -q` · 0.57s).
+- End-to-end verified: pasted encoded PowerShell → `[DECODE]` → returned the SAME
+  verdict (Runtime Dependent · 55% confidence), the SAME 8 evidence indicators
+  (T1059.001, T1027.010, T1105, LOLBAS chains, URL IOCs), the SAME decoded output,
+  and the SAME TI Shield layered enrichment that Workspace produces — because both
+  surfaces call `POST /api/decode/smart`.
+- Sub-nav navigation, deep-linking, and refresh all working.
+- Governance page now surfaces ADR-0006 as Accepted alongside ADR-0001/0004/0005.
+
+### Parity guarantee (structural, not visual)
+The parity contract test (§Shipped) pins the shared backend contract. UI look-and-feel
+between Workspace and NivXForge may diverge over time; **analytical results MUST
+NOT** — that's what the contract test protects.
+
+### Explicit non-goals (per operator directive)
+- No reasoning engine, hypothesis engine, correlation engine, recommendation
+  engine, learning engine, confidence model, or verdict-logic changes.
+- No new NivXForge-owned analytical backend endpoints.
+- No modifications to Workspace pages or components.
+- No pixel-parity claim — analytical parity only.
+
+---
+
+
+
 ## 2026-02-28 · **NivXForge Preview · Situational-Awareness Landing Summary (presentation-layer only)**
 
 ### Shipped
