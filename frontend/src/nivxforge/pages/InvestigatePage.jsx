@@ -266,6 +266,14 @@ export default function InvestigatePage() {
               data-testid="investigate-run-btn"
               title="One adaptive investigation · engine picks the pipeline (ADR-0009 §2.4)"
             >🔍 Investigate</button>
+            <button
+              type="button"
+              style={{ ...S.btnGhost, ...(input || result || err ? {} : S.btnDisabled) }}
+              onClick={() => { setInput(""); setResult(null); setErr(""); setMode(null); setFocus(""); }}
+              disabled={!(input || result || err)}
+              data-testid="investigate-clear-btn"
+              title="Clear input, focus, results, and errors"
+            >Clear</button>
             <input
               type="text"
               value={focus}
