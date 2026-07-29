@@ -38,6 +38,16 @@ rationale. This log is read-only history — never edit past rows._
 3. No roadmap addition without an accepted ADR.
 4. Compatibility + isolation tests are mandatory and remain green.
 5. Evidence **quality** outweighs evidence **quantity**.
+6. **Quarterly governance review** — every ~3 months, or after a
+   meaningful accumulation of real cases, revisit:
+   - Does recurring evidence justify drafting a new ADR?
+   - Do existing ADRs still reflect current operational reality?
+   - Does the North Star still describe the desired long-term direction?
+   - Does the Product Charter need clarification (never expansion)?
+
+   Findings from each review are appended as new rows in this log,
+   citing the reviewed documents. Governance evolves through review,
+   not accretion.
 
 _See `PRODUCT_CHARTER.md`, `IMPLEMENTATION_ROADMAP.md`, and `adr/README.md`
 for the authoritative definitions of each rule._
