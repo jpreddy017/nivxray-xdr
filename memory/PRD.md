@@ -22,7 +22,7 @@
 - **Phase 2** — sample 50-100 `analyst_corrections` to seed the next pattern register update.
 - **Narrative Composer preview (⭐⭐⭐⭐☆)** — turn the CIM into the North Star PhantomStealer report shape.
 - **ADR-0010 Navigation IA** — capture the 8-tab restructure (WORKSPACE / TRAJECTORY / BATCH / HEATMAP / LAB / TOOLS / LEARN / ADMIN with Documents inside Admin) as governance.
-- **Verdict-unification ADR (future)** — unify `build_verdict_card` and `executive_card` so both endpoints emit the same verdict label for the same input.
+- **Verdict-unification ADR (future)** — RENAMED per operator directive (2026-02-28): now `ADR-0011 · Investigation Engine Unification`. The parity sweep proved that verdict / evidence / stages divergences are all one architectural fork (two reasoning engines on one unified decode pipeline + one unified CIM). Fix at the engine layer, all 5 dimensions come green together. See `/app/memory/evidence/adr_0011_investigation_engine_unification_candidate.md`.
 
 
 
