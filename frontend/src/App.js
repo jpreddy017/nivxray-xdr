@@ -14,7 +14,6 @@ import { Toaster } from "@/components/ui/sonner";
 // is first hit. Cuts the initial JS payload from ~1.4 MB to a small
 // shell + LoginPage.
 const WorkspacePage         = lazy(() => import("@/pages/WorkspacePage"));
-const DashboardPage         = lazy(() => import("@/pages/DashboardPage"));
 const CommandAnalyzerPage   = lazy(() => import("@/pages/CommandAnalyzerPage"));
 const AdminPage             = lazy(() => import("@/pages/AdminPage"));
 const ModelStudioPage       = lazy(() => import("@/pages/ModelStudioPage"));
@@ -94,7 +93,6 @@ function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/" element={<Protected><WorkspacePage /></Protected>} />
-              <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
               <Route path="/analyze" element={<Protected><CommandAnalyzerPage /></Protected>} />
               <Route path="/threat-intel" element={<Protected><ThreatIntelPage /></Protected>} />
               <Route path="/threat-model" element={<Protected><ThreatModelPage /></Protected>} />

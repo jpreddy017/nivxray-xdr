@@ -26,7 +26,6 @@ export default function Header() {
     { key: "workspace",  href: "/",           label: "WORKSPACE",  icon: LayoutGrid, testId: "nav-workspace" },
     { key: "auto",       href: "/auto-investigate", label: "AUTO INVESTIGATE", icon: Zap, testId: "nav-auto-investigate" },
     { key: "trajectory", href: "/v2/trajectory", label: "TRAJECTORY", icon: Radar,   testId: "nav-trajectory" },
-    { key: "dashboard",  href: "/dashboard",  label: "DASHBOARD",  icon: BarChart3,  testId: "nav-dashboard" },
     { key: "batch",      href: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
     { key: "heatmap",    href: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
     { key: "documents",  href: "/documents",  label: "DOCUMENTS",  icon: FolderOpen, testId: "nav-documents" },

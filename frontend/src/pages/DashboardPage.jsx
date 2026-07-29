@@ -1,4 +1,25 @@
 /**
+ * DashboardPage — DORMANT · Feb-2026 v1.5.7 UI cleanup.
+ *
+ * TODO(next-ui-refactor): DELETE THIS FILE.
+ *
+ * The Dashboard tab was removed from primary navigation in v1.5.7 as
+ * a UI-only cleanup — NivXRay is an analyst-first investigation
+ * platform, not a KPI product. There are NO runtime references to
+ * this component:
+ *   - no lazy import in App.js
+ *   - no /dashboard route
+ *   - no header nav item
+ *   - no linked buttons/breadcrumbs anywhere in the codebase
+ *
+ * The file is intentionally retained on disk for THIS release only so
+ * a rollback can be done with a single git revert. If the Dashboard
+ * is not resurrected during the next UI cleanup / refactor, delete
+ * this entire file and any lingering imports (search:
+ * `DashboardPage`).
+ *
+ * — Original description below preserved for reference —
+ *
  * DashboardPage — NivXRay Detection Pipeline (SOC Prime · DetectFlow-inspired).
  *
  * Layout: source topics → hex counters → glowing pipeline & MITRE
