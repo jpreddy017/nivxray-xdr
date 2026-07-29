@@ -429,3 +429,150 @@ similar-looking artifacts.
 No code changes. No ADRs drafted. 10 cases banked toward the 20-case operational
 milestone.
 
+
+---
+
+## Historical case-mining batch 3 · 2026-02-28
+
+**Scope:** 5 more workspace_cases spanning new sample-classes. Numbering 0013–0017.
+Enriched pattern register per operator direction (First Seen / Last Seen /
+Affected Component).
+
+---
+
+### Case 0013 — `start-process notepad` benign decoded (`TEST_case_feb2026`)
+
+- Source: workspace_cases `02adf58d…` · Sample class: **ps-encoded-benign**
+- Artifact: `powershell -encodedcommand cwB0AGEAcgB0AC0AcAByAG8AYwBlAHMAcwAgAG4AbwB0AGUAcABhAGQA` → decoded `start-process notepad`
+- Stored output: verdict_card.label=**Partial Decode** · summary block says **Malicious 70/100** · 0 indicators · IOCs empty · MITRE `T1059.001, T1027.010`
+
+**Evidence tiers**
+- Observable: decoded = `start-process notepad` (7 chars, benign)
+- Inference: BENIGN — no C2, no download, no LOLBIN chain, no persistence
+
+| Category | Assessment |
+|---|---|
+| Evidence Sufficiency | Sufficient — decoded content is unambiguous |
+| Decode Completeness | Pass |
+| IOC Completeness | Pass |
+| MITRE Mapping | **Incorrect** — T1027.010 applied to encoded form; decoded content invalidates it |
+| Verdict | **Too Strong** — Malicious 70 for `start-process notepad` |
+| Explanation Quality | Poor — 0 indicators |
+| Evidence Traceability | No — verdict of 70 has no cited evidence |
+| Analyst Notes | **3rd P-VERDICT-STRUCTURAL** + **2nd P-VERDICT-DUAL-SURFACE** (card `Partial Decode` vs summary `Malicious 70`) |
+| Action | **Monitor** → *see pattern-register update below* |
+
+---
+
+### Case 0014 — AMSI-bypass PS with same artifact family as Case 0007 (`Need Layered Detonation`)
+
+- Source: workspace_cases `50215553…` · Sample class: **ps-defender-tamper**
+- Artifact: same `EnableScriptBlockLogging` reconstruction as Case 0007 (different verdict rendering)
+- Stored output: **Suspicious 80%** (Case 0007 for the same artifact family produced Corrupted/None) · IOCs `domains=[stem.ma]` · MITRE `T1059.001, T1140`
+
+**Evidence tiers**
+- Observable: explicit `EnableScriptBlockLogging` reconstruction via `-f` format; `[Ref].Assembly.GetType(…)` reflection
+- Inference: anti-logging / **Impair Defenses (T1562.001)** or **Indicator Blocking (T1562.006)**
+
+| Category | Assessment |
+|---|---|
+| Evidence Sufficiency | Sufficient |
+| Decode Completeness | Partial — outer layer only |
+| IOC Completeness | **Partial** — `stem.ma` extracted from `System.Management` fragment (regex over-extract) |
+| MITRE Mapping | **Missing** — T1562.001/T1562.006 not surfaced despite explicit `EnableScriptBlockLogging` string |
+| Verdict | **Too Weak** — Suspicious 80 for explicit anti-logging is understated |
+| Explanation Quality | Partial |
+| Evidence Traceability | Yes |
+| Analyst Notes | **3rd P-IOC-VALIDATION** (`stem.ma` from `System.Management` — same regex issue as Case 0007) + **2nd P-MITRE-DEFENDER-TAMPER-COVERAGE** |
+| Action | **Monitor** → *see pattern-register update* |
+
+---
+
+### Case 0015 — DLL sideload + XOR-encoded payload (`Case2`)
+
+- Source: workspace_cases `91b511ba…` · Sample class: **dll-sideload + xor-blob**
+- Artifact: `1.exe 2.dll` + `cmd.exe /C 1.exe 2.dll` + long base64/XOR blob
+- Stored output: Malicious 80% · IOCs `domains=[ozagdlrqbplqkamlt5aj9wqwktwhkhnwb0hj.az]` (DGA-like) · MITRE `T1059.001, T1027.010, T1059.003, T1027`
+
+| Category | Assessment |
+|---|---|
+| Evidence Sufficiency | Sufficient |
+| Decode Completeness | Partial — XOR peeled, output still garbled |
+| IOC Completeness | Partial — DGA-like `.az` domain surfaced, but `1.exe`/`2.dll` not labelled as file IOCs |
+| MITRE Mapping | **Missing** — **T1574.002 (DLL Side-Loading)** not labelled despite explicit `.exe .dll` invocation |
+| Verdict | Useful — 80 supported |
+| Explanation Quality | Partial — cites LOLBAS but not sideload pattern |
+| Evidence Traceability | Yes |
+| Analyst Notes | New pattern **P-MITRE-DLL-SIDELOAD-COVERAGE** (1st observation) |
+| Action | **Monitor** |
+
+---
+
+### Case 0016 — schtasks + PSRemoting + firewall change (`Case1`)
+
+- Source: workspace_cases `64784a7b…` · Sample class: **cmd-schtasks-persistence**
+- Artifact: `schtasks /s vmch45.sugarlandtx.gov /tn MsedgeUpdate /tr "powershell.exe Enable-PSRemoting -force" /sc ONCE /st 00:00 /ru SYSTEM /f` + `netsh advfirewall firewall add rule name=RDP protocol=TCP localport=3389 action=allow dir=IN`
+- Stored output: **Suspicious 55%** · IOCs `domains=[vmch45.sugarlandtx.gov]` · MITRE `T1021.006` only
+
+**Evidence tiers**
+- Observable: schtasks, PSRemoting force-enable, SYSTEM runas, MsedgeUpdate impersonation, RDP inbound opened
+- Inference: lateral-movement + persistence + firewall tampering chain
+
+| Category | Assessment |
+|---|---|
+| Evidence Sufficiency | Sufficient |
+| Decode Completeness | N/A (plain text) |
+| IOC Completeness | Pass |
+| MITRE Mapping | **Missing** — T1053.005 (Scheduled Task), T1036.005 (Masquerading `MsedgeUpdate`), T1562.004 (Impair Defenses: Firewall), T1078.002 (Domain Accounts /ru SYSTEM) — none labelled |
+| Verdict | **Too Weak** — Suspicious 55 understates SYSTEM-level PSRemoting + inbound RDP allow |
+| Explanation Quality | Partial |
+| Evidence Traceability | Yes |
+| Analyst Notes | New pattern **P-MITRE-PERSISTENCE-CHAIN-UNDER-MAP** (1st observation) |
+| Action | **Monitor** |
+
+---
+
+### Case 0017 — Trivial `powershell -e ABC` via llm-l3 engine (`Test Case`)
+
+- Source: workspace_cases `36d8cd4d…` · Sample class: **trivial-invalid-encoding**
+- Artifact: `powershell -e ABC` (17 chars total; `ABC` is invalid base64)
+- Stored output: **Malicious 70%** · MITRE `T1059.001` · engine `llm-l3` (different from rc2-orchestrator)
+
+| Category | Assessment |
+|---|---|
+| Evidence Sufficiency | **Insufficient** — decoded output is 3 chars |
+| Decode Completeness | Pass (nothing more to decode) |
+| IOC Completeness | Pass |
+| MITRE Mapping | Appropriate (only T1059.001 for PS binary) |
+| Verdict | **Too Strong** — Malicious 70 for `powershell -e ABC` |
+| Explanation Quality | Poor — 2 indicators, both structural |
+| Evidence Traceability | Yes |
+| Analyst Notes | **4th P-VERDICT-STRUCTURAL** — verdict driven by `powershell -e` presence, not decoded content. Also first case from `llm-l3` engine (verdict logic may differ between engines) |
+| Action | **Monitor** |
+
+---
+
+## Enriched pattern register (after 15 real cases · 0001, 0003–0017)
+
+| Pattern | Description | Cases | Count | First Seen | Last Seen | Affected Component | Status |
+|---|---|---|---|---|---|---|---|
+| **P-VERDICT-STRUCTURAL** | Verdict driven by encoding structure when decoded content is benign | 0005, 0006, 0013, 0017 | **4** | 0005 | 0017 | Verdict Engine (rc2-orchestrator + llm-l3) | **≥3 threshold reached — ADR-0007 drafted** |
+| **P-IOC-VALIDATION** | IOC regex extracts invalid IPs (octet >255, leading zeros) or false-positive domains from string-reconstruction fragments | 0007, 0011, 0012, 0014 | **4** | 0007 | 0014 | IOC Extractor | **≥3 threshold reached — ADR-0008 drafted** |
+| P-VERDICT-DUAL-SURFACE | `verdict_card.label` disagrees with summary-block verdict text | 0006, 0013 | 2 | 0006 | 0013 | Verdict rendering / summary composer | Monitor (1 more to threshold) |
+| P-MITRE-DEFENDER-TAMPER-COVERAGE | T1562.001/T1562.006 not mapped despite explicit anti-logging strings | 0007, 0014 | 2 | 0007 | 0014 | MITRE Engine | Monitor |
+| P-DECODER-DEPTH | Decoder terminates on intermediate obfuscation layer | 0004 | 1 | 0004 | 0004 | Decoder | Monitor |
+| P-CHAIN-FAILURE-VERDICT-COLLAPSE | Mid-chain decoder failure → null verdict card despite raw-input signals | 0007 | 1 | 0007 | 0007 | Verdict Engine | Monitor |
+| P-PE-INTROSPECTION | PE structure recognised but imports/strings not walked | 0008 | 1 | 0008 | 0008 | Decoder + IOC Extractor | Monitor |
+| P-MITRE-CLICKFIX-COVERAGE | T1204.004 (paste-and-execute) not surfaced | 0010 | 1 | 0010 | 0010 | MITRE Engine | Monitor |
+| P-VERDICT-LOCALHOST | Verdict weight not discounted for `127.0.0.1` / RFC1918 URLs | 0011 | 1 | 0011 | 0011 | Verdict Engine | Monitor |
+| P-MITRE-DLL-SIDELOAD-COVERAGE | T1574.002 not surfaced despite explicit `.exe .dll` invocation | 0015 | 1 | 0015 | 0015 | MITRE Engine | Monitor |
+| P-MITRE-PERSISTENCE-CHAIN-UNDER-MAP | schtasks/netsh/masquerading persistence chain under-mapped | 0016 | 1 | 0016 | 0016 | MITRE Engine | Monitor |
+
+**Two patterns crossed the ≥3-case ADR threshold in Batch 3:**
+- **P-VERDICT-STRUCTURAL** (4 cases · Verdict Engine) → **ADR-0007 · Verdict-Evidence Gating** drafted (Proposed).
+- **P-IOC-VALIDATION** (4 cases · IOC Extractor) → **ADR-0008 · IOC Extraction Validation** drafted (Proposed).
+
+Both ADRs are drafted for operator review only. No implementation authorised.
+Remaining 5 workspace_cases from the 20-case milestone will be evaluated in Batch 4
+regardless of ADR outcomes — the corpus continues to grow.
+
