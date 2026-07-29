@@ -75,9 +75,9 @@ not by UI iteration.
 
 ---
 
-## Case-review template (adopted 2026-02-28)
+## Case-review template (adopted 2026-02-28 · frozen after §9.2 addition until ≥20 cases evaluated)
 
-Every case logged in `REAL_WORLD_LOG.md` MUST be evaluated against these eight
+Every case logged in `REAL_WORLD_LOG.md` MUST be evaluated against these nine
 categories. Consistency is what makes the log statistically useful over dozens of
 cases.
 
@@ -89,6 +89,7 @@ cases.
 | Verdict                 | Useful / Too Weak / Too Strong                                |
 | Explanation Quality     | Clear / Partial / Poor                                        |
 | Evidence Traceability   | Every finding backed by evidence? Yes / No                    |
+| **Evidence Sufficiency**| **Sufficient / Partially Sufficient / Insufficient** (see §9.2 below) |
 | Analyst Notes           | Free-form observations, only lessons that generalise          |
 | Action                  | No Action / Monitor / Draft ADR *(only after ≥3 recurrences)* |
 
@@ -99,6 +100,10 @@ Rules:
   ≥3 cases with matching Missing-Evidence categories.
 - **Free-form notes** should capture *generalisable* lessons only — one-off analyst
   context belongs in the ticket, not the log.
+- **Template is frozen** until at least 20 real cases have been evaluated with the
+  current nine categories. Do not add / remove / reword categories before that
+  threshold — consistency across the corpus is more valuable than local
+  refinements.
 
 ### Evidence-vs-hypothesis discipline (mandatory)
 
@@ -121,6 +126,35 @@ Analyst Notes only.
 A defect is recorded only when NivXRay contradicts or misses *observable evidence*
 or *evidence-based inference with unambiguous correspondence* — never for a
 disagreement about a hypothesis.
+
+### §9.2 Evidence Sufficiency (mandatory ninth category)
+
+For every case, before scoring the other eight categories, answer:
+
+> "Was there enough observable evidence for NivXRay to reasonably reach the
+> analyst's conclusion?"
+
+Values:
+
+| Value                    | Meaning                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| **Sufficient**           | The artifact contained enough observable evidence for a well-supported verdict AND the specific inferences the analyst made. |
+| **Partially Sufficient** | Enough evidence for a *class* of verdict (e.g., "malicious HTTP stager") but not for the *specific* inference the analyst made (e.g., "Meterpreter reverse_http · APT29"). |
+| **Insufficient**         | The artifact was too fragmentary, corrupted, or lacking observable indicators to reach any confident conclusion. |
+
+**Scoring rule:** if Evidence Sufficiency = *Partially Sufficient* or *Insufficient*,
+NivXRay CANNOT be scored as "Too Weak" for verdict, "Missing" for MITRE, or "Partial"
+for IOC completeness on the basis of leaps beyond what the evidence supported. It
+would be unfair to penalise the platform for not making inferences the evidence did
+not warrant.
+
+Worked example (Case 0002 pattern):
+
+| Layer                       | Content                                                                                | Fair to score against NivXRay?                     |
+| --------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Observable evidence         | IP `149.28.81.19`, IE9 UA `BOIE9;PTBR`, `hnet`/`hwini` shellcode strings               | ✅ Yes — if any of these missing → defect.         |
+| Evidence-based inference    | "Likely Meterpreter reverse_http stager"                                               | ⚠️ Partially — score only if UA→family correspondence is unambiguous. |
+| Analyst hypothesis          | "APT29 infrastructure" · "part of Campaign X"                                          | ❌ No — never a defect if NivXRay declines this attribution. |
 
 ---
 
