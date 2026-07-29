@@ -165,10 +165,18 @@ def test_corrupted_container_still_returns_card():
 
 # ── Case 10 · No findings — chain only (Suspicious) ─────────────────────
 def test_chain_only_produces_suspicious_card():
+    """ADR-0007 update: chain-only WITHOUT behavioral evidence now caps
+    at 'Partial Decode' per the verdict-evidence gate (§2.3). This test
+    still asserts the shape contract (never null, proper keys) — only
+    the label whitelist changed to reflect the correct new behaviour."""
     card = build_verdict_card(
         input_text="stub", output_text="decoded text",
         chain=[{"op": "base64-decode"}, {"op": "url-decode"}],
         corrupted_container=None,
     )
     _assert_shape(card)
-    assert card["label"] in ("Suspicious", "Malicious", "Benign")
+    assert card["label"] in ("Suspicious", "Malicious", "Benign", "Partial Decode"), (
+        f"Chain-only decode produced unexpected label: {card['label']}. "
+        "ADR-0007 §2.3 permits 'Partial Decode' for structural-only signals; "
+        "other labels remain valid when behavioral/semantic evidence is present."
+    )

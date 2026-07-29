@@ -160,79 +160,114 @@ def layer_metadata(op_id: str, after: str, integrity_ok: bool = True,
 # ═══════════════════════════════════════════════════════════════════════
 def _collect_indicators(input_text: str, output_text: str,
                         chain: List[Dict[str, Any]]) -> List[Dict[str, str]]:
-    """Cite concrete artifacts (bytes / entropy / encoding) as evidence."""
+    """Cite concrete artifacts (bytes / entropy / encoding) as evidence.
+
+    ADR-0007 amendment: every indicator now carries an `evidence_class` tag:
+      - "behavioral" · matches §2.1 (can drive verdict severity)
+      - "semantic"   · content-meaning inference (also §2.1)
+      - "structural" · matches §2.2 (contributes to confidence only)
+    """
     ind: List[Dict[str, str]] = []
     out_b = _to_bytes(output_text)
 
-    # ── Executable-format signatures ──
+    # ── Executable-format signatures ── BEHAVIORAL (real PE / ELF present)
     if out_b.startswith(_MZ):
-        # DOS header present — check e_lfanew and PE\0\0 for PE validity
         if len(out_b) >= 0x40:
             e_lfanew = int.from_bytes(out_b[0x3c:0x40], "little", signed=False)
             if 0 < e_lfanew < len(out_b) - 4 and out_b[e_lfanew:e_lfanew + 4] == _PE_SIG:
-                ind.append({"label": f"PE header validated (e_lfanew=0x{e_lfanew:x}, PE\\0\\0 at offset {e_lfanew})", "kind": "positive"})
+                ind.append({"label": f"PE header validated (e_lfanew=0x{e_lfanew:x}, PE\\0\\0 at offset {e_lfanew})",
+                            "kind": "positive", "evidence_class": "behavioral",
+                            "rule": "pe_header_validated"})
             else:
-                ind.append({"label": f"MZ signature found at offset 0 — PE header missing or invalid (e_lfanew=0x{e_lfanew:x})", "kind": "negative"})
+                ind.append({"label": f"MZ signature found at offset 0 — PE header missing or invalid (e_lfanew=0x{e_lfanew:x})",
+                            "kind": "negative", "evidence_class": "structural",
+                            "rule": "mz_partial"})
         else:
-            ind.append({"label": f"MZ signature found — only {len(out_b)} bytes recovered (< 0x40 required for DOS header validation)", "kind": "negative"})
+            ind.append({"label": f"MZ signature found — only {len(out_b)} bytes recovered (< 0x40 required for DOS header validation)",
+                        "kind": "negative", "evidence_class": "structural",
+                        "rule": "mz_short"})
     if _ELF in out_b[:64]:
-        ind.append({"label": "ELF magic (0x7f 45 4c 46) present within first 64 bytes", "kind": "positive"})
+        ind.append({"label": "ELF magic (0x7f 45 4c 46) present within first 64 bytes",
+                    "kind": "positive", "evidence_class": "behavioral",
+                    "rule": "elf_magic"})
 
-    # ── Container magic ──
+    # ── Container magic ── STRUCTURAL (encoding form, not content)
     if out_b.startswith(_GZIP):
-        ind.append({"label": "GZIP magic bytes preserved (1f 8b 08)", "kind": "positive"})
+        ind.append({"label": "GZIP magic bytes preserved (1f 8b 08)",
+                    "kind": "positive", "evidence_class": "structural",
+                    "rule": "gzip_magic"})
     for p in _ZLIB_PREFIXES:
         if out_b.startswith(p):
-            ind.append({"label": f"ZLIB magic prefix detected ({p[0]:02x} {p[1]:02x})", "kind": "positive"})
+            ind.append({"label": f"ZLIB magic prefix detected ({p[0]:02x} {p[1]:02x})",
+                        "kind": "positive", "evidence_class": "structural",
+                        "rule": "zlib_magic"})
             break
     if out_b.startswith(_BZ2):
-        ind.append({"label": "BZIP2 magic (BZh) preserved", "kind": "positive"})
+        ind.append({"label": "BZIP2 magic (BZh) preserved",
+                    "kind": "positive", "evidence_class": "structural",
+                    "rule": "bzip2_magic"})
     if any(out_b.startswith(m) for m in _LZMA):
-        ind.append({"label": "LZMA/XZ magic (fd 37 7a 58 5a) preserved", "kind": "positive"})
+        ind.append({"label": "LZMA/XZ magic (fd 37 7a 58 5a) preserved",
+                    "kind": "positive", "evidence_class": "structural",
+                    "rule": "lzma_magic"})
 
-    # ── Shellcode prologues ──
+    # ── Shellcode prologues ── BEHAVIORAL (actual shellcode signature)
     for prologue, desc in _KNOWN_PROLOGUES.items():
         if out_b.startswith(prologue):
             ind.append({"label": f"{desc} — first {len(prologue)} bytes: {' '.join(f'{b:02x}' for b in prologue)}",
-                        "kind": "positive"})
+                        "kind": "positive", "evidence_class": "behavioral",
+                        "rule": "shellcode_prologue"})
             break
 
-    # ── Entropy signal ──
+    # ── Entropy signal ── STRUCTURAL (form, not content meaning)
     ent = _entropy(out_b)
     if len(out_b) >= 32:
         if ent >= 7.5:
-            ind.append({"label": f"High entropy ({ent:.2f}) — indicates encrypted / packed / compressed data", "kind": "positive"})
+            ind.append({"label": f"High entropy ({ent:.2f}) — indicates encrypted / packed / compressed data",
+                        "kind": "positive", "evidence_class": "structural",
+                        "rule": "high_entropy"})
         elif ent >= 6.0:
-            ind.append({"label": f"Elevated entropy ({ent:.2f}) — moderate obfuscation", "kind": "neutral"})
+            ind.append({"label": f"Elevated entropy ({ent:.2f}) — moderate obfuscation",
+                        "kind": "neutral", "evidence_class": "structural",
+                        "rule": "elevated_entropy"})
         else:
-            ind.append({"label": f"Low entropy ({ent:.2f}) — data is likely readable / ASCII text", "kind": "neutral"})
+            ind.append({"label": f"Low entropy ({ent:.2f}) — data is likely readable / ASCII text",
+                        "kind": "neutral", "evidence_class": "structural",
+                        "rule": "low_entropy"})
 
-    # ── Encoding chain evidence ──
+    # ── Encoding chain evidence ── STRUCTURAL (peeled layer form, not meaning)
     chain_ops = [c.get("op") for c in chain or []]
     for op in chain_ops:
         label = _ENCODING_LABELS.get(op)
         if not label:
             continue
-        # Only surface interesting encoding evidence (not extract-payload noise)
         if op in ("extract-payload", "refang-iocs", "extract-b64", "extract-base64"):
             continue
-        ind.append({"label": f"{label} layer peeled", "kind": "neutral"})
+        ind.append({"label": f"{label} layer peeled",
+                    "kind": "neutral", "evidence_class": "structural",
+                    "rule": f"encoding_layer:{op}"})
 
-    # ── XOR key recovery ──
+    # ── XOR key recovery ── BEHAVIORAL (deobfuscation reveals content)
     for step in chain or []:
         if step.get("op") in ("xor", "xor-brute"):
             key = (step.get("args") or {}).get("key")
             if key:
-                ind.append({"label": f"XOR key recovered: {key}", "kind": "positive"})
+                ind.append({"label": f"XOR key recovered: {key}",
+                            "kind": "positive", "evidence_class": "behavioral",
+                            "rule": "xor_key_recovered"})
 
-    # ── UTF-16 flag ──
+    # ── UTF-16 flag ── STRUCTURAL (encoding form)
     if any(op in chain_ops for op in ("utf16le-decode", "utf16-be-decode", "powershell-encoded")):
-        ind.append({"label": "UTF-16 alternating null-byte pattern detected", "kind": "positive"})
+        ind.append({"label": "UTF-16 alternating null-byte pattern detected",
+                    "kind": "positive", "evidence_class": "structural",
+                    "rule": "utf16_pattern"})
 
-    # ── URL / IOC surfaces (lightweight — the deeper /analyze pass is authoritative) ──
+    # ── URL / IOC surfaces ── BEHAVIORAL (URL present in decoded output)
     urls = re.findall(r"https?://[^\s'\"<>\\]+", output_text or "")
     for u in urls[:3]:
-        ind.append({"label": f"URL surfaced in decoded output: {u}", "kind": "positive"})
+        ind.append({"label": f"URL surfaced in decoded output: {u}",
+                    "kind": "positive", "evidence_class": "behavioral",
+                    "rule": "url_in_decoded_output"})
 
     return ind
 
@@ -275,7 +310,31 @@ def _classify(indicators: List[Dict[str, str]],
 
     positive = [i for i in indicators if i.get("kind") == "positive"]
     n_positive = len(positive)
+    # ADR-0007 §2.3 · classify by evidence_class
+    behavioral = [i for i in positive
+                  if i.get("evidence_class") in ("behavioral", "semantic")]
+    structural = [i for i in positive
+                  if i.get("evidence_class") == "structural"]
     chain_len = len([c for c in (chain or []) if c.get("op") != "extract-payload"])
+
+    def _explain(contribs, not_counted_indicators=None):
+        """Build the ADR-0007 §7 explainability payload."""
+        return {
+            "contributors": [
+                {"kind": i.get("evidence_class", "behavioral"),
+                 "rule": i.get("rule", "unnamed"),
+                 "label": i.get("label", ""),
+                 "evidence_id": None}   # populated by CIM composer when it wires evidence
+                for i in contribs
+            ],
+            "not_counted": [
+                {"kind": i.get("evidence_class", "structural"),
+                 "rule": i.get("rule", "unnamed"),
+                 "label": i.get("label", ""),
+                 "reason": "structural-only (§2.2 — cannot solely drive verdict)"}
+                for i in (not_counted_indicators or structural)
+            ],
+        }
 
     # Undecoded — no chain and no indicators
     if chain_len == 0 and n_positive == 0:
@@ -313,6 +372,7 @@ def _classify(indicators: List[Dict[str, str]],
                 "Contain source host, hunt for parent process, submit to "
                 "sandbox / VirusTotal, and correlate URL / MITRE mapping."
             ),
+            "explainability": _explain(hard + [i for i in behavioral if i not in hard]),
         }
 
     # ── Runtime Dependent — the payload fetches remote content whose
@@ -357,10 +417,12 @@ def _classify(indicators: List[Dict[str, str]],
                 "reflects only what is observable in the command line, not "
                 "the intent of the remote payload."
             ),
+            "explainability": _explain(url_indicators + [i for i in behavioral if i not in url_indicators]),
         }
 
     # MITRE-heavy signals — even without a URL / LOLBIN we escalate to
-    # Suspicious-High when ATT&CK techniques are present.
+    # Suspicious-High when ATT&CK techniques are present. MITRE is
+    # semantic evidence (behavioral inference) so it satisfies ADR-0007 §2.3.
     mitre = [i for i in positive if "MITRE ATT&CK" in i["label"]]
     if len(mitre) >= 3:
         return {
@@ -373,21 +435,62 @@ def _classify(indicators: List[Dict[str, str]],
                 "Escalate to IR — the technique mapping is broad enough to "
                 "indicate active tradecraft. Cross-check against SIEM."
             ),
+            "explainability": _explain(mitre + [i for i in behavioral if i not in mitre]),
         }
 
-    # Suspicious — obfuscation chain OR high entropy OR magic-preserved-only
-    if chain_len >= 1 or n_positive >= 1:
+    # ═══════════════════════════════════════════════════════════════════
+    # ADR-0007 §2.3 · Verdict-Evidence Gate (locked in 2026-02-28)
+    #
+    #  Verdict ≥ Suspicious requires ≥ 1 behavioral/semantic indicator.
+    #  Structural-only signals (base64 form, entropy, encoding chain
+    #  length, UTF-16 pattern, LOLBAS bare-name, GZIP magic) MUST NOT
+    #  drive severity — they only contribute to confidence.
+    #
+    #  Cases 0005, 0006, 0013, 0017 all had chain_len≥1 with no
+    #  behavioral indicator and previously triggered the last-resort
+    #  "Suspicious" branch below. Now they cap at Partial Decode /
+    #  Informational.
+    # ═══════════════════════════════════════════════════════════════════
+    if not behavioral:
+        # We have structural evidence (chain peeled, entropy, encoding form)
+        # but no behavioral/semantic content to justify Suspicious.
+        if chain_len >= 1 or structural:
+            return {
+                "label":      "Partial Decode",
+                "confidence": min(35, 15 + 5 * chain_len),
+                "reason":     (
+                    f"Peeled {chain_len} encoding layer(s); no behavioral or "
+                    "semantic evidence in decoded content (URLs, IOCs, "
+                    "shellcode prologue, PE header, malware family, MITRE "
+                    "technique, or content-source behavior). ADR-0007 gate "
+                    "caps verdict at Partial Decode pending analyst review."
+                ),
+                "recommended_action": (
+                    "Analyst review recommended — the encoded form is "
+                    "obfuscated but decoded content is benign or "
+                    "unrecognized. Escalate only if broader case context "
+                    "warrants."
+                ),
+                "explainability": _explain([], not_counted_indicators=structural),
+            }
+        # No chain and no positives — leave undecoded/informational branch.
+
+    # Suspicious — obfuscation chain OR high entropy backed by ≥1 behavioral
+    if behavioral:
         return {
             "label":      "Suspicious",
             "confidence": min(80, 30 + 15 * chain_len + 5 * n_positive),
-            "reason":     (positive[0]["label"] + "."
+            "reason":     (behavioral[0]["label"] + "."
+                           if behavioral else
+                           positive[0]["label"] + "."
                            if positive else
-                           f"Peeled {chain_len} encoding layer(s) without an executable "
-                           "signature — reviewer confirmation required."),
+                           f"Peeled {chain_len} encoding layer(s) with "
+                           "behavioral evidence in decoded content."),
             "recommended_action": (
                 "Escalate to IR for behavioural sandbox / dynamic analysis "
                 "and confirm the terminal payload against threat-intel."
             ),
+            "explainability": _explain(behavioral, not_counted_indicators=structural),
         }
 
     # Benign — text output, no encoding
@@ -443,6 +546,9 @@ def build_verdict_card(input_text: str, output_text: str,
         # Lift intelligence-pipeline findings into indicators so `_classify`
         # can see them. Findings are OPTIONAL — callers that don't have
         # them yet (early legacy path) still get a working card.
+        # ADR-0007: findings are BEHAVIORAL / SEMANTIC by construction —
+        # they represent inferred meaning (MITRE tactic, LOLBAS binary use,
+        # IOC surface, malware family) not structural form.
         if findings:
             for tech in (findings.get("mitre_techniques") or findings.get("mitre") or [])[:8]:
                 tid = tech.get("id") if isinstance(tech, dict) else str(tech)
@@ -451,35 +557,52 @@ def build_verdict_card(input_text: str, output_text: str,
                     indicators.append({
                         "kind":  "positive",
                         "label": f"MITRE ATT&CK {tid}" + (f" — {tname}" if tname else ""),
+                        "evidence_class": "semantic",
+                        "rule": f"mitre_technique:{tid}",
                     })
             for hit in (findings.get("lolbas") or [])[:5]:
                 name = hit.get("binary") or hit.get("name") if isinstance(hit, dict) else str(hit)
                 if name:
+                    # LOLBAS as an isolated indicator is behavioral only when
+                    # paired with a chained invocation. ADR-0007 §2.2 marks
+                    # bare-name LOLBAS as structural. Callers that want the
+                    # stronger claim ("LOLBIN invoked with c2 args") must
+                    # emit a `mitre_techniques` entry alongside.
                     indicators.append({
                         "kind":  "positive",
                         "label": f"LOLBAS binary observed: {name}",
+                        "evidence_class": "structural",
+                        "rule": f"lolbas_name:{name}",
                     })
             iocs = findings.get("iocs") or {}
             if isinstance(iocs, dict):
                 for u in (iocs.get("urls") or [])[:3]:
                     indicators.append({"kind": "positive",
-                                        "label": f"URL indicator: {u}"})
+                                        "label": f"URL indicator: {u}",
+                                        "evidence_class": "behavioral",
+                                        "rule": "ioc_url"})
                 for h in (iocs.get("hosts") or iocs.get("domains") or [])[:3]:
                     indicators.append({"kind": "positive",
-                                        "label": f"Host / domain indicator: {h}"})
+                                        "label": f"Host / domain indicator: {h}",
+                                        "evidence_class": "behavioral",
+                                        "rule": "ioc_domain"})
                 for i in (iocs.get("ips") or [])[:3]:
                     indicators.append({"kind": "positive",
-                                        "label": f"IP indicator: {i}"})
+                                        "label": f"IP indicator: {i}",
+                                        "evidence_class": "behavioral",
+                                        "rule": "ioc_ip"})
             fam = findings.get("family") or {}
             if isinstance(fam, dict) and fam.get("name"):
                 indicators.append({
                     "kind":  "positive",
                     "label": f"Malware family match: {fam.get('name')} "
                              f"(confidence {fam.get('confidence', 0)})",
+                    "evidence_class": "semantic",
+                    "rule": f"family_match:{fam.get('name')}",
                 })
 
-        # Surface salvaged plaintext as a POSITIVE indicator so analysts see it in
-        # the Evidence list, not just buried in the Reason line.
+        # Surface salvaged plaintext as a POSITIVE BEHAVIORAL indicator so
+        # analysts see it in the Evidence list, not just buried in the Reason line.
         if corrupted_container and corrupted_container.get("salvaged"):
             salv = corrupted_container["salvaged"]
             preview = salv[:80] + ("…" if len(salv) > 80 else "")
@@ -487,6 +610,8 @@ def build_verdict_card(input_text: str, output_text: str,
                 "kind":  "positive",
                 "label": (f"Raw deflate salvaged {len(salv)} bytes (UNVERIFIED — "
                           f"CRC could not be validated): {preview!r}"),
+                "evidence_class": "behavioral",
+                "rule": "raw_deflate_salvaged",
             })
         verdict = _classify(indicators, corrupted_container, chain or [], output_text or "")
         return {
@@ -497,6 +622,8 @@ def build_verdict_card(input_text: str, output_text: str,
             "reason":              verdict["reason"],
             "indicators":          indicators,
             "recommended_action":  verdict["recommended_action"],
+            # ADR-0007 §7 · Verdict explainability (additive field)
+            "explainability":      verdict.get("explainability"),
         }
     except Exception:
         log.exception("Verdict card generation failed")

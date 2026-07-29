@@ -1,5 +1,35 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **Track A · ADR-0007 · Verdict-Evidence Gating · IMPLEMENTED**
+
+### Shipped
+- **Two-class indicator model** in `/app/backend/evidence_extractor.py`: every indicator surfaced by `_collect_indicators` and every finding lifted via `build_verdict_card` now carries an `evidence_class` tag (`behavioral` · `semantic` · `structural`) plus a machine-readable `rule` id.
+- **Verdict-evidence gate** in `_classify`: Verdict ≥ Suspicious requires ≥1 behavioral OR semantic indicator. Structural-only cases (base64/UTF-16/entropy/encoding chain length/bare LOLBAS name) now cap at **Partial Decode** (confidence ≤35) instead of Suspicious 70+.
+- **Verdict explainability (operator amendment §7)** — every Malicious / Runtime Dependent / Suspicious / Partial Decode verdict now carries a `verdict_card.explainability = {contributors, not_counted}` payload identifying the specific evidence rules that drove severity + the structural rules that were observed but did not count.
+- **Non-regressions preserved** — Cases 0003 (shellcode), 0009 (BITS + URL + .exe), 0018 (ClickFix), 0019 (LSASS/comsvcs), 0020 (encoded PS + URL) all still Malicious / Runtime Dependent / Suspicious.
+
+### Exit criteria (all 7 met, including the operator's added §7)
+1. ✅ Cases 0005/0006/0013/0017/0022 drop below Suspicious/Malicious
+2. ✅ Non-regression cases 0003/0009/0018/0019/0020 unchanged
+3. ✅ No false-negative escalation across the 14-file diff sample: net 42→42 failure count, only delta is one legitimate ADR-0007 test update (`test_chain_only_produces_suspicious_card` now accepts `Partial Decode`) and one pre-existing flaky test
+4. ✅ Full unified pin suite green (114/114 across ADR-0007/8/9 + IOC + NivXForge)
+5. ✅ No API contract change — `verdict_card` keys stable, `explainability` is purely additive
+6. ✅ Parity contract test 3/3 green
+7. ✅ **Operator-added §7 explainability** — `contributors` (behavioral/semantic evidence with rule ids) + `not_counted` (structural rules with `reason: "structural-only"`) present on every Suspicious+ verdict
+
+### Governance
+- ADR-0007 status: Accepted → **Implemented** (2026-02-28).
+- CAPABILITY_REGISTRY.md updated: Verdict-Evidence Gating row → Implemented.
+- Track A locked contract: **ADR-0008 (done) → ADR-0009 (done) → ADR-0007 (done) → 20-case Corpus v1 parity → Phase 2 (analyst_corrections sample).**
+
+### Next
+- **20-case Corpus v1 parity validation** — the pre-locked next step. Replay all 20 cases through Lab; assert CIM shape identical across `/api/decode/smart` + `/api/v2/auto-investigate` and verdict labels match the ADR-0007-corrected pins.
+- **Phase 2** — sample 50-100 `analyst_corrections` to inform the next pattern register update.
+- **Narrative Composer preview (⭐⭐⭐⭐☆)** — turn the CIM into the North Star PhantomStealer report shape.
+- **ADR-0010 Navigation IA** (⭐⭐⭐☆☆) — draft the whole-app top-nav reorganization + Documents→Admin move.
+
+
+
 ## 2026-02-28 · **Track A · ADR-0009 · Canonical Investigation Model (CIM) + Lab rename · IMPLEMENTED**
 
 ### Shipped

@@ -39,7 +39,7 @@ reaches Active).
 | PowerShell XOR Attribution Fix | ADR-0004 | Active | Case 0001 | v1 | `test_ps_ascii_xor_iex_output_selection` | — | Decoder attribution | v1.5.0 | — |
 | NivXForge Router Mount | ADR-0005 | Active | (infra) | v1 | isolation tests | — | Backend router | v1.5.0 | — |
 | NivXForge Analyst-Parity Surface | ADR-0006 (Phase 1) | Active | (positioning) | v1 | `test_parity_endpoints` | — | NivXForge frontend | v1.6.0 | — |
-| **Verdict-Evidence Gating** | ADR-0007 | **Accepted (impl pending)** | 0005, 0006, 0013, 0017, 0022 | v1 | see ADR §6 | 0003, 0009, 0018, 0019, 0020 | Verdict Engine | pending | — |
+| **Verdict-Evidence Gating** | ADR-0007 | **Implemented** (2026-02-28) | 0005, 0006, 0013, 0017, 0022 | v1 | see ADR §6 · 15/15 pins green | 0003, 0009, 0018, 0019, 0020 | Verdict Engine | 15/15 pinned + 114/114 unified pins + zero net regressions across 14-file sample + live e2e on `/api/decode/smart` + `explainability` field wired | — |
 | **IOC Extraction Validation** | ADR-0008 | **Implemented** (2026-02-28) | 0007, 0011, 0012, 0014 | v1 | see ADR §6 | 0009 | IOC Extractor | 7/7 pins green + parity + perf ≤0.5% + zero regressions across 160-test diff sample | — |
 | **Canonical Investigation Model (CIM) & Investigation Workspace** | ADR-0009 | **Implemented** (2026-02-28) | 0002, 0006, 0013 + North Star + UX diagnostic | v1 | see ADR §6 · 22/22 pytest pins green | 0003, 0009, 0018, 0019, 0020 | `nivxforge/cim/` composer + `<CIMSection>` frontend | 99/99 pins green (CIM 22 + ADR-0008 7 + IOC filters 21 + NivXForge 49); zero-orphan invariant; live e2e wire-in on `/api/decode/smart` + `/api/v2/auto-investigate` | — |
 

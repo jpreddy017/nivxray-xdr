@@ -1,6 +1,6 @@
 # ADR-0007 — Verdict-Evidence Gating
 
-- **Status:** Accepted (2026-02-28, with amendment · implementation not yet authorised)
+- **Status:** **Implemented** (2026-02-28)
 - **Date:** 2026-02-28
 - **Deciders:** Operator (product owner) · Emergent (proposer)
 - **Threshold met:** 4 independent real-world observations (P-VERDICT-STRUCTURAL)
@@ -8,6 +8,9 @@
   "evidence-backed behavioral or semantic indicators" to future-proof it for
   artifact types where "content" is not the useful abstraction (e.g. shellcode,
   memory dumps, binary payloads).
+- **Implementation note:** Landed on 2026-02-28 in `/app/backend/evidence_extractor.py`.
+  Pinned regressions in `/app/backend/tests/test_adr0007_verdict_evidence_gating.py`
+  (15 tests, all green). See §7 for validated exit-criteria evidence.
 
 ## 1 · Evidence supporting this proposal
 
@@ -137,6 +140,32 @@ Implementation is complete **only if all of the following are true**:
 6. The parity contract test (`nivxforge/tests/test_parity_endpoints.py`)
    remains green — Workspace and NivXForge continue to consume the same
    endpoint, and both surfaces receive the same verdict.
+
+7. **Verdict explainability (added 2026-02-28)** — every Verdict of
+   `Suspicious` or higher MUST carry a machine-readable `contributors`
+   list identifying the specific behavioral/semantic evidence IDs (or
+   indicator rule ids) that drove the severity, PLUS a `not_counted`
+   list identifying structural indicators that were observed but did
+   NOT count toward the severity per §2.2. Example:
+
+   ```
+   verdict_card.explainability = {
+     contributors: [
+       {kind: "behavioral", rule: "ps_invoke_expression", evidence_id: "EV-003"},
+       {kind: "semantic",   rule: "xor_deobfuscated_script", evidence_id: "EV-007"},
+       {kind: "behavioral", rule: "ti_malicious_domain",     evidence_id: "EV-012"},
+     ],
+     not_counted: [
+       {kind: "structural", rule: "base64_form", reason: "structural-only"},
+     ],
+   }
+   ```
+
+   Rationale: makes the verdict directly explainable to analysts and
+   removes the "why did it score X?" question. Complements ADR-0009's
+   evidence-backed Assessments (every Assessment already carries
+   evidence refs; §7 extends the same discipline to the top-level
+   verdict scoring rule set).
 
 Any failure of any criterion above blocks merge. Partial success is not
 "success" for this ADR.
