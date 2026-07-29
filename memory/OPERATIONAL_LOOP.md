@@ -216,3 +216,21 @@ After both/all ADRs in a batch are landed:
    as the ADR predicted.
 6. Only after (1–5) are all green: proceed to the next Phase (e.g. new corpus
    sampling, Analyst Scorecard, etc.).
+
+### Rule 5 · Governance-review-halt (immutable)
+
+If an ADR cannot satisfy **all** Exit Criteria without introducing regressions
+or violating the parity contract, implementation **MUST STOP** and return to
+governance review.
+
+- Exit Criteria are **not** to be weakened during implementation.
+- Regression expectations are **not** to be adjusted to accommodate difficulty.
+- Non-regression pins are **not** to be relaxed to admit a change.
+- The pinned corpus cases are **not** to be re-scored to make a change pass.
+
+Any of the above would violate the principle that **governance defines
+success — not implementation convenience**. The correct response to an
+unsatisfiable Exit Criterion is to draft an ADR amendment (with new evidence)
+or a superseding ADR, not to weaken the gate.
+
+This rule applies to every ADR now Accepted and every ADR drafted in future.

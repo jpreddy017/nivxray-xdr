@@ -30,16 +30,27 @@ makes it queryable.
 
 Every Accepted ADR that introduces or modifies analytical behaviour receives a
 row. New rows are appended; historical rows are never edited (except to add a
-`Superseded-by` reference).
+`Superseded-by` reference or to record `Introduced In` when a capability first
+reaches Active).
 
-| Capability | ADR | Status | Evidence (cases) | Corpus | Regression pins | Non-regression pins | Component | Superseded-by |
-|---|---|---|---|---|---|---|---|---|
-| Command Obfuscation Framework | ADR-0001 | Active | Case 0001 | v1 | see ADR §2 | — | Decoder / Handler Registry | — |
-| PowerShell XOR Attribution Fix | ADR-0004 | Active | Case 0001 | v1 | `test_ps_ascii_xor_iex_output_selection` | — | Decoder attribution | — |
-| NivXForge Router Mount | ADR-0005 | Active | (infra) | v1 | isolation tests | — | Backend router | — |
-| NivXForge Analyst-Parity Surface | ADR-0006 (Phase 1) | Active | (positioning) | v1 | `test_parity_endpoints` | — | NivXForge frontend | — |
-| **Verdict-Evidence Gating** | ADR-0007 | **Accepted (impl pending)** | 0005, 0006, 0013, 0017, 0022 | v1 | see ADR §6 | 0003, 0009, 0018, 0019, 0020 | Verdict Engine | — |
-| **IOC Extraction Validation** | ADR-0008 | **Accepted (impl pending)** | 0007, 0011, 0012, 0014 | v1 | see ADR §6 | 0009 | IOC Extractor | — |
+| Capability | ADR | Status | Evidence (cases) | Corpus | Regression pins | Non-regression pins | Component | Introduced In | Superseded By |
+|---|---|---|---|---|---|---|---|---|---|
+| Command Obfuscation Framework | ADR-0001 | Active | Case 0001 | v1 | see ADR §2 | — | Decoder / Handler Registry | v1.5.0 | — |
+| PowerShell XOR Attribution Fix | ADR-0004 | Active | Case 0001 | v1 | `test_ps_ascii_xor_iex_output_selection` | — | Decoder attribution | v1.5.0 | — |
+| NivXForge Router Mount | ADR-0005 | Active | (infra) | v1 | isolation tests | — | Backend router | v1.5.0 | — |
+| NivXForge Analyst-Parity Surface | ADR-0006 (Phase 1) | Active | (positioning) | v1 | `test_parity_endpoints` | — | NivXForge frontend | v1.6.0 | — |
+| **Verdict-Evidence Gating** | ADR-0007 | **Accepted (impl pending)** | 0005, 0006, 0013, 0017, 0022 | v1 | see ADR §6 | 0003, 0009, 0018, 0019, 0020 | Verdict Engine | pending | — |
+| **IOC Extraction Validation** | ADR-0008 | **Accepted (impl pending)** | 0007, 0011, 0012, 0014 | v1 | see ADR §6 | 0009 | IOC Extractor | pending | — |
+
+### Lifecycle field semantics
+
+- **Introduced In** — the product version at which the capability first
+  transitioned to `Active`. Recorded once, then immutable. `pending` while
+  Accepted but not yet implemented.
+- **Superseded By** — the ADR (and, optionally, product version) that replaces
+  or materially changes this capability. Recorded when the superseding ADR
+  reaches Active. Original row is never deleted; both rows coexist for
+  historical traceability.
 
 Status transitions:
 
@@ -49,9 +60,9 @@ Proposed → Accepted → (implementation) → Active → (later) → Deprecated
 
 - **Proposed**: ADR drafted, awaiting operator review.
 - **Accepted**: ADR approved; implementation authorised but not yet green.
-- **Active**: implementation landed, Exit Criteria met, regression protecting it.
+- **Active**: implementation landed, Exit Criteria met, regression protecting it. `Introduced In` populated at this transition.
 - **Deprecated**: capability is being wound down but still present.
-- **Superseded**: replaced by a later ADR — row keeps its history but `Superseded-by` links to the replacement ADR.
+- **Superseded**: replaced by a later ADR — row keeps its history and `Superseded By` links to the replacement ADR.
 
 ---
 
