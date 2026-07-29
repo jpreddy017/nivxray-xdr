@@ -16,6 +16,12 @@ rationale. This log is read-only history — never edit past rows._
 
 | Date | Ref | Decision | Status | Source |
 |---|---|---|---|---|
+| 2026-02-28 | ADR-0005 | Mount NivXForge router for read-only Preview endpoints (partial A1 reversal) | Accepted · Implemented | `adr/0005-router-mount-for-preview.md` |
+| 2026-02-28 | ADR-0004 | MITRE Attribution Accuracy · Shape A/B/C discriminator | Accepted · Implemented | `adr/0004-mitre-attribution-accuracy-powershell-xor.md` |
+| 2026-02-28 | ADR-0001 | Command Obfuscation Coverage · framework only, artifact-agnostic | Accepted with amendment · Framework implemented | `adr/0001-command-obfuscation-deobfuscation-coverage.md` |
+| 2026-02-28 | Preview UI | NivXForge (Preview) top-nav tab, read-only surface | Implemented | Frontend `nivxforge/pages/PreviewPage.jsx` |
+| 2026-02-28 | Diagnostic | RC4 → shellcode hypothesis DISPROVED; withdrew ADR-0002 | Withdrawn | `DIAGNOSTIC_RC4_SHELLCODE_2026-02-28.md` |
+| 2026-02-28 | Evidence pass | Historical corpus reviewed (E1c + E2b filter), 4 sources classified | Accepted | `EVIDENCE_INVENTORY_2026-02-28.md` |
 | 2026-02-28 | Governance | Add lightweight Decision Log to complement ADRs | Accepted | `DECISION_LOG.md` (this file) |
 | 2026-02-28 | Phase 0 | NivXForge router remains **dormant** — not mounted in `server.py` | Accepted (Decision A1) | `PHASE0_COMPLETION.md §2` |
 | 2026-02-28 | Phase 0 | Retain the two pre-plan scaffolding files (`__init__.py`, `config.py`) | Accepted (Decision B1) | `PHASE0_COMPLETION.md §2` |

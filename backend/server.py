@@ -213,6 +213,13 @@ api.include_router(multilayer_battery_router)
 api.include_router(decode_feedback_router)
 api.include_router(rc5_diag_router)
 api.include_router(rc5_shadow_router)
+
+# ─────────────────────────────────────────────────────────────────────
+# ADR-0005 · NivXForge router mount (READ-ONLY Preview endpoints only).
+# Authorised 2026-02-28. Any write endpoint under /api/nivxforge/*
+# requires a separate ADR.
+from nivxforge.router import router as nivxforge_router
+api.include_router(nivxforge_router)
 api.include_router(rc5_golden_router)
 api.include_router(rc5_entities_router)
 

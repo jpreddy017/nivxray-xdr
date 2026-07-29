@@ -29,6 +29,7 @@ export default function Header() {
     { key: "batch",      href: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
     { key: "heatmap",    href: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
     { key: "documents",  href: "/documents",  label: "DOCUMENTS",  icon: FolderOpen, testId: "nav-documents" },
+    { key: "nivxforge",  href: "/nivxforge",  label: "NIVXFORGE",  icon: Radar,      testId: "nav-nivxforge" },
   ];
 
   // Grouped: analysis tools (secondary usage)

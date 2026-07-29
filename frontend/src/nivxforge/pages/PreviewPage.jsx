@@ -1,0 +1,155 @@
+/**
+ * NivXForge (Preview) — read-only surface.
+ *
+ * Consumes /api/nivxforge/preview/* endpoints. No writes, no
+ * autonomous reasoning, no investigation workflow. Just exposes
+ * governance status, ADRs, evidence inventory, and diagnostics so
+ * analysts can see the platform state.
+ *
+ * This is the beginning of the independent NivXForge experience,
+ * NOT a replacement for Workspace.
+ */
+
+import React, { useEffect, useMemo, useState } from "react";
+import Header from "../../components/Header";
+import api from "../../lib/api";
+
+const S = {
+  page: { padding: "24px 28px 72px", color: "var(--text)", minHeight: "100vh", background: "var(--bg)" },
+  hero: { marginBottom: 28, paddingBottom: 20, borderBottom: "1px solid var(--border)" },
+  eyebrow: { fontSize: 11, letterSpacing: "0.24em", color: "var(--accent, #7dd3fc)", textTransform: "uppercase", fontWeight: 600 },
+  h1: { fontSize: 32, margin: "8px 0 6px", fontWeight: 700 },
+  sub: { color: "var(--text-secondary, #94a3b8)", fontSize: 14, maxWidth: 720 },
+  banner: { marginTop: 14, padding: "10px 14px", background: "rgba(125,211,252,0.08)", border: "1px solid rgba(125,211,252,0.25)", borderRadius: 8, fontSize: 13, color: "var(--text-secondary, #94a3b8)" },
+  grid: { display: "grid", gap: 18, gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))" },
+  card: { background: "var(--panel, #0f172a)", border: "1px solid var(--border, #1e293b)", borderRadius: 10, padding: 18 },
+  cardH: { fontSize: 11, letterSpacing: "0.22em", color: "var(--text-secondary, #94a3b8)", marginBottom: 12, textTransform: "uppercase", fontWeight: 600 },
+  row: { display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px dashed var(--border, #1e293b)", fontSize: 13 },
+  chip: { display: "inline-block", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 600, letterSpacing: "0.05em" },
+  chipAccepted: { background: "rgba(34,197,94,0.15)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.35)" },
+  chipProposed: { background: "rgba(250,204,21,0.15)", color: "#facc15", border: "1px solid rgba(250,204,21,0.35)" },
+  chipOther: { background: "rgba(148,163,184,0.15)", color: "#cbd5e1", border: "1px solid rgba(148,163,184,0.35)" },
+  pre: { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, whiteSpace: "pre-wrap", background: "var(--bg, #020617)", border: "1px solid var(--border, #1e293b)", padding: 14, borderRadius: 8, maxHeight: 520, overflow: "auto", color: "var(--text, #e2e8f0)" },
+  section: { marginTop: 22 },
+  err: { color: "#f87171", fontSize: 13 },
+};
+
+function statusChip(status) {
+  const s = (status || "").toLowerCase();
+  if (s === "accepted") return { ...S.chip, ...S.chipAccepted };
+  if (s === "proposed") return { ...S.chip, ...S.chipProposed };
+  return { ...S.chip, ...S.chipOther };
+}
+
+export default function PreviewPage() {
+  const [gov, setGov] = useState(null);
+  const [adrs, setAdrs] = useState(null);
+  const [inv, setInv] = useState(null);
+  const [diag, setDiag] = useState(null);
+  const [fw, setFw] = useState(null);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [g, a, i, d, f] = await Promise.all([
+          api.get("/nivxforge/preview/governance"),
+          api.get("/nivxforge/preview/adrs"),
+          api.get("/nivxforge/preview/evidence-inventory"),
+          api.get("/nivxforge/preview/diagnostics"),
+          api.get("/nivxforge/preview/framework-status"),
+        ]);
+        setGov(g.data); setAdrs(a.data); setInv(i.data); setDiag(d.data); setFw(f.data);
+      } catch (e) {
+        setErr(e?.message || "Failed to load Preview data");
+      }
+    })();
+  }, []);
+
+  const govRows = useMemo(() => {
+    const docs = gov?.documents || {};
+    return Object.entries(docs).map(([k, v]) => (
+      <div key={k} style={S.row} data-testid={`gov-row-${k}`}>
+        <span>{v.filename}</span>
+        <span style={{ color: v.exists ? "#4ade80" : "#f87171", fontFamily: "ui-monospace" }}>
+          {v.exists ? `${v.bytes} B` : "missing"}
+        </span>
+      </div>
+    ));
+  }, [gov]);
+
+  return (
+    <div>
+      <Header />
+      <div style={S.page} data-testid="nivxforge-preview-page">
+        <div style={S.hero}>
+          <div style={S.eyebrow}>Evidence-Driven Preview</div>
+          <h1 style={S.h1}>NivXForge <span style={{ opacity: 0.6, fontWeight: 400, fontSize: 18 }}>(Preview)</span></h1>
+          <p style={S.sub}>
+            This is the beginning of the independent NivXForge experience, not a replacement for Workspace.
+            The Preview surface is <b>read-only</b> — it exposes governance state, evidence inventory,
+            and accepted ADRs. No autonomous reasoning, no new investigative workflow.
+          </p>
+          <div style={S.banner} data-testid="preview-banner">
+            All data below is served from <code>/api/nivxforge/preview/*</code> · GET-only endpoints ·
+            Workspace behaviour unchanged.
+          </div>
+          {err ? <div style={{ ...S.banner, borderColor: "#f87171", color: "#f87171" }}>{err}</div> : null}
+        </div>
+
+        <div style={S.grid}>
+          <div style={S.card} data-testid="card-governance">
+            <div style={S.cardH}>Governance Documents</div>
+            {gov ? govRows : <div style={S.err}>Loading…</div>}
+          </div>
+
+          <div style={S.card} data-testid="card-adrs">
+            <div style={S.cardH}>Architecture Decision Records</div>
+            {adrs ? adrs.adrs.map((a) => (
+              <div key={a.slug} style={S.row} data-testid={`adr-row-${a.id}`}>
+                <span>
+                  <code style={{ color: "#7dd3fc" }}>ADR-{a.id}</code> &nbsp; {a.title.replace(/^ADR\s*\d+\s*[—-]\s*/, "")}
+                </span>
+                <span style={statusChip(a.status)}>{a.status}</span>
+              </div>
+            )) : <div style={S.err}>Loading…</div>}
+          </div>
+
+          <div style={S.card} data-testid="card-framework">
+            <div style={S.cardH}>Framework Status (ADR-0001)</div>
+            {fw ? (
+              <>
+                <div style={S.row}><span>Registered detectors</span><span style={{ fontFamily: "ui-monospace" }}>{(fw.families_with_detectors || []).length}</span></div>
+                <div style={S.row}><span>Registered handlers</span><span style={{ fontFamily: "ui-monospace" }}>{fw.total_handlers}</span></div>
+                <div style={{ ...S.row, borderBottom: "none", color: "var(--text-secondary, #94a3b8)", fontSize: 12, paddingTop: 10 }}>
+                  {fw.note}
+                </div>
+              </>
+            ) : <div style={S.err}>Loading…</div>}
+          </div>
+
+          <div style={S.card} data-testid="card-diagnostics">
+            <div style={S.cardH}>Recent Diagnostics</div>
+            {diag ? (
+              diag.diagnostics.length === 0
+                ? <div style={{ color: "var(--text-secondary, #94a3b8)", fontSize: 13 }}>No diagnostics yet.</div>
+                : diag.diagnostics.map((d) => (
+                  <div key={d.filename} style={S.row}>
+                    <span>{d.filename}</span>
+                    <span style={{ fontFamily: "ui-monospace" }}>{d.bytes} B</span>
+                  </div>
+                ))
+            ) : <div style={S.err}>Loading…</div>}
+          </div>
+        </div>
+
+        <div style={S.section}>
+          <div style={S.cardH}>Latest Evidence Inventory Report</div>
+          {inv?.markdown ? (
+            <pre style={S.pre} data-testid="evidence-inventory-body">{inv.markdown}</pre>
+          ) : <div style={S.err}>Loading…</div>}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -104,6 +104,39 @@ Workspace files modified: **zero**.
 
 Everything else remains in the Candidate queue (§4) or in `NORTH_STAR.md`.
 
+### ADR-0004 · MITRE Attribution Accuracy · Shape Discriminator — **ACCEPTED · IMPLEMENTED** (Feb-2026)
+
+- Evidence: `DIAGNOSTIC_RC4_SHELLCODE_2026-02-28.md` (187 mislabelled rows)
+- Deliverable: `nivxforge/attribution/mitre_shape.py` · deterministic Shape A / B / C discriminator
+- Tests: `nivxforge/tests/test_mitre_shape.py`
+- Workspace impact: zero
+- ADR file: `adr/0004-mitre-attribution-accuracy-powershell-xor.md`
+
+### ADR-0001 · Command Obfuscation Coverage — **ACCEPTED · FRAMEWORK IMPLEMENTED** (Feb-2026)
+
+Accepted with amendment: framework must be artifact-agnostic. Handlers require future ADRs.
+
+- Evidence: `EVIDENCE_INVENTORY_2026-02-28.md` + `DIAGNOSTIC_RC4_SHELLCODE_2026-02-28.md` (~601 command-obfuscation rows)
+- Deliverable: `nivxforge/framework/{classifier, protocol, registry, coverage}.py`
+- Tests: `nivxforge/tests/test_framework.py`
+- Handlers shipped: **zero** (per amendment)
+- Workspace impact: zero
+- ADR file: `adr/0001-command-obfuscation-deobfuscation-coverage.md`
+
+### ADR-0005 · Router Mount for Read-Only Preview — **ACCEPTED · IMPLEMENTED** (Feb-2026)
+
+Partial reversal of Decision A1: `nivxforge_router` mounted under `/api` for GET-only Preview endpoints.
+
+- Deliverable: `server.py` +1 line · `nivxforge/preview/router.py` · `nivxforge/router.py` includes preview
+- Tests: `nivxforge/tests/test_preview_endpoints.py` (asserts read-only)
+- Workspace impact: one line appended to `server.py` (mount only) — no existing behavior modified
+- ADR file: `adr/0005-router-mount-for-preview.md`
+
+### Frontend · NivXForge (Preview) tab — **IMPLEMENTED** (Feb-2026)
+
+Read-only Preview surface exposing Evidence Inventory · ADRs · Diagnostics · Governance.
+New route `/nivxforge` · new nav entry `NIVXFORGE`. Zero modification to existing Workspace pages or components.
+
 ---
 
 ## 4 · Candidate queue (needs evidence, NOT yet scheduled)

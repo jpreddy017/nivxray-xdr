@@ -1,12 +1,12 @@
-"""NivXForge FastAPI router — DORMANT in Phase 0.
+"""NivXForge FastAPI router.
 
-Decision A1 (approved Feb-2026): this router is defined but NOT
-mounted in `server.py`. It exists so that Phase 0 tests can verify
-prefix and isolation properties without introducing any runtime
-integration with the Workspace application.
+Post-Phase-0: this router IS mounted in `server.py` under `/api`, so
+its routes live at `/api/nivxforge/*`. The mount is authorised by
+ADR-0005 (read-only Preview endpoints only). Write endpoints require
+a separate ADR.
 
-Every route MUST start with `/nivxforge` so that when eventually
-mounted under `/api`, all routes live at `/api/nivxforge/*`.
+Every route MUST start with `/nivxforge` so all routes land at
+`/api/nivxforge/*` when the enclosing app router is mounted at `/api`.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from nivxforge.config import FORGE_ROUTE_PREFIX
+from nivxforge.preview.router import router as preview_router
 
 
 router = APIRouter(prefix=FORGE_ROUTE_PREFIX, tags=["nivxforge"])
@@ -21,9 +22,13 @@ router = APIRouter(prefix=FORGE_ROUTE_PREFIX, tags=["nivxforge"])
 
 @router.get("/health")
 def health() -> dict:
-    """Dormant health probe — reflects Phase 0 status only.
+    """Health probe — reflects post-Phase-0 status.
 
-    Not wired into Workspace liveness. Returns a static payload; if this
-    ever performs I/O it violates Phase 0 scope.
+    Returns a static payload; any I/O here would violate the read-only
+    Preview boundary.
     """
-    return {"status": "dormant", "package": "nivxforge", "phase": 0}
+    return {"status": "ok", "package": "nivxforge", "phase": 0, "mount": "read-only-preview"}
+
+
+# ADR-0005 · mount the read-only Preview subrouter under /nivxforge/preview/*
+router.include_router(preview_router)

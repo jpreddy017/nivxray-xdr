@@ -1,6 +1,6 @@
 # ADR 0004 — MITRE Attribution Accuracy for PowerShell XOR
 
-- **Status:** Proposed  (draft — awaiting review)
+- **Status:** Accepted  (2026-02-28)
 - **Date:** 2026-02-28
 - **Author(s):** e1 (evidence review)
 - **Supersedes:** —

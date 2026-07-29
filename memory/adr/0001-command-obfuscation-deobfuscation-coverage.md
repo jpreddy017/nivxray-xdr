@@ -1,6 +1,6 @@
 # ADR 0001 — Command-Line Obfuscation Deobfuscation Coverage
 
-- **Status:** Proposed  (draft — awaiting review)
+- **Status:** Accepted  (2026-02-28 · with amendment: framework must be artifact-agnostic)
 - **Date:** 2026-02-28
 - **Author(s):** e1 (evidence review)
 - **Supersedes:** —

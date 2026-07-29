@@ -25,13 +25,31 @@ import sys
 _BACKEND = pathlib.Path("/app/backend")
 
 
-# ── (1) NivXForge router is not mounted in Workspace server.py ─────────
-def test_nivxforge_router_not_registered_in_workspace_server():
+# ── (1) NivXForge router is mounted exactly once under /api ────────────
+# ADR-0005 (Accepted 2026-02-28) authorised a single mount for read-only
+# Preview endpoints. The mount MUST remain exactly one line and MUST
+# stay under the `api` router (which carries prefix "/api").
+def test_nivxforge_router_registered_exactly_once_and_read_only():
     server_src = (_BACKEND / "server.py").read_text(encoding="utf-8")
-    assert "nivxforge" not in server_src.lower(), (
-        "server.py mentions 'nivxforge' — Decision A1 requires the "
-        "router to remain dormant during Phase 0. Undo the mount."
+    mount_lines = [
+        line for line in server_src.splitlines()
+        if "nivxforge" in line.lower() and "include_router" in line
+    ]
+    assert len(mount_lines) == 1, (
+        f"Expected exactly one nivxforge include_router line — found {len(mount_lines)}. "
+        "ADR-0005 authorises exactly one mount. Any additional mount is a governance violation."
     )
+    # Preview endpoints must be GET-only per ADR-0005 §3. Verify no POST/PUT/DELETE/PATCH
+    # is registered on any nivxforge route.
+    from nivxforge.router import router as nvx_router
+    for route in nvx_router.routes:
+        methods = set(getattr(route, "methods", set()) or set())
+        # HEAD is implicit for GET; ignore
+        write_methods = methods - {"GET", "HEAD"}
+        assert not write_methods, (
+            f"nivxforge route {route.path!r} exposes write methods {write_methods} "
+            "which violates ADR-0005 read-only constraint."
+        )
 
 
 # ── (2) Workspace protected paths still exist ──────────────────────────
