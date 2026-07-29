@@ -576,3 +576,158 @@ Both ADRs are drafted for operator review only. No implementation authorised.
 Remaining 5 workspace_cases from the 20-case milestone will be evaluated in Batch 4
 regardless of ADR outcomes — the corpus continues to grow.
 
+
+---
+
+## Historical case-mining batch 4 · 2026-02-28 (final batch to reach 20-case milestone)
+
+Cases 0018–0022. Compact entries; full evidence in workspace_cases collection.
+
+---
+
+### Case 0018 — ClickFix compact variant (`ClickFix` · 5659a288)
+Same TTP as Case 0010, smaller payload. Verdict Malicious 90 · IOCs `[tommy-aa.lol]` · MITRE `T1059.003, T1583.001, T1027, T1218.010`.
+
+| Category | Assessment |
+|---|---|
+| Evidence Sufficiency | Sufficient |
+| Decode Completeness | Pass |
+| IOC Completeness | Pass |
+| MITRE Mapping | **Missing** — T1204.004 (ClickFix paste-and-execute) |
+| Verdict | Useful |
+| Explanation Quality | Clear |
+| Evidence Traceability | Yes |
+| Analyst Notes | **2nd P-MITRE-CLICKFIX-COVERAGE** — pattern now at 2 |
+| Action | Monitor |
+
+---
+
+### Case 0019 — LSASS credential dump via comsvcs.dll (`GoodOne` · 9f7e133a)
+Decoded to `rundll32.exe C:\Windows\System32\comsvcs.dll, #+000024 (Get-Process lsass).Id …` — canonical LSASS MiniDump. Verdict Malicious 90 · IOCs empty · MITRE `T1003.001, T1218.011, T1059.001`.
+
+| Category | Assessment |
+|---|---|
+| Evidence Sufficiency | Sufficient |
+| Decode Completeness | Pass |
+| IOC Completeness | **Partial** — file `comsvcs.dll` and process `lsass` not extracted as file/process IOCs |
+| MITRE Mapping | Appropriate — T1003.001 correctly identifies the LSASS-dump technique |
+| Verdict | Useful |
+| Explanation Quality | Clear |
+| Evidence Traceability | Yes |
+| Analyst Notes | Reference-quality MITRE mapping. Minor gap: no file/process-name IOCs surfaced. |
+| Action | No Action (single observation of the file/proc IOC gap) |
+
+---
+
+### Case 0020 — Encoded PS with variable-name reconstruction (`Check the Output` · 658c7e83)
+Decoded to `SeT-Item ('VaRIA' + (('blE:1')+'q2') + ('uZx')) ([TYpE]('rEF')) …` — variable-name reconstruction, sets up reflection. Verdict Malicious 95 · IOCs `urls=[https://10.2.27.30], ips=[10.2.27.30]` · MITRE `T1059.001, T1027.010, T1059.003, …`.
+
+| Category | Assessment |
+|---|---|
+| Evidence Sufficiency | Sufficient |
+| Decode Completeness | Partial — outer layer only; the reconstructed variables would need further evaluation |
+| IOC Completeness | Pass |
+| MITRE Mapping | Appropriate |
+| Verdict | Useful |
+| Explanation Quality | Clear — cites URL directly |
+| Evidence Traceability | Yes |
+| Analyst Notes | Reference-quality decode + IOC + MITRE combination |
+| Action | No Action |
+
+---
+
+### Case 0021 — REGRESSION-CONFIRMATION for Case 0001 (`New1` · b792c56b · engine=archetype:PS_ASCII_XOR_IEX)
+Same integer-array XOR IEX artifact as Case 0001. Post-fix behaviour: decoded correctly to `Write-Host 'Hello World!' -ForegroundColor Green; Write-Host 'Obfuscation Rocks!' …`. Verdict card label = `Partial Decode` (0 indicators, empty reason). MITRE `T1059.001`.
+
+| Category | Assessment |
+|---|---|
+| Evidence Sufficiency | Sufficient |
+| Decode Completeness | Pass — correct plaintext recovered (contrast: Case 0001 showed garbled `.)+Knuhy1Tsoh<;Typps<Ksnpx=;<...`) |
+| IOC Completeness | Pass |
+| MITRE Mapping | Appropriate (T1059.001 only) |
+| Verdict | Useful (Partial Decode label prevents "Malicious 100" false positive that Case 0001 suffered) |
+| Explanation Quality | Poor — 0 indicators, empty reason (informative regression, but leaves analyst without justification) |
+| Evidence Traceability | No — nothing to trace |
+| Analyst Notes | **CONFIRMS Case 0001 fix.** The `selectCanonicalOutput.js` guard-against-recipe-replay is working. However VC now has 0 indicators — could benefit from at least a neutral "benign decoded content" indicator. |
+| Action | No Action — regression baseline confirmed |
+
+---
+
+### Case 0022 — Short base64 blob → gibberish (`Need_analysis` · bf40adbe)
+428-char base64 → decoded to `sOaE?;bVEc*pqQM- EmtHWNe6Y=x2UAXI",Ey9'YE|o<:W!D*G[_Q9"IA3Dm...` (high-entropy gibberish; further encoded layer not resolved). Verdict Malicious 70 · reason `"LOLBAS binary observed: te.exe"` · IOCs empty · MITRE `T1027`.
+
+| Category | Assessment |
+|---|---|
+| Evidence Sufficiency | Partially Sufficient — decode did not reach a semantic layer |
+| Decode Completeness | Partial |
+| IOC Completeness | Pass (nothing valid to extract) |
+| MITRE Mapping | Appropriate (T1027 for encoding structure, given no content indicators) |
+| Verdict | **Too Strong** — Malicious 70 based on `te.exe` extraction from garbled decoded output |
+| Explanation Quality | Poor — reason cites a LOLBAS name (`te.exe`) that appears inside random-looking decoded gibberish, not as a real invocation |
+| Evidence Traceability | Yes — traces to a false positive |
+| Analyst Notes | **5th P-VERDICT-STRUCTURAL** (verdict driven by LOLBAS-name-substring in gibberish) + new pattern candidate **P-LOLBAS-SUBSTRING-FALSE-POSITIVE** (LOLBIN name extracted from decoded garbage without invocation context — analogous to P-IOC-VALIDATION but for LOLBAS list) |
+| Action | Monitor (1st observation of the new pattern) |
+
+---
+
+# 20-CASE FORMAL REPORT · 2026-02-28
+
+**Milestone:** First 20-case evidence corpus complete. This is the first
+evidence-backed quality baseline for NivXForge.
+
+## Corpus summary
+
+| Metric | Value |
+|---|---|
+| Total real cases reviewed | 20 (Case 0001, 0003–0022) |
+| Reference-quality cases | 5 (0003, 0009, 0018, 0019, 0020) |
+| Cases with ≥1 defect | 14 |
+| Cases confirming a prior fix | 1 (0021 confirms Case 0001 fix) |
+| Distinct sample-classes covered | 12+ (ps-encoded, cmd-caret, PE-b64, RTF, certutil-LOLBIN, schtasks-persistence, DLL-sideload, ClickFix, base32-nested, AMSI-bypass, LSASS-dump, trivial-invalid) |
+
+## Pattern register — final state after 20 cases
+
+| Pattern | Count | First / Last | Component | Status |
+|---|---|---|---|---|
+| **P-VERDICT-STRUCTURAL** | **5** | 0005 / 0022 | Verdict Engine | **ADR-0007 Accepted** |
+| **P-IOC-VALIDATION** | **4** | 0007 / 0014 | IOC Extractor | **ADR-0008 Accepted** |
+| P-VERDICT-DUAL-SURFACE | 2 | 0006 / 0013 | Verdict rendering | Monitor |
+| P-MITRE-DEFENDER-TAMPER-COVERAGE | 2 | 0007 / 0014 | MITRE Engine | Monitor |
+| P-MITRE-CLICKFIX-COVERAGE | 2 | 0010 / 0018 | MITRE Engine | Monitor |
+| P-DECODER-DEPTH | 1 | 0004 | Decoder | Monitor |
+| P-CHAIN-FAILURE-VERDICT-COLLAPSE | 1 | 0007 | Verdict Engine | Monitor |
+| P-PE-INTROSPECTION | 1 | 0008 | Decoder + IOC Extractor | Monitor |
+| P-VERDICT-LOCALHOST | 1 | 0011 | Verdict Engine | Monitor |
+| P-MITRE-DLL-SIDELOAD-COVERAGE | 1 | 0015 | MITRE Engine | Monitor |
+| P-MITRE-PERSISTENCE-CHAIN-UNDER-MAP | 1 | 0016 | MITRE Engine | Monitor |
+| P-LOLBAS-SUBSTRING-FALSE-POSITIVE | 1 | 0022 | LOLBAS matcher | Monitor |
+
+## ADR outcomes
+
+- **ADR-0007 · Verdict-Evidence Gating** — **Accepted with amendment.** Verdict
+  ≥ Suspicious requires ≥1 behavioral/semantic indicator; structural signals
+  contribute to confidence only. Implementation pending separate authorisation.
+- **ADR-0008 · IOC Extraction Validation** — **Accepted with amendment.** Two-stage
+  validation (syntactic + context) with source-offset provenance metadata.
+  Implementation pending separate authorisation. Sequencing: land ADR-0008 first.
+
+## Patterns still in Monitor (all with count ≥ 2 are candidates for the next cycle)
+
+Two patterns at count = 2 are one independent observation away from ADR:
+- **P-VERDICT-DUAL-SURFACE** — verdict card ≠ summary block
+- **P-MITRE-DEFENDER-TAMPER-COVERAGE** — T1562 sub-techniques not surfaced
+- **P-MITRE-CLICKFIX-COVERAGE** — T1204.004 not surfaced
+
+## Recommendations for the next operational cycle
+
+1. **Authorise implementation of ADR-0008 first**, then ADR-0007. Both are
+   backend-only changes with zero API-contract impact.
+2. Once implemented, re-run Cases 0005/0006/0013/0017/0022 (for ADR-0007) and
+   Cases 0007/0011/0012/0014 (for ADR-0008) as regression checks.
+3. Continue evidence collection — target Batch 5 onwards using
+   `analyst_corrections` corpus per operator's Batch-3 direction (632 records,
+   validated human feedback).
+4. Do not elevate any Monitor pattern to ADR without an independent 3rd case.
+5. **The corpus should now be treated as a permanent asset**, not a snapshot.
+   Every future real case appends to it under the same 9-category discipline.
+

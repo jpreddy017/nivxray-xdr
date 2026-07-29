@@ -1,9 +1,12 @@
 # ADR-0008 — IOC Extraction Validation
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-02-28, with amendment · implementation not yet authorised)
 - **Date:** 2026-02-28
 - **Deciders:** Operator (product owner) · Emergent (proposer)
 - **Threshold met:** 4 independent real-world observations (P-IOC-VALIDATION)
+- **Amendment note:** Operator formalised the two-stage validation model
+  (syntactic + context) and required source-offset preservation for
+  explainability.
 
 ## 1 · Evidence supporting this proposal
 
@@ -26,19 +29,52 @@ TLD-length-shape). They do NOT:
   identifier (e.g. `System.Management` produces `stem.Ma` — the extractor
   should reject if the left-most label appears mid-word in the source).
 
-## 2 · Proposed governance rule
+## 2 · Governance rule (Accepted with amendment 2026-02-28)
 
-The IOC extractor MUST apply a two-stage pipeline:
+The IOC extractor MUST apply a **two-stage validation pipeline** after regex
+extraction. Both stages are mandatory; a candidate is emitted only if it passes
+both.
 
-1. **Regex extract** (current behaviour).
-2. **Validation gate** — an extracted candidate is only emitted if:
-   - **IPv4:** every octet parses as integer in `[0, 255]` AND no octet has a
-     leading zero unless the octet is exactly `0`.
-   - **Domain:** the left character preceding the match is not `[A-Za-z0-9]`
-     (i.e. the extractor requires a word-boundary-left context — not a
-     mid-identifier substring).
-   - **All types:** confidence/provenance metadata records which of the two
-     stages allowed the candidate through (so an analyst can filter).
+### Stage 1 · Syntactic validation
+
+- **IPv4:** every octet ∈ [0, 255]; reject octets with leading zeros (unless
+  the octet is exactly `0`) per RFC 6943 §3.1.1.
+- **IPv6:** RFC-4291-compliant.
+- **Domain:** RFC-1035 / RFC-1123 compliant labels; TLD present in a curated
+  set (or matches known-TLD suffix list); reject labels beginning or ending
+  with a hyphen.
+- **URL:** valid scheme, host must pass domain or IP validation above.
+- **Email:** valid RFC-5322 local-part @ validated-domain.
+- **Hashes:** length + hex-charset match for md5/sha1/sha256.
+
+### Stage 2 · Context validation
+
+The extractor MUST evaluate the surrounding text of each candidate before
+emitting it:
+
+- **Token boundary respect:** the character immediately preceding the match
+  MUST NOT be `[A-Za-z0-9_]` (i.e., the candidate must not start mid-identifier
+  — this is what caused Cases 0007 and 0014 where `System.Management` produced
+  `stem.ma`).
+- **No extraction from identifiers / code symbols / concatenated strings:**
+  if the candidate appears inside a recognizable identifier context (e.g.
+  `SomeClass.MethodName`, `namespace.Type`), reject it.
+- **String-reconstruction awareness:** if the source line contains PowerShell
+  `-f` format-string operators, string concatenation `+`, or `{n}` placeholders
+  within the candidate's span, reject the extract unless it also appears
+  elsewhere in the artifact outside such a context.
+
+### Stage 3 · Provenance metadata (mandatory)
+
+Every emitted IOC MUST carry:
+
+- `source_offset` — byte offset in the original artifact where the match began.
+- `source_length` — length of the match.
+- `stage_passed` — `["syntactic", "context"]` (both, always, when emitted).
+- `context_snippet` — up to 60 chars around the match, for analyst inspection.
+
+This provenance enables analysts to trace every IOC back to the exact byte
+range of the original artifact — improving explainability and audit-ability.
 
 ## 3 · Explicit non-goals
 

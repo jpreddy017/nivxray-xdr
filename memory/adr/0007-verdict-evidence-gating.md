@@ -1,9 +1,13 @@
 # ADR-0007 — Verdict-Evidence Gating
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-02-28, with amendment · implementation not yet authorised)
 - **Date:** 2026-02-28
 - **Deciders:** Operator (product owner) · Emergent (proposer)
 - **Threshold met:** 4 independent real-world observations (P-VERDICT-STRUCTURAL)
+- **Amendment note:** Operator broadened the rule from "decoded content" to
+  "evidence-backed behavioral or semantic indicators" to future-proof it for
+  artifact types where "content" is not the useful abstraction (e.g. shellcode,
+  memory dumps, binary payloads).
 
 ## 1 · Evidence supporting this proposal
 
@@ -22,24 +26,50 @@ are logged in `REAL_WORLD_LOG.md` with the full 9-category review.
 `-e`/`-encodedcommand`, LOLBIN presence) fire verdict scores without a gate that
 asks "does the *decoded content* support this severity?"
 
-## 2 · Proposed governance rule
+## 2 · Governance rule (Accepted with amendment 2026-02-28)
 
-A Verdict of `Suspicious` or higher MUST be supported by at least one indicator
-whose evidence source is the **decoded content** (or observable metadata about
-that content — extracted IOCs, API imports, embedded strings), not the
-**encoding form** alone.
+A Verdict of `Suspicious` or higher MUST be supported by at least one
+**evidence-backed behavioral or semantic indicator**. Encoding or obfuscation
+alone cannot produce Suspicious/Malicious.
 
-Formally, tag each indicator with an `evidence_class`:
-- `structural` — derived from the encoding form (base64-blob-length, LOLBIN
-  presence, encoding-command flag, encoding-recipe-peel).
-- `content` — derived from decoded content (URL/IP/domain in output,
-  process-injection pattern, shellcode signature, defender-tamper string,
-  registry write, etc.).
+### 2.1 Acceptable behavioral / semantic indicators (any one satisfies the gate)
+
+- Decoded URLs, IPs, or domains present in the decoded body
+- API imports or Win32 API resolution (e.g. `InternetOpen`, `VirtualAlloc`)
+- Shellcode characteristics (MSFvenom prologue, WinINet strings, syscall
+  stubs)
+- Registry tampering (writes to Run/RunOnce, service keys, security policy)
+- PowerShell execution behavior (`Invoke-Expression`, download-cradle,
+  `Start-BitsTransfer`, DownloadString)
+- LOLBin abuse (concrete chained invocation, not mere presence of the binary
+  name)
+- AMSI / ScriptBlockLogging / Defender bypass (`Enable-*Logging`
+  reconstruction, `[Ref].Assembly.GetType(...)` reflection into AMSI,
+  ETW patching)
+- Encoded payload only if the decoded payload itself demonstrates any of
+  the above suspicious behaviors
+
+### 2.2 Structural indicators (contribute to confidence, cannot solely determine verdict)
+
+- Base64 / Base32 form detected
+- High entropy / low printable ratio
+- UTF-16LE PowerShell EncodedCommand form
+- YARA structural signatures (form-based, not behavior-based)
+- Command-line length or nesting depth
+- LOLBIN presence *by name only* (e.g. `powershell.exe` in a path without
+  suspicious invocation context)
+
+### 2.3 Rule (formal)
+
+Tag each indicator with an `evidence_class`:
+- `behavioral` — matches §2.1 categories (drives verdict).
+- `structural` — matches §2.2 categories (contributes to confidence only).
 
 Then:
-- Verdict ≥ Suspicious requires ≥ 1 `content` indicator.
-- Verdict = Malicious requires ≥ 1 `content` indicator with `kind=positive`.
-- Otherwise the verdict caps at `Informational` or `Partial Decode`.
+- Verdict ≥ `Suspicious` requires ≥ 1 `behavioral` indicator.
+- Verdict = `Malicious` requires ≥ 1 `behavioral` indicator with `kind=positive`.
+- Otherwise the verdict caps at `Informational` or `Partial Decode` and the
+  structural signals surface in explanation only.
 
 ## 3 · Explicit non-goals
 
