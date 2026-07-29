@@ -56,15 +56,34 @@ Source of truth: `PRODUCT_CHARTER.md §4.5` scorecard.
 
 ## 3 · Scheduled features
 
-_None._
+### Phase 0 · Platform Foundation — **COMPLETE** (Feb-2026)
 
-The roadmap is intentionally empty. One real case (Case 0001) does
-NOT justify moving any item from `NORTH_STAR.md` here. Repeated
-evidence is required per §1.
+Foundational infrastructure only. Zero analytical features. Zero
+Workspace modifications. Router dormant per Decision A1.
 
-When the scorecard reaches the unfreeze thresholds, the first
-candidate — driven by the top row of the Missing-Evidence tally — is
-added below with its ADR link.
+Delivered:
+
+- `/app/backend/nivxforge/` — isolated package skeleton
+- `config.py` — `FORGE_*` env prefix, `/nivxforge` route prefix, `forge_` Mongo prefix
+- `router.py` — dormant FastAPI router (not mounted in `server.py`)
+- `core/cio.py` — Canonical Investigation Object (append-only, provenance-required)
+- `core/evidence.py` — Evidence Ledger (`Finding · Evidence · Engine · Confidence`; no-unsupported-conclusion enforced)
+- `engines/base.py` — Engine `Protocol` (interface only, zero implementations)
+- `observability/logging.py` — isolated `nivxforge.*` logger namespace
+- `/app/frontend/src/nivxforge/` — reserved namespace, no UI
+- `tests/` — foundational invariants:
+  - `test_cio.py` — append-only, provenance, no overwrite
+  - `test_evidence.py` — no unsupported conclusion, bounded confidence, frozen
+  - `test_engine_interface.py` — Protocol conformance
+  - `test_router_prefix.py` — every route under `/nivxforge`
+  - `test_workspace_isolation.py` — static AST scan: zero Workspace imports
+  - `test_workspace_compatibility.py` — router not registered, protected paths intact, no side-effect imports
+
+Workspace files modified: **zero**.
+
+### No further phases scheduled.
+
+Everything else remains in the Candidate queue (§4) or in `NORTH_STAR.md`.
 
 ---
 

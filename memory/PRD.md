@@ -1,5 +1,46 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **NivXForge Phase 0 · Platform Foundation (isolated, dormant)**
+
+### Shipped
+- Created isolated NivXForge package `/app/backend/nivxforge/` — Workspace protection boundary established structurally, not just by discipline.
+- **Router dormant** (Decision A1): `nivxforge/router.py` defines routes under `/nivxforge`, but is NOT mounted in `server.py`. `curl /api/nivxforge/health → 404` confirms zero runtime coupling.
+- **Foundational primitives only** (no analytical features):
+  - `core/cio.py` — Canonical Investigation Object (append-only, provenance-required, 15 semantic buckets, no overwrite)
+  - `core/evidence.py` — Evidence Ledger (`Finding · Evidence · Engine · Confidence` four-tuple; a Finding with zero Evidence is rejected)
+  - `engines/base.py` — Engine `Protocol` interface only, zero implementations
+  - `observability/logging.py` — isolated `nivxforge.*` logger namespace
+  - `config.py` — `FORGE_*` env prefix, `/nivxforge` route prefix, `forge_` Mongo prefix
+- **Isolation enforced by tests, not discipline**:
+  - `test_cio.py` (5 tests) — append-only + provenance + no overwrite
+  - `test_evidence.py` (4 tests) — no unsupported conclusion + bounded confidence + frozen
+  - `test_engine_interface.py` (3 tests) — Protocol conformance
+  - `test_router_prefix.py` (2 tests) — every route under `/nivxforge`
+  - `test_workspace_isolation.py` — static AST scan across every nivxforge/*.py; zero imports from Workspace modules
+  - `test_workspace_compatibility.py` (3 tests) — router unmounted, protected paths intact, no side-effect imports
+- **Governance files added**:
+  - `/app/memory/NORTH_STAR.md` — aspirational architecture (layered platform, CIO, Evidence Ledger, Consensus Engine, 20 engines, plugin framework, event bus, workspace protection policy)
+  - `/app/memory/IMPLEMENTATION_ROADMAP.md` — active work, evidence-gated entry pipeline, Phase 0 marked COMPLETE
+- **Reserved frontend namespace** `/app/frontend/src/nivxforge/` (README only — no UI in Phase 0)
+
+### Workspace impact — verified zero
+- `grep -c nivxforge /app/backend/server.py` → 0
+- `/api/health` → 200 (unchanged)
+- Full existing regression suite green (Phase 1a + PS_ASCII_XOR_IEX + Phase 0) — 26/26 passing
+- No file modified under `routers/`, `engine/`, `decoders/`, `heuristics/`, `knowledge_base/`, `extractors/`, `enrichment/`, `file_extractors.py`, or `server.py`
+
+### Files changed / added
+- Added: `/app/backend/nivxforge/**` (13 files) · `/app/frontend/src/nivxforge/README.md` · `/app/memory/NORTH_STAR.md` · `/app/memory/IMPLEMENTATION_ROADMAP.md`
+- Modified: `/app/memory/PRD.md` (this entry)
+- Workspace files modified: **zero**
+
+### Regression gate — PASS (26/26)
+- `nivxforge/tests/**` — 15 passed ✅ (NEW · Phase 0 foundational invariants)
+- `tests/test_phase1a_plain_text_cli.py` — 4 passed ✅
+- `tests/test_ps_ascii_xor_iex_output_selection.py` — 3 passed ✅
+
+---
+
 ## 2026-02-28 · **v1.6.0 Phase 1a-hotfix · PS_ASCII_XOR_IEX output-selection defect fixed**
 
 ### Shipped (narrowly-scoped correctness fix — first real-world SOC case)
