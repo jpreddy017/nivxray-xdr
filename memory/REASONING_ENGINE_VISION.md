@@ -174,3 +174,53 @@ engine ADR beyond ADR-0001, we need real-world evidence of at least these:
 
 Each of these becomes an entry in REAL_WORLD_LOG.md. When the pattern hits three,
 we draft an ADR. Not before.
+
+---
+
+## 9 · Interaction model (long-horizon)
+
+**Adopted 2026-02-28** — operator direction that NivXForge, at maturity, should
+support a conversational analyst experience *without* becoming a general-purpose
+assistant.
+
+### What the interaction should feel like
+```
+Analyst:  Analyze this PowerShell.
+NivXForge: <Verdict · Evidence · Decode chain · IOCs · MITRE · TI · Attack Story>
+
+Analyst:  Why T1105?
+NivXForge: <cites the specific Evidence + Engine that produced that mapping>
+
+Analyst:  Compare with previous investigations.
+NivXForge: <similarities, differences, recurring infrastructure — grounded in
+           historical cases in the corpus, not in speculation>
+
+Analyst:  Generate an executive report.
+NivXForge: <a report grounded in *this* investigation's evidence>
+```
+
+### Rules that make it "investigation-centric," not "general-purpose"
+
+1. **The conversation is scoped to the current investigation** — the assistant may
+   reference the historical corpus (REAL_WORLD_LOG.md, prior cases) but MUST NOT
+   answer questions unrelated to cybersecurity investigation.
+2. **Every answer cites the underlying Evidence, Engine, and Confidence.** Cf. §3.4.
+3. **"I don't know" is a first-class answer.** If the evidence doesn't support a
+   claim, the assistant says so; it does NOT extrapolate.
+4. **Follow-ups must not weaken determinism.** Asking "why?" surfaces the existing
+   reasoning; it does NOT re-run the analysis with a different (weaker) model.
+5. **No conversational memory across investigations by default.** Each case is a
+   fresh evidence set. Cross-case comparisons are opt-in and MUST be explicit.
+
+### Why this is not authorized to be built now
+
+This interaction model is a long-horizon target. It requires:
+- A stable analyst-parity surface (Phase 1 · done).
+- ≥3 recurring real cases where analysts asked follow-up questions that the current
+  static rendering couldn't answer.
+- An ADR (future ADR-0009 or later) drafted from that evidence.
+
+Until then, this section is a **design constraint** for future conversational work,
+not a build ticket. It exists so that when the evidence *does* justify a
+conversational surface, we already know the shape it must take.
+

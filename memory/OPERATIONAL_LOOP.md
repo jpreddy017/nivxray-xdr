@@ -75,6 +75,33 @@ not by UI iteration.
 
 ---
 
+## Case-review template (adopted 2026-02-28)
+
+Every case logged in `REAL_WORLD_LOG.md` MUST be evaluated against these eight
+categories. Consistency is what makes the log statistically useful over dozens of
+cases.
+
+| Category                | Assessment                                                    |
+| ----------------------- | ------------------------------------------------------------- |
+| Decode Completeness     | Pass / Partial / Fail                                         |
+| IOC Completeness        | Pass / Partial / Fail                                         |
+| MITRE Mapping           | Appropriate / Missing / Incorrect                             |
+| Verdict                 | Useful / Too Weak / Too Strong                                |
+| Explanation Quality     | Clear / Partial / Poor                                        |
+| Evidence Traceability   | Every finding backed by evidence? Yes / No                    |
+| Analyst Notes           | Free-form observations, only lessons that generalise          |
+| Action                  | No Action / Monitor / Draft ADR *(only after ≥3 recurrences)* |
+
+Rules:
+- **No half-scores.** Use the enumerated buckets exactly. If nothing fits, prefer
+  "Partial" over inventing a new bucket.
+- **"Action = Draft ADR"** is only permitted when the same gap has been recorded in
+  ≥3 cases with matching Missing-Evidence categories.
+- **Free-form notes** should capture *generalisable* lessons only — one-off analyst
+  context belongs in the ticket, not the log.
+
+---
+
 ## Where this document lives in the governance model
 
 - **`PRODUCT_CHARTER.md`** defines the immutable principles (evidence, workspace
