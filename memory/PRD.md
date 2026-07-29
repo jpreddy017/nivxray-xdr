@@ -1,5 +1,44 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **ADR-0012 · Progressive Partial Recovery · slice-1 IMPLEMENTED**
+
+### Shipped (evidence-based; not speculative)
+- **New endpoint behavior** — when a PowerShell `-EncodedCommand` blob decodes cleanly for a prefix then hits corruption, `/api/decode/smart` now runs IOC / MITRE / LOLBin extractors on `partial_recovery.prefix_text` and returns verdict `"Partial Decode"` instead of `"Undetermined"`.
+- **Endpoint helpers** in `/app/backend/routers/ops.py`:
+  - `_run_progressive_analysis()` — §2.2 gate (≥6 printable chars + ≥1 alpha) + extractor invocation + provenance tagging.
+  - `_classify_partial_cause()` — deterministic classifier: `truncated | corrupted | wrong_encoding | nested_encoding | unsupported`.
+- **Severity cap** — verdict never exceeds Suspicious when evidence is partial (ADR-0007 §2.3 preserved). `risk_score` remains `None` so analysts always see this is partial evidence.
+- **Governance labels** on every derived evidence item: `provenance: "partial_recovery"`, `truncation_note: offset=<n>, encoding=<enc>`.
+- **Explicitly reverses** the 2026-07-25 SOC-user lock for the extractor family (AST layer lock still stands — `partial_recovery` is NOT promoted to `recovered_script`).
+
+### Verified end-to-end on operator's regsvr32 payload (via preview REACT_APP_BACKEND_URL)
+```
+verdict_display: Partial Decode
+cause:           truncated
+output:          'regsvr32 /u /s /i:http://192.1'   (verbatim from decoder)
+mitre:           ['T1218.010', 'T1071.001']
+lolbas:          ['regsvr32']
+urls:            ['http://192.1']
+severity_cap:    Suspicious
+provenance:      partial_recovery
+```
+
+### Test suite (all evidence-based, no speculation)
+- ✅ New: `tests/test_adr0012_progressive_partial_recovery.py` — 8/8 green.
+- ✅ ADR-0007/0008/0009/0012 pinned regressions — 52/52 green.
+- ✅ Corpus v1 parity sweep — 19/20 pass, unchanged from baseline. Case 0015 remains the pre-existing PARITY_GAP-001 failure (verified via `git stash` reversal test).
+- ✅ `test_ps_ascii_xor_iex.py` 3 failing tests confirmed **pre-existing** (fail identically with my patch reverted).
+
+### Explicitly NOT done in this slice
+- ❌ **ADR-0011 Investigation Engine Unification** remains **Proposed · planning-only**. Slice-1 lives in `routers/ops.py` endpoint layer (~200 lines net-new), not in `nivxforge/cim/compose.py`. Migration to the composer is deferred until ADR-0011 lands. Corpus v1 verdict parity gaps (0/20) are UNCHANGED — they are ADR-0011 territory, not ADR-0012.
+- ❌ Progressive recovery for non-PowerShell decoders (gzip body, wrong-encoding blobs) is slice-2.
+- ❌ No UI / Track B changes.
+
+### Governance artifacts
+- `/app/memory/adr/0012-progressive-partial-recovery.md` (status: **Accepted · slice-1 implemented**).
+- `/app/memory/CHANGELOG.md` (new entry at top).
+
+
 ## 2026-02-28 · **Track A CLOSER · 20-Case Corpus v1 Parity Sweep + Documents→Admin nav**
 
 ### Shipped

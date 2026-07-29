@@ -31,6 +31,214 @@ log = logging.getLogger("nivx.routers.ops")
 router = APIRouter()
 
 
+# ─── ADR-0012 · Progressive Partial Recovery ─────────────────────────────────
+# When the PowerShell -EncodedCommand recovery chain fails but the decoder
+# recovered a readable prefix (`partial_recovery.prefix_text`), run IOC /
+# MITRE / LOLBin extraction on THAT PREFIX and return a "Partial Decode"
+# verdict instead of a bare "Undetermined". Decoder invariants unchanged:
+# no invented bytes, no stitched reconstruction. See:
+#   /app/memory/adr/0012-progressive-partial-recovery.md
+def _classify_partial_cause(partial_recovery: Dict[str, Any],
+                             decode_report: Any) -> str:
+    """§2.3 cause classification — deterministic, first-match wins.
+
+    Truncation is the dominant signal when the decoder recovered a
+    readable prefix — a non-empty `prefix_text` means bytes decoded
+    cleanly up to a corruption point. Only downgrade to
+    `nested_encoding` / `wrong_encoding` / `corrupted` when the
+    decoder report explicitly identifies a distinct family (gzip
+    body, encoding mismatch).
+    """
+    prefix_text = str(partial_recovery.get("prefix_text") or "")
+    prefix_enc = str(partial_recovery.get("prefix_encoding") or "")
+    possible_causes = tuple(getattr(decode_report, "possible_causes", []) or ())
+    causes_blob = " ".join(possible_causes).lower()
+    b64_reason = str(getattr(decode_report, "b64_reason", "") or "").lower()
+
+    # Gzip family signal — deterministic, from decoder rules.
+    if "gzip" in causes_blob or "deflate" in causes_blob:
+        return "corrupted"
+    # Encoding mismatch — prefix decoded as something other than UTF-16LE.
+    if prefix_text and prefix_enc and prefix_enc != "utf-16-le":
+        return "wrong_encoding"
+    # Truncation dominates when we recovered readable bytes.
+    if prefix_text:
+        return "truncated"
+    # No prefix + base64 rejection → unsupported.
+    if "base64" in b64_reason and not prefix_text:
+        return "unsupported"
+    # No prefix but nested-family signal.
+    if "nested" in causes_blob or "layer" in causes_blob:
+        return "nested_encoding"
+    return "unsupported"
+
+
+def _run_progressive_analysis(
+    *,
+    partial_recovery: Dict[str, Any],
+    decode_report: Any,
+    blob_len: int,
+) -> Optional[Dict[str, Any]]:
+    """ADR-0012 §2.2 · Return a full decode/smart response envelope when the
+    recovered prefix is usable, or None when the caller should fall back to
+    the legacy `Undetermined` path (§2.2 gate: prefix must be ≥6 printable
+    chars and contain ≥1 alpha).
+    """
+    prefix_text = str(partial_recovery.get("prefix_text") or "").strip()
+    if len(prefix_text) < 6 or not any(c.isalpha() for c in prefix_text):
+        return None
+
+    # Progressive extractors — reuse existing rule-tables. No fabrication.
+    from command_analyzer import (
+        extract_iocs as _pa_extract_iocs,
+        map_mitre as _pa_map_mitre,
+        detect_lolbins as _pa_detect_lolbins,
+        detect_interpreter as _pa_find_interpreter,
+    )
+
+    _iocs = _pa_extract_iocs(prefix_text)
+    _mitre = _pa_map_mitre(prefix_text)
+    _tokens = re.findall(r"[^\s]+", prefix_text)
+    try:
+        _interp = _pa_find_interpreter(prefix_text)
+    except Exception:
+        _interp = None
+    _lolbins = _pa_detect_lolbins(_tokens, _interp)
+
+    _cause = _classify_partial_cause(partial_recovery, decode_report)
+    _enc = str(partial_recovery.get("prefix_encoding") or "utf-16-le")
+    _off = int(partial_recovery.get("corruption_offset") or 0)
+    _truncation_note = f"offset={_off}, encoding={_enc}"
+    _confidence_band = str(getattr(decode_report, "confidence_band", "low") or "low")
+    _recovered_layers = str(getattr(decode_report, "recovered_layers", "0/0") or "0/0")
+
+    # ADR-0007 §2.3 severity floor — partial evidence caps at Suspicious.
+    # Choose Suspicious iff we recovered ANY behavioral marker (LOLBin
+    # or a defense-evasion MITRE technique); otherwise Partial Decode
+    # reports at "Undetermined-with-partial-evidence" severity.
+    _has_behavioral = bool(_lolbins) or any(
+        (m.get("id") or "").startswith(("T1218", "T1059", "T1105", "T1140"))
+        for m in _mitre
+    )
+    _severity_cap = "Suspicious" if _has_behavioral else "Undetermined"
+
+    return {
+        "recipe": [
+            {"op": "ps-encodedcommand-recovery", "args": {},
+             "reason": "PowerShell EncodedCommand deterministic decode"},
+            {"op": "adr-0012-progressive-analysis", "args": {},
+             "reason": "Recovered prefix analysed under §2.2 · Progressive Analysis"},
+        ],
+        "output": prefix_text,
+        "output_raw": prefix_text,
+        "notes": [
+            "PowerShell -EncodedCommand blob detected — deterministic recovery chain executed.",
+            (f"Base64 decoded ({getattr(decode_report, 'b64_bytes', 0)} bytes) but UTF-16LE "
+             f"strict validation failed at byte offset "
+             f"{getattr(decode_report, 'first_invalid_offset', 0)}."),
+            (f"ADR-0012 · Progressive Analysis ran on the recovered prefix "
+             f"({len(prefix_text)} chars, cause={_cause}). All derived evidence "
+             f"is labeled `provenance: partial_recovery`."),
+        ],
+        "detected_type": {
+            "type": "powershell_encoded_partial_decode",
+            "label": "PowerShell -EncodedCommand blob — partial recovery analysed",
+        },
+        "engine": "adr-0012-progressive-analysis",
+        "reached_shellcode": False,
+        "confidence": _confidence_band,
+        "score": None,
+        "terminal": "partial-decode",
+        "trace": [{
+            "op": "adr-0012-progressive-analysis",
+            "args": {
+                "prefix_text_len": len(prefix_text),
+                "cause": _cause,
+                "confidence_band": _confidence_band,
+                "recovered_layers": _recovered_layers,
+                "truncation_note": _truncation_note,
+                "severity_cap": _severity_cap,
+                "extractors_ran": ["extract_iocs", "map_mitre", "detect_lolbins"],
+            },
+            "reason": "Recovered prefix analysed",
+            "output_preview": prefix_text[:200],
+            "output_length": len(prefix_text),
+        }],
+        "chain_ids": ["ps-encodedcommand-recovery", "adr-0012-progressive-analysis"],
+        "iocs": {
+            "ips": _iocs.get("ips", []),
+            "urls": _iocs.get("urls", []),
+            "domains": _iocs.get("domains", []),
+            "emails": _iocs.get("emails", []),
+            "file_paths": _iocs.get("file_paths", []),
+            "bitcoin_addresses": [],
+            "hashes": _iocs.get("hashes", {"md5": [], "sha1": [], "sha256": []}),
+            # ADR-0012 §2.4 · every IOC carries partial-recovery provenance.
+            "provenance": "partial_recovery",
+            "truncation_note": _truncation_note,
+        },
+        "mitre": [
+            {**hit, "provenance": "partial_recovery", "truncation_note": _truncation_note}
+            for hit in _mitre
+        ],
+        "lolbas": [
+            {**hit, "provenance": "partial_recovery", "truncation_note": _truncation_note}
+            for hit in _lolbins
+        ],
+        "tradecraft": [],
+        "verdict": "partial_decode",
+        "verdict_display": "Partial Decode",
+        "confidence_band": _confidence_band,
+        "recovered_layers": _recovered_layers,
+        "verdict_card": {
+            "verdict": "partial_decode",
+            "verdict_display": "Partial Decode",
+            "risk_score": None,
+            "score": None,
+            "confidence": _confidence_band,
+            "confidence_band": _confidence_band,
+            "recovered_layers": _recovered_layers,
+            "severity_cap": _severity_cap,
+            "headline": (
+                "Partial Decode — recovered prefix analysed"
+                if _has_behavioral else
+                "Partial Decode — no behavioral evidence in recovered prefix"
+            ),
+            "why": (
+                f"Base64 decoded ({getattr(decode_report, 'b64_bytes', 0)} bytes) but "
+                f"UTF-16LE strict validation failed at byte offset "
+                f"{getattr(decode_report, 'first_invalid_offset', 0)}. "
+                f"The readable prefix ({len(prefix_text)} chars) was analysed under "
+                f"ADR-0012 §2.2 · cause={_cause}. Severity capped at {_severity_cap} "
+                f"because behavioral evidence is definitionally incomplete."
+            ),
+            "provenance": "partial_recovery",
+            "cause": _cause,
+        },
+        "cause": _cause,
+        "partial_recovery": dict(partial_recovery),
+        "decode_error": {
+            "status": getattr(decode_report, "status", "decode_error"),
+            "b64_bytes": getattr(decode_report, "b64_bytes", 0),
+            "b64_status": getattr(decode_report, "b64_status", ""),
+            "b64_reason": getattr(decode_report, "b64_reason", ""),
+            "first_invalid_offset": getattr(decode_report, "first_invalid_offset", 0),
+            "invalid_reason": getattr(decode_report, "invalid_reason", ""),
+            "hex_preview": getattr(decode_report, "hex_preview", ""),
+            "possible_causes": list(getattr(decode_report, "possible_causes", []) or []),
+            "attempts": [a.to_dict() for a in getattr(decode_report, "attempts", []) or []],
+            "blob_length": blob_len,
+            "partial_recovery": dict(partial_recovery),
+            "confidence_band": _confidence_band,
+            "confidence_reason": getattr(decode_report, "confidence_reason", ""),
+            "recovered_layers": _recovered_layers,
+            "cause": _cause,
+        },
+        "custom_recipes_matched": [],
+    }
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 # --- Load Example Presets (moved from server.py) --------------------------- #
 EXAMPLES = [
     {
@@ -504,6 +712,21 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             _blob = _blob + "=" * ((-len(_blob)) % 4)
             _rep = recover_powershell_from_b64(_blob)
             if _rep.status == "decode_error":
+                # ── ADR-0012 · Progressive Partial Recovery ──────────────
+                # If the decoder recovered a readable prefix, run IOC /
+                # MITRE / LOLBin extraction on it and switch the verdict
+                # from `decode_error` / `Undetermined` to `partial_decode`
+                # / `Partial Decode`. Severity is capped at Suspicious
+                # (§2.2) and every derived evidence item carries
+                # `provenance: partial_recovery`. Decoder invariants are
+                # unchanged — we NEVER stitch reconstructed bytes.
+                _pa_pipeline = _run_progressive_analysis(
+                    partial_recovery=dict(_rep.partial_recovery or {}),
+                    decode_report=_rep,
+                    blob_len=len(_blob),
+                )
+                if _pa_pipeline is not None:
+                    return _pa_pipeline
                 return {
                     "recipe": [
                         {"op": "ps-encodedcommand-recovery", "args": {},

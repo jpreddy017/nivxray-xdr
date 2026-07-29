@@ -34,7 +34,7 @@ ADR, not a scoped parity fix.
 | 0014 | Suspicious | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
 | 0015 | decode_error | — | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
 | 0016 | Suspicious | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
-| 0017 | Suspicious | — | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ |
+| 0017 | Partial | — | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ |
 | 0018 | Suspicious | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
 | 0019 | Runtime Dependent | — | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
 | 0020 | Partial | — | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ |
@@ -159,10 +159,10 @@ ADR, not a scoped parity fix.
 
 ### Case 0017
 - **CIM_STRUCTURE** · PASS · smart=19/auto=19 keys
-- **VERDICT** · FAIL · labels=False ΔC=40 exp_shape=True
+- **VERDICT** · FAIL · labels=False ΔC=25 exp_shape=True
 - **EVIDENCE_TYPES** · PASS · smart=['decoder.layer'] auto=['decoder.layer']
 - **STAGES** · FAIL · smart=['decode', 'reasoning'] auto=['decode']
-- **DECODE** · PASS · len_smart=529 len_auto=0
+- **DECODE** · PASS · len_smart=652 len_auto=0
 
 ### Case 0018
 - **CIM_STRUCTURE** · PASS · smart=19/auto=19 keys

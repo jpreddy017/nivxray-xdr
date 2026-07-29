@@ -3,6 +3,72 @@
 Chronological record of significant releases (newest first).
 
 
+## 2026-02-28 · ADR-0012 · Progressive Partial Recovery (slice-1)
+
+**Governance:** `/app/memory/adr/0012-progressive-partial-recovery.md`
+**Threshold met:** Operator-supplied regsvr32 `-EncodedCommand`
+payload (truncated mid-UTF-16LE) — pipeline previously returned
+`Undetermined` despite the decoder having a readable
+`regsvr32 /u /s /i:http` prefix in `partial_recovery.prefix_text`.
+
+**What changed (endpoint layer only):**
+- `/app/backend/routers/ops.py` — new `_run_progressive_analysis()`
+  helper. When PS `-EncodedCommand` recovery chain fails BUT the
+  decoder recovered a readable prefix (≥6 printable-ASCII chars,
+  ≥1 alpha), the endpoint now runs `command_analyzer.extract_iocs`,
+  `command_analyzer.map_mitre`, and `command_analyzer.detect_lolbins`
+  on the prefix.
+- New deterministic cause classifier `_classify_partial_cause()`:
+  `truncated | corrupted | wrong_encoding | nested_encoding | unsupported`.
+- New verdict label: **`Partial Decode`** (distinct from
+  Undetermined / Suspicious / Malicious). Severity is capped at
+  Suspicious per ADR-0007 §2.3 — never Malicious from partial
+  evidence alone.
+- Every IOC / MITRE / LOLBin item derived from partial recovery
+  carries `provenance: "partial_recovery"` + `truncation_note`.
+- Decoder invariants **unchanged**: no invented bytes, no stitched
+  reconstruction; `partial_recovery.prefix_text` is passed through
+  byte-verbatim.
+
+**Explicitly reversed:** the 2026-07-25 SOC-user lock in
+`v2/semantic/ps_recovery.py:_annotate_confidence_and_partial` that
+said `partial_recovery` "is NEVER used by the AST / behavior
+extractor". The lock stands for the AST layer (still not used); this
+ADR narrows it to allow the extractor family.
+
+**Verified against operator's regsvr32 payload (live preview endpoint):**
+```
+verdict_display: Partial Decode
+cause:           truncated
+output:          'regsvr32 /u /s /i:http://192.1'
+mitre:           ['T1218.010', 'T1071.001']
+lolbas:          ['regsvr32']
+urls:            ['http://192.1']
+severity_cap:    Suspicious
+provenance:      partial_recovery
+```
+
+**Test suite:**
+- New: `tests/test_adr0012_progressive_partial_recovery.py`
+  (8 tests, all green — labels, severity cap, gate rejection,
+   cause classifier, decoder invariants).
+- ADR-0007 / 0008 / 0009 / 0012 pins: **52/52 green**.
+- Corpus v1 parity sweep: **19/20 pass** — unchanged from baseline
+  (Case 0015 pre-existing failure, same reason as before patch).
+- Full-file regression sample (`test_ps_ascii_xor_iex.py`): 3
+  pre-existing failures confirmed unchanged via `git stash` reversal
+  test — not caused by ADR-0012.
+
+**Explicitly NOT done in this slice:**
+- ADR-0011 Investigation Engine Unification remains
+  **Proposed · planning-only**. Slice-1 lives in the endpoint
+  layer, not the CIM composer. Migration into
+  `nivxforge/cim/compose.py` is deferred until ADR-0011 lands.
+- Progressive recovery for non-PowerShell decoders (gzip body,
+  wrong-encoding blobs) is slice-2 territory.
+- No UI / Track B changes.
+
+
 ## 2026-02-22 · R4.1 Stable + R2 · Artifact Store (SHIPPED)
 
 **R4.1 Stable — permanent CI flake fix**
