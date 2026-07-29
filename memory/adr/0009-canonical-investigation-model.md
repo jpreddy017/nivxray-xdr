@@ -3,6 +3,12 @@
 - **Status:** **Accepted** (2026-02-28 · amended title + reframed scope) · implementation authorised
 - **Amended title:** "Canonical Investigation View Model" → **Canonical Investigation Model (CIM) & Investigation Workspace**. `View Model` was UI-suggestive; the correct framing is *system of record*.
 - **Sequencing amendment (2026-02-28):** Inserted **between ADR-0008 (done) and ADR-0007**. Rationale below.
+- **Architectural amendments (2026-02-28, operator-directed):**
+  1. **Dependency inverted** — CIM built from *canonical facts* (decoder chain outputs, IOC extractor output, reasoning outputs, TI enrichment), NOT from HTTP endpoint response envelopes. Endpoint responses are DERIVED from the CIM, not the other way around. Future parsers (email, Sysmon, PCAP, memory) plug into the same fact substrate without ever knowing about `/api/decode/smart` shape.
+  2. **Evidence is a first-class object** with a stable ID, source, raw/normalized values, confidence, `supports`, and `contradicts` — not just a confidence tag on a field.
+  3. **Unknowns are DETERMINISTICALLY generated** by rules over the fact substrate (missing process → "unknown parent"; missing network telemetry → "no network evidence"), never manually authored. Reproducible.
+  4. **Every Assessment references supporting Evidence IDs.** Explainability by design: clicking any conclusion jumps to the evidence backing it.
+  5. **One adaptive Investigate action, not two.** The `DECODE` and `AUTO INVESTIGATE` buttons collapse into a single `🔍 Investigate` action. The engine auto-detects input type and runs only the necessary modules (Normalize · Decode · Deobfuscate · IOC extract · TI · Behavior · Reasoning · ...). Decode becomes a *capability*, not a *feature* — surfaced as a section of the investigation ("Decode Chain") rather than a separate button. A new CIM field `stages_executed` gives analysts transparent visibility into which capabilities ran on this artifact.
 - **Deciders:** Operator (product owner) · Emergent (proposer)
 - **Threshold met:** Multiple independent evidence streams:
   - **UX architectural gap** — 2026-02-28 operator diagnostic + screenshot: NivXForge landing = input box + two buttons; no post-analysis workspace; missing destination for the investigation to land in.
@@ -52,17 +58,24 @@ Investigation                       # root
 ├── case_id                         # optional link to workspace_cases row
 ├── created_at                      # UTC ISO8601
 ├── source                          # {surface, endpoint, correlation_id}
-├── executive                       # analyst-facing headline (Verdict + summary)
-├── assessment                      # verdict / confidence / severity / family
-├── evidence                        # ordered list of evidence records
-├── timeline                        # ordered list of temporal facts
-├── entities                        # hosts / files / users / URLs / domains / IPs / hashes
-├── relationships                   # entity → entity edges with kind + evidence refs
-├── threat_intel                    # TI Shield layer summaries + external references
-├── attack                          # MITRE ATT&CK techniques (deduplicated, evidence-linked)
-├── unknowns                        # explicit list of what the data does NOT contain
-├── recommendations                 # analyst next-actions (immediate + hunting)
-├── report                          # composed narrative sections (executive, story, ...)
+├── executive                       # analyst-facing headline (references Assessment IDs)
+├── assessments                     # list of Assessment[] (each with stable id + evidence refs)
+├── evidence                        # list of Evidence[] (first-class, stable ids EV-XXX)
+├── timeline                        # ordered TimelineFact[] (each references Evidence IDs)
+├── entities                        # list of Entity[] with stable ids (E-XXX)
+├── relationships                   # list of Edge[] (entity → entity, kind, evidence refs)
+├── threat_intel                    # TI summaries (references Evidence IDs)
+├── attack                          # deduplicated ATT&CK techniques (each with evidence refs)
+├── stages_executed                 # ORDERED list of AnalysisStage[] — which capabilities ran
+│                                   # on this artifact (Normalize · Decode · Deobfuscate ·
+│                                   # IOC-extract · TI · Behavior · MITRE · Reasoning · ...)
+│                                   # provides adaptive-pipeline transparency for §2.5
+├── decode_chain                    # ordered decoder-layer trace (was `layer_trace`)
+│                                   # promoted to first-class CIM section — a *capability*,
+│                                   # not a separate action button
+├── unknowns                        # DETERMINISTICALLY generated data-gap list (§2.2)
+├── recommendations                 # next-actions (references Evidence/Assessment IDs)
+├── report                          # composed narrative (deferred to ADR-0010)
 └── provenance                      # per-field source: engine · decoder · TI · analyst
 ```
 
@@ -70,7 +83,87 @@ Every top-level branch is a **section** — not a tab. Surfaces choose
 their rendering (Workspace pages, NivXForge left-nav, Reports doc,
 API JSON). Sections are the vocabulary.
 
-### 2.2 Design rules (operator-directed 2026-02-28)
+### 2.1.a Evidence — first-class object
+
+```
+Evidence
+├── id                     # stable "EV-001"..."EV-NNN" (dense, monotonic within an investigation)
+├── type                   # ioc.ip | ioc.domain | ioc.url | ioc.hash | decoder.layer |
+│                          # ti.provider_hit | mitre.technique | telemetry.process |
+│                          # telemetry.network | telemetry.file | telemetry.registry |
+│                          # analyst.correction | reasoning.inference
+├── source                 # {producer: "decoder" | "extractor" | "ti_enrich" | "reasoning" | ...,
+│                          #  producer_version, timestamp}
+├── raw_value              # original bytes/text/struct as observed
+├── normalized_value       # canonical form (e.g. lowercased domain, RFC-8949-friendly)
+├── confidence             # "Confirmed" | "Strongly Inferred" | "Possible" | "Unknown"
+├── supports               # list of Assessment.id — assessments this evidence backs
+├── contradicts            # list of Assessment.id — assessments this evidence weakens
+└── context_snippet        # up to 120 chars around the observation (reuses ADR-0008 §2 Stage 3)
+```
+
+### 2.1.b Assessment — every conclusion is traceable
+
+```
+Assessment
+├── id                     # stable "A-001"..."A-NNN"
+├── statement              # short human-readable conclusion ("PhantomStealer identified")
+├── kind                   # verdict | family | category | behavior | attribution | risk
+├── confidence             # "Confirmed" | "Strongly Inferred" | "Possible" | "Unknown"
+├── evidence               # NON-EMPTY list of Evidence.id refs — REQUIRED for every Assessment
+└── rationale              # why the referenced evidence supports the statement
+```
+
+**Governance rule (merge-gate):** `len(assessment.evidence) >= 1` for every
+Assessment in every CIM. A CIM with an unsupported Assessment fails the
+composer's validator and the endpoint returns 500 with a governance
+error rather than surfacing a conclusion without backing. Explainability
+by design.
+
+### 2.1.c AnalysisStage — adaptive-pipeline transparency
+
+```
+AnalysisStage
+├── name                   # "normalize" | "decode" | "deobfuscate" | "ioc_extract" |
+│                          # "ti_enrich" | "behavior" | "mitre_map" | "reasoning" |
+│                          # "pe_static" | "office_parse" | "pdf_parse" | "url_analyze" |
+│                          # "sysmon_parse" | "email_parse" | "sigma_match" | "yara_match"
+├── status                 # "ran" | "skipped" | "failed"
+├── reason                 # optional — why skipped/failed (e.g. "input not b64 encoded")
+├── started_at             # UTC ISO8601
+├── duration_ms            # int
+└── evidence_produced      # list of Evidence.id — what this stage contributed
+```
+
+`stages_executed` gives analysts full transparency into which capabilities
+ran on this artifact — the analyst sees `✓ Decode · ✓ IOC Extraction ·
+skipped: PE Static (not a PE) · ✓ TI Enrich · ✓ Reasoning` in the UI.
+That transparency is the tradeoff that makes "one adaptive Investigate
+action" (§2.4) safe.
+
+### 2.2 Deterministic Unknowns generator
+
+Unknowns are **generated by rules over the fact substrate**, never
+manually authored. Each rule is a pure function
+`(facts) → Optional[Unknown]`:
+
+```
+IF   entities.processes is empty          → emit "parent process unknown"
+IF   entities.commandlines is empty       → emit "execution command line unknown"
+IF   telemetry.network is empty           → emit "no network telemetry"
+IF   telemetry.memory is empty            → emit "memory evidence unavailable"
+IF   entities.users is empty              → emit "user account unknown"
+IF   telemetry.registry is empty          → emit "registry state unknown"
+IF   telemetry.authentication is empty    → emit "authentication logs unavailable"
+IF   evidence.timeline lacks (start, end) → emit "activity time window unknown"
+IF   attack.initial_access is empty       → emit "initial access vector unknown"
+IF   entities.files is empty              → emit "no file artifacts observed"
+```
+
+Rules live in `nivxforge/cim/unknowns.py`. New rules require a real-world
+observation entry in `REAL_WORLD_LOG.md` (governance discipline).
+
+### 2.3 Design rules (operator-directed 2026-02-28)
 
 - **Section-driven, not tab-driven.** UIs may render sections as tabs,
   panels, doc chapters, or navigation entries — the CIM does not care.
@@ -84,51 +177,122 @@ API JSON). Sections are the vocabulary.
 - **Explicit unknowns.** The `unknowns` section is a first-class part
   of the CIM (not an afterthought); it turns unknown-unknowns into
   known-unknowns so analysts can plan next steps.
+- **One adaptive Investigate action, not two.** The `DECODE` and
+  `AUTO INVESTIGATE` buttons collapse into a single `🔍 Investigate`.
+  The engine auto-detects input type (PowerShell · b64 · PE · Office
+  · PDF · URL · Cisco XDR incident · Sysmon record · email · …) and
+  runs only the necessary stages. The tradeoff — the analyst gives up
+  explicit workflow control — is protected by mandatory transparency:
+  the CIM's `stages_executed` field (§2.1.c) surfaces which capabilities
+  ran, which were skipped and why, and how long each took. Decode
+  becomes a *capability*, not a *feature*; the analyst still gets a
+  full "Decode Chain" section in the investigation.
 
-### 2.3 Component contracts (frontend)
+### 2.4 Component contracts (frontend)
 
 - `<CIMSection kind="..." data={inv.section} />` — every section is one
   component. Sections receive their own CIM slice and MAY NOT read
   other slices except through the top-level `provenance` map.
 - Sections MAY NOT re-compute derived fields (verdict / confidence /
   MITRE dedup / IOC dedup). Those are baked into the CIM by the
-  composer (§2.5).
+  composer (§2.6).
 - Sections carry stable `data-testid` prefixes per section (e.g.,
   `cim-executive-*`, `cim-evidence-*`) for testing + parity assertions.
 
-### 2.4 Rendering order & data ownership
+### 2.5 Rendering order & data ownership
 
 Default rendering order (top-to-bottom in NivXForge Investigation
 Workspace v1):
 
 1. **Executive** — headline verdict, confidence, family, category,
    business impact, evidence quality. *(Data owner: Reasoning engine.)*
-2. **Assessment** — expanded verdict card with per-criterion evidence.
+2. **Stages Executed** — adaptive-pipeline transparency strip
+   (`✓ Decode · ✓ IOC Extract · skipped: PE Static · ✓ TI Enrich · …`).
+   *(Data owner: composer + orchestrator.)*
+3. **Assessments** — every conclusion with its evidence refs.
    *(Data owner: Reasoning engine + ADR-0007 verdict gate when live.)*
-3. **Evidence** — evidence records with confidence tags. *(Data owner:
+4. **Evidence** — evidence records with confidence tags. *(Data owner:
    Reasoning engine + decoders + TI enrichment.)*
-4. **Timeline** — temporal facts. *(Data owner: Decoders + reasoning.)*
-5. **Entities** — hosts/files/URLs/IPs/hashes with roles. *(Data owner:
+5. **Timeline** — temporal facts. *(Data owner: Decoders + reasoning.)*
+6. **Entities** — hosts/files/URLs/IPs/hashes with roles. *(Data owner:
    IOC extractor (ADR-0008) + TI enrichment.)*
-6. **Relationships** — entity graph edges. *(Data owner: Reasoning.)*
-7. **Threat Intel** — TI Shield layer summaries. *(Data owner: TI
+7. **Relationships** — entity graph edges. *(Data owner: Reasoning.)*
+8. **Threat Intel** — TI Shield layer summaries. *(Data owner: TI
    enrichment pipeline.)*
-8. **ATT&CK** — deduplicated technique list with evidence refs.
-9. **Unknowns** — explicit data-gap list. *(Data owner: Reasoning.)*
-10. **Recommendations** — analyst next-actions. *(Data owner: Reasoning.)*
-11. **Report** — composed narrative sections (deferred until a later ADR
+9. **ATT&CK** — deduplicated technique list with evidence refs.
+10. **Decode Chain** — ordered decoder-layer trace. *(Data owner:
+    decoder pipeline; formerly the DECODE action; now a section.)*
+11. **Unknowns** — deterministically generated data-gap list.
+    *(Data owner: `unknowns.py` rules.)*
+12. **Recommendations** — analyst next-actions. *(Data owner: Reasoning.)*
+13. **Report** — composed narrative sections (deferred until a later ADR
     adds the narrative composer; v1 emits raw section text).
 
-### 2.5 Composer
+### 2.6 Composer — INVERTED dependency
 
-A single backend module `nivxforge/cim/compose.py` (isolated namespace)
-takes the union of `/api/decode/smart` and `/api/v2/auto-investigate`
-responses for a case and produces the CIM. No new backend HTTP routes.
-The composer is invoked from the existing endpoints' post-processing
-step and returned in a new **additive** response field: `investigation`
-(the CIM object). Response envelope stability is preserved for all
-current consumers (Workspace continues to read `iocs`, `verdict_card`,
-`mitre`, `ti_shield`, `layer_trace`, etc.).
+The composer consumes the **canonical fact substrate**, not HTTP
+response envelopes. The dependency graph is:
+
+```
+Raw Input
+     │
+     ▼
+Normalization ── (existing decoder pipeline)
+     │
+     ▼
+Analysis ────── (deterministic engines · reasoning · TI enrichment)
+     │
+     ▼
+Canonical Facts ─ (decoder chain outputs · IOC records · TI hits ·
+     │             reasoning inferences · MITRE hits · telemetry records)
+     ▼
+CIM  ─────────── (compose.py assembles Assessments/Evidence/Entities/
+     │             Relationships/Timeline/Unknowns from canonical facts)
+     ▼
+Endpoint Response  (adds `investigation` field additive on
+                    /api/decode/smart and /api/v2/auto-investigate)
+```
+
+**Concrete implication for the existing codebase:** `compose.py` reads
+from a new lightweight **`FactSubstrate`** dict-like adapter — an
+in-process pass-through populated by the existing analysis pipeline
+just before the endpoint packages its HTTP response. The composer never
+imports from `routers/ops.py`; the composer never parses HTTP JSON. Any
+future ingest surface (email parser, Sysmon parser, PCAP parser, memory
+parser) can populate a `FactSubstrate` and get a CIM for free.
+
+Composer module layout (`/app/backend/nivxforge/cim/`):
+
+```
+cim/
+├── __init__.py
+├── models.py           # Pydantic models: Investigation, Assessment,
+│                       # Evidence, Entity, Relationship, TimelineFact,
+│                       # Unknown, Recommendation, ThreatIntelHit,
+│                       # AttackTechnique, ExecutiveSummary, Section*
+├── fact_substrate.py   # FactSubstrate: pipeline → composer decoupling
+├── compose.py          # from_facts(substrate) -> Investigation
+├── unknowns.py         # deterministic unknown-generator rules (§2.2)
+├── evidence.py         # Evidence-ID allocation + supports/contradicts
+│                       # relationship validation
+├── assessments.py      # Assessment-ID allocation + evidence-ref
+│                       # non-empty merge-gate
+└── validators.py       # CIM invariants (Assessment.evidence non-empty,
+                        # Evidence.supports IDs exist, etc.)
+```
+
+Wire-in point (backend-only, additive):
+
+```python
+# routers/ops.py — after analysis pipeline populates its results, before response:
+from nivxforge.cim import compose, fact_substrate
+facts = fact_substrate.from_analysis_result(result)   # in-process, zero I/O
+result["investigation"] = compose.from_facts(facts).model_dump()
+```
+
+No new HTTP routes. No changes to existing response fields. Existing
+consumers (Workspace, current NivXForge InvestigatePage) continue
+reading `iocs`, `verdict_card`, etc., unchanged.
 
 ## 3 · Scope (small on purpose)
 
