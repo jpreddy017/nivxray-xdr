@@ -234,3 +234,24 @@ unsatisfiable Exit Criterion is to draft an ADR amendment (with new evidence)
 or a superseding ADR, not to weaken the gate.
 
 This rule applies to every ADR now Accepted and every ADR drafted in future.
+
+### Rule 6 · No incidental cleanup during ADR implementation (adopted 2026-02-28)
+
+When implementing an ADR, resist the temptation to "clean up" unrelated code
+noticed along the way.
+
+- If another presentation issue, code smell, or minor bug is observed during
+  ADR-N implementation, **log it in `REAL_WORLD_LOG.md` under Monitor** and
+  move on unless it blocks validation of ADR-N.
+- Do NOT bundle unrelated fixes into an ADR's implementation PR. Every
+  behavioural change should be attributable to the ADR that caused it —
+  incidental refactoring breaks that attribution and makes regressions
+  harder to diagnose.
+- Exception: a defect that **prevents ADR-N's Exit Criteria from being
+  evaluated** (e.g., the AUTO INVESTIGATE rendering regression that
+  blocked Track A validation) is treated as a Phase-1 hotfix under the
+  originating ADR's scope, not as new work.
+
+The Case 0002 rendering fix (2026-02-28) established the precedent for this
+rule: a scoped Phase-1 repair, no adapter introduced, no architectural
+redesign, DECODE mode untouched.
