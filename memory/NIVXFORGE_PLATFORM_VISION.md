@@ -128,6 +128,58 @@ Threat Hunting and Knowledge Base are Phase-N (further out).
 
 ---
 
+## 4a · Section-level design intent (operator notes 2026-02-28 · reference only)
+
+These are guiding intents for each section when its evidence-backed ADR is
+eventually drafted. **Not build orders.** Every capability inside still
+requires the operational loop's evidence gate.
+
+### Dashboard — evolve beyond platform-health
+Beyond the current 6 metric cards, the mature Dashboard should surface:
+- Recent investigations · recent malware families · most common ATT&CK techniques
+- Recent decoded artifacts · IOC trends · investigation success rate · latest reports
+- **Quick actions**: New Investigation · Upload Sample · IOC Lookup · Threat Hunt
+
+The Dashboard is what analysts see every day — it should be usable, not just informational.
+
+### Investigate — the centerpiece
+This is where analysts should spend most of their time. Mature Investigate contains:
+- Investigation Brain (why · confidence · missing evidence)
+- Decode Chain (per-layer, per-stage confidence)
+- Attack Story (chronological narrative with evidence-per-step)
+- Evidence Explorer (network · processes · registry · PowerShell · shellcode · strings · files · certs)
+- Threat Intelligence (inline enrichment)
+- MITRE ATT&CK (coverage, evidence, navigator)
+- Reports (SOC · IR · executive · markdown · PDF)
+- **Ask NivXForge** (evidence-cited conversational layer — see `REASONING_ENGINE_VISION.md` §9)
+
+The reason an analyst chooses NivXForge over Workspace for deep analysis lives in this section.
+
+### Threat Intelligence — deep lookup
+IP · Domain · URL · Hash lookup · ASN · WHOIS · Malware families · Infrastructure history.
+
+### Threat Hunting — search across the corpus
+By IOC · Hash · Command · PowerShell fragment · MITRE technique · Malware family · Similar investigations.
+
+### History — the corpus as a queryable asset
+Example queries that should be trivially answerable:
+> "Show every investigation involving 149.28.81.19."
+> "Show all PowerShell AMSI bypass investigations."
+
+This is more valuable than scrolling through old cases and turns operational history into a hunting asset.
+
+### Architectural navigation refinement (long-horizon)
+When analyst-workflow evidence justifies it, consider promoting Investigation to a top-level nav group with sub-items:
+```
+Investigations
+   ├── New Investigation
+   ├── History
+   └── Compare
+```
+That mirrors how SOC analysts actually work: **start → investigate → pivot to TI → hunt → report**.
+
+---
+
 ## 5 · Governance rules that still apply
 
 This vision does **not** bypass the frozen governance model.
