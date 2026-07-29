@@ -1,5 +1,43 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **v1.5.8 · IOC persistence + Deterministic FLOW baseline**
+
+### Shipped
+- **`mergeIocs()` helper** (`/app/frontend/src/lib/mergeIocs.js`) — category-wise union so any IOC extracted by the deterministic pipeline persists through every downstream async setter (5 clobber sites fixed)
+- **`describe: true`** enabled in `streamAnalyze` — AI FLOW/summary generation runs on AUTO INVESTIGATE
+- **Deterministic FLOW baseline** in `FlowTab` — synthesizes an attack chain from decoder recipe steps when AI chain isn't available; FLOW panel never empty on a successful decode (Charter Rule 5)
+- **Charter Phase 1a locked** — Plain-Text CLI Investigation spec + SME-ratified first-objective refactor plan + tri-state verdict model + mandatory success criteria
+
+### Playwright verification on preview
+- IOCs tab: `IPs · 1 · 149.28.81.19` ✅
+- FLOW tab: `DYNAMIC ATTACK CHAIN` populated on DECODE-only mode ✅
+- Sophos reflective loader: full MALICIOUS · conf 90 · evidence chain rendered ✅
+- No runtime errors, no console errors, no backend regression risk (frontend-only change)
+
+### Known Limitation (Deferred to v1.6.0 Phase 1a)
+Plain-text application command lines (e.g. `--runaszvideo=TRUE
+... --haszoomim=1`) may still produce unsupported benignity or vendor
+inferences ("Zoom-related", "legitimate application configuration",
+`Verdict: BENIGN`). This behaviour predates the Product Charter
+(pre-`command_analyzer.py` refactor) and is intentionally deferred to
+the v1.6.0 Phase 1a work item, which will delete the offending
+heuristics and introduce the tri-state (Malicious / Suspicious /
+Unknown) verdict model per the SME-ratified success criteria in
+`/app/memory/PRODUCT_CHARTER.md` § Phase 1a.
+
+**Decision rationale**: v1.5.8's scope (IOC persistence + FLOW) is
+delivered cleanly. Bundling the Plain-Text CLI refactor into v1.5.8
+would couple two unrelated changes and violate the incremental-
+release principle. Ship v1.5.8 → open Phase 1a as its own milestone.
+
+### Files changed (frontend only)
+- `/app/frontend/src/lib/mergeIocs.js` — NEW
+- `/app/frontend/src/pages/WorkspacePage.jsx` — 5 setAnalysis merges + `describe: true` + FLOW chain wiring
+- `/app/frontend/src/components/ThreatAnalysis.jsx` — deterministic FlowTab fallback + `_buildDeterministicChain()` helper
+- `/app/memory/PRODUCT_CHARTER.md` — Phase 1a spec, first-objective, tri-state verdict model, mandatory success criteria
+
+
+
 ## 2026-02-28 · **v1.5.6 · CPU-bound decoder offload · Cloudflare 520 permanent fix**
 
 ### The production incident

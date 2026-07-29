@@ -152,6 +152,51 @@ audit its current behaviour against these rules before writing new
 code and only extend where the current implementation violates a
 Rule 1-4 principle.
 
+##### First objective of Phase 1a (SME-ratified, Feb-2026)
+
+**REFACTOR before EXTEND.** Do not add new capabilities to
+`command_analyzer.py` before removing the pre-Charter heuristics
+that violate Rules 1 & 4. Concretely, the following inferences must
+be DELETED from the analyzer:
+
+- Any path that emits `"benign"` from *absence* of malicious indicators
+- Any path that emits `"legitimate"` / `"legitimate application"`
+- Any single-flag vendor identification (e.g. `--haszoomim` → "Zoom")
+- Any `"no action required"` recommendation without positive
+  corroborating evidence
+
+Then introduce a **tri-state verdict model** — this replaces the
+current binary MALICIOUS/BENIGN:
+
+| State                     | When to use                                                  |
+|---------------------------|--------------------------------------------------------------|
+| `Malicious`               | Positive evidence of malicious behaviour                     |
+| `Suspicious`              | Mixed or incomplete evidence                                 |
+| `Unknown` / Indeterminate | Insufficient evidence to classify (default for plain-text CLIs without executable context) |
+
+`Benign` is intentionally OMITTED as a default state. Benign requires
+**positive evidence of legitimate behaviour** (signed executable,
+known-good hash, canonical vendor CLI pattern, etc.) — never the
+mere absence of malicious signals.
+
+##### Phase 1a mandatory success criteria (release gate)
+
+- ❌ NEVER infer a vendor from a single flag
+- ❌ NEVER infer legitimacy from missing malicious indicators
+- ❌ NEVER recommend "no action required" without corroborating evidence
+- ✅ ALWAYS emit `Classification:` (explicit section header)
+- ✅ ALWAYS separate Observed / Unknown / Conclusion (Rule 2)
+- ✅ ALWAYS explain the confidence level with a `Reason:` line
+- ✅ Every conclusion cites supporting evidence (Rule 3)
+
+Ship Phase 1a only when the SME acceptance sample
+(`--runaszvideo=TRUE ... --haszoomim=1`) produces a report with:
+- `Verdict: Unknown` (not Benign)
+- No `"Zoom"` vendor identification
+- No `"legitimate application"` phrase
+- Explicit `Classification: Application CLI (unknown vendor)` header
+- Explicit `Unknowns:` block listing what cannot be concluded
+
 ### Phase 2 · Evidence-backed Reasoning (P0)
 _Every conclusion must be traceable to evidence._
 
