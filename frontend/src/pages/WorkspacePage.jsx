@@ -801,6 +801,15 @@ export default function WorkspacePage() {
         iocs:        mergeIocs(a?.iocs, r.data.iocs),
         mitre:       r.data.mitre || (a?.mitre) || [],
         lolbas:      r.data.lolbas || (a?.lolbas) || [],
+        // v1.5.8 · Deterministic FLOW baseline (SME Rule 5: deterministic
+        // first). Every decoder recipe step becomes a stage in the
+        // attack chain so the FLOW panel populates on DECODE-only mode
+        // (no AI required). AI describe layers on top when present.
+        chain: (r.data.recipe || []).map((s, i) => ({
+          op: s.op,
+          reason: s.reason || "",
+          output_preview: (r.data.trace?.[i]?.output_preview) || "",
+        })) || (a?.chain) || [],
         engine:      eng,
         confidence:  conf / 100,
         layer_trace: r.data.layer_trace || [],
@@ -1002,7 +1011,12 @@ export default function WorkspacePage() {
       setStatus("ANALYZING…");
       setAnalysis((prev) => ({ ...(prev || {}), chain, streaming: true }));
       const stop = streamAnalyze(
-        { input, output, enrich_osint: true, describe: false, use_ai_verdict: false },
+        // v1.5.8 · describe:true — AUTO INVESTIGATE must generate the
+        // attack-chain description so FLOW / TI-HITS / summary panels
+        // populate. Deterministic-first: if AI is unavailable the FLOW
+        // panel falls back to the linear recipe chain (see FlowTab
+        // deterministicChain prop).
+        { input, output, enrich_osint: true, describe: true, use_ai_verdict: false },
         {
           onStatus:      (s) => setStatus(`▸ ${s.phase.toUpperCase()}: ${s.message}`),
           // v1.5.8 · AUTO INVESTIGATE = deterministic pipeline PLUS AI enrichment.

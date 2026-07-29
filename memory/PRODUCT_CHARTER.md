@@ -110,6 +110,48 @@ Deliverables:
 - Zero unsupported conclusions (Rule 1)
 - Semantic def-use analysis per `/app/memory/V1_6_0_PLANNING.md`
 
+#### Phase 1a · Plain-Text Command-Line Investigation (P0 — added Feb-2026 SME)
+
+_Command lines are FIRST-CLASS investigation artifacts, not just wrappers
+around encoded payloads. When the analyst pastes a plain-text CLI (e.g.
+Zoom `--haszoomim=1`, MSI installer flags, ffmpeg args, application
+`--useroption*` bundles), the engine must produce a real analyst
+narrative — never a generic "no encoding detected" fall-through._
+
+**Required investigation output** for any plain-text CLI artifact:
+
+1. **Command Classification** — PowerShell / CMD / Bash / Application CLI /
+   Installer / Service / Scheduled task / Python / Java / etc.
+2. **Argument Analysis** — every meaningful argument explained in
+   analyst-friendly language. Numeric configuration values that cannot
+   be interpreted MUST be labelled `Unknown` per Rule 2, never guessed.
+3. **Investigation Summary** — plain-English narrative describing what
+   the command WOULD do, based only on observed evidence.
+4. **Evidence** — enumerated `Observed ✓` list (PS syntax present /
+   absent, base64 present / absent, URLs, IPs, file ops, registry ops,
+   execution primitives, network ops).
+5. **Unknowns** — explicit `Unknown` block for what CANNOT be concluded
+   (executable name, vendor, digital signature, parent process, runtime
+   behaviour, etc.).
+6. **Verdict + Confidence + Reason** — three-tier confidence per Rule 2.
+   `Reason` cites the limiting factor (e.g. "only command-line arguments
+   provided without associated executable or execution context").
+
+**Explicit non-goals for Phase 1a:**
+- Do NOT invent vendor identity from a single flag (Rule 4: `--haszoomim`
+  is INSUFFICIENT evidence for "Zoom").
+- Do NOT emit "No malicious behavior" without evidence — say
+  "No malicious indicators observed FROM THE SUPPLIED command line
+  alone" and enumerate what would be needed to conclude further.
+- Do NOT produce empty / generic / boilerplate output for CLIs the
+  engine has no signature for. Always fall through to the Argument
+  Analysis + Unknowns narrative structure.
+
+This is a strict superset of the existing `command_analyzer.py` —
+audit its current behaviour against these rules before writing new
+code and only extend where the current implementation violates a
+Rule 1-4 principle.
+
 ### Phase 2 · Evidence-backed Reasoning (P0)
 _Every conclusion must be traceable to evidence._
 

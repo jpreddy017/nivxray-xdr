@@ -289,7 +289,7 @@ export default function ThreatAnalysis({
         {analysis && tab === "TI-HITS" && <TiHitsTab hits={analysis.ti_hits} mitre={analysis.mitre} iocs={analysis.iocs} />}
         {analysis && tab === "OSINT" && <OsintTab osint={analysis.osint} />}
         {analysis && tab === "AI" && <AiTab desc={analysis.description} verdict={analysis.ai_verdict} />}
-        {analysis && tab === "FLOW" && <FlowTab description={analysis.description} />}
+        {analysis && tab === "FLOW" && <FlowTab description={analysis.description} deterministicChain={analysis.chain || []} />}
         {analysis && tab === "CHAIN" && <ChainTab chain={analysis.chain || []} />}
       </div>
     </aside>
@@ -380,18 +380,29 @@ function LolbasTab({ items = [], selectedTactic = null, techniqueToTactic = {} }
   );
 }
 
-function FlowTab({ description }) {
+function FlowTab({ description, deterministicChain = [] }) {
   const chain = description?.attack_chain || [];
   const fallbackGraph = description?.flow_graph;
 
+  // v1.5.8 · Deterministic FLOW baseline — SME directive:
+  // "FLOW must always have a deterministic baseline. AI may enrich it,
+  //  but the panel should never be empty simply because AI enrichment
+  //  is disabled or unavailable."
+  //
+  // When the AI-generated `attack_chain` is missing we synthesize one
+  // from the actual decoder recipe steps + trace layers. Every step
+  // maps to an ordered stage in the chain — analysts see exactly HOW
+  // the artifact was peeled, in the same visual language as the
+  // AI-generated chain, with `source: "deterministic"` badges so they
+  // know the provenance.
   if (!chain.length && (!fallbackGraph || !fallbackGraph.nodes?.length)) {
-    return <EmptyState label="No attack chain — run AUTO INVESTIGATE / AI DESCRIBE to generate the sequence" />;
+    const detChain = _buildDeterministicChain(deterministicChain);
+    if (detChain.length) return <AttackChain chain={detChain} />;
+    return <EmptyState label="No attack chain — decode a payload or run AUTO INVESTIGATE to generate the sequence" />;
   }
 
-  // If AI returned attack_chain: render the rich vertical flowchart.
   if (chain.length) return <AttackChain chain={chain} />;
 
-  // Fallback: render the older node-graph
   return (
     <div>
       <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.18em", marginBottom: 8 }}>
@@ -400,6 +411,47 @@ function FlowTab({ description }) {
       <FlowGraph nodes={fallbackGraph.nodes} edges={fallbackGraph.edges || []} />
     </div>
   );
+}
+
+// v1.5.8 · Map decoder-op names to attack-chain stage kinds so the
+// deterministic fallback renders with the same colour coding as the
+// AI-generated attack chain (see KIND_COLOR in AttackChain).
+const _OP_TO_KIND = {
+  "ps-encodedcommand-recovery": "deobfuscation",
+  "powershell-alias-normalize": "deobfuscation",
+  "ps_alias_normalizer":        "deobfuscation",
+  "extract-payload":            "deobfuscation",
+  "base64-decode":              "deobfuscation",
+  "hex-decode":                 "deobfuscation",
+  "gzip-decompress":            "deobfuscation",
+  "zlib-decompress":            "deobfuscation",
+  "bzip2-decompress":           "deobfuscation",
+  "xor":                        "crypto",
+  "xor-brute":                  "crypto",
+  "crypto-detect":              "crypto",
+  "aes-decrypt":                "crypto",
+  "family-meterpreter":         "c2",
+  "family-cobaltstrike":        "c2",
+  "family-sliver":              "c2",
+  "shellcode-analyze":          "execution",
+  "pe-parse":                   "execution",
+};
+
+function _buildDeterministicChain(chainState) {
+  const source = chainState || [];
+  if (!source.length) return [];
+  return source.map((step, i) => {
+    const op = step.op || step.name || `step-${i + 1}`;
+    const kind = _OP_TO_KIND[op] || "context";
+    const preview = (step.output_preview || step.reason || "").slice(0, 140);
+    return {
+      stage: i + 1,
+      kind,
+      title: op.replace(/-/g, " ").replace(/_/g, " "),
+      detail: preview || `Applied ${op}`,
+      source: "deterministic",
+    };
+  });
 }
 
 function AttackChain({ chain }) {
