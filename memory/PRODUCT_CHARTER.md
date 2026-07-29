@@ -408,6 +408,47 @@ Update rules:
 > action is to help the analyst investigate and log real cases —
 > not to write new heuristics.
 
+### Case review workflow (applies to every entry)
+
+Every real case runs through the same five-step review before it
+is logged:
+
+1. **Artifact** — read as-is, no assumptions
+2. **NivXRay output** — verdict, band, evidence chain, unknowns
+3. **Evidence check** — was every conclusion cited? was available evidence unused?
+4. **Verdict appropriateness** — right call, right band, right confidence?
+5. **Generalizable lesson** — only log what would help future cases; discard one-offs
+
+### Case outcome buckets (exactly one per entry)
+
+Every logged case MUST resolve into exactly one of these four
+outcomes. This makes the corpus countable, not just readable.
+
+| Outcome              | Meaning                                                                 | Action                                            |
+|----------------------|-------------------------------------------------------------------------|---------------------------------------------------|
+| `Correct`            | Verdict and reasoning were appropriate                                  | Add as a regression case                          |
+| `Missing Evidence`   | Verdict was appropriate, but additional evidence would raise confidence | Increment the Missing-Evidence tally              |
+| `Incorrect Reasoning`| Verdict may be right, but reasoning was unsupported or incomplete       | Candidate for reasoning / explainability work     |
+| `Incorrect Verdict`  | Available evidence supported a different verdict                        | Candidate for future capability work (Phase 1b+)  |
+
+### What NOT to log
+
+The following do NOT belong in `REAL_WORLD_LOG.md` — they belong
+in ordinary issue tracking and would only dilute the corpus:
+
+- UI preferences
+- Cosmetic wording changes
+- Vendor-specific naming unless it affects reasoning
+- One-off environmental artifacts (internal hostnames, company-specific paths)
+
+### The single question that gates every entry
+
+> **Did this case reveal a reusable capability gap?**
+>
+> If yes → log it under the appropriate outcome bucket.
+> If no, but NivXRay handled it correctly → log it as `Correct` (regression value).
+> If no, and it's environment-specific noise → do not log.
+
 ---
 
 ## 5 · Post-v1.6.0 backlog (deferred)

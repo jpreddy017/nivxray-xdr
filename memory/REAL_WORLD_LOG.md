@@ -47,11 +47,12 @@ Cisco XDR · QRadar · Microsoft Defender · Secure Endpoint · Umbrella · Iron
 - Original artifact:          (paste command line / script / shellcode; redact PII)
 - NivXRay current output:     (verdict band + confidence + top evidence keys)
 - Expected analyst conclusion:(what an experienced SOC analyst would call it)
-- Verdict correct?:           YES | NO | PARTIAL
+- Outcome bucket:             Correct | Missing Evidence | Incorrect Reasoning | Incorrect Verdict
 - If UNKNOWN — appropriate?:  YES (evidence truly insufficient) | NO (should have decided)
-- Missing evidence:           (executable-name | signer | parent-process | hash | net-telemetry | registry | other)
+- Missing evidence:           (executable-name | signer | parent-process | hash | net-telemetry | registry | other | none)
+- Reusable capability gap?:   YES → log it | NO but Correct → log as regression | NO + env-specific → do not log
 - Would-fix priority:         P0 | P1 | P2 | none
-- Notes:                      (analyst commentary, false-positive/negative reasoning)
+- Notes:                      (analyst commentary, only lessons that generalize)
 ```
 
 ---
