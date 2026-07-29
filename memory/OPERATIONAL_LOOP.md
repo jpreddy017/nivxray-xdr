@@ -100,6 +100,28 @@ Rules:
 - **Free-form notes** should capture *generalisable* lessons only — one-off analyst
   context belongs in the ticket, not the log.
 
+### Evidence-vs-hypothesis discipline (mandatory)
+
+The reviewer's independent read is NOT the ground truth. It is an analyst
+hypothesis. Every case review MUST explicitly separate three tiers of claim
+before scoring the eight categories above:
+
+| Tier                       | Definition                                                                | Example                                                             |
+| -------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **Observable evidence**    | Decoded strings, IOCs, API imports, network indicators, behaviours directly present in the artifact. | `User-Agent: Mozilla/5.0 ... BOIE9;PTBR` in decoded output; IP `149.28.81.19` extracted. |
+| **Evidence-based inference** | A conclusion supported by observed evidence + well-known correspondence. | "The UA string matches Metasploit's default reverse_http stager, therefore this is *likely* Meterpreter." |
+| **Analyst hypothesis**      | Attribution, campaign linkage, or family assertion NOT directly evidenced by the artifact. | "This is APT29" · "This is part of Campaign X" · "Threat actor is nation-state." |
+
+**Scoring rule:** if NivXRay disagrees with an *analyst hypothesis* but its
+reasoning is well-supported by the *observable evidence*, that is **NOT a defect**
+and MUST NOT be recorded as Missing Evidence / Incorrect Reasoning / Incorrect
+Verdict. It is a legitimate difference of interpretation and should be logged in
+Analyst Notes only.
+
+A defect is recorded only when NivXRay contradicts or misses *observable evidence*
+or *evidence-based inference with unambiguous correspondence* — never for a
+disagreement about a hypothesis.
+
 ---
 
 ## Where this document lives in the governance model
