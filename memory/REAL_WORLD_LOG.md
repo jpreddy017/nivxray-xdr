@@ -60,3 +60,24 @@ Cisco XDR · QRadar · Microsoft Defender · Secure Endpoint · Umbrella · Iron
 ## Entries
 
 <!-- Paste one Entry block per real case investigated below this line. -->
+
+### Case 0001 — 2026-02-28 — PS_ASCII_XOR_IEX archetype garbled output
+
+- Vendor / Source:            Analyst-supplied training sample (obfuscation demo)
+- Sample class:               ps-encoded (integer-array XOR + IEX)
+- Original artifact:          `powershell -NoProfile -NonInteractive "((97,68,95,66,83,27,126,89,69,66,...) | ForEach-Object {[Char]($_ -bxor '0x36')} ) -join '' | Invoke-Expression"`
+- NivXRay current output:     Verdict `MALICIOUS 100/100`; OUTPUT panel showed garbled `.)+Knuhy1Tsoh<;Typps<Ksnpx=;<...`; IOCs/TI/OSINT empty
+- Expected analyst conclusion:Decoded plaintext = `Write-Host 'Hello World!' -ForegroundColor Green; Write-Host 'Obfuscation Rocks!' -ForegroundColor Green` (benign obfuscation demo)
+- Outcome bucket:             `Incorrect Reasoning`
+- If UNKNOWN — appropriate?:  n/a (verdict was MALICIOUS, not UNKNOWN)
+- Missing evidence:           none — the deterministic decoder DID produce the correct plaintext; a downstream output-selection defect discarded it
+- Reusable capability gap?:   YES → correctness bug in existing capability, not a missing capability
+- Would-fix priority:         P0 (immediate — correctness defect in existing decoder path)
+- Notes:
+  - Root cause: the canonical output shown to the analyst came from replaying a non-self-contained recipe instead of using the already-correct deterministic decoder output.
+  - Server-side: `wrapper_archetypes.py:4224` emits archetype chain steps with `args: {}`, so the recovered XOR key (0x36) is not persisted onto the `xor` step.
+  - Client-side: `selectCanonicalOutput.js` replayed the recipe via `/api/recipe/run`; the replay ran `xor` with default key `0x2A`, producing garbage; the selector then preferred the garbage over the correct `result.output`.
+  - Fix (narrow): frontend guard — skip recipe replay when `engine.startsWith("archetype:")`. See `/app/frontend/src/lib/selectCanonicalOutput.js`.
+  - Regression tests: `/app/backend/tests/test_ps_ascii_xor_iex_output_selection.py` (3 invariants: handler-correct, engine-name-stable, recipe-replay-not-self-reproducible).
+  - Verdict-band separate concern: `MALICIOUS 100/100` on a Hello-World payload is a distinct false-positive driven by YARA-pattern presence alone. Not addressed in this fix — logged as a future capability gap once more evidence accumulates (see Missing-Evidence table).
+

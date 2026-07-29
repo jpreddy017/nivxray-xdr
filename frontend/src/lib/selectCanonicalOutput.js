@@ -41,10 +41,35 @@
 export async function selectCanonicalOutput({ api, input, smartResp }) {
   const rawOut = smartResp?.output || "";
   const recipe = smartResp?.recipe || [];
+  const engine = smartResp?.engine || "";
   const semFinal =
     smartResp?.semantic?.deobfuscation?.final ||
     smartResp?.semantic?.recovered_script ||
     "";
+
+  // v1.6.0 Phase 1a regression fix (Feb-2026) — archetype handlers
+  // (`engine: "archetype:*"`) recover per-sample state (XOR keys, split
+  // keys, byte offsets) INSIDE the handler and produce their own correct
+  // terminal output in `smartResp.output`. The archetype output IS the
+  // deepest artifact for this call — no other selection tier can beat
+  // it because:
+  //
+  //   • Recipe replay is not self-reproducible (chain steps carry
+  //     `args: {}` — the recovered key is not persisted). Replay would
+  //     produce garbage (default XOR key `0x2A` instead of the true key).
+  //   • Semantic peel typically holds a wrapper-stripped view of the
+  //     RAW INPUT, not the true decoded plaintext — for the archetype
+  //     acceptance sample it holds `((97,68,95,...` (input minus the
+  //     `powershell ` shell prefix), which is strictly shallower than
+  //     the archetype's `Write-Host 'Hello World!'` output.
+  //   • Trace-tail fallback exists only for the raw-input-echo bug and
+  //     does not apply when an archetype has produced a real terminal.
+  //
+  // Rule: if `engine` starts with `archetype:`, TRUST `rawOut` directly.
+  // Regression test: /app/backend/tests/test_ps_ascii_xor_iex_output_selection.py
+  if (engine.startsWith("archetype:") && rawOut) {
+    return { text: rawOut, source: "archetype" };
+  }
 
   // 1) Recipe replay — terminal artifact of the linear deterministic
   //    decoder chain. Always wins if it produced something different

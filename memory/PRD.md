@@ -1,5 +1,31 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **v1.6.0 Phase 1a-hotfix · PS_ASCII_XOR_IEX output-selection defect fixed**
+
+### Shipped (narrowly-scoped correctness fix — first real-world SOC case)
+- **Real SOC case logged** in `/app/memory/REAL_WORLD_LOG.md` (Case 0001, outcome bucket `Incorrect Reasoning`) — PowerShell integer-array XOR-decode-and-IEX sample produced garbled OUTPUT panel instead of the correct plaintext.
+- **Root cause (one-line):** the canonical output shown to the analyst came from replaying a non-self-contained recipe instead of using the already-correct deterministic decoder output.
+  - Server-side (`wrapper_archetypes.py:4224`): archetype chain steps are emitted with `args: {}`, so a handler's recovered XOR key is not persisted onto the `xor` step.
+  - Client-side (`selectCanonicalOutput.js`): the recipe was replayed via `/api/recipe/run`; the replay ran `xor` with default key `0x2A` and produced `.)+Knuhy1Tsoh...`; the selector then preferred the garbage over the correct `result.output`.
+- **Fix (narrow, client-side):** `/app/frontend/src/lib/selectCanonicalOutput.js` — when `engine.startsWith("archetype:")`, trust `smartResp.output` directly; skip all lower-priority selection tiers (they are strictly shallower for archetype cases).
+- **Regression suite:** `/app/backend/tests/test_ps_ascii_xor_iex_output_selection.py` — 3 invariants (handler-correct, engine-name-stable, recipe-replay-not-self-reproducible). Green.
+- **Verified live:** OUTPUT panel now shows `Write-Host 'Hello World!' -ForegroundColor Green; Write-Host 'Obfuscation Rocks!' -ForegroundColor Green` (858c wrapped envelope, `archetype:PS_ASCII_XOR_IEX`, 100%).
+
+### Known follow-up (NOT fixed in this pass · logged as Gap #2)
+- The tradecraft banner still labels the artifact `MALICIOUS` on the strength of the YARA pattern `-bxor 0x36` alone, even though the decoded plaintext is a Hello-World demo. This is a distinct capability gap (verdict-evidence gating: verdicts of `MALICIOUS ≥ N%` should require corroboration from decoded content, not pattern presence). Deferred until more real cases accumulate per Validation Mode.
+
+### Regression gate — PASS (25/25)
+- `tests/test_phase1a_plain_text_cli.py` — 4 passed ✅
+- `tests/test_ps_ascii_xor_iex_output_selection.py` — 3 passed ✅ (NEW)
+- Prior Phase 1a suite (22/22) unchanged.
+
+### Files changed
+- `/app/frontend/src/lib/selectCanonicalOutput.js` — archetype-engine guard (returns rawOut directly)
+- `/app/backend/tests/test_ps_ascii_xor_iex_output_selection.py` — new regression test file
+- `/app/memory/REAL_WORLD_LOG.md` — Case 0001 entry appended
+
+---
+
 ## 2026-02-28 · **v1.6.0 Phase 1a · Tri-state verdict + pre-Charter heuristics removed**
 
 ### Shipped
