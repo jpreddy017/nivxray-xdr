@@ -16,6 +16,7 @@ import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
 import { buildFallbackGraph } from "@/lib/fallbackGraph";
 import { selectCanonicalOutput } from "@/lib/selectCanonicalOutput";
+import { mergeIocs } from "@/lib/mergeIocs";
 import GuidanceBanner, { getGuidanceGlowStyle } from "@/components/GuidanceBanner";
 import SocVerdictPanel from "@/components/SocVerdictPanel";import VerdictCard from "@/components/VerdictCard";
 import SemanticIntelligencePanel from "@/components/investigation/SemanticIntelligencePanel";
@@ -710,8 +711,10 @@ export default function WorkspacePage() {
       setSemantic(d.semantic || null);
       setInvestigation(d.investigation || null);
       // Wipe stale chain-aggregated analysis so ATT&CK / IOC panels re-derive from single blob.
-      setAnalysis({
-        iocs: d.iocs || {},
+      setAnalysis((a) => ({
+        // v1.5.8 · merge preserves iocs already extracted upstream
+        // (e.g. by /decode/smart before AUTO INVESTIGATE polls).
+        iocs: mergeIocs(a?.iocs, d.iocs),
         mitre: d.mitre || [],
         lolbins: d.lolbas || [],
         lolbas: d.lolbas || [],
@@ -724,7 +727,7 @@ export default function WorkspacePage() {
         confidence: (d.confidence ?? d.score ?? null),
         // v1.5.5 — TI Shield · 360° per-layer intelligence
         ti_shield: d.ti_shield || [],
-      });
+      }));
       // RC2.4 — Same treatment for flat decode: don't show "0/100" when the
       // decoder actually returned content.
       const flatHasConf = Number.isFinite(d.confidence) && d.confidence > 0;
@@ -793,7 +796,9 @@ export default function WorkspacePage() {
       // (without waiting for the analyst to click ANALYZE + OSINT).
       setAnalysis((a) => ({
         ...(a || {}),
-        iocs:        r.data.iocs || (a?.iocs) || {},
+        // v1.5.8 · merge preserves iocs the deterministic pipeline already
+        // extracted (never clobber with an empty AI-job shell).
+        iocs:        mergeIocs(a?.iocs, r.data.iocs),
         mitre:       r.data.mitre || (a?.mitre) || [],
         lolbas:      r.data.lolbas || (a?.lolbas) || [],
         engine:      eng,
@@ -1000,10 +1005,32 @@ export default function WorkspacePage() {
         { input, output, enrich_osint: true, describe: false, use_ai_verdict: false },
         {
           onStatus:      (s) => setStatus(`▸ ${s.phase.toUpperCase()}: ${s.message}`),
-          onPartial:     (p) => setAnalysis((a) => ({ ...(a || {}), ...p, chain, streaming: true })),
+          // v1.5.8 · AUTO INVESTIGATE = deterministic pipeline PLUS AI enrichment.
+          // The AI stream must ADD to what the deterministic decoder produced —
+          // never replace. Any incoming iocs are MERGED (union of prior + new)
+          // so the C2 IP / URL / API imports already extracted by the RC2
+          // pipeline don't vanish when the stream completes.
+          onPartial:     (p) => setAnalysis((a) => ({
+            ...(a || {}),
+            ...p,
+            iocs: mergeIocs(a?.iocs, p?.iocs),
+            chain, streaming: true,
+          })),
           onTiHits:      (h) => setAnalysis((a) => ({ ...(a || {}), ti_hits: h, streaming: true })),
           onOsint:       (o) => setAnalysis((a) => ({ ...(a || {}), osint: o, streaming: true })),
-          onResult:      (r) => setAnalysis({ ...r, chain, streaming: false }),
+          onResult:      (r) => setAnalysis((a) => ({
+            ...(a || {}),
+            ...r,
+            // Category-wise merge — deterministic + AI-enriched union.
+            iocs: mergeIocs(a?.iocs, r?.iocs),
+            // Preserve any deterministic-only fields the AI response omits.
+            mitre:    (r?.mitre    && r.mitre.length)    ? r.mitre    : a?.mitre,
+            lolbas:   (r?.lolbas   && r.lolbas.length)   ? r.lolbas   : a?.lolbas,
+            yara:     (r?.yara     && r.yara.length)     ? r.yara     : a?.yara,
+            ti_hits:  (r?.ti_hits  != null)              ? r.ti_hits  : a?.ti_hits,
+            osint:    (r?.osint    != null)              ? r.osint    : a?.osint,
+            chain, streaming: false,
+          })),
           onError:       (e) => setStatus(`STREAM ERROR (${e.phase}): ${e.error}`),
           onDone:        ()  => { setAnalyzing(false); streamStopRef.current = null;
                                  setStatus((s) => s.startsWith("STREAM ERROR") ? s : "ANALYSIS COMPLETE"); },
@@ -1043,7 +1070,9 @@ export default function WorkspacePage() {
         setAnalysis((a) => ({
           ...(a || {}),
           job_id: jobId,
-          iocs: d.iocs || a?.iocs,
+          // v1.5.8 · merge, never clobber — the deterministic pipeline's
+          // iocs must survive AI-job polls that return empty shells.
+          iocs: mergeIocs(a?.iocs, d.iocs),
           mitre: d.mitre || a?.mitre,
           yara: d.yara || a?.yara,
           lolbas: d.lolbas || a?.lolbas,
