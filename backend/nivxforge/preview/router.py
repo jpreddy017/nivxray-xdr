@@ -169,7 +169,11 @@ def platform_health() -> dict:
     # The endpoint never writes; the stamp is only updated by an operator
     # running the pytest suite. If absent, we report "unknown" honestly.
     stamp_path = _MEMORY / "HEALTH_STAMP.json"
-    regression = {"status": "unknown", "verified_at": None, "tests_passed": None, "tests_total": None, "suite": None}
+    regression = {
+        "status": "unknown", "verified_at": None, "tests_passed": None,
+        "tests_total": None, "suite": None, "duration_seconds": None,
+        "verified_by": None, "build_id": None,
+    }
     if stamp_path.exists():
         try:
             data = json.loads(stamp_path.read_text(encoding="utf-8"))
@@ -179,6 +183,9 @@ def platform_health() -> dict:
                 "tests_passed": data.get("tests_passed"),
                 "tests_total": data.get("tests_total"),
                 "suite": data.get("suite"),
+                "duration_seconds": data.get("duration_seconds"),
+                "verified_by": data.get("verified_by"),
+                "build_id": data.get("build_id"),
             }
         except Exception:
             pass
@@ -190,6 +197,8 @@ def platform_health() -> dict:
     situational = {
         "workspace_protection": "ACTIVE",  # basis: read-only mount + isolation tests
         "preview_health": "HEALTHY",       # basis: this handler is responding
+        "last_validation": regression["verified_at"],
+        "validation_source": "HEALTH_STAMP.json" if stamp_path.exists() else None,
         "regression_suite": (
             f"{regression['tests_passed']}/{regression['tests_total']} {regression['status']}"
             if regression["tests_passed"] is not None else "unverified"

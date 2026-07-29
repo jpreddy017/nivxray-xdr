@@ -101,7 +101,7 @@ def test_platform_health_situational_awareness_summary():
     for key in (
         "workspace_protection", "preview_health", "regression_suite",
         "accepted_adrs", "registered_handlers", "pending_handler_adrs",
-        "soc_cases_logged",
+        "soc_cases_logged", "last_validation", "validation_source",
     ):
         assert key in sa, f"situational missing key: {key}"
     assert sa["workspace_protection"] == "ACTIVE"

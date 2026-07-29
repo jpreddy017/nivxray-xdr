@@ -4,18 +4,18 @@
 
 ### Shipped
 - `/api/nivxforge/preview/platform-health` extended with two new sections:
-  - `regression`: reads `/app/memory/HEALTH_STAMP.json` (last manual pytest run); reports `unverified` if stamp is absent — endpoint never writes.
-  - `situational`: derived summary — `workspace_protection`, `preview_health`, `regression_suite`, `accepted_adrs`, `registered_handlers`, `pending_handler_adrs`, `soc_cases_logged`.
-- **Landing Summary block** on `/nivxforge` Preview page (above the existing card grid) — monospaced "Platform Status" table with green/yellow/red status colours; header shows `derived · read-only · last verified <date>`.
-- `/app/memory/HEALTH_STAMP.json` — records last manual health-check result (`46/46 PASS`, `nivxforge/tests`, `2026-02-28`). Only updated by explicit operator action.
+  - `regression`: reads `/app/memory/HEALTH_STAMP.json` (last manual pytest run); reports `unverified` if stamp is absent — endpoint never writes. Exposes `status`, `verified_at`, `tests_passed/total`, `suite`, `duration_seconds`, `verified_by`, `build_id`.
+  - `situational`: derived summary — `workspace_protection`, `preview_health`, `last_validation`, `validation_source`, `regression_suite`, `accepted_adrs`, `registered_handlers`, `pending_handler_adrs`, `soc_cases_logged`.
+- **Platform Status block** on `/nivxforge` Preview page (above the existing card grid) — monospaced governance-dashboard table with operator-approved layout (Workspace Protection · Preview Health · Last Validation · Validation Source · Regression Suite · Accepted ADRs · Registered Handlers · Pending Handler ADRs · SOC Cases Logged) + a disclosure toggle **"View Validation Details"** revealing Validation Timestamp, Test Suite, Duration, Build Identifier, Verified By. **No shell commands, no executable controls** — governance surface, not a developer console.
+- `/app/memory/HEALTH_STAMP.json` — records last manual health-check result (`46/46 PASS`, `nivxforge/tests`, `2026-07-29T10:05:13Z`, duration 0.85s, build `1ecec01`). Only updated by explicit operator action.
 - New pytest: `test_platform_health_situational_awareness_summary` — asserts the situational summary shape and cross-agreement with `adrs` / `framework` sections.
 
 ### Governance rationale (no ADR)
-- Purely presentation-layer aggregation of already-visible state. No new capability, no writes, no new APIs beyond aggregation, no analyst workflow change, no Workspace impact. Documented in changelog, not as ADR-0006 (per operator guidance — ADRs are reserved for architectural / capability changes).
+- Purely presentation-layer aggregation of already-visible state. No new capability, no writes, no new APIs beyond aggregation, no analyst workflow change, no Workspace impact. Documented in changelog, not as ADR (per operator guidance — ADRs reserved for architectural / capability changes). Preview remains a governance dashboard, distinct from Workspace and from developer/CI tooling.
 
 ### Verification
-- **NivXForge suite: 46/46 PASS** (`pytest nivxforge/tests/ -q` · 0.85s) — includes new situational-awareness test.
-- Live UI verified: `Workspace Protection: ACTIVE · NivXForge Preview: HEALTHY · Regression Suite: 46/46 PASS (nivxforge/tests) · Accepted ADRs: 3 · Registered Handlers: 0 · Pending Handler ADRs: 0 · SOC Cases Logged: 1`.
+- **NivXForge suite: 46/46 PASS** (`pytest nivxforge/tests/ -q` · 0.76s).
+- Live UI verified: layout renders exactly per operator spec; disclosure panel exposes full validation provenance without any executable control.
 - Workspace impact — zero: no files modified outside `/nivxforge/` package + `/app/frontend/src/nivxforge/` + `/app/memory/`.
 
 ### Files changed
@@ -23,6 +23,7 @@
 - Added: `/app/memory/HEALTH_STAMP.json`
 
 ### Explicit non-goals (per operator instruction)
+- No shell commands, "Run Tests" buttons, or dev-oriented controls added to Preview — those live in CI/CD & docs.
 - No new features attempted after health check passed. Deferred items remain deferred:
   - `xor-brute` ThreadPoolExecutor soft-cancel CPU safety caps [P2]
   - Verdict-evidence gating (requires ADR before implementation)

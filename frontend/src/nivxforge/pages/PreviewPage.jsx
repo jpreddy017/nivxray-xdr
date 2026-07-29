@@ -46,6 +46,9 @@ const S = {
   saValueUnverified: { color: "#facc15", fontWeight: 600 },
   saValueFail: { color: "#f87171", fontWeight: 600 },
   saValueNeutral: { color: "var(--text, #e2e8f0)" },
+  saDetails: { marginTop: 14, borderTop: "1px dashed var(--border, #1e293b)", paddingTop: 12 },
+  saDetailsToggle: { background: "transparent", border: "1px solid var(--border, #1e293b)", color: "var(--text-secondary, #94a3b8)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, letterSpacing: "0.05em", padding: "5px 10px", borderRadius: 6, cursor: "pointer" },
+  saDetailsGrid: { marginTop: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, display: "grid", gridTemplateColumns: "minmax(180px, max-content) 1fr", rowGap: 3, columnGap: 20, color: "var(--text-secondary, #94a3b8)" },
 };
 
 function statusChip(status) {
@@ -63,6 +66,7 @@ export default function PreviewPage() {
   const [fw, setFw] = useState(null);
   const [health, setHealth] = useState(null);
   const [err, setErr] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -118,17 +122,31 @@ export default function PreviewPage() {
             <div style={S.saHead}>
               <div style={S.saTitle}>Platform Status</div>
               <div style={S.saSub}>
-                derived · read-only · {health.regression?.verified_at
-                  ? `last verified ${new Date(health.regression.verified_at).toISOString().slice(0, 10)}`
-                  : "unverified"}
+                derived · read-only
               </div>
             </div>
             <div style={S.saTable}>
               <div style={S.saLabel}>Workspace Protection</div>
               <div style={S.saValueActive} data-testid="sa-workspace-protection">{health.situational.workspace_protection}</div>
 
-              <div style={S.saLabel}>NivXForge Preview</div>
+              <div style={S.saLabel}>Preview Health</div>
               <div style={S.saValueHealthy} data-testid="sa-preview-health">{health.situational.preview_health}</div>
+
+              <div style={S.saLabel}>Last Validation</div>
+              <div style={S.saValueNeutral} data-testid="sa-last-validation">
+                {health.situational.last_validation
+                  ? (() => {
+                      const d = new Date(health.situational.last_validation);
+                      const pad = (n) => String(n).padStart(2, "0");
+                      return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+                    })()
+                  : "—"}
+              </div>
+
+              <div style={S.saLabel}>Validation Source</div>
+              <div style={S.saValueNeutral} data-testid="sa-validation-source">
+                {health.situational.validation_source || "—"}
+              </div>
 
               <div style={S.saLabel}>Regression Suite</div>
               <div
@@ -138,7 +156,6 @@ export default function PreviewPage() {
                 data-testid="sa-regression-suite"
               >
                 {health.situational.regression_suite}
-                {health.regression?.suite ? <span style={{ opacity: 0.6, fontWeight: 400 }}> ({health.regression.suite})</span> : null}
               </div>
 
               <div style={S.saLabel}>Accepted ADRs</div>
@@ -152,6 +169,34 @@ export default function PreviewPage() {
 
               <div style={S.saLabel}>SOC Cases Logged</div>
               <div style={S.saValueNeutral} data-testid="sa-soc-cases">{health.situational.soc_cases_logged}</div>
+            </div>
+
+            <div style={S.saDetails}>
+              <button
+                type="button"
+                style={S.saDetailsToggle}
+                onClick={() => setDetailsOpen((v) => !v)}
+                data-testid="sa-details-toggle"
+                aria-expanded={detailsOpen}
+              >
+                {detailsOpen ? "▾ Hide Validation Details" : "▸ View Validation Details"}
+              </button>
+              {detailsOpen && health.regression ? (
+                <div style={S.saDetailsGrid} data-testid="sa-details-panel">
+                  <div>Validation Timestamp</div>
+                  <div style={{ color: "var(--text, #e2e8f0)" }}>{health.regression.verified_at || "—"}</div>
+                  <div>Test Suite</div>
+                  <div style={{ color: "var(--text, #e2e8f0)" }}>{health.regression.suite || "—"}</div>
+                  <div>Duration</div>
+                  <div style={{ color: "var(--text, #e2e8f0)" }}>
+                    {health.regression.duration_seconds != null ? `${health.regression.duration_seconds}s` : "—"}
+                  </div>
+                  <div>Build Identifier</div>
+                  <div style={{ color: "var(--text, #e2e8f0)" }}>{health.regression.build_id || "—"}</div>
+                  <div>Verified By</div>
+                  <div style={{ color: "var(--text, #e2e8f0)" }}>{health.regression.verified_by || "—"}</div>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
