@@ -321,6 +321,65 @@ Deliverables:
 
 ---
 
+## 4.5 · Validation Mode (active — Feb-2026 → next decision point)
+
+_Between Phase 1a shipping and Phase 1b starting, NivXRay is
+intentionally frozen. The engine has just undergone an
+architecture-level change (tri-state verdict, benign-by-absence
+removed) and must be validated against real analyst experience
+before more heuristics are layered on top._
+
+### Operating principles (LOCKED for this phase)
+
+**P-A · Every real case is an asset.**
+A correct verdict earns a free regression test. A wrong verdict
+earns a concrete, prioritized improvement request. Neither
+outcome is wasted — both go into `/app/memory/REAL_WORLD_LOG.md`.
+
+**P-B · A justified `Unknown` is a success.**
+Pre-Phase-1a, the engine could confidently emit `Benign` without
+evidence. It can now honestly emit `Unknown`. In incident
+response, an honest gap builds more trust than a confident
+guess. `Unknown` is only a failure when the evidence WAS present
+and the engine failed to use it.
+
+**P-C · Build from repeated patterns, never isolated examples.**
+One case needing vendor recognition does NOT justify a new
+subsystem. ~20 similar cases probably do. The data determines
+the roadmap; the roadmap does not determine the data.
+
+### The single validation metric
+
+Maintain a running Missing-Evidence tally inside
+`/app/memory/REAL_WORLD_LOG.md`. Example shape:
+
+| Missing Evidence | Cases | Priority |
+|------------------|-------|----------|
+| Executable name  | 12    | High     |
+| Digital signature| 9     | High     |
+| Parent process   | 4     | Medium   |
+| Network context  | 3     | Medium   |
+| Registry         | 1     | Low      |
+
+Phase 1b scope is derived from this table, not from intuition.
+
+### Unfreeze ritual (mandatory before Phase 1b coding begins)
+
+When the log reaches ~20–30 real cases, do NOT open an editor.
+Instead run one review session that answers only three questions:
+
+1. Which evidence type appears most often across the log?
+2. Which single improvement would have flipped the most
+   `Unknown` verdicts to a higher-confidence, correct call?
+3. Which single improvement would have raised analyst
+   confidence the most, even where the verdict was already
+   correct?
+
+The answers to these three questions define Phase 1b's scope.
+Anything not required by the answers is deferred.
+
+---
+
 ## 5 · Post-v1.6.0 backlog (deferred)
 
 - UI cleanup: delete `DashboardPage.jsx`, verify tree-shaking, remove
