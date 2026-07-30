@@ -131,15 +131,33 @@ const NARRATIVE_BLOCKS = {
     return null;
   },
 
-  // ── NETWORK — infrastructure indicators, in analyst voice ────────────
+  // ── NETWORK — infrastructure indicators, benign-aware ────────────────
   network: (ev) => {
+    // If every recovered host is well-known benign infrastructure, say so
+    // plainly. Do NOT tell the analyst these are "active leads".
+    if (ev.allInfraBenign && ev.benignClassifications.length) {
+      const primary = ev.benignClassifications[0];
+      const others = ev.benignClassifications.slice(1);
+      const otherClause = others.length
+        ? ` The remaining indicator${others.length === 1 ? "" : "s"} (${others.map((c) => c.host).join(", ")}) belong${others.length === 1 ? "s" : ""} to the same class of legitimate infrastructure.`
+        : "";
+      return `Every network indicator recovered from the payload belongs to well-known legitimate infrastructure. The primary host ${primary.host} is a ${primary.category} used for ${primary.role}, which is expected background traffic on managed Windows endpoints and does not indicate malicious activity.${otherClause}`;
+    }
+    // Mixed / all-unknown → normal recovery language, but explicitly call
+    // out any benign hosts individually so the analyst isn't misled.
     const parts = [];
     if (ev.url0) parts.push(`the URL ${ev.url0}`);
     if (ev.ip0) parts.push(`the IP address ${ev.ip0}`);
     if (ev.domain0 && !ev.url0?.includes(ev.domain0)) parts.push(`the domain ${ev.domain0}`);
     if (parts.length) {
       const list = parts.length === 1 ? parts[0] : (parts.slice(0, -1).join(", ") + " and " + parts.slice(-1));
-      return `${qualifierFor("recovered")} network indicators from the payload include ${list}. These should be treated as active investigation leads until proven benign.`;
+      let base = `${qualifierFor("recovered")} network indicators from the payload include ${list}.`;
+      if (ev.benignClassifications.length) {
+        const benignList = ev.benignClassifications.map((c) => `${c.host} (${c.category})`).join("; ");
+        base += ` Of these, the following are well-known legitimate infrastructure and should be excluded from any blocking action: ${benignList}.`;
+      }
+      base += " The remaining indicators should be treated as investigation leads pending validation.";
+      return base;
     }
     if (ev.partial) {
       return `${qualifierFor("may_indicate")} the corrupted portion of the payload may have contained outbound network indicators that did not survive into the analysable prefix; no infrastructure was recoverable from the readable bytes.`;
@@ -210,21 +228,38 @@ const NARRATIVE_BLOCKS = {
     return null;
   },
 
-  // ── RISK ASSESSMENT — the "because … the activity is assessed as X" ──
+  // ── RISK ASSESSMENT — verdict-aware; NEVER contradict the verdict class ──
   risk_assessment: (ev) => {
-    const tcs = ev.tradecraftClauses;
     const verdict = ev.verdictWord;
     const confidence = ev.confidence;
     const conf = (confidence !== null && confidence !== undefined) ? ` (confidence ${confidence}/100)` : "";
+    // Benign / Informational — the tone MUST match. Never say "warrants
+    // further investigation" when the engine itself concluded no high-signal
+    // behaviour was observed.
+    if (ev.verdictClass === "benign") {
+      let base = `The activity is assessed as ${verdict}${conf}.`;
+      if (ev.allInfraBenign && ev.benignClassifications.length) {
+        base += ` The recovered network indicators resolve entirely to legitimate infrastructure (${ev.benignClassifications.map((c) => c.category).slice(0, 2).join(", ")}), and no high-signal execution or persistence behaviours were recovered from the artifact.`;
+      } else if ((ev.because || []).some((b) => /no high[- ]?signal|no download|no persistence/i.test(String(b)))) {
+        base += ` The engine's own signal review reports no high-signal execution, download, or persistence behaviours in the recovered content.`;
+      } else {
+        base += ` No high-signal behaviours were recovered from the analysed content.`;
+      }
+      base += ` This finding is informational and does not on its own warrant active response; retain it for context if the same artifact resurfaces alongside stronger signals.`;
+      return base;
+    }
+    // Partial-decode caveat.
+    if (ev.partial) {
+      return `Because only a partial recovery was possible, the activity is assessed as ${verdict}${conf}; severity is intentionally capped and derived evidence carries the provenance=partial_recovery label. A definitive assessment is not possible from the readable prefix alone.`;
+    }
+    // Attention / suspicious / malicious — the "because combines X, Y, Z" phrasing.
+    const tcs = ev.tradecraftClauses;
     if (tcs.length >= 2) {
       const list = tcs.length === 1 ? tcs[0] : tcs.slice(0, -1).join(", ") + (tcs.length > 2 ? "," : "") + " and " + tcs.slice(-1);
       return `Because the recovered content combines ${list}, the activity is assessed as ${verdict}${conf} and warrants further investigation.`;
     }
     if (tcs.length === 1) {
       return `Because the recovered content demonstrates ${tcs[0]}, the activity is assessed as ${verdict}${conf} and warrants further investigation.`;
-    }
-    if (ev.partial) {
-      return `Because only a partial recovery was possible, the activity is assessed as ${verdict}${conf}; severity is intentionally capped and derived evidence carries the provenance=partial_recovery label. A definitive assessment is not possible from the readable prefix alone.`;
     }
     return `The activity is assessed as ${verdict}${conf}.`;
   },
@@ -238,32 +273,43 @@ const NARRATIVE_BLOCKS = {
   //   Family match      → threat-intel sweep for family IoCs
   //   Partial decode    → preserve forensic artifacts
   recommendations: (ev) => {
+    // Verdict-aware — for Informational / Benign the recommendation is
+    // "no action required", not a list of hunts and blocks.
+    if (ev.verdictClass === "benign") {
+      const bits = [];
+      if (ev.allInfraBenign) {
+        bits.push("No blocking or blocklisting action is recommended — the recovered indicators belong to legitimate infrastructure that managed endpoints must reach for normal operation");
+      }
+      bits.push("Retain the artifact and analysis in the case record for pattern-matching if similar content resurfaces alongside stronger signals in the future");
+      if (/powershell|encoded/i.test(ev.decodedText || ev.detectedTypeLabel || "")) {
+        bits.push("Optionally confirm that the encoded PowerShell is expected on the submitting host (e.g. software installer, MDM agent, or vendor tooling)");
+      }
+      return "NivXRay recommends that analysts: " + bits.join("; ") + ".";
+    }
     const bits = [];
     const lolbinNames = [...new Set(ev.lolbins.map(lolbinName).filter(Boolean))];
+    const nonBenignUrl = ev.url0 && !ev.benignHostSet?.has(urlHost(ev.url0));
+    const nonBenignIp = ev.ip0;
+    const nonBenignDomain = ev.domain0 && !ev.benignHostSet?.has(ev.domain0);
 
-    // Evidence: recovered URL.
-    if (ev.url0) {
+    if (nonBenignUrl) {
       bits.push(`Check proxy and web-gateway logs for successful retrieval of ${ev.url0} across all monitored hosts`);
       bits.push(`Block ${ev.url0} at the perimeter proxy and DNS layers pending confirmation`);
       bits.push(`Attempt to retrieve the payload from ${ev.url0} in an isolated environment for further malware analysis (if the URL is still live)`);
     }
-    // Evidence: recovered IP.
-    if (ev.ip0) {
+    if (nonBenignIp) {
       bits.push(`Search firewall logs and NetFlow / IPFIX data for outbound sessions to ${ev.ip0}`);
       bits.push(`Review DNS resolution history for hostnames that pointed to ${ev.ip0} in the past 30 days`);
     }
-    // Evidence: recovered domain (only when not already covered by url0).
-    if (ev.domain0 && !ev.url0?.includes(ev.domain0)) {
+    if (nonBenignDomain && !ev.url0?.includes(ev.domain0)) {
       bits.push(`Sinkhole or block ${ev.domain0} at the DNS resolver and add to threat-intel watchlists`);
     }
-    // Evidence: PowerShell artifact.
     const isPs = /powershell/i.test(ev.decodedText || ev.detectedTypeLabel || "") ||
                  /encoded/i.test(ev.detectedTypeLabel || "");
     if (isPs) {
       bits.push("Search endpoint command-line telemetry for additional PowerShell -EncodedCommand executions across the fleet (past 30 days)");
       bits.push("Review PowerShell Script-Block Logging (Event ID 4104) and AMSI telemetry for related content on the affected hosts");
     }
-    // Evidence: LOLBin usage (per-LOLBin recommendations).
     if (lolbinNames.some((n) => /regsvr32/i.test(n))) {
       bits.push("Sweep endpoint telemetry for `regsvr32.exe` invocations matching `/i:http` or `/i:https` (Squiblydoo pattern) across the fleet");
       bits.push("Enforce AppLocker or WDAC to deny regsvr32 execution from user-writable paths (%TEMP%, %APPDATA%, network shares)");
@@ -282,16 +328,13 @@ const NARRATIVE_BLOCKS = {
     if (lolbinNames.some((n) => /bitsadmin/i.test(n))) {
       bits.push("Sweep endpoint telemetry for `bitsadmin.exe /transfer` invocations with external URLs; review BITS-Client operational events");
     }
-    // Evidence: family match.
     if (ev.familyName) {
       bits.push(`Correlate the ${ev.familyName}-family match with threat-intel feeds for known C2 infrastructure, YARA rules, and hashes; look for related samples in the sample corpus`);
     }
-    // Evidence: partial decode.
     if (ev.partial) {
-      bits.push("Preserve the original artifact bytes and surrounding logs — the corrupted portion may be recoverable from a different capture source (memory dump, EDR agent, SIEM raw event)");
+      bits.push("Preserve the original artifact bytes and surrounding logs — the corrupted portion may be recoverable from a different capture source");
     }
-    // Always-on: cross-fleet sweep for related infrastructure.
-    if (ev.url0 || ev.ip0 || ev.domain0) {
+    if (nonBenignUrl || nonBenignIp || nonBenignDomain) {
       bits.push("Sweep for additional hosts communicating with the same infrastructure (proxy + DNS + EDR telemetry, past 30 days)");
     }
 
@@ -301,27 +344,197 @@ const NARRATIVE_BLOCKS = {
 };
 
 function composeAnalystNarrative(evidence) {
-  // Attack-lifecycle order (operator-approved 2026-02-28).
-  const order = [
-    "opening",           // What is the analyst looking at?
-    "execution",         // How did the code run?
-    "payload_stage",     // What did the code retrieve or execute?
-    "network",           // What infrastructure was touched?
-    "tradecraft",        // What obfuscation / evasion was used?
-    "post_execution",    // Persistence + credential-access behaviour?
-    "negative_findings", // What was explicitly NOT observed?
-    "malware_context",   // Family match?
-    "risk_assessment",   // Because X, Y, Z → assessed as <verdict>
-    "recommendations",   // Evidence-aware next steps
-  ];
-  const paragraphs = [];
-  for (const key of order) {
-    const fn = NARRATIVE_BLOCKS[key];
-    if (!fn) continue;
-    const out = fn(evidence);
-    if (out && typeof out === "string" && out.length > 0) paragraphs.push(out);
+  // ── ADR-0013 §2.2 · slice-5 · Cisco-XDR-style 3-paragraph rendering ──
+  //
+  // The block engine produces evidence-driven CLAUSES (short fact sentences).
+  // The renderer WEAVES those clauses into three dense analyst paragraphs
+  // that mirror the operator's reference summary structure:
+  //
+  //   ¶1 · Detection statement           (one sentence — what happened)
+  //   ¶2 · Priority statement            (one sentence — why it matters)
+  //   ¶3 · Investigation-shows paragraph (one dense paragraph woven from
+  //                                       every non-empty block, in past-tense
+  //                                       analyst voice with citations)
+  //
+  // Then the recommendations block appears as a checklist prefaced by
+  // "NivXRay recommends that you:" — matching the "CSOC recommends" style.
+
+  // ── Paragraph 1 · Detection statement ──────────────────────────────
+  const when = evidence.whenPhrase ? `On ${evidence.whenPhrase} UTC` : "During this investigation";
+  const engineTag = evidence.mode === "auto" ? "the NivXRay Auto-Investigate pipeline" : "the NivXRay Smart Decoder";
+  let paraDetection;
+  if (evidence.observedBehavior) {
+    paraDetection = `${when}, ${engineTag} analysed ${evidence.artifactPhrase} that decoded into a command which ${evidence.observedBehavior}.`;
+  } else if (evidence.detectedTypeLabel) {
+    paraDetection = `${when}, ${engineTag} analysed ${evidence.artifactPhrase} and identified it as ${evidence.detectedTypeLabel}.`;
+  } else {
+    paraDetection = `${when}, ${engineTag} analysed ${evidence.artifactPhrase} and processed it through the deterministic decoding pipeline.`;
   }
-  return paragraphs;
+
+  // ── Paragraph 2 · Priority / severity statement ────────────────────
+  const verdict = evidence.verdictWord;
+  const conf = (evidence.confidence !== null && evidence.confidence !== undefined) ? ` (confidence ${evidence.confidence}/100)` : "";
+  let paraPriority;
+  if (evidence.verdictClass === "benign") {
+    if (evidence.allInfraBenign && evidence.benignClassifications.length) {
+      const cats = [...new Set(evidence.benignClassifications.map((c) => c.category))].slice(0, 2).join(" and ");
+      paraPriority = `This is a low-priority informational finding${conf} because every recovered network indicator resolves to well-known legitimate infrastructure (${cats}), and no high-signal execution, download, or persistence behaviour was recovered from the artifact.`;
+    } else {
+      paraPriority = `This is a low-priority informational finding${conf} because no high-signal execution, download, or persistence behaviour was recovered from the artifact.`;
+    }
+  } else if (evidence.verdictClass === "malicious") {
+    const rat = evidence.familyName ? `the recovered content structurally matches ${evidence.familyName}-family tradecraft` : "the recovered content combines high-signal execution and infrastructure indicators";
+    paraPriority = `This is a high-priority alert${conf} because ${rat} and the payload attempts staged execution against attacker-controlled infrastructure.`;
+  } else if (evidence.verdictClass === "suspicious") {
+    const tcs = evidence.tradecraftClauses;
+    if (tcs.length >= 2) {
+      const list = tcs.slice(0, -1).join(", ") + " and " + tcs.slice(-1);
+      paraPriority = `This is a ${evidence.partial ? "capped-severity" : "medium-priority"} finding${conf} because the recovered content combines ${list}, a pattern associated with staged malware delivery.`;
+    } else if (tcs.length === 1) {
+      paraPriority = `This is a ${evidence.partial ? "capped-severity" : "medium-priority"} finding${conf} because the recovered content demonstrates ${tcs[0]}.`;
+    } else {
+      paraPriority = `This finding is assessed as ${verdict}${conf}.`;
+    }
+    if (evidence.partial) {
+      paraPriority += " Severity is capped because only a partial recovery was possible from the input bytes.";
+    }
+  } else {
+    // attention / unknown class — matter-of-fact.
+    paraPriority = `This finding is assessed as ${verdict}${conf}; the recovered content has attention-worthy signals but no single behaviour is conclusive on its own.`;
+  }
+
+  // ── Paragraph 3 · Investigation-shows narrative (dense, woven) ─────
+  // Assemble evidence-cited clauses in past-tense analyst voice.
+  const clauses = [];
+  clauses.push("Investigation shows that this verdict was reached as follows.");
+
+  // What was analysed + how it decoded.
+  if (evidence.decodedText && evidence.decodedText.length > 5) {
+    const excerpt = evidence.decodedText.trim().replace(/\s+/g, " ").slice(0, 200);
+    clauses.push(`The submitted artifact decoded to: "${excerpt}${evidence.decodedText.length > 200 ? "…" : ""}".`);
+  }
+
+  // How the code ran — execution tradecraft (only when observed).
+  const execClause = NARRATIVE_BLOCKS.execution(evidence);
+  if (execClause) clauses.push("Analysis of the recovered content indicates that " + execClause.charAt(0).toLowerCase() + execClause.slice(1));
+
+  // Payload staging (only when observed).
+  const payloadClause = NARRATIVE_BLOCKS.payload_stage(evidence);
+  if (payloadClause) clauses.push(payloadClause);
+
+  // Infrastructure — benign-aware.
+  if (evidence.allInfraBenign && evidence.benignClassifications.length) {
+    const primary = evidence.benignClassifications[0];
+    clauses.push(`This is supported by the network indicators recovered from the payload, all of which belong to legitimate infrastructure: the primary host ${primary.host} is a ${primary.category} used for ${primary.role}, which is expected background traffic on managed Windows endpoints.`);
+    const others = evidence.benignClassifications.slice(1);
+    if (others.length) {
+      clauses[clauses.length - 1] += ` The remaining ${others.length === 1 ? "indicator resolves" : "indicators resolve"} to the same class of vendor infrastructure (${others.map((c) => `${c.host} — ${c.category}`).join("; ")}).`;
+    }
+  } else if (evidence.benignClassifications.length) {
+    const benignList = evidence.benignClassifications.map((c) => `${c.host} (${c.category})`).join("; ");
+    clauses.push(`Of the recovered network indicators, the following are well-known legitimate infrastructure and should be excluded from blocking: ${benignList}. The remaining indicators — ${[evidence.url0, evidence.ip0, evidence.domain0].filter((x) => x && !evidence.benignHostSet.has(String(x))).filter(Boolean).slice(0, 2).join(", ") || "if any"} — should be treated as investigation leads pending validation.`);
+  } else if (evidence.url0 || evidence.ip0 || evidence.domain0) {
+    const parts = [];
+    if (evidence.url0) parts.push(`the URL ${evidence.url0}`);
+    if (evidence.ip0) parts.push(`the IP address ${evidence.ip0}`);
+    if (evidence.domain0 && !evidence.url0?.includes(evidence.domain0)) parts.push(`the domain ${evidence.domain0}`);
+    const list = parts.length === 1 ? parts[0] : (parts.slice(0, -1).join(", ") + " and " + parts.slice(-1));
+    clauses.push(`Network indicators recovered from the payload include ${list}.`);
+  }
+
+  // Tradecraft (obfuscation) — only when present.
+  const tradecraftClause = NARRATIVE_BLOCKS.tradecraft(evidence);
+  if (tradecraftClause && evidence.verdictClass !== "benign") clauses.push(tradecraftClause);
+
+  // Family match — always caveated.
+  const familyClause = NARRATIVE_BLOCKS.malware_context(evidence);
+  if (familyClause) clauses.push(familyClause);
+
+  // Post-execution (persistence + credential) — only when present.
+  const postExecClause = NARRATIVE_BLOCKS.post_execution(evidence);
+  if (postExecClause) clauses.push(postExecClause);
+
+  // Negative-findings — always closing evidence, but succinct.
+  // For benign verdicts we emphasize the "no high-signal" story is what
+  // ANCHORS the low-priority conclusion.
+  if (evidence.verdictClass === "benign") {
+    const engineBecause = (evidence.because || []).map((b) => typeof b === "string" ? b : String(b?.reason || b || "")).filter(Boolean);
+    if (engineBecause.length) {
+      clauses.push(`The engine's own signal review reports: ${engineBecause.slice(0, 5).join("; ")}. This is the primary basis for the informational classification.`);
+    }
+  } else {
+    const negClause = NARRATIVE_BLOCKS.negative_findings(evidence);
+    if (negClause) clauses.push(negClause);
+  }
+
+  const paraInvestigation = clauses.join(" ");
+
+  // ── Recommendations paragraph (checklist-style, verdict-aware) ─────
+  const recsClause = NARRATIVE_BLOCKS.recommendations(evidence);
+
+  return [paraDetection, paraPriority, paraInvestigation, recsClause].filter(Boolean);
+}
+
+// ─── Benign-infrastructure classifier ────────────────────────────────────
+// Recognises well-known legitimate infrastructure so the narrative doesn't
+// recommend blocking crl.verisign.com or sinkholing cisco.com. The list is
+// intentionally conservative — only inclusions we can defend to an auditor.
+const BENIGN_INFRA = [
+  // Certificate Authorities · CRL / OCSP endpoints
+  { rx: /(^|\.)verisign\.com$/i,          category: "certificate-authority (Verisign)",       role: "CRL / OCSP / code-signing timestamps" },
+  { rx: /(^|\.)thawte\.com$/i,            category: "certificate-authority (Thawte)",         role: "CRL / OCSP / code-signing timestamps" },
+  { rx: /(^|\.)digicert\.com$/i,          category: "certificate-authority (DigiCert)",       role: "CRL / OCSP / code-signing timestamps" },
+  { rx: /(^|\.)symantec\.com$/i,          category: "certificate-authority (Symantec)",       role: "CRL / OCSP / code-signing timestamps" },
+  { rx: /(^|\.)globalsign\.(net|com)$/i,  category: "certificate-authority (GlobalSign)",     role: "CRL / OCSP / code-signing timestamps" },
+  { rx: /(^|\.)entrust\.(net|com)$/i,     category: "certificate-authority (Entrust)",        role: "CRL / OCSP / code-signing timestamps" },
+  { rx: /(^|\.)letsencrypt\.org$/i,       category: "certificate-authority (Let's Encrypt)",  role: "CRL / OCSP" },
+  { rx: /(^|\.)pki\.goog$/i,              category: "certificate-authority (Google Trust)",   role: "CRL / OCSP" },
+  { rx: /^(crl|ocsp|s|r)\d?\.[a-z0-9-]+\.(com|net|org)$/i, category: "certificate revocation / OCSP responder", role: "CRL / OCSP" },
+  // Microsoft
+  { rx: /(^|\.)windowsupdate\.com$/i,     category: "Microsoft Windows Update",               role: "OS updates" },
+  { rx: /(^|\.)update\.microsoft\.com$/i, category: "Microsoft Windows Update",               role: "OS updates" },
+  { rx: /(^|\.)microsoft\.com$/i,         category: "Microsoft",                               role: "Microsoft services" },
+  { rx: /(^|\.)msn\.com$/i,               category: "Microsoft",                               role: "Microsoft services" },
+  { rx: /(^|\.)office\.com$/i,            category: "Microsoft Office 365",                    role: "productivity suite" },
+  { rx: /(^|\.)office365\.com$/i,         category: "Microsoft Office 365",                    role: "productivity suite" },
+  // Security vendors / their own consoles
+  { rx: /(^|\.)cisco\.com$/i,             category: "Cisco (vendor infrastructure)",           role: "vendor console / telemetry" },
+  { rx: /(^|\.)amp\.cisco\.com$/i,        category: "Cisco Secure Endpoint (AMP) console",     role: "customer's own XDR/EDR console" },
+  { rx: /(^|\.)crowdstrike\.com$/i,       category: "CrowdStrike (vendor infrastructure)",     role: "vendor console / telemetry" },
+  { rx: /(^|\.)sentinelone\.(net|com)$/i, category: "SentinelOne (vendor infrastructure)",     role: "vendor console / telemetry" },
+  { rx: /(^|\.)paloaltonetworks\.com$/i,  category: "Palo Alto Networks (vendor)",             role: "vendor console / telemetry" },
+  { rx: /(^|\.)fortinet\.com$/i,          category: "Fortinet (vendor infrastructure)",        role: "vendor console / telemetry" },
+];
+
+function classifyBenignInfra(hostname) {
+  if (!hostname) return null;
+  const h = hostname.toLowerCase().split(":")[0].split("/")[0].replace(/^https?:\/\//, "");
+  for (const entry of BENIGN_INFRA) {
+    if (entry.rx.test(h)) return { host: h, category: entry.category, role: entry.role };
+  }
+  return null;
+}
+
+// Given a URL, extract its hostname.
+function urlHost(url) {
+  try { return new URL(String(url)).hostname; }
+  catch { const m = /^(?:https?:\/\/)?([^\/?#:]+)/i.exec(String(url) || ""); return m ? m[1] : null; }
+}
+
+// Verdict severity classification for narrative gating.
+//   benign      → no action recommended (Informational / Clean / Benign)
+//   attention   → attention needed but not "block everything" (Runtime Dependent / Undetermined)
+//   suspicious  → warrants investigation (Suspicious / Partial Decode)
+//   malicious   → escalation (Malicious / Critical)
+function verdictSeverityClass(verdict, because = []) {
+  const v = String(verdict || "").toLowerCase();
+  const bTxt = (because || []).join(" ").toLowerCase();
+  const highSignalObserved = /high[- ]?signal/.test(bTxt) && !/no high[- ]?signal/.test(bTxt);
+  if (/informational|clean|benign/i.test(v)) return "benign";
+  if (/malicious|critical/i.test(v)) return "malicious";
+  if (/suspicious|partial/i.test(v)) return "suspicious";
+  if (/runtime|undetermined|dependent/i.test(v)) return highSignalObserved ? "suspicious" : "attention";
+  return "attention";
 }
 
 // ─── Rule-ID → plain-English humaniser ────────────────────────────────────
@@ -826,6 +1039,21 @@ export function synthesize(result) {
   const domain0 = iocs.grouped.domains?.[0] || null;
   const rawLolbins = _asArray(result.lolbas);
 
+  // ── Benign-infrastructure classification (all IOCs, not just the first) ──
+  // The narrative and recommendations MUST NOT treat legitimate cert-authority
+  // CRLs, Windows Update endpoints, or security-vendor consoles as active
+  // investigation leads. Classify every URL/domain we see.
+  const _allUrlHosts = _asArray(iocs.grouped.urls).map(urlHost).filter(Boolean);
+  const _allDomains = _asArray(iocs.grouped.domains);
+  const _allHosts = [..._allUrlHosts, ..._allDomains];
+  const benignClassifications = _allHosts.map(classifyBenignInfra).filter(Boolean);
+  const _benignHostSet = new Set(benignClassifications.map((c) => c.host));
+  const hasBenignInfra = benignClassifications.length > 0;
+  const allInfraBenign = _allHosts.length > 0 && benignClassifications.length === _allHosts.length;
+
+  // Verdict-severity gating — the narrative tone MUST match the verdict.
+  const verdictClass = verdictSeverityClass(executive.verdict, executive.because);
+
   // MITRE tradecraft phrases (analyst-facing) — collect per technique id,
   // then suppress parent-technique phrases when a child sub-technique of
   // the same family is present to avoid redundant "combines X, Y, and X"
@@ -857,8 +1085,10 @@ export function synthesize(result) {
     whenPhrase,
     partial: executive.partial,
     verdictWord: executive.verdict !== "—" ? executive.verdict : "Requires Review",
+    verdictClass,          // "benign" | "attention" | "suspicious" | "malicious"
     confidence: executive.confidence,
     severity: executive.severity,
+    because: executive.because,
     artifactPhrase,
     detectedTypeLabel: technical.detectedType,
     decodedText: decodedTextClean,
@@ -869,6 +1099,10 @@ export function synthesize(result) {
     tradecraftClauses: uniqueTradecraft,
     familyName,
     observedBehavior,
+    benignClassifications,
+    hasBenignInfra,
+    allInfraBenign,
+    benignHostSet: _benignHostSet,
   };
 
   const investigationParagraphs = composeAnalystNarrative(evidenceBundle);
