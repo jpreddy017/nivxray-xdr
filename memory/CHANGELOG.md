@@ -3,6 +3,64 @@
 Chronological record of significant releases (newest first).
 
 
+## 2026-02-28 · ADR-0013 · Workspace wired to shared Pipeline (slice-2)
+
+**Governance:** `/app/memory/adr/0013-unified-investigation-ui.md` §3
+"Workspace wiring is slice-2".
+
+**What changed (frontend only, additive):**
+- `/app/frontend/src/pages/AutoInvestigatePage.jsx` — imports and
+  renders `<InvestigationPipeline>` at the TOP of the results block,
+  immediately above the existing `<InvestigationReport>`. Nothing
+  removed; the MDR-grade primary deliverable and all AdvancedArtifacts
+  stay in place. Result: analysts get Lab-parity output first on the
+  Auto Investigate surface.
+- `/app/frontend/src/lib/investigationSynthesizer.js` — hardened for
+  Workspace response shape:
+  - `technical.engine` normaliser handles the auto-investigate case
+    where `result.engine` is an object `{orchestrator_reports, version,
+    cache_hits}` — falls back to `.version`/`.name`, avoids raw JSON
+    in the badge.
+  - `_safeStr` helper coerces any value (string, number, bool, or
+    object) to a display-safe string. Applied to `technical.notes`,
+    `chain_ids`, `output`, `detectedType`, `recoveredLayers`.
+- `/app/frontend/src/components/InvestigationPipeline.jsx` — safe
+  rendering for `.map()` items that could arrive as objects:
+  - `technical.notes` → coerced.
+  - `executive.because` → coerced.
+  - `mitigation[].actions` → coerced.
+  - IOC-group fragments now use keyed `<Fragment key={kind}>` (fixes
+    "Each child in a list should have a unique key prop" warning).
+
+**Bugs found and fixed (evidence from live console logs):**
+1. `PAGE ERROR: Objects are not valid as a React child (found: object
+   with keys {orchestrator_reports, version, cache_hits})` — caused
+   by `technical.engine` object. Fixed with normaliser.
+2. `Each child in a list should have a unique "key" prop` — caused
+   by bare `<>` fragments inside `Object.entries(iocs.grouped).map`.
+   Fixed by switching to `<Fragment key={kind}>`.
+
+**Verified end-to-end** on both surfaces (live preview):
+- Lab (`/nivxforge/investigate`): PowerShell EncodedCommand sample →
+  Verdict "Runtime Dependent" · 55/100 · chain
+  `ps-encodedcommand-recovery → extract-payload → family-emotet`,
+  decoded output visible, all 10 sections render.
+- Workspace (`/auto-investigate`): PowerShell EncodedCommand sample →
+  Verdict "Suspicious" · confidence 99 · headline "PowerShell executed
+  with Base64-encoded command", 10 MITRE techniques, 4 IOCs,
+  When/What/Why/Where/How narrative populated, engine badge shows
+  clean version string.
+
+**Frontend build:** clean (`yarn build`).
+
+**Still deferred (Priority 2-4 per operator's 2026-02-28 review):**
+- ❌ P2: Persist investigations into `/history`.
+- ❌ P3: STIX 2.1 + ATT&CK Navigator JSON export endpoints.
+- ❌ P4: Live OSINT providers (VirusTotal / AbuseIPDB / URLScan / OTX
+  / MalwareBazaar / ThreatFox / Shodan) — placeholders continue to
+  render "not configured" without erroring.
+
+
 ## 2026-02-28 · ADR-0013 · Unified Investigation Pipeline UI (slice-1)
 
 **Governance:** `/app/memory/adr/0013-unified-investigation-ui.md`

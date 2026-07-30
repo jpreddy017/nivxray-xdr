@@ -14,6 +14,7 @@ import React from "react";
 import api, { API_BASE } from "@/lib/api";
 import Header from "@/components/Header";
 import SemanticIntelligencePanel from "@/components/investigation/SemanticIntelligencePanel";
+import InvestigationPipeline from "@/components/InvestigationPipeline";
 
 const SEVERITY_TONE = {
   Critical:      { bg: "#450a0a", fg: "#fecaca", border: "#7f1d1d" },
@@ -366,6 +367,18 @@ export default function AutoInvestigatePage() {
               <div className="h-40 bg-slate-800/40 rounded-xl" />
               <div className="h-32 bg-slate-800/40 rounded-xl" />
             </div>
+          )}
+
+          {/* ADR-0013 · Unified Investigation Pipeline — Lab / Workspace parity.
+              The 10-section deterministic view sits at the top so analysts get
+              the same output shape regardless of which surface they used. The
+              legacy MDR-grade InvestigationReport below stays intact. */}
+          {result && (
+            <section data-testid="workspace-investigation-pipeline"
+                     className="rounded-xl overflow-hidden"
+                     style={{ background: "transparent" }}>
+              <InvestigationPipeline result={result} />
+            </section>
           )}
 
           {/* PRIMARY DELIVERABLE — Investigation Report (spec-compliant MDR order) */}

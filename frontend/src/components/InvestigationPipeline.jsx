@@ -9,7 +9,7 @@
  * (via the synthesiser). This component never mutates verdict /
  * severity / confidence / ATT&CK / IOCs.
  */
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import synthesize from "../lib/investigationSynthesizer";
 
 const S = {
@@ -218,7 +218,9 @@ export default function InvestigationPipeline({ result }) {
           <div style={{ marginTop: 12 }}>
             <div style={S.kLabel}>Because</div>
             <ul style={{ paddingLeft: 20, marginTop: 4, lineHeight: 1.7 }}>
-              {executive.because.map((b, i) => <li key={i}>{b}</li>)}
+              {executive.because.map((b, i) => (
+                <li key={i}>{typeof b === "string" ? b : (b?.reason || b?.text || JSON.stringify(b))}</li>
+              ))}
             </ul>
           </div>
         ) : null}
@@ -256,7 +258,9 @@ export default function InvestigationPipeline({ result }) {
           <div style={{ marginTop: 12 }}>
             <div style={S.kLabel}>Notes</div>
             <ul style={{ paddingLeft: 20, marginTop: 4, fontSize: 12, color: "var(--text-secondary, #94a3b8)", lineHeight: 1.65 }}>
-              {technical.notes.map((n, i) => <li key={i}>{n}</li>)}
+              {technical.notes.map((n, i) => (
+                <li key={i}>{typeof n === "string" ? n : (n?.message || n?.text || JSON.stringify(n))}</li>
+              ))}
             </ul>
           </div>
         ) : null}
@@ -303,20 +307,20 @@ export default function InvestigationPipeline({ result }) {
         {iocs.total ? (
           <div style={S.kv}>
             {Object.entries(iocs.grouped).map(([kind, values]) => (
-              <>
-                <div key={`k-${kind}`} style={S.kLabel}>{kind}</div>
-                <div key={`v-${kind}`} style={S.kVal} data-testid={`ioc-group-${kind}`}>
+              <Fragment key={kind}>
+                <div style={S.kLabel}>{kind}</div>
+                <div style={S.kVal} data-testid={`ioc-group-${kind}`}>
                   <div style={S.chipStrip}>
-                    {values.map((v, i) => <span key={i} style={{ ...S.chip, ...S.chipMuted }}>{v}</span>)}
+                    {values.map((v, i) => <span key={i} style={{ ...S.chip, ...S.chipMuted }}>{String(v)}</span>)}
                   </div>
                 </div>
-              </>
+              </Fragment>
             ))}
             {meta.provenance ? (
-              <>
+              <Fragment key="provenance">
                 <div style={S.kLabel}>Provenance</div>
                 <div style={S.kVal}>{meta.provenance}{meta.truncationNote ? ` · ${meta.truncationNote}` : ""}</div>
-              </>
+              </Fragment>
             ) : null}
           </div>
         ) : (
@@ -385,7 +389,9 @@ export default function InvestigationPipeline({ result }) {
                 {m.why ? <div style={S.mitWhy}>{m.why}</div> : null}
                 {m.actions?.length ? (
                   <ul style={S.mitActions}>
-                    {m.actions.map((a, j) => <li key={j}>{a}</li>)}
+                    {m.actions.map((a, j) => (
+                      <li key={j}>{typeof a === "string" ? a : (a?.text || a?.title || JSON.stringify(a))}</li>
+                    ))}
                   </ul>
                 ) : null}
               </div>

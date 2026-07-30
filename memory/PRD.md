@@ -1,5 +1,26 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **ADR-0013 · Workspace wired to shared Pipeline · slice-2 IMPLEMENTED**
+
+### Shipped (frontend-only, additive)
+- **`AutoInvestigatePage.jsx`** — `<InvestigationPipeline>` now renders at the TOP of the Auto Investigate results, above the existing MDR `InvestigationReport`. Analysts on Workspace and Lab get IDENTICAL Lab-parity output as their primary view. Nothing removed.
+- **Synthesiser hardening** — `technical.engine` normaliser (handles auto-investigate's `{orchestrator_reports, version, cache_hits}` object), `_safeStr` coercion across notes / chain_ids / output / detectedType / recoveredLayers.
+- **Pipeline component hardening** — `technical.notes`, `executive.because`, `mitigation[].actions` all safely coerce non-string items. IOC-group fragments now use keyed `<Fragment key>` (fixes React key-warning).
+
+### Bugs found and fixed (evidence from live console logs)
+1. `PAGE ERROR: Objects are not valid as a React child` — `technical.engine` was an object on auto-investigate. Fixed with normaliser.
+2. `Each child in a list should have a unique "key" prop` — bare fragments inside `.map()`. Fixed with keyed `<Fragment>`.
+
+### Verified on both surfaces (live preview)
+- Lab `/nivxforge/investigate`: PS EncodedCommand → Verdict "Runtime Dependent" · 55/100 · chain rendered, all 10 sections work.
+- Workspace `/auto-investigate`: PS EncodedCommand → Verdict "Suspicious" · confidence 99 · 10 MITRE techniques · When/What/Why/Where/How populated · engine badge clean.
+
+### Priority backlog (per operator's 2026-02-28 review)
+- ❌ **P2 · History persistence** — save every Investigate to a rehydratable list.
+- ❌ **P3 · STIX 2.1 + ATT&CK Navigator exports** — one-click enterprise handoff.
+- ❌ **P4 · Live OSINT** — VirusTotal / AbuseIPDB / URLScan / OTX / MalwareBazaar / ThreatFox / Shodan integrations.
+
+
 ## 2026-02-28 · **ADR-0013 · Unified Investigation Pipeline UI · slice-1 IMPLEMENTED**
 
 ### Shipped (frontend-only; no backend contract change)

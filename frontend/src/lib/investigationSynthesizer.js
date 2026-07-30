@@ -213,16 +213,26 @@ export function synthesize(result) {
   };
 
   // Technical.
+  const _safeStr = (v) => (v == null ? "" : typeof v === "string" ? v : (typeof v === "number" || typeof v === "boolean") ? String(v) : (v?.message || v?.text || v?.title || JSON.stringify(v)));
+  // Engine field can be an object on some auto-investigate responses
+  // (e.g. { orchestrator_reports, version, cache_hits }). Normalise to a
+  // short string so the section badge stays readable.
+  let _engineLabel = "smart-decoder";
+  if (typeof result.engine === "string" && result.engine) {
+    _engineLabel = result.engine;
+  } else if (result.engine && typeof result.engine === "object") {
+    _engineLabel = result.engine.version || result.engine.name || "auto-investigate";
+  }
   const technical = {
-    engine: result.engine || "smart-decoder",
-    chain_ids: _asArray(result.chain_ids),
+    engine: _engineLabel,
+    chain_ids: _asArray(result.chain_ids).map(_safeStr).filter(Boolean),
     layers: _asArray(result.recipe),
-    output: result.output || "",
-    output_raw: result.output_raw || result.output || "",
-    notes: _asArray(result.notes),
+    output: _safeStr(result.output),
+    output_raw: _safeStr(result.output_raw || result.output),
+    notes: _asArray(result.notes).map(_safeStr).filter(Boolean),
     reached_shellcode: !!result.reached_shellcode,
-    detectedType: result.detected_type?.label || null,
-    recoveredLayers: result.recovered_layers || null,
+    detectedType: _safeStr(result.detected_type?.label) || null,
+    recoveredLayers: _safeStr(result.recovered_layers) || null,
   };
 
   // Threat Intel — from ti_shield.
