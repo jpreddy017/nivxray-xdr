@@ -292,19 +292,15 @@ const NARRATIVE_BLOCKS = {
     const isPs = /powershell/i.test(ev.decodedText || ev.detectedTypeLabel || "") ||
                  /encoded/i.test(ev.detectedTypeLabel || "");
 
-    // For benign verdicts, the 7-step playbook shifts entirely toward
-    // context-verification and record-keeping rather than active response.
+    // For benign verdicts, the playbook is short and context-focused —
+    // Verify, Retain, Close. Not 7 steps of nothing-to-do.
     if (ev.verdictClass === "benign") {
-      return [
-        "NivXRay recommends the following 7-step verification playbook:",
-        "1. **Triage & scoping** — confirm the submitting host / user / process context that produced the artifact so the analyst can rule out cover-of-benign impersonation",
-        "2. **Baseline check** — verify the recovered infrastructure (Verisign CRL / vendor consoles) is on the environment's normal traffic baseline; flag any first-seen deviation",
-        "3. **Evidence preservation** — retain the raw artifact + decoded output + this investigation record in the case store for pattern-matching",
-        "4. **Low-noise hunt** — no active hunt required, but log a soft-flag for the tradecraft pattern (encoded PowerShell referencing vendor infra) so future high-signal matches surface faster",
-        "5. **No enrichment escalation** — do not push these indicators to threat-intel feeds; they are known-benign vendor infrastructure",
-        "6. **Detection hygiene** — confirm existing detection rules do not fire on this artifact shape in future (suppress a known-benign pattern if it does)",
-        "7. **Close as Informational** — document the assessment and close the case with a 'reviewed / informational / no action required' disposition",
-      ].join("\n");
+      const bits = [
+        "**Verify context** — confirm the submitting host / user / process that produced the artifact so cover-of-benign impersonation is ruled out",
+        "**Retain for pattern-matching** — keep the artifact and this analysis in the case store; if similar content later surfaces alongside stronger signals, this record accelerates triage",
+        "**Close as Informational** — no block, no sinkhole, no fleet-wide hunt; document the assessment and close the case with an informational disposition",
+      ];
+      return "NivXRay recommends:\n" + bits.map((b, i) => `${i + 1}. ${b}`).join("\n");
     }
 
     // Suspicious / attention / malicious — full 7-step response playbook.
@@ -336,16 +332,30 @@ const NARRATIVE_BLOCKS = {
         : "Harden the detection stack against the observed tradecraft (Sigma / EDR custom detections) and validate coverage with a purple-team replay of the recovered artifact";
     const step7 = "Author the incident RCA and close-out: document the affected hosts and users, timeline, evidence collected, MITRE ATT&CK mapping, indicators, containment actions, lessons learned, and any detection or policy improvements made; brief the SOC and update the runbook";
 
-    return [
-      "NivXRay recommends the following 7-step remediation playbook:",
-      `1. **Triage & scoping** — ${step1}`,
-      `2. **Contain** — ${step2}`,
-      `3. **Preserve** — ${step3}`,
-      `4. **Hunt** — ${step4}`,
-      `5. **Enrich** — ${step5}`,
-      `6. **Harden** — ${step6}`,
-      `7. **Report & close** — ${step7}`,
-    ].join("\n");
+    // Complexity-scaled playbook — thin cases get 3 focused steps;
+    // medium 5; only genuinely complex cases warrant the full 7.
+    const complexity =
+      (ev.mitreIds?.length || 0) +
+      (lolbinNames.length ? 2 : 0) +
+      (ev.familyName ? 2 : 0) +
+      (nonBenignUrl || nonBenignIp || nonBenignDomain ? 1 : 0) +
+      (ev.tradecraftClauses?.length || 0);
+
+    const allSteps = [
+      `**Triage & scoping** — ${step1}`,
+      `**Contain** — ${step2}`,
+      `**Preserve** — ${step3}`,
+      `**Hunt** — ${step4}`,
+      `**Enrich** — ${step5}`,
+      `**Harden** — ${step6}`,
+      `**Report & close** — ${step7}`,
+    ];
+    const stepsToEmit = complexity >= 8 ? allSteps
+                     : complexity >= 5 ? [allSteps[0], allSteps[1], allSteps[2], allSteps[3], allSteps[5], allSteps[6]]
+                     : complexity >= 3 ? [allSteps[0], allSteps[1], allSteps[3], allSteps[5]]
+                     :                    [allSteps[0], allSteps[1], allSteps[6]];
+
+    return "NivXRay recommends:\n" + stepsToEmit.map((s, i) => `${i + 1}. ${s}`).join("\n");
   },
 };
 
@@ -414,8 +424,24 @@ function composeAnalystNarrative(evidence) {
 
   // ── Paragraph 3 · Investigation-shows narrative (dense, woven) ─────
   // Assemble evidence-cited clauses in past-tense analyst voice.
+  // ── Investigation-shows paragraph — length adapts to evidence depth ──
+  // Compute a rough complexity signal so simple inputs don't get padded
+  // with a "here's how we thought about this" preamble they don't need.
+  const complexitySignal =
+    (evidence.mitreIds?.length || 0) +
+    (evidence.lolbins?.length ? 2 : 0) +
+    (evidence.familyName ? 2 : 0) +
+    (evidence.observedBehavior ? 1 : 0) +
+    (evidence.tradecraftClauses?.length || 0);
+
   const clauses = [];
-  clauses.push("Investigation shows that this verdict was reached as follows.");
+  // Only add the "Investigation shows..." framing when the evidence
+  // actually warrants a walkthrough (complexity ≥ 3). A benign or
+  // low-signal case reads better without the preamble.
+  const useWalkthroughFraming = complexitySignal >= 3 && evidence.verdictClass !== "benign";
+  if (useWalkthroughFraming) {
+    clauses.push("Investigation shows that this verdict was reached as follows.");
+  }
 
   // Endpoint-telemetry framing (if the caller provided host / user / parent).
   if (evidence.hostAsset || evidence.userAsset || evidence.parentProc) {
