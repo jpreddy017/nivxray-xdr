@@ -99,6 +99,34 @@ const S = {
   },
   nLabel: { fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "#7dd3fc", fontWeight: 700, paddingTop: 2 },
   nText: { color: "var(--text, #e2e8f0)", fontSize: 13, lineHeight: 1.6 },
+  narrativeProse: {
+    display: "flex", flexDirection: "column", gap: 12,
+    padding: "14px 16px",
+    background: "rgba(2,6,23,0.4)",
+    borderRadius: 8,
+    border: "1px solid var(--border, #1e293b)",
+    fontSize: 13, lineHeight: 1.7, color: "var(--text, #e2e8f0)",
+  },
+  narrativeP: { margin: 0 },
+  narrativePFirst: { margin: 0, fontWeight: 600 },
+  execProse: {
+    fontSize: 13, lineHeight: 1.75, color: "var(--text, #e2e8f0)",
+    display: "flex", flexDirection: "column", gap: 10,
+  },
+  execFacts: {
+    display: "flex", flexWrap: "wrap", gap: 8,
+    padding: "10px 12px",
+    borderRadius: 6,
+    background: "rgba(125,211,252,0.05)",
+    border: "1px solid rgba(125,211,252,0.20)",
+    marginBottom: 4,
+  },
+  execFact: {
+    fontSize: 11, fontFamily: "ui-monospace",
+    color: "var(--text-secondary, #94a3b8)",
+    letterSpacing: "0.04em",
+  },
+  execFactValue: { color: "var(--text, #e2e8f0)", fontWeight: 600, marginLeft: 4 },
   timelineWrap: { display: "grid", gap: 10 },
   timelineRow: { display: "grid", gridTemplateColumns: "28px 1fr auto", alignItems: "center", gap: 10 },
   timelineDot: {
@@ -185,37 +213,34 @@ export default function InvestigationPipeline({ result }) {
 
   return (
     <div style={S.wrap} data-testid="investigation-pipeline">
-      {/* 1 · Executive Summary */}
+      {/* 1 · Executive Summary — SOC-ticket-style prose */}
       <Section index="1" id="executive" title="Executive Summary" defaultOpen badge={meta.mode === "auto" ? "auto-investigate" : "decode/smart"}>
-        <div style={S.kv}>
-          <div style={S.kLabel}>Verdict</div>
-          <div style={S.kVal}><span style={verdictChipStyle(executive.verdict)}>{executive.verdict}</span></div>
-          {executive.severity ? (<>
-            <div style={S.kLabel}>Severity</div>
-            <div style={S.kVal}>{executive.severity}</div>
-          </>) : null}
-          {executive.confidence !== null && executive.confidence !== undefined ? (<>
-            <div style={S.kLabel}>Confidence</div>
-            <div style={S.kVal}>{executive.confidence}</div>
-          </>) : null}
-          <div style={S.kLabel}>Headline</div>
-          <div style={S.kVal}>{executive.headline}</div>
-          {executive.primary_finding && executive.primary_finding !== executive.headline ? (<>
-            <div style={S.kLabel}>Primary finding</div>
-            <div style={S.kVal}>{executive.primary_finding}</div>
-          </>) : null}
-          {executive.recovered_behavior ? (<>
-            <div style={S.kLabel}>Recovered behavior</div>
-            <div style={S.kVal}>{executive.recovered_behavior}</div>
-          </>) : null}
+        {/* Compact facts strip — the analyst's at-a-glance line */}
+        <div style={S.execFacts} data-testid="pipeline-exec-facts">
+          <span style={S.execFact}>Verdict:<span style={{ ...S.execFactValue, marginLeft: 6 }}><span style={verdictChipStyle(executive.verdict)}>{executive.verdict}</span></span></span>
+          {executive.severity ? <span style={S.execFact}>Severity:<span style={S.execFactValue}>{executive.severity}</span></span> : null}
+          {executive.confidence !== null && executive.confidence !== undefined ? <span style={S.execFact}>Confidence:<span style={S.execFactValue}>{executive.confidence}</span></span> : null}
         </div>
+
+        {/* Prose narrative */}
+        <div style={S.execProse} data-testid="pipeline-executive-prose">
+          {narrative.executive_paragraphs.length ? (
+            narrative.executive_paragraphs.map((p, i) => (
+              <p key={i} style={i === 0 ? S.narrativePFirst : S.narrativeP}>{p}</p>
+            ))
+          ) : (
+            <p style={S.narrativeP}>{executive.headline}</p>
+          )}
+        </div>
+
         {executive.partial ? (
-          <div style={S.provenance} data-testid="pipeline-partial-badge">
+          <div style={{ ...S.provenance, marginTop: 12 }} data-testid="pipeline-partial-badge">
             ADR-0012 · Partial Decode · cause={meta.cause || "truncated"} · evidence provenance = partial_recovery. Severity capped; do not treat as complete.
           </div>
         ) : null}
+
         {executive.because.length ? (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 14 }}>
             <div style={S.kLabel}>Because</div>
             <ul style={{ paddingLeft: 20, marginTop: 4, lineHeight: 1.7 }}>
               {executive.because.map((b, i) => (
@@ -365,14 +390,16 @@ export default function InvestigationPipeline({ result }) {
         )}
       </Section>
 
-      {/* 8 · Investigation Summary — When / What / Why / Where / How */}
-      <Section index="8" id="narrative" title="Investigation Summary" badge="When · What · Why · Where · How" defaultOpen>
-        <div style={S.narrativeGrid}>
-          <div style={S.narrativeRow} data-testid="pipeline-narrative-when"><div style={S.nLabel}>When</div><div style={S.nText}>{narrative.when}</div></div>
-          <div style={S.narrativeRow} data-testid="pipeline-narrative-what"><div style={S.nLabel}>What</div><div style={S.nText}>{narrative.what}</div></div>
-          <div style={S.narrativeRow} data-testid="pipeline-narrative-why"><div style={S.nLabel}>Why</div><div style={S.nText}>{narrative.why}</div></div>
-          <div style={S.narrativeRow} data-testid="pipeline-narrative-where"><div style={S.nLabel}>Where</div><div style={S.nText}>{narrative.where}</div></div>
-          <div style={S.narrativeRow} data-testid="pipeline-narrative-how"><div style={S.nLabel}>How</div><div style={S.nText}>{narrative.how}</div></div>
+      {/* 8 · Investigation Summary — SOC-ticket-style prose (When · Who · What · Why · Where · How) */}
+      <Section index="8" id="narrative" title="Investigation Summary" badge="Prose · deterministic" defaultOpen>
+        <div style={S.narrativeProse} data-testid="pipeline-narrative-prose">
+          {narrative.investigation_paragraphs.length ? (
+            narrative.investigation_paragraphs.map((p, i) => (
+              <p key={i} style={i === 0 ? S.narrativePFirst : S.narrativeP}>{p}</p>
+            ))
+          ) : (
+            <p style={S.narrativeP}>Investigation processed. See Technical Analysis and Raw Evidence for details.</p>
+          )}
         </div>
       </Section>
 

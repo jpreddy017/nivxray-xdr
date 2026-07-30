@@ -319,48 +319,118 @@ export function synthesize(result) {
     });
   }
 
-  // Narrative — When / What / Why / Where / How, deterministic.
+  // Narrative — Executive prose + When/What/Why/Where/How woven into
+  // sentences. This is SOC-ticket-style, not a labelled grid. Deterministic
+  // — every clause comes from a verified backend field or a small set of
+  // fixed templates. No LLM.
   const explainability = vc.explainability || {};
   const contributors = _asArray(explainability.contributors);
   const created = result.created_at || result.timestamp || null;
 
-  const whereBits = [];
-  if (iocs.grouped.urls?.length) whereBits.push(`URL: ${iocs.grouped.urls[0]}`);
-  if (iocs.grouped.ips?.length) whereBits.push(`IP: ${iocs.grouped.ips[0]}`);
-  if (iocs.grouped.domains?.length) whereBits.push(`Domain: ${iocs.grouped.domains[0]}`);
-  if (iocs.grouped.file_paths?.length) whereBits.push(`Path: ${iocs.grouped.file_paths[0]}`);
+  // ── Prose helpers ─────────────────────────────────────────────────────
+  const _hasTimestamp = !!created;
+  const whenPhrase = _hasTimestamp
+    ? new Date(created).toISOString().replace("T", " ").slice(0, 19) + " UTC"
+    : null;
+  // Prepositional phrase for sentence-opening: "On <ts>," vs "At the moment
+  // of submission" when we have no timestamp.
+  const whenOpener = whenPhrase ? `On ${whenPhrase}` : "At the moment of submission";
+  const _cap = (s) => (s && s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
-  const howBits = [];
-  const topTechniques = mitre.techniques.slice(0, 3);
-  topTechniques.forEach((t) => {
-    if (t.id) howBits.push(`${t.id}${t.name ? ` (${t.name})` : ""}`);
-  });
-  const lolbins = _asArray(result.lolbas);
-  lolbins.slice(0, 3).forEach((l) => {
-    if (l.name) howBits.push(`LOLBin: ${l.name}`);
-  });
+  const iocPhrases = [];
+  if (iocs.grouped.urls?.length) iocPhrases.push(`URL ${iocs.grouped.urls[0]}`);
+  if (iocs.grouped.ips?.length) iocPhrases.push(`IP address ${iocs.grouped.ips[0]}`);
+  if (iocs.grouped.domains?.length) iocPhrases.push(`domain ${iocs.grouped.domains[0]}`);
+  if (iocs.grouped.file_paths?.length) iocPhrases.push(`file path ${iocs.grouped.file_paths[0]}`);
+
+  const topTechniques = mitre.techniques.slice(0, 3)
+    .filter((t) => t.id).map((t) => t.name ? `${t.id} (${t.name})` : t.id);
+  const lolbins = _asArray(result.lolbas).slice(0, 3).map((l) => l.name).filter(Boolean);
+
+  const topReasons = contributors.slice(0, 3)
+    .map((c) => c.reason || c.rule || (typeof c === "string" ? c : "")).filter(Boolean);
+
+  const verdictWord = executive.verdict !== "—" ? executive.verdict : "an artifact of interest";
+  const engineLabel = mode === "auto"
+    ? "the NivXRay Auto-Investigate pipeline"
+    : "the NivXRay Smart Decoder pipeline";
+
+  // Executive prose — 2-4 sentences, opens like a SOC ticket.
+  const execParas = [];
+  {
+    const s1 =
+      `${whenOpener} ${engineLabel} analysed the submitted artifact and returned a verdict of ` +
+      `${verdictWord}${executive.confidence !== null && executive.confidence !== undefined ? ` with ${executive.confidence} confidence` : ""}` +
+      `${executive.severity ? ` at ${executive.severity} severity` : ""}.`;
+    execParas.push(s1);
+
+    if (executive.primary_finding) execParas.push(executive.primary_finding);
+    if (executive.recovered_behavior && executive.recovered_behavior !== executive.primary_finding) {
+      execParas.push(`Recovered behavior: ${executive.recovered_behavior}`);
+    }
+    if (executive.partial) {
+      execParas.push(
+        `This is a partial-decode result (cause: ${result.cause || vc.cause || "truncated"}). ` +
+        `Severity is capped and every derived indicator is labelled provenance=partial_recovery; do not treat it as a complete analysis.`
+      );
+    }
+    if (topReasons.length) {
+      execParas.push(
+        `The verdict is driven by ${topReasons.length === 1 ? "one signal" : `${topReasons.length} signals`}: ` +
+        topReasons.join("; ") + "."
+      );
+    }
+  }
+
+  // Investigation-summary prose paragraphs — When → Who/What → Where → How → Why.
+  const invParas = [];
+  {
+    invParas.push(`${whenOpener}, an analyst submitted an artifact to NivXRay for deterministic decoding and behavioral assessment.`);
+
+    // Who/What — build the sentence with proper capitalization.
+    const whatBits = [];
+    if (executive.verdict !== "—") whatBits.push(`the engine returned a verdict of ${executive.verdict}`);
+    if (technical.detectedType) whatBits.push(`identifying the artifact as ${technical.detectedType}`);
+    else if (executive.primary_finding) whatBits.push(executive.primary_finding.replace(/\.$/, ""));
+    if (technical.chain_ids.length) whatBits.push(`processed through the ${technical.chain_ids.join(" → ")} chain`);
+    if (whatBits.length) invParas.push(_cap(whatBits.join(", ")) + ".");
+
+    // Where
+    if (iocPhrases.length) {
+      invParas.push(
+        `The recovered indicators point to ${iocPhrases.length === 1 ? iocPhrases[0] : (iocPhrases.slice(0, -1).join(", ") + " and " + iocPhrases.slice(-1)[0])}.`
+      );
+    } else {
+      invParas.push("No infrastructure indicators were recovered from this artifact — the payload contained no reachable URLs, IPs, or domains within the analysed bytes.");
+    }
+
+    // How
+    const howBits = [];
+    if (topTechniques.length) howBits.push(`MITRE ATT&CK maps to ${topTechniques.join(", ")}`);
+    if (lolbins.length) howBits.push(`with the following LOLBin usage observed: ${lolbins.join(", ")}`);
+    if (howBits.length) invParas.push(_cap(howBits.join(", ")) + ".");
+    else if (technical.chain_ids.length) invParas.push(`The artifact was decoded through ${technical.chain_ids.join(" → ")}.`);
+
+    // Why (explainability)
+    if (topReasons.length) {
+      invParas.push(
+        `The verdict severity is grounded in: ` + topReasons.join("; ") + "."
+      );
+    } else if (executive.because.length) {
+      invParas.push(
+        `Supporting rationale: ` + executive.because.slice(0, 3).map((b) => typeof b === "string" ? b : (b?.reason || String(b))).join("; ") + "."
+      );
+    }
+  }
 
   const narrative = {
-    when: created
-      ? new Date(created).toISOString().replace("T", " ").slice(0, 19) + " UTC"
-      : "Observed at the moment the artifact was submitted to the platform.",
-    what: [
-      executive.verdict !== "—" ? `Verdict: ${executive.verdict}` : null,
-      executive.primary_finding,
-      executive.recovered_behavior,
-      technical.detectedType,
-    ].filter(Boolean).join(" · ") || "Artifact processed; see Technical Analysis for detail.",
-    why: contributors.length
-      ? contributors.slice(0, 5).map((c) => c.reason || c.rule || String(c)).join(" · ")
-      : executive.because.length
-        ? executive.because.slice(0, 3).join(" · ")
-        : "No explainability contributors surfaced; see Technical Analysis for the raw signal.",
-    where: whereBits.length ? whereBits.join(" · ") : "No infrastructure indicators recovered from this artifact.",
-    how: howBits.length
-      ? howBits.join(" · ")
-      : (technical.chain_ids.length
-          ? `Decoded through ${technical.chain_ids.join(" → ")}.`
-          : "Decoded and analysed by the deterministic engine."),
+    executive_paragraphs: execParas,
+    investigation_paragraphs: invParas,
+    when: whenPhrase || "at the moment of submission",
+    what: [executive.verdict, executive.primary_finding, technical.detectedType].filter(Boolean).join(" · "),
+    why: topReasons.join(" · ") || executive.because.slice(0, 3).map((b) => typeof b === "string" ? b : String(b)).join(" · "),
+    where: iocPhrases.join(" · "),
+    how: [...topTechniques, ...lolbins.map((l) => `LOLBin: ${l}`)].join(" · "),
   };
 
   // Mitigation — prefer backend recommendations (Workspace/MDR path), else
