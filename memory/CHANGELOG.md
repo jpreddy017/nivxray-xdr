@@ -3,6 +3,70 @@
 Chronological record of significant releases (newest first).
 
 
+## 2026-02-28 · ADR-0013 · Unified Investigation Pipeline UI (slice-1)
+
+**Governance:** `/app/memory/adr/0013-unified-investigation-ui.md`
+**Threshold met:** Operator directive (2026-02-28) — move Lab sidebar
+sections below the input box, populate on Investigate click, unify
+Lab + Workspace on a single output contract, include
+When/What/Why/Where/How narrative + mitigations, all deterministic.
+
+**What changed (frontend only, no backend contract change):**
+- **New shared component** `/app/frontend/src/components/InvestigationPipeline.jsx`
+  — renders 10 collapsible sections in a frozen order:
+  1. Executive Summary · 2. Technical Analysis · 3. Threat Intelligence
+  · 4. OSINT Enrichment · 5. IOCs · 6. MITRE ATT&CK · 7. Investigation
+  Timeline · 8. Investigation Summary (When/What/Why/Where/How) ·
+  9. Mitigation · 10. Raw Evidence.
+- **New pure client-side synthesiser**
+  `/app/frontend/src/lib/investigationSynthesizer.js` — deterministic;
+  reads `/api/decode/smart` or `/api/v2/auto-investigate` responses
+  verbatim. No LLM. Verdict/severity/confidence/ATT&CK/IOCs are read,
+  not re-derived.
+- **Deterministic narrative composer** — When/What/Why/Where/How
+  built from `verdict_card.explainability.contributors` + `iocs` +
+  `mitre` + decode chain.
+- **Static MITRE→mitigation map** — ~11 top techniques (T1059.001,
+  T1027, T1105, T1140, T1071.001, T1218.010, T1218.005, T1218.011,
+  T1053.005, T1197, T1059.005) with concrete SOC actions. Prefers
+  backend `mdr_investigation.recommendations` when present.
+- **Sidebar cleanup** — removed SOON badges from Threat Intelligence,
+  Threat Hunting, Knowledge Base, Reports, History. Sidebar becomes
+  navigation-only (ADR-0013 §2.4).
+- **Lab InvestigatePage rewired** to render `<InvestigationPipeline>`
+  for both `decode/smart` and `auto-investigate` results. Legacy
+  scattered panels removed (~180 lines net-negative).
+
+**OSINT policy (§2.3):** VirusTotal / AbuseIPDB / URLScan / OTX /
+MalwareBazaar / ThreatFox / Shodan render as "not configured"
+placeholders. Never errors. Real integrations are slice-2 (require
+API keys via `integration_playbook_expert_v2`).
+
+**Verified end-to-end** on operator's regsvr32 truncated payload
+(via preview REACT_APP_BACKEND_URL):
+- Executive Summary shows Verdict=Partial Decode · Severity=Suspicious
+  · Confidence=low · ADR-0012 partial-decode banner rendered.
+- MITRE section shows T1218.010 + T1071.001.
+- Timeline shows 4 steps: progressive-analysis → IOC → MITRE → Verdict.
+- Investigation Summary populates When/What/Why/Where/How
+  deterministically (Where: "URL: http://192.1", How: MITRE IDs +
+  LOLBin: regsvr32).
+- Mitigation shows 3 cards with concrete actions (regsvr32 controls,
+  web-protocol C2 detection, IOC sweep).
+
+**Explicitly NOT done in this slice:**
+- ❌ Workspace `InvestigationWorkspace.jsx` wiring (deferred; the
+  shared component is designed to drop in without changes).
+- ❌ Real OSINT provider integrations (slice-2).
+- ❌ STIX 2.1 export endpoint (slice-2).
+- ❌ ATT&CK Navigator JSON export endpoint (slice-2).
+- ❌ Optional LLM Analyst Narrative overlay.
+- ❌ Backend contract changes (none — this is UI-only).
+
+**Frontend build:** clean (`yarn build` — no errors, no warnings from
+new files).
+
+
 ## 2026-02-28 · ADR-0012 · Progressive Partial Recovery (slice-1)
 
 **Governance:** `/app/memory/adr/0012-progressive-partial-recovery.md`

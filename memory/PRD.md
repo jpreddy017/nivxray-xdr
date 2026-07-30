@@ -1,5 +1,28 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **ADR-0013 · Unified Investigation Pipeline UI · slice-1 IMPLEMENTED**
+
+### Shipped (frontend-only; no backend contract change)
+- **New shared component** `frontend/src/components/InvestigationPipeline.jsx` — renders 10 collapsible sections in the frozen order: Executive Summary · Technical Analysis · Threat Intelligence · OSINT · IOCs · MITRE ATT&CK · Investigation Timeline · Investigation Summary (When/What/Why/Where/How) · Mitigation · Raw Evidence.
+- **New deterministic synthesiser** `frontend/src/lib/investigationSynthesizer.js` — pure client-side, no LLM. Reads verdict/severity/confidence/ATT&CK/IOCs verbatim from the backend response.
+- **Static MITRE-technique → mitigation map** — ~11 top techniques with concrete SOC actions; prefers backend `mdr_investigation.recommendations` when present.
+- **Sidebar cleanup** — removed SOON badges from Threat Intel / Threat Hunting / Knowledge Base / Reports / History. Sidebar becomes navigation-only.
+- **Lab InvestigatePage rewired** to use `<InvestigationPipeline>` for both `/decode/smart` and `/v2/auto-investigate` results.
+
+### Verified on operator's regsvr32 partial-decode payload (preview URL)
+- Executive Summary: Verdict=Partial Decode · Severity=Suspicious · Confidence=low · ADR-0012 banner rendered.
+- MITRE: T1218.010 + T1071.001.
+- Timeline: 4 steps (progressive-analysis → IOC → MITRE → Verdict).
+- Investigation Summary: When/What/Why/Where/How all populated deterministically.
+- Mitigation: 3 cards with concrete actions (regsvr32 controls, web-protocol C2, IOC sweep).
+
+### Explicitly NOT done in this slice
+- ❌ Workspace `InvestigationWorkspace.jsx` wiring (component is drop-in ready).
+- ❌ Live OSINT provider integrations — VirusTotal / AbuseIPDB / URLScan / OTX / MalwareBazaar / ThreatFox / Shodan render "not configured" placeholders. Slice-2 territory.
+- ❌ STIX 2.1 export + ATT&CK Navigator JSON export endpoints.
+- ❌ Optional LLM Analyst Narrative overlay.
+
+
 ## 2026-02-28 · **ADR-0012 · Progressive Partial Recovery · slice-1 IMPLEMENTED**
 
 ### Shipped (evidence-based; not speculative)

@@ -11,11 +11,11 @@ import api from "../../lib/api";
 const SECTIONS = [
   { key: "dashboard",      to: "/nivxforge/dashboard",      label: "Dashboard",         hint: "Overview & metrics" },
   { key: "investigate",    to: "/nivxforge/investigate",    label: "Investigate",       hint: "Decode · Verdict · IOCs" },
-  { key: "threat-intel",   to: "/nivxforge/threat-intel",   label: "Threat Intelligence", hint: "IOC & infra lookup", placeholder: true },
-  { key: "hunting",        to: "/nivxforge/hunting",        label: "Threat Hunting",    hint: "IOC / YARA / ATT&CK search", placeholder: true },
-  { key: "knowledge",      to: "/nivxforge/knowledge",      label: "Knowledge Base",    hint: "Families · LOLBAS · ATT&CK", placeholder: true },
-  { key: "reports",        to: "/nivxforge/reports",        label: "Reports",           hint: "SOC · IR · Executive", placeholder: true },
-  { key: "history",        to: "/nivxforge/history",        label: "History",           hint: "Previous investigations", placeholder: true },
+  { key: "threat-intel",   to: "/nivxforge/threat-intel",   label: "Threat Intelligence", hint: "IOC & infra lookup" },
+  { key: "hunting",        to: "/nivxforge/hunting",        label: "Threat Hunting",    hint: "IOC / YARA / ATT&CK search" },
+  { key: "knowledge",      to: "/nivxforge/knowledge",      label: "Knowledge Base",    hint: "Families · LOLBAS · ATT&CK" },
+  { key: "reports",        to: "/nivxforge/reports",        label: "Reports",           hint: "SOC · IR · Executive" },
+  { key: "history",        to: "/nivxforge/history",        label: "History",           hint: "Previous investigations" },
   { key: "governance",     to: "/nivxforge/governance",     label: "Governance",        hint: "Registry · ADRs · Corpus" },
 ];
 

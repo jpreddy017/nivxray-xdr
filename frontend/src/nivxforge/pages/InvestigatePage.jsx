@@ -14,14 +14,10 @@
  * logic, or backend behaviour is introduced by this file. See
  * /app/memory/adr/0006-nivxforge-first-class-analyst-platform.md §2.1.
  */
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import NivxForgeLayout from "../components/NivxForgeLayout";
-import VerdictCard from "../../components/VerdictCard";
-import OutputView from "../../components/OutputView";
-import TIShieldPanel from "../../components/TIShieldPanel";
-import { InvestigationBrainPanel } from "../../components/investigation/InvestigationBrainPanel";
 import InputToolbar from "../../components/InputToolbar";
-import CIMInvestigation from "../cim/CIMInvestigation";
+import InvestigationPipeline from "../../components/InvestigationPipeline";
 import api from "../../lib/api";
 
 const S = {
@@ -59,7 +55,6 @@ const S = {
     textTransform: "uppercase", cursor: "pointer",
   },
   btnDisabled: { opacity: 0.4, cursor: "not-allowed" },
-  file: { fontSize: 12, color: "var(--text-secondary, #94a3b8)", fontFamily: "ui-monospace" },
   focusInput: {
     background: "var(--bg, #020617)", color: "var(--text, #e2e8f0)",
     border: "1px solid var(--border, #1e293b)", borderRadius: 5, padding: "8px 10px",
@@ -74,95 +69,7 @@ const S = {
   section: { marginTop: 22 },
   err: { color: "#f87171", fontSize: 13, marginTop: 8, fontFamily: "ui-monospace" },
   loading: { color: "var(--text-secondary, #94a3b8)", fontSize: 13, marginTop: 8, fontFamily: "ui-monospace" },
-  chipStrip: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 },
-  chip: {
-    display: "inline-block", padding: "3px 8px", borderRadius: 10, fontSize: 11,
-    border: "1px solid var(--border, #1e293b)", color: "var(--text, #e2e8f0)",
-    fontFamily: "ui-monospace",
-  },
-  listCard: {
-    background: "var(--panel, #0f172a)", border: "1px solid var(--border, #1e293b)",
-    borderRadius: 10, padding: 16,
-  },
-  kv: { display: "grid", gridTemplateColumns: "minmax(180px, max-content) 1fr", rowGap: 4, columnGap: 16, fontSize: 12, fontFamily: "ui-monospace" },
-  kvLabel: { color: "var(--text-secondary, #94a3b8)" },
-  kvVal: { color: "var(--text, #e2e8f0)" },
 };
-
-function extractIocList(iocs) {
-  if (!iocs) return [];
-  if (Array.isArray(iocs)) return iocs;
-  const flat = [];
-  for (const [kind, arr] of Object.entries(iocs)) {
-    if (Array.isArray(arr)) arr.forEach((v) => flat.push({ kind, value: v }));
-  }
-  return flat;
-}
-
-function MitrePanel({ mitre, mitre_v2 }) {
-  const source = mitre_v2 || mitre;
-  if (!source) return null;
-  const techniques = Array.isArray(source?.techniques) ? source.techniques
-                   : Array.isArray(source) ? source
-                   : [];
-  if (techniques.length === 0) return null;
-  return (
-    <div style={S.listCard} data-testid="result-mitre">
-      <div style={S.cardH}>MITRE ATT&CK</div>
-      <div style={S.chipStrip}>
-        {techniques.slice(0, 40).map((t, i) => {
-          const id = t?.id || t?.technique_id || t?.tid || (typeof t === "string" ? t : "");
-          const name = t?.name || t?.technique || "";
-          if (!id && !name) return null;
-          return (
-            <span key={i} style={S.chip} data-testid={`mitre-chip-${id || i}`}>
-              <span style={{ color: "#7dd3fc" }}>{id}</span>{name ? ` · ${name}` : ""}
-            </span>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function IocsPanel({ iocs }) {
-  const list = useMemo(() => extractIocList(iocs), [iocs]);
-  if (list.length === 0) return null;
-  const grouped = list.reduce((acc, it) => {
-    (acc[it.kind] = acc[it.kind] || []).push(it.value); return acc;
-  }, {});
-  return (
-    <div style={S.listCard} data-testid="result-iocs">
-      <div style={S.cardH}>Extracted IOCs ({list.length})</div>
-      <div style={S.kv}>
-        {Object.entries(grouped).map(([kind, values]) => (
-          <>
-            <div key={`k-${kind}`} style={S.kvLabel}>{kind}</div>
-            <div key={`v-${kind}`} style={S.kvVal} data-testid={`ioc-group-${kind}`}>
-              {values.slice(0, 30).join("  ·  ")}
-            </div>
-          </>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BehaviorsPanel({ behaviors }) {
-  if (!Array.isArray(behaviors) || behaviors.length === 0) return null;
-  return (
-    <div style={S.listCard} data-testid="result-behaviors">
-      <div style={S.cardH}>Behaviors</div>
-      <div style={S.chipStrip}>
-        {behaviors.slice(0, 30).map((b, i) => (
-          <span key={i} style={S.chip}>
-            {b?.name || b?.behavior || b?.id || (typeof b === "string" ? b : JSON.stringify(b).slice(0, 60))}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export default function InvestigatePage() {
   const [input, setInput] = useState("");
@@ -219,11 +126,8 @@ export default function InvestigatePage() {
   }, []);
 
   // ─── Result renderers ──────────────────────────────────────────────
-  const decodeResult = mode === "decode" && result ? result : null;
-  const autoResult   = mode === "auto"   && result ? result : null;
-  const brainInvestigation = decodeResult?.investigation;
-  // ADR-0009 · Additive CIM (present on both endpoints).
-  const cimInvestigation = (decodeResult || autoResult)?.investigation || null;
+  // ADR-0013 §2.1 · One shared 10-section pipeline for both decode/smart
+  // and auto-investigate responses.
 
   return (
     <NivxForgeLayout>
@@ -289,173 +193,17 @@ export default function InvestigatePage() {
           </div>
 
           <div style={S.parityBanner} data-testid="investigate-parity-banner">
-            One adaptive action · engine chooses <code>/api/decode/smart</code> or <code>/api/v2/auto-investigate</code> based on input shape (ADR-0009 §2.4). Every result is a Canonical Investigation Model (ADR-0009).
+            One adaptive action · engine chooses <code>/api/decode/smart</code> or <code>/api/v2/auto-investigate</code> based on input shape (ADR-0009 §2.4). Results render through the shared Investigation Pipeline (ADR-0013).
           </div>
 
           {loading ? <div style={S.loading} data-testid="investigate-loading">Analyzing…</div> : null}
           {err ? <div style={S.err} data-testid="investigate-error">{err}</div> : null}
         </div>
 
-        {/* ─── ADR-0009 · Canonical Investigation Model · rendered first ─── */}
-        {cimInvestigation ? (
-          <CIMInvestigation investigation={cimInvestigation} />
-        ) : null}
-
-        {/* ─── Result columns ─────────────────────────────────────────── */}
-        {decodeResult ? (
-          <div data-testid="investigate-result-decode">
-            {decodeResult.verdict_card ? (
-              <div style={S.section}><VerdictCard verdict={decodeResult.verdict_card} testidPrefix="verdict-decode" /></div>
-            ) : null}
-
-            {decodeResult.output != null ? (
-              <div style={S.section}>
-                <OutputView input={input} output={decodeResult.output} />
-              </div>
-            ) : null}
-
-            {decodeResult.ti_shield ? (
-              <div style={S.section}><TIShieldPanel layers={decodeResult.ti_shield} /></div>
-            ) : null}
-
-            <div style={S.section}><IocsPanel iocs={decodeResult.iocs} /></div>
-            <div style={S.section}><MitrePanel mitre={decodeResult.mitre} mitre_v2={decodeResult.mitre_v2} /></div>
-            <div style={S.section}><BehaviorsPanel behaviors={decodeResult.behaviors} /></div>
-
-            {brainInvestigation ? (
-              <div style={S.section}>
-                <InvestigationBrainPanel investigation={brainInvestigation} />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {autoResult ? (
-          <div data-testid="investigate-result-auto">
-            {/* Executive Card — the canonical auto-investigate verdict surface */}
-            {autoResult.executive_card ? (() => {
-              const ec = autoResult.executive_card;
-              return (
-                <div style={{ ...S.listCard, marginTop: 22 }} data-testid="auto-executive-card">
-                  <div style={S.cardH}>Executive Verdict</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: /malicious/i.test(ec.verdict_pretty || ec.verdict || "") ? "#f87171" : "#facc15" }}>
-                    {ec.verdict_pretty || ec.verdict} · confidence {ec.confidence ?? "—"}%
-                  </div>
-                  {ec.what_happened?.primary_finding ? (
-                    <div style={{ marginTop: 10, fontSize: 13, color: "var(--text, #e2e8f0)" }}>
-                      <strong>Primary finding:</strong> {ec.what_happened.primary_finding}
-                    </div>
-                  ) : null}
-                  {ec.what_happened?.recovered_behavior ? (
-                    <div style={{ marginTop: 6, fontSize: 13, color: "var(--text, #e2e8f0)" }}>
-                      <strong>Recovered behavior:</strong> {ec.what_happened.recovered_behavior}
-                    </div>
-                  ) : null}
-                  {Array.isArray(ec.because) && ec.because.length ? (
-                    <div style={{ marginTop: 10 }}>
-                      <div style={S.cardH}>Because</div>
-                      <ul style={{ paddingLeft: 20, fontSize: 13, color: "var(--text, #e2e8f0)", lineHeight: 1.7 }}>
-                        {ec.because.map((b, i) => <li key={i}>{b}</li>)}
-                      </ul>
-                    </div>
-                  ) : null}
-                  {Array.isArray(ec.evidence?.positive) && ec.evidence.positive.length ? (
-                    <div style={{ marginTop: 10 }}>
-                      <div style={S.cardH}>Evidence</div>
-                      <ul style={{ paddingLeft: 20, fontSize: 12, color: "var(--text-secondary, #94a3b8)", lineHeight: 1.7 }}>
-                        {ec.evidence.positive.slice(0, 12).map((e, i) => <li key={i} style={{ color: "#4ade80" }}>{e}</li>)}
-                      </ul>
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })() : null}
-
-            {/* Final Incident Summary — MITRE + IOCs + classification */}
-            {autoResult.final_incident_summary ? (() => {
-              const fis = autoResult.final_incident_summary;
-              return (
-                <>
-                  <div style={{ ...S.listCard, marginTop: 22 }} data-testid="auto-classification">
-                    <div style={S.cardH}>Classification</div>
-                    <div style={{ fontSize: 15, color: "var(--text, #e2e8f0)" }}>
-                      {fis.classification || "—"} · severity <strong>{fis.severity || "—"}</strong> · verdict <strong>{fis.verdict || "—"}</strong>
-                    </div>
-                    {Array.isArray(fis.executive_summary) && fis.executive_summary.length ? (
-                      <div style={{ marginTop: 10, fontSize: 13, color: "var(--text-secondary, #94a3b8)", lineHeight: 1.6 }}>
-                        {fis.executive_summary.map((p, i) => <p key={i}>{p}</p>)}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {Array.isArray(fis.mitre_attack) && fis.mitre_attack.length ? (
-                    <div style={{ ...S.listCard, marginTop: 18 }} data-testid="auto-mitre">
-                      <div style={S.cardH}>MITRE ATT&CK ({fis.mitre_attack.length})</div>
-                      <div style={S.chipStrip}>
-                        {fis.mitre_attack.map((t, i) => (
-                          <span key={i} style={S.chip}>
-                            <span style={{ color: "#7dd3fc" }}>{t.id}</span> · {t.technique}
-                            {t.tactic ? <span style={{ opacity: 0.7 }}> · {t.tactic}</span> : null}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div style={{ marginTop: 18 }}><IocsPanel iocs={fis.iocs} /></div>
-                </>
-              );
-            })() : null}
-
-            {/* Investigation Narrative */}
-            {autoResult.investigation_narrative?.narrative ? (
-              <div style={{ ...S.listCard, marginTop: 22 }} data-testid="auto-narrative">
-                <div style={S.cardH}>Investigation Narrative</div>
-                <div style={{ fontSize: 13, color: "var(--text, #e2e8f0)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
-                  {autoResult.investigation_narrative.narrative}
-                </div>
-              </div>
-            ) : null}
-
-            {/* Decode Pipeline chains — show recovered/decoded commands */}
-            {Array.isArray(autoResult.decode_pipeline?.chains) && autoResult.decode_pipeline.chains.length ? (
-              <div style={{ ...S.listCard, marginTop: 18 }} data-testid="auto-decode-chains">
-                <div style={S.cardH}>Decode Chains ({autoResult.decode_pipeline.chains.length})</div>
-                {autoResult.decode_pipeline.chains.map((ch, i) => (
-                  <div key={i} style={{ marginTop: i ? 12 : 0, fontFamily: "ui-monospace", fontSize: 12 }}>
-                    <div style={{ color: "var(--text-secondary, #94a3b8)" }}>#{ch.index} · {ch.binary} · {ch.layers?.length || 0} layers</div>
-                    <div style={{ marginTop: 4, color: "var(--text, #e2e8f0)", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
-                      {(ch.command_line || "").slice(0, 220)}{(ch.command_line || "").length > 220 ? "…" : ""}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {/* MDR Investigation escalation & recommendations */}
-            {autoResult.mdr_investigation ? (() => {
-              const m = autoResult.mdr_investigation;
-              return (
-                <div style={{ ...S.listCard, marginTop: 18 }} data-testid="auto-mdr">
-                  <div style={S.cardH}>MDR Escalation</div>
-                  {m.escalation ? (
-                    <div style={{ fontSize: 13, color: "var(--text, #e2e8f0)" }}>
-                      Decision: <strong>{m.escalation.decision}</strong> · confidence {m.escalation.confidence}% — {m.escalation.reason}
-                    </div>
-                  ) : null}
-                  {Array.isArray(m.recommendations) && m.recommendations.length ? (
-                    <div style={{ marginTop: 10 }}>
-                      <div style={S.cardH}>Recommendations</div>
-                      <ul style={{ paddingLeft: 20, fontSize: 12, color: "var(--text-secondary, #94a3b8)", lineHeight: 1.7 }}>
-                        {m.recommendations.slice(0, 8).map((r, i) => (
-                          <li key={i}>[{r.severity}] <strong>{r.title}</strong> — {r.why}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })() : null}
+        {/* ─── ADR-0013 · Shared 10-section Investigation Pipeline ─── */}
+        {result ? (
+          <div style={S.section} data-testid={`investigate-result-${mode}`}>
+            <InvestigationPipeline result={result} />
           </div>
         ) : null}
       </div>
