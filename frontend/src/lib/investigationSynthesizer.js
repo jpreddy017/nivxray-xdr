@@ -26,6 +26,206 @@
  *   otherwise falls back to the static MITRE-technique map below.
  */
 
+// ─── ADR-0013 §2.2 · Deterministic Narrative Engine (Path B) ─────────────
+//
+// Composable evidence-block architecture (operator-approved 2026-02-28):
+//   opening → execution → obfuscation → network → payload_stage →
+//   persistence → credential → malware_context → risk_assessment →
+//   recommendations
+//
+// Each block has multiple variants selected by observable evidence. Empty
+// blocks are dropped. The result is combinatorial variation — the same
+// payload family produces the same prose (deterministic invariant), but
+// two payloads with different evidence produce genuinely different prose.
+// No LLM, no template placeholders, no rule IDs leaking to prose.
+
+const NARRATIVE_BLOCKS = {
+  // ── OPENING ──────────────────────────────────────────────────────────
+  opening: (ev) => {
+    const when = ev.whenPhrase ? `On ${ev.whenPhrase}` : "During this investigation";
+    const artifact = ev.artifactPhrase;
+    if (ev.partial) {
+      return `${when}, NivXRay analyzed ${artifact} that decoded partially before the byte stream became unreadable.`;
+    }
+    if (ev.observedBehavior) {
+      return `${when}, NivXRay analyzed ${artifact} that decoded into a command which ${ev.observedBehavior}.`;
+    }
+    if (ev.detectedTypeLabel) {
+      return `${when}, NivXRay analyzed ${artifact} and identified it as ${ev.detectedTypeLabel}.`;
+    }
+    return `${when}, NivXRay analyzed ${artifact} and processed it through the deterministic decoding pipeline.`;
+  },
+
+  // ── EXECUTION ────────────────────────────────────────────────────────
+  execution: (ev) => {
+    const t = (ev.decodedText || "").toLowerCase();
+    const lolbin = (lolbinName(ev.lolbins[0]) || "").toLowerCase();
+    if (/regsvr32/.test(lolbin)) {
+      return "The command uses regsvr32.exe with /i:<remote_script> arguments — a signed-binary proxy pattern (Squiblydoo) that bypasses application-control defences by executing scriptlet content under a Microsoft-signed binary.";
+    }
+    if (/mshta/.test(lolbin)) {
+      return "The command invokes mshta.exe against a remote script — a signed-binary proxy pattern that executes HTA/JScript payloads outside browser sandboxing.";
+    }
+    if (/rundll32/.test(lolbin)) {
+      return "The command invokes rundll32.exe to proxy DLL execution — a signed-binary proxy pattern that shifts execution to a Microsoft-signed loader.";
+    }
+    if (/bitsadmin/.test(lolbin)) {
+      return "The command uses bitsadmin.exe to transfer content — an intelligent-background-transfer abuse pattern that bypasses many user-agent-based egress controls.";
+    }
+    if (/certutil/.test(lolbin)) {
+      return "The command uses certutil.exe outside its intended cryptographic role — most commonly to download or decode a follow-on payload.";
+    }
+    if (/wmic/.test(t) || /wmic/.test(lolbin)) {
+      return "The command uses wmic.exe to execute WMI queries or spawn processes — a common lateral-movement or discovery pattern.";
+    }
+    if (ev.detectedTypeLabel && /encoded/i.test(ev.detectedTypeLabel)) {
+      return "The command uses PowerShell's -EncodedCommand parameter, which conceals the underlying script content from command-line-based detections until decoding.";
+    }
+    if (/powershell/.test(t) || /powershell/.test(ev.detectedTypeLabel || "")) {
+      return "The command executes under powershell.exe, PowerShell's interpreter for scripts and inline expressions.";
+    }
+    if (/wscript|cscript|\.vbs/.test(t)) {
+      return "The command runs under Windows Script Host (wscript.exe or cscript.exe), executing VBScript or JScript content.";
+    }
+    return null;
+  },
+
+  // ── OBFUSCATION ──────────────────────────────────────────────────────
+  obfuscation: (ev) => {
+    const clauses = [];
+    const has = (name) => ev.mitreIds.some((id) => id === name || id.startsWith(name + "."));
+    if (has("T1027.010") || /encoded/i.test(ev.detectedTypeLabel || "")) clauses.push("Base64 encoding of the command line");
+    if (/utf-?16/i.test(ev.detectedTypeLabel || "") || /-encodedcommand/i.test(ev.decodedText || "")) clauses.push("UTF-16LE string encoding, which is the standard PowerShell -EncodedCommand format");
+    if (has("T1140")) clauses.push("runtime deobfuscation of the payload before execution");
+    if (has("T1027.002")) clauses.push("packing of the executable content");
+    if (!clauses.length) return null;
+    if (clauses.length === 1) return `The artifact uses ${clauses[0]} to conceal its intent from static command-line signatures.`;
+    return `The artifact combines ${clauses.slice(0, -1).join(", ")} and ${clauses.slice(-1)} to conceal its intent from static command-line signatures.`;
+  },
+
+  // ── NETWORK ──────────────────────────────────────────────────────────
+  network: (ev) => {
+    const parts = [];
+    if (ev.url0) parts.push(`the URL ${ev.url0}`);
+    if (ev.ip0) parts.push(`the IP address ${ev.ip0}`);
+    if (ev.domain0 && !ev.url0?.includes(ev.domain0)) parts.push(`the domain ${ev.domain0}`);
+    if (parts.length) {
+      const list = parts.length === 1 ? parts[0] : (parts.slice(0, -1).join(", ") + " and " + parts.slice(-1));
+      return `Network indicators recovered from the payload include ${list}. These should be treated as active investigation leads until proven benign.`;
+    }
+    if (ev.partial) {
+      return "No outbound infrastructure was recoverable from the readable bytes; if the corrupted portion contained a URL, it did not survive into the analysable prefix.";
+    }
+    return "No outbound network indicators were recovered from the analysed bytes.";
+  },
+
+  // ── PAYLOAD STAGE ────────────────────────────────────────────────────
+  payload_stage: (ev) => {
+    const t = (ev.decodedText || "").toLowerCase();
+    const has = (name) => ev.mitreIds.some((id) => id === name || id.startsWith(name + "."));
+    const dl = /downloadstring|invoke-webrequest|iwr\b|wget\b|curl\b|bitsadmin\b|certutil.*-urlcache/i.test(t);
+    const iex = /\biex\b|invoke-expression/i.test(t);
+    if (dl && iex) {
+      return "The command implements a classic download-and-execute staging workflow: it retrieves a follow-on script over HTTP(S) and evaluates it in memory via Invoke-Expression, avoiding a payload on disk.";
+    }
+    if (dl && !iex) {
+      return "The command retrieves a follow-on payload from a remote host; whether that payload is executed on-host depends on the recovered script and downstream behaviour on the endpoint.";
+    }
+    if (has("T1105") && !dl) {
+      return "The behaviour maps to ingress tool transfer (T1105): the payload is designed to bring additional content into the environment for later execution.";
+    }
+    if (iex && !dl) {
+      return "The command evaluates dynamically-constructed content via Invoke-Expression, executing code that is not visible in the command line itself.";
+    }
+    return null;
+  },
+
+  // ── PERSISTENCE ──────────────────────────────────────────────────────
+  persistence: (ev) => {
+    const has = (name) => ev.mitreIds.some((id) => id === name || id.startsWith(name + "."));
+    const bits = [];
+    if (has("T1053")) bits.push("Scheduled Task creation (T1053) suggests attacker intent to persist across reboots");
+    if (has("T1547.001")) bits.push("Run-key modification (T1547.001) indicates a per-user autostart persistence attempt");
+    if (has("T1543")) bits.push("Service creation or modification (T1543) points to system-level persistence");
+    if (has("T1136")) bits.push("Local account creation (T1136) is consistent with a persistence-and-access-preservation objective");
+    if (bits.length) return bits.join(". ") + ".";
+    if (ev.mitreIds.length > 0) return "No persistence behaviour was recovered from the analysed content.";
+    return null;
+  },
+
+  // ── CREDENTIAL ACCESS ────────────────────────────────────────────────
+  credential: (ev) => {
+    const has = (name) => ev.mitreIds.some((id) => id === name || id.startsWith(name + "."));
+    const bits = [];
+    if (has("T1003")) bits.push("OS-credential-dumping activity (T1003) was recovered — LSASS or SAM access should be assumed");
+    if (has("T1555")) bits.push("Credential store access (T1555) suggests browser/password-manager targeting");
+    if (has("T1552")) bits.push("Credentials-in-files access (T1552) indicates an unattended-credentials hunt");
+    if (bits.length) return bits.join(". ") + ".";
+    return null;
+  },
+
+  // ── MALWARE CONTEXT ──────────────────────────────────────────────────
+  malware_context: (ev) => {
+    if (ev.familyName) {
+      return `The decoder chain structurally matched ${ev.familyName}-family tradecraft. Family match is a structural signal — it means the artifact resembles known ${ev.familyName} samples, not a definitive identification.`;
+    }
+    return null;
+  },
+
+  // ── RISK ASSESSMENT ──────────────────────────────────────────────────
+  risk_assessment: (ev) => {
+    const tcs = ev.tradecraftClauses;
+    const verdict = ev.verdictWord;
+    const confidence = ev.confidence;
+    const conf = (confidence !== null && confidence !== undefined) ? ` (confidence ${confidence}/100)` : "";
+    if (tcs.length >= 2) {
+      const list = tcs.length === 1 ? tcs[0] : tcs.slice(0, -1).join(", ") + (tcs.length > 2 ? "," : "") + " and " + tcs.slice(-1);
+      return `Because the recovered content combines ${list}, the activity is assessed as ${verdict}${conf} and warrants further investigation.`;
+    }
+    if (tcs.length === 1) {
+      return `Because the recovered content demonstrates ${tcs[0]}, the activity is assessed as ${verdict}${conf} and warrants further investigation.`;
+    }
+    if (ev.partial) {
+      return `Because only a partial recovery was possible, the activity is assessed as ${verdict}${conf}; severity is intentionally capped and derived evidence carries the provenance=partial_recovery label. A definitive assessment is not possible from the readable prefix alone.`;
+    }
+    return `The activity is assessed as ${verdict}${conf}.`;
+  },
+
+  // ── RECOMMENDATIONS ──────────────────────────────────────────────────
+  recommendations: (ev) => {
+    const bits = [];
+    if (ev.url0) bits.push(`Determine whether ${ev.url0} was successfully retrieved or executed on the affected host`);
+    if (ev.ip0) bits.push(`Block outbound communications with ${ev.ip0} at the proxy and DNS layers pending confirmation`);
+    if (ev.lolbins.length) {
+      const lb = [...new Set(ev.lolbins.map(lolbinName).filter(Boolean))].slice(0, 3).join(", ");
+      if (lb) bits.push(`Search endpoint telemetry for additional invocations of ${lb} matching this pattern`);
+    } else if (/powershell|encoded/i.test(ev.decodedText || ev.detectedTypeLabel || "")) {
+      bits.push("Search endpoint telemetry for additional PowerShell -EncodedCommand executions across the fleet");
+    }
+    bits.push("Review proxy, DNS, and EDR telemetry for related hosts communicating with the same infrastructure");
+    if (ev.url0 || ev.lolbins.length) bits.push("Acquire the downloaded payload (if retained) for further malware analysis");
+    if (ev.partial) bits.push("Preserve the original artifact and any surrounding logs — the corrupted portion may be recoverable from a different source");
+    if (!bits.length) return null;
+    return `NivXRay recommends that analysts: ${bits.join("; ")}.`;
+  },
+};
+
+function composeAnalystNarrative(evidence) {
+  const order = [
+    "opening", "execution", "obfuscation", "network", "payload_stage",
+    "persistence", "credential", "malware_context", "risk_assessment",
+    "recommendations",
+  ];
+  const paragraphs = [];
+  for (const key of order) {
+    const fn = NARRATIVE_BLOCKS[key];
+    if (!fn) continue;
+    const out = fn(evidence);
+    if (out && typeof out === "string" && out.length > 0) paragraphs.push(out);
+  }
+  return paragraphs;
+}
+
 // ─── Rule-ID → plain-English humaniser ────────────────────────────────────
 // Internal rule identifiers should NEVER surface in an analyst-facing
 // narrative. This map converts the identifiers we see coming out of the
@@ -112,7 +312,6 @@ function detectObservedBehavior(decodedText, urls, lolbins) {
   const url0 = (urls || [])[0];
   const parts = [];
 
-  // Download primitives.
   const downloadMatch =
     /downloadstring|invoke-webrequest|iwr\s|wget\s|curl\s|bitsadmin\s|certutil.*-urlcache/i.test(lower);
   if (downloadMatch && url0) {
@@ -123,24 +322,65 @@ function detectObservedBehavior(decodedText, urls, lolbins) {
     parts.push(`references the remote resource ${url0}`);
   }
 
-  // Execution primitives.
   if (/\biex\b|invoke-expression/i.test(lower)) {
     parts.push("and executes it in memory via Invoke-Expression");
   } else if (/\.exe\s+/i.test(lower) && (parts.length === 0)) {
     parts.push("invokes an executable directly");
   }
 
-  // LOLBin bypass.
-  const lolbinName = (lolbins || []).map((l) => l?.name).filter(Boolean)[0];
-  if (lolbinName) {
-    if (/regsvr32/i.test(lolbinName)) parts.push("using regsvr32.exe as a signed-binary proxy (Squiblydoo pattern)");
-    else if (/mshta/i.test(lolbinName)) parts.push("using mshta.exe to proxy execution of remote script content");
-    else if (/rundll32/i.test(lolbinName)) parts.push("using rundll32.exe to proxy DLL execution");
-    else parts.push(`using ${lolbinName} as an execution vehicle`);
+  const lbName = (lolbins || []).map(lolbinName).filter(Boolean)[0];
+  if (lbName) {
+    // Suppress the tautological "using powershell as an execution vehicle"
+    // when the artifact itself is already a PowerShell command — the
+    // interpreter is not a "vehicle" in that context.
+    const artifactIsPs = /powershell/i.test(t) || /-enc(odedcommand)?\b/i.test(t);
+    if (/regsvr32/i.test(lbName)) parts.push("using regsvr32.exe as a signed-binary proxy (Squiblydoo pattern)");
+    else if (/mshta/i.test(lbName)) parts.push("using mshta.exe to proxy execution of remote script content");
+    else if (/rundll32/i.test(lbName)) parts.push("using rundll32.exe to proxy DLL execution");
+    else if (/certutil/i.test(lbName)) parts.push("using certutil.exe to fetch and decode the payload");
+    else if (/bitsadmin/i.test(lbName)) parts.push("using bitsadmin.exe to transfer the payload");
+    else if (/powershell/i.test(lbName) && artifactIsPs) {
+      // Skip — PowerShell interpreter is already implied by the artifact type.
+    } else parts.push(`using ${lbName} as an execution vehicle`);
   }
 
   if (!parts.length) return null;
   return parts.join(", ");
+}
+
+// LOLBin display-name helper — real responses put the name in `.binary`
+// but auto-investigate sometimes uses `.name`. Normalise once.
+function lolbinName(l) {
+  if (!l || typeof l !== "object") return null;
+  return String(l.name || l.binary || l.bin || "").replace(/\.exe$/i, "") || null;
+}
+
+// Strip decorative ASCII banners that some backends prepend to `output` /
+// `output_raw` so we don't quote box-drawing characters as if they were
+// the decoded command. Returns the first substantive content block.
+function extractCleanDecodedText(output) {
+  if (!output) return "";
+  const s = String(output);
+  // Remove long runs of box-drawing / dash / equals separators.
+  const cleaned = s.replace(/[━─═\-]{6,}/g, "\n").split("\n").map((l) => l.trim()).filter(Boolean);
+  // If we see a "Normalized Command:" or "Decoded Output:" label, prefer the
+  // value that follows it.
+  for (let i = 0; i < cleaned.length; i++) {
+    if (/^(Normalized Command|Decoded Output|Decoded Command|Recovered Command)\s*:?$/i.test(cleaned[i])) {
+      if (cleaned[i + 1]) return cleaned[i + 1].slice(0, 400);
+    }
+  }
+  // Drop known banner lines.
+  const bannerLine = /^(▼|▲|▶|▼\s*[A-Z ]+|[A-Z][A-Z ]{6,}[A-Z]|Profile:|Original Input:|Base64 decoded|PowerShell -EncodedCommand|CMD RUNTIME|NIVXRAY INVESTIGATION|DECODED OUTPUT)$/;
+  for (const line of cleaned) {
+    if (line.length < 6) continue;
+    if (bannerLine.test(line)) continue;
+    if (/^[▼▲▶◀]\s/.test(line)) continue;
+    // First substantive line wins.
+    return line.slice(0, 400);
+  }
+  // Fallback: return whitespace-collapsed original, capped.
+  return s.replace(/\s+/g, " ").trim().slice(0, 400);
 }
 
 // Extract the family label from decoder chain ids (e.g. "family-emotet" → "Emotet").
@@ -342,11 +582,11 @@ export function synthesize(result) {
   const ec = result.executive_card || {};
   const executive = {
     mode,
-    verdict: vc.verdict_display || ec.verdict_pretty || ec.verdict || vc.verdict || "—",
+    verdict: vc.verdict_display || vc.label || vc.verdict || ec.verdict_pretty || ec.verdict || result.verdict || "—",
     severity: vc.severity_cap || (mode === "auto" ? ec.severity : null) || null,
     confidence: vc.confidence || vc.confidence_band || ec.confidence || null,
     headline: vc.headline || ec.what_happened?.primary_finding || result.detected_type?.label || "Investigation complete",
-    primary_finding: ec.what_happened?.primary_finding || vc.headline || null,
+    primary_finding: ec.what_happened?.primary_finding || vc.headline || vc.reason || null,
     recovered_behavior: ec.what_happened?.recovered_behavior || null,
     because: _asArray(ec.because),
     // ADR-0012 partial-decode flags.
@@ -469,163 +709,85 @@ export function synthesize(result) {
   const contributors = _asArray(explainability.contributors);
   const created = result.created_at || result.timestamp || null;
 
-  // ── MDR-analyst prose composer (ADR-0013 §2.2, evidence-driven) ──────
+  // ── MDR-analyst prose composer (ADR-0013 §2.2 Path B · block engine) ──
   //
-  // Golden target (operator-supplied 2026-02-28):
-  //   A PowerShell command using the -EncodedCommand option was submitted
-  //   for analysis and successfully decoded. The recovered payload attempts
-  //   to download an additional PowerShell script from http://192.168.1.1/p.ps1,
-  //   indicating a staged execution workflow commonly used by malware
-  //   downloaders and post-exploitation tooling. Because the command
-  //   combines PowerShell execution, Base64 obfuscation, and remote
-  //   payload retrieval, the activity is assessed as Suspicious and
-  //   warrants further investigation. The analysis recovered the network
-  //   indicator 192.168.1.1 and mapped the behavior to MITRE ATT&CK
-  //   techniques T1059.001 (PowerShell), T1027.010 (Command Obfuscation),
-  //   and T1105 (Ingress Tool Transfer). Analysts should determine whether
-  //   the remote script was successfully retrieved or executed and search
-  //   the environment for additional systems communicating with the same
-  //   infrastructure.
+  // Deterministic invariants preserved:
+  //   - Verdict, severity, confidence, IOCs, MITRE, LOLBins → read verbatim.
+  //   - Same input → same prose (each block is a pure function of evidence).
+  //   - No LLM. No template placeholders. No rule IDs leak to prose.
   //
-  // Rules (see /app/memory/adr/0013-unified-investigation-ui.md):
-  //   1. NO internal rule IDs in Executive Summary (no `url_in_decoded_output`,
-  //      no `family-emotet`, no chain IDs like `ps-encodedcommand-recovery`).
-  //   2. Every sentence answers an analyst's next question.
-  //   3. Sentences build on each other — a story, not observations.
-  //   4. Actual decoded content and IOCs surface as concrete facts.
+  // Evidence bundle assembled here → passed to composeAnalystNarrative().
 
   const _hasTimestamp = !!created;
   const whenPhrase = _hasTimestamp
     ? new Date(created).toISOString().replace("T", " ").slice(0, 19) + " UTC"
     : null;
-  const whenOpener = whenPhrase ? `On ${whenPhrase}` : "During this investigation";
-  const _cap = (s) => (s && s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
   const url0 = iocs.grouped.urls?.[0] || null;
   const ip0 = iocs.grouped.ips?.[0] || null;
   const domain0 = iocs.grouped.domains?.[0] || null;
   const rawLolbins = _asArray(result.lolbas);
 
-  // MITRE tradecraft phrases (analyst-facing) for the "because" clause.
-  const tradecraftClauses = mitre.techniques.slice(0, 5)
+  // MITRE tradecraft phrases (analyst-facing) — collect per technique id,
+  // then suppress parent-technique phrases when a child sub-technique of
+  // the same family is present to avoid redundant "combines X, Y, and X"
+  // clauses in the risk assessment.
+  const seenIds = mitre.techniques.map((t) => t.id).filter(Boolean);
+  const suppressed = new Set();
+  for (const id of seenIds) {
+    if (/\./.test(id)) suppressed.add(id.split(".")[0]); // T1218.010 → suppress T1218
+  }
+  const tradecraftClauses = mitre.techniques
+    .filter((t) => t.id && !suppressed.has(t.id))
+    .slice(0, 5)
     .map((t) => tradecraftForTechniqueId(t.id))
     .filter(Boolean);
   const uniqueTradecraft = [...new Set(tradecraftClauses)];
 
-  // Analyst-facing MITRE list (id + name) for the "mapped the behavior to" sentence.
   const mitreList = mitre.techniques.slice(0, 6)
     .filter((t) => t.id)
     .map((t) => t.name ? `${t.id} (${t.name})` : t.id);
+  const mitreIds = mitre.techniques.map((t) => t.id).filter(Boolean);
 
-  // Artifact type in analyst language.
   const artifactPhrase = analystArtifactPhrase(technical.detectedType, technical.output);
+  // Strip decorative ASCII banners from `output` before quoting or pattern-matching.
+  const decodedTextClean = extractCleanDecodedText(technical.output_raw || technical.output);
+  const observedBehavior = detectObservedBehavior(decodedTextClean, iocs.grouped.urls, rawLolbins);
+  const familyName = familyFromChain(_asArray(result.chain_ids));
 
-  // Observed behaviour — active-voice description built from the decoded
-  // content, URLs, and any LOLBin usage.
-  const observedBehavior = detectObservedBehavior(technical.output, iocs.grouped.urls, rawLolbins);
+  const evidenceBundle = {
+    whenPhrase,
+    partial: executive.partial,
+    verdictWord: executive.verdict !== "—" ? executive.verdict : "Requires Review",
+    confidence: executive.confidence,
+    severity: executive.severity,
+    artifactPhrase,
+    detectedTypeLabel: technical.detectedType,
+    decodedText: decodedTextClean,
+    url0, ip0, domain0,
+    lolbins: rawLolbins,
+    mitreIds,
+    mitreList,
+    tradecraftClauses: uniqueTradecraft,
+    familyName,
+    observedBehavior,
+  };
 
-  // Severity — analyst-facing verdict word.
-  const severityWord = executive.verdict !== "—" ? executive.verdict : "requiring analyst review";
+  const investigationParagraphs = composeAnalystNarrative(evidenceBundle);
 
-  // ── PARAGRAPH 1 · Detection (What happened, in one sentence) ────────
-  const p1Parts = [];
-  p1Parts.push(`${whenOpener}, NivXRay analyzed ${artifactPhrase}`);
-  if (observedBehavior) {
-    p1Parts.push(`and determined that the recovered payload ${observedBehavior}`);
-  } else if (executive.primary_finding) {
-    p1Parts.push(`and determined that ${executive.primary_finding.replace(/\.$/, "").toLowerCase()}`);
-  } else {
-    p1Parts.push("and successfully processed it through the deterministic decoding pipeline");
-  }
-  const paraDetection = p1Parts.join(" ") + ".";
-
-  // ── PARAGRAPH 2 · Investigation Scope (fixed sentence — what the engine did) ─
-  const paraScope =
-    "This investigation combined deterministic decoding, behavioral analysis, IOC extraction, MITRE ATT&CK mapping, malware family correlation, and explainability.";
-
-  // ── PARAGRAPH 3 · Executive Assessment (why this matters) ──────────
-  let paraAssessment;
-  if (uniqueTradecraft.length >= 2) {
-    const tcList = uniqueTradecraft.slice(0, 3);
-    const tcClause = tcList.length === 1
-      ? tcList[0]
-      : tcList.slice(0, -1).join(", ") + (tcList.length > 2 ? "," : "") + " and " + tcList.slice(-1);
-    paraAssessment =
-      `Because the recovered content combines ${tcClause}, the activity is assessed as ${severityWord}` +
-      `${executive.confidence !== null && executive.confidence !== undefined ? ` (confidence ${executive.confidence}/100)` : ""}` +
-      ` and warrants further investigation.`;
-  } else if (uniqueTradecraft.length === 1) {
-    paraAssessment =
-      `Because the recovered content demonstrates ${uniqueTradecraft[0]}, the activity is assessed as ${severityWord}` +
-      `${executive.confidence !== null && executive.confidence !== undefined ? ` (confidence ${executive.confidence}/100)` : ""}` +
-      ` and warrants further investigation.`;
-  } else {
-    paraAssessment =
-      `The activity is assessed as ${severityWord}` +
-      `${executive.confidence !== null && executive.confidence !== undefined ? ` (confidence ${executive.confidence}/100)` : ""}` +
-      `. ${executive.primary_finding || "See the Investigation Findings below for the supporting evidence."}`;
-  }
-  if (executive.partial) {
-    paraAssessment += ` This is a partial-decode result (${result.cause || vc.cause || "truncated"}); severity is capped and every derived indicator carries provenance=partial_recovery.`;
-  }
-
-  // ── PARAGRAPH 4 · Investigation Findings (the attack narrative) ────
-  const p4Bits = [];
-  if (technical.output && technical.output.length) {
-    const excerpt = technical.output.trim().replace(/\s+/g, " ").slice(0, 200);
-    p4Bits.push(`Analysis recovered the following command: "${excerpt}${technical.output.length > 200 ? "…" : ""}".`);
-  }
-  if (url0) {
-    p4Bits.push(`The payload references the remote resource ${url0}, indicating a staged execution workflow commonly used by malware downloaders and post-exploitation tooling.`);
-  }
-  const indicatorList = [];
-  if (ip0) indicatorList.push(`IP address ${ip0}`);
-  if (domain0 && !url0?.includes(domain0)) indicatorList.push(`domain ${domain0}`);
-  if (indicatorList.length) {
-    p4Bits.push(`The analysis recovered the network indicator${indicatorList.length === 1 ? "" : "s"} ${indicatorList.join(" and ")}.`);
-  } else if (!url0 && !executive.partial) {
-    p4Bits.push("No outbound infrastructure indicators were recovered from the analysed bytes — the payload contained no reachable URLs, IPs, or domains at the point of analysis.");
-  }
-  if (mitreList.length) {
-    p4Bits.push(
-      `The behavior was mapped to MITRE ATT&CK ${mitreList.length === 1 ? "technique" : "techniques"} ${mitreList.slice(0, -1).length ? mitreList.slice(0, -1).join(", ") + ", and " + mitreList.slice(-1) : mitreList[0]}.`
-    );
-  }
-  // Absence of persistence / cred-access — a Cisco-XDR-style callout.
-  const hasPersistence = mitre.techniques.some((t) => /^T1053|^T1547|^T1136|^T1543/.test(t.id || ""));
-  const hasCredAccess = mitre.techniques.some((t) => /^T1003|^T1555|^T1552/.test(t.id || ""));
-  if (mitre.techniques.length > 0 && !hasPersistence && !hasCredAccess) {
-    p4Bits.push("No persistence or credential-access behaviors were identified in the submitted artifact.");
-  }
-  const paraFindings = p4Bits.length
-    ? p4Bits.join(" ")
-    : "The submitted artifact was processed through the deterministic decoding pipeline; see the Technical Analysis and Raw Evidence sections for the underlying signals.";
-
-  // ── PARAGRAPH 5 · Analyst Recommendations (evidence-driven prose) ───
-  const recBits = [];
-  if (url0) recBits.push(`Determine whether ${url0} was successfully retrieved or executed on the affected host.`);
-  if (rawLolbins.length) recBits.push(`Search endpoint telemetry for additional invocations of ${rawLolbins.map((l) => l?.name).filter(Boolean).slice(0, 3).join(", ")} matching this pattern.`);
-  else if (/powershell|encodedcommand/i.test(technical.output || technical.detectedType || ""))
-    recBits.push("Search endpoint telemetry for additional PowerShell -EncodedCommand executions across the fleet.");
-  if (ip0) recBits.push(`Block outbound communications with ${ip0} at the proxy and DNS layers pending further investigation.`);
-  recBits.push("Review proxy, DNS, and EDR telemetry for related hosts and any lateral spread of the same infrastructure.");
-  if (url0 || rawLolbins.length) recBits.push("Acquire the downloaded payload (if available) for further malware analysis.");
-  const paraRecs =
-    "NivXRay recommends that analysts: " +
-    recBits.map((r) => r.trim().replace(/\.$/, "")).join("; ") + ".";
-
-  const invParas = [paraDetection, paraScope, paraAssessment, paraFindings, paraRecs];
-
-  // Executive Summary = first 3 paragraphs (Detection · Scope · Assessment).
-  // Findings + Recommendations live in the Investigation Summary section.
-  const execParas = [paraDetection, paraScope, paraAssessment];
+  // Executive Summary = Opening + Risk Assessment (compact, high-signal).
+  // Investigation Summary = full block sequence (detailed narrative).
+  const executiveParagraphs = [
+    NARRATIVE_BLOCKS.opening(evidenceBundle),
+    NARRATIVE_BLOCKS.risk_assessment(evidenceBundle),
+  ].filter(Boolean);
 
   const narrative = {
-    executive_paragraphs: execParas,
-    investigation_paragraphs: invParas,
+    executive_paragraphs: executiveParagraphs,
+    investigation_paragraphs: investigationParagraphs,
     when: whenPhrase || "at the moment of submission",
-    what: paraDetection,
-    why: paraAssessment,
+    what: NARRATIVE_BLOCKS.opening(evidenceBundle),
+    why: NARRATIVE_BLOCKS.risk_assessment(evidenceBundle),
     where: [url0, ip0, domain0].filter(Boolean).join(" · "),
     how: mitreList.join(" · "),
   };

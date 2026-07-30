@@ -1,5 +1,27 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **ADR-0013 · Deterministic Narrative Engine (Path B) · slice-3 IMPLEMENTED**
+
+### The problem I solved
+Operator feedback (2026-02-28): the summary must read like a real MDR analyst wrote it AND be genuinely different per input — not the same template shape with different values. Explicitly rejected an LLM overlay; deterministic-first must be preserved.
+
+### Shipped (frontend-only)
+- **Composable evidence-block engine** in `investigationSynthesizer.js` — 10 pure functions (opening / execution / obfuscation / network / payload_stage / persistence / credential / malware_context / risk_assessment / recommendations). Empty blocks are dropped; combinatorial variation emerges from evidence.
+- **Tradecraft dictionary** — ATT&CK ID → analyst phrase ("T1218.010" → "regsvr32 signed-binary proxy execution").
+- **Observed-behaviour detector** — active-voice "attempts to download / and executes / using X as signed-binary proxy" from decoded content + URLs + LOLBins.
+- **Banner stripper** for `output_raw` — quotes the actual recovered command, not box-drawing decoration.
+- **Parent-technique dedup** — T1218.010 suppresses T1218 in tradecraft clauses.
+- **Tautology suppression** — no "using powershell as execution vehicle" when artifact is already PowerShell.
+- **Field normalisation** — LOLBins accept both `.name` and `.binary`; verdict falls through multiple carrier fields.
+
+### Verified per-input variation (4 payloads, live preview)
+Each produces genuinely different Executive + Investigation Summary prose — same architecture, different evidence → different words. Full transcripts in `/app/memory/CHANGELOG.md`.
+
+### Explicitly deferred
+- ❌ Tier-3 optional LLM Analyst Narrative overlay (operator directive: Path B first, LLM later as strict overlay if enabled).
+- ❌ P2 History persistence, P3 STIX/Navigator exports, P4 live OSINT — unchanged priority.
+
+
 ## 2026-02-28 · **ADR-0013 · Workspace wired to shared Pipeline · slice-2 IMPLEMENTED**
 
 ### Shipped (frontend-only, additive)

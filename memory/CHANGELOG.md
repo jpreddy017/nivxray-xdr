@@ -3,6 +3,71 @@
 Chronological record of significant releases (newest first).
 
 
+## 2026-02-28 · ADR-0013 · Deterministic Narrative Engine (Path B, slice-3)
+
+**Governance:** `/app/memory/adr/0013-unified-investigation-ui.md`
+**Operator directive (2026-02-28):** the summary must read like a real
+MDR analyst wrote it, not a tool, AND must be genuinely different per
+input — not the same template shape with different values. Operator
+explicitly rejected any LLM overlay for now; deterministic-first
+architecture is preserved.
+
+**What changed (frontend-only, no backend contract change):**
+- `/app/frontend/src/lib/investigationSynthesizer.js` — replaced the
+  paragraph-glue composer with a **composable evidence-block engine**.
+  Ten blocks — opening · execution · obfuscation · network ·
+  payload_stage · persistence · credential · malware_context ·
+  risk_assessment · recommendations. Each block is a pure function of
+  the evidence bundle; empty blocks are dropped; per-input
+  combinatorial variation emerges from evidence, not templates.
+- New tradecraft dictionary (`MITRE_TRADECRAFT`) — maps ATT&CK
+  technique IDs to short analyst-facing phrases used in the "because
+  the recovered content combines X, Y, and Z" clause.
+- New `detectObservedBehavior()` — derives the active-voice "attempts
+  to download / and executes / using regsvr32 as signed-binary proxy"
+  phrasing from decoded content + URLs + LOLBins.
+- New `extractCleanDecodedText()` — strips decorative ASCII banners
+  from `output_raw` before the composer quotes it (fixes a bug where
+  the recovered-command excerpt showed box-drawing chars instead of
+  the actual command).
+- Parent-technique tradecraft deduplication — when T1218.010 (regsvr32)
+  is present, its parent T1218 (generic signed-binary proxy) is
+  suppressed so we don't say "combines regsvr32 signed-binary proxy
+  execution, remote payload retrieval, and signed-binary proxy
+  execution".
+- Suppresses tautological "using powershell as execution vehicle"
+  when the artifact itself is a PowerShell command.
+- LOLBin normalisation supports both `.name` and `.binary` fields
+  (real backend uses `.binary`).
+- Verdict extraction now falls through `verdict_card.verdict_display →
+  .label → .verdict → executive_card.verdict → result.verdict`.
+
+**Verified per-input variation (live preview, four cases):**
+- PS `-EncodedCommand` + IEX download → "combines PowerShell execution,
+  Base64 obfuscation, and remote payload retrieval" · Emotet-family
+  structural match · sweep for PS-EncodedCommand.
+- regsvr32 Squiblydoo → "regsvr32.exe with /i:<remote_script> — a
+  signed-binary proxy pattern (Squiblydoo)" · sweep for regsvr32.
+- mshta remote HTA → "mshta.exe against a remote script — executes
+  HTA/JScript payloads outside browser sandboxing" · sweep for mshta.
+- certutil URL cache → "certutil.exe outside its intended
+  cryptographic role" · sweep for certutil.
+
+All four cases share the same block architecture but produce genuinely
+different prose because the evidence is genuinely different. No
+template shape repeats.
+
+**Explicitly deferred (unchanged):**
+- ❌ Tier-3 optional LLM Analyst Narrative overlay — kept as future
+  work per operator's 2026-02-28 direction ("do Path B first, LLM
+  later as strict overlay").
+- ❌ Workspace `InvestigationWorkspace.jsx` inherits the composer for
+  free (uses the same `<InvestigationPipeline>` component).
+- ❌ P2 History persistence, P3 STIX/Navigator exports, P4 live OSINT.
+
+**Frontend build:** clean (`yarn build`).
+
+
 ## 2026-02-28 · ADR-0013 · Workspace wired to shared Pipeline (slice-2)
 
 **Governance:** `/app/memory/adr/0013-unified-investigation-ui.md` §3
