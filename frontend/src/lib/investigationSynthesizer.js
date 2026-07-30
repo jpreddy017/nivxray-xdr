@@ -273,73 +273,79 @@ const NARRATIVE_BLOCKS = {
   //   Family match      → threat-intel sweep for family IoCs
   //   Partial decode    → preserve forensic artifacts
   recommendations: (ev) => {
-    // Verdict-aware — for Informational / Benign the recommendation is
-    // "no action required", not a list of hunts and blocks.
-    if (ev.verdictClass === "benign") {
-      const bits = [];
-      if (ev.allInfraBenign) {
-        bits.push("No blocking or blocklisting action is recommended — the recovered indicators belong to legitimate infrastructure that managed endpoints must reach for normal operation");
-      }
-      bits.push("Retain the artifact and analysis in the case record for pattern-matching if similar content resurfaces alongside stronger signals in the future");
-      if (/powershell|encoded/i.test(ev.decodedText || ev.detectedTypeLabel || "")) {
-        bits.push("Optionally confirm that the encoded PowerShell is expected on the submitting host (e.g. software installer, MDM agent, or vendor tooling)");
-      }
-      return "NivXRay recommends that analysts: " + bits.join("; ") + ".";
-    }
-    const bits = [];
+    // Operator directive (2026-02-28 slice-6): deliver an EXACTLY 7-step
+    // remediation playbook in Senior MDR Threat Hunter voice. Each step
+    // is a numbered forensic action; the mapping to evidence is preserved.
+    //
+    // Playbook slots (fixed order, filled from evidence with fallback):
+    //   1. Triage & scoping — extent-of-compromise sweep for the artifact
+    //   2. Contain — isolate / block based on verdict class
+    //   3. Preserve — forensic capture (memory, disk, event logs)
+    //   4. Hunt — cross-fleet telemetry sweep for related IOCs / tradecraft
+    //   5. Enrich — TIP / OSINT correlation for IOCs and family
+    //   6. Harden — detection tuning + policy change addressing this tradecraft
+    //   7. Report & close — RCA, IR docs, lessons learned
     const lolbinNames = [...new Set(ev.lolbins.map(lolbinName).filter(Boolean))];
     const nonBenignUrl = ev.url0 && !ev.benignHostSet?.has(urlHost(ev.url0));
     const nonBenignIp = ev.ip0;
     const nonBenignDomain = ev.domain0 && !ev.benignHostSet?.has(ev.domain0);
-
-    if (nonBenignUrl) {
-      bits.push(`Check proxy and web-gateway logs for successful retrieval of ${ev.url0} across all monitored hosts`);
-      bits.push(`Block ${ev.url0} at the perimeter proxy and DNS layers pending confirmation`);
-      bits.push(`Attempt to retrieve the payload from ${ev.url0} in an isolated environment for further malware analysis (if the URL is still live)`);
-    }
-    if (nonBenignIp) {
-      bits.push(`Search firewall logs and NetFlow / IPFIX data for outbound sessions to ${ev.ip0}`);
-      bits.push(`Review DNS resolution history for hostnames that pointed to ${ev.ip0} in the past 30 days`);
-    }
-    if (nonBenignDomain && !ev.url0?.includes(ev.domain0)) {
-      bits.push(`Sinkhole or block ${ev.domain0} at the DNS resolver and add to threat-intel watchlists`);
-    }
     const isPs = /powershell/i.test(ev.decodedText || ev.detectedTypeLabel || "") ||
                  /encoded/i.test(ev.detectedTypeLabel || "");
-    if (isPs) {
-      bits.push("Search endpoint command-line telemetry for additional PowerShell -EncodedCommand executions across the fleet (past 30 days)");
-      bits.push("Review PowerShell Script-Block Logging (Event ID 4104) and AMSI telemetry for related content on the affected hosts");
-    }
-    if (lolbinNames.some((n) => /regsvr32/i.test(n))) {
-      bits.push("Sweep endpoint telemetry for `regsvr32.exe` invocations matching `/i:http` or `/i:https` (Squiblydoo pattern) across the fleet");
-      bits.push("Enforce AppLocker or WDAC to deny regsvr32 execution from user-writable paths (%TEMP%, %APPDATA%, network shares)");
-    }
-    if (lolbinNames.some((n) => /mshta/i.test(n))) {
-      bits.push("Sweep endpoint telemetry for `mshta.exe` invocations against remote HTA/URL arguments");
-      bits.push("Alert on `mshta.exe` launched from Office parent processes (winword.exe, excel.exe, outlook.exe)");
-    }
-    if (lolbinNames.some((n) => /rundll32/i.test(n))) {
-      bits.push("Sweep endpoint telemetry for `rundll32.exe` invocations with anomalous DLLs (from %TEMP%, %APPDATA%, network shares)");
-    }
-    if (lolbinNames.some((n) => /certutil/i.test(n))) {
-      bits.push("Sweep endpoint telemetry for `certutil.exe` invocations with `-urlcache`, `-decode`, or `-decodehex` flags");
-      bits.push("Alert on `certutil.exe` running under a user context outside its intended cryptographic role");
-    }
-    if (lolbinNames.some((n) => /bitsadmin/i.test(n))) {
-      bits.push("Sweep endpoint telemetry for `bitsadmin.exe /transfer` invocations with external URLs; review BITS-Client operational events");
-    }
-    if (ev.familyName) {
-      bits.push(`Correlate the ${ev.familyName}-family match with threat-intel feeds for known C2 infrastructure, YARA rules, and hashes; look for related samples in the sample corpus`);
-    }
-    if (ev.partial) {
-      bits.push("Preserve the original artifact bytes and surrounding logs — the corrupted portion may be recoverable from a different capture source");
-    }
-    if (nonBenignUrl || nonBenignIp || nonBenignDomain) {
-      bits.push("Sweep for additional hosts communicating with the same infrastructure (proxy + DNS + EDR telemetry, past 30 days)");
+
+    // For benign verdicts, the 7-step playbook shifts entirely toward
+    // context-verification and record-keeping rather than active response.
+    if (ev.verdictClass === "benign") {
+      return [
+        "NivXRay recommends the following 7-step verification playbook:",
+        "1. **Triage & scoping** — confirm the submitting host / user / process context that produced the artifact so the analyst can rule out cover-of-benign impersonation",
+        "2. **Baseline check** — verify the recovered infrastructure (Verisign CRL / vendor consoles) is on the environment's normal traffic baseline; flag any first-seen deviation",
+        "3. **Evidence preservation** — retain the raw artifact + decoded output + this investigation record in the case store for pattern-matching",
+        "4. **Low-noise hunt** — no active hunt required, but log a soft-flag for the tradecraft pattern (encoded PowerShell referencing vendor infra) so future high-signal matches surface faster",
+        "5. **No enrichment escalation** — do not push these indicators to threat-intel feeds; they are known-benign vendor infrastructure",
+        "6. **Detection hygiene** — confirm existing detection rules do not fire on this artifact shape in future (suppress a known-benign pattern if it does)",
+        "7. **Close as Informational** — document the assessment and close the case with a 'reviewed / informational / no action required' disposition",
+      ].join("\n");
     }
 
-    if (!bits.length) return null;
-    return "NivXRay recommends that analysts: " + bits.map((r) => r.trim().replace(/\.$/, "")).join("; ") + ".";
+    // Suspicious / attention / malicious — full 7-step response playbook.
+    const step1 = nonBenignUrl || nonBenignIp || lolbinNames.length
+      ? `Sweep endpoint command-line, proxy, and DNS telemetry (past 30 days) for the recovered artifact and any variant of the same tradecraft; identify every host that has touched ${nonBenignUrl ? ev.url0 : (ev.ip0 || ev.domain0 || "the observed infrastructure")}`
+      : "Sweep endpoint command-line telemetry (past 30 days) for additional executions of the recovered artifact shape across the fleet";
+    const step2 = ev.verdictClass === "malicious"
+      ? `Immediately isolate any host that executed this artifact at the network layer, disable any user session that ran it, and block ${nonBenignUrl ? ev.url0 + " and " : ""}${nonBenignIp ? ev.ip0 + " and " : ""}${nonBenignDomain && !ev.url0?.includes(ev.domain0) ? ev.domain0 : (nonBenignUrl || nonBenignIp || "the observed C2 infrastructure")} at the perimeter proxy, DNS resolver, and firewall`
+      : nonBenignUrl || nonBenignIp || nonBenignDomain
+        ? `Block ${nonBenignUrl ? ev.url0 : ""}${nonBenignUrl && nonBenignIp ? " and " : ""}${nonBenignIp || ""}${(nonBenignUrl || nonBenignIp) && nonBenignDomain && !ev.url0?.includes(ev.domain0) ? " and " : ""}${nonBenignDomain && !ev.url0?.includes(ev.domain0) ? ev.domain0 : ""} at the perimeter proxy, DNS resolver, and firewall pending confirmation`
+        : "Consider preemptive host isolation if additional signals surface during the hunt in step 1";
+    const step3 = ev.verdictClass === "malicious"
+      ? "Acquire volatile memory (full RAM dump), Prefetch, AmCache, USN journal, PowerShell operational logs, Sysmon logs, and Security event logs from every affected host; hash and store to the evidence locker before any remediation"
+      : "Preserve the original artifact bytes, decoded output, PowerShell operational logs (Event ID 4104), and Sysmon logs from any host that executed the same content";
+    const step4 = isPs
+      ? "Hunt across the fleet for related PowerShell tradecraft: additional `-EncodedCommand` executions, `Invoke-Expression` + `WebClient.DownloadString` combinations, and any AMSI-bypass patterns; alert on new matches"
+      : lolbinNames.length
+        ? `Hunt across the fleet for additional invocations of ${lolbinNames.slice(0, 3).join(", ")} with the observed argument shape and any lateral-movement or persistence primitives that could be riding the same access`
+        : "Hunt across the fleet for additional artifacts matching the recovered command-line shape and any lateral-movement primitives";
+    const step5 = ev.familyName
+      ? `Correlate the ${ev.familyName}-family structural match against TIP / OSINT feeds (VirusTotal / AbuseIPDB / URLScan / OTX / MalwareBazaar / ThreatFox) for known C2 infrastructure, YARA rules, hashes, and campaign attribution`
+      : (nonBenignUrl || nonBenignIp || nonBenignDomain)
+        ? `Enrich the recovered indicators (${[nonBenignUrl ? ev.url0 : null, nonBenignIp ? ev.ip0 : null].filter(Boolean).join(", ")}) against TIP / OSINT feeds; look for related samples, WHOIS pivots, and passive-DNS history`
+        : "Enrich the recovered tradecraft against threat-intel feeds for matching campaigns and TTPs";
+    const step6 = isPs
+      ? "Harden PowerShell posture: enforce Constrained Language Mode where feasible, require signed scripts, enable Script-Block Logging + Module Logging + AMSI, and add Sigma detections for the specific tradecraft (`FromBase64String`, `IEX`, `DownloadString`)"
+      : lolbinNames.length
+        ? `Harden ${lolbinNames[0]} posture: AppLocker / WDAC rules to deny execution from user-writable paths (%TEMP%, %APPDATA%, network shares) and Sigma detections for the observed argument shape`
+        : "Harden the detection stack against the observed tradecraft (Sigma / EDR custom detections) and validate coverage with a purple-team replay of the recovered artifact";
+    const step7 = "Author the incident RCA and close-out: document the affected hosts and users, timeline, evidence collected, MITRE ATT&CK mapping, indicators, containment actions, lessons learned, and any detection or policy improvements made; brief the SOC and update the runbook";
+
+    return [
+      "NivXRay recommends the following 7-step remediation playbook:",
+      `1. **Triage & scoping** — ${step1}`,
+      `2. **Contain** — ${step2}`,
+      `3. **Preserve** — ${step3}`,
+      `4. **Hunt** — ${step4}`,
+      `5. **Enrich** — ${step5}`,
+      `6. **Harden** — ${step6}`,
+      `7. **Report & close** — ${step7}`,
+    ].join("\n");
   },
 };
 
@@ -359,16 +365,19 @@ function composeAnalystNarrative(evidence) {
   // Then the recommendations block appears as a checklist prefaced by
   // "NivXRay recommends that you:" — matching the "CSOC recommends" style.
 
-  // ── Paragraph 1 · Detection statement ──────────────────────────────
-  const when = evidence.whenPhrase ? `On ${evidence.whenPhrase} UTC` : "During this investigation";
-  const engineTag = evidence.mode === "auto" ? "the NivXRay Auto-Investigate pipeline" : "the NivXRay Smart Decoder";
+  // ── Paragraph 1 · Detection statement — reference template match:
+  //     "On [Date/Time], [Tool] detected [File/Behaviour] on [Asset]."
+  const whenTs = evidence.whenPhrase ? `On ${evidence.whenPhrase} UTC` : "During this investigation";
+  const toolName = evidence.mode === "auto" ? "NivXRay Auto-Investigate" : "NivXRay Smart Decoder";
+  const detectedNoun = evidence.detectedTypeLabel || evidence.artifactPhrase;
+  const onAsset = evidence.hostAsset ? ` on ${evidence.hostAsset}` : "";
   let paraDetection;
   if (evidence.observedBehavior) {
-    paraDetection = `${when}, ${engineTag} analysed ${evidence.artifactPhrase} that decoded into a command which ${evidence.observedBehavior}.`;
+    paraDetection = `${whenTs}, ${toolName} detected ${detectedNoun}${onAsset} — a payload which ${evidence.observedBehavior}.`;
   } else if (evidence.detectedTypeLabel) {
-    paraDetection = `${when}, ${engineTag} analysed ${evidence.artifactPhrase} and identified it as ${evidence.detectedTypeLabel}.`;
+    paraDetection = `${whenTs}, ${toolName} detected ${detectedNoun}${onAsset} and identified it as ${evidence.detectedTypeLabel}.`;
   } else {
-    paraDetection = `${when}, ${engineTag} analysed ${evidence.artifactPhrase} and processed it through the deterministic decoding pipeline.`;
+    paraDetection = `${whenTs}, ${toolName} analysed ${evidence.artifactPhrase}${onAsset} through the deterministic decoding pipeline.`;
   }
 
   // ── Paragraph 2 · Priority / severity statement ────────────────────
@@ -408,16 +417,30 @@ function composeAnalystNarrative(evidence) {
   const clauses = [];
   clauses.push("Investigation shows that this verdict was reached as follows.");
 
+  // Endpoint-telemetry framing (if the caller provided host / user / parent).
+  if (evidence.hostAsset || evidence.userAsset || evidence.parentProc) {
+    const tel = [];
+    if (evidence.hostAsset) tel.push(`the affected host is ${evidence.hostAsset}`);
+    if (evidence.userAsset) tel.push(`the invoking user is ${evidence.userAsset}`);
+    if (evidence.parentProc) tel.push(`the parent process is ${evidence.parentProc}`);
+    const joined = tel.join(", ");
+    clauses.push(joined.charAt(0).toUpperCase() + joined.slice(1) + ".");
+  }
+
   // What was analysed + how it decoded.
   if (evidence.decodedText && evidence.decodedText.length > 5) {
     const excerpt = evidence.decodedText.trim().replace(/\s+/g, " ").slice(0, 200);
     clauses.push(`The submitted artifact decoded to: "${excerpt}${evidence.decodedText.length > 200 ? "…" : ""}".`);
   }
 
+  // Execution chain — synthetic chain walked from the recovered command.
+  if (evidence.executionChain && evidence.executionChain.length >= 2) {
+    clauses.push(`The recovered execution chain — walked line-by-line from the decoded command — is: ${evidence.executionChain.join(" → ")}.`);
+  }
+
   // How the code ran — execution tradecraft (only when observed).
   const execClause = NARRATIVE_BLOCKS.execution(evidence);
   if (execClause) clauses.push("Analysis of the recovered content indicates that " + execClause.charAt(0).toLowerCase() + execClause.slice(1));
-
   // Payload staging (only when observed).
   const payloadClause = NARRATIVE_BLOCKS.payload_stage(evidence);
   if (payloadClause) clauses.push(payloadClause);
@@ -446,9 +469,15 @@ function composeAnalystNarrative(evidence) {
   const tradecraftClause = NARRATIVE_BLOCKS.tradecraft(evidence);
   if (tradecraftClause && evidence.verdictClass !== "benign") clauses.push(tradecraftClause);
 
-  // Family match — always caveated.
+  // Family match — always caveated + delivery-vector inference (slice-6).
   const familyClause = NARRATIVE_BLOCKS.malware_context(evidence);
-  if (familyClause) clauses.push(familyClause);
+  if (familyClause) {
+    let combined = familyClause;
+    if (evidence.deliveryVector) {
+      combined += ` Where ${evidence.familyName}-family samples have been observed in the wild, the most common delivery vector is ${evidence.deliveryVector}; this is context for the analyst, not a claim about this specific artifact's delivery.`;
+    }
+    clauses.push(combined);
+  }
 
   // Post-execution (persistence + credential) — only when present.
   const postExecClause = NARRATIVE_BLOCKS.post_execution(evidence);
@@ -471,8 +500,14 @@ function composeAnalystNarrative(evidence) {
 
   // ── Recommendations paragraph (checklist-style, verdict-aware) ─────
   const recsClause = NARRATIVE_BLOCKS.recommendations(evidence);
+  // Split the recommendations block on newlines so each numbered step
+  // renders as its own paragraph in the UI (single-<p> joining flattens
+  // the playbook into one wall of text).
+  const recsParagraphs = recsClause
+    ? recsClause.split(/\n/).map((s) => s.trim()).filter(Boolean)
+    : [];
 
-  return [paraDetection, paraPriority, paraInvestigation, recsClause].filter(Boolean);
+  return [paraDetection, paraPriority, paraInvestigation, ...recsParagraphs].filter(Boolean);
 }
 
 // ─── Benign-infrastructure classifier ────────────────────────────────────
@@ -692,6 +727,52 @@ function extractCleanDecodedText(output) {
   }
   // Fallback: return whitespace-collapsed original, capped.
   return s.replace(/\s+/g, " ").trim().slice(0, 400);
+}
+
+// Extract a synthetic execution chain from the decoded command line.
+// The tool doesn't receive EDR parent-process telemetry — this walks the
+// command's *stated* execution primitives (interpreter → API → target)
+// which is the best proxy we can compute deterministically. When the
+// caller supplies real telemetry (host / parent / user), those are woven
+// into the narrative alongside.
+function extractExecutionChain(decoded, url0) {
+  const t = String(decoded || "");
+  if (!t) return [];
+  const chain = [];
+  if (/powershell(\.exe)?/i.test(t)) chain.push("powershell.exe");
+  else if (/regsvr32(\.exe)?/i.test(t)) chain.push("regsvr32.exe");
+  else if (/mshta(\.exe)?/i.test(t)) chain.push("mshta.exe");
+  else if (/rundll32(\.exe)?/i.test(t)) chain.push("rundll32.exe");
+  else if (/certutil(\.exe)?/i.test(t)) chain.push("certutil.exe");
+  else if (/bitsadmin(\.exe)?/i.test(t)) chain.push("bitsadmin.exe");
+  else if (/wscript|cscript/i.test(t)) chain.push(/cscript/i.test(t) ? "cscript.exe" : "wscript.exe");
+  else if (/cmd(\.exe)?/i.test(t)) chain.push("cmd.exe");
+  if (/-encodedcommand|-enc\b/i.test(t)) chain.push("Base64-decoded PowerShell block");
+  if (/net\.webclient/i.test(t)) chain.push("System.Net.WebClient");
+  else if (/invoke-webrequest|iwr\b/i.test(t)) chain.push("Invoke-WebRequest");
+  else if (/downloadstring/i.test(t)) chain.push("WebClient.DownloadString");
+  else if (/\bcurl\b|\bwget\b/i.test(t)) chain.push(/curl/i.test(t) ? "curl" : "wget");
+  else if (/-urlcache/i.test(t)) chain.push("certutil -urlcache");
+  else if (/\/i:https?:/i.test(t)) chain.push("/i:<remote_script> proxy fetch");
+  if (url0) chain.push(`fetch → ${url0}`);
+  if (/\biex\b|invoke-expression/i.test(t)) chain.push("Invoke-Expression (in-memory execution)");
+  else if (/scrobj\.dll/i.test(t)) chain.push("scrobj.dll (scriptlet execution)");
+  return chain;
+}
+
+// Delivery-vector inference from the malware family — connects the
+// family attribution to a likely delivery mechanism in analyst voice.
+const DELIVERY_VECTORS = {
+  "Emotet":       "phishing email attachment (weaponised Office document) followed by a PowerShell downloader",
+  "Qakbot":       "phishing email delivering a weaponised Office document, ZIP, or ISO archive",
+  "Cobaltstrike": "beacon delivered via an initial-access loader (spear-phish, drive-by, or supply-chain vector)",
+  "Bumblebee":    "ISO / IMG delivery via phishing email, dropped by a JavaScript / DLL loader",
+  "Agent Tesla":  "phishing email attachment (weaponised Office document or archive) with a .NET stealer payload",
+};
+
+function familyDeliveryVector(name) {
+  if (!name) return null;
+  return DELIVERY_VECTORS[name] || null;
 }
 
 // Extract the family label from decoder chain ids (e.g. "family-emotet" → "Emotet").
@@ -1080,12 +1161,20 @@ export function synthesize(result) {
   const decodedTextClean = extractCleanDecodedText(technical.output_raw || technical.output);
   const observedBehavior = detectObservedBehavior(decodedTextClean, iocs.grouped.urls, rawLolbins);
   const familyName = familyFromChain(_asArray(result.chain_ids));
+  // ADR-0013 slice-6 · synthetic execution chain + delivery-vector inference
+  // + optional endpoint-telemetry ingest (host/user/parent — passed through
+  // when the caller supplies them; empty when only the artifact was sent).
+  const executionChain = extractExecutionChain(decodedTextClean, url0);
+  const deliveryVector = familyDeliveryVector(familyName);
+  const hostAsset = _safeStr(result.host) || _safeStr(result.focus) || null;
+  const userAsset = _safeStr(result.user) || null;
+  const parentProc = _safeStr(result.parent_process) || null;
 
   const evidenceBundle = {
     whenPhrase,
     partial: executive.partial,
     verdictWord: executive.verdict !== "—" ? executive.verdict : "Requires Review",
-    verdictClass,          // "benign" | "attention" | "suspicious" | "malicious"
+    verdictClass,
     confidence: executive.confidence,
     severity: executive.severity,
     because: executive.because,
@@ -1103,12 +1192,21 @@ export function synthesize(result) {
     hasBenignInfra,
     allInfraBenign,
     benignHostSet: _benignHostSet,
+    // slice-6
+    executionChain,
+    deliveryVector,
+    hostAsset,
+    userAsset,
+    parentProc,
+    mode,
   };
 
   const investigationParagraphs = composeAnalystNarrative(evidenceBundle);
 
-  // Executive Summary = Opening + Risk Assessment (compact, high-signal).
-  // Investigation Summary = full block sequence (detailed narrative).
+  // Executive Summary — length adapts to what the tool actually found.
+  // No fixed paragraph count. Only include paragraphs that carry
+  // per-input evidence; empty blocks drop out. An analyst writes as much
+  // as the evidence warrants, no more.
   const executiveParagraphs = [
     NARRATIVE_BLOCKS.opening(evidenceBundle),
     NARRATIVE_BLOCKS.risk_assessment(evidenceBundle),
@@ -1179,6 +1277,12 @@ export function synthesize(result) {
       cause: executive.cause,
       truncationNote: rawIocs?.truncation_note || null,
       provenance: iocs.provenance,
+      // ADR-0013 slice-5 · benign-infrastructure classification signal
+      // surfaced for the UI badge on the Network section.
+      infra_classification: allInfraBenign
+        ? "trusted_vendor"
+        : (hasBenignInfra ? "mixed" : "unknown"),
+      benign_classifications: benignClassifications,
     },
   };
 }

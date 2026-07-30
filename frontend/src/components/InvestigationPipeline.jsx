@@ -86,6 +86,18 @@ const S = {
     background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.35)",
     color: "#fde68a",
   },
+  chipTrusted: {
+    background: "rgba(74, 222, 128, 0.10)",
+    border: "1px solid rgba(74, 222, 128, 0.40)",
+    color: "#bbf7d0",
+    fontWeight: 600,
+  },
+  chipMixed: {
+    background: "rgba(250, 204, 21, 0.08)",
+    border: "1px solid rgba(250, 204, 21, 0.35)",
+    color: "#fde68a",
+    fontWeight: 600,
+  },
   narrativeGrid: { display: "grid", gap: 12 },
   narrativeRow: {
     display: "grid",
@@ -170,7 +182,7 @@ const S = {
   },
 };
 
-function Section({ index, id, title, badge, defaultOpen, children }) {
+function Section({ index, id, title, badge, badgeStyle, defaultOpen, children }) {
   const [open, setOpen] = useState(!!defaultOpen);
   return (
     <div style={S.card} data-testid={`pipeline-section-${id}`}>
@@ -186,7 +198,7 @@ function Section({ index, id, title, badge, defaultOpen, children }) {
         <div style={S.index}>{index}</div>
         <div style={S.title}>{title}</div>
         <div style={S.spacer} />
-        {badge ? <div style={S.badge}>{badge}</div> : null}
+        {badge ? <div style={{ ...S.badge, ...(badgeStyle || {}) }} data-testid={`pipeline-badge-${id}`}>{badge}</div> : null}
         <div style={{ ...S.chev, ...(open ? S.chevOpen : {}) }}>▶</div>
       </div>
       {open ? <div style={S.body} data-testid={`pipeline-body-${id}`}>{children}</div> : null}
@@ -328,9 +340,38 @@ export default function InvestigationPipeline({ result }) {
       </Section>
 
       {/* 5 · Indicators of Compromise */}
-      <Section index="5" id="iocs" title="Indicators of Compromise" badge={iocs.total ? `${iocs.total}` : "0"}>
+      <Section
+        index="5"
+        id="iocs"
+        title="Indicators of Compromise"
+        badge={
+          meta.infra_classification === "trusted_vendor"
+            ? "Trusted Vendor · High Confidence"
+            : meta.infra_classification === "mixed"
+              ? "Mixed · Some Benign"
+              : (iocs.total ? `${iocs.total}` : "0")
+        }
+        badgeStyle={
+          meta.infra_classification === "trusted_vendor" ? S.chipTrusted :
+          meta.infra_classification === "mixed" ? S.chipMixed : undefined
+        }
+      >
         {iocs.total ? (
           <div style={S.kv}>
+            {meta.benign_classifications?.length ? (
+              <Fragment key="_trusted_summary">
+                <div style={S.kLabel}>Trusted infra</div>
+                <div style={S.kVal} data-testid="ioc-trusted-summary">
+                  <div style={S.chipStrip}>
+                    {meta.benign_classifications.map((c, i) => (
+                      <span key={i} style={{ ...S.chip, ...S.chipTrusted }}>
+                        ✓ {c.host} · {c.category}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </Fragment>
+            ) : null}
             {Object.entries(iocs.grouped).map(([kind, values]) => (
               <Fragment key={kind}>
                 <div style={S.kLabel}>{kind}</div>
