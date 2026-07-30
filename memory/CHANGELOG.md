@@ -3,6 +3,72 @@
 Chronological record of significant releases (newest first).
 
 
+## 2026-02-28 · ADR-0013 · Analyst-Voice Narrative Refinements (Path B, slice-4)
+
+**Governance:** `/app/memory/adr/0013-unified-investigation-ui.md`
+**Operator directive (2026-02-28):** improve the deterministic engine
+with five refinements — attack-lifecycle ordering, evidence-aware
+recommendations, explicit negative findings, confidence qualifiers,
+and separation of facts from interpretation.
+
+**Five refinements landed:**
+
+1. **Attack-lifecycle block ordering** — the narrative now walks the
+   analyst through the attack chain:
+   Detection → Execution → Payload → Network → Tradecraft →
+   Post-Execution Behaviour → Negative Findings → Malware Context →
+   Risk Assessment → Recommendations.
+
+2. **Evidence-aware recommendations** — instead of picking from a
+   generic MITRE-mapping table, recommendations are now derived from
+   the actual recovered evidence class:
+   - URL → proxy/DNS logs sweep, block at perimeter, retrieve payload.
+   - IP → firewall + NetFlow/IPFIX + DNS resolution history.
+   - Domain → sinkhole + threat-intel watchlist.
+   - PowerShell artifact → `-EncodedCommand` sweep, Script-Block
+     Logging (Event ID 4104), AMSI telemetry review.
+   - regsvr32 → `regsvr32.exe /i:http*` sweep + AppLocker/WDAC deny
+     from user-writable paths.
+   - mshta → remote-URL argument sweep + Office parent-process alert.
+   - rundll32 → anomalous-DLL sweep (%TEMP% / %APPDATA% / shares).
+   - certutil → `-urlcache` / `-decode` / `-decodehex` sweep.
+   - bitsadmin → `/transfer` sweep + BITS-Client operational events.
+   - Family match → threat-intel correlation, YARA + hash lookup.
+   - Partial decode → preserve original artifact + alternate captures.
+   Every recommendation is directly actionable by a SOC on-call.
+
+3. **Explicit negative findings** — a new `negative_findings` block
+   states what was NOT observed so analysts don't wonder whether those
+   areas were checked: no persistence · no credential access · no
+   registry modification · no lateral-movement primitives · no
+   defence-tampering. Each is verified against actual MITRE mappings
+   in the response.
+
+4. **Confidence qualifiers** — the narrative now uses "Observed:",
+   "Recovered:", "Likely:", and "May indicate:" prefixes to signal
+   evidence strength (`qualifierFor()` helper). Directly present in
+   the decoded output uses "Observed"; extracted from the IOC bag
+   uses "Recovered"; inferred from MITRE mapping uses "Likely";
+   partial-recovery or runtime-dependent uses "May indicate".
+
+5. **Facts vs Interpretation** — the payload-stage, tradecraft, and
+   malware-context blocks now explicitly separate the observable fact
+   from its interpretation, with the two clauses tied by a signal
+   phrase ("Interpretation: ..."). Example: "**Fact:** the command
+   retrieves a follow-on payload from a remote host. **Interpretation:**
+   whether that payload is executed on-host depends on the retrieved
+   script and downstream behaviour, which are not visible in the
+   submitted artifact."
+
+**Verified per-input variation (same 4 cases, live preview):**
+Each case still produces genuinely different prose, but the
+Investigation Summary now reads as a chronological attack story with
+explicit uncertainty qualifiers and directly-actionable
+evidence-tied recommendations. Full transcripts in the composer diff.
+
+**Frontend build:** clean (`yarn build`).
+
+
 ## 2026-02-28 · ADR-0013 · Deterministic Narrative Engine (Path B, slice-3)
 
 **Governance:** `/app/memory/adr/0013-unified-investigation-ui.md`

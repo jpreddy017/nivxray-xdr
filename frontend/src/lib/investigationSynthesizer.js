@@ -26,26 +26,46 @@
  *   otherwise falls back to the static MITRE-technique map below.
  */
 
-// ─── ADR-0013 §2.2 · Deterministic Narrative Engine (Path B) ─────────────
+// ─── ADR-0013 §2.2 · Deterministic Narrative Engine (Path B, slice-4) ────
 //
-// Composable evidence-block architecture (operator-approved 2026-02-28):
-//   opening → execution → obfuscation → network → payload_stage →
-//   persistence → credential → malware_context → risk_assessment →
-//   recommendations
+// Attack-lifecycle block ordering (operator-approved 2026-02-28):
+//   Detection → Execution → Payload → Network → Tradecraft →
+//   Post-Execution Behaviour → Negative Findings → Malware Context →
+//   Risk Assessment → Recommendations
 //
-// Each block has multiple variants selected by observable evidence. Empty
-// blocks are dropped. The result is combinatorial variation — the same
-// payload family produces the same prose (deterministic invariant), but
-// two payloads with different evidence produce genuinely different prose.
-// No LLM, no template placeholders, no rule IDs leaking to prose.
+// The rendered narrative should read like an analyst walking through an
+// attack chain, not an attribute dump.
+//
+// Additional slice-4 improvements:
+//   · Evidence-aware recommendations (derived from actual IOCs/LOLBins,
+//     not just ATT&CK mappings).
+//   · Explicit negative findings ("what was NOT observed").
+//   · Confidence qualifiers — Observed / Recovered / Likely / May indicate.
+//   · Facts vs interpretation — fact clause + explicit interpretation
+//     clause, tied by a signal word.
+
+// Confidence qualifier — chooses the right verb based on evidence source.
+//   directly_present  → "Observed" (in decoded output)
+//   from_ioc_bag      → "Recovered" (extracted IOC)
+//   pattern_mapped    → "Likely" (inferred from ATT&CK match)
+//   partial_or_inferred → "May indicate" (runtime-dependent / partial decode)
+function qualifierFor(strength) {
+  switch (strength) {
+    case "observed":   return "Observed:";
+    case "recovered":  return "Recovered:";
+    case "likely":     return "Likely:";
+    case "may_indicate": return "May indicate:";
+    default:           return "";
+  }
+}
 
 const NARRATIVE_BLOCKS = {
-  // ── OPENING ──────────────────────────────────────────────────────────
+  // ── DETECTION (opening) — what the analyst is looking at ─────────────
   opening: (ev) => {
     const when = ev.whenPhrase ? `On ${ev.whenPhrase}` : "During this investigation";
     const artifact = ev.artifactPhrase;
     if (ev.partial) {
-      return `${when}, NivXRay analyzed ${artifact} that decoded partially before the byte stream became unreadable.`;
+      return `${when}, NivXRay analyzed ${artifact} that decoded partially before the byte stream became unreadable. Because recovery is incomplete, all downstream findings carry a partial_recovery provenance and should be treated as best-effort.`;
     }
     if (ev.observedBehavior) {
       return `${when}, NivXRay analyzed ${artifact} that decoded into a command which ${ev.observedBehavior}.`;
@@ -56,7 +76,7 @@ const NARRATIVE_BLOCKS = {
     return `${when}, NivXRay analyzed ${artifact} and processed it through the deterministic decoding pipeline.`;
   },
 
-  // ── EXECUTION ────────────────────────────────────────────────────────
+  // ── EXECUTION — how the code ran ─────────────────────────────────────
   execution: (ev) => {
     const t = (ev.decodedText || "").toLowerCase();
     const lolbin = (lolbinName(ev.lolbins[0]) || "").toLowerCase();
@@ -90,46 +110,17 @@ const NARRATIVE_BLOCKS = {
     return null;
   },
 
-  // ── OBFUSCATION ──────────────────────────────────────────────────────
-  obfuscation: (ev) => {
-    const clauses = [];
-    const has = (name) => ev.mitreIds.some((id) => id === name || id.startsWith(name + "."));
-    if (has("T1027.010") || /encoded/i.test(ev.detectedTypeLabel || "")) clauses.push("Base64 encoding of the command line");
-    if (/utf-?16/i.test(ev.detectedTypeLabel || "") || /-encodedcommand/i.test(ev.decodedText || "")) clauses.push("UTF-16LE string encoding, which is the standard PowerShell -EncodedCommand format");
-    if (has("T1140")) clauses.push("runtime deobfuscation of the payload before execution");
-    if (has("T1027.002")) clauses.push("packing of the executable content");
-    if (!clauses.length) return null;
-    if (clauses.length === 1) return `The artifact uses ${clauses[0]} to conceal its intent from static command-line signatures.`;
-    return `The artifact combines ${clauses.slice(0, -1).join(", ")} and ${clauses.slice(-1)} to conceal its intent from static command-line signatures.`;
-  },
-
-  // ── NETWORK ──────────────────────────────────────────────────────────
-  network: (ev) => {
-    const parts = [];
-    if (ev.url0) parts.push(`the URL ${ev.url0}`);
-    if (ev.ip0) parts.push(`the IP address ${ev.ip0}`);
-    if (ev.domain0 && !ev.url0?.includes(ev.domain0)) parts.push(`the domain ${ev.domain0}`);
-    if (parts.length) {
-      const list = parts.length === 1 ? parts[0] : (parts.slice(0, -1).join(", ") + " and " + parts.slice(-1));
-      return `Network indicators recovered from the payload include ${list}. These should be treated as active investigation leads until proven benign.`;
-    }
-    if (ev.partial) {
-      return "No outbound infrastructure was recoverable from the readable bytes; if the corrupted portion contained a URL, it did not survive into the analysable prefix.";
-    }
-    return "No outbound network indicators were recovered from the analysed bytes.";
-  },
-
-  // ── PAYLOAD STAGE ────────────────────────────────────────────────────
+  // ── PAYLOAD STAGE — what content the command retrieves / executes ────
   payload_stage: (ev) => {
     const t = (ev.decodedText || "").toLowerCase();
     const has = (name) => ev.mitreIds.some((id) => id === name || id.startsWith(name + "."));
     const dl = /downloadstring|invoke-webrequest|iwr\b|wget\b|curl\b|bitsadmin\b|certutil.*-urlcache/i.test(t);
     const iex = /\biex\b|invoke-expression/i.test(t);
     if (dl && iex) {
-      return "The command implements a classic download-and-execute staging workflow: it retrieves a follow-on script over HTTP(S) and evaluates it in memory via Invoke-Expression, avoiding a payload on disk.";
+      return "Fact: the command implements a classic download-and-execute staging workflow — it retrieves a follow-on script over HTTP(S) and evaluates it in memory via Invoke-Expression. Interpretation: this pattern is commonly associated with staged malware delivery and post-exploitation tooling, although the submitted artifact alone does not confirm successful execution on any endpoint.";
     }
     if (dl && !iex) {
-      return "The command retrieves a follow-on payload from a remote host; whether that payload is executed on-host depends on the recovered script and downstream behaviour on the endpoint.";
+      return "Fact: the command retrieves a follow-on payload from a remote host. Interpretation: whether that payload is executed on-host depends on the retrieved script and downstream behaviour, which are not visible in the submitted artifact.";
     }
     if (has("T1105") && !dl) {
       return "The behaviour maps to ingress tool transfer (T1105): the payload is designed to bring additional content into the environment for later execution.";
@@ -140,39 +131,86 @@ const NARRATIVE_BLOCKS = {
     return null;
   },
 
-  // ── PERSISTENCE ──────────────────────────────────────────────────────
-  persistence: (ev) => {
-    const has = (name) => ev.mitreIds.some((id) => id === name || id.startsWith(name + "."));
-    const bits = [];
-    if (has("T1053")) bits.push("Scheduled Task creation (T1053) suggests attacker intent to persist across reboots");
-    if (has("T1547.001")) bits.push("Run-key modification (T1547.001) indicates a per-user autostart persistence attempt");
-    if (has("T1543")) bits.push("Service creation or modification (T1543) points to system-level persistence");
-    if (has("T1136")) bits.push("Local account creation (T1136) is consistent with a persistence-and-access-preservation objective");
-    if (bits.length) return bits.join(". ") + ".";
-    if (ev.mitreIds.length > 0) return "No persistence behaviour was recovered from the analysed content.";
-    return null;
+  // ── NETWORK — infrastructure indicators, in analyst voice ────────────
+  network: (ev) => {
+    const parts = [];
+    if (ev.url0) parts.push(`the URL ${ev.url0}`);
+    if (ev.ip0) parts.push(`the IP address ${ev.ip0}`);
+    if (ev.domain0 && !ev.url0?.includes(ev.domain0)) parts.push(`the domain ${ev.domain0}`);
+    if (parts.length) {
+      const list = parts.length === 1 ? parts[0] : (parts.slice(0, -1).join(", ") + " and " + parts.slice(-1));
+      return `${qualifierFor("recovered")} network indicators from the payload include ${list}. These should be treated as active investigation leads until proven benign.`;
+    }
+    if (ev.partial) {
+      return `${qualifierFor("may_indicate")} the corrupted portion of the payload may have contained outbound network indicators that did not survive into the analysable prefix; no infrastructure was recoverable from the readable bytes.`;
+    }
+    return "No outbound network indicators were recovered from the analysed bytes.";
   },
 
-  // ── CREDENTIAL ACCESS ────────────────────────────────────────────────
-  credential: (ev) => {
+  // ── TRADECRAFT — obfuscation + evasion tactics observed ──────────────
+  tradecraft: (ev) => {
+    const clauses = [];
     const has = (name) => ev.mitreIds.some((id) => id === name || id.startsWith(name + "."));
-    const bits = [];
-    if (has("T1003")) bits.push("OS-credential-dumping activity (T1003) was recovered — LSASS or SAM access should be assumed");
-    if (has("T1555")) bits.push("Credential store access (T1555) suggests browser/password-manager targeting");
-    if (has("T1552")) bits.push("Credentials-in-files access (T1552) indicates an unattended-credentials hunt");
-    if (bits.length) return bits.join(". ") + ".";
-    return null;
+    if (has("T1027.010") || /encoded/i.test(ev.detectedTypeLabel || "")) clauses.push("Base64 encoding of the command line");
+    if (/utf-?16/i.test(ev.detectedTypeLabel || "") || /-encodedcommand/i.test(ev.decodedText || "")) clauses.push("UTF-16LE string encoding — the standard PowerShell -EncodedCommand format");
+    if (has("T1140")) clauses.push("runtime deobfuscation of the payload before execution");
+    if (has("T1027.002")) clauses.push("packing of the executable content");
+    if (!clauses.length) return null;
+    const list = clauses.length === 1
+      ? clauses[0]
+      : clauses.slice(0, -1).join(", ") + " and " + clauses.slice(-1);
+    return `${qualifierFor("observed")} the artifact uses ${list} to conceal its intent from static command-line signatures. Interpretation: obfuscation of this shape is a strong intent-to-evade signal, though it is not by itself a determination of maliciousness.`;
   },
 
-  // ── MALWARE CONTEXT ──────────────────────────────────────────────────
+  // ── POST-EXECUTION BEHAVIOUR — persistence + credential access ───────
+  post_execution: (ev) => {
+    const has = (name) => ev.mitreIds.some((id) => id === name || id.startsWith(name + "."));
+    const bits = [];
+    if (has("T1053")) bits.push("Scheduled Task creation (T1053) — attacker intent to persist across reboots");
+    if (has("T1547.001")) bits.push("Run-key modification (T1547.001) — per-user autostart persistence");
+    if (has("T1543")) bits.push("Service creation or modification (T1543) — system-level persistence");
+    if (has("T1136")) bits.push("Local account creation (T1136) — access-preservation objective");
+    if (has("T1003")) bits.push("OS credential dumping (T1003) — LSASS or SAM access should be assumed");
+    if (has("T1555")) bits.push("Credential store access (T1555) — browser / password-manager targeting");
+    if (has("T1552")) bits.push("Credentials-in-files access (T1552) — unattended-credentials hunt");
+    if (!bits.length) return null;
+    return `${qualifierFor("observed")} the following post-execution behaviours were mapped: ${bits.join("; ")}.`;
+  },
+
+  // ── NEGATIVE FINDINGS — explicit callouts of what was NOT observed ──
+  //
+  // Mature XDR platforms (Cisco, Microsoft, CrowdStrike) always tell the
+  // analyst what wasn't recovered so they don't have to wonder whether
+  // those areas were checked. Deterministic, evidence-driven.
+  negative_findings: (ev) => {
+    const has = (name) => ev.mitreIds.some((id) => id === name || id.startsWith(name + "."));
+    const misses = [];
+    const hasPersistence = has("T1053") || has("T1547") || has("T1136") || has("T1543");
+    const hasCredAccess  = has("T1003") || has("T1555") || has("T1552");
+    const hasRegistry    = has("T1112") || /registry|reg\s+add|reg\s+delete/i.test(ev.decodedText || "");
+    const hasLateral     = has("T1021") || has("T1570") || has("T1210");
+    const hasDefEvasion  = has("T1562") || has("T1548");
+    if (!hasPersistence) misses.push("no persistence mechanisms (Scheduled Task, Run key, Service, or Account Creation) were identified");
+    if (!hasCredAccess)  misses.push("no credential-access behaviour (LSASS dumping, SAM access, or credential-store targeting) was identified");
+    if (!hasRegistry)    misses.push("no registry modification was observed in the recovered command");
+    if (!hasLateral)     misses.push("no lateral-movement or remote-execution primitives were recovered");
+    if (!hasDefEvasion)  misses.push("no explicit defence-tampering (e.g. AMSI bypass, ETW patching, security-tool disabling) was identified");
+    // Only surface the block when we ran enough evidence extraction to
+    // make the negative statements meaningful. If the artifact is
+    // essentially empty we skip.
+    if (!ev.mitreIds.length && !ev.decodedText) return null;
+    return "Negative findings — " + misses.join("; ") + ".";
+  },
+
+  // ── MALWARE CONTEXT — family match, always caveated ─────────────────
   malware_context: (ev) => {
     if (ev.familyName) {
-      return `The decoder chain structurally matched ${ev.familyName}-family tradecraft. Family match is a structural signal — it means the artifact resembles known ${ev.familyName} samples, not a definitive identification.`;
+      return `${qualifierFor("likely")} the decoder chain structurally matched ${ev.familyName}-family tradecraft. Interpretation: family match is a structural resemblance signal — the artifact resembles known ${ev.familyName} samples, but this is not a definitive identification without additional evidence such as C2 traffic or a hash match.`;
     }
     return null;
   },
 
-  // ── RISK ASSESSMENT ──────────────────────────────────────────────────
+  // ── RISK ASSESSMENT — the "because … the activity is assessed as X" ──
   risk_assessment: (ev) => {
     const tcs = ev.tradecraftClauses;
     const verdict = ev.verdictWord;
@@ -191,30 +229,90 @@ const NARRATIVE_BLOCKS = {
     return `The activity is assessed as ${verdict}${conf}.`;
   },
 
-  // ── RECOMMENDATIONS ──────────────────────────────────────────────────
+  // ── RECOMMENDATIONS — evidence-aware, actionable per SOC role ────────
+  //
+  // Selected by observed evidence class, not by MITRE mapping alone.
+  //   URL/IP recovered   → proxy / DNS / firewall / NetFlow hunts + block
+  //   PowerShell artifact → -EncodedCommand sweep · SBL logs · AMSI
+  //   regsvr32 / mshta / rundll32 / certutil → LOLBin-specific hunts
+  //   Family match      → threat-intel sweep for family IoCs
+  //   Partial decode    → preserve forensic artifacts
   recommendations: (ev) => {
     const bits = [];
-    if (ev.url0) bits.push(`Determine whether ${ev.url0} was successfully retrieved or executed on the affected host`);
-    if (ev.ip0) bits.push(`Block outbound communications with ${ev.ip0} at the proxy and DNS layers pending confirmation`);
-    if (ev.lolbins.length) {
-      const lb = [...new Set(ev.lolbins.map(lolbinName).filter(Boolean))].slice(0, 3).join(", ");
-      if (lb) bits.push(`Search endpoint telemetry for additional invocations of ${lb} matching this pattern`);
-    } else if (/powershell|encoded/i.test(ev.decodedText || ev.detectedTypeLabel || "")) {
-      bits.push("Search endpoint telemetry for additional PowerShell -EncodedCommand executions across the fleet");
+    const lolbinNames = [...new Set(ev.lolbins.map(lolbinName).filter(Boolean))];
+
+    // Evidence: recovered URL.
+    if (ev.url0) {
+      bits.push(`Check proxy and web-gateway logs for successful retrieval of ${ev.url0} across all monitored hosts`);
+      bits.push(`Block ${ev.url0} at the perimeter proxy and DNS layers pending confirmation`);
+      bits.push(`Attempt to retrieve the payload from ${ev.url0} in an isolated environment for further malware analysis (if the URL is still live)`);
     }
-    bits.push("Review proxy, DNS, and EDR telemetry for related hosts communicating with the same infrastructure");
-    if (ev.url0 || ev.lolbins.length) bits.push("Acquire the downloaded payload (if retained) for further malware analysis");
-    if (ev.partial) bits.push("Preserve the original artifact and any surrounding logs — the corrupted portion may be recoverable from a different source");
+    // Evidence: recovered IP.
+    if (ev.ip0) {
+      bits.push(`Search firewall logs and NetFlow / IPFIX data for outbound sessions to ${ev.ip0}`);
+      bits.push(`Review DNS resolution history for hostnames that pointed to ${ev.ip0} in the past 30 days`);
+    }
+    // Evidence: recovered domain (only when not already covered by url0).
+    if (ev.domain0 && !ev.url0?.includes(ev.domain0)) {
+      bits.push(`Sinkhole or block ${ev.domain0} at the DNS resolver and add to threat-intel watchlists`);
+    }
+    // Evidence: PowerShell artifact.
+    const isPs = /powershell/i.test(ev.decodedText || ev.detectedTypeLabel || "") ||
+                 /encoded/i.test(ev.detectedTypeLabel || "");
+    if (isPs) {
+      bits.push("Search endpoint command-line telemetry for additional PowerShell -EncodedCommand executions across the fleet (past 30 days)");
+      bits.push("Review PowerShell Script-Block Logging (Event ID 4104) and AMSI telemetry for related content on the affected hosts");
+    }
+    // Evidence: LOLBin usage (per-LOLBin recommendations).
+    if (lolbinNames.some((n) => /regsvr32/i.test(n))) {
+      bits.push("Sweep endpoint telemetry for `regsvr32.exe` invocations matching `/i:http` or `/i:https` (Squiblydoo pattern) across the fleet");
+      bits.push("Enforce AppLocker or WDAC to deny regsvr32 execution from user-writable paths (%TEMP%, %APPDATA%, network shares)");
+    }
+    if (lolbinNames.some((n) => /mshta/i.test(n))) {
+      bits.push("Sweep endpoint telemetry for `mshta.exe` invocations against remote HTA/URL arguments");
+      bits.push("Alert on `mshta.exe` launched from Office parent processes (winword.exe, excel.exe, outlook.exe)");
+    }
+    if (lolbinNames.some((n) => /rundll32/i.test(n))) {
+      bits.push("Sweep endpoint telemetry for `rundll32.exe` invocations with anomalous DLLs (from %TEMP%, %APPDATA%, network shares)");
+    }
+    if (lolbinNames.some((n) => /certutil/i.test(n))) {
+      bits.push("Sweep endpoint telemetry for `certutil.exe` invocations with `-urlcache`, `-decode`, or `-decodehex` flags");
+      bits.push("Alert on `certutil.exe` running under a user context outside its intended cryptographic role");
+    }
+    if (lolbinNames.some((n) => /bitsadmin/i.test(n))) {
+      bits.push("Sweep endpoint telemetry for `bitsadmin.exe /transfer` invocations with external URLs; review BITS-Client operational events");
+    }
+    // Evidence: family match.
+    if (ev.familyName) {
+      bits.push(`Correlate the ${ev.familyName}-family match with threat-intel feeds for known C2 infrastructure, YARA rules, and hashes; look for related samples in the sample corpus`);
+    }
+    // Evidence: partial decode.
+    if (ev.partial) {
+      bits.push("Preserve the original artifact bytes and surrounding logs — the corrupted portion may be recoverable from a different capture source (memory dump, EDR agent, SIEM raw event)");
+    }
+    // Always-on: cross-fleet sweep for related infrastructure.
+    if (ev.url0 || ev.ip0 || ev.domain0) {
+      bits.push("Sweep for additional hosts communicating with the same infrastructure (proxy + DNS + EDR telemetry, past 30 days)");
+    }
+
     if (!bits.length) return null;
-    return `NivXRay recommends that analysts: ${bits.join("; ")}.`;
+    return "NivXRay recommends that analysts: " + bits.map((r) => r.trim().replace(/\.$/, "")).join("; ") + ".";
   },
 };
 
 function composeAnalystNarrative(evidence) {
+  // Attack-lifecycle order (operator-approved 2026-02-28).
   const order = [
-    "opening", "execution", "obfuscation", "network", "payload_stage",
-    "persistence", "credential", "malware_context", "risk_assessment",
-    "recommendations",
+    "opening",           // What is the analyst looking at?
+    "execution",         // How did the code run?
+    "payload_stage",     // What did the code retrieve or execute?
+    "network",           // What infrastructure was touched?
+    "tradecraft",        // What obfuscation / evasion was used?
+    "post_execution",    // Persistence + credential-access behaviour?
+    "negative_findings", // What was explicitly NOT observed?
+    "malware_context",   // Family match?
+    "risk_assessment",   // Because X, Y, Z → assessed as <verdict>
+    "recommendations",   // Evidence-aware next steps
   ];
   const paragraphs = [];
   for (const key of order) {

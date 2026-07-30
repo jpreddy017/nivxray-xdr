@@ -1,5 +1,20 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **ADR-0013 · Analyst-Voice Narrative Refinements (Path B) · slice-4 IMPLEMENTED**
+
+### Five refinements landed (all deterministic, no LLM)
+1. **Attack-lifecycle ordering** — Detection → Execution → Payload → Network → Tradecraft → Post-Execution → Negative Findings → Malware Context → Risk → Recommendations. Narrative reads as a chronological investigation, not an attribute list.
+2. **Evidence-aware recommendations** — derived from actual recovered IOCs and LOLBins (URL→proxy/DNS/block; IP→firewall/NetFlow; PowerShell→`-EncodedCommand` sweep + Script-Block Logging 4104 + AMSI; regsvr32→`/i:http*` sweep + AppLocker; mshta→Office parent alert; certutil→`-urlcache/-decode` sweep; bitsadmin→`/transfer` sweep; family match→threat-intel correlation).
+3. **Explicit negative findings** — new block states what was NOT observed (persistence, credential access, registry modification, lateral movement, defence-tampering) so analysts don't wonder if those areas were checked.
+4. **Confidence qualifiers** — "Observed:" (in decoded output) / "Recovered:" (extracted IOC) / "Likely:" (inferred from mapping) / "May indicate:" (partial or runtime-dependent).
+5. **Facts vs Interpretation** — payload_stage, tradecraft, and malware_context blocks now split into "**Fact:** ... **Interpretation:** ..." with the interpretation clause explicitly tied to and caveated against the fact.
+
+### Deterministic invariants preserved
+- Verdict, severity, confidence, IOCs, MITRE, LOLBins → still read verbatim from backend response.
+- Same input → same prose (each block is a pure function of evidence).
+- No LLM. No template placeholders. No rule IDs.
+
+
 ## 2026-02-28 · **ADR-0013 · Deterministic Narrative Engine (Path B) · slice-3 IMPLEMENTED**
 
 ### The problem I solved
