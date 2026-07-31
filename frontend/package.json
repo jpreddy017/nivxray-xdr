@@ -68,7 +68,10 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
-    "test": "craco test"
+    "test": "craco test",
+    "gen:cio": "node scripts/generate-cio-types.js",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "browserslist": {
     "production": [
@@ -87,7 +90,17 @@
     "@craco/craco": "7.1.0",
     "@emergentbase/visual-edits": "https://assets.emergent.sh/npm/emergentbase-visual-edits-1.0.13.tgz",
     "@eslint/js": "9.23.0",
+    "@storybook/addon-a11y": "8.6.14",
+    "@storybook/addon-essentials": "8.6.14",
+    "@storybook/addon-interactions": "8.6.14",
+    "@storybook/blocks": "8.6.14",
+    "@storybook/preset-create-react-app": "8.6.14",
+    "@storybook/react": "8.6.14",
+    "@storybook/react-webpack5": "8.6.14",
     "@types/lodash": "4.17.24",
+    "@types/node": "^26.1.2",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
     "autoprefixer": "10.4.20",
     "dotenv": "16.4.5",
     "eslint": "9.23.0",
@@ -96,8 +109,11 @@
     "eslint-plugin-react": "7.37.4",
     "eslint-plugin-react-hooks": "5.2.0",
     "globals": "15.15.0",
+    "json-schema-to-typescript": "^15.0.4",
     "postcss": "8.5.10",
-    "tailwindcss": "3.4.17"
+    "storybook": "8.6.14",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.4.5"
   },
   "resolutions": {
     "react-router": "7.15.0",

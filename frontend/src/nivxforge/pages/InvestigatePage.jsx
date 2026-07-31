@@ -21,6 +21,8 @@ import InvestigationPipeline from "../../components/InvestigationPipeline";
 import { InvestigationReport } from "../../pages/AutoInvestigatePage";
 import { VerdictRibbon } from "../components/VerdictRibbon";
 import { CIOProvider } from "../hooks/useCIO";
+import { Lab2Provider } from "../lab2/Lab2Provider";
+import Lab2Shell from "../lab2/Lab2Shell";
 import "../design/tokens.css";
 import api from "../../lib/api";
 const S = {
@@ -242,6 +244,30 @@ export default function InvestigatePage() {
                 <CIOProvider value={result.cio}>
                   <VerdictRibbon />
                 </CIOProvider>
+              </div>
+            ) : null}
+
+            {/* ADR-0021 · Lab 2.0 · Workspace shell preview (feature-flagged).
+                Bounded, in-page preview of the permanent layout contract.
+                The shell OWNS the VerdictRibbon, so the standalone preview
+                above will retire once the shell becomes the primary Lab
+                surface (future slice). */}
+            {lab2Enabled && result.cio ? (
+              <div
+                data-testid="lab2-shell-preview"
+                style={{
+                  marginBottom: 18,
+                  border: "1px solid var(--border, #1e293b)",
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  height: 720,
+                }}
+              >
+                <Lab2Provider initialCIO={result.cio}>
+                  <div style={{ height: "100%", overflow: "auto" }}>
+                    <Lab2Shell caseLabel={result.cio.cio_id || "active investigation"} />
+                  </div>
+                </Lab2Provider>
               </div>
             ) : null}
             {/* ADR-0014 §1.1.14 · Normalisation transparency banner.
