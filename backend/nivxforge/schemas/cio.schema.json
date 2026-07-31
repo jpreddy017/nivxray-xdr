@@ -1,0 +1,364 @@
+{
+  "$defs": {
+    "CIOSource": {
+      "additionalProperties": false,
+      "description": "Where the investigation was initiated from.",
+      "properties": {
+        "surface": {
+          "default": "api",
+          "description": "'lab' | 'workspace' | 'api' | 'cli' | ...",
+          "title": "Surface",
+          "type": "string"
+        },
+        "endpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endpoint"
+        },
+        "correlation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Correlation Id"
+        }
+      },
+      "title": "CIOSource",
+      "type": "object"
+    },
+    "Edge": {
+      "additionalProperties": false,
+      "description": "A directed, typed edge in the Evidence Graph.",
+      "properties": {
+        "source": {
+          "description": "Source node id.",
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "description": "Target node id.",
+          "title": "Target",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "produces",
+            "contributes_to",
+            "contradicts",
+            "supports",
+            "derived_from",
+            "references",
+            "escalates_to"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "weight": {
+          "default": 1.0,
+          "description": "Edge weight 0..1 (contribution strength).",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "kind"
+      ],
+      "title": "Edge",
+      "type": "object"
+    },
+    "EvidenceGraph": {
+      "additionalProperties": false,
+      "description": "The Evidence Graph \u2014 nodes + typed edges = the investigation.",
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/Node"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/Edge"
+          },
+          "title": "Edges",
+          "type": "array"
+        }
+      },
+      "title": "EvidenceGraph",
+      "type": "object"
+    },
+    "Node": {
+      "additionalProperties": false,
+      "description": "A single node in the Evidence Graph.",
+      "properties": {
+        "id": {
+          "description": "Unique node id within the CIO, e.g. 'N-001'.",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "artifact",
+            "decoded_fragment",
+            "ioc",
+            "mitre_technique",
+            "lolbin",
+            "family_match",
+            "behaviour",
+            "reasoning_step",
+            "verdict"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "description": "Analyst-facing label (short, humanised).",
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Canonical value (IOC value, technique id, LOLBIN name, etc).",
+          "title": "Value"
+        },
+        "confidence": {
+          "default": 0.5,
+          "description": "Node confidence 0..1.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "provenance": {
+          "default": "",
+          "description": "Producer tag (e.g. 'decoder:base64', 'extractor:ioc', 'rule:command_analyzer').",
+          "title": "Provenance",
+          "type": "string"
+        },
+        "attrs": {
+          "additionalProperties": true,
+          "description": "Kind-specific attributes (kept small).",
+          "title": "Attrs",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "label"
+      ],
+      "title": "Node",
+      "type": "object"
+    },
+    "ReasoningStep": {
+      "additionalProperties": false,
+      "description": "One replayable decision recorded by the Investigation Engine.\n\nEnables replay, debugging, explainability, analyst audit, training\ndata, and LLM context \u2014 one structure covers all seven use cases\n(\u00a71.1 principle 7).",
+      "properties": {
+        "step_id": {
+          "description": "Dense monotonic id within the CIO, e.g. 'RS-001'.",
+          "title": "Step Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "title": "Timestamp",
+          "type": "string"
+        },
+        "rule": {
+          "description": "Internal rule identifier \u2014 never surfaced to prose.",
+          "title": "Rule",
+          "type": "string"
+        },
+        "input_nodes": {
+          "description": "Graph node ids this step read.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Input Nodes",
+          "type": "array"
+        },
+        "output_nodes": {
+          "description": "Graph node ids this step produced.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Output Nodes",
+          "type": "array"
+        },
+        "confidence_before": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence Before",
+          "type": "number"
+        },
+        "confidence_after": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence After",
+          "type": "number"
+        },
+        "explanation": {
+          "default": "",
+          "description": "Analyst-facing humanised explanation.",
+          "title": "Explanation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "rule"
+      ],
+      "title": "ReasoningStep",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "ADR-0014 \u2014 the single source of truth produced by the NivXRay Investigation Engine.",
+  "properties": {
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "cio_id": {
+      "description": "Unique CIO id (uuid-derived).",
+      "title": "Cio Id",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/CIOSource"
+    },
+    "input_text": {
+      "default": "",
+      "description": "Raw input under investigation.",
+      "title": "Input Text",
+      "type": "string"
+    },
+    "input_kind": {
+      "default": "text",
+      "description": "Detected input kind (input-agnostic principle \u00a71.1.8).",
+      "title": "Input Kind",
+      "type": "string"
+    },
+    "artifacts": {
+      "description": "Attached artifacts (files/logs); Slice-A leaves empty.",
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "decode_chain": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Decode Chain",
+      "type": "array"
+    },
+    "evidence_graph": {
+      "$ref": "#/$defs/EvidenceGraph"
+    },
+    "reasoning_steps": {
+      "items": {
+        "$ref": "#/$defs/ReasoningStep"
+      },
+      "title": "Reasoning Steps",
+      "type": "array"
+    },
+    "confidence": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "verdict": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Populated by Slice-C Reasoning Engine unification.",
+      "title": "Verdict"
+    },
+    "timeline": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Timeline",
+      "type": "array"
+    },
+    "summary": {
+      "additionalProperties": true,
+      "title": "Summary",
+      "type": "object"
+    },
+    "recommendations": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Recommendations",
+      "type": "array"
+    },
+    "reports": {
+      "additionalProperties": true,
+      "title": "Reports",
+      "type": "object"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "cio_id",
+    "source"
+  ],
+  "title": "NivXRay Canonical Investigation Object",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nivxray.nivxforge.com/schemas/cio.schema.json"
+}

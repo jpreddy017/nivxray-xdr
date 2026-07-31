@@ -1,5 +1,33 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **Phase -1 · Architecture Lock COMPLETE (governance-only, zero code)**
+
+Landed per operator directive "build efficiently with low ECUs":
+
+### High-leverage governance artefacts (all documents, no runtime code)
+- **`cio.schema.json`** at `/app/backend/nivxforge/schemas/cio.schema.json` · 9.3 KB · JSON Schema draft 2020-12 auto-generated from the `CIO` Pydantic model. `$defs` include CIO · CIOSource · ReasoningStep · EvidenceGraph · Node · Edge. Canonical public contract for backend / frontend / CI / SDK / SIEM-SOAR integrators.
+- **ADR-0015 · Workspace Architecture** — fixed shell anatomy (TopBar · VerdictRibbon · CaseSpine · LensCanvas · FindingsPanel · EvidenceBar); one CIO loaded; split view; multi-monitor via `BroadcastChannel`.
+- **ADR-0016 · State Management** — three Zustand stores (CIO · Selection · Workspace) + TanStack Query; selectors-only reads; no component owns business state.
+- **ADR-0017 · Routing** — `/nivxforge/investigate/:cio_id/:lens/:nodeId` deep-links; split view via query param; `?live=1`; current Workspace `/auto-investigate` route untouched.
+- **ADR-0018 · Design Tokens** — two-layer system (primitives + semantic); Dark / Light / High-Contrast themes; ESLint blocks hex literals in components.
+- **ADR-0019 · Component Hierarchy** — six tiers (AppShell → Workspace → Lens → Panel → Widget → Primitive); mandatory JSDoc header (@tier @consumes @publishes @deps @a11y @keyboard @perf @tests); downward-only imports enforced by ESLint.
+- **ADR-0020 · CIO Consumption Rules** — every read via selector hook (`useCIO()` · `useSummary()` · `useVerdict()` · ...); forbidden operations enumerated; SchemaGuard entry gate.
+
+### What was NOT done (efficiency directive honoured)
+- No 26-volume SAPDS expansion (Constitution + API contract already cover binding constraints)
+- No React code · no ESLint rule installation · no supervisor restart
+- No touching of `AutoInvestigatePage.jsx` (current Workspace protected)
+- No touching of `routers/*.py` (backend still at 237/237 green)
+
+### Impact on current running application
+**Zero.** Every artefact this session is a document. Preview and production Workspace unchanged.
+
+### Next execution items (in order)
+- **Phase 0 · Workspace Parity Guard** — Playwright screenshot-lock current Workspace + `InvestigationReport` before Phase A touches React
+- **Phase A · Workspace Foundation** — TypeScript scaffold in `/nivxforge/` behind `REACT_APP_LAB2_ENABLED` flag; `useCIO()` hook using cached `cio.schema.json` for type generation
+- **Feature branch strategy** — dedicated `feature/lab2-workspace` branch; flag-gated merges to main; production untouched until parity guard + phase reviews pass
+
+
 ## 2026-02-28 · **ADR-0014 · Slice-D · Backend Summary Composer IMPLEMENTED + Lab 2.0 API Contract PUBLISHED**
 
 ### The last engine unification (Slice-D)
