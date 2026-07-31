@@ -14,6 +14,8 @@ import api from "../../lib/api";
 import { Lab2Provider } from "./Lab2Provider";
 import LabV2 from "./LabV2";
 import { projectCIO } from "./labv2.projector";
+import { SelectionProvider } from "./SelectionBus";
+import { EventBusProvider, useEventBus, EVT } from "./EventBus";
 
 // Copied verbatim from legacy renderer (ADR-0014 · Phase 1).
 function detectPipeline(text) {
@@ -35,30 +37,54 @@ function detectPipeline(text) {
 }
 
 export default function Lab2InvestigateRenderer() {
+  return (
+    <EventBusProvider>
+      <SelectionProvider>
+        <Lab2InvestigateInner />
+      </SelectionProvider>
+    </EventBusProvider>
+  );
+}
+
+function Lab2InvestigateInner() {
   const [cio, setCio] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const { emit } = useEventBus();
+
+  React.useEffect(() => {
+    emit(EVT.INVESTIGATION_STARTED, { source: "lab2" });
+  }, [emit]);
 
   const runAnalyze = useCallback(async (text, mode) => {
     setLoading(true);
     setErr("");
     setCio(null);
-    // Explicit mode from the two intake buttons ("auto" vs "decode")
-    // takes precedence over content sniffing. Fallback to detect for
-    // legacy callers that don't pass mode.
     const pipeline = mode || detectPipeline(text);
+    emit(EVT.ANALYZE_SUBMITTED, { mode: pipeline, chars: text.length });
     try {
       const r =
         pipeline === "auto"
           ? await api.post("/v2/auto-investigate", { incident_text: text, focus: null })
           : await api.post("/decode/smart", { input: text });
-      setCio(r.data?.cio || null);
+      const nextCio = r.data?.cio || null;
+      setCio(nextCio);
+      if (nextCio) {
+        emit(EVT.CIO_RECEIVED, {
+          cio_id: nextCio.cio_id,
+          node_count: (nextCio.evidence_graph?.nodes || []).length,
+          decode_layers: (nextCio.decode_chain || []).length,
+          verdict: nextCio.verdict?.label,
+        });
+      }
     } catch (e) {
-      setErr(e?.friendlyMessage || e?.response?.data?.detail || String(e?.message || e));
+      const msg = e?.friendlyMessage || e?.response?.data?.detail || String(e?.message || e);
+      setErr(msg);
+      emit(EVT.ERROR_RAISED, { where: "runAnalyze", message: msg });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [emit]);
 
   const { view } = useMemo(() => projectCIO(cio), [cio]);
 

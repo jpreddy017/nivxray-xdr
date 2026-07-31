@@ -1,5 +1,35 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02 · **Phase B foundations: Selection Bus + Event Bus + Lens Registry — SHIPPED**
+
+Three architectural primitives landed before proceeding to Report Lens / Command Palette / OSINT, so no future phase requires refactoring the shell.
+
+### Shipped
+- **`SelectionBus.jsx` (ADR-0023)** — the single channel every lens uses to read/write the currently selected evidence node. `SelectionProvider` + `useSelection()` + `useOnSelectionChange()`. No lens keeps its own selection state.
+- **`EventBus.jsx` (ADR-0024)** — append-only investigation-lifecycle timeline (ring buffer, max 500). `EventBusProvider` + `useEventBus()` + `useEmit()`. Frozen `EVT` kind constants (18 kinds: `InvestigationStarted`, `AnalyzeSubmitted`, `CIOReceived`, `DecodeCompleted`, `EvidenceNodeCreated`, `StoryUpdated`, `GraphRendered`, `TechniqueMapped`, `OSINTStarted`, `OSINTProviderResult`, `OSINTFinished`, `ReportGenerated`, `LensOpened`, `LensClosed`, `SelectionChanged`, `NotebookPinned`, `CommandInvoked`, `ErrorRaised`). Any subscriber can tap the stream — audit trail, perf metrics, replay, streaming (Phase D), collab.
+- **`LensRegistry.js` (ADR-0025)** — every lens is a self-declaring entry (`id`, `title`, `short`, `icon`, `order`, `shortcut`, `featureFlag`, `requiredCIO`, `loading`). Shell reads `listLenses()` to render the tab bar and dispatch keyboard shortcuts. Adding a new lens = pushing one entry — no shell edits, no switch statements. Reserved future lenses (report, timeline, notebook) documented in-file.
+- **`Lab2InvestigateRenderer.jsx`** now wraps LabV2 in `<EventBusProvider><SelectionProvider>` and emits `InvestigationStarted`, `AnalyzeSubmitted`, `CIOReceived`, `ErrorRaised` at the right lifecycle points.
+- **Logo fix**: brand now renders as `NIVXRAY` (single wordmark) instead of `NIVX RAY` (flex-gap artefact).
+- **LabV2** now sources its tab bar and keyboard shortcuts from the registry — verified: 7 buttons rendered, key `3` → Behaviour lens.
+
+### Verified
+- 7 lens buttons rendered from `listLenses()`.
+- Keyboard `3` opens Behaviour lens.
+- Logo reads `NIVXRAY`.
+- Idle state shows `NO ACTIVE CASE · PASTE INPUT BELOW`, no fake data.
+
+### Locked phase order
+- **B.1** Wire Real CIO ✓ · Behavior Graph ✓ · Two-Graph Split ✓ · **B.1.5 Foundations** ✓
+- **B.2** Report Lens + Export Engine (next)
+- **B.3** Command Palette
+- **B.4** OSINT Providers (async, non-blocking)
+- **B.5** Timeline Lens · **B.6** Notebook · **B.7** Knowledge Lens · **B.8** Cross-case Intelligence · **B.9** AI Overlay
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-02 · **Phase B.1.1 · Two-Graph Split (G1 Decode · G2 Attack Chain) — SHIPPED**
 
 Operator directive honoured — separate the decode work from the behavioural attack chain so each graph stays clean.

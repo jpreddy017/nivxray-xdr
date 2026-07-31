@@ -13,6 +13,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { LABV2_CSS } from "./labv2.styles";
+import { listLenses, getLensByShortcut } from "./LensRegistry";
 
 // ═══════════════════════════════════════════════════════════════
 // Small primitives
@@ -110,14 +111,14 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
     [lens]
   );
 
-  // Keyboard shortcuts (1..5 lenses)
+  // Keyboard shortcuts driven by the Lens Registry (ADR-0025).
   useEffect(() => {
-    const map = { 1: "exec", 2: "story", 3: "behavior", 4: "attack", 5: "source", 6: "osint", 7: "raw" };
     const h = (e) => {
       const tag = e.target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (map[e.key]) {
-        showLens(map[e.key]);
+      const lens = getLensByShortcut(e.key);
+      if (lens) {
+        showLens(lens.id);
         e.preventDefault();
       }
       if (e.key === "\\" && (e.metaKey || e.ctrlKey)) {
@@ -201,7 +202,7 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
       <header className="topbar">
         <div className="mark">
           <span className="dot" />
-          NIVX<span className="ray">RAY</span>
+          <span className="wordmark">NIVX<span className="ray">RAY</span></span>
         </div>
         <div className="case-id">
           {view.hasCase ? (
@@ -330,17 +331,14 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
           </div>
 
           <div className="lensbar" role="tablist">
-            {[
-              { id: "exec", label: "Executive", k: "1" },
-              { id: "story", label: "Story", k: "2" },
-              { id: "behavior", label: "Behaviour", k: "3" },
-              { id: "attack", label: "Attack Chain", k: "4" },
-              { id: "source", label: "Output", k: "5" },
-              { id: "osint", label: "OSINT", k: "6" },
-              { id: "raw", label: "Source", k: "7" },
-            ].map((b) => (
-              <button key={b.id} className={`lens-btn${lens === b.id ? " on" : ""}`} data-testid={`lens-btn-${b.id}`} onClick={() => showLens(b.id)}>
-                <span className="k">{b.k}</span>{b.label}
+            {listLenses().map((b) => (
+              <button
+                key={b.id}
+                className={`lens-btn${lens === b.id ? " on" : ""}`}
+                data-testid={`lens-btn-${b.id}`}
+                onClick={() => showLens(b.id)}
+              >
+                <span className="k">{b.shortcut}</span>{b.title}
               </button>
             ))}
           </div>
