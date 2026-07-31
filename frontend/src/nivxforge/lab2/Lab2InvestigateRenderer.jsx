@@ -1,20 +1,21 @@
 /**
  * ADR-0022 · Lab2 renderer for /nivxforge/investigate?lab2=1
  *
- * Mounts the LabV2 investigation workspace. The Lab2Provider stays
- * so downstream slices can reach workspace-level state, but the
- * intake experience now lives INSIDE LabV2 (Enhancement I) — one
- * textarea, no dropdown, content-aware routing owned by the same
- * backend the legacy renderer uses.
+ * Runs the CIO through `projectCIO()` and passes the resulting view
+ * model to LabV2. This is the ONLY place the CIO is translated for
+ * Lab v2 consumption — every panel inside LabV2 renders from `view`.
+ *
+ * §5: Backend contract unchanged. Same `detectPipeline()` router as
+ * the legacy renderer chooses between /decode/smart and
+ * /v2/auto-investigate.
  */
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import api from "../../lib/api";
 import { Lab2Provider } from "./Lab2Provider";
 import LabV2 from "./LabV2";
+import { projectCIO } from "./labv2.projector";
 
-// Copied verbatim from legacy renderer (ADR-0014 · Phase 1 content-based
-// routing). We do NOT reimplement or diverge — one pipeline, two
-// renderers.
+// Copied verbatim from legacy renderer (ADR-0014 · Phase 1).
 function detectPipeline(text) {
   const raw = (text || "").trim();
   if (!raw) return "decode";
@@ -56,9 +57,17 @@ export default function Lab2InvestigateRenderer() {
     }
   }, []);
 
+  const { view, sourceIsDemo } = useMemo(() => projectCIO(cio), [cio]);
+
   return (
     <Lab2Provider initialCIO={cio}>
-      <LabV2 onAnalyze={runAnalyze} isAnalyzing={loading} analyzeError={err} />
+      <LabV2
+        view={view}
+        sourceIsDemo={sourceIsDemo}
+        onAnalyze={runAnalyze}
+        isAnalyzing={loading}
+        analyzeError={err}
+      />
     </Lab2Provider>
   );
 }

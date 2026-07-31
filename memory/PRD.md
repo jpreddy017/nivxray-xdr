@@ -1,5 +1,49 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02 · **Phase B.1 · Wire Real CIO — COMPLETE (Lab v2 is now a pure projection)**
+
+Every panel in Lab v2 is now driven by the Canonical Investigation Object. No panel holds hardcoded case data — the coherent PowerShell demo case is only served when no investigation is loaded (surfaced with a visible `DEMO` badge in the topbar).
+
+### Shipped
+- **`labv2.projector.js`** — the single translator that converts a CIO → LabV2 view-model. Maps:
+  - Top bar ← `cio.cio_id · file/artifact · created_at · input_kind`
+  - Verdict pill ← `cio.verdict.label · confidence · confidence_pct`
+  - Case Spine states ← derived from `cio.reasoning_steps[].rule` bucketing (Input · Understand · Decode · Normalize · Evidence · Behavior · Correlate · Verdict · Report)
+  - Story lens paragraphs ← `cio.summary.analyst + attack_story + technical` (with graceful sentence splitting)
+  - Story stats ← `evidence_graph.nodes.length · behaviours · techniques · unknowns.length · elapsed`
+  - Verdict Ledger ← `cio.verdict.contributors + not_counted` with `+++/++/+/–/?` signs from weight
+  - Findings ← `cio.summary.key_findings` (falls back to `contributors` when unset)
+  - Unknowns ← `cio.summary.unknowns`
+  - Next Actions ← `cio.summary.recommendations || cio.recommendations`
+  - ATT&CK grid ← `cio.summary.mitre_digest` with tactic normalisation
+  - Evidence chips + Evidence Bar ← `cio.evidence_graph.nodes[]` (keyed by `node_id`)
+  - Decode ladder ← `cio.decode_chain[]` (empty state when not applicable — structured incidents skip decode)
+- **`labv2.demo.js`** — coherent PowerShell demo case (`ev-01…ev-11`) served when no CIO is loaded.
+- **`labv2.styles.js`** — CSS extracted from the approved prototype (`.labv2`-scoped, daylight/nightwatch themes, comfortable/compact density).
+- **`LabV2.jsx`** — refactored to accept a single `view` prop; every render pulls from it. Story lens auto-detects `ev-XX`/`EV_XX` tokens in narrative text and turns them into interactive chips.
+- **`DEMO` badge** — subtle dashed pill in the topbar makes it visually obvious when no live investigation is loaded.
+- **Empty states** — decode ladder, Findings, Actions, ATT&CK tactics all render honest empty-state copy when the CIO does not provide that field.
+
+### Verified (live screenshots)
+- Submitted a real PowerShell b64 payload via the intake → `/api/decode/smart` → CIO returned → view projected → every panel showed real data (cio_id, verdict, contributors, findings, story, stats, evidence bar node).
+- DEMO badge visible before analyze; cleared after.
+- Legacy renderer (flag OFF) unchanged.
+- Storybook Default/Analyzing/WithError stories consume the same projector.
+
+### Backend touch
+- **Zero** backend changes. Contract is stable; the frontend is a pure projection (ADR-0022 §8 honoured).
+
+### Next Actions
+- **Phase B.2 · Behavior Graph**: Bind the SVG lanes/nodes/edges to `cio.evidence_graph` so the download-write-execute chain in the graph comes from the actual investigation (currently a static illustrative baseline).
+- **Phase B.3 · Report Lens**: Add the 5th lens rendering `cio.summary.report_sections` with Executive / Analyst / SOC / Markdown / PDF / Navigator / STIX / JSON exports.
+- **Phase B.4 · Command Palette (⌘K)**: Rich fuzzy search — Open Lens · Jump to Evidence · Jump to Technique · Copy IOC · Export · Theme · Compact.
+- **Backend hint (optional, non-blocking)**: Extending `summary.attack_story` to embed `ev-XX` markers would automatically enable inline evidence chips inside the narrative once emitted.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-02 · **Lab v2 Investigation Workspace SHIPPED (feature-flagged)**
 
 Full React port of the approved HTML prototype (`nivxray-lab-ui.html`) landed at `/nivxforge/investigate?lab2=1`, driven by ADR-0022 (locked target architecture) and the operator's final v2 Edit Pass prompt.
