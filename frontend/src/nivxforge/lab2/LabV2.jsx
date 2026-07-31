@@ -158,12 +158,9 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
 
   const submitInvestigate = useCallback(() => {
     if (!intake.trim() || isAnalyzing) return;
-    onAnalyze?.(intake, "auto");
-  }, [intake, isAnalyzing, onAnalyze]);
-
-  const submitDecode = useCallback(() => {
-    if (!intake.trim() || isAnalyzing) return;
-    onAnalyze?.(intake, "decode");
+    // No mode override — let the Input Understanding Engine
+    // (backend /api/understand) decide which pipeline runs.
+    onAnalyze?.(intake);
   }, [intake, isAnalyzing, onAnalyze]);
 
   const copyIntake = useCallback(async () => {
@@ -267,20 +264,10 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                   data-testid="labv2-analyze"
                   onClick={submitInvestigate}
                   disabled={!intake.trim() || isAnalyzing}
-                  title="Investigate structured incidents · Cisco XDR, CrowdStrike, Defender, Sentinel, QRadar, Splunk, Sysmon, IOC lists…"
+                  title="Investigate — the tool auto-detects Cisco XDR · CrowdStrike · Defender · Sentinel · QRadar · Splunk · Sysmon · Windows Event · PowerShell · CMD · Bash · Base64 · STIX · YARA · Email headers · IOC lists · unknown"
                 >
                   <span className="ico">✦</span>
-                  <span>{isAnalyzing ? "INVESTIGATING…" : "AUTO INVESTIGATE"}</span>
-                </button>
-                <button
-                  className="cta secondary"
-                  data-testid="labv2-decode"
-                  onClick={submitDecode}
-                  disabled={!intake.trim() || isAnalyzing}
-                  title="Decode raw command lines, base64/hex, ciphertext, obfuscated payloads…"
-                >
-                  <span className="ico">⚡</span>
-                  <span>DECODE</span>
+                  <span>{isAnalyzing ? "INVESTIGATING…" : "INVESTIGATE"}</span>
                 </button>
                 <button
                   className="cta ghost"
@@ -563,6 +550,7 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                     width={view.decodeGraph.width}
                     height={view.decodeGraph.height}
                     viewBox={`0 0 ${view.decodeGraph.width} ${view.decodeGraph.height}`}
+                    preserveAspectRatio="xMidYMid meet"
                     style={{ display: "block" }}
                   >
                     <defs>
@@ -610,6 +598,7 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                     width={view.attackGraph.width}
                     height={view.attackGraph.height}
                     viewBox={`0 0 ${view.attackGraph.width} ${view.attackGraph.height}`}
+                    preserveAspectRatio="xMidYMid meet"
                     style={{ display: "block" }}
                   >
                     <defs>

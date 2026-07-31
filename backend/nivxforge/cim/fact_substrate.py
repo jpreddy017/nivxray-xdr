@@ -26,6 +26,7 @@ class DecoderLayer:
     output_kind: str = ""
     output_preview: str = ""      # up to ~200 chars for the composer
     confidence: str = "Possible"
+    reason: str = ""              # analyst-facing rationale for WHY this decoder ran
 
 
 @dataclass
@@ -154,23 +155,73 @@ def from_analysis_result(result: Dict[str, Any], *,
             input_kind=str(layer.get("input_kind") or ""),
             output_kind=str(layer.get("output_kind") or ""),
             output_preview=str(layer.get("preview") or layer.get("output") or "")[:200],
+            reason=str(layer.get("reason") or "")[:240],
         ))
 
     # ── MITRE hits ──────────────────────────────────────────────────────
-    mitre = result.get("mitre") or {}
+    # `/decode/smart` and `/v2/auto-investigate` differ in shape:
+    #   • decode/smart returns `mitre` as a LIST of
+    #     `{id, technique, tactic}` (field name is `technique`, not `name`).
+    #   • auto-investigate returns `mitre` as a DICT
+    #     `{techniques: [...], tactics: [...]}`.
+    # Both must reach the CIO evidence graph so the Behaviour + Attack
+    # lenses populate.
+    mitre = result.get("mitre")
+
+    def _push_mitre_tech(tech: Any) -> None:
+        if isinstance(tech, dict):
+            tid = tech.get("id") or tech.get("technique_id") or ""
+            if tid:
+                fs.mitre_hits.append(MITREHit(
+                    technique_id=str(tid),
+                    name=tech.get("name") or tech.get("technique"),
+                    tactic=tech.get("tactic"),
+                    provenance=str(tech.get("provenance") or ""),
+                ))
+        elif isinstance(tech, str):
+            fs.mitre_hits.append(MITREHit(technique_id=tech))
+
     if isinstance(mitre, dict):
         for tech in mitre.get("techniques") or []:
-            if isinstance(tech, dict):
-                tid = tech.get("id") or tech.get("technique_id") or ""
-                if tid:
-                    fs.mitre_hits.append(MITREHit(
-                        technique_id=str(tid),
-                        name=tech.get("name"),
-                        tactic=tech.get("tactic"),
-                        provenance=str(tech.get("provenance") or ""),
-                    ))
-            elif isinstance(tech, str):
-                fs.mitre_hits.append(MITREHit(technique_id=tech))
+            _push_mitre_tech(tech)
+    elif isinstance(mitre, list):
+        for tech in mitre:
+            _push_mitre_tech(tech)
+
+    # Also honour mitre_v2 (list of {id, name, tactic}) when present.
+    mitre_v2 = result.get("mitre_v2")
+    if isinstance(mitre_v2, list):
+        for tech in mitre_v2:
+            _push_mitre_tech(tech)
+
+    # ── LOLBins ─────────────────────────────────────────────────────────
+    # decode/smart returns `lolbas` (list or None). auto-investigate uses
+    # `lolbins_v2 = {executed, referenced, expanded}` (each a list of dicts
+    # or strings). Populate reasoning notes so the CIO builder emits
+    # `lolbin` nodes even when the top-level field is null but the
+    # tool clearly used a living-off-the-land binary.
+    lolbas_top = result.get("lolbas")
+    if isinstance(lolbas_top, list):
+        for item in lolbas_top:
+            name = ""
+            if isinstance(item, dict):
+                name = str(item.get("name") or item.get("binary") or "").strip()
+            elif isinstance(item, str):
+                name = item.strip()
+            if name:
+                fs.reasoning_notes.append(f"LOLBIN detected: {name}")
+
+    lolbins_v2 = result.get("lolbins_v2") or {}
+    if isinstance(lolbins_v2, dict):
+        for bucket in ("executed", "referenced", "expanded"):
+            for item in lolbins_v2.get(bucket) or []:
+                name = ""
+                if isinstance(item, dict):
+                    name = str(item.get("name") or item.get("binary") or "").strip()
+                elif isinstance(item, str):
+                    name = item.strip()
+                if name:
+                    fs.reasoning_notes.append(f"LOLBIN detected: {name}")
 
     # ── Verdict ─────────────────────────────────────────────────────────
     vc = result.get("verdict_card") or {}
@@ -259,6 +310,7 @@ def from_analysis_result(result: Dict[str, Any], *,
                         op=str(lyr.get("decoder") or "decode"),
                         input_kind="", output_kind="",
                         output_preview=str(lyr.get("preview") or "")[:200],
+                        reason=str(lyr.get("reason") or lyr.get("why") or "")[:240],
                     ))
                     # Sub-IOCs recovered by each layer
                     sub = lyr.get("sub_iocs") or {}
@@ -276,6 +328,31 @@ def from_analysis_result(result: Dict[str, Any], *,
                                         normalized_value=v.lower() if kind in ("domain","url","email") else v,
                                         stage_passed=["syntactic","context"],
                                     ))
+
+    # ── Fallback: /decode/smart returns decoder steps in `trace[]`
+    # (not `layer_trace[]` nor `decode_pipeline`) for PowerShell
+    # -EncodedCommand normalisation. Read from `trace[]` so the CIO's
+    # decode_chain reflects the actual recovery steps.
+    if not fs.decoder_chain and isinstance(result.get("trace"), list):
+        for i, step in enumerate(result["trace"]):
+            if not isinstance(step, dict):
+                continue
+            op = str(step.get("op") or step.get("kind") or "decode")
+            preview = str(step.get("output_preview") or step.get("preview") or step.get("output") or "")[:200]
+            evidence = step.get("evidence") or {}
+            input_kind = ""
+            output_kind = ""
+            if isinstance(evidence, dict):
+                input_kind = str(evidence.get("input_kind") or "")
+                output_kind = str(evidence.get("encoding") or evidence.get("output_kind") or "")
+            fs.decoder_chain.append(DecoderLayer(
+                idx=i,
+                op=op,
+                input_kind=input_kind,
+                output_kind=output_kind,
+                output_preview=preview,
+                reason=str(step.get("reason") or "")[:240],
+            ))
 
     # ── Adapter for mdr_investigation.recommendations ──
     if isinstance(result.get("mdr_investigation"), dict):

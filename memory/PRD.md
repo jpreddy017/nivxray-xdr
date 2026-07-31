@@ -1,5 +1,57 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-31 · **MDR-Analyst Pipeline + Input Understanding Engine — SHIPPED**
+
+Operator directive: "The tool must think like an MDR analyst. The Summary Composer must never summarize raw logs — it must summarize the completed investigation (CIO). The first question must be 'What did I receive?', not 'How do I decode it?'."
+
+### Shipped (backend)
+- **`nivxforge/investigation/input_understanding.py`** — deterministic Input Understanding Engine (IUE). Classifies any input into one of 17 canonical types: `cisco_xdr | crowdstrike | defender | sentinelone | qradar | splunk | sysmon_xml | windows_event | powershell | cmd | bash | base64 | stix | yara | email_headers | ioc_list | json_generic | unknown`. Emits `{type, label, confidence, fingerprints[], route, size_bytes, line_count}`. Pure function, no I/O, no LLM. Stamped into `cio.metadata.input_understanding` on every `/api/decode/smart` and `/api/v2/auto-investigate` call.
+- **`POST /api/understand`** public endpoint — the frontend calls it immediately on paste so the single INVESTIGATE button auto-routes to the right pipeline (decode/smart or v2/auto-investigate).
+- **MDR-analyst summary composer** — rewrote `summary_composer.py` prose to produce six-paragraph SOC-analyst narrative: (1) what happened, (2) why it matters, (3) supporting evidence, (4) impact & scope, (5) containment status, (6) next actions. Every claim reads from the CIO (evidence graph + verdict + timeline + mitre_digest) — never from raw `input_text`. Opens with "Event:" per §1.1.18, no URLs/hashes in the first sentence. All 23 existing pytest tests still pass.
+- **CIO decode_chain now populated for PowerShell -EncodedCommand** — `fact_substrate.py` reads from `result["trace"][]` when `layer_trace[]` is empty (the PS-EncodedCommand path emits into `trace`, not `layer_trace`). Also carries `reason` per layer.
+- **MITRE list-shape adapter** — `fact_substrate.py` now handles top-level `mitre` as either a dict (`{techniques: [...]}` from auto-investigate) or a list (`[{id, technique, tactic}, ...]` from decode/smart). Also honours `mitre_v2`. Result: `mitre_technique` nodes now populate the evidence graph for `/decode/smart` — Attack Chain lens fills correctly.
+- **`POST /api/osint/lookup`** — endpoint over the existing `db.iocs` local corpus (URLhaus / Feodo / BlocklistDE / OTX / ThreatFox / MalwareBazaar / AbuseIPDB / VirusTotal). Same shape Workspace already uses. Live external VT/AbuseIPDB/URLScan API integration remains a follow-up.
+
+### Shipped (frontend)
+- **Single INVESTIGATE button** replaces the old `AUTO INVESTIGATE / DECODE` toggle. `Lab2InvestigateRenderer` calls `/api/understand` first, then dispatches to the right pipeline automatically.
+- **Topbar INPUT TYPE badge** now reads the IUE label (`POWERSHELL COMMAND`, `CISCO XDR INCIDENT`, `BASE64-ENCODED BLOB`, …) instead of the generic `TEXT`.
+- **Fixed empty Decoded Output preview** — projector was reading `r.name/r.output/r.meta` but the CIO fields are `r.op/r.preview/r.reason`. Executive and Source lenses now display the real recovered payload string.
+- **Behaviour graph lane bucketing extended** — MITRE `mitre_technique` nodes are now routed to the right lane by tactic (Discovery / Command and Control / Defense Evasion / Execution) and MITRE ID range.
+- **SVG size constrained** — `.graph-wrap` now caps at 520px height with proper aspect-ratio preservation so G1/G2 fit inside their container box.
+
+### Verified live (screenshots)
+- Input: multi-line PowerShell BITS downloader (georgeprapas.com).
+  - Topbar: `POWERSHELL COMMAND` badge ✓
+  - Verdict Ledger: BITS Jobs · System Information Discovery · Ingress Tool Transfer · Virtualization/Sandbox Evasion ✓
+  - Executive Summary: "Event: powershell was invoked with an obfuscated command … maps to T1197 · BITS Jobs, T1082 · System Information Discovery, T1105 · Ingress Tool Transfer" — MDR analyst voice ✓
+  - Attack Chain lens: T1197, T1082 techniques rendered; C&C · Defense Evasion · Discovery tactics rendered ✓
+  - Decoded Output preview: shows recovered payload (was empty before) ✓
+- IUE classifies: PowerShell (0.85–0.95), Cisco XDR (1.0), YARA (0.95), Base64 (0.9).
+
+### Backlog (P1 — Workspace parity gaps)
+- **Live OSINT enrichment** — Workspace calls VirusTotal / AbuseIPDB / URLScan / AlienVault OTX APIs live (via `analyze.py::_run_osint`). Lab 2's OSINT lens still shows "pending" placeholders. Wire `/api/osint/lookup` to also invoke the live providers, or expose Workspace's SSE `osint_result` stream to Lab 2.
+- **Rules / LOLBAS / TI-HITS tabs** — Workspace has GRAPH · MITRE · LOLBAS · RULES · IOCS · TI-HITS · OSINT · AI · FLOW · CHAIN tabs. Lab 2 currently exposes 7 lenses that partially overlap. Port the missing views (RULES from `custom_recipes_matched`; LOLBAS from `lolbas` list; TI-HITS from `ti_shield.layers[]`).
+- **G1/G2 topological visual style** — user's reference is a dark topological L-shape (Raw Payload → BASE32-DECODE → DECIMAL-CHARCODE-DECODE → OCTAL-CHARCODE-DECODE → BASE64-DECODE → Decoded → T1027) with circular icon nodes + FILE/ACTION/SCRIPT category labels. Current G2 uses rectangle nodes; topological builder exists in projector but rendering path needs a rewrite.
+- **Verdict escalation** — BITS-downloader test case scores 88 Runtime Dependent in Lab 2 vs 98 Malicious in Workspace. Verdict engine gating rules need one more pass.
+- **LOLBIN nodes** — `fact_substrate.py` pushes "LOLBIN detected: X" into `reasoning_notes` but `builder.py` doesn't yet mint dedicated `lolbin` nodes from them; they show up as `behaviour` nodes instead.
+
+### Files added
+- `/app/backend/nivxforge/investigation/input_understanding.py`
+
+### Files modified
+- `/app/backend/nivxforge/cim/fact_substrate.py` — `trace[]` fallback for decoder chain; MITRE list-shape adapter; LOLBIN notes.
+- `/app/backend/nivxforge/investigation/summary_composer.py` — MDR-analyst prose rewrite (6-paragraph structure, event-first, evidence-anchored).
+- `/app/backend/nivxforge/investigation/builder.py` — carries `reason` per decoder layer into `cio.decode_chain[]`.
+- `/app/backend/routers/ops.py` — `/api/understand` + `/api/osint/lookup` endpoints; IUE metadata stamped into CIO.
+- `/app/backend/routers/auto_investigate.py` — IUE metadata stamped into CIO.
+- `/app/frontend/src/nivxforge/lab2/Lab2InvestigateRenderer.jsx` — calls `/api/understand`, single-button dispatch, view enrichment with IUE label.
+- `/app/frontend/src/nivxforge/lab2/LabV2.jsx` — single INVESTIGATE button, SVG preserveAspectRatio.
+- `/app/frontend/src/nivxforge/lab2/labv2.projector.js` — decodeLadder field fix (`op/preview/reason`), MITRE lane bucketing, node subtitle TTP enrichment.
+- `/app/frontend/src/nivxforge/lab2/labv2.styles.js` — graph-wrap max-height 520px.
+
+---
+
+
 ## 2026-02 · **Phase B foundations: Selection Bus + Event Bus + Lens Registry — SHIPPED**
 
 Three architectural primitives landed before proceeding to Report Lens / Command Palette / OSINT, so no future phase requires refactoring the shell.

@@ -139,8 +139,8 @@ export const LABV2_CSS = `
 .labv2 .transform .conf{margin-left:auto;padding-right:var(--s4)}
 
 /* BEHAVIOR — polished topological graph */
-.labv2 .graph-wrap{border:1px solid var(--border);border-radius:var(--r-xl);background:var(--raised);padding:var(--s5);max-width:100%;overflow-x:auto}
-.labv2 .graph-wrap svg{display:block;width:auto;height:auto;min-width:100%}
+.labv2 .graph-wrap{border:1px solid var(--border);border-radius:var(--r-xl);background:var(--raised);padding:var(--s5);max-width:100%;max-height:520px;overflow:auto}
+.labv2 .graph-wrap svg{display:block;width:100%;height:auto;max-height:480px}
 .labv2 .lane-bg{fill:var(--sunken)}
 .labv2 .lane-lbl{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;fill:var(--fg3)}
 .labv2 .n-box{fill:var(--node-fill);stroke:var(--border-strong);stroke-width:1}

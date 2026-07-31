@@ -99,12 +99,14 @@ export function projectCIO(cio) {
     };
   });
 
-  // ── Behavior/Attack graph (G2). buildBehaviorGraph filters out
-  //    decode nodes internally so the attack chain stays clean.
+  // ── G1 · Attack graph (lane-based · EVADE/DECODE/ACQUIRE/EXECUTE).
+  //    Enrichment: subtitle carries TTP IDs + ev-id.
   const attackGraph = buildBehaviorGraph(nodes, edges);
 
-  // ── Decode chain graph (G1) — linear layer-by-layer
-  const decodeGraph = buildDecodeGraph(nodes, edges);
+  // ── G2 · Decoder graph (linear, reads `cio.decode_chain`).
+  //    Rectangles with title = decoder op, subtitle = reason · ev-XX.
+  //    Selection node id = the fragment node attached to each layer.
+  const decodeGraph = buildDecodeGraphLinear(cio.decode_chain || []);
 
   // Case Spine: derive stage states from reasoning_steps rules.
   // A stage is "done" if any step's rule matches its bucket; otherwise
@@ -236,12 +238,15 @@ export function projectCIO(cio) {
       };
     });
 
-  // Decode ladder — from decode_chain
+  // Decode ladder — from decode_chain (CIO field names: op / preview / reason / input_kind / output_kind / node_id)
   const decodeLadder = (cio.decode_chain || []).map((r, i) => ({
-    layer: `L${i}`,
-    name: r.name || r.layer || `Layer ${i}`,
-    meta: r.meta || "",
-    code: r.output || r.code || r.text || "",
+    layer: `L${r.idx ?? i}`,
+    name: r.op || r.name || r.layer || `Layer ${i}`,
+    meta: r.reason || r.meta || [r.input_kind, r.output_kind].filter(Boolean).join(" → ") || "",
+    code: r.preview || r.output || r.code || r.text || "",
+    nodeId: r.node_id || null,
+    inputKind: r.input_kind || "",
+    outputKind: r.output_kind || "",
   }));
 
   // Behavior graph nodes — kind='behaviour'/'lolbin'/'external_ioc_*'
@@ -398,10 +403,10 @@ function escapeHTML(s) {
 // deterministic for a given (nodes, edges) input — critical so the
 // selection state stays anchored across CIO updates.
 const LANE_DEFS = [
-  { id: "evade",   label: "EVADE",             y: 20,  testKinds: /evasion|hide|hidden|bypass|obfusc/i, mitre: /T1027|T1140|T1564|T1620/i },
-  { id: "decode",  label: "DECODE",            y: 180, testKinds: /decode|transform|normalize|artifact|encoding|cipher/i, mitre: /T1027|T1140/i },
-  { id: "acquire", label: "ACQUIRE",           y: 340, testKinds: /ioc|url|domain|ip|hash|network|download|fetch|c2/i, mitre: /T1105|T1071/i },
-  { id: "execute", label: "EXECUTE · PERSIST", y: 500, testKinds: /lolbin|process|execute|persist|verdict|behaviour|behavior|entity|command/i, mitre: /T1059|T1053|T1547|T1543/i },
+  { id: "evade",   label: "EVADE",             y: 20,  testKinds: /evasion|hide|hidden|bypass|obfusc/i, mitre: /T1027|T1140|T1564|T1620|T1497/i },
+  { id: "decode",  label: "DECODE",            y: 180, testKinds: /decode|transform|normalize|artifact|encoding|cipher|decoded_fragment/i, mitre: /T1027|T1140/i },
+  { id: "acquire", label: "ACQUIRE",           y: 340, testKinds: /ioc|url|domain|ip|hash|network|download|fetch|c2|external_ioc/i, mitre: /T1105|T1071|T1197/i },
+  { id: "execute", label: "EXECUTE · PERSIST", y: 500, testKinds: /lolbin|process|execute|persist|verdict|behaviour|behavior|entity|command|mitre_technique|technique/i, mitre: /T1059|T1053|T1547|T1543|T1218|T1082/i },
 ];
 const LANE_HEIGHT = 150;
 const ROW_HEIGHT = 74;
@@ -413,8 +418,20 @@ const LEFT_PAD = 80;
 function bucketNode(node) {
   const kind = String(node.kind || "");
   const mitre = (node.mitre_techniques || []).join(" ");
+  // If the node itself IS a MITRE technique, use its id + tactic to route.
+  const nodeMitreId =
+    kind === "mitre_technique"
+      ? String(node.value || node.label || "").match(/T\d{4}(?:\.\d+)?/)?.[0] || ""
+      : "";
+  const tactic = String(node.attrs?.tactic || "").toLowerCase();
   for (const lane of LANE_DEFS) {
-    if (lane.testKinds.test(kind) || (mitre && lane.mitre.test(mitre))) return lane.id;
+    if (lane.testKinds.test(kind)) return lane.id;
+    if (mitre && lane.mitre.test(mitre)) return lane.id;
+    if (nodeMitreId && lane.mitre.test(nodeMitreId)) return lane.id;
+    // Tactic-based routing for mitre_technique nodes.
+    if (tactic && lane.id === "evade" && /evasion/.test(tactic)) return lane.id;
+    if (tactic && lane.id === "acquire" && /(command|control|c2|initial)/.test(tactic)) return lane.id;
+    if (tactic && lane.id === "execute" && /(execution|persist|discovery)/.test(tactic)) return lane.id;
   }
   return "execute";
 }
@@ -568,10 +585,15 @@ function buildBehaviorGraph(nodes, edges) {
     height: Math.max(LANE_HEIGHT, laneRows[lane.id] * ROW_HEIGHT + 40),
     nodes: byLane[lane.id].map((n) => {
       const p = positions[n.id];
+      const ttps = (n.mitre_techniques || []).slice(0, 2).join(" ");
+      const kind = String(n.kind || "").replace(/^external_ioc_/, "");
+      const subtitle = ttps
+        ? `${ttps} · ${n.id}`
+        : `${kind} · ${n.id}`;
       return {
         id: n.id,
         title: prettifyLabel(n),
-        subtitle: `${(n.kind || "").replace(/^external_ioc_/, "")} · ${Math.round((n.confidence || 0) * 100)}%`,
+        subtitle,
         hot: (n.confidence || 0) >= 0.7,
         x: p.x, y: p.y, w: p.w, h: p.h,
       };
@@ -694,6 +716,222 @@ function buildDecodeGraph(nodes, edges) {
     width: PAD_X * 2 + layouted.length * NW + (layouted.length - 1) * GAP,
     height: PAD_Y * 2 + NH,
   };
+}
+
+// ── G2 · Topological L-shape Decoder Graph ────────────────────────────
+// Projects `cio.decode_chain[]` into a dark topological visual (like
+// the operator's reference): circular icon nodes on a grid-dot dark
+// canvas, L-shape edge routing, and category labels beneath each node
+// (FILE / ACTION / SCRIPT). The root is an amber "Raw Payload" file
+// node; every decoder step is a purple ACTION node; the final decoded
+// payload is a SCRIPT node with a subtle target badge if MITRE
+// techniques attached to it.
+//
+// Layout:
+//   nodes[0..half-1]        vertical column at x=V_X, y increases
+//   L-bend at the last vertical node
+//   nodes[half..N-1]        horizontal row at y=H_Y, x increases
+//
+// Selection: each layer keeps its evidence-graph node_id so clicks
+// on a G2 node still light up the Ledger/Findings/Story chips.
+const G2_R = 30;                 // circle radius
+const G2_V_X = 110;              // vertical column x
+const G2_V_Y0 = 90;              // first node y
+const G2_V_GAP = 170;            // vertical spacing between nodes
+const G2_H_GAP = 260;            // horizontal spacing between nodes
+const G2_H_Y_PAD = 100;          // gap between end of vertical column and horizontal row
+const G2_H_X0_PAD = 200;         // gap between vertical column and first horizontal node
+
+function buildDecodeGraphTopo(decodeChain, allNodes, cio) {
+  if (!decodeChain || decodeChain.length === 0) {
+    return { nodes: [], edges: [], empty: true, width: 900, height: 400 };
+  }
+
+  // Nodes: [Raw Payload] + [each decoder layer] + [Decoded final] + [MITRE technique if present]
+  const raw = [];
+
+  // 1. Root FILE node — raw payload.
+  const inputLen = ((cio && cio.input_text) || "").length;
+  raw.push({
+    id: "g2-root",
+    title: `Raw Payload${inputLen ? ` (${inputLen}c)` : ""}`,
+    category: "FILE",
+    kind: "file",
+    color: "amber",
+    icon: "file",
+    badge: "spark",                // small blue spark above
+  });
+
+  // 2. One ACTION node per decoder layer, ordered by layer idx.
+  const sortedLayers = [...decodeChain].sort(
+    (a, b) => (a.idx ?? 0) - (b.idx ?? 0)
+  );
+  sortedLayers.forEach((layer, i) => {
+    raw.push({
+      id: layer.node_id || `g2-L${layer.idx ?? i}`,
+      title: prettifyDecoderOp(layer.op).toUpperCase(),
+      subtitle: layer.reason
+        ? String(layer.reason).replace(/^Applied\s+/i, "").slice(0, 32)
+        : "",
+      category: "ACTION",
+      kind: "action",
+      color: "purple",
+      icon: "shield",
+    });
+  });
+
+  // 3. Terminal SCRIPT node — the decoded payload (last layer's preview).
+  const lastLayer = sortedLayers[sortedLayers.length - 1];
+  const decodedText = lastLayer && lastLayer.preview ? String(lastLayer.preview) : "";
+  if (decodedText) {
+    raw.push({
+      id: "g2-decoded",
+      title: `Decoded (${decodedText.length}c)`,
+      category: "SCRIPT",
+      kind: "script",
+      color: "purple",
+      icon: "script",
+      target: true,                 // small red target badge
+    });
+  }
+
+  // 4. If verdict has any contributor with MITRE tags, add a terminal
+  //    verdict-ish node showing the top technique. Skip when nothing.
+  const nodeById = Object.fromEntries((allNodes || []).map((n) => [n.id, n]));
+  const contribIds = ((cio && cio.verdict && cio.verdict.contributors) || [])
+    .map((c) => c.node_id);
+  let topTechnique = "";
+  let topTechniqueName = "";
+  for (const cid of contribIds) {
+    const nd = nodeById[cid];
+    if (!nd) continue;
+    const tt = (nd.mitre_techniques || [])[0];
+    if (tt) {
+      topTechnique = tt;
+      // Try to enrich with a short name from the summary mitre digest.
+      const mitre = (cio.summary && cio.summary.mitre_digest) || {};
+      for (const val of Object.values(mitre)) {
+        const techs = Array.isArray(val) ? val : (val && val.techniques) || [];
+        for (const t of techs) {
+          if ((t.technique_id || t.id) === tt) {
+            topTechniqueName = t.name || t.title || "";
+            break;
+          }
+        }
+        if (topTechniqueName) break;
+      }
+      break;
+    }
+  }
+  if (topTechnique) {
+    raw.push({
+      id: "g2-mitre",
+      title: `${topTechnique} · ${topTechniqueName || "Technique"}`,
+      category: "ACTION",
+      kind: "verdict",
+      color: "purple",
+      icon: "shield",
+      crown: true,                  // yellow crown badge for the verdict
+    });
+  }
+
+  // Deduplicate nodes by id, preserving order (in case a layer's
+  // node_id coincides with a MITRE contributor id, though rare).
+  const seen = new Set();
+  const nodes = [];
+  raw.forEach((n) => {
+    if (seen.has(n.id)) return;
+    seen.add(n.id);
+    nodes.push(n);
+  });
+
+  // Split into vertical & horizontal segments.
+  const N = nodes.length;
+  const half = Math.min(4, Math.max(2, Math.ceil(N / 2)));
+  const H_Y = G2_V_Y0 + (half - 1) * G2_V_GAP + G2_H_Y_PAD;
+  const H_X0 = G2_V_X + G2_H_X0_PAD;
+
+  nodes.forEach((n, i) => {
+    if (i < half) {
+      // Vertical column at x=G2_V_X
+      n.cx = G2_V_X;
+      n.cy = G2_V_Y0 + i * G2_V_GAP;
+    } else {
+      // Horizontal row at y=H_Y
+      n.cx = H_X0 + (i - half) * G2_H_GAP;
+      n.cy = H_Y;
+    }
+  });
+
+  // Edges — sequential i → i+1. Route:
+  //   - if both nodes in vertical col     → straight vertical
+  //   - if bend point (i == half-1)       → L-shape (down then right)
+  //   - else                              → straight horizontal
+  // Colour: first edge (root FILE → first ACTION) = amber; the last
+  // hop leading INTO the MITRE/verdict node = red hot; all others =
+  // muted purple. Matches the operator reference exactly.
+  const edges = [];
+  const lastIdx = N - 1;
+  const mitreEndIdx = nodes[lastIdx] && nodes[lastIdx].crown ? lastIdx : -1;
+  for (let i = 0; i < N - 1; i++) {
+    const a = nodes[i], b = nodes[i + 1];
+    let path;
+    if (i < half - 1) {
+      // Vertical connection between two vertical nodes.
+      path = `M ${a.cx} ${a.cy + G2_R} L ${b.cx} ${b.cy - G2_R}`;
+    } else if (i === half - 1 && N > half) {
+      // L-bend: vertical from a down to H_Y, then horizontal to b.
+      path = `M ${a.cx} ${a.cy + G2_R} L ${a.cx} ${b.cy} L ${b.cx - G2_R} ${b.cy}`;
+    } else {
+      // Horizontal connection.
+      path = `M ${a.cx + G2_R} ${a.cy} L ${b.cx - G2_R} ${b.cy}`;
+    }
+    // Colour flavour:
+    let flavor = "purple";
+    if (i === 0) flavor = "amber";                   // root FILE edge is amber
+    if (mitreEndIdx > 0 && i + 1 === mitreEndIdx) flavor = "red";  // last hop into verdict is red
+    edges.push({ path, flavor, from: a.id, to: b.id });
+  }
+
+  // Canvas size.
+  const rightMostX = Math.max(
+    G2_V_X + 200,
+    H_X0 + Math.max(0, N - half - 1) * G2_H_GAP + G2_R + 200
+  );
+  const bottomMostY = H_Y + G2_R + 120;
+
+  return {
+    nodes,
+    edges,
+    empty: false,
+    width: Math.max(rightMostX, 900),
+    height: Math.max(bottomMostY, 500),
+  };
+}
+
+function prettifyDecoderOp(op) {
+  if (!op) return "Decoder";
+  const s = String(op).replace(/[-_]/g, " ").trim();
+  // Common short-forms → friendly titles.
+  const MAP = {
+    "ps encodedcommand recovery": "PS EncodedCommand",
+    "extract payload": "Extract payload",
+    "ioc extract": "IOC extract",
+    "base64 decode": "Base64 decode",
+    "utf16 decode": "UTF-16 decode",
+    "hex decode": "Hex decode",
+    "gzip inflate": "Gzip inflate",
+    "gzip decompress": "Gzip decompress",
+    "charcode decode": "Charcode decode",
+    "rot decode": "ROT decode",
+    "xor decode": "XOR decode",
+  };
+  const key = s.toLowerCase();
+  if (MAP[key]) return MAP[key];
+  return s
+    .split(" ")
+    .map((w) => (w.length <= 4 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)))
+    .join(" ");
 }
 
 // ── empty (tool-idle) state ──────────────────────────────────────────

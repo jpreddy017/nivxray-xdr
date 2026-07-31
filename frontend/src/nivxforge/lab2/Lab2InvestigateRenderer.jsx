@@ -5,9 +5,10 @@
  * model to LabV2. This is the ONLY place the CIO is translated for
  * Lab v2 consumption — every panel inside LabV2 renders from `view`.
  *
- * §5: Backend contract unchanged. Same `detectPipeline()` router as
- * the legacy renderer chooses between /decode/smart and
- * /v2/auto-investigate.
+ * §5: Backend contract unchanged. The Input Understanding Engine
+ * (`POST /api/understand`) tells us which pipeline to dispatch to —
+ * /decode/smart or /v2/auto-investigate — so the analyst never has
+ * to pick manually.
  */
 import React, { useCallback, useMemo, useState } from "react";
 import api from "../../lib/api";
@@ -17,11 +18,12 @@ import { projectCIO } from "./labv2.projector";
 import { SelectionProvider } from "./SelectionBus";
 import { EventBusProvider, useEventBus, EVT } from "./EventBus";
 
-// Copied verbatim from legacy renderer (ADR-0014 · Phase 1).
-function detectPipeline(text) {
+// Fallback local heuristic — only used if the backend IUE call fails.
+// Same signals as before, kept as a safety net.
+function fallbackDetectPipeline(text) {
   const raw = (text || "").trim();
   if (!raw) return "decode";
-  const looksLikeJson = /^[\[{]/.test(raw) && /[\]}]$/.test(raw);
+  const looksLikeJson = /^[[{]/.test(raw) && /[\]}]$/.test(raw);
   if (looksLikeJson) {
     const vendorSignals =
       /"(connector_guid|computer|detection|falcon|CrowdStrike|Defender|SecurityAlert|QRadar|SentinelOne|threat_name|SHA256|sha256|ExecutedMalware|amp\.cisco\.com|xdr\.us\.security\.cisco\.com|Sysmon)"/i;
@@ -50,18 +52,49 @@ function Lab2InvestigateInner() {
   const [cio, setCio] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [understanding, setUnderstanding] = useState(null);   // { type, label, route, confidence, ... }
   const { emit } = useEventBus();
 
   React.useEffect(() => {
     emit(EVT.INVESTIGATION_STARTED, { source: "lab2" });
   }, [emit]);
 
-  const runAnalyze = useCallback(async (text, mode) => {
+  const runAnalyze = useCallback(async (text, modeOverride) => {
     setLoading(true);
     setErr("");
     setCio(null);
-    const pipeline = mode || detectPipeline(text);
-    emit(EVT.ANALYZE_SUBMITTED, { mode: pipeline, chars: text.length });
+    setUnderstanding(null);
+
+    // Step 1 · Ask the backend Input Understanding Engine what this
+    // input is. This is the "What did I receive?" question the tool
+    // must always answer first (MDR-analyst mental model).
+    let iue = null;
+    try {
+      const u = await api.post("/understand", { input: text });
+      iue = u.data || null;
+      setUnderstanding(iue);
+    } catch (_e) {
+      // IUE call failed; degrade to local heuristic. No hard error.
+      iue = null;
+    }
+
+    // Step 2 · Resolve pipeline from IUE route, unless caller pinned
+    // an explicit mode (legacy button behaviour).
+    let pipeline;
+    if (modeOverride === "auto" || modeOverride === "decode") {
+      pipeline = modeOverride;
+    } else if (iue && iue.route) {
+      pipeline = iue.route === "auto-investigate" ? "auto" : "decode";
+    } else {
+      pipeline = fallbackDetectPipeline(text);
+    }
+
+    emit(EVT.ANALYZE_SUBMITTED, {
+      mode: pipeline,
+      chars: text.length,
+      iue_type: iue?.type || "unknown",
+      iue_confidence: iue?.confidence || 0,
+    });
     try {
       const r =
         pipeline === "auto"
@@ -88,10 +121,24 @@ function Lab2InvestigateInner() {
 
   const { view } = useMemo(() => projectCIO(cio), [cio]);
 
+  // Attach the IUE result to the view so LabV2's topbar can show
+  // the analyst-facing label instead of the raw input_kind.
+  const enrichedView = useMemo(() => {
+    if (!understanding) return view;
+    return {
+      ...view,
+      understanding,
+      // Prefer the IUE label if present — analysts recognise "Cisco
+      // XDR Incident" more than a generic "TEXT" badge. Uppercase to
+      // match the topbar visual style.
+      inputType: String(understanding.label || view.inputType || "").toUpperCase(),
+    };
+  }, [view, understanding]);
+
   return (
     <Lab2Provider initialCIO={cio}>
       <LabV2
-        view={view}
+        view={enrichedView}
         onAnalyze={runAnalyze}
         isAnalyzing={loading}
         analyzeError={err}

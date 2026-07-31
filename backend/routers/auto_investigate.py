@@ -713,6 +713,15 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
         # ADR-0014 §1.1.14 Layer 2 · attach ingress-gate provenance.
         if _ingress_provenance:
             _cio.metadata["normalised_via"] = _ingress_provenance
+        # Input Understanding Engine · classify "what did I receive?".
+        try:
+            from nivxforge.investigation.input_understanding import understand as _iue
+            _cio.metadata["input_understanding"] = _iue(body.incident_text or "")
+        except Exception:  # noqa: BLE001
+            import logging
+            logging.getLogger(__name__).exception(
+                "IUE classification failed (safe — CIO returned without input_understanding)"
+            )
         result["cio"] = _cio.model_dump(mode="json")
     except Exception:  # noqa: BLE001
         import logging

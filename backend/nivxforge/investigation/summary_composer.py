@@ -330,82 +330,397 @@ def _build_recommendations(cio: CIO) -> List[Recommendation]:
     return recs
 
 
-# ─── Prose composition (deterministic templating, §1.1.18 ordered) ─
+# ─── Prose composition (deterministic MDR-analyst voice, §1.1.18 ordered) ─
+#
+# Design principle (2026-02 · MDR-Analyst rewrite):
+#   - Never quote the raw input.
+#   - Never enumerate "Layer 0 → Layer 1 → …" — that reads like a log, not an
+#     analyst.
+#   - Never say "N reasoning steps" in the narrative — analysts don't count
+#     their own thinking.
+#   - Use active-voice verbs on subjects/objects extracted from the evidence
+#     graph (LOLBIN, decoded URL/domain, hash, host, user, MITRE technique
+#     name).
+#   - Every sentence must be evidence-backed, but the wording is a claim about
+#     the incident — not a dump of node kinds.
+#
+# The six-question analyst structure lives inside `_prose_analyst`:
+#   1. What happened     — event-level narrative
+#   2. Why it matters    — behaviour classification + MITRE names
+#   3. Supporting evidence — concrete recovered strings + host/user
+#   4. Impact & scope    — hosts, users, domains, hashes
+#   5. Containment       — what fired, was it blocked/observed
+#   6. Next actions      — ordered runbook derived from recs
 
-def _prose_executive(cio: CIO, findings: List[KeyFinding], entities: EntitiesDigest, mitre: MitreDigest) -> str:
-    verdict = cio.verdict or {}
-    label = verdict.get("label", "Undetermined")
-    conf_pct = verdict.get("confidence_pct", 0)
-    top = findings[0].label if findings else "no high-signal evidence"
-    host_txt = f" on {entities.hosts[0]}" if entities.hosts else ""
+
+def _analyst_event_lead(cio: CIO, lolbin: Optional[str], mitre: MitreDigest) -> str:
+    """Compose the mandatory §1.1.18 opening sentence. Format:
+        'Event: <subject> <verb> <object>.'
+    Never contains a URL, IP, or hash — those go into subsequent
+    sentences so the opening reads like an analyst framing the case."""
+    label = (cio.verdict or {}).get("label", "Undetermined")
+    verdict_frame = {
+        "Malicious":         "confirmed malicious",
+        "Suspicious":        "probable-malicious",
+        "Runtime Dependent": "runtime-dependent",
+        "Informational":     "informational",
+        "Undetermined":      "undetermined",
+    }.get(label, "undetermined")
+
+    if lolbin:
+        # LOLBIN present → describe living-off-the-land execution.
+        return (
+            f"Event: {lolbin} was invoked with an obfuscated command "
+            f"consistent with {verdict_frame} activity."
+        )
+    # No LOLBIN — describe by artifact class + verdict.
     return (
-        f"Verdict: {label} (confidence {conf_pct}%). "
-        f"Top driver: {top}{host_txt}. "
-        f"{mitre.coverage} ATT&CK tactic(s) observed."
+        f"Event: The submitted {cio.input_kind or 'artifact'} produced "
+        f"{verdict_frame} evidence when analysed."
     )
 
 
-def _prose_analyst(cio: CIO, findings: List[KeyFinding], chain: List[AttackChainStep],
-                    entities: EntitiesDigest, mitre: MitreDigest, recs: List[Recommendation]) -> str:
+def _find_lolbin(cio: CIO) -> Optional[str]:
+    for n in cio.evidence_graph.nodes:
+        if str(n.kind).lower() == "lolbin":
+            return str(n.label or n.value or "").split("·")[-1].strip() or None
+    return None
+
+
+def _decoded_urls(cio: CIO) -> List[str]:
+    urls = []
+    for n in cio.evidence_graph.nodes:
+        k = str(n.kind).lower()
+        if k in ("external_ioc_url", "url"):
+            v = str(n.label or n.value or "").strip()
+            if v and v not in urls:
+                urls.append(v)
+    return urls
+
+
+def _decoded_domains(cio: CIO) -> List[str]:
+    doms = []
+    for n in cio.evidence_graph.nodes:
+        k = str(n.kind).lower()
+        if k in ("external_ioc_domain", "domain"):
+            v = str(n.label or n.value or "").strip()
+            if v and v not in doms:
+                doms.append(v)
+    return doms
+
+
+def _final_decoded_snippet(cio: CIO) -> str:
+    """Return the last decoder layer's short preview — the payload the
+    engine recovered. Used to quote *what* was hidden, not *how* it
+    was hidden."""
+    if not cio.decode_chain:
+        return ""
+    last = cio.decode_chain[-1]
+    prev = str(last.get("preview") or "").strip()
+    if not prev:
+        return ""
+    # Truncate to a single readable claim.
+    if len(prev) > 160:
+        prev = prev[:157] + "…"
+    return prev
+
+
+def _mitre_named_pairs(mitre: MitreDigest, limit: int = 3) -> List[str]:
+    """Return ['T1059.001 · PowerShell', ...] using resolved names.
+    Falls back to just the ID if no name is known."""
+    out: List[str] = []
+    seen = set()
+    for t in mitre.techniques:
+        tid = str(t.get("id") or "").strip()
+        if not tid or tid in seen:
+            continue
+        seen.add(tid)
+        name = str(t.get("name") or "").strip()
+        out.append(f"{tid} · {name}" if name else tid)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _behavior_summary_verb(cio: CIO, urls: List[str], lolbin: Optional[str]) -> str:
+    """Deprecated in favour of _analyst_event_lead. Kept for backward
+    compatibility with any external caller; produces analyst-flavour
+    prose but WITHOUT the mandatory 'Event:' prefix and WITHOUT
+    URL/hash removal from the first sentence."""
+    if lolbin and urls:
+        return (
+            f"{lolbin} was invoked with an obfuscated command that fetches "
+            f"{urls[0]}."
+        )
+    if lolbin:
+        return f"{lolbin} was invoked with an obfuscated command."
+    if urls:
+        return f"Recovered payload references {urls[0]}."
+    verdict = (cio.verdict or {}).get("label", "Undetermined")
+    return (
+        f"The submitted {cio.input_kind or 'artifact'} terminated at "
+        f"the {verdict} verdict."
+    )
+
+
+def _prose_executive(cio: CIO, findings: List[KeyFinding],
+                     entities: EntitiesDigest, mitre: MitreDigest) -> str:
+    """One tight paragraph in analyst voice. Answers what happened +
+    why it matters + the top driver + tactic coverage. Opens with
+    'Event:' per §1.1.18 and keeps the first sentence free of URLs
+    and hashes."""
     verdict = cio.verdict or {}
     label = verdict.get("label", "Undetermined")
-    parts: List[str] = []
+    conf_pct = verdict.get("confidence_pct", 0)
+    urls = _decoded_urls(cio)
+    lolbin = _find_lolbin(cio)
 
-    # 1 · Event
-    if chain:
-        parts.append("Event: " + " → ".join(step.label for step in chain[:6]) + ".")
+    # Sentence 1 — §1.1.18 opening (no URLs, no hashes).
+    lead = _analyst_event_lead(cio, lolbin, mitre)
+
+    # Sentence 2 — the concrete detail (URL, staging pattern) that
+    # explains WHY this is verdict-worthy.
+    if lolbin and urls:
+        detail = (
+            f" The recovered command attempts to fetch a remote payload "
+            f"from {urls[0]} — a classic staging pattern used to pull "
+            f"second-stage code from the internet before executing it."
+        )
+    elif lolbin:
+        detail = (
+            f" The recovered command hides its actual behaviour from "
+            f"static inspection."
+        )
+    elif urls:
+        detail = f" Recovered payload references {urls[0]}."
     else:
-        parts.append(f"Event: {cio.input_kind} artifact analysed.")
+        detail = ""
 
-    # 2 · Process chain / decode chain
-    if cio.decode_chain:
-        parts.append(f"Decode chain: {len(cio.decode_chain)} layer(s) recovered.")
+    pairs = _mitre_named_pairs(mitre, limit=2)
+    mitre_clause = ""
+    if pairs:
+        mitre_clause = f" Behaviour maps to {', '.join(pairs)}."
 
-    # 3 · Host / User
-    hu_parts = []
+    host_clause = ""
     if entities.hosts:
-        hu_parts.append(f"host(s) {', '.join(entities.hosts[:3])}")
-    if entities.users:
-        hu_parts.append(f"user(s) {', '.join(entities.users[:3])}")
-    if hu_parts:
-        parts.append("Observed on " + " · ".join(hu_parts) + ".")
+        host_clause = f" Observed on host {entities.hosts[0]}."
 
-    # 4 · Timeline (compact)
-    if cio.reasoning_steps:
-        parts.append(f"Timeline: {len(cio.reasoning_steps)} deterministic reasoning steps.")
+    return (
+        f"{lead}{detail}{mitre_clause}{host_clause}"
+        f" Verdict: {label} at {conf_pct}% confidence."
+    )
 
-    # 5 · High-confidence evidence
-    if findings:
-        top_lines = ", ".join(f.label for f in findings[:5])
-        parts.append(f"Key evidence: {top_lines}.")
 
-    # 6 · Scope
-    if entities.external_domains or entities.external_ips or entities.hashes:
-        scope_parts = []
-        if entities.external_domains:
-            scope_parts.append(f"{len(entities.external_domains)} external domain(s)")
-        if entities.external_ips:
-            scope_parts.append(f"{len(entities.external_ips)} external IP(s)")
-        if entities.hashes:
-            scope_parts.append(f"{len(entities.hashes)} hash(es)")
-        parts.append("Scope: " + ", ".join(scope_parts) + ".")
+def _paragraph_what_happened(cio: CIO, urls: List[str], lolbin: Optional[str],
+                              snippet: str, mitre: MitreDigest) -> str:
+    """Section 1 · MDR-style event description. Opens with 'Event:'
+    per §1.1.18 — first sentence is URL/hash-free; subsequent
+    sentences carry the concrete recovered strings."""
+    lead = _analyst_event_lead(cio, lolbin, mitre)
 
-    # 7 · Impact (derived from verdict label)
-    impact_map = {
-        "Malicious":         "Confirmed malicious activity — active containment warranted.",
-        "Suspicious":        "Probable malicious activity — verification before containment.",
-        "Runtime Dependent": "Ambiguous static evidence — sandbox to disambiguate.",
-        "Informational":     "No malicious activity indicated; retain for correlation.",
-        "Undetermined":      "Insufficient evidence to reach a verdict.",
-    }
-    parts.append("Impact: " + impact_map.get(label, "Undetermined."))
+    followups = []
+    if urls:
+        followups.append(
+            f"The recovered command attempts to reach out to {urls[0]}, "
+            f"consistent with second-stage payload staging."
+        )
+    if snippet and lolbin:
+        followups.append(
+            f"Recovered payload reads: `{snippet}`, which corroborates "
+            f"that {lolbin} was used as a launcher for downstream code "
+            f"rather than a routine administrative task."
+        )
+    elif snippet:
+        followups.append(f"Recovered payload: `{snippet}`.")
+    return " ".join([lead] + followups)
 
-    # 8 · Recommendations (first two)
-    if recs:
-        rec_lines = " · ".join(r.action for r in recs[:2])
-        parts.append("Recommended action: " + rec_lines)
 
+def _paragraph_why_it_matters(cio: CIO, mitre: MitreDigest,
+                              lolbin: Optional[str]) -> str:
+    """Section 2 · Behaviour classification and threat framing."""
+    pairs = _mitre_named_pairs(mitre, limit=3)
+    parts = []
+    if lolbin:
+        parts.append(
+            f"Living-off-the-land use of {lolbin} bypasses application-"
+            f"allowlisting because the binary itself is signed and "
+            f"trusted; the malicious intent lives in the arguments, "
+            f"not the executable."
+        )
+    if pairs:
+        parts.append(
+            "Investigation mapped the observed behaviour to "
+            + ", ".join(pairs)
+            + "."
+        )
+    if not parts:
+        parts.append(
+            "The recovered evidence does not currently map to a specific "
+            "attacker technique; the incident is being flagged for "
+            "manual review to avoid a false negative."
+        )
     return " ".join(parts)
+
+
+def _paragraph_evidence(cio: CIO, findings: List[KeyFinding],
+                         entities: EntitiesDigest) -> str:
+    """Section 3 · Concrete supporting evidence with node-id anchors."""
+    if not findings:
+        return (
+            "No high-signal indicators were recovered from the "
+            "submission; verdict is driven by structural properties "
+            "of the input alone."
+        )
+    top = findings[:5]
+    lines = []
+    for f in top:
+        nid = f.evidence_node_ids[0] if f.evidence_node_ids else ""
+        anchor = f" [{nid}]" if nid else ""
+        lines.append(f"{f.label}{anchor}")
+    scope_bits = []
+    if entities.external_domains:
+        scope_bits.append(
+            f"{len(entities.external_domains)} external domain(s)"
+        )
+    if entities.external_ips:
+        scope_bits.append(f"{len(entities.external_ips)} external IP(s)")
+    if entities.hashes:
+        scope_bits.append(f"{len(entities.hashes)} hash(es)")
+    scope_line = ""
+    if scope_bits:
+        scope_line = (
+            " Recovered network/host indicators cover "
+            + ", ".join(scope_bits)
+            + "."
+        )
+    return (
+        "Supporting evidence, in weight order: "
+        + "; ".join(lines)
+        + "."
+        + scope_line
+    )
+
+
+def _paragraph_impact_scope(cio: CIO, entities: EntitiesDigest) -> str:
+    """Section 4 · Impact & scope from real entities."""
+    label = (cio.verdict or {}).get("label", "Undetermined")
+    impact_map = {
+        "Malicious": (
+            "Impact is confirmed malicious. Any endpoint that executed "
+            "this payload should be considered compromised until proven "
+            "otherwise."
+        ),
+        "Suspicious": (
+            "Impact is probable-malicious. The behaviour is inconsistent "
+            "with routine administrative activity and warrants "
+            "verification before containment is relaxed."
+        ),
+        "Runtime Dependent": (
+            "Impact cannot be determined from static evidence alone. "
+            "A sandbox detonation of the recovered payload is required "
+            "to disambiguate benign versus malicious execution."
+        ),
+        "Informational": (
+            "Impact is low; the submission only exposed vendor / "
+            "benign-infrastructure indicators."
+        ),
+        "Undetermined": (
+            "Impact cannot be assessed with the evidence available. "
+            "Re-submit with fuller artefacts (host, user, parent "
+            "process) if a decision is required."
+        ),
+    }
+    header = impact_map.get(label, impact_map["Undetermined"])
+    parts = [header]
+    scope = []
+    if entities.hosts:
+        scope.append(f"{len(entities.hosts)} host(s)")
+    if entities.users:
+        scope.append(f"{len(entities.users)} user(s)")
+    if entities.external_domains:
+        scope.append(f"{len(entities.external_domains)} external domain(s)")
+    if entities.external_ips:
+        scope.append(f"{len(entities.external_ips)} external IP(s)")
+    if scope:
+        parts.append("Scope of observed entities: " + ", ".join(scope) + ".")
+    return " ".join(parts)
+
+
+def _paragraph_containment(cio: CIO) -> str:
+    """Section 5 · Containment / control-status. Currently derived from
+    reasoning-step notes tagged with quarantine/blocked keywords —
+    otherwise honestly reports no containment signal was seen.
+
+    False-positive guards:
+      - Match on whole words (not substrings), so "blocked" hits but
+        the noun "block" (as in "decoded block") does not.
+      - Require the token to appear near an entity noun (host, user,
+        process, endpoint, file, hash, execution) so we do not mistake
+        analysis vocabulary for containment vocabulary.
+    """
+    import re
+    # Whole-word action verbs (past-tense variants included).
+    verb_pat = re.compile(
+        r"\b(quarantin(?:e|ed)|blocked|prevent(?:ed)?|isolat(?:e|ed)|"
+        r"kill(?:ed)?|terminat(?:e|ed)|contain(?:ed)?)\b",
+        re.IGNORECASE,
+    )
+    # Entity nouns that make a verb count as containment.
+    entity_pat = re.compile(
+        r"\b(host|endpoint|process|file|hash|payload|execution|"
+        r"user|account|network|traffic|connection)\b",
+        re.IGNORECASE,
+    )
+    hits: List[str] = []
+    for s in cio.reasoning_steps:
+        exp = (s.explanation or "").strip()
+        if not exp:
+            continue
+        if verb_pat.search(exp) and entity_pat.search(exp):
+            hits.append(exp)
+    if hits:
+        # Join without accidentally producing double full-stops.
+        cleaned = " · ".join(h.rstrip(".").rstrip() for h in hits[:3])
+        return f"Containment signals present in the evidence: {cleaned}."
+    return (
+        "No containment signal was observed in the submitted evidence "
+        "(no quarantine, block, or prevent action was reported). This "
+        "does not mean containment did not occur — it means the "
+        "artefact submitted to NivXRay did not include that telemetry."
+    )
+
+
+def _paragraph_next_actions(recs: List[Recommendation]) -> str:
+    """Section 6 · Ordered analyst runbook."""
+    if not recs:
+        return "No further analyst action is recommended at this time."
+    numbered = "; ".join(
+        f"{i + 1}. {r.action.rstrip('.').rstrip()}"
+        for i, r in enumerate(recs[:4])
+    )
+    return "Recommended next actions: " + numbered + "."
+
+
+def _prose_analyst(cio: CIO, findings: List[KeyFinding],
+                    chain: List[AttackChainStep], entities: EntitiesDigest,
+                    mitre: MitreDigest, recs: List[Recommendation]) -> str:
+    """The six-question MDR-analyst narrative. Reads like an SOC
+    investigation report, never like a log summary. Every sentence
+    is derived from the evidence graph — never from raw input_text."""
+    urls = _decoded_urls(cio)
+    lolbin = _find_lolbin(cio)
+    snippet = _final_decoded_snippet(cio)
+
+    p1 = _paragraph_what_happened(cio, urls, lolbin, snippet, mitre)
+    p2 = _paragraph_why_it_matters(cio, mitre, lolbin)
+    p3 = _paragraph_evidence(cio, findings, entities)
+    p4 = _paragraph_impact_scope(cio, entities)
+    p5 = _paragraph_containment(cio)
+    p6 = _paragraph_next_actions(recs)
+
+    # Blank line between paragraphs so the frontend renders discrete
+    # sections without any additional structuring.
+    return "\n\n".join([p1, p2, p3, p4, p5, p6])
 
 
 def _prose_technical(cio: CIO, findings: List[KeyFinding], mitre: MitreDigest) -> str:

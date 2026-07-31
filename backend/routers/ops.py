@@ -2083,6 +2083,17 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # G4 (`G4_NORMALISATION_REQUIRED`) accepts the CIO.
         if _ingress_provenance:
             _cio.metadata["normalised_via"] = _ingress_provenance
+        # Input Understanding Engine · stamp "what did I receive?"
+        # into cio.metadata.input_understanding so every downstream
+        # surface (topbar badge, analyst prose, correlation card)
+        # can display the classification without recomputing it.
+        try:
+            from nivxforge.investigation.input_understanding import understand as _iue
+            _cio.metadata["input_understanding"] = _iue(
+                (body.input if hasattr(body, "input") else "")
+            )
+        except Exception:  # noqa: BLE001
+            log.exception("IUE classification failed (safe — CIO returned without input_understanding)")
         result["cio"] = _cio.model_dump(mode="json")
     except Exception:  # noqa: BLE001
         log.exception("ADR-0014 · CIO composition failed (safe — legacy response preserved)")
@@ -2271,3 +2282,58 @@ def _reason_for_op(op: str) -> str:
         "env-expand": "Resolved %TEMP% / $env:* / ${HOME} placeholders",
         "extract-base64": "Extracted embedded base64 blob(s) from wrapper text",
     }.get(op, f"Applied {op}")
+
+
+# ─── Input Understanding Engine (public endpoint) ────────────────────
+# The frontend calls this immediately on paste so the single
+# "INVESTIGATE" button can resolve the correct pipeline route
+# (v2/auto-investigate vs decode/smart) automatically. This is a
+# lightweight classifier — no decoding, no IOC extraction, no verdict.
+
+class UnderstandIn(BaseModel):
+    input: str
+
+
+@router.post("/understand")
+async def understand_input(body: UnderstandIn, user=Depends(get_current_user)):
+    """Classify an arbitrary input string. Returns:
+        { type, label, confidence, fingerprints[], route, size_bytes, line_count }
+    """
+    from nivxforge.investigation.input_understanding import understand as _iue
+    return _iue(body.input or "")
+
+
+# ─── OSINT · Threat-Intel Lookup (public endpoint) ────────────────────
+# Lab v2's OSINT lens calls this after every investigation to enrich
+# every IOC with the reputation records already stored in `db.iocs`
+# by the ti_feed_sync pipeline (URLhaus / Feodo / BlocklistDE / OTX /
+# ThreatFox / MalwareBazaar / AbuseIPDB / VirusTotal).  Same code path
+# Workspace uses at `/api/v2/auto-investigate` — factored so Lab v2 can
+# call it independently. Best-effort: swallows errors so a TI outage
+# never breaks the workspace.
+
+class OSINTLookupIn(BaseModel):
+    urls: List[str] = []
+    domains: List[str] = []
+    ips: List[str] = []
+    sha256: List[str] = []
+    sha1: List[str] = []
+    md5: List[str] = []
+
+
+@router.post("/osint/lookup")
+async def osint_lookup(body: OSINTLookupIn, user=Depends(get_current_user)):
+    """Look up every submitted IOC in the local `db.iocs` collection
+    and return per-IOC reputation records (sources, severity,
+    confidence, malware families, first/last seen). Empty when no
+    matches. Shape matches Workspace's `_osint_lookup`."""
+    from routers.auto_investigate import _osint_lookup as _look
+    iocs = {
+        "urls": body.urls,
+        "domains": body.domains,
+        "ips": body.ips,
+        "sha256": body.sha256,
+        "sha1": body.sha1,
+        "md5": body.md5,
+    }
+    return await _look(entities={}, iocs=iocs)

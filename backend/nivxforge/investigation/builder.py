@@ -390,6 +390,7 @@ def build_cio(
             "input_kind": layer.input_kind,
             "output_kind": layer.output_kind,
             "preview": layer.output_preview,
+            "reason": layer.reason,
             "node_id": fragment_by_idx.get(layer.idx),
         }
         for layer in fs.decoder_chain
