@@ -12,6 +12,7 @@
  */
 import React, { useCallback, useMemo, useState } from "react";
 import api from "../../lib/api";
+import Header from "@/components/Header";
 import { Lab2Provider } from "./Lab2Provider";
 import LabV2 from "./LabV2";
 import { projectCIO } from "./labv2.projector";
@@ -42,7 +43,12 @@ export default function Lab2InvestigateRenderer() {
   return (
     <EventBusProvider>
       <SelectionProvider>
-        <Lab2InvestigateInner />
+        <div className="min-h-screen flex flex-col" data-testid="lab2-page-shell">
+          <Header />
+          <div className="flex-1 min-h-0 flex flex-col">
+            <Lab2InvestigateInner />
+          </div>
+        </div>
       </SelectionProvider>
     </EventBusProvider>
   );

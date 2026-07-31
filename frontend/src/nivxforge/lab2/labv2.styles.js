@@ -53,10 +53,13 @@ export const LABV2_CSS = `
 
 /* TOP BAR */
 .labv2 .topbar{height:44px;flex:0 0 44px;display:flex;align-items:center;gap:var(--s4);padding:0 var(--s4);border-bottom:1px solid var(--border);background:var(--canvas)}
-.labv2 .mark{display:flex;align-items:center;gap:var(--s2);font-weight:600;letter-spacing:-.01em}
-.labv2 .mark .wordmark{letter-spacing:.02em}
+.labv2 .mark{display:flex;align-items:center;gap:var(--s3);font-weight:600;letter-spacing:-.01em}
+.labv2 .mark .wordmark{font-size:15px;letter-spacing:.06em;line-height:1;font-weight:800}
 .labv2 .mark .dot{width:9px;height:9px;border-radius:2px;background:var(--mint)}
 .labv2 .mark .ray{color:var(--mint)}
+.labv2 .mark .logo-tile{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#0f9e7a 0%,#0c8266 100%);color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.06) inset,0 4px 10px -3px rgba(15,158,122,.55)}
+.labv2 .mark .brand-copy{display:inline-flex;flex-direction:column;gap:2px;line-height:1}
+.labv2 .mark .tagline{font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;color:var(--fg3);text-transform:uppercase;line-height:1}
 .labv2 .case-id{display:flex;align-items:center;gap:var(--s3);color:var(--fg2);font-size:13px}
 .labv2 .case-id .sep{color:var(--border-strong)}
 .labv2 .spacer{flex:1}

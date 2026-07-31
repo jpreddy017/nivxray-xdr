@@ -197,9 +197,16 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
 
       {/* ── TOP BAR ─────────────────────────────────────────── */}
       <header className="topbar">
-        <div className="mark">
-          <span className="dot" />
-          <span className="wordmark">NIVX<span className="ray">RAY</span></span>
+        <div className="mark" data-testid="labv2-brand">
+          <span className="logo-tile" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 20 V4 L20 20 V4" />
+            </svg>
+          </span>
+          <span className="brand-copy">
+            <span className="wordmark">NIVX<span className="ray">RAY</span></span>
+            <span className="tagline">DECODER · THREAT-LAB</span>
+          </span>
         </div>
         <div className="case-id">
           {view.hasCase ? (
