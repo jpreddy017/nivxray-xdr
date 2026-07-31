@@ -32,10 +32,13 @@ consumer. Any deviation requires a superseding ADR.
    derive from the CIO (closes ADR-0011). `executive_card` and
    `build_verdict_card` merge; the surviving engine reads the graph
    and writes the verdict node.
-4. **Shared consumer contract.** Lab and Workspace are independent
-   user experiences that consume the **same** CIO and the same shared
-   intelligence engines. Presentation may diverge; analytical output
-   MUST NOT.
+4. **Shared consumer contract.** Lab and Workspace MUST derive all
+   summaries, verdicts, confidence values, and reasoning from the
+   **same Canonical Investigation Object**. Differences in
+   presentation are permitted — Lab is artifact-centric, Workspace
+   is incident-centric — but the underlying facts, reasoning,
+   confidence, and verdict MUST remain consistent. Analytical output
+   never diverges; only wording, ordering, and framing may.
 5. **All future capabilities read from the CIO.** Reports,
    Investigation Summary, ATT&CK views, STIX exports, Timeline,
    Explainability, Prediction, Defence recommendations, and any
