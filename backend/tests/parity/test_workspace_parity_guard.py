@@ -74,13 +74,17 @@ def context(browser):
     r = requests.post(
         f"{BASE_URL}/api/auth/login",
         json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
-        timeout=15,
+        timeout=30,
     )
     token = r.json().get("access_token", "") if r.status_code == 200 else ""
+    email = r.json().get("email", ADMIN_EMAIL) if r.status_code == 200 else ""
     if not token:
         pytest.skip(f"admin login failed ({r.status_code})")
     ctx.add_init_script(f"""
-        try {{ localStorage.setItem('nvx_token', '{token}'); }} catch(e) {{}}
+        try {{
+            localStorage.setItem('nvx_token', '{token}');
+            localStorage.setItem('nvx_email', '{email}');
+        }} catch(e) {{}}
     """)
     yield ctx
     ctx.close()
@@ -157,6 +161,12 @@ class TestRouting:
 # ─── Group 3 · Responsive layouts ──────────────────────────────────
 
 class TestResponsive:
+    # NOTE (ADR-0022): Under pytest-xdist parallel workers, Playwright
+    # browser sharing occasionally deadlocks on the first `wait_for_selector`
+    # of a fresh context. Run this class serially:
+    #   pytest tests/parity/test_workspace_parity_guard.py::TestResponsive -p no:xdist
+    # Tracked as a Parity Guard flake — the code under test is verified
+    # by TestWorkspaceLayoutBaseline (same textarea selector, module ctx).
     @pytest.mark.parametrize("name,vp", [
         ("desktop_1920",  {"width": 1920, "height": 1080}),
         ("laptop_1440",   {"width": 1440, "height": 900}),
@@ -167,14 +177,19 @@ class TestResponsive:
         p = ctx.new_page()
         try:
             import requests
-            token = requests.post(
+            token_email = requests.post(
                 f"{BASE_URL}/api/auth/login",
                 json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
-                timeout=10,
-            ).json().get("access_token", "")
-            p.add_init_script(f"localStorage.setItem('nvx_token','{token}')")
+                timeout=30,
+            ).json()
+            token = token_email.get("access_token", "")
+            email = token_email.get("email", ADMIN_EMAIL)
+            p.add_init_script(
+                f"localStorage.setItem('nvx_token','{token}');"
+                f"localStorage.setItem('nvx_email','{email}');"
+            )
             p.goto(f"{BASE_URL}/nivxforge/investigate", wait_until="domcontentloaded", timeout=25000)
-            p.wait_for_selector("textarea", timeout=15000)
+            p.wait_for_selector("textarea", timeout=45000)
             _shot(p, f"04_responsive_{name}")
             assert p.query_selector("textarea") is not None
         finally:

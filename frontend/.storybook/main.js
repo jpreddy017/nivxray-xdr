@@ -30,6 +30,13 @@ const config = {
       ...(webpackConfig.resolve.alias || {}),
       "@": path.resolve(__dirname, "../src"),
     };
+    // Storybook re-inherits CRA's ESLintWebpackPlugin, which in turn
+    // requires the `react-hooks` plugin. In the Storybook harness we
+    // don't need lint-on-build (already runs in the main app), so
+    // strip the plugin to avoid a false-positive fail.
+    webpackConfig.plugins = (webpackConfig.plugins || []).filter(
+      (p) => p && p.constructor && p.constructor.name !== "ESLintWebpackPlugin"
+    );
     return webpackConfig;
   },
   docs: {

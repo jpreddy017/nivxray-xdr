@@ -1,5 +1,45 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02 · **Phase A Slice-2 · Lab 2.0 Foundation (TypeScript · Storybook · Lab2Shell) COMPLETE**
+
+Locked target architecture (**ADR-0022**): one LAB product · one Investigate route · one CIO · one API contract. Multiple renderers only during migration, selected by `FeatureFlagResolver` at `/nivxforge/investigate`.
+
+### Shipped
+- **TypeScript foundation** — `tsconfig.json`, `typescript@5.4.5`, `@types/react@19`, `@types/react-dom@19`, `@types/node`, gradual `.jsx/.tsx` coexistence, legacy Workspace UNTOUCHED.
+- **CIO type generation** — `scripts/generate-cio-types.js` + `yarn gen:cio` regenerates `src/nivxforge/types/cio.ts` from the frozen backend schema (`cio.schema.v1.json`). Extended shapes (`Verdict`, `Summary`) narrowed in `types/cio.ext.ts`.
+- **Storybook 8** — `.storybook/main.js` + `preview.js` with `.lab2` decorator, ESLint plugin stripped to avoid CRA collision, `yarn storybook` (dev) + `yarn build-storybook` (build) both pass. Stories shipped for `VerdictRibbon` (5 states) and `Lab2Shell` (4 states).
+- **`Lab2Provider`** — workspace state container (CIO · selectedNodeId · dockedPanels · theme · paletteOpen). Exposes `useLab2()`, `useSelectedNode()`, `useDockedPanels()`, `usePalette()`. Nested with `CIOProvider` so selector hooks continue to work unchanged.
+- **`Lab2Shell`** — permanent workspace layout contract with 7 slots (AppHeader · VerdictRibbon · Toolbar · LeftNav · WorkspaceCanvas · ContextPanel · StatusBar). Placeholders in every slot so the layout renders cleanly with zero content wired. Docked-panel state drives grid geometry.
+- **`FeatureFlagResolver`** — `isLab2Enabled()` reads `?lab2=1` or `REACT_APP_LAB2_ENABLED=1`.
+- **`InvestigationLoader` pattern** — `InvestigatePage.jsx` is now a route-owned resolver: `?lab2=1 → Lab2InvestigateRenderer`, default → `LegacyInvestigateRenderer` (unchanged). Renderers **do not coexist**; the ADR-0022 §15 preview-widget anti-pattern was removed.
+- **`Lab2InvestigateRenderer`** — full Lab 2.0 investigation experience (input · content-aware routing to `/v2/auto-investigate` or `/decode/smart` · mounts `Lab2Shell` with returned CIO).
+- **`Lab2ToggleButton`** — discreet page-scoped pill ("LAB 2.0 · PREVIEW") in the Investigate hero + Lab2Shell header. Flips the flag without a permanent nav item (§11). Deleted at cutover (§12).
+- **ADR-0022** authored & locked (`/app/memory/adr/0022-final-lab2-architecture-locked.md`).
+- **Parity Guard fix** — module fixture now sets both `nvx_token` **and** `nvx_email` (auth bootstrap requires both). Responsive-test flake documented as pre-existing xdist parallel issue (not caused by Phase A).
+
+### Verified
+- Frontend compiles clean (webpack).
+- Flag-ON path renders all 8 Lab2Shell landmarks + CIO wiring (verified via Playwright screenshot: `lab2-shell`, `lab2-header`, `lab2-ribbon`, `lab2-nav`, `lab2-toolbar`, `lab2-canvas`, `lab2-context`, `lab2-status`).
+- Flag-OFF path renders `nivxforge-investigate-page` identically to production (parity preserved).
+- Storybook build passes: 2 story files × 9 stories total built to `storybook-static/`.
+- `yarn gen:cio` succeeds from schema (`/api/schemas/v1/cio.schema.json`).
+
+### Known gaps (Phase B scope, not Phase A)
+- **Lab output vs Workspace richness** — Workspace shows Shellcode Decoded (MSFvenom stager), Analyst Summary, YARA/SIGMA hunt ideas, MITRE tactics. Lab2Shell currently shows placeholders. Closes when Phase B lenses ship (Story · Timeline · Graph · ATT&CK · Entity · Report), each consuming CIO selectors and docking into the shell's canvas slot.
+- Command Palette (Cmd+K) — stub only, wire in Slice-3.
+- Theme switching — token layer ready, control not wired.
+
+### Next Actions (Phase B kickoff)
+1. **Story Lens** — narrative composition consuming `useSummary()` + `useKeyFindings()`.
+2. **ATT&CK Lens** — matrix consuming `cio.summary.mitre_digest`.
+3. **Evidence Lens** — IOC chips consuming `cio.evidence_graph.nodes[]`.
+4. **Timeline Lens** — chronological render of `cio.timeline`.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-02-28 · **Phase 0 · Workspace Parity Guard COMPLETE**
 
 Zero-runtime-impact baseline test suite establishing what the current NivXRay UX MUST continue to deliver before any Lab 2.0 React refactor lands.

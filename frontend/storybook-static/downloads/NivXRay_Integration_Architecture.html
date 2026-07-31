@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NivXRay · SIEM/EDR/SOAR Integration Architecture</title>
+<style>
+  :root {
+    --accent:#7ee3c9; --accent-hot:#ef4444; --amber:#f59e0b;
+    --bg:#0b0f14; --surface:#111820; --surface-mute:#161f2a;
+    --border:#233241; --border-strong:#324458;
+    --text:#e6edf3; --text-dim:#95a3b2; --text-mute:#6a7784;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Chivo','Segoe UI',sans-serif;
+         padding:20px; line-height:1.5; }
+  h1 { color:var(--accent); font-size:24px; letter-spacing:0.06em; margin-bottom:6px; }
+  h2 { color:var(--text); font-size:18px; margin:16px 0 8px 0; letter-spacing:0.04em; }
+  h3 { color:var(--accent); font-size:14px; margin:10px 0 6px 0; letter-spacing:0.04em; }
+  .slide { background:var(--surface); border:1px solid var(--border-strong);
+           padding:24px 32px; margin-bottom:20px; page-break-after:always;
+           box-shadow:0 4px 12px rgba(0,0,0,0.4); min-height:600px; }
+  .slide-num { color:var(--text-mute); font-size:11px; letter-spacing:0.1em;
+               font-family:'JetBrains Mono',monospace; margin-bottom:4px; }
+  pre { background:#0a0e13; border:1px solid var(--border); padding:14px;
+        color:var(--text); font-family:'JetBrains Mono','Courier New',monospace;
+        font-size:11px; line-height:1.5; overflow-x:auto; border-radius:4px; margin:8px 0; }
+  code { background:#0a0e13; padding:1px 6px; color:var(--accent);
+         font-family:'JetBrains Mono',monospace; font-size:11px; border-radius:3px; }
+  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:12px; }
+  th, td { padding:7px 10px; text-align:left; border-bottom:1px solid var(--border); }
+  th { background:var(--surface-mute); color:var(--accent); font-size:11px; letter-spacing:0.04em; text-transform:uppercase; }
+  td { color:var(--text); }
+  .pill { display:inline-block; padding:2px 8px; border-radius:3px; font-size:10px;
+          font-family:'JetBrains Mono',monospace; letter-spacing:0.04em; }
+  .pill-hot { background:rgba(239,68,68,0.15); color:#fecaca; border:1px solid var(--accent-hot); }
+  .pill-warm { background:rgba(245,158,11,0.15); color:#fde68a; border:1px solid var(--amber); }
+  .pill-ok { background:rgba(126,227,201,0.15); color:#a7f3d0; border:1px solid var(--accent); }
+  .callout { background:rgba(126,227,201,0.06); border-left:3px solid var(--accent);
+             padding:10px 14px; margin:10px 0; font-size:12px; }
+  ul { margin:6px 0 6px 24px; }
+  li { font-size:12px; margin:3px 0; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .toc a { color:var(--accent); text-decoration:none; font-family:'JetBrains Mono',monospace; font-size:12px; }
+  .toc a:hover { color:#fff; }
+  hr { border:none; border-top:1px solid var(--border); margin:16px 0; }
+  .kbd { background:var(--surface-mute); border:1px solid var(--border-strong);
+         padding:2px 6px; border-radius:3px; font-family:'JetBrains Mono',monospace; font-size:10px; }
+  @media print { body { padding:0; } .slide { box-shadow:none; margin:0; } }
+</style>
+</head>
+<body>
+
+<!-- ─────────────── Slide 0 · Title ─────────────── -->
+<div class="slide">
+  <div class="slide-num">00 · TITLE</div>
+  <h1 style="font-size:44px; margin-top:60px;">NivXRay</h1>
+  <div style="font-size:16px; color:var(--text-dim); letter-spacing:0.1em; margin-top:8px;">
+    Enterprise Integration Architecture
+  </div>
+  <div style="font-size:12px; color:var(--text-mute); letter-spacing:0.16em; margin-top:20px;">
+    HLD · LLD · TYPE-I / TYPE-II DEPLOYMENT MODES
+  </div>
+
+  <div style="margin-top:120px;">
+    <div style="color:var(--accent); font-size:14px;">Version</div>
+    <div style="color:var(--text); font-size:20px;">v1.3.0-preview</div>
+  </div>
+  <div style="margin-top:16px;">
+    <div style="color:var(--accent); font-size:14px;">Date</div>
+    <div style="color:var(--text); font-size:20px;">2026-07-18</div>
+  </div>
+  <div style="margin-top:16px;">
+    <div style="color:var(--accent); font-size:14px;">Author</div>
+    <div style="color:var(--text); font-size:20px;">NivXRay Engineering</div>
+  </div>
+
+  <div style="margin-top:60px; padding-top:20px; border-top:1px solid var(--border-strong);">
+    <span class="pill pill-ok">HLD</span> &nbsp;
+    <span class="pill pill-ok">LLD</span> &nbsp;
+    <span class="pill pill-warm">SIEM · EDR · SOAR</span> &nbsp;
+    <span class="pill pill-hot">TYPE-I INLINE</span> &nbsp;
+    <span class="pill pill-hot">TYPE-II ON-DEMAND</span>
+  </div>
+</div>
+
+<!-- ─────────────── Slide 1 · Positioning ─────────────── -->
+<div class="slide">
+  <div class="slide-num">01 · POSITIONING</div>
+  <h1>What NivXRay is (and isn't)</h1>
+
+  <div class="callout" style="margin-top:20px;">
+    <strong style="color:var(--accent);">NivXRay is NOT a SIEM. NivXRay is NOT an EDR.</strong><br>
+    NivXRay is a <strong>Deep-Decode + MITRE-Attribution + IOC-Enrichment</strong>
+    micro-service that plugs into an existing SOC stack in one of two ways —
+    <span style="color:#ef4444;">Type-I</span> (inline / automatic) or
+    <span style="color:#f59e0b;">Type-II</span> (on-demand / analyst-triggered).
+  </div>
+
+  <h2>One-line pitch</h2>
+  <div style="font-size:16px; color:var(--text); font-style:italic; margin:10px 0;
+              padding:14px; background:var(--surface-mute); border-left:3px solid var(--accent);">
+    "Turn every obfuscated command your EDR shipped into a MITRE-tagged verdict in &lt;200 ms —
+    without touching your SIEM schema."
+  </div>
+
+  <h2>What NivXRay does that your stack doesn't</h2>
+  <table>
+    <thead><tr><th>Capability</th><th>SIEM (Splunk/Sentinel)</th><th>EDR (CrowdStrike/S1)</th><th>NivXRay</th></tr></thead>
+    <tbody>
+      <tr><td>Multi-layer decode (b64 → utf16le → format-string → XOR)</td>
+          <td style="color:var(--text-mute);">✗</td>
+          <td style="color:var(--text-mute);">partial</td>
+          <td style="color:var(--accent);">✓ 6+ layers</td></tr>
+      <tr><td>MITRE ATT&amp;CK attribution</td>
+          <td style="color:var(--amber);">rules-based</td>
+          <td style="color:var(--amber);">rules-based</td>
+          <td style="color:var(--accent);">✓ 230 heuristics, 102 T-IDs</td></tr>
+      <tr><td>LOLBAS / LOLBins detection</td>
+          <td style="color:var(--text-mute);">basic</td>
+          <td style="color:var(--amber);">good</td>
+          <td style="color:var(--accent);">✓ full LOLBAS registry</td></tr>
+      <tr><td>IOC extraction + local TI-cache</td>
+          <td style="color:var(--amber);">via ES</td>
+          <td style="color:var(--text-mute);">✗</td>
+          <td style="color:var(--accent);">✓ 8,915 IOCs, 6 sources</td></tr>
+      <tr><td>AI narrative + verdict rationale</td>
+          <td style="color:var(--text-mute);">✗</td>
+          <td style="color:var(--text-mute);">✗</td>
+          <td style="color:var(--accent);">✓ Claude 4.5</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ─────────────── Slide 1.5 · Current State vs Target State ─────────────── -->
+<div class="slide">
+  <div class="slide-num">01.5 · CURRENT vs TARGET STATE (be honest)</div>
+  <h1>What ships today vs what's on the roadmap</h1>
+
+  <div class="callout" style="border-left-color:#ef4444; margin-top:12px;">
+    <strong style="color:#ef4444;">Honesty check.</strong> Today NivXRay is a
+    <strong>Type-II tool</strong>. The Type-I automation diagrams on the following slides
+    are <strong>target-state architecture (v1.5 goal)</strong>, not current reality.
+  </div>
+
+  <div class="grid-2" style="margin-top:16px;">
+    <div>
+      <h3 style="color:var(--accent);">✅ Today (v1.3.0-preview)</h3>
+      <ul>
+        <li>Analyst pastes payload → deep decode + MITRE + IOCs + TI-HITS + AI narrative</li>
+        <li>Batch API: 500 payloads via CSV/JSON/XLSX upload</li>
+        <li>Nightly pull from 4 free public feeds (DShield, URLhaus, Feodo, CISA KEV)</li>
+        <li>Practice Lab, Heatmap, Corpus Validator, macOS decoder</li>
+        <li>Nightly benchmark loop against golden corpus</li>
+        <li>Learner: submit failure → auto-cluster → regression-gated merge</li>
+      </ul>
+      <div style="margin-top:8px;"><span class="pill pill-ok">Type-II · production ready</span></div>
+    </div>
+    <div>
+      <h3 style="color:#ef4444;">🎯 Target (v1.5 · 4-6 weeks out)</h3>
+      <ul>
+        <li>Log collector — poll EDR APIs (Falcon, S1, Defender)</li>
+        <li>Syslog receiver for firewall / IDS / network logs</li>
+        <li>Kafka / Redpanda consumer for high-throughput ingest</li>
+        <li>Job queue (Redis/Celery) for background analysis</li>
+        <li>Output writers: Splunk HEC · Sentinel Logs Ingestion · ServiceNow ITSM</li>
+        <li>Custom-field writer for CrowdStrike Fusion / S1 STAR (enables Type-I.B)</li>
+        <li>Circuit breakers + per-tenant rate quotas</li>
+      </ul>
+      <div style="margin-top:8px;"><span class="pill pill-hot">Type-I · engineering required</span></div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:16px;">Effort to close the gap</h3>
+  <table>
+    <tr><th>Component</th><th>Effort</th><th>Sprint</th></tr>
+    <tr><td>Log collector (per EDR)</td><td>~1 week each</td><td>Wk 3-4</td></tr>
+    <tr><td>Syslog receiver</td><td>~3 days</td><td>Wk 3</td></tr>
+    <tr><td>Kafka/Redpanda consumer</td><td>~1 week</td><td>Wk 4</td></tr>
+    <tr><td>Job queue (Redis/Celery)</td><td>~3-5 days</td><td>Wk 3</td></tr>
+    <tr><td>Splunk HEC writer</td><td>~2 days</td><td>Wk 3</td></tr>
+    <tr><td>Sentinel Logs Ingestion writer</td><td>~2 days</td><td>Wk 3</td></tr>
+    <tr><td>ServiceNow ITSM writer</td><td>~3 days</td><td>Wk 4</td></tr>
+    <tr><td>CrowdStrike Fusion IOA writer (Type-I.B)</td><td>~1 week</td><td>Wk 4-5</td></tr>
+    <tr><td>Circuit breaker + back-pressure</td><td>~3 days</td><td>Wk 5</td></tr>
+    <tr><th>TOTAL for Type-I production-ready</th><th>~4-6 weeks</th><th></th></tr>
+  </table>
+
+  <div class="callout" style="margin-top:12px;">
+    <strong>Sales positioning today:</strong> lead with <span class="pill pill-warm">Type-II</span>
+    (works out-of-the-box, 2-week POC, zero risk). Show Type-I diagrams as
+    <em>"the roadmap you'll grow into"</em> — never promise it as available today.
+  </div>
+</div>
+<div class="slide">
+  <div class="slide-num">02 · TYPE-I.A · PARALLEL SIDECAR</div>
+  <h1>Type-I.A · Parallel sidecar (NivXRay writes to SIEM directly)</h1>
+
+  <div style="color:var(--text-dim); font-size:12px; margin-bottom:10px;">
+    NivXRay pulls logs <em>from</em> EDR, decodes autonomously, then writes
+    <strong>BOTH</strong> the original EDR data <strong>AND</strong> the NivXRay-enriched
+    analysis into SIEM/XDR/ServiceNow as a single combined event.
+  </div>
+
+  <pre>
+   Log Sources                                                                          
+   ┌──────────────┐                                                                     
+   │ Firewall     │──▶┐                                                                 
+   │ WAF          │──▶│                                                                 
+   │ IDS/IPS      │──▶│   ┌───────────┐    ┌─────┐                                      
+   │ DB / Servers │──▶│──▶│ Collector │───▶│ EDR │────────────┐                         
+   │ Other apps   │──▶┘   │ Connector │    └──┬──┘            │  ┌──────────────┐       
+   └──────────────┘       └───────────┘       │               ├─▶│ SNOW / SIEM  │       
+                                              │               │  │ XDR / SOAR   │       
+                                              │  pull logs    │  └──────┬───────┘       
+                                              ▼               │         │               
+                                       ┌──────────────┐       │         ▼               
+                                       │   NivXRay    │───────┘   ┌───────────┐         
+                                       │  Deep-Decode │  enriched │  Analyst  │         
+                                       │  MITRE +     │  data     │ sees BOTH │         
+                                       │  TI-HITS     │  ─────────│ EDR +     │         
+                                       └──────────────┘           │ NivXRay   │         
+                                                                  │ combined  │         
+                                                                  └───────────┘         
+  </pre>
+
+  <div class="grid-2" style="margin-top:12px;">
+    <div>
+      <h3>How it works</h3>
+      <ul>
+        <li>NivXRay reads EDR events via EDR's API / event stream</li>
+        <li>Decodes autonomously — zero human intervention</li>
+        <li>Writes BOTH the original EDR event AND NivXRay's decoded output to SIEM as one combined record</li>
+        <li>Analyst opens SIEM notable — sees EDR fields <strong>+</strong> <code>nivxray.verdict</code>, <code>nivxray.mitre[]</code>, <code>nivxray.ti_hits[]</code> already populated</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Trade-offs</h3>
+      <ul>
+        <li>✅ <strong>Zero EDR impact</strong> — EDR pipeline untouched</li>
+        <li>✅ NivXRay failure ≠ EDR failure (fault-isolated)</li>
+        <li>✅ Faster to deploy (no EDR change window)</li>
+        <li>⚠️ Duplicate ingest to SIEM (EDR row + NivXRay row → correlate on <code>source_alert_id</code>)</li>
+        <li>⚠️ Two writes to SIEM per event → SIEM licensing implication</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────── Slide 3 · Type-I.B ─────────────── -->
+<div class="slide">
+  <div class="slide-num">03 · TYPE-I.B · ENRICH-BACK-TO-EDR</div>
+  <h1>Type-I.B · Enrich-back-to-EDR (single alert, combined data)</h1>
+
+  <div style="color:var(--text-dim); font-size:12px; margin-bottom:10px;">
+    NivXRay pulls logs <em>from</em> EDR, decodes, sends the enriched output
+    <strong>BACK to EDR</strong>. EDR fires the alert (with combined EDR + NivXRay data) into
+    SIEM/XDR/ServiceNow — one single, richer alert per event.
+  </div>
+
+  <pre>
+   Log Sources                                                                                
+   ┌──────────────┐                                                                           
+   │ Firewall     │──▶┐                                                                       
+   │ WAF          │──▶│                                                                       
+   │ IDS/IPS      │──▶│   ┌───────────┐    ┌───────┐                                          
+   │ DB / Servers │──▶│──▶│ Collector │───▶│  EDR  │◀───┐                                     
+   │ Other apps   │──▶┘   │ Connector │    │       │    │ decoded + MITRE +                   
+   └──────────────┘       └───────────┘    └───┬───┘    │ TI-HITS payload                     
+                                               │        │                                     
+                                     pull logs │        │                                     
+                                               ▼        │                                     
+                                        ┌──────────────┐│                                     
+                                        │   NivXRay    ├┘                                     
+                                        │  Deep-Decode │                                      
+                                        │  MITRE +     │                                      
+                                        │  TI-HITS     │                                      
+                                        └──────────────┘                                      
+                                               │                                              
+                                               │ EDR fires ONE                                
+                                               ▼ enriched alert                               
+                                    ┌────────────────────┐                                    
+                                    │ SNOW / SIEM / XDR  │                                    
+                                    │ receives: EDR data │                                    
+                                    │ + NivXRay verdict  │                                    
+                                    │ in ONE combined    │                                    
+                                    │ alert record       │                                    
+                                    └─────────┬──────────┘                                    
+                                              ▼                                               
+                                        ┌──────────┐                                          
+                                        │ Analyst  │                                          
+                                        │ triage   │                                          
+                                        └──────────┘                                          
+  </pre>
+
+  <div class="grid-2" style="margin-top:12px;">
+    <div>
+      <h3>How it works</h3>
+      <ul>
+        <li>NivXRay reads EDR events (same as I.A)</li>
+        <li>Decodes autonomously</li>
+        <li>Sends output <strong>back to EDR</strong> via EDR's custom-field / IOA-tag API</li>
+        <li>EDR fires <em>ONE</em> enriched alert into SIEM — no duplicate rows</li>
+        <li>Analyst opens SIEM notable — everything is on a single record</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Trade-offs</h3>
+      <ul>
+        <li>✅ Single alert per event — clean triage view</li>
+        <li>✅ No SIEM licensing doubling</li>
+        <li>✅ Preserves EDR as source of truth</li>
+        <li>⚠️ Requires EDR support for writable custom fields (CrowdStrike Fusion / SentinelOne STAR / Defender custom detections)</li>
+        <li>⚠️ Slight latency (EDR waits ~200 ms for NivXRay before firing)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────── Slide 4 · Type-II ─────────────── -->
+<div class="slide">
+  <div class="slide-num">04 · TYPE-II · ON-DEMAND ANALYST</div>
+  <h1>Type-II · On-demand analyst investigation</h1>
+
+  <div style="color:var(--text-dim); font-size:12px; margin-bottom:10px;">
+    Completely end-user driven. After a new alert lands in SIEM/XDR/ServiceNow, the analyst
+    <strong>manually pulls</strong> the suspicious payload into NivXRay for deep investigation.
+    NivXRay is NOT in the automatic pipeline.
+  </div>
+
+  <pre>
+   Log Sources                                                                                
+   ┌──────────────┐                                                                           
+   │ Firewall     │──▶┐                                                                       
+   │ WAF          │──▶│                                                                       
+   │ IDS/IPS      │──▶│   ┌───────────┐    ┌─────┐    ┌──────────────┐    ┌────────┐          
+   │ DB / Servers │──▶│──▶│ Collector │───▶│ EDR │───▶│ SIEM / XDR / │───▶│Analyst │          
+   │ Other apps   │──▶┘   │ Connector │    └─────┘    │ ServiceNow   │    │  User  │          
+   └──────────────┘       └───────────┘               └──────────────┘    └───┬────┘          
+                                                                              │               
+                                                          new alert fires,    │               
+                                                       analyst decides:       │               
+                                                       "let me pull into      │               
+                                                        NivXRay for deeper    │               
+                                                        look"                 ▼               
+                                                                       ┌──────────────┐       
+                                                                       │   NivXRay    │       
+                                                                       │  Workspace   │       
+                                                                       │  investigator│       
+                                                                       └──────────────┘       
+                                                              (fully manual · NOT automated)  
+  </pre>
+
+  <div class="grid-2" style="margin-top:12px;">
+    <div>
+      <h3>How it works</h3>
+      <ul>
+        <li>SIEM/XDR fires a new alert normally</li>
+        <li>Analyst investigates in SIEM — spots a suspicious commandline/payload</li>
+        <li>Analyst opens NivXRay Workspace and pastes the payload</li>
+        <li>Deep-decode returns MITRE + LOLBAS + IOCs + TI-HITS + AI narrative</li>
+        <li>Analyst uses NivXRay's findings to close/escalate the alert in SIEM</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Trade-offs</h3>
+      <ul>
+        <li>✅ Zero SIEM/EDR change — plug in on day one</li>
+        <li>✅ No pipeline risk — NivXRay outage doesn't affect detection</li>
+        <li>✅ Best POC path (2-week eval, no engineering cost)</li>
+        <li>⚠️ Depends on analyst discipline (they must choose to pull)</li>
+        <li>⚠️ Doesn't scale to high alert volumes</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:16px;">
+    <strong>Recommended adoption path:</strong>
+    <span class="pill pill-warm">Type-II</span> (2-week POC · zero risk) →
+    <span class="pill pill-hot">Type-I.A</span> (parallel sidecar · quick production) →
+    <span class="pill pill-hot">Type-I.B</span> (enrich-back-to-EDR · full clean integration).
+  </div>
+</div>
+
+<!-- ─────────────── Slide 5 · Mode Comparison Table ─────────────── -->
+<div class="slide">
+  <div class="slide-num">05 · MODE COMPARISON</div>
+  <h1>Which mode when?</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Attribute</th>
+        <th style="color:#ef4444;">Type-I.A · Sidecar</th>
+        <th style="color:#ef4444;">Type-I.B · Back-to-EDR</th>
+        <th style="color:#f59e0b;">Type-II · Analyst</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Human in the loop?</td><td>No</td><td>No</td><td><strong>Yes</strong></td></tr>
+      <tr><td>NivXRay input source</td><td>EDR event stream</td><td>EDR event stream</td><td>Analyst paste</td></tr>
+      <tr><td>NivXRay output goes to</td><td>SIEM (directly)</td><td>EDR (back)</td><td>Analyst screen</td></tr>
+      <tr><td>SIEM sees</td><td>2 rows (EDR + NivXRay)</td><td>1 row (combined)</td><td>Original EDR row only</td></tr>
+      <tr><td>EDR change required</td><td>No</td><td><strong>Yes</strong> (writable field)</td><td>No</td></tr>
+      <tr><td>SIEM change required</td><td>Custom source</td><td>None</td><td>None</td></tr>
+      <tr><td>Latency added to alert</td><td>0 ms (parallel)</td><td>~200 ms</td><td>N/A (manual)</td></tr>
+      <tr><td>SIEM licensing cost</td><td>~2× events</td><td>1× events</td><td>1× events</td></tr>
+      <tr><td>Deployment effort</td><td>Medium (2 wk)</td><td>High (4 wk)</td><td>Low (1 day)</td></tr>
+      <tr><td>POC risk</td><td>Low</td><td>Medium</td><td>Zero</td></tr>
+      <tr><td>Analyst effort per alert</td><td>Very low</td><td>Very low</td><td>High</td></tr>
+      <tr><td>Best fit</td><td>MSSPs · MDR</td><td>Enterprise SOCs</td><td>POC / IR teams</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout" style="margin-top:16px;">
+    <strong>Decision rule of thumb:</strong>
+    Can the customer's EDR write custom fields? →
+    <span class="pill pill-hot">Type-I.B</span> (cleanest).
+    If not → <span class="pill pill-hot">Type-I.A</span> (parallel).
+    Can't touch the pipeline yet → <span class="pill pill-warm">Type-II</span> (start here).
+  </div>
+</div>
+
+<!-- ─────────────── Slide 4 · Data Contract ─────────────── -->
+<div class="slide">
+  <div class="slide-num">04 · DATA CONTRACT</div>
+  <h1>API contract — one JSON in, one JSON out</h1>
+
+  <h3>Request (from SIEM/EDR/SOAR)</h3>
+  <pre>POST /api/decode/smart
+Authorization: Bearer &lt;tenant-jwt&gt;
+X-Request-ID: &lt;caller-trace-id&gt;
+Content-Type: application/json
+
+{
+  "text": "powershell -EncodedCommand VwByAA==",
+  "analysis_mode": "balanced",       // fast | balanced | deep
+  "context": {                       // optional
+    "hostname": "WIN10-DEV-42",
+    "user":     "svc_backup",
+    "process_tree": "explorer.exe &gt; cmd.exe &gt; powershell.exe",
+    "source_alert_id": "splunk-alert-98123"
+  }
+}</pre>
+
+  <h3>Response (to SIEM/EDR/SOAR)</h3>
+  <pre>{
+  "request_id":  "nvx-9c56...",
+  "verdict":     "Malicious",        // Malicious | Suspicious | Unknown | Benign
+  "confidence":  92,                 // 0-100
+  "score":       0.94,
+  "engine":      "archetype:PS_EncodedCommand+PS_STRING_CONCAT+PS_FORMAT_OPERATOR",
+  "reached_shellcode": true,
+  "chain":       ["extract-b64","utf16le-decode","ps-string-concat"],
+  "mitre":       [{"id":"T1059.001","technique":"PowerShell","tactic":"Execution"},
+                  {"id":"T1027.010","technique":"Command Obfuscation","tactic":"Defense Evasion"}],
+  "lolbins":     ["powershell.exe"],
+  "iocs":        {"ips":["10.2.27.30"],"urls":[],"domains":[],"hashes":[]},
+  "ti_hits":     [{"value":"10.2.27.30","source":"sans_dshield",
+                   "severity":"high","reports":319739,"tags":["attacker"]}],
+  "narrative":   "AMSI bypass reflectively patches amsiInitFailed...",
+  "raw_output":  "S`eT-It`em ...",
+  "elapsed_ms":  187
+}</pre>
+</div>
+
+<!-- ─────────────── Slide 5 · Component Diagram ─────────────── -->
+<div class="slide">
+  <div class="slide-num">05 · COMPONENT DIAGRAM</div>
+  <h1>LLD · Internal components</h1>
+
+  <pre>
+              ┌───────────────────────────────────────────────────────────┐
+              │                 NivXRay Service (K8s)                     │
+              │                                                           │
+   Ingress ─▶ │  ┌────────────────┐        ┌────────────────────────┐    │
+   HTTPS/mTLS │  │  FastAPI       │───────▶│  Deterministic Engine  │    │
+              │  │  routers/      │        │  · wrapper_archetypes  │    │
+              │  │  · decode      │        │  · operations (MITRE)  │    │
+              │  │  · batch       │        │  · lolbas registry     │    │
+              │  │  · heatmap     │        │  · magic_decoder       │    │
+              │  │  · lab         │        └───────┬────────────────┘    │
+              │  │  · corpus_valid│                ▼                     │
+              │  │  · ti_enrich   │        ┌────────────────────────┐    │
+              │  │  · public_feeds│        │  AI Narrative Layer    │    │
+              │  └────────┬───────┘        │  (Claude · Emergent    │    │
+              │           │                │   LLM key)             │    │
+              │           ▼                └────────────────────────┘    │
+              │  ┌──────────────────────────────┐                        │
+              │  │  MongoDB                     │                        │
+              │  │  · workspace_cases           │    ┌──────────────┐   │
+              │  │  · batch_runs                │───▶│  IOC Cache   │   │
+              │  │  · iocs (8,915 · 6 sources)  │    │  (indexed on │   │
+              │  │  · lab_stats · lab_attempts  │    │   'value')   │   │
+              │  │  · learner_payloads / vers.  │    └──────────────┘   │
+              │  └──────────────────────────────┘                        │
+              │                                                          │
+              │  ┌──────────────────────────────┐                        │
+              │  │  Public-Feed Sync (nightly)  │                        │
+              │  │  · SANS DShield              │                        │
+              │  │  · URLhaus abuse.ch          │  no API keys           │
+              │  │  · Feodo Tracker             │                        │
+              │  │  · CISA KEV                  │                        │
+              │  └──────────────────────────────┘                        │
+              └───────────────────────────────────────────────────────────┘
+                              │
+                              ▼  (outbound HTTPS, key-gated)
+                      ┌──────────────────┐
+                      │  VirusTotal      │
+                      │  AlienVault OTX  │
+                      │  AbuseIPDB       │
+                      │  Shodan · GN     │
+                      └──────────────────┘
+  </pre>
+</div>
+
+<!-- ─────────────── Slide 6 · SIEM Connectors ─────────────── -->
+<div class="slide">
+  <div class="slide-num">06 · SIEM CONNECTORS</div>
+  <h1>Per-SIEM adapter layer</h1>
+  <div style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">
+    Small (~200 LoC each), per-SIEM adapters. Not part of core NivXRay — ship as a
+    <code>connectors/</code> repo. Same JSON contract, different transport.
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>SIEM / EDR</th><th>Adapter type</th><th>Type-I / II</th><th>Latency</th><th>Effort</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Splunk Enterprise</strong></td><td>Custom search command <code>| nivxrayCheck</code></td>
+          <td>I + II</td><td>200 ms/event</td><td>1-2 d</td></tr>
+      <tr><td><strong>Splunk ES</strong></td><td>Notable action button "Decode with NivXRay"</td>
+          <td>II</td><td>interactive</td><td>1 d</td></tr>
+      <tr><td><strong>Microsoft Sentinel</strong></td><td>Logic App connector · KQL <code>evaluate</code></td>
+          <td>I + II</td><td>300 ms</td><td>2 d</td></tr>
+      <tr><td><strong>Sentinel Analytics</strong></td><td>Custom entity trigger · HTTP data connector</td>
+          <td>I</td><td>streaming</td><td>1 d</td></tr>
+      <tr><td><strong>IBM QRadar</strong></td><td>AQL app extension</td>
+          <td>I + II</td><td>400 ms</td><td>3 d</td></tr>
+      <tr><td><strong>Elastic Security</strong></td><td>Ingest pipeline processor · painless script</td>
+          <td>I</td><td>200 ms</td><td>2 d</td></tr>
+      <tr><td><strong>Sumo Logic</strong></td><td>Lookup function · scheduled search action</td>
+          <td>I + II</td><td>300 ms</td><td>2 d</td></tr>
+      <tr><td><strong>CrowdStrike Falcon</strong></td><td>Fusion workflow action node</td>
+          <td>II</td><td>interactive</td><td>1 d</td></tr>
+      <tr><td><strong>SentinelOne</strong></td><td>STAR rule custom action</td>
+          <td>II</td><td>interactive</td><td>1 d</td></tr>
+      <tr><td><strong>Wazuh</strong></td><td>Integration script (<code>custom-nivxray.py</code>)</td>
+          <td>I + II</td><td>200 ms</td><td>1 d</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:16px;">SOAR connectors (Type-I ONLY)</h3>
+  <table>
+    <thead><tr><th>SOAR</th><th>Integration</th><th>Effort</th></tr></thead>
+    <tbody>
+      <tr><td>Splunk SOAR (Phantom)</td><td>Custom app · 4 actions</td><td>2 d</td></tr>
+      <tr><td>Palo Alto XSOAR</td><td>Integration YAML · 3 commands</td><td>2 d</td></tr>
+      <tr><td>Tines</td><td>HTTP action tile</td><td>0.5 d</td></tr>
+      <tr><td>Torq</td><td>Webhook step</td><td>0.5 d</td></tr>
+      <tr><td>Swimlane</td><td>Custom asset · 2 actions</td><td>2 d</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ─────────────── Slide 7 · Deployment Options ─────────────── -->
+<div class="slide">
+  <div class="slide-num">07 · DEPLOYMENT TOPOLOGY</div>
+  <h1>Where the customer runs NivXRay</h1>
+
+  <table>
+    <thead>
+      <tr><th>Option</th><th>Best for</th><th>Data plane</th><th>Effort</th><th>Blockers</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>SaaS multi-tenant</strong><br><span class="pill pill-ok">recommended default</span></td>
+        <td>SMB, SMB+, mid-market SOCs, MSSPs</td>
+        <td>NivXRay-hosted (US/EU/APAC)</td>
+        <td>1 hour</td>
+        <td><span class="pill pill-hot">multi-tenancy retrofit (P0)</span></td>
+      </tr>
+      <tr>
+        <td><strong>Dedicated cloud VPC</strong></td>
+        <td>Regulated (fintech, healthcare, gov)</td>
+        <td>Customer AWS/GCP/Azure</td>
+        <td>3-5 days</td>
+        <td>K8s/Terraform module</td>
+      </tr>
+      <tr>
+        <td><strong>On-prem / air-gapped</strong><br><span class="pill pill-warm">highest ACV</span></td>
+        <td>Defense, critical infra, telco</td>
+        <td>Customer datacenter</td>
+        <td>2 weeks</td>
+        <td>Helm chart + offline model bundle</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:16px;">Security architecture</h3>
+  <ul>
+    <li><strong>Auth</strong>: JWT bearer · per-tenant issuer · rotation every 24h</li>
+    <li><strong>Rate limit</strong>: 100 req/sec per tenant · login endpoint hardened separately (P0)</li>
+    <li><strong>Payload cap</strong>: 20KB per request · 500 per batch</li>
+    <li><strong>Egress</strong>: outbound VT/OTX/AbuseIPDB via allow-listed proxy</li>
+    <li><strong>Secrets</strong>: AWS Secrets Manager / GCP Secret Manager / K8s sealed-secrets</li>
+    <li><strong>Audit</strong>: every decode → <code>X-Request-ID</code> → Mongo + stdout</li>
+    <li><strong>PII policy</strong>: no raw payload stored unless <code>retain_payload=true</code></li>
+    <li><strong>Data residency</strong>: US · EU · APAC (per-tenant pinning)</li>
+  </ul>
+</div>
+
+<!-- ─────────────── Slide 8 · Roadmap ─────────────── -->
+<div class="slide">
+  <div class="slide-num">08 · ROADMAP</div>
+  <h1>Backlog · next 4 sprints</h1>
+
+  <table>
+    <thead><tr><th>Sprint</th><th>Theme</th><th>Items</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Week 1</strong><br>Trust + Availability</td>
+        <td>Foundation</td>
+        <td>
+          <span class="pill pill-hot">P0</span> Rate-limit <code>/api/auth/login</code><br>
+          <span class="pill pill-hot">P0</span> Multi-tenancy · <code>tenant_id</code> retrofit (17 collections)<br>
+          <span class="pill pill-warm">P1</span> Fix 9 pre-existing <code>test_training_corpus</code> failures<br>
+          <span class="pill pill-ok">P2</span> Auto-schedule <code>feeds/sync</code> in nightly cron
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Week 2</strong><br>Analyst UX polish</td>
+        <td>Decoder polish</td>
+        <td>
+          <span class="pill pill-warm">P1</span> Wire "IOC → TI-HITS" red-chip pills in Workspace<br>
+          <span class="pill pill-warm">P1</span> "Compare Two Runs" diff button on Batch Recent Runs<br>
+          <span class="pill pill-warm">P1</span> Cloud archetypes — AWS Cognito + GCP JWT<br>
+          <span class="pill pill-ok">P2</span> Playwright E2E suite
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Week 3</strong><br>Extensibility</td>
+        <td>Connectors + Learner LLM</td>
+        <td>
+          <span class="pill pill-warm">P1</span> LLM-powered Learner code generation (Claude drafts real regex)<br>
+          <span class="pill pill-warm">P1</span> Splunk custom search command connector<br>
+          <span class="pill pill-warm">P1</span> Sentinel Logic App connector<br>
+          <span class="pill pill-ok">P2</span> Decompose <code>wrapper_archetypes.py</code> (4.2K LoC)
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Week 4</strong><br>Observability + Commercial</td>
+        <td>SaaS enablement</td>
+        <td>
+          <span class="pill pill-warm">P1</span> Sentry + Prometheus <code>/metrics</code> + request tracing<br>
+          <span class="pill pill-warm">P1</span> Stripe integration (SaaS billing)<br>
+          <span class="pill pill-warm">P1</span> SSO via Emergent Google Auth<br>
+          <span class="pill pill-ok">P2</span> Commercial docs bundle
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ─────────────── Slide 9 · Latency Budget ─────────────── -->
+<div class="slide">
+  <div class="slide-num">09 · LATENCY BUDGET</div>
+  <h1>Where the milliseconds go</h1>
+
+  <pre>
+   HTTP ingress                    │  5 ms
+   JWT validation + tenant lookup  │  8 ms
+   Payload cap check + normalize   │  2 ms
+   Deterministic decode engine     │  30 ms   (fast)  · 80 ms (balanced) · 250 ms (deep)
+   IOC extraction                  │  10 ms
+   Local TI-HITS lookup (indexed)  │  1 ms
+   External VT/OTX (if miss)       │  90 ms   (cached; else fall-through)
+   MITRE map + LOLBAS scan         │  15 ms
+   Verdict card build              │  5 ms
+   AI narrative (optional)         │  400 ms  (async — returned via SSE if requested)
+   Response serialization          │  2 ms
+   ───────────────────────────────────────
+   p95 balanced (no AI)            │  ~160 ms
+   p95 balanced (with AI)          │  ~560 ms
+  </pre>
+
+  <h3>Metrics we'll publish (Prometheus)</h3>
+  <pre>
+   nivxray_decode_total{mode,verdict}
+   nivxray_decode_duration_seconds{mode,quantile}
+   nivxray_ti_lookup_hits_total{source}
+   nivxray_ti_lookup_miss_total
+   nivxray_feed_sync_total{source,status}
+   nivxray_batch_size_histogram
+   nivxray_ai_latency_seconds
+   nivxray_active_tenants
+  </pre>
+</div>
+
+<!-- ─────────────── Slide 10 · What ships in v1.4 vs v1.5 ─────────────── -->
+<div class="slide">
+  <div class="slide-num">10 · WHAT SHIPS IN v1.4 vs v1.5</div>
+  <h1>Release plan</h1>
+
+  <table>
+    <thead>
+      <tr><th>Feature</th><th style="text-align:center;">v1.3.0<br><small>today</small></th>
+          <th style="text-align:center;">v1.4.0<br><small>+2 wk</small></th>
+          <th style="text-align:center;">v1.5.0<br><small>+4 wk</small></th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Deep-decode engine</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>MITRE Heatmap page</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>Practice Lab</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>Free public IOC feeds (DShield / URLhaus / Feodo / CISA KEV)</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>macOS <code>osascript</code> archetype</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>Cloud archetypes (AWS Cognito / GCP JWT)</td><td style="text-align:center; color:var(--text-mute);">—</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>Splunk / Sentinel connectors</td><td style="text-align:center; color:var(--text-mute);">—</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>Multi-tenant SaaS</td><td style="text-align:center; color:var(--text-mute);">—</td><td style="text-align:center; color:var(--text-mute);">—</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>Rate-limit + observability</td><td style="text-align:center; color:var(--text-mute);">—</td><td style="text-align:center; color:var(--text-mute);">—</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>Stripe billing · SSO</td><td style="text-align:center; color:var(--text-mute);">—</td><td style="text-align:center; color:var(--text-mute);">—</td><td style="text-align:center;">✅</td></tr>
+      <tr><td>Helm chart / OCI images</td><td style="text-align:center; color:var(--text-mute);">—</td><td style="text-align:center; color:var(--text-mute);">—</td><td style="text-align:center;">✅</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout" style="margin-top:20px;">
+    <strong>Ship-cadence:</strong>
+    <span class="pill pill-ok">v1.3.0</span> (today) →
+    <span class="pill pill-warm">v1.4.0</span> (2 weeks — analyst UX + first SIEM connectors) →
+    <span class="pill pill-hot">v1.5.0</span> (4 weeks — SaaS-ready).
+  </div>
+</div>
+
+<!-- ─────────────── Slide 11 · Ask ─────────────── -->
+<div class="slide">
+  <div class="slide-num">11 · CLOSING ASK</div>
+  <h1>What we need from the customer</h1>
+
+  <div style="margin-top:20px;">
+    <h3>For Type-II POC (2 weeks · zero-risk)</h3>
+    <ul>
+      <li>1 analyst willing to try NivXRay during their next investigation</li>
+      <li>Access to representative payloads (10-50 samples)</li>
+      <li>NDA + SaaS eval tenant provisioned</li>
+    </ul>
+  </div>
+
+  <div style="margin-top:20px;">
+    <h3>For Type-I production (4-8 weeks)</h3>
+    <ul>
+      <li>SIEM/EDR admin access to install adapter</li>
+      <li>Egress firewall rules (outbound HTTPS to NivXRay endpoint)</li>
+      <li>1 change window per week for schema updates</li>
+      <li>Success metrics agreed (dwell-time reduction, notable-triage speedup)</li>
+    </ul>
+  </div>
+
+  <div style="margin-top:40px; padding-top:20px; border-top:1px solid var(--border-strong); text-align:center;">
+    <div style="color:var(--accent); font-size:20px; letter-spacing:0.1em;">
+      Turn every obfuscated commandline into a MITRE-tagged verdict.<br>
+      In under 200 ms. Without touching your SIEM schema.
+    </div>
+    <div style="color:var(--text-mute); font-size:12px; margin-top:16px; letter-spacing:0.1em;">
+      NIVXRAY · POWERED BY NIVX MACHINES
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

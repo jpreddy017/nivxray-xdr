@@ -80,8 +80,14 @@ export interface SummaryShape {
  * Consumer-facing CIO with narrowed slots. Prefer this everywhere in
  * Lab 2.0 components; only the generator script uses the raw
  * `CanonicalInvestigationObject`.
+ *
+ * We `Omit` the open-record fields from the base interface before
+ * extending, because the auto-generated schema declared them as
+ * `{ [k: string]: unknown }` — narrowing them requires structural
+ * replacement, not augmentation.
  */
-export interface CIO extends CanonicalInvestigationObject {
+export interface CIO
+  extends Omit<CanonicalInvestigationObject, "verdict" | "summary" | "evidence_graph"> {
   verdict?: VerdictNode | null;
   summary?: SummaryShape;
   evidence_graph?: EvidenceGraph;

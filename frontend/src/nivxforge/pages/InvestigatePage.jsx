@@ -19,10 +19,9 @@ import NivxForgeLayout from "../components/NivxForgeLayout";
 import InputToolbar from "../../components/InputToolbar";
 import InvestigationPipeline from "../../components/InvestigationPipeline";
 import { InvestigationReport } from "../../pages/AutoInvestigatePage";
-import { VerdictRibbon } from "../components/VerdictRibbon";
-import { CIOProvider } from "../hooks/useCIO";
-import { Lab2Provider } from "../lab2/Lab2Provider";
-import Lab2Shell from "../lab2/Lab2Shell";
+import { isLab2Enabled } from "../lab2/FeatureFlagResolver";
+import Lab2InvestigateRenderer from "../lab2/Lab2InvestigateRenderer";
+import Lab2ToggleButton from "../lab2/Lab2ToggleButton";
 import "../design/tokens.css";
 import api from "../../lib/api";
 const S = {
@@ -76,7 +75,28 @@ const S = {
   loading: { color: "var(--text-secondary, #94a3b8)", fontSize: 13, marginTop: 8, fontFamily: "ui-monospace" },
 };
 
+/**
+ * ADR-0022 §4 · InvestigationLoader + FeatureFlagResolver.
+ *
+ * The route (/nivxforge/investigate) owns the experience. This
+ * top-level component chooses the renderer:
+ *
+ *   ?lab2=1  →  Lab2InvestigateRenderer  (Lab2Shell workspace)
+ *   default  →  LegacyInvestigateRenderer (unchanged production UI)
+ *
+ * Renderers do NOT coexist. The legacy renderer receives NO Lab 2.0
+ * imports; the Lab 2.0 renderer never mounts the legacy pipeline UI.
+ * At cutover (ADR-0022 §12) this file collapses to just the Lab2
+ * renderer.
+ */
 export default function InvestigatePage() {
+  if (isLab2Enabled()) {
+    return <Lab2InvestigateRenderer />;
+  }
+  return <LegacyInvestigateRenderer />;
+}
+
+function LegacyInvestigateRenderer() {
   const [input, setInput] = useState("");
   const [locked, setLocked] = useState(false);
   const [focus, setFocus] = useState("");
@@ -86,12 +106,6 @@ export default function InvestigatePage() {
   const [err, setErr] = useState("");
   const [whyOpen, setWhyOpen] = useState(false);
   const fileInputRef = useRef(null);
-
-  // ADR-0015 · Lab 2.0 preview is feature-flagged (?lab2=1). Current
-  // Lab UI unaffected. Enables the VerdictRibbon reference component
-  // per ADR-0019 with zero blast radius.
-  const lab2Enabled = typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("lab2") === "1";
 
   const canSubmit = input.trim().length > 0 && !loading;
 
@@ -165,12 +179,17 @@ export default function InvestigatePage() {
     <NivxForgeLayout>
       <div style={S.page} data-testid="nivxforge-investigate-page">
         <div style={S.hero}>
-          <div style={S.eyebrow}>Lab · Analyst Workspace</div>
-          <h1 style={S.h1}>Investigate</h1>
-          <p style={S.sub}>
-            Paste a command line, script, incident excerpt, or upload a file. The same backend that powers
-            the Workspace analyses your artifact — expect equivalent decoded output, verdict, IOCs, and MITRE mapping.
-          </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+            <div>
+              <div style={S.eyebrow}>Lab · Analyst Workspace</div>
+              <h1 style={S.h1}>Investigate</h1>
+              <p style={S.sub}>
+                Paste a command line, script, incident excerpt, or upload a file. The same backend that powers
+                the Workspace analyses your artifact — expect equivalent decoded output, verdict, IOCs, and MITRE mapping.
+              </p>
+            </div>
+            <Lab2ToggleButton />
+          </div>
         </div>
 
         <div style={S.inputCard} data-testid="investigate-input-card">
@@ -238,38 +257,9 @@ export default function InvestigatePage() {
              /decode/smart path). The frontend never composes prose. ─── */}
         {result ? (
           <div style={S.section} data-testid={`investigate-result-${mode}`}>
-            {/* ADR-0014 Slice-C · Lab 2.0 preview · Verdict Ribbon (feature-flagged). */}
-            {lab2Enabled && result.cio ? (
-              <div className="lab2" style={{ marginBottom: 14 }} data-testid="lab2-preview">
-                <CIOProvider value={result.cio}>
-                  <VerdictRibbon />
-                </CIOProvider>
-              </div>
-            ) : null}
-
-            {/* ADR-0021 · Lab 2.0 · Workspace shell preview (feature-flagged).
-                Bounded, in-page preview of the permanent layout contract.
-                The shell OWNS the VerdictRibbon, so the standalone preview
-                above will retire once the shell becomes the primary Lab
-                surface (future slice). */}
-            {lab2Enabled && result.cio ? (
-              <div
-                data-testid="lab2-shell-preview"
-                style={{
-                  marginBottom: 18,
-                  border: "1px solid var(--border, #1e293b)",
-                  borderRadius: 10,
-                  overflow: "hidden",
-                  height: 720,
-                }}
-              >
-                <Lab2Provider initialCIO={result.cio}>
-                  <div style={{ height: "100%", overflow: "auto" }}>
-                    <Lab2Shell caseLabel={result.cio.cio_id || "active investigation"} />
-                  </div>
-                </Lab2Provider>
-              </div>
-            ) : null}
+            {/* ADR-0022 §15.2 · The Lab2Shell renderer is NEVER embedded inside
+                the legacy renderer. If lab2 flag is on, the route resolver
+                mounts Lab2InvestigateRenderer instead of this component. */}
             {/* ADR-0014 §1.1.14 · Normalisation transparency banner.
                 Analysts see what the engine understood BEFORE it started
                 investigating. Only rendered when the ingress gate fired. */}
