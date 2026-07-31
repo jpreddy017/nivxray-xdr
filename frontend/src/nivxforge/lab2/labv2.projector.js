@@ -455,13 +455,11 @@ function buildBehaviorGraph(nodes, edges) {
     return { lanes: [], edges: [], empty: true, width: 900, height: 720, chainLabel: "" };
   }
 
-  // 1. Filter out structural + decode nodes. Decode belongs to G1
-  //    (decode chain), NOT G2 (attack chain). Keeping them here creates
-  //    the "fan of decode edges into verdict" visual noise.
-  const OMIT_KINDS = /^(artifact|verdict|persist_note|note|report|decode|transform|normalize|extract|wrapper|cipher)$/i;
-  const observable = nodes.filter(
-    (n) => !OMIT_KINDS.test(String(n.kind || "")) && !/^Layer\s+\d+/i.test(String(n.label || ""))
-  );
+  // 1. Filter out only structural nodes so the graph reads like the
+  //    operator reference (single Behavior graph with EVADE / DECODE /
+  //    ACQUIRE / EXECUTE·PERSIST lanes all in one canvas).
+  const OMIT_KINDS = /^(artifact|verdict|persist_note|note|report)$/i;
+  const observable = nodes.filter((n) => !OMIT_KINDS.test(String(n.kind || "")));
   if (observable.length === 0) {
     return { lanes: [], edges: [], empty: true, width: 900, height: 720, chainLabel: "" };
   }
