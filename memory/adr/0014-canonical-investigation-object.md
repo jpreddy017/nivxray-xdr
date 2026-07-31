@@ -94,6 +94,53 @@ consumer. Any deviation requires a superseding ADR.
     `investigation_report`. Removal only happens once every endpoint
     produces a CIO-backed backend summary. This preserves migration
     safety (§1.1.6).
+14. **Hybrid normalisation gate.** Vendor-telemetry normalisation is
+    enforced at TWO layers:
+    - **Layer 1 · Ingress gate** — every public entry point
+      (`/decode/smart`, `/v2/auto-investigate`, file upload, batch
+      import, case import, future APIs) MUST route detected vendor
+      JSON through `v2/investigation/normalizers.py` BEFORE any IOC /
+      MITRE / verdict extractor runs.
+    - **Layer 2 · CIO validator safety net** — the CIO validator
+      (`G4_NORMALISATION_REQUIRED`) rejects a CIO whose input looks
+      like raw vendor JSON but whose metadata does not carry a
+      `normalised_via` provenance tag. Silent regressions are
+      structurally impossible.
+15. **API contract preservation.** Ingress-side normalisation NEVER
+    changes the response contract of an endpoint. `/decode/smart`
+    detecting vendor JSON internally normalises + continues its own
+    pipeline over the canonical event stream; the response shape,
+    keys, and consumer contract remain byte-identical.
+16. **IOC classification is mandatory.** Every extracted URL / domain
+    / IP MUST be classified into one of six categories:
+    `vendor_infrastructure` · `certificate_infrastructure` ·
+    `internal_asset` · `external_ioc` · `malicious_ioc` · `unknown`.
+    Only `external_ioc` and `malicious_ioc` may drive verdicts,
+    severity, or recommendations. `vendor_infrastructure` and
+    `certificate_infrastructure` NEVER appear as primary IOCs.
+17. **Evidence has a priority weight.** Every promoted node carries
+    a numeric weight (0..10). High-signal evidence (child process
+    execution, malware disposition, network beacon, persistence,
+    LOLBIN, encoded PowerShell) drives verdicts. Low-signal metadata
+    (vendor CRL URLs, vendor API endpoints, schema URLs) has weight
+    0 and can never dominate an investigation. The Reasoning Engine
+    MUST honour these weights.
+18. **Canonical summary ordering.** Every investigation summary
+    opens with, in this fixed order:
+    (1) Primary Event
+    (2) Process Chain
+    (3) Host / User
+    (4) Timeline
+    (5) High-confidence Evidence
+    (6) Scope
+    (7) Impact
+    (8) Recommendations.
+    URLs, hashes, CRLs, and vendor metadata NEVER appear in the
+    opening paragraph — they belong in supporting sections.
+19. **Telemetry-only inputs are valid.** A vendor alert with no
+    decodable payload (e.g. a pure Defender telemetry event) MUST
+    still produce a valid CIO + investigation report with an empty
+    decoder chain. Never return 400 for telemetry-only alerts.
 
 ```
 Investigation (CIO)

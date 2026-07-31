@@ -148,6 +148,42 @@ def _gate_legacy_parity(
         )
 
 
+def _gate_normalisation(cio: CIO) -> None:
+    """G4 · ADR-0014 §1.1.14 Layer 2 safety net.
+
+    If the CIO's input_text looks like a raw vendor-JSON telemetry
+    payload but the metadata does not carry a `normalised_via` tag,
+    reject the CIO. Ingress-side normalisation (Layer 1) MUST run
+    before analysis on every entry point.
+    """
+    txt = (cio.input_text or "").strip()
+    if not txt:
+        return
+    # Heuristic: JSON envelope that carries vendor-schema signals.
+    looks_like_json = (txt.startswith("{") or txt.startswith("[")) and (
+        txt.endswith("}") or txt.endswith("]")
+    )
+    if not looks_like_json:
+        return
+    vendor_markers = (
+        '"connector_guid"', '"falcon_host_link"', '"event_simpleName"',
+        '"AlertId"', '"detectionSource"', '"agentDetectionInfo"',
+        '"threatInfo"', '"EventID"', '"qid"', '"sourcetype"',
+        '"observables"', '"incident_ref"',
+    )
+    is_vendor_json = any(marker in txt for marker in vendor_markers)
+    if not is_vendor_json:
+        return
+    if not (cio.metadata or {}).get("normalised_via"):
+        raise CIOValidationError(
+            "G4_NORMALISATION_REQUIRED",
+            "Vendor-JSON input reached the CIO builder without a "
+            "`normalised_via` provenance tag. Ingress gate (Layer 1) "
+            "MUST normalise vendor telemetry before analysis "
+            "(ADR-0014 §1.1.14).",
+        )
+
+
 # ─── Public entry ───────────────────────────────────────────────────────
 
 def validate_cio(
@@ -157,12 +193,13 @@ def validate_cio(
     post: Optional[Dict[str, Any]] = None,
     added_keys: Optional[List[str]] = None,
 ) -> None:
-    """Run G1 + G2 (+ G3 if legacy/post supplied).
+    """Run G1 + G2 + G4 (+ G3 if legacy/post supplied).
 
     Raises `CIOValidationError` on the first failure.
     """
     _gate_schema(cio)
     _gate_graph(cio.evidence_graph)
+    _gate_normalisation(cio)
     if legacy is not None and post is not None:
         _gate_legacy_parity(legacy, post, added_keys=added_keys)
 
