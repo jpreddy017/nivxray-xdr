@@ -39,11 +39,14 @@ export default function Lab2InvestigateRenderer() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  const runAnalyze = useCallback(async (text) => {
+  const runAnalyze = useCallback(async (text, mode) => {
     setLoading(true);
     setErr("");
     setCio(null);
-    const pipeline = detectPipeline(text);
+    // Explicit mode from the two intake buttons ("auto" vs "decode")
+    // takes precedence over content sniffing. Fallback to detect for
+    // legacy callers that don't pass mode.
+    const pipeline = mode || detectPipeline(text);
     try {
       const r =
         pipeline === "auto"
@@ -57,13 +60,12 @@ export default function Lab2InvestigateRenderer() {
     }
   }, []);
 
-  const { view, sourceIsDemo } = useMemo(() => projectCIO(cio), [cio]);
+  const { view } = useMemo(() => projectCIO(cio), [cio]);
 
   return (
     <Lab2Provider initialCIO={cio}>
       <LabV2
         view={view}
-        sourceIsDemo={sourceIsDemo}
         onAnalyze={runAnalyze}
         isAnalyzing={loading}
         analyzeError={err}

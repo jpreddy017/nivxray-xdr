@@ -67,21 +67,26 @@ function StoryParagraph({ text, selEv, onEnter, onLeave, onClick, kind }) {
 // ═══════════════════════════════════════════════════════════════
 // LabV2 main component
 // ═══════════════════════════════════════════════════════════════
-export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeError = "", sourceIsDemo = true }) {
+export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeError = "" }) {
   const [theme, setTheme] = useState("nightwatch");
   const [density, setDensity] = useState("comfortable");
-  const [lens, setLens] = useState("story");
+  const [lens, setLens] = useState("exec");
   const [selEv, setSelEv] = useState(view?.defaultEv || "ev-07");
   const [pop, setPop] = useState(null);
   const [showSticky, setShowSticky] = useState(false);
   const [intake, setIntake] = useState("");
+  const [copyOk, setCopyOk] = useState(false);
+  const fileRef = useRef(null);
 
   const scrollPos = useRef({});
   const lensRefs = {
+    exec: useRef(null),
     source: useRef(null),
     story: useRef(null),
     behavior: useRef(null),
     attack: useRef(null),
+    osint: useRef(null),
+    raw: useRef(null),
   };
 
   // Reset selected evidence when the view (=CIO) changes.
@@ -105,9 +110,9 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
     [lens]
   );
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (1..5 lenses)
   useEffect(() => {
-    const map = { 1: "source", 2: "story", 3: "behavior", 4: "attack" };
+    const map = { 1: "exec", 2: "story", 3: "behavior", 4: "attack", 5: "source", 6: "osint", 7: "raw" };
     const h = (e) => {
       const tag = e.target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
@@ -150,10 +155,37 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
     setShowSticky(el.scrollTop > 96);
   }, []);
 
-  const submitIntake = useCallback(() => {
+  const submitInvestigate = useCallback(() => {
     if (!intake.trim() || isAnalyzing) return;
-    onAnalyze?.(intake);
+    onAnalyze?.(intake, "auto");
   }, [intake, isAnalyzing, onAnalyze]);
+
+  const submitDecode = useCallback(() => {
+    if (!intake.trim() || isAnalyzing) return;
+    onAnalyze?.(intake, "decode");
+  }, [intake, isAnalyzing, onAnalyze]);
+
+  const copyIntake = useCallback(async () => {
+    if (!intake) return;
+    try {
+      await navigator.clipboard.writeText(intake);
+      setCopyOk(true);
+      setTimeout(() => setCopyOk(false), 1200);
+    } catch {
+      /* noop */
+    }
+  }, [intake]);
+
+  const clearIntake = useCallback(() => setIntake(""), []);
+
+  const onUpload = useCallback((e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => setIntake(String(reader.result || ""));
+    reader.readAsText(f);
+    e.target.value = "";
+  }, []);
 
   // Guard: view is always provided (Lab2InvestigateRenderer wraps).
   if (!view) return null;
@@ -172,25 +204,29 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
           NIVX<span className="ray">RAY</span>
         </div>
         <div className="case-id">
-          <span className="mono">{view.caseId}</span>
-          <span className="sep">·</span>
-          <span data-testid="labv2-case-file">{view.file}</span>
-          <span className="sep">·</span>
-          <span className="mono">{view.time}</span>
-          <span className="sep">·</span>
-          <span className="input-badge" data-testid="labv2-input-type-badge">{view.inputType}</span>
-          {sourceIsDemo ? (
+          {view.hasCase ? (
             <>
+              <span className="mono">{view.caseId}</span>
               <span className="sep">·</span>
-              <span className="demo-badge" data-testid="labv2-demo-badge" title="No live investigation loaded — showing coherent demo case.">DEMO</span>
+              <span data-testid="labv2-case-file">{view.file}</span>
+              <span className="sep">·</span>
+              <span className="mono">{view.time}</span>
+              <span className="sep">·</span>
+              <span className="input-badge" data-testid="labv2-input-type-badge">{view.inputType}</span>
             </>
-          ) : null}
+          ) : (
+            <span className="mono" style={{ color: "var(--fg3)", letterSpacing: ".08em" }} data-testid="labv2-idle-label">
+              NO ACTIVE CASE · PASTE INPUT BELOW
+            </span>
+          )}
         </div>
         <div className="spacer" />
-        <div className="verdict-pill" data-testid="labv2-verdict-pill">
-          ▲ {view.verdict.label}
-          <span className="conf">{view.verdict.dots} {view.verdict.bucket}</span>
-        </div>
+        {view.hasCase ? (
+          <div className="verdict-pill" data-testid="labv2-verdict-pill">
+            ▲ {view.verdict.label}
+            <span className="conf">{view.verdict.dots} {view.verdict.bucket}</span>
+          </div>
+        ) : null}
         <div className="spacer" />
         <button className="tb-btn" data-testid="labv2-palette" onClick={() => alert("Command palette — every lens, entity, technique and action is reachable here.")}>⌘K</button>
         <button className="tb-btn" data-testid="labv2-density" onClick={() => setDensity((d) => (d === "compact" ? "comfortable" : "compact"))}>
@@ -216,18 +252,223 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
 
         {/* ── CANVAS ──────────────────────────────────────────── */}
         <main className="canvas">
+          {/* Persistent Intake · designed to match the operator's spec. */}
+          <div className="intake-strip" data-testid="labv2-intake">
+            <div className="intake-head">
+              <div className="intake-title">
+                <span className="pulse-dot" aria-hidden />
+                <span className="intake-label">INPUT</span>
+                <span className="intake-count mono">{intake.length} chars</span>
+              </div>
+              <div className="intake-cta">
+                <button
+                  className="cta primary"
+                  data-testid="labv2-analyze"
+                  onClick={submitInvestigate}
+                  disabled={!intake.trim() || isAnalyzing}
+                  title="Investigate structured incidents · Cisco XDR, CrowdStrike, Defender, Sentinel, QRadar, Splunk, Sysmon, IOC lists…"
+                >
+                  <span className="ico">✦</span>
+                  <span>{isAnalyzing ? "INVESTIGATING…" : "AUTO INVESTIGATE"}</span>
+                </button>
+                <button
+                  className="cta secondary"
+                  data-testid="labv2-decode"
+                  onClick={submitDecode}
+                  disabled={!intake.trim() || isAnalyzing}
+                  title="Decode raw command lines, base64/hex, ciphertext, obfuscated payloads…"
+                >
+                  <span className="ico">⚡</span>
+                  <span>DECODE</span>
+                </button>
+                <button
+                  className="cta ghost"
+                  data-testid="labv2-clear"
+                  onClick={clearIntake}
+                  disabled={!intake}
+                  title="Clear the input"
+                >
+                  <span className="ico">🗑</span>
+                  <span>CLEAR</span>
+                </button>
+              </div>
+            </div>
+            <div className="intake-frame">
+              <textarea
+                data-testid="labv2-intake-textarea"
+                placeholder="Paste anything — PowerShell, base64/hex, AES/RC4 ciphertext, JWT, PE/ELF headers, gzip/bzip2/LZMA, obfuscated JS, defanged IOCs, Cisco XDR / CrowdStrike / Defender / Sentinel / QRadar / Splunk / Sysmon / Windows Event JSON, STIX bundles, YARA / Sigma output, email headers, IOC lists…"
+                value={intake}
+                onChange={(e) => setIntake(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    submitInvestigate();
+                  }
+                }}
+              />
+              <div className="intake-corner">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".txt,.log,.json,.xml,.csv,.md,.ps1,.sh,.bat,.evtx,.stix,.yar,.yara,.eml"
+                  onChange={onUpload}
+                  style={{ display: "none" }}
+                  data-testid="labv2-file-input"
+                />
+                <button className="icon-btn" data-testid="labv2-copy" onClick={copyIntake} disabled={!intake} title="Copy input">
+                  {copyOk ? "✓" : "⎘"}
+                </button>
+                <button className="icon-btn" data-testid="labv2-upload" onClick={() => fileRef.current?.click()} title="Upload file">
+                  ⤒
+                </button>
+                <button className="icon-btn" data-testid="labv2-delete" onClick={clearIntake} disabled={!intake} title="Delete input">
+                  🗑
+                </button>
+              </div>
+            </div>
+            {analyzeError ? <div className="intake-err" data-testid="labv2-analyze-err">{analyzeError}</div> : null}
+          </div>
+
           <div className="lensbar" role="tablist">
             {[
-              { id: "source", label: "Source", k: "1" },
+              { id: "exec", label: "Executive", k: "1" },
               { id: "story", label: "Story", k: "2" },
-              { id: "behavior", label: "Behavior", k: "3" },
-              { id: "attack", label: "ATT\u0026CK", k: "4" },
+              { id: "behavior", label: "Behaviour", k: "3" },
+              { id: "attack", label: "Attack Chain", k: "4" },
+              { id: "source", label: "Output", k: "5" },
+              { id: "osint", label: "OSINT", k: "6" },
+              { id: "raw", label: "Source", k: "7" },
             ].map((b) => (
               <button key={b.id} className={`lens-btn${lens === b.id ? " on" : ""}`} data-testid={`lens-btn-${b.id}`} onClick={() => showLens(b.id)}>
                 <span className="k">{b.k}</span>{b.label}
               </button>
             ))}
           </div>
+
+          {/* EXECUTIVE SUMMARY · the correlating final tab */}
+          <section
+            className={`lens${lens === "exec" ? " on" : ""}`}
+            id="exec"
+            ref={lensRefs.exec}
+            data-testid="lens-exec"
+          >
+            <div className="lens-head">
+              <h2>Executive Summary</h2>
+              <p>Analyst-style correlation across every panel of the investigation.</p>
+            </div>
+
+            <div className="exec-card">
+              <div className="exec-row">
+                <div className="exec-cell">
+                  <div className="lbl">Verdict</div>
+                  <div className="exec-verdict">▲ {view.verdict.label}</div>
+                </div>
+                <div className="exec-cell">
+                  <div className="lbl">Confidence</div>
+                  <div className="exec-val">{view.verdict.dots} <span className="mono">{view.verdict.pct}%</span> · {view.verdict.bucket}</div>
+                </div>
+                <div className="exec-cell">
+                  <div className="lbl">Input type</div>
+                  <div className="exec-val">{view.inputType}</div>
+                </div>
+                <div className="exec-cell">
+                  <div className="lbl">Elapsed</div>
+                  <div className="exec-val mono">{view.stats.elapsed}</div>
+                </div>
+              </div>
+              {view.verdict.reason ? <div className="exec-reason">{view.verdict.reason}</div> : null}
+            </div>
+
+            {/* Executive narrative — analyst-style prose. */}
+            <div className="prose" style={{ marginTop: "var(--s6)" }}>
+              {view.story && view.story.length > 0 ? (
+                view.story.slice(0, 3).map((p, i) => (
+                  <StoryParagraph key={i} text={p.text} kind={p.kind} {...evChipProps} />
+                ))
+              ) : (
+                <p className="quiet">
+                  No analyst narrative yet — the summary composer will populate this once the investigation completes.
+                </p>
+              )}
+            </div>
+
+            {/* Correlated key findings + IOCs · one screen for leadership */}
+            <div className="exec-grid">
+              <div className="exec-block">
+                <div className="lbl">Key Findings ({view.findings.length})</div>
+                {view.findings.length === 0 ? (
+                  <div className="quiet mono">No key findings extracted.</div>
+                ) : (
+                  view.findings.slice(0, 6).map((f, i) => (
+                    <div key={i} className="exec-line">
+                      <span className={`g ${f.g}`}>{f.gly}</span>
+                      <span>
+                        <span className="t">{f.t}</span>
+                        {f.evs && f.evs.length > 0 ? (
+                          <span className="e">
+                            {f.evs.slice(0, 4).map((id) => (
+                              <EvChip key={id} id={id} selected={selEv === id} onEnter={onEvEnter} onLeave={onEvLeave} onClick={onEvClick} />
+                            ))}
+                          </span>
+                        ) : null}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="exec-block">
+                <div className="lbl">Observed IOCs ({view.osint.length})</div>
+                {view.osint.length === 0 ? (
+                  <div className="quiet mono">No indicators extracted.</div>
+                ) : (
+                  view.osint.slice(0, 6).map((o) => (
+                    <div key={o.node_id} className="exec-line">
+                      <span className="ioc-kind">{(o.kind || "ioc").replace(/^external_ioc_/, "").toUpperCase()}</span>
+                      <span className="mono">{o.value}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="exec-block">
+                <div className="lbl">Recommended Actions ({view.actions.length})</div>
+                {view.actions.length === 0 ? (
+                  <div className="quiet mono">No recommendations from the engine.</div>
+                ) : (
+                  view.actions.map((a, i) => (
+                    <div key={i} className="exec-line">
+                      <span className={`w ${a.wCls || ""}`}>{a.w}</span>
+                      <span>{a.n}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="exec-block">
+                <div className="lbl">Unknowns ({view.unknowns.length})</div>
+                {view.unknowns.map((u, i) => (
+                  <div key={i} className="exec-line">
+                    <span className="g unk">○</span>
+                    <span>{u.t}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="exec-foot">
+              <span className="lbl">Decoded output preview</span>
+              {view.decodeLadder && view.decodeLadder.length > 0 ? (
+                <div className="code" style={{ marginTop: "var(--s3)", maxHeight: 240, overflow: "auto" }}>
+                  {view.decodeLadder[view.decodeLadder.length - 1].code}
+                </div>
+              ) : (
+                <div className="quiet mono" style={{ marginTop: "var(--s2)" }}>
+                  Input was already in canonical form or the engine detected no decode layers.
+                </div>
+              )}
+            </div>
+          </section>
 
           {/* STORY */}
           <section className={`lens${lens === "story" ? " on" : ""}`} id="story" ref={lensRefs.story} onScroll={onStoryScroll} data-testid="lens-story">
@@ -237,32 +478,6 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
               <span className="st"><b>{view.stats.beh}</b> behaviors</span>
               <span className="st"><b>{view.stats.tech}</b> techniques</span>
               <span className="st"><b>{view.stats.unk}</b> unknowns</span>
-            </div>
-
-            <div className="intake" data-testid="labv2-intake">
-              <div className="head">
-                <h3>Investigate</h3>
-                <span className="hint">Analyst voice · one field</span>
-              </div>
-              <textarea
-                data-testid="labv2-intake-textarea"
-                placeholder="Paste anything: PowerShell · CMD · Bash · Cisco XDR · CrowdStrike · Defender · Sentinel · QRadar · Splunk · Sysmon · Windows Events · JSON · XML · STIX · YARA · Sigma · email headers · IOC lists"
-                value={intake}
-                onChange={(e) => setIntake(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    submitIntake();
-                  }
-                }}
-              />
-              <div className="row">
-                <div className="accept">Auto-detects the artifact type · no dropdown · ⌘Enter to run</div>
-                <button className="analyze" data-testid="labv2-analyze" disabled={!intake.trim() || isAnalyzing} onClick={submitIntake}>
-                  {isAnalyzing ? "Analyzing…" : "Analyze"}
-                </button>
-              </div>
-              {analyzeError ? <div className="err" data-testid="labv2-analyze-err">{analyzeError}</div> : null}
             </div>
 
             <div className="lens-head">
@@ -424,6 +639,68 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                   )}
                 </div>
               ))}
+            </div>
+          </section>
+
+          {/* OSINT — IOC threat intelligence */}
+          <section className={`lens${lens === "osint" ? " on" : ""}`} id="osint" ref={lensRefs.osint} data-testid="lens-osint">
+            <div className="lens-head">
+              <h2>OSINT · IOC intelligence</h2>
+              <p>Every indicator observed in this investigation, alongside its threat-intel enrichment.</p>
+            </div>
+            {view.osint.length === 0 ? (
+              <div className="tempty">
+                No indicators were extracted for this investigation. When the engine surfaces URLs,
+                domains, IPs, hashes, or file paths, they appear here with reputation and provider hits.
+              </div>
+            ) : (
+              <div className="ioc-list">
+                {view.osint.map((o) => (
+                  <div key={o.node_id} className="ioc-card" data-testid={`ioc-${o.node_id}`}>
+                    <div className="ioc-h">
+                      <span className="ioc-kind">{(o.kind || "ioc").replace(/^external_ioc_/, "").toUpperCase()}</span>
+                      <span className="ioc-value mono">{o.value}</span>
+                      <span className="conf-dots" style={{ marginLeft: "auto" }}>
+                        {"●".repeat(Math.round(o.confidence / 20))}
+                        {"○".repeat(5 - Math.round(o.confidence / 20))}
+                      </span>
+                    </div>
+                    <div className="ioc-meta">
+                      {o.first_seen ? <span>First seen · <b>{o.first_seen}</b></span> : null}
+                      {o.last_seen ? <span>Last seen · <b>{o.last_seen}</b></span> : null}
+                      {o.reputation ? <span>Reputation · <b>{o.reputation}</b></span> : null}
+                    </div>
+                    <div className="ioc-providers">
+                      {o.providers.map((p, i) => (
+                        <div key={i} className={`ioc-prov ${p.state}`}>
+                          <span className="prov-name">{p.name}</span>
+                          <span className="prov-state">
+                            {p.state === "hit" ? "● HIT" : p.state === "pending" ? "○ pending" : p.state === "no-hash" ? "— no hash" : p.state}
+                          </span>
+                          {p.detail ? <span className="prov-detail">{p.detail}</span> : null}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="ioc-foot">
+                      <EvChip id={o.node_id} selected={selEv === o.node_id} onEnter={onEvEnter} onLeave={onEvLeave} onClick={onEvClick} />
+                      <span className="quiet mono" style={{ marginLeft: "var(--s2)" }}>
+                        Providers will be wired to live threat-intel APIs in a future slice · shape ready.
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* RAW SOURCE — the original input verbatim */}
+          <section className={`lens${lens === "raw" ? " on" : ""}`} id="raw" ref={lensRefs.raw} data-testid="lens-raw">
+            <div className="lens-head">
+              <h2>Source</h2>
+              <p>The exact bytes submitted to the engine. Read-only.</p>
+            </div>
+            <div className="code" style={{ maxWidth: "100%", maxHeight: "60vh", overflow: "auto" }}>
+              {view.rawInput || "No source input recorded for this investigation."}
             </div>
           </section>
         </main>

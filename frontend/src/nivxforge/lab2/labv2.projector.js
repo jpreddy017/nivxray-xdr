@@ -56,9 +56,10 @@ const severityFromWeight = (w) => {
 
 // ── main projector ───────────────────────────────────────────────────
 export function projectCIO(cio) {
-  // Empty state: use the coherent demo case verbatim.
+  // Empty state: no investigation yet. Every panel renders an
+  // "awaiting input" state — nothing is fabricated.
   if (!cio || !cio.cio_id) {
-    return { view: buildDemoView(), sourceIsDemo: true };
+    return { view: buildEmptyView(), sourceIsDemo: false, sourceIsEmpty: true };
   }
 
   const shortId = String(cio.cio_id || "").slice(-4).toUpperCase() || "CIO-";
@@ -198,6 +199,33 @@ export function projectCIO(cio) {
   // ATT&CK grid — from summary.mitre_digest
   const attack = buildAttackGrid(summary.mitre_digest, nodes);
 
+  // OSINT rows — every IOC-shaped node gets a row with placeholders
+  // for provider hits. When the backend adds real threat-intel enrichment
+  // this projector will pick them up automatically from node.enrichment[].
+  const osint = nodes
+    .filter((n) => /ioc|url|domain|ip|hash|email/i.test(n.kind || ""))
+    .map((n) => {
+      const enrich = n.enrichment || {};
+      const providers = Array.isArray(enrich.providers) ? enrich.providers : [];
+      return {
+        node_id: n.node_id,
+        kind: n.kind,
+        value: n.label || n.value || n.node_id,
+        confidence: Math.round((n.confidence || 0) * 100),
+        first_seen: enrich.first_seen || null,
+        last_seen: enrich.last_seen || null,
+        reputation: enrich.reputation || null,
+        providers: providers.length
+          ? providers
+          : [
+              { name: "VirusTotal", state: "pending" },
+              { name: "AbuseIPDB", state: "pending" },
+              { name: "AlienVault OTX", state: "pending" },
+              { name: "URLhaus", state: "pending" },
+            ],
+      };
+    });
+
   // Decode ladder — from decode_chain
   const decodeLadder = (cio.decode_chain || []).map((r, i) => ({
     layer: `L${i}`,
@@ -226,6 +254,8 @@ export function projectCIO(cio) {
 
   return {
     view: {
+      hasCase: true,
+      rawInput: cio.input_text || "",
       caseId: shortId,
       file: truncate(fileName, 42),
       time,
@@ -246,6 +276,7 @@ export function projectCIO(cio) {
       unknowns,
       actions,
       attack,
+      osint,
       decodeLadder,
       behaviorNodes,
       defaultEv,
@@ -346,9 +377,50 @@ function escapeHTML(s) {
     .replace(/'/g, "&#39;");
 }
 
-// ── demo fallback ────────────────────────────────────────────────────
-function buildDemoView() {
+// ── empty (tool-idle) state ──────────────────────────────────────────
+// This is the DEFAULT before any input is submitted. Every panel is
+// truly empty — no verdict, no case id, no fake evidence. Like an
+// editor with no file open.
+function buildEmptyView() {
   return {
+    caseId: "",
+    file: "",
+    time: "",
+    inputType: "",
+    hasCase: false,
+    verdict: { label: "", dots: "", pct: 0, bucket: "", reason: "" },
+    stages: [
+      { id: "input", name: "Input", meta: "awaiting", lens: "exec", state: "pending" },
+      { id: "understand", name: "Understand", meta: "", lens: "exec", state: "pending" },
+      { id: "decode", name: "Decode", meta: "", lens: "source", state: "pending" },
+      { id: "normalize", name: "Normalize", meta: "", lens: "source", state: "pending" },
+      { id: "evidence", name: "Evidence", meta: "", lens: "story", state: "pending" },
+      { id: "behavior", name: "Behavior", meta: "", lens: "behavior", state: "pending" },
+      { id: "correlate", name: "Correlate", meta: "", lens: "attack", state: "pending" },
+      { id: "verdict", name: "Verdict", meta: "", lens: "exec", state: "pending" },
+      { id: "report", name: "Report", meta: "", lens: "exec", state: "pending" },
+    ],
+    ev: {},
+    story: [],
+    stats: { obs: 0, beh: 0, tech: 0, unk: 0, elapsed: "—" },
+    ledger: [],
+    findings: [],
+    unknowns: [],
+    actions: [],
+    attack: { columns: { Execution: [], "Defense evasion": [], "Command & control": [], Persistence: [] }, techniqueCount: 0 },
+    osint: [],
+    decodeLadder: [],
+    behaviorNodes: [],
+    defaultEv: null,
+    rawInput: "",
+  };
+}
+
+// ── demo (Storybook only) ────────────────────────────────────────────
+export function buildDemoView() {
+  return {
+    hasCase: true,
+    rawInput: 'powershell.exe -nop -w hidden -enc SQBFAFgA…',
     caseId: DEMO_CASE.id,
     file: DEMO_CASE.file,
     time: DEMO_CASE.time,
@@ -405,6 +477,36 @@ function buildDemoView() {
       },
       techniqueCount: 4,
     },
+    osint: [
+      {
+        node_id: "N-101",
+        kind: "external_ioc_domain",
+        value: "cdn-update[.]tld",
+        confidence: 78,
+        first_seen: "12 min prior",
+        last_seen: "14:22:07",
+        reputation: "suspicious",
+        providers: [
+          { name: "VirusTotal", state: "pending" },
+          { name: "AbuseIPDB", state: "pending" },
+          { name: "AlienVault OTX", state: "hit", detail: "1 pulse · dropper infrastructure" },
+          { name: "URLhaus", state: "pending" },
+        ],
+      },
+      {
+        node_id: "N-102",
+        kind: "external_ioc_path",
+        value: "%TEMP%\\a.exe",
+        confidence: 60,
+        first_seen: null,
+        last_seen: null,
+        reputation: null,
+        providers: [
+          { name: "VirusTotal", state: "no-hash" },
+          { name: "Hybrid Analysis", state: "no-hash" },
+        ],
+      },
+    ],
     decodeLadder: [],  // rendered from prototype static content in LabV2
     behaviorNodes: [],
     defaultEv: "ev-07",

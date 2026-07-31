@@ -1,5 +1,35 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02 · **Lab v2 · Investigation Workspace polish · SHIPPED**
+
+Follow-up on Phase B.1 wire-real-CIO: the Lab v2 workspace now has the tool-grade intake and lens layout the operator requested.
+
+### Shipped
+- **INPUT strip** matching operator spec: `● INPUT · N chars` on the left; `✦ AUTO INVESTIGATE` (primary mint pill), `⚡ DECODE` (secondary mint outline), `🗑 CLEAR` (ghost) on the right. Copy / Upload / Delete icon buttons stacked in the textarea's top-right corner.
+- **Two explicit run modes**: AUTO INVESTIGATE → `/v2/auto-investigate`, DECODE → `/decode/smart`. No more content sniffing — analyst picks. Legacy `detectPipeline()` remains as fallback when callers don't pass `mode`.
+- **Seven-lens layout**: `1 Executive · 2 Story · 3 Behaviour · 4 Attack Chain · 5 Output · 6 OSINT · 7 Source`. Executive is the default landing lens and correlates every panel (Verdict / Confidence / Input type / Elapsed + narrative + Key Findings / Observed IOCs / Recommended Actions / Unknowns + Decoded Output preview).
+- **Idle state**: workspace is empty (no verdict, no case chip) until real input is submitted — `NO ACTIVE CASE · PASTE INPUT BELOW` chip in the topbar.
+- **Scroll fix**: added `min-height:0` to `.canvas` + `.lens` so the lens content area is bounded and the inner overflow works correctly on all viewports.
+- **OSINT lens**: per-IOC card with reputation / first-seen / last-seen + provider grid (VirusTotal / AbuseIPDB / AlienVault OTX / URLhaus) shaped and ready for live threat-intel API wiring.
+- **Source lens**: verbatim raw input from `cio.input_text` for audit.
+- **Same backend as Workspace**: identical `/api/v2/auto-investigate` and `/api/decode/smart` endpoints, identical CIO — Lab v2 and Workspace share the same investigation resources.
+
+### Verified
+- Scroll works (measured `scrollTop 0 → 400 of 471` inside `lens-exec`).
+- Live PowerShell b64 → real CIO → 10 findings, 12 evidence nodes, SUSPICIOUS at 84% HIGH.
+- Legacy renderer (flag OFF) unchanged.
+
+### Next Actions
+- **Wire OSINT providers** to a live threat-intel proxy so the pending badges become real hits per IOC.
+- **Bind Behavior Graph** SVG to `cio.evidence_graph` nodes/edges (Phase B.2).
+- **Command Palette (⌘K)** — fuzzy jump to any lens, evidence, technique, IOC (Phase B.4).
+- **Report exports** — Markdown / PDF / STIX / Navigator JSON from `cio.summary.report_sections` (Phase B.3).
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-02 · **Phase B.1 · Wire Real CIO — COMPLETE (Lab v2 is now a pure projection)**
 
 Every panel in Lab v2 is now driven by the Canonical Investigation Object. No panel holds hardcoded case data — the coherent PowerShell demo case is only served when no investigation is loaded (surfaced with a visible `DEMO` badge in the topbar).
