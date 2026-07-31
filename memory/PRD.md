@@ -1,5 +1,44 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02 · **Phase B.1 · Behavior Graph bound to `cio.evidence_graph` — SHIPPED**
+
+Operator directive §1 honoured: the Behavior Graph is a **projection of the CIO evidence graph**, not a second model. No duplicated state.
+
+### Shipped
+- **`buildBehaviorGraph(nodes, edges)`** projector — buckets every real evidence node into one of four capability lanes (EVADE · DECODE · ACQUIRE · EXECUTE · PERSIST) using kind and MITRE-technique matchers.
+- **Auto-layout** distributes nodes evenly along the x-axis within each lane. Edges from `cio.evidence_graph.edges` are drawn verbatim; `contributes_to` / `produces` / `drives` edges with weight ≥ 0.6 render as HOT (red) lines. All others render neutral.
+- **Node interactivity**: clicking a graph rectangle selects the evidence chip everywhere in the workspace — the Evidence Bar, Story chips, Ledger, Findings, ATT&CK cards, and OSINT card all synchronise instantly. One CIO. One selection state.
+- **Empty state**: honest `tempty` copy when `cio.evidence_graph` has zero nodes — no fabrication.
+- **Confidence highlighting**: nodes with `confidence ≥ 0.7` get the hot outline.
+- **Node id normalisation**: backend uses `id`; projector normalises so all downstream code reads `.id`. OSINT + EV map + defaultEv now use canonical id.
+- **ADR-0022 §8 respected**: one model — the CIO — powers Story, Behavior, Attack Chain, Findings, Evidence Bar, and OSINT.
+
+### Verified
+- 13 real graph nodes rendered from a live investigation (screenshot).
+- Node click updated Evidence Bar to `N-012 · LOLBIN · powershell` (real node id from the CIO).
+- Empty-state renders correctly when the graph is not populated.
+
+### Approved Phase Order (locked)
+- **B.1** Wire Real CIO ✓ · Behavior Graph ✓
+- **B.2** Report Lens + Export Engine (Executive / Analyst / Markdown / PDF / STIX / Navigator / JSON — one renderer, multiple exporters)
+- **B.3** Command Palette (⌘K) — global navigation layer for the workspace
+- **B.4** OSINT Providers (async, non-blocking; investigation completes regardless of enrichment)
+- **B.5** Timeline Lens
+- **B.6** Knowledge Lens
+- **B.7** AI Overlay
+
+### Backend touch
+- Zero backend changes.
+
+### Next Actions
+- **Behavior Graph polish**: DECODE lane crowds when the decode chain is long — add vertical stacking / auto-scroll when node count in a lane exceeds a threshold.
+- **Kick off Phase B.2**: Report Lens with `cio.summary.report_sections` as the single source, and export pipes for Markdown / STIX / Navigator JSON / PDF.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-02 · **Lab v2 · Investigation Workspace polish · SHIPPED**
 
 Follow-up on Phase B.1 wire-real-CIO: the Lab v2 workspace now has the tool-grade intake and lens layout the operator requested.

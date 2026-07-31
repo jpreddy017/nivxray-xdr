@@ -144,6 +144,8 @@ export const LABV2_CSS = `
 .labv2 .lane-lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;fill:var(--fg3)}
 .labv2 .n-box{fill:var(--node-fill);stroke:var(--border-strong);stroke-width:1;rx:4}
 .labv2 .n-box.hot{stroke:var(--crit)}
+.labv2 .n-box.sel{stroke:var(--mint);stroke-width:2}
+.labv2 .graph-node:hover .n-box{stroke:var(--mint)}
 .labv2 .n-t{font-family:var(--font-ui);font-size:12px;font-weight:500;fill:var(--fg)}
 .labv2 .n-s{font-family:var(--font-mono);font-size:10px;fill:var(--fg3)}
 .labv2 .edge{stroke:var(--border-strong);stroke-width:1.25;fill:none}

@@ -545,67 +545,75 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
             )}
           </section>
 
-          {/* BEHAVIOR */}
+          {/* BEHAVIOR — bound to cio.evidence_graph via view.graph */}
           <section className={`lens${lens === "behavior" ? " on" : ""}`} id="behavior" ref={lensRefs.behavior} data-testid="lens-behavior">
             <div className="lens-head">
               <h2>Behavior graph</h2>
-              <p>Vertical position encodes capability. The descending chain is the dropper silhouette.</p>
+              <p>Every real evidence node dropped into its capability lane. Edges come straight from the CIO evidence graph — one model, one truth.</p>
             </div>
-            <div className="graph-wrap">
-              {/* Static illustrative graph. Phase B.2 will bind this to cio.evidence_graph. */}
-              <svg viewBox="0 0 860 468" role="img" aria-label="Causal behavior graph across capability lanes">
-                <defs>
-                  <marker id="ah" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-                    <path d="M0,0 L7,3.5 L0,7 z" fill="currentColor" />
-                  </marker>
-                </defs>
-                <g>
-                  <rect className="lane-bg" x="0" y="6" width="860" height="96" rx="6" />
-                  <rect className="lane-bg" x="0" y="126" width="860" height="96" rx="6" />
-                  <rect className="lane-bg" x="0" y="246" width="860" height="96" rx="6" />
-                  <rect className="lane-bg" x="0" y="366" width="860" height="96" rx="6" />
-                  <text className="lane-lbl" x="12" y="24">EVADE</text>
-                  <text className="lane-lbl" x="12" y="144">DECODE</text>
-                  <text className="lane-lbl" x="12" y="264">ACQUIRE</text>
-                  <text className="lane-lbl" x="12" y="384">EXECUTE · PERSIST</text>
-                </g>
-                <g className="edge">
-                  <path d="M200,74 C260,74 250,150 300,158" markerEnd="url(#ah)" />
-                  <path d="M200,182 L286,182" markerEnd="url(#ah)" />
-                </g>
-                <g className="edge hot">
-                  <path d="M420,182 C470,182 470,270 520,278" markerEnd="url(#ah)" />
-                  <path d="M700,296 C740,296 740,380 700,398" markerEnd="url(#ah)" />
-                  <path d="M520,416 L456,416" markerEnd="url(#ah)" />
-                </g>
-                <g>
-                  <rect className="n-box" x="40" y="48" width="160" height="52" />
-                  <text className="n-t" x="56" y="70">Hide window</text>
-                  <text className="n-s" x="56" y="88">-w hidden · ev-02</text>
-                  <rect className="n-box" x="40" y="156" width="160" height="52" />
-                  <text className="n-t" x="56" y="178">Bypass policy</text>
-                  <text className="n-s" x="56" y="196">-nop · ev-01</text>
-                  <rect className="n-box" x="286" y="132" width="134" height="52" />
-                  <text className="n-t" x="300" y="154">Base64 decode</text>
-                  <text className="n-s" x="300" y="172">utf-16le · ev-03</text>
-                  <rect className="n-box" x="286" y="196" width="134" height="52" opacity=".92" />
-                  <text className="n-t" x="300" y="218">Gzip inflate</text>
-                  <text className="n-s" x="300" y="236">layer 2 · ev-04</text>
-                  <rect className="n-box hot" x="520" y="252" width="180" height="52" />
-                  <text className="n-t" x="536" y="274">Remote fetch</text>
-                  <text className="n-s" x="536" y="292">cdn-update[.]tld · ev-07</text>
-                  <rect className="n-box hot" x="520" y="372" width="180" height="52" />
-                  <text className="n-t" x="536" y="394">Write to %TEMP%</text>
-                  <text className="n-s" x="536" y="412">a.exe · ev-08</text>
-                  <rect className="n-box hot" x="276" y="390" width="180" height="52" />
-                  <text className="n-t" x="292" y="412">Start process</text>
-                  <text className="n-s" x="292" y="430">hidden · ev-11</text>
-                </g>
-                <text className="chain-lbl" x="276" y="462">CHAIN: DOWNLOAD → WRITE → EXECUTE  ·  drives verdict</text>
-              </svg>
-            </div>
+            {view.graph && !view.graph.empty ? (
+              <div className="graph-wrap" data-testid="graph-wrap">
+                <svg viewBox={`0 0 ${view.graph.width} ${view.graph.height}`} role="img" aria-label="Causal behavior graph across capability lanes">
+                  <defs>
+                    <marker id="ah" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                      <path d="M0,0 L7,3.5 L0,7 z" fill="currentColor" />
+                    </marker>
+                  </defs>
+                  {/* Lane backgrounds + labels */}
+                  <g>
+                    {view.graph.lanes.map((lane) => (
+                      <React.Fragment key={lane.id}>
+                        <rect className="lane-bg" x="0" y={lane.y} width={view.graph.width} height="96" rx="6" />
+                        <text className="lane-lbl" x="12" y={lane.y + 18}>{lane.label}</text>
+                      </React.Fragment>
+                    ))}
+                  </g>
+                  {/* Edges (hot first for z-order, then cool) */}
+                  <g className="edge">
+                    {view.graph.edges.filter((e) => !e.hot).map((e, i) => (
+                      <line key={`c${i}`} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} markerEnd="url(#ah)" />
+                    ))}
+                  </g>
+                  <g className="edge hot">
+                    {view.graph.edges.filter((e) => e.hot).map((e, i) => (
+                      <line key={`h${i}`} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} markerEnd="url(#ah)" />
+                    ))}
+                  </g>
+                  {/* Nodes */}
+                  <g>
+                    {view.graph.lanes.flatMap((lane) =>
+                      lane.nodes.map((n) => (
+                        <g
+                          key={n.id}
+                          className="graph-node"
+                          data-testid={`graph-node-${n.id}`}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => onEvClick(n.id)}
+                        >
+                          <rect
+                            className={`n-box${n.hot ? " hot" : ""}${selEv === n.id ? " sel" : ""}`}
+                            x={n.x}
+                            y={n.y}
+                            width={n.w}
+                            height={n.h}
+                          />
+                          <text className="n-t" x={n.x + 14} y={n.y + 22}>{n.title}</text>
+                          <text className="n-s" x={n.x + 14} y={n.y + 40}>{n.subtitle} · {n.id}</text>
+                        </g>
+                      ))
+                    )}
+                  </g>
+                </svg>
+              </div>
+            ) : (
+              <div className="tempty">
+                No evidence graph was produced for this investigation. Behavior lanes stay empty until the engine attaches
+                nodes and edges to <code style={{ fontFamily: "var(--font-mono)" }}>cio.evidence_graph</code>.
+              </div>
+            )}
             <p className="quiet" style={{ marginTop: "var(--s3)", maxWidth: "820px", fontSize: 12 }}>
-              Phase B.2 · this graph will be projected directly from <code style={{ fontFamily: "var(--font-mono)" }}>cio.evidence_graph</code> so every real investigation renders its own causal chain.
+              Bound directly to <code style={{ fontFamily: "var(--font-mono)" }}>cio.evidence_graph</code>. Node clicks
+              select the evidence chip everywhere in the workspace.
             </p>
           </section>
 

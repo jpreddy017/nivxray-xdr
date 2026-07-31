@@ -80,14 +80,17 @@ export function projectCIO(cio) {
   const summary = cio.summary || {};
   const nodes = (cio.evidence_graph && cio.evidence_graph.nodes) || [];
   const edges = (cio.evidence_graph && cio.evidence_graph.edges) || [];
-  const nodeById = Object.fromEntries(nodes.map((n) => [n.node_id, n]));
+  // Nodes use `id` (backend model); older code paths may still emit
+  // `node_id`. Normalise so downstream code always reads `.id`.
+  nodes.forEach((n) => { n.id = n.id || n.node_id; });
+  const nodeById = Object.fromEntries(nodes.map((n) => [n.id, n]));
 
-  // Build an EV map keyed by node_id — every panel points here.
+  // Build an EV map keyed by node id — every panel points here.
   const ev = {};
   nodes.forEach((n) => {
     const kind = n.kind || "node";
-    const label = n.label || n.value || n.node_id;
-    ev[n.node_id] = {
+    const label = n.label || n.value || n.id;
+    ev[n.id] = {
       s: `${kind} · confidence ${Math.round((n.confidence || 0) * 100)}%`,
       t: `Verdict ▸ Evidence ▸ ${kind}`,
       c: `<b>${escapeHTML(String(label))}</b>`,
@@ -95,6 +98,11 @@ export function projectCIO(cio) {
       frag: String(label).slice(0, 32),
     };
   });
+
+  // ── Behavior graph projection (ADR-0022 §8, operator directive §1)
+  //    Bucket every real evidence node into one of four capability lanes.
+  //    Edges come straight from `evidence_graph.edges`. No second model.
+  const graph = buildBehaviorGraph(nodes, edges);
 
   // Case Spine: derive stage states from reasoning_steps rules.
   // A stage is "done" if any step's rule matches its bucket; otherwise
@@ -208,9 +216,9 @@ export function projectCIO(cio) {
       const enrich = n.enrichment || {};
       const providers = Array.isArray(enrich.providers) ? enrich.providers : [];
       return {
-        node_id: n.node_id,
+        node_id: n.id,
         kind: n.kind,
-        value: n.label || n.value || n.node_id,
+        value: n.label || n.value || n.id,
         confidence: Math.round((n.confidence || 0) * 100),
         first_seen: enrich.first_seen || null,
         last_seen: enrich.last_seen || null,
@@ -241,7 +249,7 @@ export function projectCIO(cio) {
 
   // Evbar default selection: first contributor node
   const defaultEv =
-    (contribs[0] && contribs[0].node_id) || nodes[0]?.node_id || null;
+    (contribs[0] && contribs[0].node_id) || nodes[0]?.id || null;
 
   // Story stats
   const stats = {
@@ -279,6 +287,7 @@ export function projectCIO(cio) {
       osint,
       decodeLadder,
       behaviorNodes,
+      graph,
       defaultEv,
     },
     sourceIsDemo: false,
@@ -377,6 +386,100 @@ function escapeHTML(s) {
     .replace(/'/g, "&#39;");
 }
 
+// ── Behavior graph builder ───────────────────────────────────────────
+// Buckets every real evidence-graph node into one of four capability
+// lanes and lays them out on a 860×468 SVG canvas. Edges come from
+// `evidence_graph.edges` verbatim — no second graph model.
+const LANE_DEFS = [
+  { id: "evade",   label: "EVADE",             y: 6,   testKinds: /evasion|hide|hidden|bypass|obfusc/i,     mitre: /T1027|T1140|T1564|T1620/i },
+  { id: "decode",  label: "DECODE",            y: 126, testKinds: /decode|transform|normalize|artifact|encoding|cipher/i, mitre: /T1027|T1140/i },
+  { id: "acquire", label: "ACQUIRE",           y: 246, testKinds: /ioc|url|domain|ip|hash|network|download|fetch|c2/i,     mitre: /T1105|T1071/i },
+  { id: "execute", label: "EXECUTE · PERSIST", y: 366, testKinds: /lolbin|process|execute|persist|verdict|behaviour|behavior|entity|command/i, mitre: /T1059|T1053|T1547|T1543/i },
+];
+
+function bucketNode(node) {
+  const kind = String(node.kind || "");
+  const mitre = (node.mitre_techniques || []).join(" ");
+  for (const lane of LANE_DEFS) {
+    if (lane.testKinds.test(kind) || (mitre && lane.mitre.test(mitre))) return lane.id;
+  }
+  // Default: place unknown-kind nodes in EXECUTE lane so nothing is
+  // silently dropped. Analyst still sees every observation.
+  return "execute";
+}
+
+function buildBehaviorGraph(nodes, edges) {
+  if (!nodes || nodes.length === 0) {
+    return { lanes: [], edges: [], empty: true, width: 860, height: 468 };
+  }
+  const byLane = { evade: [], decode: [], acquire: [], execute: [] };
+  nodes.forEach((n) => {
+    // Skip artifacts (input placeholder) and verdict summary node — those
+    // are structural, not observable behaviours.
+    if (n.kind === "artifact") return;
+    byLane[bucketNode(n)].push(n);
+  });
+
+  // Layout: for each lane, evenly distribute node boxes along x.
+  const laneW = 860;
+  const boxW = 160;
+  const boxH = 52;
+  const positions = {};
+  const lanes = LANE_DEFS.map((lane) => {
+    const items = byLane[lane.id];
+    const count = items.length;
+    const laneNodes = items.map((n, i) => {
+      const availableW = laneW - 40 - boxW;
+      const step = count > 1 ? availableW / (count - 1) : 0;
+      const x = 40 + (count === 1 ? availableW / 2 : step * i);
+      const y = lane.y + 32; // inside lane, below label
+      positions[n.id] = { x, y, w: boxW, h: boxH, lane: lane.id };
+      return {
+        id: n.id,
+        title: prettifyLabel(n),
+        subtitle: `${n.kind || ""} · ${Math.round((n.confidence || 0) * 100)}%`,
+        hot: (n.confidence || 0) >= 0.7,
+        x, y, w: boxW, h: boxH,
+      };
+    });
+    return { id: lane.id, label: lane.label, y: lane.y, nodes: laneNodes };
+  });
+
+  // Edges — resolve endpoints, mark hot if weight >= 0.6 or kind ∈ hot list.
+  const HOT_KINDS = /contributes_to|produces|drives/i;
+  const drawnEdges = edges
+    .map((e) => {
+      const src = positions[e.source];
+      const dst = positions[e.target];
+      if (!src || !dst) return null;
+      const hot = (e.weight || 0) >= 0.6 && HOT_KINDS.test(e.kind || "");
+      return {
+        x1: src.x + src.w / 2,
+        y1: src.y + src.h / 2,
+        x2: dst.x + dst.w / 2,
+        y2: dst.y + dst.h / 2,
+        hot,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    lanes,
+    edges: drawnEdges,
+    width: 860,
+    height: 468,
+    empty: false,
+    totalNodes: nodes.length - (byLane.evade.length + byLane.decode.length + byLane.acquire.length + byLane.execute.length ? 0 : 0),
+  };
+}
+
+function prettifyLabel(n) {
+  const raw = String(n.label || n.value || n.id || "");
+  // Turn "URL · http://..." into just the value part when possible.
+  const stripped = raw.replace(/^[A-Z]+·\s*/i, "").replace(/^[A-Z ]+·\s*/i, "");
+  return stripped.length > 28 ? stripped.slice(0, 27) + "…" : stripped || n.id;
+}
+
 // ── empty (tool-idle) state ──────────────────────────────────────────
 // This is the DEFAULT before any input is submitted. Every panel is
 // truly empty — no verdict, no case id, no fake evidence. Like an
@@ -411,6 +514,7 @@ function buildEmptyView() {
     osint: [],
     decodeLadder: [],
     behaviorNodes: [],
+    graph: { lanes: [], edges: [], empty: true },
     defaultEv: null,
     rawInput: "",
   };
@@ -509,6 +613,22 @@ export function buildDemoView() {
     ],
     decodeLadder: [],  // rendered from prototype static content in LabV2
     behaviorNodes: [],
+    graph: buildBehaviorGraph(
+      [
+        { id: "N-01", kind: "evasion", label: "Hide window · -w hidden", confidence: 0.9 },
+        { id: "N-02", kind: "evasion", label: "Bypass policy · -nop", confidence: 0.85 },
+        { id: "N-03", kind: "decode", label: "Base64 decode · utf-16le", confidence: 1.0 },
+        { id: "N-04", kind: "decode", label: "Gzip inflate", confidence: 0.9 },
+        { id: "N-07", kind: "url", label: "cdn-update[.]tld", confidence: 0.8 },
+        { id: "N-08", kind: "ioc", label: "%TEMP%\\a.exe", confidence: 0.7 },
+        { id: "N-11", kind: "lolbin", label: "Start process · hidden", confidence: 0.9 },
+      ],
+      [
+        { source: "N-03", target: "N-07", kind: "produces", weight: 0.9 },
+        { source: "N-07", target: "N-08", kind: "contributes_to", weight: 0.8 },
+        { source: "N-08", target: "N-11", kind: "contributes_to", weight: 0.9 },
+      ]
+    ),
     defaultEv: "ev-07",
   };
 }
