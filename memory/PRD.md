@@ -1,5 +1,136 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-31 · **🔒🔒 ARCHITECTURE COMPLETE · Definitive Plan Locked**
+
+Per operator directive: "Stop designing and start perfecting the engine. Every remaining sprint must fall into one of five categories: Detection Quality, Investigation Intelligence, Threat Intelligence, Analyst Experience, Enterprise."
+
+---
+
+### 🔒 Locked P1 · Live OSINT Wiring
+
+**Rule**: Lab 2 MUST NOT implement OSINT separately. It consumes the exact provider service Workspace uses.
+
+```
+Workspace ─┐
+           ├─→ Shared OSINT Service ─→ [VirusTotal · AbuseIPDB · OTX · URLScan · URLhaus · Talos · GreyNoise · Shodan]
+Lab V2 ────┘
+```
+
+**Every IOC card MUST expose 11 fields**:
+1. IOC (value)
+2. Reputation (clean / suspicious / malicious)
+3. Threat Family
+4. Malicious Count (n/M providers)
+5. First Seen
+6. Last Seen
+7. Source Providers (list)
+8. Confidence
+9. Tags
+10. Related Malware
+11. MITRE Mapping
+
+**Implementation contract**: Extend `POST /api/osint/lookup` (already shipped) to invoke `analyze.py::_run_osint` for LIVE providers, not just the local corpus. One service, two consumers. Never duplicate provider logic.
+
+---
+
+### 🔒 Locked P1 · Rules · LOLBAS · TI-HITS Lenses (renderers, not engines)
+
+**Rule**: These are NOT new engines. They are NEW LENSES over EXISTING CIO fields.
+
+- **Rules Lens** → renders `cio.metadata.custom_recipes_matched[]`
+- **LOLBAS Lens** → renders `cio.metadata.lolbas[]` (populated from `result.lolbas` / `result.lolbins_v2`)
+- **TI-HITS Lens** → renders `cio.metadata.ti_shield.layers[]`
+
+Same pattern as Story / Evidence / Source lens. Renderer only.
+
+---
+
+### 🔒 Locked P1 · Verdict Parity (CI gate)
+
+**Rule**: Identical evidence MUST produce identical verdict + confidence across Workspace and Lab v2.
+
+**CI validation** (to be added under `backend/tests/parity/`):
+```
+for sample in corpus_v1_20cases:
+    ws = workspace_verdict(sample)
+    lab = lab2_verdict(sample)
+    assert (ws.label, ws.confidence_pct) == (lab.label, lab.confidence_pct), \
+        f"Verdict parity broken for {sample}: WS={ws} · Lab={lab}"
+```
+
+Failing sample: BITS-downloader currently `WS: 98 Malicious` vs `Lab: 88 Runtime Dependent`. Root cause: `verdict_engine.compute_verdict()` counts only evidence-graph contributors; Workspace also counts `rules_hit`, `lolbas_hit`, `custom_recipes_matched` as high-signal drivers. Add those into the verdict engine's contributor list.
+
+---
+
+### 🔒 Locked P2 · 14-Section Executive Report (final order, evidence-anchored)
+
+Every section MUST carry an `evidence_used: [node_id...]` list so every paragraph is traceable.
+
+| # | Section |
+|---|---------|
+| 1 | Executive Verdict |
+| 2 | Investigation Scope |
+| 3 | Executive Summary |
+| 4 | Input Understanding |
+| 5 | What Happened |
+| 6 | Attack Narrative |
+| 7 | Evidence Summary |
+| 8 | Behavioral Analysis |
+| 9 | MITRE ATT&CK |
+| 10 | Indicators of Compromise |
+| 11 | Threat Intelligence |
+| 12 | Risk Assessment (comes AFTER Threat Intel — analysts evaluate external intel before finalising risk) |
+| 13 | Recommended Actions |
+| 14 | Analyst Conclusion |
+
+---
+
+### 🔒 Locked P2 · Report Composer (one renderer, multiple exporters)
+
+**Rule**: ONE template. Never six templates.
+
+```
+Report Composer  ──→ one internal representation
+                     │
+                     ├── Executive (rendered)
+                     ├── Analyst (rendered)
+                     ├── Markdown (exported)
+                     ├── PDF (exported)
+                     ├── STIX 2.1 (exported)
+                     ├── ATT&CK Navigator JSON (exported)
+                     └── JSON (raw CIO subset)
+```
+
+---
+
+### 🔒 Locked · Final 5 sprint categories (post-parity)
+
+Every sprint from this point on MUST fall into exactly one:
+
+1. **Detection Quality** — better parsers · normalisation · correlation · verdicts
+2. **Investigation Intelligence** — Story Composer · hypothesis generation · reasoning · recommendations
+3. **Threat Intelligence** — new OSINT providers · malware families · campaign attribution · actor enrichment
+4. **Analyst Experience** — performance · search · keyboard shortcuts · collaboration · case management
+5. **Enterprise** — RBAC · audit · multi-tenancy · APIs · integrations
+
+**Non-goals (frozen forever)**:
+- ❌ No new buses, registries, pipelines, abstractions, or architectural patterns.
+- ❌ No new lens IDs beyond the locked 13.
+- ❌ No new event-kind constants beyond the locked 18.
+- Only exception: a demonstrated production problem that requires a superseding ADR.
+
+---
+
+### Success metrics (measure NivXRay by these, not LoC)
+- Does the engine correctly understand any supported input?
+- Does it produce the same verdict as Workspace for the same evidence?
+- Is the Executive Summary comparable to what an experienced MDR analyst would write?
+- Is every conclusion traceable to evidence?
+- Can an analyst move from raw telemetry to a customer-ready report without leaving NivXRay?
+
+---
+
+
 ## 2026-02-31 · **🔒 ARCHITECTURE FROZEN · Universal Investigation Engine + 14-Section Executive Report + Final Lens List**
 
 Per operator directive: "Freeze the platform architecture after these refinements. From this point forward, engineering effort goes into investigation quality, detection accuracy, analyst reasoning, evidence correlation, report quality, and performance — not framework complexity."
