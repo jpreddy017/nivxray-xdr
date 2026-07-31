@@ -1,5 +1,32 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-31 · **Case Spine + Primary CTA beautification + Operator roadmap locked**
+
+### Shipped
+- **Case Spine** now uses mint filled dots for `done` stages (was muted grey), a gradient rail between completed stages, a scale-and-glow pulse on the `active` stage, and bolder mint typography for the active label. Hover on any stage grows its dot for feedback.
+- **INVESTIGATE primary CTA** — replaced the flat mint background with a vertical mint gradient (`#12b891 → #0c8266`), a soft outer glow ring (`0 6px 18px -4px rgba(15,158,122,.55)`), a subtle inner light stroke, and a lift-on-hover micro-animation. Reads as a proper primary action rather than a chip.
+
+### Operator directive locked · P1 execution order
+1. **Live OSINT wiring (⭐⭐⭐⭐⭐)** — Lab v2 MUST consume the SAME OSINT provider service Workspace uses (VirusTotal / AbuseIPDB / OTX / URLScan / URLhaus / etc.). One backend service, two frontend consumers. Never fork provider logic.
+2. **Workspace parity tabs (⭐⭐⭐⭐⭐)** — Rules · LOLBAS · TI-HITS · YARA · Sigma · OSINT must appear as Lab v2 lenses reading the SAME backend fields Workspace reads. Renderer differs; data source is identical.
+3. **Verdict escalation (⭐⭐⭐⭐⭐)** — identical evidence MUST produce identical verdicts in Workspace and Lab v2. Both consume the same `verdict_engine.py`. No fork. Investigate why the BITS-downloader case scores 88 · Runtime Dependent in Lab 2 but 98 · Malicious in Workspace — likely because Workspace's verdict cascade counts `custom_recipes_matched` / `rules_hit` / `lolbas_hit` as high-signal contributors while `verdict_engine.compute_verdict()` currently only counts the evidence-graph contributors.
+
+### Operator directive · P2
+4. **Semantic Investigation Graph** — replace generic rectangle/circle nodes with TYPED nodes and RELATIONSHIP-VERB edges:
+   - Node types: `FILE · SCRIPT · REGISTRY · PROCESS · NETWORK · USER · HOST · IOC`
+   - Edge verbs: `downloads · launches · creates · injects · drops · contacts · loads · writes`
+   - Requires backend change: `evidence_graph` node & edge schemas to carry `object_type` and `relation_verb`.
+5. **Timeline Lens** — new lens between Story and Behavior, chronological view of `cio.reasoning_steps + cio.timeline`.
+
+### Operator directive · P3 · Investigation Memory (new architectural layer)
+6. **Hypothesis/Evidence layer** — every CIO carries a `hypotheses[]` block: `{hypothesis, confidence, supporting_evidence[node_ids], counter_evidence[node_ids], decision}`. Executive summary composes from this layer, not from raw findings, so every conclusion is explainable and traceable.
+
+### Non-goals (per operator)
+- No new framework layers after P1-P3. Future work targets investigation quality, analyst workflow, and report quality — not framework complexity.
+
+---
+
+
 ## 2026-02-31 · **MDR-Analyst Pipeline + Input Understanding Engine — SHIPPED**
 
 Operator directive: "The tool must think like an MDR analyst. The Summary Composer must never summarize raw logs — it must summarize the completed investigation (CIO). The first question must be 'What did I receive?', not 'How do I decode it?'."

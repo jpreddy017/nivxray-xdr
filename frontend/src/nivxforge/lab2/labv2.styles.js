@@ -73,19 +73,24 @@ export const LABV2_CSS = `
 /* CASE SPINE */
 .labv2 .spine{border-right:1px solid var(--border);background:var(--raised);padding:var(--s5) 0;overflow-y:auto}
 .labv2 .spine > .lbl{padding:0 var(--s4) var(--s3)}
-.labv2 .stage{display:grid;grid-template-columns:24px 1fr;align-items:start;padding:0 var(--s4);position:relative;text-align:left;width:100%}
+.labv2 .stage{display:grid;grid-template-columns:24px 1fr;align-items:start;padding:0 var(--s4);position:relative;text-align:left;width:100%;cursor:pointer}
 .labv2 .stage .rail{position:relative;height:100%;display:flex;justify-content:center}
-.labv2 .stage .node{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:0 0 9px;background:var(--fg3);z-index:1;transition:background var(--dur-base) var(--ease),box-shadow var(--dur-base) var(--ease)}
-.labv2 .stage.done .node{background:var(--fg2)}
-.labv2 .stage.active .node{background:var(--mint);box-shadow:0 0 0 3px var(--wash);animation:pulseStage 1.6s var(--ease) infinite}
-.labv2 .stage.pending .node{background:transparent;border:1.5px solid var(--border-strong);width:9px;height:9px}
-.labv2 .stage:not(:last-child) .rail::after{content:"";position:absolute;top:14px;bottom:-6px;width:1px;background:var(--border-strong)}
-.labv2 .stage.done:not(:last-child) .rail::after{background:var(--mint);opacity:.45}
+.labv2 .stage .node{width:10px;height:10px;border-radius:50%;margin-top:5px;flex:0 0 10px;background:var(--fg3);z-index:1;transition:background var(--dur-base) var(--ease),box-shadow var(--dur-base) var(--ease),transform var(--dur-base) var(--ease)}
+.labv2 .stage.done .node{background:var(--mint);box-shadow:0 0 0 2px rgba(15,158,122,.18)}
+.labv2 .stage.active .node{background:var(--mint);box-shadow:0 0 0 4px rgba(15,158,122,.28);animation:pulseStage 1.6s var(--ease) infinite;transform:scale(1.15)}
+.labv2 .stage.pending .node{background:transparent;border:1.5px solid var(--border-strong);width:10px;height:10px}
+.labv2 .stage:not(:last-child) .rail::after{content:"";position:absolute;top:16px;bottom:-6px;width:2px;background:var(--border-strong);border-radius:1px}
+.labv2 .stage.done:not(:last-child) .rail::after{background:linear-gradient(180deg,var(--mint) 0%,rgba(15,158,122,.35) 100%);opacity:.9}
+.labv2 .stage.active:not(:last-child) .rail::after{background:linear-gradient(180deg,var(--mint) 0%,var(--border-strong) 100%)}
 .labv2 .stage .txt{padding:0 0 var(--s5) var(--s1)}
-.labv2 .stage .name{font-size:13px;font-weight:500;line-height:18px}
+.labv2 .stage .name{font-size:13px;font-weight:500;line-height:18px;letter-spacing:.01em}
+.labv2 .stage.done .name{color:var(--fg1)}
+.labv2 .stage.active .name{color:var(--mint);font-weight:600}
 .labv2 .stage.pending .name{color:var(--fg3);font-weight:400}
 .labv2 .stage .meta{font-family:var(--font-mono);font-size:11px;color:var(--fg3);line-height:16px;margin-top:1px}
+.labv2 .stage.done .meta{color:var(--fg2)}
 .labv2 .stage:hover .name{color:var(--mint)}
+.labv2 .stage:hover .node{transform:scale(1.2)}
 @keyframes pulseStage{0%,100%{box-shadow:0 0 0 3px var(--wash)}50%{box-shadow:0 0 0 6px var(--wash)}}
 
 /* CANVAS + LENSES */
@@ -257,8 +262,9 @@ export const LABV2_CSS = `
 .labv2 .intake-strip .intake-cta{display:flex;align-items:center;gap:var(--s2)}
 .labv2 .intake-strip .cta{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--r-md);font-family:var(--font-mono);font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;border:1px solid transparent;transition:background var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease),opacity var(--dur-fast) var(--ease);cursor:pointer;white-space:nowrap}
 .labv2 .intake-strip .cta .ico{font-size:13px;line-height:1;color:currentColor}
-.labv2 .intake-strip .cta.primary{background:var(--mint);color:var(--fg-inv);border-color:var(--mint);box-shadow:0 0 0 1px var(--mint) inset,0 4px 14px -4px var(--mint)}
-.labv2 .intake-strip .cta.primary:hover:not(:disabled){filter:brightness(1.05)}
+.labv2 .intake-strip .cta.primary{background:linear-gradient(180deg,#12b891 0%,#0c8266 100%);color:#fff;border-color:#0c8266;box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 6px 18px -4px rgba(15,158,122,.55),0 0 0 4px rgba(15,158,122,.14);text-shadow:0 1px 0 rgba(0,0,0,.15)}
+.labv2 .intake-strip .cta.primary:hover:not(:disabled){filter:brightness(1.08);box-shadow:0 0 0 1px rgba(255,255,255,.12) inset,0 8px 22px -4px rgba(15,158,122,.7),0 0 0 5px rgba(15,158,122,.2);transform:translateY(-1px)}
+.labv2 .intake-strip .cta.primary:active:not(:disabled){transform:translateY(0)}
 .labv2 .intake-strip .cta.secondary{background:transparent;color:var(--mint);border-color:var(--mint)}
 .labv2 .intake-strip .cta.secondary:hover:not(:disabled){background:var(--wash)}
 .labv2 .intake-strip .cta.ghost{background:transparent;color:var(--fg3);border-color:var(--border-strong)}
