@@ -32,7 +32,7 @@ Every component file declares (in a JSDoc block at the top):
 @tests        (unit + component + visual)
 ```
 
-Storybook stories are mandatory from Tier 3 down.
+Storybook stories are mandatory from Tier 3 down. **Every new React component MUST ship with a `*.stories.tsx` file BEFORE it is considered complete** (operator directive 2026-02-28) — enables independent visual review, catches regressions, and naturally builds the reusable design system.
 
 ## Consequences
 
