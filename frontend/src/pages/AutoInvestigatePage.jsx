@@ -3970,3 +3970,8 @@ function AdvancedArtifactsSection({ children, defaultOpen = false }) {
   );
 }
 
+// ADR-0014 · Phase 0 · export the backend-report renderer so Lab
+// (`/nivxforge/investigate`) can render the SAME analyst-grade prose
+// Workspace already renders. Frontend never composes; UI just picks
+// which backend-produced summary to display (ADR-0014 §1.1.9).
+export { InvestigationReport };

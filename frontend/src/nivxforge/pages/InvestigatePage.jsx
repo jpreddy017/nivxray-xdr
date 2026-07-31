@@ -18,6 +18,7 @@ import { useCallback, useRef, useState } from "react";
 import NivxForgeLayout from "../components/NivxForgeLayout";
 import InputToolbar from "../../components/InputToolbar";
 import InvestigationPipeline from "../../components/InvestigationPipeline";
+import { InvestigationReport } from "../../pages/AutoInvestigatePage";
 import api from "../../lib/api";
 
 const S = {
@@ -83,17 +84,37 @@ export default function InvestigatePage() {
 
   const canSubmit = input.trim().length > 0 && !loading;
 
-  // ADR-0009 §2.4 · One adaptive action.
-  // The engine decides which pipeline to run. Light heuristic:
-  //   multi-line + incident-shaped keywords → /api/v2/auto-investigate
-  //   otherwise                              → /api/decode/smart
-  // Both endpoints now return the additive `investigation` (CIM) field.
+  // ADR-0014 · Phase 1 · Content-based routing (replaces line-count heuristic).
+  //
+  // A single-line paste of a Cisco Secure Endpoint / QRadar / Defender /
+  // CrowdStrike / Sysmon JSON is still an incident — routing must classify by
+  // STRUCTURE not by line count. See operator directive 2026-02-28:
+  //   "Routing should classify content, not line count."
   const detectPipeline = useCallback((text) => {
-    const raw = text || "";
+    const raw = (text || "").trim();
+    if (!raw) return "decode";
+
+    // Structured-alert / telemetry / incident detection (order matters:
+    // structural markers > keyword markers > multi-line fallback).
+    const looksLikeJson = /^[\[{]/.test(raw) && /[\]}]$/.test(raw);
+    if (looksLikeJson) {
+      // Vendor JSON schemas: Cisco Secure Endpoint / XDR, CrowdStrike Falcon,
+      // Microsoft Defender, QRadar, Splunk, Sentinel, SentinelOne, Sysmon
+      const vendorSignals = /"(connector_guid|computer|detection|falcon|CrowdStrike|Defender|SecurityAlert|QRadar|SentinelOne|threat_name|SHA256|sha256|ExecutedMalware|amp\.cisco\.com|xdr\.us\.security\.cisco\.com|Sysmon)"/i;
+      if (vendorSignals.test(raw)) return "auto";
+      // Generic JSON with incident-shape fields
+      if (/"(incident|alert|host|user|process|command_line|src_ip|dst_ip|hash)"/i.test(raw)) return "auto";
+    }
+
+    // Multi-line + incident-shaped keywords (legacy path preserved)
     const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
-    if (lines.length < 3) return "decode";
-    const incidentSignals = /\b(incident|alert|detection|malware|SIEM|SOC|IOC|SHA256|MD5|host\s*=|user\s*=)\b/i;
-    return incidentSignals.test(raw) ? "auto" : "decode";
+    const incidentSignals = /\b(incident|alert|detection|malware|SIEM|SOC|IOC|SHA256|MD5|host\s*=|user\s*=|process\s*=|src_ip|dst_ip|ExecutedMalware|Quarantine|Cisco Secure|CrowdStrike|Falcon|Defender|QRadar|Splunk|SentinelOne|Sysmon)\b/i;
+    if (incidentSignals.test(raw)) return "auto";
+    if (lines.length >= 3) return "auto";
+
+    // Single-artifact fallback: PowerShell -EncodedCommand, base64 blobs,
+    // command lines, decoded strings — the decoder pipeline handles these.
+    return "decode";
   }, []);
 
   const runInvestigate = useCallback(async () => {
@@ -193,17 +214,28 @@ export default function InvestigatePage() {
           </div>
 
           <div style={S.parityBanner} data-testid="investigate-parity-banner">
-            One adaptive action · engine chooses <code>/api/decode/smart</code> or <code>/api/v2/auto-investigate</code> based on input shape (ADR-0009 §2.4). Results render through the shared Investigation Pipeline (ADR-0013).
+            One adaptive action · engine classifies input structure (JSON telemetry / incident-shaped / single artifact) and routes to <code>/api/v2/auto-investigate</code> or <code>/api/decode/smart</code>. Analyst-grade narrative comes from the backend when available (ADR-0014 §1.1.9 · Investigation Summary never depends on UI).
           </div>
 
           {loading ? <div style={S.loading} data-testid="investigate-loading">Analyzing…</div> : null}
           {err ? <div style={S.err} data-testid="investigate-error">{err}</div> : null}
         </div>
 
-        {/* ─── ADR-0013 · Shared 10-section Investigation Pipeline ─── */}
+        {/* ─── ADR-0014 · Phase 0 · Prefer backend InvestigationReport,
+             fall back to InvestigationPipeline only if the backend did
+             NOT produce an investigation_report block (single-artifact
+             /decode/smart path). The frontend never composes prose. ─── */}
         {result ? (
           <div style={S.section} data-testid={`investigate-result-${mode}`}>
-            <InvestigationPipeline result={result} />
+            {result.investigation_report && !result.investigation_report.empty ? (
+              <InvestigationReport
+                report={result.investigation_report}
+                incident={input}
+                pipeline={result}
+              />
+            ) : (
+              <InvestigationPipeline result={result} />
+            )}
           </div>
         ) : null}
       </div>

@@ -60,6 +60,37 @@ consumer. Any deviation requires a superseding ADR.
    Investigation Object. The UI (Lab or Workspace) decides how to
    present the investigation; the engine always returns the same
    canonical structure.
+9. **Investigation summary NEVER depends on the UI.** The backend
+   owns `investigation.summary.artifact`,
+   `investigation.summary.incident`, and
+   `investigation.summary.executive`. The frontend chooses which one
+   to display; it never composes wording, ordering, reasoning,
+   confidence, verdicts, or recommendations. The frontend is a pure
+   presentation layer.
+10. **Summaries are EVENT-FIRST, not IOC-first.** Every summary
+    begins with: Event → Evidence → Scope → Impact → Recommendations.
+    URLs, hashes, and atomic IOCs belong in supporting sections, not
+    as the opening frame of the narrative. This is the difference
+    between an MDR analyst report and an IOC dump.
+11. **Content-based routing.** Input classification uses structural
+    signals (vendor-JSON schema markers, incident-shaped fields,
+    telemetry envelopes) — never line count alone. A single-line
+    Cisco Secure Endpoint / QRadar / Defender / CrowdStrike JSON is
+    an incident and must route through the incident pipeline.
+12. **Vendor telemetry is normalised before analysis.** Cisco XDR /
+    Secure Endpoint / QRadar / Splunk / Defender / CrowdStrike /
+    Sysmon payloads pass through `v2/investigation/normalizers.py`
+    (or an equivalent canonical event adapter) BEFORE any IOC
+    extractor runs. Never regex over vendor JSON directly — schema
+    URLs (CRL distribution points, AMP console URLs, XDR API
+    endpoints) are part of the data model, not indicators of
+    compromise.
+13. **Deprecate before delete.** The frontend
+    `investigationSynthesizer.js` remains as a fallback for legacy
+    (`/decode/smart`) responses that do not yet carry a backend
+    `investigation_report`. Removal only happens once every endpoint
+    produces a CIO-backed backend summary. This preserves migration
+    safety (§1.1.6).
 
 ```
 Investigation (CIO)

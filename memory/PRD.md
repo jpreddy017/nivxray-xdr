@@ -1,5 +1,112 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **ADR-0014 · Phase 0 + Phase 1 · Lab wired to backend InvestigationReport IMPLEMENTED**
+
+### The defect (root cause, evidence-backed)
+Operator submitted a side-by-side comparison: same class of Cisco XDR incident produced a garbage IOC-dump narrative on Lab and a gold-standard MDR-analyst narrative on Workspace. Traced the code, not the AI:
+
+- **Lab** rendered ONLY `<InvestigationPipeline>` (which runs the
+  parked frontend `investigationSynthesizer.js`) and threw away
+  `result.investigation_report` if the backend produced one.
+- **Workspace** renders BOTH `<InvestigationPipeline>` AND
+  `<InvestigationReport report={result.investigation_report}>` — the
+  latter is the deterministic analyst engine in
+  `backend/v2/investigation/report.py`.
+- Lab's router used `lines.length < 3 → decode/smart` so any
+  single-line JSON alert (Cisco Secure Endpoint / QRadar / Defender /
+  CrowdStrike / Sysmon) was routed away from the incident pipeline.
+- On `/decode/smart` the IOC extractor regexes over raw vendor JSON,
+  lifting CRL distribution points and AMP console URLs as if they
+  were artefact IOCs — the exact "console.amp.cisco.com" pollution.
+
+### Shipped (Phase 0 · same-day mitigation)
+- `InvestigationReport` renderer promoted to a named export from
+  `AutoInvestigatePage.jsx` and imported into
+  `nivxforge/pages/InvestigatePage.jsx`.
+- Lab render logic: **backend `investigation_report` first, frontend
+  synthesizer only as a fallback** for `/decode/smart` responses that
+  don't carry one. `investigationSynthesizer.js` is now **deprecated,
+  not deleted** (per operator's "deprecate before delete" directive).
+
+### Shipped (Phase 1 · structural routing)
+- `detectPipeline()` rewritten. Line count is no longer a signal on
+  its own. Order of classification:
+  1. Structural — JSON that opens with `[` / `{` AND matches a
+     vendor-schema fingerprint (`connector_guid`, `computer`,
+     `detection`, `Falcon`, `Defender`, `Sysmon`, `sha256`,
+     `amp.cisco.com`, `xdr.us.security.cisco.com`, `SentinelOne`,
+     `Splunk`, etc.) → **`/v2/auto-investigate`**.
+  2. Generic JSON with incident-shape fields
+     (`incident/alert/host/user/process/hash`) → **`/v2/auto-investigate`**.
+  3. Keyword-shaped multi-line (existing path) → **`/v2/auto-investigate`**.
+  4. Everything else → **`/decode/smart`**.
+
+### Governance · ADR-0014 amended (5 new binding principles §1.1.9-13)
+- **§1.1.9** · Investigation summary NEVER depends on the UI. Backend
+  owns `summary.artifact/incident/executive`; frontend chooses which
+  to display, never composes prose, verdicts, or recommendations.
+- **§1.1.10** · Summaries are EVENT-FIRST, not IOC-first
+  (Event → Evidence → Scope → Impact → Recommendations).
+- **§1.1.11** · Content-based routing (structural signals; never line
+  count alone).
+- **§1.1.12** · Vendor telemetry normalised through
+  `v2/investigation/normalizers.py` BEFORE any IOC extractor runs.
+- **§1.1.13** · Deprecate before delete — `investigationSynthesizer.js`
+  remains until every endpoint produces a CIO-backed backend summary.
+
+### Verified live on preview (`admin@nivxray.com`)
+Playwright-driven paste of a single-line Cisco Secure Endpoint JSON
+into `/nivxforge/investigate`:
+```
+MODE                           = investigate-result-auto       ← Phase 1 routing correct
+BACKEND_REPORT_RENDERED        = True                          ← Phase 0 wiring correct
+FRONTEND_PIPELINE_RENDERED     = False                         ← fallback correctly OFF
+```
+Screenshot shows the Investigation Verdict card (ExecutedMalware.ioc
+· 8 sub-scores) + Investigation Confidence bars + Known vs Unknown
+evidence panel — the same analyst-grade layout Workspace renders.
+No more benign-infra dump. No more Verisign-CRL triple listing. No
+more "confidence 92 with no high-signal evidence" contradiction.
+
+### Regression gates (all green)
+- 52/52 ADR-0007 / 0008 / 0009 / 0012 pinned regression pass.
+- 96/96 full nivxforge suite pass (isolation invariant intact).
+- Frontend webpack compiled clean; no console errors on the Lab
+  smoke test.
+
+### Files changed (surgical)
+- `/app/memory/adr/0014-canonical-investigation-object.md` — §1.1.9-13
+  binding principles.
+- `/app/frontend/src/pages/AutoInvestigatePage.jsx` — one named export
+  of `InvestigationReport` (no logic change).
+- `/app/frontend/src/nivxforge/pages/InvestigatePage.jsx` —
+  `detectPipeline()` rewritten (structural routing) + render block
+  prefers backend `InvestigationReport`, synthesizer fallback only.
+
+### Explicitly NOT done in this phase (per operator's phased plan)
+- ❌ **Phase 2** · Vendor telemetry normalisation on `/decode/smart`
+  ingest (Cisco/QRadar/Splunk/Defender/CrowdStrike JSON → canonical
+  event stream BEFORE IOC extraction). Blocks the residual
+  IOC-pollution edge case where a vendor JSON hits `/decode/smart`
+  by legacy consumers.
+- ❌ **Phase 3** · Slice-C (verdict engine unification) + Slice-D
+  (backend summary composer reading from the CIO). This is the ADR-0014
+  long-term destination — Phase 0/1 is a same-day mitigation that
+  delivers 80% of the analyst UX today while the deeper CIO
+  convergence continues.
+
+### Next
+- **Phase 2** · Route vendor-JSON detection through
+  `v2/investigation/normalizers.py` at the `/decode/smart` ingest
+  boundary too, so no downstream extractor ever sees raw vendor JSON.
+- **Phase 3 (Slice-C)** · Merge `executive_card` and
+  `build_verdict_card` engines · close ADR-0011 + PARITY_GAP-001.
+- **Phase 3 (Slice-D)** · Move `_executive_summary` /
+  `_investigation_summary` composition to read from the CIO so `Lab`
+  and `Workspace` provably render identical prose for identical
+  input (§1.1.4 principle).
+
+
 ## 2026-02-28 · **ADR-0014 · Canonical Investigation Object · slice-A + slice-B IMPLEMENTED**
 
 ### Governance-first amendment (before code)
