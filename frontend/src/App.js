@@ -66,6 +66,13 @@ const NivxForgeKnowledgeBasePage  = lazy(() => import("@/nivxforge/pages/Placeho
 const NivxForgeReportsPage        = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ReportsPage })));
 const NivxForgeHistoryPage        = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.HistoryPage })));
 
+// X-Lab · redirect stub that forces the ?lab2=1 feature flag on. When
+// legacy Lab is deleted this route will point directly at the X-Lab
+// renderer without the flag dance.
+function NivxForgeXLabRedirect() {
+  return <Navigate to="/nivxforge/investigate?lab2=1" replace />;
+}
+
 function Protected({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -150,6 +157,11 @@ function App() {
               <Route path="/v2/validation" element={<Protected><V2ValidationPage /></Protected>} />
               {/* NivXForge (ADR-0006 · Phase 1 + platform shell) · analyst-parity surface + governance */}
               <Route path="/nivxforge"              element={<Protected><NivxForgeDashboardPage /></Protected>} />
+              {/* X-Lab · Unified next-generation investigation workspace.
+                  Forces the lab2 flag on so the shell always mounts the
+                  X-Lab renderer. Legacy /nivxforge/investigate remains
+                  available during the parity-migration window. */}
+              <Route path="/nivxforge/x-lab" element={<Protected><NivxForgeXLabRedirect /></Protected>} />
               <Route path="/nivxforge/dashboard"    element={<Protected><NivxForgeDashboardPage /></Protected>} />
               <Route path="/nivxforge/investigate"  element={<Protected><NivxForgeInvestigatePage /></Protected>} />
               <Route path="/nivxforge/threat-intel" element={<Protected><NivxForgeThreatIntelPage /></Protected>} />

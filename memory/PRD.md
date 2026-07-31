@@ -1,5 +1,62 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-31 · **🚨 ARCHITECTURE DECISION · X-Lab promoted to Unified Investigation Workspace**
+
+Effective immediately. X-Lab becomes the ONLY investigation workspace in NivXRay. Legacy Lab is no longer a separate product; it lives on only until parity migration completes.
+
+### Shipped this turn (naming + routing)
+- **Wordmark**: Lab 2.0 → `NivXRay X-Lab` in the workspace topbar.
+- **New route**: `GET /nivxforge/x-lab` — redirects to `/nivxforge/investigate?lab2=1`. Once the parity migration is complete this alias will point directly at the X-Lab renderer, and the `?lab2=1` flag disappears.
+- **Nav**: primary navigation `LAB` → `X-LAB`, `href=/nivxforge` → `href=/nivxforge/x-lab`.
+
+### 🔒 X-Lab Promotion Plan (3 phases, non-negotiable order)
+
+#### Phase 1 · Mirror every legacy Lab capability into X-Lab
+Nothing may be lost. Capabilities to mirror (list is illustrative; the migration owner MUST audit `/app/frontend/src/pages` and `/app/backend/routers/` for anything not enumerated):
+- Command decoding · multi-stage decoding · Smart Decode pipeline
+- Auto Investigate · Threat Intelligence · IOC extraction
+- MITRE mapping · malware intelligence · OSINT integration
+- Detection rules · recipes · YARA · Sigma · LOLBAS · TI-HITS
+- Timeline · Evidence Graph · Report generation
+- Every existing API · every existing parser · every existing renderer
+
+#### Phase 2 · Verify feature parity
+Acceptance criteria for the migration to advance:
+- Every existing Lab feature works inside X-Lab.
+- Decode results, investigation results, verdicts, reports IDENTICAL Workspace ↔ X-Lab (verdict parity CI gate).
+- APIs remain backward-compatible.
+
+#### Phase 3 · Delete legacy Lab
+Only after 100% parity: remove legacy Lab pages, routes, and imports. `/lab*` routes redirect to `/nivxforge/x-lab`.
+
+### 🔒 Shared-resource rule (no forks, ever)
+X-Lab is a WORKSPACE, not an application. It consumes the same shared platform:
+```
+Universal Investigation Engine (UIE) · CIO · Verdict Engine · Evidence Graph ·
+Timeline Engine · OSINT Service · Report Composer · Rules Engine · Detection Engine ·
+Investigation Engine · Decoding Engine · Selection Context · Event Bus · Threat Intelligence
+```
+One implementation of every engine. Two consumers (Workspace + X-Lab). Never fork.
+
+### 🔒 Future-scope rule
+Every future investigation feature belongs in X-Lab. Do not add:
+- Universal Intake · UIE · Story Composer · Timeline Lens · Behaviour Lens · Rules Lens · LOLBAS Lens · TI-HITS Lens · OSINT Lens · Source Lens · Report Lens · Graph Explorer · Notebook · Command Palette · AI Assistance · Collaboration · Export Engine
+into the legacy Lab. Only into X-Lab.
+
+### 🔒 Final acceptance
+```
+Current Lab + Lab 2.0 + Future Investigation Features = X-Lab
+```
+After parity: legacy Lab removed · X-Lab is the default · one investigation experience across NivXRay.
+
+### Files touched this turn
+- `/app/frontend/src/nivxforge/lab2/LabV2.jsx` — wordmark "Lab 2.0" → "X-Lab".
+- `/app/frontend/src/components/Header.jsx` — nav "LAB" → "X-LAB", href → `/nivxforge/x-lab`.
+- `/app/frontend/src/App.js` — new `/nivxforge/x-lab` route + `NivxForgeXLabRedirect` component.
+
+---
+
+
 ## 2026-02-31 · **🔒🔒 ARCHITECTURE COMPLETE · Definitive Plan Locked**
 
 Per operator directive: "Stop designing and start perfecting the engine. Every remaining sprint must fall into one of five categories: Detection Quality, Investigation Intelligence, Threat Intelligence, Analyst Experience, Enterprise."
