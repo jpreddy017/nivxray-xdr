@@ -1,5 +1,37 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-31 · **🔒 X-Lab UI/UX Decision · LOCKED (final)**
+
+> **X-Lab = Lab 2.0 UI/UX + Current Lab Intelligence + Future Investigation Platform.**
+> The current Lab UI is **NOT** being preserved. Only the legacy Lab's brain migrates.
+
+### Split of responsibilities (locked forever)
+
+**Current Lab contributes (the brain)**
+Decoders · parsers · investigation pipeline · Universal Investigation Engine · rules · detection logic · threat intelligence · IOC extraction · MITRE mapping · malware intelligence · report backend · Evidence Graph · timeline data · existing APIs · existing services.
+
+**Lab 2.0 contributes (the face)** — the permanent X-Lab interface
+Universal Intake · Executive Lens · Story Lens · Timeline Lens · Behaviour Lens · Attack Chain Lens · Evidence Lens · Rules Lens · LOLBAS Lens · TI-HITS Lens · OSINT Lens · Source Lens · Report Lens · Executive Report · Case Spine · Investigation Graph · Command Palette · Notebook · Theme System (Light/Dark) · keyboard shortcuts · analyst workspace layout.
+
+### 🔒 Golden Rule
+> **Current Lab provides the brain. Lab 2.0 provides the face. Together they become X-Lab. There must never be two investigation workspaces.**
+
+### Migration mechanics (what changes vs earlier plan)
+- Legacy Lab UI files (`/app/frontend/src/pages/LabPage.jsx` and any Lab-only components) are **flagged for deletion** at Phase 5, NOT preserved as a fallback UI.
+- Every backend engine currently reachable from Legacy Lab MUST be reachable from X-Lab via the shared platform BEFORE the UI is deleted.
+- The parity audit (`/app/memory/xlab_parity_audit.md`) now measures **intelligence parity only** — UI parity from Legacy Lab is explicitly NOT a goal.
+- The nav `LAB` tab is removed permanently after parity — no rollback.
+
+### Final vision (locked)
+```
+       Current Lab              Lab 2.0             Future Features
+   (Investigation Brain)  +  (Analyst UX)   +      (all new work)     =   X-Lab
+```
+X-Lab is the flagship investigation workspace of NivXRay — modern analyst experience backed by every mature investigation capability from the current platform.
+
+---
+
+
 ## 2026-02-31 · **🔒 X-Lab Promotion Plan · REFINED 6-PHASE (LOCKED)**
 
 Supersedes the earlier 3-phase promotion plan. Operator directive: "**Make X-Lab the canonical workspace first, verify parity, then retire the old Lab. Do not break users prematurely.**"

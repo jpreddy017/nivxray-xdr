@@ -47,6 +47,13 @@
 | TI-HITS (`ti_shield.layers[]`) | ✅ | ❌ | ✅ backend | Renderer needed. |
 | MITRE Mapping (fixed 2026-02-31) | ✅ | ✅ | ✅ | List-shape adapter shipped this session. |
 
+> **UI/UX Note (2026-02-31 · LOCKED)**: For rows in this audit, "parity"
+> means **intelligence parity**, not UI parity. The **X-Lab UI/UX is
+> Lab 2.0 (100 %)** — the legacy Lab interface is NOT being preserved.
+> Only the legacy Lab's engines, parsers, decoders, rules, APIs, and
+> investigation capabilities migrate. Presentation layer comes entirely
+> from Lab 2.0.
+
 ## 4 · OSINT · Threat Intelligence Providers
 
 | Capability | Legacy | X-Lab | Shared? | Notes |
