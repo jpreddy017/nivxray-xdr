@@ -29,8 +29,11 @@ export const LENSES = [
   { id: "behavior", title: "Behaviour",    short: "Beh",     icon: "◈", order: 3, shortcut: "3",                  requiredCIO: ["evidence_graph"],        loading: "eager" },
   { id: "attack",   title: "Attack Chain", short: "ATT&CK",  icon: "△", order: 4, shortcut: "4",                  requiredCIO: ["summary.mitre_digest"],  loading: "eager" },
   { id: "source",   title: "Output",       short: "Output",  icon: "▤", order: 5, shortcut: "5",                  requiredCIO: ["decode_chain"],          loading: "eager" },
-  { id: "osint",    title: "OSINT",        short: "OSINT",   icon: "◎", order: 6, shortcut: "6",                  requiredCIO: ["evidence_graph"],        loading: "lazy"  },
-  { id: "raw",      title: "Source",       short: "Src",     icon: "☰", order: 7, shortcut: "7",                  requiredCIO: ["input_text"],            loading: "lazy"  },
+  { id: "rules",    title: "Rules",        short: "Rules",   icon: "❐", order: 6, shortcut: "6",                  requiredCIO: [],                        loading: "lazy"  },
+  { id: "lolbas",   title: "LOLBAS",       short: "LOLBAS",  icon: "☗", order: 7, shortcut: "7",                  requiredCIO: [],                        loading: "lazy"  },
+  { id: "tihits",   title: "TI-Hits",      short: "TI",      icon: "◉", order: 8, shortcut: "8",                  requiredCIO: [],                        loading: "lazy"  },
+  { id: "osint",    title: "OSINT",        short: "OSINT",   icon: "◎", order: 9, shortcut: "9",                  requiredCIO: ["evidence_graph"],        loading: "lazy"  },
+  { id: "raw",      title: "Source",       short: "Src",     icon: "☰", order: 10, shortcut: "0",                 requiredCIO: ["input_text"],            loading: "lazy"  },
   // Reserved future lenses (registered so the shell can announce them):
   // { id: "report",   title: "Report",      order: 8, shortcut: "8", requiredCIO: ["summary.report_sections"], loading: "lazy" },
   // { id: "timeline", title: "Timeline",    order: 9, shortcut: "9", requiredCIO: ["timeline"],                loading: "lazy" },

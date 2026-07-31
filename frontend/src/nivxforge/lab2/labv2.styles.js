@@ -313,6 +313,25 @@ export const LABV2_CSS = `
 
 /* OSINT · IOC intelligence */
 .labv2 .ioc-list{display:flex;flex-direction:column;gap:var(--s3);max-width:960px}
+
+/* Workspace-parity lenses · P1-03/04/05 · renderer only */
+.labv2 .rules-list,.labv2 .lolbas-list,.labv2 .tihits-list{display:flex;flex-direction:column;gap:var(--s3);max-width:1000px}
+.labv2 .rules-row,.labv2 .tihits-row{border:1px solid var(--border);border-radius:var(--r-lg);background:var(--raised);padding:var(--s4)}
+.labv2 .rules-h,.labv2 .tihits-h{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s2)}
+.labv2 .rules-name,.labv2 .tihits-indicator{font-size:13px;font-weight:600;color:var(--fg)}
+.labv2 .rules-score{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--fg2)}
+.labv2 .rules-desc{font-size:12px;color:var(--fg2);line-height:1.55}
+.labv2 .tihits-meta{display:flex;gap:var(--s3);flex-wrap:wrap;font-size:11px;color:var(--fg2);margin-top:var(--s2)}
+.labv2 .tihits-tags{display:flex;gap:var(--s1);flex-wrap:wrap;margin-top:var(--s2)}
+.labv2 .lolbas-row{display:flex;align-items:center;gap:var(--s2);border:1px solid var(--border);border-radius:var(--r-md);background:var(--raised);padding:var(--s3) var(--s4)}
+.labv2 .lolbas-name{font-size:13px;font-weight:600;color:var(--fg)}
+.labv2 .lolbas-desc{font-size:11px;margin-left:var(--s2)}
+.labv2 .lolbas-bucket-executed{background:rgba(220,60,60,.14);border-color:rgba(220,60,60,.35);color:#ff9a9a}
+.labv2 .lolbas-bucket-referenced{background:rgba(15,158,122,.12);border-color:rgba(15,158,122,.3);color:var(--mint)}
+.labv2 .chip.sev-high,.labv2 .chip.sev-critical{background:rgba(220,60,60,.14);border-color:rgba(220,60,60,.35);color:#ff9a9a}
+.labv2 .chip.sev-medium{background:rgba(240,180,60,.14);border-color:rgba(240,180,60,.35);color:#f0b43c}
+.labv2 .chip.sev-low,.labv2 .chip.sev-info{background:rgba(15,158,122,.12);border-color:rgba(15,158,122,.3);color:var(--mint)}
+.labv2 .chip.quiet{opacity:.75}
 .labv2 .ioc-card{border:1px solid var(--border);border-radius:var(--r-lg);background:var(--raised);padding:var(--s4)}
 .labv2 .ioc-card .ioc-h{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s2)}
 .labv2 .ioc-card .ioc-value{font-size:13px;font-weight:500;color:var(--fg)}

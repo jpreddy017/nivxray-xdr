@@ -2094,6 +2094,18 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             )
         except Exception:  # noqa: BLE001
             log.exception("IUE classification failed (safe — CIO returned without input_understanding)")
+        # Stash Workspace-parity intelligence into cio.metadata so the
+        # X-Lab Rules / LOLBAS / TI-HITS lenses (renderers only) can
+        # project the same data Workspace already renders. No new
+        # engines — just field passthrough.
+        try:
+            for _k in ("custom_recipes_matched", "recipes_matched", "rules_hit",
+                       "lolbas", "lolbins_v2", "ti_shield", "ti_hits", "yara",
+                       "sigma", "iocs"):
+                if _k in result and result[_k] is not None:
+                    _cio.metadata[_k] = result[_k]
+        except Exception:  # noqa: BLE001
+            pass
         result["cio"] = _cio.model_dump(mode="json")
     except Exception:  # noqa: BLE001
         log.exception("ADR-0014 · CIO composition failed (safe — legacy response preserved)")

@@ -86,6 +86,9 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
     story: useRef(null),
     behavior: useRef(null),
     attack: useRef(null),
+    rules: useRef(null),
+    lolbas: useRef(null),
+    tihits: useRef(null),
     osint: useRef(null),
     raw: useRef(null),
   };
@@ -700,6 +703,92 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                 </div>
               ))}
             </div>
+          </section>
+
+          {/* RULES — custom recipes / detection rules that matched (P1-03) */}
+          <section className={`lens${lens === "rules" ? " on" : ""}`} id="rules" ref={lensRefs.rules} data-testid="lens-rules">
+            <div className="lens-head">
+              <h2>Rules · custom recipes matched</h2>
+              <p>Every detection rule and custom recipe that fired on this investigation. Renders the shared backend's <code className="mono">custom_recipes_matched</code>. Same source as Workspace.</p>
+            </div>
+            {(view.rules?.rows?.length || 0) === 0 ? (
+              <div className="tempty" data-testid="rules-empty">
+                No detection rules matched this investigation.
+              </div>
+            ) : (
+              <div className="rules-list" data-testid="rules-list">
+                {view.rules.rows.map((r, i) => (
+                  <div key={i} className="rules-row" data-testid={`rules-row-${i}`}>
+                    <div className="rules-h">
+                      <span className="rules-name mono">{r.name}</span>
+                      {r.category && <span className="chip">{r.category}</span>}
+                      {r.severity && <span className={`chip sev-${r.severity.toLowerCase()}`}>{r.severity}</span>}
+                      {r.score > 0 && <span className="rules-score">weight {r.score}</span>}
+                    </div>
+                    {r.description && <div className="rules-desc">{r.description}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* LOLBAS — living-off-the-land binaries observed (P1-04) */}
+          <section className={`lens${lens === "lolbas" ? " on" : ""}`} id="lolbas" ref={lensRefs.lolbas} data-testid="lens-lolbas">
+            <div className="lens-head">
+              <h2>LOLBAS · living-off-the-land binaries</h2>
+              <p>Every LOLBIN referenced or executed in the recovered payload, with the MITRE technique it is typically abused for.</p>
+            </div>
+            {(view.lolbas?.rows?.length || 0) === 0 ? (
+              <div className="tempty" data-testid="lolbas-empty">
+                No LOLBAS binaries were observed in this investigation.
+              </div>
+            ) : (
+              <div className="lolbas-list" data-testid="lolbas-list">
+                {view.lolbas.rows.map((r, i) => (
+                  <div key={i} className="lolbas-row" data-testid={`lolbas-row-${i}`}>
+                    <span className="lolbas-name mono">{r.name}</span>
+                    {r.tid && <span className="chip">{r.tid}</span>}
+                    <span className={`chip lolbas-bucket-${r.bucket}`}>{r.bucket.toUpperCase()}</span>
+                    {r.description && <span className="lolbas-desc quiet">{r.description}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* TI-HITS — threat-intel corpus matches, by provider layer (P1-05) */}
+          <section className={`lens${lens === "tihits" ? " on" : ""}`} id="tihits" ref={lensRefs.tihits} data-testid="lens-tihits">
+            <div className="lens-head">
+              <h2>TI-Hits · threat-intel matches</h2>
+              <p>Every indicator that hit against a threat-intel provider (URLhaus · Feodo · BlocklistDE · OTX · ThreatFox · MalwareBazaar · AbuseIPDB · VirusTotal). Empty here does NOT mean clean — it means no local-corpus match.</p>
+            </div>
+            {(view.tihits?.rows?.length || 0) === 0 ? (
+              <div className="tempty" data-testid="tihits-empty">
+                No threat-intel corpus hits for the observed indicators.
+              </div>
+            ) : (
+              <div className="tihits-list" data-testid="tihits-list">
+                {view.tihits.rows.map((r, i) => (
+                  <div key={i} className="tihits-row" data-testid={`tihits-row-${i}`}>
+                    <div className="tihits-h">
+                      <span className="tihits-indicator mono">{r.indicator}</span>
+                      {r.provider && <span className="chip">{r.provider}</span>}
+                      {r.severity && <span className={`chip sev-${r.severity.toLowerCase()}`}>{r.severity}</span>}
+                    </div>
+                    <div className="tihits-meta">
+                      {r.family && <span>Family · <b>{r.family}</b></span>}
+                      {r.first_seen && <span>First seen · <b>{r.first_seen}</b></span>}
+                      {r.last_seen && <span>Last seen · <b>{r.last_seen}</b></span>}
+                    </div>
+                    {r.tags?.length ? (
+                      <div className="tihits-tags">
+                        {r.tags.slice(0, 6).map((t, ti) => <span key={ti} className="chip quiet">{t}</span>)}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* OSINT — IOC threat intelligence */}

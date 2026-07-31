@@ -722,6 +722,16 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
             logging.getLogger(__name__).exception(
                 "IUE classification failed (safe — CIO returned without input_understanding)"
             )
+        # Stash Workspace-parity intelligence into cio.metadata so the
+        # X-Lab Rules / LOLBAS / TI-HITS lenses render the same data.
+        try:
+            for _k in ("custom_recipes_matched", "recipes_matched", "rules_hit",
+                       "lolbas", "lolbins_v2", "ti_shield", "ti_hits", "yara",
+                       "sigma", "iocs"):
+                if _k in result and result[_k] is not None:
+                    _cio.metadata[_k] = result[_k]
+        except Exception:  # noqa: BLE001
+            pass
         result["cio"] = _cio.model_dump(mode="json")
     except Exception:  # noqa: BLE001
         import logging

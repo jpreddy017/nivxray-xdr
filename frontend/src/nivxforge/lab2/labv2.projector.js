@@ -106,7 +106,7 @@ export function projectCIO(cio) {
   // ── G2 · Decoder graph (linear, reads `cio.decode_chain`).
   //    Rectangles with title = decoder op, subtitle = reason · ev-XX.
   //    Selection node id = the fragment node attached to each layer.
-  const decodeGraph = buildDecodeGraphLinear(cio.decode_chain || []);
+  const decodeGraph = buildDecodeGraph(nodes, edges);
 
   // Case Spine: derive stage states from reasoning_steps rules.
   // A stage is "done" if any step's rule matches its bucket; otherwise
@@ -292,6 +292,9 @@ export function projectCIO(cio) {
       actions,
       attack,
       osint,
+      rules: buildRulesView(cio),
+      lolbas: buildLolbasView(cio),
+      tihits: buildTiHitsView(cio),
       decodeLadder,
       behaviorNodes,
       decodeGraph,
@@ -301,6 +304,106 @@ export function projectCIO(cio) {
     },
     sourceIsDemo: false,
   };
+}
+
+// ── Workspace-parity renderer views (P1-03/04/05) ────────────────────
+// These consume the shared backend fields already stashed into
+// `cio.metadata` (see /app/backend/routers/{ops,auto_investigate}.py).
+// Renderer-only — never invent new intelligence.
+
+function buildRulesView(cio) {
+  const meta = (cio && cio.metadata) || {};
+  const raw = meta.custom_recipes_matched || meta.recipes_matched || meta.rules_hit || [];
+  const rows = [];
+  const seen = new Set();
+  for (const r of Array.isArray(raw) ? raw : []) {
+    if (typeof r === "string") {
+      if (seen.has(r)) continue;
+      seen.add(r);
+      rows.push({ name: r, category: "", score: 0, description: "" });
+      continue;
+    }
+    if (!r || typeof r !== "object") continue;
+    const name = String(r.name || r.rule || r.id || "").trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    rows.push({
+      name,
+      category: String(r.category || r.family || r.type || "").trim(),
+      score:    Number(r.score || r.weight || 0) || 0,
+      severity: String(r.severity || "").trim(),
+      description: String(r.description || r.desc || r.doc || "").trim(),
+    });
+  }
+  return { count: rows.length, rows };
+}
+
+function buildLolbasView(cio) {
+  const meta = (cio && cio.metadata) || {};
+  const rows = [];
+  const seen = new Set();
+  const _push = (item, bucket) => {
+    if (!item) return;
+    if (typeof item === "string") {
+      const name = item.trim();
+      if (!name || seen.has(name.toLowerCase())) return;
+      seen.add(name.toLowerCase());
+      rows.push({ name, bucket, tid: "", description: "" });
+      return;
+    }
+    if (typeof item !== "object") return;
+    const name = String(item.name || item.binary || item.exe || "").trim();
+    if (!name || seen.has(name.toLowerCase())) return;
+    seen.add(name.toLowerCase());
+    rows.push({
+      name,
+      bucket,
+      tid:         String(item.mitre_id || item.tid || item.technique || "").trim(),
+      description: String(item.description || item.category || "").trim(),
+    });
+  };
+  for (const it of meta.lolbas || []) _push(it, "referenced");
+  const v2 = meta.lolbins_v2 || {};
+  for (const b of ["executed", "referenced", "expanded"]) {
+    for (const it of v2[b] || []) _push(it, b);
+  }
+  return { count: rows.length, rows };
+}
+
+function buildTiHitsView(cio) {
+  const meta = (cio && cio.metadata) || {};
+  const shield = meta.ti_shield || {};
+  const layers = Array.isArray(shield.layers) ? shield.layers : [];
+  const rows = [];
+  for (const layer of layers) {
+    if (!layer || typeof layer !== "object") continue;
+    const hits = layer.hits || layer.matches || [];
+    for (const h of Array.isArray(hits) ? hits : []) {
+      rows.push({
+        indicator: String(h.indicator || h.value || h.ioc || "").trim(),
+        provider:  String(h.provider  || h.source || layer.name || "").trim(),
+        family:    String(h.family    || h.malware_family || "").trim(),
+        first_seen: String(h.first_seen || h.first || "").trim(),
+        last_seen:  String(h.last_seen  || h.last  || "").trim(),
+        severity:  String(h.severity  || h.risk || "").trim(),
+        tags:      Array.isArray(h.tags) ? h.tags : [],
+      });
+    }
+  }
+  // Also honour a top-level ti_hits[] list if present.
+  for (const h of Array.isArray(meta.ti_hits) ? meta.ti_hits : []) {
+    if (!h || typeof h !== "object") continue;
+    rows.push({
+      indicator: String(h.indicator || h.value || "").trim(),
+      provider:  String(h.provider  || h.source || "").trim(),
+      family:    String(h.family    || "").trim(),
+      first_seen: String(h.first_seen || "").trim(),
+      last_seen:  String(h.last_seen  || "").trim(),
+      severity:  String(h.severity  || "").trim(),
+      tags:      Array.isArray(h.tags) ? h.tags : [],
+    });
+  }
+  return { count: rows.length, rows };
 }
 
 // ── story projector ──────────────────────────────────────────────────
