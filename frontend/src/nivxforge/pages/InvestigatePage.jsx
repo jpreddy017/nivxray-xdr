@@ -19,6 +19,9 @@ import NivxForgeLayout from "../components/NivxForgeLayout";
 import InputToolbar from "../../components/InputToolbar";
 import InvestigationPipeline from "../../components/InvestigationPipeline";
 import { InvestigationReport } from "../../pages/AutoInvestigatePage";
+import { VerdictRibbon } from "../components/VerdictRibbon";
+import { CIOProvider } from "../hooks/useCIO";
+import "../design/tokens.css";
 import api from "../../lib/api";
 const S = {
   page: { padding: "24px 28px 72px", color: "var(--text)", minHeight: "100vh", background: "var(--bg)" },
@@ -81,6 +84,12 @@ export default function InvestigatePage() {
   const [err, setErr] = useState("");
   const [whyOpen, setWhyOpen] = useState(false);
   const fileInputRef = useRef(null);
+
+  // ADR-0015 · Lab 2.0 preview is feature-flagged (?lab2=1). Current
+  // Lab UI unaffected. Enables the VerdictRibbon reference component
+  // per ADR-0019 with zero blast radius.
+  const lab2Enabled = typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("lab2") === "1";
 
   const canSubmit = input.trim().length > 0 && !loading;
 
@@ -227,6 +236,14 @@ export default function InvestigatePage() {
              /decode/smart path). The frontend never composes prose. ─── */}
         {result ? (
           <div style={S.section} data-testid={`investigate-result-${mode}`}>
+            {/* ADR-0014 Slice-C · Lab 2.0 preview · Verdict Ribbon (feature-flagged). */}
+            {lab2Enabled && result.cio ? (
+              <div className="lab2" style={{ marginBottom: 14 }} data-testid="lab2-preview">
+                <CIOProvider value={result.cio}>
+                  <VerdictRibbon />
+                </CIOProvider>
+              </div>
+            ) : null}
             {/* ADR-0014 §1.1.14 · Normalisation transparency banner.
                 Analysts see what the engine understood BEFORE it started
                 investigating. Only rendered when the ingress gate fired. */}
