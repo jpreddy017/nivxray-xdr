@@ -1,5 +1,39 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **Phase 0 · Workspace Parity Guard COMPLETE**
+
+Zero-runtime-impact baseline test suite establishing what the current NivXRay UX MUST continue to deliver before any Lab 2.0 React refactor lands.
+
+### Shipped
+- `/app/backend/tests/parity/test_workspace_parity_guard.py` · 13-test Python Playwright suite covering six dimensions:
+  1. Layout baselines (Lab shell · current Workspace · InvestigationReport populated)
+  2. Routing (3 public routes return < 500)
+  3. Responsive (3 breakpoints — 1920 / 1440 / 1024)
+  4. Theme surface (body-bg dark-sanity RGB sum < 300)
+  5. Keyboard navigation (`Tab` reaches interactive element)
+  6. State surfaces (empty · loading)
+- `/app/backend/tests/parity/baselines/README.md` · regeneration instructions
+- `/app/memory/phase-0-parity-guard-report.md` · files-created · coverage · automation gaps · Phase-A recommendation
+- **Public schema endpoint verified** `GET /api/schemas/v1/cio.schema.json` returns HTTP 200 with full metadata (title / version 1.0.0 / $id / schema_revision `ADR-0014-Slice-D`). Also serves `/api/schemas/latest/cio.schema.json` as alias.
+- **Routers/schemas.py** · new unauthenticated public router · added to `server.py`. Zero impact on existing endpoints.
+
+### Not shipped (per operator directive to not exceed Phase 0 scope)
+- No React changes
+- No feature branch cut
+- No `playwright install chromium` in the container (Parity Guard skips gracefully when Chromium absent)
+- No baseline images committed (first CI run with Chromium provisioning will seed them)
+- No Phase A work
+
+### Regression + safety
+- 237/237 backend pytest still green
+- 13/13 Parity Guard tests skip cleanly without Chromium; import structure verified
+- Current Workspace + Lab UI unchanged
+- Public schema endpoint responds correctly
+
+### Recommendation on Phase A
+**Safe to begin.** All governance prerequisites met. First Phase-A moves: cut `feature/lab2-workspace` branch → provision Chromium in CI → seed baselines → start TypeScript scaffold behind `REACT_APP_LAB2_ENABLED` per ADR-0015 / 0016 / 0018 / 0019 / 0020.
+
+
 ## 2026-02-28 · **Phase -1 · Architecture Lock COMPLETE (governance-only, zero code)**
 
 Landed per operator directive "build efficiently with low ECUs":
