@@ -30,6 +30,7 @@ router = APIRouter()
 _VALID_SURFACES = {
     "threat_model", "decode", "chain", "ioc", "lolbas",
     "family", "risk", "detection", "mitigation", "note",
+    "summary",   # 2026-02 · P1-06 · Manual Summary Override (analyst-written narrative)
 }
 
 
@@ -164,3 +165,100 @@ async def preview_applicable(body: ApplyPreviewIn, user=Depends(get_current_user
         input_text=body.input_text, tags=body.tags,
     )
     return {"items": items, "count": len(items)}
+
+
+# ─── P1-06 · Manual Summary Override (Analyst-Written Narrative) ─────
+# When the auto-generated Executive Summary or Story is wrong, the
+# analyst writes their own narrative and submits it here. Two things
+# happen:
+#   1. The correction is stored in the shared `analyst_corrections`
+#      collection (same infra used by threat_model / decode / ioc
+#      corrections) with `surface="summary"`.
+#   2. A pointer is stored in `summary_overrides` so the CIO can be
+#      re-projected with the analyst text on subsequent loads.
+#
+# The learner already consumes `analyst_corrections` by surface — no
+# new learner needed. Future improvement: expose the analyst summary
+# corpus as a fine-tuning signal for the composer.
+
+class SummaryOverrideIn(BaseModel):
+    cio_id: str = Field(..., min_length=1)
+    case_id: Optional[str] = None
+    analyst_summary: str = Field(..., min_length=20, max_length=8000)
+    analyst_notes: Optional[str] = None
+    original_executive: Optional[str] = None
+    original_story: Optional[str] = None
+    scope: str = "private"      # private | team | global (learner corpus)
+
+
+@router.post("/corrections/summary-override")
+async def submit_summary_override(body: SummaryOverrideIn, user=Depends(get_current_user)):
+    """Persist an analyst-written summary as both a `summary` correction
+    (for the learner) AND a first-class override the frontend can
+    re-project on next CIO load."""
+    from datetime import datetime, timezone
+    import uuid as _uuid
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    # 1. Shared correction record (feeds the learner).
+    correction = {
+        "id": str(_uuid.uuid4()),
+        "surface": "summary",
+        "wrong_finding": {
+            "kind": "executive_summary",
+            "value": body.original_executive or body.original_story or "",
+            "field": "cio.summary.executive",
+        },
+        "correct_prompt": body.analyst_summary,
+        "tags": ["manual-summary", "x-lab"],
+        "scope": body.scope,
+        "verdict": "incorrect",
+        "input_text": None,
+        "diagram_hash": None,
+        "revises": None,
+        "author_email": user.get("email") or user.get("id") or "unknown",
+        "created_at": now,
+        "cio_id": body.cio_id,
+        "case_id": body.case_id or None,
+        "notes": body.analyst_notes or "",
+    }
+    try:
+        await db.analyst_corrections.insert_one(correction)
+    except Exception:  # noqa: BLE001
+        # Non-fatal — surface-level failure should not lose the override.
+        pass
+
+    # 2. First-class override so the CIO renders the analyst text
+    #    on subsequent loads of the same investigation.
+    override_doc = {
+        "id": correction["id"],
+        "cio_id": body.cio_id,
+        "case_id": body.case_id or None,
+        "analyst_summary": body.analyst_summary,
+        "analyst_notes": body.analyst_notes or "",
+        "original_executive": body.original_executive or "",
+        "original_story": body.original_story or "",
+        "author_email": correction["author_email"],
+        "created_at": now,
+        "scope": body.scope,
+    }
+    await db.summary_overrides.replace_one(
+        {"cio_id": body.cio_id}, override_doc, upsert=True
+    )
+
+    return {
+        "ok": True,
+        "correction_id": correction["id"],
+        "override": override_doc,
+    }
+
+
+@router.get("/corrections/summary-override/{cio_id}")
+async def get_summary_override(cio_id: str, user=Depends(get_current_user)):
+    """Return the analyst override for a given CIO, or 404."""
+    doc = await db.summary_overrides.find_one({"cio_id": cio_id})
+    if not doc:
+        raise HTTPException(404, "no manual summary for this cio_id")
+    doc.pop("_id", None)
+    return doc

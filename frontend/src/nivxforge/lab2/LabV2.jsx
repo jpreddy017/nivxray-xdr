@@ -12,8 +12,139 @@
  * pipeline logic.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import api from "../../lib/api";
 import { LABV2_CSS } from "./labv2.styles";
 import { listLenses, getLensByShortcut } from "./LensRegistry";
+
+// ═══════════════════════════════════════════════════════════════
+// Manual Summary block (P1-06 · Analyst-Written Narrative)
+//
+// When the auto-generated Executive Summary or Story is wrong, the
+// analyst rewrites it here and clicks Save. The record is persisted
+// via /api/corrections/summary-override which does two things:
+//   1. Files a `surface="summary"` correction into the shared
+//      analyst_corrections learner corpus.
+//   2. Upserts a first-class override the CIO can re-project on next
+//      load of the same investigation.
+// The block auto-fetches any existing override for the current
+// `cio_id` on mount so re-opening an investigation shows the
+// analyst's version, not the stale auto version.
+// ═══════════════════════════════════════════════════════════════
+function ManualSummaryBlock({ cioId, originalExecutive, originalStory }) {
+  const [expanded, setExpanded] = useState(false);
+  const [text, setText] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saved, setSaved] = useState(null);   // saved override doc
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  // Auto-fetch any existing override for this CIO so re-opens honour it.
+  useEffect(() => {
+    if (!cioId) return;
+    let alive = true;
+    api.get(`/corrections/summary-override/${encodeURIComponent(cioId)}`)
+      .then((r) => {
+        if (!alive) return;
+        setSaved(r.data);
+        setText(r.data?.analyst_summary || "");
+        setNotes(r.data?.analyst_notes || "");
+      })
+      .catch(() => { /* 404 is expected when analyst hasn't overridden yet */ });
+    return () => { alive = false; };
+  }, [cioId]);
+
+  const save = useCallback(async () => {
+    if (!text.trim() || text.trim().length < 20) {
+      setErr("Please write at least 20 characters — the learner needs enough context.");
+      return;
+    }
+    setSaving(true); setErr("");
+    try {
+      const r = await api.post("/corrections/summary-override", {
+        cio_id: cioId,
+        analyst_summary: text,
+        analyst_notes: notes,
+        original_executive: originalExecutive,
+        original_story: originalStory,
+        scope: "private",
+      });
+      setSaved(r.data?.override || null);
+    } catch (e) {
+      setErr(e?.response?.data?.detail || e?.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }, [cioId, text, notes, originalExecutive, originalStory]);
+
+  const clear = () => { setText(""); setNotes(""); setSaved(null); };
+
+  return (
+    <div className="manual-summary" data-testid="manual-summary-block" style={{ marginTop: "var(--s6)" }}>
+      <button
+        className="ms-toggle"
+        data-testid="manual-summary-toggle"
+        onClick={() => setExpanded((v) => !v)}
+        title="Rewrite the executive summary in your own words. The tool learns from it."
+      >
+        <span className="ms-caret">{expanded ? "▾" : "▸"}</span>
+        <span className="ms-lbl">MANUAL SUMMARY</span>
+        {saved ? <span className="chip sev-info">SAVED · analyst override active</span> : <span className="ms-hint quiet">override the auto summary · trains the learner</span>}
+      </button>
+      {expanded ? (
+        <div className="ms-body">
+          <p className="quiet ms-help">
+            If the auto-generated Executive Summary or Story is inaccurate, rewrite it in your own words below.
+            This override becomes the analyst-of-record summary for this investigation and is added to the
+            NivXRay learner corpus so future summaries improve.
+          </p>
+          <label className="ms-lbl-small">Analyst summary</label>
+          <textarea
+            className="ms-text"
+            data-testid="manual-summary-textarea"
+            rows={7}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Write the investigation summary as you would send it to a customer — what happened, why it's important, evidence, impact, containment, next actions."
+          />
+          <label className="ms-lbl-small">Notes for the learner (optional · what did the auto summary miss?)</label>
+          <textarea
+            className="ms-text ms-notes"
+            data-testid="manual-summary-notes"
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g. Auto summary missed the C2 correlation between the fetched URL and the parent process chain."
+          />
+          {err ? <div className="ms-err" data-testid="manual-summary-error">{err}</div> : null}
+          <div className="ms-actions">
+            <button
+              className="cta primary"
+              data-testid="manual-summary-save"
+              onClick={save}
+              disabled={saving || !text.trim()}
+            >
+              {saving ? "SAVING…" : (saved ? "UPDATE ANALYST SUMMARY" : "SAVE ANALYST SUMMARY")}
+            </button>
+            <button
+              className="cta ghost"
+              data-testid="manual-summary-clear"
+              onClick={clear}
+              disabled={saving || (!text && !notes)}
+            >
+              CLEAR
+            </button>
+          </div>
+          {saved ? (
+            <div className="ms-saved quiet">
+              Saved by <b>{saved.author_email || "you"}</b> at <b>{saved.created_at}</b>.
+              This override is now the analyst-of-record summary for CIO <code className="mono">{cioId}</code>.
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════
 // Small primitives
@@ -385,6 +516,15 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                 </p>
               )}
             </div>
+
+            {/* Manual Summary Override (P1-06) — analyst rewrites when auto summary is wrong. */}
+            {view.hasCase ? (
+              <ManualSummaryBlock
+                cioId={view.caseId}
+                originalExecutive={(view.story && view.story[0] && view.story[0].text) || ""}
+                originalStory={(view.story || []).map((p) => p.text).join("\n\n")}
+              />
+            ) : null}
 
             {/* Correlated key findings + IOCs · one screen for leadership */}
             <div className="exec-grid">

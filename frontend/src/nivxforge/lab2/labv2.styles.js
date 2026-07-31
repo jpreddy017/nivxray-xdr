@@ -350,4 +350,19 @@ export const LABV2_CSS = `
 @media (max-width:1180px){.labv2 .body{grid-template-columns:56px 1fr 320px}.labv2 .spine .txt,.labv2 .spine > .lbl{display:none}.labv2 .stage{grid-template-columns:24px;justify-content:center;padding:0}.labv2 .stage .txt{padding-bottom:26px}.labv2 .stage .rail{height:34px}}
 @media (max-width:900px){.labv2 .body{grid-template-columns:56px 1fr}.labv2 .findings{display:none}.labv2 .tactics{grid-template-columns:repeat(2,1fr)}}
 @media (prefers-reduced-motion:reduce){.labv2 *{transition-duration:0ms!important;animation:none!important}}
+
+/* Manual Summary Override (P1-06) */
+.labv2 .manual-summary{border:1px dashed var(--border-strong);border-radius:var(--r-lg);padding:var(--s3) var(--s4);background:rgba(255,255,255,.02)}
+.labv2 .ms-toggle{display:flex;align-items:center;gap:var(--s2);width:100%;background:transparent;border:0;color:var(--fg);text-align:left;padding:var(--s2) 0;cursor:pointer;font-size:12px;letter-spacing:.08em}
+.labv2 .ms-caret{width:14px;color:var(--fg2)}
+.labv2 .ms-lbl{font-weight:700;color:var(--mint);letter-spacing:.14em}
+.labv2 .ms-hint{margin-left:auto;font-family:var(--font-mono);font-size:10px}
+.labv2 .ms-body{padding-top:var(--s3);display:flex;flex-direction:column;gap:var(--s3)}
+.labv2 .ms-help{font-size:12px;line-height:1.55;color:var(--fg2);margin:0}
+.labv2 .ms-lbl-small{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);margin-bottom:-8px}
+.labv2 .ms-text{background:var(--input-bg,#0e1616);color:var(--fg);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s3);font-family:var(--font-mono);font-size:12px;line-height:1.5;resize:vertical;min-height:80px;transition:border-color var(--dur-base) var(--ease)}
+.labv2 .ms-text:focus{outline:none;border-color:var(--mint);box-shadow:0 0 0 3px rgba(15,158,122,.14)}
+.labv2 .ms-actions{display:flex;gap:var(--s2)}
+.labv2 .ms-err{color:#ff9a9a;font-size:12px}
+.labv2 .ms-saved{font-size:11px;font-family:var(--font-mono);color:var(--fg2)}
 `;

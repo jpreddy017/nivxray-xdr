@@ -10,6 +10,7 @@
 | P1-03 | P1 ⭐⭐⭐⭐ | Rules Lens — renderer over `cio.metadata.custom_recipes_matched`. | ✅ Done | Shipped 2026-02-31 · lens #6 · empty-state handled. |
 | P1-04 | P1 ⭐⭐⭐⭐ | LOLBAS Lens — renderer over `cio.metadata.lolbas` / `lolbins_v2`. | ✅ Done | Shipped 2026-02-31 · lens #7 · empty-state handled. |
 | P1-05 | P1 ⭐⭐⭐⭐ | TI-HITS Lens — renderer over `cio.metadata.ti_shield.layers`. | ✅ Done | Shipped 2026-02-31 · lens #8 · empty-state handled. |
+| P1-06 | P1 ⭐⭐⭐⭐ | Manual Summary — analyst rewrites executive/story narrative · learner corpus. | ✅ Done | Shipped 2026-02-31. Endpoint `POST /api/corrections/summary-override` + `GET .../{cio_id}`. UI in Executive lens (collapsible). Writes to `analyst_corrections` (surface=`summary`) + `summary_overrides`. |
 | P2-01 | P2 ⭐⭐⭐⭐ | 14-Section Executive Report Composer with `evidence_used[node_id]` per section. | ⏳ Pending | Structure locked in PRD. |
 | P2-02 | P2 ⭐⭐⭐ | Report Composer multi-exporter (MD · PDF · STIX 2.1 · Navigator · JSON · Executive · Analyst). | ⏳ Pending | One template, seven exporters. |
 | P2-03 | P2 ⭐⭐⭐ | Timeline Lens — renderer between Story and Behavior over `cio.reasoning_steps` + `cio.timeline`. | ⏳ Pending | |
