@@ -240,7 +240,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "ADR-0014 \u2014 the single source of truth produced by the NivXRay Investigation Engine.",
+  "description": "NivXRay Canonical Investigation Object (CIO) \u2014 the single source of truth produced by the deterministic Investigation Engine. See ADR-0014.",
   "properties": {
     "schema_version": {
       "const": "0.1",
@@ -357,8 +357,12 @@
     "cio_id",
     "source"
   ],
-  "title": "NivXRay Canonical Investigation Object",
+  "title": "Canonical Investigation Object",
   "type": "object",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nivxray.nivxforge.com/schemas/cio.schema.json"
+  "$id": "https://nivxray.nivxforge.com/api/schemas/v1/cio.schema.json",
+  "version": "1.0.0",
+  "generated_from": "Pydantic CIO Model (nivxforge.investigation.models.CIO)",
+  "schema_revision": "ADR-0014-Slice-D",
+  "compatibility_policy": "https://nivxray.nivxforge.com/docs/cio-compatibility-policy"
 }

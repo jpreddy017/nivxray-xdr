@@ -155,6 +155,12 @@ api.include_router(chain_router)
 api.include_router(training_confusion_router)
 api.include_router(taxii_router)
 api.include_router(regression_router)
+
+# ADR-0014 · Public CIO Schema (v1 + latest alias). Unauthenticated
+# read-only. See routers/schemas.py.
+from routers.schemas import router as schemas_router  # noqa: E402
+api.include_router(schemas_router)
+
 # Feb 2026 — Analyst Workspace v2 (Session 2 · Phase D — MCIP customer surface)
 from routers.analyst_v2 import router as analyst_v2_router
 api.include_router(analyst_v2_router)
