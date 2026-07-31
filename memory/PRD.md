@@ -1,5 +1,53 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02 · **Lab v2 Investigation Workspace SHIPPED (feature-flagged)**
+
+Full React port of the approved HTML prototype (`nivxray-lab-ui.html`) landed at `/nivxforge/investigate?lab2=1`, driven by ADR-0022 (locked target architecture) and the operator's final v2 Edit Pass prompt.
+
+### Shipped
+- **`LabV2.jsx`** — 3-column workspace (Case Spine · Canvas [Source · Story · Behavior · ATT&CK lenses] · Findings Panel) + fixed Evidence Bar footer. 700+ lines, self-contained styles, mirrors the prototype token system (`--mint #0F9E7A`, Inter + IBM Plex Mono, daylight/nightwatch themes, compact/comfortable density).
+- **All 13 enhancements (A–M)** from the final prompt:
+  - **A** Story lens hero — larger lede, section dividers, smooth-scroll to evidence
+  - **B** Live Case Spine pulse animation on `.active` stage node
+  - **C** Lens cross-fade (`180ms`), per-lens scroll memory, remembered evidence chip selection
+  - **D** Sticky story summary appears after 96px scroll
+  - **E** Evidence chip hover popover (id · fragment · supports)
+  - **F** Findings rows monochrome, only severity glyph coloured (▲ ◆ ● ○)
+  - **G** Keyboard hint chips (`1 2 3 4`) with visible border for discoverability
+  - **H** Empty-state copy upgraded: *"No ATT&CK techniques were confidently identified for this tactic. This does not imply benign activity."*
+  - **I** Universal intake — single textarea + Analyze button, no dropdown, `⌘Enter` shortcut, placeholder lists PowerShell / CMD / Bash / Cisco XDR / CrowdStrike / Defender / Sentinel / QRadar / Splunk / Sysmon / Windows Events / JSON / XML / STIX / YARA / Sigma / email headers / IOC lists
+  - **J** Clickable stats — Observations → Source, Behaviors → Behavior, Techniques → ATT&CK
+  - **K** Input-type badge in topbar (POWERSHELL)
+  - **L** 5th-lens extensibility ready (no placeholder tab)
+  - **M** Coherent PowerShell case populated end-to-end (ev-01…ev-11) — every evidence chip resolves everywhere it appears (Story · Ledger · Findings · Behavior graph · ATT&CK · EvBar)
+- **Preserved backend contract**: `Lab2InvestigateRenderer` still routes to `/v2/auto-investigate` or `/decode/smart` via the same `detectPipeline()` as the legacy renderer. CIO flows through `Lab2Provider` unchanged.
+- **Storybook** — `LabV2.stories.jsx` (Default / Analyzing / WithError).
+- **Parity Guard** — flag-OFF path still renders legacy `nivxforge-investigate-page` identically to production; ADR-0022 §11 "no permanent nav item" respected.
+- **Discovery** — `Lab2ToggleButton` pill in legacy Investigate hero flips the flag with a single click.
+
+### Verified
+- Webpack compiles clean (0 errors, only benign hook-deps warnings).
+- Screenshots confirm both themes render correctly: Story lens with narrative + intake + stats + verdict ledger + findings, ATT&CK tactic grid with proper empty-state copy, evidence chip selection propagates to Evidence Bar.
+- Theme toggle: nightwatch ↔ daylight verified.
+- Lens switching via stat clicks (Enhancement J) verified.
+- All 8 topbar/spine/canvas/findings/evbar landmarks present.
+
+### Backend touch
+- Zero backend changes.
+- CIO consumed via `Lab2Provider`; presentation falls back to the coherent demo case per prompt §4 when no CIO is loaded.
+
+### Next Actions (Phase B lens wiring — data → prototype)
+- Bind the Case Spine states to `cio.reasoning_steps[]` so the pulse follows real investigation progress.
+- Wire the Story lens narrative to `cio.summary.attack_story` + `cio.summary.analyst` (with graceful fallback to the demo case when unset).
+- Populate the ATT&CK tactic grid from `cio.summary.mitre_digest`.
+- Feed the Findings panel + Verdict Ledger from `cio.verdict.contributors` + `cio.summary.recommendations`.
+- Behavior graph nodes/edges from `cio.evidence_graph`.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-02 · **Phase A Slice-2 · Lab 2.0 Foundation (TypeScript · Storybook · Lab2Shell) COMPLETE**
 
 Locked target architecture (**ADR-0022**): one LAB product · one Investigate route · one CIO · one API contract. Multiple renderers only during migration, selected by `FeatureFlagResolver` at `/nivxforge/investigate`.
