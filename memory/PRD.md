@@ -1,5 +1,66 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-31 · **🔒 X-Lab · AUTHORITATIVE FINAL ARCHITECTURE (supersedes all prior)**
+
+> **There will be ONE investigation workspace. Not two. Not with a flag. Not with a preview. Only X-Lab.**
+
+### The equation
+```
+Current Lab (brain)  +  Lab 2.0 (face)  +  Future Investigation Features  =  X-Lab
+```
+- **Current Lab** contributes: engines · decoders · parsers · APIs · recipes · rules · YARA · Sigma · TI-HITS · LOLBAS · OSINT · investigation engine · report generation.
+- **Lab 2.0** contributes 100 % of the presentation: Universal Intake · Executive/Story/Timeline/Behaviour/Attack-Chain/Evidence/Rules/LOLBAS/TI-HITS/OSINT/Source/Report lenses · Case Spine · Investigation Graph · Command Palette · Notebook · Theme System · keyboard shortcuts · analyst layout.
+- **X-Lab** = the shipped product.
+
+### Golden Rule
+> **Current Lab = Brain. Lab 2.0 = Face. X-Lab = Product. There must never be two investigation workspaces.**
+
+### UI Rule (locked forever)
+- ✅ Migrate: engines · backend · parsers · APIs · rules · intelligence · decoders · renderers · correlations.
+- ❌ DO NOT migrate: legacy Lab panels · layouts · CSS · Preview mode · feature flags · duplicate pages.
+
+### Final Navigation (locked)
+`Workspace · Trajectory · Batch · Heatmap · X-Lab · Tools · Learn · Admin`
+No `LAB` tab. No `Lab 2.0` tab. No Preview. No feature flag surfaced to users.
+
+### Final Route (locked)
+```
+/lab                            ─┐
+/nivxforge/investigate          ─┼─→ redirect →  /nivxforge/x-lab
+/nivxforge/investigate?lab2=1   ─┘
+```
+One route. One investigation experience.
+
+### Shared Resources (single-copy rule)
+Only ONE implementation of every service:
+`UIE → CIO → Fact Substrate → Evidence Graph → Verdict Engine → Summary Composer → OSINT Engine → Report Composer → X-Lab UI`
+X-Lab consumes the exact same backend Workspace consumes. Never duplicate.
+
+### Migration Order (locked · immutable)
+1. **Capability audit** — enumerate every legacy Lab capability. (In progress at `/app/memory/xlab_parity_audit.md`.)
+2. **Mirror every capability into X-Lab** — backend/API only. No UI migration.
+3. **Parity validation** — same decoded output · verdict · confidence · ATT&CK · IOCs · Rules · LOLBAS · TI-HITS · OSINT · report. If anything differs, parity fails.
+4. **Switch navigation** — `LAB` → `X-LAB`. ✅ shipped this session.
+5. **Redirect legacy routes** — `/lab` and `/nivxforge/investigate` → `/nivxforge/x-lab`. ✅ new route shipped this session; delete legacy routes at Phase 6.
+6. **Delete legacy Lab** — routes · components · CSS · renderers · duplicate APIs · duplicate state · feature flags · preview code. Only ONE investigation workspace remains.
+
+### Future Policy (permanent)
+Every future investigation capability ships ONLY in X-Lab:
+AI Investigation · Memory · Threat Hunting · Timeline · Behaviour Graph · Malware Analysis · Sandbox · Threat Intel · YARA · Sigma · OSINT · ATT&CK · Reports · Collaboration · Enterprise features.
+Nothing investigation-related is ever added back to the legacy Lab.
+
+### 🔒 Workspace ↔ X-Lab relationship (final engineering rule)
+> **Workspace and X-Lab are peers, not competitors.**
+> Workspace remains the operational SOC dashboard.
+> X-Lab is the advanced investigation and analysis workspace.
+> Both consume the same backend engines, CIO, verdict engine, OSINT services, and Report Composer.
+> New investigation intelligence is implemented ONCE in the shared backend and automatically becomes available to both experiences where appropriate.
+
+This prevents two separate investigation stacks and keeps the architecture clean forever.
+
+---
+
+
 ## 2026-02-31 · **🔒 X-Lab UI/UX Decision · LOCKED (final)**
 
 > **X-Lab = Lab 2.0 UI/UX + Current Lab Intelligence + Future Investigation Platform.**
