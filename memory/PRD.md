@@ -1,5 +1,52 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-31 · **🔒 X-Lab Promotion Plan · REFINED 6-PHASE (LOCKED)**
+
+Supersedes the earlier 3-phase promotion plan. Operator directive: "**Make X-Lab the canonical workspace first, verify parity, then retire the old Lab. Do not break users prematurely.**"
+
+### 📋 Phase 1 · Capability Audit (mandatory · IN PROGRESS)
+Complete inventory in **`/app/memory/xlab_parity_audit.md`** with parity matrix. No capability may be removed until every row reads ✅. First pass shipped this turn — five blockers remain:
+1. Rules · LOLBAS · TI-HITS lenses missing.
+2. Live OSINT wiring incomplete (endpoint exists, no live providers, no 11-field card).
+3. Verdict parity CI + rules-hit/lolbas-hit contributor wiring.
+4. 14-section Executive Report composer + multi-exporter.
+5. Multi-stage decoder rendering for chains > 3 layers.
+
+### 🔒 Phase 2 · Shared Backend (no duplication)
+One implementation of every engine · two consumers (Workspace + X-Lab):
+`UIE · CIO · Verdict Engine · Evidence Graph · Timeline Engine · Detection Engine · Decoder Engine · OSINT Service · Threat Intelligence · Rule Engine · Report Composer`. X-Lab MUST NEVER fork any of these.
+
+### 🔒 Phase 3 · Feature Parity
+`Current Lab + Lab 2.0 + Future Investigation Features = X-Lab`. Acceptance: decode parity · investigation parity · report parity · verdict parity · API parity · threat-intel parity · UI parity where appropriate.
+
+### 🔒 Phase 4 · Main Navigation
+Once parity is verified: `LAB` tab removed; `X-LAB` becomes the only investigation workspace tab. Nav order stays: `Workspace · Trajectory · Batch · Heatmap · X-Lab · Tools · Learn · Admin`. Already shipped 2026-02-31.
+
+### 🔒 Phase 5 · Redirect Legacy Routes
+After parity CI passes:
+- `/lab` → `/nivxforge/x-lab`
+- `/nivxforge/investigate` → `/nivxforge/x-lab`
+- Redirects stay live for backward compatibility.
+
+### 🔒 Phase 6 · Future Policy (permanent)
+Every future investigation feature ships ONLY in X-Lab. Legacy Lab receives no new development. Includes: Universal Intake · UIE · Story Composer · every Lens (Executive · Story · Timeline · Behaviour · Attack Chain · Evidence · Rules · LOLBAS · TI-HITS · OSINT · Source · Report) · Notebook · Graph Explorer · Command Palette · AI Assistance · Collaboration · Export Engine.
+
+### 🔒 Final Acceptance (X-Lab is "complete" only when ALL true)
+- ✅ Every legacy Lab capability migrated (audit matrix all-green).
+- ✅ Every Lab 2.0 capability migrated.
+- ✅ Workspace and X-Lab share the same investigation engines.
+- ✅ No backend investigation logic duplicated.
+- ✅ All future investigation work targets X-Lab only.
+- ✅ Legacy `LAB` nav tab removed.
+- ✅ `X-LAB` is the permanent investigation tab.
+- ✅ Legacy routes redirect to X-Lab without breaking existing links.
+
+### Files added this turn
+- `/app/memory/xlab_parity_audit.md` — Phase 1 parity matrix (living document · re-run after every slice).
+
+---
+
+
 ## 2026-02-31 · **🚨 ARCHITECTURE DECISION · X-Lab promoted to Unified Investigation Workspace**
 
 Effective immediately. X-Lab becomes the ONLY investigation workspace in NivXRay. Legacy Lab is no longer a separate product; it lives on only until parity migration completes.
