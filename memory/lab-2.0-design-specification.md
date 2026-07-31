@@ -1,8 +1,34 @@
-# NivXRay Lab 2.0 — Architectural Design Specification
+# NivXRay Investigation Workspace (Lab 2.0) — Architectural Design Specification
 
-> **Status**: Design specification · **Scope**: Lab tab (the analyst workspace)
+> **Status**: Design specification · **APPROVED as architectural direction** (operator sign-off 2026-02-28)
+> **Scope**: The primary analyst investigation environment (formerly "Lab")
 > **Companion documents**: ADR-0014 (Canonical Investigation Object), Slice-A/B/C shipped code
 > **Voice**: Critical, opinionated, first-principles. Everything must earn its place.
+
+## Operator-approved decisions (locked)
+
+| Decision | Value | Rationale (operator) |
+|---|---|---|
+| TypeScript adoption | ✅ Gradual (new files only) | Better maintainability without forcing a full rewrite |
+| Graph engine | ✅ Sigma.js (WebGL) | Better fit for large, interactive evidence and knowledge graphs |
+| Live transport | ✅ SSE (Server-Sent Events) | Simpler; ideal for one-way backend→analyst streaming |
+| Naming | ✅ **NivXRay Investigation Workspace (Lab 2.0)** — later just "Workspace" | Reflects the actual scope: primary environment, not a side tool |
+| PDF re-review | ⏳ Pending PDF re-attachment | Volume 1 remains blocked until the 72-page proposal is in the artefact bundle |
+
+## Non-negotiable constraint · Workspace preservation
+
+> **Rule (locked, operator directive 2026-02-28)**:
+> **Lab 2.0 work MUST NOT damage the present Workspace surface (`/app/frontend/src/pages/AutoInvestigatePage.jsx`).**
+
+Concretely, this means:
+
+1. **Route isolation.** All Lab 2.0 work lands under `/nivxforge/*` routes and `/app/frontend/src/nivxforge/`. The existing Workspace at `/auto-investigate` (and any `/pages/` route) is treated as **frozen surface**.
+2. **Shared component contract.** The only sanctioned cross-surface import is the `InvestigationReport` named export (already shipped in Phase 0). Any additional shared component must be extracted deliberately, keep the Workspace contract byte-identical, and be gated by a "Workspace parity test" (screenshot regression + interaction test).
+3. **Backend additive only.** Backend changes for Lab 2.0 (e.g. `cio.summary` from Slice-D, `cio.knowledge`, streaming reasoning steps) are ADDITIVE. Every existing Workspace API contract remains byte-identical. This is already codified by ADR-0014 §1.1.6 (additive migration) and G3 legacy parity gate.
+4. **Design tokens do not leak.** The new semantic token system (`--bg-canvas`, `--verdict-crit`, etc.) is scoped to `nivxforge/` component tree. Global CSS variables that Workspace already uses remain untouched.
+5. **Fallback preservation.** Until every seven-lens (now eight-lens) capability is proven at parity, Workspace remains the recommended surface for enterprise incidents. Lab 2.0 is opt-in.
+6. **Rollback path.** Every Lab 2.0 phase must be feature-flaggable (`REACT_APP_LAB2_ENABLED`, default off in production). Ship dark, promote when stable.
+7. **Regression gate.** A new Playwright regression suite (`tests/workspace_parity.spec.js`) runs on every Lab 2.0 PR and screenshot-compares the Workspace's `InvestigationReport` output against a locked golden. Any diff fails CI.
 
 ---
 
@@ -209,6 +235,7 @@ Seven lenses, one Case Spine, one Evidence Bar, one Findings panel, one Verdict 
 5. **ATT&CK** — observed-only tactic columns + Navigator export.
 6. **Entity** — host / user / hash / IP pivot with graph and history.
 7. **Report** — export surface (executive / incident / artifact from `cio.summary`).
+8. **Knowledge** *(added 2026-02-28)* — the memory layer. Similar cases · previous investigations · campaign relationships · threat-actor overlap · detection history · hunting guidance · internal KB · external intelligence. Reads from cross-case CIO fingerprint index + knowledge graph. Keyboard `8`.
 
 **Case Spine** (left rail):
 - Now (current case)
@@ -432,11 +459,26 @@ Concretely:
 - Entity lens (table + entity graph)
 - Report lens (executive / incident / artifact export)
 
+### Phase B.5 · Investigation Workspace pillar (2 sessions) — **new, promoted to first-class**
+
+The workspace is not a page. It is an **investigation canvas** in which every lens, every panel, every entity, every reasoning step operates on one synchronised global selection. Selecting an IOC anywhere causes the graph to expand around it, the timeline to highlight it, the story to scroll to its citation, the evidence bar to pin it, the ATT&CK grid to highlight its technique, the intel drawer to open, related cases to surface, and the notebook to update — **simultaneously, without any navigation**.
+
+Deliverables:
+- **Infinite canvas** primitive (pan / zoom / snap-to-lens) — CSS transform + `pointer-events` boundary
+- **Dockable panels** — every lens can be undocked, resized, snapped to a grid
+- **Split view** — two lenses side-by-side (e.g. Behavior + Timeline synchronised)
+- **Saved workspaces** — an analyst's arrangement is a first-class object persisted per user
+- **Multi-monitor support** — a workspace can span multiple browser windows via `BroadcastChannel` sync of global selection
+- **Global selection is the workspace's spine** — Zustand store, single source of truth
+- **Shared investigation context** — all panels subscribe to `useCIO()` and `useSelection()`; no panel fetches its own data
+- Feature flag: `REACT_APP_LAB2_WORKSPACE_CANVAS`
+
 ### Phase C · Enterprise primitives (2 sessions)
 - Analyst Notebook (per-node notes; versioned)
 - Case Comparison (side-by-side diff)
 - Similar-Case Search (CIO fingerprint)
 - Cross-Case IOC Correlation
+- **Knowledge lens** wiring (feeds from Case Comparison + Similar-Case + fingerprint index)
 
 ### Phase D · Live + Collaboration (2 sessions)
 - SSE / WebSocket reasoning-step streaming
