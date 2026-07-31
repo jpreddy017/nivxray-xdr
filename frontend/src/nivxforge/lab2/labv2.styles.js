@@ -270,8 +270,13 @@ export const LABV2_CSS = `
 .labv2 .intake-strip textarea{width:100%;min-height:120px;max-height:280px;background:transparent;color:var(--fg);border:none;padding:var(--s4) 84px var(--s4) var(--s4);font-family:var(--font-mono);font-size:13px;line-height:22px;resize:vertical;outline:none}
 .labv2 .intake-strip textarea::placeholder{color:var(--fg3)}
 .labv2 .intake-strip .intake-corner{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px}
-.labv2 .intake-strip .icon-btn{width:26px;height:26px;display:grid;place-items:center;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--canvas);color:var(--fg3);font-size:12px;cursor:pointer;transition:border-color var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
-.labv2 .intake-strip .icon-btn:hover:not(:disabled){color:var(--mint);border-color:var(--mint)}
+.labv2 .intake-strip .icon-btn{width:26px;height:26px;display:grid;place-items:center;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--canvas);color:var(--fg3);font-size:12px;cursor:pointer;transition:border-color var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease)}
+.labv2 .intake-strip .icon-btn[data-testid="labv2-copy"]{color:var(--mint);border-color:color-mix(in srgb,var(--mint) 40%, var(--border))}
+.labv2 .intake-strip .icon-btn[data-testid="labv2-copy"]:hover:not(:disabled){background:var(--wash);color:var(--mint);border-color:var(--mint)}
+.labv2 .intake-strip .icon-btn[data-testid="labv2-upload"]{color:var(--low);border-color:color-mix(in srgb,var(--low) 40%, var(--border))}
+.labv2 .intake-strip .icon-btn[data-testid="labv2-upload"]:hover:not(:disabled){color:var(--low);border-color:var(--low);background:color-mix(in srgb,var(--low) 12%, var(--canvas))}
+.labv2 .intake-strip .icon-btn[data-testid="labv2-delete"]{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%, var(--border))}
+.labv2 .intake-strip .icon-btn[data-testid="labv2-delete"]:hover:not(:disabled){color:var(--crit);border-color:var(--crit);background:color-mix(in srgb,var(--crit) 12%, var(--canvas))}
 .labv2 .intake-strip .icon-btn:disabled{opacity:.35;cursor:not-allowed}
 .labv2 .intake-strip .intake-err{margin-top:var(--s2);font-family:var(--font-mono);font-size:11px;color:var(--crit)}
 
