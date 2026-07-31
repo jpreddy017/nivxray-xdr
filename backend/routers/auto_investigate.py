@@ -681,4 +681,24 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
             "ADR-0009 · CIM composition failed (safe — legacy response preserved)"
         )
 
+    # ═══════════════════════════════════════════════════════════════════
+    # ADR-0014 · Slice-A · Additive Canonical Investigation Object (CIO).
+    # See routers/ops.py wire-in comment. Additive-only, zero-regression.
+    # ═══════════════════════════════════════════════════════════════════
+    try:
+        from nivxforge.cim.fact_substrate import from_analysis_result as _cio_facts
+        from nivxforge.investigation import build_cio as _build_cio
+        _cio_fs = _cio_facts(
+            result,
+            input_text=body.incident_text,
+            source_endpoint="/api/v2/auto-investigate",
+        )
+        _cio = _build_cio(_cio_fs)
+        result["cio"] = _cio.model_dump(mode="json")
+    except Exception:  # noqa: BLE001
+        import logging
+        logging.getLogger(__name__).exception(
+            "ADR-0014 · CIO composition failed (safe — legacy response preserved)"
+        )
+
     return result

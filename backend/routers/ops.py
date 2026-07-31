@@ -2041,9 +2041,28 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     except Exception:  # noqa: BLE001
         log.exception("ADR-0009 · CIM composition failed (safe — legacy response preserved)")
 
+    # ═══════════════════════════════════════════════════════════════════
+    # ADR-0014 · Slice-A · Additive Canonical Investigation Object (CIO).
+    # `cio` is the new object-centric source of truth backed by an
+    # Evidence Graph. Additive-only: every legacy field remains
+    # byte-identical (§1.1.6). Composition failures never break the
+    # endpoint — CIO block is dropped silently and legacy shape returned.
+    # See /app/memory/adr/0014-canonical-investigation-object.md.
+    # ═══════════════════════════════════════════════════════════════════
+    try:
+        from nivxforge.cim.fact_substrate import from_analysis_result as _cio_facts
+        from nivxforge.investigation import build_cio as _build_cio
+        _cio_fs = _cio_facts(
+            result,
+            input_text=(body.input if hasattr(body, "input") else ""),
+            source_endpoint="/api/decode/smart",
+        )
+        _cio = _build_cio(_cio_fs)
+        result["cio"] = _cio.model_dump(mode="json")
+    except Exception:  # noqa: BLE001
+        log.exception("ADR-0014 · CIO composition failed (safe — legacy response preserved)")
+
     return result
-
-
 class CandidatesIn(BaseModel):
     input: str
     top_n: int = 8

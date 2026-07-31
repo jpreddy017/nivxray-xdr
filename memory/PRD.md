@@ -1,5 +1,124 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **ADR-0014 · Canonical Investigation Object · slice-A + slice-B IMPLEMENTED**
+
+### Governance-first amendment (before code)
+Amended `/app/memory/adr/0014-canonical-investigation-object.md` §1.1
+with 8 binding architectural principles + §7.1 release gates (G1
+schema · G2 graph integrity · G3 legacy parity · G4 52-test ADR
+regression · G5 per-slice pytest).
+
+The 8 principles are non-negotiable and require a superseding ADR to
+change:
+1. CIO is the sole product of the Investigation Engine.
+2. Evidence Graph is the backing model, not an optional layer.
+3. Single Verdict Engine (closes ADR-0011).
+4. Lab + Workspace consume the SAME CIO.
+5. All future capabilities (Reports · Summary · ATT&CK · STIX ·
+   Timeline · Explainability · Prediction · Defence · Exports) read
+   from the CIO.
+6. Additive-only migration — legacy response fields byte-identical.
+7. Every decision emits a `ReasoningStep`.
+8. Input-agnostic engine — one CIO shape across all supported inputs.
+
+### Slice-A · Evidence Graph substrate (shipped)
+- **New module** `/app/backend/nivxforge/investigation/` — `graph.py`
+  (Node · Edge · EvidenceGraph · typed enums) · `models.py`
+  (CIO Pydantic root · ReasoningStep · CIOSource) · `builder.py`
+  (`build_cio(FactSubstrate) → CIO`) · `validators.py` (G1 · G2 · G3
+  gates raising `CIOValidationError`).
+- **Additive endpoint wire-in** — new `cio` field on both
+  `/api/decode/smart` and `/api/v2/auto-investigate`. ADR-0009
+  `investigation` (CIM) field untouched. Every legacy top-level key
+  preserved byte-identically.
+- **Deterministic construction** — same FactSubstrate produces the
+  same graph (`deterministic_serialize()`) and the same `cio_id`.
+- **Input-agnostic (§1.1.8)** — parametrised test covers
+  `powershell / cmd / bash / raw_log / json` all producing valid CIOs.
+
+### Slice-B · ReasoningStep recorder (shipped)
+- **Every promotion emits a `ReasoningStep`** — `input.ingest` ·
+  `decoder.<op>` · `ioc.<kind>.extract` · `mitre.map.<tid>` ·
+  `lolbin.detect.<name>` · `ti.family.<provider>` · `behaviour.observe`.
+- **ReasoningStep schema** — `step_id` (dense monotonic `RS-NNN`) ·
+  `timestamp` (deterministic epoch offset — replayable) · `rule` ·
+  `input_nodes` · `output_nodes` · `confidence_before` ·
+  `confidence_after` · `explanation` (analyst-facing prose).
+- **Aggregate confidence** is the `confidence_after` of the last
+  step — replayable derivation, not a free-standing scalar.
+- **Timeline is a view over `reasoning_steps`** (§1.1.7) — no
+  independent data source.
+
+### Verified live on preview (`admin@nivxray.com`)
+```
+POST /api/decode/smart  (regsvr32 EncodedCommand partial payload)
+  cio_present:            True
+  cio.schema_version:     0.1
+  cio_id:                 CIO-4acbd0e8e754      (deterministic)
+  confidence:             0.25
+  nodes / edges:          4 / 3
+  reasoning_steps:        4    (dense RS-001 … RS-004)
+  timeline_len:           4
+  legacy investigation:   present (ADR-0009 CIM unchanged)
+  legacy output:          present
+  first 3 rules:          ['input.ingest', 'ioc.url.extract', 'ioc.domain.extract']
+```
+
+### Regression gates (all green)
+- G4 · ADR-0007 / 0008 / 0009 / 0012 pinned regression suite —
+  **52/52 pass**, unchanged.
+- G5 · Slice-A pytest — **30/30 pass**
+  (`test_adr0014_graph.py` + `test_adr0014_cio.py`).
+- G5 · Slice-B pytest — **17/17 pass**
+  (`test_adr0014_reasoning_steps.py`).
+- Endpoint integration pytest — **9/9 pass**
+  (`test_adr0014_endpoints.py`).
+- Full nivxforge suite — **79/79 pass** (workspace-isolation
+  invariant preserved).
+- **Grand total this slice: 157/157 pass.**
+
+### Files added
+- `/app/backend/nivxforge/investigation/__init__.py`
+- `/app/backend/nivxforge/investigation/graph.py`
+- `/app/backend/nivxforge/investigation/models.py`
+- `/app/backend/nivxforge/investigation/builder.py`
+- `/app/backend/nivxforge/investigation/validators.py`
+- `/app/backend/nivxforge/tests/test_adr0014_graph.py`
+- `/app/backend/nivxforge/tests/test_adr0014_cio.py`
+- `/app/backend/nivxforge/tests/test_adr0014_reasoning_steps.py`
+- `/app/backend/tests/test_adr0014_endpoints.py`
+  *(HTTP tests live workspace-side to preserve the nivxforge isolation
+  invariant enforced by `test_workspace_isolation.py`.)*
+
+### Files modified
+- `/app/memory/adr/0014-canonical-investigation-object.md` — §1.1
+  principles + §7.1 release gates.
+- `/app/backend/routers/ops.py` — additive `cio` block appended after
+  the existing CIM block on `/api/decode/smart`.
+- `/app/backend/routers/auto_investigate.py` — additive `cio` block
+  appended after the existing CIM block.
+
+### Explicitly NOT done in this session (per plan)
+- ❌ **Slice-C · Reasoning Engine unification** (closes ADR-0011 +
+  PARITY_GAP-001). Retires the `executive_card` / `build_verdict_card`
+  fork so one engine reads the graph and writes the verdict node.
+- ❌ **Slice-D · Backend summary composer**. Moves
+  `investigationSynthesizer.js` logic to the backend as
+  `investigation.summary.{artifact,incident,executive}`.
+- ❌ **Slice-E · Intelligence Engine extraction** · **Slice-F · Views
+  over the graph (STIX / Navigator / Reports)** · **Slice-G · LLM
+  Analyst Narrative overlay**.
+- ❌ Frontend surfaces do NOT yet render the `cio` block — the
+  additive contract means every existing UI keeps working unchanged;
+  Slice-D is when the frontend switches over.
+
+### Next
+- **Slice-C** — merge the two verdict engines, close ADR-0011 +
+  PARITY_GAP-001. Backend testing agent must gate.
+- **Slice-D** — backend summary composer replaces
+  `investigationSynthesizer.js` per §1.1.5.
+
+
 ## 2026-02-28 · **ADR-0013 · Analyst-Voice Narrative Refinements (Path B) · slice-4 IMPLEMENTED**
 
 ### Five refinements landed (all deterministic, no LLM)

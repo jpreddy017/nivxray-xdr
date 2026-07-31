@@ -15,6 +15,52 @@ product of the platform. The CIO is backed by an **Evidence Graph**
 which IS the investigation — not adjacent to it. Every engine writes
 to the CIO; every UI, report, export, and summary reads from it.
 
+### 1.1 · Architectural principles (binding, non-negotiable)
+
+These principles are constraints on every future slice, engine, and
+consumer. Any deviation requires a superseding ADR.
+
+1. **Sole output.** The Canonical Investigation Object (CIO) is the
+   single source of truth produced by the Investigation Engine. No
+   parallel investigation objects, verdict blobs, or ad-hoc response
+   shells may co-exist with it once migration completes.
+2. **Evidence Graph is intrinsic.** The Evidence Graph is the backing
+   model of the CIO, not an optional visualization layer bolted on
+   top. Removing the graph removes the investigation.
+3. **Single Verdict Engine.** There shall be exactly one Verdict
+   Engine. All verdicts, confidence values, severities, and summaries
+   derive from the CIO (closes ADR-0011). `executive_card` and
+   `build_verdict_card` merge; the surviving engine reads the graph
+   and writes the verdict node.
+4. **Shared consumer contract.** Lab and Workspace are independent
+   user experiences that consume the **same** CIO and the same shared
+   intelligence engines. Presentation may diverge; analytical output
+   MUST NOT.
+5. **All future capabilities read from the CIO.** Reports,
+   Investigation Summary, ATT&CK views, STIX exports, Timeline,
+   Explainability, Prediction, Defence recommendations, and any
+   future export or overlay MUST read from the CIO. Independent
+   feature-local logic that re-derives verdicts, evidence, or
+   summaries is forbidden.
+6. **Additive migration.** Migration remains additive and
+   backward-compatible until every consumer has been moved to the
+   CIO. Legacy response fields stay byte-identical during the
+   transition. Removal of legacy fields requires a separate ADR.
+7. **Every decision is a ReasoningStep.** Every reasoning decision —
+   IOC promotion, MITRE mapping, LOLBIN attribution, verdict
+   escalation, confidence adjustment, family match, benign
+   classification — is recorded as a structured `ReasoningStep` node
+   (inputs, outputs, confidence_before, confidence_after, rule,
+   explanation). This substrate powers replay, debugging,
+   explainability, and future AI-assisted summaries from one place.
+8. **Input-agnostic Investigation Engine.** The Investigation Engine
+   accepts any supported artifact — command lines, PowerShell, CMD,
+   Bash, files, raw logs, Sysmon, Windows Security, JSON, CSV, EDR
+   telemetry, network logs — and always produces the same Canonical
+   Investigation Object. The UI (Lab or Workspace) decides how to
+   present the investigation; the engine always returns the same
+   canonical structure.
+
 ```
 Investigation (CIO)
 ├── input
@@ -122,6 +168,25 @@ Lab and Workspace become presentation layers over the same core.
 - Legacy response fields are aliases over CIO getters, then removed
   in a subsequent release with an ADR.
 - All ADR-0007 / 0008 / 0009 / 0012 / 0013 pytest suites remain green.
+
+### 7.1 · Slice-level release gates (strict)
+
+Every slice MUST pass the following gates before landing:
+
+- **G1 · CIO schema validation** — every emitted CIO parses through
+  the pinned Pydantic model; unknown fields rejected; version pinned.
+- **G2 · Evidence Graph integrity** — no dangling edges; no orphan
+  reasoning steps; node ids unique; edge kinds restricted to the
+  typed enum in §2.
+- **G3 · Legacy response parity** — legacy top-level response fields
+  (`output`, `mitre`, `iocs`, `verdict_card`, `executive_card`,
+  `mdr_investigation`, `investigation`, etc.) are byte-identical
+  vs. baseline for the same input. Regression baseline captured in a
+  pinned corpus.
+- **G4 · Full pytest regression** — the pre-existing 52-test ADR
+  suite (0007 / 0008 / 0009 / 0012 / 0013) stays 52/52 green.
+- **G5 · New-slice pytest** — every slice adds its own pinned
+  regression file under `/app/backend/nivxforge/tests/`.
 
 ## 8 · What this ADR naturally resolves
 
