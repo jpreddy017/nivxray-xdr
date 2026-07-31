@@ -649,6 +649,27 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     """
     from analysis_core import deterministic_best_decode
 
+    # ═══════════════════════════════════════════════════════════════════
+    # ADR-0014 · Phase 2 · Ingress Normalisation Gate (Layer 1 · §1.1.14).
+    # If the input is vendor JSON telemetry (Cisco Secure Endpoint /
+    # XDR / CrowdStrike / Defender / QRadar / Splunk / SentinelOne /
+    # Sysmon), normalise into a canonical event stream BEFORE any
+    # downstream IOC / MITRE / verdict extractor runs. Schema URLs
+    # (CRL distribution points, AMP console URLs, XDR API endpoints)
+    # never reach an extractor — they are not indicators of compromise.
+    # API contract (§1.1.15) is preserved: response shape unchanged.
+    # ═══════════════════════════════════════════════════════════════════
+    _ingress_provenance: str | None = None
+    try:
+        from nivxforge.investigation.ingress_gate import apply_ingress_gate as _apply_gate
+        _gate = _apply_gate(body.input or "")
+        if _gate.was_vendor_json:
+            body.input = _gate.text
+            _ingress_provenance = _gate.normalised_via
+    except Exception:  # noqa: BLE001
+        # Never break the endpoint on gate failure — degrade to raw input.
+        log.exception("ADR-0014 · ingress gate failed (safe — raw input preserved)")
+
     # ── Atomic-IOC guard (v1.3.2 · 2026-07-29) ─────────────────
     # Bare filenames / URLs / IPs / domains / paths / registry keys /
     # hashes are NOT decoding candidates. Applying XOR/ROT/base64
@@ -2058,6 +2079,10 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             source_endpoint="/api/decode/smart",
         )
         _cio = _build_cio(_cio_fs)
+        # ADR-0014 §1.1.14 Layer 2 · attach ingress-gate provenance so
+        # G4 (`G4_NORMALISATION_REQUIRED`) accepts the CIO.
+        if _ingress_provenance:
+            _cio.metadata["normalised_via"] = _ingress_provenance
         result["cio"] = _cio.model_dump(mode="json")
     except Exception:  # noqa: BLE001
         log.exception("ADR-0014 · CIO composition failed (safe — legacy response preserved)")

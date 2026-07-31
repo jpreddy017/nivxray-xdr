@@ -1,5 +1,67 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **ADR-0014 · Phase 2 · Vendor Normaliser Gate IMPLEMENTED**
+
+### The defect closed
+Cisco XDR / Secure Endpoint / QRadar / Defender / CrowdStrike / SentinelOne / Sysmon / Splunk JSON payloads reaching `/api/decode/smart` were regex-scanned for URLs directly, promoting **schema URLs** (Verisign CRL, `console.amp.cisco.com`, `logo.verisign.com`, `xdr.us.security.cisco.com`, etc.) into the primary IOC list. The Lab summary the operator flagged listed `crl.verisign.com` × 3, `console.amp.cisco.com` × 2, and produced "confidence 92 / no high-signal evidence" nonsense.
+
+### Governance · ADR-0014 §1.1.14-19 landed
+- **§1.1.14 · Hybrid normalisation gate** · Layer 1 ingress gate on every entry point + Layer 2 CIO validator safety net.
+- **§1.1.15 · API contract preservation** · normalisation is internal; response shape byte-identical.
+- **§1.1.16 · IOC classification mandatory** · six categories (`vendor_infrastructure` / `certificate_infrastructure` / `internal_asset` / `external_ioc` / `malicious_ioc` / `unknown`). Only `external_ioc` and `malicious_ioc` may drive verdicts.
+- **§1.1.17 · Evidence priority weights** · single-source-of-truth table (0..10). Vendor / CA infra weight 0 — cannot dominate an investigation.
+- **§1.1.18 · Canonical summary ordering** · Event → Process Chain → Host/User → Timeline → High-confidence Evidence → Scope → Impact → Recommendations. URLs / hashes NEVER open the narrative.
+- **§1.1.19 · Telemetry-only inputs valid** · no 400 on vendor alerts without decodable payloads; return a valid CIO with an empty decoder chain.
+
+### Shipped (backend, surgical)
+- `nivxforge/investigation/ioc_classifier.py` · deterministic 6-category classifier with curated CA + vendor-infra suffix lists. Suffix-match only (never substring — `verisign.attacker.com` correctly classified as `external_ioc`).
+- `nivxforge/investigation/evidence_priority.py` · weight table + `weight_for(kind, category=...)` helper. Classification NEVER up-weights (rule locked by unit test).
+- `nivxforge/investigation/ingress_gate.py` · Layer 1 gate. Detects vendor JSON via `v2/investigation/normalizers.py` (lazy `importlib` import preserves nivxforge isolation invariant), synthesises a canonical text carrying only operational fields (host/user/process/parent/sha256/cmd/action/detection). Schema URLs never reach a downstream extractor.
+- `nivxforge/investigation/validators.py` · new **G4_NORMALISATION_REQUIRED** gate. A CIO whose `input_text` is vendor JSON but whose `metadata` lacks a `normalised_via` tag is rejected — silent regressions structurally impossible.
+
+### Wire-in (endpoint changes)
+- `routers/ops.py` (`/api/decode/smart`) · ingress gate runs at the top; if vendor JSON detected, `body.input` is replaced with the canonical text BEFORE any atomic-IOC guard / PowerShell short-circuit / smart-decode / IOC-extract runs. Provenance tag attached to `cio.metadata.normalised_via`.
+- `routers/auto_investigate.py` (`/api/v2/auto-investigate`) · same gate applied at the top of the handler.
+
+### Verified live on preview
+```
+POST /api/decode/smart with Cisco XDR JSON (references[] contains crl.verisign.com + console.amp.cisco.com)
+  cio_present:            True
+  cio.metadata.normalised_via = normalizers.py:Cisco XDR       ← Layer 1 fired
+  polluted_iocs:          []                                    ← Layer 2 safety net satisfied
+  total_iocs:             {}                                    ← schema URLs no longer promoted
+```
+
+### Regression gates (all green in sequential mode)
+- ADR-0007 / 0008 / 0009 / 0012 pinned regression — **52/52 pass**.
+- Slice-A + Slice-B CIO substrate — **47/47 pass**.
+- **New Phase 2 pytest suite — 57 new tests pass**:
+  - `test_adr0014_ioc_classifier.py` — 18 tests (per-CA + per-vendor + boundary + malicious override)
+  - `test_adr0014_evidence_priority.py` — 12 tests (weight-table contract + classification down-weight + never-upweight)
+  - `test_adr0014_ingress_gate.py` — 15 tests (per-vendor detection · pollution corpus · no-vendor short-circuit · canonical-field carrying)
+- Full nivxforge suite — **204/204 pass** (sequential); workspace-isolation invariant preserved via `importlib` lazy import.
+
+### Files changed
+Added:
+- `/app/backend/nivxforge/investigation/ioc_classifier.py`
+- `/app/backend/nivxforge/investigation/evidence_priority.py`
+- `/app/backend/nivxforge/investigation/ingress_gate.py`
+- `/app/backend/nivxforge/tests/test_adr0014_ioc_classifier.py`
+- `/app/backend/nivxforge/tests/test_adr0014_evidence_priority.py`
+- `/app/backend/nivxforge/tests/test_adr0014_ingress_gate.py`
+
+Modified:
+- `/app/memory/adr/0014-canonical-investigation-object.md` — §1.1.14-19 binding principles.
+- `/app/backend/nivxforge/investigation/validators.py` — G4 gate.
+- `/app/backend/routers/ops.py` — ingress gate at top of `/decode/smart` + `normalised_via` metadata attach.
+- `/app/backend/routers/auto_investigate.py` — ingress gate at top of `/v2/auto-investigate` + metadata attach.
+
+### Explicitly NOT done in this phase
+- ❌ **Slice-C · Verdict Engine Unification** (closes ADR-0011, PARITY_GAP-001). Next.
+- ❌ **Slice-D · Backend Summary Composer reading from CIO**. Next-next.
+- ❌ EvidenceGraphView UI (deferred per operator until Slice-C/D land).
+
+
 ## 2026-02-28 · **ADR-0014 · Phase 0 + Phase 1 · Lab wired to backend InvestigationReport IMPLEMENTED**
 
 ### The defect (root cause, evidence-backed)

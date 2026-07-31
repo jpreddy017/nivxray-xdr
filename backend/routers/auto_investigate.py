@@ -649,6 +649,22 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
     if not body.incident_text or not body.incident_text.strip():
         raise HTTPException(status_code=400, detail="incident_text must be non-empty")
 
+    # ═══════════════════════════════════════════════════════════════════
+    # ADR-0014 · Phase 2 · Ingress Normalisation Gate (Layer 1 · §1.1.14).
+    # See routers/ops.py wire-in comment.
+    # ═══════════════════════════════════════════════════════════════════
+    _ingress_provenance: str | None = None
+    try:
+        from nivxforge.investigation.ingress_gate import apply_ingress_gate as _apply_gate
+        _gate = _apply_gate(body.incident_text or "")
+        if _gate.was_vendor_json:
+            body.incident_text = _gate.text
+            _ingress_provenance = _gate.normalised_via
+    except Exception:  # noqa: BLE001
+        logging.getLogger(__name__).exception(
+            "ADR-0014 · ingress gate failed (safe — raw input preserved)"
+        )
+
     # Delegate to the shared enterprise pipeline so both the sync path
     # and the async /jobs path produce identical FinalIncidentSummary
     # payloads, including decode_pipeline.chains[], recursive_stats,
@@ -694,6 +710,9 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
             source_endpoint="/api/v2/auto-investigate",
         )
         _cio = _build_cio(_cio_fs)
+        # ADR-0014 §1.1.14 Layer 2 · attach ingress-gate provenance.
+        if _ingress_provenance:
+            _cio.metadata["normalised_via"] = _ingress_provenance
         result["cio"] = _cio.model_dump(mode="json")
     except Exception:  # noqa: BLE001
         import logging
