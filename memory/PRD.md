@@ -1,5 +1,94 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-31 · **🔒 ARCHITECTURE FROZEN · Universal Investigation Engine + 14-Section Executive Report + Final Lens List**
+
+Per operator directive: "Freeze the platform architecture after these refinements. From this point forward, engineering effort goes into investigation quality, detection accuracy, analyst reasoning, evidence correlation, report quality, and performance — not framework complexity."
+
+### Shipped this turn
+- **`universal_investigation_engine.py`** alias module — re-exports `understand()` as `run_uie()`. IUE has been renamed to **UIE (Universal Investigation Engine)** per the locked architecture. Old imports keep working; new code should call `run_uie`.
+
+### 🔒 Locked pipeline (do not extend without ADR)
+```
+Universal Investigation Engine (UIE)
+    │
+    ├── Input Understanding
+    ├── Normalization
+    ├── Conditional Decoding
+    ├── Evidence Extraction
+    ├── Timeline Builder
+    ├── Behavior Engine
+    ├── Correlation Engine
+    ├── MITRE Mapper
+    ├── Threat Intelligence
+    ├── Verdict Engine
+    ├── Investigation Memory        ← NEW (P3)
+    ├── Story Composer
+    │
+    ▼
+Canonical Investigation Object (CIO)
+    │
+    ├── Executive Lens
+    ├── Story Lens
+    ├── Timeline Lens               ← NEW (P2)
+    ├── Behavior Lens
+    ├── Attack Chain Lens
+    ├── Output Lens
+    ├── Evidence Lens               ← NEW
+    ├── Rules Lens                  ← NEW (P1)
+    ├── LOLBAS Lens                 ← NEW (P1)
+    ├── TI-HITS Lens                ← NEW (P1)
+    ├── OSINT Lens                  (exists; needs live wiring P1)
+    ├── Source Lens
+    └── Report Lens
+```
+
+### 🔒 Locked 14-section Executive Report structure (deterministic ordering)
+Every Executive Report MUST answer these questions in exactly this order:
+1. Executive Verdict
+2. Investigation Scope
+3. What Happened
+4. How It Happened
+5. Evidence Supporting This
+6. Behavior Observed
+7. MITRE Coverage
+8. IOCs
+9. Affected Assets
+10. Risk Assessment
+11. Confidence
+12. Recommended Actions
+13. Unknowns
+14. Analyst Conclusion
+
+Summary composer refactor to emit these 14 sections is the next Story-lens increment.
+
+### 🔒 Locked semantic-graph node types (P2)
+`HOST · USER · PROCESS · FILE · SCRIPT · REGISTRY · NETWORK · IOC · SERVICE · TASK · PIPE · CERTIFICATE · EMAIL · URL · DOMAIN · IP · MUTEX`
+
+### 🔒 Locked edge verbs (P2)
+`downloads · writes · launches · loads · injects · creates · modifies · contacts · drops · reads · deletes · beacons · executes`
+
+### 🔒 Locked Investigation Memory schema (P3)
+```
+Observation → Finding → Hypothesis → Validation → Decision → Recommendation
+```
+Every conclusion in the Executive Report must trace back through this chain.
+
+### Non-goals (frozen)
+- ❌ No new framework layers.
+- ❌ No new event buses, selection buses, or registries beyond what already exists.
+- ❌ No new lens IDs beyond the 13 listed above without a superseding ADR.
+
+### Execution order after freeze
+- **P1**: Live OSINT wiring · Workspace-parity lenses (Rules · LOLBAS · TI-HITS) · Verdict parity (identical evidence ⇒ identical verdict Workspace ↔ Lab v2).
+- **P2**: Semantic Investigation Graph (typed nodes + verbs) · Timeline Lens.
+- **P3**: Investigation Memory (Observation→Recommendation chain) · 14-section Executive Report composer.
+
+### Files added this turn
+- `/app/backend/nivxforge/investigation/universal_investigation_engine.py` — alias module.
+
+---
+
+
 ## 2026-02-31 · **Case Spine + Primary CTA beautification + Operator roadmap locked**
 
 ### Shipped
