@@ -1,5 +1,38 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02 · **Phase B.1.1 · Two-Graph Split (G1 Decode · G2 Attack Chain) — SHIPPED**
+
+Operator directive honoured — separate the decode work from the behavioural attack chain so each graph stays clean.
+
+### Shipped
+- **`buildDecodeGraph(nodes)`** — a linear left-to-right chain of decode-flavoured nodes (kind ∈ {decode, transform, normalize, extract, wrapper, cipher}; also detects labels starting with `Layer N:`). Layers are sorted by their layer number and connected with mint Bezier arrows.
+- **`buildBehaviorGraph(nodes, edges)`** — now excludes ALL decode nodes so G2 stays purely behavioural (LOLBIN · IOCs · processes · behaviours). Verdict-summary and structural nodes are also filtered so the crit-red fan-out to `Suspicious` is gone.
+- **Behaviour lens** renders both graphs stacked: G1 tag (mint) + Decode chain title above, G2 tag (crit) + Attack chain title below.
+- **Selection synchronisation** unchanged: clicking any node in G1 or G2 propagates to Story chips, Ledger, Findings, ATT&CK cards, OSINT card, and the Evidence Bar. One CIO, one selection state.
+- **Both graphs** project from `cio.evidence_graph`. Zero backend changes.
+
+### Verified (screenshot)
+- G1 shows 8 decode layers in a clean horizontal chain with mint arrows.
+- G2 renders 4 behaviour nodes in capability lanes with no visual noise.
+- Both graphs update when selection changes.
+
+### Locked phase order
+- **B.1** Wire Real CIO ✓ · Behavior Graph ✓ · Graph Polish (Two-Graph Split) ✓
+- **B.2** Report Lens + Export Engine
+- **B.3** Command Palette
+- **B.4** OSINT Providers (async, non-blocking)
+- **B.5** Timeline Lens · **B.6** Knowledge Lens · **B.7** Notebook · **B.8** AI Overlay
+
+### Next Actions
+- **Selection Context Bus**: Formalise the selection channel so every future lens plugs in without ad-hoc prop drilling.
+- **Report Lens + Exporters**: One renderer over `cio.summary.report_sections`, multiple exporters (Markdown · PDF · STIX · Navigator · JSON).
+- **Command Palette (⌘K)** — global navigation layer.
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## 2026-02 · **Phase B.1 · Behavior Graph bound to `cio.evidence_graph` — SHIPPED**
 
 Operator directive §1 honoured: the Behavior Graph is a **projection of the CIO evidence graph**, not a second model. No duplicated state.

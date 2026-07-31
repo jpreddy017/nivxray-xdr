@@ -545,75 +545,134 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
             )}
           </section>
 
-          {/* BEHAVIOR — bound to cio.evidence_graph via view.graph */}
+          {/* BEHAVIOR — G1 decode chain + G2 attack chain */}
           <section className={`lens${lens === "behavior" ? " on" : ""}`} id="behavior" ref={lensRefs.behavior} data-testid="lens-behavior">
             <div className="lens-head">
-              <h2>Behavior graph</h2>
-              <p>Every real evidence node dropped into its capability lane. Edges come straight from the CIO evidence graph — one model, one truth.</p>
+              <h2>Behaviour graphs</h2>
+              <p>Two graphs projected from <code style={{ fontFamily: "var(--font-mono)" }}>cio.evidence_graph</code>. G1 shows the layer-by-layer unwrapping recipe. G2 shows the causal attack chain.</p>
             </div>
-            {view.graph && !view.graph.empty ? (
-              <div className="graph-wrap" data-testid="graph-wrap">
-                <svg viewBox={`0 0 ${view.graph.width} ${view.graph.height}`} role="img" aria-label="Causal behavior graph across capability lanes">
-                  <defs>
-                    <marker id="ah" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-                      <path d="M0,0 L7,3.5 L0,7 z" fill="currentColor" />
-                    </marker>
-                  </defs>
-                  {/* Lane backgrounds + labels */}
-                  <g>
-                    {view.graph.lanes.map((lane) => (
-                      <React.Fragment key={lane.id}>
-                        <rect className="lane-bg" x="0" y={lane.y} width={view.graph.width} height="96" rx="6" />
-                        <text className="lane-lbl" x="12" y={lane.y + 18}>{lane.label}</text>
-                      </React.Fragment>
-                    ))}
-                  </g>
-                  {/* Edges (hot first for z-order, then cool) */}
-                  <g className="edge">
-                    {view.graph.edges.filter((e) => !e.hot).map((e, i) => (
-                      <line key={`c${i}`} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} markerEnd="url(#ah)" />
-                    ))}
-                  </g>
-                  <g className="edge hot">
-                    {view.graph.edges.filter((e) => e.hot).map((e, i) => (
-                      <line key={`h${i}`} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} markerEnd="url(#ah)" />
-                    ))}
-                  </g>
-                  {/* Nodes */}
-                  <g>
-                    {view.graph.lanes.flatMap((lane) =>
-                      lane.nodes.map((n) => (
+
+            {/* G1 · Decode chain */}
+            <div className="graph-block" data-testid="graph-block-decode">
+              <div className="graph-title">
+                <span className="tag mint">G1</span>
+                <h3>Decode chain</h3>
+                <span className="quiet">layer-by-layer unwrapping · linear</span>
+              </div>
+              {view.decodeGraph && !view.decodeGraph.empty ? (
+                <div className="graph-wrap" data-testid="graph-wrap-decode">
+                  <svg
+                    width={view.decodeGraph.width}
+                    height={view.decodeGraph.height}
+                    viewBox={`0 0 ${view.decodeGraph.width} ${view.decodeGraph.height}`}
+                    style={{ display: "block" }}
+                  >
+                    <defs>
+                      <marker id="ah-dec" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+                        <path d="M0,0 L9,4.5 L0,9 z" fill="var(--mint)" />
+                      </marker>
+                    </defs>
+                    <g className="edge hot" style={{ stroke: "var(--mint)" }}>
+                      {view.decodeGraph.edges.map((e, i) => (
+                        <path key={i} d={e.path} markerEnd="url(#ah-dec)" style={{ stroke: "var(--mint)" }} />
+                      ))}
+                    </g>
+                    <g>
+                      {view.decodeGraph.nodes.map((n) => (
                         <g
                           key={n.id}
                           className="graph-node"
-                          data-testid={`graph-node-${n.id}`}
+                          data-testid={`decode-node-${n.id}`}
                           style={{ cursor: "pointer" }}
                           onClick={() => onEvClick(n.id)}
                         >
-                          <rect
-                            className={`n-box${n.hot ? " hot" : ""}${selEv === n.id ? " sel" : ""}`}
-                            x={n.x}
-                            y={n.y}
-                            width={n.w}
-                            height={n.h}
-                          />
-                          <text className="n-t" x={n.x + 14} y={n.y + 22}>{n.title}</text>
-                          <text className="n-s" x={n.x + 14} y={n.y + 40}>{n.subtitle} · {n.id}</text>
+                          <rect className={`n-box${selEv === n.id ? " sel" : ""}`} x={n.x} y={n.y} width={n.w} height={n.h} rx="6" />
+                          <text className="n-t" x={n.x + 16} y={n.y + 24}>{n.title}</text>
+                          <text className="n-s" x={n.x + 16} y={n.y + 44}>{n.subtitle} · {n.id}</text>
                         </g>
-                      ))
-                    )}
-                  </g>
-                </svg>
+                      ))}
+                    </g>
+                  </svg>
+                </div>
+              ) : (
+                <div className="tempty">No decode layers were unwrapped for this investigation.</div>
+              )}
+            </div>
+
+            {/* G2 · Attack Chain */}
+            <div className="graph-block" data-testid="graph-block-attack" style={{ marginTop: "var(--s6)" }}>
+              <div className="graph-title">
+                <span className="tag crit">G2</span>
+                <h3>Attack chain</h3>
+                <span className="quiet">causal graph across capability lanes</span>
               </div>
-            ) : (
-              <div className="tempty">
-                No evidence graph was produced for this investigation. Behavior lanes stay empty until the engine attaches
-                nodes and edges to <code style={{ fontFamily: "var(--font-mono)" }}>cio.evidence_graph</code>.
-              </div>
-            )}
-            <p className="quiet" style={{ marginTop: "var(--s3)", maxWidth: "820px", fontSize: 12 }}>
-              Bound directly to <code style={{ fontFamily: "var(--font-mono)" }}>cio.evidence_graph</code>. Node clicks
-              select the evidence chip everywhere in the workspace.
+              {view.attackGraph && !view.attackGraph.empty ? (
+                <div className="graph-wrap" data-testid="graph-wrap-attack">
+                  <svg
+                    width={view.attackGraph.width}
+                    height={view.attackGraph.height}
+                    viewBox={`0 0 ${view.attackGraph.width} ${view.attackGraph.height}`}
+                    style={{ display: "block" }}
+                  >
+                    <defs>
+                      <marker id="ah" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+                        <path d="M0,0 L9,4.5 L0,9 z" fill="currentColor" />
+                      </marker>
+                      <marker id="ah-hot" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+                        <path d="M0,0 L9,4.5 L0,9 z" fill="var(--crit)" />
+                      </marker>
+                    </defs>
+                    <g>
+                      {view.attackGraph.lanes.map((lane) => (
+                        <React.Fragment key={lane.id}>
+                          <rect className="lane-bg" x="0" y={lane.y} width={view.attackGraph.width} height={lane.height || 96} rx="8" />
+                          <text className="lane-lbl" x="16" y={lane.y + 22}>{lane.label}</text>
+                        </React.Fragment>
+                      ))}
+                    </g>
+                    <g className="edge">
+                      {view.attackGraph.edges.filter((e) => !e.hot).map((e, i) => (
+                        <path key={`c${i}`} d={e.path} markerEnd="url(#ah)" />
+                      ))}
+                    </g>
+                    <g className="edge hot">
+                      {view.attackGraph.edges.filter((e) => e.hot).map((e, i) => (
+                        <path key={`h${i}`} d={e.path} markerEnd="url(#ah-hot)" />
+                      ))}
+                    </g>
+                    <g>
+                      {view.attackGraph.lanes.flatMap((lane) =>
+                        lane.nodes.map((n) => (
+                          <g
+                            key={n.id}
+                            className="graph-node"
+                            data-testid={`attack-node-${n.id}`}
+                            style={{ cursor: "pointer" }}
+                            onClick={() => onEvClick(n.id)}
+                          >
+                            <rect className={`n-box${n.hot ? " hot" : ""}${selEv === n.id ? " sel" : ""}`} x={n.x} y={n.y} width={n.w} height={n.h} rx="6" />
+                            <text className="n-t" x={n.x + 16} y={n.y + 24}>{n.title}</text>
+                            <text className="n-s" x={n.x + 16} y={n.y + 44}>{n.subtitle} · {n.id}</text>
+                          </g>
+                        ))
+                      )}
+                    </g>
+                    {view.attackGraph.chainLabel ? (
+                      <text className="chain-lbl" x="40" y={view.attackGraph.height - 18}>{view.attackGraph.chainLabel}</text>
+                    ) : null}
+                  </svg>
+                </div>
+              ) : (
+                <div className="tempty">
+                  No behavioural evidence was extracted for this investigation. The attack chain stays empty until the engine
+                  attaches non-decode nodes to <code style={{ fontFamily: "var(--font-mono)" }}>cio.evidence_graph</code>.
+                </div>
+              )}
+            </div>
+
+            <p className="quiet" style={{ marginTop: "var(--s4)", maxWidth: "820px", fontSize: 12 }}>
+              Both graphs render straight from the CIO evidence graph. Node clicks synchronise the evidence chip across every
+              lens in the workspace.
             </p>
           </section>
 

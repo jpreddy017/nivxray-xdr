@@ -99,10 +99,12 @@ export function projectCIO(cio) {
     };
   });
 
-  // ── Behavior graph projection (ADR-0022 §8, operator directive §1)
-  //    Bucket every real evidence node into one of four capability lanes.
-  //    Edges come straight from `evidence_graph.edges`. No second model.
-  const graph = buildBehaviorGraph(nodes, edges);
+  // ── Behavior/Attack graph (G2). buildBehaviorGraph filters out
+  //    decode nodes internally so the attack chain stays clean.
+  const attackGraph = buildBehaviorGraph(nodes, edges);
+
+  // ── Decode chain graph (G1) — linear layer-by-layer
+  const decodeGraph = buildDecodeGraph(nodes, edges);
 
   // Case Spine: derive stage states from reasoning_steps rules.
   // A stage is "done" if any step's rule matches its bucket; otherwise
@@ -287,7 +289,9 @@ export function projectCIO(cio) {
       osint,
       decodeLadder,
       behaviorNodes,
-      graph,
+      decodeGraph,
+      attackGraph,
+      graph: attackGraph, // legacy alias for older refs (Storybook)
       defaultEv,
     },
     sourceIsDemo: false,
@@ -387,15 +391,24 @@ function escapeHTML(s) {
 }
 
 // ── Behavior graph builder ───────────────────────────────────────────
-// Buckets every real evidence-graph node into one of four capability
-// lanes and lays them out on a 860×468 SVG canvas. Edges come from
-// `evidence_graph.edges` verbatim — no second graph model.
+// Layered layout: (1) bucket nodes into capability lanes, (2) assign
+// each node a column via longest-path topological ordering so edges
+// always flow left→right, (3) stack rows within a lane cell to prevent
+// overlap, (4) route edges as cubic Bezier curves. All positions are
+// deterministic for a given (nodes, edges) input — critical so the
+// selection state stays anchored across CIO updates.
 const LANE_DEFS = [
-  { id: "evade",   label: "EVADE",             y: 6,   testKinds: /evasion|hide|hidden|bypass|obfusc/i,     mitre: /T1027|T1140|T1564|T1620/i },
-  { id: "decode",  label: "DECODE",            y: 126, testKinds: /decode|transform|normalize|artifact|encoding|cipher/i, mitre: /T1027|T1140/i },
-  { id: "acquire", label: "ACQUIRE",           y: 246, testKinds: /ioc|url|domain|ip|hash|network|download|fetch|c2/i,     mitre: /T1105|T1071/i },
-  { id: "execute", label: "EXECUTE · PERSIST", y: 366, testKinds: /lolbin|process|execute|persist|verdict|behaviour|behavior|entity|command/i, mitre: /T1059|T1053|T1547|T1543/i },
+  { id: "evade",   label: "EVADE",             y: 20,  testKinds: /evasion|hide|hidden|bypass|obfusc/i, mitre: /T1027|T1140|T1564|T1620/i },
+  { id: "decode",  label: "DECODE",            y: 180, testKinds: /decode|transform|normalize|artifact|encoding|cipher/i, mitre: /T1027|T1140/i },
+  { id: "acquire", label: "ACQUIRE",           y: 340, testKinds: /ioc|url|domain|ip|hash|network|download|fetch|c2/i, mitre: /T1105|T1071/i },
+  { id: "execute", label: "EXECUTE · PERSIST", y: 500, testKinds: /lolbin|process|execute|persist|verdict|behaviour|behavior|entity|command/i, mitre: /T1059|T1053|T1547|T1543/i },
 ];
+const LANE_HEIGHT = 150;
+const ROW_HEIGHT = 74;
+const NODE_W = 220;
+const NODE_H = 60;
+const COL_W = 260;
+const LEFT_PAD = 80;
 
 function bucketNode(node) {
   const kind = String(node.kind || "");
@@ -403,49 +416,174 @@ function bucketNode(node) {
   for (const lane of LANE_DEFS) {
     if (lane.testKinds.test(kind) || (mitre && lane.mitre.test(mitre))) return lane.id;
   }
-  // Default: place unknown-kind nodes in EXECUTE lane so nothing is
-  // silently dropped. Analyst still sees every observation.
   return "execute";
+}
+
+function longestPathColumns(nodes, edges) {
+  // Directed graph. Column = longest incoming path length. Nodes with
+  // no incoming edges start at column 0. Cycles are broken naturally
+  // because we stop revisiting once a node's column stops growing.
+  const cols = {};
+  const incoming = {};
+  const outgoingByFrom = {};
+  nodes.forEach((n) => { cols[n.id] = 0; incoming[n.id] = 0; });
+  edges.forEach((e) => {
+    if (cols[e.source] === undefined || cols[e.target] === undefined) return;
+    (outgoingByFrom[e.source] = outgoingByFrom[e.source] || []).push(e.target);
+    incoming[e.target] = (incoming[e.target] || 0) + 1;
+  });
+  // Kahn-ish BFS relaxation for longest path.
+  let changed = true;
+  let guard = 0;
+  while (changed && guard++ < nodes.length * 4) {
+    changed = false;
+    for (const [src, targets] of Object.entries(outgoingByFrom)) {
+      for (const tgt of targets) {
+        const proposed = cols[src] + 1;
+        if (proposed > cols[tgt]) {
+          cols[tgt] = proposed;
+          changed = true;
+        }
+      }
+    }
+  }
+  return cols;
 }
 
 function buildBehaviorGraph(nodes, edges) {
   if (!nodes || nodes.length === 0) {
-    return { lanes: [], edges: [], empty: true, width: 860, height: 468 };
+    return { lanes: [], edges: [], empty: true, width: 900, height: 720, chainLabel: "" };
   }
-  const byLane = { evade: [], decode: [], acquire: [], execute: [] };
-  nodes.forEach((n) => {
-    // Skip artifacts (input placeholder) and verdict summary node — those
-    // are structural, not observable behaviours.
-    if (n.kind === "artifact") return;
-    byLane[bucketNode(n)].push(n);
+
+  // 1. Filter out structural + decode nodes. Decode belongs to G1
+  //    (decode chain), NOT G2 (attack chain). Keeping them here creates
+  //    the "fan of decode edges into verdict" visual noise.
+  const OMIT_KINDS = /^(artifact|verdict|persist_note|note|report|decode|transform|normalize|extract|wrapper|cipher)$/i;
+  const observable = nodes.filter(
+    (n) => !OMIT_KINDS.test(String(n.kind || "")) && !/^Layer\s+\d+/i.test(String(n.label || ""))
+  );
+  if (observable.length === 0) {
+    return { lanes: [], edges: [], empty: true, width: 900, height: 720, chainLabel: "" };
+  }
+  const observableIds = new Set(observable.map((n) => n.id));
+
+  // 2. Prune noisy edges: (a) any edge whose endpoint is off-graph
+  //    (structural node), (b) `references` edges from the input
+  //    artifact that carry no analytic value, (c) duplicates.
+  const seenEdgeKey = new Set();
+  const cleanEdges = edges.filter((e) => {
+    if (!observableIds.has(e.source) || !observableIds.has(e.target)) return false;
+    if ((e.kind || "").toLowerCase() === "references") return false;
+    const key = `${e.source}→${e.target}`;
+    if (seenEdgeKey.has(key)) return false;
+    seenEdgeKey.add(key);
+    return true;
   });
 
-  // Layout: for each lane, evenly distribute node boxes along x.
-  const laneW = 860;
-  const boxW = 160;
-  const boxH = 52;
+  // 2. Bucket into lanes.
+  const laneOfNode = {};
+  const byLane = { evade: [], decode: [], acquire: [], execute: [] };
+  observable.forEach((n) => {
+    const laneId = bucketNode(n);
+    laneOfNode[n.id] = laneId;
+    byLane[laneId].push(n);
+  });
+
+  // 3. Topological columns from the pruned edge list.
+  const cols = longestPathColumns(observable, cleanEdges);
+
+  // 4. Normalise columns per lane so every lane starts at column 0 for
+  //    a compact left-aligned look, and within-lane collisions get
+  //    stacked in rows.
   const positions = {};
-  const lanes = LANE_DEFS.map((lane) => {
+  let maxCol = 0;
+  LANE_DEFS.forEach((lane) => {
     const items = byLane[lane.id];
-    const count = items.length;
-    const laneNodes = items.map((n, i) => {
-      const availableW = laneW - 40 - boxW;
-      const step = count > 1 ? availableW / (count - 1) : 0;
-      const x = 40 + (count === 1 ? availableW / 2 : step * i);
-      const y = lane.y + 32; // inside lane, below label
-      positions[n.id] = { x, y, w: boxW, h: boxH, lane: lane.id };
+    if (items.length === 0) return;
+
+    // Sort by column so lower-cost paths appear left. Nodes at the
+    // same column get sequential rows within the lane.
+    items.sort((a, b) => (cols[a.id] || 0) - (cols[b.id] || 0));
+    // Compact columns: e.g. columns [2,5,5,7] → [0,1,1,2]
+    const uniqueCols = Array.from(new Set(items.map((n) => cols[n.id] || 0))).sort((a, b) => a - b);
+    const rowByColKey = {};
+    items.forEach((n) => {
+      const c = uniqueCols.indexOf(cols[n.id] || 0);
+      const key = c;
+      const row = (rowByColKey[key] = (rowByColKey[key] || 0));
+      rowByColKey[key] = row + 1;
+      const x = LEFT_PAD + c * COL_W;
+      const y = lane.y + row * ROW_HEIGHT;
+      positions[n.id] = { x, y, w: NODE_W, h: NODE_H, lane: lane.id };
+      maxCol = Math.max(maxCol, c);
+    });
+  });
+
+  // 5. Compute lane row-heights so lanes grow when they hold many rows.
+  const laneRows = { evade: 1, decode: 1, acquire: 1, execute: 1 };
+  Object.entries(byLane).forEach(([id, items]) => {
+    if (items.length === 0) return;
+    // Count rows = max row index used
+    const rowCounts = {};
+    items.forEach((n) => {
+      const p = positions[n.id];
+      const r = Math.round((p.y - LANE_DEFS.find((l) => l.id === id).y) / ROW_HEIGHT);
+      rowCounts[r] = (rowCounts[r] || 0) + 1;
+    });
+    laneRows[id] = Math.max(1, Object.keys(rowCounts).length);
+  });
+
+  // 6. Adjust lane Y positions so lanes stack based on their row count.
+  const laneY = {};
+  let cursorY = 20;
+  LANE_DEFS.forEach((lane) => {
+    laneY[lane.id] = cursorY;
+    cursorY += Math.max(LANE_HEIGHT, laneRows[lane.id] * ROW_HEIGHT + 40);
+  });
+  // Reposition nodes into their lane's new Y band.
+  Object.keys(positions).forEach((id) => {
+    const p = positions[id];
+    const originalLaneY = LANE_DEFS.find((l) => l.id === p.lane).y;
+    const offset = p.y - originalLaneY;
+    p.y = laneY[p.lane] + 40 + offset - LANE_DEFS.find((l) => l.id === p.lane).y + LANE_DEFS.find((l) => l.id === p.lane).y - 20;
+    // Simpler: put node at laneY + 40 + row*ROW_HEIGHT (recompute row)
+    const items = byLane[p.lane];
+    items.sort((a, b) => (cols[a.id] || 0) - (cols[b.id] || 0));
+    const uniqueCols = Array.from(new Set(items.map((n) => cols[n.id] || 0))).sort((a, b) => a - b);
+    const c = uniqueCols.indexOf(cols[id] || 0);
+    // Count rows used in this column before this node
+    let row = 0;
+    for (const it of items) {
+      if (it.id === id) break;
+      const ic = uniqueCols.indexOf(cols[it.id] || 0);
+      if (ic === c) row++;
+    }
+    p.x = LEFT_PAD + c * COL_W;
+    p.y = laneY[p.lane] + 40 + row * ROW_HEIGHT;
+  });
+
+  // 7. Build lane view models.
+  const lanes = LANE_DEFS.map((lane) => ({
+    id: lane.id,
+    label: lane.label,
+    y: laneY[lane.id],
+    height: Math.max(LANE_HEIGHT, laneRows[lane.id] * ROW_HEIGHT + 40),
+    nodes: byLane[lane.id].map((n) => {
+      const p = positions[n.id];
       return {
         id: n.id,
         title: prettifyLabel(n),
-        subtitle: `${n.kind || ""} · ${Math.round((n.confidence || 0) * 100)}%`,
+        subtitle: `${(n.kind || "").replace(/^external_ioc_/, "")} · ${Math.round((n.confidence || 0) * 100)}%`,
         hot: (n.confidence || 0) >= 0.7,
-        x, y, w: boxW, h: boxH,
+        x: p.x, y: p.y, w: p.w, h: p.h,
       };
-    });
-    return { id: lane.id, label: lane.label, y: lane.y, nodes: laneNodes };
-  });
+    }),
+  }));
 
-  // Edges — resolve endpoints, mark hot if weight >= 0.6 or kind ∈ hot list.
+  // 8. Route edges as cubic Bezier curves. Every edge exits the right
+  //    edge of the source and enters the left edge of the target;
+  //    control points push horizontally by half the x-distance so
+  //    cross-lane edges naturally arc down/up.
   const HOT_KINDS = /contributes_to|produces|drives/i;
   const drawnEdges = edges
     .map((e) => {
@@ -453,31 +591,111 @@ function buildBehaviorGraph(nodes, edges) {
       const dst = positions[e.target];
       if (!src || !dst) return null;
       const hot = (e.weight || 0) >= 0.6 && HOT_KINDS.test(e.kind || "");
-      return {
-        x1: src.x + src.w / 2,
-        y1: src.y + src.h / 2,
-        x2: dst.x + dst.w / 2,
-        y2: dst.y + dst.h / 2,
-        hot,
-      };
+      // Anchor points: right-center of source, left-center of destination.
+      const sx = src.x + src.w;
+      const sy = src.y + src.h / 2;
+      const tx = dst.x;
+      const ty = dst.y + dst.h / 2;
+      // Cubic Bezier — bend based on dx so lane crossings curve gently.
+      const dx = Math.max(48, (tx - sx) * 0.55);
+      const path = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+      return { path, hot };
     })
     .filter(Boolean);
 
-  return {
-    lanes,
-    edges: drawnEdges,
-    width: 860,
-    height: 468,
-    empty: false,
-    totalNodes: nodes.length - (byLane.evade.length + byLane.decode.length + byLane.acquire.length + byLane.execute.length ? 0 : 0),
-  };
+  // 9. Chain label — pick the longest hot causal path across lanes.
+  const chainLabel = deriveChainLabel(observable, edges, laneOfNode);
+
+  const totalHeight = cursorY + 40;
+  const totalWidth = LEFT_PAD + (maxCol + 1) * COL_W + 40;
+
+  return { lanes, edges: drawnEdges, width: totalWidth, height: totalHeight, empty: false, chainLabel };
+}
+
+function deriveChainLabel(nodes, edges, laneOfNode) {
+  // Follow the heaviest outgoing edges from the highest-confidence
+  // node in each lane and pick the sequence of lanes touched.
+  const HOT = /contributes_to|produces|drives/i;
+  const outByFrom = {};
+  edges.forEach((e) => {
+    if (!HOT.test(e.kind || "") || (e.weight || 0) < 0.5) return;
+    (outByFrom[e.source] = outByFrom[e.source] || []).push(e);
+  });
+  // Rank starting nodes by out-degree.
+  const starts = Object.entries(outByFrom).sort((a, b) => b[1].length - a[1].length);
+  if (starts.length === 0) return "";
+  const seenLanes = [];
+  let current = starts[0][0];
+  const guard = new Set();
+  while (current && !guard.has(current)) {
+    guard.add(current);
+    const lane = laneOfNode[current];
+    if (lane && seenLanes[seenLanes.length - 1] !== lane) seenLanes.push(lane);
+    const out = (outByFrom[current] || []).sort((a, b) => (b.weight || 0) - (a.weight || 0));
+    current = out.length > 0 ? out[0].target : null;
+  }
+  if (seenLanes.length < 2) return "";
+  const laneLabels = { evade: "EVADE", decode: "DECODE", acquire: "DOWNLOAD", execute: "EXECUTE" };
+  return `CHAIN: ${seenLanes.map((l) => laneLabels[l] || l.toUpperCase()).join(" → ")}  ·  drives verdict`;
 }
 
 function prettifyLabel(n) {
   const raw = String(n.label || n.value || n.id || "");
   // Turn "URL · http://..." into just the value part when possible.
-  const stripped = raw.replace(/^[A-Z]+·\s*/i, "").replace(/^[A-Z ]+·\s*/i, "");
-  return stripped.length > 28 ? stripped.slice(0, 27) + "…" : stripped || n.id;
+  let stripped = raw.replace(/^[A-Z]+·\s*/i, "").replace(/^[A-Z ]+·\s*/i, "");
+  if (stripped.startsWith("http")) {
+    try { stripped = new URL(stripped.replace("[.]", ".")).hostname.replace(".", "[.]"); } catch { /* keep */ }
+  }
+  return stripped.length > 32 ? stripped.slice(0, 31) + "…" : stripped || n.id;
+}
+
+// ── Decode Graph (G1) — linear left-to-right chain of decode layers.
+// Renders ONLY nodes with a decode-flavoured kind so the analyst sees
+// the unwrapping recipe as a chain, not mixed with behaviour nodes.
+function buildDecodeGraph(nodes, edges) {
+  const decodeNodes = (nodes || []).filter((n) =>
+    /decode|transform|normalize|extract|wrapper|cipher/i.test(String(n.kind || ""))
+    || /^Layer\s+\d+/i.test(String(n.label || ""))
+  );
+  if (decodeNodes.length === 0) {
+    return { nodes: [], edges: [], empty: true, width: 900, height: 160 };
+  }
+  // Sort by layer number if the label starts with "Layer N:"; else keep order.
+  decodeNodes.sort((a, b) => {
+    const na = parseInt(String(a.label || "").match(/Layer\s+(\d+)/i)?.[1] || 9999, 10);
+    const nb = parseInt(String(b.label || "").match(/Layer\s+(\d+)/i)?.[1] || 9999, 10);
+    return na - nb;
+  });
+  const NW = 220, NH = 60, GAP = 40, PAD_X = 40, PAD_Y = 40;
+  const layouted = decodeNodes.map((n, i) => ({
+    id: n.id,
+    title: prettifyLabel(n),
+    subtitle: `layer ${i} · ${Math.round((n.confidence || 0) * 100)}%`,
+    hot: (n.confidence || 0) >= 0.7,
+    x: PAD_X + i * (NW + GAP),
+    y: PAD_Y,
+    w: NW,
+    h: NH,
+  }));
+  // Edges: connect consecutive decode nodes with cubic Beziers.
+  const linkEdges = [];
+  for (let i = 0; i < layouted.length - 1; i++) {
+    const a = layouted[i], b = layouted[i + 1];
+    const sx = a.x + a.w, sy = a.y + a.h / 2;
+    const tx = b.x, ty = b.y + b.h / 2;
+    const dx = Math.max(24, (tx - sx) * 0.5);
+    linkEdges.push({
+      path: `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`,
+      hot: true,
+    });
+  }
+  return {
+    nodes: layouted,
+    edges: linkEdges,
+    empty: false,
+    width: PAD_X * 2 + layouted.length * NW + (layouted.length - 1) * GAP,
+    height: PAD_Y * 2 + NH,
+  };
 }
 
 // ── empty (tool-idle) state ──────────────────────────────────────────
@@ -514,7 +732,9 @@ function buildEmptyView() {
     osint: [],
     decodeLadder: [],
     behaviorNodes: [],
-    graph: { lanes: [], edges: [], empty: true },
+    decodeGraph: { nodes: [], edges: [], empty: true, width: 900, height: 200 },
+    attackGraph: { lanes: [], edges: [], empty: true, width: 900, height: 500, chainLabel: "" },
+    graph: { lanes: [], edges: [], empty: true, width: 900, height: 500, chainLabel: "" },
     defaultEv: null,
     rawInput: "",
   };

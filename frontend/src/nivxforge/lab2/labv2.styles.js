@@ -137,20 +137,27 @@ export const LABV2_CSS = `
 .labv2 .transform .arrow{color:var(--mint)}
 .labv2 .transform .conf{margin-left:auto;padding-right:var(--s4)}
 
-/* BEHAVIOR */
-.labv2 .graph-wrap{border:1px solid var(--border);border-radius:var(--r-xl);background:var(--raised);padding:var(--s4);max-width:900px}
-.labv2 .graph-wrap svg{display:block;width:100%;height:auto}
+/* BEHAVIOR — polished topological graph */
+.labv2 .graph-wrap{border:1px solid var(--border);border-radius:var(--r-xl);background:var(--raised);padding:var(--s5);max-width:100%;overflow-x:auto}
+.labv2 .graph-wrap svg{display:block;width:auto;height:auto;min-width:100%}
 .labv2 .lane-bg{fill:var(--sunken)}
-.labv2 .lane-lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;fill:var(--fg3)}
-.labv2 .n-box{fill:var(--node-fill);stroke:var(--border-strong);stroke-width:1;rx:4}
-.labv2 .n-box.hot{stroke:var(--crit)}
+.labv2 .lane-lbl{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;fill:var(--fg3)}
+.labv2 .n-box{fill:var(--node-fill);stroke:var(--border-strong);stroke-width:1}
+.labv2 .n-box.hot{stroke:var(--crit);stroke-width:1.4}
 .labv2 .n-box.sel{stroke:var(--mint);stroke-width:2}
 .labv2 .graph-node:hover .n-box{stroke:var(--mint)}
-.labv2 .n-t{font-family:var(--font-ui);font-size:12px;font-weight:500;fill:var(--fg)}
-.labv2 .n-s{font-family:var(--font-mono);font-size:10px;fill:var(--fg3)}
-.labv2 .edge{stroke:var(--border-strong);stroke-width:1.25;fill:none}
-.labv2 .edge.hot{stroke:var(--crit);stroke-width:1.5}
-.labv2 .chain-lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;fill:var(--crit)}
+.labv2 .n-t{font-family:var(--font-ui);font-size:13px;font-weight:500;fill:var(--fg)}
+.labv2 .n-s{font-family:var(--font-mono);font-size:10.5px;fill:var(--fg3)}
+.labv2 .edge{stroke:var(--border-strong);stroke-width:1.4;fill:none;color:var(--border-strong)}
+.labv2 .edge.hot{stroke:var(--crit);stroke-width:1.8;color:var(--crit)}
+.labv2 .chain-lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;fill:var(--crit);font-weight:500}
+.labv2 .graph-block{margin-bottom:var(--s4)}
+.labv2 .graph-title{display:flex;align-items:baseline;gap:var(--s3);margin-bottom:var(--s3)}
+.labv2 .graph-title h3{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--fg)}
+.labv2 .graph-title .quiet{font-size:11.5px;color:var(--fg3)}
+.labv2 .graph-title .tag{font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.16em;padding:2px 8px;border:1px solid;border-radius:var(--r-sm)}
+.labv2 .graph-title .tag.mint{color:var(--mint);border-color:var(--mint);background:var(--wash)}
+.labv2 .graph-title .tag.crit{color:var(--crit);border-color:var(--crit);background:transparent}
 
 /* ATT&CK */
 .labv2 .tactics{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s3);max-width:900px}
