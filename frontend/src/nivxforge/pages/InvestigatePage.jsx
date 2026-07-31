@@ -20,7 +20,6 @@ import InputToolbar from "../../components/InputToolbar";
 import InvestigationPipeline from "../../components/InvestigationPipeline";
 import { InvestigationReport } from "../../pages/AutoInvestigatePage";
 import api from "../../lib/api";
-
 const S = {
   page: { padding: "24px 28px 72px", color: "var(--text)", minHeight: "100vh", background: "var(--bg)" },
   hero: { marginBottom: 20 },
@@ -80,6 +79,7 @@ export default function InvestigatePage() {
   const [mode, setMode] = useState(null);        // "decode" | "auto"
   const [result, setResult] = useState(null);
   const [err, setErr] = useState("");
+  const [whyOpen, setWhyOpen] = useState(false);
   const fileInputRef = useRef(null);
 
   const canSubmit = input.trim().length > 0 && !loading;
@@ -269,6 +269,74 @@ export default function InvestigatePage() {
                       Vendor Metadata Stripped: {result.cio.verdict.not_counted.length}
                     </span>
                   </>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* ADR-0014 Slice-C · "Why this verdict?" explainability panel.
+                Uses the verdict engine's `contributors` + `not_counted` — no
+                frontend reasoning; pure presentation of backend evidence. */}
+            {result?.cio?.verdict ? (
+              <div
+                data-testid="investigate-why-verdict-block"
+                style={{
+                  background: "rgba(15, 23, 42, 0.6)",
+                  border: "1px solid var(--border, #1e293b)",
+                  borderRadius: 6,
+                  padding: "10px 14px",
+                  marginBottom: 14,
+                  fontSize: 13,
+                  color: "#e2e8f0",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ letterSpacing: "0.14em", fontSize: 11, color: "#94a3b8" }}>VERDICT</span>
+                  <span style={{ fontWeight: 700, color: "#f8fafc" }}>{result.cio.verdict.label}</span>
+                  <span style={{ color: "#94a3b8" }}>·</span>
+                  <span style={{ color: "#e2e8f0" }}>confidence {result.cio.verdict.confidence_pct}%</span>
+                  <button
+                    data-testid="investigate-why-toggle"
+                    onClick={() => setWhyOpen((v) => !v)}
+                    style={{
+                      marginLeft: "auto",
+                      background: "transparent",
+                      color: "#7dd3fc",
+                      border: "1px solid rgba(125, 211, 252, 0.4)",
+                      borderRadius: 4,
+                      padding: "4px 10px",
+                      cursor: "pointer",
+                      fontSize: 12,
+                    }}
+                  >
+                    {whyOpen ? "Hide reasoning" : "Why this verdict?"}
+                  </button>
+                </div>
+                {whyOpen ? (
+                  <div data-testid="investigate-why-panel" style={{ marginTop: 12, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}>
+                    <div style={{ color: "#94a3b8", marginBottom: 8 }}>{result.cio.verdict.reason}</div>
+                    {result.cio.verdict.contributors?.length ? (
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ color: "#a7f3d0", marginBottom: 4 }}>Contributing evidence</div>
+                        {result.cio.verdict.contributors.slice(0, 10).map((c) => (
+                          <div key={c.node_id} data-testid={`why-contributor-${c.node_id}`} style={{ color: "#e2e8f0" }}>
+                            <span style={{ color: "#34d399", fontWeight: 600 }}>{" + "}</span>
+                            {c.label} <span style={{ color: "#94a3b8" }}>(kind={c.kind}, weight={c.weight}, conf={Math.round((c.confidence || 0) * 100)}%)</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {result.cio.verdict.not_counted?.length ? (
+                      <div>
+                        <div style={{ color: "#fca5a5", marginBottom: 4 }}>Ignored (weight 0)</div>
+                        {result.cio.verdict.not_counted.slice(0, 10).map((c) => (
+                          <div key={c.node_id} data-testid={`why-not-counted-${c.node_id}`} style={{ color: "#e2e8f0" }}>
+                            <span style={{ color: "#f87171", fontWeight: 600 }}>{" − "}</span>
+                            {c.label} <span style={{ color: "#94a3b8" }}>({c.category || "unknown"})</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             ) : null}
