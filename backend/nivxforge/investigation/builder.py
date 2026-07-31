@@ -471,13 +471,19 @@ def build_cio(
         reports={},
         metadata={
             "adr": "0014",
-            "slice": "C",
+            "slice": "D",
             "node_count": len(graph.nodes),
             "edge_count": len(graph.edges),
             "reasoning_step_count": len(steps),
             "verdict_engine": _verdict.engine,
         },
     )
+
+    # ADR-0014 Slice-D · compose the canonical Summary. Backend owns
+    # summary composition (§1.1.9). Frontend never writes prose.
+    from nivxforge.investigation.summary_composer import compose_summary
+    cio.summary = compose_summary(cio).model_dump(mode="json")
+    cio.recommendations = list(cio.summary.get("recommendations", []) or [])
     return cio
 
 

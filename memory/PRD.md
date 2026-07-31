@@ -1,5 +1,60 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **ADR-0014 · Slice-D · Backend Summary Composer IMPLEMENTED + Lab 2.0 API Contract PUBLISHED**
+
+### The last engine unification (Slice-D)
+`cio.summary` is now the single, canonical source of truth for every UI surface (Story · Report · Executive · SOC · DFIR views). Frontend never composes prose per §1.1.9. Every summary is deterministic — same CIO → identical summary.
+
+### Shipped
+- `nivxforge/investigation/summary_composer.py` — pure function `compose_summary(cio) → Summary` that reads only the Evidence Graph + Verdict Engine output. No LLM, no network, no frontend logic.
+- **14-field Summary object** per operator spec:
+  - Prose: `executive`, `analyst`, `technical`, `attack_story` (all event-first per §1.1.18)
+  - Structured: `key_findings[]`, `unknowns[]`, `recommendations[]`, `confidence`
+  - Digests: `evidence_digest`, `entities_digest`, `mitre_digest`, `timeline_digest`
+  - Chain: `attack_chain[]` (ordered decoded → behaviour → verdict)
+  - Report: `report_sections` (what_happened / what_we_found / what_we_dont_know / what_to_do)
+  - Provenance: `composer_version`
+- **CIO builder** now calls `compose_summary()` after verdict — `cio.summary` populated on every response from `/api/decode/smart` and `/api/v2/auto-investigate`.
+- **Event-first opening ordering (§1.1.18) enforced by pytest** — analyst prose MUST open with "Event:" and never contain a URL literal or hash in the first sentence.
+- **Vendor-infra filtered from entity digest** — `entities_digest.external_domains` never carries `crl.verisign.com`, `console.amp.cisco.com`, or other CA/vendor URLs (classifier-driven filter).
+- **Recommendations mapped to verdict priority** — Malicious → critical / Suspicious → high / Runtime Dependent → medium / Informational → low / Undetermined → informational.
+- **Metadata slice bumped to `D`**.
+
+### Governance artefact published · Lab 2.0 API Contract
+`/app/memory/lab-2.0-api-contract.md` — the immutable contract between the backend investigation engine and every UI surface. Field-by-field spec covering:
+- Producer / consumer / required / stability level for every CIO field
+- Full sub-object schemas (Node · Edge · ReasoningStep · VerdictNode · Summary + all 14 sub-types)
+- Versioning policy (additive vs. breaking · deprecation cycle)
+- Test coverage guarantees (200+ pytests protect this contract)
+- Frontend consumption rules (read-only · no composition · selectors · empty states)
+- Open extension points (STIX / Navigator / knowledge / LLM overlay / streaming / confidence certificate)
+
+### Verified live on preview
+```
+POST /api/decode/smart  (echo hello)
+  cio.summary.composer_version:  slice-d-v1
+  All 14 top-level fields present:  True
+  executive:  "Verdict: Undetermined (confidence 0%). Top driver: no high-signal evidence..."
+  recommendations_count:  1
+```
+
+### Regression gates
+- **237/237 non-flaky pytest green** (52 ADR pinned + 185 nivxforge)
+- **New Slice-D pytest suite**: 23 tests covering shape · event-first ordering · entity digest · attack chain · recommendations · confidence mirror · MITRE digest · report sections · determinism · benign path · G1/G2/G4 preserved.
+
+### Files added
+- `/app/backend/nivxforge/investigation/summary_composer.py`
+- `/app/backend/nivxforge/tests/test_adr0014_summary_composer.py`
+- `/app/memory/lab-2.0-api-contract.md`
+
+### Files modified
+- `/app/backend/nivxforge/investigation/builder.py` · calls `compose_summary()`; `metadata.slice = "D"`
+- `/app/backend/nivxforge/tests/test_adr0014_reasoning_steps.py` · slice assertion relaxed
+
+### The backend engine is now feature-complete for the Lab 2.0 Workspace
+Every field the seven-lens (now eight-lens) architecture will render is emitted by the backend. Phase-A of the Workspace can start against a stable API contract.
+
+
 ## 2026-02-28 · **ADR-0014 · Slice-C · Unified Verdict Engine IMPLEMENTED**
 
 ### Governance directive closed
