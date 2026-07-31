@@ -204,8 +204,7 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
             </svg>
           </span>
           <span className="brand-copy">
-            <span className="wordmark">NIVX<span className="ray">RAY</span></span>
-            <span className="tagline">DECODER · THREAT-LAB</span>
+            <span className="wordmark">NivX<span className="ray">Ray</span> <span className="lab-tag">Lab 2.0</span></span>
           </span>
         </div>
         <div className="case-id">
