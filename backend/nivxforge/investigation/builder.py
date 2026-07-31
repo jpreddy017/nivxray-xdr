@@ -379,19 +379,6 @@ def build_cio(
             conf_delta=+0.04,
         )
 
-    # ── Timeline (view over reasoning_steps) ─────────────────────────
-    timeline = [
-        {
-            "step_id": s.step_id,
-            "at": s.timestamp.isoformat(),
-            "rule": s.rule,
-            "explanation": s.explanation,
-            "input_nodes": s.input_nodes,
-            "output_nodes": s.output_nodes,
-        }
-        for s in steps
-    ]
-
     # ── CIO assembly ─────────────────────────────────────────────────
     input_seed = f"{fs.source_endpoint or 'unknown'}::{fs.input_text[:64]}"
     resolved_id = cio_id or f"CIO-{_short_hash(input_seed, 12)}"
@@ -408,10 +395,51 @@ def build_cio(
         for layer in fs.decoder_chain
     ]
 
-    # Aggregate confidence: last reasoning-step's confidence_after.
-    # This makes confidence a *replayable* derivation (§1.1.7), not a
-    # free-standing scalar.
-    final_conf = steps[-1].confidence_after if steps else 0.0
+    # ADR-0014 Slice-C · unified verdict engine reads the graph.
+    from nivxforge.investigation.verdict_engine import compute_verdict
+    _verdict = compute_verdict(graph)
+
+    # Emit a verdict node into the graph itself, linked from the
+    # contributing nodes. The graph is the investigation (§1.1.2).
+    v_id = nid.next()
+    graph.add_node(Node(
+        id=v_id,
+        kind="verdict",
+        label=f"Verdict · {_verdict.label}",
+        value=_verdict.label,
+        confidence=_verdict.confidence,
+        provenance="engine:unified-verdict",
+        attrs={"confidence_pct": _verdict.confidence_pct},
+    ))
+    for c in _verdict.contributors[:20]:
+        try:
+            graph.add_edge(Edge(
+                source=c.node_id, target=v_id,
+                kind="contributes_to", weight=min(1.0, c.weight / 10.0),
+            ))
+        except Exception:
+            pass
+    # If no contributors linked to the verdict node, tether it to the
+    # artifact root so it does not become a G2 orphan.
+    if not _verdict.contributors:
+        try:
+            graph.add_edge(Edge(
+                source=artifact_node.id, target=v_id,
+                kind="contributes_to", weight=0.0,
+            ))
+        except Exception:
+            pass
+    _emit_step(
+        rule="verdict.compute",
+        input_nodes=[c.node_id for c in _verdict.contributors[:20]],
+        output_nodes=[v_id],
+        explanation=_verdict.reason,
+        conf_delta=0.0,
+    )
+
+    # Aggregate confidence: use the verdict engine's weighted mean —
+    # replayable, engine-authoritative (§1.1.3).
+    final_conf = _verdict.confidence
 
     cio = CIO(
         cio_id=resolved_id,
@@ -426,17 +454,28 @@ def build_cio(
         evidence_graph=graph,
         reasoning_steps=steps,
         confidence=round(final_conf, 4),
-        verdict=None,
-        timeline=timeline,
+        verdict=_verdict.model_dump(mode="json"),
+        timeline=[
+            {
+                "step_id": s.step_id,
+                "at": s.timestamp.isoformat(),
+                "rule": s.rule,
+                "explanation": s.explanation,
+                "input_nodes": s.input_nodes,
+                "output_nodes": s.output_nodes,
+            }
+            for s in steps
+        ],
         summary={},
         recommendations=[],
         reports={},
         metadata={
             "adr": "0014",
-            "slice": "B",
+            "slice": "C",
             "node_count": len(graph.nodes),
             "edge_count": len(graph.edges),
             "reasoning_step_count": len(steps),
+            "verdict_engine": _verdict.engine,
         },
     )
     return cio

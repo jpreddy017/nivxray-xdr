@@ -227,6 +227,51 @@ export default function InvestigatePage() {
              /decode/smart path). The frontend never composes prose. ─── */}
         {result ? (
           <div style={S.section} data-testid={`investigate-result-${mode}`}>
+            {/* ADR-0014 §1.1.14 · Normalisation transparency banner.
+                Analysts see what the engine understood BEFORE it started
+                investigating. Only rendered when the ingress gate fired. */}
+            {result?.cio?.metadata?.normalised_via ? (
+              <div
+                data-testid="investigate-normalized-badge"
+                style={{
+                  background: "rgba(16, 185, 129, 0.08)",
+                  border: "1px solid rgba(16, 185, 129, 0.4)",
+                  borderRadius: 6,
+                  padding: "10px 14px",
+                  marginBottom: 14,
+                  fontSize: 12,
+                  color: "#a7f3d0",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  lineHeight: 1.7,
+                }}
+              >
+                <span style={{ color: "#34d399", fontWeight: 600 }}>▸ NORMALISED</span>
+                {"  ·  "}
+                <span style={{ color: "#e2e8f0" }}>
+                  Input Type: {String(result.cio.metadata.normalised_via).replace("normalizers.py:", "")}
+                </span>
+                {"  ·  "}
+                <span style={{ color: "#e2e8f0" }}>
+                  Normalised By: {String(result.cio.metadata.normalised_via)}
+                </span>
+                {"  ·  "}
+                <span style={{ color: "#e2e8f0" }}>
+                  Canonical Event: ✓
+                </span>
+                {"  ·  "}
+                <span style={{ color: "#e2e8f0" }}>
+                  Graph Nodes: {result?.cio?.metadata?.node_count ?? 0}
+                </span>
+                {result?.cio?.verdict?.not_counted?.length ? (
+                  <>
+                    {"  ·  "}
+                    <span style={{ color: "#e2e8f0" }}>
+                      Vendor Metadata Stripped: {result.cio.verdict.not_counted.length}
+                    </span>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
             {result.investigation_report && !result.investigation_report.empty ? (
               <InvestigationReport
                 report={result.investigation_report}

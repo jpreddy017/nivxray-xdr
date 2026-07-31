@@ -1,5 +1,69 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-02-28 · **ADR-0014 · Slice-C · Unified Verdict Engine IMPLEMENTED**
+
+### Governance directive closed
+Operator directed: "One verdict engine. One confidence score. Close ADR-0011." Slice-C delivers exactly this — a single `compute_verdict(EvidenceGraph) → VerdictNode` function is the only writer of `cio.verdict` and the only source of `cio.confidence`. The `executive_card` / `build_verdict_card` fork is now deprecated (per §1.1.13 "deprecate before delete"); legacy fields keep working for existing consumers, but the CIO's `verdict` is canonical.
+
+### Shipped (backend, surgical)
+- `nivxforge/investigation/verdict_engine.py` · one pure function reading the Evidence Graph and producing a `VerdictNode` with:
+  - Label (Malicious · Suspicious · Runtime Dependent · Informational · Undetermined)
+  - Confidence (weight-normalised mean of contributor confidences, capped 0..1)
+  - `contributors` (nodes that drove the verdict — explainability by design)
+  - `not_counted` (vendor / CA infra nodes observed but weight 0 — §1.1.16 transparency)
+  - `reason` (one-sentence rationale citing the top contributor)
+  - `engine = "unified-verdict-engine-v1"` (single provenance tag)
+- Verdict node is **written back into the graph** as a `verdict`-kind node, linked from every contributor via `contributes_to` edges. The graph IS the investigation (§1.1.2).
+- New `verdict.compute` ReasoningStep emitted per §1.1.7.
+- Aggregate `cio.confidence` derives from the verdict engine, not the last reasoning step — replayable, engine-authoritative.
+
+### ADR-0007 gating preserved
+- "Malicious" requires at least one dominant contributor (weight ≥ 9).
+- "Suspicious" requires at least one high-signal contributor (weight ≥ 7).
+- Vendor / CA infra IOCs never drive verdicts (§1.1.16 · classification down-weights to 0).
+- No high-signal evidence → "Informational" (has decode chain) or "Undetermined" (nothing at all).
+
+### Lab UI · "Normalised By" transparency badge
+New badge at the top of the Lab result panel (rendered only when the ingress gate fired):
+```
+▸ NORMALISED · Input Type: Cisco XDR · Normalised By: normalizers.py:Cisco XDR
+  · Canonical Event: ✓ · Graph Nodes: N · Vendor Metadata Stripped: N
+```
+Analysts see what the engine understood BEFORE it started investigating.
+
+### Verified live on preview
+```
+POST /api/decode/smart with PS -EncodedCommand
+  verdict.engine:          unified-verdict-engine-v1
+  verdict.label:           Suspicious
+  verdict.confidence_pct:  83
+  verdict.reason:          Top contributor: LOLBIN · powershell
+                           (kind=lolbin, weight=7, confidence=0.70).
+                           Total contributing nodes: 3.
+  contributors:            3
+  not_counted:             0
+  cio.metadata.slice:      C
+```
+
+### Regression gates
+- **214/214 nivxforge + ADR-pinned suite green** (sequential mode). 8 new verdict-engine pytest tests added (verdict shape · label logic · vendor-infra downweight · determinism · G1/G2/G4 still pass · confidence bounds).
+
+### Files changed
+Added:
+- `/app/backend/nivxforge/investigation/verdict_engine.py`
+- `/app/backend/nivxforge/tests/test_adr0014_verdict_engine.py`
+
+Modified:
+- `/app/backend/nivxforge/investigation/builder.py` · CIO builder calls `compute_verdict` and writes the verdict node into the graph.
+- `/app/backend/nivxforge/tests/test_adr0014_reasoning_steps.py` · assertion updated for the new confidence source (Slice-C).
+- `/app/frontend/src/nivxforge/pages/InvestigatePage.jsx` · "Normalised By" badge above the analyst report.
+
+### Next
+- **Slice-D · Backend Summary Composer** — move `_executive_summary` / `_investigation_summary` composition to read from the CIO so Lab and Workspace derive summaries from identical CIO facts (§1.1.4).
+- **Cross-vendor regression corpus** — 20 mixed vendor alerts in the parity sweep.
+- **Retire `investigationSynthesizer.js`** — only after Slice-D lands.
+
+
 ## 2026-02-28 · **ADR-0014 · Phase 2 · Vendor Normaliser Gate IMPLEMENTED**
 
 ### The defect closed

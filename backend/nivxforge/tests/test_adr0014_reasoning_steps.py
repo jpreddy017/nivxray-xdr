@@ -132,10 +132,12 @@ class TestConfidenceReplayability:
             assert s.confidence_before == pytest.approx(prev, abs=1e-4)
             prev = s.confidence_after
 
-    def test_aggregate_confidence_equals_last_step_after(self):
+    def test_aggregate_confidence_equals_verdict_confidence(self):
+        """Slice-C · aggregate confidence is now the unified verdict
+        engine's weighted mean (§1.1.3)."""
         cio = build_cio(_regsvr32_substrate())
         assert cio.confidence == pytest.approx(
-            cio.reasoning_steps[-1].confidence_after, abs=1e-4
+            cio.verdict["confidence"], abs=1e-4
         )
 
 
@@ -172,7 +174,7 @@ class TestGatesStillHold:
         cio = build_cio(_regsvr32_substrate())
         validate_cio(cio)
 
-    def test_metadata_reports_slice_b(self):
+    def test_metadata_reports_slice_c(self):
         cio = build_cio(_regsvr32_substrate())
-        assert cio.metadata.get("slice") == "B"
+        assert cio.metadata.get("slice") == "C"
         assert cio.metadata.get("reasoning_step_count") == len(cio.reasoning_steps)
