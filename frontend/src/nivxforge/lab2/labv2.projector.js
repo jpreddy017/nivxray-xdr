@@ -358,7 +358,124 @@ export function projectCIO(cio) {
         notCounted: notCounted || [],
         supportingNodeIds: Array.from(new Set((contribs || []).map((c) => c.node_id).filter(Boolean))).slice(0, 20),
         engine: (cio.verdict && cio.verdict.engine) || "unified-verdict-engine-v1",
+        // P0.4 · Contributor breakdown / confidence audit.
+        explain: (cio.verdict && cio.verdict.explain) || null,
       },
+      // ─── P0.2 · Executive Dashboard fields ─────────────────────
+      // Deterministic projections that let the Executive lens render
+      // as first-class stacked cards instead of a wall of markdown.
+      recoveredPayload: (function () {
+        const chain = cio.decode_chain || [];
+        for (let i = chain.length - 1; i >= 0; i -= 1) {
+          const p = String((chain[i] && chain[i].preview) || "").trim();
+          if (p) return p;
+        }
+        return "";
+      })(),
+      recoveredStages: (function () {
+        const seen = new Set();
+        const out = [];
+        for (const l of cio.decode_chain || []) {
+          const p = String((l && l.preview) || "").trim();
+          if (!p || seen.has(p)) continue;
+          seen.add(p);
+          out.push(p);
+        }
+        return out;
+      })(),
+      primaryIocs: (function () {
+        // Normalized 4-bucket IOC map: URLs, IPs, Domains, Hashes.
+        // Reads BOTH cio.metadata.iocs AND the evidence graph — so the
+        // Exec lens always sees the same IOCs the customer_report saw.
+        const md = (cio.metadata || {}).iocs || {};
+        const buckets = {
+          urls: new Set([...(md.urls || [])]),
+          ips: new Set([...(md.ips || [])]),
+          domains: new Set([...(md.domains || [])]),
+          hashes: new Set([
+            ...(md.sha256 || []), ...(md.sha1 || []), ...(md.md5 || []),
+          ]),
+        };
+        for (const n of nodes) {
+          if ((n.kind || "").toLowerCase() !== "ioc") continue;
+          const ik = ((n.attrs || {}).ioc_kind || "").toLowerCase();
+          const val = String(n.value || (n.label || "").split("·").slice(-1)[0] || "").trim();
+          if (!val) continue;
+          if (ik === "url") buckets.urls.add(val);
+          else if (ik === "ip") buckets.ips.add(val);
+          else if (ik === "domain") buckets.domains.add(val);
+          else if (["md5", "sha1", "sha256", "hash"].includes(ik)) buckets.hashes.add(val);
+        }
+        return {
+          urls: Array.from(buckets.urls),
+          ips: Array.from(buckets.ips),
+          domains: Array.from(buckets.domains),
+          hashes: Array.from(buckets.hashes),
+        };
+      })(),
+      mitreTechniques: (function () {
+        const out = [];
+        const seen = new Set();
+        const md = (summary.mitre_digest || {});
+        for (const [tacticKey, val] of Object.entries(md)) {
+          if (!val) continue;
+          const techs = Array.isArray(val) ? val : val.techniques || [];
+          for (const t of techs) {
+            const id = t.technique_id || t.id || "";
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            out.push({
+              id,
+              name: t.name || t.title || "",
+              tactic: normaliseTactic(tacticKey),
+              confidence: t.confidence || 0.7,
+              evidence_node_ids: t.evidence_node_ids || t.evidence || [],
+            });
+          }
+        }
+        // Fallback to graph nodes when the digest is empty.
+        if (!out.length) {
+          for (const n of nodes) {
+            if ((n.kind || "").toLowerCase() !== "mitre_technique") continue;
+            const attrs = n.attrs || {};
+            const id = String(attrs.technique_id || (n.label || "").match(/T\d{4}(?:\.\d{3})?/)?.[0] || "");
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            out.push({
+              id,
+              name: String(n.label || "").replace(/T\d{4}(?:\.\d{3})?\s*[·:-]?\s*/, "").trim(),
+              tactic: String(attrs.tactic || ""),
+              confidence: n.confidence || 0.7,
+              evidence_node_ids: [n.id],
+            });
+          }
+        }
+        return out;
+      })(),
+      lolbins: (function () {
+        const out = [];
+        const seen = new Set();
+        for (const n of nodes) {
+          if ((n.kind || "").toLowerCase() !== "lolbin") continue;
+          const v = String(n.value || (n.label || "").split("·").slice(-1)[0] || "").trim();
+          if (!v || seen.has(v.toLowerCase())) continue;
+          seen.add(v.toLowerCase());
+          out.push({ binary: v, node_id: n.id, confidence: n.confidence || 0.6 });
+        }
+        const meta = (cio.metadata || {});
+        for (const it of meta.lolbas || []) {
+          const name = String((typeof it === "string" ? it : it.name || it.binary) || "").trim();
+          if (!name || seen.has(name.toLowerCase())) continue;
+          seen.add(name.toLowerCase());
+          out.push({ binary: name, node_id: null, confidence: 0.7 });
+        }
+        return out;
+      })(),
+      customerReportMarkdown:
+        ((summary.customer_report || {}).markdown) || "",
+      customerReportSections:
+        ((summary.customer_report || {}).sections) || [],
+      reportValidator: summary.report_validation || null,
       stages,
       ev,
       story: storyParagraphs,

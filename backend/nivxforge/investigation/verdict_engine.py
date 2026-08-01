@@ -80,6 +80,20 @@ class VerdictNode(BaseModel):
         default_factory=list,
         description="Ordered stages · [{stage, contributor_label, contributor_kind, class, confidence_pct}]"
     )
+    # P0.4 · Verdict Calibration Audit — the "why is confidence X%?"
+    # explanation. Enumerates fired contributors by class, escalation
+    # rules applied vs skipped, cap that was hit (if any), and the
+    # mitigation dampening applied (if any). Every UI surface that
+    # shows the verdict MUST also expose this so analysts can trace
+    # the confidence number back to concrete evidence, not a black box.
+    explain: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Auditable breakdown of the confidence calculation: "
+            "{fired[], missing[], escalations_applied[], escalations_skipped[], "
+            " confidence_cap, dampening, formula_terms{}}."
+        ),
+    )
 
 
 # ─── Node → contributor-kind mapping ──────────────────────────────
@@ -707,6 +721,89 @@ def compute_verdict(
         except Exception:  # noqa: BLE001
             pass
 
+    # ── P0.4 · Auditable confidence explanation ───────────────────
+    # Show the analyst EXACTLY which contributors fired, which
+    # escalation rules were considered and why they were skipped,
+    # and which caps / dampeners changed the raw score.
+    from nivxforge.investigation.evidence_classes import (
+        _ESCALATIONS_TO_MALICIOUS,
+        _ESCALATIONS_TO_SUSPICIOUS,
+        ATTACK_CHAIN_HIGH as _AC_HIGH,
+    )
+    _kset_final = {c.kind for c in contributors}
+    _fired_summary = []
+    for _cls_name in _CLASS_ORDER:
+        _subset = [c for c in contributors if (c.evidence_class or "") == _cls_name]
+        if _subset:
+            _fired_summary.append({
+                "class": _cls_name,
+                "count": len(_subset),
+                "contributors": [
+                    {"node_id": c.node_id, "kind": c.kind, "label": c.label,
+                     "weight": c.weight, "confidence": c.confidence,
+                     "source": c.source}
+                    for c in _subset
+                ],
+            })
+
+    def _describe_escalation(reason_name: str, required: frozenset, promotion: str):
+        missing = required - _kset_final
+        return {
+            "rule": reason_name,
+            "promotes_to": promotion,
+            "required_kinds": sorted(required),
+            "missing_kinds": sorted(missing),
+            "status": "applied" if not missing else "skipped",
+        }
+
+    _rules_audit = []
+    for _r, _req in _ESCALATIONS_TO_MALICIOUS:
+        _rules_audit.append(_describe_escalation(_r, _req, "Malicious"))
+    for _r, _req in _ESCALATIONS_TO_SUSPICIOUS:
+        _rules_audit.append(_describe_escalation(_r, _req, "Suspicious"))
+
+    _cap_applied = _confidence_cap(contributors)
+    _has_critical = any(c.evidence_class == "critical" for c in contributors)
+    _has_attack_high = any(
+        c.evidence_class == "high" and c.kind in _AC_HIGH for c in contributors
+    )
+    _mitigators_present = [c for c in contributors
+                           if (c.evidence_class or "") == "mitigating"]
+
+    _raw_noisy_or = _noisy_or_confidence(
+        [c for c in contributors if (c.evidence_class or "") != "mitigating"]
+    )
+
+    explain_dict: Dict[str, Any] = {
+        "fired": _fired_summary,
+        "missing": [
+            {"reason": "no CRITICAL-class evidence present"} if not _has_critical else None,
+            {"reason": "no attack-chain HIGH kind present (see ATTACK_CHAIN_HIGH set)"}
+            if not _has_attack_high else None,
+        ],
+        "escalations": _rules_audit,
+        "escalation_applied": esc_rule,
+        "confidence_calculation": {
+            "formula": "Noisy-OR over positive contributors, capped, then dampened by mitigators.",
+            "raw_noisy_or_pct": int(round(_raw_noisy_or * 100)),
+            "confidence_cap_pct": int(round(_cap_applied * 100)),
+            "cap_reason": (
+                "no CRITICAL / no attack-chain HIGH → cap 0.75"
+                if not _has_critical and not _has_attack_high
+                else ("no MEDIUM+ signals → cap 0.30"
+                      if not any(c.evidence_class in ("critical", "high", "medium")
+                                 for c in contributors)
+                      else "no cap (0..1.0)")
+            ),
+            "mitigators_present": len(_mitigators_present),
+            "mitigator_dampening_max_pct": (30 if _has_critical else 50)
+            if _mitigators_present else 0,
+            "final_confidence_pct": int(round(conf * 100)),
+        },
+    }
+    # Prune Nones
+    explain_dict["missing"] = [m for m in explain_dict["missing"] if m is not None]
+
     return VerdictNode(
         label=label,
         confidence=round(conf, 4),
@@ -717,6 +814,7 @@ def compute_verdict(
         escalation_rule=esc_rule,
         confidence_breakdown=breakdown,
         confidence_timeline=timeline,
+        explain=explain_dict,
     )
 
 

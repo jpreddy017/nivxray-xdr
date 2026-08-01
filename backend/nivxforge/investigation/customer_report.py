@@ -129,7 +129,46 @@ def _iocs(cio: Dict[str, Any]) -> Dict[str, List[str]]:
             k = (ent.get("kind") or "other").lower()
             grouped.setdefault(k, []).append(ent.get("value") or "")
         iocs = grouped
-    return {k: [v for v in vs if v] for k, vs in iocs.items()}
+    out = {k: [v for v in vs if v] for k, vs in iocs.items()}
+
+    # P0.1 FIX · fallback to evidence graph. During build the CIO's
+    # `metadata.iocs` is not yet set at the moment compose_summary()
+    # runs the customer_report composer — but the evidence graph
+    # ALREADY carries `ioc` nodes. Merge them so the IOC section is
+    # never dropped as "empty" when the CIO actually has IOCs.
+    if not any(out.values()):
+        out = {"urls": [], "domains": [], "ips": [],
+               "emails": [], "md5": [], "sha1": [], "sha256": []}
+    graph = cio.get("evidence_graph") or {}
+    for n in graph.get("nodes") or []:
+        if str(n.get("kind", "")).lower() != "ioc":
+            continue
+        attrs = n.get("attrs") or {}
+        ik = str(attrs.get("ioc_kind") or "").lower()
+        val = str(n.get("value") or "").strip()
+        if not val:
+            # Label like "URL · http://..." — try to strip
+            lbl = str(n.get("label") or "")
+            if "·" in lbl:
+                val = lbl.split("·", 1)[1].strip()
+        if not val:
+            continue
+        bucket = {
+            "url":    "urls",
+            "domain": "domains",
+            "ip":     "ips",
+            "email":  "emails",
+            "md5":    "md5",
+            "sha1":   "sha1",
+            "sha256": "sha256",
+            "hash":   "sha256",
+        }.get(ik)
+        if not bucket:
+            continue
+        out.setdefault(bucket, [])
+        if val not in out[bucket]:
+            out[bucket].append(val)
+    return {k: v for k, v in out.items() if v}
 
 
 def _hashes(cio: Dict[str, Any]) -> Dict[str, List[str]]:
@@ -253,14 +292,119 @@ def _section_executive(cio: Dict[str, Any], v_label: str, v_pct: int) -> ReportS
 
 
 def _section_incident_overview(cio: Dict[str, Any]) -> ReportSection:
-    truth = cio.get("truth") or {}
-    findings = [f for f in (truth.get("findings") or []) if not _is_decoder_finding(f)]
-    top = findings[0] if findings else {}
-    body = (top.get("detail") or top.get("title") or
-            "Behavioural analysis identified the observed input as a "
-            "candidate malicious execution vector.")
-    body = _sanitize_customer_text(str(body))
-    return ReportSection(2, "Incident Overview", body, ["cio.truth.findings"])
+    """P0.3 · Evidence-driven overview. Composed from the recovered
+    payload, LOLBIN, network targets, and top MITRE technique — never
+    a canned "candidate malicious execution vector" placeholder."""
+    urls = _iocs(cio).get("urls") or []
+    ips = _iocs(cio).get("ips") or []
+    domains = _iocs(cio).get("domains") or []
+    lolbins = list({
+        (n.get("attrs") or {}).get("binary") or n.get("label")
+        for n in (cio.get("evidence_graph") or {}).get("nodes", [])
+        if (n.get("kind") or "").lower() == "lolbin"
+    })
+    lolbins = [x for x in lolbins if x]
+    mitre = _mitre(cio)
+    top_mitre = [
+        f"{t['technique_id']} · {t['name']}"
+        for t in mitre[:2]
+        if t.get("technique_id")
+    ]
+
+    # Recovered payload — last decode-chain layer preview.
+    recovered = ""
+    for layer in reversed(cio.get("decode_chain") or []):
+        prev = str(layer.get("preview") or "").strip()
+        if prev:
+            recovered = prev[:200]
+            break
+
+    label = (cio.get("verdict") or {}).get("label", "Undetermined")
+    parts: List[str] = []
+
+    if lolbins and recovered:
+        parts.append(
+            f"The submission triggered {lolbins[0]} with an obfuscated command "
+            f"that, once recovered, resolves to `{recovered}`."
+        )
+    elif recovered:
+        parts.append(f"The submission recovers to the command `{recovered}`.")
+    elif lolbins:
+        parts.append(
+            f"The submission invoked {lolbins[0]} in a manner consistent "
+            "with abuse of a signed, trusted binary."
+        )
+    else:
+        parts.append("The submission was analysed for malicious behaviour.")
+
+    if urls:
+        parts.append(
+            f"The recovered command reaches out to **{urls[0]}**, which is "
+            "characteristic of second-stage payload staging."
+        )
+    elif domains:
+        parts.append(
+            f"The recovered command references the domain **{domains[0]}**, "
+            "which is characteristic of remote payload delivery."
+        )
+    elif ips:
+        parts.append(
+            f"The recovered command references **{ips[0]}** as a remote "
+            "endpoint."
+        )
+
+    if top_mitre:
+        parts.append(
+            "The observed behaviour maps to "
+            + " and ".join(f"**{m}**" for m in top_mitre)
+            + "."
+        )
+
+    if label in ("Malicious", "Suspicious"):
+        parts.append(
+            f"Aggregate evidence supports a **{label}** verdict — "
+            "the sample should be treated as attacker-controlled until "
+            "proven otherwise."
+        )
+
+    body = " ".join(parts)
+    return ReportSection(2, "Incident Overview", body, ["cio.truth.findings", "cio.decode_chain", "cio.evidence_graph"])
+
+
+def _section_recovered_command(cio: Dict[str, Any]) -> Optional[ReportSection]:
+    """P0.3 · Prominent 'Recovered Command / Payload' surface.
+    Only rendered when the decoder actually recovered something.
+    Returns None otherwise so the composer skips it cleanly."""
+    lines: List[str] = []
+    dc = cio.get("decode_chain") or []
+    # Prefer the LAST layer's preview as the customer-facing "final" form.
+    last_preview = ""
+    for layer in reversed(dc):
+        prev = str(layer.get("preview") or "").strip()
+        if prev:
+            last_preview = prev
+            break
+    if not last_preview:
+        return None
+
+    lines.append(f"```\n{last_preview[:600]}\n```")
+
+    # Also enumerate intermediate recovered forms in a tight bullet list
+    # so the analyst can see the *shape* of the evasion (multi-stage vs
+    # single-stage) without ever seeing decoder-op names.
+    stages = [str(l.get("preview") or "").strip() for l in dc if l.get("preview")]
+    stages = list(dict.fromkeys(stages))  # de-dup preserving order
+    if len(stages) > 1:
+        lines.append("\nRecovered stages, in order:")
+        for i, s in enumerate(stages[:4], start=1):
+            snip = _sanitize_customer_text(s[:140])
+            lines.append(f"* Stage {i}: `{snip}`")
+
+    body = "\n".join(lines)
+    return ReportSection(
+        # Provisional number; renumbered later by summary_composer.
+        3, "Recovered Command", body, ["cio.decode_chain"],
+    )
 
 
 def _section_affected_hosts(cio: Dict[str, Any]) -> ReportSection:
@@ -341,15 +485,36 @@ def _sanitize_customer_text(text: str) -> str:
 
 
 def _section_evidence(cio: Dict[str, Any]) -> ReportSection:
-    findings = [f for f in _findings(cio) if not _is_decoder_finding(f)][:5]
+    """P0.3 · Human-readable evidence surface. Reads the analyst-facing
+    finding fields (title + severity + evidence anchor) instead of
+    dumping `class=high · weight=3.0 · source=graph` telemetry."""
+    findings = [f for f in _findings(cio) if not _is_decoder_finding(f)][:6]
     if not findings:
         return ReportSection(8, "Evidence", "No high-signal findings were recorded.", ["cio.truth.findings"])
     lines = []
     for f in findings:
         title = _sanitize_customer_text(str(f.get("title") or f.get("label") or "Finding"))
-        sev = f.get("severity") or "info"
-        detail = _sanitize_customer_text(str(f.get("detail") or ""))
-        lines.append(f"* **{title}** — severity {sev}. {detail}")
+        sev = str(f.get("severity") or "info").lower()
+        detail_raw = str(f.get("detail") or "")
+        # Drop backend telemetry markers from the detail line: only keep
+        # analyst-legible prose. If the remaining text is telemetry
+        # noise (e.g. "class=high · weight=3.0"), we drop it and rely
+        # on the title alone — the severity is what analysts actually
+        # need.
+        detail = _sanitize_customer_text(detail_raw)
+        detail = re.sub(r"(?:^|\s·\s)\s*class=[^\s·]+", "", detail)
+        detail = re.sub(r"(?:^|\s·\s)\s*weight=[^\s·]+", "", detail)
+        detail = re.sub(r"(?:^|\s·\s)\s*confidence=[^\s·]+", "", detail)
+        detail = re.sub(r"(?:^|\s·\s)\s*source=[^\s·]+", "", detail)
+        detail = re.sub(r"[\s·]+$", "", detail).strip(" ·")
+        detail = re.sub(r"^[a-z_]+_correlated\b", "", detail).strip(" ·")
+        detail = re.sub(r"^invoke_expression\b", "", detail).strip(" ·")
+        detail = re.sub(r"^lolbin\b", "", detail).strip(" ·")
+        detail = re.sub(r"^network_staging\b", "", detail).strip(" ·")
+        if detail:
+            lines.append(f"* **{title}** ({sev}) — {detail}")
+        else:
+            lines.append(f"* **{title}** ({sev})")
     return ReportSection(8, "Evidence", "\n".join(lines), ["cio.truth.findings"])
 
 
@@ -481,9 +646,10 @@ def compose_customer_report(cio: Any, persona: str = "customer") -> CustomerRepo
     v_label = v.get("label") or "Undetermined"
     v_pct = int(v.get("confidence_pct") or 0)
 
-    sections = [
+    sections_raw = [
         _section_executive(cio, v_label, v_pct),
         _section_incident_overview(cio),
+        _section_recovered_command(cio),   # P0.3 · optional; None when nothing recovered
         _section_affected_hosts(cio),
         _section_users(cio),
         _section_detection_source(cio),
@@ -499,6 +665,7 @@ def compose_customer_report(cio: Any, persona: str = "customer") -> CustomerRepo
         _section_analyst_verdict(cio),
         _section_recommendations(cio),
     ]
+    sections = [s for s in sections_raw if s is not None]
 
     report = CustomerReport(persona=persona, verdict=v_label, verdict_confidence_pct=v_pct, sections=sections)
 

@@ -103,17 +103,39 @@ def test_threat_hunt_persona_must_contain_mitre_and_timeline():
     assert "persona-missing-required" not in codes, [i.__dict__ for i in result.issues]
 
 
-def test_customer_persona_blocks_IEX_and_Base64():
-    """A hand-crafted customer report that leaks IEX or Base64 must
-    be flagged as `persona-forbidden-term`."""
+def test_customer_persona_blocks_decoder_telemetry_terms():
+    """P0.3 · The customer persona blocks *decoder-internal telemetry*
+    (Layer 0, ps-encodedcommand, etc.) but NOT legitimate evidence
+    identifiers like `IEX` or `Base64` — those are analyst-relevant
+    and MUST appear in the customer report so the customer can see
+    the concrete indicators tied to the verdict.
+    """
     cio = _cio_full()
     report = compose_customer_report(cio, persona="customer")
-    # Simulate a regression by injecting the forbidden term into a section body.
-    report.sections[0].body += " Attacker used IEX to invoke a Base64 payload."
+    # Simulate a regression by injecting a genuine forbidden term
+    # (decoder pipeline telemetry) into a section body.
+    report.sections[0].body += " (recovered at Layer 0 via ps-encodedcommand)"
     result = critique(report, cio)
     codes = [i.code for i in result.issues]
     assert "persona-forbidden-term" in codes, f"expected persona-forbidden-term in {codes}"
     assert not result.passed
+
+
+def test_customer_persona_allows_legitimate_evidence_identifiers():
+    """P0.3 · `IEX`, `Base64` (in MITRE names), PowerShell cmdlets and
+    similar identifiers are LEGITIMATE evidence the customer should
+    see — the critic must NOT flag them."""
+    cio = _cio_full()
+    report = compose_customer_report(cio, persona="customer")
+    report.sections[0].body += (
+        " Attacker used IEX to invoke a payload matching MITRE "
+        "T1027.010 Command Obfuscation: Base64/Encoded Command."
+    )
+    result = critique(report, cio)
+    codes = [i.code for i in result.issues]
+    assert "persona-forbidden-term" not in codes, (
+        f"IEX and Base64 must NOT trigger forbidden-term: {codes}"
+    )
 
 
 def test_critic_result_serialises_to_dict():

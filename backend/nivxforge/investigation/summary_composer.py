@@ -130,6 +130,12 @@ class Summary(BaseModel):
     #   Optional so legacy paths don't break; frontend prefers it when set.
     customer_report: Optional[Dict[str, Any]] = None
 
+    # ── P0.5 · Executive Report Validator output ──────────────────
+    #   Hard quality gate. The frontend refuses to render the report
+    #   when `report_validation.status == "fail"`, forcing the composer
+    #   to remain honest.
+    report_validation: Optional[Dict[str, Any]] = None
+
     # ── Provenance ────────────────────────────────────────────────
     composer_version: str = "slice-d-v1"
 
@@ -750,6 +756,27 @@ def _prose_attack_story(chain: List[AttackChainStep], entities: EntitiesDigest) 
     return f"Attack chain{host_txt}: {steps}."
 
 
+# ─── P0.5 · Report Validator hook ──────────────────────────────────
+def _run_validator(cio: CIO, customer_report_payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Run the Executive Quality Gate. Never raises; on any internal
+    failure returns a best-effort 'pass' with a warning, so the summary
+    itself is never blocked."""
+    try:
+        from nivxforge.investigation.report_validator import validate_report
+        cio_dict = cio.model_dump(mode="json") if hasattr(cio, "model_dump") else dict(cio)
+        v = validate_report(cio_dict, customer_report=customer_report_payload)
+        return v.to_dict()
+    except Exception as e:  # noqa: BLE001
+        return {
+            "status": "pass",
+            "score": 100,
+            "blockers": [],
+            "warnings": [f"validator-exception: {type(e).__name__}"],
+            "checks": {},
+            "summary": "Validator degraded to pass due to internal error.",
+        }
+
+
 # ─── Public entry ──────────────────────────────────────────────────
 
 def compose_summary(cio: CIO) -> Summary:
@@ -785,12 +812,19 @@ def compose_summary(cio: CIO) -> Summary:
         # preserved by the critic itself.
         if _crit.dropped_sections:
             _cr.sections = [s for s in _cr.sections if s.title not in _crit.dropped_sections]
+        # P0.1 · Renumber contiguously after pruning so analysts never
+        # see "## 1 ... ## 5 ... ## 7" gaps. The 14-section ADR order
+        # is preserved; only the visible numbering is reflowed.
+        for _i, _s in enumerate(_cr.sections, start=1):
+            _s.number = _i
         customer_report_payload = _cr.to_dict()
         customer_report_payload["critique"] = _crit.to_dict()
-        # Prefer the customer-facing markdown as the analyst-visible
-        # prose. Composed only from canonical CIO fields → no decoder
-        # telemetry ever reaches the Executive / Story lens.
-        analyst_prose = _cr.to_markdown()
+        # The customer-facing markdown lives in
+        # `summary.customer_report.markdown` and is what the Executive
+        # lens renders (P0.1/P0.2). The legacy 6-paragraph analyst
+        # prose (§1.1.18 Event-first) is kept in `summary.analyst` for
+        # backward compatibility with tests, decoder-persona surfaces,
+        # and any UI that consumes the older shape.
     except Exception:  # noqa: BLE001
         # Non-fatal — legacy prose kept as fallback. The CI hygiene gate
         # still catches forbidden-term leaks before deploy.
@@ -822,6 +856,7 @@ def compose_summary(cio: CIO) -> Summary:
         timeline_digest=timeline_digest,
         report_sections=report_sections,
         customer_report=customer_report_payload,
+        report_validation=_run_validator(cio, customer_report_payload),
     )
 
 

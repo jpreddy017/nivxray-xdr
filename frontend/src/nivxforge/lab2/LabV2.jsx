@@ -18,6 +18,7 @@ import { listLenses, getLensByShortcut } from "./LensRegistry";
 import VerdictExplanationCard from "./VerdictExplanationCard";
 import { EvidenceGraphCanvas } from "./evidence-graph/EvidenceGraphCanvas";
 import { LearningAppliedPanel } from "./LearningAppliedPanel";
+import ExecutiveDashboard from "./ExecutiveDashboard";
 import "./learning.css";
 
 // ═══════════════════════════════════════════════════════════════
@@ -501,7 +502,7 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
             ))}
           </div>
 
-          {/* EXECUTIVE SUMMARY · the correlating final tab */}
+          {/* EXECUTIVE SUMMARY · P0.2 dashboard-first MDR analyst layout */}
           <section
             className={`lens${lens === "exec" ? " on" : ""}`}
             id="exec"
@@ -510,59 +511,53 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
           >
             <div className="lens-head">
               <h2>Executive Summary</h2>
-              <p>Analyst-style correlation across every panel of the investigation.</p>
+              <p>Investigation dashboard. Verdict, indicators, techniques and the analyst report — one screen.</p>
             </div>
 
-            <div className="exec-card">
-              <div className="exec-row">
-                <div className="exec-cell">
-                  <div className="lbl">Verdict</div>
-                  <div className="exec-verdict">▲ {view.verdict.label}</div>
-                </div>
-                <div className="exec-cell">
-                  <div className="lbl">Confidence</div>
-                  <div className="exec-val">{view.verdict.dots} <span className="mono">{view.verdict.pct}%</span> · {view.verdict.bucket}</div>
-                </div>
-                <div className="exec-cell">
-                  <div className="lbl">Input type</div>
-                  <div className="exec-val">{view.inputType}</div>
-                </div>
-                <div className="exec-cell">
-                  <div className="lbl">Elapsed</div>
-                  <div className="exec-val mono">{view.stats.elapsed}</div>
-                </div>
-              </div>
-              {view.verdict.reason ? <div className="exec-reason">{view.verdict.reason}</div> : null}
-            </div>
+            {view.hasCase ? (
+              <>
+                <ExecutiveDashboard view={view} />
 
-            {/* Executive narrative — analyst-style prose. */}
-            <div className="prose" style={{ marginTop: "var(--s6)" }}>
-              {view.story && view.story.length > 0 ? (
-                view.story.slice(0, 3).map((p, i) => (
-                  <StoryParagraph key={i} text={p.text} kind={p.kind} {...evChipProps} />
-                ))
-              ) : (
-                <p className="quiet">
+                {/* Learning Applied — Learning Engine surface (Phase 2). */}
+                {view.cio ? <LearningAppliedPanel cio={view.cio} /> : null}
+
+                {/* Manual Summary Override (P1-06) — analyst rewrites when auto summary is wrong. */}
+                <ManualSummaryBlock
+                  cioId={view.caseId}
+                  originalExecutive={(view.customerReportMarkdown || "").slice(0, 400)}
+                  originalStory={view.customerReportMarkdown || ""}
+                  cio={view.cio}
+                />
+              </>
+            ) : (
+              <div className="exec-card">
+                <div className="exec-row">
+                  <div className="exec-cell">
+                    <div className="lbl">Verdict</div>
+                    <div className="exec-verdict">▲ {view.verdict.label}</div>
+                  </div>
+                  <div className="exec-cell">
+                    <div className="lbl">Confidence</div>
+                    <div className="exec-val">{view.verdict.dots} <span className="mono">{view.verdict.pct}%</span> · {view.verdict.bucket}</div>
+                  </div>
+                  <div className="exec-cell">
+                    <div className="lbl">Input type</div>
+                    <div className="exec-val">{view.inputType}</div>
+                  </div>
+                  <div className="exec-cell">
+                    <div className="lbl">Elapsed</div>
+                    <div className="exec-val mono">{view.stats.elapsed}</div>
+                  </div>
+                </div>
+                <p className="quiet" style={{ marginTop: 20 }}>
                   No analyst narrative yet — the summary composer will populate this once the investigation completes.
                 </p>
-              )}
-            </div>
+              </div>
+            )}
+          </section>
 
-            {/* Learning Applied — Learning Engine surface (Phase 2). */}
-            {view.hasCase && view.cio ? (
-              <LearningAppliedPanel cio={view.cio} />
-            ) : null}
-
-            {/* Manual Summary Override (P1-06) — analyst rewrites when auto summary is wrong. */}
-            {view.hasCase ? (
-              <ManualSummaryBlock
-                cioId={view.caseId}
-                originalExecutive={(view.story && view.story[0] && view.story[0].text) || ""}
-                originalStory={(view.story || []).map((p) => p.text).join("\n\n")}
-                cio={view.cio}
-              />
-            ) : null}
-
+          {/* LEGACY EXEC PANELS · retained for older test paths; hidden via display: none */}
+          <div style={{ display: "none" }}>
             {/* Correlated key findings + IOCs · one screen for leadership */}
             <div className="exec-grid">
               <div className="exec-block">
@@ -681,7 +676,7 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                 </div>
               )}
             </div>
-          </section>
+          </div>{/* end legacy exec panels wrapper */}
 
           {/* STORY */}
           <section className={`lens${lens === "story" ? " on" : ""}`} id="story" ref={lensRefs.story} onScroll={onStoryScroll} data-testid="lens-story">

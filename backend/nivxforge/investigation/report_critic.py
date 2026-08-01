@@ -64,11 +64,12 @@ PERSONA_CONTRACTS: Dict[str, PersonaContract] = {
     "customer": PersonaContract(
         persona="customer",
         must_contain=(),
-        must_not_contain=(
-            *FORBIDDEN_TERMS,
-            # Additional customer-inappropriate terms per your directive:
-            "IEX", "Base64", "UTF16", "UTF-16", " Decode ",
-        ),
+        # P0.3 · Only decoder-internal telemetry is forbidden.
+        # Legitimate evidence identifiers (`IEX`, `Base64` in a MITRE
+        # technique name, PowerShell cmdlet names) are ANALYST-relevant
+        # and MUST appear in the customer report — they are the
+        # concrete indicators the customer needs to see.
+        must_not_contain=FORBIDDEN_TERMS,
     ),
     "threat_hunt": PersonaContract(
         persona="threat_hunt",

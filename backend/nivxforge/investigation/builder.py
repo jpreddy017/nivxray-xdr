@@ -534,17 +534,22 @@ def build_cio(
         },
     )
 
+    # P1-02d · Investigation Truth Model — the canonical projection
+    # Story · Executive Summary · Reports · Verdict · Timeline · Ledger
+    # · Notebook all consume. Pure derivation of the current CIO state.
+    # P0.1 FIX · Truth MUST be built BEFORE the summary so the customer
+    # report (composed inside compose_summary) can read
+    # `cio.truth.findings` and `cio.truth.recommendations` — otherwise
+    # the critic drops those sections as "empty" even though the CIO
+    # carries them.
+    from nivxforge.investigation.truth_model import build_truth
+    cio.truth = build_truth(cio).model_dump(mode="json")
+
     # ADR-0014 Slice-D · compose the canonical Summary. Backend owns
     # summary composition (§1.1.9). Frontend never writes prose.
     from nivxforge.investigation.summary_composer import compose_summary
     cio.summary = compose_summary(cio).model_dump(mode="json")
     cio.recommendations = list(cio.summary.get("recommendations", []) or [])
-
-    # P1-02d · Investigation Truth Model — the canonical projection
-    # Story · Executive Summary · Reports · Verdict · Timeline · Ledger
-    # · Notebook all consume. Pure derivation of the current CIO state.
-    from nivxforge.investigation.truth_model import build_truth
-    cio.truth = build_truth(cio).model_dump(mode="json")
 
     return cio
 
