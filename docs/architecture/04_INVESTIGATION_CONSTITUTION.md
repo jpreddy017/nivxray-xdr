@@ -77,15 +77,76 @@ class VendorAdapter:
         """Return 0..1 confidence this adapter should handle the input."""
     def normalise(self, raw: str | dict) -> NormalisedIncident:
         """Extract entities, events, indicators, timeline, vendor verdict."""
+    def quality_report(self, raw: str | dict, normalised: NormalisedIncident) -> NormalizationQualityReport:
+        """MANDATORY. See §Normalization Quality Report below."""
 ```
 
 The universal `AdapterRegistry` picks the adapter with the highest
 `detect()` score. The adapter's `normalise()` output is then fed to
-the existing `from_analysis_result` → `build_cio` chain.
+the existing `from_analysis_result` → `build_cio` chain, and its
+`quality_report()` is attached at `cio.metadata.normalization_quality`.
 
 Consequence: adding a new vendor requires exactly one new adapter,
 zero changes to the CIO, evidence graph, verdict engine, summary
 composer, or any lens.
+
+## 🔒 Normalization Quality Report (mandatory per adapter)
+
+Every adapter MUST emit a machine-readable + analyst-readable quality
+report so parser regressions surface immediately and adapter quality
+becomes objectively measurable.
+
+**Shape** (`cio.metadata.normalization_quality`):
+
+```json
+{
+  "adapter":            "cisco_xdr",
+  "detect_confidence":  0.99,
+  "sections_parsed": {
+    "incident_header":       true,
+    "threat_detection":      true,
+    "event_data":            true,
+    "investigation_findings":true,
+    "threat_intel":          true,
+    "timeline":              true,
+    "mitre":                 true,
+    "json_payload":          true
+  },
+  "entity_counts": {
+    "hosts": 7, "processes": 5, "files": 3, "hashes": 2,
+    "ips":   4, "domains":   3, "urls":  2
+  },
+  "coverage_pct":  98,
+  "warnings": [
+    "Missing Process IDs",
+    "Missing Registry Events",
+    "Missing Network Connections"
+  ]
+}
+```
+
+**Why mandatory**
+
+- **Analyst transparency** — the operator knows exactly what was
+  extracted from the vendor document.
+- **Parser regression detection** — a broken parser now surfaces as a
+  visible coverage drop, not a silently-empty investigation.
+- **CI assertion** — the Investigation Quality Gate can assert
+  `coverage_pct >= FLOOR` per adapter so a parser breaking silently
+  fails the build.
+- **Objective adapter grading** — adapters can be compared by their
+  coverage over a fixed corpus.
+
+**UI surfacing**
+
+X-Lab's Executive lens MUST render a `Normalization Quality` chip
+whenever `cio.metadata.normalization_quality` is present:
+
+- 🟢 `98% coverage · Cisco XDR` (all sections parsed)
+- 🟡 `72% coverage · CrowdStrike · 3 warnings` (partial parse)
+- 🔴 `41% coverage · Sysmon · adapter regressed` (below floor)
+
+Clicking the chip opens the full report inside the Source lens.
 
 ## Anti-goals (permanent)
 
@@ -102,8 +163,13 @@ composer, or any lens.
   `nivxforge/investigation/input_understanding.py`) has a matching
   adapter.
 - Adapter selection is deterministic on identical inputs.
+- Every adapter emits a Normalization Quality Report at
+  `cio.metadata.normalization_quality` and X-Lab's Executive lens
+  renders the coverage chip.
 - The Verdict Parity CI (P1-02) remains green after every adapter
   ships.
 - The Investigation Quality Gate (P1-07 · scaffolded at
   `/app/backend/tests/quality/test_investigation_quality.py`) passes
-  on the full vendor corpus.
+  on the full vendor corpus and asserts
+  `coverage_pct >= FLOOR` per adapter (default 60 %; per-adapter
+  override allowed).
