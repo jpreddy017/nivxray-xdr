@@ -332,3 +332,83 @@ a superseding ADR — never inline.
   on the full vendor corpus and asserts
   `coverage_pct >= FLOOR` per adapter (default 60 %; per-adapter
   override allowed).
+
+## 8. Universal Investigation Ingestion (LOCKED)
+
+The IDI architecture shall evolve beyond vendor-specific investigation
+reports into a **Universal Investigation Ingestion Platform** capable
+of ingesting and investigating **any security-relevant input**.
+
+This is NOT a single parser. It is a deterministic adapter framework.
+Every adapter has the same contract:
+
+```
+detect(raw) → normalise(raw) → quality_report(raw, normalised)
+       │
+       ▼
+Canonical Investigation Object (CIO)
+```
+
+No downstream component knows or cares where the evidence originated.
+
+### 🔒 Terminology · "Adapter" not "Parser"
+
+A parser only extracts fields. An IDI **Adapter** is responsible for:
+detect · parse · normalise · **recursively investigate embedded
+artefacts** · produce a CIO. From this point forward the constitution
+refers exclusively to Adapters.
+
+### 🔒 Four Adapter Categories
+
+1. **Investigation Document Adapters** — Cisco XDR · Cisco Secure
+   Endpoint · Defender XDR · CrowdStrike Falcon · SentinelOne ·
+   QRadar Offense Export · Splunk ES Investigation · Elastic Security
+   · MDR Reports · SOC case notes · Threat reports · Markdown · PDF
+   · HTML.
+2. **Log Adapters** — Windows Event Logs (.evtx) · Sysmon · RFC3164
+   / RFC5424 Syslog · Linux · Unix · macOS Unified Logs · Auditd ·
+   Osquery · DNS · DHCP · Apache · Nginx · IIS · Proxy · Firewall ·
+   VPN · NetFlow · IPFIX · Zeek · Suricata · Snort · CEF · LEEF · CSV
+   · JSON · NDJSON · XML · YAML · Plain Text.
+3. **Cloud Adapters** — AWS CloudTrail · GuardDuty · Security Hub ·
+   Azure Activity · M365 · Entra ID · GCP Audit · Okta · Duo ·
+   Kubernetes · Docker · Container Runtime · S3 Access Logs.
+4. **Artifact Adapters** — PowerShell · CMD · Bash · Python ·
+   JavaScript · VBScript · Office macros · URLs · Domains · IPs ·
+   Hashes · Registry exports · Memory artefacts · Volatility output ·
+   Velociraptor collections · YARA results · Sigma rules · PCAP
+   metadata · Encoded payloads · Archives · DLL metadata.
+
+### 🔒 Universal Detection Engine (front door)
+
+Every uploaded object first passes through a deterministic detection
+engine that identifies vendor · format · content type · encoding ·
+compression · nested artefacts — without analyst intervention. It
+dispatches to the correct Adapter category.
+
+### 🔒 Recursive Investigation Rules
+
+- Every recovered artefact (URL / hash / script / command / archive /
+  DLL / registry key / task / service / memory blob) becomes a new
+  investigation target fed back into the Universal Detection Engine.
+- Analysts NEVER need CyberChef.
+- Adapters that stop after "extract" fail the Investigation Quality
+  Gate.
+
+### 🔒 Roadmap phasing (do not implement in one shot)
+
+- **Phase 1** — Windows Event Logs · Sysmon · Syslog · JSON/NDJSON ·
+  Cisco XDR · Defender · CrowdStrike · SentinelOne.
+- **Phase 2** — Zeek · Suricata · Auditd · CEF · LEEF · QRadar ·
+  Splunk · Elastic.
+- **Phase 3** — AWS · Azure · GCP · Okta · Duo · Kubernetes · Docker.
+- **Phase 4** — Velociraptor · Volatility · Memory · PCAP · Forensics.
+
+### 🔒 Architecture Invariant
+
+Every supported input — whether a Cisco XDR investigation, a Sysmon
+event, a Linux syslog, a CloudTrail record, a PowerShell command, or
+a memory artefact — produces the **same** CIO. Only the Adapter
+changes. Everything downstream (IKG · Verdict · Executive Summary ·
+Attack Story · ATT&CK · Reports · Trajectory · Workspace) remains
+identical.
