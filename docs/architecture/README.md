@@ -26,6 +26,34 @@
 > Ordinary engineering findings MUST NOT be escalated into architectural
 > redesigns. Doing so is treated as a code-review hard-fail.
 >
+> **ADR-required checklist (locked)** — an ADR is required ONLY if ANY of
+> these questions is genuinely `no` due to a Constitution limitation:
+> 1. Can the capability be implemented within the existing CIO?
+> 2. Can it be implemented using the existing Adapter model?
+> 3. Can it preserve deterministic behaviour?
+> 4. Can it satisfy the four PR gates?
+>
+> If all four are `yes`, it is an implementation task — not an architectural
+> change. This keeps architectural evolution deliberate, not reactive.
+>
+> **Three-layer PR review (locked)** — every PR is evaluated against three
+> layers, in order:
+>
+> | Layer | Question | Kind |
+> |-------|----------|------|
+> | **1 · Functional correctness** | Does the feature do what it is supposed to do? | Implementation |
+> | **2 · Constitutional compliance** | Does the implementation obey the Constitution (CIO · provenance · determinism · no forks · no new layers)? | Governance |
+> | **3 · KPI improvement**     | Does the implementation measurably improve one or more §13 KPIs? | Release-quality |
+>
+> A PR that passes only Layer 1 does not merge. All three layers must be
+> satisfied.
+>
+> **Merge lifecycle (locked · architecture is NOT part of the loop)**:
+> ```
+> Backlog Item → Implementation → Golden Corpus Validation → Parity Tests
+>              → KPI Measurement → Constitutional Compliance Review → Merge
+> ```
+>
 > **Operating model (the shift that closed the architecture)**:
 > ```
 > Evidence → Investigation → Knowledge → Decision → Explanation
