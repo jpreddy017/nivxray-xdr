@@ -2113,6 +2113,15 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             _refresh_v(_cio)
         except Exception:  # noqa: BLE001
             log.exception("P1-02b · verdict refresh failed (safe — using pre-metadata verdict)")
+        # P2-05d · Recursive Command Investigation — fixed-point loop
+        # over the ArtifactQueue. Never raises; on budget exhaustion
+        # returns a partial status but a fully-valid CIO.
+        try:
+            from nivxforge.investigation.recursive import recursively_investigate as _recurse
+            _recurse(_cio, seed_content=(getattr(body, "input", "") or "")[:8192],
+                     seed_kind="command", policy="standard")
+        except Exception:  # noqa: BLE001
+            log.exception("P2-05d · recursive investigation failed (safe — non-recursive CIO returned)")
         # P1-01 · Live OSINT wiring — same _osint_lookup + enrich_iocs
         # services Workspace uses. Populates `cio.metadata.osint` +
         # per-IOC-node `attrs.enrichment.providers[]` (11-field cards).
