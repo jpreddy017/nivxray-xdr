@@ -14,6 +14,18 @@
 >
 > If any answer is "no", the change either needs redesign or a superseding ADR.
 >
+> **Defect classification (locked at sign-off)** — before touching architecture:
+> - **Implementation defect** — a bug, parser gap, performance issue, missing
+>   mapping, incorrect field, or CI regression. **Fix inside the existing
+>   Constitution.** Never triggers an ADR.
+> - **Architectural defect** — a demonstrated inability of the Constitution
+>   itself to support a required capability. **Requires an ADR** citing the
+>   § it supersedes, why the current design cannot express the capability,
+>   and what changes. This is the ONLY path to a v1.1.
+>
+> Ordinary engineering findings MUST NOT be escalated into architectural
+> redesigns. Doing so is treated as a code-review hard-fail.
+>
 > **Operating model (the shift that closed the architecture)**:
 > ```
 > Evidence → Investigation → Knowledge → Decision → Explanation
