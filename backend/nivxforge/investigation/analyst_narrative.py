@@ -261,339 +261,352 @@ def _verdict_fields(cio: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-# ─── Section composers · each returns "" if not enough evidence ───────
+# ─── Narrative composer · story arc, not fact recital ───────────────
+#
+# The narrative unfolds as an MDR analyst would tell it:
+#
+#   1. OPENING       — What arrived · when · from where (sets the scene)
+#   2. DISCOVERY     — What decoding / normalisation revealed (the reveal)
+#   3. INTERPRETATION— What the evidence MEANS (analyst judgement)
+#   4. CORRELATION   — MITRE · TI · multi-host correlation (widening)
+#   5. JUDGEMENT     — Why the verdict is what it is (weighing)
+#   6. GUIDANCE      — What the responder should do (action)
+#
+# Chapters are woven with transitional language ("then", "critically",
+# "taken together") — not concatenated bullets. Empty chapters are
+# skipped silently. On thin CIOs, we still ship a 2-paragraph story:
+# an opening/discovery paragraph and a judgement/guidance paragraph.
 
-def _sec_detection(cio: Dict[str, Any]) -> str:
+
+def _fmt_recovered(cmd: str, limit: int = 220) -> str:
+    if not cmd:
+        return ""
+    cmd = cmd.strip()
+    return f"`{cmd}`" if len(cmd) < limit else f"`{cmd[:limit-1]}…`"
+
+
+def _chapter_opening(cio: Dict[str, Any]) -> str:
+    """Sets the scene — what arrived, from where, when. Story voice."""
     m = _incident_meta(cio)
     hosts = _hosts(cio)
-    parts: List[str] = []
+    users = _users(cio)
+    iu = ((cio.get("metadata") or {}).get("input_understanding") or {}) or {}
+    itype = (iu.get("label") or iu.get("type") or "").replace("_", " ").strip().lower()
     if m["vendor"]:
-        parts.append(m["vendor"])
-    if m["incident_id"]:
-        parts.append(f"generated Incident {m['incident_id']}")
-    if m["detection"] or m["threat_name"]:
-        det = m["detection"] or m["threat_name"]
-        verb = m["action"] or "detected"
-        parts.append(f"{verb} {det}")
-    if hosts:
-        parts.append(f"on host {hosts[0]}")
-    if m["timestamp"]:
-        parts.append(f"at {m['timestamp']}")
-    if not parts:
-        return ""
-    return " ".join(parts) + "."
+        parts: List[str] = [f"This investigation began when **{m['vendor']}**"]
+        if m["incident_id"]:
+            parts.append(f"raised Incident **{m['incident_id']}**")
+        else:
+            parts.append("raised an alert")
+        if m["detection"] or m["threat_name"]:
+            det = m["detection"] or m["threat_name"]
+            parts.append(f"for **{det}**")
+        if hosts:
+            parts.append(f"on host **{hosts[0]}**")
+        if users:
+            parts.append(f"(user {users[0]})")
+        if m["timestamp"]:
+            parts.append(f"at {m['timestamp']}")
+        sentence = " ".join(parts).rstrip(".") + "."
+        return sentence
+    # No vendor — analyst-driven submission.
+    if itype:
+        return (
+            f"An analyst submitted a **{itype}** artefact for triage; the "
+            "pipeline immediately routed it into the recursive decoder to "
+            "recover any hidden behaviour."
+        )
+    return (
+        "An analyst submitted an artefact for triage; the pipeline "
+        "routed it into the recursive decoder to surface hidden behaviour."
+    )
 
 
-def _sec_executable(cio: Dict[str, Any]) -> str:
-    lolbins = _lolbins(cio)
+def _chapter_discovery(cio: Dict[str, Any]) -> str:
+    """The reveal — what decoding uncovered. Uses temporal connectors."""
     recovered = _recovered_command(cio)
     layers = _decode_layer_count(cio)
-    if not (lolbins or recovered):
+    lolbins = _lolbins(cio)
+    urls = _iocs(cio).get("urls") or []
+    if not (recovered or lolbins or urls):
         return ""
-    sentences: List[str] = []
-    if lolbins and recovered:
-        rec = recovered if len(recovered) < 220 else recovered[:217] + "…"
-        sentences.append(
-            f"The primary executable {lolbins[0]} was invoked with the "
-            f"command `{rec}`."
+    parts: List[str] = []
+    if layers >= 2 and recovered:
+        parts.append(
+            f"Peeling back **{layers}** successive encoding layers, the "
+            f"decoder ultimately recovered the command {_fmt_recovered(recovered)}"
         )
     elif recovered:
-        rec = recovered if len(recovered) < 220 else recovered[:217] + "…"
-        sentences.append(f"The recovered command resolves to `{rec}`.")
+        parts.append(f"The decoder recovered the command {_fmt_recovered(recovered)}")
     elif lolbins:
-        sentences.append(f"The primary executable {lolbins[0]} was invoked.")
-    if layers >= 2:
-        sentences.append(
-            f"The payload required {layers} decoder passes to reach its "
-            "final form, indicating deliberate obfuscation."
+        parts.append(f"The submission invoked **{lolbins[0]}**")
+    tail = parts[0]
+    # Weave in what the recovered command DOES.
+    if urls:
+        target = urls[0]
+        tail += (
+            f" — an in-memory PowerShell invocation that reaches out to "
+            f"**{target}** and executes whatever content the server returns"
         )
+    elif lolbins and recovered:
+        tail += f", invoked via the {lolbins[0]} living-off-the-land binary"
+    return tail.rstrip(".") + "."
+
+
+def _chapter_interpretation(cio: Dict[str, Any]) -> str:
+    """Analyst judgement — what the pattern MEANS. Adds interpretive
+    framing, not just facts."""
+    recovered = _recovered_command(cio)
     urls = _iocs(cio).get("urls") or []
-    if urls and lolbins:
+    internal = _internal_ip_present(cio)
+    layers = _decode_layer_count(cio)
+    if not recovered:
+        return ""
+    sentences: List[str] = []
+    # Classify the recovered command shape
+    rec_lc = recovered.lower()
+    if "iex" in rec_lc and ("downloadstring" in rec_lc or "downloadfile" in rec_lc or "invoke-webrequest" in rec_lc or "invoke-restmethod" in rec_lc):
         sentences.append(
-            f"The recovered command reaches out to {urls[0]}, which is "
-            "characteristic of second-stage payload staging."
+            "This is a textbook **stager pattern** — the attacker hides the "
+            "true payload behind an encoded wrapper, then pulls the "
+            "second-stage code from an internet-facing endpoint at run-time "
+            "so that static endpoint controls see nothing more than a signed "
+            "`powershell.exe` process."
+        )
+    elif "/dev/tcp/" in rec_lc:
+        sentences.append(
+            "This is a **reverse-shell one-liner** — a single bash "
+            "invocation that opens an outbound TCP connection to the "
+            "attacker and hands the resulting file descriptors to an "
+            "interactive shell, effectively giving remote command execution "
+            "with the privileges of the calling user."
+        )
+    elif layers >= 2:
+        sentences.append(
+            "The multi-layer obfuscation itself is a strong behavioural "
+            "signal — legitimate administrative scripts rarely encode "
+            "themselves recursively, so the effort spent hiding intent "
+            "typically reflects intent worth hiding."
+        )
+    # Add a scoping caveat when the destination is internal
+    if internal and urls:
+        sentences.append(
+            f"Critically, the destination **{internal}** falls inside "
+            "RFC1918 private space, which suggests this specific submission "
+            "is a lab or test artefact rather than active internet-facing "
+            "command-and-control — the same command aimed at a public "
+            "endpoint would carry substantially higher operational risk."
         )
     return " ".join(sentences)
 
 
-def _sec_hashes(cio: Dict[str, Any]) -> str:
-    hs = _hashes_with_names(cio)
-    if not hs:
-        return ""
-    if len(hs) == 1:
-        h, name = hs[0]
-        if name:
-            return f"The investigation identified SHA-256 hash {h} ({name})."
-        return f"The investigation identified SHA-256 hash {h}."
-    parts = [f"{h} ({name})" if name else h for h, name in hs[:3]]
-    return (
-        f"The investigation identified {len(hs)} associated file hashes: "
-        f"{', '.join(parts)}."
-    )
-
-
-def _sec_containment(cio: Dict[str, Any]) -> str:
-    m = _incident_meta(cio)
-    action = m["action"].lower()
-    if action in ("quarantined", "blocked", "prevented", "remediated"):
-        agent = m["vendor"] or "The endpoint agent"
-        return (
-            f"{agent} {action} the detected executable, preventing further "
-            "execution on the affected endpoint."
-        )
-    return ""
-
-
-def _sec_execution_chain(cio: Dict[str, Any]) -> str:
-    ac = ((cio.get("summary") or {}).get("attack_chain") or []) or []
-    if len(ac) < 2:
-        return ""
-    steps = []
-    for s in ac[:6]:
-        lbl = str(s.get("label") or "").split("·")[-1].strip()
-        if lbl:
-            steps.append(lbl)
-    if len(steps) < 2:
-        return ""
-    return (
-        "The investigation reconstructed the execution chain as "
-        + " → ".join(steps) + "."
-    )
-
-
-def _sec_threat_intel(cio: Dict[str, Any]) -> str:
-    ti = _threat_intel_summary(cio)
-    if not ti:
-        return ""
-    lolbins = _lolbins(cio)
-    target = lolbins[0] if lolbins else "the sample"
-    return f"Threat intelligence indicates {target} carries {ti}."
-
-
-def _sec_multi_host(cio: Dict[str, Any]) -> str:
-    hosts = _hosts(cio)
-    if len(hosts) < 2:
-        return ""
-    m = _incident_meta(cio)
-    others = ", ".join(hosts[1:6])
-    if (m["action"] or "").lower() in ("quarantined", "blocked"):
-        return (
-            f"The same indicators were observed across multiple hosts "
-            f"({others}), with confirmed containment on {hosts[0]}, "
-            "indicating broader enterprise exposure rather than an isolated "
-            "event."
-        )
-    return (
-        f"The same indicators were observed across multiple hosts "
-        f"({hosts[0]}, {others}), indicating broader enterprise exposure "
-        "rather than an isolated event."
-    )
-
-
-def _sec_mitre(cio: Dict[str, Any]) -> str:
+def _chapter_correlation(cio: Dict[str, Any]) -> str:
+    """Widening scope — MITRE, TI, multi-host. Uses aggregating language."""
     tactics = _mitre_tactic_ids(cio)
     techs = _mitre_techniques(cio)
-    if not (tactics or techs):
-        return ""
-    parts: List[str] = []
-    if tactics:
-        parts.append(f"MITRE ATT&CK mapping identifies {', '.join(tactics[:4])}")
-    if techs:
-        tech_strs = [f"{tid} ({name})" if name else tid for tid, name in techs[:5]]
-        parts.append("with observed techniques including " + ", ".join(tech_strs))
-    return ", ".join(parts) + "."
+    ti = _threat_intel_summary(cio)
+    hosts = _hosts(cio)
+    ac = ((cio.get("summary") or {}).get("attack_chain") or []) or []
+    sentences: List[str] = []
+    if techs and tactics:
+        tech_strs = [f"**{tid}** ({name})" if name else f"**{tid}**"
+                      for tid, name in techs[:4]]
+        sentences.append(
+            "Behaviourally, this activity maps to "
+            + ", ".join(tech_strs)
+            + " — spanning the "
+            + " · ".join(t.split(" ", 1)[1].strip("()") for t in tactics[:3])
+            + " tactics — a combination consistent with the initial "
+            "execution stage of a broader intrusion attempt."
+        )
+    elif techs:
+        tech_strs = [f"**{tid}** ({name})" if name else f"**{tid}**"
+                      for tid, name in techs[:4]]
+        sentences.append(
+            "Observed behaviour aligns with the ATT&CK techniques "
+            + ", ".join(tech_strs) + "."
+        )
+    if len(ac) >= 2:
+        chain = " → ".join(
+            str(s.get("label") or "").split("·")[-1].strip()
+            for s in ac[:5] if s.get("label")
+        )
+        if chain and "→" in chain:
+            sentences.append(
+                f"Reconstructing the timeline, the sequence unfolds as "
+                f"**{chain}**, which shows the attacker chaining a signed "
+                "living-off-the-land binary into a downloader in a way "
+                "that would blend into normal administrative activity."
+            )
+    if ti:
+        binaries = _lolbins(cio) or [""]
+        target = f"**{binaries[0]}**" if binaries[0] else "the recovered payload"
+        sentences.append(
+            f"Threat intelligence corroborates the assessment: {target} "
+            f"carries {ti}."
+        )
+    if len(hosts) >= 2:
+        m = _incident_meta(cio)
+        others = ", ".join(hosts[1:6])
+        cont = ""
+        if (m["action"] or "").lower() in ("quarantined", "blocked"):
+            cont = f" — with confirmed containment on **{hosts[0]}**"
+        sentences.append(
+            f"Notably, the same indicators surface across multiple hosts "
+            f"({hosts[0]}, {others}){cont} — this is not an isolated event "
+            "but sits inside a broader enterprise exposure that warrants "
+            "follow-on hunt work."
+        )
+    return " ".join(sentences)
 
 
-def _sec_verdict(cio: Dict[str, Any]) -> str:
+def _chapter_judgement(cio: Dict[str, Any]) -> str:
+    """Why the verdict is what it is. Story voice: 'weighing the evidence…'"""
     vf = _verdict_fields(cio)
     label = vf["label"]
     pct = vf["pct"]
     raw = vf["raw_pct"]
     dampen = vf["dampen_pct"]
     esc = vf["escalation"]
-    internal_ip = _internal_ip_present(cio)
+    internal = _internal_ip_present(cio)
     sentences: List[str] = []
-
-    # Verdict statement
     if label in ("Malicious", "Suspicious"):
-        sentences.append(
-            f"The verdict engine returned **{label} at {pct}% confidence**."
+        opener = (
+            f"Taking the recovered command, the ATT&CK mapping and the "
+            f"supporting indicators together, the verdict engine landed on "
+            f"**{label} at {pct}% confidence**"
         )
+        if esc:
+            opener += f" — a promotion driven by the escalation rule *{esc}*"
+        sentences.append(opener + ".")
     else:
-        sentences.append(f"The verdict engine returned {label} at {pct}% confidence.")
-
-    # Explain low confidence when mitigators were active
-    if raw and pct < raw - 10 and vf["mitigators"]:
-        note = ""
-        if internal_ip:
-            note = (
-                f" This is dampened from a raw {raw}% because the destination "
-                f"IP ({internal_ip}) is on RFC1918 private space — the "
-                "internal-asset mitigator downgrades confidence by up to "
-                f"{dampen}%. The same command against a public endpoint would "
-                "score materially higher."
-            )
-        else:
-            note = (
-                f" This is dampened from a raw {raw}% because {vf['mitigators']} "
-                f"mitigating signal(s) reduced the score by up to {dampen}%."
-            )
-        sentences.append(note.strip())
-
-    # Escalation rule cite
-    if esc:
         sentences.append(
-            f"The promotion was driven by the escalation rule `{esc}`."
+            f"Weighing the available evidence, the verdict engine returned "
+            f"**{label} at {pct}% confidence** — the sample carries "
+            "concerning shape but no single indicator strong enough to "
+            "commit to a Malicious call."
         )
-
-    # Investigative caveat / next-step recommendation
-    m = _incident_meta(cio)
-    if label in ("Malicious", "Suspicious"):
-        if (m["action"] or "").lower() in ("quarantined", "blocked"):
+    if raw and pct < raw - 10 and vf["mitigators"]:
+        if internal:
             sentences.append(
-                "Although containment was successful, the presence of the "
-                "detection and associated indicators warrants continued "
-                "investigation to determine the initial delivery vector and "
-                "whether other hosts remain exposed."
+                f"Confidence is intentionally dampened from a raw {raw}%: "
+                f"the destination **{internal}** is RFC1918 private space, "
+                f"which the internal-asset mitigator downgrades by up to "
+                f"{dampen}% — the arithmetic is deliberate and defensible."
             )
         else:
             sentences.append(
-                "The sample should be treated as attacker-controlled until "
-                "confirmed otherwise. Recommended next steps: block the "
-                "identified network indicators at the perimeter, hunt for the "
-                "recovered command string across PowerShell script-block "
-                "logging (Event ID 4104) and process telemetry, and review "
-                "any parent process that spawned this instance for follow-on "
-                "child activity."
+                f"The final number sits below the raw Noisy-OR aggregate "
+                f"({raw}%) because {vf['mitigators']} mitigating signal(s) "
+                f"dampen the score by up to {dampen}%."
             )
     return " ".join(sentences)
+
+
+def _chapter_guidance(cio: Dict[str, Any]) -> str:
+    """What the responder should do next. Direct, actionable."""
+    vf = _verdict_fields(cio)
+    label = vf["label"]
+    m = _incident_meta(cio)
+    urls = _iocs(cio).get("urls") or []
+    ips = _iocs(cio).get("ips") or []
+    recovered = _recovered_command(cio)
+    if label not in ("Malicious", "Suspicious"):
+        return ""
+    parts: List[str] = []
+    if (m["action"] or "").lower() in ("quarantined", "blocked"):
+        parts.append(
+            "For the responder: although the endpoint agent contained the "
+            "immediate execution, the delivery vector and blast-radius "
+            "questions remain open. Recommended next moves are to "
+        )
+    else:
+        parts.append("For the responder, the recommended next moves are to ")
+    actions: List[str] = []
+    ext_iocs = [u for u in urls if "192.168." not in u and "127.0." not in u]
+    ext_iocs += [i for i in ips if not (i.startswith("192.168.")
+                                          or i.startswith("10.") or i.startswith("127."))]
+    if ext_iocs:
+        actions.append(
+            f"block the network indicator{'s' if len(ext_iocs) > 1 else ''} "
+            f"({', '.join(ext_iocs[:3])}) at the perimeter"
+        )
+    if recovered:
+        actions.append(
+            "hunt for the recovered command string across PowerShell "
+            "script-block logging (Event ID 4104) and process telemetry"
+        )
+    actions.append(
+        "review any parent process that spawned this instance for follow-on "
+        "child activity"
+    )
+    if len(actions) >= 3:
+        joined = "; ".join(actions[:-1]) + f"; and {actions[-1]}"
+    elif len(actions) == 2:
+        joined = f"{actions[0]}; and {actions[1]}"
+    else:
+        joined = actions[0]
+    parts.append(joined + ".")
+    return "".join(parts)
 
 
 # ─── Public entry ────────────────────────────────────────────────────
 
 def compose_analyst_narrative(cio) -> str:
-    """Return an MDR-analyst-style Executive Investigation Summary
-    tailored to the depth of the CIO. Minimum 2 paragraphs; more if
-    the CIO has vendor telemetry, TI hits, multi-host correlation, etc.
-    Never raises; never returns empty."""
+    """Compose an MDR-analyst-style Executive Investigation Summary as
+    a **story**, not a fact recital. Adaptive length: minimum 2
+    paragraphs; longer as vendor telemetry, TI, chain data and MITRE
+    coverage grow richer. Deterministic. Never raises. Never empty."""
     try:
         cio_d = cio.model_dump(mode="json") if hasattr(cio, "model_dump") else dict(cio)
     except Exception:  # noqa: BLE001
         cio_d = cio if isinstance(cio, dict) else {}
 
-    # Each section is composed independently. Empty strings are dropped.
-    sections: List[str] = []
-    for fn in (_sec_detection, _sec_executable, _sec_hashes, _sec_containment,
-               _sec_execution_chain, _sec_threat_intel, _sec_multi_host,
-               _sec_mitre, _sec_verdict):
+    def _safe(fn) -> str:
         try:
-            s = fn(cio_d).strip()
+            return fn(cio_d).strip()
         except Exception:  # noqa: BLE001
-            s = ""
-        if s:
-            sections.append(s)
+            return ""
 
-    # Adaptive grouping into paragraphs. Rules:
-    #   * At least 2 paragraphs on any non-empty CIO.
-    #   * Each paragraph is 1–3 related sections.
-    #   * Groupings preserve MDR-analyst reading order.
-    #     P1 = Detection + Executable + Hashes + Containment
-    #     P2 = Execution chain + Threat intel + Multi-host
-    #     P3 = MITRE
-    #     P4 = Verdict + Investigative caveat
-    p1_keys = {"detection", "executable", "hashes", "containment"}
-    p2_keys = {"execution_chain", "threat_intel", "multi_host"}
-    p3_keys = {"mitre"}
-    p4_keys = {"verdict"}
-    key_map = {
-        _sec_detection.__name__:       "detection",
-        _sec_executable.__name__:      "executable",
-        _sec_hashes.__name__:          "hashes",
-        _sec_containment.__name__:     "containment",
-        _sec_execution_chain.__name__: "execution_chain",
-        _sec_threat_intel.__name__:    "threat_intel",
-        _sec_multi_host.__name__:      "multi_host",
-        _sec_mitre.__name__:           "mitre",
-        _sec_verdict.__name__:         "verdict",
-    }
-    # Rebuild sections with their keys so we can group.
-    keyed: List[Tuple[str, str]] = []
-    for fn in (_sec_detection, _sec_executable, _sec_hashes, _sec_containment,
-               _sec_execution_chain, _sec_threat_intel, _sec_multi_host,
-               _sec_mitre, _sec_verdict):
-        try:
-            s = fn(cio_d).strip()
-        except Exception:  # noqa: BLE001
-            s = ""
-        if s:
-            keyed.append((key_map[fn.__name__], s))
+    opening        = _safe(_chapter_opening)
+    discovery      = _safe(_chapter_discovery)
+    interpretation = _safe(_chapter_interpretation)
+    correlation    = _safe(_chapter_correlation)
+    judgement      = _safe(_chapter_judgement)
+    guidance       = _safe(_chapter_guidance)
 
-    para_buckets: Dict[int, List[str]] = {1: [], 2: [], 3: [], 4: []}
-    for key, s in keyed:
-        if key in p1_keys:
-            para_buckets[1].append(s)
-        elif key in p2_keys:
-            para_buckets[2].append(s)
-        elif key in p3_keys:
-            para_buckets[3].append(s)
-        else:
-            para_buckets[4].append(s)
+    # Weave into paragraphs. The story arc groups related chapters so
+    # transitions read naturally.
+    #   Para 1 = OPENING + DISCOVERY   (what happened)
+    #   Para 2 = INTERPRETATION        (what it means)
+    #   Para 3 = CORRELATION           (widening scope)
+    #   Para 4 = JUDGEMENT + GUIDANCE  (verdict and action)
+    p1 = " ".join(p for p in (opening, discovery) if p).strip()
+    p2 = interpretation
+    p3 = correlation
+    p4 = " ".join(p for p in (judgement, guidance) if p).strip()
 
-    paragraphs = [" ".join(para_buckets[i]).strip() for i in (1, 2, 3, 4)
-                   if para_buckets[i]]
+    paragraphs = [p for p in (p1, p2, p3, p4) if p]
 
-    # Guarantee ≥ 2 paragraphs — if only one bucket had content, split
-    # the LAST paragraph so the verdict statement gets its own paragraph.
-    if len(paragraphs) < 2 and paragraphs:
-        # Move verdict section (if present) to its own paragraph.
-        verdict_para = " ".join(para_buckets[4]).strip()
-        if verdict_para:
+    # Guarantee ≥ 2 paragraphs — collapse when the CIO is thin.
+    if len(paragraphs) < 2:
+        vf = _verdict_fields(cio_d)
+        fallback_close = (
+            f"Weighing the available evidence, the verdict engine returned "
+            f"**{vf['label']} at {vf['pct']}% confidence**."
+        )
+        if not paragraphs:
             paragraphs = [
-                " ".join(para_buckets[1] + para_buckets[2] + para_buckets[3]).strip(),
-                verdict_para,
+                "The pipeline received the artefact but could not recover "
+                "additional behavioural detail.",
+                fallback_close,
             ]
-            paragraphs = [p for p in paragraphs if p]
-        # Still one? Split by sentence.
-        if len(paragraphs) < 2 and paragraphs[0]:
-            single = paragraphs[0]
-            # Prefer a split point after the executable/command sentence.
-            sents = _split_sentences(single)
-            if len(sents) >= 4:
-                half = len(sents) // 2
-                paragraphs = [" ".join(sents[:half]).strip(),
-                              " ".join(sents[half:]).strip()]
-            elif len(sents) >= 2:
-                paragraphs = [sents[0].strip(),
-                              " ".join(sents[1:]).strip()]
+        else:
+            paragraphs.append(fallback_close)
 
-    if not paragraphs:
-        v = _verdict_fields(cio_d)
-        paragraphs = [
-            f"Investigation completed. Verdict: {v['label']} at {v['pct']}% "
-            "confidence.",
-            v["reason"] or "No further analyst detail was recovered from the "
-                          "submitted artefact.",
-        ]
-
-    # Sanitize per-paragraph so the whitespace collapse inside
-    # `_sanitize_customer_text` doesn't destroy inter-paragraph breaks.
     cleaned = [_sanitize_customer_text(p).strip() for p in paragraphs]
     cleaned = [p for p in cleaned if p]
     return "\n\n".join(cleaned)
-
-
-def _split_sentences(text: str) -> List[str]:
-    """Naive sentence splitter — good enough for narrative output."""
-    out: List[str] = []
-    buf = ""
-    for ch in text:
-        buf += ch
-        if ch in ".!?" and len(buf) > 40:
-            out.append(buf.strip())
-            buf = ""
-    if buf.strip():
-        out.append(buf.strip())
-    return out
 
 
 __all__ = ["compose_analyst_narrative"]
