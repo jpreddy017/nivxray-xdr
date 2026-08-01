@@ -1,0 +1,40 @@
+# §13 KPI Trend Register
+
+> Append-only ledger of the eight §13 KPIs, one row per release.
+> Populated from each `/app/docs/releases/<RELEASE>-<date>.md`.
+> Purpose: track **direction over time**, not release snapshots.
+>
+> This is engineering hygiene — NOT an architectural artefact.
+> Does not modify the Constitution.
+> **Once P1-01 · Live OSINT Wiring** ships, the first row is filled in
+> and the Constitution v1.0 officially freezes.
+
+## Direction guide
+
+| KPI | Desired direction | Target |
+|-----|-------------------|--------|
+| Adapter detection accuracy         | ↑ Higher | ≥ 99 %  |
+| Normalisation correctness          | ↑ Higher | ≥ 95 %  |
+| Cross-vendor equivalence pass rate | ↑ Higher | 100 %   |
+| Investigation replay determinism   | ↑ Higher (stable at 100 %) | 100 %   |
+| Verdict parity                     | ↑ Higher (stable at 100 %) | 100 %   |
+| E2E investigation latency P95      | ↓ Lower  | ≤ 4 s   |
+| Deep-command investigation success | ↑ Higher | ≥ 90 %  |
+| Golden-corpus coverage             | ↑ Higher | ≥ 95 %  |
+
+## Trend table
+
+| Release | Date | Detection | Normalisation | X-vendor eq. | Replay det. | Verdict parity | Latency P95 | Deep-cmd success | Corpus cov. | Direction summary |
+|---------|------|-----------|---------------|--------------|-------------|----------------|-------------|------------------|-------------|-------------------|
+| _first row after P1-01 ships_ |  |  |  |  |  |  |  |  |  |  |
+
+## Usage rules
+
+- Append-only. Never edit historical rows.
+- One row per Release Validation Report.
+- "Direction summary" is one word per KPI: `↑ ↓ =` — nothing more.
+- Regressions on `Verdict parity`, `Replay determinism`, or
+  `Cross-vendor equivalence` are treated as P0 bugs regardless of
+  release size.
+- Sustained downward trend on any other KPI triggers a review in the
+  following sprint — see `/app/docs/BACKLOG.md` request lanes.

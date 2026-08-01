@@ -35,6 +35,11 @@
 > executive view: KPI board release-over-release · golden-corpus
 > changes · parity status · constitutional compliance checklist.
 >
+> **Every release MUST also append one row to the KPI Trend Register**
+> at `/app/docs/KPI_TRENDS.md`. Append-only. Regressions on Verdict
+> Parity · Replay Determinism · Cross-vendor Equivalence are P0 bugs
+> regardless of release size.
+>
 > **This is the ONE place to track work status. Do not generate ad-hoc "Next Action Items" in session summaries — update this file instead.**
 > Read `/app/docs/architecture/README.md` first. The constitution is **FROZEN at v1.0** pending P1-01 close.
 > **§10 SUPERSEDES ALL**: the CIO is the ONLY exchange contract between components. **§11**: no architectural change without a superseding ADR.
