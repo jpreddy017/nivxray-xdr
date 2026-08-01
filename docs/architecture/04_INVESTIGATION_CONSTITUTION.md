@@ -100,8 +100,10 @@ becomes objectively measurable.
 
 ```json
 {
-  "adapter":            "cisco_xdr",
-  "detect_confidence":  0.99,
+  "adapter":               "cisco_xdr",
+  "normalization_version": "1.2.0",
+  "schema_version":        "cio-v4",
+  "detect_confidence":     0.99,
   "sections_parsed": {
     "incident_header":       true,
     "threat_detection":      true,
@@ -116,7 +118,9 @@ becomes objectively measurable.
     "hosts": 7, "processes": 5, "files": 3, "hashes": 2,
     "ips":   4, "domains":   3, "urls":  2
   },
-  "coverage_pct":  98,
+  "coverage_pct":     98,
+  "correctness_pct":  95,
+  "completeness_pct": 92,
   "warnings": [
     "Missing Process IDs",
     "Missing Registry Events",
@@ -125,28 +129,44 @@ becomes objectively measurable.
 }
 ```
 
-**Why mandatory**
+**`normalization_version` + `schema_version`** are mandatory. They
+distinguish parser-behaviour changes (adapter update) from canonical-
+schema evolution (CIO upgrade), which simplifies regression triage
+when historical investigations are reprocessed.
 
-- **Analyst transparency** — the operator knows exactly what was
-  extracted from the vendor document.
-- **Parser regression detection** — a broken parser now surfaces as a
-  visible coverage drop, not a silently-empty investigation.
-- **CI assertion** — the Investigation Quality Gate can assert
-  `coverage_pct >= FLOOR` per adapter so a parser breaking silently
-  fails the build.
-- **Objective adapter grading** — adapters can be compared by their
-  coverage over a fixed corpus.
+## 🔒 The three CI metrics (not just coverage)
 
-**UI surfacing**
+Coverage alone is insufficient — a parser can achieve high coverage
+while extracting incorrect data. Every adapter emits three
+independent scores:
 
-X-Lab's Executive lens MUST render a `Normalization Quality` chip
-whenever `cio.metadata.normalization_quality` is present:
+| Metric | Question it answers | CI floor (default) |
+|--------|--------------------|--------------------|
+| **Coverage**     | Were the expected sections and entities parsed? | 60 % |
+| **Correctness**  | Do parsed values match the golden corpus?       | 90 % |
+| **Completeness** | Were all expected entities + relationships extracted? | 80 % |
 
-- 🟢 `98% coverage · Cisco XDR` (all sections parsed)
-- 🟡 `72% coverage · CrowdStrike · 3 warnings` (partial parse)
-- 🔴 `41% coverage · Sysmon · adapter regressed` (below floor)
+Any adapter dropping below its floor on any of the three metrics
+fails CI.
 
-Clicking the chip opens the full report inside the Source lens.
+## 🔒 Golden Corpus (per vendor)
+
+For each supported vendor, maintain a deterministic golden corpus at
+`/app/backend/tests/parity/corpora/<vendor>/` with paired
+`input_*.json` and `expected_*.json` files. The Parity CI verifies:
+
+1. Adapter detection
+2. Section identification
+3. Entity extraction
+4. Timeline ordering
+5. Process hierarchy
+6. Relationship graph
+7. Threat-intel normalization
+8. CIO serialization
+9. Executive Summary determinism
+10. Attack Story determinism
+11. Verdict parity (identical evidence ⇒ identical verdict)
+12. Normalization Quality Report contents
 
 ## Anti-goals (permanent)
 
