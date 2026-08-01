@@ -6,6 +6,12 @@
 > **Every PR must pass the four gates** (see `/app/docs/architecture/README.md`):
 > 1. Preserves the CIO contract · 2. Improves a §13 KPI · 3. Adds no new layer · 4. Stays deterministic.
 >
+> **Every merged item MUST ship with a Completion Record** at
+> `/app/docs/completions/<BACKLOG_ID>-<slug>.md` (template at
+> `/app/docs/completions/TEMPLATE.md`). Objective · Implementation ·
+> Tests · Golden Corpus · Parity · KPI Impact · Constitutional
+> Compliance · Known Limitations.
+>
 > **This is the ONE place to track work status. Do not generate ad-hoc "Next Action Items" in session summaries — update this file instead.**
 > Read `/app/docs/architecture/README.md` first. The constitution is **FROZEN at v1.0** pending P1-01 close.
 > **§10 SUPERSEDES ALL**: the CIO is the ONLY exchange contract between components. **§11**: no architectural change without a superseding ADR.
