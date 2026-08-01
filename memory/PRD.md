@@ -1,5 +1,45 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-08-01 · **📜 ADR Addendum A · Phase 1 Contract-Freeze Gate**
+
+Operator issued the definitive Phase 1 gate: **10 contracts must be frozen before any implementation**. Filed at `/app/docs/adr/ADR-2026-08-01_addendum_A_phase1_contract_freeze.md`. Phase 1 CODE is blocked until every contract is signed off.
+
+### New pipeline stage inserted
+`Parser → Normalizer → CEM → Graph → **Evidence Validation** → Correlation → TI → Root Cause → Hypothesis → Confidence → Recommendations → Narrative`
+
+Evidence Validation resolves conflicting timestamps, duplicate hashes, conflicting users/hosts, inconsistent process trees, malformed vendor data BEFORE downstream reasoning.
+
+### Ten contracts (freeze order)
+1. **CEM v1** — versioned, immutable, migrations required for v2+.
+2. **Investigation Graph schema** — directed multigraph, read-only-after-construction, versioned change-sets.
+3. **Standard Node Taxonomy (FROZEN)** — Host · User · Process · Command · Decoded Payload · Registry · Service · Scheduled Task · File · Hash · URL · IP · DNS · Certificate · Network · Alert · Detection · ATT&CK · Threat Family · Recommendation · Finding · Hypothesis · Timeline Event.
+4. **Evidence Provenance Model** — every node carries source · vendor · timestamp · confidence · evidence_refs · input_offset.
+5. **Investigation Object Contract** — aggregate root with cem / graph / timeline / findings / hypotheses / recommendations / confidence / report as sub-objects. No more scattered files.
+6. **KnowledgeProvider interfaces** — Lolbin / ATT&CK / ThreatFamily / Playbook / Mechanism / OSINT (abstracts only in P1, implementations in later phases).
+7. **TIProvider interface** — ioc_reputation / historical_sightings / families_for / campaigns_for / confidence.
+8. **Root Cause engine contract** — fixed taxonomy (Phishing · Software Deployment · Lateral Movement · Credential Theft · Malvertising · Remote Admin · Supply Chain · Web Exploitation · Insider · Misconfiguration · Unknown), each candidate returns evidence_for / evidence_against / confidence.
+9. **Visibility engine contract** — every answer returns Observed · Not Observed · Cannot Verify · Visibility Gap + reason.
+10. **Recommendation engine contract** — deterministic (ThreatFamily, Stage, Visibility, ContainmentState, AssetType) → Playbook → Recommendations. Never hardcoded.
+
+### Phase 1 CODE sequence (only after all 10 contracts signed off)
+1. Implement `CEMv1`.
+2. Cisco Secure Endpoint normalizer → CEMv1.
+3. Sysmon normalizer → CEMv1.
+4. Investigation Graph builder.
+5. Evidence Validation stage.
+6. End-to-end demo: raw payload → CEM → Graph → Validation → printable investigation state.
+
+Nothing else in Phase 1. Not correlation, not narrative, not KBs, not TI implementations.
+
+### Blocking asks for next session (unchanged + tightened)
+1. Four gold-standard analyst investigations in `/app/memory/P0_MISSION.md`.
+2. Sign-off on each of the 10 contracts above (individual approval per contract is acceptable; blanket approval is preferred).
+
+### Nothing shipped this session. All prior modules (narrative composer, Executive dashboard, report validator) remain in place operationally but are queued for rebuild under the ADR — they violate the graph-first, provenance-first architecture the operator has now locked.
+
+---
+
+
 ## 2026-08-01 · **🏛 ADR-2026-08-01 · Investigation Engine Architecture LOCKED**
 
 Operator issued the definitive architecture. Filed at `/app/docs/adr/ADR-2026-08-01_investigation_architecture.md`. **Any code change must trace to a stage in this ADR.**
