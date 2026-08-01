@@ -1,5 +1,54 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-08-01 · **🏛 ADR-2026-08-01 · Investigation Engine Architecture LOCKED**
+
+Operator issued the definitive architecture. Filed at `/app/docs/adr/ADR-2026-08-01_investigation_architecture.md`. **Any code change must trace to a stage in this ADR.**
+
+### Guiding principle (measurement of success)
+> Do not measure success by how good the report sounds. Measure success by whether the investigation itself would allow an experienced SOC analyst to independently arrive at the same conclusions. The report is only a rendering of the investigation graph — not the investigation itself.
+
+### Correction to previous handoff
+My earlier blueprint (knowledge-base modules first) was BACKWARDS. Knowledge bases are supporting data — they are consumed by pipeline stages, not stages themselves. The pipeline comes first.
+
+### Canonical pipeline (no shortcuts, strict order)
+`Parser → Normalizer → Artifact Discovery → Recursive Decoder → Evidence Extractor → Entity Resolver → Correlation Engine → Timeline Builder → Attack Chain Builder → Threat Intelligence → Threat Family Resolver → Mechanism Interpreter → Root Cause Engine → Confidence Engine → Hypothesis Engine → Recommendation Engine → Narrative Engine`
+
+### Foundational contracts
+- **Canonical Event Model (CEM)** — every vendor input passes through a per-vendor adapter emitting CEM. Downstream stages consume only CEM, never vendor JSON.
+- **Investigation Graph** — Host → User → Process → Command → Payload → File → Registry → Network → DNS → TI → ATT&CK → Family → Recommendation. Every conclusion cites its subgraph.
+- **Threat Family Resolver** — multi-signal (Detection + Behaviour + Command + Chain + Registry + Network + Mutex + URLs + Hashes + ATT&CK) → Family Confidence. Never `Detection == Family`.
+- **Mechanism Library** — bigger than LOLBIN KB. Each mechanism carries Purpose · Typical ATT&CK · Common Malware · Analyst Explanation · Risk · Customer Explanation.
+- **Rule-driven Recommendations** — Family + Containment + Stage + Malware + Host + User + Visibility → Playbook → Recommendations. No `if malware then run AV`.
+- **Multi-persona rendering** — Same investigation. Customer / SOC / Threat Hunter / DFIR / Management / Executive renderers. Investigation invariant.
+- **Hypothesis Engine** (missing today) — enumerates alternatives with FOR/AGAINST evidence. The single differentiator between analyst and decoder.
+- **Every sentence cites evidence node ids** — makes the Citation Engine trivial once the graph is authoritative.
+
+### Phased roadmap (strict order)
+- **Phase 1 · Foundation**: CEM · Vendor Normalizers · Recursive Decoder (existing, rewired) · Artifact Discovery (existing, rewired).
+- **Phase 2 · Correlation**: Investigation Graph · Timeline Builder · Correlation Engine · ATT&CK Mapper (deterministic single pass — closes BUG-P4-02).
+- **Phase 3 · Enrichment**: Threat Family Resolver · Mechanism KB · Threat Intelligence · Root Cause Engine · Confidence Engine.
+- **Phase 4 · Analyst Intelligence**: Recommendation Engine · Playbook Engine · Visibility Analysis · Hypothesis Engine.
+- **Phase 5 · Rendering**: Narrative Engine · per-persona renderers (Customer / SOC / DFIR / Threat Hunter).
+- **Phase 6 · Long-horizon**: Learning Engine (rebuilt on graph) · Golden Corpus · Incident / Campaign Correlation.
+
+### Blocking asks for the next session
+1. Four gold-standard analyst investigations pasted into `/app/memory/P0_MISSION.md` under the placeholders (PsExec/Bomgar · Chrome cache/phishing · Cisco Secure Access DNS · Defender credential enumeration).
+2. Operator confirmation that **Phase 1** (CEM contract + first two Vendor Normalizers + pipeline stub scaffolding) is the correct first deliverable.
+
+### Phase acceptance signals (operator-visible)
+- **P1**: raw vendor payload → CEM → recovered artifacts, printable.
+- **P2**: investigation graph render + timeline + attack chain.
+- **P3**: family + mechanism explanations with graph citations.
+- **P4**: recommendation + hypothesis output with FOR/AGAINST evidence lists.
+- **P5**: multiple persona-specific narratives from the same investigation invariant.
+- **P6**: cross-investigation campaign linkage.
+
+### Freeze (unchanged)
+Every previously-frozen item remains frozen. UI, dashboards, personas beyond CEM-driven renderers, LLM polish, correlation dashboards, cosmetic improvements — all frozen until each phase acceptance criterion is signed off.
+
+---
+
+
 ## 2026-08-01 · **🔒 P0 MISSION LOCKED · X-Lab must become an Investigation Engine**
 
 Operator issued the definitive spec at `/app/memory/P0_MISSION.md`. **Read that first, every session, before any code change.** This document supersedes every previous roadmap item.
