@@ -18,6 +18,7 @@
 
 - [`/app/docs/BACKLOG.md`](../BACKLOG.md) — Persistent implementation backlog. Update after every session; do not generate ad-hoc "Next Action Items."
 - [`/app/memory/xlab_parity_audit.md`](../../memory/xlab_parity_audit.md) — Legacy Lab ↔ X-Lab parity matrix.
+- [`/app/reference/canonical_investigation/sample_incident/`](../../reference/canonical_investigation/sample_incident/) — **Reference Implementation** (golden investigation). Read this before touching any Adapter or engine.
 
 ## Update Discipline
 
