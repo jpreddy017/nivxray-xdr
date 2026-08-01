@@ -1,5 +1,56 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-08-01 · **🔒 P0 MISSION LOCKED · X-Lab must become an Investigation Engine**
+
+Operator issued the definitive spec at `/app/memory/P0_MISSION.md`. **Read that first, every session, before any code change.** This document supersedes every previous roadmap item.
+
+### Freeze extended (unchanged)
+No UI · no dashboards · no personas · no explainability · no learning engine · no LLM polish · no correlation dashboards · no Golden Corpus expansion · no Phase 4 · no cosmetic improvements.
+
+### Mission (one line)
+X-Lab investigates like an MDR SOC analyst / threat hunter — parse, normalize, aggregate, correlate, decode-recursively, enrich, recognise threat family, explain WHY every observed action matters, prescribe customer-specific actions — and the report is the by-product of the investigation, not the deliverable.
+
+### Two modes
+- **Mode 1**: Encoded / plain command line → recursive decode → normalize → parse → understand every command → explain purpose → attacker objective → MITRE → IOCs → OSINT → family → complete story.
+- **Mode 2**: Vendor telemetry (Cisco XDR / Secure Endpoint / Defender / CrowdStrike / Sysmon / QRadar / Splunk / Elastic / Suricata / Zeek / cloud / raw JSON) → Parse → Normalize → Aggregate → Correlate → search for command-line / IOC / registry / service / LOLBIN / DNS / children / parents / users / hosts → recurse the decoder on any command line found → merge decoded evidence → continue investigating even if no command exists.
+
+### Required knowledge base (deterministic, not LLM)
+Every LOLBIN · every ATT&CK technique · every malware family · every persistence / credential-theft / defense-evasion / execution mechanism must have a KB-backed explanation of WHY attackers use it, HOW it works, WHAT visibility gaps it exploits.
+
+### Pending from operator (BLOCKING for next session)
+Four gold-standard analyst investigations to be pasted into `/app/memory/P0_MISSION.md` under the placeholders:
+1. PsExec / Bomgar investigation
+2. Chrome cache / phishing investigation
+3. Cisco Secure Access DNS investigation
+4. Defender credential enumeration investigation
+
+Without these, the next session cannot faithfully reproduce the analytical methodology.
+
+### Acceptance criteria (verbatim)
+1. X-Lab investigates, not summarises.
+2. Reports read like the supplied analyst examples.
+3. Encoded commands recursively decoded and integrated.
+4. Vendor telemetry parsed → normalized → aggregated → correlated → enriched → investigated.
+5. Report explains what / why / how / what-next / action.
+6. Every analytical statement evidence-backed.
+7. Decoder internals never appear in customer-facing reports.
+8. No feature work begins until 1–7 are met.
+
+### Proposed engineering blueprint (for operator approval before code is written)
+Modules to add:
+- `nivxforge/investigation/knowledge/` — `lolbin_kb.py` (why-each-LOLBIN library), `attck_kb.py` (why-each-technique library), `family_kb.py` (malware family narratives incl. WasabiSeed / Emotet / IcedID / Qakbot / Rhadamanthys / AHKBot / Screenshotter), `mechanism_kb.py` (caret obfuscation, IEX staging, DLL sideloading, token impersonation, WMI persistence, scheduled-task persistence, credential dumping techniques).
+- `nivxforge/investigation/vendor_normalizer_v2.py` — deterministic normaliser that recognises CSOC Secure Endpoint alert JSON, Cisco XDR incidents, Defender for Endpoint alerts, CrowdStrike Falcon streams, Sysmon event XML, QRadar offense JSON — extracting host, user, timestamp, detection name, process tree, network activity, containment status.
+- `nivxforge/investigation/recursive_investigator.py` — the orchestrator. Given a normalised CIO, walk the process tree; for every command line found (top-level OR nested inside vendor field), invoke the recursive decoder; merge decoded evidence back into the CIO; identify every tool along the chain and pull its KB entry; run threat-family recognition; run OSINT enrichment; produce the investigation state that the composer will render.
+- `nivxforge/investigation/analyst_report.py` — the composer, rewritten as an investigation-state-to-narrative renderer that walks the analyst methodology (Detection Context · Investigation Scope · Timeline · Correlation · Threat Explanation · Root Cause · TI · Family · MITRE · IOC · OSINT · Visibility Limitations · Confidence · Recommendations) emitting only the sections with evidence. Every paragraph cites its supporting evidence node ids.
+- IOC defanger + CSOC-playbook recommendation library.
+- Fix visible defects: recovered-command corruption (composer picks the ingress canonical text instead of the actual recovered command); Cisco Secure Endpoint vendor detection (currently classified as "Generic JSON").
+
+### Why not started this session
+Remaining context budget was too tight to responsibly ship any of the above. Starting knowledge-base modules with insufficient headroom would produce partial, LLM-drift-prone stubs — the operator has been clear those are not acceptable. Next session begins with fresh context, the 4 gold-standard examples in hand, and executes the blueprint under the acceptance criteria above.
+
+---
+
+
 ## 2026-08-01 · **MDR-Analyst-Style Executive Investigation Summary · SHIPPED**
 
 Operator asked for an analyst-voice, evidence-driven, variable-length narrative — not a numbered 14-section report.
