@@ -257,4 +257,86 @@ export const PROJECTIONS = {
   attack: { label: "Attack Chain", fn: projectAttackChain, direction: "LR" },
   mitre: { label: "MITRE", fn: projectMitre, direction: "TB" },
   timeline: { label: "Timeline", fn: projectTimeline, direction: "LR" },
+  processtree: { label: "Process Tree", fn: projectProcessTree, direction: "TB" },
 };
+
+// ── Process Tree projection — walks process/lolbin/behaviour nodes as a
+//    spawn-tree. Uses evidence_graph edges with relation ∈ {spawn, executes,
+//    invokes, launches, parent_of, contains} when present. Falls back to
+//    "artifact → lolbin → behaviour → verdict" heuristic ordering when the
+//    CIO carries no explicit process nodes. Layout defaults TB so the tree
+//    reads like a process explorer.
+export function projectProcessTree(cio) {
+  const g = cio?.evidence_graph || {};
+  const rawNodes = g.nodes || [];
+  const rawEdges = g.edges || [];
+  const spawnRelations = new Set(["spawn", "spawns", "executes", "executed", "invokes", "launches", "parent_of", "contains", "runs"]);
+
+  const isProcessLike = (n) => {
+    const k = (n.kind || "").toLowerCase();
+    if (k === "process" || k === "lolbin" || k === "lolbas") return true;
+    // Behaviour/artifact/verdict count as pseudo-processes so the tree isn't empty on today's CIO.
+    if (k === "artifact" || k === "behaviour" || k === "behavior" || k === "verdict") return true;
+    if (k === "command" || k === "script") return true;
+    return false;
+  };
+
+  const procNodes = rawNodes.filter(isProcessLike);
+  if (procNodes.length === 0) {
+    return { nodes: [], edges: [], empty: true, note: "no process-like nodes in cio.evidence_graph" };
+  }
+
+  const keptIds = new Set(procNodes.map((n) => n.id));
+
+  // Prefer explicit spawn/exec edges; otherwise walk any edge that connects two
+  // process-like nodes so the tree stays connected.
+  const spawnEdges = rawEdges.filter((e) => {
+    if (!keptIds.has(e.source) || !keptIds.has(e.target)) return false;
+    const rel = (e.relation || e.label || "").toString().toLowerCase();
+    if (spawnRelations.has(rel)) return true;
+    return true; // fallback — still include (heuristic tree)
+  });
+
+  const nodes = procNodes.map((n) => {
+    const attrs = n.attrs || {};
+    const conf = typeof n.confidence === "number" ? (n.confidence > 1 ? Math.round(n.confidence) : Math.round(n.confidence * 100)) : null;
+    return {
+      id: n.id,
+      type: "stage",
+      data: {
+        id: n.id,
+        title: (attrs.image || attrs.process_name || n.label || n.id).toString().slice(0, 60),
+        subtitle: n.kind === "lolbin"
+          ? `LOLBIN · ${(attrs.techniques || []).join(" · ") || attrs.binary || ""}`
+          : n.kind === "artifact"
+            ? `SEED · ${(attrs.role || "input").toString()}`
+            : n.kind === "verdict"
+              ? `VERDICT · ${attrs.class || "unknown"}`
+              : `${(n.kind || "process").toUpperCase()} · ${(attrs.tactic || attrs.behaviour_class || "").toString()}`,
+        kind: n.kind,
+        subKind: attrs.ioc_kind || "",
+        class: attrs.class || n.class,
+        confidence: conf,
+        hot: attrs.class === "critical" || n.kind === "verdict",
+        _raw: n,
+      },
+      position: { x: 0, y: 0 },
+    };
+  });
+
+  const edges = spawnEdges.map((e, i) => ({
+    id: e.id || `pt-${i}`,
+    source: e.source,
+    target: e.target,
+    animated: e.hot === true || spawnRelations.has((e.relation || "").toString().toLowerCase()),
+    label: (e.relation || e.label || "spawns").toString(),
+    labelStyle: { fontSize: 10, fill: "var(--mint, #55e6b8)" },
+    style: {
+      stroke: e.hot ? "var(--crit, #ff5c5c)" : "var(--mint, #55e6b8)",
+      strokeWidth: e.hot ? 1.5 : 1.2,
+    },
+    data: { _raw: e },
+  }));
+
+  return { nodes, edges, empty: false, note: "" };
+}

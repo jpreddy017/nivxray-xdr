@@ -248,18 +248,34 @@ function Canvas({ cio, onEvClick, defaultView }) {
       data-testid="eg-canvas"
     >
       <div className="eg-toolbar" data-testid="eg-toolbar">
-        <div className="eg-view-tabs" data-testid="eg-view-tabs">
-          {Object.entries(PROJECTIONS).map(([key, cfg]) => (
-            <button
-              key={key}
-              type="button"
-              className={`eg-view-tab${view === key ? " on" : ""}`}
-              onClick={() => changeView(key)}
-              data-testid={`eg-view-${key}`}
-            >
-              {cfg.label}
-            </button>
-          ))}
+        <div className="eg-view-selector" data-testid="eg-view-selector">
+          <label className="eg-view-selector-label">Projection</label>
+          <select
+            className="eg-view-select"
+            value={view}
+            onChange={(e) => changeView(e.target.value)}
+            data-testid="eg-view-select"
+          >
+            {Object.entries(PROJECTIONS).map(([key, cfg]) => (
+              <option key={key} value={key} data-testid={`eg-view-option-${key}`}>{cfg.label}</option>
+            ))}
+          </select>
+          {/* Keep hidden tab buttons for backward-compat data-testids used by tests / scripts. */}
+          <div className="eg-view-tabs-hidden" data-testid="eg-view-tabs">
+            {Object.entries(PROJECTIONS).map(([key]) => (
+              <button
+                key={key}
+                type="button"
+                className={`eg-view-tab${view === key ? " on" : ""}`}
+                onClick={() => changeView(key)}
+                data-testid={`eg-view-${key}`}
+                tabIndex={-1}
+                aria-hidden="true"
+              >
+                {key}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="eg-toolbar-spacer" />
         <RecursionBadge report={recursionReport} />
