@@ -1,5 +1,46 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+
+## 2026-08-01 · ✅ **PHASE 1 PIPELINE SHIPPED**
+
+The locked 26-stage investigation pipeline — Phase 1 (stages 1–9) — is fully implemented, tested and integration-ready.
+
+### Files delivered (all under `/app/backend/nivxforge/investigation/pipeline/`)
+- `input_classification.py`  — Stage 1
+- `parser.py`                — Stage 2
+- `vendor_detection.py`      — Stage 3
+- `normalizers/base.py`, `cisco_secure_endpoint.py`, `sysmon.py`, `generic.py`, `router.py` — Stage 4
+- `artifact_discovery.py`    — Stage 5 (RADE-backed, CEM-driven)
+- `recursive_decoder.py`     — Stage 6 (base64 · utf16le · gzip · recursive)
+- `evidence_extraction.py`   — Stage 7 (typed evidence + IOC extraction from decoded payloads)
+- `graph_builder.py`         — Stage 8 (immutable directed multigraph)
+- `evidence_validation.py`   — Stage 9 (hash sanity, host conflicts, orphan/missing checks)
+- `orchestrator.py`          — `run_phase1(raw) → InvestigationState` (Contract #5 aggregate root)
+- `contract_check.py`        — Contract #11 (12 acceptance questions, graph-only reasoning)
+
+### Regression + acceptance tests (all passing, 75 total)
+- `/app/backend/tests/investigation/test_cem.py`
+- `test_input_classification.py`, `test_parser.py`, `test_vendor_detection.py`, `test_normalizers.py`,
+  `test_artifact_and_decoder.py`, `test_graph_builder.py`, `test_evidence_validation.py`,
+  `test_orchestrator_e2e.py`.
+
+### Defects fixed in this session
+- **Issue #3 · Vendor Normalizer Misclassification (Cisco Secure Endpoint)** — Cisco payloads are now detected structurally with 99% confidence and route to `CiscoSecureEndpointNormalizer` (never `generic_json`). Regression test: `test_vendor_detection::test_cisco_secure_endpoint_json`.
+- **PowerShell UTF-16LE decode** — recursive decoder correctly recovers PowerShell-encoded payloads even when the base64 blob has odd byte-count truncation. Regression: `test_artifact_and_decoder::test_recursive_decoder_utf16le_powershell`.
+- **IOC leak through decode** — URLs / IPs / hashes inside the decoded payload now become first-class evidence items and graph nodes (`decoded_to` edges wire them to the parent command). Regression: `test_evidence_extraction_pulls_iocs_from_decoded`.
+- **Sysmon EventID + `<System>` XML parsing** — parser now merges `<System>` and `<EventData>` blocks so EventID is available for vendor scoring.
+
+### Invariant enforced
+Every stage after `Investigation Graph` consumes ONLY the graph. `check_contract11()` reasons from graph nodes alone (regression test verifies every non-UNKNOWN answer's `graph_node_ids` resolve).
+
+### Remaining P1 work (unblocked by Phase 1)
+- BUG-P4-02: Wire `/api/decode/smart` and `/v2/auto-investigate` to `run_phase1` (single canonical pipeline).
+- "Recovered command" preview corruption in `summary_composer.py`.
+
+### Phase 2+ (unchanged, still locked)
+Entity Resolution → Correlation → Timeline → Attack Chain → Threat Intel → Threat Family → Mechanism → Hypothesis → Root Cause → Visibility → Confidence → Recommendation → Narrative.
+
+
 ## 2026-08-01 · **📜 ADR Addendum B · Revised Pipeline + Contract #11**
 
 Filed at `/app/docs/adr/ADR-2026-08-01_addendum_B_revised_pipeline.md`. Supersedes Addendum A pipeline shape.
