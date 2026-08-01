@@ -379,6 +379,7 @@ export function projectCIO(cio) {
       attackGraph,
       graph: attackGraph, // legacy alias for older refs (Storybook)
       defaultEv,
+      cio, // raw CIO for EvidenceGraphCanvas (single source of truth)
     },
     sourceIsDemo: false,
   };

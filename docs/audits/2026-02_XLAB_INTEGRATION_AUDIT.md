@@ -145,3 +145,21 @@ The only real user-visible defect is **BUG-01** (UTF-16 endianness) — a decode
 3. **P2 · Refresh BUG-02** — Point the quality-gate rubric at the current CIO schema so CI actually catches regressions instead of failing on schema drift.
 4. **P1 · Then proceed with P2-08 Ledger Lens** (dedicated visual step-by-step "why this verdict" explanation).
 5. **P1 · Then P2-05 IDI Adapters.**
+
+---
+
+## 7 · Follow-up shipped (same session as this audit)
+
+- **BUG-01 fixed** — auto-detect UTF-16LE → UTF-8 → UTF-16LE-replace in `powershell-encoded` op. Story/Output/Executive lenses now show readable IEX text. Verdict 99% → 100% CRITICAL; T1105 Ingress Tool Transfer now correctly extracted (previously blocked by mojibake).
+- **Investigation Graph shipped** — Behaviour lens replaced with `EvidenceGraphCanvas`, the canonical CIO-driven graph renderer. Delivered per the "one renderer · multiple projections" directive:
+  - Five projections: **Investigation · Decode Flow · Attack Chain · MITRE · Timeline** (all reading only from `cio`)
+  - React Flow (`@xyflow/react` v12) + `dagre` auto-layout, LR default with D-key to toggle to TB
+  - `StageNode` — icon-driven (lucide-react), tone-accented (critical red / high orange / medium gold / low mint / mitigating blue / context neutral)
+  - Semantic animated edges (`decodes` / `informs` / hot verdict edges)
+  - Controls: MiniMap, native zoom controls, fit-view, fullscreen, PNG / SVG / JSON export
+  - Keyboard shortcuts: `0` fit · `+/-` zoom · `d` toggle direction · `Shift+F` fullscreen · `Esc` exit
+  - **NodeInspector** drawer projects the selected node's downstream truths (OSINT providers, MITRE ties, confidence-timeline hits, truth-model findings that cite the node)
+  - **RecursionBadge** on the toolbar closes **GAP-01** — every canvas run now surfaces `Fixed point reached / iterations / artifacts / depth / duration / policy`
+- **Live verified** on the canonical audit payload: 19 nodes on Investigation, 6 on Decode Flow, 13 on Attack Chain, 5 on MITRE (with `informs` edges converging on 4 techniques), 19 on Timeline. Inspector opens on click and correctly projects `IOC · DOMAIN · malicious.com · N-009` with 90% confidence, VirusTotal NO-KEY, AlienVault OTX HIT, URLScan.io HIT, and Stage-15 timeline hit.
+
+**Updated scorecard:** 18 features Integrated · 0 Implemented-but-NOT-integrated · 0 Missing (GAP-01 closed by RecursionBadge on the graph toolbar).

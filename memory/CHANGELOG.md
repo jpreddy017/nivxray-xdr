@@ -2,7 +2,36 @@
 
 Chronological record of significant releases (newest first).
 
-## 2026-02-02 · P2-05d · Recursive Command Investigation + X-Lab Integration Audit + BUG-01 fix
+## 2026-02-02 · P2-06a · Unified Investigation Graph (EvidenceGraphCanvas)
+
+**Backlog:** `/app/docs/BACKLOG.md` · P2-06a (Unified Investigation Graph)
+**Audit trail:** `/app/docs/audits/2026-02_XLAB_INTEGRATION_AUDIT.md` §7
+
+**Ships:**
+- **`EvidenceGraphCanvas`** — canonical CIO-driven graph renderer. Replaces hand-rolled G1/G2 SVGs. **One renderer, multiple projections.** Located at `/app/frontend/src/nivxforge/lab2/evidence-graph/`.
+- Five projections: **Investigation** (full DAG) · **Decode Flow** (linear ladder) · **Attack Chain** (behavioural + MITRE + IOC + verdict) · **MITRE** (techniques + direct informants, TB layout) · **Timeline** (confidence progression).
+- React Flow (`@xyflow/react` v12) + `dagre` auto-layout. Default LR (analyst-readable); D key toggles TB. Automatic re-fit on projection or direction change.
+- **`StageNode`** — icon-driven (lucide-react per kind: File / Terminal / Globe / Link / Hash / Crosshair / Wrench / Activity / AlertTriangle / Package / Bug / KeyRound / …), tone-accented left border per severity class (critical / high / medium / low / mitigating / context), confidence dot, optional badge.
+- Semantic animated edges — `decodes` mint, `informs` gold, hot-verdict crit red; dashed animation only on hot/animated edges.
+- Controls: **MiniMap** (severity-tinted), fit-view / zoom / pan, **fullscreen** modal, exports: **PNG** (canvas rasterisation), **SVG** (geometry-only), **JSON** (nodes + edges + `cio.snapshot_hash`).
+- Keyboard shortcuts: `0` fit · `+/-` zoom · `d` toggle direction · `Shift+F` fullscreen · `Esc` exit.
+- **`NodeInspector`** — right-side drawer, projects the selected node's downstream truths from the same CIO (no separate API calls): Confidence, Class, Tactic, Technique, IOC kind, Layer, Operation, **OSINT enrichment providers with state chips (HIT / NO-HIT / NO-KEY / CLEAN)**, **MITRE ties** via evidence-graph edges, **Confidence-timeline hits**, **Truth-model findings citing the node**.
+- **`RecursionBadge`** on the toolbar — closes GAP-01. Every canvas surfaces `Fixed point reached / iterations / artifacts / depth / duration / policy` from `cio.metadata.recursion_report`.
+- Behaviour lens renamed **Investigation Graph**, with updated header copy explaining the five projections and the keyboard shortcuts.
+
+**Live verified** on the canonical audit payload (PowerShell -EncodedCommand → IEX WebClient DownloadString): 19 nodes on Investigation, 6 on Decode Flow, 13 on Attack Chain, 5 on MITRE, 19 on Timeline. Inspector correctly projects OSINT + MITRE + timeline for a clicked IOC node (`N-009 · DOMAIN · malicious.com`). Fullscreen mode expands to viewport with all controls intact.
+
+**Constitutional compliance:**
+- Preserves CIO contract (§10) — graph reads only from `cio`, mutations forbidden.
+- Adds no new architectural layer (§11) — lives inside `frontend/src/nivxforge/lab2/`.
+- Consumes only CIO — no separate fetch, no cached mirror, no derived store.
+
+**Deferred:**
+- Investigation Ledger (P2-08) — dedicated "why this verdict" projection reading from Truth Model.
+- Process Tree, Device Trajectory, Cognitive Graph projections — hookable via `PROJECTIONS` map when their CIO fields arrive.
+- Quality-gate rubric refresh (BUG-02) — schema-drift in `tests/quality/test_investigation_quality.py`.
+
+
 
 **Backlog:** `/app/docs/BACKLOG.md` · P2-05d
 **Completion Record:** `/app/docs/completions/P2-05d-recursive-command-investigation.md`
