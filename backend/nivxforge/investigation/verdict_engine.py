@@ -701,8 +701,9 @@ def refresh_verdict(cio) -> Any:
     """Re-compute `cio.verdict` from the current graph + `cio.metadata`.
 
     Use this from wire-in sites AFTER stashing Workspace-parity metadata
-    onto the CIO. Keeps the verdict in sync with the metadata without
-    the caller having to touch the engine directly.
+    onto the CIO. Keeps the verdict AND the Investigation Truth Model in
+    sync with the metadata without the caller having to touch the
+    engine directly.
     """
     graph = getattr(cio, "evidence_graph", None)
     if not graph:
@@ -710,9 +711,15 @@ def refresh_verdict(cio) -> Any:
     metadata = getattr(cio, "metadata", None) or {}
     v = compute_verdict(graph, metadata=metadata)
     cio.verdict = v.model_dump(mode="json")
-    # Also refresh the aggregate confidence field (§1.1.3).
     try:
         cio.confidence = round(v.confidence, 4)
+    except Exception:  # noqa: BLE001
+        pass
+    # P1-02d · truth is a pure derivation of the CIO — re-derive on
+    # every verdict refresh so all surfaces stay drift-free.
+    try:
+        from nivxforge.investigation.truth_model import build_truth
+        cio.truth = build_truth(cio).model_dump(mode="json")
     except Exception:  # noqa: BLE001
         pass
     return cio

@@ -2,6 +2,43 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-01 · P1-02d · Investigation Truth Model + Quality Benchmark
+
+**Backlog:** `/app/docs/BACKLOG.md` · P1-02d + P1-02e
+**Completion Record:** `/app/docs/completions/P1-02d-investigation-truth-model.md`
+
+**Ships:**
+- Single canonical projection `cio.truth`: six-layer
+  `Observation → Finding → Hypothesis → Validation → Decision →
+  Recommendation` object. Pure `CIO → Truth` derivation. Every
+  downstream surface reads one shape → zero drift by construction.
+- `truth_model.py` composer (~330 lines). Deterministic. Idempotent.
+  Never mutates the CIO. Hypothesis derivation from `cio.metadata`
+  (H-SHELLCODE / H-LOLBAS-DOWNLOADER / H-C2 / H-GENERIC fallback).
+  Recommendation engine emits `contain(p0)/hunt(p1)/notify(p1)` for
+  Malicious, tiered down through Suspicious / Runtime Dependent /
+  Undetermined.
+- `refresh_verdict()` now also re-derives `cio.truth` so post-metadata
+  and post-OSINT refreshes stay drift-free.
+- Live E2E on BITS downloader → 6 obs · 5 findings · 1 validated
+  hypothesis · Decision Malicious @ 80 % · 3 recommendations.
+
+**Investigation Quality Benchmark (new permanent CI):**
+- 10-entry corpus at `tests/quality/benchmark_corpus.py` spanning
+  benign · ambient · attack-chain · c2 categories with analyst-recorded
+  expected label + confidence bounds + IOC substrings + escalation
+  expectations + shellcode expectations.
+- 8 CI-graded KPIs (label agreement · confidence bounds · IOC recall
+  · escalation-rule recall · shellcode recall · no-over-promotion ·
+  determinism · P95 latency). Baseline recorded post-P1-02c —
+  future PRs graded against it.
+- Report artefact: `/app/docs/benchmarks/investigation_quality.json`.
+
+**Tests:** 74/13/0 parity suite + 2/0 benchmark suite green. No
+regression on P1-01, P1-02b, P1-02c.
+
+
+
 ## 2026-02-01 · P1-02c · Verdict Polish (Sprints 1-4) + Shellcode Parity Hotfix
 
 **Backlog:** `/app/docs/BACKLOG.md` · P1-02c

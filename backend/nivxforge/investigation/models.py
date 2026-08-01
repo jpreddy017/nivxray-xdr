@@ -101,5 +101,15 @@ class CIO(BaseModel):
     # ── metadata (§1.1.6 · additive migration provenance) ────────────
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+    # ── P1-02d · Investigation Truth Model (§1.1.20) ─────────────────
+    # Single canonical projection every surface (Story · Executive
+    # Summary · Reports · Verdict · Timeline · Ledger · Notebook)
+    # consumes. Six layers: Observation → Finding → Hypothesis →
+    # Validation → Decision → Recommendation. Zero drift by design.
+    truth: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Investigation Truth Model — the canonical projection every downstream surface reads."
+    )
+
 
 __all__ = ["CIO", "CIOSource", "ReasoningStep"]

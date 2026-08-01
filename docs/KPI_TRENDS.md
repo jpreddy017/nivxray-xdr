@@ -29,6 +29,7 @@
 | RC-P1-01 (Live OSINT Wiring) | 2026-02-01 | n/a | n/a | n/a | 100 % | 100 % | ~2.4 s | n/a | n/a | = = = = = ↑ = = (OSINT lens now live · 11-field cards) |
 | RC-P1-02b (Tiered Verdict Fold) | 2026-02-01 | n/a | n/a | n/a | 100 % | 100 % | ~2.4 s | n/a | n/a | = = = = = = = = (Verdict recall +24 pp · false-positives −8 pp · explainability 100 %) |
 | RC-P1-02c (Verdict Polish + Shellcode Parity) | 2026-02-01 | n/a | n/a | n/a | 100 % | 100 % | ~2.6 s | shellcode-chain 100 % | n/a | = = = = = = ↑ = (topology + temporal + entity + negative-evidence signals · confidence breakdown + timeline · Verdict Explanation Card · shellcode banner reaches parity with Workspace) |
+| RC-P1-02d (Truth Model + Quality Benchmark) | 2026-02-01 | n/a | n/a | n/a | 100 % | 100 % | ~1 ms (bench) · ~2.6 s (live) | 100 % | 80 % label · 100 % conf · 100 % IOC · 100 % rules · 100 % shellcode · 100 % no over-promotion | = = = = = = ↑ ↑ (canonical Observation→…→Recommendation projection · 10-entry regression corpus · 8 KPIs above threshold · zero drift between Workspace/X-Lab/Report Composer/Timeline/Ledger) |
 
 ## Usage rules
 

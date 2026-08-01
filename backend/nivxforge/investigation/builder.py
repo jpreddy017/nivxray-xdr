@@ -539,6 +539,13 @@ def build_cio(
     from nivxforge.investigation.summary_composer import compose_summary
     cio.summary = compose_summary(cio).model_dump(mode="json")
     cio.recommendations = list(cio.summary.get("recommendations", []) or [])
+
+    # P1-02d · Investigation Truth Model — the canonical projection
+    # Story · Executive Summary · Reports · Verdict · Timeline · Ledger
+    # · Notebook all consume. Pure derivation of the current CIO state.
+    from nivxforge.investigation.truth_model import build_truth
+    cio.truth = build_truth(cio).model_dump(mode="json")
+
     return cio
 
 
