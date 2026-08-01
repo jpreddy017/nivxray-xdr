@@ -1855,3 +1855,11 @@ this reads as visual noise.
 
 **Known remaining leak (surfaced twice, tracked):** VerdictExplanationCard right-rail + top-card `cio.verdict.reason` string still shows `Layer 0: ps-encodedcommand-recov` etc. Fix requires either sanitizing at the verdict engine (`verdict_engine.py`) so ALL downstream surfaces see clean contributor labels, OR adding a sanitize step at the frontend render layer. Prefer the engine-side fix.
 
+## 2026-02-02 · P3.1 · Canonical Verdict Sanitization
+
+**Ships:**
+- **One sanitization site** at `nivxforge/investigation/verdict_engine.py` — every VerdictNode now has its `reason`, `contributors[].label`, and `confidence_timeline[].contributor_label` passed through `_sanitize_customer_text` before return. Every downstream surface (VerdictExplanationCard right-rail, Investigation Ledger, Customer Report, top-card, API consumers) inherits the same clean vocabulary.
+- **Sanitizer extended** with MITRE-name rewrites (`Base64/` prefix removal, `UTF-16 → encoded text`, `Base64 → encoded`) so canonical technique names never leak past the customer persona hygiene gate.
+- **Live-verified**: zero decoder-op names, zero "Layer N", zero "Base64", zero "Recovered payload" anywhere in the verdict surface. Right-rail Evidence Ledger reads `N-002 · internal decoder step` cleanly. Customer report critic still 100/100 passed. 96/96 parity tests green.
+- The Investigation Graph's Decode Flow / Output lens intentionally still shows decoder op-names — those are the decoder persona surfaces and the P3.4 persona-toggle work will gate them via UI mode.
+

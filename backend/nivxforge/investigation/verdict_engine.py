@@ -681,6 +681,32 @@ def compute_verdict(
             f"Top contributors: {top_lines}."
         )
 
+    # ── P3.1 · Canonical Verdict Sanitization ─────────────────────
+    # Every downstream surface (Verdict Card, Investigation Ledger,
+    # Customer Report, top-card reason string, API consumers) reads
+    # `contributor.label`, `reason`, and `confidence_timeline[].contributor_label`
+    # directly. Sanitizing here means decoder-op names / "Layer N" /
+    # "Recovered payload" / "Base64" never leak past the engine.
+    # One source, one vocabulary, one truth.
+    from .customer_report import _sanitize_customer_text as _san
+    _sanitized_contributors = []
+    for c in contributors:
+        try:
+            _sanitized_contributors.append(c.model_copy(update={"label": _san(str(c.label or ""))}))
+        except Exception:  # noqa: BLE001
+            try:
+                c.label = _san(str(c.label or ""))
+            except Exception:  # noqa: BLE001
+                pass
+            _sanitized_contributors.append(c)
+    contributors = _sanitized_contributors
+    reason = _san(reason)
+    for tl_entry in timeline:
+        try:
+            tl_entry["contributor_label"] = _san(str(tl_entry.get("contributor_label") or ""))
+        except Exception:  # noqa: BLE001
+            pass
+
     return VerdictNode(
         label=label,
         confidence=round(conf, 4),

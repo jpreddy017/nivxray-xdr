@@ -329,6 +329,14 @@ def _sanitize_customer_text(text: str) -> str:
     out = re.sub(r"\bioc-extract\b", "indicator extraction", out, flags=re.IGNORECASE)
     out = re.sub(r"\bRecovered payload\b", "Observed command", out)
     out = re.sub(r"\boperation history\b", "processing steps", out, flags=re.IGNORECASE)
+    # Canonical MITRE technique names sometimes embed pipeline vocabulary
+    # ("Command Obfuscation: Base64/Encoded Command", "… UTF-16 …") that
+    # would leak past the persona hygiene gate. Strip those prefixes so
+    # every downstream surface reads the same customer-safe name.
+    out = re.sub(r"\bBase64/", "", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bBase64\b", "encoded", out, flags=re.IGNORECASE)
+    out = re.sub(r"\bUTF-?16\b", "encoded text", out, flags=re.IGNORECASE)
+    out = re.sub(r"\s{2,}", " ", out)
     return out
 
 
