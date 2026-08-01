@@ -108,6 +108,18 @@ _IOC_SIGNALS: List[tuple] = [
     (re.compile(r"\b[a-f0-9]{64}\b", re.IGNORECASE), "hash_sha256", 0.95),
     (re.compile(r"\b[a-f0-9]{40}\b", re.IGNORECASE), "hash_sha1", 0.9),
     (re.compile(r"\b[a-f0-9]{32}\b", re.IGNORECASE), "hash_md5", 0.85),
+    # FQDN-like domain — used to surface caret-obfuscated C2 domains
+    # (e.g. `homesreceplestud.com` inside a de-obfuscated finger.exe
+    # command). Intentionally conservative: at least 2 labels, the
+    # trailing label must be an alphabetic TLD 2..24 chars. Avoids
+    # false-positives on filenames (`file.txt`) via a hardcoded stop
+    # list, and skips values that already matched a URL.
+    (re.compile(
+        r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.){1,}"
+        r"(?:com|net|org|io|co|us|uk|de|ru|cn|top|xyz|info|biz|"
+        r"stream|online|site|club|fun|shop|store|host|cloud|ml|tk|"
+        r"ga|cf|link|live|app|dev|ai|gg|to|tv|me|ws|cc)\b",
+        re.IGNORECASE), "domain", 0.7),
 ]
 
 

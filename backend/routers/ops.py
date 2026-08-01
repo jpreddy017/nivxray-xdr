@@ -660,6 +660,7 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     # API contract (§1.1.15) is preserved: response shape unchanged.
     # ═══════════════════════════════════════════════════════════════════
     _ingress_provenance: str | None = None
+    _original_raw_input: str = body.input or ""
     try:
         from nivxforge.investigation.ingress_gate import apply_ingress_gate as _apply_gate
         _gate = _apply_gate(body.input or "")
@@ -2079,6 +2080,14 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             source_endpoint="/api/decode/smart",
         )
         _cio = _build_cio(_cio_fs)
+        # Preserve the ORIGINAL vendor payload for the graph-only
+        # Incident Narrative Engine. `body.input` has already been
+        # replaced with the ingress-gate canonical stream at this point,
+        # so we stash the pre-gate raw text separately.
+        try:
+            _cio.metadata["raw_input"] = _original_raw_input
+        except Exception:  # noqa: BLE001
+            pass
         # ADR-0014 §1.1.14 Layer 2 · attach ingress-gate provenance so
         # G4 (`G4_NORMALISATION_REQUIRED`) accepts the CIO.
         if _ingress_provenance:

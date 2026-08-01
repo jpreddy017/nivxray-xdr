@@ -144,6 +144,7 @@ def extract(
             "script": "command",
             "url": "url",
             "ip": "ip",
+            "domain": "dns",
             "hash_sha256": "hash",
             "hash_sha1": "hash",
             "hash_md5": "hash",
@@ -156,6 +157,8 @@ def extract(
                                   "field": art.name}
         if art.kind.startswith("hash_"):
             attrs["algo"] = art.kind.replace("hash_", "")
+        if art.kind == "domain":
+            attrs["source"] = "artifact_discovery"
         _add(target_kind, art.value, art.event_id, attrs,
              conf=art.confidence)
 

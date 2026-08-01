@@ -57,8 +57,17 @@ def _iocs(cio: Dict[str, Any]) -> Dict[str, List[str]]:
 def _recovered_command(cio: Dict[str, Any]) -> str:
     for layer in reversed(cio.get("decode_chain") or []):
         prev = str(layer.get("preview") or "").strip()
-        if prev:
-            return prev
+        if not prev:
+            continue
+        # Skip vendor canonical text (the ingress-gate synthesised
+        # `# vendor=... event[0] ts=... cmd=...` stream). That's an
+        # internal representation, not something the analyst wants to
+        # see quoted as "the underlying command".
+        if prev.startswith("# vendor=") or prev.startswith("event["):
+            continue
+        if "vendor=Generic" in prev or "cisco:amp:event" in prev:
+            continue
+        return prev
     return ""
 
 
@@ -703,11 +712,31 @@ def compose_analyst_narrative(cio) -> str:
     """Compose an MDR-analyst-style Executive Investigation Summary as
     a **story**, not a fact recital. Adaptive length: minimum 2
     paragraphs; longer as vendor telemetry, TI, chain data and MITRE
-    coverage grow richer. Deterministic. Never raises. Never empty."""
+    coverage grow richer. Deterministic. Never raises. Never empty.
+
+    2026-08-01 operator directive: when the CIO carries the Phase 1
+    Investigation Graph (attached at `cio.metadata.phase1_state`),
+    delegate to the graph-only Incident Narrative Engine which is
+    prohibited by contract from describing any X-Lab internals.
+    """
     try:
         cio_d = cio.model_dump(mode="json") if hasattr(cio, "model_dump") else dict(cio)
     except Exception:  # noqa: BLE001
         cio_d = cio if isinstance(cio, dict) else {}
+
+    # ── Preferred path · graph-only Incident Narrative ────────────
+    md = cio_d.get("metadata") or {}
+    phase1_state = md.get("phase1_state")
+    if phase1_state is not None:
+        try:
+            from nivxforge.investigation.pipeline.narrative_engine import (
+                compose_incident_narrative,
+            )
+            narr = compose_incident_narrative(phase1_state)
+            if narr and narr.paragraphs:
+                return narr.to_markdown()
+        except Exception:  # noqa: BLE001
+            pass  # fall through to legacy composer
 
     def _safe(fn) -> str:
         try:

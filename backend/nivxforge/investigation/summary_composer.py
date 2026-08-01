@@ -765,8 +765,40 @@ def _prose_attack_story(chain: List[AttackChainStep], entities: EntitiesDigest) 
 
 def _compose_analyst_narrative_safe(cio: "CIO") -> str:
     """MDR-analyst-style Executive Investigation Summary. Non-crashing
-    wrapper around `analyst_narrative.compose_analyst_narrative`."""
+    wrapper around `analyst_narrative.compose_analyst_narrative`.
+
+    2026-08-01 operator directive: prefer the graph-only Incident
+    Narrative Engine when the CIO carries raw input text — run the
+    Phase 1 pipeline against that text and attach the state so the
+    analyst narrative reads from the Investigation Graph.
+    """
     try:
+        # Attach Phase 1 investigation state so `compose_analyst_narrative`
+        # can hand off to the graph-only Incident Narrative Engine.
+        try:
+            raw_text = None
+            md = getattr(cio, "metadata", None) or {}
+            # Prefer the pre-ingress raw payload if the /decode/smart
+            # router stashed one — otherwise fall back to CIO fields.
+            if isinstance(md, dict):
+                mdv = md.get("raw_input")
+                if isinstance(mdv, str) and mdv.strip():
+                    raw_text = mdv
+            if not raw_text:
+                for attr in ("input_text", "raw_input", "input"):
+                    v = getattr(cio, attr, None)
+                    if v and isinstance(v, str) and v.strip():
+                        raw_text = v
+                        break
+            if raw_text:
+                from nivxforge.investigation.pipeline.orchestrator import (
+                    run_phase1,
+                )
+                state = run_phase1(raw_text)
+                if isinstance(md, dict):
+                    md["phase1_state"] = state
+        except Exception:  # noqa: BLE001
+            pass  # fall through to legacy path
         from nivxforge.investigation.analyst_narrative import compose_analyst_narrative
         return compose_analyst_narrative(cio)
     except Exception:  # noqa: BLE001

@@ -46,6 +46,15 @@ def discover(cem: CanonicalEventModel) -> List[DiscoveredArtifactRef]:
         if evt.process:
             if evt.process.command_line:
                 payload["command_line"] = evt.process.command_line
+                # Emit a caret-de-obfuscated companion string so RADE
+                # can also see the underlying token stream — attackers
+                # commonly hide `finger.exe`, `curl.exe`, domains, IPs
+                # etc. by interleaving `^` characters. The original
+                # command_line remains in the payload so RADE still
+                # emits the obfuscation-detection signal.
+                if "^" in evt.process.command_line:
+                    payload["command_line_deobfuscated"] = \
+                        evt.process.command_line.replace("^", "")
             if evt.process.parent_command_line:
                 payload["parent_command_line"] = evt.process.parent_command_line
             if evt.process.image:

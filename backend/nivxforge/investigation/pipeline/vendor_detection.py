@@ -48,6 +48,20 @@ class VendorDetection:
 # Signature = (vendor, [required_keys_any_of], [any_of_key_substrings], confidence)
 _JSON_SIGNATURES: List[Dict[str, Any]] = [
     {
+        # Cisco Secure Endpoint via the CMS MDR / z_product feed — flat
+        # JSON with `conn_guid` / `src_host` / `console.amp.cisco.com` /
+        # `z_product: "Secure Endpoint"`.
+        "vendor": Vendor.CISCO_SECURE_ENDPOINT,
+        "must_any": ["conn_guid", "z_product", "console_link",
+                      "src_host", "src_ip", "detection"],
+        "must_all": [],
+        "value_hints": ["console.amp.cisco.com", "cisco:amp:event",
+                         "Secure Endpoint", "cisco secure endpoint",
+                         "amp for endpoints", "cisco amp",
+                         "mdr_fileless", "z_product"],
+        "confidence": 0.95,
+    },
+    {
         "vendor": Vendor.CISCO_SECURE_ENDPOINT,
         "must_any": ["computer", "detection", "event_type_id",
                       "cloud_ioc", "connector_guid"],

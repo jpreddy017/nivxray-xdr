@@ -30,6 +30,7 @@ from nivxforge.investigation.cem import (
     Process,
     Provenance,
     SeverityLevel,
+    User,
     VendorAdapter,
 )
 from ..parser import ParsedInput
@@ -99,15 +100,16 @@ def _record_to_event(rec: Dict[str, Any], adapter_id: str,
     if not isinstance(rec, dict):
         return None
     ts = _try_parse_dt(_g(rec, "date", "timestamp", "event_time",
-                            "detected_at"))
+                            "detected_at", "_time"))
     prov = make_provenance(adapter_id, vendor, ts, confidence=0.95)
 
-    # ── Host
+    # ── Host: handle both nested `computer` object and flat MDR variant
+    # (`src_host` + `src_ip` + `src_data[0]`).
     comp = rec.get("computer") or {}
     host = None
     if isinstance(comp, dict) and comp:
         host = Host(
-            id=str(comp.get("connector_guid") or ""),
+            id=str(comp.get("connector_guid") or comp.get("conn_guid") or ""),
             name=comp.get("hostname"),
             fqdn=comp.get("fqdn") or comp.get("dns_name"),
             ip=(comp.get("network_addresses") or [{}])[0].get("ip")
@@ -116,30 +118,71 @@ def _record_to_event(rec: Dict[str, Any], adapter_id: str,
             os=comp.get("operating_system"),
             provenance=prov,
         )
+    else:
+        # Flat MDR shape
+        src_data = rec.get("src_data")
+        src_data_first = None
+        if isinstance(src_data, list) and src_data:
+            candidate = src_data[0]
+            if isinstance(candidate, dict):
+                src_data_first = candidate
+        host_name = rec.get("src_host")
+        if not host_name and src_data_first:
+            hn = src_data_first.get("hostname")
+            if isinstance(hn, list) and hn:
+                host_name = hn[0]
+        host_ip = rec.get("src_ip")
+        if not host_ip and src_data_first:
+            ip = src_data_first.get("ip")
+            if isinstance(ip, list) and ip:
+                host_ip = ip[0]
+        if host_name or host_ip:
+            host = Host(
+                id=str(rec.get("conn_guid") or ""),
+                name=host_name,
+                ip=host_ip,
+                provenance=prov,
+            )
 
-    # ── Process
+    # ── User (flat MDR uses `user` field)
+    user = None
+    raw_user = rec.get("user")
+    if isinstance(raw_user, str) and raw_user.strip():
+        domain = None
+        name = raw_user
+        if "\\" in raw_user:
+            domain, name = raw_user.split("\\", 1)
+        user = User(name=name, domain=domain, provenance=prov)
+
+    # ── Process (flat MDR uses `command_line_args`, `file_name`,
+    # `file_path`, `file_hash`, `parent_file_name`, `parent_file_hash`).
     cmd_line = (
         _nested(rec, "command_line.arguments")
-        or _g(rec, "command_line", "CommandLine", "process_command_line")
+        or _g(rec, "command_line", "CommandLine", "process_command_line",
+              "command_line_args")
     )
     if isinstance(cmd_line, list):
         cmd_line = " ".join(str(x) for x in cmd_line)
     file_data = rec.get("file") or {}
     parent_data = file_data.get("parent") if isinstance(file_data, dict) else None
     proc = None
-    if (cmd_line or file_data):
+    if (cmd_line or file_data or rec.get("file_name")
+            or rec.get("file_hash") or rec.get("file_path")):
         image_path = None
-        if isinstance(file_data, dict):
-            image_path = file_data.get("file_path") or file_data.get("file_name")
         hash_sha = None
-        if isinstance(file_data, dict):
+        if isinstance(file_data, dict) and file_data:
+            image_path = file_data.get("file_path") or file_data.get("file_name")
             ident = file_data.get("identity") or {}
             if isinstance(ident, dict):
                 hash_sha = ident.get("sha256") or ident.get("SHA256")
+        if not image_path:
+            image_path = rec.get("file_path") or rec.get("file_name")
+        if not hash_sha:
+            hash_sha = rec.get("file_hash")
         proc = Process(
             image=image_path,
             command_line=str(cmd_line) if cmd_line else None,
-            hash_sha256=hash_sha,
+            hash_sha256=hash_sha if hash_sha and len(str(hash_sha)) == 64 else None,
             provenance=prov,
         )
     parent_proc = None
@@ -148,6 +191,18 @@ def _record_to_event(rec: Dict[str, Any], adapter_id: str,
         parent_proc = Process(
             image=parent_data.get("file_name") or parent_data.get("file_path"),
             hash_sha256=pident.get("sha256") if isinstance(pident, dict) else None,
+            provenance=prov,
+        )
+    elif rec.get("parent_file_hash") or rec.get("parent_file_name") \
+            or rec.get("parent_command_line_args"):
+        p_cmd = rec.get("parent_command_line_args")
+        if isinstance(p_cmd, list):
+            p_cmd = " ".join(str(x) for x in p_cmd)
+        parent_hash = rec.get("parent_file_hash")
+        parent_proc = Process(
+            image=rec.get("parent_file_name") or None,
+            command_line=str(p_cmd) if p_cmd else None,
+            hash_sha256=parent_hash if parent_hash and len(str(parent_hash)) == 64 else None,
             provenance=prov,
         )
 
@@ -161,6 +216,16 @@ def _record_to_event(rec: Dict[str, Any], adapter_id: str,
             hash_md5=ident.get("md5") if isinstance(ident, dict) else None,
             hash_sha1=ident.get("sha1") if isinstance(ident, dict) else None,
             hash_sha256=ident.get("sha256") if isinstance(ident, dict) else None,
+            provenance=prov,
+        )
+    elif rec.get("file_hash") or rec.get("file_name") or rec.get("file_path"):
+        fh = rec.get("file_hash")
+        file_ent = FileEntity(
+            path=rec.get("file_path"),
+            name=rec.get("file_name"),
+            hash_sha256=fh if fh and len(str(fh)) == 64 else None,
+            hash_md5=fh if fh and len(str(fh)) == 32 else None,
+            hash_sha1=fh if fh and len(str(fh)) == 40 else None,
             provenance=prov,
         )
 
@@ -180,19 +245,45 @@ def _record_to_event(rec: Dict[str, Any], adapter_id: str,
             domain=net_data.get("domain") or net_data.get("dns_query"),
             provenance=prov,
         )
+    elif any(rec.get(k) for k in ("url", "dst_ip", "domain", "domains", "ips")):
+        # Flat MDR variant carries these at record top level; treat empty
+        # strings as None so we skip generating an empty Network node.
+        def _first(v: Any) -> Optional[str]:
+            if isinstance(v, list) and v:
+                return str(v[0])
+            if isinstance(v, str) and v.strip():
+                return v
+            return None
+        url_v = _first(rec.get("url"))
+        dst_ip_v = _first(rec.get("dst_ip") or rec.get("ips"))
+        dom_v = _first(rec.get("domain") or rec.get("domains"))
+        if url_v or dst_ip_v or dom_v:
+            network = Network(
+                dst_ip=dst_ip_v,
+                url=url_v,
+                domain=dom_v,
+                provenance=prov,
+            )
 
     # ── Detection
     det_name = (
-        _g(rec, "detection", "event_type", "AlertTitle")
+        _g(rec, "detection", "event_type", "AlertTitle", "event_title")
         or (rec.get("event_type_str") if isinstance(rec.get("event_type_str"), str) else None)
     )
     detection = None
     if det_name:
+        # Vendor MDR record often carries a `descr` narrative and a
+        # `use_case` label — surface `category` from those when the
+        # top-level `category` field is missing.
+        det_category = _g(rec, "category", "tactic")
+        if not det_category:
+            det_category = rec.get("use_case")
         detection = Detection(
-            id=str(_g(rec, "detection_id", "event_type_id", default="") or ""),
+            id=str(_g(rec, "detection_id", "event_type_id",
+                        "id", "z_event_id", default="") or ""),
             name=str(det_name),
             severity=coerce_severity(_g(rec, "severity", "threat_severity")),
-            category=_g(rec, "category", "tactic"),
+            category=det_category,
             rule_id=str(_g(rec, "cloud_ioc", default="") or "") or None,
             threat_name=_g(rec, "threat_name")
                          or (file_data.get("disposition") if isinstance(file_data, dict) else None),
@@ -208,16 +299,24 @@ def _record_to_event(rec: Dict[str, Any], adapter_id: str,
     disp = None
     if isinstance(file_data, dict):
         disp = file_data.get("disposition")
+    if disp is None:
+        disp = rec.get("file_disposition")
+    action_str = _g(rec, "containment", "action")
+    if isinstance(action_str, str) and action_str.strip().lower() == "detect":
+        # 'detect' means observed but not contained — leave as none.
+        action_str = None
     containment = coerce_containment(
-        _g(rec, "containment", "action") or disp
+        action_str or disp
         or ("quarantined" if str(disp or "").lower() == "malicious" else None)
     )
 
     return CanonicalEvent(
-        event_id=str(_g(rec, "id", "detection_id", "event_id") or uuid.uuid4()),
+        event_id=str(_g(rec, "id", "detection_id", "event_id",
+                        "z_event_id") or uuid.uuid4()),
         kind=kind,
         timestamp=ts,
         host=host,
+        user=user,
         process=proc,
         parent_process=parent_proc,
         file=file_ent,
