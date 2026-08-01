@@ -1,5 +1,25 @@
 # 📜 NivXRay Constitution
 
+> ### 🟢 STATUS · APPROVED — Architecture Complete · Proceed to Implementation
+>
+> **Constitution v1.0 is architecturally complete and signed off** (2026-02-31).
+> No further architectural layers, sections, buses, registries, or pipelines
+> may be added without a superseding ADR under `/app/memory/adr/`.
+>
+> **Every future PR MUST answer YES to these four gates**:
+> 1. Does it preserve the CIO contract (§10)?
+> 2. Does it improve one or more §13 KPIs?
+> 3. Does it avoid introducing a new architectural layer?
+> 4. Does it remain deterministic?
+>
+> If any answer is "no", the change either needs redesign or a superseding ADR.
+>
+> **Operating model (the shift that closed the architecture)**:
+> ```
+> Evidence → Investigation → Knowledge → Decision → Explanation
+> ```
+> Not `Input → Decode → Output`. This is a different product category.
+
 > **AUTHORITATIVE. Read every constitution file before proposing or implementing anything. If your task conflicts with any of these documents, STOP and report the conflict — do not invent a new architecture.**
 
 ## Constitution Documents (load in this order)

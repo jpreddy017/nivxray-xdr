@@ -1,5 +1,11 @@
 # NivXRay · Implementation Backlog
 
+> ### 🟢 Architecture: **APPROVED · v1.0 Complete** (2026-02-31 sign-off)
+> Future work executes against this backlog. No architectural expansion.
+>
+> **Every PR must pass the four gates** (see `/app/docs/architecture/README.md`):
+> 1. Preserves the CIO contract · 2. Improves a §13 KPI · 3. Adds no new layer · 4. Stays deterministic.
+>
 > **This is the ONE place to track work status. Do not generate ad-hoc "Next Action Items" in session summaries — update this file instead.**
 > Read `/app/docs/architecture/README.md` first. The constitution is **FROZEN at v1.0** pending P1-01 close.
 > **§10 SUPERSEDES ALL**: the CIO is the ONLY exchange contract between components. **§11**: no architectural change without a superseding ADR.
