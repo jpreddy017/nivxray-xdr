@@ -163,6 +163,51 @@ def from_analysis_result(result: Dict[str, Any], *,
             reason=str(layer.get("reason") or "")[:240],
         ))
 
+    # ── P1-02c hotfix · Shellcode-reached parity ──────────────────────
+    # When the decoder pipeline lands on x86/x64/ARM shellcode (the terminal
+    # state of many encoded-PS → GZIP → IEX → shellcode payload chains),
+    # Workspace's `/api/analyze` returns a proper "SHELLCODE DECODED"
+    # banner with Capstone disassembly + extracted C2 IPs, UAs, strings.
+    # `/api/decode/smart` (X-Lab's entry) exposes the same signal via
+    # `result["reached_shellcode"]` + `result["output_raw"]`. We fold it
+    # into `verdict_metadata['shellcode']` so the CIO + projector can
+    # render the same analyst-facing card instead of dumping raw bytes.
+    try:
+        if result.get("reached_shellcode") or result.get("is_shellcode"):
+            from shellcode_analyzer import analyze as _sc_analyze, _family_recognise
+            raw = result.get("output_raw") or result.get("output") or b""
+            if isinstance(raw, str):
+                # Best-effort: encode as latin-1 to preserve byte values.
+                raw = raw.encode("latin-1", errors="ignore")
+            if raw:
+                sc = _sc_analyze(raw)
+                fam = None
+                mitre_tech = None
+                try:
+                    fam, mitre_tech = _family_recognise(raw)
+                except Exception:  # noqa: BLE001
+                    pass
+                iocs = sc.get("iocs") or {}
+                fs.verdict_metadata["shellcode"] = {
+                    "is_shellcode":  True,
+                    "size":          sc.get("size", 0),
+                    "entropy":       sc.get("entropy", 0.0),
+                    "arch":          sc.get("arch"),
+                    "family":        fam or "Generic shellcode",
+                    "family_mitre":  mitre_tech,
+                    "c2_ips":        iocs.get("ips") or [],
+                    "c2_domains":    iocs.get("domains") or [],
+                    "c2_urls":       iocs.get("urls") or [],
+                    "user_agents":   iocs.get("user_agents") or [],
+                    "strings":       (iocs.get("strings") or [])[:24],
+                    "hex_preview":   sc.get("hex_preview") or "",
+                    "disasm_lines":  len(sc.get("disassembly") or []),
+                    "capstone_available": sc.get("capstone_available", False),
+                }
+    except Exception:  # noqa: BLE001
+        # Never crash the substrate build over shellcode enrichment.
+        pass
+
     # ── MITRE hits ──────────────────────────────────────────────────────
     # `/decode/smart` and `/v2/auto-investigate` differ in shape:
     #   • decode/smart returns `mitre` as a LIST of

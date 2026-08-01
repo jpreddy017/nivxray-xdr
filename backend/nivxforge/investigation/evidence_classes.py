@@ -86,6 +86,7 @@ KIND_TO_CLASS: dict[str, EvidenceClass] = {
     "execution_chain_correlated": EvidenceClass.HIGH,
     "temporal_burst":             EvidenceClass.HIGH,
     "entity_chain_correlated":    EvidenceClass.HIGH,
+    "shellcode_detected":         EvidenceClass.CRITICAL,   # confirmed x86/x64 shellcode landed
     # ── MITIGATING — negative evidence ─────────────────────────────
     "mitigating_signal":       EvidenceClass.MITIGATING,
     "signed_microsoft_binary": EvidenceClass.MITIGATING,
@@ -228,6 +229,7 @@ ATTACK_CHAIN_HIGH: Set[str] = {
     # Sprint 1 · topology + temporal correlation
     "execution_chain_correlated",
     "temporal_burst",
+    "shellcode_detected",
 }
 
 

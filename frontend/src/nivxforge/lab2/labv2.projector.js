@@ -258,15 +258,62 @@ export function projectCIO(cio) {
     });
 
   // Decode ladder — from decode_chain (CIO field names: op / preview / reason / input_kind / output_kind / node_id)
-  const decodeLadder = (cio.decode_chain || []).map((r, i) => ({
-    layer: `L${r.idx ?? i}`,
-    name: r.op || r.name || r.layer || `Layer ${i}`,
-    meta: r.reason || r.meta || [r.input_kind, r.output_kind].filter(Boolean).join(" → ") || "",
-    code: r.preview || r.output || r.code || r.text || "",
-    nodeId: r.node_id || null,
-    inputKind: r.input_kind || "",
-    outputKind: r.output_kind || "",
-  }));
+  // Also decorate with shellcode-summary from the terminal decoded_fragment node
+  // when the pipeline landed on x86/x64 shellcode (parity with Workspace's
+  // "SHELLCODE DECODED" banner — never dump raw binary as UTF-8 garbage).
+  const nodesById = {};
+  for (const n of nodes) nodesById[n.id] = n;
+  const decodeLadder = (cio.decode_chain || []).map((r, i) => {
+    const node = r.node_id ? nodesById[r.node_id] : null;
+    const isSc = node && node.attrs && node.attrs.is_shellcode === true;
+    const scSummary = (node && node.attrs && node.attrs.shellcode_summary) || null;
+    return {
+      layer: `L${r.idx ?? i}`,
+      name: r.op || r.name || r.layer || `Layer ${i}`,
+      meta: r.reason || r.meta || [r.input_kind, r.output_kind].filter(Boolean).join(" → ") || "",
+      // When the layer landed on shellcode, replace the raw byte preview
+      // with the analyst-facing card. Raw preview stays available as
+      // `rawCode` for the HEX/DIFF views to consume.
+      code: isSc ? "" : (r.preview || r.output || r.code || r.text || ""),
+      rawCode: r.preview || r.output || r.code || r.text || "",
+      nodeId: r.node_id || null,
+      inputKind: r.input_kind || "",
+      outputKind: r.output_kind || "",
+      isShellcode: !!isSc,
+      shellcode:   scSummary,
+    };
+  });
+
+  // Top-level shellcode summary — populated from cio.metadata.shellcode
+  // (fact-substrate carry-along) OR any decoded_fragment attrs. Consumed
+  // by the Decoded Output Preview banner in X-Lab.
+  const shellcode = (() => {
+    const mdSc = (cio.metadata && cio.metadata.shellcode) || null;
+    if (mdSc && mdSc.is_shellcode) return mdSc;
+    const scNode = nodes.find(
+      (n) => (n.value || "").toLowerCase() === "shellcode_detected"
+    );
+    if (scNode && scNode.attrs) {
+      return {
+        is_shellcode: true,
+        family:  scNode.attrs.family,
+        arch:    scNode.attrs.arch,
+        size:    scNode.attrs.size,
+        entropy: scNode.attrs.entropy,
+        c2_ips:  scNode.attrs.c2_ips || [],
+        c2_urls: scNode.attrs.c2_urls || [],
+        user_agents: scNode.attrs.user_agents || [],
+        hex_preview: scNode.attrs.hex_preview,
+        family_mitre: scNode.attrs.family_mitre,
+      };
+    }
+    // Fallback: check the last ladder entry
+    const last = decodeLadder[decodeLadder.length - 1];
+    if (last && last.isShellcode && last.shellcode) {
+      return { is_shellcode: true, ...last.shellcode };
+    }
+    return null;
+  })();
 
   // Behavior graph nodes — kind='behaviour'/'lolbin'/'external_ioc_*'
   const behaviorNodes = nodes
@@ -326,6 +373,7 @@ export function projectCIO(cio) {
       lolbas: buildLolbasView(cio),
       tihits: buildTiHitsView(cio),
       decodeLadder,
+      shellcode,
       behaviorNodes,
       decodeGraph,
       attackGraph,

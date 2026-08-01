@@ -396,6 +396,55 @@ def build_cio(
         for layer in fs.decoder_chain
     ]
 
+    # ── P1-02c hotfix · Shellcode-detected synthetic node ──────────
+    # When the pipeline reached shellcode, inject a synthetic HIGH
+    # attack-chain node so the verdict engine surfaces this signal AND
+    # attach the shellcode analysis onto the last decoded_fragment so
+    # the projector can render the proper analyst card.
+    sc = (getattr(fs, "verdict_metadata", None) or {}).get("shellcode")
+    if isinstance(sc, dict) and sc.get("is_shellcode"):
+        sc_nid = nid.next()
+        graph.add_node(Node(
+            id=sc_nid,
+            kind="behaviour",
+            label=f"Shellcode detected · {sc.get('family')} · {sc.get('arch') or 'unknown arch'}",
+            value="shellcode_detected",
+            confidence=0.95,
+            provenance="nivxforge/shellcode-analyzer",
+            attrs={
+                "synthetic": True,
+                "signal": "shellcode_detected",
+                "family": sc.get("family"),
+                "arch": sc.get("arch"),
+                "size": sc.get("size"),
+                "entropy": sc.get("entropy"),
+                "c2_ips": sc.get("c2_ips") or [],
+                "c2_urls": sc.get("c2_urls") or [],
+                "user_agents": sc.get("user_agents") or [],
+                "hex_preview": sc.get("hex_preview"),
+                "family_mitre": sc.get("family_mitre"),
+            },
+        ))
+        # Also decorate the last decoded_fragment (if present) so the
+        # X-Lab decoded-output preview picks up the shellcode summary.
+        last_frag_id = None
+        for _f_idx in sorted(fragment_by_idx.keys(), reverse=True):
+            last_frag_id = fragment_by_idx[_f_idx]
+            break
+        if last_frag_id:
+            for node in graph.nodes:
+                if node.id == last_frag_id:
+                    node.attrs["is_shellcode"] = True
+                    node.attrs["shellcode_summary"] = {
+                        "family":  sc.get("family"),
+                        "arch":    sc.get("arch"),
+                        "size":    sc.get("size"),
+                        "entropy": sc.get("entropy"),
+                        "c2_ips":  sc.get("c2_ips") or [],
+                        "user_agents": sc.get("user_agents") or [],
+                    }
+                    break
+
     # ADR-0014 Slice-C · unified verdict engine reads the graph +
     # optional Workspace-parity metadata (Rules · LOLBAS · Recipes · TI).
     from nivxforge.investigation.verdict_engine import compute_verdict
@@ -478,6 +527,10 @@ def build_cio(
             "edge_count": len(graph.edges),
             "reasoning_step_count": len(steps),
             "verdict_engine": _verdict.engine,
+            # P1-02c hotfix · surface the shellcode summary at CIO top-
+            # level metadata so the projector renders a proper analyst
+            # banner instead of dumping raw bytes.
+            **({"shellcode": sc} if isinstance(sc, dict) and sc.get("is_shellcode") else {}),
         },
     )
 

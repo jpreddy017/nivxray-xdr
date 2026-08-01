@@ -164,7 +164,7 @@ def _kind_for_graph_node(node: Node) -> str:
         # Synthetic behaviour nodes name their kind explicitly.
         val = (node.value or "").strip().lower()
         if val in ("execution_chain_correlated", "temporal_burst",
-                   "entity_chain_correlated"):
+                   "entity_chain_correlated", "shellcode_detected"):
             return val
         if val == "mitigating_signal":
             sub = ((node.attrs or {}).get("subkind") or "").strip().lower()

@@ -170,12 +170,12 @@ export default function VerdictExplanationCard({
         )}
       </div>
 
-      {/* CONFIDENCE TIMELINE */}
-      {verdict.timeline && verdict.timeline.length > 0 && !compact ? (
+      {/* CONFIDENCE TIMELINE — shown always (abbreviated in compact) */}
+      {verdict.timeline && verdict.timeline.length > 0 ? (
         <div className="vec-section timeline" data-testid="vec-timeline">
           <div className="vec-sh">Confidence Timeline</div>
           <ol className="vec-tl">
-            {verdict.timeline.map((s, i) => (
+            {(compact ? verdict.timeline.slice(-4) : verdict.timeline).map((s, i) => (
               <li key={i} className={`vec-tl-step cls-${s.class || "unknown"}`}
                   data-testid={`vec-tl-step-${i}`}>
                 <span className="tl-stage mono">{s.stage}</span>

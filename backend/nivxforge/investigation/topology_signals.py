@@ -87,10 +87,40 @@ def _longest_chain_depth(graph: EvidenceGraph) -> tuple[int, List[str]]:
 
 def graph_topology_signal(graph: EvidenceGraph) -> Optional[Node]:
     """Return a synthetic behaviour node summarising the longest chain,
-    or `None` if the graph has no chain worth citing (depth < 3).
+    or `None` if the graph has no chain worth citing (depth < 3, or the
+    chain contains no attack-chain-eligible kinds — benign decode
+    ladders no longer trigger this signal).
     """
     depth, path = _longest_chain_depth(graph)
     if depth < 3:
+        return None
+    # Sprint 1 fix · require the chain to include at least one
+    # attack-worthy kind (LOLBIN / IOC / MITRE / family / behaviour with
+    # an execution semantic). A pure "layer0 → layer1 → layer2 → …"
+    # decode ladder on a benign echo string must NOT trigger.
+    node_by_id = {n.id: n for n in graph.nodes}
+    attack_kinds = frozenset({"lolbin", "family_match", "mitre_technique"})
+    saw_attack_kind = False
+    for nid in path:
+        n = node_by_id.get(nid)
+        if not n:
+            continue
+        if n.kind in attack_kinds:
+            saw_attack_kind = True
+            break
+        if n.kind == "ioc":
+            ik = ((n.attrs or {}).get("ioc_kind") or "").lower()
+            if ik in ("url", "domain", "ip", "hash", "sha256", "sha1", "md5"):
+                saw_attack_kind = True
+                break
+        if n.kind == "behaviour":
+            # execution-semantic behaviour labels
+            lbl = (n.label or "").lower() + " " + (n.value or "").lower()
+            if any(k in lbl for k in ("shellcode", "beacon", "download", "persist",
+                                       "credential", "lateral", "reflect")):
+                saw_attack_kind = True
+                break
+    if not saw_attack_kind:
         return None
     # Chains of 5+ are strong enough to participate in escalation rules.
     if depth >= 5:

@@ -593,9 +593,51 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
 
             <div className="exec-foot">
               <span className="lbl">Decoded output preview</span>
-              {view.decodeLadder && view.decodeLadder.length > 0 ? (
+              {view.shellcode && view.shellcode.is_shellcode ? (
+                <div className="shellcode-banner" data-testid="shellcode-banner" style={{
+                  marginTop: "var(--s3)",
+                  padding: "12px 14px",
+                  border: "1px solid rgba(239, 68, 68, 0.35)",
+                  borderRadius: 4,
+                  background: "rgba(239, 68, 68, 0.06)",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  fontSize: 12,
+                  lineHeight: 1.6,
+                }}>
+                  <div style={{ color: "#f87171", fontSize: 13, fontWeight: 600, letterSpacing: "0.02em" }}>
+                    ⚡ SHELLCODE DECODED — <span data-testid="shellcode-family">{view.shellcode.family || "Generic shellcode"}</span>
+                    {view.shellcode.arch ? <span style={{ opacity: 0.75 }}> · arch <b data-testid="shellcode-arch">{view.shellcode.arch}</b></span> : null}
+                  </div>
+                  <div style={{ marginTop: 6, color: "var(--fg2, #9aa4b2)", fontSize: 11 }}>
+                    <b>{view.shellcode.size || 0}</b> bytes · entropy <b>{view.shellcode.entropy?.toFixed?.(2) || "—"}</b>
+                    {view.shellcode.family_mitre ? <span> · MITRE <b>{view.shellcode.family_mitre}</b></span> : null}
+                  </div>
+                  {view.shellcode.c2_ips && view.shellcode.c2_ips.length ? (
+                    <div style={{ marginTop: 8 }}>
+                      <span style={{ color: "var(--fg3, #7a8698)" }}>C2 IPs · </span>
+                      <span data-testid="shellcode-c2-ips">{view.shellcode.c2_ips.slice(0, 5).map((v) => <b key={v} style={{ marginRight: 8, color: "#fbbf24" }}>{v}</b>)}</span>
+                    </div>
+                  ) : null}
+                  {view.shellcode.user_agents && view.shellcode.user_agents.length ? (
+                    <div style={{ marginTop: 4 }}>
+                      <span style={{ color: "var(--fg3, #7a8698)" }}>User-Agent · </span>
+                      <span data-testid="shellcode-ua">{view.shellcode.user_agents[0]}</span>
+                    </div>
+                  ) : null}
+                  {view.shellcode.hex_preview ? (
+                    <div style={{ marginTop: 8 }}>
+                      <span style={{ color: "var(--fg3, #7a8698)" }}>hex preview · </span>
+                      <span style={{ color: "var(--fg2, #9aa4b2)" }}>{view.shellcode.hex_preview}</span>
+                    </div>
+                  ) : null}
+                  <div style={{ marginTop: 8, color: "var(--fg3, #7a8698)", fontSize: 10.5 }}>
+                    Raw binary suppressed from preview. Open the Evidence lens for the full node's provenance.
+                  </div>
+                </div>
+              ) : view.decodeLadder && view.decodeLadder.length > 0 ? (
                 <div className="code" style={{ marginTop: "var(--s3)", maxHeight: 240, overflow: "auto" }}>
-                  {view.decodeLadder[view.decodeLadder.length - 1].code}
+                  {view.decodeLadder[view.decodeLadder.length - 1].code
+                    || <span className="quiet mono">(binary layer · preview suppressed)</span>}
                 </div>
               ) : (
                 <div className="quiet mono" style={{ marginTop: "var(--s2)" }}>
