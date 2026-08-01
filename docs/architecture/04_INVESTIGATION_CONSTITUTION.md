@@ -412,3 +412,103 @@ a memory artefact — produces the **same** CIO. Only the Adapter
 changes. Everything downstream (IKG · Verdict · Executive Summary ·
 Attack Story · ATT&CK · Reports · Trajectory · Workspace) remains
 identical.
+
+## 9. Investigation Orchestration Layer (v1.0 completion)
+
+### 🔒 ECE ↔ Verdict Engine · Separation of Concerns
+
+The Evidence Correlation Engine (ECE · P2-06) MUST NOT make security
+decisions. Its job is strictly:
+- correlate evidence,
+- build causal chains,
+- infer relationships,
+- assign confidence to those relationships.
+
+The **Unified Verdict Engine** remains the ONLY component that emits:
+- verdict label,
+- severity,
+- confidence score,
+- risk rating.
+
+ECE feeds evidence chains and confidence hints into the Verdict
+Engine; Verdict Engine reaches a decision. This separation keeps
+correlation and adjudication modular.
+
+### 🔒 Investigation State Machine (locked · P2-11)
+
+Every investigation carries an explicit `cio.metadata.state` field
+that traverses this deterministic lifecycle:
+
+```
+NEW → DETECTED → INGESTING → NORMALIZING → INVESTIGATING
+     → CORRELATING → REASONING → READY
+     → ANALYST_UPDATED (optional) → CLOSED
+```
+
+**Rules**:
+- Every module executes ONLY when the investigation is in the
+  correct state.
+- Illegal transitions raise `IllegalInvestigationTransition` and are
+  logged to the Investigation Ledger.
+- State is persisted so investigations become resumable, distributable,
+  and auditable.
+- `ANALYST_UPDATED` is entered when the Manual Summary override (P1-06)
+  fires or when any correction is submitted.
+
+### 🔒 Adapter Capability Registry (locked · P2-12)
+
+The Universal Detection Engine MUST NOT contain hardcoded
+`if syslog / elif windows / elif defender` branches. Every Adapter
+registers itself once at import time with:
+
+```python
+AdapterRegistry.register(
+    adapter=CiscoXDRAdapter,
+    supports=["cisco_xdr", "cisco_secure_endpoint"],
+    priority=90,
+    confidence_floor=0.7,
+    version="1.2.0",
+    dependencies=["json"],
+    quality_floor={"coverage_pct": 60, "correctness_pct": 90, "completeness_pct": 80},
+)
+```
+
+The Detection Engine queries the registry and dispatches to the
+Adapter with the highest `detect()` confidence AT or ABOVE its
+`confidence_floor`. Adapters become plug-ins, not code branches.
+
+### 🔒 Investigation Replay Engine (locked · P2-13)
+
+Given a completed investigation (CIO + IKG + Ledger), the Replay
+Engine reconstructs the exact sequence of reasoning steps and lets an
+analyst step through them like a debugger:
+
+```
+Step 1 · Cisco Adapter        · found PowerShell command
+Step 2 · PowerShell Decoder   · recovered IEX + URL
+Step 3 · URL Extraction       · isolated http://evils.com/a.ps1
+Step 4 · VirusTotal Enrich    · 42/70 detections
+Step 5 · Evidence Graph Add   · N-011 (URL) N-012 (VT hit)
+Step 6 · ECE Correlate        · N-005 → N-011 → N-012 chain
+Step 7 · Verdict Engine       · Malicious 98%
+```
+
+The Replay Engine is READ-ONLY over the Investigation Ledger (P2-08).
+It emits deterministic output on identical inputs — invaluable for:
+- analyst training,
+- validation of adapter changes,
+- debugging misclassifications,
+- customer demonstrations,
+- audit reviews.
+
+Surfaced in X-Lab as a dedicated **Replay Lens** driven from the
+Ledger.
+
+### 🔒 v1.0 Completeness
+
+With these three orchestration layers locked, the platform blueprint
+is architecturally complete. Remaining work is IMPLEMENTATION and
+GOVERNANCE, not further architectural discovery.
+
+**Non-goal**: no new architectural layers past v1.0 without a
+superseding ADR.
