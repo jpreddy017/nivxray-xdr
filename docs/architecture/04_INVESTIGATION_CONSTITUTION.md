@@ -272,6 +272,49 @@ card.
 - ❌ No feature flag for "auto-investigate mode vs decode mode" —
      the router chooses the adapter transparently based on `detect()`
      scores.
+- ❌ **No adapter that stops at "I found a PowerShell command."**
+     Every adapter MUST recursively hand embedded commands, scripts,
+     encoded payloads, URLs, and hashes back into the pipeline for
+     deep investigation. Parse ≠ Investigate — see doctrine below.
+
+## 🔒 IDI Doctrine · "Investigate, don't just parse"
+
+Traditional SIEM parsers (QRadar DSM, ArcSight FlexConnector, Splunk
+TA, Microsoft DCR) do:
+
+```
+Raw Logs → Parser → Normalize → Correlate → Alert
+```
+
+They stop at correlation.  X-Lab MUST do:
+
+```
+Raw Input → Parse → Normalize → Investigate → Correlate → Reason → Explain
+```
+
+Every adapter is responsible for the FULL chain — not just parsing.
+When a Cisco XDR alert carries an embedded PowerShell command line,
+the Cisco adapter DOES NOT stop at "extracted command_line=…". It
+hands the command back to the pipeline's Deep Command Investigation
+layer, which decodes it (Base64 · UTF-16LE · deflate · XOR · RC4 · …),
+extracts IOCs, maps ATT&CK, and folds every recovered artefact back
+into the same CIO.
+
+**The correlation engine evolves** from event-based (`Event A + Event B → Offense`)
+to **semantic** — chains of evidence tie together across process
+tree, DNS, hash reputation, VT/AbuseIPDB, registry run keys, and
+timeline into a single Attack Story.
+
+**Naming**: the layer is called **IDI** (Investigation Document
+Intelligence) for consistency with the backlog and constitution. Its
+responsibilities are broader than the name suggests: it parses,
+normalises, detects vendors, decodes commands, investigates embedded
+artefacts, correlates evidence, builds timelines, constructs the
+knowledge graph, and produces the CIO. Any renaming happens ONLY via
+a superseding ADR — never inline.
+
+---
+
 
 ## Success criteria (when IDI is "done")
 
