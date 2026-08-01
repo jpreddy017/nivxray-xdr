@@ -6,7 +6,8 @@
 | ID | Priority | Task | Status | Notes / Blockers |
 |----|----------|------|--------|------------------|
 | P1-01 | P1 ⭐⭐⭐⭐⭐ | Live OSINT Wiring — X-Lab consumes Workspace's `_run_osint` (VT · AbuseIPDB · OTX · URLScan · URLhaus). 11-field IOC card. | ⏳ Pending | `/api/osint/lookup` endpoint exists (local corpus). Extend to invoke live providers. |
-| P1-02 | P1 ⭐⭐⭐⭐⭐ | Verdict Parity CI — `test_verdict_parity_workspace_vs_xlab.py` on 20-case corpus. Fold `rules_hit` / `lolbas_hit` / `custom_recipes_matched` into `verdict_engine.compute_verdict()`. | ⏳ Pending | BITS-downloader gap: WS 98 · X-Lab 88. |
+| P1-02 | P1 ⭐⭐⭐⭐⭐ | Verdict Parity CI — `test_verdict_parity_workspace_vs_xlab.py` on corpus. Fold `rules_hit` / `lolbas_hit` / `custom_recipes_matched` into `verdict_engine.compute_verdict()`. | ✅ Done | Shipped 2026-02-31 · 9/9 tests green. Three enforcement layers: determinism · engine-tag provenance · no-fork detection. BITS-downloader confidence gap remains (verdict engine gating unchanged) — track separately as P1-02b. |
+| P1-02b | P1 ⭐⭐⭐ | Fold rules_hit / lolbas_hit / custom_recipes_matched into verdict contributors so BITS-downloader lands at Malicious. | ⏳ Pending | Requires WEIGHTS additions + gating tuning in `verdict_engine.py`. |
 | P1-03 | P1 ⭐⭐⭐⭐ | Rules Lens — renderer over `cio.metadata.custom_recipes_matched`. | ✅ Done | Shipped 2026-02-31 · lens #6 · empty-state handled. |
 | P1-04 | P1 ⭐⭐⭐⭐ | LOLBAS Lens — renderer over `cio.metadata.lolbas` / `lolbins_v2`. | ✅ Done | Shipped 2026-02-31 · lens #7 · empty-state handled. |
 | P1-05 | P1 ⭐⭐⭐⭐ | TI-HITS Lens — renderer over `cio.metadata.ti_shield.layers`. | ✅ Done | Shipped 2026-02-31 · lens #8 · empty-state handled. |
