@@ -44,8 +44,14 @@ def _users(cio: Dict[str, Any]) -> List[str]:
 
 
 def _iocs(cio: Dict[str, Any]) -> Dict[str, List[str]]:
-    md = cio.get("metadata") or {}
-    return md.get("iocs") or {}
+    # Delegate to `customer_report._iocs` which correctly falls back to
+    # the evidence graph when `metadata.iocs` isn't populated yet at
+    # compose-time. Without this delegation the narrative composer sees
+    # zero IOCs during summary composition and drops URL-driven
+    # interpretation branches (mechanism explanation, staging clause,
+    # perimeter-block recommendation).
+    from nivxforge.investigation.customer_report import _iocs as _cr_iocs
+    return _cr_iocs(cio) or {}
 
 
 def _recovered_command(cio: Dict[str, Any]) -> str:
@@ -286,146 +292,267 @@ def _fmt_recovered(cmd: str, limit: int = 220) -> str:
 
 
 def _chapter_opening(cio: Dict[str, Any]) -> str:
-    """Sets the scene — what arrived, from where, when. Story voice."""
+    """Sets the scene. Vendor telemetry dominates when present — the
+    first sentence names the source. Otherwise names the artefact
+    shape. No fixed phrasing: sentence structure follows what evidence
+    is actually available."""
     m = _incident_meta(cio)
     hosts = _hosts(cio)
     users = _users(cio)
-    iu = ((cio.get("metadata") or {}).get("input_understanding") or {}) or {}
-    itype = (iu.get("label") or iu.get("type") or "").replace("_", " ").strip().lower()
+    lolbins = _lolbins(cio)
+    iocs = _iocs(cio)
+    hashes = _hashes_with_names(cio)
+
+    # ── Vendor-driven opening ──
     if m["vendor"]:
-        parts: List[str] = [f"This investigation began when **{m['vendor']}**"]
+        subj = f"**{m['vendor']}**"
+        # Sentence 1 — the alert itself. Structure depends on what's
+        # present so the phrasing varies naturally.
+        s1_parts: List[str] = [subj]
         if m["incident_id"]:
-            parts.append(f"raised Incident **{m['incident_id']}**")
+            s1_parts.append(f"raised Incident **{m['incident_id']}**")
+        elif m["detection"] or m["threat_name"]:
+            s1_parts.append("raised an alert")
         else:
-            parts.append("raised an alert")
+            s1_parts.append("generated telemetry")
         if m["detection"] or m["threat_name"]:
             det = m["detection"] or m["threat_name"]
-            parts.append(f"for **{det}**")
+            s1_parts.append(f"for **{det}**")
         if hosts:
-            parts.append(f"on host **{hosts[0]}**")
+            s1_parts.append(f"on host **{hosts[0]}**")
         if users:
-            parts.append(f"(user {users[0]})")
+            s1_parts.append(f"(user `{users[0]}`)")
         if m["timestamp"]:
-            parts.append(f"at {m['timestamp']}")
-        sentence = " ".join(parts).rstrip(".") + "."
-        return sentence
-    # No vendor — analyst-driven submission.
+            s1_parts.append(f"at {m['timestamp']}")
+        s1 = " ".join(s1_parts).rstrip(".") + "."
+
+        # Sentence 2 — what the alert captured. Names process + hash +
+        # URL when known.
+        s2_bits: List[str] = []
+        if lolbins:
+            s2_bits.append(f"execution of `{lolbins[0]}`")
+        urls = iocs.get("urls") or []
+        if urls:
+            s2_bits.append(f"reaching out to `{urls[0]}`")
+        elif iocs.get("ips"):
+            s2_bits.append(f"contacting `{iocs['ips'][0]}`")
+        if hashes:
+            h, name = hashes[0]
+            if name:
+                s2_bits.append(f"associated with SHA-256 `{h}` (`{name}`)")
+            else:
+                s2_bits.append(f"associated with SHA-256 `{h}`")
+        s2 = ""
+        if s2_bits:
+            s2 = "The alert captured " + ", ".join(s2_bits) + "."
+
+        # Sentence 3 — containment status when the vendor took action.
+        s3 = ""
+        action = (m["action"] or "").lower()
+        if action in ("quarantined", "blocked", "prevented", "remediated"):
+            s3 = f"{subj} {action} the executable before it completed its second-stage fetch."
+
+        return " ".join(p for p in (s1, s2, s3) if p).strip()
+
+    # ── No vendor · analyst-submitted artefact ──
+    # Multiple phrasings driven by the evidence density so it never
+    # repeats the same "An analyst submitted..." line every time.
+    if lolbins and hashes:
+        h, name = hashes[0]
+        return (f"An artefact was submitted for triage carrying "
+                f"`{lolbins[0]}` execution and SHA-256 "
+                f"`{h}`{f' (`{name}`)' if name else ''}, which the decoder "
+                "immediately unpacked to expose the underlying behaviour.")
+    if lolbins:
+        urls = iocs.get("urls") or iocs.get("ips") or []
+        tail = f" targeting `{urls[0]}`" if urls else ""
+        return (f"The submission carried `{lolbins[0]}` execution{tail}, "
+                "which the decoder unpacked layer by layer to expose the "
+                "underlying behaviour.")
+    iu = ((cio.get("metadata") or {}).get("input_understanding") or {}) or {}
+    itype = (iu.get("label") or iu.get("type") or "").replace("_", " ").strip().lower()
     if itype:
-        return (
-            f"An analyst submitted a **{itype}** artefact for triage; the "
-            "pipeline immediately routed it into the recursive decoder to "
-            "recover any hidden behaviour."
-        )
-    return (
-        "An analyst submitted an artefact for triage; the pipeline "
-        "routed it into the recursive decoder to surface hidden behaviour."
-    )
+        return (f"The pipeline received a **{itype}** submission and routed "
+                "it into the recursive decoder for behavioural triage.")
+    return ("The pipeline received an artefact for triage and routed it "
+            "into the recursive decoder for behavioural analysis.")
 
 
 def _chapter_discovery(cio: Dict[str, Any]) -> str:
-    """The reveal — what decoding uncovered. Uses temporal connectors."""
+    """The reveal — what decoding uncovered. Phrasing varies based on
+    how many layers were peeled and what the recovered content is."""
     recovered = _recovered_command(cio)
     layers = _decode_layer_count(cio)
     lolbins = _lolbins(cio)
     urls = _iocs(cio).get("urls") or []
+    ips = _iocs(cio).get("ips") or []
     if not (recovered or lolbins or urls):
         return ""
     parts: List[str] = []
-    if layers >= 2 and recovered:
+    # Reveal — vary phrasing by layer count so it isn't always
+    # "Peeling back N layers..."
+    if layers >= 3 and recovered:
         parts.append(
-            f"Peeling back **{layers}** successive encoding layers, the "
-            f"decoder ultimately recovered the command {_fmt_recovered(recovered)}"
+            f"After {layers} decoder passes, the underlying command "
+            f"resolved to {_fmt_recovered(recovered)}"
+        )
+    elif layers == 2 and recovered:
+        parts.append(
+            f"Two decoder passes were required before the command "
+            f"resolved to {_fmt_recovered(recovered)}"
         )
     elif recovered:
-        parts.append(f"The decoder recovered the command {_fmt_recovered(recovered)}")
+        parts.append(f"The recovered command reads {_fmt_recovered(recovered)}")
     elif lolbins:
-        parts.append(f"The submission invoked **{lolbins[0]}**")
+        parts.append(f"The submission invoked `{lolbins[0]}`")
     tail = parts[0]
-    # Weave in what the recovered command DOES.
-    if urls:
+    # Weave what the recovered command does — but drop the canned
+    # "characteristic of second-stage payload staging" trailer. Instead
+    # describe the mechanism when evidence is strong enough.
+    if urls and lolbins:
         target = urls[0]
         tail += (
-            f" — an in-memory PowerShell invocation that reaches out to "
-            f"**{target}** and executes whatever content the server returns"
+            f", using the {lolbins[0]} living-off-the-land binary to fetch "
+            f"and execute content from **{target}** in a single in-memory "
+            "operation with no persistent file dropped to disk"
         )
-    elif lolbins and recovered:
-        tail += f", invoked via the {lolbins[0]} living-off-the-land binary"
+    elif urls:
+        tail += f", which reaches out to **{urls[0]}** and executes whatever the server returns"
+    elif ips and lolbins:
+        tail += f", using {lolbins[0]} to contact **{ips[0]}**"
     return tail.rstrip(".") + "."
 
 
 def _chapter_interpretation(cio: Dict[str, Any]) -> str:
-    """Analyst judgement — what the pattern MEANS. Adds interpretive
-    framing, not just facts."""
+    """Analyst judgement — explains WHY the observed behaviour maps
+    to the stated interpretation. Mechanism-level, not label-level."""
     recovered = _recovered_command(cio)
     urls = _iocs(cio).get("urls") or []
     internal = _internal_ip_present(cio)
     layers = _decode_layer_count(cio)
-    if not recovered:
+    hashes = _hashes_with_names(cio)
+    m = _incident_meta(cio)
+    hosts = _hosts(cio)
+    if not (recovered or (m["detection"] and hashes) or (m["threat_name"] and hashes)):
         return ""
     sentences: List[str] = []
-    # Classify the recovered command shape
-    rec_lc = recovered.lower()
-    if "iex" in rec_lc and ("downloadstring" in rec_lc or "downloadfile" in rec_lc or "invoke-webrequest" in rec_lc or "invoke-restmethod" in rec_lc):
+
+    # --- Vendor-detection interpretation (no decoded command needed) ---
+    # Fires when a vendor named a threat AND a hash / multi-host
+    # correlation is present — explains WHY the detection matters.
+    if m["detection"] or m["threat_name"]:
+        det = m["detection"] or m["threat_name"]
+        hash_sentence = ""
+        if hashes:
+            _, name = hashes[0]
+            hash_sentence = (
+                f" The signal is anchored to a concrete file hash rather than "
+                "a behavioural heuristic, which reduces the chance this is a "
+                "false positive"
+            )
+            if name:
+                hash_sentence += f" — the binary carrying that hash is `{name}`"
+            hash_sentence += "."
+        multi_host = ""
+        if len(hosts) >= 2:
+            multi_host = (
+                f" The same detection surfaces on {len(hosts)} hosts, which "
+                "elevates this from an isolated endpoint event to a shared "
+                "artefact — either the same package was distributed to "
+                "multiple systems or the same operator staged the payload "
+                "across the estate."
+            )
         sentences.append(
-            "This is a textbook **stager pattern** — the attacker hides the "
-            "true payload behind an encoded wrapper, then pulls the "
-            "second-stage code from an internet-facing endpoint at run-time "
-            "so that static endpoint controls see nothing more than a signed "
-            "`powershell.exe` process."
+            f"The `{det}` detection carries specific meaning: the vendor "
+            "matched a known indicator rather than a generic anomaly, so the "
+            "verdict is grounded in prior threat-intelligence rather than "
+            "post-hoc guesswork." + hash_sentence + multi_host
         )
-    elif "/dev/tcp/" in rec_lc:
+
+    rec_lc = recovered.lower() if recovered else ""
+    is_iex_stager = "iex" in rec_lc and (
+        "downloadstring" in rec_lc or "downloadfile" in rec_lc
+        or "invoke-webrequest" in rec_lc or "invoke-restmethod" in rec_lc
+    )
+    is_reverse_shell = "/dev/tcp/" in rec_lc
+    is_ps_download = "downloadstring" in rec_lc or "downloadfile" in rec_lc
+
+    if is_iex_stager and urls:
+        target = urls[0]
         sentences.append(
-            "This is a **reverse-shell one-liner** — a single bash "
-            "invocation that opens an outbound TCP connection to the "
-            "attacker and hands the resulting file descriptors to an "
-            "interactive shell, effectively giving remote command execution "
-            "with the privileges of the calling user."
+            f"The mechanism is worth naming explicitly: PowerShell's `IEX` "
+            f"(Invoke-Expression) executes the exact string returned by "
+            f"`DownloadString('{target}')` directly in memory, without ever "
+            "writing the second-stage payload to disk. Endpoint tools that "
+            "rely on file-write or signature detection see only the signed "
+            "`powershell.exe` process making an HTTP GET — the actual "
+            "malicious code never presents a file to scan."
+        )
+    elif is_ps_download and urls:
+        sentences.append(
+            f"The download primitive here is worth noting: `DownloadString` "
+            f"pulls the content of `{urls[0]}` straight into memory as a "
+            "string, bypassing any control that inspects newly-written files."
+        )
+    elif is_reverse_shell:
+        sentences.append(
+            "The construct is a POSIX-shell reverse shell one-liner. "
+            "`bash -i` opens an interactive shell, and the "
+            "`>& /dev/tcp/…` redirection reuses Bash's built-in TCP "
+            "handler to bind stdin/stdout/stderr to a socket — giving "
+            "remote interactive command execution with the privileges "
+            "of the calling user, and leaving no additional file on disk."
         )
     elif layers >= 2:
         sentences.append(
-            "The multi-layer obfuscation itself is a strong behavioural "
-            "signal — legitimate administrative scripts rarely encode "
-            "themselves recursively, so the effort spent hiding intent "
-            "typically reflects intent worth hiding."
+            f"The {layers} successive encoding layers here matter as "
+            "signal in their own right: legitimate administrative scripts "
+            "very rarely encode themselves recursively, so the effort "
+            "spent hiding the payload typically reflects intent worth "
+            "hiding — deliberate evasion of both human review and static "
+            "analysis tooling."
         )
-    # Add a scoping caveat when the destination is internal
+
     if internal and urls:
         sentences.append(
-            f"Critically, the destination **{internal}** falls inside "
-            "RFC1918 private space, which suggests this specific submission "
-            "is a lab or test artefact rather than active internet-facing "
-            "command-and-control — the same command aimed at a public "
-            "endpoint would carry substantially higher operational risk."
+            f"One scoping note: the destination `{internal}` is RFC1918 "
+            "private space, so this specific submission is a lab or test "
+            "artefact rather than live internet-facing command-and-control. "
+            "The same construct aimed at a public IP would carry the same "
+            "mechanical risk without the internal-only caveat."
         )
     return " ".join(sentences)
 
 
 def _chapter_correlation(cio: Dict[str, Any]) -> str:
-    """Widening scope — MITRE, TI, multi-host. Uses aggregating language."""
+    """Widening scope — MITRE, TI, multi-host. Language varies by
+    what is present."""
     tactics = _mitre_tactic_ids(cio)
     techs = _mitre_techniques(cio)
     ti = _threat_intel_summary(cio)
     hosts = _hosts(cio)
     ac = ((cio.get("summary") or {}).get("attack_chain") or []) or []
     sentences: List[str] = []
+
     if techs and tactics:
         tech_strs = [f"**{tid}** ({name})" if name else f"**{tid}**"
                       for tid, name in techs[:4]]
+        tactic_names = [t.split(" ", 1)[1].strip("()") for t in tactics[:3]]
         sentences.append(
-            "Behaviourally, this activity maps to "
+            "The observed behaviour aligns with "
             + ", ".join(tech_strs)
-            + " — spanning the "
-            + " · ".join(t.split(" ", 1)[1].strip("()") for t in tactics[:3])
-            + " tactics — a combination consistent with the initial "
-            "execution stage of a broader intrusion attempt."
+            + " — the tactic combination ("
+            + " · ".join(tactic_names)
+            + ") is the typical early-stage signature of a hands-on-keyboard "
+            "intrusion or a commodity loader dropping a second-stage implant."
         )
     elif techs:
         tech_strs = [f"**{tid}** ({name})" if name else f"**{tid}**"
                       for tid, name in techs[:4]]
         sentences.append(
-            "Observed behaviour aligns with the ATT&CK techniques "
-            + ", ".join(tech_strs) + "."
+            "The recovered activity maps to " + ", ".join(tech_strs) + "."
         )
+
     if len(ac) >= 2:
         chain = " → ".join(
             str(s.get("label") or "").split("·")[-1].strip()
@@ -433,35 +560,36 @@ def _chapter_correlation(cio: Dict[str, Any]) -> str:
         )
         if chain and "→" in chain:
             sentences.append(
-                f"Reconstructing the timeline, the sequence unfolds as "
-                f"**{chain}**, which shows the attacker chaining a signed "
-                "living-off-the-land binary into a downloader in a way "
-                "that would blend into normal administrative activity."
+                f"Sequencing the timeline, the observed order was "
+                f"**{chain}** — a chain that keeps every intermediate step "
+                "on a signed or otherwise expected binary, which is why "
+                "signature-only detection would miss the composite behaviour."
             )
+
     if ti:
         binaries = _lolbins(cio) or [""]
-        target = f"**{binaries[0]}**" if binaries[0] else "the recovered payload"
+        target = f"`{binaries[0]}`" if binaries[0] else "the recovered payload"
         sentences.append(
-            f"Threat intelligence corroborates the assessment: {target} "
-            f"carries {ti}."
+            f"Threat intelligence corroborates the read: {target} carries {ti}."
         )
+
     if len(hosts) >= 2:
         m = _incident_meta(cio)
-        others = ", ".join(hosts[1:6])
+        others = ", ".join(f"`{h}`" for h in hosts[1:6])
         cont = ""
         if (m["action"] or "").lower() in ("quarantined", "blocked"):
-            cont = f" — with confirmed containment on **{hosts[0]}**"
+            cont = f", with confirmed containment on `{hosts[0]}`"
         sentences.append(
-            f"Notably, the same indicators surface across multiple hosts "
-            f"({hosts[0]}, {others}){cont} — this is not an isolated event "
-            "but sits inside a broader enterprise exposure that warrants "
-            "follow-on hunt work."
+            f"The same indicators surface on {len(hosts) - 1} additional "
+            f"host(s) ({others}){cont} — this is enterprise exposure, "
+            "not an isolated event, and the incident should be scoped "
+            "against every host that carries any of the shared indicators."
         )
     return " ".join(sentences)
 
 
 def _chapter_judgement(cio: Dict[str, Any]) -> str:
-    """Why the verdict is what it is. Story voice: 'weighing the evidence…'"""
+    """Why the verdict is what it is. Phrasing varies by outcome."""
     vf = _verdict_fields(cio)
     label = vf["label"]
     pct = vf["pct"]
@@ -470,84 +598,103 @@ def _chapter_judgement(cio: Dict[str, Any]) -> str:
     esc = vf["escalation"]
     internal = _internal_ip_present(cio)
     sentences: List[str] = []
-    if label in ("Malicious", "Suspicious"):
+
+    if label == "Malicious":
         opener = (
-            f"Taking the recovered command, the ATT&CK mapping and the "
-            f"supporting indicators together, the verdict engine landed on "
-            f"**{label} at {pct}% confidence**"
+            f"The verdict engine returned **Malicious at {pct}% confidence**"
         )
         if esc:
-            opener += f" — a promotion driven by the escalation rule *{esc}*"
+            opener += f", driven by the escalation rule `{esc}`"
         sentences.append(opener + ".")
+    elif label == "Suspicious":
+        sentences.append(
+            f"Aggregated evidence supports a **Suspicious at {pct}% "
+            "confidence** verdict — enough behavioural signal to warrant "
+            "response but not enough to commit to a definite malicious call."
+        )
     else:
         sentences.append(
-            f"Weighing the available evidence, the verdict engine returned "
-            f"**{label} at {pct}% confidence** — the sample carries "
-            "concerning shape but no single indicator strong enough to "
-            "commit to a Malicious call."
+            f"On the current evidence, the verdict engine returned "
+            f"**{label} at {pct}% confidence**."
         )
+
     if raw and pct < raw - 10 and vf["mitigators"]:
         if internal:
             sentences.append(
-                f"Confidence is intentionally dampened from a raw {raw}%: "
-                f"the destination **{internal}** is RFC1918 private space, "
-                f"which the internal-asset mitigator downgrades by up to "
-                f"{dampen}% — the arithmetic is deliberate and defensible."
+                f"The final confidence is intentionally below the raw "
+                f"aggregate of {raw}%: the destination `{internal}` sits "
+                f"inside RFC1918 space, and the internal-asset mitigator "
+                f"reduces the score by up to {dampen}% because private-IP "
+                "targets are usually test infrastructure rather than "
+                "genuine adversary C2."
             )
         else:
             sentences.append(
-                f"The final number sits below the raw Noisy-OR aggregate "
-                f"({raw}%) because {vf['mitigators']} mitigating signal(s) "
-                f"dampen the score by up to {dampen}%."
+                f"The score is dampened from a raw {raw}% because "
+                f"{vf['mitigators']} mitigating indicator(s) reduce "
+                f"confidence by up to {dampen}%."
             )
     return " ".join(sentences)
 
 
 def _chapter_guidance(cio: Dict[str, Any]) -> str:
-    """What the responder should do next. Direct, actionable."""
+    """Direct responder actions. Wording follows the specific
+    indicators, not a fixed template."""
     vf = _verdict_fields(cio)
     label = vf["label"]
     m = _incident_meta(cio)
     urls = _iocs(cio).get("urls") or []
     ips = _iocs(cio).get("ips") or []
+    hashes = _hashes_with_names(cio)
     recovered = _recovered_command(cio)
     if label not in ("Malicious", "Suspicious"):
         return ""
-    parts: List[str] = []
+
+    intro = "Recommended follow-up: "
     if (m["action"] or "").lower() in ("quarantined", "blocked"):
-        parts.append(
-            "For the responder: although the endpoint agent contained the "
-            "immediate execution, the delivery vector and blast-radius "
-            "questions remain open. Recommended next moves are to "
-        )
-    else:
-        parts.append("For the responder, the recommended next moves are to ")
+        intro = ("Although the endpoint agent contained the immediate "
+                 "execution, the delivery vector and blast-radius questions "
+                 "remain open — recommended follow-up: ")
+
     actions: List[str] = []
-    ext_iocs = [u for u in urls if "192.168." not in u and "127.0." not in u]
-    ext_iocs += [i for i in ips if not (i.startswith("192.168.")
-                                          or i.startswith("10.") or i.startswith("127."))]
-    if ext_iocs:
+    ext_urls = [u for u in urls if "192.168." not in u and "127.0." not in u
+                 and "10." != u[:3]]
+    ext_ips  = [i for i in ips if not (i.startswith("192.168.")
+                    or i.startswith("10.") or i.startswith("127.")
+                    or (i.startswith("172.") and 16 <= int(i.split(".")[1]) <= 31 if i.count(".") == 3 else False))]
+    if ext_urls:
         actions.append(
-            f"block the network indicator{'s' if len(ext_iocs) > 1 else ''} "
-            f"({', '.join(ext_iocs[:3])}) at the perimeter"
+            f"block `{ext_urls[0]}` at the perimeter and enrich against your "
+            "threat-intel feeds for related infrastructure"
+        )
+    elif ext_ips:
+        actions.append(
+            f"block `{ext_ips[0]}` at the perimeter and enrich against your "
+            "threat-intel feeds for related infrastructure"
         )
     if recovered:
         actions.append(
             "hunt for the recovered command string across PowerShell "
-            "script-block logging (Event ID 4104) and process telemetry"
+            "script-block logging (Event ID 4104) and process telemetry "
+            "to identify any other endpoints exhibiting the same pattern"
+        )
+    if hashes:
+        actions.append(
+            f"add SHA-256 `{hashes[0][0]}` to your endpoint deny-list and "
+            "search VirusTotal / your sandbox history for prior observations"
         )
     actions.append(
-        "review any parent process that spawned this instance for follow-on "
-        "child activity"
+        "review the parent process that spawned this instance to identify "
+        "the initial delivery vector"
     )
+
     if len(actions) >= 3:
-        joined = "; ".join(actions[:-1]) + f"; and {actions[-1]}"
+        joined = "; ".join(actions[:-1]) + f"; and {actions[-1]}."
     elif len(actions) == 2:
-        joined = f"{actions[0]}; and {actions[1]}"
+        joined = f"{actions[0]}; and {actions[1]}."
     else:
-        joined = actions[0]
-    parts.append(joined + ".")
-    return "".join(parts)
+        joined = actions[0] + "."
+    return intro + joined
 
 
 # ─── Public entry ────────────────────────────────────────────────────
