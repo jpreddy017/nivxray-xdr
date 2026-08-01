@@ -776,16 +776,24 @@ def compose_summary(cio: CIO) -> Summary:
     customer_report_payload: Optional[Dict[str, Any]] = None
     try:
         from .customer_report import compose_customer_report
+        from .report_critic import critique as _critique
         _cr = compose_customer_report(cio, persona="customer")
+        _crit = _critique(_cr, cio)
+        # GAP 6 · Dynamic section selection — drop sections the critic
+        # classified as empty so the customer never sees "No X was
+        # included" placeholder noise. Always-keep sections (1, 15) are
+        # preserved by the critic itself.
+        if _crit.dropped_sections:
+            _cr.sections = [s for s in _cr.sections if s.title not in _crit.dropped_sections]
         customer_report_payload = _cr.to_dict()
-        # Prefer the customer-facing markdown as the analyst-visible prose.
-        # This is what the frontend Executive tab renders — pushes the
-        # composer output away from "Recovered payload / Layer N" telemetry
-        # and toward the 16-section MDR-analyst structure.
+        customer_report_payload["critique"] = _crit.to_dict()
+        # Prefer the customer-facing markdown as the analyst-visible
+        # prose. Composed only from canonical CIO fields → no decoder
+        # telemetry ever reaches the Executive / Story lens.
         analyst_prose = _cr.to_markdown()
-    except Exception as _cr_err:  # noqa: BLE001
-        # Non-fatal — legacy prose kept as fallback. The hygiene gate will
-        # still fire in CI so we never ship a report with forbidden terms.
+    except Exception:  # noqa: BLE001
+        # Non-fatal — legacy prose kept as fallback. The CI hygiene gate
+        # still catches forbidden-term leaks before deploy.
         pass
 
     report_sections = ReportSections(

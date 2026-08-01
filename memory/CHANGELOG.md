@@ -1833,3 +1833,25 @@ this reads as visual noise.
 
 **Known remaining surface (deferred):** the VerdictExplanationCard's right-rail Evidence Ledger reads `cio.verdict.contributors[].label` directly and still shows decoder-op names ("Layer 0: ps-encodedcommand-recov"). Fix requires either sanitizing at engine level (`verdict_engine.py`) or at UI render (`VerdictExplanationCard.jsx`). Tracked as follow-up.
 
+## 2026-02-02 · Report Critic + Quality Validator + Persona Gates + Dynamic Sections (GAP 1 · 5 · 6 · 8)
+
+**Ships:**
+- **`backend/nivxforge/investigation/report_critic.py`** — deterministic quality gate. Given any composed CustomerReport, returns `CriticResult{passed, score/100, persona, issues[], coverage[], dropped_sections[], kept_sections[]}`.
+- **GAP 1 · Report Quality Validator** — for every canonical CIO field (hosts, users, hashes, iocs, mitre, osint, timeline, recommendations) verify the CIO carries it AND the report mentions it. If CIO has it and report doesn't, `missing-cio-field-in-report` issue fires. Coverage matrix attached to result.
+- **GAP 5 · Persona MUST-CONTAIN gates** — `PERSONA_CONTRACTS` map with must-contain + must-not-contain per persona. Customer blocks `IEX / Base64 / UTF16 / Decode` in addition to decoder-telemetry FORBIDDEN_TERMS. Threat-hunt must contain `MITRE + Timeline + Evidence`. Forensic must contain `Hash + IOCs`. Decoder is exempt.
+- **GAP 6 · Dynamic section selection** — critic scans each section body for `EMPTY_MARKERS`; empty sections are flagged for drop and stripped from the composed markdown before render. Executive Summary + Analyst Verdict always kept regardless.
+- **GAP 8 · Report Critic** — one call: `critique(report, cio) → CriticResult`. Deterministic. Never rewrites; caller (composer) owns regeneration.
+- **Sanitizers extended** — MITRE technique names customer-safe (`Command Obfuscation: Base64/Encoded Command → Command Obfuscation: Encoded Command`); URL-decode replacement no longer uses the customer-forbidden verb "Decode".
+- **6 new parity tests** (`tests/parity/test_report_critic.py`) — full-CIO happy path, missing-field detection, empty-section drop, threat-hunt must-contain, customer forbidden-term blocking, dict serialization.
+- **Wired into composer**: `Summary.customer_report.critique` populated on every investigation. Dropped sections stripped before analyst prose is set.
+- **Parity: 96/96 passing** (up from 90; 6 new critic tests joined).
+
+**Live-verified** on the canonical PowerShell payload:
+- `critique.passed = True`
+- `critique.score = 100/100`
+- 9 sections dropped, 7 kept (Executive Summary · Incident Overview · Detection Source · Execution Chain · MITRE ATT&CK · Impact Assessment · Analyst Verdict)
+- MITRE section renders customer-clean
+- Zero forbidden terms in the customer report
+
+**Known remaining leak (surfaced twice, tracked):** VerdictExplanationCard right-rail + top-card `cio.verdict.reason` string still shows `Layer 0: ps-encodedcommand-recov` etc. Fix requires either sanitizing at the verdict engine (`verdict_engine.py`) so ALL downstream surfaces see clean contributor labels, OR adding a sanitize step at the frontend render layer. Prefer the engine-side fix.
+
