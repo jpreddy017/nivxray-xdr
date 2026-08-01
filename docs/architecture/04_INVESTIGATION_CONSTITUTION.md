@@ -575,3 +575,26 @@ product.
 
 ---
 _Constitution v1.0 — frozen pending P1-01 close._
+
+## 13. 🔒 Platform-Quality KPIs (post-freeze measurement)
+
+With v1.0 frozen, engineering effort shifts from architecture to
+measurable execution. Every release MUST report these eight KPIs:
+
+| KPI | What it measures | Target |
+|-----|------------------|--------|
+| Adapter detection accuracy | Correct adapter selected for each input | ≥ 99 % |
+| Normalisation correctness | CIO field-level fidelity vs golden corpus | ≥ 95 % |
+| Cross-vendor equivalence pass rate | Same incident → equivalent CIO across vendors (P2-05b) | 100 % |
+| Investigation replay determinism | Identical inputs produce identical Ledger + CIO | 100 % |
+| Verdict parity | Workspace ↔ X-Lab verdict identity (P1-02 CI) | 100 % |
+| End-to-end investigation latency | Paste → CIO ready · P95 | ≤ 4 s |
+| Deep-command investigation success rate | Embedded artefact recursion produces recovered payload | ≥ 90 % |
+| Golden-corpus coverage | Fraction of the corpus green on the current build | ≥ 95 % |
+
+These become operational KPIs — not architectural knobs. Regressions
+on any KPI are treated as P0 bugs, not opportunities to redesign the
+platform.
+
+---
+_End of Constitution v1.0. No further sections without an ADR._
