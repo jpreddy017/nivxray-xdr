@@ -205,7 +205,7 @@ def build(cem: CanonicalEventModel,
                 if uid in nodes and proc_id and proc_id in nodes:
                     edges.append(_edge("connected_to", proc_id, uid,
                                         evt.event_id))
-            elif evt.network.dst_ip:
+            if evt.network.dst_ip:
                 ipid = _hash_id("ip",
                     _canonicalise("ip", evt.network.dst_ip))
                 if ipid in nodes and proc_id and proc_id in nodes:
@@ -255,6 +255,43 @@ def build(cem: CanonicalEventModel,
             for n in nodes.values():
                 if n.kind in ("process", "file") and eid in n.evidence_refs:
                     edges.append(_edge("has_ioc", n.id, h_id, eid))
+
+    # IOC → command / process linkage for artefacts discovered post-
+    # decode. Any URL / IP / DNS evidence item that shares an event id
+    # with a command or process node gets a `has_ioc` edge so the tree
+    # never orphans decoded IOCs.
+    for ev in evidence.items:
+        if ev.kind not in ("url", "ip", "dns"):
+            continue
+        # target node id in graph
+        if ev.kind == "dns":
+            tgt = _hash_id("dns", _canonicalise("dns", ev.value))
+        elif ev.kind == "url":
+            tgt = _hash_id("url", _canonicalise("url", ev.value))
+        else:
+            tgt = _hash_id("ip", _canonicalise("ip", ev.value))
+        if tgt not in nodes:
+            continue
+        for eid in ev.event_ids:
+            # Prefer command anchor, fall back to process.
+            anchor: Optional[GraphNode] = None
+            for n in nodes.values():
+                if n.kind == "command" and eid in n.evidence_refs:
+                    anchor = n
+                    break
+            if anchor is None:
+                for n in nodes.values():
+                    if n.kind == "process" and eid in n.evidence_refs:
+                        anchor = n
+                        break
+            if anchor is not None and anchor.id != tgt:
+                # Skip if this edge already exists via network-block wiring
+                existing = any(
+                    e.relation == "has_ioc" and e.from_id == anchor.id
+                    and e.to_id == tgt for e in edges
+                )
+                if not existing:
+                    edges.append(_edge("has_ioc", anchor.id, tgt, eid))
 
     # De-duplicate edges by (relation, from, to, event)
     edges = _dedup_edges(edges)

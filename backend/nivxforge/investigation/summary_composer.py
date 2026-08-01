@@ -813,6 +813,14 @@ def compose_summary(cio: CIO) -> Summary:
     technical_prose = _prose_technical(cio, key_findings, mitre_digest)
     attack_story = _prose_attack_story(attack_chain, ent_digest)
 
+    # Operator-locked lexicon gate: strip every implementation-detail
+    # term from every prose surface before it leaves this composer.
+    from .narrative_lexicon_gate import sanitize as _lex_sanitize
+    exec_prose = _lex_sanitize(exec_prose)
+    analyst_prose = _lex_sanitize(analyst_prose)
+    technical_prose = _lex_sanitize(technical_prose)
+    attack_story = _lex_sanitize(attack_story)
+
     # Persona-aware Customer Report (ADR-2026-02 · customer_report.py).
     # Composed from ONLY canonical CIO fields — never from decoder pipeline
     # telemetry. Failures degrade the field gracefully (analyst still gets

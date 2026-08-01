@@ -753,7 +753,14 @@ def compose_analyst_narrative(cio) -> str:
 
     cleaned = [_sanitize_customer_text(p).strip() for p in paragraphs]
     cleaned = [p for p in cleaned if p]
-    return "\n\n".join(cleaned)
+    result = "\n\n".join(cleaned)
+    # Operator-locked lexicon gate: strip every implementation-detail
+    # phrase (`pipeline`, `decoder`, `verdict engine`, `layer count`, …)
+    # so the narrative reads like an MDR analyst report rather than a
+    # walkthrough of X-Lab's internals. See
+    # /app/backend/nivxforge/investigation/narrative_lexicon_gate.py.
+    from nivxforge.investigation.narrative_lexicon_gate import sanitize
+    return sanitize(result)
 
 
 __all__ = ["compose_analyst_narrative"]

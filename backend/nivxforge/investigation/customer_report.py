@@ -669,6 +669,16 @@ def compose_customer_report(cio: Any, persona: str = "customer") -> CustomerRepo
 
     report = CustomerReport(persona=persona, verdict=v_label, verdict_confidence_pct=v_pct, sections=sections)
 
+    # Operator-locked narrative lexicon gate — rewrites any leftover
+    # implementation-detail term (pipeline / decoder / verdict engine /
+    # ...) with analyst-style equivalents before the report is exposed.
+    try:
+        from .narrative_lexicon_gate import sanitize as _lex_sanitize
+        for s in report.sections:
+            s.body = _lex_sanitize(s.body)
+    except ImportError:  # pragma: no cover
+        pass
+
     # Hygiene gate — forbidden decoder-telemetry vocabulary must never
     # reach a customer-like persona.
     if persona in CUSTOMER_LIKE_PERSONAS:
