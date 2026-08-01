@@ -5,7 +5,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
-  Maximize2, Minimize2, Download, ArrowLeftRight, ArrowDownUp, Info
+  Maximize2, Minimize2, Download, ArrowLeftRight, ArrowDownUp, Info, ExternalLink
 } from "lucide-react";
 
 import { StageNode } from "./nodes/StageNode";
@@ -178,6 +178,52 @@ function Canvas({ cio, onEvClick, defaultView }) {
   // Fullscreen — CSS-based so we don't fight browser fullscreen APIs.
   const toggleFullscreen = useCallback(() => setFullscreen((v) => !v), []);
 
+  // Broadcast the current CIO + view to any open popout window so it can
+  // live-update when the analyst re-investigates.
+  const popoutRef = useRef(null);
+  const bcastRef = useRef(null);
+  useEffect(() => {
+    try {
+      if (!bcastRef.current && typeof BroadcastChannel !== "undefined") {
+        bcastRef.current = new BroadcastChannel("xlab-graph-popout");
+      }
+    } catch (_e) { /* noop */ }
+    return () => {
+      try { if (bcastRef.current) bcastRef.current.close(); } catch (_e) { /* noop */ }
+      bcastRef.current = null;
+    };
+  }, []);
+
+  // Whenever cio or view changes, mirror into localStorage + broadcast so
+  // any open popout window refreshes automatically.
+  useEffect(() => {
+    if (!cio) return;
+    try {
+      localStorage.setItem("xlab.graph.popout.cio", JSON.stringify(cio));
+      localStorage.setItem("xlab.graph.popout.view", view);
+      if (bcastRef.current) {
+        bcastRef.current.postMessage({ type: "cio", cio });
+        bcastRef.current.postMessage({ type: "view", view });
+      }
+    } catch (_e) { /* localStorage quota or JSON error — skip silently */ }
+  }, [cio, view]);
+
+  const openPopout = useCallback(() => {
+    try {
+      // Persist snapshot immediately so the child window has data on load.
+      localStorage.setItem("xlab.graph.popout.cio", JSON.stringify(cio || {}));
+      localStorage.setItem("xlab.graph.popout.view", view);
+    } catch (_e) { /* noop */ }
+    const w = Math.min(1600, Math.round(window.screen.availWidth * 0.85));
+    const h = Math.min(1000, Math.round(window.screen.availHeight * 0.85));
+    const features = `popup=yes,width=${w},height=${h},left=${Math.max(0, (window.screen.availWidth - w) / 2)},top=${Math.max(0, (window.screen.availHeight - h) / 2)},resizable=yes,scrollbars=yes,noopener=no,noreferrer=no`;
+    const win = window.open("/nivxforge/x-lab/graph", "xlab-graph-popout", features);
+    if (win) {
+      popoutRef.current = win;
+      try { win.focus(); } catch (_e) { /* noop */ }
+    }
+  }, [cio, view]);
+
   // Keyboard shortcuts.
   useEffect(() => {
     const handler = (e) => {
@@ -235,6 +281,15 @@ function Canvas({ cio, onEvClick, defaultView }) {
           </button>
           <button type="button" className="eg-tool" title="Export JSON" onClick={exportJson} data-testid="eg-export-json">
             <Download size={14} /><span className="eg-tool-lbl">JSON</span>
+          </button>
+          <button
+            type="button"
+            className="eg-tool eg-tool-popout"
+            title="Pop out to new window"
+            onClick={openPopout}
+            data-testid="eg-popout"
+          >
+            <ExternalLink size={14} /><span className="eg-tool-lbl">POP OUT</span>
           </button>
           <button
             type="button"

@@ -59,6 +59,7 @@ const V2ValidationPage         = lazy(() => import("@/v2/pages/ValidationPage"))
 // /api/nivxforge/preview/* GET endpoints only.
 const NivxForgePreviewPage     = lazy(() => import("@/nivxforge/pages/PreviewPage"));
 const NivxForgeInvestigatePage = lazy(() => import("@/nivxforge/pages/InvestigatePage"));
+const NivxForgeGraphPopoutPage = lazy(() => import("@/nivxforge/pages/XLabGraphPopoutPage"));
 const NivxForgeDashboardPage   = lazy(() => import("@/nivxforge/pages/DashboardPage"));
 const NivxForgeThreatIntelPage    = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ThreatIntelPage })));
 const NivxForgeThreatHuntingPage  = lazy(() => import("@/nivxforge/pages/PlaceholderSections").then(m => ({ default: m.ThreatHuntingPage })));
@@ -162,6 +163,7 @@ function App() {
                   X-Lab renderer. Legacy /nivxforge/investigate remains
                   available during the parity-migration window. */}
               <Route path="/nivxforge/x-lab" element={<Protected><NivxForgeXLabRedirect /></Protected>} />
+              <Route path="/nivxforge/x-lab/graph" element={<Protected><NivxForgeGraphPopoutPage /></Protected>} />
               <Route path="/nivxforge/dashboard"    element={<Protected><NivxForgeDashboardPage /></Protected>} />
               <Route path="/nivxforge/investigate"  element={<Protected><NivxForgeInvestigatePage /></Protected>} />
               <Route path="/nivxforge/threat-intel" element={<Protected><NivxForgeThreatIntelPage /></Protected>} />

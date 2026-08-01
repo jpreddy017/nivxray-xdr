@@ -8,8 +8,13 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 560px;
-  height: 640px;
+  /* Give the canvas real vertical breathing room, like the legacy Workspace.
+     Default to ~90% of the viewport so analysts can pan the graph freely,
+     with a firm minimum of 1100px so smaller screens still get a long canvas
+     the user can scroll into. Fullscreen mode overrides this to full viewport. */
+  min-height: 1100px;
+  height: calc(100vh - 220px);
+  max-height: 1600px;
   border: 1px solid rgba(200, 210, 235, 0.08);
   border-radius: 12px;
   background: linear-gradient(180deg, rgba(20, 25, 34, 0.55) 0%, rgba(11, 14, 20, 0.9) 100%);
@@ -23,6 +28,7 @@
   z-index: 9999;
   height: auto;
   min-height: auto;
+  max-height: none;
   box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8);
 }
 
@@ -309,3 +315,85 @@
   .eg-toolbar { padding: 8px 10px; }
   .eg-tool-lbl { display: none; }
 }
+
+/* ── Pop Out window styles (route /nivxforge/x-lab/graph) ───────────────── */
+.xlab-popout-body {
+  background: var(--bg, #0b0e14) !important;
+  color: var(--fg, #e6ebf5);
+  font-family: var(--font-sans, ui-sans-serif, system-ui);
+  margin: 0;
+}
+.xlab-popout-wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 16px;
+  gap: 12px;
+  box-sizing: border-box;
+}
+.xlab-popout-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 6px 4px 12px 4px;
+  border-bottom: 1px solid rgba(200, 210, 235, 0.1);
+}
+.xlab-popout-brand {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--mint, #55e6b8);
+  font-family: var(--font-mono, ui-monospace);
+  text-transform: uppercase;
+}
+.xlab-popout-header h1 {
+  font-size: 22px;
+  margin: 4px 0 0 0;
+  font-weight: 600;
+  color: var(--fg, #e6ebf5);
+  letter-spacing: -0.01em;
+}
+.xlab-popout-meta {
+  font-size: 12px;
+  color: var(--fg-dim, #99a2b3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.xlab-popout-meta b {
+  color: var(--fg, #e6ebf5);
+  font-family: var(--font-mono, ui-monospace);
+  margin: 0 4px;
+}
+.xlab-popout-meta .dot { opacity: 0.35; }
+.xlab-popout-meta .quiet { color: var(--fg-dim, #7c8494); }
+.xlab-popout-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.xlab-popout-main > * {
+  flex: 1;
+  height: auto;
+  /* In the popout window we already have a dedicated window; force the
+     canvas to fill the popup viewport (overriding the taller X-Lab default). */
+  min-height: calc(100vh - 100px) !important;
+  max-height: none !important;
+}
+.xlab-popout-empty {
+  max-width: 480px;
+  margin: 15vh auto;
+  text-align: center;
+  color: var(--fg, #e6ebf5);
+  padding: 24px;
+  border: 1px dashed rgba(200, 210, 235, 0.15);
+  border-radius: 12px;
+  background: rgba(20, 25, 34, 0.4);
+  font-family: var(--font-sans, ui-sans-serif, system-ui);
+}
+.xlab-popout-empty h2 { margin: 0 0 8px 0; font-weight: 600; }
+.xlab-popout-empty p { color: var(--fg-dim, #99a2b3); font-size: 13px; line-height: 1.5; }
+.xlab-popout-empty b { color: var(--fg, #e6ebf5); }
+
+/* Pop Out button gets a mint accent so it visually reads as "off-app". */
+.eg-tool.eg-tool-popout { border-color: rgba(85, 230, 184, 0.4); color: var(--mint, #55e6b8); }
+.eg-tool.eg-tool-popout:hover { background: rgba(85, 230, 184, 0.1); color: var(--fg, #e6ebf5); }
