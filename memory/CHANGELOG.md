@@ -1757,3 +1757,23 @@ this reads as visual noise.
 - Live API verified: 3-level nested-base64 IEX → target payload
   visible; Reflection.Assembly.Load → `unsupported_reason:
   reflection`, `crypto_status: encryption_detected`.
+## 2026-02-02 · P2-08 · Backend Truth Enrichment (structured support[])
+
+**Backlog:** `/app/docs/BACKLOG.md` · P2-08
+
+**Ships:**
+- **New `EvidenceRef` model** on `nivxforge/investigation/truth_model.py` — `{ node_id, relation, weight }` with `relation ∈ {supports, contradicts, contextualises, derives_from}` and `weight ∈ [0, 1]`.
+- **`support: List[EvidenceRef]`** field added to every truth record: **Observation, Finding, Hypothesis, Validation, Decision, Recommendation**. Only additive — no backward-incompat.
+- Observations self-cite with `derives_from` at their confidence.
+- Findings compute per-contributor weight from verdict contributor weight (0..10 → 0..1) and mark mitigating contributors as `contradicts`.
+- Hypotheses/Validations/Recommendations roll up structured support from their cited findings via `_rollup_support`, deduping by node_id and preserving the strongest weight.
+- Decision rolls up support from ALL findings — so clicking any evidence-graph node now surfaces "why this verdict" with structured citations.
+- **Frontend Ledger** (`NodeInspector.jsx`) reads the new `support[]` first, falls back to legacy id lists, and renders a colour-tinted relation chip + weight bar next to each of the six rails.
+- 83/83 parity tests green; no schema changes to callers.
+
+**Unlocks:**
+- Complete Investigation Ledger — every node click fills all six rails.
+- Graph highlighting overlays (next) — the UI can dim non-cited nodes on demand.
+- Cognitive Graph — hypotheses become graph vertices with typed edges.
+- Notebook/Report citations — every claim traces to specific evidence nodes.
+

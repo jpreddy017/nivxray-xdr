@@ -546,3 +546,40 @@
   border: 0;
   padding: 0;
 }
+
+/* Ledger support chip — relation + weight bar next to each rail. */
+.ledger-support-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-family: var(--font-mono, ui-monospace);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  border: 1px solid rgba(200, 210, 235, 0.15);
+  background: rgba(11, 14, 20, 0.55);
+}
+.ledger-relation-supports { color: var(--mint, #55e6b8); border-color: rgba(85, 230, 184, 0.35); background: rgba(85, 230, 184, 0.06); }
+.ledger-relation-contradicts { color: var(--crit, #ff5c5c); border-color: rgba(255, 92, 92, 0.35); background: rgba(255, 92, 92, 0.06); }
+.ledger-relation-contextualises { color: #4dabf7; border-color: rgba(77, 171, 247, 0.35); background: rgba(77, 171, 247, 0.05); }
+.ledger-relation-derives_from { color: var(--fg-dim, #7c8494); border-color: rgba(200, 210, 235, 0.2); }
+.ledger-weight-bar {
+  display: inline-block;
+  width: 34px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(200, 210, 235, 0.15);
+  overflow: hidden;
+  position: relative;
+}
+.ledger-weight-fill {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transition: width 200ms ease;
+}
+.ledger-weight-pct { font-weight: 700; }

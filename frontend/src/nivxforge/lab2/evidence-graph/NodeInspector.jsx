@@ -183,12 +183,12 @@ export function NodeInspector({ nodeId, cio, onClose }) {
         <section data-testid="eg-inspector-ledger" className="eg-inspector-ledger">
           <h5>Investigation Ledger · Truth-model reasoning trail</h5>
           <ol className="eg-ledger-chain">
-            {ledger.observation ? <li className="ledger-step ledger-observation"><span className="ledger-kind">Observation</span><span className="ledger-body">{ledger.observation}</span></li> : null}
-            {ledger.finding ? <li className="ledger-step ledger-finding"><span className="ledger-kind">Finding</span><span className="ledger-body">{ledger.finding}</span></li> : null}
-            {ledger.hypothesis ? <li className="ledger-step ledger-hypothesis"><span className="ledger-kind">Hypothesis</span><span className="ledger-body">{ledger.hypothesis}</span></li> : null}
-            {ledger.validation ? <li className="ledger-step ledger-validation"><span className="ledger-kind">Validation</span><span className="ledger-body">{ledger.validation}</span></li> : null}
-            {ledger.decision ? <li className="ledger-step ledger-decision"><span className="ledger-kind">Decision</span><span className="ledger-body">{ledger.decision}</span></li> : null}
-            {ledger.recommendation ? <li className="ledger-step ledger-recommendation"><span className="ledger-kind">Recommendation</span><span className="ledger-body">{ledger.recommendation}</span></li> : null}
+            {ledger.observation ? <LedgerStep kind="Observation" body={ledger.observation} ref={ledger.observationRef} cls="ledger-observation" /> : null}
+            {ledger.finding ? <LedgerStep kind="Finding" body={ledger.finding} ref={ledger.findingRef} cls="ledger-finding" /> : null}
+            {ledger.hypothesis ? <LedgerStep kind="Hypothesis" body={ledger.hypothesis} ref={ledger.hypothesisRef} cls="ledger-hypothesis" /> : null}
+            {ledger.validation ? <LedgerStep kind="Validation" body={ledger.validation} ref={ledger.validationRef} cls="ledger-validation" /> : null}
+            {ledger.decision ? <LedgerStep kind="Decision" body={ledger.decision} ref={ledger.decisionRef} cls="ledger-decision" /> : null}
+            {ledger.recommendation ? <LedgerStep kind="Recommendation" body={ledger.recommendation} ref={ledger.recommendationRef} cls="ledger-recommendation" /> : null}
           </ol>
         </section>
       ) : null}
@@ -211,6 +211,32 @@ export function NodeInspector({ nodeId, cio, onClose }) {
  * Walks the CIO to resolve every downstream projection for `nodeId`.
  * Kept as a pure function so the inspector re-renders deterministically.
  */
+function LedgerStep({ kind, body, ref, cls }) {
+  // ref = { node_id, relation, weight } or null
+  const relation = ref?.relation || null;
+  const weight = typeof ref?.weight === "number" ? ref.weight : null;
+  return (
+    <li className={`ledger-step ${cls}`} data-testid={`ledger-step-${kind.toLowerCase()}`}>
+      <span className="ledger-kind">{kind}</span>
+      <span className="ledger-body">
+        {body}
+        {relation ? (
+          <span className={`ledger-support-chip ledger-relation-${relation}`} title={`${relation} · weight ${weight != null ? weight.toFixed(2) : "?"}`}>
+            {relation}
+            {weight != null ? (
+              <span className="ledger-weight-bar">
+                <span className="ledger-weight-fill" style={{ width: `${Math.round(weight * 100)}%` }} />
+              </span>
+            ) : null}
+            {weight != null ? <span className="ledger-weight-pct">{Math.round(weight * 100)}%</span> : null}
+          </span>
+        ) : null}
+      </span>
+    </li>
+  );
+}
+
+
 function resolveNode(nodeId, cio) {
   if (!nodeId || !cio) return null;
   const graph = cio.evidence_graph || {};
@@ -292,37 +318,78 @@ function resolveNode(nodeId, cio) {
 
 function buildLedgerForNode(nodeId, node, cio) {
   const truth = cio.truth || {};
+  // Prefer the new structured `support` list; fall back to legacy id lists so
+  // this walker works against pre-enrichment CIOs too.
   const cite = (rec) => {
     if (!rec) return false;
-    const ids = rec.evidence_node_ids || rec.node_ids || rec.node_id;
-    if (Array.isArray(ids)) return ids.includes(nodeId);
-    if (ids) return ids === nodeId;
-    // Fallback: text match against the node label.
-    const txt = (rec.observation || rec.label || rec.statement || rec.rationale || rec.summary || "").toString();
+    // Structured support entries (new).
+    if (Array.isArray(rec.support) && rec.support.length > 0) {
+      if (rec.support.some((r) => r && r.node_id === nodeId)) return true;
+    }
+    // Legacy id lists.
+    for (const key of ["source_node_ids", "evidence_node_ids", "node_ids", "supporting_finding_ids", "counter_finding_ids"]) {
+      const ids = rec[key];
+      if (Array.isArray(ids) && ids.includes(nodeId)) return true;
+      if (typeof ids === "string" && ids === nodeId) return true;
+    }
+    if (rec.node_id === nodeId) return true;
+    // Text fallback — best-effort so demo CIOs without ids still surface.
+    const txt = (rec.observation || rec.label || rec.title || rec.statement || rec.rationale || rec.summary || rec.detail || "").toString();
     return node.label && txt.includes(String(node.label).slice(0, 20));
   };
 
+  const findings = truth.findings || [];
+  const hypotheses = truth.hypotheses || [];
+  // Resolve first finding citing this node.
+  const fnd = findings.find(cite);
+  // A hypothesis cites this node if:
+  //   • its own support[] mentions the node, OR
+  //   • any of its supporting_finding_ids resolves to a finding that cites the node.
+  const findingsById = new Map(findings.map((f) => [f.id, f]));
+  const hypCitesNode = (h) => {
+    if (cite(h)) return true;
+    for (const fid of (h.supporting_finding_ids || [])) {
+      const f = findingsById.get(fid);
+      if (f && cite(f)) return true;
+    }
+    return false;
+  };
+  const hyp = hypotheses.find(hypCitesNode);
+
+  const validations = truth.validations || [];
+  const val = validations.find((v) => cite(v) || (hyp && v.hypothesis_id === hyp.id));
+
   const obs = (truth.observations || []).find(cite);
-  const fnd = (truth.findings || []).find(cite);
-  const hyp = (truth.hypotheses || []).find(cite);
-  const val = (truth.validations || []).find(cite);
   const dec = truth.decision && cite(truth.decision) ? truth.decision : truth.decision || null;
   const rec = (truth.recommendations || []).find(cite);
 
   const fmt = (o, keys) => {
     if (!o) return null;
     for (const k of keys) {
-      if (o[k]) return String(o[k]).slice(0, 240);
+      if (o[k]) return String(o[k]).slice(0, 300);
     }
     return null;
   };
 
+  // Structured support extraction — used by the Ledger renderer to show
+  // "supports 0.92" / "contradicts 0.21" alongside each rail.
+  const supportFor = (rec) => {
+    if (!rec || !Array.isArray(rec.support)) return null;
+    return rec.support.find((r) => r && r.node_id === nodeId) || null;
+  };
+
   return {
-    observation: fmt(obs, ["observation", "statement", "label", "summary"]),
-    finding: fmt(fnd, ["label", "finding", "summary", "rationale"]),
-    hypothesis: fmt(hyp, ["hypothesis", "label", "statement"]),
-    validation: fmt(val, ["validation", "label", "statement", "result"]),
-    decision: fmt(dec, ["verdict", "label", "summary", "rationale"]),
-    recommendation: fmt(rec, ["recommendation", "action", "label", "summary"]),
+    observation: fmt(obs, ["label", "value", "statement", "summary"]),
+    observationRef: supportFor(obs),
+    finding: fmt(fnd, ["title", "label", "finding", "summary", "detail", "rationale"]),
+    findingRef: supportFor(fnd),
+    hypothesis: fmt(hyp, ["statement", "label", "hypothesis"]),
+    hypothesisRef: supportFor(hyp),
+    validation: fmt(val, ["detail", "outcome", "statement", "label"]),
+    validationRef: supportFor(val),
+    decision: fmt(dec, ["label", "reason", "verdict", "summary", "rationale"]),
+    decisionRef: supportFor(dec),
+    recommendation: fmt(rec, ["detail", "action", "recommendation", "label", "summary"]),
+    recommendationRef: supportFor(rec),
   };
 }
