@@ -168,6 +168,55 @@ For each supported vendor, maintain a deterministic golden corpus at
 11. Verdict parity (identical evidence ⇒ identical verdict)
 12. Normalization Quality Report contents
 
+## 🔒 Canonical Schema Stability Test (cross-vendor)
+
+Testing each adapter against its own corpus is not enough — the CIO
+itself must remain vendor-neutral, otherwise every new adapter
+gradually bends the schema toward the assumptions of the first one
+implemented.
+
+For every "equivalent-incident" set at
+`/app/backend/tests/parity/equivalence/<incident_id>/`
+(one folder per synthetic scenario, containing one input file per
+vendor), the CI asserts **semantic equivalence** of the resulting
+CIOs — NOT byte-for-byte equality.
+
+Equivalence dimensions (all must match across vendors):
+- Same affected `host` set
+- Same primary detection (top verdict contributor kind + label)
+- Same execution chain (process parent→child edges)
+- Same ATT&CK techniques (as a set, not necessarily ordered)
+- Same normalised entity set (hosts · users · files · hashes · ips · domains · urls)
+- Same verdict inputs (same contributors' `kind` + `weight`)
+- Same verdict label
+
+**Consequence**: if Cisco XDR and Defender XDR describe the same
+incident, both adapters MUST produce CIOs that lead to the same
+verdict, the same MITRE mapping, and the same executive story — even
+if the wording of the vendor's own alert differs.
+
+**File layout**
+
+```
+tests/parity/
+    corpora/                    ← per-adapter golden corpus (P2-05a)
+        cisco_xdr/
+            input_case_01.json
+            expected_case_01.json
+        crowdstrike/
+            input_case_01.json
+            expected_case_01.json
+        ...
+    equivalence/                ← cross-vendor semantic parity (P2-05b)
+        incident_001_bits_downloader/
+            cisco_xdr.json
+            defender.json
+            crowdstrike.json
+            expected_semantic.json    ← the vendor-neutral CIO shape
+        incident_002_powershell_iex/
+            ...
+```
+
 ## Anti-goals (permanent)
 
 - ❌ No vendor-specific verdict logic outside the shared engine.
