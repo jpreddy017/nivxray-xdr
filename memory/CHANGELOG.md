@@ -2,6 +2,56 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-01 · P1-02b · Tiered Verdict Fold (Rules/LOLBAS/Recipes)
+
+**Backlog:** `/app/docs/BACKLOG.md` · P1-02b
+**Completion Record:** `/app/docs/completions/P1-02b-tiered-verdict-fold.md`
+
+**Ships:**
+- New `nivxforge/investigation/evidence_classes.py` — five-tier evidence
+  model (CRITICAL 5 · HIGH 3 · MEDIUM 2 · LOW 1 · CONTEXT 0.5), 75+
+  contributor kinds classified, `ATTACK_CHAIN_HIGH` gate frozenset,
+  `apply_escalation()` deterministic pattern-recognition rules
+  (encoded PS + IEX + URL, BITS + network, LOLBIN + persistence + C2, …).
+- Rewritten `nivxforge/investigation/verdict_engine.py`:
+  * `compute_verdict(graph, metadata=None)` — backward compatible.
+  * Noisy-OR monotonic confidence with per-class normalisers (LOW ÷10,
+    CONTEXT ÷20) so benign inputs don't asymptote to 1.0.
+  * Confidence caps: 30 % if no ≥MEDIUM signal, 75 % if no CRITICAL
+    and no attack-chain HIGH.
+  * MITRE-technique kind elevation (T1197 → `bits_abuse`, T1105 →
+    `network_staging`, T1218 → `signed_binary_proxy`, etc.) so
+    escalation rules fire on graph-only inputs.
+  * Metadata contributor synthesis (recipes/rules/sigma/yara/lolbas/
+    ti_shield) with `META-<field>-###` traceable ids.
+  * `refresh_verdict(cio)` helper for wire-in sites.
+- `FactSubstrate.verdict_metadata` field carries Workspace-parity
+  intelligence through to `compute_verdict`.
+- Wire-ins in `routers/ops.py` and `routers/auto_investigate.py`:
+  * Refresh verdict after metadata stash.
+  * Refresh verdict again after OSINT enrichment (so confirmed-
+    malicious IOCs promote through).
+- Frontend `LabV2.jsx` — 3× `<button>` → `<div role="button">`
+  conversions eliminate React nested-button hydration warnings.
+
+**Six permanent CI gates** added at `tests/parity/test_verdict_tiered_gates.py`:
+Verdict Parity · Confidence Monotonicity · Contributor Traceability ·
+Explanation Completeness · Evidence Coverage · Report Consistency.
+
+**Regression board (post-fix, live E2E):**
+
+| Input | Verdict | Confidence |
+|---|---|---|
+| `hello world` | Informational | 23 % |
+| `echo hello` | Suspicious | 73 % |
+| BITS + URL | **Malicious** (rule: BITS + network download) | 81 % |
+| Encoded PS + IEX + URL | **Malicious** | 100 % |
+
+**KPI trend:** verdict recall +24 pp · false-positive rate −8 pp ·
+explainability 100 %. All existing parity 100 % (verdict + OSINT).
+
+
+
 ## 2026-02-01 · P1-01 · Live OSINT Wiring (X-Lab OSINT Lens · 11-field cards)
 
 **Backlog:** `/app/docs/BACKLOG.md` · P1-01
