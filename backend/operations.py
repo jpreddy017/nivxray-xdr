@@ -596,14 +596,58 @@ def _ps_deob(data: str) -> str:
     return s
 
 
-@op("powershell-encoded", "PowerShell -EncodedCommand", "Deobfuscation", "Decode -EncodedCommand base64+UTF-16LE payload (auto-extracts from full PowerShell command lines).")
+def _ps_encoded_smart_decode_bytes(raw: bytes) -> str:
+    """Decode -EncodedCommand base64 bytes into text.
+
+    Real PowerShell `-EncodedCommand` payloads are UTF-16LE, but tools
+    (and some adversary variants) also produce ASCII/UTF-8 base64. Blindly
+    forcing UTF-16LE on ASCII bytes yields CJK-ideograph mojibake in the
+    analyst-facing "Recovered payload reads" surface (Story/Output/Report
+    lenses). Auto-detect in this order:
+      1. Strict UTF-16LE and validate printability (real -EncodedCommand)
+      2. Strict UTF-8 and validate printability (variant / test payloads)
+      3. ASCII with `replace` errors as last resort
+    Order preserved so genuine UTF-16LE always wins the tie.
+    """
+    if not raw:
+        return ""
+
+    def _mostly_printable(s: str) -> bool:
+        if not s:
+            return False
+        pr = sum(1 for c in s if 32 <= ord(c) < 127 or c in "\n\r\t")
+        return pr / max(1, len(s)) >= 0.85
+
+    # 1. UTF-16LE strict (the canonical -EncodedCommand encoding)
+    try:
+        u16 = raw.decode("utf-16-le", errors="strict")
+        if _mostly_printable(u16):
+            return u16
+    except UnicodeDecodeError:
+        pass
+
+    # 2. UTF-8 strict — for variant / test payloads that base64'd ASCII
+    try:
+        u8 = raw.decode("utf-8", errors="strict")
+        if _mostly_printable(u8):
+            return u8
+    except UnicodeDecodeError:
+        pass
+
+    # 3. Last resort — return utf-16-le with replace so we never dump binary
+    # garbage. This preserves the historical shape when neither strict path
+    # yields printable text.
+    return raw.decode("utf-16-le", errors="replace")
+
+
+@op("powershell-encoded", "PowerShell -EncodedCommand", "Deobfuscation", "Decode -EncodedCommand base64 payload; auto-detects UTF-16LE (canonical) or UTF-8 (variant) so analyst-facing surfaces never render CJK-ideograph mojibake.")
 def _ps_encoded(data: str) -> str:
     # Thumb rule: ISOLATE THE PAYLOAD STRING FIRST.
     isolated = sanitize_encapsulated_payload(data)
     if isolated:
         payload = re.sub(r"[^A-Za-z0-9+/=]", "", isolated)
         raw = base64.b64decode(payload + "=" * (-len(payload) % 4), validate=False)
-        return raw.decode("utf-16-le", errors="ignore")
+        return _ps_encoded_smart_decode_bytes(raw)
 
     # Fallback — regex-based extraction from the -e flag when sanitizer returns None
     joined = " ".join(data.splitlines())
@@ -615,7 +659,7 @@ def _ps_encoded(data: str) -> str:
     payload = m.group(1) if m else joined
     payload = re.sub(r"[^A-Za-z0-9+/=]", "", payload)
     raw = base64.b64decode(payload + "=" * (-len(payload) % 4), validate=False)
-    return raw.decode("utf-16-le", errors="ignore")
+    return _ps_encoded_smart_decode_bytes(raw)
 
 
 @op("js-charcode", "JavaScript CharCode Decode", "Deobfuscation", "Decode String.fromCharCode(a,b,c) sequences.")

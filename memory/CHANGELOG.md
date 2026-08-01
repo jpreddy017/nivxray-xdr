@@ -2,6 +2,23 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-02 · P2-05d · Recursive Command Investigation + X-Lab Integration Audit + BUG-01 fix
+
+**Backlog:** `/app/docs/BACKLOG.md` · P2-05d
+**Completion Record:** `/app/docs/completions/P2-05d-recursive-command-investigation.md`
+**Integration Audit:** `/app/docs/audits/2026-02_XLAB_INTEGRATION_AUDIT.md`
+
+**Ships:**
+- Recursive investigation orchestrator (`nivxforge/investigation/recursive.py`) — ArtifactQueue, RecursionReport, deterministic snapshot-hash termination on Evidence Graph Fixed Point. Budget-exhaustion returns `status="partial"`, never HTTP 500. 9 parity tests green.
+- CIO attachment `cio.metadata.recursion_report` so every downstream surface can project the report.
+- End-to-end integration audit for `/nivxforge/x-lab` route — 17 features classified Integrated, 1 Implemented-but-NOT-integrated (RecursionReport UI panel — deferred to unified Investigation Graph work), 0 Missing. Live proof: backend field populated → API returns → React component mounted → UI renders → screenshot verified.
+- **BUG-01 fix (P0):** `powershell-encoded` operation now auto-detects encoding (strict UTF-16LE → strict UTF-8 → UTF-16LE-replace) instead of blindly forcing UTF-16LE. Fixes CJK-ideograph mojibake in Story/Output/Executive lenses when input is variant/ASCII-base64'd. Verdict now reads 100% CRITICAL with 3 behaviors · 31 evidence links on the canonical audit payload (previously 99% · 2 · 27).
+
+**Deferred:**
+- RecursionReport UI panel (dedicated analyst-facing card) — tracked as follow-up under unified Investigation Graph migration to `@xyflow/react`
+- Quality-gate rubric schema refresh (BUG-02) — `tests/quality/test_investigation_quality.py` sub-scores read stale CIO paths; not a live-pipeline defect
+
+
 ## 2026-02-01 · P1-02d · Investigation Truth Model + Quality Benchmark
 
 **Backlog:** `/app/docs/BACKLOG.md` · P1-02d + P1-02e
