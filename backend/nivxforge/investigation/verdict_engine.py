@@ -105,6 +105,31 @@ def _kind_for_graph_node(node: Node) -> str:
         }.get(ik, "external_ioc_domain")
 
     if node.kind == "mitre_technique":
+        # Some MITRE techniques ARE abuse patterns — elevate them to
+        # their attack-chain kind so the escalation rules fire.
+        lbl = (node.label or "").lower() + " " + (node.value or "").lower()
+        if "bits job" in lbl or "t1197" in lbl:
+            return "bits_abuse"
+        if "invoke-expression" in lbl or "invoke expression" in lbl:
+            return "invoke_expression"
+        if "rundll32" in lbl:
+            return "rundll32_abuse"
+        if "regsvr32" in lbl:
+            return "regsvr32_abuse"
+        if "mshta" in lbl:
+            return "mshta_abuse"
+        if "windows management instrumentation" in lbl or "wmi" in lbl or "t1047" in lbl:
+            return "wmi_abuse"
+        if "signed binary proxy" in lbl or "t1218" in lbl:
+            return "signed_binary_proxy"
+        if "ingress tool transfer" in lbl or "t1105" in lbl:
+            return "network_staging"
+        if any(k in lbl for k in ("persistence", "registry run", "startup", "t1547", "t1053")):
+            return "persistence"
+        if any(k in lbl for k in ("credential", "lsass", "t1003", "t1555")):
+            return "credential_access"
+        if any(k in lbl for k in ("lateral", "t1021")):
+            return "lateral_movement"
         return "mitre_technique"
 
     if node.kind == "lolbin":
@@ -151,7 +176,12 @@ def _kind_for_graph_node(node: Node) -> str:
 
     if node.kind == "decoded_fragment":
         op = ((node.attrs or {}).get("op") or "").lower()
-        preview = ((node.value or "") + " " + (node.label or "")).lower()
+        label_lc = (node.label or "").lower()
+        preview = ((node.value or "") + " " + label_lc).lower()
+        # Alias normalisation isn't attack behaviour — it's just the
+        # decoder resolving cmd/ps aliases. Drop to LOW.
+        if "alias" in op or "alias-normalize" in label_lc:
+            return "base64_layer"  # LOW-class · "a decoding step happened"
         # Structural: which decoder ran
         if "base64" in op or "b64" in op:
             base = "base64_layer"
@@ -161,10 +191,11 @@ def _kind_for_graph_node(node: Node) -> str:
             base = "compression_layer"
         elif "archive" in op or "zip" in op or "tar" in op:
             base = "archive_extract"
-        elif "encoded" in op or "powershell" in op:
+        elif "encoded" in op or ("powershell" in op and "encoded" in preview):
+            # Only true PS -EncodedCommand recovery is HIGH.
             base = "encoded_powershell"
         else:
-            base = "obfuscated_command"
+            base = "base64_layer"   # generic layer → LOW
         # Semantic: did it reveal IEX / Invoke-Expression?
         if "invoke-expression" in preview or "iex " in preview or preview.startswith("iex"):
             return "invoke_expression"
@@ -319,22 +350,34 @@ def _synthesize_metadata_contributors(metadata: Optional[Dict[str, Any]]) -> Lis
 def _noisy_or_confidence(contributors: List[VerdictContribution]) -> float:
     """Combine contributors into a single confidence in [0..1].
 
-    Formula: 1 - ∏(1 - (w_norm * conf))
+    Formula: 1 - ∏(1 - signal_i)
 
-    Where w_norm = weight / 5 (5 is the CRITICAL class weight = max).
+    Where signal_i uses a class-scaled normaliser to prevent LOW /
+    CONTEXT-only inputs from asymptoting toward 1:
+
+        CRITICAL: signal = weight/5 * conf   → up to 1.00
+        HIGH:     signal = weight/5 * conf   → up to 0.60
+        MEDIUM:   signal = weight/5 * conf   → up to 0.40
+        LOW:      signal = weight/10 * conf  → up to 0.10
+        CONTEXT:  signal = weight/20 * conf  → up to 0.025
 
     Properties:
-      * Bounded in [0, 1) — never reaches 1 unless a single contributor
-        has weight=5 AND conf=1.0.
-      * Monotonic: adding any positive contributor RAISES confidence.
-      * Order-independent: multiplication is commutative.
-      * Zero-safe: no contributors → 0.
+      * Bounded in [0, 1)
+      * Monotonic — adding any positive contributor RAISES confidence
+      * Order-independent
     """
     if not contributors:
         return 0.0
     p_none = 1.0
     for c in contributors:
-        w_norm = min(1.0, c.weight / 5.0)
+        ec = c.evidence_class or ""
+        if ec == "low":
+            denom = 10.0
+        elif ec == "context":
+            denom = 20.0
+        else:
+            denom = 5.0
+        w_norm = min(1.0, c.weight / denom)
         signal = max(0.0, min(1.0, w_norm * c.confidence))
         p_none *= (1.0 - signal)
     return max(0.0, min(1.0, 1.0 - p_none))
@@ -349,25 +392,33 @@ def _label_from_class_distribution(
     """Baseline label BEFORE escalation rules apply. Uses the highest
     evidence class present + count of contributors at/above HIGH.
 
-    * ≥ 1 CRITICAL → Malicious
-    * ≥ 2 HIGH     → Malicious
-    * exactly 1 HIGH → Suspicious
-    * ≥ 1 MEDIUM   → Runtime Dependent (if decoded) else Suspicious
-    * only LOW/CONTEXT → Informational
-    * empty        → Undetermined
+    Analyst-intuition rules:
+      * ≥ 1 CRITICAL → Malicious
+      * ≥ 2 HIGH AND ≥ 1 of those is an attack-chain kind → Malicious
+      * ≥ 2 HIGH (all ambient) → Suspicious (LOLBIN/tooling noise)
+      * exactly 1 HIGH → Suspicious
+      * ≥ 1 MEDIUM → Runtime Dependent (if decoded) else Suspicious
+      * only LOW/CONTEXT → Informational
+      * empty        → Undetermined
     """
+    from nivxforge.investigation.evidence_classes import ATTACK_CHAIN_HIGH
     if not contributors:
         return "Undetermined"
     counts = {c.value: 0 for c in EvidenceClass}
+    high_kinds: set[str] = set()
     for c in contributors:
         ec = c.evidence_class or ""
         if ec in counts:
             counts[ec] += 1
+        if ec == "high":
+            high_kinds.add(c.kind)
 
     if counts["critical"] >= 1:
         return "Malicious"
     if counts["high"] >= 2:
-        return "Malicious"
+        if high_kinds & ATTACK_CHAIN_HIGH:
+            return "Malicious"
+        return "Suspicious"      # LOLBIN + tooling only — not an attack chain
     if counts["high"] == 1:
         return "Suspicious"
     if counts["medium"] >= 1:
@@ -375,6 +426,30 @@ def _label_from_class_distribution(
     if counts["low"] >= 1 or counts["context"] >= 1:
         return "Informational"
     return "Undetermined"
+
+
+def _confidence_cap(contributors: List[VerdictContribution]) -> float:
+    """Cap the raw Noisy-OR confidence when the evidence set is weak.
+
+    * No signals ≥ MEDIUM               → cap 0.30 (benign-shape input)
+    * No CRITICAL AND no attack-chain
+      HIGH kind present                 → cap 0.75 (suspicious ambient)
+    * Otherwise                         → no cap
+    """
+    from nivxforge.investigation.evidence_classes import ATTACK_CHAIN_HIGH
+    has_medium_plus = any(
+        c.evidence_class in ("critical", "high", "medium") for c in contributors
+    )
+    has_critical = any(c.evidence_class == "critical" for c in contributors)
+    has_attack_high = any(
+        c.evidence_class == "high" and c.kind in ATTACK_CHAIN_HIGH
+        for c in contributors
+    )
+    if not has_medium_plus:
+        return 0.30
+    if not has_critical and not has_attack_high:
+        return 0.75
+    return 1.0
 
 
 # ─── Verdict computation ──────────────────────────────────────────
@@ -484,8 +559,9 @@ def compute_verdict(
         label = base_label
         esc_rule = None
 
-    # ── 7. Monotonic confidence (Noisy-OR) ───────────────────────
+    # ── 7. Monotonic confidence (Noisy-OR) with class-based cap ──
     conf = _noisy_or_confidence(contributors)
+    conf = min(conf, _confidence_cap(contributors))
 
     # ── 8. Reason (top 3 contributors + escalation rule) ─────────
     tops = contributors[:3]

@@ -197,10 +197,30 @@ def apply_escalation(active_kinds: Iterable[str]) -> tuple[Optional[str], Option
     return None, None
 
 
+# ── Attack-chain kinds: HIGH-class kinds that indicate actual
+# attacker behaviour (not ambient tooling). At least one is required
+# alongside another HIGH before the class distribution promotes to
+# Malicious — this stops the "expand.exe + powershell + alias-normalize"
+# false-positive stack from graduating benign shell noise to Malicious.
+ATTACK_CHAIN_HIGH: Set[str] = {
+    "invoke_expression",
+    "bits_abuse",
+    "rundll32_abuse", "regsvr32_abuse", "mshta_abuse", "wmi_abuse",
+    "network_beacon", "network_staging",
+    "persistence", "credential_access", "lsass_access",
+    "lateral_movement", "reflective_injection",
+    "rule_hit", "sigma_hit",
+    "confirmed_malicious_url", "confirmed_malicious_ip",
+    "confirmed_malicious_hash", "known_c2",
+    "sha_matched_family", "signed_binary_proxy",
+}
+
+
 __all__ = [
     "EvidenceClass",
     "CLASS_WEIGHT",
     "KIND_TO_CLASS",
+    "ATTACK_CHAIN_HIGH",
     "class_of",
     "weight_of",
     "apply_escalation",

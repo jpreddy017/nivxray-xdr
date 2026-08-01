@@ -824,7 +824,7 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                   <div className="lbl">{tactic}</div>
                   {techs.length > 0 ? (
                     techs.map((t) => (
-                      <button key={t.id} className="tcard" data-testid={`tcard-${t.id}`}>
+                      <div key={t.id} className="tcard" data-testid={`tcard-${t.id}`} role="button" tabIndex={0}>
                         <div className="id">{t.id}</div>
                         <div className="nm">{t.nm}</div>
                         <div className="row">
@@ -833,7 +833,7 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                           ))}
                           <span className="conf-dots" style={{ marginLeft: "auto" }}>{t.dots}</span>
                         </div>
-                      </button>
+                      </div>
                     ))
                   ) : (
                     <div className="tempty" data-testid={`attack-empty-${tactic}`}>
@@ -1046,7 +1046,13 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                 </div>
               ) : (
                 view.ledger.map((r, i) => (
-                  <button key={i} className="lrow" data-testid={`ledger-row-${i}`}>
+                  <div
+                    key={i}
+                    className="lrow"
+                    data-testid={`ledger-row-${i}`}
+                    role="button"
+                    tabIndex={0}
+                  >
                     <span className={`sign ${r.cls}`}>{r.sign}</span>
                     <span>
                       <span className="t">{r.t}</span>
@@ -1058,7 +1064,7 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                         </span>
                       ) : null}
                     </span>
-                  </button>
+                  </div>
                 ))
               )}
               {view.verdict.reason ? (
@@ -1080,7 +1086,7 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
               </div>
             ) : (
               view.findings.map((f, i) => (
-                <button key={i} className="frow" data-testid={`finding-${i}`}>
+                <div key={i} className="frow" data-testid={`finding-${i}`} role="button" tabIndex={0}>
                   <span className={`g ${f.g}`}>{f.gly}</span>
                   <span>
                     <span className="t">{f.t}</span>
@@ -1093,7 +1099,7 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                       </span>
                     ) : null}
                   </span>
-                </button>
+                </div>
               ))
             )}
           </div>
