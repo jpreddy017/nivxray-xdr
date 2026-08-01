@@ -1,5 +1,25 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-08-01 · **Release Readiness Report · Deployment BLOCKED**
+
+Operator directive executed in strict order — NO Phase 4, NO Learning, NO Explainability, NO Persona, NO LLM polish, NO new UI. Freeze holds.
+
+### Deliverables
+- **Manual Validation Matrix**: 15 investigations across benign / runtime-dependent / suspicious / malicious / vendor (Defender · CrowdStrike · Cisco XDR · Sysmon). Objective PASS/FAIL matrix at `/tmp/mv/matrix.json`. Harness: `/app/backend/scripts/manual_validation.py`. Result: **7 / 15 passed**.
+- **Golden Corpus**: 7 verified analyst-approved cases seeded at `/app/backend/tests/parity/golden_corpus/verified/`. Only cases that passed 100% of the review were added — no synthetic fixtures.
+- **Cross-Encoding Classification Audit**: reviewed every decoder branch in `verdict_engine._kind_for_graph_node()`. Confirmed structural-before-semantic ordering for PS-encoded, base64, hex, compression, archive. Gaps documented for XOR / RC4 / AES / JS / VBS / HTA / Batch / PE / DLL / MSI / Office macros — logged for post-freeze cycle.
+- **Release Readiness Report**: `/app/docs/releases/2026-08-01_release_readiness_report.md` with objective PASS/FAIL gates.
+
+### 3 real product bugs surfaced by validation (not caused by this session)
+- **BUG-P4-01** · WMI process-discovery over-escalation (Malicious @ 92% for a benign `wmic get commandline`).
+- **BUG-P4-02** · Auto-investigate route does NOT populate MITRE nodes even when verdict is Malicious (Defender / Sysmon paths).
+- **BUG-P4-03** · Auto-investigate does NOT extract encoded PS payloads nested inside vendor JSON (CrowdStrike / Cisco XDR — verdict 2% Informational instead of Malicious).
+
+### Deployment Recommendation: **NO — ship blocked** until BUG-P4-01/-02/-03 fixed and all 15 investigations re-run to PASS.
+
+---
+
+
 ## 2026-08-01 · **✅ Encoded-PS Classification Fix + Public-IP Regression · SHIPPED**
 
 Operator approved exactly two items after reviewing the P0 stabilization; freeze on Phase 4 / Golden Corpus remains active until operator manually reviews benign / suspicious / malicious / PowerShell / Office / Sysmon / QRadar samples.
