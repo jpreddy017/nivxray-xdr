@@ -1814,3 +1814,22 @@ this reads as visual noise.
 - Learning Dashboard route
 - Wiring the retrieved matches into the summary composer's prompt (currently retrieved but only surfaced — composer still writes independently)
 
+## 2026-02-02 · Customer Report Composer + Persona split + Hygiene Gate
+
+**Problem addressed** — the Executive / Story tab was consuming decoder-pipeline telemetry ("Recovered payload", "Layer 0", "crypto-detect", "url-decode") in what should be customer-facing MDR-analyst prose.
+
+**Ships:**
+- **`backend/nivxforge/investigation/customer_report.py`** — persona-aware composer that consumes ONLY canonical CIO fields (`cio.verdict / cio.truth / cio.entities / cio.metadata.iocs / cio.metadata.osint / cio.metadata.timeline / cio.evidence_graph`). Never reads `decode_chain`, layer previews, or operation names.
+- **16 sections, locked order**: Executive Summary · Incident Overview · Affected Hosts · Users · Detection Source · Timeline · Execution Chain · Evidence · File Hashes · IOCs · Threat Intelligence · MITRE ATT&CK · Impact Assessment · Containment Status · Analyst Verdict · Recommendations. Every section cites the CIO field it read from.
+- **Four personas**: `customer` (default) · `threat_hunt` · `forensic` · `decoder` (the only persona allowed to talk about pipeline mechanics).
+- **Hygiene gate** — `FORBIDDEN_TERMS = {"Layer 0..4", "url-decode", "crypto-detect", "Recovered payload", "operation history", "ps-encodedcommand", "family-emotet", ...}` blocked for the three customer-like personas. Fires ValueError at compose time if any term leaks.
+- **`_sanitize_customer_text()`** rewrites decoder-op leaks into customer-safe phrases ("Layer 0 · ps-encodedcommand-recovery" → "internal decoder step"; "Recovered payload" → "Observed command").
+- **`_is_decoder_finding()`** filters Truth-model findings whose titles are decoder-op names — they don't appear in the customer Evidence section.
+- **`Summary.customer_report`** — new field on `Summary` model exposing the composed report as `{persona, verdict, sections[], markdown}`. Frontend `analyst` prose is set to the customer-report markdown so the Executive/Story tabs show the new prose without a UI change.
+- **7 new parity/hygiene tests** at `tests/parity/test_customer_report_hygiene.py` — asserts (a) no forbidden terms for any customer-like persona, (b) all 16 sections in order, (c) required CIO fields render when present, (d) explicit belt-and-suspenders on the 7 phrases the user flagged, (e) decoder persona is intentionally exempt.
+- **Parity suite: 90/90 passing** (was 83; the 7 new hygiene tests joined the parity band).
+
+**Live-verified:** `/api/decode/smart` now returns `cio.summary.customer_report` with 16 sections. Executive and Story tabs in X-Lab render the 16-section report cleanly. Forbidden-term scan on live analyst prose: **zero leaks**.
+
+**Known remaining surface (deferred):** the VerdictExplanationCard's right-rail Evidence Ledger reads `cio.verdict.contributors[].label` directly and still shows decoder-op names ("Layer 0: ps-encodedcommand-recov"). Fix requires either sanitizing at engine level (`verdict_engine.py`) or at UI render (`VerdictExplanationCard.jsx`). Tracked as follow-up.
+

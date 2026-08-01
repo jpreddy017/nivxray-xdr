@@ -17,7 +17,7 @@ Deterministic: same CIO in → identical Summary out.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from nivxforge.investigation.models import CIO
@@ -123,6 +123,12 @@ class Summary(BaseModel):
     mitre_digest: MitreDigest
     timeline_digest: TimelineDigest
     report_sections: ReportSections
+
+    # ── Persona-aware Customer Report (ADR-2026-02) ────────────────
+    #   16-section canonical report projected from CIO fields only.
+    #   Composed by `customer_report.compose_customer_report()`.
+    #   Optional so legacy paths don't break; frontend prefers it when set.
+    customer_report: Optional[Dict[str, Any]] = None
 
     # ── Provenance ────────────────────────────────────────────────
     composer_version: str = "slice-d-v1"
@@ -763,6 +769,25 @@ def compose_summary(cio: CIO) -> Summary:
     technical_prose = _prose_technical(cio, key_findings, mitre_digest)
     attack_story = _prose_attack_story(attack_chain, ent_digest)
 
+    # Persona-aware Customer Report (ADR-2026-02 · customer_report.py).
+    # Composed from ONLY canonical CIO fields — never from decoder pipeline
+    # telemetry. Failures degrade the field gracefully (analyst still gets
+    # the legacy prose) so verdict/composition never blocks on the new gate.
+    customer_report_payload: Optional[Dict[str, Any]] = None
+    try:
+        from .customer_report import compose_customer_report
+        _cr = compose_customer_report(cio, persona="customer")
+        customer_report_payload = _cr.to_dict()
+        # Prefer the customer-facing markdown as the analyst-visible prose.
+        # This is what the frontend Executive tab renders — pushes the
+        # composer output away from "Recovered payload / Layer N" telemetry
+        # and toward the 16-section MDR-analyst structure.
+        analyst_prose = _cr.to_markdown()
+    except Exception as _cr_err:  # noqa: BLE001
+        # Non-fatal — legacy prose kept as fallback. The hygiene gate will
+        # still fire in CI so we never ship a report with forbidden terms.
+        pass
+
     report_sections = ReportSections(
         what_happened=analyst_prose,
         what_we_found=("Key findings: " + ", ".join(f.label for f in key_findings[:5])
@@ -788,6 +813,7 @@ def compose_summary(cio: CIO) -> Summary:
         mitre_digest=mitre_digest,
         timeline_digest=timeline_digest,
         report_sections=report_sections,
+        customer_report=customer_report_payload,
     )
 
 
