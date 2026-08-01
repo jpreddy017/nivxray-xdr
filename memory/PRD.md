@@ -1,5 +1,50 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-08-01 · **📜 ADR Addendum B · Revised Pipeline + Contract #11**
+
+Filed at `/app/docs/adr/ADR-2026-08-01_addendum_B_revised_pipeline.md`. Supersedes Addendum A pipeline shape.
+
+### Governing invariant (enforce mercilessly)
+> Every module after the Investigation Graph must consume the Investigation Graph — not raw vendor payloads, not decoded strings, not intermediate parser outputs.
+
+Any downstream module that reads anything other than the Graph is a design violation. Code review must reject it.
+
+### Locked Pipeline
+`Input → Input Classification → Parser → Vendor Detection → Vendor Normalization → CEM → Artifact Discovery → Recursive Decoder → Evidence Extraction → Investigation Graph → Evidence Validation → Entity Resolution → Correlation → Timeline Builder → Attack Chain Builder → Threat Intelligence → Threat Family Resolution → Mechanism Interpretation → Hypothesis Engine → Root Cause Analysis → Visibility Analysis → Confidence Engine → Recommendation Engine → Narrative Engine → Customer / Analyst / Threat Hunter / Forensic Views`
+
+### Key changes from Addendum A
+- Input Classification + Parser + Vendor Detection now precede the Normalizer (Normalizers stop being overloaded with detection logic).
+- Artifact Discovery is SEPARATE from and PRECEDES Recursive Decoder.
+- Entity Resolution BEFORE Correlation (HOST-01 == host01.company.com == 10.1.1.15).
+- Correlation and Timeline are separate stages.
+- Attack Chain Builder is a distinct stage after Timeline (tactical progression ≠ chronological order).
+- Hypothesis Engine BEFORE Root Cause Analysis (evidence FOR/AGAINST → hypothesis → root cause).
+- Recommendation Engine consumes the Graph, never the report.
+- Narrative Engine is LAST; views are pure renderers.
+
+### Contract #11 · Investigation Acceptance Contract (NEW)
+Every investigation must answer, from the Graph alone, before it can be considered complete:
+1. What happened?  2. How do we know?  3. Artifacts observed?  4. What was decoded?  5. Who/what was affected?  6. ATT&CK techniques?  7. Attack stage reached?  8. Most likely threat family?  9. Supporting evidence?  10. Contradicting evidence?  11. Visibility gaps?  12. Customer next steps?
+
+If any answer is unavailable, return `"Cannot determine from available evidence"` — never guess. Every answer traces to graph node ids.
+
+### Contract count now 11
+Addendum A's 10 contracts + Contract #11 (Investigation Acceptance Contract) — all must be signed off before Phase 1 code begins.
+
+### Phase 1 CODE sequence (unchanged, still gated)
+CEMv1 → Cisco Secure Endpoint normalizer → Sysmon normalizer → Investigation Graph builder → Evidence Validation stage → end-to-end demo with an explicit Contract #11 answer-check.
+
+### Blocking asks for next session (unchanged)
+1. Four gold-standard analyst investigations pasted into `/app/memory/P0_MISSION.md`.
+2. Sign-off on the 11 contracts.
+
+### Nothing shipped this session. Regression: 285/287 pytest passing (unchanged).
+
+### Freeze: unchanged and comprehensive.
+
+---
+
+
 ## 2026-08-01 · **📜 ADR Addendum A · Phase 1 Contract-Freeze Gate**
 
 Operator issued the definitive Phase 1 gate: **10 contracts must be frozen before any implementation**. Filed at `/app/docs/adr/ADR-2026-08-01_addendum_A_phase1_contract_freeze.md`. Phase 1 CODE is blocked until every contract is signed off.
