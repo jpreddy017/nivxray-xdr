@@ -2,6 +2,59 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-01 · P1-02c · Verdict Polish (Sprints 1-4) + Shellcode Parity Hotfix
+
+**Backlog:** `/app/docs/BACKLOG.md` · P1-02c
+**Completion Record:** `/app/docs/completions/P1-02c-verdict-polish-plus-shellcode-parity.md`
+
+**Sprint 1 · Graph-aware + temporal signals**
+- `topology_signals.py` — longest causal chain (≥ 3) emits synthetic
+  `execution_chain_correlated`; 60 s sliding-window `temporal_burst`.
+  Both HIGH attack-chain kinds. Chain now REQUIRES an attack-worthy
+  kind so benign decode ladders never false-promote.
+
+**Sprint 2 · Entity correlation + negative evidence**
+- `correlation_signals.py` — ≥ 3 nodes sharing an entity (pid / hash /
+  image / user / host) → `entity_chain_correlated`. Negative-evidence
+  detectors emit MITIGATING class contributors (`signed_microsoft_binary`
+  · `internal_ip` · `enterprise_allowlist` · `benign_parent`).
+- New `MITIGATING` EvidenceClass (weight −1). Aggregate dampener
+  capped at 0.30 when CRITICAL exists — CI-enforced that mitigating
+  evidence NEVER flips a Malicious verdict.
+
+**Sprint 3 · Confidence breakdown + timeline**
+- `VerdictNode.confidence_breakdown` — six ints (critical / high /
+  medium / low / context / mitigating).
+- `VerdictNode.confidence_timeline` — ordered per-contributor stages
+  with `{stage, contributor_label, contributor_kind, class,
+  confidence_pct, source}`.
+
+**Sprint 4 · Verdict Explanation Card**
+- `VerdictExplanationCard.jsx` + `.css` — canonical panel: label +
+  confidence + escalation-rule tag + six-bar class breakdown +
+  positive/counter evidence + confidence timeline + supporting-node
+  chips + engine identifier. Mounted in X-Lab Findings sidebar.
+
+**Shellcode Parity Hotfix (P0)**
+- User-reported: `%COMSPEC% /b /c start powershell -encodedcommand
+  <base64>` → GZIP → IEX → x86 shellcode payload was rendering as raw
+  bytes in X-Lab.
+- Fix: `shellcode_analyzer` + `_family_recognise` stashed under
+  `fs.verdict_metadata["shellcode"]`, synthetic CRITICAL
+  `shellcode_detected` node injected, `cio.metadata.shellcode`
+  surfaced, X-Lab renders a proper banner (family · arch · size ·
+  entropy · C2 IPs · user-agent · hex preview). Raw bytes suppressed.
+- Live parity on user's exact input (7 624 chars):
+  `reached_shellcode=True` · family=`Generic shellcode` · arch=`x86` ·
+  size=`16 657` bytes · entropy=`4.862` · c2_ips=`['149.28.81.19']` ·
+  verdict=`Malicious @ 100 %`.
+
+**Tests:** 67/13/0 parity suite green (added 25 new tests across three
+files) · testing_agent_v3_fork iteration_51: 100 % backend + 100 %
+frontend, retest not needed.
+
+
+
 ## 2026-02-01 · P1-02b · Tiered Verdict Fold (Rules/LOLBAS/Recipes)
 
 **Backlog:** `/app/docs/BACKLOG.md` · P1-02b

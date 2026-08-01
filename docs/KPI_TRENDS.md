@@ -28,6 +28,7 @@
 |---------|------|-----------|---------------|--------------|-------------|----------------|-------------|------------------|-------------|-------------------|
 | RC-P1-01 (Live OSINT Wiring) | 2026-02-01 | n/a | n/a | n/a | 100 % | 100 % | ~2.4 s | n/a | n/a | = = = = = ↑ = = (OSINT lens now live · 11-field cards) |
 | RC-P1-02b (Tiered Verdict Fold) | 2026-02-01 | n/a | n/a | n/a | 100 % | 100 % | ~2.4 s | n/a | n/a | = = = = = = = = (Verdict recall +24 pp · false-positives −8 pp · explainability 100 %) |
+| RC-P1-02c (Verdict Polish + Shellcode Parity) | 2026-02-01 | n/a | n/a | n/a | 100 % | 100 % | ~2.6 s | shellcode-chain 100 % | n/a | = = = = = = ↑ = (topology + temporal + entity + negative-evidence signals · confidence breakdown + timeline · Verdict Explanation Card · shellcode banner reaches parity with Workspace) |
 
 ## Usage rules
 
