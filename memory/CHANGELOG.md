@@ -2,6 +2,43 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-01 · P1-01 · Live OSINT Wiring (X-Lab OSINT Lens · 11-field cards)
+
+**Backlog:** `/app/docs/BACKLOG.md` · P1-01
+**Completion Record:** `/app/docs/completions/P1-01-live-osint-wiring.md`
+
+**Ships:**
+- New `nivxforge/investigation/osint_enricher.py` — pure `CIO → CIO`
+  transform that re-dispatches to Workspace's shared `_osint_lookup`
+  (local corpus) + `enrich_iocs` (live providers: VT · AbuseIPDB · OTX
+  · URLScan · URLhaus · Shodan · GreyNoise · IPinfo · Hybrid Analysis)
+  in parallel. Zero new HTTP client, zero forked pipeline.
+- Wired into both CIO-composition sites:
+  `routers/ops.py::/api/decode/smart` (X-Lab UIE) and
+  `routers/auto_investigate.py::/api/v2/auto-investigate` (Workspace).
+  Same enricher, same code path — no fork.
+- CIO now carries `metadata.osint` (raw unified bundle · providers_used
+  attribution · `engine: "shared:workspace"`) and every IOC node
+  carries `attrs.enrichment.providers[]` with 11-field cards
+  (name · state · malicious · suspicious · harmless · reputation ·
+  detail · first_seen · last_seen · tags · link).
+- `labv2.projector.js` reads the CIO-native location with backward-
+  compat fallback and normalises to the 11-field schema.
+- X-Lab OSINT lens (`LabV2.jsx`) renders VT stat pills, reputation,
+  tags, deep links per provider + hit-count meta.
+- 5-min deterministic in-memory cache · 20 s per-batch timeout budget
+  · graceful degradation on any provider failure (`state='error'`).
+
+**Tests:** 8/8 mocked parity + shape + degradation + cache tests in
+`tests/parity/test_osint_parity_workspace_vs_xlab.py`. Live-endpoint
+check on preview backend 4/4 pass. Frontend acceptance 3/3 pass.
+
+**KPI trend row:** appended to `/app/docs/KPI_TRENDS.md` (RC-P1-01).
+No verdict-parity regression (still 100 %). Latency P95 +0.3 s
+(within 20 s OSINT budget · never breaches).
+
+
+
 
 ## 2026-02-28 · ADR-0013 · Analyst-Voice Narrative Refinements (Path B, slice-4)
 
