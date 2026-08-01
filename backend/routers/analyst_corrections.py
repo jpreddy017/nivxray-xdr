@@ -189,6 +189,7 @@ class SummaryOverrideIn(BaseModel):
     original_executive: Optional[str] = None
     original_story: Optional[str] = None
     scope: str = "private"      # private | team | global (learner corpus)
+    original_cio: Optional[Dict[str, Any]] = None  # for Learning Engine fingerprinting
 
 
 @router.post("/corrections/summary-override")
@@ -200,6 +201,25 @@ async def submit_summary_override(body: SummaryOverrideIn, user=Depends(get_curr
     import uuid as _uuid
 
     now = datetime.now(timezone.utc).isoformat()
+
+    # Compute fingerprint if the frontend provided the CIO snapshot so
+    # this correction can be retrieved by the Learning Engine on future
+    # similar cases.
+    fingerprint_snapshot: Dict[str, Any] = {}
+    verdict_snapshot: Dict[str, Any] = {}
+    try:
+        if body.original_cio:
+            from nivxforge.learning import fingerprint_cio as _fp_cio
+            _fp = _fp_cio(body.original_cio)
+            fingerprint_snapshot = _fp.to_dict()
+            _v = (body.original_cio or {}).get("verdict") or {}
+            verdict_snapshot = {
+                "label": _v.get("label"),
+                "confidence_pct": _v.get("confidence_pct"),
+            }
+    except Exception:  # noqa: BLE001
+        # Non-fatal — the correction still saves even if fingerprinting fails.
+        fingerprint_snapshot = {}
 
     # 1. Shared correction record (feeds the learner).
     correction = {
@@ -222,6 +242,8 @@ async def submit_summary_override(body: SummaryOverrideIn, user=Depends(get_curr
         "cio_id": body.cio_id,
         "case_id": body.case_id or None,
         "notes": body.analyst_notes or "",
+        "fingerprint": fingerprint_snapshot,
+        "verdict_snapshot": verdict_snapshot,
     }
     try:
         await db.analyst_corrections.insert_one(correction)
@@ -262,3 +284,74 @@ async def get_summary_override(cio_id: str, user=Depends(get_current_user)):
         raise HTTPException(404, "no manual summary for this cio_id")
     doc.pop("_id", None)
     return doc
+
+
+
+# ── Verdict marker (Correct / Partial / Wrong) ───────────────────────
+#
+# Analyst-facing feedback surface on the Investigation Ledger. Records
+# the marker into the shared `analyst_corrections` collection with
+# `surface="verdict-mark"` so the Learning Engine can:
+#   * Weight future verdict-explanation compositions by "how often does
+#     the team agree/disagree with this pattern?"
+#   * Surface persistent "Wrong" clusters as candidates for new
+#     deterministic rules — NEVER as a direct verdict override.
+#
+# IMPORTANT — this endpoint does NOT retrain the verdict engine. Verdicts
+# stay deterministic. This marker is a *signal for improvement work*, not
+# an override. The Learning Engine consumes it as a similarity-weighting
+# and prioritisation hint, per constitution §11.
+
+class VerdictMarkIn(BaseModel):
+    cio_id: str = Field(..., description="CIO id / snapshot hash")
+    case_id: Optional[str] = None
+    marker: str = Field(..., description="correct | partial | wrong")
+    verdict_label: Optional[str] = None
+    verdict_confidence_pct: Optional[int] = None
+    fingerprint: Optional[Dict[str, Any]] = None   # engine fingerprint at marker time
+    notes: Optional[str] = None
+
+
+@router.post("/corrections/verdict-mark", tags=["corrections"])
+async def submit_verdict_mark(body: VerdictMarkIn, user=Depends(get_current_user)):
+    """Persist a Correct / Partial / Wrong marker for a verdict."""
+    from datetime import datetime, timezone
+    import uuid as _uuid
+
+    marker = (body.marker or "").lower().strip()
+    if marker not in {"correct", "partial", "wrong"}:
+        raise HTTPException(400, "marker must be one of: correct | partial | wrong")
+
+    now = datetime.now(timezone.utc).isoformat()
+    verdict_status = {"correct": "correct", "partial": "partial", "wrong": "incorrect"}[marker]
+    record = {
+        "id": str(_uuid.uuid4()),
+        "surface": "verdict-mark",
+        "wrong_finding": {
+            "kind": "verdict",
+            "value": body.verdict_label or "unknown",
+            "field": "cio.verdict.label",
+        },
+        "correct_prompt": marker,   # correct | partial | wrong
+        "tags": ["verdict-mark", "x-lab", marker],
+        "scope": "team",
+        "verdict": verdict_status,
+        "input_text": None,
+        "diagram_hash": None,
+        "revises": None,
+        "author_email": user.get("email") or user.get("id") or "unknown",
+        "created_at": now,
+        "cio_id": body.cio_id,
+        "case_id": body.case_id,
+        "fingerprint": body.fingerprint or {},
+        "verdict_snapshot": {
+            "label": body.verdict_label,
+            "confidence_pct": body.verdict_confidence_pct,
+        },
+        "notes": body.notes or "",
+    }
+    try:
+        await db.analyst_corrections.insert_one(record)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(500, "could not persist verdict marker")
+    return {"ok": True, "id": record["id"], "marker": marker}

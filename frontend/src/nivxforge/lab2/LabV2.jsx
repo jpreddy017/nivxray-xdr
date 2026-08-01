@@ -17,6 +17,8 @@ import { LABV2_CSS } from "./labv2.styles";
 import { listLenses, getLensByShortcut } from "./LensRegistry";
 import VerdictExplanationCard from "./VerdictExplanationCard";
 import { EvidenceGraphCanvas } from "./evidence-graph/EvidenceGraphCanvas";
+import { LearningAppliedPanel } from "./LearningAppliedPanel";
+import "./learning.css";
 
 // ═══════════════════════════════════════════════════════════════
 // Manual Summary block (P1-06 · Analyst-Written Narrative)
@@ -32,7 +34,7 @@ import { EvidenceGraphCanvas } from "./evidence-graph/EvidenceGraphCanvas";
 // `cio_id` on mount so re-opening an investigation shows the
 // analyst's version, not the stale auto version.
 // ═══════════════════════════════════════════════════════════════
-function ManualSummaryBlock({ cioId, originalExecutive, originalStory }) {
+function ManualSummaryBlock({ cioId, originalExecutive, originalStory, cio }) {
   const [expanded, setExpanded] = useState(false);
   const [text, setText] = useState("");
   const [notes, setNotes] = useState("");
@@ -69,6 +71,7 @@ function ManualSummaryBlock({ cioId, originalExecutive, originalStory }) {
         original_executive: originalExecutive,
         original_story: originalStory,
         scope: "private",
+        original_cio: cio || null,  // Learning Engine fingerprints this on save.
       });
       setSaved(r.data?.override || null);
     } catch (e) {
@@ -76,7 +79,7 @@ function ManualSummaryBlock({ cioId, originalExecutive, originalStory }) {
     } finally {
       setSaving(false);
     }
-  }, [cioId, text, notes, originalExecutive, originalStory]);
+  }, [cioId, text, notes, originalExecutive, originalStory, cio]);
 
   const clear = () => { setText(""); setNotes(""); setSaved(null); };
 
@@ -90,14 +93,16 @@ function ManualSummaryBlock({ cioId, originalExecutive, originalStory }) {
       >
         <span className="ms-caret">{expanded ? "▾" : "▸"}</span>
         <span className="ms-lbl">MANUAL SUMMARY</span>
-        {saved ? <span className="chip sev-info">SAVED · analyst override active</span> : <span className="ms-hint quiet">override the auto summary · trains the learner</span>}
+        {saved ? <span className="chip sev-info">SAVED · analyst override active</span> : <span className="ms-hint quiet">override the auto summary · saved to the learning corpus</span>}
       </button>
       {expanded ? (
         <div className="ms-body">
           <p className="quiet ms-help">
             If the auto-generated Executive Summary or Story is inaccurate, rewrite it in your own words below.
-            This override becomes the analyst-of-record summary for this investigation and is added to the
-            NivXRay learner corpus so future summaries improve.
+            This override becomes the analyst-of-record summary for this investigation and is stored in the
+            NivXRay learning corpus. When you investigate a similar case later, the Learning Engine retrieves
+            your past summaries and shows them in the "Learning applied" panel so you can reuse structure and
+            terminology.
           </p>
           <label className="ms-lbl-small">Analyst summary</label>
           <textarea
@@ -312,6 +317,30 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
 
   const clearIntake = useCallback(() => setIntake(""), []);
 
+  // Verdict marker — Correct / Partial / Wrong.
+  // Feeds the Learning Engine as a signal for retrieval weighting and as
+  // a candidate flag for new deterministic rules. Never modifies the
+  // current verdict.
+  const [markerState, setMarkerState] = useState(null); // "correct" | "partial" | "wrong" | "saved"
+  const onVerdictMark = useCallback(async (marker) => {
+    if (!view || !view.cio) return;
+    setMarkerState(marker);
+    try {
+      const fp = view.cio.metadata?.learning_fingerprint || null;
+      await api.post("/corrections/verdict-mark", {
+        cio_id: view.caseId || view.cio.snapshot_hash || "unknown",
+        marker,
+        verdict_label: view.cio.verdict?.label,
+        verdict_confidence_pct: view.cio.verdict?.confidence_pct,
+        fingerprint: fp,
+      });
+      setMarkerState(`${marker}-saved`);
+      setTimeout(() => setMarkerState(null), 2400);
+    } catch (_e) {
+      setMarkerState(`${marker}-error`);
+    }
+  }, [view]);
+
   const onUpload = useCallback((e) => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
@@ -519,12 +548,18 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
               )}
             </div>
 
+            {/* Learning Applied — Learning Engine surface (Phase 2). */}
+            {view.hasCase && view.cio ? (
+              <LearningAppliedPanel cio={view.cio} />
+            ) : null}
+
             {/* Manual Summary Override (P1-06) — analyst rewrites when auto summary is wrong. */}
             {view.hasCase ? (
               <ManualSummaryBlock
                 cioId={view.caseId}
                 originalExecutive={(view.story && view.story[0] && view.story[0].text) || ""}
                 originalStory={(view.story || []).map((p) => p.text).join("\n\n")}
+                cio={view.cio}
               />
             ) : null}
 
@@ -964,9 +999,34 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
               onEvClick={onEvClick}
             />
             <div className="ledger-foot" style={{ marginTop: 10, padding: "8px 12px" }}>
-              <button className="corr" data-testid="verdict-mark-correct">Correct</button>
-              <button className="corr" data-testid="verdict-mark-partial">Partial</button>
-              <button className="corr" data-testid="verdict-mark-wrong">Wrong</button>
+              <button
+                className={`corr${markerState === "correct-saved" || markerState === "correct" ? " on" : ""}`}
+                data-testid="verdict-mark-correct"
+                onClick={() => onVerdictMark("correct")}
+                title="Confirm the verdict — feeds the Learning Engine"
+              >Correct</button>
+              <button
+                className={`corr${markerState === "partial-saved" || markerState === "partial" ? " on" : ""}`}
+                data-testid="verdict-mark-partial"
+                onClick={() => onVerdictMark("partial")}
+                title="Mark for analyst re-review — feeds the Learning Engine"
+              >Partial</button>
+              <button
+                className={`corr${markerState === "wrong-saved" || markerState === "wrong" ? " on" : ""}`}
+                data-testid="verdict-mark-wrong"
+                onClick={() => onVerdictMark("wrong")}
+                title="Disagree with the verdict — feeds the Learning Engine (does not directly change future verdicts)"
+              >Wrong</button>
+              {markerState && markerState.endsWith("-saved") ? (
+                <span className="corr-toast quiet" data-testid="verdict-mark-toast">
+                  ✓ {markerState.replace("-saved", "").toUpperCase()} recorded · fed to Learning Engine
+                </span>
+              ) : null}
+              {markerState && markerState.endsWith("-error") ? (
+                <span className="corr-toast err" data-testid="verdict-mark-toast-err">
+                  save failed · corpus not updated
+                </span>
+              ) : null}
             </div>
           </div>
 

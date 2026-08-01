@@ -1777,3 +1777,40 @@ this reads as visual noise.
 - Cognitive Graph — hypotheses become graph vertices with typed edges.
 - Notebook/Report citations — every claim traces to specific evidence nodes.
 
+## 2026-02-02 · Learning Engine Phase 1+2 · Feedback audit + first real learning loop
+
+**Docs:** `/app/docs/audits/2026-02_FEEDBACK_SURFACE_AUDIT.md`
+
+**Phase 1 · Feedback surface audit** classified all 8 feedback surfaces in X-Lab:
+- 2 Integrated (threat-model/IOC/decoder corrections corpus, corrections approve/reject/rollback)
+- 3 Store-only (Manual Summary, /learning/feedback, /learning/correction)
+- 3 Cosmetic — the Correct/Partial/Wrong verdict buttons had NO onClick handler
+
+**Immediate honesty fixes:**
+- Wired the Correct/Partial/Wrong buttons to a new `POST /api/corrections/verdict-mark` endpoint. Stores in `analyst_corrections` with `surface="verdict-mark"`, tagged, verdict snapshot + fingerprint stamped. Never modifies future verdicts (per constitution §11).
+- Updated the Manual Summary tagline from "trains the learner" to accurate copy about saving to the corpus.
+- Buttons now show a mint toast: "✓ CORRECT recorded · fed to Learning Engine".
+
+**Phase 2 · Learning Engine core (`backend/nivxforge/learning/engine.py`)** — one reusable service every composer will call:
+- **Fingerprint** — deterministic 5-field tuple `{verdict_label, mitre_ids, ioc_kinds, lolbins, families}` + blake2b hash
+- **Similarity** — weighted Jaccard across MITRE/LOLBIN/IOC/family sets, hard-gated by verdict label equality (never leaks Suspicious style into Malicious writeups)
+- **Retrieval** — queries `analyst_corrections` where `surface="summary"`, ranks by similarity, excludes wrong/poisoned records so unreliable analyst calls never propagate
+- **LearningContext** — the single value composers consume: `{applied, confidence, matches[], summary_seed, fingerprint, apply_threshold}` · Apply threshold = 0.60 · High-confidence threshold = 0.80
+- HTTP surface: `POST /api/learning-engine/context`, `POST /api/learning-engine/fingerprint`
+- Summary-override endpoint now stamps `fingerprint` + `verdict_snapshot` on save so future retrieval works.
+- **Live proof:** Saved manual summary → next investigation shows `applied: true, confidence: high, top_similarity: 1.0, matches: 1` with the exact analyst text.
+
+**Frontend · LearningAppliedPanel** — visible in X-Lab Executive tab:
+- Header: "Learning applied · N similar cases · top match X%" + HIGH/MEDIUM/LOW confidence chip
+- Expanded body: Fingerprint row, per-match cards (similarity %, verdict, author, date, copy-to-clipboard), honesty disclaimer
+- Cold-start honest: "No past analyst summary matches this pattern yet"
+- Below-threshold honest: "Learning available · N weak matches below apply-threshold (60%)"
+
+**Not learned (by design):** Verdicts, evidence graph, decoded fragments, MITRE mappings, LOLBAS hits. Those stay deterministic. Only analyst-facing narrative (Executive Summary, Story) can be seeded from the corpus.
+
+**Deferred to Phase 3:**
+- Terminology glossary extraction from analyst summaries (word-level swaps)
+- LLM few-shot injection into the summary composer
+- Learning Dashboard route
+- Wiring the retrieved matches into the summary composer's prompt (currently retrieved but only surfaced — composer still writes independently)
+

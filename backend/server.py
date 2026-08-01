@@ -80,6 +80,7 @@ from routers.decode_guidance import router as decode_guidance_router
 from routers.moe_panel import router as moe_panel_router
 from routers.threat_model import router as threat_model_router
 from routers.analyst_corrections import router as analyst_corrections_router
+from routers.learning_engine import router as learning_engine_router
 from routers.threat_intel_rss import (
     router as threat_intel_rss_router,
     start_scheduler as _start_cti_rss_scheduler,
@@ -208,6 +209,7 @@ api.include_router(decode_guidance_router)
 api.include_router(moe_panel_router)
 api.include_router(threat_model_router)
 api.include_router(analyst_corrections_router)
+api.include_router(learning_engine_router)
 api.include_router(threat_intel_rss_router)
 api.include_router(batch_test_router)
 api.include_router(mitre_heatmap_router)
