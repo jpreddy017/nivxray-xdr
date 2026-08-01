@@ -3,6 +3,22 @@
 > ### 🟢 Architecture: **APPROVED · v1.0 Complete** (2026-02-31 sign-off)
 > Future work executes against this backlog. No architectural expansion.
 >
+> ### 🚦 Every new request MUST first be classified (locked)
+>
+> Before touching code or opening a discussion, decide which of these four
+> lanes the request belongs to:
+>
+> ```
+> Implementation task      → Implement → Test → Measure → Merge
+> Bug                      → Fix       → Test → Merge
+> KPI improvement          → Optimize  → Measure → Merge
+> Constitutional limitation → ADR REQUIRED (only path to a v1.1)
+> ```
+>
+> **The Constitution is read-only** from this point forward. Do not re-open
+> architectural debates for anything that fits in the first three lanes.
+> Doing so is a code-review hard-fail.
+>
 > **Every PR must pass the four gates** (see `/app/docs/architecture/README.md`):
 > 1. Preserves the CIO contract · 2. Improves a §13 KPI · 3. Adds no new layer · 4. Stays deterministic.
 >
