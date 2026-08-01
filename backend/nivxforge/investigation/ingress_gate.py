@@ -108,6 +108,27 @@ def apply_ingress_gate(raw_text: str) -> IngressResult:
     except Exception:
         json_blocks = []
     if not json_blocks:
+        # RADE · run recursive artifact discovery on STRUCTURED-LOOKING
+        # inputs only (XML tags). Plain-text single commands must never
+        # be augmented — the input already carries the command verbatim,
+        # and adding a `discovered[...] cmd=...` line here triggers the
+        # multi-fragment code path and skips CIO construction entirely.
+        is_xml_like = "<Data " in raw_text or "<Event" in raw_text or raw_text.strip().startswith("<")
+        if is_xml_like:
+            try:
+                from nivxforge.investigation.artifact_discovery import (
+                    augment_canonical_text as _augment,
+                )
+                augmented = _augment("", raw_text)
+            except Exception:  # noqa: BLE001
+                augmented = ""
+            if augmented and augmented.strip():
+                return IngressResult(
+                    text=raw_text.rstrip() + "\n" + augmented,
+                    was_vendor_json=True,
+                    vendor="Recursive Artifact Discovery",
+                    normalised_via="artifact_discovery.py:RADE",
+                )
         return IngressResult(text=raw_text, was_vendor_json=False)
 
     events = []
@@ -144,9 +165,37 @@ def apply_ingress_gate(raw_text: str) -> IngressResult:
     # If no events were extracted, the JSON was not a recognisable
     # vendor telemetry payload — pass the raw text through untouched.
     if not events or vendor_detected is None:
+        # RADE fallback · even when no vendor adapter matched, walk the
+        # raw JSON for command-like fields. This is what closes
+        # BUG-P4-03 for CrowdStrike / Cisco XDR shapes whose adapter
+        # ignored top-level `CommandLine` fields.
+        try:
+            from nivxforge.investigation.artifact_discovery import (
+                augment_canonical_text as _augment,
+            )
+            augmented = _augment("", raw_text)
+        except Exception:  # noqa: BLE001
+            augmented = ""
+        if augmented and augmented.strip():
+            return IngressResult(
+                text=augmented,
+                was_vendor_json=True,
+                vendor="Recursive Artifact Discovery",
+                normalised_via="artifact_discovery.py:RADE",
+            )
         return IngressResult(text=raw_text, was_vendor_json=False)
 
     canonical_text = _events_to_canonical_text(events, vendor_detected)
+    # RADE augmentation · surface any command-like fields the vendor
+    # adapter missed. Idempotent — if the adapter already captured the
+    # command, RADE skips it.
+    try:
+        from nivxforge.investigation.artifact_discovery import (
+            augment_canonical_text as _augment,
+        )
+        canonical_text = _augment(canonical_text, raw_text)
+    except Exception:  # noqa: BLE001
+        pass
     return IngressResult(
         text=canonical_text,
         was_vendor_json=True,

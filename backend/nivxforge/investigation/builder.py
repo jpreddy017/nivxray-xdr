@@ -448,7 +448,9 @@ def build_cio(
     # ADR-0014 Slice-C · unified verdict engine reads the graph +
     # optional Workspace-parity metadata (Rules · LOLBAS · Recipes · TI).
     from nivxforge.investigation.verdict_engine import compute_verdict
-    _verdict = compute_verdict(graph, metadata=getattr(fs, "verdict_metadata", None))
+    _verdict_meta = dict(getattr(fs, "verdict_metadata", None) or {})
+    _verdict_meta.setdefault("input_text_normalised", fs.input_text or "")
+    _verdict = compute_verdict(graph, metadata=_verdict_meta)
 
     # Emit a verdict node into the graph itself, linked from the
     # contributing nodes. The graph is the investigation (§1.1.2).

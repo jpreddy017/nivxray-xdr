@@ -111,6 +111,13 @@ class Summary(BaseModel):
     analyst: str = ""            # Analyst-facing: 2-4 short paragraphs
     technical: str = ""          # Technical: deep bullet list + chain detail
     attack_story: str = ""       # Kill-chain narrative
+    # ── 2026-08-01 · MDR-analyst-style Executive Investigation Summary.
+    # Two-paragraph flowing narrative (Detection & Containment · then
+    # Execution Chain / TI / Exposure / MITRE / Caveat). Composed by
+    # `analyst_narrative.compose_analyst_narrative(cio)`. Rendered as
+    # the LEAD block on the Executive lens — above the 14-section
+    # customer report.
+    analyst_narrative: str = ""
 
     # ── Structured (backbone for all lenses) ──────────────────────
     key_findings: List[KeyFinding] = Field(default_factory=list)
@@ -756,6 +763,16 @@ def _prose_attack_story(chain: List[AttackChainStep], entities: EntitiesDigest) 
     return f"Attack chain{host_txt}: {steps}."
 
 
+def _compose_analyst_narrative_safe(cio: "CIO") -> str:
+    """MDR-analyst-style Executive Investigation Summary. Non-crashing
+    wrapper around `analyst_narrative.compose_analyst_narrative`."""
+    try:
+        from nivxforge.investigation.analyst_narrative import compose_analyst_narrative
+        return compose_analyst_narrative(cio)
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 # ─── P0.5 · Report Validator hook ──────────────────────────────────
 def _run_validator(cio: CIO, customer_report_payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Run the Executive Quality Gate. Never raises; on any internal
@@ -843,6 +860,7 @@ def compose_summary(cio: CIO) -> Summary:
     return Summary(
         executive=exec_prose,
         analyst=analyst_prose,
+        analyst_narrative=_compose_analyst_narrative_safe(cio),
         technical=technical_prose,
         attack_story=attack_story,
         key_findings=key_findings,

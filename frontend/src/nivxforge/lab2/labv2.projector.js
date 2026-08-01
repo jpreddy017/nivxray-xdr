@@ -475,6 +475,9 @@ export function projectCIO(cio) {
         ((summary.customer_report || {}).markdown) || "",
       customerReportSections:
         ((summary.customer_report || {}).sections) || [],
+      // 2026-08-01 · MDR-analyst-style Executive Investigation Summary
+      // Rendered as the LEAD block on the Executive lens.
+      analystNarrative: summary.analyst_narrative || "",
       reportValidator: summary.report_validation || null,
       stages,
       ev,

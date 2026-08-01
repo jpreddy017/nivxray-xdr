@@ -71,6 +71,10 @@ KIND_TO_CLASS: dict[str, EvidenceClass] = {
     "regsvr32_abuse":          EvidenceClass.HIGH,
     "mshta_abuse":             EvidenceClass.HIGH,
     "wmi_abuse":               EvidenceClass.HIGH,
+    # BUG-P4-01 architectural fix · discovery-only WMI queries are LOW.
+    # `wmic ... get commandline`, `Get-WmiObject`, `Get-CimInstance` etc
+    # are enumeration and MUST NOT drive attack-chain HIGH escalation.
+    "wmi_discovery":           EvidenceClass.LOW,
     "network_beacon":          EvidenceClass.HIGH,
     "network_staging":         EvidenceClass.HIGH,
     "persistence":             EvidenceClass.HIGH,

@@ -57,6 +57,32 @@ function Card({ testId, title, children, sub }) {
   );
 }
 
+// ─── 0 · Analyst Narrative (MDR-style Executive Investigation Summary) ─
+function AnalystNarrativeCard({ narrative }) {
+  if (!narrative || !narrative.trim()) return null;
+  const paragraphs = narrative.split(/\n\n+/).filter(Boolean);
+  return (
+    <Card testId="exec-analyst-narrative">
+      <div style={{
+        fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase",
+        color: "var(--fg3, #7a8698)", fontWeight: 600, marginBottom: 12,
+      }}>
+        Executive Investigation Summary
+      </div>
+      {paragraphs.map((p, i) => (
+        <p key={i} data-testid={`exec-analyst-narrative-p${i + 1}`} style={{
+          fontSize: 14.5, lineHeight: 1.75, marginTop: i === 0 ? 0 : 12,
+          marginBottom: 0, color: "var(--fg1, #e2e8f0)",
+          letterSpacing: "0.005em",
+        }}>
+          {p}
+        </p>
+      ))}
+    </Card>
+  );
+}
+
+
 // ─── 1 · Verdict Card ─────────────────────────────────────────────
 function VerdictCard({ verdict, inputType, elapsed }) {
   const glyph = { MALICIOUS: "▲", SUSPICIOUS: "◆", "RUNTIME DEPENDENT": "●",
@@ -471,12 +497,18 @@ export default function ExecutiveDashboard({ view }) {
     recoveredPayload = "", recoveredStages = [],
     primaryIocs = {}, mitreTechniques = [], lolbins = [],
     customerReportMarkdown = "",
+    analystNarrative = "",
     reportValidator = null,
   } = view || {};
 
   const elapsed = stats.elapsed || "—";
   return (
     <div data-testid="exec-dashboard" style={{ padding: "0 4px" }}>
+      {/* 2026-08-01 · Lead block: MDR-analyst-style Executive
+          Investigation Summary — a flowing 2-paragraph narrative
+          composed from the CIO. Renders above the verdict card so
+          analysts get the story BEFORE the metrics. */}
+      <AnalystNarrativeCard narrative={analystNarrative} />
       <VerdictCard verdict={verdict} inputType={inputType} elapsed={elapsed} />
       <ReportValidatorBadge validator={reportValidator} />
       <RecoveredCommandCard payload={recoveredPayload} stages={recoveredStages} />
