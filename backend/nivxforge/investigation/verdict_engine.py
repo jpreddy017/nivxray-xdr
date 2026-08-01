@@ -218,6 +218,19 @@ def _kind_for_graph_node(node: Node) -> str:
         # decoder resolving cmd/ps aliases. Drop to LOW.
         if "alias" in op or "alias-normalize" in label_lc:
             return "base64_layer"  # LOW-class · "a decoding step happened"
+        # P0.approved · Fix classification bug — PS -EncodedCommand
+        # is the STRUCTURAL evidence of `encoded_powershell`. It must
+        # not be shadowed by the semantic `invoke_expression` mapping
+        # below (which used to short-circuit when IEX appeared in the
+        # recovered preview, causing the "encoded PS + IEX + network
+        # download" escalation rule to miss).
+        if (
+            "ps-encodedcommand" in op
+            or "encoded_command" in op
+            or "encodedcommand" in op
+            or ("powershell" in op and "encoded" in op)
+        ):
+            return "encoded_powershell"
         # Structural: which decoder ran
         if "base64" in op or "b64" in op:
             base = "base64_layer"
