@@ -189,6 +189,10 @@ Equivalence dimensions (all must match across vendors):
 - Same normalised entity set (hosts · users · files · hashes · ips · domains · urls)
 - Same verdict inputs (same contributors' `kind` + `weight`)
 - Same verdict label
+- **Evidence Provenance present** — every normalised entity MUST carry
+  a traceable `provenance` link to its original vendor source (see
+  §Evidence Provenance below). The provenance CONTENT differs by
+  vendor; its EXISTENCE and shape must not.
 
 **Consequence**: if Cisco XDR and Defender XDR describe the same
 incident, both adapters MUST produce CIOs that lead to the same
@@ -216,6 +220,49 @@ tests/parity/
         incident_002_powershell_iex/
             ...
 ```
+
+## 🔒 Evidence Provenance (mandatory per entity)
+
+Every entity emitted into the CIO evidence graph carries a
+`provenance` block so an analyst can always trace a normalised fact
+back to its raw vendor evidence:
+
+```json
+{
+  "id":    "host-AZG51-CHECKIN-1",
+  "kind":  "host",
+  "value": "AZG51-CHECKIN-1",
+  "provenance": {
+    "adapter":        "cisco_xdr",
+    "vendor_field":   "detection.event_data.hostname",
+    "raw_snippet":    "\"hostname\": \"AZG51-CHECKIN-1\"",
+    "raw_offset":     [4291, 4340],
+    "extraction_rule":"cisco_xdr::host::from_event_data"
+  }
+}
+```
+
+For the same host observed via Defender the provenance differs:
+
+```json
+"provenance": {
+  "adapter":      "defender",
+  "vendor_field": "alertContext.DeviceName"
+}
+```
+
+**Rules**
+- Provenance CONTENT is vendor-specific — never enforce identical fields.
+- Provenance EXISTENCE is universal — an entity without a provenance
+  block fails the Normalization Quality Report AND the parity CI.
+- Provenance is READ-ONLY once written. Downstream engines (verdict,
+  summary, MITRE, report) must never modify it.
+
+**UI surfacing** — X-Lab's **Source lens** lets the analyst click any
+evidence node and see the original vendor snippet + rule that
+extracted it. The **Evidence lens** shows a compact
+`⤴ cisco_xdr::event_data.hostname` provenance chip on every entity
+card.
 
 ## Anti-goals (permanent)
 
