@@ -512,3 +512,66 @@ GOVERNANCE, not further architectural discovery.
 
 **Non-goal**: no new architectural layers past v1.0 without a
 superseding ADR.
+
+## 10. 🔒 THE ONE PRINCIPLE THAT SUPERSEDES ALL OTHERS
+
+> **The Canonical Investigation Object (CIO) is the ONLY exchange
+> contract between components in X-Lab.**
+
+No component may exchange vendor-specific objects, raw parser output,
+intermediate proprietary structures, or bespoke dicts with any other
+component. Every module CONSUMES and EMITS only:
+
+- the CIO, or
+- well-defined derivatives of the CIO (Executive Report, Attack
+  Story, ATT&CK Navigator JSON, STIX 2.1 Bundle, etc.), all of which
+  are produced FROM the CIO by named composers.
+
+```
+Raw Input
+    │
+    ▼
+IDI Adapter (Universal Detection + Deep Command Investigation)
+    │
+    ▼
+CIO ◄────────────────────────────────────────────────────┐
+    │                                                    │
+    ├─→ IKG Builder ─────┐                               │
+    ├─→ ECE               ├─→ enriched CIO ──────────────┤
+    ├─→ Deep Command Inv ─┘                               │
+    ▼                                                     │
+Unified Verdict Engine ──→ CIO with verdict ──────────────┘
+    │
+    ▼
+Executive · Story · ATT&CK · Reports · Replay · Trajectory
+```
+
+**Every arrow above carries a CIO. No exceptions.**
+
+## 11. 🔒 Architecture Freeze · Governance Rule
+
+- The Constitution (`/app/docs/architecture/**`) is FROZEN at v1.0
+  once P1-01 (Live OSINT Wiring) ships.
+- No architectural change may be made without a superseding ADR
+  filed at `/app/memory/adr/<n>-<slug>.md` that explicitly cites the
+  §/rule it supersedes.
+- Ordinary work — new Adapters · new enrichments · new UI capabilities
+  · new lenses — is allowed freely PROVIDED it consumes/emits only
+  CIO and respects the anti-goals.
+- Bypassing the CIO contract, forking a shared engine, or introducing
+  a new core layer without an ADR is a hard-fail in code review.
+
+## 12. What X-Lab is (official)
+
+> A deterministic investigation platform that ingests heterogeneous
+> security evidence, normalises it into a canonical investigation
+> model, recursively analyses embedded artefacts, correlates evidence
+> into causal chains, and produces explainable, reproducible
+> investigation results through a single evidence-driven architecture.
+
+Not a decoder. Not a malware analysis tool. Not a SIEM. Not an XDR.
+Not a CyberChef replacement. All of those are consequences, not the
+product.
+
+---
+_Constitution v1.0 — frozen pending P1-01 close._

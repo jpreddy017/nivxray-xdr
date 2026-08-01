@@ -1,7 +1,8 @@
 # NivXRay · Implementation Backlog
 
 > **This is the ONE place to track work status. Do not generate ad-hoc "Next Action Items" in session summaries — update this file instead.**
-> Read `/app/docs/architecture/README.md` first. The constitution is authoritative.
+> Read `/app/docs/architecture/README.md` first. The constitution is **FROZEN at v1.0** pending P1-01 close.
+> **§10 SUPERSEDES ALL**: the CIO is the ONLY exchange contract between components. **§11**: no architectural change without a superseding ADR.
 
 | ID | Priority | Task | Status | Notes / Blockers |
 |----|----------|------|--------|------------------|
