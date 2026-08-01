@@ -28,6 +28,13 @@
 > Tests · Golden Corpus · Parity · KPI Impact · Constitutional
 > Compliance · Known Limitations.
 >
+> **Every release (RC / beta / GA / patch) MUST ship with a Release
+> Validation Report** at `/app/docs/releases/<RELEASE>-<date>.md`
+> (template at `/app/docs/releases/TEMPLATE.md`). Aggregates every
+> Completion Record merged since the previous release into a single
+> executive view: KPI board release-over-release · golden-corpus
+> changes · parity status · constitutional compliance checklist.
+>
 > **This is the ONE place to track work status. Do not generate ad-hoc "Next Action Items" in session summaries — update this file instead.**
 > Read `/app/docs/architecture/README.md` first. The constitution is **FROZEN at v1.0** pending P1-01 close.
 > **§10 SUPERSEDES ALL**: the CIO is the ONLY exchange contract between components. **§11**: no architectural change without a superseding ADR.
