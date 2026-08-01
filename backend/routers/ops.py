@@ -16,7 +16,7 @@ from schemas import (
     RecipeStep, RunRecipeIn, RunRecipeOut, AutoIn, MagicIn,
     ShellcodeIn, CommandAnalyzeIn,
 )
-from deps import db, get_current_user
+from deps import db, get_current_user, load_osint_keys
 from operations import (
     OPERATIONS, list_operations, run_operation,
     detect_payload_type,
@@ -2106,6 +2106,16 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                     _cio.metadata[_k] = result[_k]
         except Exception:  # noqa: BLE001
             pass
+        # P1-01 · Live OSINT wiring — same _osint_lookup + enrich_iocs
+        # services Workspace uses. Populates `cio.metadata.osint` +
+        # per-IOC-node `attrs.enrichment.providers[]` (11-field cards).
+        # Best-effort — never breaks the endpoint.
+        try:
+            from nivxforge.investigation.osint_enricher import enrich_cio as _enrich_cio
+            _keys = await load_osint_keys()
+            await _enrich_cio(_cio, keys=_keys)
+        except Exception:  # noqa: BLE001
+            log.exception("P1-01 · OSINT enrichment failed (safe — CIO returned without OSINT block)")
         result["cio"] = _cio.model_dump(mode="json")
     except Exception:  # noqa: BLE001
         log.exception("ADR-0014 · CIO composition failed (safe — legacy response preserved)")

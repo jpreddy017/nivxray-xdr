@@ -211,14 +211,39 @@ export function projectCIO(cio) {
   // ATT&CK grid — from summary.mitre_digest
   const attack = buildAttackGrid(summary.mitre_digest, nodes);
 
-  // OSINT rows — every IOC-shaped node gets a row with placeholders
-  // for provider hits. When the backend adds real threat-intel enrichment
-  // this projector will pick them up automatically from node.enrichment[].
+  // OSINT rows — every IOC-shaped node gets a row with the 11-field
+  // provider cards emitted by the backend's `osint_enricher` (P1-01).
+  // `node.attrs.enrichment` is the CIO-native location; `node.enrichment`
+  // is a legacy alias kept for backward compatibility with the shape
+  // demo cases still emit.
   const osint = nodes
     .filter((n) => /ioc|url|domain|ip|hash|email/i.test(n.kind || ""))
     .map((n) => {
-      const enrich = n.enrichment || {};
+      const enrich = (n.attrs && n.attrs.enrichment) || n.enrichment || {};
       const providers = Array.isArray(enrich.providers) ? enrich.providers : [];
+      // 11-field provider card shape:
+      //   { name, state, malicious, suspicious, harmless, reputation,
+      //     detail, first_seen, last_seen, tags, link }
+      const normalized = providers.length
+        ? providers.map((p) => ({
+            name: p.name || "Provider",
+            state: p.state || "pending",
+            malicious: p.malicious ?? null,
+            suspicious: p.suspicious ?? null,
+            harmless: p.harmless ?? null,
+            reputation: p.reputation ?? null,
+            detail: p.detail || "",
+            first_seen: p.first_seen || null,
+            last_seen: p.last_seen || null,
+            tags: Array.isArray(p.tags) ? p.tags : [],
+            link: p.link || null,
+          }))
+        : [
+            { name: "VirusTotal", state: "pending", malicious: null, suspicious: null, harmless: null, reputation: null, detail: "", first_seen: null, last_seen: null, tags: [], link: null },
+            { name: "AbuseIPDB",  state: "pending", malicious: null, suspicious: null, harmless: null, reputation: null, detail: "", first_seen: null, last_seen: null, tags: [], link: null },
+            { name: "AlienVault OTX", state: "pending", malicious: null, suspicious: null, harmless: null, reputation: null, detail: "", first_seen: null, last_seen: null, tags: [], link: null },
+            { name: "URLhaus",   state: "pending", malicious: null, suspicious: null, harmless: null, reputation: null, detail: "", first_seen: null, last_seen: null, tags: [], link: null },
+          ];
       return {
         node_id: n.id,
         kind: n.kind,
@@ -226,15 +251,9 @@ export function projectCIO(cio) {
         confidence: Math.round((n.confidence || 0) * 100),
         first_seen: enrich.first_seen || null,
         last_seen: enrich.last_seen || null,
-        reputation: enrich.reputation || null,
-        providers: providers.length
-          ? providers
-          : [
-              { name: "VirusTotal", state: "pending" },
-              { name: "AbuseIPDB", state: "pending" },
-              { name: "AlienVault OTX", state: "pending" },
-              { name: "URLhaus", state: "pending" },
-            ],
+        reputation: enrich.reputation ?? null,
+        hit_count: enrich.hit_count ?? normalized.filter((p) => p.state === "hit").length,
+        providers: normalized,
       };
     });
 

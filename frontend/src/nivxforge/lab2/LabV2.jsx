@@ -957,23 +957,56 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
                     <div className="ioc-meta">
                       {o.first_seen ? <span>First seen · <b>{o.first_seen}</b></span> : null}
                       {o.last_seen ? <span>Last seen · <b>{o.last_seen}</b></span> : null}
-                      {o.reputation ? <span>Reputation · <b>{o.reputation}</b></span> : null}
+                      {o.reputation != null ? <span>Reputation · <b>{o.reputation}</b></span> : null}
+                      {o.hit_count > 0 ? <span>Provider hits · <b data-testid={`ioc-hits-${o.node_id}`}>{o.hit_count}</b></span> : null}
                     </div>
                     <div className="ioc-providers">
                       {o.providers.map((p, i) => (
-                        <div key={i} className={`ioc-prov ${p.state}`}>
-                          <span className="prov-name">{p.name}</span>
-                          <span className="prov-state">
-                            {p.state === "hit" ? "● HIT" : p.state === "pending" ? "○ pending" : p.state === "no-hash" ? "— no hash" : p.state}
+                        <div key={i} className={`ioc-prov ${p.state}`} data-testid={`prov-${o.node_id}-${(p.name || "").replace(/\s+/g, "-").toLowerCase()}`}>
+                          <span className="prov-name">
+                            {p.link ? (
+                              <a href={p.link} target="_blank" rel="noopener noreferrer">{p.name}</a>
+                            ) : (
+                              p.name
+                            )}
                           </span>
+                          <span className="prov-state">
+                            {p.state === "hit"
+                              ? "● HIT"
+                              : p.state === "no-hit"
+                              ? "○ clean"
+                              : p.state === "no-key"
+                              ? "— no key"
+                              : p.state === "no-hash"
+                              ? "— no hash"
+                              : p.state === "error"
+                              ? "! error"
+                              : "○ pending"}
+                          </span>
+                          {(p.malicious != null || p.suspicious != null || p.harmless != null) && (
+                            <span className="prov-stats mono">
+                              {p.malicious != null ? `mal ${p.malicious}` : ""}
+                              {p.suspicious != null ? ` · sus ${p.suspicious}` : ""}
+                              {p.harmless != null ? ` · ok ${p.harmless}` : ""}
+                            </span>
+                          )}
                           {p.detail ? <span className="prov-detail">{p.detail}</span> : null}
+                          {p.tags && p.tags.length ? (
+                            <span className="prov-tags">
+                              {p.tags.slice(0, 4).map((t, ti) => (
+                                <span key={ti} className="prov-tag">{t}</span>
+                              ))}
+                            </span>
+                          ) : null}
                         </div>
                       ))}
                     </div>
                     <div className="ioc-foot">
                       <EvChip id={o.node_id} selected={selEv === o.node_id} onEnter={onEvEnter} onLeave={onEvLeave} onClick={onEvClick} />
                       <span className="quiet mono" style={{ marginLeft: "var(--s2)" }}>
-                        Providers will be wired to live threat-intel APIs in a future slice · shape ready.
+                        {o.hit_count > 0
+                          ? `Live OSINT · ${o.hit_count} provider hit${o.hit_count === 1 ? "" : "s"}`
+                          : "Live OSINT · no provider hits recorded"}
                       </span>
                     </div>
                   </div>

@@ -732,6 +732,19 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
                     _cio.metadata[_k] = result[_k]
         except Exception:  # noqa: BLE001
             pass
+        # P1-01 · Live OSINT wiring — same _osint_lookup + enrich_iocs
+        # services Workspace uses.  Populates cio.metadata.osint + per
+        # IOC-node attrs.enrichment.providers[] (11-field cards).
+        try:
+            from nivxforge.investigation.osint_enricher import enrich_cio as _enrich_cio
+            from deps import load_osint_keys as _load_osint_keys
+            _keys = await _load_osint_keys()
+            await _enrich_cio(_cio, keys=_keys)
+        except Exception:  # noqa: BLE001
+            import logging
+            logging.getLogger(__name__).exception(
+                "P1-01 · OSINT enrichment failed (safe — CIO returned without OSINT block)"
+            )
         result["cio"] = _cio.model_dump(mode="json")
     except Exception:  # noqa: BLE001
         import logging

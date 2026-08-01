@@ -26,7 +26,7 @@
 
 | Release | Date | Detection | Normalisation | X-vendor eq. | Replay det. | Verdict parity | Latency P95 | Deep-cmd success | Corpus cov. | Direction summary |
 |---------|------|-----------|---------------|--------------|-------------|----------------|-------------|------------------|-------------|-------------------|
-| _first row after P1-01 ships_ |  |  |  |  |  |  |  |  |  |  |
+| RC-P1-01 (Live OSINT Wiring) | 2026-02-01 | n/a | n/a | n/a | 100 % | 100 % | ~2.4 s | n/a | n/a | = = = = = ↑ = = (OSINT lens now live · 11-field cards) |
 
 ## Usage rules
 

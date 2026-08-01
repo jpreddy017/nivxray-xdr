@@ -46,7 +46,7 @@
 
 | ID | Priority | Task | Status | Notes / Blockers |
 |----|----------|------|--------|------------------|
-| P1-01 | P1 ⭐⭐⭐⭐⭐ | Live OSINT Wiring — X-Lab consumes Workspace's `_run_osint` (VT · AbuseIPDB · OTX · URLScan · URLhaus). 11-field IOC card. | ⏳ Pending | `/api/osint/lookup` endpoint exists (local corpus). Extend to invoke live providers. |
+| P1-01 | P1 ⭐⭐⭐⭐⭐ | Live OSINT Wiring — X-Lab consumes Workspace's `_run_osint` (VT · AbuseIPDB · OTX · URLScan · URLhaus). 11-field IOC card. | ✅ Done | Shipped 2026-02 · shared `_osint_lookup` + `enrich_iocs` re-dispatched via `nivxforge/investigation/osint_enricher.py` · per-IOC-node 11-field cards on `attrs.enrichment.providers[]` · `cio.metadata.osint` raw bundle · 8/8 parity tests green. Completion: `/app/docs/completions/P1-01-live-osint-wiring.md`. |
 | P1-02 | P1 ⭐⭐⭐⭐⭐ | Verdict Parity CI — `test_verdict_parity_workspace_vs_xlab.py` on corpus. Fold `rules_hit` / `lolbas_hit` / `custom_recipes_matched` into `verdict_engine.compute_verdict()`. | ✅ Done | Shipped 2026-02-31 · 9/9 tests green. Three enforcement layers: determinism · engine-tag provenance · no-fork detection. BITS-downloader confidence gap remains (verdict engine gating unchanged) — track separately as P1-02b. |
 | P1-02b | P1 ⭐⭐⭐ | Fold rules_hit / lolbas_hit / custom_recipes_matched into verdict contributors so BITS-downloader lands at Malicious. | ⏳ Pending | Requires WEIGHTS additions + gating tuning in `verdict_engine.py`. |
 | P1-03 | P1 ⭐⭐⭐⭐ | Rules Lens — renderer over `cio.metadata.custom_recipes_matched`. | ✅ Done | Shipped 2026-02-31 · lens #6 · empty-state handled. |
