@@ -2106,6 +2106,13 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                     _cio.metadata[_k] = result[_k]
         except Exception:  # noqa: BLE001
             pass
+        # P1-02b · After stashing Workspace-parity metadata, re-run the
+        # verdict engine so Rules · LOLBAS · Recipes · TI are folded in.
+        try:
+            from nivxforge.investigation.verdict_engine import refresh_verdict as _refresh_v
+            _refresh_v(_cio)
+        except Exception:  # noqa: BLE001
+            log.exception("P1-02b · verdict refresh failed (safe — using pre-metadata verdict)")
         # P1-01 · Live OSINT wiring — same _osint_lookup + enrich_iocs
         # services Workspace uses. Populates `cio.metadata.osint` +
         # per-IOC-node `attrs.enrichment.providers[]` (11-field cards).
@@ -2114,6 +2121,14 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             from nivxforge.investigation.osint_enricher import enrich_cio as _enrich_cio
             _keys = await load_osint_keys()
             await _enrich_cio(_cio, keys=_keys)
+            # OSINT enrichment can flip IOC nodes to confirmed_malicious_*
+            # (CRITICAL class) — refresh the verdict once more so those
+            # promotions actually land in `cio.verdict`.
+            try:
+                from nivxforge.investigation.verdict_engine import refresh_verdict as _refresh_v
+                _refresh_v(_cio)
+            except Exception:  # noqa: BLE001
+                log.exception("P1-02b · post-OSINT verdict refresh failed")
         except Exception:  # noqa: BLE001
             log.exception("P1-01 · OSINT enrichment failed (safe — CIO returned without OSINT block)")
         result["cio"] = _cio.model_dump(mode="json")

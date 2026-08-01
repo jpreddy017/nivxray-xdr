@@ -396,9 +396,10 @@ def build_cio(
         for layer in fs.decoder_chain
     ]
 
-    # ADR-0014 Slice-C · unified verdict engine reads the graph.
+    # ADR-0014 Slice-C · unified verdict engine reads the graph +
+    # optional Workspace-parity metadata (Rules · LOLBAS · Recipes · TI).
     from nivxforge.investigation.verdict_engine import compute_verdict
-    _verdict = compute_verdict(graph)
+    _verdict = compute_verdict(graph, metadata=getattr(fs, "verdict_metadata", None))
 
     # Emit a verdict node into the graph itself, linked from the
     # contributing nodes. The graph is the investigation (§1.1.2).

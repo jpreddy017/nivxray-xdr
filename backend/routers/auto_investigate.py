@@ -732,6 +732,17 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
                     _cio.metadata[_k] = result[_k]
         except Exception:  # noqa: BLE001
             pass
+        # P1-02b · After stashing Workspace-parity metadata, re-run the
+        # verdict engine so it sees Rules · LOLBAS · Recipes · TI. Zero
+        # fork — same shared `compute_verdict` invocation.
+        try:
+            from nivxforge.investigation.verdict_engine import refresh_verdict as _refresh_v
+            _refresh_v(_cio)
+        except Exception:  # noqa: BLE001
+            import logging
+            logging.getLogger(__name__).exception(
+                "P1-02b · verdict refresh failed (safe — using pre-metadata verdict)"
+            )
         # P1-01 · Live OSINT wiring — same _osint_lookup + enrich_iocs
         # services Workspace uses.  Populates cio.metadata.osint + per
         # IOC-node attrs.enrichment.providers[] (11-field cards).
@@ -740,6 +751,14 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
             from deps import load_osint_keys as _load_osint_keys
             _keys = await _load_osint_keys()
             await _enrich_cio(_cio, keys=_keys)
+            try:
+                from nivxforge.investigation.verdict_engine import refresh_verdict as _refresh_v2
+                _refresh_v2(_cio)
+            except Exception:  # noqa: BLE001
+                import logging
+                logging.getLogger(__name__).exception(
+                    "P1-02b · post-OSINT verdict refresh failed"
+                )
         except Exception:  # noqa: BLE001
             import logging
             logging.getLogger(__name__).exception(

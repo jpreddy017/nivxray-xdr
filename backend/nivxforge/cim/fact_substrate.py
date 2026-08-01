@@ -96,6 +96,11 @@ class FactSubstrate:
     telemetry_files: List[Dict[str, Any]] = field(default_factory=list)
     telemetry_authentication: List[Dict[str, Any]] = field(default_factory=list)
     telemetry_memory: List[Dict[str, Any]] = field(default_factory=list)
+    # P1-02b · Workspace-parity metadata that feeds the verdict engine:
+    # {custom_recipes_matched, rules_hit, sigma, yara, lolbins_v2,
+    #  ti_shield, ...}. Populated by `from_analysis_result` from the
+    # legacy pipeline; consumed by `compute_verdict(graph, metadata)`.
+    verdict_metadata: Dict[str, Any] = field(default_factory=dict)
     # Source of the artifact (surface/endpoint/correlation id)
     source_surface: str = "api"
     source_endpoint: Optional[str] = None
@@ -249,6 +254,16 @@ def from_analysis_result(result: Dict[str, Any], *,
     detected = str(result.get("detected_type") or "").lower()
     if detected:
         fs.input_kind = detected
+
+    # ── P1-02b · Carry Workspace-parity verdict metadata forward ────────
+    # Every field the tiered verdict engine reads directly (recipes,
+    # rules, sigma, yara, lolbins, ti_shield). Passed through to
+    # `compute_verdict(graph, metadata=fs.verdict_metadata)` inside the
+    # CIO builder. Zero fork: one verdict engine, two data sources.
+    for _mk in ("custom_recipes_matched", "recipes_matched", "rules_hit",
+                "sigma", "yara", "lolbas", "lolbins_v2", "ti_shield"):
+        if _mk in result and result[_mk]:
+            fs.verdict_metadata[_mk] = result[_mk]
 
     # ── Reasoning notes ─────────────────────────────────────────────────
     reasoning = result.get("reasoning") or {}
