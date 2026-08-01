@@ -30,7 +30,7 @@ class KeyFinding(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
     label: str
-    weight: int = Field(ge=0, le=10)
+    weight: float = Field(ge=-5, le=10)
     confidence: float = Field(ge=0.0, le=1.0)
     evidence_node_ids: List[str] = Field(default_factory=list)
 
@@ -235,7 +235,7 @@ def _build_key_findings(cio: CIO) -> List[KeyFinding]:
         findings.append(KeyFinding(
             id=f"kf-{i+1:03d}",
             label=c.get("label", "") or c.get("kind", ""),
-            weight=int(c.get("weight", 0)),
+            weight=float(c.get("weight", 0.0)),
             confidence=float(c.get("confidence", 0.0)),
             evidence_node_ids=[c.get("node_id", "")] if c.get("node_id") else [],
         ))

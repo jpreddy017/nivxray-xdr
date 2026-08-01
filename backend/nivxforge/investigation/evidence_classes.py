@@ -29,19 +29,21 @@ from typing import Iterable, Optional, Set
 # ─── Evidence classes ─────────────────────────────────────────────────
 
 class EvidenceClass(str, Enum):
-    CRITICAL = "critical"   # weight 5
-    HIGH     = "high"       # weight 3
-    MEDIUM   = "medium"     # weight 2
-    LOW      = "low"        # weight 1
-    CONTEXT  = "context"    # weight 0.5
+    CRITICAL = "critical"     # weight 5
+    HIGH     = "high"         # weight 3
+    MEDIUM   = "medium"       # weight 2
+    LOW      = "low"          # weight 1
+    CONTEXT  = "context"      # weight 0.5
+    MITIGATING = "mitigating" # weight -1 (negative evidence)
 
 
 CLASS_WEIGHT: dict[EvidenceClass, float] = {
-    EvidenceClass.CRITICAL: 5.0,
-    EvidenceClass.HIGH:     3.0,
-    EvidenceClass.MEDIUM:   2.0,
-    EvidenceClass.LOW:      1.0,
-    EvidenceClass.CONTEXT:  0.5,
+    EvidenceClass.CRITICAL:   5.0,
+    EvidenceClass.HIGH:       3.0,
+    EvidenceClass.MEDIUM:     2.0,
+    EvidenceClass.LOW:        1.0,
+    EvidenceClass.CONTEXT:    0.5,
+    EvidenceClass.MITIGATING: -1.0,
 }
 
 
@@ -80,6 +82,16 @@ KIND_TO_CLASS: dict[str, EvidenceClass] = {
     "sigma_hit":               EvidenceClass.HIGH,
     "external_ioc_ip":         EvidenceClass.HIGH,       # IP appearing in an execution context
     "hash_ioc":                EvidenceClass.HIGH,
+    # Sprint 1 · graph-topology + temporal correlation signals
+    "execution_chain_correlated": EvidenceClass.HIGH,
+    "temporal_burst":             EvidenceClass.HIGH,
+    "entity_chain_correlated":    EvidenceClass.HIGH,
+    # ── MITIGATING — negative evidence ─────────────────────────────
+    "mitigating_signal":       EvidenceClass.MITIGATING,
+    "signed_microsoft_binary": EvidenceClass.MITIGATING,
+    "internal_ip":             EvidenceClass.MITIGATING,
+    "enterprise_allowlist":    EvidenceClass.MITIGATING,
+    "benign_parent":           EvidenceClass.MITIGATING,
     # ── MEDIUM — technique / context ───────────────────────────────
     "mitre_technique":         EvidenceClass.MEDIUM,
     "obfuscated_command":      EvidenceClass.MEDIUM,
@@ -213,6 +225,9 @@ ATTACK_CHAIN_HIGH: Set[str] = {
     "confirmed_malicious_url", "confirmed_malicious_ip",
     "confirmed_malicious_hash", "known_c2",
     "sha_matched_family", "signed_binary_proxy",
+    # Sprint 1 · topology + temporal correlation
+    "execution_chain_correlated",
+    "temporal_burst",
 }
 
 

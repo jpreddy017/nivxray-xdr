@@ -300,6 +300,17 @@ export function projectCIO(cio) {
         pct: verdictPct,
         bucket: confidenceBucket(verdictPct),
         reason: (cio.verdict && cio.verdict.reason) || "",
+        // Sprint 3+4 · Verdict Explanation Card fields (breakdown + timeline
+        // + escalation rule + positive/counter evidence). Populated by the
+        // unified verdict engine; the frontend only projects.
+        escalationRule: (cio.verdict && cio.verdict.escalation_rule) || null,
+        breakdown: (cio.verdict && cio.verdict.confidence_breakdown) || {},
+        timeline: (cio.verdict && cio.verdict.confidence_timeline) || [],
+        positive: (contribs || []).filter((c) => (c.evidence_class || "") !== "mitigating"),
+        counter:  (contribs || []).filter((c) => (c.evidence_class || "") === "mitigating"),
+        notCounted: notCounted || [],
+        supportingNodeIds: Array.from(new Set((contribs || []).map((c) => c.node_id).filter(Boolean))).slice(0, 20),
+        engine: (cio.verdict && cio.verdict.engine) || "unified-verdict-engine-v1",
       },
       stages,
       ev,

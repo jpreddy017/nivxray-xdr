@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../lib/api";
 import { LABV2_CSS } from "./labv2.styles";
 import { listLenses, getLensByShortcut } from "./LensRegistry";
+import VerdictExplanationCard from "./VerdictExplanationCard";
 
 // ═══════════════════════════════════════════════════════════════
 // Manual Summary block (P1-06 · Analyst-Written Narrative)
@@ -1029,52 +1030,21 @@ export default function LabV2({ view, onAnalyze, isAnalyzing = false, analyzeErr
 
         {/* ── FINDINGS PANEL ─────────────────────────────────── */}
         <aside className="findings" data-testid="labv2-findings">
-          <div className="sect">
-            <div className="sect-h"><span className="lbl">Verdict ledger</span></div>
-            <div className="ledger">
-              <div className="ledger-top">
-                <div className="v">▲ {view.verdict.label}</div>
-                <div className="c">
-                  <span className="lbl">Confidence</span>
-                  <span className="conf-dots">{view.verdict.dots}</span>
-                  <span className="lbl" style={{ color: "var(--fg2)" }}>{view.verdict.bucket}</span>
-                </div>
-              </div>
-              {view.ledger.length === 0 ? (
-                <div style={{ padding: "var(--s3) var(--s4)", color: "var(--fg3)", fontSize: 12 }}>
-                  No contributing evidence recorded yet.
-                </div>
-              ) : (
-                view.ledger.map((r, i) => (
-                  <div
-                    key={i}
-                    className="lrow"
-                    data-testid={`ledger-row-${i}`}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <span className={`sign ${r.cls}`}>{r.sign}</span>
-                    <span>
-                      <span className="t">{r.t}</span>
-                      {r.evs && r.evs.length > 0 ? (
-                        <span className="e">
-                          {r.evs.map((id) => (
-                            <EvChip key={id} id={id} selected={selEv === id} onEnter={onEvEnter} onLeave={onEvLeave} onClick={onEvClick} />
-                          ))}
-                        </span>
-                      ) : null}
-                    </span>
-                  </div>
-                ))
-              )}
-              {view.verdict.reason ? (
-                <div className="ledger-note">{view.verdict.reason}</div>
-              ) : null}
-              <div className="ledger-foot">
-                <button className="corr">Correct</button>
-                <button className="corr">Partial</button>
-                <button className="corr">Wrong</button>
-              </div>
+          <div className="sect" style={{ padding: 0, background: "transparent" }}>
+            {/* Sprint 4 · Canonical Verdict Explanation Card. Same
+                component the Report Composer + Workspace Exec card
+                consume — zero drift. */}
+            <VerdictExplanationCard
+              verdict={view.verdict}
+              compact={true}
+              onEvHover={onEvEnter}
+              onEvLeave={onEvLeave}
+              onEvClick={onEvClick}
+            />
+            <div className="ledger-foot" style={{ marginTop: 10, padding: "8px 12px" }}>
+              <button className="corr" data-testid="verdict-mark-correct">Correct</button>
+              <button className="corr" data-testid="verdict-mark-partial">Partial</button>
+              <button className="corr" data-testid="verdict-mark-wrong">Wrong</button>
             </div>
           </div>
 

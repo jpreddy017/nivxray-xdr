@@ -69,6 +69,17 @@ class VerdictNode(BaseModel):
     escalation_rule: Optional[str] = Field(default=None,
         description="Which deterministic escalation rule promoted the verdict (if any).")
     engine: str = Field(default="unified-verdict-engine-v1")
+    # Sprint 3 · per-class confidence breakdown for the Verdict Panel.
+    confidence_breakdown: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Per-EvidenceClass confidence percentage · {critical, high, medium, low, context, mitigating}."
+    )
+    # Sprint 3 · confidence timeline · ordered snapshots of how the
+    # verdict evolved as contributors were folded in.
+    confidence_timeline: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Ordered stages · [{stage, contributor_label, contributor_kind, class, confidence_pct}]"
+    )
 
 
 # ─── Node → contributor-kind mapping ──────────────────────────────
@@ -150,6 +161,17 @@ def _kind_for_graph_node(node: Node) -> str:
         return "sha_matched_family"
 
     if node.kind == "behaviour":
+        # Synthetic behaviour nodes name their kind explicitly.
+        val = (node.value or "").strip().lower()
+        if val in ("execution_chain_correlated", "temporal_burst",
+                   "entity_chain_correlated"):
+            return val
+        if val == "mitigating_signal":
+            sub = ((node.attrs or {}).get("subkind") or "").strip().lower()
+            if sub in ("signed_microsoft_binary", "internal_ip",
+                       "enterprise_allowlist", "benign_parent"):
+                return sub
+            return "mitigating_signal"
         # Behaviour label → keyword map. Deterministic + governed by §1.1.17.
         label = (node.label or "").lower()
         if any(k in label for k in ("credential", "lsass", "mimikatz")):
@@ -350,27 +372,27 @@ def _synthesize_metadata_contributors(metadata: Optional[Dict[str, Any]]) -> Lis
 def _noisy_or_confidence(contributors: List[VerdictContribution]) -> float:
     """Combine contributors into a single confidence in [0..1].
 
-    Formula: 1 - ∏(1 - signal_i)
-
-    Where signal_i uses a class-scaled normaliser to prevent LOW /
-    CONTEXT-only inputs from asymptoting toward 1:
-
-        CRITICAL: signal = weight/5 * conf   → up to 1.00
-        HIGH:     signal = weight/5 * conf   → up to 0.60
-        MEDIUM:   signal = weight/5 * conf   → up to 0.40
-        LOW:      signal = weight/10 * conf  → up to 0.10
-        CONTEXT:  signal = weight/20 * conf  → up to 0.025
+    Positive contributors use Noisy-OR with per-class normalisers.
+    MITIGATING contributors apply a multiplicative dampener (up to
+    0.5× per signal) — they cannot flip a verdict, only reduce
+    confidence.
 
     Properties:
       * Bounded in [0, 1)
-      * Monotonic — adding any positive contributor RAISES confidence
-      * Order-independent
+      * Positive additions RAISE confidence
+      * Mitigating additions REDUCE confidence but only after positives
+        have been combined; strong CRITICAL evidence resists dampening.
     """
     if not contributors:
         return 0.0
     p_none = 1.0
+    mitigators: List[float] = []
+    has_critical = any(c.evidence_class == "critical" for c in contributors)
     for c in contributors:
         ec = c.evidence_class or ""
+        if ec == "mitigating":
+            mitigators.append(max(0.0, min(1.0, c.confidence)))
+            continue
         if ec == "low":
             denom = 10.0
         elif ec == "context":
@@ -380,7 +402,19 @@ def _noisy_or_confidence(contributors: List[VerdictContribution]) -> float:
         w_norm = min(1.0, c.weight / denom)
         signal = max(0.0, min(1.0, w_norm * c.confidence))
         p_none *= (1.0 - signal)
-    return max(0.0, min(1.0, 1.0 - p_none))
+    base = 1.0 - p_none
+    # Single aggregate dampener — capped so mitigating evidence cannot
+    # overturn a Malicious verdict. Max mitigation:
+    #   * With CRITICAL: total dampening capped at 0.3 (min factor 0.7)
+    #   * Without CRITICAL: capped at 0.5 (min factor 0.5)
+    if mitigators:
+        avg = sum(mitigators) / len(mitigators)
+        # Multiple mitigators strengthen the effect but only up to +50%.
+        strength = avg * min(1.5, 1.0 + 0.25 * (len(mitigators) - 1))
+        max_reduction = 0.30 if has_critical else 0.50
+        factor = 1.0 - min(max_reduction, strength * max_reduction)
+        base *= factor
+    return max(0.0, min(1.0, base))
 
 
 # ─── Label ceiling from evidence-class distribution ────────────────
@@ -475,6 +509,23 @@ def compute_verdict(
     not_counted: List[VerdictContribution] = []
     has_decoded_fragment = False
 
+    # ── 0. Sprint 1+2 · attach synthetic signals ─────────────────
+    # Pure functions of the current graph; idempotent; deterministic.
+    try:
+        from nivxforge.investigation.topology_signals import (
+            attach_topology_and_temporal_signals,
+        )
+        attach_topology_and_temporal_signals(graph)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from nivxforge.investigation.correlation_signals import (
+            attach_entity_and_negative_signals,
+        )
+        attach_entity_and_negative_signals(graph)
+    except Exception:  # noqa: BLE001
+        pass
+
     # ── 1. Graph contributors ─────────────────────────────────────
     for node in graph.nodes:
         if node.kind in ("artifact", "verdict"):
@@ -563,6 +614,51 @@ def compute_verdict(
     conf = _noisy_or_confidence(contributors)
     conf = min(conf, _confidence_cap(contributors))
 
+    # ── 7b · Sprint 3 · confidence breakdown per evidence class ──
+    _CLASS_ORDER = ["critical", "high", "medium", "low", "context", "mitigating"]
+    breakdown: Dict[str, int] = {}
+    for cls_name in _CLASS_ORDER:
+        subset = [c for c in contributors if (c.evidence_class or "") == cls_name]
+        if not subset:
+            breakdown[cls_name] = 0
+            continue
+        # Per-class Noisy-OR contribution (0..100)
+        sub_conf = _noisy_or_confidence(subset)
+        breakdown[cls_name] = int(round(sub_conf * 100))
+
+    # ── 7c · Sprint 3 · confidence timeline · how it evolved ─────
+    timeline: List[Dict[str, Any]] = []
+    running: List[VerdictContribution] = []
+    # Only walk contributors that carry positive weight (mitigating are
+    # tracked separately at the tail so the story stays legible).
+    positives = [c for c in contributors if (c.evidence_class or "") != "mitigating"]
+    mitigators = [c for c in contributors if (c.evidence_class or "") == "mitigating"]
+    for i, c in enumerate(positives):
+        running.append(c)
+        stage_conf = _noisy_or_confidence(running)
+        stage_conf = min(stage_conf, _confidence_cap(running))
+        timeline.append({
+            "stage": i + 1,
+            "contributor_label": c.label,
+            "contributor_kind": c.kind,
+            "class": c.evidence_class,
+            "confidence_pct": int(round(stage_conf * 100)),
+            "source": c.source,
+        })
+    if mitigators:
+        for i, c in enumerate(mitigators):
+            running.append(c)
+            stage_conf = _noisy_or_confidence(running)
+            stage_conf = min(stage_conf, _confidence_cap(running))
+            timeline.append({
+                "stage": len(positives) + i + 1,
+                "contributor_label": c.label,
+                "contributor_kind": c.kind,
+                "class": c.evidence_class,
+                "confidence_pct": int(round(stage_conf * 100)),
+                "source": c.source,
+            })
+
     # ── 8. Reason (top 3 contributors + escalation rule) ─────────
     tops = contributors[:3]
     top_lines = " · ".join(
@@ -593,6 +689,8 @@ def compute_verdict(
         contributors=contributors,
         not_counted=not_counted,
         escalation_rule=esc_rule,
+        confidence_breakdown=breakdown,
+        confidence_timeline=timeline,
     )
 
 
