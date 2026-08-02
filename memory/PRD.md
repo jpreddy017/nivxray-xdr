@@ -1,6 +1,48 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
 
+## 2026-02-XX · ✅ **PHASE 2 · TIMELINE BUILDER LANDED (Stage 9)**
+
+Timeline Builder is live as a deterministic **renderer** over the validated
+Investigation Graph. Contract enforced (owner directive 2026-08-02):
+"Timeline is a renderer over validated evidence, not an inference engine."
+
+### Files delivered
+- `/app/backend/nivxforge/investigation/pipeline/timeline_builder.py`
+  — `build(cem, graph) → Timeline` (pure function; same input → byte-identical output)
+- `/app/backend/routers/timeline_lab.py`
+  — `POST /api/v2/timeline/preview` (X-Lab / observational read-only endpoint)
+- `/app/backend/tests/investigation/test_timeline_builder.py` (17 tests)
+
+### Contract enforced by tests
+- Every entry references a CEM event_id that exists in the input CEM.
+- Every actor/target references a GraphNode id that already exists in the graph
+  — never phantom.
+- Action verbs come from a fixed `EventKind → verb` map (no NLG).
+- Summaries are deterministic strings from validated node labels.
+- Actor is never listed as its own target; evidence_refs are unique.
+- Empty CEM → empty Timeline. Events with no graph anchor → dropped, not fabricated.
+- Deterministic sort: `(timestamp asc, event_id, kind, entry_id)`; unknown-time
+  entries sort to the end.
+
+### Isolation
+- Wired ONLY into the new `/api/v2/timeline/preview` lab endpoint.
+- Workspace analyst UI, orchestrator, and legacy timeline paths (`v2/investigation/
+  timeline.py`, `routers/timeline.py` audit log) are untouched.
+
+### Test count
+- Investigation suite: **414 passing** (was 395 → +19). No regressions upstream.
+
+### Next milestones (Phase 2 order fixed by owner 2026-08-02)
+1. Timeline Builder — **DONE**
+2. Attack Chain Builder (consumes Timeline, not raw events)
+3. Correlation Engine (operates on ordered evidence)
+4. Real sanitised telemetry ingestion — highest-priority validation input;
+   replay CrowdStrike / SentinelOne / QRadar / Splunk through the same pipeline.
+
+---
+
+
 ## 2026-08-01 · ✅ **PHASE 1 PIPELINE SHIPPED**
 
 The locked 26-stage investigation pipeline — Phase 1 (stages 1–9) — is fully implemented, tested and integration-ready.

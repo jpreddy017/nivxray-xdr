@@ -226,6 +226,11 @@ api.include_router(rc5_shadow_router)
 from routers.semantic_lab import router as semantic_lab_router
 api.include_router(semantic_lab_router)
 
+# Timeline Lab (Stage 9 engineering surface) — Feb 2026.
+# Read-only projection of the Investigation Graph. X-Lab / observational.
+from routers.timeline_lab import router as timeline_lab_router
+api.include_router(timeline_lab_router)
+
 # ─────────────────────────────────────────────────────────────────────
 # ADR-0005 · NivXForge router mount (READ-ONLY Preview endpoints only).
 # Authorised 2026-02-28. Any write endpoint under /api/nivxforge/*

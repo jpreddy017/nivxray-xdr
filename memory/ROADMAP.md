@@ -78,6 +78,13 @@ Starts only after the evidence layer is mature. The Timeline
 **consumes validated Investigation Graph evidence** — it must not
 introduce new inference into the parser.
 
+**Update 2026-02-XX** — Timeline Builder (Stage 9) landed as a
+deterministic renderer over the Investigation Graph. Contract enforced
+via 19 tests: no invention, actor never in own targets, phantom-node
+guard, empty-CEM → empty timeline, byte-identical determinism.
+Wired ONLY into `POST /api/v2/timeline/preview` (X-Lab / read-only).
+Next: Attack Chain Builder on top of the Timeline, then Correlation.
+
 
 ## P1 — Interpreter Ownership Coverage (measurable Workspace quality signal)
 _Filed 2026-08-02 by owner as part of the Workspace stabilisation phase._
