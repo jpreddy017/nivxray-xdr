@@ -40,11 +40,25 @@ Reconstruction · Final Decoded Output · Verdict · Analyst
 Explanation · Workspace UI screenshots.
 No certification from source-code inference.
 
-**Phase 3 sole deliverable** (owner refinement 2026-02-XX):
-An evidence-based behavioural diff AND a dependency map showing
-exactly which Workspace files (call chain from `routers/ops.py`
-outward) must be restored. NO file restoration or forking during
-Phase 3.
+**Phase 3 deliverable format** (owner refinement 2026-02-XX):
+A deterministic comparison table:
+
+| Sample | v1.5.6 | Current | Same? | First Divergence |
+|---|:---:|:---:|:---:|---|
+| Bash + xxd | PASS | FAIL | ❌ | alias normalization |
+| GZIP PS | PASS | PASS | ✅ | — |
+| RC4/OpenSSL | PASS | FAIL | ❌ | runtime reconstruction |
+| … | | | | |
+
+For every ❌ row, a stage-level trace:
+  Stage 1 · input identical → Stage 2 · interpreter ownership
+  diverged → Stage 3 · alias normalization introduced → Stage 4 ·
+  output changed.
+
+**Phase 3 also produces**: an evidence-based behavioural diff AND a
+dependency map showing exactly which Workspace files (call chain
+from `routers/ops.py` outward) must be restored. NO file
+restoration or forking during Phase 3.
 
 ### Phase 3.5 — Workspace Dependency Graph (owner refinement 2026-02-XX)
 Before restoring any file, generate a dependency graph rooted at
@@ -69,8 +83,42 @@ Only modules that are BOTH:
   (b) proven to change behaviour,
 are candidates for restoration or later isolation.
 
+**Behavior-linked chain per divergent sample** (owner refinement
+2026-02-XX): the graph must answer "which imported module actually
+changed THIS sample's output?" not just "what is imported." Example:
+
+    Sample #4 (Bash + xxd)
+      routers/ops.py
+            ↓
+      operations.py
+            ↓
+      decoder_registry.py
+            ↓
+      ps_alias_normalizer.py     ← FIRST behavioural divergence
+            ↓
+      final output changed
+
+Static import lists are insufficient. Every ❌ row in the Phase 3
+table must carry its own behaviour-linked chain like the above.
+
 This prevents the "copy everything because we don't know what matters"
 mistake. It also directly informs Phase 6 minimal-set forking.
+
+### Phase 7.5 — Lock the Permanent Workspace Regression Corpus
+(owner refinement 2026-02-XX)
+
+After Phase 7 certification, create `backend/workspace_regression_corpus/`
+containing at minimum:
+  • 10 sophisticated Bash chains
+  • 10 PowerShell samples
+  • 10 CMD samples
+  • 10 Linux malware-style pipelines
+  • 10 mixed / polyglot samples
+  • 10 intentionally malformed samples (edge / corrupt / partial)
+
+Every future Workspace build MUST pass this 60-sample corpus before
+release. This locks in the recovered behaviour and prevents the same
+recovery exercise from ever being necessary again.
 
 ### Phase 4 — Root Cause (evidence-based)
 If any sample differs, identify the exact cause among:
