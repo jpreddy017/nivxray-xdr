@@ -1,7 +1,62 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
 
-## 2026-02-XX · ✅ **PHASE 2 · TIMELINE BUILDER LANDED (Stage 9)**
+## 2026-02-XX · ✅ **PHASE 2 · ATTACK CHAIN BUILDER LANDED (Stage 10)**
+
+Attack Chain Builder is live as a deterministic **derivation** stage
+over the canonical `TimelineEvent` stream and the validated
+`InvestigationGraph`. Owner directive 2026-02-XX enforced:
+
+* Every edge lists concrete `derivation_rule[]` facts that produced it.
+* Relationship `confidence` is **separate** from event confidence, and
+  it is capped by the weaker endpoint's event confidence — the edge
+  never overstates the events it links.
+* No inference beyond what the Timeline + Graph provide. Missing
+  timestamps ⇒ purely-temporal edges are simply not emitted.
+
+### Edge kinds
+| Kind           | When it fires                                              |
+|----------------|-----------------------------------------------------------|
+| `parent_of`    | Graph already recorded `child_of` (from CEM parent_cmdline) |
+| `led_to`       | Same actor + same host + within 30 s + time-ordered        |
+| `same_context` | Same host + same process tree + within 5 minutes           |
+
+### Derivation rules (all deterministic, all testable)
+`graph_child_of_edge · shared_actor · shared_host · shared_process_tree
+· within_30_seconds · within_5_minutes · time_ordered`
+
+Each rule reports `observed = True | False | None(unverifiable)` and a
+deterministic detail string.
+
+### Files delivered
+- `/app/backend/nivxforge/investigation/pipeline/attack_chain_builder.py`
+  — `build(timeline, graph) → AttackChain` (pure function)
+- `/app/backend/routers/timeline_lab.py` extended with
+  `POST /api/v2/attack-chain/preview` and optional
+  `include_attack_chain` on the timeline preview
+- `/app/backend/tests/investigation/test_attack_chain_builder.py`
+  (16 tests)
+
+### Isolation
+- X-Lab / observational only. Workspace analyst UI, orchestrator, and
+  legacy paths untouched.
+
+### Test count
+- Investigation suite: **435 passing** (was 395 → +40: 24 Timeline +
+  16 Attack Chain). No regressions upstream.
+
+### Next milestones (owner-approved order)
+1. Timeline Builder — **DONE**
+2. Attack Chain Builder — **DONE**
+3. Correlation Engine — clusters `TimelineEvent`s using AttackEdges as
+   a graph; still deterministic, still no invented events.
+4. Real sanitised telemetry replay (CrowdStrike / SentinelOne / QRadar
+   / Splunk).
+5. Timeline / Attack-Chain Inspector UI — **only after** Correlation
+   stabilises the schema.
+
+---
+
 
 Timeline Builder is live as a deterministic **renderer** over the validated
 Investigation Graph. Contract enforced (owner directive 2026-08-02):

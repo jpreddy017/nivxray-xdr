@@ -27,6 +27,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from nivxforge.investigation.pipeline.artifact_discovery import discover
+from nivxforge.investigation.pipeline.attack_chain_builder import (
+    build as build_attack_chain,
+)
 from nivxforge.investigation.pipeline.evidence_extraction import extract
 from nivxforge.investigation.pipeline.graph_builder import (
     build as build_graph,
@@ -52,6 +55,12 @@ class TimelinePreviewRequest(BaseModel):
         default=False,
         description=("If true, include the underlying InvestigationGraph "
                      "slice used to render the timeline."),
+    )
+    include_attack_chain: bool = Field(
+        default=False,
+        description=("If true, also derive the AttackChain "
+                     "(parent_of / led_to / same_context edges) over "
+                     "the timeline."),
     )
 
 
@@ -97,4 +106,46 @@ def timeline_preview(req: TimelinePreviewRequest) -> Dict[str, Any]:
     }
     if req.include_graph:
         payload["graph"] = graph.to_dict()
+    if req.include_attack_chain:
+        payload["attack_chain"] = build_attack_chain(timeline, graph).to_dict()
     return payload
+
+
+class AttackChainPreviewRequest(BaseModel):
+    raw: str = Field(..., description="Raw telemetry payload (any format)")
+
+
+@router.post("/v2/attack-chain/preview")
+def attack_chain_preview(req: AttackChainPreviewRequest) -> Dict[str, Any]:
+    """Render the Attack Chain — deterministic causal edges over the
+    canonical Timeline.
+
+    Every edge carries `derivation_rule[]` explaining exactly why it
+    exists, and a RELATIONSHIP confidence separate from any event
+    confidence. Read-only, X-Lab / observational surface only.
+    """
+    if not req.raw or not req.raw.strip():
+        raise HTTPException(400, "raw payload required")
+
+    classification = classify_input(req.raw)
+    parsed = parse_input(req.raw, classification)
+    cem = normalize(parsed, detect_vendor(parsed))
+    artefacts = discover(cem)
+    decoded_layers = decode(artefacts)
+    evidence = extract(cem, artefacts, decoded_layers)
+    graph = build_graph(cem, evidence)
+    timeline = build_timeline(cem, graph)
+    attack_chain = build_attack_chain(timeline, graph)
+
+    return {
+        "cem": {
+            "vendor": cem.vendor,
+            "vendor_route": cem.vendor_route,
+            "event_count": len(cem.events),
+        },
+        "timeline_summary": {
+            "entry_count": len(timeline.entries),
+            "unknown_time_count": timeline.unknown_time_count,
+        },
+        "attack_chain": attack_chain.to_dict(),
+    }

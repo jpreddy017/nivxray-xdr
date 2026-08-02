@@ -18,9 +18,9 @@ Fixtures compared: 13
 ## Trend
 
 ```
-▁▁█████
+▁▁██████
 ```
-Runs: 7  ·  min 37.1%  ·  max 38.4%  ·  latest **38.4%**
+Runs: 8  ·  min 37.1%  ·  max 38.4%  ·  latest **38.4%**
 
 ## Engineering detail — aggregate counts
 
@@ -208,5 +208,6 @@ Runs: 7  ·  min 37.1%  ·  max 38.4%  ·  latest **38.4%**
 | 2026-08-02 08:35:49 | `2ce2db5` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 08:58:32 | `25d150a` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 09:00:55 | `25d150a` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
+| 2026-08-02 09:26:23 | `8490ee7` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 
 *Regenerated on every pytest run of `test_cem_parity.py`. Cut-over decisions require owner review of this report.*
