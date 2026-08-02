@@ -371,6 +371,28 @@ Mutex · Detection · Alert · MITRE
 > rather than institutional knowledge that fades with contributor
 > turnover.
 
+#### 6.3.2 · Evidence Coverage Gate (release-blocking)
+
+> **Release Gate:** every RC / GA release must satisfy ALL of:
+>
+> - ✓ Interpreter Ownership Gate passes
+> - ✓ Decoder Stability Gate passes
+> - ✓ Real telemetry corpus coverage does not decrease vs. the
+>   previous release
+> - ✓ No regression against the historical malware corpus
+> - ✓ No regression against the enterprise benign corpus
+>
+> Complements §6.3.1 by measuring releases not only on correctness
+> but on **breadth of evidence**. A release that improves parser
+> logic while shrinking evidence coverage is treated as a
+> regression, not a shipment.
+>
+> *Origin: 2026-08-02 · owner directive during the archival of the
+> PowerShell Interpreter Gate work item. The project has crossed
+> from decoder stabilisation into capability expansion; from here,
+> the highest-value engineering effort is real-telemetry evidence
+> rather than further parser refinement.*
+
 ---
 
 ## 7 · Engineering Rule (mandatory)

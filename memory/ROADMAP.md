@@ -38,6 +38,47 @@ value the moment P0 + P1 ship.
 - Case Comparison
 
 
+## Milestone Ordering (2026-08-02 · owner directive)
+
+> The project has now crossed from **decoder stabilisation** into
+> **capability expansion**. Engineering effort moves upward in the
+> stack. This is the authoritative priority order for the next
+> milestones.
+
+### Priority 1 — Real Sanitised Telemetry ⭐⭐⭐⭐⭐
+The highest-value activity because it strengthens every downstream
+capability: parser validation, deterministic decoding, Investigation
+Graph, Timeline, Attack Chain, Correlation, future semantic work.
+Rather than optimising against synthetic samples, validate against
+telemetry users actually investigate.
+
+**Sources to onboard** (owner priority order):
+- CrowdStrike Falcon EDR event stream
+- SentinelOne Deep Visibility
+- IBM QRadar / LEEF
+- Splunk CIM-normalised feeds
+
+Deliverable: sanitised samples land under a versioned corpus with
+provenance notes and rehydration-safety metadata.
+
+### Priority 2 — Deterministic Decoding Corpus ⭐⭐⭐⭐
+A permanent, versioned corpus for the decoder:
+- Enterprise administration scripts
+- LOLBins / living-off-the-land PowerShell
+- Bash administration pipelines
+- CMD installers
+- Malware families
+- Mixed-obfuscation chains
+
+Rule: every future bug fix contributes another permanent regression
+sample.
+
+### Priority 3 — Timeline / Attack Chain ⭐⭐⭐⭐
+Starts only after the evidence layer is mature. The Timeline
+**consumes validated Investigation Graph evidence** — it must not
+introduce new inference into the parser.
+
+
 ## P1 — Interpreter Ownership Coverage (measurable Workspace quality signal)
 _Filed 2026-08-02 by owner as part of the Workspace stabilisation phase._
 
