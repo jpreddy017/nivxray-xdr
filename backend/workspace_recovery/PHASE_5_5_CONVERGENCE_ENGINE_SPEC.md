@@ -367,6 +367,21 @@ Rephrased for the record:
 > generalized into Shared, the same deterministic contracts,
 > convergence model, and certification process should remain unchanged.
 
+## 🧊 Architecture Feature-Freeze (owner-locked)
+
+The specification is **feature-frozen until implementation reaches
+Milestone 6 (Canonical Candidate Selection)**. After M6, changes to
+this spec are accepted only when one of the following is true:
+
+1. A milestone cannot be implemented without changing the spec.
+2. The expanded regression corpus exposes a genuine architectural gap.
+3. Performance, determinism, or correctness measurements show the need
+   for refinement.
+
+**No speculative refinement. No additional design concepts. Feedback
+must come from running the implementation against real-world command
+lines and the certification corpus.**
+
 ## Engineering Assessment (owner-provided)
 
 | Path | Score | Verdict |
