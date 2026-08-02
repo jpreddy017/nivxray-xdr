@@ -2,6 +2,25 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-XX · Parity Dashboard + Trend Sparkline
+
+**Ships:**
+- **Migration Readiness dashboard** at the top of `cem_parity_report.md` — owner directive to lead with readiness, not raw parity. Renders:
+  - Production Path (Vendor Normalizer)
+  - Semantic Path (Parallel Validation)
+  - Cut-over Eligible (✅/❌ — requires parity ≥ 99.5% AND zero non-`expected_divergence` gaps AND zero ambiguous)
+  - Current Parity vs Target (99.5%)
+  - Remaining Blockers count (excludes `expected_divergence`, which is additive value not a defect)
+  - Status banner: *"🟡 Parallel validation only. Current parity is well below the production cut-over threshold. The semantic path remains observational and is not eligible for production routing."*
+- **Trend sparkline** — deterministic 8-tier block chart (`▁▂▃▄▅▆▇█`) reading directly from `parity_trend.jsonl`. Renders when ≥ 2 runs recorded. Summary line shows min / max / latest. Empty ledger degrades gracefully with a diagnostic note.
+- **Report reorder**: Migration Readiness → Trend → Engineering detail → Gap classification → Cut-over criteria → Per-fixture detail → Trend detail (recent runs table). Engineering metrics moved BELOW readiness so decision-makers see readiness first.
+- **10 new tests** covering dashboard invariants (readiness leads, cut-over gated correctly, expected_divergence excluded from blockers, ascending series produces non-descending sparkline, empty/single-run degrade gracefully).
+
+**Nothing rewired. No semantic logic changes.** This is a pure reporting-surface improvement. Semantic freeze holds per owner directive — no DNS inference, no registry changes, no new fixtures. Awaiting real sanitised telemetry.
+
+**Tests: 382/382 pass** (was 372, +10).
+
+
 ## 2026-02-XX · Identity Parser + Parity Trend Ledger
 
 **Ships:**

@@ -2,7 +2,27 @@
 
 Fixtures compared: 13
 
-## Aggregate
+## Migration Readiness
+
+| Metric | Status |
+|---|---|
+| Production Path | Vendor Normalizer |
+| Semantic Path | Parallel Validation |
+| Cut-over Eligible | ❌ No |
+| Current Parity | 38.4% |
+| Target | 99.5% |
+| Remaining Blockers | 3 |
+
+**Status:** 🟡 **Parallel validation only.** Current parity is well below the production cut-over threshold. The semantic path remains observational and is not eligible for production routing.
+
+## Trend
+
+```
+▁▁█
+```
+Runs: 3  ·  min 37.1%  ·  max 38.4%  ·  latest **38.4%**
+
+## Engineering detail — aggregate counts
 
 | Metric | Value |
 |---|---|
@@ -11,7 +31,6 @@ Fixtures compared: 13
 | Lost (vendor-only) | 3 |
 | Value mismatches | 0 |
 | Ambiguous | 0 |
-| Mean parity rate | 38.4% |
 | Mean confidence drift | -0.110 |
 
 ## Gap classification (where engineering effort lands)
@@ -178,11 +197,12 @@ Fixtures compared: 13
 
 ---
 
-## Trend (recent runs)
+## Trend detail (recent runs)
 
 | Time (UTC) | git | Fixtures | Parity | Drift | Matches | Lost | Categories | Note |
 |---|---|---|---|---|---|---|---|---|
 | 2026-08-02 07:59:02 | `8a090ba` | 13 | **37.1%** | -0.110 | 21 | 3 | event_inference:1, expected_divergence:17, identity_parser:1, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 07:59:33 | `8a090ba` | 13 | **37.1%** | -0.110 | 21 | 3 | event_inference:1, expected_divergence:17, identity_parser:1, parser_gap:1, schema_gap:1 | pytest run |
+| 2026-08-02 07:59:59 | `8a090ba` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 
 *Regenerated on every pytest run of `test_cem_parity.py`. Cut-over decisions require owner review of this report.*

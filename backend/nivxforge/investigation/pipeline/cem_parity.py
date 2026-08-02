@@ -244,6 +244,44 @@ def _values_equal(a: Any, b: Any) -> bool:
     return str(a) == str(b)
 
 
+_SPARK_CHARS = "▁▂▃▄▅▆▇█"
+
+
+def _render_sparkline(entries: List[Dict[str, Any]],
+                      *,
+                      tail: int = 20) -> Tuple[str, str]:
+    """Return ``(sparkline, summary_line)`` for the last ``tail`` runs.
+
+    Sparkline maps each run's ``overall_parity`` to one of eight block
+    characters. Empty when the ledger has < 2 entries.
+    """
+    parities = [
+        e.get("overall_parity", 0.0)
+        for e in entries[-tail:]
+        if isinstance(e, dict) and "overall_parity" in e
+    ]
+    if len(parities) < 2:
+        summary = (f"_only {len(parities)} run(s) recorded — sparkline "
+                   f"needs ≥ 2 runs._" if parities else
+                   "_no parity runs recorded yet._")
+        return "", summary
+
+    lo = min(parities)
+    hi = max(parities)
+    latest = parities[-1]
+    span = hi - lo if hi > lo else 1e-9
+    chars: List[str] = []
+    for p in parities:
+        idx = int(round((p - lo) / span * (len(_SPARK_CHARS) - 1)))
+        idx = max(0, min(len(_SPARK_CHARS) - 1, idx))
+        chars.append(_SPARK_CHARS[idx])
+    sparkline = "".join(chars)
+    summary = (f"Runs: {len(parities)}  ·  "
+               f"min {lo:.1%}  ·  max {hi:.1%}  ·  "
+               f"latest **{latest:.1%}**")
+    return sparkline, summary
+
+
 def _classify_gap(field: str,
                   vendor_value: Any,
                   semantic_value: Any,
@@ -326,7 +364,51 @@ def render_parity_markdown(reports: List[ParityReport]) -> str:
                 continue
             gap_counts[d.gap_category] = gap_counts.get(d.gap_category, 0) + 1
 
-    lines.append("## Aggregate")
+    # Owner directive 2026-02-XX: lead with MIGRATION READINESS,
+    # not raw parity. Parity is engineering info, readiness is the
+    # decision surface.
+    non_expected_gaps = sum(
+        cnt for cat, cnt in gap_counts.items()
+        if cat != GapCategory.EXPECTED_DIVERGENCE
+    )
+    cutover_target = 0.995
+    cutover_eligible = (avg_parity >= cutover_target
+                        and non_expected_gaps == 0
+                        and total_amb == 0)
+
+    lines.append("## Migration Readiness")
+    lines.append("")
+    lines.append("| Metric | Status |")
+    lines.append("|---|---|")
+    lines.append("| Production Path | Vendor Normalizer |")
+    lines.append("| Semantic Path | Parallel Validation |")
+    lines.append(f"| Cut-over Eligible | "
+                 f"{'✅ Yes' if cutover_eligible else '❌ No'} |")
+    lines.append(f"| Current Parity | {avg_parity:.1%} |")
+    lines.append(f"| Target | {cutover_target:.1%} |")
+    lines.append(f"| Remaining Blockers | {non_expected_gaps} |")
+    lines.append("")
+    lines.append("**Status:** 🟡 **Parallel validation only.** "
+                 "Current parity is well below the production cut-over "
+                 "threshold. The semantic path remains observational "
+                 "and is not eligible for production routing.")
+    lines.append("")
+
+    # Trend sparkline reads directly from the ledger (best-effort).
+    lines.append("## Trend")
+    lines.append("")
+    try:
+        from .parity_trend import read_entries
+        entries = read_entries()
+        sparkline, summary = _render_sparkline(entries)
+        if sparkline:
+            lines.append(f"```\n{sparkline}\n```")
+        lines.append(summary)
+    except Exception as e:
+        lines.append(f"_trend ledger unavailable: {type(e).__name__}_")
+    lines.append("")
+
+    lines.append("## Engineering detail — aggregate counts")
     lines.append("")
     lines.append("| Metric | Value |")
     lines.append("|---|---|")
@@ -335,7 +417,6 @@ def render_parity_markdown(reports: List[ParityReport]) -> str:
     lines.append(f"| Lost (vendor-only) | {total_lost} |")
     lines.append(f"| Value mismatches | {total_mism} |")
     lines.append(f"| Ambiguous | {total_amb} |")
-    lines.append(f"| Mean parity rate | {avg_parity:.1%} |")
     lines.append(f"| Mean confidence drift | {avg_drift:+.3f} |")
     lines.append("")
 
@@ -401,7 +482,7 @@ def render_parity_markdown(reports: List[ParityReport]) -> str:
 
     lines.append("---")
     lines.append("")
-    lines.append("## Trend (recent runs)")
+    lines.append("## Trend detail (recent runs)")
     lines.append("")
     try:
         from .parity_trend import read_entries, render_trend_markdown
