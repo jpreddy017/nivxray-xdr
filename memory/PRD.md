@@ -13,6 +13,32 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## 🏁 DESIGN PHASE OFFICIALLY COMPLETE (2026-02-XX)
+
+Progress from this point is judged by objective engineering artifacts,
+not by additional architectural ideas:
+
+- Correctness — does the engine converge deterministically?
+- Regression results — does it pass the certification corpus?
+- Performance — latency + scalability under corpus expansion
+- Maintainability — adherence to the frozen contracts
+
+**Next session opens on Milestone 1. No architecture discussions unless
+one of the three feature-freeze unlock conditions is met** (see
+`PHASE_5_5_CONVERGENCE_ENGINE_SPEC.md` §Architecture Feature-Freeze).
+
+Expected deliverables in order:
+1. M1 implementation complete + unit tests
+2. M2 implementation complete + regression results
+3. M3–M5 implementations complete
+4. M6 Canonical Candidate Selection → 11/11 corpus
+5. M7 Convergence Certificate emitted + hash-stable
+6. M8 full regression corpus 11/11 with zero new regressions
+7. M9 expanded corpus 50 → 100 → 500 samples with determinism + latency measurements
+8. M10 Workspace Isolation Certificate signed
+
+---
+
 ## 🔒 SPEC LOCKED · Implementation-Only From Here (2026-02-XX)
 
 Owner has closed the specification phase. **No further design work
