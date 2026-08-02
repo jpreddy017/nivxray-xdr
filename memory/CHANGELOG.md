@@ -2,6 +2,49 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-08-02 · Phase 5.5 · M1 Convergence Loop Framework — COMPLETE
+
+**Ships:**
+- **New package** `backend/workspace/convergence/` — the Multi-Pass
+  Convergence Engine substrate.
+    - `artifact.py` · immutable `Artifact` with SHA-256 content hash
+      and interpreter tracking.
+    - `provenance.py` · `PassRecord` / `IterationRecord`.
+    - `certificate.py` · machine-readable `ConvergenceCertificate`
+      with hash-stable fingerprint.
+    - `structural.py`, `content.py`, `decoder.py`, `semantic.py` ·
+      strict no-ops at M1 (awaiting M2–M5).
+    - `engine.py` · deterministic convergence loop.
+        - Canonical pass order: Structural → Content → Decoder →
+          Semantic (Decoder Ordering Contract).
+        - Delta-hash termination (Canonical State Contract #1/#2/#6).
+        - Interpreter-drift short-circuit (Canonical State Contract
+          #4).
+        - `max_depth=16` safeguard.
+        - Pure functional: no mutation, no hidden state.
+- **Prerequisite** — Corpus reorganized to schema **c+** (nested
+  categories: `powershell:7 · cmd:1 · bash:3 · mixed:2`) and new
+  `workspace_recovery/corpus_loader.py` is the sole loader. Runner and
+  tree-worker migrated. `phase3_ab_report.md` now publishes per-
+  category pass rates (PowerShell N/N · CMD N/N · Bash N/N · Mixed
+  N/N · Overall N/N).
+- **New tests** — `backend/tests/test_convergence_engine.py`
+  (32/32 passing in 0.33s).
+- **No changes** to `analysis_core.py`, `routers/ops.py`, `engine/`,
+  `v2/`, `timeline/`, or `nivxforge/`. `/api/health` still HTTP 200.
+
+**Regressions: 0.**
+
+**Governance:** M1 completion record appended to
+`backend/workspace_recovery/MILESTONE_LEDGER.md` (append-only, never
+rewritten).
+
+**Next milestone:** M2 · Structural Pass Integration (AST reduction,
+operator folding, parentheses collapse). Verification target: Structural-
+only convergence certificate with visible structural change counts.
+
+---
+
 ## 2026-08-02 · Owner sign-off · Interpreter Gate hotfix merged (9.5/10)
 
 - Interpreter Gate approved as shipped. **No further changes** to `_looks_like_non_powershell`.

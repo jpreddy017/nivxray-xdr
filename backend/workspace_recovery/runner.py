@@ -21,6 +21,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+from workspace_recovery.corpus_loader import (
+    category_stats,
+    format_category_stats,
+    load_meta,
+    load_samples,
+)
+
 ROOT = Path(__file__).resolve().parent
 ART = ROOT / "artifacts"
 ART.mkdir(exist_ok=True)
@@ -179,12 +186,13 @@ def main() -> int:
     if baseline_raw.get("fatal") or current_raw.get("fatal"):
         return 2
 
-    corpus = json.loads(CORPUS.read_text())
+    corpus_meta = load_meta(CORPUS)
+    samples = load_samples(CORPUS)
     baseline_by_id = {r["id"]: r for r in baseline_raw["results"]}
     current_by_id = {r["id"]: r for r in current_raw["results"]}
 
     matrix = []
-    for s in corpus["samples"]:
+    for s in samples:
         sid = s["id"]
         b = baseline_by_id.get(sid, {})
         c = current_by_id.get(sid, {})
@@ -194,6 +202,7 @@ def main() -> int:
         matrix.append({
             "id": sid,
             "family": s["family"],
+            "category": s.get("category", "uncategorized"),
             "baseline_status": b.get("status"),
             "current_status": c.get("status"),
             "baseline_http": b.get("http_status"),
@@ -211,11 +220,25 @@ def main() -> int:
         })
 
     (ART / "phase3_ab_matrix.json").write_text(json.dumps(matrix, indent=2, default=str))
-    _emit_report(matrix, corpus["corpus_version"])
+    _emit_report(matrix, corpus_meta.version)
     return 0
 
 
 def _emit_report(matrix: list, corpus_version: str) -> None:
+    # Per-category stats — publishes what the owner asked for:
+    # PowerShell N/N · CMD N/N · Bash N/N · Mixed N/N · Overall N/N.
+    # We treat "current" pass as (status==ok, http==200, identical to baseline).
+    current_pass_by_id = {
+        m["id"]: (m["current_status"] == "ok" and m["current_http"] == 200 and m["identical"])
+        for m in matrix
+    }
+    baseline_pass_by_id = {
+        m["id"]: (m["baseline_status"] == "ok" and m["baseline_http"] == 200)
+        for m in matrix
+    }
+    stats_current = category_stats(current_pass_by_id)
+    stats_baseline = category_stats(baseline_pass_by_id)
+
     lines = []
     lines.append("# Phase 3 · Behavioral A/B Report")
     lines.append("")
@@ -226,16 +249,26 @@ def _emit_report(matrix: list, corpus_version: str) -> None:
     lines.append("**No files were restored, forked, or wired during this phase.** This report")
     lines.append("is pure runtime evidence produced by invoking `/api/decode/smart` on both trees.")
     lines.append("")
+    lines.append("## Per-Category Certification Metrics")
+    lines.append("")
+    lines.append("```")
+    lines.append("Baseline (v1.5.6):")
+    lines.append(format_category_stats(stats_baseline))
+    lines.append("")
+    lines.append("Current  (HEAD):")
+    lines.append(format_category_stats(stats_current))
+    lines.append("```")
+    lines.append("")
     lines.append("## Comparison Table")
     lines.append("")
-    lines.append("| # | Sample | v1.5.6 | Current | Same? | First Divergence |")
-    lines.append("|---|--------|:------:|:-------:|:-----:|------------------|")
+    lines.append("| # | Sample | Category | v1.5.6 | Current | Same? | First Divergence |")
+    lines.append("|---|--------|----------|:------:|:-------:|:-----:|------------------|")
     for i, m in enumerate(matrix, 1):
         b_mark = "PASS" if m["baseline_status"] == "ok" and m["baseline_http"] == 200 else f"{m['baseline_status']}/{m['baseline_http']}"
         c_mark = "PASS" if m["current_status"] == "ok" and m["current_http"] == 200 else f"{m['current_status']}/{m['current_http']}"
-        same = "✅" if m["identical"] else "❌"
+        same = "PASS" if m["identical"] else "FAIL"
         first = m["first_divergence_summary"]
-        lines.append(f"| {i} | `{m['id']}` — {m['family']} | {b_mark} | {c_mark} | {same} | {first} |")
+        lines.append(f"| {i} | `{m['id']}` — {m['family']} | {m.get('category','?')} | {b_mark} | {c_mark} | {same} | {first} |")
     lines.append("")
     lines.append("## Per-Sample Stage Trace (❌ rows only)")
     lines.append("")

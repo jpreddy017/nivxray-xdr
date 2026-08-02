@@ -134,14 +134,18 @@ def main() -> int:
         }))
         return 2
 
-    corpus = json.loads(corpus_path.read_text())
+    # Load via the schema-agnostic loader so worker never depends on
+    # corpus layout. `corpus_path` overrides the default location so the
+    # v1.5.6 baseline tree and the current HEAD read the identical file.
+    from workspace_recovery.corpus_loader import load_samples  # noqa: E402
+    samples = load_samples(corpus_path)
     results = []
     # `with TestClient(app):` triggers lifespan startup so validate_config +
     # init_database + seed_admin all run — which is what /api/decode/smart
     # needs to reach the DB layer (models_studio.find_matching_recipes).
     try:
         with TestClient(app) as client:
-            for sample in corpus["samples"]:
+            for sample in samples:
                 entry = {"id": sample["id"], "family": sample["family"]}
                 try:
                     resp = client.post(
