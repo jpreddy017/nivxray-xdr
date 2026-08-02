@@ -2,6 +2,96 @@
 
 ---
 
+## 🚨 STANDING PRIORITY STATEMENT (owner · 2026-02-XX)
+
+> **My priority is recovery, not innovation. I want the Workspace to behave
+> exactly like the last known-good version that reliably decoded
+> sophisticated, multi-layered command lines. New features are secondary
+> and must wait until recovery and certification are complete.**
+
+Any next agent MUST read this before writing code.
+
+---
+
+## 🚨 P0 · RECOVER MY WORKSPACE — NO NEW FEATURES (owner · 2026-02-XX)
+
+### Objective
+Workspace is the primary production product. Do NOT improve, redesign,
+or modernize it. Restore the last known-good Workspace exactly.
+
+### Phase 1 · Recovery First — no new Workspace code
+- Baseline = **v1.5.6 tag `fff5897`** (Jul 28 16:10 UTC). Verified in
+  container.
+- `16223b1` (Jul 15) is a historical reference for the last self-
+  contained Workspace only. Do NOT use as production baseline.
+
+### Phase 2 · Restore (already executed non-destructively)
+```
+git worktree add /tmp/workspace-v1.5.6 fff5897
+```
+Read-only recovery source. Do NOT modify.
+
+### Phase 3 · Behavioral Certification (evidence, not inference)
+Run the 10-sample regression corpus against BOTH:
+  (a) `/tmp/workspace-v1.5.6/backend/…`  (restored v1.5.6)
+  (b) `/app/backend/…`  (current HEAD)
+Per sample capture: Input · Transformation Trace · Runtime
+Reconstruction · Final Decoded Output · Verdict · Analyst
+Explanation · Workspace UI screenshots.
+No certification from source-code inference.
+
+### Phase 4 · Root Cause (evidence-based)
+If any sample differs, identify the exact cause among:
+  parser routing · operation ordering · decoder ordering ·
+  interpreter routing · ingress preprocessing · renderer ·
+  registration order · feature flags · orchestration.
+
+### Phase 5 · Restore ONLY the Workspace
+Do NOT restore or revert: X-Lab · Timeline · Attack Chain ·
+Correlation · Semantic Pipeline · Investigation Engine · Lab 2.0.
+Those are separate products; leave them intact.
+
+### Phase 6 · Permanent Isolation
+Workspace becomes independent. Only these may remain shared:
+  base64 · hex · compression · crypto · encoding · generic helpers.
+Everything behavioural becomes Workspace-owned. No shared parser,
+interpreter, decoder, normalizer, investigation logic, semantic
+logic, timeline logic, correlation logic, behavioural orchestration.
+
+At v1.5.6, Workspace coupling to shared trees is:
+  ✓ backend/engine   (43 files) — must be forked into workspace/
+  ✓ backend/v2       (111 files) — must be forked into workspace/
+  ✓ backend/timeline (1 file)   — must be forked into workspace/
+  ✗ backend/nivxforge — NOT present at v1.5.6, no fork needed
+
+### Phase 7 · Certification
+Only after restoration + isolation:
+  - identical decoding behaviour vs v1.5.6
+  - deterministic output
+  - identical verdicts (where applicable)
+  - Workspace UI screenshots
+  - evidence-based comparison
+No certification from source diffs alone.
+
+### Permanent Workspace Protection Rule
+Once certified, future changes in Shared, X-Lab, Lab 2.0, Investigation
+Engine, Timeline, Correlation, Semantic Pipeline, Vendor Pipeline must
+be architecturally incapable of changing Workspace behaviour unless a
+Workspace-specific change is explicitly approved.
+
+### Dormant code (do NOT wire until certification complete)
+- `backend/workspace/__init__.py`
+- `backend/workspace/interpreter_ownership.py` (12/12 tests pass)
+
+### Recovery source ready in container
+`/tmp/workspace-v1.5.6/` — read-only worktree at `fff5897`.
+`routers/ops.py` present · 101 828 bytes · Jul 28 16:10 UTC.
+
+---
+
+
+---
+
 ## 🛑 STANDING P0 DIRECTIVE · WORKSPACE RESTORATION (2026-02-XX)
 
 **No new behavioral changes to Workspace** — including wiring
