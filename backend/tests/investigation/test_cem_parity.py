@@ -51,6 +51,14 @@ class TestParityReportGeneration:
                                 encoding="utf-8")
         assert REPORT_PATH.exists()
 
+        # Append a trend-ledger entry so the parity report shows the
+        # last N runs. Ledger is append-only per owner directive.
+        from nivxforge.investigation.pipeline.parity_trend import (
+            append_entry, build_trend_entry,
+        )
+        entry = build_trend_entry(reports, note="pytest run")
+        append_entry(entry)
+
     def test_semantic_path_never_raises(self):
         # If any fixture raises, the parametrization below never runs.
         # That's the same guarantee — no exceptions across the corpus.

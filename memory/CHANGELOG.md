@@ -2,6 +2,24 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-XX · Identity Parser + Parity Trend Ledger
+
+**Ships:**
+- **Identity Parser v1** (`/app/backend/nivxforge/investigation/pipeline/identity_parser.py`) — pure, deterministic pre-Stage-3 enrichment mirroring the Composite Extractor's design. Handles three deterministic formats: `DOMAIN\User` (down-level NetBIOS), `alice@corp.com` (UPN), and Windows SID (`S-1-5-…`). Emits sibling fields prefixed by the origin field name (`User.username`, `User.user_domain`, `User.identity_format=domain_user`). Vendor-neutral. Skip-list guards URLs / paths / command-lines so identity-shaped fragments in unrelated fields never get expanded.
+- **Semantic CEM Builder tie-break** — when multiple mapped surfaces target the same concept, prefer the deeper-dotted path (more specific) then higher confidence. This lets enriched sibling fields (`User.username`) beat the raw origin (`User = "CORP\alice"`) when both hit the User concept.
+- **Parity Trend Ledger** (`parity_trend.py`) — append-only JSONL history at `/app/backend/tests/investigation/parity_trend.jsonl`. Every run records: timestamp (UTC ISO 8601), short git SHA, fixtures count, matches/new/lost/mismatches/ambiguous, overall parity, mean confidence drift, per-gap-category counts, optional note. Parity report renders the last 8 runs as a compact trend table.
+- **Wire-up**: `cem_parity.py` now runs `expand_composites` → `expand_identities` → Schema Understanding → Semantic Mapping → Semantic CEM Builder. `test_cem_parity.py` appends a trend row on every run.
+
+**Impact:**
+- Parity **37.1% → 38.4%** through legitimate systemic improvement.
+- Gap taxonomy: `identity_parser` category **eliminated** (was 1 → now 0). Sysmon `user.name` now matches vendor-produced `alice` exactly.
+- Remaining defensible gaps: 1 `parser_gap`, 1 `schema_gap`, 1 `event_inference`, 17 `expected_divergence` (additive semantic-only value, not defects).
+
+**Tests: 372/372 investigation-suite pass** (+17 new for identity parser and trend ledger).
+
+**Nothing rewired, nothing removed.** Trend ledger is captured evidence for future cut-over decisions.
+
+
 ## 2026-02-XX · Gap Classification + Composite Value Extractor + Configurable Deep-Flatten
 
 **Ships:**

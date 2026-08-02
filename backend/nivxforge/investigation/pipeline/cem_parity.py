@@ -34,6 +34,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from nivxforge.investigation.cem import CanonicalEvent, CanonicalEventModel
 from .composite_extractor import expand_composites
+from .identity_parser import expand_identities
 from .input_classification import classify_input
 from .normalizers import normalize
 from .parser import parse_input
@@ -164,10 +165,11 @@ def compare_fixture(name: str, raw: str) -> ParityReport:
     vendor_flat = _flatten_cem(vendor_cem)
     vendor_confidence = vendor_cem.provenance.confidence
 
-    # Semantic path — the candidate. Composite Extractor runs BEFORE
-    # Schema Understanding so composite fields like Sysmon "Hashes:
-    # SHA256=… MD5=…" surface as sibling candidate paths.
+    # Semantic path — the candidate. Enrichers run BEFORE Schema
+    # Understanding, in order: Composite Extractor → Identity Parser.
+    # Both are pure, deterministic, vendor-neutral.
     enriched = expand_composites(parsed)
+    enriched = expand_identities(enriched)
     fingerprint = understand_schema(enriched)
     mapping = map_semantic_fields(fingerprint, enriched)
     semantic_cem = build_semantic_cem(enriched, mapping)
@@ -398,6 +400,15 @@ def render_parity_markdown(reports: List[ParityReport]) -> str:
         lines.append("")
 
     lines.append("---")
+    lines.append("")
+    lines.append("## Trend (recent runs)")
+    lines.append("")
+    try:
+        from .parity_trend import read_entries, render_trend_markdown
+        entries = read_entries()
+        lines.append(render_trend_markdown(entries))
+    except Exception as e:  # never break the report on trend issues
+        lines.append(f"_trend ledger unavailable: {type(e).__name__}_")
     lines.append("")
     lines.append("*Regenerated on every pytest run of "
                  "`test_cem_parity.py`. Cut-over decisions require "

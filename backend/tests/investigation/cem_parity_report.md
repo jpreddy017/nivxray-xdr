@@ -6,21 +6,20 @@ Fixtures compared: 13
 
 | Metric | Value |
 |---|---|
-| Matches | 21 |
-| New (semantic-only) | 16 |
+| Matches | 22 |
+| New (semantic-only) | 17 |
 | Lost (vendor-only) | 3 |
-| Value mismatches | 1 |
+| Value mismatches | 0 |
 | Ambiguous | 0 |
-| Mean parity rate | 37.1% |
-| Mean confidence drift | -0.101 |
+| Mean parity rate | 38.4% |
+| Mean confidence drift | -0.110 |
 
 ## Gap classification (where engineering effort lands)
 
 | Category | Count |
 |---|---|
-| `expected_divergence` | 16 |
+| `expected_divergence` | 17 |
 | `event_inference` | 1 |
-| `identity_parser` | 1 |
 | `parser_gap` | 1 |
 | `schema_gap` | 1 |
 
@@ -28,7 +27,7 @@ Fixtures compared: 13
 
 | Criterion | Target | Current |
 |---|---|---|
-| Mapping parity | ≥ 99.5% | 37.1% ⏸ |
+| Mapping parity | ≥ 99.5% | 38.4% ⏸ |
 | Unexplained confidence regressions | 0 | 1 ⏸ |
 | Ambiguous mapping increase | 0 | 0 ✅ |
 
@@ -57,15 +56,15 @@ Fixtures compared: 13
 
 - vendor route: `sysmon` · schema: `generic_json`
 - vendor fields: 5 · semantic fields: 6
-- matches: **4** · new: 1 · lost: 0 · mismatches: 1 · ambiguous: 0
-- parity: **66.7%** · confidence drift: -0.086
+- matches: **5** · new: 1 · lost: 0 · mismatches: 0 · ambiguous: 0
+- parity: **83.3%** · confidence drift: -0.081
 - field deltas:
   - ➕ · [expected_divergence] `file.hash_sha256` vendor=None · semantic='dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd' · semantic path resolved a field the vendor route did not populate
   - ✅ `host.name` vendor='host-a' · semantic='host-a'
   - ✅ `process.command_line` vendor='cmd.exe /c whoami' · semantic='cmd.exe /c whoami'
   - ✅ `process.hash_sha256` vendor='dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd' · semantic='dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
   - ✅ `process.image` vendor='C:/Windows/System32/cmd.exe' · semantic='C:/Windows/System32/cmd.exe'
-  - ⚠️ · [identity_parser] `user.name` vendor='alice' · semantic='CORP\\alice' · different values across pipelines
+  - ✅ `user.name` vendor='alice' · semantic='alice'
 
 ### `sysmon_dns_query`
 
@@ -170,12 +169,20 @@ Fixtures compared: 13
 ### `alien::saas_audit_log`
 
 - vendor route: `generic` · schema: `generic_json`
-- vendor fields: 0 · semantic fields: 1
-- matches: **0** · new: 1 · lost: 0 · mismatches: 0 · ambiguous: 0
-- parity: **0.0%** · confidence drift: +0.200
+- vendor fields: 0 · semantic fields: 2
+- matches: **0** · new: 2 · lost: 0 · mismatches: 0 · ambiguous: 0
+- parity: **0.0%** · confidence drift: +0.075
 - field deltas:
   - ➕ · [expected_divergence] `network.url` vendor=None · semantic='https://audit.example.com/records/INV-2026-00483' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `user.name` vendor=None · semantic='morgan.li' · semantic path resolved a field the vendor route did not populate
 
 ---
+
+## Trend (recent runs)
+
+| Time (UTC) | git | Fixtures | Parity | Drift | Matches | Lost | Categories | Note |
+|---|---|---|---|---|---|---|---|---|
+| 2026-08-02 07:59:02 | `8a090ba` | 13 | **37.1%** | -0.110 | 21 | 3 | event_inference:1, expected_divergence:17, identity_parser:1, parser_gap:1, schema_gap:1 | pytest run |
+| 2026-08-02 07:59:33 | `8a090ba` | 13 | **37.1%** | -0.110 | 21 | 3 | event_inference:1, expected_divergence:17, identity_parser:1, parser_gap:1, schema_gap:1 | pytest run |
 
 *Regenerated on every pytest run of `test_cem_parity.py`. Cut-over decisions require owner review of this report.*

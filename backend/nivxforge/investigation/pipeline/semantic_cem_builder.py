@@ -117,6 +117,13 @@ def _build_event(record_idx: int,
     for concept, rows in container_grouped.items():
         grouped.setdefault(concept, rows)
 
+    # Prefer more-specific (deeper-dotted) surfaces when multiple map
+    # to the same concept. This makes enriched sibling fields (e.g.
+    # ``User.username`` from the identity parser) win over the raw
+    # origin (``User = "CORP\\alice"``).
+    for concept, rows in grouped.items():
+        rows.sort(key=lambda r: (-r[0].count("."), -r[2]))
+
     prov = Provenance(
         source="semantic_cem_builder",
         confidence=mapping.semantic_confidence,
