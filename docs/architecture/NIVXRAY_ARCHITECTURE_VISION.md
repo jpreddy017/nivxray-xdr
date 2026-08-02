@@ -158,6 +158,27 @@ registry_version)`. **Never performs semantic mapping.**
 
 ### Semantic Field Mapper
 
+Owns concept resolution — never parsing, decoding, investigation,
+timeline, ATT&CK reasoning, or IOC enrichment. Frozen contract:
+
+  · Consumes `SchemaFingerprint` + `ParsedInput` + `semantic_alias_registry_v1`
+  · Emits `SemanticMappingResult(mappings, unmapped_fields,
+    ambiguous_fields, semantic_confidence, evidence, diagnostics,
+    registry_version)`
+  · Every `FieldMapping` is explainable via `confidence_provenance`
+    — an itemised ledger of `SignalContribution(signal, delta,
+    detail)` records whose deltas sum to the final confidence.
+  · Ambiguity band: two concepts within
+    `SEMANTIC_AMBIGUITY_THRESHOLD` (default 0.15, single constant)
+    are surfaced as `ambiguous_fields` — never silently resolved.
+  · Signals: registry alias match + value-shape boosts (via
+    `value_shape.py` — full boundary detection: IPv4/IPv6/MAC/ASN/
+    hashes/URL/email/SID/GUID/JWT/paths/registry/MITRE&CVE/
+    Windows Event/AWS ARN/Azure Resource/K8s object/container
+    IDs/OCI digest/DNS RR types) + sibling concept co-occurrence +
+    dotted-namespace context.
+  · Zero vendor knowledge. Enforced by contract test.
+
 Maps concept-level entities from field-name aliases using the
 **Semantic Alias Registry** (see §5):
 - `DeviceName`, `Computer`, `HostName`, `endpoint`, `machine`,
@@ -339,8 +360,9 @@ before code is written.
 | Phase | Milestone | Status |
 |---|---|---|
 | 1 | Phase 1 pipeline · CEM · Graph · Narrative · Entity Resolution | ✅ Frozen (148/148 tests, Suricata defect closed) |
-| 2a | **Schema Understanding** + Semantic Alias Registry v1 | ✅ Built (this milestone) |
-| 2b | Semantic Field Mapper · Timeline · Attack Chain · Correlation | 🔴 Not started |
+| 2a | **Schema Understanding** + Semantic Alias Registry v1 | ✅ Built (frozen contract) |
+| 2b | **Semantic Field Mapping** (Stage 3) + Value Shape library + Alien Corpus | ✅ Built (frozen contract) |
+| 2c | Timeline · Attack Chain · Correlation | 🔴 Not started (blocked on Stage 3 validation) |
 | 3 | Reasoning · Confidence · Hypothesis · Root Cause · Visibility · Threat Family · TI Interface | 🔴 Not started |
 | 4 | Recommendation Engine · Structured Report Ownership migration | 🔴 Not started |
 | 5 | Commandline Analysis Engine · Rich Narrative expansion | 🔴 Not started |

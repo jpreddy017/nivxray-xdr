@@ -2,6 +2,21 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-XX · Semantic Pipeline Stage 3 · Semantic Field Mapping + Value Shape Library + Alien Telemetry Corpus
+
+**Architecture:** `/app/docs/architecture/NIVXRAY_ARCHITECTURE_VISION.md` (Stage 3 contract frozen)
+
+**Ships:**
+- **Value Shape library** (`/app/backend/nivxforge/investigation/pipeline/value_shape.py`) — pure, deterministic, vendor-neutral boundary detection covering IPv4/IPv6/CIDR, MAC, ASN, ports, PIDs, Windows Event IDs, domain/FQDN, URL/URI, DNS RR types, email + Message-ID, Windows SID, GUID/UUID, JWT, Windows/POSIX paths, file extensions, registry paths, Linux inode/device, MD5/SHA1/SHA256/SHA512, PEM certificates, Base64, MITRE technique/tactic/software/group IDs, CVE/CWE/CAPEC IDs, AWS ARN, Azure Resource ID, Kubernetes object names, container IDs (short/full), OCI SHA256 digest. Ships with `SHAPE_CONCEPT_AFFINITY` table so shape → concept boosts stay declarative.
+- **Semantic Field Mapper (Stage 3)** (`/app/backend/nivxforge/investigation/pipeline/semantic_field_mapper.py`) — consumes `SchemaFingerprint` + `ParsedInput` + `semantic_alias_registry_v1`. Emits `SemanticMappingResult(mappings, unmapped_fields, ambiguous_fields, semantic_confidence, evidence, diagnostics, registry_version)`. Never decodes, never investigates, never enriches IOCs, never branches on vendor. Every `FieldMapping` carries a `confidence_provenance` ledger of `SignalContribution(signal, delta, detail)` records that sum to the final confidence — explainability is mandatory, not optional. Contextual boosts: sibling-concept co-occurrence + dotted-namespace family alignment. Configurable `SEMANTIC_AMBIGUITY_THRESHOLD = 0.15`.
+- **Alien Telemetry Corpus** (`/app/backend/tests/investigation/corpus/alien/`) — 5 seed shapes: ICS/OT SCADA, custom SaaS audit log, legacy mainframe SMF, IoT/Edge telemetry, cloud-native proprietary JSON. Permanent regression asset; grows over time as new alien formats are encountered.
+- **Release-metric regression** (`test_alien_corpus_coverage.py`) — parametrized across every corpus file: parser succeeds → SchemaFingerprint returns → SemanticMappingResult returns → `run_phase1` reaches the Investigation Graph. Every candidate field is accounted for (mapped, ambiguous, or unmapped — never silently dropped). Aggregate mapping-rate floor guards against silent Stage 3 regressions.
+
+**Tests:** 212 → **313 passing investigation tests** (+101). Includes explainability contract, vendor-neutrality contract, non-responsibility contract (no decoding, no network I/O), determinism contract, and per-corpus-file conformance.
+
+**Preserves:** Orchestrator wiring untouched — Stage 3 is standalone and contract-tested. CEM sibling wiring, Timeline, Attack Chain, and Correlation are deliberately deferred until Stage 3 has soaked and been validated end-to-end.
+
+
 ## 2026-02-XX · Semantic Pipeline Stage 2 · Schema Understanding + Semantic Alias Registry v1
 
 **Architecture:** `/app/docs/architecture/NIVXRAY_ARCHITECTURE_VISION.md` (revised with owner amendments)
