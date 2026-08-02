@@ -13,11 +13,62 @@ Any next agent MUST read this before writing code.
 
 ---
 
-## 🚨 P0 · RECOVER MY WORKSPACE — NO NEW FEATURES (owner · 2026-02-XX)
+## 🚨 P0 · WORKSPACE DECODE PIPELINE RECOVERY & CERTIFICATION (owner · 2026-02-XX)
 
-### Objective
-Workspace is the primary production product. Do NOT improve, redesign,
-or modernize it. Restore the last known-good Workspace exactly.
+### The Product Being Recovered
+We are NOT recovering old UI · old code · old architecture.
+We ARE recovering the **behaviour of the Workspace Decode Pipeline**.
+
+### Two-Layer Model (canonical)
+
+**Layer 1 · Decode Pipeline (Primary Product · what we recover)**
+```
+Input → Payload Extraction → Interpreter Detection → Decode
+Orchestrator → Decoder Selection → Multi-stage Decoding →
+Normalization → Runtime Reconstruction → IOC Extraction →
+Family Interpreter → Final Decoded Payload
+```
+Owns: payload extraction · interpreter ownership · decoder
+orchestration · multi-layer decoding · Base64/Hex/ROT/URL/Unicode
+· PowerShell/CMD/Bash normalization · compression · XOR/Crypto
+· runtime reconstruction · IOC extraction · family interpretation
+· final decoded artifact. **This layer IS the Workspace.**
+
+**Layer 2 · Intelligence Layer (Consumer · does NOT influence Layer 1)**
+Shellcode analysis · Disassembly · MITRE · LOLBAS · Threat Graph
+· Attack Path · Process Tree · Timeline · Investigation · Reports
+· AI · OSINT. **Must consume decoded output without modifying,
+reinterpreting, or influencing the Decode Pipeline.**
+
+### Decode Pipeline Contract (permanent)
+The Decode Pipeline is the canonical product of the Workspace and
+the sole authority for transforming an encoded command line or
+payload into its deterministic decoded form. Every downstream
+module consumes the certified decoder output — never modifies,
+reinterprets, or influences the Decode Pipeline.
+
+### Success Criteria (must all hold)
+✅ Correct interpreter selected
+✅ Correct decoder chain selected
+✅ Correct stage order
+✅ Correct transformation trace
+✅ Correct intermediate payloads
+✅ Correct final decoded payload
+✅ Correct runtime reconstruction
+✅ Correct IOC extraction
+✅ Deterministic output
+✅ Identical behaviour on the certified regression corpus
+Only after all ✅ may the Intelligence Layer be validated.
+
+### Permanent Engineering Rule · Decoder Before Intelligence
+No new intelligence feature · visualization · AI capability · graph
+· investigation workflow · reporting enhancement · UI improvement
+may be developed until the Decode Pipeline passes the full
+certified Workspace Regression Corpus. Decode Pipeline correctness
+and determinism ALWAYS take precedence over feature development.
+
+---
+
 
 ### Phase 1 · Recovery First — no new Workspace code
 - Baseline = **v1.5.6 tag `fff5897`** (Jul 28 16:10 UTC). Verified in
