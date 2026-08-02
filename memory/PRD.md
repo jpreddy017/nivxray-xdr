@@ -13,6 +13,32 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## ✅ PHASE 3 & 3.5 COMPLETE — Evidence Available (2026-02-XX)
+
+Phase 3 (Behavioral A/B) and Phase 3.5 (Behavior-linked Dependency Graph)
+have been executed. Zero files were restored, forked, or wired. Full
+runtime evidence lives under `backend/workspace_recovery/`:
+
+- `EVIDENCE_SUMMARY.md`     — headline findings (read this first)
+- `phase3_ab_report.md`     — per-sample decoder chain + stage traces
+- `phase3_5_dep_graph.md`   — behavior-linked chains + blast radius
+- `corpus.json`             — 10-sample certification corpus v1.0.0
+- `runner.py`, `dep_graph.py`, `tree_worker.py` — deterministic harness
+
+**Result: 9 / 10 samples diverge between v1.5.6 baseline and current HEAD.**
+Behavioral drift is concentrated in ≤ 6 modules:
+`operations`, `magic_decoder`, `analysis_core`, `engine.orchestrator`,
+`rc22_adapter`, `decoders/ps_alias_normalizer.py`.
+
+**The `\bpowershell\b` routing flaw is confirmed by runtime evidence**
+(sample `S10_bash_with_powershell_comment`).
+
+Next authorised phase: **Phase 4 — root cause per divergent sample.**
+Wait for owner review of `EVIDENCE_SUMMARY.md` before starting Phase 4.
+
+---
+
+
 ## 🚨 P0 · WORKSPACE DECODE PIPELINE RECOVERY & CERTIFICATION (owner · 2026-02-XX)
 
 ### The Product Being Recovered
