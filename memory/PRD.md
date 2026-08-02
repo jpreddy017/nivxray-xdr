@@ -13,6 +13,33 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## 🛑 CLOSING RULE (owner-locked · stated once · not to be revisited)
+
+> From this point onward, every line of code should improve decode
+> capability, transformation coverage, correctness, determinism,
+> performance, or analyst value. If it doesn't measurably improve at
+> least one of those dimensions, it probably doesn't belong in the
+> current implementation phase.
+
+The four questions the owner asks after every milestone (and the only
+questions that determine whether a milestone is complete):
+
+1. How many new real-world samples decode correctly?
+2. Which new deterministic transformations are now supported?
+3. Did DCS increase?
+4. Were there zero regressions?
+
+Improve all four → milestone complete. Otherwise → not complete.
+
+**No more governance documents, PRDs, contracts, freeze rules,
+milestone definitions, DCS definitions, or coverage metrics are to be
+added. The design and governance phase is closed.** The next
+architectural idea is accepted only if the implementation produces
+evidence that the current architecture cannot satisfy the Decode
+Accuracy Contract.
+
+---
+
 ## ⭐ NORTH STAR METRIC · Decoder Capability Score (DCS)
 
 The Decoder Capability Score is the project's release KPI. Every
