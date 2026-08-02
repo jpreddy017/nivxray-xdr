@@ -1654,6 +1654,45 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     try:
         import re as _re
         src = body.input or ""
+        # ── Interpreter Gate (Workspace bug fix · Feb 2026) ──────────
+        # PowerShell-specific normalization stages MUST NOT run against
+        # non-PowerShell interpreters (Bash / CMD / OpenSSL / etc.).
+        # Subtractive guard: only KNOWN non-PS interpreters skip PS
+        # stages; ambiguous inputs preserve prior behaviour so no
+        # legitimate PowerShell path regresses. See regression tests
+        # in test_interpreter_gate.py.
+        def _looks_like_non_powershell(text: str) -> bool:
+            if not text:
+                return False
+            stripped = text.lstrip()
+            # #!/bin/bash, #!/usr/bin/env bash, etc.
+            if stripped.startswith("#!"):
+                shebang = stripped.split("\n", 1)[0].lower()
+                if any(s in shebang for s in
+                       ("bash", "/sh", "zsh", "ksh", "dash", "python")):
+                    return True
+            first_tok = _re.match(r"[^\s;&|]+", stripped)
+            if not first_tok:
+                return False
+            head = first_tok.group(0).lower()
+            # Strip leading path components: /bin/bash → bash
+            if "/" in head:
+                head = head.rsplit("/", 1)[-1]
+            _NON_PS_HEADS = {
+                "eval", "exec", "sh", "bash", "dash", "zsh", "ksh",
+                "openssl", "tr", "sed", "awk", "xxd", "rev", "curl",
+                "wget", "python", "python3", "perl", "ruby", "node",
+                "cmd", "cmd.exe",
+            }
+            if head in _NON_PS_HEADS:
+                return True
+            # Bash command-substitution "$(..." or backtick-substitution
+            # at the leading position — these are Bash grammar, never PS.
+            if stripped.startswith("$(") or stripped.startswith("`"):
+                return True
+            return False
+
+        _skip_ps_stages = _looks_like_non_powershell(src)
         trace = []
         # Pattern 1: SET var + %var:from=to%
         set_re = _re.compile(r"""(?:^|[\s&])set\s+["']?(\w+)["']?\s*=\s*["']?([^"'\r\n&|<>]+?)["']?(?=\s*(?:&&?|\|\|?|$|\r|\n))""",
@@ -1772,10 +1811,10 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
 
         # RC4.2 · PowerShell chain evaluator — reverse+regex-swap pipe pattern.
         # Fires on `-replace '(\w+)\.(\w+)','$2.$1'` + `ForEach-Object {$_[-1..-N] -join ''}`
-        if _re.search(r"-replace\s*['\"]\([^)]+\)\\\.\([^)]+\)['\"]\s*,\s*['\"]\$2\.\$1['\"]",
+        if not _skip_ps_stages and (_re.search(r"-replace\s*['\"]\([^)]+\)\\\.\([^)]+\)['\"]\s*,\s*['\"]\$2\.\$1['\"]",
                        src, _re.IGNORECASE) or \
            _re.search(r"ForEach-Object\s*\{\s*\$_\[\s*-1\s*\.\.\s*-\d+\s*\]\s*-join",
-                       src, _re.IGNORECASE):
+                       src, _re.IGNORECASE)):
             from operations import run_operation as _run_op_ps_sem
             try:
                 sem_out = _run_op_ps_sem("powershell-semantic-mini", src, {})
@@ -1802,7 +1841,7 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # (a) a backtick precedes an identifier char (in-token obfusc.)
         # (b) a backtick precedes ``\r?\n`` (line continuation)
         # so both variants trigger the module.
-        if "`" in src and (_re.search(r"`[A-Za-z0-9_]", src)
+        if (not _skip_ps_stages) and "`" in src and (_re.search(r"`[A-Za-z0-9_]", src)
                               or _re.search(r"`[ \t]*\r?\n", src)):
             from operations import run_operation as _run_op_ps_bt
             try:
@@ -1824,7 +1863,7 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # RC4.5 · PowerShell Alias → Canonical Cmdlet Normalizer — fires
         # only when the input mentions powershell/pwsh (so we don't
         # accidentally rewrite the word ``ls`` inside plain shell text).
-        if _re.search(r"\b(?:powershell(?:\.exe)?|pwsh(?:\.exe)?)\b", src, _re.IGNORECASE):
+        if not _skip_ps_stages and _re.search(r"\b(?:powershell(?:\.exe)?|pwsh(?:\.exe)?)\b", src, _re.IGNORECASE):
             from operations import run_operation as _run_op_ps_alias
             try:
                 al_out = _run_op_ps_alias("powershell-alias-normalize", src, {})
@@ -1847,7 +1886,7 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # at least one dash-prefixed parameter (accepting either whitespace
         # OR comma as the preceding separator — that's the mixed-case
         # comma-obfuscation case).
-        if _re.search(r"\b(?:powershell(?:\.exe)?|pwsh(?:\.exe)?)\b", src, _re.IGNORECASE) \
+        if not _skip_ps_stages and _re.search(r"\b(?:powershell(?:\.exe)?|pwsh(?:\.exe)?)\b", src, _re.IGNORECASE) \
                 and _re.search(r"[\s,]-[A-Za-z]", src):
             from operations import run_operation as _run_op_ps_norm
             try:
