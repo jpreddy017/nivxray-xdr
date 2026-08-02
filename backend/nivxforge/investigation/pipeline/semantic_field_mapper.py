@@ -174,6 +174,14 @@ def map_semantic_fields(fingerprint: SchemaFingerprint,
     #    `source.port` supporting the "source" namespace family).
     _apply_namespace_boosts(per_field_candidates)
 
+    # 4a. Leaf-origin evidence rescale — MUST happen after sibling +
+    #     namespace boosts so leaf-only matches with corroborators
+    #     receive the correct tier.
+    for cands in per_field_candidates.values():
+        for cand in cands:
+            _rescale_leaf_origin_matches(cand)
+            cand.confidence = _sum_and_clamp(cand.provenance)
+
     # 5. Resolve each field to Mapped / Ambiguous / Unmapped.
     for field, cands in per_field_candidates.items():
         cands_sorted = sorted(cands, key=lambda c: -c.confidence)
@@ -278,6 +286,13 @@ def _score_field(field: str,
     #    the leaf field name (when dotted). Nested telemetry commonly
     #    exposes surfaces like ``file.file_name`` where the semantic
     #    concept lives in the leaf token.
+    #
+    #    Leaf-origin matches are scored on an evidence-dependent scale
+    #    (see ``_leaf_confidence_multiplier``): a leaf hit corroborated
+    #    by value-shape / sibling / namespace signals earns closer to
+    #    full alias confidence; a leaf-only hit is taxed to 0.80×.
+    #    Rescaling happens *after* value-shape scoring so we can see
+    #    which corroborators actually fired.
     surfaces_to_try: List[Tuple[str, str]] = [(field, "surface")]
     if "." in field:
         leaf = field.rsplit(".", 1)[1]
@@ -298,22 +313,16 @@ def _score_field(field: str,
                       + (":leaf" if origin == "leaf" else ""))
             if signal in {p.signal for p in cand.provenance}:
                 continue
-            # Leaf matches carry a small confidence tax to keep the
-            # full-surface match preferred when both hit the same
-            # concept.
-            confidence = (match.confidence
-                          if origin == "surface"
-                          else round(match.confidence * 0.9, 4))
             cand.provenance.append(SignalContribution(
                 signal=signal,
-                delta=confidence,
+                delta=match.confidence,
                 detail=(f"{origin} '{match.surface_normalized}' is a "
                         f"declared v1 alias for {match.concept} "
-                        f"(base confidence {confidence:.2f})"),
+                        f"(base confidence {match.confidence:.2f})"),
             ))
             cand.matched_aliases.append(match.surface_normalized)
             cand.supporting_signals.append(signal)
-            cand.base_confidence = max(cand.base_confidence, confidence)
+            cand.base_confidence = max(cand.base_confidence, match.confidence)
 
     # 2. Value-shape signals — sample the field's values.
     shape_totals: Dict[Tuple[str, str], float] = {}
@@ -363,10 +372,85 @@ def _score_field(field: str,
         cand.supporting_signals.append(signal)
 
     # 3. Compute confidences (sum of provenance deltas, clamped).
+    #    Leaf-origin rescaling happens LATER — after sibling and
+    #    namespace boosts fire — so corroboration is fully counted.
     for cand in by_concept.values():
         cand.confidence = _sum_and_clamp(cand.provenance)
 
     return list(by_concept.values())
+
+
+# ── Leaf-confidence scale (evidence-dependent) ───────────────────
+
+def _leaf_confidence_multiplier(has_shape: bool,
+                                has_sibling: bool,
+                                has_namespace: bool) -> Tuple[float, str]:
+    """Evidence-dependent scale for leaf-origin registry matches.
+
+    Returns (multiplier, tier_label). The multiplier is applied to
+    the raw registry confidence declared for the leaf alias; the tier
+    label surfaces in the provenance ledger so analysts can see which
+    band applied.
+
+    Tiers (per owner directive 2026-02-XX):
+        leaf + shape + sibling            → 0.95   "corroborated_strong"
+        leaf + shape + namespace          → 0.95   "corroborated_strong"
+        leaf + one corroborating signal   → 0.90   "corroborated"
+        leaf + no corroborating signals   → 0.80   "leaf_only"
+    """
+    corroborators = sum([has_shape, has_sibling, has_namespace])
+    if corroborators >= 2:
+        return (0.95, "corroborated_strong")
+    if corroborators == 1:
+        return (0.90, "corroborated")
+    return (0.80, "leaf_only")
+
+
+def _rescale_leaf_origin_matches(cand: _Candidate) -> None:
+    """Rewrite any ``registry_alias_match:*:leaf`` contributions in
+    place, applying the evidence-dependent multiplier.
+
+    Full-surface (non-leaf) matches are left untouched. When the same
+    concept has both a full-surface AND a leaf match, the full-surface
+    delta already dominates — the leaf rescale only affects how much
+    the leaf hit contributes on top."""
+    leaf_indices = [
+        i for i, p in enumerate(cand.provenance)
+        if p.signal.startswith("registry_alias_match:")
+        and p.signal.endswith(":leaf")
+    ]
+    if not leaf_indices:
+        return
+
+    has_shape = any(p.signal.startswith("value_shape:")
+                    for p in cand.provenance)
+    has_sibling = any(p.signal.startswith("sibling_concept:")
+                      for p in cand.provenance)
+    has_namespace = any(p.signal.startswith("namespace_context:")
+                        for p in cand.provenance)
+    multiplier, tier = _leaf_confidence_multiplier(
+        has_shape, has_sibling, has_namespace,
+    )
+
+    for i in leaf_indices:
+        orig = cand.provenance[i]
+        scaled_delta = round(orig.delta * multiplier, 4)
+        cand.provenance[i] = SignalContribution(
+            signal=orig.signal,
+            delta=scaled_delta,
+            detail=(f"{orig.detail} · leaf tier '{tier}' "
+                    f"(×{multiplier:.2f})"),
+        )
+    # Book-keeping signal so the tier is visible in the ledger
+    # even when the leaf delta itself is small.
+    cand.provenance.append(SignalContribution(
+        signal=f"leaf_confidence_scale:{tier}",
+        delta=0.0,
+        detail=(f"leaf-origin registry match scaled by ×{multiplier:.2f} "
+                f"— shape={has_shape}, sibling={has_sibling}, "
+                f"namespace={has_namespace}"),
+    ))
+    cand.supporting_signals.append(f"leaf_confidence_scale:{tier}")
 
 
 def _sum_and_clamp(provenance: List[SignalContribution]) -> float:

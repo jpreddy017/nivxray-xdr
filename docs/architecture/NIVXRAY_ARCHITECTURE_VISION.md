@@ -362,7 +362,9 @@ before code is written.
 | 1 | Phase 1 pipeline · CEM · Graph · Narrative · Entity Resolution | ✅ Frozen (148/148 tests, Suricata defect closed) |
 | 2a | **Schema Understanding** + Semantic Alias Registry v1 | ✅ Built (frozen contract) |
 | 2b | **Semantic Field Mapping** (Stage 3) + Value Shape library + Alien Corpus | ✅ Built (frozen contract) |
-| 2c | Timeline · Attack Chain · Correlation | 🔴 Not started (blocked on Stage 3 validation) |
+| 2c | **Additive CEM sibling wiring** + Parity Comparator | ✅ Built (additive; cut-over pending owner review of parity report) |
+| 2d | Cut-over: Semantic Field Mapping → CEM (default path) | 🔴 Blocked on parity thresholds (see REGISTRY_GOVERNANCE.md) |
+| 2e | Timeline · Attack Chain · Correlation | 🔴 Not started (sequenced after cut-over) |
 | 3 | Reasoning · Confidence · Hypothesis · Root Cause · Visibility · Threat Family · TI Interface | 🔴 Not started |
 | 4 | Recommendation Engine · Structured Report Ownership migration | 🔴 Not started |
 | 5 | Commandline Analysis Engine · Rich Narrative expansion | 🔴 Not started |

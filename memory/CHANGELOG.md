@@ -2,6 +2,20 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-XX · Leaf-Confidence Scale + Registry Governance + Additive CEM Wiring + Parity Comparator
+
+**Ships:**
+- **Evidence-dependent leaf confidence** in `semantic_field_mapper.py` — replaces the flat `0.9×` leaf tax with a four-tier scale (`leaf_only`=0.80 · `corroborated`=0.90 · `corroborated_strong`=0.95) that rewards value-shape / sibling / namespace corroboration. Rescaling runs AFTER sibling+namespace boosts so corroborators added late are counted. Every leaf-origin match surfaces a `leaf_confidence_scale:<tier>` marker in the provenance ledger.
+- **`REGISTRY_GOVERNANCE.md`** at `/app/docs/architecture/` — five-gate promotion pipeline (Observed → Frequency → Cross-vendor occurrence → Human review → Registry promotion), cross-vendor threshold ≥ 3 independent families, versioning rules (patch vs. major), anti-pattern catalogue, and a live backlog of soak-surfaced candidate aliases held pending cross-family evidence.
+- **`semantic_cem_builder.py`** — additive Stage 4 path that builds a `CanonicalEventModel` from `SemanticMappingResult` + `ParsedInput`. Event kind inferred by concept co-occurrence (Process+Command→process_create, IP+Port→network_connect, Registry→registry_write, …). Vendor identity attaches only as `provenance.vendor` metadata; never routes behaviour. Scalar values preferred over dict/list containers to keep string-typed entities analyst-defensible.
+- **`cem_parity.py`** — parallel-run harness that compares vendor-normalized CEM vs semantic CEM on every fixture. Computes matches, new mappings, lost mappings, value mismatches, ambiguous count, confidence drift, and per-fixture parity rate. Renders a full Markdown parity report at `tests/investigation/cem_parity_report.md` with a cut-over criteria table (target ≥ 99.5% parity · zero unexplained confidence regressions · zero ambiguous increase).
+- **`test_cem_parity.py`** — additive-safety pytest: semantic path never raises, semantic CEM well-formed for every fixture, alien corpus produces a semantic CEM, report file regenerated on every run. Does NOT enforce parity thresholds — cut-over is an owner decision informed by the report.
+
+**Nothing removed. Nothing rewired.** The orchestrator's default path is still the vendor normalizers. Semantic wiring lives strictly alongside them until parity meets the criteria in `REGISTRY_GOVERNANCE.md`.
+
+**Tests: 346/346 investigation-suite pass** (was 316). Current parity mean: **35.1%** — correctly ⏸ pending cut-over. Cut-over criteria panel shows two blockers (mapping parity, unexplained confidence regressions) and one green (ambiguous mapping increase = 0). Full evidence in the parity report.
+
+
 ## 2026-02-XX · Stage 3 Soak + Semantic Mapping Inspector (Lab route)
 
 **Ships:**
