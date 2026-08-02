@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from nivxforge.investigation.cem import CanonicalEventModel
 from .artifact_discovery import DiscoveredArtifactRef, discover
+from .entity_resolution import EntityMerge, resolve_entities
 from .evidence_extraction import EvidenceBundle, extract
 from .evidence_validation import ValidationReport, validate
 from .graph_builder import InvestigationGraph, build
@@ -43,6 +44,7 @@ class InvestigationState:
     evidence: EvidenceBundle
     graph: InvestigationGraph
     validation: ValidationReport
+    entity_merges: Tuple[EntityMerge, ...] = tuple()
     stage_trace: List[Dict[str, Any]] = field(default_factory=list)
 
     def summary(self) -> Dict[str, Any]:
@@ -103,6 +105,15 @@ def run_phase1(raw_input: str) -> InvestigationState:
                    "nodes": len(graph.nodes),
                    "edges": len(graph.edges)})
 
+    # Phase 2 · Entity Resolution — collapse HOST01 + 10.1.1.15 +
+    # host01.contoso.local into a single canonical Host node so
+    # every downstream stage (Timeline, Attack Chain, Correlation)
+    # reasons about entities rather than duplicate identifiers.
+    graph, entity_merges = resolve_entities(graph)
+    trace.append({"stage": "entity_resolution",
+                   "merges": len(entity_merges),
+                   "nodes_after": len(graph.nodes)})
+
     validation = validate(graph)
     trace.append({"stage": "evidence_validation",
                    "findings": validation.summary()})
@@ -118,6 +129,7 @@ def run_phase1(raw_input: str) -> InvestigationState:
         evidence=evidence,
         graph=graph,
         validation=validation,
+        entity_merges=entity_merges,
         stage_trace=trace,
     )
 

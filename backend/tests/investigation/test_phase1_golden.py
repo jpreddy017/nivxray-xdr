@@ -143,13 +143,14 @@ def test_phase1_exit_cisco_secure_endpoint():
     state = run_phase1(CISCO_SECURE_ENDPOINT)
     _dump("01_cisco_secure_endpoint", state)
 
-    # Locked stage order verified
+    # Locked stage order verified (Phase 1 stages + Phase 2 head)
     stages = [t["stage"] for t in state.stage_trace]
     assert stages == [
         "input_classification", "parser", "vendor_detection",
         "vendor_normalization", "artifact_discovery",
         "recursive_decoder", "evidence_extraction",
-        "investigation_graph", "evidence_validation",
+        "investigation_graph", "entity_resolution",
+        "evidence_validation",
     ]
 
     # Vendor identified correctly

@@ -27,7 +27,8 @@ def test_end_to_end_encoded_powershell():
         "input_classification", "parser", "vendor_detection",
         "vendor_normalization", "artifact_discovery",
         "recursive_decoder", "evidence_extraction",
-        "investigation_graph", "evidence_validation",
+        "investigation_graph", "entity_resolution",
+        "evidence_validation",
     ]
 
 
