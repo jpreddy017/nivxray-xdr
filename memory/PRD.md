@@ -7,40 +7,78 @@ Timeline Builder is live as a deterministic **renderer** over the validated
 Investigation Graph. Contract enforced (owner directive 2026-08-02):
 "Timeline is a renderer over validated evidence, not an inference engine."
 
+### Canonical `TimelineEvent` contract (shared by Attack Chain + Correlation)
+
+Owner directive 2026-02-XX: every timeline entry must answer *why does this
+event exist?* not just *what happened?*. The canonical schema published by
+`timeline_builder.py` is:
+
+```
+TimelineEvent
+  id                    deterministic hash id
+  source_event          CEM event_id (foreign key back to CEM)
+  timestamp             datetime | None
+  timestamp_precision   "exact" | "unknown"
+  timestamp_source      "CEM.event.timestamp" | "unavailable"
+  event_type            "Process Create" | "File Modify" | ...   (canonical)
+  kind                  process | file | registry | network | ...
+  action                verb — 1:1 with EventKind
+  actor                 GraphNode id | None
+  targets[]             direct objects of the CEM event
+  artifacts[]           IOCs linked via graph edges (decoded / extracted)
+  source_nodes[]        every GraphNode id referenced
+  summary               deterministic string, no NLG
+  provenance[]          list of ProvenanceEntry rows (origin/source/reason/confidence)
+  confidence            min over provenance rows (never overstates)
+```
+
+Attack Chain (next) and Correlation (after) consume this contract unchanged.
+
 ### Files delivered
 - `/app/backend/nivxforge/investigation/pipeline/timeline_builder.py`
   — `build(cem, graph) → Timeline` (pure function; same input → byte-identical output)
 - `/app/backend/routers/timeline_lab.py`
   — `POST /api/v2/timeline/preview` (X-Lab / observational read-only endpoint)
-- `/app/backend/tests/investigation/test_timeline_builder.py` (17 tests)
+- `/app/backend/tests/investigation/test_timeline_builder.py` (24 tests)
 
 ### Contract enforced by tests
 - Every entry references a CEM event_id that exists in the input CEM.
-- Every actor/target references a GraphNode id that already exists in the graph
-  — never phantom.
-- Action verbs come from a fixed `EventKind → verb` map (no NLG).
-- Summaries are deterministic strings from validated node labels.
-- Actor is never listed as its own target; evidence_refs are unique.
-- Empty CEM → empty Timeline. Events with no graph anchor → dropped, not fabricated.
-- Deterministic sort: `(timestamp asc, event_id, kind, entry_id)`; unknown-time
+- Every actor / target / artifact / source_node references a GraphNode id
+  that already exists in the graph — never phantom.
+- Action verbs come from a fixed `EventKind → verb` map; event_type is
+  drawn from a fixed `EventKind → label` map (no NLG anywhere).
+- `targets` = direct CEM event fields; `artifacts` = IOCs surfaced only
+  via graph edges → never conflated.
+- Every entry carries a Telemetry provenance row citing its CEM event_id;
+  artefact-bearing entries add a Decoded provenance row citing the graph
+  edges. Entry-level `confidence` = min over provenance rows.
+- Actor is never listed as its own target or artifact; source_nodes unique.
+- Empty CEM → empty Timeline. Events with no graph anchor → dropped, not
+  fabricated.
+- Deterministic sort: `(timestamp asc, source_event, kind, id)`; unknown-time
   entries sort to the end.
 
 ### Isolation
-- Wired ONLY into the new `/api/v2/timeline/preview` lab endpoint.
-- Workspace analyst UI, orchestrator, and legacy timeline paths (`v2/investigation/
-  timeline.py`, `routers/timeline.py` audit log) are untouched.
+- Wired ONLY into `/api/v2/timeline/preview` lab endpoint.
+- Workspace analyst UI, orchestrator, and legacy timeline paths
+  (`v2/investigation/timeline.py`, `routers/timeline.py` audit log) untouched.
 
 ### Test count
-- Investigation suite: **414 passing** (was 395 → +19). No regressions upstream.
+- Investigation suite: **419 passing** (was 395 → +24). No regressions upstream.
 
-### Next milestones (Phase 2 order fixed by owner 2026-08-02)
+### Next milestones (owner-approved order 2026-02-XX)
 1. Timeline Builder — **DONE**
-2. Attack Chain Builder (consumes Timeline, not raw events)
-3. Correlation Engine (operates on ordered evidence)
-4. Real sanitised telemetry ingestion — highest-priority validation input;
-   replay CrowdStrike / SentinelOne / QRadar / Splunk through the same pipeline.
+2. Attack Chain Builder — consumes `TimelineEvent` contract, produces
+   causal parent → child edges over the ordered evidence.
+3. Correlation Engine — clusters `TimelineEvent`s by shared entities +
+   short time windows.
+4. Real sanitised telemetry (CrowdStrike / SentinelOne / QRadar / Splunk)
+   replayed through the same pipeline for validation.
+5. Timeline Inspector UI — **only after** the schema stabilises through
+   Attack Chain + Correlation so we don't refactor React every iteration.
 
 ---
+
 
 
 ## 2026-08-01 · ✅ **PHASE 1 PIPELINE SHIPPED**

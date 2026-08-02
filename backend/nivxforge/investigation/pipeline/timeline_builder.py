@@ -54,6 +54,28 @@ _VERB_BY_KIND: Dict[EventKind, str] = {
     EventKind.generic: "observed",
 }
 
+# Human-facing canonical event type. Same 1-to-1 with EventKind — this
+# is a label, not inference. Downstream stages MUST read `event_type`
+# rather than reparsing the verb.
+_EVENT_TYPE_BY_KIND: Dict[EventKind, str] = {
+    EventKind.process_create: "Process Create",
+    EventKind.process_terminate: "Process Terminate",
+    EventKind.file_create: "File Create",
+    EventKind.file_modify: "File Modify",
+    EventKind.file_delete: "File Delete",
+    EventKind.registry_write: "Registry Write",
+    EventKind.registry_delete: "Registry Delete",
+    EventKind.network_connect: "Network Connect",
+    EventKind.dns_query: "DNS Query",
+    EventKind.auth_success: "Auth Success",
+    EventKind.auth_failure: "Auth Failure",
+    EventKind.service_install: "Service Install",
+    EventKind.task_scheduled: "Scheduled Task",
+    EventKind.alert: "Alert",
+    EventKind.detection: "Detection",
+    EventKind.generic: "Generic",
+}
+
 _KIND_TO_TL_KIND: Dict[EventKind, str] = {
     EventKind.process_create: "process",
     EventKind.process_terminate: "process",
@@ -73,31 +95,80 @@ _KIND_TO_TL_KIND: Dict[EventKind, str] = {
     EventKind.generic: "generic",
 }
 
+# Timestamp source labels — where the timestamp came from. When absent,
+# the reason is explicit so downstream (Correlation) can decide whether
+# to backfill from neighbouring events.
+_TS_SOURCE_PRESENT = "CEM.event.timestamp"
+_TS_SOURCE_ABSENT  = "unavailable"
+
+# Origin of a timeline entry — grounding for the "why does this exist?"
+# question the owner asked for on 2026-02-XX.
+_ORIGIN_TELEMETRY = "Telemetry"     # CEM event field directly named the node
+_ORIGIN_DECODED   = "Decoded"       # node reached via a graph edge that
+                                     # graph_builder created from decoded /
+                                     # extracted IOC evidence
+_ORIGIN_DERIVED   = "Derived"       # actor-only entries with no target
+
 
 # ── Data classes ─────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
-class TimelineEntry:
-    """One chronologically-anchored view over validated evidence."""
+class ProvenanceEntry:
+    """One row of provenance. A TimelineEvent may carry several — e.g.
+    one for the CEM event, one for the graph edge that annotated an
+    artifact, etc."""
 
-    entry_id: str
-    event_id: str
-    kind: str                       # process | file | registry | ...
-    action: str                     # verb from EventKind (never inferred)
-    timestamp: Optional[datetime]   # None ⇢ correlated / unknown time
-    timestamp_precision: str        # "exact" | "unknown"
-    actor_node_id: Optional[str]
-    target_node_ids: Tuple[str, ...]
-    summary: str                    # deterministic string, no NLG
-    evidence_refs: Tuple[str, ...]  # graph node ids + event ids
-    provenance: Dict[str, Any]      # vendor / vendor_route / confidence
+    origin: str                        # Telemetry | Decoded | Derived
+    source: str                        # CEM.event.timestamp / graph.edge:has_ioc / ...
+    reason: str                        # short deterministic string
+    confidence: float
+
+
+@dataclass(frozen=True)
+class TimelineEvent:
+    """Canonical Timeline Event Model.
+
+    Consumed unchanged by Attack Chain and Correlation (see
+    ROADMAP.md · Phase 2). Every field is grounded in either the CEM
+    event or the Investigation Graph — no inference lives here.
+    """
+
+    # Identity
+    id: str                            # deterministic hash id
+    source_event: str                  # CEM event_id (foreign key back to CEM)
+
+    # Temporal
+    timestamp: Optional[datetime]
+    timestamp_precision: str           # "exact" | "unknown"
+    timestamp_source: str              # e.g. "CEM.event.timestamp"
+
+    # Semantics (never inferred — map derived from EventKind)
+    event_type: str                    # "Process Create", "DNS Query", ...
+    kind: str                          # process | file | registry | ...
+    action: str                        # verb — 1:1 with EventKind
+
+    # Subjects / objects — all validated GraphNode ids
+    actor: Optional[str]               # actor GraphNode id
+    targets: Tuple[str, ...]           # direct objects of the action
+    artifacts: Tuple[str, ...]         # IOCs / evidence linked via edges
+    source_nodes: Tuple[str, ...]      # every graph node id referenced
+
+    # Presentation + provenance
+    summary: str                       # deterministic string, no NLG
+    provenance: Tuple[ProvenanceEntry, ...]
+    confidence: float                  # min confidence across provenance
+
+
+# Legacy alias — kept so external code that imported the old name
+# during Timeline v0 keeps compiling. Same identity as TimelineEvent.
+TimelineEntry = TimelineEvent
 
 
 @dataclass(frozen=True)
 class Timeline:
     """Chronologically ordered projection of the Investigation Graph."""
 
-    entries: Tuple[TimelineEntry, ...]
+    entries: Tuple[TimelineEvent, ...]
     time_span: Dict[str, Optional[str]]  # {"first": iso|None, "last": iso|None}
     unknown_time_count: int
 
@@ -105,19 +176,31 @@ class Timeline:
         return {
             "entries": [
                 {
-                    "entry_id": e.entry_id,
-                    "event_id": e.event_id,
-                    "kind": e.kind,
-                    "action": e.action,
+                    "id": e.id,
+                    "source_event": e.source_event,
                     "timestamp": (
                         e.timestamp.isoformat() if e.timestamp else None
                     ),
                     "timestamp_precision": e.timestamp_precision,
-                    "actor_node_id": e.actor_node_id,
-                    "target_node_ids": list(e.target_node_ids),
+                    "timestamp_source": e.timestamp_source,
+                    "event_type": e.event_type,
+                    "kind": e.kind,
+                    "action": e.action,
+                    "actor": e.actor,
+                    "targets": list(e.targets),
+                    "artifacts": list(e.artifacts),
+                    "source_nodes": list(e.source_nodes),
                     "summary": e.summary,
-                    "evidence_refs": list(e.evidence_refs),
-                    "provenance": dict(e.provenance),
+                    "provenance": [
+                        {
+                            "origin": p.origin,
+                            "source": p.source,
+                            "reason": p.reason,
+                            "confidence": p.confidence,
+                        }
+                        for p in e.provenance
+                    ],
+                    "confidence": e.confidence,
                 }
                 for e in self.entries
             ],
@@ -172,83 +255,87 @@ def _resolve_actor(event: CanonicalEvent,
     return None
 
 
-def _resolve_targets(event: CanonicalEvent,
-                      graph: InvestigationGraph) -> List[str]:
-    """Targets are validated graph node ids only. Order is deterministic.
+def _resolve_targets_and_artifacts(
+    event: CanonicalEvent,
+    graph: InvestigationGraph,
+) -> Tuple[List[str], List[str]]:
+    """Return (targets, artifacts) — both are validated GraphNode ids.
 
-    Two sources feed this list:
-        1. Direct fields on the CEM event (file / registry / network / dns
-           / detection / decoded command).
-        2. Existing graph edges from the event's command node that were
-           already materialised by graph_builder (e.g. `has_ioc` from a
-           command to URL/IP/DNS/hash nodes when they share an event_id).
+    * **targets** — direct objects of the action, named explicitly by
+      a CEM event field (command from process_create, file from
+      file_*, registry from registry_*, network URL/IP from
+      network_connect, dns.query from dns_query, detection.name).
 
-    Neither source invents evidence — (1) is grounded in the CEM event,
-    (2) is grounded in graph edges already validated by graph_builder.
+    * **artifacts** — IOC / evidence nodes reached only via a graph
+      edge that graph_builder created from decoded content or IOC
+      extraction (e.g. a URL discovered inside a decoded command).
+
+    The split lets Attack Chain reason about causal *targets* while
+    still surfacing supporting *artifacts* for the analyst.
     """
-    out: List[str] = []
+    targets: List[str] = []
+    artifacts: List[str] = []
     seen: set = set()
 
-    def _push(nid: Optional[str]) -> None:
+    def _push(dst: List[str], nid: Optional[str]) -> None:
         if nid and nid not in seen and graph.node(nid):
             seen.add(nid)
-            out.append(nid)
+            dst.append(nid)
 
     cmd_node_id: Optional[str] = None
-    # process_create emits the child command as target (its image is actor)
     if event.process and event.process.command_line:
         cmd_node_id = _maybe_id(graph, "command",
                                  _canonicalise("command",
                                                 event.process.command_line))
-        _push(cmd_node_id)
+        _push(targets, cmd_node_id)
 
     if event.file and event.file.path:
-        _push(_maybe_id(graph, "file",
+        _push(targets, _maybe_id(graph, "file",
                          _canonicalise("file", event.file.path)))
         if event.file.hash_sha256:
-            _push(_maybe_id(graph, "hash",
+            _push(targets, _maybe_id(graph, "hash",
                              _canonicalise("hash", event.file.hash_sha256)))
 
     if event.registry and event.registry.key:
-        _push(_maybe_id(graph, "registry",
+        _push(targets, _maybe_id(graph, "registry",
                          _canonicalise("registry", event.registry.key)))
 
     if event.network:
         if event.network.url:
-            _push(_maybe_id(graph, "url",
+            _push(targets, _maybe_id(graph, "url",
                              _canonicalise("url", event.network.url)))
         if event.network.domain:
-            _push(_maybe_id(graph, "url",
+            _push(targets, _maybe_id(graph, "url",
                              _canonicalise("url", event.network.domain)))
         if event.network.dst_ip:
-            _push(_maybe_id(graph, "ip",
+            _push(targets, _maybe_id(graph, "ip",
                              _canonicalise("ip", event.network.dst_ip)))
 
     if event.dns and event.dns.query:
-        _push(_maybe_id(graph, "dns",
+        _push(targets, _maybe_id(graph, "dns",
                          _canonicalise("dns", event.dns.query)))
 
     if event.detection and event.detection.name:
-        _push(_maybe_id(graph, "detection",
+        _push(targets, _maybe_id(graph, "detection",
                          _canonicalise("detection", event.detection.name)))
 
-    # Annotate with graph edges already produced by graph_builder that
-    # share this event_id. Only *semantic-target* relations count — we
-    # skip structural back-edges (`belongs_to`, `ran_by`, `child_of`,
-    # `executed_on`) which are already reflected in actor resolution.
-    _TARGET_RELATIONS = {
+    # Artifacts — semantic-target edges from the command node that
+    # graph_builder tagged with this event_id. These represent evidence
+    # the decoder / IOC extractor uncovered *inside* the event payload.
+    _ARTIFACT_RELATIONS = {
         "has_ioc", "touched", "connected_to", "resolved_to",
         "decoded_to", "flagged",
     }
     if cmd_node_id:
         outgoing = sorted(graph.edges_from(cmd_node_id), key=lambda e: e.id)
         for edge in outgoing:
-            if edge.relation not in _TARGET_RELATIONS:
+            if edge.relation not in _ARTIFACT_RELATIONS:
                 continue
-            if event.event_id in edge.evidence_refs:
-                _push(edge.to_id)
+            if event.event_id not in edge.evidence_refs:
+                continue
+            _push(artifacts, edge.to_id)
 
-    return out
+    return targets, artifacts
 
 
 def _maybe_id(graph: InvestigationGraph, kind: str,
@@ -280,6 +367,33 @@ def _summary(action: str, actor_label: str,
 
 # ── Builder ──────────────────────────────────────────────────────────
 
+def _classify_origin(event: CanonicalEvent,
+                      targets: List[str],
+                      artifacts: List[str]) -> str:
+    """Deterministic origin classification — no inference.
+
+        * Telemetry — the CEM event named at least one target.
+        * Decoded   — only artifacts survived (targets empty but
+                      graph_builder linked IOCs via edges).
+        * Derived   — actor-only entry (no target, no artifact).
+    """
+    if targets:
+        return _ORIGIN_TELEMETRY
+    if artifacts:
+        return _ORIGIN_DECODED
+    return _ORIGIN_DERIVED
+
+
+def _reason(event_type: str, origin: str) -> str:
+    """Short deterministic reason string. Not NLG — just a canonical
+    label of *why this row is on the timeline*."""
+    if origin == _ORIGIN_TELEMETRY:
+        return f"Canonical {event_type} event from CEM"
+    if origin == _ORIGIN_DECODED:
+        return f"IOC/artifact linked from {event_type} via graph edge"
+    return f"{event_type} event with no downstream anchor"
+
+
 def build(cem: CanonicalEventModel,
            graph: InvestigationGraph) -> Timeline:
     """Render the Investigation Graph chronologically.
@@ -287,22 +401,22 @@ def build(cem: CanonicalEventModel,
     Every entry emitted is grounded in one CEM event and links only
     to nodes that already exist in the supplied Investigation Graph.
     """
-    entries: List[TimelineEntry] = []
+    entries: List[TimelineEvent] = []
 
     for evt in cem.events:
         kind = _KIND_TO_TL_KIND.get(evt.kind, "generic")
         action = _VERB_BY_KIND.get(evt.kind, "observed")
+        event_type = _EVENT_TYPE_BY_KIND.get(evt.kind, "Generic")
 
         actor_id = _resolve_actor(evt, graph)
-        targets = _resolve_targets(evt, graph)
-        # An actor is never its own target.
-        if actor_id and actor_id in targets:
+        targets, artifacts = _resolve_targets_and_artifacts(evt, graph)
+        # An actor is never its own target/artifact.
+        if actor_id:
             targets = [t for t in targets if t != actor_id]
+            artifacts = [a for a in artifacts if a != actor_id]
 
         # Renderer contract: an entry needs at least one graph anchor.
-        # If neither actor nor targets exist in the graph, skip — never
-        # invent phantom relations just to keep the entry.
-        if not actor_id and not targets:
+        if not actor_id and not targets and not artifacts:
             continue
 
         actor_label = _label(graph, actor_id)
@@ -310,57 +424,80 @@ def build(cem: CanonicalEventModel,
         target_labels = [t for t in target_labels if t]
 
         precision = "exact" if evt.timestamp is not None else "unknown"
+        ts_source = (_TS_SOURCE_PRESENT if evt.timestamp is not None
+                     else _TS_SOURCE_ABSENT)
+        origin = _classify_origin(evt, targets, artifacts)
+        reason = _reason(event_type, origin)
+
         eid = _hash_id(evt.event_id, kind, action,
-                       actor_id or "-", "|".join(targets))
+                       actor_id or "-", "|".join(targets),
+                       "|".join(artifacts))
 
-        evidence_refs: List[str] = [evt.event_id]
+        source_nodes: List[str] = []
         if actor_id:
-            evidence_refs.append(actor_id)
-        for tid in targets:
-            if tid not in evidence_refs:
-                evidence_refs.append(tid)
+            source_nodes.append(actor_id)
+        for nid in targets + artifacts:
+            if nid not in source_nodes:
+                source_nodes.append(nid)
 
-        entries.append(TimelineEntry(
-            entry_id=eid,
-            event_id=evt.event_id,
-            kind=kind,
-            action=action,
+        # Provenance rows — one per grounding fact. Consumers
+        # (Attack Chain, Correlation) can trace every claim back to
+        # either the CEM event or a specific graph edge.
+        prov_rows: List[ProvenanceEntry] = [
+            ProvenanceEntry(
+                origin=_ORIGIN_TELEMETRY,
+                source=f"CEM.event[{evt.event_id}]",
+                reason=reason,
+                confidence=(evt.provenance.confidence
+                            if evt.provenance else 1.0),
+            )
+        ]
+        if artifacts:
+            prov_rows.append(ProvenanceEntry(
+                origin=_ORIGIN_DECODED,
+                source="graph.edges[has_ioc|decoded_to|touched|"
+                       "connected_to|resolved_to|flagged]",
+                reason=f"{len(artifacts)} artifact(s) linked via graph",
+                confidence=1.0,
+            ))
+        min_confidence = min(p.confidence for p in prov_rows)
+
+        entries.append(TimelineEvent(
+            id=eid,
+            source_event=evt.event_id,
             timestamp=evt.timestamp,
             timestamp_precision=precision,
-            actor_node_id=actor_id,
-            target_node_ids=tuple(targets),
+            timestamp_source=ts_source,
+            event_type=event_type,
+            kind=kind,
+            action=action,
+            actor=actor_id,
+            targets=tuple(targets),
+            artifacts=tuple(artifacts),
+            source_nodes=tuple(source_nodes),
             summary=_summary(action, actor_label, target_labels),
-            evidence_refs=tuple(evidence_refs),
-            provenance={
-                "vendor": cem.vendor,
-                "vendor_route": cem.vendor_route,
-                "source": "timeline_builder",
-                "confidence": evt.provenance.confidence
-                if evt.provenance else 1.0,
-            },
+            provenance=tuple(prov_rows),
+            confidence=min_confidence,
         ))
 
-    # Deterministic sort: (timestamp asc, event_id, kind, entry_id).
-    # Unknown-time entries sort to the end preserving insertion stability
-    # via event_id as a tie-breaker.
-    def _sort_key(e: TimelineEntry) -> Tuple[Any, ...]:
+    # Deterministic sort: (timestamp asc, event_id, kind, id).
+    def _sort_key(e: TimelineEvent) -> Tuple[Any, ...]:
         ts_key = (
             e.timestamp.timestamp()
             if e.timestamp is not None
             else float("inf")
         )
-        return (ts_key, e.event_id, e.kind, e.entry_id)
+        return (ts_key, e.source_event, e.kind, e.id)
 
     entries.sort(key=_sort_key)
 
-    # De-duplicate identical entries (same event_id + kind + action +
-    # actor + targets) which may occur when a CEM event is mirrored by
-    # multiple adapters. First-seen wins (post-sort → earliest ts).
-    deduped: List[TimelineEntry] = []
+    # De-dup identical entries (same source_event + kind + action +
+    # actor + targets + artifacts). First-seen wins post-sort.
+    deduped: List[TimelineEvent] = []
     seen_keys: set = set()
     for e in entries:
-        key = (e.event_id, e.kind, e.action, e.actor_node_id,
-               e.target_node_ids)
+        key = (e.source_event, e.kind, e.action, e.actor,
+               e.targets, e.artifacts)
         if key in seen_keys:
             continue
         seen_keys.add(key)
@@ -381,5 +518,6 @@ def build(cem: CanonicalEventModel,
 
 
 __all__ = [
-    "TimelineEntry", "Timeline", "build",
+    "TimelineEvent", "TimelineEntry", "Timeline",
+    "ProvenanceEntry", "build",
 ]
