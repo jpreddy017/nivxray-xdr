@@ -12,12 +12,14 @@ from ..parser import ParsedInput
 from ..vendor_detection import Vendor, VendorDetection
 from .cisco_secure_endpoint import CiscoSecureEndpointNormalizer
 from .generic import GenericNormalizer
+from .microsoft_defender import MicrosoftDefenderNormalizer
 from .sysmon import SysmonNormalizer
 
 
 _ROUTES = {
     Vendor.CISCO_SECURE_ENDPOINT: CiscoSecureEndpointNormalizer,
     Vendor.SYSMON: SysmonNormalizer,
+    Vendor.DEFENDER: MicrosoftDefenderNormalizer,
 }
 
 

@@ -654,6 +654,7 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
     # See routers/ops.py wire-in comment.
     # ═══════════════════════════════════════════════════════════════════
     _ingress_provenance: str | None = None
+    _original_raw_input: str = body.incident_text or ""
     try:
         from nivxforge.investigation.ingress_gate import apply_ingress_gate as _apply_gate
         _gate = _apply_gate(body.incident_text or "")
@@ -710,6 +711,26 @@ async def auto_investigate(body: IncidentIn, user=Depends(get_current_user)):
             source_endpoint="/api/v2/auto-investigate",
         )
         _cio = _build_cio(_cio_fs)
+        # 2026-08-01 · Route `/v2/auto-investigate` through the same
+        # graph-only narrative engine as `/decode/smart` (BUG-P4-02
+        # divergence fix). Stash the ORIGINAL vendor payload BEFORE
+        # the ingress gate mutation, invalidate stale phase1 caches,
+        # and re-compose the summary so every prose surface reads
+        # from the Investigation Graph — identical output between
+        # the two endpoints.
+        try:
+            _cio.metadata["raw_input"] = _original_raw_input
+            _cio.metadata.pop("phase1_state", None)
+            _cio.metadata.pop("phase1_narrative", None)
+            from nivxforge.investigation.summary_composer import (
+                compose_summary as _recompose,
+            )
+            _cio.summary = _recompose(_cio)
+        except Exception:  # noqa: BLE001
+            logging.getLogger(__name__).exception(
+                "phase1 summary re-composition failed "
+                "(safe — first-pass summary kept)"
+            )
         # ADR-0014 §1.1.14 Layer 2 · attach ingress-gate provenance.
         if _ingress_provenance:
             _cio.metadata["normalised_via"] = _ingress_provenance

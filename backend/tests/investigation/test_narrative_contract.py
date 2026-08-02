@@ -125,7 +125,35 @@ GENERIC_JSON = json.dumps({
     "meta": {"env": "prod"},
 })
 
-# 5 · Benign administrative activity — no malicious signal.
+# 5 · Microsoft Defender for Endpoint (Advanced Hunting DeviceAlertEvents)
+MICROSOFT_DEFENDER = json.dumps({
+    "AlertId": "da637-abc",
+    "AlertTitle": "Suspicious command line launched cmd.exe",
+    "AlertSeverity": "High",
+    "Category": "Execution",
+    "ThreatFamilyName": "Trojan:Win32/Emotet",
+    "DeviceName": "FIN-LAPTOP-07",
+    "DeviceId": "abc123def456",
+    "AccountName": "jsmith",
+    "AccountDomain": "CORP",
+    "FileName": "invoice.doc.exe",
+    "FolderPath": "C:\\Users\\jsmith\\Downloads",
+    "SHA256": "f" * 64,
+    "InitiatingProcessCommandLine": "\"cmd.exe\" /c powershell -nop -w hidden -c IEX",
+    "InitiatingProcessFileName": "cmd.exe",
+    "InitiatingProcessFolderPath": "C:\\Windows\\System32",
+    "InitiatingProcessSHA256": "a" * 64,
+    "InitiatingProcessParentFileName": "outlook.exe",
+    "InitiatingProcessParentCommandLine": "\"outlook.exe\"",
+    "RemoteUrl": "http://payload.example.net/stage1",
+    "RemoteIP": "203.0.113.42",
+    "MitreTechniques": ["T1204.002", "T1059.001"],
+    "MitreTactics": ["Execution", "Initial Access"],
+    "Timestamp": "2026-08-01T14:22:00Z",
+    "RemediationStatus": "Blocked",
+})
+
+# 6 · Benign administrative activity — no malicious signal.
 BENIGN_ADMIN = "powershell -c \"Get-Process | Select-Object Name,Id\""
 
 
@@ -152,9 +180,15 @@ ARCHETYPES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
         ("certutil", "payload.example"),
     ),
     (
+        "microsoft_defender",
+        MICROSOFT_DEFENDER,
+        ("Microsoft Defender", "FIN-LAPTOP-07",
+         "Suspicious command line"),
+    ),
+    (
         "benign_admin",
         BENIGN_ADMIN,
-        (),  # Positive facts optional for a benign sample.
+        (),
     ),
 )
 
