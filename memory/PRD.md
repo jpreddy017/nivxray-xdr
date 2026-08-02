@@ -1,7 +1,38 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
 
-## 2026-02-XX · ✅ **PHASE 2 · CORRELATION ENGINE LANDED (Stage 11)**
+## 2026-02-XX · ✅ **INVESTIGATION ENGINE CONTRACT v1.0 CODIFIED**
+
+Formal architectural contract landed with executable enforcement.
+Owner-authored, 8 invariants, source-of-truth for the entire pipeline
+(Parse → Normalize → Aggregate → Correlate → Investigate → Narrative).
+
+### The 8 invariants
+1. **Investigation-first** — decoder output is evidence, never narrative
+2. **Interpreter Ownership** — language stages run only under matching interpreter
+3. **Rendered Output is Terminal** — never fed back into parser / decoder / normalizer
+4. **Recursive Safety** — `input_hash != output_hash` OR `semantic_progress`; else halt
+5. **Deterministic Fallback** — never invent plaintext; decode observable fallback branches
+6. **Investigation Output** — fixed analyst-facing schema, nothing else
+7. **No Diagnostic Text** — `ps-backtick-normalize` / `ps-alias-expand` / etc. never in narrative
+8. **Decoder Stability Gate** — no new evidence + no command change + no new interpreter → terminate
+
+### Files delivered
+- `/app/docs/architecture/INVESTIGATION_ENGINE_CONTRACT.md` — canonical
+  contract v1.0 (source-of-truth; any change is a versioned migration)
+- `/app/backend/nivxforge/investigation/pipeline/recursion_safety.py`
+  — executable machinery: `assert_terminal`, `tag_rendered`,
+  `RecursionGuard`, `stability_gate`, `scrub_diagnostics`
+- `/app/backend/tests/investigation/test_recursion_safety.py` (19 tests)
+- Cross-link from `NIVXRAY_ARCHITECTURE_VISION.md § 6.3.1` so future
+  engineers land on the contract via the release-gate section
+
+### Test count
+- Investigation suite: **475 passing** (was 395 → +80 total).
+  No regressions upstream. Workspace still frozen and untouched.
+
+---
+
 
 Correlation Engine ships as a deterministic connected-components
 clusterer over `AttackChain` edges + `TimelineEvent`s. It **produces

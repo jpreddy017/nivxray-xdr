@@ -366,6 +366,12 @@ Mutex · Detection · Alert · MITRE
 > Interpreter Ownership Coverage metric. A release that fails this
 > gate does not ship.
 >
+> The full contract governing Recursion Safety, Rendered-Output
+> Terminality, Diagnostic-Text Scrubbing and this Stability Gate
+> is codified in `INVESTIGATION_ENGINE_CONTRACT.md` v1.0 and
+> executable-enforced by
+> `backend/nivxforge/investigation/pipeline/recursion_safety.py`.
+>
 > This gate exists to turn the lesson from the Aug 2026 PowerShell
 > Interpreter Gate hotfix into an enforceable quality standard
 > rather than institutional knowledge that fades with contributor
