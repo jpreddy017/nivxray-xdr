@@ -235,6 +235,48 @@ Replace the current Path B implementation with:
 
 ## Concrete implementation footholds (for the next session)
 
+**Implementation Discipline — Measurable Milestones**
+
+The implementation MUST proceed as a series of measurable milestones,
+not a single large change. Each milestone is independently verifiable
+against the deterministic corpus. Regressions surface at the milestone
+boundary they were introduced.
+
+| # | Milestone | Verification |
+|---|-----------|--------------|
+| 1 | Convergence loop framework with no transformations | Loop terminates in 1 iteration on all samples (no-op passes) |
+| 2 | Structural pass integrated | Structural-only convergence certificate emitted |
+| 3 | Content pass integrated | Content-only diff visible in provenance |
+| 4 | Decoder pass integrated | Corpus regression must show ≥ 8/11 |
+| 5 | Semantic pass integrated | Corpus regression must show ≥ 10/11 |
+| 6 | Canonical Candidate Selection | S001 flips to ✅ · target 11/11 |
+| 7 | Convergence Certificate emitted into `resp["convergence_certificate"]` | Certificate hash-stable across 3 repeated runs |
+| 8 | Full regression corpus 11/11 with zero new regressions | `phase5_hunk_validator` returns 11/11 |
+| 9 | Expanded corpus 50 → 100 → 500 samples | Determinism + latency measured at each expansion |
+| 10 | Workspace Isolation Certificate signed | `docs/architecture/WORKSPACE_ISOLATION_CERTIFICATE.md` committed |
+
+## Frozen engineering rule (architectural gate)
+
+**No new heuristic may be added to the decode pipeline unless it can be
+expressed as one of:**
+
+1. A **deterministic transformation pass** (Structural, Content,
+   Decoder, or Semantic).
+2. A **deterministic convergence rule** governed by the Canonical
+   State Contract.
+3. A **certified plugin in the Transformation Registry** (future
+   milestone — not required for the initial implementation, but the
+   registry surface must be designed so plugins are the only extension
+   path).
+
+Any PR that introduces an `if <adhoc condition>: ...` in
+`analysis_core.py`, `smart_decoder.py`, `magic_decoder.py`, or
+`routers/ops.py` that bypasses the convergence architecture is
+rejected by the CI Corpus Gate. This is the permanent counter to the
+class of regression that produced the Phase-4.5 RCA in the first place.
+
+## Files this touches
+
 The 5 hunks from Phase 5 remain the prerequisite runtime environment
 for Phase 5.5 (they eliminate rc22 hijack, fix decoder ordering,
 positional PS routing, and abbreviation coverage). Recommended

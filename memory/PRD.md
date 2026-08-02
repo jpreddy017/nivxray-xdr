@@ -21,7 +21,9 @@ requires it.** The next session is implementation and validation only.
 
 Implementation & validation checklist (in order):
 
-1. Implement the Convergence Engine (`backend/workspace/convergence/`).
+1. Implement the Convergence Engine as **10 measurable milestones**
+   (see spec §"Implementation Discipline"). Each milestone runs the
+   corpus; regressions surface at the milestone that introduced them.
 2. Validate against the 11-sample corpus. Target 11/11 with a
    Convergence Certificate on every sample.
 3. Expand `workspace_recovery/corpus.json` to 100–500 representative
@@ -30,6 +32,20 @@ Implementation & validation checklist (in order):
    runs), latency (ms per sample), false-regression count over the
    corpus.
 5. Refine based on evidence — never on additional specification work.
+
+## 🔒 Frozen Engineering Rule (architectural gate · permanent)
+
+**No new heuristic may be added to the decode pipeline unless it can
+be expressed as one of:**
+
+1. A deterministic transformation pass (Structural / Content / Decoder / Semantic).
+2. A deterministic convergence rule under the Canonical State Contract.
+3. A certified plugin in the Transformation Registry.
+
+Any PR introducing an ad-hoc `if …:` bypass in `analysis_core.py`,
+`smart_decoder.py`, `magic_decoder.py`, or `routers/ops.py` is
+rejected by the CI Corpus Gate. This is the permanent counter to the
+regression class documented in Phase 4.5 RCA.
 
 The load-bearing contracts remain the five invariants (Determinism ·
 Certification · Convergence Model · Behavioral Consistency · Pass
