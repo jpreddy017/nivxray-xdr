@@ -2,6 +2,23 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-XX · Semantic Pipeline Stage 2 · Schema Understanding + Semantic Alias Registry v1
+
+**Architecture:** `/app/docs/architecture/NIVXRAY_ARCHITECTURE_VISION.md` (revised with owner amendments)
+
+**Ships:**
+- **Semantic Alias Registry v1** (`/app/backend/nivxforge/investigation/pipeline/semantic_alias_registry.py`) — governed, versioned (`semantic_alias_registry_v1`), curated foundational registry mapping surface field names to 23 canonical concepts (Host, User, Process, Command, File, Directory, Hash, IP, Domain, URL, Email, Registry, Service, ScheduledTask, Certificate, NetworkConnection, Port, Protocol, NamedPipe, Mutex, Detection, Alert, MITRE). Zero vendor knowledge. Every alias declares confidence. Ambiguity-free by construction (enforced at import).
+- **Schema Understanding** (`/app/backend/nivxforge/investigation/pipeline/schema_understanding.py`) — Stage 2b. Consumes `ParsedInput`, emits `SchemaFingerprint(schema_family, schema_version, schema_confidence, candidate_fields, parser_features, reasons, diagnostics, registry_version)`. Recognises open standards by *shape* only: Elastic Common Schema, OpenTelemetry, Windows Event XML, CEF, LEEF, RFC5424 syslog, and generic families (json/ndjson/csv/xml/kv). `unknown_structured` and `unknown_unstructured` are supported success states. Never performs semantic mapping. Never raises.
+- **Architecture vision doc revised** — CEM is the SSOT for *what happened*; Vendor Enrichment is a sibling metadata consumer of the CEM, not upstream. Two new permanent engineering rules: (1) *No downstream subsystem may branch on vendor without documented exception*, (2) *Every stage must degrade gracefully — unknown states are supported, never errors*.
+- Owner mindset codified: *"Do not optimize for the current telemetry corpus. Optimize for telemetry we have never seen before."*
+
+**Tests:** `tests/investigation/` — 136 baseline → **212 passing** (76 new: 30 alias-registry + 46 schema-understanding). Includes the mandated unknown-schema regression: alien telemetry → parser succeeds → SchemaFingerprint returns without error → `run_phase1` reaches Investigation Graph. Contract tests block vendor tokens leaking into the alias registry.
+
+**Preserves:**
+- Phase 1 Investigation Graph contract untouched. Orchestrator wiring not modified (Schema Understanding is standalone; wiring lands with Semantic Field Mapper).
+- Narrative Engine, Entity Resolution, and existing 136 investigation tests all unchanged.
+
+
 ## 2026-02-02 · P2-06a · Unified Investigation Graph (EvidenceGraphCanvas)
 
 **Backlog:** `/app/docs/BACKLOG.md` · P2-06a (Unified Investigation Graph)
