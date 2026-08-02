@@ -1,7 +1,8 @@
 # Phase 5.5 · Multi-Pass Convergence Engine — Path C Specification
 
 **Author**: Workspace owner
-**Status**: Approved specification. Not yet implemented.
+**Status**: **LOCKED · Implementation-Only From Here**. No further design
+refinement until runtime evidence from the implementation requires it.
 **Predecessor evidence**: `workspace_recovery/phase5_status.md` (5-hunk restore → 10/11)
 **Predecessor RCA**:      `workspace_recovery/phase4_5_final_rca.md`
 

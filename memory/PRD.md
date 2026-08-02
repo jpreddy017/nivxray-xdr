@@ -13,6 +13,32 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## 🔒 SPEC LOCKED · Implementation-Only From Here (2026-02-XX)
+
+Owner has closed the specification phase. **No further design work
+should be proposed until runtime evidence from the implementation
+requires it.** The next session is implementation and validation only.
+
+Implementation & validation checklist (in order):
+
+1. Implement the Convergence Engine (`backend/workspace/convergence/`).
+2. Validate against the 11-sample corpus. Target 11/11 with a
+   Convergence Certificate on every sample.
+3. Expand `workspace_recovery/corpus.json` to 100–500 representative
+   real-world samples over subsequent iterations.
+4. Measure: deterministic convergence (byte-identical hash on repeated
+   runs), latency (ms per sample), false-regression count over the
+   corpus.
+5. Refine based on evidence — never on additional specification work.
+
+The load-bearing contracts remain the five invariants (Determinism ·
+Certification · Convergence Model · Behavioral Consistency · Pass
+Independence). Physical location is a deployment decision. The five
+Phase-5 hunks are a stabilization layer that gets retired during Phase 6
+isolation review when the Convergence Engine makes them redundant.
+
+---
+
 ## 🎯 PATH C APPROVED · Phase 5.5 = Multi-Pass Convergence Engine (2026-02-XX)
 
 Owner has explicitly rejected both Path A (ship 10/11) and Path B
