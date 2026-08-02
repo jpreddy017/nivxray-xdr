@@ -13,6 +13,30 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## ✅ PHASE 5 · HUNK-VALIDATION CHECKPOINT · 10 / 11 (2026-02-XX)
+
+Five surgical hunks proven with runtime evidence in `/tmp/wsp-bisect`:
+Hunk 1 disable rc22 preflight; Hunk 2 normalizers append (not insert);
+Hunk 3 positional PS regex; Hunk 4 widen `-EncodedCommand` abbreviation
+set in `magic_decoder.py` (both gates); Hunk 5 same in `smart_decoder.py`.
+
+**Combined = 10 / 11.** Only S001 (owner anchor) remains. Both
+`smart_decode` and `magic_decode.top_results[0]` individually produce
+`Write-Host "tweet, tweet!"` for the S001 input, but the full-pipeline
+winner-picker chooses a chain that ends in
+`powershell-alias-normalize · no known aliases found`.
+
+Read `workspace_recovery/phase5_status.md` — it contains two candidate
+Hunk 6 designs (6A winner-picker bias / 6B suppress alias-normalize on
+classical PS output) for owner selection. Zero files have been promoted
+to `/app/backend` — all hunk-application is currently confined to
+`/tmp/wsp-bisect`.
+
+Wait for owner approval of Hunk 6 selection before running the sixth
+isolation experiment.
+
+---
+
 ## ✅ PHASE 4.5 COMPLETE — Full Behavioural RCA (2026-02-XX)
 
 Runtime-validated per-file causality proved that the surface bisect was a
