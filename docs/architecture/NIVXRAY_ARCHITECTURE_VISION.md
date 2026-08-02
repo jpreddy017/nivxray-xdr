@@ -333,6 +333,29 @@ Mutex · Detection · Alert · MITRE
 > Every stage returns a first-class result object, never `None`,
 > never a raised exception outside of programmer errors.
 
+### 6.3 · Interpreter ownership is a first-class contract
+
+> **Rule:** Interpreter ownership is a first-class contract.
+>
+> Language-specific normalization stages may execute only when the
+> active interpreter matches the stage's declared ownership.
+> Diagnostic, reporting, or rendered output must never become parser
+> input.
+>
+> *Origin: 2026-08-02 · PowerShell Interpreter Gate hotfix
+> (Workspace `routers/ops.py`). The bug that motivated this rule
+> arose because four PowerShell normalization stages executed
+> against Bash / CMD / OpenSSL inputs on content-only signals with
+> no interpreter check. Any future language-specific stage — PS,
+> Bash-specific, PowerShell-specific script blocks, Python-specific
+> AST work, CMD-specific batch handling — must declare its owning
+> interpreter and verify ownership before running.*
+>
+> Applies to: any new decoder stage, any new normalization stage,
+> any new artifact transformer that changes command-line text.
+> Reviewers must reject stages that gate purely on content
+> patterns without an explicit interpreter check.
+
 ---
 
 ## 7 · Engineering Rule (mandatory)
