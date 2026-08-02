@@ -2,6 +2,1201 @@
   "tree": "/tmp/workspace-v1.5.6/backend",
   "results": [
     {
+      "id": "S001_ps_writehost_tweet",
+      "family": "PowerShell -EncodedCommand (owner anchor \u00b7 permanent)",
+      "http_status": 200,
+      "response": {
+        "recipe": [
+          {
+            "op": "powershell-normalize",
+            "detail": "PS command-line normalization + runtime simulation"
+          },
+          {
+            "op": "cmd-runtime-reconstruct",
+            "detail": "Runtime reconstruction via profile windows-10-x64"
+          },
+          {
+            "op": "extract-payload",
+            "args": {},
+            "reason": "Isolated payload string from script/command wrapper"
+          },
+          {
+            "op": "base64-decode",
+            "args": {},
+            "reason": "Base64-encoded payload detected"
+          },
+          {
+            "op": "xor-brute",
+            "args": {
+              "key_len": "auto"
+            },
+            "reason": "Multi-byte XOR key recovered via English-density + downstream-magic brute force"
+          },
+          {
+            "op": "powershell-backtick-normalize",
+            "args": {},
+            "reason": "Applied powershell-backtick-normalize"
+          },
+          {
+            "op": "powershell-alias-normalize",
+            "args": {},
+            "reason": "Applied powershell-alias-normalize"
+          }
+        ],
+        "output": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc DECODED OUTPUT\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n(powershell-alias-normalize \u00b7 no known aliases found)\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious \u00b7 80/100\n  Engine:      magic \u00b7 conf 80/100\n  Chain:       extract-payload \u2192 base64-decode \u2192 xor-brute \u2192 powershell-backtick-normalize \u2192 powershell-alias-normalize\n\n  MITRE ATT&CK\n    T1059.001    \u00b7 Execution\n    T1027.010    \u00b7 Defense Evasion\n\n  LOLBIN       powershell.exe\n\n  Behavior\n    1. Executes PowerShell (T1059.001)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+        "notes": [],
+        "detected_type": null,
+        "engine": "magic",
+        "reached_shellcode": false,
+        "confidence": 84,
+        "trace": [
+          {
+            "op": "extract-payload",
+            "args": {},
+            "reason": "Isolated payload string from script/command wrapper",
+            "output_preview": "VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+            "output_length": 72,
+            "evidence": {
+              "encoding": "Payload isolation (script wrapper strip)",
+              "op": "extract-payload",
+              "length": 72,
+              "ascii": true,
+              "entropy": 3.704,
+              "hex_preview": "56 77 42 79 41 47 6b 41 64 41 42 6c 41 43 30 41 \u2026",
+              "integrity": {
+                "ok": true,
+                "reason": null
+              }
+            }
+          },
+          {
+            "op": "base64-decode",
+            "args": {},
+            "reason": "Base64-encoded payload detected",
+            "output_preview": "W\u0000r\u0000i\u0000t\u0000e\u0000-\u0000H\u0000o\u0000s\u0000t\u0000 \u0000\"\u0000t\u0000w\u0000e\u0000e\u0000t\u0000,\u0000 \u0000t\u0000w\u0000e\u0000e\u0000t\u0000!\u0000\"\u0000",
+            "output_length": 52,
+            "evidence": {
+              "encoding": "Base64 (RFC 4648)",
+              "op": "base64-decode",
+              "length": 52,
+              "ascii": false,
+              "entropy": 2.713,
+              "hex_preview": "57 00 72 00 69 00 74 00 65 00 2d 00 48 00 6f 00 \u2026",
+              "integrity": {
+                "ok": true,
+                "reason": null
+              }
+            }
+          },
+          {
+            "op": "xor-brute",
+            "args": {
+              "key_len": "auto"
+            },
+            "reason": "Multi-byte XOR key recovered via English-density + downstream-magic brute force",
+            "output_preview": "(xor-brute \u00b7 no plausible plaintext \u2014 best key len=2 hex=0020 scored 0.94 but yielded no English words / shell tokens / magic bytes. Provide a string-key hint via `xor` op with `key=` arg.)",
+            "output_length": 189,
+            "evidence": {
+              "encoding": "Multi-byte XOR (brute-forced key)",
+              "op": "xor-brute",
+              "length": 192,
+              "ascii": true,
+              "entropy": 4.708,
+              "hex_preview": "28 78 6f 72 2d 62 72 75 74 65 20 c2 b7 20 6e 6f \u2026",
+              "integrity": {
+                "ok": true,
+                "reason": null
+              }
+            }
+          },
+          {
+            "op": "powershell-backtick-normalize",
+            "args": {},
+            "reason": "Applied powershell-backtick-normalize",
+            "output_preview": "\u25bc POWERSHELL BACKTICK NORMALIZATION (RC4.5 \u00b7 deterministic)\n  Step 1: ps-backtick-inline-strip \u2014 removed 2 in-token backtick(s)\n  Step 2: ps-backtick-normalize \u2014 '(xor-brute \u00b7 no plausible plaintext \u2014 best key len=2 hex=002' \u2192 '(xor-brute \u00b7 no plausible plaintext \u2014 best key len=2 hex=002'\n\nNormalized Command:\n  (xor-brute \u00b7 no plausible plaintext \u2014 best key len=2 hex=0020 scored 0.94 but yielded n",
+            "output_length": 501,
+            "evidence": {
+              "encoding": "powershell-backtick-normalize",
+              "op": "powershell-backtick-normalize",
+              "length": 418,
+              "ascii": false,
+              "entropy": 5.17,
+              "hex_preview": "e2 96 bc 20 50 4f 57 45 52 53 48 45 4c 4c 20 42 \u2026",
+              "integrity": {
+                "ok": true,
+                "reason": null
+              }
+            }
+          },
+          {
+            "op": "powershell-alias-normalize",
+            "args": {},
+            "reason": "Applied powershell-alias-normalize",
+            "output_preview": "(powershell-alias-normalize \u00b7 no known aliases found)",
+            "output_length": 53,
+            "evidence": {
+              "encoding": "powershell-alias-normalize",
+              "op": "powershell-alias-normalize",
+              "length": 53,
+              "ascii": true,
+              "entropy": 4.128,
+              "hex_preview": "28 70 6f 77 65 72 73 68 65 6c 6c 2d 61 6c 69 61 \u2026",
+              "integrity": {
+                "ok": true,
+                "reason": null
+              }
+            }
+          }
+        ],
+        "chain_ids": [
+          "extract-payload",
+          "base64-decode",
+          "xor-brute",
+          "powershell-backtick-normalize",
+          "powershell-alias-normalize"
+        ],
+        "score": 84,
+        "custom_recipes_matched": [],
+        "boost": {
+          "enabled": true,
+          "signal_kind": "ps-generic",
+          "chain": [
+            "ascii-decimal-decode",
+            "xor-brute",
+            "powershell-backtick-normalize",
+            "powershell-alias-normalize"
+          ],
+          "source": "history",
+          "confidence": 0.417,
+          "alternatives": [
+            {
+              "chain": [
+                "extract-payload",
+                "base64-decode",
+                "xor-brute",
+                "powershell-backtick-normalize",
+                "powershell-alias-normalize"
+              ],
+              "score": 3,
+              "source": "history"
+            },
+            {
+              "chain": [
+                "hex-decode",
+                "base64-decode"
+              ],
+              "score": 2,
+              "source": "kb"
+            },
+            {
+              "chain": [
+                "rot47"
+              ],
+              "score": 2,
+              "source": "kb"
+            },
+            {
+              "chain": [
+                "powershell-alias-normalize"
+              ],
+              "score": 2,
+              "source": "kb"
+            }
+          ],
+          "signals": {
+            "length": 94,
+            "length_bucket": "s",
+            "entropy": 4.351,
+            "b64_density": 0.957,
+            "has_powershell": true,
+            "has_encoded_cmd": false,
+            "has_iwr": false,
+            "has_downloadstr": false,
+            "has_gzip_prefix": false,
+            "has_zlib_prefix": false,
+            "has_utf16le_hint": false,
+            "has_curl_pipe": false,
+            "has_wget_pipe": false,
+            "has_bash_prefix": false,
+            "has_mshta": false,
+            "has_certutil": false,
+            "has_rundll32": false,
+            "has_regsvr32": false,
+            "has_hex_stream": false,
+            "has_unicode_esc": false,
+            "has_url_encoded": false,
+            "has_html_entities": false,
+            "has_defanged": false,
+            "has_reg_persist": false,
+            "has_charcode": false
+          }
+        },
+        "boost_hit": false,
+        "corrupted_container": null,
+        "reasoning": null,
+        "layer_trace": [
+          {
+            "layer": "L1",
+            "engine": "smart",
+            "chain_len": 2,
+            "score": 0.525,
+            "verdict": "decoded"
+          },
+          {
+            "layer": "L2",
+            "engine": "magic",
+            "chain_len": 5,
+            "score": 0.8389,
+            "verdict": "decoded"
+          }
+        ],
+        "l3_metadata": null,
+        "layer_iocs": [],
+        "analysis_mode": "fast",
+        "verdict_card": {
+          "verdict": "Partial",
+          "label": "Partial Decode",
+          "risk_score": 25,
+          "confidence": 25,
+          "summary": "Wrapper-only findings \u2014 decoded payload is not recognisable plaintext.",
+          "reasons": [
+            "Chain applied 5 layer(s) but terminal bytes have < 2 shell/English tokens.",
+            "Verdict tags (LOLBAS/MITRE) come from the OBFUSCATION WRAPPER, not the decoded payload.",
+            "Likely over-shot (extra XOR/brute pass) OR under-shot (nested obfuscation not fully unwrapped).",
+            "Try: disable XOR-brute in ADVANCED, or add manual `custom-hex-slash`/`ps-hex-escape` step."
+          ],
+          "family": null,
+          "undecoded": false,
+          "partial": true,
+          "wrapper_only": true
+        },
+        "mode": "strict",
+        "risk": {
+          "verdict": "Partial Decode",
+          "level": "partial decode",
+          "score": 35
+        },
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "mitre": [
+          {
+            "id": "T1059.001",
+            "technique": "PowerShell",
+            "tactic": "Execution"
+          },
+          {
+            "id": "T1027.010",
+            "technique": "Command Obfuscation: Base64/Encoded Command",
+            "tactic": "Defense Evasion"
+          }
+        ],
+        "lolbas": [
+          {
+            "binary": "powershell.exe",
+            "purposes": [
+              "Execute",
+              "Download"
+            ],
+            "mitre": [
+              "T1059.001",
+              "T1197"
+            ],
+            "description": "PowerShell with encoded/hidden/download-and-execute or discovery pattern (incl. BITS-transfer stealthy download)",
+            "snippet": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA== (powershell-alias-normalize \u00b7 no known aliases found) VwByA",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/powershell/",
+            "source": "curated"
+          }
+        ],
+        "ti_shield": [
+          {
+            "layer": 0,
+            "label": "L0 \u00b7 RAW INPUT",
+            "op": "raw",
+            "preview": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+            "iocs": {
+              "urls": [],
+              "ips": [],
+              "domains": [],
+              "emails": [],
+              "md5": [],
+              "sha1": [],
+              "sha256": [],
+              "bitcoin_addresses": []
+            },
+            "lolbas": [
+              {
+                "binary": "powershell.exe",
+                "purposes": [
+                  "Execute",
+                  "Download"
+                ],
+                "mitre": [
+                  "T1059.001",
+                  "T1197"
+                ],
+                "description": "PowerShell with encoded/hidden/download-and-execute or discovery pattern (incl. BITS-transfer stealthy download)",
+                "snippet": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+                "url": "https://lolbas-project.github.io/lolbas/Binaries/powershell/",
+                "source": "curated"
+              }
+            ],
+            "mitre": [
+              {
+                "id": "T1059.001",
+                "technique": "PowerShell",
+                "tactic": "Execution"
+              },
+              {
+                "id": "T1027.010",
+                "technique": "Command Obfuscation: Base64/Encoded Command",
+                "tactic": "Defense Evasion"
+              }
+            ],
+            "yara": [
+              {
+                "rule": "PS_CaseMixed_Obfuscation",
+                "severity": "low",
+                "match": "powershell",
+                "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+              }
+            ],
+            "ti_hits": [],
+            "live_osint": {},
+            "family_hint": null,
+            "severity": {
+              "score": 20,
+              "band": "low"
+            }
+          },
+          {
+            "layer": "final",
+            "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+            "op": "final",
+            "preview": "(powershell-alias-normalize \u00b7 no known aliases found)",
+            "iocs": {
+              "urls": [],
+              "ips": [],
+              "domains": [],
+              "emails": [],
+              "md5": [],
+              "sha1": [],
+              "sha256": [],
+              "bitcoin_addresses": []
+            },
+            "lolbas": [],
+            "mitre": [],
+            "yara": [
+              {
+                "rule": "PS_CaseMixed_Obfuscation",
+                "severity": "low",
+                "match": "powershell",
+                "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+              }
+            ],
+            "ti_hits": [],
+            "live_osint": {},
+            "family_hint": null,
+            "severity": {
+              "score": 4,
+              "band": "none"
+            }
+          }
+        ],
+        "output_raw": "\u25bc POWERSHELL NORMALIZATION & RUNTIME RECONSTRUCTION (RC4.3 \u00b7 deterministic)\n\nReconstructed Command:\n  powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==\n\nRuntime Output (Simulation): not attempted \u2014 payload is not a safe built-in (Write-Host / Write-Output / Echo / Out-Host with a single literal string argument).\n\n\u25bc CMD RUNTIME RECONSTRUCTION (RC4.4 \u00b7 deterministic)\nProfile: windows-10-x64\n\nOriginal Input:\n  powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==\n\nNormalized Command:\n  powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==\n\nReconstructed Runtime Command:\n  powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==\n\nExpected Executable:\n  powershell.exe\nExpected Child Process:\n  -encod\n\nReconstruction Trace:\n  Step 1: cmd-parse \u2014 stripped 0 caret escape(s), collapsed 0 \"\" quote fragment(s)\n  Step 2: environment-load \u2014 profile=windows-10-x64, inline-sets=[]\n  Step 3: expansion \u2014 1 pass(es) until fixed point\n  Step 4: residuals \u2014 none\n\nConfidence Breakdown:\n  Parser:                 100\n  Environment:            100\n  Runtime Reconstruction:  60\n  Behavioral:              60\n  Overall:                 80\n\nATT&CK Mapping:\n  \u00b7 T1059.001 Command and Scripting Interpreter: PowerShell (Execution)\n\nVerdict:\n  benign  (confidence=65, category=no-obfuscation)\n  No obfuscation observed after normalization.\n\nAnalyst Explanation:\n\n(powershell-alias-normalize \u00b7 no known aliases found)",
+        "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Verdict:     Suspicious \u00b7 80/100\n  Engine:      magic \u00b7 conf 80/100\n  Chain:       extract-payload \u2192 base64-decode \u2192 xor-brute \u2192 powershell-backtick-normalize \u2192 powershell-alias-normalize\n\n  MITRE ATT&CK\n    T1059.001    \u00b7 Execution\n    T1027.010    \u00b7 Defense Evasion\n\n  LOLBIN       powershell.exe\n\n  Behavior\n    1. Executes PowerShell (T1059.001)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+        "cmd_runtime_reconstruct": {
+          "original": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+          "normalized": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+          "reconstructed": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+          "runtime_command": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+          "expected_executable": "powershell.exe",
+          "expected_child": "-encod",
+          "character_trace": [],
+          "reconstruction_trace": [
+            {
+              "step": "cmd-parse",
+              "detail": "stripped 0 caret escape(s), collapsed 0 \"\" quote fragment(s)"
+            },
+            {
+              "step": "environment-load",
+              "detail": "profile=windows-10-x64, inline-sets=[]"
+            },
+            {
+              "step": "expansion",
+              "detail": "1 pass(es) until fixed point"
+            },
+            {
+              "step": "residuals",
+              "detail": "none"
+            }
+          ],
+          "unresolved_vars": [],
+          "residuals": [],
+          "profile": "windows-10-x64",
+          "profile_env": {
+            "systemroot": "C:\\Windows",
+            "windir": "C:\\Windows",
+            "comspec": "C:\\Windows\\System32\\cmd.exe",
+            "programfiles": "C:\\Program Files",
+            "programfiles(x86)": "C:\\Program Files (x86)",
+            "programw6432": "C:\\Program Files",
+            "commonprogramfiles": "C:\\Program Files\\Common Files",
+            "commonprogramfiles(x86)": "C:\\Program Files (x86)\\Common Files",
+            "commonprogramw6432": "C:\\Program Files\\Common Files",
+            "programdata": "C:\\ProgramData",
+            "appdata": "C:\\Users\\user\\AppData\\Roaming",
+            "localappdata": "C:\\Users\\user\\AppData\\Local",
+            "userprofile": "C:\\Users\\user",
+            "public": "C:\\Users\\Public",
+            "temp": "C:\\Users\\user\\AppData\\Local\\Temp",
+            "tmp": "C:\\Users\\user\\AppData\\Local\\Temp",
+            "homedrive": "C:",
+            "homepath": "\\Users\\user",
+            "computername": "DESKTOP-WIN10",
+            "processor_architecture": "AMD64",
+            "path": "C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\Wbem;C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\\\",
+            "systemdrive": "C:",
+            "username": "user",
+            "os": "Windows_NT"
+          },
+          "verdict": {
+            "verdict": "benign",
+            "confidence": 65,
+            "category": "no-obfuscation",
+            "reason": "No obfuscation observed after normalization."
+          },
+          "mitre": [
+            {
+              "id": "T1059.001",
+              "technique": "Command and Scripting Interpreter: PowerShell",
+              "tactic": "Execution",
+              "evidence": "PowerShell invocation reconstructed"
+            }
+          ],
+          "confidence": {
+            "parser": 100,
+            "environment": 100,
+            "runtime_reconstruction": 60,
+            "behavioral": 60,
+            "overall": 80
+          },
+          "flags": {
+            "had_percent_expansion": false,
+            "had_delayed_expansion": false,
+            "had_caret_escape": false,
+            "had_quote_fragmentation": false,
+            "had_substring_slices": false,
+            "had_obfuscation": false
+          }
+        },
+        "transformation_trace": [
+          {
+            "step": "cmd-parse",
+            "detail": "stripped 0 caret escape(s), collapsed 0 \"\" quote fragment(s)"
+          },
+          {
+            "step": "environment-load",
+            "detail": "profile=windows-10-x64, inline-sets=[]"
+          },
+          {
+            "step": "expansion",
+            "detail": "1 pass(es) until fixed point"
+          },
+          {
+            "step": "residuals",
+            "detail": "none"
+          },
+          {
+            "step": "ps-normalize",
+            "detail": "Reconstructed Command:"
+          },
+          {
+            "step": "ps-normalize",
+            "detail": "Runtime Output (Simulation): not attempted \u2014 payload is not a safe built-in (Write-Host / Write-Output / Echo / Out-Host with a single literal string argument)."
+          }
+        ],
+        "semantic_ir": null,
+        "exec_graph": {
+          "nodes": [],
+          "schema_version": 1
+        },
+        "behaviors": [],
+        "mitre_v2": [],
+        "lolbins_v2": {
+          "executed": [],
+          "referenced": [],
+          "expanded": []
+        },
+        "verdict_v2": null,
+        "explain": null,
+        "semantic_engine_v2": false,
+        "semantic": {
+          "detected": true,
+          "recovered_script": "Write-Host \"tweet, tweet!\"",
+          "ast": [
+            {
+              "line_no": 0,
+              "raw": "Write-Host \"tweet, tweet!\"",
+              "cmdlet": "Write-Host",
+              "alias": "",
+              "args": [
+                "tweet, tweet!"
+              ]
+            }
+          ],
+          "artifacts": [
+            {
+              "kind": "cmdlet",
+              "value": "Write-Host",
+              "classification": "",
+              "evidence": "AST step: `Write-Host \"tweet, tweet!\"`"
+            }
+          ],
+          "behaviors": [],
+          "verdict": "needs_review",
+          "verdict_reason": "PowerShell EncodedCommand present (+10)",
+          "confidence": 99,
+          "risk_score": 19,
+          "mitre_ids": [
+            "T1027",
+            "T1059.001"
+          ],
+          "decode_outcome": "fully_decoded",
+          "behaviors_v2": [
+            {
+              "id": "encoded_command",
+              "name": "Encoded PowerShell Command",
+              "severity": "medium",
+              "confidence": 95,
+              "rationale": "Command line invoked PowerShell with an `-EncodedCommand` Base64 payload \u2014 a classic obfuscation / defense-evasion technique.",
+              "mitre": [
+                "T1027",
+                "T1059.001"
+              ],
+              "evidence": [],
+              "node_ref": ""
+            }
+          ],
+          "evidence_graph": {
+            "nodes": [
+              {
+                "id": "script:root",
+                "kind": "script",
+                "label": "Recovered PowerShell",
+                "meta": {
+                  "length": 26,
+                  "statements": 1
+                }
+              },
+              {
+                "id": "decoder:0",
+                "kind": "decoder_layer",
+                "label": "input_scanner",
+                "meta": {
+                  "confidence": null,
+                  "in_len": null,
+                  "out_len": null,
+                  "why": "",
+                  "layer": null
+                }
+              },
+              {
+                "id": "decoder:1",
+                "kind": "decoder_layer",
+                "label": "extract_encodedcommand",
+                "meta": {
+                  "confidence": null,
+                  "in_len": null,
+                  "out_len": null,
+                  "why": "",
+                  "layer": null
+                }
+              },
+              {
+                "id": "decoder:2",
+                "kind": "decoder_layer",
+                "label": "base64_decode",
+                "meta": {
+                  "confidence": null,
+                  "in_len": null,
+                  "out_len": null,
+                  "why": "",
+                  "layer": null
+                }
+              },
+              {
+                "id": "decoder:3",
+                "kind": "decoder_layer",
+                "label": "utf16le_strict",
+                "meta": {
+                  "confidence": null,
+                  "in_len": null,
+                  "out_len": null,
+                  "why": "",
+                  "layer": null
+                }
+              },
+              {
+                "id": "decoder:4",
+                "kind": "decoder_layer",
+                "label": "ps_ast_parser",
+                "meta": {
+                  "confidence": null,
+                  "in_len": null,
+                  "out_len": null,
+                  "why": "",
+                  "layer": null
+                }
+              },
+              {
+                "id": "decoder:5",
+                "kind": "decoder_layer",
+                "label": "behavior_extractor_v2",
+                "meta": {
+                  "confidence": null,
+                  "in_len": null,
+                  "out_len": null,
+                  "why": "",
+                  "layer": null
+                }
+              },
+              {
+                "id": "behavior:encoded_command",
+                "kind": "behavior",
+                "label": "Encoded PowerShell Command",
+                "meta": {
+                  "severity": "medium",
+                  "confidence": 95,
+                  "mitre": [
+                    "T1027",
+                    "T1059.001"
+                  ],
+                  "rationale": "Command line invoked PowerShell with an `-EncodedCommand` Base64 payload \u2014 a classic obfuscation / defense-evasion technique."
+                }
+              }
+            ],
+            "edges": [
+              {
+                "src": "decoder:0",
+                "dst": "decoder:1",
+                "kind": "derives_from"
+              },
+              {
+                "src": "decoder:1",
+                "dst": "decoder:2",
+                "kind": "derives_from"
+              },
+              {
+                "src": "decoder:2",
+                "dst": "decoder:3",
+                "kind": "derives_from"
+              },
+              {
+                "src": "decoder:3",
+                "dst": "decoder:4",
+                "kind": "derives_from"
+              },
+              {
+                "src": "decoder:4",
+                "dst": "decoder:5",
+                "kind": "derives_from"
+              },
+              {
+                "src": "decoder:5",
+                "dst": "script:root",
+                "kind": "derives_from"
+              },
+              {
+                "src": "behavior:encoded_command",
+                "dst": "script:root",
+                "kind": "inferred"
+              }
+            ],
+            "stats": {
+              "node_count": 8,
+              "edge_count": 7
+            }
+          },
+          "decode_timeline": [
+            {
+              "order": 0,
+              "decoder": "input_scanner",
+              "status": "applied",
+              "reason": "Detected `powershell.exe` invocation in command line; beginning semantic decode pipeline.",
+              "input_hash": "343d9b3836da5527",
+              "output_hash": "343d9b3836da5527",
+              "input_len": 94,
+              "output_len": 94,
+              "duration_ms": 0.0,
+              "preview": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+              "meta": {}
+            },
+            {
+              "order": 1,
+              "decoder": "extract_encodedcommand",
+              "status": "applied",
+              "reason": "Located `-EncodedCommand` flag; extracted 72-char Base64 blob.",
+              "input_hash": "343d9b3836da5527",
+              "output_hash": "34bcfdeea77eda17",
+              "input_len": 94,
+              "output_len": 72,
+              "duration_ms": 0.0,
+              "preview": "VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+              "meta": {}
+            },
+            {
+              "order": 2,
+              "decoder": "base64_decode",
+              "status": "applied",
+              "reason": "decoded 72-char Base64 blob \u2192 52 bytes",
+              "input_hash": "34bcfdeea77eda17",
+              "output_hash": "6e2df21330a919cc",
+              "input_len": 72,
+              "output_len": 104,
+              "duration_ms": 0.0,
+              "preview": "570072006900740065002d0048006f007300740020002200740077006500650074002c0020007400770065006500740021002200",
+              "meta": {
+                "b64_bytes": 52,
+                "hex_preview": "570072006900740065002d0048006f007300740020002200740077006500650074002c0020007400770065006500740021002200"
+              }
+            },
+            {
+              "order": 3,
+              "decoder": "utf16le_strict",
+              "status": "applied",
+              "reason": "UTF-16LE strict decode succeeded \u2014 recovered 26-char PowerShell script.",
+              "input_hash": "",
+              "output_hash": "",
+              "input_len": 0,
+              "output_len": 0,
+              "duration_ms": 0.0,
+              "preview": "",
+              "meta": {
+                "output_len": 26
+              }
+            },
+            {
+              "order": 4,
+              "decoder": "ps_ast_parser",
+              "status": "applied",
+              "reason": "Parsed recovered script into an AST with 1 statement(s) and 3 token(s).",
+              "input_hash": "2aaebc22b7f9e84c",
+              "output_hash": "6b86b273ff34fce1",
+              "input_len": 26,
+              "output_len": 1,
+              "duration_ms": 0.0,
+              "preview": "1",
+              "meta": {
+                "statements": 1,
+                "tokens": 3,
+                "resolved_vars": 0
+              }
+            },
+            {
+              "order": 5,
+              "decoder": "behavior_extractor_v2",
+              "status": "applied",
+              "reason": "Extracted 1 NivXRay-native behavior tag(s) from AST + text-level signals.",
+              "input_hash": "2aaebc22b7f9e84c",
+              "output_hash": "e61ee203db32ddc8",
+              "input_len": 26,
+              "output_len": 15,
+              "duration_ms": 0.0,
+              "preview": "encoded_command",
+              "meta": {}
+            }
+          ],
+          "verdict_breakdown": {
+            "verdict": "needs_review",
+            "risk_score": 19,
+            "behavior_score": 17,
+            "ioc_score": 0,
+            "obfuscation_score": 50,
+            "confidence": 99,
+            "rationale": [
+              "Behavior score 17/100 driven by 1 tag(s) \u2014 0 critical, 0 high.",
+              "IOC score is low \u2014 no external network endpoints observed.",
+              "Obfuscation score 50/100 \u2014 EncodedCommand present, 6 decoder layer(s).",
+              "Composite risk 19/100 \u2192 verdict: needs_review."
+            ],
+            "top_signals": [
+              {
+                "id": "encoded_command",
+                "name": "Encoded PowerShell Command",
+                "severity": "medium",
+                "confidence": 95,
+                "weight": 17.1
+              }
+            ]
+          },
+          "ast_tree": {
+            "statements": [
+              {
+                "kind": "Call",
+                "text": "Write-Host",
+                "start": 0,
+                "end": 26,
+                "children": [
+                  {
+                    "kind": "String",
+                    "text": "tweet, tweet!",
+                    "start": 11,
+                    "end": 26,
+                    "children": [],
+                    "meta": {
+                      "quote": "\""
+                    }
+                  }
+                ],
+                "meta": {
+                  "cmdlet": "Write-Host"
+                }
+              }
+            ],
+            "variables": {},
+            "src_len": 26
+          },
+          "resolved_variables": {},
+          "decode_error": {},
+          "wrapper_chain": [],
+          "effective_payload": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+          "dispatch_hint": "powershell",
+          "reconstruction_determinism_hash": "3583e2d53393b7baa5eeccf1be8d820e93a8e7c925a37c40a901499b464bda9b",
+          "deobfuscation": {
+            "original": "Write-Host \"tweet, tweet!\"",
+            "final": "Write-Host \"tweet, tweet!\"",
+            "stages": [],
+            "stopped_reason": "fixed_point (no further deterministic transforms)",
+            "boundary_op": "",
+            "crypto_status": "",
+            "unsupported_reasons": []
+          },
+          "storyline": {
+            "executive_summary": "Verdict: **NEEDS_REVIEW** \u00b7 risk 19/100. Top observable behaviors: Encoded PowerShell Command.",
+            "sections": [
+              {
+                "key": "deobfuscation_chain",
+                "title": "Deobfuscation Chain Summary",
+                "observed": false,
+                "narrative": "No deterministic deobfuscation was applicable \u2014 the payload was already in a decodable form.",
+                "mitre": [],
+                "evidence": []
+              },
+              {
+                "key": "final_decoded_script",
+                "title": "Final Decoded Script",
+                "observed": true,
+                "narrative": "Write-Host \"tweet, tweet!\"",
+                "mitre": [],
+                "evidence": [
+                  {
+                    "kind": "script_length",
+                    "value": 26
+                  }
+                ]
+              },
+              {
+                "key": "initial_execution",
+                "title": "Initial Execution",
+                "observed": true,
+                "narrative": "The payload initiates execution via Encoded PowerShell Command (conf 95). A `-EncodedCommand` wrapper was used to hide the true script from surface-level inspection.",
+                "mitre": [
+                  "T1027",
+                  "T1059.001"
+                ],
+                "evidence": [
+                  {
+                    "kind": "behavior",
+                    "id": "encoded_command",
+                    "name": "Encoded PowerShell Command",
+                    "confidence": 95,
+                    "severity": "medium"
+                  }
+                ]
+              },
+              {
+                "key": "process_behavior",
+                "title": "Process Behavior",
+                "observed": false,
+                "narrative": "No process spawn, LOLBIN abuse, or injection primitives were observed.",
+                "mitre": [],
+                "evidence": []
+              },
+              {
+                "key": "network_behavior",
+                "title": "Network Behavior",
+                "observed": false,
+                "narrative": "No outbound network activity was observed in the decoded payload.",
+                "mitre": [],
+                "evidence": []
+              },
+              {
+                "key": "file_activity",
+                "title": "File Activity",
+                "observed": false,
+                "narrative": "No file-system activity was observed.",
+                "mitre": [],
+                "evidence": []
+              },
+              {
+                "key": "registry_activity",
+                "title": "Registry Activity",
+                "observed": false,
+                "narrative": "No registry access or modification was observed.",
+                "mitre": [],
+                "evidence": []
+              },
+              {
+                "key": "persistence",
+                "title": "Persistence",
+                "observed": false,
+                "narrative": "No persistence primitives (scheduled task, service, or Run-key registration) were observed.",
+                "mitre": [],
+                "evidence": []
+              },
+              {
+                "key": "credential_access",
+                "title": "Credential Access",
+                "observed": false,
+                "narrative": "No credential-access behavior was observed in the decoded payload.",
+                "mitre": [],
+                "evidence": []
+              },
+              {
+                "key": "defense_evasion",
+                "title": "Defense Evasion",
+                "observed": false,
+                "narrative": "No defense-evasion behavior was observed.",
+                "mitre": [],
+                "evidence": []
+              }
+            ],
+            "mitre_techniques": [
+              {
+                "id": "T1027",
+                "sections": [
+                  "initial_execution"
+                ]
+              },
+              {
+                "id": "T1059.001",
+                "sections": [
+                  "initial_execution"
+                ]
+              }
+            ],
+            "attack_narrative": "Reconstructed attack flow (deterministic, evidence-driven):\n1. No obfuscation was applied \u2014 the raw command was analyzed directly.\n2. **Initial Execution** \u2014 The payload initiates execution via Encoded PowerShell Command (conf 95). A `-EncodedCommand` wrapper was used to hide the true script from surface-level inspection."
+          }
+        },
+        "investigation": {
+          "input": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+          "iu": {
+            "primary_type": "command_line",
+            "embedded": [],
+            "confidence": 95,
+            "evidence": [
+              {
+                "source": "input_understanding.command_line",
+                "observation": "powershell.exe",
+                "confidence": 95,
+                "rationale": "Input begins with a known Windows launcher / LOLBIN (`powershell.exe`). Command Reconstruction Engine can peel any wrapper chain from here.",
+                "meta": {
+                  "detector": "command_line"
+                }
+              }
+            ],
+            "dispatch": [
+              "cre",
+              "decoder",
+              "semantic",
+              "behavior",
+              "ioc",
+              "mitre",
+              "verdict"
+            ],
+            "determinism_hash": "8a487d3229efd2613398234d4b60d52013f1d6f12dc7fa78876bb8125757c84a"
+          },
+          "cre": {
+            "original": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+            "effective_payload": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+            "chain": [],
+            "dispatch_hint": "powershell",
+            "stopped_reason": "",
+            "determinism_hash": "3583e2d53393b7baa5eeccf1be8d820e93a8e7c925a37c40a901499b464bda9b"
+          },
+          "rte": {
+            "artifacts": [
+              {
+                "content": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+                "classification": {
+                  "primary_type": "command_line",
+                  "embedded": [],
+                  "confidence": 95,
+                  "evidence": [
+                    {
+                      "source": "input_understanding.command_line",
+                      "observation": "powershell.exe",
+                      "confidence": 95,
+                      "rationale": "Input begins with a known Windows launcher / LOLBIN (`powershell.exe`). Command Reconstruction Engine can peel any wrapper chain from here.",
+                      "meta": {
+                        "detector": "command_line"
+                      }
+                    }
+                  ],
+                  "dispatch": [
+                    "cre",
+                    "decoder",
+                    "semantic",
+                    "behavior",
+                    "ioc",
+                    "mitre",
+                    "verdict"
+                  ],
+                  "determinism_hash": "8a487d3229efd2613398234d4b60d52013f1d6f12dc7fa78876bb8125757c84a"
+                },
+                "layer": 0,
+                "content_hash": "343d9b3836da5527",
+                "parent_hash": null,
+                "meta": {}
+              }
+            ],
+            "steps": [],
+            "stop_reason": "no_transformation",
+            "depth": 0,
+            "final_layer": 0,
+            "determinism_hash": "b56a19a2c9ddc7e9d7c53ef2235c19084feb2933716cee6e58910219ca415165",
+            "diagnostics": [
+              {
+                "layer": 0,
+                "detector": "rte.engine",
+                "attempted": "stop_reason=no_transformation",
+                "outcome": "orchestration",
+                "reason": "The Recursive Transformation Engine could not find any deterministic transformation to apply to the current layer. This is the principled convergence state; the artefact is treated as effective plaintext for downstream analysis.",
+                "meta": {
+                  "stage": 1,
+                  "stop_reason": "no_transformation",
+                  "depth": 0
+                },
+                "code": "DX2002",
+                "failure_type": "NO_FURTHER_DETERMINISTIC_TRANSFORMATION",
+                "severity": "info",
+                "caused_by": ""
+              }
+            ]
+          },
+          "intent": {
+            "intents": [],
+            "summary": "No high-signal analyst intent could be inferred from the effective payload. The artefact may be benign, or its intent may depend on runtime context that is not visible in the static input.",
+            "determinism_hash": "916dcaa4ad218aa09bac9812e444652d61724d730ff5a920bd471a5a1a686beb"
+          },
+          "behavior": {
+            "schema_version": "1.1.0",
+            "nodes": [],
+            "edges": []
+          },
+          "verdict": {
+            "band": "unknown",
+            "reason": "The available evidence is insufficient to determine whether the artefact is benign or malicious. Additional context \u2014 such as the executable, parent process, digital signature, or runtime behaviour \u2014 is required.",
+            "confidence": 50,
+            "top_intents": [],
+            "evidence": [],
+            "reasoning": {
+              "observed": [],
+              "composition": [],
+              "conclusion": "No adversarial intent fired and no positive evidence of legitimacy was observed. Verdict is UNKNOWN \u2014 not a benign classification.",
+              "ambiguity": "Unknowns: executable identity, vendor, digital signature, parent process, runtime context, and actual behaviour. Any of these would refine the verdict toward MALICIOUS, SUSPICIOUS, or BENIGN."
+            }
+          },
+          "graph": {
+            "nodes": [
+              {
+                "id": "input",
+                "kind": "input",
+                "label": "Raw input",
+                "detail": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+                "confidence": null,
+                "source": "",
+                "meta": {}
+              },
+              {
+                "id": "iu",
+                "kind": "artefact_type",
+                "label": "command_line",
+                "detail": "IU classified the input as `command_line` with 0 embedded artefact(s).",
+                "confidence": 95,
+                "source": "input_understanding",
+                "meta": {}
+              },
+              {
+                "id": "iu_ev_0",
+                "kind": "evidence",
+                "label": "powershell.exe",
+                "detail": "Input begins with a known Windows launcher / LOLBIN (`powershell.exe`). Command Reconstruction Engine can peel any wrapper chain from here.",
+                "confidence": 95,
+                "source": "input_understanding.command_line",
+                "meta": {}
+              }
+            ],
+            "edges": [
+              {
+                "src": "input",
+                "dst": "iu",
+                "kind": "produces"
+              },
+              {
+                "src": "iu_ev_0",
+                "dst": "iu",
+                "kind": "supports"
+              }
+            ]
+          },
+          "report": {
+            "executive_summary": "The available evidence is insufficient to determine whether the artefact is benign or malicious. Additional context \u2014 such as the executable, parent process, digital signature, or runtime behaviour \u2014 is required to refine this verdict.",
+            "observed_behaviors": [],
+            "intent_narrative": [],
+            "evidence": [],
+            "mitre": [],
+            "iocs": [],
+            "unknowns": [
+              "No further deterministic transformations were applicable; the effective payload above may still contain runtime branches that only resolve during execution."
+            ],
+            "recommendations": [],
+            "confidence_signals": {
+              "confidence": "low",
+              "evidence_strength": "insufficient",
+              "unknowns_present": "no",
+              "reasoning": "no_analyst_intent"
+            },
+            "behavior_graph": {
+              "schema_version": "1.1.0",
+              "nodes": [],
+              "edges": []
+            }
+          },
+          "coverage": [
+            "iu",
+            "cre",
+            "rte",
+            "intent",
+            "behavior",
+            "verdict",
+            "graph",
+            "report"
+          ],
+          "determinism_hash": "51aba955b243f68a1ed286089b31773150d31475f67c025edd6af6b81b0da4ac"
+        }
+      },
+      "status": "ok"
+    },
+    {
       "id": "S01_ps_b64_utf16le",
       "family": "Multi-layer PowerShell Base64 (UTF-16LE)",
       "http_status": 200,
@@ -80,7 +1275,8 @@
           "enabled": true,
           "signal_kind": "ps-encoded",
           "chain": [
-            "ascii-decimal-decode",
+            "extract-payload",
+            "base64-decode",
             "xor-brute",
             "powershell-backtick-normalize",
             "powershell-alias-normalize"
@@ -88,6 +1284,16 @@
           "source": "history",
           "confidence": 0.25,
           "alternatives": [
+            {
+              "chain": [
+                "ascii-decimal-decode",
+                "xor-brute",
+                "powershell-backtick-normalize",
+                "powershell-alias-normalize"
+              ],
+              "score": 3,
+              "source": "history"
+            },
             {
               "chain": [
                 "powershell-encoded"
@@ -447,131 +1653,11 @@
               }
             ],
             "ti_hits": [],
-            "live_osint": {
-              "ips": [],
-              "domains": [
-                {
-                  "value": "example.com",
-                  "classification": {
-                    "tld": "com",
-                    "is_high_risk_tld": false,
-                    "is_onion": false,
-                    "length": 11,
-                    "has_dashes": false,
-                    "num_subdomains": 0
-                  },
-                  "resolved_ips": [
-                    "172.66.147.243",
-                    "104.20.23.154"
-                  ],
-                  "urlscan": {
-                    "total": 10000,
-                    "results": [
-                      {
-                        "url": "https://www.fnn.jp/articles/-/1086849",
-                        "verdict": null,
-                        "score": null,
-                        "scan_id": "019fc2d7-9a06-761a-889b-6e3a6017f148"
-                      },
-                      {
-                        "url": "https://newsdig.tbs.co.jp/articles/-/2844995?display=1",
-                        "verdict": null,
-                        "score": null,
-                        "scan_id": "019fc2b6-553f-710c-b9a4-f26bfa77407e"
-                      },
-                      {
-                        "url": "https://importikaah.com/",
-                        "verdict": null,
-                        "score": null,
-                        "scan_id": "019fc29c-45c8-740f-ade9-4df43038079b"
-                      }
-                    ]
-                  },
-                  "otx": {
-                    "pulse_count": 50,
-                    "reputation": null,
-                    "pulses": [
-                      {
-                        "name": "Microsoft Phishing Collection",
-                        "tags": [
-                          "urls",
-                          "phishing",
-                          "scam",
-                          "microsoft"
-                        ]
-                      },
-                      {
-                        "name": "Uninstall File",
-                        "tags": [
-                          "or requesturl"
-                        ]
-                      },
-                      {
-                        "name": "\u201cBroken Seal\u201d DocuSign-themed Delivery with Fileless Process Hollowing (Zeppelin/Bloat-A)",
-                        "tags": [
-                          "Zeppelin, Bloat-A, W32.Bloat-A, Zero-Day-Delivery, Protocol-Devi",
-                          "9698f46495ce9401c8bcaf9a2afe1598",
-                          "Imphash: 9698f46495ce9401c8bcaf9a2afe1598 | Imports (additional)",
-                          "MD5: b47266fef17ad4b2e4ca6ee1d06c39a7 SHA-1: cb92796715c799d7e71",
-                          "Filename: b47266fef17ad4b2e4ca6ee1d06c39a7.virus File Type: Win3"
-                        ]
-                      }
-                    ]
-                  }
-                }
-              ],
-              "urls": [
-                {
-                  "value": "http://example.com/stage1",
-                  "scheme": "http",
-                  "host": "example.com",
-                  "path": "/stage1",
-                  "port": null,
-                  "is_onion": false,
-                  "urlscan": {
-                    "total": 10000,
-                    "results": [
-                      {
-                        "url": "https://www.fnn.jp/articles/-/1086849",
-                        "verdict": null,
-                        "score": null,
-                        "scan_id": "019fc2d7-9a06-761a-889b-6e3a6017f148"
-                      },
-                      {
-                        "url": "https://newsdig.tbs.co.jp/articles/-/2844995?display=1",
-                        "verdict": null,
-                        "score": null,
-                        "scan_id": "019fc2b6-553f-710c-b9a4-f26bfa77407e"
-                      },
-                      {
-                        "url": "https://importikaah.com/",
-                        "verdict": null,
-                        "score": null,
-                        "scan_id": "019fc29c-45c8-740f-ade9-4df43038079b"
-                      }
-                    ]
-                  },
-                  "otx": {
-                    "pulse_count": 0,
-                    "reputation": null,
-                    "pulses": []
-                  }
-                }
-              ],
-              "hashes": [],
-              "sources_used": [
-                "ip-api.com (geolocation, no key)",
-                "system DNS (reverse lookup, resolution)",
-                "AbuseIPDB",
-                "URLScan.io",
-                "AlienVault OTX",
-                "Hybrid Analysis"
-              ]
-            },
+            "live_osint": {},
             "family_hint": null,
             "severity": {
-              "score": 38,
-              "band": "medium"
+              "score": 28,
+              "band": "low"
             }
           }
         ],
@@ -1176,7 +2262,7 @@
                     "output_hash": "db10154213830762",
                     "input_length": 0,
                     "output_length": 87,
-                    "elapsed_ms": 0.61,
+                    "elapsed_ms": 0.587,
                     "confidence": 95
                   }
                 ],
@@ -1390,7 +2476,7 @@
                 "output_hash": "db10154213830762",
                 "input_length": 0,
                 "output_length": 87,
-                "elapsed_ms": 0.61,
+                "elapsed_ms": 0.587,
                 "confidence": 95
               }
             ],
@@ -2593,6 +3679,17 @@
           "alternatives": [
             {
               "chain": [
+                "extract-payload",
+                "base64-decode",
+                "xor-brute",
+                "powershell-backtick-normalize",
+                "powershell-alias-normalize"
+              ],
+              "score": 5,
+              "source": "history"
+            },
+            {
+              "chain": [
                 "ascii-decimal-decode",
                 "xor-brute",
                 "powershell-backtick-normalize",
@@ -2603,22 +3700,15 @@
             },
             {
               "chain": [
+                "powershell-alias-normalize"
+              ],
+              "score": 4,
+              "source": "kb"
+            },
+            {
+              "chain": [
                 "hex-decode",
                 "base64-decode"
-              ],
-              "score": 2,
-              "source": "kb"
-            },
-            {
-              "chain": [
-                "rot47"
-              ],
-              "score": 2,
-              "source": "kb"
-            },
-            {
-              "chain": [
-                "powershell-alias-normalize"
               ],
               "score": 2,
               "source": "kb"
@@ -3083,6 +4173,17 @@
           "alternatives": [
             {
               "chain": [
+                "extract-payload",
+                "base64-decode",
+                "xor-brute",
+                "powershell-backtick-normalize",
+                "powershell-alias-normalize"
+              ],
+              "score": 5,
+              "source": "history"
+            },
+            {
+              "chain": [
                 "ascii-decimal-decode",
                 "xor-brute",
                 "powershell-backtick-normalize",
@@ -3101,14 +4202,6 @@
             {
               "chain": [
                 "extract-payload",
-                "base64-decode"
-              ],
-              "score": 2,
-              "source": "kb"
-            },
-            {
-              "chain": [
-                "hex-decode",
                 "base64-decode"
               ],
               "score": 2,
@@ -3907,6 +5000,17 @@
             },
             {
               "chain": [
+                "extract-payload",
+                "base64-decode",
+                "xor-brute",
+                "powershell-backtick-normalize",
+                "powershell-alias-normalize"
+              ],
+              "score": 5,
+              "source": "history"
+            },
+            {
+              "chain": [
                 "ascii-decimal-decode",
                 "xor-brute",
                 "powershell-backtick-normalize",
@@ -3920,14 +5024,6 @@
                 "powershell-alias-normalize"
               ],
               "score": 4,
-              "source": "kb"
-            },
-            {
-              "chain": [
-                "extract-payload",
-                "base64-decode"
-              ],
-              "score": 2,
               "source": "kb"
             }
           ],
@@ -4181,64 +5277,7 @@
               }
             ],
             "ti_hits": [],
-            "live_osint": {
-              "ips": [],
-              "domains": [
-                {
-                  "value": "ample.com",
-                  "classification": {
-                    "tld": "com",
-                    "is_high_risk_tld": false,
-                    "is_onion": false,
-                    "length": 9,
-                    "has_dashes": false,
-                    "num_subdomains": 0
-                  },
-                  "resolved_ips": [
-                    "194.1.147.14",
-                    "194.1.147.61"
-                  ],
-                  "urlscan": {
-                    "total": 26,
-                    "results": [
-                      {
-                        "url": "https://ample.com/",
-                        "verdict": null,
-                        "score": null,
-                        "scan_id": "0199a284-e7c2-73e9-a6e1-3ec9310dc815"
-                      },
-                      {
-                        "url": "https://move2025.ample.com/",
-                        "verdict": null,
-                        "score": null,
-                        "scan_id": "01976681-5641-768f-9bac-5556bc4e2b66"
-                      },
-                      {
-                        "url": "https://ample.com/",
-                        "verdict": null,
-                        "score": null,
-                        "scan_id": "0196fd55-eb89-73ee-b44e-549ef94f493d"
-                      }
-                    ]
-                  },
-                  "otx": {
-                    "pulse_count": 0,
-                    "reputation": null,
-                    "pulses": []
-                  }
-                }
-              ],
-              "urls": [],
-              "hashes": [],
-              "sources_used": [
-                "ip-api.com (geolocation, no key)",
-                "system DNS (reverse lookup, resolution)",
-                "AbuseIPDB",
-                "URLScan.io",
-                "AlienVault OTX",
-                "Hybrid Analysis"
-              ]
-            },
+            "live_osint": {},
             "family_hint": null,
             "severity": {
               "score": 17,
@@ -4289,12 +5328,18 @@
                     "num_subdomains": 0
                   },
                   "resolved_ips": [
-                    "172.66.147.243",
-                    "104.20.23.154"
+                    "104.20.23.154",
+                    "172.66.147.243"
                   ],
                   "urlscan": {
                     "total": 10000,
                     "results": [
+                      {
+                        "url": "https://auth-sunswap-v2-en-us.pages.dev/",
+                        "verdict": null,
+                        "score": null,
+                        "scan_id": "019fc316-58c9-76d6-b5cd-b8437eccb0fe"
+                      },
                       {
                         "url": "https://www.fnn.jp/articles/-/1086849",
                         "verdict": null,
@@ -4306,12 +5351,6 @@
                         "verdict": null,
                         "score": null,
                         "scan_id": "019fc2b6-553f-710c-b9a4-f26bfa77407e"
-                      },
-                      {
-                        "url": "https://importikaah.com/",
-                        "verdict": null,
-                        "score": null,
-                        "scan_id": "019fc29c-45c8-740f-ade9-4df43038079b"
                       }
                     ]
                   },
@@ -4360,6 +5399,12 @@
                     "total": 10000,
                     "results": [
                       {
+                        "url": "https://auth-sunswap-v2-en-us.pages.dev/",
+                        "verdict": null,
+                        "score": null,
+                        "scan_id": "019fc316-58c9-76d6-b5cd-b8437eccb0fe"
+                      },
+                      {
                         "url": "https://www.fnn.jp/articles/-/1086849",
                         "verdict": null,
                         "score": null,
@@ -4370,12 +5415,6 @@
                         "verdict": null,
                         "score": null,
                         "scan_id": "019fc2b6-553f-710c-b9a4-f26bfa77407e"
-                      },
-                      {
-                        "url": "https://importikaah.com/",
-                        "verdict": null,
-                        "score": null,
-                        "scan_id": "019fc29c-45c8-740f-ade9-4df43038079b"
                       }
                     ]
                   },
@@ -4991,7 +6030,7 @@
                     "output_hash": "cd21d4d49d0a31a1",
                     "input_length": 0,
                     "output_length": 45,
-                    "elapsed_ms": 0.266,
+                    "elapsed_ms": 0.272,
                     "confidence": 95
                   },
                   {
@@ -5007,7 +6046,7 @@
                     "output_hash": "a5d404127fe4d72c",
                     "input_length": 0,
                     "output_length": 73,
-                    "elapsed_ms": 0.266,
+                    "elapsed_ms": 0.272,
                     "confidence": 95
                   }
                 ],
@@ -5219,7 +6258,7 @@
                 "output_hash": "cd21d4d49d0a31a1",
                 "input_length": 0,
                 "output_length": 45,
-                "elapsed_ms": 0.266,
+                "elapsed_ms": 0.272,
                 "confidence": 95
               },
               {
@@ -5235,7 +6274,7 @@
                 "output_hash": "a5d404127fe4d72c",
                 "input_length": 0,
                 "output_length": 73,
-                "elapsed_ms": 0.266,
+                "elapsed_ms": 0.272,
                 "confidence": 95
               }
             ],
@@ -6178,10 +7217,13 @@
             {
               "chain": [
                 "extract-payload",
-                "base64-decode"
+                "base64-decode",
+                "xor-brute",
+                "powershell-backtick-normalize",
+                "powershell-alias-normalize"
               ],
-              "score": 2,
-              "source": "kb"
+              "score": 3,
+              "source": "history"
             }
           ],
           "signals": {
@@ -6810,7 +7852,7 @@
                     "output_hash": "5dfc26e6f56f081c",
                     "input_length": 64,
                     "output_length": 59,
-                    "elapsed_ms": 0.506,
+                    "elapsed_ms": 0.503,
                     "confidence": 95
                   },
                   {
@@ -6826,7 +7868,7 @@
                     "output_hash": "74b8d0fbcb2a5e36",
                     "input_length": 0,
                     "output_length": 235,
-                    "elapsed_ms": 0.506,
+                    "elapsed_ms": 0.503,
                     "confidence": 95
                   }
                 ],
@@ -7149,7 +8191,7 @@
                 "output_hash": "5dfc26e6f56f081c",
                 "input_length": 64,
                 "output_length": 59,
-                "elapsed_ms": 0.506,
+                "elapsed_ms": 0.503,
                 "confidence": 95
               },
               {
@@ -7165,7 +8207,7 @@
                 "output_hash": "74b8d0fbcb2a5e36",
                 "input_length": 0,
                 "output_length": 235,
-                "elapsed_ms": 0.506,
+                "elapsed_ms": 0.503,
                 "confidence": 95
               }
             ],
@@ -7859,7 +8901,8 @@
             },
             {
               "chain": [
-                "ascii-decimal-decode",
+                "extract-payload",
+                "base64-decode",
                 "xor-brute",
                 "powershell-backtick-normalize",
                 "powershell-alias-normalize"
@@ -7869,10 +8912,13 @@
             },
             {
               "chain": [
+                "ascii-decimal-decode",
+                "xor-brute",
+                "powershell-backtick-normalize",
                 "powershell-alias-normalize"
               ],
-              "score": 4,
-              "source": "kb"
+              "score": 5,
+              "source": "history"
             }
           ],
           "signals": {
@@ -8308,10 +9354,14 @@
             },
             {
               "chain": [
+                "extract-payload",
+                "base64-decode",
+                "xor-brute",
+                "powershell-backtick-normalize",
                 "powershell-alias-normalize"
               ],
-              "score": 4,
-              "source": "kb"
+              "score": 5,
+              "source": "history"
             }
           ],
           "signals": {
@@ -8751,10 +9801,14 @@
             },
             {
               "chain": [
-                "powershell-deobfuscate"
+                "extract-payload",
+                "base64-decode",
+                "xor-brute",
+                "powershell-backtick-normalize",
+                "powershell-alias-normalize"
               ],
-              "score": 1,
-              "source": "default"
+              "score": 3,
+              "source": "history"
             }
           ],
           "signals": {
@@ -9721,7 +10775,7 @@
                     "output_hash": "eed2336e8a72bd3c",
                     "input_length": 0,
                     "output_length": 77,
-                    "elapsed_ms": 0.57,
+                    "elapsed_ms": 0.587,
                     "confidence": 95
                   }
                 ],
@@ -9928,7 +10982,7 @@
                 "output_hash": "eed2336e8a72bd3c",
                 "input_length": 0,
                 "output_length": 77,
-                "elapsed_ms": 0.57,
+                "elapsed_ms": 0.587,
                 "confidence": 95
               }
             ],
@@ -11217,10 +12271,14 @@
             },
             {
               "chain": [
+                "extract-payload",
+                "base64-decode",
+                "xor-brute",
+                "powershell-backtick-normalize",
                 "powershell-alias-normalize"
               ],
-              "score": 4,
-              "source": "kb"
+              "score": 5,
+              "source": "history"
             }
           ],
           "signals": {

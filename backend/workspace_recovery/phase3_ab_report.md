@@ -1,6 +1,6 @@
 # Phase 3 · Behavioral A/B Report
 
-Corpus version: **1.0.0**
+Corpus version: **1.1.0**
 Baseline tree : `/tmp/workspace-v1.5.6/backend/` (git `fff5897`, Jul 28 16:10 UTC)
 Current tree  : `/app/backend/` (HEAD)
 
@@ -11,16 +11,17 @@ is pure runtime evidence produced by invoking `/api/decode/smart` on both trees.
 
 | # | Sample | v1.5.6 | Current | Same? | First Divergence |
 |---|--------|:------:|:-------:|:-----:|------------------|
-| 1 | `S01_ps_b64_utf16le` — Multi-layer PowerShell Base64 (UTF-16LE) | PASS | PASS | ❌ | interpreter differs |
-| 2 | `S02_bash_xxd_b64_rev` — Bash → xxd → Base64 → rev | PASS | PASS | ❌ | interpreter differs |
-| 3 | `S03_cmd_caret_escaped` — CMD ^-escaped | PASS | PASS | ❌ | interpreter differs |
-| 4 | `S04_ps_alias_heavy` — PowerShell alias-heavy pipeline | PASS | PASS | ❌ | decoder_chain: at index 0 baseline='ps-string-concat' current='ps-reconstruct' |
-| 5 | `S05_nested_b64_gzip` — Nested Base64 + GZIP | PASS | PASS | ❌ | decoder_chain: at index 2 baseline='gzip-decompress' current='crypto-detect' |
-| 6 | `S06_xor_obfuscated` — XOR-obfuscated payload | PASS | PASS | ✅ | identical |
-| 7 | `S07_rc4_openssl` — Crypto-wrapped payload (RC4/OpenSSL-style) | PASS | PASS | ❌ | decoder_chain: at index 0 baseline='extract-payload' current='rot47' |
-| 8 | `S08_unicode_obfuscation` — Unicode / UTF obfuscation | PASS | PASS | ❌ | decoder_chain: CURRENT has extra op 'extract-payload' at index 0 |
-| 9 | `S09_hex_b64_gzip_chain` — Mixed chain: Hex → Base64 → GZIP | PASS | PASS | ❌ | interpreter differs |
-| 10 | `S10_bash_with_powershell_comment` — Bash with literal token 'powershell' inside a comment (interpreter-routing regression guard) | PASS | PASS | ❌ | interpreter differs |
+| 1 | `S001_ps_writehost_tweet` — PowerShell -EncodedCommand (owner anchor · permanent) | PASS | PASS | ✅ | identical |
+| 2 | `S01_ps_b64_utf16le` — Multi-layer PowerShell Base64 (UTF-16LE) | PASS | PASS | ❌ | interpreter differs |
+| 3 | `S02_bash_xxd_b64_rev` — Bash → xxd → Base64 → rev | PASS | PASS | ❌ | interpreter differs |
+| 4 | `S03_cmd_caret_escaped` — CMD ^-escaped | PASS | PASS | ❌ | interpreter differs |
+| 5 | `S04_ps_alias_heavy` — PowerShell alias-heavy pipeline | PASS | PASS | ❌ | decoder_chain: at index 0 baseline='ps-string-concat' current='ps-reconstruct' |
+| 6 | `S05_nested_b64_gzip` — Nested Base64 + GZIP | PASS | PASS | ❌ | decoder_chain: at index 2 baseline='gzip-decompress' current='crypto-detect' |
+| 7 | `S06_xor_obfuscated` — XOR-obfuscated payload | PASS | PASS | ✅ | identical |
+| 8 | `S07_rc4_openssl` — Crypto-wrapped payload (RC4/OpenSSL-style) | PASS | PASS | ❌ | decoder_chain: at index 0 baseline='extract-payload' current='rot47' |
+| 9 | `S08_unicode_obfuscation` — Unicode / UTF obfuscation | PASS | PASS | ❌ | decoder_chain: CURRENT has extra op 'extract-payload' at index 0 |
+| 10 | `S09_hex_b64_gzip_chain` — Mixed chain: Hex → Base64 → GZIP | PASS | PASS | ❌ | interpreter differs |
+| 11 | `S10_bash_with_powershell_comment` — Bash with literal token 'powershell' inside a comment (interpreter-routing regression guard) | PASS | PASS | ❌ | interpreter differs |
 
 ## Per-Sample Stage Trace (❌ rows only)
 

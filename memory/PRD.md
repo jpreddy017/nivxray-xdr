@@ -13,6 +13,42 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## ✅ PHASE 3 + 3.5 + 4-BISECT COMPLETE — Two regression windows identified (2026-02-XX)
+
+Phase 3 (Behavioral A/B), Phase 3.5 (Behavior-linked Dependency Graph), and
+the S001-anchored Phase 4 historical bisect have all been executed. Zero
+files were restored, forked, or wired. Full runtime evidence lives under
+`backend/workspace_recovery/`:
+
+- `EVIDENCE_SUMMARY_v2.md`      ← READ THIS FIRST — includes both regression windows
+- `phase3_ab_report.md`         ← A/B report with Candidate column
+- `phase3_5_dep_graph.md`       ← behavior-linked chains + blast radius
+- `phase4_S001_stage_analysis.md` ← S001-specific per-stage table
+- `phase4_bisect_report.md`     ← 15-anchor bisect with Window A/B verdict
+- `corpus.json`                 ← v1.1.0 — 11 samples (S001 owner anchor + S01..S10)
+- `runner.py` · `dep_graph.py` · `phase4_bisect.py` · `tree_worker.py`
+
+**Two clean regression windows proven by runtime evidence:**
+
+- **Window A · S001 broke** in the 80-commit range `5cab99e2b8..51666219ed`
+  (Jul 20 03:06 → Jul 21 09:07). Before this window five reachable revisions
+  correctly produce `Write-Host "tweet, tweet!"` for the owner-anchor input.
+  So S001 is a **RESTORE** case, not build-not-restore.
+
+- **Window B · mass regression** (9/10 baseline samples) in the 80-commit
+  range `09a556701a..42d7dffd1d` (Jul 29 02:20 → Jul 30 13:30).
+  `09a556701a` (Jul 29 02:20 UTC) is the **Last Known Global Good** — full
+  11-sample corpus 10/10 vs v1.5.6 fingerprint. `42d7dffd1d` is the first
+  bad SHA (drops to 1/10).
+
+**Next authorised phase: Phase 4a + 4b** — narrow each window to a single
+SHA by binary search. Effort ≈ 6 minutes total. Deterministic and
+non-destructive. Only then do we begin Phase 5 (Minimal Restore).
+
+Wait for owner review of `EVIDENCE_SUMMARY_v2.md` before starting Phase 4a/4b.
+
+---
+
 ## ✅ PHASE 3 & 3.5 COMPLETE — Evidence Available (2026-02-XX)
 
 Phase 3 (Behavioral A/B) and Phase 3.5 (Behavior-linked Dependency Graph)

@@ -1,7 +1,18 @@
 {
-  "corpus_version": "1.0.0",
-  "purpose": "Initial 10-sample Workspace Decode Pipeline certification corpus. Starting point for the permanent 60-sample workspace_regression_corpus/ (Phase 7.5). Every sample is deterministic — no time, no randomness, no network.",
+  "corpus_version": "1.1.0",
+  "purpose": "Workspace Decode Pipeline certification corpus. Starting point for the permanent 60-sample workspace_regression_corpus/ (Phase 7.5). Every sample is deterministic — no time, no randomness, no network. S001 is the owner's permanent regression anchor.",
   "samples": [
+    {
+      "id": "S001_ps_writehost_tweet",
+      "family": "PowerShell -EncodedCommand (owner anchor · permanent)",
+      "input": "powershell.exe -encod VwByAGkAdABlAC0ASABvAHMAdAAgACIAdAB3AGUAZQB0ACwAIAB0AHcAZQBlAHQAIQAiAA==",
+      "expected": {
+        "interpreter": "powershell",
+        "decoder_chain": ["extract-b64", "utf16le-decode"],
+        "final_output_contains": ["Write-Host", "tweet, tweet!"],
+        "regression_note": "Owner permanent anchor. Baseline v1.5.6 must produce Write-Host \"tweet, tweet!\". Any drift here is an immediate FAIL and blocks any deploy."
+      }
+    },
     {
       "id": "S01_ps_b64_utf16le",
       "family": "Multi-layer PowerShell Base64 (UTF-16LE)",

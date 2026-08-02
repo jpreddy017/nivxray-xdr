@@ -109,9 +109,23 @@ api = APIRouter(prefix="/api")
 # ── Health endpoints ────────────────────────────────────────────────────
 # `/api/health` = liveness (Cloudflare + k8s can hit cheaply)
 # `/api/health/deep` = readiness (Mongo + LLM key + disk) — for on-call triage
+# `/health` (root, no /api prefix) = alias for k8s liveness/readiness probes
+# that hit the unprefixed path via kubelet on 127.0.0.1. This is a plain
+# in-process check — no Mongo, no I/O — so a Mongo hiccup does not cause
+# pod restarts. Decode pipeline is NOT touched by this route.
 @api.get("/health")
 async def health_liveness():
     return {"status": "ok", "service": "nivxray-api"}
+
+
+@app.get("/health", include_in_schema=False)
+@app.head("/health", include_in_schema=False)
+async def health_root_alias():
+    """Root-level `/health` alias for Kubernetes probes (kubelet hits the
+    unprefixed path). Returns 200 without touching Mongo or the LLM key so a
+    downstream outage cannot flap the pod. Deep readiness lives at
+    `/api/health/deep`."""
+    return {"status": "ok", "service": "nivxray-api", "probe": "root-alias"}
 
 
 @api.get("/health/deep")
