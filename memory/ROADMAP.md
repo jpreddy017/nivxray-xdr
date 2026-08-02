@@ -38,6 +38,54 @@ value the moment P0 + P1 ship.
 - Case Comparison
 
 
+## P1 — Interpreter Ownership Coverage (measurable Workspace quality signal)
+_Filed 2026-08-02 by owner as part of the Workspace stabilisation phase._
+
+Introduce a persistent, corpus-driven metric that lives alongside the unit
+regression suite. Purpose: give Workspace a measurable quality indicator
+beyond "395/395 tests pass" so interpreter-routing stability can be tracked
+as the corpus grows.
+
+**Deliverable** — a JSON summary at
+`/app/backend/tests/investigation/interpreter_ownership_coverage.json`,
+regenerated on every pytest run of a new
+`test_interpreter_ownership_coverage.py`:
+
+```
+{
+  "generated_at": "2026-08-XX…",
+  "git_sha": "…",
+  "corpus_size": N,
+  "by_interpreter": {
+    "bash":       { "samples": …, "correctly_routed": …, "rate": … },
+    "cmd":        { "samples": …, "correctly_routed": …, "rate": … },
+    "powershell": { "samples": …, "correctly_routed": …, "rate": … },
+    "mixed_launcher": { "samples": …, "correctly_routed": …, "known_limitations": … }
+  },
+  "regressions_since_last_run": [ … ]
+}
+```
+
+**Corpus sources** (growable, real-world first — no synthetic special-casing):
+
+- Bash: real malicious shell command lines (sanitised)
+- CMD: real Windows batch / cmd invocations (sanitised)
+- PowerShell: real enterprise PowerShell command lines (sanitised)
+- Mixed launcher: real cases where a non-PS launcher wraps a PS payload
+  (documented as *known limitations*, not as production regressions)
+
+**Acceptance:**
+
+- Report regenerates on every test run and never raises
+- Never gates cut-over or deploy — this is a health signal, not a criterion
+- Mixed-launcher rows carry an explicit `known_limitations` field so
+  currently-under-decoded nested cases stay visible without being flagged
+  as regressions
+- Corpus grows over time; new samples arrive with sanitisation notes
+
+Not a hotfix. Awaits the current P0 hero-build work.
+
+
 ## P2 — Nested Interpreter Detection (Workspace decoder, future capability)
 _Filed 2026-08-02 by owner as follow-up to the PowerShell Interpreter Gate hotfix._
 
