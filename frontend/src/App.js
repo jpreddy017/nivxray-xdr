@@ -34,6 +34,7 @@ const MultiLayerBatteryPage = lazy(() => import("@/pages/MultiLayerBatteryPage")
 const AnalystWorkspacePage  = lazy(() => import("@/pages/AnalystWorkspacePage"));
 const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
 const AutoInvestigatePage   = lazy(() => import("@/pages/AutoInvestigatePage"));
+const SemanticMappingInspectorPage = lazy(() => import("@/pages/SemanticMappingInspectorPage"));
 
 // v2 · Additive Case Workspace shell (Phase 3+). Hidden from primary
 // navigation. Route only resolves when the CASE_ENGINE flag is at
@@ -133,6 +134,8 @@ function App() {
               <Route path="/analyst"   element={<Protected><AnalystWorkspacePage /></Protected>} />
               <Route path="/analyst/rc5" element={<Protected><AnalystRC5Page /></Protected>} />
               <Route path="/auto-investigate" element={<Protected><AutoInvestigatePage /></Protected>} />
+              {/* Semantic Mapping Inspector — Stage 3 engineering surface (Feb 2026). */}
+              <Route path="/lab/semantic-mapping-inspector" element={<Protected><SemanticMappingInspectorPage /></Protected>} />
               {/* v2 · Case Workspace shell — flag-gated inside the
                   component. Reachable only via direct URL, never
                   linked from primary navigation. */}

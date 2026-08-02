@@ -2,6 +2,18 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-XX · Stage 3 Soak + Semantic Mapping Inspector (Lab route)
+
+**Ships:**
+- **Stage 3 Soak harness** (`/app/backend/tests/investigation/test_stage3_soak.py`) — runs Stage 3 across 8 Phase 1 fixtures (Cisco Secure Endpoint, 3 Sysmon variants, ECS-flat, generic KV syslog, generic cmdLine fallback, encoded PowerShell) + the 5 alien corpus files. Writes a persistent Markdown report at `tests/investigation/stage3_soak_report.md`. Owner-mandated defensibility gate: pytest fails if any of the declared expected concept mappings regresses. **Soak passes with zero defensibility flags.**
+- **Nested-path leaf lookup** in `semantic_field_mapper.py` — when a candidate field is dotted (`file.file_name`, `network_info.remote_ip`), Stage 3 now probes both the full-surface normalized form AND the leaf token against the registry. Leaf matches carry a small confidence tax (×0.9) so full-surface hits still win when both fire. This closes the pre-soak defect where nested vendor telemetry produced 0% mapping rates.
+- **Backend endpoint** `POST /api/v2/semantic/preview` (+ `GET /api/v2/semantic/registry`) — deterministic Stage 2b + Stage 3 preview API. Returns the full SchemaFingerprint + SemanticMappingResult as JSON with confidence provenance intact. Wired via `routers/semantic_lab.py`, mounted in `server.py`.
+- **Frontend `/lab/semantic-mapping-inspector`** — engineering / validation surface. Paste raw telemetry, see schema family + reasons, and expand any FieldMapping to view the itemised `SignalContribution` ledger exactly as the owner specified (`✓ registry_alias_match:hostname  +1.00`, `✓ sibling_concept:IP  +0.06`, `↓ clamp_at_1.0  -0.06`, `✓ namespace_context:host  +0.05` — signals sum to displayed confidence). Ambiguous fields highlighted amber; unmapped fields listed. Uses shadcn/ui + Tailwind, matches app aesthetic.
+- **Test coverage**: 316 investigation-suite tests still passing (post-soak). Live UI smoke-verified via Playwright — ECS payload resolves 8/11 fields at 100% confidence with fully populated provenance ledgers.
+
+**Deferred (per owner):** Embedded Semantic Layer panel inside the investigation UI (waits until soak period completes). CEM sibling wiring. Timeline / Attack Chain / Correlation.
+
+
 ## 2026-02-XX · Semantic Pipeline Stage 3 · Semantic Field Mapping + Value Shape Library + Alien Telemetry Corpus
 
 **Architecture:** `/app/docs/architecture/NIVXRAY_ARCHITECTURE_VISION.md` (Stage 3 contract frozen)

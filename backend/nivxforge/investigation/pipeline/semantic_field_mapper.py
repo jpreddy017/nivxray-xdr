@@ -274,30 +274,46 @@ def _score_field(field: str,
     """
     by_concept: Dict[str, _Candidate] = {}
 
-    # 1. Registry alias match(es).
-    for match in _registry_lookup(field):
-        cand = by_concept.setdefault(match.concept, _Candidate(
-            concept=match.concept,
-            confidence=0.0,
-            base_confidence=0.0,
-            matched_aliases=[],
-            supporting_signals=[],
-            provenance=[],
-        ))
-        # v1 registry gives one match per surface. Guard against dupes.
-        signal = f"registry_alias_match:{match.surface_normalized}"
-        if signal in {p.signal for p in cand.provenance}:
-            continue
-        cand.provenance.append(SignalContribution(
-            signal=signal,
-            delta=match.confidence,
-            detail=(f"normalized '{match.surface_normalized}' is a "
-                    f"declared v1 alias for {match.concept} "
-                    f"(base confidence {match.confidence:.2f})"),
-        ))
-        cand.matched_aliases.append(match.surface_normalized)
-        cand.supporting_signals.append(signal)
-        cand.base_confidence = max(cand.base_confidence, match.confidence)
+    # 1. Registry alias match(es) — try both the full surface AND
+    #    the leaf field name (when dotted). Nested telemetry commonly
+    #    exposes surfaces like ``file.file_name`` where the semantic
+    #    concept lives in the leaf token.
+    surfaces_to_try: List[Tuple[str, str]] = [(field, "surface")]
+    if "." in field:
+        leaf = field.rsplit(".", 1)[1]
+        if leaf and leaf != field:
+            surfaces_to_try.append((leaf, "leaf"))
+
+    for probe, origin in surfaces_to_try:
+        for match in _registry_lookup(probe):
+            cand = by_concept.setdefault(match.concept, _Candidate(
+                concept=match.concept,
+                confidence=0.0,
+                base_confidence=0.0,
+                matched_aliases=[],
+                supporting_signals=[],
+                provenance=[],
+            ))
+            signal = (f"registry_alias_match:{match.surface_normalized}"
+                      + (":leaf" if origin == "leaf" else ""))
+            if signal in {p.signal for p in cand.provenance}:
+                continue
+            # Leaf matches carry a small confidence tax to keep the
+            # full-surface match preferred when both hit the same
+            # concept.
+            confidence = (match.confidence
+                          if origin == "surface"
+                          else round(match.confidence * 0.9, 4))
+            cand.provenance.append(SignalContribution(
+                signal=signal,
+                delta=confidence,
+                detail=(f"{origin} '{match.surface_normalized}' is a "
+                        f"declared v1 alias for {match.concept} "
+                        f"(base confidence {confidence:.2f})"),
+            ))
+            cand.matched_aliases.append(match.surface_normalized)
+            cand.supporting_signals.append(signal)
+            cand.base_confidence = max(cand.base_confidence, confidence)
 
     # 2. Value-shape signals — sample the field's values.
     shape_totals: Dict[Tuple[str, str], float] = {}

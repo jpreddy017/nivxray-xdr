@@ -222,6 +222,10 @@ api.include_router(decode_feedback_router)
 api.include_router(rc5_diag_router)
 api.include_router(rc5_shadow_router)
 
+# Semantic Lab (Stage 3 engineering surface) — Feb 2026.
+from routers.semantic_lab import router as semantic_lab_router
+api.include_router(semantic_lab_router)
+
 # ─────────────────────────────────────────────────────────────────────
 # ADR-0005 · NivXForge router mount (READ-ONLY Preview endpoints only).
 # Authorised 2026-02-28. Any write endpoint under /api/nivxforge/*
