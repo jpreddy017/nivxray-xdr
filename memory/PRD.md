@@ -19,6 +19,21 @@ The Decoder Capability Score is the project's release KPI. Every
 milestone MUST publish a DCS delta. Six months from now the record of
 progress is `DCS 83% → 91%`, not `Milestone 4 added X`.
 
+### DCS Anti-Vanity Rule (owner-locked)
+
+DCS is **evidence-backed, not a single percentage**. Every DCS delta
+that ships MUST answer:
+
+1. **Which transformations were added?** (list, with links to code)
+2. **Which real-world samples now pass?** (append rows to the Level-2
+   ledger in `TRANSFORMATION_COVERAGE.md`)
+3. **Which previously-failing obfuscations are now handled?**
+4. **Were there trade-offs?** (regressions in other coverage · latency ·
+   memory · determinism — explicit accounting required)
+
+A DCS delta with no supporting evidence for these four points is
+rejected. DCS is not allowed to become a marketing number.
+
 ```
 Decoder Capability Score (DCS)
 
