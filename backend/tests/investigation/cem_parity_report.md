@@ -18,9 +18,9 @@ Fixtures compared: 13
 ## Trend
 
 ```
-▁▁██████
+▁▁████████
 ```
-Runs: 8  ·  min 37.1%  ·  max 38.4%  ·  latest **38.4%**
+Runs: 10  ·  min 37.1%  ·  max 38.4%  ·  latest **38.4%**
 
 ## Engineering detail — aggregate counts
 
@@ -201,13 +201,13 @@ Runs: 8  ·  min 37.1%  ·  max 38.4%  ·  latest **38.4%**
 
 | Time (UTC) | git | Fixtures | Parity | Drift | Matches | Lost | Categories | Note |
 |---|---|---|---|---|---|---|---|---|
-| 2026-08-02 07:59:02 | `8a090ba` | 13 | **37.1%** | -0.110 | 21 | 3 | event_inference:1, expected_divergence:17, identity_parser:1, parser_gap:1, schema_gap:1 | pytest run |
-| 2026-08-02 07:59:33 | `8a090ba` | 13 | **37.1%** | -0.110 | 21 | 3 | event_inference:1, expected_divergence:17, identity_parser:1, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 07:59:59 | `8a090ba` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 08:07:06 | `13d03e7` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 08:35:49 | `2ce2db5` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 08:58:32 | `25d150a` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 09:00:55 | `25d150a` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 09:26:23 | `8490ee7` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
+| 2026-08-02 09:34:51 | `cee374f` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
+| 2026-08-02 09:44:34 | `0f83bd6` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 
 *Regenerated on every pytest run of `test_cem_parity.py`. Cut-over decisions require owner review of this report.*

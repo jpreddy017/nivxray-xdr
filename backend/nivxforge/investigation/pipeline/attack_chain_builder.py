@@ -42,6 +42,9 @@ DEFAULT_LED_TO_WINDOW = timedelta(seconds=30)
 DEFAULT_SAME_CONTEXT_WINDOW = timedelta(minutes=5)
 
 # Confidence weights per rule. Any rule that *fires* contributes its
+SCHEMA_VERSION = "1.0"
+
+# Confidence weights per rule. Any rule that *fires* contributes its
 # weight; confidence = sum(weights of firing rules) / sum(all weights
 # considered for the edge). Weights encode strength of evidence.
 _RULE_WEIGHTS: Dict[str, float] = {
@@ -74,6 +77,21 @@ class DerivationRule:
 
 
 @dataclass(frozen=True)
+class EvidenceRef:
+    """A typed pointer back to primary evidence.
+
+    Every AttackEdge carries a `supporting_evidence[]` of these so an
+    analyst can walk from the causal claim ("cmd led to powershell")
+    all the way back to the raw CEM event, the graph edge that made
+    the parent-child relationship legible, and the two TimelineEvent
+    rows the edge connects.
+    """
+
+    type: str    # "cem_event" | "graph_edge" | "graph_node" | "timeline_event"
+    id: str
+
+
+@dataclass(frozen=True)
 class AttackEdge:
     """A causal or contextual link between two `TimelineEvent`s."""
 
@@ -82,6 +100,7 @@ class AttackEdge:
     from_event: str              # TimelineEvent.id
     to_event: str                # TimelineEvent.id
     derivation_rules: Tuple[DerivationRule, ...]
+    supporting_evidence: Tuple[EvidenceRef, ...]
     confidence: float            # RELATIONSHIP confidence (not event)
     provenance: Dict[str, Any]   # {source, reason}
 
@@ -92,9 +111,11 @@ class AttackChain:
 
     edges: Tuple[AttackEdge, ...]
     edge_kinds: Dict[str, int] = field(default_factory=dict)
+    schema_version: str = SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "schema_version": self.schema_version,
             "edges": [
                 {
                     "id": e.id,
@@ -109,6 +130,10 @@ class AttackChain:
                             "weight": r.weight,
                         }
                         for r in e.derivation_rules
+                    ],
+                    "supporting_evidence": [
+                        {"type": ev.type, "id": ev.id}
+                        for ev in e.supporting_evidence
                     ],
                     "confidence": e.confidence,
                     "provenance": dict(e.provenance),
@@ -311,6 +336,54 @@ def _walk_ancestors(cmd_id: str, graph: InvestigationGraph,
     return visited
 
 
+def _supporting_evidence(a: TimelineEvent, b: TimelineEvent,
+                          graph: InvestigationGraph,
+                          include_graph_edge_relation: Optional[str] = None,
+                          ) -> Tuple[EvidenceRef, ...]:
+    """Assemble a typed evidence trail for one AttackEdge.
+
+    Always emits (deterministic order):
+        cem_event(a.source_event) · cem_event(b.source_event)
+        · timeline_event(a.id)   · timeline_event(b.id)
+        · graph_node(a.actor)    · graph_node(b.actor)    when present
+
+    When a specific graph relation contributed to the rule (e.g.
+    "child_of" for parent_of edges), the matching graph_edge is
+    appended so the analyst can jump straight to the exact edge
+    graph_builder emitted.
+    """
+    refs: List[EvidenceRef] = []
+    seen: set = set()
+
+    def _push(t: str, i: str) -> None:
+        key = (t, i)
+        if i and key not in seen:
+            seen.add(key)
+            refs.append(EvidenceRef(type=t, id=i))
+
+    _push("cem_event", a.source_event)
+    _push("cem_event", b.source_event)
+    _push("timeline_event", a.id)
+    _push("timeline_event", b.id)
+    if a.actor:
+        _push("graph_node", a.actor)
+    if b.actor:
+        _push("graph_node", b.actor)
+
+    if include_graph_edge_relation:
+        # Find the graph edge (from b's command → a's command) that
+        # matches this relation and reference it explicitly.
+        cmd_a, cmd_b = _command_node(a), _command_node(b)
+        if cmd_a and cmd_b:
+            for edge in graph.edges_from(cmd_b):
+                if (edge.relation == include_graph_edge_relation
+                        and edge.to_id == cmd_a):
+                    _push("graph_edge", edge.id)
+                    break
+
+    return tuple(refs)
+
+
 # ── Edge candidate builders ──────────────────────────────────────────
 
 def _try_parent_of(a: TimelineEvent, b: TimelineEvent,
@@ -332,6 +405,8 @@ def _try_parent_of(a: TimelineEvent, b: TimelineEvent,
         from_event=a.id,
         to_event=b.id,
         derivation_rules=rules,
+        supporting_evidence=_supporting_evidence(
+            a, b, graph, include_graph_edge_relation="child_of"),
         confidence=conf,
         provenance={
             "source": "attack_chain_builder",
@@ -362,6 +437,7 @@ def _try_led_to(a: TimelineEvent, b: TimelineEvent,
         from_event=a.id,
         to_event=b.id,
         derivation_rules=rules,
+        supporting_evidence=_supporting_evidence(a, b, graph),
         confidence=conf,
         provenance={
             "source": "attack_chain_builder",
@@ -390,6 +466,7 @@ def _try_same_context(a: TimelineEvent, b: TimelineEvent,
         from_event=a.id,
         to_event=b.id,
         derivation_rules=rules,
+        supporting_evidence=_supporting_evidence(a, b, graph),
         confidence=conf,
         provenance={
             "source": "attack_chain_builder",
@@ -434,7 +511,8 @@ def build(timeline: Timeline, graph: InvestigationGraph) -> AttackChain:
 
 
 __all__ = [
-    "AttackChain", "AttackEdge", "DerivationRule",
+    "SCHEMA_VERSION",
+    "AttackChain", "AttackEdge", "DerivationRule", "EvidenceRef",
     "DEFAULT_LED_TO_WINDOW", "DEFAULT_SAME_CONTEXT_WINDOW",
     "build",
 ]

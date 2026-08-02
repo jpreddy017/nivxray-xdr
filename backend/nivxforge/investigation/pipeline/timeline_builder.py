@@ -109,6 +109,8 @@ _ORIGIN_DECODED   = "Decoded"       # node reached via a graph edge that
                                      # extracted IOC evidence
 _ORIGIN_DERIVED   = "Derived"       # actor-only entries with no target
 
+SCHEMA_VERSION = "1.0"
+
 
 # ── Data classes ─────────────────────────────────────────────────────
 
@@ -171,9 +173,11 @@ class Timeline:
     entries: Tuple[TimelineEvent, ...]
     time_span: Dict[str, Optional[str]]  # {"first": iso|None, "last": iso|None}
     unknown_time_count: int
+    schema_version: str = SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "schema_version": self.schema_version,
             "entries": [
                 {
                     "id": e.id,
@@ -518,6 +522,7 @@ def build(cem: CanonicalEventModel,
 
 
 __all__ = [
+    "SCHEMA_VERSION",
     "TimelineEvent", "TimelineEntry", "Timeline",
     "ProvenanceEntry", "build",
 ]

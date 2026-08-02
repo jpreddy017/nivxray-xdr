@@ -30,6 +30,10 @@ from nivxforge.investigation.pipeline.artifact_discovery import discover
 from nivxforge.investigation.pipeline.attack_chain_builder import (
     build as build_attack_chain,
 )
+from nivxforge.investigation.pipeline.correlation_engine import (
+    DEFAULT_MIN_EDGE_CONFIDENCE,
+    build_from_graph as build_correlation,
+)
 from nivxforge.investigation.pipeline.evidence_extraction import extract
 from nivxforge.investigation.pipeline.graph_builder import (
     build as build_graph,
@@ -148,4 +152,56 @@ def attack_chain_preview(req: AttackChainPreviewRequest) -> Dict[str, Any]:
             "unknown_time_count": timeline.unknown_time_count,
         },
         "attack_chain": attack_chain.to_dict(),
+    }
+
+
+class CorrelationPreviewRequest(BaseModel):
+    raw: str = Field(..., description="Raw telemetry payload (any format)")
+    min_edge_confidence: float = Field(
+        default=DEFAULT_MIN_EDGE_CONFIDENCE,
+        ge=0.0, le=1.0,
+        description=("Minimum RELATIONSHIP confidence for an AttackEdge "
+                     "to bridge a cluster."),
+    )
+
+
+@router.post("/v2/correlation/preview")
+def correlation_preview(req: CorrelationPreviewRequest) -> Dict[str, Any]:
+    """Render IncidentClusters — deterministic connected-components
+    over the AttackChain edges. Produces incidents, never new events.
+
+    Read-only, X-Lab / observational surface only.
+    """
+    if not req.raw or not req.raw.strip():
+        raise HTTPException(400, "raw payload required")
+
+    classification = classify_input(req.raw)
+    parsed = parse_input(req.raw, classification)
+    cem = normalize(parsed, detect_vendor(parsed))
+    artefacts = discover(cem)
+    decoded_layers = decode(artefacts)
+    evidence = extract(cem, artefacts, decoded_layers)
+    graph = build_graph(cem, evidence)
+    timeline = build_timeline(cem, graph)
+    attack_chain = build_attack_chain(timeline, graph)
+    correlation = build_correlation(
+        timeline, attack_chain, graph,
+        min_edge_confidence=req.min_edge_confidence,
+    )
+
+    return {
+        "cem": {
+            "vendor": cem.vendor,
+            "vendor_route": cem.vendor_route,
+            "event_count": len(cem.events),
+        },
+        "timeline_summary": {
+            "entry_count": len(timeline.entries),
+            "unknown_time_count": timeline.unknown_time_count,
+        },
+        "attack_chain_summary": {
+            "edge_count": len(attack_chain.edges),
+            "edge_kinds": attack_chain.edge_kinds,
+        },
+        "correlation": correlation.to_dict(),
     }

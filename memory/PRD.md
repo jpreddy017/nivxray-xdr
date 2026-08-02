@@ -1,7 +1,72 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
 
-## 2026-02-XX · ✅ **PHASE 2 · ATTACK CHAIN BUILDER LANDED (Stage 10)**
+## 2026-02-XX · ✅ **PHASE 2 · CORRELATION ENGINE LANDED (Stage 11)**
+
+Correlation Engine ships as a deterministic connected-components
+clusterer over `AttackChain` edges + `TimelineEvent`s. It **produces
+incidents, never new events** — every derived cluster field is an
+aggregate over already-validated facts on its members.
+
+### Canonical `IncidentCluster` contract
+```
+IncidentCluster
+  id                       deterministic hash
+  schema_version           "1.0"
+  timeline_event_ids[]     members
+  attack_edge_ids[]        edges internal to the cluster
+  shared_actors[]          GraphNode ids observed on ≥ 2 members
+  shared_hosts[]           GraphNode ids observed on ≥ 2 members
+  time_span                {first, last} — only from KNOWN timestamps
+  unknown_time_count       events without an anchor timestamp
+  dominant_edge_kinds      histogram — parent_of / led_to / same_context
+  confidence               min AttackEdge confidence in the cluster
+  severity_hint            max(EventKind→severity map), never invented
+  supporting_evidence[]    full trail: timeline_event / cem_event /
+                            attack_edge / graph_edge / graph_node refs
+  provenance               {source, reason, threshold}
+```
+
+### Pre-Correlation contract additions (owner directive)
+* `AttackEdge.supporting_evidence[]` — typed pointers back to CEM
+  events, timeline entries, graph edges/nodes (traceable claims).
+* `Timeline.schema_version` and `AttackChain.schema_version` and
+  `Correlation.schema_version` — all "1.0", locked pre-UI.
+
+### Files delivered
+- `/app/backend/nivxforge/investigation/pipeline/correlation_engine.py`
+- `/app/backend/routers/timeline_lab.py` extended with
+  `POST /api/v2/correlation/preview`
+- `/app/backend/tests/investigation/test_correlation_engine.py`
+  (14 tests — determinism, thresholding, orphan handling,
+  severity mapping, JSON round-trip, invalid threshold guard)
+- `/app/backend/tests/investigation/test_attack_chain_golden_corpus.py`
+  (7 permanent regression scenarios: LOLBin chain, same-actor led_to,
+  cross-host isolation, missing-timestamp handling, grandchild
+  same_context, byte-determinism, registration metadata)
+
+### Test count
+- Investigation suite: **456 passing** (was 395 → +61: 24 Timeline +
+  16 Attack Chain + 14 Correlation + 7 Golden Corpus). No regressions.
+
+### Schema freeze
+`TimelineEvent`, `AttackEdge`, `IncidentCluster` are all versioned
+`schema_version = "1.0"` and consumed by the corresponding lab
+endpoints. Ready to lock before any Inspector UI work.
+
+### Next milestones
+1. Timeline Builder — **DONE**
+2. Attack Chain Builder — **DONE**
+3. Correlation Engine — **DONE**
+4. **Real sanitised telemetry** — remaining biggest gap. Replay
+   CrowdStrike / SentinelOne / QRadar / Splunk samples through the
+   locked pipeline to validate synthetic correctness against
+   operational reality.
+5. Timeline / Attack-Chain / Incident Inspector UI — unblocked now
+   that the schemas are frozen at 1.0.
+
+---
+
 
 Attack Chain Builder is live as a deterministic **derivation** stage
 over the canonical `TimelineEvent` stream and the validated
