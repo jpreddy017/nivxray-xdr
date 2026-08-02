@@ -1,5 +1,73 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+---
+
+## 🛑 STANDING P0 DIRECTIVE · WORKSPACE RESTORATION (2026-02-XX)
+
+**No new behavioral changes to Workspace** — including wiring
+`backend/workspace/interpreter_ownership.py` — until the phases below
+complete IN ORDER. Source-code diffs are not behavioral evidence.
+
+### Phase 1 — Restore Workspace baseline
+- Restore Workspace to the last known-good baseline (Jul 29 anchor
+  in this container: commit `87be767`).
+- No behavioral changes during this phase.
+
+### Phase 2 — Make Workspace independent
+- Workspace must become an independent product.
+- Future X-Lab / Lab-2.0 changes must be architecturally incapable
+  of altering Workspace behavior.
+- Behavioral components that must NOT be shared:
+    interpreters · parsers · decoders · normalizers ·
+    investigation engine · semantic engine · timeline ·
+    attack chain · correlation · behavioral routing.
+- Only utility libraries remain shared: base64, hex, gzip, crypto,
+  compression, encoding helpers, generic utilities.
+- `routers/ops.py` still imports behavioral code from `nivxforge/`,
+  `engine/`, `v2/`, `timeline/` — these must be forked into
+  `backend/workspace/`.
+
+### Phase 3 — End-to-end behavioral certification
+- Do NOT certify Workspace from source-code inference.
+- Run the same 10-sample regression corpus against:
+    (a) last known-good baseline, (b) current Production, (c) Preview.
+- Per sample capture ACTUAL OBSERVED results:
+    Input · Transformation Trace · Final Decoded Output · Verdict ·
+    Evidence · Narrative · Workspace UI screenshots (Input + Output).
+- Produce byte-level comparison of behavioral differences.
+
+### Phase 4 — Root-cause analysis
+- If any behavioral difference exists, identify the exact component,
+  explain execution-path change, explain output change, provide
+  execution evidence (not file diffs).
+
+### Phase 5 — Only after certification
+- Only then may new behavioral improvements be introduced —
+  `workspace/interpreter_ownership.py` wiring is the first candidate.
+- Until then all new behavioral code stays DORMANT.
+
+### Certification criteria
+1. End-to-end regression complete
+2. Behavior matches baseline
+3. Workspace architecturally isolated from X-Lab / Lab-2.0
+4. Future X-Lab changes cannot alter Workspace behavior
+5. Certification based on observed runtime evidence, not inference
+
+### Dormant code shipped previous session (do not wire)
+- `backend/workspace/__init__.py`
+- `backend/workspace/interpreter_ownership.py` (structural detector,
+  12/12 tests including 10-sample real-world corpus; **not called
+  anywhere in production**)
+- Full 503-test suite still green
+
+### First deliverable for next session
+Open with a `git worktree add /tmp/workspace-jul29 87be767` plus a
+scripted 10-sample A/B harness that produces a three-column trace-diff
+table (Jul-29 · Prod · Preview) BEFORE any implementation decision.
+
+---
+
+
 
 ## 2026-02-XX · ✅ **PAYLOAD STATE MACHINE + OUTPUT GATE**
 
