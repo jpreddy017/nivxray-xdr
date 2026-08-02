@@ -31,7 +31,7 @@ git worktree add /tmp/workspace-v1.5.6 fff5897
 ```
 Read-only recovery source. Do NOT modify.
 
-### Phase 3 · Behavioral Certification (evidence, not inference)
+### Phase 3 — Behavioral Certification (evidence, not inference)
 Run the 10-sample regression corpus against BOTH:
   (a) `/tmp/workspace-v1.5.6/backend/…`  (restored v1.5.6)
   (b) `/app/backend/…`  (current HEAD)
@@ -40,29 +40,41 @@ Reconstruction · Final Decoded Output · Verdict · Analyst
 Explanation · Workspace UI screenshots.
 No certification from source-code inference.
 
-### Phase 4 · Root Cause (evidence-based)
+**Phase 3 sole deliverable** (owner refinement 2026-02-XX):
+An evidence-based behavioural diff AND a dependency map showing
+exactly which Workspace files (call chain from `routers/ops.py`
+outward) must be restored. NO file restoration or forking during
+Phase 3.
+
+### Phase 4 — Root Cause (evidence-based)
 If any sample differs, identify the exact cause among:
   parser routing · operation ordering · decoder ordering ·
   interpreter routing · ingress preprocessing · renderer ·
   registration order · feature flags · orchestration.
 
-### Phase 5 · Restore ONLY the Workspace
+### Phase 5 — Restore ONLY the Workspace files that cause drift
 Do NOT restore or revert: X-Lab · Timeline · Attack Chain ·
 Correlation · Semantic Pipeline · Investigation Engine · Lab 2.0.
-Those are separate products; leave them intact.
+Restore ONLY the minimal set of Workspace-owned files
+Phase 4 proved responsible for behavioural difference — not
+the whole tree.
 
-### Phase 6 · Permanent Isolation
-Workspace becomes independent. Only these may remain shared:
-  base64 · hex · compression · crypto · encoding · generic helpers.
-Everything behavioural becomes Workspace-owned. No shared parser,
-interpreter, decoder, normalizer, investigation logic, semantic
-logic, timeline logic, correlation logic, behavioural orchestration.
+### Phase 6 — Minimal-Set Isolation (owner refinement 2026-02-XX)
+Do NOT blanket-fork `engine/` (43 files), `v2/` (111 files), or
+`timeline/` (1 file). Instead:
 
-At v1.5.6, Workspace coupling to shared trees is:
-  ✓ backend/engine   (43 files) — must be forked into workspace/
-  ✓ backend/v2       (111 files) — must be forked into workspace/
-  ✓ backend/timeline (1 file)   — must be forked into workspace/
-  ✗ backend/nivxforge — NOT present at v1.5.6, no fork needed
+1. Walk the transitive import graph starting from `routers/ops.py`.
+2. Identify the actual N files Workspace consumes from each shared
+   tree.
+3. Fork ONLY those N files into `backend/workspace/`.
+4. Everything else in `engine/`, `v2/`, `timeline/` remains available
+   to X-Lab / Lab 2.0 without duplication.
+
+Success criterion: `routers/ops.py` and its transitive dependency
+closure imports nothing from `nivxforge/`, `engine/`, `v2/`,
+`timeline/`, or any behavioural-shared path — only from
+`backend/workspace/` and utility trees (base64 · hex · gzip ·
+crypto · encoding · generic helpers).
 
 ### Phase 7 · Certification
 Only after restoration + isolation:
