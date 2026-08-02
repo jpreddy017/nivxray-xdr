@@ -17,13 +17,19 @@ Any next agent MUST read this before writing code.
 
 - **Phase 5.5 · Multi-Pass Convergence Engine** — Implementation in progress.
 - **M1 · Convergence Loop Framework: ✅ COMPLETE** (`backend/workspace/convergence/`).
-  - 32/32 tests passing · 0 regressions · `/api/health` still 200.
   - Prerequisite done: corpus reorganized to schema c+ (nested by
     category), `corpus_loader.py` is the sole IO surface, per-category
     metrics now published.
-- **Next**: M2 · Structural Pass Integration.
+- **M2 · Structural Pass Integration: ✅ COMPLETE**.
+  - Three quote-safe folds: `structural-string-concat-fold`,
+    `structural-join-operator-fold`, `structural-static-join-fold`.
+  - S04 anchor advances: `'ht'+'tp'+'://ex'+'ample.com/x'` → canonical
+    `'http://example.com/x'` inside the engine.
+  - **77/77 tests · 0 regressions · `/api/health` = 200.**
+- **Next**: M3 · Content Pass Integration.
 - **Ledger**: `backend/workspace_recovery/MILESTONE_LEDGER.md` (append-only).
 - **Feature Freeze**: In effect until M6.
+
 
 
 

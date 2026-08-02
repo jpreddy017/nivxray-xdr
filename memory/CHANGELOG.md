@@ -2,6 +2,42 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-08-02 · Phase 5.5 · M2 Structural Pass — COMPLETE
+
+**Ships:**
+- `backend/workspace/convergence/structural.py` implements three
+  deterministic quote-safe folds:
+    - `structural-string-concat-fold` — `'a'+'b'` → `'ab'` (SQ always;
+      DQ only when no `$`, backtick, or `{` interpolation markers).
+    - `structural-join-operator-fold` — `('a','b','c') -join 'sep'`
+      → single literal (case-insensitive; SQ-only for safety).
+    - `structural-static-join-fold` — `[String]::Join('sep', (…))`
+      → single literal (case-insensitive type name; supports
+      `[System.String]` alias).
+- **S04 anchor advances**: `'ht'+'tp'+'://ex'+'ample.com/x'` folds to
+  `'http://example.com/x'` inside the Convergence Engine
+  (3 iterations, 2 structural changes, `canonical_state=YES`).
+- **New tests** — `backend/tests/test_structural_pass.py` (45 tests).
+  Combined with the M1 loop suite: **77/77 passing in 0.39s**.
+
+**Regressions: 0.**
+- 12/13 corpus samples are byte-identical before/after the pass.
+- Interpolated DQ strings, Base64/EncodedCommand payloads, bash pipe
+  chains — all explicitly protected by dedicated tests.
+- `/api/health` still HTTP 200. No changes to `analysis_core.py`,
+  `routers/ops.py`, `engine/`, `v2/`, `timeline/`, or `nivxforge/`.
+
+**Coverage matrix updates** (in
+`backend/workspace_recovery/TRANSFORMATION_COVERAGE.md`):
+- `PowerShell string concatenation` → ✅ implemented (S04 anchor).
+- `PowerShell join operator -join` → ✅ implemented.
+
+**Next milestone:** M3 · Content Pass Integration (env vars, quote /
+backtick cleanup, mixed-case normalisation, constant folding). S013
+begins moving.
+
+---
+
 ## 2026-08-02 · Phase 5.5 · M1 Convergence Loop Framework — COMPLETE
 
 **Ships:**

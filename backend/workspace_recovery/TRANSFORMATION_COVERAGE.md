@@ -42,8 +42,8 @@ future workstream with a documented rationale.
 | PowerShell aliases (post-decode) | ⏳ | ⏳ | must NOT hijack primary chain |
 | PowerShell backticks | ⏳ | ⏳ |  |
 | PowerShell format operator `-f` | ⏳ | ⏳ |  |
-| PowerShell join operator `-join` | ⏳ | ⏳ |  |
-| PowerShell string concatenation | ⏳ | ⏳ | S04 anchor |
+| PowerShell join operator `-join` | ✅ | ⏳ | M2 · quote-safe literal folding; `-join` operator + `[String]::Join()` |
+| PowerShell string concatenation | ✅ | ⏳ | M2 · S04 anchor advanced; `'a'+'b'` and `"a"+"b"` (interpolation-safe) |
 | CMD caret escape | ⏳ | ⏳ | S03 anchor |
 | CMD runtime reconstruction | ⏳ | ⏳ |  |
 | Environment-variable substitution | ⏳ | ⏳ |  |
