@@ -13,6 +13,36 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## ✅ PHASE 4.5 COMPLETE — Full Behavioural RCA (2026-02-XX)
+
+Runtime-validated per-file causality proved that the surface bisect was a
+**false positive**. `069bd23f77` did not introduce the Window B regression;
+it *unmasked* a latent chain-selection bug in `engine/orchestrator.py`
+(Shared) by finally letting the `try_orchestrator_first()` preflight in
+`analysis_core.py:53-61` (Workspace) stop raising `AttributeError`. Once the
+preflight started succeeding, it hijacked decoding for 9 of 10 samples into
+the buggy Shared orchestrator chain.
+
+**Read `workspace_recovery/phase4_5_final_rca.md` first.** It contains:
+- The corrected causal chain (rc22 preflight → orchestrator → magic_decoder normalizer hoisting)
+- The 3-hunk minimal restore (`analysis_core.py:53-61`, `magic_decoder.py:420-431`, `routers/ops.py:1866`)
+- Answers to owner's Phase 4.5 Shared-integration checklist (A/B/C/D/E)
+- Five permanent Decoder Recovery Lock safeguards
+
+**Both windows share ONE class of root cause**: a normalizer was hoisted to
+position 0 of the decoder candidate list where it consumes payloads before
+the payload-appropriate decoder (utf16le/hex/gzip) ever runs. S001, S02, S03,
+S04, S05, S07, S08, S09, S10 all share this pattern.
+
+**Shared integration is proven optional** — Workspace can decode all 11
+samples without invoking Shared. This directly enables Phase 6 isolation.
+
+Next authorised phase: **Phase 5 · Minimal Restore** — three surgical hunks
+in three Workspace-owned files. Zero file deletions. Zero Intelligence Layer
+touches. Wait for owner approval of `phase4_5_final_rca.md` before executing.
+
+---
+
 ## ✅ PHASE 4-NARROW COMPLETE — Two Culprit SHAs Identified (2026-02-XX)
 
 Narrow bisect (deterministic · binary search) converged both windows to
