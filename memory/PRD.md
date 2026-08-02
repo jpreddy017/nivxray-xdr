@@ -37,6 +37,45 @@ Expected deliverables in order:
 7. M9 expanded corpus 50 → 100 → 500 samples with determinism + latency measurements
 8. M10 Workspace Isolation Certificate signed
 
+## Per-Milestone Governance Contract (owner-locked)
+
+Every milestone MUST produce four artifacts before the next milestone
+begins. These are non-negotiable and enforced by the CI Corpus Gate.
+
+1. **Code** implementing ONLY that milestone (no mixing).
+2. **Tests** proving the milestone works.
+3. **Evidence** — corpus results · latency measurement · determinism
+   check (byte-identical hash on repeated runs).
+4. **Completion Record** appended to
+   `workspace_recovery/MILESTONE_LEDGER.md`, describing:
+   - What was implemented
+   - How it was verified
+   - Whether any regressions occurred
+   - Which acceptance criteria passed
+
+### Prohibited during implementation
+
+- ❌ Introducing new architectural ideas
+- ❌ Expanding the specification
+- ❌ Adding heuristics outside the frozen engineering rule (deterministic pass · convergence rule · registry plugin only)
+- ❌ Mixing multiple milestones into one large PR
+- ❌ Declaring a milestone complete without the four artifacts above
+
+### Expected shape of the next session's opening report
+
+```
+Milestone 1 Complete
+  · Convergence loop implemented
+  · Delta-hash implemented
+  · Iteration controller implemented
+  · Max-depth safeguard implemented
+  · No-op convergence validated
+  · All M1 acceptance criteria passed
+  · Ready for M2
+```
+
+Not a document. Not a proposal. Not another architecture discussion.
+
 ---
 
 ## 🔒 SPEC LOCKED · Implementation-Only From Here (2026-02-XX)
