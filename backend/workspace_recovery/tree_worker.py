@@ -56,8 +56,23 @@ def _stub_llm_egress() -> None:
         def with_max_tokens(self, *_a, **_kw):
             return self
 
+        def with_params(self, *_a, **_kw):
+            return self
+
+        def with_system_message(self, *_a, **_kw):
+            return self
+
+        def with_response_format(self, *_a, **_kw):
+            return self
+
         async def send_message(self, *_a, **_kw):
             return ""
+
+        def __getattr__(self, name):
+            # Any unknown builder-style method returns self so chains work.
+            def _noop(*_a, **_kw):
+                return self
+            return _noop
 
     class _StubUserMessage:
         def __init__(self, *_a, **_kw):

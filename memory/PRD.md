@@ -13,6 +13,32 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## ✅ PHASE 4-NARROW COMPLETE — Two Culprit SHAs Identified (2026-02-XX)
+
+Narrow bisect (deterministic · binary search) converged both windows to
+single commits:
+
+| Window | Culprit SHA | Date (UTC) | Files changed |
+|---|---|---|---|
+| A (S001) | `26099be990` | 2026-07-20 17:42:10 | +ps_alias_normalizer.py (298), +ps_backtick_normalizer.py (225), routers/ops.py (+94), magic_decoder.py (+12), server.py (+2) |
+| B (S01..S10) | `069bd23f77` | 2026-07-29 04:20:10 | engine/orchestrator.py (+62), engine/models.py (+1), rc22_adapter.py (+4), v2/semantic/ps_semantic.py (+7), v2/investigation/* (Intelligence — SKIP) |
+
+Last-good SHAs (target restore state):
+- Window A: `8baa7aa467` (Jul 20 17:06 UTC)
+- Window B: `194d6ca8e9` (Jul 29 03:46 UTC)
+
+Reports: `workspace_recovery/narrow_window_a_report.md`, `narrow_window_b_report.md`.
+
+**Next authorised phase: Phase 5 · Minimal Decoder Restore** — see
+`workspace_recovery/phase5_restore_plan.md` for the exact 9-file diff and
+the two-step execution order (Window B first → verify 10/10 → Window A →
+verify 11/11). Nothing else moves. Intelligence Layer, UI, Timeline,
+Reports, X-Lab, Lab 2.0 all remain untouched.
+
+Wait for owner approval of `phase5_restore_plan.md` before executing.
+
+---
+
 ## ✅ PHASE 3 + 3.5 + 4-BISECT COMPLETE — Two regression windows identified (2026-02-XX)
 
 Phase 3 (Behavioral A/B), Phase 3.5 (Behavior-linked Dependency Graph), and
