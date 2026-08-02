@@ -13,6 +13,105 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## 🎯 DECODE ACCURACY CONTRACT (owner-locked · highest priority)
+
+**"I don't care how beautiful the architecture is. I want the correct
+decoded output for any deterministic input."**
+
+The primary success metric of the Workspace Recovery Program is
+**decode correctness**, not milestone completion. Every implementation
+decision is evaluated against ONE question:
+
+> Does this increase the number of deterministic real-world artifacts
+> that converge to the correct canonical plaintext?
+
+A milestone is successful **only if** it demonstrates measurable
+improvement in decode correctness OR preserves existing correctness
+while enabling the next capability. Architecture, code quality,
+documentation, governance, and engineering contracts exist to support
+this objective — they are not the objective themselves.
+
+## Output-First Engineering Rule (three validation levels · every milestone)
+
+**Level 1 · Certified Regression Corpus** — the current 11 samples in
+`workspace_recovery/corpus.json`. Target: **11 / 11**.
+
+**Level 2 · Unseen Real-World Samples** — every milestone is exercised
+against previously-unseen command lines from at least these families:
+PowerShell · CMD · Bash · JavaScript · mixed interpreters · nested
+encodings · Living-off-the-Land patterns · malware samples. Purpose:
+ensure the architecture generalizes beyond the certification corpus.
+
+**Level 3 · Partial-State Inputs** — the engine accepts:
+- Raw payloads
+- Partially decoded artifacts
+- Fully decoded plaintext
+
+and converges to the **same canonical representation** without
+corruption, regardless of starting state.
+
+## Canonical Output Validation
+
+Every decoded result is judged by deterministic criteria:
+
+- Maximum semantic recovery
+- Minimum remaining deterministic transforms
+- No unnecessary wrappers
+- **No placeholder replacing a richer decoded result** (this is the
+  precise S001 failure mode the Convergence Engine must eliminate)
+- Stable canonical output across repeated runs
+- **Identical output regardless of starting state** (raw · intermediate ·
+  canonical all produce the same final artifact)
+
+The objective is **canonical correctness**, not merely successful
+execution.
+
+## Transformation Coverage Metric (append to every milestone record)
+
+Alongside milestone completion, maintain a continuously updated
+coverage report at
+`workspace_recovery/TRANSFORMATION_COVERAGE.md`:
+
+```
+Supported deterministic transformations
+    Base64 · UTF-16LE · UTF-8 · Hex · Octal · Binary · ASCII
+    Gzip · Deflate · Brotli
+    RC4 · AES · ROT · Caesar
+    PowerShell aliases · backticks · format operators · join operators
+    String concatenation · environment variables · array slicing · ...
+
+Coverage:
+    XX implemented
+    YY certified (passes real-world samples)
+    ZZ pending
+```
+
+This IS the Workspace roadmap. Not a document — a live coverage matrix.
+
+## Future Plugin Architecture (design surface only in M1-M10; do NOT implement)
+
+The Convergence Engine MUST expose extension points such that future
+deterministic transformations can be added as certified plugins
+**without modifying the core convergence loop**. During M1–M10, only
+the extension SURFACE is required. Actual plugin catalog expansion is
+a future workstream.
+
+## Milestone Update Shape (the ONLY five questions each milestone answers)
+
+From M1 onward, every milestone report answers exactly these questions:
+
+1. What code was implemented?
+2. What new deterministic transformations are now supported?
+3. **How many real-world samples now decode correctly?**
+4. Were any regressions introduced?
+5. What evidence proves the improvement?
+
+**No architectural narratives. No design proposals. No "beautiful
+implementation" commentary.** Anything else is subordinate to these
+five answers.
+
+---
+
 ## 🏁 DESIGN PHASE OFFICIALLY COMPLETE (2026-02-XX)
 
 Progress from this point is judged by objective engineering artifacts,
