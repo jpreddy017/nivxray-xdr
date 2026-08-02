@@ -46,6 +46,32 @@ exactly which Workspace files (call chain from `routers/ops.py`
 outward) must be restored. NO file restoration or forking during
 Phase 3.
 
+### Phase 3.5 — Workspace Dependency Graph (owner refinement 2026-02-XX)
+Before restoring any file, generate a dependency graph rooted at
+`backend/routers/ops.py`. For every imported module, classify into:
+
+| Category | Meaning | Action |
+|---|---|---|
+| **Workspace-owned** | behavioural code defining Workspace behaviour | candidate for restoration / isolation |
+| **Shared Utility**   | pure helpers (base64, gzip, hex, crypto, encoding, filesystem)         | remain shared |
+| **External Dep**     | 3rd-party libs                                                          | leave unchanged |
+| **Unused / Dead**    | never exercised by Workspace during the regression corpus              | ignore |
+
+For every **behavioural** dependency, record:
+  • importing file
+  • imported module
+  • why it is needed
+  • whether it was exercised during the regression corpus
+  • whether restoring it changes behaviour
+
+Only modules that are BOTH:
+  (a) exercised by the regression corpus, AND
+  (b) proven to change behaviour,
+are candidates for restoration or later isolation.
+
+This prevents the "copy everything because we don't know what matters"
+mistake. It also directly informs Phase 6 minimal-set forking.
+
 ### Phase 4 — Root Cause (evidence-based)
 If any sample differs, identify the exact cause among:
   parser routing · operation ordering · decoder ordering ·
