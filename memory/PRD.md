@@ -13,6 +13,40 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## 🎯 PATH C APPROVED · Phase 5.5 = Multi-Pass Convergence Engine (2026-02-XX)
+
+Owner has explicitly rejected both Path A (ship 10/11) and Path B
+(chain-level truncation) in favour of **Path C · Multi-Pass Convergence
+Engine**. The full specification is authoritative at:
+
+**`/app/backend/workspace_recovery/PHASE_5_5_CONVERGENCE_ENGINE_SPEC.md`**
+
+Read it before writing any Phase 5.5 code. Highlights:
+
+- Four independent transformation passes: Structural → Content → Decoder → Semantic
+- Convergence loop terminates only when the 6-condition **Canonical State Contract** holds
+- Each iteration emits **Transformation Provenance**; final result emits a machine-readable **Convergence Certificate**
+- **Canonical Candidate Selection** replaces "winner selection" — occurs only after every candidate has independently converged
+- **Pass Independence Rule** — every pass is a pure function of the current artifact state; no hidden mutable state, no decoder-specific side effects, independently replayable
+
+Prerequisite (Phase 5): the 5 approved hunks must be promoted to
+`/app/backend` FIRST so the convergence engine runs on a
+non-rc22-hijacked pipeline. The spec's "Implementation footholds"
+section lays out the exact 9-step sequence.
+
+New files to create under `backend/workspace/convergence/`:
+`engine.py`, `structural.py`, `content.py`, `decoder.py`, `semantic.py`,
+`certificate.py`. Plus `backend/tests/test_convergence_engine.py`.
+
+**Zero files touched under `nivxforge/`, `engine/`, `v2/`, `timeline/`,
+or the Intelligence Layer.** The convergence engine is Workspace-owned
+by construction, which directly satisfies the Phase 6 isolation goal.
+
+Owner engineering assessment: Path A = 7.0/10 · Path B = 8.8/10 ·
+**Path C = 9.9/10 (APPROVED)**.
+
+---
+
 ## ✅ PHASE 5 · HUNK VALIDATION FINAL · 10 / 11 CLEAN (2026-02-XX)
 
 Six hunks tested. Five approved (1-5) — combined = **10 / 11, zero
