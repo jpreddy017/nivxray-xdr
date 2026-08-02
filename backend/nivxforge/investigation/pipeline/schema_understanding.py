@@ -348,36 +348,51 @@ def _generic(family: str,
 
 _MAX_CANDIDATES = 256
 
+MAX_SCHEMA_DEPTH: int = 3
+"""Maximum nesting depth explored when extracting candidate field
+paths from parsed records. Configurable per owner directive
+2026-02-XX — most telemetry does not exceed depth 3."""
+
 
 def _extract_candidate_fields(records: List[Dict[str, Any]]
                                ) -> Tuple[str, ...]:
     """Collect the raw field names appearing across all records.
 
-    Preserves first-seen order. Records are flattened one level to
-    surface dotted paths of nested objects (e.g. ``host.name``) so
-    ECS-style schemas are detectable without semantic mapping.
+    Preserves first-seen order. Records are flattened up to
+    ``MAX_SCHEMA_DEPTH`` levels so dotted paths for deeply-nested
+    telemetry (e.g. Cisco Secure Endpoint's ``file.identity.sha256``,
+    Elastic ECS's ``file.hash.sha256``) surface as candidate fields
+    without vendor-specific handling.
     """
     seen: Dict[str, None] = {}
     for rec in records[:200]:  # bound work on huge payloads
         if not isinstance(rec, dict):
             continue
-        for key, val in rec.items():
-            if not isinstance(key, str):
-                continue
-            if key not in seen:
-                seen[key] = None
-            if isinstance(val, dict):
-                for sub_key in list(val.keys())[:64]:
-                    if not isinstance(sub_key, str):
-                        continue
-                    dotted = f"{key}.{sub_key}"
-                    if dotted not in seen:
-                        seen[dotted] = None
-            if len(seen) >= _MAX_CANDIDATES:
-                break
+        _walk(rec, "", seen, depth=0)
         if len(seen) >= _MAX_CANDIDATES:
             break
     return tuple(seen.keys())
+
+
+def _walk(obj: Any,
+          prefix: str,
+          seen: Dict[str, None],
+          *,
+          depth: int) -> None:
+    """Depth-bounded recursive walker that surfaces dotted field paths
+    up to ``MAX_SCHEMA_DEPTH`` levels."""
+    if not isinstance(obj, dict):
+        return
+    for key, val in obj.items():
+        if not isinstance(key, str):
+            continue
+        path = f"{prefix}.{key}" if prefix else key
+        if path not in seen:
+            seen[path] = None
+        if len(seen) >= _MAX_CANDIDATES:
+            return
+        if depth + 1 < MAX_SCHEMA_DEPTH and isinstance(val, dict):
+            _walk(val, path, seen, depth=depth + 1)
 
 
 def _compute_parser_features(parsed: ParsedInput,

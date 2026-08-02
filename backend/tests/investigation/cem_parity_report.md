@@ -6,19 +6,29 @@ Fixtures compared: 13
 
 | Metric | Value |
 |---|---|
-| Matches | 18 |
-| New (semantic-only) | 15 |
-| Lost (vendor-only) | 6 |
+| Matches | 21 |
+| New (semantic-only) | 16 |
+| Lost (vendor-only) | 3 |
 | Value mismatches | 1 |
 | Ambiguous | 0 |
-| Mean parity rate | 35.1% |
-| Mean confidence drift | -0.100 |
+| Mean parity rate | 37.1% |
+| Mean confidence drift | -0.101 |
+
+## Gap classification (where engineering effort lands)
+
+| Category | Count |
+|---|---|
+| `expected_divergence` | 16 |
+| `event_inference` | 1 |
+| `identity_parser` | 1 |
+| `parser_gap` | 1 |
+| `schema_gap` | 1 |
 
 ## Cut-over criteria
 
 | Criterion | Target | Current |
 |---|---|---|
-| Mapping parity | ≥ 99.5% | 35.1% ⏸ |
+| Mapping parity | ≥ 99.5% | 37.1% ⏸ |
 | Unexplained confidence regressions | 0 | 1 ⏸ |
 | Ambiguous mapping increase | 0 | 0 ✅ |
 
@@ -27,34 +37,35 @@ Fixtures compared: 13
 ### `cisco_secure_endpoint`
 
 - vendor route: `cisco_secure_endpoint` · schema: `generic_json`
-- vendor fields: 10 · semantic fields: 7
-- matches: **6** · new: 1 · lost: 4 · mismatches: 0 · ambiguous: 0
-- parity: **60.0%** · confidence drift: +0.093
+- vendor fields: 10 · semantic fields: 9
+- matches: **8** · new: 1 · lost: 2 · mismatches: 0 · ambiguous: 0
+- parity: **80.0%** · confidence drift: +0.075
 - field deltas:
-  - ➖ `file.hash_md5` vendor='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' · semantic=None · semantic path did not populate a vendor entity
-  - ➖ `file.hash_sha256` vendor='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' · semantic=None · semantic path did not populate a vendor entity
+  - ✅ `file.hash_md5` vendor='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' · semantic='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+  - ✅ `file.hash_sha256` vendor='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' · semantic='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
   - ✅ `file.name` vendor='invoice.exe' · semantic='invoice.exe'
   - ✅ `file.path` vendor='C:/Users/John/Downloads/invoice.exe' · semantic='C:/Users/John/Downloads/invoice.exe'
-  - ➕ `host.ip` vendor=None · semantic='198.51.100.7' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `host.ip` vendor=None · semantic='198.51.100.7' · semantic path resolved a field the vendor route did not populate
   - ✅ `host.name` vendor='WKS-42' · semantic='WKS-42'
   - ✅ `network.dst_ip` vendor='198.51.100.7' · semantic='198.51.100.7'
   - ✅ `network.dst_port` vendor=443 · semantic=443
   - ✅ `network.url` vendor='http://bad.com/p1' · semantic='http://bad.com/p1'
-  - ➖ `process.hash_sha256` vendor='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' · semantic=None · semantic path did not populate a vendor entity
-  - ➖ `process.image` vendor='C:/Users/John/Downloads/invoice.exe' · semantic=None · semantic path did not populate a vendor entity
+  - ➖ · [parser_gap] `process.hash_sha256` vendor='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' · semantic=None · semantic path did not populate a vendor entity
+  - ➖ · [schema_gap] `process.image` vendor='C:/Users/John/Downloads/invoice.exe' · semantic=None · semantic path did not populate a vendor entity
 
 ### `sysmon_process_create`
 
 - vendor route: `sysmon` · schema: `generic_json`
-- vendor fields: 5 · semantic fields: 4
-- matches: **3** · new: 0 · lost: 1 · mismatches: 1 · ambiguous: 0
-- parity: **60.0%** · confidence drift: -0.100
+- vendor fields: 5 · semantic fields: 6
+- matches: **4** · new: 1 · lost: 0 · mismatches: 1 · ambiguous: 0
+- parity: **66.7%** · confidence drift: -0.086
 - field deltas:
+  - ➕ · [expected_divergence] `file.hash_sha256` vendor=None · semantic='dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd' · semantic path resolved a field the vendor route did not populate
   - ✅ `host.name` vendor='host-a' · semantic='host-a'
   - ✅ `process.command_line` vendor='cmd.exe /c whoami' · semantic='cmd.exe /c whoami'
-  - ➖ `process.hash_sha256` vendor='dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd' · semantic=None · semantic path did not populate a vendor entity
+  - ✅ `process.hash_sha256` vendor='dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd' · semantic='dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
   - ✅ `process.image` vendor='C:/Windows/System32/cmd.exe' · semantic='C:/Windows/System32/cmd.exe'
-  - ⚠️ `user.name` vendor='alice' · semantic='CORP\\alice' · different values across pipelines
+  - ⚠️ · [identity_parser] `user.name` vendor='alice' · semantic='CORP\\alice' · different values across pipelines
 
 ### `sysmon_dns_query`
 
@@ -63,7 +74,7 @@ Fixtures compared: 13
 - matches: **1** · new: 0 · lost: 1 · mismatches: 0 · ambiguous: 0
 - parity: **50.0%** · confidence drift: -0.100
 - field deltas:
-  - ➖ `dns.query` vendor='malicious.example' · semantic=None · semantic path did not populate a vendor entity
+  - ➖ · [event_inference] `dns.query` vendor='malicious.example' · semantic=None · semantic path did not populate a vendor entity
   - ✅ `host.name` vendor='h1' · semantic='h1'
 
 ### `sysmon_network_connect`
@@ -73,7 +84,7 @@ Fixtures compared: 13
 - matches: **6** · new: 1 · lost: 0 · mismatches: 0 · ambiguous: 0
 - parity: **85.7%** · confidence drift: -0.100
 - field deltas:
-  - ➕ `host.ip` vendor=None · semantic='10.0.0.1' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `host.ip` vendor=None · semantic='10.0.0.1' · semantic path resolved a field the vendor route did not populate
   - ✅ `host.name` vendor='h1' · semantic='h1'
   - ✅ `network.dst_ip` vendor='1.2.3.4' · semantic='1.2.3.4'
   - ✅ `network.dst_port` vendor=443 · semantic=443
@@ -106,12 +117,12 @@ Fixtures compared: 13
 - matches: **0** · new: 6 · lost: 0 · mismatches: 0 · ambiguous: 0
 - parity: **0.0%** · confidence drift: -0.481
 - field deltas:
-  - ➕ `host.ip` vendor=None · semantic='10.0.0.1' · semantic path resolved a field the vendor route did not populate
-  - ➕ `host.name` vendor=None · semantic='web-01' · semantic path resolved a field the vendor route did not populate
-  - ➕ `network.dst_ip` vendor=None · semantic='10.0.0.2' · semantic path resolved a field the vendor route did not populate
-  - ➕ `network.src_ip` vendor=None · semantic='10.0.0.1' · semantic path resolved a field the vendor route did not populate
-  - ➕ `process.image` vendor=None · semantic='nginx' · semantic path resolved a field the vendor route did not populate
-  - ➕ `user.name` vendor=None · semantic='alice' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `host.ip` vendor=None · semantic='10.0.0.1' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `host.name` vendor=None · semantic='web-01' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `network.dst_ip` vendor=None · semantic='10.0.0.2' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `network.src_ip` vendor=None · semantic='10.0.0.1' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `process.image` vendor=None · semantic='nginx' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `user.name` vendor=None · semantic='alice' · semantic path resolved a field the vendor route did not populate
 
 ### `key_value_syslog_style`
 
@@ -120,11 +131,11 @@ Fixtures compared: 13
 - matches: **0** · new: 5 · lost: 0 · mismatches: 0 · ambiguous: 0
 - parity: **0.0%** · confidence drift: -0.487
 - field deltas:
-  - ➕ `host.ip` vendor=None · semantic='10.0.0.1' · semantic path resolved a field the vendor route did not populate
-  - ➕ `host.name` vendor=None · semantic='host01' · semantic path resolved a field the vendor route did not populate
-  - ➕ `network.dst_ip` vendor=None · semantic='10.0.0.2' · semantic path resolved a field the vendor route did not populate
-  - ➕ `network.protocol` vendor=None · semantic='tcp' · semantic path resolved a field the vendor route did not populate
-  - ➕ `network.src_ip` vendor=None · semantic='10.0.0.1' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `host.ip` vendor=None · semantic='10.0.0.1' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `host.name` vendor=None · semantic='host01' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `network.dst_ip` vendor=None · semantic='10.0.0.2' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `network.protocol` vendor=None · semantic='tcp' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `network.src_ip` vendor=None · semantic='10.0.0.1' · semantic path resolved a field the vendor route did not populate
 
 ### `alien::cloud_native_proprietary`
 
@@ -140,7 +151,7 @@ Fixtures compared: 13
 - matches: **0** · new: 1 · lost: 0 · mismatches: 0 · ambiguous: 0
 - parity: **0.0%** · confidence drift: +0.150
 - field deltas:
-  - ➕ `file.hash_sha256` vendor=None · semantic='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `file.hash_sha256` vendor=None · semantic='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' · semantic path resolved a field the vendor route did not populate
 
 ### `alien::iot_edge_telemetry`
 
@@ -163,7 +174,7 @@ Fixtures compared: 13
 - matches: **0** · new: 1 · lost: 0 · mismatches: 0 · ambiguous: 0
 - parity: **0.0%** · confidence drift: +0.200
 - field deltas:
-  - ➕ `network.url` vendor=None · semantic='https://audit.example.com/records/INV-2026-00483' · semantic path resolved a field the vendor route did not populate
+  - ➕ · [expected_divergence] `network.url` vendor=None · semantic='https://audit.example.com/records/INV-2026-00483' · semantic path resolved a field the vendor route did not populate
 
 ---
 

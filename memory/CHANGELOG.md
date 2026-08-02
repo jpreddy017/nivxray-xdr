@@ -2,6 +2,18 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-XX · Gap Classification + Composite Value Extractor + Configurable Deep-Flatten
+
+**Ships:**
+- **Composite Value Extractor** (`/app/backend/nivxforge/investigation/pipeline/composite_extractor.py`) — pure, deterministic pre-Stage-3 enrichment. Cracks composite `key=value` strings (e.g. Sysmon `Hashes: SHA256=… MD5=… IMPHASH=…`) into sibling fields prefixed by the origin name (`Hashes.SHA256`). Vendor-neutral. Skip-list for URL / URI / command-line fields prevents false expansion of legitimate query-string / arg content. Composite gate: ≥ 2 KV pairs by default, ≥ 1 for uppercase-key markers (`SHA256=…`, `CVE=…`, `MITRE=…`). Runs BEFORE Schema Understanding in the semantic path — never inside Semantic Mapping (owner directive: composite parsing is parser work, not semantic work).
+- **Configurable deep-flatten** in `schema_understanding.py` — replaced hard-coded 1-level flatten with `MAX_SCHEMA_DEPTH = 3` (single configurable constant). Recursive walker surfaces dotted paths like `file.identity.sha256` and `computer.hostname` without vendor-specific handling.
+- **Gap Classification taxonomy** in `cem_parity.py` — every non-match `FieldDelta` now carries a `gap_category`: `parser_gap` · `schema_gap` · `semantic_gap` · `registry_gap` · `identity_parser` · `event_inference` · `governance_decision` · `expected_divergence`. Parity report renders an aggregate breakdown so engineers can see where effort lands.
+- Parity mean climbed **35.1% → 37.1%** through legitimate improvements (Cisco fixture 50% → 80%, Sysmon `process.hash_sha256` now matches). Remaining gaps are cleanly classified: 16 `expected_divergence` (semantic-only additive value), 1 `event_inference` (dns.query vs network.domain), 1 `identity_parser` (`CORP\alice` split — owner-scoped for a future identity parser, not addressed here), 1 `parser_gap`, 1 `schema_gap`. Cut-over still correctly ⏸ pending.
+- 9 new tests for the composite extractor: sibling emission, mutation-free, skip-list, uppercase-marker gate, pathological-input safety. **Tests: 355/355 pass** (was 346).
+
+**Nothing rewired. Nothing removed.** Vendor path remains the production default. Semantic path continues to gather parallel evidence.
+
+
 ## 2026-02-XX · Leaf-Confidence Scale + Registry Governance + Additive CEM Wiring + Parity Comparator
 
 **Ships:**

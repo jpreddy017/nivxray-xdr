@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from nivxforge.investigation.cem import CanonicalEvent, CanonicalEventModel
+from .composite_extractor import expand_composites
 from .input_classification import classify_input
 from .normalizers import normalize
 from .parser import parse_input
@@ -111,6 +112,25 @@ class FieldDelta:
     vendor_value: Optional[Any]
     semantic_value: Optional[Any]
     reason: Optional[str] = None
+    gap_category: Optional[str] = None   # populated for non-match deltas
+
+
+class GapCategory:
+    """Taxonomy of parity-report gap causes (owner directive 2026-02-XX).
+
+    Every non-match FieldDelta receives a category so the parity
+    report is actionable — engineers can see where effort actually
+    needs to land.
+    """
+    PARSER_GAP        = "parser_gap"          # composite / pre-parsing needed
+    SCHEMA_GAP        = "schema_gap"          # nested deeper than schema flattens
+    SEMANTIC_GAP      = "semantic_gap"        # semantic mapper mis-assigns concept
+    REGISTRY_GAP      = "registry_gap"        # alias missing from registry
+    IDENTITY_PARSER   = "identity_parser"     # DOMAIN\User / SID / UPN split
+    EVENT_INFERENCE   = "event_inference"     # event-kind routing (dns vs network)
+    GOVERNANCE_DECISION = "governance_decision"  # deliberate registry rejection
+    EXPECTED_DIVERGENCE = "expected_divergence"  # semantic adds value; not a defect
+    UNCLASSIFIED      = "unclassified"
 
 
 @dataclass(frozen=True)
@@ -144,10 +164,13 @@ def compare_fixture(name: str, raw: str) -> ParityReport:
     vendor_flat = _flatten_cem(vendor_cem)
     vendor_confidence = vendor_cem.provenance.confidence
 
-    # Semantic path — the candidate.
-    fingerprint = understand_schema(parsed)
-    mapping = map_semantic_fields(fingerprint, parsed)
-    semantic_cem = build_semantic_cem(parsed, mapping)
+    # Semantic path — the candidate. Composite Extractor runs BEFORE
+    # Schema Understanding so composite fields like Sysmon "Hashes:
+    # SHA256=… MD5=…" surface as sibling candidate paths.
+    enriched = expand_composites(parsed)
+    fingerprint = understand_schema(enriched)
+    mapping = map_semantic_fields(fingerprint, enriched)
+    semantic_cem = build_semantic_cem(enriched, mapping)
     semantic_flat = _flatten_cem(semantic_cem)
 
     all_fields = sorted(set(vendor_flat) | set(semantic_flat))
@@ -163,9 +186,11 @@ def compare_fixture(name: str, raw: str) -> ParityReport:
                 deltas.append(FieldDelta(f, "match", v, s))
             else:
                 mismatches += 1
+                category = _classify_gap(f, v, s, "value_mismatch")
                 deltas.append(FieldDelta(
                     f, "value_mismatch", v, s,
                     reason="different values across pipelines",
+                    gap_category=category,
                 ))
         elif s is not None:
             new_mappings += 1
@@ -173,12 +198,15 @@ def compare_fixture(name: str, raw: str) -> ParityReport:
                 f, "new_mapping", None, s,
                 reason="semantic path resolved a field the vendor "
                        "route did not populate",
+                gap_category=GapCategory.EXPECTED_DIVERGENCE,
             ))
         else:
             lost_mappings += 1
+            category = _classify_gap(f, v, None, "lost_mapping")
             deltas.append(FieldDelta(
                 f, "lost_mapping", v, None,
                 reason="semantic path did not populate a vendor entity",
+                gap_category=category,
             ))
 
     denom = max(len(vendor_flat), len(semantic_flat), 1)
@@ -214,6 +242,61 @@ def _values_equal(a: Any, b: Any) -> bool:
     return str(a) == str(b)
 
 
+def _classify_gap(field: str,
+                  vendor_value: Any,
+                  semantic_value: Any,
+                  kind: str) -> str:
+    """Heuristic gap classifier — assigns each non-match a taxonomy
+    label so the parity report is actionable.
+
+    Deterministic. No vendor branching. Rules are ordered specific → general.
+    """
+    fnorm = field.lower()
+
+    # ── Event inference: dns.query vs network.domain ─────────────
+    if fnorm == "dns.query" and semantic_value is None:
+        return GapCategory.EVENT_INFERENCE
+    if fnorm == "network.domain" and vendor_value is None:
+        return GapCategory.EVENT_INFERENCE
+
+    # ── Identity parser: DOMAIN\User style splits ────────────────
+    if fnorm == "user.name" and kind == "value_mismatch":
+        v = str(vendor_value) if vendor_value is not None else ""
+        s = str(semantic_value) if semantic_value is not None else ""
+        if "\\" in s and "\\" not in v:
+            return GapCategory.IDENTITY_PARSER
+        if "\\" in v and "\\" not in s:
+            return GapCategory.IDENTITY_PARSER
+
+    # ── Parser gap: composite hash / composite key=value fields ──
+    # If the semantic side lost a hash that the vendor found, and the
+    # vendor value is hex of a hash-canonical length, this is almost
+    # certainly a composite-extraction gap.
+    if kind == "lost_mapping" and fnorm.endswith(
+            ("hash_md5", "hash_sha1", "hash_sha256", "hash_sha512")):
+        v = str(vendor_value) if vendor_value is not None else ""
+        if len(v) in (32, 40, 64, 128) and all(
+                c in "0123456789abcdefABCDEF" for c in v):
+            return GapCategory.PARSER_GAP
+
+    # ── Schema gap: deeply-nested fields the semantic path did not
+    #    surface as a candidate. Any dotted path of depth ≥ 2 that
+    #    the semantic side missed points at Schema Understanding.
+    if kind == "lost_mapping" and field.count(".") >= 1:
+        return GapCategory.SCHEMA_GAP
+
+    # ── Registry gap: flat field the semantic side did not populate.
+    #    Likely candidate for governance review.
+    if kind == "lost_mapping":
+        return GapCategory.REGISTRY_GAP
+
+    # ── Semantic gap: both sides populated but disagree on value.
+    if kind == "value_mismatch":
+        return GapCategory.SEMANTIC_GAP
+
+    return GapCategory.UNCLASSIFIED
+
+
 # ── Report rendering ──────────────────────────────────────────
 
 def render_parity_markdown(reports: List[ParityReport]) -> str:
@@ -233,6 +316,14 @@ def render_parity_markdown(reports: List[ParityReport]) -> str:
     avg_drift = (sum(r.confidence_drift for r in reports) / len(reports)
                  if reports else 0.0)
 
+    # Gap classification totals (owner-mandated actionability)
+    gap_counts: Dict[str, int] = {}
+    for r in reports:
+        for d in r.field_deltas:
+            if d.kind == "match" or d.gap_category is None:
+                continue
+            gap_counts[d.gap_category] = gap_counts.get(d.gap_category, 0) + 1
+
     lines.append("## Aggregate")
     lines.append("")
     lines.append("| Metric | Value |")
@@ -244,6 +335,19 @@ def render_parity_markdown(reports: List[ParityReport]) -> str:
     lines.append(f"| Ambiguous | {total_amb} |")
     lines.append(f"| Mean parity rate | {avg_parity:.1%} |")
     lines.append(f"| Mean confidence drift | {avg_drift:+.3f} |")
+    lines.append("")
+
+    # Gap classification breakdown — actionability panel.
+    lines.append("## Gap classification (where engineering effort lands)")
+    lines.append("")
+    if gap_counts:
+        lines.append("| Category | Count |")
+        lines.append("|---|---|")
+        for cat, cnt in sorted(gap_counts.items(),
+                                key=lambda kv: (-kv[1], kv[0])):
+            lines.append(f"| `{cat}` | {cnt} |")
+    else:
+        lines.append("_No non-match deltas — parity is perfect._")
     lines.append("")
 
     # Cut-over criteria table (from REGISTRY_GOVERNANCE.md)
@@ -284,7 +388,10 @@ def render_parity_markdown(reports: List[ParityReport]) -> str:
                 icon = ({"match": "✅", "new_mapping": "➕",
                          "lost_mapping": "➖",
                          "value_mismatch": "⚠️"}[d.kind])
-                lines.append(f"  - {icon} `{d.field}` "
+                cat = (f" · [{d.gap_category}]"
+                       if d.gap_category and d.gap_category != "match"
+                       else "")
+                lines.append(f"  - {icon}{cat} `{d.field}` "
                              f"vendor={d.vendor_value!r} · "
                              f"semantic={d.semantic_value!r}"
                              + (f" · {d.reason}" if d.reason else ""))
