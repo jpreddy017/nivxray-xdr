@@ -356,6 +356,21 @@ Mutex · Detection · Alert · MITRE
 > Reviewers must reject stages that gate purely on content
 > patterns without an explicit interpreter check.
 
+#### 6.3.1 · Decoder Stability Gate (release-blocking)
+
+> **Release Gate:** No language-specific stage may execute outside
+> its declared interpreter ownership.
+>
+> Required before every RC / GA release. Enforced by the regression
+> harness in `test_interpreter_gate.py` and any successor
+> Interpreter Ownership Coverage metric. A release that fails this
+> gate does not ship.
+>
+> This gate exists to turn the lesson from the Aug 2026 PowerShell
+> Interpreter Gate hotfix into an enforceable quality standard
+> rather than institutional knowledge that fades with contributor
+> turnover.
+
 ---
 
 ## 7 · Engineering Rule (mandatory)
