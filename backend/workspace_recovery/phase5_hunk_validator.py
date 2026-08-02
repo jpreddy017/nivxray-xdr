@@ -201,12 +201,67 @@ def _apply_hunk_5() -> str:
     return "hunk5 applied · smart_decoder _PS_ENCODED_RE widened"
 
 
+def _apply_hunk_6c() -> str:
+    """Convergence-score winner-picker penalty.
+
+    Any decode output that is only a normalizer's 'nothing to do' placeholder
+    of the form `(op-name · reason)` represents NEGATIVE convergence — the
+    pass added a step but did not refine the payload. Such outputs get a
+    hard-rejection penalty so a genuinely decoded plaintext from either
+    engine will always beat a placeholder from the other engine.
+
+    Applied in analysis_core.py right after the tail-self-inverse penalty
+    block (~line 717), before the winner-picker at line 773.
+    """
+    path = BISECT / "backend" / "analysis_core.py"
+    src = path.read_text()
+    before = (
+        "    if magic_tail_bad and not _has_extra_signal(magic_out, payload):\n"
+        "        magic_score_val -= 0.25\n"
+        "    if smart_tail_bad and not _has_extra_signal(smart_out, payload):\n"
+        "        smart_score -= 0.25\n"
+    )
+    after = (
+        "    if magic_tail_bad and not _has_extra_signal(magic_out, payload):\n"
+        "        magic_score_val -= 0.25\n"
+        "    if smart_tail_bad and not _has_extra_signal(smart_out, payload):\n"
+        "        smart_score -= 0.25\n"
+        "\n"
+        "    # DECODER-RECOVERY-LOCK · phase5_hunk_6c · Relative convergence penalty.\n"
+        "    # A candidate whose final output is only a normalizer's\n"
+        "    # 'nothing to do' placeholder — e.g.\n"
+        "    #   (powershell-alias-normalize · no known aliases found)\n"
+        "    #   (ps-backtick-normalize · no backticks found)\n"
+        "    # — represents NEGATIVE convergence: a pass ran but did not\n"
+        "    # refine the payload. We penalize the placeholder candidate\n"
+        "    # ONLY WHEN the other candidate produced real (non-placeholder)\n"
+        "    # content, so certified-baseline cases where BOTH engines legit-\n"
+        "    # imately terminate at the same placeholder (e.g. S06 XOR) still\n"
+        "    # tie the way v1.5.6 tied and no false regression is introduced.\n"
+        "    import re as _cvre\n"
+        "    _placeholder = _cvre.compile(\n"
+        "        r'^\\s*\\([a-z][a-z0-9\\-]*-[a-z0-9\\-]+\\s+·\\s+.+\\)\\s*$', _cvre.IGNORECASE\n"
+        "    )\n"
+        "    _smart_placeholder = bool(smart_out and _placeholder.match(smart_out.strip()))\n"
+        "    _magic_placeholder = bool(magic_out and _placeholder.match(magic_out.strip()))\n"
+        "    if _smart_placeholder and not _magic_placeholder:\n"
+        "        smart_score -= 1.0\n"
+        "    if _magic_placeholder and not _smart_placeholder:\n"
+        "        magic_score_val -= 1.0\n"
+    )
+    if before not in src:
+        raise RuntimeError("hunk6c anchor not found — file has drifted")
+    path.write_text(src.replace(before, after, 1))
+    return "hunk6c applied · convergence-score penalty for normalizer placeholders"
+
+
 HUNKS = {
     "hunk_1_disable_rc22_preflight": _apply_hunk_1,
     "hunk_2_append_not_insert":       _apply_hunk_2,
     "hunk_3_positional_ps_regex":     _apply_hunk_3,
     "hunk_4_ps_encodedcommand_abbrev":_apply_hunk_4,
     "hunk_5_smart_ps_encoded_regex":  _apply_hunk_5,
+    "hunk_6c_convergence_penalty":    _apply_hunk_6c,
 }
 
 
@@ -327,8 +382,15 @@ def main() -> int:
             "per_sample": scored,
         })
 
-    # ── Combined (all hunks) ──
-    print("[phase5] COMBINED · all hunks together")
+    # ── Combined (hunks 1-5 · proven safe) ──
+    # NOTE: Hunk 6c (convergence penalty) is intentionally EXCLUDED from
+    # the combined restore because in isolation it regresses S06 (whose
+    # v1.5.6 baseline legitimately terminates on a normalizer placeholder
+    # — both engines converge there and any placeholder penalty tips the
+    # winner-picker toward an empty-op alternate engine). The S001
+    # residual after hunks 1-5 is documented as needing the deeper
+    # Multi-Pass Convergence Engine (Phase 5.5) rather than a heuristic.
+    print("[phase5] COMBINED · hunks 1-5 (safe set)")
     _reset_head()
     try:
         _apply_hunk_1()

@@ -13,6 +13,7 @@ together. Zero changes to `/app/backend`.
 | `hunk_3_positional_ps_regex` | **1 / 11** |
 | `hunk_4_ps_encodedcommand_abbrev` | **1 / 11** |
 | `hunk_5_smart_ps_encoded_regex` | **1 / 11** |
+| `hunk_6c_convergence_penalty` | **1 / 11** |
 | `combined_all_hunks` | **10 / 11** |
 
 ## Per-sample per-experiment
@@ -24,6 +25,7 @@ together. Zero changes to `/app/backend`.
 | `hunk_3_positional_ps_regex` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `hunk_4_ps_encodedcommand_abbrev` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `hunk_5_smart_ps_encoded_regex` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `hunk_6c_convergence_penalty` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `combined_all_hunks` | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ### `hunk_1_disable_rc22_preflight` — 10 / 11
@@ -111,6 +113,24 @@ _hunk5 applied · smart_decoder _PS_ENCODED_RE widened_
 | `S04_ps_alias_heavy` | ❌ | `['ps-reconstruct', 'powershell-alias-normalize', 'ioc-extract']` |
 | `S05_nested_b64_gzip` | ❌ | `['extract-payload', 'base64-decode', 'crypto-detect']` |
 | `S06_xor_obfuscated` | ✅ | `['ascii-decimal-decode', 'xor-brute', 'powershell-backtick-normalize', 'powershe` |
+| `S07_rc4_openssl` | ❌ | `['rot47']` |
+| `S08_unicode_obfuscation` | ❌ | `['extract-payload', 'ioc-extract', 'family-emotet']` |
+| `S09_hex_b64_gzip_chain` | ❌ | `['hex-decode', 'base64-decode']` |
+| `S10_bash_with_powershell_comment` | ❌ | `['powershell-alias-normalize']` |
+
+### `hunk_6c_convergence_penalty` — 1 / 11
+
+_hunk6c applied · convergence-score penalty for normalizer placeholders_
+
+| Sample | PASS | Ops |
+|---|:-:|-----|
+| `S001_ps_writehost_tweet` | ✅ | `['extract-payload', 'base64-decode']` |
+| `S01_ps_b64_utf16le` | ❌ | `['ps-encodedcommand-recovery', 'extract-payload', 'ioc-extract', 'family-emotet'` |
+| `S02_bash_xxd_b64_rev` | ❌ | `['powershell-alias-normalize']` |
+| `S03_cmd_caret_escaped` | ❌ | `['cmd-runtime-reconstruct', 'extract-payload', 'base64-decode', 'utf16le-or-utf8` |
+| `S04_ps_alias_heavy` | ❌ | `['ps-reconstruct', 'powershell-alias-normalize', 'ioc-extract']` |
+| `S05_nested_b64_gzip` | ❌ | `['extract-payload', 'base64-decode', 'crypto-detect']` |
+| `S06_xor_obfuscated` | ❌ | `[]` |
 | `S07_rc4_openssl` | ❌ | `['rot47']` |
 | `S08_unicode_obfuscation` | ❌ | `['extract-payload', 'ioc-extract', 'family-emotet']` |
 | `S09_hex_b64_gzip_chain` | ❌ | `['hex-decode', 'base64-decode']` |

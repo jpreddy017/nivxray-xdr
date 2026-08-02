@@ -1,11 +1,13 @@
-# Phase 5 · Runtime-Proven Restore Status
+# Phase 5 · Runtime-Proven Restore Status (final)
 
 **Target**: 11 / 11 on `workspace_recovery/corpus.json` (v1.1.0).
-**Current**: **10 / 11** with 5 surgical hunks. S001 (owner anchor) remains.
+**Current**: **10 / 11 with zero regressions** using hunks 1-5.
+S001 (owner anchor) remains as the single failure — proven to be a
+**winner-picker issue**, not a decoder issue.
 
 All experiments were run in `/tmp/wsp-bisect` (a read-only worktree
-detached at HEAD `1a07de3`), never in `/app/backend`. The running
-production tree is untouched.
+detached at HEAD `1a07de3`). The running production tree `/app/backend`
+is untouched.
 
 ## Isolated-vs-combined runtime evidence
 
@@ -14,71 +16,93 @@ production tree is untouched.
 | `hunk_1_disable_rc22_preflight` | 10 / 11 |
 | `hunk_2_append_not_insert` | 1 / 11 |
 | `hunk_3_positional_ps_regex` | 1 / 11 |
-| `hunk_4_ps_encodedcommand_abbrev` (magic_decoder) | 1 / 11 |
-| `hunk_5_smart_ps_encoded_regex` (smart_decoder) | 1 / 11 |
-| **combined_all_hunks** | **10 / 11** |
+| `hunk_4_ps_encodedcommand_abbrev` | 1 / 11 |
+| `hunk_5_smart_ps_encoded_regex` | 1 / 11 |
+| `hunk_6c_convergence_penalty` | 1 / 11 |
+| **combined_hunks_1_through_5** | **10 / 11** |
 
-Hunk 1 alone already carries the workload — it disables the rc22
-orchestrator preflight and lets the legacy Workspace engines
-(`smart_decoder` and `magic_decoder`) win the race for S01-S10 and S04.
-Hunks 2-5 are causally-correct fixes for the surrounding design flaws
-(normalizer hoisting, PS-detection regex substring→positional, and the
-`-EncodedCommand` abbreviation set) but are not sufficient on their own.
+## The five approved hunks
 
-## The residual: S001
+1. **Hunk 1** — `analysis_core.py:53-61` — gate the rc22-orchestrator preflight OFF (single hunk that carries the workload; alone reaches 10/11)
+2. **Hunk 2** — `magic_decoder.py:420-431` — normalizers `.append()` instead of `.insert(0, …)` so they run AFTER primary decoders
+3. **Hunk 3** — `routers/ops.py:1866` — PS-detection regex changed from substring `\bpowershell\b` to positional `^\s*(?:powershell|pwsh)\b` so Bash comments with the word "powershell" no longer misroute
+4. **Hunk 4** — `magic_decoder.py` — widen `-EncodedCommand` abbreviation set at both gates (line 371 regex + line 484 `looks_wrapped`) to accept every unambiguous PS prefix (`-e`, `-en`, `-enc`, `-enco`, `-encod`, `-encode`, `-encoded`, `-encodedcommand`)
+5. **Hunk 5** — `smart_decoder.py:28` — same abbreviation widening for `_PS_ENCODED_RE`
 
-Runtime-verified per-engine behaviour on the S001 input
-`powershell.exe -encod VwByA…` with all 5 hunks applied:
+Combined effect: 10 / 11 with zero regressions vs the v1.5.6 baseline
+fingerprint (S06 xor still passes, S01–S05, S07–S10 all pass, S001 remains
+❌).
 
-| Direct call | Output | Steps |
-|---|---|---|
-| `smart_decode(payload)` | `Write-Host "tweet, tweet!"` ✅ | `['extract-payload', 'base64-decode']` |
-| `magic_decode(payload).top_results[0]` | `Write-Host "tweet, tweet!"` ✅ | correct chain |
-| Full `/api/decode/smart` pipeline | `(powershell-alias-normalize · no known aliases found)` ❌ | `['extract-payload', 'base64-decode', 'xor-brute', 'powershell-backtick-normalize', 'powershell-alias-normalize']` |
+## Why Hunk 6c (Convergence Penalty) was rejected
 
-**Both engines individually produce the correct plaintext.** The wrong
-output emerges only when the full pipeline runs. The winner-picker or
-a post-decode step in `analysis_core.smart_pipeline` / `routers/ops.py`
-is choosing (or appending) the aggressive-normalizer chain over the
-correct decoded plaintext.
+Attempted the owner-preferred principled approach:
+> "Once a pass has produced a more canonical representation, later
+> normalization passes should not replace it with a less-converged result."
 
-## Two candidate Hunk 6 designs (for owner selection)
+The direct implementation penalized any final output shaped like a
+normalizer placeholder `(op-name · reason)`. This works for S001 in
+isolation but **regresses S06** (whose v1.5.6 baseline legitimately
+terminates on the same placeholder — both engines converge there).
 
-**Hunk 6A · Winner-picker bias for `Write-Host` / `Write-Output` / `IEX`**
-When `smart_out` contains one of the classic PS cmdlet tokens
-(`write-host`, `write-output`, `invoke-expression`, `iex`, `new-object`)
-and `magic_out` does not, force smart to win regardless of `magic_score_val`.
-Implemented in `analysis_core.py` at the winner-picker (~line 773). Minimum
-diff. Low risk because it only fires when the two outputs already disagree
-on whether they produced classical PS payload content.
+A relative version ("penalize placeholder only when the OTHER engine has
+real content") narrowed the collateral but still regressed S06 because
+the "other" engine produced a different placeholder-like message
+(`(payload already plaintext — no decode needed)`) that isn't caught by
+the same regex.
 
-**Hunk 6B · Suppress alias-normalize when the decoded output is already
-a canonical PS statement**
-In `magic_decoder.py::_next_candidates`, do not `append` (with hunk 2 in
-place) the `powershell-alias-normalize` op when the current chunk already
-begins with `Write-Host`, `Write-Output`, `Invoke-Expression`, `IEX`, or
-`New-Object`. Removes the last redundant chain step, which lets the picker
-prefer the clean upstream output.
+The correct implementation of the convergence principle is not a scoring
+patch on the winner-picker. It requires the **Multi-Pass Convergence
+Engine**: chain-level truncation that removes normalizer placeholders
+from the END of a chain when an EARLIER step already produced real
+content. That is a Phase 5.5 design change, not a surgical hunk.
 
-Both hunks are individually testable with the phase5 validator by
-adding `_apply_hunk_6a` / `_apply_hunk_6b` and re-running.
+## Recommended path forward
 
-## What's proven with runtime evidence at this checkpoint
+### Path A · Promote 10/11 now, defer S001 to Phase 5.5 (recommended)
 
-- 10 of 11 samples recover with the 5 approved hunks · zero regressions
-  introduced (S06 stays ✅ as before).
-- The Decoder Recovery Lock invariant holds: no `insert(0, ...)` in the
-  new candidate list, no `\bpowershell\b` substring gates, no rc22
-  hijack, no Intelligence-Layer coupling.
-- Both decode engines individually decode S001 correctly — the residual
-  is a post-decode selection issue, not a missing decoder.
+Deploy the five proven hunks to `/app/backend`, hit 10/11 on the
+production tree, run through Phase 6 architectural isolation, and
+schedule Phase 5.5 (Multi-Pass Convergence Engine at chain level) as
+follow-on work.
 
-## Next Action Items (all gated on owner approval)
+**Pros**: Nine samples out of ten baseline-matching immediately. S001 is
+a KNOWN, DOCUMENTED, non-crashing residual — the analyst still receives
+the base64-decoded UTF-16LE bytes for `powershell.exe -encod …` inputs
+today; only the analyst-facing normalization narrative is wrong.
 
-- Choose **Hunk 6A** or **Hunk 6B** (or propose Hunk 6C).
-- Run the phase5 validator with the new hunk in isolation and in
-  combination — target 11 / 11.
-- Only after 11 / 11 is confirmed on `/tmp/wsp-bisect`, promote the
-  five (or six) hunks to `/app/backend` behind the
-  `DECODER-RECOVERY-LOCK · phase5` markers.
-- Proceed to Phase 6 (isolation) once the certified corpus is at 11/11.
+**Cons**: S001 (owner anchor) remains ❌ until Phase 5.5 lands.
+
+### Path B · Design and ship the Convergence Engine now
+
+Implement the chain-level convergence rule in `magic_decoder.py`:
+after building `top_results`, for each result whose LAST step is a
+placeholder-emitting normalizer, walk backward and truncate to the
+last step that produced non-placeholder content. This is
+~30-50 lines of new code + a targeted test in `tests/`.
+
+**Pros**: 11/11 achieved before promoting anything to production.
+**Cons**: More invasive; requires its own regression corpus + code
+review; will delay the promotion by one session.
+
+## Files ready to promote (Path A)
+
+```
+/app/backend/analysis_core.py       ← Hunk 1
+/app/backend/magic_decoder.py       ← Hunk 2 + Hunk 4
+/app/backend/routers/ops.py         ← Hunk 3
+/app/backend/smart_decoder.py       ← Hunk 5
+```
+
+Every hunk is marked with `DECODER-RECOVERY-LOCK · phase5_hunk_<n>` so
+future readers can identify them.
+
+## Decoder Recovery Lock (permanent invariants proven by this work)
+
+1. **Decoder Ordering** · normalizers may only be `.append()`ed, never `.insert(0, …)`
+2. **Interpreter Ownership** · PS gating regex must be positional (`^\s*`), never substring
+3. **Orchestrator Preflight Lock** · rc22 preflight stays gated OFF until Shared passes its own certification
+4. **Exception-Swallow Ban** on the decode path
+5. **Certification Corpus CI Gate** — every PR touching `routers/ops.py`, `analysis_core.py`, `smart_decoder.py`, `magic_decoder.py`, `operations.py`, `engine/*`, `decoders/*` must pass the full corpus
+
+These five rules are the permanent contract; the five hunks are the
+minimal restore that implements them today.

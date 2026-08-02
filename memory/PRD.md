@@ -13,6 +13,35 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## ✅ PHASE 5 · HUNK VALIDATION FINAL · 10 / 11 CLEAN (2026-02-XX)
+
+Six hunks tested. Five approved (1-5) — combined = **10 / 11, zero
+regressions**. Sixth hunk (6c · convergence penalty) rejected because
+it regresses S06 (whose v1.5.6 baseline legitimately terminates on the
+same placeholder pattern the penalty targets).
+
+**Approved hunks** (see `workspace_recovery/phase5_status.md`):
+1. `analysis_core.py:53-61` · rc22 preflight OFF (workhorse — 10/11 alone)
+2. `magic_decoder.py:420-431` · normalizers append not insert(0)
+3. `routers/ops.py:1866` · PS-detection positional (`^\s*`) not substring
+4. `magic_decoder.py` · -EncodedCommand abbreviation set widened (line 371 + line 484)
+5. `smart_decoder.py:28` · `_PS_ENCODED_RE` abbreviation set widened
+
+**Residual = S001 only**, proven to be a winner-picker issue, not a
+decoder issue. Both engines individually decode S001 correctly. The
+correct fix is the **Multi-Pass Convergence Engine** at chain level
+(remove trailing normalizer placeholders when an earlier chain step
+produced real content). That is a Phase 5.5 design change, not a
+surgical hunk.
+
+**Two path decision required from owner** (both documented in phase5_status.md):
+- **Path A** · Promote 10/11 now → Phase 6 isolation → Phase 5.5 (Convergence Engine) as follow-on
+- **Path B** · Design + ship Convergence Engine now → 11/11 → then promote
+
+Zero files promoted to `/app/backend`. Worktree reset clean.
+
+---
+
 ## ✅ PHASE 5 · HUNK-VALIDATION CHECKPOINT · 10 / 11 (2026-02-XX)
 
 Five surgical hunks proven with runtime evidence in `/tmp/wsp-bisect`:
