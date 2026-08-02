@@ -82,9 +82,19 @@ Anything the Investigation Engine renders is **terminal**.  It must
 Diagnostic text is **not** executable input.
 
 **Enforced by**:
-- `recursion_safety.assert_terminal(payload)` — call site check that
-  the payload does not carry the `X-Engine-Rendered` marker.
-- Test: `test_recursion_safety.py::test_rendered_payload_refused_by_parser`.
+- `PayloadKind` classification — non-executable kinds (REPORT,
+  NARRATIVE, DIAGNOSTIC, ERROR) are refused by `assert_parseable()`
+  regardless of content.
+- `PayloadState.FINAL_RENDERED` — payloads at the terminal state are
+  refused by `assert_parseable()`.
+- Central `OutputGate.emit()` — the single chokepoint every renderer
+  passes through; seals content as `FINAL_RENDERED` and stamps
+  provenance. Workspace, Reports, REST APIs, JSON export, and PDF
+  all inherit the guarantee.
+- Legacy string-based `tag_rendered() / assert_terminal()` remain as
+  backward-compatible shims for pre-Payload call sites.
+- Tests: `test_recursion_safety.py::test_assert_parseable_rejects_*`,
+  `test_output_gate_output_refused_by_parser_end_to_end`.
 
 ---
 

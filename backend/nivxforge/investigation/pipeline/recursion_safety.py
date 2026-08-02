@@ -1,42 +1,44 @@
-"""Recursion Safety Machinery — Investigation Engine Contract v1.0.
+"""Recursion Safety + Pipeline Invariants — Investigation Engine Contract v1.0.
 
-Executable enforcement for Invariants #3, #4, and #8 of
-`docs/architecture/INVESTIGATION_ENGINE_CONTRACT.md`.
+Executable enforcement for the owner-authored Investigation Engine
+Contract. Two layers:
 
-Callers use these helpers at stage boundaries so a violation surfaces
-as a clean, testable failure rather than a runtime infinite loop or a
-diagnostic-text-as-narrative bug.
+    1. **Typed payload state machine** (`PayloadKind`, `PayloadState`,
+       `Payload`, `advance_state`, `assert_parseable`)
+       Rejects non-executable / terminal payloads *by classification*
+       rather than by content sniffing. This is the primary defence.
 
-Public surface:
+    2. **Central Output Gate** (`OutputGate.emit`)
+       Every renderer — narrative, report, JSON export, PDF —
+       funnels its final content through this single chokepoint. The
+       gate scrubs diagnostic tokens (Invariant #7), stamps the
+       payload with `state=FINAL_RENDERED` (Invariant #3), and
+       returns an immutable `Payload`. Downstream stages (`parser`,
+       `decoder`, `normalizer`, `interpreter_classifier`) call
+       `assert_parseable()` at their entry, and a rendered payload
+       is refused immediately.
 
-    RENDERED_MARKER          — string embedded in rendered payloads
-    NoFurtherProgress        — exception raised by the guard
-    assert_terminal(payload) — refuses payloads carrying RENDERED_MARKER
-    tag_rendered(payload)    — stamps a payload as terminal output
-    RecursionGuard           — callable guard for recursive stages
-    stability_gate(...)      — computes the Decoder Stability Gate
-    DIAGNOSTIC_MARKERS       — canonical list of internal diagnostic
-                                tokens forbidden in final narrative
-    scrub_diagnostics(text)  — removes / flags diagnostic markers so
-                                narrative renderers can assert-clean
+Legacy string-based helpers (`tag_rendered`, `is_rendered`,
+`assert_terminal`, `RenderedPayloadReentry`) are retained as
+backward-compatible shims for call sites that don't yet carry a full
+`Payload` object.
+
+See `docs/architecture/INVESTIGATION_ENGINE_CONTRACT.md` for the
+authoritative contract.
 """
 from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass
-from typing import Any, Iterable, Optional, Set
+from dataclasses import dataclass, field, replace
+from enum import Enum
+from typing import Any, Dict, Iterable, Optional, Set
 
 
 # ── Contract markers ────────────────────────────────────────────────
 
-# Any payload carrying this marker was produced by the Investigation
-# Engine's narrative/renderer layer and MUST NOT be fed back into any
-# parser / decoder / normalizer / interpreter classifier.
 RENDERED_MARKER = "X-Engine-Rendered: 1"
 
-# Internal decoder diagnostic tokens that must never appear in the
-# analyst-facing narrative (Invariant #7).
 DIAGNOSTIC_MARKERS: tuple = (
     "ps-backtick-normalize",
     "ps-alias-expand",
@@ -49,28 +51,162 @@ DIAGNOSTIC_MARKERS: tuple = (
 )
 
 
-# ── Exceptions ──────────────────────────────────────────────────────
+# ── Exception hierarchy ─────────────────────────────────────────────
 
-class NoFurtherProgress(RuntimeError):
-    """Raised when a recursive transformation makes neither structural
-    nor semantic progress. The caller is expected to treat this as a
-    clean termination signal, not an error to log."""
-
-
-class RenderedPayloadReentry(RuntimeError):
-    """Raised when a rendered payload is fed back into an earlier
-    pipeline stage. Signals a violation of Invariant #3."""
+class PipelineInvariantViolation(RuntimeError):
+    """Base class for every hard violation of the Investigation
+    Engine Contract. Catch this to fail fast on any invariant."""
 
 
-# ── Terminal-output enforcement (Invariant #3) ──────────────────────
+class TerminalPayloadReentry(PipelineInvariantViolation):
+    """A payload whose state is terminal (FINAL_RENDERED) was fed
+    back into an earlier stage. Invariant #3."""
+
+
+class NonExecutablePayloadRejected(PipelineInvariantViolation):
+    """A payload whose kind is not in the executable set (REPORT,
+    NARRATIVE, DIAGNOSTIC, ERROR) reached a parser/decoder stage."""
+
+
+class NoFurtherProgress(PipelineInvariantViolation):
+    """A recursive transformation made neither structural nor
+    semantic progress. Invariant #4."""
+
+
+class InvalidStateTransition(PipelineInvariantViolation):
+    """`advance_state` was called with an illegal transition. Every
+    payload state advances monotonically forward through the
+    pipeline."""
+
+
+# Backwards-compatible alias (v0 name) — code that raises this today
+# is still catching a subclass of PipelineInvariantViolation.
+RenderedPayloadReentry = TerminalPayloadReentry
+
+
+# ── PayloadKind / PayloadState / Payload ────────────────────────────
+
+class PayloadKind(str, Enum):
+    """Classifies **what** a payload IS. Only executable kinds are
+    permitted to enter the parser / decoder / normalizer stages.
+
+    This classification is the primary defence against the class of
+    bug that motivated this module: an engine-rendered NARRATIVE
+    being fed back into the parser, causing a decode loop over the
+    engine's own diagnostic text.
+    """
+
+    # Executable — safe to parse / decode / normalize.
+    COMMAND    = "command"     # a single command line
+    SCRIPT     = "script"      # multi-line script body
+    PIPELINE   = "pipeline"    # shell pipeline / chained command
+    TELEMETRY  = "telemetry"   # vendor-emitted event (JSON / CEF / …)
+
+    # Non-executable — parser MUST refuse.
+    REPORT     = "report"      # analyst-facing report body
+    NARRATIVE  = "narrative"   # investigation narrative text
+    DIAGNOSTIC = "diagnostic"  # internal decoder / normalizer log
+    ERROR      = "error"       # error / failure envelope
+
+
+_EXECUTABLE_KINDS: frozenset = frozenset({
+    PayloadKind.COMMAND, PayloadKind.SCRIPT,
+    PayloadKind.PIPELINE, PayloadKind.TELEMETRY,
+})
+
+
+class PayloadState(str, Enum):
+    """Pipeline lifecycle of a payload. Monotonic — a payload
+    advances forward and never regresses. Once `FINAL_RENDERED`,
+    the payload is terminal and cannot re-enter any earlier stage.
+    """
+
+    RAW_INPUT      = "raw_input"
+    NORMALIZED     = "normalized"
+    DECODED        = "decoded"
+    AGGREGATED     = "aggregated"
+    CORRELATED     = "correlated"
+    NARRATIVE      = "narrative"
+    FINAL_RENDERED = "final_rendered"
+
+
+_STATE_ORDER = [
+    PayloadState.RAW_INPUT,
+    PayloadState.NORMALIZED,
+    PayloadState.DECODED,
+    PayloadState.AGGREGATED,
+    PayloadState.CORRELATED,
+    PayloadState.NARRATIVE,
+    PayloadState.FINAL_RENDERED,
+]
+
+_TERMINAL_STATES: frozenset = frozenset({PayloadState.FINAL_RENDERED})
+
+
+@dataclass(frozen=True)
+class Payload:
+    """Immutable pipeline payload.
+
+    `content` is the actual data (raw command / normalized command /
+    rendered narrative / …). `kind` classifies *what it is*; `state`
+    tracks *where in the pipeline it currently sits*. `provenance` is
+    a free-form dict for callers to record supporting metadata.
+    """
+
+    content: str
+    kind: PayloadKind
+    state: PayloadState = PayloadState.RAW_INPUT
+    provenance: Dict[str, Any] = field(default_factory=dict)
+
+
+def advance_state(payload: Payload, to: PayloadState) -> Payload:
+    """Return a new Payload with `state = to`. Rejects backward or
+    same-state transitions to keep the pipeline strictly monotonic."""
+    src_idx = _STATE_ORDER.index(payload.state)
+    dst_idx = _STATE_ORDER.index(to)
+    if dst_idx <= src_idx:
+        raise InvalidStateTransition(
+            f"cannot advance from {payload.state.value!r} to "
+            f"{to.value!r} — pipeline states are monotonic")
+    return replace(payload, state=to)
+
+
+def assert_parseable(payload: Any, stage: str) -> None:
+    """Guard the entry of every parser / decoder / normalizer /
+    interpreter-classifier stage.
+
+    Refuses:
+        * Any `Payload` with `state == FINAL_RENDERED` (Invariant #3).
+        * Any `Payload` whose `kind` is non-executable (REPORT /
+          NARRATIVE / DIAGNOSTIC / ERROR).
+        * Any raw string carrying the legacy `RENDERED_MARKER`.
+
+    Accepts everything else — this is a *defensive* guard, not a
+    policy engine.
+    """
+    if isinstance(payload, Payload):
+        if payload.state in _TERMINAL_STATES:
+            raise TerminalPayloadReentry(
+                f"Refusing rendered payload at stage={stage!r}. "
+                f"state={payload.state.value!r}, "
+                f"kind={payload.kind.value!r} — Invariant #3.")
+        if payload.kind not in _EXECUTABLE_KINDS:
+            raise NonExecutablePayloadRejected(
+                f"Refusing non-executable payload at stage={stage!r}. "
+                f"kind={payload.kind.value!r} — Invariant #3.")
+        return
+    if isinstance(payload, str) and payload.startswith(RENDERED_MARKER):
+        raise TerminalPayloadReentry(
+            f"Refusing rendered string payload at stage={stage!r} — "
+            f"Invariant #3.")
+
+
+# ── Legacy string-based helpers (kept for back-compat) ──────────────
 
 def tag_rendered(payload: str) -> str:
-    """Stamp a payload as engine-rendered / terminal.
-
-    Idempotent — tagging twice yields the same string. The tag is a
-    leading line so it survives naive string slicing and can be
-    detected by `assert_terminal()`.
-    """
+    """Stamp a raw string as engine-rendered. Prefer wrapping in a
+    `Payload(state=FINAL_RENDERED)` for new code; this helper exists
+    so pre-Payload call sites still get Invariant #3 protection."""
     if not payload:
         return f"{RENDERED_MARKER}\n"
     if payload.startswith(RENDERED_MARKER):
@@ -79,27 +215,19 @@ def tag_rendered(payload: str) -> str:
 
 
 def is_rendered(payload: Any) -> bool:
-    """Return True if the payload was produced by the engine's
-    render/narrative layer. Deterministic; never inspects content
-    beyond the leading marker."""
-    if not isinstance(payload, str):
-        return False
-    return payload.startswith(RENDERED_MARKER)
+    """True if the payload was produced by the engine's render layer."""
+    if isinstance(payload, Payload):
+        return payload.state in _TERMINAL_STATES
+    if isinstance(payload, str):
+        return payload.startswith(RENDERED_MARKER)
+    return False
 
 
 def assert_terminal(payload: Any, stage: str) -> None:
-    """Refuse to accept a rendered payload as input to `stage`.
-
-    Call this at the top of any parser / decoder / normalizer /
-    interpreter-classifier function so the contract violation is
-    surfaced immediately rather than after another round of noisy
-    decoding.
-    """
-    if is_rendered(payload):
-        raise RenderedPayloadReentry(
-            f"Refusing to feed rendered engine output back into "
-            f"stage={stage!r}. Rendered output is terminal "
-            f"(Investigation Engine Contract Invariant #3).")
+    """Legacy alias for `assert_parseable` — kept so existing call
+    sites keep working. New code should call `assert_parseable`
+    directly, which also enforces `PayloadKind`."""
+    assert_parseable(payload, stage)
 
 
 # ── Recursion guard (Invariant #4) ──────────────────────────────────
@@ -108,15 +236,7 @@ def assert_terminal(payload: Any, stage: str) -> None:
 class RecursionGuard:
     """Guard a recursive transformation.
 
-    Usage:
-
-        guard = RecursionGuard(stage="decoder", max_depth=8)
-        while ...:
-            guard.advance(new_input=payload,
-                          semantic_progress=len(new_evidence) > 0)
-
     Raises `NoFurtherProgress` when either:
-
         * `max_depth` iterations have been consumed, OR
         * the current iteration produced no structural change to the
           payload AND `semantic_progress` is False.
@@ -128,6 +248,8 @@ class RecursionGuard:
     _last_hash: Optional[str] = None
 
     def _hash(self, payload: Any) -> str:
+        if isinstance(payload, Payload):
+            payload = payload.content
         if not isinstance(payload, (str, bytes)):
             payload = repr(payload)
         if isinstance(payload, str):
@@ -136,8 +258,6 @@ class RecursionGuard:
 
     def advance(self, new_input: Any, *,
                  semantic_progress: bool) -> None:
-        """Advance the guard by one iteration. Raises if the
-        Investigation Engine Contract's Invariant #4 is violated."""
         self._iterations += 1
         if self._iterations > self.max_depth:
             raise NoFurtherProgress(
@@ -159,13 +279,6 @@ class RecursionGuard:
 
 @dataclass(frozen=True)
 class StabilityVerdict:
-    """Result of a Decoder Stability Gate check.
-
-    * `stable`   — True when no further deterministic progress is
-                   possible; the caller must terminate immediately.
-    * `reason`   — deterministic string suitable for narrative output.
-    """
-
     stable: bool
     reason: str
 
@@ -179,17 +292,6 @@ def stability_gate(
     interpreter_before: Optional[str],
     interpreter_after: Optional[str],
 ) -> StabilityVerdict:
-    """Return whether the Decoder Stability Gate has been reached.
-
-    Gate condition (Invariant #8):
-
-        no new evidence  AND  no command change  AND  no new interpreter
-
-    All three inputs are pre-normalized by the caller: evidence
-    iterables are converted to sets, commands are stripped/lowered as
-    the caller sees fit. This helper is deliberately dumb — its only
-    responsibility is comparing before/after states deterministically.
-    """
     before_set: Set[str] = set(evidence_before)
     after_set:  Set[str] = set(evidence_after)
     new_evidence = after_set - before_set
@@ -220,7 +322,6 @@ _DIAG_RE = re.compile(
 
 
 def contains_diagnostic_markers(text: str) -> bool:
-    """Deterministic check for any of the forbidden diagnostic tokens."""
     if not text:
         return False
     return bool(_DIAG_RE.search(text))
@@ -228,19 +329,91 @@ def contains_diagnostic_markers(text: str) -> bool:
 
 def scrub_diagnostics(text: str,
                       *, replacement: str = "[REDACTED-DIAG]") -> str:
-    """Remove diagnostic tokens so a narrative renderer can assert
-    the output is analyst-clean. Deterministic — same input always
-    produces the same scrubbed string."""
     if not text:
         return text
     return _DIAG_RE.sub(replacement, text)
 
 
+# ── Central Output Gate ─────────────────────────────────────────────
+
+class OutputGate:
+    """The single chokepoint every renderer must pass through.
+
+    Owner directive (2026-02-XX): enforce Invariants #3 and #7
+    centrally instead of scattering `scrub_diagnostics()` and
+    `tag_rendered()` calls across every renderer. This lets
+    Workspace, Reports, REST APIs, JSON export, and PDF all benefit
+    from the same guarantees automatically.
+
+    Usage:
+
+        gate = OutputGate()
+        final = gate.emit(narrative_text, kind=PayloadKind.NARRATIVE,
+                          source="analyst_narrative_v2")
+
+        # `final` is now Payload(state=FINAL_RENDERED); any downstream
+        # attempt to feed it back into a parser/decoder will raise
+        # TerminalPayloadReentry.
+    """
+
+    def __init__(self, *, replacement: str = "[REDACTED-DIAG]") -> None:
+        self._replacement = replacement
+
+    def emit(self, content: str, *,
+             kind: PayloadKind = PayloadKind.NARRATIVE,
+             source: str = "unknown",
+             extra_provenance: Optional[Dict[str, Any]] = None,
+             ) -> Payload:
+        if kind in _EXECUTABLE_KINDS:
+            # The gate is only for terminal output. Refusing here
+            # keeps callers from accidentally sealing an executable
+            # payload as FINAL_RENDERED.
+            raise PipelineInvariantViolation(
+                f"OutputGate.emit refuses executable kind "
+                f"{kind.value!r}; call this only for report / "
+                f"narrative / diagnostic / error content.")
+
+        cleaned = scrub_diagnostics(content, replacement=self._replacement)
+        provenance: Dict[str, Any] = {
+            "source": source,
+            "sealed_by": "output_gate",
+            "diagnostics_scrubbed": (cleaned != content),
+        }
+        if extra_provenance:
+            provenance.update(extra_provenance)
+
+        # Post-condition: no diagnostic markers may survive the gate.
+        # Fail loudly if the scrubber somehow missed anything.
+        if contains_diagnostic_markers(cleaned):
+            raise PipelineInvariantViolation(
+                "OutputGate scrubbed content still contains "
+                "diagnostic markers — Invariant #7 violation.")
+
+        return Payload(
+            content=cleaned, kind=kind,
+            state=PayloadState.FINAL_RENDERED,
+            provenance=provenance,
+        )
+
+
 __all__ = [
+    # Markers
     "RENDERED_MARKER", "DIAGNOSTIC_MARKERS",
-    "NoFurtherProgress", "RenderedPayloadReentry",
-    "tag_rendered", "is_rendered", "assert_terminal",
+    # Exceptions
+    "PipelineInvariantViolation",
+    "TerminalPayloadReentry", "NonExecutablePayloadRejected",
+    "NoFurtherProgress", "InvalidStateTransition",
+    "RenderedPayloadReentry",  # legacy alias
+    # Typed payload machinery
+    "PayloadKind", "PayloadState", "Payload",
+    "advance_state", "assert_parseable",
+    # Recursion guard + stability gate
     "RecursionGuard",
     "StabilityVerdict", "stability_gate",
+    # Diagnostic scrubber
     "contains_diagnostic_markers", "scrub_diagnostics",
+    # Central Output Gate
+    "OutputGate",
+    # Legacy string-based helpers
+    "tag_rendered", "is_rendered", "assert_terminal",
 ]

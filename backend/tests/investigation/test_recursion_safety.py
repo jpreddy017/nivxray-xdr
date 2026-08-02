@@ -9,10 +9,13 @@ from __future__ import annotations
 import pytest
 
 from nivxforge.investigation.pipeline.recursion_safety import (
-    DIAGNOSTIC_MARKERS, NoFurtherProgress, RENDERED_MARKER,
-    RecursionGuard, RenderedPayloadReentry,
-    assert_terminal, contains_diagnostic_markers, is_rendered,
-    scrub_diagnostics, stability_gate, tag_rendered,
+    DIAGNOSTIC_MARKERS, InvalidStateTransition, NoFurtherProgress,
+    NonExecutablePayloadRejected, OutputGate, Payload, PayloadKind,
+    PayloadState, PipelineInvariantViolation, RENDERED_MARKER,
+    RecursionGuard, RenderedPayloadReentry, TerminalPayloadReentry,
+    advance_state, assert_parseable, assert_terminal,
+    contains_diagnostic_markers, is_rendered, scrub_diagnostics,
+    stability_gate, tag_rendered,
 )
 
 
@@ -181,3 +184,134 @@ def test_rendered_marker_is_a_non_empty_ascii_string():
     assert isinstance(RENDERED_MARKER, str)
     assert RENDERED_MARKER
     assert RENDERED_MARKER.isascii()
+
+
+# ── Typed payload state machine (owner directive) ────────────────────
+
+def test_payload_defaults_to_raw_input_state():
+    p = Payload(content="cmd /c whoami", kind=PayloadKind.COMMAND)
+    assert p.state == PayloadState.RAW_INPUT
+
+
+def test_state_advances_monotonically():
+    p = Payload(content="x", kind=PayloadKind.COMMAND)
+    p2 = advance_state(p, PayloadState.NORMALIZED)
+    p3 = advance_state(p2, PayloadState.DECODED)
+    p4 = advance_state(p3, PayloadState.FINAL_RENDERED)
+    assert p4.state == PayloadState.FINAL_RENDERED
+
+
+def test_backward_state_transition_rejected():
+    p = Payload(content="x", kind=PayloadKind.COMMAND,
+                 state=PayloadState.DECODED)
+    with pytest.raises(InvalidStateTransition):
+        advance_state(p, PayloadState.NORMALIZED)
+
+
+def test_same_state_transition_rejected():
+    p = Payload(content="x", kind=PayloadKind.COMMAND,
+                 state=PayloadState.NORMALIZED)
+    with pytest.raises(InvalidStateTransition):
+        advance_state(p, PayloadState.NORMALIZED)
+
+
+def test_assert_parseable_accepts_executable_kinds_in_raw_state():
+    for kind in (PayloadKind.COMMAND, PayloadKind.SCRIPT,
+                  PayloadKind.PIPELINE, PayloadKind.TELEMETRY):
+        assert_parseable(
+            Payload(content="x", kind=kind), stage="parser")
+
+
+def test_assert_parseable_rejects_non_executable_kinds():
+    for kind in (PayloadKind.REPORT, PayloadKind.NARRATIVE,
+                  PayloadKind.DIAGNOSTIC, PayloadKind.ERROR):
+        with pytest.raises(NonExecutablePayloadRejected):
+            assert_parseable(
+                Payload(content="x", kind=kind), stage="parser")
+
+
+def test_assert_parseable_rejects_final_rendered_state():
+    p = Payload(content="x", kind=PayloadKind.COMMAND,
+                 state=PayloadState.FINAL_RENDERED)
+    with pytest.raises(TerminalPayloadReentry):
+        assert_parseable(p, stage="decoder")
+
+
+def test_assert_parseable_accepts_raw_strings():
+    """Raw strings not carrying the marker must pass — this is the
+    happy path for legacy pre-Payload code."""
+    assert_parseable("cmd.exe /c whoami", stage="parser")
+    assert_parseable("", stage="parser")
+
+
+def test_assert_parseable_rejects_string_carrying_rendered_marker():
+    payload = tag_rendered("previously rendered")
+    with pytest.raises(TerminalPayloadReentry):
+        assert_parseable(payload, stage="parser")
+
+
+# ── Exception hierarchy ─────────────────────────────────────────────
+
+def test_all_violations_share_base_class():
+    for cls in (TerminalPayloadReentry, NonExecutablePayloadRejected,
+                 NoFurtherProgress, InvalidStateTransition):
+        assert issubclass(cls, PipelineInvariantViolation)
+
+
+def test_legacy_alias_matches_new_exception():
+    """RenderedPayloadReentry must remain equal to
+    TerminalPayloadReentry so pre-existing catch clauses keep working."""
+    assert RenderedPayloadReentry is TerminalPayloadReentry
+
+
+# ── Central Output Gate ─────────────────────────────────────────────
+
+def test_output_gate_scrubs_and_seals_payload():
+    dirty = ("Investigation summary. [ps-backtick-normalize] "
+             "process spawned.")
+    gate = OutputGate()
+    out = gate.emit(dirty, kind=PayloadKind.NARRATIVE,
+                    source="unit-test")
+    assert out.state == PayloadState.FINAL_RENDERED
+    assert out.kind == PayloadKind.NARRATIVE
+    assert not contains_diagnostic_markers(out.content)
+    assert out.provenance["sealed_by"] == "output_gate"
+    assert out.provenance["diagnostics_scrubbed"] is True
+
+
+def test_output_gate_leaves_clean_content_unchanged():
+    clean = "process cmd.exe executed COMMAND cmd /c whoami"
+    gate = OutputGate()
+    out = gate.emit(clean, kind=PayloadKind.REPORT, source="unit")
+    assert out.content == clean
+    assert out.provenance["diagnostics_scrubbed"] is False
+
+
+def test_output_gate_refuses_executable_kinds():
+    """The gate seals TERMINAL output only. Passing an executable
+    kind would incorrectly mark a command as un-parseable — must
+    raise instead of silently succeeding."""
+    gate = OutputGate()
+    for kind in (PayloadKind.COMMAND, PayloadKind.SCRIPT,
+                  PayloadKind.PIPELINE, PayloadKind.TELEMETRY):
+        with pytest.raises(PipelineInvariantViolation):
+            gate.emit("cmd /c a", kind=kind, source="unit")
+
+
+def test_output_gate_output_refused_by_parser_end_to_end():
+    """Round-trip: gate seals a narrative → parser guard refuses it.
+    This is the concrete manifestation of Invariant #3."""
+    gate = OutputGate()
+    sealed = gate.emit("engine narrative body",
+                        kind=PayloadKind.NARRATIVE, source="unit")
+    with pytest.raises(TerminalPayloadReentry):
+        assert_parseable(sealed, stage="parser")
+
+
+def test_output_gate_provenance_records_source():
+    gate = OutputGate()
+    out = gate.emit("narrative", kind=PayloadKind.NARRATIVE,
+                    source="analyst_narrative_v2",
+                    extra_provenance={"case_id": "cio-123"})
+    assert out.provenance["source"] == "analyst_narrative_v2"
+    assert out.provenance["case_id"] == "cio-123"

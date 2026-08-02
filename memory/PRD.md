@@ -1,7 +1,41 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
 
-## 2026-02-XX · ✅ **INVESTIGATION ENGINE CONTRACT v1.0 CODIFIED**
+## 2026-02-XX · ✅ **PAYLOAD STATE MACHINE + OUTPUT GATE**
+
+Owner directive: replace the boolean `tag_rendered()` approach with an
+explicit `PayloadKind` classification, a `PayloadState` state machine,
+and a single central **Output Gate** that every renderer passes
+through — not a per-renderer wiring. Extended `recursion_safety.py`:
+
+### New machinery
+* `PayloadKind` enum — 8 members. Executable set:
+  `{COMMAND, SCRIPT, PIPELINE, TELEMETRY}`. Non-executable set
+  (parser refuses): `{REPORT, NARRATIVE, DIAGNOSTIC, ERROR}`.
+* `PayloadState` enum — monotonic 7-step lifecycle:
+  `RAW_INPUT → NORMALIZED → DECODED → AGGREGATED → CORRELATED
+  → NARRATIVE → FINAL_RENDERED`. `advance_state()` rejects any
+  backward or same-state transition.
+* `Payload` dataclass — immutable `content + kind + state + provenance`.
+* `assert_parseable(payload, stage)` — refuses non-executable kinds
+  and terminal state at the entry of every parser / decoder /
+  normalizer / interpreter classifier.
+* `OutputGate.emit(content, kind, source)` — single chokepoint.
+  Scrubs diagnostics, stamps `state=FINAL_RENDERED`, records
+  provenance. Workspace, Reports, REST APIs, JSON export, and PDF
+  all inherit the guarantee automatically.
+* Exception hierarchy under `PipelineInvariantViolation`:
+  `TerminalPayloadReentry`, `NonExecutablePayloadRejected`,
+  `NoFurtherProgress`, `InvalidStateTransition`.
+  `RenderedPayloadReentry` retained as legacy alias.
+
+### Test count
+- Investigation suite: **491 passing** (was 395 → +96 total).
+  `test_recursion_safety.py`: 35 tests (was 19 → +16 for the new
+  machinery). No upstream regressions. Workspace still untouched.
+
+---
+
 
 Formal architectural contract landed with executable enforcement.
 Owner-authored, 8 invariants, source-of-truth for the entire pipeline
