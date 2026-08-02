@@ -284,8 +284,45 @@ sequence for the implementing session:
   with per-sample Canonical Hash expectations)
 
 Nothing in `nivxforge/`, `engine/`, `v2/`, `timeline/`, or Intelligence
-Layer paths is touched. The convergence engine is Workspace-owned by
-construction.
+Layer paths is touched by the initial implementation. The convergence
+engine is placed inside Workspace **by the current design**.
+
+## Architectural principles (location-independent)
+
+The following contracts govern the convergence architecture. They are
+**principles, not placement decisions**. The initial implementation
+places the engine under `backend/workspace/convergence/` because that
+aligns with the current Workspace isolation objective (Phase 6). If a
+future iteration generalizes the same deterministic convergence
+architecture into Shared, the following contracts remain unchanged:
+
+- **Determinism** — every pass is a pure function of the current
+  artifact state; identical inputs produce identical Convergence
+  Certificates (hash-verifiable).
+- **Certification** — every convergence run emits a machine-readable
+  Convergence Certificate suitable for CI verification.
+- **Convergence Model** — Structural → Content → Decoder → Semantic
+  passes iterated until the 6-condition Canonical State Contract holds.
+- **Behavioral Consistency** — Canonical Candidate Selection happens
+  only after every candidate has independently converged; no
+  intermediate-state selection is allowed.
+- **Pass Independence** — no hidden mutable state, no decoder-specific
+  side effects, independent replayability from any intermediate
+  artifact.
+
+Rephrased for the record:
+
+> The current design places the convergence engine in the Workspace,
+> which aligns with the current Workspace isolation objective. If the
+> same deterministic convergence architecture is later generalized for
+> Shared, it should preserve the same behavioral contracts and
+> certification standards.
+
+> The current proposal keeps decode orchestration within the Workspace
+> while treating Shared as a provider of reusable deterministic
+> transformation capabilities. If this architecture is later
+> generalized into Shared, the same deterministic contracts,
+> convergence model, and certification process should remain unchanged.
 
 ## Engineering Assessment (owner-provided)
 

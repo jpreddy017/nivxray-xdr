@@ -39,8 +39,18 @@ New files to create under `backend/workspace/convergence/`:
 `certificate.py`. Plus `backend/tests/test_convergence_engine.py`.
 
 **Zero files touched under `nivxforge/`, `engine/`, `v2/`, `timeline/`,
-or the Intelligence Layer.** The convergence engine is Workspace-owned
-by construction, which directly satisfies the Phase 6 isolation goal.
+or the Intelligence Layer.** The convergence engine is placed inside
+Workspace **by the current design** to align with the Phase 6
+isolation objective. **Location is a design choice; the contracts
+(Determinism, Certification, Convergence Model, Behavioral Consistency,
+Pass Independence) are the invariants.** If a future iteration
+generalizes the same architecture into Shared, all five contracts must
+remain unchanged.
+
+The Phase-5 five-hunk restore is a **stabilization layer**, not final
+architecture — once the Convergence Engine is in place, any hunk that
+the engine makes redundant should be retired from the stabilization
+layer during Phase 6 isolation review.
 
 Owner engineering assessment: Path A = 7.0/10 · Path B = 8.8/10 ·
 **Path C = 9.9/10 (APPROVED)**.
