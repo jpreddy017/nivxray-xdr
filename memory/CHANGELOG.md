@@ -2,6 +2,14 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-08-02 · Owner sign-off · Interpreter Gate hotfix merged (9.5/10)
+
+- Interpreter Gate approved as shipped. **No further changes** to `_looks_like_non_powershell`.
+- Owner **rejected** the proposed two-line special case for `cmd /c powershell …` / `bash -c 'powershell …'` — expanding the blocklist would chase launcher patterns indefinitely.
+- Filed under `/app/memory/ROADMAP.md` as **P2 · Nested Interpreter Detection** — a generic Launcher Detector architecture is the correct solution, treated as a new capability rather than a bug. Deferred behind current P0 + P1 hero-build work.
+- Trade-off explicitly accepted: nested-launcher inputs may currently reach analysts un-decoded (analyst can still see and investigate the raw `cmd /c powershell …` string). This is the safer failure mode than false positives that rewrite Bash text as PowerShell.
+
+
 ## 2026-02-XX · Parity Dashboard + Trend Sparkline
 
 **Ships:**

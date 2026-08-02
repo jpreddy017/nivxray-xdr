@@ -37,6 +37,61 @@ value the moment P0 + P1 ship.
 - Analyst Playback
 - Case Comparison
 
+
+## P2 — Nested Interpreter Detection (Workspace decoder, future capability)
+_Filed 2026-08-02 by owner as follow-up to the PowerShell Interpreter Gate hotfix._
+
+Treat this as a **new feature**, not a bug. The Interpreter Gate that shipped in
+`routers/ops.py` is a subtractive heuristic: any leading token in
+`{eval, sh, bash, dash, zsh, ksh, openssl, tr, sed, awk, xxd, rev, curl, wget,
+python, python3, perl, ruby, node, cmd, cmd.exe}` (plus shebangs, `$(...)`,
+leading backtick substitution) skips all PowerShell-specific normalization
+stages. This is deliberately conservative — the worst case is that a *nested*
+PowerShell invocation such as `cmd /c powershell -enc …` or
+`bash -c 'powershell …'` reaches the analyst un-decoded, which is far safer
+than the alternative of rewriting Bash text as PowerShell.
+
+**Do not close this backlog item by expanding the blocklist / allowlist.**
+Owner directive: chasing launcher patterns (sh -c powershell, dash -c pwsh,
+env bash -c powershell, sudo powershell, python subprocess.run([...powershell]),
+Start-Process powershell, CreateProcess → powershell, …) is a losing game.
+
+**Correct architectural solution** — a generic **Launcher Detector**:
+
+```
+Raw input
+    │
+    ▼
+Interpreter classification (CMD / Bash / Python / …)
+    │
+    ▼
+Launcher analysis  ← NEW
+    │
+    ▼
+Effective interpreter (may differ from launcher)
+    │
+    ▼
+Interpreter-specific decoder
+```
+
+Examples the Launcher Detector must handle correctly:
+
+- `cmd /c powershell -enc …`  → launcher=CMD, payload=PowerShell
+- `bash -c 'powershell Get-Process'` → launcher=Bash, payload=PowerShell
+- `sh -c pwsh …` → launcher=sh, payload=PowerShell
+- `python -c "subprocess.run(['powershell', ...])"` → launcher=Python, payload=PowerShell
+- `sudo powershell` → launcher=sudo, payload=PowerShell
+- `Start-Process powershell -ArgumentList …` → launcher=PowerShell, payload=PowerShell (nested)
+
+Acceptance: the decoder correctly routes a **nested PowerShell payload**
+through PowerShell normalization even when the outermost interpreter is
+non-PowerShell. Regression tests cover every launcher shape above plus at
+least one adversarial case where the payload only *mentions* PowerShell in a
+string literal (must NOT be treated as a nested PS invocation).
+
+**Priority**: P2. Not a hotfix. Waits until the current P0 + P1 hero-build
+work is complete.
+
 Not blockers. Do not start until P0 + P1 + P2 are complete.
 
 ---
