@@ -13,6 +13,55 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## ⭐ NORTH STAR METRIC · Decoder Capability Score (DCS)
+
+The Decoder Capability Score is the project's release KPI. Every
+milestone MUST publish a DCS delta. Six months from now the record of
+progress is `DCS 83% → 91%`, not `Milestone 4 added X`.
+
+```
+Decoder Capability Score (DCS)
+
+Certified Corpus         : NN / 11
+Real-world Samples       : NN / 100    (grows to 500 during M9)
+Transformation Coverage  : NN / <total in TRANSFORMATION_COVERAGE.md>
+Canonical Stability      : XX.X%       (byte-identical output on repeat runs)
+Deterministic Repeatability: XX.X%
+Average Convergence Depth: X.X iterations
+Average Latency          : XXX ms
+
+Overall DCS              : XX.X%
+```
+
+Every milestone report ends with:
+
+```
+Milestone X · DCS delta
+    Real-world samples improved : 74 → 81
+    Transformation coverage      : 61 → 68
+    DCS                          : 79.3% → 83.6%
+    Regressions                  : 0
+```
+
+**PRs whose only claim is "architecture updated / specification refined
+/ framework improved" are rejected.** Every PR must prove a DCS delta
+with attached evidence.
+
+## Future Workstream (post M6-M8 · not for the initial implementation)
+
+Once the Convergence Engine is stable, the plugin-surface exposed in
+M1 becomes a full **Transformation Registry**. The engine loop does
+not change — only the registry grows. This is how CyberChef evolved,
+and it is the intended long-term extensibility model for NivXRay's
+Workspace decoder.
+
+The Transformation Registry is **not** to be built during M1-M10. It is
+recorded here so it is not proposed as a "new architecture idea" in
+some future session — it is a known future workstream, gated on
+Convergence Engine stability.
+
+---
+
 ## 🎯 DECODE ACCURACY CONTRACT (owner-locked · highest priority)
 
 **"I don't care how beautiful the architecture is. I want the correct
