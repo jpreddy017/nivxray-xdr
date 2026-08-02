@@ -51,14 +51,20 @@ _JSON_SIGNATURES: List[Dict[str, Any]] = [
         # Cisco Secure Endpoint via the CMS MDR / z_product feed — flat
         # JSON with `conn_guid` / `src_host` / `console.amp.cisco.com` /
         # `z_product: "Secure Endpoint"`.
+        # Cisco Secure Endpoint via the CMS MDR / z_product feed —
+        # STRONG markers only: `conn_guid`, `z_product`, or
+        # `console_link` (all three are unique to Cisco Secure Endpoint
+        # deployments and never appear in Suricata / Zeek / generic
+        # payloads). `src_host` / `src_ip` were previously in this list
+        # but collided with Suricata's `src_ip` — see
+        # test_suricata_not_misclassified_as_cisco_secure_endpoint.
         "vendor": Vendor.CISCO_SECURE_ENDPOINT,
-        "must_any": ["conn_guid", "z_product", "console_link",
-                      "src_host", "src_ip", "detection"],
+        "must_any": ["conn_guid", "z_product", "console_link"],
         "must_all": [],
         "value_hints": ["console.amp.cisco.com", "cisco:amp:event",
                          "Secure Endpoint", "cisco secure endpoint",
                          "amp for endpoints", "cisco amp",
-                         "mdr_fileless", "z_product"],
+                         "mdr_fileless"],
         "confidence": 0.95,
     },
     {
