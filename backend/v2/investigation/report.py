@@ -1179,14 +1179,38 @@ def compose_report(im: dict) -> dict:
     supporting_cards = _supporting_evidence(im, tl, entcls, files, processes)
     citations = _citations_for_summary(supporting_cards)
 
+    # 2026-08-01 operator directive · graph-only Incident Narrative
+    # override. When the caller stashed the ORIGINAL raw input in
+    # `im["_raw_input"]` we run the Phase 1 pipeline over it and
+    # replace `executive_summary` + `investigation_summary` with the
+    # analyst-style narrative so this report surface reads like an
+    # incident investigation, not a canonical event dump.
+    _exec = _executive_summary(im, tl, entcls, files)
+    _inv = _investigation_summary(im, tl, entcls, files)
+    try:
+        raw_in = im.get("_raw_input")
+        if raw_in:
+            from nivxforge.investigation.pipeline.orchestrator import run_phase1
+            from nivxforge.investigation.pipeline.narrative_engine import (
+                compose_incident_narrative,
+            )
+            _state = run_phase1(raw_in)
+            _narr = compose_incident_narrative(_state)
+            if _narr and _narr.paragraphs:
+                _exec = [_narr.executive_summary or _narr.paragraphs[0]]
+                _inv = list(_narr.paragraphs)
+    except Exception:  # noqa: BLE001
+        # Fall through to legacy composition on any failure.
+        pass
+
     return {
         "verdict":              verdict,
         "confidence":           conf,
-        "executive_summary":    _executive_summary(im, tl, entcls, files),
+        "executive_summary":    _exec,
         "citations":            citations,
         "known_vs_unknown":     kvu,
         "probable_initial_access": ia,
-        "investigation_summary":_investigation_summary(im, tl, entcls, files),
+        "investigation_summary": _inv,
         "timeline":             tl,
         "attack_story":         _attack_story(im, tl),
         "technical_summary":    _technical_summary(im, entcls, files, processes),

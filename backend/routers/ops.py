@@ -2088,6 +2088,19 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             _cio.metadata["raw_input"] = _original_raw_input
         except Exception:  # noqa: BLE001
             pass
+        # 2026-08-01 operator directive: `_build_cio` composed the
+        # summary WITHOUT `metadata.raw_input`, so the graph-only
+        # Incident Narrative Engine could not run. Now that raw_input
+        # is available, invalidate the stale phase1 caches and
+        # RE-COMPOSE the summary so every prose surface reads from the
+        # Investigation Graph.
+        try:
+            _cio.metadata.pop("phase1_state", None)
+            _cio.metadata.pop("phase1_narrative", None)
+            from nivxforge.investigation.summary_composer import compose_summary as _recompose
+            _cio.summary = _recompose(_cio)
+        except Exception:  # noqa: BLE001
+            log.exception("phase1 summary re-composition failed (safe — first-pass summary kept)")
         # ADR-0014 §1.1.14 Layer 2 · attach ingress-gate provenance so
         # G4 (`G4_NORMALISATION_REQUIRED`) accepts the CIO.
         if _ingress_provenance:

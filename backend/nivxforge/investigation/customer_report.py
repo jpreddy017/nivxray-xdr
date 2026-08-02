@@ -378,12 +378,23 @@ def _section_recovered_command(cio: Dict[str, Any]) -> Optional[ReportSection]:
     lines: List[str] = []
     dc = cio.get("decode_chain") or []
     # Prefer the LAST layer's preview as the customer-facing "final" form.
+    # Skip vendor-canonical text bleed (`# vendor=... event[0] ts=...`) —
+    # that's an internal representation, never the recovered command.
+    def _is_canonical_bleed(p: str) -> bool:
+        pl = p.lstrip()
+        return (
+            pl.startswith("# vendor=")
+            or pl.startswith("event[")
+            or "vendor=Generic" in pl
+            or "cisco:amp:event" in pl
+        )
     last_preview = ""
     for layer in reversed(dc):
         prev = str(layer.get("preview") or "").strip()
-        if prev:
-            last_preview = prev
-            break
+        if not prev or _is_canonical_bleed(prev):
+            continue
+        last_preview = prev
+        break
     if not last_preview:
         return None
 
@@ -392,7 +403,8 @@ def _section_recovered_command(cio: Dict[str, Any]) -> Optional[ReportSection]:
     # Also enumerate intermediate recovered forms in a tight bullet list
     # so the analyst can see the *shape* of the evasion (multi-stage vs
     # single-stage) without ever seeing decoder-op names.
-    stages = [str(l.get("preview") or "").strip() for l in dc if l.get("preview")]
+    stages = [str(l.get("preview") or "").strip() for l in dc
+              if l.get("preview") and not _is_canonical_bleed(str(l.get("preview") or ""))]
     stages = list(dict.fromkeys(stages))  # de-dup preserving order
     if len(stages) > 1:
         lines.append("\nRecovered stages, in order:")
@@ -636,7 +648,27 @@ def compose_customer_report(cio: Any, persona: str = "customer") -> CustomerRepo
 
     Never mentions the decoder pipeline. Every section reads only from
     canonical CIO fields. See module docstring for the section order.
+
+    2026-08-01 operator directive: when the Phase 1 Investigation
+    Graph is available on the CIO, use the graph-only Incident
+    Narrative Engine to replace the Executive Summary and Incident
+    Overview sections so the whole report reads like an analyst
+    investigation rather than a canonicalised event dump.
     """
+    # Compute the graph-only Incident Narrative BEFORE dumping, so we
+    # can pull it from the original CIO object (which still carries
+    # `metadata.raw_input` set by the /decode/smart router).
+    _incident_paragraphs: List[str] = []
+    _incident_executive: str = ""
+    try:
+        from .incident_narrative_override import get_incident_narrative
+        _narr = get_incident_narrative(cio)
+        if _narr is not None:
+            _incident_paragraphs = list(_narr.paragraphs)
+            _incident_executive = _narr.executive_summary or ""
+    except Exception:  # noqa: BLE001
+        pass
+
     if hasattr(cio, "model_dump"):
         cio = cio.model_dump()
     if persona not in {"customer", "threat_hunt", "forensic", "decoder"}:
@@ -666,6 +698,25 @@ def compose_customer_report(cio: Any, persona: str = "customer") -> CustomerRepo
         _section_recommendations(cio),
     ]
     sections = [s for s in sections_raw if s is not None]
+
+    # Graph-only narrative override: replace the Executive Summary
+    # opener + Incident Overview body with the Incident Narrative
+    # Engine's output so the report opens with the incident itself
+    # (endpoint, detection, threat family), never with a verdict line
+    # or a canonical event dump.
+    if _incident_executive or _incident_paragraphs:
+        for s in sections:
+            if s.title == "Executive Summary" and _incident_executive:
+                verdict_tail = f"\n\nVerdict: **{v_label}** ({v_pct}%)."
+                s.body = _incident_executive + verdict_tail
+            elif s.title == "Incident Overview" and _incident_paragraphs:
+                # Everything after the opener paragraph is the deeper
+                # incident story (process chain, external infra,
+                # threat family alignment, containment, recommendations).
+                body_paragraphs = _incident_paragraphs[1:] \
+                    if len(_incident_paragraphs) > 1 \
+                    else _incident_paragraphs
+                s.body = "\n\n".join(body_paragraphs)
 
     report = CustomerReport(persona=persona, verdict=v_label, verdict_confidence_pct=v_pct, sections=sections)
 

@@ -719,24 +719,24 @@ def compose_analyst_narrative(cio) -> str:
     delegate to the graph-only Incident Narrative Engine which is
     prohibited by contract from describing any X-Lab internals.
     """
+    # ── Preferred path · graph-only Incident Narrative ────────────
+    # Read phase1_state from the LIVE CIO object BEFORE dumping to
+    # JSON — otherwise model_dump() serialises the dataclass state
+    # to primitives and we lose the object reference.
+    try:
+        from nivxforge.investigation.incident_narrative_override import (
+            full_incident_markdown,
+        )
+        override = full_incident_markdown(cio)
+        if override:
+            return override
+    except Exception:  # noqa: BLE001
+        pass
+
     try:
         cio_d = cio.model_dump(mode="json") if hasattr(cio, "model_dump") else dict(cio)
     except Exception:  # noqa: BLE001
         cio_d = cio if isinstance(cio, dict) else {}
-
-    # ── Preferred path · graph-only Incident Narrative ────────────
-    md = cio_d.get("metadata") or {}
-    phase1_state = md.get("phase1_state")
-    if phase1_state is not None:
-        try:
-            from nivxforge.investigation.pipeline.narrative_engine import (
-                compose_incident_narrative,
-            )
-            narr = compose_incident_narrative(phase1_state)
-            if narr and narr.paragraphs:
-                return narr.to_markdown()
-        except Exception:  # noqa: BLE001
-            pass  # fall through to legacy composer
 
     def _safe(fn) -> str:
         try:

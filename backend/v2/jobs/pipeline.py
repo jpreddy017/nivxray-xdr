@@ -648,9 +648,21 @@ async def run_investigation_with_progress(
     # Summary, Timeline, Attack Story, Technical Summary, Recommendations,
     # Observed Evidence, Observed IOCs, TI, Limitations). Consumes ONLY the
     # Investigation Model + deterministic classifiers. Zero raw-JSON reads.
+    #
+    # 2026-08-01 operator directive: stash the ORIGINAL raw input on
+    # the model so the report composer can run the Phase 1 pipeline
+    # and produce the graph-only Incident Narrative for the Exec
+    # Summary + Investigation Summary sections.
     try:
-        result["investigation_report"] = _compose_investigation_report(
-            result.get("investigation_model") or {})
+        _im = result.get("investigation_model") or {}
+        _raw_in = (result.get("raw_text")
+                   or result.get("raw_input")
+                   or result.get("raw_incident")
+                   or "")
+        if _raw_in and isinstance(_im, dict):
+            _im = dict(_im)
+            _im["_raw_input"] = _raw_in
+        result["investigation_report"] = _compose_investigation_report(_im)
     except Exception as e:  # noqa: BLE001
         log.warning("investigation_report compose failed: %s", e)
         result["investigation_report"] = None

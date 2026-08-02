@@ -487,7 +487,22 @@ def _prose_executive(cio: CIO, findings: List[KeyFinding],
     """One tight paragraph in analyst voice. Answers what happened +
     why it matters + the top driver + tactic coverage. Opens with
     'Event:' per §1.1.18 and keeps the first sentence free of URLs
-    and hashes."""
+    and hashes.
+
+    2026-08-01 operator directive: when the Phase 1 Investigation
+    Graph is available, delegate to the graph-only Incident Narrative
+    Engine so this surface reads like an analyst report instead of a
+    tool-internal summary."""
+    from .incident_narrative_override import executive_summary_paragraph
+    override = executive_summary_paragraph(cio)
+    if override:
+        # Append the verdict tail so the executive card still surfaces
+        # the aggregate confidence outcome.
+        verdict = cio.verdict or {}
+        label = verdict.get("label", "Undetermined")
+        conf_pct = verdict.get("confidence_pct", 0)
+        return f"{override}\n\nVerdict: {label} at {conf_pct}% confidence."
+
     verdict = cio.verdict or {}
     label = verdict.get("label", "Undetermined")
     conf_pct = verdict.get("confidence_pct", 0)
@@ -725,7 +740,17 @@ def _prose_analyst(cio: CIO, findings: List[KeyFinding],
                     mitre: MitreDigest, recs: List[Recommendation]) -> str:
     """The six-question MDR-analyst narrative. Reads like an SOC
     investigation report, never like a log summary. Every sentence
-    is derived from the evidence graph — never from raw input_text."""
+    is derived from the evidence graph — never from raw input_text.
+
+    2026-08-01 operator directive: when the Phase 1 Investigation
+    Graph is available, delegate to the graph-only Incident Narrative
+    Engine. The subject of every paragraph is the incident / endpoint
+    / user / malware / attacker — never the tool."""
+    from .incident_narrative_override import full_incident_markdown
+    override = full_incident_markdown(cio)
+    if override:
+        return override
+
     urls = _decoded_urls(cio)
     lolbin = _find_lolbin(cio)
     snippet = _final_decoded_snippet(cio)
