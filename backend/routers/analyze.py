@@ -321,7 +321,41 @@ async def _job_push_error(job_id: str, phase: str, err: str) -> None:
 
 async def _run_analysis_job(job_id: str, body: AnalyzeIn, user: Optional[Dict[str, Any]] = None):
     try:
-        text = (body.output or "") + "\n" + body.input
+        # ═══════════════════════════════════════════════════════════════
+        # ARB PR-2.1.2 · Phase B · Canonical Evidence Recovery FIRST.
+        # Auto Investigate MUST NOT start from raw input — it consumes
+        # the same canonical decoded artifact that /api/decode/smart
+        # produces via services.canonical_evidence_recovery.
+        # Downstream IOC / MITRE / YARA / LOLBAS extraction now runs
+        # against `canonical_text` (raw + canonical decoded output),
+        # never against `body.input` alone. This eliminates the
+        # divergent-pipelines architecture the ARB flagged in
+        # /app/memory/PR_2_1_2_DIRECTIVE.md.
+        # ═══════════════════════════════════════════════════════════════
+        from services.canonical_evidence_recovery import (
+            recover_canonical_evidence_async,
+        )
+        artifact = await recover_canonical_evidence_async(
+            body.input or "",
+            analysis_mode=(getattr(body, "analysis_mode", None) or "balanced"),
+        )
+        # Recursive safety — never re-process the canonical output.
+        try:
+            artifact.assert_no_recursion()
+        except RuntimeError as _rs:
+            log.warning("PR-2.1.2 · Auto Investigate recursive-safety: %s", _rs)
+
+        canonical_output = artifact.decoded_output or ""
+        # Downstream signal extraction operates on RAW ⊕ CANONICAL
+        # DECODED so wrappers, reversed IOCs, and shellcode strings all
+        # surface — mirrors /decode/smart's `_scan_text` construction.
+        text = (body.output or "") + "\n" + (body.input or "") + "\n" + canonical_output
+
+        await _job_set(job_id, {
+            "canonical_artifact": artifact.to_dict(),
+            "phase": "extract", "progress": 10,
+        })
+
         iocs = extract_iocs(text)
         mitre = mitre_map(text)
         yara = yara_lite_scan(text)
@@ -428,35 +462,40 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn, user: Optional[Dict[st
             "status": "done", "progress": 100, "phase": "complete",
         })
 
-        # ── ARB Governance Rules 12, 14, 15 · PR-2.1.2 ─────────────────
-        # Route the finalised async job through the same code path as
-        # /decode/smart so both surfaces produce an identical
-        # ``verdict_card``. This eliminates the previous independent
-        # ``risk_score()`` computation as a decision source (Rule 12)
-        # and guarantees Decode / Auto Investigate equivalence
-        # (Rule 14).
+        # ── ARB PR-2.1.2 · Phase B · Verdict from Canonical Artifact ──
+        # Previously the async job re-invoked /decode/smart at the end
+        # solely to obtain `verdict_card`. That was the cross-endpoint
+        # shim the ARB explicitly rejected in favour of a shared
+        # service. Now we build the verdict card DIRECTLY from the
+        # canonical artifact produced by
+        # services.canonical_evidence_recovery.
+        # Rules 12, 14, 15: verdict_card is the single source of truth
+        # and `risk` is a projection of it, never independent.
         try:
-            from routers.ops import decode_smart as _decode_smart
-            from schemas import AutoIn as _DecodeIn
-        except Exception:
-            _decode_smart = None
-        if _decode_smart is not None:
-            try:
-                _sync = await _decode_smart(_DecodeIn(input=body.input), user=user)
-                _vc = (_sync or {}).get("verdict_card")
-                if _vc:
-                    # Overwrite the async job's independent risk with a
-                    # canonical projection of the Verdict Engine's card.
-                    from verdict_projection import derive_risk_projection
-                    _proj = derive_risk_projection(_vc) or {}
-                    await _job_set(job_id, {
-                        "verdict_card": _vc,
-                        "risk":         _proj or {"verdict": "Unknown", "level": "unknown", "score": 0},
-                    })
-            except Exception as _e:
-                # Best-effort — never fail the job because verdict
-                # unification hit an unexpected shape. Log for audit.
-                log.warning("PR-2.1.2 verdict unification skipped for %s: %s", job_id, _e)
+            from evidence_extractor import build_verdict_card
+            from verdict_projection import derive_risk_projection
+            findings = {
+                "mitre_techniques": merged_mitre,
+                "lolbas":           lolbas,
+                "iocs":             iocs,
+            }
+            _vc = build_verdict_card(
+                input_text=body.input or "",
+                output_text=artifact.decoded_output or "",
+                chain=list(artifact.chain_steps or []),
+                corrupted_container=(artifact.det_result or {}).get("corrupted_container")
+                    if artifact.det_result else None,
+                findings=findings,
+            )
+            _proj = derive_risk_projection(_vc) or {"verdict": "Unknown",
+                                                      "level":   "unknown",
+                                                      "score":   0}
+            await _job_set(job_id, {
+                "verdict_card": _vc,
+                "risk":         _proj,
+            })
+        except Exception as _e:
+            log.warning("PR-2.1.2 Phase B · verdict card build failed for %s: %s", job_id, _e)
     except Exception as e:
         log.exception("analysis job %s failed", job_id)
         await _job_set(job_id, {"status": "error", "error": str(e), "phase": "error"})

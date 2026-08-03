@@ -920,16 +920,38 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         except Exception:
             pass
 
-    # Deterministic best-of race (smart vs magic) — this is the key upgrade
-    # v1.5.6 · offloaded to thread executor so the asyncio event loop stays
-    # free to service `/api/health` while heavy decoders (xor-brute, L3
-    # dispatch) run — prevents tier_0 CPU-starvation → nginx 503 →
-    # k8s liveness kill → Cloudflare 520 loop.
-    det = await run_offloaded(
-        deterministic_best_decode,
+    # ═══════════════════════════════════════════════════════════════════
+    # ARB PR-2.1.2 · Canonical Evidence Recovery Service (Phase A).
+    # `/decode/smart` and `/analyze/async` now share a single recovery
+    # function so identical inputs produce byte-identical canonical
+    # artifacts regardless of entry point. Preserves the v1.5.6 event-loop
+    # offloading — the service internally uses `run_offloaded`. Pre-gate
+    # checks above (ingress / atomic-IOC / PS-encoded / multi-fragment)
+    # remain in the router because they early-return fully-shaped
+    # responses; the service's own pre-gates are idempotent so calling
+    # the service after those checks is safe. See
+    # `services/canonical_evidence_recovery.py`.
+    # ═══════════════════════════════════════════════════════════════════
+    from services.canonical_evidence_recovery import (
+        recover_canonical_evidence_async,
+    )
+    _canonical_artifact = await recover_canonical_evidence_async(
         body.input,
         analysis_mode=body.analysis_mode or "balanced",
     )
+    # Safety: `_canonical_artifact.det_result` is guaranteed populated
+    # for terminal_state ∈ {recovered, stability_gate, passthrough}.
+    # The other terminal states (atomic_ioc / decode_error /
+    # multi_fragment) were already handled by the router-level
+    # short-circuits above, so we never reach here in those cases.
+    det = _canonical_artifact.det_result or {
+        "output": _canonical_artifact.decoded_output,
+        "steps":  _canonical_artifact.chain_steps,
+        "engine": _canonical_artifact.engine,
+        "score":  ((_canonical_artifact.confidence or 0) / 100.0),
+        "reached_shellcode": _canonical_artifact.reached_shellcode,
+        "notes": list(_canonical_artifact.notes),
+    }
 
     # ── RC4.1 · Crypto-API honest-verdict annotation ─────────────────────
     # Runs unconditionally on the raw input so the annotator fires even when
@@ -1080,6 +1102,12 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # each hit with the layer that revealed it.
         "layer_iocs": [],
         "analysis_mode": body.analysis_mode or "balanced",
+        # ▲ ARB PR-2.1.2 · Canonical Evidence Recovery Service artifact.
+        # Same shape produced by `services.canonical_evidence_recovery`,
+        # so `/analyze/async` (Phase B) can attach the identical field.
+        # Enables byte-for-byte parity tests between Decode and Auto
+        # Investigate for the same input.
+        "canonical_artifact": _canonical_artifact.to_dict(),
     }
 
     # ▲ SOC EVIDENCE — per-layer metadata (Feb-2026)

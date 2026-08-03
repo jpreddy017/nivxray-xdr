@@ -1,7 +1,7 @@
 {
-  "total": 84,
+  "total": 85,
   "passed": 35,
-  "hit_rate": 0.4167,
+  "hit_rate": 0.4118,
   "threshold": 0.6,
   "results": [
     {
@@ -339,14 +339,14 @@
       "sha1": "1584af34536103c086f163f599640acbb9f26155",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "cmd /c \"whoami && netstat -ano\"",
+      "output_head": "whoami && netstat -ano",
       "ok": false
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "powershell -e ABC",
+      "output_head": "ABC",
       "ok": false
     },
     {
@@ -746,7 +746,7 @@
     },
     {
       "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
       "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
       "ok": false
@@ -858,6 +858,13 @@
       ],
       "output_head": "44776611003322dd",
       "ok": true
+    },
+    {
+      "sha1": "8fadfc0c1658c3abcf41e97baffd9bbf814cbe6e",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "Write-Host \"tweet, tweet!\"",
+      "ok": false
     }
   ]
 }
