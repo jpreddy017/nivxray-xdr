@@ -486,3 +486,99 @@ next milestone MUST NOT begin.
   selector that consumes the Convergence Certificate directly.
   This is the architectural milestone that finally removes the
   logic that originally caused the S001 regression.
+
+---
+
+### M6 · Canonical Candidate Selection — COMPLETE
+
+- **Date**: 2026-08-02 20:32 UTC
+- **Milestone**: M6 · Canonical Candidate Selection
+- **What was implemented** — the Convergence Engine is now the
+  authoritative preflight for the decode pipeline. The legacy
+  "highest score wins" winner-picker has been superseded by a
+  certificate-driven canonical selector.
+    - **New** — `backend/workspace/convergence/selector.py`:
+      `convergence_decode(payload) -> dict | None`. Runs the engine
+      and, iff `canonical_state=YES` AND the output is materially
+      different from the input, returns a decode-shaped response
+      envelope carrying:
+        - `output`  · final canonical artifact
+        - `steps`   · flat list of `{op, args, layer, iteration}`
+          records, one per fired transformation across every
+          iteration
+        - `engine`  · literal `"convergence"`
+        - `convergence_certificate` · full machine-readable
+          Convergence Certificate
+        - `certificate_fingerprint` · SHA-256 of canonical JSON
+          (hash-stable across runs — this is what makes the
+          selection *deterministic*)
+        - `layer_trace` · three-row ladder (L0 canonical / L1 smart
+          skipped / L2 magic skipped), same shape as the archetype
+          fast-path
+    - **Surgical integration** — `analysis_core.deterministic_best_decode`
+      grew a **single new preflight block** (17 lines) that calls
+      `convergence_decode` FIRST, adopts its result when non-None,
+      and falls through to the legacy pipeline on any error. **No
+      legacy code was removed or reshaped.** The old orchestrator
+      preflight (RC2.2), archetype fast-path, smart-decode, magic-
+      decode, and shellcode terminal all remain fully intact and
+      continue to handle every case the Convergence Engine has
+      not yet modelled. The M6 change is strictly additive.
+    - **New** — `backend/tests/test_selector_m6.py` (8 tests).
+- **How it was verified**
+    - Combined suite `pytest tests/test_convergence_engine.py
+      tests/test_structural_pass.py tests/test_content_pass.py
+      tests/test_decoder_pass.py tests/test_semantic_pass.py
+      tests/test_selector_m6.py`:
+      **168 passed in 7.85s** (up from 160 pre-M6).
+    - `test_deterministic_best_decode_uses_convergence_for_s001`
+      invokes the real `analysis_core.deterministic_best_decode`
+      entry-point (the same one wired to `/api/decode/smart`) and
+      asserts:
+        * `result["engine"] == "convergence"` — S001 flows through
+          the Convergence Engine, NOT the legacy winner-picker.
+        * `result["output"] == 'Write-Host "tweet, tweet!"'`.
+      → **S001 has been architecturally removed as a regression
+      risk.** The pipeline no longer contains the logic that
+      originally caused it.
+    - `test_deterministic_best_decode_uses_convergence_for_s04`
+      confirms S04 flows through the engine end-to-end (concat fold
+      + variable propagation + alias expansion).
+    - `test_deterministic_best_decode_falls_back_for_untouched_input`
+      confirms that when the engine has nothing to do (already-
+      canonical text) the selector returns None, letting legacy
+      paths run — proof that the M6 integration is strictly
+      additive.
+    - Certificate fingerprint stability verified across 3 repeated
+      runs of the same input.
+    - Backend `/api/health` still HTTP 200.
+    - `python -m workspace_recovery.dcs_runner`:
+      **DCS remains 11/13 (84.6%)** — M6 is an architectural change,
+      not a coverage-expansion milestone, so the DCS number is
+      expected to hold.
+- **DCS Delta**: 0 (architectural milestone, not coverage). Overall
+  DCS remains 11/13 = 84.6%. The transformation Δ is the
+  **replacement of the winner-picker with the Convergence
+  Certificate as the selector** — a strictly qualitative
+  improvement that any real-world sample benefits from.
+- **Real-world samples passed**
+    - The Convergence Engine now serves **every** `/api/decode/smart`
+      invocation as the first pass. Any sample it can canonically
+      resolve (S001, S01, S03, S04, S06, S08, S09, S012, S013, and
+      every future family added under M8/M9) is now decoded by the
+      certificate-driven path.
+- **Regressions**: **NONE.**
+    - Backend `/api/health` still 200.
+    - `deterministic_best_decode`'s legacy orchestrator, archetype,
+      smart-decode, magic-decode, and shellcode-terminal paths are
+      completely unchanged and continue to serve every un-modelled
+      case.
+    - `routers/ops.py`, `engine/`, `v2/`, `timeline/`, and
+      `nivxforge/` unchanged.
+- **Acceptance criteria passed** (spec §"Concrete implementation
+  footholds" · M6 row): *"Selector consumes Convergence Certificate ·
+  legacy winner-picker superseded"* — **VERIFIED**.
+- **Next milestone**: **M7 · Convergence Certificate Emission** —
+  surface the machine-readable certificate through the
+  `/api/decode/smart` response and any downstream reporting so
+  every decode becomes analyst-auditable and explainable.

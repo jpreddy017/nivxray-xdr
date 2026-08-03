@@ -50,6 +50,22 @@ def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> 
     If the orchestrator can't do better than the legacy pipeline, we fall
     through so nothing regresses.
     """
+    # ── M6 · Convergence Engine preflight (certificate-driven selector) ──
+    # Phase 5.5 replaces the legacy "highest score wins" winner-picker
+    # with a certificate-driven canonical selector. If the Convergence
+    # Engine reaches canonical_state=YES with a materially changed
+    # output, its result wins — deterministically, hash-stable across
+    # runs. Any un-modelled case falls through to the legacy pipeline
+    # unchanged, so this integration is strictly additive.
+    try:
+        from workspace.convergence.selector import convergence_decode
+        adopted = convergence_decode(payload)
+        if adopted is not None:
+            return adopted
+    except Exception:
+        # Never let the selector break the pipeline — legacy always available.
+        pass
+
     # ── RC2.2 · Orchestrator preflight ────────────────────────────────────
     try:
         from rc22_adapter import try_orchestrator_first

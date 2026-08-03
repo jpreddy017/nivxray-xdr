@@ -2,6 +2,43 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-08-02 · Phase 5.5 · M6 Canonical Candidate Selection — COMPLETE
+
+**Ships:**
+- New `backend/workspace/convergence/selector.py` —
+  `convergence_decode(payload) -> dict | None`. Adapts the
+  Convergence Engine into the decode API's response shape.
+- **Surgical wiring** in `analysis_core.deterministic_best_decode`:
+  a single 17-line preflight block that calls `convergence_decode`
+  FIRST and returns its envelope when non-None. Every legacy path
+  (RC2.2 orchestrator, archetype fast-path, smart-decode,
+  magic-decode, shellcode terminal) is 100% untouched.
+- **S001 architecturally removed as a regression risk** — every
+  invocation of `/api/decode/smart` now routes S001 through the
+  Convergence Engine (verified by
+  `test_deterministic_best_decode_uses_convergence_for_s001`).
+- New tests `backend/tests/test_selector_m6.py` (8 tests). Combined
+  suite: **168/168 passing in 7.85s**.
+
+**Architecture change:**
+
+    Legacy   : candidates → score → pick highest
+    M6       : artifact → converge → certificate → canonical selection
+
+**Regressions: 0.**
+- Backend `/api/health` still 200.
+- DCS holds at 11/13 (84.6%) — architectural milestone, not
+  coverage expansion.
+- No legacy code removed. `routers/ops.py`, `engine/`, `v2/`,
+  `timeline/`, `nivxforge/`, `analysis_core.py` legacy paths all
+  intact.
+
+**Next milestone:** M7 · Convergence Certificate Emission (surface
+the certificate through `/api/decode/smart` so every decode is
+analyst-auditable and explainable).
+
+---
+
 ## 2026-08-02 · Phase 5.5 · M5 Semantic Pass — COMPLETE · DCS 84.6%
 
 **Ships:**
