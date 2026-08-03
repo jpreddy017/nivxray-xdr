@@ -15,6 +15,67 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## 📍 CURRENT POSITION (2026-08-05 · PR-2.1.2 delivered · Phase A + Phase B)
+
+### PR-2.1.2 · Canonical Investigation Pipeline Lock — DELIVERED
+
+**ARB Directive**: `/app/memory/PR_2_1_2_DIRECTIVE.md`
+**Acceptance criterion 0 (ARB)**: For identical input, `/api/decode/smart`
+and `/api/analyze/async` MUST produce byte-identical canonical decoded
+artifacts before downstream investigation.
+
+**What shipped**
+- NEW · `backend/services/canonical_evidence_recovery.py` — the single
+  shared Canonical Evidence Recovery Service. `recover_canonical_evidence()`
+  (sync) and `recover_canonical_evidence_async()` (async wrapper via
+  `run_offloaded`). Returns immutable `CanonicalArtifact` dataclass with
+  `raw_input`, `input_hash`, `terminal_state` ∈ {recovered, stability_gate,
+  passthrough, atomic_ioc, decode_error, partial_recovery, multi_fragment},
+  `decoded_output`, `output_hash`, `chain_steps`, `chain_ids`,
+  `stability_gate_reached`, `atomic_ioc`, `decode_error`, `partial_recovery`,
+  `multi_fragment`, and `det_result` (internal L0 escape hatch).
+- Phase A · `backend/routers/ops.py` `/api/decode/smart` now invokes the
+  shared service via `recover_canonical_evidence_async(...)` in place of
+  the direct `deterministic_best_decode(...)` call. Response now includes
+  top-level `canonical_artifact` field. Atomic-IOC and PS-encoded
+  decode-error early-return branches also attach `canonical_artifact` so
+  the invariant holds across all terminal states.
+- Phase B · `backend/routers/analyze.py` `_run_analysis_job` behind
+  `/api/analyze/async` now FIRST calls the shared service and runs
+  IOC/MITRE/YARA/LOLBAS extraction on
+  `(body.output ⊕ body.input ⊕ artifact.decoded_output)` — never on raw
+  input alone. Job document exposes `canonical_artifact` via
+  `GET /api/analyze/status/{job_id}`. Retro-active `/decode/smart`
+  cross-endpoint call ELIMINATED — verdict_card is now built directly
+  from the canonical artifact via `build_verdict_card(findings=...)` per
+  ARB directive ("shared service, not cross-endpoint call").
+- New governance-anchor tests:
+  - `backend/tests/test_pr212_canonical_evidence_recovery.py` — 12 unit
+    tests · determinism, recursive-safety, expected plaintext recovery,
+    JSON serialization, no "Unknown operation" in canonical chain,
+    `content-ps-operator-case-normalize` remains a valid L0 op.
+  - `backend/tests/test_pr212_api_parity.py` — 8 API-level parity tests
+    · benign + malicious cross-endpoint parity for
+    `decoded_output`/`chain_ids`/`input_hash`/`output_hash`/`terminal_state`.
+
+**Damage-prevention gates green**
+- DCS strict runner: 17/17 byte-identical to recorded.
+- R1 strict runner: 107/107 byte-identical to recorded.
+- Combined PR-2.1.2 suites: 20/20 pass.
+
+**L0 untouched**
+`content-ps-operator-case-normalize` remains a legit registered L0
+transformation in `backend/workspace/convergence/registry.py`. The
+"Unknown operation" symptom disappears because Auto Investigate no
+longer replays chains through the router's smaller `OPERATIONS` dict —
+it consumes the canonical artifact directly.
+
+**Status**: PHASE A + PHASE B COMPLETE · ARB Criterion 0 PROVEN AT
+API LEVEL · Ready for ARB sign-off · PR-3 (Workspace Shell) unblocks
+next.
+
+---
+
 ## 📍 CURRENT POSITION (2026-08-04 · PR-2.1 delivered · PR-3 code done, close-out pending)
 
 ### PR-2.1 · Canonical Artifact Consistency Hotfix — DELIVERED

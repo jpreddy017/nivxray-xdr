@@ -689,6 +689,22 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     if _atomic_kind is not None:
         from v2.investigation.pipeline import investigate as _inv
         _res = _inv(body.input or "")
+        # ── ARB PR-2.1.2 · always attach canonical_artifact ──
+        # Atomic IOCs still get a canonical artifact (terminal_state=
+        # 'atomic_ioc') so `/api/analyze/async` and `/api/decode/smart`
+        # remain byte-identical on this input path. The shared service
+        # produces the correct atomic_ioc terminal state on its own.
+        try:
+            from services.canonical_evidence_recovery import (
+                recover_canonical_evidence_async,
+            )
+            _atomic_art = await recover_canonical_evidence_async(
+                body.input or "",
+                analysis_mode=body.analysis_mode or "balanced",
+            )
+            _atomic_ca = _atomic_art.to_dict()
+        except Exception:
+            _atomic_ca = None
         return {
             "recipe": [
                 {"op": "atomic-ioc-passthrough", "args": {},
@@ -710,6 +726,7 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             "atomic_ioc": {"kind": _atomic_kind, "value": (body.input or "").strip()},
             "semantic": {},
             "investigation": _res.to_dict(),
+            "canonical_artifact": _atomic_ca,
         }
 
     # ── PowerShell -EncodedCommand deterministic short-circuit (Jul-2026) ──
@@ -749,6 +766,18 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                 )
                 if _pa_pipeline is not None:
                     return _pa_pipeline
+                # ── ARB PR-2.1.2 · always attach canonical_artifact ──
+                try:
+                    from services.canonical_evidence_recovery import (
+                        recover_canonical_evidence_async,
+                    )
+                    _pse_art = await recover_canonical_evidence_async(
+                        body.input or "",
+                        analysis_mode=body.analysis_mode or "balanced",
+                    )
+                    _pse_ca = _pse_art.to_dict()
+                except Exception:
+                    _pse_ca = None
                 return {
                     "recipe": [
                         {"op": "ps-encodedcommand-recovery", "args": {},
@@ -836,6 +865,7 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                         "recovered_layers":     _rep.recovered_layers,
                     },
                     "custom_recipes_matched": [],
+                    "canonical_artifact": _pse_ca,
                 }
     except Exception:
         # Preamble must never break the pipeline — fall through to legacy.
