@@ -18,9 +18,9 @@ Fixtures compared: 13
 ## Trend
 
 ```
-▁▁███████████████
+▁▁████████████████
 ```
-Runs: 17  ·  min 37.1%  ·  max 38.4%  ·  latest **38.4%**
+Runs: 18  ·  min 37.1%  ·  max 38.4%  ·  latest **38.4%**
 
 ## Engineering detail — aggregate counts
 
@@ -201,7 +201,6 @@ Runs: 17  ·  min 37.1%  ·  max 38.4%  ·  latest **38.4%**
 
 | Time (UTC) | git | Fixtures | Parity | Drift | Matches | Lost | Categories | Note |
 |---|---|---|---|---|---|---|---|---|
-| 2026-08-02 09:44:34 | `0f83bd6` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 09:48:26 | `0f83bd6` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 10:06:05 | `9386dca` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-02 10:11:06 | `dc75784` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
@@ -209,5 +208,6 @@ Runs: 17  ·  min 37.1%  ·  max 38.4%  ·  latest **38.4%**
 | 2026-08-03 05:40:27 | `9018c74` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-03 08:26:49 | `f82f9fe` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 | 2026-08-03 13:23:26 | `0e99538` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
+| 2026-08-03 13:36:16 | `fb94324` | 13 | **38.4%** | -0.110 | 22 | 3 | event_inference:1, expected_divergence:17, parser_gap:1, schema_gap:1 | pytest run |
 
 *Regenerated on every pytest run of `test_cem_parity.py`. Cut-over decisions require owner review of this report.*
