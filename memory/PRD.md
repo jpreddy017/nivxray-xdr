@@ -13,7 +13,68 @@ Any next agent MUST read this before writing code.
 
 ---
 
-## 📍 CURRENT POSITION (2026-08-03 · later)
+## 📍 CURRENT POSITION (2026-08-03 · evening)
+
+- **Phase R1 v2.1 — LANDED**. JavaScript decoder pass, Transformation
+  Registry, and Coverage Dashboard shipped in a single pass.
+- **Family Coverage**: Cobalt Strike 100.0% × GootLoader 100.0% ·
+  **Overall 100.0%**.
+- **Transformation Coverage** (24 registered): 16 covered by R1
+  corpus (66.7%). By language: cmd 100% · JavaScript 75% · generic
+  66.7% · PowerShell 66.7% · Bash 0%. The 8 uncovered transformations
+  are legitimate engineering targets (all exercise on the M8
+  certification corpus but not yet in R1).
+- **360 pytest passing** (218 M1-M9 + 65 CS + 49 GL + 12 JS + 8
+  registry + 8 new dashboard-driven governance tests).
+- **Zero regressions**: 17/17 certification corpus byte-identical to
+  M8 fingerprints; 55/55 R1 samples byte-locked.
+
+### Coverage Dashboard (as of 2026-08-03 evening)
+
+```
+Family Coverage
+Cobalt Strike     9 techs   30 samples   30 passed   100.0% / 100.0%
+GootLoader       13 techs   25 samples   25 passed   100.0% / 100.0%
+Overall                     55 samples   55 passed   100.0% / 100.0%
+
+Transformation Coverage · by language
+bash          1 total   0 covered    0.0%
+cmd           1 total   1 covered  100.0%
+generic       3 total   2 covered   66.7%
+javascript    4 total   3 covered   75.0%
+powershell   15 total  10 covered   66.7%
+Overall      24 total  16 covered   66.7%
+```
+
+### JS Decoder Pass (unlocks 6+ future families)
+
+- `decoder-js-unicode-escape` · GootLoader / SocGholish / ClearFake / ClickFix / ChromeLoader / Pikabot
+- `decoder-js-atob` · GootLoader / SocGholish / ClearFake / ClickFix / ChromeLoader / Pikabot / phishing_kits
+- `structural-js-split-reverse-join` · GootLoader / SocGholish / ClearFake / ChromeLoader / Pikabot
+- `structural-js-split-join` · GootLoader / SocGholish / ChromeLoader / Pikabot
+
+### Transformation Registry
+
+24 declarative descriptors under `workspace.convergence.registry`.
+Each carries `name`, `category`, `language`, `version`, `description`,
+`consumes`, `produces`, `families_covered`, `techniques_covered`,
+`mitre_attack`, `deterministic`, `dependencies`. Ground truth for
+Coverage Dashboard.
+
+### Uncovered Transformations (engineering queue)
+
+- `structural-join-operator-fold` · powershell (exercises on M8 S013)
+- `structural-static-join-fold` · powershell (M8 S012)
+- `structural-js-split-join` · javascript (no R1 sample yet)
+- `content-string-index-range-fold` · powershell (M8 S013)
+- `content-numeric-constant-fold` · powershell
+- `decoder-frombase64string-fold` · powershell (M8 S05)
+- `decoder-xor-byte-array` · generic (M8 S06)
+- `semantic-bash-pipeline-reduce` · bash (M8 S02)
+
+---
+
+## 📍 PRIOR POSITION (2026-08-03 · later)
 
 - **Phase R1 Schema v2.0 — LANDED**. Every family JSON now follows
   the technique-first hierarchy (`Family → Technique → Variant →

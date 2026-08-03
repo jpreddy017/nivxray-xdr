@@ -258,6 +258,91 @@ def _decode_xor_byte_array(content: str) -> tuple[str, int]:
     return text, 1
 
 
+# ─── Decoder 6 · JavaScript unicode-escape strings ──────────────────
+#
+# GootLoader / SocGholish / ClearFake / ClickFix stagers ship their
+# next-stage payload as a single-quoted or double-quoted JavaScript
+# string of "\u00XX\u00XX..." escape sequences. Once folded, the
+# resulting plaintext is another obfuscated JS payload or a raw
+# PowerShell command that later passes fire on.
+
+_JS_UNICODE_ESCAPE_STRING_RE = re.compile(
+    # Match ONLY string literals that are pure sequences of \uXXXX
+    # escapes (>= 4 escapes, => 16 chars) — no other content.
+    r"""
+    ( ['"] )                    # opening quote (captured for reuse)
+    (
+      (?: \\u [0-9a-fA-F]{4} ){4,}
+    )
+    \1                          # matching closing quote
+    """,
+    re.VERBOSE,
+)
+
+
+def _decode_js_unicode_escape(content: str) -> tuple[str, int]:
+    fires = 0
+
+    def _repl(m: re.Match[str]) -> str:
+        nonlocal fires
+        escapes = m.group(2)
+        try:
+            decoded = escapes.encode("ascii").decode("unicode_escape")
+        except UnicodeDecodeError:
+            return m.group(0)
+        if not _mostly_printable(decoded):
+            return m.group(0)
+        fires += 1
+        # Emit as a single-quoted string literal (canonical shape for
+        # downstream passes). Escape any single-quotes / backslashes
+        # already present in the decoded content.
+        escaped = decoded.replace("\\", "\\\\").replace("'", "\\'")
+        return "'" + escaped + "'"
+
+    return _JS_UNICODE_ESCAPE_STRING_RE.sub(_repl, content), fires
+
+
+# ─── Decoder 7 · JavaScript atob() chain ────────────────────────────
+#
+# atob('B64') / atob(atob('B64B64')) / atob("B64") — the classic
+# JavaScript base64 decoder used by GootLoader, SocGholish, Pikabot's
+# JS launchers, ChromeLoader HTA droppers, and countless phishing kits.
+# The chain resolves through successive iterations of the outer loop:
+# a single atob() call fires this pass; nested atob(atob(...)) fires
+# the innermost first, then the outer on the next iteration.
+
+_ATOB_CALL_RE = re.compile(
+    r"""
+    atob \s* \(
+      \s* (?P<q> ['"] )
+      (?P<b64> [A-Za-z0-9+/]{8,} ={0,2} )
+      (?P=q) \s*
+    \)
+    """,
+    re.VERBOSE | re.IGNORECASE,
+)
+
+
+def _decode_js_atob(content: str) -> tuple[str, int]:
+    fires = 0
+
+    def _repl(m: re.Match[str]) -> str:
+        nonlocal fires
+        b64 = m.group("b64")
+        raw = _b64_decode_strict(b64)
+        if raw is None:
+            return m.group(0)
+        text = _try_utf8(raw) or _try_utf16le(raw)
+        if text is None:
+            return m.group(0)
+        fires += 1
+        # Emit as a single-quoted JS string literal (canonical shape).
+        escaped = text.replace("\\", "\\\\").replace("'", "\\'")
+        return "'" + escaped + "'"
+
+    return _ATOB_CALL_RE.sub(_repl, content), fires
+
+
 # ─── Transformation registry ────────────────────────────────────────
 
 TRANSFORMATIONS: tuple[Transformation, ...] = (
@@ -327,6 +412,35 @@ TRANSFORMATIONS: tuple[Transformation, ...] = (
         priority=150,
         reversible=True,
         apply=_decode_xor_byte_array,
+    ),
+    Transformation(
+        name="decoder-js-unicode-escape",
+        category="decoder",
+        consumes="JavaScript string literal of `\\uXXXX` escape sequences",
+        produces="single-quoted string literal of decoded plaintext",
+        preconditions=(
+            "string literal contains only `\\uXXXX` sequences (\u2265 4 escapes)",
+            "decoded output is mostly printable",
+        ),
+        postconditions=("literal replaced with decoded SQ string",),
+        priority=145,
+        apply=_decode_js_unicode_escape,
+    ),
+    Transformation(
+        name="decoder-js-atob",
+        category="decoder",
+        consumes="JavaScript `atob('B64')` / `atob(\"B64\")` call",
+        produces="single-quoted string literal of Base64-decoded plaintext",
+        preconditions=(
+            "atob() argument is a valid Base64 literal (\u2265 8 chars, mod-4)",
+            "decoded output is mostly printable (UTF-8 or UTF-16LE)",
+        ),
+        postconditions=(
+            "atob() call replaced with an SQ string literal",
+            "chains through successive iterations for nested atob(atob(\u2026))",
+        ),
+        priority=140,
+        apply=_decode_js_atob,
     ),
 )
 

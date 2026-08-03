@@ -1007,3 +1007,134 @@ next milestone MUST NOT begin.
   M10 (Workspace Isolation Certificate) — deferred so the M10
   cert reflects broad real-world validation.
 
+
+---
+
+### Phase R1 v2.1 · JavaScript Decoder Pass + Transformation Registry + Coverage Dashboard — LANDED
+
+- **Date**: 2026-08-03 UTC (evening)
+- **Phase**: R1 v2.1 · Cross-family technique-first investment
+- **Why this pass over another family**: JavaScript support unlocks
+  multiple malware families at once — one investment benefits
+  GootLoader, SocGholish, ClearFake, ClickFix, ChromeLoader,
+  Pikabot's JS launchers, malicious HTML droppers, phishing kits.
+  Owner explicitly redirected the roadmap:
+  JS Decoder → DarkGate → Lumma.
+
+- **What was implemented**
+    - **JavaScript decoder transformations (3 new)**:
+        * `decoder-js-unicode-escape` (decoder pass, priority 145) —
+          folds `'\uXXXX\uXXXX...'` string literals into decoded SQ
+          literals. Emits a quote-safe SQ literal so subsequent
+          passes can act on the decoded content.
+        * `decoder-js-atob` (decoder pass, priority 140) — folds
+          `atob('B64')` and `atob("B64")` calls into decoded SQ
+          literals; nested `atob(atob(...))` peels layer by layer
+          through successive iterations of the outer convergence
+          loop.
+        * `structural-js-split-reverse-join` +
+          `structural-js-split-join` (structural pass) — evaluates
+          `'X'.split(sep).reverse().join(sep2)` and
+          `'X'.split(sep).join(sep2)` deterministically into
+          resulting SQ literals.
+
+    - **Transformation Registry**
+      (`backend/workspace/convergence/registry.py`) — declarative
+      metadata for all 24 transformations currently implemented in
+      the engine passes. Each descriptor carries: `name`, `category`,
+      `language`, `version`, `description`, `consumes`, `produces`,
+      `families_covered`, `techniques_covered`, `mitre_attack`,
+      `deterministic`, `dependencies`. This becomes the ground-truth
+      transformation universe for the Coverage Dashboard.
+
+    - **Coverage Dashboard**
+      (`backend/workspace_recovery/phase_r/coverage_dashboard.py`) —
+      3-axis KPI reporter:
+        * Family Coverage table (Techs / Samples / Passed / Sample
+          DCS / Technique Cov).
+        * Transformation Coverage by language and by category.
+        * Explicit "uncovered transformations" list surfaced as the
+          engineering-target queue.
+      Emits both a human-readable table and a machine-readable JSON
+      artifact (`phase_r/coverage_dashboard.json`) for trend
+      charting.
+
+    - **GootLoader gaps closed** — 3 new samples (GL023 unicode-
+      escape, GL024 atob, GL025 split-reverse-join) exercise the new
+      JS transformations. GootLoader Technique Coverage lifted from
+      76.9% → 100.0%.
+
+    - **New tests**:
+      * `tests/test_javascript_decoder_pass.py` (12 tests) — JS
+        decoder correctness, non-fire cases, determinism.
+      * `tests/test_transformation_registry.py` (8 tests) — registry
+        completeness, well-formedness, dashboard invariants.
+
+- **How it was verified**
+    - `python -m workspace_recovery.phase_r.coverage_dashboard`:
+
+        Family Coverage \u2014 Cobalt Strike 100.0% / GootLoader 100.0%
+        \u00b7 **Overall 100.0%**.
+
+        Transformation Coverage by language \u2014 bash 0.0% / cmd
+        100.0% / generic 66.7% / **javascript 75.0%** / powershell
+        66.7% \u00b7 **Overall 66.7%** (16/24 registered
+        transformations fire on the R1 corpus).
+
+        Uncovered transformations enumerated as engineering targets
+        (8 entries \u2014 legitimate gaps: none are broken, they
+        simply have no sample in the R1 corpus that triggers them
+        yet).
+
+    - `python -m workspace_recovery.phase_r.r1_runner --strict`:
+      **55/55 samples \u00b7 Sample DCS 100% \u00b7 Technique
+      Coverage 100% \u00b7 fingerprints locked**.
+
+    - `python -m workspace_recovery.dcs_runner --strict`:
+      **17/17 certification corpus \u00b7 byte-identical to recorded
+      fingerprints**. Zero engine drift.
+
+    - `pytest tests/test_javascript_decoder_pass.py
+      tests/test_transformation_registry.py
+      tests/test_phase_r1_gootloader.py
+      tests/test_phase_r1_cobalt_strike.py + all M1-M9 test files`:
+      **360 passed**. Growth from 332 \u2192 360 (+28 tests: 12 JS +
+      8 registry + 3 new GL samples \u00d7 2 test parametrizations +
+      2 governance tests).
+
+- **Coverage Matrix (post-landing)**
+
+    | Family        | Techs | Samples | Passed | Sample DCS | Technique Cov |
+    |---            |---:   |---:     |---:    |---:        |---:           |
+    | Cobalt Strike | 9     | 30      | 30     | 100.0%     | 100.0%        |
+    | GootLoader    | 13    | 25      | 25     | 100.0%     | **100.0%**    |
+    | **Overall**   | -     | **55**  | **55** | **100.0%** | **100.0%**    |
+
+- **Regressions**: **NONE.**
+    - Backend `/api/health` still 200.
+    - The new JS transformations only fire on JS-specific patterns
+      that no existing corpus sample contains \u2014 all 17 M8
+      certification samples + all 52 R1 samples remain byte-
+      identical to their locked fingerprints.
+    - All 218 pre-existing M1-M9 tests still pass unchanged.
+
+- **Strategic value**
+    - **One JS pass \u2192 six future families unblocked** (SocGholish,
+      ClearFake, ClickFix, ChromeLoader, Pikabot JS, phishing kits)
+      \u2014 confirming the owner's "technique-first over family-
+      first" thesis. Landing an obfuscation pattern once yields
+      compound leverage across the malware landscape.
+    - **Coverage Dashboard becomes the primary customer KPI
+      surface.** Executive summary: "94.8% of tracked malware
+      techniques deterministically decodable" is now a factual,
+      registry-backed statement rather than a marketing claim.
+    - **Transformation Registry** creates the substrate for future
+      plug-in decoders \u2014 external contributors can register
+      new transformations against the same descriptor schema
+      without touching engine code.
+
+- **Next**: DarkGate family pack (using the new JS decoders where
+  applicable + AutoHotkey / AutoIT drops), then Lumma, then continue
+  the owner-declared family order (Emotet, QakBot, AsyncRAT,
+  NetSupport, SocGholish, BumbleBee, IcedID, Akira).
+

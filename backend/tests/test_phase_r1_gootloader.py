@@ -43,14 +43,20 @@ def test_gootloader_technique_universe_includes_coverage_gaps(gl_family):
     """Coverage gaps MUST be declared in ``known_technique_universe`` so
     the Coverage Matrix reports them as un-covered rather than hiding
     them. This is the "honest coverage" principle: gaps are surfaced,
-    not silently omitted."""
+    not silently omitted.
+
+    NOTE (R1 v2.1): The 3 original JavaScript gaps have been closed by
+    the new JS decoder pass (``decoder-js-unicode-escape``,
+    ``decoder-js-atob``, ``structural-js-split-reverse-join``). The
+    ``coverage_gap_techniques`` list is now allowed to be empty, but
+    every corpus technique must still be present in the declared
+    universe."""
     declared = set(gl_family.get("known_technique_universe") or [])
     gaps = set(gl_family.get("coverage_gap_techniques") or [])
     in_corpus = {t["id"] for t in (gl_family.get("techniques") or [])}
-    assert gaps, "GootLoader must declare at least one coverage gap"
-    # every gap must appear in universe
+    # gaps (if any) must be subset of universe
     assert gaps.issubset(declared), f"Gaps not in universe: {gaps - declared}"
-    # every corpus technique must also appear in universe
+    # every corpus technique must appear in universe
     assert in_corpus.issubset(declared), (
         f"Corpus techniques missing from universe: {in_corpus - declared}"
     )

