@@ -276,12 +276,27 @@ def op_powershell_normalize(data: str, args: Dict[str, Any] | None = None) -> st
         for L in sim.splitlines() or [sim]:
             lines.append(f"  {L}")
         lines.append("")
+        # ── ARB Governance Rule 13 · Evidence-backed behavior claims ──
+        # Only surface a behavior line when the corresponding evidence
+        # was actually observed. Never claim "Mixed-case obfuscation"
+        # on a normal-cased input, "Comma-separated token obfuscation"
+        # without a comma-splice step, or "Case-insensitive normalization"
+        # without a case-normalize step in the trace.
+        _obs_mixed_case = any("mixed-case" in t.lower() or "casing" in t.lower() for t in trace)
+        _obs_comma      = any("comma" in t.lower() for t in trace)
+        _obs_case_norm  = any("case" in t.lower() for t in trace)
+        _behaviors: list[str] = []
+        if _obs_mixed_case:
+            _behaviors.append("  · Mixed-case obfuscation")
+        if _obs_comma:
+            _behaviors.append("  · Comma-separated token obfuscation")
+        if _obs_case_norm and not _obs_mixed_case:
+            _behaviors.append("  · Case-insensitive PowerShell normalization")
+        if encoded_decoded is not None:
+            _behaviors.append("  · Base64 UTF-16LE EncodedCommand wrapper (T1027.010)")
+        _behaviors.append("  · Safe built-in — no malicious behavior")
         lines.append("Behavior:")
-        lines.append("  · Mixed-case obfuscation")
-        if any("comma" in t for t in trace):
-            lines.append("  · Comma-separated token obfuscation")
-        lines.append("  · Case-insensitive PowerShell normalization")
-        lines.append("  · Safe built-in — no malicious behavior")
+        lines.extend(_behaviors)
     else:
         lines.append("Runtime Output (Simulation): "
                       "not attempted — payload is not a safe built-in "

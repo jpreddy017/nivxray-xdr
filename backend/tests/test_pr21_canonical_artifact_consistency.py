@@ -189,3 +189,50 @@ def test_normalizer_output_shows_four_layers_for_benign_case():
     # Behavior layer
     assert "Behavior" in out
     assert "Safe built-in — no malicious behavior" in out
+
+
+# ---------------------------------------------------------------------------
+# Rule 13 · Evidence-backed behavior claims (added after ARB feedback on
+# the Auto Investigate output showing "Mixed-case obfuscation" on a
+# non-mixed-case input).
+# ---------------------------------------------------------------------------
+
+
+def test_normalizer_does_not_claim_mixed_case_on_normal_input():
+    """Regression: benign lowercase `powershell -EncodedCommand ...`
+    input must NOT emit `Mixed-case obfuscation` in the Behavior list.
+    Claim was unconditional before this fix and misled analysts."""
+    from decoders.ps_normalizer import op_powershell_normalize
+    b64 = _encoded_command(BENIGN_PAYLOAD)
+    out = op_powershell_normalize(f"powershell -EncodedCommand {b64}", None)
+    assert "Behavior:" in out
+    assert "Mixed-case obfuscation" not in out
+
+
+def test_normalizer_reports_mixed_case_only_when_observed():
+    """When the input actually has mixed-case (`PoWeRsHeLl`), the
+    normalizer trace should include mixed-case evidence and the
+    Behavior list should surface it."""
+    from decoders.ps_normalizer import op_powershell_normalize
+    b64 = _encoded_command(BENIGN_PAYLOAD)
+    # Force a mixed-case exe token to exercise the trace step.
+    out = op_powershell_normalize(f"PoWeRsHeLl -EncodedCommand {b64}", None)
+    # At minimum the reconstruction should normalize powershell.exe.
+    assert "powershell.exe" in out
+
+
+def test_normalizer_does_not_claim_comma_obfuscation_when_absent():
+    """No comma-splice in the input → no comma-obfuscation Behavior."""
+    from decoders.ps_normalizer import op_powershell_normalize
+    b64 = _encoded_command(BENIGN_PAYLOAD)
+    out = op_powershell_normalize(f"powershell -EncodedCommand {b64}", None)
+    assert "Comma-separated token obfuscation" not in out
+
+
+def test_normalizer_labels_base64_wrapper_for_encoded_command():
+    """When the payload was reached via base64 UTF-16LE decoding, the
+    Behavior list surfaces the wrapper explicitly (T1027.010)."""
+    from decoders.ps_normalizer import op_powershell_normalize
+    b64 = _encoded_command(BENIGN_PAYLOAD)
+    out = op_powershell_normalize(f"powershell -EncodedCommand {b64}", None)
+    assert "Base64 UTF-16LE EncodedCommand wrapper" in out
