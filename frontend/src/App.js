@@ -36,10 +36,10 @@ const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
 const AutoInvestigatePage   = lazy(() => import("@/pages/AutoInvestigatePage"));
 const SemanticMappingInspectorPage = lazy(() => import("@/pages/SemanticMappingInspectorPage"));
 
-// v2 · Additive Case Workspace shell (Phase 3+). Hidden from primary
-// navigation. Route only resolves when the CASE_ENGINE flag is at
-// least SHADOW; otherwise the component renders a disabled banner.
 const V2CaseWorkspaceShell  = lazy(() => import("@/v2/pages/CaseWorkspaceShell"));
+// L4 Analyst Workspace shell (PR-3 · Blueprint v1.1 §7-§9). Additive
+// route; every existing route above stays live. Content lands in PR-4+.
+const AnalystWorkspaceShellPage = lazy(() => import("@/workspace_v4/AnalystWorkspaceShellPage"));
 const V2DeviceTrajectory    = lazy(() => import("@/v2/pages/DeviceTrajectoryV2"));
 const V2IRGWorkspace        = lazy(() => import("@/v2/pages/IRGWorkspace"));
 const V2CompareWorkspace    = lazy(() => import("@/v2/pages/CompareWorkspace"));
@@ -175,6 +175,11 @@ function App() {
               <Route path="/nivxforge/reports"      element={<Protected><NivxForgeReportsPage /></Protected>} />
               <Route path="/nivxforge/history"      element={<Protected><NivxForgeHistoryPage /></Protected>} />
               <Route path="/nivxforge/governance"   element={<Protected><NivxForgePreviewPage /></Protected>} />
+              {/* L4 Analyst Workspace (PR-3 · Blueprint v1.1). Additive:
+                  every legacy route above continues to work unchanged.
+                  Shell only in this PR; lens content lands in PR-4+. */}
+              <Route path="/investigate"           element={<Protected><AnalystWorkspaceShellPage /></Protected>} />
+              <Route path="/investigate/:caseId"   element={<Protected><AnalystWorkspaceShellPage /></Protected>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
