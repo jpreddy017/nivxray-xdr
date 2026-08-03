@@ -56,6 +56,7 @@ from deps import client, db, seed_admin, validate_config, init_database
 from routers.auth import router as auth_router
 from routers.ops import router as ops_router
 from routers.analyze import router as analyze_router
+from routers.convergence import router as convergence_router
 from routers.ai import router as ai_router
 from routers.reports import router as reports_router
 from routers.admin import router as admin_router
@@ -158,6 +159,8 @@ async def health_deep():
 api.include_router(auth_router)
 api.include_router(ops_router)
 api.include_router(analyze_router)
+# M7 · Convergence Certificate Emission — dedicated audit endpoint.
+api.include_router(convergence_router)
 api.include_router(ai_router)
 api.include_router(reports_router)
 api.include_router(admin_router)

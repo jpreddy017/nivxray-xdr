@@ -67,6 +67,48 @@ def _steps_from_iterations(result: ConvergenceResult) -> list[dict[str, Any]]:
     return steps
 
 
+def human_trace(result: ConvergenceResult) -> str:
+    """Return a multi-line analyst-friendly summary of a convergence
+    run.  Designed for direct display in the analyst UI and for
+    inclusion in machine-readable audit logs.
+
+    Example output::
+
+        Convergence completed in 2 iteration(s) · canonical=YES
+        Certificate fingerprint: 4e2b91a7cf0a1c68…
+
+        Iteration 1:
+          structural : structural-string-concat-fold x3
+          content    : content-ps-operator-case-normalize x1
+          decoder    : decoder-powershell-encoded-command x1
+          semantic   : (no changes)
+        Iteration 2:
+          (fixpoint — no transformations fired · canonical state reached)
+    """
+    lines: list[str] = []
+    fp = result.certificate.fingerprint
+    lines.append(
+        f"Convergence completed in {result.certificate.iterations_executed} "
+        f"iteration(s) · canonical={'YES' if result.canonical else 'NO'}"
+    )
+    lines.append(f"Certificate fingerprint: {fp}")
+    lines.append("")
+    for it in result.iterations:
+        lines.append(f"Iteration {it.iteration}:")
+        if not it.any_change:
+            lines.append(
+                "  (fixpoint — no transformations fired · canonical state reached)"
+            )
+            continue
+        for p in it.passes:
+            label = f"{p.name:<11}"
+            if not p.changed:
+                lines.append(f"  {label}: (no changes)")
+            else:
+                lines.append(f"  {label}: " + ", ".join(p.transformations))
+    return "\n".join(lines)
+
+
 def _build_response(
     original: str,
     result: ConvergenceResult,
@@ -79,6 +121,7 @@ def _build_response(
         "reached_shellcode": False,
         "convergence_certificate": result.certificate.to_dict(),
         "certificate_fingerprint": result.certificate.fingerprint,
+        "human_trace": human_trace(result),
         "layer_trace": [
             {
                 "layer": "L0",
@@ -129,4 +172,4 @@ def convergence_decode(payload: str) -> Optional[dict[str, Any]]:
     return _build_response(payload, result)
 
 
-__all__ = ["convergence_decode"]
+__all__ = ["convergence_decode", "human_trace"]

@@ -582,3 +582,97 @@ next milestone MUST NOT begin.
   surface the machine-readable certificate through the
   `/api/decode/smart` response and any downstream reporting so
   every decode becomes analyst-auditable and explainable.
+
+---
+
+### M7 · Convergence Certificate Emission — COMPLETE
+
+- **Date**: 2026-08-02 20:55 UTC
+- **Milestone**: M7 · Convergence Certificate Emission
+- **What was implemented**
+    - **New endpoint** — `POST /api/decode/certificate`.
+      Registered in `backend/server.py` (line 162) via a new
+      dedicated router `backend/routers/convergence.py`. Returns:
+        - `engine` · literal `"convergence"`
+        - `input_hash` · SHA-256 of the raw input
+        - `output` · final canonical artifact content
+        - `canonical` · bool
+        - `terminated_reason` · `canonical_state` / `max_depth` /
+          `interpreter_drift`
+        - `iterations_executed`
+        - `convergence_certificate` · full JSON certificate
+        - `certificate_fingerprint` · hash-stable SHA-256
+        - `human_trace` · multi-line analyst-friendly summary
+        - `iterations_detail` · per-iteration passes + hash deltas
+    - **New helper** — `workspace/convergence/selector.human_trace(result)`
+      produces the analyst-friendly summary. Example::
+
+          Convergence completed in 2 iteration(s) · canonical=YES
+          Certificate fingerprint: 4e2b91a7cf0a1c68...
+
+          Iteration 1:
+            structural : structural-string-concat-fold x3
+            content    : content-ps-operator-case-normalize x1
+            decoder    : decoder-powershell-encoded-command x1
+            semantic   : (no changes)
+          Iteration 2:
+            (fixpoint — no transformations fired · canonical state reached)
+
+      The same `human_trace` string is also injected into the
+      selector's decode envelope, so the `/api/decode/smart`
+      response now carries analyst-readable narration whenever the
+      Convergence Engine wins the preflight (M6).
+    - **New tests** — `backend/tests/test_certificate_m7.py`
+      (11 tests including 3 HTTP-level tests via
+      `fastapi.testclient.TestClient`).
+- **How it was verified**
+    - Combined suite `pytest tests/test_convergence_engine.py
+      tests/test_structural_pass.py tests/test_content_pass.py
+      tests/test_decoder_pass.py tests/test_semantic_pass.py
+      tests/test_selector_m6.py tests/test_certificate_m7.py`:
+      **175 passed in 7.66s** (up from 168 pre-M7).
+    - `TestCertificateEndpoint::test_endpoint_returns_certificate_for_s001`
+      POSTs S001 to `/api/decode/certificate` through the FastAPI
+      TestClient and asserts:
+        * HTTP 200
+        * `engine == "convergence"`
+        * `canonical == True`
+        * `output == 'Write-Host "tweet, tweet!"'`
+        * certificate + fingerprint present
+        * `human_trace` mentions
+          `decoder-powershell-encoded-command`
+        * `iterations_detail` list is non-empty
+    - `test_endpoint_is_deterministic` POSTs the same S04 payload
+      three times and asserts the certificate fingerprint AND the
+      output are byte-identical across all three responses.
+    - Backend `/api/health` still HTTP 200 after registration of
+      the new router (`sudo supervisorctl restart backend`; health
+      = 200).
+    - `python -m workspace_recovery.dcs_runner`: DCS still 11/13
+      (84.6%). M7 is a UX / audit-surface milestone, so DCS is
+      expected to hold.
+- **DCS Delta**: 0 (audit-surface milestone).
+- **Real-world samples passed**
+    - Every analyst-facing decode now carries a certificate the
+      analyst can use to reason about which transformations fired,
+      how many iterations were spent, and whether the engine
+      reached canonical state. This is the surface enterprise
+      customers ask for during audit and forensic-defensibility
+      reviews.
+- **Regressions**: **NONE.**
+    - Backend `/api/health` still 200.
+    - No changes to `analysis_core.py`, `routers/ops.py`, `engine/`,
+      `v2/`, `timeline/`, or `nivxforge/`.
+    - The new router is strictly additive; it only serves
+      `/api/decode/certificate`. Every existing endpoint is
+      untouched.
+- **Acceptance criteria passed** (spec §"Concrete implementation
+  footholds" · M7 row): *"Certificate emitted through the API ·
+  analyst-readable narration attached"* — **VERIFIED**.
+- **Next milestone**: **M8 · Corpus Fingerprint Fields** — add
+  `canonical_output_hash`, `certificate_hash`,
+  `expected_iterations`, `expected_final_interpreter`, and
+  `expected_canonical_state` to every corpus sample. Once populated
+  the DCS runner (and CI regression gates) can detect silent
+  regressions at the byte level — no engine change can slip
+  through without an explicit certificate-fingerprint update.

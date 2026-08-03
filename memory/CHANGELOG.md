@@ -2,6 +2,49 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-08-02 · Phase 5.5 · M7 Certificate Emission — COMPLETE
+
+**Ships:**
+- **New endpoint** `POST /api/decode/certificate` via new
+  `backend/routers/convergence.py`. Returns the Convergence
+  Certificate, iteration-level detail, and an analyst-friendly
+  `human_trace` for any input. Deterministic and hash-stable
+  across repeated calls.
+- New `human_trace()` helper in `workspace/convergence/selector.py`
+  produces multi-line analyst narration. Also injected into every
+  M6 selector envelope so `/api/decode/smart` responses carry the
+  same audit-grade summary whenever the engine wins the preflight.
+- New tests `backend/tests/test_certificate_m7.py` — 11 tests
+  including 3 full HTTP-level tests via `fastapi.testclient.TestClient`
+  (auth bypassed via `dependency_overrides`).
+- **175/175 tests · 0 regressions · `/api/health` = 200.**
+
+**Regressions: 0.**
+- No changes to `analysis_core.py`, `routers/ops.py`, `engine/`,
+  `v2/`, `timeline/`, or `nivxforge/`. Router is purely additive.
+- DCS holds at 11/13 (84.6%) — audit-surface milestone.
+
+**Analyst UX**
+
+    Convergence completed in 2 iteration(s) · canonical=YES
+    Certificate fingerprint: 4e2b91a7cf0a1c68...
+
+    Iteration 1:
+      structural : structural-string-concat-fold x3
+      content    : content-ps-operator-case-normalize x1
+      decoder    : decoder-powershell-encoded-command x1
+      semantic   : (no changes)
+    Iteration 2:
+      (fixpoint — no transformations fired · canonical state reached)
+
+**Next milestone:** M8 · Corpus Fingerprint Fields — every corpus
+sample gains `canonical_output_hash`, `certificate_hash`,
+`expected_iterations`, `expected_final_interpreter`, and
+`expected_canonical_state`. Silent regressions become impossible
+to hide.
+
+---
+
 ## 2026-08-02 · Phase 5.5 · M6 Canonical Candidate Selection — COMPLETE
 
 **Ships:**

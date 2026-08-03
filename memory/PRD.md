@@ -54,14 +54,20 @@ Any next agent MUST read this before writing code.
     `canonical_state=YES` with a materially changed output.
   - Wired as the FIRST preflight in `analysis_core.deterministic_best_decode`
     (17-line surgical addition; legacy paths untouched).
-  - **S001 architecturally removed as a regression risk** — every
-    invocation of `/api/decode/smart` now routes S001 through the
-    Convergence Engine, not the legacy winner-picker. Verified by
-    `test_deterministic_best_decode_uses_convergence_for_s001`.
-  - **168/168 tests · 0 regressions · `/api/health` = 200 ·
-    DCS holds at 11/13 (architectural milestone, not coverage).**
-- **Next**: M7 · Convergence Certificate Emission (surface certificate
-  through the API).
+  - **S001 architecturally removed as a regression risk**.
+- **M7 · Convergence Certificate Emission: ✅ COMPLETE**.
+  - New endpoint `POST /api/decode/certificate` (via new
+    `routers/convergence.py`) returns the machine-readable
+    certificate + iteration-level detail + analyst-friendly
+    `human_trace` for any input.
+  - `human_trace()` helper also included in every Convergence
+    Engine envelope emitted by the M6 selector, so
+    `/api/decode/smart` responses now carry the audit-grade
+    narration too.
+  - **175/175 tests · 0 regressions · `/api/health` = 200 ·
+    DCS holds at 11/13 (audit-surface milestone).**
+- **Next**: M8 · Corpus Fingerprint Fields (regression protection
+  at the byte level).
 - **Ledger**: `backend/workspace_recovery/MILESTONE_LEDGER.md` (append-only).
 - **Feature Freeze**: In effect until M6.
 
