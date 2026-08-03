@@ -13,6 +13,50 @@ Any next agent MUST read this before writing code.
 
 ---
 
+---
+
+## 📍 CURRENT POSITION (2026-08-04 · L4 Workspace · PR-1 delivered)
+
+### PR-1 · L2 Investigation Services Scaffolding — DELIVERED
+
+- **ARB status**: PR-0 approved with 8 governance amendments. Every
+  subsequent PR opens with an Architecture Compliance section
+  (per ARB Governance Rule).
+- **Package**: `backend/l2_investigation/` (internal Python name;
+  URL prefix `/api/investigation/*` from Blueprint §10 unchanged).
+- **Delivered**:
+  - Investigation State Machine (§8.1) — 7 states, exhaustive transition
+    tests, audit log entries.
+  - Workspace State model (§8.3) — every persistence field captured,
+    canonical-JSON fingerprint, byte-identical round-trip.
+  - Evidence Bundle schema — deterministic L1→L2 input contract with
+    provenance on every clickable object (§8.4).
+  - Service Output envelope — uniform `{service, version, case_id, body}`
+    wire shape.
+  - 8 L2 service skeletons: `executive_summary`, `attack_story`,
+    `ioc_intelligence`, `capability_explorer`, `threat_assessment`,
+    `detection_rules`, `hunting_queries`, `workspace_bundle`.
+- **Tests**: `tests/l2_investigation/` — 78 passing.
+- **Damage-prevention contract fully verified**:
+  - DCS strict: 17/17 byte-identical.
+  - R1 strict: 107/107 byte-identical.
+  - L0-canonical pytest: 299 passed (baseline).
+  - `tests/investigation/` (existing): 491 passed (baseline).
+  - Combined L0 + L2: 377 passed / 1 skipped / 0 errors.
+  - `backend/workspace/convergence/*`: untouched.
+
+### Sequenced PRs remaining (ARB approved)
+
+- ⏳ **PR-2**: L1 read APIs (`/api/investigation/:case_id/*`)
+- ⏳ **PR-3**: L4 `/investigate` shell + State Model + Mode selector
+- ⏳ **PR-4**: Summary + Story lenses
+- ⏳ **PR-5**: Timeline + Evidence lenses (Evidence Nav Contract goes live)
+- ⏳ **PR-6**: Analysis + Exports lenses
+- ⏳ **PR-7**: Page consolidations & redirects (24 → 8 routes)
+- ⏳ **PR-8**: Persistence server-side + client-side wiring
+
+
+
 ## 📍 CURRENT POSITION (2026-08-04 · late evening)
 
 ### Phase R1 v2.5 — Emotet Family Pack

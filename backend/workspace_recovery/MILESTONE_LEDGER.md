@@ -1490,3 +1490,51 @@ next milestone MUST NOT begin.
   Robin \u2192 NetSupport \u2192 AutoIT decoder pass \u2192 remaining
   families.
 
+
+---
+
+## 2026-08-04 · PR-1 · L2 Investigation Services Scaffolding
+
+- **Governance**: ARB granted PR-0 approval with 8 governance
+  amendments. This PR is the first implementation delivery and opens
+  with an Architecture Compliance section per the new ARB Governance
+  Rule.
+- **Scope**: Backend-only scaffolding for the eight L2 Investigation
+  Services declared in Blueprint v1.1 §9 and Validation Matrix §4.
+- **Package**: `backend/l2_investigation/`  (Python module name resolves
+  around an existing `tests/investigation/` test package; the URL
+  prefix `/api/investigation/*` from Blueprint §10 is unaffected).
+- **Services registered**:
+    - `executive_summary`  (Summary lens)
+    - `attack_story`       (Story lens · P0 #4)
+    - `ioc_intelligence`   (Evidence · IOC panel)
+    - `capability_explorer` (Evidence · Capability panel · MITRE cross-ref)
+    - `threat_assessment`  (Summary lens · risk)
+    - `detection_rules`    (Analysis lens · P0 #3 · Sigma/KQL/Splunk/YARA)
+    - `hunting_queries`    (Analysis lens · Splunk/Sentinel/Elastic/CrowdStrike)
+    - `workspace_bundle`   (single-call aggregate for Workspace shell)
+- **Also delivered**:
+    - Investigation State Machine (Blueprint §8.1) — exhaustively tested
+      across every declared transition and every rejected transition.
+    - Workspace State model (Blueprint §8.3) — all persistence fields
+      captured, canonical-JSON fingerprinting, byte-identical round-trip
+      proven in tests.
+    - Evidence Bundle schema — read-down input contract from L1;
+      deterministic sorted JSON; hash-stable fingerprint.
+    - Service Output envelope — uniform `{service, version, case_id, body}`
+      wire shape, ready for the L1 API endpoints in PR-2.
+- **Tests**: `tests/l2_investigation/` (5 files · 78 tests · all
+  passing).
+- **Damage-prevention verification**:
+    - `dcs_runner --strict`: 17/17 byte-identical (unchanged).
+    - `r1_runner --strict`: 107/107 byte-identical (unchanged).
+    - L0-canonical pytest set: 299 passed (unchanged).
+    - Combined L0 + L2: 377 passed / 1 skipped / 0 errors.
+    - `tests/investigation/` (existing package): 491 passed (unchanged).
+    - `backend/workspace/convergence/*`: untouched.
+- **L0 impact**: ZERO. Only symbol imported from L0 is the frozen
+  `ConvergenceCertificate` dataclass, referenced solely as a type
+  anchor in `schemas.py`.
+- **Architecture Compliance record**: `backend/l2_investigation/ARCHITECTURE_COMPLIANCE.md`.
+- **Next**: PR-2 will wire the L1 read APIs (`/api/investigation/:case_id/*`
+  plus workspace-state endpoints from Blueprint §10). No UI yet.
