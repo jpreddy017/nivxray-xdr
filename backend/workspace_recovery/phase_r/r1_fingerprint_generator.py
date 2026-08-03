@@ -19,6 +19,9 @@ from pathlib import Path
 
 from workspace.convergence import Artifact, converge
 from workspace_recovery.phase_r.r1_loader import FAMILIES_DIR
+from workspace_recovery.phase_r.sample_capabilities import (
+    inject_capabilities_into_family,
+)
 
 
 def _fingerprint(sample: dict) -> dict:
@@ -61,6 +64,14 @@ def _update_family_file(path: Path) -> int:
 def main() -> int:
     total = 0
     files = sorted(FAMILIES_DIR.glob("*.json"))
+    # Step 1: inject capability tags (must run BEFORE fingerprinting so the
+    # capability field is part of the file, though it is NOT part of the
+    # canonical output fingerprint — fingerprints are engine-output hashes,
+    # not corpus-file hashes).
+    for family_path in files:
+        n_cap = inject_capabilities_into_family(family_path)
+        print(f"  {family_path.name:<30}  {n_cap:>3} samples capability-tagged")
+    # Step 2: run the engine and lock output fingerprints.
     for family_path in files:
         n = _update_family_file(family_path)
         print(f"  {family_path.name:<30}  {n:>3} samples fingerprinted")

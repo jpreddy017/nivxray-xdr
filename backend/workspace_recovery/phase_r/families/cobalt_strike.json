@@ -76,7 +76,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "download_cradle",
+              "beacon_c2"
+            ]
           }
         },
         {
@@ -110,7 +114,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "download_cradle",
+              "beacon_c2"
+            ]
           }
         },
         {
@@ -145,7 +153,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ]
           }
         },
         {
@@ -181,7 +193,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "case_obfuscation",
+              "download_cradle"
+            ]
           }
         },
         {
@@ -215,7 +231,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "download_cradle",
+              "beacon_c2"
+            ]
           }
         }
       ]
@@ -264,7 +284,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "join_array_reconstruction",
+              "download_cradle"
+            ]
           }
         }
       ]
@@ -313,7 +337,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "join_array_reconstruction",
+              "download_cradle"
+            ]
           }
         }
       ]
@@ -365,7 +393,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "string_index_slice",
+              "join_array_reconstruction",
+              "download_cradle"
+            ]
           }
         }
       ]
@@ -418,7 +451,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "numeric_constant_folding_obf",
+              "time_based_evasion",
+              "download_cradle"
+            ]
           }
         }
       ]
@@ -470,7 +508,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "shellcode_staging",
+              "variable_propagation_obfuscation"
+            ]
           }
         }
       ]
@@ -516,7 +558,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "iwr_pipeline_download",
+              "beacon_c2"
+            ]
           }
         },
         {
@@ -551,7 +597,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "iwr_pipeline_download",
+              "beacon_c2"
+            ]
           }
         },
         {
@@ -590,7 +640,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "iwr_pipeline_download"
+            ]
           }
         }
       ]
@@ -636,7 +691,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "curl_alias_download",
+              "beacon_c2"
+            ]
           }
         }
       ]
@@ -686,7 +745,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ]
           }
         },
         {
@@ -724,7 +788,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ]
           }
         },
         {
@@ -762,7 +831,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ]
           }
         },
         {
@@ -800,7 +874,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "variable_propagation_obfuscation",
+              "string_concat_obfuscation",
+              "download_cradle"
+            ]
           }
         }
       ]
@@ -852,7 +931,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "encoded_command",
+              "download_cradle"
+            ]
           }
         },
         {
@@ -886,7 +969,10 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "encoded_command"
+            ]
           }
         },
         {
@@ -927,7 +1013,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "encoded_command",
+              "hidden_window",
+              "download_cradle"
+            ]
           }
         },
         {
@@ -967,7 +1058,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "encoded_command",
+              "download_cradle"
+            ]
           }
         },
         {
@@ -1001,7 +1096,10 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "encoded_command"
+            ]
           }
         },
         {
@@ -1041,7 +1139,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "encoded_command",
+              "download_cradle"
+            ]
           }
         },
         {
@@ -1079,7 +1181,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "encoded_command",
+              "process_discovery"
+            ]
           }
         },
         {
@@ -1121,7 +1227,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "encoded_command",
+              "reflective_loader"
+            ]
           }
         }
       ]
@@ -1169,7 +1279,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "cmd_ps_handoff",
+              "encoded_command"
+            ]
           }
         },
         {
@@ -1212,7 +1326,13 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "cmd_ps_handoff",
+              "cmd_caret_obfuscation",
+              "encoded_command",
+              "download_cradle"
+            ]
           }
         },
         {
@@ -1255,7 +1375,13 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "cmd_ps_handoff",
+              "cmd_caret_obfuscation",
+              "encoded_command",
+              "download_cradle"
+            ]
           }
         },
         {
@@ -1298,7 +1424,13 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "cmd_ps_handoff",
+              "cmd_caret_obfuscation",
+              "encoded_command",
+              "download_cradle"
+            ]
           }
         }
       ]
@@ -1349,7 +1481,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "env_var_reconstruction",
+              "join_array_reconstruction",
+              "download_cradle"
+            ]
           }
         }
       ]
@@ -1401,7 +1538,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "multi_layer_encoding",
+              "download_cradle"
+            ]
           }
         }
       ]
@@ -1450,7 +1591,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "backtick_obfuscation",
+              "iwr_pipeline_download"
+            ]
           }
         },
         {
@@ -1488,7 +1633,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "backtick_obfuscation",
+              "iwr_pipeline_download"
+            ]
           }
         },
         {
@@ -1526,7 +1675,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:22:31+00:00"
-            }
+            },
+            "capabilities": [
+              "backtick_obfuscation",
+              "iwr_pipeline_download"
+            ]
           }
         }
       ]

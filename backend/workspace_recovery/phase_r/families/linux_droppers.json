@@ -67,7 +67,10 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:23:42+00:00"
-            }
+            },
+            "capabilities": [
+              "reverse_shell"
+            ]
           }
         }
       ]
@@ -115,7 +118,10 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:23:42+00:00"
-            }
+            },
+            "capabilities": [
+              "reverse_shell"
+            ]
           }
         }
       ]
@@ -164,7 +170,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:23:42+00:00"
-            }
+            },
+            "capabilities": [
+              "reverse_shell",
+              "multi_layer_encoding"
+            ]
           }
         }
       ]

@@ -83,7 +83,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:26:28+00:00"
-            }
+            },
+            "capabilities": [
+              "xor_byte_array_decoder",
+              "reverse_shell"
+            ]
           }
         },
         {
@@ -118,7 +122,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:26:28+00:00"
-            }
+            },
+            "capabilities": [
+              "xor_byte_array_decoder",
+              "beacon_c2"
+            ]
           }
         }
       ]
@@ -171,7 +179,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:26:28+00:00"
-            }
+            },
+            "capabilities": [
+              "encoded_command",
+              "download_cradle",
+              "beacon_c2"
+            ]
           }
         },
         {
@@ -215,7 +228,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:26:28+00:00"
-            }
+            },
+            "capabilities": [
+              "encoded_command",
+              "hidden_window",
+              "registry_run_key_persistence"
+            ]
           }
         }
       ]
@@ -272,7 +290,13 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:26:28+00:00"
-            }
+            },
+            "capabilities": [
+              "cmd_ps_handoff",
+              "cmd_caret_obfuscation",
+              "encoded_command",
+              "download_cradle"
+            ]
           }
         }
       ]
@@ -318,7 +342,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:26:28+00:00"
-            }
+            },
+            "capabilities": [
+              "download_cradle",
+              "beacon_c2"
+            ]
           }
         },
         {
@@ -353,7 +381,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:26:28+00:00"
-            }
+            },
+            "capabilities": [
+              "download_cradle",
+              "beacon_c2"
+            ]
           }
         }
       ]
@@ -403,7 +435,12 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:26:28+00:00"
-            }
+            },
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ]
           }
         }
       ]
@@ -454,7 +491,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:26:28+00:00"
-            }
+            },
+            "capabilities": [
+              "shellcode_staging",
+              "variable_propagation_obfuscation"
+            ]
           }
         }
       ]
@@ -503,7 +544,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:26:28+00:00"
-            }
+            },
+            "capabilities": [
+              "backtick_obfuscation",
+              "iwr_pipeline_download"
+            ]
           }
         }
       ]
@@ -550,7 +595,11 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T09:26:28+00:00"
-            }
+            },
+            "capabilities": [
+              "case_obfuscation",
+              "download_cradle"
+            ]
           }
         }
       ]

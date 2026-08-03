@@ -13,7 +13,52 @@ Any next agent MUST read this before writing code.
 
 ---
 
-## 📍 CURRENT POSITION (2026-08-03 · late evening)
+## 📍 CURRENT POSITION (2026-08-04)
+
+### Phase R1 v2.3 — Capability Metadata Seed + Lumma Stealer
+
+- **Malware Capability Vocabulary seeded** — 30 curated tags in
+  `workspace_recovery.phase_r.capabilities` covering delivery/staging,
+  obfuscation, behavior, and family-signature techniques. **All 85 R1
+  samples now capability-tagged.** Governance tests enforce (a) every
+  sample carries capabilities, (b) every tag is from the vocabulary,
+  (c) every vocabulary entry is exercised (no rot).
+- **Lumma Stealer family landed** — 10 samples across 8 techniques:
+  ClickFix/FakeCaptcha PS paste · mshta cradle · -EncodedCommand
+  staging · hidden-window Run-key persistence · **clipboard-monitor
+  beacon** (Lumma signature capability) · CMD-caret handoff · string-
+  concat URL obfuscation · backtick alias obfuscation · FromBase64String
+  in-memory staging. 3 explicit gaps: `native_exe_unpacking`,
+  `lumma_rc4_string_decrypt`, `vidar_style_c2_config_pull`.
+- **5 families · 85/85 samples · Sample DCS 100.0% · Transformation
+  Coverage 100.0% · Overall Technique Coverage 88.5%**. **408 pytest**
+  · 0 regressions · certification corpus byte-identical.
+
+### Coverage Matrix
+
+```
+Family          Techs  Samples  Passed  Sample DCS  Technique Cov
+Cobalt Strike     14     35       35    100.0%      100.0%
+DarkGate           8     11       11    100.0%       72.7%
+GootLoader        13     26       26    100.0%      100.0%
+Linux Droppers     3      3        3    100.0%      100.0%
+Lumma Stealer      8     10       10    100.0%       72.7%
+Overall                  85       85    100.0%       88.5%
+```
+
+### Capability Metadata (samples of the vocabulary in use)
+
+- `download_cradle` · CS × 12 · GL × 8 · DG × 4 · LU × 3
+- `clipboard_monitor` · LU × 1 (**Lumma signature**)
+- `encoded_command` · CS × 8 · GL × 4 · DG × 3 · LU × 3
+- `cmd_caret_obfuscation` · CS × 3 · GL × 1 · DG × 1 · LU × 1
+- `reflective_loader` · CS × 1
+- `shellcode_staging` · CS × 1 · DG × 1 · LU × 1
+- `reverse_shell` · DG × 1 · LD × 3
+
+---
+
+## 📍 PRIOR POSITION (2026-08-03 · late evening)
 
 ### Phase R1 v2.2 — Transformation Coverage 100% + 2 new families
 

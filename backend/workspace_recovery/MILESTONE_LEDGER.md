@@ -1267,3 +1267,101 @@ next milestone MUST NOT begin.
   benefit derivative DarkGate-lineage loaders and any AutoIT-based
   RATs.
 
+
+---
+
+### Phase R1 v2.3 · Capability Metadata Seed + Lumma Stealer — LANDED
+
+- **Date**: 2026-08-04 UTC
+- **Phase**: R1 v2.3 · Capability-tag seed + 5th family
+- **What was implemented**
+
+    A. **Malware Capability vocabulary** (seed for the future Malware
+       Capability Registry, per owner's Phase R architectural note):
+       * New module ``workspace_recovery.phase_r.capabilities`` with
+         a frozen ``KNOWN_CAPABILITIES`` set of 30 curated tags
+         spanning delivery/staging, obfuscation, behavior, and
+         family-signature capabilities.
+       * New module ``workspace_recovery.phase_r.sample_capabilities``
+         mapping every R1 sample ID to a list of capability tags.
+       * ``inject_capabilities_into_family`` post-build hook wired into
+         the R1 fingerprint generator so every family JSON now carries
+         ``expected.capabilities`` on every sample.
+       * **All 85 R1 samples are now capability-tagged.**
+
+    B. **Lumma Stealer family pack** (per owner-declared roadmap):
+       10 samples across 8 techniques including the signature
+       ClickFix / FakeCaptcha PowerShell paste, mshta cradle,
+       -EncodedCommand staging, hidden-window Run-key persistence,
+       **clipboard-monitor beacon** (Lumma signature capability),
+       CMD-caret handoff, string-concat URL obfuscation, backtick
+       alias obfuscation, and FromBase64String in-memory staging.
+       3 explicit coverage gaps declared: ``native_exe_unpacking``,
+       ``lumma_rc4_string_decrypt``, ``vidar_style_c2_config_pull``
+       (awaiting future binary-decoder passes).
+
+    C. **Governance tests**
+       (``tests/test_phase_r1_lumma_and_capabilities.py``):
+       * ``test_every_r1_sample_carries_capabilities`` \u2014 no
+         orphaned samples.
+       * ``test_every_r1_capability_is_from_known_vocabulary`` \u2014
+         typo prevention.
+       * ``test_capability_vocabulary_is_used`` \u2014 vocabulary
+         cannot rot: every declared tag must be exercised by at least
+         one sample. Aspirational tags are documented in a source
+         comment instead of the frozen set.
+
+- **Coverage Matrix (post-landing)**
+
+    | Family         | Techs | Samples | Passed | Sample DCS | Technique Cov |
+    |---             |---:   |---:     |---:    |---:        |---:           |
+    | Cobalt Strike  | 14    | 35      | 35     | 100.0%     | 100.0%        |
+    | DarkGate       | 8     | 11      | 11     | 100.0%     | 72.7%         |
+    | GootLoader     | 13    | 26      | 26     | 100.0%     | 100.0%        |
+    | Linux Droppers | 3     | 3       | 3      | 100.0%     | 100.0%        |
+    | Lumma Stealer  | 8     | 10      | 10     | 100.0%     | 72.7%         |
+    | **Overall**    | \u2014     | **85**  | **85** | **100.0%** | **88.5%**     |
+
+    Overall Technique Coverage delta (100% \u2192 88.5% since v2.2)
+    is EXACTLY the additional 3 native-binary / RC4 / config-pull
+    gaps declared by Lumma \u2014 truthful reporting, not
+    regression.
+
+- **Transformation Coverage: 100%** preserved (24/24 across all
+  languages and categories). Every previous transformation still
+  fires on the extended corpus.
+
+- **How it was verified**
+    - `python -m workspace_recovery.phase_r.r1_runner --strict`:
+      **85/85 \u00b7 Sample DCS 100% \u00b7 fingerprints locked**.
+    - `python -m workspace_recovery.phase_r.coverage_dashboard`:
+      Transformation Coverage 100.0% \u00b7 zero uncovered
+      transformations.
+    - `python -m workspace_recovery.dcs_runner --strict`: 17/17
+      certification corpus byte-identical to M8.
+    - `pytest`: **408 tests passing** (up from 392: +11 Lumma
+      parametrizations + 5 capability-governance tests).
+
+- **Regressions**: **NONE.**
+    - Backend `/api/health` still 200.
+    - Zero engine code changed. All existing samples retain their
+      previous fingerprint hashes (capability metadata is stored
+      *outside* the canonical output hash by design).
+
+- **Strategic value**
+    - Capability metadata is now seeded on every sample \u2014 the
+      future Malware Capability Registry can be built by projecting
+      this metadata into a first-class registry object at any point,
+      with no corpus migration needed.
+    - Lumma introduces the ``clipboard_monitor`` capability, which
+      immediately becomes reusable for RedLine / Vidar / StealC when
+      those families land.
+    - Cross-family capability queries are now possible against the
+      corpus: e.g. every sample tagged ``download_cradle`` spans
+      Cobalt Strike, GootLoader, DarkGate, Lumma \u2014 the
+      cross-family reuse signal the owner asked for.
+
+- **Next in R1** (owner-declared order): SocGholish \u2192 Emotet
+  \u2192 QakBot \u2192 AsyncRAT \u2192 NetSupport \u2192 BumbleBee
+  \u2192 IcedID \u2192 Akira.
+

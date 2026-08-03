@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-03T09:29:11+00:00",
+  "generated_at": "2026-08-03T09:40:09+00:00",
   "families": [
     {
       "family_id": "cobalt_strike",
@@ -44,16 +44,27 @@
       "samples_passed": 3,
       "sample_dcs_pct": 100.0,
       "technique_coverage_pct": 100.0
+    },
+    {
+      "family_id": "lumma_stealer",
+      "display_name": "Lumma Stealer",
+      "techniques_in_corpus": 8,
+      "known_universe": 11,
+      "techniques_passed": 8,
+      "samples": 10,
+      "samples_passed": 10,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 72.72727272727273
     }
   ],
   "family_overall": {
-    "families": 4,
-    "samples": 75,
-    "samples_passed": 75,
+    "families": 5,
+    "samples": 85,
+    "samples_passed": 85,
     "sample_dcs_pct": 100.0,
-    "techniques_known": 41,
-    "techniques_passed": 38,
-    "technique_coverage_pct": 92.6829268292683
+    "techniques_known": 52,
+    "techniques_passed": 46,
+    "technique_coverage_pct": 88.46153846153847
   },
   "transformations": [
     {
