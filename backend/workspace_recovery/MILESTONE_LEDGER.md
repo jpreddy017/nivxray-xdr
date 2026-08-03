@@ -1577,3 +1577,78 @@ next milestone MUST NOT begin.
 - **Next**: PR-3 opens the L4 Workspace shell at `/investigate` with
   Mode selector and empty lens tabs. `data-testid` map for the shell
   will be drafted inside PR-3 as ARB directed.
+
+---
+
+## 2026-08-04 · PR-2.1 · Canonical Artifact Consistency Hotfix
+
+- **Governance**: ARB approved the modified PR-2.1 during PR-2 review.
+  Added two permanent governance rules (see `memory/GOVERNANCE_RULES.md`):
+    - Rule 12 · Canonical Artifact Consistency — every consumer reads
+      the same decoded artifact + `verdict_card`, never re-interprets.
+    - Rule 13 · Evidence–Verdict Separation — verdicts are driven by
+      decoded payload capabilities, not by wrapper / encoding presence.
+- **Bugs fixed**:
+    - **Bug 1** — ASCII "NIVXRAY INVESTIGATION SUMMARY" was showing
+      `Suspicious · 75/100` on benign `Write-Host` payloads while
+      `verdict_card` correctly said `Partial · 25/100`. Root cause:
+      `synthesize_report` ran BEFORE the wrapper-only detector could
+      overwrite `verdict_card`. Fix: re-synthesize the summary after
+      `verdict_card` is finalized (Rule 12).
+    - **Bug 2** — Auto Investigate output box showed the raw
+      `-EncodedCommand VwBy...` wrapper with *"Runtime Output not
+      attempted"* for benign encoded `Write-Host`. Root cause:
+      `decoders/ps_normalizer.py` regex covered only `-Command "..."`,
+      not `-EncodedCommand <base64>`. Fix: extended to decode base64 →
+      UTF-16LE → safe-builtin simulator (Rule 12); output now shows
+      the four-layer view (Wrapper · Decoded Payload · Runtime Output ·
+      Behavior) per Rule 13.
+- **Verdict engine change** (`verdict_engine.py`):
+    - New `_is_wrapper_only_benign(contributors)` — capability-driven,
+      not command-whitelisted. Returns True only when every ≥ MEDIUM
+      contributor is a wrapper kind (encoded_powershell /
+      encoded_command / base64_wrapper / obfuscation) AND no attack-
+      chain HIGH is present.
+    - `_label_from_class_distribution` demotes to `Informational` when
+      wrapper-only-benign is True (Rule 13 baseline).
+    - `_confidence_cap` returns 0.30 for wrapper-only-benign so both
+      label and confidence align.
+- **Tests added** (`tests/test_pr21_canonical_artifact_consistency.py`):
+  11 new tests covering Rules 12 and 13:
+    - Wrapper-only benign → Informational
+    - Wrapper + attack-chain HIGH → Malicious (no false downgrade)
+    - Wrapper + LOLBIN (non-attack-chain HIGH) → Suspicious (blocked
+      from downgrade — capability layer intact)
+    - Confidence cap matches label
+    - Normalizer decodes EncodedCommand benign → simulates Write-Host
+    - Normalizer decodes EncodedCommand malicious → does NOT simulate
+    - Malformed base64 falls through gracefully (no crash)
+    - Layer separation visible (Wrapper · Payload · Behavior)
+- **Live verification**:
+    - Case A (benign): `Verdict: Partial · 25/100` — matches
+      `verdict_card`.
+    - Case B (malicious IEX + download): `Verdict: Runtime Dependent
+      · 55/100` with IOCs surfaced — matches `verdict_card`.
+    - Summary text and verdict_card now agree in every response.
+- **Damage-prevention verification**:
+    - `dcs_runner --strict`: 17/17 byte-identical.
+    - `r1_runner --strict`: 107/107 byte-identical.
+    - Combined L0 canonical + PR-2.1 + normalizer + L2 (unit + API):
+      **441 passed / 0 failed**.
+- **Files touched**:
+    - `backend/nivxforge/investigation/verdict_engine.py`
+      (added `_is_wrapper_only_benign`, updated
+      `_label_from_class_distribution` + `_confidence_cap`)
+    - `backend/decoders/ps_normalizer.py` (added `-EncodedCommand`
+      branch + Decoded Payload layer)
+    - `backend/routers/ops.py` (added re-synthesize block so summary
+      re-renders from FINAL `verdict_card`)
+    - `backend/tests/test_pr21_canonical_artifact_consistency.py` (new)
+    - `memory/GOVERNANCE_RULES.md` (added Rules 12 and 13)
+- **Follow-up observed (not fixed in this PR)**:
+    - Legacy `test_p01_p02_verdict_card::test_verdict_card_malicious_ps`
+      failed on the IEX + Download encoded case with
+      `Runtime Dependent` instead of `Malicious`. This is not caused
+      by PR-2.1 — it is a pre-existing capability-detection gap where
+      `invoke_expression` HIGH is not tagged for base64-embedded IEX.
+      Ticket to be logged: `capability-detect-iex-inside-encoded`.

@@ -518,6 +518,7 @@ def _label_from_class_distribution(
     evidence class present + count of contributors at/above HIGH.
 
     Analyst-intuition rules:
+      * Wrapper-only benign (Rule 13) → Informational
       * ≥ 1 CRITICAL → Malicious
       * ≥ 2 HIGH AND ≥ 1 of those is an attack-chain kind → Malicious
       * ≥ 2 HIGH (all ambient) → Suspicious (LOLBIN/tooling noise)
@@ -529,6 +530,12 @@ def _label_from_class_distribution(
     from nivxforge.investigation.evidence_classes import ATTACK_CHAIN_HIGH
     if not contributors:
         return "Undetermined"
+    # ARB PR-2.1 · Governance Rule 13 · Evidence-Verdict Separation.
+    # Obfuscation / wrapper markers alone do not drive a verdict.
+    # If every ≥ MEDIUM contributor is a wrapper kind and the payload
+    # exposed no attack capabilities, this is Informational.
+    if _is_wrapper_only_benign(contributors):
+        return "Informational"
     counts = {c.value: 0 for c in EvidenceClass}
     high_kinds: set[str] = set()
     for c in contributors:
@@ -553,10 +560,78 @@ def _label_from_class_distribution(
     return "Undetermined"
 
 
+def _is_wrapper_only_benign(contributors: List[VerdictContribution]) -> bool:
+    """Return True when the sole ≥ MEDIUM signal is a wrapper-obfuscation
+    marker and NO attack-capability signal is present.
+
+    Capability-driven, not command-whitelisted (ARB Governance Rule 12).
+    We look at what the *decoded artifact* did — not at whether the
+    payload happens to be ``Write-Host`` or ``Get-Date`` — via the
+    ``ATTACK_CHAIN_HIGH`` set which enumerates attacker-behaviour kinds
+    (execution abuse · network · persistence · credential access ·
+    lateral movement · shellcode, etc.). Any of those disqualifies the
+    downgrade.
+
+    Wrapper markers we treat as "encoded shell" evidence:
+        encoded_powershell · encoded_command · base64_wrapper · obfuscation
+
+    Benign context signals we tolerate (they are LOW/CONTEXT class
+    already, but we explicitly allow them for readability):
+        · powershell_binary_present (mere presence of powershell.exe)
+        · mitre_defense_evasion_obfuscation (T1027.010)
+
+    Anything else at MEDIUM+ blocks the downgrade so we never mask a
+    real attack.
+    """
+    from nivxforge.investigation.evidence_classes import ATTACK_CHAIN_HIGH
+
+    WRAPPER_KINDS = {
+        "encoded_powershell",
+        "encoded_command",
+        "base64_wrapper",
+        "obfuscation",
+    }
+
+    medium_or_higher = [
+        c for c in contributors
+        if c.evidence_class in ("critical", "high", "medium")
+    ]
+    if not medium_or_higher:
+        # Zero-signal case is already handled by the existing cap of 0.30.
+        return False
+
+    # Any CRITICAL or attack-chain HIGH kind → not wrapper-only.
+    # Also: any HIGH-class kind that is NOT itself a wrapper marker
+    # must block the downgrade (e.g. lolbas_usage, powershell_binary_usage
+    # are HIGH but not wrapper — they carry independent context).
+    for c in medium_or_higher:
+        if c.evidence_class == "critical":
+            return False
+        if c.evidence_class == "high":
+            if c.kind in ATTACK_CHAIN_HIGH:
+                return False
+            if c.kind not in WRAPPER_KINDS:
+                return False
+        if c.evidence_class == "medium":
+            # MEDIUM signals may or may not be attack-capability. Be
+            # conservative — if a MEDIUM is not clearly wrapper/context,
+            # block the downgrade. This preserves correct verdicts on
+            # partial-decode / MITRE-only cases.
+            if c.kind not in WRAPPER_KINDS:
+                return False
+
+    # Reach here → every ≥ MEDIUM contributor is a wrapper kind. Confirm
+    # that at least one wrapper kind is present (otherwise the set is
+    # empty which is not what this rule targets).
+    return any(c.kind in WRAPPER_KINDS for c in medium_or_higher)
+
+
 def _confidence_cap(contributors: List[VerdictContribution]) -> float:
     """Cap the raw Noisy-OR confidence when the evidence set is weak.
 
     * No signals ≥ MEDIUM               → cap 0.30 (benign-shape input)
+    * Wrapper-only benign (Rule 12)     → cap 0.30 (decoded payload
+                                           produced no attack capability)
     * No CRITICAL AND no attack-chain
       HIGH kind present                 → cap 0.75 (suspicious ambient)
     * Otherwise                         → no cap
@@ -571,6 +646,12 @@ def _confidence_cap(contributors: List[VerdictContribution]) -> float:
         for c in contributors
     )
     if not has_medium_plus:
+        return 0.30
+    # ARB PR-2.1 · Governance Rule 12 · Canonical Artifact Consistency.
+    # If the only ≥ MEDIUM signal is a wrapper marker AND no attack
+    # capability is present in the decoded artifact, cap at 0.30 so the
+    # label distribution + cap combined demote to Informational.
+    if _is_wrapper_only_benign(contributors):
         return 0.30
     if not has_critical and not has_attack_high:
         return 0.75

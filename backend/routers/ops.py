@@ -1571,6 +1571,61 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     except Exception:
         pass
 
+    # ARB PR-2.1 · Governance Rule 12 · Canonical Artifact Consistency.
+    # The synthesize_report() call above ran BEFORE the wrapper-only / undecoded
+    # detectors may have overwritten verdict_card. Re-render the OUTPUT summary
+    # from the FINAL verdict_card so every consumer (OUTPUT panel, saved case,
+    # report_text) shows the same verdict as the analyst-facing verdict card.
+    try:
+        from investigation_report import synthesize_report as _syn_final
+        _vc_final = result.get("verdict_card") or {}
+        _vc_verdict = _vc_final.get("verdict") or _vc_final.get("label")
+        _vc_score   = _vc_final.get("risk_score") or _vc_final.get("score")
+        _vc_conf    = _vc_final.get("confidence")
+        if _vc_score is None and isinstance(_vc_conf, (int, float)):
+            _vc_score = int(round(float(_vc_conf) * 100)) if _vc_conf <= 1 else int(_vc_conf)
+        # Only re-render when the current output summary disagrees with the
+        # final verdict_card. Skip the rebuild otherwise so we don't churn
+        # deterministic output on paths that didn't mutate the card.
+        _current_out = result.get("output") or ""
+        _needs_rebuild = (
+            _vc_verdict
+            and _vc_verdict.lower() not in _current_out.lower().split("nivxray")[-1]
+        )
+        if _needs_rebuild and _vc_verdict:
+            _final_risk = {"verdict": _vc_verdict, "score": _vc_score}
+            _final_conf = _vc_score if _vc_score is not None else result.get("confidence")
+            _final_txt = _syn_final(
+                input_text=body.input or "",
+                output_text=result.get("output_raw") or result.get("output") or "",
+                engine=result.get("engine"),
+                confidence=_final_conf,
+                steps=[{"op": s["op"]} for s in det.get("steps") or []],
+                iocs=result.get("iocs") or {},
+                mitre=result.get("mitre") or [],
+                lolbas=result.get("lolbas") or [],
+                risk=_final_risk,
+                family=None,
+                reached_shellcode=bool(result.get("reached_shellcode")),
+                corrupted_container=result.get("corrupted_container"),
+            )
+            if _final_txt:
+                _raw = result.get("output_raw") or ""
+                _input_text = (body.input or "").strip()
+                _DECODED_HDR2 = (
+                    "━" * 66 + "\n"
+                    + "▼ DECODED OUTPUT" + "\n"
+                    + "━" * 66
+                )
+                if _raw and _raw.strip() != _input_text:
+                    result["output"] = f"{_DECODED_HDR2}\n{_raw}\n\n{_final_txt}"
+                else:
+                    result["output"] = _final_txt
+                result["report_text"] = _final_txt
+    except Exception:
+        # Best-effort re-render; never break the decode contract.
+        pass
+
     # Auto-record into user's Investigation History (fire-and-forget, never blocks)
     try:
         from routers.history import record_investigation

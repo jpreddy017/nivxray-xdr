@@ -16,6 +16,8 @@ Deterministically mimics PowerShell's argument-parsing stage before execution:
 Zero LLM. Zero heuristics. Zero invented output.
 """
 from __future__ import annotations
+import base64
+import binascii
 import re
 from typing import Any, Dict, List, Tuple
 from operations import op
@@ -224,6 +226,33 @@ def op_powershell_normalize(data: str, args: Dict[str, Any] | None = None) -> st
     if m_cmd:
         sim = _simulate_safe_builtin(m_cmd.group("payload"))
 
+    # ARB PR-2.1 · Governance Rule 12 · Canonical Artifact Consistency.
+    # Also handle -EncodedCommand <base64>: decode UTF-16LE per Microsoft's
+    # docs and run the same safe-builtin simulator on the decoded payload.
+    # Without this branch the normalizer would emit a "not attempted"
+    # message even for benign encoded payloads like Write-Host "hello",
+    # producing a wrapper-only view that Rule 12 explicitly forbids.
+    encoded_decoded: str | None = None
+    if sim is None:
+        m_enc = re.search(
+            r"""-EncodedCommand\s+(?P<b64>[A-Za-z0-9+/=]{4,})\s*$""",
+            reconstructed,
+            re.IGNORECASE,
+        )
+        if m_enc:
+            b64 = m_enc.group("b64")
+            try:
+                # Standard PowerShell EncodedCommand is base64 of UTF-16LE.
+                raw = base64.b64decode(b64 + "=" * (-len(b64) % 4),
+                                        validate=False)
+                decoded = raw.decode("utf-16-le")
+                encoded_decoded = decoded
+                sim = _simulate_safe_builtin(decoded)
+            except (binascii.Error, UnicodeDecodeError, ValueError):
+                # Malformed / mis-encoded payload — let downstream
+                # decoders surface the error instead of pretending here.
+                encoded_decoded = None
+
     # Banner
     lines = ["▼ POWERSHELL NORMALIZATION & RUNTIME RECONSTRUCTION (RC4.3 · deterministic)"]
     if trace:
@@ -234,6 +263,14 @@ def op_powershell_normalize(data: str, args: Dict[str, Any] | None = None) -> st
     lines.append("Reconstructed Command:")
     lines.append(f"  {reconstructed}")
     lines.append("")
+    # ARB Governance Rule 13 · surface the decoded EncodedCommand payload
+    # as an explicit "Decoded Payload" layer so the analyst can see WHY
+    # the runtime simulation matched (or didn't).
+    if encoded_decoded is not None:
+        lines.append("Decoded Payload (EncodedCommand · base64 → UTF-16LE):")
+        for L in encoded_decoded.splitlines() or [encoded_decoded]:
+            lines.append(f"  {L}")
+        lines.append("")
     if sim is not None:
         lines.append("Runtime Output (Simulation · deterministic):")
         for L in sim.splitlines() or [sim]:

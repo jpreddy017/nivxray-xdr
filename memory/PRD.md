@@ -15,7 +15,43 @@ Any next agent MUST read this before writing code.
 
 ---
 
-## 📍 CURRENT POSITION (2026-08-04 · L4 Workspace · PR-2 delivered)
+## 📍 CURRENT POSITION (2026-08-04 · PR-2.1 delivered · PR-3 code done, close-out pending)
+
+### PR-2.1 · Canonical Artifact Consistency Hotfix — DELIVERED
+
+- **ARB status**: Approved with amendments. Two permanent governance
+  rules added (`memory/GOVERNANCE_RULES.md`):
+  - Rule 12 · Canonical Artifact Consistency
+  - Rule 13 · Evidence–Verdict Separation
+- **Bug 1 (wrong summary verdict)**: fixed via `ops.py` re-synthesis
+  after `verdict_card` mutations. `Verdict: Partial · 25/100` now
+  agrees with `verdict_card` on the benign `Write-Host` case.
+- **Bug 2 (Auto Investigate never decodes EncodedCommand)**: fixed by
+  extending `decoders/ps_normalizer.py` to base64→UTF-16LE decode +
+  simulate safe built-in + surface a "Decoded Payload" layer.
+- **Verdict engine**: capability-driven downgrade (Rule 13) — not a
+  command whitelist. `_is_wrapper_only_benign(contributors)` demotes
+  only when every ≥ MEDIUM signal is a wrapper marker AND no attack-
+  chain HIGH is present.
+- **Tests**: 11 new PR-2.1 tests (`test_pr21_canonical_artifact_consistency.py`).
+- **Damage-prevention contract**:
+  - DCS strict: 17/17 byte-identical.
+  - R1 strict: 107/107 byte-identical.
+  - Combined L0 + PR-2.1 + normalizer + L2 (unit + API):
+    **441 passed / 0 failed**.
+
+### PR-3 · L4 Workspace Shell — CODE COMPLETE (compliance doc pending)
+
+- `/investigate` and `/investigate/:caseId` routes live (additive · no
+  legacy route touched).
+- `workspace_v4/` package: `testIds.js`, `investigationApi.js`,
+  `StatePill.jsx`, `ModeSelector.jsx`, `LensTabs.jsx`,
+  `AnalystWorkspaceShellPage.jsx`.
+- Screenshots captured (empty state + case-loaded state).
+- Data-testid map defined (single source of truth).
+- No lens content (per ARB scope: shell only).
+- Compliance record + testing agent gate pending — deferred by the
+  ARB directive to fix PR-2.1 first.
 
 ### PR-2 · L1 Investigation APIs — DELIVERED
 
