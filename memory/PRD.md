@@ -13,7 +13,50 @@ Any next agent MUST read this before writing code.
 
 ---
 
-## 📍 CURRENT POSITION (2026-08-02)
+## 📍 CURRENT POSITION (2026-08-03)
+
+- **Phase R1 · Malware-Family Coverage — IN PROGRESS**
+  · Cobalt Strike foundation pack **LANDED** (30 samples · 100% DCS
+  · fingerprints locked · 62 strict regression tests passing).
+- **Phase 5.5 · Multi-Pass Convergence Engine — COMPLETE (M1-M9)**.
+  Certification corpus **17/17 (100% DCS)** · fingerprints locked ·
+  0 regressions.
+- **M10 · Workspace Isolation Certificate**: deferred (per owner) —
+  finalize only after R1 → R2 → R3 so the certificate reflects
+  broad real-world validation, not just the 17-sample bootstrap.
+
+### Phase R1 · Cobalt Strike Family Pack (2026-08-03)
+
+- **30 curated deterministic samples** under
+  `backend/workspace_recovery/phase_r/families/cobalt_strike.json`.
+- **Family DCS**: 100% (30/30 canonical convergence).
+- **Metadata (every sample)**: MITRE ATT&CK ids, behavior taxonomy,
+  IOC list, decoder chain, expected substrings, byte-locked
+  fingerprint (SHA-256 output + certificate + iterations + canonical
+  state + termination reason).
+- **Obfuscation coverage**: IEX/DownloadCradle, iwr|iex pipelines,
+  string-concat URL splitting (2-4 var), variable propagation,
+  base64 -EncodedCommand (long/short/-Enc/-enc), CMD-caret→PS
+  handoff (Emotet-style), env-slice `[string]::Join`
+  reconstruction, hex→b64→UTF-16LE nested chains, backtick alias
+  obfuscation, random-case, reflective assembly-load stubs,
+  process-discovery beacons.
+- **MITRE coverage**: T1059.001 · T1059.003 · T1105 · T1027 ·
+  T1027.010 · T1140 · T1057 · T1564.003 · T1620.
+- **Infrastructure**: `phase_r/r1_loader.py`,
+  `phase_r/r1_runner.py` (with `--strict`),
+  `phase_r/r1_fingerprint_generator.py`,
+  `phase_r/build_cobalt_strike.py`.
+- **CI gate**: `tests/test_phase_r1_cobalt_strike.py` · 62 tests
+  · deterministic across two runs · fingerprint drift = test fail.
+- **Regression proof**: certification corpus DCS **17/17
+  byte-identical** to recorded fingerprints after R1 landing.
+- **Full pytest tally**: **280 tests passing** (218 pre-R1 + 62 R1
+  · zero pre-existing tests modified).
+
+---
+
+## 📍 PRIOR POSITION (2026-08-02)
 
 - **Phase 5.5 · Multi-Pass Convergence Engine** — Implementation in progress.
 - **M1 · Convergence Loop Framework: ✅ COMPLETE** (`backend/workspace/convergence/`).

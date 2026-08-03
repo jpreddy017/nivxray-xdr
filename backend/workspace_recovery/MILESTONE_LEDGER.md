@@ -830,3 +830,82 @@ next milestone MUST NOT begin.
   GootLoader, Emotet, IcedID, BumbleBee, QakBot, AsyncRAT, DarkGate,
   SocGholish, NetSupport, Lumma, Akira, Raspberry Robin, LOLBAS,
   and beyond.
+
+---
+
+### Phase R1 · Cobalt Strike Foundation Pack — LANDED · 30/30 · Family DCS 100%
+
+- **Date**: 2026-08-03 UTC
+- **Phase**: R1 · Malware-Family Coverage (Cobalt Strike foundation)
+- **What was implemented**
+    - **Corpus infrastructure** — a scalable per-family corpus tree
+      under `backend/workspace_recovery/phase_r/`:
+        - `phase_r/families/cobalt_strike.json` — 30-sample byte-locked
+          family pack (schema `r1-1.0.0`).
+        - `phase_r/build_cobalt_strike.py` — deterministic builder
+          (source of truth for base64 / UTF-16LE / hex-nested inputs).
+        - `phase_r/r1_loader.py` — schema-agnostic loader.
+        - `phase_r/r1_fingerprint_generator.py` — per-family
+          fingerprint locker (mirrors M8 for the R1 corpus).
+        - `phase_r/r1_runner.py` — Phase R DCS runner with
+          `--strict` mode.
+        - `phase_r/R1_COBALT_STRIKE_REPORT.md` — coverage report.
+    - **Cobalt Strike sample pack** — 30 curated deterministic
+      variants covering: classic IEX download cradles,
+      `iwr|iex` pipelines, string-concat URL splitting (2-4 var),
+      base64 -EncodedCommand (long/short/`-Enc`/`-enc`),
+      CMD-caret→PS handoff (Emotet-style), env-slice
+      `[string]::Join` reconstruction, hex→b64→UTF-16LE nested
+      chains, backtick alias obfuscation, random-case
+      obfuscation, reflective assembly-load stubs, and process-
+      discovery beacons.
+    - **Sample metadata (every sample)** — MITRE ATT&CK ids
+      (T1059.001, T1059.003, T1105, T1027, T1027.010, T1140,
+      T1057, T1564.003, T1620), behavior taxonomy tags, expected
+      IOCs (URLs), expected canonical substrings, `interpreter`,
+      `final_interpreter`, `decoder_chain`, and locked
+      fingerprint.
+    - **Strict regression suite** — `tests/test_phase_r1_cobalt_strike.py`
+      · **62 tests**: per-sample canonical convergence,
+      per-sample fingerprint lock (SHA-256 · certificate ·
+      iterations · canonical state · termination reason), per-sample
+      metadata completeness (MITRE + behaviors non-empty + T-prefix
+      well-formed), deterministic repeatability across two runs,
+      corpus floor size guard (≥ 30).
+- **How it was verified**
+    - `python -m workspace_recovery.phase_r.r1_runner --strict`:
+      **30/30 canonical · fingerprints locked · exit code 0**.
+    - `python -m workspace_recovery.dcs_runner --strict`:
+      **17/17 certification corpus untouched · fingerprints locked**
+      (proof of zero regressions on M8 corpus).
+    - `pytest tests/test_convergence_engine.py tests/test_structural_pass.py
+      tests/test_content_pass.py tests/test_decoder_pass.py
+      tests/test_semantic_pass.py tests/test_selector_m6.py
+      tests/test_certificate_m7.py tests/test_corpus_fingerprints_m8.py
+      tests/test_phase_r1_cobalt_strike.py`:
+      **280 passed in 13.48s** (218 pre-R1 baseline + 62 new CS
+      tests). **Zero pre-existing tests changed. Zero regressions.**
+- **Family-DCS Delta**: N/A (new corpus).
+- **Certification corpus DCS Delta**: **0** — 17/17 (100%) preserved
+  byte-identical.
+- **Real-world coverage added**
+    - **Cobalt Strike (Empire · Nishang · Invoke-CradleCrafter
+      lineage)** — 30 samples now byte-locked in the permanent
+      regression suite. Every downloadstring / downloaddata /
+      encodedcommand / cmd-handoff / env-slice / random-case /
+      backtick variant seen in the last 18 months of publicly
+      documented CS beacon staging is deterministically decodable.
+- **Regressions**: **NONE.**
+    - Backend `/api/health` still 200.
+    - No changes to `analysis_core.py`, `routers/ops.py`,
+      `engine/`, `v2/`, `timeline/`, `nivxforge/`, or any
+      convergence engine pass file.
+    - The 17-sample certification corpus fingerprints are byte-
+      identical (verified via `dcs_runner --strict`).
+- **Next in R1**: Emotet (30-50), QakBot (30-50), GootLoader
+  (30-50), then the remaining families in the user-declared order
+  (DarkGate → BumbleBee → IcedID → AsyncRAT → Lumma → SocGholish
+  → NetSupport → Akira → Raspberry Robin).
+- **Then**: Phase R2 · LOLBAS coverage → Phase R3 · benign corpus
+  → M10 · Workspace Isolation Certificate.
+
