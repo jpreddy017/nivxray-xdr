@@ -1365,3 +1365,64 @@ next milestone MUST NOT begin.
   \u2192 QakBot \u2192 AsyncRAT \u2192 NetSupport \u2192 BumbleBee
   \u2192 IcedID \u2192 Akira.
 
+
+---
+
+### Phase R1 v2.4 · KPI Panel + SocGholish — LANDED
+
+- **Date**: 2026-08-04 UTC (evening)
+- **What was implemented**
+    - **Coverage Dashboard KPI Panel** \u2014 top-line 7-metric summary
+      surfacing Families Covered / Capabilities Exercised / Sample
+      DCS / Technique Coverage / Transformation Coverage / R1
+      Regression Status / M8 Certification Corpus Status. Emitted as
+      the first section of the human-readable dashboard and as
+      ``kpi_panel`` in the JSON artifact.
+    - **SocGholish (FakeUpdates / TA569) family pack** \u2014 11
+      samples across 8 techniques amortizing the JS decoder pass
+      across a second JS-heavy family: unicode-escape stagers,
+      atob() chains (single + nested), split-reverse-join URL
+      shuffle, split-join delimiter replace, PS -EncodedCommand
+      handoff, string-concat URL, IEX + DownloadString beacons
+      (http + https), and backtick alias obfuscation. 2 declared
+      coverage gaps: ``wscript_shell_exec``, ``javascript_eval_chain``.
+- **KPI Panel snapshot**
+
+    ```
+    Families Covered            6
+    Capabilities Exercised     31 / 31   (100.0%)
+    Sample DCS                 100.0%
+    Technique Coverage          87.1%
+    Transformation Coverage    100.0%
+    R1 Regression Status        PASS
+    M8 Certification Corpus     PASS
+    ```
+
+- **Coverage Matrix (6 families)**
+
+    | Family         | Techs | Samples | Passed | Sample DCS | Tech Cov |
+    |---             |---:   |---:     |---:    |---:        |---:      |
+    | Cobalt Strike  | 14    | 35      | 35     | 100.0%     | 100.0%   |
+    | DarkGate       | 8     | 11      | 11     | 100.0%     | 72.7%    |
+    | GootLoader     | 13    | 26      | 26     | 100.0%     | 100.0%   |
+    | Linux Droppers | 3     | 3       | 3      | 100.0%     | 100.0%   |
+    | Lumma Stealer  | 8     | 10      | 10     | 100.0%     | 72.7%    |
+    | SocGholish     | 8     | 11      | 11     | 100.0%     | 80.0%    |
+    | **Overall**    | \u2014     | **96**  | **96** | **100.0%** | **87.1%** |
+
+- **How it was verified**
+    - `python -m workspace_recovery.phase_r.r1_runner --strict`:
+      **96/96 \u00b7 Sample DCS 100% \u00b7 fingerprints locked**.
+    - Dashboard KPI Panel emits all 7 metrics with PASS status.
+    - `python -m workspace_recovery.dcs_runner --strict`: certification
+      corpus 17/17 byte-identical to M8.
+    - **423 pytest passing** (+15 for SocGholish parametrizations +
+      1 KPI-panel governance test).
+- **Regressions**: NONE. Zero engine changes. SocGholish rides on
+  the JS decoders shipped in R1 v2.1 \u2014 the amortization strategy
+  works as intended: one investment now benefits 2 families
+  (GootLoader + SocGholish) and every future JS-heavy loader.
+- **Next**: Emotet \u2192 QakBot \u2192 IcedID \u2192 AsyncRAT \u2192
+  Raspberry Robin \u2192 NetSupport \u2192 DarkGate script-language
+  decoder pass \u2192 remaining families.
+

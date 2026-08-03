@@ -123,6 +123,19 @@ SAMPLE_CAPABILITIES: dict[str, list[str]] = {
     "LU008": ["string_concat_obfuscation", "variable_propagation_obfuscation", "download_cradle"],
     "LU009": ["backtick_obfuscation", "iwr_pipeline_download"],
     "LU010": ["shellcode_staging", "variable_propagation_obfuscation"],
+
+    # ============ SocGholish =============================================
+    "SG001": ["js_unicode_escape_obf", "seo_poisoning_delivery"],
+    "SG002": ["js_unicode_escape_obf", "javascript_to_powershell_handoff"],
+    "SG003": ["js_atob_obf", "seo_poisoning_delivery"],
+    "SG004": ["js_atob_obf", "javascript_to_powershell_handoff"],
+    "SG005": ["js_split_shuffle_obf", "seo_poisoning_delivery"],
+    "SG006": ["js_split_shuffle_obf", "seo_poisoning_delivery"],
+    "SG007": ["encoded_command", "download_cradle"],
+    "SG008": ["string_concat_obfuscation", "variable_propagation_obfuscation", "download_cradle"],
+    "SG009": ["download_cradle", "beacon_c2"],
+    "SG010": ["iwr_pipeline_download", "beacon_c2"],
+    "SG011": ["backtick_obfuscation", "iwr_pipeline_download"],
 }
 
 

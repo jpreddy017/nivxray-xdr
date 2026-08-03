@@ -13,7 +13,47 @@ Any next agent MUST read this before writing code.
 
 ---
 
-## 📍 CURRENT POSITION (2026-08-04)
+## 📍 CURRENT POSITION (2026-08-04 · evening)
+
+### Phase R1 v2.4 — KPI Panel + SocGholish
+
+- **Coverage Dashboard KPI Panel** now surfaces 7 top-line metrics
+  side-by-side (per owner's Phase R architectural note):
+
+  ```
+  Families Covered            6
+  Capabilities Exercised     31 / 31   (100.0%)
+  Sample DCS                 100.0%
+  Technique Coverage          87.1%
+  Transformation Coverage    100.0%
+  R1 Regression Status        PASS
+  M8 Certification Corpus     PASS
+  ```
+
+- **SocGholish (FakeUpdates / TA569) landed** as 6th family —
+  amortizes the JavaScript decoder pass across a second JS-heavy
+  family. 11 samples · 8 techniques · Sample DCS 100.0% · Technique
+  Coverage 80.0% (2 gaps: `wscript_shell_exec`, `javascript_eval_chain`).
+- **6 families · 96 samples · Sample DCS 100.0% · Transformation
+  Coverage 100.0% · Overall Technique Coverage 87.1%** · **423 pytest**
+  · 0 regressions · certification corpus 17/17 byte-identical.
+
+### Coverage Matrix
+
+```
+Family          Techs  Samples  Passed  Sample DCS  Tech Cov
+Cobalt Strike     14     35       35    100.0%      100.0%
+DarkGate           8     11       11    100.0%       72.7%
+GootLoader        13     26       26    100.0%      100.0%
+Linux Droppers     3      3        3    100.0%      100.0%
+Lumma Stealer      8     10       10    100.0%       72.7%
+SocGholish         8     11       11    100.0%       80.0%
+Overall                  96       96    100.0%       87.1%
+```
+
+---
+
+## 📍 PRIOR POSITION (2026-08-04)
 
 ### Phase R1 v2.3 — Capability Metadata Seed + Lumma Stealer
 

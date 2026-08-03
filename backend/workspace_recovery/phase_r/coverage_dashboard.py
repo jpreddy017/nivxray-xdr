@@ -159,8 +159,34 @@ def build_dashboard() -> dict:
     total_universe = sum(r["known_universe"] for r in family_rows)
     total_covered = sum(r["techniques_passed"] for r in family_rows)
 
+    # Capability KPI \u2014 counts unique capability tags across the whole
+    # R1 corpus. Not a coverage ratio; a raw breadth metric that grows
+    # as new capabilities are exercised.
+    from workspace_recovery.phase_r.capabilities import KNOWN_CAPABILITIES
+    used_capabilities: set[str] = set()
+    for s in load_samples():
+        for c in (s.get("expected") or {}).get("capabilities") or []:
+            used_capabilities.add(c)
+    capability_kpi = {
+        "vocabulary_size": len(KNOWN_CAPABILITIES),
+        "capabilities_exercised": len(used_capabilities),
+        "coverage_pct": 100.0 * len(used_capabilities) / max(len(KNOWN_CAPABILITIES), 1),
+    }
+
     return {
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "kpi_panel": {
+            "families_covered": len(family_rows),
+            "capabilities_exercised": len(used_capabilities),
+            "technique_coverage_pct": 100.0 * total_covered / max(total_universe, 1),
+            "transformation_coverage_pct": xf_agg["overall_coverage_pct"],
+            "sample_dcs_pct": 100.0 * total_passed / max(total_samples, 1),
+            "regression_status": "PASS" if total_passed == total_samples else "FAIL",
+            # Certification corpus status is fed by dcs_runner --strict;
+            # this field is populated by ``_certification_status`` below.
+            "certification_corpus_status": _certification_status(),
+        },
+        "capability_kpi": capability_kpi,
         "families": family_rows,
         "family_overall": {
             "families": len(family_rows),
@@ -176,11 +202,36 @@ def build_dashboard() -> dict:
     }
 
 
+def _certification_status() -> str:
+    """Run the M8 certification corpus strict-mode runner and return
+    a short PASS/FAIL string. Kept side-effect-free (import + call) so
+    it can be embedded in the dashboard artifact."""
+    from workspace_recovery.dcs_runner import main as m8_main
+    import io, contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        exit_code = m8_main(["--strict"])
+    return "PASS" if exit_code == 0 else "FAIL"
+
+
 def _print_dashboard(dash: dict) -> None:
     print("=" * 90)
     print("NivXRay Coverage Dashboard")
     print(f"generated: {dash['generated_at']}")
     print("=" * 90)
+
+    # Top-line KPI Panel
+    kp = dash["kpi_panel"]
+    print("\nKPI Panel")
+    print("-" * 90)
+    print(f"  Families Covered            {kp['families_covered']}")
+    print(f"  Capabilities Exercised      {kp['capabilities_exercised']} / {dash['capability_kpi']['vocabulary_size']}"
+          f"   ({dash['capability_kpi']['coverage_pct']:.1f}%)")
+    print(f"  Sample DCS                  {kp['sample_dcs_pct']:.1f}%")
+    print(f"  Technique Coverage          {kp['technique_coverage_pct']:.1f}%")
+    print(f"  Transformation Coverage     {kp['transformation_coverage_pct']:.1f}%")
+    print(f"  R1 Regression Status        {kp['regression_status']}")
+    print(f"  M8 Certification Corpus     {kp['certification_corpus_status']}")
 
     print("\nFamily Coverage")
     print("-" * 90)

@@ -1,5 +1,19 @@
 {
-  "generated_at": "2026-08-03T09:40:09+00:00",
+  "generated_at": "2026-08-03T09:47:24+00:00",
+  "kpi_panel": {
+    "families_covered": 6,
+    "capabilities_exercised": 31,
+    "technique_coverage_pct": 87.09677419354838,
+    "transformation_coverage_pct": 100.0,
+    "sample_dcs_pct": 100.0,
+    "regression_status": "PASS",
+    "certification_corpus_status": "PASS"
+  },
+  "capability_kpi": {
+    "vocabulary_size": 31,
+    "capabilities_exercised": 31,
+    "coverage_pct": 100.0
+  },
   "families": [
     {
       "family_id": "cobalt_strike",
@@ -55,16 +69,27 @@
       "samples_passed": 10,
       "sample_dcs_pct": 100.0,
       "technique_coverage_pct": 72.72727272727273
+    },
+    {
+      "family_id": "socgholish",
+      "display_name": "SocGholish",
+      "techniques_in_corpus": 8,
+      "known_universe": 10,
+      "techniques_passed": 8,
+      "samples": 11,
+      "samples_passed": 11,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 80.0
     }
   ],
   "family_overall": {
-    "families": 5,
-    "samples": 85,
-    "samples_passed": 85,
+    "families": 6,
+    "samples": 96,
+    "samples_passed": 96,
     "sample_dcs_pct": 100.0,
-    "techniques_known": 52,
-    "techniques_passed": 46,
-    "technique_coverage_pct": 88.46153846153847
+    "techniques_known": 62,
+    "techniques_passed": 54,
+    "technique_coverage_pct": 87.09677419354838
   },
   "transformations": [
     {
