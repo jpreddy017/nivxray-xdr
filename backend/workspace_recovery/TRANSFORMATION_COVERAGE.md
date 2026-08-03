@@ -23,34 +23,36 @@ future workstream with a documented rationale.
 
 | Transformation | Implemented | Certified | Notes |
 |----------------|:-----------:|:---------:|-------|
-| Base64 | ⏳ | ⏳ | M1 target |
-| UTF-16LE | ⏳ | ⏳ | S001 anchor · M6 must certify |
-| UTF-8 | ⏳ | ⏳ |  |
-| Hex | ⏳ | ⏳ |  |
+| Base64 | ✅ | ⏳ | M4 · `decoder-base64-full` (multi-of-4, gzip-magic preferred, UTF-16LE fallback) |
+| UTF-16LE | ✅ | ⏳ | M4 · used inside `decoder-powershell-encoded-command` + `decoder-base64-full` |
+| UTF-8 | ✅ | ⏳ | M4 · fallback path in every text decoder |
+| Hex | ✅ | ⏳ | M4 · `decoder-hex-full` (whole-artifact, printable output) |
 | Octal | ⏳ | ⏳ |  |
 | Binary | ⏳ | ⏳ |  |
 | ASCII decimal | ⏳ | ⏳ |  |
-| Gzip | ⏳ | ⏳ | S05 anchor |
-| Deflate | ⏳ | ⏳ |  |
+| Gzip | ✅ | ⏳ | M4 · gzip.decompress + raw-DEFLATE fallback for broken CRC trailers |
+| Deflate | ✅ | ⏳ | M4 · raw-DEFLATE path in `_try_gzip` |
 | Brotli | ⏳ | ⏳ |  |
-| RC4 | ⏳ | ⏳ | S07 anchor |
+| RC4 | ⏳ | ⏳ | S07 anchor · M5+ |
 | AES | ⏳ | ⏳ |  |
 | ROT-N | ⏳ | ⏳ |  |
 | Caesar | ⏳ | ⏳ |  |
-| XOR (single-byte) | ⏳ | ⏳ | S06 anchor |
+| XOR (single-byte) | ✅ | ⏳ | M4 · `decoder-xor-byte-array` (S06) |
 | XOR (multi-byte) | ⏳ | ⏳ |  |
-| PowerShell aliases (post-decode) | ⏳ | ⏳ | must NOT hijack primary chain |
+| PowerShell aliases (post-decode) | ⏳ | ⏳ | must NOT hijack primary chain · S04 anchor · M5 |
 | PowerShell backticks | ✅ | ⏳ | M3 · `content-backtick-escape-strip` (outside strings, guards EOL) |
 | PowerShell format operator `-f` | ⏳ | ⏳ |  |
 | PowerShell join operator `-join` | ✅ | ⏳ | M2 · quote-safe literal folding; `-join` operator + `[String]::Join()` |
 | PowerShell string concatenation | ✅ | ⏳ | M2 · S04 anchor advanced; `'a'+'b'` and `"a"+"b"` (interpolation-safe) |
-| CMD caret escape | ⏳ | ⏳ | S03 anchor |
+| PowerShell EncodedCommand extraction | ✅ | ⏳ | M4 · `decoder-powershell-encoded-command` (S001, S01, S03 pass) |
+| PowerShell `[Convert]::FromBase64String` fold | ✅ | ⏳ | M4 · `decoder-frombase64string-fold` (with gzip decompression) |
+| CMD caret escape | ✅ | ⏳ | M4 · `structural-cmd-caret-strip` (S03 pass) |
 | CMD runtime reconstruction | ⏳ | ⏳ |  |
 | Environment-variable substitution | ✅ | ⏳ | M3 · 13 static Windows defaults; user/host-specific vars excluded by design |
 | Array slicing / index tricks | ✅ | ⏳ | M3 · single/range/list on SQ literals; enables S013 |
-| Unicode normalization | ⏳ | ⏳ | S08 anchor |
+| Unicode normalization | ✅ | ⏳ | S08 · already handled by JSON parse; canonical text emerges pre-pipeline |
 | Char-code array (JS · decimal) | ⏳ | ⏳ |  |
-| Bash pipeline `rev` / `xxd` / `tr` | ⏳ | ⏳ | S02 anchor |
+| Bash pipeline `rev` / `xxd` / `tr` | ⏳ | ⏳ | S02 anchor · M5 |
 
 **Legend**: ⏳ pending · ✅ implemented · 🏆 certified · ⛔ deferred
 

@@ -261,18 +261,26 @@ class TestIdempotenceAndDeterminism:
 # ─── S01 & S013 corpus anchors ──────────────────────────────────────
 
 
-def test_s01_encoded_command_normalizes_without_corrupting_payload() -> None:
-    """S01: `-EncodedCommand SQBFAFgA...` — the switch normalizes,
-    the base64 payload is preserved bit-for-bit."""
+def test_s01_encoded_command_decodes_to_canonical_script() -> None:
+    """S01: `-EncodedCommand SQBFAFgA...` — M3 case-normalizes the
+    switch, M4's decoder-powershell-encoded-command then extracts the
+    payload, Base64-decodes, and UTF-16LE-decodes into the canonical
+    PowerShell script."""
     payload = (
         "powershell -EncodedCommand "
         "SQBFAFgAKABuAGUAdwAtAG8AYgBqAGUAYwB0ACAAbgBlAHQALgB3AGUAYgBjAGwAaQBlAG4AdAApAC4A"
     )
     result = converge(Artifact.from_input(payload))
     assert result.canonical is True
-    assert "-encodedcommand" in result.final_artifact.content
-    # Payload preserved verbatim.
-    assert "SQBFAFgAKABuAGUAdwAtAG8AYgBqAGUAYwB0ACAAbgBlAHQALgB3AGUAYgBjAGwAaQBlAG4AdAApAC4A" in result.final_artifact.content
+    # Decoded PowerShell script must appear in the artifact.
+    out = result.final_artifact.content
+    assert "IEX" in out
+    assert "new-object" in out.lower()
+    assert "net.webclient" in out.lower()
+    # The encoded prefix and B64 payload have been consumed by the
+    # decoder — they must NOT remain in the final artifact.
+    assert "-encodedcommand" not in out
+    assert "SQBFAFgAKABuAGUAdwAtAG8AYgBqAGUAYwB0" not in out
 
 
 def test_s013_env_slice_reconstruction_progress() -> None:

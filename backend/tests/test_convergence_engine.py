@@ -150,17 +150,12 @@ def test_final_iteration_is_a_no_op() -> None:
 
 
 _UNCHANGED_SAMPLES = [
-    # 10 samples that must remain byte-identical through the current
-    # pipeline (M1 loop + M2 structural + M3 content). Any content-hash
-    # drift on these is an immediate regression.
-    "S001_ps_writehost_tweet",
+    # Samples the current pipeline (M1–M4) intentionally does NOT
+    # transform. Bash pipe interpretation and RC4/OpenSSL orchestration
+    # are M5/M6+ scope; the others are already canonical.
     "S02_bash_xxd_b64_rev",
-    "S03_cmd_caret_escaped",
-    "S05_nested_b64_gzip",
-    "S06_xor_obfuscated",
     "S07_rc4_openssl",
     "S08_unicode_obfuscation",
-    "S09_hex_b64_gzip_chain",
     "S10_bash_with_powershell_comment",
     "S012_plaintext_anchor",
 ]

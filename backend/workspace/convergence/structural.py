@@ -151,14 +151,39 @@ def _fold_static_join(content: str) -> tuple[str, int]:
     return _STATIC_JOIN_RE.sub(_repl, content), fires
 
 
+# ─── Fold 4 · CMD caret escape strip (M4 addendum) ──────────────────
+# Removes CMD-style caret escapes between two alphanumerics (S03's
+# ``c^m^d /c p^ow^ers^he^ll`` obfuscation trick). NEVER touches
+# carets inside quoted strings — quote-safety is enforced with the
+# same alternation-mask pattern used in content.py.
+_QUOTED_PREFIX = r"(?P<sq>'[^'\r\n]*')|(?P<dq>\"[^\"\r\n]*\")"
+_CARET_RE = re.compile(
+    _QUOTED_PREFIX
+    + r"|(?<=[A-Za-z0-9])(?P<caret>\^)(?=[A-Za-z0-9])",
+)
+
+
+def _fold_cmd_caret_strip(content: str) -> tuple[str, int]:
+    fires = 0
+
+    def _repl(m: re.Match[str]) -> str:
+        nonlocal fires
+        if m.group("sq") is not None or m.group("dq") is not None:
+            return m.group(0)
+        fires += 1
+        return ""
+
+    return _CARET_RE.sub(_repl, content), fires
+
+
 # ─── Pass entrypoint ────────────────────────────────────────────────
 # Order: static-join first (largest structure), then -join operator,
-# then string concat. This lets the pass fold a nested static-join in
-# the same call rather than waiting for a subsequent iteration.
+# then string concat, then caret strip.
 _FOLDS: tuple[tuple[str, callable], ...] = (
     ("structural-static-join-fold", _fold_static_join),
     ("structural-join-operator-fold", _fold_join_operator),
     ("structural-string-concat-fold", _fold_string_concat),
+    ("structural-cmd-caret-strip", _fold_cmd_caret_strip),
 )
 
 

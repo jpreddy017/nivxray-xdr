@@ -34,8 +34,18 @@ Any next agent MUST read this before writing code.
   - **S013 anchor advances**: `$env:ComSpec[4,15,25]` → `('i','e','x')`;
     `$env:Public[12]+$env:ProgramFiles[9]` cascades through M2 to
     `'lm'`.
-  - **118/118 tests · 0 regressions · `/api/health` = 200.**
-- **Next**: M4 · Decoder Pass Integration (first DCS-measured milestone).
+- **M4 · Decoder Pass Integration: ✅ COMPLETE**.
+  - Five chain-native decoders: PowerShell EncodedCommand,
+    FromBase64String fold, hex-full, base64-full (with gzip +
+    raw-DEFLATE fallback), XOR byte array.
+  - Added `structural-cmd-caret-strip` (S03 enabler).
+  - New `dcs_runner.py` publishes per-category + overall DCS.
+  - **DCS = 76.9% (10/13)** · PowerShell 5/7 · CMD 1/1 · Bash 2/3 ·
+    Mixed 2/2. First DCS-measured milestone — spec floor was
+    ≥ 8/13, surpassed by 2.
+  - **136/136 tests · 0 regressions · `/api/health` = 200.**
+- **Next**: M5 · Semantic Pass Integration (alias expansion,
+  canonical reconstruction).
 - **Ledger**: `backend/workspace_recovery/MILESTONE_LEDGER.md` (append-only).
 - **Feature Freeze**: In effect until M6.
 

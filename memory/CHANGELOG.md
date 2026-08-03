@@ -2,6 +2,56 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-08-02 · Phase 5.5 · M4 Decoder Pass — COMPLETE · DCS 76.9%
+
+**Ships:**
+- `backend/workspace/convergence/decoder.py` populated with five
+  chain-native decoders (all registered via `Transformation`
+  metadata):
+    1. `decoder-powershell-encoded-command` — extract `-enc*` arg,
+      Base64 + UTF-16LE (fallback UTF-8), replace entire invocation
+      with decoded script.
+    2. `decoder-frombase64string-fold` — `[Convert]::FromBase64String
+      ('B64')` → SQ literal (with gzip + raw-DEFLATE fallback).
+    3. `decoder-hex-full` — entire artifact hex → UTF-8/latin-1.
+    4. `decoder-base64-full` — entire artifact Base64 → gzip / UTF-16LE
+      / UTF-8. Multi-layer chains (hex → base64) resolve automatically.
+    5. `decoder-xor-byte-array` — `0xNN,0xNN,... xor 0xNN` → plaintext.
+- `backend/workspace/convergence/structural.py` gains
+  `structural-cmd-caret-strip` (S03 enabler — CMD `^` obfuscation
+  removal, quote-safe).
+- `backend/workspace_recovery/dcs_runner.py` — the DCS scorer. Prints
+  per-category + overall metrics in the owner's requested format
+  (`PowerShell N/N · CMD N/N · Bash N/N · Mixed N/N · Overall N/N`).
+- `backend/tests/test_decoder_pass.py` (35 tests). Combined suite:
+  **136/136 passing in 0.43s**.
+
+**DCS: 10/13 = 76.9% (spec floor ≥ 8/13 surpassed by 2 samples).**
+
+Per-category:
+- **PowerShell** 5/7 (S001, S01, S08, S012, S013 pass;
+  S04 needs alias-expand M5, S05 needs corpus fix M9)
+- **CMD** 1/1 (S03)
+- **Bash** 2/3 (S07, S10 pass; S02 needs bash pipe support M5)
+- **Mixed** 2/2 (S06, S09)
+
+**Regressions: 0.**
+- Backend `/api/health` still 200.
+- No changes to `analysis_core.py`, `routers/ops.py`, `engine/`,
+  `v2/`, `timeline/`, or `nivxforge/`.
+- Unchanged-samples list refactored (10 → 5) to reflect that S001,
+  S03, S05, S06, S09 now correctly decode — every decoding is
+  enforced by dedicated tests.
+
+**Coverage matrix updates** (in `TRANSFORMATION_COVERAGE.md`):
+- Base64 · UTF-16LE · Hex · GZIP · XOR · CMD caret escape ·
+  PowerShell EncodedCommand argument extraction → ✅ implemented.
+
+**Next milestone:** M5 · Semantic Pass Integration (alias expansion,
+bash pipe reduction, canonical folding).
+
+---
+
 ## 2026-08-02 · Phase 5.5 · M3 Content Pass — COMPLETE
 
 **Ships:**
