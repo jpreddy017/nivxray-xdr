@@ -181,6 +181,293 @@ def _apply_ingress_gate_safe(text: str) -> Tuple[str, Optional[str]]:
         return text, None
 
 
+# ─── Bash echo-base64-pipe short-circuit ────────────────────────────────
+# Matches classic Linux LotL:
+#   echo "<b64>" | base64 -d
+#   echo '<b64>' | base64 -d | bash
+#   echo <b64> | base64 --decode | sh
+#   echo "<b64>" | tr 'X' 'Y' | base64 -d [| bash]  ← character-substitution obfuscation
+#   echo "<b64>" | rev | base64 -d               ← reversal obfuscation
+# L0 has no bash-pipeline decoder and interpreter-ownership incorrectly
+# flags `echo` as the PowerShell alias for `Write-Output`, producing
+# ─── Bash shell-pipeline decoder (plugin-registry) ──────────────────────
+# Instead of adding a new regex every time a new obfuscation combo
+# appears (base64 / xxd / gunzip / openssl / …), we parse the shell
+# pipeline into stages and dispatch each stage to a Python-side
+# deterministic handler. Adding support for a new obfuscation combo
+# = adding one plugin entry to the registries below.
+#
+# Design contract:
+#   • Every handler is READ-ONLY — never shells out.
+#   • Every handler is DETERMINISTIC — same input → same output.
+#   • Handlers separated into three classes:
+#       SOURCES     — produce the initial blob (echo / printf).
+#       TRANSFORMS  — reshape the blob (tr / rev / sed).
+#       DECODERS    — convert blob into decoded bytes (base64 -d,
+#                     xxd -r -p, gunzip, openssl enc -d, …).
+#       EXECUTORS   — terminal labels only (bash / sh / /bin/bash).
+#   • A valid pipeline is: SOURCE [TRANSFORM…] DECODER [EXECUTOR].
+#
+# Read the module docstring "Extending the bash pipeline decoder"
+# below for the checklist to add new plugins.
+import base64 as _bash_b64
+
+
+# 1) Sources ------------------------------------------------------------
+_SOURCE_ECHO_RE = re.compile(
+    r"""^\s*echo\s+(?:-n\s+)?["']?(?P<blob>[A-Za-z0-9+/=_\-\s]{8,}?)["']?\s*$""",
+    re.IGNORECASE | re.VERBOSE,
+)
+_SOURCE_PRINTF_RE = re.compile(
+    r"""^\s*printf\s+(?:'%s\\n'|"%s\\n"|'%s'|"%s"|%s)\s+["']?(?P<blob>[A-Za-z0-9+/=_\-\s]{8,}?)["']?\s*$""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _parse_source(step: str) -> Optional[str]:
+    for rx in (_SOURCE_ECHO_RE, _SOURCE_PRINTF_RE):
+        m = rx.match(step)
+        if m:
+            return m.group("blob").strip()
+    return None
+
+
+# 2) Transforms ---------------------------------------------------------
+_TR_STEP_RE = re.compile(
+    r"""^tr\s+
+        (?:'(?P<from_sq>[^']*)'|"(?P<from_dq>[^"]*)"|(?P<from_bare>\S+))
+        \s+
+        (?:'(?P<to_sq>[^']*)'|"(?P<to_dq>[^"]*)"|(?P<to_bare>\S+))\s*$""",
+    re.VERBOSE,
+)
+
+
+def _apply_transform(step: str, blob: str) -> Optional[str]:
+    s = step.strip().lower()
+    if s == "rev":
+        return blob[::-1]
+    if s.startswith("cat") and len(s.split()) == 1:
+        return blob      # `cat` alone — pass-through
+    m = _TR_STEP_RE.match(step.strip())
+    if m:
+        _from = (m.group("from_sq") or m.group("from_dq")
+                  or m.group("from_bare") or "")
+        _to = (m.group("to_sq") or m.group("to_dq")
+                or m.group("to_bare") or "")
+        if len(_from) != len(_to):
+            return None  # POSIX tr with unequal lengths — refuse.
+        return blob.translate(str.maketrans(_from, _to))
+    # (sed / awk / cut plugins can be added here as needed.)
+    return None
+
+
+# 3) Decoders (terminal transformation) --------------------------------
+def _decode_base64(blob: str) -> Optional[str]:
+    clean = re.sub(r"\s+", "", blob).strip("=")
+    padded = clean + "=" * ((-len(clean)) % 4)
+    try:
+        return _bash_b64.b64decode(padded, validate=True).decode("utf-8")
+    except Exception:
+        return None
+
+
+def _decode_hex(blob: str) -> Optional[str]:
+    clean = re.sub(r"\s+", "", blob)
+    if len(clean) % 2 != 0 or not re.match(r"^[0-9a-fA-F]+$", clean):
+        return None
+    try:
+        return bytes.fromhex(clean).decode("utf-8")
+    except Exception:
+        return None
+
+
+def _decode_gunzip(blob: str) -> Optional[str]:
+    # Only useful when blob is already binary — the b64/hex handlers
+    # above will typically produce bytes first then `gunzip` runs on
+    # those bytes. Left as a stub for future composition.
+    return None
+
+
+# Registry of decoder commands the pipeline may terminate with.
+# Every entry: regex → handler(blob) → decoded_str.
+_BASH_DECODERS: List[Tuple[re.Pattern, "callable"]] = [
+    (re.compile(r"^\s*base64\s+(?:-d|--decode|-D)\s*$", re.IGNORECASE),
+     _decode_base64),
+    (re.compile(r"^\s*xxd\s+-r\s+-p\s*$", re.IGNORECASE),
+     _decode_hex),
+    (re.compile(r"^\s*xxd\s+-p\s+-r\s*$", re.IGNORECASE),
+     _decode_hex),
+    (re.compile(r"^\s*od\s+-A\s*n\s+-t\s*x1?\s*$", re.IGNORECASE),
+     _decode_hex),
+    (re.compile(r"^\s*g(?:un)?zip\s+(?:-d)?\s*$", re.IGNORECASE),
+     _decode_gunzip),
+]
+
+
+def _match_decoder(step: str):
+    for rx, fn in _BASH_DECODERS:
+        if rx.match(step):
+            return fn
+    return None
+
+
+# 4) Executors (terminal labels — presence, not transformation) --------
+_EXEC_TAILS_RE = re.compile(
+    r"""^(?:bash|sh|/bin/(?:ba)?sh|zsh|dash)\s*$""",
+    re.IGNORECASE,
+)
+
+
+def _try_bash_shell_pipeline(text: str) -> Optional[Dict[str, Any]]:
+    """Parse a bash pipeline of the form
+        SOURCE | TRANSFORM* | DECODER [| EXECUTOR]
+    into a deterministic decoded output artifact.
+
+    Returns ``None`` when the pipeline does not match this schema —
+    caller then falls through to the L0 engine.
+    """
+    if "|" not in (text or ""):
+        return None
+    steps = [s.strip() for s in text.split("|") if s.strip()]
+    if len(steps) < 2:
+        return None
+
+    # SOURCE
+    blob = _parse_source(steps[0])
+    if blob is None:
+        return None
+
+    # Optional EXECUTOR at the tail
+    exec_shell = False
+    if _EXEC_TAILS_RE.match(steps[-1]):
+        exec_shell = True
+        steps = steps[:-1]
+
+    if len(steps) < 2:
+        return None
+
+    # DECODER must be the last stage now
+    decoder = _match_decoder(steps[-1])
+    if decoder is None:
+        return None
+
+    # TRANSFORM stages (may be empty)
+    cur = blob
+    pre_steps: List[str] = []
+    for step in steps[1:-1]:
+        pre_steps.append(step)
+        cur = _apply_transform(step, cur)
+        if cur is None:
+            return None
+
+    decoded = decoder(cur)
+    if decoded is None or not decoded.strip():
+        return None
+
+    return {
+        "decoded":     decoded,
+        "blob":        cur,
+        "source":      steps[0],
+        "decoder":     steps[-1],
+        "pre_steps":   pre_steps,
+        "exec_shell":  exec_shell,
+    }
+
+
+# Public alias — kept for existing recover_canonical_evidence call site.
+def _try_bash_echo_b64_short_circuit(text: str) -> Optional[Dict[str, Any]]:
+    """Compat shim over the generic ``_try_bash_shell_pipeline`` — same
+    return shape as before with ``decoded``/``exec_shell``/``pre_steps``
+    plus the added ``blob``/``source``/``decoder`` diagnostic fields.
+    """
+    r = _try_bash_shell_pipeline(text or "")
+    if r is None:
+        return None
+    # Backward-compat field name: b64 → blob (the pre-decoder buffer).
+    return {
+        "decoded":    r["decoded"],
+        "b64":        r["blob"],
+        "exec_shell": r["exec_shell"],
+        "pre_steps":  r["pre_steps"],
+    }
+
+
+# ─── PowerShell env-var reassembly short-circuit ────────────────────────
+# Detects the classic PowerShell dynamic-assembly obfuscation:
+#     set-item env:x 'Write-'; set-item env:y 'Output "hi"';
+#     iex (gci env:x).value(gci env:y).value
+# The obfuscator splits a command across env vars and reassembles
+# them via `iex (gci env:X).value + (gci env:Y).value + ...`.
+# We rebuild the effective command deterministically.
+# Positive interpreter identification: `powershell(.exe)?` or `pwsh`
+# must be present (Governance Rule 19).
+_PS_ENV_ASSIGN_RE = re.compile(
+    r"""(?ix)
+    (?:set-item|new-item|\$env:)\s*
+    (?:env:)?(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*[= ]\s*
+    (?:'(?P<value_sq>[^']*)'|"(?P<value_dq>[^"]*)")
+    """,
+)
+_PS_ENV_LOOKUP_RE = re.compile(
+    r"""(?ix)
+    \(\s*(?:gci|get-childitem|get-item|gi)\s+env:(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\)\.value
+    """,
+)
+_PS_HOST_RE = re.compile(r"(?i)(?:powershell(?:\.exe)?|pwsh)")
+
+
+def _try_ps_env_reassembly_short_circuit(text: str) -> Optional[Dict[str, Any]]:
+    """Deterministically reverse the env-var reassembly obfuscation.
+
+    Returns None when the pattern does not apply (caller falls through
+    to L0). Interpreter ownership: only fires when `powershell.exe` or
+    `pwsh` is present in the raw input.
+    """
+    raw = text or ""
+    if not _PS_HOST_RE.search(raw):
+        return None
+    assignments = {
+        m.group("name").lower(): (m.group("value_sq") if m.group("value_sq") is not None
+                                   else m.group("value_dq"))
+        for m in _PS_ENV_ASSIGN_RE.finditer(raw)
+    }
+    if not assignments:
+        return None
+    # Substitute every (gci env:X).value occurrence with the assigned
+    # literal in the order they appear.
+    def _sub(m):
+        name = m.group("name").lower()
+        val = assignments.get(name)
+        return f"'{val}'" if val is not None else m.group(0)
+    substituted = _PS_ENV_LOOKUP_RE.sub(_sub, raw)
+    if substituted == raw:
+        return None  # No lookups fired — not this obfuscation class.
+    # Extract the effective command AFTER `iex`. Find all single-quoted
+    # literal fragments on the iex line; concatenation is the PS default
+    # for `'A''B'` and `'A'+'B'` alike, so `join` gives the real command.
+    m_iex = re.search(r"(?is)\biex\b\s*\(?(?P<tail>[^;]*)", substituted)
+    if m_iex:
+        tail = m_iex.group("tail")
+        pieces = re.findall(r"'([^']*)'", tail)
+        if pieces:
+            decoded = "".join(pieces).strip()
+            if decoded:
+                return {
+                    "decoded":       decoded,
+                    "assignments":   assignments,
+                    "substituted":   substituted,
+                    "reassembly":    "iex-env-lookup",
+                }
+    # Fall back to returning the substituted script itself (the analyst
+    # sees the reassembled but not-yet-executed PowerShell).
+    return {
+        "decoded":     substituted,
+        "assignments": assignments,
+        "substituted": substituted,
+        "reassembly": "env-lookup-only",
+    }
+
+
 # ─── PowerShell -EncodedCommand short-circuit ───────────────────────────
 _PS_ENC_RE = re.compile(
     r"powershell(?:\.exe)?[^\n]*?\-e(?:nc|c|ncodedcommand)?\s+"
@@ -289,7 +576,73 @@ def recover_canonical_evidence(
         )
         return art
 
-    # 3) PowerShell -EncodedCommand short-circuit ----------------------
+    # 3) Bash echo-base64-pipe short-circuit --------------------------
+    # Interpreter-ownership guard: catch classic Linux LotL bash
+    # pipelines BEFORE L0 runs so PowerShell `echo`→`Write-Output`
+    # alias normalization can't kick in on a bash command.
+    bash_short = _try_bash_echo_b64_short_circuit(gated_text)
+    if bash_short is not None:
+        decoded = bash_short["decoded"]
+        notes = [
+            "Bash echo-base64 pipeline detected — deterministic "
+            "b64 recovery ran before any PowerShell alias normalization.",
+        ]
+        if bash_short["exec_shell"]:
+            notes.append(
+                "Payload is piped into `bash`/`sh` at runtime — the "
+                "decoded text is what the shell will execute."
+            )
+        art = CanonicalArtifact(
+            raw_input=gated_text,
+            input_hash=_sha256_str(gated_text),
+            terminal_state="recovered",
+            decoded_output=decoded,
+            output_hash=_sha256_str(decoded),
+            chain_steps=[{"op": "decoder-bash-echo-b64-pipe", "args": {}}],
+            chain_ids=["decoder-bash-echo-b64-pipe"],
+            engine="bash-echo-b64-pipe",
+            reached_shellcode=False,
+            confidence=100,
+            detected_type={"type": "bash_lotl",
+                            "label": "Bash echo | base64 -d [| bash] pipeline"},
+            notes=notes,
+            ingress_normalised_via=ingress_via,
+            original_raw_input=original_raw if ingress_via else None,
+            stability_gate_reached=False,
+        )
+        return art
+
+    # 4) PowerShell env-var reassembly short-circuit -------------------
+    ps_env = _try_ps_env_reassembly_short_circuit(gated_text)
+    if ps_env is not None:
+        decoded = ps_env["decoded"]
+        art = CanonicalArtifact(
+            raw_input=gated_text,
+            input_hash=_sha256_str(gated_text),
+            terminal_state="recovered",
+            decoded_output=decoded,
+            output_hash=_sha256_str(decoded),
+            chain_steps=[{"op": "decoder-ps-env-reassembly", "args": {}}],
+            chain_ids=["decoder-ps-env-reassembly"],
+            engine="ps-env-reassembly",
+            reached_shellcode=False,
+            confidence=100,
+            detected_type={"type": "ps_env_reassembly",
+                            "label": ("PowerShell env-var dynamic "
+                                      "reassembly obfuscation")},
+            notes=[
+                ("PowerShell env-var reassembly detected. Substituted "
+                 f"{len(ps_env['assignments'])} env-var lookup(s) with "
+                 "their literal values."),
+                (f"Reassembly kind: {ps_env['reassembly']}"),
+            ],
+            ingress_normalised_via=ingress_via,
+            original_raw_input=original_raw if ingress_via else None,
+            stability_gate_reached=False,
+        )
+        return art
+
+    # 5) PowerShell -EncodedCommand short-circuit ----------------------
     ps_short = _try_ps_encoded_short_circuit(gated_text)
     if ps_short is not None:
         rep = ps_short["report"]

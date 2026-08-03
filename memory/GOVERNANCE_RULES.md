@@ -481,3 +481,72 @@ concise, single-purpose message tied to that terminal state:
 Everything else in the response still lives in its dedicated
 panel.
 
+
+
+---
+
+## Rule 19 · Interpreter Ownership (Positive Identification Only)
+
+**Approved**: 2026-08-05 · Owner directive after the bash
+`echo "<b64>" | base64 -d | bash` mis-decode incident.
+
+Interpreter-specific transformations (PowerShell alias normalize,
+cmd env-var expansion, JS `eval`, VBS `Execute`, WMI namespace
+resolution, python exec, perl `eval`, php `assert`, etc.) MUST
+fire ONLY when the input positively identifies the interpreter.
+
+### Positive interpreter identifiers (allowed to trigger)
+
+- Explicit executable / launcher: `powershell.exe`, `pwsh`,
+  `cmd.exe`, `bash`, `sh`, `/bin/bash`, `wscript.exe`,
+  `mshta.exe`, `python`, `perl`, `php`, `node`, `rundll32.exe`,
+  `regsvr32.exe`, `certutil.exe`, `certreq.exe`.
+- Shebang: `#!/bin/bash`, `#!/usr/bin/env python`, etc.
+- Script wrapper / extension in the payload: `.ps1`, `.bat`,
+  `.cmd`, `.vbs`, `.js`, `.hta`, `.py`, `.pl`, `.php`.
+- Language-specific syntax that ONLY that interpreter accepts —
+  e.g. PowerShell `[System.X]::Y()`, `-EncodedCommand`, bash
+  `${var:-default}`, VBS `CreateObject("WScript.Shell")`.
+
+### Not sufficient (must NOT trigger interpreter normalization alone)
+
+- Bare aliases: `echo`, `write`, `print`, `ls`, `dir`.
+- Common cross-shell tokens: `|`, `&&`, `>`, `<`, `2>&1`.
+- English words: `set`, `get`, `find`, `where`, `select`.
+- Generic file paths.
+
+### Enforcement
+
+- Any L0 or router-side transformation that assumes a specific
+  interpreter MUST document its positive-identification test in
+  the transformation module docstring.
+- Reviewers of any new transformation ask: "Under what precise
+  condition does this fire? Is that condition specific to the
+  claimed interpreter?" If the answer is a bare alias, the
+  transformation is rejected until the guard is tightened.
+- When a transformation is caught firing on a wrong interpreter
+  (as `powershell-alias-normalize` did for bash `echo`), the
+  IMMEDIATE fix is a pre-canonical short-circuit in
+  `services/canonical_evidence_recovery.py` for the correct
+  interpreter's own decoder path — NOT an in-place patch of the
+  frozen L0 transformation.
+
+### Regression-test contract
+
+- Every new pre-canonical short-circuit MUST ship with:
+  - Positive tests: N wrapper variants that all recover the
+    same canonical output.
+  - Negative shadow tests: at least one payload that MUST NOT
+    trigger the new short-circuit (e.g. the bash decoder must
+    not grab PS `-EncodedCommand` inputs).
+  - Malformed-input tolerance: invalid b64 / broken wrappers
+    fall through cleanly, no exceptions raised.
+
+### Precedents
+
+- **RC4.3 PS -EncodedCommand short-form fix (2026-08-05)** —
+  positive identifier: `powershell(.exe)?` + valid PS switch
+  prefix `-e[…]`.
+- **decoder-bash-echo-b64-pipe (2026-08-05)** — positive
+  identifier: `echo <b64> | base64 -[dD]|--decode` full pattern.
+
