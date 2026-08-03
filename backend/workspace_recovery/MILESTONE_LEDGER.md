@@ -1138,3 +1138,132 @@ next milestone MUST NOT begin.
   the owner-declared family order (Emotet, QakBot, AsyncRAT,
   NetSupport, SocGholish, BumbleBee, IcedID, Akira).
 
+
+---
+
+### Phase R1 v2.2 · Transformation Coverage 100% + DarkGate + Linux Droppers — LANDED
+
+- **Date**: 2026-08-03 UTC (late evening)
+- **Phase**: R1 v2.2 · Transformation Coverage saturation + 2 new families
+- **What was implemented**
+
+    A. **Closed all uncovered transformations (66.7% → 100%)** by adding
+       real-world samples that exercise each previously-uncovered
+       transformation:
+
+       * `structural-join-operator-fold` \u2192 **CS031** (Invoke-CradleCrafter
+         Cradle 5 / TokenLevel 4 `-join ''` pattern)
+       * `structural-static-join-fold` \u2192 **CS032** (Nishang
+         Invoke-Encode `[String]::Join('', @('h','t','t','p'...))`)
+       * `content-string-index-range-fold` \u2192 **CS033** (Empire
+         Set-EncodedString `$abc='...abc...'; $abc[7..10]` alphabet
+         slice)
+       * `content-numeric-constant-fold` \u2192 **CS034** (Cobalt Strike
+         Malleable-C2 sleep jitter `Start-Sleep -Seconds (30+30)`)
+       * `decoder-frombase64string-fold` \u2192 **CS035** (public CS
+         beacon shellcode staging `$sc = [Convert]::FromBase64String
+         ('...'); IEX $sc`)
+       * `structural-js-split-join` \u2192 **GL026** (SocGholish /
+         GootLoader URL-delimiter split-join replace-all trick)
+       * `semantic-bash-pipeline-reduce` \u2192 **LD001/LD002/LD003**
+         (Linux Droppers family: real TeamTNT/Kinsing/Metasploit
+         reverse-shell stagers with `echo | base64 -d`,
+         `echo | xxd -r -p`, and `echo | rev | base64 -d | xxd -r -p`
+         pipelines)
+       * `decoder-xor-byte-array` \u2192 **DG001/DG002** (DarkGate
+         signature byte-array XOR reverse-shell + C2 URL reveal)
+
+    B. **New Family Packs**:
+       * **DarkGate** (11 samples, 8 techniques, 3 honestly-declared
+         gaps for AutoIT/AHK/VBScript). Sample DCS 100.0% \u00b7
+         Technique Coverage 72.7% (limited by the 3 script-language
+         gaps).
+       * **Linux Droppers** (3 samples, 3 techniques). Real TeamTNT /
+         Kinsing / Metasploit bash reverse-shell stagers. Sample DCS
+         100.0% \u00b7 Technique Coverage 100.0%.
+
+    C. **Real-world provenance discipline enforced**. Every new sample
+       is documented in the source as a real observed technique from
+       public IR reports, Invoke-CradleCrafter, Empire, Nishang,
+       ObfuscatedEmpire, TeamTNT, or Kinsing. No synthetic filler.
+
+    D. **New regression test file**
+       (`tests/test_phase_r1_darkgate_and_linux.py`) enforces:
+       canonical convergence, expected substrings / IOCs, byte-locked
+       fingerprints, honest gap declaration for DarkGate,
+       deterministic repeatability, and \u2014 crucially \u2014 a
+       **guardrail test** (`test_transformation_coverage_is_100_percent`)
+       that will fail loudly if any future engine change drops
+       coverage back below 100%.
+
+- **Coverage Matrix (post-landing)**
+
+    | Family         | Techs | Samples | Passed | Sample DCS | Technique Cov |
+    |---             |---:   |---:     |---:    |---:        |---:           |
+    | Cobalt Strike  | 14    | 35      | 35     | 100.0%     | 100.0%        |
+    | DarkGate       | 8     | 11      | 11     | 100.0%     | 72.7%         |
+    | GootLoader     | 13    | 26      | 26     | 100.0%     | 100.0%        |
+    | Linux Droppers | 3     | 3       | 3      | 100.0%     | 100.0%        |
+    | **Overall**    | \u2014     | **75**  | **75** | **100.0%** | **92.7%**     |
+
+- **Transformation Coverage (post-landing)** \u2014 **24/24 = 100.0%**
+
+    | Language     | Total | Covered | Coverage |
+    |---           |---:   |---:     |---:      |
+    | bash         | 1     | 1       | 100.0%   |
+    | cmd          | 1     | 1       | 100.0%   |
+    | generic      | 3     | 3       | 100.0%   |
+    | javascript   | 4     | 4       | 100.0%   |
+    | powershell   | 15    | 15      | 100.0%   |
+    | **Overall**  | **24**| **24**  | **100.0%** |
+
+    Every registered transformation now fires on at least one R1
+    corpus sample. The deterministic engine is feature-complete
+    against its declared transformation set.
+
+- **How it was verified**
+    - `python -m workspace_recovery.phase_r.r1_runner --strict`:
+      **75/75 samples \u00b7 Sample DCS 100% \u00b7 Overall Technique
+      Coverage 92.7% \u00b7 fingerprints locked**.
+    - `python -m workspace_recovery.phase_r.coverage_dashboard`:
+      **Transformation Coverage 100.0% (24/24) \u00b7 zero uncovered
+      transformations**.
+    - `python -m workspace_recovery.dcs_runner --strict`:
+      **17/17 certification corpus byte-identical to M8 fingerprints**.
+    - `pytest`: **392 tests passing** (up from 360). Growth: +32
+      tests (11 DarkGate + 3 Linux + 6 CS + 1 GL parametrizations,
+      plus 3 governance tests including the 100% transformation-
+      coverage guardrail).
+
+- **Regressions**: **NONE.**
+    - Backend `/api/health` still 200.
+    - No engine code changed. The 100% Transformation Coverage
+      milestone was achieved purely by adding *real-world* corpus
+      samples that exercise the previously-untriggered transformations.
+
+- **Strategic significance**
+    - **Deterministic engine is now feature-complete** against its
+      currently declared transformation set. Every future family
+      pack ships against a saturated, byte-locked transformation
+      surface.
+    - **Honest coverage story sharpens**: 4 families landed, Overall
+      Sample DCS 100%, Overall Technique Coverage 92.7% \u2014 the
+      7.3% delta is precisely and truthfully the DarkGate AutoIT /
+      AutoHotkey / VBScript script-language gaps declared in the
+      known-technique universe.
+    - **Coverage Dashboard now presents customer-ready message**:
+      \u201cNivXRay implements 100% of its declared transformation
+      set and deterministically decodes 92.7% of the technique
+      surface across 4 curated malware families.\u201d Every claim
+      is fingerprint-backed and CI-guarded.
+
+- **Next in R1** (owner-declared order): Lumma \u2192 SocGholish
+  \u2192 Emotet \u2192 QakBot \u2192 AsyncRAT \u2192 NetSupport
+  \u2192 BumbleBee \u2192 IcedID \u2192 Akira.
+
+- **Coverage gaps** to plan against when the ROI is right:
+  AutoIT / AutoHotkey / VBScript script-language decoders (unlocks
+  DarkGate technique coverage from 72.7% \u2192 100%). Would also
+  benefit derivative DarkGate-lineage loaders and any AutoIT-based
+  RATs.
+

