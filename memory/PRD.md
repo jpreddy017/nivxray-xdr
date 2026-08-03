@@ -15,6 +15,52 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## 📍 CURRENT POSITION (2026-08-05 · PR-3 Workspace Shell delivered)
+
+### PR-3 · L4 Analyst Workspace Shell — DELIVERED (scope-locked)
+
+**ARB scope (strict shell-only per Aug 2026 directive)**:
+- `/investigate` and `/investigate/:caseId` routes
+- Workspace shell / layout / navigation
+- Mode selector (§8.2)
+- State pill + Advance button (§8.1)
+- Empty lens tabs / placeholders (§9)
+- Comprehensive `data-testid` map
+- Page/state lifecycle (idle · loading · ready · error · empty)
+- Persistence indicator wired to PUT `/api/investigation/{id}/workspace`
+
+**Explicit out-of-scope confirmed absent** (per ARB) — no Executive
+Summary, no Attack Story, no MITRE / IOC / Capability cards, no
+graphs, no timelines, no reports, no detection rules, no
+investigation business logic. Lens placeholders explicitly label the
+future PR that populates each lens (Summary/Story → PR-4,
+Timeline/Evidence → PR-5, Analysis/Exports → PR-6).
+
+**Non-regression proven** — legacy `/` (WorkspacePage) untouched:
+`input-textarea`, `btn-nivxray-decode`, `btn-auto-investigate` all
+present and functional. Live UI verified with 4 screenshots
+(empty state, summary lens, evidence lens after switch, existing
+Workspace intact).
+
+**Files**
+- `frontend/src/workspace_v4/AnalystWorkspaceShellPage.jsx`
+- `frontend/src/workspace_v4/LensTabs.jsx`
+- `frontend/src/workspace_v4/ModeSelector.jsx`
+- `frontend/src/workspace_v4/StatePill.jsx`
+- `frontend/src/workspace_v4/investigationApi.js`
+- `frontend/src/workspace_v4/testIds.js`
+- Route wired in `frontend/src/App.js` (already present).
+
+**Damage-prevention gates**
+- DCS strict runner: 17/17 byte-identical.
+- R1 strict runner: 107/107 byte-identical.
+
+**Status**: DELIVERED · ARB Phase-A observability + PR-3 shell now
+merged. Awaiting ARB sign-off before starting PR-4 (Executive
+Summary + Attack Story lens content).
+
+---
+
 ## 📍 CURRENT POSITION (2026-08-05 · PR-2.2 Phase A delivered)
 
 ### PR-2.2 Phase A · Real Per-Stage Deterministic Trace — DELIVERED
