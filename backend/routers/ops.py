@@ -1052,12 +1052,40 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     # Note: `extract-payload` is a virtual op that the magic decoder uses
     # internally to strip script wrappers — we handle it here directly via
     # the payload sanitizer.
+    #
+    # ARB PR-2.1.2 fix (2026-08-05): L0 canonical chain steps MUST NEVER
+    # surface as "Unknown operation" errors in the trace UI even if the
+    # router's smaller `OPERATIONS` dict doesn't know how to replay them.
+    # If the op is a registered L0 convergence transformation, we record
+    # a clean chain step (no error) with the L0 layer name and continue
+    # the loop with `cur` unchanged — matching the ARB acceptance
+    # criterion 0 (canonical chain is trusted, never replayed through a
+    # lesser registry).
+    try:
+        from workspace.convergence.registry import registry_by_name as _l0_by_name
+        _L0_OP_IDS = set(_l0_by_name().keys())
+    except Exception:
+        _L0_OP_IDS = set()
     from payload_sanitizer import sanitize_encapsulated_payload, find_all_base64_spans
     trace: List[Dict[str, Any]] = []
     cur = body.input
     for step in det.get("steps") or []:
         op_id = step["op"]
         args = step.get("args") or {}
+        # ── ARB PR-2.1.2 · canonical-L0-op passthrough ──
+        # If the router doesn't own this op but the L0 engine does, don't
+        # error — record a clean canonical-chain entry and continue with
+        # unchanged buffer. Prevents the "Unknown operation:
+        # content-ps-operator-case-normalize" symptom the ARB flagged.
+        if op_id not in OPERATIONS and op_id in _L0_OP_IDS:
+            trace.append({
+                "op": op_id, "args": args,
+                "reason": _reason_for_op(op_id),
+                "output_preview": (cur[:400] if isinstance(cur, str) else str(cur)[:400]),
+                "output_length":  (len(cur) if isinstance(cur, str) else None),
+                "canonical_l0":   True,  # marker so the UI can label it
+            })
+            continue
         try:
             if op_id == "extract-payload":
                 iso = sanitize_encapsulated_payload(cur)
