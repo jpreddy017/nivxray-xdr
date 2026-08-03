@@ -65,12 +65,22 @@ Any next agent MUST read this before writing code.
     `certificate_fingerprint`, `expected_iterations`,
     `expected_canonical_state`, `expected_terminated_reason`,
     `recorded_at`.
-  - `dcs_runner --strict` catches OUTPUT / CERTIFICATE /
-    ITERATIONS / CANONICAL-STATE / TERMINATION drift with exit
-    code 2. Verified by a synthetic-drift test.
-  - **203/203 tests · 0 regressions · `/api/health` = 200 ·
-    DCS holds at 11/13 (regression-protection milestone).**
-- **Next**: M9 · Corpus Repair + Real-World Expansion.
+  - `dcs_runner --strict` catches drift with exit code 2.
+- **M9 · Corpus Repair + Real-World Expansion: ✅ COMPLETE**.
+  - S02 & S05 repaired against real target strings (defects
+    documented in archived forensic reports).
+  - Corpus expanded 13 → 17 with 4 real-world layered samples
+    (Cobalt Strike DownloadCradle, GootLoader-style env-slice
+    chain, Emotet CMD→PS handoff, deep Hex→Base64→UTF-16LE chain).
+  - Bug fix in `semantic-ps-variable-propagate` — was silently
+    dropping concat operands (`$W='http'+'s'` → `'http'`).
+  - **DCS = 100.0% (17/17)** · PowerShell 9/9 · CMD 2/2 · Bash 3/3
+    · Mixed 3/3. **First run at full pass on the certification
+    corpus**.
+  - **218/218 tests · 0 regressions · `/api/health` = 200 ·
+    fingerprints locked 17/17.**
+- **Next**: M10 · Workspace Isolation Certificate (governance) →
+  Phase R (real-world coverage volume program).
 - **Ledger**: `backend/workspace_recovery/MILESTONE_LEDGER.md` (append-only).
 - **Feature Freeze**: In effect until M6.
 

@@ -150,10 +150,8 @@ def test_final_iteration_is_a_no_op() -> None:
 
 
 _UNCHANGED_SAMPLES = [
-    # Samples the current pipeline (M1–M4) intentionally does NOT
-    # transform. Bash pipe interpretation and RC4/OpenSSL orchestration
-    # are M5/M6+ scope; the others are already canonical.
-    "S02_bash_xxd_b64_rev",
+    # Samples the current pipeline (M1–M5) intentionally does NOT
+    # transform. As of M9, S02 was repaired and now decodes correctly.
     "S07_rc4_openssl",
     "S08_unicode_obfuscation",
     "S10_bash_with_powershell_comment",

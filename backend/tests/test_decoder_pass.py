@@ -247,10 +247,10 @@ class TestMultiLayerChains:
 
 
 def test_dcs_meets_m4_milestone_target() -> None:
-    """Per the spec verification table, M4 must reach ≥ 8/13 corpus
-    samples passing. This test enforces that floor."""
-    from workspace_recovery.dcs_runner import _check_sample  # local import: keeps runner optional
+    """M4 milestone floor: ≥ 8/13 corpus samples passing. Post-M9
+    the corpus has 17 samples; the floor scales to ≥ 62% (11/17)."""
+    from workspace_recovery.dcs_runner import _check_sample
     passing = sum(1 for s in load_samples(CORPUS_PATH) if _check_sample(s)[0])
     total = len(load_samples(CORPUS_PATH))
-    assert total == 13
-    assert passing >= 8, f"M4 DCS floor breached: {passing}/{total}"
+    assert total >= 13
+    assert passing / total >= 0.62, f"M4 floor breached: {passing}/{total}"

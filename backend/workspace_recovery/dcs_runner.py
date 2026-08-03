@@ -135,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  · {sid}: {msg}")
             return 2
         else:
-            print("Fingerprints locked · 13/13 samples byte-identical to recorded.")
+            print(f"Fingerprints locked · {overall['total']}/{overall['total']} samples byte-identical to recorded.")
     return 0
 
 

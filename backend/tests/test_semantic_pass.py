@@ -199,18 +199,14 @@ class TestBashPipelineReducer:
 
 
 def test_dcs_meets_m5_milestone_target() -> None:
-    """M5 milestone target: ≥ 11/13 corpus samples passing (excluding
-    two documented corpus-authoring defects S02, S05).
-
-    S02 and S05 are known to have expected substrings that no
-    deterministic decoding path can produce; forensic reports are
-    archived at `workspace_recovery/S02_FORENSIC_REPORT.txt` and
-    `S05_FORENSIC_REPORT.txt`."""
+    """M5+ target: DCS ≥ 12/13 baseline. Post-M9 corpus expanded to
+    17 samples; DCS should be ≥ 15/17 (88%)."""
     from workspace_recovery.dcs_runner import _check_sample
     total = len(load_samples(CORPUS_PATH))
     passing = sum(1 for s in load_samples(CORPUS_PATH) if _check_sample(s)[0])
-    assert total == 13
-    assert passing >= 11, f"M5 floor breached: {passing}/{total}"
+    assert total >= 13
+    # 15/17 ≈ 88% — floor for the post-M9 corpus.
+    assert passing / total >= 0.85, f"DCS floor breached: {passing}/{total}"
 
 
 # ─── S04 end-to-end anchor ──────────────────────────────────────────

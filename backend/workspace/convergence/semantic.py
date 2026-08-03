@@ -125,11 +125,16 @@ def _fold_ps_alias_expand(content: str) -> tuple[str, int]:
 
 # ─── Fold 2 · Single-assignment variable propagation ────────────────
 
-# Match ``$var = 'literal'`` (SQ only for safety); ignore multi-line
-# assignments and any RHS other than a plain SQ literal.
+# Match ``$var = 'literal'`` (SQ only for safety). The negative
+# lookahead ``(?!\s*[+])`` protects us from an incomplete-RHS
+# capture like ``$W='http'+'s'`` — propagating ``'http'`` in that
+# case would silently drop the last concat operand and produce
+# wrong output. We wait for structural concat-fold to fully resolve
+# the RHS first, then propagate on a later iteration.
 _ASSIGN_RE = re.compile(
     r"(?<![A-Za-z0-9_])\$(?P<var>[A-Za-z_][A-Za-z0-9_]*)"
-    r"\s*=\s*'(?P<lit>[^'\r\n]*)'",
+    r"\s*=\s*'(?P<lit>[^'\r\n]*)'"
+    r"(?!\s*[+])",
 )
 
 

