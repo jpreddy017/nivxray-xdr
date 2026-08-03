@@ -1157,22 +1157,14 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         from evidence_extractor import _fallback_card, _FALLBACK_REASON
         result["verdict_card"] = _fallback_card(_FALLBACK_REASON)
 
-    # ── Flat `risk` object — Feb 2026 · regression + UI consumers ──────
-    # Callers (daily_regression.py, batch pipeline, external SIEM push)
-    # want a stable {verdict, level, score} shape without diving into
-    # verdict_card. We map:
-    #   verdict_card.label       → risk.verdict     (raw label string)
-    #   verdict_card.label       → risk.level       (lowercase)
-    #   verdict_card.confidence  → risk.score       (0-100 int)
-    # For failed / missing verdict cards, risk is set to a safe "Unknown".
+    # ── Canonical Risk Projection (ARB Rules 12, 15) ───────────────────
+    # `risk` is a *projection* of `verdict_card`, never independent.
+    # See backend/verdict_projection.py. This is the ONLY approved way
+    # to build the legacy `risk` shape.
     try:
-        vc = result.get("verdict_card") or {}
-        _label = (vc.get("label") or vc.get("verdict") or "").strip()
-        result["risk"] = {
-            "verdict": _label or "Unknown",
-            "level":   _label.lower() if _label else "unknown",
-            "score":   int(vc.get("confidence") or vc.get("score") or 0),
-        }
+        from verdict_projection import derive_risk_projection
+        projected = derive_risk_projection(result.get("verdict_card") or {})
+        result["risk"] = projected or {"verdict": "Unknown", "level": "unknown", "score": 0}
     except Exception:
         result["risk"] = {"verdict": "Unknown", "level": "unknown", "score": 0}
 
@@ -2259,6 +2251,19 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         result["cio"] = _cio.model_dump(mode="json")
     except Exception:  # noqa: BLE001
         log.exception("ADR-0014 · CIO composition failed (safe — legacy response preserved)")
+
+    # ── ARB Rules 12, 15 · guarantee canonical response shape ──────────
+    # `risk` is a projection of `verdict_card`; `semantic.review_signal`
+    # is exposed alongside legacy `semantic.verdict`. Idempotent.
+    try:
+        from verdict_projection import (
+            ensure_canonical_response,
+            promote_semantic_review_signal,
+        )
+        ensure_canonical_response(result)
+        promote_semantic_review_signal(result)
+    except Exception:
+        pass
 
     return result
 class CandidatesIn(BaseModel):

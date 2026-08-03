@@ -1091,6 +1091,7 @@ export default function WorkspacePage() {
           yara: d.yara || a?.yara,
           lolbas: d.lolbas || a?.lolbas,
           risk: d.risk || a?.risk,
+          verdict_card: d.verdict_card || a?.verdict_card,
           ti_hits: d.ti_hits ?? a?.ti_hits,
           osint: d.osint ?? a?.osint,
           ai_verdict: d.ai_verdict ?? a?.ai_verdict,
@@ -1101,7 +1102,11 @@ export default function WorkspacePage() {
         }));
         setStatus(`▸ ${(d.phase || "running").toUpperCase()} · ${d.progress || 0}%${d.elapsed_s ? " · " + d.elapsed_s + "s" : ""}`);
         if (d.status === "done") {
-          setStatus(`ANALYSIS COMPLETE · ${d.risk?.verdict || ""}`);
+          // ARB Governance Rule 12 · verdict_card is the canonical source.
+          // `risk` is a projection — reading it here would be a violation.
+          const vc = d.verdict_card || {};
+          const canonicalVerdict = vc.verdict || vc.label || (d.risk?.verdict) || "";
+          setStatus(`ANALYSIS COMPLETE · ${canonicalVerdict}`);
           break;
         }
         if (d.status === "error") {

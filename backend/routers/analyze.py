@@ -471,6 +471,18 @@ async def analyze_status(job_id: str, user=Depends(get_current_user)):
     #   4. Return via JSONResponse with explicit Content-Length so the ASGI
     #      layer does not fall back to chunked-transfer encoding.
     _sanitize_job_doc(doc)
+    # ARB Governance Rules 12, 15 · canonicalize `risk` as a projection of
+    # `verdict_card` on the status doc so the frontend Threat panel /
+    # status bar never disagree with the ASCII summary.
+    try:
+        from verdict_projection import (
+            ensure_canonical_response,
+            promote_semantic_review_signal,
+        )
+        ensure_canonical_response(doc)
+        promote_semantic_review_signal(doc)
+    except Exception:
+        pass
     body = json.dumps(doc, default=str, ensure_ascii=False)
     if len(body.encode("utf-8")) > 512 * 1024:
         doc = _shrink_job_doc(doc)

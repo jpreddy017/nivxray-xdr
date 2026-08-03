@@ -231,3 +231,61 @@ suspicious regardless of payload. NivXRay's position is:
 > decode it and assess what it actually does."*
 
 Rules 12 and 13 exist to make that position enforceable at every layer.
+
+---
+
+## Rule 12 · Canonical Artifact + Canonical Verdict (ratified 2026-08-04)
+
+**Strengthened wording, replaces the PR-2.1 draft:**
+
+> There shall be **one canonical decoded artifact** and **one canonical
+> verdict object**. All UI components, APIs, reports, exports, and
+> future Workspace features must consume these canonical objects
+> directly. Legacy verdict fields may exist temporarily for
+> compatibility but must not be used as independent decision sources.
+
+### Concrete anchors
+
+- Canonical artifact  → `result["output"]` (the decoded plaintext) +
+  `result["output_raw"]` (untouched byte stream, when applicable).
+- Canonical verdict   → `result["verdict_card"]`.
+- Every other verdict-shaped field (`risk`, `semantic.review_signal`,
+  `verdict_v2`, …) is either a projection of `verdict_card` or a
+  supporting signal — never an independent decision source.
+
+---
+
+## Rule 14 · Decode / Auto Investigate Equivalence Contract
+
+For the same input, both surfaces must produce:
+
+- ✅ Same canonical decoded artifact
+- ✅ Same verdict (verdict_card.verdict, .risk_score, .confidence)
+- ✅ Same ATT&CK mapping
+- ✅ Same capabilities
+- ✅ Same IOC extraction
+- ✅ Same runtime simulation
+- ✅ Same investigation summary
+- ✅ Same investigation output text
+
+The **only** allowed differences are presentation (Auto Investigate may
+add narrative sections, side-panels, deeper enrichment layers). The
+analytical result may not differ. Any divergence is treated as a
+regression.
+
+---
+
+## Rule 15 · Canonical Response Contract
+
+Every investigation response (any endpoint that returns a decode /
+analyze result) must contain:
+
+- `canonical_artifact` (a.k.a. `output` / `output_raw`)
+- `verdict_card`
+
+Everything else — `risk`, `semantic.*`, `telemetry`, `confidence`
+scalars, heuristic scores — is supporting metadata and must not be
+used to render the primary verdict or the primary artifact.
+
+Consequence: the API is self-documenting. A consumer can render a
+correct top-of-page verdict knowing only these two keys.

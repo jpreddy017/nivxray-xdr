@@ -1652,3 +1652,44 @@ next milestone MUST NOT begin.
       by PR-2.1 — it is a pre-existing capability-detection gap where
       `invoke_expression` HIGH is not tagged for base64-embedded IEX.
       Ticket to be logged: `capability-detect-iex-inside-encoded`.
+
+---
+
+## 2026-08-04 · PR-2.1.1 · Canonical Response Contract (partial)
+
+- **Governance**: ARB ratified Rule 12 (strengthened wording), added
+  Rule 14 (Decode/Auto Investigate Equivalence Contract) and Rule 15
+  (Canonical Response Contract). See `memory/GOVERNANCE_RULES.md`.
+- **Shipped**:
+  - New helper `backend/verdict_projection.py` — `derive_risk_projection`,
+    `ensure_canonical_response`, `promote_semantic_review_signal`.
+  - `routers/ops.py` — legacy hand-built `risk` replaced by
+    `derive_risk_projection(vc)`; exit path calls
+    `ensure_canonical_response()` and `promote_semantic_review_signal()`.
+  - `routers/analyze.py` — `/analyze/status/{job_id}` calls the same
+    two canonicalizers before returning.
+  - `frontend/src/pages/WorkspacePage.jsx` — status setter now reads
+    `verdict_card.verdict` first; `pollAnalyzeJob` merges
+    `verdict_card` symmetrically with `risk`.
+  - Tests: `tests/test_pr211_canonical_response_contract.py` · 14 new
+    passing tests.
+- **Live invariant verified on `/api/decode/smart`**:
+    - `verdict_card.verdict == risk.verdict == "Partial"`
+    - `verdict_card.risk_score == risk.score == 25`
+    - ASCII summary shows `Verdict: Partial · 25/100`.
+- **RESIDUAL (deferred to a follow-up PR)**: the async analyzer
+  pipeline (`/api/analyze/async` → `/api/analyze/status/{job_id}`)
+  produces its own `risk` dict but does NOT emit a `verdict_card`.
+  Because the canonical projection helpers are no-ops when
+  `verdict_card` is absent, the async status response still shows the
+  independently-computed `Suspicious · 43`. The Threat Analysis panel
+  therefore continues to render that verdict until the async pipeline
+  is refactored to invoke the Verdict Engine and produce a canonical
+  verdict_card. This is a Rule-12 violation living one layer deeper
+  than PR-2.1.1 was scoped for; needs an ARB-approved PR-2.1.2 to
+  unify the async pipeline's verdict computation.
+- **Damage-prevention**:
+    - DCS strict 17/17 byte-identical.
+    - R1 strict 107/107 byte-identical.
+    - 217 tests passed (L0 canonical + PR-2.1 + PR-2.1.1 + L2 API + L2
+      unit).
