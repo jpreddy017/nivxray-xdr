@@ -136,6 +136,19 @@ SAMPLE_CAPABILITIES: dict[str, list[str]] = {
     "SG009": ["download_cradle", "beacon_c2"],
     "SG010": ["iwr_pipeline_download", "beacon_c2"],
     "SG011": ["backtick_obfuscation", "iwr_pipeline_download"],
+
+    # ============ Emotet =================================================
+    "EM001": ["cmd_ps_handoff", "cmd_caret_obfuscation", "encoded_command", "download_cradle"],
+    "EM002": ["cmd_ps_handoff", "cmd_caret_obfuscation", "encoded_command", "download_cradle"],
+    "EM003": ["encoded_command", "download_cradle"],
+    "EM004": ["encoded_command", "hidden_window", "download_cradle"],
+    "EM005": ["xor_byte_array_decoder", "beacon_c2"],
+    "EM006": ["string_concat_obfuscation", "variable_propagation_obfuscation", "download_cradle"],
+    "EM007": ["case_obfuscation", "download_cradle"],
+    "EM008": ["backtick_obfuscation", "iwr_pipeline_download"],
+    "EM009": ["shellcode_staging", "variable_propagation_obfuscation"],
+    "EM010": ["download_cradle", "beacon_c2"],
+    "EM011": ["iwr_pipeline_download", "beacon_c2"],
 }
 
 

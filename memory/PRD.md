@@ -13,7 +13,39 @@ Any next agent MUST read this before writing code.
 
 ---
 
-## 📍 CURRENT POSITION (2026-08-04 · evening)
+## 📍 CURRENT POSITION (2026-08-04 · late evening)
+
+### Phase R1 v2.5 — Emotet Family Pack
+
+- **Emotet (Geodo / Heodo / TA542) landed** as 7th family — 11 samples
+  across 8 techniques covering the archetypal Emotet surface including
+  the signature `xor_c2_config_decoder` (Emotet 2022+ C2-URL-list XOR
+  blob). 3 honestly-declared gaps: `excel4_macro_extraction`,
+  `wmic_process_create_launcher`, `emotet_native_config_decrypt`.
+- **Zero new engine transformations** — Emotet rides entirely on the
+  24 already-registered transformations. The cross-family
+  amortization thesis is now proven across 7 diverse families
+  (CS · DarkGate · Emotet · GootLoader · Linux Droppers · Lumma ·
+  SocGholish).
+- **7 families · 107 samples · Sample DCS 100.0% · Transformation
+  Coverage 100.0% · Overall Technique Coverage 84.9%** · **438 pytest**
+  · 0 regressions · certification corpus 17/17 byte-identical.
+
+### KPI Panel
+
+```
+Families Covered            7
+Capabilities Exercised     31 / 31   (100.0%)
+Sample DCS                 100.0%
+Technique Coverage          84.9%
+Transformation Coverage    100.0%
+R1 Regression Status        PASS
+M8 Certification Corpus     PASS
+```
+
+---
+
+## 📍 PRIOR POSITION (2026-08-04 · evening)
 
 ### Phase R1 v2.4 — KPI Panel + SocGholish
 

@@ -1426,3 +1426,67 @@ next milestone MUST NOT begin.
   Raspberry Robin \u2192 NetSupport \u2192 DarkGate script-language
   decoder pass \u2192 remaining families.
 
+
+---
+
+### Phase R1 v2.5 · Emotet Family Pack — LANDED
+
+- **Date**: 2026-08-04 UTC (late evening)
+- **What was implemented**
+    - **Emotet (Geodo / Heodo / TA542) family pack** — 11 samples
+      across 8 techniques covering the archetypal Emotet TTP surface:
+      `cmd_caret_powershell_handoff` (classic Excel-4 macro dropper),
+      `powershell_encodedcommand_dropper`, `xor_c2_config_decoder`
+      (Emotet 2022+ signature C2-URL-list XOR blob),
+      `powershell_string_concat_url`, `powershell_random_case_obf`,
+      `powershell_backtick_alias_obf`, `frombase64string_shellcode_stage`,
+      `iex_downloadstring_beacon`. 3 honestly-declared coverage
+      gaps: `excel4_macro_extraction`, `wmic_process_create_launcher`,
+      `emotet_native_config_decrypt` (native PE RC4).
+    - **New regression test**
+      (`tests/test_phase_r1_emotet.py`) including a governance test
+      `test_emotet_rides_on_existing_transformations_only` \u2014
+      enforces the cross-family amortization thesis on the 7th
+      family: **Emotet fires zero unregistered transformations**.
+- **KPI Panel snapshot**
+
+    ```
+    Families Covered            7
+    Capabilities Exercised     31 / 31   (100.0%)
+    Sample DCS                 100.0%
+    Technique Coverage          84.9%
+    Transformation Coverage    100.0%
+    R1 Regression Status        PASS
+    M8 Certification Corpus     PASS
+    ```
+
+- **Coverage Matrix (7 families)**
+
+    | Family         | Techs | Samples | Passed | Sample DCS | Tech Cov |
+    |---             |---:   |---:     |---:    |---:        |---:      |
+    | Cobalt Strike  | 14    | 35      | 35     | 100.0%     | 100.0%   |
+    | DarkGate       | 8     | 11      | 11     | 100.0%     | 72.7%    |
+    | Emotet         | 8     | 11      | 11     | 100.0%     | 72.7%    |
+    | GootLoader     | 13    | 26      | 26     | 100.0%     | 100.0%   |
+    | Linux Droppers | 3     | 3       | 3      | 100.0%     | 100.0%   |
+    | Lumma Stealer  | 8     | 10      | 10     | 100.0%     | 72.7%    |
+    | SocGholish     | 8     | 11      | 11     | 100.0%     | 80.0%    |
+    | **Overall**    | \u2014     | **107** | **107** | **100.0%** | **84.9%** |
+
+- **How it was verified**
+    - `r1_runner --strict`: 107/107 \u00b7 fingerprints locked.
+    - Dashboard KPI Panel: all 7 metrics PASS.
+    - `dcs_runner --strict`: 17/17 M8 certification byte-identical.
+    - `pytest`: **438 tests passing** (+15 for Emotet: 11
+      parametrizations + 4 governance).
+    - **Emotet-specific**: zero new engine transformations. The
+      cross-family amortization thesis holds through the 7th
+      family \u2014 Cobalt Strike, DarkGate, GootLoader, Linux
+      Droppers, Lumma, SocGholish, and now Emotet all ride on
+      the same 24-transformation engine.
+- **Regressions**: NONE. No engine changes; all existing fingerprints
+  byte-identical; the entire pre-Emotet corpus (85 samples) unchanged.
+- **Next**: QakBot \u2192 IcedID \u2192 AsyncRAT \u2192 Raspberry
+  Robin \u2192 NetSupport \u2192 AutoIT decoder pass \u2192 remaining
+  families.
+

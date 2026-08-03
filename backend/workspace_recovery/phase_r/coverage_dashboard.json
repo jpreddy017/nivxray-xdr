@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-03T09:47:24+00:00",
+  "generated_at": "2026-08-03T09:55:30+00:00",
   "kpi_panel": {
-    "families_covered": 6,
+    "families_covered": 7,
     "capabilities_exercised": 31,
-    "technique_coverage_pct": 87.09677419354838,
+    "technique_coverage_pct": 84.93150684931507,
     "transformation_coverage_pct": 100.0,
     "sample_dcs_pct": 100.0,
     "regression_status": "PASS",
@@ -29,6 +29,17 @@
     {
       "family_id": "darkgate",
       "display_name": "DarkGate",
+      "techniques_in_corpus": 8,
+      "known_universe": 11,
+      "techniques_passed": 8,
+      "samples": 11,
+      "samples_passed": 11,
+      "sample_dcs_pct": 100.0,
+      "technique_coverage_pct": 72.72727272727273
+    },
+    {
+      "family_id": "emotet",
+      "display_name": "Emotet",
       "techniques_in_corpus": 8,
       "known_universe": 11,
       "techniques_passed": 8,
@@ -83,13 +94,13 @@
     }
   ],
   "family_overall": {
-    "families": 6,
-    "samples": 96,
-    "samples_passed": 96,
+    "families": 7,
+    "samples": 107,
+    "samples_passed": 107,
     "sample_dcs_pct": 100.0,
-    "techniques_known": 62,
-    "techniques_passed": 54,
-    "technique_coverage_pct": 87.09677419354838
+    "techniques_known": 73,
+    "techniques_passed": 62,
+    "technique_coverage_pct": 84.93150684931507
   },
   "transformations": [
     {
