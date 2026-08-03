@@ -15,7 +15,30 @@ Any next agent MUST read this before writing code.
 
 ---
 
-## 📍 CURRENT POSITION (2026-08-04 · L4 Workspace · PR-1 delivered)
+## 📍 CURRENT POSITION (2026-08-04 · L4 Workspace · PR-2 delivered)
+
+### PR-2 · L1 Investigation APIs — DELIVERED
+
+- **ARB status**: PR-1 approved. New ARB Governance Table required on
+  every PR compliance doc (Blueprint / Journey / Validation Matrix /
+  Tests / Regression / Risk / Rollback).
+- **What shipped**:
+  - New `backend/l1_evidence/` package (Mongo case store).
+  - New `backend/routers/workspace_investigation.py` (15 endpoints).
+  - 26 new API tests (httpx.ASGITransport, JWT-authenticated).
+- **Endpoints live at `/api/investigation/*`** (Blueprint §10 verbatim):
+  case CRUD · single-call `workspace_bundle` hydration · workspace-state
+  GET/PUT · state-machine transitions with audit log · 7 per-service
+  read endpoints.
+- **Live smoke** via `REACT_APP_BACKEND_URL`: create → hydrate (7
+  services) → transition (audit-logged) → delete — all 2xx.
+- **Damage-prevention contract**:
+  - DCS strict: 17/17 byte-identical.
+  - R1 strict: 107/107 byte-identical.
+  - L0-canonical pytest: 299 passed.
+  - `tests/investigation/` (existing): 491 passed.
+  - Combined L0 + L2 (unit + API): 403 passed / 1 skipped / 0 errors.
+  - `backend/workspace/convergence/*`: untouched.
 
 ### PR-1 · L2 Investigation Services Scaffolding — DELIVERED
 
@@ -47,8 +70,8 @@ Any next agent MUST read this before writing code.
 
 ### Sequenced PRs remaining (ARB approved)
 
-- ⏳ **PR-2**: L1 read APIs (`/api/investigation/:case_id/*`)
-- ⏳ **PR-3**: L4 `/investigate` shell + State Model + Mode selector
+- ✅ **PR-2**: L1 read APIs (`/api/investigation/:case_id/*`) — DELIVERED
+- ⏳ **PR-3**: L4 `/investigate` shell + State Model + Mode selector + `data-testid` map
 - ⏳ **PR-4**: Summary + Story lenses
 - ⏳ **PR-5**: Timeline + Evidence lenses (Evidence Nav Contract goes live)
 - ⏳ **PR-6**: Analysis + Exports lenses

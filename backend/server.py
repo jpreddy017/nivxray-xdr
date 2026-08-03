@@ -239,6 +239,11 @@ api.include_router(decode_feedback_router)
 api.include_router(rc5_diag_router)
 api.include_router(rc5_shadow_router)
 
+# Aug 2026 — L4 Analyst Workspace · L1 Investigation APIs (PR-2).
+# Blueprint §10 · single-workspace hydration + state machine + workspace state.
+from routers.workspace_investigation import router as workspace_investigation_router
+api.include_router(workspace_investigation_router)
+
 # Semantic Lab (Stage 3 engineering surface) — Feb 2026.
 from routers.semantic_lab import router as semantic_lab_router
 api.include_router(semantic_lab_router)

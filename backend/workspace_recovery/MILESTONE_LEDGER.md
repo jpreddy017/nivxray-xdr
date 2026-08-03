@@ -1538,3 +1538,42 @@ next milestone MUST NOT begin.
 - **Architecture Compliance record**: `backend/l2_investigation/ARCHITECTURE_COMPLIANCE.md`.
 - **Next**: PR-2 will wire the L1 read APIs (`/api/investigation/:case_id/*`
   plus workspace-state endpoints from Blueprint §10). No UI yet.
+
+---
+
+## 2026-08-04 · PR-2 · L1 Investigation APIs
+
+- **Governance**: ARB Governance Table added to every PR (new rule
+  after PR-1 review). Compliance record at
+  `backend/l1_evidence/ARCHITECTURE_COMPLIANCE.md`.
+- **Scope**: FastAPI router mounted at `/api/investigation/*` exposing
+  every L2 service and the state machine + workspace state contracts.
+  Backend only — no UI (PR-3+).
+- **Files added**:
+    - `backend/l1_evidence/__init__.py`
+    - `backend/l1_evidence/case_store.py`  (Mongo CRUD facade)
+    - `backend/l1_evidence/ARCHITECTURE_COMPLIANCE.md`
+    - `backend/routers/workspace_investigation.py` (15 endpoints)
+    - `backend/tests/l2_investigation/test_api_pr2.py` (26 tests)
+- **Endpoints exposed** (Blueprint §10 verbatim):
+    - `POST /api/investigation`
+    - `GET /api/investigation`
+    - `GET /api/investigation/{case_id}` (single-call workspace_bundle)
+    - `GET|PUT /api/investigation/{case_id}/workspace`
+    - `GET|POST /api/investigation/{case_id}/state[/transition]`
+    - `GET /api/investigation/{case_id}/{summary|story|iocs|capabilities|threat|detections|hunting}`
+    - `DELETE /api/investigation/{case_id}`
+- **Server wiring**: single `include_router` block at the bottom of
+  `server.py` under the `PR-2` comment; rollback is a single-commit
+  revert with no side effects.
+- **Damage-prevention verification**:
+    - `dcs_runner --strict`: 17/17 byte-identical.
+    - `r1_runner --strict`: 107/107 byte-identical.
+    - L0-canonical pytest: 299 passed (unchanged).
+    - `tests/investigation/` (existing): 491 passed (unchanged).
+    - L0 + L2 (unit + API): 403 passed / 1 skipped / 0 errors.
+    - Live smoke via external `REACT_APP_BACKEND_URL`: create, hydrate
+      (7 L2 services), transition (audit-logged), delete — all 2xx.
+- **Next**: PR-3 opens the L4 Workspace shell at `/investigate` with
+  Mode selector and empty lens tabs. `data-testid` map for the shell
+  will be drafted inside PR-3 as ARB directed.
