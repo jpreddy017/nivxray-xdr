@@ -44,6 +44,36 @@ def test_cobalt_strike_corpus_size_at_least_30():
     assert len(_SAMPLES) >= 30, f"CS corpus shrank: only {len(_SAMPLES)} samples"
 
 
+def test_cobalt_strike_every_sample_has_technique_id():
+    """R1 v2.0 taxonomy: every sample belongs to a technique bucket."""
+    for s in _SAMPLES:
+        assert s.get("technique_id"), f"Sample {s['id']} missing technique_id"
+
+
+def test_cobalt_strike_technique_universe_matches_corpus():
+    """The declared ``known_technique_universe`` must equal the set of
+    technique ids that actually carry samples in the corpus. If a
+    technique is declared but empty, R1 reports it as an explicit
+    coverage gap; if a technique appears in samples but is not
+    declared, the universe is stale."""
+    from workspace_recovery.phase_r.r1_loader import load_all_families
+    fam = next(f for f in load_all_families() if f["family_id"] == "cobalt_strike")
+    declared = set(fam.get("known_technique_universe") or [])
+    in_corpus = {t["id"] for t in (fam.get("techniques") or [])}
+    assert declared == in_corpus, (
+        f"CS technique universe mismatch — declared: {declared}, in_corpus: {in_corpus}"
+    )
+
+
+def test_cobalt_strike_family_has_at_least_9_techniques():
+    """R1 v2.0 CS bucket count floor."""
+    from workspace_recovery.phase_r.r1_loader import load_all_families
+    fam = next(f for f in load_all_families() if f["family_id"] == "cobalt_strike")
+    assert len(fam.get("techniques") or []) >= 9, (
+        f"CS family has fewer than 9 techniques: {len(fam.get('techniques') or [])}"
+    )
+
+
 @pytest.mark.parametrize("sample_id", _IDS)
 def test_cobalt_strike_sample_converges_and_matches_fingerprint(cs_sample_map, sample_id):
     sample = cs_sample_map[sample_id]

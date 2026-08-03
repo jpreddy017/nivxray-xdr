@@ -13,7 +13,42 @@ Any next agent MUST read this before writing code.
 
 ---
 
-## 📍 CURRENT POSITION (2026-08-03)
+## 📍 CURRENT POSITION (2026-08-03 · later)
+
+- **Phase R1 Schema v2.0 — LANDED**. Every family JSON now follows
+  the technique-first hierarchy (`Family → Technique → Variant →
+  Sample`) with `known_technique_universe` and
+  `coverage_gap_techniques` fields for honest gap surfacing.
+- **Cobalt Strike** — 30 samples across 9 techniques · Sample DCS
+  100.0% · Technique Coverage 100.0%.
+- **GootLoader (UNC2565/UNC2900)** — 22 samples across 10
+  PowerShell-side techniques · Sample DCS 100.0% · Technique
+  Coverage 76.9% (3 JavaScript-side techniques declared as
+  explicit gaps).
+- **Coverage Matrix reporter live** in `r1_runner`. The primary
+  customer-facing KPI is now **Overall Technique Coverage** rather
+  than raw sample count.
+- **332 pytest** (218 baseline + 65 CS + 49 GL) · **0 regressions**
+  on the 17-sample certification corpus (still byte-identical to
+  M8 fingerprints).
+
+### Coverage Matrix (as of 2026-08-03)
+
+| Family        | Techs | Samples | Passed | Sample DCS | Technique Cov |
+|---            |---:   |---:     |---:    |---:        |---:           |
+| Cobalt Strike | 9     | 30      | 30     | 100.0%     | 100.0%        |
+| GootLoader    | 10    | 22      | 22     | 100.0%     | 76.9%         |
+| **Overall**   | —     | **52**  | **52** | **100.0%** | **86.4%**     |
+
+### Declared Coverage Gaps (honest reporting)
+
+- GootLoader · `javascript_unicode_escape` — awaiting JS decoder
+- GootLoader · `javascript_string_split_shuffle` — awaiting JS decoder
+- GootLoader · `javascript_atob_chain` — awaiting JS decoder
+
+---
+
+## 📍 PRIOR POSITION (2026-08-03)
 
 - **Phase R1 · Malware-Family Coverage — IN PROGRESS**
   · Cobalt Strike foundation pack **LANDED** (30 samples · 100% DCS

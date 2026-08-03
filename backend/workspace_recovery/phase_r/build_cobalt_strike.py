@@ -374,16 +374,100 @@ SAMPLES: list[dict] = [
 ]
 
 
+TECHNIQUE_DEFS: dict[str, dict] = {
+    "iex_downloadstring_cradle": {
+        "display_name": "IEX DownloadString Cradle",
+        "description": "Classic Empire/Nishang lineage: `IEX ((New-Object Net.WebClient).DownloadString($url))` payload delivery.",
+        "mitre_attack": ["T1059.001", "T1105"],
+        "sample_ids": ["CS001", "CS002", "CS019", "CS026", "CS030"],
+    },
+    "iwr_useb_iex_pipeline": {
+        "display_name": "IWR + UseBasicParsing | IEX Pipeline",
+        "description": "`Invoke-WebRequest -UseBasicParsing | Invoke-Expression` fetch-and-execute pipeline (with alias `iwr`).",
+        "mitre_attack": ["T1059.001", "T1105"],
+        "sample_ids": ["CS003", "CS013", "CS015"],
+    },
+    "curl_alias_useb_iex": {
+        "display_name": "curl Alias | IEX",
+        "description": "`curl` used as a PowerShell alias for Invoke-WebRequest, chained to `iex`.",
+        "mitre_attack": ["T1059.001", "T1105"],
+        "sample_ids": ["CS014"],
+    },
+    "string_concat_url_obfuscation": {
+        "display_name": "String-Concat URL Obfuscation",
+        "description": "URL broken into 2-4 single-quoted concat fragments and reassembled via variable propagation before download.",
+        "mitre_attack": ["T1059.001", "T1105", "T1027.010"],
+        "sample_ids": ["CS004", "CS005", "CS006", "CS020"],
+    },
+    "powershell_encodedcommand_base64_utf16le": {
+        "display_name": "PowerShell -EncodedCommand (Base64/UTF-16LE)",
+        "description": "Base64-encoded UTF-16LE script delivered via `-EncodedCommand` / `-Enc` / `-enc` (with optional -NoP -NonI -W Hidden flags).",
+        "mitre_attack": ["T1059.001", "T1027", "T1140"],
+        "sample_ids": ["CS007", "CS008", "CS009", "CS017", "CS022", "CS023", "CS027", "CS028"],
+    },
+    "cmd_caret_powershell_handoff": {
+        "display_name": "CMD Caret \u2192 PowerShell Handoff (Emotet-style)",
+        "description": "cmd.exe launches powershell.exe with `^`-escaped characters and/or `-EncodedCommand` — Emotet/QakBot signature staging pattern.",
+        "mitre_attack": ["T1059.001", "T1059.003", "T1105", "T1140"],
+        "sample_ids": ["CS010", "CS011", "CS021", "CS024"],
+    },
+    "env_var_reconstruction": {
+        "display_name": "Environment-Variable Slice + [string]::Join Reconstruction",
+        "description": "`powershell.exe` command name and switches reconstructed at runtime from `$env:ComSpec[..]`, `$env:PATH[..]` and `[string]::Join()`.",
+        "mitre_attack": ["T1059.001", "T1027.010", "T1140"],
+        "sample_ids": ["CS012"],
+    },
+    "nested_multi_layer_encoding": {
+        "display_name": "Nested Multi-Layer Encoding (Hex\u2192Base64\u2192UTF-16LE)",
+        "description": "Payload wrapped in three sequential encodings: raw hex over base64 over UTF-16LE — the engine must peel each layer in one convergence run.",
+        "mitre_attack": ["T1027", "T1140", "T1059.001"],
+        "sample_ids": ["CS016"],
+    },
+    "backtick_alias_obfuscation": {
+        "display_name": "Backtick Alias Obfuscation",
+        "description": "Backtick escape characters inserted mid-identifier (`i\u0060w\u0060r`, `i\u0060e\u0060x`) to break signature matching.",
+        "mitre_attack": ["T1059.001", "T1027.010"],
+        "sample_ids": ["CS018", "CS025", "CS029"],
+    },
+}
+
+
 def build() -> dict:
+    sample_map = {s["id"]: s for s in SAMPLES}
+    covered_ids: set[str] = set()
+
+    techniques = []
+    for tid, tdef in TECHNIQUE_DEFS.items():
+        tech_samples = []
+        for sid in tdef["sample_ids"]:
+            assert sid in sample_map, f"Missing sample {sid}"
+            assert sid not in covered_ids, f"Sample {sid} claimed by two techniques"
+            covered_ids.add(sid)
+            tech_samples.append(sample_map[sid])
+        techniques.append(
+            {
+                "id": tid,
+                "display_name": tdef["display_name"],
+                "description": tdef["description"],
+                "mitre_attack": tdef["mitre_attack"],
+                "samples": tech_samples,
+            }
+        )
+
+    # Enforce exhaustive taxonomy: every sample belongs to exactly one technique.
+    orphans = sorted({s["id"] for s in SAMPLES} - covered_ids)
+    assert not orphans, f"Orphaned samples with no technique bucket: {orphans}"
+
     return {
         "family_id": "cobalt_strike",
         "family_display_name": "Cobalt Strike",
-        "family_version": "r1-1.0.0",
+        "family_version": "r1-2.0.0",
+        "schema_version": "technique-first-1.0.0",
         "description": (
             "Cobalt Strike (Empire / Nishang / Invoke-CradleCrafter lineage) beacon "
             "staging, download cradles, base64-EncodedCommand wrappers, CMD\u2192PowerShell "
             "handoff patterns, and layered obfuscation variants. Curated deterministic "
-            "Phase R1 pack."
+            "Phase R1 pack (technique-first taxonomy)."
         ),
         "primary_mitre_attack": ["T1059.001", "T1105", "T1027.010", "T1140"],
         "primary_behaviors": [
@@ -392,8 +476,8 @@ def build() -> dict:
             "obfuscated_command_line",
             "beacon_staging",
         ],
-        "obfuscation_variants_covered": sorted({s["variant"] for s in SAMPLES}),
-        "samples": SAMPLES,
+        "known_technique_universe": sorted(TECHNIQUE_DEFS.keys()),
+        "techniques": techniques,
     }
 
 
@@ -401,7 +485,8 @@ def main() -> int:
     FAMILIES_DIR.mkdir(parents=True, exist_ok=True)
     payload = build()
     TARGET.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {len(SAMPLES)} Cobalt Strike samples to {TARGET}")
+    sample_count = sum(len(t["samples"]) for t in payload["techniques"])
+    print(f"Wrote {sample_count} Cobalt Strike samples across {len(payload['techniques'])} techniques to {TARGET}")
     return 0
 
 

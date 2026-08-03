@@ -909,3 +909,101 @@ next milestone MUST NOT begin.
 - **Then**: Phase R2 · LOLBAS coverage → Phase R3 · benign corpus
   → M10 · Workspace Isolation Certificate.
 
+
+---
+
+### Phase R1 · Schema v2.0 + GootLoader Family Pack — LANDED
+
+- **Date**: 2026-08-03 UTC (later same day)
+- **Phase**: R1 · Technique-first taxonomy migration + GootLoader
+- **What was implemented**
+    - **Schema evolved** (`r1-2.0.0`, `schema_version:
+      technique-first-1.0.0`) — every family JSON now follows
+      `Family → Technique → Variant → Sample` per the owner's
+      strategic guidance. `known_technique_universe` and
+      `coverage_gap_techniques` fields introduced so unmodeled
+      techniques are surfaced honestly rather than silently
+      omitted.
+    - **Cobalt Strike migrated** — 30 existing samples grouped
+      under 9 techniques (`iex_downloadstring_cradle`,
+      `iwr_useb_iex_pipeline`, `curl_alias_useb_iex`,
+      `string_concat_url_obfuscation`,
+      `powershell_encodedcommand_base64_utf16le`,
+      `cmd_caret_powershell_handoff`, `env_var_reconstruction`,
+      `nested_multi_layer_encoding`,
+      `backtick_alias_obfuscation`). Every fingerprint preserved
+      byte-identical.
+    - **GootLoader (UNC2565/UNC2900) landed** — 22 samples across
+      10 PowerShell-side techniques
+      (`powershell_iex_download_cradle`,
+      `powershell_iwr_useb_iex_pipeline`,
+      `powershell_variable_reconstruction`,
+      `powershell_string_concat_obfuscation`,
+      `powershell_encodedcommand_base64_utf16le`,
+      `powershell_env_var_slicing`,
+      `powershell_backtick_obfuscation`,
+      `powershell_case_obfuscation`,
+      `cmd_caret_powershell_handoff`,
+      `nested_multi_layer_encoding`).
+    - **Honest coverage gaps declared** — 3 JavaScript-side
+      GootLoader techniques (`javascript_unicode_escape`,
+      `javascript_string_split_shuffle`,
+      `javascript_atob_chain`) declared in
+      `known_technique_universe` with zero samples, awaiting
+      future JS decoders. The Coverage Matrix reports them as
+      un-covered — no faking.
+    - **Coverage Matrix reporter** — R1 runner now emits the
+      customer-facing KPI table:
+      `Family | Techs | Samples | Passed | Sample DCS | Technique Cov`
+      with Overall aggregate row. Technique coverage =
+      techniques with ≥1 passing sample / known universe.
+    - **Loader upgrade** — `r1_loader.py` walks the new
+      `techniques[].samples[]` hierarchy while preserving the
+      flat `load_samples()` API (samples enriched with
+      `family_id` AND `technique_id`).
+    - **Fingerprint generator upgrade** — walks the same
+      hierarchy; schema tagged `r1-2.0.0`.
+- **How it was verified**
+    - `python -m workspace_recovery.phase_r.r1_runner --strict`:
+      **52/52 passing · fingerprints locked · Overall Sample DCS
+      100.0% · Overall Technique Coverage 86.4%**
+      (Cobalt Strike 100.0% / GootLoader 76.9% technique coverage
+      — GL delta of 23.1 points is precisely the 3 declared JS
+      gaps out of the 13-tech GL universe).
+    - `python -m workspace_recovery.dcs_runner --strict`:
+      **17/17 · fingerprints byte-identical to recorded**
+      (certification corpus untouched — zero regressions).
+    - `pytest tests/test_phase_r1_cobalt_strike.py
+      tests/test_phase_r1_gootloader.py + all M1-M9 test files`:
+      **332 passing** (218 baseline + 65 CS + 49 GL).
+- **Coverage Matrix (post-landing snapshot)**
+
+    | Family        | Techs | Samples | Passed | Sample DCS | Technique Cov |
+    |---            |---:   |---:     |---:    |---:        |---:           |
+    | Cobalt Strike | 9     | 30      | 30     | 100.0%     | 100.0%        |
+    | GootLoader    | 10    | 22      | 22     | 100.0%     | 76.9%         |
+    | **Overall**   | —     | **52**  | **52** | **100.0%** | **86.4%**     |
+
+- **Real-world value**
+    - GootLoader's PowerShell handoff surface is now
+      byte-locked. Every downstream WordPress→PS Stager pattern
+      seen in the last 12 months of GootLoader IR reports is
+      deterministically decodable.
+    - The "technique coverage %" metric is now the primary
+      customer-facing KPI. Sample count alone is no longer the
+      measure — engineering effort is now steerable by the
+      **gap list**.
+- **Regressions**: **NONE.**
+    - Backend `/api/health` still 200.
+    - No engine files changed. Zero fingerprint drift on the
+      M8 corpus. All M1-M9 tests still pass.
+- **Next in R1 (owner's declared priority order)**: DarkGate →
+  Lumma → Emotet → QakBot → AsyncRAT → NetSupport → SocGholish
+  → BumbleBee → IcedID → Akira. Each will use the same
+  technique-first schema, the same `r1_loader` / `r1_runner`
+  infrastructure, and each will declare its own coverage-gap
+  techniques honestly.
+- **Then**: Phase R2 (LOLBAS) → Phase R3 (benign corpus) →
+  M10 (Workspace Isolation Certificate) — deferred so the M10
+  cert reflects broad real-world validation.
+

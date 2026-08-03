@@ -1,10 +1,10 @@
 """
-Phase R1 fingerprint generator.
+Phase R1 fingerprint generator (technique-first schema).
 
 Runs the Convergence Engine on every R1 sample and writes its
 deterministic output+certificate fingerprint back to the family JSON
-file under ``expected.fingerprint``. Mirrors the M8 generator, but
-scoped to Phase R families rather than the certification corpus.
+file under ``expected.fingerprint``. Walks the ``techniques[].samples[]``
+hierarchy.
 
 Usage
 -----
@@ -40,30 +40,32 @@ def _update_family_file(path: Path) -> int:
         doc = json.load(fh)
 
     count = 0
-    for sample in doc.get("samples", []) or []:
-        fp = _fingerprint(sample)
-        expected = sample.setdefault("expected", {})
-        existing = expected.get("fingerprint") or {}
-        changed = any(
-            existing.get(k) != v for k, v in fp.items() if k != "recorded_at"
-        )
-        if not changed and existing:
-            fp["recorded_at"] = existing.get("recorded_at", fp["recorded_at"])
-        expected["fingerprint"] = fp
-        count += 1
+    for tech in doc.get("techniques", []) or []:
+        for sample in tech.get("samples", []) or []:
+            fp = _fingerprint(sample)
+            expected = sample.setdefault("expected", {})
+            existing = expected.get("fingerprint") or {}
+            unchanged = all(
+                existing.get(k) == v for k, v in fp.items() if k != "recorded_at"
+            ) and existing
+            if unchanged:
+                fp["recorded_at"] = existing.get("recorded_at", fp["recorded_at"])
+            expected["fingerprint"] = fp
+            count += 1
 
-    doc["fingerprint_schema_version"] = "r1-1.0.0"
+    doc["fingerprint_schema_version"] = "r1-2.0.0"
     path.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
     return count
 
 
 def main() -> int:
     total = 0
-    for family_path in sorted(FAMILIES_DIR.glob("*.json")):
+    files = sorted(FAMILIES_DIR.glob("*.json"))
+    for family_path in files:
         n = _update_family_file(family_path)
         print(f"  {family_path.name:<30}  {n:>3} samples fingerprinted")
         total += n
-    print(f"Total: {total} samples across {len(list(FAMILIES_DIR.glob('*.json')))} family/families")
+    print(f"Total: {total} samples across {len(files)} family/families")
     return 0
 
 
