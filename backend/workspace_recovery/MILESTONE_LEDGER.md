@@ -676,3 +676,79 @@ next milestone MUST NOT begin.
   the DCS runner (and CI regression gates) can detect silent
   regressions at the byte level — no engine change can slip
   through without an explicit certificate-fingerprint update.
+
+---
+
+### M8 · Corpus Fingerprint Fields — COMPLETE
+
+- **Date**: 2026-08-02 21:12 UTC
+- **Milestone**: M8 · Corpus Fingerprint Fields
+- **What was implemented**
+    - **New generator** — `workspace_recovery/m8_fingerprint_generator.py`.
+      Runs the current engine on every corpus sample and writes an
+      `expected.fingerprint` block containing:
+        - `canonical_output_sha256`  — SHA-256 of the final artifact
+        - `certificate_fingerprint`  — SHA-256 of the canonical JSON certificate
+        - `expected_iterations`      — number of iterations to converge
+        - `expected_canonical_state` — bool
+        - `expected_terminated_reason` — `canonical_state` /
+          `max_depth` / `interpreter_drift`
+        - `recorded_at`              — ISO 8601 UTC audit timestamp
+      Idempotent — re-running against a deterministic engine
+      produces byte-identical corpus output.
+    - **All 13 corpus samples** now carry a fingerprint block.
+      `corpus.json` gained a top-level
+      `fingerprint_schema_version: "m8-1.0.0"` marker.
+    - **DCS runner strict mode** — `python -m workspace_recovery.dcs_runner
+      --strict` now compares every sample's live engine output +
+      certificate against the recorded fingerprint. Any drift
+      (`OUTPUT DRIFT`, `CERTIFICATE DRIFT`, `ITERATIONS DRIFT`,
+      `CANONICAL-STATE DRIFT`, or `TERMINATION DRIFT`) triggers a
+      per-sample failure line and exit code **2**.
+    - **New tests** — `backend/tests/test_corpus_fingerprints_m8.py`
+      (28 tests) parametrised over all 13 samples plus:
+        * `test_dcs_runner_strict_mode_passes_on_untouched_engine` —
+          confirms `--strict` exits 0 in the happy path.
+        * `test_dcs_runner_strict_mode_detects_synthetic_drift` —
+          monkey-patches `converge` to append `!DRIFT!` to the
+          output and asserts `--strict` returns exit code 2. This
+          test proves the drift-detection layer is not merely a
+          rubber stamp: a real regression IS caught.
+- **How it was verified**
+    - Combined suite `pytest tests/test_convergence_engine.py
+      tests/test_structural_pass.py tests/test_content_pass.py
+      tests/test_decoder_pass.py tests/test_semantic_pass.py
+      tests/test_selector_m6.py tests/test_certificate_m7.py
+      tests/test_corpus_fingerprints_m8.py`:
+      **203 passed in 7.26s** (up from 175 pre-M8).
+    - `python -m workspace_recovery.dcs_runner --strict` returned
+      exit code 0 with `Fingerprints locked · 13/13 samples
+      byte-identical to recorded.`
+    - Backend `/api/health` still HTTP 200.
+- **DCS Delta**: 0. DCS still 11/13 (84.6%). M8 is a regression-
+  protection milestone; no coverage change.
+- **Real-world value**
+    - Every future engine change now goes through the CI gate:
+      run `dcs_runner --strict`. If ANY sample's output or
+      certificate fingerprint changes, CI fails and the engineer
+      must EXPLICITLY re-record the fingerprints
+      (`python -m workspace_recovery.m8_fingerprint_generator`) as
+      part of the PR. Silent regressions are now impossible to
+      merge unnoticed.
+- **Regressions**: **NONE.**
+    - Backend `/api/health` still 200 (post-restart).
+    - No changes to `analysis_core.py`, `routers/ops.py`, `engine/`,
+      `v2/`, `timeline/`, or `nivxforge/`.
+    - Runner changes are strictly additive (default mode unchanged;
+      `--strict` opt-in).
+- **Acceptance criteria passed** (spec §"Concrete implementation
+  footholds" · M8 row): *"Corpus fingerprints locked · CI-grade
+  drift detection"* — **VERIFIED**. The drift-detection layer is
+  proven functional by a dedicated synthetic-drift test that would
+  fail loudly if the check were disabled.
+- **Next milestone**: **M9 · Corpus Repair + Real-World Expansion**
+  — repair S02 and S05 (both documented as corpus-authoring
+  defects in the byte-level forensic reports); add real-world
+  layered samples across Cobalt Strike, GootLoader, Emotet, IcedID,
+  BumbleBee, QakBot, AsyncRAT, DarkGate, SocGholish, NetSupport,
+  Lumma, Akira, Raspberry Robin, and the LOLBAS family.

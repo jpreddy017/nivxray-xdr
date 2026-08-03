@@ -60,14 +60,17 @@ Any next agent MUST read this before writing code.
     `routers/convergence.py`) returns the machine-readable
     certificate + iteration-level detail + analyst-friendly
     `human_trace` for any input.
-  - `human_trace()` helper also included in every Convergence
-    Engine envelope emitted by the M6 selector, so
-    `/api/decode/smart` responses now carry the audit-grade
-    narration too.
-  - **175/175 tests · 0 regressions · `/api/health` = 200 ·
-    DCS holds at 11/13 (audit-surface milestone).**
-- **Next**: M8 · Corpus Fingerprint Fields (regression protection
-  at the byte level).
+- **M8 · Corpus Fingerprint Fields: ✅ COMPLETE**.
+  - Every corpus sample now carries `canonical_output_sha256`,
+    `certificate_fingerprint`, `expected_iterations`,
+    `expected_canonical_state`, `expected_terminated_reason`,
+    `recorded_at`.
+  - `dcs_runner --strict` catches OUTPUT / CERTIFICATE /
+    ITERATIONS / CANONICAL-STATE / TERMINATION drift with exit
+    code 2. Verified by a synthetic-drift test.
+  - **203/203 tests · 0 regressions · `/api/health` = 200 ·
+    DCS holds at 11/13 (regression-protection milestone).**
+- **Next**: M9 · Corpus Repair + Real-World Expansion.
 - **Ledger**: `backend/workspace_recovery/MILESTONE_LEDGER.md` (append-only).
 - **Feature Freeze**: In effect until M6.
 

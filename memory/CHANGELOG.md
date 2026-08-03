@@ -2,6 +2,60 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-08-02 · Phase 5.5 · M8 Corpus Fingerprint Fields — COMPLETE
+
+**Ships:**
+- New `backend/workspace_recovery/m8_fingerprint_generator.py`.
+  Runs the current engine on every corpus sample and writes an
+  `expected.fingerprint` block: `canonical_output_sha256`,
+  `certificate_fingerprint`, `expected_iterations`,
+  `expected_canonical_state`, `expected_terminated_reason`,
+  `recorded_at`. Idempotent.
+- `corpus.json` upgraded to `fingerprint_schema_version: m8-1.0.0`.
+  All 13 samples carry byte-locked fingerprints.
+- `dcs_runner.py` gains a `--strict` mode that:
+  - Compares every sample's live engine output + certificate
+    against the recorded fingerprint.
+  - Prints per-sample drift diagnostics (OUTPUT / CERTIFICATE /
+    ITERATIONS / CANONICAL-STATE / TERMINATION).
+  - Returns exit code **2** on any drift.
+- New tests `backend/tests/test_corpus_fingerprints_m8.py`
+  (28 tests). Includes a **synthetic-drift injection test** that
+  monkey-patches `converge` to prove the drift-detection layer
+  actually fails when a regression exists. **Combined 203/203
+  passing in 7.26s.**
+
+**Regressions: 0.**
+- Backend `/api/health` still 200 (post-restart).
+- No changes to `analysis_core.py`, `routers/ops.py`, `engine/`,
+  `v2/`, `timeline/`, or `nivxforge/`. Runner changes strictly
+  additive (default mode unchanged; `--strict` opt-in).
+- DCS holds at 11/13 (84.6%) — regression-protection milestone,
+  not coverage expansion.
+
+**How CI now protects against silent regressions:**
+
+    Engineer edits engine
+        ↓
+    CI runs: python -m workspace_recovery.dcs_runner --strict
+        ↓
+    Every sample's live output + certificate compared to recorded
+        ↓
+    Any drift → exit code 2 → PR blocked
+        ↓
+    Engineer must explicitly re-record fingerprints
+        ↓
+    Change is documented, reviewed, and merged with intent.
+
+**Next milestone:** M9 · Corpus Repair + Real-World Expansion —
+fix S02 & S05 (both documented as corpus-authoring defects in
+byte-level forensic reports) and add real-world layered samples
+across Cobalt Strike, GootLoader, Emotet, IcedID, BumbleBee,
+QakBot, AsyncRAT, DarkGate, SocGholish, NetSupport, Lumma, Akira,
+Raspberry Robin, and the LOLBAS family.
+
+---
+
 ## 2026-08-02 · Phase 5.5 · M7 Certificate Emission — COMPLETE
 
 **Ships:**
