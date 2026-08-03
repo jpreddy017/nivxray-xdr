@@ -76,11 +76,13 @@ class TestEncodedCommand:
         )
         result = converge(Artifact.from_input(payload))
         assert result.canonical is True
-        assert "IEX" in result.final_artifact.content
+        # M5 alias-expand converts IEX → Invoke-Expression (canonical).
+        assert "Invoke-Expression" in result.final_artifact.content
         assert "http://example.com/stage1" in result.final_artifact.content
 
     def test_s03_cmd_caret_then_encoded(self) -> None:
-        """S03 · caret strip (M2 addendum) then -enc extraction (M4)."""
+        """S03 · caret strip (M2 addendum) → -enc extract (M4) →
+        alias expand (M5)."""
         payload = (
             "c^m^d /c p^ow^ers^he^ll -e^nc "
             "SQBFAFgAKAAnAG4AZQB0AC4AdwBlAGIAYwBsAGkAZQBuAHQAJwApAA=="
@@ -88,7 +90,7 @@ class TestEncodedCommand:
         result = converge(Artifact.from_input(payload))
         assert result.canonical is True
         out = result.final_artifact.content
-        assert "IEX" in out
+        assert "Invoke-Expression" in out
         assert "net.webclient" in out
 
     def test_short_b64_rejected(self) -> None:

@@ -272,9 +272,9 @@ def test_s01_encoded_command_decodes_to_canonical_script() -> None:
     )
     result = converge(Artifact.from_input(payload))
     assert result.canonical is True
-    # Decoded PowerShell script must appear in the artifact.
+    # M5 alias-expand converts IEX → Invoke-Expression (canonical).
     out = result.final_artifact.content
-    assert "IEX" in out
+    assert "Invoke-Expression" in out
     assert "new-object" in out.lower()
     assert "net.webclient" in out.lower()
     # The encoded prefix and B64 payload have been consumed by the

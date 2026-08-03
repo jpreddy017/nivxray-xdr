@@ -28,8 +28,9 @@
             "interpreter": "powershell",
             "decoder_chain": ["base64", "utf-16le-decode"],
             "stage_order": ["ingest", "interpreter-detect", "extract-encoded-arg", "base64-decode", "utf16le-decode", "final-render"],
-            "final_output_contains": ["IEX", "new-object", "net.webclient", ".downloadstring", "http://example.com/stage1"],
-            "iocs_contains": ["http://example.com/stage1"]
+            "final_output_contains": ["Invoke-Expression", "new-object", "net.webclient", ".downloadstring", "http://example.com/stage1"],
+            "iocs_contains": ["http://example.com/stage1"],
+            "canonical_form_note": "M5 semantic pass expands IEX → Invoke-Expression. `IEX` remains a valid PowerShell alias; canonical form is required for certification consistency."
           }
         },
         {
@@ -62,6 +63,7 @@
             "interpreter": "powershell",
             "decoder_chain": ["unicode-normalize"],
             "final_output_contains": ["IEX", "http://ex.com/a"],
+            "canonical_form_note": "S08's IEX is inside a DQ string literal, which the semantic pass correctly preserves (quote-safety). The IEX alias remains as-is.",
             "iocs_contains": ["http://ex.com/a"]
           }
         },
@@ -118,7 +120,8 @@
           "expected": {
             "interpreter": "cmd",
             "decoder_chain": ["cmd-caret-strip", "powershell-encoded-arg", "base64", "utf-16le-decode"],
-            "final_output_contains": ["IEX", "net.webclient"]
+            "final_output_contains": ["Invoke-Expression", "net.webclient"],
+            "canonical_form_note": "M5 semantic pass expands IEX → Invoke-Expression."
           }
         }
       ]

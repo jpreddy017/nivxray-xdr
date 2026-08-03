@@ -1,0 +1,37 @@
+========================================================================
+S02 · Byte-level Forensic Report
+========================================================================
+
+1 · Corpus input (base64 arg to echo):
+   MzAyZTMwMmUzMTJlMzEyMDIwMjMyMDcwNmY3NzY1NzI3MzY4NjU2YzZjIGNvbW1lbnQ=
+
+2 · rev(input):
+   =Qnbl1WbvNGIjZzY2UjN4YzM3IzN1YzN3YmNwcDMyMjMwIDMyEzMlJTMzUmMwMTZyAzM
+
+3 · Python base64.b64decode(rev, validate=True):
+   ERROR: Leading padding not allowed
+
+4 · bash `echo <rev> | base64 -d`:
+   stdout    : b''
+   stderr    : 'base64: invalid input'
+   returncode: 1
+
+5 · Full corpus pipeline via real bash:
+   stdout    : b''
+   stderr    : 'bash: line 1: xxd: command not found\nbase64: invalid input'
+   returncode: 127
+
+6 · Direct decode WITHOUT rev (`echo | base64 -d`):
+   b'302e302e312e3120202320706f7765727368656c6c comment'
+
+7 · Corpus-declared expected substring:
+   '30.30.31.1'
+
+8 · Verdict:
+   Real bash's `base64 -d` FAILS on the reversed string —
+   the pipeline as written cannot produce ANY output, let
+   alone the declared expected substring. Direct decoding
+   without `rev` produces useful bytes, but they do not
+   contain `30.30.31.1` either. No deterministic path
+   through this pipeline yields the corpus expectation.
+   → CORPUS-AUTHORING DEFECT · queued for M9 corpus repair.

@@ -39,7 +39,7 @@ future workstream with a documented rationale.
 | Caesar | ⏳ | ⏳ |  |
 | XOR (single-byte) | ✅ | ⏳ | M4 · `decoder-xor-byte-array` (S06) |
 | XOR (multi-byte) | ⏳ | ⏳ |  |
-| PowerShell aliases (post-decode) | ⏳ | ⏳ | must NOT hijack primary chain · S04 anchor · M5 |
+| PowerShell aliases (post-decode) | ✅ | ⏳ | M5 · unambiguous whitelist only (`iex`, `iwr`, `icm`, `irm`, `gc`, `gci`, `sc`, `gcm`, `gm`); `echo`/`cat`/`ls`/etc. deliberately EXCLUDED to avoid corrupting bash/cmd fragments |
 | PowerShell backticks | ✅ | ⏳ | M3 · `content-backtick-escape-strip` (outside strings, guards EOL) |
 | PowerShell format operator `-f` | ⏳ | ⏳ |  |
 | PowerShell join operator `-join` | ✅ | ⏳ | M2 · quote-safe literal folding; `-join` operator + `[String]::Join()` |
@@ -52,7 +52,7 @@ future workstream with a documented rationale.
 | Array slicing / index tricks | ✅ | ⏳ | M3 · single/range/list on SQ literals; enables S013 |
 | Unicode normalization | ✅ | ⏳ | S08 · already handled by JSON parse; canonical text emerges pre-pipeline |
 | Char-code array (JS · decimal) | ⏳ | ⏳ |  |
-| Bash pipeline `rev` / `xxd` / `tr` | ⏳ | ⏳ | S02 anchor · M5 |
+| Bash pipeline `rev` / `xxd` / `tr` | ✅ | ⏳ | M5 · `semantic-bash-pipeline-reduce` — whitelisted stages: `rev`, `base64 -d`/`--decode`/encode, `xxd -r -p`/`-p`, `gunzip`, `zcat`, `cat`, `rot13`, `tr FROM TO` |
 
 **Legend**: ⏳ pending · ✅ implemented · 🏆 certified · ⛔ deferred
 
