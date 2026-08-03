@@ -260,17 +260,23 @@ def op_powershell_normalize(data: str, args: Dict[str, Any] | None = None) -> st
         for i, s in enumerate(trace, 1):
             lines.append(f"  Step {i}: {s}")
     lines.append("")
-    lines.append("Reconstructed Command:")
-    lines.append(f"  {reconstructed}")
-    lines.append("")
-    # ARB Governance Rule 13 · surface the decoded EncodedCommand payload
-    # as an explicit "Decoded Payload" layer so the analyst can see WHY
-    # the runtime simulation matched (or didn't).
+    # ── ARB Canonical Artifact Contract (Rule 12) ──────────────────────
+    # Once -EncodedCommand is successfully decoded, the decoded payload
+    # BECOMES the primary Reconstructed Command. The base64 wrapper is
+    # retained below as *supporting evidence*, not as the canonical
+    # artifact. This aligns Auto Investigate with the Decode button:
+    # both surfaces present the decoded payload as the primary command.
     if encoded_decoded is not None:
-        lines.append("Decoded Payload (EncodedCommand · base64 → UTF-16LE):")
+        lines.append("Reconstructed Command (canonical · post-decode):")
         for L in encoded_decoded.splitlines() or [encoded_decoded]:
             lines.append(f"  {L}")
         lines.append("")
+        lines.append("Wrapper Evidence (retained for context · T1027.010):")
+        lines.append(f"  {reconstructed}")
+    else:
+        lines.append("Reconstructed Command:")
+        lines.append(f"  {reconstructed}")
+    lines.append("")
     if sim is not None:
         lines.append("Runtime Output (Simulation · deterministic):")
         for L in sim.splitlines() or [sim]:

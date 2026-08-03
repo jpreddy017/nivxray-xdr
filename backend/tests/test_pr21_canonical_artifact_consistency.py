@@ -118,33 +118,33 @@ def test_rule13_medium_non_wrapper_blocks_downgrade():
 
 def test_normalizer_decodes_encoded_command_benign_write_host():
     """ARB reference Case A · benign wrapper + benign payload.
-    The normalizer must decode UTF-16LE and simulate the safe built-in."""
+    The normalizer must decode UTF-16LE, promote the decoded payload as
+    the canonical Reconstructed Command, and simulate the safe built-in."""
     from decoders.ps_normalizer import op_powershell_normalize
 
     b64 = _encoded_command(BENIGN_PAYLOAD)
     inp = f"powershell -EncodedCommand {b64}"
     out = op_powershell_normalize(inp, None)
-    assert "Decoded Payload (EncodedCommand" in out
+    # New canonical structure: decoded payload IS the reconstructed command
+    assert "Reconstructed Command (canonical · post-decode)" in out
     assert "Write-Host" in out
     assert "Runtime Output (Simulation · deterministic)" in out
-    # The literal from the safe-builtin simulator must appear
     assert "This comes from an encoded PS command!" in out
-    # And the wrapper is preserved as context
-    assert "Reconstructed Command" in out
+    # Wrapper is retained as evidence, not primary artifact
+    assert "Wrapper Evidence" in out
+    assert "-EncodedCommand" in out
 
 
 def test_normalizer_does_not_simulate_malicious_encoded_command():
-    """ARB reference Case B · benign wrapper + malicious payload.
-    Simulator must NOT run (payload isn't a safe built-in) so the caller
-    (deeper decoders / verdict engine) handles the malicious content."""
     from decoders.ps_normalizer import op_powershell_normalize
 
     b64 = _encoded_command(MALICIOUS_PAYLOAD)
     inp = f"powershell -EncodedCommand {b64}"
     out = op_powershell_normalize(inp, None)
-    assert "Decoded Payload (EncodedCommand" in out
+    # Decoded payload is still promoted as canonical
+    assert "Reconstructed Command (canonical · post-decode)" in out
     assert "Invoke-WebRequest" in out
-    # Not simulated because it's not a safe built-in
+    # But no runtime simulation because it isn't a safe built-in
     assert "Runtime Output (Simulation): not attempted" in out
 
 
@@ -174,19 +174,19 @@ def test_normalizer_still_handles_plain_command_form():
 
 
 def test_normalizer_output_shows_four_layers_for_benign_case():
-    """Rule 13 · Wrapper / Payload / Behavior / (Verdict is downstream)
-    must be visible in the normalizer output when a benign encoded
-    payload is present."""
+    """Rule 13 · The canonical structure surfaces:
+    1. Reconstructed Command (post-decode canonical artifact)
+    2. Wrapper Evidence (retained for context)
+    3. Runtime Output (Simulation)
+    4. Behavior claims (evidence-backed)"""
     from decoders.ps_normalizer import op_powershell_normalize
 
     b64 = _encoded_command(BENIGN_PAYLOAD)
     inp = f"powershell -EncodedCommand {b64}"
     out = op_powershell_normalize(inp, None)
-    # Wrapper layer
-    assert "Reconstructed Command" in out
-    # Payload layer
-    assert "Decoded Payload (EncodedCommand" in out
-    # Behavior layer
+    assert "Reconstructed Command (canonical · post-decode)" in out
+    assert "Wrapper Evidence" in out
+    assert "Runtime Output (Simulation" in out
     assert "Behavior" in out
     assert "Safe built-in — no malicious behavior" in out
 
