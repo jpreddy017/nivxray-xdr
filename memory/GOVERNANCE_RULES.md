@@ -333,3 +333,85 @@ asserts the canonical artifact returned by `/api/decode/smart` is
 byte-identical before/after enabling the Phase A bridge. Only
 `trace[].output_preview` values become richer.
 
+
+
+---
+
+## Rule 17 · Canonical Consumer Rule (Permanent)
+
+**Approved**: 2026-08-05 · ARB (after the fourth canonical-consumer
+defect pattern was reported — PS `-encod` short form triggering
+RC4.4 CMD Runtime Reconstruction on raw wrapper).
+
+This rule replaces a broad, standalone consumer-audit PR with a
+progressive-convergence engineering discipline. Every bug fix
+brings the architecture closer to the target state without pausing
+the roadmap.
+
+### The rule
+
+After the Canonical Evidence Recovery service (`services/
+canonical_evidence_recovery.py`) produces the canonical artifact:
+
+1. **Every new or modified downstream consumer MUST consume the
+   canonical artifact.** No new code may read `body.input` for
+   analytical, verdict, decoding, reporting, or presentation
+   decisions.
+
+2. **Ingress-only reads are permitted** and MUST be explicitly
+   documented in a code comment naming the ingress operation
+   (e.g. "raw body.input is passed to the ingress normalisation
+   gate below; downstream consumers read from the canonical
+   artifact"). Examples of legitimate ingress reads: ingress gate
+   itself, entropy-of-raw-input observability, "did the analyst
+   type anything?" empty-check.
+
+3. **When fixing a defect in a consumer**, you MAY also correct
+   directly related consumers in the same code path if they
+   exhibit the same defect class. This is scope-permitted.
+
+4. **You MUST NOT expand** the same fix into unrelated modules,
+   perform broad refactors, or redesign `ops.py` — that requires
+   a separate ARB-approved PR.
+
+### Enforcement path
+
+- Every reviewer of a PR touching `routers/ops.py`, `routers/
+  analyze.py`, or any new investigation surface asks: "Does this
+  new code read `body.input` or the canonical artifact?"
+- If the PR reads `body.input` downstream of canonical recovery
+  without explicit ingress-only justification, the PR is
+  blocked.
+- Existing legacy `body.input` reads are grand-fathered — they
+  MUST NOT be preemptively refactored (that would violate rule
+  4). But when a bug in a legacy consumer is fixed, the fix
+  brings that consumer onto the canonical artifact permanently.
+
+### Convergence
+
+Every defect-driven fix reduces the number of legacy `body.input`
+consumers. Given enough production issues, the set converges to
+zero — at which point the systematic audit is unnecessary. If
+defect frequency stays high after P0 completes, the ARB may
+reassess whether a broader consumer audit is justified at that
+point (but not before).
+
+### Test hook
+
+New consumers SHOULD add a targeted regression test in
+`backend/tests/` that pins the canonical-consumer contract for
+the specific input class the consumer handles. Format follows
+`tests/test_pr212_api_parity.py`.
+
+### Precedents (canonical-consumer conversions to date)
+
+- **PR-2.1.2 Phase A**: `deterministic_best_decode` call site →
+  Canonical Evidence Recovery Service.
+- **PR-2.1.2 Phase B**: `/analyze/async` IOC / MITRE / YARA /
+  LOLBAS extraction → runs on `artifact.decoded_output`.
+- **PR-2.2 Phase A**: Router-side trace-replay loop → L0 bridge
+  (canonical L0 ops execute against running buffer).
+- **RC4.4 tweet-tweet fix (2026-08-05)**: `cmd_runtime_reconstruct`
+  block guarded by `_canon_recovered` — skips when the L0 chain
+  already recovered the payload.
+

@@ -15,6 +15,42 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## 📍 CURRENT POSITION (2026-08-05 · Canonical Consumer Rule added)
+
+### RC4.4 tweet-tweet fix + Governance Rule 17 — DELIVERED
+
+**Bug**: PS `-encod` short-form input (`powershell.exe -encod
+VwBy…==`) was correctly decoded by the L0 chain
+(`decoder-powershell-encoded-command` → `Write-Host "tweet,
+tweet!"`), but the router's RC4.4 CMD Runtime Reconstruction
+section then ran on the RAW wrapper and echoed the encoded blob
+back into the analyst-visible OUTPUT panel — the fourth
+canonical-consumer defect in this class.
+
+**Fix** (targeted, scope-permitted per new Rule 17): guard the
+RC4.4 `cmd_runtime_reconstruct` block with `_canon_recovered` —
+skips when the canonical L0 chain has already recovered the
+payload. Verified: OUTPUT panel now leads with
+`▼ DECODED OUTPUT · Write-Host "tweet, tweet!"` and no misleading
+runtime reconstruction of the raw wrapper.
+
+**New governance**: Rule 17 · Canonical Consumer Rule (Permanent).
+Every new or modified downstream consumer MUST consume the
+canonical artifact, not `body.input`. Ingress-only reads permitted
+with explicit justification comment. Progressive convergence — no
+standalone consumer-audit PR, no roadmap interruption.
+
+**Damage-prevention gates**
+- DCS strict runner: 17/17 byte-identical.
+- R1 strict runner: 107/107 byte-identical.
+- PR-2.1.2 + PR-2.2 Phase A regression suites: 23/23 pass.
+
+**Status**: DELIVERED · Roadmap unchanged — awaiting ARB sign-off
+on PR-3 shell before starting PR-4 (Executive Summary + Attack
+Story lens content). No standalone consumer-audit PR.
+
+---
+
 ## 📍 CURRENT POSITION (2026-08-05 · PR-3 Workspace Shell delivered)
 
 ### PR-3 · L4 Analyst Workspace Shell — DELIVERED (scope-locked)
