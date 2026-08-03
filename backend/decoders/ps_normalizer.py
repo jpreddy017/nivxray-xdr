@@ -234,8 +234,21 @@ def op_powershell_normalize(data: str, args: Dict[str, Any] | None = None) -> st
     # producing a wrapper-only view that Rule 12 explicitly forbids.
     encoded_decoded: str | None = None
     if sim is None:
+        # PowerShell accepts ANY unambiguous prefix of `-EncodedCommand`
+        # (`-e`, `-ec`, `-enc`, `-encod`, `-encoded`, `-encodedcommand`,
+        # etc.). Enumerate every valid prefix so the router's normalizer
+        # decodes the payload in ALL forms — previously only the full
+        # `-EncodedCommand` matched, so short forms like `-encod` fell
+        # through to the wrapper-only branch and Auto Investigate's
+        # OUTPUT panel showed the raw base64 blob instead of the
+        # decoded PowerShell text.
+        _enc_switch = (
+            r"-(?:e|ec|en|enc|enco|encod|encode|encoded|encodedc|"
+            r"encodedco|encodedcom|encodedcomm|encodedcomma|"
+            r"encodedcomman|encodedcommand)"
+        )
         m_enc = re.search(
-            r"""-EncodedCommand\s+(?P<b64>[A-Za-z0-9+/=]{4,})\s*$""",
+            rf"""{_enc_switch}\s+(?P<b64>[A-Za-z0-9+/=]{{4,}})\s*$""",
             reconstructed,
             re.IGNORECASE,
         )

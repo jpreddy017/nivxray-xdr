@@ -47,6 +47,19 @@ export async function selectCanonicalOutput({ api, input, smartResp }) {
     smartResp?.semantic?.recovered_script ||
     "";
 
+  // v1.6.5 · ARB Governance Rule 17 (Canonical Consumer Rule).
+  // When the backend produced a `canonical_artifact` with terminal
+  // state `recovered`, that IS the analyst-visible decoded text.
+  // Bypass every other tier (recipe-replay / semantic peel / trace-
+  // tail / stitched `smartResp.output`) which all mix in banners,
+  // reconstruction reports and investigation summaries. User
+  // directive (2026-08-05): "I don't want nonsense in the output
+  // box, just the decoded output."
+  const ca = smartResp?.canonical_artifact;
+  if (ca && ca.terminal_state === "recovered" && ca.decoded_output) {
+    return { text: ca.decoded_output, source: "canonical_artifact" };
+  }
+
   // v1.6.0 Phase 1a regression fix (Feb-2026) — archetype handlers
   // (`engine: "archetype:*"`) recover per-sample state (XOR keys, split
   // keys, byte offsets) INSIDE the handler and produce their own correct
