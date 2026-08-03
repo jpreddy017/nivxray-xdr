@@ -319,7 +319,7 @@ async def _job_push_error(job_id: str, phase: str, err: str) -> None:
     )
 
 
-async def _run_analysis_job(job_id: str, body: AnalyzeIn):
+async def _run_analysis_job(job_id: str, body: AnalyzeIn, user: Optional[Dict[str, Any]] = None):
     try:
         text = (body.output or "") + "\n" + body.input
         iocs = extract_iocs(text)
@@ -427,6 +427,36 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn):
             "mitre": merged_mitre,
             "status": "done", "progress": 100, "phase": "complete",
         })
+
+        # ── ARB Governance Rules 12, 14, 15 · PR-2.1.2 ─────────────────
+        # Route the finalised async job through the same code path as
+        # /decode/smart so both surfaces produce an identical
+        # ``verdict_card``. This eliminates the previous independent
+        # ``risk_score()`` computation as a decision source (Rule 12)
+        # and guarantees Decode / Auto Investigate equivalence
+        # (Rule 14).
+        try:
+            from routers.ops import decode_smart as _decode_smart
+            from schemas import AutoIn as _DecodeIn
+        except Exception:
+            _decode_smart = None
+        if _decode_smart is not None:
+            try:
+                _sync = await _decode_smart(_DecodeIn(input=body.input), user=user)
+                _vc = (_sync or {}).get("verdict_card")
+                if _vc:
+                    # Overwrite the async job's independent risk with a
+                    # canonical projection of the Verdict Engine's card.
+                    from verdict_projection import derive_risk_projection
+                    _proj = derive_risk_projection(_vc) or {}
+                    await _job_set(job_id, {
+                        "verdict_card": _vc,
+                        "risk":         _proj or {"verdict": "Unknown", "level": "unknown", "score": 0},
+                    })
+            except Exception as _e:
+                # Best-effort — never fail the job because verdict
+                # unification hit an unexpected shape. Log for audit.
+                log.warning("PR-2.1.2 verdict unification skipped for %s: %s", job_id, _e)
     except Exception as e:
         log.exception("analysis job %s failed", job_id)
         await _job_set(job_id, {"status": "error", "error": str(e), "phase": "error"})
@@ -444,7 +474,7 @@ async def analyze_async(body: AnalyzeIn, user=Depends(get_current_user)):
         "created_at": now, "updated_at": now,
         "requested_by": user.get("email"),
     })
-    asyncio.create_task(_run_analysis_job(job_id, body))
+    asyncio.create_task(_run_analysis_job(job_id, body, user))
     return {"job_id": job_id, "status": "running"}
 
 
