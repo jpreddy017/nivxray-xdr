@@ -6,6 +6,7 @@ from __future__ import annotations
 import base64 as _b64
 import hashlib
 import logging
+import os
 import re
 from typing import Any, Dict, List, Optional
 
@@ -1066,25 +1067,67 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         _L0_OP_IDS = set(_l0_by_name().keys())
     except Exception:
         _L0_OP_IDS = set()
+    # ── ARB PR-2.2 Phase A · L0 read-only transformation bridge ──
+    # Exposes the REAL deterministic output of each L0 stage in the
+    # trace UI. Observability only — no self-healing, no quality
+    # gates, no alternates (deferred to Phase B/C per ARB decision).
+    from services.l0_bridge import execute_l0_transformation as _run_l0_op
     from payload_sanitizer import sanitize_encapsulated_payload, find_all_base64_spans
     trace: List[Dict[str, Any]] = []
     cur = body.input
     for step in det.get("steps") or []:
         op_id = step["op"]
         args = step.get("args") or {}
-        # ── ARB PR-2.1.2 · canonical-L0-op passthrough ──
-        # If the router doesn't own this op but the L0 engine does, don't
-        # error — record a clean canonical-chain entry and continue with
-        # unchanged buffer. Prevents the "Unknown operation:
-        # content-ps-operator-case-normalize" symptom the ARB flagged.
+        # ── ARB PR-2.2 Phase A · canonical-L0-op REAL execution ──
+        # If the router doesn't own this op but the L0 engine does,
+        # invoke the L0 transformation's own `apply(buffer)` callable
+        # via the read-only bridge and record the actual per-stage
+        # output. Observability only — never repairs, never chooses
+        # alternates.
+        #
+        # ARB governance · trace generation is best-effort ONLY.
+        # Trace failures MUST NEVER alter canonical evidence, verdict
+        # computation, investigation output, or analyst workflow. The
+        # `cur = nxt` assignment below is scoped to the trace loop —
+        # the final canonical output comes from `det["output"]`
+        # (populated by L0 `deterministic_best_decode`), not from
+        # `cur`. See GOVERNANCE_RULES.md · Rule 16.
         if op_id not in OPERATIONS and op_id in _L0_OP_IDS:
-            trace.append({
-                "op": op_id, "args": args,
-                "reason": _reason_for_op(op_id),
-                "output_preview": (cur[:400] if isinstance(cur, str) else str(cur)[:400]),
-                "output_length":  (len(cur) if isinstance(cur, str) else None),
-                "canonical_l0":   True,  # marker so the UI can label it
-            })
+            try:
+                nxt, fires, l0_err = _run_l0_op(op_id, cur)
+                entry = {
+                    "op": op_id, "args": args,
+                    "reason": _reason_for_op(op_id),
+                    "output_preview": (nxt[:400] if isinstance(nxt, str) else str(nxt)[:400]),
+                    "output_length":  (len(nxt) if isinstance(nxt, str) else None),
+                    "canonical_l0":   True,   # UI label: "canonical L0 stage"
+                    "fires":          fires,  # 0 == transformation didn't fire
+                    "bridge_status":  "ok" if l0_err is None else "warn",
+                }
+                if l0_err:
+                    # Non-fatal note — never set "error" (which the FE
+                    # renders as a red banner). Stage still advanced.
+                    entry["bridge_reason"] = l0_err
+                    entry["l0_note"] = l0_err   # legacy field, retained for UI
+                trace.append(entry)
+                cur = nxt  # ADVANCE trace-loop buffer only — L0 owns canonical.
+            except Exception as _l0e:
+                # Bridge failure — CI/strict mode escalates so engineers
+                # discover bugs pre-release; production falls back to a
+                # safe echo entry so the trace still populates.
+                if os.environ.get("L0_BRIDGE_STRICT") == "1":
+                    raise
+                log.warning("l0_bridge fallback for %s: %s", op_id, _l0e)
+                trace.append({
+                    "op": op_id, "args": args,
+                    "reason": _reason_for_op(op_id),
+                    "output_preview": (cur[:400] if isinstance(cur, str) else str(cur)[:400]),
+                    "output_length":  (len(cur) if isinstance(cur, str) else None),
+                    "canonical_l0":   True,
+                    "bridge_status":  "fallback",
+                    "bridge_reason":  f"exception:{type(_l0e).__name__}",
+                    "l0_note":        f"bridge exception ({type(_l0e).__name__}) — buffer unchanged",
+                })
             continue
         try:
             if op_id == "extract-payload":

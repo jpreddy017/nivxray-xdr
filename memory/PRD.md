@@ -15,6 +15,71 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## 📍 CURRENT POSITION (2026-08-05 · PR-2.2 Phase A delivered)
+
+### PR-2.2 Phase A · Real Per-Stage Deterministic Trace — DELIVERED
+
+**ARB scope**: Phase A only (observability). Phase B (stage-quality
+gates) and Phase C (self-healing alternates) explicitly deferred
+until an expanded evidence corpus is available. Sequencing per ARB:
+`Correctness → Visibility → Analyst UX → Corpus expansion → Gates →
+Self-healing`.
+
+**What shipped**
+
+- NEW · `backend/services/l0_bridge.py` — read-only L0 transformation
+  bridge. `is_l0_transformation(op_id)` + `execute_l0_transformation(
+  op_id, buffer) -> (new_buffer, fire_count, error)`. Read-only w.r.t.
+  L0 registry. Never raises (catches internally). Concatenates
+  `TRANSFORMATIONS` tuples from `workspace/convergence/{structural,
+  content, decoder, semantic}.py` into a single name→callable table.
+- Router `/api/decode/smart` trace-build loop refactored to call the
+  bridge for L0-registered ops the router's local `OPERATIONS` dict
+  doesn't own. Each stage now records:
+    • `canonical_l0: True` marker
+    • real `output_preview` (post-transformation buffer)
+    • `fires` count (0 = transformation didn't fire)
+    • structured `bridge_status` ∈ {ok, warn, fallback}
+    • structured `bridge_reason` on non-ok status
+    • `l0_note` (legacy free-form field, retained for UI)
+- **Safety net** (ARB directive): every bridge invocation is
+  try/except-wrapped. Bridge failure records a `bridge_status:
+  fallback` entry and keeps the running buffer unchanged.
+  `L0_BRIDGE_STRICT=1` env var re-raises in CI/dev so bridge
+  regressions surface pre-release.
+
+**Governance**
+
+- New Rule 16 · Trace Layer is Best-Effort Only (`memory/GOVERNANCE_RULES.md`).
+  Trace failures MUST NEVER alter canonical evidence, verdict,
+  investigation output, or workflow.
+
+**Damage-prevention gates green**
+
+- DCS strict runner: 17/17 byte-identical.
+- R1 strict runner: 107/107 byte-identical.
+- PR-2.2 Phase A trace-layer invariant tests: 3/3 pass.
+- PR-2.1.2 unit + API parity tests: 20/20 pass.
+- Combined regression suite: 23/23 pass.
+
+**Analyst-visible outcome**
+
+Prior: DECODING TRACE panel showed only "1 LAYER PEELED" with a red
+"ERROR: Unknown operation: content-ps-operator-case-normalize"
+banner on Auto Investigate.
+
+Now: DECODING TRACE panel shows every L0 canonical stage with the
+REAL post-stage buffer (`powershell.exe -encodedcommand …` → `Write-
+Host "This comes from an encoded PS command!"`), no ERROR banner,
+`bridge_status: ok` on each stage. Decode and Auto Investigate
+render identically.
+
+**Status**: DELIVERED · Ready for ARB Phase A sign-off · PR-3
+(Workspace Shell) unblocks next per approved roadmap. Phase B and
+Phase C explicitly on hold pending corpus expansion.
+
+---
+
 ## 📍 CURRENT POSITION (2026-08-05 · PR-2.1.2 delivered · Phase A + Phase B)
 
 ### PR-2.1.2 · Canonical Investigation Pipeline Lock — DELIVERED

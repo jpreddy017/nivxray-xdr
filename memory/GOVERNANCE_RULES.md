@@ -289,3 +289,47 @@ used to render the primary verdict or the primary artifact.
 
 Consequence: the API is self-documenting. A consumer can render a
 correct top-of-page verdict knowing only these two keys.
+
+
+---
+
+## Rule 16 · Trace Layer is Best-Effort Only
+
+**Approved**: 2026-08-05 · ARB (PR-2.2 Phase A review)
+
+Trace generation (per-layer previews, canonical-L0 bridge outputs,
+step reasoning, diff previews) is **strictly diagnostic**. It MUST
+NEVER:
+
+- alter the canonical decoded output (`det["output"]`,
+  `canonical_artifact.decoded_output`),
+- alter the verdict card, risk projection, or any evidence field
+  (IOCs / MITRE / LOLBAS / YARA),
+- alter the investigation summary, playbooks, or reports,
+- influence Auto Investigate progress, phase transitions, or job
+  state,
+- break the request when a trace hop misbehaves.
+
+Consequence rules for implementers:
+
+1. Every trace-only code path MUST catch its own exceptions. Trace
+   failures fall back to a safe echo entry — never propagate.
+2. Trace-loop local buffers (e.g. `cur = nxt`) are scoped to the
+   trace loop. The canonical output ALWAYS comes from the L0
+   engine's own return value, not from any router-side reassembly.
+3. Read-only bridges to the L0 registry (see
+   `services/l0_bridge.py`) are permitted. Read/write bridges are
+   NOT — mutating the L0 registry from the router is a
+   damage-prevention violation.
+4. CI / strict environments enable `L0_BRIDGE_STRICT=1` so bridge
+   bugs surface pre-release. Production defaults to graceful
+   fallback.
+5. Trace entries carry structured `bridge_status` (`ok` / `warn` /
+   `fallback`) and `bridge_reason` fields so UI badges, telemetry,
+   and regression tests don't parse free-form strings.
+
+Regression contract: `test_pr22_phase_a_trace_layer_invariant.py`
+asserts the canonical artifact returned by `/api/decode/smart` is
+byte-identical before/after enabling the Phase A bridge. Only
+`trace[].output_preview` values become richer.
+
