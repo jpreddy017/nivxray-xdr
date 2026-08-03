@@ -1932,6 +1932,24 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             or _re.search(r'""', src)
         )
         _has_lolbin = bool(_lolbin_rx.search(src))
+        # ── ARB PR-2.1.2 · Canonical-First guard ─────────────────────
+        # RC4.4 CMD Runtime Reconstruction is designed for CMD /
+        # env-var obfuscation patterns where the L0 chain did NOT peel
+        # any decoder layer. If the L0 canonical chain has ALREADY
+        # recovered the payload (e.g. PS -EncodedCommand → plaintext),
+        # running RC4.4 on the raw wrapper just echoes the encoded
+        # blob into "Reconstructed Command", which is misleading to
+        # analysts. Skip the block in that case — the canonical
+        # decoded output is the authoritative artifact.
+        _canon_recovered = (
+            "_canonical_artifact" in locals()
+            and getattr(_canonical_artifact, "terminal_state", None) == "recovered"
+            and getattr(_canonical_artifact, "decoded_output", "")
+            and _canonical_artifact.decoded_output != src
+        )
+        if _canon_recovered:
+            _has_obf = False
+            _has_lolbin = False
         if _has_obf or _has_lolbin:
             try:
                 from decoders.cmd_runtime_reconstruct import (
