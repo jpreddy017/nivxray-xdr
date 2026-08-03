@@ -415,3 +415,69 @@ the specific input class the consumer handles. Format follows
   block guarded by `_canon_recovered` — skips when the L0 chain
   already recovered the payload.
 
+
+
+---
+
+## Rule 18 · One Purpose Per Box (OUTPUT Panel Discipline)
+
+**Approved**: 2026-08-05 · Owner directive after RC4.3/RC4.4
+"Reconstruction" banners polluted the OUTPUT panel and confused
+analysts. Locked as a permanent UI contract.
+
+### The rule
+
+The **OUTPUT box** in the Analyst Workspace renders EXACTLY the
+canonical decoded artifact (`canonical_artifact.decoded_output`)
+for `terminal_state == "recovered"`. Nothing else. No banners, no
+reconstruction reports, no verdict summaries, no runtime
+simulation text, no wrapper evidence, no character-extraction
+tables, no ATT&CK maps.
+
+All supporting information MUST live in its own dedicated,
+labelled card/panel above or below the OUTPUT box:
+
+- **RECIPE** — applied ops
+- **DECODING TRACE** — per-stage L0 chain + intermediate outputs
+- **INVESTIGATION SUMMARY** — verdict + reasoning
+- **THREAT ANALYSIS sidebar** — MITRE / LOLBAS / IOCs / rules /
+  TI-hits / OSINT / FLOW / CHAIN
+- **KILL-CHAIN PATH graph** — attack graph
+- Future PR-4 / PR-5 / PR-6 content — each new lens or card gets
+  its OWN dedicated container. Never stitched into OUTPUT.
+
+### Enforcement
+
+- Reviewers of any PR that touches `WorkspacePage.jsx`,
+  `OutputView.jsx`, `selectCanonicalOutput.js`, or backend
+  `output` / `output_raw` construction ask: "Does this add
+  anything to the OUTPUT text area other than
+  `canonical_artifact.decoded_output`?" If yes, the PR is
+  blocked.
+- Backend `result["output"]` / `result["output_raw"]` fields
+  MAY continue to carry composite banners for legacy consumers,
+  but the FE `selectCanonicalOutput` MUST prefer
+  `canonical_artifact.decoded_output` when `terminal_state ==
+  "recovered"`. This is now the pinned behaviour (verified
+  2026-08-05 · tweet-tweet parity: 26 chars byte-identical
+  across Decode and Auto Investigate OUTPUT boxes).
+- New content classes (executive summary, attack story, MITRE
+  cards, IOC cards, capability cards, reports, detection rules,
+  etc.) land in their own PR-4 / PR-5 / PR-6 lens panels — never
+  in the OUTPUT box.
+
+### Terminal-state fallbacks
+
+For non-`recovered` terminal states, the OUTPUT box may show a
+concise, single-purpose message tied to that terminal state:
+
+- `atomic_ioc` → the atomic IOC value itself (bare, one line)
+- `decode_error` → single sentence: "Decoder Stability Gate —
+  no deterministic recovery possible"
+- `partial_recovery` → the recovered prefix text only
+- `multi_fragment` → per-fragment view (existing UX)
+- `passthrough` / `stability_gate` → raw input as-is
+
+Everything else in the response still lives in its dedicated
+panel.
+
