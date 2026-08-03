@@ -40,14 +40,14 @@ future workstream with a documented rationale.
 | XOR (single-byte) | ⏳ | ⏳ | S06 anchor |
 | XOR (multi-byte) | ⏳ | ⏳ |  |
 | PowerShell aliases (post-decode) | ⏳ | ⏳ | must NOT hijack primary chain |
-| PowerShell backticks | ⏳ | ⏳ |  |
+| PowerShell backticks | ✅ | ⏳ | M3 · `content-backtick-escape-strip` (outside strings, guards EOL) |
 | PowerShell format operator `-f` | ⏳ | ⏳ |  |
 | PowerShell join operator `-join` | ✅ | ⏳ | M2 · quote-safe literal folding; `-join` operator + `[String]::Join()` |
 | PowerShell string concatenation | ✅ | ⏳ | M2 · S04 anchor advanced; `'a'+'b'` and `"a"+"b"` (interpolation-safe) |
 | CMD caret escape | ⏳ | ⏳ | S03 anchor |
 | CMD runtime reconstruction | ⏳ | ⏳ |  |
-| Environment-variable substitution | ⏳ | ⏳ |  |
-| Array slicing / index tricks | ⏳ | ⏳ |  |
+| Environment-variable substitution | ✅ | ⏳ | M3 · 13 static Windows defaults; user/host-specific vars excluded by design |
+| Array slicing / index tricks | ✅ | ⏳ | M3 · single/range/list on SQ literals; enables S013 |
 | Unicode normalization | ⏳ | ⏳ | S08 anchor |
 | Char-code array (JS · decimal) | ⏳ | ⏳ |  |
 | Bash pipeline `rev` / `xxd` / `tr` | ⏳ | ⏳ | S02 anchor |

@@ -150,8 +150,10 @@ def test_final_iteration_is_a_no_op() -> None:
 
 
 _UNCHANGED_SAMPLES = [
+    # 10 samples that must remain byte-identical through the current
+    # pipeline (M1 loop + M2 structural + M3 content). Any content-hash
+    # drift on these is an immediate regression.
     "S001_ps_writehost_tweet",
-    "S01_ps_b64_utf16le",
     "S02_bash_xxd_b64_rev",
     "S03_cmd_caret_escaped",
     "S05_nested_b64_gzip",
@@ -161,20 +163,19 @@ _UNCHANGED_SAMPLES = [
     "S09_hex_b64_gzip_chain",
     "S10_bash_with_powershell_comment",
     "S012_plaintext_anchor",
-    "S013_env_slice_join_reconstruction",  # M3+ will move this one
 ]
 
 
 @pytest.mark.parametrize("sample_id", _UNCHANGED_SAMPLES)
 def test_no_regression_on_unchanged_samples(sample_id: str) -> None:
-    """M2 must NOT alter these samples — every one contains encoded
-    payloads or interpolated strings the structural pass must not
-    touch. Any content-hash drift here is an immediate regression."""
+    """These samples MUST remain byte-identical through the current
+    pipeline. Every one contains encoded payloads, interpolated
+    strings, or non-PowerShell text no pass is allowed to touch."""
     payload = next(s["input"] for s in load_samples(CORPUS_PATH) if s["id"] == sample_id)
     art = Artifact.from_input(payload)
     result = converge(art)
     assert result.final_artifact.content == payload, (
-        f"{sample_id}: structural pass modified an encoded/interpolated payload"
+        f"{sample_id}: pipeline modified an encoded/interpolated payload"
     )
     assert result.certificate.structural_changes == 0
     assert result.certificate.content_changes == 0

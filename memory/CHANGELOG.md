@@ -2,6 +2,55 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-08-02 · Phase 5.5 · M3 Content Pass — COMPLETE
+
+**Ships:**
+- New `backend/workspace/convergence/transformation.py` — the
+  `Transformation` metadata dataclass (name, category, consumes,
+  produces, preconditions, postconditions, priority, deterministic,
+  reversible, apply). Every M3 fold registers a descriptor; this is
+  the first piece of the future plugin registry surface.
+- `backend/workspace/convergence/content.py` implements eight
+  deterministic, quote-safe folds:
+    - `content-ps-operator-case-normalize` — 40+ documented PS
+      operators/CLI switches lowercased.
+    - `content-env-var-case-normalize` — `$eNv:` → `$env:`.
+    - `content-env-var-substitute` — 13 static Windows defaults
+      (`ComSpec`, `Public`, `ProgramFiles`, `SystemRoot`, `windir`,
+      etc.). Host- / user-specific vars deliberately excluded by
+      design and enforced by a test.
+    - `content-string-index-{single,range,list}-fold` —
+      `'literal'[n]`, `'literal'[a..b]`, `'literal'[a,b,c]`.
+    - `content-backtick-escape-strip` — `I\`E\`X` → `IEX`.
+    - `content-numeric-constant-fold` — integer literal `+`/`-` folded.
+- **S013 anchor advances**: `$env:ComSpec[4,15,25]` →
+  `('i','e','x')`; `$env:Public[12]+$env:ProgramFiles[9]` cascades
+  through M2 structural to `'lm'`. First real reconstruction of an
+  env-var-slicing obfuscation family.
+- **S01 anchor**: `-EncodedCommand` normalizes to `-encodedcommand`,
+  Base64 payload preserved bit-for-bit.
+- New tests `backend/tests/test_content_pass.py` (41 tests). Combined
+  suite now **118/118 passing in 0.40s**.
+
+**Regressions: 0.**
+- 10/13 corpus samples byte-identical (S001, S02, S03, S05, S06,
+  S07, S08, S09, S10, S012).
+- `/api/health` still HTTP 200. No changes to `analysis_core.py`,
+  `routers/ops.py`, `engine/`, `v2/`, `timeline/`, or `nivxforge/`.
+
+**Coverage matrix updates** (in
+`backend/workspace_recovery/TRANSFORMATION_COVERAGE.md`):
+- `PowerShell backticks` → ✅ implemented.
+- `Environment-variable substitution` → ✅ implemented (13 static
+  Windows defaults).
+- `Array slicing / index tricks` → ✅ implemented.
+
+**Next milestone:** M4 · Decoder Pass Integration (Base64, UTF-16LE,
+GZIP, Hex, RC4/XOR). First DCS-measured milestone; spec target is
+≥ 8/13 corpus passing.
+
+---
+
 ## 2026-08-02 · Phase 5.5 · M2 Structural Pass — COMPLETE
 
 **Ships:**

@@ -25,8 +25,17 @@ Any next agent MUST read this before writing code.
     `structural-join-operator-fold`, `structural-static-join-fold`.
   - S04 anchor advances: `'ht'+'tp'+'://ex'+'ample.com/x'` → canonical
     `'http://example.com/x'` inside the engine.
-  - **77/77 tests · 0 regressions · `/api/health` = 200.**
-- **Next**: M3 · Content Pass Integration.
+- **M3 · Content Pass Integration: ✅ COMPLETE**.
+  - Introduced `Transformation` metadata dataclass (registry surface
+    for future plugin architecture).
+  - Eight quote-safe folds: PS operator case, env-var case + static
+    substitute (13 Windows defaults), string index / range / list
+    folding, backtick strip, numeric constant fold.
+  - **S013 anchor advances**: `$env:ComSpec[4,15,25]` → `('i','e','x')`;
+    `$env:Public[12]+$env:ProgramFiles[9]` cascades through M2 to
+    `'lm'`.
+  - **118/118 tests · 0 regressions · `/api/health` = 200.**
+- **Next**: M4 · Decoder Pass Integration (first DCS-measured milestone).
 - **Ledger**: `backend/workspace_recovery/MILESTONE_LEDGER.md` (append-only).
 - **Feature Freeze**: In effect until M6.
 

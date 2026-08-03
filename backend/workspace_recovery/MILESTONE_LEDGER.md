@@ -178,3 +178,104 @@ next milestone MUST NOT begin.
   cleanup, mixed-case normalisation, and constant folding. Verification
   target: content-only diff visible in provenance, and S013 begins
   making convergence progress.
+
+---
+
+### M3 · Content Pass Integration — COMPLETE
+
+- **Date**: 2026-08-02 19:12 UTC
+- **Milestone**: M3 · Content Pass Integration
+- **What was implemented**
+    - **New** — `backend/workspace/convergence/transformation.py` —
+      `Transformation` metadata dataclass declaring
+      `{name, category, consumes, produces, preconditions,
+      postconditions, priority, deterministic, reversible, apply}`
+      for every registered transformation. This is the first piece of
+      the future plug-in registry surface.
+    - **Populated** — `backend/workspace/convergence/content.py` with
+      eight deterministic, quote-safe folds and their metadata:
+        1. `content-ps-operator-case-normalize` — `-jOiN` /
+           `-EncodedCommand` / `-SplIt` → canonical lowercase.
+           Whitelist of 40+ documented PowerShell operators / CLI
+           switches.
+        2. `content-env-var-case-normalize` — `$eNv:foo` → `$env:foo`.
+        3. `content-env-var-substitute` — 13 statically-defined Windows
+           env vars substituted with their canonical literal path
+           (`ComSpec`, `Public`, `ProgramFiles`, `ProgramFiles(x86)`,
+           `SystemRoot`, `SystemDrive`, `windir`, `ProgramData`,
+           `AllUsersProfile`, `CommonProgramFiles`,
+           `CommonProgramFiles(x86)`, `ProgramW6432`,
+           `CommonProgramW6432`). Host- / user-specific variables
+           (`PATH`, `USERPROFILE`, `USERNAME`, `APPDATA`, `TEMP`,
+           `TMP`, `COMPUTERNAME`, ...) are DELIBERATELY excluded — a
+           test enforces they are never substituted.
+        4. `content-string-index-single-fold` — `'literal'[n]` → `'c'`.
+        5. `content-string-index-range-fold` — `'literal'[a..b]` →
+           `('c1','c2',…)` (ascending and descending ranges).
+        6. `content-string-index-list-fold` — `'literal'[a,b,c]` →
+           `('ca','cb','cc')`.
+        7. `content-backtick-escape-strip` — `I\`E\`X` → `IEX`.
+           NEVER touches backticks inside quoted strings.
+        8. `content-numeric-constant-fold` — `50+55` → `105`,
+           `50-30` → `20`. Only integer literals; string content
+           protected by the quoted-region skip prefix.
+    - **New** — `backend/tests/test_content_pass.py` (41 tests).
+- **How it was verified**
+    - Combined suite `pytest tests/test_convergence_engine.py
+      tests/test_structural_pass.py tests/test_content_pass.py`:
+      **118 passed in 0.40s** (32 loop + 45 structural + 41 content).
+    - **S013 anchor now advances materially** through the engine:
+      `$env:ComSpec[4,15,25]` → `('i','e','x')`;
+      `$env:Public[12] + $env:ProgramFiles[9]` folds through M2's
+      structural pass to `'lm'`;
+      `$env:ComSpec` → `'C:\Windows\system32\cmd.exe'`.
+      All within a single deterministic convergence run
+      (`canonical_state=YES`, 3 iterations, hash-stable across 3
+      repeat runs). This is the first real reconstruction of an
+      obfuscated env-var slicing payload.
+    - **S01 anchor**: `-EncodedCommand` normalizes to
+      `-encodedcommand` with the Base64 payload preserved bit-for-bit
+      — verified by a dedicated payload-preservation test.
+    - Zero-regression floor still holds on 10 samples (S001, S02,
+      S03, S05, S06, S07, S08, S09, S10, S012 — parametrised test
+      `test_no_regression_on_unchanged_samples`).
+    - Determinism: engine result stable across two runs on 5
+      representative inputs (identical content AND identical
+      certificate fingerprint).
+    - Every transformation carries introspectable metadata (unit test
+      asserts registry shape).
+- **DCS Delta**: Not yet formally scored. Two anchors now show
+  visible reconstruction inside the engine (S01 normalized, S013
+  slicing resolved), but the ultimate scoring milestone is M4
+  (decoder pass) per the spec verification table.
+- **Real-world samples passed**
+    - S013's env-slicing family covers the exact obfuscation pattern
+      shipped by Invoke-Obfuscation's `Set-EncodedString` and by
+      `Nishang`'s payload builders. That family is now partially
+      converged deterministically.
+- **Regressions**: **NONE.**
+    - Backend `/api/health` still 200.
+    - No changes to `analysis_core.py`, `routers/ops.py`, `engine/`,
+      `v2/`, `timeline/`, or `nivxforge/`.
+    - The unchanged-samples set was refactored from 12 to 10 to
+      reflect that S01 and S013 now (correctly) transform. Both
+      transformations are behaviour-preserving (PowerShell operator
+      case-insensitivity and static Windows defaults) and enforced by
+      dedicated tests.
+- **Acceptance criteria passed** (spec §"Concrete implementation
+  footholds" · M3 row): *"Content pass integrated · Content-only diff
+  visible in provenance"* — **VERIFIED**. `S01` produces
+  `content_changes=1, structural_changes=0`; `S013` produces
+  `content_changes=2, structural_changes=1` (structural fires only
+  once, in a later iteration, on the literals emitted by content).
+- **Transformations added to `TRANSFORMATION_COVERAGE.md`**:
+  `Environment-variable substitution` → ✅ implemented (static
+  Windows defaults · 13 vars),
+  `PowerShell backticks` → ✅ implemented,
+  `Array slicing / index tricks` → ✅ implemented (single index /
+  range / list-of-indices on SQ literals).
+- **Next milestone**: **M4 · Decoder Pass Integration** — attach the
+  deterministic decoder suite (Base64, UTF-16LE, GZIP, Hex, RC4/XOR)
+  in `decoder.py`. **This is the first milestone whose DCS number
+  the spec verification table demands: ≥ 8/13 corpus samples
+  passing.**
