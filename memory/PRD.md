@@ -15,6 +15,27 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## 📍 CURRENT POSITION (2026-08-05 · Governance Rules 19 + 20 locked)
+
+### Interpreter-Owned Decoder Registry + ARB Governance Update
+
+**What shipped today (governance + registry consolidation)**
+
+- **Rule 19 · Interpreter Ownership (Positive Identification Only)** — bash/PS/cmd/JS/VBS-specific transformations must fire ONLY on positive interpreter identification (`.exe`, shebang, extension, or interpreter-specific syntax). Bare aliases (`echo`, `Get-*`) are NOT sufficient. Anchor: bash `echo` mis-identified as PS `Write-Output` alias in RC4.3.
+- **Rule 20 · Plugins are Techniques, Not Samples** — each decoder plugin represents a reusable *transformation primitive*. New samples handled by composition; new plugins only for genuinely new techniques. Naming reflects the primitive, not the malware family. Regression tests parameterised across multiple payloads exercising the same primitive.
+- **Bash shell-pipeline decoder** refactored to a plugin registry (SOURCE / TRANSFORM / DECODER / EXECUTOR classes) — composes base64/xxd/tr/rev/gunzip/od across all supported combos.
+- **PowerShell env-var reassembly decoder** (`decoder-ps-env-reassembly`) — new PS primitive for the `$env:X = 'A'; $env:Y = 'B'; iex (gci env:X).value(gci env:Y).value` obfuscation class.
+- **Roadmap locked** in Rule 20: PR-3 sign-off → PR-4 → PR-5 → P0 → P1 Corpus Expansion → Phase B (Stage Quality Gates) → Phase C (Self-Healing). No reorder without ARB approval.
+
+**Damage-prevention gates green**
+- DCS 17/17 byte-identical · R1 107/107 byte-identical.
+- 31/31 canonical/decoder regression tests pass.
+- L0 engine untouched.
+
+**Status**: Governance formalized. Interpreter-owned plugin registry established. Roadmap discipline locked. Awaiting PR-3 ARB sign-off before starting PR-4.
+
+---
+
 ## 📍 CURRENT POSITION (2026-08-05 · Canonical Consumer Rule added)
 
 ### RC4.4 tweet-tweet fix + Governance Rule 17 — DELIVERED

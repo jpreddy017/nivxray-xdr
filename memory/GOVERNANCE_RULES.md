@@ -550,3 +550,80 @@ fire ONLY when the input positively identifies the interpreter.
 - **decoder-bash-echo-b64-pipe (2026-08-05)** — positive
   identifier: `echo <b64> | base64 -[dD]|--decode` full pattern.
 
+
+
+---
+
+## Rule 20 · Plugins are Techniques, Not Samples
+
+**Approved**: 2026-08-05 · ARB clarification after the bash /
+PowerShell decoder additions raised the risk of open-ended
+plugin sprawl.
+
+### The rule
+
+Each entry in an interpreter-owned decoder registry (Bash /
+PowerShell / Cmd / JS / VBS / WMI / …) represents a **reusable
+transformation or execution primitive** — never a sample-specific
+fix.
+
+- New malware samples MUST be handled by composing existing
+  plugins wherever possible.
+- A new plugin is added ONLY when a genuinely new *technique* is
+  encountered — a class of transformation not expressible as a
+  composition of existing plugins.
+- Sample-driven fixes (e.g. "handle THIS specific base64 with a
+  hardcoded regex") are rejected. Instead, identify the
+  underlying transformation primitive and add THAT.
+- Naming: plugin names reflect the primitive, not the sample.
+  Good: `decoder-bash-shell-pipeline`. Bad: `decoder-lazarus-2024-bash-lotl-v2`.
+
+### End-goal architecture (never lose sight of)
+
+```
+Input
+   ↓
+Interpreter Identification            (positive, Rule 19)
+   ↓
+Interpreter-owned Pipeline            (compose plugins)
+   ↓
+Canonical Artifact                    (single source of truth, Rule 17)
+   ↓
+Investigation                         (consumers per Rule 17)
+```
+
+Plugins are **implementation details** inside the interpreter
+pipeline. The pipeline itself, the canonical artifact, and the
+downstream consumers form the real architectural spine.
+
+### Review-checklist
+
+Any PR that adds a new decoder MUST answer:
+
+1. What TECHNIQUE does this plugin represent? (name it in one sentence)
+2. Can this be expressed as a composition of existing plugins? If
+   yes, do that instead.
+3. Does the plugin name describe the primitive, not the sample?
+4. Are the regression tests parameterised across MULTIPLE payloads
+   that exercise the same primitive with different wrappers /
+   arguments?
+5. Does the plugin ship with a negative test proving it doesn't
+   shadow other interpreters (Rule 19 anchor)?
+
+### Roadmap discipline (locked)
+
+Sequence remains, no reorder without ARB approval:
+
+1. PR-3 ARB sign-off
+2. PR-4 Executive Summary + Attack Story
+3. PR-5 MITRE / IOC / Capability
+4. Remaining P0 roadmap items
+5. P1 Corpus Expansion
+6. Phase B (Stage Quality Gates)
+7. Phase C (Deterministic Self-Healing)
+
+New reported obfuscations between here and (7) are handled
+through the plugin registry (composing where possible, adding a
+new primitive only when needed) — never by inserting an
+out-of-sequence corpus / self-healing PR.
+
