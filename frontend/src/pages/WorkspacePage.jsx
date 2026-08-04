@@ -27,6 +27,7 @@ import AnalystResults from "@/components/AnalystResults";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
 import IEDDEDecisionTrace from "@/components/IEDDEDecisionTrace";
 import RecoveryStatusRibbon from "@/components/RecoveryStatusRibbon";
+import PEAnalysisPanel from "@/components/PEAnalysisPanel";
 import HistoryDrawer from "@/components/HistoryDrawer";
 import CasesDrawer from "@/components/CasesDrawer";
 import ProcessTreeView from "@/components/ProcessTreeView";
@@ -2460,6 +2461,16 @@ export default function WorkspacePage() {
                 canonicalConfidenceReason={canonicalConfidenceReason}
                 defaultOpen={false}
               />
+            </div>
+          )}
+
+          {/* ▲ PE Static Analysis panel (Phase 1 · 2026-02)
+              When IEDDE reaches `binary_artifact_recovered` on a PE
+              payload, the deterministic PE analyzer's report is
+              hoisted here so analysts stay inside the Workspace. */}
+          {iedde?.binary_artifact?.pe_analysis && (
+            <div style={{ margin: "0 12px" }}>
+              <PEAnalysisPanel pe={iedde.binary_artifact.pe_analysis} />
             </div>
           )}
 

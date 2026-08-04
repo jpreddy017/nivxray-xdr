@@ -148,6 +148,11 @@ class BinaryArtifact:
     magic: str                     # bytes as hex
     subtype: str                   # ".exe/.dll" | "shared object" | "Mach-O bundle"
     recovered_by: list[str]        # ordered technique chain
+    # ▲ 2026-02 · Phase-1 PE Static Analysis (owner-approved bundle).
+    #   Attached when kind == "PE" and `services.pe_analyzer.is_available()`.
+    #   Consumed by the Workspace `PEAnalysisPanel` to keep analysts inside
+    #   NivXRay instead of exporting the payload to PEStudio / DIE / PE-bear.
+    pe_analysis: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -155,6 +160,7 @@ class BinaryArtifact:
             "magic": self.magic,
             "subtype": self.subtype,
             "recovered_by": self.recovered_by,
+            "pe_analysis": self.pe_analysis,
             "next_actions": [
                 "Parse PE Header" if self.kind == "PE" else f"Parse {self.kind} Header",
                 "Extract Imports",
@@ -222,9 +228,11 @@ def _detect_binary_artifact(content: str, recovered_by: list[str]) -> BinaryArti
     printable_ratio = _printable_ratio(raw[:512])
     for sig, kind, subtype in _BINARY_MAGIC:
         if raw.startswith(sig) and printable_ratio < 0.85:
+            pe = _attach_pe_analysis(kind, raw)
             return BinaryArtifact(
                 kind=kind, magic=sig.hex(),
                 subtype=subtype, recovered_by=list(recovered_by),
+                pe_analysis=pe,
             )
 
     # Case B: SQ-literal-wrapped binary (e.g. after base64→SQ inline).
@@ -235,11 +243,48 @@ def _detect_binary_artifact(content: str, recovered_by: list[str]) -> BinaryArti
         ir = _printable_ratio(inner[:512])
         for sig, kind, subtype in _BINARY_MAGIC:
             if inner.startswith(sig) and ir < 0.85:
+                pe = _attach_pe_analysis(kind, inner)
                 return BinaryArtifact(
                     kind=kind, magic=sig.hex(),
                     subtype=subtype, recovered_by=list(recovered_by),
+                    pe_analysis=pe,
                 )
+
+    # Case C: binary magic appears at ANY offset in the raw content
+    # (real-world PE payloads contain \r and \n which break the SQ regex).
+    # Guardrail — the 512-byte window AFTER the magic must be predominantly
+    # non-printable, so we don't false-fire on a text mention of "MZ".
+    for sig, kind, subtype in _BINARY_MAGIC:
+        idx = raw.find(sig)
+        if idx < 0:
+            continue
+        window = raw[idx: idx + 1024]
+        if len(window) < 64:
+            continue
+        if _printable_ratio(window) < 0.55:
+            payload_bytes = raw[idx:]
+            pe = _attach_pe_analysis(kind, payload_bytes)
+            return BinaryArtifact(
+                kind=kind, magic=sig.hex(),
+                subtype=subtype, recovered_by=list(recovered_by),
+                pe_analysis=pe,
+            )
     return None
+
+
+def _attach_pe_analysis(kind: str, raw: bytes) -> dict | None:
+    """Deterministically produce a PE static-analysis report for PE
+    artifacts. Returns None for non-PE binaries; returns the analyzer
+    diagnostic dict (with `available: False`) if pefile isn't installed —
+    the caller renders "PE analysis capability unavailable" in that case.
+    """
+    if kind != "PE":
+        return None
+    try:
+        from services.pe_analyzer import analyze_pe
+        return analyze_pe(raw)
+    except Exception:
+        return None
 
 
 def _printable_ratio(chunk: bytes) -> float:
