@@ -15,6 +15,38 @@ Any next agent MUST read this before writing code.
 
 ---
 
+## 📍 CURRENT POSITION (2026-08-05 · Rule 22 · Failure Triage Protocol)
+
+### ARB Correction — Sample-Driven Engineering Guardrail
+
+ARB accepted Track 1 (regression harness) and Track 2 (ACDE
+long-term architecture) as complementary infrastructure. Rejected
+the `/api/canonical/gap-signal` production endpoint as scope creep.
+Corrected the "one JSON per report" framing to prevent
+sample-driven plugin sprawl.
+
+**Rule 22 · Failure Triage Protocol** — every reported payload
+MUST be classified BEFORE any code/fixture is written:
+
+- **Category A**: existing-capability regression → bug fix + fixture
+- **Category B**: existing-capability mis-selection → routing fix + fixture
+- **Category C**: truly new transformation technique → NEW reusable
+  primitive plugin + fixture
+
+Precedent count: 3 of 6 reported payloads required NEW primitives.
+The other 3 were composition/routing fixes — validating that the
+plugin architecture works as designed.
+
+**Roadmap unchanged**: PR-3 sign-off → PR-4 → PR-5 → P0 → P1
+Corpus Expansion → Phase B → Phase C. No new APIs/dashboards
+before P1.
+
+**Damage-prevention gates green** — DCS 17/17 · R1 107/107 ·
+46/46 regression tests pass · L0 untouched · 6 fixtures in
+`backend/tests/user_reported_corpus/` protecting solved cases.
+
+---
+
 ## 📍 CURRENT POSITION (2026-08-05 · Governance Rules 19 + 20 locked)
 
 ### Interpreter-Owned Decoder Registry + ARB Governance Update

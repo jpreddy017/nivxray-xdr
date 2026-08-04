@@ -701,3 +701,86 @@ unhandled sample WITHOUT requiring a human to notice:
 progressively use these signals to auto-suggest new plugins from
 production traffic — closing the reporting loop as ACDE matures.
 
+
+
+---
+
+## Rule 22 · Failure Triage Protocol
+
+**Approved**: 2026-08-05 · ARB correction after the initial
+Track 1 harness framing risked collapsing into "add one JSON per
+report" — sample-driven engineering that Rule 20 explicitly
+rejects.
+
+### The rule
+
+Every user-reported payload that fails to decode MUST be
+classified BEFORE any code or fixture is written. The
+classification determines the action:
+
+**Category A · Existing-capability regression**
+The tool USED to decode this class correctly and now doesn't.
+Action: fix the bug that caused the regression. Add a regression
+fixture to `user_reported_corpus/` so it never regresses again.
+
+**Category B · Existing-capability mis-selection / mis-routing**
+The tool HAS the capability but isn't picking it correctly
+(e.g. interpreter-ownership mis-attribution, chain-selection
+tie-break error, ingress gate short-circuit missing).
+Action: fix the detection/routing logic. Add a regression
+fixture. No new decoder / plugin.
+
+**Category C · Truly new transformation technique**
+The tool has NEVER supported this transformation class. The
+technique cannot be composed from existing plugins (Rule 20).
+Action: add ONE new reusable decoder/plugin representing the
+transformation primitive (not the sample). Add the fixture.
+Update the interpreter's plugin registry doc.
+
+### Enforcement
+
+- No PR that adds a new plugin may be merged without stating
+  which category the reported payload falls into. The PR
+  description MUST include:
+  - Classification (A / B / C)
+  - Root cause statement (one sentence)
+  - The transformation primitive being added (Category C only)
+  - Why existing plugins cannot compose to handle it (Category
+    C only)
+- Reviewers reject PRs that add sample-specific logic when a
+  general primitive would suffice.
+
+### Precedent history
+
+| Report | Category | Action |
+|---|---|---|
+| PS -EncodedCommand baseline (PR-2.1.2 root) | A | Fixed divergent pipelines; added fixture |
+| PS -encod short form | B | Regex extension in `ps_normalizer` (routing fix) |
+| bash `echo b64 \| base64 -d \| bash` | C | New primitive: shell-pipeline decoder |
+| bash `echo b64 \| tr X Y \| base64 -d` | B | Composed existing plugins (SOURCE + TRANSFORM + DECODER) |
+| bash `echo hex \| xxd -r -p` | C (transform primitive) | Added `xxd` DECODER plugin — reused by SOURCE/EXECUTOR |
+| PS `set-item env:X …; iex (gci env:X).value` | C | New primitive: env-var reassembly |
+
+Note that only 3 of the 6 above required NEW primitives. The
+others were routing / composition fixes — validating that the
+plugin architecture works.
+
+### Roadmap discipline (unchanged, no new APIs)
+
+Sequence remains locked (Rules 20 / 21):
+
+1. PR-3 ARB sign-off
+2. PR-4 Executive Summary + Attack Story
+3. PR-5 MITRE / IOC / Capability
+4. Remaining P0
+5. P1 Corpus Expansion (grows organically from the seed corpus
+   + gap-triage output, NOT via new APIs)
+6. Phase B (Stage Quality Gates)
+7. Phase C (Deterministic Self-Healing)
+
+Explicitly REJECTED as scope creep at this stage:
+- ``/api/canonical/gap-signal`` production endpoint.
+- Any new API, dashboard, or infrastructure surface not on the
+  approved roadmap.
+- Sample-driven plugin sprawl (Rule 20 anchor).
+
