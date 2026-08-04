@@ -830,23 +830,23 @@ not lost, to be implemented at the correct point in the roadmap.
 
 ---
 
-## Rule 24 — Understand-First Decoding (ICUE Architectural Principle) · 2026-02 · ARB
+## Rule 24 — Understand-First Decoding (IEDDE Architectural Principle) · 2026-02 · ARB
 
 **Governance addition only. No engine change authorised by this rule.**
 
 > NivXRay must never ask *"which decoder should I run?"*
 > It must ask *"what am I looking at, what deterministic transformations
-> are present, and what is the next provably correct step toward a
-> canonical representation?"*
+> are provably present, and is there objective evidence that another
+> one is next?"*
 
 ### Intent
 
 This rule elevates the ARB Architectural Direction captured in
-`/app/memory/ARCHITECTURAL_DIRECTION_ICUE.md` (the Intelligent
-Canonical Understanding Engine) into the primary post-P0 north
+`/app/memory/ARCHITECTURAL_DIRECTION_IEDDE.md` (the Intelligent
+Evidence-Driven Decoding Engine) into the primary post-P0 north
 star. Every future PR that touches the decoding pipeline is
 evaluated against whether it moves NivXRay closer to
-understand-first behaviour.
+evidence-driven, understand-first behaviour.
 
 ### Concretely, from now on
 
@@ -861,27 +861,28 @@ understand-first behaviour.
   Phase 6 (Progress Evaluation) can attach cleanly.
 - Every stability-gate message ("could not fully decode because
   …") that today returns `OUTPUT = INPUT` MUST be routed to the
-  UX message contract defined in the ICUE direction doc §1
-  ("Decoder Stability Gate reached. Remaining payload appears to
-  require: …") — no silent input-echo fallbacks.
+  UX message contract defined in the IEDDE direction doc §4
+  ("Remaining Layer: … · Reason: … · Canonical deterministic
+  recovery completed.") — no silent input-echo fallbacks.
 
 ### Non-goals of Rule 24
 
-- Does **not** authorise implementing the ICUE planner, interpreter
-  identifier, technique detector, or progress evaluator before their
-  sequenced milestone (see ROADMAP.md · Sequencing appendix).
+- Does **not** authorise implementing the IEDDE planner, interpreter
+  identifier, technique detector, layer discovery, or progress
+  evaluator before their sequenced milestone (see ROADMAP.md and
+  IEDDE.md · §10 Sequencing).
 - Does **not** override Rules 20 / 21 / 22 / 23.
-- Does **not** authorise LLM-based inference inside decoding. ICUE is
-  strictly deterministic.
+- Does **not** authorise LLM-based inference inside decoding. IEDDE
+  is strictly deterministic.
 
 ### When Rule 24 becomes actionable in code
 
 Only after (a) the approved P0 Workspace milestones (PR-4 → PR-8)
-have shipped, (b) P0-C1 has shipped, and (c) P1 Corpus Expansion is
-under way. At that point ICUE Phase 1 (Interpreter Identifier) is
-authorised as the first ICUE deliverable.
+have shipped and (b) P1 Corpus Expansion is under way. At that
+point IEDDE Stage 1 (Interpreter Identification) is authorised as
+the first IEDDE deliverable.
 
-Any earlier attempt to implement ICUE Phase 1+ violates Rules 20 /
+Any earlier attempt to implement IEDDE Stage 1+ violates Rules 20 /
 21 / 23 / 24 simultaneously.
 
 ### Compliance check
@@ -890,12 +891,81 @@ Reviewers MUST reject any PR that:
 - Silently returns `OUTPUT = INPUT` for a non-passthrough input
   without a stability-gate reason.
 - Adds a decoder that answers "which decoder should I run?"
-  logic *inside* the plugin — that logic belongs to the ICUE planner
-  (S4), not the plugin.
-- Claims Rule 24 as justification for an out-of-sequence ICUE
+  logic *inside* the plugin — that logic belongs to the IEDDE
+  Recipe Planner (Stage 4), not the plugin.
+- Claims Rule 24 as justification for an out-of-sequence IEDDE
   implementation PR.
 
 Rule 24 is a **preserved architectural principle**, captured now so
-every future PR compounds toward ICUE rather than drifting away from
-it.
+every future PR compounds toward IEDDE rather than drifting away
+from it.
+
+---
+
+## Rule 25 — Canonical Artifact / Investigation Metadata Split · 2026-02 · ARB
+
+**Governance addition only. Contract for how decoding results are
+presented to analysts.**
+
+> The engine emits **two** distinct outputs:
+>   1. The **Canonical Artifact** — the fully-recovered deterministic
+>      script or command, and nothing else.
+>   2. The **Investigation Metadata** — interpreter, original
+>      launcher, flags, recovered-layer count, techniques employed,
+>      residual-layer explanations.
+
+Ratified as part of the IEDDE architectural direction (§5).
+
+### Placement contract
+
+- **OUTPUT panel** (`/` Workspace) MUST show the Canonical Artifact
+  only. No launcher, no flag echoes, no trace, no banner text.
+- **Investigation Metadata** MUST be surfaced in the L4 Workspace
+  lenses:
+  - **Summary lens** (PR-4) — verdict, risk, family, technique,
+    canonical-state, top actions, bullets.
+  - **Story lens** (PR-4) — narrative + chapters + evidence-anchored
+    events.
+  - **Certificate lens** (PR-6, upcoming) — final artifact hash,
+    iterations executed, interpreter, launcher, flags.
+  - **Raw Decode lens** (PR-6, upcoming) — trace, per-iteration
+    hashes, before/after content.
+- The two surfaces MUST cross-reference by anchor per §8.4 (Evidence
+  Navigation Contract): every metadata field that has an evidence
+  origin exposes an anchor that opens the Evidence lens at that
+  iteration.
+
+### Rule 25 becomes fully actionable when
+
+- PR-6 lands the Certificate + Raw Decode lenses.
+- IEDDE Stage 1–4 are on-line so the metadata is planner-produced,
+  not scavenged from downstream heuristics.
+
+Until then, Rule 25 is enforced *directionally* — new consumers must
+respect the split when they can; existing consumers may keep their
+current shape and are audited at PR-6.
+
+### Non-goals of Rule 25
+
+- Does **not** authorise removing fields from any existing API
+  response. Backward compatibility remains binding.
+- Does **not** authorise LLM-generated Investigation Metadata inside
+  the deterministic pipeline.
+- Does **not** authorise a UI redesign — Rule 25 is a data-contract
+  rule, not a layout rule.
+
+### Compliance check
+
+Reviewers MUST reject any PR that:
+- Emits launcher text, decoded-layer banners, or trace snippets
+  inside the OUTPUT panel.
+- Emits the Canonical Artifact anywhere other than the OUTPUT panel
+  and the L4 Certificate lens's `canonical_artifact` field.
+- Adds new investigation-metadata fields without exposing them
+  through the L4 Workspace lenses.
+
+Rule 25 exists so the analyst always sees *"what would actually
+execute"* in one place, and *"how we know"* in another — never
+mixed together in the OUTPUT box.
+
 
