@@ -2397,3 +2397,68 @@ this reads as visual noise.
 - **Live-verified**: zero decoder-op names, zero "Layer N", zero "Base64", zero "Recovered payload" anywhere in the verdict surface. Right-rail Evidence Ledger reads `N-002 · internal decoder step` cleanly. Customer report critic still 100/100 passed. 96/96 parity tests green.
 - The Investigation Graph's Decode Flow / Output lens intentionally still shows decoder op-names — those are the decoder persona surfaces and the P3.4 persona-toggle work will gate them via UI mode.
 
+
+---
+
+## 2026-02 · PR-4 · L4 SOC Investigation Workspace · Summary + Story lenses
+
+### Ship contents
+
+**Backend L2 service enrichments (deterministic, byte-stable)**
+- `l2_investigation/services/executive_summary.py` (v0.2.0-pr4):
+  - `risk` bucket + `risk_score` (0–100) deterministically derived from family / capabilities / MITRE / IOCs / certificate signals.
+  - `top_iocs` (up to 3, sorted by ioc_id), `top_actions` (up to 3, priority-ordered with evidence anchors), `bullets` (verdict + canonical + family + capabilities + IOCs, each anchored to §8.4 evidence).
+- `l2_investigation/services/attack_story.py` (v0.2.0-pr4):
+  - Deterministic `narrative` prose stitched from ordered transformation events.
+  - `chapters` array (Unwrap · Normalize · Decode · Interpret) with per-chapter event counts.
+  - Every event carries a `chapter` field + evidence anchor.
+
+**Frontend L4 lenses (`frontend/src/workspace_v4/`)**
+- `SummaryLens.jsx` — verdict pill, risk bucket, risk score, canonical-readiness banner, family/technique chips, evidence-anchored bullets, top-IOC list, top-actions ordered list. Every clickable element persists `selected_evidence_id` via the workspace state PUT for the PR-5 Evidence lens to consume.
+- `StoryLens.jsx` — narrative panel, chapter chips (color-coded by phase), ordered event list with `view evidence →` anchor buttons.
+- `LensTabs.jsx` — Summary + Story now render real content; Timeline / Evidence / Analysis / Exports remain PR-5/PR-6 placeholders per ARB scope.
+- `AnalystWorkspaceShellPage.jsx` — `onAnchorClick` handler persists selection + toasts anchor kind.
+
+**Navigation bridge (ARB-scoped, navigation only)**
+- `workspace_v4/bundleAdapter.js` — projects Decode/Auto-Investigate result → `EvidenceBundle` shape (deterministic case_id via FNV-1a on artifact hash, so re-clicks are idempotent).
+- `workspace_v4/OpenInvestigationButton.jsx` — creates case via POST /api/investigation and routes to /investigate/{case_id}; handles 409 (case already exists) as "route to existing".
+- `pages/WorkspacePage.jsx` — inline banner "SOC INVESTIGATION WORKSPACE · PR-4" appears after any decode/investigate result exists.
+- `components/Header.jsx` — new **INVESTIGATE** tab in top navigation.
+
+**Backend API**
+- Defensive: `routers/workspace_investigation.py` — never shadow body-level `fingerprint` with envelope-level key.
+
+**Owner-authorised out-of-sequence L0 additions (P0-C1 + P0-C2)**
+- `workspace/convergence/structural.py`:
+  - `structural-ps-invocation-simplify` — folds `&('Cmdlet') 'arg'` → `Cmdlet arg`. Handles nested-paren forms `&(('Cmdlet') 'arg')` and composes with `structural-string-concat-fold` for `&(('Get-'+'Process') 'lsass')` → `Get-Process lsass`. Rule 19 positive-ID guarded; bash `& (subshell)` and CMD `&` command-separator explicitly untouched (negative-shadow tested).
+  - `structural-ps-launcher-unwrap` — strips `powershell.exe [switches] -Command "<script>"` wrapper when the inner script is canonical (no `&(`, no `'a'+'b'`, no `-EncodedCommand`) AND at least one other structural fold fired in the same iteration (evidence guard so plain `IEX (…)` payloads keep their launcher visible).
+- `workspace/convergence/registry.py` — 2 new `TransformationDescriptor` entries (25th, 26th).
+- `tests/test_ps_invocation_simplifier.py` — 9-case regression harness (full LSASS payload · simple form · composed with concat-fold · bash negative shadow · CMD negative shadow · unsafe primary skip · quoted-arg preservation · IEX no-regression).
+
+**Governance additions**
+- `GOVERNANCE_RULES.md` · **Rule 23** — Deterministic Canonical Simplification (stability gate principle).
+- `GOVERNANCE_RULES.md` · **Rule 24** — Understand-First Decoding (IEDDE architectural principle).
+- `GOVERNANCE_RULES.md` · **Rule 25** — Canonical Artifact / Investigation Metadata split (two-output contract).
+- `GOVERNANCE_RULES.md` · **Rule 26** — Discovery-Driven Planning (Recipe Planner must never execute transformations solely because they appear next in a predefined sequence).
+- `ARCHITECTURAL_DIRECTION_IEDDE.md` (NEW · ratified) — Intelligent Evidence-Driven Decoding Engine. Supersedes and archives the earlier ICUE draft.
+- `ROADMAP.md` — sequencing appendix updated (P0-C1 + P0-C2 marked SHIPPED out-of-sequence, owner-authorised; IEDDE Stages 1–6 queued post-P1).
+
+### Test evidence at ship time
+
+| Suite | Result |
+|---|---|
+| DCS (frozen L0 harness) | **17/17 · 100%** |
+| R1 (recovery harness) | **107/107 · 100%** |
+| L2 investigation unit + service contracts + determinism | **94/94** |
+| PR-4 API integration (backend testing agent iteration_55) | **14/14** |
+| User-reported corpus regression | **8/8** |
+| PS Invocation Simplifier | **9/9** |
+| End-to-end · `/api/decode/smart` on user's LSASS payload | ✅ OUTPUT = `Get-Process lsass` (17c, matches Gemini/ChatGPT/Google AI canonical form) |
+
+### Known compliance debts (recorded, non-blocking, IEDDE §12)
+
+1. Launcher-unwrap firing rule is heuristic ("any structural fold fired") until IEDDE Stage 4 Recipe Planner lands.
+2. Canonical Artifact / Investigation Metadata cross-referencing enforced directionally, contract-enforced at PR-6.
+3. Per-plugin regex interpreter positive-ID until IEDDE Stage 1 Interpreter Identifier lands.
+4. Rule 19 negative-shadow tests cover bash + CMD; Perl / PHP / Ruby / Python extensions recommended before Stage 4.
+

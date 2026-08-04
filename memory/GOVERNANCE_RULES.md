@@ -969,3 +969,71 @@ execute"* in one place, and *"how we know"* in another — never
 mixed together in the OUTPUT box.
 
 
+
+---
+
+## Rule 26 — Discovery-Driven Planning · 2026-02 · ARB
+
+**Governance addition. Mandatory contract for the IEDDE Recipe Planner
+(IEDDE Stage 4). Not authorised for implementation until IEDDE
+Stages 1–3 are on-line.**
+
+> The Recipe Planner MUST be **discovery-driven**, not rule-order
+> driven.
+>
+> The planner shall continuously inspect the current artifact after
+> every deterministic transformation, **rediscover** newly exposed
+> techniques, **rebuild** the remaining recipe if necessary, and
+> **continue only while objective evidence** shows further
+> deterministic recovery is possible.
+>
+> The planner MUST NEVER execute transformations solely because they
+> appear next in a predefined sequence.
+
+### Consequences
+
+- Every planner decision is anchored to **objective evidence produced
+  by the current artifact state**, not to a fixed transformation
+  order.
+- Re-planning after every stage means new interpreters or techniques
+  exposed mid-pipeline are picked up automatically (a bash script
+  hidden inside a decoded PowerShell payload becomes bash, and the
+  planner switches interpreter ownership without operator input).
+- The planner is provably terminating: every stage must either
+  produce evidence of further deterministic recovery (Rule 24) or
+  trip the Decoder Stability Gate (IEDDE §4).
+- No plugin ever runs "just to try" — Rule 20 primitives are
+  candidates the planner may choose, not steps in a hard-coded chain.
+
+### Compliance check (applied when IEDDE Stage 4 is under review)
+
+Reviewers MUST reject any PR that:
+- Implements the planner as an ordered list of decoder invocations.
+- Runs a decoder without an evidence signal that specifically
+  justifies that decoder.
+- Skips re-inspection of the artifact between stages.
+- Continues past the Decoder Stability Gate without a reasoned stop
+  message.
+
+### Non-goals of Rule 26
+
+- Does **not** authorise implementing the Recipe Planner before
+  IEDDE Stages 1–3 are complete.
+- Does **not** override Rules 20 / 21 / 22 / 23 / 24 / 25.
+- Does **not** authorise LLM-based planning. Planning is strictly
+  deterministic; the evidence signals it consumes are deterministic
+  measurements (entropy, printable ratio, syntax markers, interpreter
+  positive-ID, layer-count deltas).
+
+### Why this rule now
+
+Codified during PR-4 ratification (2026-02) because the intelligence
+gap between "runs the next decoder" and "chooses the next decoder
+from evidence" is what separates NivXRay's current engine from the
+IEDDE target architecture. Naming it as a rule now guarantees the
+Stage 4 implementation will be evaluated against this bar rather
+than drifting into a static-pipeline substitute.
+
+Rule 26 is the **operational teeth** of Rule 24 (Understand-First
+Decoding) and Rule 23 (Deterministic Canonical Simplification).
+

@@ -262,6 +262,53 @@ Locked sequence (Rules 20 / 21 / 22 / 23 / 24 remain binding):
 16. Evidence Verification Engine                           ← optional post-canonical enrichment
 ```
 
+## 10.5  Discovery-Driven Planning (mandatory engineering principle · 2026-02 · ARB)
+
+> **The Recipe Planner must be discovery-driven, not rule-order driven.**
+>
+> The planner shall continuously inspect the current artifact after
+> every deterministic transformation, rediscover newly exposed
+> techniques, rebuild the remaining recipe if necessary, and continue
+> only while objective evidence shows further deterministic recovery
+> is possible. The planner must never execute transformations solely
+> because they appear next in a predefined sequence.
+
+### Contrast
+
+**Prohibited (static pipeline):**
+```
+Base64  →  UTF-16  →  GZip  →  XOR   (predetermined order)
+```
+
+**Required (adaptive deterministic engine):**
+```
+Detect  →  Plan  →  Decode one stage  →  Rediscover  →
+Replan  →  Decode next stage  →  Repeat  (until evidence exhausted)
+```
+
+### Consequences enforced by this principle
+
+- Every planner decision is anchored to **objective evidence produced
+  by the current artifact state**, not to a fixed transformation
+  order.
+- Re-planning after every stage means new interpreters or techniques
+  exposed mid-pipeline are picked up automatically (a bash script
+  hidden inside a decoded PowerShell payload becomes bash, and the
+  planner switches interpreter ownership without operator input).
+- The planner is *provably terminating*: every stage must either
+  produce evidence of further deterministic recovery (Rule 24) or
+  trip the Decoder Stability Gate (§4).
+- No plugin ever runs "just to try" — Rule 20 primitives are
+  candidates the planner may choose, not steps in a hard-coded chain.
+
+### Codified as Rule 26
+
+This principle is codified in `GOVERNANCE_RULES.md · Rule 26` and is
+mandatory for the IEDDE Recipe Planner implementation (Stage 4).
+
+---
+
+
 ## 11. Guiding architectural principle (Rule 24, restated)
 
 > **NivXRay must never ask "which decoder should I run?"**
