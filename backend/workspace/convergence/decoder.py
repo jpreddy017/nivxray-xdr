@@ -171,6 +171,16 @@ def _decode_from_base64string(content: str) -> tuple[str, int]:
                 return "'" + escaped + "'"
         text = _try_utf16le(raw) or _try_utf8(raw)
         if text is None:
+            # Binary-magic fallback (Rule 24 §5.1): if the decoded bytes
+            # are a known executable / container, inline them as a
+            # latin-1 SQ literal so the IEDDE planner can detect the
+            # binary artifact and switch terminal state.
+            for magic in (b"MZ", b"\x7fELF", b"\xcf\xfa\xed\xfe",
+                          b"\xce\xfa\xed\xfe", b"\xca\xfe\xba\xbe",
+                          b"PK\x03\x04"):
+                if raw.startswith(magic):
+                    fires += 1
+                    return "'" + raw.decode("latin-1") + "'"
             return m.group(0)
         fires += 1
         escaped = text.replace("'", "''")

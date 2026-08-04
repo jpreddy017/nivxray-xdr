@@ -196,16 +196,80 @@ function StageCard({ stage, idx }) {
   );
 }
 
+function BinaryArtifactCard({ ba }) {
+  if (!ba) return null;
+  return (
+    <section
+      data-testid="iedde-binary-artifact"
+      className="rounded-md border border-amber-800 bg-gradient-to-br from-amber-950/60 to-slate-900/40 p-5"
+    >
+      <div className="mb-4 flex items-baseline gap-3">
+        <span className={`${PILL} ${WARN} uppercase tracking-widest`}>
+          Windows Portable Executable ({ba.kind})
+        </span>
+        <span className="font-mono text-[11px] text-amber-300">
+          Canonical Binary Recovered
+        </span>
+      </div>
+      <dl className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
+        <div>
+          <dt className="uppercase tracking-widest text-slate-500">Type</dt>
+          <dd className="font-mono text-slate-200">{ba.subtype}</dd>
+        </div>
+        <div>
+          <dt className="uppercase tracking-widest text-slate-500">Magic</dt>
+          <dd className="font-mono text-slate-200">
+            {ba.kind === "PE" ? "MZ" : ba.kind} · {ba.magic}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="uppercase tracking-widest text-slate-500">Recovered by</dt>
+          <dd className="mt-1 flex flex-wrap gap-1">
+            {(ba.recovered_by || []).map((t) => (
+              <span key={t} className={`${PILL} ${NEU} font-mono text-[10px]`}>
+                → {t}
+              </span>
+            ))}
+          </dd>
+        </div>
+      </dl>
+      <p className="mt-4 rounded border border-amber-800 bg-amber-950/40 p-3 text-xs text-amber-100">
+        <strong>Status:</strong> Binary successfully recovered. Text decoding
+        stopped because the canonical artifact is a Windows executable.
+      </p>
+      <div className="mt-4">
+        <p className="mb-2 text-xs uppercase tracking-widest text-slate-500">
+          Next recommended actions
+        </p>
+        <ul className="grid grid-cols-2 gap-1 text-xs sm:grid-cols-3">
+          {(ba.next_actions || []).map((a) => (
+            <li
+              key={a}
+              className="flex items-center gap-1 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200"
+            >
+              ✓ {a}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 function FinalStateCard({ result }) {
-  const canonical = result.terminal_state === "canonical";
+  const term = result.terminal_state;
+  const canonical = term === "canonical";
+  const binary   = term === "binary_artifact_recovered";
+  const label = binary ? "canonical binary recovered"
+              : canonical ? "canonical" : term;
   return (
     <section className="rounded-md border border-slate-800 bg-slate-900/40 p-4">
       <div className="mb-3 flex items-center gap-2">
         <span
           data-testid={TID.terminal}
-          className={`${PILL} uppercase tracking-widest ${canonical ? OK : HOT}`}
+          className={`${PILL} uppercase tracking-widest ${canonical ? OK : binary ? WARN : HOT}`}
         >
-          {result.terminal_state}
+          {label}
         </span>
         <span className={`${PILL} ${NEU}`}>{result.iterations_executed} iteration(s)</span>
       </div>
@@ -215,13 +279,19 @@ function FinalStateCard({ result }) {
       >
         {result.stop_reason}
       </p>
-      <p className="mb-1 text-xs uppercase tracking-widest text-slate-500">Canonical output</p>
-      <pre
-        data-testid={TID.canonical}
-        className="whitespace-pre-wrap break-all rounded border border-slate-800 bg-black/60 p-3 font-mono text-sm text-slate-100"
-      >
-        {result.canonical_output || "(empty)"}
-      </pre>
+      {binary ? (
+        <BinaryArtifactCard ba={result.binary_artifact} />
+      ) : (
+        <>
+          <p className="mb-1 text-xs uppercase tracking-widest text-slate-500">Canonical output</p>
+          <pre
+            data-testid={TID.canonical}
+            className="whitespace-pre-wrap break-all rounded border border-slate-800 bg-black/60 p-3 font-mono text-sm text-slate-100"
+          >
+            {result.canonical_output || "(empty)"}
+          </pre>
+        </>
+      )}
     </section>
   );
 }

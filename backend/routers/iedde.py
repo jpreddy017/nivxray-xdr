@@ -107,6 +107,7 @@ async def iedde_analyze(body: AnalyzeRequest, user=Depends(get_current_user)) ->
         "iterations_executed": plan.iterations_executed,
         "terminal_state": plan.terminal_state,
         "stop_reason": plan.stop_reason,
+        "binary_artifact": plan.binary_artifact.to_dict() if plan.binary_artifact else None,
 
         # Initial (pre-loop) surface.
         "initial_interpreter_identification": initial_ident.to_dict(),

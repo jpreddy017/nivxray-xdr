@@ -142,14 +142,41 @@ class Stage:
 
 
 @dataclass
+class BinaryArtifact:
+    """When decoding recovers a binary executable, this describes it."""
+    kind: str                      # "PE" | "ELF" | "Mach-O" | "unknown_binary"
+    magic: str                     # bytes as hex
+    subtype: str                   # ".exe/.dll" | "shared object" | "Mach-O bundle"
+    recovered_by: list[str]        # ordered technique chain
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "magic": self.magic,
+            "subtype": self.subtype,
+            "recovered_by": self.recovered_by,
+            "next_actions": [
+                "Parse PE Header" if self.kind == "PE" else f"Parse {self.kind} Header",
+                "Extract Imports",
+                "Calculate Hashes",
+                "Detect Packers",
+                "Extract Strings",
+                "YARA Scan",
+                "Static Analysis",
+            ],
+        }
+
+
+@dataclass
 class PlanResult:
     canonical_output: str
     stages: list[Stage]
-    terminal_state: str            # "canonical" | "stability_gate"
+    terminal_state: str            # "canonical" | "stability_gate" | "binary_artifact_recovered"
     stop_reason: str
     iterations_executed: int
     final_interpreter: str
     final_techniques: list[str]
+    binary_artifact: BinaryArtifact | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -159,8 +186,67 @@ class PlanResult:
             "stop_reason": self.stop_reason,
             "final_interpreter": self.final_interpreter,
             "final_techniques": self.final_techniques,
+            "binary_artifact": self.binary_artifact.to_dict() if self.binary_artifact else None,
             "stages": [s.to_dict() for s in self.stages],
         }
+
+
+# Detect binary magic signatures on the recovered artifact.
+_BINARY_MAGIC = (
+    (b"MZ",           "PE",       "Executable (.exe/.dll)"),
+    (b"\x7fELF",      "ELF",      "Linux executable / shared object"),
+    (b"\xcf\xfa\xed\xfe", "Mach-O", "Mach-O 64-bit"),
+    (b"\xce\xfa\xed\xfe", "Mach-O", "Mach-O 32-bit"),
+    (b"\xca\xfe\xba\xbe", "Mach-O", "Universal binary"),
+    (b"PK\x03\x04",   "ZIP",      "ZIP / JAR / OOXML container"),
+    (b"\x1f\x8b\x08", "GZIP",     "raw gzip stream"),
+)
+
+
+def _detect_binary_artifact(content: str, recovered_by: list[str]) -> BinaryArtifact | None:
+    """Return a BinaryArtifact iff the recovered content is (or contains
+    inside an SQ literal) a known executable / container magic.
+
+    Only fires when the artifact is predominantly non-printable OR the
+    magic sits inside a SQ literal that itself is mostly non-printable
+    (avoids labelling `MZ is the CEO of Meta.` as a PE).
+    """
+    if not isinstance(content, str) or len(content) < 4:
+        return None
+    try:
+        raw = content.encode("latin-1", errors="ignore")
+    except Exception:
+        return None
+
+    # Case A: bare binary at the start.
+    printable_ratio = _printable_ratio(raw[:512])
+    for sig, kind, subtype in _BINARY_MAGIC:
+        if raw.startswith(sig) and printable_ratio < 0.85:
+            return BinaryArtifact(
+                kind=kind, magic=sig.hex(),
+                subtype=subtype, recovered_by=list(recovered_by),
+            )
+
+    # Case B: SQ-literal-wrapped binary (e.g. after base64→SQ inline).
+    # Extract every SQ literal and check its bytes.
+    import re
+    for m in re.finditer(r"'([^'\r\n]{16,})'", content):
+        inner = m.group(1).encode("latin-1", errors="ignore")
+        ir = _printable_ratio(inner[:512])
+        for sig, kind, subtype in _BINARY_MAGIC:
+            if inner.startswith(sig) and ir < 0.85:
+                return BinaryArtifact(
+                    kind=kind, magic=sig.hex(),
+                    subtype=subtype, recovered_by=list(recovered_by),
+                )
+    return None
+
+
+def _printable_ratio(chunk: bytes) -> float:
+    if not chunk:
+        return 1.0
+    p = sum(1 for b in chunk if 0x20 <= b < 0x7f or b in (0x09, 0x0a, 0x0d))
+    return p / len(chunk)
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +295,11 @@ def plan_and_execute(content: str, max_iterations: int = _MAX_ITERATIONS) -> Pla
 
         # ── Discovery-driven selection ─────────────────────────────
         # 1. Skip techniques we know require external secrets.
-        # 2. Pick the highest-confidence technique that has a pass mapping.
+        # 2. Prefer decoder-pass techniques (base64/hex/gzip/utf16le/zlib)
+        #    over structural-pass techniques — because outer structural
+        #    wrappers (launcher, invocation) are often *hiding* an
+        #    inner encoding layer that must peel first.
+        # 3. Fall back to highest-confidence technique with a pass mapping.
         chosen_pass: str | None = None
         chosen_tech: str | None = None
         chosen_conf: float = 0.0
@@ -217,19 +307,34 @@ def plan_and_execute(content: str, max_iterations: int = _MAX_ITERATIONS) -> Pla
         key_required_list: list[str] = []
         remaining_candidates: list[str] = []
 
+        # First pass: prefer decoder-pass techniques (encoding layers)
+        # when the current artifact contains any of them.
+        _DECODER_TECHS = {"base64", "utf16le", "hex", "gzip", "zlib"}
+        _decoder_pick: tuple[str, str, float] | None = None
+        _structural_pick: tuple[str, str, float] | None = None
+        _content_pick: tuple[str, str, float] | None = None
+
         for sig in inventory.techniques:
             if sig.name in _KEY_REQUIRED and sig.confidence >= 0.60:
                 blocking_key_required = blocking_key_required or sig.name
                 key_required_list.append(sig.name)
                 continue
             mapped = _TECHNIQUE_TO_PASS.get(sig.name)
-            if mapped:
-                if chosen_pass is None:
-                    chosen_pass = mapped
-                    chosen_tech = sig.name
-                    chosen_conf = sig.confidence
-                else:
-                    remaining_candidates.append(sig.name)
+            if not mapped:
+                continue
+            if sig.name in _DECODER_TECHS and _decoder_pick is None:
+                _decoder_pick = (sig.name, mapped, sig.confidence)
+            elif mapped == "structural" and _structural_pick is None:
+                _structural_pick = (sig.name, mapped, sig.confidence)
+            elif mapped == "content" and _content_pick is None:
+                _content_pick = (sig.name, mapped, sig.confidence)
+            remaining_candidates.append(sig.name)
+
+        # Priority: decoder > structural > content.
+        picked = _decoder_pick or _structural_pick or _content_pick
+        if picked:
+            chosen_tech, chosen_pass, chosen_conf = picked
+            remaining_candidates = [t for t in remaining_candidates if t != chosen_tech]
 
         # Build the decision object.
         if chosen_pass is not None:
@@ -277,6 +382,28 @@ def plan_and_execute(content: str, max_iterations: int = _MAX_ITERATIONS) -> Pla
                 canonicality_delta=0.0,
                 stop_reason=reason,
             ))
+            # Check for binary artifact — if the recovered content is
+            # an executable/container, the *decoding* problem is done
+            # even though it isn't ASCII text (IEDDE §5.1 canonical
+            # artifact contract).
+            bin_art = _detect_binary_artifact(
+                current,
+                recovered_by=[t for s in stages for t in s.fired_transformations],
+            )
+            if bin_art:
+                return PlanResult(
+                    canonical_output=current,
+                    stages=stages,
+                    terminal_state="binary_artifact_recovered",
+                    stop_reason=(
+                        f"canonical_binary_recovered:{bin_art.kind};"
+                        f"decoding_complete_switch_to_binary_analysis"
+                    ),
+                    iterations_executed=i,
+                    final_interpreter=ident.primary_interpreter,
+                    final_techniques=present,
+                    binary_artifact=bin_art,
+                )
             return PlanResult(
                 canonical_output=current,
                 stages=stages,
@@ -344,6 +471,25 @@ def plan_and_execute(content: str, max_iterations: int = _MAX_ITERATIONS) -> Pla
                 f" no further deterministic recovery justified"
             )
             stages[-1].stop_reason = reason
+            # Binary artifact check on this exit path too.
+            bin_art = _detect_binary_artifact(
+                current,
+                recovered_by=[t for s in stages for t in s.fired_transformations],
+            )
+            if bin_art:
+                return PlanResult(
+                    canonical_output=current,
+                    stages=stages,
+                    terminal_state="binary_artifact_recovered",
+                    stop_reason=(
+                        f"canonical_binary_recovered:{bin_art.kind};"
+                        f"decoding_complete_switch_to_binary_analysis"
+                    ),
+                    iterations_executed=i + 1,
+                    final_interpreter=ident.primary_interpreter,
+                    final_techniques=present,
+                    binary_artifact=bin_art,
+                )
             return PlanResult(
                 canonical_output=current,
                 stages=stages,
