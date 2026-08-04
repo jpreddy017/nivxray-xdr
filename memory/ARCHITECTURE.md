@@ -322,16 +322,25 @@ Investigation SSOT or Workspace architecture**.
 decoder recipe libraries, and any threat intelligence the platform needs
 to enrich analysis.
 
-### 9.1 Architectural Guardrail (owner directive · 2026-02-15)
+### 9.1 Architectural Guardrail (owner directive · 2026-02-15, reinforced 2026-02-15)
 
-> **nivxmachines.com is an OPTIONAL enrichment source, not an architectural
-> dependency.** NivXRay must remain fully functional, deterministic, and
+> **NivXRay is self-sufficient by design.** nivxmachines.com is an
+> OPTIONAL enrichment source, not an architectural dependency. The
+> platform, release gates, CI, Golden Corpus, and all analytical
+> capabilities MUST remain fully functional, deterministic, and
 > production-ready even if nivxmachines.com is unavailable or never
 > integrated.
 
-Reuse content from nivxmachines.com only when it improves NivXRay and does
-**not** compromise its architecture, performance, security, licensing,
-maintainability, or deterministic behavior.
+**Sample sourcing priority (any corpus / demo / test):**
+1. Internal Golden Corpus samples
+2. Public analyst-safe malware repositories or synthetic deterministic
+   test cases
+3. nivxmachines.com — optional only
+
+Reuse content from nivxmachines.com only when it improves NivXRay and
+does **not** compromise its architecture, performance, security,
+licensing, maintainability, or deterministic behavior. **Objective is
+artifact coverage, not website coverage.**
 
 If any dependency on nivxmachines.com would:
 - reduce the quality or reliability of NivXRay,

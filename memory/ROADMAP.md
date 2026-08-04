@@ -85,11 +85,14 @@ CEM + Canonical Artifacts.
 ### P2.3 — Real End-to-End Demonstration (⭐ HIGHEST PRIORITY · owner directive 2026-02-15)
 - Now the most valuable open item because it demonstrates the complete
   architecture working with a realistic sample end-to-end.
-- Reuse samples / decoder recipes / threat intelligence from
-  nivxmachines.com **only if** they improve NivXRay and remain consistent
-  with §9.1 (nivxmachines.com is optional, never a dependency). If not,
-  use internally curated or synthetic samples. NivXRay must never depend
-  on an external source.
+- **Sample source priority (self-sufficient by design):**
+  1. Internal Golden Corpus samples
+  2. Public analyst-safe malware repositories or synthetic deterministic
+     test cases
+  3. nivxmachines.com — optional enrichment only (per §9 / §9.1)
+- **The platform, release gates, CI, and Golden Corpus must NEVER depend
+  on nivxmachines.com.** Objective: artifact coverage, not website
+  coverage.
 - On completion, the sample becomes the first **real** entry in the
   Golden Investigation Corpus release gate (P6).
 
@@ -151,6 +154,20 @@ baseline update workflow** (`pytest tests/golden_corpus/ --update-baseline`
 followed by owner sign-off on the baseline diff).
 
 This is the investigation equivalent of a compiler regression suite.
+
+**Corpus population target — full artifact-family coverage:**
+- `.docm → PowerShell → PE`
+- `.pdf → JavaScript → PowerShell`
+- `.zip → .lnk → PowerShell`
+- `ELF → shell script`
+- `PE → PowerShell`
+- Future: Mach-O · Email · Archives
+
+**Sample sourcing (self-sufficient by design):** internal Golden Corpus
+first; public analyst-safe repositories or synthetic deterministic
+samples second; nivxmachines.com is optional enrichment only.
+**The Golden Corpus must never depend on nivxmachines.com.** Objective
+is artifact coverage, not website coverage.
 
 ### P7 · Deterministic Investigation Fingerprint (reserved future · owner directive 2026-02-15)
 
