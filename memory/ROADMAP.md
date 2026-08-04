@@ -169,28 +169,29 @@ samples second; nivxmachines.com is optional enrichment only.
 **The Golden Corpus must never depend on nivxmachines.com.** Objective
 is artifact coverage, not website coverage.
 
-### P7 · Deterministic Investigation Fingerprint (reserved future · owner directive 2026-02-15)
+### P7 · Analytical Consumers (extensions to the Investigation Engine · owner directive 2026-02-15)
 
-Every investigation generates a stable fingerprint derived from:
+Not pipeline components — extensions that CONSUME Investigation data
+and never modify it (see `ARCHITECTURE.md` v1.1 Extension Rule).
 
-- Canonical Artifacts
-- CEM
-- Transformation Trace
-- MITRE mappings
-- IOC graph
-- Evidence relationships
+- **P7.1 · Confidence Provenance Ledger** — deterministic evidence-by-
+  evidence explanation for every verdict (e.g. "Malicious 96 · +18
+  Encoded PowerShell · +20 IOC Match · +18 Process Injection · confidence
+  97%").
+- **P7.2 · Investigation Risk Score** — deterministic composite (Threat
+  Score · Evidence Confidence · Correlation Confidence · Artifact
+  Confidence · Behavior Confidence → Overall Investigation Confidence).
+- **P7.3 · Attack DNA** — deterministic Investigation Fingerprint from
+  Interpreter Chain + Decode Recipe + Transformation Trace + MITRE
+  Profile + IOC Profile + Behavior Profile + Artifact Relationships.
+  Enables Campaign Similarity, Malware Clustering, Behavioral Signature.
+- **P7.4 · AAIG (Advanced Analyst Investigation Graph)** — deterministic
+  core (graph traversal, campaign / cross-case correlation, pattern
+  matching, rule-based reasoning) with an optional AI Advisor overlay.
+  AAIG must remain fully functional if AI is unavailable.
 
-**Enables:**
-- Similarity matching across investigations
-- Campaign clustering (multiple investigations that share a fingerprint
-  prefix)
-- Investigation deduplication
-- Cross-customer comparisons (where operationally appropriate)
-- Long-term regression validation (beyond the Golden Corpus)
-
-Because the fingerprint is deterministic, it aligns natively with the
-platform philosophy. Reserved for after P2.3 → P5 land so the underlying
-inputs are stable.
+**Extension Rule:** each of these MUST NOT modify Workspace · RTE ·
+Router · Artifact Intelligence · CEM · Investigation Engine.
 
 ### Deferred
 - **YARA Auto-Match** — HOLD until `yara-python` is verified in the
