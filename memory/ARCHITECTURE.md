@@ -1,9 +1,27 @@
 # NivXRay — Master Platform Architecture Specification
 
-**Version:** 1.1 · Master Architecture (FROZEN)
+**Version:** 1.1 · Master Architecture (FROZEN · 10/10 · governance rule
+in effect)
 **Last owner review:** 2026-02-15
-**Status:** approved · frozen at v1.1 · evolving only through formal
-architectural review
+**Status:** approved · frozen at v1.1 · **NO further core redesign
+without proven architectural defect**
+
+> **Governance rule (owner directive · 2026-02-15).** Any future proposal
+> that modifies the core deterministic pipeline
+> (Workspace · RTE · Artifact Router · Artifact Intelligence · CEM ·
+> Investigation Engine) **MUST be rejected** unless it fixes a proven
+> architectural defect. Everything else — new analyzers, richer
+> investigations, analyst productivity, integrations, Analytical
+> Consumers — is implemented as an extension under the Extension Rule.
+>
+> The forward motion is:
+> ```
+> Architecture → Freeze → Implement → Validate → Extend
+> ```
+> **not**
+> ```
+> Architecture → Redesign → Redesign → Redesign
+> ```
 
 > **Owner directive · 2026-02-15.** v1.1 supersedes v1.0. All prior
 > architecture notes (`ARCHITECTURE.legacy-v1.md`, `ARCHITECTURE_v2.md`,
