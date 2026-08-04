@@ -335,6 +335,43 @@ rather than further core redesign.
 
 ---
 
+## Frozen Components (Architecturally Immutable · owner directive 2026-02-15)
+
+The following six components are **architecturally frozen**. They are
+not to be modified in any future work unless a genuine architectural
+defect is proven:
+
+1. Workspace
+2. Input Classifier
+3. RTE / IEDDE
+4. Artifact Router
+5. Artifact Intelligence Layer
+6. Canonical Event Model (CEM)
+7. Investigation Engine (SSOT)
+
+New capabilities live outside this frozen core, plugging in through
+the Extension Rule as **Analytical Consumers**, **AI Enrichment
+Providers**, or **new Artifact Analyzers** (which extend, not modify,
+the Artifact Intelligence Layer).
+
+---
+
+## The Final Directive (owner directive 2026-02-15)
+
+> **Stop evolving the architecture. Start evolving the product.**
+>
+> Every future enhancement must ask one question first:
+>
+>   *"Can this be built as an extension under the Extension Rule?"*
+>
+> - **If YES** — implement it.
+> - **If NO** — require a formal architectural review AND evidence of a
+>   genuine defect before considering any core changes.
+>
+> No exceptions.
+
+---
+
 ## Mapping current codebase to this architecture (2026-02-15)
 
 | v1.1 layer | Current implementation | Status |
