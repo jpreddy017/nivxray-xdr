@@ -19,6 +19,38 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02 · IEDDE SSOT Wiring (Priority 1 + 2 + 3 · shipped)
 
+### 🟢 2026-02 · Phase 1 · Cycle 1 · PE Binary Analysis (owner-approved bundle · shipped)
+
+The IEDDE pipeline no longer stops at "here's the executable, go open
+PEStudio." When decoding reaches `binary_artifact_recovered` on a PE,
+the deterministic PE analyzer produces a structured static-analysis
+report inline in the Workspace.
+
+  - `services/pe_analyzer.py` — pure function `analyze_pe(bytes) -> dict`
+    with `overview`, `hashes`, `sections` (entropy + R/W/X flags),
+    `imports`, `exports`, `resources`, `packer_hints` (UPX/MPRESS/
+    ASPack/Petite + high-entropy heuristic), `strings` (ASCII +
+    UTF-16LE, min-len 6, capped 500), and analyst-oriented `findings`
+    (RWX section, high-entropy section, empty imports, invalid
+    timestamp, executable overlay, TLS callback, atypical section
+    count, EP outside sections, imphash pivot). Deterministic and
+    hashable — identical bytes → byte-identical report.
+  - Graceful degradation: `pefile` treated as an optional capability.
+    If unavailable, `is_available()` returns False and the panel
+    renders "PE analysis capability unavailable" instead of crashing.
+  - `BinaryArtifact.pe_analysis` field populated only when kind=='PE'.
+  - `_detect_binary_artifact` gained Case C (scan-anywhere for magic
+    bytes with printable-ratio guardrail) so real PEs whose bytes
+    contain `\r` / `\n` are detected after `decoder-frombase64string-fold`.
+  - Frontend `components/PEAnalysisPanel.jsx` — collapsible sections
+    with entropy bars, R/W/X flag pills, per-DLL import trees,
+    resource table, string filter. Additive; no legacy Workspace
+    panel disturbed. Wired via `iedde.binary_artifact.pe_analysis`
+    on the existing IEDDE envelope.
+  - Certification (iteration_57): 61/61 pytest pass · DCS 17/17 ·
+    R1 107/107 · frontend testids present · graceful-degradation
+    surface exercised.
+
 ### 🟢 2026-02 · Nav Consolidation + History as First-Class Case Manager
 
 Owner-approved nav restructure delivered in two follow-up cycles:
