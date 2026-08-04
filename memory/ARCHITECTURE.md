@@ -1,14 +1,29 @@
-# NivXRay — Master Platform Architecture Specification
+# NivXRay — Architectural Direction · Master Specification v1.0
 
-> **Owner directive · 2026-02-15.** Approved by the product owner as the master
-> architecture. All prior architecture notes (including
-> `ARCHITECTURE.legacy-v1.md`, `ARCHITECTURE_v2.md`, and
-> `ARCHITECTURAL_DIRECTION_IEDDE.md`) are **superseded by this document**.
-> Every future fork MUST treat this file as the source of truth.
-> Rated **9.95/10** by the product owner and explicitly frozen: "Future
-> additions (Mach-O, archives, email analyzers, telemetry, semantic
-> provenance, dynamic analysis, etc.) should plug into the extension points
-> defined here instead of changing this master architecture."
+**Workspace-Centric Processing Architecture (Long-term Design)**
+
+> **Framing.** This document captures the **intended end-state architecture**
+> for NivXRay. It is **not** asking for everything to be implemented in one
+> sprint. It establishes the architectural **boundaries, responsibilities,
+> processing pipeline, and future extensibility** so that Phase 4 and
+> subsequent work evolve toward a consistent platform without requiring
+> later redesigns.
+>
+> **Owner directive · 2026-02-15.** Rated 9.95/10 by the product owner and
+> explicitly frozen at v1.0: "Future additions (Mach-O, archives, email
+> analyzers, telemetry, semantic provenance, dynamic analysis, etc.) should
+> plug into the extension points defined here instead of changing this
+> master architecture."
+>
+> **Governing status.** Every future fork MUST treat this file as the
+> governing architectural direction. Deviations require an amendment PR that
+> bumps the version. All prior architecture notes
+> (`ARCHITECTURE.legacy-v1.md`, `ARCHITECTURE_v2.md`,
+> `ARCHITECTURAL_DIRECTION_IEDDE.md`) are **superseded**.
+
+**Version:** 1.0 · Master Architecture
+**Last owner review:** 2026-02-15
+**Status:** approved · frozen at v1.0 · evolving through amendment
 
 ---
 
@@ -296,6 +311,11 @@ Investigation SSOT or Workspace architecture**.
 
 ## Mapping current codebase to this architecture (as of 2026-02-15)
 
+> **Note.** This mapping is a **status snapshot**, not a mandatory sprint
+> plan. It shows where the current implementation aligns with — or deviates
+> from — the v1.0 master architecture. Each gap will be closed **when it
+> becomes the highest-value work**, not all at once.
+
 | Master architecture layer | Current implementation | Status |
 |---|---|---|
 | Workspace UI | `frontend/src/pages/WorkspacePage.jsx` + nav shell | ✅ live |
@@ -303,7 +323,7 @@ Investigation SSOT or Workspace architecture**.
 | RTE / IEDDE | `backend/services/recipe_planner.py` + iedde stages | ✅ live |
 | Artifact Router | `backend/services/artifact_intelligence/__init__.py` (magic dispatch) | ✅ live |
 | Artifact Analyzers | `backend/services/artifact_intelligence/analyzers/{pe,pdf,office,elf}.py` | ✅ live (4/n) |
-| Canonical Event Model (CEM) | ❗ implicit — currently embedded in `investigations` case docs | ⚠️ needs explicit CEM emit layer (Phase 4 · Cycle D-1) |
+| Canonical Event Model (CEM) | ❗ implicit — currently embedded in `investigations` case docs | ⚠️ future — explicit CEM emit layer |
 | Threat Summary Aggregator | `frontend/src/components/ThreatSummaryCard.jsx` + per-case verdict_card | ✅ live |
 | Investigation Engine (SSOT) | `backend/services/correlation_engine.py` + `routers/correlations.py` | ✅ Phase 4 P1 scaffolding shipped |
 | History & Case Management | `backend/routers/history.py`, `frontend/src/pages/HistoryPage.jsx` | ✅ live |
@@ -311,19 +331,25 @@ Investigation SSOT or Workspace architecture**.
 | Threat Intel Provider | `backend/routers/threat_intel.py` | ✅ live |
 | AI Assistant | `backend/services/llm_decoder.py` (optional, out of decode path) | ✅ compliant with AI Boundary |
 
-### Immediate Phase 4 · P1 gaps to close (owner-approved 2026-02-15)
+### Candidate near-term work (Phase 4 · P1 gap closure)
 
-1. **Recursive Child Artifact Pipeline** wired into `recipe_planner.py` — when
-   an analyzer declares a child artifact, the pipeline must loop it back
+These are the pieces that would move the Investigation Engine from
+scaffolding to visible analyst value. They are **candidates**, not
+commitments — the owner chooses when and in what order to close them.
+
+1. **Recursive Child Artifact Pipeline** wired into `recipe_planner.py` —
+   when an analyzer declares a child artifact, the pipeline loops it back
    through the RTE → Artifact Router → Analyzer until deterministic
-   convergence. Currently `declare_inline_children_from_routed_analysis()`
-   exists but isn't invoked at decode time.
-2. **Auto-scan on record** — every `POST /api/history/record` should trigger
-   a cross-case scan via `correlation_engine.scan_correlations()` and cache
+   convergence. Section 4 of this spec. Function
+   `declare_inline_children_from_routed_analysis()` already exists.
+2. **Auto-scan on record** — every `POST /api/history/record` triggers a
+   cross-case scan via `correlation_engine.scan_correlations()` and caches
    suggestions on the parent investigation (if any).
-3. **"Find Related Cases"** analyst-triggered action from the Workspace lens
-   + History row → seeds a new Investigation when confirmed.
+3. **"Find Related Cases"** analyst-triggered action from the Workspace
+   lens + History row → seeds a new Investigation when confirmed.
+4. **Explicit CEM emit layer** — introduce a formal Canonical Event Model
+   boundary between analyzers and the Investigation Engine. Reserved for
+   when the case doc schema stops absorbing new analyzer types cleanly.
 
-Closing these three completes the Master Architecture's Investigation Engine
-integration for cross-artifact scenarios. Naming refinement #1 is preserved:
-there is only ONE component named "Investigation Engine" (the SSOT).
+Naming rule (refinement #1) is preserved: there is only ONE component named
+"Investigation Engine" (the SSOT).

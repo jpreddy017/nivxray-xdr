@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { X, Star, Tag as TagIcon, StickyNote, Download, Upload, Trash2, Search } from "lucide-react";
+import FindRelatedDrawer from "@/components/investigation/FindRelatedDrawer";
 
 /**
  * HistoryDrawer — investigation history panel.
@@ -45,6 +46,8 @@ export default function HistoryDrawer({ open, onClose, onRehydrate, layout = "dr
   const [chainsOnly, setChainsOnly] = useState(false);
   const [sinceDays, setSinceDays] = useState(0);
   const [editing, setEditing] = useState(null); // {id, tags:'', notes:''}
+  // ▲ Phase 4 · P1 · Find Related Cases (2026-02-15)
+  const [findRelatedCaseId, setFindRelatedCaseId] = useState(null);
 
   const isPage = layout === "page";
 
@@ -391,6 +394,7 @@ export default function HistoryDrawer({ open, onClose, onRehydrate, layout = "dr
                   alert(e?.response?.data?.detail || "Failed to start investigation");
                 }
               }}
+              onFindRelated={() => setFindRelatedCaseId(it.id)}
               relTime={relTime}
             />
           ))}
@@ -420,6 +424,13 @@ export default function HistoryDrawer({ open, onClose, onRehydrate, layout = "dr
           </div>
         )}
       </div>
+      {/* Phase 4 · P1 · Find Related Cases drawer overlay (2026-02-15) */}
+      {findRelatedCaseId && (
+        <FindRelatedDrawer
+          caseId={findRelatedCaseId}
+          onClose={() => setFindRelatedCaseId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -441,7 +452,7 @@ export default function HistoryDrawer({ open, onClose, onRehydrate, layout = "dr
 // The card falls back gracefully when the IEDDE fields are absent (legacy
 // records saved before Feb-2026) — verdict pill + input preview always render.
 function HistoryRow({
-  item, onOpen, onStar, onDelete, onEdit, onExport, onDuplicate, onOpenNewTab, onStartInvestigation, relTime,
+  item, onOpen, onStar, onDelete, onEdit, onExport, onDuplicate, onOpenNewTab, onStartInvestigation, onFindRelated, relTime,
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const menuRef = React.useRef(null);
@@ -734,6 +745,10 @@ function HistoryRow({
               <MenuItem testId={`btn-start-investigation-${item.id}`}
                         onClick={() => { setMenuOpen(false); onStartInvestigation?.(); }}>
                 ▪  {item.correlation_id ? "Open Investigation" : "Start Investigation"}
+              </MenuItem>
+              <MenuItem testId={`btn-find-related-${item.id}`}
+                        onClick={() => { setMenuOpen(false); onFindRelated?.(); }}>
+                🔍  Find Related Cases
               </MenuItem>
               <MenuItem testId={`btn-duplicate-${item.id}`}
                         onClick={() => { setMenuOpen(false); onDuplicate?.(); }}>

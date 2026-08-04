@@ -532,13 +532,31 @@ def _attach_pe_analysis(kind: str, raw: bytes) -> dict | None:
 def _dispatch_full_analysis(raw: bytes) -> dict | None:
     """Full `AnalysisResult.to_dict()` — carries `artifact_type`,
     `capability_available`, `hashes`, and the routed `analysis` payload.
-    Used by the Workspace's new ArtifactAnalysisPanel."""
+    Used by the Workspace's new ArtifactAnalysisPanel.
+
+    ▲ Phase 4 · P1 · 2026-02-15 — Recursive Child Artifact Pipeline
+       (master architecture §4). After the primary analyzer runs, we
+       walk every declared child artifact through RTE → Router →
+       Analyzer until deterministic convergence. The recursion tree is
+       attached as `recursive_children` so the Investigation Engine can
+       render a full attack chain from a single decode.
+    """
     try:
         from services.artifact_intelligence import dispatch
         result = dispatch(raw)
-        return result.to_dict()
+        routed = result.to_dict()
     except Exception:
         return None
+    # Section 4 · Recursive Child Artifact Pipeline
+    try:
+        from services import recursive_child_pipeline
+        recursive = recursive_child_pipeline.process(routed, depth=0)
+        if recursive:
+            routed["recursive_children"] = recursive
+    except Exception:
+        # Never let recursion errors block the primary analysis.
+        pass
+    return routed
 
 
 def _printable_ratio(chunk: bytes) -> float:

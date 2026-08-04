@@ -481,3 +481,69 @@ async def scan(body: ScanIn, user=Depends(get_current_user)):
         "count":      len(suggestions[:body.limit]),
         "min_score":  SUGGESTION_MIN_SCORE,
     }
+
+
+# ============================================================================
+# Find Related — one-stop endpoint for the Workspace + History "Find Related
+# Cases" action. Returns: (a) the case's existing investigation if any,
+# (b) any cached auto-scan suggestions, (c) a fresh live scan.
+# ============================================================================
+class FindRelatedIn(BaseModel):
+    case_id: str
+    limit: int = 25
+    refresh: bool = False   # skip cache and re-scan
+
+
+@router.post("/correlations/find-related", tags=["correlations"])
+async def find_related(body: FindRelatedIn, user=Depends(get_current_user)):
+    case = await _load_case(user["email"], body.case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="case_not_found")
+
+    existing_investigation = None
+    if case.get("correlation_id"):
+        corr = await _load_correlation(user["email"], case["correlation_id"])
+        if corr:
+            existing_investigation = {
+                "id":         str(corr["_id"]),
+                "name":       corr.get("name"),
+                "case_count": len(corr.get("case_ids") or []),
+                "updated_at": _serialize(corr).get("updated_at"),
+            }
+
+    cached = case.get("pending_correlations") if not body.refresh else None
+    if cached:
+        suggestions = list(cached)
+        source = "cache"
+    else:
+        suggestions = await scan_correlations(db, user["email"], case,
+                                              limit_candidates=max(50, body.limit))
+        source = "live"
+
+    return {
+        "case_id":                body.case_id,
+        "existing_investigation": existing_investigation,
+        "suggestions":            suggestions[:body.limit],
+        "count":                  len(suggestions[:body.limit]),
+        "source":                 source,
+        "min_score":              SUGGESTION_MIN_SCORE,
+    }
+
+
+# ============================================================================
+# CEM — Canonical Event Model view for a single case (master architecture §5)
+# ============================================================================
+@router.get("/correlations/cem/{case_id}", tags=["correlations"])
+async def get_cem(case_id: str, user=Depends(get_current_user)):
+    """Return the Canonical Event Model view of a recorded case.
+
+    Prefers the cached `case.cem` field emitted by the post-record hook;
+    falls back to a fresh emission if the case predates the CEM layer.
+    """
+    case = await _load_case(user["email"], case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="case_not_found")
+    if case.get("cem"):
+        return {"case_id": case_id, "cem": case["cem"], "source": "cached"}
+    from services.cem import emit_cem
+    return {"case_id": case_id, "cem": emit_cem(case), "source": "computed"}

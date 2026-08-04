@@ -320,11 +320,89 @@ async def record_investigation(user_email: str, **kwargs) -> Optional[Dict[str, 
             except Exception as _kb_e:
                 import logging
                 logging.getLogger("nivxray").debug("kb auto-cluster hook: %s", _kb_e)
+
+            # ▲ Phase 4 · P1 · 2026-02-15 — Master architecture §5 / §6.
+            # Emit the Canonical Event Model (CEM) view and cache it on
+            # the case doc for query-time convenience. This makes the
+            # Investigation Engine's consumption boundary explicit.
+            try:
+                import asyncio as _asyncio
+                _asyncio.create_task(_post_record_investigation_hook(user_email, rec["id"]))
+            except Exception as _cem_e:
+                import logging
+                logging.getLogger("nivxray").debug("cem/auto-scan hook: %s", _cem_e)
         return rec
     except Exception as e:
         import logging
         logging.getLogger("nivxray").warning("history record failed: %s", e)
         return None
+
+
+async def _post_record_investigation_hook(user_email: str, case_id: str) -> None:
+    """▲ Phase 4 · P1 · 2026-02-15 — Master architecture §5 / §6.
+
+    Runs as a background task after a case is recorded. Responsibilities:
+      1. Emit the Canonical Event Model (CEM) view and cache it on the case
+         doc (`case.cem`). Deterministic — no LLM.
+      2. Auto-scan for cross-case correlations via the Investigation
+         Engine. Cache the top-5 candidates on `case.pending_correlations`
+         so the frontend can surface them without an extra round-trip.
+      3. If the case is already in an Investigation, refresh the parent
+         investigation's `updated_at` so it re-sorts in the list.
+
+    Every failure mode is contained — nothing here blocks decode latency.
+    """
+    from bson import ObjectId
+    try:
+        oid = ObjectId(str(case_id))
+    except Exception:
+        return
+    try:
+        raw_case = await db.investigations.find_one({"_id": oid, "user_email": user_email})
+        if not raw_case:
+            return
+        case_view = {**raw_case, "id": str(raw_case["_id"])}
+        # 1 · CEM emit
+        try:
+            from services.cem import emit_cem
+            cem = emit_cem(case_view)
+            await db.investigations.update_one(
+                {"_id": oid},
+                {"$set": {"cem": cem,
+                          "cem_emitted_at": datetime.now(timezone.utc)}},
+            )
+        except Exception as _e:
+            import logging
+            logging.getLogger("nivxray").debug("cem emit skipped: %s", _e)
+        # 2 · Auto-scan for correlations (bounded, deterministic)
+        try:
+            from services.correlation_engine import scan_correlations
+            suggestions = await scan_correlations(db, user_email, case_view,
+                                                   limit_candidates=100)
+            top = suggestions[:5]
+            await db.investigations.update_one(
+                {"_id": oid},
+                {"$set": {"pending_correlations": top,
+                          "pending_correlations_at": datetime.now(timezone.utc)}},
+            )
+        except Exception as _e:
+            import logging
+            logging.getLogger("nivxray").debug("auto-scan skipped: %s", _e)
+        # 3 · If part of an investigation, bump its updated_at
+        corr_id = raw_case.get("correlation_id")
+        if corr_id:
+            try:
+                from bson import ObjectId as _OID
+                await db.correlations.update_one(
+                    {"_id": _OID(str(corr_id))},
+                    {"$set": {"updated_at": datetime.now(timezone.utc)}},
+                )
+            except Exception:
+                pass
+    except Exception as e:
+        import logging
+        logging.getLogger("nivxray").warning("post_record hook failed: %s", e)
+
 
 
 async def tag_history_with_case(user_email: str, input_text: str, case_name: str,
