@@ -338,6 +338,56 @@ def _fold_ps_invocation_simplify(content: str, interpreter: str | None) -> tuple
     return _PS_INVOKE_RE.sub(_repl, content), fires
 
 
+# ─── PowerShell launcher unwrap ─────────────────────────────────────
+# Strip the outer `powershell(.exe)? [switches] -Command|-c "<script>"`
+# launcher wrapper when the inner script is already canonical. The
+# launcher's own switches (`-NoProfile`, `-ExecutionPolicy Bypass`,
+# `-WindowStyle Hidden`, etc.) are MITRE-relevant metadata but the
+# analyst-facing DECODED OUTPUT should show the script that actually
+# runs — matching the "Decoded Script Text" convention used by other
+# analyst platforms.
+#
+# The pre-canonical launcher information is preserved in the
+# provenance trace (KILL-CHAIN graph shows `POWERSHELL-NORMALIZE` as
+# a distinct stage), so unwrapping the wrapper does NOT lose evidence.
+#
+# Rule 19 positive-ID: only fires when the payload starts with a
+# powershell launcher token.
+_PS_LAUNCHER_RE = re.compile(
+    r"""
+    ^\s*                                        # start of line
+    (?:powershell(?:\.exe)?|pwsh(?:\.exe)?)     # launcher
+    (?P<switches>(?:\s+-[A-Za-z]+(?:\s+[^\s\"'-][^\s]*)?)*)  # optional switches
+    \s+-(?:C|c)(?:ommand)?\s+                   # -Command / -c
+    "(?P<script>[^\"\r\n]*)"                    # DQ script body
+    \s*$                                        # end of line
+    """,
+    re.VERBOSE | re.IGNORECASE,
+)
+
+
+def _fold_ps_launcher_unwrap(content: str, interpreter: str | None) -> tuple[str, int]:
+    """Strip the powershell launcher wrapper when the inner script is canonical.
+
+    The inner script is considered canonical when it no longer contains
+    the PS call operator `&(`, the concat operator between literals
+    (`'a'+'b'`), or the `-EncodedCommand` marker. This ensures we do
+    not unwrap prematurely — a wrapper that still has obfuscation
+    inside must be handled by the other folds first.
+    """
+    m = _PS_LAUNCHER_RE.match(content.strip())
+    if not m:
+        return content, 0
+    script = m.group("script")
+    # Canonical inner-script guard: refuse to unwrap if any of these
+    # obfuscation markers are still present.
+    if "&(" in script or re.search(r"'[^']*'\s*\+\s*'", script):
+        return content, 0
+    if re.search(r"-Encoded(?:Command)?\b", script, re.IGNORECASE):
+        return content, 0
+    return script, 1
+
+
 # ─── Pass entrypoint ────────────────────────────────────────────────
 # Order: static-join first (largest structure), then -join operator,
 # then string concat, then caret strip, then JS structural folds,
@@ -367,9 +417,37 @@ def run(artifact: Artifact) -> tuple[Artifact, PassRecord]:
     # invoked separately (function signature differs from the plain
     # (content) -> (content, count) fold contract).
     new_content, count = _fold_ps_invocation_simplify(content, artifact.interpreter)
-    if count > 0:
+    invocation_fired = count > 0
+    if invocation_fired:
         fired.append(f"structural-ps-invocation-simplify x{count}")
         content = new_content
+
+    # PS launcher unwrap fires LAST and ONLY when at least one other
+    # structural deobfuscation fold fired in the same iteration. This
+    # keeps `powershell -Command "IEX (…)"` payloads with their
+    # launcher visible (nothing was deobfuscated inside), while
+    # canonicalising `powershell -Command "&(('Get-'+'Process') 'lsass')"`
+    # → `Get-Process lsass` where the fold chain proved the wrapper is
+    # concealing simplifiable obfuscation.
+    if fired:  # something deobfuscated → strip the now-redundant wrapper
+        new_content, count = _fold_ps_launcher_unwrap(content, artifact.interpreter)
+        if count > 0:
+            fired.append(f"structural-ps-launcher-unwrap x{count}")
+            content = new_content
+
+    if content == artifact.content:
+        return artifact, PassRecord(
+            name=PASS_NAME,
+            changed=False,
+            transformations=(),
+            notes=(),
+        )
+
+    return artifact.replace(content=content), PassRecord(
+        name=PASS_NAME,
+        changed=True,
+        transformations=tuple(fired),
+    )
 
     if content == artifact.content:
         return artifact, PassRecord(

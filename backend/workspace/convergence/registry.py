@@ -158,6 +158,18 @@ REGISTRY: tuple[TransformationDescriptor, ...] = (
         techniques_covered=("powershell_call_operator_obfuscation", "powershell_invocation_wrapping"),
         mitre_attack=("T1027.010", "T1059.001"),
     ),
+    TransformationDescriptor(
+        name="structural-ps-launcher-unwrap",
+        category="structural",
+        language="powershell",
+        version="1.0",
+        description="Strip the outer `powershell(.exe)? [switches] -Command \"<script>\"` launcher wrapper when the inner script is already canonical (no `&(`, no `'a'+'b'`, no `-EncodedCommand`). Launcher switches remain visible in the DECODING TRACE and Kill-Chain graph.",
+        consumes="powershell launcher CLI invocation wrapping a canonical script",
+        produces="bare PowerShell script text (matches analyst 'Decoded Script Text' convention)",
+        families_covered=("cobalt_strike", "gootloader", "emotet", "qakbot", "darkgate", "lumma"),
+        techniques_covered=("powershell_launcher_wrapping",),
+        mitre_attack=("T1027.010", "T1059.001"),
+    ),
     # --- Content pass -------------------------------------------------------
     TransformationDescriptor(
         name="content-ps-operator-case-normalize",
