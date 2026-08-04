@@ -8,17 +8,102 @@ No feature moves to the next phase until the phase it lives in is production-qua
 
 ---
 
-## Phase 3 · Artifact Intelligence Layer — status (Feb 2026)
+## Phase 3 · Artifact Intelligence Layer — CLOSED (Feb 2026)
 
 - ✅ **Cycle A** — PE Static Analyzer (`pefile`)
 - ✅ **Cycle B** — PDF + Office OOXML Analyzers + `ThreatSummaryCard`
-- ✅ **Cycle C** — **ELF Analyzer** (Feb 2026, iteration_61 · 33/33 green · 100% frontend)
-- ⏭️ **Cycle D — P1 · Cross-Artifact Correlation** (next up)
-- ⏸️ **Cycle E — P2 · Compare Cases** (queued)
-- ⏸️ **Cycle F — P3 · Saved Collections** (queued)
-- ⏸️ **Cycle G — P4 · Additional Analyzers** (Mach-O, ZIP/7z/RAR native)
-- 🚫 **YARA Auto-Match** — HOLD until `yara-python` is available in the environment.
-   Do NOT implement placeholder UI.
+- ✅ **Cycle C** — **ELF Analyzer** (2026-02-15, iteration_61 · 33/33 backend · 100% frontend · zero regressions)
+
+Phase 3 delivered a full artifact-first architecture: PE · PDF · Office · ELF are
+routed deterministically through the Artifact Intelligence Layer, verdict/risk
+surfaces via `ThreatSummaryCard`, and every analyzer degrades gracefully when
+its dependency is absent.
+
+---
+
+## Phase 4 · Investigation Intelligence — CURRENT PHASE (owner directive · 2026-02-15)
+
+> **Architectural pivot:** Stop adding more parsers. Start connecting analyzed
+> artifacts into a single investigation. NivXRay evolves from *collection of
+> analyzers* → *artifact-first investigation platform*.
+
+### P1 · Cross-Artifact Correlation (⏭️ next up)
+Correlate related artifacts into **one deterministic investigation**, not four
+independent reports.
+
+Example chain:
+```
+Email (.eml) → Office Document → PowerShell → PE Payload → Persistence
+```
+
+Deliverables:
+- Unified attack chain with artifact-to-artifact edges
+- Shared evidence graph (hashes, IOCs, URLs, C2, MITRE techniques)
+- Unified timeline across all artifacts in the investigation
+- Consolidated `ThreatSummaryCard` at the investigation level
+- Deterministic MITRE aggregation (union of techniques with evidence back-links)
+- Provenance preserved end-to-end (which artifact produced which finding)
+- Must be a complete feature, not a preview
+
+### P2 · Compare Cases (⏸️ queued)
+Side-by-side diff of two cases across:
+Interpreter · MITRE · LOLBAS · IOCs · Hashes · Threat Summary · Canonical Output · Attack Story
+plus a **deterministic similarity score** for malware clustering (e.g. "91%,
+shared: T1105 T1059 Net.WebClient · different: persistence, C2").
+
+### P3 · Saved Collections (⏸️ queued)
+Analyst-facing tagging/grouping on the History page — APT29 · QakBot ·
+Customer A · Incident 104 · Campaign July. Collections organize investigations
+without changing analysis results. MSSP-friendly.
+
+### P4 · Mach-O Analyzer (⏸️ queued)
+Fifth first-class artifact type, same artifact-first UX as PE/PDF/Office/ELF.
+Same graceful-degradation contract. Reframed from "add another parser" → the
+macOS wing of the Artifact Intelligence Layer.
+
+### Deferred
+- **YARA Auto-Match** — HOLD until `yara-python` is verified in the environment.
+  Do NOT implement placeholder UI. When available: rules, matching, severity,
+  tags, integration into `ThreatSummaryCard`, generic (not PE-only) scanner.
+- **Archive Analyzer** (ZIP / 7z / RAR / ISO / CAB / IMG) — deferred until after
+  Mach-O. Pairs naturally with Cross-Artifact Correlation because archives
+  expand into linked artifacts that must preserve provenance.
+
+---
+
+## Phase 5 · Semantic Provenance Engine (SPE) — architectural direction (queued)
+
+Begins **only after** Phase 4 is production complete. Not another analyzer, not
+a sandbox, not an emulator — a **deterministic semantic analysis layer** sitting
+after the Recursive Transformation Engine. Explains *how* malicious behavior is
+constructed.
+
+Capabilities:
+- Variable provenance
+- Expression graphs
+- Data-flow graphs
+- String reconstruction
+- API resolution
+- Behavioral pattern detection
+- Evidence graphs
+
+Integrates with the existing Workspace, `ThreatSummaryCard`, and Investigation
+Knowledge Graph. Must preserve the **shared deterministic convergence
+architecture** — single certified model across components, no divergent
+behavioral implementations.
+
+---
+
+## Non-negotiable architectural principles (all phases)
+
+1. Artifact-first workflow
+2. Deterministic-first analysis (AI-optional, never in decode path)
+3. Graceful degradation for every optional capability
+4. Evidence-backed findings (severity + code + title + detail + back-link)
+5. Single analyzer per artifact type
+6. Stable certification + regression gates before phase close
+7. **Shared deterministic convergence architecture** — one certified model,
+   never divergent implementations
 
 ---
 

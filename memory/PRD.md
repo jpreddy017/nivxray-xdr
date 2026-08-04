@@ -68,7 +68,55 @@ as the fourth analyzer registered in the Artifact Intelligence Layer.
 `ThreatSummaryCard` → Metadata/Security → Detailed technical sections → Raw decoded.
 
 **Cycle status:** Phase 3 · Cycle C **CLOSED**.
-**Next up:** Cycle D · P1 · Cross-Artifact Correlation.
+
+---
+
+## 🧭 Phase 4 · Investigation Intelligence (owner directive · 2026-02-15)
+
+> **Architectural pivot after Phase 3 closure:** Stop adding more parsers.
+> Start connecting analyzed artifacts into a single investigation. NivXRay
+> evolves from *collection of analyzers* → *artifact-first investigation
+> platform*.
+
+**Priority order (locked):**
+- **P1 · Cross-Artifact Correlation** — link .eml → Office → PowerShell → PE
+  → persistence into one deterministic investigation with unified attack
+  chain, evidence graph, timeline, and consolidated `ThreatSummaryCard`.
+  Must ship as a complete feature, not a preview.
+- **P2 · Compare Cases** — side-by-side diff (Interpreter · MITRE · LOLBAS ·
+  IOCs · Hashes · Threat Summary · Canonical Output · Attack Story) with a
+  deterministic similarity score for malware clustering.
+- **P3 · Saved Collections** — analyst-facing tagging/grouping on History
+  (APT29, QakBot, Customer A, Incident 104, Campaign July). MSSP-friendly.
+- **P4 · Mach-O Analyzer** — 5th first-class artifact type; macOS wing of the
+  Artifact Intelligence Layer with same artifact-first UX and graceful
+  degradation contract.
+- **Deferred:** YARA Auto-Match (HOLD until `yara-python` is verified), and
+  Archive Analyzer (ZIP / 7z / RAR / ISO / CAB / IMG — queued after Mach-O,
+  pairs naturally with correlation because archives expand into linked
+  artifacts).
+
+## 🧭 Phase 5 · Semantic Provenance Engine (SPE) — queued
+
+Begins **only after** Phase 4 is production complete. Not another analyzer,
+not a sandbox, not an emulator — a deterministic semantic layer sitting
+after the Recursive Transformation Engine. Capabilities: variable
+provenance, expression graphs, data-flow graphs, string reconstruction,
+API resolution, behavioral pattern detection, evidence graphs. Integrates
+with Workspace / `ThreatSummaryCard` / Knowledge Graph. **Must preserve the
+shared deterministic convergence architecture** — one certified model, no
+divergent behavioral implementations.
+
+## Non-negotiable architectural principles (all phases)
+
+1. Artifact-first workflow
+2. Deterministic-first analysis (AI-optional, never in decode path)
+3. Graceful degradation for every optional capability
+4. Evidence-backed findings (severity + code + title + detail + back-link)
+5. Single analyzer per artifact type
+6. Stable certification + regression gates before phase close
+7. Shared deterministic convergence architecture — one certified model,
+   never divergent implementations
 
 Analyst-first artifact investigation. Office documents — the largest
 phishing-delivery format — now get the same first-class treatment as
