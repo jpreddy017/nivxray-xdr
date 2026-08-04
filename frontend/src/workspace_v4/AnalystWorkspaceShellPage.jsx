@@ -46,6 +46,29 @@ export default function AnalystWorkspaceShellPage() {
   const [error, setError]       = useState("");
   const [persistState, setPersist] = useState("idle"); // idle · saving · saved · error
 
+  // PR-4 · Case list surface (was queued for PR-7, promoted forward
+  // because analysts hitting the INVESTIGATE nav tab need somewhere to
+  // land other than a dead-end "no case selected" message).
+  const [cases, setCases]           = useState([]);
+  const [casesStatus, setCasesStat] = useState("loading"); // loading · ready · error
+  const [casesError, setCasesErr]   = useState("");
+
+  const loadCases = useCallback(async () => {
+    setCasesStat("loading");
+    try {
+      const list = await api.listCases();
+      // Newest first — sort by updated_at desc.
+      list.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+      setCases(list);
+      setCasesStat("ready");
+    } catch (e) {
+      setCasesErr(e?.response?.data?.detail || e?.message || "list_failed");
+      setCasesStat("error");
+    }
+  }, []);
+
+  useEffect(() => { loadCases(); }, [loadCases]);
+
   const load = useCallback(async () => {
     if (!caseId) {
       setStatus("empty");
@@ -202,17 +225,80 @@ export default function AnalystWorkspaceShellPage() {
         <aside
           data-testid={TID_SHELL_SIDEBAR}
           aria-label="Workspace navigation"
-          className="hidden w-56 border-r border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300 md:block"
+          className="hidden w-64 border-r border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300 md:block"
         >
-          <p className="text-xs uppercase tracking-widest text-slate-500">
-            Case
-          </p>
-          <button
-            onClick={() => navigate("/investigate")}
-            className="mt-2 block w-full rounded-md px-2 py-1 text-left text-slate-400 hover:bg-slate-800/60 hover:text-slate-100"
-          >
-            ← All cases
-          </button>
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-widest text-slate-500">
+              Cases
+            </p>
+            <button
+              onClick={loadCases}
+              data-testid="workspace-cases-refresh"
+              className="text-[10px] uppercase tracking-widest text-slate-500 hover:text-slate-200"
+              title="Reload case list"
+            >
+              refresh
+            </button>
+          </div>
+
+          {casesStatus === "loading" ? (
+            <p className="mt-3 text-xs text-slate-500">Loading cases…</p>
+          ) : null}
+          {casesStatus === "error" ? (
+            <p className="mt-3 text-xs text-rose-400" data-testid="workspace-cases-error">
+              {casesError}
+            </p>
+          ) : null}
+          {casesStatus === "ready" && cases.length === 0 ? (
+            <p
+              data-testid="workspace-cases-empty-sidebar"
+              className="mt-3 text-xs text-slate-500"
+            >
+              No cases yet. Run a decode on the{" "}
+              <Link to="/" className="text-indigo-300 hover:underline">
+                Workspace
+              </Link>{" "}
+              to create one.
+            </p>
+          ) : null}
+          {casesStatus === "ready" && cases.length > 0 ? (
+            <ul
+              data-testid="workspace-cases-list"
+              className="mt-3 space-y-1"
+            >
+              {cases.map((c) => {
+                const isActive = c.case_id === caseId;
+                const family = c.sample?.family || "";
+                const technique = c.sample?.technique || "";
+                return (
+                  <li key={c.case_id}>
+                    <button
+                      onClick={() => navigate(`/investigate/${c.case_id}`)}
+                      data-testid={`workspace-cases-item-${c.case_id}`}
+                      className={`block w-full rounded-md border px-2 py-1.5 text-left transition ${
+                        isActive
+                          ? "border-indigo-600 bg-indigo-950/60 text-indigo-100"
+                          : "border-slate-800 bg-slate-900/40 text-slate-300 hover:border-slate-700 hover:bg-slate-800/60"
+                      }`}
+                    >
+                      <div className="truncate font-mono text-[11px]" title={c.case_id}>
+                        {c.case_id}
+                      </div>
+                      {(family || technique) ? (
+                        <div className="mt-0.5 truncate text-[10px] text-slate-500">
+                          {family || "—"} {technique ? `· ${technique}` : ""}
+                        </div>
+                      ) : null}
+                      <div className="mt-0.5 flex items-center gap-2 text-[10px] uppercase tracking-wider text-slate-500">
+                        <span>{c.state}</span>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+
           {bundle?.output?.body?.services ? (
             <div className="mt-6">
               <p className="text-xs uppercase tracking-widest text-slate-500">
@@ -265,16 +351,42 @@ export default function AnalystWorkspaceShellPage() {
           {status === "empty" ? (
             <div
               data-testid={TID_CASE_EMPTY}
-              className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center"
+              className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center"
             >
-              <p className="text-sm text-slate-300">
-                No case selected.
-              </p>
-              <p className="max-w-md text-xs text-slate-500">
-                Open a case from the L1 API (POST <code className="rounded bg-slate-900 px-1">/api/investigation</code>)
-                and navigate to <code className="rounded bg-slate-900 px-1">/investigate/&lt;case_id&gt;</code>.
-                The case-list surface lands in PR-7.
-              </p>
+              {casesStatus === "ready" && cases.length > 0 ? (
+                <>
+                  <p className="text-sm text-slate-200">
+                    Select a case from the sidebar to open it.
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {cases.length} case{cases.length === 1 ? "" : "s"} available.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-base text-slate-200">
+                    No investigations yet.
+                  </p>
+                  <p className="max-w-md text-sm text-slate-400">
+                    Paste any command line on the{" "}
+                    <Link to="/" className="text-indigo-300 hover:underline">
+                      NivXRay Workspace
+                    </Link>{" "}
+                    and run Auto Investigate. When it completes, click{" "}
+                    <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-xs text-slate-200">
+                      OPEN INVESTIGATION WORKSPACE →
+                    </span>{" "}
+                    to land here with a live case.
+                  </p>
+                  <Link
+                    to="/"
+                    data-testid="workspace-cases-empty-cta"
+                    className="mt-2 inline-flex items-center gap-2 rounded-md border border-indigo-700 bg-indigo-950 px-4 py-2 text-sm text-indigo-100 hover:border-indigo-500 hover:bg-indigo-900"
+                  >
+                    ← Go to the Workspace
+                  </Link>
+                </>
+              )}
             </div>
           ) : null}
 
