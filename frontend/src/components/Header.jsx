@@ -23,11 +23,12 @@ export default function Header() {
   // Admin-only tools (INGEST · VALIDATION · BENCHMARK · BATTERY) live
   // inside Admin → quick-links (see AdminPage.jsx).
   const primary = [
-    { key: "workspace",  href: "/",           label: "WORKSPACE",  icon: LayoutGrid, testId: "nav-workspace" },
-    { key: "trajectory", href: "/v2/trajectory", label: "TRAJECTORY", icon: Radar,   testId: "nav-trajectory" },
-    { key: "batch",      href: "/batch-test", label: "BATCH",      icon: TestTube,   testId: "nav-batch-test" },
-    { key: "heatmap",    href: "/heatmap",    label: "HEATMAP",    icon: Grid,       testId: "nav-heatmap" },
-    { key: "nivxforge",  href: "/nivxforge/x-lab",  label: "X-LAB",      icon: Radar,      testId: "nav-nivxforge" },
+    { key: "workspace",   href: "/",              label: "WORKSPACE",   icon: LayoutGrid, testId: "nav-workspace" },
+    { key: "investigate", href: "/investigate",   label: "INVESTIGATE", icon: ShieldCheck, testId: "nav-investigate", title: "SOC Investigation Workspace (L4) · PR-4 Summary + Story lenses" },
+    { key: "trajectory",  href: "/v2/trajectory", label: "TRAJECTORY",  icon: Radar,      testId: "nav-trajectory" },
+    { key: "batch",       href: "/batch-test",    label: "BATCH",       icon: TestTube,   testId: "nav-batch-test" },
+    { key: "heatmap",     href: "/heatmap",       label: "HEATMAP",     icon: Grid,       testId: "nav-heatmap" },
+    { key: "nivxforge",   href: "/nivxforge/x-lab", label: "X-LAB",     icon: Radar,      testId: "nav-nivxforge" },
   ];
 
   // Grouped: analysis tools (secondary usage)

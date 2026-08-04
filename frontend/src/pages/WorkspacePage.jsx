@@ -21,6 +21,7 @@ import GuidanceBanner, { getGuidanceGlowStyle } from "@/components/GuidanceBanne
 import SocVerdictPanel from "@/components/SocVerdictPanel";import VerdictCard from "@/components/VerdictCard";
 import SemanticIntelligencePanel from "@/components/investigation/SemanticIntelligencePanel";
 import InvestigationBrainPanel from "@/components/investigation/InvestigationBrainPanel";
+import OpenInvestigationButton from "@/workspace_v4/OpenInvestigationButton";
 import AnalystQuickActions from "@/components/AnalystQuickActions";
 import AnalystResults from "@/components/AnalystResults";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
@@ -1876,6 +1877,67 @@ export default function WorkspacePage() {
           <InvestigationBrainPanel investigation={investigation} />
         </div>
       )}
+
+      {/* PR-4 · Navigation bridge → L4 SOC Investigation Workspace.
+          Shows when *any* decode/investigate result exists. Creates a
+          case (deterministic case_id — idempotent on repeat clicks) and
+          routes to /investigate/{case_id}. ARB scope: navigation only,
+          no layout redesign, no new business logic. Full route
+          consolidation is PR-7. */}
+      {(output || decodeTrace?.length || verdictCard || investigation) && (
+        <div
+          data-testid="workspace-investigation-bridge"
+          style={{
+            margin: "0 16px 16px",
+            padding: "12px 14px",
+            border: "1px solid var(--accent, #3b82a0)",
+            background:
+              "linear-gradient(90deg, rgba(59,130,160,0.08), rgba(59,130,160,0.02))",
+            borderRadius: 8,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div
+              className="mono"
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.22em",
+                color: "var(--text-mute)",
+                marginBottom: 4,
+              }}
+            >
+              SOC INVESTIGATION WORKSPACE · PR-4
+            </div>
+            <div style={{ fontSize: 13, color: "var(--text)" }}>
+              Open this artefact in the analyst workspace to review the
+              Summary + Attack Story lenses.
+            </div>
+          </div>
+          <OpenInvestigationButton
+            input={input}
+            output={output}
+            decodeResp={{
+              output,
+              trace: decodeTrace,
+              recipe: chain,
+              detected_type: detected,
+              verdict_card: verdictCard,
+              investigation,
+              final_artifact_hash_sha256:
+                (verdictCard && verdictCard.artifact_hash) || undefined,
+              reached_shellcode: reachedShellcode,
+            }}
+            verdictCard={verdictCard}
+            investigation={investigation}
+          />
+        </div>
+      )}
+
 
       {/* ▲ Legacy trace · rc2-orchestrator output — retired from the
           analyst-facing verdict surface on 2026-07-29 (v1.3.0). Kept
