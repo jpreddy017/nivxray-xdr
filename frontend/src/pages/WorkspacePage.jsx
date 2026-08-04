@@ -28,6 +28,7 @@ import DecodingTracePanel from "@/components/DecodingTracePanel";
 import IEDDEDecisionTrace from "@/components/IEDDEDecisionTrace";
 import RecoveryStatusRibbon from "@/components/RecoveryStatusRibbon";
 import PEAnalysisPanel from "@/components/PEAnalysisPanel";
+import ArtifactAnalysisPanel from "@/components/ArtifactAnalysisPanel";
 import HistoryDrawer from "@/components/HistoryDrawer";
 import CasesDrawer from "@/components/CasesDrawer";
 import ProcessTreeView from "@/components/ProcessTreeView";
@@ -2470,13 +2471,18 @@ export default function WorkspacePage() {
             </div>
           )}
 
-          {/* ▲ PE Static Analysis panel (Phase 1 · 2026-02)
-              When IEDDE reaches `binary_artifact_recovered` on a PE
-              payload, the deterministic PE analyzer's report is
-              hoisted here so analysts stay inside the Workspace. */}
-          {iedde?.binary_artifact?.pe_analysis && (
+          {/* ▲ Artifact Analysis Panel (Phase 3 · Cycle A · 2026-02)
+              When IEDDE reaches `binary_artifact_recovered` the router-
+              dispatched analysis result flows through here — routing to
+              PE, PDF, or an "unavailable" card for unsupported types. */}
+          {iedde?.binary_artifact?.routed_analysis && (
             <div style={{ margin: "0 12px" }}>
-              <PEAnalysisPanel pe={iedde.binary_artifact.pe_analysis} />
+              <ArtifactAnalysisPanel routed={iedde.binary_artifact.routed_analysis} />
+            </div>
+          )}
+          {iedde?.binary_artifact?.pe_analysis && !iedde?.binary_artifact?.routed_analysis && (
+            <div style={{ margin: "0 12px" }}>
+              <ArtifactAnalysisPanel legacyPE={iedde.binary_artifact.pe_analysis} />
             </div>
           )}
 

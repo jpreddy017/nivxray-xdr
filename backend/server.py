@@ -246,6 +246,11 @@ api.include_router(workspace_investigation_router)
 from routers.iedde import router as iedde_router
 api.include_router(iedde_router)
 
+# ▲ Artifact Intelligence Layer (Phase 3 · Cycle A · 2026-02)
+from routers.artifacts import router as artifacts_router
+# Router already carries prefix "/api/artifacts" so include at app root.
+app.include_router(artifacts_router)
+
 # Semantic Lab (Stage 3 engineering surface) — Feb 2026.
 from routers.semantic_lab import router as semantic_lab_router
 api.include_router(semantic_lab_router)

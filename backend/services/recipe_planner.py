@@ -153,6 +153,13 @@ class BinaryArtifact:
     #   Consumed by the Workspace `PEAnalysisPanel` to keep analysts inside
     #   NivXRay instead of exporting the payload to PEStudio / DIE / PE-bear.
     pe_analysis: dict[str, Any] | None = None
+    # ▲ 2026-02 · Phase-3 Cycle A · Artifact Intelligence Layer.
+    #   Full `AnalysisResult.to_dict()` produced by the registry-based
+    #   router. Carries `artifact_type`, `capability_available`,
+    #   `hashes`, `size`, and the routed `analysis` payload. Consumed
+    #   by the Workspace `ArtifactAnalysisPanel` which dispatches to
+    #   the type-specific sub-panel (PE / PDF / ELF / ...).
+    routed_analysis: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -161,6 +168,7 @@ class BinaryArtifact:
             "subtype": self.subtype,
             "recovered_by": self.recovered_by,
             "pe_analysis": self.pe_analysis,
+            "routed_analysis": self.routed_analysis,
             "next_actions": [
                 "Parse PE Header" if self.kind == "PE" else f"Parse {self.kind} Header",
                 "Extract Imports",
@@ -410,6 +418,14 @@ _BINARY_MAGIC = (
     (b"\x1f\x8b\x08", "GZIP",     "raw gzip stream"),
 )
 
+# ▲ Artifact-style payloads (2026-02 · Phase 3 · Cycle A).
+# These carry mostly printable bytes with binary streams inside, so the
+# printable-ratio check in `_detect_binary_artifact` skips them. We
+# handle them separately below.
+_ARTIFACT_MAGIC = (
+    (b"%PDF-", "PDF", "Adobe PDF document"),
+)
+
 
 def _detect_binary_artifact(content: str, recovered_by: list[str]) -> BinaryArtifact | None:
     """Return a BinaryArtifact iff the recovered content is (or contains
@@ -426,15 +442,29 @@ def _detect_binary_artifact(content: str, recovered_by: list[str]) -> BinaryArti
     except Exception:
         return None
 
+    # ▲ Artifact-style detection (PDF etc.) — text-heavy formats that
+    # carry binary streams inside. Handled before the binary path so a
+    # legitimate `%PDF-` header isn't ruled out by the printable-ratio.
+    for sig, kind, subtype in _ARTIFACT_MAGIC:
+        if raw[:512].startswith(sig) or (raw.find(sig, 0, 1024) == 0):
+            pe = _attach_pe_analysis(kind, raw)
+            routed = _dispatch_full_analysis(raw)
+            return BinaryArtifact(
+                kind=kind, magic=sig.hex(),
+                subtype=subtype, recovered_by=list(recovered_by),
+                pe_analysis=pe, routed_analysis=routed,
+            )
+
     # Case A: bare binary at the start.
     printable_ratio = _printable_ratio(raw[:512])
     for sig, kind, subtype in _BINARY_MAGIC:
         if raw.startswith(sig) and printable_ratio < 0.85:
             pe = _attach_pe_analysis(kind, raw)
+            routed = _dispatch_full_analysis(raw)
             return BinaryArtifact(
                 kind=kind, magic=sig.hex(),
                 subtype=subtype, recovered_by=list(recovered_by),
-                pe_analysis=pe,
+                pe_analysis=pe, routed_analysis=routed,
             )
 
     # Case B: SQ-literal-wrapped binary (e.g. after base64→SQ inline).
@@ -446,10 +476,11 @@ def _detect_binary_artifact(content: str, recovered_by: list[str]) -> BinaryArti
         for sig, kind, subtype in _BINARY_MAGIC:
             if inner.startswith(sig) and ir < 0.85:
                 pe = _attach_pe_analysis(kind, inner)
+                routed = _dispatch_full_analysis(inner)
                 return BinaryArtifact(
                     kind=kind, magic=sig.hex(),
                     subtype=subtype, recovered_by=list(recovered_by),
-                    pe_analysis=pe,
+                    pe_analysis=pe, routed_analysis=routed,
                 )
 
     # Case C: binary magic appears at ANY offset in the raw content
@@ -466,25 +497,46 @@ def _detect_binary_artifact(content: str, recovered_by: list[str]) -> BinaryArti
         if _printable_ratio(window) < 0.55:
             payload_bytes = raw[idx:]
             pe = _attach_pe_analysis(kind, payload_bytes)
+            routed = _dispatch_full_analysis(payload_bytes)
             return BinaryArtifact(
                 kind=kind, magic=sig.hex(),
                 subtype=subtype, recovered_by=list(recovered_by),
-                pe_analysis=pe,
+                pe_analysis=pe, routed_analysis=routed,
             )
     return None
 
 
 def _attach_pe_analysis(kind: str, raw: bytes) -> dict | None:
-    """Deterministically produce a PE static-analysis report for PE
-    artifacts. Returns None for non-PE binaries; returns the analyzer
-    diagnostic dict (with `available: False`) if pefile isn't installed —
-    the caller renders "PE analysis capability unavailable" in that case.
+    """Deterministically produce a static-analysis report for the
+    recovered binary artifact. Dispatches through the Artifact
+    Intelligence Layer (registry pattern · Phase 3 · Cycle A · 2026-02).
+
+    Returns:
+      • The analyzer's `analysis` dict when a registered analyzer claims
+        the payload — matches the legacy shape for `kind == 'PE'`
+        (backwards compat), and is the routed analysis dict for other
+        artifact types.
+      • `None` when no analyzer claims the payload — legacy callers
+        continue to receive `pe_analysis=None`.
     """
-    if kind != "PE":
-        return None
     try:
-        from services.pe_analyzer import analyze_pe
-        return analyze_pe(raw)
+        from services.artifact_intelligence import dispatch
+        result = dispatch(raw)
+        if result.artifact_type == "unknown":
+            return None
+        return result.analysis
+    except Exception:
+        return None
+
+
+def _dispatch_full_analysis(raw: bytes) -> dict | None:
+    """Full `AnalysisResult.to_dict()` — carries `artifact_type`,
+    `capability_available`, `hashes`, and the routed `analysis` payload.
+    Used by the Workspace's new ArtifactAnalysisPanel."""
+    try:
+        from services.artifact_intelligence import dispatch
+        result = dispatch(raw)
+        return result.to_dict()
     except Exception:
         return None
 
