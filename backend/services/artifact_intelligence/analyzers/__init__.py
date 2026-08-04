@@ -9,9 +9,13 @@ New analyzer types plug in here in one line:
 from .. import register
 from .pe import PEAnalyzer
 from .pdf import PDFAnalyzer
+from .office import OfficeAnalyzer
 
 # ─── Register in priority order (higher-confidence types first) ───────
 register(PEAnalyzer())
 register(PDFAnalyzer())
+# Office is registered LAST — its magic_matcher does a full ZIP-parse
+# so it should only fire when the earlier magic hits (PE / PDF) miss.
+register(OfficeAnalyzer())
 
-__all__ = ["PEAnalyzer", "PDFAnalyzer"]
+__all__ = ["PEAnalyzer", "PDFAnalyzer", "OfficeAnalyzer"]

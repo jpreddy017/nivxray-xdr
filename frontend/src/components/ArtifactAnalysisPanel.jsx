@@ -17,6 +17,8 @@
  */
 import PEAnalysisPanel from "./PEAnalysisPanel";
 import PDFAnalysisPanel from "./PDFAnalysisPanel";
+import OfficeAnalysisPanel from "./OfficeAnalysisPanel";
+import ThreatSummaryCard from "./ThreatSummaryCard";
 
 function UnavailableCapabilityCard({ artifact_type, display_name, message }) {
   return (
@@ -65,10 +67,28 @@ export default function ArtifactAnalysisPanel({ routed, legacyPE }) {
   }
 
   if (artifact_type === "pe") {
-    return <PEAnalysisPanel pe={analysis} />;
+    return (
+      <>
+        <ThreatSummaryCard routed={routed} />
+        <PEAnalysisPanel pe={analysis} />
+      </>
+    );
   }
   if (artifact_type === "pdf") {
-    return <PDFAnalysisPanel pdf={analysis} hashes={hashes} />;
+    return (
+      <>
+        <ThreatSummaryCard routed={routed} />
+        <PDFAnalysisPanel pdf={analysis} hashes={hashes} />
+      </>
+    );
+  }
+  if (artifact_type === "office") {
+    return (
+      <>
+        <ThreatSummaryCard routed={routed} />
+        <OfficeAnalysisPanel office={analysis} hashes={hashes} />
+      </>
+    );
   }
 
   // Unknown / not-yet-implemented type — surface the graceful card.
