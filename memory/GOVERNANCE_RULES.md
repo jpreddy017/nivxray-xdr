@@ -627,3 +627,77 @@ through the plugin registry (composing where possible, adding a
 new primitive only when needed) — never by inserting an
 out-of-sequence corpus / self-healing PR.
 
+
+
+---
+
+## Rule 21 · Two-Track Investment · ACDE + Regression Harness
+
+**Approved**: 2026-08-05 · Owner directive.
+
+Regression harness and Autonomous Canonical Decoding Engine
+(ACDE) are **complementary investments**, not alternatives.
+
+### Track 1 · Regression Harness (short-term, active now)
+
+- Location: ``backend/tests/user_reported_corpus/`` — one file per
+  reported payload with expected canonical output + chain.
+- Loader: ``backend/tests/test_user_reported_corpus.py`` — pytest
+  that runs each payload through both `/api/decode/smart` and
+  `/api/analyze/async` and asserts parity + expected outcome.
+- CI gate: harness runs on every commit. Fail-fast on:
+  - `terminal_state != expected_terminal_state`
+  - `confidence < min_confidence`
+  - `decoded_output != expected_decoded_output` (when specified)
+  - Cross-endpoint parity break.
+- Onboarding a new payload = add ONE fixture file. No code.
+
+### Track 2 · Autonomous Canonical Decoding Engine (long-term)
+
+Target architecture — the engine progressively becomes more
+autonomous so analysts don't need to file bugs for every new
+sample. Sequenced ACDE stages, each ARB-approved individually:
+
+```
+Incoming command
+   ↓
+[S1] Interpreter Identification    (PS / cmd / bash / py / js / vbs / …)
+   ↓                                positive-ID only (Rule 19)
+[S2] Wrapper / Encoding Detection  (b64 / hex / gzip / xor / aes / rc4 / …)
+   ↓                                fingerprint-based, deterministic
+[S3] Layer-Count Estimation        (how many encoding hops remain?)
+   ↓                                entropy delta + printable-ratio + syntax hint
+[S4] Recovery Planner              (which decoder plugin chain to run?)
+   ↓                                pluggable per interpreter (Rule 20)
+[S5] Deterministic Decoder Chain   (execute stage-by-stage)
+   ↓
+[S6] Per-Stage Output Validator    (syntax valid? entropy dropped? printable rose?)
+   ↓                                Phase B (needs corpus)
+[S7] Deterministic Fallback        (alternate paths within same interpreter family)
+   ↓                                Phase C (needs corpus + validated gates)
+Canonical Artifact
+```
+
+Sequencing (matches existing roadmap, Rule 20):
+1. Continue populating interpreter-owned plugin registries as
+   **techniques** (Rule 20) — S4/S5 coverage grows organically.
+2. P1 Corpus Expansion — enables S3/S6 to be trained without
+   false positives on legitimate enterprise commands.
+3. Phase B builds S6 · Per-Stage Output Validator.
+4. Phase C builds S7 · Deterministic Fallback.
+
+### Complementarity
+
+- Track 1 protects everything Track 2 has already achieved.
+- Track 2 grows what NivXRay CAN decode on unseen inputs.
+- Neither is optional; neither replaces the other.
+
+### Reporting-loop reduction (owner's original ask)
+
+The tool already exposes per-response signals that indicate an
+unhandled sample WITHOUT requiring a human to notice: 
+`terminal_state == "stability_gate"`, `confidence == 0`,
+`decoded_output == raw_input` (non-passthrough). ACDE S3–S6
+progressively use these signals to auto-suggest new plugins from
+production traffic — closing the reporting loop as ACDE matures.
+

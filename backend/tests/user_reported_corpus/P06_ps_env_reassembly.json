@@ -1,0 +1,11 @@
+{
+  "id": "P06",
+  "label": "PowerShell env-var reassembly",
+  "reported_at": "2026-08-05",
+  "input": "powershell.exe -NoP -c \"set-item env:x 'Write-'; set-item env:y 'Output \"Test\"'; iex (gci env:x).value(gci env:y).value\"",
+  "expected_terminal_state": "recovered",
+  "expected_decoded_output": "Write-Output \"Test\"",
+  "min_confidence": 50,
+  "expected_chain_contains": ["decoder-ps-env-reassembly"],
+  "notes": "Dynamic env-var reassembly with `iex (gci env:X).value + (gci env:Y).value`. Fixed by decoder-ps-env-reassembly plugin, Interpreter Ownership Rule 19 anchor."
+}

@@ -745,6 +745,15 @@ def recover_canonical_evidence(
             stability_gate_reached=True,
         )
 
+    # Confidence extraction — L0 convergence doesn't set a top-level
+    # `score`; it exposes per-layer verdicts in `layer_trace`. When any
+    # layer reports `verdict == "canonical"`, treat as full confidence.
+    def _confidence_from_det(_det):
+        for _lt in (_det.get("layer_trace") or []):
+            if _lt.get("verdict") == "canonical":
+                return 100
+        return int(round(min(1.0, _det.get("score", 0.0)) * 100))
+
     # 6) Post-decode enrichment applied inside `deterministic_best_decode`
     # (crypto API annotator etc.) already lives in the det dict. Build the
     # canonical artifact from `det`.
@@ -767,7 +776,7 @@ def recover_canonical_evidence(
             chain_ids=chain_ids,
             engine=det.get("engine"),
             reached_shellcode=bool(det.get("reached_shellcode")),
-            confidence=int(round(min(1.0, det.get("score", 0.0)) * 100)),
+            confidence=_confidence_from_det(det),
             detected_type=None,   # caller re-detects on decoded_output
             notes=list(det.get("notes") or []),
             ingress_normalised_via=ingress_via,
@@ -787,7 +796,7 @@ def recover_canonical_evidence(
         chain_ids=chain_ids,
         engine=det.get("engine"),
         reached_shellcode=bool(det.get("reached_shellcode")),
-        confidence=int(round(min(1.0, det.get("score", 0.0)) * 100)),
+        confidence=_confidence_from_det(det),
         detected_type=None,   # caller re-detects on decoded_output
         notes=list(det.get("notes") or []),
         ingress_normalised_via=ingress_via,
