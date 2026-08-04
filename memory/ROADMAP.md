@@ -50,6 +50,86 @@ its dependency is absent.
 > analyzers* → *artifact-first investigation platform*.
 
 ### P1 · Cross-Artifact Correlation (✅ **CLOSED** 2026-02-15 · iteration_63)
+Recursive Child Artifact Pipeline · CEM emit boundary · Auto-scan on record
+· Find Related Cases (from History). Master architecture contracts
+verified: Workspace primary · analyzers declare children (never decode) ·
+CEM emitted only after convergence · Investigation Engine consumes only
+CEM + Canonical Artifacts.
+
+---
+
+### P2 · Workspace-Native Correlation + End-to-End Demonstration (⏭️ next up · owner directive 2026-02-15)
+
+**Owner-locked priority order (highest first):**
+
+**P2.1 — Workspace "Find Related Cases"** (small, closes the philosophy loop)
+- The same Find-Related drawer available on History rows must be reachable
+  directly from the Workspace analysis result. Analysts should never need
+  to leave the Workspace to begin correlation. This completes the
+  Workspace + Investigation philosophy established in the master
+  architecture.
+
+**P2.2 — Dual-Entry Architectural Equivalence Test** (critical validation)
+- Verify that both supported entry paths produce the **same canonical
+  Investigation** for the same underlying payload:
+  - **Scenario A — File Upload:** `.docm` → Office Analyzer → declares
+    embedded PowerShell → RTE → recovers PE → PE Analyzer → CEM →
+    Investigation Engine
+  - **Scenario B — Workspace Input:** paste the same base64-encoded
+    PowerShell → Input Classifier → RTE → recovers PE → PE Analyzer →
+    Same CEM → Same Investigation
+  - Expected: identical Canonical Artifacts, identical CEM (same hashes,
+    same events, same indicators, same MITRE), identical Threat Summary /
+    Attack Chain / Evidence Flow / Timeline. Any drift is a P0 bug.
+
+**P2.3 — Real End-to-End Demonstration**
+- Genuine sample sourced from **nivxmachines.com** (see reuse policy
+  below), producing a single Investigation with all analyst lenses
+  populated (Threat Summary · Attack Chain · Evidence Flow · Evidence
+  Graph · Timeline · Artifacts · MITRE · Reports).
+
+### P3 · Compare Cases
+
+Side-by-side comparison across Interpreter · MITRE · LOLBAS · IOCs · Hashes
+· Threat Summary · Canonical Output · Attack Story, with a **deterministic
+similarity score** for malware clustering and evidence-overlap heatmap.
+
+### P4 · Saved Collections
+
+Analyst tagging/grouping on History (APT29, QakBot, Customer A, Campaign
+July). Collections organize investigations without mutating analysis
+results. MSSP-friendly.
+
+### P5 · Mach-O Analyzer
+
+Fifth first-class artifact type, same artifact-first UX and graceful
+degradation contract as PE/PDF/Office/ELF.
+
+### Deferred
+- **YARA Auto-Match** — HOLD until `yara-python` is verified in the
+  environment. No placeholder UI.
+- **Archive Analyzer** (ZIP / 7z / RAR / ISO / CAB / IMG) — after Mach-O.
+  Pairs naturally with the Recursive Child Artifact Pipeline because
+  archives expand into linked artifacts.
+
+---
+
+## nivxmachines.com Reuse Policy (owner directive · 2026-02-15)
+
+> Where beneficial, **reuse** existing intelligence, sample artifacts,
+> decoder recipes, threat data, IOC datasets, MITRE ATT&CK mappings, and
+> malware metadata from **nivxmachines.com** instead of recreating
+> duplicate datasets. Leveraging the existing NivX ecosystem keeps
+> demonstrations realistic, reduces duplication, and ensures consistency
+> across products.
+>
+> This policy applies to: demo samples, seed datasets for tests,
+> ATT&CK mappings, decoder recipe libraries, and any threat intelligence
+> the platform needs to enrich analysis. It does **not** override the
+> deterministic-first contract — imported artifacts still flow through
+> the same RTE / IEDDE pipeline like any other input.
+
+
 Correlate related artifacts into **one deterministic investigation**, not four
 independent reports.
 

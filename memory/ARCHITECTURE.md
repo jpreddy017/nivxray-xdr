@@ -309,6 +309,27 @@ Investigation SSOT or Workspace architecture**.
 
 ---
 
+## 9. Ecosystem Reuse Policy — nivxmachines.com (owner directive · 2026-02-15)
+
+> Where beneficial, **reuse** existing intelligence, sample artifacts,
+> decoder recipes, threat data, IOC datasets, MITRE ATT&CK mappings, and
+> malware metadata from **nivxmachines.com** instead of recreating
+> duplicate datasets. Leveraging the existing NivX ecosystem keeps
+> demonstrations realistic, reduces duplication, and ensures consistency
+> across products.
+
+**Applies to:** demo samples, seed datasets for tests, ATT&CK mappings,
+decoder recipe libraries, and any threat intelligence the platform needs
+to enrich analysis.
+
+**Does NOT override:** the Universal Deterministic Processing Law (§1) or
+the AI Boundary (§8). Imported artifacts still flow through the same RTE
+/ IEDDE pipeline like any other input, and imported enrichment data
+never modifies canonical artifacts, CEM, SSOT, or deterministic
+verdicts.
+
+---
+
 ## Mapping current codebase to this architecture (as of 2026-02-15)
 
 > **Note.** This mapping is a **status snapshot**, not a mandatory sprint
