@@ -47,6 +47,36 @@ export const TID_HOME_BREADCRUMB        = "workspace-home-breadcrumb";
 export const TID_REFRESH_BTN            = "workspace-refresh";
 export const TID_INVESTIGATION_FINGERPRINT = "workspace-investigation-fingerprint";
 
+// ── Summary lens (Blueprint §9 · PR-4) ───────────────────────────────
+export const TID_SUMMARY_LENS             = "workspace-summary-lens";
+export const TID_SUMMARY_LOADING          = "workspace-summary-loading";
+export const TID_SUMMARY_ERROR            = "workspace-summary-error";
+export const TID_SUMMARY_VERDICT          = "workspace-summary-verdict";
+export const TID_SUMMARY_RISK             = "workspace-summary-risk";
+export const TID_SUMMARY_RISK_SCORE       = "workspace-summary-risk-score";
+export const TID_SUMMARY_FAMILY           = "workspace-summary-family";
+export const TID_SUMMARY_TECHNIQUE        = "workspace-summary-technique";
+export const TID_SUMMARY_CANONICAL        = "workspace-summary-canonical";
+export const TID_SUMMARY_TOP_IOCS         = "workspace-summary-top-iocs";
+export const TID_SUMMARY_TOP_IOC          = (id) => `workspace-summary-top-ioc-${id}`;
+export const TID_SUMMARY_TOP_ACTIONS      = "workspace-summary-top-actions";
+export const TID_SUMMARY_ACTION           = (id) => `workspace-summary-action-${id}`;
+export const TID_SUMMARY_BULLETS          = "workspace-summary-bullets";
+export const TID_SUMMARY_BULLET           = (id) => `workspace-summary-bullet-${id}`;
+
+// ── Story lens (Blueprint §9 · PR-4) ─────────────────────────────────
+export const TID_STORY_LENS               = "workspace-story-lens";
+export const TID_STORY_LOADING            = "workspace-story-loading";
+export const TID_STORY_ERROR              = "workspace-story-error";
+export const TID_STORY_NARRATIVE          = "workspace-story-narrative";
+export const TID_STORY_CHAPTERS           = "workspace-story-chapters";
+export const TID_STORY_CHAPTER            = (name) => `workspace-story-chapter-${name}`;
+export const TID_STORY_EVENTS             = "workspace-story-events";
+export const TID_STORY_EVENT              = (id) => `workspace-story-event-${id}`;
+export const TID_STORY_EVENT_ANCHOR       = (id) => `workspace-story-event-anchor-${id}`;
+export const TID_STORY_EMPTY              = "workspace-story-empty";
+
+
 export const LENSES = ["summary", "story", "timeline", "evidence", "analysis", "exports"];
 export const MODES  = ["quick_triage", "investigation", "deep_analysis"];
 export const STATES = ["new", "collecting", "correlating", "reviewing", "completed", "reported", "reopened"];

@@ -102,6 +102,25 @@ export default function AnalystWorkspaceShellPage() {
     persistWorkspace({ active_lens });
   }, [persistWorkspace]);
 
+  const onAnchorClick = useCallback((anchorObj) => {
+    // PR-4 stub: record the last anchor selection so PR-5 Evidence lens
+    // can consume it. Persist `selected_evidence_id` server-side so the
+    // choice survives a page reload.
+    if (!anchorObj) return;
+    const id =
+      anchorObj.ioc_id ||
+      anchorObj.capability_id ||
+      anchorObj.technique_id ||
+      anchorObj.transformation ||
+      anchorObj.kind ||
+      "";
+    if (!id) return;
+    persistWorkspace({ selected_evidence_id: String(id) });
+    toast.message(`Anchor · ${anchorObj.kind || "unknown"}`, {
+      description: `Selected ${id}. Evidence lens lands in PR-5.`,
+    });
+  }, [persistWorkspace]);
+
   const currentLens = workspace?.active_lens || "summary";
   const currentMode = workspace?.mode || "investigation";
   const currentState = bundle?.state || workspace?.investigation_state || "new";
@@ -262,7 +281,11 @@ export default function AnalystWorkspaceShellPage() {
           {status === "ready" ? (
             <>
               <LensTabs activeLens={currentLens} onLensChange={onLensChange} />
-              <LensPanel lens={currentLens} />
+              <LensPanel
+                lens={currentLens}
+                caseId={caseId}
+                onAnchorClick={onAnchorClick}
+              />
             </>
           ) : null}
         </main>

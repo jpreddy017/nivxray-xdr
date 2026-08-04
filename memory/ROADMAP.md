@@ -200,3 +200,110 @@ Each milestone ends with exactly four lines:
 4. The single next priority.
 
 No feature suggestions, no roadmap speculation, no "next action items" list.
+
+
+
+---
+
+## Post-Workspace P0 Capability Backlog (2026-02 · ARB)
+
+> Captured **after ARB re-affirmed roadmap discipline**. These items are NOT
+> authorised until the approved Workspace milestones (PR-4 → PR-8) ship.
+> Rule 20 / 21 remain binding.
+
+### P0-C1 · PowerShell Invocation Simplifier (deferred to post-PR-8)
+
+**Status**: Backlog · **Type**: New interpreter capability (Rule 19) · **Not a bug fix**.
+
+**Motivation**: Payload
+`powershell.exe -NoProfile -Command "&(('Get-' + 'Process') 'lsass')"`
+currently folds the string concatenation but leaves the `&(...)` invocation
+unresolved. The canonical output should be `Get-Process lsass`.
+
+**Scope**: Deterministic AST simplification of provably-deterministic PS
+invocation forms **only**. Interpreter-owned (Rule 19). No runtime execution.
+
+Examples that MUST be handled:
+- `&('Get-Process') 'lsass'` → `Get-Process lsass`
+- `&('who' + 'ami')` → `whoami`  (after string-fold)
+- `&($cmd)` where `$cmd` deterministically resolves to a string literal
+  earlier in the same script → `<resolved cmdlet>`
+
+Examples that MUST NOT be handled by this simplifier (out of scope,
+non-deterministic):
+- `&($cmd)` where `$cmd` comes from a network read, env lookup, or any
+  non-literal source.
+- Any invocation whose target requires runtime state.
+
+**Placement in roadmap**: After PR-8 (Workspace Persistence) and before P1
+Corpus Expansion. It is a P0 capability because analysts hit it on real
+LSASS-dump precursors, but sequencing goes through the Workspace milestones
+first per ARB.
+
+**Rule alignment**: Rule 17 (canonical consumer) · Rule 19 (interpreter
+ownership) · Rule 22 (generic primitive, not sample fix) · Rule 23
+(stability gate is what tells this simplifier when to run and when to stop).
+
+**Blockers**: None technical. Blocked purely by roadmap discipline (Rule 20).
+
+---
+
+### P0-C2 · ACDE — Autonomous Canonical Decoding Engine (post-P1, architectural)
+
+**Status**: Post-P1 architectural evolution · **Not authorised before**:
+1. All P0 Workspace milestones ship (PR-4 → PR-8), AND
+2. P1 Corpus Expansion is under way (or complete).
+
+**Vision**: Evolve NivXRay from a plugin-driven decoder chain into a
+deterministic planning engine that asks *"what am I looking at, what
+deterministic transformations are present, and what is the next provably
+correct step toward canonical?"* — never *"which decoder should I run?"*.
+
+**Phased architecture** (all phases governed by Rule 20 sequencing and
+Rule 23 stability principle):
+
+| Phase | Name | Purpose |
+|---|---|---|
+| ACDE Phase 1 | **Input Intelligence** | Interpreter identification + confidence scoring before any decoder runs. |
+| ACDE Phase 2 | **Capability Registry** | Small reusable deterministic capabilities (Base64, Hex, XOR, GZip, AES, RC4, UTF16, string+, char[], env, invocation, alias, AST fold, pipeline, …), each shared across interpreters. |
+| ACDE Phase 3 | **Planner** | Builds a deterministic execution graph automatically; no hard-coded decoder chains. |
+| ACDE Phase 4 | **Stage Evaluation** | Progress scoring (entropy, printable ratio, AST complexity, wrapper reduction, new IOC recovered, canonicality score). |
+| ACDE Phase 5 | **Deterministic Self-Healing** | Only when progress is provable. Never guesses, never invents outputs, never calls an LLM to fabricate a decode. |
+| ACDE Phase 6 | **Evidence Verification Engine** | Verifies external documentation / claims against deterministic execution reality. |
+
+**Non-goals of ACDE (permanent)**:
+- ACDE will never eliminate the need for adding new capabilities when a
+  genuinely new obfuscation primitive appears. The goal is that *new
+  combinations of known techniques* need zero new code; only *new primitives*
+  require new code (Rule 22 remains binding).
+- ACDE will never introduce non-deterministic reasoning into L0.
+
+**Roadmap position**: Explicitly deferred until after P0 Workspace + P1
+Corpus Expansion. Any earlier attempt to implement ACDE violates Rules
+20 / 21 / 23.
+
+**Design ownership**: Captured here as an architectural preservation record
+so the vision isn't lost between milestones. Full HLD/LLD to be drafted
+when ACDE Phase 1 is authorised.
+
+---
+
+### Sequencing (authoritative, 2026-02 · ARB)
+
+```
+PR-4  Executive Summary + Attack Story           ← current PR
+PR-5  MITRE + IOC + Capability cards
+PR-6  Certificate + Raw Decode cards
+PR-7  Page consolidations & route redirects
+PR-8  Export bar wiring + Workspace Persistence
+───── (Workspace P0 complete) ─────
+P0-C1 PowerShell Invocation Simplifier            ← queued
+P1    Corpus Expansion
+───── (P1 in-flight or complete) ─────
+Phase B Stage Quality Gates                       ← Rule 23 implementation window opens
+Phase C Deterministic Self-Healing
+───── (Post-P1) ─────
+P0-C2 ACDE Phase 1 → Phase 6                      ← incremental architectural evolution
+```
+
+**No item may jump the queue.** Rule 20 anchors this sequence.

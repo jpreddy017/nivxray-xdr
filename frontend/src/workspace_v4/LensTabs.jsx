@@ -1,13 +1,16 @@
 /**
  * Lens tab bar (Blueprint §9).
  *
- * PR-3 renders empty placeholder panels for each lens. Real content
- * for each lens lands in PR-4 / PR-5 / PR-6:
- *   summary  · story    → PR-4
+ * PR-4 wires the Summary + Story lenses to real content. Remaining
+ * lenses (Timeline / Evidence / Analysis / Exports) stay as
+ * placeholder panels per the ARB PR sequence:
+ *   summary  · story    → PR-4 (this PR)
  *   timeline · evidence → PR-5
  *   analysis · exports  → PR-6
  */
 import React from "react";
+import SummaryLens from "./SummaryLens";
+import StoryLens from "./StoryLens";
 import {
   LENSES,
   TID_LENS_PANEL,
@@ -26,8 +29,6 @@ const LABELS = {
 };
 
 const NEXT_PR = {
-  summary:  "PR-4",
-  story:    "PR-4",
   timeline: "PR-5",
   evidence: "PR-5",
   analysis: "PR-6",
@@ -65,7 +66,33 @@ export function LensTabs({ activeLens, onLensChange }) {
   );
 }
 
-export function LensPanel({ lens }) {
+export function LensPanel({ lens, caseId, onAnchorClick }) {
+  // PR-4 lenses render real content.
+  if (lens === "summary") {
+    return (
+      <div
+        role="tabpanel"
+        aria-labelledby={`lens-tab-${lens}`}
+        data-testid={TID_LENS_PANEL(lens)}
+        className="flex min-h-[320px] flex-1 flex-col"
+      >
+        <SummaryLens caseId={caseId} onAnchorClick={onAnchorClick} />
+      </div>
+    );
+  }
+  if (lens === "story") {
+    return (
+      <div
+        role="tabpanel"
+        aria-labelledby={`lens-tab-${lens}`}
+        data-testid={TID_LENS_PANEL(lens)}
+        className="flex min-h-[320px] flex-1 flex-col"
+      >
+        <StoryLens caseId={caseId} onAnchorClick={onAnchorClick} />
+      </div>
+    );
+  }
+  // Placeholder for PR-5 / PR-6 lenses.
   return (
     <section
       role="tabpanel"

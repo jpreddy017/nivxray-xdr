@@ -784,3 +784,46 @@ Explicitly REJECTED as scope creep at this stage:
   approved roadmap.
 - Sample-driven plugin sprawl (Rule 20 anchor).
 
+
+---
+
+## Rule 23 — Deterministic Canonical Simplification (2026-02 · ARB)
+
+**Governance addition only. No engine change authorised by this rule.**
+
+> Continue deterministic simplification only while the next transformation
+> is **provably deterministic** and produces a **more canonical** representation.
+> Stop immediately when no further deterministic simplification can be proven.
+
+### Intent
+
+The L0 Convergence Engine must never stop after the first successful decoder
+if the result is still an unevaluated interpreter expression (e.g. a folded
+PowerShell string that remains inside an unresolved `&(...)` invocation).
+Equally, it must never continue past the point where the next step is a
+guess. The stopping condition is a **stability gate**, not a fixed depth.
+
+### Non-goals of Rule 23
+
+- Does **not** authorise implementing new decoders, capabilities, or engines.
+- Does **not** authorise changes to the frozen L0 (`backend/workspace/convergence/*`).
+- Does **not** re-open the ARB-approved PR sequence (Rule 20 remains binding).
+
+### When Rule 23 becomes actionable
+
+Only after (a) the approved P0 Workspace milestones (PR-4 → PR-8) have shipped
+and (b) P1 Corpus Expansion is under way. At that point the stability-gate
+implementation is authorised as part of Phase B (Stage Quality Gates) or
+the ACDE Phase-4/5 work (see `ROADMAP.md`). Any earlier attempt to implement
+it violates Rules 20, 21, and 23 simultaneously.
+
+### Compliance check
+
+Reviewers must reject any PR that:
+- Introduces a stability-gate implementation before Phase B / ACDE Phase 4.
+- Claims Rule 23 as justification for a new decoder or engine change.
+- Alters the frozen L0 convergence loop's termination logic.
+
+Rule 23 is a **preserved architectural principle**, captured now so it is
+not lost, to be implemented at the correct point in the roadmap.
+
