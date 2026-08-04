@@ -165,6 +165,24 @@ class _SafeEvaluator(ast.NodeVisitor):
                 self._forbidden(node)
             value = self._eval(node.value)
             self.env[node.targets[0].id] = value
+        elif isinstance(node, ast.Import):
+            # Allow imports ONLY for whitelisted stdlib modules — never
+            # execute arbitrary imports.
+            for alias in node.names:
+                if alias.name not in _ALLOWED_MODULES:
+                    self._forbidden(node)
+                bind_as = alias.asname or alias.name
+                self.env[bind_as] = _ALLOWED_MODULES[alias.name]
+        elif isinstance(node, ast.ImportFrom):
+            if node.module not in _ALLOWED_MODULES:
+                self._forbidden(node)
+            mod = _ALLOWED_MODULES[node.module]
+            allowed_attrs = _ALLOWED_MODULE_ATTRS.get(node.module, set())
+            for alias in node.names:
+                if alias.name not in allowed_attrs:
+                    self._forbidden(node)
+                bind_as = alias.asname or alias.name
+                self.env[bind_as] = getattr(mod, alias.name)
         else:
             self._forbidden(node)
 
