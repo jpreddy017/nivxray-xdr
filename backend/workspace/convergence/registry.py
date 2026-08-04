@@ -146,6 +146,18 @@ REGISTRY: tuple[TransformationDescriptor, ...] = (
         techniques_covered=("javascript_string_split_shuffle",),
         mitre_attack=("T1027", "T1140", "T1059.007"),
     ),
+    TransformationDescriptor(
+        name="structural-ps-invocation-simplify",
+        category="structural",
+        language="powershell",
+        version="1.0",
+        description="Fold PowerShell call operator invocations `&('Cmdlet') 'arg'` \u2192 `Cmdlet arg`. Handles nested parens `&(('Cmdlet') 'arg')` and composes with `structural-string-concat-fold` for `&(('Get-'+'Process') 'lsass')` \u2192 `Get-Process lsass`. Rule 19 positive-ID: fires only in PowerShell context.",
+        consumes="PowerShell call operator invocation with SQ-literal primary",
+        produces="canonical `Cmdlet arg1 arg2 ...` sequence",
+        families_covered=("cobalt_strike", "gootloader", "emotet", "qakbot", "darkgate", "lumma"),
+        techniques_covered=("powershell_call_operator_obfuscation", "powershell_invocation_wrapping"),
+        mitre_attack=("T1027.010", "T1059.001"),
+    ),
     # --- Content pass -------------------------------------------------------
     TransformationDescriptor(
         name="content-ps-operator-case-normalize",

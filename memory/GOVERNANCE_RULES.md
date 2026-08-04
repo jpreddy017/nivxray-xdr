@@ -827,3 +827,75 @@ Reviewers must reject any PR that:
 Rule 23 is a **preserved architectural principle**, captured now so it is
 not lost, to be implemented at the correct point in the roadmap.
 
+
+---
+
+## Rule 24 — Understand-First Decoding (ICUE Architectural Principle) · 2026-02 · ARB
+
+**Governance addition only. No engine change authorised by this rule.**
+
+> NivXRay must never ask *"which decoder should I run?"*
+> It must ask *"what am I looking at, what deterministic transformations
+> are present, and what is the next provably correct step toward a
+> canonical representation?"*
+
+### Intent
+
+This rule elevates the ARB Architectural Direction captured in
+`/app/memory/ARCHITECTURAL_DIRECTION_ICUE.md` (the Intelligent
+Canonical Understanding Engine) into the primary post-P0 north
+star. Every future PR that touches the decoding pipeline is
+evaluated against whether it moves NivXRay closer to
+understand-first behaviour.
+
+### Concretely, from now on
+
+- Every new plugin added under Rule 20 MUST declare, in its
+  descriptor comment, the **interpreter it belongs to** and the
+  **technique primitive it represents** so ICUE Phases 2 and 4
+  can consume the registry as a technique catalogue without
+  rework.
+- Every new consumer added downstream of canonical recovery
+  (Rule 17) MUST cite the `terminal_state`, `confidence`, and
+  `stability_gate_reason` fields in its own contract so ICUE
+  Phase 6 (Progress Evaluation) can attach cleanly.
+- Every stability-gate message ("could not fully decode because
+  …") that today returns `OUTPUT = INPUT` MUST be routed to the
+  UX message contract defined in the ICUE direction doc §1
+  ("Decoder Stability Gate reached. Remaining payload appears to
+  require: …") — no silent input-echo fallbacks.
+
+### Non-goals of Rule 24
+
+- Does **not** authorise implementing the ICUE planner, interpreter
+  identifier, technique detector, or progress evaluator before their
+  sequenced milestone (see ROADMAP.md · Sequencing appendix).
+- Does **not** override Rules 20 / 21 / 22 / 23.
+- Does **not** authorise LLM-based inference inside decoding. ICUE is
+  strictly deterministic.
+
+### When Rule 24 becomes actionable in code
+
+Only after (a) the approved P0 Workspace milestones (PR-4 → PR-8)
+have shipped, (b) P0-C1 has shipped, and (c) P1 Corpus Expansion is
+under way. At that point ICUE Phase 1 (Interpreter Identifier) is
+authorised as the first ICUE deliverable.
+
+Any earlier attempt to implement ICUE Phase 1+ violates Rules 20 /
+21 / 23 / 24 simultaneously.
+
+### Compliance check
+
+Reviewers MUST reject any PR that:
+- Silently returns `OUTPUT = INPUT` for a non-passthrough input
+  without a stability-gate reason.
+- Adds a decoder that answers "which decoder should I run?"
+  logic *inside* the plugin — that logic belongs to the ICUE planner
+  (S4), not the plugin.
+- Claims Rule 24 as justification for an out-of-sequence ICUE
+  implementation PR.
+
+Rule 24 is a **preserved architectural principle**, captured now so
+every future PR compounds toward ICUE rather than drifting away from
+it.
+

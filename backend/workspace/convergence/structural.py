@@ -259,9 +259,90 @@ def _fold_js_split_join(content: str) -> tuple[str, int]:
     return _JS_SJ_RE.sub(_repl, content), fires
 
 
+# ─── PowerShell invocation simplifier ───────────────────────────────
+# Fold the PowerShell call operator `&` when it wraps a parenthesised
+# expression whose first element is a string literal (i.e. the target
+# cmdlet name is deterministically known).
+#
+# Handles the following forms (all with optional whitespace):
+#   1) `&('Get-Process')`                        → `Get-Process`
+#   2) `&('Get-Process') 'lsass'`                → `Get-Process lsass`
+#   3) `&(('Get-Process') 'lsass')`              → `Get-Process lsass`
+#   4) `&(('Get-'+'Process') 'lsass')`  (after   → `Get-Process lsass`
+#      structural-string-concat-fold has already
+#      folded the inner `'a'+'b'` on a prior pass)
+#
+# Rule 19 positive-ID guard: fires ONLY when the artifact carries a
+# positive PowerShell identifier (interpreter attribute OR an inline
+# PowerShell launcher / `-Command` / `-EncodedCommand` marker). This
+# prevents the fold from touching bash `& (subshell)` or CMD `&`
+# command-separator syntax.
+#
+# Args are unquoted only when they are safe (no whitespace / no PS
+# special chars); otherwise the SQ literal is preserved so semantic
+# meaning is retained.
+_PS_INVOKE_RE = re.compile(
+    r"""
+    &\s*\(                              # opening call:  & (
+      \s*(?:\(\s*)?                     # optional inner paren:  (
+      ('[^'\r\n]*')                     # captured primary SQ literal (cmdlet)
+      (?:\s*\))?                        # optional inner close:  )
+      ((?:\s+'[^'\r\n]*')*)             # captured trailing SQ args INSIDE outer paren
+      \s*
+    \)                                  # outer close
+    ((?:\s+'[^'\r\n]*')*)               # captured trailing SQ args AFTER outer paren (same line)
+    """,
+    re.VERBOSE,
+)
+
+_PS_POSITIVE_ID_RE = re.compile(
+    r"powershell(?:\.exe)?|pwsh(?:\.exe)?|-EncodedCommand|-Command\b|-NoProfile\b",
+    re.IGNORECASE,
+)
+
+_PS_ARG_UNSAFE_RE = re.compile(r"[\s\"'`$;|&<>()]")
+
+
+def _is_powershell_context(content: str, interpreter: str | None) -> bool:
+    if interpreter and interpreter.lower() in {"powershell", "pwsh"}:
+        return True
+    return bool(_PS_POSITIVE_ID_RE.search(content))
+
+
+def _fold_ps_invocation_simplify(content: str, interpreter: str | None) -> tuple[str, int]:
+    """Fold `&('cmdlet') 'arg'` → `cmdlet arg` for deterministic call-operator invocations."""
+    if not _is_powershell_context(content, interpreter):
+        return content, 0
+
+    fires = 0
+
+    def _repl(m: re.Match[str]) -> str:
+        nonlocal fires
+        primary_raw = m.group(1)
+        primary = primary_raw[1:-1]  # strip surrounding single-quotes
+        # Refuse to fold empty cmdlet or one with unsafe chars.
+        if not primary or _PS_ARG_UNSAFE_RE.search(primary):
+            return m.group(0)
+        args_blob = (m.group(2) or "") + (m.group(3) or "")
+        arg_literals = re.findall(r"'([^'\r\n]*)'", args_blob)
+        parts = [primary]
+        for arg in arg_literals:
+            if arg and not _PS_ARG_UNSAFE_RE.search(arg):
+                parts.append(arg)
+            else:
+                # keep the quotes when the arg contains whitespace or specials
+                parts.append("'" + arg + "'")
+        fires += 1
+        return " ".join(parts)
+
+    return _PS_INVOKE_RE.sub(_repl, content), fires
+
+
 # ─── Pass entrypoint ────────────────────────────────────────────────
 # Order: static-join first (largest structure), then -join operator,
-# then string concat, then caret strip, then JS structural folds.
+# then string concat, then caret strip, then JS structural folds,
+# then PS invocation simplify (runs last so concat/join folds on the
+# inner literals have already produced the primary literal).
 _FOLDS: tuple[tuple[str, callable], ...] = (
     ("structural-static-join-fold", _fold_static_join),
     ("structural-join-operator-fold", _fold_join_operator),
@@ -281,6 +362,14 @@ def run(artifact: Artifact) -> tuple[Artifact, PassRecord]:
         if count > 0:
             fired.append(f"{name} x{count}")
             content = new_content
+
+    # PS invocation simplifier needs the interpreter context, so it is
+    # invoked separately (function signature differs from the plain
+    # (content) -> (content, count) fold contract).
+    new_content, count = _fold_ps_invocation_simplify(content, artifact.interpreter)
+    if count > 0:
+        fired.append(f"structural-ps-invocation-simplify x{count}")
+        content = new_content
 
     if content == artifact.content:
         return artifact, PassRecord(
