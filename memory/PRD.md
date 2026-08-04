@@ -17,6 +17,44 @@ Any next agent MUST read this before writing code.
 
 ## 📍 CURRENT POSITION (2026-08-05 · Rule 22 · Failure Triage Protocol)
 
+### 🟢 2026-02 · IEDDE SSOT Wiring (Priority 1 + 2 + 3 · shipped)
+
+Owner-approved bundle delivered in a single implementation cycle:
+
+**Priority 1 — Backend SSOT wiring.** The Intelligent Evidence-Driven
+Decoding Engine (`services.recipe_planner.plan_and_execute`) is now
+invoked from `services.canonical_evidence_recovery.recover_canonical_evidence`
+on every recovery. Its decision trace + canonical confidence are attached
+to the `CanonicalArtifact` (new fields: `iedde_trace`, `iedde_terminal_state`,
+`canonical_confidence`, `canonical_confidence_reason`) and surfaced at the
+top level of the `/api/decode/smart` and `/api/analyze/async` responses.
+Legacy fields (`output`, `recipe`, `canonical_artifact`) preserved — no
+drift, no regression.
+
+**Priority 2 — IEDDE Decision Trace panel.** New collapsible component
+`frontend/src/components/IEDDEDecisionTrace.jsx` renders Interpreter →
+Detected Techniques → Recipe (per-iteration planner reasoning + fired
+transformations + canonicality delta) → Terminal State. Rule 24
+(Understand-First) satisfied — every stage carries the planner's `reason`.
+
+**Priority 3 — Recovery Status ribbon.** New component
+`frontend/src/components/RecoveryStatusRibbon.jsx` splits the legacy
+Confidence into two distinct signals — **Threat Confidence** (verdict
+score) and **Canonical Confidence** (deterministic completeness score
+derived from IEDDE terminal state) — and adds a **Terminal State**
+pill: `Canonical` · `Binary Artifact Recovered` · `Stability Gate` ·
+`Partial Recovery`.
+
+Both new panels sit above the existing Decoding Trace panel — additive
+only, no legacy Workspace panels touched.
+
+**Certification** (iteration_56):
+- Backend: 87/87 pytest + 6/6 new API tests, 100%.
+- Frontend: all `data-testid` hooks present with correct values,
+  clear-state reset works, legacy panels intact.
+- DCS 17/17 byte-identical · R1 107/107 byte-identical.
+- Determinism: identical input → byte-identical IEDDE augmentation.
+
 ### ARB Correction — Sample-Driven Engineering Guardrail
 
 ARB accepted Track 1 (regression harness) and Track 2 (ACDE
