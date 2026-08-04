@@ -275,7 +275,11 @@ def _service_endpoint(path: str):
         rec = _load(case_id, user)
         bundle = _bundle_from_record(rec)
         out = runner(bundle)
-        return out.to_dict() | {"fingerprint": out.fingerprint}
+        # Envelope-level `fingerprint` sits alongside `service`/`version`/
+        # `case_id`/`body` — never shadow a body-level key of the same name.
+        result = out.to_dict()
+        result["fingerprint"] = out.fingerprint
+        return result
 
     endpoint.__name__ = f"get_{path}"
     return endpoint
