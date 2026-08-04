@@ -155,6 +155,11 @@ class CanonicalArtifact:
     iedde_terminal_state: Optional[str] = None
     canonical_confidence: Optional[int] = None
     canonical_confidence_reason: Optional[str] = None
+    # ▲ 2026-02 · Phase 2 · Broken Payload Diagnostics.
+    # Structured analyst-facing explanations for every non-canonical
+    # terminal state (layer / reason / recommendation / severity /
+    # optional hex_snippet). Empty list for canonical + binary paths.
+    iedde_diagnostics: List[Dict[str, Any]] = field(default_factory=list)
 
     # ─── Recursive safety helpers ─────────────────────────────────
     def assert_no_recursion(self) -> None:
@@ -958,6 +963,7 @@ def _attach_iedde_augmentation(art: CanonicalArtifact) -> CanonicalArtifact:
     score, reason = _compute_canonical_confidence(trace)
     art.canonical_confidence = score
     art.canonical_confidence_reason = reason
+    art.iedde_diagnostics = list(trace.get("diagnostics") or [])
     return art
 
 

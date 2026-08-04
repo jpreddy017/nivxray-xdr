@@ -204,6 +204,7 @@ export default function IEDDEDecisionTrace({
   iedde,
   canonicalConfidence,
   canonicalConfidenceReason,
+  diagnostics,
   defaultOpen = false,
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -218,6 +219,9 @@ export default function IEDDEDecisionTrace({
   const terminal = iedde.terminal_state;
   const stopReason = iedde.stop_reason;
   const iterations = iedde.iterations_executed || 0;
+  // ▲ 2026-02 · Phase 2 · Broken Payload Diagnostics
+  const diags =
+    (diagnostics && diagnostics.length ? diagnostics : iedde.diagnostics) || [];
 
   return (
     <div
@@ -345,6 +349,70 @@ export default function IEDDEDecisionTrace({
               </div>
             )}
           </div>
+
+          {/* ▲ 2026-02 · Phase 2 · Broken Payload Diagnostics ─────
+              When the deterministic recovery halts at a stability gate,
+              surface structured analyst-facing explanations here.
+              Each diagnostic cites layer + reason + recommendation. */}
+          {diags && diags.length > 0 && (
+            <div className="space-y-2" data-testid="iedde-broken-payload-diagnostics">
+              <div className="flex items-center gap-2 text-[12px] uppercase tracking-wider text-amber-400 font-semibold">
+                <Flag className="w-3.5 h-3.5" />
+                Broken Payload Diagnostics
+              </div>
+              {diags.map((d, idx) => (
+                <div
+                  key={`${d.code}-${idx}`}
+                  data-testid={`iedde-diagnostic-${d.code}`}
+                  className="rounded border border-amber-500/40 bg-amber-500/5 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider border ${
+                        d.severity === "critical" || d.severity === "high"
+                          ? "text-rose-300 bg-rose-500/10 border-rose-500/40"
+                          : d.severity === "medium"
+                          ? "text-amber-300 bg-amber-500/10 border-amber-500/40"
+                          : "text-neutral-300 bg-neutral-500/10 border-neutral-500/40"
+                      }`}
+                    >
+                      {d.severity}
+                    </span>
+                    <span className="text-xs font-mono text-neutral-200">
+                      Layer · <span className="text-amber-200">{d.layer}</span>
+                    </span>
+                    {d.offset != null && (
+                      <span className="text-[10px] font-mono text-neutral-500">
+                        offset 0x{d.offset.toString(16)}
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    className="text-[13px] text-neutral-100 font-mono break-words"
+                    data-testid={`iedde-diagnostic-reason-${idx}`}
+                  >
+                    {d.reason}
+                  </div>
+                  {d.recommendation && (
+                    <div
+                      className="text-xs text-emerald-300/90 font-mono break-words mt-1"
+                      data-testid={`iedde-diagnostic-recommendation-${idx}`}
+                    >
+                      ↳ {d.recommendation}
+                    </div>
+                  )}
+                  {d.hex_snippet && (
+                    <div
+                      className="text-[10px] text-neutral-500 font-mono break-all mt-1"
+                      data-testid={`iedde-diagnostic-hex-${idx}`}
+                    >
+                      hex · {d.hex_snippet}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

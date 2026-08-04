@@ -358,6 +358,7 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn, user: Optional[Dict[st
             "iedde_terminal_state": artifact.iedde_terminal_state,
             "canonical_confidence": artifact.canonical_confidence,
             "canonical_confidence_reason": artifact.canonical_confidence_reason,
+            "iedde_diagnostics": artifact.iedde_diagnostics or [],
             "phase": "extract", "progress": 10,
         })
 

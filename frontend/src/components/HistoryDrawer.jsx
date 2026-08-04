@@ -185,7 +185,7 @@ export default function HistoryDrawer({ open, onClose, onRehydrate, layout = "dr
             📜 INVESTIGATION HISTORY
           </span>
           <span className="mono" style={{ color: "var(--text-dim)", fontSize: 10 }} data-testid="history-total">
-            {total} total{starredOnly ? " (starred)" : ""}
+            {total} total{starredOnly ? " (favorites)" : ""}
           </span>
           <div style={{ flex: 1 }} />
           <button className="nvx-btn sm ghost" onClick={exportAll} data-testid="btn-history-export-all" title="Export all">
@@ -200,6 +200,54 @@ export default function HistoryDrawer({ open, onClose, onRehydrate, layout = "dr
                   style={{ display: isPage ? "none" : undefined }}>
             <X size={11} /> CLOSE
           </button>
+        </div>
+
+        {/* ▲ 2026-02 · Case Manager Views — segmented control */}
+        <div
+          data-testid="history-view-tabs"
+          style={{
+            padding: "10px 14px",
+            borderBottom: "1px solid var(--border)",
+            display: "flex", gap: 6, alignItems: "center",
+          }}
+        >
+          {[
+            { key: "all",       label: "ALL",         onSelect: () => { setStarredOnly(false); setSinceDays(0); } },
+            { key: "favorites", label: "⭐ FAVORITES", onSelect: () => { setStarredOnly(true); setSinceDays(0); } },
+            { key: "recent",    label: "RECENT · 7d",  onSelect: () => { setStarredOnly(false); setSinceDays(7); } },
+          ].map((v) => {
+            const active =
+              (v.key === "favorites" && starredOnly) ||
+              (v.key === "recent"    && sinceDays === 7 && !starredOnly) ||
+              (v.key === "all"       && !starredOnly && sinceDays === 0);
+            return (
+              <button
+                key={v.key}
+                type="button"
+                onClick={v.onSelect}
+                data-testid={`view-tab-${v.key}`}
+                className="mono"
+                style={{
+                  padding: "4px 10px",
+                  fontSize: 10.5,
+                  letterSpacing: "0.14em",
+                  fontWeight: 700,
+                  color: active ? "#0d1a13" : "var(--text)",
+                  background: active ? "var(--accent)" : "transparent",
+                  border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  transition: "background 120ms ease",
+                }}
+              >
+                {v.label}
+              </button>
+            );
+          })}
+          <span style={{ flex: 1 }} />
+          <span className="mono" style={{ fontSize: 10, color: "var(--text-dim)" }}>
+            {total} case{total === 1 ? "" : "s"}
+          </span>
         </div>
 
         {/* FILTERS */}
@@ -264,10 +312,10 @@ export default function HistoryDrawer({ open, onClose, onRehydrate, layout = "dr
           </select>
         </div>
         <div style={{ padding: "6px 14px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "center" }}>
-          <label className="mono" style={{ fontSize: 10, color: "var(--text-dim)", cursor: "pointer" }} data-testid="chk-history-starred-label">
+          <label className="mono" style={{ fontSize: 10, color: "var(--text-dim)", cursor: "pointer" }} data-testid="chk-history-favorites-label">
             <input type="checkbox" checked={starredOnly} onChange={(e) => setStarredOnly(e.target.checked)}
-                   data-testid="chk-history-starred" style={{ marginRight: 5 }} />
-            ⭐ STARRED
+                   data-testid="chk-history-favorites" style={{ marginRight: 5 }} />
+            ⭐ FAVORITES
           </label>
           <label className="mono" style={{ fontSize: 10, color: "var(--text-dim)", cursor: "pointer" }}>
             <input type="checkbox" checked={shellcodeOnly} onChange={(e) => setShellcodeOnly(e.target.checked)}
@@ -457,7 +505,7 @@ function HistoryRow({
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
         <button
           onClick={onStar} data-testid={`btn-star-${item.id}`}
-          title={item.starred ? "unstar" : "star"}
+          title={item.starred ? "Remove from favorites" : "Mark as favorite"}
           style={{ background: "transparent", border: "none", cursor: "pointer",
                    color: item.starred ? "#e2cc50" : "var(--text-dim)", padding: 0, marginRight: 2 }}
         >

@@ -149,6 +149,7 @@ export default function WorkspacePage() {
   const [iddeTerminalState, setIeddeTerminalState] = useState(null);
   const [canonicalConfidence, setCanonicalConfidence] = useState(null);
   const [canonicalConfidenceReason, setCanonicalConfidenceReason] = useState(null);
+  const [ieddeDiagnostics, setIeddeDiagnostics] = useState([]);
   // ONE-BUTTON UX — collapse Smart/AI/Auto Investigate/Troubleshoot into ADVANCED
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [chainOpen, setChainOpen] = useState(false);
@@ -583,6 +584,7 @@ export default function WorkspacePage() {
     setIeddeTerminalState(null);
     setCanonicalConfidence(null);
     setCanonicalConfidenceReason(null);
+    setIeddeDiagnostics([]);
     try { localStorage.removeItem("nvx.pendingInput"); } catch {}
   };
 
@@ -613,6 +615,9 @@ export default function WorkspacePage() {
       );
     if (data.canonical_confidence_reason !== undefined)
       setCanonicalConfidenceReason(data.canonical_confidence_reason || null);
+    // ▲ Phase 2 · Broken Payload Diagnostics
+    if (data.iedde_diagnostics !== undefined)
+      setIeddeDiagnostics(Array.isArray(data.iedde_diagnostics) ? data.iedde_diagnostics : []);
   };
 
   const runChainAnalysis = async (parts) => {
@@ -2459,6 +2464,7 @@ export default function WorkspacePage() {
                 iedde={iedde}
                 canonicalConfidence={canonicalConfidence}
                 canonicalConfidenceReason={canonicalConfidenceReason}
+                diagnostics={ieddeDiagnostics}
                 defaultOpen={false}
               />
             </div>

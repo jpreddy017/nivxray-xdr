@@ -1219,6 +1219,8 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         "iedde_terminal_state": _canonical_artifact.iedde_terminal_state,
         "canonical_confidence": _canonical_artifact.canonical_confidence,
         "canonical_confidence_reason": _canonical_artifact.canonical_confidence_reason,
+        # ▲ 2026-02 · Phase 2 · Broken Payload Diagnostics
+        "iedde_diagnostics": _canonical_artifact.iedde_diagnostics or [],
     }
 
     # ▲ SOC EVIDENCE — per-layer metadata (Feb-2026)

@@ -183,6 +183,12 @@ class PlanResult:
     final_interpreter: str
     final_techniques: list[str]
     binary_artifact: BinaryArtifact | None = None
+    # ▲ 2026-02 · Phase 2 · Broken Payload Diagnostics.
+    # Structured, human-readable explanations of *why* the deterministic
+    # recovery stopped. Populated for every non-canonical terminal state.
+    # Rule 23 anchor — the engine surfaces the specific layer, offset,
+    # and recommendation instead of a silent failure.
+    diagnostics: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -193,11 +199,207 @@ class PlanResult:
             "final_interpreter": self.final_interpreter,
             "final_techniques": self.final_techniques,
             "binary_artifact": self.binary_artifact.to_dict() if self.binary_artifact else None,
+            "diagnostics": list(self.diagnostics),
             "stages": [s.to_dict() for s in self.stages],
         }
 
 
-# Detect binary magic signatures on the recovered artifact.
+# ─── Broken Payload Diagnostics (2026-02 · Phase 2) ───────────────────
+#
+# Rule 23 (Stability Gate) mandates that the engine NEVER guesses when
+# recovery cannot proceed deterministically. But a raw "stop_reason"
+# string like `pass_execution_error:decoder:UnicodeDecodeError` is not
+# what an analyst wants to see. `_diagnose` translates the engine's
+# internal signals into a structured analyst-facing explanation:
+#
+#     {
+#       "layer":          "gzip" | "aes" | "base64" | "utf16le" | ...
+#       "reason":         short human-readable description
+#       "recommendation": what the analyst should do next
+#       "code":           machine-parseable label
+#       "severity":       "critical" | "high" | "medium" | "info"
+#       "hex_snippet":    optional 32-byte hex peek of the offending bytes
+#       "offset":         optional file offset where the failure hit
+#     }
+#
+# Every non-canonical PlanResult carries at least one diagnostic. The
+# frontend (`IEDDEDecisionTrace`) renders them as amber cards.
+def _hex_snippet(data: str | bytes, limit: int = 32) -> str | None:
+    """Return the first `limit` bytes of `data` as space-separated hex."""
+    try:
+        if isinstance(data, str):
+            data = data.encode("latin-1", errors="replace")
+        return " ".join(f"{b:02x}" for b in data[:limit]) if data else None
+    except Exception:
+        return None
+
+
+def _diagnose(
+    result_terminal_state: str,
+    stop_reason: str,
+    stages: list["Stage"],
+    current_content: str,
+) -> list[dict[str, Any]]:
+    """Deterministically translate engine signals into analyst diagnostics.
+
+    Never raises. Returns [] when the recovery reached canonical.
+    """
+    if result_terminal_state == "canonical":
+        return []
+    if result_terminal_state == "binary_artifact_recovered":
+        # Binary handoff is not a failure — nothing to diagnose.
+        return []
+
+    diagnostics: list[dict[str, Any]] = []
+    reason = stop_reason or ""
+    last_stage = stages[-1] if stages else None
+    last_pass = last_stage.chosen_pass if last_stage else None
+    fired = last_stage.fired_transformations if last_stage else []
+
+    # ── Pass-execution errors → surface the exception class ───────────
+    if reason.startswith("pass_execution_error:"):
+        parts = reason.split(":")
+        pass_name = parts[1] if len(parts) > 1 else last_pass or "unknown"
+        exc_name = parts[2] if len(parts) > 2 else "Exception"
+        layer = _layer_for_pass(pass_name, fired)
+        rec_msg = _recommendation_for_exception(exc_name, layer)
+        diagnostics.append({
+            "layer": layer,
+            "code":  f"pass_execution_error:{exc_name}",
+            "severity": "high",
+            "reason": f"The {layer} pass raised {exc_name} while transforming the artifact.",
+            "recommendation": rec_msg,
+            "hex_snippet": _hex_snippet(current_content),
+            "offset": None,
+        })
+
+    # ── "chosen_pass_produced_no_change" → planner detected a technique
+    #    but the corresponding L0 primitive couldn't materially decode ─
+    elif reason.startswith("chosen_pass_produced_no_change:"):
+        # reason format: chosen_pass_produced_no_change:<pass>:<tech>; ...
+        try:
+            head = reason.split(";", 1)[0]
+            _, pass_name, tech = head.split(":", 2)
+        except Exception:
+            pass_name, tech = last_pass or "unknown", "unknown"
+        layer = tech if tech and tech != "unknown" else _layer_for_pass(pass_name, fired)
+        diagnostics.append({
+            "layer": layer,
+            "code":  f"stalled:{pass_name}:{tech}",
+            "severity": "medium",
+            "reason": (
+                f"The {tech} primitive was detected but produced no change. "
+                "This usually means the encoded payload is malformed, truncated, "
+                "or requires a key the engine does not have."
+            ),
+            "recommendation": _recommendation_for_stalled(layer),
+            "hex_snippet": _hex_snippet(current_content),
+            "offset": None,
+        })
+
+    # ── "no_deterministic_primitive_registered" → planner detected an
+    #    unmapped technique (typically a keyed cipher: AES/RC4/XOR) ────
+    elif "no_deterministic_primitive_registered" in reason:
+        head = reason.split("no_deterministic_primitive_registered:", 1)[-1]
+        tech = head.split(";", 1)[0] or "unknown"
+        diagnostics.append({
+            "layer": tech,
+            "code":  f"key_required:{tech}",
+            "severity": "high",
+            "reason": (
+                f"Recovery reached a {tech.upper()} layer that requires a key "
+                "which is not present in the payload. The engine refused to "
+                "brute-force (Rule 23 — never guess)."
+            ),
+            "recommendation": (
+                f"Locate the {tech.upper()} key material in the surrounding script "
+                "or memory dump, then re-run with the key supplied."
+            ),
+            "hex_snippet": _hex_snippet(current_content),
+            "offset": None,
+        })
+
+    # ── "duplicate_fingerprint:no_deterministic_progress" ────────────
+    elif "duplicate_fingerprint" in reason:
+        diagnostics.append({
+            "layer": last_pass or "decoder",
+            "code":  "duplicate_fingerprint",
+            "severity": "medium",
+            "reason": (
+                "Two consecutive iterations produced identical output — the "
+                "planner is spinning without progress."
+            ),
+            "recommendation": (
+                "The remaining layer may need a manual recipe step. Inspect the "
+                "current content and add a targeted decoder in the Recipe panel."
+            ),
+            "hex_snippet": _hex_snippet(current_content),
+            "offset": None,
+        })
+
+    # ── Fallback (shouldn't be reached in practice) ───────────────────
+    else:
+        diagnostics.append({
+            "layer": "unknown",
+            "code":  "unknown_stability_gate",
+            "severity": "info",
+            "reason": reason or "The deterministic recovery stopped without a specific cause.",
+            "recommendation": "Inspect the IEDDE Decision Trace for the last executed pass.",
+            "hex_snippet": _hex_snippet(current_content),
+            "offset": None,
+        })
+
+    return diagnostics
+
+
+def _layer_for_pass(pass_name: str, fired_transformations: list[str]) -> str:
+    """Best-effort mapping of an L0 pass name into an analyst-facing layer."""
+    txt = " ".join(fired_transformations or []) + " " + (pass_name or "")
+    for token, layer in (
+        ("gzip",    "gzip"),
+        ("deflate", "deflate"),
+        ("zlib",    "zlib"),
+        ("base64",  "base64"),
+        ("utf16",   "utf16le"),
+        ("aes",     "aes"),
+        ("rc4",     "rc4"),
+        ("xor",     "xor"),
+    ):
+        if token in txt.lower():
+            return layer
+    return pass_name or "unknown"
+
+
+def _recommendation_for_exception(exc_name: str, layer: str) -> str:
+    """Map the exception class → specific analyst-friendly recommendation."""
+    mapping = {
+        "UnicodeDecodeError":     f"The {layer} decoder found an invalid surrogate. Check for a truncated payload or byte-order mismatch.",
+        "binascii.Error":         f"The base64 decoder found invalid padding. Verify the entire base64 blob was captured and re-run.",
+        "Error":                  f"The {layer} step raised a low-level error. Verify the payload is complete.",
+        "BadZipFile":             f"The archive is corrupt. Re-capture the original file and re-run.",
+        "zlib.error":             f"The {layer} stream is malformed. This often indicates a partial capture or wrong offset.",
+        "PEFormatError":          f"The recovered PE headers are truncated or damaged. Verify the base64 blob is complete.",
+        "MemoryError":            f"The payload was too large for the {layer} pass. Try running the decoder on a slice of the payload.",
+    }
+    return mapping.get(exc_name, f"The {layer} pass failed with {exc_name}. Verify the payload is complete.")
+
+
+def _recommendation_for_stalled(layer: str) -> str:
+    """What to tell the analyst when a detected primitive produced no change."""
+    mapping = {
+        "gzip":    "The GZip header was detected but decompression failed. The DEFLATE stream is likely corrupt or truncated — re-capture the payload.",
+        "deflate": "The DEFLATE stream is malformed. Check that the payload wasn't chunked or split across multiple lines.",
+        "base64":  "Base64 detection fired but decoding produced no change. The blob may be double-wrapped or contain invalid characters.",
+        "utf16le": "UTF-16LE detection fired but decoding produced no change. The byte-order mark may be missing or the payload uses BE.",
+        "aes":     "AES layer detected — the key is unknown. Provide the key or capture it from the surrounding script.",
+        "rc4":     "RC4 layer detected — the key is unknown. Provide the key or capture it from the surrounding script.",
+        "xor":     "XOR layer detected — the key is unknown. Try a known-plaintext attack or supply the key.",
+    }
+    return mapping.get(layer.lower(),
+                        f"The {layer} primitive detected the payload but couldn't recover it. Inspect the raw bytes for corruption.")
+
+
+
 _BINARY_MAGIC = (
     (b"MZ",           "PE",       "Executable (.exe/.dll)"),
     (b"\x7fELF",      "ELF",      "Linux executable / shared object"),
@@ -303,6 +505,28 @@ _MAX_ITERATIONS = 32  # hard ceiling — the stability gate should trip well bef
 
 
 def plan_and_execute(content: str, max_iterations: int = _MAX_ITERATIONS) -> PlanResult:
+    """Discovery-driven IEDDE loop.
+
+    Wraps `_plan_and_execute_core` and post-processes every non-canonical
+    result to attach analyst-facing `diagnostics` (2026-02 · Phase 2 ·
+    Broken Payload Diagnostics).
+    """
+    result = _plan_and_execute_core(content, max_iterations=max_iterations)
+    if result.terminal_state not in ("canonical", "binary_artifact_recovered"):
+        try:
+            result.diagnostics = _diagnose(
+                result.terminal_state,
+                result.stop_reason,
+                result.stages,
+                result.canonical_output,
+            )
+        except Exception:
+            # Never let a diagnostic-builder bug crash the pipeline.
+            result.diagnostics = []
+    return result
+
+
+def _plan_and_execute_core(content: str, max_iterations: int = _MAX_ITERATIONS) -> PlanResult:
     """Discovery-driven IEDDE loop.
 
     Args:
