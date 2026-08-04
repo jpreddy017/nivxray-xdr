@@ -360,13 +360,17 @@ verdicts.
 
 ---
 
-## 10. Investigation Replay Harness — Permanent Release Gate (owner directive · 2026-02-15)
+## 10. Investigation Replay Harness — OFFICIAL RELEASE GATE (owner directive · 2026-02-15)
 
-> **Every release must replay a Golden Investigation Corpus and verify
-> byte-identical results.** This is the platform-level counterpart to the
-> Dual-Entry Equivalence suite: that suite protects the *contract*
-> between entry paths; the Replay Harness protects the *behavior* of the
-> whole platform across releases.
+> **The Golden Investigation Corpus IS the platform's official Release
+> Gate.** Every release automatically replays every golden investigation
+> and verifies byte-identical results. Any unexpected change fails CI
+> until explicitly approved through the baseline update workflow.
+>
+> This is the investigation equivalent of a compiler regression suite.
+> Dual-Entry Equivalence (P2.2) protects the *contract* between entry
+> paths; the Replay Harness protects the *behavior* of the whole platform
+> across releases.
 
 **Corpus entries** live under `backend/tests/golden_corpus/` with a
 `manifest.yaml` listing each investigation, its source sample, and the
@@ -378,9 +382,20 @@ expected canonical result set.
 - Threat Summary
 - Attack Chain
 - Evidence Flow
+- Evidence Graph
 - Timeline
 - MITRE ATT&CK mappings
 - Reports
+- Deterministic fingerprints
+- Terminal State
+
+**Approval workflow:** intentional architectural changes regenerate
+baselines via:
+```
+pytest tests/golden_corpus/ --update-baseline
+```
+Owner sign-off on the baseline diff is required before merge. **There is
+no bypass path.**
 
 **Initial corpus (populated as real samples become available):**
 1. `.docm → PowerShell → PE`
@@ -398,6 +413,38 @@ sourced from nivxmachines.com when available (per §9), but the harness
 must remain fully functional using in-tree synthetic samples if the
 external source is unavailable (per §9.1). The harness is never a
 dependency on an external service.
+
+---
+
+## 11. Deterministic Investigation Fingerprint (reserved future · owner directive · 2026-02-15)
+
+Every investigation generates a stable fingerprint derived from:
+- Canonical Artifacts
+- Canonical Event Model (CEM)
+- Transformation Trace
+- Decision Trace
+- MITRE mappings
+- IOC graph
+- Evidence relationships
+
+**Enables:**
+- Similarity matching across investigations
+- Campaign clustering (multiple investigations sharing a fingerprint
+  prefix)
+- Investigation deduplication
+- Cross-customer comparisons (where operationally appropriate)
+- Long-term regression validation (beyond the Golden Corpus)
+
+Because the fingerprint is deterministic, it aligns natively with the
+platform's deterministic-first philosophy (§1). Reserved for after the
+P2.3 → P5 phases so the underlying inputs are stable.
+
+**Contracts:**
+- Same input → same fingerprint across releases (unless a Golden
+  Baseline update explicitly acknowledges the change).
+- Fingerprint is computed *from* the CEM + traces (§5, §6) — it does
+  not modify canonical data.
+- AI never contributes to fingerprint computation (§8).
 
 ---
 

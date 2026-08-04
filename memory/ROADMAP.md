@@ -82,11 +82,35 @@ CEM + Canonical Artifacts.
   (subject to the §9.1 guardrail — nivxmachines.com is optional,
   never a dependency).
 
-### P3 · Compare Cases
+### P2.3 — Real End-to-End Demonstration (⭐ HIGHEST PRIORITY · owner directive 2026-02-15)
+- Now the most valuable open item because it demonstrates the complete
+  architecture working with a realistic sample end-to-end.
+- Reuse samples / decoder recipes / threat intelligence from
+  nivxmachines.com **only if** they improve NivXRay and remain consistent
+  with §9.1 (nivxmachines.com is optional, never a dependency). If not,
+  use internally curated or synthetic samples. NivXRay must never depend
+  on an external source.
+- On completion, the sample becomes the first **real** entry in the
+  Golden Investigation Corpus release gate (P6).
 
-Side-by-side comparison across Interpreter · MITRE · LOLBAS · IOCs · Hashes
-· Threat Summary · Canonical Output · Attack Story, with a **deterministic
-similarity score** for malware clustering and evidence-overlap heatmap.
+### P3 · Compare Cases (expanded scope · owner directive 2026-02-15)
+
+Deterministic side-by-side comparison across:
+
+- Threat Summary
+- Canonical Artifacts
+- Transformation Trace
+- Decision Trace
+- Interpreter chain
+- Decoding recipe
+- MITRE ATT&CK
+- IOCs
+- Evidence overlap
+- **Similarity score** (deterministic, evidence-weighted)
+- **Investigation fingerprint** (deterministic hash — same input across
+  releases yields the same fingerprint; see P7 reserved future)
+
+Becomes extremely valuable for malware clustering and campaign analysis.
 
 ### P4 · Mach-O Analyzer (bumped from P5 · owner directive 2026-02-15)
 
@@ -95,38 +119,61 @@ degradation contract as PE/PDF/Office/ELF. **Analytical capability > operational
 polish** — Mach-O expands cross-platform malware analysis coverage; Saved
 Collections don't add analytical value.
 
+**Future artifact families** (queued behind P4): Email · Archives (ZIP/7z/
+RAR/ISO/CAB/IMG) · Android APK · iOS IPA · Memory dumps.
+
 ### P5 · Saved Collections (moved from P4 · owner directive 2026-02-15)
 
-Analyst tagging/grouping on History (APT29, QakBot, Customer A, Campaign
-July). Collections organize investigations without mutating analysis
-results. MSSP-friendly.
+Analyst tagging/grouping on History — Campaigns (APT29, QakBot, Campaign
+July), Threat Actors, Customers (Customer A), Malware Families, Incident
+Groups. Operational enhancement; does not mutate analysis results.
 
-### P6 · Golden Investigation Corpus + Investigation Replay Harness ⭐ (permanent release gate · owner directive 2026-02-15)
+### P6 · Golden Investigation Corpus + Investigation Replay Harness ✅ **LIVE · OFFICIAL RELEASE GATE**
 
-**Not another feature — a permanent regression gate.** Every release must
-replay a corpus of full end-to-end investigations and verify that each one
-produces byte-identical:
+**Formalised as the platform's official Release Gate (owner directive
+2026-02-15).** Every release automatically replays every golden
+investigation and verifies:
 
 - Canonical Artifacts
 - Canonical Event Model (CEM)
 - Threat Summary
 - Attack Chain
 - Evidence Flow
+- Evidence Graph
 - Timeline
-- MITRE mappings
+- MITRE ATT&CK mappings
 - Reports
+- Deterministic fingerprints
+- Terminal State
 
-**Initial corpus (populated as real samples become available):**
-1. `.docm → PowerShell → PE`
-2. `.pdf → JavaScript → PowerShell`
-3. `.zip → .lnk → PowerShell`
-4. `ELF → shell script`
-5. `PE → PowerShell`
-6. (extensible via `tests/golden_corpus/manifest.yaml`)
+**Any unexpected change fails CI until explicitly approved via the
+baseline update workflow** (`pytest tests/golden_corpus/ --update-baseline`
+followed by owner sign-off on the baseline diff).
 
-This is end-to-end investigation regression testing — the dual-entry
-equivalence suite (P2.2) protects the *contract* between paths; the Golden
-Corpus protects the *behavior* of the whole platform across releases.
+This is the investigation equivalent of a compiler regression suite.
+
+### P7 · Deterministic Investigation Fingerprint (reserved future · owner directive 2026-02-15)
+
+Every investigation generates a stable fingerprint derived from:
+
+- Canonical Artifacts
+- CEM
+- Transformation Trace
+- MITRE mappings
+- IOC graph
+- Evidence relationships
+
+**Enables:**
+- Similarity matching across investigations
+- Campaign clustering (multiple investigations that share a fingerprint
+  prefix)
+- Investigation deduplication
+- Cross-customer comparisons (where operationally appropriate)
+- Long-term regression validation (beyond the Golden Corpus)
+
+Because the fingerprint is deterministic, it aligns natively with the
+platform philosophy. Reserved for after P2.3 → P5 land so the underlying
+inputs are stable.
 
 ### Deferred
 - **YARA Auto-Match** — HOLD until `yara-python` is verified in the
