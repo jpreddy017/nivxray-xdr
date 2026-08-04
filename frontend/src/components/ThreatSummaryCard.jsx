@@ -86,8 +86,7 @@ function _extractSignals(artifactType, analysis, hashes, size) {
     s.security_signals.push({ k: "Embedded",    v: String((analysis.embedded_files || []).length), sev: (analysis.embedded_files || []).length ? "high" : "info" });
     s.embedded_count = (analysis.embedded_files || []).length;
     s.urls_count = (analysis.urls || []).length;
-  } else if (artifactType === "office") {
-    const o = analysis.overview || {};
+  } else if (artifactType === "office") {    const o = analysis.overview || {};
     s.key_facts.push({ k: "Family",  v: o.family });
     s.key_facts.push({ k: "Files",   v: String(o.file_count) });
     s.security_signals.push({ k: "VBA Macros", v: o.has_macros ? "YES" : "no", sev: o.has_macros ? "critical" : "info" });
@@ -97,6 +96,26 @@ function _extractSignals(artifactType, analysis, hashes, size) {
     s.security_signals.push({ k: "Ext Templates", v: String(o.external_template_count), sev: o.external_template_count ? "high" : "info" });
     s.embedded_count = o.embedded_file_count || 0;
     s.urls_count     = o.external_url_count  || 0;
+  } else if (artifactType === "elf") {
+    const o = analysis.overview || {};
+    s.key_facts.push({ k: "Class",       v: `${o.elf_class}-bit` });
+    s.key_facts.push({ k: "Machine",     v: o.machine });
+    s.key_facts.push({ k: "Type",        v: o.type });
+    s.key_facts.push({ k: "Endianness",  v: o.endianness });
+    s.key_facts.push({ k: "Entry",       v: o.entry_point });
+    s.key_facts.push({ k: "Sections",    v: String(o.num_sections) });
+    const rwxHit  = (analysis.findings || []).some((f) => f.code === "rwx_segment");
+    const execStack = (analysis.findings || []).some((f) => f.code === "exec_stack");
+    const stripped  = (analysis.findings || []).some((f) => f.code === "stripped");
+    const upx       = (analysis.findings || []).some((f) => f.code === "packer_upx");
+    const rpath     = (analysis.findings || []).some((f) => f.code === "dt_rpath");
+    s.security_signals.push({ k: "RWX Segment",   v: rwxHit    ? "YES" : "no", sev: rwxHit    ? "high"     : "info" });
+    s.security_signals.push({ k: "Exec Stack",    v: execStack ? "YES" : "no", sev: execStack ? "high"     : "info" });
+    s.security_signals.push({ k: "DT_RPATH",      v: rpath     ? "YES" : "no", sev: rpath     ? "high"     : "info" });
+    s.security_signals.push({ k: "Packed (UPX)",  v: upx       ? "YES" : "no", sev: upx       ? "high"     : "info" });
+    s.security_signals.push({ k: "Stripped",      v: stripped  ? "YES" : "no", sev: stripped  ? "low"      : "info" });
+    s.embedded_count = (analysis.dynamic?.needed || []).length;
+    s.urls_count     = 0;
   }
   return s;
 }

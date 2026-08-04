@@ -17,6 +17,7 @@
  */
 import PEAnalysisPanel from "./PEAnalysisPanel";
 import PDFAnalysisPanel from "./PDFAnalysisPanel";
+import ELFAnalysisPanel from "./ELFAnalysisPanel";
 import OfficeAnalysisPanel from "./OfficeAnalysisPanel";
 import ThreatSummaryCard from "./ThreatSummaryCard";
 
@@ -87,6 +88,14 @@ export default function ArtifactAnalysisPanel({ routed, legacyPE }) {
       <>
         <ThreatSummaryCard routed={routed} />
         <OfficeAnalysisPanel office={analysis} hashes={hashes} />
+      </>
+    );
+  }
+  if (artifact_type === "elf") {
+    return (
+      <>
+        <ThreatSummaryCard routed={routed} />
+        <ELFAnalysisPanel elf={analysis} hashes={hashes} />
       </>
     );
   }
