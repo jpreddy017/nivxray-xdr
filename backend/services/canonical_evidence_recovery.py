@@ -642,6 +642,43 @@ def recover_canonical_evidence(
         )
         return art
 
+    # 4.5) Python `-c` deterministic evaluator (Rule 22 · Cat C) -------
+    try:
+        from services.python_dashc_evaluator import try_python_dashc_evaluator
+        py_hit = try_python_dashc_evaluator(gated_text)
+    except Exception:
+        py_hit = None
+    if py_hit is not None:
+        decoded = py_hit["stdout"]
+        notes = [
+            "Python `-c` deterministic expression evaluated. Output is "
+            "the stdout the Python interpreter would produce at runtime.",
+        ]
+        if py_hit["next_stage"]:
+            notes.append(
+                f"Recovered stdout is piped into `{py_hit['next_stage']}` "
+                "at runtime — that next stage will consume the decoded text."
+            )
+        art = CanonicalArtifact(
+            raw_input=gated_text,
+            input_hash=_sha256_str(gated_text),
+            terminal_state="recovered",
+            decoded_output=decoded,
+            output_hash=_sha256_str(decoded),
+            chain_steps=[{"op": "decoder-python-dashc-eval", "args": {}}],
+            chain_ids=["decoder-python-dashc-eval"],
+            engine="python-dashc-eval",
+            reached_shellcode=False,
+            confidence=100,
+            detected_type={"type": "python_dashc_eval",
+                            "label": "Python -c deterministic evaluator"},
+            notes=notes,
+            ingress_normalised_via=ingress_via,
+            original_raw_input=original_raw if ingress_via else None,
+            stability_gate_reached=False,
+        )
+        return art
+
     # 5) PowerShell -EncodedCommand short-circuit ----------------------
     ps_short = _try_ps_encoded_short_circuit(gated_text)
     if ps_short is not None:

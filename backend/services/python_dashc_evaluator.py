@@ -74,6 +74,7 @@ _ALLOWED_BUILTINS: Dict[str, Any] = {
     "chr":       chr,
     "ord":       ord,
     "len":       len,
+    "print":     print,
     "str":       str,
     "bytes":     bytes,
     "bytearray": bytearray,
