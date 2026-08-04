@@ -27,6 +27,7 @@ const DocumentsPage         = lazy(() => import("@/pages/DocumentsPage"));
 const BatchTestPage         = lazy(() => import("@/pages/BatchTestPage"));
 const MitreHeatmapPage      = lazy(() => import("@/pages/MitreHeatmapPage"));
 const LabPage               = lazy(() => import("@/pages/LabPage"));
+const IEDDETracePage        = lazy(() => import("@/pages/IEDDETracePage"));
 const TrainingInboxPage     = lazy(() => import("@/pages/TrainingInboxPage"));
 const LearnerPage           = lazy(() => import("@/pages/LearnerPage"));
 const BenchmarkPage         = lazy(() => import("@/pages/BenchmarkPage"));
@@ -128,6 +129,7 @@ function App() {
               <Route path="/batch-test" element={<Protected><BatchTestPage /></Protected>} />
               <Route path="/heatmap" element={<Protected><MitreHeatmapPage /></Protected>} />
               <Route path="/lab" element={<Protected><LabPage /></Protected>} />
+              <Route path="/iedde" element={<Protected><IEDDETracePage /></Protected>} />
               <Route path="/learner" element={<Protected><LearnerPage /></Protected>} />
               <Route path="/benchmark" element={<BenchmarkPage />} />
               <Route path="/battery"   element={<Protected><MultiLayerBatteryPage /></Protected>} />

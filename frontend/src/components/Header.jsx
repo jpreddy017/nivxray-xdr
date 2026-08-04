@@ -25,6 +25,7 @@ export default function Header() {
   const primary = [
     { key: "workspace",   href: "/",              label: "WORKSPACE",   icon: LayoutGrid, testId: "nav-workspace" },
     { key: "investigate", href: "/investigate",   label: "INVESTIGATE", icon: ShieldCheck, testId: "nav-investigate", title: "SOC Investigation Workspace (L4) · PR-4 Summary + Story lenses" },
+    { key: "iedde",       href: "/iedde",         label: "IEDDE",       icon: Radar,      testId: "nav-iedde", title: "Live IEDDE Trace · deterministic decoding engine" },
     { key: "trajectory",  href: "/v2/trajectory", label: "TRAJECTORY",  icon: Radar,      testId: "nav-trajectory" },
     { key: "batch",       href: "/batch-test",    label: "BATCH",       icon: TestTube,   testId: "nav-batch-test" },
     { key: "heatmap",     href: "/heatmap",       label: "HEATMAP",     icon: Grid,       testId: "nav-heatmap" },

@@ -87,18 +87,42 @@ _KEY_REQUIRED = {"aes_wrapper", "rc4_wrapper", "xor"}
 
 
 @dataclass
+class PlannerDecision:
+    """Explains WHY the planner chose a particular technique this
+    iteration (or why it tripped the stability gate)."""
+    selected: str | None                # technique name, or None if stability gate
+    selected_pass: str | None           # L0 pass to execute, or None
+    reason: str                          # human-readable justification
+    confidence: float                    # confidence of the selected technique
+    remaining_candidates: list[str]     # other techniques present, not chosen this iter
+    key_required_deferred: list[str]    # techniques deferred because a secret is unavailable
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "selected": self.selected,
+            "selected_pass": self.selected_pass,
+            "reason": self.reason,
+            "confidence": round(self.confidence, 4),
+            "remaining_candidates": self.remaining_candidates,
+            "key_required_deferred": self.key_required_deferred,
+        }
+
+
+@dataclass
 class Stage:
     """One iteration of the planner loop."""
     iteration: int
     interpreter: str
     interpreter_confidence: float
     techniques_present: list[str]
-    chosen_pass: str | None       # None → stability gate reached this iter
+    decision: PlannerDecision            # NEW · Rule 24 traceability
+    chosen_pass: str | None              # None → stability gate reached this iter
     fired_transformations: list[str]
     changed: bool
     content_len_before: int
     content_len_after: int
-    stop_reason: str | None       # populated when chosen_pass is None
+    canonicality_delta: float            # NEW · %-shrink toward canonical (0..1)
+    stop_reason: str | None              # populated when chosen_pass is None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -106,11 +130,13 @@ class Stage:
             "interpreter": self.interpreter,
             "interpreter_confidence": round(self.interpreter_confidence, 4),
             "techniques_present": self.techniques_present,
+            "decision": self.decision.to_dict(),
             "chosen_pass": self.chosen_pass,
             "fired_transformations": self.fired_transformations,
             "changed": self.changed,
             "content_len_before": self.content_len_before,
             "content_len_after": self.content_len_after,
+            "canonicality_delta": round(self.canonicality_delta, 4),
             "stop_reason": self.stop_reason,
         }
 
@@ -186,36 +212,69 @@ def plan_and_execute(content: str, max_iterations: int = _MAX_ITERATIONS) -> Pla
         # 2. Pick the highest-confidence technique that has a pass mapping.
         chosen_pass: str | None = None
         chosen_tech: str | None = None
+        chosen_conf: float = 0.0
         blocking_key_required: str | None = None
+        key_required_list: list[str] = []
+        remaining_candidates: list[str] = []
 
         for sig in inventory.techniques:
             if sig.name in _KEY_REQUIRED and sig.confidence >= 0.60:
-                blocking_key_required = sig.name
+                blocking_key_required = blocking_key_required or sig.name
+                key_required_list.append(sig.name)
                 continue
             mapped = _TECHNIQUE_TO_PASS.get(sig.name)
             if mapped:
-                chosen_pass = mapped
-                chosen_tech = sig.name
-                break
+                if chosen_pass is None:
+                    chosen_pass = mapped
+                    chosen_tech = sig.name
+                    chosen_conf = sig.confidence
+                else:
+                    remaining_candidates.append(sig.name)
+
+        # Build the decision object.
+        if chosen_pass is not None:
+            decision = PlannerDecision(
+                selected=chosen_tech,
+                selected_pass=chosen_pass,
+                reason=(
+                    f"highest-confidence deterministic technique with an L0 primitive; "
+                    f"selected {chosen_tech!r} → {chosen_pass!r} pass "
+                    f"(confidence={chosen_conf:.2f})"
+                ),
+                confidence=chosen_conf,
+                remaining_candidates=remaining_candidates,
+                key_required_deferred=key_required_list,
+            )
+        else:
+            decision = PlannerDecision(
+                selected=None,
+                selected_pass=None,
+                reason=_stability_gate_reason(
+                    present=present,
+                    blocking_key_required=blocking_key_required,
+                    ident=ident,
+                ),
+                confidence=0.0,
+                remaining_candidates=[t for t in present],
+                key_required_deferred=key_required_list,
+            )
 
         # ── Stability Gate ─────────────────────────────────────────
         # If nothing to run, stop with a reasoned message.
         if chosen_pass is None:
-            reason = _stability_gate_reason(
-                present=present,
-                blocking_key_required=blocking_key_required,
-                ident=ident,
-            )
+            reason = decision.reason
             stages.append(Stage(
                 iteration=i,
                 interpreter=ident.primary_interpreter,
                 interpreter_confidence=ident.confidence,
                 techniques_present=present,
+                decision=decision,
                 chosen_pass=None,
                 fired_transformations=[],
                 changed=False,
                 content_len_before=len(current),
                 content_len_after=len(current),
+                canonicality_delta=0.0,
                 stop_reason=reason,
             ))
             return PlanResult(
@@ -239,11 +298,13 @@ def plan_and_execute(content: str, max_iterations: int = _MAX_ITERATIONS) -> Pla
                 interpreter=ident.primary_interpreter,
                 interpreter_confidence=ident.confidence,
                 techniques_present=present,
+                decision=decision,
                 chosen_pass=chosen_pass,
                 fired_transformations=[],
                 changed=False,
                 content_len_before=len(current),
                 content_len_after=len(current),
+                canonicality_delta=0.0,
                 stop_reason=f"pass_execution_error:{chosen_pass}:{type(e).__name__}",
             ))
             return PlanResult(
@@ -256,16 +317,21 @@ def plan_and_execute(content: str, max_iterations: int = _MAX_ITERATIONS) -> Pla
                 final_techniques=present,
             )
 
+        len_before = len(current)
+        len_after = len(new_artifact.content)
+        delta = (len_before - len_after) / len_before if len_before else 0.0
         stage = Stage(
             iteration=i,
             interpreter=ident.primary_interpreter,
             interpreter_confidence=ident.confidence,
             techniques_present=present,
+            decision=decision,
             chosen_pass=chosen_pass,
             fired_transformations=list(record.transformations),
             changed=record.changed,
-            content_len_before=len(current),
-            content_len_after=len(new_artifact.content),
+            content_len_before=len_before,
+            content_len_after=len_after,
+            canonicality_delta=delta,
             stop_reason=None,
         )
         stages.append(stage)

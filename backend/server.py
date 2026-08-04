@@ -243,6 +243,8 @@ api.include_router(rc5_shadow_router)
 # Blueprint §10 · single-workspace hydration + state machine + workspace state.
 from routers.workspace_investigation import router as workspace_investigation_router
 api.include_router(workspace_investigation_router)
+from routers.iedde import router as iedde_router
+api.include_router(iedde_router)
 
 # Semantic Lab (Stage 3 engineering surface) — Feb 2026.
 from routers.semantic_lab import router as semantic_lab_router
