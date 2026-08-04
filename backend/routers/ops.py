@@ -1209,6 +1209,16 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
         # Enables byte-for-byte parity tests between Decode and Auto
         # Investigate for the same input.
         "canonical_artifact": _canonical_artifact.to_dict(),
+        # ▲ IEDDE SSOT · Priority 1 · 2026-02
+        # Top-level convenience surface for the IEDDE decision trace and
+        # analyst-facing recovery signals. Same data as
+        # `canonical_artifact.iedde_trace` but hoisted for easy consumption
+        # by the Workspace IEDDE Decision Trace panel + Terminal State +
+        # Canonical Confidence pills. Never overrides legacy fields.
+        "iedde": _canonical_artifact.iedde_trace,
+        "iedde_terminal_state": _canonical_artifact.iedde_terminal_state,
+        "canonical_confidence": _canonical_artifact.canonical_confidence,
+        "canonical_confidence_reason": _canonical_artifact.canonical_confidence_reason,
     }
 
     # ▲ SOC EVIDENCE — per-layer metadata (Feb-2026)

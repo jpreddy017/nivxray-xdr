@@ -134,6 +134,28 @@ class CanonicalArtifact:
     # without duplicating the L0 call.
     det_result: Optional[Dict[str, Any]] = None
 
+    # ─── IEDDE augmentation (Priority 1 · SSOT wiring · 2026-02) ────
+    # The IEDDE (Intelligent Evidence-Driven Decoding Engine) trace is
+    # attached to EVERY canonical artifact. This makes the IEDDE
+    # reasoning trace visible on every decode entry point without
+    # disrupting the legacy Workspace UI. See:
+    #   • backend/services/recipe_planner.py  (plan_and_execute)
+    #   • backend/routers/iedde.py            (dedicated SSOT endpoint)
+    #   • memory/ARCHITECTURAL_DIRECTION_IEDDE.md
+    #
+    # `iedde_trace`         · dict form of PlanResult (stages, decisions,
+    #                          terminal_state, stop_reason, binary_artifact).
+    # `iedde_terminal_state`· one of {canonical, stability_gate,
+    #                          binary_artifact_recovered}.
+    # `canonical_confidence`· 0-100 · analyst-facing completeness metric
+    #                          derived deterministically from the IEDDE
+    #                          terminal state + stop reason. NEVER a
+    #                          heuristic guess (Rule 23).
+    iedde_trace: Optional[Dict[str, Any]] = None
+    iedde_terminal_state: Optional[str] = None
+    canonical_confidence: Optional[int] = None
+    canonical_confidence_reason: Optional[str] = None
+
     # ─── Recursive safety helpers ─────────────────────────────────
     def assert_no_recursion(self) -> None:
         """Guard: callers must never feed decoded_output back through
@@ -513,6 +535,17 @@ def recover_canonical_evidence(
     input_text: str,
     analysis_mode: str = "balanced",
 ) -> CanonicalArtifact:
+    """Public entry point — thin wrapper over the core recovery that
+    ALWAYS attaches the IEDDE decision trace + canonical confidence
+    before returning (Priority 1 · SSOT · 2026-02)."""
+    art = _recover_canonical_evidence_core(input_text, analysis_mode=analysis_mode)
+    return _attach_iedde_augmentation(art)
+
+
+def _recover_canonical_evidence_core(
+    input_text: str,
+    analysis_mode: str = "balanced",
+) -> CanonicalArtifact:
     """Produce the canonical evidence recovery artifact for ``input_text``.
 
     Both ``/api/decode/smart`` and ``/api/analyze/async`` (and any future
@@ -844,6 +877,90 @@ def recover_canonical_evidence(
     return art
 
 
+# ─── IEDDE augmentation (SSOT wiring · Priority 1 · 2026-02) ────────────
+def _compute_canonical_confidence(iedde_plan_dict: Dict[str, Any]) -> Tuple[int, str]:
+    """Deterministically derive a 0-100 completeness score from the IEDDE
+    terminal state. This is analyst-facing "how complete is the
+    deterministic recovery?" — NOT a threat score.
+
+    Rule 23 anchor: never guess. Every score is tied to a specific
+    IEDDE outcome, with a reasoned justification.
+    """
+    ts = iedde_plan_dict.get("terminal_state") or "unknown"
+    reason = iedde_plan_dict.get("stop_reason") or ""
+    stages = iedde_plan_dict.get("stages") or []
+    executed = sum(1 for s in stages if s.get("chosen_pass"))
+    # -- Full canonical text recovered ---------------------------------
+    if ts == "canonical":
+        return 100, "canonical_reached:no_further_deterministic_techniques_detected"
+    # -- Executable / container recovered (decoding done, switch to    -
+    #    binary analysis) --------------------------------------------
+    if ts == "binary_artifact_recovered":
+        return 100, f"canonical_binary_recovered:decoding_phase_complete;iterations_executed={executed}"
+    # -- Stability gate: analyze the reason ---------------------------
+    if ts == "stability_gate":
+        # Key-required deferrals (AES/RC4/XOR without a known key) are
+        # explicitly a "canonical up to the crypto boundary" state.
+        if "remaining_layer:" in reason and "key" in reason.lower():
+            return 85, f"deterministic_recovery_completed_up_to_crypto_boundary:{reason}"
+        # Unmapped technique — engine detected a primitive we don't yet
+        # own. Recovery ran as far as it could.
+        if "no_deterministic_primitive_registered" in reason:
+            return 70, f"deterministic_recovery_partial:{reason}"
+        # Chosen pass produced no change — the L0 primitive detected
+        # a technique but couldn't materially transform the artifact.
+        if "chosen_pass_produced_no_change" in reason:
+            return 60, f"deterministic_recovery_partial_no_change:{reason}"
+        # Duplicate fingerprint — engine did make progress but got stuck.
+        if "duplicate_fingerprint" in reason:
+            return 55, f"deterministic_recovery_partial_no_progress:{reason}"
+        # Fallback stability_gate.
+        return 50, f"deterministic_recovery_partial:{reason or 'stability_gate'}"
+    # -- Unknown terminal state — surface transparently ----------------
+    return 30, f"unknown_terminal_state:{ts};stop_reason={reason}"
+
+
+def _run_iedde_safe(input_text: str) -> Optional[Dict[str, Any]]:
+    """Run the IEDDE recipe planner and return its trace dict.
+
+    Never raises. If the planner fails, returns None and the artifact
+    is left un-augmented (legacy path unaffected).
+    """
+    try:
+        from services.recipe_planner import plan_and_execute
+        plan = plan_and_execute(input_text or "", max_iterations=32)
+        return plan.to_dict()
+    except Exception:
+        log.exception("IEDDE planner failed safely (canonical artifact still returned)")
+        return None
+
+
+def _attach_iedde_augmentation(art: CanonicalArtifact) -> CanonicalArtifact:
+    """Attach the IEDDE decision trace + canonical confidence to any
+    canonical artifact. Additive only — never mutates decoded_output,
+    chain_steps, or terminal_state.
+
+    This makes the IEDDE engine the *observable* SSOT for every decode
+    entry point (Rule 25 · SSOT · Priority 1 owner directive) without
+    disrupting the legacy Workspace UI. Consumers that render the
+    IEDDE Decision Trace panel and the Canonical Confidence / Terminal
+    State pills read from these fields.
+    """
+    # Terminal states where IEDDE augmentation is not meaningful
+    # (atomic IOC / multi-fragment fan-out are pre-decode surfaces).
+    if art.terminal_state in ("atomic_ioc", "multi_fragment"):
+        return art
+    trace = _run_iedde_safe(art.raw_input or "")
+    if not trace:
+        return art
+    art.iedde_trace = trace
+    art.iedde_terminal_state = trace.get("terminal_state")
+    score, reason = _compute_canonical_confidence(trace)
+    art.canonical_confidence = score
+    art.canonical_confidence_reason = reason
+    return art
+
+
 # ─── Convenience async wrapper ──────────────────────────────────────────
 async def recover_canonical_evidence_async(
     input_text: str,
@@ -856,6 +973,8 @@ async def recover_canonical_evidence_async(
     responsive during heavy decodes (xor-brute, L3 dispatch).
     """
     from routers.helpers.decode_offload import run_offloaded
+    # `recover_canonical_evidence` already applies IEDDE augmentation
+    # internally — no double-run needed.
     return await run_offloaded(
         recover_canonical_evidence, input_text, analysis_mode=analysis_mode,
     )

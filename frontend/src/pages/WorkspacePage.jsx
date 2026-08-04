@@ -25,6 +25,8 @@ import OpenInvestigationButton from "@/workspace_v4/OpenInvestigationButton";
 import AnalystQuickActions from "@/components/AnalystQuickActions";
 import AnalystResults from "@/components/AnalystResults";
 import DecodingTracePanel from "@/components/DecodingTracePanel";
+import IEDDEDecisionTrace from "@/components/IEDDEDecisionTrace";
+import RecoveryStatusRibbon from "@/components/RecoveryStatusRibbon";
 import HistoryDrawer from "@/components/HistoryDrawer";
 import CasesDrawer from "@/components/CasesDrawer";
 import ProcessTreeView from "@/components/ProcessTreeView";
@@ -140,6 +142,12 @@ export default function WorkspacePage() {
   // Learning Feedback Loop
   const [boost, setBoost] = useState(null);
   const [boostHit, setBoostHit] = useState(false);
+  // ▲ IEDDE SSOT (Priority 1/2/3 · 2026-02) — decision trace + canonical
+  // recovery signals surfaced from /api/decode/smart and /api/analyze/async.
+  const [iedde, setIedde] = useState(null);
+  const [iddeTerminalState, setIeddeTerminalState] = useState(null);
+  const [canonicalConfidence, setCanonicalConfidence] = useState(null);
+  const [canonicalConfidenceReason, setCanonicalConfidenceReason] = useState(null);
   // ONE-BUTTON UX — collapse Smart/AI/Auto Investigate/Troubleshoot into ADVANCED
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [chainOpen, setChainOpen] = useState(false);
@@ -532,6 +540,11 @@ export default function WorkspacePage() {
     setVerdictCard(null);
     setSemantic(null);
     setInvestigation(null);
+    // ▲ IEDDE reset (Priority 1 · 2026-02)
+    setIedde(null);
+    setIeddeTerminalState(null);
+    setCanonicalConfidence(null);
+    setCanonicalConfidenceReason(null);
     try { localStorage.removeItem("nvx.pendingInput"); } catch {}
   };
 
@@ -545,6 +558,25 @@ export default function WorkspacePage() {
   // the AGGREGATE as the top-level Output / Recipe / Attack Graph / KILL
   // CHAIN so nothing is truncated. The full per-stage drill-down is
   // rendered by ChainStageEditor which we auto-open below.
+  // ▲ IEDDE SSOT helper — apply IEDDE decision trace + canonical
+  // confidence pulled from any /api/decode/smart or /api/analyze/async
+  // response envelope. Backend guarantees these fields are populated
+  // for every decode entry point (Priority 1 · 2026-02).
+  const applyIeddeFromResponse = (data) => {
+    if (!data || typeof data !== "object") return;
+    if (data.iedde !== undefined) setIedde(data.iedde || null);
+    if (data.iedde_terminal_state !== undefined)
+      setIeddeTerminalState(data.iedde_terminal_state || null);
+    if (data.canonical_confidence !== undefined)
+      setCanonicalConfidence(
+        typeof data.canonical_confidence === "number"
+          ? data.canonical_confidence
+          : null,
+      );
+    if (data.canonical_confidence_reason !== undefined)
+      setCanonicalConfidenceReason(data.canonical_confidence_reason || null);
+  };
+
   const runChainAnalysis = async (parts) => {
     setLoading(true);
     setStatus(`MULTI-COMMAND CHAIN DETECTED · analysing ${parts.length} stages…`);
@@ -673,6 +705,7 @@ export default function WorkspacePage() {
     setStatus("REVERTED · analysing as flat blob…");
     try {
       const r = await api.post("/decode/smart", { input });
+      applyIeddeFromResponse(r.data);
       const d = r.data || {};
       // Feb 2026 · v1.5.3 · OUTPUT panel authority.
       // The v1.5.1 backend hotfix promotes the RTE decoder trace and the
@@ -764,6 +797,7 @@ export default function WorkspacePage() {
     try {
       // Step 1 · deterministic (archetype + smart/magic race + boost)
       const r = await api.post("/decode/smart", { input });
+      applyIeddeFromResponse(r.data);
       const conf = r.data.confidence ?? 0;
       const eng = r.data.engine || "?";
       const outLen = (r.data.output || "").length;
@@ -882,6 +916,7 @@ export default function WorkspacePage() {
       const url = smart ? "/decode/smart" : "/ai/auto-decode";
       const payload = smart ? { input, disable_boost, mode: recoveryMode } : { input };
       const r = await api.post(url, payload);
+      if (smart) applyIeddeFromResponse(r.data);
       setSteps((r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} })));
 
       // Anti-hallucination guard — if backend refused to emit a decode (SOC-mode
@@ -1101,6 +1136,8 @@ export default function WorkspacePage() {
           chain: chainVal,
           streaming: d.status !== "done" && d.status !== "error",
         }));
+        // ▲ IEDDE SSOT · async job also carries IEDDE fields.
+        applyIeddeFromResponse(d);
         setStatus(`▸ ${(d.phase || "running").toUpperCase()} · ${d.progress || 0}%${d.elapsed_s ? " · " + d.elapsed_s + "s" : ""}`);
         if (d.status === "done") {
           // ARB Governance Rule 12 · verdict_card is the canonical source.
@@ -1149,6 +1186,7 @@ export default function WorkspacePage() {
     try {
       // 1) Deterministic decode first (fast — now uses smart+magic race for deepest chain)
       const r = await api.post("/decode/smart", { input });
+      applyIeddeFromResponse(r.data);
       const newSteps = (r.data.recipe || []).map((s) => ({ op: s.op, args: s.args || {} }));
       setSteps(newSteps);
       // Feb 2026 · v1.5.5 · Shared canonical output selector — same
@@ -2347,6 +2385,41 @@ export default function WorkspacePage() {
                 boostHit={boostHit}
                 engine={decodeWinnerEngine}
                 onRerun={(opts) => autoDecode({ smart: true, ...opts })}
+              />
+            </div>
+          )}
+
+          {/* ▲ Recovery Status Ribbon (Priority 3 · 2026-02)
+              Splits threat vs canonical confidence and surfaces the IEDDE
+              terminal state. Additive — does NOT replace any existing panel. */}
+          {(iddeTerminalState || canonicalConfidence != null || verdictCard) && (
+            <div style={{ margin: "0 12px" }}>
+              <RecoveryStatusRibbon
+                threatConfidence={
+                  typeof verdictCard?.confidence === "number"
+                    ? verdictCard.confidence
+                    : typeof decodeConfidence === "number"
+                    ? decodeConfidence
+                    : null
+                }
+                canonicalConfidence={canonicalConfidence}
+                canonicalConfidenceReason={canonicalConfidenceReason}
+                terminalState={iddeTerminalState}
+                binaryArtifact={iedde?.binary_artifact || null}
+              />
+            </div>
+          )}
+
+          {/* ▲ IEDDE Decision Trace panel (Priority 2 · 2026-02)
+              First-class visibility for the Intelligent Evidence-Driven
+              Decoding Engine's reasoning trace. Additive · collapsible. */}
+          {iedde && (
+            <div style={{ margin: "0 12px" }}>
+              <IEDDEDecisionTrace
+                iedde={iedde}
+                canonicalConfidence={canonicalConfidence}
+                canonicalConfidenceReason={canonicalConfidenceReason}
+                defaultOpen={false}
               />
             </div>
           )}

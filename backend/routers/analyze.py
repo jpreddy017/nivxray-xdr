@@ -353,6 +353,11 @@ async def _run_analysis_job(job_id: str, body: AnalyzeIn, user: Optional[Dict[st
 
         await _job_set(job_id, {
             "canonical_artifact": artifact.to_dict(),
+            # ▲ IEDDE SSOT · Priority 1 · 2026-02
+            "iedde": artifact.iedde_trace,
+            "iedde_terminal_state": artifact.iedde_terminal_state,
+            "canonical_confidence": artifact.canonical_confidence,
+            "canonical_confidence_reason": artifact.canonical_confidence_reason,
             "phase": "extract", "progress": 10,
         })
 
