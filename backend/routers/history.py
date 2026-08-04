@@ -352,6 +352,10 @@ async def list_history(
     ioc: str = "",               # match against any IOC value
     mitre: str = "",             # match against MITRE technique id
     tag: str = "",
+    # ▲ 2026-02 · Owner enhancement · rich filters aligned with the
+    # IEDDE SSOT signals persisted on every history row.
+    interpreter: str = "",       # powershell | cmd | bash | python | perl | php | ruby
+    terminal_state: str = "",    # canonical | binary_artifact_recovered | stability_gate | partial_recovery
     since_days: int = 0,         # 0 = no time filter
     limit: int = 40,
     skip: int = 0,
@@ -392,12 +396,29 @@ async def list_history(
         ]
     if mitre:
         query["mitre.id"] = mitre
+    # ▲ IEDDE-aware filters — Interpreter is stored inside the IEDDE trace
+    # (`stages[0].interpreter` / `iedde.final_interpreter`). Terminal state
+    # is hoisted to the top-level `iedde_terminal_state` field on every row.
+    if interpreter:
+        query["$or"] = (query.get("$or") or []) + [
+            {"iedde.final_interpreter": interpreter},
+            {"iedde.stages.0.interpreter": interpreter},
+        ]
+    if terminal_state:
+        query["iedde_terminal_state"] = terminal_state
     if since_days > 0:
         cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
         query["ts"] = {"$gte": cutoff}
     # LIST projection — omit the full `input` / `output` fields (can be large).
     # The row cards only need previews; RESTORE fetches the full doc via /history/{id}.
-    _list_proj = {"input": 0, "output": 0, "trace": 0, "stages": 0, "aggregate": 0}
+    # ▲ Keep the top-level IEDDE fields (iedde_terminal_state, canonical_confidence,
+    # canonical_confidence_reason) AND a slim iedde subset (final_interpreter +
+    # first stage.interpreter) so rich case cards can render without a per-row
+    # network roundtrip. Drop the huge `iedde.stages` array — restore fetches it.
+    _list_proj = {
+        "input": 0, "output": 0, "trace": 0, "stages": 0, "aggregate": 0,
+        "iedde.stages": 0, "iedde.canonical_output": 0,
+    }
     cur = db.investigations.find(query, _list_proj).sort("ts", -1).skip(max(0, skip)).limit(max(1, min(200, limit)))
     items = [_serialize(d) async for d in cur]
     total = await db.investigations.count_documents(query)

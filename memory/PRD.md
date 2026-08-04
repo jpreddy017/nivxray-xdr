@@ -19,6 +19,47 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02 · IEDDE SSOT Wiring (Priority 1 + 2 + 3 · shipped)
 
+### 🟢 2026-02 · Nav Consolidation + History as First-Class Case Manager
+
+Owner-approved nav restructure delivered in two follow-up cycles:
+
+**Cycle 1 — INVESTIGATE tab removed · HISTORY became the top-level Case Manager.**
+
+  - The primary nav no longer duplicates the investigation surface —
+    investigation is a *mode* of the Workspace, not a separate page.
+  - `/history` is a full-page route (`pages/HistoryPage.jsx`) with the
+    Header nav visible so analysts can toggle between Workspace and
+    History freely.
+  - RESTORE stashes the record id in `sessionStorage["nvx_restore_history_id"]`
+    and routes to `/`. The Workspace picks it up on mount and rehydrates
+    every panel including the new IEDDE surfaces (decision trace,
+    Recovery Status ribbon with Threat Confidence + Canonical Confidence
+    + Terminal State, verdict card, IOCs, MITRE, chain trace, notes).
+  - Backend `/api/history` persists the IEDDE fields on every record
+    (`iedde`, `iedde_terminal_state`, `canonical_confidence`,
+    `canonical_confidence_reason`, `verdict_card`) so RESTORE is fully
+    reversible without a re-decode.
+  - `+ TRAINING NOTE` floating button removed from every analytical
+    surface — it now only appears on `/docs` and `/kb`.
+
+**Cycle 2 — History Case Manager enhancements (Rec 1/2/3 · shipped).**
+
+  - **Rec 1 · Rich filters** — added `interpreter` (PowerShell/CMD/Bash/
+    Python/Perl/PHP/Ruby) and `terminal_state` (Canonical/Binary
+    Recovered/Stability Gate/Partial Recovery) dropdowns on the History
+    filter row, backed by matching Mongo predicates on the
+    `/api/history` GET endpoint.
+  - **Rec 2 · Action menu** — every row now has a `⋯` menu with
+    Open in New Tab · Duplicate Case · Export JSON · Delete, in addition
+    to the primary RESTORE button.
+  - **Rec 3 · Rich Case Cards** — each row shows a scannable chip row:
+    Verdict severity pill · Interpreter chip · Terminal State pill ·
+    Canonical Confidence % · top-1 MITRE technique (id + short name) ·
+    input preview (2-line clamp) · engine + IOC + MITRE counts · run
+    count · time-ago.
+
+### 🟢 2026-02 · IEDDE SSOT Wiring (Priority 1 + 2 + 3 · shipped)
+
 Owner-approved bundle delivered in a single implementation cycle:
 
 **Priority 1 — Backend SSOT wiring.** The Intelligent Evidence-Driven
