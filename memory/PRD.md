@@ -23,6 +23,38 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02 · Phase 2 · Broken Payload Diagnostics + Favorites (owner-approved · shipped)
 
+### 🟢 2026-02 · Phase 3 · Cycle A · Artifact Intelligence Layer + PDF (owner-approved · shipped)
+
+The IEDDE pipeline now dispatches recovered artifacts through a
+registry-based Artifact Intelligence Layer instead of hard-coding PE
+analysis. New analyzer types plug in with one `register()` call, exactly
+like the Technique Detector.
+
+  - `services/artifact_intelligence/__init__.py` — `Analyzer` protocol,
+    `register()`, `registered_types()`, `dispatch(bytes) → AnalysisResult`.
+    Deterministic (Rule 21), never raises.
+  - `services/artifact_intelligence/analyzers/pe.py` — thin adapter over
+    the existing `services.pe_analyzer` (no behavior change).
+  - `services/artifact_intelligence/analyzers/pdf.py` — new deterministic
+    `pypdf`-based analyzer with overview, JavaScript actions, /Open
+    actions, /Launch actions, embedded files, URLs, and analyst-oriented
+    findings (severity-sorted). Fallback report with raw URL scan when
+    pypdf refuses the payload.
+  - `routers/artifacts.py` — `GET /api/artifacts/capabilities` +
+    `POST /api/artifacts/analyze` (accepts `bytes_b64`, `canonical_output`,
+    or `history_id`).
+  - `services/recipe_planner.py` — new `_ARTIFACT_MAGIC` list (currently
+    just `%PDF-`) so text-heavy artifacts flow through the router.
+    `BinaryArtifact` carries both the legacy `pe_analysis` (backwards
+    compat) and the new `routed_analysis` (full `AnalysisResult.to_dict()`).
+  - `components/ArtifactAnalysisPanel.jsx` — thin dispatcher.
+    `components/PDFAnalysisPanel.jsx` — new PDF renderer.
+    `WorkspacePage.jsx` — router-dispatch replaces the PE-only wiring
+    while keeping the legacy PE panel path working.
+  - **Certification (iteration_59)**: 52/52 backend pytest + 8/8 router
+    tests + DCS 17/17 + R1 107/107 · 0 issues, 5 positive code-review
+    comments. Live PDF analysis verified end-to-end.
+
 Two additive engine-explainability and case-manager enhancements
 delivered in a single cycle. YARA Auto-Match remains deferred to
 Phase 3 (yara-python not installed in this pod, deployment must be
