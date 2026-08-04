@@ -51,7 +51,17 @@ export default function FloatingAddNoteButton() {
   const [syncMeta, setSyncMeta] = useState(null); // {source, fetched, summary}
 
   if (!user || user.role !== "admin") return null;
-  if (pathname === "/login") return null;
+  // 2026-02 · Owner nav-consolidation directive — TRAINING NOTE is a
+  // documentation authoring tool. It should only appear inside the
+  // knowledge / documentation surfaces (Docs · Knowledge Base) so it
+  // never clutters the investigation flow. Analysts should not see this
+  // floating button on the Workspace, History, Trajectory, Batch,
+  // Heatmap, X-Lab, or any other analytical surface.
+  const ALLOWED_PATHS = ["/docs", "/kb"];
+  const isAllowed = ALLOWED_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+  if (!isAllowed) return null;
 
   const validUrl = /^https?:\/\/[^\s]+$/i.test(refUrl.trim());
 

@@ -1782,6 +1782,14 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             iocs=result.get("iocs") or {},
             mitre=result.get("mitre") or [],
             verdict=verdict_summary,
+            # ▲ IEDDE SSOT (2026-02) — persist so History rehydrate can
+            # restore the IEDDE Decision Trace panel + Recovery Status
+            # ribbon on case restore without another decode.
+            iedde=_canonical_artifact.iedde_trace,
+            iedde_terminal_state=_canonical_artifact.iedde_terminal_state,
+            canonical_confidence=_canonical_artifact.canonical_confidence,
+            canonical_confidence_reason=_canonical_artifact.canonical_confidence_reason,
+            verdict_card=result.get("verdict_card"),
         )
     except Exception:
         pass

@@ -3,9 +3,16 @@ import api from "@/lib/api";
 import { X, Star, Tag as TagIcon, StickyNote, Download, Upload, Trash2, Search } from "lucide-react";
 
 /**
- * HistoryDrawer — slide-out panel showing the analyst's investigation history.
+ * HistoryDrawer — investigation history panel.
  *
- * Features (matches Feb-2026 approved spec):
+ * Ships in two layouts (2026-02 · owner nav-consolidation directive):
+ *   • layout="drawer" (default) — right-side slide-out with dimmed backdrop.
+ *   • layout="page"             — in-flow full-page shell (used by
+ *                                  /pages/HistoryPage.jsx). No backdrop,
+ *                                  no fixed positioning, no CLOSE control
+ *                                  in the header (parent page owns nav).
+ *
+ * Features (unchanged from Feb-2026 approved spec):
  *   • Auto-populated from every /decode/smart + /ai/auto-investigate run
  *   • Dedup by input SHA-256 hash (re-runs bump run_count instead of duplicating)
  *   • Star/Pin (survives 30-day TTL cleanup)
@@ -16,11 +23,12 @@ import { X, Star, Tag as TagIcon, StickyNote, Download, Upload, Trash2, Search }
  *   • Bulk actions: EXPORT ALL (JSON), IMPORT (from previous export)
  *
  * Props:
- *   open            bool
- *   onClose         () => void
- *   onRehydrate     (record) => void        — pushes input+recipe+trace back into workspace
+ *   open            bool                — ignored when layout="page"
+ *   onClose         () => void          — omitted when layout="page"
+ *   onRehydrate     (record) => void    — pushes input+recipe+trace back into workspace
+ *   layout          "drawer" | "page"   — default "drawer"
  */
-export default function HistoryDrawer({ open, onClose, onRehydrate }) {
+export default function HistoryDrawer({ open, onClose, onRehydrate, layout = "drawer" }) {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -35,8 +43,13 @@ export default function HistoryDrawer({ open, onClose, onRehydrate }) {
   const [sinceDays, setSinceDays] = useState(0);
   const [editing, setEditing] = useState(null); // {id, tags:'', notes:''}
 
+  const isPage = layout === "page";
+
+  // The list must always fetch when this component mounts as a page —
+  // there is no `open` toggle in that mode.
+  const _openFlag = isPage ? true : open;
   const fetchItems = useCallback(async () => {
-    if (!open) return;
+    if (!_openFlag) return;
     setLoading(true);
     try {
       const params = { limit: 100 };
@@ -56,7 +69,7 @@ export default function HistoryDrawer({ open, onClose, onRehydrate }) {
       console.warn("history load failed:", e);
     }
     setLoading(false);
-  }, [open, q, ioc, mitre, engine, verdict, starredOnly, shellcodeOnly, chainsOnly, sinceDays]);
+  }, [_openFlag, q, ioc, mitre, engine, verdict, starredOnly, shellcodeOnly, chainsOnly, sinceDays]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -118,25 +131,46 @@ export default function HistoryDrawer({ open, onClose, onRehydrate }) {
     return `${Math.floor(dt / 86400)}d ago`;
   };
 
-  if (!open) return null;
+  if (!isPage && !open) return null;
 
-  return (
-    <div
-      data-testid="history-drawer"
-      style={{
+  // Outer wrapper: dimmed overlay for drawer, in-flow full-page container
+  // for the /history route. Both variants render the same shell inside.
+  const outerStyle = isPage
+    ? {
+        position: "relative",
+        width: "100%",
+        minHeight: "100%",
+        background: "var(--bg, transparent)",
+      }
+    : {
         position: "fixed", inset: 0, zIndex: 60,
         background: "rgba(0,0,0,0.55)",
         display: "flex", justifyContent: "flex-end",
-      }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      };
+
+  const shellStyle = isPage
+    ? {
+        width: "100%",
+        minHeight: "calc(100vh - 60px)",
+        background: "var(--surface)",
+        display: "flex", flexDirection: "column",
+      }
+    : {
+        width: "min(720px, 100vw)", height: "100vh",
+        background: "var(--surface)", display: "flex", flexDirection: "column",
+      };
+
+  return (
+    <div
+      data-testid={isPage ? "history-page" : "history-drawer"}
+      style={outerStyle}
+      onClick={
+        isPage
+          ? undefined
+          : (e) => { if (e.target === e.currentTarget) onClose?.(); }
+      }
     >
-      <div
-        className="brut-border"
-        style={{
-          width: "min(720px, 100vw)", height: "100vh",
-          background: "var(--surface)", display: "flex", flexDirection: "column",
-        }}
-      >
+      <div className={isPage ? "" : "brut-border"} style={shellStyle}>
         {/* HEADER */}
         <div style={{
           padding: "14px 18px", borderBottom: "1px solid var(--border)",
@@ -157,7 +191,8 @@ export default function HistoryDrawer({ open, onClose, onRehydrate }) {
             <input type="file" accept="application/json" onChange={importBundle} style={{ display: "none" }}
                    data-testid="input-history-import" />
           </label>
-          <button className="nvx-btn sm ghost" onClick={onClose} data-testid="btn-history-close">
+          <button className="nvx-btn sm ghost" onClick={onClose} data-testid="btn-history-close"
+                  style={{ display: isPage ? "none" : undefined }}>
             <X size={11} /> CLOSE
           </button>
         </div>

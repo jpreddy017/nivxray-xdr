@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth";
 import {
   LogOut, LayoutGrid, Cog, Sparkles, Beaker, Terminal, BookOpen,
   KeyRound, Rss, TestTube, GraduationCap, Grid, Wrench, Library, Gauge, FolderOpen,
-  BarChart3, Battery, Radar, Upload, ShieldCheck, Zap,
+  BarChart3, Battery, Radar, Upload, ShieldCheck, Zap, History as HistoryIcon,
 } from "lucide-react";
 
 export default function Header() {
@@ -20,11 +20,14 @@ export default function Header() {
 
   // Primary tabs — always visible, high-usage. Routed via NavTabs
   // (variant="nav") so all pages inherit the DetectFlow design system.
-  // Admin-only tools (INGEST · VALIDATION · BENCHMARK · BATTERY) live
-  // inside Admin → quick-links (see AdminPage.jsx).
+  //
+  // 2026-02 · Nav Consolidation (owner directive) — INVESTIGATE tab
+  // removed. Investigation is a *mode* of the Workspace, not a separate
+  // page. HISTORY is a full-page investigation listing; restoring a
+  // case returns to the Workspace with full state rehydrated.
   const primary = [
     { key: "workspace",   href: "/",              label: "WORKSPACE",   icon: LayoutGrid, testId: "nav-workspace" },
-    { key: "investigate", href: "/investigate",   label: "INVESTIGATE", icon: ShieldCheck, testId: "nav-investigate", title: "SOC Investigation Workspace (L4) · PR-4 Summary + Story lenses" },
+    { key: "history",     href: "/history",       label: "HISTORY",     icon: HistoryIcon, testId: "nav-history", title: "Investigation history · restore any past case with full state" },
     { key: "trajectory",  href: "/v2/trajectory", label: "TRAJECTORY",  icon: Radar,      testId: "nav-trajectory" },
     { key: "batch",       href: "/batch-test",    label: "BATCH",       icon: TestTube,   testId: "nav-batch-test" },
     { key: "heatmap",     href: "/heatmap",       label: "HEATMAP",     icon: Grid,       testId: "nav-heatmap" },

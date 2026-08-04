@@ -322,6 +322,15 @@ export default function WorkspacePage() {
     setVerdictCard(full.verdict_card || null);
     setCorruptedContainer(full.corrupted_container || null);
     setReachedShellcode(!!full.reached_shellcode);
+    // ▲ IEDDE SSOT rehydrate (2026-02 · Priority 1/2/3) — restores the
+    // Recovery Status ribbon + IEDDE Decision Trace panel so the analyst
+    // lands on exactly the state the previous investigation ended in.
+    setIedde(full.iedde || null);
+    setIeddeTerminalState(full.iedde_terminal_state || null);
+    setCanonicalConfidence(
+      typeof full.canonical_confidence === "number" ? full.canonical_confidence : null,
+    );
+    setCanonicalConfidenceReason(full.canonical_confidence_reason || null);
     setSteps((full.chain || []).map((op) => ({ op: (typeof op === "string" ? op : op.op), args: {} })));
     setChain((full.chain || []).map((op, i) => ({
       op: (typeof op === "string" ? op : op.op),
@@ -380,6 +389,34 @@ export default function WorkspacePage() {
   const isShellcodeClient = useMemo(() => !!detectShellcode(output || ""), [output]);
   const streamStopRef = useRef(null);
   const fileRef = useRef(null);
+
+  // ▲ Global HISTORY restore hook (2026-02 · Nav Consolidation).
+  //   • Listens for `nvx:open-history` events (legacy in-page HISTORY btn).
+  //   • On mount, checks `nvx_restore_history_id` — set by HistoryPage
+  //     when the user clicks RESTORE — and rehydrates that case so the
+  //     analyst lands on the full previous investigation.
+  useEffect(() => {
+    const onOpen = () => setHistoryOpen(true);
+    window.addEventListener("nvx:open-history", onOpen);
+    try {
+      if (window.sessionStorage.getItem("nvx_open_history") === "1") {
+        window.sessionStorage.removeItem("nvx_open_history");
+        setHistoryOpen(true);
+      }
+      const restoreId = window.sessionStorage.getItem("nvx_restore_history_id");
+      if (restoreId) {
+        window.sessionStorage.removeItem("nvx_restore_history_id");
+        (async () => {
+          try {
+            const r = await api.get(`/history/${restoreId}`);
+            if (r.data && r.data.id) rehydrateFromHistory(r.data);
+          } catch (_e) { /* noop — record may have TTL-expired */ }
+        })();
+      }
+    } catch { /* noop */ }
+    return () => window.removeEventListener("nvx:open-history", onOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     api.get("/operations").then((r) => setOps(r.data)).catch(() => {});
@@ -1537,8 +1574,10 @@ export default function WorkspacePage() {
             <X size={13} /> CANCEL
           </button>
         )}
-        <button className="nvx-btn ghost" onClick={() => setHistoryOpen(true)} data-testid="btn-open-history"
-                title="Investigation History — auto-saved for 30 days (starred entries kept forever).">
+        <button className="nvx-btn ghost"
+                onClick={() => window.location.assign("/history")}
+                data-testid="btn-open-history"
+                title="Investigation History (full page) — auto-saved for 30 days (starred entries kept forever).">
           📜 HISTORY
         </button>
         <button className="nvx-btn ghost" onClick={() => setCasesOpen(true)} data-testid="btn-open-cases"
@@ -2801,12 +2840,6 @@ export default function WorkspacePage() {
         </div>
       )}
 
-      <HistoryDrawer
-        open={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        onRehydrate={rehydrateFromHistory}
-      />
-
       <CasesDrawer
         open={casesOpen}
         onClose={() => setCasesOpen(false)}
@@ -2824,6 +2857,13 @@ export default function WorkspacePage() {
           setSteps((caseDoc.chain_ids || []).map((op) => ({ op, args: {} })));
           setChain((caseDoc.chain_ids || []).map((op) => ({ op, reason: "", output_preview: "" })));
           setAnalysis({ iocs: caseDoc.iocs || {}, mitre: caseDoc.mitre || [], ai_verdict: caseDoc.verdict });
+          // ▲ IEDDE SSOT rehydrate (2026-02) — mirror history rehydrate.
+          setIedde(caseDoc.iedde || null);
+          setIeddeTerminalState(caseDoc.iedde_terminal_state || null);
+          setCanonicalConfidence(
+            typeof caseDoc.canonical_confidence === "number" ? caseDoc.canonical_confidence : null,
+          );
+          setCanonicalConfidenceReason(caseDoc.canonical_confidence_reason || null);
           setSavedCaseName(caseDoc.name);
           setStatus(`▸ OPENED "${caseDoc.name}" (${caseDoc.engine} · ${caseDoc.confidence || 0}%)`);
         }}

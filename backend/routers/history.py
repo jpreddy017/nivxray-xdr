@@ -87,6 +87,15 @@ class HistoryRecordIn(BaseModel):
     stages: List[Dict[str, Any]] = Field(default_factory=list)
     aggregate: Dict[str, Any] = Field(default_factory=dict)
     stage_labels: List[Optional[str]] = Field(default_factory=list)
+    # ▲ IEDDE SSOT (2026-02 · Priority 1) — decision trace + canonical
+    # recovery signals attached to every /decode/smart + /analyze/async
+    # run. Persisted so History rehydrate can restore the full analyst
+    # view (IEDDE Decision Trace panel + Recovery Status ribbon).
+    iedde: Optional[Dict[str, Any]] = None
+    iedde_terminal_state: Optional[str] = None
+    canonical_confidence: Optional[int] = None
+    canonical_confidence_reason: Optional[str] = None
+    verdict_card: Optional[Dict[str, Any]] = None
 
 
 class HistoryPatchIn(BaseModel):
@@ -218,6 +227,18 @@ async def _upsert_investigation(user_email: str, body: HistoryRecordIn) -> Dict[
             set_fields["case_name"] = body.case_name[:200]
         if body.case_id:
             set_fields["case_id"] = body.case_id
+        # ▲ IEDDE SSOT (2026-02) — refresh on every re-run so the newest
+        # trace and confidence live on the row.
+        if body.iedde is not None:
+            set_fields["iedde"] = body.iedde
+        if body.iedde_terminal_state is not None:
+            set_fields["iedde_terminal_state"] = body.iedde_terminal_state
+        if body.canonical_confidence is not None:
+            set_fields["canonical_confidence"] = body.canonical_confidence
+        if body.canonical_confidence_reason is not None:
+            set_fields["canonical_confidence_reason"] = body.canonical_confidence_reason
+        if body.verdict_card is not None:
+            set_fields["verdict_card"] = body.verdict_card
         if is_chain:
             set_fields.update({
                 "stages": stored_stages,
@@ -257,6 +278,12 @@ async def _upsert_investigation(user_email: str, body: HistoryRecordIn) -> Dict[
         "last_seen": now,
         "ts": now,
         "kind": body.kind,
+        # ▲ IEDDE SSOT · 2026-02 · Priority 1
+        "iedde": body.iedde,
+        "iedde_terminal_state": body.iedde_terminal_state,
+        "canonical_confidence": body.canonical_confidence,
+        "canonical_confidence_reason": body.canonical_confidence_reason,
+        "verdict_card": body.verdict_card,
     }
     if is_chain:
         doc["stages"] = stored_stages

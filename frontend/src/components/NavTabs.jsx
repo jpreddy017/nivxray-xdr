@@ -171,11 +171,20 @@ function Tab({ item, active, size, tone, onSelect }) {
   if (item.href && !disabled) {
     return <Link to={item.href} {...commonProps}>{inner}</Link>;
   }
+  // Per-item `onClick` overrides the parent onSelect — used by
+  // header buttons that trigger UI actions instead of routing
+  // (e.g. HISTORY drawer opener · 2026-02).
+  const handleClick = disabled
+    ? undefined
+    : (e) => {
+        if (item.onClick) return item.onClick(e);
+        return onSelect?.(item.key);
+      };
   return (
     <button
       type="button"
       disabled={disabled}
-      onClick={disabled ? undefined : () => onSelect?.(item.key)}
+      onClick={handleClick}
       {...commonProps}
     >
       {inner}
