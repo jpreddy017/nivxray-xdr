@@ -215,6 +215,15 @@ api.include_router(learner_router)
 from routers.sigma import router as sigma_router
 api.include_router(sigma_router)
 api.include_router(investigations_router)
+
+# ▲ Phase 4 · P1 · Cross-Artifact Correlation (2026-02-15)
+# First-class Investigation entity (grouping of correlated cases).
+# Frontend surfaces as the "Investigations" tab; backend URL is
+# `/api/correlations/*` to avoid collision with the existing per-input
+# event-log at `/api/investigations/*`.
+from routers.correlations import router as correlations_router
+api.include_router(correlations_router)
+
 api.include_router(enrichment_router)
 api.include_router(docs_router)
 api.include_router(timeline_router)

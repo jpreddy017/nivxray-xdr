@@ -96,6 +96,11 @@ class HistoryRecordIn(BaseModel):
     canonical_confidence: Optional[int] = None
     canonical_confidence_reason: Optional[str] = None
     verdict_card: Optional[Dict[str, Any]] = None
+    # ▲ Phase 4 · P1 · Cross-Artifact Correlation (2026-02-15)
+    # Back-reference to the first-class Investigation (correlation) this
+    # case belongs to. `None` = standalone case. Set by
+    # /api/correlations/link (manual) or the auto-correlator on record.
+    correlation_id: Optional[str] = None
 
 
 class HistoryPatchIn(BaseModel):

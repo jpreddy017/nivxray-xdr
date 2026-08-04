@@ -31,19 +31,47 @@ its dependency is absent.
 Correlate related artifacts into **one deterministic investigation**, not four
 independent reports.
 
+**Architectural rule (owner directive · 2026-02-15):**
+> **An Investigation is a first-class entity, not a collection of linked cases.**
+> Cases remain atomic records; the Investigation becomes the analyst's primary
+> working object with its own timeline, evidence graph, threat summary, attack
+> story, artifacts, cases, and relationships.
+
+**Owner-locked design (2026-02-15):**
+- **1c + 1d — Correlation trigger:** Auto-chain child artifacts within the same
+  decode/session (recursive inline chaining, ALWAYS auto), PLUS auto-suggest
+  cross-case correlations from deterministic shared evidence (hashes, URLs,
+  C2, IOC overlap, MITRE overlap) for analyst confirm/dismiss.
+- **2c — Data model:** Hybrid — new `investigations` collection + each case
+  carries `investigation_id` back-reference. Cases stay atomic; investigations
+  evolve independently.
+- **3c — Visualization:** Chain View (default, top-to-bottom attack progression)
+  + Graph View (deep-dive force-directed evidence graph) with a toggle.
+- **4c — UI placement:** New top-level **INVESTIGATIONS** tab peer to HISTORY.
+  HISTORY continues to show all cases; member cases display an
+  "Investigation: <name>" badge with click-through to the investigation.
+- **5d — Scope (Full P1):** Manual linking · auto suggestions · evidence graph ·
+  unified timeline · provenance back-links · **recursive inline chaining**
+  (NOT deferred — foundational to preserving provenance at capture time).
+
 Example chain:
 ```
 Email (.eml) → Office Document → PowerShell → PE Payload → Persistence
 ```
 
 Deliverables:
-- Unified attack chain with artifact-to-artifact edges
-- Shared evidence graph (hashes, IOCs, URLs, C2, MITRE techniques)
+- Unified attack chain with artifact-to-artifact edges + edge provenance
+- Shared evidence graph (nodes = artifacts + IOCs; edges = relationships)
 - Unified timeline across all artifacts in the investigation
-- Consolidated `ThreatSummaryCard` at the investigation level
-- Deterministic MITRE aggregation (union of techniques with evidence back-links)
-- Provenance preserved end-to-end (which artifact produced which finding)
-- Must be a complete feature, not a preview
+- Consolidated `InvestigationThreatSummaryCard` at investigation level
+- Deterministic MITRE aggregation (union with evidence back-links)
+- Recursive inline chaining wired into `recipe_planner` — when a decode
+  surfaces child artifacts, they auto-attach to the same investigation with
+  `source=inline_recursive`.
+- Cross-case correlator: deterministic evidence matcher emitting confidence-
+  scored suggestions the analyst approves/dismisses.
+- New INVESTIGATIONS tab + investigation-detail page (Chain / Graph / Timeline).
+- Ships as a complete feature, not a preview.
 
 ### P2 · Compare Cases (⏸️ queued)
 Side-by-side diff of two cases across:

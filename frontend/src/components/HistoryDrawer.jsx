@@ -371,6 +371,26 @@ export default function HistoryDrawer({ open, onClose, onRehydrate, layout = "dr
                 try { window.sessionStorage.setItem("nvx_restore_history_id", String(it.id)); } catch { /* noop */ }
                 window.open("/", "_blank", "noopener");
               }}
+              onStartInvestigation={async () => {
+                // Phase 4 · P1 · Cross-Artifact Correlation (2026-02-15)
+                // If the case is already part of an investigation, open it.
+                // Otherwise create a new one and navigate to its detail view.
+                try {
+                  if (it.correlation_id) {
+                    window.location.assign(`/investigations/${it.correlation_id}`);
+                    return;
+                  }
+                  const r = await api.post("/correlations", {
+                    root_case_id: it.id,
+                    name: it.case_name ? `Investigation · ${it.case_name}` : undefined,
+                  });
+                  const cid = r.data?.correlation?.id;
+                  if (cid) window.location.assign(`/investigations/${cid}`);
+                } catch (e) {
+                  console.warn("start-investigation failed", e);
+                  alert(e?.response?.data?.detail || "Failed to start investigation");
+                }
+              }}
               relTime={relTime}
             />
           ))}
@@ -421,7 +441,7 @@ export default function HistoryDrawer({ open, onClose, onRehydrate, layout = "dr
 // The card falls back gracefully when the IEDDE fields are absent (legacy
 // records saved before Feb-2026) — verdict pill + input preview always render.
 function HistoryRow({
-  item, onOpen, onStar, onDelete, onEdit, onExport, onDuplicate, onOpenNewTab, relTime,
+  item, onOpen, onStar, onDelete, onEdit, onExport, onDuplicate, onOpenNewTab, onStartInvestigation, relTime,
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const menuRef = React.useRef(null);
@@ -588,6 +608,24 @@ function HistoryRow({
           </span>
         )}
 
+        {/* Phase 4 · P1 · Investigation badge — links this case to its
+            parent Investigation (correlation). Click to open. */}
+        {item.correlation_id && (
+          <a
+            href={`/investigations/${item.correlation_id}`}
+            data-testid={`history-correlation-badge-${item.id}`}
+            title="Part of an Investigation · click to open"
+            style={{
+              ...chipStyle,
+              color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.35)",
+              background: "rgba(139,92,246,0.10)",
+              textDecoration: "none",
+            }}
+          >
+            ▪ INVESTIGATION
+          </a>
+        )}
+
         {isChain && (
           <span
             data-testid={`chain-badge-${item.id}`}
@@ -692,6 +730,10 @@ function HistoryRow({
               <MenuItem testId={`btn-open-new-tab-${item.id}`}
                         onClick={() => { setMenuOpen(false); onOpenNewTab?.(); }}>
                 🗔  Open in New Tab
+              </MenuItem>
+              <MenuItem testId={`btn-start-investigation-${item.id}`}
+                        onClick={() => { setMenuOpen(false); onStartInvestigation?.(); }}>
+                ▪  {item.correlation_id ? "Open Investigation" : "Start Investigation"}
               </MenuItem>
               <MenuItem testId={`btn-duplicate-${item.id}`}
                         onClick={() => { setMenuOpen(false); onDuplicate?.(); }}>
