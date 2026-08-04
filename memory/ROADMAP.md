@@ -8,6 +8,20 @@ No feature moves to the next phase until the phase it lives in is production-qua
 
 ---
 
+## Phase 3 · Artifact Intelligence Layer — status (Feb 2026)
+
+- ✅ **Cycle A** — PE Static Analyzer (`pefile`)
+- ✅ **Cycle B** — PDF + Office OOXML Analyzers + `ThreatSummaryCard`
+- ✅ **Cycle C** — **ELF Analyzer** (Feb 2026, iteration_61 · 33/33 green · 100% frontend)
+- ⏭️ **Cycle D — P1 · Cross-Artifact Correlation** (next up)
+- ⏸️ **Cycle E — P2 · Compare Cases** (queued)
+- ⏸️ **Cycle F — P3 · Saved Collections** (queued)
+- ⏸️ **Cycle G — P4 · Additional Analyzers** (Mach-O, ZIP/7z/RAR native)
+- 🚫 **YARA Auto-Match** — HOLD until `yara-python` is available in the environment.
+   Do NOT implement placeholder UI.
+
+---
+
 ## P0 — Complete Investigation Experience (in-flight)
 Hard block on any new capability until every box below is checked. Verified against
 the six analyst tasks in `USABILITY_REVIEW.md`.

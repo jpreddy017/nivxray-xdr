@@ -2,6 +2,48 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-15 · Phase 3 · Cycle C — ELF Analyzer — COMPLETE · 100/100
+
+**Ships (4th artifact type in the Artifact Intelligence Layer):**
+- **Backend** `backend/services/artifact_intelligence/analyzers/elf.py` — Full ELF
+  static analyzer built on `pyelftools` v0.33. Extracts: overview (class/machine/type/
+  entry/ABI/endianness), hashes (md5+sha1+sha256), sections, segments, dynamic
+  entries, symbols, notes, entropy, RWX segments, executable stack, stripped flag,
+  static vs dynamic linkage. Findings surfaced with severity + code + title + detail
+  (statically_linked · medium, stripped · low, exec_stack · high, rwx_segment · high).
+- **Frontend** `frontend/src/components/ELFAnalysisPanel.jsx` — Artifact-first panel:
+  Overview → Security signals → Sections → Segments → Symbols/Dynamic → Notes.
+  Wired into `ArtifactAnalysisPanel.jsx` dispatcher and surfaces verdict/risk chips
+  through the shared `ThreatSummaryCard`.
+- **Routing** — Auto-registered into `artifact_intelligence.__init__` registry;
+  magic-matcher `\x7fELF` routes deterministically with `confidence=99`.
+- **Graceful degradation** — Truncated/malformed ELFs return HTTP 200 with a
+  controlled analysis payload (no 500s). If `pyelftools` were absent the analyzer
+  advertises `capability_available=false` while the rest of the engine keeps running.
+- **Capabilities endpoint** — `GET /api/artifacts/capabilities` now lists all four
+  analyzers (pe · pdf · office · elf), each `available=true`.
+
+**Validation (iteration_61.json):**
+- Backend: **33/33 tests pass** — 7 new E2E (`test_iter61_elf_e2e.py`) + 6 ELF unit
+  + 20 regression (PE, PDF, Office, Artifact-Intelligence router).
+- Live REST verified: ELF64 header → `artifact_type='elf'`, PE stub → `'pe'`,
+  `%PDF-1.7` → `'pdf'`, fabricated `.docx` → `'office'`.
+- `POST /api/decode/smart` on base64-wrapped ELF → 200 with populated
+  `verdict_card` and `iedde_terminal_state`.
+- `GET /api/history` filters (`interpreter`, `terminal_state`) still 200.
+- Frontend smoke: admin login → paste ELF b64 → DECODE → "ANALYSIS COMPLETE ·
+  Suspicious" with ThreatSummaryCard + ELFAnalysisPanel rendered.
+- PE regression: re-decode of PE payload still renders PEAnalysisPanel (no misrouting).
+- Success rate: **backend 100% · frontend 100% · zero action items · zero regressions.**
+
+**Artifact-first UI hierarchy preserved:**
+`ThreatSummaryCard` → Metadata/Security → Detailed technical sections → Raw decoded.
+
+**Status:** Phase 3 · Cycle C **CLOSED**. Cycle D (P1 · Cross-Artifact Correlation)
+is the next planned unit of work.
+
+---
+
 ## 2026-08-02 · Phase 5.5 · M9 Corpus Repair + Expansion — COMPLETE · DCS 100%
 
 **Ships:**

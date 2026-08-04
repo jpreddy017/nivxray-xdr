@@ -27,6 +27,49 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02 · Phase 3 · Cycle B · Office OOXML + Threat Summary Card (owner-approved · shipped)
 
+### 🟢 2026-02-15 · Phase 3 · Cycle C · ELF Analyzer (owner-approved · shipped · iteration_61)
+
+Linux artifact support is now first-class. ELF joins PE, PDF, and Office
+as the fourth analyzer registered in the Artifact Intelligence Layer.
+
+  - `services/artifact_intelligence/analyzers/elf.py` — deterministic ELF
+    analyzer on top of `pyelftools` v0.33. Extracts overview (class /
+    machine / type / entry / ABI / endianness), hashes, sections,
+    segments, dynamic entries, symbols, notes, entropy, RWX segments,
+    executable stack, stripped flag, and static vs dynamic linkage.
+    Findings surfaced with severity + code + title + detail (statically
+    linked · medium, stripped · low, exec_stack · high, rwx_segment · high).
+  - `components/ELFAnalysisPanel.jsx` — artifact-first panel:
+    Overview → Security signals → Sections → Segments → Symbols/Dynamic
+    → Notes. Wired through `ArtifactAnalysisPanel.jsx` dispatcher and
+    surfaces verdict/risk via the shared `ThreatSummaryCard`.
+  - Routing: magic-matcher `\x7fELF` returns `confidence=99`;
+    `capability_available=true` when `pyelftools` is present, else the
+    engine keeps running and the panel is gracefully omitted.
+  - `GET /api/artifacts/capabilities` now advertises all four analyzers.
+
+**Validation (iteration_61.json):**
+- Backend: **33/33 tests green** — 7 E2E (`test_iter61_elf_e2e.py`) +
+  6 ELF unit + 20 regression across PE, PDF, Office, and the Artifact
+  Intelligence router.
+- Live REST — ELF64 header → `'elf'`, PE stub → `'pe'`, `%PDF-1.7` →
+  `'pdf'`, fabricated `.docx` → `'office'`. Truncated ELF returns 200
+  with a controlled analysis (no 500).
+- `POST /api/decode/smart` on base64-wrapped ELF returns 200 with
+  `verdict_card` populated and `iedde_terminal_state` set.
+- `GET /api/history` filters (`interpreter`, `terminal_state`) still 200.
+- Frontend smoke: admin login → paste ELF b64 → DECODE →
+  "ANALYSIS COMPLETE · Suspicious"; `ThreatSummaryCard` +
+  `ELFAnalysisPanel` render. PE regression: PE payload still renders
+  `PEAnalysisPanel` (no misrouting).
+- Success rate: **backend 100% · frontend 100% · zero regressions.**
+
+**Artifact-first UI hierarchy preserved:**
+`ThreatSummaryCard` → Metadata/Security → Detailed technical sections → Raw decoded.
+
+**Cycle status:** Phase 3 · Cycle C **CLOSED**.
+**Next up:** Cycle D · P1 · Cross-Artifact Correlation.
+
 Analyst-first artifact investigation. Office documents — the largest
 phishing-delivery format — now get the same first-class treatment as
 PE and PDF.
