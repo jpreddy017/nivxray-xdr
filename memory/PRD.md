@@ -21,6 +21,32 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02 · Phase 1 · Cycle 1 · PE Binary Analysis (owner-approved bundle · shipped)
 
+### 🟢 2026-02 · Phase 2 · Broken Payload Diagnostics + Favorites (owner-approved · shipped)
+
+Two additive engine-explainability and case-manager enhancements
+delivered in a single cycle. YARA Auto-Match remains deferred to
+Phase 3 (yara-python not installed in this pod, deployment must be
+deterministic).
+
+  - **Broken Payload Diagnostics** — every non-canonical `PlanResult`
+    now carries a structured `diagnostics: [{layer, reason,
+    recommendation, severity, code, hex_snippet, offset}]` list built
+    by the deterministic `_diagnose` helper in `recipe_planner`.
+    Covers `pass_execution_error`, `chosen_pass_produced_no_change`,
+    `no_deterministic_primitive_registered` (AES/RC4/XOR key required),
+    and duplicate-fingerprint spinning. Rule 21 determinism enforced.
+    Hoisted to `/api/decode/smart` and `/api/analyze/async` responses
+    as `iedde_diagnostics` and rendered as an amber card list inside
+    the IEDDE Decision Trace panel.
+  - **Favorites** — the History page's "STARRED" filter is now
+    "⭐ FAVORITES". A new segmented view control (ALL · ⭐ FAVORITES ·
+    RECENT · 7d) sits above the filter row, with `aria-pressed` +
+    `data-active` for accessibility. Backend column names unchanged
+    for backwards compatibility.
+  - **Certification (iteration_58):** 67/67 backend pytest + 5/5 live
+    API + all frontend testids validated. 0 critical / 0 minor issues.
+    DCS 17/17 and R1 107/107 byte-identical.
+
 The IEDDE pipeline no longer stops at "here's the executable, go open
 PEStudio." When decoding reaches `binary_artifact_recovered` on a PE,
 the deterministic PE analyzer produces a structured static-analysis

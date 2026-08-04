@@ -226,6 +226,8 @@ export default function HistoryDrawer({ open, onClose, onRehydrate, layout = "dr
                 type="button"
                 onClick={v.onSelect}
                 data-testid={`view-tab-${v.key}`}
+                aria-pressed={active}
+                data-active={active}
                 className="mono"
                 style={{
                   padding: "4px 10px",
