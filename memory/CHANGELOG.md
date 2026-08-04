@@ -2,6 +2,80 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION · 100/100
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.0
+(owner-approved 2026-02-15, rated 9.95/10, frozen).
+
+Phase 4 · P1 · Completion delivers the four architectural components that
+turn the Investigations tab from scaffolding into a first-class analyst
+workspace — implemented as a coordinated batch aligned to the Master
+Architecture, not four isolated tickets.
+
+**Ships:**
+- **Canonical Event Model (CEM) — §5 boundary** — `backend/services/cem.py`.
+  Deterministic, side-effect-free emitter. Normalises analyzer findings +
+  RTE traces + IOCs + MITRE + verdict into a versioned schema (`cem_version
+  1.0`, artifact_id, input_provenance, convergence, canonical_artifacts,
+  events, indicators, mitre, traces, child_artifacts, verdict). Every event
+  carries `provenance` back to its producing layer. Emitted **only after**
+  deterministic convergence; empty cases degrade to the full-shape empty
+  schema. **Investigation Engine now consumes CEM as an explicit boundary.**
+- **Recursive Child Artifact Pipeline — §4** —
+  `backend/services/recursive_child_pipeline.py`. When an analyzer declares a
+  child artifact (Office macro → PowerShell → PE, PDF JS, DDE, OLE,
+  embedded files), the pipeline loops it through RTE → Artifact Router →
+  Analyzer until deterministic convergence. Hooks into
+  `recipe_planner._dispatch_full_analysis()` as the **single owner** of the
+  recursion loop. Bounded (`MAX_DEPTH=3`, `MAX_CHILDREN=8`); every failure
+  contained; provenance captured on every node.
+- **Auto-scan on Record** — `routers/history._post_record_investigation_hook`.
+  Fires as a non-blocking `asyncio.create_task` after every record: (1)
+  emits CEM and caches on `case.cem`, (2) runs
+  `correlation_engine.scan_correlations` and caches top-5 on
+  `case.pending_correlations`, (3) bumps parent correlation's `updated_at`
+  when `correlation_id` is present. Zero impact on decode latency.
+- **Find Related Cases** — new `POST /api/correlations/find-related` +
+  `frontend/src/components/investigation/FindRelatedDrawer.jsx`. Analyst
+  action from any History row → drawer overlay showing existing
+  investigation (if any), cached or live cross-case suggestions, and either
+  a "Start Investigation From This Case" or "Open Investigation" primary
+  action. Refresh forces a live rescan; confirm creates + links; dismiss
+  is persisted per-investigation.
+
+**Additional endpoints:**
+- `POST /api/correlations/find-related` — Find Related composite endpoint.
+- `GET /api/correlations/cem/{case_id}` — CEM view (cached or freshly
+  emitted for backward-compat).
+
+**Validation (iteration_63.json):**
+- Backend: **48/48 unit tests** green — CEM (13) + Recursive Pipeline +
+  Correlation Engine (20) + ELF + Office + PE + Artifact Intelligence.
+- **10/10 E2E** green — CEM shape + determinism + find-related cache-vs-live
+  behavior + post-record hook + regression on `/api/correlations/{chain,
+  graph,timeline,summary,suggestions}` + `/api/decode/smart` + `/api/
+  artifacts/capabilities`.
+- **Frontend**: all promised test IDs verified (`btn-find-related-{id}`,
+  `find-related-create/empty/refresh/close`, `find-related-existing`).
+  Overlap-bug on the investigation detail page (iter-62 design note) is
+  **fixed** — verified at 1180px viewport.
+- **Success rate: backend 100% · frontend 100% · zero action items · zero
+  regressions.**
+
+**Contracts preserved:**
+- Workspace remains primary; Investigation extends, never replaces.
+- Dual entry paths converge into the same RTE pipeline.
+- Analyzers declare children — they never decode them (recursive pipeline
+  owns the loop).
+- CEM emitted only after deterministic convergence.
+- Investigation Engine consumes only CEM + Canonical Artifacts.
+- AI is optional enrichment; never touches canonical data or verdicts.
+
+**Status:** Phase 4 · P1 **CLOSED**. Cross-Artifact Correlation is now
+production-quality. Cycle E · P2 · Compare Cases is next up.
+
+---
+
 ## 2026-02-15 · Phase 3 · Cycle C — ELF Analyzer — COMPLETE · 100/100
 
 **Ships (4th artifact type in the Artifact Intelligence Layer):**

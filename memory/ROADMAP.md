@@ -20,6 +20,22 @@ No feature moves to the next phase until the phase it lives in is production-qua
 - ✅ **Cycle B** — PDF + Office OOXML Analyzers + `ThreatSummaryCard`
 - ✅ **Cycle C** — **ELF Analyzer** (2026-02-15, iteration_61 · 33/33 backend · 100% frontend · zero regressions)
 
+---
+
+## Phase 4 · Investigation Intelligence — P1 CLOSED (2026-02-15)
+
+- ✅ **P1 scaffolding** — first-class Correlation entity, INVESTIGATIONS tab,
+  Chain / Graph / Timeline views, manual link, auto-suggest engine
+  (iteration_62 · 100% green)
+- ✅ **P1 completion** — CEM emit boundary (§5), Recursive Child Artifact
+  Pipeline (§4), auto-scan on record with correlation caching, Find
+  Related Cases action from History (iteration_63 · 48/48 unit + 10/10 E2E
+  · 100% frontend · zero regressions)
+
+**Contracts verified**: Workspace primary · dual entry paths converge ·
+analyzers declare children (never decode) · CEM emitted only after
+convergence · Investigation Engine consumes only CEM + Canonical Artifacts.
+
 Phase 3 delivered a full artifact-first architecture: PE · PDF · Office · ELF are
 routed deterministically through the Artifact Intelligence Layer, verdict/risk
 surfaces via `ThreatSummaryCard`, and every analyzer degrades gracefully when
@@ -33,7 +49,7 @@ its dependency is absent.
 > artifacts into a single investigation. NivXRay evolves from *collection of
 > analyzers* → *artifact-first investigation platform*.
 
-### P1 · Cross-Artifact Correlation (⏭️ next up)
+### P1 · Cross-Artifact Correlation (✅ **CLOSED** 2026-02-15 · iteration_63)
 Correlate related artifacts into **one deterministic investigation**, not four
 independent reports.
 

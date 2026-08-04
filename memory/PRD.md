@@ -25,6 +25,61 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02 · Phase 3 · Cycle A · Artifact Intelligence Layer + PDF (owner-approved · shipped)
 
+### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
+
+Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.0.
+
+Phase 4 · P1 · Completion delivers the four architectural components that
+turn the Investigations tab from scaffolding into a first-class analyst
+workspace — implemented as a coordinated batch aligned to the Master
+Architecture, not four isolated tickets.
+
+  - **Canonical Event Model (CEM) — §5** — `services/cem.py`. Deterministic,
+    side-effect-free emitter. Normalises analyzer findings + RTE traces +
+    IOCs + MITRE + verdict into a versioned schema
+    (`cem_version=1.0`). Every event carries `provenance`. Emitted **only**
+    after deterministic convergence.
+  - **Recursive Child Artifact Pipeline — §4** —
+    `services/recursive_child_pipeline.py`. Loops any analyzer-declared child
+    through RTE → Artifact Router → Analyzer until convergence
+    (`MAX_DEPTH=3`, `MAX_CHILDREN=8`). Hooks into
+    `recipe_planner._dispatch_full_analysis()` as the single owner of the
+    recursion loop.
+  - **Auto-scan on Record** — `routers/history._post_record_investigation_hook`.
+    Non-blocking `asyncio.create_task` after every record: emits CEM +
+    caches on `case.cem`, runs `scan_correlations()` + caches top-5 on
+    `case.pending_correlations`, bumps parent correlation `updated_at`.
+    Zero decode-latency impact.
+  - **Find Related Cases** — `POST /api/correlations/find-related` +
+    `FindRelatedDrawer.jsx`. Analyst action from History rows → drawer
+    overlay with existing-investigation card OR "Start Investigation" primary
+    action; cached + live cross-case suggestions; refresh forces live scan;
+    confirm creates + links; dismiss persists per-investigation.
+  - **New endpoints**: `POST /api/correlations/find-related`,
+    `GET /api/correlations/cem/{case_id}`.
+
+**Validation (iteration_63.json):**
+- Backend: **48/48 unit tests** green (CEM 13 + Recursive Pipeline +
+  Correlation Engine 20 + ELF + Office + PE + Artifact Intelligence).
+- **10/10 E2E** green — CEM shape + determinism + find-related cache-vs-live
+  behavior + post-record hook + regression on `/api/correlations/*` and
+  `/api/decode/smart` and `/api/artifacts/capabilities`.
+- Frontend: every promised test ID verified; overlap-bug on investigation
+  detail page fixed (verified at 1180px viewport).
+- Success rate: **backend 100% · frontend 100% · zero action items · zero
+  regressions.**
+
+**Contracts preserved:**
+Workspace remains primary; dual entry paths converge; analyzers declare
+children (never decode); CEM emitted only after convergence; Investigation
+Engine consumes only CEM + Canonical Artifacts; AI never modifies canonical
+data or verdicts.
+
+**Cycle status:** Phase 4 · P1 **CLOSED**. Next up: Cycle E · P2 · Compare
+Cases.
+
+---
+
 ### 🟢 2026-02 · Phase 3 · Cycle B · Office OOXML + Threat Summary Card (owner-approved · shipped)
 
 ### 🟢 2026-02-15 · Phase 3 · Cycle C · ELF Analyzer (owner-approved · shipped · iteration_61)
