@@ -2,6 +2,53 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-15 · Phase 4 · P6 · Golden Investigation Corpus + Replay Harness — LIVE · 59/59 tests green
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` §10
+(owner-approved 2026-02-15).
+
+**Ships (permanent release gate):**
+- **Golden Investigation Corpus** at `backend/tests/golden_corpus/` with
+  manifest-driven entries. Each entry declares source_kind (file_upload
+  | workspace_input), sample path, and expected contract properties
+  (artifact_types, MITRE, terminal_state).
+- **Investigation Replay Harness** — `test_investigation_replay.py`
+  parametrised over the manifest. For each entry the harness (1) runs
+  the investigation twice in the same run and asserts identical
+  fingerprints (determinism check), (2) verifies expected contract
+  properties, (3) diffs the fingerprint hash against a committed
+  baseline. Any drift is a **P0 release blocker**.
+- **Fingerprint schema**: cem_version · convergence · artifact_types ·
+  mitre_ids · canonical_hashes · event_kinds · indicator_counts ·
+  signature_shape. Full JSON baseline + SHA-256 hash committed
+  per-entry in `baselines/`.
+- **Baseline governance**: `pytest tests/golden_corpus/ --update-baseline`
+  regenerates baselines after an owner-approved architectural change.
+- **Seed entries** (in-tree, no external dependencies): `workspace_powershell_base64`
+  (workspace input path) + `file_upload_pe_stub` (file upload path).
+  Real E2E chains (`.docm → PS → PE`, `.pdf → JS → PS`, `.zip → .lnk →
+  PS`, `ELF → shell`, `PE → PS`) enter the corpus as samples become
+  available (see §9 / §9.1 · nivxmachines.com reuse policy + guardrail).
+
+**Roadmap reprioritization (owner directive 2026-02-15):**
+- P3 · Compare Cases → unchanged
+- **P4 · Mach-O Analyzer** (bumped from P5) — analytical capability
+  outranks operational polish
+- **P5 · Saved Collections** (moved from P4)
+- **P6 · Golden Corpus + Replay Harness** — permanent release gate (LIVE)
+
+**Validation:**
+- Backend: **59/59 unit tests green** — 2 golden corpus + 9 dual-entry
+  equivalence + 13 CEM + Recursive Pipeline + 20 correlation engine +
+  ELF + Office + PE + Artifact Intelligence.
+
+**Status:** Golden Corpus release gate is **LIVE** and passing on the
+current release. Every future commit is protected by both the
+Dual-Entry Equivalence contract (P2.2) and the Investigation Replay
+Baseline (P6).
+
+---
+
 ## 2026-02-15 · Phase 4 · P2 · Batch A — COMPLETE · 57/57 tests green
 
 **Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.0

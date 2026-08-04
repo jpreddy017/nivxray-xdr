@@ -1,0 +1,1 @@
+powershell -EncodedCommand aGVsbG8gd29ybGQ=

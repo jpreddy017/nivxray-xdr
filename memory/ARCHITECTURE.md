@@ -360,6 +360,47 @@ verdicts.
 
 ---
 
+## 10. Investigation Replay Harness — Permanent Release Gate (owner directive · 2026-02-15)
+
+> **Every release must replay a Golden Investigation Corpus and verify
+> byte-identical results.** This is the platform-level counterpart to the
+> Dual-Entry Equivalence suite: that suite protects the *contract*
+> between entry paths; the Replay Harness protects the *behavior* of the
+> whole platform across releases.
+
+**Corpus entries** live under `backend/tests/golden_corpus/` with a
+`manifest.yaml` listing each investigation, its source sample, and the
+expected canonical result set.
+
+**Per-entry verification** — every replay must produce byte-identical:
+- Canonical Artifacts
+- Canonical Event Model (CEM)
+- Threat Summary
+- Attack Chain
+- Evidence Flow
+- Timeline
+- MITRE ATT&CK mappings
+- Reports
+
+**Initial corpus (populated as real samples become available):**
+1. `.docm → PowerShell → PE`
+2. `.pdf → JavaScript → PowerShell`
+3. `.zip → .lnk → PowerShell`
+4. `ELF → shell script`
+5. `PE → PowerShell`
+
+**Failure semantics:** Any drift on any golden entry is a P0 release
+blocker. The Master Architecture's deterministic-first contract (§1, §5)
+is only meaningful if it is enforced across time.
+
+**Interaction with §9 (nivxmachines.com):** golden samples SHOULD be
+sourced from nivxmachines.com when available (per §9), but the harness
+must remain fully functional using in-tree synthetic samples if the
+external source is unavailable (per §9.1). The harness is never a
+dependency on an external service.
+
+---
+
 ## Mapping current codebase to this architecture (as of 2026-02-15)
 
 > **Note.** This mapping is a **status snapshot**, not a mandatory sprint

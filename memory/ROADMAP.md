@@ -88,16 +88,45 @@ Side-by-side comparison across Interpreter · MITRE · LOLBAS · IOCs · Hashes
 · Threat Summary · Canonical Output · Attack Story, with a **deterministic
 similarity score** for malware clustering and evidence-overlap heatmap.
 
-### P4 · Saved Collections
+### P4 · Mach-O Analyzer (bumped from P5 · owner directive 2026-02-15)
+
+Fifth first-class artifact type, same artifact-first UX and graceful
+degradation contract as PE/PDF/Office/ELF. **Analytical capability > operational
+polish** — Mach-O expands cross-platform malware analysis coverage; Saved
+Collections don't add analytical value.
+
+### P5 · Saved Collections (moved from P4 · owner directive 2026-02-15)
 
 Analyst tagging/grouping on History (APT29, QakBot, Customer A, Campaign
 July). Collections organize investigations without mutating analysis
 results. MSSP-friendly.
 
-### P5 · Mach-O Analyzer
+### P6 · Golden Investigation Corpus + Investigation Replay Harness ⭐ (permanent release gate · owner directive 2026-02-15)
 
-Fifth first-class artifact type, same artifact-first UX and graceful
-degradation contract as PE/PDF/Office/ELF.
+**Not another feature — a permanent regression gate.** Every release must
+replay a corpus of full end-to-end investigations and verify that each one
+produces byte-identical:
+
+- Canonical Artifacts
+- Canonical Event Model (CEM)
+- Threat Summary
+- Attack Chain
+- Evidence Flow
+- Timeline
+- MITRE mappings
+- Reports
+
+**Initial corpus (populated as real samples become available):**
+1. `.docm → PowerShell → PE`
+2. `.pdf → JavaScript → PowerShell`
+3. `.zip → .lnk → PowerShell`
+4. `ELF → shell script`
+5. `PE → PowerShell`
+6. (extensible via `tests/golden_corpus/manifest.yaml`)
+
+This is end-to-end investigation regression testing — the dual-entry
+equivalence suite (P2.2) protects the *contract* between paths; the Golden
+Corpus protects the *behavior* of the whole platform across releases.
 
 ### Deferred
 - **YARA Auto-Match** — HOLD until `yara-python` is verified in the
