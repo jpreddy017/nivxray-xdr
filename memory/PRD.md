@@ -25,6 +25,30 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02 · Phase 3 · Cycle A · Artifact Intelligence Layer + PDF (owner-approved · shipped)
 
+### 🟢 2026-02 · Phase 3 · Cycle B · Office OOXML + Threat Summary Card (owner-approved · shipped)
+
+Analyst-first artifact investigation. Office documents — the largest
+phishing-delivery format — now get the same first-class treatment as
+PE and PDF.
+
+  - `services/artifact_intelligence/analyzers/office.py` — deterministic
+    OOXML analyzer (stdlib `zipfile` only, no new deps). Detects VBA
+    macros, XLM macros, DDE, OLE objects, external templates, external
+    URLs, embedded files, and metadata. Auto-execution triggers
+    (AutoOpen / Document_Open / Workbook_Open / AutoExec / Auto_Open)
+    surface as critical findings.
+  - `components/ThreatSummaryCard.jsx` — new artifact-first dashboard
+    that renders at the TOP of every artifact panel (PE, PDF, Office).
+    Shows verdict (Malicious / Suspicious / Low-Risk / Benign) derived
+    deterministically from findings-severity, risk badge, key facts,
+    security signal chips, IOC/embedded counts, and SHA-256.
+  - `components/OfficeAnalysisPanel.jsx` — collapsible sections
+    (Findings / Metadata / Security / External refs / Embedded files /
+    Hashes).
+  - **Certification (iteration_60):** 37/37 backend pytest + all
+    frontend testids + DCS 17/17 + R1 107/107 · 0 issues · 3 positive
+    code-review comments.
+
 The IEDDE pipeline now dispatches recovered artifacts through a
 registry-based Artifact Intelligence Layer instead of hard-coding PE
 analysis. New analyzer types plug in with one `register()` call, exactly
