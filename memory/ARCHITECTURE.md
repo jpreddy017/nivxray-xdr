@@ -1,404 +1,329 @@
-# NivXRay — Universal Threat Investigation Platform
-## Architecture Design Document (v1.0)
+# NivXRay — Master Platform Architecture Specification
 
-**Status**: Design · pre-implementation
-**Owner**: NivXRay engineering
-**Last updated**: 2026-02-22
-**Supersedes**: RC5 command-line-only architecture (retained as `semantic_engine` module)
-
----
-
-## 1. Positioning
-
-NivXRay is repositioned from a **command-line analyzer** to an **AI-Assisted, Deterministic Threat Investigation & Attack Reconstruction Platform**.
-
-It is explicitly **not**:
-- an EDR / XDR / SIEM
-- a telemetry collector
-- a real-time detection engine
-- an alerting pipeline
-
-It **is**:
-- an investigation platform that consumes evidence from any source
-- a deterministic reconstruction engine for attack chains
-- a semantic engine that reasons over evidence without hallucinating
-- an analyst-first workspace with explainable, cited output
-
-NivXRay sits **above** EDR / SIEM / XDR products. Those tools collect telemetry; NivXRay makes sense of it.
+> **Owner directive · 2026-02-15.** Approved by the product owner as the master
+> architecture. All prior architecture notes (including
+> `ARCHITECTURE.legacy-v1.md`, `ARCHITECTURE_v2.md`, and
+> `ARCHITECTURAL_DIRECTION_IEDDE.md`) are **superseded by this document**.
+> Every future fork MUST treat this file as the source of truth.
+> Rated **9.95/10** by the product owner and explicitly frozen: "Future
+> additions (Mach-O, archives, email analyzers, telemetry, semantic
+> provenance, dynamic analysis, etc.) should plug into the extension points
+> defined here instead of changing this master architecture."
 
 ---
 
-## 2. Design Principles (Non-Negotiable)
+## Executive Architectural Mandate
 
-| # | Principle | Enforcement |
-|---|-----------|-------------|
-| 1 | Deterministic-first | Every fact traceable to a rule + input; identical input ⇒ identical output |
-| 2 | AI-optional | Every capability must work with AI **off**; AI is a last-mile *explainer*, never a fact-producer |
-| 3 | Evidence-first | No conclusion without cited source events |
-| 4 | Zero hallucination | AI outputs must cite deterministic evidence IDs; no evidence ⇒ AI must abstain |
-| 5 | Modular adapters | Vendor logic lives at the edge; core engine sees only the canonical model |
-| 6 | Vendor-agnostic core | The word "Splunk" / "CrowdStrike" etc. never appears past the adapter boundary |
-| 7 | Streaming architecture | Ingestion is chunkable, back-pressure-aware, and never requires loading whole datasets in memory |
-| 8 | Plugin architecture | Adapters, correlation rules, trajectory views, and enrichers are all discoverable extensions |
-| 9 | Scalable | Millions of events per case supported via cursor + incremental correlation |
-| 10 | Enterprise ready | RBAC, audit log, immutable evidence chain, offline mode |
+The **NivXRay Workspace** is the overarching platform and primary analyst
+cockpit. All platform capabilities — decoding, artifact intelligence,
+deterministic transformation, threat intelligence, investigation
+orchestration, history, and reporting — exist as **core modules inside the
+Workspace**.
+
+The primary analyst entity transitions to a unified **Investigation**, which
+acts as the **Single Source of Truth (SSOT)** for all analyst-facing state.
+Whether an analyst submits raw input or uploads a file, both entry paths pass
+through strict, deterministic processing pipelines that feed a normalized
+**Canonical Event Model (CEM)**, which is ultimately orchestrated by the
+**Investigation Engine**.
 
 ---
 
-## 3. High-Level Pipeline
+## 1. Universal Deterministic Processing Law
+
+**Every piece of encoded, obfuscated, compressed, packed, or transformed
+content — whether supplied directly through the Workspace Input or discovered
+recursively inside another artifact — must traverse the same Recursive
+Transformation Engine (RTE / IEDDE) until deterministic convergence is
+reached before entering the Canonical Event Model (CEM).**
+
+> **Clarification (refinement #2, owner-approved).**
+> For structured file uploads, Artifact Analyzers are responsible for
+> **discovering and declaring** embedded payloads. For raw Workspace input,
+> the Input Classifier performs the initial routing. Regardless of origin,
+> all encoded or obfuscated content traverses the same RTE / IEDDE pipeline
+> before analysis.
+
+---
+
+## 2. Complete Workspace Capability Topology
 
 ```
-┌────────────────────────────────────────────────────────────────────────────┐
-│  1. INPUT ADAPTERS       — vendor-specific reader plugins                  │
-│         │                                                                    │
-│         ▼                                                                    │
-│  2. UNIVERSAL PARSER      — schema detection + structural parse             │
-│         │                                                                    │
-│         ▼                                                                    │
-│  3. NORMALIZATION ENGINE  — coerce into Canonical Event Model (CEM v1)      │
-│         │                                                                    │
-│         ▼                                                                    │
-│  4. CORRELATION ENGINE    — deterministic entity-linking + evidence graph    │
-│         │                                                                    │
-│         ▼                                                                    │
-│  5. SEMANTIC ENGINE       — RC5 (existing) — parsers, decoders, IR          │
-│         │                                                                    │
-│         ▼                                                                    │
-│  6. BEHAVIOR ENGINE       — tactics/techniques inference from CEM+IR         │
-│         │                                                                    │
-│         ▼                                                                    │
-│  7. MITRE MAPPER          — technique/tactic assignment with citations       │
-│         │                                                                    │
-│         ▼                                                                    │
-│  8. TIMELINE              — deterministic time-ordered reconstruction        │
-│         │                                                                    │
-│         ▼                                                                    │
-│  9. TRAJECTORY ENGINE     — per-entity trajectories (device/file/process…)   │
-│         │                                                                    │
-│         ▼                                                                    │
-│ 10. INVESTIGATION GRAPH   — cross-entity graph with pivot semantics          │
-│         │                                                                    │
-│         ▼                                                                    │
-│ 11. VERDICT ENGINE        — multi-dimensional confidence + label            │
-│         │                                                                    │
-│         ▼                                                                    │
-│ 12. EXPLAINABILITY        — deterministic reason chains + citations          │
-│         │                                                                    │
-│         ▼                                                                    │
-│ 13. ANALYST REPORT        — workspace, exports, AI copilot (opt-in)          │
-└────────────────────────────────────────────────────────────────────────────┘
+NivXRay Workspace (Primary Analyst Cockpit)
+│
+├── Decode & Investigation                        ← workspace surface / lens set
+│
+├── Recursive Transformation Engine (RTE / IEDDE)
+│   ├── Multi-layer Decode
+│   ├── Deobfuscation
+│   ├── Decompression
+│   ├── Unpacking
+│   ├── Canonicalization
+│   ├── Transformation Recipes
+│   ├── Recipe Planner
+│   ├── Decision Trace
+│   ├── Transformation Trace
+│   ├── Deterministic Convergence
+│   ├── Terminal State Detection
+│   ├── Diagnostics
+│   ├── Stability Gate
+│   ├── Interpreter Detection
+│   └── Decode Provenance
+│
+├── Artifact Intelligence Layer
+│   ├── PE Analyzer          ← Phase 3 · Cycle A · shipped
+│   ├── PDF Analyzer         ← Phase 3 · Cycle B · shipped
+│   ├── Office OOXML Analyzer← Phase 3 · Cycle B · shipped
+│   ├── ELF Analyzer         ← Phase 3 · Cycle C · shipped
+│   └── Future Analyzers (Mach-O, Email, Archives)
+│
+├── Canonical Event Model (CEM)                   ← generated only after
+│                                                    deterministic convergence
+│
+├── Threat Summary Aggregator
+│
+├── Threat Intelligence Integration
+│
+├── Investigation Engine (SSOT)                   ← the ONLY component named
+│                                                    "Investigation Engine"
+│
+├── History & Case Management
+│
+├── Collections & Workspace Storage
+│
+├── Settings & Configuration
+│
+└── AI Assistant (Optional Enrichment Layer)      ← see §8 · AI Boundary
 ```
 
-Every arrow above is a **stable interface contract** — a downstream stage never reaches back around it.
-
 ---
 
-## 4. Where the Existing RC5 Engine Fits
+## 3. Dual Entry Paths & Processing Topology
 
-The current RC5 semantic engine (parsers, decoders, evidence graph, correlation side-car, entity classifier) becomes **Stage 5**. It is **not rewritten**. It gains:
-
-- **Input**: instead of raw command strings, it now receives normalized `command_line` entities from CEM.
-- **Output**: its evidence graph feeds the wider Investigation Graph (Stage 10) as a *first-class node type* rather than the only graph.
-
-**Backwards compatibility guarantee**: `POST /api/rc5/parse` continues to accept a raw command string. Internally, it wraps the string into a single-event CEM payload and runs it through the pipeline. Existing consumers see no schema break.
-
----
-
-## 5. Stage-by-Stage Contracts
-
-### Stage 1 — Input Adapters *(Prompt 2)*
-
-**Interface**:
-```python
-class InputAdapter(Protocol):
-    name: str                    # e.g. "sysmon", "crowdstrike-fdr"
-    supported_formats: list[str] # e.g. ["evtx", "xml", "json-lines"]
-
-    def detect(self, sample: bytes | str) -> bool: ...
-    def stream(self, source: Source) -> Iterator[RawEvent]: ...
+```
+                                  Analyst
+                                     │
+                                     ▼
+                             NivXRay Workspace
+ ┌───────────────────────────────────────────────────────────────────────┐
+ │ Core Modules: Decode · Investigation · Threat Intel · History         │
+ └───────────────────────────────────────────────────────────────────────┘
+                                     │
+                             Input Classifier
+                                     │
+          ┌──────────────────────────┴──────────────────────────┐
+          ▼                                                     ▼
+   Workspace Input                                         File Upload
+ (Raw Text / Scripts)                                 (PDF, PE, Office, ELF)
+          │                                                     │
+          ▼                                                     ▼
+     Is Encoded?                                         Artifact Router
+   ┌──────┴──────┐                                              │
+  Yes            No                                             ▼
+   │             │                                      Artifact Analyzer
+   │             ▼                                              │
+   │      Artifact Router                            Child Payload Declared?
+   │             │                                        ┌─────┴─────┐
+   │             └───────────────────┬─────────────────── Yes         No
+   │                                 │                    │           │
+   ▼                                 ▼                    ▼           │
+ ┌─────────────────────────────────────────────────────────┐          │
+ │       Recursive Transformation Engine (RTE / IEDDE)     │          │
+ │  Multi-layer Decode · Deobfuscation · Decompression     │          │
+ │  Unpacking · Canonicalization · Recipe Planner          │          │
+ │  Transformation Trace · Deterministic Convergence       │          │
+ │  Terminal State Detection · Diagnostics · Stability Gate│          │
+ │  Decode Provenance                                      │          │
+ └─────────────────────────────┬───────────────────────────┘          │
+                               │                                      │
+                               ▼                                      │
+                      Canonical Output(s)                             │
+                               │                                      │
+                               ▼                                      │
+                        Artifact Router                               │
+                               │                                      │
+                               ▼                                      │
+                  Artifact Intelligence Layer                         │
+                   (PE · PDF · Office · ELF)                          │
+                               │                                      │
+                               └───────────────────┬──────────────────┘
+                                                   │
+                                                   ▼
+                          Canonical Event Model (CEM)
+                          (emitted only after convergence)
+                                                   │
+                                                   ▼
+                                      Threat Summary Aggregator
+                                                   │
+                                                   ▼
+                                         Investigation Engine
+             ┌──────────────────────────────────────────────────────────┐
+             │ Consumes: CEM · Canonical Artifacts · Traces             │
+             │ Orchestrates: Chain, Flow, Graph, Timeline               │
+             └─────────────────────────────┬────────────────────────────┘
+                                           │
+                                           ▼
+                             Investigation Workspace Lenses
+ ┌───────────────────────────────────────────────────────────────────────┐
+ │ Overview · Attack Chain · Evidence Flow · Evidence Graph · Timeline   │
+ │ Artifacts · MITRE ATT&CK · Reports · Compare                          │
+ └───────────────────────────────────────────────────────────────────────┘
 ```
 
-**Rules**:
-- Adapters are discoverable via `engine/adapters/*.py` module scanning + a registry.
-- Each adapter is stateless; state lives in the ingestion job.
-- No adapter directly writes to the graph.
-
-**Initial 25 adapters** listed in Prompt 2 will be delivered in **waves of 5**, each behind a feature flag.
-
-### Stage 2 — Universal Parser
-- Handles envelope detection (JSON vs XML vs CSV vs EVTX binary).
-- Emits `ParsedEvent` (adapter-agnostic but not yet normalized).
-- Streams — never loads the full file.
-
-### Stage 3 — Normalization Engine
-- Produces `CanonicalEvent` (schema in Section 6).
-- All timestamps → UTC ISO-8601 with sub-second precision.
-- All identifiers → globally unique `Investigation ID` (`iid`).
-- All missing fields → `null`, never fabricated.
-
-### Stage 4 — Correlation Engine
-Deterministic entity linking (Prompt 4). Correlates on:
-- Process: `pid + logon_id + host_id + start_time` composite key
-- File: `sha256` primary, `path + host_id + mtime` secondary
-- Network: `5-tuple + timestamp window`
-- Identity: `sid + upn + tenant_id`
-- Registry: `hive + key + host_id + timestamp`
-
-Emits **relationships** with a **confidence score** (0.0–1.0) derived from evidence weight, not heuristics.
-
-### Stage 5 — Semantic Engine
-The **existing RC5 engine**, invoked per `command_line` entity. Its output (evidence graph, IR, entity classifications) is attached to the parent `Process` node in the Investigation Graph.
-
-### Stage 6 — Behavior Engine
-Reads the CEM + Semantic Engine output. Emits `Behavior` nodes such as:
-- `credential-dumping` (evidence: LSASS handle open + minidump write)
-- `persistence-registry-run` (evidence: `HKCU\...\Run` write with executable value)
-- `defense-evasion-amsi` (evidence: `AmsiScanBuffer` patch attempt in IR)
-
-Every behavior cites the **evidence chain** that generated it.
-
-### Stage 7 — MITRE Mapper
-Maps `Behavior` → ATT&CK technique/sub-technique. Deterministic mapping tables versioned in `/app/backend/engine/mitre_maps/`. AI never assigns techniques.
-
-### Stage 8 — Timeline (Prompt 5)
-- Deterministic ordering: `timestamp → source_priority → sequence_id`
-- Merge rule: identical `(entity_id, action, target_id)` within 250 ms collapse to one row with a count.
-- Zoom levels are **views** over the same underlying event stream (30 s, 5 min, 1 h, 24 h, 7 d, 30 d).
-- Anomaly detection: purely rule-based (gaps ≥ 3× median inter-event interval, out-of-order events, etc.).
-
-### Stage 9 — Trajectory Engine (Prompt 6)
-- One trajectory per entity kind (device, file, process, registry, network, identity, cloud).
-- Trajectory = time-ordered sequence of state transitions for that entity.
-- Deterministic diff: `state[t] vs state[t-1]` yields the change record.
-- UI pivot: clicking any node in any trajectory highlights that entity everywhere.
-
-### Stage 10 — Investigation Graph (Prompt 7)
-- Node types: device, user, process, registry, network, dns, file, certificate, cloud, identity, ioc, mitre, malware, threat-actor, campaign.
-- Edge types: executed, downloaded, connected, injected, created, modified, deleted, loaded, persisted, communicated, authenticated, escalated.
-- Every edge carries `evidence_ids[]` — clickable citations.
-- Pivot: right-click any node → "investigate" opens a filtered workspace on that entity.
-
-### Stage 11 — Verdict Engine
-Delivered in **Phase 11.4 → 11.6** (already-approved roadmap):
-- **11.4** Negative evidence (advisory only)
-- **11.5** Dimensional confidence (decode / behavior / IOC / MITRE / correlation / context)
-- **11.6** Verdict migration (verdict consumes dimensional confidence)
-
-### Stage 12 — Explainability
-- Every verdict field carries `derivation[]` — the deterministic rule chain that produced it.
-- Analyst can expand any explanation to see rule name + inputs + outputs.
-- AI-generated summaries (Stage 13) are additive, not authoritative.
-
-### Stage 13 — Analyst Workspace + AI Copilot (Prompts 9 & 10)
-See sections 8 and 9.
-
 ---
 
-## 6. Canonical Event Model (CEM v1) — *Preview*
+## 4. Recursive Child Artifact Processing Pipeline
 
-Full schema is Prompt 3's deliverable. High-level shape:
+When any Artifact Analyzer discovers an embedded or obfuscated stream, it
+**never** attempts local decoding. Instead, it triggers the Recursive Child
+Artifact Pipeline:
 
-```jsonc
-{
-  "iid":         "evt_<ULID>",              // globally unique
-  "case_id":     "case_<ULID>",             // investigation this belongs to
-  "adapter":     "sysmon",                  // source adapter
-  "ts":          "2026-02-22T09:12:33.481Z",
-  "sequence":    17234,                     // adapter-local monotonic
-  "kind":        "process_create",          // enum, section 6.1
-  "device":      { "iid": "dev_...", "hostname": "...", "os": "..." },
-  "actor":       { "iid": "usr_...", "sid": "...", "upn": "..." },
-  "process":     { "iid": "proc_...", "pid": 4288, "parent_iid": "proc_...", ... },
-  "artefacts": {
-    "file":     [{ "iid": "file_...", "path": "...", "sha256": "..." }],
-    "registry": [{ "iid": "reg_...", "hive": "...", "key": "..." }],
-    "network":  [{ "iid": "net_...", "proto": "tcp", "dst_ip": "...", "dst_port": 443 }],
-    ...
-  },
-  "raw":         { /* opaque per-adapter payload for forensic reference */ }
-}
+```
+Artifact Analyzer
+       │
+       ▼
+Child Artifact Declared (e.g., Base64, PowerShell, VBScript, Embedded ZIP)
+       │
+       ▼
+Recursive Transformation Engine (RTE / IEDDE)
+       │
+       ▼
+Canonical Artifact
+       │
+       ▼
+Artifact Router
+       │
+       ▼
+Appropriate Analyzer (PE, PDF, Office, ELF, etc.)
+       │
+       ▼
+Child Payload Discovered? ───► Yes ───► [ Loop back to RTE ]
+       │
+       No
+       │
+       ▼
+Deterministic Convergence Reached
 ```
 
-**Entities and relationships are stored separately** (Prompt 3 requirement). Concretely:
-
-- `entities` collection: `{ iid, kind, attrs, first_seen, last_seen }`
-- `events` collection: `{ iid, ts, kind, entity_refs[], raw }`
-- `relationships` collection: `{ iid, src_iid, dst_iid, kind, confidence, evidence_ids[] }`
-
-Rationale: an entity outlives any single event and can be pivoted independently.
+This recursive loop is **completely uniform** regardless of whether the
+payload originated from a direct Workspace text paste, an Office macro, a PDF
+stream, a PE resource section, an archive file, or an email attachment.
 
 ---
 
-## 7. Extensibility Model
+## 5. Explicit Component Boundaries & Data Ownership
 
-### 7.1 Plugin discovery
-Each of these directories auto-discovers plugins on boot:
-- `engine/adapters/` — input adapters
-- `engine/normalizers/` — CEM normalizers
-- `engine/correlation_rules/` — deterministic correlation rules
-- `engine/behaviors/` — behavior detectors
-- `engine/mitre_maps/` — technique tables
-- `engine/enrichers/` — TI / OSINT enrichment (Prompt 8)
-- `engine/trajectory_views/` — trajectory renderers
+| Component | Strict Ownership Scope | Absolute Prohibition |
+|-----------|------------------------|----------------------|
+| **Workspace UI** | Analyst interaction, input acquisition, workspace state, history, collections, UI rendering. | Never performs decoding, transformations, or parsing. |
+| **Input Classifier** | Identifies raw input vs. file streams, routes raw scripts/encoded text directly to RTE, routes file uploads to Artifact Router. | Never performs decoding or extraction. |
+| **RTE / IEDDE** | Multi-layer decode, deobfuscation, decompression, unpacking, canonicalization, transformation recipes, recipe planning, decision trace, transformation trace, deterministic convergence, terminal state detection, diagnostics, stability gate, decode provenance. | Never parses complex file format structures (e.g., PE import tables, PDF xref tables). |
+| **Artifact Analyzers** | Format-specific structural parsing, metadata extraction, local IOC extraction, child payload discovery & **declaration**. | Never performs recursive decoding or transformation. |
+| **Canonical Event Model (CEM)** | Intermediate normalization of analyzer findings, events, indicators, and metadata into a standardized, engine-ready schema. | Contains no UI presentation logic or raw unparsed streams. |
+| **Investigation Engine (SSOT)** | Cross-artifact correlation, graph building, attack chain construction, evidence flow generation, timeline building, MITRE aggregation, reports, compare engine. | Never performs decoding; consumes only normalized CEM events and canonical artifacts. |
 
-### 7.2 Registry contract
-```python
-@register(kind="adapter", name="crowdstrike-fdr")
-class CrowdStrikeFdrAdapter(InputAdapter):
-    ...
+---
+
+## 6. Investigation Engine Inputs
+
+The Investigation Engine consumes normalized outputs from preceding layers
+and operates strictly as an orchestrator.
+
+**Investigation Engine consumes:**
+- Canonical Artifacts
+- Canonical Event Model (CEM)
+- Threat Summaries
+- Extracted IOC Sets
+- MITRE ATT&CK Mappings
+- Transformation Traces
+- Decision Traces
+- Deterministic Relationship Evidence
+
+---
+
+## 7. Provider-Based Extension Architecture
+
+The Investigation Engine exposes pluggable Provider slots to ensure long-term
+extensibility without structural refactoring:
+
 ```
-No hard-coded lists anywhere in the core.
+Investigation Engine (SSOT)
+│
+├── Artifact Provider                  [Active — Phase 3]
+├── Threat Intel Provider              [Active — Phase 4]
+├── Detection Rule Provider            [Active — YARA / Sigma]
+├── Telemetry Provider                 [Reserved Extension]
+├── Dynamic Analysis Provider          [Reserved Extension]
+└── Semantic Provenance Provider       [Phase 5 Engine]
+```
+
+When **Phase 5 (Semantic Provenance Engine)** is introduced, it registers
+cleanly as a Semantic Provenance Provider, populating additional semantic
+data flows into the existing UI lenses **without altering the underlying
+Investigation SSOT or Workspace architecture**.
 
 ---
 
-## 8. Analyst Workspace (Prompt 9 · UI Redesign — preview only)
+## 8. AI Assistance Rule
 
-Tabs, synchronized to a shared **case cursor**:
-
-1. **Overview** — headline verdict + evidence-count sparkline
-2. **Timeline** — Stage 8 output, zoomable
-3. **Entities** — filterable entity table (device / user / process / …)
-4. **Device Trajectory** — Stage 9
-5. **File Trajectory** — Stage 9
-6. **Process Tree** — process-parent-child hierarchy with commandline decoded inline
-7. **Network** — connections / DNS / HTTP with IOC overlay
-8. **Registry** — persistence + config artefacts
-9. **Persistence** — filtered view: services / tasks / run keys / drivers
-10. **MITRE** — technique/tactic coverage heatmap
-11. **Threat Intel** — enrichment results (Stage · Prompt 8)
-12. **Evidence** — flat evidence log with rule citations
-13. **Reports** — export PDF / JSON / STIX
-14. **Relationships** — Investigation Graph (Stage 10)
-15. **Graph** — free-form graph view + saved layouts
-16. **JSON** — raw normalized CEM
-17. **Raw Events** — pre-normalized source
-
-Every tab reads from the **same case cursor**. Selecting an entity on one tab highlights it everywhere.
-
-**Design purity**: existing DetectFlow dark mode, Chivo 900, glass aesthetics. Zero light mode.
+> AI may **enrich, summarize, explain, or recommend**.
+>
+> AI **never modifies**:
+> - Canonical Artifacts
+> - CEM
+> - Investigation SSOT
+> - Deterministic Verdicts
+>
+> This preserves deterministic behavior across the platform.
 
 ---
 
-## 9. AI Copilot (Prompt 10 — last-mile only)
+## Non-negotiable architectural principles (summary)
 
-**Hard rule**: AI is **not on the fact path**.
-
-Copilot capabilities (all optional, all cited):
-- Executive summary — cites verdict + top 5 evidence rows
-- Attack story — cites timeline nodes
-- Analyst notes — cites entity IDs mentioned
-- Evidence explanation — cites the rule + input event
-- MITRE explanation — cites the mapping rule
-- IOC explanation — cites enrichment source
-- Next-step suggestion — cites gaps in evidence
-- Missing-evidence flag — reads from Phase 11.4 negative evidence
-- Risk summary — cites dimensional confidence (Phase 11.5)
-- Remediation — cites MITRE mitigation table
-
-**Refusal contract**: if the cited evidence set is empty, the copilot must respond with `"insufficient evidence to conclude"` — never fabricated content.
-
-Model routing lives outside the core: uses the existing `EMERGENT_LLM_KEY` integration via the emergentintegrations library. Deterministic engine works fully with the key unset.
+1. Workspace is the product. Investigation is a lens inside the Workspace.
+2. Deterministic-first — AI is optional enrichment, never in the decode or
+   verdict path.
+3. Universal Deterministic Processing Law — one RTE pipeline for every
+   encoded payload, no exceptions.
+4. Analyzers declare children; they never decode them.
+5. CEM is emitted only after deterministic convergence.
+6. The Investigation Engine is an orchestrator, not a decoder.
+7. Providers are the extension points. Additions plug in, they do not
+   refactor the architecture.
+8. Every finding traceable to evidence + provenance.
 
 ---
 
-## 10. Rollout Phasing
+## Mapping current codebase to this architecture (as of 2026-02-15)
 
-Each numbered item below is a **discrete deliverable** with its own PR / test / user checkpoint. **We do NOT skip user approval between numbered items.**
+| Master architecture layer | Current implementation | Status |
+|---|---|---|
+| Workspace UI | `frontend/src/pages/WorkspacePage.jsx` + nav shell | ✅ live |
+| Input Classifier | `backend/routers/decode.py` (routes `/api/decode/smart` → IEDDE) | ✅ live |
+| RTE / IEDDE | `backend/services/recipe_planner.py` + iedde stages | ✅ live |
+| Artifact Router | `backend/services/artifact_intelligence/__init__.py` (magic dispatch) | ✅ live |
+| Artifact Analyzers | `backend/services/artifact_intelligence/analyzers/{pe,pdf,office,elf}.py` | ✅ live (4/n) |
+| Canonical Event Model (CEM) | ❗ implicit — currently embedded in `investigations` case docs | ⚠️ needs explicit CEM emit layer (Phase 4 · Cycle D-1) |
+| Threat Summary Aggregator | `frontend/src/components/ThreatSummaryCard.jsx` + per-case verdict_card | ✅ live |
+| Investigation Engine (SSOT) | `backend/services/correlation_engine.py` + `routers/correlations.py` | ✅ Phase 4 P1 scaffolding shipped |
+| History & Case Management | `backend/routers/history.py`, `frontend/src/pages/HistoryPage.jsx` | ✅ live |
+| Collections | ⏸️ P3 backlog | queued |
+| Threat Intel Provider | `backend/routers/threat_intel.py` | ✅ live |
+| AI Assistant | `backend/services/llm_decoder.py` (optional, out of decode path) | ✅ compliant with AI Boundary |
 
-| # | Deliverable | Prompt | Depends on |
-|---|-------------|--------|------------|
-| 0 | Freeze RC5 baseline (regression gates) | *(prerequisite)* | — |
-| 1 | Adapter framework skeleton + registry + 5 seed adapters (command_line, sysmon, evtx, syslog, json) | 2 | 0 |
-| 2 | Canonical Event Model schema + storage collections + migration for existing RC5 cases | 3 | 1 |
-| 3 | Universal Parser (schema detection + streaming) | 2 | 2 |
-| 4 | Normalization Engine (adapter → CEM) | 3 | 3 |
-| 5 | Correlation Engine (Stage 4) — deterministic rules + confidence | 4 | 4 |
-| 6 | Timeline Reconstruction | 5 | 5 |
-| 7 | Trajectory Engine (device + process + file first) | 6 | 5 |
-| 8 | Investigation Graph | 7 | 6, 7 |
-| 9 | Phase 11.4 Negative Evidence (advisory) | *(previous roadmap)* | 8 |
-| 10 | Contradiction fixture corpus | *(previous roadmap)* | 9 |
-| 11 | Phase 11.5 Dimensional Confidence | *(previous roadmap)* | 10 |
-| 12 | Threat Intel & Enrichment | 8 | 8 |
-| 13 | Analyst Workspace redesign (17 tabs, cursor sync) | 9 | 6, 7, 8 |
-| 14 | Wave-2 adapters (10 more: XDR / SIEM vendor formats) | 2 | 1 |
-| 15 | Phase 11.6 Verdict Migration | *(previous roadmap)* | 11 |
-| 16 | AI Copilot (last mile) | 10 | 15 |
-| 17 | Wave-3 adapters (remaining 10) | 2 | 14 |
-| 18 | Phase 11.7 ExecGraph Retirement | *(previous roadmap)* | 15 |
+### Immediate Phase 4 · P1 gaps to close (owner-approved 2026-02-15)
 
-**Gate between every deliverable**: run the frozen baseline suite; block on any regression per the quality gates (Section 12).
+1. **Recursive Child Artifact Pipeline** wired into `recipe_planner.py` — when
+   an analyzer declares a child artifact, the pipeline must loop it back
+   through the RTE → Artifact Router → Analyzer until deterministic
+   convergence. Currently `declare_inline_children_from_routed_analysis()`
+   exists but isn't invoked at decode time.
+2. **Auto-scan on record** — every `POST /api/history/record` should trigger
+   a cross-case scan via `correlation_engine.scan_correlations()` and cache
+   suggestions on the parent investigation (if any).
+3. **"Find Related Cases"** analyst-triggered action from the Workspace lens
+   + History row → seeds a new Investigation when confirmed.
 
----
-
-## 11. Compatibility & Migration Strategy
-
-- Every existing `/api/rc5/*` endpoint remains stable.
-- New CEM lives alongside existing `investigation_events` MongoDB collection under a new `case_events` collection.
-- The workspace initially runs **dual-write**: existing views + new CEM. Once CEM parity is proven, the legacy views are read from CEM projections.
-- Migration is **one-way** (legacy → CEM), never destructive.
-
----
-
-## 12. Quality Gates (Applied to Every PR from #1 onwards)
-
-From the baseline artefact `/app/backend/baselines/rc5_baseline.json`:
-- Golden corpus pass rate: **must not decrease**
-- False-positive rate: **must not increase**
-- False-negative rate: **must not increase**
-- p50 latency: **≤ baseline × 1.10**
-- p95 latency: **≤ baseline × 1.15**
-- Memory usage: **≤ baseline × 1.20**
-- Explainability completeness: **≥ baseline**
-- Deterministic verdict reproducibility: **100 %**
-- Contradiction detection rate: **≥ baseline**
-
-Enforced via a new `tests/test_regression_gate.py` that fails the pytest run on breach.
-
----
-
-## 13. Non-Functional Requirements
-
-| Concern | Target |
-|---------|--------|
-| Ingestion throughput | 50 000 events/sec sustained per worker |
-| Case size upper bound | 10 M events (streamed, not loaded) |
-| Correlation memory footprint | O(entities), not O(events) |
-| API response size | < 4 MB per request (paginate above) |
-| Determinism | Byte-identical output for identical input |
-| Offline mode | Full engine works without any outbound network |
-| RBAC | Case-scoped; admin / analyst / read-only roles |
-| Audit log | Every write to case store recorded with actor + timestamp |
-| Secrets | Env-only, never in payloads |
-
----
-
-## 14. Open Questions (Need User Input Before Prompt 2)
-
-1. **Persistence strategy for large cases**: Mongo continues to hold hot state; do we also want cold-storage export to S3 / Parquet for cases > N events?
-2. **Multi-tenant boundaries**: is case isolation per user sufficient, or do we need explicit "workspace" tenants (team-level)?
-3. **Adapter licensing**: for closed-format adapters (e.g. Splunk `.tsidx`), do we require the customer to supply an export, or invest in a parser?
-4. **Streaming transport**: WebSocket, SSE, or long-poll for live-updating cases?
-5. **AI copilot rollout**: opt-in per case, per user, or per workspace?
-
-I recommend deferring questions 1-4 to Prompt 2/3 design reviews and locking question 5 now (recommendation: **opt-in per case**).
-
----
-
-## 15. Definition of Done for Prompt 1
-
-- [x] Vision & positioning documented
-- [x] Design principles fixed
-- [x] 13-stage pipeline diagrammed with interface contracts
-- [x] Existing RC5 engine's place in the pipeline defined
-- [x] Extensibility model (plugins + registry) specified
-- [x] Analyst workspace tab layout locked
-- [x] AI copilot boundary defined (last-mile only)
-- [x] Rollout phasing enumerated with dependencies
-- [x] Backwards-compatibility guarantee documented
-- [x] Quality gates specified
-- [x] Non-functional requirements captured
-- [x] Open questions surfaced
-
-**No code has been written for Prompt 1.**
-The next action is user review + approval of this document. On approval, we move to **Prompt 2 (Universal Input Adapters)** and produce the adapter interface spec — again, design before implementation.
+Closing these three completes the Master Architecture's Investigation Engine
+integration for cross-artifact scenarios. Naming refinement #1 is preserved:
+there is only ONE component named "Investigation Engine" (the SSOT).

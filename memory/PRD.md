@@ -73,6 +73,11 @@ as the fourth analyzer registered in the Artifact Intelligence Layer.
 
 ## 🧭 Phase 4 · Investigation Intelligence (owner directive · 2026-02-15)
 
+> **Master architecture:** [`/app/memory/ARCHITECTURE.md`](../memory/ARCHITECTURE.md)
+> (owner-approved 2026-02-15, rated 9.95/10, explicitly frozen). Phase 4 work
+> maps to: Investigation Engine (SSOT), Canonical Event Model, Recursive
+> Child Artifact Pipeline, and Provider Extension slots.
+
 > **Architectural pivot after Phase 3 closure:** Stop adding more parsers.
 > Start connecting analyzed artifacts into a single investigation. NivXRay
 > evolves from *collection of analyzers* → *artifact-first investigation

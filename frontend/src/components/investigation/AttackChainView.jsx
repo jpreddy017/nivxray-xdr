@@ -42,9 +42,11 @@ export default function AttackChainView({ chain, onUnlink }) {
     );
   }
   return (
-    <div data-testid="attack-chain" style={{ display: "grid", gap: 8 }}>
+    <div data-testid="attack-chain"
+         style={{ display: "grid", gap: 8, minWidth: 0, overflow: "hidden" }}>
       {chain.steps.map((step, idx) => (
-        <div key={step.node_id} style={{ paddingLeft: (step.depth || 0) * 22 }}>
+        <div key={step.node_id}
+             style={{ paddingLeft: (step.depth || 0) * 22, minWidth: 0 }}>
           <ChainNode step={step} idx={idx} onUnlink={onUnlink} />
           {idx < chain.steps.length - 1 && (
             <div style={{ paddingLeft: 16, opacity: 0.5, margin: "2px 0",
@@ -116,7 +118,8 @@ function ChainNode({ step, idx, onUnlink }) {
           <div style={{ marginTop: 4, fontSize: 11, color: "#94a3b8",
                         fontFamily: "JetBrains Mono, monospace",
                         overflow: "hidden", textOverflow: "ellipsis",
-                        whiteSpace: "nowrap" }}>
+                        whiteSpace: "nowrap", maxWidth: "100%",
+                        minWidth: 0 }}>
             {step.input_preview}
           </div>
         )}

@@ -1,6 +1,12 @@
 # NivXRay · Roadmap · Product Hardening Phase
 _Baseline: M2 Hero build (approved). New capability development frozen._
 
+> **Master architecture source of truth: [`/app/memory/ARCHITECTURE.md`](./ARCHITECTURE.md)**
+> (owner-approved 2026-02-15, rated 9.95/10, explicitly frozen). All roadmap
+> items must map to a layer defined in that document. Additions plug in via
+> the Provider Extension Architecture (§7); they do not refactor the
+> Workspace topology.
+
 ## Rule of the road
 > Perfect one workflow → observe analyst → improve workflow → only then add capability.
 

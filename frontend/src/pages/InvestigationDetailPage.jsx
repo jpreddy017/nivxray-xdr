@@ -148,7 +148,7 @@ export default function InvestigationDetailPage() {
             <div style={{ display: "grid",
                           gridTemplateColumns: "minmax(0, 1fr) 320px",
                           gap: 18, alignItems: "start" }}>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <NavTabs
                   variant="strip"
                   size="sm"
