@@ -727,25 +727,32 @@ def declare_inline_children_from_routed_analysis(routed_analysis: Dict[str, Any]
                 })
         for k, kind in [("dde", "dde"), ("ole_objects", "ole"),
                         ("embedded_files", "embedded_file")]:
-            for it in (analysis.get(k) or [])[:5]:
+            v = analysis.get(k) or []
+            if not isinstance(v, list):
+                continue
+            for it in v[:5]:
                 children.append({
                     "type":  kind,
                     "label": _short_label(it, kind),
                     "snippet": _snippet(it),
                 })
     if atype == "pdf" and isinstance(analysis, dict):
-        for act in (analysis.get("javascript") or analysis.get("actions") or [])[:5]:
-            children.append({
-                "type": "pdf_javascript",
-                "label": _short_label(act, "PDF JavaScript"),
-                "snippet": _snippet(act),
-            })
-        for emb in (analysis.get("embedded_files") or [])[:5]:
-            children.append({
-                "type": "embedded_file",
-                "label": _short_label(emb, "PDF embedded"),
-                "snippet": _snippet(emb),
-            })
+        pdf_list = analysis.get("javascript") or analysis.get("actions") or []
+        if isinstance(pdf_list, list):
+            for act in pdf_list[:5]:
+                children.append({
+                    "type": "pdf_javascript",
+                    "label": _short_label(act, "PDF JavaScript"),
+                    "snippet": _snippet(act),
+                })
+        emb_list = analysis.get("embedded_files") or []
+        if isinstance(emb_list, list):
+            for emb in emb_list[:5]:
+                children.append({
+                    "type": "embedded_file",
+                    "label": _short_label(emb, "PDF embedded"),
+                    "snippet": _snippet(emb),
+                })
     if atype in ("pe", "elf") and isinstance(analysis, dict):
         # Not a child artifact per-se, but preserve top-level metadata as a
         # single anchor node so the chain visualization has structure.

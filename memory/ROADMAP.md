@@ -62,31 +62,25 @@ CEM + Canonical Artifacts.
 
 **Owner-locked priority order (highest first):**
 
-**P2.1 — Workspace "Find Related Cases"** (small, closes the philosophy loop)
-- The same Find-Related drawer available on History rows must be reachable
-  directly from the Workspace analysis result. Analysts should never need
-  to leave the Workspace to begin correlation. This completes the
-  Workspace + Investigation philosophy established in the master
-  architecture.
+### P2.1 — Workspace "Find Related Cases" (✅ **CLOSED** 2026-02-15)
+- FindRelatedDrawer mounted on the Workspace toolbar (testid
+  `btn-find-related-workspace`). Enabled when the workspace is anchored
+  to a saved / restored case; friendly tooltip otherwise.
+- Analysts can start, review, and pivot investigations without leaving
+  the Workspace.
 
-**P2.2 — Dual-Entry Architectural Equivalence Test** (critical validation)
-- Verify that both supported entry paths produce the **same canonical
-  Investigation** for the same underlying payload:
-  - **Scenario A — File Upload:** `.docm` → Office Analyzer → declares
-    embedded PowerShell → RTE → recovers PE → PE Analyzer → CEM →
-    Investigation Engine
-  - **Scenario B — Workspace Input:** paste the same base64-encoded
-    PowerShell → Input Classifier → RTE → recovers PE → PE Analyzer →
-    Same CEM → Same Investigation
-  - Expected: identical Canonical Artifacts, identical CEM (same hashes,
-    same events, same indicators, same MITRE), identical Threat Summary /
-    Attack Chain / Evidence Flow / Timeline. Any drift is a P0 bug.
+### P2.2 — Dual-Entry Architectural Equivalence Test (✅ **CLOSED** 2026-02-15)
+- Permanent CI regression suite (`tests/test_dual_entry_equivalence.py`,
+  9 tests) enforcing §1 (RTE determinism), §3 (Router purity of bytes),
+  §5 (CEM determinism + shape stability), §6 (signature is provenance-
+  agnostic). Any drift is a P0 architectural regression.
+- Also hardened `declare_inline_children_from_routed_analysis` against
+  non-list analyzer output fields.
 
-**P2.3 — Real End-to-End Demonstration**
-- Genuine sample sourced from **nivxmachines.com** (see reuse policy
-  below), producing a single Investigation with all analyst lenses
-  populated (Threat Summary · Attack Chain · Evidence Flow · Evidence
-  Graph · Timeline · Artifacts · MITRE · Reports).
+### P2.3 — Real End-to-End Demonstration (⏭️ awaiting sample source)
+- Genuine sample sourced from nivxmachines.com per §9 reuse policy
+  (subject to the §9.1 guardrail — nivxmachines.com is optional,
+  never a dependency).
 
 ### P3 · Compare Cases
 

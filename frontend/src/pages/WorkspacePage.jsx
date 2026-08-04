@@ -29,6 +29,8 @@ import IEDDEDecisionTrace from "@/components/IEDDEDecisionTrace";
 import RecoveryStatusRibbon from "@/components/RecoveryStatusRibbon";
 import PEAnalysisPanel from "@/components/PEAnalysisPanel";
 import ArtifactAnalysisPanel from "@/components/ArtifactAnalysisPanel";
+// Phase 4 · P2.1 (2026-02-15) — Workspace-native "Find Related Cases".
+import FindRelatedDrawer from "@/components/investigation/FindRelatedDrawer";
 import HistoryDrawer from "@/components/HistoryDrawer";
 import CasesDrawer from "@/components/CasesDrawer";
 import ProcessTreeView from "@/components/ProcessTreeView";
@@ -146,8 +148,7 @@ export default function WorkspacePage() {
   const [boostHit, setBoostHit] = useState(false);
   // ▲ IEDDE SSOT (Priority 1/2/3 · 2026-02) — decision trace + canonical
   // recovery signals surfaced from /api/decode/smart and /api/analyze/async.
-  const [iedde, setIedde] = useState(null);
-  const [iddeTerminalState, setIeddeTerminalState] = useState(null);
+  const [iedde, setIedde] = useState(null);  const [iddeTerminalState, setIeddeTerminalState] = useState(null);
   const [canonicalConfidence, setCanonicalConfidence] = useState(null);
   const [canonicalConfidenceReason, setCanonicalConfidenceReason] = useState(null);
   const [ieddeDiagnostics, setIeddeDiagnostics] = useState([]);
@@ -170,6 +171,13 @@ export default function WorkspacePage() {
   // silently upsert under the same name (no prompt). Reset when the input
   // is materially cleared (user starts a new investigation).
   const [savedCaseName, setSavedCaseName] = useState(null);
+  // ▲ Phase 4 · P2.1 (2026-02-15) — Workspace-native "Find Related Cases".
+  //   currentCaseId is set on restore-from-history and after a successful
+  //   /cases/save (via input_hash lookup). The drawer stays disabled with
+  //   a helpful tooltip until an ID is available so the correlation flow
+  //   can only run against a persisted case.
+  const [currentCaseId, setCurrentCaseId] = useState(null);
+  const [findRelatedOpen, setFindRelatedOpen] = useState(false);
   // Feb-2026: analyst-corrections launcher state.
   const [refineOpen, setRefineOpen] = useState(false);
   const [refineCtx, setRefineCtx] = useState(null); // { surface, wrong_finding }
@@ -345,6 +353,10 @@ export default function WorkspacePage() {
     // (💾 CASE · <name>) reappears and subsequent SAVE upserts the same case.
     if (full.case_name) setSavedCaseName(full.case_name);
     else setSavedCaseName(null);
+    // ▲ Phase 4 · P2.1 (2026-02-15) — track the current case id so the
+    // Workspace "Find Related Cases" button can seed the correlation
+    // drawer without a redirect through HistoryPage.
+    if (full.id || rec.id) setCurrentCaseId(String(full.id || rec.id));
     setStatus(
       isEcho
         ? `▲ OUTPUT=INPUT · "${full.case_name || "case"}" was saved before decode — click AUTO INVESTIGATE to peel it`
@@ -1395,6 +1407,15 @@ export default function WorkspacePage() {
       });
       setSavedCaseName(name);
       const wasUpdate = !!r.data?.updated;
+      // ▲ Phase 4 · P2.1 · resolve the case id so "Find Related" lights up
+      //   without forcing a page navigation. /cases/save doesn't return
+      //   the history id, so hit /history?q= with the case name.
+      try {
+        const hr = await api.get("/history", { params: { q: name, limit: 5 } });
+        const found = (hr.data?.items || hr.data?.history || [])
+          .find(x => x.case_name === name);
+        if (found?.id) setCurrentCaseId(String(found.id));
+      } catch (_) { /* non-fatal — button just stays disabled */ }
       setStatus(
         wasUpdate
           ? `CASE UPDATED: "${name}"`
@@ -1724,6 +1745,25 @@ export default function WorkspacePage() {
                   ? `Update the saved case "${savedCaseName}" with the current workspace state`
                   : "Save this decoded case to the Case Library with a friendly name"}>
           💾 {savedCaseName ? `UPDATE "${savedCaseName.length > 20 ? savedCaseName.slice(0,20)+"…" : savedCaseName}"` : "SAVE CASE"}
+        </button>
+        {/* Phase 4 · P2.1 (2026-02-15) — Workspace-native Find Related Cases.
+            Enabled only when the current workspace state is anchored to a
+            saved / restored case (currentCaseId). Deterministic scan runs
+            in the same overlay drawer used by History rows. */}
+        <button className="nvx-btn"
+                data-testid="btn-find-related-workspace"
+                onClick={() => currentCaseId && setFindRelatedOpen(true)}
+                disabled={!currentCaseId}
+                style={{
+                  borderColor: currentCaseId ? "#c4b5fd" : "rgba(148,163,184,0.20)",
+                  color: currentCaseId ? "#c4b5fd" : "#64748b",
+                  cursor: currentCaseId ? "pointer" : "not-allowed",
+                  opacity: currentCaseId ? 1 : 0.55,
+                }}
+                title={currentCaseId
+                  ? "Find related cases — deterministic scan across your history for shared hashes, URLs, C2, and MITRE overlap"
+                  : "Save this case first (💾 SAVE CASE) or restore one from History — Find Related runs against a persisted case."}>
+          🔍 FIND RELATED
         </button>
         <button className="nvx-btn" onClick={() => fileRef.current?.click()} data-testid="btn-upload">
           <Upload size={13} /> UPLOAD
@@ -2861,6 +2901,14 @@ export default function WorkspacePage() {
           <div className="mono" style={{ fontSize: 11, color: "var(--text-dim)", wordBreak: "break-all" }}>{shareUrl}</div>
           <button className="nvx-btn sm ghost" style={{ marginTop: 6 }} onClick={() => setShareUrl("")}>DISMISS</button>
         </div>
+      )}
+
+      {/* Phase 4 · P2.1 · Workspace-native Find Related Cases (2026-02-15) */}
+      {findRelatedOpen && currentCaseId && (
+        <FindRelatedDrawer
+          caseId={currentCaseId}
+          onClose={() => setFindRelatedOpen(false)}
+        />
       )}
 
       <CasesDrawer

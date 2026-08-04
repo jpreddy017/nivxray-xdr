@@ -322,6 +322,36 @@ Investigation SSOT or Workspace architecture**.
 decoder recipe libraries, and any threat intelligence the platform needs
 to enrich analysis.
 
+### 9.1 Architectural Guardrail (owner directive · 2026-02-15)
+
+> **nivxmachines.com is an OPTIONAL enrichment source, not an architectural
+> dependency.** NivXRay must remain fully functional, deterministic, and
+> production-ready even if nivxmachines.com is unavailable or never
+> integrated.
+
+Reuse content from nivxmachines.com only when it improves NivXRay and does
+**not** compromise its architecture, performance, security, licensing,
+maintainability, or deterministic behavior.
+
+If any dependency on nivxmachines.com would:
+- reduce the quality or reliability of NivXRay,
+- introduce unnecessary coupling,
+- negatively impact performance,
+- conflict with the Workspace-first or deterministic-first architecture,
+- create licensing or operational concerns,
+- or otherwise degrade the product,
+
+**ignore it and proceed with a self-contained implementation inside
+NivXRay.**
+
+**Priority order (in case of conflict):**
+1. Preserve NivXRay's architecture and product quality.
+2. Preserve deterministic behavior and Workspace-first design.
+3. Reuse nivxmachines.com content only when it provides clear value
+   without compromising the above.
+4. If there is any conflict, **choose NivXRay's implementation and ignore
+   the external source.**
+
 **Does NOT override:** the Universal Deterministic Processing Law (§1) or
 the AI Boundary (§8). Imported artifacts still flow through the same RTE
 / IEDDE pipeline like any other input, and imported enrichment data

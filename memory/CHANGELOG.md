@@ -2,6 +2,59 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-15 · Phase 4 · P2 · Batch A — COMPLETE · 57/57 tests green
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.0
+(owner-approved 2026-02-15, rated 9.95/10, frozen).
+
+**Ships:**
+- **P2.1 · Workspace "Find Related Cases"** — the same
+  `FindRelatedDrawer` used by History rows is now reachable directly from
+  the Workspace toolbar (testid `btn-find-related-workspace`). Enabled
+  when the workspace is anchored to a saved/restored case
+  (`currentCaseId` populated via restore-from-history OR post-save
+  lookup). Deterministic tooltip when disabled. Closes the "analyst
+  never leaves the Workspace" philosophy loop.
+- **P2.2 · Dual-Entry Architectural Equivalence Test** —
+  `backend/tests/test_dual_entry_equivalence.py`. Permanent CI regression
+  suite (9 tests) that validates the four contract properties making
+  dual-entry equivalence possible: §1 RTE determinism, §3 Artifact
+  Router purity of bytes, §5 CEM deterministic + shape-stable emission,
+  §6 Investigation Engine signature is provenance-agnostic. Any drift
+  is treated as a P0 architectural regression.
+
+**Contract properties now enforced by CI:**
+- RTE is a pure function of its input — identical input yields identical
+  `(canonical_output, terminal_state, chain, techniques, stop_reason)`.
+- `dispatch()` is a pure function of bytes — identical PE bytes yield
+  identical `routed_analysis.hashes`.
+- `emit_cem()` is deterministic — same case doc → same CEM byte-for-byte.
+- The CEM schema has the same top-level keys regardless of input
+  provenance (workspace_input | file_upload).
+- Every CEM event carries `provenance` back to its producing layer.
+- `build_evidence_signature()` ignores raw input text — signatures depend
+  only on canonical artifacts + IOCs + MITRE, so identical payloads
+  correlate at HIGH confidence regardless of entry path.
+- Same PE hash + shared MITRE + shared chain across entry paths ⇒
+  correlation score ≥ 80 (HIGH confidence).
+
+**Additional fix:** hardened `declare_inline_children_from_routed_analysis`
+against non-list analyzer output fields (was raising
+`TypeError: unhashable type: 'slice'` on unusual PDF/Office analyzer
+outputs).
+
+**Validation:**
+- Backend: **57/57 unit tests green** — 9 dual-entry equivalence + 13 CEM
+  + Recursive Pipeline + 20 correlation engine + ELF + Office + PE +
+  Artifact Intelligence.
+- Frontend: compiles clean (1 unrelated eslint hooks warning). New
+  testid `btn-find-related-workspace` added.
+
+**Next:** P2.3 · Real End-to-End Demonstration — awaiting nivxmachines.com
+sample source per owner directive.
+
+---
+
 ## 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION · 100/100
 
 **Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.0
