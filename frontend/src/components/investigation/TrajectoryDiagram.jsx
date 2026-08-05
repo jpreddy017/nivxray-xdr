@@ -118,12 +118,6 @@ export default function TrajectoryDiagram({ preprocessor }) {
                        origX:  pan.x,    origY:  pan.y };
   };
 
-  const onWheel = (e) => {
-    e.preventDefault();
-    const delta = e.deltaY < 0 ? 0.1 : -0.1;
-    setZoom((z) => Math.max(0.4, Math.min(2.2, +(z + delta).toFixed(2))));
-  };
-
   const reset = () => { setNodes(initialNodes); setPan({x:0,y:0}); setZoom(1); };
 
   return (
@@ -140,7 +134,7 @@ export default function TrajectoryDiagram({ preprocessor }) {
           <div style={{ fontSize: 18, fontWeight: 700, color: "#e2e8f0",
                         marginTop: 2 }}>
             Attack chain across {LANES.length} swim lanes ·
-            drag nodes · pan background · scroll to zoom
+            drag nodes · pan background · use +/− to zoom
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -179,8 +173,7 @@ export default function TrajectoryDiagram({ preprocessor }) {
              onMouseMove={onMouseMove}
              onMouseUp={onMouseUp}
              onMouseLeave={onMouseUp}
-             onMouseDown={onBgMouseDown}
-             onWheel={onWheel}>
+             onMouseDown={onBgMouseDown}>
           <defs>
             <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5"
                     markerWidth="7" markerHeight="7" orient="auto">
@@ -266,7 +259,7 @@ export default function TrajectoryDiagram({ preprocessor }) {
       <div style={{ marginTop: 8, fontSize: 11, color: "#64748b",
                     fontStyle: "italic" }}>
         Deterministic trajectory. Drag nodes · click-drag the background to pan ·
-        mouse-wheel to zoom · RESET restores the auto-layout.
+        use +/− buttons to zoom · RESET restores the auto-layout.
       </div>
     </section>
   );
