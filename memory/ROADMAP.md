@@ -129,31 +129,49 @@ gates green.
 state must remain honest. Improvements come from real decoder work, never
 from bypassing the gate to make demos green.
 
-### 🎯 Owner-locked post-P2.3c sequence (2026-02-16)
+### 🎯 Owner-locked phased roadmap (2026-02-16 · post-`.docm` flagship)
 
-Owner ratified the P2.3c outcome and reprioritized: **fingerprints
-precede comparisons** so Compare Cases operates on deterministic DNA
-rather than re-derived evidence each time.
+Owner ratified the `.docm → PowerShell → PE` flagship completion.
+Architectural work is now considered done — the highest ROI is analyst
+intelligence + broadened artifact coverage. No further core-pipeline
+changes; all work fits under §7 Provider Extension Architecture.
 
-1. **`.docm → PowerShell → PE` flagship investigation** — third
-   Golden Corpus entry exercising every layer end-to-end (Office →
-   macro → RTE → PE → Analyzer → CEM → Investigation).
-2. **Attack Fingerprint (Attack DNA)** — first deterministic
-   analytical consumer. Emitted per case from the CEM. Components:
-   Interpreter Chain · Decode Recipe · Transformation Trace ·
-   Canonical Artifact Graph · MITRE Profile · IOC Profile ·
-   Behavioral Sequence · Parent/Child Artifact Relationships ·
-   Investigation Similarity Hash. **Purely deterministic.**
-3. **Compare Cases (fingerprint-powered)** — side-by-side diff over
-   Threat Summary · Attack Chain · Timeline · MITRE · IOCs · Recipe ·
-   Transformation Trace · Decision Trace · Interpreter Chain · Attack
-   Fingerprint · Similarity Score.
-4. **Mach-O Analyzer** — fifth first-class artifact type.
-5. **Additional analyzers** — Email · Archives (ZIP/7z/RAR/ISO/CAB/
-   IMG) · Android APK · iOS IPA · Memory dumps.
+**Phase A · Investigation Intelligence** (consumes the Investigation SSOT)
 
-All items above are pure **extensions** of the frozen v1.1 core. No
-structural redesign permitted.
+1. **Attack Fingerprint (Attack DNA)** — first deterministic
+   Analytical Consumer. Inputs (from CEM only): Canonical Artifacts ·
+   Interpreter Chain · Decode Recipe · Transformation Trace · Decision
+   Trace · MITRE Profile · IOC Profile · Artifact Relationships ·
+   Behavioral Sequence. Outputs: deterministic Investigation
+   Fingerprint + similarity metadata. **Must not** modify evidence,
+   CEM, Investigation state, or verdicts.
+2. **Compare Cases (fingerprint-powered)** — side-by-side deterministic
+   diff over Threat Summary · Attack Chain · Timeline · MITRE · IOCs ·
+   Recipe · Transformation Trace · Decision Trace · Interpreter Chain ·
+   Attack Fingerprint · Similarity Score.
+3. **Confidence Provenance Ledger** — analyst-visible chain showing
+   which evidence / weights / rules produced the final risk score and
+   verdict. Deterministic, read-only on the SSOT.
+
+**Phase B · New Artifact Types** (broaden coverage under §7)
+
+4. Mach-O Analyzer (fifth first-class type)
+5. Email Analyzer (.eml / .msg)
+6. Archive Analyzer (ZIP · 7z · RAR · ISO · CAB · IMG)
+7. Android APK Analyzer
+8. iOS IPA Analyzer
+9. Memory-dump Analyzer
+
+**Phase C · Image Intelligence** (image is a first-class artifact)
+
+10. Image Investigation Analyzer — a new artifact type that treats
+    PNG/JPEG/PDF-embedded images as investigations. Sub-capabilities:
+    OCR · diagram understanding · IOC table extraction · timeline
+    extraction · architecture-diagram analysis. Deterministic where
+    possible; AI-assisted paths are strictly optional consumers that
+    NEVER modify the CEM (§8 AI Boundary).
+
+All items are pure extensions of the frozen v1.1 core.
 
 ### P4 · Mach-O Analyzer (queued per owner sequence above)
 
