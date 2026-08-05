@@ -11,6 +11,11 @@ import re
 from typing import Any, Dict, Optional
 
 from .powershell_ast import parse_powershell
+from .cmd_ast        import parse_cmd
+from .javascript_ast import parse_javascript
+from .vbscript_ast   import parse_vbscript
+from .bash_ast       import parse_bash
+from .python_ast     import parse_python
 from .lolbas import lolbas_lookup
 from .ioc_semantic import extract_iocs, summarize_iocs
 
@@ -22,7 +27,11 @@ _PS_HINTS = re.compile(
     r"\$env:|\[system\.\w+]::|frombase64string)"
 )
 _CMD_HINTS = re.compile(
-    r"(?i)(^|\s)(cmd\.exe|\bset\s+[A-Z_]+=|%[A-Z_]+%|\bfor\s+/[a-z]|\bcall\s+|\bstart\s+/)"
+    r"(?i)(^|\s|&)(cmd\.exe|\bset\s+[A-Z_]+=|%[A-Z_]+%|!\w+!|\bfor\s+/[a-z]|"
+    r"\bcall\s+|\bstart\s+/|\bschtasks\b|\breg\s+add\b|\bwmic\b|"
+    r"\bvssadmin\b|\bwbadmin\b|\bbcdedit\b|\bnetsh\b|\btasklist\b|"
+    r"\btaskkill\b|\bcertutil\b|\bbitsadmin\b|\brundll32\b|\bregsvr32\b|"
+    r"\bmshta\b|\bmsiexec\b|\bcopy\s+\\\\|\bxcopy\s+)"
 )
 _JS_HINTS = re.compile(
     r"(?i)(new\s+ActiveXObject|WScript\.Shell|createobject\(|eval\(|"
@@ -34,6 +43,12 @@ _VBS_HINTS = re.compile(
 )
 _BASH_HINTS = re.compile(
     r"(?i)(^#!\s*/(bin|usr).*sh|\becho\s+-n\s+|curl\s+-|wget\s+|/bin/sh\b|/bin/bash\b)"
+)
+
+
+_PY_HINTS = re.compile(
+    r"(?im)(^\s*(?:from|import)\s+\w|^\s*def\s+\w+\s*\(|^\s*class\s+\w+\s*[\(:]|"
+    r"print\(|subprocess\.|__import__|urllib\.request|requests\.(?:get|post))"
 )
 
 
@@ -52,6 +67,10 @@ def detect_language(src: str) -> str:
     # both — but Dim/Set/End Sub is a VBScript-only signature.
     if _VBS_HINTS.search(src):
         return "vbscript"
+    # Python check comes before JavaScript because both use eval/exec —
+    # but `def x():` / `import x` are Python-only.
+    if _PY_HINTS.search(src):
+        return "python"
     if _JS_HINTS.search(src):
         return "javascript"
     if _CMD_HINTS.search(src):
@@ -86,19 +105,39 @@ def analyze(src: str, language: Optional[str] = None) -> Dict[str, Any]:
             "obfuscation_score": ast["complexity"]["obfuscation_score"],
         }
 
-    # Cycle-B fallback for other languages — still returns useful
-    # deterministic evidence (LOLBAS + IOC + language flag).
-    iocs = extract_iocs(src)
-    lolbins = _scan_lolbins(src)
+    # Cycle B — dispatch to the language-specific AST.  Every parser
+    # returns the same-shape envelope so callers don't need to branch.
+    if lang == "cmd":
+        ast = parse_cmd(src)
+    elif lang == "javascript":
+        ast = parse_javascript(src)
+    elif lang == "vbscript":
+        ast = parse_vbscript(src)
+    elif lang == "bash":
+        ast = parse_bash(src)
+    elif lang == "python":
+        ast = parse_python(src)
+    else:
+        return {
+            "language":       lang,
+            "ast":            None,
+            "cmdlets":        [],
+            "lolbins":        _scan_lolbins(src),
+            "techniques":     _lolbin_techniques(_scan_lolbins(src)),
+            "iocs":           extract_iocs(src),
+            "iocs_summary":   summarize_iocs(extract_iocs(src)),
+            "obfuscation_score": 0,
+        }
+
     return {
         "language":         lang,
-        "ast":              None,     # populated by Cycle B parsers
-        "cmdlets":          [],
-        "lolbins":          lolbins,
-        "techniques":       _lolbin_techniques(lolbins),
-        "iocs":             iocs,
-        "iocs_summary":     summarize_iocs(iocs),
-        "obfuscation_score": 0,
+        "ast":              ast,
+        "cmdlets":          ast.get("commands", []),
+        "lolbins":          ast.get("lolbins", []),
+        "techniques":       ast.get("techniques", []),
+        "iocs":             ast.get("iocs", []),
+        "iocs_summary":     ast.get("iocs_summary", {}),
+        "obfuscation_score": ast.get("complexity", {}).get("obfuscation_score", 0),
     }
 
 

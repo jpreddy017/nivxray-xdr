@@ -17,7 +17,11 @@ from services.die import (
     lolbas_lookup,
     LOLBAS_REGISTRY,
     extract_iocs,
+    archive_recover,
+    archive_recover_recursive,
+    archive_detect_kind,
 )
+import base64 as _b64
 
 router = APIRouter(prefix="/die", tags=["die"])
 
@@ -64,3 +68,37 @@ def die_lolbas_all():
 def die_lolbas_one(binary: str):
     entry = lolbas_lookup(binary)
     return {"binary": binary, "entry": entry}
+
+
+# ── DIE Cycle B · archive recovery ────────────────────────────────
+class ArchiveBody(BaseModel):
+    """Body carries base64-encoded raw bytes so archives can be posted
+    over JSON without multipart plumbing."""
+    b64: str = Field(..., description="Base64-encoded archive bytes.")
+    name: Optional[str] = Field(None, description="Optional container name.")
+    recursive: bool = Field(False, description="Descend nested archives.")
+    max_depth: int = Field(3, ge=1, le=8)
+    max_children: int = Field(200, ge=1, le=2000)
+
+
+@router.post("/archive/recover")
+def die_archive_recover(body: ArchiveBody):
+    try:
+        blob = _b64.b64decode(body.b64, validate=False)
+    except Exception as e:
+        return {"error": f"invalid base64: {e}"}
+    if body.recursive:
+        return {"result": archive_recover_recursive(
+            blob, name=body.name,
+            max_depth=body.max_depth,
+            max_children=body.max_children)}
+    return {"result": archive_recover(blob, name=body.name)}
+
+
+@router.post("/detect-kind")
+def die_detect_kind(body: ArchiveBody):
+    try:
+        blob = _b64.b64decode(body.b64, validate=False)
+    except Exception as e:
+        return {"error": f"invalid base64: {e}"}
+    return {"kind": archive_detect_kind(blob), "size": len(blob)}

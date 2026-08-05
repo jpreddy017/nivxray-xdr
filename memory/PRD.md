@@ -44,6 +44,69 @@ Files touched (frontend only):
 
 ---
 
+### 🟢 2026-02-16 (pm) · Phase B.1 · DIE · Cycle B · Multi-language ASTs + Archive Recovery (owner-locked · shipped · 68/68 tests green)
+
+Additive-only extension of the DIE package. No existing service
+modified. The frozen v1.1 core is untouched.
+
+**Shipped in Cycle B:**
+
+- **CMD/Batch semantic AST** (`services/die/cmd_ast.py`) — commands,
+  variables, labels, chains, LOLBAS hits, flags for hidden_window ·
+  elevation · download_cradle · persistence · shadow_delete ·
+  delayed_expansion · caret_obfuscation · wmic_exec. MITRE mapping:
+  T1105, T1490 (ransomware precursor), T1053.005, T1047, T1564.003,
+  T1027.
+
+- **JavaScript semantic AST** (`services/die/javascript_ast.py`) —
+  declarations, calls, string signals, flags for activex_abuse ·
+  download_cradle · eval_or_function · shell_exec · obfuscation ·
+  createobject · hex_strings · long_strings. MITRE mapping:
+  T1059.007, T1105, T1027, T1218.005.
+
+- **VBScript semantic AST** (`services/die/vbscript_ast.py`) — Dim,
+  Set-CreateObject, Sub/Function, calls; flags for shell_execute ·
+  filesystem_write · download_cradle · wmi_abuse · error_masking.
+  MITRE: T1059.005, T1105, T1047, T1027.
+
+- **Bash semantic AST** (`services/die/bash_ast.py`) — variables,
+  functions; flags for pipe_to_shell · base64_decode · eval_or_exec
+  · persistence · shadow_tamper · reverse_shell · download_cradle.
+  MITRE: T1105, T1059.004, T1053.003, T1003.008, T1027.
+
+- **Python semantic AST** (`services/die/python_ast.py`) — imports,
+  functions, classes; flags for dynamic_exec · subprocess_use ·
+  http_download · encoded_payload · compiled_bytecode ·
+  getattr_indirect. MITRE: T1027, T1059.006, T1105.
+
+- **Recursive Archive Recovery** (`services/die/archive_recovery.py`)
+  Deterministic ZIP · TAR · GZIP extraction via Python stdlib; 7z
+  and RAR via optional `py7zr` / `rarfile` (graceful skip when
+  missing). Magic-byte kind detector (`zip · tar · gzip · 7z · rar
+  · pe · pdf · elf · office · text · unknown`). Every recovered
+  child fingerprinted (sha256) and classified into `nested_pe ·
+  nested_office · nested_pdf · nested_elf · nested_archive · text ·
+  other`. Recursive walk with depth + total-child caps for zip-bomb
+  defense.
+
+- **Orchestrator dispatch** — `analyze(src, language=None)` now
+  routes to the correct AST for every supported language.
+
+- **HTTP surface additions**:
+  - `POST /api/die/archive/recover` (recursive flag)
+  - `POST /api/die/detect-kind`
+
+- **Tests** — 21 new language cases + 17 archive cases + 30
+  Cycle-A cases = **68/68 pass in 0.4s**. Deterministic parity
+  (same input → same output) verified for every parser.
+
+Verified end-to-end via curl: `vssadmin delete shadows /all /quiet`
+→ language=`cmd` · techniques=[`T1490`] · shadow_delete flag=True.
+ZIP with an embedded `MZ` payload → children=[`payload.exe`
+(nested_pe), `readme.txt` (text)].
+
+---
+
 ### 🟢 2026-02-16 · Phase B.1 · DIE · Cycle A · Decoder Intelligence Engine foundation (owner-locked · shipped · 30/30 tests green)
 
 Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).

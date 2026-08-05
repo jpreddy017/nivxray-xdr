@@ -243,92 +243,131 @@ NOT touched.
 > capabilities. Every module below is a *consumer* of the frozen
 > engine · Master Architecture v1.1 remains untouched.
 
-**Owner-locked headline modules (execute in order):**
+**Owner-locked headline modules (execute in order — updated 2026-02-16 pm):**
 
 ### ⭐ B.1 — DIE · Decoder Intelligence Engine
-Expand deterministic decoding into a class-leading capability. Current
-shipping detectors (`technique_detector.py`): base64 · hex · utf-16le
-· gzip · zlib · xor · rc4 · aes-wrapper · string-concat · char-array
-· env-var-assembly · backtick · caret · reverse · url-encoding ·
-unicode-escape · invocation/launcher wrappers. **Gap-list to close:**
+Expand deterministic decoding into a class-leading capability.
+Cycle A (SHIPPED — see PRD) delivered PowerShell semantic AST +
+LOLBAS registry + IOC extractor + `/api/die/*` router. Cycle B
+delivers the remaining language ASTs and embedded-artifact recovery:
 
 - **AST-level parsers** (deterministic — no LLM)
-  - PowerShell AST
+  - PowerShell AST · ✅ Cycle A
   - JavaScript AST
-  - Batch parser
+  - CMD/Batch parser
   - VBScript parser
   - Python parser
-  - Linux shell parser
+  - Bash parser
 - **LOLBin recognition** — LOLBAS-mapped registry with MITRE tagging
+  · ✅ Cycle A
 - **Embedded artifact recovery**
   - Embedded PE (✅ already ships via `canonical_evidence_recovery.py`)
   - Embedded Office (🟡 partial — extend nested-doc extraction)
   - Embedded PDF  (🟡 partial — recover JS + attached objects)
-  - Embedded archives (ZIP · 7z · RAR · TAR — new)
+  - Embedded archives (ZIP · 7z · RAR · CAB · ISO · TAR — new)
 - **Partial-corruption recovery** — heuristic reflow of truncated
   Base64 · Gzip · UTF-16 streams
-- **Network-indicator extraction from decoded blobs** — URLs · IPs ·
-  domains · UNCs · onions · discord webhooks
-- **C2 configuration extraction** — start with Cobalt Strike, Emotet,
-  IcedID, Qakbot; expand as owner directs
-- **Config-blob extraction** — generic in-artifact encoded blob
-  recognizer with heuristic scoring
+- **Network-indicator extraction from decoded blobs** — ✅ Cycle A
+- **Multi-stage chain reconstruction** — deterministic re-linking of
+  decode → recover → analyze steps across nested payloads
+- **Generic config-blob extractor** — heuristic recognizer for
+  encoded config regions inside artifacts (family-specific C2 config
+  parsers explicitly deferred per owner directive)
 
-**Suggested slicing:**
-DIE-1 → PowerShell AST + LOLBAS registry + network-indicator extraction
-DIE-2 → Batch/VBScript/JS AST + embedded-archive recovery
-DIE-3 → C2 family parsers + partial-corruption recovery
+### ⭐ B.2 — DKP · Decoder Knowledge Pack (elevated from footnote)
+The decoder's *knowledge layer* — not a LOLBAS database. Every entry
+is a structured pattern:
 
-### ⭐ B.2 — IDA · Image & Diagram Analyzer
-Input: PNG · JPEG · TIFF · BMP · PDF page. Output: Structured
+```
+Pattern
+├── Name (Download + Execute · Fileless Loader · Persistence via
+│         Schtasks · etc.)
+├── Observed (regex / AST signatures — e.g., Invoke-WebRequest,
+│              Start-BitsTransfer, Net.WebClient)
+├── Intent (Payload Retrieval · Defense Evasion · …)
+├── MITRE (T1105, T1059.001, …)
+├── Enterprise Uses (Intune · SCCM · Chocolatey — benign context)
+├── Malware Uses (Emotet · Qbot · IcedID — malicious context)
+├── Typical Parent (powershell.exe)
+├── Typical Child  (rundll32.exe)
+├── Confidence     (base likelihood)
+├── Recommended Narrative      (analyst-facing template snippet)
+└── Recommended Investigation  (next steps · hunts)
+```
+
+Every DIE decode enriches its output via DKP lookups. The engine
+never changes; the *knowledge* does.
+
+### ⭐ B.3 — Deterministic Analyst Narrative Generator (new)
+Template-driven natural-language explanation of every decode / case.
+Consumes DIE + DKP + MITRE + rules; emits narrative like:
+
+> The decoded PowerShell command disables execution restrictions,
+> downloads a payload from example.com, writes it to %TEMP%, and
+> launches it using Start-Process. This behavior aligns with a
+> staged malware delivery chain. The command exhibits defense
+> evasion through -ExecutionPolicy Bypass and maps to MITRE ATT&CK
+> techniques T1059.001 and T1105. No persistence mechanisms were
+> observed in the decoded content.
+
+**Deterministic** — no LLM. Uses fixed templates + slot filling from
+DIE/DKP output. Every run produces the same paragraph for the same
+input.
+
+### ⭐ B.4 — IDA · Intelligent Document & Image Analyzer (renamed)
+Input: PNG · JPEG · TIFF · BMP · PDF pages · PowerPoint slides ·
+Word screenshots · architecture diagrams · flowcharts · process
+trees · tables · graphs · network diagrams. Output: Structured
 Investigation (entities · processes · files · registry · network ·
-users · MITRE · relationships · timeline · confidence · narrative ·
-IOCs). Covers analyst-facing screenshots that today only OCR could
-touch: STAC-style ransomware flows · SecureX/Defender/Sentinel/
-CrowdStrike/QRadar screenshots · attack-flow diagrams · Visio ·
-process trees · phishing screenshots.
+users · MITRE · relationships · timeline · IOCs · confidence).
+
+Determinism boundary (owner-locked · Q2 · answer 2c): **Deterministic
+first (Tesseract + rule-based layout parser); Gemini vision fallback
+strictly when confidence < threshold; every entity carries
+extraction-source + confidence + provenance + validation state.
+Gemini is never authoritative.**
 
 Architectural position:
 ```
-Artifact Router → Image Analyzer (IDA) → Canonical Image Model → CEM
-                                                                → Investigation
+Artifact Router → IDA → Canonical Image Model → CEM → Investigation
 ```
 
-Consumer-only: never modifies the frozen engine. Deterministic
-verification passes downstream (SHA registry · IOC dedup ·
-investigation linking) remain unchanged.
+### ⭐ B.5 — IVE · Investigation Visualization Engine
+Multi-output deterministic diagram renderer. Same investigation,
+different visualisations:
 
-### ⭐ B.3 — IVE · Investigation Visualization Engine
-Input: structured investigation (CEM · chain · fingerprint · MITRE).
-Output: **deterministic** professional attack-flow diagrams (NOT AI
-art) with icons · colors · relationships · MITRE overlays · IOC
-callouts · timeline strip. Comparable to the diagrams SOCs draw by
-hand for executive incident reports.
+- Attack Flow diagram
+- Timeline diagram
+- Process Tree diagram
+- Evidence Graph
+- Campaign Graph (multi-investigation)
+- Executive Diagram (report-ready)
+- SOC Report Diagram (analyst-shareable)
 
-Architectural position:
+Stack (owner-locked · Q3 · answer 3b): **React Flow + ELK/Dagre
+layout + custom nodes** (process · file · registry · network · MITRE
+badges · IOC callouts · evidence indicators · confidence markers ·
+timeline overlays · clickable evidence · collapse/expand · export to
+PNG/PDF/SVG).
+
+**Combined pipeline unlocked once DIE + DKP + Narrative + IDA + IVE ship:**
 ```
-Investigation → IVE → Professional Investigation Diagram
-```
-
-Consumer-only. Rendering is deterministic (graph layout engine +
-templated icon library); nothing in the CEM changes.
-
-**Combined pipeline unlocked once DIE + IDA + IVE ship:**
-```
-Any artifact
+Any artifact (or screenshot / diagram)
   ↓ Artifact Router
-  ↓ Analyzer (or IDA for images)
+  ↓ DIE (deep decode) OR IDA (image → structured)
+  ↓ DKP enrichment (patterns · intent · MITRE · benign context · narratives)
   ↓ Canonical Model
   ↓ CEM
   ↓ Investigation
   ↓ Attack Fingerprint · Compare Cases
-  ↓ IVE
-  ↓ Professional Investigation Diagram + Report
+  ↓ Narrative Generator (deterministic analyst prose)
+  ↓ IVE (multi-output deterministic diagrams)
+  ↓ Professional Investigation Report
 ```
 
 ---
 
-## Phase C · Additional Artifact Families (after B.1-B.3 land)
+## Phase C · Additional Artifact Families (after B.1-B.5 land)
 
 Ordered per owner directive 2026-02-16:
 

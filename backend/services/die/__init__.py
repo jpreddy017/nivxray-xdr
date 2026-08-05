@@ -24,6 +24,16 @@ from .api import analyze, analyze_powershell, analyze_command
 from .lolbas import lolbas_lookup, LOLBAS_REGISTRY
 from .ioc_semantic import extract_iocs
 from .powershell_ast import parse_powershell
+from .cmd_ast        import parse_cmd
+from .javascript_ast import parse_javascript
+from .vbscript_ast   import parse_vbscript
+from .bash_ast       import parse_bash
+from .python_ast     import parse_python
+from .archive_recovery import (
+    recover as archive_recover,
+    recover_recursive as archive_recover_recursive,
+    detect_kind as archive_detect_kind,
+)
 
 __all__ = [
     "analyze",
@@ -33,4 +43,12 @@ __all__ = [
     "LOLBAS_REGISTRY",
     "extract_iocs",
     "parse_powershell",
+    "parse_cmd",
+    "parse_javascript",
+    "parse_vbscript",
+    "parse_bash",
+    "parse_python",
+    "archive_recover",
+    "archive_recover_recursive",
+    "archive_detect_kind",
 ]
