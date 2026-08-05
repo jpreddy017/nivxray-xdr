@@ -243,9 +243,114 @@ NOT touched.
 > capabilities. Every module below is a *consumer* of the frozen
 > engine · Master Architecture v1.1 remains untouched.
 
-**Owner-locked headline modules (execute in order — updated 2026-02-16 pm):**
+**Owner-locked headline modules (execute in order — updated 2026-02-16 pm-late):**
 
 ### ⭐ B.1 — DIE · Decoder Intelligence Engine
+Cycle A (SHIPPED) · Cycle B (SHIPPED) · Chain Analyzer (SHIPPED).
+Remaining polish: embedded Office (.docx macro recovery) · embedded
+PDF JS + attached objects · partial-corruption recovery · generic
+config-blob extractor. Family-specific C2 config parsers explicitly
+deferred per owner directive.
+
+### ⭐ B.2 — DKP · Decoder Knowledge Pack (SHIPPED · foundation)
+14 seed patterns live. Expansion to 100+ patterns explicitly
+**deprioritised** vs. building the Attack Intent Engine — owner
+directive: "synthesis first, coverage second" (2026-02-16 pm-late).
+
+**Presentation rule (owner-locked 2026-02-16 pm-late):** Never
+render `families` / `malware_uses` as primary attribution. Always
+phrase as *"Commonly observed in: X, Y, Z"*. Deterministic data
+stays; only the analyst-facing wording changes. Attribution is a
+side-effect signal, not a conclusion.
+
+### ⭐ B.3 — Chain UI = Attack Story (owner-locked · merge now)
+Do NOT build a separate Chain UI and then replace it with an Attack
+Story later. The Chain view IS the Attack Story. Extend the
+existing Story tab on Investigation Detail (`StoryTab.jsx`) to
+render the chain-analyzer output as the primary narrative surface:
+
+```
+Attack Chain
+① Discovery         whoami · hostname · ipconfig
+② Discovery         net user
+③ Discovery         net group
+④ Defense Evasion   PowerShell EncodedCommand
+⑤ Impact            Shadow Copy Removal
+                    Commonly observed in: LockBit · Conti · Akira · Ryuk
+⑥ Persistence       schtasks
+⑦ Command & Control PowerShell Download & Execute
+                    Commonly observed in: Emotet · Qakbot · Cobalt Strike
+```
+
+Every step opens the shared `EvidenceModal`. Nested (child) steps
+render indented under their parent. The existing deterministic
+pipeline flow (Input → Decode → Recovered → Analyzer → MITRE →
+Verdict) also stays on the Story tab as a complementary "recovery
+view" — the attacker's chain and the engine's chain live side by
+side.
+
+### ⭐ B.4 — Multi-section Analyst Narrative Generator (owner-locked)
+Not one paragraph — a structured, SOC-report-ready document:
+
+- Executive Summary
+- Behavior Summary
+- Attack Chain
+- Technical Findings
+- MITRE Coverage
+- Likely Objective
+- Evidence
+- Recommended Actions
+
+Deterministic templates only. No LLM. Every section renders the
+same paragraph for the same DIE + DKP + Intent envelope.
+
+### ⭐ B.5 — Rich Decoder Trace (owner-locked · with metadata & timings)
+Not just stage names — stage + validation + metadata + timings:
+
+```
+INPUT           ✓ 1,204 bytes
+  ↓
+UTF-16          ✓ 0.1 ms · high-bit density check passed
+  ↓
+Base64          ✓ 482 bytes recovered · padding fixed
+  ↓
+GZip            ✓ PE header recovered · CRC matched
+  ↓
+PE Analyzer     7 findings · 12 ms
+  ↓
+MITRE           4 techniques mapped
+  ↓
+Fingerprint     hash 4a9c...  · stable
+  ↓
+Verdict         Malicious · risk 95
+```
+
+Becomes an analyst debugging tool.
+
+### ⭐ B.6 — Investigation Confidence Engine (renamed from Decoder Confidence)
+Scores EVERY dimension of the investigation, not just decoding:
+Decoder · Artifact Analyzer · DKP · MITRE · Fingerprint · Provenance
+· Narrative. Plumbs directly into the existing Confidence Provenance
+Ledger.
+
+### ⭐ B.7 — Attack Intent Engine (NEW · owner-locked · before IDA)
+Deterministic synthesis of the chain into a single **Primary Objective**:
+
+- Ransomware Deployment (confidence 96%)
+- Credential Theft (92%)
+- Reconnaissance (88%)
+- Persistence Establishment · Lateral Movement · Data Exfiltration ·
+  C2 Beaconing · Impact / Destruction · Cryptomining · Espionage
+
+Rule-based: MITRE tactic distribution + DKP hits + IOC types + chain
+shape (e.g. Discovery→Impact = Ransomware Deployment). SOC analysts
+think in objectives, not techniques — this closes that gap.
+
+### ⭐ B.8 — DKP Expansion (100+ curated patterns)
+Grow the seed set only AFTER Chain UI · Narrative · Trace ·
+Confidence · Intent Engine ship. Coverage second, synthesis first.
+
+### ⭐ B.9 — IDA · Intelligent Document & Image Analyzer
 Expand deterministic decoding into a class-leading capability.
 Cycle A (SHIPPED — see PRD) delivered PowerShell semantic AST +
 LOLBAS registry + IOC extractor + `/api/die/*` router. Cycle B
@@ -274,97 +379,10 @@ delivers the remaining language ASTs and embedded-artifact recovery:
   encoded config regions inside artifacts (family-specific C2 config
   parsers explicitly deferred per owner directive)
 
-### ⭐ B.2 — DKP · Decoder Knowledge Pack (owner-locked · highest priority after DIE)
-The decoder's *knowledge layer* — not a LOLBAS database.  Every entry
-is a structured pattern with named signatures that match against the
-DIE analyze envelope.  Every DIE decode is enriched automatically.
-
-Pattern schema:
-```
-Pattern
-├── id / name
-├── signatures    (list of match rules — regex · flag · mitre · lolbin · all-of)
-├── intent        (Payload Retrieval · Defense Evasion · Impact · ...)
-├── mitre         [T1105, T1059.001, ...]
-├── enterprise_uses  (Intune, SCCM, Chocolatey — benign context)
-├── malware_uses     (Emotet, Qbot, LockBit — malicious context)
-├── families         (Ryuk, Conti, BlackCat, ...)
-├── typical_parent   (powershell.exe)
-├── typical_child    (rundll32.exe)
-├── common_followon  (Ransomware · C2 Beacon · ...)
-├── confidence       (base likelihood 0-100)
-├── narrative_template  (analyst-facing template snippet)
-├── investigation       (recommended next steps · hunts)
-└── detection_logic     (Sigma / Splunk / KQL fragment)
-```
-
-### ⭐ B.3 — Deterministic Narrative Generator (moved up · owner-locked)
-Template-driven natural-language explanation of every decode / case.
-Consumes DIE + DKP + MITRE + rules; emits deterministic paragraph
-suitable for reports.  Zero LLM · same input always yields the same
-paragraph.
-
-### ⭐ B.4 — Decoder Trace (moved up · owner-locked)
-Stage-by-stage recovery walk emitted alongside the AST: INPUT → UTF16
-→ Base64 → GZip → Recovered PE → PE Analyzer → MITRE → Fingerprint →
-Verdict.  Presentation-only, consumes existing Transformation Trace.
-Analysts LOVE seeing this.
-
-### ⭐ B.5 — Decoder Confidence Engine (moved up · owner-locked)
-Every stage emits a confidence score (Base64 100% · UTF16 100% · PS
-AST 99% · MITRE 95% · IOC 100% · Narrative 100% · Overall 97%).
-Integrates directly with the Confidence Provenance Ledger.
-
-### ⭐ B.6 — IDA · Intelligent Document & Image Analyzer
-Input: PNG · JPEG · TIFF · BMP · PDF pages · PowerPoint slides ·
-Word screenshots · architecture diagrams · flowcharts · process
-trees · tables · graphs · network diagrams. Output: Structured
-Investigation (entities · processes · files · registry · network ·
-users · MITRE · relationships · timeline · IOCs · confidence).
-
-Determinism boundary (owner-locked · Q2 · answer 2c): **Deterministic
-first (Tesseract + rule-based layout parser); Gemini vision fallback
-strictly when confidence < threshold; every entity carries
-extraction-source + confidence + provenance + validation state.
-Gemini is never authoritative.**
-
-Architectural position:
-```
-Artifact Router → IDA → Canonical Image Model → CEM → Investigation
-```
-
-### ⭐ B.7 — IVE · Investigation Visualization Engine
-Multi-output deterministic diagram renderer. Same investigation,
-different visualisations:
-
-- Attack Flow diagram
-- Timeline diagram
-- Process Tree diagram
-- Evidence Graph
-- Campaign Graph (multi-investigation)
-- Executive Diagram (report-ready)
-- SOC Report Diagram (analyst-shareable)
-
-Stack (owner-locked · Q3 · answer 3b): **React Flow + ELK/Dagre
-layout + custom nodes** (process · file · registry · network · MITRE
-badges · IOC callouts · evidence indicators · confidence markers ·
-timeline overlays · clickable evidence · collapse/expand · export to
-PNG/PDF/SVG).
-
-**Combined pipeline unlocked once DIE + DKP + Narrative + IDA + IVE ship:**
-```
-Any artifact (or screenshot / diagram)
-  ↓ Artifact Router
-  ↓ DIE (deep decode) OR IDA (image → structured)
-  ↓ DKP enrichment (patterns · intent · MITRE · benign context · narratives)
-  ↓ Canonical Model
-  ↓ CEM
-  ↓ Investigation
-  ↓ Attack Fingerprint · Compare Cases
-  ↓ Narrative Generator (deterministic analyst prose)
-  ↓ IVE (multi-output deterministic diagrams)
-  ↓ Professional Investigation Report
-```
+**⚠️ Superseded sections removed 2026-02-16 pm-late.** The canonical
+B.1–B.10 sequence lives above. The renumbered order takes precedence
+over any older B.2–B.7 phrasing found further down; this line is the
+authoritative marker.
 
 ---
 
