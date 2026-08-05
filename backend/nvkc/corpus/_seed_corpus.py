@@ -47,6 +47,17 @@ def _build_analyst_safe_pe() -> bytes:
     return bytes(buf)
 
 
+def _gzip_stable(data: bytes) -> bytes:
+    """gzip.compress with a pinned zero mtime so re-runs produce
+    byte-identical output — required for the "idempotent seeding"
+    contract of this file."""
+    import io as _io
+    buf = _io.BytesIO()
+    with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0) as g:
+        g.write(data)
+    return buf.getvalue()
+
+
 def _ps_encoded_command(script: str) -> str:
     return "powershell.exe -EncodedCommand " + base64.b64encode(
         script.encode("utf-16-le")
@@ -55,7 +66,7 @@ def _ps_encoded_command(script: str) -> str:
 
 def _ps_encoded_gzip_pe_wrapper() -> str:
     pe = _build_analyst_safe_pe()
-    gz = gzip.compress(pe)
+    gz = _gzip_stable(pe)
     inner_b64 = base64.b64encode(gz).decode("ascii")
     script = (
         f"$d=[Convert]::FromBase64String('{inner_b64}');"
@@ -127,7 +138,7 @@ def _seeds():
             "description": "Linux base64 → gunzip → sh loader",
             "tags": ["linux", "base64", "gzip", "sh", "T1140"],
             "input": ('echo ' + base64.b64encode(
-                gzip.compress(b"echo linux-loader")).decode("ascii")
+                _gzip_stable(b"echo linux-loader")).decode("ascii")
                      + ' | base64 -d | gunzip | sh'),
         },
         {

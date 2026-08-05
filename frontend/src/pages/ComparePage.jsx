@@ -274,9 +274,12 @@ function SimilarityGauge({ overall, fpMatch, result }) {
           <Chip label="Fingerprint" value={fpMatch ? "Match" : "Different"}
                 testid="fp-match-chip"
                 color={fpMatch ? COL.good : COL.warn} />
-          <Chip label="Compare v" value={result.compare_version} />
-          <Chip label="Case A" value={result.case_a_id?.slice(0, 12) + "…"} />
-          <Chip label="Case B" value={result.case_b_id?.slice(0, 12) + "…"} />
+          <Chip label="Compare v" value={result.compare_version}
+                testid="compare-version-chip" />
+          <Chip label="Case A" value={result.case_a_id?.slice(0, 12) + "…"}
+                testid="case-a-id-chip" />
+          <Chip label="Case B" value={result.case_b_id?.slice(0, 12) + "…"}
+                testid="case-b-id-chip" />
         </div>
       </div>
     </div>
@@ -477,7 +480,7 @@ function CaseColumn({ side, caseId, verdict, provenance }) {
 // Confidence Provenance — the "Why?" chain
 // ═══════════════════════════════════════════════════════════════════
 function ProvenancePanel({ provenance, side }) {
-  if (!provenance || provenance.hash === null && !provenance.rules) {
+  if (!provenance || (!provenance.provenance_hash && !provenance.rules?.length)) {
     return (
       <div style={{ color: COL.muted, fontSize: 13 }}>
         No Confidence Provenance available for this case.

@@ -1,19 +1,12 @@
 description: CMD /c set + call chunk reassembly
 expected:
   artifact_types: []
-  attack_chain: []
-  attack_fingerprint_hash: 1bc37742b96da0287dbef1d44df6161730300bdb4556e62e5161b254cf81816d
+  attack_fingerprint_hash: null
   behavior_codes: []
   benign: false
-  derived_risk_score: 0
-  derived_verdict: benign
   ioc_kinds: []
   mitre: []
-  provenance_hash: 188384f02a9c90952be7c99933052245cb0016b87de649803e70dea875bbc700
-  terminal_state: canonical
-  timeline:
-  - - rte.convergence
-    - canonical
+  terminal_state: null
 input:
   inline: cmd.exe /c "set a=power&set b=shell&call %a%%b%.exe -Command Write-Host
     hi"

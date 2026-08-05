@@ -173,9 +173,53 @@ class TestSimilarityScore:
         a, b = _workspace_case(), _docm_case()
         r = compare_cases(a, b)
         for dim, val in r["similarity_score"]["per_dimension"].items():
+            if val.get("excluded_from_score"):
+                assert val["jaccard"] is None, dim
+                continue
             assert 0.0 <= val["jaccard"] <= 1.0, dim
             assert val["shared_count"] >= 0
             assert val["weight"] > 0
+
+# ────────────────────────────────────────────────────────────────────
+# 8 · P1/P2 regression guards from the 2026-02-16 code review
+# ────────────────────────────────────────────────────────────────────
+class TestReviewFindings:
+    def test_no_phantom_parent_child_edges_inflation(self):
+        """Two cases with truly disjoint signals must not receive a
+        phantom `parent_child_edges: 1.0` contribution just because
+        neither case has any recursive children."""
+        pre = {"id": "pre", "iedde": {}, "iedde_terminal_state": "stability_gate",
+               "canonical_confidence": 0, "iocs": {}, "mitre": [], "chain": []}
+        # Empty × empty → excluded from the score.
+        r = compare_cases(pre, pre)
+        pd = r["similarity_score"]["per_dimension"]
+        assert pd["parent_child_edges"]["excluded_from_score"] is True, (
+            "parent_child_edges must be excluded when neither case has edges")
+        # No contributor should show a nonzero contribution for an
+        # excluded dimension.
+        for c in r["similarity_score"]["explanation"]["contributors"]:
+            if c["dimension"] == "parent_child_edges":
+                assert c["contribution"] == 0.0, (
+                    f"parent_child_edges phantom contribution "
+                    f"{c['contribution']!r} on empty×empty")
+
+    def test_contribution_percentages_sum_to_overall(self):
+        """Every contributor's percentage must sum to overall * 100.
+
+        Was violated pre-fix because the per-row denominator (weight_
+        total) was being accumulated inside the same loop that
+        computed contributions.
+        """
+        a = _workspace_case()
+        r = compare_cases(a, a)  # identity pair → overall must be 1.0
+        overall_pct = round(r["similarity_score"]["overall"] * 100, 2)
+        total_contrib = round(sum(c["contribution"]
+                                  for c in r["similarity_score"]
+                                            ["explanation"]["contributors"]),
+                              2)
+        assert abs(total_contrib - overall_pct) < 0.5, (
+            f"contribution sum {total_contrib} does not match "
+            f"overall*100 {overall_pct}")
 
 
 # ────────────────────────────────────────────────────────────────────

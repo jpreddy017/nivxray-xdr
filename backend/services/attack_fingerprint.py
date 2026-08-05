@@ -45,13 +45,6 @@ from services.cem import emit_cem
 
 FINGERPRINT_VERSION = "1.0"
 
-# Fields NEVER included in the fingerprint (volatile / provenance / UI).
-_VOLATILE_FIELDS = frozenset({
-    "case_id", "id", "_id", "user_email", "ts", "created_at",
-    "updated_at", "note", "notes", "analyst_note", "actor",
-    "input_provenance", "artifact_id",
-})
-
 
 def emit_fingerprint(case: Dict[str, Any]) -> Dict[str, Any]:
     """Return the Attack Fingerprint view of a recorded case doc.
@@ -280,6 +273,7 @@ def _similarity_vector(cem: Dict[str, Any],
         "recipe_shape":       components["recipe"],
         "ioc_kinds":          sorted({i.split(":", 1)[0]
                                       for i in components["iocs"]}),
+        "parent_child_edges": components["parent_child_edges"],
     }
 
 

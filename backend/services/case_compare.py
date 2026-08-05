@@ -122,38 +122,72 @@ def _composite_similarity_score(fp_a: Dict[str, Any],
     pattern to Compare Cases: every contributor lists the dimension,
     its Jaccard, its weight, and its exact score contribution — so
     analysts can see why two cases scored what they scored.
+
+    Dimensions where NEITHER case has any signal are excluded from the
+    weighted average so `∅ × ∅` cannot phantom-inflate the score. This
+    preserves identity (`compare(a, a) == 1.0` when a has signal) and
+    honesty (fully disjoint cases → 0.0).
     """
     sv_a = fp_a.get("similarity_vector") or {}
     sv_b = fp_b.get("similarity_vector") or {}
 
+    # Pass 1 — gather Jaccards + which dimensions actually contribute.
     per_dim: Dict[str, Dict[str, Any]] = {}
-    contributors: List[Dict[str, Any]] = []
+    computed: List[Dict[str, Any]] = []
     weighted_sum = 0.0
     weight_total = 0.0
     for dim, weight in _SIMILARITY_WEIGHTS.items():
         a = set(sv_a.get(dim) or [])
         b = set(sv_b.get(dim) or [])
-        j = _jaccard(a, b)
-        per_dim[dim] = {"jaccard": j, "shared_count": len(a & b),
-                        "a_only": len(a - b), "b_only": len(b - a),
-                        "weight": weight}
-        weighted_sum += j * weight
-        weight_total += weight
-        # Contribution normalised to a 0-100 scale
-        contributors.append({
+        signal = bool(a or b)
+        if signal:
+            j = _jaccard(a, b)
+            weighted_sum += j * weight
+            weight_total += weight
+        else:
+            # Neither case has this signal — do not contribute to the
+            # weighted average, but still surface the row so the UI
+            # renders every dimension.
+            j = None
+        per_dim[dim] = {
+            "jaccard":              j,
+            "shared_count":         len(a & b),
+            "a_only":               len(a - b),
+            "b_only":               len(b - a),
+            "weight":               weight,
+            "excluded_from_score":  not signal,
+        }
+        computed.append({
             "dimension":    dim,
             "jaccard":      j,
             "weight":       weight,
-            "contribution": round((j * weight / weight_total) * 100.0, 2)
-                            if weight_total else 0.0,
             "shared":       sorted(a & b),
             "a_only_count": len(a - b),
             "b_only_count": len(b - a),
+            "counted":      signal,
         })
 
     overall = round(weighted_sum / weight_total, 4) if weight_total else 0.0
 
-    # Order contributors highest-contribution first for the "Why?" view.
+    # Pass 2 — compute contribution % using the FINAL weight_total so
+    # every contribution row is arithmetically consistent with the
+    # overall score (Σ contributions == overall * 100).
+    contributors: List[Dict[str, Any]] = []
+    for c in computed:
+        if c["counted"] and weight_total:
+            contrib = round((c["jaccard"] * c["weight"] / weight_total) * 100.0, 2)
+        else:
+            contrib = 0.0
+        contributors.append({
+            "dimension":    c["dimension"],
+            "jaccard":      c["jaccard"] if c["jaccard"] is not None else 0.0,
+            "weight":       c["weight"],
+            "contribution": contrib,
+            "shared":       c["shared"],
+            "a_only_count": c["a_only_count"],
+            "b_only_count": c["b_only_count"],
+            "counted":      c["counted"],
+        })
     contributors.sort(key=lambda c: (-c["contribution"], c["dimension"]))
     return {"overall": overall, "per_dimension": per_dim,
             "explanation": {

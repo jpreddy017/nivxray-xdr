@@ -46,6 +46,7 @@
       ],
       "ioc_kinds": [],
       "mitre_ids": [],
+      "parent_child_edges": [],
       "recipe_shape": []
     }
   },
