@@ -237,12 +237,179 @@ def generate(pre_bundle: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "executive_summary":     exec_summary,
         "analyst_summary":       analyst_summary,
+        "attack_progression":    _attack_progression(stages, tactic_sequence),
+        "behavior_summary":      _behavior_summary(stages, tactic_sequence),
+        "likely_objective":      _likely_objective(families_uniq, ransomware_signal),
+        "overall_assessment":    _overall_assessment(stages, tactic_sequence, families_uniq, ransomware_signal),
+        "kill_chain_coverage":   _kill_chain_coverage(tactic_sequence),
         "recommended_actions":   actions,
         "sigma_hunts":           sigma_hunts,
         "yara_ideas":            yara_ideas,
         "threat_actor_context":  threat_actor_context,
         "mitre_matrix":          matrix,
     }
+
+
+# ── Kill-chain phase mapping (Lockheed Martin) ────────────────────
+_TACTIC_TO_KILL_CHAIN = {
+    "Initial Access":     "Delivery / Exploitation",
+    "Execution":          "Exploitation",
+    "Discovery":          "Reconnaissance (post-compromise)",
+    "Credential Access":  "Actions on Objectives",
+    "Persistence":        "Installation",
+    "Defense Evasion":    "Actions on Objectives",
+    "Lateral Movement":   "Actions on Objectives",
+    "Command and Control": "Command & Control",
+    "Exfiltration":       "Actions on Objectives",
+    "Impact":             "Actions on Objectives",
+}
+
+
+def kill_chain_for_tactic(tac: str) -> str:
+    return _TACTIC_TO_KILL_CHAIN.get(tac, "Actions on Objectives")
+
+
+# ── Per-stage attack progression paragraphs ───────────────────────
+_STAGE_NARRATIVE = {
+    "reverse-ssh-tunnel":         "The attacker established a reverse SSH tunnel, allowing covert remote control of the host while bypassing inbound firewall restrictions.",
+    "shadow-copy-deletion":       "Windows Volume Shadow Copies were deleted using `vssadmin delete shadows`, dramatically reducing recovery options and typically preceding ransomware encryption.",
+    "ad-discovery":               "The attacker enumerated Active Directory (domain controllers, trusts) to understand the environment before lateral movement or ransomware deployment.",
+    "host-discovery":             "Network configuration and interface details were collected (`ipconfig /all`) — a standard reconnaissance step performed before lateral movement.",
+    "session-discovery":          "Active user sessions on the host were enumerated (`quser` / `query user`) — usually done to identify high-privilege sessions to hijack or wait for.",
+    "account-discovery":          "Local / domain accounts and groups were enumerated (`net user`, `net group`) — attacker was building a target list.",
+    "persistence-scheduled-task": "A scheduled task was registered to survive reboots and defender restarts — a durable persistence primitive commonly used by ransomware crews.",
+    "registry-modification":      "The Windows registry was modified — likely to weaken security controls or install persistence keys.",
+    "software-uninstall":         "Security or backup software was silently uninstalled via WMIC — this reduces authentication controls and increases the likelihood of successful payload execution.",
+    "msi-install":                "A payload was installed via Microsoft Installer (MSI). MSI execution often chains into rundll32 / cmd for post-installation actions.",
+    "sync-rclone-style":          "A renamed rclone-style binary was used with `--transfers` / `--max-age` flags to collect and stage files — behaviour commonly associated with pre-encryption data exfiltration.",
+    "rmm-remote-access":          "Legitimate Remote Monitoring & Management software was deployed for hands-on-keyboard remote control — a modern replacement for classic C2.",
+    "brute-ratel":                "Brute Ratel C4 activity was observed. This commercial red-team framework has been co-opted by ransomware crews since 2022 and its beacons are highly evasive.",
+    "psexec-lateral":             "PsExec was used to move laterally to another host — a well-worn primitive for spreading ransomware inside a network.",
+    "uac-disable":                "UAC / Defender was tampered with, lowering host defences before payload execution.",
+    "log-clearing":               "Windows event logs were cleared or deleted — the attacker was hiding forensic evidence of the intrusion.",
+    "initial-access-social":      "Initial access was obtained via social engineering (Microsoft Teams / Quick Assist / fake IT support) — a fast-growing modern initial-access vector.",
+    "data-exfiltration":          "Data was staged and exfiltrated from the environment.",
+    "lateral-movement":           "The attacker moved laterally within the environment.",
+    "ad-enumeration":             "Active Directory was enumerated prior to lateral movement.",
+}
+
+
+def _attack_progression(stages: List[Dict[str, Any]],
+                        tactic_sequence: List[str]) -> List[Dict[str, Any]]:
+    """Produce a per-stage narrative paragraph list ordered by
+    kill-chain progression.  Each entry is a full analyst sentence,
+    not a command dump."""
+    out: List[Dict[str, Any]] = []
+    for i, s in enumerate(stages, start=1):
+        fam = s.get("command_family") or ""
+        narrative = _STAGE_NARRATIVE.get(fam) or s.get("objective") or ""
+        out.append({
+            "index":       i,
+            "title":       f"Stage {i} — {s.get('title', '')}",
+            "narrative":   narrative,
+            "tactic":      s.get("tactic"),
+            "kill_chain":  kill_chain_for_tactic(s.get("tactic", "")),
+            "mitre":       list(s.get("mitre") or []),
+            "evidence":    list(s.get("evidence") or []),
+        })
+    return out
+
+
+def _behavior_summary(stages: List[Dict[str, Any]],
+                      tactic_sequence: List[str]) -> List[Dict[str, str]]:
+    """One row per ATT&CK tactic seen — Phase → Observed Activity."""
+    rows: List[Dict[str, str]] = []
+    for tac in tactic_sequence:
+        activities = []
+        for s in stages:
+            if s.get("tactic") != tac:
+                continue
+            fam = s.get("command_family") or ""
+            n = _STAGE_NARRATIVE.get(fam) or s.get("objective") or s.get("title")
+            if n and n not in activities:
+                activities.append(n)
+        rows.append({
+            "phase":     tac,
+            "kill_chain": kill_chain_for_tactic(tac),
+            "activity":  " ".join(activities),
+        })
+    return rows
+
+
+def _likely_objective(families: List[str], ransomware_signal: bool) -> List[str]:
+    """Concise bullet list of what the attacker is trying to accomplish."""
+    bullets: List[str] = []
+    if "initial-access-social" in families or "rmm-remote-access" in families:
+        bullets.append("Establish persistent remote access")
+    if any(f in families for f in ("ad-discovery","host-discovery","session-discovery","account-discovery","ad-enumeration")):
+        bullets.append("Understand the enterprise environment")
+    if any(f in families for f in ("uac-disable","registry-modification","software-uninstall","log-clearing")):
+        bullets.append("Disable security protections")
+    if "sync-rclone-style" in families or "data-exfiltration" in families:
+        bullets.append("Collect and exfiltrate valuable files")
+    if "shadow-copy-deletion" in families:
+        bullets.append("Prevent recovery from local backups")
+    if ransomware_signal:
+        bullets.append("Deploy the final ransomware payload")
+    if not bullets:
+        bullets.append("Objective unclear — insufficient signal in the paste.")
+    return bullets
+
+
+def _overall_assessment(stages: List[Dict[str, Any]],
+                        tactic_sequence: List[str],
+                        families: List[str],
+                        ransomware_signal: bool) -> Dict[str, Any]:
+    """Deterministic Risk / Primary Objective / Progress% / Confidence."""
+    if "shadow-copy-deletion" in families or "Impact" in tactic_sequence:
+        risk = "Critical"
+        progress = 90
+    elif ransomware_signal:
+        risk = "High"
+        progress = 75
+    elif "Persistence" in tactic_sequence or "Command and Control" in tactic_sequence:
+        risk = "High"
+        progress = 55
+    elif "Discovery" in tactic_sequence:
+        risk = "Medium"
+        progress = 30
+    else:
+        risk = "Low"
+        progress = 10
+
+    if ransomware_signal:
+        primary = "Ransomware Deployment"
+    elif "Exfiltration" in tactic_sequence or "sync-rclone-style" in families:
+        primary = "Data Theft"
+    elif "Command and Control" in tactic_sequence:
+        primary = "Persistent Remote Access"
+    else:
+        primary = "Reconnaissance / Post-exploitation"
+
+    # Confidence from stage count + family recognition rate.
+    fam_count = len([s for s in stages if s.get("command_family")])
+    total = max(1, len(stages))
+    fam_rate = fam_count / total
+    if fam_rate >= 0.75 and total >= 6: conf = "High"
+    elif fam_rate >= 0.5: conf = "Medium"
+    else: conf = "Low"
+
+    return {
+        "risk":                 risk,
+        "primary_objective":    primary,
+        "attack_progress_pct":  progress,
+        "confidence":           conf,
+    }
+
+
+def _kill_chain_coverage(tactic_sequence: List[str]) -> List[str]:
+    """Unique Kill-Chain phases hit, in Kill-Chain order."""
+    order = ["Reconnaissance", "Reconnaissance (post-compromise)",
+             "Weaponization", "Delivery / Exploitation",
+             "Exploitation", "Installation",
+             "Command & Control", "Actions on Objectives"]
+    hits = {kill_chain_for_tactic(t) for t in tactic_sequence}
+    return [p for p in order if p in hits]
 
 
 def _clean_family(name: str) -> str:

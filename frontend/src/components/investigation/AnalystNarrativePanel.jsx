@@ -40,11 +40,124 @@ export default function AnalystNarrativePanel({ narrative }) {
         </Block>
       )}
 
+      {/* ── Overall Assessment (Risk, Objective, Progress) ─── */}
+      {narrative.overall_assessment && (
+        <Block title="Overall Assessment" icon={AlertOctagon}
+               testid="narrative-assessment">
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+            gap: 8,
+          }}>
+            <AssessmentCard label="Risk" value={narrative.overall_assessment.risk}
+              tone={_toneFor(narrative.overall_assessment.risk)} />
+            <AssessmentCard label="Primary Objective"
+              value={narrative.overall_assessment.primary_objective} tone="cyan" />
+            <AssessmentCard label="Attack Progress"
+              value={`${narrative.overall_assessment.attack_progress_pct}%`}
+              tone={narrative.overall_assessment.attack_progress_pct >= 75 ? "red"
+                    : narrative.overall_assessment.attack_progress_pct >= 40 ? "amber" : "cyan"} />
+            <AssessmentCard label="Confidence"
+              value={narrative.overall_assessment.confidence}
+              tone={narrative.overall_assessment.confidence === "High" ? "green"
+                    : narrative.overall_assessment.confidence === "Medium" ? "amber" : "muted"} />
+          </div>
+          {narrative.kill_chain_coverage && narrative.kill_chain_coverage.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ ...sectionHeader, marginBottom: 4 }}>
+                <Layers size={11} /> CYBER KILL CHAIN COVERAGE
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {narrative.kill_chain_coverage.map((p) => (
+                  <span key={p} style={killChainBadge}>{p}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </Block>
+      )}
+
       {/* ── Analyst Summary ──────────────────────────────────── */}
       {analyst_summary && (
         <Block title="Analyst Summary" icon={ShieldAlert}
                testid="narrative-analyst">
           <p style={paragraph}>{analyst_summary}</p>
+        </Block>
+      )}
+
+      {/* ── Behavior Summary Table ───────────────────────────── */}
+      {narrative.behavior_summary && narrative.behavior_summary.length > 0 && (
+        <Block title="Behavior Summary" icon={ShieldAlert}
+               testid="narrative-behavior">
+          <table style={{ width: "100%", borderCollapse: "collapse",
+                          fontSize: 12.5, color: "#e2e8f0" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #1f2b3f" }}>
+                <th style={thStyle}>Phase</th>
+                <th style={thStyle}>Kill Chain</th>
+                <th style={thStyle}>Observed Activity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {narrative.behavior_summary.map((row, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid #131b2d" }}>
+                  <td style={tdStyle}>
+                    <span style={phaseBadge}>{row.phase}</span>
+                  </td>
+                  <td style={{ ...tdStyle, color: "#94a3b8", fontFamily: "JetBrains Mono, monospace", fontSize: 11 }}>
+                    {row.kill_chain}
+                  </td>
+                  <td style={{ ...tdStyle, color: "#cbd5e1", lineHeight: 1.5 }}>
+                    {row.activity}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Block>
+      )}
+
+      {/* ── Attack Progression (per-stage narrative paragraphs) ── */}
+      {narrative.attack_progression && narrative.attack_progression.length > 0 && (
+        <Block title="Attack Progression" icon={ShieldAlert}
+               testid="narrative-progression">
+          <div style={{ display: "grid", gap: 8 }}>
+            {narrative.attack_progression.map((p) => (
+              <div key={p.index} data-testid={`narrative-progression-${p.index}`}
+                   style={{ background: "rgba(2,6,23,0.55)",
+                            border: "1px solid #1f2b3f", borderRadius: 8,
+                            padding: "8px 12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8,
+                              marginBottom: 4 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>
+                    {p.title}
+                  </div>
+                  {p.tactic && <span style={phaseBadge}>{p.tactic}</span>}
+                  {p.kill_chain && <span style={killChainBadge}>{p.kill_chain}</span>}
+                  {(p.mitre || []).map((m) => (
+                    <span key={m} style={techBadge}>{m}</span>
+                  ))}
+                </div>
+                <p style={{ ...paragraph, fontSize: 12.5 }}>{p.narrative}</p>
+              </div>
+            ))}
+          </div>
+        </Block>
+      )}
+
+      {/* ── Likely Objective ─────────────────────────────────── */}
+      {narrative.likely_objective && narrative.likely_objective.length > 0 && (
+        <Block title="Likely Objective" icon={AlertOctagon}
+               testid="narrative-objective">
+          <ul style={list}>
+            {narrative.likely_objective.map((o, i) => (
+              <li key={i} style={listItem}>
+                <span style={{ color: "#fbbf24" }}>▸</span>
+                <span style={{ color: "#e2e8f0", fontSize: 12.5,
+                               lineHeight: 1.55 }}>{o}</span>
+              </li>
+            ))}
+          </ul>
         </Block>
       )}
 
@@ -153,6 +266,54 @@ function Block({ title, icon: Icon, children, testid }) {
     </div>
   );
 }
+
+function AssessmentCard({ label, value, tone }) {
+  const map = {
+    red:   { fg: "#f87171", bd: "rgba(248,113,113,0.35)", bg: "rgba(248,113,113,0.10)" },
+    amber: { fg: "#fbbf24", bd: "rgba(251,191,36,0.35)",  bg: "rgba(251,191,36,0.10)" },
+    green: { fg: "#86efac", bd: "rgba(134,239,172,0.35)", bg: "rgba(134,239,172,0.08)" },
+    cyan:  { fg: "#67e8f9", bd: "rgba(103,232,249,0.35)", bg: "rgba(103,232,249,0.08)" },
+    muted: { fg: "#94a3b8", bd: "rgba(148,163,184,0.30)", bg: "rgba(148,163,184,0.06)" },
+  };
+  const t = map[tone] || map.cyan;
+  return (
+    <div style={{ background: t.bg, border: `1px solid ${t.bd}`,
+                  borderRadius: 8, padding: "8px 12px" }}>
+      <div style={{ fontSize: 9, letterSpacing: "0.16em",
+                    textTransform: "uppercase", color: "#94a3b8" }}>
+        {label}
+      </div>
+      <div style={{ marginTop: 3, fontSize: 15, fontWeight: 700, color: t.fg,
+                    fontFamily: "JetBrains Mono, monospace" }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function _toneFor(risk) {
+  return {
+    "Critical": "red", "High": "red",
+    "Medium": "amber", "Low": "cyan",
+  }[risk] || "muted";
+}
+
+const phaseBadge = {
+  padding: "1px 6px", fontSize: 10, fontWeight: 700,
+  color: "#c084fc", background: "rgba(192,132,252,0.10)",
+  border: "1px solid rgba(192,132,252,0.35)",
+  borderRadius: 4, fontFamily: "JetBrains Mono, monospace",
+};
+const killChainBadge = {
+  padding: "1px 6px", fontSize: 10, fontWeight: 700,
+  color: "#fbbf24", background: "rgba(251,191,36,0.10)",
+  border: "1px solid rgba(251,191,36,0.35)",
+  borderRadius: 4, fontFamily: "JetBrains Mono, monospace",
+};
+const thStyle = { textAlign: "left", padding: "6px 8px",
+                  fontSize: 10, letterSpacing: "0.14em",
+                  textTransform: "uppercase", color: "#94a3b8" };
+const tdStyle = { padding: "6px 8px", verticalAlign: "top" };
 
 const panel = {
   background: "linear-gradient(180deg, rgba(15,23,42,0.9), rgba(2,6,23,0.9))",
