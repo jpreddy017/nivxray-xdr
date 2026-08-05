@@ -21,6 +21,7 @@ from services.die import (
     archive_recover_recursive,
     archive_detect_kind,
 )
+from services.die.dkp import load_patterns as dkp_load_patterns, pattern_by_id as dkp_pattern_by_id
 import base64 as _b64
 
 router = APIRouter(prefix="/die", tags=["die"])
@@ -102,3 +103,17 @@ def die_detect_kind(body: ArchiveBody):
     except Exception as e:
         return {"error": f"invalid base64: {e}"}
     return {"kind": archive_detect_kind(blob), "size": len(blob)}
+
+
+# ── DKP · Decoder Knowledge Pack (Phase B.2 · 2026-02-16) ─────────
+@router.get("/dkp/patterns")
+def die_dkp_patterns():
+    """List every seeded DKP pattern (including JSON overlay)."""
+    patterns = [p.to_dict() for p in dkp_load_patterns()]
+    return {"count": len(patterns), "patterns": patterns}
+
+
+@router.get("/dkp/patterns/{pattern_id}")
+def die_dkp_pattern(pattern_id: str):
+    p = dkp_pattern_by_id(pattern_id)
+    return {"pattern": p.to_dict() if p else None}

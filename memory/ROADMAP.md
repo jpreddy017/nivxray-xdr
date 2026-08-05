@@ -274,47 +274,48 @@ delivers the remaining language ASTs and embedded-artifact recovery:
   encoded config regions inside artifacts (family-specific C2 config
   parsers explicitly deferred per owner directive)
 
-### ⭐ B.2 — DKP · Decoder Knowledge Pack (elevated from footnote)
-The decoder's *knowledge layer* — not a LOLBAS database. Every entry
-is a structured pattern:
+### ⭐ B.2 — DKP · Decoder Knowledge Pack (owner-locked · highest priority after DIE)
+The decoder's *knowledge layer* — not a LOLBAS database.  Every entry
+is a structured pattern with named signatures that match against the
+DIE analyze envelope.  Every DIE decode is enriched automatically.
 
+Pattern schema:
 ```
 Pattern
-├── Name (Download + Execute · Fileless Loader · Persistence via
-│         Schtasks · etc.)
-├── Observed (regex / AST signatures — e.g., Invoke-WebRequest,
-│              Start-BitsTransfer, Net.WebClient)
-├── Intent (Payload Retrieval · Defense Evasion · …)
-├── MITRE (T1105, T1059.001, …)
-├── Enterprise Uses (Intune · SCCM · Chocolatey — benign context)
-├── Malware Uses (Emotet · Qbot · IcedID — malicious context)
-├── Typical Parent (powershell.exe)
-├── Typical Child  (rundll32.exe)
-├── Confidence     (base likelihood)
-├── Recommended Narrative      (analyst-facing template snippet)
-└── Recommended Investigation  (next steps · hunts)
+├── id / name
+├── signatures    (list of match rules — regex · flag · mitre · lolbin · all-of)
+├── intent        (Payload Retrieval · Defense Evasion · Impact · ...)
+├── mitre         [T1105, T1059.001, ...]
+├── enterprise_uses  (Intune, SCCM, Chocolatey — benign context)
+├── malware_uses     (Emotet, Qbot, LockBit — malicious context)
+├── families         (Ryuk, Conti, BlackCat, ...)
+├── typical_parent   (powershell.exe)
+├── typical_child    (rundll32.exe)
+├── common_followon  (Ransomware · C2 Beacon · ...)
+├── confidence       (base likelihood 0-100)
+├── narrative_template  (analyst-facing template snippet)
+├── investigation       (recommended next steps · hunts)
+└── detection_logic     (Sigma / Splunk / KQL fragment)
 ```
 
-Every DIE decode enriches its output via DKP lookups. The engine
-never changes; the *knowledge* does.
-
-### ⭐ B.3 — Deterministic Analyst Narrative Generator (new)
+### ⭐ B.3 — Deterministic Narrative Generator (moved up · owner-locked)
 Template-driven natural-language explanation of every decode / case.
-Consumes DIE + DKP + MITRE + rules; emits narrative like:
+Consumes DIE + DKP + MITRE + rules; emits deterministic paragraph
+suitable for reports.  Zero LLM · same input always yields the same
+paragraph.
 
-> The decoded PowerShell command disables execution restrictions,
-> downloads a payload from example.com, writes it to %TEMP%, and
-> launches it using Start-Process. This behavior aligns with a
-> staged malware delivery chain. The command exhibits defense
-> evasion through -ExecutionPolicy Bypass and maps to MITRE ATT&CK
-> techniques T1059.001 and T1105. No persistence mechanisms were
-> observed in the decoded content.
+### ⭐ B.4 — Decoder Trace (moved up · owner-locked)
+Stage-by-stage recovery walk emitted alongside the AST: INPUT → UTF16
+→ Base64 → GZip → Recovered PE → PE Analyzer → MITRE → Fingerprint →
+Verdict.  Presentation-only, consumes existing Transformation Trace.
+Analysts LOVE seeing this.
 
-**Deterministic** — no LLM. Uses fixed templates + slot filling from
-DIE/DKP output. Every run produces the same paragraph for the same
-input.
+### ⭐ B.5 — Decoder Confidence Engine (moved up · owner-locked)
+Every stage emits a confidence score (Base64 100% · UTF16 100% · PS
+AST 99% · MITRE 95% · IOC 100% · Narrative 100% · Overall 97%).
+Integrates directly with the Confidence Provenance Ledger.
 
-### ⭐ B.4 — IDA · Intelligent Document & Image Analyzer (renamed)
+### ⭐ B.6 — IDA · Intelligent Document & Image Analyzer
 Input: PNG · JPEG · TIFF · BMP · PDF pages · PowerPoint slides ·
 Word screenshots · architecture diagrams · flowcharts · process
 trees · tables · graphs · network diagrams. Output: Structured
@@ -332,7 +333,7 @@ Architectural position:
 Artifact Router → IDA → Canonical Image Model → CEM → Investigation
 ```
 
-### ⭐ B.5 — IVE · Investigation Visualization Engine
+### ⭐ B.7 — IVE · Investigation Visualization Engine
 Multi-output deterministic diagram renderer. Same investigation,
 different visualisations:
 
@@ -367,7 +368,7 @@ Any artifact (or screenshot / diagram)
 
 ---
 
-## Phase C · Additional Artifact Families (after B.1-B.5 land)
+## Phase C · Additional Artifact Families (after B.1-B.7 land)
 
 Ordered per owner directive 2026-02-16:
 

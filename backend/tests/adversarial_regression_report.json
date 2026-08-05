@@ -1,7 +1,7 @@
 {
-  "total": 89,
+  "total": 91,
   "passed": 35,
-  "hit_rate": 0.3933,
+  "hit_rate": 0.3846,
   "threshold": 0.6,
   "results": [
     {
@@ -344,9 +344,9 @@
     },
     {
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "powershell -e ABC",
+      "output_head": "ABC",
       "ok": false
     },
     {
@@ -444,9 +444,9 @@
     },
     {
       "sha1": "892ed1156a4390ee17d9583a72b5c90eb1eca957",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUM=';        var b=atob(d);        var l=document.createElement('a');        l.download='stager.js';    ",
+      "output_head": "binary-C",
       "ok": false
     },
     {
@@ -892,6 +892,20 @@
       "engine": "llm-l3",
       "chain": [],
       "output_head": "TEST_iter63_1785894391 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "48fb3e5aff86c567a24f2dfaafb955ca3d6b5281",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1785928267 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "5d56b30a006017e85990ea0cb3f00e199a048edd",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1785929890 nivxray unique payload",
       "ok": false
     }
   ]

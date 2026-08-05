@@ -18,13 +18,15 @@ from .bash_ast       import parse_bash
 from .python_ast     import parse_python
 from .lolbas import lolbas_lookup
 from .ioc_semantic import extract_iocs, summarize_iocs
+from .dkp import match as dkp_match
 
 # ── language detector ─────────────────────────────────────────────
 _PS_HINTS = re.compile(
     r"(?i)"
-    r"(powershell(\.exe)?\s|-encodedcommand|-nop|iex\s|invoke-expression|"
-    r"invoke-webrequest|new-object\s+system\.net|invoke-restmethod|"
-    r"\$env:|\[system\.\w+]::|frombase64string)"
+    r"(powershell(\.exe)?\s|-encodedcommand|-nop|\biex[\s\(]|invoke-expression|"
+    r"invoke-webrequest|new-object\s+(?:system\.)?net\.|invoke-restmethod|"
+    r"\$env:|\[system\.\w+]::|frombase64string|\.downloadstring\(|"
+    r"\.downloadfile\(|start-bitstransfer)"
 )
 _CMD_HINTS = re.compile(
     r"(?i)(^|\s|&)(cmd\.exe|\bset\s+[A-Z_]+=|%[A-Z_]+%|!\w+!|\bfor\s+/[a-z]|"
@@ -94,7 +96,7 @@ def analyze(src: str, language: Optional[str] = None) -> Dict[str, Any]:
 
     if lang == "powershell":
         ast = parse_powershell(src)
-        return {
+        env = {
             "language":  "powershell",
             "ast":       ast,
             "cmdlets":   ast["cmdlets"],
@@ -103,7 +105,11 @@ def analyze(src: str, language: Optional[str] = None) -> Dict[str, Any]:
             "iocs":      ast["iocs"],
             "iocs_summary": summarize_iocs(ast["iocs"]),
             "obfuscation_score": ast["complexity"]["obfuscation_score"],
+            "_raw_source": src,
         }
+        env["dkp_matches"] = [m.to_dict() for m in dkp_match(env)]
+        env.pop("_raw_source", None)
+        return env
 
     # Cycle B — dispatch to the language-specific AST.  Every parser
     # returns the same-shape envelope so callers don't need to branch.
@@ -118,7 +124,7 @@ def analyze(src: str, language: Optional[str] = None) -> Dict[str, Any]:
     elif lang == "python":
         ast = parse_python(src)
     else:
-        return {
+        env = {
             "language":       lang,
             "ast":            None,
             "cmdlets":        [],
@@ -127,9 +133,13 @@ def analyze(src: str, language: Optional[str] = None) -> Dict[str, Any]:
             "iocs":           extract_iocs(src),
             "iocs_summary":   summarize_iocs(extract_iocs(src)),
             "obfuscation_score": 0,
+            "_raw_source":    src,
         }
+        env["dkp_matches"] = [m.to_dict() for m in dkp_match(env)]
+        env.pop("_raw_source", None)
+        return env
 
-    return {
+    env = {
         "language":         lang,
         "ast":              ast,
         "cmdlets":          ast.get("commands", []),
@@ -138,7 +148,11 @@ def analyze(src: str, language: Optional[str] = None) -> Dict[str, Any]:
         "iocs":             ast.get("iocs", []),
         "iocs_summary":     ast.get("iocs_summary", {}),
         "obfuscation_score": ast.get("complexity", {}).get("obfuscation_score", 0),
+        "_raw_source":      src,
     }
+    env["dkp_matches"] = [m.to_dict() for m in dkp_match(env)]
+    env.pop("_raw_source", None)
+    return env
 
 
 def analyze_powershell(src: str) -> Dict[str, Any]:

@@ -44,6 +44,59 @@ Files touched (frontend only):
 
 ---
 
+### 🟢 2026-02-16 (pm) · Phase B.2 · DKP Foundation · Decoder Knowledge Pack (owner-locked · shipped · 84/84 tests green)
+
+Owner-locked (2026-02-16 · pm): DKP jumps ahead of IDA · Narrative
+Generator · Decoder Trace · Decoder Confidence Engine — it's the
+knowledge layer every subsequent analyzer will feed on.  Zero touch
+on the frozen v1.1 core.
+
+**Shipped:**
+
+- **DKP package** (`services/die/dkp/`) — 4 modules:
+  - `models.py` — `Pattern`, `Signature`, `MatchedPattern` dataclasses.
+  - `engine.py` — deterministic matcher with signature kinds
+    `regex · flag · mitre · lolbin · family · all-of · any-of`;
+    blended-confidence scoring; JSON overlay support via
+    `dkp/extra_patterns.json`.
+  - `seed_patterns.py` — **14 curated high-signal patterns**:
+    Shadow Copy Removal (Ryuk/LockBit/Conti/Akira/BlackCat/REvil) ·
+    PowerShell Download & Execute · PS EncodedCommand ·
+    AMSI Bypass · Reflective Code Loading · Scheduled Task
+    Persistence · Regsvr32 Squiblydoo · Mshta Remote HTA ·
+    JS ActiveX Shell · VBScript Shell.Run · Bash Reverse Shell ·
+    Cron Persistence · Curl-Pipe-Shell · Python Encoded exec().
+  - `__init__.py` — public API `match · pattern_by_id ·
+    load_patterns · add_pattern`.
+
+- **Auto-enrichment** — the DIE `analyze()` orchestrator now runs
+  `dkp.match(envelope)` on every call.  Result is embedded as
+  `dkp_matches: [ ... ]` alongside AST · techniques · IOCs.
+
+- **HTTP surface additions**:
+  - `GET  /api/die/dkp/patterns` — full pattern list.
+  - `GET  /api/die/dkp/patterns/{pattern_id}` — single lookup.
+
+- **Tests** — 16 new pytest cases in `tests/test_die_dkp.py`:
+  seed-registry sanity, per-pattern matches (shadow-copy, download
+  cradle, encoded command, AMSI bypass, JS ActiveX RCE, VBS shell,
+  bash reverse-shell, curl-pipe-shell, python encoded exec),
+  deterministic ordering, benign non-match guarantee, runtime
+  `add_pattern` extensibility.  **84/84 DIE tests pass in 0.42s**.
+
+Verified end-to-end via curl: `vssadmin delete shadows /all /quiet`
+→ language=`cmd`, techniques=[`T1490`], **dkp_matches[0]**:
+- `dkp.shadow_copy_removal`, confidence 0.37
+- intent: *"Destroy recovery snapshots — precursor to ransomware"*
+- families: Ryuk · LockBit · Conti · Akira · BlackCat
+- evidence: `vssadmin delete shadows`
+
+Also fixed: PowerShell language detector was missing `IEX(` (no
+whitespace) and `Net.WebClient` (no `System.` prefix) cases —
+regex expanded to cover both.
+
+---
+
 ### 🟢 2026-02-16 (pm) · Phase B.1 · DIE · Cycle B · Multi-language ASTs + Archive Recovery (owner-locked · shipped · 68/68 tests green)
 
 Additive-only extension of the DIE package. No existing service
