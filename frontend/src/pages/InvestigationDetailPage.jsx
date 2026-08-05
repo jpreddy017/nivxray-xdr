@@ -44,15 +44,36 @@ export default function InvestigationDetailPage() {
   const params = new URLSearchParams(location.search);
   const initialTab = TAB_KEYS.includes(params.get("tab"))
                        ? params.get("tab") : "overview";
-  const [tab, setTab] = useState(initialTab);
+  const [tab, setTabState] = useState(initialTab);
 
+  // Normalize the URL on first mount (adds `?tab=<initial>` without a
+  // history entry). Later tab changes push new entries so the browser
+  // Back button walks tab-by-tab.
   useEffect(() => {
     const p = new URLSearchParams(location.search);
-    if (p.get("tab") !== tab) {
-      p.set("tab", tab);
+    if (p.get("tab") !== initialTab) {
+      p.set("tab", initialTab);
       nav(`${location.pathname}?${p.toString()}`, { replace: true });
     }
-  }, [tab, location.pathname, location.search, nav]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep local state in sync with the URL when the user navigates via
+  // browser Back/Forward.
+  useEffect(() => {
+    const t = new URLSearchParams(location.search).get("tab");
+    if (t && TAB_KEYS.includes(t) && t !== tab) setTabState(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
+  // User-initiated tab change → push a new history entry.
+  const setTab = (k) => {
+    if (k === tab) return;
+    setTabState(k);
+    const p = new URLSearchParams(location.search);
+    p.set("tab", k);
+    nav(`${location.pathname}?${p.toString()}`);
+  };
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");

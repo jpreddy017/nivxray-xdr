@@ -2,6 +2,48 @@
 
 ---
 
+### 🟢 2026-02-16 · Phase A.5 · item 3.7 · Attack Story IA consolidation (owner-locked · shipped · iteration_66)
+
+Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).
+Frontend-only refactor. Zero backend touches.
+
+**Analyst IA collapsed** — the Investigation Detail page now has
+EXACTLY four tabs: **Overview · Story · Evidence · Report**. Six
+previous top-level surfaces (Replay, Timeline, Trajectory, MITRE,
+Fingerprint, Provenance) become sections inside Story or Evidence.
+
+- **Overview** — verdict + risk + fingerprint metrics + Threat Summary + MITRE chips
+- **Story** — deterministic pipeline walk (Scrubber · StepDetail · PipelineFlow · Show Evidence handoff · Timeline synopsis · Open Trajectory canvas link)
+- **Evidence** — Attack Chain + Evidence Graph + Confidence Provenance rules
+- **Report** — print-friendly executive summary with `window.print()`
+
+Deep-link contract: `?tab=<overview|story|evidence|report>` on the
+Investigation Detail URL hydrates the correct tab and syncs on user
+clicks. Browser Back walks tab-by-tab.
+
+Route retirement: `InvestigationReplayPage` is no longer routed. The
+old bookmark `/investigations/:id/replay` now redirects to
+`/investigations/:id?tab=story` via `<ReplayRedirect>` in `App.js`.
+
+Testing: iteration_66 → 39/40 pass. One action item (Back-button
+tab restoration) fixed post-report and verified end-to-end
+(overview ← story ← evidence ← report walks cleanly).
+
+Files touched (frontend only):
+- new · `/app/frontend/src/components/attackStory/ReplayPrimitives.jsx`
+  (buildSteps, Scrubber, StepDetail, PipelineFlow, COL — extracted)
+- new · `/app/frontend/src/components/investigation/OverviewTab.jsx`
+- new · `/app/frontend/src/components/investigation/StoryTab.jsx`
+- new · `/app/frontend/src/components/investigation/EvidenceTab.jsx`
+- new · `/app/frontend/src/components/investigation/ReportTab.jsx`
+- edit · `/app/frontend/src/pages/InvestigationDetailPage.jsx`
+  (4-tab IA container with URL contract)
+- edit · `/app/frontend/src/App.js` (ReplayRedirect + retire replay page)
+- retired · `/app/frontend/src/pages/InvestigationReplayPage.jsx` (no
+  longer routed; file preserved in git history — safe to delete later)
+
+---
+
 ## 🚨 STANDING PRIORITY STATEMENT (owner · 2026-02-XX)
 
 > **My priority is recovery, not innovation. I want the Workspace to behave

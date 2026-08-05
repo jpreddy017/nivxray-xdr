@@ -205,24 +205,15 @@ NOT touched.
     / multi-stage / hundreds of nodes). Presentation-only, consumes
     the same `evidence_graph` payload from `/api/correlations`.
 
-3.7 **Attack Story — unified investigation narrative** (owner-locked
-    2026-02-16 · re-scoped from "Attack Story Replay" + "Trajectory
-    Evolution"). Replaces multiple overlapping surfaces (Timeline,
-    Trajectory, Replay, MITRE, Evidence) with **one page, many
-    modes**. Modes:
-      · Overview
-      · Replay  (already shipped in 3.4 — becomes a tab, no rebuild)
-      · Timeline
-      · Trajectory  (process → file → registry swimlane)
-      · MITRE
-      · Evidence
-      · Decision Points
-      · Fingerprint
-      · Report
-    Data model + APIs unchanged — this is a presentation-layer
-    consolidation. Existing standalone routes (`/v2/trajectory`,
-    `/investigations/:id/replay`) remain as deep-linkable
-    permalinks that hydrate the Attack Story into the right mode.
+3.7 **Attack Story — unified investigation narrative** — ✅ CLOSED
+    (2026-02-16 · iteration_66). Consolidation completed: the
+    Investigation Detail surface now has EXACTLY four tabs
+    (Overview · Story · Evidence · Report). Replay, Timeline,
+    Trajectory, MITRE, Fingerprint, and Provenance are sections
+    inside Story or Evidence, not independent navigation items.
+    URL contract: `?tab=<overview|story|evidence|report>`. Browser
+    Back walks tab-by-tab. `/investigations/:id/replay` redirects
+    to `?tab=story`. Zero backend changes.
 
 3.8 **History-row split action · "Open Investigation ▾"** (owner-
     locked 2026-02-16). Only shown when a case has an associated
