@@ -27,6 +27,31 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🟢 2026-02-16 · Phase A · Confidence Provenance Ledger + NVKC Analyst Decision Benchmark (owner-approved · shipped)
+
+Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
+
+**Confidence Provenance Ledger** — deterministic, read-only,
+versioned (`1.0`) explanation of every verdict. Rule library of 13
+declarative pure predicates over CEM fields. `recorded` block
+preserves the upstream verdict; `derived` block reproduces it
+deterministically. Auditable evidence chain per rule fire. Endpoint:
+`GET /api/correlations/provenance/{case_id}`. Compare Cases now
+auto-attaches provenance so the `confidence_provenance` dimension
+lights up without UI change.
+
+**NVKC Analyst Decision Benchmark** — `expected:` schema extended
+with `provenance_hash · derived_verdict · derived_risk_score ·
+timeline · attack_chain`. Regenerated all 10 seed baselines. NVKC
+is now a full analyst-quality validation framework, not just a
+decoder regression suite.
+
+Investigation Intelligence layer complete: Attack Fingerprint +
+Compare Cases + Confidence Provenance. 98/98 architectural +
+validation gates green.
+
+
+
 ### 🎯 2026-02-16 · NVKC · Analyst Decision Benchmark (roadmap addition)
 
 Owner-locked extension of NVKC's per-sample `expected:` block —

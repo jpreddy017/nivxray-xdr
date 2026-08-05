@@ -32,6 +32,12 @@ class ExpectedOutputs:
     behavior_codes:          List[str]        = field(default_factory=list)
     ioc_kinds:               List[str]        = field(default_factory=list)
     benign:                  bool             = False
+    # ── Analyst Decision Benchmark (owner-locked 2026-02-16) ──
+    provenance_hash:         Optional[str]    = None
+    derived_verdict:         Optional[str]    = None
+    derived_risk_score:      Optional[float]  = None
+    timeline:                List[List[str]]  = field(default_factory=list)
+    attack_chain:            List[str]        = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -126,6 +132,14 @@ def load_sample(descriptor_path: Path) -> NvkcSample:
         behavior_codes          = sorted([str(c) for c in exp.get("behavior_codes") or []]),
         ioc_kinds               = sorted([str(k) for k in exp.get("ioc_kinds") or []]),
         benign                  = bool(exp.get("benign") or False),
+        provenance_hash         = (str(exp["provenance_hash"])
+                                   if exp.get("provenance_hash") else None),
+        derived_verdict         = (str(exp["derived_verdict"])
+                                   if exp.get("derived_verdict") else None),
+        derived_risk_score      = (float(exp["derived_risk_score"])
+                                   if exp.get("derived_risk_score") is not None else None),
+        timeline                = [list(e) for e in exp.get("timeline") or []],
+        attack_chain            = [str(e) for e in exp.get("attack_chain") or []],
     )
 
     return NvkcSample(

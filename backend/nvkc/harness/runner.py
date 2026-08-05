@@ -28,6 +28,7 @@ import yaml
 from services.artifact_intelligence import dispatch
 from services.attack_fingerprint import emit_fingerprint
 from services.cem import emit_cem
+from services.confidence_provenance import emit_provenance
 from services.recipe_planner import plan_and_execute
 from services.recursive_child_pipeline import (
     process as rcp_process,
@@ -86,7 +87,9 @@ def replay(sample: NvkcSample) -> Dict[str, Any]:
     cem = emit_cem(case)
     case_with_cem = {**case, "cem": cem}
     fp = emit_fingerprint(case_with_cem)
-    return {"case": case, "cem": cem, "fingerprint": fp}
+    provenance = emit_provenance(case_with_cem)
+    return {"case": case, "cem": cem, "fingerprint": fp,
+            "provenance": provenance}
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -96,6 +99,7 @@ def _actual_outputs(replay_result: Dict[str, Any]) -> Dict[str, Any]:
     cem = replay_result["cem"]
     fp = replay_result["fingerprint"]
     case = replay_result["case"]
+    prov = replay_result["provenance"]
 
     # artifact types — walk canonical_artifacts + child_artifacts.
     types: Set[str] = set()
@@ -107,6 +111,20 @@ def _actual_outputs(replay_result: Dict[str, Any]) -> Dict[str, Any]:
         rt = c.get("routed_artifact_type")
         if rt:
             types.add(rt)
+
+    # Analyst Decision Benchmark fields.
+    timeline = [[str(ev.get("kind") or ""), str(ev.get("code") or "")]
+                for ev in cem.get("events") or [] if isinstance(ev, dict)]
+    parent = "root"
+    for a in cem.get("canonical_artifacts") or []:
+        if isinstance(a, dict) and a.get("kind") == "binary_artifact":
+            parent = str(a.get("type") or "root")
+            break
+    attack_chain = sorted({
+        f"{parent}->{c.get('type') or ''}"
+        for c in cem.get("child_artifacts") or [] if isinstance(c, dict)
+    })
+
     return {
         "terminal_state":          case.get("iedde_terminal_state"),
         "artifact_types":          sorted(types),
@@ -119,6 +137,11 @@ def _actual_outputs(replay_result: Dict[str, Any]) -> Dict[str, Any]:
                                            and ev.get("code")}),
         "ioc_kinds":               sorted({i.get("kind") for i in cem.get("indicators") or []
                                            if isinstance(i, dict) and i.get("kind")}),
+        "provenance_hash":         prov.get("provenance_hash"),
+        "derived_verdict":         (prov.get("derived") or {}).get("verdict"),
+        "derived_risk_score":      (prov.get("derived") or {}).get("risk_score"),
+        "timeline":                timeline,
+        "attack_chain":            attack_chain,
     }
 
 
@@ -145,6 +168,26 @@ def diff_expected(sample: NvkcSample, actual: Dict[str, Any]) -> List[str]:
             f"attack_fingerprint_hash DRIFT — P0 gate\n"
             f"  expected: {exp.attack_fingerprint_hash}\n"
             f"  actual:   {actual['attack_fingerprint_hash']}")
+    # ── Analyst Decision Benchmark ──
+    if exp.provenance_hash \
+            and actual["provenance_hash"] != exp.provenance_hash:
+        diffs.append(
+            f"provenance_hash DRIFT — P0 gate (Confidence Provenance)\n"
+            f"  expected: {exp.provenance_hash}\n"
+            f"  actual:   {actual['provenance_hash']}")
+    if exp.derived_verdict and actual["derived_verdict"] != exp.derived_verdict:
+        diffs.append(f"derived_verdict: expected {exp.derived_verdict!r}, "
+                     f"got {actual['derived_verdict']!r}")
+    if exp.derived_risk_score is not None \
+            and actual["derived_risk_score"] != exp.derived_risk_score:
+        diffs.append(f"derived_risk_score: expected {exp.derived_risk_score}, "
+                     f"got {actual['derived_risk_score']}")
+    if exp.timeline and actual["timeline"] != exp.timeline:
+        diffs.append(f"timeline mismatch: expected {exp.timeline}, "
+                     f"got {actual['timeline']}")
+    if exp.attack_chain and actual["attack_chain"] != exp.attack_chain:
+        diffs.append(f"attack_chain: expected {exp.attack_chain}, "
+                     f"got {actual['attack_chain']}")
     return diffs
 
 
@@ -163,6 +206,12 @@ def update_baseline_yaml(sample: NvkcSample, actual: Dict[str, Any]) -> None:
     exp["attack_fingerprint_hash"] = actual["attack_fingerprint_hash"]
     exp["behavior_codes"]          = actual["behavior_codes"]
     exp["ioc_kinds"]               = actual["ioc_kinds"]
+    # Analyst Decision Benchmark
+    exp["provenance_hash"]    = actual["provenance_hash"]
+    exp["derived_verdict"]    = actual["derived_verdict"]
+    exp["derived_risk_score"] = actual["derived_risk_score"]
+    exp["timeline"]           = actual["timeline"]
+    exp["attack_chain"]       = actual["attack_chain"]
     sample.descriptor_path.write_text(
         yaml.safe_dump(doc, sort_keys=True, default_flow_style=False),
         encoding="utf-8")

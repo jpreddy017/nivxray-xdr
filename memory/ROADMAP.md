@@ -149,12 +149,13 @@ changes; all work fits under §7 Provider Extension Architecture.
    symmetric, gracefully degrades. Consumes Attack Fingerprint's
    similarity_vector directly. Endpoint:
    `POST /api/correlations/compare`.
-3. **Confidence Provenance Ledger** — NEXT UP ⭐
-   Analyst-visible chain showing which evidence / weights / rules
-   produced the final risk score and verdict. Deterministic,
-   read-only on the SSOT. Compare Cases already has the placeholder
-   wiring (`dimensions.confidence_provenance.available`) to surface
-   it as soon as it lands.
+3. **Confidence Provenance Ledger** — ✅ CLOSED (2026-02-16).
+   Deterministic read-only ledger explaining every verdict. 13
+   declarative rules over CEM fields. `recorded` preserves upstream
+   verdict; `derived` reproduces it deterministically. Endpoint:
+   `GET /api/correlations/provenance/{case_id}`. Compare Cases
+   auto-attaches it, so the `confidence_provenance` dimension is
+   already lit. **Investigation Intelligence layer COMPLETE.**
 
 **Phase B · New Artifact Types** (broaden coverage under §7)
 

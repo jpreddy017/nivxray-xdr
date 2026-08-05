@@ -1,12 +1,19 @@
 description: "Linux base64 \u2192 gunzip \u2192 sh loader"
 expected:
   artifact_types: []
+  attack_chain: []
   attack_fingerprint_hash: null
   behavior_codes: []
   benign: false
+  derived_risk_score: 0
+  derived_verdict: benign
   ioc_kinds: []
   mitre: []
+  provenance_hash: 188384f02a9c90952be7c99933052245cb0016b87de649803e70dea875bbc700
   terminal_state: stability_gate
+  timeline:
+  - - rte.convergence
+    - stability_gate
 input:
   inline: echo H4sIAJzJcmoC/0tNzshXyMnMK63QzclPTEktAgDFMDgWEQAAAA== | base64 -d |
     gunzip | sh

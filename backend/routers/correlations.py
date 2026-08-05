@@ -590,5 +590,28 @@ async def compare_two_cases(body: CompareBody, user=Depends(get_current_user)):
     b = await _load_case(user["email"], body.case_b_id)
     if not b:
         raise HTTPException(status_code=404, detail="case_b_not_found")
+    # ▲ Confidence Provenance auto-attach — feeds the compare engine's
+    # `confidence_provenance` dimension without any UI change.
     from services.case_compare import compare_cases
+    from services.confidence_provenance import emit_provenance
+    a = {**a, "confidence_provenance": emit_provenance(a)}
+    b = {**b, "confidence_provenance": emit_provenance(b)}
     return compare_cases(a, b)
+
+
+# ============================================================================
+# Confidence Provenance Ledger — Phase A · item 3
+# ============================================================================
+@router.get("/correlations/provenance/{case_id}", tags=["correlations"])
+async def get_provenance(case_id: str, user=Depends(get_current_user)):
+    """Return the deterministic Confidence Provenance ledger for a case.
+
+    Read-only. Explains, does not overwrite: `recorded` preserves the
+    upstream verdict; `derived` is the CEM-only reproduction. Rules
+    are declarative, weights are pinned by version.
+    """
+    case = await _load_case(user["email"], case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="case_not_found")
+    from services.confidence_provenance import emit_provenance
+    return {"case_id": case_id, "confidence_provenance": emit_provenance(case)}

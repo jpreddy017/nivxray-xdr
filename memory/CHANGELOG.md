@@ -2,6 +2,78 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-16 · Phase A · Confidence Provenance Ledger + NVKC Analyst Decision Benchmark — LIVE · 98/98 gates green
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
+· §7 (Provider Extension Architecture), §5 (CEM boundary).
+
+**Two coordinated deliverables shipped in one batch (owner-approved
+option c — completes the Investigation Intelligence layer):**
+
+### 1 · Confidence Provenance Ledger (Phase A · item 3)
+
+- **`services/confidence_provenance.py`** — new pure-function
+  `emit_provenance(case)`. Deterministic, read-only, versioned
+  (`1.0`). Explains, does NOT overwrite: `recorded` block preserves
+  the upstream verdict; `derived` block is a CEM-only reproduction.
+- **Rule library** — 13 declarative pure predicates (analyzer.finding
+  by severity · binary_recovered_from_wrapper · office_macro_script_
+  invocation · recursive_child_declared · powershell_encoded_command
+  · MITRE T1059.001 / T1027 / T1140 / T1218 / T1490). Each rule
+  fires with an evidence_refs list pointing to the exact
+  analyzer.finding / MITRE id / artifact sha256 that satisfied it.
+- **Aggregations** — `evidence_contributions[]` per unique evidence
+  artifact/finding with per-ref contribution + rule provenance;
+  `mitre_contributions[]`; `analyzer_contributions[]`.
+- **`provenance_hash`** — deterministic sha256 of the canonical
+  ledger (self-consistent — hash field is stripped before hashing).
+- **API endpoint** — `GET /api/correlations/provenance/{case_id}`
+  · user-scoped, read-only. Live-verified on a real case
+  (recorded `verdict=Partial risk=25` alongside derived
+  `verdict=low_risk risk=25` from 2 MITRE rules).
+- **Compare Cases auto-integration** — the `POST
+  /api/correlations/compare` endpoint now auto-attaches provenance
+  to both cases before diffing, so the placeholder
+  `confidence_provenance` dimension now lights up automatically
+  (no UI change required).
+- **19 unit tests** covering: read-only invariant · determinism ·
+  recorded-preserved contract · rule-library integrity ·
+  auditable evidence chain · versioning · stub degradation ·
+  verdict-band correctness.
+
+### 2 · NVKC Analyst Decision Benchmark (Phase D)
+
+- **Schema extension (`nvkc/schema.py`)** — `ExpectedOutputs` now
+  carries the Analyst Decision Benchmark fields: `provenance_hash`,
+  `derived_verdict`, `derived_risk_score`, `timeline` (ordered
+  `[kind, code]` pairs), `attack_chain` (parent→child edges).
+- **Harness runner (`nvkc/harness/runner.py`)** — computes each
+  field from replay output; the diff engine gates any drift as
+  P0. `--nvkc-update-baseline` writes the extended fields.
+- **All 10 seed baselines regenerated** with the extended
+  benchmark — `cl-02-ps-encoded-gzip-pe` now pins:
+  `derived_verdict=suspicious · derived_risk_score=50.0 ·
+  provenance_hash=3e2bdd3a… · full timeline · attack_chain`.
+
+### Governance & regression posture
+
+- **98/98 architectural + validation gates green** (up from 79):
+  Golden 4 · Dual-Entry 11 · CEM+RCP 13 · P2.3c 5 · P2.3b docm 6 ·
+  Attack Fingerprint 17 · Compare Cases 15 · **Confidence
+  Provenance 19** · **NVKC 10** (with expanded benchmark).
+- No frozen-core modifications — pure §7 extension work.
+- Compare Cases + Attack Fingerprint + Confidence Provenance now
+  form the complete deterministic Investigation Intelligence layer.
+
+**Files changed:**
+- `backend/services/confidence_provenance.py` (new · 340 lines)
+- `backend/routers/correlations.py` (new endpoint + compare auto-attach)
+- `backend/nvkc/schema.py` (Analyst Decision Benchmark fields)
+- `backend/nvkc/harness/runner.py` (extended actual/diff/update)
+- `backend/nvkc/corpus/**/*.nvkc.yaml` (10 seeds regenerated)
+- `backend/tests/test_confidence_provenance.py` (new · 19 tests)
+
+
 ## 2026-02-16 · Phase A · Compare Cases + Phase D · Stage 1 NVKC Scaffold — LIVE · 79/79 gates green
 
 **Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
