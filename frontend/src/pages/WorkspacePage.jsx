@@ -3160,6 +3160,32 @@ export default function WorkspacePage() {
           setCanonicalConfidenceReason(caseDoc.canonical_confidence_reason || null);
           setSavedCaseName(caseDoc.name);
           setStatus(`▸ OPENED "${caseDoc.name}" (${caseDoc.engine} · ${caseDoc.confidence || 0}%)`);
+          // ▲ 2026-02-28 · Restore IUE + Attack Story + Trajectory +
+          // Analyst Narrative for saved cases so Prev-Mode surfaces
+          // are identical to the freshly-analysed Workspace.
+          const _input = caseDoc.input || "";
+          if (_input.trim()) {
+            setUnderstanding(null);
+            setUnderstandingError(null);
+            setUnderstandingLoading(true);
+            setInlineStoryPreproc(null);
+            setAnalystNarrative(null);
+            api.post("/die/understand", { input: _input, execute: true })
+              .then((r) => { setUnderstanding(r?.data?.understanding || null); })
+              .catch((e) => setUnderstandingError(e?.response?.data?.detail || e?.message || String(e)))
+              .finally(() => setUnderstandingLoading(false));
+            api.post("/die/analyze", { input: _input })
+              .then((r) => {
+                const pre = r?.data?.result?.preprocessor
+                         || r?.data?.result?.chain?.preprocessor
+                         || null;
+                if (pre) setInlineStoryPreproc(pre);
+              })
+              .catch(() => {});
+            api.post("/die/narrate", { input: _input })
+              .then((r) => setAnalystNarrative(r?.data?.narrative || null))
+              .catch(() => {});
+          }
         }}
       />
 
