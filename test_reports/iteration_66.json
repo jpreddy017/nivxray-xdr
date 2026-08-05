@@ -1,0 +1,32 @@
+{
+  "summary": "Phase A.5 · item 3.7 — Attack Story IA consolidation. Frontend-only Playwright suite executed against production preview URL with admin login. 39/40 checks pass. All four tabs (Overview/Story/Evidence/Report) render with correct data-testids; retired Replay/Timeline/Trajectory/MITRE/Fingerprint/Provenance tabs are absent at the top level. URL ?tab=<key> deep-linking works. /investigations/:id/replay correctly redirects to ?tab=story. Story tab: scrubber, pipeline flow (10 step buttons), step-detail card, timeline synopsis, Open Trajectory link, Show Evidence → EvidenceModal (Escape closes), step-click updates detail (input → detection), timeline chip opens EvidenceModal. Evidence tab: chain-node-evidence-0 opens EvidenceModal; provenance rule row opens EvidenceModal. Report tab: name/verdict/risk/fingerprint/print testids present; Print button triggers window.print. Compare page loads. Zero console errors / no ReferenceErrors observed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Browser Back after tab navigation",
+        "issue": "Tab URL sync in InvestigationDetailPage.jsx (useEffect at ~line 49-55) uses nav(..., { replace: true }) for every tab change, so switching tabs never pushes history entries. After navigating Overview → Story → Evidence → Report and pressing Back, the browser skips past the investigation page entirely (lands on '/') instead of restoring the previously viewed tab. Spec item states: 'Browser back button after tab navigation restores previous tab state without errors'. No console error is thrown; behaviour is functionally safe but does not match the described contract.",
+        "affected_selectors": ["[data-testid=tab-overview]", "[data-testid=tab-story]", "[data-testid=tab-evidence]", "[data-testid=tab-report]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "InvestigationDetailPage.jsx tab-URL sync: use { replace: true } only when initialTab is being normalized on mount; on user-initiated tab changes call nav(..., { replace: false }) (or push) so Back restores the previous tab. Recommend switching to nav(url) (push) inside a handler that fires only when tab state changes via onSelect, and keep replace-mode strictly for the initial URL normalization branch."
+  ],
+  "critical_code_review_comments": [
+    "InvestigationDetailPage.jsx line 47: initialTab is computed once from location.search at mount; if a user externally changes the ?tab= param (e.g., via browser navigation) the internal `tab` state does not resync. Consider a useEffect that watches location.search and calls setTab when the parsed tab differs. This is also the same root cause of the Back-button spec miss.",
+    "The four-tab NavTabs items array is defined inline inside render each time — minor perf; consider useMemo or moving out of the component.",
+    "OverviewTab/StoryTab/EvidenceTab/ReportTab were not opened for a file-size review this pass; if any exceeds 700 LOC main agent should consider splitting."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only iteration)", "frontend": "97.5% (39/40)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — reused existing investigation id 6a72169b3d98eb14810c9506 (Test P1 Investigation).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Investigation Detail 4-tab IA is fully functional. Only spec deviation is the browser-Back tab-restore behaviour caused by { replace: true } in the tab-sync useEffect (line ~49-55 of InvestigationDetailPage.jsx). If main agent fixes to push-history on user tab switches, retest by: login → open /investigations/6a72169b3d98eb14810c9506 → click Story → click Evidence → click Report → press Back → expect URL to become ?tab=evidence and tab-panel-evidence visible.",
+  "rca of the issue": "InvestigationDetailPage.jsx useEffect at lines 49-55 calls nav(`${pathname}?${params}`, { replace: true }) on every tab state change. This unconditionally replaces the current history entry, so switching tabs never appends to browser history. Consequence: pressing Back after multiple tab clicks jumps to whichever URL preceded the investigation page (in the test, '/'), not the previously active tab. Fix: distinguish 'initial URL normalization' (should replace) from 'user tab switch' (should push). Simplest patch: wrap navigation in a check — if params.get('tab') is missing or invalid, replace; otherwise push. Alternatively, drive tab state directly from the URL query param (single source of truth) and use nav(url) without replace inside the tab-click handler."
+}

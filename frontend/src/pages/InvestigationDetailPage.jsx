@@ -1,59 +1,73 @@
 /**
- * InvestigationDetailPage — Phase 4 · P1 · Cross-Artifact Correlation.
+ * InvestigationDetailPage — Phase A.5 · item 3.7 · Attack Story IA.
  *
- * First-class Investigation view. Renders:
- *   • Consolidated Threat Summary (verdict, risk, MITRE, IOCs, artifact types)
- *   • Chain View (default) — top-to-bottom attack chain
- *   • Graph View — force-directed evidence graph
- *   • Timeline View — chronological unified events
- *   • Suggestion Panel — pending auto-correlations to confirm/dismiss
- *   • Manual link/unlink controls
+ * Owner-locked (2026-02-16): the investigation surface uses ONLY four
+ * tabs — Overview · Story · Evidence · Report. Replay, Timeline,
+ * Trajectory, MITRE, Fingerprint, and Provenance no longer live as
+ * separate navigation targets; they are sections within Story or
+ * Evidence. Presentation-only refactor — zero backend changes.
+ *
+ * URL contract: `?tab=<overview|story|evidence|report>` deep-links
+ * into a specific tab. The retired route `/investigations/:id/replay`
+ * redirects (see App.js) to `?tab=story`.
  */
 import { useCallback, useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import NavTabs from "@/components/NavTabs";
 import api from "@/lib/api";
-import AttackChainView from "@/components/investigation/AttackChainView";
-import EvidenceGraphView from "@/components/investigation/EvidenceGraphView";
-import UnifiedTimelineView from "@/components/investigation/UnifiedTimelineView";
 import CorrelationSuggestionCard from "@/components/investigation/CorrelationSuggestionCard";
-import InvestigationThreatSummaryCard from "@/components/investigation/InvestigationThreatSummaryCard";
 import { useEvidenceModal } from "@/components/EvidenceModal";
-import {
-  fromChainStep, fromTimelineEvent, fromMitreEntry,
-} from "@/components/evidenceDescriptors";
-import { Layers3, Network, Clock3, Sparkles, ArrowLeft, Trash2, Play } from "lucide-react";
+import OverviewTab from "@/components/investigation/OverviewTab";
+import StoryTab    from "@/components/investigation/StoryTab";
+import EvidenceTab from "@/components/investigation/EvidenceTab";
+import ReportTab   from "@/components/investigation/ReportTab";
+import { LayoutDashboard, BookOpen, Fingerprint, FileText, Sparkles,
+         ArrowLeft, Trash2 } from "lucide-react";
+
+const TAB_KEYS = ["overview", "story", "evidence", "report"];
 
 export default function InvestigationDetailPage() {
   const { id } = useParams();
+  const location = useLocation();
+  const nav = useNavigate();
   const [inv, setInv] = useState(null);
   const [summary, setSummary] = useState(null);
   const [chain, setChain] = useState(null);
   const [graph, setGraph] = useState(null);
-  const [timeline, setTimeline] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
-  const [tab, setTab] = useState("chain");
+  const [fp, setFp] = useState(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
   const evi = useEvidenceModal();
 
+  const params = new URLSearchParams(location.search);
+  const initialTab = TAB_KEYS.includes(params.get("tab"))
+                       ? params.get("tab") : "overview";
+  const [tab, setTab] = useState(initialTab);
+
+  useEffect(() => {
+    const p = new URLSearchParams(location.search);
+    if (p.get("tab") !== tab) {
+      p.set("tab", tab);
+      nav(`${location.pathname}?${p.toString()}`, { replace: true });
+    }
+  }, [tab, location.pathname, location.search, nav]);
+
   const load = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      const [d, s, c, g, t, sg] = await Promise.all([
+      const [d, s, c, g, sg] = await Promise.all([
         api.get(`/correlations/${id}`),
         api.get(`/correlations/${id}/summary`),
         api.get(`/correlations/${id}/chain`),
         api.get(`/correlations/${id}/graph`),
-        api.get(`/correlations/${id}/timeline`),
         api.get(`/correlations/${id}/suggestions`),
       ]);
       setInv(d.data.correlation);
       setSummary(s.data.summary);
       setChain(c.data);
       setGraph(g.data);
-      setTimeline(t.data);
       setSuggestions(sg.data.suggestions || []);
     } catch (e) {
       setErr(e?.response?.data?.detail || e.message || String(e));
@@ -61,6 +75,19 @@ export default function InvestigationDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Fingerprint (root-case-scoped) — optional; failure is silent so the
+  // page keeps working before the correlation has been fingerprinted.
+  useEffect(() => {
+    const root = inv?.root_case_id;
+    if (!root) return;
+    (async () => {
+      try {
+        const r = await api.get(`/correlations/fingerprint/${root}`);
+        setFp(r.data?.fingerprint);
+      } catch { /* silently absent */ }
+    })();
+  }, [inv?.root_case_id]);
 
   const onConfirm = async (case_id) => {
     try {
@@ -102,22 +129,6 @@ export default function InvestigationDetailPage() {
             <ArrowLeft size={14} /> Investigations
           </Link>
           <div style={{ flex: 1 }} />
-          {inv?.root_case_id && (
-            <Link to={`/investigations/${inv.root_case_id}/replay`}
-                  data-testid="investigation-replay"
-                  title="Step through the deterministic pipeline for the root case"
-                  style={{ padding: "6px 12px", fontSize: 11,
-                           background: "rgba(56,189,248,0.10)",
-                           color: "#7dd3fc",
-                           border: "1px solid rgba(56,189,248,0.35)",
-                           borderRadius: 6, cursor: "pointer",
-                           fontFamily: "JetBrains Mono, monospace",
-                           letterSpacing: "0.08em", textTransform: "uppercase",
-                           display: "inline-flex", alignItems: "center", gap: 6,
-                           textDecoration: "none", marginRight: 8 }}>
-              <Play size={12} /> Replay Investigation
-            </Link>
-          )}
           <button data-testid="investigation-delete"
                   onClick={onDelete}
                   style={{ padding: "6px 12px", fontSize: 11,
@@ -153,20 +164,7 @@ export default function InvestigationDetailPage() {
                            letterSpacing: "0.03em" }}>
                 {inv.name}
               </h1>
-              {inv.description && (
-                <div style={{ marginTop: 6, fontSize: 12, color: "#94a3b8" }}>
-                  {inv.description}
-                </div>
-              )}
             </div>
-
-            {summary && (
-              <div style={{ marginBottom: 20 }}>
-                <InvestigationThreatSummaryCard
-                  summary={summary}
-                  onOpenEvidence={(m) => evi.open(fromMitreEntry(m))} />
-              </div>
-            )}
 
             <div style={{ display: "grid",
                           gridTemplateColumns: "minmax(0, 1fr) 320px",
@@ -180,17 +178,27 @@ export default function InvestigationDetailPage() {
                   onSelect={setTab}
                   testId="investigation-view-tabs"
                   items={[
-                    { key: "chain",    label: "Attack Chain", icon: Layers3, testId: "tab-chain" },
-                    { key: "graph",    label: "Evidence Graph", icon: Network, testId: "tab-graph" },
-                    { key: "timeline", label: "Timeline", icon: Clock3, testId: "tab-timeline" },
+                    { key: "overview", label: "Overview", icon: LayoutDashboard, testId: "tab-overview" },
+                    { key: "story",    label: "Story",    icon: BookOpen,        testId: "tab-story" },
+                    { key: "evidence", label: "Evidence", icon: Fingerprint,     testId: "tab-evidence" },
+                    { key: "report",   label: "Report",   icon: FileText,        testId: "tab-report" },
                   ]}
                 />
                 <div style={{ marginTop: 14 }}>
-                  {tab === "chain"    && <AttackChainView chain={chain} onUnlink={onUnlink}
-                                            onOpenEvidence={(step) => evi.open(fromChainStep(step))} />}
-                  {tab === "graph"    && <EvidenceGraphView graph={graph} />}
-                  {tab === "timeline" && <UnifiedTimelineView timeline={timeline}
-                                            onOpenEvidence={(ev) => evi.open(fromTimelineEvent(ev))} />}
+                  {tab === "overview" && <OverviewTab
+                                            inv={inv} summary={summary} fp={fp}
+                                            onOpenEvidence={evi.open} />}
+                  {tab === "story"    && <StoryTab
+                                            caseId={inv.root_case_id}
+                                            openEvidence={evi.open} />}
+                  {tab === "evidence" && <EvidenceTab
+                                            chain={chain} graph={graph}
+                                            caseId={inv.root_case_id}
+                                            onUnlink={onUnlink}
+                                            onOpenEvidence={evi.open} />}
+                  {tab === "report"   && <ReportTab
+                                            inv={inv} summary={summary}
+                                            chain={chain} fp={fp} />}
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 import "@/App.css";
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
 // LoginPage stays eager — must render on first paint for unauth users.
@@ -34,9 +34,10 @@ const HistoryPage           = lazy(() => import("@/pages/HistoryPage"));
 // single attack story with unified chain, graph, timeline, and summary.
 const InvestigationsPage       = lazy(() => import("@/pages/InvestigationsPage"));
 const InvestigationDetailPage  = lazy(() => import("@/pages/InvestigationDetailPage"));
-// Phase A.5 · item 3.4 · Investigation Replay (2026-02-16)
-// Step-through analyst view of the deterministic pipeline over SSOT data.
-const InvestigationReplayPage  = lazy(() => import("@/pages/InvestigationReplayPage"));
+// Phase A.5 · item 3.7 · Attack Story consolidation (2026-02-16)
+// The retired InvestigationReplayPage no longer routes. Existing
+// bookmarks `/investigations/:id/replay` deep-link into the Story tab
+// on the Investigation Detail page via the ReplayRedirect below.
 const ComparePage              = lazy(() => import("@/pages/ComparePage"));
 const PlatformHealthPage       = lazy(() => import("@/pages/PlatformHealthPage"));
 const TrainingInboxPage     = lazy(() => import("@/pages/TrainingInboxPage"));
@@ -94,6 +95,14 @@ function Protected({ children }) {
   return children;
 }
 
+// Phase A.5 · item 3.7 · Attack Story consolidation.
+// `/investigations/:id/replay` no longer has its own page — the deep
+// link now hydrates the Story tab on the Investigation Detail page.
+function ReplayRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/investigations/${id}?tab=story`} replace />;
+}
+
 // Lightweight route-transition fallback. Rendered while the target
 // chunk is fetching; kept intentionally minimal to avoid any layout
 // shift or perceived flash.
@@ -145,7 +154,7 @@ function App() {
               {/* Phase 4 · P1 · Cross-Artifact Correlation (2026-02-15) */}
               <Route path="/investigations" element={<Protected><InvestigationsPage /></Protected>} />
               <Route path="/investigations/:id" element={<Protected><InvestigationDetailPage /></Protected>} />
-              <Route path="/investigations/:id/replay" element={<Protected><InvestigationReplayPage /></Protected>} />
+              <Route path="/investigations/:id/replay" element={<Protected><ReplayRedirect /></Protected>} />
               <Route path="/compare" element={<Protected><ComparePage /></Protected>} />
               <Route path="/compare/:caseA/:caseB" element={<Protected><ComparePage /></Protected>} />
               <Route path="/platform" element={<Protected><PlatformHealthPage /></Protected>} />
