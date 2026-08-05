@@ -752,7 +752,17 @@ export default function WorkspacePage() {
       setPasteHint(null);
       return d;
     } catch (e) {
-      setStatus("CHAIN ERROR: " + (e?.response?.data?.detail || e.message));
+      // Robust stringify — the `/decode/chain` endpoint can return a
+      // structured pydantic error (list of dicts) that renders as
+      // "[object Object]" if concatenated with `+`.  Normalise to a
+      // readable string so the analyst sees the actual cause.
+      const rawDetail = e?.response?.data?.detail;
+      const detailStr = Array.isArray(rawDetail)
+        ? rawDetail.map((d) => d?.msg || d?.detail || JSON.stringify(d)).join(" · ")
+        : (typeof rawDetail === "object" && rawDetail !== null
+            ? JSON.stringify(rawDetail)
+            : (rawDetail || e?.message || String(e)));
+      setStatus("CHAIN ERROR: " + detailStr);
       return null;
     } finally {
       setLoading(false);
@@ -1268,6 +1278,31 @@ export default function WorkspacePage() {
 
   const autoInvestigate = async () => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
+    // ── P0 · IUE + Inline Attack Story (2026-02-28) ───────────────
+    // Wire AUTO INVESTIGATE to the same understanding pipeline as
+    // ANALYZE so the analyst sees the plan + timeline no matter
+    // which button was clicked.
+    setUnderstanding(null);
+    setUnderstandingError(null);
+    setUnderstandingLoading(true);
+    setInlineStoryPreproc(null);
+    api.post("/die/understand", { input, execute: true })
+      .then((r) => {
+        setUnderstanding(r?.data?.understanding || null);
+        setUnderstandingLoading(false);
+      })
+      .catch((e) => {
+        setUnderstandingError(e?.response?.data?.detail || e?.message || String(e));
+        setUnderstandingLoading(false);
+      });
+    api.post("/die/analyze", { input })
+      .then((r) => {
+        const pre = r?.data?.result?.preprocessor
+                 || r?.data?.result?.chain?.preprocessor
+                 || null;
+        if (pre) setInlineStoryPreproc(pre);
+      })
+      .catch(() => { /* silently absent */ });
     // Multi-command chain? Route to /decode/chain so every stage's IOCs /
     // MITRE / LOLBAS reach the top-level Attack Graph & Kill Chain.
     const parts = splitCommandLines(input);
