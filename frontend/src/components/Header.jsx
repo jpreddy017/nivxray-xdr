@@ -39,7 +39,10 @@ export default function Header() {
     { key: "workspace",   href: "/",              label: "WORKSPACE",   icon: LayoutGrid, testId: "nav-workspace" },
     { key: "history",     href: "/history",       label: "HISTORY",     icon: HistoryIcon, testId: "nav-history", title: "Investigation history · restore any past case with full state" },
     { key: "investigations", href: "/investigations", label: "INVESTIGATIONS", icon: Radar, testId: "nav-investigations", title: "Cross-artifact investigations · linked cases, unified attack chain, evidence graph, timeline" },
-    { key: "trajectory",  href: "/v2/trajectory", label: "TRAJECTORY",  icon: Radar,      testId: "nav-trajectory" },
+    // Trajectory retired from top-level nav (Phase A.5 · item 3.7 · 2026-02-16).
+    // It now lives inside the Investigation Story tab via the `Open full
+    // Trajectory canvas` link; direct deep-links (/v2/trajectory/:caseId)
+    // continue to resolve for existing bookmarks.
     { key: "batch",       href: "/batch-test",    label: "BATCH",       icon: TestTube,   testId: "nav-batch-test" },
     { key: "heatmap",     href: "/heatmap",       label: "HEATMAP",     icon: Grid,       testId: "nav-heatmap" },
     ...(devMode ? [{ key: "nivxforge", href: "/nivxforge/x-lab", label: "X-LAB (DEV)", icon: Radar, testId: "nav-nivxforge" }] : []),
