@@ -105,6 +105,69 @@ platform rather than a collection of independent panels.
 
 ---
 
+## R9 · WORKSPACE STABILITY RULE (Release Gate · 2026-02-28)
+
+The current Workspace architecture is the **baseline**.  Future
+development must be **enhancement-first, not replacement-first.**
+
+- Do NOT remove, redesign or replace existing Workspace capabilities
+  unless an equivalent or better implementation is fully validated.
+- Every new feature MUST integrate with the existing Workspace
+  rather than bypass or duplicate it.
+- The following investigation components are **PROTECTED SURFACES**
+  and must remain fully functional at all times:
+  1. Input Understanding Engine (IUE)
+  2. Workspace Plan checklist
+  3. Attack Story (inline)
+  4. Evidence Trajectory + Node Inspector
+  5. Analyst Narrative (Executive Summary · Overall Assessment ·
+     Attack Progression · Behavior Summary · Likely Objective ·
+     Recommended Actions · Sigma · YARA · MITRE Matrix ·
+     Threat-actor Context)
+  6. Deterministic Report
+  7. Threat Analysis right sidebar — **GRAPH · MITRE · LOLBAS ·
+     RULES · IOCs · TI-HITS · OSINT · AI · FLOW · CHAIN**
+  8. Collapsible RECIPE and CHAIN ANALYSIS cards
+  9. Global Investigation Filter Bar
+- All enhancements MUST pass regression testing against real-world
+  investigation datasets (Talos · Mandiant · CrowdStrike ·
+  Microsoft Defender · Huntress · Red Canary · Palo Alto Unit 42 ·
+  SentinelOne) before release.
+- The objective is to **enhance and improve** the Workspace — not
+  damage, simplify, or regress the current analyst experience.
+
+    Enhance.  Improve.  Integrate.  Never regress.
+
+---
+
+## Release Gate — checked before every deployment
+
+Functional
+- [ ] IUE correctly classifies every supported input type
+- [ ] Decoder runs only when required; plain-text IR reports bypass decoding
+- [ ] Attack Story is generated from deterministic stages
+- [ ] Trajectory renders correctly with Node Inspector
+- [ ] Global Investigation Context synchronises Attack Story, Trajectory,
+      Evidence, and Report
+- [ ] Threat Analysis sidebar (GRAPH · MITRE · LOLBAS · RULES · IOCs ·
+      TI-HITS · OSINT · AI · FLOW · CHAIN) remains fully functional
+- [ ] No regressions in Workspace navigation or rendering
+
+Performance
+- [ ] Large IR reports (Talos, Mandiant, Microsoft, CrowdStrike) render
+      smoothly (no browser freeze)
+- [ ] No excessive re-renders when filters are applied
+- [ ] No API timeouts (CHAIN 524 must not recur)
+
+Regression
+- [ ] `pytest tests/` — 100% green
+- [ ] `test_iue_preprocessor_talos_regression.py` — 100% green
+- [ ] Manual paste: Talos IR fixture yields ≥ 14 stages · IUE
+      classification `vendor_report_text` · Attack Story renders ·
+      Node Inspector opens ·  Global filter applies ·  no CHAIN error
+
+---
+
 **These rules are locked.  Any agent that removes a listed
 capability is regressing the Workspace.  Enhance, extend, add —
 never remove.**

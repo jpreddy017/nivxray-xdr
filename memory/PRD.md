@@ -2,6 +2,49 @@
 
 ---
 
+### 🟢 2026-02-28 · RELEASE-READY · Workspace UI Frozen
+
+The Workspace has completed the transition from a decoder into a
+cohesive **analyst investigation platform**.  All 9 protected surfaces
+are live and green:
+
+1. Input Understanding Engine (IUE) with 21 first-class input types
+2. Workspace Plan checklist with live execution trace
+3. Attack Story (inline · collapsible · click-to-filter)
+4. Evidence Trajectory + Node Inspector (drag · zoom · Kill-Chain colours)
+5. Analyst Narrative (Executive Summary · Overall Assessment ·
+   Attack Progression · Behavior Summary · Likely Objective ·
+   Recommended Actions · Sigma · YARA · MITRE Matrix ·
+   Threat-actor Context — 100% deterministic, zero LLM)
+6. Deterministic Report
+7. Threat Analysis sidebar — GRAPH · MITRE · LOLBAS · RULES · IOCs ·
+   TI-HITS · OSINT · AI · FLOW · CHAIN
+8. Collapsible RECIPE + CHAIN ANALYSIS cards
+9. **Global Investigation Filter** — shared context that dims
+   non-matching stages & trajectory nodes when a tactic / MITRE /
+   phase is clicked in any panel
+
+**Release-gate result — 138 backend tests green** (was 125 before
+this milestone · +13 new IUE / Preprocessor / Talos regressions ·
+0 regressions in existing tests).
+
+**Architectural rules R1 – R9 locked** in
+`/app/memory/WORKSPACE_ARCHITECTURE_RULES.md`.  R9 is the
+production stability rule: **Enhance. Improve. Integrate. Never
+regress.**
+
+The current build is ready to deploy.  Post-deployment items are
+enhancements, not blockers:
+  • Kill-Chain Heat Map (click-to-filter horizontal ribbon)
+  • Attack Progress Meter (current phase + likely next)
+  • Confidence Explanation on every %
+  • Cisco Talos + IBM XForce OSINT admin cards
+  • Multi-vendor validation suite (Mandiant · CrowdStrike ·
+    Microsoft Defender · Huntress · Red Canary · Unit 42 ·
+    SentinelOne)
+
+
+
 ### 🔴 2026-02-28 · P0 · Input Understanding Engine (IUE) SHIPPED
 
 **Owner directive** (verbatim, 2026-02-28):
