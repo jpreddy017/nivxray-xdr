@@ -547,3 +547,22 @@ async def get_cem(case_id: str, user=Depends(get_current_user)):
         return {"case_id": case_id, "cem": case["cem"], "source": "cached"}
     from services.cem import emit_cem
     return {"case_id": case_id, "cem": emit_cem(case), "source": "computed"}
+
+
+# ============================================================================
+# Attack Fingerprint (Attack DNA) — Phase A · first Analytical Consumer
+# ============================================================================
+@router.get("/correlations/fingerprint/{case_id}", tags=["correlations"])
+async def get_fingerprint(case_id: str, user=Depends(get_current_user)):
+    """Return the deterministic Attack Fingerprint for a recorded case.
+
+    Read-only analytical consumer of the Investigation SSOT (§7).
+    Never mutates the case, CEM, verdict, or evidence. Pre-convergence
+    cases return a stub with `hash=None` and a `reason` field.
+    """
+    case = await _load_case(user["email"], case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="case_not_found")
+    from services.attack_fingerprint import emit_fingerprint
+    fp = emit_fingerprint(case)
+    return {"case_id": case_id, "fingerprint": fp}

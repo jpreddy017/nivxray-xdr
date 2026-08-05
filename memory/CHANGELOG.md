@@ -2,6 +2,74 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-16 · Phase A · Attack Fingerprint (Attack DNA) — LIVE · 54/54 architectural gates green
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
+· §7 (Provider Extension Architecture), §5 (CEM boundary), §8 (AI Boundary).
+
+**Ships (first Analytical Consumer of the Investigation SSOT):**
+
+- **`services/attack_fingerprint.py`** — new module. Pure function
+  `emit_fingerprint(case)` that returns a deterministic Attack DNA
+  view of the investigation. Read-only consumer of case+CEM.
+- **Versioned schema** — `FINGERPRINT_VERSION = "1.0"`. Historical
+  fingerprints stay reproducible because their emitter version is
+  preserved in every output.
+- **Convergence-gated** — pre-convergence cases return a stub with
+  `hash=None` and a `reason` field. No fingerprint is ever emitted
+  for `stability_gate` or `partial_recovery` states.
+- **Components captured** (each also independently sha256-digested):
+  `recipe · interpreter_chain · transformation_trace · artifact_graph
+  · mitre · iocs · behavior · parent_child_edges ·
+  canonical_artifact_hashes`. Every component is canonically ordered
+  and stable-serialised before hashing.
+- **Similarity vector** — compact Jaccard-ready structure exposing
+  `artifact_types · canonical_hashes · mitre_ids · behavior_codes ·
+  recipe_shape · ioc_kinds` so Compare Cases can compute overlap
+  without recomputing the fingerprint.
+- **Volatile-field isolation** — `case_id · _id · user_email · ts ·
+  created_at · updated_at · notes · analyst_note · input_provenance`
+  are guaranteed to never leak into the hash (10-way regression
+  suite locks the invariant).
+- **API endpoint** — `GET /api/correlations/fingerprint/{case_id}`
+  · user-scoped, read-only, returns full fingerprint with all
+  component digests + similarity vector.
+
+**Supporting extensions (backward-compatible):**
+- `services/recursive_child_pipeline.flatten_for_correlation` now
+  preserves `routed_sha256` + `routed_artifact_type` on each child so
+  downstream recovered artifacts (e.g. the PE that surfaces from a
+  `.docm → PS → PE` chain) are visible to analytical consumers.
+- `services/cem._extract_child_artifacts` propagates those fields
+  into `cem.child_artifacts`.
+
+**Golden Corpus Fingerprint Stability Guard:**
+- Every corpus entry's baseline now carries **two** hashes:
+  `fingerprint_hash` (CEM view) + `attack_fingerprint_hash` (Attack
+  DNA). Any drift in either dimension is an independent P0 gate.
+- Attack Fingerprint determinism is enforced across the same-run
+  double-execution check.
+
+**Regression guard summary:** 54/54 architectural gates green
+(Golden Corpus 4/4 · Dual-Entry Equivalence 11/11 · CEM+RCP 13/13 ·
+P2.3c + Multi-Origin 5/5 · P2.3b .docm flagship 6/6 · Attack
+Fingerprint 17/17). No frozen-core modifications.
+
+**Live smoke test:** `GET /api/correlations/fingerprint/{case_id}`
+returns a versioned Attack Fingerprint on an existing analyst case
+with MITRE `T1059.001, T1490` correctly propagated + canonical text
+hash `b30aec07…` in the similarity vector.
+
+**Files changed:**
+- `backend/services/attack_fingerprint.py` (new · 235 lines)
+- `backend/services/recursive_child_pipeline.py` (flatten_for_correlation)
+- `backend/services/cem.py` (child_artifacts propagation)
+- `backend/routers/correlations.py` (new endpoint)
+- `backend/tests/golden_corpus/test_investigation_replay.py` (guard extension)
+- `backend/tests/golden_corpus/baselines/*.json` (new attack_fingerprint_hash)
+- `backend/tests/test_attack_fingerprint.py` (new · 17 unit tests)
+
+
 ## 2026-02-16 · P2.3b · `.docm → PowerShell → PE` Flagship — LIVE · 37/37 architectural gates green
 
 **Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)

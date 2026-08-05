@@ -236,14 +236,23 @@ def _extract_child_artifacts(iedde: Dict[str, Any]) -> List[Dict[str, Any]]:
     for child in rc:
         if not isinstance(child, dict):
             continue
-        out.append({
+        entry = {
             "type":       child.get("type"),
             "label":      child.get("label"),
             "hash":       child.get("hash"),
             "snippet":    (child.get("snippet") or "")[:400],
             "depth":      child.get("depth", 1),
             "provenance": child.get("provenance") or "recursive_child_pipeline",
-        })
+        }
+        # ▲ Preserve the recursively-recovered artifact sha256 so
+        # analytical consumers (Attack Fingerprint, Compare Cases) can
+        # match downstream artifacts across investigations (e.g. same
+        # PE surfaced by a workspace paste and a .docm upload).
+        if child.get("routed_sha256"):
+            entry["routed_sha256"] = child["routed_sha256"]
+        if child.get("routed_artifact_type"):
+            entry["routed_artifact_type"] = child["routed_artifact_type"]
+        out.append(entry)
     return out
 
 

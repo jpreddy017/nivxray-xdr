@@ -49,6 +49,7 @@ except ImportError:                            # pragma: no cover
 from services.recipe_planner import plan_and_execute
 from services.artifact_intelligence import dispatch
 from services.cem import emit_cem
+from services.attack_fingerprint import emit_fingerprint
 from services.recursive_child_pipeline import process as recursive_process
 from services.correlation_engine import build_evidence_signature
 
@@ -162,8 +163,14 @@ def _run_investigation(entry: Dict[str, Any]) -> Dict[str, Any]:
 
     cem = emit_cem(case)
     sig = build_evidence_signature(case)
+    # ▲ Phase A · Attack Fingerprint stability guard. The fingerprint
+    # is emitted from the case (which now carries `cem` inline) so it
+    # can flow through the same replay contract as the CEM fingerprint.
+    case_with_cem = {**case, "cem": cem}
+    attack_fp = emit_fingerprint(case_with_cem)
     return {"routed": routed, "recursive": recursive,
             "cem": cem, "signature": sig,
+            "attack_fingerprint": attack_fp,
             "plan_terminal": getattr(plan, "terminal_state", None) if plan else None}
 
 
@@ -244,16 +251,31 @@ def _assert_deterministic(entry: Dict[str, Any]):
         f"investigation produced two different fingerprints in one run "
         f"— this is a P0 architectural regression.\n"
         f"first  = {fp1}\nsecond = {fp2}")
+    # Attack Fingerprint must also be deterministic across the same run.
+    assert r1["attack_fingerprint"].get("hash") == r2["attack_fingerprint"].get("hash"), (
+        f"[{entry['slug']}] NON-DETERMINISTIC Attack Fingerprint — "
+        f"same investigation produced two different hashes:\n"
+        f"first  = {r1['attack_fingerprint'].get('hash')}\n"
+        f"second = {r2['attack_fingerprint'].get('hash')}")
     return r1, fp1
 
 
 def _assert_baseline(entry: Dict[str, Any], fp: Dict[str, Any],
+                     attack_fp: Dict[str, Any],
                      *, update: bool):
     BASELINES_DIR.mkdir(parents=True, exist_ok=True)
     baseline_path = BASELINES_DIR / f"{entry['slug']}.json"
     fp_hash = _fingerprint_hash(fp)
+    # Attack Fingerprint stability guard — independent hash so drift
+    # in the analytical consumer surfaces separately from CEM drift.
+    attack_hash = attack_fp.get("hash")
     if update or not baseline_path.exists():
-        payload = {"fingerprint": fp, "fingerprint_hash": fp_hash}
+        payload = {
+            "fingerprint":            fp,
+            "fingerprint_hash":       fp_hash,
+            "attack_fingerprint":     attack_fp,
+            "attack_fingerprint_hash": attack_hash,
+        }
         baseline_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
         if not baseline_path.exists():
             pytest.fail(f"[{entry['slug']}] wrote initial baseline but "
@@ -267,6 +289,15 @@ def _assert_baseline(entry: Dict[str, Any], fp: Dict[str, Any],
         f"  baseline: {baseline_path}\n"
         f"  expected fingerprint = {expected}\n"
         f"  current  fingerprint = {fp}\n"
+        f"If this drift is intentional, re-run with --update-baseline "
+        f"after owner review.")
+    # Attack Fingerprint drift is also a P0 gate.
+    expected_attack = baseline.get("attack_fingerprint_hash")
+    assert attack_hash == expected_attack, (
+        f"[{entry['slug']}] ATTACK FINGERPRINT DRIFT (P0 release blocker)\n"
+        f"  baseline: {baseline_path}\n"
+        f"  expected attack_fingerprint_hash = {expected_attack}\n"
+        f"  current  attack_fingerprint_hash = {attack_hash}\n"
         f"If this drift is intentional, re-run with --update-baseline "
         f"after owner review.")
 
@@ -286,8 +317,9 @@ def test_golden_investigation_replay(entry, request):
     result, fp = _assert_deterministic(entry)
     # 2 · Contract: expected artifact types + MITRE + terminal state
     _assert_contract(entry, result)
-    # 3 · Baseline: fingerprint hash matches the committed baseline.
-    _assert_baseline(entry, fp,
+    # 3 · Baseline: CEM fingerprint hash + Attack Fingerprint hash
+    #     both match the committed baseline.
+    _assert_baseline(entry, fp, result["attack_fingerprint"],
                      update=request.config.getoption("--update-baseline"))
 
 

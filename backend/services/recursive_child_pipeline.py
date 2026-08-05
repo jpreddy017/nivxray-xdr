@@ -226,16 +226,25 @@ def flatten_for_correlation(children: List[Dict[str, Any]],
 
     Preserves parent references via the `parent_index` field so the
     Investigation Engine can rebuild the tree deterministically.
+    Also preserves any downstream `routed_sha256` so analytical
+    consumers (Attack Fingerprint, Compare Cases) can match on the
+    recovered artifact — not just the intermediate wrapper text.
     """
     if _acc is None:
         _acc = []
     for c in children or []:
-        _acc.append({
+        ra = c.get("routed_analysis") or {}
+        routed_sha256 = (ra.get("hashes") or {}).get("sha256") if isinstance(ra, dict) else None
+        entry = {
             "type":    c.get("type"),
             "label":   c.get("label"),
             "snippet": c.get("snippet"),
             "hash":    c.get("hash"),
             "depth":   c.get("depth"),
-        })
+        }
+        if routed_sha256:
+            entry["routed_sha256"] = routed_sha256
+            entry["routed_artifact_type"] = ra.get("artifact_type")
+        _acc.append(entry)
         flatten_for_correlation(c.get("children") or [], _acc)
     return _acc

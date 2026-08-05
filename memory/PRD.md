@@ -27,6 +27,25 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🟢 2026-02-16 · Phase A · Attack Fingerprint (Attack DNA) — first Analytical Consumer (owner-approved · shipped)
+
+Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
+§7 · §5 · §8.
+
+Deterministic Investigation Fingerprint emitted from the SSOT.
+Read-only, versioned, convergence-gated, volatile-field-isolated.
+Exposes per-component sha256 digests + a similarity vector so
+Compare Cases (Phase A · item 2) can compute overlap directly.
+
+Endpoint: `GET /api/correlations/fingerprint/{case_id}` (user-scoped).
+
+Golden Corpus baselines now include both a `fingerprint_hash` (CEM)
+and an `attack_fingerprint_hash` — independent P0 drift gates.
+
+54/54 architectural gates green. No frozen-core modifications.
+
+
+
 ### 🟢 2026-02-16 · P2.3b · `.docm → PowerShell → PE` Flagship (owner-approved · shipped)
 
 Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).

@@ -1,4 +1,79 @@
 {
+  "attack_fingerprint": {
+    "artifact_graph_digest": "e71157dc18d8bde3d07e00316030397848522ec87719eaa73dbfa948ae5c16ee",
+    "behavior_digest": "5f1512aee8604cc069aea98ec1dbdb922d6a86a48d3d4d8e083d10d51f799a14",
+    "component_digests": {
+      "artifact_graph_digest": "e71157dc18d8bde3d07e00316030397848522ec87719eaa73dbfa948ae5c16ee",
+      "behavior_digest": "5f1512aee8604cc069aea98ec1dbdb922d6a86a48d3d4d8e083d10d51f799a14",
+      "interpreter_chain_digest": "b537e56c61c88d5bae7075d2f59c7e5aa1ca61283fe170ccda1b17c23b6e06ae",
+      "iocs_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "mitre_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "parent_child_edges_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "recipe_digest": "b537e56c61c88d5bae7075d2f59c7e5aa1ca61283fe170ccda1b17c23b6e06ae",
+      "transformation_trace_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "components": {
+      "artifact_graph": [
+        {
+          "kind": "binary_artifact",
+          "sha256": "aa5cca50fb3b54634533ed4c306f3b77343c4f9bd09d1b81ed2aa15d428ebb18",
+          "type": "pe"
+        },
+        {
+          "kind": "canonical_text",
+          "sha256": "49c90885548f2094db7de9114aa475ff3ec8ea557827b88f7ca740c807c0c568",
+          "type": "text/plain"
+        }
+      ],
+      "behavior": [
+        "invalid_timestamp",
+        "no_imports"
+      ],
+      "canonical_artifact_hashes": [
+        "49c90885548f2094db7de9114aa475ff3ec8ea557827b88f7ca740c807c0c568",
+        "aa5cca50fb3b54634533ed4c306f3b77343c4f9bd09d1b81ed2aa15d428ebb18"
+      ],
+      "interpreter_chain": [
+        "gzip"
+      ],
+      "iocs": [],
+      "mitre": [],
+      "parent_child_edges": [],
+      "recipe": [
+        "gzip"
+      ],
+      "transformation_trace": []
+    },
+    "fingerprint_version": "1.0",
+    "hash": "f7d8799d5b52698b8d7594eb6c339ab35bb144677340e5744c0339896829014f",
+    "interpreter_chain": [
+      "gzip"
+    ],
+    "mitre_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "recipe": [
+      "gzip"
+    ],
+    "similarity_vector": {
+      "artifact_types": [
+        "pe",
+        "text/plain"
+      ],
+      "behavior_codes": [
+        "invalid_timestamp",
+        "no_imports"
+      ],
+      "canonical_hashes": [
+        "49c90885548f2094db7de9114aa475ff3ec8ea557827b88f7ca740c807c0c568",
+        "aa5cca50fb3b54634533ed4c306f3b77343c4f9bd09d1b81ed2aa15d428ebb18"
+      ],
+      "ioc_kinds": [],
+      "mitre_ids": [],
+      "recipe_shape": [
+        "gzip"
+      ]
+    }
+  },
+  "attack_fingerprint_hash": "f7d8799d5b52698b8d7594eb6c339ab35bb144677340e5744c0339896829014f",
   "fingerprint": {
     "artifact_types": [
       "pe"

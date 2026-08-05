@@ -1,4 +1,61 @@
 {
+  "attack_fingerprint": {
+    "artifact_graph_digest": "ddaebe3c928d134a0114a44b5058311a8dbc1011c762ba4cc5f77e63c174e628",
+    "behavior_digest": "5f1512aee8604cc069aea98ec1dbdb922d6a86a48d3d4d8e083d10d51f799a14",
+    "component_digests": {
+      "artifact_graph_digest": "ddaebe3c928d134a0114a44b5058311a8dbc1011c762ba4cc5f77e63c174e628",
+      "behavior_digest": "5f1512aee8604cc069aea98ec1dbdb922d6a86a48d3d4d8e083d10d51f799a14",
+      "interpreter_chain_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "iocs_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "mitre_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "parent_child_edges_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "recipe_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "transformation_trace_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "components": {
+      "artifact_graph": [
+        {
+          "kind": "binary_artifact",
+          "sha256": "aa5cca50fb3b54634533ed4c306f3b77343c4f9bd09d1b81ed2aa15d428ebb18",
+          "type": "pe"
+        }
+      ],
+      "behavior": [
+        "invalid_timestamp",
+        "no_imports"
+      ],
+      "canonical_artifact_hashes": [
+        "aa5cca50fb3b54634533ed4c306f3b77343c4f9bd09d1b81ed2aa15d428ebb18"
+      ],
+      "interpreter_chain": [],
+      "iocs": [],
+      "mitre": [],
+      "parent_child_edges": [],
+      "recipe": [],
+      "transformation_trace": []
+    },
+    "fingerprint_version": "1.0",
+    "hash": "9684de03d0829b64e5758890bc68a54dd25dc02fcb1d7b26c0db61dad5b8d1b3",
+    "interpreter_chain": [],
+    "mitre_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "recipe": [],
+    "similarity_vector": {
+      "artifact_types": [
+        "pe"
+      ],
+      "behavior_codes": [
+        "invalid_timestamp",
+        "no_imports"
+      ],
+      "canonical_hashes": [
+        "aa5cca50fb3b54634533ed4c306f3b77343c4f9bd09d1b81ed2aa15d428ebb18"
+      ],
+      "ioc_kinds": [],
+      "mitre_ids": [],
+      "recipe_shape": []
+    }
+  },
+  "attack_fingerprint_hash": "9684de03d0829b64e5758890bc68a54dd25dc02fcb1d7b26c0db61dad5b8d1b3",
   "fingerprint": {
     "artifact_types": [
       "pe"

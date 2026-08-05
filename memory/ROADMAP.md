@@ -138,17 +138,18 @@ changes; all work fits under §7 Provider Extension Architecture.
 
 **Phase A · Investigation Intelligence** (consumes the Investigation SSOT)
 
-1. **Attack Fingerprint (Attack DNA)** — first deterministic
-   Analytical Consumer. Inputs (from CEM only): Canonical Artifacts ·
-   Interpreter Chain · Decode Recipe · Transformation Trace · Decision
-   Trace · MITRE Profile · IOC Profile · Artifact Relationships ·
-   Behavioral Sequence. Outputs: deterministic Investigation
-   Fingerprint + similarity metadata. **Must not** modify evidence,
-   CEM, Investigation state, or verdicts.
-2. **Compare Cases (fingerprint-powered)** — side-by-side deterministic
-   diff over Threat Summary · Attack Chain · Timeline · MITRE · IOCs ·
-   Recipe · Transformation Trace · Decision Trace · Interpreter Chain ·
-   Attack Fingerprint · Similarity Score.
+1. **Attack Fingerprint (Attack DNA)** — ✅ CLOSED (2026-02-16).
+   Deterministic Investigation Fingerprint emitted from CEM+case.
+   Versioned (`1.0`), read-only, convergence-gated, volatile-field-
+   isolated. Exposes per-component digests + similarity vector for
+   Compare Cases. Golden Corpus fingerprint stability guard live.
+   Endpoint: `GET /api/correlations/fingerprint/{case_id}`.
+2. **Compare Cases (fingerprint-powered)** — NEXT UP ⭐
+   Side-by-side deterministic diff over Threat Summary · Attack Chain
+   · Timeline · MITRE · IOCs · Recipe · Transformation Trace ·
+   Decision Trace · Interpreter Chain · Attack Fingerprint ·
+   Similarity Score. Reads similarity_vector from Attack Fingerprint
+   to compute Jaccard overlap without re-derivation.
 3. **Confidence Provenance Ledger** — analyst-visible chain showing
    which evidence / weights / rules produced the final risk score and
    verdict. Deterministic, read-only on the SSOT.

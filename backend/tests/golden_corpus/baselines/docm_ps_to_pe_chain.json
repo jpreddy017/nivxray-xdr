@@ -1,4 +1,65 @@
 {
+  "attack_fingerprint": {
+    "artifact_graph_digest": "60a44743e3009881c894ffa6bee24d094f112513759325fe50fda6000557636b",
+    "behavior_digest": "0059411d3f1e57cc696b3f01b50f8a9bc717b1ae4acf237f93a4430fa000d172",
+    "component_digests": {
+      "artifact_graph_digest": "60a44743e3009881c894ffa6bee24d094f112513759325fe50fda6000557636b",
+      "behavior_digest": "0059411d3f1e57cc696b3f01b50f8a9bc717b1ae4acf237f93a4430fa000d172",
+      "interpreter_chain_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "iocs_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "mitre_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "parent_child_edges_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "recipe_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "transformation_trace_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "components": {
+      "artifact_graph": [
+        {
+          "kind": "binary_artifact",
+          "sha256": "9121f59f991d3fee86e2c3684f5bc8fae04ba2bea0e959a9deb64f887165bbab",
+          "type": "office"
+        }
+      ],
+      "behavior": [
+        "external_urls_present",
+        "macro_autoexec_trigger",
+        "macro_script_invocation",
+        "vba_macros_present"
+      ],
+      "canonical_artifact_hashes": [
+        "9121f59f991d3fee86e2c3684f5bc8fae04ba2bea0e959a9deb64f887165bbab"
+      ],
+      "interpreter_chain": [],
+      "iocs": [],
+      "mitre": [],
+      "parent_child_edges": [],
+      "recipe": [],
+      "transformation_trace": []
+    },
+    "fingerprint_version": "1.0",
+    "hash": "45ec84eb566ae2baaa3cb8d02aab6ed6bcf9c19a7f424a0fa02f9bb97d391e78",
+    "interpreter_chain": [],
+    "mitre_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "recipe": [],
+    "similarity_vector": {
+      "artifact_types": [
+        "office"
+      ],
+      "behavior_codes": [
+        "external_urls_present",
+        "macro_autoexec_trigger",
+        "macro_script_invocation",
+        "vba_macros_present"
+      ],
+      "canonical_hashes": [
+        "9121f59f991d3fee86e2c3684f5bc8fae04ba2bea0e959a9deb64f887165bbab"
+      ],
+      "ioc_kinds": [],
+      "mitre_ids": [],
+      "recipe_shape": []
+    }
+  },
+  "attack_fingerprint_hash": "45ec84eb566ae2baaa3cb8d02aab6ed6bcf9c19a7f424a0fa02f9bb97d391e78",
   "fingerprint": {
     "artifact_types": [
       "office",
