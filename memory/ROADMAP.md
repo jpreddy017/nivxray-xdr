@@ -243,7 +243,78 @@ NOT touched.
 > capabilities. Every module below is a *consumer* of the frozen
 > engine · Master Architecture v1.1 remains untouched.
 
-**Owner-locked headline modules (execute in order — updated 2026-02-16 pm-late):**
+**Owner-locked headline modules (execute in order — updated 2026-02-16 evening):**
+
+### ⭐ B.1 — DIE · Decoder Intelligence Engine (SHIPPED · Cycles A + B + Chain)
+### ⭐ B.2 — DKP · Decoder Knowledge Pack (SHIPPED · 14 seed patterns · expansion deferred until Timeline lands)
+### ⭐ B.3 — Attack Story panel (SHIPPED)
+### ⭐ B.7 — Attack Intent Engine (SHIPPED)
+
+### ⭐ B.4 — Multi-section Analyst Narrative (next up · owner-locked)
+Section order (locked 2026-02-16 evening — DO NOT change):
+1. Executive Summary
+2. Behavior Summary
+3. Attack Story
+4. Technical Findings
+5. **Recovered Artifacts** ← new section: PowerShell → GZip → PE → SHA256 → findings
+6. MITRE Coverage
+7. Attack Intent
+8. Evidence
+9. **Detection Opportunities** ← new section: Sigma / Splunk / KQL fragments from DKP
+10. Recommendations
+
+Deterministic templates only. Rendered as ONE canonical Report,
+NOT as an export button — lives in the existing Report tab on
+Investigation Detail. No "Copy IR Report" button anywhere.
+
+### ⭐ B.5 — Rich Decoder Trace with per-stage visualization
+Its own visualisation (not text). Each stage expandable → shows
+Bytes · Duration · Validation state · Confidence · Output preview.
+Stages: INPUT → UTF16 → Base64 → GZip → Recovered PE → PE Analyzer.
+
+### ⭐ B.6 — Investigation Confidence Engine (renamed · owner-locked dimensions)
+Scores exactly 8 dimensions (Intent is first-class):
+
+    Decoder · Artifact · MITRE · DKP · Intent · Fingerprint · Narrative · Overall
+
+Plumbs into the existing Confidence Provenance Ledger.
+
+### ⭐ B.7.5 — Investigation Timeline (NEW · owner-locked 2026-02-16 evening)
+Analytical lifecycle timeline — NOT Windows event timestamps:
+
+    Recovered Payload → PowerShell Decoded → PE Recovered → PE Analysis
+    → MITRE Generated → Intent Generated → Fingerprint Generated
+    → Narrative Generated → Verdict
+
+Different from Attack Story (attacker chain). This is the
+investigation lifecycle — what the ENGINE produced, in order.
+
+### ⭐ B.8 — Workspace Inline Attack Story
+Surface Overall Assessment (Objective · Progress · Current Stage ·
+Major Findings) on the Workspace verdict page immediately after
+analysis. Analyst never has to leave Workspace to know "did we
+find something serious?".
+
+### ⭐ B.9 — DKP Expansion to 100+ curated patterns
+
+### ⭐ B.10 — IDA · Intelligent Document & Image Analyzer
+**Locked philosophy (2026-02-16 evening):** IDA is a NEW INPUT TYPE
+into Workspace ("Upload Image / Diagram / Screenshot"), not a
+separate page. Feeds the same investigation pipeline.
+
+### ⭐ B.11 — IVE · Investigation Visualization Engine
+**Locked philosophy (2026-02-16 evening):** IVE is a NEW OUTPUT TAB
+inside Investigation Detail, not a separate page.
+
+---
+
+## 🔒 Locked design principles (never override)
+- **Do not add navigation** unless it introduces a fundamentally new workflow.
+- **DKP families are NEVER attribution.** Always render as "Commonly observed in: X · Y · Z". Never "Detected as / Behavior consistent with".
+- **Reports live in the Report tab**, not as export buttons.
+- **IDA is an INPUT type**, IVE is an OUTPUT tab. Both consume the frozen v1.1 core.
+
+---
 
 ### ⭐ B.1 — DIE · Decoder Intelligence Engine
 Cycle A (SHIPPED) · Cycle B (SHIPPED) · Chain Analyzer (SHIPPED).
