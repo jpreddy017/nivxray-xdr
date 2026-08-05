@@ -205,19 +205,40 @@ NOT touched.
     / multi-stage / hundreds of nodes). Presentation-only, consumes
     the same `evidence_graph` payload from `/api/correlations`.
 
-3.7 **Swimlane Trajectory (renamed → "Attack Replay" or "Investigation
-    Replay")** — evolve the existing `/v2/trajectory` from a flat
-    process-file-registry timeline into a rich Attack Story:
-    Transformation → Recovered Artifact → MITRE → Timeline → Verdict.
-    **Rename recommendation (owner-approved):** "Trajectory" is EDR-
-    centric; "Attack Replay" / "Investigation Replay" convey the
-    deterministic-first philosophy explicitly. Data model + API
-    unchanged.
+3.7 **Attack Story — unified investigation narrative** (owner-locked
+    2026-02-16 · re-scoped from "Attack Story Replay" + "Trajectory
+    Evolution"). Replaces multiple overlapping surfaces (Timeline,
+    Trajectory, Replay, MITRE, Evidence) with **one page, many
+    modes**. Modes:
+      · Overview
+      · Replay  (already shipped in 3.4 — becomes a tab, no rebuild)
+      · Timeline
+      · Trajectory  (process → file → registry swimlane)
+      · MITRE
+      · Evidence
+      · Decision Points
+      · Fingerprint
+      · Report
+    Data model + APIs unchanged — this is a presentation-layer
+    consolidation. Existing standalone routes (`/v2/trajectory`,
+    `/investigations/:id/replay`) remain as deep-linkable
+    permalinks that hydrate the Attack Story into the right mode.
 
-3.8 **Workspace → Investigation Center (long-term UX consolidation)**
+3.8 **History-row split action · "Open Investigation ▾"** (owner-
+    locked 2026-02-16). Only shown when a case has an associated
+    Investigation. Split menu items: Open · Replay · Compare ·
+    Fingerprint · Report. Do NOT surface Replay unconditionally on
+    every History row — Replay is an *investigation* action, not a
+    *decoder* action.
+
+3.9 **Investigation Bookmarks** (owner priority · new). Pin any
+    Attack Story mode + step to a shareable URL fragment
+    (`#step=analyzer&artifact=<sha>`), letting analysts revisit or
+    hand off the exact evidence chain that broke the case open.
+
+3.10 **Workspace → Investigation Center (long-term UX consolidation)**
     Workspace grows tabbed sections: Summary · Threat Summary ·
-    Attack Story · Investigation Replay · Timeline · Evidence Graph ·
-    Trajectory · Evidence · Compare Cases · Provenance · Report.
+    Attack Story · Compare Cases · Provenance · Report.
     Everything lives inside a single analyst experience — per Master
     Architecture v1.1 · "Workspace is the Product".
 
