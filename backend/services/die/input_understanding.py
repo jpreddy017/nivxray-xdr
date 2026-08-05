@@ -133,7 +133,12 @@ class InputUnderstanding:
     plan:             List[PlanStep]
     confidence_matrix: ConfidenceMatrix
     execution_trace:  List[PlanStep] = field(default_factory=list)
-    engine_version:   str = "iue-1.0.0"
+    engine_version:   str = "iue-1.1.0"
+    # Polish additions (2026-02-28 Analyst Acceptance Pass):
+    hero_sentence:      str = ""     # "This is a vendor investigation report. No decoding required. Beginning semantic investigation."
+    engines_selected:   List[str] = field(default_factory=list)
+    engines_skipped:    List[str] = field(default_factory=list)
+    pipeline_flow:      List[str] = field(default_factory=list)   # ordered stage names for the flow diagram
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -151,6 +156,10 @@ class InputUnderstanding:
             "confidence_matrix": self.confidence_matrix.to_dict(),
             "execution_trace":  [s.to_dict() for s in self.execution_trace],
             "engine_version":   self.engine_version,
+            "hero_sentence":    self.hero_sentence,
+            "engines_selected": list(self.engines_selected),
+            "engines_skipped":  list(self.engines_skipped),
+            "pipeline_flow":    list(self.pipeline_flow),
         }
 
 
@@ -584,6 +593,106 @@ def _execute_plan(text: str, plan: List[PlanStep], input_type: str,
 
 
 # ══════════════════════════════════════════════════════════════════
+# 8.5. Polish helpers (Analyst Acceptance Pass — 2026-02-28)
+# ══════════════════════════════════════════════════════════════════
+def _hero_sentence(input_type: str, decode_required: bool) -> str:
+    """One-line summary the analyst reads FIRST — reads like a
+    senior SOC handoff, not a parser output."""
+    return {
+        "vendor_report_text":  "This is a vendor investigation report. No decoding required. Beginning semantic investigation.",
+        "vendor_json":         "This is a vendor JSON export. Normalising fields, then beginning semantic investigation.",
+        "powershell_encoded":  "This is an encoded PowerShell payload. Decoding first, then running the PowerShell semantic AST.",
+        "powershell_naked":    "This is a raw PowerShell script. Running the PowerShell semantic AST directly.",
+        "nested_shell_chain":  "This is a nested shell chain. Recursively peeling the wrapper before analysing the effective payload.",
+        "command_chain":       "This is a multi-command investigation. Splitting into ordered stages and analysing each independently.",
+        "single_command":      "This is a single command line. Running the appropriate semantic analyzer.",
+        "base64_blob":         "This is a bare Base64 blob. Decoding first, then classifying the recovered content.",
+        "hex_blob":            "This is a hex-encoded stream. Decoding first, then classifying the recovered content.",
+        "gzip_blob":           "This is a GZip-compressed blob. Inflating, then classifying the recovered content.",
+        "pe_file":             "This is a PE binary. Handing off to static PE analysis instead of the decoder chain.",
+        "rtf_document":        "This is an RTF document. Extracting embedded objects and shellcode.",
+        "office_ole":          "This is an Office/OLE document. Extracting macros and embedded payloads.",
+        "pdf_document":        "This is a PDF document. Extracting JavaScript and embedded streams.",
+        "registry_export":     "This is a Windows registry export. Routing entries to the registry analyzer.",
+        "windows_event_log":   "This is a Windows event log. Routing fields to the event-log analyzer.",
+        "sysmon_log":          "This is a Sysmon log. Routing events to the Sysmon analyzer.",
+        "process_tree":        "This is a process tree. Extracting parent/child relationships.",
+        "url_only":            "This is a bare URL. Running IOC enrichment only.",
+        "plain_text":          "This is plain analyst text without strong indicators. Extracting IOCs only.",
+        "unknown":             "Input type could not be classified with high confidence. Falling back to universal extraction.",
+    }.get(input_type, "Analysing input …")
+
+
+_ALL_ENGINES = [
+    "Decoder", "CRE (Command Reconstruction)", "Preprocessor",
+    "DIE (Semantic AST)", "DKP (Decoder Knowledge Pack)",
+    "Chain Analyzer", "Attack Intent", "Attack Story",
+    "Investigation Confidence", "Report Generator",
+    "Artifact Intelligence", "IOC Enrichment",
+]
+
+
+def _engines_selected(input_type: str, decode_required: bool) -> List[str]:
+    if input_type in ("vendor_report_text", "vendor_json", "plain_text",
+                      "registry_export", "windows_event_log", "sysmon_log",
+                      "process_tree"):
+        return ["Preprocessor", "DIE (Semantic AST)",
+                "DKP (Decoder Knowledge Pack)", "Attack Intent",
+                "Attack Story", "Investigation Confidence",
+                "Report Generator", "IOC Enrichment"]
+    if input_type in ("powershell_encoded",):
+        return ["Decoder", "DIE (Semantic AST)",
+                "DKP (Decoder Knowledge Pack)", "Attack Intent",
+                "Attack Story", "Investigation Confidence",
+                "Report Generator", "IOC Enrichment"]
+    if input_type == "nested_shell_chain":
+        return ["CRE (Command Reconstruction)", "DIE (Semantic AST)",
+                "DKP (Decoder Knowledge Pack)", "Attack Intent",
+                "Attack Story", "Report Generator"]
+    if input_type in ("command_chain",):
+        return ["Preprocessor", "Chain Analyzer", "DIE (Semantic AST)",
+                "DKP (Decoder Knowledge Pack)", "Attack Intent",
+                "Attack Story", "Report Generator"]
+    if input_type == "powershell_naked":
+        return ["DIE (Semantic AST)", "DKP (Decoder Knowledge Pack)",
+                "Attack Intent", "Attack Story", "Report Generator",
+                "IOC Enrichment"]
+    if input_type in ("pe_file", "rtf_document", "office_ole", "pdf_document"):
+        return ["Artifact Intelligence", "IOC Enrichment", "Report Generator"]
+    if input_type in ("base64_blob", "hex_blob", "gzip_blob"):
+        return ["Decoder", "DIE (Semantic AST)", "Report Generator"]
+    if input_type == "url_only":
+        return ["IOC Enrichment", "Report Generator"]
+    if input_type == "single_command":
+        return ["DIE (Semantic AST)", "DKP (Decoder Knowledge Pack)",
+                "Attack Intent", "Report Generator"]
+    return ["Preprocessor", "IOC Enrichment", "Report Generator"]
+
+
+def _engines_skipped(input_type: str, decode_required: bool) -> List[str]:
+    selected = set(_engines_selected(input_type, decode_required))
+    return [e for e in _ALL_ENGINES if e not in selected]
+
+
+def _pipeline_flow(input_type: str, decode_required: bool) -> List[str]:
+    """Ordered stage names for the horizontal flow diagram at the top
+    of the IUE card."""
+    flow = ["Input", "Understanding"]
+    if decode_required:
+        flow.append("Decoder")
+    if input_type in ("vendor_report_text", "vendor_json", "command_chain",
+                      "plain_text", "registry_export", "windows_event_log",
+                      "sysmon_log", "process_tree"):
+        flow.append("Preprocessor")
+    if input_type in ("pe_file", "rtf_document", "office_ole", "pdf_document"):
+        flow.append("Artifact Intel")
+    else:
+        flow.append("DIE + DKP")
+    flow.extend(["Attack Story", "Report"])
+    return flow
+
+
+# ══════════════════════════════════════════════════════════════════
 # 9. Public API
 # ══════════════════════════════════════════════════════════════════
 def understand(text: str, *, execute: bool = True) -> InputUnderstanding:
@@ -632,6 +741,10 @@ def understand(text: str, *, execute: bool = True) -> InputUnderstanding:
         next_engine_reason=next_reason,
         plan=plan,
         confidence_matrix=cm,
+        hero_sentence=_hero_sentence(input_type, decode_required),
+        engines_selected=_engines_selected(input_type, decode_required),
+        engines_skipped=_engines_skipped(input_type, decode_required),
+        pipeline_flow=_pipeline_flow(input_type, decode_required),
     )
 
     if execute:

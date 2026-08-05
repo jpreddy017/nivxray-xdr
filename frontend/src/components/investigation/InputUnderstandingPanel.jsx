@@ -72,6 +72,47 @@ export default function InputUnderstandingPanel({ understanding, loading, error 
 
   return (
     <section data-testid="iue-panel" style={panel}>
+      {/* ── Hero sentence — always the FIRST line the analyst reads ── */}
+      {u.hero_sentence && (
+        <div data-testid="iue-hero" style={{
+          padding: "10px 14px", marginBottom: 12,
+          background: "rgba(103,232,249,0.08)",
+          border: "1px solid rgba(103,232,249,0.35)",
+          borderRadius: 8, fontSize: 14, color: "#e2e8f0",
+          lineHeight: 1.5,
+        }}>
+          <span style={{ color: "#67e8f9", fontWeight: 700 }}>▸</span>{" "}
+          {u.hero_sentence}
+        </div>
+      )}
+
+      {/* ── Pipeline Flow Diagram ─────────────────────────────── */}
+      {u.pipeline_flow && u.pipeline_flow.length > 0 && (
+        <div data-testid="iue-pipeline-flow" style={{
+          display: "flex", alignItems: "center", flexWrap: "wrap",
+          gap: 6, marginBottom: 12, padding: "6px 0",
+        }}>
+          {u.pipeline_flow.map((stage, i) => (
+            <span key={i} style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              fontSize: 11, fontFamily: "JetBrains Mono, monospace",
+            }}>
+              <span style={{
+                padding: "3px 8px", borderRadius: 4,
+                background: i === 0 ? "rgba(103,232,249,0.15)" : "rgba(103,232,249,0.06)",
+                border: "1px solid rgba(103,232,249,0.35)",
+                color: "#67e8f9", fontWeight: 600,
+              }}>
+                {stage}
+              </span>
+              {i < u.pipeline_flow.length - 1 && (
+                <ArrowRight size={12} color="#64748b" />
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* ── Header row · Input Type ───────────────────────────── */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
         <div style={{
@@ -170,6 +211,54 @@ export default function InputUnderstandingPanel({ understanding, loading, error 
           </div>
         </PlanBox>
       </div>
+
+      {/* ── Engines selected vs skipped ─────────────────────── */}
+      {(u.engines_selected?.length || u.engines_skipped?.length) && (
+        <div style={{ marginTop: 18, display: "grid",
+                      gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div data-testid="iue-engines-selected" style={{
+            background: "rgba(134,239,172,0.06)",
+            border: "1px solid rgba(134,239,172,0.30)",
+            borderRadius: 8, padding: "10px 12px",
+          }}>
+            <div style={{ ...sectionHeader, color: "#86efac" }}>
+              <CheckCircle2 size={11} /> ENGINES SELECTED
+            </div>
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {(u.engines_selected || []).map((e) => (
+                <span key={e} style={{
+                  padding: "2px 8px", fontSize: 11,
+                  color: "#86efac", background: "rgba(134,239,172,0.10)",
+                  border: "1px solid rgba(134,239,172,0.35)",
+                  borderRadius: 4,
+                  fontFamily: "JetBrains Mono, monospace",
+                }}>{e}</span>
+              ))}
+            </div>
+          </div>
+          <div data-testid="iue-engines-skipped" style={{
+            background: "rgba(100,116,139,0.06)",
+            border: "1px solid rgba(100,116,139,0.30)",
+            borderRadius: 8, padding: "10px 12px",
+          }}>
+            <div style={{ ...sectionHeader, color: "#94a3b8" }}>
+              <Circle size={11} /> ENGINES SKIPPED
+            </div>
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {(u.engines_skipped || []).map((e) => (
+                <span key={e} style={{
+                  padding: "2px 8px", fontSize: 11,
+                  color: "#94a3b8", background: "rgba(100,116,139,0.08)",
+                  border: "1px solid rgba(100,116,139,0.30)",
+                  borderRadius: 4,
+                  fontFamily: "JetBrains Mono, monospace",
+                  textDecoration: "line-through",
+                }}>{e}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Workspace Plan Checklist + Execution Trace ────────── */}
       <div style={{ marginTop: 18 }}>

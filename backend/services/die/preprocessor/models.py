@@ -91,6 +91,13 @@ class Stage:
     index:              int
     kind:               str                          # "command" | "registry" | "network" | ...
     title:              str                          # short human title
+    # Analyst-grade enrichment (2026-02-28 P0 polish):
+    objective:          str = ""                     # one-sentence "what this stage accomplishes"
+    tactic:             Optional[str] = None         # MITRE ATT&CK tactic bucket
+    mitre:              List[str] = field(default_factory=list)   # ["T1490", "T1059.001"]
+    evidence:           List[str] = field(default_factory=list)   # short human evidence bullets
+    commonly_observed_in: List[str] = field(default_factory=list) # ["LockBit","Medusa","Chaos"]
+    child_stage_ids:    List[str] = field(default_factory=list)   # deterministic child stage refs
     command_family:     Optional[str] = None         # populated when the family recognizer fires
     artifact_ids:       List[str] = field(default_factory=list)
     normalized_command: Optional[str] = None
@@ -102,7 +109,12 @@ class Stage:
     def build(cls, index: int, kind: str, title: str,
               artifact_ids: List[str], normalized_command: Optional[str] = None,
               raw_excerpt: str = "", line_number: int = 0,
-              command_family: Optional[str] = None, confidence: float = 1.0) -> "Stage":
+              command_family: Optional[str] = None, confidence: float = 1.0,
+              objective: str = "", tactic: Optional[str] = None,
+              mitre: Optional[List[str]] = None,
+              evidence: Optional[List[str]] = None,
+              commonly_observed_in: Optional[List[str]] = None,
+              child_stage_ids: Optional[List[str]] = None) -> "Stage":
         sid = _stable_id("stage", index, kind, normalized_command or title)
         return cls(
             id=sid, index=index, kind=kind, title=title,
@@ -111,6 +123,12 @@ class Stage:
             raw_excerpt=raw_excerpt, line_number=line_number,
             command_family=command_family,
             confidence=round(confidence, 3),
+            objective=objective,
+            tactic=tactic,
+            mitre=list(mitre or []),
+            evidence=list(evidence or []),
+            commonly_observed_in=list(commonly_observed_in or []),
+            child_stage_ids=list(child_stage_ids or []),
         )
 
     def to_dict(self) -> Dict[str, Any]:

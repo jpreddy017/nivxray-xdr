@@ -23,12 +23,79 @@ Every Stage carries provenance: ``line_number``, ``raw_excerpt``,
 prose again.
 """
 from __future__ import annotations
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 
 import re
 
-from .family_recognizer import all_families, recognize_family
+from .family_recognizer import all_families, recognize_family, Family
 from .models import Artifact, Stage
+
+
+# ── Objective templates keyed on command_family ────────────────
+# Deterministic — one-line "what this stage does" that reads like a
+# senior SOC analyst's own timeline entry.
+_OBJECTIVE_TEMPLATES: Dict[str, str] = {
+    "reverse-ssh-tunnel":         "Establish a reverse SSH tunnel back to attacker infrastructure.",
+    "shadow-copy-deletion":       "Delete Volume Shadow Copies to prevent local recovery.",
+    "ad-discovery":               "Enumerate the Active Directory environment (domain controllers, trusts).",
+    "ad-enumeration":             "Enumerate the Active Directory environment prior to lateral movement.",
+    "host-discovery":             "Fingerprint the compromised host's network configuration.",
+    "session-discovery":          "Enumerate active user sessions on the host.",
+    "account-discovery":          "Enumerate local / domain accounts and groups.",
+    "persistence-scheduled-task": "Register a scheduled task for persistence.",
+    "registry-modification":      "Modify the Windows registry to alter host behaviour.",
+    "software-uninstall":         "Silently uninstall security or backup tooling via WMIC.",
+    "msi-install":                "Install a payload via Microsoft Installer (MSI).",
+    "sync-rclone-style":          "Exfiltrate data using an rclone-style multi-thread sync.",
+    "data-exfiltration":          "Exfiltrate sensitive data from the environment.",
+    "rmm-remote-access":          "Deploy legitimate Remote Monitoring & Management software for interactive C2.",
+    "brute-ratel":                "Deploy or beacon Brute Ratel C4 for post-exploitation.",
+    "psexec-lateral":             "Move laterally to another host using PsExec.",
+    "lateral-movement":           "Move laterally within the environment.",
+    "uac-disable":                "Disable UAC / Defender to lower host defences.",
+    "log-clearing":               "Clear or delete Windows event logs to erase forensic trails.",
+    "initial-access-social":      "Obtain initial access via social engineering (Teams / Quick Assist / fake IT).",
+}
+
+
+def _title_for(family: Optional[Family], stage_kind: str, cmd: str) -> str:
+    """Return a polished analyst title.
+
+    Never emit "Stage 1", "Stage 2".  Always name the objective.
+    """
+    if family is not None:
+        return family.label
+    if cmd:
+        head = cmd.strip().split()
+        if head:
+            exe = head[0].lower().replace(".exe", "")
+            return f"{exe} · " + " ".join(head[1:])[:60] if len(head) > 1 else exe
+    return {
+        "registry":  "Registry Reference",
+        "schedule":  "Scheduled Task Registration",
+        "service":   "Windows Service Operation",
+        "executable":"Executable Reference",
+        "phrase":    "Analyst-observed technique",
+        "tool":      "Tool Reference",
+    }.get(stage_kind, "Analyst-observed activity")
+
+
+def _enrichment_for(family: Optional[Family], command: str, raw: str,
+                    prose_tactic: Optional[str] = None):
+    """Return (objective, tactic, mitre[], evidence[], commonly_observed_in[])."""
+    if family is not None:
+        obj = _OBJECTIVE_TEMPLATES.get(
+            family.id, family.label + ".")
+        return (
+            obj, family.tactic, list(family.mitre),
+            [f"`{command}`" if command else raw][:1],
+            list(family.commonly_observed_in),
+        )
+    return (
+        _OBJECTIVE_TEMPLATES.get("", ""),
+        prose_tactic,
+        [], [f"`{command}`" if command else raw][:1], [],
+    )
 
 
 # ── Prose-phrase families ─────────────────────────────────────────
@@ -70,9 +137,20 @@ def build_stages(artifacts: List[Artifact]) -> List[Stage]:
     for art in artifacts:
         if art.type != "command" or art.id in used:
             continue
-        used.add(art.id)
         family = recognize_family(art.normalized_text)
-        title = family.label if family else _title_from_command(art.normalized_text)
+        # Drop noisy prose-derived commands with no recognised family
+        # and no CLI signal (2026-02-28 polish pass).
+        if family is None:
+            has_cli_signal = bool(re.search(
+                r"(?:\s|^)(?:[/-][A-Za-z]|--[a-z]|\.exe\s|\\)", art.normalized_text))
+            if not has_cli_signal:
+                # Preserve the artifact but skip the noisy stage — the
+                # executable already carries its own lolbin artifact.
+                continue
+        used.add(art.id)
+        title = _title_for(family, "command", art.normalized_text)
+        obj, tactic, mitre, evidence, observed = _enrichment_for(
+            family, art.normalized_text, art.raw_text)
         stage = Stage.build(
             index=index, kind="command", title=title,
             artifact_ids=[art.id],
@@ -81,6 +159,8 @@ def build_stages(artifacts: List[Artifact]) -> List[Stage]:
             line_number=art.line_number,
             command_family=family.id if family else None,
             confidence=art.confidence,
+            objective=obj, tactic=tactic, mitre=mitre,
+            evidence=evidence, commonly_observed_in=observed,
         )
         stages.append(stage)
         index += 1
@@ -103,6 +183,11 @@ def build_stages(artifacts: List[Artifact]) -> List[Stage]:
     if rmm_ids:
         for aid in rmm_ids:
             used.add(aid)
+        rmm_family = next((f for f in all_families() if f.id == "rmm-remote-access"), None)
+        rmm_names = ", ".join(
+            (a.attributes.get("executable") or a.normalized_text).lower().replace(".exe", "")
+            for a in artifacts if a.id in rmm_ids
+        )
         stage = Stage.build(
             index=index, kind="tool", title="RMM Remote Access Deployment",
             artifact_ids=rmm_ids,
@@ -113,6 +198,11 @@ def build_stages(artifacts: List[Artifact]) -> List[Stage]:
             line_number=min(rmm_lines) if rmm_lines else 0,
             command_family="rmm-remote-access",
             confidence=0.9,
+            objective=_OBJECTIVE_TEMPLATES["rmm-remote-access"],
+            tactic=rmm_family.tactic if rmm_family else "Command and Control",
+            mitre=list(rmm_family.mitre) if rmm_family else ["T1219"],
+            evidence=[f"Tools referenced: {rmm_names}"],
+            commonly_observed_in=(list(rmm_family.commonly_observed_in) if rmm_family else []),
         )
         stages.append(stage)
         index += 1
@@ -122,17 +212,24 @@ def build_stages(artifacts: List[Artifact]) -> List[Stage]:
         if art.id in used:
             continue
         if art.type == "registry":
+            reg_family = next((f for f in all_families() if f.id == "registry-modification"), None)
             stage = Stage.build(
                 index=index, kind="registry",
-                title=f"Registry Reference · {art.subtype or ''}".strip(" ·"),
+                title="Registry Modification",
                 artifact_ids=[art.id],
                 normalized_command=art.normalized_text,
                 raw_excerpt=art.raw_text,
                 line_number=art.line_number,
                 command_family="registry-modification",
                 confidence=art.confidence,
+                objective=_OBJECTIVE_TEMPLATES["registry-modification"],
+                tactic=reg_family.tactic if reg_family else "Defense Evasion",
+                mitre=list(reg_family.mitre) if reg_family else ["T1112"],
+                evidence=[f"`{art.raw_text}`"],
+                commonly_observed_in=(list(reg_family.commonly_observed_in) if reg_family else []),
             )
         elif art.type == "scheduled_task":
+            st_family = next((f for f in all_families() if f.id == "persistence-scheduled-task"), None)
             stage = Stage.build(
                 index=index, kind="schedule",
                 title="Scheduled Task Registration",
@@ -142,6 +239,11 @@ def build_stages(artifacts: List[Artifact]) -> List[Stage]:
                 line_number=art.line_number,
                 command_family="persistence-scheduled-task",
                 confidence=art.confidence,
+                objective=_OBJECTIVE_TEMPLATES["persistence-scheduled-task"],
+                tactic=(st_family.tactic if st_family else "Persistence"),
+                mitre=(list(st_family.mitre) if st_family else ["T1053.005"]),
+                evidence=[f"`{art.raw_text}`"],
+                commonly_observed_in=(list(st_family.commonly_observed_in) if st_family else []),
             )
         elif art.type == "service":
             stage = Stage.build(
@@ -152,12 +254,44 @@ def build_stages(artifacts: List[Artifact]) -> List[Stage]:
                 raw_excerpt=art.raw_text,
                 line_number=art.line_number,
                 confidence=art.confidence,
+                objective="Create / modify a Windows service.",
+                tactic="Persistence",
+                mitre=["T1543.003"],
+                evidence=[f"`{art.raw_text}`"],
+            )
+        elif art.type in ("lolbin",):
+            # Standalone lolbin mention (PsExec, quser, vssadmin, wmic, …)
+            # that hasn't already been folded into a command.  Only
+            # emit when the tool name recognises a family — bare
+            # lolbins with no family are just noise.
+            exe = (art.attributes.get("executable") or art.normalized_text).lower().replace(".exe", "")
+            family = recognize_family(exe) or recognize_family(art.normalized_text)
+            if family is None:
+                continue
+            obj, tactic, mitre, evidence, observed = _enrichment_for(
+                family, art.normalized_text, art.raw_text)
+            stage = Stage.build(
+                index=index, kind="tool",
+                title=family.label,
+                artifact_ids=[art.id],
+                normalized_command=None,
+                raw_excerpt=art.raw_text,
+                line_number=art.line_number,
+                command_family=family.id,
+                confidence=art.confidence * 0.9,
+                objective=obj, tactic=tactic, mitre=mitre,
+                evidence=[f"Tool mentioned: `{exe}`"],
+                commonly_observed_in=observed,
             )
         elif art.type == "executable" and art.subtype != "rmm":
             # Standalone exe mention (e.g. "PsExec", "JWrapper") in prose.
             exe = art.normalized_text.replace(".exe", "").lower()
             family = recognize_family(art.normalized_text)
-            title = family.label if family else f"Executable Reference · {exe}"
+            title = _title_for(family, "executable", art.normalized_text)
+            obj, tactic, mitre, evidence, observed = _enrichment_for(
+                family, art.normalized_text, art.raw_text)
+            if not obj:
+                obj = f"Executable `{exe}` referenced in analyst notes."
             stage = Stage.build(
                 index=index, kind="executable",
                 title=title,
@@ -167,6 +301,8 @@ def build_stages(artifacts: List[Artifact]) -> List[Stage]:
                 line_number=art.line_number,
                 command_family=family.id if family else None,
                 confidence=art.confidence * 0.9,
+                objective=obj, tactic=tactic, mitre=mitre,
+                evidence=evidence, commonly_observed_in=observed,
             )
         else:
             continue
@@ -237,13 +373,19 @@ def add_prose_phrase_stages(stages: List[Stage],
                 break
             line_number = i + 1
         excerpt = m.group(0)
+        # Grab the recognized family for evidence/observed metadata.
+        fam_obj = next((f for f in all_families() if f.id == fam_id), None)
+        obj = _OBJECTIVE_TEMPLATES.get(fam_id, label + ".")
         stage = Stage.build(
             index=next_idx, kind="phrase", title=label,
             artifact_ids=[], normalized_command=None,
             raw_excerpt=excerpt, line_number=line_number,
             command_family=fam_id, confidence=0.65,
+            objective=obj, tactic=tactic,
+            mitre=list(fam_obj.mitre) if fam_obj else [],
+            evidence=[f'Analyst wrote: "{excerpt}"'],
+            commonly_observed_in=list(fam_obj.commonly_observed_in) if fam_obj else [],
         )
-        stage.__setattr__("tactic", tactic)
         stages.append(stage)
         covered.add(fam_id)
         next_idx += 1

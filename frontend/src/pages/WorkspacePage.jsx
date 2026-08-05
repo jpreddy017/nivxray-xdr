@@ -12,6 +12,7 @@ import ShellcodeView from "@/components/ShellcodeView";
 import OutputView from "@/components/OutputView";
 import WorkspaceDecodeFailureCard from "@/components/investigation/WorkspaceDecodeFailureCard";
 import InputUnderstandingPanel from "@/components/investigation/InputUnderstandingPanel";
+import InlineAttackStory from "@/components/investigation/InlineAttackStory";
 import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
@@ -173,6 +174,9 @@ export default function WorkspacePage() {
   const [understanding, setUnderstanding] = useState(null);
   const [understandingLoading, setUnderstandingLoading] = useState(false);
   const [understandingError, setUnderstandingError] = useState(null);
+  // Inline Attack Story feed — preprocessor stages come back inside
+  // the DIE analyze envelope when the input is mixed / prose / chain.
+  const [inlineStoryPreproc, setInlineStoryPreproc] = useState(null);
   const [multiChainNotice, setMultiChainNotice] = useState(null);   // { stages, verdict, family }
   // Feb-2026 · once a case has been named+saved, subsequent SAVE clicks
   // silently upsert under the same name (no prompt). Reset when the input
@@ -1109,6 +1113,7 @@ export default function WorkspacePage() {
       setUnderstanding(null);
       setUnderstandingError(null);
       setUnderstandingLoading(true);
+      setInlineStoryPreproc(null);
       api.post("/die/understand", { input, execute: true })
         .then((r) => {
           setUnderstanding(r?.data?.understanding || null);
@@ -1118,6 +1123,16 @@ export default function WorkspacePage() {
           setUnderstandingError(e?.response?.data?.detail || e?.message || String(e));
           setUnderstandingLoading(false);
         });
+      // Fetch the DIE analyze envelope in parallel so the Inline
+      // Attack Story can render preprocessor stages immediately.
+      api.post("/die/analyze", { input })
+        .then((r) => {
+          const pre = r?.data?.result?.preprocessor
+                   || r?.data?.result?.chain?.preprocessor
+                   || null;
+          if (pre) setInlineStoryPreproc(pre);
+        })
+        .catch(() => { /* silently absent */ });
     }
     if (describe || aiVerdict) {
       // AI-heavy path — use job polling to bypass reverse-proxy timeouts
@@ -2499,6 +2514,16 @@ export default function WorkspacePage() {
                 loading={understandingLoading}
                 error={understandingError}
               />
+            </div>
+          )}
+
+          {/* ▲ Inline Attack Story (P0 · 2026-02-28)
+              Renders immediately below the IUE using the preprocessor
+              stages returned by the DIE analyze envelope.  Analyst
+              never needs to switch tabs to see the timeline. */}
+          {inlineStoryPreproc && (
+            <div style={{ margin: "0 12px 8px" }}>
+              <InlineAttackStory preprocessor={inlineStoryPreproc} />
             </div>
           )}
 

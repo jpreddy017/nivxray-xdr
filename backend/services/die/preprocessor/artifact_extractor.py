@@ -246,6 +246,31 @@ def _extract_commands(artifacts: List[Artifact], ni: NormalizedInput, occupied: 
 
         binary_norm = first.group(0).lower()
         exe_family = _LOLBIN_ALIASES.get(binary_norm, binary_norm)
+
+        # Deterministic "prose fragment" filter (2026-02-28 Analyst
+        # Acceptance Pass): if the lolbin hit isn't at position 0 AND
+        # the line lacks CLI switches (`/`, `-`, `--`, quoted args)
+        # AND lacks a recognised family, then the token is embedded
+        # inside an analyst sentence — skip it to avoid emitting
+        # noisy stages like "reverse · SSH tunnels".
+        line_has_cli_flag = bool(re.search(r"(?:\s|^)(?:[/-][A-Za-z]|--[a-z]|\"|')", working))
+        is_prose_fragment = (
+            first.start() > 0
+            and not line_has_cli_flag
+            and " " in remainder
+        )
+        if is_prose_fragment:
+            # Still emit a lolbin artifact so the tool is remembered.
+            _push(
+                artifacts, "lolbin", exe_family, raw_full, exe_family,
+                ni, norm_start, norm_end,
+                confidence=0.6,
+                attributes={"line": line_idx + 1, "context": "prose"},
+            )
+            for o in range(norm_start, norm_end):
+                occupied.add(o)
+            continue
+
         is_command = bool(remainder) or (len(hits) > 1) or (
             len(raw_full.split()) >= 2
         )
