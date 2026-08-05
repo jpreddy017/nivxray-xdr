@@ -27,6 +27,33 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🎯 2026-02-16 · NVKC · NivXRay Validation & Knowledge Corpus (roadmap addition)
+
+Owner-locked new permanent workstream (Phase D). Parallel engineering
+infrastructure, **not** AI training — deterministic validation,
+regression testing, analyzer validation, benchmarking, rule
+improvement, recipe expansion, MITRE validation, Attack Fingerprint
+validation, Compare Cases validation, Confidence Provenance validation,
+and Image Investigation Analyzer validation.
+
+Corpus tracks (each grows continuously): Command-Line (target 10k+ ·
+PowerShell/EncodedCommand/Base64/UTF-16/Gzip/RC4/XOR/AES/CMD/WMI/
+LOLBins/Linux/macOS) · Artifact · Investigation · Image · Malware
+Family · Benign Enterprise (Intune/SCCM/Defender/Cisco/VMware/Windows
+Update/Exchange/Azure/Office/enterprise PS) · Regression Benchmarks ·
+Performance Benchmarks.
+
+Governance mirrors the Golden Corpus: owner-approved baselines only,
+analyst-safe / synthetic samples first, deterministic fingerprint per
+sample, CI-blocking drift gate. NVKC becomes the primary quality gate
+for every future analyzer + deterministic-engine improvement.
+
+Strategic rationale: every future analyzer + analytical consumer
+increases regression risk. NVKC makes quality durable as the surface
+area grows — ranked higher than adding many new analyzers.
+
+
+
 ### 🟢 2026-02-16 · Phase A · Attack Fingerprint (Attack DNA) — first Analytical Consumer (owner-approved · shipped)
 
 Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)

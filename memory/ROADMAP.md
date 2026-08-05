@@ -172,6 +172,61 @@ changes; all work fits under §7 Provider Extension Architecture.
     possible; AI-assisted paths are strictly optional consumers that
     NEVER modify the CEM (§8 AI Boundary).
 
+**Phase D · NVKC — NivXRay Validation & Knowledge Corpus**
+(owner-locked 2026-02-16 · engineering infrastructure, not a feature)
+
+Permanent parallel workstream — same governance tier as the Golden
+Corpus but broader in scope. Not AI training. Deterministic
+validation, regression testing, analyzer validation, benchmarking,
+rule improvement, recipe expansion, and coverage measurement.
+
+**Corpus tracks** (each grows continuously):
+
+11. **Command-Line Corpus** — target 10,000+ samples. Coverage:
+    PowerShell · -EncodedCommand · Base64 · UTF-16 · Gzip · RC4 · XOR ·
+    AES · CMD · WMI · LOLBins · Linux · macOS. Every entry ships with
+    raw input, expected decode recipe, transformation trace, decision
+    trace, MITRE, threat summary, expected verdict, expected Attack
+    Fingerprint, expected Confidence Ledger.
+12. **Artifact Corpus** — PE / PDF / Office / ELF / Mach-O / Email /
+    Archive / APK / IPA / Memory samples with expected analyzer
+    findings + Attack Fingerprint.
+13. **Investigation Corpus** — complete end-to-end cases (input →
+    decode → artifacts → timeline → MITRE → summary → investigation →
+    fingerprint → report). Used as full-stack regression harness.
+14. **Image Corpus** — thousands of threat diagrams · malware flow-
+    charts · IOC tables · SOC screenshots · EDR screenshots ·
+    architecture diagrams · process trees · timelines. Every entry
+    carries the expected IDA (Image Investigation Analyzer) output.
+15. **Malware Family Corpus** — deterministic markers per family so
+    Compare Cases + Attack Fingerprint can be validated across
+    campaign clusters.
+16. **Benign Enterprise Corpus** — Intune · SCCM · Defender · Cisco ·
+    VMware · Windows Update · Exchange · Azure · Office automation ·
+    enterprise PowerShell. False-positive guard for every new rule.
+17. **Regression Benchmarks** — CI-blocking baseline comparisons run
+    on every PR (extends the Golden Corpus governance model to the
+    full NVKC).
+18. **Performance Benchmarks** — track RTE iteration counts, analyzer
+    latency, memory ceilings so architectural improvements are
+    numerically visible.
+
+**NVKC governance rules** (mirrors the Golden Corpus contract):
+- Owner-approved baseline updates only.
+- Analyst-safe / synthetic samples first; external samples strictly
+  optional.
+- Every sample carries a deterministic fingerprint so drift is
+  detectable at CI time.
+- NVKC becomes the primary quality gate for every future analyzer
+  and every deterministic-engine improvement.
+
+**Strategic reasoning (owner 2026-02-16):**
+Every future analyzer + analytical consumer increases the risk of
+regression. Without a continuously-growing validation corpus, quality
+degrades silently as coverage expands. NVKC is therefore ranked as a
+higher long-term priority than adding many new analyzers — it makes
+the whole platform quality-durable.
+
 All items are pure extensions of the frozen v1.1 core.
 
 ### P4 · Mach-O Analyzer (queued per owner sequence above)
