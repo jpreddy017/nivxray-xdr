@@ -258,6 +258,11 @@ api.include_router(workspace_investigation_router)
 from routers.iedde import router as iedde_router
 api.include_router(iedde_router)
 
+# ⭐ DIE · Decoder Intelligence Engine (Phase B.1 · Cycle A · 2026-02-16).
+# Deterministic PowerShell AST + LOLBAS registry + network IOC extraction.
+from routers.die import router as die_router
+api.include_router(die_router)
+
 # ▲ Artifact Intelligence Layer (Phase 3 · Cycle A · 2026-02)
 from routers.artifacts import router as artifacts_router
 # Router already carries prefix "/api/artifacts" so include at app root.

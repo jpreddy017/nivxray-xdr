@@ -44,6 +44,55 @@ Files touched (frontend only):
 
 ---
 
+### 🟢 2026-02-16 · Phase B.1 · DIE · Cycle A · Decoder Intelligence Engine foundation (owner-locked · shipped · 30/30 tests green)
+
+Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).
+**Additive-only** — no existing service modified. DIE sits between the
+Recipe Planner and the Artifact Router as a consumer of the SSOT.
+
+**Shipped in Cycle A:**
+
+- **PowerShell semantic AST** (`services/die/powershell_ast.py`)
+  Deterministic tokenizer + rule-based semantic extraction. Emits:
+  tokens · statements · cmdlets (verb-noun · params) · variables ·
+  pipelines · flags (encoded_command · hidden_window · no_profile ·
+  bypass_policy · iex_invocation · download_cradle · amsi_bypass ·
+  reflection_load · clipboard_access · obfuscated_join) · techniques
+  (MITRE-mapped) · lolbins · IOCs (with decode-stage provenance) ·
+  obfuscation score 0-100.
+
+- **LOLBAS knowledge base** (`services/die/lolbas.py` +
+  `lolbas_registry.json` extension point). 20-entry seed registry
+  with category · trust tier · MITRE mapping · analyst notes. O(1)
+  case-insensitive lookup; strips Windows path prefixes.
+
+- **Deterministic IOC extractor** (`services/die/ioc_semantic.py`)
+  URL · onion · UNC · email · IPv4 (public/private) · IPv6 · domain
+  · Discord webhook. Every IOC carries confidence + source
+  (`raw|decoded`). Deterministic filters: noise strings, .NET/PS
+  type refs, and executable filenames never surface as IOCs.
+
+- **Unified orchestrator** (`services/die/api.py`) — single-entry
+  `analyze(src, language=None)` with deterministic language detector
+  (powershell · vbscript · javascript · cmd · bash · unknown).
+
+- **HTTP router** — `POST /api/die/analyze`, `POST /api/die/powershell/ast`,
+  `POST /api/die/iocs`, `GET /api/die/lolbas`, `GET /api/die/lolbas/{binary}`.
+
+- **Tests** — `test_die_powershell.py` (17) + `test_die_lolbas.py`
+  (13). 30/30 pass · full correlation-engine regression pass.
+
+**Retired in same milestone:**
+- `/app/frontend/src/pages/InvestigationReplayPage.jsx` — replaced by
+  the Story tab and `<ReplayRedirect>` in App.js (Q4 cleanup).
+
+**Cycle B (next session):**
+- JavaScript · CMD/Batch · VBScript · Python · Bash AST parsers
+- Recursive archive recovery (ZIP · 7z · RAR · CAB · ISO · TAR)
+- Embedded PE/Office/PDF nested extraction
+
+---
+
 ## 🚨 STANDING PRIORITY STATEMENT (owner · 2026-02-XX)
 
 > **My priority is recovery, not innovation. I want the Workspace to behave
