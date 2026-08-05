@@ -24,6 +24,8 @@ from services.die import (
 from services.die.chain import analyze_chain, looks_like_chain
 from services.die.api import _analyze_single
 from services.die.intent import classify_intent, classify_intent_from_analyze
+from services.die.confidence import score_investigation
+from services.die.narrative import generate_report
 from services.die.dkp import load_patterns as dkp_load_patterns, pattern_by_id as dkp_pattern_by_id
 from deps import db
 import base64 as _b64
@@ -183,3 +185,38 @@ async def die_case(case_id: str):
     return {"case_id":  case_id,
             "input_preview": (case["input"] or "")[:512],
             "envelope": env}
+
+
+# ── Investigation Confidence + 12-section Report (Phase B.4 + B.6) ─
+@router.post("/confidence")
+def die_confidence(body: AnalyzeBody):
+    env = analyze(body.input, language=body.language)
+    return {"confidence": score_investigation(env)}
+
+
+@router.get("/report/{case_id}")
+async def die_report(case_id: str):
+    """Return the 12-section deterministic investigation report for a
+    case — Executive Summary through Confidence Summary."""
+    from bson import ObjectId
+    from bson.errors import InvalidId
+    queries = [{"id": case_id}]
+    try:
+        queries.append({"_id": ObjectId(case_id)})
+    except InvalidId:
+        pass
+    case = None
+    for coll in ("investigations", "workspace_cases"):
+        for q in queries:
+            case = await db[coll].find_one(q)
+            if case and case.get("input"):
+                break
+        if case and case.get("input"):
+            break
+    if not case or not case.get("input"):
+        return {"error": "case not found or input missing",
+                "case_id": case_id, "report": None}
+    env = analyze(case["input"])
+    return {"case_id": case_id,
+            "report":  generate_report(env, case_id=case_id,
+                                       input_preview=(case["input"] or "")[:512])}

@@ -44,6 +44,63 @@ Files touched (frontend only):
 
 ---
 
+### 🟢 2026-02-16 (evening) · Phase B.4 + B.6 · Multi-section Narrative + Investigation Confidence (owner-locked · shipped)
+
+**Investigation Confidence Engine** (`services/die/confidence.py`):
+Deterministic per-dimension scoring across the 8 canonical
+dimensions in owner-locked order — **Decoder · Artifacts · MITRE ·
+DKP · Intent · Fingerprint · Narrative · Overall**. Weighted
+average (Decoder 1.5 · Artifacts 1.0 · MITRE 1.2 · DKP 1.0 · Intent
+1.5 · Fingerprint 0.8 · Narrative 1.0). Bucketed as
+**High** (≥ 95%) · **Moderate** (80–94%) · **Requires validation**
+(< 80%). Same input → same score.
+
+**Deterministic Narrative Generator** (`services/die/narrative.py`):
+Canonical 12-section report in the owner-locked order:
+1. Executive Summary
+2. Overall Assessment
+3. Behavior Summary
+4. Attack Story
+5. Recovered Artifacts
+6. Technical Findings
+7. MITRE Coverage
+8. Attack Intent
+9. Evidence Summary
+10. Detection Opportunities
+11. Recommendations
+12. Confidence Summary
+
+Every section carries its own confidence score (from the Confidence
+Engine) + bucket. Templates only — no LLM.
+
+**HTTP surface additions:**
+- `POST /api/die/confidence` — score a raw input
+- `GET  /api/die/report/{case_id}` — full 12-section report
+
+**Frontend — Report Tab rewrite** (`ReportTab.jsx`): calls
+`/api/die/report/{root_case_id}` and renders the 12 sections with:
+- Header badge showing Overall Confidence % + bucket
+- Per-section confidence chip (colour-coded: green High · yellow
+  Moderate · red Requires validation)
+- Print button (existing) — reports live ONLY here per owner
+  directive; no "Copy IR Report" export button anywhere.
+
+**Tests** — 8 new pytest cases in `test_die_narrative_confidence.py`
+(8-dimension shape · bucketing · determinism · 12-section fixed
+order · per-section confidence · legend shipped · deterministic
+report · MITRE + Intent body content). **57/57 backend tests green
+in 0.55s**.
+
+Verified end-to-end via screenshot on `/investigations/…?tab=report`:
+Overall Confidence 71% (Requires validation) — correctly conservative
+for a lone encoded PS blob. All 12 sections render with per-section
+badges.
+
+**⚠️ Preview only** — production redeploy required for
+https://nivxray.nivxforge.com.
+
+---
+
 ### 🟢 2026-02-16 (pm-late) · Phase B.3 + B.7 · Attack Story + Attack Intent Engine (owner-locked · shipped · 117/117 tests green)
 
 Built together per owner directive: the Attack Story answers *"What

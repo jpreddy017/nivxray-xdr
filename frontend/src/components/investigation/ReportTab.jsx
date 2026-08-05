@@ -1,31 +1,60 @@
 /**
- * Investigation · Report tab — print-friendly executive summary.
- * Renders verdict, MITRE, IOCs, fingerprint hash, and a compact chain
- * synopsis. `window.print()` triggers a native print dialog.
+ * Investigation · Report tab — canonical 12-section deterministic
+ * report backed by the DIE Narrative + Confidence engines.
+ *
+ * Owner-locked (2026-02-16 evening): fixed 12-section structure,
+ * confidence badge per section, Confidence Summary legend at the
+ * bottom.  Reports live ONLY here — no export button anywhere else.
  */
+import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
+import api from "@/lib/api";
+
+const BUCKET_TONE = {
+  High:      { fg: "#16a34a", bg: "#dcfce7", bd: "#86efac" },
+  Moderate:  { fg: "#a16207", bg: "#fef9c3", bd: "#facc15" },
+  "Requires validation": { fg: "#b91c1c", bg: "#fee2e2", bd: "#fca5a5" },
+};
 
 export default function ReportTab({ inv, summary, chain, fp }) {
-  const iocCounts = summary?.iocs || {};
+  const [rep, setRep] = useState(null);
+  const [err, setErr] = useState("");
+  const caseId = inv?.root_case_id;
+
+  useEffect(() => {
+    if (!caseId) return;
+    api.get(`/die/report/${caseId}`)
+       .then(r => r.data?.report ? setRep(r.data.report)
+                                  : setErr(r.data?.error || "no report"))
+       .catch(e => setErr(e?.response?.data?.detail || e.message));
+  }, [caseId]);
+
   return (
     <div data-testid="tab-panel-report"
          style={{ background: "#f7fafc", color: "#0f172a", padding: 28,
                   borderRadius: 12, border: "1px solid #cbd5e1",
                   fontFamily: "Inter, system-ui, sans-serif" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12,
-                    justifyContent: "space-between", marginBottom: 16 }}>
+                    justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 11, letterSpacing: "0.18em",
                         textTransform: "uppercase", color: "#64748b" }}>
             NivXRay · Investigation Report
           </div>
-          <h1 style={{ fontSize: 24, margin: "6px 0 0", color: "#0f172a" }}
-              data-testid="report-investigation-name">
+          <h1 data-testid="report-investigation-name"
+              style={{ fontSize: 24, margin: "6px 0 0", color: "#0f172a" }}>
             {inv?.name || "Investigation"}
           </h1>
-          {inv?.description && (
-            <div style={{ marginTop: 6, color: "#334155", fontSize: 13 }}>
-              {inv.description}
+          {rep?.confidence && (
+            <div style={{ marginTop: 6 }}>
+              <span data-testid="report-overall-confidence"
+                    style={{ padding: "3px 10px", borderRadius: 4,
+                             fontSize: 12, fontWeight: 700,
+                             background: BUCKET_TONE[rep.confidence.bucket]?.bg,
+                             color:      BUCKET_TONE[rep.confidence.bucket]?.fg,
+                             border: `1px solid ${BUCKET_TONE[rep.confidence.bucket]?.bd}` }}>
+                Overall Confidence · {rep.confidence.overall}% ({rep.confidence.bucket})
+              </span>
             </div>
           )}
         </div>
@@ -39,102 +68,48 @@ export default function ReportTab({ inv, summary, chain, fp }) {
         </button>
       </div>
 
-      <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
-                        gap: 12, marginBottom: 20 }}>
-        <Stat label="Verdict" value={(summary?.verdict || "—").toUpperCase()}
-              testid="report-verdict" />
-        <Stat label="Risk score" value={summary?.risk_score ?? "—"}
-              testid="report-risk" />
-        <Stat label="Attack fingerprint"
-              value={fp?.hash ? `${fp.hash.slice(0, 16)}…` : "—"}
-              mono testid="report-fingerprint" />
-      </section>
+      {err && (
+        <div data-testid="report-error"
+             style={{ padding: 10, background: "#fef2f2",
+                      border: "1px solid #fca5a5", color: "#7f1d1d",
+                      borderRadius: 6, fontSize: 12 }}>
+          Report unavailable · {err}
+        </div>
+      )}
 
-      <ReportSection title="MITRE ATT&CK techniques">
-        {(summary?.mitre || []).length === 0
-          ? <em style={{ color: "#64748b" }}>None mapped.</em>
-          : (summary.mitre.map(m => (
-              <span key={m.id}
-                    style={{ marginRight: 6, display: "inline-block",
-                             padding: "2px 8px", fontSize: 12,
-                             background: "#fef3c7", color: "#78350f",
-                             borderRadius: 4,
+      {rep?.sections?.map((s, i) => {
+        const tone = BUCKET_TONE[s.bucket] || BUCKET_TONE.Moderate;
+        return (
+          <section key={i} data-testid={`report-section-${i+1}`}
+                   style={{ marginBottom: 22 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10,
+                          marginBottom: 6 }}>
+              <div style={{ fontSize: 10, letterSpacing: "0.16em",
+                            textTransform: "uppercase", color: "#64748b",
+                            fontWeight: 700 }}>
+                {i+1}. {s.title}
+              </div>
+              <span data-testid={`report-section-${i+1}-confidence`}
+                    style={{ marginLeft: "auto", padding: "1px 8px",
+                             fontSize: 10, borderRadius: 3,
+                             background: tone.bg, color: tone.fg,
+                             border: `1px solid ${tone.bd}`,
                              fontFamily: "ui-monospace, monospace" }}>
-                {m.id}
-                {m.technique ? ` · ${m.technique}` : ""}
+                {s.confidence}% · {s.bucket}
               </span>
-            )))}
-      </ReportSection>
-
-      <ReportSection title="Indicators of compromise">
-        {Object.keys(iocCounts).length === 0
-          ? <em style={{ color: "#64748b" }}>No IOCs surfaced.</em>
-          : (
-            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
-              {Object.entries(iocCounts).map(([k, v]) => (
-                <li key={k}><b>{k}</b>: {Array.isArray(v) ? v.length : v}</li>
-              ))}
-            </ul>
-          )}
-      </ReportSection>
-
-      <ReportSection title={`Attack chain (${chain?.steps?.length || 0} step${
-                              chain?.steps?.length === 1 ? "" : "s"})`}>
-        {!chain?.steps?.length
-          ? <em style={{ color: "#64748b" }}>Chain not yet reconstructed.</em>
-          : (
-            <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13,
-                          color: "#0f172a" }}>
-              {chain.steps.slice(0, 30).map((s, i) => (
-                <li key={s.node_id || i} style={{ marginBottom: 4 }}>
-                  <span style={{ fontFamily: "ui-monospace, monospace",
-                                 color: "#0369a1" }}>
-                    {s.kind}
-                  </span>
-                  {" · "}
-                  {s.case_name || s.label || s.artifact_type
-                    || s.node_id?.slice(0, 24)}
-                </li>
-              ))}
-              {chain.steps.length > 30 && (
-                <li style={{ color: "#64748b" }}>
-                  … {chain.steps.length - 30} more step(s) truncated.
-                </li>
-              )}
-            </ol>
-          )}
-      </ReportSection>
+            </div>
+            <div style={{ background: "#ffffff", border: "1px solid #cbd5e1",
+                          borderRadius: 8, padding: "12px 14px",
+                          fontSize: 13, lineHeight: 1.55,
+                          whiteSpace: "pre-wrap",
+                          fontFamily: /Confidence Summary|Detection|Technical|Attack Story/.test(s.title)
+                                        ? "ui-monospace, monospace"
+                                        : "Inter, system-ui, sans-serif" }}>
+              {s.body || <em style={{ color: "#94a3b8" }}>(empty)</em>}
+            </div>
+          </section>
+        );
+      })}
     </div>
-  );
-}
-
-function Stat({ label, value, mono, testid }) {
-  return (
-    <div data-testid={testid}
-         style={{ background: "#ffffff", border: "1px solid #cbd5e1",
-                  borderRadius: 8, padding: "10px 12px" }}>
-      <div style={{ fontSize: 10, letterSpacing: "0.16em",
-                    textTransform: "uppercase", color: "#64748b" }}>
-        {label}
-      </div>
-      <div style={{ marginTop: 4, fontSize: 18, fontWeight: 700,
-                    color: "#0f172a",
-                    fontFamily: mono ? "ui-monospace, monospace" : undefined }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function ReportSection({ title, children }) {
-  return (
-    <section style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 11, letterSpacing: "0.16em",
-                    textTransform: "uppercase", color: "#64748b",
-                    marginBottom: 6 }}>
-        {title}
-      </div>
-      <div>{children}</div>
-    </section>
   );
 }
