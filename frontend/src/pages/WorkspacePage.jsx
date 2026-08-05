@@ -15,6 +15,7 @@ import InputUnderstandingPanel from "@/components/investigation/InputUnderstandi
 import InlineAttackStory from "@/components/investigation/InlineAttackStory";
 import TrajectoryDiagram from "@/components/investigation/TrajectoryDiagram";
 import AnalystNarrativePanel from "@/components/investigation/AnalystNarrativePanel";
+import CollapsibleCard from "@/components/investigation/CollapsibleCard";
 import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
@@ -2542,6 +2543,8 @@ export default function WorkspacePage() {
               onClose={() => setChainReplay(null)}
             />
           ) : chainOpen ? (
+            <CollapsibleCard title="CHAIN ANALYSIS" storageKey="nvx.collapse.chain"
+                             testid="collapse-chain-analysis">
             <ChainStageEditor
               key={chainEditorKey}
               seedInput={input}
@@ -2570,6 +2573,7 @@ export default function WorkspacePage() {
                 setDecodeWinnerEngine("chain");
               }}
             />
+            </CollapsibleCard>
           ) : (
             <div style={{ margin: "6px 12px 8px 12px", display: "flex", justifyContent: "flex-end" }}>
               <button
@@ -2589,7 +2593,10 @@ export default function WorkspacePage() {
           )}
 
           {/* Recipe */}
-          <RecipePanel steps={steps} setSteps={setSteps} ops={ops} />
+          <CollapsibleCard title="RECIPE" storageKey="nvx.collapse.recipe"
+                           testid="collapse-recipe">
+            <RecipePanel steps={steps} setSteps={setSteps} ops={ops} />
+          </CollapsibleCard>
 
           {/* ONE-BUTTON pipeline trace */}
           {nivxrayTrace.length > 0 && (

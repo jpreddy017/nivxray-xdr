@@ -29,10 +29,22 @@ const TACTIC_TONE = {
 };
 
 export default function InlineAttackStory({ preprocessor }) {
+  // Bump this counter to force all StoryStage instances to re-read
+  // their persisted open/closed state — powers Expand-All / Collapse-All.
+  const [openTick, setOpenTick] = useState(0);
   if (!preprocessor || !preprocessor.stages || !preprocessor.stages.length) {
     return null;
   }
   const stages = preprocessor.stages;
+  const bulkSet = (val) => {
+    stages.forEach((s) => {
+      if (s.id) {
+        try { localStorage.setItem(`nvx.story.stage.${s.id}`, val); }
+        catch {}
+      }
+    });
+    setOpenTick((t) => t + 1);
+  };
 
   return (
     <section data-testid="inline-attack-story" style={{
@@ -49,15 +61,29 @@ export default function InlineAttackStory({ preprocessor }) {
             {stages.length} stage{stages.length === 1 ? "" : "s"} · deterministic timeline
           </div>
         </div>
-        <div style={{ fontSize: 11, color: "#94a3b8",
-                      fontFamily: "JetBrains Mono, monospace" }}>
-          Built from the structured preprocessor — no LLM narration
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button data-testid="story-expand-all"
+                  onClick={() => bulkSet("1")}
+                  style={storyBtn}>
+            EXPAND ALL
+          </button>
+          <button data-testid="story-collapse-all"
+                  onClick={() => bulkSet("0")}
+                  style={storyBtn}>
+            COLLAPSE ALL
+          </button>
+          <span style={{ fontSize: 11, color: "#94a3b8",
+                         fontFamily: "JetBrains Mono, monospace",
+                         marginLeft: 8 }}>
+            Deterministic · no LLM
+          </span>
         </div>
       </div>
 
       <div style={{ display: "grid", gap: 10 }}>
         {stages.map((s, i) => (
-          <StoryStage key={s.id || i} stage={s} index={i + 1} />
+          <StoryStage key={`${s.id || i}-${openTick}`}
+                      stage={s} index={i + 1} />
         ))}
       </div>
     </section>
@@ -65,7 +91,26 @@ export default function InlineAttackStory({ preprocessor }) {
 }
 
 function StoryStage({ stage, index }) {
-  const [open, setOpen] = useState(index <= 3);   // first three stages open by default
+  // All stages default to COLLAPSED so the panel stays compact and
+  // the analyst drills-down only into what they need.  Persist the
+  // open/closed state per stage id in localStorage so navigating
+  // away and back keeps the analyst's choice.
+  const persistKey = stage.id ? `nvx.story.stage.${stage.id}` : null;
+  const [open, setOpen] = useState(() => {
+    try {
+      if (!persistKey) return false;
+      const raw = localStorage.getItem(persistKey);
+      return raw === "1";
+    } catch { return false; }
+  });
+  const toggle = () => {
+    setOpen((cur) => {
+      const next = !cur;
+      try { if (persistKey) localStorage.setItem(persistKey, next ? "1" : "0"); }
+      catch {}
+      return next;
+    });
+  };
   const tone = TACTIC_TONE[stage.tactic] || TACTIC_TONE["Discovery"];
   const conf = Math.round((stage.confidence || 0) * 100);
   const confTone = conf >= 85 ? "#86efac" : conf >= 65 ? "#fbbf24" : "#fb923c";
@@ -76,7 +121,7 @@ function StoryStage({ stage, index }) {
       borderRadius: 10, padding: "10px 14px",
     }}>
       {/* ── Header row ─────────────────────────────────────── */}
-      <div onClick={() => setOpen(!open)} style={{
+      <div onClick={toggle} style={{
         display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
       }}>
         {open ? <ChevronDown size={16} color={tone.fg} />
@@ -227,3 +272,11 @@ const obsBadge = {
 const bulletList = { margin: 0, padding: 0, listStyle: "none",
                      display: "grid", gap: 3 };
 const bullet = { display: "flex", gap: 4, lineHeight: 1.5 };
+const storyBtn = {
+  padding: "3px 8px", fontSize: 10, fontWeight: 700,
+  letterSpacing: "0.1em",
+  color: "#67e8f9", background: "rgba(103,232,249,0.08)",
+  border: "1px solid rgba(103,232,249,0.35)",
+  borderRadius: 4, cursor: "pointer",
+  fontFamily: "JetBrains Mono, monospace",
+};

@@ -81,6 +81,28 @@ Same paste → same narrative.
 - Users must be able to drag / scroll / touch inside a diagram
   WITHOUT the diagram zooming underneath them.
 
+## R8 · Every major Workspace component must participate in a shared investigation context
+
+Selecting evidence, a stage, a phase, a MITRE technique, or an IOC in
+one component should update the rest of the Workspace consistently.
+No visualisation exists in isolation.
+
+Concretely, a click on:
+  · a Kill-Chain phase pill
+  · a MITRE technique badge
+  · a Trajectory node
+  · an IOC row
+  · a DKP family
+  · a Confidence chip
+
+… updates the same `investigation.filter` slice and every downstream
+component (Attack Story · Trajectory · Evidence · Threat Analysis
+(GRAPH · MITRE · LOLBAS · RULES · IOCs · TI-HITS · OSINT · AI · FLOW ·
+CHAIN) · Report) applies the filter.
+
+This is what makes the Workspace one integrated investigation
+platform rather than a collection of independent panels.
+
 ---
 
 **These rules are locked.  Any agent that removes a listed

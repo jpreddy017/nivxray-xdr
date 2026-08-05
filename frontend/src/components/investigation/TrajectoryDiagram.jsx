@@ -85,9 +85,11 @@ export default function TrajectoryDiagram({ preprocessor }) {
   const [nodes, setNodes] = useState(initialNodes);
   const [zoom,  setZoom]  = useState(1);
   const [pan,   setPan]   = useState({ x: 0, y: 0 });
+  const [selectedNode, setSelectedNode] = useState(null);   // Node Inspector target
   const dragRef  = useRef(null);
   const panRef   = useRef(null);
   const svgRef   = useRef(null);
+  const dragMovedRef = useRef(false);   // true if the pointer moved between mousedown and mouseup — used to distinguish click vs drag
 
   useEffect(() => { setNodes(_layoutNodes(preprocessor)); setPan({x:0,y:0}); setZoom(1); },
            [preprocessor]);
@@ -110,12 +112,14 @@ export default function TrajectoryDiagram({ preprocessor }) {
     const node = nodes.find((n) => n.id === id);
     if (!node) return;
     dragRef.current = { id, offX: pt.x - node.x, offY: pt.y - node.y };
+    dragMovedRef.current = false;
   };
 
   const onMouseMove = (e) => {
     if (dragRef.current) {
       const pt = _svgPoint(svgRef.current, e.clientX, e.clientY, zoom, pan);
       const { id, offX, offY } = dragRef.current;
+      dragMovedRef.current = true;
       setNodes((ns) => ns.map((n) => n.id === id
         ? { ...n, x: pt.x - offX, y: pt.y - offY } : n));
     } else if (panRef.current) {
@@ -125,7 +129,15 @@ export default function TrajectoryDiagram({ preprocessor }) {
     }
   };
 
-  const onMouseUp   = () => { dragRef.current = null; panRef.current = null; };
+  const onMouseUp = () => {
+    // If the pointer never moved, treat the interaction as a click.
+    if (dragRef.current && !dragMovedRef.current) {
+      const node = nodes.find((n) => n.id === dragRef.current.id);
+      if (node) setSelectedNode(node);
+    }
+    dragRef.current = null;
+    panRef.current  = null;
+  };
   const onBgMouseDown = (e) => {
     if (e.target !== e.currentTarget && e.target.tagName !== "rect") return;
     panRef.current = { startX: e.clientX, startY: e.clientY,
@@ -180,7 +192,10 @@ export default function TrajectoryDiagram({ preprocessor }) {
         <LegendChip color="#fbbf24" label="Persistence" />
       </div>
 
-      <div data-testid="trajectory-viewport"
+      <div style={{ display: "grid",
+                    gridTemplateColumns: selectedNode ? "1fr 340px" : "1fr",
+                    gap: 12, alignItems: "stretch" }}>
+        <div data-testid="trajectory-viewport"
            style={{ overflowX: "scroll",       // ALWAYS-visible horizontal
                     overflowY: "auto",
                     border: "1px solid #1f2b3f",
@@ -287,6 +302,13 @@ export default function TrajectoryDiagram({ preprocessor }) {
             })}
           </g>
         </svg>
+      </div>
+
+      {/* ── Node Inspector (P0 · Trajectory drill-down) ─────── */}
+      {selectedNode && (
+        <NodeInspector node={selectedNode}
+                       onClose={() => setSelectedNode(null)} />
+      )}
       </div>
 
       <div style={{ marginTop: 8, fontSize: 11, color: "#64748b",
@@ -407,3 +429,168 @@ const btn = {
   borderRadius: 4, cursor: "pointer",
   fontFamily: "JetBrains Mono, monospace",
 };
+
+
+/* ══════════════════════════════════════════════════════════════
+ *  Node Inspector — right-side drill-down panel
+ * ══════════════════════════════════════════════════════════════ */
+function NodeInspector({ node, onClose }) {
+  if (!node) return null;
+  const s = node.raw || {};
+  return (
+    <aside data-testid={`node-inspector-${node.id}`} style={{
+      background: "rgba(15,23,42,0.95)",
+      border: "1px solid #334467", borderRadius: 10,
+      padding: "14px 16px", overflowY: "auto",
+      maxHeight: 720,
+    }}>
+      <div style={{ display: "flex", alignItems: "center",
+                    justifyContent: "space-between", marginBottom: 8 }}>
+        <div style={{ fontSize: 9, letterSpacing: "0.22em",
+                      textTransform: "uppercase", color: "#67e8f9",
+                      fontFamily: "JetBrains Mono, monospace" }}>
+          NODE INSPECTOR
+        </div>
+        <button data-testid="node-inspector-close" onClick={onClose}
+                style={{ background: "transparent", border: "1px solid #334467",
+                         color: "#94a3b8", borderRadius: 4,
+                         padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>
+          ✕ CLOSE
+        </button>
+      </div>
+
+      <div style={{ fontSize: 15, fontWeight: 700, color: "#e2e8f0",
+                    marginBottom: 4 }}>{node.title}</div>
+      <div style={{ fontSize: 11, color: "#94a3b8",
+                    fontFamily: "JetBrains Mono, monospace",
+                    marginBottom: 12 }}>
+        Stage {node.index} · {s.kind || "—"} · {node.time}
+      </div>
+
+      {s.objective && (
+        <Row label="Purpose">
+          <p style={insPara}>{s.objective}</p>
+        </Row>
+      )}
+      {s.normalized_command && (
+        <Row label="Normalized Command">
+          <code style={insCode}>{s.normalized_command}</code>
+        </Row>
+      )}
+      {s.raw_excerpt && (
+        <Row label="Raw Excerpt">
+          <code style={{ ...insCode, whiteSpace: "pre-wrap" }}>{s.raw_excerpt}</code>
+          {s.line_number ? (
+            <div style={{ marginTop: 4, fontSize: 10, color: "#64748b",
+                          fontFamily: "JetBrains Mono, monospace" }}>
+              line {s.line_number}
+            </div>
+          ) : null}
+        </Row>
+      )}
+      {s.tactic && (
+        <Row label="ATT&CK Tactic">
+          <span style={insBadge("#c084fc")}>{s.tactic}</span>
+          <span style={{ ...insBadge("#fbbf24"), marginLeft: 6 }}>
+            {node.kill_chain}
+          </span>
+        </Row>
+      )}
+      {(s.mitre || []).length > 0 && (
+        <Row label="MITRE Techniques">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {s.mitre.map((m) => (
+              <span key={m} style={insBadge("#67e8f9")}>{m}</span>
+            ))}
+          </div>
+        </Row>
+      )}
+      {(s.evidence || []).length > 0 && (
+        <Row label="Evidence">
+          <ul style={{ margin: 0, padding: 0, listStyle: "none",
+                       display: "grid", gap: 4 }}>
+            {s.evidence.map((e, i) => (
+              <li key={i} style={{ display: "flex", gap: 6,
+                                   fontSize: 11.5, color: "#cbd5e1",
+                                   lineHeight: 1.5 }}>
+                <span style={{ color: "#67e8f9" }}>›</span>
+                <span dangerouslySetInnerHTML={{ __html:
+                  String(e).replace(/`([^`]+)`/g,
+                    '<code style="background:rgba(103,232,249,0.10); padding:1px 5px; border-radius:3px; color:#67e8f9">$1</code>') }} />
+              </li>
+            ))}
+          </ul>
+        </Row>
+      )}
+      {s.command_family && (
+        <Row label="DKP Family">
+          <span style={insBadge("#a78bfa")}>{s.command_family}</span>
+        </Row>
+      )}
+      {(s.commonly_observed_in || []).length > 0 && (
+        <Row label="Commonly Observed In">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {s.commonly_observed_in.map((n) => (
+              <span key={n} style={insBadge("#94a3b8")}>{n}</span>
+            ))}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 10, color: "#64748b",
+                        fontStyle: "italic" }}>
+            Not attribution — historical prevalence only.
+          </div>
+        </Row>
+      )}
+      {(s.artifact_ids || []).length > 0 && (
+        <Row label="Related Artifact IDs">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {s.artifact_ids.map((a) => (
+              <span key={a} style={{ ...insBadge("#64748b"), fontSize: 9 }}>
+                {a}
+              </span>
+            ))}
+          </div>
+        </Row>
+      )}
+      <Row label="Confidence">
+        <div style={{ fontSize: 20, fontWeight: 700, color: "#86efac",
+                      fontFamily: "JetBrains Mono, monospace" }}>
+          {Math.round((s.confidence || node.confidence || 0) * 100)}%
+        </div>
+        <div style={{ marginTop: 4, fontSize: 11, color: "#cbd5e1",
+                      lineHeight: 1.5 }}>
+          <div>✓ Deterministic parser matched</div>
+          {s.command_family && <div>✓ DKP family matched (<code>{s.command_family}</code>)</div>}
+          {(s.mitre || []).length > 0 && <div>✓ MITRE mapping verified</div>}
+          {(s.evidence || []).length > 0 && <div>✓ Evidence extracted</div>}
+          <div>✓ No AI inference</div>
+        </div>
+      </Row>
+    </aside>
+  );
+}
+
+function Row({ label, children }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 9, letterSpacing: "0.16em",
+                    textTransform: "uppercase", color: "#94a3b8",
+                    fontFamily: "JetBrains Mono, monospace",
+                    marginBottom: 4 }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+const insPara = { color: "#cbd5e1", fontSize: 12.5, lineHeight: 1.55,
+                  margin: 0 };
+const insCode = { display: "inline-block", background: "rgba(2,6,23,0.55)",
+                  border: "1px solid #1f2b3f", padding: "4px 8px",
+                  borderRadius: 6, fontSize: 11.5, color: "#e2e8f0",
+                  fontFamily: "JetBrains Mono, monospace",
+                  wordBreak: "break-word", maxWidth: "100%" };
+const insBadge = (color) => ({
+  display: "inline-block", padding: "1px 6px", fontSize: 10,
+  fontWeight: 700, color, background: `${color}1a`,
+  border: `1px solid ${color}55`, borderRadius: 4,
+  fontFamily: "JetBrains Mono, monospace",
+});
