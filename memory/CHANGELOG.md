@@ -2,6 +2,62 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-16 · Phase A.5 · Compare Cases UI + Confidence Provenance Visualization + Similarity Explanation — LIVE
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).
+No frozen-core touches — pure frontend + one small deterministic
+backend enrichment.
+
+### Backend enhancement · Similarity Explanation
+
+- `services/case_compare.py::_composite_similarity_score` now also
+  emits an `explanation.contributors[]` array applying the
+  Confidence-Provenance "Why?" pattern to Compare Cases. Each
+  contributor names the dimension, its Jaccard, weight, exact score
+  contribution (normalised to 100), shared members, and per-side
+  unique counts. Deterministic ordering (highest contribution first).
+- All 15 Compare Cases unit tests remain green (no signature change).
+
+### Frontend deliverable · `/compare/:caseA/:caseB` analyst workspace
+
+New page `frontend/src/pages/ComparePage.jsx` — split-pane analyst
+workspace matching the owner-locked design (2026-02-16):
+
+- **Case Picker** with datalist of the analyst's last 100 cases;
+  URL-routable (`/compare/:caseA/:caseB` and `/compare?a=…&b=…`).
+- **Overall Similarity Gauge** — SVG ring + colour-coded percentage,
+  Fingerprint match/differ chip, compare-version + case-id chips.
+- **Similarity Explanation** — the "Why 46%?" chain: every non-zero
+  contributor as a stacked contribution bar summing visibly to the
+  overall score. Consumes the new backend `explanation` field.
+- **Per-Dimension Diff Matrix** — 14 dimensions with Jaccard bars,
+  colour-coded (green = fully shared, blue = partial, empty = zero)
+  and shared / A-only / B-only counts.
+- **Two Case Columns** — side-by-side, each showing verdict card
+  + Confidence Provenance panel with:
+    · rule count · skipped count · derived score
+    · one row per fired rule: `+contribution · rule.id · description
+      · weight · evidence-hit count`
+    · visible sum row proving the score.
+- **Attack Fingerprint side-by-side** — full A/B hashes + per-
+  component-digest match chips (✓ / ✗) so analysts see exactly
+  which fingerprint components agree.
+- Every interactive + info-carrying element carries a `data-testid`;
+  smoke-tested live on two real analyst cases (46% Partial overlap
+  · Fingerprints differ · 2 rules fired for A summing to 25).
+
+**Routes registered:** `/compare`, `/compare/:caseA/:caseB` (both
+`Protected`, lazy-loaded to preserve initial bundle size).
+
+**Regression posture:** 98/98 backend + validation gates green
+(unchanged). Frontend compiles clean. Frozen core untouched.
+
+**Files changed:**
+- `backend/services/case_compare.py` (added explanation output)
+- `frontend/src/pages/ComparePage.jsx` (new · 470 lines)
+- `frontend/src/App.js` (route registration)
+
+
 ## 2026-02-16 · Phase A · Confidence Provenance Ledger + NVKC Analyst Decision Benchmark — LIVE · 98/98 gates green
 
 **Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)

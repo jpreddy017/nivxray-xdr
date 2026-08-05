@@ -116,10 +116,18 @@ def compare_cases(case_a: Dict[str, Any],
 # =====================================================================
 def _composite_similarity_score(fp_a: Dict[str, Any],
                                 fp_b: Dict[str, Any]) -> Dict[str, Any]:
+    """Weighted-Jaccard similarity + Similarity Explanation.
+
+    The Similarity Explanation applies the Confidence-Provenance "Why?"
+    pattern to Compare Cases: every contributor lists the dimension,
+    its Jaccard, its weight, and its exact score contribution — so
+    analysts can see why two cases scored what they scored.
+    """
     sv_a = fp_a.get("similarity_vector") or {}
     sv_b = fp_b.get("similarity_vector") or {}
 
     per_dim: Dict[str, Dict[str, Any]] = {}
+    contributors: List[Dict[str, Any]] = []
     weighted_sum = 0.0
     weight_total = 0.0
     for dim, weight in _SIMILARITY_WEIGHTS.items():
@@ -131,9 +139,29 @@ def _composite_similarity_score(fp_a: Dict[str, Any],
                         "weight": weight}
         weighted_sum += j * weight
         weight_total += weight
+        # Contribution normalised to a 0-100 scale
+        contributors.append({
+            "dimension":    dim,
+            "jaccard":      j,
+            "weight":       weight,
+            "contribution": round((j * weight / weight_total) * 100.0, 2)
+                            if weight_total else 0.0,
+            "shared":       sorted(a & b),
+            "a_only_count": len(a - b),
+            "b_only_count": len(b - a),
+        })
 
     overall = round(weighted_sum / weight_total, 4) if weight_total else 0.0
-    return {"overall": overall, "per_dimension": per_dim}
+
+    # Order contributors highest-contribution first for the "Why?" view.
+    contributors.sort(key=lambda c: (-c["contribution"], c["dimension"]))
+    return {"overall": overall, "per_dimension": per_dim,
+            "explanation": {
+                "total_weight":  weight_total,
+                "contributors":  contributors,
+                "shared_score":  round(weighted_sum, 4),
+                "max_possible":  round(weight_total, 4),
+            }}
 
 
 # =====================================================================

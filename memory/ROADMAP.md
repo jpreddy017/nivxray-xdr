@@ -164,26 +164,23 @@ differentiator shifts to **analyst UX**. Every item below is a pure
 frontend / read-only backend consumer — the frozen v1.1 core is
 NOT touched.
 
-3.1 **Compare Cases UI** ⭐⭐⭐⭐⭐ (highest priority)
-    Split-pane analyst workspace consuming `POST
-    /api/correlations/compare`. Overall similarity gauge · per-
-    dimension Jaccard bars · shared / unique-left / unique-right
-    partitioning across Threat Summary, Attack Chain, Timeline,
-    MITRE, IOCs, Recipe, Transformation Trace, Decision Trace,
-    Interpreter Chain, Fingerprint, and the newly-lit Confidence
-    Provenance dimension.
+3.1 **Compare Cases UI** ⭐⭐⭐⭐⭐ — ✅ CLOSED (2026-02-16).
+    `/compare/:caseA/:caseB` split-pane analyst workspace.
+    Similarity gauge · per-dimension Jaccard bars ·
+    Similarity Explanation · dual case columns · Attack Fingerprint
+    side-by-side with component-digest match chips.
 
-3.2 **Confidence Provenance Visualization**
-    Shows the ledger as an analyst-readable "Why?" chain. Rule fires
-    with their contribution weights sum visibly to the derived
-    score, with click-through drilling into each evidence ref.
+3.2 **Confidence Provenance Visualization** — ✅ CLOSED (2026-02-16).
+    Embedded inside each case column as a "Why? chain": every rule
+    fire is a stackable contribution row visibly summing to the
+    derived score. Owner-designed "Why?" pattern.
 
-3.3 **Regression Dashboard**
-    Trend chart of every gate + coverage metric across releases:
-    decode coverage %, fingerprint stability %, MITRE accuracy %,
-    false-positive rate, NVKC sample count, average pipeline
-    latency. Turns the "98/98 gates green" claim into a
-    time-series-visible engineering health dashboard.
+3.3 **Regression Dashboard** — NEXT UP ⭐
+    Trend chart of every gate + coverage metric across releases
+    (decode coverage · fingerprint stability · MITRE accuracy ·
+    FP rate · NVKC sample count · pipeline latency). Turns
+    "98/98 gates green" into a time-series engineering health
+    dashboard.
 
 **Phase B · New Artifact Types** (broaden coverage under §7)
 

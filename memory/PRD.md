@@ -27,6 +27,28 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🟢 2026-02-16 · Phase A.5 · Compare Cases UI + Confidence Provenance Visualization + Similarity Explanation (owner-approved · shipped)
+
+Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
+
+Split-pane analyst workspace at `/compare/:caseA/:caseB`:
+- Overall similarity gauge + fingerprint match chip
+- Similarity Explanation (the "Why 46%?" chain — every contributor
+  sums visibly to the score)
+- Per-Dimension Diff matrix across all 14 dimensions with Jaccard
+  bars and shared / A-only / B-only counts
+- Two case columns each with verdict card + Confidence Provenance
+  panel showing rule fires that sum visibly to the derived score
+- Attack Fingerprint hashes side-by-side + component-digest match
+  chips
+
+Backend adds one small deterministic enrichment:
+`similarity_score.explanation.contributors[]` on the compare output.
+
+No frozen-core touches. 98/98 backend + validation gates green.
+
+
+
 ### 🎯 2026-02-16 · Phase A.5 · Analyst Experience (roadmap addition)
 
 Owner-locked new tier bridging Phase A (Investigation Intelligence)
