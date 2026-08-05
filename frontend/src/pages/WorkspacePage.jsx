@@ -1041,8 +1041,14 @@ export default function WorkspacePage() {
   const autoDecode = async ({ smart = false, disable_boost = false } = {}) => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
     // Multi-command chain? Route to /decode/chain (both smart and AI paths).
+    // BUT — the chain endpoint caps at 20 parts and does not handle
+    // vendor-report prose.  Skip the chain path for those.
     const parts = splitCommandLines(input);
-    if (parts && parts.length > 1) {
+    const looksLikeProse =
+      (input || "").length > 400 &&
+      /(?:^|\n)(?:the\s|talos\s|initial access|discovery|lateral movement|executive summary|engagement\s\d|mandiant|crowdstrike|microsoft defender|securex|falcon overwatch|customer\s|outcome|main research question|defensive)/i
+        .test(input || "");
+    if (parts && parts.length > 1 && parts.length <= 20 && !looksLikeProse) {
       await runChainAnalysis(parts);
       return;
     }
