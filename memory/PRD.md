@@ -27,6 +27,20 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🎯 2026-02-16 · NVKC · Analyst Decision Benchmark (roadmap addition)
+
+Owner-locked extension of NVKC's per-sample `expected:` block —
+turns NVKC from a decoder regression suite into a full analyst-
+quality validation framework. Adds per-sample pinning for:
+Expected Threat Summary · Expected Risk Score · Expected Confidence
+Provenance · Expected Compare Cases similarity against reference
+cases · Expected Investigation Report · Expected Timeline · Expected
+Attack Chain (in addition to already-pinned MITRE + Attack
+Fingerprint). Rolls out incrementally alongside Confidence
+Provenance (Phase A · item 3) so pinned baselines stay meaningful.
+
+
+
 ### 🟢 2026-02-16 · Phase A · Compare Cases + Phase D · Stage 1 NVKC Scaffold (owner-approved · shipped)
 
 Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)

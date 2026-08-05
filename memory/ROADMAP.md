@@ -208,6 +208,22 @@ rule improvement, recipe expansion, and coverage measurement.
 16. **Benign Enterprise Corpus** — Intune · SCCM · Defender · Cisco ·
     VMware · Windows Update · Exchange · Azure · Office automation ·
     enterprise PowerShell. False-positive guard for every new rule.
+17. **Analyst Decision Benchmark** (owner-locked 2026-02-16) —
+    per-sample expected analyst outputs turning NVKC into a full
+    analyst-quality validation framework, not just a decoder
+    regression suite. Extends every descriptor's `expected:` block
+    with:
+    - Expected Threat Summary (verdict + risk_score band)
+    - Expected MITRE mapping (already pinned)
+    - Expected Risk Score (numeric, tolerance band)
+    - Expected Confidence Provenance (rule/weight ledger — Phase A #3)
+    - Expected Attack Fingerprint (already pinned)
+    - Expected Compare Cases similarity against reference cases
+    - Expected Investigation Report (structural digest)
+    - Expected Timeline (ordered event kinds + codes)
+    - Expected Attack Chain (parent→child edges)
+    Rolls out incrementally alongside Confidence Provenance so
+    baseline pins stay meaningful.
 17. **Regression Benchmarks** — CI-blocking baseline comparisons run
     on every PR (extends the Golden Corpus governance model to the
     full NVKC).
