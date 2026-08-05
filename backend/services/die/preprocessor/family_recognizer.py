@@ -46,7 +46,19 @@ _FAMILIES: List[Family] = [
            tactic="Impact", mitre=["T1490"],
            commonly_observed_in=["Ryuk","LockBit","Conti","BlackCat",
                                   "Chaos","Medusa","REvil"],
-           rx=re.compile(r"(?i)\bvssadmin(?:\.exe)?\s+delete\s+shadows")),
+           # Matches classic vssadmin AND the WMI variant that iterates
+           # Win32_ShadowCopy objects and calls Delete() on each.
+           # WMI variant is preferred by ransomware because it evades
+           # vssadmin-based EDR signatures.
+           rx=re.compile(
+               r"(?i)("
+               r"\bvssadmin(?:\.exe)?\s+delete\s+shadows"
+               r"|Win32_ShadowCopy\b(?:[^\n]{0,400}?)\.Delete\s*\("
+               r"|Get-WmiObject\s+Win32_ShadowCopy"
+               r"|Get-CimInstance\s+Win32_ShadowCopy"
+               r"|wmic(?:\.exe)?\s+shadowcopy\s+delete"
+               r")"
+           )),
 
     Family(id="ad-discovery", label="Active Directory Enumeration",
            tactic="Discovery", mitre=["T1087.002", "T1482"],
@@ -77,7 +89,36 @@ _FAMILIES: List[Family] = [
     Family(id="registry-modification", label="Registry Modification",
            tactic="Defense Evasion", mitre=["T1112"],
            commonly_observed_in=["nearly every intrusion set"],
-           rx=re.compile(r"(?i)\breg(?:\.exe)?\s+(?:add|delete)\b")),
+           # Matches classic `reg add|delete`, PowerShell
+           # `Set-ItemProperty` / `New-ItemProperty` /
+           # `Remove-ItemProperty` on a registry drive path, and the
+           # `.NET` `Registry.SetValue()` variant.
+           rx=re.compile(
+               r"(?i)("
+               r"\breg(?:\.exe)?\s+(?:add|delete)\b"
+               r"|(?:Set|New|Remove)-ItemProperty[^\n]{0,400}?HK(?:LM|CU|CR|U|CC)[:\\]"
+               r"|(?:Set|New|Remove)-Item(?:Property)?[^\n]{0,400}?-Path\s+[\"']?HK"
+               r"|\[Microsoft\.Win32\.Registry\][^\n]{0,200}?::(?:SetValue|DeleteValue)"
+               r")"
+           )),
+
+    Family(id="proxy-tamper", label="Windows Proxy / WinINet Tamper",
+           tactic="Defense Evasion", mitre=["T1112", "T1090"],
+           commonly_observed_in=["Manual operators","LockBit","BlackBasta",
+                                  "Chaos","Medusa"],
+           # Matches ProxyEnable / ProxyServer / AutoConfigURL registry
+           # writes AND the WinINet API refresh call (InternetSetOption
+           # with option 37/39) that ransomware uses to disable
+           # corporate proxy monitoring.
+           rx=re.compile(
+               r"(?i)("
+               r"ProxyEnable\b[^\n]{0,80}?-Value\s+0"
+               r"|ProxyServer\b[^\n]{0,80}?-Value\s+[\"']{2}"
+               r"|AutoConfigURL\b[^\n]{0,80}?-Value\s+[\"']{2}"
+               r"|InternetSetOption\s*\([^\n]{0,80}?3[79]"
+               r"|wininet\.dll[^\n]{0,120}?InternetSetOption"
+               r")"
+           )),
 
     Family(id="software-uninstall", label="WMIC Software Removal",
            tactic="Defense Evasion", mitre=["T1562.001"],

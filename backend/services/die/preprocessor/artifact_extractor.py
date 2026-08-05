@@ -147,6 +147,19 @@ _LOLBIN_HINT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Implicit PowerShell command — a line that starts with PowerShell /
+# cmd.exe switches but no executable prefix (attacker pastes often
+# strip the leading `powershell.exe`).  When these are present at
+# the head of a line we synthesise a `powershell` command so the
+# stage builder can classify it.
+_IMPLICIT_PS_HEAD_RE = re.compile(
+    r"^\s*(?:-(?:NoProfile|NonInteractive|ExecutionPolicy|WindowStyle|"
+    r"Command|EncodedCommand|File|nop|nol|w|WhatIf|Version|PSConsoleFile)"
+    r"\b)",
+    re.IGNORECASE,
+)
+_IMPLICIT_CMD_HEAD_RE = re.compile(r"^\s*/[cCsSkK]\s+", re.IGNORECASE)
+
 
 # ── Extraction helpers ────────────────────────────────────────────
 def _push(artifacts: List[Artifact], type_: str, subtype, raw: str,
@@ -226,7 +239,18 @@ def _extract_commands(artifacts: List[Artifact], ni: NormalizedInput, occupied: 
         # Any lolbin hit anywhere on the line?
         hits = list(_LOLBIN_HINT_RE.finditer(working))
         if not hits:
-            continue
+            # Implicit-executable fallback (2026-03-01) — a line that
+            # starts with PowerShell / cmd switches but omits the
+            # `powershell.exe` prefix is still a command.  Synthesise
+            # the executable so the family recognizer can classify it.
+            if _IMPLICIT_PS_HEAD_RE.match(working):
+                working = "powershell.exe " + working
+                hits = list(_LOLBIN_HINT_RE.finditer(working))
+            elif _IMPLICIT_CMD_HEAD_RE.match(working):
+                working = "cmd.exe " + working
+                hits = list(_LOLBIN_HINT_RE.finditer(working))
+            if not hits:
+                continue
 
         first = hits[0]
         # If the line has additional structure after the lolbin, treat

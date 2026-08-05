@@ -38,7 +38,110 @@ _LEADING_MD = re.compile(r"^[ \t]*(?:[>#]+[ \t]+|[-*+•][ \t]+|\d+[.)][ \t]+)")
 # keep content.  We *don't* touch backticks around obvious command
 # examples because the code text inside them is the payload we want.
 _INLINE_MD = re.compile(r"(?<!`)`(?!`)")     # single-char backticks
-_BOLD_ITALIC = re.compile(r"(\*\*|__|(?<!\*)\*(?!\*)|(?<!_)_(?!_))")
+# Markdown emphasis — ONLY strip paired markers.  Single `_` and `*`
+# characters are common in CLI / code (identifiers like `Win32_ShadowCopy`,
+# arithmetic like `x*y`) and must never be silently removed.
+_BOLD_ITALIC = re.compile(r"\*\*|__")
+
+
+# ── Multi-invocation splitter (2026-03-01) ────────────────────────
+#
+# When a single pasted line contains multiple back-to-back CLI
+# invocations (attacker `-NoProfile ... , -NoProfile ...` runs,
+# `cmd.exe /c ...; powershell ...` chains, etc.) we insert a newline
+# at each boundary so the line-oriented extractor produces one stage
+# per invocation.
+#
+# Boundary = one of `,`, `;`, `&&`, `||`, `& ` followed by whitespace
+# and a fresh invocation token (an executable OR a common CLI switch).
+# Matches inside balanced `"` or `'` quotes are skipped so we do not
+# split embedded strings.
+#
+_INVOCATION_HEADS = (
+    # PowerShell / CMD common leading switches
+    r"-NoProfile\b", r"-NonInteractive\b", r"-EncodedCommand\b",
+    r"-ExecutionPolicy\b", r"-WindowStyle\b", r"-Command\b",
+    r"-File\b", r"-ExecutionPolicy\b", r"-nop\b",
+    # Executable heads
+    r"powershell(?:\.exe)?\b", r"pwsh(?:\.exe)?\b",
+    r"cmd(?:\.exe)?\b", r"wmic(?:\.exe)?\b",
+    r"vssadmin(?:\.exe)?\b", r"wbadmin(?:\.exe)?\b",
+    r"bcdedit(?:\.exe)?\b", r"reg(?:\.exe)?\b",
+    r"net(?:\.exe)?\b", r"netsh(?:\.exe)?\b",
+    r"schtasks(?:\.exe)?\b", r"sc(?:\.exe)?\b",
+    r"certutil(?:\.exe)?\b", r"bitsadmin(?:\.exe)?\b",
+    r"rundll32(?:\.exe)?\b", r"regsvr32(?:\.exe)?\b",
+    r"mshta(?:\.exe)?\b", r"msiexec(?:\.exe)?\b",
+    r"whoami(?:\.exe)?\b", r"hostname(?:\.exe)?\b",
+    r"ipconfig(?:\.exe)?\b", r"systeminfo(?:\.exe)?\b",
+    r"nltest(?:\.exe)?\b", r"quser(?:\.exe)?\b",
+    r"tasklist(?:\.exe)?\b", r"taskkill(?:\.exe)?\b",
+    r"psexec(?:\.exe)?\b", r"paexec(?:\.exe)?\b",
+    # CMD /c launcher switch (must follow a separator to count)
+    r"/c\b", r"/s\b", r"/k\b",
+)
+_INVOCATION_HEAD_RE = re.compile(
+    r"(?i)(?:" + "|".join(_INVOCATION_HEADS) + r")"
+)
+# Match a separator (`,`, `;`, `&&`, `||`, or a lone `&`) followed by
+# whitespace before an invocation head.
+_BOUNDARY_RE = re.compile(
+    r"(?i)(?P<sep>[,;]|&&|\|\||&)\s+(?=(?:"
+    + "|".join(_INVOCATION_HEADS)
+    + r"))"
+)
+
+
+def _split_repeated_invocations(text: str) -> str:
+    """Insert newlines at attacker-style multi-invocation boundaries.
+
+    Never splits inside balanced `"..."` or `'...'` runs — those hold
+    quoted arguments the analyst pasted verbatim.
+    """
+    if not text or ("," not in text and ";" not in text and "&" not in text and "|" not in text):
+        return text
+    # Walk the string tracking quote state so we only consider
+    # boundaries that live OUTSIDE quoted spans.
+    out: List[str] = []
+    i = 0
+    n = len(text)
+    q: str | None = None       # current open quote character (' or ")
+    while i < n:
+        ch = text[i]
+        if q is None:
+            if ch in ('"', "'"):
+                q = ch
+                out.append(ch)
+                i += 1
+                continue
+            # Try to match a boundary starting at i
+            m = _BOUNDARY_RE.match(text, i)
+            if m:
+                out.append(m.group("sep"))
+                out.append("\n")
+                i = m.end()
+                continue
+            out.append(ch)
+            i += 1
+        else:
+            # Inside a quoted span — copy verbatim, honouring the
+            # PowerShell-style escaped-quote (``""`` or ``''``) and
+            # C-style ``\"`` / ``\'``.
+            if ch == "\\" and i + 1 < n and text[i + 1] in ('"', "'"):
+                out.append(text[i])
+                out.append(text[i + 1])
+                i += 2
+                continue
+            if ch == q and i + 1 < n and text[i + 1] == q:
+                out.append(text[i])
+                out.append(text[i + 1])
+                i += 2
+                continue
+            out.append(ch)
+            if ch == q:
+                q = None
+            i += 1
+    return "".join(out)
 
 
 @dataclass
@@ -125,6 +228,22 @@ def normalize(raw: str) -> NormalizedInput:
     text = text.replace("```", "")
     text = _INLINE_MD.sub("", text)
     text = _BOLD_ITALIC.sub("", text)
+
+    # 3b) Multi-invocation splitter (P0 · 2026-03-01)
+    #     Pasted attacker artifacts often arrive as ONE long line with
+    #     comma / semicolon separated re-invocations of the same host,
+    #     e.g. `-NoProfile ... -Command "..." , -NoProfile ... -Command "..."`
+    #     or `cmd.exe /c ... ; powershell ... ; wmic ...`.
+    #     The extractor is line-based, so a single line yields a single
+    #     stage.  We insert newlines between adjacent invocations so
+    #     the extractor sees them as separate commands.
+    #
+    #     Rule: split when a `,`, `;`, `&&`, `||`, or `&` is followed
+    #     by whitespace and a fresh invocation token (an executable
+    #     name or a PowerShell/CMD switch like `-NoProfile`, `-Command`,
+    #     `/c`, `/s`).  This keeps quoted content intact — we skip
+    #     matches inside balanced " or ' spans.
+    text = _split_repeated_invocations(text)
 
     # 4) Precompute line_starts.
     line_starts: List[int] = [0]

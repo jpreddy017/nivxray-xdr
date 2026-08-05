@@ -55,6 +55,7 @@ _OBJECTIVE_TEMPLATES: Dict[str, str] = {
     "uac-disable":                "Disable UAC / Defender to lower host defences.",
     "log-clearing":               "Clear or delete Windows event logs to erase forensic trails.",
     "initial-access-social":      "Obtain initial access via social engineering (Teams / Quick Assist / fake IT).",
+    "proxy-tamper":               "Disable / clear the Windows proxy configuration and refresh WinINet to bypass corporate monitoring.",
 }
 
 

@@ -140,6 +140,35 @@ development must be **enhancement-first, not replacement-first.**
 
 ---
 
+## R10 · IUE v2.0 · The Investigation-First Contract (2026-03-01)
+
+Frozen alongside `/app/memory/IUE_ARCHITECTURE_V2.md`.
+
+- **Golden rule**: the *Investigation Results* pane (renamed from
+  "OUTPUT") must never duplicate the input.  It always presents the
+  deterministic understanding — INPUT UNDERSTANDING · COMMAND
+  ANALYSIS · IOC ANALYSIS · LOLBAS · MITRE · SUMMARY — even when no
+  decoding is required.
+- **No engine consumes raw user input directly.**  Every engine
+  (Attack Story · Trajectory · Threat Analysis · Report · MITRE ·
+  LOLBAS · OSINT · IDA · IVE · Narrative · Confidence …) MUST
+  consume the Canonical Investigation Object emitted by the IUE.
+- **The decoder is a capability, not the driver.**  It runs only
+  when the IUE Decode Decision layer marks the input as encoded.
+  Plain PowerShell / CMD / Bash / Python / JavaScript / Vendor
+  Reports / PDFs / DOCX / Screenshots / IOC lists / Sigma / YARA
+  bypass the decoder entirely and route straight to the
+  Investigation Pipeline.
+- **Universal input entry.**  Text pastes, uploaded documents,
+  external URLs — all enter through the same IUE and are turned
+  into the same Canonical Investigation Object.
+- **Never rename back to "Output".**  The pane is *Investigation
+  Results*.  "Output" belongs to CyberChef.
+- **Every decision is analyst-visible and deterministic.**  Same
+  paste → same classification → same plan → same results.
+
+---
+
 ## Release Gate — checked before every deployment
 
 Functional

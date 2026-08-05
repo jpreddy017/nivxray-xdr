@@ -241,6 +241,7 @@ export default function OutputView({
   output,
   livePreview,      // { output, ranSteps, unsupported, needsBackend, error, latencyMs }
   actions,          // React node — buttons rendered in the card header
+  investigationMode = false,  // IUE v2.0 · true when the pane holds Investigation Results
 }) {
   const [view, setView] = useState("text");  // text | hex | base64
   const [showDiff, setShowDiff] = useState(false);
@@ -316,16 +317,38 @@ export default function OutputView({
     <div className="nvx-card" data-testid="output-card">
       {/* Header — title + preview status + view toggles + actions */}
       <div className="nvx-card-head" style={{ flexWrap: "wrap", gap: 8 }}>
-        <div className="nvx-card-title">
+        <div className="nvx-card-title" data-testid="output-card-title">
           <span className="dot" />
-          OUTPUT
+          {investigationMode ? "INVESTIGATION RESULTS" : "OUTPUT"}
         </div>
 
-        {/* Preview status pill */}
-        {livePreview && <LivePreviewPill lp={livePreview} />}
+        {/* IUE v2.0 · Investigation-mode pill — replaces the misleading
+            HYBRID / JS / BE pills when the pane is showing deterministic
+            findings instead of decoded bytes. */}
+        {investigationMode && (
+          <span
+            data-testid="investigation-mode-pill"
+            className="mono"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              fontSize: 10, letterSpacing: "0.14em",
+              padding: "2px 8px",
+              border: "1px solid var(--accent)",
+              color: "var(--accent)",
+              background: "var(--accent, #10b981)18",
+            }}
+            title="The IUE classified this input as plain (no decoding required). The pane below shows deterministic investigation findings — not a decoded copy of the input."
+          >
+            <CheckCircle2 size={10} /> IUE · NO DECODE REQUIRED · INVESTIGATION READY
+          </span>
+        )}
 
-        {/* Size + delta */}
-        <SizeDeltaPill diff={diff} />
+        {/* Preview status pill — hidden in investigation mode */}
+        {!investigationMode && livePreview && <LivePreviewPill lp={livePreview} />}
+
+        {/* Size + delta — hidden in investigation mode (comparing input
+            bytes to a findings-text pane is meaningless) */}
+        {!investigationMode && <SizeDeltaPill diff={diff} />}
 
         {/* View toggles — unified NavTabs (DetectFlow). DIFF is
             state-driven and only enabled when TEXT view is active. */}

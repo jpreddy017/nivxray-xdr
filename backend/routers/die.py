@@ -75,6 +75,27 @@ def die_narrate(body: NarrateBody):
     return {"narrative": _gen(pre.to_dict())}
 
 
+class InvestigationResultsBody(BaseModel):
+    input: str = Field(..., description="Raw analyst paste to investigate.")
+
+
+@router.post("/investigation-results")
+def die_investigation_results(body: InvestigationResultsBody):
+    """Return the deterministic Investigation Results view for a paste.
+
+    This is the SSOT for the Workspace "INVESTIGATION RESULTS" pane
+    (formerly "OUTPUT").  Whenever the IUE decides no decoding is
+    required — plain PowerShell / CMD / Bash / vendor report / IOC
+    list — the Workspace displays the ``output`` field of this
+    response instead of echoing the input.  The ``object`` field is
+    the Canonical Investigation Object (SSOT) downstream engines
+    consume in IUE v2.1.
+    """
+    from services.die.investigation_results import render as _render
+    return _render(body.input or "")
+
+
+
 @router.post("/powershell/ast")
 def die_powershell_ast(body: AnalyzeBody):
     """Force the PowerShell semantic AST parser."""

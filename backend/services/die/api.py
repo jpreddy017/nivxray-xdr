@@ -127,9 +127,36 @@ def analyze(src: str, language: Optional[str] = None) -> Dict[str, Any]:
         # produced more than one step.  A single-step "chain" is the
         # original flat input — pass through cleanly.
         if chain_env["step_count"] > 1:
-            return _chain_to_envelope(chain_env)
+            env = _chain_to_envelope(chain_env)
+            _attach_preprocessor(env, src)
+            return env
 
-    return _analyze_single(src, language=language)
+    env = _analyze_single(src, language=language)
+    _attach_preprocessor(env, src)
+    return env
+
+
+def _attach_preprocessor(env: Dict[str, Any], src: str) -> None:
+    """Additively attach a preprocessor bundle to any analyze envelope.
+
+    This is the single source of truth that guarantees the frontend
+    Trajectory Diagram + Inline Attack Story render for EVERY input
+    — plain commands, chains, or prose — as long as the preprocessor
+    can build at least one deterministic stage.
+    """
+    if "preprocessor" in env and env.get("preprocessor"):
+        return
+    try:
+        pre = preprocess_input(src or "")
+    except Exception:
+        return
+    if pre.stage_count() >= 1:
+        env["preprocessor"] = {
+            "artifacts":     [a.to_dict() for a in pre.artifacts],
+            "stages":        [s.to_dict() for s in pre.stages],
+            "process_edges": [e.to_dict() for e in pre.process_edges],
+            "stats":         dict(pre.stats),
+        }
 
 
 def _analyze_single(src: str, language: Optional[str] = None) -> Dict[str, Any]:

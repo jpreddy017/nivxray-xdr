@@ -199,6 +199,15 @@ export default function WorkspacePage() {
   // ideas, Analyst Summary, Threat Actor Context and Recommended
   // Actions.  Zero LLM, template-driven from preprocessor stages.
   const [analystNarrative, setAnalystNarrative] = useState(() => _persisted.analystNarrative || null);
+  // ── IUE v2.0 · Investigation Results (2026-03-01) ─────────────
+  // When the IUE decides no decoding is required, the OUTPUT pane
+  // (renamed "INVESTIGATION RESULTS") is populated with the
+  // deterministic investigation-results text from
+  // /api/die/investigation-results.  The pane never echoes the
+  // input; it always presents structured findings.  See
+  // /app/memory/IUE_ARCHITECTURE_V2.md for the frozen contract.
+  const [investigationMode, setInvestigationMode] = useState(() => !!_persisted.investigationMode);
+  const [investigationObject, setInvestigationObject] = useState(() => _persisted.investigationObject || null);
   const [multiChainNotice, setMultiChainNotice] = useState(null);   // { stages, verdict, family }
   // Feb-2026 · once a case has been named+saved, subsequent SAVE clicks
   // silently upsert under the same name (no prompt). Reset when the input
@@ -567,6 +576,8 @@ export default function WorkspacePage() {
         understanding,
         inlineStoryPreproc,
         analystNarrative,
+        investigationMode,
+        investigationObject,
         ts: Date.now(),
       };
       const s = JSON.stringify(snapshot);
@@ -574,7 +585,7 @@ export default function WorkspacePage() {
         localStorage.setItem("nvx.workspace.persist", s);
       }
     } catch { /* quota exceeded → ignore */ }
-  }, [input, output, understanding, inlineStoryPreproc, analystNarrative]);
+  }, [input, output, understanding, inlineStoryPreproc, analystNarrative, investigationMode, investigationObject]);
 
 
   useEffect(() => {
@@ -585,6 +596,14 @@ export default function WorkspacePage() {
     if (skipLivePreviewRef.current) {
       // Consume the one-shot skip flag — next input/steps edit re-enables preview.
       skipLivePreviewRef.current = false;
+      return;
+    }
+    // IUE v2.0 · When the pane is in "INVESTIGATION RESULTS" mode
+    // (no decoding required), NEVER let the client-side recipe
+    // preview stomp the deterministic investigation text.  The pane
+    // must never echo the input.
+    if (investigationMode) {
+      setLivePreview(null);
       return;
     }
     const t = setTimeout(() => {
@@ -605,7 +624,7 @@ export default function WorkspacePage() {
       }
     }, 30);
     return () => clearTimeout(t);
-  }, [input, steps]);
+  }, [input, steps, investigationMode]);
 
   // ─── Universal CLEAR — wipe input + output + recipe + all analysis state ──
   // (Previously "Clear" only touched input; now it resets every panel.)
@@ -661,6 +680,9 @@ export default function WorkspacePage() {
     setUnderstandingError(null);
     setInlineStoryPreproc(null);
     setAnalystNarrative(null);
+    // ▲ IUE v2.0 · Investigation Results reset (2026-03-01)
+    setInvestigationMode(false);
+    setInvestigationObject(null);
     try {
       localStorage.removeItem("nvx.pendingInput");
       localStorage.removeItem("nvx.workspace.persist");
@@ -916,6 +938,42 @@ export default function WorkspacePage() {
   // Fires a live trace so the analyst sees exactly what happened.
   const nivxrayDecode = async () => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
+    // ── IUE v2.0 · Investigation-first (2026-03-01) ─────────────
+    // DECODE is a capability, not a driver.  Ask the IUE whether
+    // decoding is required before touching the decoder pipeline.
+    // For plain PowerShell / CMD / Bash / vendor report / IOC
+    // list, we skip the decoder entirely and render deterministic
+    // Investigation Results instead of echoing the input.
+    setInvestigationMode(false);
+    setInvestigationObject(null);
+    try {
+      const und = await api.post("/die/understand", { input, execute: false });
+      const u = und?.data?.understanding;
+      if (u) setUnderstanding(u);
+      if (u && u.decode_required === false) {
+        setStatus("INVESTIGATION READY · NO DECODE REQUIRED · RENDERING FINDINGS…");
+        // Populate Inline Story + Narrative in parallel so the
+        // Trajectory + Attack Story panels remain in sync with the
+        // Investigation Results text.
+        api.post("/die/analyze", { input })
+          .then((r) => {
+            const pre = r?.data?.result?.preprocessor
+                     || r?.data?.result?.chain?.preprocessor
+                     || null;
+            if (pre) setInlineStoryPreproc(pre);
+          })
+          .catch(() => { /* silently absent */ });
+        api.post("/die/narrate", { input })
+          .then((r) => setAnalystNarrative(r?.data?.narrative || null))
+          .catch(() => { /* silently absent */ });
+        const ok = await runInvestigationResults(input);
+        setStatus(ok
+          ? "INVESTIGATION READY · DETERMINISTIC RESULTS RENDERED"
+          : "INVESTIGATION READY · (fallback view)");
+        return;
+      }
+    } catch { /* fall through — classic decode path handles errors */ }
+
     // Multi-command chain? Route to /decode/chain so all stages are analysed.
     // BUT — the chain endpoint caps at 20 parts and does not handle
     // vendor-report prose.  Skip the chain path for those.
@@ -1348,6 +1406,27 @@ export default function WorkspacePage() {
     streamStopRef.current = null;
   };
 
+  // ── IUE v2.0 · Investigation-first orchestrator (2026-03-01) ─────
+  // Fetch the deterministic Investigation Results view whenever the
+  // pane needs new intel.  This is called both when the IUE decides
+  // no decoding is required (skip the decoder entirely) and after
+  // a decode has landed (so the pane still shows structured findings
+  // instead of raw bytes for plain content).
+  const runInvestigationResults = async (rawInput) => {
+    try {
+      const r = await api.post("/die/investigation-results", { input: rawInput });
+      const text = r?.data?.output || "";
+      const obj  = r?.data?.object || null;
+      if (text) {
+        setOutput(text);
+        setInvestigationMode(true);
+        setInvestigationObject(obj);
+        return true;
+      }
+    } catch { /* fall through — non-blocking */ }
+    return false;
+  };
+
   const autoInvestigate = async () => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
     // ── P0 · IUE + Inline Attack Story (2026-02-28) ───────────────
@@ -1358,15 +1437,27 @@ export default function WorkspacePage() {
     setUnderstandingError(null);
     setUnderstandingLoading(true);
     setInlineStoryPreproc(null);
-    api.post("/die/understand", { input, execute: true })
-      .then((r) => {
-        setUnderstanding(r?.data?.understanding || null);
-        setUnderstandingLoading(false);
-      })
-      .catch((e) => {
-        setUnderstandingError(e?.response?.data?.detail || e?.message || String(e));
-        setUnderstandingLoading(false);
-      });
+    // Reset investigation mode — will be re-enabled by the IUE
+    // classifier below if decoding isn't required.
+    setInvestigationMode(false);
+    setInvestigationObject(null);
+
+    // ── IUE first — classify the input before touching decoders ──
+    // Per WORKSPACE_ARCHITECTURE_RULES.md · R10: the decoder is a
+    // capability, not the driver.  It runs only when the IUE says so.
+    let understandingResp = null;
+    try {
+      understandingResp = await api.post("/die/understand", { input, execute: true });
+      setUnderstanding(understandingResp?.data?.understanding || null);
+      setUnderstandingLoading(false);
+    } catch (e) {
+      setUnderstandingError(e?.response?.data?.detail || e?.message || String(e));
+      setUnderstandingLoading(false);
+    }
+    const decodeRequired = !!(understandingResp?.data?.understanding?.decode_required);
+
+    // Kick off analyze + narrate in parallel — always needed for
+    // Inline Story, Trajectory, Analyst Narrative panels.
     api.post("/die/analyze", { input })
       .then((r) => {
         const pre = r?.data?.result?.preprocessor
@@ -1380,6 +1471,23 @@ export default function WorkspacePage() {
         setAnalystNarrative(r?.data?.narrative || null);
       })
       .catch(() => { /* silently absent */ });
+
+    // ── If no decoding is required, hand off to the Investigation
+    // Results renderer.  The pane displays deterministic findings —
+    // never an echo of the input.
+    if (!decodeRequired) {
+      setStatus("INVESTIGATION READY · NO DECODE REQUIRED · RENDERING FINDINGS…");
+      const ok = await runInvestigationResults(input);
+      if (ok) {
+        setStatus("INVESTIGATION READY · DETERMINISTIC RESULTS RENDERED");
+      } else {
+        setStatus("INVESTIGATION READY · (fallback view)");
+      }
+      return;
+    }
+
+    // ── Decoding required — fall through to the classic chain /
+    // decode-smart pipeline (unchanged behaviour).
     // Multi-command chain? Route to /decode/chain so every stage's IOCs /
     // MITRE / LOLBAS reach the top-level Attack Graph & Kill Chain.
     //
@@ -2825,6 +2933,7 @@ export default function WorkspacePage() {
             input={input}
             output={output}
             livePreview={livePreview}
+            investigationMode={investigationMode}
             actions={<>
               <button className="nvx-btn sm" onClick={() => analyze({ describe: true, aiVerdict: true })} disabled={analyzing || !output} data-testid="btn-ai-describe">
                 <Sparkles size={11} /> AI DESCRIBE
