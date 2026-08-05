@@ -176,11 +176,44 @@ NOT touched.
     derived score. Owner-designed "Why?" pattern.
 
 3.3 **Regression Dashboard** — NEXT UP ⭐
-    Trend chart of every gate + coverage metric across releases
-    (decode coverage · fingerprint stability · MITRE accuracy ·
-    FP rate · NVKC sample count · pipeline latency). Turns
-    "98/98 gates green" into a time-series engineering health
-    dashboard.
+    Trend chart of every gate + coverage metric across releases.
+    Owner-locked metric families (2026-02-16):
+    • Golden Corpus pass rate
+    • NVKC pass rate + sample-count growth
+    • Decode coverage %
+    • Analyzer coverage %
+    • MITRE precision / recall
+    • False-positive / false-negative trend
+    • Average investigation time
+    • Average decode time
+    • Fingerprint stability %
+    • Rule coverage %
+    • Evidence coverage %
+    • Build health
+    • **Explainability Coverage** (new metric family):
+        – % verdicts with complete provenance
+        – % MITRE mappings backed by evidence
+        – % decoded stages with transformation traces
+        – % child artifacts successfully analyzed
+        – % investigation steps replayable
+        – % findings linked to supporting evidence
+    Turns "N/N gates green" into a time-series engineering + analyst
+    health center.
+
+3.4 **Investigation Replay** (owner-locked 2026-02-16 · new milestone)
+    Step-through analyst view of the complete deterministic
+    pipeline: Input → Artifact Detection → Extraction → Decode →
+    Recovered Artifact → Analyzer → MITRE → Timeline → Threat
+    Summary → Fingerprint → Verdict. Every step replayable, no new
+    data needed (Transformation Trace + Decision Trace + Timeline +
+    Provenance + Fingerprint already exist). Primary value: debug ·
+    analyst training · customer demos · audits · verdict
+    explanation.
+
+3.5 **Evidence Drill-down** — deep-link every rule fire in Compare
+    Cases + Confidence Provenance panels to a full evidence chain
+    view (Rule → Evidence → Artifact → Analyzer → Recovered Child →
+    MITRE → SHA256 → Timeline).
 
 **Phase B · New Artifact Types** (broaden coverage under §7)
 
@@ -204,6 +237,28 @@ NOT touched.
 (owner-locked 2026-02-16 · engineering infrastructure, not a feature)
 · **Stage 1 CLOSED (2026-02-16)** — schema + harness + 10 seed
 samples live under `backend/nvkc/`. Growth continues in Stages 2-5.
+
+**Stage 2 category-balanced allocation (owner-locked 2026-02-16 ·
+target 500 curated samples · quality over quantity):**
+
+| Category            | Target |
+|---------------------|--------|
+| PowerShell          | 100    |
+| CMD                 | 75     |
+| LOLBins             | 100    |
+| Office              | 75     |
+| PDF                 | 75     |
+| PE                  | 100    |
+| ELF                 | 75     |
+| Mach-O              | 50     |
+| JavaScript          | 75     |
+| HTA                 | 50     |
+| Email               | 100    |
+| Archives            | 100    |
+| Benign Enterprise   | 200    |
+| Images / Diagrams   | 100    |
+
+Broad + balanced coverage matters more than raw sample count.
 
 Permanent parallel workstream — same governance tier as the Golden
 Corpus but broader in scope. Not AI training. Deterministic

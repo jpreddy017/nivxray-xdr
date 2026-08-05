@@ -27,6 +27,45 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🎯 2026-02-16 · Roadmap refinement · Investigation Replay + Explainability Coverage + long-term extensions
+
+Owner-locked additions:
+
+**Investigation Replay** (new Phase A.5 · item 3.4) — step-through
+analyst view of the entire deterministic pipeline (Input →
+Detection → Extraction → Decode → Recovered Artifact → Analyzer →
+MITRE → Timeline → Threat Summary → Fingerprint → Verdict). Every
+step replayable using data that already exists (Transformation
+Trace · Decision Trace · Timeline · Provenance · Fingerprint).
+Primary value: debug · analyst training · customer demos · audits.
+
+**Regression Dashboard "Explainability Coverage" metric family**
+(new addition to Phase A.5 · item 3.3) — % verdicts with complete
+provenance · % MITRE mappings backed by evidence · % decoded stages
+with transformation traces · % child artifacts successfully analyzed
+· % investigation steps replayable · % findings linked to supporting
+evidence.
+
+**NVKC Stage 2 category-balanced allocation** — target 500
+samples divided across 14 categories (PowerShell 100 · CMD 75 ·
+LOLBins 100 · Office 75 · PDF 75 · PE 100 · ELF 75 · Mach-O 50 ·
+JavaScript 75 · HTA 50 · Email 100 · Archives 100 · Benign
+Enterprise 200 · Images/Diagrams 100). Breadth > raw count.
+
+**Long-term strategic additions (owner-approved, no architectural
+change required):**
+1. **Graph Investigation** — interactive relationship graph
+   between processes, files, registry, network, users, child
+   artifacts.
+2. **Campaign Explorer** — built on Attack Fingerprint to cluster
+   investigations by similarity / malware family / infrastructure
+   / behavior.
+3. **Playbook Generator** — deterministically produce investigation
+   reports · IR playbooks · hunting queries · analyst recommendations
+   from CEM + Fingerprint + Provenance evidence.
+
+
+
 ### 🟢 2026-02-16 · Phase A.5 · Compare Cases UI + Confidence Provenance Visualization + Similarity Explanation (owner-approved · shipped)
 
 Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
