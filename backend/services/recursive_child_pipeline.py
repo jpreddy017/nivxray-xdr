@@ -112,7 +112,16 @@ def _process_one_child(decl: Dict[str, Any],
     rte_summary, canonical_output, canonical_bytes = _run_rte(snippet, child_type)
 
     # ── Step 2 · Route the canonical output through the Artifact Router
-    routed_child = _route_canonical(canonical_bytes)
+    # Prefer the RTE's own recovered binary artifact (§4) — it already
+    # holds an authoritative routed_analysis. Fall back to re-dispatch
+    # on the canonical bytes for text-only convergences.
+    routed_child: Optional[Dict[str, Any]] = None
+    rte_recovered = (rte_summary.get("binary_artifact") or {}
+                     ).get("routed_analysis") if rte_summary else None
+    if isinstance(rte_recovered, dict) and rte_recovered.get("artifact_type"):
+        routed_child = rte_recovered
+    else:
+        routed_child = _route_canonical(canonical_bytes)
 
     # ── Step 3 · Recurse if the router surfaced another artifact ──────
     nested_children: List[Dict[str, Any]] = []
@@ -156,6 +165,18 @@ def _run_rte(snippet: str, child_type: str) -> tuple[Dict[str, Any], str, bytes]
             "final_interpreter":   getattr(result, "final_interpreter", None),
             "final_techniques":    getattr(result, "final_techniques", []),
         }
+        # ▲ P2.3b · prefer the RTE's own hand-off of a recovered binary
+        # artifact. When the RTE reaches `binary_artifact_recovered`,
+        # `plan.binary_artifact.routed_analysis` IS the canonical
+        # analyzer output and MUST be surfaced to the recursive
+        # pipeline — otherwise `_route_canonical` would re-dispatch on
+        # the (wrapper-prefixed) canonical text and miss the payload.
+        # This is the same architectural coupling used by the Golden
+        # Corpus harness.
+        rte_binary = getattr(result, "binary_artifact", None)
+        summary["binary_artifact"] = {
+            "routed_analysis": getattr(rte_binary, "routed_analysis", None)
+        } if rte_binary else None
         # For binary children, the canonical output is bytes-in-string;
         # try latin-1 round-trip so `_route_canonical` can inspect magic.
         try:

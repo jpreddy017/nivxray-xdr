@@ -2,6 +2,69 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-16 · P2.3b · `.docm → PowerShell → PE` Flagship — LIVE · 37/37 architectural gates green
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
+
+**Ships (three-level deterministic investigation):**
+- **Office analyzer static script extraction.** Added
+  `extracted_scripts` field to `services/artifact_intelligence/
+  analyzers/office.py`. Scans `word/vbaProject.bin` (both latin-1 and
+  UTF-16LE storage) for `powershell`/`cmd`/`wscript.shell` invocations
+  and returns them as structured `{language, command, source_path,
+  byte_offset, storage}` records. Deterministic ordering.
+  New finding code: `macro_script_invocation`.
+- **Recursive Child Artifact Pipeline consumes extracted scripts.**
+  `services/correlation_engine.declare_inline_children_from_routed_analysis`
+  now reads `analysis.macros.extracted_scripts` and emits declared
+  children of type `powershell`/`cmd`/`wsh` — closing the coupling
+  gap where `macros` was a dict but the router expected a list.
+- **RCP prefers the RTE's own recovered artifact** (`plan.binary_
+  artifact.routed_analysis`) over re-dispatching on canonical text.
+  Same architectural coupling used by the Golden Corpus harness (§4).
+- **Self-sufficient synthetic `.docm` fixture.** New
+  `tests/golden_corpus/samples/_build_docm_ps_to_pe.py` produces a
+  deterministic, byte-stable `.docm` whose VBA macro carries the exact
+  PowerShell wrapper from `workspace_ps_to_pe_chain.txt` (single
+  source of truth for the payload). Regenerable via
+  `python samples/_build_docm_ps_to_pe.py`; byte-stable across runs.
+- **Second Golden Corpus flagship** — new entry
+  `docm_ps_to_pe_chain` (file_upload) with baseline
+  `{artifact_types: [office, pe], convergence: true, terminal:
+  binary_artifact_recovered}`.
+- **Three-Origin Equivalence guard**
+  (`tests/test_p23b_docm_to_pe_flagship.py`): asserts the recovered PE
+  sha256 is byte-identical across `.docm` upload, workspace paste, and
+  direct PE upload — divergence = P0 architectural regression.
+
+**End-to-end pipeline proven in one investigation:**
+
+    File Upload (.docm)
+        → Artifact Router      (OOXML magic)
+        → Office Analyzer      (extracts embedded PowerShell)
+        → Recursive Child Pipeline
+        → RTE / IEDDE          (utf-16 → base64 → gzip → PE)
+        → Artifact Router      (recognises MZ)
+        → PE Analyzer          (findings + hashes)
+        → CEM                  (normalises the whole chain)
+        → Investigation Engine (SSOT)
+
+**Regression guard summary:** 37/37 architectural gates green
+(Golden Corpus 4/4 · Dual-Entry Equivalence 11/11 · CEM+RCP 11/11 ·
+P2.3c + Multi-Origin 5/5 · P2.3b .docm flagship 6/6). No frozen-
+component modifications — pure extension work under §7.
+
+**Files changed:**
+- `backend/services/artifact_intelligence/analyzers/office.py`
+- `backend/services/correlation_engine.py`
+- `backend/services/recursive_child_pipeline.py`
+- `backend/tests/golden_corpus/manifest.yaml`
+- `backend/tests/golden_corpus/samples/_build_docm_ps_to_pe.py` (new)
+- `backend/tests/golden_corpus/samples/docm_ps_to_pe_chain.docm` (new fixture)
+- `backend/tests/golden_corpus/baselines/docm_ps_to_pe_chain.json` (new baseline)
+- `backend/tests/test_p23b_docm_to_pe_flagship.py` (new gate)
+
+
 ## 2026-02-16 · P2.3c · RTE Recovery Improvement + Multi-Origin Equivalence — LIVE · 30/30 architectural gates green
 
 **Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)

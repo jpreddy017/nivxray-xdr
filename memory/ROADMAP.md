@@ -107,12 +107,18 @@ workspace paste and a file upload of the same PE produce identical
 sha256 + identical PE-specific CEM invariants. 30/30 architectural
 gates green.
 
-**P2.3b · Full `.docm → PS → PE` recursive investigation** — after P2.3c
-- Improve the Office analyzer's macro extraction so a self-sufficient
-  synthetic `.docm` with realistic `vbaProject.bin` content triggers the
-  Recursive Child Artifact Pipeline.
-- Enters the Golden Corpus as the 3-level flagship (Office → PowerShell → PE).
-- Self-sufficient — no external samples required.
+**P2.3b · `.docm → PS → PE` recursive investigation — ✅ CLOSED (2026-02-16)**
+- Office analyzer's macro extraction now surfaces embedded
+  PowerShell/cmd/WScript invocations as structured
+  `extracted_scripts` records.
+- Recursive Child Artifact Pipeline consumes them → RTE recovers
+  PE (via P2.3c) → PE Analyzer.
+- Deterministic synthetic `.docm` fixture ships as second Golden
+  Corpus flagship; the fixture is byte-regeneratable from a
+  builder script that reads the exact same PS wrapper as the
+  workspace flagship (single source of truth).
+- Three-Origin Equivalence guard: `.docm` · workspace · file
+  upload all produce the same PE sha256.
 
 **Sample source priority (self-sufficient by design):**
 1. Internal Golden Corpus samples

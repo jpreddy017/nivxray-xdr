@@ -717,12 +717,35 @@ def declare_inline_children_from_routed_analysis(routed_analysis: Dict[str, Any]
 
     if atype == "office" and isinstance(analysis, dict):
         # Office analyzer surfaces embedded macros / DDE / OLE / URLs
-        macros = analysis.get("macros") or []
+        macros = analysis.get("macros") or {}
+        # ▲ P2.3b · consume the Office analyzer's structured script
+        # extractions. Each entry becomes a declared child artifact
+        # for the Recursive Child Artifact Pipeline. Language →
+        # child_type mapping stays deterministic.
+        extracted = (macros.get("extracted_scripts")
+                     if isinstance(macros, dict) else None) or []
+        for s in extracted[:8]:
+            if not isinstance(s, dict):
+                continue
+            lang = s.get("language") or "script"
+            cmd = s.get("command") or ""
+            if not cmd:
+                continue
+            children.append({
+                "type":    "powershell" if lang == "powershell" else lang,
+                "label":   f"VBA→{lang}",
+                "snippet": cmd,
+                "hash":    {"sha256":
+                            hashlib.sha256(cmd.encode("utf-8", "ignore")
+                                           ).hexdigest()},
+            })
+        # Backward-compatible path — if a caller ever returns
+        # `macros` as a plain list of strings, honour it too.
         if isinstance(macros, list) and macros:
             for m in macros[:5]:
                 children.append({
-                    "type": "powershell" if _looks_like_ps(m) else "vba_macro",
-                    "label": _short_label(m, "VBA / macro"),
+                    "type":    "powershell" if _looks_like_ps(m) else "vba_macro",
+                    "label":   _short_label(m, "VBA / macro"),
                     "snippet": _snippet(m),
                 })
         for k, kind in [("dde", "dde"), ("ole_objects", "ole"),

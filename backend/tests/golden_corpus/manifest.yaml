@@ -50,6 +50,23 @@ entries:
     expected_min_mitre: []             # captured in baseline for regression comparison
 
   # ─────────────────────────────────────────────────────────────────
+  # P2.3b · Second flagship — three-level deterministic investigation.
+  # `.docm` file upload whose VBA macro invokes the same
+  # `powershell.exe -EncodedCommand` wrapper as the workspace flagship.
+  # Exercises Office Analyzer → Recursive Child Artifact Pipeline →
+  # RTE (utf-16 → base64 → gzip) → PE Analyzer → CEM → Investigation.
+  # Self-sufficient — the .docm is regenerated deterministically from
+  # `samples/_build_docm_ps_to_pe.py`, which reads the exact same PS
+  # wrapper as the workspace flagship (single source of truth).
+  # ─────────────────────────────────────────────────────────────────
+  - slug: docm_ps_to_pe_chain
+    description: ".docm → VBA → PowerShell → UTF-16 → base64 → gzip → PE (three-level recursive investigation)"
+    source_kind: file_upload
+    sample: samples/docm_ps_to_pe_chain.docm
+    expected_artifact_types: [office]  # top-level; recursive children carry [pe]
+    expected_min_mitre: []             # captured in baseline for regression comparison
+
+  # ─────────────────────────────────────────────────────────────────
   # Real E2E chains — populated when analyst-safe samples become
   # available (P2.3 · nivxmachines.com or hand-curated). These are the
   # entries that make the corpus a true regression gate.

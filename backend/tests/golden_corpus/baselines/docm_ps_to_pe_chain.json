@@ -1,0 +1,41 @@
+{
+  "fingerprint": {
+    "artifact_types": [
+      "office",
+      "pe"
+    ],
+    "canonical_hashes": [
+      "9121f59f991d3fee86e2c3684f5bc8fae04ba2bea0e959a9deb64f887165bbab"
+    ],
+    "cem_version": "1.0",
+    "convergence": {
+      "reached": true,
+      "terminal_state": "binary_artifact_recovered"
+    },
+    "event_kinds": [
+      "analyzer.finding",
+      "rte.convergence"
+    ],
+    "indicator_counts": {},
+    "mitre_ids": [],
+    "signature_shape": [
+      "artifact_type",
+      "c2",
+      "case_id",
+      "chain",
+      "domains",
+      "input_hash",
+      "interpreter",
+      "ips",
+      "md5",
+      "sha1",
+      "sha256",
+      "techniques",
+      "ts",
+      "urls",
+      "user_email",
+      "verdict"
+    ]
+  },
+  "fingerprint_hash": "a0d058ff9b84445190babb3d6f726cb2bc93c3786a23eacc5028970e29bd9534"
+}

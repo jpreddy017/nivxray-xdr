@@ -45,6 +45,27 @@ _MACRO_TRIGGERS = (
 
 _DDE_KEYWORDS = (b"DDEAUTO", b"DDE ")
 
+# ▲ Script-invocation regexes for VBA macro static extraction.
+# Deterministic — Office Analyzer *declares* child scripts; the RTE
+# decodes them (Rule: analyzers never decode). Patterns are
+# intentionally broad to catch common loader wrappers:
+#     Shell("powershell -enc <b64>")
+#     WScript.Shell.Run "cmd /c ..."
+# Matches are returned verbatim so the RTE handles all decoding.
+# Applied to (a) the raw blob and (b) a "null-stripped" copy so both
+# latin-1 and UTF-16LE string storage inside vbaProject.bin surface.
+_SCRIPT_RXS = (
+    (re.compile(
+        rb"(?:powershell(?:\.exe)?|pwsh(?:\.exe)?)\s+[^\r\n\x00]{6,4096}",
+        re.IGNORECASE), "powershell"),
+    (re.compile(
+        rb"(?:cmd(?:\.exe)?)\s+/[a-z]\s+[^\r\n\x00]{4,2048}",
+        re.IGNORECASE), "cmd"),
+    (re.compile(
+        rb"(?:wscript\.shell|shell\.application)[^\r\n\x00]{0,512}",
+        re.IGNORECASE), "wsh"),
+)
+
 _URL_RX = re.compile(rb"https?://[^\s<>\"'()\\]{4,300}", re.IGNORECASE)
 _TARGET_RX = re.compile(rb'Target="([^"]+)"', re.IGNORECASE)
 
@@ -125,9 +146,10 @@ def _build_report(data: bytes) -> Dict[str, Any]:
             "has_xlm":      bool(xlm["found"]),
             "has_dde":      bool(dde["found"]),
             "has_ole":      bool(ole["objects"]),
-            "external_url_count":      len(ext_urls),
-            "external_template_count": len(ext_tpl),
-            "embedded_file_count":     len(embedded),
+            "external_url_count":       len(ext_urls),
+            "external_template_count":  len(ext_tpl),
+            "embedded_file_count":      len(embedded),
+            "extracted_script_count":   len(macros.get("extracted_scripts") or []),
         },
         "metadata":            metadata,
         "macros":              macros,
@@ -173,6 +195,7 @@ def _detect_macros(zf, names) -> Dict[str, Any]:
     macro_paths = [n for n in names if n.endswith("/vbaProject.bin")]
     found: List[Dict[str, Any]] = []
     triggers: List[str] = []
+    extracted_scripts: List[Dict[str, Any]] = []
     for path in macro_paths:
         try:
             blob = zf.read(path)
@@ -183,8 +206,61 @@ def _detect_macros(zf, names) -> Dict[str, Any]:
         for trig in _MACRO_TRIGGERS:
             if trig in blob and trig.decode("ascii", errors="replace") not in triggers:
                 triggers.append(trig.decode("ascii", errors="replace"))
+        # ▲ P2.3b · surface embedded script invocations for the
+        # Recursive Child Artifact Pipeline. Deterministic scan —
+        # matches are declared verbatim; the RTE decodes them.
+        extracted_scripts.extend(_extract_scripts_from_blob(blob, path))
     triggers.sort()
-    return {"found": bool(found), "vba_projects": found, "triggers": triggers}
+    # Deterministic ordering — (language, snippet) — so two runs of the
+    # same document always produce the same declaration list.
+    extracted_scripts.sort(key=lambda s: (s["language"], s["command"]))
+    return {
+        "found": bool(found),
+        "vba_projects": found,
+        "triggers": triggers,
+        "extracted_scripts": extracted_scripts,
+    }
+
+
+def _extract_scripts_from_blob(blob: bytes, source_path: str
+                               ) -> List[Dict[str, Any]]:
+    """Scan a vbaProject.bin blob for embedded script-invocation strings.
+
+    Runs each pattern against (a) the raw blob (latin-1 storage) and
+    (b) a null-stripped copy (UTF-16LE storage). Deduplicates by
+    (language, command). Preserves the original byte offset for
+    provenance so analysts can inspect the exact location.
+    """
+    stripped = blob.replace(b"\x00", b"")
+    out: List[Dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for scan_variant, offset_source in (
+        (blob, "raw"), (stripped, "utf16le_stripped"),
+    ):
+        for rx, language in _SCRIPT_RXS:
+            for m in rx.finditer(scan_variant):
+                raw = m.group(0)
+                try:
+                    command = raw.decode("latin-1", errors="replace").strip()
+                except Exception:
+                    continue
+                # Collapse repeated whitespace so trivially-different
+                # spacings don't produce duplicate declarations.
+                command = re.sub(r"\s+", " ", command).strip()
+                if len(command) < 8:
+                    continue
+                key = (language, command)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append({
+                    "language":    language,
+                    "command":     command,
+                    "source_path": source_path,
+                    "byte_offset": m.start(),
+                    "storage":     offset_source,
+                })
+    return out
 
 
 def _detect_xlm(zf, names) -> Dict[str, Any]:
@@ -307,6 +383,18 @@ def _compute_findings(*, family, macros, xlm, dde, ole, embedded, ext_urls, ext_
                 "severity": "critical", "code": "macro_autoexec_trigger",
                 "title": f"Auto-execution trigger(s) detected: {', '.join(macros['triggers'])}",
                 "detail": "These callbacks run automatically when the document/workbook is opened.",
+            })
+        if macros.get("extracted_scripts"):
+            langs = sorted({s["language"] for s in macros["extracted_scripts"]})
+            f.append({
+                "severity": "critical", "code": "macro_script_invocation",
+                "title": (f"Embedded script invocation(s) in VBA macro: "
+                          f"{', '.join(langs)}"),
+                "detail": (
+                    "Macro static extraction surfaced command-line invocations "
+                    "(powershell / cmd / WScript.Shell). These are handed to "
+                    "the Recursive Child Artifact Pipeline for RTE decoding."
+                ),
             })
     if xlm["found"]:
         f.append({

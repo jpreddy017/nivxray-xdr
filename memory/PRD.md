@@ -27,6 +27,33 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🟢 2026-02-16 · P2.3b · `.docm → PowerShell → PE` Flagship (owner-approved · shipped)
+
+Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).
+
+Full three-level deterministic investigation now proven end-to-end
+from a single `.docm` upload:
+
+    File Upload (.docm)
+        → Office Analyzer   (extracts embedded PowerShell)
+        → Recursive Child Artifact Pipeline
+        → RTE / IEDDE       (utf-16 → base64 → gzip → PE)
+        → PE Analyzer       (findings + hashes)
+        → CEM → Investigation Engine
+
+Three-Origin Equivalence: the recovered PE sha256 is byte-identical
+across `.docm` upload, workspace paste, and direct PE upload — any
+divergence is a P0 architectural regression.
+
+Second Golden Corpus flagship entry (`docm_ps_to_pe_chain`) locked
+with baseline `{artifact_types: [office, pe], convergence: true,
+terminal_state: binary_artifact_recovered}`. Fixture regenerable
+byte-for-byte from `samples/_build_docm_ps_to_pe.py`.
+
+37/37 architectural gates green. No frozen-component modifications.
+
+
+
 ### 🟢 2026-02-16 · P2.3c · RTE Recovery Improvement + Multi-Origin Equivalence (owner-approved batch · shipped)
 
 Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).
