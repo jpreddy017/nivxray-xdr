@@ -157,6 +157,34 @@ changes; all work fits under §7 Provider Extension Architecture.
    auto-attaches it, so the `confidence_provenance` dimension is
    already lit. **Investigation Intelligence layer COMPLETE.**
 
+### 🎯 Phase A.5 · Analyst Experience (owner-locked 2026-02-16 · NEXT UP)
+
+Backend investigation engine is now mature enough that the primary
+differentiator shifts to **analyst UX**. Every item below is a pure
+frontend / read-only backend consumer — the frozen v1.1 core is
+NOT touched.
+
+3.1 **Compare Cases UI** ⭐⭐⭐⭐⭐ (highest priority)
+    Split-pane analyst workspace consuming `POST
+    /api/correlations/compare`. Overall similarity gauge · per-
+    dimension Jaccard bars · shared / unique-left / unique-right
+    partitioning across Threat Summary, Attack Chain, Timeline,
+    MITRE, IOCs, Recipe, Transformation Trace, Decision Trace,
+    Interpreter Chain, Fingerprint, and the newly-lit Confidence
+    Provenance dimension.
+
+3.2 **Confidence Provenance Visualization**
+    Shows the ledger as an analyst-readable "Why?" chain. Rule fires
+    with their contribution weights sum visibly to the derived
+    score, with click-through drilling into each evidence ref.
+
+3.3 **Regression Dashboard**
+    Trend chart of every gate + coverage metric across releases:
+    decode coverage %, fingerprint stability %, MITRE accuracy %,
+    false-positive rate, NVKC sample count, average pipeline
+    latency. Turns the "98/98 gates green" claim into a
+    time-series-visible engineering health dashboard.
+
 **Phase B · New Artifact Types** (broaden coverage under §7)
 
 4. Mach-O Analyzer (fifth first-class type)

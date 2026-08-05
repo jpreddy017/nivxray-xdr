@@ -27,6 +27,33 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🎯 2026-02-16 · Phase A.5 · Analyst Experience (roadmap addition)
+
+Owner-locked new tier bridging Phase A (Investigation Intelligence)
+and Phase B (Artifact Expansion). Backend engine is now mature
+enough that the primary differentiator shifts to analyst UX.
+
+**A.5.1 · Compare Cases UI** (highest priority) — split-pane
+analyst workspace over `POST /api/correlations/compare` with
+similarity gauge, per-dimension Jaccard bars, shared/unique-left/
+unique-right partitioning, and the newly-lit Confidence Provenance
+dimension side-by-side.
+
+**A.5.2 · Confidence Provenance Visualization** — analyst-readable
+"Why?" chain: rule fires visibly sum to the derived score with
+click-through drill into each evidence ref.
+
+**A.5.3 · Regression Dashboard** — trend chart of every gate +
+coverage metric across releases (decode coverage · fingerprint
+stability · MITRE accuracy · FP rate · NVKC count · latency).
+Turns "98/98 gates green" into a time-series engineering health
+dashboard.
+
+All items are pure frontend / read-only backend consumers. Frozen
+v1.1 core untouched.
+
+
+
 ### 🟢 2026-02-16 · Phase A · Confidence Provenance Ledger + NVKC Analyst Decision Benchmark (owner-approved · shipped)
 
 Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
