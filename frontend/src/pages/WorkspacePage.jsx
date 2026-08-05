@@ -407,6 +407,41 @@ export default function WorkspacePage() {
             : `▸ RESTORED FROM HISTORY (${rec.engine} · ${rec.confidence}%)`)
     );
     setHistoryOpen(false);
+    // ▲ IUE v2.0 · Rehydrate the IUE + Attack Story + Trajectory +
+    // Analyst Narrative for restored history records so Prev Mode is
+    // indistinguishable from a fresh AUTO INVESTIGATE.  Also flip the
+    // OUTPUT pane into INVESTIGATION RESULTS mode whenever the IUE
+    // says no decoding was required.
+    if (_inp.trim()) {
+      setUnderstanding(null);
+      setUnderstandingError(null);
+      setUnderstandingLoading(true);
+      setInlineStoryPreproc(null);
+      setAnalystNarrative(null);
+      setInvestigationMode(false);
+      setInvestigationObject(null);
+      api.post("/die/understand", { input: _inp, execute: true })
+        .then((r) => {
+          const u = r?.data?.understanding || null;
+          setUnderstanding(u);
+          if (u && u.decode_required === false) {
+            runInvestigationResults(_inp);
+          }
+        })
+        .catch((e) => setUnderstandingError(e?.response?.data?.detail || e?.message || String(e)))
+        .finally(() => setUnderstandingLoading(false));
+      api.post("/die/analyze", { input: _inp })
+        .then((r) => {
+          const pre = r?.data?.result?.preprocessor
+                   || r?.data?.result?.chain?.preprocessor
+                   || null;
+          if (pre) setInlineStoryPreproc(pre);
+        })
+        .catch(() => {});
+      api.post("/die/narrate", { input: _inp })
+        .then((r) => setAnalystNarrative(r?.data?.narrative || null))
+        .catch(() => {});
+    }
     // Auto-fire re-investigate for echo cases so the analyst never
     // stares at a raw base64 blob wondering what to do.
     if (isEcho) {
@@ -3279,8 +3314,23 @@ export default function WorkspacePage() {
             setUnderstandingLoading(true);
             setInlineStoryPreproc(null);
             setAnalystNarrative(null);
+            // ▲ IUE v2.0 · reset investigation-mode; will be re-enabled
+            // below when the IUE decides no decoding is required.
+            setInvestigationMode(false);
+            setInvestigationObject(null);
             api.post("/die/understand", { input: _input, execute: true })
-              .then((r) => { setUnderstanding(r?.data?.understanding || null); })
+              .then((r) => {
+                const u = r?.data?.understanding || null;
+                setUnderstanding(u);
+                // IUE v2.0 · Investigation-first for restored cases.
+                // When the IUE says no decoding is required, replace
+                // the saved `output` (which is a stale echo of input
+                // on legacy saves) with the deterministic
+                // Investigation Results view.
+                if (u && u.decode_required === false) {
+                  runInvestigationResults(_input);
+                }
+              })
               .catch((e) => setUnderstandingError(e?.response?.data?.detail || e?.message || String(e)))
               .finally(() => setUnderstandingLoading(false));
             api.post("/die/analyze", { input: _input })
