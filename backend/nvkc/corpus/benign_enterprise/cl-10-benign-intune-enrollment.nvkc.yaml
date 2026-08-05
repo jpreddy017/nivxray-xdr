@@ -1,12 +1,19 @@
 description: Intune device-enrollment PowerShell (benign FP guard)
 expected:
   artifact_types: []
-  attack_fingerprint_hash: null
+  attack_chain: []
+  attack_fingerprint_hash: 43faa91c9f435126bc3112b4f6bceff5f60920964201a8d5b9285e616c8ed81c
   behavior_codes: []
   benign: true
+  derived_risk_score: 0
+  derived_verdict: benign
   ioc_kinds: []
   mitre: []
-  terminal_state: null
+  provenance_hash: 188384f02a9c90952be7c99933052245cb0016b87de649803e70dea875bbc700
+  terminal_state: canonical
+  timeline:
+  - - rte.convergence
+    - canonical
 input:
   inline: powershell.exe -ExecutionPolicy Bypass -NoProfile -File "C:\ProgramData\Microsoft\IntuneManagementExtension\Scripts\EnrollDevice.ps1"
     -DeviceName "%COMPUTERNAME%"

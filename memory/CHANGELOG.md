@@ -2,6 +2,64 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-16 · Phase A.5 · Platform Health Dashboard (Regression + 8-section Health Center) — LIVE · 100/100 gates green
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).
+Pure read-only analytical consumer of the SSOT + Golden Corpus baselines
++ NVKC descriptors. No frozen-core modifications.
+
+### Backend
+
+- **`services/platform_metrics.py`** — deterministic `compute_snapshot(db)`
+  producing 8 metric families:
+    1. Pipeline Health (total cases · decode success · investigation
+       success · Golden Corpus baseline count · terminal-state
+       distribution)
+    2. Performance (decode latency percentiles · recursive depth stats)
+    3. Coverage (analyzer types observed · MITRE techniques observed)
+    4. **Explainability Coverage** (new owner-locked metric family) —
+       6 percentages: verdicts_with_provenance · mitre_mappings_backed
+       · decoded_stages_traced · child_artifacts_analyzed ·
+       investigations_replayable · findings_linked_to_evidence
+    5. Fingerprint Stability (Golden + NVKC hash coverage %)
+    6. Quality (verdict distribution · risk-score percentiles)
+    7. NVKC (samples-by-track · top tags)
+    8. Release History (last N persisted snapshots · trend data)
+- **`snapshot_body_hash()`** — deterministic content hash for drift
+  detection between snapshots.
+- **New router `routers/platform_health.py`** (mounted under `/api`):
+    · `GET  /api/platform/metrics` — current snapshot
+    · `POST /api/platform/snapshot` — persist snapshot (idempotent
+      within the same UTC day via body-hash + date_bucket)
+    · `GET  /api/platform/timeseries?limit=30` — historical
+      snapshots for release-history charts
+- Storage: new `platform_metrics_snapshots` mongo collection —
+  append-only rolling record.
+
+### Frontend
+
+- **`/platform` page (`frontend/src/pages/PlatformHealthPage.jsx`)** —
+  8-section grid dashboard with "Snapshot Now" button. Every section
+  carries a `data-testid`. Live smoke-tested on production data:
+  49 MITRE techniques surfaced from 2662 real cases · Explainability
+  Coverage honest at 14.8% (older pre-CEM cases pull the avg down) ·
+  first snapshot persisted → Release History row appears.
+
+### Regression posture
+
+- 100/100 architectural + validation gates green (unchanged).
+- Frontend compiles clean.
+- Snapshot idempotency (body_hash + date_bucket) verified live.
+- All new endpoints gated by `Depends(get_current_user)`.
+
+**Files changed:**
+- `backend/services/platform_metrics.py` (new · 335 lines)
+- `backend/routers/platform_health.py` (new)
+- `backend/server.py` (mount new router)
+- `frontend/src/pages/PlatformHealthPage.jsx` (new · 340 lines)
+- `frontend/src/App.js` (route `/platform`)
+
+
 ## 2026-02-16 · Phase A.5 · Compare Cases UI + Confidence Provenance Visualization + Similarity Explanation — LIVE
 
 **Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).

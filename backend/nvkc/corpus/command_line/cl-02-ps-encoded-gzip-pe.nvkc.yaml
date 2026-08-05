@@ -1,12 +1,29 @@
 description: PowerShell -EncodedCommand -> gzip -> PE (flagship recovery)
 expected:
-  artifact_types: []
-  attack_fingerprint_hash: null
-  behavior_codes: []
+  artifact_types:
+  - pe
+  attack_chain: []
+  attack_fingerprint_hash: b6e448aeb5220b73ae3c81f56cf064c4278fc1c76828b63141e76f0e056c3a65
+  behavior_codes:
+  - invalid_timestamp
+  - no_imports
+  - overlay_present
   benign: false
+  derived_risk_score: 50.0
+  derived_verdict: suspicious
   ioc_kinds: []
   mitre: []
-  terminal_state: null
+  provenance_hash: 3e2bdd3a2c8bfbeb6d828be1241e39185c2f17ff31a6cdf1e45c1b63e9fb2444
+  terminal_state: binary_artifact_recovered
+  timeline:
+  - - rte.convergence
+    - binary_artifact_recovered
+  - - analyzer.finding
+    - no_imports
+  - - analyzer.finding
+    - invalid_timestamp
+  - - analyzer.finding
+    - overlay_present
 input:
   inline: powershell.exe -EncodedCommand JABkAD0AWwBDAG8AbgB2AGUAcgB0AF0AOgA6AEYAcgBvAG0AQgBhAHMAZQA2ADQAUwB0AHIAaQBuAGcAKAAnAEgANABzAEkAQQBBAEEAQQBBAEEAQQBDAC8ALwBPAE4AWQBpAEEAYgBOAEQAQgBRAEQAZwBKAGMARwBSAGgAOABHAEIAbABHAHcAUwBnAFkAQgBRAE0AQQBBAE0AdQBuAFcAZAA4AEEAQgBBAEEAQQAnACkAOwAkAHMAPQBOAGUAdwAtAE8AYgBqAGUAYwB0ACAASQBPAC4ATQBlAG0AbwByAHkAUwB0AHIAZQBhAG0AKAAsACQAZAApADsAJABnAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAEMAbwBtAHAAcgBlAHMAcwBpAG8AbgAuAEcAegBpAHAAUwB0AHIAZQBhAG0AKAAkAHMALABbAEkATwAuAEMAbwBtAHAAcgBlAHMAcwBpAG8AbgAuAEMAbwBtAHAAcgBlAHMAcwBpAG8AbgBNAG8AZABlAF0AOgA6AEQAZQBjAG8AbQBwAHIAZQBzAHMAKQA7ACQAcgA9AE4AZQB3AC0ATwBiAGoAZQBjAHQAIABJAE8ALgBNAGUAbQBvAHIAeQBTAHQAcgBlAGEAbQA7ACQAZwAuAEMAbwBwAHkAVABvACgAJAByACkAOwBbAFIAZQBmAGwAZQBjAHQAaQBvAG4ALgBBAHMAcwBlAG0AYgBsAHkAXQA6ADoATABvAGEAZAAoACQAcgAuAFQAbwBBAHIAcgBhAHkAKAApACkA
   kind: text

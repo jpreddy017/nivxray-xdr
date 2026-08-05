@@ -35,6 +35,7 @@ const HistoryPage           = lazy(() => import("@/pages/HistoryPage"));
 const InvestigationsPage       = lazy(() => import("@/pages/InvestigationsPage"));
 const InvestigationDetailPage  = lazy(() => import("@/pages/InvestigationDetailPage"));
 const ComparePage              = lazy(() => import("@/pages/ComparePage"));
+const PlatformHealthPage       = lazy(() => import("@/pages/PlatformHealthPage"));
 const TrainingInboxPage     = lazy(() => import("@/pages/TrainingInboxPage"));
 const LearnerPage           = lazy(() => import("@/pages/LearnerPage"));
 const BenchmarkPage         = lazy(() => import("@/pages/BenchmarkPage"));
@@ -143,6 +144,7 @@ function App() {
               <Route path="/investigations/:id" element={<Protected><InvestigationDetailPage /></Protected>} />
               <Route path="/compare" element={<Protected><ComparePage /></Protected>} />
               <Route path="/compare/:caseA/:caseB" element={<Protected><ComparePage /></Protected>} />
+              <Route path="/platform" element={<Protected><PlatformHealthPage /></Protected>} />
               <Route path="/learner" element={<Protected><LearnerPage /></Protected>} />
               <Route path="/benchmark" element={<BenchmarkPage />} />
               <Route path="/battery"   element={<Protected><MultiLayerBatteryPage /></Protected>} />

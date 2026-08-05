@@ -175,30 +175,16 @@ NOT touched.
     fire is a stackable contribution row visibly summing to the
     derived score. Owner-designed "Why?" pattern.
 
-3.3 **Regression Dashboard** — NEXT UP ⭐
-    Trend chart of every gate + coverage metric across releases.
-    Owner-locked metric families (2026-02-16):
-    • Golden Corpus pass rate
-    • NVKC pass rate + sample-count growth
-    • Decode coverage %
-    • Analyzer coverage %
-    • MITRE precision / recall
-    • False-positive / false-negative trend
-    • Average investigation time
-    • Average decode time
-    • Fingerprint stability %
-    • Rule coverage %
-    • Evidence coverage %
-    • Build health
-    • **Explainability Coverage** (new metric family):
-        – % verdicts with complete provenance
-        – % MITRE mappings backed by evidence
-        – % decoded stages with transformation traces
-        – % child artifacts successfully analyzed
-        – % investigation steps replayable
-        – % findings linked to supporting evidence
-    Turns "N/N gates green" into a time-series engineering + analyst
-    health center.
+3.3 **Regression Dashboard** — ✅ CLOSED (2026-02-16).
+    Shipped as `/platform` — 8-section Platform Health Dashboard
+    (Pipeline Health · Performance · Coverage · **Explainability
+    Coverage** · Fingerprint Stability · Quality · NVKC · Release
+    History). Deterministic `compute_snapshot()` reads SSOT +
+    Golden Corpus baselines + NVKC descriptors. Persisted snapshots
+    accumulate in `platform_metrics_snapshots` (idempotent by
+    body-hash within same UTC day). Endpoints:
+    `GET /api/platform/metrics · POST /api/platform/snapshot ·
+    GET /api/platform/timeseries`.
 
 3.4 **Investigation Replay** (owner-locked 2026-02-16 · new milestone)
     Step-through analyst view of the complete deterministic

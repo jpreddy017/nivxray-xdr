@@ -27,6 +27,22 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🟢 2026-02-16 · Phase A.5 · Platform Health Dashboard (owner-approved · shipped)
+
+Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
+
+New `/platform` page — 8-section Platform Health Dashboard: Pipeline
+Health · Performance · Coverage · **Explainability Coverage** ·
+Fingerprint Stability · Quality · NVKC · Release History.
+Deterministic `compute_snapshot()` reads SSOT + Golden Corpus
+baselines + NVKC descriptors. Persisted snapshots accumulate in
+`platform_metrics_snapshots` (idempotent by body-hash within same
+UTC day). Endpoints under `/api/platform/*`. Live-verified: 49
+MITRE techniques surfaced from 2662 real cases, first snapshot
+persisted successfully. No frozen-core modifications.
+
+
+
 ### 🎯 2026-02-16 · Roadmap refinement · Investigation Replay + Explainability Coverage + long-term extensions
 
 Owner-locked additions:

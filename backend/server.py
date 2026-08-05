@@ -224,6 +224,9 @@ api.include_router(investigations_router)
 from routers.correlations import router as correlations_router
 api.include_router(correlations_router)
 
+from routers.platform_health import router as platform_health_router
+api.include_router(platform_health_router)
+
 api.include_router(enrichment_router)
 api.include_router(docs_router)
 api.include_router(timeline_router)
