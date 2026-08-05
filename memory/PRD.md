@@ -27,6 +27,35 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🎯 2026-02-16 · Phase A.5 reorder + rename (owner directive)
+
+Owner-locked new sequence for the remaining analyst-experience work:
+
+1. Investigation Replay ⭐ **moved ahead** — ties Transformation
+   Trace + Decision Trace + Timeline + Provenance + Fingerprint +
+   Compare Cases + CEM into one step-through experience.
+2. Universal Evidence Drill-down — single shared "Evidence Modal"
+   reachable from Timeline · Replay · MITRE · Fingerprint · Compare
+   Cases · Provenance. Not exclusive to Compare Cases anymore.
+3. XLab Graph Pop-out → Investigation Detail.
+4. Swimlane Trajectory (renamed) — evolve `/v2/trajectory` into an
+   Attack Story: Transformation → Recovered Artifact → MITRE →
+   Timeline → Verdict.
+5. Long-term: Workspace grows into "Investigation Center" with
+   tabbed sections (Summary · Threat Summary · Attack Story ·
+   Investigation Replay · Timeline · Evidence Graph · Trajectory ·
+   Evidence · Compare Cases · Provenance · Report) — Master
+   Architecture v1.1 · "Workspace is the Product".
+
+**Rename recommendation (owner-approved):** `Trajectory` → "Attack
+Replay" or "Investigation Replay". "Trajectory" is EDR-centric;
+either replacement explicitly conveys the deterministic-first
+philosophy.
+
+Zero backend impact for every item above — presentation-layer only.
+
+
+
 ### 🟢 2026-02-16 · Phase A.5 · Platform Health Dashboard (owner-approved · shipped)
 
 Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
