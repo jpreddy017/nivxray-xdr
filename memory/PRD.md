@@ -13,6 +13,54 @@ Any next agent MUST read this before writing code.
 
 ---
 
+### 🟢 2026-02-16 · Phase A.5 · items 3.4 + 3.5 · Investigation Replay + Universal Evidence Drill-down (owner-approved · shipped · iteration_65)
+
+Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).
+Frontend-only implementation — zero backend touches. Every clickable
+Evidence surface reads exclusively from the existing SSOT
+(`/api/correlations/cem/{case_id}`,
+`/api/correlations/fingerprint/{case_id}`,
+`/api/correlations/provenance/{case_id}`,
+`POST /api/correlations/compare`).
+
+**Investigation Replay** — new route `/investigations/:id/replay`
+(where `:id` is the root case_id) rendering a 10-step deterministic
+pipeline walk: Input → Detection → Decode → Recovered Artifact →
+Analyzer → MITRE → Timeline → Fingerprint → Provenance → Verdict.
+Scrubber + click-to-jump pipeline flow bar. Every step exposes a
+`Show Evidence →` handoff into the shared modal.
+
+**Universal Evidence Drill-down** — one shared `<EvidenceModal>`
+component now reachable from every analyst surface with a common
+descriptor schema (`/app/frontend/src/components/evidenceDescriptors.js`
+· `fromChainStep · fromTimelineEvent · fromMitreEntry ·
+fromProvenanceRuleFire`). Wired into:
+
+- Investigation Detail → Replay CTA in the toolbar
+- Investigation Detail → EVIDENCE button on every Attack Chain node
+- Investigation Detail → EVIDENCE button on every Timeline event
+- Investigation Detail → Clickable MITRE chips on the Threat Summary
+- Investigation Replay → Every step's Show Evidence button
+- Compare Cases → Every Confidence Provenance rule-fire row (both
+  sides), keyboard-accessible (Enter/Space + Esc to close)
+
+Testing: iteration_64 → 25/26 (one runtime error on Compare page →
+one-line fix in ComparePage.jsx line 61). Iteration_65 regression
+retest → all 4 previously-failing checks pass. Combined: 26/26 green.
+
+Files touched (frontend only):
+- new · `/app/frontend/src/components/evidenceDescriptors.js`
+- new route wired in `/app/frontend/src/App.js`
+- edit · `/app/frontend/src/pages/InvestigationDetailPage.jsx`
+  (Replay CTA + `useEvidenceModal` wiring)
+- edit · `/app/frontend/src/pages/ComparePage.jsx`
+  (RuleFireRow now clickable → EvidenceModal)
+- edit · `/app/frontend/src/components/investigation/AttackChainView.jsx`
+- edit · `/app/frontend/src/components/investigation/UnifiedTimelineView.jsx`
+- edit · `/app/frontend/src/components/investigation/InvestigationThreatSummaryCard.jsx`
+
+Phase A.5 items 3.1–3.5 are now COMPLETE.
+
 ---
 
 ## 📍 CURRENT POSITION (2026-08-05 · Rule 22 · Failure Triage Protocol)

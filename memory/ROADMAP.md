@@ -186,23 +186,19 @@ NOT touched.
     `GET /api/platform/metrics · POST /api/platform/snapshot ·
     GET /api/platform/timeseries`.
 
-3.4 **Investigation Replay** (owner-locked 2026-02-16 · ⭐ **moved
-    ahead of Trajectory improvements** per 2nd directive) — step-
-    through analyst view of the complete deterministic pipeline:
-    Input → Artifact Detection → Extraction → Decode → Recovered
-    Artifact → Analyzer → MITRE → Timeline → Threat Summary →
-    Fingerprint → Verdict. Every step replayable, no new data needed
-    (Transformation Trace · Decision Trace · Timeline · Provenance ·
-    Fingerprint all already ship). **Ties every existing capability
-    into one analyst experience.** Primary value: debug · analyst
-    training · customer demos · audits · verdict explanation.
+3.4 **Investigation Replay** — ✅ CLOSED (2026-02-16 · iteration_65).
+    New `/investigations/:id/replay` route. 10-step deterministic
+    pipeline walk (Input → Detection → Decode → Recovered Artifact →
+    Analyzer → MITRE → Timeline → Fingerprint → Provenance →
+    Verdict) with scrubber + pipeline flow bar. Zero backend change.
 
-3.5 **Universal Evidence Drill-down** (owner-locked reorder) — one
-    shared "Evidence Modal" component reachable from EVERY surface:
-    Timeline · Investigation Replay · MITRE · Fingerprint · Compare
-    Cases · Provenance. Modal walks Rule → Evidence → Artifact →
-    Analyzer → Recovered Child → MITRE → SHA256 → Timeline. Presents
-    identical UX regardless of entry point.
+3.5 **Universal Evidence Drill-down** — ✅ CLOSED (2026-02-16 · iteration_65).
+    One shared `<EvidenceModal>` reachable from Investigation Detail
+    (attack chain, timeline, MITRE chips), Investigation Replay
+    (every step), and Compare Cases (Confidence Provenance rule
+    fires). Standardised descriptor factory
+    (`evidenceDescriptors.js`) keeps every entry point speaking the
+    same evidence language.
 
 3.6 **Promote XLab Graph Pop-out into Investigation Detail** — a
     dedicated resizable window for large evidence graphs (ransomware
