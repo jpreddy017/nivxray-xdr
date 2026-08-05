@@ -18,6 +18,7 @@ import api from "@/lib/api";
 import {
   buildSteps, Scrubber, StepDetail, PipelineFlow, COL,
 } from "@/components/attackStory/ReplayPrimitives";
+import AttackStoryPanel from "@/components/attackStory/AttackStoryPanel";
 import { GitBranch, ExternalLink } from "lucide-react";
 
 export default function StoryTab({ caseId, openEvidence, initialStep = 0 }) {
@@ -65,6 +66,8 @@ export default function StoryTab({ caseId, openEvidence, initialStep = 0 }) {
       )}
       {cem && steps.length > 0 && (
         <>
+          <AttackStoryPanel caseId={caseId} onOpenEvidence={openEvidence} />
+
           <Scrubber steps={steps} idx={stepIdx} onIdx={setStepIdx} />
           <StepDetail step={currentStep} openEvidence={openEvidence} />
           <PipelineFlow steps={steps} idx={stepIdx} onIdx={setStepIdx} />

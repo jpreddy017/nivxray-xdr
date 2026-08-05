@@ -23,7 +23,9 @@ from services.die import (
 )
 from services.die.chain import analyze_chain, looks_like_chain
 from services.die.api import _analyze_single
+from services.die.intent import classify_intent, classify_intent_from_analyze
 from services.die.dkp import load_patterns as dkp_load_patterns, pattern_by_id as dkp_pattern_by_id
+from deps import db
 import base64 as _b64
 
 router = APIRouter(prefix="/die", tags=["die"])
@@ -132,3 +134,52 @@ def die_chain(body: AnalyzeBody):
     view for a single-step input.
     """
     return {"result": analyze_chain(body.input, analyze_fn=_analyze_single)}
+
+
+# ── Attack Intent Engine (Phase B.7 · 2026-02-16 pm-late) ─────────
+@router.post("/intent")
+def die_intent(body: AnalyzeBody):
+    """Return the Attack Intent for a raw input.
+
+    Deterministic synthesis over the chain envelope — Primary
+    Objective + confidence + evidence + MITRE + observed vs missing
+    ATT&CK phases + attack progress %.
+    """
+    env = analyze(body.input, language=body.language)
+    intent = classify_intent_from_analyze(env)
+    return {"intent": intent}
+
+
+# ── Case-scoped DIE (workspace_cases.input → full analyze) ────────
+@router.get("/case/{case_id}")
+async def die_case(case_id: str):
+    """Fetch a case's raw input from the case store and return the
+    full DIE analyze envelope (chain + attack intent + DKP
+    matches).  Powers the Attack Story panel on the Investigation
+    Story tab.
+
+    Cases can live in the ``investigations`` collection (the primary
+    case store) or ``workspace_cases`` (legacy); we probe both.
+    """
+    from bson import ObjectId
+    from bson.errors import InvalidId
+    queries = [{"id": case_id}]
+    try:
+        queries.append({"_id": ObjectId(case_id)})
+    except InvalidId:
+        pass
+    case = None
+    for coll in ("investigations", "workspace_cases"):
+        for q in queries:
+            case = await db[coll].find_one(q)
+            if case and case.get("input"):
+                break
+        if case and case.get("input"):
+            break
+    if not case or not case.get("input"):
+        return {"error": "case not found or input missing",
+                "case_id": case_id, "envelope": None}
+    env = analyze(case["input"])
+    return {"case_id":  case_id,
+            "input_preview": (case["input"] or "")[:512],
+            "envelope": env}

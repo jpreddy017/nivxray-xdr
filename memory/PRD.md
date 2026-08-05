@@ -44,6 +44,69 @@ Files touched (frontend only):
 
 ---
 
+### 🟢 2026-02-16 (pm-late) · Phase B.3 + B.7 · Attack Story + Attack Intent Engine (owner-locked · shipped · 117/117 tests green)
+
+Built together per owner directive: the Attack Story answers *"What
+happened?"* and the Attack Intent Engine answers *"Why did the
+attacker do it?"* — coupling them prevents future redesign.
+
+**Backend — Attack Intent Engine** (`services/die/intent.py`):
+- Deterministic rule-based synthesis over the DIE chain envelope.
+  Rules evaluated in priority order (Ransomware Deployment ·
+  Credential Theft · Lateral Movement · Data Exfiltration · C2
+  Beaconing · Persistence Establishment · Reconnaissance/Discovery).
+- Every classification carries: `objective · confidence · evidence
+  · mitre · observed_phases · missing_phases · progress · rule`.
+- Confidence blends rule `base` + support-tactic hits + DKP boosts;
+  capped at 0.99. Same input → same output (deterministic).
+- `analyze()` auto-embeds `attack_intent` on BOTH chain and flat
+  single-step envelopes so the UI renders uniformly.
+
+**Backend — case-scoped DIE endpoint**:
+- `GET /api/die/case/{case_id}` — probes both `investigations` and
+  `workspace_cases` collections, runs `analyze(case.input)`, returns
+  the full envelope (chain · attack intent · DKP · MITRE · IOCs).
+
+**Backend — Attack Intent HTTP surface**:
+- `POST /api/die/intent` — direct classification over raw input.
+
+**Frontend — Attack Story Panel** (`components/attackStory/AttackStoryPanel.jsx`):
+- Fetches `/api/die/case/{root_case_id}` on mount.
+- **Overall Assessment card** — Primary Objective + Confidence % +
+  Attack Progress bar (% of 12 ATT&CK tactics observed) + Observed
+  Phases (green ✓ chips) + Missing (grey □ chips) + Evidence
+  bullets + MITRE chips.
+- **Attack Chain** — numbered steps ①②③ with per-step tactic badge,
+  DKP hit label, **"Commonly observed in: X · Y · Z"** family
+  attribution (owner-locked wording, never "Detected as"), MITRE
+  chips, indented child steps for nested-shell unwraps. Every step
+  clickable → opens shared `<EvidenceModal>`.
+- Falls back to a `SingleStepFallback` panel when the input has no
+  chain separators.
+- Mounted inside `StoryTab.jsx` above the existing Recovery pipeline
+  scrubber/flow so both attacker's chain AND engine's chain are
+  visible on one tab (Attack Story · Recovery pipeline).
+
+**Tests** — 12 new pytest cases in `test_die_intent.py`: ransomware-
+deployment high confidence, evidence-backed guarantee,
+reconnaissance-only accuracy, C2 flat + multi-step, persistence-only,
+phase-summary shape (progress ∈ [0,1], observed+missing covers
+TACTICS universe), determinism, empty-envelope handling, chain
+envelope carries attack_intent.
+
+**Total: 117/117 DIE tests green in 0.46s.**
+
+Verified end-to-end against real Talos IR chain →
+Primary Objective = **Ransomware Deployment** · Confidence 99% ·
+Progress 25% · Observed: Discovery/Impact/Persistence · Evidence:
+Scheduled Task Persistence, Shadow Copy Removal, Impact observed,
+Discovery observed, Persistence observed.
+
+**⚠️ Preview only** — production redeploy required to reach
+https://nivxray.nivxforge.com.
+
+---
+
 ### 🟢 2026-02-16 (pm-late) · DIE · Chain Analyzer · Talos-style command chains (owner-locked · shipped · 107/107 tests green)
 
 **Reported bug:** analyst pastes a real IR chain (Talos-style

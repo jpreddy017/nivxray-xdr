@@ -367,7 +367,22 @@ def analyze_chain(src: str, *, analyze_fn) -> Dict[str, Any]:
             "dkp_matches": sorted(aggregate_dkp.values(),
                                   key=lambda m: (-m["confidence"], m["id"])),
         },
+        "attack_intent":   _lazy_intent_wrapper(steps, aggregate_techniques,
+                                                aggregate_dkp),
     }
+
+
+def _lazy_intent_wrapper(steps, techniques, dkp):
+    """Compute the Attack Intent for this chain right at the tail of
+    ``analyze_chain``.  Kept as a lazy import to avoid module cycles."""
+    from .intent import classify_intent
+    return classify_intent({
+        "steps": steps,
+        "aggregate": {
+            "techniques":  list(techniques.values()),
+            "dkp_matches": list(dkp.values()),
+        },
+    })
 
 
 def _host_hint_language(host: str) -> Optional[str]:

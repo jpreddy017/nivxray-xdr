@@ -135,6 +135,8 @@ def _analyze_single(src: str, language: Optional[str] = None) -> Dict[str, Any]:
             "_raw_source": src,
         }
         env["dkp_matches"] = [m.to_dict() for m in dkp_match(env)]
+        from .intent import classify_intent_from_analyze
+        env["attack_intent"] = classify_intent_from_analyze(env)
         env.pop("_raw_source", None)
         return env
 
@@ -178,6 +180,8 @@ def _analyze_single(src: str, language: Optional[str] = None) -> Dict[str, Any]:
         "_raw_source":      src,
     }
     env["dkp_matches"] = [m.to_dict() for m in dkp_match(env)]
+    from .intent import classify_intent_from_analyze
+    env["attack_intent"] = classify_intent_from_analyze(env)
     env.pop("_raw_source", None)
     return env
 
