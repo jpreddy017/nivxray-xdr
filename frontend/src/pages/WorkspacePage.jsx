@@ -424,9 +424,11 @@ export default function WorkspacePage() {
         .then((r) => {
           const u = r?.data?.understanding || null;
           setUnderstanding(u);
-          if (u && u.decode_required === false) {
-            runInvestigationResults(_inp);
-          }
+          // ▲ IUE v2.0 · The pane is ALWAYS Investigation Results.
+          // Whether decoding happened or not, replace the pane body
+          // with the deterministic structured findings so the analyst
+          // never stares at a raw echo or a lone decoded blob.
+          runInvestigationResults(_inp);
         })
         .catch((e) => setUnderstandingError(e?.response?.data?.detail || e?.message || String(e)))
         .finally(() => setUnderstandingLoading(false));
@@ -3322,14 +3324,8 @@ export default function WorkspacePage() {
               .then((r) => {
                 const u = r?.data?.understanding || null;
                 setUnderstanding(u);
-                // IUE v2.0 · Investigation-first for restored cases.
-                // When the IUE says no decoding is required, replace
-                // the saved `output` (which is a stale echo of input
-                // on legacy saves) with the deterministic
-                // Investigation Results view.
-                if (u && u.decode_required === false) {
-                  runInvestigationResults(_input);
-                }
+                // ▲ IUE v2.0 · Always show Investigation Results.
+                runInvestigationResults(_input);
               })
               .catch((e) => setUnderstandingError(e?.response?.data?.detail || e?.message || String(e)))
               .finally(() => setUnderstandingLoading(false));

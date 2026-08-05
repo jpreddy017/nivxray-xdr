@@ -319,12 +319,13 @@ export default function OutputView({
       <div className="nvx-card-head" style={{ flexWrap: "wrap", gap: 8 }}>
         <div className="nvx-card-title" data-testid="output-card-title">
           <span className="dot" />
-          {investigationMode ? "INVESTIGATION RESULTS" : "OUTPUT"}
+          INVESTIGATION RESULTS
         </div>
 
-        {/* IUE v2.0 · Investigation-mode pill — replaces the misleading
-            HYBRID / JS / BE pills when the pane is showing deterministic
-            findings instead of decoded bytes. */}
+        {/* IUE v2.0 · Investigation-mode pill — shown when the pane
+            is holding deterministic findings.  Absent while a fresh
+            decode is streaming, so analysts still see the decode
+            pipeline status until the pane has been enriched. */}
         {investigationMode && (
           <span
             data-testid="investigation-mode-pill"
@@ -337,9 +338,9 @@ export default function OutputView({
               color: "var(--accent)",
               background: "var(--accent, #10b981)18",
             }}
-            title="The IUE classified this input as plain (no decoding required). The pane below shows deterministic investigation findings — not a decoded copy of the input."
+            title="This pane presents deterministic investigation findings produced by the Input Understanding Engine — never a duplicate of the input."
           >
-            <CheckCircle2 size={10} /> IUE · NO DECODE REQUIRED · INVESTIGATION READY
+            <CheckCircle2 size={10} /> IUE · INVESTIGATION READY
           </span>
         )}
 
