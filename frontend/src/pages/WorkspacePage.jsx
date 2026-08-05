@@ -862,8 +862,14 @@ export default function WorkspacePage() {
   const nivxrayDecode = async () => {
     if (!input.trim()) { setStatus("PROVIDE INPUT FIRST"); return; }
     // Multi-command chain? Route to /decode/chain so all stages are analysed.
+    // BUT — the chain endpoint caps at 20 parts and does not handle
+    // vendor-report prose.  Skip the chain path for those.
     const parts = splitCommandLines(input);
-    if (parts && parts.length > 1) {
+    const looksLikeProse =
+      (input || "").length > 400 &&
+      /(?:^|\n)(?:the\s|talos\s|initial access|discovery|lateral movement|executive summary|engagement\s\d|mandiant|crowdstrike|microsoft defender|securex|falcon overwatch|customer\s|outcome|main research question|defensive)/i
+        .test(input || "");
+    if (parts && parts.length > 1 && parts.length <= 20 && !looksLikeProse) {
       await runChainAnalysis(parts);
       return;
     }
@@ -1305,8 +1311,19 @@ export default function WorkspacePage() {
       .catch(() => { /* silently absent */ });
     // Multi-command chain? Route to /decode/chain so every stage's IOCs /
     // MITRE / LOLBAS reach the top-level Attack Graph & Kill Chain.
+    //
+    // BUT — the chain endpoint caps at 20 parts.  For prose / vendor
+    // reports (Talos, Mandiant, CrowdStrike …) the splitter yields
+    // hundreds of "parts" which are actually paragraphs, not
+    // commands.  In that case skip the chain path entirely — the
+    // preprocessor + IUE flow already handles unstructured pastes
+    // and the Inline Attack Story is rendered from those stages.
     const parts = splitCommandLines(input);
-    if (parts && parts.length > 1) {
+    const looksLikeProse =
+      (input || "").length > 400 &&
+      /(?:^|\n)(?:the\s|talos\s|initial access|discovery|lateral movement|executive summary|engagement\s\d|mandiant|crowdstrike|microsoft defender|securex|falcon overwatch|customer\s|outcome|main research question|defensive)/i
+        .test(input || "");
+    if (parts && parts.length > 1 && parts.length <= 20 && !looksLikeProse) {
       await runChainAnalysis(parts);
       return;
     }
