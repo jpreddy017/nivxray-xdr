@@ -19,6 +19,7 @@ from .python_ast     import parse_python
 from .lolbas import lolbas_lookup
 from .ioc_semantic import extract_iocs, summarize_iocs
 from .dkp import match as dkp_match
+from .chain import analyze_chain, looks_like_chain
 
 # ── language detector ─────────────────────────────────────────────
 _PS_HINTS = re.compile(
@@ -33,7 +34,12 @@ _CMD_HINTS = re.compile(
     r"\bcall\s+|\bstart\s+/|\bschtasks\b|\breg\s+add\b|\bwmic\b|"
     r"\bvssadmin\b|\bwbadmin\b|\bbcdedit\b|\bnetsh\b|\btasklist\b|"
     r"\btaskkill\b|\bcertutil\b|\bbitsadmin\b|\brundll32\b|\bregsvr32\b|"
-    r"\bmshta\b|\bmsiexec\b|\bcopy\s+\\\\|\bxcopy\s+)"
+    r"\bmshta\b|\bmsiexec\b|\bcopy\s+\\\\|\bxcopy\s+|"
+    # Common bare Windows discovery / system verbs.
+    r"^(whoami|hostname|ipconfig|systeminfo|arp|nltest|query|nslookup|"
+    r"tracert|ping\b|route\s+print)\b|"
+    r"\bnet\s+(user|group|localgroup|view|use|start|stop|share|accounts)\b|"
+    r"\bwmic\s+\w+\s+(get|call)\b)"
 )
 _JS_HINTS = re.compile(
     r"(?i)(new\s+ActiveXObject|WScript\.Shell|createobject\(|eval\(|"
@@ -90,6 +96,27 @@ def analyze(src: str, language: Optional[str] = None) -> Dict[str, Any]:
     downstream analyzers can still act.  Cycle B replaces the stubs
     with real ASTs.
     """
+    if not src:
+        return _empty_envelope("unknown")
+
+    # Chain fast-path (Phase B.2 · 2026-02-16 pm) — when the input
+    # contains a shell chain (`&`, `&&`, `||`, `|`, `;`, newlines) OR
+    # a nested-shell payload, run the chain analyzer so analysts see
+    # a per-step timeline instead of one flat envelope.  ``language``
+    # is only honoured on single-step inputs; explicit language for a
+    # chain is nonsensical because each step may differ.
+    if language is None and looks_like_chain(src):
+        chain_env = analyze_chain(src, analyze_fn=_analyze_single)
+        # Only *actually* return the chain envelope when the split
+        # produced more than one step.  A single-step "chain" is the
+        # original flat input — pass through cleanly.
+        if chain_env["step_count"] > 1:
+            return _chain_to_envelope(chain_env)
+
+    return _analyze_single(src, language=language)
+
+
+def _analyze_single(src: str, language: Optional[str] = None) -> Dict[str, Any]:
     if not src:
         return _empty_envelope("unknown")
     lang = language or detect_language(src)
@@ -188,3 +215,30 @@ def _lolbin_techniques(lolbins):
         for t in lb.get("mitre", []) or []:
             seen[t] = {"id": t, "name": "", "evidence": f"LOLBAS: {lb['binary']}"}
     return sorted(seen.values(), key=lambda x: x["id"])
+
+
+def _chain_to_envelope(chain_env: Dict[str, Any]) -> Dict[str, Any]:
+    """Adapt a ``analyze_chain`` result into the top-level ``analyze``
+    envelope shape so existing consumers (router · CEM emitter) keep
+    working without a branch.  The full per-step detail lives on the
+    ``chain`` key; the flat fields are the *aggregate union* across
+    every step."""
+    agg = chain_env["aggregate"]
+    return {
+        "language":          chain_env["primary_language"],
+        "chain":             chain_env,
+        "ast":               None,      # per-step ASTs live inside `chain.steps`
+        "cmdlets":           [],
+        "lolbins":           agg["lolbins"],
+        "techniques":        agg["techniques"],
+        "iocs":              agg["iocs"],
+        "iocs_summary":      _summarize_agg(agg["iocs"]),
+        "dkp_matches":       agg["dkp_matches"],
+        "obfuscation_score": max((s.get("obfuscation_score", 0)
+                                  for s in chain_env["steps"]), default=0),
+    }
+
+
+def _summarize_agg(iocs):
+    from .ioc_semantic import summarize_iocs
+    return summarize_iocs(iocs)

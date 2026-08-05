@@ -21,6 +21,8 @@ from services.die import (
     archive_recover_recursive,
     archive_detect_kind,
 )
+from services.die.chain import analyze_chain, looks_like_chain
+from services.die.api import _analyze_single
 from services.die.dkp import load_patterns as dkp_load_patterns, pattern_by_id as dkp_pattern_by_id
 import base64 as _b64
 
@@ -117,3 +119,16 @@ def die_dkp_patterns():
 def die_dkp_pattern(pattern_id: str):
     p = dkp_pattern_by_id(pattern_id)
     return {"pattern": p.to_dict() if p else None}
+
+
+# ── Chain analyzer (Phase B.2 · 2026-02-16 pm) ────────────────────
+@router.post("/chain")
+def die_chain(body: AnalyzeBody):
+    """Explicit chain-analysis endpoint.
+
+    Returns the full per-step walk (Discovery → Defense Evasion →
+    Persistence → C2 → Impact) with each step's own AST, MITRE,
+    IOCs, and DKP matches — even when the analyst wants the chain
+    view for a single-step input.
+    """
+    return {"result": analyze_chain(body.input, analyze_fn=_analyze_single)}

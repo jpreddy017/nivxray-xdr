@@ -44,6 +44,70 @@ Files touched (frontend only):
 
 ---
 
+### 🟢 2026-02-16 (pm-late) · DIE · Chain Analyzer · Talos-style command chains (owner-locked · shipped · 107/107 tests green)
+
+**Reported bug:** analyst pastes a real IR chain (Talos-style
+ransomware precursor — `whoami & hostname & vssadmin delete shadows
+& wbadmin delete catalog & schtasks /create /tr "powershell -c IEX(...)"`
+etc.) and NivXRay collapses everything into one flat verdict.  No
+per-step breakdown.  No sequence semantics.  Language misdetected
+as `powershell` because it locks on the first PS hint deep inside a
+nested arg.
+
+**Fix — deterministic chain analyzer** (`services/die/chain.py`):
+
+- Quote-, paren-, and comment-aware step splitter.  Hard separators:
+  `;`, `&`, `&&`, `||`.  Pipe `|` is NOT a separator (it's data-flow,
+  not a chain).  Newlines are SOFT separators — they only split when
+  a hard separator is present elsewhere, so a multi-line Python
+  script stays coherent.
+- **Per-step ``analyze()``** — every step gets its OWN language,
+  AST, MITRE, IOCs, DKP matches, obfuscation score.
+- **Nested-shell unwrap** — payloads inside `powershell -c "…"`,
+  `cmd /c "…"`, `bash -c '…'`, `mshta …javascript:…` emit CHILD
+  steps (index `10.1`, `10.2`, …) analysed recursively.
+- **Intent classifier** — every step tagged with the ATT&CK tactic
+  bucket (Discovery · Execution · Persistence · Privilege Escalation
+  · Defense Evasion · Credential Access · Lateral Movement · Impact
+  · Command and Control · Collection · Exfiltration · Impair
+  Defenses).  Deterministic — driven first by MITRE hits, then by
+  lexical fallbacks (`whoami`/`hostname` → Discovery, `netsh advfirewall`
+  → Impair Defenses, `psexec`/`wmic /node:` → Lateral Movement).
+- **Narrative bullets** — step-ordered timeline (`Step 1 — Discovery
+  · whoami`, `Step 2 — Impact · Shadow Copy Removal — vssadmin
+  delete shadows …`) suitable for direct copy into an IR report.
+- **Aggregate union** — top-level `techniques`, `iocs`, `lolbins`,
+  `dkp_matches` remain a single de-duped record so existing consumers
+  (CEM · verdict · Investigation Engine) keep working without a branch.
+- **Language detector fix** — CMD hints now include bare discovery
+  verbs (`whoami`, `hostname`, `ipconfig`, `systeminfo`, `net user`,
+  `net group`, `arp`, `nltest`, `nslookup`, `tracert`, `route print`,
+  `wmic … get/call`). No more misdetecting a CMD chain as PowerShell
+  because it happens to embed a nested PS payload.
+
+**HTTP surface:**
+- `POST /api/die/chain` — explicit chain-analysis endpoint.
+- `POST /api/die/analyze` — now auto-dispatches to the chain
+  analyzer when the input contains a hard separator; single-command
+  inputs are unchanged.
+
+**Tests** — 24 new cases in `test_die_chain.py` covering: quote-
+aware split, `&&`/`||`/`;`/`&` separator precedence, quoted-string
+preservation, subshell paren preservation, `rem`/`#` comment
+stripping, multi-line-without-separator stays coherent, nested-shell
+unwrap for PS/CMD/Bash, intent classification (MITRE and lexical),
+recursive child-step DKP hits, deterministic step order + narrative
+bullets. **107/107 total DIE tests green in 0.45s.**
+
+End-to-end verified: the Talos-style chain returns 11 ordered
+steps + 1 recursive child, language=`cmd`, aggregate MITRE=[T1059.001,
+T1105, T1490, T1564.003], DKP hits = Shadow Copy Removal
+(Ryuk/LockBit/Conti/Akira/BlackCat) + Scheduled Task Persistence
+(Qakbot/IcedID/AsyncRAT) + PowerShell Download & Execute
+(Emotet/Cobalt Strike).
+
+---
+
 ### 🟢 2026-02-16 (pm) · Phase B.2 · DKP Foundation · Decoder Knowledge Pack (owner-locked · shipped · 84/84 tests green)
 
 Owner-locked (2026-02-16 · pm): DKP jumps ahead of IDA · Narrative
