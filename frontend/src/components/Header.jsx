@@ -25,6 +25,16 @@ export default function Header() {
   // removed. Investigation is a *mode* of the Workspace, not a separate
   // page. HISTORY is a full-page investigation listing; restoring a
   // case returns to the Workspace with full state rehydrated.
+  // X-LAB retired from production nav (owner directive 2026-02-16 · UX
+  // consolidation, NOT architectural). The route + all code stay live for
+  // dev experimentation — flip on with:
+  //   localStorage.setItem('nvx_dev_mode', '1')
+  // in DevTools. Zero backend impact. Zero code deletion.
+  const devMode = (() => {
+    try { return window.localStorage.getItem("nvx_dev_mode") === "1"; }
+    catch { return false; }
+  })();
+
   const primary = [
     { key: "workspace",   href: "/",              label: "WORKSPACE",   icon: LayoutGrid, testId: "nav-workspace" },
     { key: "history",     href: "/history",       label: "HISTORY",     icon: HistoryIcon, testId: "nav-history", title: "Investigation history · restore any past case with full state" },
@@ -32,7 +42,7 @@ export default function Header() {
     { key: "trajectory",  href: "/v2/trajectory", label: "TRAJECTORY",  icon: Radar,      testId: "nav-trajectory" },
     { key: "batch",       href: "/batch-test",    label: "BATCH",       icon: TestTube,   testId: "nav-batch-test" },
     { key: "heatmap",     href: "/heatmap",       label: "HEATMAP",     icon: Grid,       testId: "nav-heatmap" },
-    { key: "nivxforge",   href: "/nivxforge/x-lab", label: "X-LAB",     icon: Radar,      testId: "nav-nivxforge" },
+    ...(devMode ? [{ key: "nivxforge", href: "/nivxforge/x-lab", label: "X-LAB (DEV)", icon: Radar, testId: "nav-nivxforge" }] : []),
   ];
 
   // Grouped: analysis tools (secondary usage)

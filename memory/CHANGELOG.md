@@ -2,6 +2,42 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-16 · UX Consolidation · X-LAB retired from production navigation (owner directive · non-functional)
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).
+Pure navigation change · zero backend impact · zero code deletion.
+
+**Delivered:**
+- `frontend/src/components/Header.jsx` gates the `X-LAB` primary-nav
+  entry behind `localStorage.getItem('nvx_dev_mode') === '1'`.
+- Route `/nivxforge/x-lab` (+ `/nivxforge/x-lab/graph`) remains
+  registered in `App.js`; direct navigation still resolves HTTP 200.
+- Dev-flag mode surfaces the tab labelled `X-LAB (DEV)` so it can
+  never be mistaken for production UX.
+- No components, files, or backend endpoints removed.
+
+**Verified live:**
+- Production nav (no flag): `WORKSPACE · HISTORY · INVESTIGATIONS ·
+  TRAJECTORY · BATCH · HEATMAP · TOOLS · LEARN · ADMIN` — X-LAB
+  count = 0.
+- Dev nav (`localStorage.nvx_dev_mode = "1"`): `X-LAB (DEV)` reappears
+  as the last primary tab. Direct route continues to resolve.
+- All architectural + validation gates green (unchanged).
+
+**Component review recorded (see finish tool output for full table):**
+- **Promote (A)** — `XLabGraphPopoutPage` graph pop-out; targeted
+  graph visualization improvements.
+- **Merge (B)** — `NivxForgeLayout` panel-organisation ideas;
+  trajectory swimlane layout into `/v2/trajectory` (future PR).
+- **Keep Experimental (C)** — `InvestigatePage`, `Lab2InvestigateRenderer`,
+  `FeatureFlagResolver`.
+- **Archive (D)** — `DashboardPage`, `PreviewPage`,
+  `PlaceholderPage(Sections)`.
+
+Workspace remains the single analyst entry point per Master Architecture
+v1.1 · § "Workspace is the Product".
+
+
 ## 2026-02-16 · Phase A.5 · Platform Health Dashboard (Regression + 8-section Health Center) — LIVE · 100/100 gates green
 
 **Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).
