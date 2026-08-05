@@ -17,6 +17,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Maximize2, RotateCcw } from "lucide-react";
+import { useInvestigationFilter } from "./InvestigationFilter";
 
 const LANES = [
   { id: "execution",      label: "Execution",     y: 104 },
@@ -83,6 +84,7 @@ const KILL_CHAIN_COLOR = {
 export default function TrajectoryDiagram({ preprocessor }) {
   const initialNodes = useMemo(() => _layoutNodes(preprocessor), [preprocessor]);
   const [nodes, setNodes] = useState(initialNodes);
+  const investigation = useInvestigationFilter();
   const [zoom,  setZoom]  = useState(1);
   const [pan,   setPan]   = useState({ x: 0, y: 0 });
   const [selectedNode, setSelectedNode] = useState(null);   // Node Inspector target
@@ -274,7 +276,11 @@ export default function TrajectoryDiagram({ preprocessor }) {
               return (
               <g key={n.id} data-testid={`trajectory-node-${n.id}`}
                  onMouseDown={(e) => onNodeMouseDown(e, n.id)}
-                 style={{ cursor: "grab" }}>
+                 style={{
+                   cursor: "grab",
+                   opacity: (investigation.active && !investigation.match(n.raw)) ? 0.28 : 1,
+                   transition: "opacity 0.2s ease",
+                 }}>
                 {/* Node card */}
                 <rect x={n.x - 4} y={n.y - 24}
                       width={210} height={62} rx={6}

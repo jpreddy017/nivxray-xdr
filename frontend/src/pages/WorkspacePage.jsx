@@ -16,6 +16,7 @@ import InlineAttackStory from "@/components/investigation/InlineAttackStory";
 import TrajectoryDiagram from "@/components/investigation/TrajectoryDiagram";
 import AnalystNarrativePanel from "@/components/investigation/AnalystNarrativePanel";
 import CollapsibleCard from "@/components/investigation/CollapsibleCard";
+import { InvestigationFilterProvider, InvestigationFilterBar } from "@/components/investigation/InvestigationFilter";
 import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
@@ -1639,6 +1640,7 @@ export default function WorkspacePage() {
   }, []);
 
   return (
+    <InvestigationFilterProvider>
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }} className="App">
       <Header />
 
@@ -2631,6 +2633,13 @@ export default function WorkspacePage() {
             </div>
           )}
 
+          {/* ▲ Global Investigation Filter Bar (R8 · 2026-02-28)
+              INVISIBLE until the analyst clicks a Kill-Chain phase,
+              MITRE badge, IOC or stage.  When active, shows the
+              active filter chips + CLEAR ALL, and downstream
+              components soft-filter to match. */}
+          <InvestigationFilterBar />
+
           {/* ▲ Input Understanding Panel (P0 · 2026-02-28)
               MUST be the first thing the analyst sees after clicking
               ANALYZE.  Explains WHAT the paste is, WHY each engine is
@@ -3165,6 +3174,7 @@ export default function WorkspacePage() {
         onRerun={autoInvestigate}
       />
     </div>
+    </InvestigationFilterProvider>
   );
 }
 

@@ -14,6 +14,7 @@
  */
 import { Target, Fingerprint, ShieldAlert, Users, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { useInvestigationFilter } from "./InvestigationFilter";
 
 const TACTIC_TONE = {
   "Initial Access":       { fg: "#c084fc", bd: "rgba(192,132,252,0.35)", bg: "rgba(192,132,252,0.10)" },
@@ -91,6 +92,8 @@ export default function InlineAttackStory({ preprocessor }) {
 }
 
 function StoryStage({ stage, index }) {
+  const investigation = useInvestigationFilter();
+  const dim = investigation.active && !investigation.match(stage);
   // All stages default to COLLAPSED so the panel stays compact and
   // the analyst drills-down only into what they need.  Persist the
   // open/closed state per stage id in localStorage so navigating
@@ -119,6 +122,8 @@ function StoryStage({ stage, index }) {
     <div data-testid={`story-stage-${index}`} style={{
       background: tone.bg, border: `1px solid ${tone.bd}`,
       borderRadius: 10, padding: "10px 14px",
+      opacity: dim ? 0.35 : 1,
+      transition: "opacity 0.2s ease",
     }}>
       {/* ── Header row ─────────────────────────────────────── */}
       <div onClick={toggle} style={{
@@ -146,11 +151,18 @@ function StoryStage({ stage, index }) {
           )}
         </div>
         {stage.tactic && (
-          <div style={{
+          <div onClick={(e) => {
+                 e.stopPropagation();
+                 investigation.toggle("tactic", stage.tactic);
+               }}
+               data-testid={`stage-tactic-${index}`}
+               title="Click to filter the whole investigation by this tactic"
+               style={{
             padding: "2px 8px", fontSize: 10, letterSpacing: "0.08em",
             textTransform: "uppercase", color: tone.fg,
             border: `1px solid ${tone.bd}`, borderRadius: 4,
             fontFamily: "JetBrains Mono, monospace",
+            cursor: "pointer",
           }}>
             {stage.tactic}
           </div>
@@ -171,7 +183,15 @@ function StoryStage({ stage, index }) {
             <StageBlock title="MITRE ATT&CK" icon={Fingerprint}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {stage.mitre.map((m) => (
-                  <span key={m} style={mitreBadge}>{m}</span>
+                  <span key={m}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          investigation.toggle("mitre", m);
+                        }}
+                        title="Filter the investigation by this MITRE technique"
+                        style={{ ...mitreBadge, cursor: "pointer" }}>
+                    {m}
+                  </span>
                 ))}
               </div>
             </StageBlock>
