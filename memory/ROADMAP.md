@@ -233,23 +233,114 @@ NOT touched.
     Everything lives inside a single analyst experience — per Master
     Architecture v1.1 · "Workspace is the Product".
 
-**Phase B · New Artifact Types** (broaden coverage under §7)
+---
 
-4. Mach-O Analyzer (fifth first-class type)
-5. Email Analyzer (.eml / .msg)
-6. Archive Analyzer (ZIP · 7z · RAR · ISO · CAB · IMG)
-7. Android APK Analyzer
-8. iOS IPA Analyzer
-9. Memory-dump Analyzer
+## 🚀 Phase B · Analytical Horsepower (owner-locked 2026-02-16)
 
-**Phase C · Image Intelligence** (image is a first-class artifact)
+> **Strategic pivot.** The Investigation UX is sufficient — the return
+> on new pages is now much lower than the return on giving the engine
+> more to analyse. Effort shifts almost entirely to analytical
+> capabilities. Every module below is a *consumer* of the frozen
+> engine · Master Architecture v1.1 remains untouched.
 
-10. Image Investigation Analyzer — a new artifact type that treats
-    PNG/JPEG/PDF-embedded images as investigations. Sub-capabilities:
-    OCR · diagram understanding · IOC table extraction · timeline
-    extraction · architecture-diagram analysis. Deterministic where
-    possible; AI-assisted paths are strictly optional consumers that
-    NEVER modify the CEM (§8 AI Boundary).
+**Owner-locked headline modules (execute in order):**
+
+### ⭐ B.1 — DIE · Decoder Intelligence Engine
+Expand deterministic decoding into a class-leading capability. Current
+shipping detectors (`technique_detector.py`): base64 · hex · utf-16le
+· gzip · zlib · xor · rc4 · aes-wrapper · string-concat · char-array
+· env-var-assembly · backtick · caret · reverse · url-encoding ·
+unicode-escape · invocation/launcher wrappers. **Gap-list to close:**
+
+- **AST-level parsers** (deterministic — no LLM)
+  - PowerShell AST
+  - JavaScript AST
+  - Batch parser
+  - VBScript parser
+  - Python parser
+  - Linux shell parser
+- **LOLBin recognition** — LOLBAS-mapped registry with MITRE tagging
+- **Embedded artifact recovery**
+  - Embedded PE (✅ already ships via `canonical_evidence_recovery.py`)
+  - Embedded Office (🟡 partial — extend nested-doc extraction)
+  - Embedded PDF  (🟡 partial — recover JS + attached objects)
+  - Embedded archives (ZIP · 7z · RAR · TAR — new)
+- **Partial-corruption recovery** — heuristic reflow of truncated
+  Base64 · Gzip · UTF-16 streams
+- **Network-indicator extraction from decoded blobs** — URLs · IPs ·
+  domains · UNCs · onions · discord webhooks
+- **C2 configuration extraction** — start with Cobalt Strike, Emotet,
+  IcedID, Qakbot; expand as owner directs
+- **Config-blob extraction** — generic in-artifact encoded blob
+  recognizer with heuristic scoring
+
+**Suggested slicing:**
+DIE-1 → PowerShell AST + LOLBAS registry + network-indicator extraction
+DIE-2 → Batch/VBScript/JS AST + embedded-archive recovery
+DIE-3 → C2 family parsers + partial-corruption recovery
+
+### ⭐ B.2 — IDA · Image & Diagram Analyzer
+Input: PNG · JPEG · TIFF · BMP · PDF page. Output: Structured
+Investigation (entities · processes · files · registry · network ·
+users · MITRE · relationships · timeline · confidence · narrative ·
+IOCs). Covers analyst-facing screenshots that today only OCR could
+touch: STAC-style ransomware flows · SecureX/Defender/Sentinel/
+CrowdStrike/QRadar screenshots · attack-flow diagrams · Visio ·
+process trees · phishing screenshots.
+
+Architectural position:
+```
+Artifact Router → Image Analyzer (IDA) → Canonical Image Model → CEM
+                                                                → Investigation
+```
+
+Consumer-only: never modifies the frozen engine. Deterministic
+verification passes downstream (SHA registry · IOC dedup ·
+investigation linking) remain unchanged.
+
+### ⭐ B.3 — IVE · Investigation Visualization Engine
+Input: structured investigation (CEM · chain · fingerprint · MITRE).
+Output: **deterministic** professional attack-flow diagrams (NOT AI
+art) with icons · colors · relationships · MITRE overlays · IOC
+callouts · timeline strip. Comparable to the diagrams SOCs draw by
+hand for executive incident reports.
+
+Architectural position:
+```
+Investigation → IVE → Professional Investigation Diagram
+```
+
+Consumer-only. Rendering is deterministic (graph layout engine +
+templated icon library); nothing in the CEM changes.
+
+**Combined pipeline unlocked once DIE + IDA + IVE ship:**
+```
+Any artifact
+  ↓ Artifact Router
+  ↓ Analyzer (or IDA for images)
+  ↓ Canonical Model
+  ↓ CEM
+  ↓ Investigation
+  ↓ Attack Fingerprint · Compare Cases
+  ↓ IVE
+  ↓ Professional Investigation Diagram + Report
+```
+
+---
+
+## Phase C · Additional Artifact Families (after B.1-B.3 land)
+
+Ordered per owner directive 2026-02-16:
+
+- C.1 · Mach-O Analyzer (5th first-class binary type)
+- C.2 · Email Analyzer (.eml / .msg)
+- C.3 · Archive Analyzer (ZIP · 7z · RAR · ISO · CAB · IMG) — folds
+       in the archive-recovery slice from DIE-2 if not yet shipped
+- C.4 · Android APK Analyzer
+- C.5 · iOS IPA Analyzer
+- C.6 · Memory-dump Analyzer
+
+---
 
 **Phase D · NVKC — NivXRay Validation & Knowledge Corpus**
 (owner-locked 2026-02-16 · engineering infrastructure, not a feature)
