@@ -357,6 +357,7 @@ SEED_PATTERNS = [
             S(kind="regex", pattern=r"(?i)exec\s*\(\s*base64\.b64decode", weight=2),
         ],
         mitre=["T1027","T1059.006"],
+        enterprise_uses=[],
         malware_uses=["Empire-Python","Chisel-py loader","cross-platform droppers"],
         families=["Empire-Python"],
         confidence=87,
@@ -364,6 +365,173 @@ SEED_PATTERNS = [
             "The Python payload decodes and executes a base64 blob "
             "in-memory ({evidence}) — obfuscation (T1027) plus "
             "Python interpreter abuse (T1059.006)."
+        ),
+    ),
+
+    # ── T1219 · RMM Abuse ────────────────────────────────────────
+    # Legitimate Remote Monitoring & Management tools abused by
+    # ransomware operators for hands-on-keyboard access.  Curated
+    # from Cisco Talos IR, Microsoft Defender IR, and CrowdStrike
+    # 2024/2025 reports.
+    Pattern(
+        id="dkp.rmm_abuse",
+        name="RMM Remote Access Abuse",
+        intent="Interactive C2 via legitimate remote-support software",
+        signatures=[
+            S(kind="regex",
+              pattern=r"(?i)\b(anydesk|screen[- ]?connect|screenconnect|"
+                      r"simple[- ]?help|simplehelp|splashtop|optitune|"
+                      r"teamviewer|quick[- ]?assist|quickassist|"
+                      r"atera|kaseya|connectwise|n-able)\b",
+              weight=2),
+            S(kind="lolbin", binary="anydesk.exe", weight=1),
+            S(kind="lolbin", binary="screenconnect.exe", weight=1),
+        ],
+        mitre=["T1219"],
+        enterprise_uses=["Managed Service Providers","internal IT",
+                         "corporate helpdesks"],
+        malware_uses=["Chaos ransomware affiliates","Medusa affiliates",
+                      "BlackBasta","BlackCat","Scattered Spider"],
+        families=["Chaos","Medusa","BlackBasta","BlackCat"],
+        typical_parent="services.exe / msiexec.exe",
+        typical_child=None,
+        common_followon="AD enumeration → lateral movement → ransomware",
+        confidence=82,
+        narrative_template=(
+            "The command / paste references RMM software "
+            "({evidence}) that is commonly observed being abused by "
+            "manual ransomware operators (T1219). The tool itself is "
+            "legitimate; the presence of it during an incident should "
+            "be correlated with the deployment source and installing "
+            "user account."
+        ),
+        investigation=[
+            "Confirm whether IT sanctioned the RMM installation.",
+            "Check the parent process — installers dropped via Quick "
+            "Assist / MSI are the highest-signal indicator.",
+            "Correlate the network peer of the RMM binary with the "
+            "known-good MSP allowlist.",
+        ],
+        detection_logic=(
+            "process.name in ('anydesk.exe','screenconnect.exe',"
+            "'simplehelp.exe','splashtop.exe','optitune.exe',"
+            "'connectwise.exe','ateraagent.exe')"
+        ),
+    ),
+
+    # ── T1572 · Reverse SSH Tunnel ───────────────────────────────
+    Pattern(
+        id="dkp.reverse_ssh_tunnel",
+        name="Reverse SSH Tunnel",
+        intent="Egress tunnel via SSH `-R`",
+        signatures=[
+            S(kind="regex", pattern=r"(?i)\bssh(?:\.exe)?\b[^\n]*\s-R\b", weight=2),
+            S(kind="lolbin", binary="ssh.exe", weight=0.5),
+        ],
+        mitre=["T1572","T1071.002"],
+        enterprise_uses=["remote troubleshooting via bastion"],
+        malware_uses=["manual ransomware operators","APT29","Scattered Spider"],
+        families=["Chaos","Medusa","LockBit"],
+        typical_parent="cmd.exe / powershell.exe",
+        common_followon="Persistent inbound channel to attacker",
+        confidence=90,
+        narrative_template=(
+            "The command opens a reverse SSH tunnel ({evidence}) — a "
+            "T1572 encrypted C2 channel that lets the attacker "
+            "reach back into the environment even from a NAT'd host."
+        ),
+        investigation=[
+            "Follow the remote endpoint (IP / port) through Artifact Router.",
+            "Look for OpenSSH client binaries dropped outside their "
+            "canonical System32 location.",
+            "Correlate with any recent installation of a portable "
+            "OpenSSH build.",
+        ],
+    ),
+
+    # ── T1087 · AD Discovery via nltest ──────────────────────────
+    Pattern(
+        id="dkp.ad_discovery_nltest",
+        name="Active Directory Discovery via nltest",
+        intent="Enumerate domain controllers / trusts",
+        signatures=[
+            S(kind="regex",
+              pattern=r"(?i)\bnltest(?:\.exe)?\s+/(?:dclist|domain_trusts|dsgetdc)\b",
+              weight=2),
+        ],
+        mitre=["T1087.002","T1482"],
+        malware_uses=["Cobalt Strike operators","manual ransomware operators"],
+        families=["LockBit","Conti","Medusa","Chaos"],
+        confidence=85,
+        narrative_template=(
+            "`nltest` is invoked to enumerate domain controllers or "
+            "domain trusts ({evidence}) — an AD discovery primitive "
+            "(T1087.002 / T1482) that precedes lateral movement in "
+            "nearly every manual ransomware engagement."
+        ),
+    ),
+
+    # ── T1033 · Session Discovery via quser ──────────────────────
+    Pattern(
+        id="dkp.session_discovery_quser",
+        name="User Session Discovery",
+        intent="List logged-on users",
+        signatures=[
+            S(kind="regex",
+              pattern=r"(?i)\b(?:quser|query\s+user)(?:\.exe)?\b",
+              weight=1.5),
+        ],
+        mitre=["T1033"],
+        malware_uses=["Cobalt Strike","manual operators"],
+        families=["LockBit","Medusa","Chaos"],
+        confidence=75,
+        narrative_template=(
+            "`quser` / `query user` is used to enumerate active "
+            "sessions ({evidence}) — analysts commonly see this "
+            "immediately before attempted lateral movement (T1033)."
+        ),
+    ),
+
+    # ── T1490 · vssadmin shadow (bare mention) ───────────────────
+    Pattern(
+        id="dkp.vssadmin_reference",
+        name="vssadmin Reference",
+        intent="Analyst-flagged shadow-copy tool mention",
+        signatures=[
+            S(kind="regex", pattern=r"(?i)\bvssadmin\b", weight=1),
+        ],
+        mitre=["T1490"],
+        malware_uses=["ransomware operators (broad)"],
+        families=["LockBit","Conti","BlackCat","Medusa","Chaos"],
+        confidence=55,
+        narrative_template=(
+            "vssadmin is mentioned in the paste ({evidence}). When "
+            "invoked with `delete shadows` it maps to T1490 (Inhibit "
+            "System Recovery). Verify the surrounding context for the "
+            "delete command."
+        ),
+    ),
+
+    # ── T1219 (variant) · Brute Ratel Activity ───────────────────
+    Pattern(
+        id="dkp.brute_ratel",
+        name="Brute Ratel C4 Activity",
+        intent="Adversary simulation framework abused for real intrusions",
+        signatures=[
+            S(kind="regex",
+              pattern=r"(?i)\bbrute[- ]?ratel\b|\bbadger[.-]?dll\b",
+              weight=2),
+        ],
+        mitre=["T1071","T1105","T1027"],
+        malware_uses=["Manual ransomware operators (post-2022)",
+                      "BlackCat","Royal","Play"],
+        families=["Brute Ratel","BlackCat","Royal"],
+        confidence=82,
+        narrative_template=(
+            "Brute Ratel C4 activity is observed ({evidence}) — this "
+            "commercial red-team framework has been co-opted by "
+            "ransomware crews since 2022 and its beacons are highly "
+            "evasive."
         ),
     ),
 ]

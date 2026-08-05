@@ -20,6 +20,7 @@ from .lolbas import lolbas_lookup
 from .ioc_semantic import extract_iocs, summarize_iocs
 from .dkp import match as dkp_match
 from .chain import analyze_chain, looks_like_chain
+from .preprocessor import preprocess as preprocess_input, PreprocessResult
 
 # ── language detector ─────────────────────────────────────────────
 _PS_HINTS = re.compile(
@@ -98,6 +99,21 @@ def analyze(src: str, language: Optional[str] = None) -> Dict[str, Any]:
     """
     if not src:
         return _empty_envelope("unknown")
+
+    # ── Preprocessor gate (P0 · 2026-02-28) ──────────────────────
+    # When the caller pasted unstructured / mixed analyst text (blog
+    # post, IR report, SOC notes) we route through the deterministic
+    # preprocessor FIRST.  It decomposes the paste into structured
+    # artifacts + ordered stages, then we hand those stages down as
+    # a synthesised chain — the frozen v1.1 core sees a well-formed
+    # multi-step chain envelope and never sees the raw prose.
+    if language is None and _looks_like_mixed_input(src):
+        pre = preprocess_input(src)
+        # Only take over when the preprocessor found ≥2 stages — one
+        # stage means "regular command", which the existing paths
+        # already handle correctly.
+        if pre.stage_count() >= 2:
+            return _preprocessor_to_envelope(pre, src)
 
     # Chain fast-path (Phase B.2 · 2026-02-16 pm) — when the input
     # contains a shell chain (`&`, `&&`, `||`, `|`, `;`, newlines) OR
@@ -246,3 +262,195 @@ def _chain_to_envelope(chain_env: Dict[str, Any]) -> Dict[str, Any]:
 def _summarize_agg(iocs):
     from .ioc_semantic import summarize_iocs
     return summarize_iocs(iocs)
+
+
+# ── Preprocessor bridge (P0 · 2026-02-28) ─────────────────────────
+# Heuristic: input is "mixed / unstructured" when it looks more like
+# prose than a shell chain.  Deterministic rules — same input, same
+# routing decision:
+#   1. contains ≥ 6 lines AND
+#   2. line-count / hard-separator-count ≥ 3 (i.e. many more lines
+#      than `;`, `&&`, `||`, `&`) AND
+#   3. at least one line begins with a natural-language capital word
+#      (not a shell verb) OR contains prose markers like ": " on a
+#      non-command line.
+_PROSE_MARKERS = re.compile(
+    r"(?im)^(the |talos |initial access|discovery|lateral movement|"
+    r"executive summary|engagement \d|customer |defenders |result|"
+    r"outcome|main research question|why (this|logs)|defensive)"
+)
+
+
+def _looks_like_mixed_input(src: str) -> bool:
+    if not src or len(src) < 200:
+        return False
+    lines = src.splitlines()
+    if len(lines) < 6:
+        return False
+    hard_seps = sum(src.count(sep) for sep in (";", "&&", "||"))
+    if len(lines) < hard_seps * 2:
+        return False
+    if _PROSE_MARKERS.search(src):
+        return True
+    # Fallback: lots of lines that don't look like commands.
+    non_command_lines = sum(
+        1 for ln in lines
+        if ln.strip() and not re.match(
+            r"^\s*(cmd|powershell|pwsh|wmic|reg|sc|schtasks|net|"
+            r"vssadmin|bcdedit|certutil|bitsadmin|rundll32|regsvr32|"
+            r"mshta|msiexec|whoami|hostname|ipconfig|systeminfo|arp|"
+            r"nltest|quser|ping|tracert|netstat|tasklist|taskkill|"
+            r"ssh|scp|curl|wget|bash|python|node)\b", ln, re.I,
+        )
+    )
+    return non_command_lines >= 6
+
+
+def _preprocessor_to_envelope(pre: "PreprocessResult", src: str) -> Dict[str, Any]:
+    """Adapt a PreprocessResult into the top-level ``analyze`` envelope.
+
+    We synthesise a chain-style envelope from the extracted stages so
+    every downstream consumer (CEM · verdict · investigation · Attack
+    Story) keeps working without a single schema change.
+    """
+    from copy import deepcopy
+    from .intent import classify_intent as _intent
+
+    steps: list = []
+    languages_seen: Dict[str, int] = {}
+    aggregate_techniques: Dict[str, Dict[str, Any]] = {}
+    aggregate_lolbins:    Dict[str, Dict[str, Any]] = {}
+    aggregate_iocs:       Dict[str, Dict[str, Any]] = {}
+    aggregate_dkp:        Dict[str, Dict[str, Any]] = {}
+
+    for stage in pre.stages:
+        # Prefer the normalized command; fall back to a synthetic
+        # verb so single-token / prose stages still analyse.
+        step_text = stage.normalized_command or stage.raw_excerpt or stage.title
+        step_lang = None
+        step_env = _analyze_single(step_text, language=step_lang) if step_text else _empty_envelope("unknown")
+        step_env = deepcopy(step_env)
+        step_env.pop("_raw_source", None)
+
+        tactic = _stage_tactic(stage) or classify_step_intent(step_env, step_text)
+
+        step_record = {
+            "index":      stage.index,
+            "text":       step_text,
+            "parent":     None,
+            "language":   step_env.get("language"),
+            "intent":     tactic,
+            "summary":    _stage_summary(stage, step_env, step_text),
+            "techniques": step_env.get("techniques", []),
+            "lolbins":    step_env.get("lolbins", []),
+            "iocs":       step_env.get("iocs", []),
+            "dkp_matches": step_env.get("dkp_matches", []),
+            "obfuscation_score": step_env.get("obfuscation_score", 0),
+            "ast":        step_env.get("ast"),
+            # Preprocessor provenance — new fields, additive:
+            "preprocessor_stage": {
+                "id":                 stage.id,
+                "kind":               stage.kind,
+                "title":              stage.title,
+                "command_family":     stage.command_family,
+                "line_number":        stage.line_number,
+                "raw_excerpt":        stage.raw_excerpt,
+                "artifact_ids":       list(stage.artifact_ids),
+                "confidence":         stage.confidence,
+            },
+        }
+        steps.append(step_record)
+        languages_seen[step_env.get("language") or "unknown"] = \
+            languages_seen.get(step_env.get("language") or "unknown", 0) + 1
+        for t in step_record["techniques"]:
+            aggregate_techniques.setdefault(t["id"], t)
+        for lb in step_record["lolbins"]:
+            aggregate_lolbins.setdefault(lb["binary"], lb)
+        for i in step_record["iocs"]:
+            aggregate_iocs.setdefault(f"{i['kind']}:{i['value']}", i)
+        for m in step_record["dkp_matches"]:
+            prev = aggregate_dkp.get(m["id"])
+            if prev is None or prev["confidence"] < m["confidence"]:
+                aggregate_dkp[m["id"]] = m
+
+    primary = max(languages_seen.items(), key=lambda kv: kv[1])[0] if languages_seen else "unknown"
+
+    bullets = [f"Step {s['index']} — {s['intent']} · {s['summary']}" for s in steps]
+    chain_env = {
+        "input":            src,
+        "chain":            True,
+        "step_count":       len(steps),
+        "primary_language": primary,
+        "languages_seen":   languages_seen,
+        "steps":            steps,
+        "narrative_bullets": bullets,
+        "aggregate": {
+            "techniques":  sorted(aggregate_techniques.values(),
+                                  key=lambda t: t["id"]),
+            "lolbins":     sorted(aggregate_lolbins.values(),
+                                  key=lambda l: l["binary"]),
+            "iocs":        sorted(aggregate_iocs.values(),
+                                  key=lambda i: (i["kind"], i["value"])),
+            "dkp_matches": sorted(aggregate_dkp.values(),
+                                  key=lambda m: (-m["confidence"], m["id"])),
+        },
+        "attack_intent":  _intent({
+            "steps": steps,
+            "aggregate": {
+                "techniques":  list(aggregate_techniques.values()),
+                "dkp_matches": list(aggregate_dkp.values()),
+            },
+        }),
+        # Preprocessor summary — new key, additive:
+        "preprocessor": {
+            "artifacts":      [a.to_dict() for a in pre.artifacts],
+            "stages":         [s.to_dict() for s in pre.stages],
+            "process_edges":  [e.to_dict() for e in pre.process_edges],
+            "stats":          dict(pre.stats),
+        },
+    }
+
+    env = _chain_to_envelope(chain_env)
+    env["preprocessor"] = chain_env["preprocessor"]
+    return env
+
+
+def _stage_tactic(stage) -> Optional[str]:
+    """Return the ATT&CK tactic bucket implied by the stage family."""
+    return {
+        "reverse-ssh-tunnel":         "Command and Control",
+        "shadow-copy-deletion":       "Impact",
+        "ad-discovery":               "Discovery",
+        "ad-enumeration":             "Discovery",
+        "host-discovery":             "Discovery",
+        "session-discovery":          "Discovery",
+        "account-discovery":          "Discovery",
+        "persistence-scheduled-task": "Persistence",
+        "registry-modification":      "Defense Evasion",
+        "software-uninstall":         "Defense Evasion",
+        "msi-install":                "Execution",
+        "sync-rclone-style":          "Exfiltration",
+        "data-exfiltration":          "Exfiltration",
+        "rmm-remote-access":          "Command and Control",
+        "brute-ratel":                "Command and Control",
+        "psexec-lateral":             "Lateral Movement",
+        "lateral-movement":           "Lateral Movement",
+        "uac-disable":                "Defense Evasion",
+        "log-clearing":               "Defense Evasion",
+        "initial-access-social":      "Initial Access",
+    }.get(getattr(stage, "command_family", None))
+
+
+def _stage_summary(stage, env, step_text: str) -> str:
+    """Compact human-friendly summary line for a preprocessor stage."""
+    if stage.command_family:
+        return f"{stage.title} — `{(stage.normalized_command or step_text)[:100]}`"
+    txt = (step_text or stage.title).strip()
+    if len(txt) > 120:
+        txt = txt[:117] + "…"
+    return f"`{txt}`"
+
+
+def classify_step_intent(env, text):
+    from .chain import classify_intent as _ci
+    return _ci(env, text)
