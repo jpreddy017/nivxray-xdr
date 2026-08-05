@@ -60,6 +60,21 @@ def die_understand(body: UnderstandBody):
     return {"understanding": u.to_dict()}
 
 
+class NarrateBody(BaseModel):
+    input: str = Field(..., description="Raw analyst paste to narrate.")
+
+
+@router.post("/narrate")
+def die_narrate(body: NarrateBody):
+    """Deterministic Analyst Narrative — Executive Summary, Analyst
+    Summary, Recommended Actions, Sigma / YARA ideas and Threat-actor
+    context.  Zero LLM."""
+    from services.die.preprocessor import preprocess as _pp
+    from services.die.analyst_narrative import generate as _gen
+    pre = _pp(body.input or "")
+    return {"narrative": _gen(pre.to_dict())}
+
+
 @router.post("/powershell/ast")
 def die_powershell_ast(body: AnalyzeBody):
     """Force the PowerShell semantic AST parser."""

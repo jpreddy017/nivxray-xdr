@@ -13,6 +13,8 @@ import OutputView from "@/components/OutputView";
 import WorkspaceDecodeFailureCard from "@/components/investigation/WorkspaceDecodeFailureCard";
 import InputUnderstandingPanel from "@/components/investigation/InputUnderstandingPanel";
 import InlineAttackStory from "@/components/investigation/InlineAttackStory";
+import TrajectoryDiagram from "@/components/investigation/TrajectoryDiagram";
+import AnalystNarrativePanel from "@/components/investigation/AnalystNarrativePanel";
 import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
@@ -83,6 +85,19 @@ import {
 const SHOW_LEGACY_INVESTIGATION_SUMMARY = false;
 
 export default function WorkspacePage() {
+  // ▲ 2026-02-28 · P0 Persistence — restore the last completed
+  // Workspace session (input, output, and all generated panels) so
+  // that navigating away and coming back does NOT lose the analyst's
+  // work.  Cleared only when the CLEAR button is pressed.
+  const _persisted = (() => {
+    try {
+      const raw = localStorage.getItem("nvx.workspace.persist");
+      if (!raw) return {};
+      const p = JSON.parse(raw);
+      return (p && typeof p === "object") ? p : {};
+    } catch { return {}; }
+  })();
+
   const [ops, setOps] = useState([]);
   const [examples, setExamples] = useState([]);
   const [input, setInput] = useState(() => {
@@ -94,9 +109,10 @@ export default function WorkspacePage() {
         return saved;
       }
     } catch (_) {}
-    return "";
+    // Fall back to the persisted Workspace session.
+    return _persisted.input || "";
   });
-  const [output, setOutput] = useState("");
+  const [output, setOutput] = useState(() => _persisted.output || "");
   const [steps, setSteps] = useState([]);
   const [detected, setDetected] = useState(null);
   const [chain, setChain] = useState([]);
@@ -171,12 +187,16 @@ export default function WorkspacePage() {
   // ▲ 2026-02-28 · P0 · Input Understanding Engine (IUE).  Populated on
   // every analyze() so the analyst sees WHAT the paste is and WHY we
   // are running each engine, before results land.
-  const [understanding, setUnderstanding] = useState(null);
+  const [understanding, setUnderstanding] = useState(() => _persisted.understanding || null);
   const [understandingLoading, setUnderstandingLoading] = useState(false);
   const [understandingError, setUnderstandingError] = useState(null);
   // Inline Attack Story feed — preprocessor stages come back inside
   // the DIE analyze envelope when the input is mixed / prose / chain.
-  const [inlineStoryPreproc, setInlineStoryPreproc] = useState(null);
+  const [inlineStoryPreproc, setInlineStoryPreproc] = useState(() => _persisted.inlineStoryPreproc || null);
+  // Deterministic Analyst Narrative — Executive Summary, Sigma / YARA
+  // ideas, Analyst Summary, Threat Actor Context and Recommended
+  // Actions.  Zero LLM, template-driven from preprocessor stages.
+  const [analystNarrative, setAnalystNarrative] = useState(() => _persisted.analystNarrative || null);
   const [multiChainNotice, setMultiChainNotice] = useState(null);   // { stages, verdict, family }
   // Feb-2026 · once a case has been named+saved, subsequent SAVE clicks
   // silently upsert under the same name (no prompt). Reset when the input
@@ -532,6 +552,29 @@ export default function WorkspacePage() {
   // (especially destructive for binary PE payloads that JS can't render).
   const skipLivePreviewRef = useRef(false);
 
+
+  // ▲ 2026-02-28 · P0 Persistence — persist input, output, IUE bundle,
+  // preprocessor bundle and analyst-narrative bundle to localStorage
+  // so navigating away and back to the Workspace preserves the work.
+  // Only CLEAR wipes the key (see clearAll above).
+  useEffect(() => {
+    try {
+      const snapshot = {
+        input,
+        output,
+        understanding,
+        inlineStoryPreproc,
+        analystNarrative,
+        ts: Date.now(),
+      };
+      const s = JSON.stringify(snapshot);
+      if (s.length <= 1_500_000) {
+        localStorage.setItem("nvx.workspace.persist", s);
+      }
+    } catch { /* quota exceeded → ignore */ }
+  }, [input, output, understanding, inlineStoryPreproc, analystNarrative]);
+
+
   useEffect(() => {
     if (!input && !steps.length) {
       setLivePreview(null);
@@ -609,7 +652,17 @@ export default function WorkspacePage() {
     setCanonicalConfidence(null);
     setCanonicalConfidenceReason(null);
     setIeddeDiagnostics([]);
-    try { localStorage.removeItem("nvx.pendingInput"); } catch {}
+    // ▲ 2026-02-28 · P0 · IUE / Inline Attack Story / Analyst Narrative
+    // must ALSO be wiped so CLEAR truly resets the Workspace to zero.
+    setUnderstanding(null);
+    setUnderstandingLoading(false);
+    setUnderstandingError(null);
+    setInlineStoryPreproc(null);
+    setAnalystNarrative(null);
+    try {
+      localStorage.removeItem("nvx.pendingInput");
+      localStorage.removeItem("nvx.workspace.persist");
+    } catch {}
   };
 
 
@@ -1149,6 +1202,11 @@ export default function WorkspacePage() {
           if (pre) setInlineStoryPreproc(pre);
         })
         .catch(() => { /* silently absent */ });
+      api.post("/die/narrate", { input })
+        .then((r) => {
+          setAnalystNarrative(r?.data?.narrative || null);
+        })
+        .catch(() => { /* silently absent */ });
     }
     if (describe || aiVerdict) {
       // AI-heavy path — use job polling to bypass reverse-proxy timeouts
@@ -1307,6 +1365,11 @@ export default function WorkspacePage() {
                  || r?.data?.result?.chain?.preprocessor
                  || null;
         if (pre) setInlineStoryPreproc(pre);
+      })
+      .catch(() => { /* silently absent */ });
+    api.post("/die/narrate", { input })
+      .then((r) => {
+        setAnalystNarrative(r?.data?.narrative || null);
       })
       .catch(() => { /* silently absent */ });
     // Multi-command chain? Route to /decode/chain so every stage's IOCs /
@@ -2576,6 +2639,28 @@ export default function WorkspacePage() {
           {inlineStoryPreproc && (
             <div style={{ margin: "0 12px 8px" }}>
               <InlineAttackStory preprocessor={inlineStoryPreproc} />
+            </div>
+          )}
+
+          {/* ▲ Evidence Trajectory (2026-02-28)
+              Swim-lane trajectory diagram — matches the analyst-expected
+              trajectory artefact.  Six lanes (Execution / Transformation
+              / Network·C2 / File System / Registry / Persistence) with
+              per-stage nodes and coloured edges (normal · critical ·
+              persistence) between them. */}
+          {inlineStoryPreproc && (
+            <div style={{ margin: "0 12px 8px" }}>
+              <TrajectoryDiagram preprocessor={inlineStoryPreproc} />
+            </div>
+          )}
+
+          {/* ▲ Analyst Narrative (2026-02-28)
+              Deterministic Executive Summary + Analyst Summary +
+              Recommended Actions + Sigma / YARA hunts + MITRE matrix +
+              Threat-actor context.  Zero LLM. */}
+          {analystNarrative && (
+            <div style={{ margin: "0 12px 8px" }}>
+              <AnalystNarrativePanel narrative={analystNarrative} />
             </div>
           )}
 
