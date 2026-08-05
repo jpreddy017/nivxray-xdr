@@ -11,6 +11,7 @@ import FinalSummary from "@/components/FinalSummary";
 import ShellcodeView from "@/components/ShellcodeView";
 import OutputView from "@/components/OutputView";
 import WorkspaceDecodeFailureCard from "@/components/investigation/WorkspaceDecodeFailureCard";
+import InputUnderstandingPanel from "@/components/investigation/InputUnderstandingPanel";
 import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
@@ -166,6 +167,12 @@ export default function WorkspacePage() {
   const [chainEditorKey, setChainEditorKey] = useState(0); // force remount when initialStages change
   // Feb-2026 Enhancements: input lock (edit toggle) + multi-command auto-route toast
   const [inputLocked, setInputLocked] = useState(false);
+  // ▲ 2026-02-28 · P0 · Input Understanding Engine (IUE).  Populated on
+  // every analyze() so the analyst sees WHAT the paste is and WHY we
+  // are running each engine, before results land.
+  const [understanding, setUnderstanding] = useState(null);
+  const [understandingLoading, setUnderstandingLoading] = useState(false);
+  const [understandingError, setUnderstandingError] = useState(null);
   const [multiChainNotice, setMultiChainNotice] = useState(null);   // { stages, verdict, family }
   // Feb-2026 · once a case has been named+saved, subsequent SAVE clicks
   // silently upsert under the same name (no prompt). Reset when the input
@@ -1094,6 +1101,24 @@ export default function WorkspacePage() {
     if (!input.trim() && !output.trim()) { setStatus("PROVIDE INPUT OR OUTPUT FIRST"); return; }
     streamStopRef.current?.();
     setAnalyzing(true);
+    // ── P0 · Input Understanding Engine (2026-02-28) ────────────
+    // Runs in parallel with the SSE/job pipeline so the analyst sees
+    // WHAT they pasted and WHY each engine is running BEFORE results
+    // land.  Deterministic — same paste always yields the same trace.
+    if (input && input.trim()) {
+      setUnderstanding(null);
+      setUnderstandingError(null);
+      setUnderstandingLoading(true);
+      api.post("/die/understand", { input, execute: true })
+        .then((r) => {
+          setUnderstanding(r?.data?.understanding || null);
+          setUnderstandingLoading(false);
+        })
+        .catch((e) => {
+          setUnderstandingError(e?.response?.data?.detail || e?.message || String(e));
+          setUnderstandingLoading(false);
+        });
+    }
     if (describe || aiVerdict) {
       // AI-heavy path — use job polling to bypass reverse-proxy timeouts
       pollAnalyzeJob({ input, output, enrich_osint: true, describe, use_ai_verdict: aiVerdict,
@@ -2460,6 +2485,20 @@ export default function WorkspacePage() {
                   <span style={{ color: "var(--text-dim)", flex: 1 }}>{t.note}</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ▲ Input Understanding Panel (P0 · 2026-02-28)
+              MUST be the first thing the analyst sees after clicking
+              ANALYZE.  Explains WHAT the paste is, WHY each engine is
+              running, and TRACKS the plan execution in real time. */}
+          {(understanding || understandingLoading || understandingError) && (
+            <div style={{ margin: "0 12px 8px" }}>
+              <InputUnderstandingPanel
+                understanding={understanding}
+                loading={understandingLoading}
+                error={understandingError}
+              />
             </div>
           )}
 

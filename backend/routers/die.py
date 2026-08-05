@@ -45,6 +45,21 @@ def die_analyze(body: AnalyzeBody):
     return {"result": analyze(body.input, language=body.language)}
 
 
+class UnderstandBody(BaseModel):
+    input: str = Field(..., description="Raw analyst paste to understand.")
+    execute: bool = Field(True, description="When true, run the plan and record the execution trace.")
+
+
+@router.post("/understand")
+def die_understand(body: UnderstandBody):
+    """Input Understanding Engine — classify the input, build the
+    investigation plan, execute it (unless disabled) and return the
+    analyst-visible trace."""
+    from services.die import understand_input
+    u = understand_input(body.input, execute=body.execute)
+    return {"understanding": u.to_dict()}
+
+
 @router.post("/powershell/ast")
 def die_powershell_ast(body: AnalyzeBody):
     """Force the PowerShell semantic AST parser."""

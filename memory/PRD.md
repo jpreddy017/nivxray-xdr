@@ -2,6 +2,62 @@
 
 ---
 
+### 🔴 2026-02-28 · P0 · Input Understanding Engine (IUE) SHIPPED
+
+**Owner directive** (verbatim, 2026-02-28):
+> _"The Workspace lacks an Input Understanding phase … Right now, the tool
+> jumps into decoding/analysis without first answering the most important
+> question: 'What exactly did the analyst give me?' … I consider this a P0
+> capability because it becomes the orchestrator for everything else you've
+> built (DIE, DKP, Chain Analyzer, IDA, Artifact Intelligence, and future
+> analyzers). Without it, the Workspace feels like a collection of powerful
+> engines rather than a cohesive investigation platform."_
+
+**New pipeline (Master Architecture v1.1 remains FROZEN):**
+
+```
+Raw Input
+  ↓
+INPUT UNDERSTANDING ENGINE   ← NEW · deterministic
+  ├─ Step 1  Identify Input Type
+  ├─ Step 2  Build Investigation Plan
+  ├─ Step 3  Determine Next Engine
+  ├─ Step 4  Handle Plain Text branch
+  ├─ Step 5  Decode Planner (if required)
+  ├─ Step 6  Confidence-before-execution matrix
+  ├─ Step 7  Show analyst the plan
+  ↓
+Structured Preprocessor
+  ↓
+DIE / DKP / Chain / Intent / Narrative / Attack Story / Report
+```
+
+**Talos IR fixture is now a permanent regression** — the exact
+analyst-provided Cisco Talos IR case study is stored at
+`tests/fixtures/mixed_investigation_input/talos_ir_ransomware_case_study.txt`.
+The IUE classifies it as `vendor_report_text` (90% confidence) and the
+preprocessor extracts 22 stages · 8 inferred process edges · 25 artifacts.
+7 DKP patterns fire (RMM Abuse · Reverse SSH · AD Discovery · Session
+Discovery · Brute Ratel · vssadmin · Shadow Copy Removal).
+
+**138 pytest cases pass** (was 125 · +13 new IUE / Preprocessor / Talos
+regressions).
+
+**What the analyst now sees at the top of every Workspace paste:**
+- **INPUT UNDERSTOOD** — Type · Confidence · Reasoning bullets.
+- Content counters — commands · executables · registry · paths · URLs
+  · IPs · hashes · stages · process edges · decode layers.
+- **DECODE PLAN** — Required Y/N + reason + L1…Ln decoder layers.
+- **NEXT ACTION** — chosen engine + reason + Confidence Matrix
+  (Input Class · Decode Path · Language Detect · Est. Recovery).
+- **WORKSPACE PLAN** — live checklist of every plan step with real
+  execution timings (ms) and per-step detail (`language=powershell ·
+  cmdlets=1`, `22 stages · 8 process edges`, `7 DKP matches`, etc.).
+
+---
+
+
+
 ### 🟢 2026-02-16 · Phase A.5 · item 3.7 · Attack Story IA consolidation (owner-locked · shipped · iteration_66)
 
 Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).

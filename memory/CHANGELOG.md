@@ -1,6 +1,68 @@
 # NivXRay Changelog
 
 Chronological record of significant releases (newest first).
+## 2026-02-28 · P0 · Input Understanding Engine (IUE) + Structured Preprocessor
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN — unchanged).
+
+The Workspace no longer jumps straight into decoding. Every paste
+now flows through a deterministic upstream layer that (1) understands
+what the analyst gave the platform, (2) builds an explicit
+investigation plan, (3) executes it, and (4) surfaces the trace to
+the analyst.
+
+**Backend delivered:**
+- `services/die/preprocessor/` — new deterministic package
+  (input_normalizer · artifact_extractor · command_normalizer ·
+   artifact_router · family_recognizer · stage_builder ·
+   process_relations · pipeline).
+- `services/die/input_understanding.py` — new **Input Understanding
+  Engine (IUE)** with 21 first-class input types
+  (powershell_encoded · powershell_naked · nested_shell_chain ·
+   command_chain · single_command · pe_file · rtf_document ·
+   office_ole · pdf_document · base64_blob · hex_blob · gzip_blob ·
+   registry_export · windows_event_log · sysmon_log · process_tree ·
+   vendor_json · vendor_report_text · url_only · plain_text · unknown).
+- Emits `{input_type, label, confidence, reasoning[], contents{},
+  decode_required, decode_reason, decode_layers[], next_engine,
+  next_engine_reason, plan[], confidence_matrix{}, execution_trace[]}`.
+- `services/die/api.py` — `analyze()` routes mixed-input prose
+  through the preprocessor and returns a chain envelope with a
+  bundled `preprocessor` key (SSOT for downstream consumers).
+- `services/die/dkp/seed_patterns.py` — new DKP patterns:
+  `dkp.rmm_abuse`, `dkp.reverse_ssh_tunnel`, `dkp.ad_discovery_nltest`,
+  `dkp.session_discovery_quser`, `dkp.vssadmin_reference`,
+  `dkp.brute_ratel`.
+- `routers/die.py` — new `POST /api/die/understand` endpoint.
+
+**Frontend delivered:**
+- `components/investigation/InputUnderstandingPanel.jsx` — the
+  top-of-Workspace card showing Input Understood + Decode Plan +
+  Next Action + Confidence Matrix + Workspace Plan checklist with
+  live execution trace and per-step timings.
+- `pages/WorkspacePage.jsx` — kicks off `/api/die/understand` on
+  every ANALYZE click, renders the IUE panel above all result panels.
+
+**Regression fixture (permanent):**
+- `tests/fixtures/mixed_investigation_input/talos_ir_ransomware_case_study.txt`
+  (user-provided Cisco Talos IR case study — the exact 1/10 sample).
+- `tests/test_iue_preprocessor_talos_regression.py` — 13 hard
+  assertions (≥7 stages, ≥7 required families, inferred process edges,
+  no flat Stage-0 blob, artifact provenance, chain envelope, RMM DKP
+  fires, IUE classification, execution trace, encoded-PS + bare-b64
+  + plain-text classification).
+
+**Verified live:**
+- Talos IR paste → 22 stages · 8 process edges · 25 artifacts · 7 DKP
+  matches (RMM Abuse · Reverse SSH · AD Discovery · Session Discovery ·
+  Brute Ratel · vssadmin · Shadow Copy Removal).
+- Encoded PowerShell paste → IUE label
+  "PowerShell -EncodedCommand (base64 · UTF-16LE)" · 97% confidence ·
+  L1 Base64 → L2 UTF-16LE plan · full 9-step execution trace with
+  per-step ms timings.
+- All 138 DIE / IUE / Preprocessor tests pass (was 125 · +13 IUE).
+
+
 
 ## 2026-02-16 · UX Consolidation · X-LAB retired from production navigation (owner directive · non-functional)
 

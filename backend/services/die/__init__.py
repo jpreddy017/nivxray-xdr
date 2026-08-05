@@ -34,6 +34,7 @@ from .archive_recovery import (
     recover_recursive as archive_recover_recursive,
     detect_kind as archive_detect_kind,
 )
+from .input_understanding import understand as understand_input, InputUnderstanding
 
 __all__ = [
     "analyze",
@@ -51,4 +52,6 @@ __all__ = [
     "archive_recover",
     "archive_recover_recursive",
     "archive_detect_kind",
+    "understand_input",
+    "InputUnderstanding",
 ]
