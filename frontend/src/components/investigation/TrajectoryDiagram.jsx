@@ -66,6 +66,20 @@ const EDGE_STYLES = {
   normal:  "#3b4a68",
 };
 
+// ── Kill-Chain phase → node colour palette ─────────────────────
+// Each phase gets a distinct hue so the diagram becomes a
+// "colour timeline" of the attack progression.  Additive — the
+// existing critical / persistence highlights still take priority.
+const KILL_CHAIN_COLOR = {
+  "Reconnaissance":            "#67e8f9",  // cyan
+  "Weaponization":             "#a78bfa",  // purple
+  "Delivery / Exploitation":   "#c084fc",  // violet
+  "Exploitation":              "#facc15",  // yellow
+  "Installation":              "#fb923c",  // orange
+  "Command & Control":         "#ef4444",  // red-orange
+  "Actions on Obj.":           "#f87171",  // red
+};
+
 export default function TrajectoryDiagram({ preprocessor }) {
   const initialNodes = useMemo(() => _layoutNodes(preprocessor), [preprocessor]);
   const [nodes, setNodes] = useState(initialNodes);
@@ -154,17 +168,27 @@ export default function TrajectoryDiagram({ preprocessor }) {
       </div>
 
       <div style={legendBar}>
-        <LegendChip color="#67e8f9" label="Execution / process" />
-        <LegendChip color="#a78bfa" label="Transformation / decode" />
-        <LegendChip color="#f87171" label="Network & defense evasion" />
+        <span style={legendGroup}>NODE COLOURS BY KILL-CHAIN PHASE:</span>
+        <LegendChip color="#67e8f9" label="Reconnaissance" />
+        <LegendChip color="#c084fc" label="Delivery / Exploitation" />
+        <LegendChip color="#facc15" label="Exploitation" />
+        <LegendChip color="#fb923c" label="Installation" />
+        <LegendChip color="#ef4444" label="Command & Control" />
+        <LegendChip color="#f87171" label="Actions on Objectives" />
+        <span style={{ ...legendGroup, marginLeft: 14 }}>OVERRIDES:</span>
+        <LegendChip color="#f87171" label="Critical (Impact)" />
         <LegendChip color="#fbbf24" label="Persistence" />
       </div>
 
       <div data-testid="trajectory-viewport"
-           style={{ overflow: "auto", border: "1px solid #1f2b3f",
+           style={{ overflowX: "scroll",       // ALWAYS-visible horizontal
+                    overflowY: "auto",
+                    border: "1px solid #1f2b3f",
                     borderRadius: 10, background: "rgba(2,6,23,0.65)",
-                    maxHeight: 720, cursor: dragRef.current ? "grabbing"
-                                    : panRef.current ? "grabbing" : "grab" }}>
+                    maxHeight: 720,
+                    scrollbarColor: "#334467 #0b1220",
+                    cursor: dragRef.current ? "grabbing"
+                                  : panRef.current ? "grabbing" : "grab" }}>
         <svg ref={svgRef}
              width={contentW * zoom} height={contentH * zoom}
              viewBox={`0 0 ${contentW} ${contentH}`}
@@ -221,7 +245,18 @@ export default function TrajectoryDiagram({ preprocessor }) {
             ))}
 
             {/* Nodes */}
-            {nodes.map((n) => (
+            {nodes.map((n) => {
+              // Phase-based node colour (Kill Chain).  Critical /
+              // Persistence highlights still take priority when they
+              // apply, so the "colour of urgency" is not lost.
+              const phaseColor = KILL_CHAIN_COLOR[n.kill_chain] || "#67e8f9";
+              const borderColor = n.critical    ? "#f87171"
+                                : n.persistence ? "#fbbf24"
+                                : phaseColor;
+              const dotColor    = n.critical    ? "#f87171"
+                                : n.persistence ? "#fbbf24"
+                                : phaseColor;
+              return (
               <g key={n.id} data-testid={`trajectory-node-${n.id}`}
                  onMouseDown={(e) => onNodeMouseDown(e, n.id)}
                  style={{ cursor: "grab" }}>
@@ -229,21 +264,18 @@ export default function TrajectoryDiagram({ preprocessor }) {
                 <rect x={n.x - 4} y={n.y - 24}
                       width={210} height={62} rx={6}
                       fill="rgba(15,23,42,0.9)"
-                      stroke={n.critical ? "#f87171"
-                              : n.persistence ? "#fbbf24"
-                              : "#334467"}
-                      strokeWidth={1.5} />
+                      stroke={borderColor}
+                      strokeWidth={1.6} />
                 <circle cx={n.x + 10} cy={n.y + 6} r={7}
-                        fill={n.critical ? "#f87171"
-                              : n.persistence ? "#fbbf24"
-                              : "#67e8f9"}
+                        fill={dotColor}
                         stroke="#0b1220" strokeWidth={2} />
                 <text x={n.x + 22} y={n.y - 8}
                       style={{ fontSize: 12, fontWeight: 700, fill: "#e2e8f0" }}>
                   {n.title.length > 26 ? n.title.slice(0, 24) + "…" : n.title}
                 </text>
                 <text x={n.x + 22} y={n.y + 4}
-                      style={{ fontSize: 9.5, fill: "#94a3b8" }}>
+                      style={{ fontSize: 9.5, fill: phaseColor,
+                               fontWeight: 700 }}>
                   {n.kill_chain}
                 </text>
                 <text x={n.x + 22} y={n.y + 16}
@@ -251,7 +283,8 @@ export default function TrajectoryDiagram({ preprocessor }) {
                   {n.subtitle} · {n.time}
                 </text>
               </g>
-            ))}
+              );
+            })}
           </g>
         </svg>
       </div>
@@ -358,8 +391,13 @@ const tagline = {
   color: "#67e8f9", fontFamily: "JetBrains Mono, monospace",
 };
 
-const legendBar = { display: "flex", gap: 14, flexWrap: "wrap",
-                    marginBottom: 8 };
+const legendBar = { display: "flex", gap: 10, flexWrap: "wrap",
+                    alignItems: "center", marginBottom: 8 };
+
+const legendGroup = {
+  fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase",
+  color: "#64748b", fontFamily: "JetBrains Mono, monospace",
+};
 
 const btn = {
   display: "inline-flex", alignItems: "center", gap: 4,

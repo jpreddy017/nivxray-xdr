@@ -352,8 +352,14 @@ export default function AttackPathClean({ nodes = [], edges = [] }) {
         </button>
       </div>
 
-      <div style={{ overflow: "auto" }}>
-        <svg ref={svgRef} width={width} height={height}
+      <div style={{
+        overflowX: "scroll",         // Always-visible horizontal scrollbar
+        overflowY: "auto",
+        maxHeight: 720,
+        scrollbarColor: "#334467 #0b1220",
+      }}
+           data-testid="attack-path-clean-viewport">
+        <svg ref={svgRef} width={Math.max(width, 1400)} height={height}
              style={{ display: "block", minWidth: "100%",
                       background: "linear-gradient(180deg, #0b1220 0%, #0f172a 100%)",
                       touchAction: "none",
