@@ -2,6 +2,53 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-16 · P2.3c · RTE Recovery Improvement + Multi-Origin Equivalence — LIVE · 30/30 architectural gates green
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
+
+**Ships (deterministic decoder + regression guard):**
+- **P2.3c · gzip-inflated binary artifact recovery.** Improved
+  `workspace/convergence/decoder.py` so both the whole-artifact base64
+  path and the `[Convert]::FromBase64String('<b64>')` fold path detect
+  known executable/container magic (MZ · ELF · Mach-O · Fat · PK) on
+  the *inflated* bytes after gzip decompression — not just on the raw
+  bytes. Generic improvement: applies to any `b64(gzip(binary))`
+  wrapper, not just the golden sample. No hardcoded exceptions, no
+  `stability_gate` bypass.
+- **Result:** the flagship `powershell.exe -EncodedCommand <utf-16 b64
+  of> [Convert]::FromBase64String('<gzip>')` chain now natively
+  reaches `terminal_state=binary_artifact_recovered` and routes the
+  recovered PE through the Artifact Router → PE Analyzer → CEM →
+  Investigation Engine.
+- **Golden Corpus harness improvement:** `test_investigation_replay.py`
+  now prefers `plan.binary_artifact.routed_analysis` (the RTE's own
+  hand-off) over re-dispatching on the canonical text — the correct
+  architectural coupling per §5.
+- **Baseline update (owner-approved):** `workspace_ps_to_pe_chain`
+  baseline moved from `{convergence: false, terminal_state:
+  stability_gate, artifact_types: [unknown]}` → `{convergence: true,
+  terminal_state: binary_artifact_recovered, artifact_types: [pe]}`
+  with a new fingerprint hash. Diff reviewed before commit.
+- **Multi-Origin Equivalence permanent regression guard**
+  (`tests/test_p23c_rte_recovery_and_multi_origin.py`): asserts the
+  recovered PE from a workspace paste is byte-identical to the PE from
+  a direct file upload (`sha256` match) and that PE-specific CEM
+  invariants (hashes, size, analyzer findings, MITRE, IOCs, signature
+  shape) are equal across entry paths. Any divergence is a P0 gate.
+
+**Regression guard summary:** 30/30 architectural gates green
+(Golden Corpus 3/3 · Dual-Entry Equivalence 11/11 · CEM+RCP 11/11 ·
+P2.3c + Multi-Origin 5/5). No frozen-component modifications — this
+work is a pure decoder improvement + test guard extension permitted
+by the Extension Rule.
+
+**Files changed:**
+- `backend/workspace/convergence/decoder.py` (P2.3c recovery paths)
+- `backend/tests/golden_corpus/test_investigation_replay.py` (harness)
+- `backend/tests/golden_corpus/baselines/workspace_ps_to_pe_chain.json`
+- `backend/tests/test_p23c_rte_recovery_and_multi_origin.py` (new gate)
+
+
 ## 2026-02-15 · Phase 4 · P6 · Golden Investigation Corpus + Replay Harness — LIVE · 59/59 tests green
 
 **Master architecture reference:** `/app/memory/ARCHITECTURE.md` §10

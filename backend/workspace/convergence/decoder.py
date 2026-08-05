@@ -163,21 +163,32 @@ def _decode_from_base64string(content: str) -> tuple[str, int]:
             return m.group(0)
         # Try gzip (with raw-DEFLATE fallback for broken CRC trailers).
         inflated = _try_gzip(raw)
+        _BIN_MAGIC = (b"MZ", b"\x7fELF", b"\xcf\xfa\xed\xfe",
+                      b"\xce\xfa\xed\xfe", b"\xca\xfe\xba\xbe",
+                      b"PK\x03\x04")
         if inflated is not None:
             text = _try_utf8(inflated)
             if text is not None:
                 fires += 1
                 escaped = text.replace("'", "''")
                 return "'" + escaped + "'"
+            # ▲ P2.3c · gzip-inflated binary artifact recovery.
+            # If gzip decompression exposes a known executable /
+            # container magic, inline the *inflated* bytes as a latin-1
+            # SQ literal so the RTE binary-artifact detector picks it
+            # up on the next iteration. Generic — applies to any
+            # <b64>(<gzip>(<binary>)) wrapper, not just this sample.
+            for magic in _BIN_MAGIC:
+                if inflated.startswith(magic):
+                    fires += 1
+                    return "'" + inflated.decode("latin-1") + "'"
         text = _try_utf16le(raw) or _try_utf8(raw)
         if text is None:
             # Binary-magic fallback (Rule 24 §5.1): if the decoded bytes
             # are a known executable / container, inline them as a
             # latin-1 SQ literal so the IEDDE planner can detect the
             # binary artifact and switch terminal state.
-            for magic in (b"MZ", b"\x7fELF", b"\xcf\xfa\xed\xfe",
-                          b"\xce\xfa\xed\xfe", b"\xca\xfe\xba\xbe",
-                          b"PK\x03\x04"):
+            for magic in _BIN_MAGIC:
                 if raw.startswith(magic):
                     fires += 1
                     return "'" + raw.decode("latin-1") + "'"
@@ -230,6 +241,15 @@ def _decode_base64_full(content: str) -> tuple[str, int]:
             text = _try_utf8(inflated)
             if text is not None:
                 return text, 1
+            # ▲ P2.3c · gzip-inflated binary artifact recovery.
+            # When the whole artifact is <b64>(<gzip>(<binary>)),
+            # expose the inflated bytes as a latin-1 string so the RTE
+            # binary-artifact detector can claim it.
+            for magic in (b"MZ", b"\x7fELF", b"\xcf\xfa\xed\xfe",
+                          b"\xce\xfa\xed\xfe", b"\xca\xfe\xba\xbe",
+                          b"PK\x03\x04"):
+                if inflated.startswith(magic):
+                    return inflated.decode("latin-1"), 1
     text = _try_utf16le(raw) or _try_utf8(raw)
     if text is None:
         return content, 0

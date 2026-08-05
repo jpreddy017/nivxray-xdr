@@ -1,17 +1,19 @@
 {
   "fingerprint": {
     "artifact_types": [
-      "unknown"
+      "pe"
     ],
     "canonical_hashes": [
-      "aaf4aa8791484b6a19edb7c65c2766fa432fa7182897f58c42b8b171c10c66f4"
+      "49c90885548f2094db7de9114aa475ff3ec8ea557827b88f7ca740c807c0c568",
+      "aa5cca50fb3b54634533ed4c306f3b77343c4f9bd09d1b81ed2aa15d428ebb18"
     ],
     "cem_version": "1.0",
     "convergence": {
-      "reached": false,
-      "terminal_state": "stability_gate"
+      "reached": true,
+      "terminal_state": "binary_artifact_recovered"
     },
     "event_kinds": [
+      "analyzer.finding",
       "rte.convergence"
     ],
     "indicator_counts": {},
@@ -35,5 +37,5 @@
       "verdict"
     ]
   },
-  "fingerprint_hash": "57eeeb53c25117e3d344be99c75576d314ce54f3ecee169ef435ea5970d7facd"
+  "fingerprint_hash": "95bb8ec7d9d162c426b28bbe1b756e39b353033ecd0b13b1aae3b1c6025b4c0a"
 }

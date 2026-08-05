@@ -27,6 +27,43 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🟢 2026-02-16 · P2.3c · RTE Recovery Improvement + Multi-Origin Equivalence (owner-approved batch · shipped)
+
+Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN).
+
+Deterministic decoder improvement. The RTE now natively traverses the
+canonical multi-stage wrapper:
+
+    powershell.exe -EncodedCommand <utf-16 b64>
+      → utf-16 decode → PS script
+      → [Convert]::FromBase64String('<b64>') → gzip → PE bytes
+      → binary_artifact_recovered
+      → PE Analyzer → CEM → Investigation Engine
+
+Fix location: `workspace/convergence/decoder.py`. When gzip
+decompression succeeds and the inflated bytes begin with a known
+binary magic (MZ · ELF · Mach-O · Fat · PK), the decoder inlines the
+inflated bytes as a latin-1 SQ literal so the RTE's binary-artifact
+detector claims the payload on the next iteration. Generic — applies
+to any `b64(gzip(binary))` wrapper, not just the golden sample.
+
+Multi-Origin Equivalence permanent regression guard added at
+`backend/tests/test_p23c_rte_recovery_and_multi_origin.py`: asserts a
+workspace paste and a direct file upload of the same canonical PE
+produce byte-identical PE bytes (sha256 match), identical PE-specific
+CEM invariants (hashes, size, analyzer findings, MITRE, IOCs), and
+identical signature shapes. Any divergence is a P0 architectural
+regression.
+
+Golden Corpus baseline updated (owner-approved diff review):
+`workspace_ps_to_pe_chain` moved from stability_gate/no-recovery to
+`terminal_state=binary_artifact_recovered · artifact_types=['pe']`.
+
+30/30 architectural gates green (Golden Corpus + Dual-Entry + CEM+RCP
++ P2.3c + Multi-Origin). No frozen-component modifications.
+
+
+
 Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.0.
 
 Phase 4 · P1 · Completion delivers the four architectural components that

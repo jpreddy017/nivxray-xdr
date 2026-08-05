@@ -126,15 +126,25 @@ def _run_investigation(entry: Dict[str, Any]) -> Dict[str, Any]:
         text = sample_path.read_text(encoding="utf-8", errors="replace")
         plan = plan_and_execute(text)
         canonical = (plan.canonical_output or "")
-        try:
-            canonical_bytes = canonical.encode("latin-1", errors="ignore")
-        except Exception:
-            canonical_bytes = canonical.encode("utf-8", errors="ignore")
-        if len(canonical_bytes) >= 4:
+
+        # Prefer the RTE's own recovered binary artifact (P2.3c). The
+        # RTE hands off recovered binaries via `plan.binary_artifact`
+        # once decoding reaches `binary_artifact_recovered`. Otherwise
+        # fall back to a best-effort re-dispatch on the canonical
+        # bytes so text-only wrappers still surface a routed analysis.
+        routed = None
+        if plan.binary_artifact and plan.binary_artifact.routed_analysis:
+            routed = plan.binary_artifact.routed_analysis
+        else:
             try:
-                routed = dispatch(canonical_bytes).to_dict()
+                canonical_bytes = canonical.encode("latin-1", errors="ignore")
             except Exception:
-                routed = None
+                canonical_bytes = canonical.encode("utf-8", errors="ignore")
+            if len(canonical_bytes) >= 4:
+                try:
+                    routed = dispatch(canonical_bytes).to_dict()
+                except Exception:
+                    routed = None
         case = {
             "id": entry["slug"],
             "input": text,

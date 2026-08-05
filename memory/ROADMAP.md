@@ -91,18 +91,21 @@ Baseline captured for `workspace_ps_to_pe_chain` — RTE currently reaches
 `stability_gate` on utf-16 PowerShell + base64 + gzip PE wrappers. Honest
 regression anchor.
 
-**P2.3c · RTE Recovery Improvement — NEXT UP** ⭐
-Extend the RTE recipe planner so the flagship chain actually recovers:
+**P2.3c · RTE Recovery Improvement — ✅ CLOSED (2026-02-16)**
+Flagship chain now recovers natively:
 ```
 PowerShell → UTF-16 → Base64 → Gzip → PE bytes → Artifact Router →
 PE Analyzer → CEM → Investigation
 ```
-- **Do NOT bypass the `stability_gate`** to force a passing demo.
-- Improve the decoder — add / order the recipes that make this recovery
-  natural.
-- Let the Golden Corpus baseline change organically; require owner
-  sign-off on the baseline diff.
-- This preserves the integrity of the deterministic release gate.
+Fix: `workspace/convergence/decoder.py` — post-gzip binary-magic
+recovery (generic, applies to any `b64(gzip(binary))` wrapper). No
+`stability_gate` bypass, no hardcoded exceptions. Golden Corpus
+baseline updated with owner-approved diff review. Terminal state
+moved organically from `stability_gate` → `binary_artifact_recovered`.
+Multi-Origin Equivalence permanent regression guard added — a
+workspace paste and a file upload of the same PE produce identical
+sha256 + identical PE-specific CEM invariants. 30/30 architectural
+gates green.
 
 **P2.3b · Full `.docm → PS → PE` recursive investigation** — after P2.3c
 - Improve the Office analyzer's macro extraction so a self-sufficient
