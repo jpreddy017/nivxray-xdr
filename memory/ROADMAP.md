@@ -82,19 +82,49 @@ CEM + Canonical Artifacts.
   (subject to the §9.1 guardrail — nivxmachines.com is optional,
   never a dependency).
 
-### P2.3 — Real End-to-End Demonstration (⭐ HIGHEST PRIORITY · owner directive 2026-02-15)
-- Now the most valuable open item because it demonstrates the complete
-  architecture working with a realistic sample end-to-end.
-- **Sample source priority (self-sufficient by design):**
-  1. Internal Golden Corpus samples
-  2. Public analyst-safe malware repositories or synthetic deterministic
-     test cases
-  3. nivxmachines.com — optional enrichment only (per §9 / §9.1)
-- **The platform, release gates, CI, and Golden Corpus must NEVER depend
-  on nivxmachines.com.** Objective: artifact coverage, not website
-  coverage.
-- On completion, the sample becomes the first **real** entry in the
-  Golden Investigation Corpus release gate (P6).
+### P2.3 — Real End-to-End Demonstration (⭐ HIGHEST PRIORITY · reprioritized 2026-02-15)
+
+**Owner-locked sub-sequence:**
+
+**P2.3a · Flagship Golden Corpus entry** — ✅ **CLOSED (iter closure 2026-02-15)**
+Baseline captured for `workspace_ps_to_pe_chain` — RTE currently reaches
+`stability_gate` on utf-16 PowerShell + base64 + gzip PE wrappers. Honest
+regression anchor.
+
+**P2.3c · RTE Recovery Improvement — NEXT UP** ⭐
+Extend the RTE recipe planner so the flagship chain actually recovers:
+```
+PowerShell → UTF-16 → Base64 → Gzip → PE bytes → Artifact Router →
+PE Analyzer → CEM → Investigation
+```
+- **Do NOT bypass the `stability_gate`** to force a passing demo.
+- Improve the decoder — add / order the recipes that make this recovery
+  natural.
+- Let the Golden Corpus baseline change organically; require owner
+  sign-off on the baseline diff.
+- This preserves the integrity of the deterministic release gate.
+
+**P2.3b · Full `.docm → PS → PE` recursive investigation** — after P2.3c
+- Improve the Office analyzer's macro extraction so a self-sufficient
+  synthetic `.docm` with realistic `vbaProject.bin` content triggers the
+  Recursive Child Artifact Pipeline.
+- Enters the Golden Corpus as the 3-level flagship (Office → PowerShell → PE).
+- Self-sufficient — no external samples required.
+
+**Sample source priority (self-sufficient by design):**
+1. Internal Golden Corpus samples
+2. Public analyst-safe / synthetic deterministic samples
+3. External sources (nivxmachines.com) — optional only
+
+**Honesty directive (owner 2026-02-15):** The `stability_gate` terminal
+state must remain honest. Improvements come from real decoder work, never
+from bypassing the gate to make demos green.
+
+### P4 · Mach-O Analyzer (unchanged)
+
+### P3 · Compare Cases (unchanged, expanded scope)
+
+### P7 · Analytical Consumers (unchanged — Provenance Ledger, Risk Score, Attack DNA, AAIG)
 
 ### P3 · Compare Cases (expanded scope · owner directive 2026-02-15)
 
