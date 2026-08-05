@@ -58,6 +58,7 @@ export default function ComparePage() {
   const [error, setError]   = useState("");
 
   const [history, setHistory] = useState([]);
+  const evi = useEvidenceModal();
   useEffect(() => {
     (async () => {
       try {
