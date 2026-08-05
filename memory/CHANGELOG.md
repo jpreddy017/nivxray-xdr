@@ -2,6 +2,83 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-02-16 · Phase A · Compare Cases + Phase D · Stage 1 NVKC Scaffold — LIVE · 79/79 gates green
+
+**Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
+· §7 (Provider Extension Architecture), §5 (CEM boundary), §8 (Dual-Entry).
+
+**Two coordinated deliverables shipped in one batch (owner-approved
+strict order — Compare Cases primary, NVKC scaffold secondary):**
+
+### 1 · Compare Cases (Phase A · item 2 · fingerprint-powered)
+
+- **`services/case_compare.py`** — new pure-function `compare_cases(a, b)`.
+  Read-only, deterministic, symmetric (up to provenance labels),
+  gracefully degrades on pre-convergence cases.
+- **Compared dimensions:** threat_summary · attack_chain · timeline ·
+  mitre · iocs · recipe · transformation_trace · decision_trace ·
+  interpreter_chain · artifact_graph · canonical_hashes ·
+  behavior_codes · attack_fingerprint · confidence_provenance
+  (Phase A · item 3 placeholder wiring in place).
+- **Similarity score:** weighted Jaccard over the Attack Fingerprint's
+  `similarity_vector` — canonical_hashes carries the highest weight
+  (3.0) so PE reuse across origins is the dominant signal.
+- **API endpoint:** `POST /api/correlations/compare` with body
+  `{case_a_id, case_b_id}` — user-scoped, verified live on two real
+  analyst cases (overall similarity 0.4583, per-dimension breakdown
+  returned).
+- **15 unit tests** covering: read-only invariant · determinism ·
+  identity-pair == 1.0 · symmetry (score + shared sets + a_only/b_only
+  flip) · shared-PE across `.docm` and workspace · component-digest
+  matches · score bounds · graceful degradation · full output shape.
+
+### 2 · NVKC · NivXRay Validation & Knowledge Corpus (Phase D · Stage 1)
+
+- **`backend/nvkc/`** — permanent engineering infrastructure. Same
+  governance tier as the Golden Corpus. Not AI training.
+- **Sample schema (`schema.py`)** — YAML descriptor `*.nvkc.yaml`
+  with tracks: `command_line · artifact · investigation · image ·
+  malware_family · benign_enterprise`. Expected outputs pinned:
+  `terminal_state · artifact_types · mitre · attack_fingerprint_hash ·
+  behavior_codes · ioc_kinds · benign` flag.
+- **Replay harness (`harness/runner.py` + `test_nvkc_corpus.py`)** —
+  each sample is replayed through the frozen v1.1 pipeline exactly
+  as the router runs it (deterministic dual-entry). Determinism is
+  enforced by a double-run check. `--nvkc-update-baseline` CLI flag
+  (owner-only) rewrites descriptors after review — mirrors the
+  Golden Corpus governance model.
+- **10 curated seed samples** covering: PS -EncodedCommand plain ·
+  PS -EncodedCommand→gzip→PE (flagship) · bash echo|base64 -d · CMD
+  set+call reassembly · WMIC LOLBin · certutil -decode LOLBin ·
+  Linux base64→gunzip→sh · PS FromBase64String simple · JS unescape+
+  eval · Intune enrollment (benign FP guard).
+- **Seed generator (`_seed_corpus.py`)** — idempotent, deterministic,
+  regeneratable. Growth roadmap locked at 50 → 500 → 2 000 → 5 000
+  → 10 000+ over subsequent phases.
+- **Corpus governance rules (`README.md`)** — owner-approved
+  baselines only, analyst-safe/synthetic first, per-sample Attack
+  Fingerprint pinned, CI-blocking drift gate.
+
+### Governance & regression posture
+
+- **79/79 architectural + validation gates green** (Golden Corpus 4/4
+  · Dual-Entry 11/11 · CEM+RCP 13/13 · P2.3c 5/5 · P2.3b docm 6/6 ·
+  Attack Fingerprint 17/17 · **Compare Cases 15/15** · **NVKC 10/10**).
+- No frozen-core modifications — pure §7 extension work.
+- NVKC becomes the primary quality gate for every future analyzer +
+  analytical consumer + engine improvement.
+
+**Files changed:**
+- `backend/services/case_compare.py` (new · 305 lines)
+- `backend/routers/correlations.py` (POST /correlations/compare)
+- `backend/tests/test_case_compare.py` (new · 15 tests)
+- `backend/nvkc/__init__.py`, `nvkc/README.md`, `nvkc/schema.py` (new)
+- `backend/nvkc/harness/__init__.py`, `harness/conftest.py`,
+  `harness/runner.py`, `harness/test_nvkc_corpus.py` (new)
+- `backend/nvkc/corpus/_seed_corpus.py` (new · seed generator)
+- `backend/nvkc/corpus/{command_line,benign_enterprise}/*.nvkc.yaml` (10 seeds)
+
+
 ## 2026-02-16 · Phase A · Attack Fingerprint (Attack DNA) — LIVE · 54/54 architectural gates green
 
 **Master architecture reference:** `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)

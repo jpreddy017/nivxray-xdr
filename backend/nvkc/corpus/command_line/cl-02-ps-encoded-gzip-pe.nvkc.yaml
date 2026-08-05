@@ -1,0 +1,26 @@
+description: PowerShell -EncodedCommand -> gzip -> PE (flagship recovery)
+expected:
+  artifact_types:
+  - pe
+  attack_fingerprint_hash: b6e448aeb5220b73ae3c81f56cf064c4278fc1c76828b63141e76f0e056c3a65
+  behavior_codes:
+  - invalid_timestamp
+  - no_imports
+  - overlay_present
+  benign: false
+  ioc_kinds: []
+  mitre: []
+  terminal_state: binary_artifact_recovered
+input:
+  inline: powershell.exe -EncodedCommand JABkAD0AWwBDAG8AbgB2AGUAcgB0AF0AOgA6AEYAcgBvAG0AQgBhAHMAZQA2ADQAUwB0AHIAaQBuAGcAKAAnAEgANABzAEkAQQBKAHoASgBjAG0AbwBDAC8ALwBPAE4AWQBpAEEAYgBOAEQAQgBRAEQAZwBKAGMARwBSAGgAOABHAEIAbABHAHcAUwBnAFkAQgBRAE0AQQBBAE0AdQBuAFcAZAA4AEEAQgBBAEEAQQAnACkAOwAkAHMAPQBOAGUAdwAtAE8AYgBqAGUAYwB0ACAASQBPAC4ATQBlAG0AbwByAHkAUwB0AHIAZQBhAG0AKAAsACQAZAApADsAJABnAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAEMAbwBtAHAAcgBlAHMAcwBpAG8AbgAuAEcAegBpAHAAUwB0AHIAZQBhAG0AKAAkAHMALABbAEkATwAuAEMAbwBtAHAAcgBlAHMAcwBpAG8AbgAuAEMAbwBtAHAAcgBlAHMAcwBpAG8AbgBNAG8AZABlAF0AOgA6AEQAZQBjAG8AbQBwAHIAZQBzAHMAKQA7ACQAcgA9AE4AZQB3AC0ATwBiAGoAZQBjAHQAIABJAE8ALgBNAGUAbQBvAHIAeQBTAHQAcgBlAGEAbQA7ACQAZwAuAEMAbwBwAHkAVABvACgAJAByACkAOwBbAFIAZQBmAGwAZQBjAHQAaQBvAG4ALgBBAHMAcwBlAG0AYgBsAHkAXQA6ADoATABvAGEAZAAoACQAcgAuAFQAbwBBAHIAcgBhAHkAKAApACkA
+  kind: text
+slug: cl-02-ps-encoded-gzip-pe
+tags:
+- powershell
+- encodedcommand
+- gzip
+- pe
+- T1059.001
+- T1027
+track: command_line
+version: '1.0'

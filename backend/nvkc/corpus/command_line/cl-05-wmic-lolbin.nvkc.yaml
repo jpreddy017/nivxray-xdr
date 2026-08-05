@@ -1,0 +1,20 @@
+description: WMIC LOLBin process invocation
+expected:
+  artifact_types: []
+  attack_fingerprint_hash: 0e59c080dfb483700a86e1f3b05527ce35bd03b5a124634671321a14ad454611
+  behavior_codes: []
+  benign: false
+  ioc_kinds: []
+  mitre: []
+  terminal_state: canonical
+input:
+  inline: wmic.exe process call create "powershell.exe -Command Write-Host wmic"
+  kind: text
+slug: cl-05-wmic-lolbin
+tags:
+- wmic
+- lolbin
+- T1218
+- T1047
+track: command_line
+version: '1.0'

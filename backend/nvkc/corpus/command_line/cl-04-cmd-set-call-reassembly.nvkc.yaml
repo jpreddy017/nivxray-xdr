@@ -1,0 +1,21 @@
+description: CMD /c set + call chunk reassembly
+expected:
+  artifact_types: []
+  attack_fingerprint_hash: 1bc37742b96da0287dbef1d44df6161730300bdb4556e62e5161b254cf81816d
+  behavior_codes: []
+  benign: false
+  ioc_kinds: []
+  mitre: []
+  terminal_state: canonical
+input:
+  inline: cmd.exe /c "set a=power&set b=shell&call %a%%b%.exe -Command Write-Host
+    hi"
+  kind: text
+slug: cl-04-cmd-set-call-reassembly
+tags:
+- cmd
+- obfuscation
+- reassembly
+- T1027
+track: command_line
+version: '1.0'

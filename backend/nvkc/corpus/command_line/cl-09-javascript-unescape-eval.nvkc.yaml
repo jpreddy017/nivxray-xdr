@@ -1,0 +1,20 @@
+description: JavaScript unescape() + eval() obfuscation
+expected:
+  artifact_types: []
+  attack_fingerprint_hash: null
+  behavior_codes: []
+  benign: false
+  ioc_kinds: []
+  mitre: []
+  terminal_state: stability_gate
+input:
+  inline: eval(unescape('%77%69%6e%64%6f%77%2e%61%6c%65%72%74%28%27%68%69%27%29'))
+  kind: text
+slug: cl-09-javascript-unescape-eval
+tags:
+- javascript
+- unescape
+- eval
+- T1059.007
+track: command_line
+version: '1.0'

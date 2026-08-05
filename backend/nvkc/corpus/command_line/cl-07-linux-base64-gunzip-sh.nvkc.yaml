@@ -1,0 +1,22 @@
+description: "Linux base64 \u2192 gunzip \u2192 sh loader"
+expected:
+  artifact_types: []
+  attack_fingerprint_hash: null
+  behavior_codes: []
+  benign: false
+  ioc_kinds: []
+  mitre: []
+  terminal_state: stability_gate
+input:
+  inline: echo H4sIAJzJcmoC/0tNzshXyMnMK63QzclPTEktAgDFMDgWEQAAAA== | base64 -d |
+    gunzip | sh
+  kind: text
+slug: cl-07-linux-base64-gunzip-sh
+tags:
+- linux
+- base64
+- gzip
+- sh
+- T1140
+track: command_line
+version: '1.0'

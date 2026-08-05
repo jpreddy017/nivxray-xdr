@@ -1,0 +1,19 @@
+description: PowerShell [Convert]::FromBase64String('...') without gzip
+expected:
+  artifact_types: []
+  attack_fingerprint_hash: null
+  behavior_codes: []
+  benign: false
+  ioc_kinds: []
+  mitre: []
+  terminal_state: stability_gate
+input:
+  inline: powershell.exe -Command "[System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('V3JpdGUtSG9zdCBwcy1mcm9tYmFzZTY0LW9ubHk='))"
+  kind: text
+slug: cl-08-ps-frombase64string-simple
+tags:
+- powershell
+- frombase64string
+- T1059.001
+track: command_line
+version: '1.0'

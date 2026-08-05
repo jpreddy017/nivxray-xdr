@@ -27,6 +27,34 @@ Any next agent MUST read this before writing code.
 
 ### 🟢 2026-02-15 · Phase 4 · P1 · Cross-Artifact Correlation — COMPLETION (owner-approved · shipped · iteration_63)
 
+### 🟢 2026-02-16 · Phase A · Compare Cases + Phase D · Stage 1 NVKC Scaffold (owner-approved · shipped)
+
+Master architecture reference: `/app/memory/ARCHITECTURE.md` v1.1 (FROZEN)
+
+**Compare Cases** — deterministic fingerprint-powered diff engine.
+Consumes the Attack Fingerprint's similarity_vector directly. Compares
+14 dimensions (threat_summary · attack_chain · timeline · mitre ·
+iocs · recipe · transformation_trace · decision_trace ·
+interpreter_chain · artifact_graph · canonical_hashes ·
+behavior_codes · attack_fingerprint · confidence_provenance). Read-
+only, symmetric, gracefully degrades on pre-convergence cases.
+Endpoint: `POST /api/correlations/compare`.
+
+**NVKC · NivXRay Validation & Knowledge Corpus** (Phase D · Stage 1)
+Permanent engineering infrastructure — same governance tier as Golden
+Corpus, broader scope. Schema (`schema.py`) + replay harness
+(`harness/`) + 10 curated seed samples covering PS, gzip-PE flagship,
+bash, CMD reassembly, LOLBins, Linux, JS, and benign Intune. Growth
+locked at 50 → 500 → 2 000 → 5 000 → 10 000+ across subsequent
+phases. `--nvkc-update-baseline` owner-only CLI flag mirrors Golden
+Corpus governance. Becomes the primary quality gate for every future
+analyzer + analytical consumer.
+
+**79/79 architectural + validation gates green.** No frozen-core
+modifications.
+
+
+
 ### 🎯 2026-02-16 · NVKC · NivXRay Validation & Knowledge Corpus (roadmap addition)
 
 Owner-locked new permanent workstream (Phase D). Parallel engineering

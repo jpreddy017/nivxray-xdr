@@ -566,3 +566,29 @@ async def get_fingerprint(case_id: str, user=Depends(get_current_user)):
     from services.attack_fingerprint import emit_fingerprint
     fp = emit_fingerprint(case)
     return {"case_id": case_id, "fingerprint": fp}
+
+
+# ============================================================================
+# Compare Cases — Phase A · item 2 · fingerprint-powered side-by-side diff
+# ============================================================================
+class CompareBody(BaseModel):
+    case_a_id: str
+    case_b_id: str
+
+
+@router.post("/correlations/compare", tags=["correlations"])
+async def compare_two_cases(body: CompareBody, user=Depends(get_current_user)):
+    """Return a deterministic diff of two cases.
+
+    Read-only consumer of the Investigation SSOT + Attack Fingerprint
+    (§7). Never mutates either case. Symmetrical up to provenance
+    labels: `compare(a, b)` and `compare(b, a)` produce mirrored diffs.
+    """
+    a = await _load_case(user["email"], body.case_a_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="case_a_not_found")
+    b = await _load_case(user["email"], body.case_b_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="case_b_not_found")
+    from services.case_compare import compare_cases
+    return compare_cases(a, b)

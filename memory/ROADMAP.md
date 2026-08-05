@@ -144,15 +144,17 @@ changes; all work fits under §7 Provider Extension Architecture.
    isolated. Exposes per-component digests + similarity vector for
    Compare Cases. Golden Corpus fingerprint stability guard live.
    Endpoint: `GET /api/correlations/fingerprint/{case_id}`.
-2. **Compare Cases (fingerprint-powered)** — NEXT UP ⭐
-   Side-by-side deterministic diff over Threat Summary · Attack Chain
-   · Timeline · MITRE · IOCs · Recipe · Transformation Trace ·
-   Decision Trace · Interpreter Chain · Attack Fingerprint ·
-   Similarity Score. Reads similarity_vector from Attack Fingerprint
-   to compute Jaccard overlap without re-derivation.
-3. **Confidence Provenance Ledger** — analyst-visible chain showing
-   which evidence / weights / rules produced the final risk score and
-   verdict. Deterministic, read-only on the SSOT.
+2. **Compare Cases (fingerprint-powered)** — ✅ CLOSED (2026-02-16).
+   Deterministic diff engine over 14 dimensions. Read-only,
+   symmetric, gracefully degrades. Consumes Attack Fingerprint's
+   similarity_vector directly. Endpoint:
+   `POST /api/correlations/compare`.
+3. **Confidence Provenance Ledger** — NEXT UP ⭐
+   Analyst-visible chain showing which evidence / weights / rules
+   produced the final risk score and verdict. Deterministic,
+   read-only on the SSOT. Compare Cases already has the placeholder
+   wiring (`dimensions.confidence_provenance.available`) to surface
+   it as soon as it lands.
 
 **Phase B · New Artifact Types** (broaden coverage under §7)
 
@@ -174,6 +176,8 @@ changes; all work fits under §7 Provider Extension Architecture.
 
 **Phase D · NVKC — NivXRay Validation & Knowledge Corpus**
 (owner-locked 2026-02-16 · engineering infrastructure, not a feature)
+· **Stage 1 CLOSED (2026-02-16)** — schema + harness + 10 seed
+samples live under `backend/nvkc/`. Growth continues in Stages 2-5.
 
 Permanent parallel workstream — same governance tier as the Golden
 Corpus but broader in scope. Not AI training. Deterministic

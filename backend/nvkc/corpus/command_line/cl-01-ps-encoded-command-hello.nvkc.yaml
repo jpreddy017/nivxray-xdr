@@ -1,0 +1,21 @@
+description: PowerShell -EncodedCommand carrying a printable script
+expected:
+  artifact_types: []
+  attack_fingerprint_hash: b767834ccc315118848fd0690c9f9b5d369f8ba99136a78753ce6c0cef18e29f
+  behavior_codes: []
+  benign: false
+  ioc_kinds: []
+  mitre: []
+  terminal_state: canonical
+input:
+  inline: powershell.exe -EncodedCommand VwByAGkAdABlAC0ASABvAHMAdAAgACcAaABlAGwAbABvACAAZgByAG8AbQAgAE4AVgBLAEMAJwA=
+  kind: text
+slug: cl-01-ps-encoded-command-hello
+tags:
+- powershell
+- encodedcommand
+- utf16le
+- base64
+- T1059.001
+track: command_line
+version: '1.0'
