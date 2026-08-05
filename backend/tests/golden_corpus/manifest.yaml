@@ -37,6 +37,19 @@ entries:
     expected_min_mitre: []
 
   # ─────────────────────────────────────────────────────────────────
+  # P2.3 · First flagship — real recovery chain (workspace input path).
+  # `powershell.exe -EncodedCommand <utf16-b64>` wrapping a base64+
+  # gzipped PE dropper. Exercises the full RTE → Router → PE Analyzer
+  # → CEM → Investigation Engine chain in one investigation.
+  # ─────────────────────────────────────────────────────────────────
+  - slug: workspace_ps_to_pe_chain
+    description: "Workspace paste of PowerShell -EncodedCommand carrying a base64+gzipped PE (flagship recovery chain)"
+    source_kind: workspace_input
+    sample: samples/workspace_ps_to_pe_chain.txt
+    expected_artifact_types: []       # captured in baseline for regression comparison
+    expected_min_mitre: []             # captured in baseline for regression comparison
+
+  # ─────────────────────────────────────────────────────────────────
   # Real E2E chains — populated when analyst-safe samples become
   # available (P2.3 · nivxmachines.com or hand-curated). These are the
   # entries that make the corpus a true regression gate.

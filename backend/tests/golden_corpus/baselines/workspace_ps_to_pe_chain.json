@@ -1,0 +1,39 @@
+{
+  "fingerprint": {
+    "artifact_types": [
+      "unknown"
+    ],
+    "canonical_hashes": [
+      "aaf4aa8791484b6a19edb7c65c2766fa432fa7182897f58c42b8b171c10c66f4"
+    ],
+    "cem_version": "1.0",
+    "convergence": {
+      "reached": false,
+      "terminal_state": "stability_gate"
+    },
+    "event_kinds": [
+      "rte.convergence"
+    ],
+    "indicator_counts": {},
+    "mitre_ids": [],
+    "signature_shape": [
+      "artifact_type",
+      "c2",
+      "case_id",
+      "chain",
+      "domains",
+      "input_hash",
+      "interpreter",
+      "ips",
+      "md5",
+      "sha1",
+      "sha256",
+      "techniques",
+      "ts",
+      "urls",
+      "user_email",
+      "verdict"
+    ]
+  },
+  "fingerprint_hash": "57eeeb53c25117e3d344be99c75576d314ce54f3ecee169ef435ea5970d7facd"
+}
