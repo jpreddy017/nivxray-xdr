@@ -12,7 +12,7 @@ const VERDICT_COLOR = {
   Benign: "#86efac", Unknown: "#94a3b8",
 };
 
-export default function UnifiedTimelineView({ timeline }) {
+export default function UnifiedTimelineView({ timeline, onOpenEvidence }) {
   if (!timeline || !timeline.events || timeline.events.length === 0) {
     return (
       <div data-testid="timeline-empty"
@@ -39,13 +39,14 @@ export default function UnifiedTimelineView({ timeline }) {
       <div style={{ position: "relative", paddingLeft: 22 }}>
         <div aria-hidden style={{ position: "absolute", top: 4, bottom: 4, left: 8,
                                   width: 1, background: "rgba(148,163,184,0.20)" }} />
-        {timeline.events.map((ev, i) => <Event key={i} ev={ev} idx={i} />)}
+        {timeline.events.map((ev, i) => <Event key={i} ev={ev} idx={i}
+                                                onOpenEvidence={onOpenEvidence} />)}
       </div>
     </div>
   );
 }
 
-function Event({ ev, idx }) {
+function Event({ ev, idx, onOpenEvidence }) {
   const isCase = ev.kind === "case_analyzed";
   const vcol = VERDICT_COLOR[ev.verdict] || "#94a3b8";
   const ts = ev.ts ? new Date(ev.ts) : null;
@@ -100,6 +101,21 @@ function Event({ ev, idx }) {
               <ExternalLink size={12} />
             </Link>
           )}
+          {onOpenEvidence && (
+            <button data-testid={`timeline-event-evidence-${idx}`}
+                    onClick={() => onOpenEvidence(ev)}
+                    title="Open evidence drill-down"
+                    style={{ marginLeft: ev.case_id ? 4 : "auto",
+                             padding: "1px 6px", fontSize: 9,
+                             background: "rgba(56,189,248,0.10)",
+                             color: "#7dd3fc",
+                             border: "1px solid rgba(56,189,248,0.30)",
+                             borderRadius: 3, cursor: "pointer",
+                             fontFamily: "JetBrains Mono, monospace",
+                             letterSpacing: "0.08em" }}>
+              EVIDENCE
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ marginTop: 4, fontSize: 11, color: "#cbd5e1",
@@ -111,6 +127,21 @@ function Event({ ev, idx }) {
           </span>
           <span style={{ color: "#64748b" }}>·</span>
           <span>{ev.relationship || "linked"}</span>
+          {onOpenEvidence && (
+            <button data-testid={`timeline-event-evidence-${idx}`}
+                    onClick={() => onOpenEvidence(ev)}
+                    title="Open evidence drill-down"
+                    style={{ marginLeft: "auto",
+                             padding: "1px 6px", fontSize: 9,
+                             background: "rgba(56,189,248,0.10)",
+                             color: "#7dd3fc",
+                             border: "1px solid rgba(56,189,248,0.30)",
+                             borderRadius: 3, cursor: "pointer",
+                             fontFamily: "JetBrains Mono, monospace",
+                             letterSpacing: "0.08em" }}>
+              EVIDENCE
+            </button>
+          )}
         </div>
       )}
     </div>

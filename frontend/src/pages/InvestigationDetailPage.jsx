@@ -19,7 +19,11 @@ import EvidenceGraphView from "@/components/investigation/EvidenceGraphView";
 import UnifiedTimelineView from "@/components/investigation/UnifiedTimelineView";
 import CorrelationSuggestionCard from "@/components/investigation/CorrelationSuggestionCard";
 import InvestigationThreatSummaryCard from "@/components/investigation/InvestigationThreatSummaryCard";
-import { Layers3, Network, Clock3, Sparkles, ArrowLeft, Trash2 } from "lucide-react";
+import { useEvidenceModal } from "@/components/EvidenceModal";
+import {
+  fromChainStep, fromTimelineEvent, fromMitreEntry,
+} from "@/components/evidenceDescriptors";
+import { Layers3, Network, Clock3, Sparkles, ArrowLeft, Trash2, Play } from "lucide-react";
 
 export default function InvestigationDetailPage() {
   const { id } = useParams();
@@ -32,6 +36,7 @@ export default function InvestigationDetailPage() {
   const [tab, setTab] = useState("chain");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
+  const evi = useEvidenceModal();
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
@@ -97,6 +102,22 @@ export default function InvestigationDetailPage() {
             <ArrowLeft size={14} /> Investigations
           </Link>
           <div style={{ flex: 1 }} />
+          {inv?.root_case_id && (
+            <Link to={`/investigations/${inv.root_case_id}/replay`}
+                  data-testid="investigation-replay"
+                  title="Step through the deterministic pipeline for the root case"
+                  style={{ padding: "6px 12px", fontSize: 11,
+                           background: "rgba(56,189,248,0.10)",
+                           color: "#7dd3fc",
+                           border: "1px solid rgba(56,189,248,0.35)",
+                           borderRadius: 6, cursor: "pointer",
+                           fontFamily: "JetBrains Mono, monospace",
+                           letterSpacing: "0.08em", textTransform: "uppercase",
+                           display: "inline-flex", alignItems: "center", gap: 6,
+                           textDecoration: "none", marginRight: 8 }}>
+              <Play size={12} /> Replay Investigation
+            </Link>
+          )}
           <button data-testid="investigation-delete"
                   onClick={onDelete}
                   style={{ padding: "6px 12px", fontSize: 11,
@@ -141,7 +162,9 @@ export default function InvestigationDetailPage() {
 
             {summary && (
               <div style={{ marginBottom: 20 }}>
-                <InvestigationThreatSummaryCard summary={summary} />
+                <InvestigationThreatSummaryCard
+                  summary={summary}
+                  onOpenEvidence={(m) => evi.open(fromMitreEntry(m))} />
               </div>
             )}
 
@@ -163,9 +186,11 @@ export default function InvestigationDetailPage() {
                   ]}
                 />
                 <div style={{ marginTop: 14 }}>
-                  {tab === "chain"    && <AttackChainView chain={chain} onUnlink={onUnlink} />}
+                  {tab === "chain"    && <AttackChainView chain={chain} onUnlink={onUnlink}
+                                            onOpenEvidence={(step) => evi.open(fromChainStep(step))} />}
                   {tab === "graph"    && <EvidenceGraphView graph={graph} />}
-                  {tab === "timeline" && <UnifiedTimelineView timeline={timeline} />}
+                  {tab === "timeline" && <UnifiedTimelineView timeline={timeline}
+                                            onOpenEvidence={(ev) => evi.open(fromTimelineEvent(ev))} />}
                 </div>
               </div>
 
@@ -184,6 +209,7 @@ export default function InvestigationDetailPage() {
           </div>
         )}
       </div>
+      {evi.modal}
     </div>
   );
 }

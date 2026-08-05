@@ -16,6 +16,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import api from "@/lib/api";
+import { useEvidenceModal } from "@/components/EvidenceModal";
+import { fromProvenanceRuleFire } from "@/components/evidenceDescriptors";
 import {
   Radar,
   ShieldAlert,
@@ -111,8 +113,10 @@ export default function ComparePage() {
             Running deterministic comparison…
           </div>
         )}
-        {result && <CompareResult result={result} caseA={caseA} caseB={caseB} />}
+        {result && <CompareResult result={result} caseA={caseA} caseB={caseB}
+                                   onOpenEvidence={evi.open} />}
       </div>
+      {evi.modal}
     </div>
   );
 }
@@ -206,7 +210,7 @@ function SideSelect({ label, value, setValue, opts, testid }) {
 // ═══════════════════════════════════════════════════════════════════
 // Result body
 // ═══════════════════════════════════════════════════════════════════
-function CompareResult({ result, caseA, caseB }) {
+function CompareResult({ result, caseA, caseB, onOpenEvidence }) {
   const overall = result.similarity_score?.overall ?? 0;
   const fpMatch = !!result.fingerprint_match;
 
@@ -220,9 +224,11 @@ function CompareResult({ result, caseA, caseB }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr",
                     gap: 16, marginTop: 22 }}>
         <CaseColumn side="A" caseId={caseA} verdict={result.verdicts?.a}
-                    provenance={result.dimensions?.confidence_provenance?.a} />
+                    provenance={result.dimensions?.confidence_provenance?.a}
+                    onOpenEvidence={onOpenEvidence} />
         <CaseColumn side="B" caseId={caseB} verdict={result.verdicts?.b}
-                    provenance={result.dimensions?.confidence_provenance?.b} />
+                    provenance={result.dimensions?.confidence_provenance?.b}
+                    onOpenEvidence={onOpenEvidence} />
       </div>
       <FingerprintDetail dim={result.dimensions?.attack_fingerprint} />
     </div>
@@ -433,7 +439,7 @@ function DimensionRow({ name, dim, perDim, testid }) {
 // ═══════════════════════════════════════════════════════════════════
 // Per-case column with Confidence Provenance
 // ═══════════════════════════════════════════════════════════════════
-function CaseColumn({ side, caseId, verdict, provenance }) {
+function CaseColumn({ side, caseId, verdict, provenance, onOpenEvidence }) {
   const vLabel = verdict?.verdict || provenance?.derived?.verdict || "—";
   const vScore = verdict?.risk_score ?? provenance?.derived?.risk_score ?? "—";
   const bgVerdict = /malicious/i.test(vLabel) ? COL.bad :
@@ -470,7 +476,8 @@ function CaseColumn({ side, caseId, verdict, provenance }) {
           <div style={{ fontWeight: 600 }}>{vScore}</div>
         </div>
       </div>
-      <ProvenancePanel provenance={provenance} side={side} />
+      <ProvenancePanel provenance={provenance} side={side}
+                       onOpenEvidence={onOpenEvidence} />
     </div>
   );
 }
@@ -479,7 +486,7 @@ function CaseColumn({ side, caseId, verdict, provenance }) {
 // ═══════════════════════════════════════════════════════════════════
 // Confidence Provenance — the "Why?" chain
 // ═══════════════════════════════════════════════════════════════════
-function ProvenancePanel({ provenance, side }) {
+function ProvenancePanel({ provenance, side, onOpenEvidence }) {
   if (!provenance || (!provenance.provenance_hash && !provenance.rules?.length)) {
     return (
       <div style={{ color: COL.muted, fontSize: 13 }}>
@@ -503,7 +510,10 @@ function ProvenancePanel({ provenance, side }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {(p.rules || []).map((r, i) => (
           <RuleFireRow key={r.id} rule={r} score={total}
-                       testid={`${side.toLowerCase()}-rule-${r.id}`} />
+                       testid={`${side.toLowerCase()}-rule-${r.id}`}
+                       onOpenEvidence={onOpenEvidence
+                         ? () => onOpenEvidence(fromProvenanceRuleFire(r, side))
+                         : null} />
         ))}
       </div>
       {p.rules?.length > 0 && (
@@ -522,14 +532,29 @@ function ProvenancePanel({ provenance, side }) {
   );
 }
 
-function RuleFireRow({ rule, score, testid }) {
+function RuleFireRow({ rule, score, testid, onOpenEvidence }) {
+  const clickable = !!onOpenEvidence;
   return (
     <div data-testid={testid}
+         onClick={clickable ? onOpenEvidence : undefined}
+         role={clickable ? "button" : undefined}
+         tabIndex={clickable ? 0 : undefined}
+         onKeyDown={clickable
+           ? (e) => { if (e.key === "Enter" || e.key === " ") onOpenEvidence(); }
+           : undefined}
          style={{ display: "grid",
                   gridTemplateColumns: "1fr 60px 220px",
                   gap: 10, alignItems: "center",
                   padding: "6px 10px", background: "#0a1526",
-                  borderRadius: 6 }}>
+                  borderRadius: 6,
+                  cursor: clickable ? "pointer" : "default",
+                  transition: "background 0.15s ease" }}
+         onMouseEnter={clickable
+           ? (e) => e.currentTarget.style.background = "#13233d"
+           : undefined}
+         onMouseLeave={clickable
+           ? (e) => e.currentTarget.style.background = "#0a1526"
+           : undefined}>
       <div>
         <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}>
           + {rule.contribution} · {rule.id}

@@ -34,6 +34,9 @@ const HistoryPage           = lazy(() => import("@/pages/HistoryPage"));
 // single attack story with unified chain, graph, timeline, and summary.
 const InvestigationsPage       = lazy(() => import("@/pages/InvestigationsPage"));
 const InvestigationDetailPage  = lazy(() => import("@/pages/InvestigationDetailPage"));
+// Phase A.5 · item 3.4 · Investigation Replay (2026-02-16)
+// Step-through analyst view of the deterministic pipeline over SSOT data.
+const InvestigationReplayPage  = lazy(() => import("@/pages/InvestigationReplayPage"));
 const ComparePage              = lazy(() => import("@/pages/ComparePage"));
 const PlatformHealthPage       = lazy(() => import("@/pages/PlatformHealthPage"));
 const TrainingInboxPage     = lazy(() => import("@/pages/TrainingInboxPage"));
@@ -142,6 +145,7 @@ function App() {
               {/* Phase 4 · P1 · Cross-Artifact Correlation (2026-02-15) */}
               <Route path="/investigations" element={<Protected><InvestigationsPage /></Protected>} />
               <Route path="/investigations/:id" element={<Protected><InvestigationDetailPage /></Protected>} />
+              <Route path="/investigations/:id/replay" element={<Protected><InvestigationReplayPage /></Protected>} />
               <Route path="/compare" element={<Protected><ComparePage /></Protected>} />
               <Route path="/compare/:caseA/:caseB" element={<Protected><ComparePage /></Protected>} />
               <Route path="/platform" element={<Protected><PlatformHealthPage /></Protected>} />

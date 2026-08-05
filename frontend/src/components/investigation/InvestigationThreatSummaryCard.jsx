@@ -14,7 +14,7 @@ const VERDICT_TONE = {
   Unknown:    { fg: "#94a3b8", bg: "rgba(148,163,184,0.10)", bd: "rgba(148,163,184,0.35)" },
 };
 
-export default function InvestigationThreatSummaryCard({ summary }) {
+export default function InvestigationThreatSummaryCard({ summary, onOpenEvidence }) {
   if (!summary) return null;
   const tone = VERDICT_TONE[summary.verdict] || VERDICT_TONE.Unknown;
   const iocsCount = totalIocs(summary.iocs);
@@ -74,16 +74,22 @@ export default function InvestigationThreatSummaryCard({ summary }) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}
                data-testid="mitre-chips">
             {summary.mitre.slice(0, 12).map(m => (
-              <span key={m.id}
-                    title={`${m.technique || ""} — used by ${(m.sources || []).length} case(s)`}
+              <button key={m.id}
+                    data-testid={`mitre-chip-${m.id}`}
+                    onClick={() => onOpenEvidence?.(m)}
+                    disabled={!onOpenEvidence}
+                    title={onOpenEvidence
+                             ? `${m.technique || ""} — click for evidence drill-down`
+                             : `${m.technique || ""} — used by ${(m.sources || []).length} case(s)`}
                     style={{ padding: "2px 8px", fontSize: 10,
                              background: "rgba(245,158,11,0.10)",
                              color: "#fcd34d",
                              border: "1px solid rgba(245,158,11,0.30)",
                              borderRadius: 3,
+                             cursor: onOpenEvidence ? "pointer" : "default",
                              fontFamily: "JetBrains Mono, monospace" }}>
                 {m.id}
-              </span>
+              </button>
             ))}
             {summary.mitre.length > 12 && (
               <span style={{ padding: "2px 8px", fontSize: 10, color: "#64748b" }}>

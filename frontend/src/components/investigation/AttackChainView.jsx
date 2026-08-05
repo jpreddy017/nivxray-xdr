@@ -29,7 +29,7 @@ const VERDICT_COLOR = {
   Benign: "#86efac", Unknown: "#94a3b8",
 };
 
-export default function AttackChainView({ chain, onUnlink }) {
+export default function AttackChainView({ chain, onUnlink, onOpenEvidence }) {
   if (!chain || !chain.steps || chain.steps.length === 0) {
     return (
       <div data-testid="chain-empty"
@@ -47,7 +47,8 @@ export default function AttackChainView({ chain, onUnlink }) {
       {chain.steps.map((step, idx) => (
         <div key={step.node_id}
              style={{ paddingLeft: (step.depth || 0) * 22, minWidth: 0 }}>
-          <ChainNode step={step} idx={idx} onUnlink={onUnlink} />
+          <ChainNode step={step} idx={idx} onUnlink={onUnlink}
+                     onOpenEvidence={onOpenEvidence} />
           {idx < chain.steps.length - 1 && (
             <div style={{ paddingLeft: 16, opacity: 0.5, margin: "2px 0",
                           color: "#475569" }}>
@@ -60,7 +61,7 @@ export default function AttackChainView({ chain, onUnlink }) {
   );
 }
 
-function ChainNode({ step, idx, onUnlink }) {
+function ChainNode({ step, idx, onUnlink, onOpenEvidence }) {
   const isCase = step.kind === "case";
   const isRoot = step.source === "root";
   const artifact = step.artifact_type || (isCase ? "case" : "artifact");
@@ -147,6 +148,20 @@ function ChainNode({ step, idx, onUnlink }) {
         )}
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+        {onOpenEvidence && (
+          <button data-testid={`chain-node-evidence-${idx}`}
+                  onClick={() => onOpenEvidence(step)}
+                  title="Open evidence drill-down"
+                  style={{ padding: "3px 8px", fontSize: 10,
+                           background: "rgba(56,189,248,0.10)",
+                           color: "#7dd3fc",
+                           border: "1px solid rgba(56,189,248,0.30)",
+                           borderRadius: 4, cursor: "pointer",
+                           fontFamily: "JetBrains Mono, monospace",
+                           letterSpacing: "0.08em" }}>
+            EVIDENCE
+          </button>
+        )}
         {isCase && step.case_id && (
           <Link to={`/history?id=${step.case_id}`}
                 data-testid={`chain-node-open-${idx}`}
