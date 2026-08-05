@@ -123,11 +123,35 @@ gates green.
 state must remain honest. Improvements come from real decoder work, never
 from bypassing the gate to make demos green.
 
-### P4 · Mach-O Analyzer (unchanged)
+### 🎯 Owner-locked post-P2.3c sequence (2026-02-16)
 
-### P3 · Compare Cases (unchanged, expanded scope)
+Owner ratified the P2.3c outcome and reprioritized: **fingerprints
+precede comparisons** so Compare Cases operates on deterministic DNA
+rather than re-derived evidence each time.
 
-### P7 · Analytical Consumers (unchanged — Provenance Ledger, Risk Score, Attack DNA, AAIG)
+1. **`.docm → PowerShell → PE` flagship investigation** — third
+   Golden Corpus entry exercising every layer end-to-end (Office →
+   macro → RTE → PE → Analyzer → CEM → Investigation).
+2. **Attack Fingerprint (Attack DNA)** — first deterministic
+   analytical consumer. Emitted per case from the CEM. Components:
+   Interpreter Chain · Decode Recipe · Transformation Trace ·
+   Canonical Artifact Graph · MITRE Profile · IOC Profile ·
+   Behavioral Sequence · Parent/Child Artifact Relationships ·
+   Investigation Similarity Hash. **Purely deterministic.**
+3. **Compare Cases (fingerprint-powered)** — side-by-side diff over
+   Threat Summary · Attack Chain · Timeline · MITRE · IOCs · Recipe ·
+   Transformation Trace · Decision Trace · Interpreter Chain · Attack
+   Fingerprint · Similarity Score.
+4. **Mach-O Analyzer** — fifth first-class artifact type.
+5. **Additional analyzers** — Email · Archives (ZIP/7z/RAR/ISO/CAB/
+   IMG) · Android APK · iOS IPA · Memory dumps.
+
+All items above are pure **extensions** of the frozen v1.1 core. No
+structural redesign permitted.
+
+### P4 · Mach-O Analyzer (queued per owner sequence above)
+
+### P3 · Compare Cases (queued per owner sequence above · fingerprint-powered)
 
 ### P3 · Compare Cases (expanded scope · owner directive 2026-02-15)
 
