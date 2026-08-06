@@ -377,3 +377,48 @@ Only after all regression tests pass.
 - [ ] Remove legacy convergence decoder path
 - [ ] Remove old routing / duplicate models / deprecated endpoints
 - [ ] Freeze the Workspace behavior
+
+---
+
+## 🔒 Reinforced Prime Directive (2026-02-06)
+
+Architecture v1.0 is **PERMANENTLY FROZEN**. No redesign, rename, or new
+architectural concepts without a concrete implementation limitation.
+
+### 10 Non-Negotiable Rules (R1–R10)
+Kept verbatim in this file's earlier sections. Every commit MUST answer:
+  1. Does this preserve Architecture v1.0?
+  2. Does the Workspace stay unchanged for new evidence types?
+  3. Does this preserve the IEP contract?
+  4. Does this introduce reasoning into adapters? (If yes → reject.)
+  5. Can the same behavior graph regenerate Timeline / MITRE / Graph / Story / Reports without recomputation?
+
+### Canonical Behavior Model (backend source of truth · SSOT)
+    Behavior {
+      id, name, category,
+      evidence[], commands[], artifacts[], source_refs[],
+      kill_chain_phase,
+      mitre_tactics[],           # PLURAL — a behavior may belong to multiple tactics
+      mitre_techniques[],
+      confidence,
+    }
+
+Behaviors are first-class objects. Commands are evidence.
+Every visualization (Attack Story · MITRE 14-tactic matrix · Kill Chain
+· Evidence Graph · Timelines · Reports) is a projection of the SAME
+behavior model — never recomputed independently.
+
+### Delta from current implementation (to be closed)
+- ▸ `behavior_extractor.Behavior` currently uses `kill_chain: str[]`
+  (already plural) + `mitre_tactic: str` (SINGULAR). Rename to
+  `mitre_tactics: str[]` and allow multiple tactics per behavior.
+  Non-breaking — add plural field, keep singular as an alias, migrate
+  callers over subsequent changes.
+- ▸ MITRE-tactic swim-lane component must render all 14 tactics
+  (Recon, Resource Dev, Initial Access, Execution, Persistence, PrivEsc,
+  Defense Evasion, Cred Access, Discovery, Lateral Movement, Collection,
+  C2, Exfiltration, Impact). Collapse empty lanes automatically.
+- ▸ Behavior Knowledge Base — mapping like `Base64 Decode → T1140`,
+  `Registry Run Key → T1547.001`, `Shadow Copy Deletion → T1490` — lives
+  ONLY in `services/reasoning/behavior_extractor.py`. Never in adapters,
+  never in UI code.
