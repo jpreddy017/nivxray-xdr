@@ -115,6 +115,26 @@ def die_health_check(body: HealthBody):
     return {"health": _hc(body.input or "").to_dict()}
 
 
+class SSOTBody(BaseModel):
+    input: str = Field(..., description="Raw analyst paste to canonicalise.")
+
+
+@router.post("/investigation")
+def die_canonical_investigation(body: SSOTBody):
+    """Return the **Canonical Investigation Object** (SSOT) for a paste.
+
+    This is the single source of truth per Rule R11.  Every Workspace
+    surface, engine, filter, export, and API endpoint downstream of
+    the IUE consumes THIS object — never the raw input.  See
+    ``services/die/canonical.py`` for the schema and
+    ``services/die/investigation_results.py`` for the emitter.
+    """
+    from services.die.investigation_results import render as _render
+    result = _render(body.input or "")
+    return {"investigation": result["object"]}
+
+
+
 
 
 @router.post("/powershell/ast")

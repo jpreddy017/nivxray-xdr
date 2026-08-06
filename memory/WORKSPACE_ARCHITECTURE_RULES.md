@@ -169,6 +169,59 @@ Frozen alongside `/app/memory/IUE_ARCHITECTURE_V2.md`.
 
 ---
 
+## R11 · Workspace-wide SSOT Consumption Contract (2026-03-01)
+
+Extends R9 (Workspace Stability) and R10 (Investigation-first) to
+every visible surface, export, and API contour of the Workspace.
+
+- **Every Workspace surface MUST consume the Canonical Investigation
+  Object.**  No UI component, panel, side card, header pill,
+  filter, export, or API endpoint is allowed to independently
+  parse, decode, or re-interpret the original input once the SSOT
+  has been created.
+- **All visualizations, reports, filters, exports, and APIs**
+  derive exclusively from the SSOT.  If a section is empty, that
+  is a data-completeness bug in the SSOT emitter — never a reason
+  to duplicate parsing in the consumer.
+- **Backwards compatibility**: existing components that already
+  read fields from `analyze` / `narrate` are treated as consuming
+  a *projection* of the SSOT and remain valid so long as their
+  data path terminates in the SSOT.
+- **New capabilities plug in below the SSOT**, never beside it.
+  IDA, IVE, PCAP, Mach-O, Archive intelligence — all future
+  engines emit into the SSOT and read from it.  Their UIs read
+  the SSOT too.
+
+Enforcement: `tests/test_investigation_quality_gate.py` locks the
+release gate — every supported input type must yield every SSOT
+section listed in the Quality Gate (Health · Understanding · Plan ·
+Results · Story · Trajectory · Threat Analysis · Evidence · Report).
+
+---
+
+## Workspace Freeze v1 (2026-03-01)
+
+The following surfaces are declared **stable and frozen**.  No
+redesigns, no relocations, no removal of analyst functionality.
+
+    ✓ Input Health
+    ✓ Input Understanding
+    ✓ Investigation Plan
+    ✓ Investigation Results
+    ✓ Attack Story (inline)
+    ✓ Evidence Trajectory + Node Inspector
+    ✓ Analyst Narrative
+    ✓ Threat Analysis sidebar (GRAPH · MITRE · LOLBAS · RULES ·
+      IOCs · TI-HITS · OSINT · AI · FLOW · CHAIN)
+    ✓ Report
+    ✓ Global Investigation Filter
+    ✓ IUE-first Architecture
+
+New capabilities plug in *underneath*.  The analyst workflow is
+locked; the platform grows below the surface.
+
+---
+
 ## Release Gate — checked before every deployment
 
 Functional

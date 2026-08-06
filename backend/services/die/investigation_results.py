@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional
 from .preprocessor import preprocess as preprocess_input
 from .input_understanding import understand as understand_input
 from .input_health import check_health as _check_health
+from .canonical import build_confidence_breakdown, build_plan
 from .lolbas import lolbas_lookup, LOLBAS_REGISTRY  # noqa: F401
 from .ioc_semantic import extract_iocs
 from .intent import classify_intent_from_analyze
@@ -312,11 +313,43 @@ def render(input_text: str) -> Dict[str, Any]:
     lines.append("")
     lines.append(_kv("Threat Objective",   intent.get("primary_objective") or intent.get("objective") or "Undetermined"))
     lines.append(_kv("Attack Progress",    f"{intent.get('progress_pct', 0)}%"))
-    lines.append(_kv("Confidence",         f"{int((intent.get('confidence') or 0) * 100)}%"))
+
+    # Build the Canonical confidence breakdown here so every consumer
+    # (pane text + SSOT) reads the same values.
+    ioc_kinds_dict = ioc_by_kind
+    conf_break = build_confidence_breakdown(
+        health=health.to_dict(),
+        understanding=u_dict,
+        preprocessor=pre.to_dict(),
+        lolbas=lolbins,
+        mitre=techniques,
+        dkp=dkp_matches,
+        iocs=ioc_kinds_dict,
+        intent=intent,
+    )
+
+    lines.append(_kv("Confidence",         f"{conf_break.overall}% · {conf_break.label}"))
     lines.append(_kv("Commands Extracted", contents.get("commands", 0)))
     lines.append(_kv("LOLBAS",             len({(lb.get('binary') or '').lower() for lb in lolbins if lb.get('binary')})))
     lines.append(_kv("MITRE Techniques",   len(techniques)))
     lines.append(_kv("IOCs",               sum(len(v) for v in ioc_by_kind.values())))
+    lines.append("")
+
+    # ── CONFIDENCE EXPLANATION (Rule R10 · analyst-visible) ──
+    lines.append(_h1("Confidence Explanation"))
+    lines.append("")
+    lines.append(_kv("Overall", f"{conf_break.overall}% · {conf_break.label}"))
+    lines.append("")
+    lines.append("Signals")
+    _glyph = {"passed": "✓", "partial": "◐", "missing": "✗",
+              "skipped": "○"}
+    for sig in conf_break.signals:
+        g = _glyph.get(sig.status, "•")
+        line = f"  {g} {sig.label:<22} {sig.status.upper()}"
+        if sig.detail:
+            line += f" — {sig.detail}"
+        lines.append(line)
+    lines.append("")
     lines.append("")
 
     # Not-attribution disclaimer (WORKSPACE_ARCHITECTURE_RULES.md · R5).
@@ -327,9 +360,14 @@ def render(input_text: str) -> Dict[str, Any]:
     output = "\n".join(lines)
 
     # ── Canonical Investigation Object (SSOT) ──
+    plan = build_plan(
+        understanding=u_dict,
+        preprocessor=pre.to_dict(),
+        health=health.to_dict(),
+    )
     canonical: Dict[str, Any] = {
         "metadata": {
-            "engine_version":  "iue-2.0.0-slice-2",
+            "engine_version":  "iue-2.0.0-slice-3",
             "input_bytes":     len(src),
             "language":        env.get("language"),
         },
@@ -343,6 +381,7 @@ def render(input_text: str) -> Dict[str, Any]:
             "contents":        contents,
         },
         "understanding":       u_dict,
+        "plan":                plan,
         "commands":            [_command_to_ssot(s) for s in stages],
         "iocs":                ioc_by_kind,
         "lolbas":              [_lolbas_to_ssot(lb) for lb in lolbins],
@@ -350,6 +389,12 @@ def render(input_text: str) -> Dict[str, Any]:
         "dkp":                 dkp_matches,
         "preprocessor":        pre.to_dict(),
         "intent":              intent,
+        "confidence":          {
+            "overall":      conf_break.overall,
+            "label":        conf_break.label,
+            "ai_inference": conf_break.ai_inference,
+            "signals":      [s.__dict__ for s in conf_break.signals],
+        },
         "engines_selected":    u_dict.get("engines_selected", []),
         "engines_skipped":     u_dict.get("engines_skipped", []),
     }
