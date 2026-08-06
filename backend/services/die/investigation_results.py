@@ -50,6 +50,7 @@ from services.ida import (
     investigate_all_artifacts as _ida_investigate_all,
     merge_artifact_investigations as _ida_merge,
 )
+from services.ice import correlate as _ice_correlate
 
 
 # ── Formatting helpers ────────────────────────────────────────────
@@ -617,6 +618,13 @@ def render(input_text: str) -> Dict[str, Any]:
         "engines_selected":    u_dict.get("engines_selected", []),
         "engines_skipped":     u_dict.get("engines_skipped", []),
     }
+
+    # Rule R21 · Correlation Happens Once.  Every projection consumes
+    # `SSOT.ice`; downstream components MUST NOT reassemble
+    # relationships from raw artifacts (behavior clusters, kill-chain
+    # phases, MITRE matrix, timeline, incident graph, evidence
+    # completeness are all owned here).
+    canonical["ice"] = _ice_correlate(canonical)
 
     return {"output": output, "object": canonical}
 

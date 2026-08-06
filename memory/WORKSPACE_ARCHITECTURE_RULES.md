@@ -486,6 +486,36 @@ finding back to its origin.
 
 ---
 
+## Rule R21 · Correlation Happens Once (2026-03-01)
+
+> **Between recursive investigation and any projection, the
+> platform MUST run a single deterministic correlation pass that
+> turns isolated per-artifact investigations into coherent higher-
+> order objects: behavior clusters, attack phases, kill-chain
+> ordering, a unified MITRE matrix, timeline, and an incident
+> graph.  Every downstream projection (Evidence Explorer, Attack
+> Story, Timeline, Knowledge Graph, NIST IR Report, exports)
+> reads from ICE — never from raw per-artifact investigations
+> directly.**
+
+Analysis happens once.  Projection happens many times.
+
+The engine lives at `services/ice/` and emits its result at
+`SSOT.ice{}`:
+
+    behavior_clusters[]    — grouped by command purpose, MITRE union
+    attack_phases[]        — kill-chain-ordered MITRE tactics
+    mitre_matrix[]         — deduped, tagged {source: vendor|command}
+    timeline[]             — article-published + execution-order
+    incident_graph{nodes,edges}  — incident → actor / malware / behavior
+    evidence_completeness{}      — per-dim state + overall %
+
+Consumers MUST NOT reassemble any of these from raw commands /
+`command_investigations[]` / vendor-published MITRE.  Doing so is a
+Rule-R21 violation and will fail the Investigation Quality Gate.
+
+---
+
 **These rules are locked.  Any agent that removes a listed
 capability is regressing the Workspace.  Enhance, extend, add —
 never remove.**

@@ -36,6 +36,7 @@ const TYPE_META = {
 export default function ExtractedArtifactsPanel({ investigation }) {
   const ext  = investigation?.report_extraction || {};
   const acq  = investigation?.acquired_document || {};
+  const ice  = investigation?.ice || {};
   if (!acq?.ok) return null;
 
   // Split body_artifacts (IOCs the article mentions) by type.
@@ -96,19 +97,24 @@ export default function ExtractedArtifactsPanel({ investigation }) {
           ▸ EVIDENCE EXPLORER
         </div>
         <div style={{ fontSize: 12, color: "#96c9aa", marginTop: 3 }}>
-          Every piece of evidence below was investigated automatically (Rule R20).
-          Behavior clusters roll up related commands; drill into any row to see
-          per-artifact investigation.
+          Every piece of evidence below was investigated automatically (Rule R20)
+          and correlated by ICE (Rule R21).  Drill into any row to see per-artifact
+          investigation.
         </div>
       </header>
 
-      {/* ── Evidence Completeness ── */}
-      <EvidenceCompleteness ext={ext} groups={groups} />
+      {/* ── Evidence Completeness (from ICE) ── */}
+      <EvidenceCompleteness ice={ice} ext={ext} groups={groups} />
 
-      {/* ── Behavior Clusters (roll-up by command purpose) ── */}
-      <BehaviorClusters commands={commands} investigations={investigations} />
+      {/* ══ CORRELATED EVIDENCE ══ */}
+      <SectionHeading label="Correlated Evidence" testid="section-correlated" />
+      {/* ── Behavior Correlation (ICE clusters) ── */}
+      <BehaviorCorrelation clusters={ice?.behavior_clusters || []} />
+      {/* ── Kill-Chain Phases (ICE attack_phases) ── */}
+      <AttackPhases phases={ice?.attack_phases || []} />
 
-      {/* ── Raw evidence groups (drill-down) ── */}
+      {/* ══ RAW EVIDENCE ══ */}
+      <SectionHeading label="Raw Evidence" testid="section-raw" />
       {groups.map(g => (
         <ArtifactGroup key={g.key} groupKey={g.key} items={g.items}
                         extras={g.extras} />
@@ -118,103 +124,103 @@ export default function ExtractedArtifactsPanel({ investigation }) {
 }
 
 
-// ══════════════════════════════════════════════════════════════════
-// Evidence Completeness — coverage % per evidence type
-// ══════════════════════════════════════════════════════════════════
-function EvidenceCompleteness({ ext, groups }) {
-  const investigations = ext.command_investigations || [];
-  const okCount = investigations.filter(ci => ci.language && !ci.error).length;
-  const errCount = investigations.filter(ci => ci.error).length;
-  const totalCommands = (ext.commands || []).length;
-
-  const rows = [
-    { label: "Commands",  covered: okCount, total: totalCommands, missing: errCount, kind: totalCommands ? "ok" : "na" },
-    { label: "MITRE",     covered: (ext.mitre_techniques?.length || 0), total: null, kind: (ext.mitre_techniques?.length || 0) ? "ok" : "not_present" },
-    { label: "LOLBAS",    covered: (ext.investigation_summary?.lolbins_union?.length || 0), total: null, kind: (ext.investigation_summary?.lolbins_union?.length || 0) ? "ok" : "not_present" },
-    { label: "URLs",      covered: groups.find(g => g.key === "urls")?.items.length || 0, total: null, kind: (groups.find(g => g.key === "urls")?.items.length || 0) ? "ok" : "not_present" },
-    { label: "Hashes",    covered: groups.find(g => g.key === "hashes")?.items.length || 0, total: null, kind: (groups.find(g => g.key === "hashes")?.items.length || 0) ? "ok" : "not_present" },
-    { label: "Registry",  covered: groups.find(g => g.key === "registry")?.items.length || 0, total: null, kind: (groups.find(g => g.key === "registry")?.items.length || 0) ? "ok" : "not_present" },
-    { label: "YARA",      covered: (ext.yara_rules?.length || 0), total: null, kind: (ext.yara_rules?.length || 0) ? "ok" : "not_present" },
-    { label: "Sigma",     covered: (ext.sigma_rules?.length || 0), total: null, kind: (ext.sigma_rules?.length || 0) ? "ok" : "not_present" },
-  ];
-
+function SectionHeading({ label, testid }) {
   return (
-    <div data-testid="evidence-completeness"
-         style={{ marginBottom: 14,
-                   padding: "10px 12px",
-                   border: "1px solid rgba(126, 230, 168, 0.22)",
-                   borderRadius: 4,
-                   background: "rgba(0, 40, 22, 0.30)" }}>
-      <div style={{ fontSize: 11, color: "#7ee6a8",
-                     letterSpacing: 1.4, marginBottom: 8 }}>
-        ▸ EVIDENCE COMPLETENESS
-      </div>
-      <div style={{ display: "grid",
-                     gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                     gap: 8, fontSize: 11 }}>
-        {rows.map(r => (
-          <div key={r.label} data-testid={`ec-${r.label.toLowerCase()}`}
-               style={{ padding: "4px 8px",
-                         border: `1px solid ${_ecColor(r.kind, 0.32)}`,
-                         borderRadius: 3,
-                         background: `rgba(0, 60, 30, ${r.kind === "ok" ? 0.35 : 0.15})`,
-                         opacity: r.kind === "not_present" ? 0.6 : 1 }}>
-            <div style={{ fontSize: 10, color: "#96c9aa",
-                           letterSpacing: 0.8 }}>{r.label.toUpperCase()}</div>
-            <div style={{ fontSize: 13, color: _ecColor(r.kind, 1),
-                           fontWeight: 600, marginTop: 2 }}>
-              {r.kind === "not_present" ? "Not Present"
-                : r.total != null
-                  ? `${r.covered}/${r.total} ${errCount && r.label === "Commands" ? `· ${errCount} err` : "investigated"}`
-                  : `${r.covered} ${r.covered === 1 ? "found" : "found"}`}
-            </div>
-          </div>
-        ))}
-      </div>
+    <div data-testid={testid}
+         style={{ marginTop: 16, marginBottom: 8,
+                   fontSize: 10, letterSpacing: 2.2,
+                   color: "#7ee6a8", opacity: 0.8,
+                   borderBottom: "1px solid rgba(126, 230, 168, 0.2)",
+                   paddingBottom: 4 }}>
+      ══ {label.toUpperCase()} ══
     </div>
   );
 }
 
-function _ecColor(kind, alpha) {
-  if (kind === "ok")           return `rgba(61, 220, 132, ${alpha})`;
-  if (kind === "err")          return `rgba(255, 120, 120, ${alpha})`;
-  return                              `rgba(139, 165, 152, ${alpha})`;
+
+// ══════════════════════════════════════════════════════════════════
+// Evidence Completeness — read from ICE (Rule R21).  Falls back
+// gracefully to the frontend view if `ice` is not yet populated.
+// ══════════════════════════════════════════════════════════════════
+function EvidenceCompleteness({ ice, ext, groups }) {
+  const ec = ice?.evidence_completeness;
+  if (ec?.dimensions?.length) {
+    return (
+      <div data-testid="evidence-completeness"
+           style={{ marginBottom: 14,
+                     padding: "10px 12px",
+                     border: "1px solid rgba(126, 230, 168, 0.22)",
+                     borderRadius: 4,
+                     background: "rgba(0, 40, 22, 0.30)" }}>
+        <div style={{ fontSize: 11, color: "#7ee6a8",
+                       letterSpacing: 1.4, marginBottom: 4,
+                       display: "flex", justifyContent: "space-between" }}>
+          <span>▸ EVIDENCE COMPLETENESS</span>
+          <span data-testid="ec-overall">{ec.overall_percent}% covered</span>
+        </div>
+        <div style={{ display: "grid",
+                       gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                       gap: 8, fontSize: 11 }}>
+          {ec.dimensions.map(d => (
+            <div key={d.dim} data-testid={`ec-${d.dim.toLowerCase().replace(/[^a-z]+/g, '-')}`}
+                 style={{ padding: "4px 8px",
+                           border: `1px solid ${_ecColorForState(d.state, 0.32)}`,
+                           borderRadius: 3,
+                           background: `rgba(0, 60, 30, ${d.state === "complete" ? 0.35 : 0.15})`,
+                           opacity: d.state === "not_available" ? 0.6 : 1 }}>
+              <div style={{ fontSize: 10, color: "#96c9aa",
+                             letterSpacing: 0.8,
+                             textTransform: "uppercase" }}>{d.dim}</div>
+              <div style={{ fontSize: 13, color: _ecColorForState(d.state, 1),
+                             fontWeight: 600, marginTop: 2 }}>
+                {_ecLabel(d)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
+function _ecColorForState(state, alpha) {
+  if (state === "complete") return `rgba(61, 220, 132, ${alpha})`;
+  if (state === "relative") return `rgba(255, 214, 107, ${alpha})`;
+  if (state === "missing")  return `rgba(255, 120, 120, ${alpha})`;
+  return                          `rgba(139, 165, 152, ${alpha})`;
+}
+function _ecLabel(d) {
+  if (d.state === "not_available") return "Not Applicable";
+  if (d.state === "missing")       return "Not Present";
+  if (d.state === "relative")      return "Partial";
+  if (d.dim === "Commands")
+    return `${d.investigated}/${d.found} investigated${d.errors ? ` · ${d.errors} err` : ""}`;
+  return `${d.found ?? 0} found`;
 }
 
 
 // ══════════════════════════════════════════════════════════════════
-// Behavior Clusters — group commands by their per-command purpose
-// (assigned by IDA-4's classifier) and aggregate MITRE from the
-// recursive investigations (Rule R20).
+// Behavior Correlation — reads ICE.behavior_clusters directly.
+// Analysis happens once (in ICE); this component only projects.
 // ══════════════════════════════════════════════════════════════════
-function BehaviorClusters({ commands, investigations }) {
-  if (!commands?.length) return null;
-  // Group by purpose label; keep insertion order.
-  const clusters = new Map();
-  commands.forEach((c, i) => {
-    const key = c.purpose || "Uncategorised";
-    if (!clusters.has(key)) clusters.set(key, { commands: [], mitre: new Set() });
-    clusters.get(key).commands.push({ c, ci: investigations[i] || {} });
-    (investigations[i]?.techniques || []).forEach(t => clusters.get(key).mitre.add(t.id));
-  });
-
+function BehaviorCorrelation({ clusters }) {
+  if (!clusters?.length) return null;
   return (
-    <div data-testid="behavior-clusters"
+    <div data-testid="behavior-correlation"
          style={{ marginBottom: 14 }}>
       <div style={{ fontSize: 11, color: "#7ee6a8",
                      letterSpacing: 1.4, marginBottom: 8 }}>
-        ▸ ATTACK BEHAVIORS ({clusters.size})
+        ▸ BEHAVIOR CORRELATION ({clusters.length})
       </div>
-      {[...clusters.entries()].map(([label, cluster], i) => (
-        <BehaviorClusterRow key={label} label={label}
-                             commands={cluster.commands}
-                             mitre={[...cluster.mitre]} index={i} />
+      {clusters.map((c, i) => (
+        <BehaviorClusterRow key={c.label} cluster={c} index={i} />
       ))}
     </div>
   );
 }
 
-function BehaviorClusterRow({ label, commands, mitre, index }) {
+function BehaviorClusterRow({ cluster, index }) {
   const [open, setOpen] = useState(false);
   return (
     <div data-testid={`behavior-cluster-${index}`}
@@ -230,40 +236,99 @@ function BehaviorClusterRow({ label, commands, mitre, index }) {
           <span style={{ color: "#7ee6a8", width: 12, textAlign: "center" }}>
             {open ? "▾" : "▸"}
           </span>
-          <span style={{ fontSize: 13, color: "#e6ffe9" }}>{label}</span>
+          <span style={{ fontSize: 13, color: "#e6ffe9" }}>{cluster.label}</span>
           <span style={{ fontSize: 10, color: "#7ee6a8",
                           padding: "1px 6px",
                           background: "rgba(0, 60, 30, 0.4)",
                           borderRadius: 3 }}>
-            {commands.length} cmd{commands.length === 1 ? "" : "s"}
+            {cluster.command_count} cmd{cluster.command_count === 1 ? "" : "s"}
+          </span>
+          <span style={{ fontSize: 9, color: _confColor(cluster.confidence),
+                          padding: "1px 6px",
+                          border: `1px solid ${_confColor(cluster.confidence)}`,
+                          borderRadius: 3, letterSpacing: 1 }}>
+            {(cluster.confidence || "").toUpperCase()}
           </span>
         </span>
         <span style={{ fontSize: 10, color: "#96c9aa", display: "flex", gap: 4 }}>
-          {mitre.length > 0
-            ? mitre.map(m => (
-                <span key={m} style={{
+          {cluster.mitre?.length > 0
+            ? cluster.mitre.map(m => (
+                <span key={m.id} style={{
                   padding: "1px 6px",
                   border: "1px solid rgba(126, 230, 168, 0.32)",
-                  borderRadius: 2, color: "#c5f5d6" }}>{m}</span>
+                  borderRadius: 2, color: "#c5f5d6" }}>{m.id}</span>
               ))
             : <span style={{ opacity: 0.55 }}>no MITRE mapped</span>}
         </span>
       </button>
       {open && (
-        <ul style={{ margin: "6px 0 0 24px", padding: 0,
-                      listStyle: "none" }}>
-          {commands.map((entry, i) => (
+        <ul style={{ margin: "6px 0 0 24px", padding: 0, listStyle: "none" }}>
+          {cluster.commands.map((c, i) => (
             <li key={i} style={{ fontFamily: "ui-monospace, monospace",
                                    fontSize: 11, color: "#c5f5d6",
                                    padding: "3px 0",
                                    borderBottom: "1px dashed rgba(126, 230, 168, 0.08)",
                                    wordBreak: "break-all" }}>
               <span style={{ color: "#3ddc84", marginRight: 6 }}>✓</span>
-              {entry.c.command}
+              {c.command}
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+function _confColor(conf) {
+  if (conf === "high")   return "#3ddc84";
+  if (conf === "medium") return "#ffd66b";
+  return                        "#96c9aa";
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// Kill-Chain Phases — ICE.attack_phases in canonical MITRE order.
+// ══════════════════════════════════════════════════════════════════
+function AttackPhases({ phases }) {
+  if (!phases?.length) return null;
+  return (
+    <div data-testid="attack-phases"
+         style={{ marginBottom: 14, marginTop: 10 }}>
+      <div style={{ fontSize: 11, color: "#7ee6a8",
+                     letterSpacing: 1.4, marginBottom: 8 }}>
+        ▸ KILL-CHAIN PHASES ({phases.length})
+      </div>
+      <ol style={{ margin: 0, padding: 0, listStyle: "none",
+                    display: "flex", flexDirection: "column", gap: 6 }}>
+        {phases.map((p, i) => (
+          <li key={p.tactic} data-testid={`attack-phase-${p.tactic}`}
+              style={{ display: "grid",
+                        gridTemplateColumns: "18px 1fr auto",
+                        gap: 10, alignItems: "start",
+                        padding: "6px 8px",
+                        border: "1px solid rgba(126, 230, 168, 0.18)",
+                        borderRadius: 3,
+                        background: "rgba(0, 40, 22, 0.3)" }}>
+            <span style={{ color: "#7ee6a8", fontWeight: 700,
+                            fontSize: 11, textAlign: "center" }}>{i + 1}</span>
+            <div>
+              <div style={{ fontSize: 12, color: "#e6ffe9" }}>{p.label}</div>
+              <div style={{ fontSize: 10, color: "#96c9aa", marginTop: 2 }}>
+                {p.clusters.join(" · ")} — {p.command_count} command{p.command_count === 1 ? "" : "s"}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap",
+                           justifyContent: "flex-end" }}>
+              {p.mitre.map(m => (
+                <span key={m} style={{ fontSize: 10, color: "#c5f5d6",
+                                         padding: "1px 6px",
+                                         border: "1px solid rgba(126, 230, 168, 0.32)",
+                                         borderRadius: 2 }}>{m}</span>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

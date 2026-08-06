@@ -104,6 +104,8 @@ REQUIRED_SECTIONS = (
     "artifacts", "artifact_summary", "ida",
     # ── IDA · Slice 1.6 · Acquisition Plan projection ──
     "acquisition_plan",
+    # ── ICE · Slice 2.0 · Investigation Correlation Engine (Rule R21) ──
+    "ice",
 )
 
 
