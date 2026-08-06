@@ -1459,12 +1459,11 @@ export default function WorkspacePage() {
     streamStopRef.current = null;
   };
 
-  // ── IUE v2.0 · Investigation-first orchestrator (2026-03-01) ─────
-  // Fetch the deterministic Investigation Results view whenever the
-  // pane needs new intel.  This is called both when the IUE decides
-  // no decoding is required (skip the decoder entirely) and after
-  // a decode has landed (so the pane still shows structured findings
-  // instead of raw bytes for plain content).
+  // ── IUE v2.0 · One Investigation, One Fetch (R12 · 2026-03-01) ────
+  // Retrieve the Canonical Investigation Object once and derive every
+  // downstream panel (Inline Attack Story, Trajectory, Analyst
+  // Narrative, Understanding) from its projections.  No component may
+  // orchestrate its own investigation calls (Rule R11 + R12).
   const runInvestigationResults = async (rawInput) => {
     try {
       const r = await api.post("/die/investigation-results", { input: rawInput });
@@ -1474,6 +1473,15 @@ export default function WorkspacePage() {
         setOutput(text);
         setInvestigationMode(true);
         setInvestigationObject(obj);
+        // ▲ Rule R12 · one fetch, many projections — derive every
+        // sibling panel's state from the SSOT we just retrieved so
+        // no component needs to hit /die/understand, /die/analyze,
+        // or /die/narrate independently.
+        if (obj) {
+          if (obj.understanding) setUnderstanding(obj.understanding);
+          if (obj.preprocessor)  setInlineStoryPreproc(obj.preprocessor);
+          if (obj.narrative)     setAnalystNarrative(obj.narrative);
+        }
         return true;
       }
     } catch { /* fall through — non-blocking */ }

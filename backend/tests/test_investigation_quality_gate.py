@@ -97,9 +97,21 @@ FIXTURES = [
 REQUIRED_SECTIONS = (
     "metadata", "input", "health", "profiling", "understanding",
     "plan", "commands", "iocs", "lolbas", "mitre", "dkp",
-    "preprocessor", "intent", "confidence",
+    "preprocessor", "intent", "narrative", "confidence",
     "engines_selected", "engines_skipped",
 )
+
+
+# ── Schema versioning ────────────────────────────────────────────
+def test_quality_gate_schema_versioned():
+    """SSOT metadata MUST carry a schema version so future engines
+    (IDA, IVE, PCAP, Mach-O) can extend the object without breaking
+    existing consumers."""
+    r = render_results(PLAIN_PS)
+    meta = r["object"]["metadata"]
+    assert meta.get("version"), "metadata.version missing"
+    assert meta.get("schema") == "investigation-v1", (
+        f"unexpected schema id: {meta.get('schema')!r}")
 
 
 # ── Gate ─────────────────────────────────────────────────────────
@@ -204,3 +216,79 @@ def test_quality_gate_encoded_ps_normalizes_to_decoded_script():
     assert "Set-ItemProperty" in normalized, (
         "encoded PowerShell normalized_command must contain the decoded "
         f"script, got: {normalized[:120]!r}")
+
+
+# ── Quality-of-content gates (R11 · R12 · R13) ────────────────────
+def test_quality_gate_narrative_included_in_ssot():
+    """R12 · one investigation, one fetch — the SSOT must already
+    include the deterministic analyst narrative so the frontend never
+    needs a second call to /die/narrate."""
+    r = render_results(VENDOR_PROSE)
+    narr = r["object"].get("narrative")
+    assert isinstance(narr, dict) and narr, "SSOT.narrative missing"
+    # Narrative always emits an executive summary + overall assessment
+    # + threat progression block.
+    assert narr.get("executive_summary") or narr.get("analyst_summary"), (
+        "narrative must contain an executive/analyst summary")
+
+
+@pytest.mark.parametrize("fixture_id,payload", FIXTURES)
+def test_quality_gate_no_engine_reads_raw_input(
+    fixture_id: str, payload: str,
+):
+    """R13 · Engine Independence — no engine may echo the raw input
+    into its output section.  We enforce this by asserting the raw
+    input string does NOT appear verbatim inside downstream engine
+    outputs (narrative summary, analyst summary, plan reasoning)."""
+    if not payload.strip():
+        pytest.skip("empty fixture — nothing to compare")
+    r = render_results(payload)
+    obj = r["object"]
+    # Trim to a distinctive middle slice so we don't false-positive on
+    # short shared tokens.
+    if len(payload) >= 60:
+        slice_ = payload[len(payload) // 3:len(payload) // 3 + 60]
+        # Narrative fields
+        narr = obj.get("narrative") or {}
+        for key in ("executive_summary", "analyst_summary",
+                    "overall_assessment"):
+            val = narr.get(key) or ""
+            if isinstance(val, str):
+                assert slice_ not in val, (
+                    f"{fixture_id}: {key} echoed raw input slice")
+        # Plan reasoning
+        for step in obj.get("plan") or []:
+            assert slice_ not in (step.get("reason") or "")
+
+
+@pytest.mark.parametrize("fixture_id,payload", FIXTURES)
+def test_quality_gate_confidence_always_explainable(
+    fixture_id: str, payload: str,
+):
+    """R10 · every confidence score must carry the trail that
+    produced it.  ai_inference must be False in the deterministic
+    pipeline for every supported input."""
+    r = render_results(payload)
+    conf = r["object"]["confidence"]
+    assert conf.get("ai_inference") is False, (
+        f"{fixture_id}: deterministic pipeline must not report "
+        "ai_inference=True")
+    # Every signal must have status + label.
+    for s in conf.get("signals") or []:
+        assert s.get("label")
+        assert s.get("status") in ("passed", "partial", "missing", "skipped")
+
+
+@pytest.mark.parametrize("fixture_id,payload", FIXTURES)
+def test_quality_gate_plan_covers_iue_and_preprocessor(
+    fixture_id: str, payload: str,
+):
+    """Every plan MUST include the IUE classify step + a preprocessor
+    stage-extract step.  These are the minimal deterministic passes
+    every input flows through."""
+    r = render_results(payload)
+    engines = {(s.get("engine") or "").lower() for s in r["object"]["plan"]}
+    assert "iue" in engines,        f"{fixture_id}: plan missing IUE step"
+    assert "preprocessor" in engines, (
+        f"{fixture_id}: plan missing preprocessor step")
+

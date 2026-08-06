@@ -367,6 +367,8 @@ def render(input_text: str) -> Dict[str, Any]:
     )
     canonical: Dict[str, Any] = {
         "metadata": {
+            "version":         "1.0",
+            "schema":          "investigation-v1",
             "engine_version":  "iue-2.0.0-slice-3",
             "input_bytes":     len(src),
             "language":        env.get("language"),
@@ -389,6 +391,9 @@ def render(input_text: str) -> Dict[str, Any]:
         "dkp":                 dkp_matches,
         "preprocessor":        pre.to_dict(),
         "intent":              intent,
+        # R12 · include the deterministic analyst narrative in the SSOT
+        # so the frontend can retrieve everything in ONE fetch.
+        "narrative":           _build_narrative(pre.to_dict()),
         "confidence":          {
             "overall":      conf_break.overall,
             "label":        conf_break.label,
@@ -400,6 +405,17 @@ def render(input_text: str) -> Dict[str, Any]:
     }
 
     return {"output": output, "object": canonical}
+
+
+def _build_narrative(pre_bundle: Dict[str, Any]) -> Dict[str, Any]:
+    """Deterministic analyst narrative — invoked inline so the SSOT
+    carries the executive summary / Sigma / YARA / MITRE-matrix /
+    threat-actor context alongside every other section."""
+    try:
+        from .analyst_narrative import generate as _gen
+        return _gen(pre_bundle) or {}
+    except Exception:
+        return {}
 
 
 # ── Helpers ───────────────────────────────────────────────────────

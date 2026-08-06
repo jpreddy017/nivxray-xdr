@@ -199,6 +199,49 @@ Results · Story · Trajectory · Threat Analysis · Evidence · Report).
 
 ---
 
+## R12 · One Investigation, One Fetch (2026-03-01)
+
+- **The frontend must retrieve a single Canonical Investigation
+  Object per investigation.**  UI components must never orchestrate
+  multiple backend investigation calls to assemble state.
+- All investigation data is derived from the single SSOT.
+- Benefits: lower latency, fewer race conditions, easier caching,
+  simpler debugging, deterministic rendering.
+- Enforcement: `POST /api/die/investigation` is the SSOT contract.
+  Existing endpoints (`/die/understand`, `/die/analyze`,
+  `/die/narrate`, `/die/investigation-results`) remain for
+  regression tests + backend consumers, but the Workspace SPA must
+  route through the single-fetch contract.
+
+---
+
+## R13 · Engine Independence (2026-03-01)
+
+- **Every investigation engine contributes to the Canonical
+  Investigation Object but may not directly consume another
+  engine's UI output.**  Engine-to-engine communication occurs only
+  through the Canonical Investigation Object.
+- Correct: `MITRE Engine → SSOT ← Trajectory`.
+- Forbidden: `Trajectory reads Attack Story JSON`.
+- This eliminates ordering dependencies between engines and makes
+  every engine independently unit-testable.
+
+---
+
+## Schema Versioning (2026-03-01)
+
+The Canonical Investigation Object carries `metadata.version` and
+`metadata.schema` so new consumers can validate compatibility and
+future engines (IDA, IVE, PCAP, Mach-O, Binary, Archive) can extend
+the object without breaking existing readers.
+
+Current: `metadata.version = "1.0"`, `metadata.schema = "investigation-v1"`.
+
+Extensions become `investigation-v2`, `-v3` … only when a breaking
+shape change lands; additive fields keep the version stable.
+
+---
+
 ## Workspace Freeze v1 (2026-03-01)
 
 The following surfaces are declared **stable and frozen**.  No
