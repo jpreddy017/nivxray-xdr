@@ -38,6 +38,8 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 
 import ExtractedArtifactsPanel from "@/components/investigation/ExtractedArtifactsPanel";
 import AcquisitionPlanPanel   from "@/components/investigation/AcquisitionPlanPanel";
+import TrajectoryDiagram      from "@/components/investigation/TrajectoryDiagram";
+import CollapsibleSection     from "@/components/investigation/CollapsibleSection";
 import api from "@/lib/api";
 
 const MIRROR_KEY = "nivxray:last_investigation";
@@ -159,7 +161,7 @@ export default function InvestigationSessionPage() {
             )}
           </div>
         )}
-        {active === "nist"     && <NistTab     incident={inc} raw={raw} />}
+        {active === "nist"     && <NistTab     incident={inc} raw={raw} session={session} />}
       </div>
     </div>
   );
@@ -338,16 +340,28 @@ function StatusPill({ status }) {
   );
 }
 
-// ── Attack Story tab — projects incident.behaviors + phases ──────
+// ── Attack Story tab — trajectory swim-lane + phases + behaviors ─
 function StoryTab({ incident, raw }) {
   const behaviors = incident?.behaviors || [];
   const phases    = incident?.phases    || [];
-  if (!behaviors.length && !phases.length) {
-    return <EmptyCard msg="No attack story derived yet." />;
-  }
+  const preproc   = _preprocForTrajectory(raw, incident);
+  const hasAny    = behaviors.length || phases.length || preproc;
+  if (!hasAny) return <EmptyCard msg="No attack story derived yet." />;
   return (
     <div style={sx.card} data-testid="session-story-tab">
       <h3 style={sx.h3}>Attack Story</h3>
+      {preproc && (
+        <div style={{ marginBottom: 20 }}
+             data-testid="session-story-trajectory">
+          <div style={sx.eyebrow}>▸ ATTACK CHAIN · TRAJECTORY</div>
+          <div style={sx.leadDim}>
+            Attack chain across 6 swim lanes · drag nodes · pan background · use +/− to zoom
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <TrajectoryDiagram preprocessor={preproc} />
+          </div>
+        </div>
+      )}
       {phases.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={sx.eyebrow}>▸ KILL-CHAIN PHASES</div>
@@ -362,27 +376,67 @@ function StoryTab({ incident, raw }) {
           </ol>
         </div>
       )}
-      <div style={sx.eyebrow}>▸ BEHAVIORS</div>
-      <ul style={sx.behaviorList}>
-        {behaviors.map((b, i) => (
-          <li key={i} style={sx.behaviorItem}
-              data-testid={`story-behavior-${i}`}>
-            <div style={sx.behaviorHead}>
-              <strong>{b.label}</strong>
-              <span style={sx.dim}>{b.command_count} cmds · {b.confidence?.toUpperCase()}</span>
-            </div>
-            {(b.mitre || []).length > 0 && (
-              <div style={sx.behaviorMitre}>
-                {b.mitre.map((m) => (
-                  <span key={m.id} style={sx.mitrePill}>{m.id}</span>
-                ))}
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+      {behaviors.length > 0 && (
+        <>
+          <div style={sx.eyebrow}>▸ BEHAVIORS</div>
+          <ul style={sx.behaviorList}>
+            {behaviors.map((b, i) => (
+              <li key={i} style={sx.behaviorItem}
+                  data-testid={`story-behavior-${i}`}>
+                <div style={sx.behaviorHead}>
+                  <strong>{b.label}</strong>
+                  <span style={sx.dim}>{b.command_count} cmds · {b.confidence?.toUpperCase()}</span>
+                </div>
+                {(b.mitre || []).length > 0 && (
+                  <div style={sx.behaviorMitre}>
+                    {b.mitre.map((m) => (
+                      <span key={m.id} style={sx.mitrePill}>{m.id}</span>
+                    ))}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
+}
+
+// Build a preprocessor-shaped envelope from either the raw SSOT's
+// preprocessor (paste flow) or the ICE behavior clusters (URL flow)
+// so the same TrajectoryDiagram renders across every input class.
+function _preprocForTrajectory(raw, incident) {
+  const pre = raw?.preprocessor;
+  if (pre?.stages?.length) return pre;
+  const clusters = incident?.behaviors || raw?.ice?.behavior_clusters || [];
+  if (!clusters.length) return null;
+  const label = {
+    initial_access:       "Initial Access",
+    execution:            "Execution",
+    persistence:          "Persistence",
+    privilege_escalation: "Privilege Escalation",
+    defense_evasion:      "Defense Evasion",
+    credential_access:    "Credential Access",
+    discovery:            "Discovery",
+    lateral_movement:     "Lateral Movement",
+    collection:           "Collection",
+    command_and_control:  "Command and Control",
+    exfiltration:         "Exfiltration",
+    impact:               "Impact",
+  };
+  const stages = clusters.map((c, i) => ({
+    id:              `ice-stage-${i}`,
+    title:           c.label,
+    tactic:          label[c.primary_tactic] || "Execution",
+    mitre:           (c.mitre || []).map(m => m.id || m),
+    command_family:  c.label,
+    kind:            "behavior_cluster",
+    confidence:      c.confidence === "high"   ? 0.95
+                   : c.confidence === "medium" ? 0.7
+                   :                              0.4,
+  }));
+  return { stages, process_edges: [] };
 }
 
 // ── Timeline tab ──────────────────────────────────────────────────
@@ -435,15 +489,59 @@ function GraphTab({ incident }) {
   );
 }
 
-// ── NIST IR tab — reads incident directly ─────────────────────────
-function NistTab({ incident, raw }) {
+// ── NIST IR tab — reads incident directly + downloadable exports ─
+function NistTab({ incident, raw, session }) {
+  const md = useMemo(
+    () => (incident ? _buildNistMarkdown(incident, session, raw) : ""),
+    [incident, session, raw],
+  );
   if (!incident) return <EmptyCard msg="No incident report available." />;
   const sum   = incident.summary || {};
   const rec   = incident.recommendations || [];
   const ready = incident.readiness || {};
+
+  function download(name, mime, content) {
+    try {
+      const blob = new Blob([content], { type: mime });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) { /* noop */ }
+  }
+  const sid = session?.session_id || "session";
+
   return (
     <div style={sx.card} data-testid="session-nist-tab">
-      <h3 style={sx.h3}>NIST SP 800-61 r2 · Incident Report</h3>
+      <div style={{ display: "flex", justifyContent: "space-between",
+                     alignItems: "flex-start", marginBottom: 10 }}>
+        <h3 style={{ ...sx.h3, margin: 0 }}>
+          NIST SP 800-61 r2 · Incident Report
+        </h3>
+        <div style={sx.dlBtnGroup} data-testid="nist-downloads">
+          <button type="button" style={sx.dlBtn}
+                  data-testid="btn-download-nist-md"
+                  onClick={() => download(`${sid}.nist.md`, "text/markdown", md)}>
+            ⤓ Markdown
+          </button>
+          <button type="button" style={sx.dlBtn}
+                  data-testid="btn-download-nist-json"
+                  onClick={() => download(`${sid}.incident.json`,
+                                            "application/json",
+                                            JSON.stringify(incident, null, 2))}>
+            ⤓ Incident JSON
+          </button>
+          <button type="button" style={sx.dlBtn}
+                  data-testid="btn-download-session-json"
+                  onClick={() => download(`${sid}.session.json`,
+                                            "application/json",
+                                            JSON.stringify(session, null, 2))}>
+            ⤓ Session JSON
+          </button>
+        </div>
+      </div>
 
       <div style={sx.section}>
         <div style={sx.eyebrow}>▸ EXECUTIVE DECISION</div>
@@ -483,8 +581,133 @@ function NistTab({ incident, raw }) {
           <div style={sx.dim}>No recommendations generated yet.</div>
         )}
       </div>
+
+      <div style={sx.section}>
+        <div style={sx.eyebrow}>▸ REPORT PREVIEW</div>
+        <pre style={{ ...sx.dim, background: "rgba(0, 40, 22, 0.4)",
+                       padding: "10px 12px", borderRadius: 3,
+                       maxHeight: 320, overflow: "auto",
+                       whiteSpace: "pre-wrap", wordBreak: "break-word",
+                       color: "#c5f5d6", fontSize: 11 }}
+             data-testid="nist-preview">{md}</pre>
+      </div>
     </div>
   );
+}
+
+
+// Deterministic NIST SP 800-61 r2 Markdown builder — synthesised
+// purely from the SSOT / ICE incident block.  Zero LLM.
+function _buildNistMarkdown(incident, session, raw) {
+  const sum   = incident.summary || {};
+  const ready = incident.readiness || {};
+  const rec   = incident.recommendations || [];
+  const gaps  = incident.gaps || [];
+  const phases    = incident.phases || [];
+  const behaviors = incident.behaviors || [];
+  const mitre     = incident.mitre || [];
+  const timeline  = incident.timeline || [];
+  const prov      = incident.provenance || {};
+  const now       = new Date().toISOString();
+  const lines = [];
+  lines.push(`# NIST SP 800-61 r2 · Incident Report`);
+  lines.push(``);
+  lines.push(`- **Session**: ${session?.session_id || "n/a"}`);
+  lines.push(`- **Generated**: ${now}`);
+  lines.push(`- **Source**: ${prov.source_vendor || "n/a"} · ${prov.source_url || ""}`);
+  lines.push(``);
+  lines.push(`## 1. Executive Decision`);
+  lines.push(``);
+  lines.push(`| Field | Value |`);
+  lines.push(`|-------|-------|`);
+  lines.push(`| Incident | ${sum.title || "Threat Investigation"} |`);
+  lines.push(`| Actor | ${sum.actor || "unattributed"} |`);
+  lines.push(`| Severity | ${sum.severity || "unknown"} |`);
+  lines.push(`| Confidence | ${sum.confidence_percent ?? 0}% |`);
+  lines.push(`| Objective | ${sum.objective || "under investigation"} |`);
+  lines.push(`| Status | ${sum.status || "under_investigation"} |`);
+  lines.push(``);
+  lines.push(`## 2. Kill-Chain Phases`);
+  lines.push(``);
+  if (phases.length) {
+    for (const p of phases) {
+      lines.push(`- **${p.label}** — ${p.command_count} cmds · ${(p.mitre || []).join(", ")}`);
+    }
+  } else {
+    lines.push(`_None observed._`);
+  }
+  lines.push(``);
+  lines.push(`## 3. Behaviors`);
+  lines.push(``);
+  if (behaviors.length) {
+    for (const b of behaviors) {
+      lines.push(`- **${b.label}** — ${b.command_count} cmds · confidence: ${b.confidence}`);
+      const ms = (b.mitre || []).map(m => m.id || m).join(", ");
+      if (ms) lines.push(`  - MITRE: ${ms}`);
+    }
+  } else {
+    lines.push(`_No behaviors correlated._`);
+  }
+  lines.push(``);
+  lines.push(`## 4. MITRE ATT&CK Matrix (${mitre.length})`);
+  lines.push(``);
+  if (mitre.length) {
+    lines.push(`| ID | Name | Tactic | Source |`);
+    lines.push(`|----|------|--------|--------|`);
+    for (const m of mitre) {
+      lines.push(`| ${m.id} | ${m.name || ""} | ${m.tactic || ""} | ${m.source || ""} |`);
+    }
+  } else {
+    lines.push(`_None mapped._`);
+  }
+  lines.push(``);
+  lines.push(`## 5. Timeline (${timeline.length})`);
+  lines.push(``);
+  if (timeline.length) {
+    for (const e of timeline) {
+      const when = e.date || (e.step ? `step ${e.step}` : "");
+      lines.push(`- [${e.kind}] ${when} — ${e.event}`);
+      if (e.command) lines.push(`  \`${e.command}\``);
+    }
+  } else {
+    lines.push(`_No timeline events._`);
+  }
+  lines.push(``);
+  lines.push(`## 6. Investigation Readiness`);
+  lines.push(``);
+  lines.push(`- Overall: **${ready.overall_percent || 0}%** · ${ready.confidence_label || "n/a"}`);
+  if (ready.recommended_next) lines.push(`- Next: ${ready.recommended_next}`);
+  for (const b of (ready.bars || [])) {
+    lines.push(`  - ${b.dim}: ${b.percent}% (${b.state})`);
+  }
+  lines.push(``);
+  lines.push(`## 7. Gaps`);
+  lines.push(``);
+  if (gaps.length) {
+    for (const g of gaps) lines.push(`- **${g.dim}** — ${g.reason} · _${g.action}_`);
+  } else {
+    lines.push(`_No gaps flagged._`);
+  }
+  lines.push(``);
+  lines.push(`## 8. Recommendations`);
+  lines.push(``);
+  if (rec.length) {
+    for (const r of rec) lines.push(`- **${r.priority}** — ${r.title} (${r.reason})`);
+  } else {
+    lines.push(`_No recommendations._`);
+  }
+  lines.push(``);
+  lines.push(`## 9. Provenance`);
+  lines.push(``);
+  lines.push(`- Source URL: ${prov.source_url || "—"}`);
+  lines.push(`- Source Vendor: ${prov.source_vendor || "—"}`);
+  lines.push(`- Source Title: ${prov.source_title || "—"}`);
+  lines.push(`- Fetched Bytes: ${prov.acquired_bytes || "—"}`);
+  lines.push(`- Duration (ms): ${prov.fetched_at_ms || "—"}`);
+  lines.push(``);
+  lines.push(`---`);
+  lines.push(`_Generated deterministically from the SSOT.  Zero LLM._`);
+  return lines.join("\n");
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -680,4 +903,12 @@ const sx = {
           border: "1px solid #ffd66b", color: "#ffd66b",
           borderRadius: 2, padding: "1px 4px", textAlign: "center",
           alignSelf: "start" },
+  dlBtnGroup: { display: "flex", gap: 6, flexWrap: "wrap" },
+  dlBtn: {
+    background: "transparent", color: "#7ee6a8",
+    border: "1px solid rgba(126, 230, 168, 0.35)",
+    padding: "5px 10px", borderRadius: 3,
+    fontFamily: "inherit", fontSize: 10, letterSpacing: 1.2,
+    cursor: "pointer", textTransform: "uppercase",
+  },
 };
