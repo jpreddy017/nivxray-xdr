@@ -1,7 +1,7 @@
 {
-  "total": 92,
+  "total": 94,
   "passed": 35,
-  "hit_rate": 0.3804,
+  "hit_rate": 0.3723,
   "threshold": 0.6,
   "results": [
     {
@@ -293,7 +293,7 @@
     },
     {
       "sha1": "113cea36a6da4c4bc8627039b4f3d067aca2c4e1",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "import numpy as np\ndata = np.zeros((10, 10))",
       "ok": false
@@ -409,16 +409,16 @@
     },
     {
       "sha1": "9dab0c64d545d383773f8738c8f89e80183784e6",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE=';            var b=atob(d);            var l=document.createElement('a');            l.download='pay",
+      "output_head": "binary-A",
       "ok": false
     },
     {
       "sha1": "f9f75777c6ec5ce767f90a3564eba599398a4d58",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
       "ok": false
     },
     {
@@ -430,9 +430,9 @@
     },
     {
       "sha1": "73d7f991eb4f45f1cd0c111ac8b263c25aac9a2b",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUM=';    var b=atob(d);    var l=document.createElement('a');    l.download='stager.js';    l.href=URL.c",
+      "output_head": "binary-C",
       "ok": false
     },
     {
@@ -746,7 +746,7 @@
     },
     {
       "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
       "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
       "ok": false
@@ -913,6 +913,20 @@
       "engine": "llm-l3",
       "chain": [],
       "output_head": "TEST_iter63_1785997178 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "7a4e15af8ef0ecb3430c2891554ef296f1adbcbb",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786019726 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "a783237740d9543c747b3d6cb11cd40dbba81510",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1786020098 nivxray unique payload",
       "ok": false
     }
   ]

@@ -3260,3 +3260,31 @@ Talos IR blog now yields 6 distinct behavior clusters spanning
 Command & Control, Defense Evasion, Exfiltration, and Impact —
 rendering across Transformation, Network/C2, File System, and Registry
 swim lanes (previously only 1 node in File System).
+
+## 2026-08-06 · NIST IR Report — depth parity with vendor engagements
+
+**Trigger**: User compared the tool's PDF (`ses_9fc054482dc6.nist.pdf`) with the
+Cisco Talos IR blog and pointed out the tool's report was skeletal (10 short
+sections) vs the source's depth (per-tactic attack lifecycle, per-command
+evidence, actor + malware attribution, CVE calls, host artifacts, NIST 5-phase
+recommendations, lessons learned).
+
+**Enhancements** (all deterministic, no LLM):
+- Section 6 · Attack Lifecycle (Cyber Kill Chain × MITRE ATT&CK) — walks the
+  behaviors by tactic, prints MITRE IDs, prints the actual command lines.
+- Section 7 · Attribution & Named Signals — Threat Actor, Malware / Toolset,
+  CVEs referenced.
+- Section 8 · Command Lines Observed — full table (#, purpose, executable,
+  args) using the new structured command output.
+- Section 9 · Host Artifacts — Registry Modifications (canonicalised
+  HKEY_LOCAL_MACHINE\...) and File Paths referenced.
+- Section 12 · Recommendations — expanded from 3 to 6 NIST SP 800-61 r2
+  buckets: Immediate, Containment, Eradication, Recovery, Threat Hunting,
+  Lessons Learned.  Eradication / Recovery / Lessons Learned auto-fill from
+  a deterministic default template when ICE didn't populate them.
+- Section 13 · Coverage by Evidence Dimension table — every dimension with
+  state + found count.
+
+**Verified**: Same Talos URL → previous PDF was 2-3 pages; new PDF is 8 pages,
+carries every observed command, every extracted artifact, and covers all 5
+NIST IR phases.

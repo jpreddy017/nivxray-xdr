@@ -286,6 +286,9 @@ def render_pdf(session: Dict[str, Any]) -> bytes:
     inc  = session.get("incident") or {}
     isum = inc.get("summary") or {}
     ready = inc.get("readiness") or {}
+    raw   = session.get("raw_investigation") or {}
+    ext   = raw.get("report_extraction") or {}
+    comp  = inc.get("completeness") or {}
 
     buf = BytesIO()
     doc = SimpleDocTemplate(
@@ -322,8 +325,23 @@ def render_pdf(session: Dict[str, Any]) -> bytes:
                           [f"<b>Likelihood:</b> {imp.get('likelihood') or 'Unknown'}"],
                           st)
 
+    # ── Attack Lifecycle (NIST DE-1 / DE-2) ─────────────────────
+    # A per-tactic walkthrough with observed commands, matching the
+    # depth vendors publish in their engagement reports.
+    _attack_lifecycle_section(story, inc, ext, st)
+
+    # ── Threat Actors + Malware Families + CVEs ─────────────────
+    _actors_malware_cves_section(story, ext, st)
+
+    # ── Command Lines Observed (deterministic evidence) ─────────
+    _commands_section(story, ext, st)
+
+    # ── Registry Modifications + File Artifacts observed ────────
+    _artifacts_section(story, ext, st)
+
     # ── MITRE ───────────────────────────────────────────────────
-    story.append(Paragraph("6 · MITRE ATT&amp;CK Summary", st["h2"]))
+    story.append(PageBreak())
+    story.append(Paragraph("10 · MITRE ATT&amp;CK Summary", st["h2"]))
     for g in (narr.get("mitre_summary") or []):
         story.append(Paragraph(g["tactic"], st["h3"]))
         for t in g.get("techniques") or []:
@@ -335,7 +353,7 @@ def render_pdf(session: Dict[str, Any]) -> bytes:
 
     # ── IOC intelligence table ──────────────────────────────────
     story.append(Spacer(1, 0.15 * inch))
-    story.append(Paragraph("7 · IOC Intelligence", st["h2"]))
+    story.append(Paragraph("11 · IOC Intelligence", st["h2"]))
     iocs = narr.get("ioc_intelligence") or []
     if iocs:
         data = [["KIND", "INDICATOR", "REPUTATION", "VT", "AbuseIPDB", "PDNS"]]
@@ -370,22 +388,30 @@ def render_pdf(session: Dict[str, Any]) -> bytes:
     else:
         story.append(Paragraph("No IOCs correlated.", st["body"]))
 
-    # ── Recommendations ─────────────────────────────────────────
+    # ── Recommendations — full NIST bucketing ───────────────────
     rec = narr.get("recommendations") or {}
     story.append(Spacer(1, 0.15 * inch))
-    story.append(Paragraph("8 · Recommendations", st["h2"]))
-    for bucket, label in (("immediate", "Immediate"),
-                            ("hunting", "Threat Hunting"),
-                            ("containment", "Containment")):
+    story.append(Paragraph("12 · Recommendations (NIST SP 800-61 r2)", st["h2"]))
+    for bucket, label in (
+        ("immediate",   "Immediate Response"),
+        ("containment", "Containment"),
+        ("eradication", "Eradication"),
+        ("recovery",    "Recovery"),
+        ("hunting",     "Threat Hunting"),
+        ("lessons",     "Lessons Learned / Post-Incident"),
+    ):
+        items = rec.get(bucket) or _default_recs(bucket, inc, ext)
+        if not items:
+            continue
         story.append(Paragraph(label, st["h3"]))
-        for item in (rec.get(bucket) or []):
+        for item in items:
             story.append(Paragraph(f"• {item}", st["body"]))
 
-    # ── Evidence Confidence ─────────────────────────────────────
+    # ── Evidence Confidence + Gaps ──────────────────────────────
     ec  = narr.get("evidence_confidence") or {}
     cmd = ec.get("commands") or {}
     story.append(Spacer(1, 0.15 * inch))
-    story.append(Paragraph("9 · Evidence Confidence", st["h2"]))
+    story.append(Paragraph("13 · Evidence Confidence", st["h2"]))
     for line in [
         f"<b>Commands:</b> {cmd.get('investigated', 0)}/{cmd.get('total', 0)} investigated",
         f"<b>MITRE:</b> {(ec.get('mitre') or {}).get('count', 0)} techniques mapped",
@@ -395,9 +421,35 @@ def render_pdf(session: Dict[str, Any]) -> bytes:
     ]:
         story.append(Paragraph(line, st["body"]))
 
+    # Evidence coverage breakdown per dimension
+    if comp.get("dimensions"):
+        story.append(Spacer(1, 0.1 * inch))
+        story.append(Paragraph("Coverage by Evidence Dimension", st["h3"]))
+        data = [["DIMENSION", "STATE", "FOUND"]]
+        for d in comp["dimensions"]:
+            state = d.get("state") or "—"
+            found = d.get("found")
+            if found is None:
+                found = "—"
+            data.append([d.get("dim") or "—", state.upper(), str(found)])
+        tbl = Table(data, colWidths=[3.4*inch, 1.4*inch, 1.4*inch])
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND",  (0, 0), (-1, 0), _GREEN),
+            ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
+            ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE",    (0, 0), (-1, -1), 9),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING",(0, 0), (-1, -1), 6),
+            ("TOPPADDING",  (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING",(0,0), (-1, -1), 3),
+            ("BOX",         (0, 0), (-1, -1), 0.4, colors.HexColor("#cfd8d0")),
+            ("INNERGRID",   (0, 0), (-1, -1), 0.3, colors.HexColor("#e2ebe4")),
+        ]))
+        story.append(tbl)
+
     # ── Readiness ───────────────────────────────────────────────
     story.append(Spacer(1, 0.15 * inch))
-    story.append(Paragraph("10 · Investigation Readiness", st["h2"]))
+    story.append(Paragraph("14 · Investigation Readiness", st["h2"]))
     story.append(Paragraph(
         f"<b>Overall:</b> {ready.get('overall_percent') or 0}% · "
         f"{(ready.get('confidence_label') or 'n/a').upper()}",
@@ -415,3 +467,201 @@ def render_pdf(session: Dict[str, Any]) -> bytes:
     doc.build(story)
     buf.seek(0)
     return buf.getvalue()
+
+
+# ═══════════════════════════════════════════════════════════════════
+# NIST-depth section builders (deterministic, SSOT-driven)
+# ═══════════════════════════════════════════════════════════════════
+_TACTIC_ORDER = [
+    ("initial_access",       "Initial Access"),
+    ("execution",            "Execution"),
+    ("persistence",          "Persistence"),
+    ("privilege_escalation", "Privilege Escalation"),
+    ("defense_evasion",      "Defense Evasion"),
+    ("credential_access",    "Credential Access"),
+    ("discovery",            "Discovery"),
+    ("lateral_movement",     "Lateral Movement"),
+    ("collection",           "Collection"),
+    ("command_and_control",  "Command and Control"),
+    ("exfiltration",         "Exfiltration"),
+    ("impact",               "Impact"),
+]
+
+
+def _attack_lifecycle_section(story, inc, ext, st):
+    """Walk the MITRE kill chain and, per tactic, list the behaviors
+    (with MITRE IDs) and the actual observed commands.  Mirrors the
+    per-tactic walkthrough Talos / Mandiant / CrowdStrike publish."""
+    behaviors = inc.get("behaviors") or []
+    if not behaviors:
+        return
+    by_tactic: Dict[str, List[Dict[str, Any]]] = {}
+    for b in behaviors:
+        t = b.get("primary_tactic") or "execution"
+        by_tactic.setdefault(t, []).append(b)
+
+    story.append(PageBreak())
+    story.append(Paragraph("6 · Attack Lifecycle (Cyber Kill Chain × MITRE ATT&amp;CK)",
+                              st["h2"]))
+    story.append(Paragraph(
+        "The observed activity mapped to the MITRE ATT&amp;CK tactics below. "
+        "Each phase lists the behaviors NivXRay derived from the source, "
+        "the MITRE technique IDs, and the actual command line evidence.",
+        st["body"],
+    ))
+
+    any_shown = False
+    for key, label in _TACTIC_ORDER:
+        bucket = by_tactic.get(key) or []
+        if not bucket:
+            continue
+        any_shown = True
+        story.append(Paragraph(label, st["h3"]))
+        for b in bucket:
+            mitre_ids = ", ".join([m.get("id") or "" for m in (b.get("mitre") or [])]) or "—"
+            story.append(Paragraph(
+                f"<b>{b.get('label')}</b>  <font color='#555'>[{mitre_ids}]</font>  "
+                f"— {b.get('command_count', 0)} observed · confidence <b>{b.get('confidence','low').upper()}</b>",
+                st["body"],
+            ))
+            for c in (b.get("commands") or [])[:3]:
+                cmd = c.get("command") or ""
+                if cmd:
+                    story.append(Paragraph(
+                        f"&nbsp;&nbsp;&nbsp;<font color='#374151' face='Courier'>{_escape(cmd[:220])}</font>",
+                        st["body"],
+                    ))
+        story.append(Spacer(1, 0.08 * inch))
+    if not any_shown:
+        story.append(Paragraph("No behaviors mapped to tactics yet.", st["body"]))
+
+
+def _actors_malware_cves_section(story, ext, st):
+    """Threat Actors + Malware Families + CVEs — deterministic
+    extraction from the acquired article."""
+    actors  = ext.get("threat_actors")     or []
+    malware = ext.get("malware_families")  or []
+    cves    = ext.get("cves")              or []
+    if not (actors or malware or cves):
+        return
+    story.append(Spacer(1, 0.12 * inch))
+    story.append(Paragraph("7 · Attribution &amp; Named Signals", st["h2"]))
+
+    if actors:
+        story.append(Paragraph("Threat Actor(s)", st["h3"]))
+        for a in actors:
+            story.append(Paragraph(f"• <b>{a.get('name')}</b>", st["body"]))
+    if malware:
+        story.append(Paragraph("Malware / Toolset Referenced", st["h3"]))
+        for m in malware:
+            story.append(Paragraph(f"• <b>{m.get('name')}</b>", st["body"]))
+    if cves:
+        story.append(Paragraph("CVEs Referenced", st["h3"]))
+        for c in cves:
+            cid = c.get("id") or "—"
+            story.append(Paragraph(f"• <b>{cid}</b>", st["body"]))
+
+
+def _commands_section(story, ext, st):
+    """Full command-line evidence: executable + arguments per command."""
+    cmds = ext.get("commands") or []
+    if not cmds:
+        return
+    story.append(Spacer(1, 0.12 * inch))
+    story.append(Paragraph(f"8 · Command Lines Observed ({len(cmds)})", st["h2"]))
+    story.append(Paragraph(
+        "Each row shows the atomic command NivXRay reconstructed from the "
+        "source, its purpose classification, and its argument list. "
+        "Command line is the primary investigation object; the executable "
+        "path is an embedded artifact.",
+        st["meta"],
+    ))
+    data = [["#", "PURPOSE", "EXECUTABLE", "ARGS"]]
+    for i, c in enumerate(cmds[:20], start=1):
+        exe  = c.get("executable") or "—"
+        args = c.get("arguments")  or []
+        args_str = " ".join(args)
+        if len(args_str) > 90:
+            args_str = args_str[:88] + "…"
+        data.append([str(i),
+                       (c.get("purpose") or "—")[:32],
+                       exe[:34],
+                       args_str])
+    tbl = Table(data, colWidths=[0.3*inch, 2.0*inch, 2.2*inch, 2.6*inch])
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND",  (0, 0), (-1, 0), _GREEN),
+        ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
+        ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME",    (2, 1), (-1, -1), "Courier"),
+        ("FONTSIZE",    (0, 0), (-1, -1), 7.5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING",(0, 0), (-1, -1), 4),
+        ("TOPPADDING",  (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING",(0,0), (-1, -1), 3),
+        ("BOX",         (0, 0), (-1, -1), 0.4, colors.HexColor("#cfd8d0")),
+        ("INNERGRID",   (0, 0), (-1, -1), 0.3, colors.HexColor("#e2ebe4")),
+        ("VALIGN",      (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(tbl)
+
+
+def _artifacts_section(story, ext, st):
+    """Registry Modifications + File Artifacts + Embedded IOCs
+    surfaced in the source."""
+    body = ext.get("body_artifacts") or []
+    if not body:
+        return
+    reg = [a for a in body if a.get("type") == "registry_key"]
+    fp  = [a for a in body if a.get("type") == "file_path"]
+    if not (reg or fp):
+        return
+    story.append(Spacer(1, 0.12 * inch))
+    story.append(Paragraph("9 · Host Artifacts", st["h2"]))
+    if reg:
+        story.append(Paragraph(f"Registry Modifications ({len(reg)})", st["h3"]))
+        for r in reg[:10]:
+            can = r.get("canonical") or r.get("value") or ""
+            story.append(Paragraph(
+                f"<font face='Courier'>{_escape(can[:150])}</font>", st["body"],
+            ))
+    if fp:
+        story.append(Paragraph(f"File Paths Referenced ({len(fp)})", st["h3"]))
+        for p in fp[:12]:
+            val = p.get("value") or ""
+            story.append(Paragraph(
+                f"<font face='Courier'>{_escape(val[:150])}</font>", st["body"],
+            ))
+
+
+def _default_recs(bucket: str, inc: Dict[str, Any],
+                    ext: Dict[str, Any]) -> List[str]:
+    """Deterministic fall-through recommendations for NIST buckets
+    that ICE didn't populate.  Keeps every phase covered."""
+    if bucket == "eradication":
+        return [
+            "Remove attacker-installed persistence (services, scheduled tasks, RMM agents) from every affected host",
+            "Rotate all credentials the attacker had access to, including service accounts and stored browser secrets",
+            "Rebuild or re-image hosts where the attacker obtained SYSTEM or Domain Admin privileges",
+            "Purge attacker-controlled binaries identified in the IOC table from all endpoints and file shares",
+        ]
+    if bucket == "recovery":
+        return [
+            "Restore encrypted or exfiltrated data from clean backups after eradication is verified",
+            "Bring rebuilt hosts back online in a phased manner with enhanced monitoring for 30 days",
+            "Validate that all detection rules covering the observed techniques are enabled and firing",
+            "Re-baseline endpoint / network telemetry so future anomalies are detected earlier",
+        ]
+    if bucket == "lessons":
+        return [
+            "Conduct a post-incident review documenting the timeline, dwell time, and every decision point",
+            "Update playbooks so the observed techniques (see MITRE section) trigger automated response next time",
+            "Verify logging retention covers at least the observed dwell time; extend if shorter",
+            "Restrict use of dual-use / LOLBAS tooling (PowerShell, wmic, msiexec, ssh.exe) via allow-listing",
+        ]
+    return []
+
+
+def _escape(s: str) -> str:
+    return (s.replace("&", "&amp;")
+              .replace("<", "&lt;")
+              .replace(">", "&gt;"))
