@@ -23,7 +23,52 @@
 
 ---
 
-### 🟢 2026-03-01 · IDA · Slice 1.6 — URL Intent + Acquisition Plan (pipeline responsibility fix)
+### 🟢 2026-03-01 · IDA · Slice 1.8 — Recursive Investigation (Rule R20)
+
+Extraction alone is not the finish line.  When IDA-4 pulls a
+command out of a threat report, that command carries its OWN
+behaviour, MITRE, LOLBAS, IOCs, decoded payload and confidence —
+all of which belong in the SSOT, not in a display list.
+
+**Landed in this slice:**
+
+1. **`services/ida/artifact_router.py`** — `investigate_all` runs
+   every extracted command through the same
+   `services.die.analyze()` engine that would have executed had the
+   analyst pasted the command directly.  Paranoia budget: 40
+   artifacts per request, no network inside the recursion.
+2. **SSOT.report_extraction.command_investigations[]** — per-command
+   record with `{command, purpose, source_ref, language, cmdlets,
+   lolbins, techniques, iocs, dkp_matches, attack_intent, verdict}`.
+3. **SSOT.report_extraction.investigation_summary** — aggregate view
+   with `commands_analyzed`, `lolbins_union`, `techniques_union`,
+   `languages`, `dkp_families`.
+4. **LOLBAS + MITRE promotion** — hits discovered by per-command
+   investigation are auto-merged into `SSOT.lolbas[]` and
+   `SSOT.mitre[]`, tagged `source: ida.command_investigation` so
+   provenance is preserved (vendor-published vs command-derived).
+5. **Rule R20 locked** in `WORKSPACE_ARCHITECTURE_RULES.md`.
+6. **Frontend projection** — each command in the AcquisitionPlanPanel
+   now shows the per-command language + LOLBAS + MITRE badges
+   directly below the command text.
+
+**Verified live against the eSentire UNC6692 URL:**
+- 10 commands extracted → 10 recursively investigated
+- Languages surfaced: `cmd · powershell · unknown`
+- LOLBAS union: `cmd.exe (T1059.003) · powershell (T1059.001) ·
+  powershell.exe (T1059.001)` — all auto-promoted to top-level SSOT
+- MITRE union: `T1564.003 Hidden Window` (from the `cmd /c start
+  /min ""` self-delete pattern) · `T1562.001 Disable or Modify
+  Tools`.  Both tagged `source: ida.command_investigation`.
+
+**Tests: 125/125 green**, including a dedicated Rule R20 assertion
+that proves every extracted command gets an investigation record
+with source_ref provenance, and the aggregate populates union
+lists.
+
+---
+
+
 
 The screenshots proved that the earlier slice was **structurally
 green but behaviourally wrong**: a bare threat-report URL was still

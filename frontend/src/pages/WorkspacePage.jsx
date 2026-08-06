@@ -13,6 +13,7 @@ import OutputView from "@/components/OutputView";
 import WorkspaceDecodeFailureCard from "@/components/investigation/WorkspaceDecodeFailureCard";
 import InputUnderstandingPanel from "@/components/investigation/InputUnderstandingPanel";
 import AcquisitionPlanPanel from "@/components/investigation/AcquisitionPlanPanel";
+import ExtractedArtifactsPanel from "@/components/investigation/ExtractedArtifactsPanel";
 import InlineAttackStory from "@/components/investigation/InlineAttackStory";
 import TrajectoryDiagram from "@/components/investigation/TrajectoryDiagram";
 import AnalystNarrativePanel from "@/components/investigation/AnalystNarrativePanel";
@@ -2832,6 +2833,15 @@ export default function WorkspacePage() {
               platform is going to do about this URL". */}
           {investigationObject?.acquisition_plan?.length > 0 && (
             <AcquisitionPlanPanel investigation={investigationObject} />
+          )}
+
+          {/* ▲ IDA · Extracted Artifacts (Slice 1.9 · Rule R20 · 2026-03-01)
+              Read-only, first-class projection of every artifact IDA-4 pulled
+              from the acquired document.  Each artifact is already
+              investigated by the recursive Artifact Router — the analyst
+              drills in via the row, they NEVER have to re-paste anything. */}
+          {investigationObject?.acquired_document?.ok && (
+            <ExtractedArtifactsPanel investigation={investigationObject} />
           )}
 
           {/* ▲ Inline Attack Story (P0 · 2026-02-28)

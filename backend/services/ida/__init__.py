@@ -24,3 +24,7 @@ from .input_classifier import classify_artifact_input     # noqa: F401
 from .url_intent import classify_url_intent                # noqa: F401
 from .acquisition import acquire_url, AcquiredResource     # noqa: F401
 from .report_extractors import understand_document, extract_all  # noqa: F401
+from .artifact_router import (
+    investigate_all as investigate_all_artifacts,           # noqa: F401
+    merge_into_ssot as merge_artifact_investigations,       # noqa: F401
+)

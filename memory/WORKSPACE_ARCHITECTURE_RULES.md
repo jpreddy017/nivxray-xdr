@@ -461,6 +461,35 @@ acquirable URL and the acquisition engine reports success, the
 
 ---
 
+## Rule R20 · Extracted Artifacts Are Investigation Seeds (2026-03-01)
+
+> **When IDA-4 extracts an artifact (command, IOC, YARA rule,
+> file reference), the platform MUST treat that artifact as a
+> new investigation seed and feed it back through the
+> deterministic investigation pipeline.  Extraction alone is
+> not the finish line.**
+
+A threat report is not a document — it is a set of artifacts.
+Every extracted command carries its own behaviour, MITRE, LOLBAS,
+IOCs, decoded payload, and confidence.  Those attributes belong in
+the SSOT, not just in a display list.
+
+Concretely: every command IDA-4 extracts is passed to the same
+`services.die.analyze()` engine that would have run had the analyst
+pasted the command directly.  The per-command result lives at
+`SSOT.report_extraction.command_investigations[]`, with an
+aggregated view at `SSOT.report_extraction.investigation_summary`.
+LOLBAS and MITRE technique hits discovered by command investigation
+are promoted into the top-level `SSOT.lolbas[]` and `SSOT.mitre[]`
+so the Threat Analysis panels light up automatically, tagged
+`source: ida.command_investigation` to preserve provenance
+(vendor-published vs command-derived).
+
+Paranoia budget: no more than 40 artifacts per request, no network
+inside the recursion (IDA-3 sits ABOVE the router, not inside it).
+
+---
+
 **These rules are locked.  Any agent that removes a listed
 capability is regressing the Workspace.  Enhance, extend, add —
 never remove.**

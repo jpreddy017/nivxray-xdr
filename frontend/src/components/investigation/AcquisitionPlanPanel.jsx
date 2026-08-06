@@ -151,42 +151,6 @@ export default function AcquisitionPlanPanel({ investigation }) {
               ))}
             </div>
           )}
-
-          {ext?.threat_actors?.length > 0 && (
-            <ExtractedList label="Threat Actors"
-                            items={ext.threat_actors.map(a => a.name)}
-                            testid="acq-extracted-actors" />
-          )}
-          {ext?.malware_families?.length > 0 && (
-            <ExtractedList label="Malware / Tooling"
-                            items={ext.malware_families.map(a => a.name)}
-                            testid="acq-extracted-malware" />
-          )}
-          {ext?.commands?.length > 0 && (
-            <div style={{ marginTop: 12 }} data-testid="acq-extracted-commands">
-              <div style={{ fontSize: 11, letterSpacing: 1.2,
-                            color: "#7ee6a8", marginBottom: 6 }}>
-                COMMAND LINES ({ext.commands.length})
-              </div>
-              <ol style={{ margin: 0, paddingLeft: 20,
-                            fontSize: 11, color: "#c5f5d6", lineHeight: 1.6 }}>
-                {ext.commands.slice(0, 20).map((c, i) => (
-                  <li key={i} style={{ marginBottom: 6 }}
-                       data-testid={`acq-cmd-${i}`}>
-                    <div style={{ fontFamily: "ui-monospace, monospace",
-                                   fontSize: 11, color: "#e6ffe9",
-                                   wordBreak: "break-all" }}>
-                      {c.command}
-                    </div>
-                    <div style={{ color: "#96c9aa", fontSize: 10,
-                                   marginTop: 2 }}>
-                      → {c.purpose || "Command execution"}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
         </div>
       )}
 

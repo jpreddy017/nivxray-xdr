@@ -47,6 +47,8 @@ from services.ida import (
     acquire_url as _ida_acquire,
     understand_document as _ida_understand,
     extract_all as _ida_extract,
+    investigate_all_artifacts as _ida_investigate_all,
+    merge_artifact_investigations as _ida_merge,
 )
 
 
@@ -170,7 +172,6 @@ def render(input_text: str) -> Dict[str, Any]:
     dkp_matches = env.get("dkp_matches") or []
 
     # 9) IDA · Slice 1 · Artifact decomposition + IDA verdict.
-    # Deterministic; feeds SSOT.artifacts / artifact_summary / ida.
     # Later slices (URL fetch, content understanding, threat report
     # extraction) will augment `artifacts[]` in-place without any
     # consumer changing.  Rule R14: IDA is the ONLY engine writing
@@ -207,6 +208,42 @@ def render(input_text: str) -> Dict[str, Any]:
                 acquired.article_text,
                 acquired.structured_blocks,
             )
+            # Rule R20 · Extracted artifacts are investigation seeds.
+            # Feed every extracted command back through the DIE
+            # analyzer so behaviour / MITRE / LOLBAS / IOCs / DKP land
+            # in the consolidated SSOT — not just a display list.
+            command_investigations = _ida_investigate_all(
+                report_extraction.get("commands") or [],
+            )
+            report_extraction["command_investigations"] = command_investigations
+            report_extraction["investigation_summary"]  = _ida_merge(command_investigations)
+
+            # Promote the aggregated LOLBAS / MITRE hits from every
+            # per-command investigation into the top-level SSOT so
+            # the Threat Analysis panels light up.  Provenance is
+            # preserved via `source=command` on the technique record
+            # (Rule R14 · IDA always tags provenance).
+            summary = report_extraction["investigation_summary"]
+            seen_lb = {(lb.get("binary") or "").lower() for lb in lolbins}
+            for lb in summary.get("lolbins_union", []):
+                if lb["binary"] not in seen_lb:
+                    lolbins.append({
+                        "binary":  lb["binary"],
+                        "mitre":   lb.get("mitre") or [],
+                    })
+                    seen_lb.add(lb["binary"])
+            seen_t = {(t.get("id") or "").upper() for t in techniques}
+            for t in summary.get("techniques_union", []):
+                tid = t["id"].upper()
+                if tid not in seen_t:
+                    techniques.append({
+                        "id":       tid,
+                        "name":     t.get("name") or "",
+                        "tactic":   "",
+                        "evidence": "",
+                        "source":   "ida.command_investigation",
+                    })
+                    seen_t.add(tid)
             # ida-4 fans out into multiple named plan steps; mark them
             # all `done` since the single extractor pass produced them.
             completed_steps.extend([

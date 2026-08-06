@@ -167,6 +167,48 @@ def test_extract_commands_from_structured_blocks_matches_esentire_table():
         assert "native_host.py" not in c["command"] or c["command"].startswith("cmd")
 
 
+def test_rule_r20_extracted_commands_are_reinvestigated():
+    """Rule R20 · every extracted command must be fed back through
+    the DIE analyzer.  The router populates a `command_investigations`
+    list and an `investigation_summary` aggregate."""
+    from services.ida import investigate_all_artifacts, merge_artifact_investigations
+    commands = [
+        {
+            "command": 'powershell -NoProfile -NonInteractive -Command "Get-CimInstance Win32_Process"',
+            "head":    "powershell",
+            "purpose": "PowerShell process enumeration",
+            "line":    1,
+            "source":  "ida.report.command.block[1]",
+        },
+        {
+            "command": 'cmd /c start /min "" cmd /c timeout 4 & del "x" 2>nul & exit /b',
+            "head":    "cmd",
+            "purpose": "Self-deletion of stager",
+            "line":    2,
+            "source":  "ida.report.command.block[2]",
+        },
+    ]
+    investigations = investigate_all_artifacts(commands)
+    assert len(investigations) == 2, "every command must produce an investigation record"
+
+    # Every record MUST carry provenance back to the source block.
+    for r in investigations:
+        assert r.get("source_ref"), f"command investigation missing source_ref: {r}"
+        assert r.get("command")
+        assert r.get("purpose")
+
+    # PowerShell command must resolve to language=powershell.
+    ps = next(r for r in investigations if r["head"] == "powershell")
+    assert ps["language"] == "powershell"
+
+    # Aggregation.
+    summary = merge_artifact_investigations(investigations)
+    assert summary["commands_analyzed"] == 2
+    assert "powershell" in summary["languages"]
+    lolbin_names = {lb["binary"] for lb in summary["lolbins_union"]}
+    assert "powershell" in lolbin_names or "cmd.exe" in lolbin_names
+
+
 def test_extract_all_empty_input():
     ext = extract_all("")
     assert ext["totals"]["artifacts"] == 0
