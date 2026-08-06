@@ -3105,22 +3105,39 @@ export default function WorkspacePage() {
               </button>
               <button
                 className="nvx-btn sm primary"
-                onClick={() => {
+                onClick={async () => {
+                  // Open the RICH Investigation Session page (IOC intel
+                  // cards, evidence, timeline, related campaigns) — the
+                  // "old page with lot of information" the analyst
+                  // expects.  Mint a session id on demand, then navigate.
                   try {
-                    // Use localStorage (not sessionStorage) so the new
-                    // tab — a fresh browsing context — can read the input.
-                    // sessionStorage is per-tab and does not survive
-                    // window.open(); localStorage is shared across tabs
-                    // on the same origin.
-                    localStorage.setItem("nivx.investigation.text", input || "");
-                    // Also seed sessionStorage so same-tab navigation works.
-                    sessionStorage.setItem("nivx.investigation.text", input || "");
-                  } catch {}
-                  window.open("/investigation-summary", "_blank", "noopener,noreferrer");
+                    const inv = investigationObject || analysis?.investigation || {
+                      input, output: analysis?.output || "",
+                      commands: [], artifacts: [], iocs: analysis?.iocs || {},
+                    };
+                    const { data } = await api.post("/session/from-investigation",
+                      { input, investigation: inv });
+                    const sid = data?.session?.session_id;
+                    if (sid) {
+                      try {
+                        sessionStorage.setItem(`nvx.session.${sid}`, JSON.stringify(data.session));
+                        sessionStorage.setItem("nvx.session.mirror", JSON.stringify(inv));
+                      } catch {}
+                      window.open(`/workspace/session/${sid}`,
+                                    "_blank", "noopener,noreferrer");
+                      return;
+                    }
+                    throw new Error("no session returned");
+                  } catch (e) {
+                    // Fallback — lightweight deterministic summary
+                    try { localStorage.setItem("nivx.investigation.text", input || ""); } catch {}
+                    window.open("/investigation-summary",
+                                  "_blank", "noopener,noreferrer");
+                  }
                 }}
                 disabled={!input || !input.trim()}
                 data-testid="btn-open-investigation-summary"
-                title="Open the deterministic Investigation Summary in a new tab — classification, observed vs inferred behaviors, kill-chain lanes, MITRE, attack story, and recommendations."
+                title="Open the full Investigation Summary — IOC intelligence, evidence timelines, related campaigns/families, and the complete analyst brief."
               >
                 📋 OPEN INVESTIGATION SUMMARY
               </button>
