@@ -275,6 +275,12 @@ api.include_router(sessions_router)
 from routers.ioc_intelligence import router as ioc_router
 api.include_router(ioc_router)
 
+# ⭐ Universal Input Layer (2026-03-02) — smart front door.
+# Classify → normalize → route.  The Workspace never contains
+# file-type-specific logic; every input flows through UIL first.
+from routers.uil import router as uil_router
+api.include_router(uil_router)
+
 # Boot receipt — surfaces which providers are live vs pending in the
 # supervisor log without ever printing key values.
 try:
