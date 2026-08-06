@@ -89,8 +89,12 @@ def render(input_text: str) -> Dict[str, Any]:
     # 3) DIE analyze — LOLBAS, MITRE, IOCs, DKP
     env = analyze(src)
 
-    # 4) Attack intent — deterministic threat objective
-    intent = classify_intent_from_analyze(env) or {}
+    # 4) Attack intent — deterministic threat objective.
+    # We defer the intent call to AFTER we augment the technique list
+    # with preprocessor-stage MITRE codes so the classifier sees every
+    # observed tactic (Rule R11 · SSOT-consumption + R13 · engines
+    # never read raw input; intent reads the merged evidence set).
+    intent: Dict[str, Any] = {}
 
     # 5) Aggregate IOCs — canonical shape
     iocs = env.get("iocs") or extract_iocs(src)
@@ -101,11 +105,55 @@ def render(input_text: str) -> Dict[str, Any]:
         if v:
             ioc_by_kind.setdefault(k, []).append(v)
 
-    # 6) LOLBAS surfaced by the analyze envelope
-    lolbins = env.get("lolbins") or []
+    # 6) LOLBAS surfaced by the analyze envelope + augmented from
+    # preprocessor stages so every extracted LOLBIN (tar / msedge /
+    # python / …) appears in the SSOT + Threat Analysis sidebar.
+    lolbins = list(env.get("lolbins") or [])
+    seen_bins = {(lb.get("binary") or "").lower() for lb in lolbins}
+    for s in pre.stages:
+        cmd = (s.normalized_command or "") + " " + (s.raw_excerpt or "")
+        for bin_hint in ("tar", "msedge", "chrome", "brave", "firefox",
+                         "python", "python3", "pythonw", "node",
+                         "ruby", "perl", "java", "javaw"):
+            import re as _re
+            if _re.search(rf"(?i)(?<![\w-])(?:{bin_hint})(?:\.exe)?\b", cmd):
+                key = bin_hint + ".exe"
+                if key not in seen_bins:
+                    lolbins.append({"binary": key, "mitre": list(s.mitre or [])})
+                    seen_bins.add(key)
 
-    # 7) MITRE surfaced by the analyze envelope
-    techniques = env.get("techniques") or []
+    # 7) MITRE surfaced by the analyze envelope + augmented with the
+    # deterministic MITRE codes attached to every recognised family
+    # stage.  This guarantees the SSOT.mitre[] contains techniques
+    # for every stage — not just those the PS-AST + LOLBAS classic
+    # path picked up.
+    techniques = list(env.get("techniques") or [])
+    seen_mitre = {(t.get("id") or "").upper() for t in techniques}
+    for s in pre.stages:
+        for mid in (s.mitre or []):
+            mid_up = (mid or "").upper()
+            if not mid_up or mid_up in seen_mitre:
+                continue
+            techniques.append({
+                "id":         mid,
+                "name":       s.title or "",
+                "tactic":     s.tactic or "",
+                "evidence":   s.normalized_command or s.raw_excerpt,
+                "source":     "preprocessor.stage",
+            })
+            seen_mitre.add(mid_up)
+
+    # Now re-run intent classification with the augmented technique
+    # list so the objective + progress reflect ALL stages, not just
+    # the ones the classic PS-AST / LOLBAS mapper caught.
+    # We strip ``chain`` from the passed env so the wrapper uses the
+    # augmented ``techniques[].tactic`` values instead of the raw
+    # chain's per-step tactic guesses (which are mostly
+    # "Uncategorised" for LOLBAS host lines).
+    env_augmented = {k: v for k, v in env.items() if k != "chain"}
+    env_augmented["techniques"] = techniques
+    env_augmented["dkp_matches"] = env.get("dkp_matches") or []
+    intent = classify_intent_from_analyze(env_augmented) or {}
 
     # 8) DKP matches
     dkp_matches = env.get("dkp_matches") or []

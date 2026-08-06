@@ -51,6 +51,14 @@ _LOLBIN_NAMES = (
     "quser", "query", "nslookup", "tracert", "ping", "route",
     "psexec", "paexec", "psinfo", "psloglist", "pssession",
     "ssh", "scp", "curl", "wget",
+    # Windows admin & compression
+    "tar", "expand", "makecab", "compact", "xcopy", "robocopy",
+    "forfiles", "findstr", "attrib", "cipher", "runas",
+    # Browsers (living-off-the-land: extension loading, headless launch)
+    "msedge", "chrome", "iexplore", "firefox", "brave",
+    # Python / language runtimes (portable-runtime deployments)
+    "python", "python3", "pythonw", "node", "npm", "npx",
+    "ruby", "perl", "java",
     # RMM tools (legitimate admin, abused by attackers)
     "anydesk", "screenconnect", "simplehelp", "splashtop", "optitune",
     "teamviewer", "atera", "kaseya", "n-able", "connectwise",
@@ -59,7 +67,7 @@ _LOLBIN_NAMES = (
     # Data movers
     "rclone", "megasync", "winscp",
     # Java-based ecosystem tools
-    "jwrapper", "javaw", "java",
+    "jwrapper", "javaw",
 )
 _LOLBIN_ALIASES = {
     "quick assist":     "quickassist",
@@ -140,8 +148,12 @@ _SVC_RE = re.compile(
 # with (or contain, after whitespace boundary) an entry from
 # ``_LOLBIN_NAMES`` — this is the deterministic "hidden command"
 # detector for prose.
+#
+# Lookbehind allows path separators (`/`, `\`) so quoted absolute
+# paths like `"C:\Program Files (x86)\...\msedge.exe"` match cleanly;
+# `-` is still forbidden so we do not match `some-cmd`.
 _LOLBIN_HINT_RE = re.compile(
-    r"(?<![\w/\\])"
+    r"(?<![\w-])"
     r"(" + "|".join(sorted(_LOLBIN_NAMES, key=len, reverse=True)) + r")"
     r"(?:\.exe)?\b",
     re.IGNORECASE,

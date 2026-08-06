@@ -56,6 +56,14 @@ _OBJECTIVE_TEMPLATES: Dict[str, str] = {
     "log-clearing":               "Clear or delete Windows event logs to erase forensic trails.",
     "initial-access-social":      "Obtain initial access via social engineering (Teams / Quick Assist / fake IT).",
     "proxy-tamper":               "Disable / clear the Windows proxy configuration and refresh WinINet to bypass corporate monitoring.",
+    "portable-runtime-deploy":    "Deploy a portable language runtime (Python / Node / Ruby) to execute payload code without touching system installers.",
+    "archive-extraction":         "Extract an archive to unpack downstream payload files.",
+    "runtime-verification":       "Verify that the newly-deployed language runtime is executable before invoking payload code.",
+    "browser-extension-load":     "Launch a browser with a custom unpacked extension to execute attacker-controlled code inside the browser's trust boundary.",
+    "browser-headless-launch":    "Launch a browser in headless mode so extension activity is invisible to the user.",
+    "installer-cleanup":          "Delete installer / staging artifacts to remove forensic evidence.",
+    "process-enumeration":        "Enumerate running processes as an environment-discovery step.",
+    "powershell-execution-policy-bypass": "Prepare an unrestricted PowerShell environment for follow-on script execution.",
 }
 
 

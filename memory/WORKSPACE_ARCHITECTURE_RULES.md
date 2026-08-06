@@ -228,6 +228,64 @@ Results · Story · Trajectory · Threat Analysis · Evidence · Report).
 
 ---
 
+## R14 · Engine Responsibility Contract (2026-03-01)
+
+Frozen alongside `/app/memory/IDA_ARCHITECTURE.md`.
+
+> **IUE decides.  IDA acquires.  DIE decodes.  Domain engines
+> analyze.  The SSOT unifies.  IVE visualizes.**
+
+- The **IUE** classifies inputs and produces the investigation
+  plan.  It NEVER fetches, OCRs, or parses documents.
+- **IDA** (Intelligent Document Analyzer) is the ONLY engine
+  allowed to *acquire* external content — URLs, PDFs, DOCX,
+  images, screenshots, emails, threat-report web pages, archive
+  contents, and any other human-readable artifact.  OCR is one
+  module inside IDA — never confused with IDA itself.
+- **DIE** decodes encoded payloads (base64 · UTF-16LE · hex ·
+  XOR · gzip · multi-layer).  It never fetches web content.
+- **Domain engines** (CIA · BIA · PIA · IOCE · MITE · LBE · DKP ·
+  OSINT · Story · Evidence · Report) each own a single analytical
+  responsibility and consume the SSOT.
+- **IVE** renders visualisations from the SSOT only.
+
+New investigation artifact types (URLs, PDFs, DOCX, images,
+screenshots, archives, mixed pastes) MUST be added by extending
+the IUE Input Classifier AND routing to IDA — never by adding
+fetch / OCR / parse logic to the IUE or any consumer.
+
+---
+
+## R15 · Objective Taxonomy over Objective Strings (2026-03-01)
+
+The Attack Intent Engine emits both an ``objective`` (specific
+rule name) and a ``categories`` array (canonical taxonomy).
+Regression tests and downstream consumers MUST validate on
+**categories + observed phases + evidence + confidence** — never
+on hard-coded objective strings.  The objective taxonomy is a
+living surface; new objectives are additive and must not break
+existing consumers.
+
+Correct:
+```python
+assert "Execution" in intent["categories"]
+assert intent["observed_phases"]
+assert 0.0 <= intent["confidence"] <= 1.0
+```
+
+Forbidden:
+```python
+assert intent["objective"] in ("A", "B", "C")   # brittle
+```
+
+Canonical categories: `Initial Access`, `Execution`,
+`Deployment`, `Persistence`, `Privilege Escalation`,
+`Defense Evasion`, `Credential Access`, `Discovery`,
+`Lateral Movement`, `Collection`, `Command and Control`,
+`Exfiltration`, `Impact`, `Impair Defenses`.
+
+---
+
 ## Schema Versioning (2026-03-01)
 
 The Canonical Investigation Object carries `metadata.version` and

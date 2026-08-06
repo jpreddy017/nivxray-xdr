@@ -48,6 +48,7 @@ _RULES = [
     {
         "id":   "ransomware_deployment",
         "name": "Ransomware Deployment",
+        "categories": ["Impact", "Execution", "Defense Evasion"],
         "requires": ["Impact"],
         "supports": ["Discovery", "Execution", "Defense Evasion",
                      "Persistence", "Impair Defenses"],
@@ -62,6 +63,7 @@ _RULES = [
     {
         "id":   "credential_theft",
         "name": "Credential Theft",
+        "categories": ["Credential Access", "Discovery", "Defense Evasion"],
         "requires": ["Credential Access"],
         "supports": ["Discovery", "Defense Evasion", "Execution",
                      "Impair Defenses"],
@@ -73,6 +75,7 @@ _RULES = [
     {
         "id":   "lateral_movement",
         "name": "Lateral Movement",
+        "categories": ["Lateral Movement", "Discovery", "Execution"],
         "requires": ["Lateral Movement"],
         "supports": ["Discovery", "Execution", "Credential Access"],
         "dkp_boosts": {},
@@ -81,6 +84,7 @@ _RULES = [
     {
         "id":   "data_exfiltration",
         "name": "Data Exfiltration",
+        "categories": ["Exfiltration", "Collection", "Command and Control"],
         "requires": ["Exfiltration"],
         "supports": ["Collection", "Command and Control"],
         "dkp_boosts": {},
@@ -89,6 +93,7 @@ _RULES = [
     {
         "id":   "c2_beaconing",
         "name": "Command & Control Beaconing",
+        "categories": ["Command and Control", "Execution", "Defense Evasion"],
         "requires": ["Command and Control"],
         "supports": ["Execution", "Persistence", "Defense Evasion"],
         "dkp_boosts": {
@@ -103,6 +108,7 @@ _RULES = [
     {
         "id":   "persistence_establishment",
         "name": "Persistence Establishment",
+        "categories": ["Persistence", "Defense Evasion", "Execution"],
         "requires": ["Persistence"],
         "supports": ["Defense Evasion", "Execution", "Privilege Escalation"],
         "dkp_boosts": {
@@ -111,9 +117,31 @@ _RULES = [
         },
         "base": 0.55,
     },
+    # ── Deployment & Execution Workflow (2026-03-01) ──
+    # Matches multi-stage installer / loader / launcher chains that
+    # combine deployment (archive extraction, portable runtime setup)
+    # with execution (browser launch, script execution) and defense
+    # evasion (headless, cleanup, execution-policy bypass).  Common
+    # in modern data-theft / infostealer deployment scripts and
+    # portable-installer trojans.  Does NOT require Impact.  Declared
+    # before the "reconnaissance" fallback so multi-behavior chains
+    # win over pure-discovery classification.
+    {
+        "id":   "deployment_and_execution",
+        "name": "Deployment and Execution Workflow",
+        "categories": ["Execution", "Deployment", "Defense Evasion", "Discovery"],
+        "requires": ["Execution"],
+        "supports": ["Defense Evasion", "Discovery", "Persistence"],
+        "dkp_boosts": {
+            "dkp.ps_execution_policy_bypass":   0.05,
+            "dkp.headless_browser_launch":      0.05,
+        },
+        "base": 0.60,
+    },
     {
         "id":   "reconnaissance",
         "name": "Reconnaissance / Discovery",
+        "categories": ["Discovery"],
         "requires": ["Discovery"],
         "supports": [],
         # Reconnaissance is the *fallback* interpretation — only
@@ -170,7 +198,8 @@ def classify_intent(chain_env: Dict[str, Any]) -> Dict[str, Any]:
 
         return {
             "objective":       rule["name"],
-            "rule":            rule["id"],
+            "rule":             rule["id"],
+            "categories":      list(rule.get("categories") or []),
             "confidence":      confidence,
             "evidence":        evidence,
             "mitre":           mitre_ids,
@@ -184,6 +213,7 @@ def classify_intent(chain_env: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "objective":       "Uncategorised",
         "rule":            "none",
+        "categories":      [],
         "confidence":      0.30,
         "evidence":        [],
         "mitre":           mitre_ids,
@@ -198,11 +228,28 @@ def classify_intent_from_analyze(env: Dict[str, Any]) -> Dict[str, Any]:
     envelope (which may or may not be a chain)."""
     if env.get("chain"):
         return classify_intent(env["chain"])
-    # Synthesize a 1-step chain from a flat envelope so the same
-    # rules apply.
-    fake_step = {"intent": _flat_step_tactic(env)}
+    # Synthesize a chain from a flat envelope so the same rules
+    # apply.  We build ONE synthetic step per unique tactic present
+    # in the technique list so a rich, augmented ``techniques[]``
+    # (see investigation_results.render) contributes ALL its
+    # tactics to ``tactics_seen`` — not just the classic PS-AST
+    # verdict.  This is what lets multi-behavior chains (deployment
+    # + execution + defense-evasion + discovery) match the correct
+    # objective rule.
+    tactics_from_techniques: List[str] = []
+    seen: set = set()
+    for t in env.get("techniques") or []:
+        tac = (t.get("tactic") or "").strip()
+        if tac and tac not in seen:
+            seen.add(tac)
+            tactics_from_techniques.append(tac)
+    if not tactics_from_techniques:
+        # Fall back to the classic single-tactic guess for backwards
+        # compatibility with simple flat envelopes.
+        tactics_from_techniques = [_flat_step_tactic(env)]
+    fake_steps = [{"intent": tac} for tac in tactics_from_techniques]
     synthesized = {
-        "steps": [fake_step],
+        "steps": fake_steps,
         "aggregate": {
             "techniques":  env.get("techniques") or [],
             "dkp_matches": env.get("dkp_matches") or [],

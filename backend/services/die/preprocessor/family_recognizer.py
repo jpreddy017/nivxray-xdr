@@ -167,6 +167,86 @@ _FAMILIES: List[Family] = [
            commonly_observed_in=["Manual operators","LockBit","Medusa"],
            rx=re.compile(r"(?i)\b(wevtutil(?:\.exe)?\s+cl|Clear-EventLog|"
                         r"log(?:s)?\s+deleted|deleting?\s+event\s+log(?:s)?)\b")),
+
+    # ── Deployment / preparation families (2026-03-01) ────────────
+    # These describe *behaviors* rather than raw commands.  Ordering
+    # matters: more-specific families should appear BEFORE the
+    # generic archive-extraction one below.
+    Family(id="portable-runtime-deploy",
+           label="Portable Runtime Deployment",
+           tactic="Execution", mitre=["T1105", "T1204"],
+           commonly_observed_in=["Manual operators","OneCode","Malicious installers"],
+           rx=re.compile(r"(?i)\btar(?:\.exe)?\s+[^\n]*?"
+                        r"(?:python[- ]?\d[^\s]*|"
+                        r"node[- ]?\d[^\s]*|"
+                        r"ruby[- ]?\d[^\s]*|"
+                        r"runtime|"
+                        r"embed[- ]?amd64|"
+                        r"portable)"
+           )),
+
+    Family(id="archive-extraction",
+           label="Archive Extraction",
+           tactic="Execution", mitre=["T1140"],
+           commonly_observed_in=["Manual operators","Loaders"],
+           rx=re.compile(r"(?i)(?:"
+                        r"\btar(?:\.exe)?\s+-?x[a-z]*|"
+                        r"\b7z(?:\.exe)?\s+x\b|"
+                        r"\bunzip(?:\.exe)?\b|"
+                        r"\bexpand(?:\.exe)?\s+[^\n]{0,80}?\.cab\b|"
+                        r"\bExpand-Archive\b)"
+           )),
+
+    Family(id="runtime-verification",
+           label="Runtime Version Check",
+           tactic="Discovery", mitre=["T1518.001"],
+           commonly_observed_in=["Loaders","Installers","Manual operators"],
+           rx=re.compile(r"(?i)\b(python(?:3|w)?|node|ruby|perl|java|dotnet)\b"
+                        r"[^\n]{0,32}?--version\b")),
+
+    Family(id="browser-headless-launch",
+           label="Headless Browser Launch",
+           tactic="Defense Evasion", mitre=["T1564.003", "T1218"],
+           commonly_observed_in=["Manual operators","Automated data theft"],
+           rx=re.compile(r"(?i)\b(?:msedge|chrome|brave|firefox)(?:\.exe)?\b"
+                        r"[^\n]{0,400}?--headless(?:=new)?")),
+
+    Family(id="browser-extension-load",
+           label="Custom Browser Extension Load",
+           tactic="Execution", mitre=["T1176"],
+           commonly_observed_in=["Manual operators","Data theft workflows"],
+           rx=re.compile(r"(?i)\b(?:msedge|chrome|brave|firefox)(?:\.exe)?\b"
+                        r"[^\n]{0,400}?--load-extension\b")),
+
+    Family(id="installer-cleanup",
+           label="Installer / Artifact Cleanup",
+           tactic="Defense Evasion", mitre=["T1070.004"],
+           commonly_observed_in=["Loaders","Installers","Manual operators"],
+           rx=re.compile(r"(?i)"
+                        r"(?:cmd(?:\.exe)?\s+/c\s+[^\n]{0,120}?\bdel\b|"
+                        r"\btimeout\s+\d+\s*&\s*del\b|"
+                        r"\bRemove-Item\b[^\n]{0,120}?-Force|"
+                        r"\bRemove-Item\b[^\n]{0,120}?-Recurse)"
+           )),
+
+    Family(id="process-enumeration",
+           label="Process Enumeration",
+           tactic="Discovery", mitre=["T1057"],
+           commonly_observed_in=["Nearly every intrusion set","Manual operators"],
+           rx=re.compile(r"(?i)\b(?:"
+                        r"tasklist(?:\.exe)?\b|"
+                        r"Get-Process\b|"
+                        r"Get-CimInstance\s+Win32_Process\b|"
+                        r"Get-WmiObject\s+Win32_Process\b|"
+                        r"wmic(?:\.exe)?\s+process\s+list)"
+           )),
+
+    Family(id="powershell-execution-policy-bypass",
+           label="PowerShell Execution Policy Bypass",
+           tactic="Defense Evasion", mitre=["T1059.001", "T1562"],
+           commonly_observed_in=["Manual operators","Loaders","Ransomware affiliates"],
+           rx=re.compile(r"(?i)\b(?:powershell|pwsh)(?:\.exe)?\b"
+                        r"[^\n]{0,200}?-ExecutionPolicy\s+Bypass\b")),
 ]
 
 
