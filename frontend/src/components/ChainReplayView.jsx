@@ -19,6 +19,7 @@
 import { AlertTriangle, BookmarkPlus, ChevronDown, ChevronRight, Download, ExternalLink, FileJson, Play, X } from "lucide-react";
 import { useState } from "react";
 import api from "@/lib/api";
+import { foldPowerShell } from "@/lib/powershellFolder";
 
 export default function ChainReplayView({ record, onRestore, onClose }) {
   const [drillOpen, setDrillOpen] = useState({});
@@ -201,7 +202,16 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
       )}
 
       <div className="nvx-card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {stages.map((s, idx) => (
+        {stages.map((s, idx) => {
+          // Deterministic constant folding for DISPLAY ONLY — raw preview
+          // stays on the backend.  Un-obfuscates `'S'+'ys'+'tem.Net.WebClient'`
+          // and backticked identifiers so the analyst reads the real
+          // command instead of the operator's evasion trick.
+          const rawInput  = (s.input_preview || "").slice(0, 400);
+          const foldedIn  = foldPowerShell(rawInput);
+          const rawOutput = (s.output || "").slice(0, 4000);
+          const foldedOut = foldPowerShell(rawOutput);
+          return (
           <div key={idx} data-testid={`chain-replay-stage-${idx}`} style={{
             border: "1px solid var(--border)", borderRadius: 4, padding: 8,
             background: "rgba(0,0,0,0.15)",
@@ -209,6 +219,18 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <span className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.20em" }}>
                 STAGE {idx}{stageLabels[idx] ? ` · ${stageLabels[idx]}` : ""}
+                {(foldedIn.changed || foldedOut.changed) && (
+                  <span data-testid={`chain-replay-normalized-${idx}`}
+                        title="Constant-folded for display: quoted-string concatenation and backtick escapes were resolved. Raw command is preserved on the backend."
+                        style={{
+                          marginLeft: 8, padding: "1px 6px",
+                          background: "rgba(126,227,201,0.15)",
+                          border: "1px solid #7ee3c9", color: "#7ee3c9",
+                          fontSize: 9, letterSpacing: "0.14em", borderRadius: 3,
+                        }}>
+                    NORMALIZED
+                  </span>
+                )}
               </span>
               <span className="mono" style={{ fontSize: 10, color: "var(--text-mute)" }}>
                 engine=<span style={{ color: "var(--accent)" }}>{s.engine || "n/a"}</span>
@@ -221,7 +243,7 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
               background: "rgba(0,0,0,0.3)", padding: 6, margin: 0,
               maxHeight: 100, overflow: "auto", fontSize: 10, borderRadius: 3,
               whiteSpace: "pre-wrap", wordBreak: "break-all",
-            }} data-testid={`chain-replay-input-${idx}`}>{(s.input_preview || "").slice(0, 400)}</pre>
+            }} data-testid={`chain-replay-input-${idx}`}>{foldedIn.text}</pre>
             <div style={{ marginTop: 6 }}>
               <button
                 className="nvx-btn sm ghost"
@@ -237,13 +259,14 @@ export default function ChainReplayView({ record, onRestore, onClose }) {
                   maxHeight: 200, overflow: "auto", fontSize: 10, borderRadius: 3,
                   whiteSpace: "pre-wrap", wordBreak: "break-all",
                 }} data-testid={`chain-replay-output-${idx}`}>
-                  {(s.output || "").slice(0, 4000)}
+                  {foldedOut.text}
                   {s.output_truncated ? "\n\n… (truncated in storage — RESTORE and re-run for full output)" : ""}
                 </pre>
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="nvx-card-body" style={{ borderTop: "1px solid var(--border)", background: "rgba(0,0,0,0.20)" }}>

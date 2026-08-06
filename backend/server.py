@@ -129,6 +129,19 @@ async def health_root_alias():
     return {"status": "ok", "service": "nivxray-api", "probe": "root-alias"}
 
 
+
+# ─── Investigation Summary (deterministic composer, no LLM) ──────────
+@api.post("/investigation/summary")
+async def investigation_summary_compose(body: dict):
+    """Composes classification + observed/inferred behaviors + attack
+    story + recommendations from the raw workspace input.  Pure
+    deterministic projection of the behavior graph — no LLM.
+    """
+    from services.reasoning.investigation_composer import compose_investigation_summary
+    return compose_investigation_summary((body or {}).get("text") or "")
+
+
+
 @api.get("/health/deep")
 async def health_deep():
     """Deep readiness — verifies Mongo, LLM key presence, disk headroom."""

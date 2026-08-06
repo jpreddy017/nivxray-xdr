@@ -15,6 +15,7 @@
 import { Target, Fingerprint, ShieldAlert, Users, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { useInvestigationFilter } from "./InvestigationFilter";
+import { foldPowerShell } from "@/lib/powershellFolder";
 
 const TACTIC_TONE = {
   "Initial Access":       { fg: "#c084fc", bd: "rgba(192,132,252,0.35)", bg: "rgba(192,132,252,0.10)" },
@@ -199,19 +200,37 @@ function StoryStage({ stage, index }) {
           {stage.evidence && stage.evidence.length > 0 && (
             <StageBlock title="Evidence" icon={ShieldAlert}>
               <ul style={bulletList}>
-                {stage.evidence.map((e, i) => (
+                {stage.evidence.map((e, i) => {
+                  // Deterministically fold string-concat obfuscation AND
+                  // inline-decode any base64 blob (UTF-16LE / UTF-8) so
+                  // the analyst reads the peeled command instead of the
+                  // encoded blob (e.g. `-enc SQBFAFgAIAAo…` → `⇒ IEX (…)`).
+                  const raw = String(e);
+                  const folded = foldPowerShell(raw);
+                  return (
                   <li key={i} style={bullet}>
                     <span style={{ color: "#67e8f9" }}>›</span>{" "}
+                    {folded.changed && (
+                      <span title="Deterministically folded + base64-decoded for display."
+                            style={{
+                              display: "inline-block", marginRight: 6,
+                              padding: "0 5px", fontSize: 9, letterSpacing: "0.14em",
+                              background: "rgba(126,227,201,0.15)",
+                              border: "1px solid #7ee3c9", color: "#7ee3c9",
+                              borderRadius: 3, verticalAlign: 1,
+                            }}>NORMALIZED</span>
+                    )}
                     <span style={{ fontFamily: "JetBrains Mono, monospace",
                                    fontSize: 11.5, color: "#cbd5e1" }}
                           dangerouslySetInnerHTML={{ __html:
-                            String(e).replace(
+                            folded.text.replace(
                               /`([^`]+)`/g,
                               '<code style="background:rgba(103,232,249,0.10); padding:1px 5px; border-radius:3px; color:#67e8f9">$1</code>'
                             ) }}
                     />
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </StageBlock>
           )}

@@ -3104,6 +3104,18 @@ export default function WorkspacePage() {
                 REPORT BAD DECODE
               </button>
               <button
+                className="nvx-btn sm primary"
+                onClick={() => {
+                  try { sessionStorage.setItem("nivx.investigation.text", input || ""); } catch {}
+                  window.open("/investigation-summary", "_blank", "noopener,noreferrer");
+                }}
+                disabled={!input || !input.trim()}
+                data-testid="btn-open-investigation-summary"
+                title="Open the deterministic Investigation Summary in a new tab — classification, observed vs inferred behaviors, kill-chain lanes, MITRE, attack story, and recommendations."
+              >
+                📋 OPEN INVESTIGATION SUMMARY
+              </button>
+              <button
                 className="nvx-btn sm"
                 style={{ background: "#0f766e", color: "#fff", borderColor: "#134e4a" }}
                 onClick={enrichIocs}

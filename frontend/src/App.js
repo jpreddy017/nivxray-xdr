@@ -34,6 +34,7 @@ const HistoryPage           = lazy(() => import("@/pages/HistoryPage"));
 // single attack story with unified chain, graph, timeline, and summary.
 const InvestigationsPage       = lazy(() => import("@/pages/InvestigationsPage"));
 const InvestigationDetailPage  = lazy(() => import("@/pages/InvestigationDetailPage"));
+const InvestigationSummaryPage = lazy(() => import("@/pages/InvestigationSummaryPage"));
 // Phase A.5 · item 3.7 · Attack Story consolidation (2026-02-16)
 // The retired InvestigationReplayPage no longer routes. Existing
 // bookmarks `/investigations/:id/replay` deep-link into the Story tab
@@ -159,6 +160,7 @@ function App() {
               {/* Phase 4 · P1 · Cross-Artifact Correlation (2026-02-15) */}
               <Route path="/investigations" element={<Protected><InvestigationsPage /></Protected>} />
               <Route path="/investigations/:id" element={<Protected><InvestigationDetailPage /></Protected>} />
+              <Route path="/investigation-summary" element={<Protected><InvestigationSummaryPage /></Protected>} />
               <Route path="/investigations/:id/replay" element={<Protected><ReplayRedirect /></Protected>} />
               <Route path="/compare" element={<Protected><ComparePage /></Protected>} />
               <Route path="/compare/:caseA/:caseB" element={<Protected><ComparePage /></Protected>} />
