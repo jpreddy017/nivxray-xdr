@@ -357,3 +357,56 @@ async def get_resource_protection(user=Depends(require_admin)):
     """
     from services.resource_protection import snapshot
     return snapshot()
+
+
+@router.post("/admin/behaviors/preview")
+async def preview_behaviors(body: dict, user=Depends(require_admin)):
+    """Deterministic behavior extraction preview.
+
+    Body: ``{"text": "<raw PowerShell / command / decoded output>"}``.
+
+    Returns the folded text, MITRE techniques, kill-chain lanes, and
+    de-duplicated behavior nodes exactly as the Reasoning Engine will
+    consume them.  Purely deterministic — no LLM.
+    """
+    from services.normalization.powershell_folding import fold
+    from services.reasoning.behavior_extractor import (
+        extract_behaviors, correlate_behaviors,
+        to_lane_map, to_mitre_techniques,
+    )
+    text = (body or {}).get("text") or ""
+    lines = [l for l in text.splitlines() if l.strip()]
+    if not lines:
+        lines = [text]
+    folded = [fold(line) for line in lines]
+    per_line = [
+        extract_behaviors(line, location_prefix=f"line.{i+1}")
+        for i, line in enumerate(lines)
+    ]
+    merged = correlate_behaviors(per_line)
+    return {
+        "input_lines":  len(lines),
+        "folded":       [f.text for f in folded],
+        "transformations": [f.transformations for f in folded],
+        "behaviors":    [
+            {
+                "id":               b.id,
+                "title":            b.title,
+                "kill_chain":       b.kill_chain,
+                "mitre_techniques": b.mitre_techniques,
+                "mitre_tactic":     b.mitre_tactic,
+                "confidence":       b.confidence,
+                "description":      b.description,
+                "evidence":         [
+                    {"text": e.text, "location": e.location}
+                    for e in b.evidence
+                ],
+            }
+            for b in merged
+        ],
+        "lanes":  {
+            phase: [b.id for b in bs]
+            for phase, bs in to_lane_map(merged).items()
+        },
+        "mitre":  to_mitre_techniques(merged),
+    }

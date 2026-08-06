@@ -753,7 +753,19 @@ def extract_iocs(text: str) -> Dict[str, List[str]]:
         except Exception:
             pass
     dom_re = re.compile(r"\b(?!\d+$)[a-z0-9][a-z0-9-]{0,62}(?:\.[a-z0-9][a-z0-9-]{0,62})+\.(?:com|net|org|io|ai|gov|edu|co|ru|cn|us|uk|de|xyz|top|info|biz|club|shop|online|site|app|dev|pw|cc|to|ly|me|tv|su)\b", re.I)
-    domains = _uniq([d for d in dom_re.findall(text) if d.lower() not in url_hosts])
+    _raw_domains = [d for d in dom_re.findall(text) if d.lower() not in url_hosts]
+    # P0.b · Artifact-classifier safety net.  The TLD-restricted regex
+    # above catches most cases, but downstream containers still
+    # occasionally receive .NET-shaped strings ("system.net",
+    # "net.credentialcache") that happen to end in a real TLD-like
+    # token.  The classifier authoritatively rejects any candidate
+    # whose leading token is a .NET root or whose LAST token is a
+    # well-known .NET member.
+    try:
+        from services.normalization.artifact_classifier import is_domain
+        domains = _uniq([d for d in _raw_domains if is_domain(d)])
+    except Exception:
+        domains = _uniq(_raw_domains)
     file_paths = _uniq(re.findall(r"(?:[a-zA-Z]:\\|/)[^\s\"'<>|]{4,}\.(?:exe|dll|ps1|vbs|js|bat|hta|cmd|scr|msi|zip|rar|7z|txt|dat|bin|tmp|pdb)\b", text))
     regkeys = _uniq(re.findall(r"\b(?:HKLM|HKCU|HKCR|HKU|HKCC|HKEY_[A-Z_]+)[:\\][^\s\"'<>|]{4,}", text, re.I))
     # Mask URLs (and reversed-URL substrings that end in `//:sptth`)

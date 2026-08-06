@@ -7,7 +7,54 @@
 
 ---
 
-## 🟢 2026-02-06 · Fork · LiteLLM Loop RCA + ZIP + Image Adapters (M2, M2.5, M3)
+## 🟢 2026-02-06 · Fork · LiteLLM Loop RCA + ZIP/Image Adapters + P0/P1/P1.5 Reasoning
+
+### Deterministic Normalization + Behavior Engine (P0 + P1 + P1.5) — LANDED
+Validated against the real ``Machine`` PowerShell corpus from Mongo.
+
+**P0 · Normalization + Classification**
+- ``services/normalization/powershell_folding.py`` — deterministic
+  string-concat folding (`'S'+'ys'+'tem.Net.WebClient'` → `System.Net.WebClient`),
+  format-operator folding (`'{0}{1}' -f 'Sys','tem'`), backtick strip,
+  single-shot variable alias substitution. Idempotent.
+- ``services/normalization/artifact_classifier.py`` — canonical types:
+  ``class_reference``, ``method_reference``, ``variable_reference``,
+  ``provider_reference``, ``namespace_reference``, ``domain``, ``ip``,
+  ``url``, ``file_path``, ``registry_key``. **`.NET` names never misclassified as domains.**
+- Wired ``is_domain()`` into ``command_analyzer.extract_iocs`` as a safety
+  net so downstream IOC containers stay clean.
+- P0.c recursive extraction: ``extract_behaviors`` now decodes embedded
+  base64 blobs (UTF-8 + UTF-16-LE) and folds the decoded payload before
+  scanning — surfaces T1007 (service enumeration) and T1047 (WMI process
+  creation) that previously hid inside `-EncodedCommand` payloads.
+
+**P1 · Behavior Engine + Kill-Chain / MITRE lane mapping**
+- ``services/reasoning/behavior_extractor.py`` — 10 deterministic
+  behavior rules mapping cmdlets/APIs/classes → canonical behaviors,
+  each with its own kill-chain phases + MITRE technique IDs +
+  confidence + description.
+- One command legitimately maps to multiple behaviors, techniques and
+  lanes (no more "everything is Execution").
+
+**P1.5 · Behavior deduplication + correlation**
+- Identical behaviors from multiple commands collapse into ONE node
+  with unioned evidence; confidence rises with corroboration (capped
+  at 0.99).
+- ``to_lane_map()`` + ``to_mitre_techniques()`` projections.
+
+**Machine case (before → after)**:
+| Metric              | Before      | After |
+|---------------------|-------------|-------|
+| Kill-chain lanes    | 1 (Execution only) | **7** (Recon, Delivery, C2, Execution, LM, DE, CA) |
+| MITRE techniques    | ~5          | **9** (T1007 + T1047 recovered from base64) |
+| Behavior nodes      | n/a         | **9 deduplicated** |
+| download_cradle evidence corroboration | n/a | **6 evidence items** across cmd.2/3/5/8 |
+
+**API**
+- ``POST /api/admin/behaviors/preview`` — deterministic behavior/lane/
+  MITRE preview for any input text. Admin-only. No LLM.
+
+**Tests**: `tests/test_normalization_and_behaviors.py` · **30 new + 87 existing = 117/117 pytest green**.
 
 ### Root Cause of Login/API Timeout (RESOLVED)
 Backend event loop was starving under two independent pressures:
