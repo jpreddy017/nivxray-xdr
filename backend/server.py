@@ -269,6 +269,12 @@ api.include_router(die_router)
 from routers.sessions import router as sessions_router
 api.include_router(sessions_router)
 
+# ⭐ IOC Intelligence Engine (2026-03-02)
+# Parallel fan-out across Talos · MalwareBazaar · ThreatFox · URLhaus
+# · VirusTotal · AbuseIPDB with cache-first consensus aggregation.
+from routers.ioc_intelligence import router as ioc_router
+api.include_router(ioc_router)
+
 # ▲ Artifact Intelligence Layer (Phase 3 · Cycle A · 2026-02)
 from routers.artifacts import router as artifacts_router
 # Router already carries prefix "/api/artifacts" so include at app root.

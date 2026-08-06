@@ -70,9 +70,12 @@ _RE_IPV4 = re.compile(
 )
 
 # Domain — deliberately loose, but excludes 1-char TLDs and common file extensions.
+# NOTE: case-sensitive (no `re.I`) so mixed-case programming identifiers like
+# `WinHttp.WinHttpRequest`, `subprocess.Popen`, `System.Net.WebClient` are
+# NEVER matched.  DNS is case-insensitive but always written lowercase in
+# real threat-report IOCs.
 _RE_DOMAIN = re.compile(
     r"\b((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24})\b",
-    re.I,
 )
 
 # Windows registry hive.  Case-insensitive on hive, preserves case on subkey.
@@ -195,14 +198,151 @@ def _classify_ip(v: str) -> str:
 # executable/office/archive file extensions.  Prevents `notepad.exe`
 # from being classified as a domain.
 _DOMAIN_TLD_BLOCKLIST = {
-    "exe", "dll", "sys", "bat", "cmd", "ps1", "vbs", "js", "jse", "hta",
-    "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "ppt", "pdf",
+    # Windows binaries / scripts
+    # NOTE: `.com` (DOS executable) intentionally OMITTED — the
+    # collision with the `.com` TLD is far more costly than the rare
+    # DOS-COM extension seen in modern threat reports.  Same for
+    # `.url` (Windows shortcut vs non-existent `.url` TLD).
+    "exe", "dll", "sys", "bat", "cmd", "ps1", "psm1", "psd1", "vbs",
+    "vbe", "js", "jse", "hta", "wsf", "wsh", "cpl", "scr",
+    "msi", "msp", "mst", "reg", "lnk", "inf",
+    # Office / documents
+    "docx", "docm", "doc", "dotx", "dotm", "dot",
+    "xlsx", "xlsm", "xls", "xlsb", "xltx", "xltm",
+    "pptx", "pptm", "ppt", "potx", "potm", "pps", "ppsx", "ppsm",
+    "pdf", "rtf", "one",
+    # Archives
     "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "iso", "cab", "img",
-    "txt", "log", "tmp", "bin", "png", "jpg", "jpeg", "gif", "webp",
-    "wav", "mp3", "mp4", "avi", "mov", "mkv", "webm", "flv", "wmv",
+    "arj", "lz", "lzma", "tgz", "tbz", "txz",
+    # Text / logs / configs
+    "txt", "log", "tmp", "bin", "cfg", "conf", "ini", "toml",
     "json", "xml", "yaml", "yml", "html", "htm", "css", "csv", "tsv",
-    "py", "rb", "go", "rs", "java", "class", "jar", "so", "elf",
+    "rst",
+    # Media
+    "png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "bmp",
+    "wav", "mp3", "mp4", "avi", "mov", "mkv", "webm", "flv", "wmv",
+    # Source / build outputs (excluding TLDs that ARE public: .io, .app)
+    "pyc", "pyd", "class", "jar", "elf", "obj",
+    # Scripting / automation (extension-only, non-TLD)
+    "ahk", "au3", "lua", "tcl", "pl", "sh", "bash", "zsh",
+    "kt", "cs", "vb", "asm",
+    # Web / build assets
+    "map", "lock",
 }
+
+
+# Hosting-infrastructure suffixes.  Domains ending in ANY of these are
+# suppressed from IOC extraction because they belong to shared cloud
+# providers — the analyst hits pure noise, not attacker infrastructure.
+# Threat vendors host their OWN reports on these platforms; extracting
+# them as "IOCs" pollutes the intelligence surface.
+#
+# NOTE: this is a *suffix* match (checked with endswith after canonising
+# to lowercase).  Adding a suffix here is safe — it never blocks
+# extraction of tighter matches like `evil.<parent>.com`.
+_HOSTING_INFRA_SUFFIXES = (
+    # AWS
+    ".amazonaws.com", ".cloudfront.net", ".aws.amazon.com",
+    ".execute-api.amazonaws.com", ".elb.amazonaws.com",
+    ".s3.amazonaws.com", ".awsstatic.com",
+    # GCP
+    ".googleusercontent.com", ".appspot.com", ".googleapis.com",
+    ".run.app", ".firebaseio.com", ".firebaseapp.com",
+    ".web.app", ".cloudfunctions.net",
+    # Azure
+    ".azurewebsites.net", ".azureedge.net", ".windows.net",
+    ".blob.core.windows.net", ".azurefd.net", ".trafficmanager.net",
+    ".cloudapp.net", ".cloudapp.azure.com",
+    # CDN / SaaS platforms
+    ".akamaihd.net", ".akamaized.net", ".akamai.net",
+    ".fastly.net", ".fastlylb.net",
+    ".cdn77.org", ".stackpathcdn.com", ".stackpathdns.com",
+    ".jsdelivr.net", ".unpkg.com",
+    ".herokuapp.com", ".netlify.app", ".vercel.app", ".pages.dev",
+    ".github.io", ".gitlab.io", ".bitbucket.io",
+    ".readthedocs.io", ".readthedocs.org",
+    # Analytics / DoH — pure infrastructure, not payload delivery
+    ".googletagmanager.com", ".google-analytics.com",
+    ".doubleclick.net", ".cloudflareinsights.com",
+    # Common vendor CDNs surfaced by threat-report authors themselves
+    ".hubspotusercontent-na1.net", ".hs-scripts.com",
+    ".marketo.com", ".marketo.net",
+)
+
+
+def _is_hosting_infra(domain: str) -> bool:
+    """True when `domain` belongs to a shared cloud / CDN / SaaS
+    platform and MUST NOT be treated as an IOC (noise suppression)."""
+    d = (domain or "").lower().strip(".")
+    for suffix in _HOSTING_INFRA_SUFFIXES:
+        # ".amazonaws.com" matches "foo.s3.us-east-1.amazonaws.com"
+        # AND "amazonaws.com" itself, but not "notamazonaws.com".
+        if d.endswith(suffix) or d == suffix.lstrip("."):
+            return True
+    return False
+
+
+# Public-TLD allowlist (IANA gTLDs + widely-used ccTLDs).  The domain
+# extractor consults this list AFTER the case-sensitive regex has
+# matched; anything whose TLD is not on this list is rejected as a
+# non-domain (typically a programming identifier — `subprocess.popen`,
+# `os.path.join` — or a filename with a bespoke extension).
+#
+# We intentionally exclude ambiguous TLDs like `.zip`, `.mov`, `.new`,
+# `.py`, `.rb`, `.sh` because in analyst text those are almost always
+# file extensions or code identifiers, not real domains.
+_PUBLIC_TLDS = {
+    # Legacy gTLDs
+    "com", "net", "org", "edu", "gov", "mil", "int", "info", "biz",
+    "name", "pro", "aero", "coop", "museum", "jobs", "mobi", "tel",
+    "asia", "cat",
+    # New gTLDs — the ones threat actors and vendors actually use
+    "app", "dev", "io", "ai", "co", "cloud", "site", "online", "store",
+    "shop", "tech", "xyz", "top", "live", "link", "click", "download",
+    "space", "world", "network", "systems", "solutions", "services",
+    "security", "software", "digital", "email", "media", "news",
+    "blog", "wiki", "team", "group", "company", "agency", "expert",
+    "consulting", "finance", "law", "health", "care", "clinic",
+    "energy", "engineering", "capital", "ventures", "fund",
+    # ccTLDs — commonly seen in threat reports & analyst pastes.
+    "ac", "ad", "ae", "af", "ag", "ai", "al", "am", "ao", "ar", "as",
+    "at", "au", "aw", "az", "ba", "bb", "bd", "be", "bg", "bh", "bi",
+    "bj", "bm", "bn", "bo", "br", "bs", "bt", "bw", "by", "bz", "ca",
+    "cc", "cd", "cf", "cg", "ch", "ci", "ck", "cl", "cm", "cn", "co",
+    "cr", "cu", "cv", "cw", "cx", "cy", "cz", "de", "dj", "dk", "dm",
+    "do", "dz", "ec", "ee", "eg", "es", "et", "eu", "fi", "fj", "fm",
+    "fo", "fr", "ga", "gb", "gd", "ge", "gf", "gg", "gh", "gi", "gl",
+    "gm", "gn", "gp", "gq", "gr", "gt", "gu", "gw", "gy", "hk", "hn",
+    "hr", "ht", "hu", "id", "ie", "il", "im", "in", "iq", "ir", "is",
+    "it", "je", "jm", "jo", "jp", "ke", "kg", "kh", "ki", "km", "kn",
+    "kp", "kr", "kw", "ky", "kz", "la", "lb", "lc", "li", "lk", "lr",
+    "ls", "lt", "lu", "lv", "ly", "ma", "mc", "md", "me", "mg", "mh",
+    "mk", "ml", "mm", "mn", "mo", "mp", "mq", "mr", "ms", "mt", "mu",
+    "mv", "mw", "mx", "my", "mz", "na", "nc", "ne", "nf", "ng", "ni",
+    "nl", "no", "np", "nr", "nu", "nz", "om", "pa", "pe", "pf", "pg",
+    "ph", "pk", "pl", "pm", "pn", "pr", "ps", "pt", "pw", "py", "qa",
+    "re", "ro", "rs", "ru", "rw", "sa", "sb", "sc", "sd", "se", "sg",
+    "sh", "si", "sk", "sl", "sm", "sn", "so", "sr", "ss", "st", "sv",
+    "sy", "sz", "tc", "td", "tf", "tg", "th", "tj", "tk", "tl", "tm",
+    "tn", "to", "tr", "tt", "tv", "tw", "tz", "ua", "ug", "uk", "us",
+    "uy", "uz", "va", "vc", "ve", "vg", "vi", "vn", "vu", "wf", "ws",
+    "ye", "yt", "za", "zm", "zw",
+}
+
+# Ambiguous ccTLDs that collide with common file extensions used in
+# threat-report samples.  `foo.py` is virtually always a Python file,
+# not a Paraguay domain.  Same for `.sh` (shell), `.so` (shared lib),
+# `.rs` (Rust), `.md` (Markdown).  Remove them so the extractor sides
+# with the file-extension interpretation.  (If a real .py / .sh domain
+# ever needs to be flagged, we'll handle it via structural heuristics.)
+_PUBLIC_TLDS.difference_update({"py", "sh", "so", "rs", "md", "cd",
+                                  "im", "gg", "je", "ai" if False else "gs"})
+# NOTE: `.ai` is kept because it's overwhelmingly domain-first in
+# modern threat reports (OpenAI / Copilot copycats etc).
+
+
+def _is_public_tld(tld: str) -> bool:
+    return (tld or "").lower() in _PUBLIC_TLDS
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -280,6 +420,10 @@ def split_artifacts(text: str) -> List[Artifact]:
         strip_len = len(raw) - len(raw.rstrip(".,;:)]}\"'"))
         start, end = m.start(), m.end() - strip_len
         intent = _url_intent(canonical)
+        # Drop URLs whose host is shared cloud / CDN infrastructure —
+        # they are noise, not attacker IOCs.
+        if _is_hosting_infra(intent.get("host") or ""):
+            continue
         artifacts.append(Artifact(
             id=_next_id("url"),
             type="url",
@@ -418,6 +562,15 @@ def split_artifacts(text: str) -> List[Artifact]:
         raw = m.group(1)
         tld = raw.rsplit(".", 1)[-1].lower()
         if tld in _DOMAIN_TLD_BLOCKLIST:
+            continue
+        # Real domains have a PUBLIC TLD.  Reject programming
+        # identifiers (`subprocess.popen`, `os.path.join`) and bespoke
+        # file extensions that slipped past the file-ext blocklist.
+        if not _is_public_tld(tld):
+            continue
+        # Suppress AWS / CloudFront / Azure / GCP / CDN hosting
+        # infrastructure — these are noise, not attacker IOCs.
+        if _is_hosting_infra(raw):
             continue
         artifacts.append(Artifact(
             id=_next_id("dom"),
