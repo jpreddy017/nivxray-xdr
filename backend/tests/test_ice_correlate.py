@@ -98,8 +98,8 @@ def test_correlate_produces_behavior_clusters_and_phases():
     assert dims["YARA"]     == "missing"
     assert 0 <= ec["overall_percent"] <= 100
 
-    # ── ICE v2 additions ──
-    incident = ice["incident"]
+    # ── ICE v2 additions (now nested under incident.summary in v3) ──
+    incident = ice["incident"]["summary"]
     assert incident["actor"] == "UNC6692"
     assert "Edgecution" in incident["malware"]
     assert incident["severity"] in ("low", "medium", "high", "critical")
@@ -120,6 +120,22 @@ def test_correlate_produces_behavior_clusters_and_phases():
     assert len(ice["recommended_actions"]) >= 1
     prios = {a["priority"] for a in ice["recommended_actions"]}
     assert "P1" in prios, "highest-priority action must exist"
+
+    # ── ICE v3 · Unified Incident SSOT ──
+    incident_ssot = ice["incident"]
+    assert isinstance(incident_ssot, dict)
+    # Every projection-relevant slice must live under `incident`.
+    for key in ("summary", "behaviors", "phases", "mitre", "timeline",
+                 "graph", "evidence", "completeness", "readiness",
+                 "gaps", "recommendations", "provenance"):
+        assert key in incident_ssot, f"incident missing `{key}`"
+    # Provenance envelope.
+    assert set(incident_ssot["provenance"].keys()) >= {
+        "source_url", "source_vendor", "source_title"}
+    # Evidence Strength on every behavior cluster.
+    for b in incident_ssot["behaviors"]:
+        assert b["evidence_strength"] in ("strong", "moderate", "weak"), b
+        assert isinstance(b["evidence_sources"], list)
 
 
 def test_correlate_empty_investigation_is_safe():

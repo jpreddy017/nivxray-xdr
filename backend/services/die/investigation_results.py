@@ -619,12 +619,15 @@ def render(input_text: str) -> Dict[str, Any]:
         "engines_skipped":     u_dict.get("engines_skipped", []),
     }
 
-    # Rule R21 · Correlation Happens Once.  Every projection consumes
-    # `SSOT.ice`; downstream components MUST NOT reassemble
-    # relationships from raw artifacts (behavior clusters, kill-chain
-    # phases, MITRE matrix, timeline, incident graph, evidence
-    # completeness are all owned here).
-    canonical["ice"] = _ice_correlate(canonical)
+    # Rule R21 · v3 · The Incident is the SSOT.  Correlator emits BOTH
+    # the unified `incident{}` (recommended surface for every future
+    # projection: NIST IR, executive dashboard, STIX, PDF export) AND
+    # the flat per-piece `ice{}` block (kept for backwards-compat with
+    # existing projections built against the earlier shape).  New
+    # projections MUST consume `SSOT.incident`.
+    ice_block = _ice_correlate(canonical)
+    canonical["ice"]      = ice_block
+    canonical["incident"] = ice_block.get("incident")
 
     return {"output": output, "object": canonical}
 

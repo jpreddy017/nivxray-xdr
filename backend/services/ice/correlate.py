@@ -121,12 +121,20 @@ def correlate(ssot: Dict[str, Any]) -> Dict[str, Any]:
     """Run the deterministic correlation pass over a canonical
     investigation object.  Returns the ICE block that lives at
     `SSOT.ice`.
+
+    Rule R21 · v3 (2026-03-01):  Every projection SHOULD read the
+    top-level `incident{}` object (also returned here so the caller
+    can promote it onto SSOT).  `SSOT.ice.*` remains as the raw
+    correlator surface for engines that need per-piece access —
+    IVE / NIST IR / STIX / exports all consume `incident{}`.
     """
     ext = (ssot or {}).get("report_extraction") or {}
     commands       = ext.get("commands") or []
     investigations = ext.get("command_investigations") or []
 
     behavior_clusters = _build_behavior_clusters(commands, investigations)
+    # ── Add Evidence Strength per cluster (separate from confidence). ──
+    _attach_evidence_strength(behavior_clusters, ssot)
     attack_phases     = _build_attack_phases(behavior_clusters)
     mitre_matrix      = _build_mitre_matrix(ssot, investigations)
     timeline          = _build_timeline(commands, ext.get("timeline") or [])
@@ -135,11 +143,49 @@ def correlate(ssot: Dict[str, Any]) -> Dict[str, Any]:
     readiness         = _build_investigation_readiness(ssot, ext, investigations, completeness)
     gaps              = _build_investigation_gaps(ssot, ext, investigations)
     recommendations   = _build_recommended_actions(behavior_clusters, gaps, readiness)
-    incident          = _build_incident(ssot, behavior_clusters, attack_phases,
-                                         mitre_matrix, readiness)
+    incident_summary  = _build_incident(ssot, behavior_clusters, attack_phases,
+                                          mitre_matrix, readiness)
+
+    # ── Universal provenance envelope ──
+    prof = (ssot or {}).get("document_profile") or {}
+    acq  = (ssot or {}).get("acquired_document") or {}
+    provenance = {
+        "source_url":       acq.get("url") or acq.get("final_url") or "",
+        "source_vendor":    prof.get("vendor") or acq.get("sitename") or "",
+        "source_title":     prof.get("title") or acq.get("title") or "",
+        "fetched_at_ms":    acq.get("duration_ms"),
+        "acquired_bytes":   acq.get("fetched_bytes"),
+    }
+
+    # ── Unified Incident SSOT (Rule R21 · v3) ──
+    # Every downstream projection reads THIS.  The `ice` block below
+    # remains for engines that need raw per-piece access, but new
+    # consumers must consume `incident{}` exclusively.
+    incident = {
+        "summary":          incident_summary,
+        "behaviors":        behavior_clusters,
+        "phases":           attack_phases,
+        "mitre":            mitre_matrix,
+        "timeline":         timeline,
+        "graph":            incident_graph,
+        "evidence":         {
+            "commands":       commands,
+            "investigations": investigations,
+            "actors":         ext.get("threat_actors") or [],
+            "malware":        ext.get("malware_families") or [],
+        },
+        "completeness":     completeness,
+        "readiness":        readiness,
+        "gaps":             gaps,
+        "recommendations":  recommendations,
+        "provenance":       provenance,
+    }
 
     return {
+        # ── Unified incident (recommended surface for every consumer) ──
         "incident":              incident,
+        # ── Legacy per-piece surface (kept for backwards-compat with
+        # projections that were built against the flat ICE shape).
         "behavior_clusters":     behavior_clusters,
         "attack_phases":         attack_phases,
         "mitre_matrix":          mitre_matrix,
@@ -149,6 +195,7 @@ def correlate(ssot: Dict[str, Any]) -> Dict[str, Any]:
         "investigation_readiness": readiness,
         "investigation_gaps":    gaps,
         "recommended_actions":   recommendations,
+        "provenance":            provenance,
         "totals": {
             "clusters":     len(behavior_clusters),
             "phases":       len(attack_phases),
@@ -160,6 +207,42 @@ def correlate(ssot: Dict[str, Any]) -> Dict[str, Any]:
             "recommended":  len(recommendations),
         },
     }
+
+
+def _attach_evidence_strength(clusters: List[Dict[str, Any]],
+                                ssot: Dict[str, Any]) -> None:
+    """Every cluster gets an `evidence_strength ∈ {strong, moderate,
+    weak}` label based on independent corroborating sources.
+
+    Sources counted (max 5):
+      1. Vendor-published mention (article names the behavior)
+      2. Command evidence (≥1 supporting command)
+      3. MITRE mapping (≥1 technique)
+      4. LOLBAS mapping (≥1 lolbin)
+      5. Timeline or telemetry evidence (article-published timeline OR
+         command source_ref present)
+
+    Strong = 4-5 sources · Moderate = 2-3 · Weak = 0-1
+    """
+    article = ((ssot or {}).get("acquired_document") or {}).get("article_text") or ""
+    lower_article = article.lower()
+    ext = (ssot or {}).get("report_extraction") or {}
+    has_timeline = bool(ext.get("totals", {}).get("timeline", 0))
+    for c in clusters:
+        sources = []
+        # 1. Vendor mention — is the cluster label named in the article?
+        label = (c.get("label") or "").lower()
+        head_words = [w for w in label.split() if len(w) > 4][:2]
+        vendor_hit = bool(head_words) and all(w in lower_article for w in head_words)
+        if vendor_hit:               sources.append("vendor")
+        if c.get("command_count"):   sources.append("commands")
+        if c.get("mitre"):           sources.append("mitre")
+        if c.get("lolbins"):         sources.append("lolbas")
+        if has_timeline or c.get("sources"): sources.append("telemetry")
+        n = len(sources)
+        strength = "strong" if n >= 4 else "moderate" if n >= 2 else "weak"
+        c["evidence_strength"]  = strength
+        c["evidence_sources"]   = sources
 
 
 # ══════════════════════════════════════════════════════════════════

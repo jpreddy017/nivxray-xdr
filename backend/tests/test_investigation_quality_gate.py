@@ -106,6 +106,8 @@ REQUIRED_SECTIONS = (
     "acquisition_plan",
     # ── ICE · Slice 2.0 · Investigation Correlation Engine (Rule R21) ──
     "ice",
+    # ── ICE · v3 · Unified Incident SSOT (Rule R21 · v3) ──
+    "incident",
 )
 
 

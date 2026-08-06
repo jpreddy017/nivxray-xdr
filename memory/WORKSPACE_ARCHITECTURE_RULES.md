@@ -486,33 +486,48 @@ finding back to its origin.
 
 ---
 
-## Rule R21 · Correlation Happens Once (2026-03-01)
+## Rule R21 · The Incident Is The SSOT (v3 · 2026-03-01)
 
-> **Between recursive investigation and any projection, the
-> platform MUST run a single deterministic correlation pass that
-> turns isolated per-artifact investigations into coherent higher-
-> order objects: behavior clusters, attack phases, kill-chain
-> ordering, a unified MITRE matrix, timeline, and an incident
-> graph.  Every downstream projection (Evidence Explorer, Attack
-> Story, Timeline, Knowledge Graph, NIST IR Report, exports)
-> reads from ICE — never from raw per-artifact investigations
-> directly.**
+> **Between recursive investigation and any projection, the platform
+> MUST run a single deterministic correlation pass and publish a
+> unified `SSOT.incident{}` object.  Every downstream projection
+> (Evidence Explorer, Attack Story, Timeline, Knowledge Graph,
+> NIST IR Report, Executive Dashboard, STIX / PDF / JSON exports)
+> reads from `SSOT.incident` — never from raw per-artifact
+> investigations directly.  ICE builds the incident; IVE renders
+> it; the incident IS the truth.**
 
 Analysis happens once.  Projection happens many times.
 
-The engine lives at `services/ice/` and emits its result at
-`SSOT.ice{}`:
+`SSOT.incident{}` shape (top-level keys — every projection reads
+exactly these):
 
-    behavior_clusters[]    — grouped by command purpose, MITRE union
-    attack_phases[]        — kill-chain-ordered MITRE tactics
-    mitre_matrix[]         — deduped, tagged {source: vendor|command}
-    timeline[]             — article-published + execution-order
-    incident_graph{nodes,edges}  — incident → actor / malware / behavior
-    evidence_completeness{}      — per-dim state + overall %
+    summary          — actor · severity · confidence · objective · status
+    behaviors        — clusters, each with primary_tactic + confidence +
+                       evidence_strength ∈ {strong, moderate, weak}
+    phases           — kill-chain-ordered MITRE tactics
+    mitre            — deduped matrix, tagged {source: vendor|command}
+    timeline         — article-published + execution-order events
+    graph            — {nodes, edges} incident → actor / malware / behavior
+    evidence         — commands + investigations + actors + malware
+    completeness     — per-dim state + overall %
+    readiness        — 8 progress bars + recommended_next
+    gaps             — {dim, reason, action}
+    recommendations  — P1/P2/P3 next steps, tied to gaps or behaviors
+    provenance       — source_url, source_vendor, source_title, fetch stats
 
-Consumers MUST NOT reassemble any of these from raw commands /
-`command_investigations[]` / vendor-published MITRE.  Doing so is a
-Rule-R21 violation and will fail the Investigation Quality Gate.
+Evidence Strength is separate from confidence:
+  · confidence   — how CERTAIN we are the behavior happened
+  · strength     — how many INDEPENDENT sources corroborate it
+                   (vendor mention + commands + MITRE + LOLBAS + telemetry)
+                   Strong = 4-5 sources · Moderate = 2-3 · Weak = 0-1
+
+The legacy flat `SSOT.ice{}` shape is retained for backwards
+compatibility with the initial IVE panels but is deprecated for new
+consumers.  Any Rule-R21 v3 violation (a projection that reads
+`ice.behavior_clusters` or `ice.investigation_readiness` when it
+should read `incident.behaviors` / `incident.readiness`) fails the
+Investigation Quality Gate.
 
 ---
 
