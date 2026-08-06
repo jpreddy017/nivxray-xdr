@@ -3414,3 +3414,27 @@ EML gets SPF/DKIM/DMARC + attachment recursion as flagship value; ZIP
 stays hierarchical, never flattened.
 
 Architecture is now frozen.  All remaining work is execution.
+
+## 2026-02-06 · Architecture v1.0 OFFICIALLY FROZEN
+
+User declared Architecture v1.0 officially frozen.  All architectural
+concepts are complete.  No further architectural additions will be
+made unless implementation uncovers a concrete limitation.
+
+Two doc updates landed:
+1. Frozen-status banner + status-summary table at the top of
+   `NIVXRAY_ARCHITECTURE_V1.md`.
+2. "Views vs. Model" section clarifying that graph projections
+   (Cytoscape, React Flow, Graphviz, Mermaid) are Phase 6
+   implementation details of the Evidence Reasoning Engine — NOT
+   architectural components.  Keeps the backend independent of any
+   specific visualisation library.
+
+Remaining execution-only backlog (unchanged from prior notes):
+Phase 3A · PDF + DOCX adapters (expanded scope)
+Phase 3B · EML + ZIP adapters (recursive)
+Phase 3C · Image adapter (OCR + EXIF)
+Phase 4  · Investigation Orchestrator (Resource Protection + Cycle Detection)
+Phase 5  · Evidence Validator
+Phase 6  · Evidence Reasoning Engine (SSOT) + view projections
+Phase 7  · Legacy removal (after shadow validation)

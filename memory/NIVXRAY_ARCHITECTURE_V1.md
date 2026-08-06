@@ -1,9 +1,21 @@
-# NivXRay Investigation Architecture v1.0 (FROZEN)
+# NivXRay Investigation Architecture v1.0 (FROZEN — FINAL)
 
-> **Frozen 2026-02-06 by user directive.**
-> This document is the single, authoritative architectural spec for NivXRay.
-> Any code change that violates it must first change this document AND the
-> WORKSPACE_ARCHITECTURE_RULES.md.
+> **Officially frozen 2026-02-06 by user directive.**
+> Architecture, Contracts, and Rules are complete.  Remaining work is
+> disciplined implementation of the frozen contracts.  No new
+> architectural concepts may be added unless implementation uncovers a
+> concrete limitation.
+> Any code change that violates this document must first change this
+> document AND the `WORKSPACE_ARCHITECTURE_RULES.md`.
+
+## Status Summary
+
+| Layer | State |
+|---|---|
+| Architecture | ✅ Frozen |
+| Contracts    | ✅ Frozen |
+| Rules        | ✅ Frozen |
+| Engineering  | 🚧 In progress (Phases 3A → 7) |
 
 ## Three Permanent Principles
 
@@ -156,6 +168,19 @@ Today: Command, URL, PDF, Image.
 Tomorrow: EVTX, PCAP, Memory Dump, APK, Mach-O, Office Macro, STIX bundle.
 Future: any new evidence type only requires an Evidence Adapter that emits an IEP.
 The Workspace remains unchanged, the investigation engines remain deterministic and artifact-first, and every investigation — regardless of its source — produces the same consistent, explainable analyst experience.
+
+## Views vs. Model — a Note on Projections
+
+The **evidence graph** is a *view* of the reasoning model produced by
+the Evidence Reasoning Engine — not a primary data structure.  Any
+frontend visualisation (Cytoscape, React Flow, Graphviz, Mermaid,
+GraphML export, …) is a projection of the same reasoning object.  This
+keeps the backend independent of any specific visualisation library
+and means new renderers never require touching the reasoning engine.
+
+Consequence: helpers like `to_graph()` / `to_cytoscape_json()` /
+`to_mermaid()` are Phase 6 *implementation details* of the Evidence
+Reasoning Engine.  They are NOT architectural components.
 
 ---
 
