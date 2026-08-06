@@ -461,32 +461,28 @@ acquirable URL and the acquisition engine reports success, the
 
 ---
 
-## Rule R20 · Extracted Artifacts Are Investigation Seeds (2026-03-01)
+## Rule R20 · Every Extracted Artifact Is Recursively Investigated (2026-03-01)
 
-> **When IDA-4 extracts an artifact (command, IOC, YARA rule,
-> file reference), the platform MUST treat that artifact as a
-> new investigation seed and feed it back through the
-> deterministic investigation pipeline.  Extraction alone is
-> not the finish line.**
+> **Every artifact IDA extracts from an acquired document MUST be
+> recursively investigated by its owning engine before SSOT
+> correlation.  Extraction alone is not the finish line.**
 
-A threat report is not a document — it is a set of artifacts.
-Every extracted command carries its own behaviour, MITRE, LOLBAS,
-IOCs, decoded payload, and confidence.  Those attributes belong in
-the SSOT, not just in a display list.
+Future-proofed for every artifact class the platform will handle:
 
-Concretely: every command IDA-4 extracts is passed to the same
-`services.die.analyze()` engine that would have run had the analyst
-pasted the command directly.  The per-command result lives at
-`SSOT.report_extraction.command_investigations[]`, with an
-aggregated view at `SSOT.report_extraction.investigation_summary`.
-LOLBAS and MITRE technique hits discovered by command investigation
-are promoted into the top-level `SSOT.lolbas[]` and `SSOT.mitre[]`
-so the Threat Analysis panels light up automatically, tagged
-`source: ida.command_investigation` to preserve provenance
-(vendor-published vs command-derived).
+    Commands   → services.die.analyze()
+    URLs       → IDA acquisition (recursion depth-capped)
+    PDFs       → IDA-3 PDF acquirer + IDA-4 extractors
+    ZIP / archives → decompression + per-file recursive investigation
+    DLLs / PE  → PE analyzer
+    Office docs → OOXML analyzer
+    Emails     → EML parser
+    PCAPs      → network analyzer
+    IOCs       → IOC / reputation lane
 
-Paranoia budget: no more than 40 artifacts per request, no network
-inside the recursion (IDA-3 sits ABOVE the router, not inside it).
+Each artifact's investigation is written back into the SSOT beside
+the artifact itself; provenance (source document, section, block)
+is preserved on every record so the analyst can always trace a
+finding back to its origin.
 
 ---
 
