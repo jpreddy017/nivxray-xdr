@@ -3217,3 +3217,46 @@ this reads as visual noise.
 3. Per-plugin regex interpreter positive-ID until IEDDE Stage 1 Interpreter Identifier lands.
 4. Rule 19 negative-shadow tests cover bash + CMD; Perl / PHP / Ruby / Python extensions recommended before Stage 4.
 
+
+## 2026-08-06 · Command-line classifier hardening + attack-chain enrichment
+
+### Root cause
+The Talos IR blog post rendered its EDR command samples in three shapes
+the extractor didn't fully cover:
+  1. Bare basename (`wininit.exe copy --max-age ...`) — no drive-letter prefix.
+  2. Multi-invocation rows (`services.exe, C:\...\msiexec.exe /V, C:\...\MsiExec.exe -E`).
+  3. Bare paths without arguments (`C:\Windows\services.exe`) — classified as
+     "command" instead of "file path".
+The DIE-derived MITRE map was empty for these, so every command fell into
+the generic "Command execution" purpose → ICE built ONE behavior cluster
+→ trajectory rendered ONE node.
+
+### Fix
+- `report_extractors._extract_commands`
+  · Accept bare basename (`<name>.exe`) as command head when the line
+    proves it's a command via the EDR-tokenised structure.
+  · Split multi-invocation EDR rows on `, [A-Z]:\` boundaries so each
+    process invocation emits as its own command.
+  · Tightened `_COMMAND_CONFIRM` (`.exe\b\s+\S`) so a bare path with no
+    args is correctly classified as file_path.
+- Structured command output per user spec:
+  ```
+  {primary_type, executable, arguments[], embedded_artifacts{file_paths,
+   registry_keys, urls, ips, domains, hashes}}
+  ```
+- Purpose classifier expanded with the Talos IR TTPs:
+  shadow copy deletion (T1490), software uninstall (T1562.001),
+  MSI installer (T1218.007), reverse SSH tunnel (T1572),
+  rclone-style exfil (T1567.002), PsExec/Impacket lateral (T1021.002),
+  account/domain/host discovery, registry & scheduled-task persistence.
+- Frontend `_preprocForTrajectory` PURPOSE_MAP fallback ensures every
+  behavior node carries BOTH a MITRE ATT&CK technique ID and a
+  Cyber Kill Chain phase, regardless of DIE tagging.
+- Trajectory heading updated: "Cyber Kill Chain × MITRE ATT&CK · 6 swim
+  lanes" so the dual dimension is explicit.
+
+### Verified
+Talos IR blog now yields 6 distinct behavior clusters spanning
+Command & Control, Defense Evasion, Exfiltration, and Impact —
+rendering across Transformation, Network/C2, File System, and Registry
+swim lanes (previously only 1 node in File System).

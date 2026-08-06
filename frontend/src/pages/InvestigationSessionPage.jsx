@@ -364,9 +364,9 @@ function StoryTab({ incident, raw }) {
       {preproc && (
         <div style={{ marginBottom: 20 }}
              data-testid="session-story-trajectory">
-          <div style={sx.eyebrow}>▸ ATTACK CHAIN · TRAJECTORY</div>
+          <div style={sx.eyebrow}>▸ ATTACK CHAIN · CYBER KILL CHAIN × MITRE ATT&amp;CK</div>
           <div style={sx.leadDim}>
-            Attack chain across 6 swim lanes · drag nodes · pan background · use +/− to zoom
+            Nodes = behaviors · colour = Cyber Kill Chain phase · subtitle = MITRE technique ID · drag / pan / zoom
           </div>
           <div style={{ marginTop: 8 }}>
             <TrajectoryDiagram preprocessor={preproc} />
@@ -436,17 +436,71 @@ function _preprocForTrajectory(raw, incident) {
     exfiltration:         "Exfiltration",
     impact:               "Impact",
   };
-  const stages = clusters.map((c, i) => ({
-    id:              `ice-stage-${i}`,
-    title:           c.label,
-    tactic:          label[c.primary_tactic] || "Execution",
-    mitre:           (c.mitre || []).map(m => m.id || m),
-    command_family:  c.label,
-    kind:            "behavior_cluster",
-    confidence:      c.confidence === "high"   ? 0.95
-                   : c.confidence === "medium" ? 0.7
-                   :                              0.4,
-  }));
+  // Purpose label → { family slug, fallback tactic, mitre[] } — used
+  // when the recursive DIE investigation didn't attach a MITRE
+  // technique.  The slug feeds TrajectoryDiagram.FAMILY_LANE_OVERRIDE
+  // and pins each node to its correct swim lane deterministically.
+  // The mitre[] array ensures every node carries a MITRE ATT&CK ID
+  // alongside its Cyber Kill Chain phase — the two dimensions the
+  // analyst reasons about.
+  const PURPOSE_MAP = {
+    "Shadow copy deletion":                       { family: "shadow-copy-deletion",     tactic: "Impact",              mitre: ["T1490"] },
+    "Shadow copy deletion (WMIC)":                { family: "shadow-copy-deletion",     tactic: "Impact",              mitre: ["T1490"] },
+    "Software uninstall (defense evasion)":       { family: "uac-disable",              tactic: "Defense Evasion",     mitre: ["T1562.001"] },
+    "MSI installation":                           { family: "msi-install",              tactic: "Execution",           mitre: ["T1218.007"] },
+    "MSI installer child (embedded)":             { family: "msi-install",              tactic: "Execution",           mitre: ["T1218.007"] },
+    "MSI execution":                              { family: "msi-install",              tactic: "Execution",           mitre: ["T1218.007"] },
+    "Reverse SSH tunnel":                         { family: "reverse-ssh-tunnel",       tactic: "Command and Control", mitre: ["T1572"] },
+    "SSH remote session":                         { family: "reverse-ssh-tunnel",       tactic: "Command and Control", mitre: ["T1021.004"] },
+    "SSH client execution":                       { family: "reverse-ssh-tunnel",       tactic: "Command and Control", mitre: ["T1021.004"] },
+    "Data staging / exfil (rclone-style)":        { family: "sync-rclone-style",        tactic: "Exfiltration",        mitre: ["T1567.002"] },
+    "Lateral movement via PsExec":                { family: "psexec-lateral",           tactic: "Lateral Movement",    mitre: ["T1021.002"] },
+    "Lateral movement via Impacket":              { family: "psexec-lateral",           tactic: "Lateral Movement",    mitre: ["T1021.002"] },
+    "Account / group discovery":                  { family: "account-discovery",        tactic: "Discovery",           mitre: ["T1087"] },
+    "Domain trust discovery":                     { family: "ad-discovery",             tactic: "Discovery",           mitre: ["T1482"] },
+    "Current-user discovery":                     { family: "session-discovery",        tactic: "Discovery",           mitre: ["T1033"] },
+    "Host discovery":                             { family: "host-discovery",           tactic: "Discovery",           mitre: ["T1082"] },
+    "Active Directory discovery":                 { family: "ad-discovery",             tactic: "Discovery",           mitre: ["T1087.002"] },
+    "Registry Run-key persistence":               { family: "registry-modification",    tactic: "Persistence",         mitre: ["T1547.001"] },
+    "Registry modification":                      { family: "registry-modification",    tactic: "Defense Evasion",     mitre: ["T1112"] },
+    "Scheduled-task persistence":                 { family: "persistence-scheduled-task", tactic: "Persistence",       mitre: ["T1053.005"] },
+    "PowerShell in-memory execution":             { family: null,                       tactic: "Execution",           mitre: ["T1059.001"] },
+    "PowerShell download-and-execute":            { family: null,                       tactic: "Command and Control", mitre: ["T1105"] },
+    "PowerShell encoded command":                 { family: null,                       tactic: "Defense Evasion",     mitre: ["T1027"] },
+    "PowerShell process enumeration":             { family: null,                       tactic: "Discovery",           mitre: ["T1057"] },
+    "PowerShell execution":                       { family: null,                       tactic: "Execution",           mitre: ["T1059.001"] },
+    "PowerShell execution via CMD (execution-policy bypass)": { family: null,           tactic: "Defense Evasion",     mitre: ["T1059.001"] },
+    "Host / domain reconnaissance":               { family: "host-discovery",           tactic: "Discovery",           mitre: ["T1082"] },
+    "Download from remote resource":              { family: null,                       tactic: "Command and Control", mitre: ["T1105"] },
+    "Certutil download / decode":                 { family: null,                       tactic: "Command and Control", mitre: ["T1105"] },
+    "BITSAdmin download":                         { family: null,                       tactic: "Command and Control", mitre: ["T1105"] },
+    "AutoHotkey stager":                          { family: null,                       tactic: "Execution",           mitre: ["T1059"] },
+    "Microsoft Edge launch (extension load — Edgecution)":         { family: null,     tactic: "Execution",           mitre: ["T1176"] },
+    "Microsoft Edge launch (headless, extension load — Edgecution)": { family: null,   tactic: "Execution",           mitre: ["T1176"] },
+    "Self-deletion of stager":                    { family: null,                       tactic: "Defense Evasion",     mitre: ["T1070.004"] },
+    "Unzip Python interpreter stager":            { family: null,                       tactic: "Execution",           mitre: ["T1059"] },
+    "Unzip encrypted payload archive":            { family: null,                       tactic: "Execution",           mitre: ["T1140"] },
+    "Archive extraction":                         { family: null,                       tactic: "Execution",           mitre: ["T1140"] },
+  };
+  const stages = clusters.map((c, i) => {
+    const meta = PURPOSE_MAP[c.label] || {};
+    const tactic = label[c.primary_tactic] || meta.tactic || "Execution";
+    // Merge MITRE from DIE-attached techniques with our deterministic
+    // fallback so every node carries an ATT&CK ID.
+    const attached = (c.mitre || []).map(m => m.id || m).filter(Boolean);
+    const mitre    = attached.length ? attached : (meta.mitre || []);
+    return {
+      id:              `ice-stage-${i}`,
+      title:           c.label,
+      tactic,
+      mitre,
+      command_family:  meta.family || c.label,
+      kind:            "behavior_cluster",
+      confidence:      c.confidence === "high"   ? 0.95
+                     : c.confidence === "medium" ? 0.7
+                     :                              0.4,
+    };
+  });
   return { stages, process_edges: [] };
 }
 

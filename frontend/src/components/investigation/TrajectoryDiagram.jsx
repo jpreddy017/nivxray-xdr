@@ -161,7 +161,7 @@ export default function TrajectoryDiagram({ preprocessor }) {
           <div style={tagline}>EVIDENCE TRAJECTORY</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#e2e8f0",
                         marginTop: 2 }}>
-            Attack chain across {LANES.length} swim lanes ·
+            Cyber Kill Chain × MITRE ATT&amp;CK · {LANES.length} swim lanes ·
             drag nodes · pan background · use +/− to zoom
           </div>
         </div>

@@ -295,6 +295,115 @@ def _extract_malware(text: str) -> List[Dict[str, Any]]:
     return hits
 
 
+def _split_executable_and_args(cmdline: str) -> Tuple[str, List[str]]:
+    """Split a command line into (executable, [arguments]).
+
+    Handles three head shapes NivXRay sees in threat reports:
+      · Quoted path:   `"C:\\Program Files\\foo.exe" -a -b`
+      · Bare path:     `C:\\Windows\\System32\\cmd.exe /c whoami`
+      · Bare basename: `powershell.exe -enc ...`   /   `wininit.exe copy ...`
+
+    Argument tokenisation respects single- and double-quoted regions so
+    quoted args (`'delete'`, `"C:\\Program Files\\x"`) survive intact.
+    """
+    s = cmdline.strip()
+
+    # 1. Head — quoted path
+    if s.startswith('"'):
+        m = re.match(r'^"([^"]+\.exe)"\s*(.*)$', s, re.I)
+        if m:
+            return m.group(1), _tokenise_args(m.group(2))
+
+    # 2. Head — bare Windows path ending in `.exe`
+    m = re.match(r'^([A-Za-z]:\\[^\s,]+\.exe)(?:\s+(.*))?$', s, re.I)
+    if m:
+        return m.group(1), _tokenise_args(m.group(2) or "")
+
+    # 3. Head — bare basename ending in `.exe`
+    m = re.match(r'^([A-Za-z0-9_\-.]+\.exe)(?:\s+(.*))?$', s, re.I)
+    if m:
+        return m.group(1), _tokenise_args(m.group(2) or "")
+
+    # 4. Head — interpreter without `.exe` (`powershell -c …`, `bash -c …`)
+    m = re.match(r'^([A-Za-z0-9_\-.]+)(?:\s+(.*))?$', s)
+    if m:
+        return m.group(1), _tokenise_args(m.group(2) or "")
+
+    return s, []
+
+
+def _tokenise_args(rest: str) -> List[str]:
+    """Split argument text into tokens, respecting `"…"` and `'…'`."""
+    rest = (rest or "").strip()
+    if not rest:
+        return []
+    tokens: List[str] = []
+    buf: List[str] = []
+    quote: Optional[str] = None
+    for ch in rest:
+        if quote:
+            buf.append(ch)
+            if ch == quote:
+                quote = None
+                tokens.append("".join(buf))
+                buf = []
+        elif ch in ('"', "'"):
+            if buf:
+                tokens.append("".join(buf))
+                buf = []
+            quote = ch
+            buf.append(ch)
+        elif ch.isspace():
+            if buf:
+                tokens.append("".join(buf))
+                buf = []
+        else:
+            buf.append(ch)
+    if buf:
+        tokens.append("".join(buf))
+    return tokens
+
+
+def _embedded_artifacts(cmdline: str, executable: str) -> Dict[str, List[str]]:
+    """Return artifacts embedded inside a command line.
+
+    A command line is the primary investigation object; the executable
+    path, URLs, hashes, IPs, domains, and registry keys inside it are
+    embedded artifacts that MUST also be surfaced so IOCE and DIE can
+    correlate them independently.
+    """
+    from .artifact_splitter import split_artifacts
+    inner = split_artifacts(cmdline) or []
+    buckets: Dict[str, List[str]] = {
+        "file_paths":    [executable] if executable and (
+            "\\" in executable or "/" in executable
+        ) else [],
+        "registry_keys": [],
+        "urls":          [],
+        "ips":           [],
+        "domains":       [],
+        "hashes":        [],
+    }
+    for a in inner:
+        atype = getattr(a, "type", None) or (a.get("type") if isinstance(a, dict) else None)
+        value = getattr(a, "value", None) or (a.get("value") if isinstance(a, dict) else None)
+        if not atype or not value:
+            continue
+        if atype == "file_path" and value not in buckets["file_paths"]:
+            buckets["file_paths"].append(value)
+        elif atype == "registry_key" and value not in buckets["registry_keys"]:
+            buckets["registry_keys"].append(value)
+        elif atype == "url" and value not in buckets["urls"]:
+            buckets["urls"].append(value)
+        elif atype == "ip" and value not in buckets["ips"]:
+            buckets["ips"].append(value)
+        elif atype == "domain" and value not in buckets["domains"]:
+            buckets["domains"].append(value)
+        elif atype == "hash" and value not in buckets["hashes"]:
+            buckets["hashes"].append(value)
+    return buckets
+
+
 def _extract_commands(text: str,
                       structured_blocks: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """Command-line samples the article calls out.
@@ -332,8 +441,34 @@ def _extract_commands(text: str,
     )
     # Quoted path launcher: `"C:\Program Files (x86)\...\foo.exe"`
     _QUOTED_EXE_START = re.compile(r'^\s*"[A-Za-z]:\\[^"]+\.exe"', re.I)
+    # Bare Windows path launcher (unquoted): `C:\WINDOWS\system32\cmd.EXE ...`
+    # Some vendor write-ups (Cisco Talos, Mandiant) render commands
+    # this way when transcribing EDR telemetry.
+    _BARE_EXE_START = re.compile(r'^\s*[A-Za-z]:\\[^\s,]+\.exe\b', re.I)
+    # Bare basename EXE start — `wininit.exe copy --max-age ...` (no drive
+    # letter).  Only accepted when the line has already been proven to be
+    # an EDR-tokenised command via `_EDR_TOKEN_LINE` below, otherwise this
+    # would false-positive on prose like `notepad.exe was seen…`.
+    _BARE_BASENAME_EXE_START = re.compile(
+        r'^\s*[A-Za-z0-9_\-.]+\.exe\b', re.I,
+    )
+    # EDR-style comma-tokenised argument list — the whole command is
+    # written as `path\to.exe, arg1, arg2, arg3`.  We detokenise it
+    # so the confirm gate below sees a normal command string.
+    _EDR_TOKEN_LINE = re.compile(
+        r'^\s*(?:"?[A-Za-z]:\\[^"\s,]+\.exe"?|[A-Za-z0-9_\-.]+\.exe|\w+)'
+        r'\s*,\s+(?:[^,\s][^,]{0,80})(?:\s*,\s+[^,\s][^,]{0,80}){2,}',
+        re.I,
+    )
+    # Multi-invocation EDR row — several full Windows exe paths joined
+    # by `, ` (e.g. `services.exe, C:\...\msiexec.exe /V, C:\...\MsiExec.exe -E`).
+    # We split at each new drive-letter path so every process invocation
+    # emits as its own command hit.
+    _MULTI_EXE_SPLIT = re.compile(r',\s+(?=[A-Za-z]:\\)')
 
-    # Confirm the payload is actually a command, not prose.
+    # Confirm the payload is actually a command, not prose or a bare path.
+    # KEY RULE: a command MUST have real content AFTER the executable —
+    # `C:\...\services.exe` alone is a file path, not a command.
     _COMMAND_CONFIRM = re.compile(
         r'(?:'
         r'\s-{1,2}[A-Za-z]'               # ` -X` / ` --x`
@@ -341,7 +476,7 @@ def _extract_commands(text: str,
         r'|"[A-Za-z]:\\'                   # `"C:\...`
         r'|%[A-Z_]+%'                      # env-var
         r'|2>&?1|>\s*nul|&&|\|\||;\s|\s&\s'  # redirection / chaining
-        r'|\.exe\b'                        # `.exe` reference
+        r'|\.exe\b\s+\S'                   # `.exe` followed by an argument
         r')'
     )
 
@@ -370,9 +505,41 @@ def _extract_commands(text: str,
         if len(s) < 10:
             return
 
-        head_m = _HEAD_START.match(s)
-        quoted = _QUOTED_EXE_START.match(s)
-        if not (head_m or quoted):
+        # Detokenise EDR-style comma argument lists BEFORE gating so a
+        # `cmd.EXE, /c, wmic, product, ...` transcript from Talos or
+        # Mandiant is reconstituted into a normal command string.
+
+        # Multi-invocation EDR row: `svc.exe, C:\...\a.exe /V, C:\...\b.exe -E`
+        # → split at each new drive-letter boundary and emit each
+        # process invocation as its own command hit.  Runs BEFORE the
+        # EDR-token check because a 2-invocation row won't have the
+        # ≥3 tokens EDR detection expects.
+        if _MULTI_EXE_SPLIT.search(s) and re.match(
+            r'^\s*(?:"?[A-Za-z]:\\[^"\s,]+\.exe"?|[A-Za-z0-9_\-.]+\.exe)', s, re.I
+        ):
+            parts = _MULTI_EXE_SPLIT.split(s)
+            if len(parts) >= 2:
+                for part in parts:
+                    part = part.strip().rstrip(",").strip()
+                    if part and part != s:
+                        _consider(part, source, line_no)
+                return
+
+        edr_matched = bool(_EDR_TOKEN_LINE.match(s))
+        if edr_matched:
+            # Single-invocation EDR row — detokenise arg commas.
+            s = re.sub(r"\s*,\s+", " ", s)
+
+        head_m  = _HEAD_START.match(s)
+        quoted  = _QUOTED_EXE_START.match(s)
+        bare    = _BARE_EXE_START.match(s)
+        # EDR-tokenised lines already proved they are commands via the
+        # `<exe>, arg, arg, arg, ...` structure — accept a bare basename
+        # exe start (`wininit.exe copy --max-age ...`) too.
+        basename = None
+        if edr_matched and not (head_m or quoted or bare):
+            basename = _BARE_BASENAME_EXE_START.match(s)
+        if not (head_m or quoted or bare or basename):
             return
         if not _COMMAND_CONFIRM.search(s):
             return
@@ -384,17 +551,28 @@ def _extract_commands(text: str,
 
         if head_m:
             head_token = head_m.group(0).strip().lower()
-        else:
+        elif quoted:
             # quoted path — pull the basename before `.exe`
             m = re.search(r"([^\\/\"]+\.exe)\"", s, re.I)
             head_token = (m.group(1).lower() if m else "quoted-exe")
+        else:
+            # bare Windows path — basename before `.exe`
+            m = re.search(r"([^\\/\s,]+\.exe)\b", s, re.I)
+            head_token = (m.group(1).lower() if m else "bare-exe")
+
+        executable, arguments = _split_executable_and_args(key)
+        embedded = _embedded_artifacts(key, executable)
 
         hits.append({
-            "command": key,
-            "head":    head_token,
-            "purpose": _classify_command_purpose(key, head_token),
-            "line":    line_no,
-            "source":  source,
+            "command":            key,
+            "primary_type":       "command_line",
+            "executable":         executable,
+            "arguments":          arguments,
+            "embedded_artifacts": embedded,
+            "head":               head_token,
+            "purpose":            _classify_command_purpose(key, head_token),
+            "line":               line_no,
+            "source":             source,
         })
 
     # 1. Article lines
@@ -497,6 +675,61 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
     Command-Line IOC tables."""
     c = cmd.lower()
 
+    # ── Impact / shadow copy deletion (T1490) ──────────────────────
+    if "vssadmin" in head and ("delete" in c and "shadow" in c):
+        return "Shadow copy deletion"
+    if "wmic" in c and "shadowcopy" in c and "delete" in c:
+        return "Shadow copy deletion (WMIC)"
+
+    # ── Software uninstall via WMIC (defense evasion of security agents) ─
+    if "wmic" in c and "product" in c and "uninstall" in c:
+        return "Software uninstall (defense evasion)"
+
+    # ── MSI installer execution (T1218.007) ────────────────────────
+    if head in ("msiexec.exe", "msiexec") or "msiexec.exe" in c.split()[0:1]:
+        if "-embedding" in c:
+            return "MSI installer child (embedded)"
+        if "/i " in c or " /i " in c or "/quiet" in c or "/qn" in c:
+            return "MSI installation"
+        return "MSI execution"
+
+    # ── Reverse SSH tunnel (T1572) ─────────────────────────────────
+    if "ssh.exe" in head or head == "ssh":
+        if " -r " in (" " + c + " ") or c.strip().split(".exe", 1)[-1].lstrip().startswith("-r"):
+            return "Reverse SSH tunnel"
+        if " -l " in c or " -n " in c:
+            return "SSH remote session"
+        return "SSH client execution"
+
+    # ── Rclone / mass copy exfil style (T1567 / T1020) ─────────────
+    if "rclone" in head or ("copy" in c and "--max-age" in c) or ("--exclude" in c and "*.{" in c) \
+       or ("--exclude" in c and "*{" in c):
+        return "Data staging / exfil (rclone-style)"
+
+    # ── PsExec lateral movement (T1021.002) ────────────────────────
+    if "psexec" in head or "psexec" in c.split()[0:1]:
+        return "Lateral movement via PsExec"
+    if "impacket" in c or "wmiexec" in c or "smbexec" in c:
+        return "Lateral movement via Impacket"
+
+    # ── Discovery — net / nltest / whoami / hostname (T1087, T1018) ─
+    if head in ("net", "net.exe") and (" user" in c or " group" in c or " localgroup" in c):
+        return "Account / group discovery"
+    if head in ("nltest", "nltest.exe"):
+        return "Domain trust discovery"
+    if head in ("whoami", "whoami.exe"):
+        return "Current-user discovery"
+    if head in ("hostname", "hostname.exe") or head in ("ipconfig", "ipconfig.exe"):
+        return "Host discovery"
+    if "adfind" in head or "sharphound" in head or "bloodhound" in head:
+        return "Active Directory discovery"
+
+    # ── Registry modification (T1112) ──────────────────────────────
+    if head in ("reg", "reg.exe") and " add " in c:
+        if "run" in c:
+            return "Registry Run-key persistence"
+        return "Registry modification"
+
     # Unzip / archive extraction
     if "tar" in head and " -xf " in c:
         if "python" in c:
@@ -540,6 +773,9 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
     # cmd /c enumeration
     if head.startswith("cmd") and (" whoami" in c or " nltest" in c or " net user" in c):
         return "Host / domain reconnaissance"
+    # cmd /c wmic ...
+    if head.startswith("cmd") and " wmic " in c and " product" in c:
+        return "Software uninstall (defense evasion)"
 
     # AutoHotkey stager
     if "autohotkey" in head or "ahk" in head:
@@ -548,6 +784,10 @@ def _classify_command_purpose(cmd: str, head: str) -> str:
     # curl / wget download
     if head in ("curl", "wget", "curl.exe", "wget.exe"):
         return "Download from remote resource"
+    if "certutil" in head and ("-urlcache" in c or "-decode" in c):
+        return "Certutil download / decode"
+    if "bitsadmin" in head and " /transfer" in c:
+        return "BITSAdmin download"
 
     # Generic reg-add persistence
     if head == "reg" and " add " in c and "run" in c:
