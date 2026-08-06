@@ -275,6 +275,14 @@ api.include_router(sessions_router)
 from routers.ioc_intelligence import router as ioc_router
 api.include_router(ioc_router)
 
+# Boot receipt — surfaces which providers are live vs pending in the
+# supervisor log without ever printing key values.
+try:
+    from services.ioc_intelligence import format_boot_receipt
+    log.info(format_boot_receipt())
+except Exception:                                          # pragma: no cover
+    pass
+
 # ▲ Artifact Intelligence Layer (Phase 3 · Cycle A · 2026-02)
 from routers.artifacts import router as artifacts_router
 # Router already carries prefix "/api/artifacts" so include at app root.

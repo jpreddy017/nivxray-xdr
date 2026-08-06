@@ -18,7 +18,7 @@ from typing import Any, Dict, List
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from services.ioc_intelligence import enrich_ioc, enrich_iocs
+from services.ioc_intelligence import enrich_ioc, enrich_iocs, provider_health
 
 router = APIRouter(prefix="/ioc", tags=["ioc-intelligence"])
 
@@ -50,3 +50,11 @@ async def enrich_batch(body: EnrichBody) -> Dict[str, Any]:
 async def enrich_single(body: EnrichOneBody) -> Dict[str, Any]:
     card = await enrich_ioc(body.kind, body.value, use_cache=body.use_cache)
     return {"card": card.to_dict()}
+
+
+@router.get("/health")
+async def ioc_provider_health() -> Dict[str, Any]:
+    """Snapshot of enrichment provider configuration.  Deterministic,
+    zero network calls — used by the frontend to render the Provider
+    Status strip under IOC Intelligence."""
+    return {"providers": provider_health()}
