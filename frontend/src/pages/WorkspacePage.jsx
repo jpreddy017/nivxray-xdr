@@ -864,6 +864,11 @@ export default function WorkspacePage() {
         family: family || null,
       });
       setPasteHint(null);
+      // ▲ IUE v2.0 · Auto-enrich (P0 · 2026-03-01) — after chain
+      // decode + analyze completes, transition the pane to structured
+      // Investigation Results.  Same principle as the smart-decode
+      // path: the pane never ends on raw decoded bytes.
+      if (input && input.trim()) runInvestigationResults(input);
       return d;
     } catch (e) {
       // Robust stringify — the `/decode/chain` endpoint can return a
@@ -961,6 +966,10 @@ export default function WorkspacePage() {
         ? `conf=${d.confidence}/100`
         : (flatDecodedOk ? "conf=n/a · decoded" : "conf=n/a");
       setStatus(`FLAT DECODE · engine=${d.engine || "?"} · ${flatConfBadge}`);
+      // ▲ IUE v2.0 · Auto-enrich (P0 · 2026-03-01) — after any flat
+      // decode, transition the pane to structured Investigation
+      // Results.  The pane must never end on raw decoded bytes.
+      if (input && input.trim()) runInvestigationResults(input);
     } catch (e) {
       setStatus("FLAT DECODE ERROR: " + (e?.response?.data?.detail || e.message));
     } finally {
@@ -1356,7 +1365,14 @@ export default function WorkspacePage() {
           })),
           onError:       (e) => setStatus(`STREAM ERROR (${e.phase}): ${e.error}`),
           onDone:        ()  => { setAnalyzing(false); streamStopRef.current = null;
-                                 setStatus((s) => s.startsWith("STREAM ERROR") ? s : "ANALYSIS COMPLETE"); },
+                                 setStatus((s) => s.startsWith("STREAM ERROR") ? s : "ANALYSIS COMPLETE");
+                                 // ▲ IUE v2.0 · Auto-enrich (P0 · 2026-03-01)
+                                 // After decode + analyze completes, always
+                                 // transition the pane to structured
+                                 // Investigation Results so the analyst never
+                                 // stares at raw decoded bytes.
+                                 if (input && input.trim()) runInvestigationResults(input);
+                                },
         },
       );
       streamStopRef.current = stop;

@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 
 from .preprocessor import preprocess as preprocess_input
 from .input_understanding import understand as understand_input
+from .input_health import check_health as _check_health
 from .lolbas import lolbas_lookup, LOLBAS_REGISTRY  # noqa: F401
 from .ioc_semantic import extract_iocs
 from .intent import classify_intent_from_analyze
@@ -74,6 +75,9 @@ def render(input_text: str) -> Dict[str, Any]:
     """
     src = input_text or ""
 
+    # 0) Stage-0 · Input Health Check (IUE v2.0 · Layer 0)
+    health = _check_health(src)
+
     # 1) IUE — classification + plan
     understanding = understand_input(src, execute=False)
     u_dict = understanding.to_dict()
@@ -112,6 +116,26 @@ def render(input_text: str) -> Dict[str, Any]:
     lines.append(_h1("Investigation Results"))
     lines.append("")
     lines.append(u_dict.get("hero_sentence") or u_dict.get("label", ""))
+    lines.append("")
+
+    # ── INPUT HEALTH (Stage-0 · IUE Layer 0) ──
+    lines.append(_h1("Input Health"))
+    lines.append("")
+    if not health.issues:
+        lines.append("  ✓ Valid input")
+        lines.append("  ✓ No corruption detected")
+        lines.append("  ✓ Ready for investigation")
+        lines.append("")
+    else:
+        sev_glyph = {"error": "✗", "warn": "⚠", "info": "ℹ"}
+        for issue in health.issues:
+            glyph = sev_glyph.get(issue.severity, "•")
+            lines.append(f"  {glyph} {issue.label} — {issue.detail}")
+            if issue.evidence:
+                lines.append(f"      evidence: {issue.evidence}")
+        lines.append("")
+    lines.append(_kv("Bytes Received", f"{health.bytes:,}", indent=2))
+    lines.append(_kv("Pipeline Ready", "YES" if health.ready else "NO — see errors above", indent=2))
     lines.append("")
 
     # ── INPUT UNDERSTANDING ──
@@ -305,11 +329,12 @@ def render(input_text: str) -> Dict[str, Any]:
     # ── Canonical Investigation Object (SSOT) ──
     canonical: Dict[str, Any] = {
         "metadata": {
-            "engine_version":  "iue-2.0.0-slice-1",
+            "engine_version":  "iue-2.0.0-slice-2",
             "input_bytes":     len(src),
             "language":        env.get("language"),
         },
         "input":               {"raw": src},
+        "health":              health.to_dict(),
         "profiling":           {
             "input_type":      u_dict.get("input_type"),
             "label":           u_dict.get("label"),

@@ -95,6 +95,27 @@ def die_investigation_results(body: InvestigationResultsBody):
     return _render(body.input or "")
 
 
+class HealthBody(BaseModel):
+    input: str = Field(..., description="Raw analyst paste to health-check.")
+
+
+@router.post("/health-check")
+def die_health_check(body: HealthBody):
+    """Stage-0 · Input Health Check (IUE v2.0 · Layer 0).
+
+    Before the Input Understanding Engine classifies the paste, we
+    surface any structural problems: empty input, oversized input,
+    binary-magic detection, malformed / truncated Base64,
+    non-UTF-16LE ``-EncodedCommand`` payloads, high control-character
+    ratios, and password references.  This is deterministic and
+    non-blocking — the pipeline continues even when errors are
+    reported so analysts still receive a partial investigation.
+    """
+    from services.die.input_health import check_health as _hc
+    return {"health": _hc(body.input or "").to_dict()}
+
+
+
 
 @router.post("/powershell/ast")
 def die_powershell_ast(body: AnalyzeBody):
