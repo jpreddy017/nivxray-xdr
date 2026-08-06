@@ -132,14 +132,23 @@ def correlate(ssot: Dict[str, Any]) -> Dict[str, Any]:
     timeline          = _build_timeline(commands, ext.get("timeline") or [])
     incident_graph    = _build_incident_graph(ssot, behavior_clusters)
     completeness      = _build_completeness(ssot, ext, investigations)
+    readiness         = _build_investigation_readiness(ssot, ext, investigations, completeness)
+    gaps              = _build_investigation_gaps(ssot, ext, investigations)
+    recommendations   = _build_recommended_actions(behavior_clusters, gaps, readiness)
+    incident          = _build_incident(ssot, behavior_clusters, attack_phases,
+                                         mitre_matrix, readiness)
 
     return {
-        "behavior_clusters": behavior_clusters,
-        "attack_phases":     attack_phases,
-        "mitre_matrix":      mitre_matrix,
-        "timeline":          timeline,
-        "incident_graph":    incident_graph,
+        "incident":              incident,
+        "behavior_clusters":     behavior_clusters,
+        "attack_phases":         attack_phases,
+        "mitre_matrix":          mitre_matrix,
+        "timeline":              timeline,
+        "incident_graph":        incident_graph,
         "evidence_completeness": completeness,
+        "investigation_readiness": readiness,
+        "investigation_gaps":    gaps,
+        "recommended_actions":   recommendations,
         "totals": {
             "clusters":     len(behavior_clusters),
             "phases":       len(attack_phases),
@@ -147,6 +156,8 @@ def correlate(ssot: Dict[str, Any]) -> Dict[str, Any]:
             "timeline":     len(timeline),
             "graph_nodes":  len(incident_graph.get("nodes", [])),
             "graph_edges":  len(incident_graph.get("edges", [])),
+            "gaps":         len(gaps),
+            "recommended":  len(recommendations),
         },
     }
 
@@ -427,3 +438,188 @@ def _build_completeness(ssot: Dict[str, Any],
         "relative_count":  relative,
         "applicable":      len(applicable),
     }
+
+
+# ══════════════════════════════════════════════════════════════════
+# 4. Incident model + investigation readiness (Rule R21 · v2)
+# ══════════════════════════════════════════════════════════════════
+def _build_incident(ssot: Dict[str, Any],
+                     clusters: List[Dict[str, Any]],
+                     phases:   List[Dict[str, Any]],
+                     mitre:    List[Dict[str, Any]],
+                     readiness: Dict[str, Any]) -> Dict[str, Any]:
+    """Root incident object.  Every downstream projection (NIST IR
+    Report, Executive Dashboard, exports) reads THIS.
+
+    Deterministic scoring:
+      · severity   ← highest MITRE tactic weight in the kill chain
+                     (impact / exfiltration = critical,
+                      command_and_control / lateral_movement = high,
+                      persistence / defense_evasion = medium, else low).
+      · confidence ← ratio of high-confidence clusters × readiness %.
+      · objective  ← longest-command-cluster label (analyst-friendly).
+    """
+    ext = (ssot or {}).get("report_extraction") or {}
+    prof = ssot.get("document_profile") or {}
+    actors  = ext.get("threat_actors") or []
+    malware = ext.get("malware_families") or []
+
+    # Severity by highest tactic weight observed.
+    weight = {
+        "impact": 5, "exfiltration": 5, "credential_access": 4,
+        "command_and_control": 4, "lateral_movement": 4,
+        "privilege_escalation": 3, "persistence": 3,
+        "defense_evasion": 3, "collection": 2,
+        "discovery": 2, "execution": 2, "initial_access": 2,
+    }
+    top_w = 0
+    for p in phases:
+        top_w = max(top_w, weight.get(p["tactic"], 1))
+    severity = ("critical" if top_w >= 5 else "high" if top_w >= 4
+                else "medium" if top_w >= 3 else "low")
+
+    # Confidence: mean cluster confidence × readiness fraction.
+    conf_score = {"high": 1.0, "medium": 0.6, "low": 0.3}
+    if clusters:
+        c_mean = sum(conf_score.get(c["confidence"], 0.3) for c in clusters) / len(clusters)
+    else:
+        c_mean = 0.0
+    ready_pct = readiness.get("overall_percent", 0) / 100.0
+    confidence_pct = int(round(c_mean * (0.5 + 0.5 * ready_pct) * 100))
+
+    # Objective — best analyst-facing summary label.
+    biggest = max(clusters, key=lambda c: c["command_count"], default=None)
+    objective = biggest["label"] if biggest else "Investigation in progress"
+
+    return {
+        "id":                 "incident:root",
+        "title":              prof.get("title") or "Threat Investigation",
+        "vendor":             prof.get("vendor") or "",
+        "actor":              actors[0]["name"] if actors else None,
+        "malware":            [m["name"] for m in malware],
+        "objective":          objective,
+        "severity":           severity,
+        "confidence_percent": confidence_pct,
+        "status":             "under_investigation",
+        "tactics_observed":   [p["tactic"] for p in phases],
+        "cluster_count":      len(clusters),
+        "mitre_count":        len(mitre),
+    }
+
+
+def _build_investigation_readiness(ssot: Dict[str, Any],
+                                    ext: Dict[str, Any],
+                                    investigations: List[Dict[str, Any]],
+                                    completeness: Dict[str, Any]) -> Dict[str, Any]:
+    """Progress-bar view: how ready is this investigation for
+    reporting?  Deterministic percentages per dimension so the
+    frontend renders bars, not vague states."""
+    total_cmds = len(ext.get("commands") or [])
+    ok_cmds    = sum(1 for ci in investigations
+                       if ci.get("language") and not ci.get("error"))
+    ioc_kinds  = sum(1 for k in ("urls", "hashes", "ips", "domains")
+                       if (ext.get(k) or []) or ext.get("totals", {}).get("artifacts", 0) > 0)
+    ioc_pct    = min(100, ioc_kinds * 25)
+
+    bars = [
+        {"dim": "Commands",   "percent": int(round((ok_cmds / max(1, total_cmds)) * 100))
+                                        if total_cmds else 0,
+         "state": "complete" if total_cmds and ok_cmds == total_cmds else "partial"
+                                        if ok_cmds else "missing"},
+        {"dim": "IOCs",       "percent": ioc_pct,
+         "state": "complete" if ioc_pct >= 80 else "partial" if ioc_pct else "missing"},
+        {"dim": "Behaviors",  "percent": 100 if total_cmds else 0,
+         "state": "complete" if total_cmds else "missing"},
+        {"dim": "Timeline",   "percent": 60 if (ext.get("totals", {}).get("timeline", 0)) else 20,
+         "state": "partial" if not ext.get("totals", {}).get("timeline", 0) else "complete"},
+        {"dim": "Network",    "percent": 20,
+         "state": "partial",
+         "hint":  "Enrich URL / IP artifacts via IOC lane (Talos, XForce, VT)"},
+        {"dim": "Memory",     "percent": 0,
+         "state": "missing",
+         "hint":  "Collect a memory image from the affected host"},
+        {"dim": "EDR",        "percent": 0,
+         "state": "missing",
+         "hint":  "Pull EDR telemetry for the affected host and time window"},
+        {"dim": "Report",     "percent": 100 if total_cmds else 0,
+         "state": "complete" if total_cmds else "missing"},
+    ]
+    applicable = [b for b in bars if b["state"] != "not_available"]
+    overall = int(round(sum(b["percent"] for b in applicable) / max(1, len(applicable))))
+
+    # Recommended next step = the highest-value missing dimension.
+    weights = {"Memory": 4, "EDR": 4, "Network": 3, "Timeline": 2,
+               "IOCs":   2, "Commands": 1, "Behaviors": 1, "Report": 1}
+    missing = [b for b in bars if b["state"] in ("missing", "partial")]
+    missing.sort(key=lambda b: weights.get(b["dim"], 0), reverse=True)
+    next_step = None
+    if missing:
+        b = missing[0]
+        next_step = b.get("hint") or f"Improve `{b['dim']}` coverage"
+    return {
+        "bars":              bars,
+        "overall_percent":   overall,
+        "recommended_next":  next_step,
+        "confidence_label":  "high" if overall >= 75 else "medium" if overall >= 40 else "low",
+    }
+
+
+def _build_investigation_gaps(ssot: Dict[str, Any],
+                               ext: Dict[str, Any],
+                               investigations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Deterministic gap list — the specific evidence the analyst
+    should collect next.  Ordered by investigative value."""
+    gaps: List[Dict[str, Any]] = []
+    if not (ext.get("totals", {}).get("timeline", 0)):
+        gaps.append({"dim": "Timeline",
+                      "reason": "No article-published timeline; execution order is relative only.",
+                      "action": "Correlate command execution with EDR / process telemetry."})
+    if not (ext.get("totals", {}).get("cves", 0)):
+        gaps.append({"dim": "CVEs",
+                      "reason": "No CVEs referenced in the acquired document.",
+                      "action": "Cross-reference commands + malware against NVD / vendor advisories."})
+    if not (ext.get("totals", {}).get("yara", 0)):
+        gaps.append({"dim": "YARA",
+                      "reason": "No YARA rules published with this report.",
+                      "action": "Author internal YARA from extracted malware family + IOC set."})
+    gaps.append({"dim": "Memory",
+                  "reason": "No memory acquisition performed.",
+                  "action": "Collect memory image from affected host(s)."})
+    gaps.append({"dim": "EDR Telemetry",
+                  "reason": "No EDR telemetry ingested for this incident.",
+                  "action": "Pull EDR process / network / file events for the affected host + window."})
+    return gaps
+
+
+def _build_recommended_actions(clusters: List[Dict[str, Any]],
+                                gaps: List[Dict[str, Any]],
+                                readiness: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Analyst-facing next steps.  Deterministic — every action is
+    tied to a specific gap or behavior cluster so the analyst can
+    trace WHY it was recommended."""
+    actions: List[Dict[str, Any]] = []
+    # Top gap → immediate action.
+    if readiness.get("recommended_next"):
+        actions.append({"priority": "P1",
+                         "title":   readiness["recommended_next"],
+                         "reason":  "Highest-value evidence dimension currently missing."})
+    # Behavior-cluster-specific actions.
+    labels = {c["label"].lower() for c in clusters}
+    if any("extension" in l for l in labels):
+        actions.append({"priority": "P2",
+                         "title":   "Block malicious browser extensions in Group Policy",
+                         "reason":  "Behavior cluster indicates browser-extension persistence (T1176)."})
+    if any("self-deletion" in l for l in labels):
+        actions.append({"priority": "P2",
+                         "title":   "Enable command-line auditing (Event ID 4688 with cmdline)",
+                         "reason":  "Self-deletion cluster suggests attempts to erase execution history."})
+    if any("execution-policy bypass" in l for l in labels):
+        actions.append({"priority": "P2",
+                         "title":   "Enforce Constrained-Language mode for PowerShell",
+                         "reason":  "Execution-policy bypass observed in PowerShell command chain."})
+    for g in gaps[:2]:
+        actions.append({"priority": "P3",
+                         "title":   g["action"],
+                         "reason":  f"Investigation gap: {g['dim']}."})
+    return actions
+

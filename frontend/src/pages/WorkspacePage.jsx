@@ -88,6 +88,46 @@ import {
  */
 const SHOW_LEGACY_INVESTIGATION_SUMMARY = false;
 
+// ══════════════════════════════════════════════════════════════════
+// Synthesise a `preprocessor.stages` bundle from ICE behavior
+// clusters so the swim-lane Trajectory view renders for URL
+// investigations too.  Rule R16: this is pure projection — the
+// underlying data lives in SSOT.ice; we just re-shape it into the
+// stage envelope TrajectoryDiagram already understands.
+// ══════════════════════════════════════════════════════════════════
+const _ICE_TACTIC_LABEL = {
+  initial_access:       "Initial Access",
+  execution:            "Execution",
+  persistence:          "Persistence",
+  privilege_escalation: "Privilege Escalation",
+  defense_evasion:      "Defense Evasion",
+  credential_access:    "Credential Access",
+  discovery:            "Discovery",
+  lateral_movement:     "Lateral Movement",
+  collection:           "Collection",
+  command_and_control:  "Command and Control",
+  exfiltration:         "Exfiltration",
+  impact:               "Impact",
+};
+
+function _synthPreprocFromIce(ice) {
+  const clusters = ice?.behavior_clusters || [];
+  if (!clusters.length) return null;
+  const stages = clusters.map((c, i) => ({
+    id:              `ice-stage-${i}`,
+    title:           c.label,
+    tactic:          _ICE_TACTIC_LABEL[c.primary_tactic] || "Execution",
+    mitre:           (c.mitre || []).map(m => m.id),
+    command_family:  c.label,
+    kind:            "behavior_cluster",
+    confidence:      c.confidence === "high"   ? 0.95
+                   : c.confidence === "medium" ? 0.7
+                   :                             0.4,
+  }));
+  return { stages, process_edges: [] };
+}
+
+
 export default function WorkspacePage() {
   // ▲ 2026-02-28 · P0 Persistence — restore the last completed
   // Workspace session (input, output, and all generated panels) so
@@ -2860,11 +2900,25 @@ export default function WorkspacePage() {
               / Network·C2 / File System / Registry / Persistence) with
               per-stage nodes and coloured edges (normal · critical ·
               persistence) between them. */}
-          {inlineStoryPreproc && (
-            <div style={{ margin: "0 12px 8px" }}>
-              <TrajectoryDiagram preprocessor={inlineStoryPreproc} />
-            </div>
-          )}
+          {/* ▲ Attack Trajectory (2026-02-28 + 2026-03-01 · ICE fallback)
+              For paste-of-command inputs, uses the preprocessor stages
+              from /api/die/analyze.  For URL investigations (where the
+              paste is a link, not a command) we synthesise stages from
+              ICE.behavior_clusters so the swim-lane view renders
+              uniformly across every input class. */}
+          {(() => {
+            const iceClusters = investigationObject?.ice?.behavior_clusters;
+            const preprocForTraj = inlineStoryPreproc
+              || (iceClusters?.length
+                    ? _synthPreprocFromIce(investigationObject.ice)
+                    : null);
+            if (!preprocForTraj) return null;
+            return (
+              <div style={{ margin: "0 12px 8px" }}>
+                <TrajectoryDiagram preprocessor={preprocForTraj} />
+              </div>
+            );
+          })()}
 
           {/* ▲ Analyst Narrative (2026-02-28)
               Deterministic Executive Summary + Analyst Summary +

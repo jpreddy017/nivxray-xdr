@@ -103,7 +103,14 @@ export default function ExtractedArtifactsPanel({ investigation }) {
         </div>
       </header>
 
-      {/* ── Evidence Completeness (from ICE) ── */}
+      {/* ── Incident header (ICE.incident) ── */}
+      <IncidentHeader incident={ice?.incident} />
+
+      {/* ── Investigation Readiness — coverage bars + next step ── */}
+      <InvestigationReadiness readiness={ice?.investigation_readiness}
+                                gaps={ice?.investigation_gaps || []} />
+
+      {/* ── Evidence Completeness (state grid) ── */}
       <EvidenceCompleteness ice={ice} ext={ext} groups={groups} />
 
       {/* ══ CORRELATED EVIDENCE ══ */}
@@ -112,6 +119,9 @@ export default function ExtractedArtifactsPanel({ investigation }) {
       <BehaviorCorrelation clusters={ice?.behavior_clusters || []} />
       {/* ── Kill-Chain Phases (ICE attack_phases) ── */}
       <AttackPhases phases={ice?.attack_phases || []} />
+
+      {/* ── Recommended Actions (ICE) ── */}
+      <RecommendedActions actions={ice?.recommended_actions || []} />
 
       {/* ══ RAW EVIDENCE ══ */}
       <SectionHeading label="Raw Evidence" testid="section-raw" />
@@ -533,3 +543,175 @@ function _statusFor(groupKey, item, extra) {
   // they are their own investigation (atomic IOC).
   return { glyph: "✓", label: "EXTRACTED", color: "#3ddc84" };
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// Incident Header — the analyst's single line of the incident.
+// ══════════════════════════════════════════════════════════════════
+function IncidentHeader({ incident }) {
+  if (!incident) return null;
+  const sevColor = {
+    critical: "#ff6b6b", high: "#ffb347",
+    medium:   "#ffd66b", low:  "#7ee6a8",
+  }[incident.severity] || "#8ba598";
+
+  return (
+    <div data-testid="incident-header"
+         style={{ marginBottom: 12,
+                   padding: "10px 12px",
+                   border: `1px solid ${sevColor}55`,
+                   borderLeft: `4px solid ${sevColor}`,
+                   borderRadius: 4,
+                   background: "rgba(0, 40, 22, 0.35)" }}>
+      <div style={{ display: "flex", alignItems: "baseline",
+                     justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 10, letterSpacing: 1.5,
+                         color: sevColor, opacity: 0.85 }}>
+            INCIDENT · {(incident.severity || "").toUpperCase()}
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#e6ffe9",
+                         marginTop: 2 }}>
+            {incident.title}
+          </div>
+          <div style={{ fontSize: 11, color: "#96c9aa", marginTop: 3 }}>
+            {incident.actor && <><b style={{ color: "#ffe0b3" }}>{incident.actor}</b> · </>}
+            {incident.objective}
+          </div>
+        </div>
+        <div style={{ textAlign: "right", fontSize: 11, color: "#96c9aa" }}>
+          <div>
+            <span style={{ color: sevColor, fontSize: 18, fontWeight: 700 }}>
+              {incident.confidence_percent}%
+            </span>
+            <span style={{ marginLeft: 6 }}>confidence</span>
+          </div>
+          <div style={{ marginTop: 4, opacity: 0.85 }}>
+            {incident.cluster_count} behaviors · {incident.mitre_count} MITRE
+          </div>
+          <div style={{ marginTop: 2, fontSize: 10, letterSpacing: 1,
+                         color: "#7ee6a8" }}>
+            {(incident.status || "").replace(/_/g, " ").toUpperCase()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// Investigation Readiness — progress bars + recommended next step.
+// ══════════════════════════════════════════════════════════════════
+function InvestigationReadiness({ readiness, gaps }) {
+  if (!readiness?.bars?.length) return null;
+  return (
+    <div data-testid="investigation-readiness"
+         style={{ marginBottom: 14,
+                   padding: "10px 12px",
+                   border: "1px solid rgba(126, 230, 168, 0.22)",
+                   borderRadius: 4,
+                   background: "rgba(0, 40, 22, 0.30)" }}>
+      <div style={{ fontSize: 11, color: "#7ee6a8",
+                     letterSpacing: 1.4, marginBottom: 6,
+                     display: "flex", justifyContent: "space-between" }}>
+        <span>▸ INVESTIGATION READINESS</span>
+        <span data-testid="readiness-overall">
+          {readiness.overall_percent}% · {(readiness.confidence_label || "").toUpperCase()}
+        </span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr",
+                     gap: 4, fontSize: 11 }}>
+        {readiness.bars.map(b => (
+          <ReadinessBar key={b.dim} bar={b} />
+        ))}
+      </div>
+      {readiness.recommended_next && (
+        <div style={{ marginTop: 10, padding: "6px 8px",
+                       border: "1px solid rgba(255, 214, 107, 0.42)",
+                       borderRadius: 3,
+                       background: "rgba(60, 40, 10, 0.35)",
+                       fontSize: 11, color: "#ffe0b3" }}
+             data-testid="readiness-next">
+          <span style={{ letterSpacing: 1.2, fontSize: 9, marginRight: 6 }}>
+            NEXT STEP →
+          </span>
+          {readiness.recommended_next}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReadinessBar({ bar }) {
+  const barColor = bar.state === "complete" ? "#3ddc84"
+                 : bar.state === "partial"  ? "#ffd66b"
+                 :                             "#8ba598";
+  return (
+    <div data-testid={`ready-${bar.dim.toLowerCase()}`}
+         style={{ padding: "3px 6px",
+                   display: "grid",
+                   gridTemplateColumns: "80px 1fr 40px",
+                   gap: 6, alignItems: "center" }}>
+      <span style={{ fontSize: 10, color: "#96c9aa" }}>{bar.dim}</span>
+      <span style={{ position: "relative", height: 8,
+                      background: "rgba(126, 230, 168, 0.12)",
+                      borderRadius: 2, overflow: "hidden" }}>
+        <span style={{ position: "absolute", top: 0, left: 0, bottom: 0,
+                        width: `${bar.percent}%`, background: barColor }}/>
+      </span>
+      <span style={{ fontSize: 10, color: barColor, textAlign: "right" }}>
+        {bar.percent}%
+      </span>
+    </div>
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// Recommended Actions — deterministic next steps from ICE.
+// ══════════════════════════════════════════════════════════════════
+function RecommendedActions({ actions }) {
+  if (!actions?.length) return null;
+  return (
+    <div data-testid="recommended-actions"
+         style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 11, color: "#7ee6a8",
+                     letterSpacing: 1.4, marginBottom: 8 }}>
+        ▸ RECOMMENDED ACTIONS ({actions.length})
+      </div>
+      <ul style={{ margin: 0, padding: 0, listStyle: "none",
+                    display: "flex", flexDirection: "column", gap: 6 }}>
+        {actions.map((a, i) => (
+          <li key={i} data-testid={`recommended-action-${i}`}
+              style={{ display: "grid",
+                        gridTemplateColumns: "40px 1fr",
+                        gap: 10, padding: "6px 8px",
+                        border: "1px solid rgba(126, 230, 168, 0.18)",
+                        borderRadius: 3,
+                        background: "rgba(0, 40, 22, 0.3)" }}>
+            <span style={{ fontSize: 10, letterSpacing: 1,
+                            color: _prioColor(a.priority),
+                            border: `1px solid ${_prioColor(a.priority)}`,
+                            borderRadius: 2,
+                            padding: "1px 4px",
+                            textAlign: "center",
+                            alignSelf: "start" }}>{a.priority}</span>
+            <div>
+              <div style={{ fontSize: 12, color: "#e6ffe9" }}>{a.title}</div>
+              <div style={{ fontSize: 10, color: "#96c9aa", marginTop: 2 }}>
+                {a.reason}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+function _prioColor(p) {
+  if (p === "P1") return "#ff9a9a";
+  if (p === "P2") return "#ffd66b";
+  return                 "#7ee6a8";
+}
+

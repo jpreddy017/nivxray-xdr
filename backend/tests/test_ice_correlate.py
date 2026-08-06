@@ -98,6 +98,29 @@ def test_correlate_produces_behavior_clusters_and_phases():
     assert dims["YARA"]     == "missing"
     assert 0 <= ec["overall_percent"] <= 100
 
+    # ── ICE v2 additions ──
+    incident = ice["incident"]
+    assert incident["actor"] == "UNC6692"
+    assert "Edgecution" in incident["malware"]
+    assert incident["severity"] in ("low", "medium", "high", "critical")
+    assert 0 <= incident["confidence_percent"] <= 100
+    assert incident["status"] == "under_investigation"
+
+    ready = ice["investigation_readiness"]
+    bar_dims = {b["dim"] for b in ready["bars"]}
+    assert {"Commands", "IOCs", "Behaviors", "Timeline",
+             "Network", "Memory", "EDR", "Report"}.issubset(bar_dims)
+    assert 0 <= ready["overall_percent"] <= 100
+    assert ready["recommended_next"], "readiness must always recommend a next step"
+
+    assert len(ice["investigation_gaps"]) >= 2
+    for gap in ice["investigation_gaps"]:
+        assert gap["dim"] and gap["reason"] and gap["action"]
+
+    assert len(ice["recommended_actions"]) >= 1
+    prios = {a["priority"] for a in ice["recommended_actions"]}
+    assert "P1" in prios, "highest-priority action must exist"
+
 
 def test_correlate_empty_investigation_is_safe():
     """Correlator on a non-URL / plain-text investigation must return
