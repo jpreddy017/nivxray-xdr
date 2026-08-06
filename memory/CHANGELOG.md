@@ -3374,3 +3374,43 @@ migration happened.
 Tests: 4 new R8 contract tests (URL→hosted_on, command→downloads,
 article→references→CVE, no-forbidden-reasoning-verbs). **All 23 tests
 pass** (10 IEP contract + 13 adapter 3A).
+
+## 2026-02-06 · Architecture v1.0 FINAL freeze
+
+User approved final architectural freeze.  Key decisions landed:
+
+**Rule #1 (Prime Directive)** — codified verbatim in the architecture
+doc:  "All downstream investigation engines operate exclusively on
+Investigation Evidence Packages (IEPs).  No engine may directly parse
+raw input formats.  Every new evidence type is integrated by
+implementing an adapter that emits a valid IEP, without modifying the
+Workspace, Investigation Orchestrator, IDA, DIE, ICE, or the Evidence
+Reasoning Engine."
+
+**Relationship model — Enum + UNKNOWN escape hatch** (not CI allow-list)
+- New `RelationshipType` enum in `backend/models/iep.py` with 23
+  canonical verbs grouped by intent (containment, data movement,
+  execution, code linkage, network, referential, identity, unknown)
+- `IEPRelationship.verb` is now `RelationshipType`
+- `IEPRelationship.original_relationship` new field preserves adapter
+  intent when the label isn't in the enum yet
+- String → enum coercion is automatic; unknown labels coerce to
+  `RelationshipType.UNKNOWN` (never break deserialization)
+- 5 new contract tests: enum accepted, string accepted, UNKNOWN
+  fallback, JSON round-trip, doc-vs-enum coverage.  All 28 tests pass.
+
+**Resource Protection Policy** — frozen for Phase 4 orchestrator:
+max recursion depth, max extracted members, max expanded archive size,
+max child IEPs, max execution timeout, max nested archive depth.
+
+**Cycle Detection** — mandatory in Phase 4: SHA-256-based dedup,
+emits `IEPWarning(code="cycle_detected")`, protects against ZIP loops,
+nested EML loops, symbolic-link loops, repeated attachment processing.
+
+**Adapter expansion scope frozen** — PDF adds embedded files, JS,
+launch actions, annotations, forms, digital signatures; DOCX adds
+comments, tracked changes, macros, embedded OLE, external templates;
+EML gets SPF/DKIM/DMARC + attachment recursion as flagship value; ZIP
+stays hierarchical, never flattened.
+
+Architecture is now frozen.  All remaining work is execution.

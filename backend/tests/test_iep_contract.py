@@ -156,3 +156,53 @@ def test_confidence_bounds_enforced():
         IEPArtifact(type="url", value="https://x", confidence=1.5)
     with pytest.raises(Exception):
         IEPArtifact(type="url", value="https://x", confidence=-0.1)
+
+
+# ─── RelationshipType — Enum + UNKNOWN escape hatch ────────────────────
+from models import RelationshipType
+
+
+def test_relationship_verb_accepts_enum():
+    rel = IEPRelationship(from_ref="a", to_ref="b",
+                            verb=RelationshipType.DOWNLOADS)
+    assert rel.verb == RelationshipType.DOWNLOADS
+
+
+def test_relationship_verb_accepts_matching_string():
+    rel = IEPRelationship(from_ref="a", to_ref="b", verb="downloads")
+    assert rel.verb == RelationshipType.DOWNLOADS
+
+
+def test_relationship_unknown_verb_falls_back_to_UNKNOWN():
+    """User directive 2026-02-06 — unknown verbs must coerce to
+    RelationshipType.UNKNOWN, never break deserialization."""
+    rel = IEPRelationship(
+        from_ref="a", to_ref="b",
+        verb="calls_api",                          # not in enum
+        original_relationship="calls_api",
+    )
+    assert rel.verb == RelationshipType.UNKNOWN
+    assert rel.original_relationship == "calls_api"
+
+
+def test_relationship_json_roundtrip_with_enum():
+    rel = IEPRelationship(from_ref="a", to_ref="b", verb="hosted_on")
+    raw = rel.model_dump_json()
+    back = IEPRelationship.model_validate_json(raw)
+    assert back.verb == RelationshipType.HOSTED_ON
+
+
+def test_relationship_enum_covers_all_documented_verbs():
+    """Every verb the frozen doc lists must exist in the enum."""
+    documented = {
+        "contains", "attaches", "embeds", "extracted_from",
+        "downloads", "uploads", "writes", "reads",
+        "executes", "spawns", "loads", "injects",
+        "imports", "exports", "calls",
+        "hosted_on", "resolves_to", "connects_to",
+        "references", "mentions", "attributed_to",
+        "signed_by", "trusts", "unknown",
+    }
+    enum_values = {r.value for r in RelationshipType}
+    missing = documented - enum_values
+    assert not missing, f"enum missing documented verbs: {missing}"

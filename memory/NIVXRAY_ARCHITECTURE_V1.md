@@ -208,28 +208,51 @@ richer without any reasoning-engine involvement (R8):
 - ZIP → `contains` → EXE
 - `curl.exe` → `downloads` → `update_ms.msi`
 
+**Relationship model** — the ``verb`` field on every
+:class:`IEPRelationship` uses the authoritative ``RelationshipType``
+enum (see ``backend/models/iep.py``).  Adapters may emit either the
+enum value or its lowercase string equivalent; unknown labels coerce
+to ``RelationshipType.UNKNOWN`` and record their original label in
+``original_relationship``.  This preserves forward compatibility
+without free-form verb sprawl and gives IDE autocomplete + runtime
+validation everywhere.
+
+**Frozen verb set** (grouped by intent — extend the enum, never
+introduce free-form strings):
+
+  - Containment / composition — ``CONTAINS``, ``ATTACHES``, ``EMBEDS``, ``EXTRACTED_FROM``
+  - Data movement — ``DOWNLOADS``, ``UPLOADS``, ``WRITES``, ``READS``
+  - Execution — ``EXECUTES``, ``SPAWNS``, ``LOADS``, ``INJECTS``
+  - Code linkage — ``IMPORTS``, ``EXPORTS``, ``CALLS``
+  - Network — ``HOSTED_ON``, ``RESOLVES_TO``, ``CONNECTS_TO``
+  - Referential — ``REFERENCES``, ``MENTIONS``, ``ATTRIBUTED_TO``
+  - Identity / signing — ``SIGNED_BY``, ``TRUSTS``
+  - Escape hatch — ``UNKNOWN`` (+ ``original_relationship``)
+
 **ZIP recursion policy** — a ZIP MUST NEVER produce one huge IEP.
 Instead the ZIP adapter emits a parent inventory IEP plus one child IEP
-per member.  Every child is investigated independently:
-
-```
-invoice.zip → Parent IEP (inventory + relationships)
-               ├── PDF IEP  (child)
-               ├── JS  IEP  (child)
-               └── PNG IEP  (child)
-```
+per member.  Every child is investigated independently.  Nesting is
+preserved (`invoice.zip → child.zip → child.exe`) up to the Resource
+Protection Policy limits.
 
 Order within Phase 3 (deterministic-first, OCR last):
 
 #### Phase 3A · Deterministic Adapters
 1. Text (pass-through)
 2. URL (leverages existing `acquisition.py`)
-3. PDF (pdfplumber + PyMuPDF)
-4. DOCX (python-docx)
+3. PDF (pdfplumber + PyMuPDF) — also extracts embedded files, embedded
+   JavaScript, launch actions, annotations, forms, digital signatures,
+   embedded fonts (optional), embedded images
+4. DOCX (python-docx) — also comments, tracked changes, custom
+   properties, document properties, external template references,
+   embedded OLE, macros (.docm), embedded packages
 
 #### Phase 3B · Recursive Evidence  *(proves the recursion pipeline)*
-5. EML (email.parser + attachment recursion — phishing / header / SPF / DKIM / DMARC value)
-6. ZIP (inventory + child-IEP recursion)
+5. EML — flagship differentiator.  Pipeline:
+   `header parsing → SPF → DKIM → DMARC → Received chain → URLs →
+   attachments → each attachment becomes a child IEP → recursive
+   investigation → unified Investigation Summary`.
+6. ZIP (inventory + child-IEP recursion, hierarchical — no flattening)
 
 #### Phase 3C · Visual Evidence  *(only introduced after 3A + 3B are proven)*
 7. Image (Tesseract OCR + EXIF + layout + diagram parsing)
@@ -243,6 +266,18 @@ deterministic adapters first isolates OCR-specific issues.
 - [ ] Validate → normalize → deduplicate artifacts
 - [ ] Schedule recursive investigations, control recursion depth, merge results
 - [ ] The traffic controller of the platform
+- [ ] Enforces the **Resource Protection Policy** (frozen):
+  - Maximum recursion depth
+  - Maximum extracted members (per archive)
+  - Maximum expanded archive size (bytes)
+  - Maximum child IEPs (per investigation)
+  - Maximum execution timeout (per adapter, per orchestrator run)
+  - Maximum nested archive depth
+- [ ] **Cycle detection** (mandatory): SHA-256 of every child input is
+      tracked; a repeat hash short-circuits recursion, emits an
+      `IEPWarning(code="cycle_detected")`, and continues the rest of
+      the investigation.  Guards ZIP loops, nested EML loops,
+      symbolic-link loops, and repeated attachment processing.
 
 ### Phase 5 — Evidence Validator
 Own phase because it protects the recursive engine.

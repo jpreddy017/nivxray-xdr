@@ -25,9 +25,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Literal, Optional
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ─── Schema version ────────────────────────────────────────────────────
@@ -38,6 +39,61 @@ IEP_SCHEMA_VERSION = "1.0.0"
 # Deliberately open string types so adapters can emit new sources /
 # artifact families without a Pydantic bump — the validator (Phase 5)
 # will constrain acceptance later.
+
+
+class RelationshipType(str, Enum):
+    """Authoritative enum of relationship verbs adapters may emit — R8.
+
+    Frozen 2026-02-06.  New verbs must be added here (never as free-form
+    strings on relationships).  If an adapter needs to describe an
+    edge that isn't in the enum yet, it emits :attr:`UNKNOWN` and
+    stores the intended label in
+    :attr:`IEPRelationship.original_relationship`.
+
+    Grouped by intent:
+
+      Containment / composition — CONTAINS, ATTACHES, EMBEDS, EXTRACTED_FROM
+      Data movement            — DOWNLOADS, UPLOADS, WRITES, READS
+      Execution                — EXECUTES, SPAWNS, LOADS, INJECTS
+      Code linkage             — IMPORTS, EXPORTS, CALLS
+      Network                  — HOSTED_ON, RESOLVES_TO, CONNECTS_TO
+      Referential              — REFERENCES, MENTIONS, ATTRIBUTED_TO
+      Identity / signing       — SIGNED_BY, TRUSTS
+    """
+
+    # Containment / composition
+    CONTAINS         = "contains"
+    ATTACHES         = "attaches"
+    EMBEDS           = "embeds"
+    EXTRACTED_FROM   = "extracted_from"
+    # Data movement
+    DOWNLOADS        = "downloads"
+    UPLOADS          = "uploads"
+    WRITES           = "writes"
+    READS            = "reads"
+    # Execution
+    EXECUTES         = "executes"
+    SPAWNS           = "spawns"
+    LOADS            = "loads"
+    INJECTS          = "injects"
+    # Code linkage
+    IMPORTS          = "imports"
+    EXPORTS          = "exports"
+    CALLS            = "calls"
+    # Network
+    HOSTED_ON        = "hosted_on"
+    RESOLVES_TO      = "resolves_to"
+    CONNECTS_TO      = "connects_to"
+    # Referential (article / report structural signals)
+    REFERENCES       = "references"
+    MENTIONS         = "mentions"
+    ATTRIBUTED_TO    = "attributed_to"
+    # Identity / signing
+    SIGNED_BY        = "signed_by"
+    TRUSTS           = "trusts"
+    # Forward-compatibility escape hatch — see IEPRelationship docstring.
+    UNKNOWN          = "unknown"
+
 
 InputKind = Literal[
     # Text / structured
@@ -179,15 +235,44 @@ class IEPRelationship(BaseModel):
     and the correlation engine.
 
     Example: `curl.exe --downloads→ https://x/y.msi`
+
+    ``verb`` uses the authoritative :class:`RelationshipType` enum.  If
+    an adapter needs to describe an edge that isn't yet in the enum,
+    it MUST emit ``verb=RelationshipType.UNKNOWN`` and record the
+    original label in ``original_relationship``.  This preserves
+    forward compatibility without free-form sprawl (per user
+    directive 2026-02-06).
     """
 
     from_ref:  str = Field(description="Artifact id or artifact value the edge starts from")
     to_ref:    str = Field(description="Artifact id or artifact value the edge ends at")
-    verb:      str = Field(description="Verb: 'downloads', 'executes', 'writes', 'loads', 'exports', 'connects_to', ...")
+    verb:      "RelationshipType" = Field(
+        description="Canonical relationship type — see RelationshipType.",
+    )
+    original_relationship: Optional[str] = Field(
+        default=None,
+        description="When verb=UNKNOWN, the free-form label the adapter "
+                    "wanted to emit (e.g. `calls_api`, `pins_certificate`).",
+    )
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     source_ref: Optional[str] = None
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", use_enum_values=False)
+
+    # Accept plain strings for `verb` — coerce into the enum, falling
+    # back to UNKNOWN + original_relationship so adapters can pass
+    # either shape safely.
+    @field_validator("verb", mode="before")
+    @classmethod
+    def _coerce_verb(cls, v: Any) -> "RelationshipType":
+        if isinstance(v, RelationshipType):
+            return v
+        if isinstance(v, str):
+            try:
+                return RelationshipType(v.lower())
+            except ValueError:
+                return RelationshipType.UNKNOWN
+        return RelationshipType.UNKNOWN
 
 
 class IEPWarning(BaseModel):

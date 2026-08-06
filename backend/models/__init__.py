@@ -13,6 +13,7 @@ from .iep import (
     IEPSource,
     IEPStatistics,
     IEPWarning,
+    RelationshipType,
     make_iep,
 )
 
@@ -26,5 +27,6 @@ __all__ = [
     "IEPSource",
     "IEPStatistics",
     "IEPWarning",
+    "RelationshipType",
     "make_iep",
 ]
