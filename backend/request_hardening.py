@@ -43,6 +43,8 @@ _MAX_BODY_BYTES    = 512 * 1024
 # They have their OWN per-command guardrails, so we raise the middleware
 # ceiling for these paths only.
 _LARGE_BODY_PATHS  = (
+    "/api/upload",                  # universal file upload (image/pdf/docx/eml/zip)
+    "/api/documents/upload",        # explicit document upload
     "/api/v2/auto-investigate",
     "/api/v2/report-writer/",
     "/api/v2/ingestion/",
