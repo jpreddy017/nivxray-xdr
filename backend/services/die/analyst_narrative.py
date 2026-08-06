@@ -94,7 +94,7 @@ _RECOMMENDATIONS = {
     "host-discovery":           "Correlate discovery commands with initial-access indicators from the same session.",
     "session-discovery":        "Investigate the parent process — `quser` is a lateral-movement precursor.",
     "persistence-scheduled-task": "Enumerate all scheduled tasks created in the last 24h; remove any authored by non-service accounts.",
-    "registry-modification":    "Roll back UAC / Defender registry keys; alert on further modifications to `HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender`.",
+    "registry-modification":    "Roll back the modified registry values; alert on further writes to `HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender` and `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings`.",
     "software-uninstall":       "Investigate WMIC product uninstall attempts — likely targeting security software.",
     "msi-install":              "Block unsigned MSI execution via AppLocker / WDAC; audit `msiexec` events.",
     "sync-rclone-style":        "Block rclone binaries and known cloud storage endpoints; hunt for large egress from workstations.",
@@ -104,7 +104,26 @@ _RECOMMENDATIONS = {
     "uac-disable":              "Restore UAC / Defender configuration; hunt for tampered `EnableLUA`, `DisableAntiSpyware`.",
     "log-clearing":             "Enable centralised event forwarding (WEF/WEC) so cleared local logs are already off-host.",
     "initial-access-social":    "Educate users on Microsoft Teams / Quick Assist social-engineering; restrict Quick Assist via GPO.",
+    # ── 2026-03-01 · behavioural families for deployment / execution workflows ──
+    "proxy-tamper":             "Restore the enterprise proxy / PAC configuration and alert on writes to `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings` (ProxyEnable / ProxyServer / AutoConfigURL) and calls to `InternetSetOption(37|39)` — attackers use this to bypass corporate network monitoring.",
+    "archive-extraction":       "Alert on `tar.exe -x`, `7z x`, and `Expand-Archive` executions writing to unusual user-profile paths (e.g. `%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\`); correlate the archive origin with recent file downloads.",
+    "portable-runtime-deploy":  "Block portable language runtimes (embedded Python / Node / Ruby) in user-profile directories; enforce WDAC / AppLocker rules so only signed system runtimes execute.",
+    "runtime-verification":     "Investigate `python --version` / `node --version` invocations from non-developer workstations — a legitimate user rarely probes an unexpected runtime.",
+    "browser-extension-load":   "Block `--load-extension=` on managed browsers via Edge/Chrome enterprise policy; audit ExtensionInstallForcelist + ExtensionInstallAllowlist for unsanctioned entries.",
+    "browser-headless-launch":  "Alert on `--headless` browser launches spawned by non-developer parent processes; correlate with recent `--load-extension` and unusual `user-data-dir` paths.",
+    "installer-cleanup":        "Preserve `Prefetch`, `AmCache`, and `USN Journal` before the host is rebooted — `cmd /c timeout & del` and `Remove-Item -Force -Recurse` sequences are designed to erase installer forensics.",
+    "process-enumeration":      "Correlate `Get-CimInstance Win32_Process` / `Get-Process` / `tasklist` output with subsequent lateral-movement or credential-access activity from the same session.",
+    "powershell-execution-policy-bypass": "Alert on `-ExecutionPolicy Bypass` invocations from non-admin sessions; enforce Constrained Language Mode via WDAC where feasible.",
 }
+
+
+# Broad recommendations always emitted for deployment / execution
+# workflows (portable runtime + browser extension + cleanup + PS bypass).
+_DEPLOYMENT_UNIVERSAL_ACTIONS = [
+    "Preserve the host's Prefetch, AmCache, ShimCache, and Edge/Chrome user-data-dir before any reboot or reimage — installer-cleanup steps in the chain will erase evidence.",
+    "Snapshot the affected user's browser Extensions folder and every unpacked `--load-extension=` target for offline reverse engineering.",
+    "Hunt for the same `--user-data-dir` / `--load-extension` combination across the fleet to identify all victims of the same campaign.",
+]
 
 
 # Broad recommendations always emitted for ransomware-adjacent flows.
@@ -211,6 +230,30 @@ def generate(pre_bundle: Dict[str, Any]) -> Dict[str, Any]:
         for a in _RANSOMWARE_UNIVERSAL_ACTIONS:
             if a not in actions:
                 actions.append(a)
+
+    # Deployment / execution universal add-ons.
+    deployment_signal = any(fam in {
+        "portable-runtime-deploy", "browser-extension-load",
+        "browser-headless-launch", "installer-cleanup",
+        "powershell-execution-policy-bypass"} for fam in families_uniq)
+    if deployment_signal:
+        for a in _DEPLOYMENT_UNIVERSAL_ACTIONS:
+            if a not in actions:
+                actions.append(a)
+
+    # Universal analyst hygiene — always include when we have ANY
+    # meaningful stage.  These are the minimum bar recommendations
+    # that never depend on a specific family.
+    if families_uniq and not actions:
+        actions.append(
+            "Isolate the host from the network until the investigation "
+            "concludes; preserve endpoint memory + disk images for forensic "
+            "root-cause analysis."
+        )
+        actions.append(
+            "Correlate every observed command with the parent process, user, "
+            "and preceding sign-in events from the same session."
+        )
 
     # ── Threat-actor context (union of "commonly observed in") ──
     observed = OrderedDict()
