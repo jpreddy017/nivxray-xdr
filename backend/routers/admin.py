@@ -324,3 +324,25 @@ async def get_lolbas_status(user=Depends(require_admin)):
 async def sync_lolbas_catalog(user=Depends(require_admin)):
     """Force-refresh the LOLBAS catalog from lolbas-project.github.io."""
     return await lolbas_refresh(db)
+
+
+
+# ============================================================================
+# LLM Telemetry (observability only — no architectural change)
+# ============================================================================
+@router.get("/admin/llm-telemetry")
+async def get_llm_telemetry(user=Depends(require_admin)):
+    """Snapshot of in-process LLM call counters.
+
+    Use this to spot event-loop starvation (in_flight climbs but
+    completed_total stalls) or runaway loops (started_total rises while the
+    UI is idle).
+    """
+    from utils.llm_telemetry import snapshot
+    out = snapshot()
+    try:
+        from llm_decoder import l3_rate_snapshot
+        out["l3_rate_limiter"] = l3_rate_snapshot()
+    except Exception:
+        pass
+    return out

@@ -338,9 +338,11 @@ async def benchmark_one(db, sid: str, smart_decode_fn, magic_decode_fn) -> Dict[
 
     engines: Dict[str, Any] = {}
 
-    # Smart Decoder
+    # Smart Decoder — sync + CPU-heavy → offload to thread to keep the
+    # FastAPI event loop responsive while the benchmark loop runs.
     try:
-        smart_r = smart_decode_fn(raw)
+        import asyncio as _asyncio
+        smart_r = await _asyncio.to_thread(smart_decode_fn, raw)
         smart_out = smart_r.get("output") or ""
         engines["smart"] = {
             "output_preview": smart_out[:600],
@@ -350,9 +352,13 @@ async def benchmark_one(db, sid: str, smart_decode_fn, magic_decode_fn) -> Dict[
     except Exception as e:
         engines["smart"] = {"error": str(e), "passed": False}
 
-    # Magic Decoder
+    # Magic Decoder — sync + CPU-heavy (may also fire LLM fallbacks) →
+    # offload to thread. See benchmark_all docstring.
     try:
-        magic_r = magic_decode_fn(raw, max_depth=4, max_branches=4, top_n=3)
+        import asyncio as _asyncio
+        magic_r = await _asyncio.to_thread(
+            magic_decode_fn, raw, max_depth=4, max_branches=4, top_n=3
+        )
         # Consider magic a "pass" if ANY of its top_results contains expected_output
         passed = False
         best_hit = None
@@ -393,7 +399,16 @@ async def benchmark_one(db, sid: str, smart_decode_fn, magic_decode_fn) -> Dict[
 
 
 async def benchmark_all(db, smart_decode_fn, magic_decode_fn) -> Dict[str, Any]:
-    """Run every enabled sample and produce a per-category coverage dashboard."""
+    """Run every enabled sample and produce a per-category coverage dashboard.
+
+    Event-loop safety: `benchmark_one` invokes SYNCHRONOUS CPU-heavy decoders
+    (smart_decode / magic_decode) that can each take several seconds. Running
+    them directly inside this coroutine would block the FastAPI event loop
+    for the entire benchmark (~30–40 min on a full corpus) and starve every
+    other endpoint. We hand each sample off to a worker thread via
+    ``asyncio.to_thread`` so the loop stays responsive.
+    """
+    import asyncio as _asyncio
     all_samples = await list_samples(db)
     if not all_samples:
         return {"total": 0, "passed": 0, "failed": 0, "coverage": {}, "results": []}
@@ -401,7 +416,14 @@ async def benchmark_all(db, smart_decode_fn, magic_decode_fn) -> Dict[str, Any]:
     results: List[Dict[str, Any]] = []
     for s in all_samples:
         try:
+            # `benchmark_one` itself is async but the heavy work inside is
+            # sync. We could refactor benchmark_one, but the cheapest
+            # zero-risk fix is to yield control back to the loop between
+            # samples so queued API requests can execute.
             r = await benchmark_one(db, s["id"], smart_decode_fn, magic_decode_fn)
+            # Cooperative yield so any queued request (e.g. /api/auth/login)
+            # can be serviced between heavy samples.
+            await _asyncio.sleep(0)
         except Exception as e:
             r = {"sample_id": s["id"], "name": s["name"], "categories": s.get("categories") or [],
                  "overall_pass": False, "error": str(e)}

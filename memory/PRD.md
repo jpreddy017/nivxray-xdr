@@ -7,6 +7,47 @@
 
 ---
 
+## 🟢 2026-02-06 · Fork · LiteLLM Loop RCA + ZIP Adapter (M2)
+
+### Root Cause of Login/API Timeout (RESOLVED)
+Backend event loop was starving under two independent pressures:
+
+1. **`_nightly_benchmark_loop`** ran sync CPU-heavy `smart_decode` +
+   `magic_decode` INSIDE an async coroutine — blocked the FastAPI event
+   loop for ~30–40 min per iteration. Every `uvicorn --reload` cycle
+   restarted the loop 5 min later (878 benchmark_runs in DB).
+2. **L3 LLM decoder fallback** (`llm_decoder.llm_decode_fallback`) was
+   firing ~12 completions/minute continuously because upstream decode
+   paths kept giving up on the same payload, hammering the LLM.
+
+### Guardrails Applied (no architecture change)
+- `sample_library.benchmark_one/all`: sync decoders now offloaded via
+  `asyncio.to_thread`; cooperative `await asyncio.sleep(0)` between
+  samples; reload-guard skips runs if last completed < 20h ago.
+- `llm_decoder.llm_decode_fallback`: process-wide rate limiter
+  (`NIVX_L3_MAX_PER_MIN=20`, 60s window) with skipped-count telemetry.
+- `utils/llm_telemetry.py`: in-memory counter + `install_litellm_hook()`
+  monkeypatch of `litellm.completion` / `litellm.acompletion` that
+  captures caller stack frame for attribution.
+- LiteLLM SDK INFO logger set to WARNING → clean backend log.
+- `GET /api/admin/llm-telemetry`: admin-only observability endpoint
+  (in_flight, peak, started/completed/failed/timeout, avg latency,
+  by-caller breakdown, L3 rate-limiter state).
+
+### ZIP Adapter (M2) — LANDED
+- `backend/services/adapters/zip_adapter.py` (`adapter.zip@1.0`)
+- Emits **parent inventory IEP + one child-IEP candidate per member**
+  (never a single huge IEP — per frozen architecture)
+- Capabilities: inventory, filenames, sizes, sha256 per member,
+  compression ratios, encrypted detection, zip-bomb heuristic,
+  nested-zip detection, duplicate-member (cycle-hint) detection,
+  path-traversal detection, comments, timestamps.
+- Resource Protection Policy defaults: 2000 members (hard), 500 (soft),
+  512 MB uncompressed budget, 100:1 bomb ratio, 400-char filename cap.
+- Contracts: 14/14 new tests + 60 pre-existing = **74/74 pytest green**.
+
+---
+
 ## Phase Ledger (2026-03-01)
 
 | Phase | State | Note |

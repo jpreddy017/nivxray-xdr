@@ -15,6 +15,9 @@ Guarantees
 ----------
 * Time-boxed: cancels after 10 s. Falls back to deterministic empty output.
 * Cost-gated: skipped when EMERGENT_LLM_KEY is absent — L3 becomes a no-op.
+* Rate-limited: at most ``NIVX_L3_MAX_PER_MIN`` calls per 60-second window
+  process-wide (default 20). Prevents a runaway upstream loop from firing
+  hundreds of Claude completions and starving the event loop.
 * Non-recursive: L3 cannot call itself, cannot re-enter smart/magic.
 * Idempotent: pure function, no DB writes.
 
@@ -29,6 +32,46 @@ import os
 import re
 import threading
 import time
+from collections import deque
+
+# ─── Rate limiter (process-wide) ─────────────────────────────────────
+# When upstream code keeps calling ``llm_decode_fallback`` faster than
+# Claude can respond, we accumulate an unbounded backlog of pending
+# completions. Cap the rate here so a runaway loop is capped at a
+# knowable maximum spend/latency footprint.
+_L3_RATE_LOCK        = threading.Lock()
+_L3_RECENT_CALL_TS: deque = deque()   # unix timestamps of recent starts
+_L3_SKIPPED_TOTAL    = 0
+_L3_MAX_PER_MIN      = int(os.environ.get("NIVX_L3_MAX_PER_MIN", "20"))
+_L3_RATE_WINDOW_S    = 60.0
+
+
+def _acquire_l3_slot() -> bool:
+    """Return True if we're allowed to fire an L3 completion, False when
+    we've saturated the rate window. Always O(1)."""
+    global _L3_SKIPPED_TOTAL
+    now = time.time()
+    with _L3_RATE_LOCK:
+        # Drop timestamps that fell out of the window.
+        while _L3_RECENT_CALL_TS and now - _L3_RECENT_CALL_TS[0] > _L3_RATE_WINDOW_S:
+            _L3_RECENT_CALL_TS.popleft()
+        if len(_L3_RECENT_CALL_TS) >= _L3_MAX_PER_MIN:
+            _L3_SKIPPED_TOTAL += 1
+            return False
+        _L3_RECENT_CALL_TS.append(now)
+        return True
+
+
+def l3_rate_snapshot() -> dict:
+    """Small telemetry blob so the admin dashboard can see the limiter's
+    state."""
+    with _L3_RATE_LOCK:
+        return {
+            "calls_in_window": len(_L3_RECENT_CALL_TS),
+            "window_seconds":  _L3_RATE_WINDOW_S,
+            "max_per_window":  _L3_MAX_PER_MIN,
+            "skipped_total":   _L3_SKIPPED_TOTAL,
+        }
 
 
 def _run_async_on_dedicated_loop(coro, hard_timeout_s: float = 20.0):
@@ -141,6 +184,12 @@ def llm_decode_fallback(payload: str) -> Optional[Dict[str, Any]]:
         return None
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
+        return None
+    # Rate-limit L3 calls so an upstream loop can't fire unbounded
+    # completions. When the window is saturated we quietly return None —
+    # the caller already has a smart/magic zero-chain result that keeps
+    # the pipeline moving.
+    if not _acquire_l3_slot():
         return None
     try:
         # v1.5.7 · Deadlock fix.

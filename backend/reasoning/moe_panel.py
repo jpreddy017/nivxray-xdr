@@ -442,10 +442,24 @@ async def _call_claude(system: str, user: str, session_id: str,
             .with_model("anthropic", "claude-sonnet-4-5-20250929")
             .with_params(max_tokens=max_toks)
         )
-        resp = await asyncio.wait_for(
-            chat.send_message(UserMessage(text=user_text)),
-            timeout=per_call_timeout,
-        )
+        # Telemetry: attribute this completion to the caller (reviewer role
+        # is encoded in the system prompt — a coarse label is fine).
+        _caller = "moe_panel:defensive" if is_defensive else "moe_panel"
+        try:
+            from utils.llm_telemetry import track as _llm_track
+        except Exception:
+            _llm_track = None
+        if _llm_track is not None:
+            async with _llm_track(_caller):
+                resp = await asyncio.wait_for(
+                    chat.send_message(UserMessage(text=user_text)),
+                    timeout=per_call_timeout,
+                )
+        else:
+            resp = await asyncio.wait_for(
+                chat.send_message(UserMessage(text=user_text)),
+                timeout=per_call_timeout,
+            )
         text = (resp if isinstance(resp, str) else str(resp)).strip()
         # Claude / litellm proxy occasionally returns the literal string "None"
         # on transient errors. Treat it as empty so the caller falls back.

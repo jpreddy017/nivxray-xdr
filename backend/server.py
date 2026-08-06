@@ -378,13 +378,30 @@ app.add_middleware(
 
 
 async def _nightly_benchmark_loop():
-    """Runs the full sample-library benchmark every 24h in the background."""
+    """Runs the full sample-library benchmark every 24h in the background.
+
+    Reload-safe: on startup, checks the last successful run's timestamp in
+    ``benchmark_runs`` and skips forward if a run completed within the past
+    20 hours. Without this guard, every uvicorn --reload cycle would kick
+    off a fresh 30–40-min benchmark 5 min later, blocking the event loop
+    and starving API endpoints (e.g. /api/auth/login timeouts).
+    """
+    from datetime import datetime, timezone, timedelta
     await asyncio.sleep(300)
     while True:
         try:
-            r = await sl.benchmark_all(db, smart_decode, magic_decode)
-            log.info("nightly benchmark: %d samples · %d passed (%.1f%%)",
-                     r.get("total", 0), r.get("passed", 0), r.get("pass_pct", 0.0))
+            # Reload guard: skip if we've benchmarked recently.
+            last = None
+            async for d in db.benchmark_runs.find({}).sort("at", -1).limit(1):
+                last = d.get("at")
+            now = datetime.now(timezone.utc)
+            if last and (now - last) < timedelta(hours=20):
+                log.info("nightly benchmark: last run %s ago — skipping",
+                         str(now - last))
+            else:
+                r = await sl.benchmark_all(db, smart_decode, magic_decode)
+                log.info("nightly benchmark: %d samples · %d passed (%.1f%%)",
+                         r.get("total", 0), r.get("passed", 0), r.get("pass_pct", 0.0))
         except Exception as e:
             log.warning("nightly benchmark failed: %s", e)
         await asyncio.sleep(24 * 60 * 60)
@@ -392,6 +409,30 @@ async def _nightly_benchmark_loop():
 
 @app.on_event("startup")
 async def _startup():
+    # Install LiteLLM telemetry hook FIRST so every completion — including
+    # those fired from background schedulers during the rest of startup —
+    # is counted with caller-frame attribution.
+    try:
+        from utils.llm_telemetry import install_litellm_hook
+        install_litellm_hook()
+        log.info("[startup] LLM telemetry hook installed")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] LLM telemetry hook install failed: {e}")
+    # Silence LiteLLM's per-completion INFO log — one line per Claude
+    # request otherwise floods /var/log/supervisor/backend.err.log and
+    # hides the entries an operator actually needs. Errors/warnings
+    # remain visible.
+    try:
+        import logging as _logging
+        _logging.getLogger("LiteLLM").setLevel(_logging.WARNING)
+        _logging.getLogger("litellm").setLevel(_logging.WARNING)
+        import litellm as _litellm  # type: ignore
+        if hasattr(_litellm, "set_verbose"):
+            _litellm.set_verbose = False
+        if hasattr(_litellm, "suppress_debug_info"):
+            _litellm.suppress_debug_info = True
+    except Exception:
+        pass
     # Fail-fast on missing required env vars, then bind the Motor
     # client / db proxies. Import-time deps.py has ZERO side effects —
     # everything Mongo-touching happens here so pytest can freely import

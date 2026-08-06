@@ -300,7 +300,7 @@ Order within Phase 3 (deterministic-first, OCR last):
    `header parsing → SPF → DKIM → DMARC → Received chain → URLs →
    attachments → each attachment becomes a child IEP → recursive
    investigation → unified Investigation Summary`.
-6. ZIP (inventory + child-IEP recursion, hierarchical — no flattening)
+6. ZIP (inventory + child-IEP recursion, hierarchical — no flattening) — **LANDED 2026-02-06** (`adapter.zip@1.0`, 14 contract tests)
 
 #### Phase 3C · Visual Evidence  *(only introduced after 3A + 3B are proven)*
 7. Image (Tesseract OCR + EXIF + layout + diagram parsing)

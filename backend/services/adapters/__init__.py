@@ -8,11 +8,11 @@ Adapter roster (built in the frozen 3A → 3B → 3C order):
   3A · Deterministic
     - text  (:class:`TextAdapter`)
     - url   (:class:`URLAdapter`)
-    - pdf   (pending)
-    - docx  (pending)
+    - pdf   (:class:`PDFAdapter`)
+    - docx  (:class:`DOCXAdapter`)
   3B · Recursive
-    - eml   (pending)
-    - zip   (pending)
+    - eml   (:class:`EMLAdapter`)
+    - zip   (:class:`ZIPAdapter`)
   3C · Visual
     - image (pending)
 
@@ -24,11 +24,17 @@ from .eml_adapter  import EMLAdapter
 from .pdf_adapter  import PDFAdapter
 from .text_adapter import TextAdapter
 from .url_adapter  import URLAdapter
+from .zip_adapter  import ZIPAdapter
 
 # Order matters — first adapter whose `can_handle` returns True wins.
+# ZIP is placed before PDF/DOCX because DOCX is itself a ZIP; the
+# DOCXAdapter's can_handle looks for the OOXML content-type marker
+# inside the archive, so it must run first for .docx.  ZIP catches
+# every OTHER ZIP-shaped input.
 REGISTRY = [
-    PDFAdapter(),
     DOCXAdapter(),
+    ZIPAdapter(),
+    PDFAdapter(),
     EMLAdapter(),
     URLAdapter(),
     TextAdapter(),
@@ -48,4 +54,4 @@ def adapt(raw, **ctx):
 
 
 __all__ = ["EvidenceAdapter", "TextAdapter", "URLAdapter", "PDFAdapter",
-              "DOCXAdapter", "EMLAdapter", "REGISTRY", "adapt"]
+              "DOCXAdapter", "EMLAdapter", "ZIPAdapter", "REGISTRY", "adapt"]
