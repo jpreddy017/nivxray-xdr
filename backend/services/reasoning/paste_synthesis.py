@@ -38,8 +38,135 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from services.reasoning.behavior_extractor import (
-    Behavior, correlate_behaviors, extract_behaviors,
+    Behavior, BehaviorEvidence, correlate_behaviors, extract_behaviors,
 )
+
+
+# ══════════════════════════════════════════════════════════════════
+# 0. Preprocessor-stage → Behavior promotion
+# ══════════════════════════════════════════════════════════════════
+# The DIE preprocessor recognises hundreds of attack techniques the
+# 27-rule regex behavior_extractor doesn't cover (Reverse SSH Tunnel,
+# AD Enumeration, MSI Installer Execution, Shadow Copy Removal,
+# Registry Modification, WMIC Software Removal, …).  Every recognised
+# stage already carries a canonical MITRE tactic + technique list
+# upstream.  This promoter wraps every such stage into a full-fledged
+# Behavior so the 14-lane trajectory / attack-lifecycle panel picks
+# up the correct MITRE tactic — no separate stage-vs-behavior data
+# path in the frontend.
+#
+# Deterministic.  No LLM.  Stage `.tactic` maps 1:1 to the MITRE
+# lane; empty / uncategorised stages are skipped so we never
+# hallucinate a lane.
+
+# Preprocessor tactic strings → canonical MITRE ATT&CK lane label.
+_TACTIC_LANE_LABEL: Dict[str, str] = {
+    "Reconnaissance":         "Reconnaissance",
+    "Resource Development":   "Resource Development",
+    "Initial Access":         "Initial Access",
+    "Execution":              "Execution",
+    "Persistence":            "Persistence",
+    "Privilege Escalation":   "Privilege Escalation",
+    "Defense Evasion":        "Defense Evasion",
+    "Credential Access":      "Credential Access",
+    "Discovery":              "Discovery",
+    "Lateral Movement":       "Lateral Movement",
+    "Collection":             "Collection",
+    "Command and Control":    "Command and Control",
+    "Command & Control":      "Command and Control",
+    "Exfiltration":           "Exfiltration",
+    "Impact":                 "Impact",
+}
+
+# Tactic → kill-chain phase list (Cyber Kill Chain projection).
+_TACTIC_KILLCHAIN: Dict[str, List[str]] = {
+    "Reconnaissance":         ["Reconnaissance"],
+    "Resource Development":   ["Reconnaissance"],
+    "Initial Access":         ["Delivery"],
+    "Execution":              ["Execution"],
+    "Persistence":            ["Persistence"],
+    "Privilege Escalation":   ["Privilege Escalation"],
+    "Defense Evasion":        ["Defense Evasion"],
+    "Credential Access":      ["Credential Access"],
+    "Discovery":              ["Discovery"],
+    "Lateral Movement":       ["Lateral Movement"],
+    "Collection":             ["Collection"],
+    "Command and Control":    ["Command and Control"],
+    "Exfiltration":           ["Exfiltration"],
+    "Impact":                 ["Impact"],
+}
+
+
+def _stage_slug(text: str) -> str:
+    if not text:
+        return "stage"
+    slug = "".join(ch.lower() if ch.isalnum() else "_"
+                    for ch in text.strip())
+    return "_".join(p for p in slug.split("_") if p)[:48] or "stage"
+
+
+def _behaviors_from_stages(ssot: Dict[str, Any]) -> List[Behavior]:
+    """Promote every preprocessor stage that carries a MITRE tactic
+    to a full Behavior.  Deterministic; skips stages without a
+    recognised tactic so we never hallucinate a lane.
+
+    The SSOT emits preprocessor stages under ``ssot.commands[]``
+    (see ``_command_to_ssot`` in ``investigation_results.py``).
+    Each stage carries ``title``, ``objective``, ``tactic``,
+    ``mitre[]``, ``family``, ``normalized_command``, ``raw_excerpt``,
+    ``confidence``, and ``index``.
+    """
+    out: List[Behavior] = []
+    for i, stage in enumerate(ssot.get("commands") or []):
+        if not isinstance(stage, dict):
+            continue
+        tactic_raw = (stage.get("tactic") or "").strip()
+        canonical_tactic = _TACTIC_LANE_LABEL.get(tactic_raw)
+        mitre_ids = [m for m in (stage.get("mitre") or []) if m]
+        if not canonical_tactic and not mitre_ids:
+            # Nothing to project — skip rather than dumping into a
+            # bogus lane.  The stage still appears in the timeline
+            # via the deterministic stage timeline.
+            continue
+        # If we have MITRE but no tactic, we still need SOMETHING to
+        # place the node — use "Execution" as the neutral default.
+        canonical_tactic = canonical_tactic or "Execution"
+        title = (stage.get("title")
+                  or stage.get("family")
+                  or stage.get("objective") or f"Stage {i + 1}")
+        description = (stage.get("objective")
+                        or stage.get("family")
+                        or f"Preprocessor stage {i + 1}.")
+        confidence = float(stage.get("confidence") or 0.9)
+        # Deterministic severity tier.
+        if   confidence >= 0.95: sev = "critical"
+        elif confidence >= 0.85: sev = "high"
+        elif confidence >= 0.70: sev = "medium"
+        else:                    sev = "low"
+        # Evidence citation — normalized command first, raw excerpt fallback.
+        evidence_text = (stage.get("normalized_command")
+                          or stage.get("raw_excerpt") or "").strip()
+        evidence = [BehaviorEvidence(text=evidence_text,
+                                      location=f"stage.{i + 1}")] if evidence_text else []
+        # Stable Behavior id.  Preserve the family slug when
+        # available so re-runs against the same input produce
+        # byte-identical ids.
+        bid = "stage_" + (stage.get("family")
+                           or _stage_slug(title))
+        out.append(Behavior(
+            id=f"{bid}_{i:02d}",
+            title=title,
+            kill_chain=_TACTIC_KILLCHAIN.get(canonical_tactic, [canonical_tactic]),
+            mitre_techniques=mitre_ids,
+            mitre_tactics=[canonical_tactic],
+            confidence=min(0.99, confidence),
+            description=description,
+            category=(stage.get("family") or "execution"),
+            severity=sev,
+            order=100 + i,       # keep stage-derived behaviors AFTER regex ones
+            evidence=evidence,
+        ))
+    return out
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -343,6 +470,41 @@ def synthesize(ssot: Dict[str, Any]) -> Dict[str, Any]:
         raw = str(raw or "")
 
     behaviors = _behaviors_from_input(raw)
+
+    # ── Merge in preprocessor-stage behaviors ─────────────────────
+    # DIE recognises hundreds of attack techniques the 27-rule
+    # behavior_extractor doesn't cover (Reverse SSH Tunnel, AD
+    # Enumeration, MSI Installer, Shadow Copy Removal, WMIC Software
+    # Removal, Registry Modification, …).  Every stage already
+    # carries a canonical MITRE tactic + technique id upstream, so
+    # promoting them to behaviors makes the 14-lane trajectory a
+    # complete picture instead of a regex-limited slice.
+    stage_behaviors = _behaviors_from_stages(ssot)
+    if stage_behaviors:
+        # Dedupe by MITRE technique + tactic first (stages that name
+        # the same technique should collapse), falling back to title
+        # dedupe for stages that have no MITRE id.
+        seen_keys: set = set()
+        for b in behaviors:
+            for tid in b.mitre_techniques:
+                for t in b.mitre_tactics:
+                    seen_keys.add((tid, t))
+            seen_keys.add(("title", b.title.lower()))
+        for sb in stage_behaviors:
+            key_hit = any((tid, t) in seen_keys
+                            for tid in sb.mitre_techniques
+                            for t   in sb.mitre_tactics)
+            if key_hit:
+                continue
+            if ("title", sb.title.lower()) in seen_keys:
+                continue
+            behaviors.append(sb)
+            for tid in sb.mitre_techniques:
+                for t in sb.mitre_tactics:
+                    seen_keys.add((tid, t))
+            seen_keys.add(("title", sb.title.lower()))
+        behaviors = sorted(behaviors, key=_behavior_sort_key)
+
     if not behaviors:
         # No behaviors detected — still emit a synthetic acquired_document
         # + acquisition_plan so the Evidence Explorer isn't empty, but
