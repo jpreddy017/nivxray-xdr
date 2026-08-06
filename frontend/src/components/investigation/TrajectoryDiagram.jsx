@@ -506,26 +506,33 @@ function _layoutBehaviorNodes(behaviors, activeLanes) {
   const ordered = [...behaviors].sort(
     (a, b) => (a.order ?? 0) - (b.order ?? 0)
   );
-  const laneCounters = {};        // per-lane X-position counter
   const X_START = 220;
   const X_STEP  = 240;
   const nodes = [];
+  // Chronological X — each behavior occupies ONE column so a
+  // behavior spanning multiple tactics stacks vertically at the
+  // same X.  The next behavior in chronological order advances one
+  // column, so the chain reads left-to-right regardless of which
+  // tactic lanes are active.
   ordered.forEach((b, i) => {
     const tactics = _behaviorTactics(b).filter((t) => t in laneY);
     if (!tactics.length) return;
-    // MITRE technique IDs — support both {id, ...} objects and bare strings.
     const techniques = (b.mitre_techniques && b.mitre_techniques.length
                           ? b.mitre_techniques
                           : (b.mitre || []))
       .map((m) => (typeof m === "string" ? m : m.id))
       .filter(Boolean);
     const title = b.title || b.label || `Behavior ${i + 1}`;
-    for (const tactic of tactics) {
-      const laneCol = (laneCounters[tactic] = (laneCounters[tactic] || 0) + 1);
+    const behaviorKey = b.id || `bhv-${i}`;
+    const x = X_START + i * X_STEP;
+    tactics.forEach((tactic, tIdx) => {
       nodes.push({
-        id:          `${b.id || `bhv-${i}`}--${_slug(tactic)}`,
+        id:          `${behaviorKey}--${_slug(tactic)}`,
+        behaviorKey,               // stable link across sibling nodes
+        order:       i,             // chronological rank
+        primary:     tIdx === 0,    // first tactic listed = chain anchor
         index:       i + 1,
-        x:           X_START + (laneCol - 1) * X_STEP,
+        x,
         y:           laneY[tactic],
         lane:        tactic,
         tactic,
@@ -547,31 +554,60 @@ function _layoutBehaviorNodes(behaviors, activeLanes) {
           confidence:     typeof b.confidence === "number" ? b.confidence : undefined,
         },
       });
-    }
+    });
   });
   return nodes;
 }
 
-// Deterministic edges between successive nodes of the same behavior
-// (so a behavior that spans multiple tactics shows a connecting arc).
+// Deterministic edges for the canonical 14-lane projection.
+//
+// Two edge families are emitted:
+//   1. Intra-behavior arcs (dashed persist style)  — connect the
+//      sibling nodes of a SINGLE behavior that spans multiple
+//      MITRE tactics.  Lets the analyst see “this one action
+//      lives in two ATT&CK tactics.”
+//   2. Chronological chain arrows (solid crit / normal)  — connect
+//      behavior N's primary node (first tactic listed) to behavior
+//      N+1's primary node so the attack progression reads left-to-
+//      right across the diagram, jumping lanes as the tactic
+//      changes.  This is the “where does the attack go next?”
+//      story the analyst needs.
 function _layoutBehaviorEdges(nodes) {
   if (!nodes.length) return [];
+  const edges = [];
+
+  // ── 1. Intra-behavior vertical arcs ─────────────────────────
   const byBehavior = {};
   for (const n of nodes) {
-    const key = n.id.split("--")[0];
-    (byBehavior[key] = byBehavior[key] || []).push(n);
+    (byBehavior[n.behaviorKey] = byBehavior[n.behaviorKey] || []).push(n);
   }
-  const edges = [];
   for (const [key, group] of Object.entries(byBehavior)) {
-    for (let i = 0; i < group.length - 1; i++) {
-      const a = group[i], b = group[i + 1];
+    const sorted = [...group].sort((a, b) => a.y - b.y);
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const a = sorted[i], b = sorted[i + 1];
       edges.push({
-        id: `be-${key}-${i}`,
+        id: `be-intra-${key}-${i}`,
         d:  _bezier(a.x + 10, a.y + 6, b.x + 10, b.y + 6),
-        style: "normal",
+        style: "persist",       // dashed / amber – visually distinct from chain
       });
     }
   }
+
+  // ── 2. Chronological attack chain — primary-node → primary-node
+  const primaries = nodes
+    .filter((n) => n.primary)
+    .sort((a, b) => a.order - b.order);
+  for (let i = 0; i < primaries.length - 1; i++) {
+    const a = primaries[i], b = primaries[i + 1];
+    // Highlight the critical arrow when the destination is Impact.
+    const style = (b.tactic === "Impact") ? "crit" : "normal";
+    edges.push({
+      id:    `be-chain-${a.behaviorKey}-${b.behaviorKey}`,
+      d:     _bezier(a.x + 10, a.y + 6, b.x + 10, b.y + 6),
+      style,
+    });
+  }
+
   return edges;
 }
 
