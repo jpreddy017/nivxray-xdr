@@ -617,7 +617,7 @@ def _hero_sentence(input_type: str, decode_required: bool) -> str:
         "windows_event_log":   "This is a Windows event log. Routing fields to the event-log analyzer.",
         "sysmon_log":          "This is a Sysmon log. Routing events to the Sysmon analyzer.",
         "process_tree":        "This is a process tree. Extracting parent/child relationships.",
-        "url_only":            "This is a bare URL. Running IOC enrichment only.",
+        "url_only":            "This is an acquirable URL. IDA is fetching the resource, extracting artifacts, investigating each one, and correlating them into a single incident.",
         "plain_text":          "This is plain analyst text without strong indicators. Extracting IOCs only.",
         "unknown":             "Input type could not be classified with high confidence. Falling back to universal extraction.",
     }.get(input_type, "Analysing input …")

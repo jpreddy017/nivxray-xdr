@@ -262,6 +262,55 @@ def render(input_text: str) -> Dict[str, Any]:
     lines.append(u_dict.get("hero_sentence") or u_dict.get("label", ""))
     lines.append("")
 
+    # ── INVESTIGATION PIPELINE (URL inputs · Rule R19 + R20 + R21) ──
+    # Analyst-visible narration of the full IDA → recursive investigation
+    # → ICE flow.  Only rendered when acquisition actually happened;
+    # for command inputs it's silent so nothing extra appears.
+    if acquired_dict.get("ok"):
+        _rext  = report_extraction or {}
+        _sum   = _rext.get("investigation_summary") or {}
+        _tot   = _rext.get("totals") or {}
+        n_cmds = len(_rext.get("commands") or [])
+        n_iocs = len(_rext.get("body_artifacts") or [])
+        n_investigated = _sum.get("commands_analyzed", 0)
+
+        lines.append(_h1("Investigation Pipeline"))
+        lines.append("")
+        lines.append(f"  ▸ SOURCE         URL · {acquired_dict.get('sitename') or 'unknown vendor'}")
+        lines.append(f"                    {acquired_dict.get('title') or ''}")
+        lines.append(f"  ▸ ACQUIRED       {acquired_dict.get('fetched_bytes', 0):,} bytes HTML"
+                      f" · {acquired_dict.get('article_chars', 0):,} chars extracted"
+                      f" · {acquired_dict.get('duration_ms', 0)} ms")
+        lines.append(f"  ▸ EXTRACTED      {n_cmds} commands · {n_iocs} IOCs"
+                      f" · {_tot.get('mitre', 0)} MITRE · {_tot.get('actors', 0)} actors"
+                      f" · {_tot.get('malware', 0)} malware · {_tot.get('timeline', 0)} timeline")
+        lines.append(f"  ▸ INVESTIGATED   {n_investigated}/{n_cmds} commands · "
+                      f"{len(_sum.get('lolbins_union', []))} LOLBAS · "
+                      f"{len(_sum.get('techniques_union', []))} MITRE (from recursive investigation)")
+        lines.append(f"  ▸ CORRELATED     (see Incident block below · Rule R21)")
+        lines.append("")
+
+        # Per-command line-item view (Rule R20 · every extracted command
+        # is recursively investigated, so surface it in the OUTPUT too).
+        if n_cmds > 0:
+            lines.append(_h1("Extracted Commands (recursively investigated · Rule R20)"))
+            lines.append("")
+            _cis = _rext.get("command_investigations") or []
+            for _i, _cmd in enumerate(_rext.get("commands") or []):
+                _ci = _cis[_i] if _i < len(_cis) else {}
+                _status = "✓ INVESTIGATED" if _ci.get("language") and not _ci.get("error") else "○ pending"
+                _lolb = ", ".join(lb.get("binary","") for lb in (_ci.get("lolbins") or []))
+                _mit  = ", ".join(t.get("id","") for t in (_ci.get("techniques") or []))
+                lines.append(f"  {_status}  {_cmd.get('command','')[:110]}")
+                lines.append(f"    → {_cmd.get('purpose','')}")
+                _det = []
+                if _ci.get("language"): _det.append(f"lang={_ci['language']}")
+                if _lolb:               _det.append(f"lolbas={_lolb}")
+                if _mit:                _det.append(f"mitre={_mit}")
+                if _det:
+                    lines.append(f"    · {' · '.join(_det)}")
+            lines.append("")
+
     # ── INPUT HEALTH (Stage-0 · IUE Layer 0) ──
     lines.append(_h1("Input Health"))
     lines.append("")
