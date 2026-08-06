@@ -185,12 +185,33 @@ def llm_decode_fallback(payload: str) -> Optional[Dict[str, Any]]:
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
         return None
+    # Capture the ACTUAL upstream caller BEFORE we spawn the worker
+    # thread — inside the worker's fresh stack the LiteLLM hook would
+    # only ever see `_worker` and lose the caller identity.
+    try:
+        from utils.llm_telemetry import capture_caller, record_upstream
+        _caller = capture_caller(skip_extra=("backend/llm_decoder.py",))
+    except Exception:
+        capture_caller = None            # type: ignore
+        record_upstream = None           # type: ignore
+        _caller = "unknown"
     # Rate-limit L3 calls so an upstream loop can't fire unbounded
     # completions. When the window is saturated we quietly return None —
     # the caller already has a smart/magic zero-chain result that keeps
     # the pipeline moving.
     if not _acquire_l3_slot():
+        if record_upstream:
+            try:
+                record_upstream(_caller, "skipped")
+            except Exception:
+                pass
         return None
+    if record_upstream:
+        try:
+            record_upstream(_caller, "started")
+        except Exception:
+            pass
+    _t0 = time.time()
     try:
         # v1.5.7 · Deadlock fix.
         # PRIOR bug: when a caller was already inside a running event loop
@@ -211,11 +232,37 @@ def llm_decode_fallback(payload: str) -> Optional[Dict[str, Any]]:
         parsed = _run_async_on_dedicated_loop(
             _call_claude(payload, key), hard_timeout_s=_TIMEOUT_S + 3
         )
+    except TimeoutError as e:
+        log.warning("L3: dispatch failed: %r", e)
+        if record_upstream:
+            try:
+                record_upstream(_caller, "timeout")
+            except Exception:
+                pass
+        return None
     except Exception as e:
         log.warning("L3: dispatch failed: %r", e)   # repr, so exception type is visible
+        if record_upstream:
+            try:
+                record_upstream(_caller, "failed")
+            except Exception:
+                pass
         return None
     if not parsed or not isinstance(parsed, dict):
+        if record_upstream:
+            try:
+                record_upstream(_caller, "completed",
+                                latency_ms=int((time.time() - _t0) * 1000))
+            except Exception:
+                pass
         return None
+    # Success — record latency against the upstream caller.
+    if record_upstream:
+        try:
+            record_upstream(_caller, "completed",
+                            latency_ms=int((time.time() - _t0) * 1000))
+        except Exception:
+            pass
     # Shape adaptor — return `deterministic_best_decode`-compatible dict.
     # v1.5.8 — Filter/alias Claude-invented op names against the real
     # OPERATIONS registry. Prior bug: Claude returned chain steps like

@@ -303,7 +303,7 @@ Order within Phase 3 (deterministic-first, OCR last):
 6. ZIP (inventory + child-IEP recursion, hierarchical — no flattening) — **LANDED 2026-02-06** (`adapter.zip@1.0`, 14 contract tests)
 
 #### Phase 3C · Visual Evidence  *(only introduced after 3A + 3B are proven)*
-7. Image (Tesseract OCR + EXIF + layout + diagram parsing)
+7. Image (Tesseract OCR + EXIF + layout + diagram parsing) — **LANDED 2026-02-06** (`adapter.image@1.0`, 13 contract tests · deterministic-first order · orientation preservation · OCR confidence + characters_detected)
 
 Rationale: OCR carries the most uncertainty (layout, confidence, false
 positives).  Building it first would mask whether bugs originate in the

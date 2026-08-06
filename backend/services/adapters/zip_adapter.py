@@ -38,18 +38,19 @@ from models.iep import (
     IEPWarning,
     RelationshipType,
 )
+from services import resource_protection as rpp
 
 from .base import EvidenceAdapter
 
 
-# ─── Resource Protection Policy (soft/hard adapter defaults) ───────────
-# The orchestrator will layer stricter cross-adapter budgets on top of
-# these.  These values are safe defaults for a single archive.
-MAX_MEMBERS_HARD              = 2000   # abort listing beyond this
-MAX_MEMBERS_SOFT              = 500    # warn if archive is unusually large
-MAX_UNCOMPRESSED_SIZE_BYTES   = 512 * 1024 * 1024   # 512 MB total
-MAX_COMPRESSION_RATIO         = 100    # bomb heuristic: >100:1 uncompressed:compressed
-MAX_FILENAME_LEN              = 400    # traversal / abuse guard
+# ─── Resource Protection Policy (loaded from services.resource_protection) ──
+# One config, one place. Overridable via NIVX_RPP_ZIP_* env vars — see
+# services/resource_protection.py for the full list.
+MAX_MEMBERS_HARD            = int(rpp.get("zip", "max_members", 2000))
+MAX_MEMBERS_SOFT            = int(rpp.get("zip", "max_members_soft_warn", 500))
+MAX_UNCOMPRESSED_SIZE_BYTES = int(rpp.get("zip", "max_uncompressed_size_mb", 512)) * 1024 * 1024
+MAX_COMPRESSION_RATIO       = int(rpp.get("zip", "max_compression_ratio", 100))
+MAX_FILENAME_LEN            = int(rpp.get("zip", "max_filename_length", 400))
 
 
 class ZIPAdapter(EvidenceAdapter):

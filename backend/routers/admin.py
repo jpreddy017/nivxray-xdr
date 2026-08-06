@@ -346,3 +346,14 @@ async def get_llm_telemetry(user=Depends(require_admin)):
     except Exception:
         pass
     return out
+
+
+@router.get("/admin/resource-protection")
+async def get_resource_protection(user=Depends(require_admin)):
+    """Snapshot of the Resource Protection Policy every adapter enforces.
+
+    Values are read at process start from :mod:`services.resource_protection`
+    and may be overridden via ``NIVX_RPP_<KIND>_<SETTING>`` env vars.
+    """
+    from services.resource_protection import snapshot
+    return snapshot()

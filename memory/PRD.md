@@ -7,7 +7,7 @@
 
 ---
 
-## 🟢 2026-02-06 · Fork · LiteLLM Loop RCA + ZIP Adapter (M2)
+## 🟢 2026-02-06 · Fork · LiteLLM Loop RCA + ZIP + Image Adapters (M2, M2.5, M3)
 
 ### Root Cause of Login/API Timeout (RESOLVED)
 Backend event loop was starving under two independent pressures:
@@ -18,33 +18,64 @@ Backend event loop was starving under two independent pressures:
    restarted the loop 5 min later (878 benchmark_runs in DB).
 2. **L3 LLM decoder fallback** (`llm_decoder.llm_decode_fallback`) was
    firing ~12 completions/minute continuously because upstream decode
-   paths kept giving up on the same payload, hammering the LLM.
+   paths in `analysis_core._deterministic_best_decode_single_pass:808`
+   kept giving up on the same payload, hammering the LLM.
 
 ### Guardrails Applied (no architecture change)
 - `sample_library.benchmark_one/all`: sync decoders now offloaded via
   `asyncio.to_thread`; cooperative `await asyncio.sleep(0)` between
   samples; reload-guard skips runs if last completed < 20h ago.
 - `llm_decoder.llm_decode_fallback`: process-wide rate limiter
-  (`NIVX_L3_MAX_PER_MIN=20`, 60s window) with skipped-count telemetry.
+  (`NIVX_L3_MAX_PER_MIN=20`, 60s window). Per-caller **count / skipped
+  / avg_latency / last_seen** attribution via `capture_caller()` /
+  `record_upstream()` — survives the worker-thread boundary.
 - `utils/llm_telemetry.py`: in-memory counter + `install_litellm_hook()`
-  monkeypatch of `litellm.completion` / `litellm.acompletion` that
-  captures caller stack frame for attribution.
+  monkeypatch of `litellm.completion` / `litellm.acompletion` for
+  process-wide LLM observability.
 - LiteLLM SDK INFO logger set to WARNING → clean backend log.
 - `GET /api/admin/llm-telemetry`: admin-only observability endpoint
-  (in_flight, peak, started/completed/failed/timeout, avg latency,
-  by-caller breakdown, L3 rate-limiter state).
+  (in_flight, peak, started/completed/failed/timeout/skipped, avg
+  latency, per-caller `count/skipped/avg_latency/last_seen`, L3 rate
+  limiter state).
+- `POST /api/upload` and `/api/documents/upload` whitelisted in
+  `_LARGE_BODY_PATHS` (50 MB cap) so images/PDFs/ZIPs upload as
+  intended by the frozen architecture.
+
+### Resource Protection Policy (generic, env-configurable)
+- New `services/resource_protection.py` — single config with
+  `defaults + zip / pdf / docx / eml / image` sections. Values read
+  from `NIVX_RPP_<KIND>_<SETTING>` env vars at process start.
+- ZIP adapter switched to policy-driven limits (no code change to
+  retune). PDF/DOCX/EML/Image sections are empty stubs ready for
+  future values-only additions.
+- `GET /api/admin/resource-protection`: admin snapshot.
 
 ### ZIP Adapter (M2) — LANDED
 - `backend/services/adapters/zip_adapter.py` (`adapter.zip@1.0`)
 - Emits **parent inventory IEP + one child-IEP candidate per member**
-  (never a single huge IEP — per frozen architecture)
 - Capabilities: inventory, filenames, sizes, sha256 per member,
   compression ratios, encrypted detection, zip-bomb heuristic,
-  nested-zip detection, duplicate-member (cycle-hint) detection,
-  path-traversal detection, comments, timestamps.
-- Resource Protection Policy defaults: 2000 members (hard), 500 (soft),
-  512 MB uncompressed budget, 100:1 bomb ratio, 400-char filename cap.
-- Contracts: 14/14 new tests + 60 pre-existing = **74/74 pytest green**.
+  nested-zip detection, duplicate-member cycle-hint, path-traversal.
+- 14 contract tests · policy-driven limits.
+
+### Image Adapter (M3) — LANDED
+- `backend/services/adapters/image_adapter.py` (`adapter.image@1.0`)
+- Deterministic-first order: magic → sha256 → EXIF → dimensions →
+  color mode → ICC profile → **orientation** (EXIF preserved,
+  pixels transposed for OCR when `Orientation != 1`) → OCR (Tesseract)
+  → layout blocks → artifact extraction (via IDA splitter).
+- OCR metadata: `engine`, `avg_confidence`, `characters_detected`,
+  `text_length`, `block_count` — Evidence Validator (Phase 5) can
+  downgrade low-confidence artifacts using these fields.
+- Per-artifact `source_ref = image.ocr.block.<n>` and composite
+  confidence = OCR block confidence / 100.
+- Warnings: `image_bad_magic`, `image_decode_failed`,
+  `image_ocr_unavailable`, `image_ocr_failed`, `image_ocr_no_text`,
+  `image_ocr_low_confidence`.
+- 13 contract tests.
+- New deps: `pytesseract`, system `tesseract-ocr` + `tesseract-ocr-eng`.
+
+**Adapter roster**: text · url · pdf · docx · eml · zip · image · **87/87 pytest green**.
 
 ---
 

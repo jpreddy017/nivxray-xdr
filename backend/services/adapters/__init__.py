@@ -14,17 +14,18 @@ Adapter roster (built in the frozen 3A → 3B → 3C order):
     - eml   (:class:`EMLAdapter`)
     - zip   (:class:`ZIPAdapter`)
   3C · Visual
-    - image (pending)
+    - image (:class:`ImageAdapter`)
 
 See /app/memory/NIVXRAY_ARCHITECTURE_V1.md.
 """
 from .base import EvidenceAdapter
-from .docx_adapter import DOCXAdapter
-from .eml_adapter  import EMLAdapter
-from .pdf_adapter  import PDFAdapter
-from .text_adapter import TextAdapter
-from .url_adapter  import URLAdapter
-from .zip_adapter  import ZIPAdapter
+from .docx_adapter  import DOCXAdapter
+from .eml_adapter   import EMLAdapter
+from .image_adapter import ImageAdapter
+from .pdf_adapter   import PDFAdapter
+from .text_adapter  import TextAdapter
+from .url_adapter   import URLAdapter
+from .zip_adapter   import ZIPAdapter
 
 # Order matters — first adapter whose `can_handle` returns True wins.
 # ZIP is placed before PDF/DOCX because DOCX is itself a ZIP; the
@@ -35,6 +36,7 @@ REGISTRY = [
     DOCXAdapter(),
     ZIPAdapter(),
     PDFAdapter(),
+    ImageAdapter(),
     EMLAdapter(),
     URLAdapter(),
     TextAdapter(),
@@ -54,4 +56,5 @@ def adapt(raw, **ctx):
 
 
 __all__ = ["EvidenceAdapter", "TextAdapter", "URLAdapter", "PDFAdapter",
-              "DOCXAdapter", "EMLAdapter", "ZIPAdapter", "REGISTRY", "adapt"]
+              "DOCXAdapter", "EMLAdapter", "ZIPAdapter", "ImageAdapter",
+              "REGISTRY", "adapt"]
