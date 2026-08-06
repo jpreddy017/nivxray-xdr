@@ -88,11 +88,12 @@ export default function AcquisitionPlanPanel({ investigation }) {
             <Stat label="Vendor"     value={prof?.vendor || acq.sitename || "—"} />
             <Stat label="Author"     value={acq.author || "—"} />
             <Stat label="Published"  value={acq.published_date || "—"} />
+            <Stat label="Source"     value={acq.source_kind || "Static article"}
+                                       testid="acq-source-kind" />
             <Stat label="Bytes"      value={(acq.fetched_bytes || 0).toLocaleString()} />
             <Stat label="Article"    value={`${(acq.article_chars || 0).toLocaleString()} chars`} />
             <Stat label="Links"      value={acq.outbound_links?.length ?? 0} />
-            <Stat label="Fetched in" value={`${acq.duration_ms || 0} ms`} />
-            <Stat label="HTTP"       value={acq.status_code || "—"} />
+            <Stat label="Fetched in" value={`${((acq.duration_ms || 0) / 1000).toFixed(2)} sec`} />
           </div>
 
           <div style={{ display: "grid",
@@ -231,9 +232,9 @@ function prettyIntent(intent) {
   }[intent] || null;
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, testid }) {
   return (
-    <div>
+    <div data-testid={testid}>
       <div style={{ fontSize: 10, letterSpacing: 1, color: "#7ee6a8",
                     opacity: 0.85, textTransform: "uppercase" }}>{label}</div>
       <div style={{ fontSize: 13, color: "#e6ffe9", marginTop: 2 }}>{value}</div>

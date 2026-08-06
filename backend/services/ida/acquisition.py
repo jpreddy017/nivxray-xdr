@@ -87,6 +87,13 @@ class AcquiredResource:
     # them (see the eSentire UNC6692 write-up for a live example).
     structured_blocks: List[str] = field(default_factory=list)
 
+    # Which fetcher / extractor chain produced the article.
+    #   engine  → "trafilatura" · "readability" · "bs4" · "playwright+trafilatura" · "playwright+readability" · "playwright+bs4"
+    #   source  → analyst-facing label ("Static article" / "JavaScript-rendered page" / "Heuristic body")
+    engine:          str = ""
+    source_kind:     str = ""
+    fallback_chain:  List[str] = field(default_factory=list)
+
     # Failure semantics
     error_code:      str = ""          # blocked_scheme · private_host · timeout · http_error · content_type · empty · exception
     error_detail:    str = ""
@@ -176,25 +183,35 @@ def acquire_url(url: str) -> AcquiredResource:
         result.fetched_bytes = len(body_bytes)
         html = _decode_bytes(body_bytes)
 
-        # 4. Extract main content (trafilatura is the vendor)
-        extracted = trafilatura.extract(
-            html,
-            include_comments=False,
-            include_tables=True,
-            favor_precision=True,
-            deduplicate=True,
-        ) or ""
-        result.article_text  = extracted
-        result.article_chars = len(extracted)
+        # 4. Extract main content — cascade of engines.  The analyst
+        # never needs to know which one succeeded; we just want a
+        # non-empty article.  Order: trafilatura (fast, precise) →
+        # readability-lxml (score-based) → BeautifulSoup heuristic →
+        # Playwright (JS-rendered) → same three engines again over the
+        # rendered HTML.  Every step is recorded in `fallback_chain`
+        # so the SSOT retains full provenance.
+        article, engine, chain = _extract_with_cascade(html, url)
+        result.fallback_chain = chain
+        result.article_text   = article
+        result.article_chars  = len(article)
+        result.engine         = engine
+        result.source_kind    = _friendly_source(engine)
 
-        if not extracted.strip():
+        if not article.strip():
             result.error_code   = "empty"
-            result.error_detail = "Main-content extractor returned no text (page may be JS-rendered or paywalled)."
+            result.error_detail = (
+                "All acquisition engines returned no main content. "
+                f"Attempted: {', '.join(chain) or 'none'}."
+            )
             return _finalise(result, started)
 
-        # 5. Metadata (title, author, date, sitename, language)
+        # 5. Metadata (title, author, date, sitename, language).
+        # Metadata is best pulled from the freshest HTML we have — if
+        # Playwright rendered the page, use that DOM instead of the raw
+        # pre-JS body so we get the correct <title>.
+        meta_html = _last_rendered_html.get(url) or html
         try:
-            meta = trafilatura.extract_metadata(html)
+            meta = trafilatura.extract_metadata(meta_html)
             if meta:
                 result.title          = (meta.title or "").strip()
                 result.author         = (meta.author or "").strip() if isinstance(meta.author, str) else ""
@@ -204,13 +221,17 @@ def acquire_url(url: str) -> AcquiredResource:
             pass
 
         # 6. Outbound links (deterministic, deduped, order-preserving)
-        result.outbound_links = _extract_links(html)
+        result.outbound_links = _extract_links(meta_html)
 
         # 6b. Structured content blocks (code / pre / td / li).
         # Threat-report authors publish commands and IOCs inside these
         # HTML containers; trafilatura strips the surrounding structure,
         # so we grab them explicitly BEFORE running IDA-4 extractors.
-        result.structured_blocks = _extract_structured_blocks(html)
+        result.structured_blocks = _extract_structured_blocks(meta_html)
+
+        # Cleanup the per-URL render cache so a long-lived process
+        # doesn't accumulate rendered HTML across many acquisitions.
+        _last_rendered_html.pop(url, None)
 
         result.ok = True
         return _finalise(result, started)
@@ -333,3 +354,214 @@ def _extract_structured_blocks(html: str) -> List[str]:
         seen.add(text)
         blocks.append(text)
     return blocks
+
+
+# ══════════════════════════════════════════════════════════════════
+# 5. Main-content extraction cascade (2026-03-02)
+# ══════════════════════════════════════════════════════════════════
+# Rule R19 · Corollary "Acquisition must be invisible":
+#   Never surface which fetcher/extractor succeeded in the analyst UI.
+#   Instead, cascade until we have a non-empty article and record the
+#   winner in `engine` + `fallback_chain` for provenance.
+#
+# Order (fastest → slowest):
+#   trafilatura → readability → BeautifulSoup heuristic → Playwright
+#     (Playwright then re-runs trafilatura / readability / bs4 on the
+#      rendered DOM so JS-heavy vendor pages still yield an article).
+#
+# The `_last_rendered_html` module cache stashes the Playwright-rendered
+# DOM so downstream helpers (metadata / links / structured blocks) also
+# work on the post-JS body.  Cleared per acquisition.
+_last_rendered_html: Dict[str, str] = {}
+
+# Playwright is optional and heavy — import lazily so unit tests
+# don't pay the startup cost if they never trigger the fallback.
+_playwright_probe = {"ok": None, "reason": ""}
+
+
+def _trafilatura_extract(html: str) -> str:
+    try:
+        return (trafilatura.extract(
+            html,
+            include_comments=False,
+            include_tables=True,
+            favor_precision=True,
+            deduplicate=True,
+        ) or "").strip()
+    except Exception:
+        return ""
+
+
+def _readability_extract(html: str) -> str:
+    """Score-based main-content extractor (readability-lxml).  Works
+    better than trafilatura on many vendor blogs whose HTML has
+    unusual container structures."""
+    try:
+        from readability import Document      # readability-lxml
+        doc = Document(html)
+        summary_html = doc.summary(html_partial=True) or ""
+        if not summary_html.strip():
+            return ""
+        from bs4 import BeautifulSoup
+        try:
+            soup = BeautifulSoup(summary_html, "lxml")
+        except Exception:
+            soup = BeautifulSoup(summary_html, "html.parser")
+        return soup.get_text("\n", strip=True)
+    except Exception:
+        return ""
+
+
+def _bs4_heuristic_extract(html: str) -> str:
+    """Last-resort heuristic: strip nav/header/footer/script/style then
+    pick the longest `<article>` / `<main>` / `<section>` / body text.
+    Deterministic and dependency-free."""
+    try:
+        from bs4 import BeautifulSoup
+        try:
+            soup = BeautifulSoup(html, "lxml")
+        except Exception:
+            soup = BeautifulSoup(html, "html.parser")
+        for tag in soup(("script", "style", "noscript", "svg", "img",
+                          "nav", "header", "footer", "aside", "form")):
+            tag.decompose()
+
+        candidates: List[str] = []
+        for sel in ("article", "main", "section",
+                     "[role=main]", "div.post", "div.entry-content",
+                     "div.article-body", "div.blog-post"):
+            for el in soup.select(sel):
+                t = el.get_text("\n", strip=True)
+                if len(t) >= 200:
+                    candidates.append(t)
+        if not candidates:
+            body = soup.find("body")
+            if body:
+                t = body.get_text("\n", strip=True)
+                if len(t) >= 200:
+                    candidates.append(t)
+        if not candidates:
+            return ""
+        return max(candidates, key=len)
+    except Exception:
+        return ""
+
+
+def _playwright_render(url: str, timeout_ms: int = 20_000) -> str:
+    """Render `url` with a headless Chromium and return its HTML.
+    Silently returns '' if Playwright is unavailable — the cascade
+    then falls through to the static engines it already tried.
+
+    Deterministic-enough for our purposes: same URL + same server +
+    same fingerprint → same rendered DOM.  We DO NOT run any JS
+    beyond initial page load (no scrolling / clicking) so the render
+    is short and stable.
+    """
+    if _playwright_probe["ok"] is False:
+        return ""
+    try:
+        from playwright.sync_api import sync_playwright, Error as PWError
+    except Exception as e:                                   # pragma: no cover
+        _playwright_probe["ok"] = False
+        _playwright_probe["reason"] = f"import: {e!s}"
+        return ""
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
+            try:
+                ctx = browser.new_context(
+                    user_agent=_USER_AGENT,
+                    viewport={"width": 1440, "height": 900},
+                    java_script_enabled=True,
+                    ignore_https_errors=True,
+                )
+                page = ctx.new_page()
+                page.set_default_timeout(timeout_ms)
+                page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+                html = page.content()
+                _playwright_probe["ok"] = True
+                return html or ""
+            finally:
+                try: browser.close()
+                except Exception: pass
+    except Exception as e:                                   # PWError included
+        _playwright_probe["ok"] = False
+        _playwright_probe["reason"] = f"{type(e).__name__}: {e!s}"
+        return ""
+
+
+def _extract_with_cascade(html: str, url: str):
+    """Run the acquisition cascade and return (article, engine, chain).
+
+    Every engine that ran is appended to `chain` even when it failed —
+    this is the analyst's audit trail.  The first non-empty result
+    wins and the cascade stops.
+    """
+    chain: List[str] = []
+
+    def _try(name: str, extractor):
+        chain.append(name)
+        return extractor()
+
+    art = _try("trafilatura", lambda: _trafilatura_extract(html))
+    if len(art) >= 200:
+        return art, "trafilatura", chain
+
+    art2 = _try("readability", lambda: _readability_extract(html))
+    if len(art2) >= 200:
+        return art2, "readability", chain
+    if len(art2) > len(art):
+        art = art2
+
+    art3 = _try("bs4", lambda: _bs4_heuristic_extract(html))
+    if len(art3) >= 200:
+        return art3, "bs4", chain
+    if len(art3) > len(art):
+        art = art3
+
+    # Static engines are done.  Try Playwright to unlock JS-rendered
+    # vendor pages (eSentire, Mandiant, many Cloudflare-guarded blogs).
+    rendered = _try("playwright", lambda: _playwright_render(url))
+    if rendered:
+        _last_rendered_html[url] = rendered
+
+        art4 = _try("playwright+trafilatura",
+                     lambda: _trafilatura_extract(rendered))
+        if len(art4) >= 200:
+            return art4, "playwright+trafilatura", chain
+
+        art5 = _try("playwright+readability",
+                     lambda: _readability_extract(rendered))
+        if len(art5) >= 200:
+            return art5, "playwright+readability", chain
+
+        art6 = _try("playwright+bs4",
+                     lambda: _bs4_heuristic_extract(rendered))
+        if len(art6) >= 200:
+            return art6, "playwright+bs4", chain
+
+        # Nothing above the 200-char confidence threshold — return the
+        # longest thing we managed to pull, whichever engine that was.
+        best = max([art, art2, art3, art4, art5, art6], key=len)
+        if best:
+            engine = "playwright+bs4" if best in (art4, art5, art6) else "bs4"
+            return best, engine, chain
+
+    # No Playwright — return the best static attempt (may be empty).
+    best = max([art, art2, art3], key=len)
+    return best, ("trafilatura" if best is art
+                   else "readability" if best is art2
+                   else "bs4"), chain
+
+
+def _friendly_source(engine: str) -> str:
+    """Analyst-facing translation of the raw engine name."""
+    if not engine:                       return "Unknown"
+    if engine.startswith("playwright"):  return "JavaScript-rendered page"
+    if engine == "readability":          return "Score-based main-content extraction"
+    if engine == "bs4":                  return "Heuristic body extraction"
+    if engine == "trafilatura":          return "Static article"
+    return engine
