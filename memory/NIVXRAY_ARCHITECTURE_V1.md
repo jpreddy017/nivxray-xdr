@@ -152,41 +152,47 @@ The Workspace remains unchanged, the investigation engines remain deterministic 
 
 ---
 
-## Phased Migration Plan
+## Phased Migration Plan (FROZEN ORDER)
 
-The codebase already has most primitives (UIL, IDA-2/4, DIE, ICE, IOC Intelligence, session_narrative). What remains:
+Approved 2026-02-06. Each phase establishes a stable contract for the next.
+No phase may start before the previous phase has passed its contract tests.
 
-### Phase 1 — Freeze the contract (docs + rules)  ← *this commit*
-- [x] Save architecture v1.0 doc
-- [x] Update WORKSPACE_ARCHITECTURE_RULES.md with the 7 rules
-- [ ] Kill the legacy convergence workspace decoder path for binary uploads
+### Phase 1 — Freeze the Contract ✅ DONE
+- [x] Architecture v1.0 document
+- [x] Rules R1-R7 in `WORKSPACE_ARCHITECTURE_RULES.md`
 
-### Phase 2 — IEP canonical model
-- [ ] Add `backend/models/iep.py` with the exact schema above
-- [ ] Refactor UIL to emit IEP (not per-type dicts) from every classification branch
-- [ ] Update IDA/DIE/ICE signatures to accept IEP only
+### Phase 2 — IEP Canonical Model  ← *in progress*
+Foundation. Nothing else may start before this exists.
+- [ ] `backend/models/iep.py` with schema + versioning
+- [ ] Every UIL branch emits an IEP
+- [ ] IDA / DIE / ICE consume only IEPs
+- [ ] Contract tests for the model
+
+### Phase 2.5 — IEP Contract & Validation Suite
+- [ ] For every input type, a test: Input → IEP → schema-valid → artifact-count-valid → relationship-valid → provenance-valid
+- [ ] Catches regressions before they reach IDA / DIE / ICE
 
 ### Phase 3 — Evidence Adapter Layer
-- [ ] Rename `backend/services/uil/preprocess/` → `backend/services/adapters/`
-- [ ] Adapters: `image_adapter` (Tesseract OCR + EXIF), `pdf_adapter` (pdfplumber + PyMuPDF), `docx_adapter` (python-docx), `eml_adapter` (email.parser + attachments)
+Adapters, not features. Initial set:
+- [ ] Text (pass-through) · URL · Image (OCR + EXIF metadata) · PDF · DOCX · EML · ZIP (inventory + recursion)
 - [ ] Every adapter returns an IEP
 
-### Phase 4 — Evidence Validation Layer
-- [ ] New `backend/services/validation/` — hash-format, domain-syntax, IP-syntax, URL-validity, registry-format, command-confidence, OCR-confidence
-- [ ] Runs between adapter output and orchestrator input
-- [ ] Emits `warnings[]` into the IEP
+### Phase 4 — Investigation Orchestrator
+- [ ] Validate → normalize → deduplicate artifacts
+- [ ] Schedule recursive investigations, control recursion depth, merge results
+- [ ] The traffic controller of the platform
 
-### Phase 5 — Investigation Orchestrator
-- [ ] Rename `SessionAdapter` → `InvestigationOrchestrator`
-- [ ] Consolidate recursive fan-out into it
-- [ ] Ensure only it schedules downstream engines
+### Phase 5 — Evidence Validator
+Own phase because it protects the recursive engine.
+- [ ] Reject OCR-garbage IPs (`l0.0.0.l`), corrupted hashes, bad URLs, false OCR commands, malformed email headers
+- [ ] Only validated artifacts become investigation inputs
 
-### Phase 6 — Evidence Reasoning Engine consolidation
-- [ ] Merge `summary_narrative.py` + `nist_report.py` executive/analyst/technical generators into a single `evidence_reasoning_engine.py`
-- [ ] Every projection (Investigation Summary, Attack Story, PDF, NIST report, Executive Summary, Analyst Summary) reads from ONE synthesizer
-- [ ] Kill any duplicate narrative producers
+### Phase 6 — Evidence Reasoning Engine (SSOT)
+- [ ] Unify Investigation Summary · Executive · Technical · NIST · PDF · Recommendations · Confidence · Observed vs Inferred
+- [ ] One reasoning object, many projections
 
-### Phase 7 — Legacy purge
-- [ ] Remove old convergence decoder from workspace flow
-- [ ] Remove `/api/session/investigate` in favour of `/api/investigate`
-- [ ] Freeze `WorkspacePage.jsx` — no per-format branches allowed
+### Phase 7 — Legacy Purge (Last)
+Only after all regression tests pass.
+- [ ] Remove legacy convergence decoder path
+- [ ] Remove old routing / duplicate models / deprecated endpoints
+- [ ] Freeze the Workspace behavior

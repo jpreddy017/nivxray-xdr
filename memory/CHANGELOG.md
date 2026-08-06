@@ -3288,3 +3288,31 @@ recommendations, lessons learned).
 **Verified**: Same Talos URL → previous PDF was 2-3 pages; new PDF is 8 pages,
 carries every observed command, every extracted artifact, and covers all 5
 NIST IR phases.
+
+## 2026-02-06 · Architecture v1.0 FROZEN + Phase 2 + Phase 2.5 landed
+
+**Architecture freeze** — `/app/memory/NIVXRAY_ARCHITECTURE_V1.md` and updated
+`WORKSPACE_ARCHITECTURE_RULES.md` codify the 7 non-negotiable rules and the
+7-phase migration order approved by the user.
+
+**Phase 2 · IEP Canonical Model** — `backend/models/iep.py`
+- `IEP` root model + `IEPSource / IEPProvenance / IEPMetadata / IEPContent /
+  IEPArtifact / IEPRelationship / IEPWarning / IEPStatistics` sub-models
+- Schema version `1.0.0` (semver)
+- Factory `make_iep()` — populates provenance + auto-derives statistics
+- Convenience helpers `iep.by_type()`, `iep.values_of()`,
+  `iep.refresh_statistics()` — every engine uses these instead of touching
+  content directly (enforces R5)
+- Recursive IEP chain via `provenance.parent_iep_id` + `pipeline_depth`
+  (enforces R6)
+
+**Phase 2.5 · IEP Contract Suite** — `backend/tests/test_iep_contract.py`
+- 10 tests covering: schema version format, JSON round-trip, statistics
+  auto-derivation, provenance always populated, recursive-chain provenance,
+  engine-reads-artifacts-not-content invariant, warnings flow, relationship
+  provenance, canonicalisation preservation, confidence bounds enforcement
+- All 10 tests pass — the contract is stable
+
+**Next**: Phase 3 · Evidence Adapter Layer — text (pass-through), url,
+image (OCR + EXIF), pdf, docx, eml, zip.  Every adapter must return an IEP
+via `make_iep()` and pass the Phase 2.5 contract suite.
