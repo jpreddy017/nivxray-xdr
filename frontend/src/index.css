@@ -241,6 +241,47 @@ body::before {
 }
 .nvx-btn:disabled::after { opacity: 0.15; }
 
+/* ── Busy / in-progress state ────────────────────────────────────────
+   Applied whenever an action is running (AUTO INVESTIGATE, DECODE,
+   ANALYZE).  Makes the visual state loud so the analyst KNOWS work
+   is in flight and can wait without re-clicking.
+*/
+.nvx-btn.busy,
+.nvx-btn.busy:disabled {
+  opacity: 1;
+  cursor: progress;
+  background: linear-gradient(120deg,
+    rgba(226, 194, 93, 0.28) 0%,
+    rgba(226, 194, 93, 0.12) 40%,
+    rgba(226, 126, 93, 0.20) 100%);
+  border-color: rgba(226, 194, 93, 0.75);
+  color: #f4d67a;
+  box-shadow:
+    0 0 14px rgba(226, 194, 93, 0.55),
+    inset 0 0 10px rgba(226, 194, 93, 0.15);
+  animation: nvx-busy-pulse 1.4s ease-in-out infinite;
+}
+.nvx-btn.busy::before {
+  content: "";
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 6px;
+  border: 2px solid rgba(244, 214, 122, 0.35);
+  border-top-color: #f4d67a;
+  border-radius: 50%;
+  animation: nvx-spin 0.85s linear infinite;
+  vertical-align: -1px;
+}
+.nvx-btn.busy > svg { display: none; }
+@keyframes nvx-busy-pulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(226, 194, 93, 0.55),
+                          inset 0 0 10px rgba(226, 194, 93, 0.15); }
+  50%      { box-shadow: 0 0 22px rgba(226, 194, 93, 0.85),
+                          inset 0 0 14px rgba(226, 194, 93, 0.30); }
+}
+@keyframes nvx-spin { to { transform: rotate(360deg); } }
+
 /* Solid teal variant — kept for confirm / submit actions */
 .nvx-btn.primary {
   background: var(--accent);

@@ -1941,7 +1941,7 @@ export default function WorkspacePage() {
                          data-testid="input-guidance-banner-wrapper" />
 
         {/* PRIMARY — full SOC pipeline (decode + MITRE + IOCs + LOLBAS + verdict) */}
-        <button className="nvx-btn primary" onClick={autoInvestigate} disabled={loading || analyzing}
+        <button className={`nvx-btn primary${(loading || analyzing) ? " busy" : ""}`} onClick={autoInvestigate} disabled={loading || analyzing}
                 data-testid="btn-auto-investigate"
                 title={
                   "AUTO INVESTIGATE — the default one-click SOC brief.\n" +
@@ -1953,11 +1953,13 @@ export default function WorkspacePage() {
                   fontSize: 13, padding: "8px 18px",
                   ...(getGuidanceGlowStyle(input, "btn-auto-investigate") || {}),
                 }}>
-          <Sparkles size={14} /> AUTO INVESTIGATE
+          {(loading || analyzing)
+            ? <>INVESTIGATING…</>
+            : <><Sparkles size={14} /> AUTO INVESTIGATE</>}
         </button>
 
         {/* SECONDARY — deterministic decode only, no enrichment. Faster. */}
-        <button className="nvx-btn" onClick={nivxrayDecode} disabled={loading || analyzing}
+        <button className={`nvx-btn${(loading || analyzing) ? " busy" : ""}`} onClick={nivxrayDecode} disabled={loading || analyzing}
                 data-testid="btn-nivxray-decode"
                 title={
                   "DECODE — deterministic decoder chain only, no enrichment.\n" +
@@ -1965,7 +1967,9 @@ export default function WorkspacePage() {
                   "▸ USE WHEN: you just want the payload peeled and don't need the SOC brief."
                 }
                 style={{ fontSize: 12, padding: "7px 14px" }}>
-          <Zap size={13} /> DECODE
+          {(loading || analyzing)
+            ? <>DECODING…</>
+            : <><Zap size={13} /> DECODE</>}
         </button>
 
         <button className="nvx-btn ghost" onClick={() => setAdvancedOpen((v) => !v)}
@@ -2615,11 +2619,11 @@ export default function WorkspacePage() {
                 )}
               </div>
               <div className="nvx-card-actions">
-                <button className="nvx-btn primary sm" onClick={autoInvestigate} disabled={loading} data-testid="btn-auto-investigate-inline">
-                  <Sparkles size={11} /> AUTO INVESTIGATE
+                <button className={`nvx-btn primary sm${(loading || analyzing) ? " busy" : ""}`} onClick={autoInvestigate} disabled={loading || analyzing} data-testid="btn-auto-investigate-inline">
+                  {(loading || analyzing) ? <>INVESTIGATING…</> : <><Sparkles size={11} /> AUTO INVESTIGATE</>}
                 </button>
-                <button className="nvx-btn sm" onClick={() => autoDecode({ smart: true })} disabled={loading} data-testid="btn-smart-decode-inline">
-                  <Zap size={11} /> DECODE
+                <button className={`nvx-btn sm${(loading || analyzing) ? " busy" : ""}`} onClick={() => autoDecode({ smart: true })} disabled={loading || analyzing} data-testid="btn-smart-decode-inline">
+                  {(loading || analyzing) ? <>DECODING…</> : <><Zap size={11} /> DECODE</>}
                 </button>
                 <button className="nvx-btn sm ghost" onClick={clearAll} data-testid="btn-clear-input"
                         title="Clear everything: input, output, recipe, threat panels, trace, verdict, live preview.">
