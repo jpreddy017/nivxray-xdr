@@ -41,7 +41,12 @@ export default function InvestigationSummaryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const seed = sessionStorage.getItem("nivx.investigation.text") || "";
+    // Prefer localStorage (survives across tabs — the workspace opens
+    // this page in a new tab so sessionStorage would be empty).
+    // Fallback to sessionStorage for same-tab navigation.
+    const seed = (typeof window !== "undefined" &&
+      (localStorage.getItem("nivx.investigation.text") ||
+       sessionStorage.getItem("nivx.investigation.text"))) || "";
     setText(seed);
     if (!seed) {
       setErr("No input available. Open this page from the Workspace via the OPEN INVESTIGATION SUMMARY button.");

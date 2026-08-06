@@ -3106,7 +3106,16 @@ export default function WorkspacePage() {
               <button
                 className="nvx-btn sm primary"
                 onClick={() => {
-                  try { sessionStorage.setItem("nivx.investigation.text", input || ""); } catch {}
+                  try {
+                    // Use localStorage (not sessionStorage) so the new
+                    // tab — a fresh browsing context — can read the input.
+                    // sessionStorage is per-tab and does not survive
+                    // window.open(); localStorage is shared across tabs
+                    // on the same origin.
+                    localStorage.setItem("nivx.investigation.text", input || "");
+                    // Also seed sessionStorage so same-tab navigation works.
+                    sessionStorage.setItem("nivx.investigation.text", input || "");
+                  } catch {}
                   window.open("/investigation-summary", "_blank", "noopener,noreferrer");
                 }}
                 disabled={!input || !input.trim()}
