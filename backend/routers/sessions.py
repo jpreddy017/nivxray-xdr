@@ -190,3 +190,49 @@ async def session_nist_pdf(session_id: str) -> Response:
         headers={"Content-Disposition":
                     f'attachment; filename="{session_id}.nist.pdf"'},
     )
+
+
+# ── Ad-hoc render (body-driven · no persistence required) ─────────
+# Lets the frontend render a PDF / MD even when the session lives
+# only in the client cache (ses_local_… fallbacks or shared
+# investigations that were never persisted server-side).
+class RenderBody(BaseModel):
+    session:       Optional[Dict[str, Any]] = None
+    investigation: Optional[Dict[str, Any]] = None
+    input:         Optional[str]            = None
+
+
+def _coerce_session(body: RenderBody) -> Dict[str, Any]:
+    if body.session and body.session.get("session_id"):
+        return body.session
+    if body.investigation:
+        return build_session(body.input or "", body.investigation or {})
+    raise HTTPException(status_code=400,
+                          detail="Provide either `session` or `investigation`.")
+
+
+@router.post("/render/nist.pdf")
+async def session_render_pdf(body: RenderBody) -> Response:
+    session = _coerce_session(body)
+    try:
+        pdf = render_pdf(session)
+    except Exception as e:                             # pragma: no cover
+        log.exception("session.render_pdf_failed")
+        raise HTTPException(status_code=500,
+                              detail=f"PDF render failed: {e}") from e
+    fname = f"{session.get('session_id') or 'nivxray'}.nist.pdf"
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+@router.post("/render/nist.md", response_class=PlainTextResponse)
+async def session_render_md(body: RenderBody) -> PlainTextResponse:
+    session = _coerce_session(body)
+    md = render_markdown(session)
+    fname = f"{session.get('session_id') or 'nivxray'}.nist.md"
+    return PlainTextResponse(
+        md, media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )

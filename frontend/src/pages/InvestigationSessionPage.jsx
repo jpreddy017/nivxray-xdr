@@ -523,6 +523,33 @@ function NistTab({ incident, raw, session }) {
     } catch (e) { /* noop */ }
   }
   const sid = session?.session_id || "session";
+  const isServerPersisted = sid && !sid.startsWith("ses_local_");
+  const BACKEND = process.env.REACT_APP_BACKEND_URL || "";
+
+  // Body-driven render: guarantees PDF/MD downloads even when the
+  // session lives only in the client cache (fallback id or never-
+  // persisted).  Streams the response and triggers a Save dialog.
+  async function fetchAndSave(path, filename, mime) {
+    try {
+      const resp = await api.post(path, { session }, { responseType: "blob" });
+      const blob = new Blob([resp.data],
+                              { type: resp.headers?.["content-type"] || mime });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      // If body-render fails (shouldn't) and the session IS on the
+      // server, fall back to the GET path.
+      if (isServerPersisted) {
+        window.open(
+          `${BACKEND}/api/session/${sid}${path.replace("/session/render", "")}`,
+          "_blank");
+      }
+    }
+  }
 
   return (
     <div style={sx.card} data-testid="session-nist-tab">
@@ -534,18 +561,16 @@ function NistTab({ incident, raw, session }) {
         <div style={sx.dlBtnGroup} data-testid="nist-downloads">
           <button type="button" style={sx.dlBtn}
                   data-testid="btn-download-nist-pdf"
-                  onClick={() => window.open(
-                    `${(process.env.REACT_APP_BACKEND_URL || "")}/api/session/${sid}/nist.pdf`,
-                    "_blank",
-                  )}>
+                  onClick={() => fetchAndSave(
+                    "/session/render/nist.pdf",
+                    `${sid}.nist.pdf`, "application/pdf")}>
             ⤓ PDF
           </button>
           <button type="button" style={sx.dlBtn}
                   data-testid="btn-download-nist-md"
-                  onClick={() => window.open(
-                    `${(process.env.REACT_APP_BACKEND_URL || "")}/api/session/${sid}/nist.md`,
-                    "_blank",
-                  )}>
+                  onClick={() => fetchAndSave(
+                    "/session/render/nist.md",
+                    `${sid}.nist.md`, "text/markdown")}>
             ⤓ Markdown
           </button>
           <button type="button" style={sx.dlBtn}
