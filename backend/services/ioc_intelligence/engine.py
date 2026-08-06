@@ -19,7 +19,7 @@ from .cache      import get as cache_get, set as cache_set
 from .consensus  import build_card
 from .schema     import IocCard, ProviderResult
 
-from .providers import malwarebazaar, threatfox, urlhaus
+from .providers import malwarebazaar, threatfox, urlhaus, urlscan, hybrid_analysis
 from .providers.virustotal_abuseipdb import (
     lookup_virustotal, lookup_abuseipdb,
 )
@@ -32,11 +32,13 @@ from .providers.virustotal_abuseipdb import (
 # `async def fn(kind, value, http) -> ProviderResult`.  Provider names
 # must match the weights table in consensus._WEIGHTS.
 _PROVIDERS: List[Tuple[str, Any, set]] = [
-    (malwarebazaar.name, malwarebazaar.lookup, set(malwarebazaar.SUPPORTED_KINDS)),
-    (threatfox.name,     threatfox.lookup,     set(threatfox.SUPPORTED_KINDS)),
-    (urlhaus.name,       urlhaus.lookup,       set(urlhaus.SUPPORTED_KINDS)),
-    ("virustotal",       lookup_virustotal,    {"hash", "url", "domain", "ip"}),
-    ("abuseipdb",        lookup_abuseipdb,     {"ip"}),
+    (malwarebazaar.name,   malwarebazaar.lookup,   set(malwarebazaar.SUPPORTED_KINDS)),
+    (threatfox.name,       threatfox.lookup,       set(threatfox.SUPPORTED_KINDS)),
+    (urlhaus.name,         urlhaus.lookup,         set(urlhaus.SUPPORTED_KINDS)),
+    (urlscan.name,         urlscan.lookup,         set(urlscan.SUPPORTED_KINDS)),
+    (hybrid_analysis.name, hybrid_analysis.lookup, set(hybrid_analysis.SUPPORTED_KINDS)),
+    ("virustotal",         lookup_virustotal,      {"hash", "url", "domain", "ip"}),
+    ("abuseipdb",          lookup_abuseipdb,       {"ip"}),
 ]
 
 
