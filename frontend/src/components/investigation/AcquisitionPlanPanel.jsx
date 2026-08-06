@@ -18,6 +18,7 @@
  * and hide this component when `acquisition_plan` is empty.
  */
 import React from "react";
+import CollapsibleSection from "./CollapsibleSection";
 
 const STATUS_META = {
   done:    { glyph: "✓", cls: "acq-done",    label: "DONE" },
@@ -42,50 +43,24 @@ export default function AcquisitionPlanPanel({ investigation }) {
   const acquired     = acq?.ok === true;
 
   return (
-    <section
-      className="acq-panel"
-      data-testid="acquisition-plan-panel"
-      style={{
-        border: "1px solid rgba(0, 255, 128, 0.28)",
-        borderRadius: 6,
-        background: "rgba(0, 22, 12, 0.55)",
-        padding: "14px 16px",
-        margin: "0 12px 8px",
-        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-        color: "#c5f5d6",
-      }}
+    <CollapsibleSection
+      title={<>IDA · ACQUISITION PLAN</>}
+      subtitle={intent?.vendor
+                ? `Threat Intelligence Report — ${intent.vendor} · ${intent.scheme}://${intent.host}`
+                : (prettyIntent(intent?.intent) || "Acquirable URL")}
+      testid="acquisition-plan-panel"
+      right={
+        <span data-testid="acq-progress">
+          {doneCount}/{plan.length} steps
+          {pendingCount > 0 && ` · ${pendingCount} queued`}
+        </span>
+      }
     >
-      <header style={{ display: "flex", alignItems: "baseline",
-                       justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
-        <div>
-          <div style={{ fontSize: 11, letterSpacing: 1.6,
-                        color: "#7ee6a8", opacity: 0.9 }}>
-            ▸ IDA · ACQUISITION PLAN
-          </div>
-          <div style={{ fontSize: 15, fontWeight: 600, marginTop: 2,
-                        color: "#e6ffe9" }} data-testid="acquisition-plan-title">
-            {intent?.vendor
-              ? <>Threat Intelligence Report — <span style={{ color: "#7ee6a8" }}>{intent.vendor}</span></>
-              : <>{prettyIntent(intent?.intent) || "Acquirable URL"}</>}
-          </div>
-          {intent?.host && (
-            <div style={{ fontSize: 12, color: "#96c9aa", marginTop: 3 }}>
-              {intent.scheme}://{intent.host}
-            </div>
-          )}
-        </div>
-        <div style={{ textAlign: "right", fontSize: 11,
-                      color: "#7ee6a8", opacity: 0.85 }}>
-          <div data-testid="acq-progress">
-            {doneCount}/{plan.length} <span style={{ opacity: 0.6 }}>steps complete</span>
-          </div>
-          {pendingCount > 0 && (
-            <div style={{ marginTop: 2, opacity: 0.75 }}>
-              {pendingCount} queued for future IDA slice
-            </div>
-          )}
-        </div>
-      </header>
+      <div data-testid="acquisition-plan-title" style={{ display: "none" }}>
+        {intent?.vendor
+          ? `Threat Intelligence Report — ${intent.vendor}`
+          : (prettyIntent(intent?.intent) || "Acquirable URL")}
+      </div>
 
       {acquired && (
         <div
@@ -232,7 +207,7 @@ export default function AcquisitionPlanPanel({ investigation }) {
           </ul>
         </details>
       )}
-    </section>
+    </CollapsibleSection>
   );
 }
 

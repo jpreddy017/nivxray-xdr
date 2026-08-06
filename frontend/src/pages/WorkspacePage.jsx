@@ -14,6 +14,7 @@ import WorkspaceDecodeFailureCard from "@/components/investigation/WorkspaceDeco
 import InputUnderstandingPanel from "@/components/investigation/InputUnderstandingPanel";
 import AcquisitionPlanPanel from "@/components/investigation/AcquisitionPlanPanel";
 import ExtractedArtifactsPanel from "@/components/investigation/ExtractedArtifactsPanel";
+import CollapsibleSection from "@/components/investigation/CollapsibleSection";
 import InlineAttackStory from "@/components/investigation/InlineAttackStory";
 import TrajectoryDiagram from "@/components/investigation/TrajectoryDiagram";
 import AnalystNarrativePanel from "@/components/investigation/AnalystNarrativePanel";
@@ -2856,13 +2857,15 @@ export default function WorkspacePage() {
               ANALYZE.  Explains WHAT the paste is, WHY each engine is
               running, and TRACKS the plan execution in real time. */}
           {(understanding || understandingLoading || understandingError) && (
-            <div style={{ margin: "0 12px 8px" }}>
+            <CollapsibleSection title="Input Understanding"
+                                 testid="input-understanding-section"
+                                 style={{ margin: "0 12px 8px" }}>
               <InputUnderstandingPanel
                 understanding={understanding}
                 loading={understandingLoading}
                 error={understandingError}
               />
-            </div>
+            </CollapsibleSection>
           )}
 
           {/* ▲ IDA · Acquisition Plan projection (Slice 1.6 · 2026-03-01)
@@ -2914,9 +2917,12 @@ export default function WorkspacePage() {
                     : null);
             if (!preprocForTraj) return null;
             return (
-              <div style={{ margin: "0 12px 8px" }}>
+              <CollapsibleSection title="Attack Chain · Trajectory"
+                                   subtitle="Swim-lane view across MITRE tactics · drag nodes · pan · +/− to zoom"
+                                   testid="attack-trajectory-section"
+                                   style={{ margin: "0 12px 8px" }}>
                 <TrajectoryDiagram preprocessor={preprocForTraj} />
-              </div>
+              </CollapsibleSection>
             );
           })()}
 

@@ -16,6 +16,7 @@
  * per artifact.
  */
 import React, { useState } from "react";
+import CollapsibleSection from "./CollapsibleSection";
 
 const TYPE_META = {
   commands: { label: "Commands",     glyph: "▶" },
@@ -79,71 +80,73 @@ export default function ExtractedArtifactsPanel({ investigation }) {
   if (!groups.length) return null;
 
   return (
-    <section
-      data-testid="extracted-artifacts-panel"
-      style={{
-        border: "1px solid rgba(0, 255, 128, 0.28)",
-        borderRadius: 6,
-        background: "rgba(0, 22, 12, 0.55)",
-        padding: "14px 16px",
-        margin: "0 12px 8px",
-        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-        color: "#c5f5d6",
-      }}
+    <CollapsibleSection
+      title="Evidence Explorer"
+      subtitle="Every piece of evidence below was investigated automatically (Rule R20) and correlated by ICE (Rule R21)."
+      testid="extracted-artifacts-panel"
+      right={ice?.investigation_readiness
+              ? `${ice.investigation_readiness.overall_percent}% ready`
+              : null}
     >
-      <header style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: 11, letterSpacing: 1.6,
-                      color: "#7ee6a8", opacity: 0.9 }}>
-          ▸ EVIDENCE EXPLORER
-        </div>
-        <div style={{ fontSize: 12, color: "#96c9aa", marginTop: 3 }}>
-          Every piece of evidence below was investigated automatically (Rule R20)
-          and correlated by ICE (Rule R21).  Drill into any row to see per-artifact
-          investigation.
-        </div>
-      </header>
-
       {/* ── Incident header (ICE.incident) ── */}
-      <IncidentHeader incident={ice?.incident} />
+      <CollapsibleSection title="Incident" testid="incident-header-section"
+                          style={{ margin: "8px 0" }}>
+        <IncidentHeader incident={ice?.incident?.summary || ice?.incident} />
+      </CollapsibleSection>
 
-      {/* ── Investigation Readiness — coverage bars + next step ── */}
-      <InvestigationReadiness readiness={ice?.investigation_readiness}
-                                gaps={ice?.investigation_gaps || []} />
+      {/* ── Investigation Readiness ── */}
+      <CollapsibleSection title="Investigation Readiness"
+                          testid="readiness-section"
+                          style={{ margin: "8px 0" }}
+                          right={ice?.investigation_readiness
+                            ? `${ice.investigation_readiness.overall_percent}%`
+                            : null}>
+        <InvestigationReadiness readiness={ice?.investigation_readiness}
+                                  gaps={ice?.investigation_gaps || []} />
+      </CollapsibleSection>
 
-      {/* ── Evidence Completeness (state grid) ── */}
-      <EvidenceCompleteness ice={ice} ext={ext} groups={groups} />
+      {/* ── Evidence Completeness ── */}
+      <CollapsibleSection title="Evidence Completeness"
+                          testid="completeness-section"
+                          style={{ margin: "8px 0" }}
+                          defaultOpen={false}>
+        <EvidenceCompleteness ice={ice} ext={ext} groups={groups} />
+      </CollapsibleSection>
 
       {/* ══ CORRELATED EVIDENCE ══ */}
-      <SectionHeading label="Correlated Evidence" testid="section-correlated" />
-      {/* ── Behavior Correlation (ICE clusters) ── */}
-      <BehaviorCorrelation clusters={ice?.behavior_clusters || []} />
-      {/* ── Kill-Chain Phases (ICE attack_phases) ── */}
-      <AttackPhases phases={ice?.attack_phases || []} />
+      <CollapsibleSection title="Behavior Correlation"
+                          testid="behavior-correlation-section"
+                          style={{ margin: "8px 0" }}
+                          right={`${ice?.behavior_clusters?.length || 0} clusters`}>
+        <BehaviorCorrelation clusters={ice?.behavior_clusters || []} />
+      </CollapsibleSection>
 
-      {/* ── Recommended Actions (ICE) ── */}
-      <RecommendedActions actions={ice?.recommended_actions || []} />
+      <CollapsibleSection title="Kill-Chain Phases"
+                          testid="attack-phases-section"
+                          style={{ margin: "8px 0" }}
+                          right={`${ice?.attack_phases?.length || 0} phases`}>
+        <AttackPhases phases={ice?.attack_phases || []} />
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Recommended Actions"
+                          testid="recommended-actions-section"
+                          style={{ margin: "8px 0" }}
+                          right={`${ice?.recommended_actions?.length || 0} actions`}>
+        <RecommendedActions actions={ice?.recommended_actions || []} />
+      </CollapsibleSection>
 
       {/* ══ RAW EVIDENCE ══ */}
-      <SectionHeading label="Raw Evidence" testid="section-raw" />
-      {groups.map(g => (
-        <ArtifactGroup key={g.key} groupKey={g.key} items={g.items}
-                        extras={g.extras} />
-      ))}
-    </section>
-  );
-}
-
-
-function SectionHeading({ label, testid }) {
-  return (
-    <div data-testid={testid}
-         style={{ marginTop: 16, marginBottom: 8,
-                   fontSize: 10, letterSpacing: 2.2,
-                   color: "#7ee6a8", opacity: 0.8,
-                   borderBottom: "1px solid rgba(126, 230, 168, 0.2)",
-                   paddingBottom: 4 }}>
-      ══ {label.toUpperCase()} ══
-    </div>
+      <CollapsibleSection title="Raw Evidence"
+                          testid="raw-evidence-section"
+                          style={{ margin: "8px 0" }}
+                          defaultOpen={false}
+                          right={`${groups.length} groups`}>
+        {groups.map(g => (
+          <ArtifactGroup key={g.key} groupKey={g.key} items={g.items}
+                          extras={g.extras} />
+        ))}
+      </CollapsibleSection>
+    </CollapsibleSection>
   );
 }
 
