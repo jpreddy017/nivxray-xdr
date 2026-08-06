@@ -47,6 +47,11 @@ const MultiLayerBatteryPage = lazy(() => import("@/pages/MultiLayerBatteryPage")
 const AnalystWorkspacePage  = lazy(() => import("@/pages/AnalystWorkspacePage"));
 const AnalystRC5Page        = lazy(() => import("@/pages/AnalystRC5Page"));
 const AutoInvestigatePage   = lazy(() => import("@/pages/AutoInvestigatePage"));
+// L4 · Investigation Session (Rule R22 · 2026-03-02) — dedicated
+// deep-dive surface for a completed threat-report investigation.
+// Every extracted artifact is a first-class Investigation Input.
+const InvestigationSessionPage      = lazy(() => import("@/pages/InvestigationSessionPage"));
+const InvestigationInputDetailPage  = lazy(() => import("@/pages/InvestigationInputDetailPage"));
 const SemanticMappingInspectorPage = lazy(() => import("@/pages/SemanticMappingInspectorPage"));
 
 const V2CaseWorkspaceShell  = lazy(() => import("@/v2/pages/CaseWorkspaceShell"));
@@ -164,6 +169,15 @@ function App() {
               <Route path="/analyst"   element={<Protected><AnalystWorkspacePage /></Protected>} />
               <Route path="/analyst/rc5" element={<Protected><AnalystRC5Page /></Protected>} />
               <Route path="/auto-investigate" element={<Protected><AutoInvestigatePage /></Protected>} />
+              {/* L4 · Investigation Session · Rule R22 (2026-03-02) */}
+              <Route path="/workspace/session/:sessionId"
+                     element={<Protected><InvestigationSessionPage /></Protected>} />
+              <Route path="/workspace/session/:sessionId/input/:inputId"
+                     element={<Protected><InvestigationInputDetailPage /></Protected>} />
+              {/* Legacy alias — the previous "Evidence Explorer" route
+                  still resolves so existing bookmarks keep working. */}
+              <Route path="/evidence-explorer"
+                     element={<Protected><InvestigationSessionPage /></Protected>} />
               {/* Semantic Mapping Inspector — Stage 3 engineering surface (Feb 2026). */}
               <Route path="/lab/semantic-mapping-inspector" element={<Protected><SemanticMappingInspectorPage /></Protected>} />
               {/* v2 · Case Workspace shell — flag-gated inside the

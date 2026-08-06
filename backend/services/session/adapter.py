@@ -111,23 +111,59 @@ def promote_investigation_inputs(ssot: Dict[str, Any]) -> List[Dict[str, Any]]:
     sigma          = ext.get("sigma_rules") or []
 
     # Atomic-paste fallback (Rule R22 — no document acquisition):
-    # promote the top-level `commands` produced by the preprocessor
-    # so single-paste sessions still carry one Investigation Input.
+    # promote the top-level `commands` produced by the preprocessor,
+    # OR the IDA-1/IDA-2 artifact splitter output, so single-paste
+    # sessions still carry Investigation Inputs.
     if not commands:
-        for i, stage in enumerate(ssot.get("commands") or []):
-            commands.append({
-                "command": stage.get("command") or stage.get("raw") or "",
-                "source":  "paste",
-                "section": "Original Input",
-                "purpose": stage.get("purpose") or stage.get("family") or "",
-            })
-            investigations.append({
-                "language":   stage.get("language"),
-                "techniques": stage.get("techniques") or [],
-                "lolbins":    stage.get("lolbins")    or [],
-                "iocs":       stage.get("iocs")       or [],
-                "stage":      stage,
-            })
+        top_commands = ssot.get("commands") or []
+        top_artifacts = ssot.get("artifacts") or []
+        # Prefer preprocessor stages (they carry MITRE / language /
+        # techniques).  Fall back to raw artifact splitter output.
+        if top_commands:
+            for i, stage in enumerate(top_commands):
+                raw_cmd = (stage.get("command")
+                            or stage.get("raw")
+                            or stage.get("normalized_command")
+                            or stage.get("raw_excerpt")
+                            or "")
+                commands.append({
+                    "command": raw_cmd,
+                    "source":  "paste",
+                    "section": "Original Input",
+                    "purpose": (stage.get("purpose")
+                                 or stage.get("objective")
+                                 or stage.get("title")
+                                 or stage.get("family") or ""),
+                })
+                investigations.append({
+                    "language":   stage.get("language") or stage.get("kind"),
+                    "techniques": stage.get("techniques") or (
+                        [{"id": t} for t in (stage.get("mitre") or [])
+                         if isinstance(t, str)]),
+                    "lolbins":    stage.get("lolbins")    or [],
+                    "iocs":       stage.get("iocs")       or [],
+                    "stage":      stage,
+                })
+        else:
+            for i, art in enumerate(top_artifacts):
+                if (art.get("type") or "").lower() != "command":
+                    continue
+                val = art.get("value") or ""
+                if not val:
+                    continue
+                commands.append({
+                    "command": val,
+                    "source":  "paste",
+                    "section": "Original Input",
+                    "purpose": art.get("purpose") or "",
+                })
+                investigations.append({
+                    "language":   art.get("language"),
+                    "techniques": art.get("techniques") or [],
+                    "lolbins":    art.get("lolbins")    or [],
+                    "iocs":       art.get("iocs")       or [],
+                    "stage":      art,
+                })
 
     out: List[Dict[str, Any]] = []
     idx = 0

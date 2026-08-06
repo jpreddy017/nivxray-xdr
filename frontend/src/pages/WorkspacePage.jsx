@@ -6,14 +6,14 @@ import RecipePanel from "@/components/RecipePanel";
 import ThreatAnalysis from "@/components/ThreatAnalysis";
 import ReportMenu from "@/components/ReportMenu";
 import AttackGraph from "@/components/AttackGraph";
-import AttackPathClean from "@/components/AttackPathClean";
 import FinalSummary from "@/components/FinalSummary";
 import ShellcodeView from "@/components/ShellcodeView";
 import OutputView from "@/components/OutputView";
 import WorkspaceDecodeFailureCard from "@/components/investigation/WorkspaceDecodeFailureCard";
 import InputUnderstandingPanel from "@/components/investigation/InputUnderstandingPanel";
 import AcquisitionPlanPanel from "@/components/investigation/AcquisitionPlanPanel";
-import ExtractedArtifactsPanel from "@/components/investigation/ExtractedArtifactsPanel";
+import ExtractedArtifactsPanel from "@/components/investigation/ExtractedArtifactsPanel"; // eslint-disable-line no-unused-vars
+import InvestigationSessionGateway from "@/components/investigation/InvestigationSessionGateway";
 import CollapsibleSection from "@/components/investigation/CollapsibleSection";
 import InlineAttackStory from "@/components/investigation/InlineAttackStory";
 import TrajectoryDiagram from "@/components/investigation/TrajectoryDiagram";
@@ -23,7 +23,7 @@ import { InvestigationFilterProvider, InvestigationFilterBar } from "@/component
 import { runClientRecipe } from "@/lib/clientOps";
 import { magicLite } from "@/lib/magicLite";
 import { detectShellcode } from "@/lib/shellcodeDetect";
-import { buildFallbackGraph } from "@/lib/fallbackGraph";
+import { buildFallbackGraph } from "@/lib/fallbackGraph"; // eslint-disable-line no-unused-vars
 import { selectCanonicalOutput } from "@/lib/selectCanonicalOutput";
 import { mergeIocs } from "@/lib/mergeIocs";
 import GuidanceBanner, { getGuidanceGlowStyle } from "@/components/GuidanceBanner";
@@ -167,7 +167,7 @@ export default function WorkspacePage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [tacticFilter, setTacticFilter] = useState(null); // P3: click-to-filter
-  const [graphView, setGraphView] = useState("path"); // "tactical" | "path" — mode of the new card below
+  const [graphView, setGraphView] = useState("path"); // eslint-disable-line no-unused-vars
   const [personas, setPersonas] = useState([]);
   const [providers, setProviders] = useState([]);
   const [personaId, setPersonaId] = useState("");
@@ -2878,13 +2878,16 @@ export default function WorkspacePage() {
             <AcquisitionPlanPanel investigation={investigationObject} />
           )}
 
-          {/* ▲ IDA · Extracted Artifacts (Slice 1.9 · Rule R20 · 2026-03-01)
-              Read-only, first-class projection of every artifact IDA-4 pulled
-              from the acquired document.  Each artifact is already
-              investigated by the recursive Artifact Router — the analyst
-              drills in via the row, they NEVER have to re-paste anything. */}
+          {/* ▲ IDA · Investigation Session Gateway (Rule R22 · 2026-03-02)
+              Replaces the inline extracted-artifacts table.  When IDA
+              has acquired a document, the Workspace shows a compact
+              readiness card + a single "Open Investigation Session"
+              button — the deep-dive lives on /workspace/session/:id. */}
           {investigationObject?.acquired_document?.ok && (
-            <ExtractedArtifactsPanel investigation={investigationObject} />
+            <InvestigationSessionGateway
+              investigation={investigationObject}
+              input={input}
+            />
           )}
 
           {/* ▲ Inline Attack Story (P0 · 2026-02-28)
@@ -3204,81 +3207,11 @@ export default function WorkspacePage() {
             </div>
           )}
 
-          {/* Kill-Chain Path Card — G1/G2 toggle. Renders as soon as we have
-              ANY decode signal (chain / output / IOCs / lolbins), synthesising
-              a graph on the fly if the AI describe hasn't run yet.
-
-              Feb 2026 · Stability Fix: the Kill-Chain Path card now ALWAYS
-              uses the deterministic synth graph. The LLM narrative graph is
-              async and used to overwrite this card ~10-30 s after page load,
-              which analysts perceived as "the graph keeps changing". The
-              AI narrative graph now stays exclusively in the TACTICAL
-              SWIM-LANE card above, so each card has one stable source. */}
-          {(() => {
-            const hasDecodeSignal = !!(
-              output || input ||
-              (analysis?.chain && (Array.isArray(analysis.chain) ? analysis.chain.length : (analysis.chain.steps || []).length)) ||
-              (analysis?.iocs && Object.values(analysis.iocs).some((v) => Array.isArray(v) && v.length)) ||
-              (analysis?.lolbins && analysis.lolbins.length) ||
-              (analysis?.mitre && analysis.mitre.length)
-            );
-            if (!hasDecodeSignal) return null;
-
-            const graph = buildFallbackGraph({ input, output, analysis, verdict: verdictCard });
-            const source = "synth";
-
-            return (
-              <div className="nvx-card" data-testid="attack-path-card">
-                <div className="nvx-card-head">
-                  <div className="nvx-card-title">
-                    <span className="dot" style={{ background: "#38bdf8" }} />
-                    {graphView === "path" ? "G1 · KILL-CHAIN PATH" : "G2 · TACTICAL (ALT)"}
-                    <span className="count">
-                      {graphView === "path"
-                        ? `${graph.nodes.length} nodes · ${graph.edges.length} edges · deterministic`
-                        : "MITRE swim-lane (mirrors top card)"}
-                    </span>
-                  </div>
-                  <div className="nvx-card-actions">
-                    <div style={{ display: "inline-flex", border: "1px solid var(--border)",
-                                  borderRadius: 4, overflow: "hidden" }}
-                         data-testid="attack-path-view-toggle">
-                      <button
-                        className={`nvx-btn sm ${graphView === "path" ? "" : "ghost"}`}
-                        onClick={() => setGraphView("path")}
-                        data-testid="btn-graph-view-path"
-                        title="G1 — Clean kill-chain path (entry → choke → crown jewel)"
-                        style={{ borderRadius: 0, borderRight: "1px solid var(--border)" }}
-                      >
-                        G1
-                      </button>
-                      <button
-                        className={`nvx-btn sm ${graphView === "tactical" ? "" : "ghost"}`}
-                        onClick={() => setGraphView("tactical")}
-                        data-testid="btn-graph-view-tactical"
-                        title="G2 — MITRE tactical swim-lane"
-                        style={{ borderRadius: 0 }}
-                      >
-                        G2
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="nvx-card-body">
-                  {graphView === "path" ? (
-                    <AttackPathClean nodes={graph.nodes} edges={graph.edges} />
-                  ) : (
-                    <AttackGraph
-                      nodes={graph.nodes}
-                      edges={graph.edges}
-                      selectedTactic={tacticFilter}
-                      onTacticClick={(t) => setTacticFilter((cur) => cur === t ? null : t)}
-                    />
-                  )}
-                </div>
-              </div>
-            );
-          })()}
+          {/* Kill-Chain Path card (G1/G2 toggle) removed 2026-03-02
+              per user request — the same information is projected on
+              the dedicated Investigation Session page (Incident Graph
+              / Attack Story tabs).  Keeping the Workspace visually
+              light — one launcher, one job. */}
 
           {/* Predicted Process Tree — appears once we have decoded output */}
           {(output || input) && (

@@ -21,6 +21,85 @@
 | **IDA · Intelligent Document Analyzer** | 🚧 In progress — **Slice 1.6 landed 2026-03-01** | IDA-1 Input Classifier + URL Intent + IDA-2 Artifact Splitter live in SSOT · runtime pipeline responsibility fixed (URL is no longer treated as atomic IOC) · frontend AcquisitionPlanPanel renders the 15-step investigator plan. Roadmap: IDA-3 URL Fetcher · IDA-3.5 Content Understanding · IDA-4 Threat Report Extractor · IDA-5 Evidence Normalizer · IDA-6 Semantic Relationship Builder · IDA-7 Citation & Provenance |
 | **IVE · Investigation Visualization Engine** | ✅ Architecture frozen | `/app/memory/IVE_ARCHITECTURE.md` · projection-only engine · Rule R16 · 7-slice roadmap · consumes SSOT knowledge graph + document profile + provenance |
 
+
+---
+
+### 🟢 2026-03-02 · Rule R22 · Investigation Session (Session Adapter)
+
+**Extracted evidence becomes Investigation Input.**  Every artifact
+IDA extracts (command line, PowerShell, URL, hash, IP, domain,
+registry path, file path, CVE, MITRE, actor, malware, YARA, Sigma)
+is promoted to a first-class **Investigation Input** with its own
+child investigation.  Analysts NEVER copy/paste extracted evidence
+back into the Workspace — clicking an input row opens the same
+atomic-investigation UI the manual paste flow already produces.
+
+**Landed in this slice (fully additive · 98/98 quality gate green):**
+
+1. **`services/session/adapter.py`** — thin adapter wrapping the
+   Canonical Investigation Object (SSOT) into an
+   **Investigation Session** envelope
+   (session_id · original_input · investigation_inputs[] · incident
+   · readiness · summary · raw_investigation).  Deterministic,
+   read-only, IDA/DIE/ICE untouched.
+2. **`routers/sessions.py`** — new endpoints:
+   * `POST /api/session/investigate` — mint from raw input
+   * `POST /api/session/from-investigation` — mint from a
+     pre-computed SSOT (Workspace re-use path)
+   * `GET  /api/session/{session_id}`
+   * `GET  /api/session/{session_id}/input/{input_id}`
+   Sessions are persisted in Mongo (`investigation_sessions`)
+   under a backend-minted short id so URLs are stable and
+   shareable.
+3. **Frontend routes**
+   * `/workspace/session/:sessionId` → `InvestigationSessionPage`
+     with 7 tabs (Document Summary · Investigation Inputs ·
+     Attack Story · Timeline · Incident Graph · Evidence Explorer
+     · NIST IR Report), breadcrumb `Workspace › Investigation
+     Session`.
+   * `/workspace/session/:sessionId/input/:inputId` →
+     `InvestigationInputDetailPage` — reuses the atomic
+     investigation shape (Original · Decoded · Classification ·
+     MITRE · LOLBAS · IOCs · Behavior Families).
+   * `/evidence-explorer` alias kept live so old bookmarks resolve.
+4. **Workspace gateway** — inline `<ExtractedArtifactsPanel>` on
+   the Workspace replaced with a compact **InvestigationSessionGateway**
+   card (`▸ INVESTIGATION COMPLETE · ✓ counts · [ Open Investigation
+   Session → ]`).  Workspace remains the launcher; deep-dive lives
+   on its own route.
+5. **UI cleanup** — Kill-Chain Path `G1/G2` card removed from the
+   Workspace; duplicate collapsible titles fixed on Behavior
+   Correlation · Kill-Chain Phases · Recommended Actions · Evidence
+   Completeness · Investigation Readiness (single outer header
+   with count chip; inner content clean).
+
+**Rules touched** — `WORKSPACE_ARCHITECTURE_RULES.md#R22` added.
+
+**Backend contract**
+```
+POST /api/session/investigate {input}          → {session}
+POST /api/session/from-investigation
+                        {input, investigation} → {session}
+GET  /api/session/{id}                          → {session}
+GET  /api/session/{id}/input/{input_id}         → {session_id, input}
+```
+
+**Session envelope keys**
+```
+session_id  · created_at  · schema
+original_input · document_profile · acquired_document
+investigation_inputs[]  · incident  · readiness  · summary
+raw_investigation  (full untouched SSOT — backwards compat)
+```
+
+**Verification**
+* 98/98 investigation quality gate tests remain green.
+* End-to-end curl: `POST /api/session/investigate` → mint →
+  `GET /api/session/{id}` round-trip (server-persisted).
+* End-to-end UI screenshot: paste → gateway → session page tabs →
+  Investigation Input detail page ✓.
+
+
 ---
 
 ### 🟢 2026-03-01 · IDA · Slice 1.8 — Recursive Investigation (Rule R20)
