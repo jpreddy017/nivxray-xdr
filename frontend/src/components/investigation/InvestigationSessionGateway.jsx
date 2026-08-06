@@ -15,22 +15,62 @@
  * client-cached session envelope so the deep-dive still opens even
  * when Mongo is unavailable.
  */
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
+import InvestigationSummaryPanel from "@/components/investigation/InvestigationSummaryPanel";
 
 const CACHE_KEY = (id) => `nivxray:session:${id}`;
 const MIRROR    = "nivxray:last_investigation";
 
 export default function InvestigationSessionGateway({ investigation, input }) {
   const navigate = useNavigate();
-  const [minting, setMinting] = useState(false);
-  const [session, setSession] = useState(null);
-  const [error,   setError]   = useState(null);
+  const [minting, setMinting]   = useState(false);
+  const [session, setSession]   = useState(null);
+  const [error,   setError]     = useState(null);
 
   const summary = useMemo(() => _localSummary(investigation), [investigation]);
 
-  async function openSession() {
+  // Auto-mint the session as soon as the investigation lands so the
+  // Investigation Summary narrative is available immediately (no
+  // extra analyst click required).  We do NOT auto-navigate — the
+  // analyst still decides when to open the deep-dive.
+  useEffect(() => {
+    if (!investigation?.acquired_document?.ok && !investigation?.commands?.length && !investigation?.artifacts?.length) {
+      return;
+    }
+    if (session) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await api.post("/session/from-investigation", {
+          input, investigation,
+        });
+        const s = data?.session;
+        if (alive && s?.session_id) {
+          try {
+            sessionStorage.setItem(CACHE_KEY(s.session_id), JSON.stringify(s));
+            sessionStorage.setItem(MIRROR, JSON.stringify(investigation));
+          } catch { /* noop */ }
+          setSession(s);
+        }
+      } catch (e) {
+        if (alive) setError(e?.response?.data?.detail || "Summary temporarily unavailable.");
+      }
+    })();
+    return () => { alive = false; };
+  }, [investigation, input, session]);
+
+  function openSessionNow() {
+    if (session?.session_id) {
+      navigate(`/workspace/session/${session.session_id}`);
+      return;
+    }
+    // If auto-mint hasn't landed yet, mint on demand.
+    mintAndNavigate();
+  }
+
+  async function mintAndNavigate() {
     setMinting(true);
     setError(null);
     try {
@@ -49,8 +89,6 @@ export default function InvestigationSessionGateway({ investigation, input }) {
       }
       throw new Error("No session returned.");
     } catch (e) {
-      // Client-side fallback: build a minimal session envelope from the
-      // investigation object so the analyst still gets to the deep-dive.
       const fallbackId = `ses_local_${Date.now().toString(36)}`;
       try {
         const local = {
@@ -60,7 +98,7 @@ export default function InvestigationSessionGateway({ investigation, input }) {
           document_profile:  investigation.document_profile,
           acquired_document: investigation.acquired_document,
           incident:          investigation.incident,
-          investigation_inputs: [],  // resolved on the session page from mirror
+          investigation_inputs: [],
           raw_investigation: investigation,
         };
         sessionStorage.setItem(CACHE_KEY(fallbackId), JSON.stringify(local));
@@ -75,36 +113,51 @@ export default function InvestigationSessionGateway({ investigation, input }) {
 
   if (!investigation) return null;
 
+  const narrative = session?.summary_narrative || null;
+
   return (
-    <section style={sx.wrap} data-testid="investigation-session-gateway">
-      <div style={sx.head}>
-        <div style={sx.eyebrow}>▸ INVESTIGATION COMPLETE</div>
-        <div style={sx.title}>{summary.title}</div>
-        {summary.vendor && (
-          <div style={sx.subtitle}>{summary.vendor}</div>
-        )}
-      </div>
+    <div data-testid="investigation-session-gateway">
+      {/* ─── L4 Analyst Narrative (Rule R22) ─── */}
+      {narrative && (
+        <InvestigationSummaryPanel
+          narrative={narrative}
+          onOpenSession={openSessionNow}
+        />
+      )}
 
-      <ul style={sx.checkList}>
-        {summary.checks.map((c, i) => (
-          <li key={i} style={sx.check} data-testid={`gateway-check-${i}`}>
-            <span style={sx.ok}>✓</span>
-            <span style={sx.checkLabel}>{c.label}</span>
-            {c.detail && <span style={sx.checkDetail}>· {c.detail}</span>}
-          </li>
-        ))}
-        {!summary.checks.length && (
-          <li style={sx.dim}>No readiness signals extracted.</li>
-        )}
-      </ul>
+      {/* ─── Compact readiness card (kept as a factual receipt) ─── */}
+      <section style={sx.wrap} data-testid="gateway-readiness-card">
+        <div style={sx.head}>
+          <div style={sx.eyebrow}>▸ INVESTIGATION COMPLETE</div>
+          <div style={sx.title}>{summary.title}</div>
+          {summary.vendor && (
+            <div style={sx.subtitle}>{summary.vendor}</div>
+          )}
+          {!narrative && !error && (
+            <div style={sx.subtitle}>Preparing analyst summary…</div>
+          )}
+        </div>
 
-      <div style={sx.actions}>
-        <button
-          type="button"
-          onClick={openSession}
-          disabled={minting}
-          data-testid="btn-open-investigation-session"
-          style={{ ...sx.primary, opacity: minting ? 0.6 : 1 }}>
+        <ul style={sx.checkList}>
+          {summary.checks.map((c, i) => (
+            <li key={i} style={sx.check} data-testid={`gateway-check-${i}`}>
+              <span style={sx.ok}>✓</span>
+              <span style={sx.checkLabel}>{c.label}</span>
+              {c.detail && <span style={sx.checkDetail}>· {c.detail}</span>}
+            </li>
+          ))}
+          {!summary.checks.length && (
+            <li style={sx.dim}>No readiness signals extracted.</li>
+          )}
+        </ul>
+
+        <div style={sx.actions}>
+          <button
+            type="button"
+            onClick={openSessionNow}
+            disabled={minting}
+            data-testid="btn-open-investigation-session"
+            style={{ ...sx.primary, opacity: minting ? 0.6 : 1 }}>
           {minting ? "Opening …" : "Open Investigation Session →"}
         </button>
         <span style={sx.resumeHint} data-testid="gateway-resume-hint">
@@ -112,7 +165,8 @@ export default function InvestigationSessionGateway({ investigation, input }) {
         </span>
       </div>
       {error && <div style={sx.err} data-testid="gateway-error">{error}</div>}
-    </section>
+      </section>
+    </div>
   );
 }
 

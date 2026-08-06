@@ -32,9 +32,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
-from services.session import build_session
+from services.session import build_session, render_markdown, render_pdf
 from services.die.investigation_results import render as _render_ssot
 from deps import db
 
@@ -155,3 +156,37 @@ async def session_input_get(session_id: str, input_id: str) -> Dict[str, Any]:
         if inp.get("id") == input_id:
             return {"session_id": session_id, "input": inp}
     raise HTTPException(status_code=404, detail="Investigation Input not found")
+
+
+# ── NIST Incident Report exports ──────────────────────────────────
+@router.get("/{session_id}/nist.md", response_class=PlainTextResponse)
+async def session_nist_md(session_id: str) -> PlainTextResponse:
+    session = await _load_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    md = render_markdown(session)
+    return PlainTextResponse(
+        md,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition":
+                    f'attachment; filename="{session_id}.nist.md"'},
+    )
+
+
+@router.get("/{session_id}/nist.pdf")
+async def session_nist_pdf(session_id: str) -> Response:
+    session = await _load_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    try:
+        pdf = render_pdf(session)
+    except Exception as e:                             # pragma: no cover
+        log.exception("session.pdf_render_failed")
+        raise HTTPException(status_code=500,
+                              detail=f"PDF render failed: {e}") from e
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition":
+                    f'attachment; filename="{session_id}.nist.pdf"'},
+    )

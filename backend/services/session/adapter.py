@@ -331,7 +331,7 @@ def build_session(input_text: str,
     acq      = ssot.get("acquired_document") or {}
     u        = ssot.get("understanding") or {}
 
-    return {
+    envelope = {
         "session_id":   session_id or _short_id("ses", (input_text or "")[:512]),
         "created_at":   created_at,
         "schema":       _SCHEMA,
@@ -357,3 +357,10 @@ def build_session(input_text: str,
         "summary":          summary,
         "raw_investigation": ssot,
     }
+    # ▸ L4 analyst narrative (Rule R22 · deterministic · zero LLM).
+    try:
+        from .summary_narrative import build_narrative  # local import → avoid cycles
+        envelope["summary_narrative"] = build_narrative(envelope)
+    except Exception:  # pragma: no cover — narrative is additive
+        envelope["summary_narrative"] = None
+    return envelope

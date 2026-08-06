@@ -39,13 +39,15 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import ExtractedArtifactsPanel from "@/components/investigation/ExtractedArtifactsPanel";
 import AcquisitionPlanPanel   from "@/components/investigation/AcquisitionPlanPanel";
 import TrajectoryDiagram      from "@/components/investigation/TrajectoryDiagram";
-import CollapsibleSection     from "@/components/investigation/CollapsibleSection";
+import CollapsibleSection     from "@/components/investigation/CollapsibleSection"; // eslint-disable-line no-unused-vars
+import InvestigationSummaryPanel from "@/components/investigation/InvestigationSummaryPanel";
 import api from "@/lib/api";
 
 const MIRROR_KEY = "nivxray:last_investigation";
 const SESSION_KEY = (id) => `nivxray:session:${id}`;
 
 const TABS = [
+  { id: "narrative", label: "Investigation Summary", testid: "tab-narrative" },
   { id: "summary",  label: "Document Summary",   testid: "tab-summary"  },
   { id: "inputs",   label: "Investigation Inputs", testid: "tab-inputs" },
   { id: "story",    label: "Attack Story",       testid: "tab-story"    },
@@ -64,7 +66,7 @@ export default function InvestigationSessionPage() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
-  const [active,  setActive]  = useState("summary");
+  const [active,  setActive]  = useState("narrative");
 
   // Load: backend first, then per-session sessionStorage cache, then
   // the legacy mirror cache written by the Workspace on completion.
@@ -146,6 +148,15 @@ export default function InvestigationSessionPage() {
       <Header session={session} />
       <Tabs active={active} onChange={setActive} />
       <div style={sx.body}>
+        {active === "narrative" && (
+          <div data-testid="session-narrative-tab">
+            {session.summary_narrative
+              ? <InvestigationSummaryPanel
+                  narrative={session.summary_narrative}
+                  onOpenSession={() => setActive("inputs")} />
+              : <EmptyCard msg="No narrative synthesised yet." />}
+          </div>
+        )}
         {active === "summary"  && <SummaryTab  session={session} />}
         {active === "inputs"   && <InputsTab   session={session} navigate={navigate} />}
         {active === "story"    && <StoryTab    incident={inc} raw={raw} />}
@@ -522,8 +533,19 @@ function NistTab({ incident, raw, session }) {
         </h3>
         <div style={sx.dlBtnGroup} data-testid="nist-downloads">
           <button type="button" style={sx.dlBtn}
+                  data-testid="btn-download-nist-pdf"
+                  onClick={() => window.open(
+                    `${(process.env.REACT_APP_BACKEND_URL || "")}/api/session/${sid}/nist.pdf`,
+                    "_blank",
+                  )}>
+            ⤓ PDF
+          </button>
+          <button type="button" style={sx.dlBtn}
                   data-testid="btn-download-nist-md"
-                  onClick={() => download(`${sid}.nist.md`, "text/markdown", md)}>
+                  onClick={() => window.open(
+                    `${(process.env.REACT_APP_BACKEND_URL || "")}/api/session/${sid}/nist.md`,
+                    "_blank",
+                  )}>
             ⤓ Markdown
           </button>
           <button type="button" style={sx.dlBtn}
