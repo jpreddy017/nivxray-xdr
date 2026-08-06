@@ -234,24 +234,22 @@ richer without any reasoning-engine involvement (R8):
 
 **Adapter Manifest** — every adapter MUST emit a small self-describing
 manifest into the IEP metadata under key ``adapter``.  Purpose:
-debugging, provenance, upgrades, regression testing, support cases —
-all without inspecting logs.
+debugging, provenance, upgrades, regression testing, support cases,
+performance telemetry — all without inspecting logs.
 
 ```jsonc
 {
   "adapter": {
-    "name":         "adapter.pdf",
-    "version":      "1.0",
-    "capabilities": ["text", "tables", "metadata", "embedded_files",
-                      "javascript", "launch_actions", "signatures"],
-    "warnings":     ["pdf_contains_javascript"]
+    "name":              "adapter.pdf",
+    "version":           "1.0",
+    "capabilities":      ["text", "tables", "metadata", "embedded_files",
+                            "javascript", "launch_actions", "signatures"],
+    "warnings":          ["pdf_contains_javascript"],
+    "execution_time_ms": 82,
+    "adapter_status":    "success"    // success | partial | failed  (R9)
   }
 }
 ```
-
-Populated automatically by ``EvidenceAdapter.make_iep`` via
-``adapter.capabilities`` (a class-level list) and the ``warnings``
-that fired during this run.
 
 **Relationship model** — the ``verb`` field on every
 :class:`IEPRelationship` uses the authoritative ``RelationshipType``

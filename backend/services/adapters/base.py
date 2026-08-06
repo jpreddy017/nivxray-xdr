@@ -112,14 +112,32 @@ class EvidenceAdapter(ABC):
         """Default glue — subclasses rarely override this.
 
         Chains: ``extract → normalize → discover_relationships →
-        validate → make_iep``.
+        validate → make_iep``.  Also records ``execution_time_ms`` +
+        ``adapter_status`` in the Adapter Manifest so every IEP
+        carries uniform telemetry (R9).
         """
-        content        = self.extract(raw)
-        artifacts      = self.normalize(content)
-        relationships  = self.discover_relationships(content, artifacts)
+        import time
+        t0 = time.monotonic()
+        status = "success"
+        try:
+            content        = self.extract(raw)
+            artifacts      = self.normalize(content)
+            relationships  = self.discover_relationships(content, artifacts)
+        except Exception as e:
+            # R9 · graceful degradation — never abort the investigation.
+            content       = IEPContent(text="", blocks=[])
+            artifacts     = []
+            relationships = []
+            status        = "failed"
+            extra_warns   = [IEPWarning(
+                severity="error", code="adapter_exception",
+                message=f"{type(e).__name__}: {e}",
+            )]
+        else:
+            extra_warns = []
+
         src            = source or self._infer_source(raw)
         md             = dict(metadata or {})
-        # ── Adapter Manifest — required per architecture v1.0 ─────────
         md.setdefault("adapter", {})
         md["adapter"].update({
             "name":         self.name,
@@ -137,11 +155,19 @@ class EvidenceAdapter(ABC):
             parent_iep_id=parent_iep_id,
             pipeline_depth=pipeline_depth,
         )
-        warns = self.validate(iep)
+        warns = extra_warns + self.validate(iep)
         iep.warnings.extend(warns)
-        # Roll the fired warning codes into the manifest so consumers
-        # see them alongside capabilities.
-        iep.metadata.data["adapter"]["warnings"] = [w.code for w in iep.warnings]
+        if warns and status == "success":
+            status = "partial" if all(w.severity != "error" for w in warns) else "partial"
+        # Roll telemetry into manifest + statistics.
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        iep.metadata.data["adapter"]["warnings"]         = [w.code for w in iep.warnings]
+        iep.metadata.data["adapter"]["execution_time_ms"] = elapsed_ms
+        iep.metadata.data["adapter"]["adapter_status"]    = status
+        if iep.statistics:
+            iep.statistics.relationships      = len(iep.relationships)
+            iep.statistics.warnings           = len(iep.warnings)
+            iep.statistics.processing_time_ms = elapsed_ms
         return iep
 
     # ── Validation (per-adapter caveats, NOT the Phase 5 validator) ──

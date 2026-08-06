@@ -52,6 +52,16 @@ Concrete separation:
 - ICE → "Correlate the results."
 - Evidence Reasoning Engine → "This likely represents ingress tool transfer and payload delivery."
 
+### R9 — Adapters must degrade gracefully
+Every adapter must degrade gracefully.  If a capability fails (OCR,
+EXIF extraction, DKIM verification, PDF JavaScript parsing,
+zip-member decompression, MIME re-assembly, …), the adapter must
+still produce a valid IEP with appropriate `IEPWarning` entries
+rather than aborting the entire investigation.  A partially
+successful investigation is almost always better than no
+investigation.  Adapters signal degradation via
+``metadata.adapter.adapter_status ∈ {success, partial, failed}``.
+
 ## Additionally Retained From Earlier Iterations
 
 - **R22 · Extracted Evidence Becomes Investigation Input** — any executable /

@@ -3503,3 +3503,43 @@ Also added a cross-adapter manifest-presence test. **All 46 tests pass**
 (10 IEP + 13 adapter 3A text/URL + 10 PDF + 8 DOCX + 5 RelationshipType).
 
 Phase 3A milestone (M1) is complete: Text, URL, PDF, DOCX all live.
+
+## 2026-02-06 · Rule R9 + Adapter Manifest v2 + Phase 3B EML flagship
+
+**Rule R9 — Adapters must degrade gracefully.** Added to
+`WORKSPACE_ARCHITECTURE_RULES.md`.  Base `EvidenceAdapter.make_iep`
+now wraps the extract/normalize/discover trio in try/except: on
+failure it emits a valid IEP with `adapter_status="failed"` and an
+`adapter_exception` warning instead of aborting.  Contract test
+enforces this via a `BombEMLAdapter`.
+
+**Adapter Manifest v2** — every adapter now emits
+`{name, version, capabilities[], warnings[], execution_time_ms,
+adapter_status ∈ {success, partial, failed}}`.
+
+**IEPStatistics extended** — added `relationships`, `warnings`,
+`child_ieps`, `processing_time_ms` so every IEP is uniformly
+comparable across adapters.
+
+**Phase 3B · EML Adapter (flagship)** —
+`backend/services/adapters/eml_adapter.py`
+- Five evidence categories: Identity (from / to / cc / reply-to /
+  return-path / message-id) · Transport (Received chain / SPF / DKIM /
+  DMARC / ARC / Authentication-Results) · Content (plain / HTML / URLs
+  from href+src) · Attachments (each with mime-type / content-id /
+  disposition / SHA-256 / size / source_ref="mime.part.N") · Metadata
+  (date / x-mailer / priority / language / encoding)
+- MIME hierarchy relationships (parent CONTAINS child) so an analyst
+  can later see why a URL only appeared in HTML alternative
+- Structural relationships only (R8): `email → contains → part`,
+  `email → attaches → filename`
+- Reply-To ≠ From, SPF/DKIM/DMARC=fail, missing Message-ID / Subject,
+  attachment-present — all surface as `IEPWarning` codes
+- `recurse()` returns attachment artifacts for Phase 4 child-IEP spawn
+- Registered ahead of URL / Text in the adapter registry
+
+**Tests** — `backend/tests/test_adapter_eml.py` (10 tests).
+Detection, routing, identity/body/attachment extraction, R8 structural
+verbs, phishing-shaped warnings, manifest timing + status, statistics
+telemetry, R9 graceful-degradation contract.  **All 56 tests pass**
+(10 IEP + 13 adapter 3A + 10 PDF + 8 DOCX + 5 RelationshipType + 10 EML).

@@ -288,7 +288,9 @@ class IEPWarning(BaseModel):
 
 class IEPStatistics(BaseModel):
     """Adapter-computed counts.  Populated automatically by
-    :func:`make_iep` from ``artifacts`` if the adapter didn't set them."""
+    :func:`make_iep` from ``artifacts`` if the adapter didn't set them.
+    Also carries relationship / warning / recursion / timing telemetry
+    so every IEP is uniformly comparable across adapters."""
 
     commands:      int = 0
     urls:          int = 0
@@ -301,6 +303,11 @@ class IEPStatistics(BaseModel):
     cves:          int = 0
     mitre:         int = 0
     other:         int = 0
+    # Uniform cross-adapter telemetry
+    relationships:      int = 0
+    warnings:           int = 0
+    child_ieps:         int = 0
+    processing_time_ms: int = 0
 
     model_config = ConfigDict(extra="allow")
 
