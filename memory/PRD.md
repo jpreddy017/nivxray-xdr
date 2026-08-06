@@ -9422,3 +9422,12 @@ automatic decoder recommendations.
 `scripts/v1_5_0_release_metrics.py` (created),
 `RELEASES.md`, `memory/PRD.md`.
 
+
+## 🟢 2026-02-06 · Investigation Summary Button → Rich Session Page
+
+- **📋 OPEN INVESTIGATION SUMMARY** button (`btn-open-investigation-summary`) in the workspace Investigation Results toolbar
+- On click: mints a session via `POST /api/session/from-investigation` and opens `/workspace/session/:sid` in a new tab
+- Target page: existing rich `InvestigationSessionPage` (8 tabs: Investigation Summary / Document Summary / Investigation Inputs / Attack Story / Timeline / Incident Graph / Evidence Explorer / NIST IR Report) with PDF / Markdown / Incident-JSON / Session download exports
+- Fallback: `/investigation-summary` deterministic 9-section brief page if session mint fails
+- `investigation_summary` field now persisted alongside every `POST /api/cases/save` in `workspace_cases`
+- All changes auto-committed (latest: `4cb010f`) — permanent, survives redeploy
