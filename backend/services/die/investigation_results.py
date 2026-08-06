@@ -245,6 +245,29 @@ def render(input_text: str) -> Dict[str, Any]:
                         "source":   "ida.command_investigation",
                     })
                     seen_t.add(tid)
+            # Rule R14 · IDA-4 body_artifacts are IOCs the article
+            # published — promote them into the top-level SSOT.iocs so
+            # SummaryLens, TIShield, and the IOC Intelligence engine
+            # can enrich them.  Deduplicate against any IOC already
+            # collected from the raw input.
+            _seen_iocs = {(k, v) for k, vs in ioc_by_kind.items() for v in vs}
+            for a in (report_extraction.get("body_artifacts") or []):
+                t   = (a.get("type") or "").lower()
+                val = (a.get("value") or "").strip()
+                if not t or not val:
+                    continue
+                # Map IDA-2 artifact types → canonical IOC kinds.
+                kind = {
+                    "url": "url", "hash": "hash", "ip": "ip",
+                    "domain": "domain", "registry_key": "registry",
+                    "file_path": "path", "cve": "cve",
+                }.get(t)
+                if not kind:
+                    continue
+                if (kind, val) in _seen_iocs:
+                    continue
+                ioc_by_kind.setdefault(kind, []).append(val)
+                _seen_iocs.add((kind, val))
             # ida-4 fans out into multiple named plan steps; mark them
             # all `done` since the single extractor pass produced them.
             completed_steps.extend([

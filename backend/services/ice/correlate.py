@@ -482,6 +482,16 @@ def _build_completeness(ssot: Dict[str, Any],
     okc = sum(1 for ci in investigations if ci.get("language") and not ci.get("error"))
     errc = sum(1 for ci in investigations if ci.get("error"))
 
+    # Body-artifact counts by type — the report_extraction dict has a
+    # single `body_artifacts` list, not per-type buckets, so we tally
+    # here for the completeness dimensions.
+    body = ext.get("body_artifacts") or []
+    n_url  = sum(1 for a in body if a.get("type") == "url")
+    n_hash = sum(1 for a in body if a.get("type") == "hash")
+    n_ip   = sum(1 for a in body if a.get("type") == "ip")
+    n_dom  = sum(1 for a in body if a.get("type") == "domain")
+    n_reg  = sum(1 for a in body if a.get("type") == "registry_key")
+
     def _state(count: int, applicable: bool = True) -> str:
         if not applicable:
             return "not_available"
@@ -500,9 +510,10 @@ def _build_completeness(ssot: Dict[str, Any],
          "found": len({(lb.get("binary") or "").lower()
                        for ci in investigations for lb in (ci.get("lolbins") or [])})},
         {"dim": "IOCs (URLs+Hashes+IPs+Domains)",
-         "state": _state(sum(len(ext.get(k) or []) for k in ("urls", "hashes", "ips", "domains"))),
-         "found": totals.get("artifacts", 0)},
-        {"dim": "Registry",  "state": _state(totals.get("artifacts", 0))},
+         "state": _state(n_url + n_hash + n_ip + n_dom),
+         "found": n_url + n_hash + n_ip + n_dom,
+         "breakdown": {"urls": n_url, "hashes": n_hash, "ips": n_ip, "domains": n_dom}},
+        {"dim": "Registry",  "state": _state(n_reg), "found": n_reg},
         {"dim": "Timeline",  "state": "complete" if totals.get("timeline", 0) > 0
                                         else "relative"},
         {"dim": "YARA",      "state": _state(totals.get("yara", 0))},
