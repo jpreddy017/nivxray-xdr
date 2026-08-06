@@ -531,6 +531,78 @@ Investigation Quality Gate.
 
 ---
 
+## Rule R22 · Extracted Evidence Becomes Investigation Input (2026-03-02)
+
+> **Every executable or analyzable artifact IDA extracts (command
+> line, PowerShell, script, YARA, Sigma, URL, registry path, PE,
+> Office macro, archive entry, …) is PROMOTED to a first-class
+> Investigation Input and recursively investigated by its owning
+> engine.  Extracted artifacts are no longer "artifacts" — they are
+> new investigations.  The analyst NEVER copies/pastes extracted
+> evidence back into the Workspace.**
+
+Corollaries:
+
+  1. **Workspace is a gateway, not a projection surface.**  After
+     AUTO INVESTIGATE, the Workspace shows a compact readiness
+     summary (✓ HTML Acquired · ✓ N Commands Investigated · ✓ N
+     URLs Investigated · ✓ N Hashes Correlated) and a single
+     `[ Open Investigation Session → ]` gateway button.  It does
+     NOT render the extracted artifact tables inline.
+
+  2. **Investigation Session is the deep-dive surface.**  The
+     Session page hosts every projection produced by ICE:
+     Document Summary · Attack Story · Timeline · Incident Graph ·
+     Evidence Explorer · NIST IR Report · **Investigation Inputs**.
+
+  3. **Investigation Inputs are first-class investigations.**  Each
+     promoted artifact has its own detail page that renders the
+     EXACT same atomic-investigation UI the Workspace produces for
+     a manually pasted command (Original → Decoded → MITRE →
+     LOLBAS → Behavior → Risk → Evidence → Verdict).  No
+     bespoke UI — the child page REUSES the atomic projection
+     components; there is one engine, one UI, one SSOT shape.
+
+  4. **Backend Session Adapter is thin.**  A dedicated Session
+     Adapter (`services/session/adapter.py`) wraps the existing
+     SSOT into a Session envelope:
+
+         Session
+             ├── session_id (backend-minted UUID)
+             ├── original_input
+             ├── document_profile · acquired_document
+             ├── investigation_inputs[]   — promoted artifacts,
+             │       each carrying its own child investigation
+             │       (full DIE envelope shape)
+             ├── incident                  — the ICE incident SSOT
+             └── raw_investigation         — the untouched SSOT
+                                             (kept for backwards
+                                             compat with existing
+                                             projections)
+
+     IDA / DIE / ICE are NOT rewritten.  The adapter reshapes what
+     is already there.  Every downstream consumer keeps working
+     against `raw_investigation` unchanged.
+
+  5. **Session persistence is durable and shareable.**  Sessions
+     are minted server-side (POST `/api/session/investigate`) and
+     read via `GET /api/session/{session_id}`.  The frontend
+     Zustand / React state is a cache; the backend is the source
+     of truth.  Session URLs survive refresh, are bookmarkable,
+     and integrate cleanly with Cases and History.
+
+  6. **UI vocabulary.**  From R22 onward: never "Extracted
+     Artifacts" or "Child Investigations" in the analyst-facing UI
+     — always "Investigation Inputs".  The child pages open the
+     same atomic investigation the manual paste flow already
+     produces.
+
+Enforcement: the Session Adapter is additive (does not touch IDA,
+DIE, or ICE).  Existing 128/128 Quality Gate tests remain green;
+new tests cover Session shape + child-investigation depth.
+
+---
+
 **These rules are locked.  Any agent that removes a listed
 capability is regressing the Workspace.  Enhance, extend, add —
 never remove.**

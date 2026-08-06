@@ -167,8 +167,7 @@ function EvidenceCompleteness({ ice, ext, groups }) {
                      background: "rgba(0, 40, 22, 0.30)" }}>
         <div style={{ fontSize: 11, color: "#7ee6a8",
                        letterSpacing: 1.4, marginBottom: 4,
-                       display: "flex", justifyContent: "space-between" }}>
-          <span>▸ EVIDENCE COMPLETENESS</span>
+                       display: "flex", justifyContent: "flex-end" }}>
           <span data-testid="ec-overall">{ec.overall_percent}% covered</span>
         </div>
         <div style={{ display: "grid",
@@ -222,10 +221,6 @@ function BehaviorCorrelation({ clusters }) {
   return (
     <div data-testid="behavior-correlation"
          style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 11, color: "#7ee6a8",
-                     letterSpacing: 1.4, marginBottom: 8 }}>
-        ▸ BEHAVIOR CORRELATION ({clusters.length})
-      </div>
       {clusters.map((c, i) => (
         <BehaviorClusterRow key={c.label} cluster={c} index={i} />
       ))}
@@ -307,10 +302,6 @@ function AttackPhases({ phases }) {
   return (
     <div data-testid="attack-phases"
          style={{ marginBottom: 14, marginTop: 10 }}>
-      <div style={{ fontSize: 11, color: "#7ee6a8",
-                     letterSpacing: 1.4, marginBottom: 8 }}>
-        ▸ KILL-CHAIN PHASES ({phases.length})
-      </div>
       <ol style={{ margin: 0, padding: 0, listStyle: "none",
                     display: "flex", flexDirection: "column", gap: 6 }}>
         {phases.map((p, i) => (
@@ -617,8 +608,7 @@ function InvestigationReadiness({ readiness, gaps }) {
                    background: "rgba(0, 40, 22, 0.30)" }}>
       <div style={{ fontSize: 11, color: "#7ee6a8",
                      letterSpacing: 1.4, marginBottom: 6,
-                     display: "flex", justifyContent: "space-between" }}>
-        <span>▸ INVESTIGATION READINESS</span>
+                     display: "flex", justifyContent: "flex-end" }}>
         <span data-testid="readiness-overall">
           {readiness.overall_percent}% · {(readiness.confidence_label || "").toUpperCase()}
         </span>
@@ -679,10 +669,6 @@ function RecommendedActions({ actions }) {
   return (
     <div data-testid="recommended-actions"
          style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 11, color: "#7ee6a8",
-                     letterSpacing: 1.4, marginBottom: 8 }}>
-        ▸ RECOMMENDED ACTIONS ({actions.length})
-      </div>
       <ul style={{ margin: 0, padding: 0, listStyle: "none",
                     display: "flex", flexDirection: "column", gap: 6 }}>
         {actions.map((a, i) => (

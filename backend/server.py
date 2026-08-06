@@ -263,6 +263,12 @@ api.include_router(iedde_router)
 from routers.die import router as die_router
 api.include_router(die_router)
 
+# ⭐ L4 Analyst Investigation Session · Rule R22 (2026-03-02)
+# Thin session adapter over the SSOT pipeline.  Every extracted
+# artifact is promoted to a first-class Investigation Input.
+from routers.sessions import router as sessions_router
+api.include_router(sessions_router)
+
 # ▲ Artifact Intelligence Layer (Phase 3 · Cycle A · 2026-02)
 from routers.artifacts import router as artifacts_router
 # Router already carries prefix "/api/artifacts" so include at app root.
