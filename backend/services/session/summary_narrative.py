@@ -21,6 +21,7 @@ network calls.  The output is stable for identical inputs so the
 Investigation Quality Gate can regression-test it.
 """
 from __future__ import annotations
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -140,6 +141,11 @@ def build_narrative(session: Dict[str, Any]) -> Dict[str, Any]:
     iocs         = _extract_iocs(inputs)
     counts       = _counts(session, inputs)
     verdict      = _verdict_signals(isum, counts, behaviours)
+    # Hash → filename + description context extracted by IDA-4
+    # from IOC tables in the acquired article.
+    raw          = session.get("raw_investigation") or {}
+    hash_ctx     = ((raw.get("report_extraction") or {}).get("hash_context") or {})
+    timeline_ev  = ((raw.get("report_extraction") or {}).get("timeline") or [])
 
     return {
         "executive_summary": _executive_summary(prof, acq, verdict,
@@ -151,11 +157,35 @@ def build_narrative(session: Dict[str, Any]) -> Dict[str, Any]:
                                               verdict),
         "impact_assessment": _impact_assessment(tactics),
         "mitre_summary":     _mitre_summary(mitre),
-        "ioc_intelligence":  _ioc_intelligence(iocs),
+        "ioc_intelligence":  _ioc_intelligence(iocs, hash_ctx),
+        "attack_timeline":   _attack_timeline(timeline_ev),
         "recommendations":   _recommendations(behaviours, tactics),
         "evidence_confidence": _evidence_confidence(counts, ready),
         "verdict":           verdict,
     }
+
+
+def _attack_timeline(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Order timeline events canonically.  Absolute dates first
+    (ISO first, then Month DD), then relative markers in the order
+    they appeared in the source."""
+    absolute: List[Dict[str, Any]] = []
+    relative: List[Dict[str, Any]] = []
+    for e in events or []:
+        d = (e.get("date") or "").lower()
+        if re.match(r"\d{4}-\d{2}-\d{2}", d) or re.match(
+            r"(?:january|february|march|april|may|june|july|august|"
+            r"september|october|november|december)\s+\d{1,2}", d
+        ):
+            absolute.append(e)
+        else:
+            relative.append(e)
+    # ISO first (parseable), then month-day, then relative in source order.
+    absolute.sort(key=lambda x: (
+        0 if re.match(r"\d{4}-\d{2}-\d{2}", (x.get("date") or "")) else 1,
+        (x.get("date") or "").lower(),
+    ))
+    return absolute + relative
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -168,10 +198,13 @@ def _executive_summary(prof: Dict[str, Any],
                         tactics: List[str]) -> Dict[str, Any]:
     src = prof.get("vendor") or acq.get("sitename") or "the submitted input"
     title = prof.get("title") or acq.get("title") or None
-    top_verbs = [b["label"] for b in behaviours[:5]]
-    ta = ", ".join(TACTIC_LABEL.get(t, t) for t in tactics[:3]) or "reconnaissance"
+    top_verbs = [b["label"] for b in behaviours[:6]]
+    ta_full = [TACTIC_LABEL.get(t, t) for t in tactics[:4]]
+    ta = ", ".join(ta_full) or "reconnaissance"
+
+    # ── Paragraph 1 · FACTS ────────────────────────────────────
     verbs_txt = _joined(top_verbs) or "no notable evasion or execution behaviour"
-    para = (
+    p1 = (
         f"The submitted evidence ({src}"
         + (f" — “{title}”" if title else "")
         + f") exhibits {verbs_txt}. "
@@ -179,8 +212,56 @@ def _executive_summary(prof: Dict[str, Any],
         f"chain and is consistent with the class of activity observed in "
         f"multi-stage {verdict.get('descriptor') or 'malicious'} operations."
     )
+
+    # ── Paragraph 2 · ADVERSARY TRADECRAFT ─────────────────────
+    # Deterministic characterisation from the observed tactics.
+    tradecraft_bits: List[str] = []
+    if "defense_evasion" in tactics:
+        tradecraft_bits.append("evades detection via signed-binary abuse and log tampering")
+    if "impact" in tactics:
+        tradecraft_bits.append("inhibits recovery by deleting volume shadow copies")
+    if "exfiltration" in tactics:
+        tradecraft_bits.append("stages data for cloud exfiltration using dual-use tooling")
+    if "command_and_control" in tactics:
+        tradecraft_bits.append("maintains C2 through reverse tunnels and remote-access utilities")
+    if "lateral_movement" in tactics:
+        tradecraft_bits.append("moves laterally with living-off-the-land binaries")
+    if "discovery" in tactics:
+        tradecraft_bits.append("performs host and domain reconnaissance before escalation")
+    if not tradecraft_bits:
+        tradecraft_bits.append("relies primarily on native operating-system utilities")
+    p2 = (
+        "The adversary tradecraft observed in this session "
+        + _joined(tradecraft_bits) + ". "
+        "This TTP profile is characteristic of financially motivated "
+        "operators who blend into legitimate administrative activity "
+        "and depend on time-to-response gaps to complete their objectives."
+    )
+
+    # ── Paragraph 3 · RECOMMENDED POSTURE ──────────────────────
+    posture_bits: List[str] = []
+    if "impact" in tactics:
+        posture_bits.append("prioritise host isolation and backup verification")
+    if "credential_access" in tactics or "lateral_movement" in tactics:
+        posture_bits.append("force-rotate privileged and service credentials")
+    if "exfiltration" in tactics:
+        posture_bits.append("audit outbound egress for the observed staging patterns")
+    if "persistence" in tactics:
+        posture_bits.append("audit scheduled tasks, services and Run keys on affected hosts")
+    if "defense_evasion" in tactics:
+        posture_bits.append("verify EDR, security-agent and log integrity before further analysis")
+    if not posture_bits:
+        posture_bits.append("preserve volatile evidence and initiate endpoint triage")
+    p3 = (
+        "Recommended immediate posture: "
+        + _joined(posture_bits) + ". "
+        "Escalate to a full incident-response engagement if any of the "
+        "observed techniques are corroborated in production telemetry."
+    )
+
     return {
-        "paragraph": para,
+        "paragraph":  p1,               # backwards-compat single para
+        "paragraphs": [p1, p2, p3],     # new 3-paragraph structure
         "risk":       verdict.get("risk"),
         "confidence": verdict.get("confidence_percent"),
     }
@@ -292,10 +373,15 @@ def _mitre_summary(mitre: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
-def _ioc_intelligence(iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _ioc_intelligence(iocs: List[Dict[str, Any]],
+                        hash_ctx: Optional[Dict[str, Dict[str, str]]] = None
+                        ) -> List[Dict[str, Any]]:
     """Build per-IOC intelligence cards.  External fields carry a
     "pending" source stamp so the UI can render them greyed until
-    OSINT integrations are wired."""
+    OSINT integrations are wired.  For hash IOCs we also attach the
+    filename + description harvested by IDA-4 from the source's
+    IOC table (Talos / Mandiant format)."""
+    ctx = hash_ctx or {}
     cards = []
     for i in iocs:
         card = {
@@ -314,7 +400,14 @@ def _ioc_intelligence(iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "related_malware":  [],
             "related_urls":     [],
             "related_hashes":   [],
+            "filename":         None,
+            "description":      None,
         }
+        # Attach IDA-4 file-context for hash IOCs.
+        if card["kind"] == "hash":
+            hc = ctx.get((i["value"] or "").lower()) or {}
+            card["filename"]    = hc.get("filename") or None
+            card["description"] = hc.get("description") or None
         cards.append(card)
     return cards
 

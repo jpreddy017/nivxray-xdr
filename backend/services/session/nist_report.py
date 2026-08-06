@@ -263,8 +263,11 @@ def _cover_page(story: List, session: Dict[str, Any],
     story.append(Spacer(1, 0.35 * inch))
 
     story.append(Paragraph("EXECUTIVE SUMMARY", st["eyebrow"]))
-    story.append(Paragraph(ex.get("paragraph") or "—", st["body"]))
-    story.append(Spacer(1, 0.15 * inch))
+    paragraphs = ex.get("paragraphs") or [ex.get("paragraph") or "—"]
+    for p in paragraphs:
+        story.append(Paragraph(p, st["body"]))
+        story.append(Spacer(1, 0.06 * inch))
+    story.append(Spacer(1, 0.1 * inch))
 
     story.append(Paragraph("ANALYST SUMMARY", st["eyebrow"]))
     story.append(Paragraph(narr.get("analyst_summary") or "—", st["body"]))
@@ -330,6 +333,9 @@ def render_pdf(session: Dict[str, Any]) -> bytes:
     # depth vendors publish in their engagement reports.
     _attack_lifecycle_section(story, inc, ext, st)
 
+    # ── Attack Timeline (dated events from acquired source) ─────
+    _timeline_section(story, narr, ext, st)
+
     # ── Threat Actors + Malware Families + CVEs ─────────────────
     _actors_malware_cves_section(story, ext, st)
 
@@ -356,33 +362,37 @@ def render_pdf(session: Dict[str, Any]) -> bytes:
     story.append(Paragraph("11 · IOC Intelligence", st["h2"]))
     iocs = narr.get("ioc_intelligence") or []
     if iocs:
-        data = [["KIND", "INDICATOR", "REPUTATION", "VT", "AbuseIPDB", "PDNS"]]
+        data = [["KIND", "INDICATOR", "FILENAME / CONTEXT", "REPUTATION", "VT"]]
         for i in iocs[:40]:
+            fn   = i.get("filename")    or ""
+            desc = i.get("description") or ""
+            context = (fn + (f"  ({desc})" if desc else "")) or "—"
             data.append([
                 i["kind"].upper(),
-                (i.get("value") or "")[:60],
+                (i.get("value") or "")[:52],
+                context[:52],
                 (i.get("reputation") or {}).get("verdict") or "unknown",
                 _fmt_pending(i.get("virustotal"), "ratio"),
-                _fmt_pending(i.get("abuseipdb"), "score"),
-                _fmt_pending(i.get("passive_dns"), "first_seen"),
             ])
-        tbl = Table(data, colWidths=[0.55*inch, 3.0*inch, 0.9*inch,
-                                        0.7*inch, 0.9*inch, 0.7*inch])
+        tbl = Table(data, colWidths=[0.55*inch, 2.6*inch, 2.2*inch,
+                                        0.85*inch, 0.7*inch])
         tbl.setStyle(TableStyle([
             ("BACKGROUND",  (0, 0), (-1, 0), _GREEN),
             ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
             ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE",    (0, 0), (-1, -1), 8),
-            ("LEFTPADDING", (0, 0), (-1, -1), 5),
-            ("RIGHTPADDING",(0, 0), (-1, -1), 5),
+            ("FONTSIZE",    (0, 0), (-1, -1), 7.5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING",(0, 0), (-1, -1), 4),
             ("TOPPADDING",  (0, 0), (-1, -1), 3),
             ("BOTTOMPADDING",(0,0), (-1, -1), 3),
             ("BOX",         (0, 0), (-1, -1), 0.4, colors.HexColor("#cfd8d0")),
             ("INNERGRID",   (0, 0), (-1, -1), 0.3, colors.HexColor("#e2ebe4")),
+            ("VALIGN",      (0, 0), (-1, -1), "TOP"),
         ]))
         story.append(tbl)
         story.append(Paragraph(
-            "<i>Fields marked <b>pending</b> require an OSINT integration.</i>",
+            "<i>Filename / context extracted from the source's IOC table. "
+            "Reputation columns marked <b>pending</b> require an OSINT integration.</i>",
             st["meta"],
         ))
     else:
@@ -534,6 +544,44 @@ def _attack_lifecycle_section(story, inc, ext, st):
         story.append(Spacer(1, 0.08 * inch))
     if not any_shown:
         story.append(Paragraph("No behaviors mapped to tactics yet.", st["body"]))
+
+
+def _timeline_section(story, narr, ext, st):
+    """Render the reconstructed attack timeline — ordered dated
+    events extracted from the acquired article."""
+    events = (narr.get("attack_timeline")
+              or ext.get("timeline")
+              or [])
+    if not events:
+        return
+    story.append(Spacer(1, 0.12 * inch))
+    story.append(Paragraph(
+        f"6.5 · Attack Timeline ({len(events)} dated event(s))", st["h2"],
+    ))
+    story.append(Paragraph(
+        "Chronological events NivXRay reconstructed from the acquired "
+        "source's narrative — absolute dates first, then relative markers.",
+        st["meta"],
+    ))
+    data = [["DATE", "EVENT"]]
+    for e in events[:20]:
+        data.append([(e.get("date") or "—")[:40],
+                       (e.get("event") or "")[:180]])
+    tbl = Table(data, colWidths=[1.3*inch, 5.4*inch])
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND",  (0, 0), (-1, 0), _GREEN),
+        ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
+        ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE",    (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING",(0, 0), (-1, -1), 5),
+        ("TOPPADDING",  (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING",(0,0), (-1, -1), 3),
+        ("BOX",         (0, 0), (-1, -1), 0.4, colors.HexColor("#cfd8d0")),
+        ("INNERGRID",   (0, 0), (-1, -1), 0.3, colors.HexColor("#e2ebe4")),
+        ("VALIGN",      (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(tbl)
 
 
 def _actors_malware_cves_section(story, ext, st):

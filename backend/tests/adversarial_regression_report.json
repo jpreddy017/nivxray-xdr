@@ -293,7 +293,7 @@
     },
     {
       "sha1": "113cea36a6da4c4bc8627039b4f3d067aca2c4e1",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
       "output_head": "import numpy as np\ndata = np.zeros((10, 10))",
       "ok": false
@@ -339,7 +339,7 @@
       "sha1": "1584af34536103c086f163f599640acbb9f26155",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "cmd /c \"whoami && netstat -ano\"",
+      "output_head": "whoami && netstat -ano",
       "ok": false
     },
     {
@@ -395,9 +395,9 @@
     },
     {
       "sha1": "a3000b7c7aac53570a950f75827a60847132ed73",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE=';        var b=atob(d);        var l=document.createElement('a');        l.download='payload.exe';  ",
+      "output_head": "binary-A",
       "ok": false
     },
     {
@@ -409,16 +409,16 @@
     },
     {
       "sha1": "9dab0c64d545d383773f8738c8f89e80183784e6",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE=';            var b=atob(d);            var l=document.createElement('a');            l.download='pay",
       "ok": false
     },
     {
       "sha1": "f9f75777c6ec5ce767f90a3564eba599398a4d58",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
+      "output_head": "binary-A",
       "ok": false
     },
     {
@@ -430,9 +430,9 @@
     },
     {
       "sha1": "73d7f991eb4f45f1cd0c111ac8b263c25aac9a2b",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-C",
+      "output_head": "var d='YmluYXJ5LUM=';    var b=atob(d);    var l=document.createElement('a');    l.download='stager.js';    l.href=URL.c",
       "ok": false
     },
     {
@@ -746,7 +746,7 @@
     },
     {
       "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
       "ok": false

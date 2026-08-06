@@ -554,6 +554,103 @@ function GraphTab({ incident }) {
   );
 }
 
+// ── Attack Lifecycle panel — walks the MITRE kill-chain and lists
+// behaviors + actual commands per tactic. Same depth Talos / Mandiant
+// publish in their engagement reports.
+const _TACTIC_ORDER = [
+  ["initial_access",       "Initial Access"],
+  ["execution",            "Execution"],
+  ["persistence",          "Persistence"],
+  ["privilege_escalation", "Privilege Escalation"],
+  ["defense_evasion",      "Defense Evasion"],
+  ["credential_access",    "Credential Access"],
+  ["discovery",            "Discovery"],
+  ["lateral_movement",     "Lateral Movement"],
+  ["collection",           "Collection"],
+  ["command_and_control",  "Command and Control"],
+  ["exfiltration",         "Exfiltration"],
+  ["impact",               "Impact"],
+];
+
+function AttackLifecyclePanel({ incident }) {
+  const behaviors = incident?.behaviors || [];
+  if (!behaviors.length) return null;
+  const byTactic = {};
+  for (const b of behaviors) {
+    const t = b.primary_tactic || "execution";
+    (byTactic[t] = byTactic[t] || []).push(b);
+  }
+  const present = _TACTIC_ORDER.filter(([k]) => (byTactic[k] || []).length);
+  if (!present.length) return null;
+  return (
+    <div style={sx.section} data-testid="nist-attack-lifecycle">
+      <div style={sx.eyebrow}>▸ ATTACK LIFECYCLE (CYBER KILL CHAIN × MITRE ATT&amp;CK)</div>
+      <div style={{ ...sx.dim, marginBottom: 8 }}>
+        Per-tactic walkthrough of every observed behavior with its MITRE
+        technique ID and the raw command evidence.
+      </div>
+      {present.map(([key, label]) => (
+        <div key={key} style={{ marginBottom: 10 }}
+             data-testid={`nist-lifecycle-${key}`}>
+          <div style={{ fontWeight: 700, color: "#7ee6a8",
+                        fontSize: 12, marginBottom: 4 }}>
+            {label.toUpperCase()}
+          </div>
+          {(byTactic[key] || []).map((b, i) => {
+            const mitre = (b.mitre || []).map(m => m.id || m).join(", ") || "—";
+            return (
+              <div key={i} style={{ marginBottom: 6, paddingLeft: 8 }}>
+                <div style={{ fontSize: 12 }}>
+                  <strong>{b.label}</strong>
+                  <span style={{ color: "#94a3b8", marginLeft: 8 }}>[{mitre}]</span>
+                  <span style={{ color: "#94a3b8", marginLeft: 8 }}>
+                    · {b.command_count || 0} observed · {(b.confidence || "low").toUpperCase()}
+                  </span>
+                </div>
+                {(b.commands || []).slice(0, 2).map((c, j) => (
+                  <div key={j} style={{ fontFamily: "JetBrains Mono, monospace",
+                                          fontSize: 10.5, color: "#c5f5d6",
+                                          background: "rgba(0,40,22,0.4)",
+                                          padding: "4px 8px", borderRadius: 3,
+                                          marginTop: 3, wordBreak: "break-all" }}>
+                    {(c.command || "").slice(0, 240)}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AttackTimelinePanel({ session }) {
+  const events = session?.summary_narrative?.attack_timeline
+                 || session?.raw_investigation?.report_extraction?.timeline
+                 || [];
+  if (!events.length) return null;
+  return (
+    <div style={sx.section} data-testid="nist-attack-timeline">
+      <div style={sx.eyebrow}>▸ ATTACK TIMELINE ({events.length})</div>
+      <div style={{ ...sx.dim, marginBottom: 6 }}>
+        Chronological events NivXRay reconstructed from the acquired source.
+      </div>
+      <ol style={{ margin: 0, paddingLeft: 20 }}>
+        {events.slice(0, 20).map((e, i) => (
+          <li key={i} style={{ marginBottom: 4, fontSize: 12 }}
+              data-testid={`nist-timeline-${i}`}>
+            <span style={{ color: "#7ee6a8", fontWeight: 700, marginRight: 6 }}>
+              {e.date || "·"}
+            </span>
+            <span>{e.event}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 // ── NIST IR tab — reads incident directly + downloadable exports ─
 function NistTab({ incident, raw, session }) {
   const md = useMemo(
@@ -654,6 +751,12 @@ function NistTab({ incident, raw, session }) {
           ["Status",     sum.status     || "—"],
         ]} />
       </div>
+
+      {/* ── Attack Lifecycle (per-tactic walkthrough) ─────── */}
+      <AttackLifecyclePanel incident={incident} />
+
+      {/* ── Attack Timeline (dated events extracted from source) ─── */}
+      <AttackTimelinePanel session={session} />
 
       <div style={sx.section}>
         <div style={sx.eyebrow}>▸ INVESTIGATION READINESS</div>

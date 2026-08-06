@@ -191,6 +191,7 @@ def extract_all(article_text: str,
     timeline = _extract_timeline(joined)
     yara     = _extract_yara(joined)
     sigma    = _extract_sigma(joined)
+    hash_ctx = _extract_hash_context(joined, blocks)
 
     return {
         "body_artifacts":     body_artifacts,
@@ -202,6 +203,7 @@ def extract_all(article_text: str,
         "timeline":           timeline,
         "yara_rules":         yara,
         "sigma_rules":        sigma,
+        "hash_context":       hash_ctx,
         "totals": {
             "artifacts": len(body_artifacts),
             "mitre":     len(mitre),
@@ -214,6 +216,58 @@ def extract_all(article_text: str,
             "sigma":     len(sigma),
         },
     }
+
+
+def _extract_hash_context(text: str,
+                            blocks: List[str]) -> Dict[str, Dict[str, str]]:
+    """Build a hash → {filename, description} lookup from IOC tables.
+
+    Threat reports render hashes in tables like:
+        | Filename        | SHA256           | Description       |
+        | wininit.exe     | 5540f27f...      | Renamed rclone    |
+
+    trafilatura collapses the row into one line.  We look for a
+    filename token (word.ext) within 200 chars of every hash and take
+    the first non-hash sentence-like chunk as its description.
+    """
+    ctx: Dict[str, Dict[str, str]] = {}
+    hash_re     = re.compile(r"\b([A-Fa-f0-9]{32}|[A-Fa-f0-9]{40}|[A-Fa-f0-9]{64}|[A-Fa-f0-9]{128})\b")
+    # Common attacker-tool file extensions.
+    filename_re = re.compile(
+        r"\b([A-Za-z0-9_.\-]{1,60}"
+        r"\.(?:exe|dll|ps1|vbs|js|bat|cmd|sh|py|scr|msi|zip|rar|7z|iso|lnk|bin|elf|app|dmg|apk))\b",
+        re.I,
+    )
+    # Scan article text + every structured block (tables live in blocks).
+    corpora = [text] + list(blocks or [])
+    for corpus in corpora:
+        for m in hash_re.finditer(corpus):
+            h = m.group(1).lower()
+            if h in ctx:
+                continue
+            # Window ±200 chars around the hash.
+            i = m.start()
+            j = m.end()
+            left  = corpus[max(0, i - 200): i]
+            right = corpus[j: j + 200]
+            fn_left  = filename_re.findall(left)
+            fn_right = filename_re.findall(right)
+            filename = ""
+            if fn_left:
+                filename = fn_left[-1]      # closest filename before hash
+            elif fn_right:
+                filename = fn_right[0]      # closest filename after hash
+            # Description: take the tail of the right window up to 120
+            # chars, stripping leading punctuation/pipes.
+            desc = right.lstrip(" |\t,;:-—").strip()
+            # Remove any inline hashes / paths so the description reads
+            # as prose.
+            desc = re.sub(r"[A-Fa-f0-9]{32,128}", "", desc)
+            desc = re.sub(r"\s+", " ", desc).strip(" |\t,;:-—.")
+            desc = desc[:120]
+            if filename or desc:
+                ctx[h] = {"filename": filename, "description": desc}
+    return ctx
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -589,11 +643,27 @@ def _extract_commands(text: str,
 
 
 def _extract_timeline(text: str) -> List[Dict[str, Any]]:
-    """Extract dated events.  Two shapes:
-        · Explicit date-first lines ("On July 22, …")
-        · Prefixed bullets ("• 2026-07-22 · …")
+    """Extract dated events from the article body.  Handles:
+        · Explicit date-first lines ("On July 22, ...")
+        · Prefixed bullets ("• 2026-07-22 · ...")
+        · Relative markers ("In late April,", "Later that day", "hours after")
+        · Sentence-embedded dates ("... on July 22, the actor ...")
     """
     hits: List[Dict[str, Any]] = []
+    seen_keys: set = set()
+
+    def _add(date: str, event: str, src: str) -> None:
+        d = (date or "").strip().strip(",")
+        e = (event or "").strip().strip(",.:")
+        if not e or len(e) < 5:
+            return
+        key = (d.lower(), e[:80].lower())
+        if key in seen_keys:
+            return
+        seen_keys.add(key)
+        hits.append({"date": d, "event": e[:400], "source": src})
+
+    # 1. Explicit date-anchored lines (existing regex)
     for m in re.finditer(
         r"(?im)^(?:[\-\*•\u2022]\s*)?"
         r"(?:on\s+)?"
@@ -604,11 +674,43 @@ def _extract_timeline(text: str) -> List[Dict[str, Any]]:
         r"(.{5,300})$",
         text,
     ):
-        hits.append({
-            "date":    m.group(1).strip(),
-            "event":   m.group(2).strip(),
-            "source":  "ida.report.timeline",
-        })
+        _add(m.group(1), m.group(2), "ida.report.timeline")
+
+    # 2. Sentence-embedded absolute dates: "On July 22, the actor ..."
+    for m in re.finditer(
+        r"(?i)(?:^|[.!?]\s+|,\s+)"
+        r"(?:on|in|by|around|during)?\s*"
+        r"((?:January|February|March|April|May|June|July|August|"
+        r"September|October|November|December)"
+        r"(?:\s+\d{1,2}(?:,\s*\d{4})?)?"
+        r"|\d{4}-\d{2}-\d{2})"
+        r"[,\s]+"
+        r"([A-Z][^.!?]{15,240}[.!?])",
+        text,
+    ):
+        _add(m.group(1), m.group(2), "ida.report.timeline.sentence")
+
+    # 3. Relative-time anchors: "In late April, ...", "Later that day, ...",
+    # "hours after initial access, ...", "since January 2025, ..."
+    _RELATIVE = (
+        r"in\s+(?:early|mid|late)\s+(?:January|February|March|April|May|June|"
+        r"July|August|September|October|November|December)"
+        r"(?:\s+\d{4})?"
+        r"|since\s+(?:January|February|March|April|May|June|July|August|"
+        r"September|October|November|December)\s+\d{4}"
+        r"|later\s+that\s+day"
+        r"|the\s+same\s+day"
+        r"|hours?\s+after\s+[a-z ]{3,30}"
+        r"|over\s+\d+\s+hours?"
+        r"|within\s+\d+\s+(?:hours?|days?|minutes?)"
+    )
+    for m in re.finditer(
+        rf"(?i)(?:^|[.!?]\s+|,\s+)({_RELATIVE})"
+        rf"[,\s]+([A-Z][^.!?]{{15,240}}[.!?])",
+        text,
+    ):
+        _add(m.group(1).strip(), m.group(2), "ida.report.timeline.relative")
+
     return hits
 
 
