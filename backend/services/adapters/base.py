@@ -44,6 +44,12 @@ class EvidenceAdapter(ABC):
     #: Semver adapter version — bump on breaking output changes.
     version: str = "0.1"
 
+    #: List of capability strings this adapter exposes.  Emitted into
+    #: ``IEP.metadata.data['adapter'].capabilities`` so support / debug
+    #: / regression tooling can inspect adapter behaviour without
+    #: reading logs.  Subclasses MUST override.
+    capabilities: List[str] = []
+
     # ── Detection ────────────────────────────────────────────────────
     @abstractmethod
     def can_handle(self, raw: Any) -> bool:
@@ -112,18 +118,30 @@ class EvidenceAdapter(ABC):
         artifacts      = self.normalize(content)
         relationships  = self.discover_relationships(content, artifacts)
         src            = source or self._infer_source(raw)
+        md             = dict(metadata or {})
+        # ── Adapter Manifest — required per architecture v1.0 ─────────
+        md.setdefault("adapter", {})
+        md["adapter"].update({
+            "name":         self.name,
+            "version":      self.version,
+            "capabilities": list(self.capabilities),
+        })
         iep = make_iep(
             source=src,
             content=content,
             artifacts=artifacts,
             relationships=relationships,
-            metadata=metadata or {},
+            metadata=md,
             adapter=self.name,
             adapter_version=self.version,
             parent_iep_id=parent_iep_id,
             pipeline_depth=pipeline_depth,
         )
-        iep.warnings.extend(self.validate(iep))
+        warns = self.validate(iep)
+        iep.warnings.extend(warns)
+        # Roll the fired warning codes into the manifest so consumers
+        # see them alongside capabilities.
+        iep.metadata.data["adapter"]["warnings"] = [w.code for w in iep.warnings]
         return iep
 
     # ── Validation (per-adapter caveats, NOT the Phase 5 validator) ──

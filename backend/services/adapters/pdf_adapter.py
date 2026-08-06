@@ -38,8 +38,12 @@ from .base import EvidenceAdapter
 
 
 class PDFAdapter(EvidenceAdapter):
-    name    = "adapter.pdf"
-    version = "1.0"
+    name         = "adapter.pdf"
+    version      = "1.0"
+    capabilities = ["text", "tables", "metadata", "hyperlinks",
+                     "embedded_files", "javascript", "launch_actions",
+                     "annotations", "form_fields", "digital_signatures",
+                     "image_counts"]
 
     _MAGIC = b"%PDF-"
 
@@ -456,6 +460,12 @@ class PDFAdapter(EvidenceAdapter):
                 "creationDate": pdf_meta.get("CreationDate") or pdf_meta.get("creationDate"),
                 "modDate":      pdf_meta.get("ModDate")      or pdf_meta.get("modDate"),
             }
+        md.setdefault("adapter", {})
+        md["adapter"].update({
+            "name":         self.name,
+            "version":      self.version,
+            "capabilities": list(self.capabilities),
+        })
         from models.iep import make_iep as _mk
         iep = _mk(
             source=src, content=content, artifacts=artifacts,
@@ -464,4 +474,5 @@ class PDFAdapter(EvidenceAdapter):
             parent_iep_id=parent_iep_id, pipeline_depth=pipeline_depth,
         )
         iep.warnings.extend(self.validate(iep))
+        iep.metadata.data["adapter"]["warnings"] = [w.code for w in iep.warnings]
         return iep

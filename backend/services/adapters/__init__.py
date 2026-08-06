@@ -19,13 +19,18 @@ Adapter roster (built in the frozen 3A → 3B → 3C order):
 See /app/memory/NIVXRAY_ARCHITECTURE_V1.md.
 """
 from .base import EvidenceAdapter
+from .docx_adapter import DOCXAdapter
 from .pdf_adapter  import PDFAdapter
 from .text_adapter import TextAdapter
 from .url_adapter  import URLAdapter
 
 # Order matters — first adapter whose `can_handle` returns True wins.
+# DOCX before PDF (both start with distinctive magic but DOCX's ZIP
+# `PK\x03\x04` is generic — verifying `word/document.xml` inside is
+# what disambiguates), before raw ZIP, before URL/Text.
 REGISTRY = [
     PDFAdapter(),
+    DOCXAdapter(),
     URLAdapter(),
     TextAdapter(),
 ]
@@ -44,4 +49,4 @@ def adapt(raw, **ctx):
 
 
 __all__ = ["EvidenceAdapter", "TextAdapter", "URLAdapter", "PDFAdapter",
-              "REGISTRY", "adapt"]
+              "DOCXAdapter", "REGISTRY", "adapt"]

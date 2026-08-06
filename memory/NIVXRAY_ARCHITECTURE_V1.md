@@ -232,6 +232,27 @@ richer without any reasoning-engine involvement (R8):
 - ZIP → `contains` → EXE
 - `curl.exe` → `downloads` → `update_ms.msi`
 
+**Adapter Manifest** — every adapter MUST emit a small self-describing
+manifest into the IEP metadata under key ``adapter``.  Purpose:
+debugging, provenance, upgrades, regression testing, support cases —
+all without inspecting logs.
+
+```jsonc
+{
+  "adapter": {
+    "name":         "adapter.pdf",
+    "version":      "1.0",
+    "capabilities": ["text", "tables", "metadata", "embedded_files",
+                      "javascript", "launch_actions", "signatures"],
+    "warnings":     ["pdf_contains_javascript"]
+  }
+}
+```
+
+Populated automatically by ``EvidenceAdapter.make_iep`` via
+``adapter.capabilities`` (a class-level list) and the ``warnings``
+that fired during this run.
+
 **Relationship model** — the ``verb`` field on every
 :class:`IEPRelationship` uses the authoritative ``RelationshipType``
 enum (see ``backend/models/iep.py``).  Adapters may emit either the
@@ -288,21 +309,24 @@ deterministic adapters first isolates OCR-specific issues.
 
 ### Phase 3.5 — Adapter Validation Pack
 Before orchestration, prove every adapter independently against a
-realistic corpus.  This creates a clean boundary — if a bug appears
-in Phase 4+, we know it is NOT in the adapters.
+**real-world corpus** (not just synthetic fixtures).
 
-Corpus:
-- Benign + malicious PDFs
-- Phishing EMLs
-- Office documents (DOCX / DOCM)
-- Nested ZIPs
-- Threat-report screenshots
-- Malware / attack-chain diagrams
+Real corpus buckets:
+- **PDF** — benign report, encrypted PDF, JS-carrying PDF, PDF with
+  embedded executable, digitally signed PDF
+- **DOCX** — normal, macro-enabled, OLE-embedded, external template,
+  with comments / tracked changes
+- **EML** — phishing, spoofed SPF, DKIM fail, with attachment, nested EML
+- **ZIP** — nested ZIP, password-protected, zip-bomb simulation,
+  duplicate hashes for cycle detection
+- **Image** — malware diagram, PowerShell screenshot, IOC screenshot,
+  blurry OCR, rotated image
 
 Acceptance criteria:
 - Every adapter emits a schema-valid IEP
 - Every artifact carries `source_ref` (R6)
 - Relationship discovery emits only structural verbs (R8)
+- Adapter Manifest present in every IEP
 - Resource limits are respected
 - No adapter performs reasoning
 - Every adapter passes the Phase 2.5 contract suite

@@ -20,8 +20,12 @@ from .base import EvidenceAdapter
 
 
 class URLAdapter(EvidenceAdapter):
-    name    = "adapter.url"
-    version = "1.0"
+    name         = "adapter.url"
+    version      = "1.0"
+    capabilities = ["acquisition_cascade", "playwright_fallback",
+                     "body_artifacts", "commands", "mitre",
+                     "threat_actors", "malware_families", "cves",
+                     "yara_rules", "sigma_rules", "hash_context"]
 
     # ── Detection ────────────────────────────────────────────────────
     def can_handle(self, raw: Any) -> bool:
@@ -253,6 +257,12 @@ class URLAdapter(EvidenceAdapter):
                 "status_code":    acq_meta.get("status_code"),
                 "block_count":    len(acq_meta.get("structured_blocks") or []),
             }
+        md.setdefault("adapter", {})
+        md["adapter"].update({
+            "name":         self.name,
+            "version":      self.version,
+            "capabilities": list(self.capabilities),
+        })
         from models.iep import make_iep as _mk
         iep = _mk(
             source=src, content=content, artifacts=artifacts,
@@ -261,4 +271,5 @@ class URLAdapter(EvidenceAdapter):
             parent_iep_id=parent_iep_id, pipeline_depth=pipeline_depth,
         )
         iep.warnings.extend(self.validate(iep))
+        iep.metadata.data["adapter"]["warnings"] = [w.code for w in iep.warnings]
         return iep

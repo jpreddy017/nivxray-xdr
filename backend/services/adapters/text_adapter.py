@@ -19,8 +19,10 @@ from .base import EvidenceAdapter
 
 
 class TextAdapter(EvidenceAdapter):
-    name    = "adapter.text"
-    version = "1.0"
+    name         = "adapter.text"
+    version      = "1.0"
+    capabilities = ["lines", "commands", "urls", "ips", "domains",
+                     "hashes", "registry_keys", "file_paths", "cves"]
 
     # ── Detection ────────────────────────────────────────────────────
     def can_handle(self, raw: Any) -> bool:

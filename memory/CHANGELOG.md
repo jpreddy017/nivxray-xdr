@@ -3470,3 +3470,36 @@ source_ref presence (R6), body-text artifact extraction, hyperlink
 annotation extraction, structural-verb restriction (R8), CONTAINS
 relationship, JSON round-trip, metadata surfacing.  All 38 tests
 across the four test files pass.
+
+## 2026-02-06 · Phase 3A DOCX adapter + Adapter Manifest requirement
+
+**Adapter Manifest** — new architectural requirement.  Every adapter
+emits `metadata.data['adapter']` with `name`, `version`, `capabilities`,
+`warnings` so debugging / provenance / regression tooling never needs
+to inspect logs.  Applied uniformly:
+- Base class populates it via `EvidenceAdapter.make_iep`
+- Subclasses that override `make_iep` (URL, PDF, DOCX) also stamp it
+- Class-level `capabilities: List[str]` on every adapter
+
+**Phase 3A · DOCX adapter** (`backend/services/adapters/docx_adapter.py`)
+- python-docx for paragraphs, tables, headers/footers, core properties
+- Direct ZIP inspection for hyperlinks, comments, tracked changes,
+  custom properties, external template references, embedded OLE,
+  macros (VBA), embedded packages
+- Body text through the deterministic splitter with
+  `docx.paragraph.N` / `docx.table.N` / `docx.header.N` / `docx.footer.N`
+  source_refs
+- Structural relationships (R8-safe): `docx → contains → URL`,
+  `docx → references → external_template`, `docx → embeds → OLE/macro`,
+  `docx → attaches → embedded_package`
+- Warnings: `docx_contains_macros`, `docx_contains_ole`,
+  `docx_external_template`, `docx_embedded_package`, plus parse-failed
+- `recurse()` returns OLE / package / macro artifacts for Phase 4
+  child-IEP spawning
+- Registered in REGISTRY between PDF and URL
+
+**Tests** — `backend/tests/test_adapter_docx.py` (8 tests, hermetic).
+Also added a cross-adapter manifest-presence test. **All 46 tests pass**
+(10 IEP + 13 adapter 3A text/URL + 10 PDF + 8 DOCX + 5 RelationshipType).
+
+Phase 3A milestone (M1) is complete: Text, URL, PDF, DOCX all live.
