@@ -3316,3 +3316,32 @@ NIST IR phases.
 **Next**: Phase 3 · Evidence Adapter Layer — text (pass-through), url,
 image (OCR + EXIF), pdf, docx, eml, zip.  Every adapter must return an IEP
 via `make_iep()` and pass the Phase 2.5 contract suite.
+
+## 2026-02-06 · Phase 3A Foundation — Adapter Contract + Text + URL
+
+Per the frozen 3A/3B/3C order (deterministic-first, OCR last), landed the
+foundation of Phase 3:
+
+- `backend/services/adapters/base.py` — `EvidenceAdapter` abstract base
+  with `can_handle` / `extract` / `normalize` / `make_iep` / `validate` /
+  `recurse`.  New evidence types (APK, IPA, Mach-O, PCAP, memory dump)
+  become one-file plug-ins.
+- `backend/services/adapters/text_adapter.py` — the reference adapter,
+  reuses IDA's `artifact_splitter`, every artifact carries
+  `source_ref=text.line.N`.
+- `backend/services/adapters/url_adapter.py` — leverages the existing
+  Trafilatura → readability → BS4 → Playwright acquisition cascade and
+  IDA-4's `extract_all()`.  Playwright-fallback + empty-body caveats
+  surface as IEP warnings.
+- `backend/services/adapters/__init__.py` — `REGISTRY` + `adapt()`
+  router: URL adapter wins over Text; unrecognised inputs fall through
+  to Text.
+- `backend/tests/test_adapters_3a.py` — 9 contract tests covering
+  handler detection, IEP shape, provenance, source_ref presence, JSON
+  round-trip, R5 (engine reads artifacts only), Playwright warning
+  surfacing, registry precedence.
+- All 19 tests (10 IEP contract + 9 adapter 3A) pass.
+
+**Next**: Phase 3A continues with PDF adapter (pdfplumber + PyMuPDF) and
+DOCX adapter (python-docx), then Phase 3B (EML + ZIP with recursion), then
+Phase 3C (Image with Tesseract OCR + EXIF).

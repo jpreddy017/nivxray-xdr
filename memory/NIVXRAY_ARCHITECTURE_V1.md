@@ -173,9 +173,42 @@ Foundation. Nothing else may start before this exists.
 - [ ] Catches regressions before they reach IDA / DIE / ICE
 
 ### Phase 3 — Evidence Adapter Layer
-Adapters, not features. Initial set:
-- [ ] Text (pass-through) · URL · Image (OCR + EXIF metadata) · PDF · DOCX · EML · ZIP (inventory + recursion)
-- [ ] Every adapter returns an IEP
+Every adapter implements the same **Adapter Contract** interface so
+new evidence types (APK, IPA, Mach-O, ELF, PCAP, memory dumps) later
+become one-file plug-ins.
+
+**Adapter Contract** (`backend/services/adapters/base.py`):
+```python
+class EvidenceAdapter(Protocol):
+    name:            str
+    version:         str
+    def can_handle(raw) -> bool: ...
+    def extract(raw)  -> IEPContent: ...
+    def normalize(content) -> List[IEPArtifact]: ...
+    def make_iep(raw, **ctx) -> IEP: ...
+    def validate(iep) -> List[IEPWarning]: ...
+    def recurse(iep)  -> List[Artifact]: ...  # artifacts requiring child IEP
+```
+
+Order within Phase 3 (deterministic-first, OCR last):
+
+#### Phase 3A · Deterministic Adapters
+1. Text (pass-through)
+2. URL (leverages existing `acquisition.py`)
+3. PDF (pdfplumber + PyMuPDF)
+4. DOCX (python-docx)
+
+#### Phase 3B · Recursive Evidence  *(proves the recursion pipeline)*
+5. EML (email.parser + attachment recursion — phishing / header / SPF / DKIM / DMARC value)
+6. ZIP (inventory + child-IEP recursion)
+
+#### Phase 3C · Visual Evidence  *(only introduced after 3A + 3B are proven)*
+7. Image (Tesseract OCR + EXIF + layout + diagram parsing)
+
+Rationale: OCR carries the most uncertainty (layout, confidence, false
+positives).  Building it first would mask whether bugs originate in the
+IEP, the adapter, the OCR engine, or the downstream pipeline.  Landing
+deterministic adapters first isolates OCR-specific issues.
 
 ### Phase 4 — Investigation Orchestrator
 - [ ] Validate → normalize → deduplicate artifacts
