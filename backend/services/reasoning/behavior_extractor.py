@@ -17,7 +17,7 @@ Shape returned to the caller:
         title             = "Remote Payload Retrieval",
         kill_chain        = ["Delivery"],
         mitre_techniques  = ["T1105"],
-        mitre_tactic      = "Command and Control",
+        mitre_tactics=["Command and Control"],
         confidence        = 0.98,
         evidence          = [BehaviorEvidence(text="System.Net.WebClient", location="cmd.5")],
         description       = "Uses WebClient / DownloadString / IWR to retrieve payloads.",
@@ -103,10 +103,23 @@ class Behavior:
     title:             str
     kill_chain:        List[str]
     mitre_techniques:  List[str]
-    mitre_tactic:      str
+    mitre_tactics:     List[str]        # PLURAL — R8 canonical: one behavior may span multiple tactics
     confidence:        float
     description:       str
+    severity:          str = "medium"   # "low" | "medium" | "high" | "critical" — deterministic tier
+    order:             int = 0          # deterministic chronology for timelines / story
     evidence:          List[BehaviorEvidence] = field(default_factory=list)
+
+    # ── Backwards-compat shim (existing callers used .mitre_tactic) ──
+    @property
+    def mitre_tactic(self) -> str:
+        """Deprecated singular alias — returns the primary tactic (first element).
+
+        New code MUST use ``mitre_tactics`` (plural) so a single behavior
+        can legitimately appear in multiple ATT&CK swim lanes per the
+        canonical model (R8).
+        """
+        return self.mitre_tactics[0] if self.mitre_tactics else ""
 
     def merge(self, other: "Behavior") -> None:
         """Merge another Behavior's evidence into this one (P1.5)."""
@@ -132,7 +145,7 @@ _RULES: List[Dict[str, Any]] = [
         title="Execution Policy Bypass",
         kill_chain=["Defense Evasion"],
         mitre_techniques=["T1562.001"],
-        mitre_tactic="Defense Evasion",
+        mitre_tactics=["Defense Evasion"],
         base_confidence=0.95,
         description="PowerShell execution policy is bypassed, disabling script signing enforcement.",
         patterns=[
@@ -146,7 +159,7 @@ _RULES: List[Dict[str, Any]] = [
         title="Hidden PowerShell Window",
         kill_chain=["Defense Evasion"],
         mitre_techniques=["T1564.003"],
-        mitre_tactic="Defense Evasion",
+        mitre_tactics=["Defense Evasion"],
         base_confidence=0.9,
         description="Runs PowerShell with a hidden window — reduces user-visible signals.",
         patterns=[
@@ -159,7 +172,7 @@ _RULES: List[Dict[str, Any]] = [
         title="Encoded Command (Base64 / UTF-16)",
         kill_chain=["Defense Evasion", "Execution"],
         mitre_techniques=["T1027", "T1059.001"],
-        mitre_tactic="Defense Evasion",
+        mitre_tactics=["Defense Evasion"],
         base_confidence=0.95,
         description="Uses -EncodedCommand or FromBase64String to hide the payload from static scanners.",
         patterns=[
@@ -172,7 +185,7 @@ _RULES: List[Dict[str, Any]] = [
         title="In-Memory Execution (IEX / Invoke-Expression)",
         kill_chain=["Execution"],
         mitre_techniques=["T1059.001"],
-        mitre_tactic="Execution",
+        mitre_tactics=["Execution"],
         base_confidence=0.98,
         description="Executes decoded / downloaded PowerShell directly in memory.",
         patterns=[
@@ -186,7 +199,7 @@ _RULES: List[Dict[str, Any]] = [
         title="Remote Payload Retrieval (Download Cradle)",
         kill_chain=["Delivery", "Command and Control"],
         mitre_techniques=["T1105"],
-        mitre_tactic="Command and Control",
+        mitre_tactics=["Command and Control"],
         base_confidence=0.97,
         description="Uses System.Net.WebClient / DownloadString / Invoke-WebRequest to fetch remote content.",
         patterns=[
@@ -204,7 +217,7 @@ _RULES: List[Dict[str, Any]] = [
         title="WMI Process Creation",
         kill_chain=["Execution", "Lateral Movement"],
         mitre_techniques=["T1047"],
-        mitre_tactic="Execution",
+        mitre_tactics=["Execution"],
         base_confidence=0.95,
         description="Creates a process via WMI (Win32_Process Create) — common for stealthy execution or lateral movement.",
         patterns=[
@@ -218,7 +231,7 @@ _RULES: List[Dict[str, Any]] = [
         title="Service Enumeration",
         kill_chain=["Reconnaissance"],
         mitre_techniques=["T1007"],
-        mitre_tactic="Discovery",
+        mitre_tactics=["Discovery"],
         base_confidence=0.9,
         description="Enumerates services — common host-reconnaissance step.",
         patterns=[
@@ -231,7 +244,7 @@ _RULES: List[Dict[str, Any]] = [
         title="Ambient Credential Reuse via System Proxy",
         kill_chain=["Defense Evasion", "Credential Access"],
         mitre_techniques=["T1090", "T1550"],
-        mitre_tactic="Defense Evasion",
+        mitre_tactics=["Defense Evasion"],
         base_confidence=0.88,
         description="Reuses the current user's cached proxy credentials to blend in with legitimate traffic.",
         patterns=[
@@ -244,7 +257,7 @@ _RULES: List[Dict[str, Any]] = [
         title="String-Concatenation Obfuscation",
         kill_chain=["Defense Evasion"],
         mitre_techniques=["T1027"],
-        mitre_tactic="Defense Evasion",
+        mitre_tactics=["Defense Evasion"],
         base_confidence=0.92,
         description="Splits identifiers across '+'-joined literals to evade static string matching.",
         patterns=[
@@ -258,7 +271,7 @@ _RULES: List[Dict[str, Any]] = [
         title="Variable-Alias Hiding",
         kill_chain=["Defense Evasion"],
         mitre_techniques=["T1027"],
-        mitre_tactic="Defense Evasion",
+        mitre_tactics=["Defense Evasion"],
         base_confidence=0.86,
         description="Assigns a namespace/class to a variable so subsequent references bypass name-based detection.",
         patterns=[
@@ -320,14 +333,21 @@ def extract_behaviors(text: str,
             continue
         # Confidence rises with evidence count — capped at 0.99.
         conf = min(0.99, rule["base_confidence"] + 0.02 * (len(rule_matches) - 1))
+        # Severity — deterministic tier from base confidence + evidence corroboration.
+        if   conf >= 0.97: sev = "critical"
+        elif conf >= 0.90: sev = "high"
+        elif conf >= 0.75: sev = "medium"
+        else:              sev = "low"
         matches[rid] = Behavior(
             id=rid,
             title=rule["title"],
             kill_chain=list(rule["kill_chain"]),
             mitre_techniques=list(rule["mitre_techniques"]),
-            mitre_tactic=rule["mitre_tactic"],
+            mitre_tactics=list(rule["mitre_tactics"]),
             confidence=round(conf, 3),
             description=rule["description"],
+            severity=sev,
+            order=len(matches),       # deterministic insertion order
             evidence=rule_matches,
         )
     return list(matches.values())
@@ -351,9 +371,11 @@ def correlate_behaviors(behavior_lists: List[List[Behavior]]) -> List[Behavior]:
                     id=b.id, title=b.title,
                     kill_chain=list(b.kill_chain),
                     mitre_techniques=list(b.mitre_techniques),
-                    mitre_tactic=b.mitre_tactic,
+                    mitre_tactics=list(b.mitre_tactics),
                     confidence=b.confidence,
                     description=b.description,
+                    severity=b.severity,
+                    order=b.order,
                     evidence=list(b.evidence),
                 )
     # Deterministic ordering — by kill-chain phase, then behavior id.

@@ -9431,3 +9431,13 @@ automatic decoder recommendations.
 - Fallback: `/investigation-summary` deterministic 9-section brief page if session mint fails
 - `investigation_summary` field now persisted alongside every `POST /api/cases/save` in `workspace_cases`
 - All changes auto-committed (latest: `4cb010f`) — permanent, survives redeploy
+
+## 🟢 2026-02-06 · Behavior Model Canonical Refactor (Slice a of e)
+
+- `Behavior.mitre_tactic: str` → `Behavior.mitre_tactics: List[str]` (per R8 canonical model — a behavior may legitimately belong to multiple ATT&CK tactics)
+- Added `severity: str` (low/medium/high/critical, deterministic tier) and `order: int` (deterministic chronology)
+- Backward-compat property `mitre_tactic` (returns primary) → no UI breakage
+- All 10 rules in `_RULES` migrated to plural
+- `POST /api/investigation/summary` now emits both plural + severity + order
+- 117/117 pytest still green
+- **Slices c/d/b remain pending** — Knowledge-base expansion → Timeline/Evidence synth → 14-lane UI projection

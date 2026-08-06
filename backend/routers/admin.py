@@ -394,7 +394,10 @@ async def preview_behaviors(body: dict, user=Depends(require_admin)):
                 "title":            b.title,
                 "kill_chain":       b.kill_chain,
                 "mitre_techniques": b.mitre_techniques,
-                "mitre_tactic":     b.mitre_tactic,
+                "mitre_tactic":     b.mitre_tactic,    # deprecated (kept for old UI)
+                "mitre_tactics":    b.mitre_tactics,   # canonical (R8)
+                "severity":         b.severity,
+                "order":            b.order,
                 "confidence":       b.confidence,
                 "description":      b.description,
                 "evidence":         [
