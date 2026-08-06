@@ -41,6 +41,30 @@
 | 23 | Recommendations | `SSOT.narrative.recommended_actions` | ✅ existing |
 | 24 | Confidence Summary | `SSOT.confidence` | ✅ existing |
 | 25 | NIST Lifecycle Mapping Appendix (Preparation / Detection / Containment / Eradication / Recovery / Post-Incident → Completed · Partial · Not Available) | `SSOT.nist_mapping{}` | 🚧 new |
+| 26 | **Evidence Completeness** (Commands · MITRE · Timeline · Timestamps · Parent Process · Network Telemetry · EDR Metadata · Memory → Complete / Partial / Missing / Not Available + overall completeness %) | `SSOT.evidence_completeness{}` | 🚧 new · **mandatory** |
+
+## Evidence Completeness Rules (locked · addendum 2026-03-01)
+
+`SSOT.evidence_completeness` is **different from confidence**.  It
+tells the analyst *how complete the investigation is*, not how
+confident the engine is in what it found.  It exists because NIST
+sections like containment recommendations, precise impact, and
+recovery are only as good as the evidence available.
+
+Every completeness dimension takes one of four states:
+
+    ✔ Complete    — full evidence present
+    ● Relative    — data present but partial (e.g. execution order
+                     without wall-clock timestamps)
+    ✘ Missing     — dimension expected but not found in the input
+    – Not Available  — dimension is not applicable to this input class
+
+The overall percentage is `Complete + 0.5·Relative` over the total
+number of applicable dimensions.  Dimensions marked "Not Available"
+are excluded from the denominator.
+
+The Report Renderer projects this block directly.  It never
+computes completeness — the SSOT emitter is the single owner.
 
 ## Evidence Rules (locked)
 Every report statement satisfies one of:

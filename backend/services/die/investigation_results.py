@@ -38,6 +38,11 @@ from .lolbas import lolbas_lookup, LOLBAS_REGISTRY  # noqa: F401
 from .ioc_semantic import extract_iocs
 from .intent import classify_intent_from_analyze
 from .api import analyze
+# ── IDA · Intelligent Document Analyzer (Rule R14) ──
+# Slice 1 · IDA-1 Input Classifier + IDA-2 Artifact Splitter.
+# The IUE remains the classifier of record; IDA contributes a
+# deterministic artifact decomposition + IDA verdict on top.
+from services.ida import classify_artifact_input as _ida_classify
 
 
 # ── Formatting helpers ────────────────────────────────────────────
@@ -158,6 +163,14 @@ def render(input_text: str) -> Dict[str, Any]:
 
     # 8) DKP matches
     dkp_matches = env.get("dkp_matches") or []
+
+    # 9) IDA · Slice 1 · Artifact decomposition + IDA verdict.
+    # Deterministic; feeds SSOT.artifacts / artifact_summary / ida.
+    # Later slices (URL fetch, content understanding, threat report
+    # extraction) will augment `artifacts[]` in-place without any
+    # consumer changing.  Rule R14: IDA is the ONLY engine writing
+    # to `artifacts[]`.
+    ida_verdict = _ida_classify(src)
 
     # ── Build the OUTPUT text ─────────────────────────────────────
     lines: List[str] = []
@@ -452,6 +465,7 @@ def render(input_text: str) -> Dict[str, Any]:
                 "bee":            "1.0.0",
                 "intent":         "1.2.0",
                 "narrative":      "1.1.0",
+                "ida":            "1.0.0-slice-1",
             },
             "ruleset_version": "2026.03.01",
             "input_bytes":     len(src),
@@ -473,6 +487,18 @@ def render(input_text: str) -> Dict[str, Any]:
         "lolbas":              [_lolbas_to_ssot(lb) for lb in lolbins],
         "mitre":               techniques,
         "dkp":                 dkp_matches,
+        # ── IDA (Slice 1 · IDA-1 + IDA-2) ──
+        # Rule R14: IDA is the ONLY engine allowed to acquire /
+        # split artifacts.  Every artifact carries IDA-7 provenance
+        # (offset, length, line, extractor) so evidence surfaces can
+        # jump to the exact excerpt without re-parsing.
+        "artifacts":           ida_verdict.get("artifacts", []),
+        "artifact_summary":    ida_verdict.get("summary", {}),
+        "ida":                 {
+            "ida_class":  ida_verdict.get("ida_class", "none"),
+            "confidence": ida_verdict.get("confidence", 0.0),
+            "reasoning":  ida_verdict.get("reasoning", []),
+        },
         "preprocessor":        pre.to_dict(),
         "intent":              intent,
         # R12 · include the deterministic analyst narrative in the SSOT

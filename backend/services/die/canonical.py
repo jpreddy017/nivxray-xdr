@@ -82,6 +82,15 @@ class Canonical:
     mitre:                 List[Dict[str, Any]] = field(default_factory=list)
     dkp:                   List[Dict[str, Any]] = field(default_factory=list)
 
+    # IDA · Intelligent Document Analyzer (Rule R14)
+    # ── Slice 1 (IDA-1 + IDA-2): artifact splitter output ──
+    # `artifacts[]`         — every typed artifact split from the paste
+    # `artifact_summary{}`  — {type: count} snapshot for quick projection
+    # `ida{}`               — verdict object: {ida_class, confidence, reasoning}
+    artifacts:             List[Dict[str, Any]] = field(default_factory=list)
+    artifact_summary:      Dict[str, int] = field(default_factory=dict)
+    ida:                   Dict[str, Any] = field(default_factory=dict)
+
     # Structured downstream views
     preprocessor:          Dict[str, Any] = field(default_factory=dict)
     intent:                Dict[str, Any] = field(default_factory=dict)

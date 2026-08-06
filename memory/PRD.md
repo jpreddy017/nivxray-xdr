@@ -16,14 +16,65 @@
 | SSOT v1 · Canonical Investigation Object | ✅ Complete | 17 sections + `metadata.version=1.0` + `schema=investigation-v1` + `narrative` + categorical `confidence.signals[]` |
 | Workspace v1 · Freeze | ✅ Stable | No redesigns / relocations / removals. Enhancements plug under the surface. |
 | Attack Intent · Objective Taxonomy (R15) | ✅ Complete | Every intent record carries `categories[]`; tests validate behaviour not strings |
-| Investigation Quality Gate | ✅ Green | 158/158 backend tests (66 quality-gate + 92 preprocessor/DIE) |
+| Investigation Quality Gate | ✅ Green | 194/194 tests · 92 quality-gate (Rule R11-R18 + IDA gate) + 19 IDA splitter + 83 preprocessor/DIE |
 | Rules R9–R15 | ✅ Locked | R14 promoted as defining principle |
-| **IDA · Intelligent Document Analyzer** | 🚧 Next major engine | Architecture frozen · roadmap slices IDA-1..IDA-12 (incl. IDA-3.5 Content Understanding, IDA-5 Evidence Normalizer, IDA-6 Semantic Relationship Builder, IDA-7 Citation & Provenance) |
+| **IDA · Intelligent Document Analyzer** | 🚧 In progress — **Slice 1 landed 2026-03-01** | IDA-1 Input Classifier + IDA-2 Artifact Splitter live in SSOT. Roadmap: IDA-3 URL Fetcher · IDA-3.5 Content Understanding · IDA-4 Threat Report Extractor · IDA-5 Evidence Normalizer · IDA-6 Semantic Relationship Builder · IDA-7 Citation & Provenance |
 | **IVE · Investigation Visualization Engine** | ✅ Architecture frozen | `/app/memory/IVE_ARCHITECTURE.md` · projection-only engine · Rule R16 · 7-slice roadmap · consumes SSOT knowledge graph + document profile + provenance |
 
 ---
 
+### 🟢 2026-03-01 · IDA Foundation · Slice 1 landed (IDA-1 + IDA-2)
+
+The user re-prioritised the roadmap: the NIST IR Report is only as
+good as the SSOT feeding it, and the biggest current gap is that
+mixed pastes / URL-only pastes never become first-class artifacts.
+Slice 1 of IDA closes that gap and unblocks every downstream engine.
+
+**Landed in this slice:**
+
+1. **`backend/services/ida/` package** — new engine directory alongside
+   DIE.  Rule R14: IDA is the *only* engine allowed to acquire /
+   split artifacts.
+2. **IDA-2 · Artifact Splitter** (`artifact_splitter.py`) — turns any
+   paste into a deterministic list of typed artifacts with IDA-7
+   provenance (offset · length · line · extractor).  Supported
+   types: `url · hash · ip · domain · registry_key · file_path ·
+   command · cve · yara_rule · sigma_rule`.  Ordering is analyst
+   reading order, IDs are stable (`art-###-<kind>`), and no two
+   atomic artifacts overlap.
+3. **IDA-1 · Input Classifier** (`input_classifier.py`) — deterministic
+   IDA verdict on the paste: `threat_report_url · mixed_artifacts ·
+   ioc_list · yara_ruleset · sigma_ruleset · none`.  The IUE remains
+   the classifier-of-record; IDA contributes an additive verdict.
+4. **SSOT extension** — `SSOT.artifacts[]`, `SSOT.artifact_summary`,
+   and `SSOT.ida` are now populated by
+   `investigation_results.render()`.  Engine version tracked as
+   `engine_versions.ida = "1.0.0-slice-1"` (Rule R17).
+5. **Quality Gate** — 4 new gate tests + 19 dedicated IDA tests
+   (`test_ida_artifact_splitter.py`).  Every fixture now asserts
+   `ida.ida_class` presence, provenance completeness on every
+   artifact, and engine-version pinning.  92/92 gate tests pass.
+6. **IR Report Contract addendum** — "Evidence Completeness" section
+   added as a mandatory NIST IR block (Complete · Relative · Missing
+   · Not Available + overall %), separate from Confidence.
+
+**Verified end-to-end against the live SSOT endpoint:**
+- Bare URL → `ida_class=threat_report_url` (routes to future IDA-3).
+- PowerShell + URL + hash → `ida_class=mixed_artifacts` with three
+  provenance-tagged artifacts.
+- Pre-existing 174 tests + 20 new = 194/194 relevant tests green.
+
+**Next IDA slices (queued, in order):**
+- IDA-3 · URL Fetcher (safe HTTP fetch + main article extraction)
+- IDA-3.5 · Content Understanding (vendor / sections / capabilities)
+- IDA-4 · Threat Report Extractors (commands · IOCs · MITRE · CVEs ·
+  timeline · YARA · Sigma)
+- Then the NIST IR Report ships as a pure SSOT projection.
+
+---
+
 ### 🟢 2026-03-01 · IUE v2.0 · Investigation-First Architecture (Slice 1)
+
 
 The Workspace has moved past the decoder-centric mindset.  It is now
 an **Investigation Operating System** where every input — plain text,

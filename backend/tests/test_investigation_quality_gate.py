@@ -100,6 +100,8 @@ REQUIRED_SECTIONS = (
     "preprocessor", "intent", "narrative", "behaviour",
     "explanations", "explanation_coverage",
     "confidence", "engines_selected", "engines_skipped",
+    # ── IDA · Slice 1 (Rule R14) ──
+    "artifacts", "artifact_summary", "ida",
 )
 
 
@@ -350,3 +352,63 @@ def test_quality_gate_plan_covers_iue_and_preprocessor(
     assert "preprocessor" in engines, (
         f"{fixture_id}: plan missing preprocessor step")
 
+
+
+
+# ══════════════════════════════════════════════════════════════════
+# Rule R14 · IDA (Slice 1) — Artifact Splitter integration gate
+# ══════════════════════════════════════════════════════════════════
+@pytest.mark.parametrize("fixture_id,payload", FIXTURES)
+def test_quality_gate_ida_block_present(fixture_id: str, payload: str):
+    """Every fixture MUST expose SSOT.ida / artifacts / artifact_summary.
+    Rule R14 — IDA is the only engine allowed to acquire / split
+    artifacts, and its verdict is analyst-visible in the SSOT."""
+    r = render_results(payload)
+    canon = r["object"]
+
+    ida = canon["ida"]
+    assert ida.get("ida_class") in (
+        "threat_report_url", "mixed_artifacts", "ioc_list",
+        "yara_ruleset", "sigma_ruleset", "none",
+    ), f"{fixture_id}: unexpected ida_class {ida.get('ida_class')!r}"
+    assert 0.0 <= ida.get("confidence", 0.0) <= 1.0
+    assert isinstance(ida.get("reasoning"), list)
+
+    assert isinstance(canon["artifacts"], list)
+    assert isinstance(canon["artifact_summary"], dict)
+
+
+def test_quality_gate_ida_ioc_list_class():
+    """The IOC list fixture MUST route to `ioc_list` — proves the IDA
+    verdict is real, not a rubber-stamp `none` for every input."""
+    r = render_results(IOC_LIST)
+    assert r["object"]["ida"]["ida_class"] == "ioc_list"
+    # And the artifact_summary must count the constituent kinds.
+    summary = r["object"]["artifact_summary"]
+    assert summary.get("hash", 0) >= 1
+    assert summary.get("url", 0) >= 1
+    assert summary.get("domain", 0) >= 1
+    assert summary.get("ip", 0) >= 1
+
+
+def test_quality_gate_ida_provenance_on_every_artifact():
+    """Rule R14 + IDA-7: every artifact MUST carry provenance
+    (offset, length, line, extractor).  Without provenance the
+    Evidence projection cannot jump back to the source."""
+    r = render_results(IOC_LIST)
+    for a in r["object"]["artifacts"]:
+        src = a.get("source") or {}
+        assert isinstance(src.get("offset"), int), a
+        assert isinstance(src.get("length"), int) and src["length"] > 0, a
+        assert isinstance(src.get("line"), int) and src["line"] >= 1, a
+        assert src.get("extractor", "").startswith("ida."), a
+
+
+def test_quality_gate_ida_engine_version_recorded():
+    """SSOT.metadata.engine_versions MUST include IDA so investigations
+    are reproducible against a pinned IDA release (Rule R17)."""
+    r = render_results(IOC_LIST)
+    versions = r["object"]["metadata"]["engine_versions"]
+    assert "ida" in versions, "engine_versions must record IDA"
+    assert versions["ida"].startswith("1."), (
+        f"unexpected IDA version {versions['ida']!r}")
