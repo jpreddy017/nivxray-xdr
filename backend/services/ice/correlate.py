@@ -499,27 +499,42 @@ def _build_completeness(ssot: Dict[str, Any],
             return "complete"
         return "missing"
 
+    # MITRE — count from ALL sources: article-body regex hits, DIE
+    # per-command investigations, and SSOT.mitre (preprocessor +
+    # command investigations).  `report_extraction.totals.mitre`
+    # alone under-counts because most techniques on this pipeline
+    # are inferred recursively, not written as `T1234` in prose.
+    ssot_mitre = ssot.get("mitre") or []
+    n_mitre = len({(t.get("id") or "").upper()
+                    for t in ssot_mitre if t.get("id")}) or totals.get("mitre", 0)
+
+    lolbas_count = len({(lb.get("binary") or "").lower()
+                          for ci in investigations
+                          for lb in (ci.get("lolbins") or [])})
+    n_actors  = totals.get("actors", 0)
+    n_malware = totals.get("malware", 0)
+    n_yara    = totals.get("yara", 0)
+    n_sigma   = totals.get("sigma", 0)
+    n_time    = totals.get("timeline", 0)
+
     dims: List[Dict[str, Any]] = [
         {"dim": "Commands",  "state": _state(len(commands)),
          "found": len(commands), "investigated": okc, "errors": errc},
-        {"dim": "MITRE",     "state": _state(totals.get("mitre", 0)),
-         "found": totals.get("mitre", 0)},
-        {"dim": "LOLBAS",    "state": _state(len({(lb.get("binary") or "").lower()
-                                                    for ci in investigations
-                                                    for lb in (ci.get("lolbins") or [])})),
-         "found": len({(lb.get("binary") or "").lower()
-                       for ci in investigations for lb in (ci.get("lolbins") or [])})},
+        {"dim": "MITRE",     "state": _state(n_mitre),
+         "found": n_mitre},
+        {"dim": "LOLBAS",    "state": _state(lolbas_count),
+         "found": lolbas_count},
         {"dim": "IOCs (URLs+Hashes+IPs+Domains)",
          "state": _state(n_url + n_hash + n_ip + n_dom),
          "found": n_url + n_hash + n_ip + n_dom,
          "breakdown": {"urls": n_url, "hashes": n_hash, "ips": n_ip, "domains": n_dom}},
         {"dim": "Registry",  "state": _state(n_reg), "found": n_reg},
-        {"dim": "Timeline",  "state": "complete" if totals.get("timeline", 0) > 0
-                                        else "relative"},
-        {"dim": "YARA",      "state": _state(totals.get("yara", 0))},
-        {"dim": "Sigma",     "state": _state(totals.get("sigma", 0))},
-        {"dim": "Threat Actor", "state": _state(totals.get("actors", 0))},
-        {"dim": "Malware",   "state": _state(totals.get("malware", 0))},
+        {"dim": "Timeline",  "state": "complete" if n_time > 0 else "relative",
+         "found": n_time},
+        {"dim": "YARA",      "state": _state(n_yara), "found": n_yara},
+        {"dim": "Sigma",     "state": _state(n_sigma), "found": n_sigma},
+        {"dim": "Threat Actor", "state": _state(n_actors), "found": n_actors},
+        {"dim": "Malware",   "state": _state(n_malware), "found": n_malware},
     ]
     applicable = [d for d in dims if d["state"] != "not_available"]
     complete   = sum(1 for d in applicable if d["state"] == "complete")

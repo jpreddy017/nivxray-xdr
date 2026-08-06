@@ -79,8 +79,13 @@ _RE_DOMAIN = re.compile(
 )
 
 # Windows registry hive.  Case-insensitive on hive, preserves case on subkey.
+# Accepts three shapes:
+#   · Full: `HKEY_LOCAL_MACHINE\SOFTWARE\...`
+#   · Short: `HKLM\SOFTWARE\...`
+#   · EDR-style: `\MACHINE\SOFTWARE\...` (Talos / Mandiant transcripts)
 _RE_REGISTRY = re.compile(
-    r"\b(HK(?:LM|CU|CR|U|CC)|HKEY_(?:LOCAL_MACHINE|CURRENT_USER|CLASSES_ROOT|USERS|CURRENT_CONFIG))"
+    r"(?:\b(HK(?:LM|CU|CR|U|CC)|HKEY_(?:LOCAL_MACHINE|CURRENT_USER|CLASSES_ROOT|USERS|CURRENT_CONFIG))"
+    r"|\\(MACHINE|USER|CLASSES|USERS|CONFIG))"
     r"[\\/][\w\\/. \-\(\)]+",
     re.I,
 )
@@ -145,12 +150,18 @@ _REG_HIVE_MAP = {
     "HKCR": "HKEY_CLASSES_ROOT",
     "HKU":  "HKEY_USERS",
     "HKCC": "HKEY_CURRENT_CONFIG",
+    # EDR-style roots (Talos / Mandiant transcripts use these)
+    "MACHINE": "HKEY_LOCAL_MACHINE",
+    "USER":    "HKEY_CURRENT_USER",
+    "CLASSES": "HKEY_CLASSES_ROOT",
+    "USERS":   "HKEY_USERS",
+    "CONFIG":  "HKEY_CURRENT_CONFIG",
 }
 
 
 def _canon_registry(value: str) -> str:
-    v = value.strip().replace("/", "\\")
-    # Expand short hive to full form (deterministic)
+    v = value.strip().replace("/", "\\").lstrip("\\")
+    # Expand short / EDR-style hive to full form (deterministic)
     head, _, tail = v.partition("\\")
     head_up = head.upper()
     if head_up in _REG_HIVE_MAP:
