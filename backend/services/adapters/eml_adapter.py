@@ -89,6 +89,8 @@ class EMLAdapter(EvidenceAdapter):
         # Walk MIME tree — build hierarchy + content + attachments.
         blocks: List[Dict[str, Any]] = []
         text_parts: List[str] = []
+        parent_message_id = info["identity"].get("message_id")
+        attachment_index = 0
         for i, part in enumerate(msg.walk(), start=1):
             ctype = part.get_content_type()
             fname = part.get_filename()
@@ -116,14 +118,19 @@ class EMLAdapter(EvidenceAdapter):
                 except Exception:
                     body = b""
                 sha = hashlib.sha256(body).hexdigest() if body else None
+                attachment_index += 1
                 info["attachments"].append({
-                    "filename":     fname or f"attachment_{i}",
-                    "mime_type":    ctype,
-                    "content_id":   cid,
-                    "disposition":  disp or "attachment",
-                    "source_ref":   f"mime.part.{i}",
-                    "sha256":       sha,
-                    "size":         len(body),
+                    "filename":          fname or f"attachment_{i}",
+                    "mime_type":         ctype,
+                    "content_id":        cid,
+                    "disposition":       disp or "attachment",
+                    "source_ref":        f"mime.part.{i}",
+                    "sha256":            sha,
+                    "size":              len(body),
+                    "parent_message_id": parent_message_id,
+                    "attachment_index":  attachment_index,
+                    "archive_path":      None,   # populated when nested by ZIP adapter
+                    "child_iep_id":      None,   # populated by Phase 4 orchestrator
                 })
                 continue
             if ctype == "text/plain" and isinstance(payload, str):
@@ -177,15 +184,28 @@ class EMLAdapter(EvidenceAdapter):
             m = re.search(pat, corpus, re.I)
             return m.group(1) if m else None
         joined = " \n ".join(auth_res)
+        # Extended transport intel harvested from the Received chain —
+        # attribution / mail-flow analysis (R8: reporting only, no
+        # attribution reasoning).
+        recv_joined = " \n ".join(str(r) for r in received)
+        # Earliest Received line = originating hop (bottom of the chain
+        # because Received headers are prepended in reverse order).
+        first_hop = str(received[-1]) if received else ""
         return {
-            "received":    [str(r) for r in received],
+            "received":     [str(r) for r in received],
             "auth_results": [str(a) for a in auth_res],
-            "arc_seal":    [str(a) for a in arc_seal],
-            "arc_msg_sig": [str(a) for a in arc_msg],
-            "arc_auth":    [str(a) for a in arc_auth],
-            "spf":         _first(r"spf=([a-z]+)", joined),
-            "dkim":        _first(r"dkim=([a-z]+)", joined),
-            "dmarc":       _first(r"dmarc=([a-z]+)", joined),
+            "arc_seal":     [str(a) for a in arc_seal],
+            "arc_msg_sig":  [str(a) for a in arc_msg],
+            "arc_auth":     [str(a) for a in arc_auth],
+            "spf":          _first(r"spf=([a-z]+)", joined),
+            "dkim":         _first(r"dkim=([a-z]+)", joined),
+            "dmarc":        _first(r"dmarc=([a-z]+)", joined),
+            # Extended mail-flow signals
+            "tls":          _first(r"\(version=(TLSv?[0-9.]+)", recv_joined),
+            "cipher":       _first(r"cipher=([A-Z0-9_\-]+)",     recv_joined),
+            "helo_ehlo":    _first(r"(?:HELO|EHLO)\s+([\w.\-]+)", recv_joined),
+            "originating_ip": _first(r"\[(\d{1,3}(?:\.\d{1,3}){3})\]", first_hop),
+            "mx_hostname":  _first(r"by\s+([\w.\-]+)", first_hop),
         }
 
     # ── Metadata ────────────────────────────────────────────────────
@@ -257,11 +277,15 @@ class EMLAdapter(EvidenceAdapter):
                 tags=["eml_attachment"],
                 confidence=1.0,
                 attributes={
-                    "mime_type":   att.get("mime_type"),
-                    "content_id":  att.get("content_id"),
-                    "disposition": att.get("disposition"),
-                    "sha256":      att.get("sha256"),
-                    "size":        att.get("size"),
+                    "mime_type":         att.get("mime_type"),
+                    "content_id":        att.get("content_id"),
+                    "disposition":       att.get("disposition"),
+                    "sha256":            att.get("sha256"),
+                    "size":              att.get("size"),
+                    "parent_message_id": att.get("parent_message_id"),
+                    "attachment_index":  att.get("attachment_index"),
+                    "archive_path":      att.get("archive_path"),
+                    "child_iep_id":      att.get("child_iep_id"),
                 },
             ))
             if att.get("sha256"):

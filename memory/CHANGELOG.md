@@ -3543,3 +3543,32 @@ Detection, routing, identity/body/attachment extraction, R8 structural
 verbs, phishing-shaped warnings, manifest timing + status, statistics
 telemetry, R9 graceful-degradation contract.  **All 56 tests pass**
 (10 IEP + 13 adapter 3A + 10 PDF + 8 DOCX + 5 RelationshipType + 10 EML).
+
+## 2026-02-06 · R10 Idempotent Adapters + EML transport/attachment v2
+
+**Rule R10 · Idempotent Adapters** — codified in
+`WORKSPACE_ARCHITECTURE_RULES.md`.  Every adapter must be
+deterministic: given the same evidence + config, it must produce the
+same IEP except for `id`, `provenance.captured_at`,
+`adapter.execution_time_ms`, `statistics.processing_time_ms`, and
+per-artifact UUIDs.  Contract tests enforce this for Text, PDF, and
+EML adapters.
+
+**EML Transport v2** — extended beyond SPF/DKIM/DMARC/ARC to also
+capture `tls`, `cipher`, `helo_ehlo`, `originating_ip`, `mx_hostname`
+harvested from the Received chain.  Valuable for attribution + mail-flow
+analysis (R8: reporting only, no attribution reasoning).
+
+**EML Attachment provenance v2** — every attachment artifact now
+carries `parent_message_id`, `attachment_index`, `archive_path`
+(populated when nested by ZIP adapter later), and `child_iep_id`
+(populated by Phase 4 orchestrator).  Makes traversing recursive
+investigations trivial.
+
+**Tests** — 3 new R10 idempotency tests (Text, PDF, EML).  **All 59
+tests pass** (10 IEP contract + 13 adapter 3A + 10 PDF + 8 DOCX +
+5 RelationshipType + 10 EML + 3 R10 idempotency).
+
+Roadmap-relevant future note captured in the architecture doc:
+Streaming Adapters for very large evidence (PCAP / EVTX / memory dumps)
+are v2.x work — not v1.

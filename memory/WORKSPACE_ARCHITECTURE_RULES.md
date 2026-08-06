@@ -62,6 +62,22 @@ successful investigation is almost always better than no
 investigation.  Adapters signal degradation via
 ``metadata.adapter.adapter_status ∈ {success, partial, failed}``.
 
+### R10 — Idempotent Adapters
+Every adapter must be deterministic.  Given the same evidence and
+configuration, it must produce the same Investigation Evidence
+Package (IEP), except for explicitly non-deterministic runtime
+metadata: `id`, `provenance.captured_at`, `metadata.adapter.
+execution_time_ms`, and `statistics.processing_time_ms`.
+
+Guarantees:
+- Cacheable investigations
+- Reproducible forensic results
+- Deterministic regression tests
+- Two analysts running the same evidence always see the same findings
+
+Contract test compares two IEPs from the same input with the
+non-deterministic fields scrubbed and asserts equality.
+
 ## Additionally Retained From Earlier Iterations
 
 - **R22 · Extracted Evidence Becomes Investigation Input** — any executable /
