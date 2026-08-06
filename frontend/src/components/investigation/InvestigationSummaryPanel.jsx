@@ -188,8 +188,8 @@ function Head({ risk, confidence, onOpen }) {
   return (
     <div style={sx.head}>
       <div>
-        <div style={sx.eyebrow}>▸ INVESTIGATION SUMMARY</div>
-        <div style={sx.title}>Deterministic analyst brief · ready to ship</div>
+        <div style={sx.eyebrow}>DETERMINISTIC ANALYST BRIEF</div>
+        <div style={sx.title}>Every card below is derived from the SSOT · ready to ship</div>
       </div>
       <div style={sx.headRight}>
         <div style={sx.headStat}>

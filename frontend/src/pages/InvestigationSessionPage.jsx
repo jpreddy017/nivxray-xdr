@@ -359,23 +359,22 @@ function StoryTab({ incident, raw }) {
   const hasAny    = behaviors.length || phases.length || preproc;
   if (!hasAny) return <EmptyCard msg="No attack story derived yet." />;
   return (
-    <div style={sx.card} data-testid="session-story-tab">
-      <h3 style={sx.h3}>Attack Story</h3>
+    <div data-testid="session-story-tab">
       {preproc && (
-        <div style={{ marginBottom: 20 }}
-             data-testid="session-story-trajectory">
-          <div style={sx.eyebrow}>▸ ATTACK CHAIN · CYBER KILL CHAIN × MITRE ATT&amp;CK</div>
-          <div style={sx.leadDim}>
-            Nodes = behaviors · colour = Cyber Kill Chain phase · subtitle = MITRE technique ID · drag / pan / zoom
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <TrajectoryDiagram preprocessor={preproc} />
-          </div>
-        </div>
+        <CollapsibleSection
+          title="Attack Chain · Cyber Kill Chain × MITRE ATT&CK"
+          subtitle="Nodes = behaviors · colour = kill-chain phase · subtitle = MITRE ID · drag / pan / zoom"
+          testid="section-attack-chain"
+        >
+          <TrajectoryDiagram preprocessor={preproc} />
+        </CollapsibleSection>
       )}
       {phases.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={sx.eyebrow}>▸ KILL-CHAIN PHASES</div>
+        <CollapsibleSection
+          title="Kill-Chain Phases"
+          right={`${phases.length} phase${phases.length === 1 ? "" : "s"}`}
+          testid="section-kill-chain-phases"
+        >
           <ol style={sx.phaseList}>
             {phases.map((p) => (
               <li key={p.tactic} style={sx.phaseItem}
@@ -385,11 +384,14 @@ function StoryTab({ incident, raw }) {
               </li>
             ))}
           </ol>
-        </div>
+        </CollapsibleSection>
       )}
       {behaviors.length > 0 && (
-        <>
-          <div style={sx.eyebrow}>▸ BEHAVIORS</div>
+        <CollapsibleSection
+          title="Behaviors"
+          right={`${behaviors.length} observed`}
+          testid="section-behaviors"
+        >
           <ul style={sx.behaviorList}>
             {behaviors.map((b, i) => (
               <li key={i} style={sx.behaviorItem}
@@ -408,7 +410,7 @@ function StoryTab({ incident, raw }) {
               </li>
             ))}
           </ul>
-        </>
+        </CollapsibleSection>
       )}
     </div>
   );
@@ -583,12 +585,12 @@ function AttackLifecyclePanel({ incident }) {
   const present = _TACTIC_ORDER.filter(([k]) => (byTactic[k] || []).length);
   if (!present.length) return null;
   return (
-    <div style={sx.section} data-testid="nist-attack-lifecycle">
-      <div style={sx.eyebrow}>▸ ATTACK LIFECYCLE (CYBER KILL CHAIN × MITRE ATT&amp;CK)</div>
-      <div style={{ ...sx.dim, marginBottom: 8 }}>
-        Per-tactic walkthrough of every observed behavior with its MITRE
-        technique ID and the raw command evidence.
-      </div>
+    <CollapsibleSection
+      title="Attack Lifecycle · Cyber Kill Chain × MITRE ATT&CK"
+      subtitle="Per-tactic walkthrough — behavior · MITRE ID · raw commands"
+      right={`${behaviors.length} behaviors · ${present.length} tactics`}
+      testid="section-nist-attack-lifecycle"
+    >
       {present.map(([key, label]) => (
         <div key={key} style={{ marginBottom: 10 }}
              data-testid={`nist-lifecycle-${key}`}>
@@ -621,7 +623,7 @@ function AttackLifecyclePanel({ incident }) {
           })}
         </div>
       ))}
-    </div>
+    </CollapsibleSection>
   );
 }
 
@@ -631,11 +633,12 @@ function AttackTimelinePanel({ session }) {
                  || [];
   if (!events.length) return null;
   return (
-    <div style={sx.section} data-testid="nist-attack-timeline">
-      <div style={sx.eyebrow}>▸ ATTACK TIMELINE ({events.length})</div>
-      <div style={{ ...sx.dim, marginBottom: 6 }}>
-        Chronological events NivXRay reconstructed from the acquired source.
-      </div>
+    <CollapsibleSection
+      title="Attack Timeline"
+      subtitle="Chronological events reconstructed from the acquired source"
+      right={`${events.length}`}
+      testid="section-nist-attack-timeline"
+    >
       <ol style={{ margin: 0, paddingLeft: 20 }}>
         {events.slice(0, 20).map((e, i) => (
           <li key={i} style={{ marginBottom: 4, fontSize: 12 }}
@@ -647,7 +650,7 @@ function AttackTimelinePanel({ session }) {
           </li>
         ))}
       </ol>
-    </div>
+    </CollapsibleSection>
   );
 }
 
@@ -741,8 +744,7 @@ function NistTab({ incident, raw, session }) {
         </div>
       </div>
 
-      <div style={sx.section}>
-        <div style={sx.eyebrow}>▸ EXECUTIVE DECISION</div>
+      <CollapsibleSection title="Executive Decision" testid="section-executive-decision">
         <KV rows={[
           ["Actor",      sum.actor      || "—"],
           ["Severity",   sum.severity   || "—"],
@@ -750,7 +752,7 @@ function NistTab({ incident, raw, session }) {
           ["Objective",  sum.objective  || "—"],
           ["Status",     sum.status     || "—"],
         ]} />
-      </div>
+      </CollapsibleSection>
 
       {/* ── Attack Lifecycle (per-tactic walkthrough) ─────── */}
       <AttackLifecyclePanel incident={incident} />
@@ -758,16 +760,19 @@ function NistTab({ incident, raw, session }) {
       {/* ── Attack Timeline (dated events extracted from source) ─── */}
       <AttackTimelinePanel session={session} />
 
-      <div style={sx.section}>
-        <div style={sx.eyebrow}>▸ INVESTIGATION READINESS</div>
-        <div>{ready.overall_percent || 0}% · {(ready.confidence_label || "").toUpperCase()}</div>
-        {ready.recommended_next && (
+      <CollapsibleSection title="Investigation Readiness"
+                            right={`${ready.overall_percent || 0}% · ${(ready.confidence_label || "").toUpperCase()}`}
+                            testid="section-investigation-readiness">
+        {ready.recommended_next ? (
           <div style={sx.next}>NEXT → {ready.recommended_next}</div>
+        ) : (
+          <div style={sx.dim}>All readiness gates passed.</div>
         )}
-      </div>
+      </CollapsibleSection>
 
-      <div style={sx.section}>
-        <div style={sx.eyebrow}>▸ RECOMMENDATIONS ({rec.length})</div>
+      <CollapsibleSection title="Recommendations"
+                            right={`${rec.length}`}
+                            testid="section-recommendations">
         {rec.length ? (
           <ul style={sx.recList}>
             {rec.map((r, i) => (
@@ -784,17 +789,19 @@ function NistTab({ incident, raw, session }) {
         ) : (
           <div style={sx.dim}>No recommendations generated yet.</div>
         )}
-      </div>
+      </CollapsibleSection>
 
-      <div style={sx.section}>
-        <div style={sx.eyebrow}>▸ REPORT PREVIEW</div>
+      <CollapsibleSection title="Report Preview"
+                            subtitle="Markdown that will export"
+                            testid="section-report-preview"
+                            defaultOpen={false}>
         <pre style={{ ...sx.dim, background: "rgba(0, 40, 22, 0.4)",
                        padding: "10px 12px", borderRadius: 3,
                        maxHeight: 320, overflow: "auto",
                        whiteSpace: "pre-wrap", wordBreak: "break-word",
                        color: "#c5f5d6", fontSize: 11 }}
              data-testid="nist-preview">{md}</pre>
-      </div>
+      </CollapsibleSection>
     </div>
   );
 }
