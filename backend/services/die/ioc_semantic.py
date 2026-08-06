@@ -120,6 +120,17 @@ def extract_iocs(text: str, source: str = "raw") -> List[Dict[str, Any]]:
     # (URL matches carry their host already).  Deterministic filter:
     # host must not be a numeric-only sequence, must not be pure
     # punctuation, TLD length ≥ 2, ≤ 63.
+    #
+    # P0.b (2026-02-06): route every domain candidate through the
+    # artifact classifier so .NET namespaces / method names
+    # (`ascii.getstring`, `net.credentialcache`, `system.convert`,
+    # `w.downloadstring`, `d.tolower`, `system.text.encoding`) NEVER
+    # reach the analyst as domain IOCs. This closes the workspace
+    # "wrong Domains" bug reported 2026-02-06.
+    try:
+        from services.normalization.artifact_classifier import classify
+    except Exception:
+        classify = None   # type: ignore
     already = {v["value"] for v in out.values()}
     for m in _DOMAIN_RE.finditer(scan):
         d = m.group(0).lower()
@@ -133,6 +144,9 @@ def extract_iocs(text: str, source: str = "raw") -> List[Dict[str, Any]]:
             continue
         parts = d.split(".")
         if len(parts[-1]) < 2 or len(parts[-1]) > 63:
+            continue
+        # Authoritative classifier veto — refuses .NET-shaped identifiers.
+        if classify is not None and classify(d) != "domain":
             continue
         _add("domain", d, 0.78)
 

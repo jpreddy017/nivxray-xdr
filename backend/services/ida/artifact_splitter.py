@@ -583,6 +583,16 @@ def split_artifacts(text: str) -> List[Artifact]:
         # infrastructure — these are noise, not attacker IOCs.
         if _is_hosting_infra(raw):
             continue
+        # P0.b (2026-02-06) · Authoritative artifact-classifier veto so
+        # .NET namespaces / method chains never surface as domain IOCs
+        # (`ascii.getstring`, `net.credentialcache`, `w.downloadstring`,
+        # `system.text.encoding`, `d.tolower`, …).
+        try:
+            from services.normalization.artifact_classifier import classify as _cls
+            if _cls(raw) != "domain":
+                continue
+        except Exception:
+            pass
         artifacts.append(Artifact(
             id=_next_id("dom"),
             type="domain",
