@@ -180,15 +180,94 @@ All findings merge into ONE Canonical Investigation Object.
 |-------|-------------|----------|
 | IDA-1 | Input Classifier extension: recognise URL / PDF / DOCX / PNG / JPG / EML / archive as first-class artifact types | P0 |
 | IDA-2 | Artifact Splitter for mixed pastes (PowerShell + URL + Hash + Registry + YARA → parallel routing) | P0 |
-| IDA-3 | URL Fetcher + HTML Parser + Main Article Extractor + boilerplate removal | P1 |
+| IDA-3 | Content Acquisition — URL Fetcher + HTML Parser + Main-Article Extractor + boilerplate removal + PDF/DOCX/EML/image loaders + archive unpackers | P1 |
+| **IDA-3.5** | **Content Understanding — build a `Document Profile` before any extractor runs.**  See "Content Understanding Contract" below. ⭐ | **P1** |
 | IDA-4 | Threat Report IOC / MITRE / LOLBAS / Timeline / malware / threat-actor / victim / CVE / YARA / Sigma extractors | P1 |
-| **IDA-5** | **Evidence Normalizer** — canonicalise every extracted artifact so duplicates collapse and correlation strengthens.  See "Evidence Normalization Contract" below. | **P1** |
-| **IDA-6** | **Semantic Relationship Builder** — turn extracted artifacts into a directed graph (Quick Assist → launches → PowerShell → downloads → Python → installs → Edge Extension) and write it to `SSOT.knowledge_graph`.  Feeds Trajectory + IVE + Story engines automatically. | **P2** |
+| IDA-5 | Evidence Normalizer — canonicalise every extracted artifact so duplicates collapse and correlation strengthens.  See "Evidence Normalization Contract" below. | P1 |
+| IDA-6 | Semantic Relationship Builder — turn extracted artifacts into a directed graph (Quick Assist → launches → PowerShell → downloads → Python → installs → Edge Extension) and write it to `SSOT.knowledge_graph`.  Feeds Trajectory + IVE + Story engines automatically. | P2 |
 | IDA-7 | PDF Parser + Text + Table + Image extraction | P2 |
 | IDA-8 | DOCX / EML / CSV / JSON / XML parsers | P2 |
 | IDA-9 | OCR Engine (Tesseract) + Screenshot Analyzer | P2 |
 | IDA-10 | Diagram Analyzer (box + arrow detection → relationship graph) | P3 |
 | IDA-11 | GitHub / Pastebin / VirusTotal / URLhaus specialised extractors | P3 |
+
+---
+
+## Content Understanding Contract (IDA-3.5)
+
+Acquisition (IDA-3) tells us *what bytes we have*.  Extraction
+(IDA-4) tells us *what those bytes contain*.  Between the two,
+Content Understanding tells us *what kind of document we've fetched
+and where its interesting parts live* — so the extractor pipeline
+runs only what's necessary.
+
+Emitted as `SSOT.document_profile`:
+
+```jsonc
+{
+  "document_type":     "Threat Report",
+  "vendor":            "Mandiant",
+  "language":          "English",
+  "sections":          ["Campaign", "IOCs", "Detection",
+                        "YARA", "Timeline"],
+  "contains_commands": true,
+  "contains_iocs":     true,
+  "contains_sigma":    false,
+  "contains_yara":     true,
+  "contains_images":   4,
+  "contains_tables":   2,
+  "section_map":       [
+    { "id": "iocs",      "heading": "Indicators of Compromise",
+      "offset": 12034, "length": 4210 },
+    { "id": "yara",      "heading": "YARA Signatures",
+      "offset": 22876, "length": 1802 },
+    …
+  ]
+}
+```
+
+### Deterministic Section Discovery
+
+- Header-based (Markdown / HTML heading walk).
+- Table-of-contents parse when present.
+- Vendor fingerprints — a small deterministic table mapping known
+  vendor CSS classes / URL patterns / boilerplate strings to a
+  vendor id (Mandiant · Talos · CrowdStrike · Microsoft ·
+  eSentire · Huntress · Red Canary · Palo Alto Unit 42 ·
+  SentinelOne · Kaspersky · GTIG).
+- Feature-flag scan: presence of ``BEGIN YARA``, MITRE
+  technique-code regex, table row density, image count, code-block
+  count → boolean capability flags.
+
+### Capability Routing
+
+Downstream extractors read the Document Profile and skip work when
+the profile says the artifact is not present:
+
+| Capability flag       | Runs when true / skipped when false |
+|-----------------------|-------------------------------------|
+| contains_commands     | Command Extractor                    |
+| contains_iocs         | IOC Extractor                        |
+| contains_yara         | YARA Extractor                       |
+| contains_sigma        | Sigma Extractor                      |
+| contains_tables       | Table Extractor                      |
+| contains_images > 0   | OCR Engine (image contents)          |
+| contains_timeline     | Timeline Extractor                   |
+| contains_mitre        | MITRE Extractor                      |
+| contains_lolbas       | LOLBAS Extractor                     |
+
+### Rules
+
+1. Content Understanding is deterministic — no LLM, no fuzzy match.
+2. It writes `SSOT.document_profile` once, then never re-parses.
+3. Every downstream extractor reads the profile; if a flag is
+   false, that extractor MUST NOT be invoked.
+4. When acquisition returned bytes that cannot be understood
+   (unknown vendor / opaque binary / malformed HTML), the profile
+   records `document_type = "Unknown"` and every capability flag
+   remains false — the pipeline still runs the generic extractors
+   but the analyst sees the honest verdict in the Investigation
+   Results pane.
 
 ---
 
