@@ -353,20 +353,23 @@ function StatusPill({ status }) {
 
 // ── Attack Story tab — trajectory swim-lane + phases + behaviors ─
 function StoryTab({ incident, raw }) {
-  const behaviors = incident?.behaviors || [];
+  const behaviors = incident?.behaviors || raw?.ice?.behavior_clusters || [];
   const phases    = incident?.phases    || [];
   const preproc   = _preprocForTrajectory(raw, incident);
   const hasAny    = behaviors.length || phases.length || preproc;
   if (!hasAny) return <EmptyCard msg="No attack story derived yet." />;
   return (
     <div data-testid="session-story-tab">
-      {preproc && (
+      {(preproc || behaviors.length > 0) && (
         <CollapsibleSection
-          title="Attack Chain · Cyber Kill Chain × MITRE ATT&CK"
-          subtitle="Nodes = behaviors · colour = kill-chain phase · subtitle = MITRE ID · drag / pan / zoom"
+          title="Attack Chain · MITRE ATT&CK Projection"
+          subtitle="14 lanes · one per ATT&CK tactic · empty tactics collapse · behaviors span multiple lanes"
           testid="section-attack-chain"
         >
-          <TrajectoryDiagram preprocessor={preproc} />
+          <TrajectoryDiagram
+            preprocessor={preproc}
+            behaviors={behaviors}
+          />
         </CollapsibleSection>
       )}
       {phases.length > 0 && (

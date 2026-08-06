@@ -106,8 +106,11 @@ class Behavior:
     mitre_tactics:     List[str]        # PLURAL — R8 canonical: one behavior may span multiple tactics
     confidence:        float
     description:       str
-    severity:          str = "medium"   # "low" | "medium" | "high" | "critical" — deterministic tier
-    order:             int = 0          # deterministic chronology for timelines / story
+    category:          str = "execution"  # network|persistence|credential|discovery|
+                                            # execution|defense_evasion|transformation|
+                                            # collection|exfiltration|impact|lateral
+    severity:          str = "medium"     # "low" | "medium" | "high" | "critical"
+    order:             int = 0            # deterministic chronology
     evidence:          List[BehaviorEvidence] = field(default_factory=list)
 
     # ── Backwards-compat shim (existing callers used .mitre_tactic) ──
@@ -142,6 +145,7 @@ class Behavior:
 _RULES: List[Dict[str, Any]] = [
     dict(
         id="execution_policy_bypass",
+        category="defense_evasion",
         title="Execution Policy Bypass",
         kill_chain=["Defense Evasion"],
         mitre_techniques=["T1562.001"],
@@ -156,6 +160,7 @@ _RULES: List[Dict[str, Any]] = [
     ),
     dict(
         id="hidden_window",
+        category="defense_evasion",
         title="Hidden PowerShell Window",
         kill_chain=["Defense Evasion"],
         mitre_techniques=["T1564.003"],
@@ -169,6 +174,7 @@ _RULES: List[Dict[str, Any]] = [
     ),
     dict(
         id="encoded_command",
+        category="transformation",
         title="Encoded Command (Base64 / UTF-16)",
         kill_chain=["Defense Evasion", "Execution"],
         mitre_techniques=["T1027", "T1059.001"],
@@ -182,6 +188,7 @@ _RULES: List[Dict[str, Any]] = [
     ),
     dict(
         id="in_memory_execution",
+        category="execution",
         title="In-Memory Execution (IEX / Invoke-Expression)",
         kill_chain=["Execution"],
         mitre_techniques=["T1059.001"],
@@ -196,6 +203,7 @@ _RULES: List[Dict[str, Any]] = [
     ),
     dict(
         id="download_cradle",
+        category="network",
         title="Remote Payload Retrieval (Download Cradle)",
         kill_chain=["Delivery", "Command and Control"],
         mitre_techniques=["T1105"],
@@ -214,6 +222,7 @@ _RULES: List[Dict[str, Any]] = [
     ),
     dict(
         id="wmi_process_creation",
+        category="execution",
         title="WMI Process Creation",
         kill_chain=["Execution", "Lateral Movement"],
         mitre_techniques=["T1047"],
@@ -228,6 +237,7 @@ _RULES: List[Dict[str, Any]] = [
     ),
     dict(
         id="service_enumeration",
+        category="discovery",
         title="Service Enumeration",
         kill_chain=["Reconnaissance"],
         mitre_techniques=["T1007"],
@@ -241,6 +251,7 @@ _RULES: List[Dict[str, Any]] = [
     ),
     dict(
         id="proxy_credential_theft",
+        category="credential",
         title="Ambient Credential Reuse via System Proxy",
         kill_chain=["Defense Evasion", "Credential Access"],
         mitre_techniques=["T1090", "T1550"],
@@ -254,6 +265,7 @@ _RULES: List[Dict[str, Any]] = [
     ),
     dict(
         id="string_concat_obfuscation",
+        category="transformation",
         title="String-Concatenation Obfuscation",
         kill_chain=["Defense Evasion"],
         mitre_techniques=["T1027"],
@@ -268,6 +280,7 @@ _RULES: List[Dict[str, Any]] = [
     ),
     dict(
         id="variable_alias_hiding",
+        category="defense_evasion",
         title="Variable-Alias Hiding",
         kill_chain=["Defense Evasion"],
         mitre_techniques=["T1027"],
@@ -283,6 +296,160 @@ _RULES: List[Dict[str, Any]] = [
             r"\s+\(?\[Type\]",
         ],
     ),
+
+    # ─── PERSISTENCE ─────────────────────────────────────────────────
+    dict(id="registry_run_key", category="persistence",
+         title="Registry Run-Key Persistence",
+         kill_chain=["Persistence"], mitre_techniques=["T1547.001"],
+         mitre_tactics=["Persistence", "Privilege Escalation"],
+         base_confidence=0.94,
+         description="Writes a value under Software\\Microsoft\\Windows\\CurrentVersion\\Run to auto-start at login.",
+         patterns=[
+             r"HK(?:LM|CU)\\.*\\CurrentVersion\\Run(?:Once)?\b",
+             r"Set-ItemProperty\s+.{0,120}CurrentVersion\\Run",
+             r"reg\s+add\s+HK(?:LM|CU).{0,80}\\Run(?:Once)?",
+         ]),
+    dict(id="scheduled_task", category="persistence",
+         title="Scheduled Task Creation",
+         kill_chain=["Persistence"], mitre_techniques=["T1053.005"],
+         mitre_tactics=["Persistence", "Privilege Escalation", "Execution"],
+         base_confidence=0.93,
+         description="Creates a Windows scheduled task — common persistence and re-execution mechanism.",
+         patterns=[r"schtasks\s+/create\b", r"New-ScheduledTask\b", r"Register-ScheduledTask\b"]),
+    dict(id="service_install", category="persistence",
+         title="Service Installation / Modification",
+         kill_chain=["Persistence"], mitre_techniques=["T1543.003"],
+         mitre_tactics=["Persistence", "Privilege Escalation"],
+         base_confidence=0.9,
+         description="Creates or modifies a Windows service for persistent SYSTEM-level execution.",
+         patterns=[r"\bNew-Service\b", r"sc\s+create\b", r"sc\s+config\b"]),
+
+    # ─── PRIVILEGE ESCALATION / DEFENSE EVASION ─────────────────────
+    dict(id="uac_bypass", category="defense_evasion",
+         title="UAC Bypass Attempt",
+         kill_chain=["Privilege Escalation", "Defense Evasion"],
+         mitre_techniques=["T1548.002"],
+         mitre_tactics=["Privilege Escalation", "Defense Evasion"],
+         base_confidence=0.9,
+         description="COM elevation / fodhelper / eventvwr registry hijack UAC bypass.",
+         patterns=[r"\bfodhelper\.exe\b", r"\beventvwr\.exe\b",
+                    r"HKCU:\\Software\\Classes\\ms-settings\\shell\\open\\command\b"]),
+    dict(id="defender_disable", category="defense_evasion",
+         title="Windows Defender Disable / Exclusion",
+         kill_chain=["Defense Evasion"], mitre_techniques=["T1562.001"],
+         mitre_tactics=["Defense Evasion"], base_confidence=0.92,
+         description="Disables Defender real-time protection or adds an exclusion.",
+         patterns=[r"Set-MpPreference\s+.{0,80}-DisableRealtimeMonitoring\s+\$?true",
+                    r"Add-MpPreference\s+.{0,80}-ExclusionPath\b",
+                    r"Set-MpPreference\s+.{0,80}-ExclusionExtension\b"]),
+
+    # ─── CREDENTIAL ACCESS ───────────────────────────────────────────
+    dict(id="lsass_dump", category="credential",
+         title="LSASS Memory Dump",
+         kill_chain=["Credential Access"], mitre_techniques=["T1003.001"],
+         mitre_tactics=["Credential Access"], base_confidence=0.98,
+         description="Dumps LSASS process memory to harvest cached credentials / Kerberos tickets.",
+         patterns=[r"\bmimikatz\b", r"sekurlsa::", r"lsass\.exe.{0,40}MiniDump",
+                    r"comsvcs\.dll.{0,60}MiniDump", r"procdump.{0,40}lsass"]),
+    dict(id="sam_registry_dump", category="credential",
+         title="SAM / SYSTEM Hive Dump",
+         kill_chain=["Credential Access"], mitre_techniques=["T1003.002"],
+         mitre_tactics=["Credential Access"], base_confidence=0.95,
+         description="Copies SAM / SYSTEM / SECURITY hives to extract offline password hashes.",
+         patterns=[r"reg\s+save\s+HKLM\\(?:SAM|SYSTEM|SECURITY)\b"]),
+    dict(id="keylogging", category="credential",
+         title="Keystroke Logging",
+         kill_chain=["Credential Access", "Collection"],
+         mitre_techniques=["T1056.001"],
+         mitre_tactics=["Credential Access", "Collection"],
+         base_confidence=0.9,
+         description="Low-level keyboard hook to capture keystrokes.",
+         patterns=[r"SetWindowsHookEx\b", r"WH_KEYBOARD_LL\b", r"GetAsyncKeyState\b"]),
+
+    # ─── DISCOVERY (additional) ──────────────────────────────────────
+    dict(id="account_discovery", category="discovery",
+         title="Account / Group Enumeration",
+         kill_chain=["Discovery"], mitre_techniques=["T1087.001", "T1069.001"],
+         mitre_tactics=["Discovery"], base_confidence=0.85,
+         description="Enumerates local / domain accounts and groups — pre-lateral-movement recon.",
+         patterns=[r"net\s+user\b", r"net\s+group\b", r"net\s+localgroup\b",
+                    r"\bGet-LocalUser\b", r"\bGet-ADUser\b"]),
+    dict(id="network_discovery", category="discovery",
+         title="Network Configuration Discovery",
+         kill_chain=["Discovery"], mitre_techniques=["T1016"],
+         mitre_tactics=["Discovery"], base_confidence=0.8,
+         description="Enumerates local IPs, routes, ARP cache.",
+         patterns=[r"\bipconfig\b(?:\s+/all)?", r"\bGet-NetIPAddress\b",
+                    r"\barp\s+-a\b", r"\broute\s+print\b"]),
+
+    # ─── LATERAL MOVEMENT ────────────────────────────────────────────
+    dict(id="psexec_lateral", category="lateral",
+         title="PsExec / SMB Remote Execution",
+         kill_chain=["Lateral Movement", "Execution"],
+         mitre_techniques=["T1021.002", "T1569.002"],
+         mitre_tactics=["Lateral Movement", "Execution"],
+         base_confidence=0.93,
+         description="PsExec-style remote service execution over SMB.",
+         patterns=[r"\bpsexec(?:\.exe)?\s+\\\\", r"\bpaexec\b", r"\bcsexec\b"]),
+    dict(id="wmi_remote_exec", category="lateral",
+         title="WMI Remote Execution",
+         kill_chain=["Lateral Movement", "Execution"],
+         mitre_techniques=["T1047"],
+         mitre_tactics=["Lateral Movement", "Execution"],
+         base_confidence=0.9,
+         description="Invokes WMI on a remote host via -ComputerName.",
+         patterns=[r"Invoke-WmiMethod\s+.{0,80}-ComputerName\b",
+                    r"Get-WmiObject\s+.{0,80}-ComputerName\b"]),
+
+    # ─── COLLECTION ──────────────────────────────────────────────────
+    dict(id="screenshot_capture", category="collection",
+         title="Screenshot Capture",
+         kill_chain=["Collection"], mitre_techniques=["T1113"],
+         mitre_tactics=["Collection"], base_confidence=0.88,
+         description="Uses Graphics.CopyFromScreen / PrintWindow to capture the user's desktop.",
+         patterns=[r"CopyFromScreen\b", r"\bPrintWindow\b"]),
+    dict(id="clipboard_theft", category="collection",
+         title="Clipboard Data Collection",
+         kill_chain=["Collection"], mitre_techniques=["T1115"],
+         mitre_tactics=["Collection"], base_confidence=0.85,
+         description="Reads clipboard content — targets passwords / crypto addresses.",
+         patterns=[r"Get-Clipboard\b", r"\[Windows\.Forms\.Clipboard\]::GetText\b"]),
+
+    # ─── EXFILTRATION ────────────────────────────────────────────────
+    dict(id="data_compression", category="exfiltration",
+         title="Archive Collected Data",
+         kill_chain=["Collection", "Exfiltration"],
+         mitre_techniques=["T1560.001"],
+         mitre_tactics=["Collection", "Exfiltration"],
+         base_confidence=0.83,
+         description="Compresses staged data into a single archive before transfer.",
+         patterns=[r"Compress-Archive\b", r"\b7z(?:\.exe)?\s+a\b", r"\bmakecab\b"]),
+    dict(id="data_exfil_web", category="exfiltration",
+         title="Web-Based Exfiltration",
+         kill_chain=["Exfiltration"], mitre_techniques=["T1041"],
+         mitre_tactics=["Exfiltration", "Command and Control"],
+         base_confidence=0.88,
+         description="Uploads data via WebClient.UploadFile / UploadString / Invoke-RestMethod POST.",
+         patterns=[r"\.UploadFile\s*\(", r"\.UploadString\s*\(",
+                    r"Invoke-RestMethod\s+.{0,80}-Method\s+Post"]),
+
+    # ─── IMPACT ──────────────────────────────────────────────────────
+    dict(id="shadow_copy_deletion", category="impact",
+         title="Volume Shadow Copy Deletion",
+         kill_chain=["Impact"], mitre_techniques=["T1490"],
+         mitre_tactics=["Impact", "Defense Evasion"],
+         base_confidence=0.98,
+         description="Deletes Volume Shadow Copies — hallmark ransomware anti-recovery step.",
+         patterns=[r"vssadmin\s+delete\s+shadows\b",
+                    r"\bwmic\s+shadowcopy\s+delete\b",
+                    r"Win32_ShadowCopy.{0,40}Delete"]),
+    dict(id="ransomware_encryption", category="impact",
+         title="File Encryption / Ransomware",
+         kill_chain=["Impact"], mitre_techniques=["T1486"],
+         mitre_tactics=["Impact"], base_confidence=0.95,
+         description="Encrypts user files with attacker-controlled key.",
+         patterns=[r"\.ransom\b", r"\bAES-?256\b.{0,60}encrypt", r"cipher\s+/w:"]),
+
 ]
 
 # Compile once
@@ -346,6 +513,7 @@ def extract_behaviors(text: str,
             mitre_tactics=list(rule["mitre_tactics"]),
             confidence=round(conf, 3),
             description=rule["description"],
+            category=rule.get("category", "execution"),
             severity=sev,
             order=len(matches),       # deterministic insertion order
             evidence=rule_matches,
@@ -374,6 +542,7 @@ def correlate_behaviors(behavior_lists: List[List[Behavior]]) -> List[Behavior]:
                     mitre_tactics=list(b.mitre_tactics),
                     confidence=b.confidence,
                     description=b.description,
+                    category=b.category,
                     severity=b.severity,
                     order=b.order,
                     evidence=list(b.evidence),

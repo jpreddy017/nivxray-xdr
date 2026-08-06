@@ -6,6 +6,53 @@
 > · SSOT unifies · IVE visualizes.**
 
 ---
+## 🟢 2026-02-06 · Fork · Task (d) Paste-Only Synthesis + Task (b) 14-Lane MITRE Projection
+
+### Task (d) · Paste-Only Timeline & Evidence Synthesis — LANDED
+- New module `services/reasoning/paste_synthesis.py` — deterministic
+  projection of the behavior graph into canonical timeline / evidence
+  / acquired_document / acquisition_plan shapes for paste-only cases.
+- Wired into `services/die/investigation_results.render()` AFTER ICE.
+- Emits into SSOT:
+  · `acquired_document` (synthetic, `ok=true`, `source_kind="analyst_paste"`)
+  · `acquisition_plan[]` (7-step paste_only pipeline, all `done`)
+  · `incident.behaviors[]` (ICE-compatible clusters w/ `bhv_id` refs)
+  · `incident.timeline[]` (behavior-driven events w/ stable `evt-####` ids;
+    each event carries `behavior_id`, `mitre_tactics[]`,
+    `mitre_techniques[]`, `kill_chain[]`, `severity`, `evidence_refs[]`,
+    `category`, `confidence`, `command`)
+  · `incident.evidence.behaviors[]` (flat list w/ stable `ev-####` ids)
+  · `incident.evidence.commands[]` (per-line command samples)
+- **Never** masks a failed real acquisition (`_needs_synthesis` respects
+  `acquired_document.url|error_code` sentinels).
+- Never overwrites real ICE-populated slots.
+- Frontend `Timeline` + `Evidence Explorer` tabs now populate for
+  every paste — indistinguishable from URL / EML / PDF / DOCX / ZIP / Image.
+- 14 new pytest cases in `tests/test_paste_synthesis.py`.
+
+### Task (b) · 14-Lane MITRE ATT&CK Projection — LANDED
+- `frontend/src/components/investigation/TrajectoryDiagram.jsx` — new
+  canonical `behaviors` prop.  When present renders the 14 MITRE
+  tactics as swim lanes (Reconnaissance → Impact).  Empty tactics
+  auto-collapse.  One node per (behavior × tactic) pair, so a
+  behavior with multiple `mitre_tactics[]` appears in multiple lanes
+  simultaneously (pure projection — no remapping).
+- Deterministic 14-colour palette per MITRE tactic.
+- Legacy 6-lane `preprocessor` path preserved for backwards compat.
+- Tactic normaliser supports both canonical `mitre_tactics[]` and
+  legacy ICE-cluster shapes (`primary_tactic` / `mitre[].tactic`).
+- Wired at `pages/InvestigationSessionPage.jsx` (`StoryTab`) and
+  `pages/WorkspacePage.jsx` (inline story trajectory).
+- Verified end-to-end via preview screenshots (paste-only case shows
+  3 of 14 tactics populated).
+
+### Testing
+- `python -m pytest tests/test_normalization_and_behaviors.py tests/test_paste_synthesis.py tests/test_ice_correlate.py tests/test_adapter_*.py` → **206 / 206 passed**.
+- Pre-existing failure `test_ida_artifact_splitter::test_split_file_path_windows` verified as unrelated (fails on stashed baseline too).
+
+---
+
+
 
 ## 🟢 2026-02-06 · Fork · LiteLLM Loop RCA + ZIP/Image Adapters + P0/P1/P1.5 Reasoning
 

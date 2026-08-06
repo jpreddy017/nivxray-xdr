@@ -2,23 +2,30 @@
  * TrajectoryDiagram — Interactive swim-lane attack-chain
  * visualisation.
  *
+ * Two projection modes (canonical + legacy):
+ *   · CANONICAL (Rule R22 · Architecture v1.0)  — pass `behaviors`
+ *     [{ label|title, mitre_tactics[], mitre_techniques[]|mitre[],
+ *        kill_chain[], severity, confidence, category }, …]
+ *     to render the 14-tactic ATT&CK projection.  Each behavior
+ *     renders one node per entry in `mitre_tactics[]`, so a single
+ *     behavior legitimately appears in multiple lanes.  Empty
+ *     tactics collapse automatically.
+ *   · LEGACY  — pass `preprocessor.stages` to keep the 6-lane
+ *     tactic-bucket view (preserved for callers that haven't
+ *     migrated to the canonical behavior graph yet).
+ *
  * Interactions:
  *   · Drag any node to reposition it.
  *   · Drag the empty canvas to pan the whole diagram.
  *   · Mouse-wheel over the canvas to zoom in / out (50% – 200%).
  *   · Reset button restores the auto-layout at 1× zoom.
  *   · Horizontal + vertical scrollbars appear when content overflows.
- *
- * Six ATT&CK-tactic swim lanes (Execution / Transformation /
- * Network·C2 / File System / Registry / Persistence) — deterministic
- * lane mapping, plus a per-node Cyber Kill Chain phase badge:
- *   Reconnaissance · Weaponization · Delivery / Exploitation ·
- *   Exploitation · Installation · Command & Control · Actions on Objectives.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Maximize2, RotateCcw } from "lucide-react";
 import { useInvestigationFilter } from "./InvestigationFilter";
 
+// ── Legacy 6-lane view (preprocessor.stages compat) ─────────────
 const LANES = [
   { id: "execution",      label: "Execution",     y: 104 },
   { id: "transformation", label: "Transformation", y: 200 },
@@ -27,6 +34,50 @@ const LANES = [
   { id: "registry",       label: "Registry",      y: 488 },
   { id: "persistence",    label: "Persistence",   y: 584 },
 ];
+
+// ── Canonical 14-lane MITRE ATT&CK projection ───────────────────
+// Rule R22 · Architecture v1.0 · The frontend is a PURE PROJECTION
+// of `behavior.mitre_tactics[]` — no remapping, no inference.
+// Empty tactics collapse automatically (the layout skips them).
+const MITRE_LANES = [
+  { id: "Reconnaissance",         label: "Reconnaissance" },
+  { id: "Resource Development",   label: "Resource Development" },
+  { id: "Initial Access",         label: "Initial Access" },
+  { id: "Execution",              label: "Execution" },
+  { id: "Persistence",            label: "Persistence" },
+  { id: "Privilege Escalation",   label: "Privilege Escalation" },
+  { id: "Defense Evasion",        label: "Defense Evasion" },
+  { id: "Credential Access",      label: "Credential Access" },
+  { id: "Discovery",              label: "Discovery" },
+  { id: "Lateral Movement",       label: "Lateral Movement" },
+  { id: "Collection",             label: "Collection" },
+  { id: "Command and Control",    label: "Command and Control" },
+  { id: "Exfiltration",           label: "Exfiltration" },
+  { id: "Impact",                 label: "Impact" },
+];
+
+const MITRE_LANE_HEIGHT = 96;
+
+// Colour per MITRE tactic — deterministic palette.  Same tactic →
+// same colour every render.  Empty tactics collapse before nodes
+// paint, so the palette is only ever applied to lanes that carry
+// at least one behavior node.
+const MITRE_LANE_COLOR = {
+  "Reconnaissance":         "#67e8f9",
+  "Resource Development":   "#38bdf8",
+  "Initial Access":         "#a78bfa",
+  "Execution":              "#facc15",
+  "Persistence":            "#fbbf24",
+  "Privilege Escalation":   "#f97316",
+  "Defense Evasion":        "#c084fc",
+  "Credential Access":      "#fb7185",
+  "Discovery":              "#22d3ee",
+  "Lateral Movement":       "#60a5fa",
+  "Collection":             "#a3e635",
+  "Command and Control":    "#ef4444",
+  "Exfiltration":           "#f87171",
+  "Impact":                 "#dc2626",
+};
 
 const TACTIC_TO_LANE = {
   "Initial Access": "execution", "Execution": "execution",
@@ -81,8 +132,31 @@ const KILL_CHAIN_COLOR = {
   "Actions on Obj.":           "#f87171",  // red
 };
 
-export default function TrajectoryDiagram({ preprocessor }) {
-  const initialNodes = useMemo(() => _layoutNodes(preprocessor), [preprocessor]);
+export default function TrajectoryDiagram({ preprocessor, behaviors }) {
+  // ── Rule R22 projection: canonical behaviors take priority over
+  // legacy preprocessor stages.  When `behaviors` are present we
+  // render the 14-tactic ATT&CK view; otherwise we fall back to
+  // the legacy 6-lane tactic-bucket view.
+  const isCanonical = Array.isArray(behaviors) && behaviors.length > 0;
+
+  // ── Compute active lanes (empty tactics collapse) ─────────────
+  const activeLanes = useMemo(() => {
+    if (!isCanonical) return LANES;
+    const seen = new Set();
+    for (const b of behaviors) {
+      for (const t of _behaviorTactics(b)) seen.add(t);
+    }
+    return MITRE_LANES
+      .filter((l) => seen.has(l.id))
+      .map((l, i) => ({ ...l, y: 80 + i * MITRE_LANE_HEIGHT }));
+  }, [isCanonical, behaviors]);
+
+  const initialNodes = useMemo(
+    () => isCanonical
+      ? _layoutBehaviorNodes(behaviors, activeLanes)
+      : _layoutNodes(preprocessor),
+    [isCanonical, behaviors, preprocessor, activeLanes],
+  );
   const [nodes, setNodes] = useState(initialNodes);
   const investigation = useInvestigationFilter();
   const [zoom,  setZoom]  = useState(1);
@@ -93,19 +167,29 @@ export default function TrajectoryDiagram({ preprocessor }) {
   const svgRef   = useRef(null);
   const dragMovedRef = useRef(false);   // true if the pointer moved between mousedown and mouseup — used to distinguish click vs drag
 
-  useEffect(() => { setNodes(_layoutNodes(preprocessor)); setPan({x:0,y:0}); setZoom(1); },
-           [preprocessor]);
+  useEffect(() => {
+    setNodes(isCanonical
+      ? _layoutBehaviorNodes(behaviors, activeLanes)
+      : _layoutNodes(preprocessor));
+    setPan({x:0,y:0}); setZoom(1);
+  }, [isCanonical, behaviors, preprocessor, activeLanes]);
 
-  const edges = useMemo(() => _layoutEdges(nodes, preprocessor),
-                        [nodes, preprocessor]);
+  const edges = useMemo(() => isCanonical
+      ? _layoutBehaviorEdges(nodes)
+      : _layoutEdges(nodes, preprocessor),
+    [isCanonical, nodes, preprocessor]);
 
-  if (!preprocessor || !preprocessor.stages || !preprocessor.stages.length) {
+  if (isCanonical) {
+    if (!nodes.length) return null;
+  } else if (!preprocessor || !preprocessor.stages || !preprocessor.stages.length) {
     return null;
   }
 
   // ── Canvas dimensions — expand with node positions ────────────
   const contentW = Math.max(1200, ...(nodes.map((n) => n.x + 220)));
-  const contentH = 680;
+  const contentH = isCanonical
+    ? Math.max(240, 80 + activeLanes.length * MITRE_LANE_HEIGHT + 40)
+    : 680;
 
   // ── Handlers ──────────────────────────────────────────────────
   const onNodeMouseDown = (e, id) => {
@@ -161,8 +245,9 @@ export default function TrajectoryDiagram({ preprocessor }) {
           <div style={tagline}>EVIDENCE TRAJECTORY</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#e2e8f0",
                         marginTop: 2 }}>
-            Cyber Kill Chain × MITRE ATT&amp;CK · {LANES.length} swim lanes ·
-            drag nodes · pan background · use +/− to zoom
+            {isCanonical
+              ? `MITRE ATT&CK · ${activeLanes.length} of 14 tactics · pure projection of behavior.mitre_tactics[]`
+              : `Cyber Kill Chain × MITRE ATT&CK · ${LANES.length} swim lanes · drag nodes · pan background · use +/− to zoom`}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -182,16 +267,27 @@ export default function TrajectoryDiagram({ preprocessor }) {
       </div>
 
       <div style={legendBar}>
-        <span style={legendGroup}>NODE COLOURS BY KILL-CHAIN PHASE:</span>
-        <LegendChip color="#67e8f9" label="Reconnaissance" />
-        <LegendChip color="#c084fc" label="Delivery / Exploitation" />
-        <LegendChip color="#facc15" label="Exploitation" />
-        <LegendChip color="#fb923c" label="Installation" />
-        <LegendChip color="#ef4444" label="Command & Control" />
-        <LegendChip color="#f87171" label="Actions on Objectives" />
-        <span style={{ ...legendGroup, marginLeft: 14 }}>OVERRIDES:</span>
-        <LegendChip color="#f87171" label="Critical (Impact)" />
-        <LegendChip color="#fbbf24" label="Persistence" />
+        {isCanonical ? (
+          <>
+            <span style={legendGroup}>MITRE TACTICS PROJECTED:</span>
+            {activeLanes.map((l) => (
+              <LegendChip key={l.id} color={MITRE_LANE_COLOR[l.id] || "#94a3b8"} label={l.label} />
+            ))}
+          </>
+        ) : (
+          <>
+            <span style={legendGroup}>NODE COLOURS BY KILL-CHAIN PHASE:</span>
+            <LegendChip color="#67e8f9" label="Reconnaissance" />
+            <LegendChip color="#c084fc" label="Delivery / Exploitation" />
+            <LegendChip color="#facc15" label="Exploitation" />
+            <LegendChip color="#fb923c" label="Installation" />
+            <LegendChip color="#ef4444" label="Command & Control" />
+            <LegendChip color="#f87171" label="Actions on Objectives" />
+            <span style={{ ...legendGroup, marginLeft: 14 }}>OVERRIDES:</span>
+            <LegendChip color="#f87171" label="Critical (Impact)" />
+            <LegendChip color="#fbbf24" label="Persistence" />
+          </>
+        )}
       </div>
 
       <div style={{ display: "grid",
@@ -232,16 +328,19 @@ export default function TrajectoryDiagram({ preprocessor }) {
 
           <g transform={`translate(${pan.x} ${pan.y})`}>
             {/* Lane bands */}
-            {LANES.map((lane, i) => (
+            {(isCanonical ? activeLanes : LANES).map((lane, i) => (
               <g key={lane.id}>
                 <rect x={0} y={lane.y - 40}
-                      width={contentW} height={90}
+                      width={contentW}
+                      height={isCanonical ? MITRE_LANE_HEIGHT - 6 : 90}
                       fill={i % 2 ? "rgba(148,163,184,0.03)"
                                   : "rgba(148,163,184,0.06)"} />
                 <text x={16} y={lane.y}
-                      style={{ fontSize: 11, fill: "#94a3b8",
+                      style={{ fontSize: 11,
+                               fill: isCanonical ? (MITRE_LANE_COLOR[lane.id] || "#94a3b8") : "#94a3b8",
                                letterSpacing: "0.14em",
-                               textTransform: "uppercase" }}>
+                               textTransform: "uppercase",
+                               fontWeight: isCanonical ? 700 : 400 }}>
                   {lane.label}
                 </text>
               </g>
@@ -263,16 +362,23 @@ export default function TrajectoryDiagram({ preprocessor }) {
 
             {/* Nodes */}
             {nodes.map((n) => {
-              // Phase-based node colour (Kill Chain).  Critical /
-              // Persistence highlights still take priority when they
-              // apply, so the "colour of urgency" is not lost.
-              const phaseColor = KILL_CHAIN_COLOR[n.kill_chain] || "#67e8f9";
-              const borderColor = n.critical    ? "#f87171"
-                                : n.persistence ? "#fbbf24"
-                                : phaseColor;
-              const dotColor    = n.critical    ? "#f87171"
-                                : n.persistence ? "#fbbf24"
-                                : phaseColor;
+              // In canonical mode the node colour IS the tactic
+              // colour — a pure projection of the SSOT.  Severity
+              // shows as a small right-side pill (no reasoning
+              // happens here — severity is emitted by the backend).
+              const phaseColor = isCanonical
+                ? (MITRE_LANE_COLOR[n.tactic] || "#67e8f9")
+                : (KILL_CHAIN_COLOR[n.kill_chain] || "#67e8f9");
+              const borderColor = isCanonical
+                ? phaseColor
+                : (n.critical    ? "#f87171"
+                    : n.persistence ? "#fbbf24"
+                    : phaseColor);
+              const dotColor    = isCanonical
+                ? phaseColor
+                : (n.critical    ? "#f87171"
+                    : n.persistence ? "#fbbf24"
+                    : phaseColor);
               return (
               <g key={n.id} data-testid={`trajectory-node-${n.id}`}
                  onMouseDown={(e) => onNodeMouseDown(e, n.id)}
@@ -297,11 +403,11 @@ export default function TrajectoryDiagram({ preprocessor }) {
                 <text x={n.x + 22} y={n.y + 4}
                       style={{ fontSize: 9.5, fill: phaseColor,
                                fontWeight: 700 }}>
-                  {n.kill_chain}
+                  {isCanonical ? n.tactic : n.kill_chain}
                 </text>
                 <text x={n.x + 22} y={n.y + 16}
                       style={{ fontSize: 9.5, fill: "#64748b" }}>
-                  {n.subtitle} · {n.time}
+                  {n.subtitle}{isCanonical ? "" : ` · ${n.time}`}
                 </text>
               </g>
               );
@@ -327,6 +433,152 @@ export default function TrajectoryDiagram({ preprocessor }) {
 }
 
 /* ── Layout helpers ────────────────────────────────────────────── */
+
+// ── Canonical 14-lane MITRE projection · behavior-driven ────────
+// Rule R22: for each behavior → for each tactic in mitre_tactics[]
+// → emit one node.  A single behavior with 3 tactics produces 3
+// nodes (one per lane).  Empty tactics are already filtered out by
+// the caller (activeLanes only contains tactics that carry ≥1
+// behavior).  No inference, no remapping.
+//
+// Tactic sources (in priority order, per Rule R22):
+//   1. `behavior.mitre_tactics[]`  (canonical, plural)
+//   2. `behavior.mitre[].tactic`   (ICE-cluster shape — one entry
+//                                    per technique, tactic pre-attached)
+//   3. `behavior.primary_tactic`    (single fallback — ICE-cluster
+//                                    shape when no MITRE technique
+//                                    was mapped)
+// Every extracted tactic is normalized to the canonical MITRE label
+// (title-case with "and" for "&") so the 14-lane switch always
+// matches.
+const _TACTIC_NORMALIZE = {
+  "initial access":       "Initial Access",
+  "initial_access":       "Initial Access",
+  "execution":            "Execution",
+  "persistence":          "Persistence",
+  "privilege escalation": "Privilege Escalation",
+  "privilege_escalation": "Privilege Escalation",
+  "defense evasion":      "Defense Evasion",
+  "defense_evasion":      "Defense Evasion",
+  "credential access":    "Credential Access",
+  "credential_access":    "Credential Access",
+  "discovery":            "Discovery",
+  "lateral movement":     "Lateral Movement",
+  "lateral_movement":     "Lateral Movement",
+  "collection":           "Collection",
+  "command and control":  "Command and Control",
+  "command_and_control":  "Command and Control",
+  "exfiltration":         "Exfiltration",
+  "impact":               "Impact",
+  "reconnaissance":       "Reconnaissance",
+  "resource development": "Resource Development",
+  "resource_development": "Resource Development",
+};
+function _canonTactic(t) {
+  if (!t) return null;
+  const key = String(t).trim().toLowerCase();
+  return _TACTIC_NORMALIZE[key] || null;
+}
+function _behaviorTactics(b) {
+  const out = new Set();
+  for (const t of (b.mitre_tactics || [])) {
+    const c = _canonTactic(t); if (c) out.add(c);
+  }
+  if (!out.size) {
+    for (const m of (b.mitre || [])) {
+      const c = _canonTactic(m && m.tactic);
+      if (c) out.add(c);
+    }
+  }
+  if (!out.size) {
+    const c = _canonTactic(b.primary_tactic);
+    if (c) out.add(c);
+  }
+  return [...out];
+}
+
+function _layoutBehaviorNodes(behaviors, activeLanes) {
+  if (!Array.isArray(behaviors) || !behaviors.length) return [];
+  const laneY = {};
+  for (const l of activeLanes) laneY[l.id] = l.y;
+  // Chronological ordering — respect the SSOT `order` field the
+  // backend emits (Behavior.order, monotonically-increasing).
+  const ordered = [...behaviors].sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0)
+  );
+  const laneCounters = {};        // per-lane X-position counter
+  const X_START = 220;
+  const X_STEP  = 240;
+  const nodes = [];
+  ordered.forEach((b, i) => {
+    const tactics = _behaviorTactics(b).filter((t) => t in laneY);
+    if (!tactics.length) return;
+    // MITRE technique IDs — support both {id, ...} objects and bare strings.
+    const techniques = (b.mitre_techniques && b.mitre_techniques.length
+                          ? b.mitre_techniques
+                          : (b.mitre || []))
+      .map((m) => (typeof m === "string" ? m : m.id))
+      .filter(Boolean);
+    const title = b.title || b.label || `Behavior ${i + 1}`;
+    for (const tactic of tactics) {
+      const laneCol = (laneCounters[tactic] = (laneCounters[tactic] || 0) + 1);
+      nodes.push({
+        id:          `${b.id || `bhv-${i}`}--${_slug(tactic)}`,
+        index:       i + 1,
+        x:           X_START + (laneCol - 1) * X_STEP,
+        y:           laneY[tactic],
+        lane:        tactic,
+        tactic,
+        title,
+        subtitle:    techniques[0] || b.category || "",
+        kill_chain:  (b.kill_chain && b.kill_chain[0]) || "",
+        severity:    b.severity || "medium",
+        confidence:  typeof b.confidence === "number" ? b.confidence
+                       : (b.confidence === "high"   ? 0.95
+                         : b.confidence === "medium" ? 0.75
+                         : b.confidence === "low"    ? 0.55 : 0.5),
+        raw: {
+          objective:      b.description,
+          normalized_command: (b.commands && b.commands[0] && b.commands[0].command) || "",
+          mitre:          techniques,
+          tactic,
+          command_family: b.category,
+          evidence:       (b.commands || []).map((c) => c.command).filter(Boolean),
+          confidence:     typeof b.confidence === "number" ? b.confidence : undefined,
+        },
+      });
+    }
+  });
+  return nodes;
+}
+
+// Deterministic edges between successive nodes of the same behavior
+// (so a behavior that spans multiple tactics shows a connecting arc).
+function _layoutBehaviorEdges(nodes) {
+  if (!nodes.length) return [];
+  const byBehavior = {};
+  for (const n of nodes) {
+    const key = n.id.split("--")[0];
+    (byBehavior[key] = byBehavior[key] || []).push(n);
+  }
+  const edges = [];
+  for (const [key, group] of Object.entries(byBehavior)) {
+    for (let i = 0; i < group.length - 1; i++) {
+      const a = group[i], b = group[i + 1];
+      edges.push({
+        id: `be-${key}-${i}`,
+        d:  _bezier(a.x + 10, a.y + 6, b.x + 10, b.y + 6),
+        style: "normal",
+      });
+    }
+  }
+  return edges;
+}
+
+function _slug(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 function _pickLane(stage) {
   if (stage.command_family && FAMILY_LANE_OVERRIDE[stage.command_family]) {
     return FAMILY_LANE_OVERRIDE[stage.command_family];

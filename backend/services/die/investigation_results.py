@@ -701,6 +701,24 @@ def render(input_text: str) -> Dict[str, Any]:
     canonical["ice"]      = ice_block
     canonical["incident"] = ice_block.get("incident")
 
+    # ── Rule R22 · Paste-Only Synthesis ────────────────────────────
+    # When the analyst pasted raw text (no acquirable URL / document),
+    # ICE has nothing to correlate: `report_extraction.commands` is
+    # empty, so `incident.timeline` / `incident.behaviors` / the
+    # Evidence Explorer are all empty for what is otherwise a
+    # perfectly valid investigation.  Paste-only synthesis projects
+    # the deterministic behavior graph into the same canonical
+    # timeline / behaviors / evidence / acquired_document shape the
+    # other adapters produce so paste-only cases become
+    # indistinguishable from URL / EML / PDF / DOCX / ZIP / Image
+    # cases in the analyst workspace.  Additive / idempotent — never
+    # overwrites a real acquisition.
+    try:
+        from services.reasoning.paste_synthesis import synthesize as _paste_synthesize
+        _paste_synthesize(canonical)
+    except Exception:  # pragma: no cover — synthesis is additive
+        pass
+
     return {"output": output, "object": canonical}
 
 

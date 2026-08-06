@@ -2918,17 +2918,21 @@ export default function WorkspacePage() {
               uniformly across every input class. */}
           {(() => {
             const iceClusters = investigationObject?.ice?.behavior_clusters;
+            const incidentBehaviors = investigationObject?.incident?.behaviors || iceClusters || [];
             const preprocForTraj = inlineStoryPreproc
               || (iceClusters?.length
                     ? _synthPreprocFromIce(investigationObject.ice)
                     : null);
-            if (!preprocForTraj) return null;
+            if (!preprocForTraj && !incidentBehaviors.length) return null;
             return (
-              <CollapsibleSection title="Attack Chain · Trajectory"
-                                   subtitle="Swim-lane view across MITRE tactics · drag nodes · pan · +/− to zoom"
+              <CollapsibleSection title="Attack Chain · MITRE ATT&CK Projection"
+                                   subtitle="14 lanes · one per ATT&CK tactic · empty tactics collapse · drag / pan / zoom"
                                    testid="attack-trajectory-section"
                                    style={{ margin: "0 12px 8px" }}>
-                <TrajectoryDiagram preprocessor={preprocForTraj} />
+                <TrajectoryDiagram
+                  preprocessor={preprocForTraj}
+                  behaviors={incidentBehaviors}
+                />
               </CollapsibleSection>
             );
           })()}

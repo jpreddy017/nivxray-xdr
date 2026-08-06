@@ -176,6 +176,7 @@ def compose_investigation_summary(text: str) -> Dict[str, Any]:
                 "mitre_techniques": b.mitre_techniques,
                 "mitre_tactic":     b.mitre_tactic,    # deprecated (kept for old UI)
                 "mitre_tactics":    b.mitre_tactics,   # canonical R8
+                "category":         b.category,
                 "severity":         b.severity,
                 "order":            b.order,
                 "confidence":       b.confidence,
