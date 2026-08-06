@@ -18,8 +18,8 @@
 | Attack Intent · Objective Taxonomy (R15) | ✅ Complete | Every intent record carries `categories[]`; tests validate behaviour not strings |
 | Investigation Quality Gate | ✅ Green | 158/158 backend tests (66 quality-gate + 92 preprocessor/DIE) |
 | Rules R9–R15 | ✅ Locked | R14 promoted as defining principle |
-| **IDA · Intelligent Document Analyzer** | 🚧 Next major engine | Architecture frozen · roadmap slices IDA-1..IDA-11 |
-| IVE · Investigation Visualization Engine | ⏳ Future | Consumes SSOT knowledge graph from IDA-6 |
+| **IDA · Intelligent Document Analyzer** | 🚧 Next major engine | Architecture frozen · roadmap slices IDA-1..IDA-12 (incl. IDA-3.5 Content Understanding, IDA-5 Evidence Normalizer, IDA-6 Semantic Relationship Builder, IDA-7 Citation & Provenance) |
+| **IVE · Investigation Visualization Engine** | ✅ Architecture frozen | `/app/memory/IVE_ARCHITECTURE.md` · projection-only engine · Rule R16 · 7-slice roadmap · consumes SSOT knowledge graph + document profile + provenance |
 
 ---
 

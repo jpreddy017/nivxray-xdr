@@ -299,6 +299,25 @@ Canonical categories: `Initial Access`, `Execution`,
 
 ---
 
+## R16 · IVE Never Analyzes — IVE Only Projects the SSOT (2026-03-01)
+
+Frozen alongside `/app/memory/IVE_ARCHITECTURE.md`.
+
+- **IVE is a projection engine**, not an analysis engine.
+- IVE MUST NOT parse, decode, extract, correlate, map, infer, or
+  generate evidence.  Every value it renders must already be
+  deterministically present in the SSOT.
+- If a projection needs a field the SSOT doesn't carry, the fix is
+  to add that field to the SSOT (upstream) — never to compute it
+  inside IVE.
+- Every projection is a **pure function** of the SSOT slice it
+  reads.  Stateless.  Deterministic.  No LLM.
+- IVE never mutates the SSOT.  Any mutation is a P0 bug.
+- Adding a new projection is additive — it never requires touching
+  IUE, IDA, DIE, or any domain engine.
+
+---
+
 ## Schema Versioning (2026-03-01)
 
 The Canonical Investigation Object carries `metadata.version` and

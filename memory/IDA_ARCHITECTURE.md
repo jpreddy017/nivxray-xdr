@@ -185,11 +185,52 @@ All findings merge into ONE Canonical Investigation Object.
 | IDA-4 | Threat Report IOC / MITRE / LOLBAS / Timeline / malware / threat-actor / victim / CVE / YARA / Sigma extractors | P1 |
 | IDA-5 | Evidence Normalizer — canonicalise every extracted artifact so duplicates collapse and correlation strengthens.  See "Evidence Normalization Contract" below. | P1 |
 | IDA-6 | Semantic Relationship Builder — turn extracted artifacts into a directed graph (Quick Assist → launches → PowerShell → downloads → Python → installs → Edge Extension) and write it to `SSOT.knowledge_graph`.  Feeds Trajectory + IVE + Story engines automatically. | P2 |
-| IDA-7 | PDF Parser + Text + Table + Image extraction | P2 |
-| IDA-8 | DOCX / EML / CSV / JSON / XML parsers | P2 |
-| IDA-9 | OCR Engine (Tesseract) + Screenshot Analyzer | P2 |
-| IDA-10 | Diagram Analyzer (box + arrow detection → relationship graph) | P3 |
-| IDA-11 | GitHub / Pastebin / VirusTotal / URLhaus specialised extractors | P3 |
+| **IDA-7** | **Citation & Provenance** — every artifact IDA writes to the SSOT carries `source = {document, url, section, paragraph, page, offset}` so Workspace features like "Show source paragraph" / "Jump to document" / "Highlight evidence" work without re-parsing.  See "Provenance Contract" below. | **P1** |
+| IDA-8 | PDF Parser + Text + Table + Image extraction | P2 |
+| IDA-9 | DOCX / EML / CSV / JSON / XML parsers | P2 |
+| IDA-10 | OCR Engine (Tesseract) + Screenshot Analyzer | P2 |
+| IDA-11 | Diagram Analyzer (box + arrow detection → relationship graph) | P3 |
+| IDA-12 | GitHub / Pastebin / VirusTotal / URLhaus specialised extractors | P3 |
+
+---
+
+## Provenance Contract (IDA-7)
+
+Every artifact IDA emits into the SSOT carries a `source` object
+so consumers can jump back to the exact evidence location without
+re-parsing the source document.
+
+```jsonc
+{
+  "indicator":  "powershell.exe",
+  "type":       "command",
+  "normalized": "powershell.exe",
+  "source": {
+    "document":   "esentire-blog-unc6692",
+    "url":        "https://www.esentire.com/…",
+    "section":    "Execution",
+    "heading":    "Native Messaging Host",
+    "paragraph":  5,
+    "page":       null,           // only for PDF/DOCX
+    "offset":     12034,           // byte offset in acquired content
+    "length":     28,
+    "extractor":  "ida.command"    // which module produced this
+  }
+}
+```
+
+### Rules
+
+1. Every artifact type — IOC, command, MITRE, LOLBIN, YARA, Sigma,
+   registry, file path, service, threat-actor, victim, CVE — carries
+   its own `source` object.
+2. Fields that don't apply are `null` (e.g. `page` for HTML pages,
+   `paragraph` for tabular data).
+3. Provenance is used by the Evidence projection (IVE-4) to render
+   "Jump to source" affordances in the Workspace.
+4. Provenance participates in the Evidence Normalizer (IDA-5) —
+   deduplicating artifacts merges their `source[]` arrays so the
+   analyst sees every location an indicator appeared.
 
 ---
 
