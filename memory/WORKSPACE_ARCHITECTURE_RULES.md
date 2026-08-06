@@ -427,6 +427,40 @@ Regression
 
 ---
 
+## Rule R19 · Acquirable Resources Must Be Acquired (2026-03-01)
+
+> **If IUE classifies an input as an acquirable resource, AND IDA
+> has a compatible acquisition engine, THEN the Workspace MUST
+> attempt acquisition automatically before investigation.
+> Planning alone is not a terminal state.**
+
+A URL is a **pointer to content**, not an atomic IOC.  When the
+IDA URL Intent Classifier says a URL is a `threat_report`,
+`code_snippet`, `repository`, or `file_resource`, the Workspace
+behaves like a browser:
+
+    Open URL → Download → Extract main content → Discard boilerplate
+
+Only THEN does investigation begin over the acquired resource — not
+over the URL string.  The URL is never the investigation target;
+its content is.
+
+Applies to every future acquisition engine: URLs, PDFs, DOCX, EML,
+HTML, Markdown, JSON, RSS, GitHub repos, Pastebin, ZIP archives —
+"everything is a resource".
+
+Exceptions (routed to the IOC / reputation lane instead):
+  · shortener URLs (bit.ly, t.co, …) — until IDA-3.1 lands
+  · IP-only URLs
+  · IOC-portal URLs (VirusTotal, URLHaus, …)
+  · URLs with an unknown vendor AND no report-shaped path segment
+
+The Investigation Quality Gate enforces R19: when a fixture is an
+acquirable URL and the acquisition engine reports success, the
+`acquisition_plan[]` step for that engine MUST have `status=done`.
+
+---
+
 **These rules are locked.  Any agent that removes a listed
 capability is regressing the Workspace.  Enhance, extend, add —
 never remove.**

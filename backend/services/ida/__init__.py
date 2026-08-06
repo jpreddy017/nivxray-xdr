@@ -21,3 +21,6 @@ directly (Rule R14).
 """
 from .artifact_splitter import split_artifacts, Artifact  # noqa: F401
 from .input_classifier import classify_artifact_input     # noqa: F401
+from .url_intent import classify_url_intent                # noqa: F401
+from .acquisition import acquire_url, AcquiredResource     # noqa: F401
+from .report_extractors import understand_document, extract_all  # noqa: F401

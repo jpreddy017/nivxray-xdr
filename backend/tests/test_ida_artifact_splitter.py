@@ -159,6 +159,11 @@ def test_verdict_threat_report_url() -> None:
     assert v["ida_class"] == "threat_report_url"
     assert v["confidence"] >= 0.9
     assert v["summary"].get("url", 0) == 1
+    # URL Intent must be populated for URL classes.
+    ui = v.get("url_intent") or {}
+    assert ui.get("intent") == "threat_report"
+    assert ui.get("acquirable") is True
+    assert ui.get("vendor") == "eSentire"
 
 
 def test_verdict_mixed_artifacts() -> None:

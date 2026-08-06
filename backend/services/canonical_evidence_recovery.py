@@ -590,6 +590,59 @@ def _recover_canonical_evidence_core(
     # 2) Atomic-IOC guard ----------------------------------------------
     atomic_kind = _atomic_ioc_kind_safe(gated_text)
     if atomic_kind is not None:
+        # ── URL is NOT an atomic IOC — it's an acquirable resource (Rule R14).
+        # Ask IDA what KIND of URL this is; if acquirable, produce a
+        # `url_acquisition_pending` artifact so the frontend sees the
+        # correct pipeline instead of the legacy "atomic-ioc-passthrough".
+        if atomic_kind == "url":
+            try:
+                from services.ida.url_intent import classify_url_intent as _url_intent
+                intent = _url_intent(gated_text.strip())
+            except Exception:
+                intent = {"intent": "atomic_ioc", "acquirable": False,
+                          "vendor": None, "host": "", "scheme": "",
+                          "reasoning": ["IDA URL Intent classifier unavailable."]}
+
+            if intent.get("acquirable"):
+                vendor  = intent.get("vendor")
+                v_tag   = f" · {vendor}" if vendor else ""
+                label   = {
+                    "threat_report":  "Threat Intelligence Report",
+                    "code_snippet":   "Code Snippet / Paste",
+                    "repository":     "Source Repository",
+                    "file_resource":  "Direct File Resource",
+                }.get(intent["intent"], "Acquirable URL")
+                art = CanonicalArtifact(
+                    raw_input=gated_text,
+                    input_hash=_sha256_str(gated_text),
+                    terminal_state="url_acquisition_pending",
+                    decoded_output=gated_text,
+                    output_hash=_sha256_str(gated_text),
+                    chain_steps=[{"op": "ida-url-acquisition-pending",
+                                  "args": {"intent": intent["intent"],
+                                           "vendor": vendor,
+                                           "host":   intent.get("host")}}],
+                    chain_ids=["ida-url-acquisition-pending"],
+                    engine="ida.url_intent",
+                    reached_shellcode=False,
+                    confidence=100,
+                    detected_type={"type": "acquirable_url",
+                                   "label": f"{label}{v_tag}"},
+                    notes=[
+                        f"URL routed to IDA as a **{label}**{v_tag}. "
+                        "Content acquisition (IDA-3) is required before "
+                        "commands, IOCs, MITRE and timeline can be extracted."
+                    ] + list(intent.get("reasoning") or []),
+                    ingress_normalised_via=ingress_via,
+                    original_raw_input=original_raw if ingress_via else None,
+                    atomic_ioc=None,
+                    stability_gate_reached=True,
+                )
+                return art
+            # else: fall through to the legacy atomic-IOC branch below —
+            # unknown-vendor URLs, shorteners and IP-only URLs stay in
+            # the IOC lane exactly as before.
+
         art = CanonicalArtifact(
             raw_input=gated_text,
             input_hash=_sha256_str(gated_text),

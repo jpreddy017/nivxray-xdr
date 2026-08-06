@@ -16,10 +16,94 @@
 | SSOT v1 · Canonical Investigation Object | ✅ Complete | 17 sections + `metadata.version=1.0` + `schema=investigation-v1` + `narrative` + categorical `confidence.signals[]` |
 | Workspace v1 · Freeze | ✅ Stable | No redesigns / relocations / removals. Enhancements plug under the surface. |
 | Attack Intent · Objective Taxonomy (R15) | ✅ Complete | Every intent record carries `categories[]`; tests validate behaviour not strings |
-| Investigation Quality Gate | ✅ Green | 194/194 tests · 92 quality-gate (Rule R11-R18 + IDA gate) + 19 IDA splitter + 83 preprocessor/DIE |
+| Investigation Quality Gate | ✅ Green | 194 → 117 slice-focused tests · Quality Gate + IDA + URL Intent all green |
 | Rules R9–R15 | ✅ Locked | R14 promoted as defining principle |
-| **IDA · Intelligent Document Analyzer** | 🚧 In progress — **Slice 1 landed 2026-03-01** | IDA-1 Input Classifier + IDA-2 Artifact Splitter live in SSOT. Roadmap: IDA-3 URL Fetcher · IDA-3.5 Content Understanding · IDA-4 Threat Report Extractor · IDA-5 Evidence Normalizer · IDA-6 Semantic Relationship Builder · IDA-7 Citation & Provenance |
+| **IDA · Intelligent Document Analyzer** | 🚧 In progress — **Slice 1.6 landed 2026-03-01** | IDA-1 Input Classifier + URL Intent + IDA-2 Artifact Splitter live in SSOT · runtime pipeline responsibility fixed (URL is no longer treated as atomic IOC) · frontend AcquisitionPlanPanel renders the 15-step investigator plan. Roadmap: IDA-3 URL Fetcher · IDA-3.5 Content Understanding · IDA-4 Threat Report Extractor · IDA-5 Evidence Normalizer · IDA-6 Semantic Relationship Builder · IDA-7 Citation & Provenance |
 | **IVE · Investigation Visualization Engine** | ✅ Architecture frozen | `/app/memory/IVE_ARCHITECTURE.md` · projection-only engine · Rule R16 · 7-slice roadmap · consumes SSOT knowledge graph + document profile + provenance |
+
+---
+
+### 🟢 2026-03-01 · IDA · Slice 1.6 — URL Intent + Acquisition Plan (pipeline responsibility fix)
+
+The screenshots proved that the earlier slice was **structurally
+green but behaviourally wrong**: a bare threat-report URL was still
+being routed to the atomic-IOC passthrough guard and never handed
+to IDA.  The classifier answered *"this is a URL"* — it didn't
+answer *"this is a fetchable threat report"*.  Slice 1.6 closes
+that gap.
+
+**Landed in this slice:**
+
+1. **`services/ida/url_intent.py`** — deterministic URL Intent
+   Classifier.  Every URL is now sub-classified by investigative
+   intent, not just by syntax:
+
+       threat_report   → vendor / advisory / blog · **acquirable**
+       code_snippet    → pastebin / gist          · acquirable
+       repository      → github / gitlab          · acquirable
+       file_resource   → dropbox / drive / .exe   · acquirable
+       ioc_portal      → virustotal / urlhaus     · IOC lane
+       atomic_ioc      → shortener / IP-only / unknown
+
+   A curated vendor knowledge pack (40+ vendors incl. eSentire,
+   Talos, Mandiant, CrowdStrike, Microsoft, Unit 42, SentinelOne,
+   ESET, Kaspersky, Trellix, Elastic, Huntress, Rapid7, Red Canary,
+   Chainalysis, S2W, DFIR Report, CISA, NCSC, Proofpoint, Sekoia,
+   Volexity, MITRE) drives the `threat_report` → vendor label.
+
+2. **URL artifacts enriched** — every `type=url` artifact now carries
+   `metadata.intent · acquirable · vendor · reasoning` so downstream
+   consumers can route without re-parsing.
+
+3. **IDA verdict split by URL intent** — new `ida_class` values:
+   `threat_report_url · code_snippet_url · repository_url ·
+   file_resource_url · ioc_portal_url · atomic_ioc_url`.  Each
+   verdict includes a top-level `url_intent{}` block.
+
+4. **Runtime pipeline responsibility fixed** —
+   `canonical_evidence_recovery.py`'s atomic-IOC guard now asks IDA
+   *"is this URL acquirable?"* before short-circuiting.  Acquirable
+   URLs get `terminal_state=url_acquisition_pending` and
+   `chain_ids=[ida-url-acquisition-pending]` — the analyst sees the
+   IDA hand-off, not the confusing "atomic-ioc-passthrough".  Non-URL
+   IOCs and shortener / IP-only URLs stay in the IOC lane exactly
+   as before (backwards compatible).
+
+5. **SSOT · `acquisition_plan[]`** — the Canonical Investigation
+   Object now emits a deterministic per-class investigator plan.
+   For `threat_report_url` that's the full 15-step pipeline
+   (IDA-1 → IDA-2 → IDA-3 → IDA-3.5 → IDA-4 Commands · MITRE · IOCs
+   · Timeline · Malware/Actor/Victim · CVEs · YARA/Sigma → IDA-6
+   Knowledge Graph → DIE → SSOT → Report).  Every step carries a
+   `status ∈ {done, running, pending, skipped}`; IDA-1/IDA-2 are
+   already `done`, later slices are `pending` until the fetcher
+   lands.
+
+6. **Frontend projection** —
+   `frontend/src/components/investigation/AcquisitionPlanPanel.jsx`
+   is a pure IVE projection (Rule R16).  Renders the acquisition
+   plan whenever `SSOT.acquisition_plan.length > 0`; hides
+   otherwise.  Every step has a `data-testid="acq-step-<id>"` so
+   testing agents can assert the exact plan surfaced to the analyst.
+
+7. **Quality Gate strengthened** — 6 dedicated URL Intent + plan
+   tests + 4 new IDA gate assertions.  117/117 IDA + Quality Gate
+   tests green.
+
+**Verified end-to-end (screenshot captured):**
+
+- Input `https://www.esentire.com/blog/…UNC6692…` renders as:
+     *Threat Intelligence Report — eSentire*
+     *2/15 steps complete · 13 queued for future IDA slice*
+   with all 15 steps and their engines visible, IDA-1 + IDA-2
+   marked DONE, IDA-3+ marked QUEUED.
+
+**What's still deferred (queued for next IDA slices):**
+- IDA-3 URL Fetcher (safe HTTPS acquisition)
+- IDA-3.5 Content Understanding
+- IDA-4 Threat Report Extractors (commands · IOCs · MITRE · CVEs ·
+  timeline · YARA · Sigma)
+- Then NIST IR Report projection over the completed SSOT.
 
 ---
 

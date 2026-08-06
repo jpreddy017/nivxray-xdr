@@ -1,7 +1,7 @@
 {
-  "total": 91,
+  "total": 92,
   "passed": 35,
-  "hit_rate": 0.3846,
+  "hit_rate": 0.3804,
   "threshold": 0.6,
   "results": [
     {
@@ -746,7 +746,7 @@
     },
     {
       "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
       "ok": false
@@ -906,6 +906,13 @@
       "engine": "llm-l3",
       "chain": [],
       "output_head": "TEST_iter63_1785929890 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "b35757d435e60cd49f380fe2a88acaa696173bb7",
+      "engine": "llm-l3",
+      "chain": [],
+      "output_head": "TEST_iter63_1785997178 nivxray unique payload",
       "ok": false
     }
   ]

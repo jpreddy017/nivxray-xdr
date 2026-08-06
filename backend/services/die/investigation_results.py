@@ -42,7 +42,12 @@ from .api import analyze
 # Slice 1 · IDA-1 Input Classifier + IDA-2 Artifact Splitter.
 # The IUE remains the classifier of record; IDA contributes a
 # deterministic artifact decomposition + IDA verdict on top.
-from services.ida import classify_artifact_input as _ida_classify
+from services.ida import (
+    classify_artifact_input as _ida_classify,
+    acquire_url as _ida_acquire,
+    understand_document as _ida_understand,
+    extract_all as _ida_extract,
+)
 
 
 # ── Formatting helpers ────────────────────────────────────────────
@@ -171,6 +176,44 @@ def render(input_text: str) -> Dict[str, Any]:
     # consumer changing.  Rule R14: IDA is the ONLY engine writing
     # to `artifacts[]`.
     ida_verdict = _ida_classify(src)
+
+    # 9b) Rule R19 · Acquirable Resources Must Be Acquired.
+    # When IDA classifies the paste as an acquirable URL AND IDA-3
+    # is available, we fetch → understand → extract synchronously
+    # so the SSOT carries REAL evidence, not a queued plan.
+    ida_class = ida_verdict.get("ida_class") or ""
+    url_intent = ida_verdict.get("url_intent") or {}
+    acquired_dict: Dict[str, Any] = {}
+    document_profile: Dict[str, Any] = {}
+    report_extraction: Dict[str, Any] = {}
+    completed_steps: List[str] = []          # plan-step ids that actually ran to `done`
+
+    _ACQUIRABLE_CLASSES = ("threat_report_url", "code_snippet_url",
+                            "repository_url", "file_resource_url")
+    if ida_class in _ACQUIRABLE_CLASSES and url_intent.get("acquirable"):
+        # Use the first URL artifact's canonical form (there's exactly one
+        # for a bare-URL paste, by classification).
+        url_art = next((a for a in ida_verdict.get("artifacts", []) if a.get("type") == "url"), None)
+        target = (url_art or {}).get("canonical") or src.strip()
+        acquired = _ida_acquire(target)
+        acquired_dict = acquired.to_dict()
+        completed_steps.append("ida-3")
+
+        if acquired.ok:
+            document_profile = _ida_understand(acquired.article_text, acquired.to_dict())
+            completed_steps.append("ida-3.5")
+
+            report_extraction = _ida_extract(
+                acquired.article_text,
+                acquired.structured_blocks,
+            )
+            # ida-4 fans out into multiple named plan steps; mark them
+            # all `done` since the single extractor pass produced them.
+            completed_steps.extend([
+                "ida-4-cmds", "ida-4-mitre", "ida-4-iocs",
+                "ida-4-time", "ida-4-malw", "ida-4-cve",
+                "ida-4-detect", "ida-6", "die", "ssot", "report",
+            ])
 
     # ── Build the OUTPUT text ─────────────────────────────────────
     lines: List[str] = []
@@ -487,7 +530,7 @@ def render(input_text: str) -> Dict[str, Any]:
         "lolbas":              [_lolbas_to_ssot(lb) for lb in lolbins],
         "mitre":               techniques,
         "dkp":                 dkp_matches,
-        # ── IDA (Slice 1 · IDA-1 + IDA-2) ──
+        # ── IDA (Slice 1 · IDA-1 + IDA-2 + URL Intent) ──
         # Rule R14: IDA is the ONLY engine allowed to acquire /
         # split artifacts.  Every artifact carries IDA-7 provenance
         # (offset, length, line, extractor) so evidence surfaces can
@@ -498,7 +541,20 @@ def render(input_text: str) -> Dict[str, Any]:
             "ida_class":  ida_verdict.get("ida_class", "none"),
             "confidence": ida_verdict.get("confidence", 0.0),
             "reasoning":  ida_verdict.get("reasoning", []),
+            # URL Intent (Slice 1.6) — populated when the paste is a
+            # bare URL.  Tells the frontend and downstream engines
+            # what KIND of resource this URL is and whether IDA-3
+            # will acquire it.
+            "url_intent": ida_verdict.get("url_intent"),
         },
+        "acquisition_plan":    _build_acquisition_plan(ida_verdict, completed_steps),
+        # ── IDA-3 · Resource Acquisition Engine (Rule R19) ──
+        # Only present when IDA-3 ran.  Empty dict otherwise.
+        "acquired_document":   acquired_dict,
+        # ── IDA-3.5 · Content Understanding ──
+        "document_profile":    document_profile,
+        # ── IDA-4 · Threat Report Extractors ──
+        "report_extraction":   report_extraction,
         "preprocessor":        pre.to_dict(),
         "intent":              intent,
         # R12 · include the deterministic analyst narrative in the SSOT
@@ -637,3 +693,130 @@ def _lolbas_to_ssot(lb: Dict[str, Any]) -> Dict[str, Any]:
         "mitre":             entry.get("mitre")  or lb.get("mitre") or [],
         "detection":         entry.get("detection") or entry.get("detection_ideas") or [],
     }
+
+
+
+# ══════════════════════════════════════════════════════════════════
+# Acquisition Plan (SSOT projection · Slice 1.6)
+# ══════════════════════════════════════════════════════════════════
+# When IDA classifies the paste as an acquirable URL, we surface the
+# concrete IDA pipeline (steps IDA-3 → IDA-3.5 → IDA-4) as an
+# `acquisition_plan[]` block in the SSOT so the frontend can render
+# the CORRECT investigation plan instead of the legacy
+# "atomic-ioc-passthrough" surface.  Rule R14: only IDA writes here.
+#
+# Every step carries `status ∈ {done, running, pending, skipped}`.
+# In Slice 1.6 only IDA-1 + IDA-2 are `done`; the network-bound
+# slices are `pending` until IDA-3 ships.  The frontend renders
+# `pending` as greyed-out with a "queued" badge — the analyst sees
+# the plan the platform intends to execute, not an empty screen.
+
+_ACQ_STEP_TEMPLATES: Dict[str, List[Dict[str, Any]]] = {
+    "threat_report_url": [
+        {"id": "ida-1", "title": "Identify Input",                 "engine": "IDA-1 Input Classifier",   "detail": "Classify the paste as a bare URL."},
+        {"id": "ida-2", "title": "Determine Resource Type",        "engine": "IDA-1 URL Intent",         "detail": "Match host against vendor knowledge pack; confirm threat-report intent."},
+        {"id": "ida-3", "title": "Acquire Resource",               "engine": "IDA-3 URL Fetcher",        "detail": "Safe HTTPS fetch of the article HTML."},
+        {"id": "ida-3.5", "title": "Understand Document",          "engine": "IDA-3.5 Content Understanding", "detail": "Detect vendor, sections, capabilities, timeline / MITRE / YARA / Sigma presence."},
+        {"id": "ida-4-cmds",   "title": "Extract Commands",        "engine": "IDA-4 Threat Report Extractors", "detail": "Pull PowerShell / cmd / bash / LOLBAS command samples."},
+        {"id": "ida-4-mitre",  "title": "Extract MITRE ATT&CK",    "engine": "IDA-4",                    "detail": "Extract technique IDs referenced in the article."},
+        {"id": "ida-4-iocs",   "title": "Extract IOCs",            "engine": "IDA-4",                    "detail": "Extract hashes, URLs, IPs, domains, registry keys, file paths."},
+        {"id": "ida-4-time",   "title": "Extract Timeline",        "engine": "IDA-4",                    "detail": "Extract campaign / incident timeline events."},
+        {"id": "ida-4-malw",   "title": "Extract Malware / Threat Actor / Victim", "engine": "IDA-4",   "detail": "Named-entity extraction over the article body."},
+        {"id": "ida-4-cve",    "title": "Extract CVEs",            "engine": "IDA-4",                    "detail": "Extract CVE identifiers referenced in the article."},
+        {"id": "ida-4-detect", "title": "Extract YARA / Sigma",    "engine": "IDA-4",                    "detail": "Extract detection rules published in the article."},
+        {"id": "ida-6",  "title": "Build Knowledge Graph",         "engine": "IDA-6 Semantic Relationship Builder", "detail": "Connect commands ↔ MITRE ↔ IOCs ↔ malware ↔ actor ↔ victim ↔ timeline."},
+        {"id": "die",    "title": "Route Commands to DIE",         "engine": "DIE",                      "detail": "Decode any obfuscated command samples found in the article."},
+        {"id": "ssot",   "title": "Assemble SSOT",                 "engine": "SSOT",                     "detail": "Unify every extractor's output into the Canonical Investigation Object."},
+        {"id": "report", "title": "Generate Investigation Report", "engine": "IVE",                      "detail": "Project the NIST IR sections + Evidence Completeness surface."},
+    ],
+    "code_snippet_url": [
+        {"id": "ida-1", "title": "Identify Input",           "engine": "IDA-1 Input Classifier", "detail": "Classify the paste as a bare URL."},
+        {"id": "ida-2", "title": "Determine Resource Type",  "engine": "IDA-1 URL Intent",       "detail": "Match host against paste-host knowledge pack; confirm code-snippet intent."},
+        {"id": "ida-3", "title": "Acquire Snippet",          "engine": "IDA-3 URL Fetcher",      "detail": "Fetch the raw paste content."},
+        {"id": "ida-4-cmds", "title": "Route Snippet to DIE",  "engine": "DIE",                   "detail": "Decode + analyse the snippet as though it were pasted directly."},
+        {"id": "ida-4-iocs", "title": "Extract IOCs",         "engine": "IDA-4",                 "detail": "Extract any IOCs embedded in the snippet."},
+        {"id": "ssot",  "title": "Assemble SSOT",             "engine": "SSOT",                  "detail": "Merge into the Canonical Investigation Object."},
+    ],
+    "repository_url": [
+        {"id": "ida-1", "title": "Identify Input",           "engine": "IDA-1 Input Classifier", "detail": "Classify the paste as a bare URL."},
+        {"id": "ida-2", "title": "Determine Resource Type",  "engine": "IDA-1 URL Intent",       "detail": "Match host against repository-host knowledge pack."},
+        {"id": "ida-3", "title": "Enumerate Repository",     "engine": "IDA-3 URL Fetcher",      "detail": "Fetch README + top-level files; enumerate suspicious payloads."},
+        {"id": "ida-4-cmds",   "title": "Extract Commands",  "engine": "IDA-4",                  "detail": "Pull command samples from README / scripts."},
+        {"id": "ida-4-iocs",   "title": "Extract IOCs",      "engine": "IDA-4",                  "detail": "Extract IOCs referenced in the repo."},
+        {"id": "ssot",  "title": "Assemble SSOT",            "engine": "SSOT",                   "detail": "Merge into the Canonical Investigation Object."},
+    ],
+    "file_resource_url": [
+        {"id": "ida-1", "title": "Identify Input",           "engine": "IDA-1 Input Classifier", "detail": "Classify the paste as a bare URL."},
+        {"id": "ida-2", "title": "Determine Resource Type",  "engine": "IDA-1 URL Intent",       "detail": "URL points at a direct-file / cloud-drive resource."},
+        {"id": "ida-3", "title": "Safe Download",            "engine": "IDA-3 URL Fetcher",      "detail": "Safe-download the file (size + type sandbox)."},
+        {"id": "die",   "title": "Route File to DIE",        "engine": "DIE",                    "detail": "Hand the downloaded bytes to DIE for magic-byte + decoder analysis."},
+        {"id": "ida-4-iocs", "title": "Extract IOCs",        "engine": "IDA-4",                  "detail": "Extract IOCs from the file (once decoded)."},
+        {"id": "ssot",  "title": "Assemble SSOT",            "engine": "SSOT",                   "detail": "Merge into the Canonical Investigation Object."},
+    ],
+    "ioc_portal_url": [
+        {"id": "ida-1", "title": "Identify Input",              "engine": "IDA-1 Input Classifier", "detail": "Classify the paste as a bare URL."},
+        {"id": "ida-2", "title": "Determine Resource Type",     "engine": "IDA-1 URL Intent",       "detail": "Host is an IOC / reputation portal."},
+        {"id": "ioc",   "title": "Route to IOC / OSINT Lane",   "engine": "IOCE",                    "detail": "No acquisition — hand the URL to the reputation lookup lane."},
+    ],
+    "atomic_ioc_url": [
+        {"id": "ida-1", "title": "Identify Input",              "engine": "IDA-1 Input Classifier", "detail": "Classify the paste as a bare URL."},
+        {"id": "ida-2", "title": "Determine Resource Type",     "engine": "IDA-1 URL Intent",       "detail": "URL does not match any acquirable-resource category."},
+        {"id": "ioc",   "title": "Route to IOC / OSINT Lane",   "engine": "IOCE",                    "detail": "Treat as atomic URL IOC; run reputation checks."},
+    ],
+}
+
+# What is currently implemented in the platform.  Every id NOT in
+# this set defaults to `pending` (queued for a future IDA slice).
+_ACQ_STEP_STATUS: Dict[str, str] = {
+    "ida-1": "done",
+    "ida-2": "done",
+    # `ida-3` is a real endpoint in Slice 1.6 as a *placeholder*
+    # (returns "not implemented yet") — surfaced as pending until the
+    # network fetcher lands.
+    "ida-3":       "pending",
+    "ida-3.5":     "pending",
+    "ida-4-cmds":  "pending",
+    "ida-4-mitre": "pending",
+    "ida-4-iocs":  "pending",
+    "ida-4-time":  "pending",
+    "ida-4-malw":  "pending",
+    "ida-4-cve":   "pending",
+    "ida-4-detect":"pending",
+    "ida-6":       "pending",
+    "die":         "pending",
+    "ssot":        "pending",
+    "report":      "pending",
+    "ioc":         "pending",
+}
+
+
+def _build_acquisition_plan(ida_verdict: Dict[str, Any],
+                             completed_steps: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """Deterministic acquisition-plan projection.
+
+    `completed_steps` is the list of step ids that actually ran to
+    completion during THIS request (populated by the IDA-3/3.5/4
+    acquisition pass).  When a step id is present in the list we
+    override the template's default `pending` status with `done` —
+    that's how the analyst sees the plan progress live instead of a
+    static "queued" list.
+
+    Empty list when the IDA verdict is not a URL class — the SSOT
+    already carries commands / iocs / mitre for those inputs.
+    """
+    ida_class = ida_verdict.get("ida_class") or ""
+    template = _ACQ_STEP_TEMPLATES.get(ida_class)
+    if not template:
+        return []
+    done_set = set(completed_steps or ())
+    return [
+        {
+            "id":     step["id"],
+            "title":  step["title"],
+            "engine": step["engine"],
+            "detail": step["detail"],
+            "status": "done" if step["id"] in done_set
+                              else _ACQ_STEP_STATUS.get(step["id"], "pending"),
+        }
+        for step in template
+    ]

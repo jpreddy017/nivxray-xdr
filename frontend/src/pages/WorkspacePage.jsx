@@ -12,6 +12,7 @@ import ShellcodeView from "@/components/ShellcodeView";
 import OutputView from "@/components/OutputView";
 import WorkspaceDecodeFailureCard from "@/components/investigation/WorkspaceDecodeFailureCard";
 import InputUnderstandingPanel from "@/components/investigation/InputUnderstandingPanel";
+import AcquisitionPlanPanel from "@/components/investigation/AcquisitionPlanPanel";
 import InlineAttackStory from "@/components/investigation/InlineAttackStory";
 import TrajectoryDiagram from "@/components/investigation/TrajectoryDiagram";
 import AnalystNarrativePanel from "@/components/investigation/AnalystNarrativePanel";
@@ -2821,6 +2822,16 @@ export default function WorkspacePage() {
                 error={understandingError}
               />
             </div>
+          )}
+
+          {/* ▲ IDA · Acquisition Plan projection (Slice 1.6 · 2026-03-01)
+              Renders ABOVE the legacy decode trace when IDA classifies the
+              paste as an acquirable URL (threat_report / code_snippet /
+              repository / file_resource).  The decode trace still runs but
+              this panel is the analyst's source of truth for "what the
+              platform is going to do about this URL". */}
+          {investigationObject?.acquisition_plan?.length > 0 && (
+            <AcquisitionPlanPanel investigation={investigationObject} />
           )}
 
           {/* ▲ Inline Attack Story (P0 · 2026-02-28)

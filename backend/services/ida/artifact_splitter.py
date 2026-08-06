@@ -272,12 +272,14 @@ def split_artifacts(text: str) -> List[Artifact]:
         # NB: do NOT claim command range — inner IOCs still surface.
 
     # ── 2. URLs ────────────────────────────────────────────────────
+    from .url_intent import classify_url_intent as _url_intent
     for m in _RE_URL.finditer(text):
         raw = m.group(0)
         canonical = _canon_url(raw)
         # trim trailing punctuation from the raw slice too
         strip_len = len(raw) - len(raw.rstrip(".,;:)]}\"'"))
         start, end = m.start(), m.end() - strip_len
+        intent = _url_intent(canonical)
         artifacts.append(Artifact(
             id=_next_id("url"),
             type="url",
@@ -289,7 +291,14 @@ def split_artifacts(text: str) -> List[Artifact]:
                 "line":      _line_of(start),
                 "extractor": "ida.url",
             },
-            metadata={"scheme": canonical.split("://", 1)[0]},
+            metadata={
+                "scheme":     canonical.split("://", 1)[0],
+                "host":       intent["host"],
+                "intent":     intent["intent"],
+                "acquirable": intent["acquirable"],
+                "vendor":     intent["vendor"],
+                "reasoning":  intent["reasoning"],
+            },
         ))
         _claim(start, end)
 

@@ -102,6 +102,8 @@ REQUIRED_SECTIONS = (
     "confidence", "engines_selected", "engines_skipped",
     # ── IDA · Slice 1 (Rule R14) ──
     "artifacts", "artifact_summary", "ida",
+    # ── IDA · Slice 1.6 · Acquisition Plan projection ──
+    "acquisition_plan",
 )
 
 
@@ -368,7 +370,9 @@ def test_quality_gate_ida_block_present(fixture_id: str, payload: str):
 
     ida = canon["ida"]
     assert ida.get("ida_class") in (
-        "threat_report_url", "mixed_artifacts", "ioc_list",
+        "threat_report_url", "code_snippet_url", "repository_url",
+        "file_resource_url", "ioc_portal_url", "atomic_ioc_url",
+        "mixed_artifacts", "ioc_list",
         "yara_ruleset", "sigma_ruleset", "none",
     ), f"{fixture_id}: unexpected ida_class {ida.get('ida_class')!r}"
     assert 0.0 <= ida.get("confidence", 0.0) <= 1.0
@@ -412,3 +416,85 @@ def test_quality_gate_ida_engine_version_recorded():
     assert "ida" in versions, "engine_versions must record IDA"
     assert versions["ida"].startswith("1."), (
         f"unexpected IDA version {versions['ida']!r}")
+
+
+# ══════════════════════════════════════════════════════════════════
+# Slice 1.6 · URL Intent + Acquisition Plan gate
+# ══════════════════════════════════════════════════════════════════
+ESENTIRE_URL = "https://www.esentire.com/blog/email-bombing-it-impersonation-quick-assist-and-edgecution-breaking-down-unc6692s-tradecraft"
+PASTEBIN_URL = "https://pastebin.com/RaW/abc123"
+GITHUB_URL   = "https://github.com/mitre/attack"
+VT_URL       = "https://www.virustotal.com/gui/file/deadbeef"
+BITLY_URL    = "https://bit.ly/x9x9x9"
+
+
+def test_url_intent_esentire_is_threat_report():
+    r = render_results(ESENTIRE_URL)
+    canon = r["object"]
+    assert canon["ida"]["ida_class"] == "threat_report_url"
+    intent = canon["ida"]["url_intent"]
+    assert intent["intent"] == "threat_report"
+    assert intent["acquirable"] is True
+    assert intent["vendor"] == "eSentire"
+    plan = canon["acquisition_plan"]
+    assert len(plan) >= 8, "threat_report plan must include acquisition + extractors + report"
+    # IDA-1 + IDA-2 are always deterministic → always `done`.
+    by_id = {s["id"]: s for s in plan}
+    assert by_id["ida-1"]["status"] == "done"
+    assert by_id["ida-2"]["status"] == "done"
+    # IDA-3 status depends on whether the acquisition pass ran to
+    # completion.  When it did, `acquired_document.ok` is True and
+    # every downstream step is marked `done`.
+    acq = canon.get("acquired_document") or {}
+    if acq.get("ok"):
+        assert by_id["ida-3"]["status"] == "done", (
+            "Rule R19 · when IDA-3 succeeds, plan step MUST be done")
+        assert by_id["ida-3.5"]["status"] == "done"
+    else:
+        # Network / vendor unavailable — the plan surface must still
+        # tell the analyst what step failed, not stay silent.
+        assert by_id["ida-3"]["status"] == "pending"
+
+
+def test_url_intent_pastebin_is_code_snippet():
+    r = render_results(PASTEBIN_URL)
+    canon = r["object"]
+    assert canon["ida"]["ida_class"] == "code_snippet_url"
+    assert canon["ida"]["url_intent"]["intent"] == "code_snippet"
+    assert canon["ida"]["url_intent"]["acquirable"] is True
+
+
+def test_url_intent_github_is_repository():
+    r = render_results(GITHUB_URL)
+    canon = r["object"]
+    assert canon["ida"]["ida_class"] == "repository_url"
+    assert canon["ida"]["url_intent"]["intent"] == "repository"
+    assert canon["ida"]["url_intent"]["acquirable"] is True
+
+
+def test_url_intent_virustotal_is_ioc_portal_not_acquirable():
+    r = render_results(VT_URL)
+    canon = r["object"]
+    assert canon["ida"]["ida_class"] == "ioc_portal_url"
+    intent = canon["ida"]["url_intent"]
+    assert intent["intent"] == "ioc_portal"
+    assert intent["acquirable"] is False
+
+
+def test_url_intent_shortener_stays_atomic_ioc():
+    r = render_results(BITLY_URL)
+    canon = r["object"]
+    assert canon["ida"]["ida_class"] == "atomic_ioc_url"
+    assert canon["ida"]["url_intent"]["intent"] == "atomic_ioc"
+    assert canon["ida"]["url_intent"]["acquirable"] is False
+    # No acquisition plan steps beyond the routing decision.
+    plan = canon["acquisition_plan"]
+    assert all(step["id"] in ("ida-1", "ida-2", "ioc") for step in plan)
+
+
+def test_acquisition_plan_empty_for_non_url_inputs():
+    """Mixed pastes and command inputs must NOT get a URL acquisition
+    plan — those live in the atomic artifact path (SSOT.commands etc)."""
+    r = render_results("powershell -e QQBBAA==")
+    assert r["object"]["acquisition_plan"] == []
+
