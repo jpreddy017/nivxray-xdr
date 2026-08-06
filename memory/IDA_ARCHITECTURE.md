@@ -179,14 +179,68 @@ All findings merge into ONE Canonical Investigation Object.
 | Slice | Description | Priority |
 |-------|-------------|----------|
 | IDA-1 | Input Classifier extension: recognise URL / PDF / DOCX / PNG / JPG / EML / archive as first-class artifact types | P0 |
-| IDA-2 | Artifact Splitter for mixed pastes | P0 |
+| IDA-2 | Artifact Splitter for mixed pastes (PowerShell + URL + Hash + Registry + YARA → parallel routing) | P0 |
 | IDA-3 | URL Fetcher + HTML Parser + Main Article Extractor + boilerplate removal | P1 |
-| IDA-4 | Threat Report IOC / MITRE / LOLBAS / Timeline extractors | P1 |
-| IDA-5 | PDF Parser + Text + Table + Image extraction | P2 |
-| IDA-6 | DOCX / EML / CSV / JSON / XML parsers | P2 |
-| IDA-7 | OCR Engine (Tesseract) + Screenshot Analyzer | P2 |
-| IDA-8 | Diagram Analyzer (box + arrow detection → relationship graph) | P3 |
-| IDA-9 | GitHub / Pastebin / VirusTotal / URLhaus specialised extractors | P3 |
+| IDA-4 | Threat Report IOC / MITRE / LOLBAS / Timeline / malware / threat-actor / victim / CVE / YARA / Sigma extractors | P1 |
+| **IDA-5** | **Evidence Normalizer** — canonicalise every extracted artifact so duplicates collapse and correlation strengthens.  See "Evidence Normalization Contract" below. | **P1** |
+| **IDA-6** | **Semantic Relationship Builder** — turn extracted artifacts into a directed graph (Quick Assist → launches → PowerShell → downloads → Python → installs → Edge Extension) and write it to `SSOT.knowledge_graph`.  Feeds Trajectory + IVE + Story engines automatically. | **P2** |
+| IDA-7 | PDF Parser + Text + Table + Image extraction | P2 |
+| IDA-8 | DOCX / EML / CSV / JSON / XML parsers | P2 |
+| IDA-9 | OCR Engine (Tesseract) + Screenshot Analyzer | P2 |
+| IDA-10 | Diagram Analyzer (box + arrow detection → relationship graph) | P3 |
+| IDA-11 | GitHub / Pastebin / VirusTotal / URLhaus specialised extractors | P3 |
+
+---
+
+## Evidence Normalization Contract (IDA-5)
+
+Every artifact IDA writes to the SSOT MUST pass through a
+normalization step so duplicate evidence collapses and correlation
+across sections strengthens.  Rules:
+
+| Artifact Type | Normalization Rule |
+|---------------|-------------------|
+| Executable / LOLBIN | Lowercase, canonical `.exe` suffix, drop path prefix (`powershell` · `PowerShell.exe` · `pwsh` → `powershell.exe`) |
+| URL | Lowercase scheme + host, drop trailing slash, drop fragment, keep path + query, punycode host if IDN |
+| Domain | Lowercase, drop trailing dot |
+| IP | Canonical form (IPv6 compressed / IPv4 dotted-quad) |
+| Hash | Lowercase hex; kind auto-derived from length (32 → MD5, 40 → SHA-1, 64 → SHA-256, 128 → SHA-512) |
+| Registry Path | Expand `HKLM` → `HKEY_LOCAL_MACHINE`, canonicalise separators, keep case for value names |
+| File Path | Expand env vars (`%LOCALAPPDATA%` etc.), preserve case, canonicalise slashes |
+| MITRE Technique | Canonical Technique Object `{id, name, tactic, sub_technique_of}` |
+| Email Address | Lowercase local + domain, drop plus-tags for correlation only |
+| Command String | Preserve verbatim in `raw`; normalized copy in `normalized_command` (whitespace collapsed, backtick joins resolved, `-EncodedCommand` decoded) |
+
+Deduplication happens by `(type, canonical_value)`.  Every duplicate
+carries its provenance (the artifact ID and source URL / file it
+came from) so evidence is never lost.
+
+---
+
+## Semantic Relationship Builder Contract (IDA-6)
+
+Emits `SSOT.knowledge_graph` — an Investigation Knowledge Graph
+(IKG) shaped as:
+
+```jsonc
+{
+  "nodes": [
+    { "id": "n1", "kind": "process",    "value": "powershell.exe" },
+    { "id": "n2", "kind": "file",       "value": "python-3.13.zip" },
+    { "id": "n3", "kind": "url",        "value": "https://s3.aws/…"},
+    { "id": "n4", "kind": "component",  "value": "Edge Extension" }
+  ],
+  "edges": [
+    { "from": "n1", "to": "n3", "relation": "downloads",     "evidence": "…" },
+    { "from": "n1", "to": "n2", "relation": "extracts",      "evidence": "…" },
+    { "from": "n1", "to": "n4", "relation": "installs",      "evidence": "…" },
+    { "from": "quickassist", "to": "n1", "relation": "launches", "evidence": "…" }
+  ]
+}
+```
+
+The Trajectory + IVE + Story engines consume the graph directly
+from the SSOT — never rebuild it themselves (Rule R13).
 
 ---
 

@@ -1,5 +1,26 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## Defining Principle (2026-03-01)
+
+> **IUE decides · IDA acquires · DIE decodes · Domain engines analyze
+> · SSOT unifies · IVE visualizes.**
+
+---
+
+## Phase Ledger (2026-03-01)
+
+| Phase | State | Note |
+|-------|-------|------|
+| IUE v2.0 · Universal entry + Investigation-first orchestrator | ✅ Complete | 21 first-class input types; investigation-first pipeline |
+| DIE · Deterministic decoder | ✅ Mature | -EncodedCommand peels to source PS; capability, not driver |
+| SSOT v1 · Canonical Investigation Object | ✅ Complete | 17 sections + `metadata.version=1.0` + `schema=investigation-v1` + `narrative` + categorical `confidence.signals[]` |
+| Workspace v1 · Freeze | ✅ Stable | No redesigns / relocations / removals. Enhancements plug under the surface. |
+| Attack Intent · Objective Taxonomy (R15) | ✅ Complete | Every intent record carries `categories[]`; tests validate behaviour not strings |
+| Investigation Quality Gate | ✅ Green | 158/158 backend tests (66 quality-gate + 92 preprocessor/DIE) |
+| Rules R9–R15 | ✅ Locked | R14 promoted as defining principle |
+| **IDA · Intelligent Document Analyzer** | 🚧 Next major engine | Architecture frozen · roadmap slices IDA-1..IDA-11 |
+| IVE · Investigation Visualization Engine | ⏳ Future | Consumes SSOT knowledge graph from IDA-6 |
+
 ---
 
 ### 🟢 2026-03-01 · IUE v2.0 · Investigation-First Architecture (Slice 1)

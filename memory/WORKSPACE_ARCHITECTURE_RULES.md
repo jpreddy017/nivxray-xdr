@@ -1,5 +1,18 @@
 # NivXRay Workspace — Architectural Rules (LOCKED · 2026-02-28)
 
+## Defining Principle (Rule R14 · promoted 2026-03-01)
+
+> **IUE decides · IDA acquires · DIE decodes · Domain engines analyze
+> · SSOT unifies · IVE visualizes.**
+
+This is the single sentence every future contributor should hold in
+their head.  Every rule below flows from it.  Every new engine,
+panel, endpoint, or export must fit inside one of these
+responsibilities and communicate through the Canonical Investigation
+Object (SSOT).
+
+---
+
 > These rules are the result of user feedback across the DIE / IUE /
 > Trajectory / Analyst Narrative iterations.  Any future agent
 > touching the Workspace MUST read and honour them.
