@@ -441,6 +441,19 @@ def render(input_text: str) -> Dict[str, Any]:
             "version":         "1.0",
             "schema":          "investigation-v1",
             "engine_version":  "iue-2.0.0-slice-3",
+            # ── Rule R17 · Investigation Reproducibility ──
+            # Record the semantic version of every engine that
+            # touched the investigation so a re-run against the same
+            # input + versions produces a byte-identical SSOT.
+            "engine_versions": {
+                "iue":            "2.0.0",
+                "die":            "1.4.0",
+                "preprocessor":   "1.5.0",
+                "bee":            "1.0.0",
+                "intent":         "1.2.0",
+                "narrative":      "1.1.0",
+            },
+            "ruleset_version": "2026.03.01",
             "input_bytes":     len(src),
             "language":        env.get("language"),
         },
@@ -469,6 +482,13 @@ def render(input_text: str) -> Dict[str, Any]:
             "chain":            _explain_chain([s.to_dict() for s in stages]),
             "stages":           [_explain_stage(s.to_dict()) for s in stages],
         },
+        # ── Rule R18 · Behavior Explanation Everywhere ──
+        # Top-level explanations array + coverage metric.  Every
+        # recognised command_family produces one entry.  IOC / MITRE /
+        # LOLBAS explanation templates will fill this array in
+        # subsequent BEE slices.
+        "explanations":        _build_explanations_top_level(stages),
+        "explanation_coverage": _build_explanation_coverage(stages),
         "confidence":          {
             "overall":      conf_break.overall,
             "label":        conf_break.label,
@@ -529,6 +549,55 @@ def _command_to_ssot(stage) -> Dict[str, Any]:
         "confidence":            stage.confidence,
         "risk":                  _risk_for_tactic(stage.tactic),
         "explanation":           expl,     # {intro, bullets[], why}
+    }
+
+
+def _build_explanations_top_level(stages) -> List[Dict[str, Any]]:
+    """Rule R18 · lift per-stage explanations into a top-level SSOT
+    array so consumers (IVE Evidence Projection, exports, APIs)
+    read a single reusable list — not scattered fields on commands[].
+    Additional target kinds (IOC clusters, MITRE, LOLBAS, YARA, …)
+    fill this array in subsequent BEE slices.
+    """
+    out: List[Dict[str, Any]] = []
+    for s in stages:
+        expl = _explain_stage(s.to_dict())
+        if not (expl.get("intro") or expl.get("bullets") or expl.get("why")):
+            continue
+        out.append({
+            "id":              f"expl-cmd-{s.index:03d}",
+            "target_kind":     "command",
+            "target_id":       s.id,
+            "family":          s.command_family,
+            "what_this_does":  [expl["intro"]] + list(expl.get("bullets") or []),
+            "why_it_matters":  expl.get("why", ""),
+            "evidence":        [s.normalized_command or s.raw_excerpt or ""],
+            "coverage":        1.0 if expl.get("bullets") else 0.5,
+            "template_id":     f"bee.{s.command_family}.v1"
+                               if s.command_family else "bee.none",
+        })
+    return out
+
+
+def _build_explanation_coverage(stages) -> Dict[str, Any]:
+    """Rule R18 · emit the coverage metric consumed by the
+    Investigation Quality Gate.  Recognised = has command_family.
+    Explained = a BEE template produced ≥ 1 bullet."""
+    recognised = [s for s in stages if s.command_family]
+    explained: List[Any] = []
+    gaps: List[str] = []
+    for s in recognised:
+        expl = _explain_stage(s.to_dict())
+        if expl.get("bullets") or expl.get("intro"):
+            explained.append(s)
+        else:
+            gaps.append(f"{s.id}:{s.command_family}")
+    pct = int(round((len(explained) / len(recognised)) * 100)) if recognised else 100
+    return {
+        "recognised_targets": len(recognised),
+        "explained":          len(explained),
+        "percentage":         pct,
+        "gaps":               gaps,
     }
 
 

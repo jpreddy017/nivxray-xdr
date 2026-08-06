@@ -318,6 +318,50 @@ Frozen alongside `/app/memory/IVE_ARCHITECTURE.md`.
 
 ---
 
+## R17 · Investigation Reproducibility (2026-03-01)
+
+Every investigation MUST be reproducible from:
+- the original input,
+- the engine versions that ran (IUE · IDA · DIE · BEE · Domain),
+- the ruleset version, and
+- the execution transcript.
+
+Given the same artifacts + same engine versions, the platform MUST
+produce an identical SSOT.  This is enforced by:
+
+- `SSOT.metadata.engine_versions{}` records the semantic version of
+  every engine that touched the investigation.
+- `SSOT.metadata.ruleset_version` records the DKP + intent + family
+  rulepack version.
+- `SSOT.transcript[]` records every routing / decode / classify /
+  extract decision as an append-only step log.
+- The Investigation Quality Gate runs the same fixture through the
+  pipeline twice — the resulting SSOTs must be byte-identical.
+
+---
+
+## R18 · Behavior Explanation Everywhere (2026-03-01)
+
+Frozen alongside `/app/memory/BEE_ARCHITECTURE.md`.
+
+- Every engine's structured findings SHOULD carry a Behavior
+  Explanation Engine (BEE) template so the SSOT carries an
+  evidence-backed explanation for each finding.
+- Explanations live in `SSOT.explanations[]` — a top-level array
+  reusable across commands, IOCs, MITRE techniques, LOLBAS, registry,
+  processes, YARA, Sigma, CVEs, threat actors, and IDA document
+  findings.
+- Every explanation renders three sections: **What This Does**,
+  **Why It Matters**, and **Evidence** — with each sentence
+  traceable to concrete captures against the artifact's normalized
+  form.
+- `SSOT.explanation_coverage.percentage` is emitted and enforced by
+  the Quality Gate (≥ 90% required to pass).
+- Templates are additive.  New coverage means a new template file;
+  it never touches existing code.
+
+---
+
 ## Schema Versioning (2026-03-01)
 
 The Canonical Investigation Object carries `metadata.version` and

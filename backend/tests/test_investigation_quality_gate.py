@@ -97,9 +97,67 @@ FIXTURES = [
 REQUIRED_SECTIONS = (
     "metadata", "input", "health", "profiling", "understanding",
     "plan", "commands", "iocs", "lolbas", "mitre", "dkp",
-    "preprocessor", "intent", "narrative", "confidence",
-    "engines_selected", "engines_skipped",
+    "preprocessor", "intent", "narrative", "behaviour",
+    "explanations", "explanation_coverage",
+    "confidence", "engines_selected", "engines_skipped",
 )
+
+
+# ── Rule R17 · Investigation Reproducibility ─────────────────────
+def test_quality_gate_engine_versions_recorded():
+    """Every SSOT MUST record the semantic version of every engine
+    that ran so a re-execution with the same versions produces a
+    byte-identical SSOT."""
+    r = render_results(PLAIN_PS)
+    meta = r["object"]["metadata"]
+    versions = meta.get("engine_versions") or {}
+    for engine in ("iue", "die", "preprocessor", "bee", "intent"):
+        assert engine in versions, f"metadata.engine_versions missing {engine!r}"
+    assert meta.get("ruleset_version"), "metadata.ruleset_version missing"
+
+
+def test_quality_gate_reproducibility_byte_identical():
+    """Same input → identical SSOT.  Two independent render() calls
+    on PLAIN_PS must produce byte-identical Canonical objects
+    (Rule R17)."""
+    import json as _json
+    a = _json.dumps(render_results(PLAIN_PS)["object"], sort_keys=True)
+    b = _json.dumps(render_results(PLAIN_PS)["object"], sort_keys=True)
+    assert a == b, "SSOT is not reproducible — two identical renders diverged"
+
+
+# ── Rule R18 · Behavior Explanation Everywhere ───────────────────
+@pytest.mark.parametrize("fixture_id,payload", FIXTURES)
+def test_quality_gate_explanation_coverage(fixture_id: str, payload: str):
+    """Every fixture MUST expose an explanation_coverage record and,
+    when at least one recognised family is present, achieve ≥ 90%
+    coverage (Rule R18)."""
+    r = render_results(payload)
+    cov = r["object"]["explanation_coverage"]
+    assert isinstance(cov.get("percentage"), int)
+    if cov.get("recognised_targets", 0) > 0:
+        assert cov["percentage"] >= 90, (
+            f"{fixture_id}: explanation coverage {cov['percentage']}%"
+            f" below 90% threshold · gaps={cov['gaps']}")
+
+
+@pytest.mark.parametrize("fixture_id,payload", FIXTURES)
+def test_quality_gate_explanations_top_level_shape(
+    fixture_id: str, payload: str,
+):
+    """Rule R18 · top-level SSOT.explanations[] is the reusable
+    array; every entry MUST carry the universal Explanation Object
+    shape."""
+    r = render_results(payload)
+    explanations = r["object"]["explanations"]
+    assert isinstance(explanations, list)
+    for e in explanations:
+        assert e.get("id")
+        assert e.get("target_kind")
+        assert e.get("target_id")
+        assert isinstance(e.get("what_this_does"), list)
+        assert "why_it_matters" in e
+        assert isinstance(e.get("evidence"), list)
 
 
 # ── Schema versioning ────────────────────────────────────────────
