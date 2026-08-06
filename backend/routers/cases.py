@@ -108,6 +108,17 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
         "output_len":  len(fresh.get("output", body.output) or ""),
         "updated_at":  now,
     }
+    # Deterministic Investigation Summary — persist alongside the case so
+    # History → Restore can reopen the analyst brief without re-running
+    # the composer.  Fails silently (composer is pure projection; the
+    # save must never fail on summary errors).
+    try:
+        from services.reasoning.investigation_composer import compose_investigation_summary
+        summary = compose_investigation_summary(body.input or "")
+        if isinstance(summary, dict) and "classification" in summary:
+            doc_body["investigation_summary"] = summary
+    except Exception:
+        pass
     if fresh:
         # Only stash the extra fields if we actually re-ran the pipeline.
         doc_body["verdict_card"] = fresh.get("verdict_card")
