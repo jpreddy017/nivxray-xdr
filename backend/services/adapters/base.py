@@ -24,6 +24,7 @@ from models.iep import (
     IEP,
     IEPArtifact,
     IEPContent,
+    IEPRelationship,
     IEPSource,
     IEPWarning,
     make_iep,
@@ -69,6 +70,29 @@ class EvidenceAdapter(ABC):
         is what satisfies Rule R6 (provenance).
         """
 
+    # ── Relationships (structural edges only — R8) ───────────────────
+    def discover_relationships(
+        self,
+        content: IEPContent,
+        artifacts: List[IEPArtifact],
+    ) -> List[IEPRelationship]:
+        """Return the *obvious structural* edges the adapter already
+        knows about — R8 forbids anything more.
+
+        Examples the base class expects concrete adapters to emit:
+
+          · URL → `downloads` → MSI            (URL adapter, from `curl … <URL>`)
+          · DLL → `exports`   → `Run()`         (DLL / PE adapter)
+          · Email → `contains` → Attachment    (EML adapter)
+          · PDF → `contains`  → URL             (PDF adapter, link map)
+          · ZIP → `contains`  → EXE             (ZIP adapter, inventory)
+
+        This makes the IEP much richer without ever crossing into
+        reasoning territory (which belongs to the Evidence Reasoning
+        Engine).  Default: no relationships.
+        """
+        return []
+
     # ── Glue ─────────────────────────────────────────────────────────
     def make_iep(
         self,
@@ -81,15 +105,18 @@ class EvidenceAdapter(ABC):
     ) -> IEP:
         """Default glue — subclasses rarely override this.
 
-        Chains: ``extract → normalize → validate → make_iep``.
+        Chains: ``extract → normalize → discover_relationships →
+        validate → make_iep``.
         """
-        content   = self.extract(raw)
-        artifacts = self.normalize(content)
-        src       = source or self._infer_source(raw)
+        content        = self.extract(raw)
+        artifacts      = self.normalize(content)
+        relationships  = self.discover_relationships(content, artifacts)
+        src            = source or self._infer_source(raw)
         iep = make_iep(
             source=src,
             content=content,
             artifacts=artifacts,
+            relationships=relationships,
             metadata=metadata or {},
             adapter=self.name,
             adapter_version=self.version,

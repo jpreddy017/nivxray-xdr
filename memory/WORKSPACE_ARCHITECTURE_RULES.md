@@ -39,6 +39,19 @@ summaries, reports, and conclusions. There must never be independent
 generators for Executive / Analyst / Technical / NIST / PDF outputs —
 they are projections of the same SSOT.
 
+### R8 — Adapters extract, they never reason
+Adapters may extract evidence and obvious structural relationships
+(`curl.exe` → `downloads` → `update_ms.msi`, `Email` → `contains` →
+`Attachment`, `ZIP` → `contains` → `EXE`) but must NEVER infer attacker
+intent, malware behavior, or analytical conclusions. All reasoning
+belongs exclusively to the Evidence Reasoning Engine.
+
+Concrete separation:
+- Evidence Adapter → "I found `curl.exe` downloading `update_ms.msi`."
+- Investigation Orchestrator → "Investigate both artifacts recursively."
+- ICE → "Correlate the results."
+- Evidence Reasoning Engine → "This likely represents ingress tool transfer and payload delivery."
+
 ## Additionally Retained From Earlier Iterations
 
 - **R22 · Extracted Evidence Becomes Investigation Input** — any executable /

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from models.iep import IEPArtifact, IEPContent, IEPSource, IEPWarning
+from models.iep import IEPArtifact, IEPContent, IEPRelationship, IEPSource, IEPWarning
 
 from .base import EvidenceAdapter
 
@@ -120,6 +120,78 @@ class URLAdapter(EvidenceAdapter):
                                      source_ref="body"))
         return [a for a in out if a.value]
 
+    # ── Relationship discovery (R8 — structural edges only) ──────────
+    def discover_relationships(self, content, artifacts):
+        """Emit obvious structural edges the URL adapter already knows:
+
+          · URL → `hosted_on` → domain
+          · command → `downloads` → URL (curl / wget / certutil / bitsadmin)
+          · command → `executes` → file_path (invoked target)
+          · article → `references` → CVE
+          · article → `attributed_to` → threat_actor
+          · article → `mentions` → malware_family
+
+        R8 forbids anything beyond structural — no attribution / no
+        malware-behaviour inference.
+        """
+        rels: List[IEPRelationship] = []
+        by_type: Dict[str, List[IEPArtifact]] = {}
+        for a in artifacts:
+            by_type.setdefault(a.type, []).append(a)
+
+        # URL → hosted_on → domain
+        for u in by_type.get("url", []):
+            try:
+                from urllib.parse import urlparse
+                host = urlparse(u.value).hostname or ""
+            except Exception:
+                host = ""
+            if host:
+                rels.append(IEPRelationship(
+                    from_ref=u.value, to_ref=host, verb="hosted_on",
+                    source_ref=u.source_ref,
+                ))
+
+        # command → downloads → URL   /   command → executes → file_path
+        _DL_HEADS = ("curl", "wget", "certutil", "bitsadmin",
+                        "invoke-webrequest", "downloadstring",
+                        "iex", "invoke-expression")
+        for c in by_type.get("command", []):
+            cv = (c.value or "").lower()
+            embedded = (c.attributes or {}).get("embedded_artifacts") or {}
+            # downloads
+            if any(h in cv for h in _DL_HEADS):
+                for u in embedded.get("urls") or []:
+                    rels.append(IEPRelationship(
+                        from_ref=c.value, to_ref=u,
+                        verb="downloads", source_ref=c.source_ref,
+                    ))
+            # executes
+            for p in embedded.get("file_paths") or []:
+                rels.append(IEPRelationship(
+                    from_ref=c.value, to_ref=p,
+                    verb="executes", source_ref=c.source_ref,
+                ))
+
+        # article → references → CVE / attributed_to → actor / mentions → malware
+        article = "article"
+        for cve in by_type.get("cve", []):
+            rels.append(IEPRelationship(
+                from_ref=article, to_ref=cve.value,
+                verb="references", source_ref=cve.source_ref,
+            ))
+        for ta in by_type.get("threat_actor", []):
+            rels.append(IEPRelationship(
+                from_ref=article, to_ref=ta.value,
+                verb="attributed_to", source_ref=ta.source_ref,
+            ))
+        for mf in by_type.get("malware_family", []):
+            rels.append(IEPRelationship(
+                from_ref=article, to_ref=mf.value,
+                verb="mentions", source_ref=mf.source_ref,
+            ))
+        return rels
+
     # ── Adapter-level warnings ───────────────────────────────────────
     def validate(self, iep) -> List[IEPWarning]:
         warns: List[IEPWarning] = []
@@ -183,8 +255,9 @@ class URLAdapter(EvidenceAdapter):
             }
         from models.iep import make_iep as _mk
         iep = _mk(
-            source=src, content=content, artifacts=artifacts, metadata=md,
-            adapter=self.name, adapter_version=self.version,
+            source=src, content=content, artifacts=artifacts,
+            relationships=self.discover_relationships(content, artifacts),
+            metadata=md, adapter=self.name, adapter_version=self.version,
             parent_iep_id=parent_iep_id, pipeline_depth=pipeline_depth,
         )
         iep.warnings.extend(self.validate(iep))

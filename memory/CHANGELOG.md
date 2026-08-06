@@ -3345,3 +3345,32 @@ foundation of Phase 3:
 **Next**: Phase 3A continues with PDF adapter (pdfplumber + PyMuPDF) and
 DOCX adapter (python-docx), then Phase 3B (EML + ZIP with recursion), then
 Phase 3C (Image with Tesseract OCR + EXIF).
+
+## 2026-02-06 · Rule R8 added + discover_relationships + no-new-endpoint
+
+Three refinements approved by user:
+
+**Rule R8 · Adapters extract, they never reason** — added to both the
+frozen architecture doc and `WORKSPACE_ARCHITECTURE_RULES.md`. Adapters
+may emit obvious structural edges (`curl.exe → downloads → update_ms.msi`)
+but must never infer attacker intent, malware behaviour, or analytical
+conclusions.
+
+**`discover_relationships()` added to the Adapter Contract**
+- New abstract-with-default method on `EvidenceAdapter`
+- Text adapter emits `URL → hosted_on → domain` and same-line
+  `command → downloads → URL` (curl / wget / certutil / bitsadmin / IEX)
+- URL adapter also emits `article → references → CVE`,
+  `article → attributed_to → threat_actor`,
+  `article → mentions → malware_family`,
+  `command → executes → file_path`
+
+**No new endpoint** — deferred wiring the `adapt()` router into the
+existing workspace endpoint until Phase 4 (Investigation Orchestrator)
+lands, so the migration remains a single clean cutover instead of a
+half-integrated intermediate state.  The frontend will never know the
+migration happened.
+
+Tests: 4 new R8 contract tests (URL→hosted_on, command→downloads,
+article→references→CVE, no-forbidden-reasoning-verbs). **All 23 tests
+pass** (10 IEP contract + 13 adapter 3A).

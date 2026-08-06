@@ -10,9 +10,9 @@ same shape.
 """
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any, Dict, List
 
-from models.iep import IEPArtifact, IEPContent, IEPSource
+from models.iep import IEPArtifact, IEPContent, IEPRelationship, IEPSource
 from services.ida.artifact_splitter import split_artifacts
 
 from .base import EvidenceAdapter
@@ -58,6 +58,49 @@ class TextAdapter(EvidenceAdapter):
                 source_ref=f"text.line.{line_no}" if line_no else "text",
             ))
         return out
+
+    # ── Relationship discovery (R8 — structural edges only) ─────────
+    def discover_relationships(self, content, artifacts):
+        """Emit obvious structural edges the text adapter already knows.
+        No inference — same rules as the URL adapter."""
+        rels = []
+        by_type = {}
+        for a in artifacts:
+            by_type.setdefault(a.type, []).append(a)
+
+        # URL → hosted_on → domain
+        for u in by_type.get("url", []):
+            try:
+                from urllib.parse import urlparse
+                host = urlparse(u.value).hostname or ""
+            except Exception:
+                host = ""
+            if host:
+                rels.append(IEPRelationship(
+                    from_ref=u.value, to_ref=host, verb="hosted_on",
+                    source_ref=u.source_ref,
+                ))
+
+        # command → downloads → URL if on same line
+        by_line: Dict[str, List[IEPArtifact]] = {}
+        for a in artifacts:
+            key = a.source_ref or ""
+            by_line.setdefault(key, []).append(a)
+
+        _DL_HEADS = ("curl", "wget", "certutil", "bitsadmin", "iex",
+                        "invoke-webrequest", "downloadstring")
+        for line_ref, arts in by_line.items():
+            cmds = [x for x in arts if x.type == "command"]
+            urls = [x for x in arts if x.type == "url"]
+            for c in cmds:
+                cv = (c.value or "").lower()
+                if any(h in cv for h in _DL_HEADS):
+                    for u in urls:
+                        rels.append(IEPRelationship(
+                            from_ref=c.value, to_ref=u.value,
+                            verb="downloads", source_ref=line_ref,
+                        ))
+        return rels
 
     # ── Source detection ─────────────────────────────────────────────
     def _infer_source(self, raw: Any) -> IEPSource:

@@ -119,6 +119,13 @@ Everything else is implementation detail.
 5. **IDA, DIE, ICE, IOC Intelligence, and the Evidence Reasoning Engine must remain input-format agnostic.**
 6. **Every finding must retain provenance back to the originating IEP object.** Every conclusion must be explainable.
 7. **The Evidence Reasoning Engine is the single source of truth for all summaries, reports, and conclusions.**
+8. **Adapters may extract evidence and obvious structural relationships, but they must never infer attacker intent, malware behavior, or analytical conclusions.** All reasoning belongs exclusively to the Evidence Reasoning Engine.
+
+   Concrete separation:
+   - **Evidence Adapter** — "I found `curl.exe` downloading `update_ms.msi`."
+   - **Investigation Orchestrator** — "Investigate both artifacts recursively."
+   - **ICE** — "Correlate the results."
+   - **Evidence Reasoning Engine** — "This likely represents ingress tool transfer and payload delivery."
 
 ---
 
@@ -185,9 +192,31 @@ class EvidenceAdapter(Protocol):
     def can_handle(raw) -> bool: ...
     def extract(raw)  -> IEPContent: ...
     def normalize(content) -> List[IEPArtifact]: ...
+    def discover_relationships(content, artifacts) -> List[IEPRelationship]: ...
     def make_iep(raw, **ctx) -> IEP: ...
     def validate(iep) -> List[IEPWarning]: ...
     def recurse(iep)  -> List[Artifact]: ...  # artifacts requiring child IEP
+```
+
+**Relationship discovery** — adapters emit *obvious structural* edges
+they already know from their input shape.  This makes the IEP much
+richer without any reasoning-engine involvement (R8):
+- URL → `downloads` → MSI
+- DLL → `exports` → `Run()`
+- Email → `contains` → Attachment
+- PDF → `contains` → URL
+- ZIP → `contains` → EXE
+- `curl.exe` → `downloads` → `update_ms.msi`
+
+**ZIP recursion policy** — a ZIP MUST NEVER produce one huge IEP.
+Instead the ZIP adapter emits a parent inventory IEP plus one child IEP
+per member.  Every child is investigated independently:
+
+```
+invoice.zip → Parent IEP (inventory + relationships)
+               ├── PDF IEP  (child)
+               ├── JS  IEP  (child)
+               └── PNG IEP  (child)
 ```
 
 Order within Phase 3 (deterministic-first, OCR last):
