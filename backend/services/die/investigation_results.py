@@ -33,6 +33,7 @@ from .preprocessor import preprocess as preprocess_input
 from .input_understanding import understand as understand_input
 from .input_health import check_health as _check_health
 from .canonical import build_confidence_breakdown, build_plan
+from .behavior_explainer import explain_stage as _explain_stage, explain_chain as _explain_chain
 from .lolbas import lolbas_lookup, LOLBAS_REGISTRY  # noqa: F401
 from .ioc_semantic import extract_iocs
 from .intent import classify_intent_from_analyze
@@ -249,12 +250,34 @@ def render(input_text: str) -> Dict[str, Any]:
             risk = _risk_for_tactic(s.tactic)
             if risk:
                 lines.append(_kv("Risk",      risk))
+
+            # ── What This Does — deterministic plain-English ──
+            expl = _explain_stage(s.to_dict())
+            if expl.get("intro") or expl.get("bullets") or expl.get("why"):
+                lines.append("")
+                lines.append("  What This Does")
+                if expl.get("intro"):
+                    lines.append(_bullet(expl["intro"], indent=4))
+                for b in expl.get("bullets") or []:
+                    lines.append(_bullet(b, indent=4))
+                if expl.get("why"):
+                    lines.append("")
+                    lines.append(_bullet("Why it matters: " + expl["why"], indent=4))
+
             if s.evidence:
                 lines.append("")
                 lines.append("  Evidence")
                 for e in s.evidence[:5]:
                     lines.append(_bullet(e, indent=4))
             lines.append("")
+
+    # ── OVERALL BEHAVIOUR CHAIN ──
+    chain_expl = _explain_chain([s.to_dict() for s in stages])
+    if chain_expl:
+        lines.append(_h1("Overall Behaviour"))
+        lines.append("")
+        lines.append(chain_expl)
+        lines.append("")
 
     # ── IOC ANALYSIS ──
     lines.append(_h1("IOC Analysis"))
@@ -442,6 +465,10 @@ def render(input_text: str) -> Dict[str, Any]:
         # R12 · include the deterministic analyst narrative in the SSOT
         # so the frontend can retrieve everything in ONE fetch.
         "narrative":           _build_narrative(pre.to_dict()),
+        "behaviour":           {
+            "chain":            _explain_chain([s.to_dict() for s in stages]),
+            "stages":           [_explain_stage(s.to_dict()) for s in stages],
+        },
         "confidence":          {
             "overall":      conf_break.overall,
             "label":        conf_break.label,
@@ -484,6 +511,8 @@ def _risk_for_tactic(tactic: Optional[str]) -> Optional[str]:
 
 
 def _command_to_ssot(stage) -> Dict[str, Any]:
+    d = stage.to_dict() if hasattr(stage, "to_dict") else dict(stage)
+    expl = _explain_stage(d)
     return {
         "id":                    stage.id,
         "index":                 stage.index,
@@ -499,6 +528,7 @@ def _command_to_ssot(stage) -> Dict[str, Any]:
         "line_number":           stage.line_number,
         "confidence":            stage.confidence,
         "risk":                  _risk_for_tactic(stage.tactic),
+        "explanation":           expl,     # {intro, bullets[], why}
     }
 
 
