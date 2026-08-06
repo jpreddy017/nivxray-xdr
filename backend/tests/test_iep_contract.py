@@ -266,3 +266,24 @@ def test_r10_eml_adapter_is_idempotent():
     iep_b = a.make_iep(EML_BYTES).model_dump()
     assert _strip_nondeterministic(iep_a) == _strip_nondeterministic(iep_b), \
         "EML adapter is not idempotent"
+
+
+# ─── Stable adapter.id (rename-proof replay) ───────────────────────────
+def test_every_adapter_manifest_has_stable_id():
+    from services.adapters import (
+        DOCXAdapter, EMLAdapter, PDFAdapter, TextAdapter,
+    )
+    from tests.test_adapter_pdf  import PDF_BYTES
+    from tests.test_adapter_docx import DOCX_BYTES
+    from tests.test_adapter_eml  import EML_BYTES
+
+    cases = [
+        TextAdapter().make_iep("whoami\n"),
+        PDFAdapter().make_iep(PDF_BYTES),
+        DOCXAdapter().make_iep(DOCX_BYTES),
+        EMLAdapter().make_iep(EML_BYTES),
+    ]
+    for iep in cases:
+        m = iep.metadata.data["adapter"]
+        assert m.get("id"), f"missing adapter.id for {m.get('name')}"
+        assert m["id"] == f"{m['name']}@{m['version']}", m

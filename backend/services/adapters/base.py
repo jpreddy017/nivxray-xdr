@@ -140,6 +140,7 @@ class EvidenceAdapter(ABC):
         md             = dict(metadata or {})
         md.setdefault("adapter", {})
         md["adapter"].update({
+            "id":           f"{self.name}@{self.version}",
             "name":         self.name,
             "version":      self.version,
             "capabilities": list(self.capabilities),

@@ -3572,3 +3572,33 @@ tests pass** (10 IEP contract + 13 adapter 3A + 10 PDF + 8 DOCX +
 Roadmap-relevant future note captured in the architecture doc:
 Streaming Adapters for very large evidence (PCAP / EVTX / memory dumps)
 are v2.x work — not v1.
+
+## 2026-02-06 · Adapter Manifest v3 — stable `adapter.id` + ZIP spec
+
+**Stable `adapter.id`** — every adapter now emits
+`metadata.adapter.id = "<name>@<version>"` (e.g. `"adapter.eml@1.0"`)
+so historical investigations remain replayable even if we ever rename
+an adapter.  Applied uniformly to Text / URL / PDF / DOCX / EML via
+both the base class and every subclass that overrides `make_iep`.
+
+**ZIP compression spec** frozen in the architecture doc — when the
+ZIP adapter ships in M2, it MUST expose
+`metadata.zip.{compressed_size, expanded_size, compression_ratio}`.
+Adapter reports numbers only; the Evidence Reasoning Engine decides
+whether the ratio is suspicious (R8).
+
+**Validation Pack** — added performance-telemetry requirement:
+Phase 3.5 also collects peak-RAM, peak-CPU-time, and execution-time
+for every adapter run so accidental O(n²) algorithms are caught
+before release (test-time only, NOT production instrumentation).
+Scale buckets added to the corpus: 1 / 10 / 500 / 5000-page PDFs,
+1 KB and 50 MB DOCX, 10 / 100 / 10 000-file ZIPs, 1 / 100-attachment EMLs.
+
+**Tests** — 1 new test asserts every adapter carries a stable
+`adapter.id`.  **60 tests pass** (10 IEP contract + 13 adapter 3A +
+10 PDF + 8 DOCX + 5 RelationshipType + 10 EML + 3 R10 idempotency +
+1 stable-id).
+
+Architecture v1.0 permanently frozen.  All remaining work is
+implementation of the 8 milestones (M1 complete, M2 in progress
+with EML shipped and ZIP next, M3-M8 pending).

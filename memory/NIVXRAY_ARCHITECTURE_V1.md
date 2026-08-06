@@ -240,6 +240,7 @@ performance telemetry — all without inspecting logs.
 ```jsonc
 {
   "adapter": {
+    "id":                "adapter.pdf@1.0",   // stable across renames
     "name":              "adapter.pdf",
     "version":           "1.0",
     "capabilities":      ["text", "tables", "metadata", "embedded_files",
@@ -250,6 +251,10 @@ performance telemetry — all without inspecting logs.
   }
 }
 ```
+
+The stable ``adapter.id`` (of the form ``<name>@<version>``) survives
+if we ever rename an adapter, so historical investigations remain
+replayable.
 
 **Relationship model** — the ``verb`` field on every
 :class:`IEPRelationship` uses the authoritative ``RelationshipType``
@@ -349,6 +354,18 @@ Acceptance criteria:
 ### Phase 5 — Evidence Validator
 Own phase because it protects the recursive engine.
 - [ ] Reject OCR-garbage IPs (`l0.0.0.l`), corrupted hashes, bad URLs, false OCR commands, malformed email headers
+- [ ] Only validated artifacts become investigation inputs
+
+### Phase 6 — Evidence Reasoning Engine (SSOT)
+- [ ] Unify Investigation Summary · Executive · Technical · NIST · PDF · Recommendations · Confidence · Observed vs Inferred
+- [ ] One reasoning object, many projections
+
+### Phase 7 — Legacy Purge (Last)
+Only after all regression tests pass.
+- [ ] Remove legacy convergence decoder path
+- [ ] Remove old routing / duplicate models / deprecated endpoints
+- [ ] Freeze the Workspace behavior
+rmed email headers
 - [ ] Only validated artifacts become investigation inputs
 
 ### Phase 6 — Evidence Reasoning Engine (SSOT)
