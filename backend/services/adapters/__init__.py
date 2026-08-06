@@ -19,11 +19,13 @@ Adapter roster (built in the frozen 3A → 3B → 3C order):
 See /app/memory/NIVXRAY_ARCHITECTURE_V1.md.
 """
 from .base import EvidenceAdapter
+from .pdf_adapter  import PDFAdapter
 from .text_adapter import TextAdapter
-from .url_adapter import URLAdapter
+from .url_adapter  import URLAdapter
 
 # Order matters — first adapter whose `can_handle` returns True wins.
 REGISTRY = [
+    PDFAdapter(),
     URLAdapter(),
     TextAdapter(),
 ]
@@ -41,4 +43,5 @@ def adapt(raw, **ctx):
     return TextAdapter().make_iep(raw, **ctx)
 
 
-__all__ = ["EvidenceAdapter", "TextAdapter", "URLAdapter", "REGISTRY", "adapt"]
+__all__ = ["EvidenceAdapter", "TextAdapter", "URLAdapter", "PDFAdapter",
+              "REGISTRY", "adapt"]

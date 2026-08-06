@@ -208,7 +208,6 @@ Foundation. Nothing else may start before this exists.
 Every adapter implements the same **Adapter Contract** interface so
 new evidence types (APK, IPA, Mach-O, ELF, PCAP, memory dumps) later
 become one-file plug-ins.
-
 **Adapter Contract** (`backend/services/adapters/base.py`):
 ```python
 class EvidenceAdapter(Protocol):
@@ -286,6 +285,27 @@ Rationale: OCR carries the most uncertainty (layout, confidence, false
 positives).  Building it first would mask whether bugs originate in the
 IEP, the adapter, the OCR engine, or the downstream pipeline.  Landing
 deterministic adapters first isolates OCR-specific issues.
+
+### Phase 3.5 — Adapter Validation Pack
+Before orchestration, prove every adapter independently against a
+realistic corpus.  This creates a clean boundary — if a bug appears
+in Phase 4+, we know it is NOT in the adapters.
+
+Corpus:
+- Benign + malicious PDFs
+- Phishing EMLs
+- Office documents (DOCX / DOCM)
+- Nested ZIPs
+- Threat-report screenshots
+- Malware / attack-chain diagrams
+
+Acceptance criteria:
+- Every adapter emits a schema-valid IEP
+- Every artifact carries `source_ref` (R6)
+- Relationship discovery emits only structural verbs (R8)
+- Resource limits are respected
+- No adapter performs reasoning
+- Every adapter passes the Phase 2.5 contract suite
 
 ### Phase 4 — Investigation Orchestrator
 - [ ] Validate → normalize → deduplicate artifacts

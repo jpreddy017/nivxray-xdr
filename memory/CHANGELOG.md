@@ -3438,3 +3438,35 @@ Phase 4  · Investigation Orchestrator (Resource Protection + Cycle Detection)
 Phase 5  · Evidence Validator
 Phase 6  · Evidence Reasoning Engine (SSOT) + view projections
 Phase 7  · Legacy removal (after shadow validation)
+
+## 2026-02-06 · Phase 3.5 recorded + Phase 3A PDF adapter shipped
+
+**Phase 3.5 · Adapter Validation Pack** inserted into the roadmap between
+Phase 3C and Phase 4.  Corpus + acceptance criteria captured in the
+frozen doc.
+
+**Phase 3A · PDF Adapter** (`backend/services/adapters/pdf_adapter.py`)
+- pdfplumber for text + tables + metadata
+- PyMuPDF (fitz) for hyperlinks, embedded files (attachments),
+  annotations, launch actions, form fields, digital signatures, page
+  images (count only), JavaScript objects
+- Body text is fed through the deterministic `artifact_splitter` so
+  URLs / IPs / hashes / commands / registry keys / file paths / CVEs
+  all appear as first-class artifacts with `pdf.page.N` source_refs
+- Structural relationships (R8-safe): `pdf → contains → URL`,
+  `pdf → attaches → embedded_file`, `pdf → embeds → js`,
+  `pdf → executes → launch_target`, `pdf → signed_by → signature`
+- Warnings: `pdf_encrypted`, `pdf_contains_javascript`,
+  `pdf_contains_launch_actions`, `pdf_contains_embedded_files`,
+  `pdfplumber_unavailable`, `pymupdf_unavailable`, parse-failed
+- `recurse()` returns embedded-file + launch-action artifacts so the
+  Phase 4 orchestrator can spawn child IEPs
+- Registered in the adapter REGISTRY before URL + Text so
+  PDF magic (`%PDF-`) short-circuits routing
+
+**Tests** — `backend/tests/test_adapter_pdf.py` (10 tests, hermetic —
+uses a synthesized PDF at test time). Covers detection, IEP shape,
+source_ref presence (R6), body-text artifact extraction, hyperlink
+annotation extraction, structural-verb restriction (R8), CONTAINS
+relationship, JSON round-trip, metadata surfacing.  All 38 tests
+across the four test files pass.
