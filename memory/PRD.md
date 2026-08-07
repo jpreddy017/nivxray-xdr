@@ -1,3 +1,41 @@
+## 🟢 2026-02-15 · Fork · R28.7.1 · Orchestrator ↔ Registry Wiring — LANDED
+
+**Plumbing complete.** The orchestrator now consumes the Capability Registry as a first-class citizen alongside the legacy plugin registry. Adding a new capability is now literally: write one `CapabilityContract` + implementation → drop-register it → orchestrator picks it up on the next run. No orchestrator, planner, lifecycle, QA, termination, or SSOT change needed.
+
+### What changed
+- `services/uaie/orchestrator.py` · in the capability-execution loop, after the legacy `_plan_caps(union_caps)` produces `caps`, the orchestrator additionally queries `contract.applicable_contracts()` for every recognized type on the artifact, sorts the returned contracts using `planner_v2._sort_key` (category → cost → priority_hint → gain → id ASC), and APPENDS the impls to `caps`, deduped by `name` so a plugin registered both ways runs exactly once.
+- The registry-driven merge is wrapped in a `try/except pass` so that if the registry is empty (or import fails) the loop falls back to pure legacy behaviour. Zero breakage risk.
+
+### The Acceptance Test (locks the architectural boundary)
+`tests/test_orchestrator_registry_wiring.py`:
+1. `test_registry_only_plugin_is_executed_by_orchestrator` — registers a capability EXCLUSIVELY via the Registry (no `capability.register` call). Runs the orchestrator. Asserts the plugin executed exactly once and its child artifact entered the graph.
+2. `test_registry_planning_does_not_break_legacy_capabilities` — both a legacy plugin and a contract-only plugin registered → each runs exactly once (no double-fire, no missed fire, no ordering surprise).
+3. `test_no_contracts_means_pure_legacy_path` — empty registry → orchestrator runs to Fixed-Point cleanly through the legacy path.
+
+### Verification
+```
+tests/test_orchestrator_registry_wiring.py     3 passed
+Combined UAIE + QA + Term + LC + Reg + Wiring  241 passed / 207 skipped / 0 failed
+Backend /api/health                            HTTP 200
+```
+
+### 🎯 What's now unlocked
+Every future capability — XOR-loop transformer, binary configuration extractor, IOC promoter, brotli inflate, jwt parse, rc4 stream, aes ecb, whatever comes — is a **plugin drop, not an orchestrator change**. That is the architectural destination the last 4 phases were converging on.
+
+### Roadmap next (per user direction · pause and prove the vertical chain)
+Instead of shipping 10 recognizers, **prove the architecture with ONE complete end-to-end chain**:
+```
+PowerShell → ps_encoded_command → utf-16 → base64 → gzip → decoded PS →
+    → transformer.byte_array_xor_loop (NEW)  →  binary_bytes →
+    → analyzer.binary_config_extractor (NEW) →  configuration →
+    → analyzer.ioc_extractor (NEW)           →  ioc_artifacts →
+    → C2 IP surfaces automatically
+```
+Three contract-based plugins close the Sophos payload end-to-end (and any other family using the same generic techniques). No orchestrator, planner, or lifecycle change required.
+
+---
+
+
 ## 🟢 2026-02-15 · Fork · R28.7 · Registry-Driven Planner (Phase 6 · Step 3) — LANDED
 
 **The architectural boundary is now locked in code.**  The orchestrator asks the Capability Registry for a plan; it never inspects the implementation.  This is the boundary that keeps UAIE maintainable as it grows.

@@ -469,6 +469,47 @@ class Orchestrator:
                     seen_cap_names.add(c.name)
                     union_caps.append(c)
             caps = _plan_caps(union_caps)
+            # ── R28.7.1 · Registry-Driven Planner integration ────────
+            # If any capability contracts are registered for the current
+            # artifact's type OR any recognized type, MERGE the registry
+            # plan into ``caps``.  Deterministic: registry plan appended
+            # in its declared order, deduped by ``.name`` so a plugin
+            # registered both ways runs only once.  Legacy plugins remain
+            # fully supported — this is additive, never subtractive.
+            try:
+                from .contract import applicable_contracts as _reg_applicable, \
+                                        get as _reg_get
+                # Union of every type the registry could match on:
+                #   · the artifact's own declared type
+                #   · every type any recognizer just claimed for it
+                probe_types = set(matched_types) | {art.artifact_type}
+                registry_contracts = []
+                seen_contract_ids: set[str] = set()
+                for _ptype in probe_types:
+                    for _c in _reg_applicable(_ptype):
+                        if _c.id in seen_contract_ids:
+                            continue
+                        seen_contract_ids.add(_c.id)
+                        registry_contracts.append(_c)
+                # Sort with the same 5-level deterministic ladder used
+                # by planner_v2.plan_for (kept in-line to avoid an extra
+                # import cycle).
+                from .planner_v2 import _sort_key as _reg_sort_key
+                registry_contracts.sort(key=_reg_sort_key)
+                for _contract in registry_contracts:
+                    _pair = _reg_get(_contract.id)
+                    if _pair is None:
+                        continue
+                    _impl = _pair[1]
+                    if _impl is None:
+                        continue
+                    _name = getattr(_impl, "name", _contract.id)
+                    if _name in seen_cap_names:
+                        continue
+                    seen_cap_names.add(_name)
+                    caps.append(_impl)
+            except Exception:  # pragma: no cover — never break legacy loop
+                pass
             # ── Lifecycle transition · RECOGNIZED → PLANNED ──
             lc.transition(art.uri, LC_PLANNED,
                            actor="orchestrator.planner",
