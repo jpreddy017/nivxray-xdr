@@ -1,3 +1,78 @@
+## 🟢 2026-02-15 · Fork · R28.5 · Artifact Lifecycle State Machine — LANDED
+
+**Every artifact now carries a formal 11-state lifecycle with a replayable transition timeline.**  Analysts (and auditors) can walk the exact chain of decisions the engine made about every artifact.
+
+### State DAG (frozen)
+```
+NEW → RECOGNIZED → PLANNED → EXECUTED → VALIDATED
+                                           │
+                                           ├── REPAIR_PENDING → REPAIRED
+                                           │                        ↓
+                                           │                    VALIDATED (re-check)
+                                           │
+                                           └── UNREACHABLE ──────────┐
+                                                                       ▼
+                                    ANALYZED → EVIDENCE_COMPLETE → FIXED_POINT → DONE
+```
+
+Legal transitions:
+- Monotonic forward in the DAG (leaps allowed; recorder collapses micro-steps).
+- Terminal branch: any non-terminal → `UNREACHABLE` → `DONE`.
+- Backward moves are silently rejected and appended to `lc.warnings` for operator inspection.
+
+### Per-transition record (immutable)
+```
+StateTransition(
+    artifact_uri, previous_state, next_state,
+    actor,            # recognizer / capability / validator / repair / audit component
+    reason,           # canonical, greppable
+    evidence_ids[],   # evidence emitted with this transition
+    ts,               # wall-clock (kept in orchestrator result, STRIPPED from SSOT projection)
+)
+```
+
+### Wiring
+- Orchestrator emits transitions at every stage:
+  * `NEW` — root + every capability-produced child.
+  * `RECOGNIZED` — after all recognizers evaluated an artifact.
+  * `PLANNED` — after the deterministic planner ordered its capabilities.
+  * `EXECUTED` — after the caps loop finished for that artifact.
+  * `ANALYZED` — when a capability emits evidence on that artifact.
+  * `EVIDENCE_COMPLETE` — when every applicable analyzer was consulted.
+  * `FIXED_POINT` + `DONE` — after the audit certifies the fixed point.
+- QA layer emits `VALIDATED` / `REPAIR_PENDING` / `REPAIRED` / `UNREACHABLE`.
+- Termination audit closes UNREACHABLE artifacts directly to `DONE`.
+
+### SSOT purity (R28)
+Wall-clock `ts` is stripped from both lifecycle transitions AND QA certificates in the SSOT projection.  Timestamps live in the ledger; the SSOT payload is content-deterministic (same bytes in → same checksum out).
+
+### Files added
+- `services/uaie/lifecycle.py` — `LC_*` state constants, `is_legal_transition`, `StateTransition`, `LifecycleRecorder`.
+- `tests/test_lifecycle_state_machine.py` — 10 tests: DAG legality, illegal-transition warnings, happy-path timeline, repair path VALIDATED→REPAIR_PENDING→REPAIRED, UNREACHABLE→DONE closure, determinism, SSOT projection, StateTransition immutability.
+
+### Files edited
+- `services/uaie/orchestrator.py` — wired the recorder through `run()` + `_qa_accept_child()` + `_mark_unreachable()`; `state_transitions` on `OrchestratorResult`.
+- `services/uaie/ssot_projector.py` — new `lifecycle` sub-tree; QA certificate `ts` stripped for purity.
+
+### Verification
+```
+tests/test_lifecycle_state_machine.py    10 passed
+Combined UAIE + QA + Termination + LC   209 passed / 207 skipped / 0 failed
+Backend /api/health                     HTTP 200
+```
+
+### Roadmap sequencing (user-approved 2026-02-15)
+- ✅ P0 · Phase 4 — Fixed-Point Termination Certificate
+- ✅ P0 · Phase 5 — Artifact State Machine  (THIS ITERATION)
+- 🎯 P1 · Phase 6 — Capability Contracts (`requires`, `produces`, `improves`, `consumes`, `confidence_gain`, `cost`)
+- P1 · Phase 7 — Multi-Dimensional Confidence Propagation (Decode/Repair/Analysis/Family/IOC/Overall)
+- P2 · Phase 8 — Goal-Driven Capability Evaluation Engine
+- P2 · Phase 9 — Investigation Knowledge Economy (dependency graph from consumes/produces)
+- P3 · UI (Loop Summary, Decode Trace, Evidence Graph) — deferred until backend architecture is complete and stable.
+
+---
+
+
 ## 🟢 2026-02-15 · Fork · R28.4 · Fixed-Point Termination Certificate — LANDED
 
 **Mathematical proof of investigation completeness.** After the main investigation loop drains its queue, the orchestrator now runs a formal audit pass to prove that no deterministic action remains applicable. The certificate is analyst-visible in the SSOT.

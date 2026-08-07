@@ -45,6 +45,11 @@ from .qa        import (RepairCandidate, RepairCertificate, RepairResult,
                          UNREACHABLE_NO_STRATEGIES_LEFT)
 from .termination import (CERT_REASON_FIXED_POINT, RemainingTransition,
                             TerminationCertificate)
+from .lifecycle   import (LC_ANALYZED, LC_DONE, LC_EVIDENCE_COMPLETE,
+                             LC_EXECUTED, LC_FIXED_POINT, LC_NEW,
+                             LC_PLANNED, LC_RECOGNIZED, LC_REPAIRED,
+                             LC_REPAIR_PENDING, LC_UNREACHABLE, LC_VALIDATED,
+                             LifecycleRecorder, StateTransition)
 from .recognizer import Recognition, Recognizer
 
 
@@ -61,6 +66,8 @@ class OrchestratorResult:
     repair_certificates:      List[RepairCertificate]     = field(default_factory=list)
     # ── Fixed-Point Termination (R28.4) ─────────────────────────────
     termination_certificate:  Optional[TerminationCertificate] = None
+    # ── Artifact State Machine (R28.5) ──────────────────────────────
+    state_transitions:        List[StateTransition] = field(default_factory=list)
 
 
 def _default_planner(queue: deque) -> Artifact:
@@ -101,7 +108,8 @@ class Orchestrator:
         return results
 
     def _qa_accept_child(self, child: Artifact, parent: Artifact,
-                          result: OrchestratorResult) -> Optional[Artifact]:
+                          result: OrchestratorResult,
+                          lc: Optional[LifecycleRecorder] = None) -> Optional[Artifact]:
         """Run the QA layer on a child artifact.
 
         Returns the artifact to enqueue (either the original child if
@@ -117,6 +125,10 @@ class Orchestrator:
         if not validator_results:
             # No QA registered for this type — legacy behaviour.
             result.states[child.uri] = STATE_VALIDATED
+            if lc is not None:
+                lc.transition(child.uri, LC_VALIDATED,
+                                actor="qa.no_validators_registered",
+                                reason="no_validators_for_type")
             return child
 
         # Aggregate validators' verdicts.  A child is VALID only if
@@ -140,10 +152,24 @@ class Orchestrator:
             )
         if not failures:
             result.states[child.uri] = STATE_VALIDATED
+            if lc is not None:
+                lc.transition(child.uri, LC_VALIDATED,
+                                actor="qa.validators_passed",
+                                reason=f"validators_passed={len(validator_results)}")
             return child
 
         # ── Repair phase ──
         result.states[child.uri] = STATE_REPAIR_PENDING
+        if lc is not None:
+            # We must first pass through VALIDATED because the DAG
+            # requires it — the validator DID run (and failed).  The
+            # recorder rejects illegal transitions silently.
+            lc.transition(child.uri, LC_VALIDATED,
+                            actor="qa.validators_ran",
+                            reason=f"validators_failed={[r.reason for r in failures]}")
+            lc.transition(child.uri, LC_REPAIR_PENDING,
+                            actor="qa.planner",
+                            reason=f"repair_pending failures={[r.reason for r in failures]}")
         # Union all candidates across failed validators, then rank.
         all_candidates: List[RepairCandidate] = []
         for r in failures:
@@ -160,7 +186,8 @@ class Orchestrator:
             # No strategies proposed — mark UNREACHABLE.
             self._mark_unreachable(child, failures, result,
                                     reason=UNREACHABLE_NO_STRATEGIES_LEFT,
-                                    detail="validators diagnosed invalid but proposed no repairs")
+                                    detail="validators diagnosed invalid but proposed no repairs",
+                                    lc=lc)
             return None
 
         attempts = 0
@@ -168,7 +195,8 @@ class Orchestrator:
             if attempts >= self.max_repair_attempts_per_artifact:
                 self._mark_unreachable(child, failures, result,
                                         reason=UNREACHABLE_NO_STRATEGIES_LEFT,
-                                        detail=f"max_repair_attempts={self.max_repair_attempts_per_artifact}")
+                                        detail=f"max_repair_attempts={self.max_repair_attempts_per_artifact}",
+                                        lc=lc)
                 return None
             attempts += 1
             repair = repair_for(cand.strategy)
@@ -272,6 +300,18 @@ class Orchestrator:
             ))
             result.states[child.uri]    = STATE_REPAIRED
             result.states[repaired.uri] = STATE_VALIDATED
+            if lc is not None:
+                lc.transition(child.uri, LC_REPAIRED,
+                                actor=repair.name,
+                                reason=f"repair_success strategy={cand.strategy}")
+                # The repaired artifact enters the graph in NEW then
+                # is immediately VALIDATED by the re-check above.
+                lc.transition(repaired.uri, LC_NEW,
+                                actor=repair.name,
+                                reason=f"repair_produced_new_artifact strategy={cand.strategy}")
+                lc.transition(repaired.uri, LC_VALIDATED,
+                                actor="qa.re_validator",
+                                reason="repaired_artifact_passed_revalidation")
             # Track the repaired artifact so downstream consumers can look it up.
             result.artifacts[repaired.uri] = repaired
             return repaired
@@ -279,14 +319,20 @@ class Orchestrator:
         # Exhausted all candidates.
         self._mark_unreachable(child, failures, result,
                                 reason=UNREACHABLE_NO_STRATEGIES_LEFT,
-                                detail=f"tried={[c.strategy for c in ranked]}")
+                                detail=f"tried={[c.strategy for c in ranked]}",
+                                lc=lc)
         return None
 
     def _mark_unreachable(self, child: Artifact,
                            failures: List[ValidationResult],
                            result: OrchestratorResult,
-                           *, reason: str, detail: str) -> None:
+                           *, reason: str, detail: str,
+                           lc: Optional[LifecycleRecorder] = None) -> None:
         result.states[child.uri] = STATE_UNREACHABLE
+        if lc is not None:
+            lc.transition(child.uri, LC_UNREACHABLE,
+                            actor="qa.planner",
+                            reason=f"{reason}: {detail}")
         result.ledger.append(
             artifact_uri=child.uri, action=ACTION_MARK_UNREACHABLE,
             actor="qa.planner",
@@ -328,6 +374,11 @@ class Orchestrator:
         result = OrchestratorResult()
         result.artifacts[root.uri] = root
         result.states[root.uri] = STATE_NEW
+        # ── Artifact State Machine (R28.5) ──────────────────────────
+        lc = LifecycleRecorder()
+        lc.transition(root.uri, LC_NEW,
+                       actor="orchestrator.root",
+                       reason="root_artifact_created")
         queue: deque = deque([root])
         seen_uris = {root.uri}
 
@@ -391,6 +442,14 @@ class Orchestrator:
                                            SKIP_NO_RECOGNIZER_MATCH))
                 continue
 
+            # ── Lifecycle transition · NEW → RECOGNIZED ──
+            # Any artifact that has either a declared type OR a
+            # recognizer match has entered the RECOGNIZED state.
+            lc.transition(art.uri, LC_RECOGNIZED,
+                           actor="orchestrator.recognizer_phase",
+                           reason=(f"matched_types={sorted(matched_types)} "
+                                     f"best={best.artifact_type if best else '-'}"))
+
             # ── 2. Execute all capabilities registered for any matched
             #      type ──
             # Priority 3 · Deterministic Planner (2026-02):
@@ -410,6 +469,13 @@ class Orchestrator:
                     seen_cap_names.add(c.name)
                     union_caps.append(c)
             caps = _plan_caps(union_caps)
+            # ── Lifecycle transition · RECOGNIZED → PLANNED ──
+            lc.transition(art.uri, LC_PLANNED,
+                           actor="orchestrator.planner",
+                           reason=f"capabilities_planned={len(caps)}")
+            # Track whether this artifact emitted any evidence during
+            # its capability execution — used for ANALYZED transition.
+            _artifact_emitted_evidence = False
             for cap in caps:
                 # Dependency check — evidence prerequisites
                 if cap.requires_evidence:
@@ -448,6 +514,7 @@ class Orchestrator:
                 )
                 for ev in cr.evidence:
                     result.evidence.append(ev)
+                    _artifact_emitted_evidence = True
                     result.ledger.append(
                         artifact_uri=art.uri, action=ACTION_EMIT_EVIDENCE, actor=cap.name,
                         output_summary=f"{ev.kind}={ev.value}",
@@ -486,13 +553,18 @@ class Orchestrator:
                         continue
                     seen_uris.add(child.uri)
                     result.artifacts[child.uri] = child
+                    # Lifecycle · NEW for every child at the moment it
+                    # enters the graph (before QA / re-enqueue).
+                    lc.transition(child.uri, LC_NEW,
+                                    actor=cap.name,
+                                    reason="child_artifact_produced")
                     # ── QA-Layer (R28.3) · Validate → Repair → Enqueue ──
                     # If any validators are registered for this
                     # artifact_type, run them.  Rejected children are
                     # given a chance to be repaired deterministically.
                     # If no validators exist for this type, this is a
                     # no-op and legacy behaviour is preserved.
-                    to_enqueue = self._qa_accept_child(child, art, result)
+                    to_enqueue = self._qa_accept_child(child, art, result, lc=lc)
                     if to_enqueue is None:
                         # UNREACHABLE — validators failed and no repair
                         # strategy produced a valid replacement.  The
@@ -508,12 +580,65 @@ class Orchestrator:
                                            input_summary=f"parent={art.uri}",
                                            output_summary=f"type={to_enqueue.artifact_type} depth={to_enqueue.depth}")
 
+            # ── Lifecycle transitions after all caps ran on `art` ──
+            # PLANNED → EXECUTED (unconditional; the artifact went
+            # through the caps loop even if 0 caps applied).
+            lc.transition(art.uri, LC_EXECUTED,
+                           actor="orchestrator.execute_phase",
+                           reason=f"caps_executed_count={len(caps)}")
+            # EXECUTED → ANALYZED only if at least one capability
+            # emitted evidence directly on this artifact.
+            if _artifact_emitted_evidence:
+                lc.transition(art.uri, LC_ANALYZED,
+                               actor="orchestrator.execute_phase",
+                               reason="capability_emitted_evidence")
+                # ANALYZED → EVIDENCE_COMPLETE — every applicable
+                # capability was consulted (executed or skipped for a
+                # structured reason).  The audit later will confirm
+                # this at FIXED_POINT time; here we're just closing
+                # the analyzer window per-artifact.
+                lc.transition(art.uri, LC_EVIDENCE_COMPLETE,
+                               actor="orchestrator.execute_phase",
+                               reason="all_applicable_capabilities_consulted")
+
         # ── Fixed-Point Termination Audit (R28.4) ───────────────────
         # Prove the investigation is at its mathematical fixed point:
         # every artifact was seen by every applicable recognizer,
         # capability, validator, and — for UNREACHABLE artifacts —
         # every applicable repair strategy.
         result.termination_certificate = self._run_termination_audit(result)
+
+        # ── Lifecycle transitions · FIXED_POINT → DONE (R28.5) ──────
+        # If the audit confirms fixed-point, every artifact that is
+        # NOT already at a terminal branch (UNREACHABLE) transitions
+        # forward to FIXED_POINT and then to DONE.  Artifacts already
+        # in UNREACHABLE close directly to DONE.
+        if result.termination_certificate.fixed_point:
+            for uri in list(result.artifacts.keys()):
+                cur = lc.current(uri)
+                if cur == LC_UNREACHABLE:
+                    lc.transition(uri, LC_DONE,
+                                    actor="orchestrator.audit",
+                                    reason="unreachable_closed_at_fixed_point")
+                    continue
+                # Best-effort forward walk — the recorder validates
+                # each hop and silently ignores illegal ones.
+                lc.transition(uri, LC_FIXED_POINT,
+                               actor="orchestrator.audit",
+                               reason="audit_confirmed_fixed_point")
+                lc.transition(uri, LC_DONE,
+                               actor="orchestrator.audit",
+                               reason="investigation_complete")
+
+        # Publish the lifecycle timeline to the result + mirror the
+        # authoritative recorder state into the QA-layer `states` map.
+        result.state_transitions = list(lc.transitions)
+        for uri, s in lc._current.items():
+            # Never overwrite the QA-layer states that carry richer
+            # meaning (REPAIRED / UNREACHABLE).  Only mirror if the
+            # existing states entry hasn't set a more specific label.
+            if uri not in result.states or result.states[uri] == STATE_NEW:
+                result.states[uri] = s
 
         result.total_ms = (time.perf_counter() - t0) * 1000.0
         result.ledger.append(artifact_uri=root.uri, action=ACTION_COMPLETE,

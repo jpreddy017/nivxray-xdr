@@ -410,6 +410,52 @@ def project(orchestrator_result: OrchestratorResult,
         # every deterministic avenue.  Answers "is the graph
         # provably complete?" in one look.
         "termination_certificate": _termination_certificate(orchestrator_result),
+        # R28.5 · Artifact Lifecycle State Machine — the full timeline
+        # of every state transition every artifact went through.  Lets
+        # analysts replay exactly why the engine made every decision.
+        "lifecycle":               _lifecycle(orchestrator_result),
+    }
+
+
+def _lifecycle(result: OrchestratorResult) -> Dict[str, Any]:
+    """Project the Artifact State Machine into the canonical SSOT.
+
+    Emits:
+      · ``transitions[]`` — full chronological timeline (immutable
+        rows).  ``ts`` (wall-clock) is deliberately stripped — timing
+        lives in the ledger.  The SSOT projection MUST be pure (R28).
+      · ``per_artifact[uri]`` — timeline scoped to one artifact for
+        quick UI rendering
+      · ``current_state`` — latest state per URI
+      · ``summary`` — counts by state, counts by actor
+    """
+    from dataclasses import asdict
+    raw = [asdict(t) for t in getattr(result, "state_transitions", [])]
+    # Purity — drop the wall-clock timestamp.
+    for row in raw:
+        row.pop("ts", None)
+    per_artifact: Dict[str, List[Dict[str, Any]]] = {}
+    current_state: Dict[str, str] = {}
+    for t in raw:
+        per_artifact.setdefault(t["artifact_uri"], []).append(t)
+        current_state[t["artifact_uri"]] = t["next_state"]
+
+    states_by_kind: Dict[str, int] = {}
+    for s in current_state.values():
+        states_by_kind[s] = states_by_kind.get(s, 0) + 1
+    actors_by_count: Dict[str, int] = {}
+    for t in raw:
+        actors_by_count[t["actor"]] = actors_by_count.get(t["actor"], 0) + 1
+
+    return {
+        "transitions":   raw,
+        "per_artifact":  per_artifact,
+        "current_state": current_state,
+        "summary": {
+            "transition_count": len(raw),
+            "states_by_kind":   states_by_kind,
+            "actors_by_count":  actors_by_count,
+        },
     }
 
 
@@ -432,6 +478,9 @@ def _quality_assurance(result: OrchestratorResult) -> Dict[str, Any]:
     from dataclasses import asdict
     vcerts = [asdict(c) for c in getattr(result, "validation_certificates", [])]
     rcerts = [asdict(c) for c in getattr(result, "repair_certificates", [])]
+    # Purity — timestamps live in the ledger, not the SSOT.
+    for c in vcerts: c.pop("ts", None)
+    for c in rcerts: c.pop("ts", None)
     states = dict(getattr(result, "states", {}))
 
     # Convenience roll-ups — counts by outcome for a quick verdict.
