@@ -653,3 +653,122 @@ the graph explains WHY it exists (reasons[] chain).
 R25 is the destination.  R23/R24 remain in force as guardrails
 (never freeze the tab, always emit performance).  R22 remains as
 the UI-projection rule (behaviors → 14 MITRE lanes).
+
+═════════════════════════════════════════════════════════════════════
+## R26 · UAIE Migration Contract "B+" (2026-08-07 · PERMANENTLY FROZEN)
+═════════════════════════════════════════════════════════════════════
+
+The move from today's linear recursive decoder → the UAIE (R25) is
+an ENGINE MIGRATION, not a feature sprint.  Behaviour is preserved
+by contract; architecture evolves underneath.
+
+### Governing principle
+    Architecture may change.  Behavior must not.
+
+Any commit that violates this rule is auto-reverted.
+
+### Six-phase migration
+
+**Phase 0 · Baseline Freeze** (must land BEFORE any Phase 1 code)
+- Capture current API responses for a corpus of 20+ payloads
+  (canary, multi-stage PS, encoded, gzip, shellcode, ransomware,
+  PDF, DOCX, EML, ZIP, image, URL, plus every user-reported case).
+- Snapshot: full SSOT JSON, decoded `output`, `iocs`, `mitre`,
+  `verdict`, `verdict_card`, `metadata.performance` (excl. timings),
+  `incident.behaviors[]`, `incident.timeline[]`.
+- Store snapshots under ``tests/uaie_baseline/`` — immutable.
+- This becomes the GOLDEN BASELINE the UAIE engine MUST match.
+
+**Phase 1 · Contract Scaffolding**
+- Implement the 5 R25 contracts as pure Python protocols:
+    · ``services.uaie.artifact.Artifact``
+    · ``services.uaie.recognizer.Recognizer``
+    · ``services.uaie.capability.Capability``
+    · ``services.uaie.evidence.Evidence``
+    · ``services.uaie.orchestrator.Orchestrator``
+- Nothing else.  No PE.  No Capstone.  No XOR.  No AI.  No UI.
+- All modules under ``services/uaie/`` — new tree, no touching the
+  legacy tree.
+
+**Phase 2 · Port Existing Decoders Unchanged**
+- Migrate today's 5 decoders to the new contracts:
+    · powershell_encodedcommand → Recognizer + Capability pair
+    · utf16le                    → Capability
+    · base64                     → Recognizer + Capability
+    · from_base64_string         → Recognizer + Capability
+    · gzip                       → Recognizer + Capability
+    · zlib                       → Recognizer + Capability
+    · shellcode_string_scan      → Recognizer + Capability
+- ZERO behaviour change.  Same input → same output.
+
+**Phase 3 · Parallel Run + Compatibility Gate**
+- Both engines run on every request.
+- ``services.uaie.compat.compare(legacy_ssot, uaie_ssot)`` diffs:
+    evidence, IOCs, behaviors, MITRE, timeline, verdict, report.
+- Any mismatch → CI fails, PR blocked.
+- Legacy engine stays the source of truth for user-facing responses.
+- UAIE runs in shadow mode until deep-compare reaches 100%.
+
+**Phase 4 · Format Plugins (only after Phase 3 passes)**
+- PE, .NET, PDF, Office, Registry, ELF, MSI, LNK, MSI, CAB, ISO.
+- Each plugin = one folder under ``plugins/`` with:
+    · ``recognizer.py``  · ``capability.py``  · ``tests/`` · ``README.md``
+- Zero core changes.  Auto-discovered at startup.
+
+**Phase 5 · Evidence Plugins**
+- Capstone, Beacon Config Parser, YARA, Sigma, Entropy, Cert,
+  Imports, Resources, JA3, ImpHash, Authentihash.
+- Same plugin shape.  Zero core changes.
+
+**Phase 6 · Family Intelligence**
+- Family attribution runs LAST — reads the evidence graph only.
+- Cobalt Strike, Metasploit, Emotet, Qakbot, IcedID, Bumblebee, …
+- Pure downstream projection.  Never gates a capability.
+
+### Non-negotiable rules
+
+1. **PR classification header REQUIRED.**  Every PR title / body
+   must declare:  ``[CORE]``  |  ``[PLUGIN]``  |  ``[TEST]``  |
+   ``[DOC]``.  CORE PRs require architectural sign-off.  PLUGIN
+   PRs may merge independently once tests pass.
+
+2. **Compatibility gate is CI-blocking.**  ``pytest
+   tests/uaie_baseline_compat.py`` must pass on every PR.
+
+3. **Zero UI changes during Phases 0-3.**  The analyst workspace
+   sees the SAME data structures.  UI evolution is Phase 7+.
+
+4. **Zero API schema changes during Phases 0-3.**  Consumers of
+   ``/api/*`` see identical responses.
+
+5. **Delete nothing during Phases 0-3.**  Both engines coexist.
+   Legacy is retired ONLY after Phase 3 reaches 100% match on
+   the full baseline corpus for 7 consecutive days.
+
+6. **Plugins are device drivers.**  The core NEVER imports a
+   specific recognizer by name.  Auto-discovery via
+   ``plugins/*/manifest.json`` + a well-known entry point.
+
+7. **Immutable artifacts.**  Once created, an Artifact is never
+   mutated.  New observations produce new artifacts with lineage
+   links.
+
+### CI Acceptance criteria (all six required)
+
+- ✅ Zero UI changes (git diff of frontend/src returns 0)
+- ✅ Zero API schema changes (OpenAPI diff = 0)
+- ✅ Zero behavioural regressions (baseline_compat.py passes)
+- ✅ Existing recognizers migrated with byte-identical outputs
+- ✅ Legacy + UAIE parallel-run diff = 0 for 7 consecutive days
+- ✅ New capabilities land only after Phase 3 completion
+
+### Migration is DONE when
+- Legacy engine deleted (Phase 7).
+- All 8 planned format plugins land as pure additions.
+- Family classifier reads only the evidence graph.
+- Adding a new format = drop a plugin folder, restart, done.
+- Adding a new capability = drop a plugin folder, restart, done.
+
+R26 replaces every previous decoder-related migration plan.  Any
+attempt to skip Phase 0 or bypass the compatibility gate is
+architecturally invalid and must be rejected in review.
