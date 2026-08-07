@@ -695,6 +695,41 @@ class Orchestrator:
         capabilities_checked = 0
         validators_checked   = 0
         repair_checked       = 0
+        # ── R28.4.1 · Structured per-dimension counters ────────────
+        rec_applicable = rec_evaluated = rec_passed = 0
+        cap_applicable = cap_evaluated = cap_passed = 0
+        val_applicable = val_evaluated = val_passed = 0
+        rep_applicable = rep_evaluated = rep_passed = 0
+        # Which recognizers actually returned ≥1 match?  Derived from
+        # ledger entries where output_summary contains "matches=N" with N>0.
+        _rec_passed_pairs: set = set()
+        for e in result.ledger:
+            if e.action == "recognize" and e.output_summary:
+                # Cheap parse: look for "matches=N" fragment.
+                s = e.output_summary
+                if "matches=" in s:
+                    try:
+                        n = int(s.split("matches=", 1)[1].split()[0].strip(",;"))
+                    except (ValueError, IndexError):
+                        n = 0
+                    if n > 0:
+                        _rec_passed_pairs.add((e.artifact_uri, e.actor))
+        # Which capabilities emitted at least one artifact/evidence?
+        _cap_passed_pairs: set = set()
+        for e in result.ledger:
+            if e.action == "execute" and (e.output_summary or "") != "" \
+                    and "error" not in (e.output_summary or "").lower():
+                _cap_passed_pairs.add((e.artifact_uri, e.actor))
+        # Which validators returned valid=True?
+        _val_passed_pairs: set = set()
+        for c in result.validation_certificates:
+            if c.valid:
+                _val_passed_pairs.add((c.artifact_uri, c.validator))
+        # Which repair strategies succeeded?
+        _rep_passed_pairs: set = set()
+        for c in result.repair_certificates:
+            if c.outcome == "success":
+                _rep_passed_pairs.add((c.source_uri, c.strategy))
 
         for uri, art in result.artifacts.items():
             state = result.states.get(uri, "")
@@ -710,6 +745,12 @@ class Orchestrator:
                                      STATE_REPAIR_PENDING)
             for rec in self.recognizers:
                 recognizers_checked += 1
+                rec_applicable += 1                     # every recognizer is universal
+                pair = (uri, rec.name)
+                if pair in ran_recognize:
+                    rec_evaluated += 1
+                    if pair in _rec_passed_pairs:
+                        rec_passed += 1
                 if superseded:
                     continue
                 if (uri, rec.name) not in ran_recognize:
@@ -734,8 +775,12 @@ class Orchestrator:
                     skipped_pairs.add((uri, e.actor))
             for cap in candidate_caps:
                 capabilities_checked += 1
+                cap_applicable += 1
                 pair = (uri, cap.name)
                 if pair in ran_execute:
+                    cap_evaluated += 1
+                    if pair in _cap_passed_pairs:
+                        cap_passed += 1
                     continue
                 if pair in skipped_pairs:
                     # skip had a structured reason — not a missed transition
@@ -760,6 +805,12 @@ class Orchestrator:
                                     + list(_VALIDATOR_REGISTRY.get("*", []))
             for v in candidate_validators:
                 validators_checked += 1
+                val_applicable += 1
+                pair = (uri, v.name)
+                if pair in ran_validate:
+                    val_evaluated += 1
+                    if pair in _val_passed_pairs:
+                        val_passed += 1
                 if (uri, v.name) not in ran_validate:
                     # Root artifact isn't validated by design (only
                     # children go through the QA hook).  Only flag
@@ -785,11 +836,33 @@ class Orchestrator:
                         proposed.update(c.candidates)
                 for strategy in proposed:
                     repair_checked += 1
+                    rep_applicable += 1
+                    pair = (uri, strategy)
+                    if pair in ran_repair:
+                        rep_evaluated += 1
+                        if pair in _rep_passed_pairs:
+                            rep_passed += 1
                     if (uri, strategy) not in ran_repair:
                         remaining.append(RemainingTransition(
                             artifact_uri=uri, actor=strategy, kind="repair",
                             reason="proposed repair strategy was never attempted",
                         ))
+
+        # ── R28.4.1 · Opportunity Analysis (renamed from "missing") ─
+        # Every "remaining transition" that names a registered actor
+        # is a CAPABILITY EXISTS, NOT APPLICABLE case.  When no actor
+        # is registered for a diagnosed pattern the ledger doesn't
+        # produce a transition at all — those "absent" opportunities
+        # are surfaced by external analyst tooling (out of scope here).
+        opportunity_analysis: List[Dict[str, str]] = []
+        for t in remaining:
+            opportunity_analysis.append({
+                "artifact_uri": t.artifact_uri,
+                "actor":        t.actor,
+                "kind":         t.kind,
+                "category":     "capability_exists_not_applicable",
+                "reason":       t.reason,
+            })
 
         counts = {
             "artifacts":                 len(result.artifacts),
@@ -820,4 +893,29 @@ class Orchestrator:
             remaining_transitions=remaining,
             reason=reason,
             counts=counts,
+            recognizers={
+                "registered": len(self.recognizers) * len(result.artifacts),
+                "applicable": rec_applicable,
+                "evaluated":  rec_evaluated,
+                "passed":     rec_passed,
+            },
+            capabilities={
+                "registered": sum(len(v) for v in _CAP_REG.values()),
+                "applicable": cap_applicable,
+                "evaluated":  cap_evaluated,
+                "passed":     cap_passed,
+            },
+            validators={
+                "registered": sum(len(v) for v in _VALIDATOR_REGISTRY.values()),
+                "applicable": val_applicable,
+                "evaluated":  val_evaluated,
+                "passed":     val_passed,
+            },
+            repairs={
+                "registered": len(_REPAIR_REGISTRY),
+                "applicable": rep_applicable,
+                "evaluated":  rep_evaluated,
+                "passed":     rep_passed,
+            },
+            opportunity_analysis=opportunity_analysis,
         )

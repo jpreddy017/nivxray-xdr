@@ -55,6 +55,25 @@ class TerminationCertificate:
     """The mathematical proof (or refutation) that the investigation
     has reached its fixed point.
 
+    Counter semantics (R28.4.1 · reporting refinement, 2026-02-15)
+    ─────────────────────────────────────────────────────────────
+    Every dimension (recognizer / capability / validator / repair)
+    reports FOUR distinct counts so analysts can distinguish
+    "not implemented yet" from "not applicable to this input":
+
+        · ``registered``     – total plugins loaded in the registry
+        · ``applicable``     – subset that could legally run on the
+                                 current graph (matched artifact_type,
+                                 prereqs available, universal ``*``)
+        · ``evaluated``      – subset the engine actually consulted
+                                 (invoked ``recognize`` / ``execute`` /
+                                 ``validate`` / ``repair``)
+        · ``passed``         – subset that produced a positive result
+                                 (recognizer emitted ≥ 1 match,
+                                 capability executed without error,
+                                 validator returned ``valid=True``,
+                                 repair returned ``success=True``)
+
     ``fixed_point=True`` means: replaying the same input on the same
     registry state would produce zero additional artifacts, evidence,
     repairs, validations, or state changes.  This is the invariant
@@ -63,14 +82,25 @@ class TerminationCertificate:
     """
     fixed_point:                bool
     artifacts_examined:         int
-    recognizers_checked:        int    # (artifact × recognizer) pairs evaluated
-    capabilities_checked:       int    # (artifact × capability) pairs evaluated
-    validators_checked:         int    # (artifact × validator)  pairs evaluated
-    repair_strategies_checked:  int    # (unreachable_artifact × strategy) pairs evaluated
+    # ── Legacy top-level counts (kept for backwards compatibility) ──
+    recognizers_checked:        int
+    capabilities_checked:       int
+    validators_checked:         int
+    repair_strategies_checked:  int
     remaining_transitions:      List[RemainingTransition] = field(default_factory=list)
     reason:                     str = ""
-    # Roll-up counters for at-a-glance analyst summary.
     counts: Dict[str, int] = field(default_factory=dict)
+    # ── R28.4.1 · Structured per-dimension counters ────────────────
+    # Each dimension: {registered, applicable, evaluated, passed}
+    recognizers:                Dict[str, int] = field(default_factory=dict)
+    capabilities:               Dict[str, int] = field(default_factory=dict)
+    validators:                 Dict[str, int] = field(default_factory=dict)
+    repairs:                    Dict[str, int] = field(default_factory=dict)
+    # ── R28.4.1 · Opportunity analysis (was "missing capabilities") ─
+    # Categorises capability gaps as either "absent" (no plugin
+    # registered for this pattern) or "not_applicable" (plugin exists
+    # but its Requires contract wasn't satisfied on this input).
+    opportunity_analysis:       List[Dict[str, str]] = field(default_factory=list)
 
 
 CERT_REASON_FIXED_POINT = (
