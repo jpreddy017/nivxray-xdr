@@ -59,6 +59,7 @@ import { detectShellcode } from "@/lib/shellcodeDetect";
 import { buildFallbackGraph } from "@/lib/fallbackGraph"; // eslint-disable-line no-unused-vars
 import { selectCanonicalOutput } from "@/lib/selectCanonicalOutput";
 import { mergeIocs } from "@/lib/mergeIocs";
+import { useIdlePersist } from "@/hooks/useIdlePersist";
 import GuidanceBanner, { getGuidanceGlowStyle } from "@/components/GuidanceBanner";
 import SocVerdictPanel from "@/components/SocVerdictPanel";import VerdictCard from "@/components/VerdictCard";
 import SemanticIntelligencePanel from "@/components/investigation/SemanticIntelligencePanel";
@@ -754,52 +755,29 @@ export default function WorkspacePage() {
   // so navigating away and back to the Workspace preserves the work.
   // Only CLEAR wipes the key (see clearAll above).
   //
-  // 2026-02-15 · Anti-hang fix
-  // ────────────────────────────
-  // The previous implementation ran ``JSON.stringify`` on the FULL
-  // bundle synchronously on every dependency change.  For a real-world
-  // 7 KB PowerShell payload the multi-step analysis fires ~10 state
-  // updates in <2s → 10 × stringify(~2MB) starves the main thread and
-  // Chrome kills the tab ("Page Unresponsive").
+  // 2026-02-15 · Systemic anti-hang refactor
+  // ──────────────────────────────────────────────
+  // Persistence now runs via `useIdlePersist`:
+  //   · debounced 800 ms after the last state change
+  //   · scheduled through `requestIdleCallback` so `JSON.stringify`
+  //     NEVER runs on the critical render path
+  //   · skipped entirely when the tab is hidden
+  //   · bulk fields (analyst narrative, understanding, investigation
+  //     object) auto-drop when the raw payload exceeds 200 KB
+  //   · hard-caps at 900 KB (aborts write, never blocks the tab)
   //
-  // We now:
-  //   1. Debounce writes to localStorage by 800ms.
-  //   2. Cheap-size-guard BEFORE stringify (drop the biggest fields
-  //      when the raw payload length exceeds a soft cap).
-  //   3. Never call stringify on the render path — the timer callback
-  //      does the work off the critical path.
-  useEffect(() => {
-    // Cheap upfront size estimate — sum of raw lengths only.  Avoids
-    // paying the stringify cost when we already know we'll drop bulk
-    // sub-fields.
-    const _bulkLen =
-      (input?.length || 0) +
-      (typeof output === "string" ? output.length : 0);
-    const t = setTimeout(() => {
-      try {
-        // Drop bulk sub-fields once the raw payload is already huge —
-        // preserves navigation continuity for the analyst without
-        // starving the tab on every keystroke of the deep bundle.
-        const heavy = _bulkLen > 200_000;
-        const snapshot = {
-          input,
-          output,
-          understanding:        heavy ? null : understanding,
-          inlineStoryPreproc:   heavy ? null : inlineStoryPreproc,
-          analystNarrative:     heavy ? null : analystNarrative,
-          investigationMode,
-          investigationObject:  heavy ? null : investigationObject,
-          ts: Date.now(),
-          dropped_for_size:     heavy ? true : false,
-        };
-        const s = JSON.stringify(snapshot);
-        if (s.length <= 1_500_000) {
-          localStorage.setItem("nvx.workspace.persist", s);
-        }
-      } catch { /* quota exceeded / cyclic → ignore */ }
-    }, 800);
-    return () => clearTimeout(t);
-  }, [input, output, understanding, inlineStoryPreproc, analystNarrative, investigationMode, investigationObject]);
+  // Result: pasting a huge input, tab-switching mid-analysis, or
+  // backgrounding the browser can no longer starve the main thread.
+  useIdlePersist("nvx.workspace.persist", {
+    input,
+    output,
+    understanding,
+    inlineStoryPreproc,
+    analystNarrative,
+    investigationMode,
+    investigationObject,
+  }, { bulkFields: ["understanding", "inlineStoryPreproc",
+                      "analystNarrative", "investigationObject"] });
 
 
   useEffect(() => {

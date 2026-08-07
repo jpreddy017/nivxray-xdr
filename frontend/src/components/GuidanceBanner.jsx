@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useState, useRef } from "react";
 import { classifyInput } from "@/lib/inputClassifier";
 import api from "@/lib/api";
+import { usePageVisibilityPause } from "@/hooks/useIdlePersist";
 import { Sparkles, ArrowRight, Info, Zap, Brain } from "lucide-react";
 
 /**
@@ -29,17 +30,25 @@ export default function GuidanceBanner({ input, className = "" }) {
   const debounceRef = useRef(null);
   const abortRef = useRef(null);
 
-  // Debounced LLM refinement (~2.5s after typing stops, was 1.2s).
-  // 2026-02-15 · Anti-slow-load fix — the /decode/guidance endpoint
-  // runs an LLM classifier taking 5–8 s.  Bumping the debounce to
-  // 2.5 s (and gating on ≥ 32 chars, was 8) prevents the banner from
-  // hammering the LLM every keystroke while a big paste is in-flight.
+  // Debounced LLM refinement — permanent anti-hang wiring.
+  //
+  //   · 2.5s debounce (LLM guidance call takes 5–8s upstream — must
+  //     never fire per-keystroke)
+  //   · Skips if input < 32 chars OR > 32 KB (huge pastes are decoded
+  //     by the deterministic pipeline; LLM guidance would add no signal
+  //     yet block the tab)
+  //   · SKIPPED entirely while the browser tab is hidden — prevents
+  //     the "come back to a black screen" symptom
+  //   · Aborts any in-flight request on unmount OR visibility hide
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (abortRef.current) { try { abortRef.current.abort(); } catch {} }
     setLlmView(null);
-    if (!input || input.trim().length < 32) return;
+    const len = (input || "").trim().length;
+    if (len < 32 || len > 32_000) return;
+    if (typeof document !== "undefined" && document.hidden) return;
     debounceRef.current = setTimeout(async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       const controller = new AbortController();
       abortRef.current = controller;
       setLlmBusy(true);
@@ -61,6 +70,20 @@ export default function GuidanceBanner({ input, className = "" }) {
       if (abortRef.current) { try { abortRef.current.abort(); } catch {} }
     };
   }, [input]);
+
+  // Visibility guard — kill any in-flight LLM guidance call the
+  // moment the tab is backgrounded.  Chrome throttles / kills timers
+  // in hidden tabs anyway, but leaving an ``await`` mid-flight leaves
+  // React holding stale-state closures that fire storm-style when the
+  // tab regains focus (the "black screen" symptom).
+  usePageVisibilityPause(
+    () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) { try { abortRef.current.abort(); } catch {} }
+      setLlmBusy(false);
+    },
+    null,
+  );
 
   // Merge — LLM view wins when available, deterministic baseline is the
   // safety net.

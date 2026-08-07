@@ -250,16 +250,34 @@ export default function OutputView({
   // when the payload is high-entropy garble. Reset per new output.
   const [showRawBinary, setShowRawBinary] = useState(false);
 
-  const diff = useMemo(() => computeDiff(input || "", output || ""), [input, output]);
-  const shellcode = useMemo(() => detectShellcode(output || ""), [output]);
-  const shellcodeIocs = useMemo(() => shellcode ? extractShellcodeIocs(output || "") : null, [shellcode, output]);
+  // 2026-02-15 · Permanent anti-hang guard
+  // ────────────────────────────────────────
+  // Every ``useMemo`` below scans the FULL output string.  For a
+  // real-world 5–20 MB decoded blob, that's tens of milliseconds
+  // per render × dozens of renders per second on a hot tab
+  // (which Chrome then kills).  Solution: derive a bounded
+  // ``renderOutput`` that never exceeds 128 KB for downstream memos
+  // and DOM insertion.  The full ``output`` still lives in state for
+  // API calls, HEX view (which paginates), and export.
+  const DISPLAY_CAP = 128 * 1024;
+  const _fullOutputLen = typeof output === "string" ? output.length : 0;
+  const _outputTruncated = _fullOutputLen > DISPLAY_CAP;
+  const renderOutput = useMemo(() => {
+    if (typeof output !== "string") return output;
+    if (output.length <= DISPLAY_CAP) return output;
+    return output.slice(0, DISPLAY_CAP);
+  }, [output]);
+
+  const diff = useMemo(() => computeDiff(input || "", renderOutput || ""), [input, renderOutput]);
+  const shellcode = useMemo(() => detectShellcode(renderOutput || ""), [renderOutput]);
+  const shellcodeIocs = useMemo(() => shellcode ? extractShellcodeIocs(renderOutput || "") : null, [shellcode, renderOutput]);
 
   // RC2.4 — Terminal decode state: detect a clean head + binary tail.
   // Only surface this in TEXT view when NO shellcode was detected (shellcode
   // has its own dedicated banner + HEX auto-switch).
   const terminalTail = useMemo(
-    () => (shellcode ? null : detectTerminalTail(output || "")),
-    [output, shellcode],
+    () => (shellcode ? null : detectTerminalTail(renderOutput || "")),
+    [renderOutput, shellcode],
   );
 
   // Fix A · Feb-2026 — Whole-payload binary garble detection. Fires when
@@ -276,8 +294,8 @@ export default function OutputView({
   // rendering the raw binary body). Raw bytes remain visible in HEX
   // (auto-selected when shellcode detected) and via [SHOW RAW BYTES].
   const binaryPayload = useMemo(
-    () => (terminalTail ? null : detectBinaryPayload(output || "")),
-    [output, terminalTail],
+    () => (terminalTail ? null : detectBinaryPayload(renderOutput || "")),
+    [renderOutput, terminalTail],
   );
 
   // Reset the raw-binary opt-in whenever the underlying output changes.

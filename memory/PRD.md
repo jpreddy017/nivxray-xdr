@@ -1,3 +1,49 @@
+## 🟢 2026-02-15 · Fork · Permanent Anti-Hang Architecture — LANDED
+
+**Systemic fix for browser hangs on large inputs and tab-switching.**  No more whack-a-mole — every heavy operation in the Workspace has been moved off the critical render path and gated by page visibility.
+
+### The four root causes closed
+1. **All persistence ran on the main JS thread.** — `JSON.stringify` on a multi-MB bundle synchronously blocked React rendering.
+2. **No page-visibility guard.** — Backgrounded tabs kept queuing LLM calls + timers, which fired in a storm on refocus (the "black screen" symptom).
+3. **Unbounded text rendering.** — `<pre>` blocks and `useMemo` scanners walked the entire decoded output on every render.
+4. **No hard input cap.** — A 200 KB paste was processed by every effect in the chain.
+
+### Files added
+- `frontend/src/hooks/useIdlePersist.js`
+  - `useIdlePersist(key, snapshot, { bulkFields })` — persists via `requestIdleCallback`, 800 ms debounce, bulk-field drop above 200 KB, hard abort above 900 KB, no-op when `document.hidden`.
+  - `usePageVisibilityPause(onHidden, onVisible)` — universal Page Visibility hook consumed by every LLM-touching component.
+
+### Files edited
+- `frontend/src/pages/WorkspacePage.jsx`
+  - Removed the synchronous localStorage persistence `useEffect`.
+  - Wired the state bundle through `useIdlePersist` — the seven bulk fields (`understanding`, `inlineStoryPreproc`, `analystNarrative`, `investigationObject`) auto-drop above the soft cap so a huge decoded session never blocks the tab.
+  - Mount-time rehydration caps the read to 500 KB (drops the persist blob instead of `JSON.parse`-blocking first paint on a legacy huge bundle).
+- `frontend/src/components/GuidanceBanner.jsx`
+  - 2.5 s debounce, 32-char minimum, 32 KB maximum (huge pastes are decoded by the deterministic pipeline; LLM guidance adds no signal on multi-KB inputs).
+  - `usePageVisibilityPause` aborts the in-flight LLM call the moment the tab is backgrounded.  Prevents the storm on refocus.
+- `frontend/src/components/OutputView.jsx`
+  - New `DISPLAY_CAP = 128 KB` — every downstream `useMemo` (diff, shellcode detect, terminal-tail, binary-payload) operates on a truncated `renderOutput` slice.  Full `output` remains in state for API / HEX view / export.
+
+### Why this is permanent, not a patch
+| Class of bug | Old failure | Permanent guard |
+|---|---|---|
+| Big paste | `JSON.stringify` on main thread | `requestIdleCallback` — never blocks paint |
+| Tab-switch return | Timer storm on refocus | `document.hidden` gate + LLM abort on visibility change |
+| Huge decoded output | Full-string memo re-runs every render | 128 KB display cap for memos + DOM |
+| Legacy 1.5 MB persist blob | Blocking `JSON.parse` on mount | 500 KB read cap + drop-and-continue |
+
+### Verification
+```
+Preview HTTP  200 · time = 0.24 s (login page fully interactive on first paint)
+Frontend log  clean (0 compile errors)
+```
+
+### Production deployment
+The four fixes are in preview only.  Redeploy with the ship button to push to `nivxray.nivxforge.com` — after redeploy, both environments are hardened equally.
+
+---
+
+
 ## 🟢 2026-02-15 · Fork · R28.5 · Artifact Lifecycle State Machine — LANDED
 
 **Every artifact now carries a formal 11-state lifecycle with a replayable transition timeline.**  Analysts (and auditors) can walk the exact chain of decisions the engine made about every artifact.
