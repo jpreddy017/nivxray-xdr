@@ -43,6 +43,58 @@ import CollapsibleSection     from "@/components/investigation/CollapsibleSectio
 import InvestigationSummaryPanel from "@/components/investigation/InvestigationSummaryPanel";
 import api from "@/lib/api";
 
+// ── Local ErrorBoundary — protects the whole session page from any
+// downstream projection component crashing on a malformed case.
+// Falls back to a compact error card + reload button rather than a
+// black screen.  Rule R22 · Analyst must never lose the workspace.
+class SessionErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) {
+    // Emit to browser console so remote debugging can see it, but
+    // never propagate the crash to React's root renderer.
+    // eslint-disable-next-line no-console
+    console.error("SessionErrorBoundary caught:", err, info);
+  }
+  render() {
+    if (this.state.err) {
+      return (
+        <div data-testid="session-error-boundary"
+             style={{ padding: 24, margin: 24, borderRadius: 10,
+                      border: "1px solid rgba(239,68,68,0.35)",
+                      background: "rgba(15,23,42,0.9)",
+                      color: "#fecaca",
+                      fontFamily: "JetBrains Mono, monospace",
+                      fontSize: 12, lineHeight: 1.5 }}>
+          <div style={{ color: "#f87171", fontWeight: 700, marginBottom: 8,
+                        letterSpacing: "0.16em", textTransform: "uppercase" }}>
+            ⚠︎ Projection Error
+          </div>
+          <div style={{ color: "#e2e8f0", marginBottom: 8 }}>
+            One of the deterministic projections crashed on this case
+            data.  Everything else on this session is still safe —
+            reload to try again.
+          </div>
+          <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 12,
+                        wordBreak: "break-word" }}>
+            {String(this.state.err && this.state.err.message || this.state.err)}
+          </div>
+          <button onClick={() => window.location.reload()}
+                  data-testid="session-error-reload"
+                  style={{ padding: "6px 14px", cursor: "pointer",
+                           background: "rgba(103,232,249,0.08)",
+                           border: "1px solid rgba(103,232,249,0.4)",
+                           color: "#67e8f9", borderRadius: 4,
+                           fontFamily: "inherit", fontSize: 11 }}>
+            ↻ RELOAD SESSION
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const MIRROR_KEY = "nivxray:last_investigation";
 const SESSION_KEY = (id) => `nivxray:session:${id}`;
 
@@ -148,6 +200,7 @@ export default function InvestigationSessionPage() {
       <Header session={session} />
       <Tabs active={active} onChange={setActive} />
       <div style={sx.body}>
+        <SessionErrorBoundary>
         {active === "narrative" && (
           <div data-testid="session-narrative-tab">
             {session.summary_narrative
@@ -173,6 +226,7 @@ export default function InvestigationSessionPage() {
           </div>
         )}
         {active === "nist"     && <NistTab     incident={inc} raw={raw} session={session} />}
+        </SessionErrorBoundary>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from "react";
+import React from "react";
 import Header from "@/components/Header";
 import PageHeader from "@/components/PageHeader";
 import OperationsPanel from "@/components/OperationsPanel";
@@ -17,6 +18,37 @@ import InvestigationSessionGateway from "@/components/investigation/Investigatio
 import CollapsibleSection from "@/components/investigation/CollapsibleSection";
 import InlineAttackStory from "@/components/investigation/InlineAttackStory";
 import TrajectoryDiagram from "@/components/investigation/TrajectoryDiagram";
+
+// ── Local ErrorBoundary — protects the workspace from any single
+// downstream projection component crashing on a malformed case.
+// Falls back to a small in-place notice rather than a black screen.
+class TrajErrorBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(e) { return { err: e }; }
+  componentDidCatch(e, info) {
+    // eslint-disable-next-line no-console
+    console.error("TrajErrorBoundary caught:", e, info);
+  }
+  render() {
+    if (this.state.err) {
+      return (
+        <div data-testid="traj-error-boundary"
+             style={{ padding: 14, margin: "0 12px 8px",
+                      border: "1px solid rgba(239,68,68,0.35)",
+                      borderRadius: 8,
+                      background: "rgba(15,23,42,0.85)",
+                      color: "#fecaca",
+                      fontFamily: "JetBrains Mono, monospace",
+                      fontSize: 11 }}>
+          ⚠︎ Trajectory projection failed for this case
+          ({String(this.state.err && this.state.err.message || this.state.err).slice(0, 200)}).
+          Rest of the workspace is unaffected.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import AnalystNarrativePanel from "@/components/investigation/AnalystNarrativePanel";
 import CollapsibleCard from "@/components/investigation/CollapsibleCard";
 import { InvestigationFilterProvider, InvestigationFilterBar } from "@/components/investigation/InvestigationFilter";
@@ -2929,10 +2961,12 @@ export default function WorkspacePage() {
                                    subtitle="14 lanes · one per ATT&CK tactic · empty tactics collapse · drag / pan / zoom"
                                    testid="attack-trajectory-section"
                                    style={{ margin: "0 12px 8px" }}>
-                <TrajectoryDiagram
-                  preprocessor={preprocForTraj}
-                  behaviors={incidentBehaviors}
-                />
+                <TrajErrorBoundary>
+                  <TrajectoryDiagram
+                    preprocessor={preprocForTraj}
+                    behaviors={incidentBehaviors}
+                  />
+                </TrajErrorBoundary>
               </CollapsibleSection>
             );
           })()}

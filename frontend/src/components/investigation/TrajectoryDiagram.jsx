@@ -499,13 +499,12 @@ function _behaviorTactics(b) {
 
 function _layoutBehaviorNodes(behaviors, activeLanes) {
   if (!Array.isArray(behaviors) || !behaviors.length) return [];
+  if (!Array.isArray(activeLanes) || !activeLanes.length) return [];
   const laneY = {};
-  for (const l of activeLanes) laneY[l.id] = l.y;
-  // Chronological ordering — respect the SSOT `order` field the
-  // backend emits (Behavior.order, monotonically-increasing).
-  const ordered = [...behaviors].sort(
-    (a, b) => (a.order ?? 0) - (b.order ?? 0)
-  );
+  for (const l of activeLanes) if (l && l.id) laneY[l.id] = l.y;
+  const ordered = [...behaviors]
+    .filter((b) => b && typeof b === "object")
+    .sort((a, b) => ((a.order ?? 0) - (b.order ?? 0)));
   const X_START = 220;
   const X_STEP  = 240;
   const nodes = [];
@@ -573,37 +572,40 @@ function _layoutBehaviorNodes(behaviors, activeLanes) {
 //      changes.  This is the “where does the attack go next?”
 //      story the analyst needs.
 function _layoutBehaviorEdges(nodes) {
-  if (!nodes.length) return [];
+  if (!nodes || !nodes.length) return [];
   const edges = [];
 
   // ── 1. Intra-behavior vertical arcs ─────────────────────────
   const byBehavior = {};
   for (const n of nodes) {
-    (byBehavior[n.behaviorKey] = byBehavior[n.behaviorKey] || []).push(n);
+    if (!n) continue;
+    const key = n.behaviorKey || (typeof n.id === "string" ? n.id.split("--")[0] : "unknown");
+    (byBehavior[key] = byBehavior[key] || []).push(n);
   }
   for (const [key, group] of Object.entries(byBehavior)) {
-    const sorted = [...group].sort((a, b) => a.y - b.y);
+    const sorted = [...group].sort((a, b) => (a.y || 0) - (b.y || 0));
     for (let i = 0; i < sorted.length - 1; i++) {
       const a = sorted[i], b = sorted[i + 1];
+      if (a == null || b == null) continue;
       edges.push({
         id: `be-intra-${key}-${i}`,
-        d:  _bezier(a.x + 10, a.y + 6, b.x + 10, b.y + 6),
-        style: "persist",       // dashed / amber – visually distinct from chain
+        d:  _bezier((a.x || 0) + 10, (a.y || 0) + 6, (b.x || 0) + 10, (b.y || 0) + 6),
+        style: "persist",
       });
     }
   }
 
   // ── 2. Chronological attack chain — primary-node → primary-node
   const primaries = nodes
-    .filter((n) => n.primary)
-    .sort((a, b) => a.order - b.order);
+    .filter((n) => n && n.primary)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
   for (let i = 0; i < primaries.length - 1; i++) {
     const a = primaries[i], b = primaries[i + 1];
-    // Highlight the critical arrow when the destination is Impact.
+    if (!a || !b) continue;
     const style = (b.tactic === "Impact") ? "crit" : "normal";
     edges.push({
-      id:    `be-chain-${a.behaviorKey}-${b.behaviorKey}`,
-      d:     _bezier(a.x + 10, a.y + 6, b.x + 10, b.y + 6),
+      id:    `be-chain-${a.behaviorKey || a.id}-${b.behaviorKey || b.id}`,
+      d:     _bezier((a.x || 0) + 10, (a.y || 0) + 6, (b.x || 0) + 10, (b.y || 0) + 6),
       style,
     });
   }
