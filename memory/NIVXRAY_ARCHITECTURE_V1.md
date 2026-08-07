@@ -1127,3 +1127,60 @@ after both gates have been clean for 7 consecutive days:
 1. **Graph diff = 0** (legacy engine vs UAIE plugin output)
 2. **Restore Equivalence = pass** (all consumer paths agree)
 
+
+
+---
+
+## R26 Phase 2 · Plugin Migration (2026-02 · LANDED)
+
+**Rule (recap).**  One legacy decoder = one plugin.  Plugin =
+`Recognizer + Capability` pair.  Plugins never touch the queue.
+Pure functions (No Hidden State).  Byte-for-byte equivalent to
+the wrapped legacy function.
+
+### Six plugins migrated (all wrapping legacy, byte-identical)
+| Plugin                              | Wraps legacy                                     |
+| ----------------------------------- | ------------------------------------------------ |
+| `base64.bare`                       | `recursive_decoder._decode_bare_base64`          |
+| `base64.from_base64_string`         | `recursive_decoder._decode_frombase64string`     |
+| `powershell.encoded_command`        | `recursive_decoder._decode_ps_encoded_command`   |
+| `gzip.inflate`                      | `recursive_decoder._decode_gzip_bytes`           |
+| `zlib.inflate`                      | `recursive_decoder._decode_zlib_bytes`           |
+| `shellcode.string_scan`             | `recursive_decoder._shellcode_string_scan`       |
+
+Layout:
+```
+backend/services/uaie/plugins/
+├── __init__.py                          (registry + auto-load)
+├── _shared.py                           (legacy-decoder → Capability wrapper)
+├── base64_bare/
+├── base64_frombase64string/
+├── powershell_encoded_command/
+├── gzip_inflate/
+├── zlib_inflate/
+└── shellcode_string_scan/
+```
+
+### CI Gate (mandatory before Phase 3 begins)
+`backend/tests/test_plugins_match_legacy.py` · **92 passing**.
+For every plugin × every corpus input:
+- If legacy returns `None`, plugin emits no children and no evidence.
+- Else, `plugin.child_artifacts[0].payload.decode('utf-8-replace') ==
+  legacy_text` AND `plugin.notes['legacy_meta'] == legacy_meta`.
+
+Additional gates enforced:
+- **T1 · Registration** — six expected plugins present.
+- **T2 · Byte-equivalence** — the core R26 gate (parametrised 47 tests).
+- **T3 · Registry** — every capability resolvable via `for_type(...)`.
+- **T4 · No queue access** — AST-scan proves plugins never import the
+  orchestrator (`services/uaie/plugins/**/*.py`).
+- **T5 · No hidden state** — two invocations on the same artifact
+  produce identical children + notes (purity proof).
+
+### What Phase 2 is NOT
+Phase 2 migrated **the six legacy decoders** to plugins with no
+behavioural change.  It did NOT introduce new capabilities.
+Advanced Artifact Analysis (PE / .NET / XOR / RC4 / Cobalt Strike
+Beacon Config Parser / Capstone Disassembler / Shellcode Analyzer)
+remains open under Phase 4 in R25 amendment #6.
+

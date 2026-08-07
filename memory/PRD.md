@@ -1,3 +1,61 @@
+## 🟢 2026-02-08 · Fork · UAIE Phase 2 · Plugin Migration — LANDED
+
+**Six legacy decoders → six migrated plugins**, byte-for-byte
+equivalent to the wrapped legacy function.  R26 strict rules
+enforced by CI: one decoder = one plugin, plugins never touch the
+queue, plugins are stateless, per-plugin self-test suite in place.
+
+### Plugins landed
+- `base64.bare` — wraps `_decode_bare_base64`
+- `base64.from_base64_string` — wraps `_decode_frombase64string`
+- `powershell.encoded_command` — wraps `_decode_ps_encoded_command`
+- `gzip.inflate` — wraps `_decode_gzip_bytes`
+- `zlib.inflate` — wraps `_decode_zlib_bytes`
+- `shellcode.string_scan` — wraps `_shellcode_string_scan`
+
+### Files added
+- **NEW** `backend/services/uaie/plugins/__init__.py` (registry)
+- **NEW** `backend/services/uaie/plugins/_shared.py` (legacy → Capability wrapper)
+- **NEW** `backend/services/uaie/plugins/base64_bare/`
+- **NEW** `backend/services/uaie/plugins/base64_frombase64string/`
+- **NEW** `backend/services/uaie/plugins/powershell_encoded_command/`
+- **NEW** `backend/services/uaie/plugins/gzip_inflate/`
+- **NEW** `backend/services/uaie/plugins/zlib_inflate/`
+- **NEW** `backend/services/uaie/plugins/shellcode_string_scan/`
+- **NEW** `backend/tests/test_plugins_match_legacy.py`
+
+### Testing
+- **Plugin ≡ Legacy CI Gate**: 59/59 parametrised tests pass
+  (47 byte-equivalence + 5 metadata + 3 R26 rule enforcements +
+  4 stateless proofs).
+- **Combined R25 + R26 Phase 1/2 + R27 + R28 suite**: **92/92 pass**.
+- Full regression: 0 broken tests across the entire NivXRay backend.
+
+### R26 rule enforcements (all green)
+- One decoder = one plugin ✅
+- Plugins never touch the queue ✅ (AST-verified — no
+  `orchestrator` imports anywhere under `services/uaie/plugins/`)
+- Pure functions ✅ (identical output on repeated invocations)
+- Byte-for-byte equivalence ✅ (`plugin.child.payload.decode() ==
+  legacy_text` AND `plugin.notes['legacy_meta'] == legacy_meta`)
+- Per-plugin self-tests co-located ✅ (parametrised across the
+  full corpus)
+- Plugin metadata (name, version, wraps_legacy) ✅
+
+### Next
+- **Phase 3 · Parallel-Run Graph Diff** — wire the legacy engine
+  vs plugin-driven execution and prove 0 graph differences for 7
+  consecutive clean days before retiring the legacy decoder path.
+- **Phase 4 · Advanced Artifact Analysis** — new capabilities (PE,
+  .NET, XOR, RC4, Cobalt Strike Beacon Config Parser, Capstone,
+  Shellcode Analyzer) — needed to close the "output = input" gap
+  on advanced payloads (Sophos / CS terminal shellcode).
+- **Notdecoded production baseline** — still awaiting the JSON from
+  the operator for `tests/uaie_baseline/11_user_reported/001_notdecoded/`.
+
+---
+
+
 ## 🟢 2026-02-08 · Fork · R28.2 Immutable Investigation Identity — LANDED
 
 **Locked invariant:** *One Investigation → One Immutable SSOT.
