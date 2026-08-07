@@ -226,6 +226,9 @@ api.include_router(cases_router)
 # R28.1 · Immutable SSOT dereference endpoint (GET /api/ssot/{id}).
 from routers.ssot import router as ssot_router
 api.include_router(ssot_router)
+# UAIE · Engine A/B dry-run + compare (Phase 3 graph-diff support)
+from routers.uaie import router as uaie_router
+api.include_router(uaie_router)
 
 from routers.learner import router as learner_router
 api.include_router(learner_router)

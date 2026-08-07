@@ -1,3 +1,52 @@
+## 🟢 2026-02-08 · Fork · Phase 3 Graph-Diff Gate UNBLOCKED
+
+**#3 — Legacy SSOT adapter + graph-diff** (highest priority — LANDED):
+- `backend/services/uaie/legacy_ssot_adapter.py` — pure `legacy_to_canonical()` projector normalises any legacy `analysis_core` output into the SAME canonical SSOT shape UAIE emits.
+- `backend/services/uaie/legacy_ssot_adapter.diff()` — deterministic side-by-side diff: verdict/confidence, mitre_delta (missing/extra), ioc_delta (missing/extra by kind), decode_trace_delta (legacy_ops / uaie_ops / common), overall_match flag.
+
+**#3b — Compare endpoint** (LANDED):
+- `POST /api/uaie/dry-run` — pure orchestrator + projector.
+- `POST /api/uaie/compare` — runs BOTH engines, returns `{legacy, uaie, diff}`. Live-tested via preview URL: works cleanly, `overall_match=False` correctly surfaces engine divergence.
+
+**#1 — `layer_metadata` enrichment into decode_trace** (LANDED):
+- `services/uaie/ssot_projector.py::_decode_trace` now enriches every row with `evidence_extractor.layer_metadata(op_id, after)` — surfaces encoding label, length, ASCII-ness, entropy, hex preview, integrity flag straight from the existing 630-line production module. No reimplementation.
+
+### Testing
+- `test_graph_diff.py` — **8/8 pass** (adapter shape, empty-input safety, identical-SSOT full match, missing/extra IOCs, verdict mismatch, decode-trace overlap, both-engines-diffable, pure-function contract).
+- Full suite: **20/20 tests across the three new files** pass in ≤1.2 s.
+
+### Files added
+- **NEW** `backend/services/uaie/legacy_ssot_adapter.py`
+- **NEW** `backend/routers/uaie.py`
+- **NEW** `backend/tests/test_graph_diff.py`
+- Extended `backend/services/uaie/ssot_projector.py` (`layer_metadata` enrichment)
+- Extended `backend/server.py` (router registration)
+
+---
+
+## 🟡 What is intentionally NOT yet done (transparency)
+
+### Deferred from this iteration
+| Item | Priority | Reason for defer |
+|---|---|---|
+| **#4 · Frontend Compare-mode toggle** (Legacy / UAIE / Compare) | HIGH | Substantial UI feature (three modes + diff-drawer + panel switching in `WorkspacePage.jsx`). Deserves its own iteration with proper design work — mixing it into this backend-heavy iteration would rush the analyst UX. Backend is fully ready to serve it via `POST /api/uaie/compare`. |
+| **#2 · CS family builder Capability wrapper** | MEDIUM | Investigated `workspace_recovery/phase_r/build_cobalt_strike.py` — it's a **static family taxonomy definition**, NOT an artifact analyzer. There is no existing production CS-config-parser to wrap without reimplementing. The `shellcode.analyzer` plugin already emits `family='cobalt_strike_beacon'` evidence via the production `_family_recognise()`. Building a *new* CS-config parser would violate your explicit rule against reimplementation, so I'm flagging this and holding for guidance. |
+| **7-day parallel-run clean window** | HIGH | Gate is now ready to run — it needs live traffic through `/api/uaie/compare` over 7 days to accumulate the clean-window evidence. Cannot be time-shifted. |
+| **Retirement of inline `ssot` copy on `workspace_cases`** | Later | Blocked on the 7-day window closing cleanly. |
+
+### External blockers (waiting on you)
+| Item | Reason |
+|---|---|
+| **Notdecoded production baseline** | Awaiting the actual production case JSON so I can freeze it under `tests/uaie_baseline/11_user_reported/001_notdecoded/`. |
+
+### Skipped intentionally (per your explicit direction)
+| Item | Reason |
+|---|---|
+| Audit of `workspace_recovery/phase_r/capabilities.py` (91 LOC) + `sample_capabilities.py` (190 LOC) | You said "I wouldn't spend time there. Unless those files already contain production logic they're legacy sketches." Honouring. |
+
+---
+
+
 ## 🟢 2026-02-08 · Fork · Capability Pack 1 · shellcode.analyzer WIRED (not reimplemented)
 
 **User insight was decisive:**

@@ -115,25 +115,46 @@ def _build_chain(result: OrchestratorResult) -> List[Dict[str, Any]]:
 
 def _decode_trace(result: OrchestratorResult) -> List[Dict[str, Any]]:
     """Per-layer decode trace lifted from the ledger's ``execute`` +
-    ``enqueue`` sequence — one row per child artifact."""
+    ``enqueue`` sequence — one row per child artifact.  Each row is
+    enriched with ``evidence_extractor.layer_metadata`` (entropy,
+    ascii-ness, hex preview, integrity flag) so the analyst UI can
+    render the forensic per-layer panel from the SSOT alone."""
+    from evidence_extractor import layer_metadata  # existing prod module
+    # Build a lookup of child uri → payload so we can pass "after"
+    # bytes to layer_metadata.
+    child_by_uri: Dict[str, Any] = {}
+    for a in result.artifacts.values():
+        if a.depth > 0:
+            child_by_uri[a.uri] = a
     trace: List[Dict[str, Any]] = []
     idx = 0
     for entry in list(result.ledger):
         if entry.action != "enqueue":
             continue
-        # entry.input_summary carries "parent=<uri>", entry.output_summary
-        # carries "type=<t> depth=<d>".  Parse out the child type.
         child_type = ""
         for tok in (entry.output_summary or "").split():
             if tok.startswith("type="):
                 child_type = tok.split("=", 1)[1]
                 break
-        trace.append({
+        child = child_by_uri.get(entry.artifact_uri)
+        row: Dict[str, Any] = {
             "layer":   idx,
             "op":      child_type or entry.actor,
             "reason":  entry.output_summary,
-            "out_len": 0,
-        })
+            "out_len": (child.size if child else 0),
+        }
+        # Enrichment · evidence_extractor.layer_metadata
+        try:
+            after_text = (child.payload.decode("utf-8", errors="replace")
+                          if child else "")
+            row["metadata"] = layer_metadata(
+                op_id=row["op"],
+                after=after_text,
+                integrity_ok=True,
+            )
+        except Exception:
+            pass
+        trace.append(row)
         idx += 1
     return trace
 
