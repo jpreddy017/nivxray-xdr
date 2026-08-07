@@ -29,12 +29,16 @@ export default function GuidanceBanner({ input, className = "" }) {
   const debounceRef = useRef(null);
   const abortRef = useRef(null);
 
-  // Debounced LLM refinement (~1.2s after typing stops).
+  // Debounced LLM refinement (~2.5s after typing stops, was 1.2s).
+  // 2026-02-15 · Anti-slow-load fix — the /decode/guidance endpoint
+  // runs an LLM classifier taking 5–8 s.  Bumping the debounce to
+  // 2.5 s (and gating on ≥ 32 chars, was 8) prevents the banner from
+  // hammering the LLM every keystroke while a big paste is in-flight.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (abortRef.current) { try { abortRef.current.abort(); } catch {} }
     setLlmView(null);
-    if (!input || input.trim().length < 8) return;
+    if (!input || input.trim().length < 32) return;
     debounceRef.current = setTimeout(async () => {
       const controller = new AbortController();
       abortRef.current = controller;
@@ -51,7 +55,7 @@ export default function GuidanceBanner({ input, className = "" }) {
       } finally {
         setLlmBusy(false);
       }
-    }, 1200);
+    }, 2500);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (abortRef.current) { try { abortRef.current.abort(); } catch {} }

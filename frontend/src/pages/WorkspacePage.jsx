@@ -205,6 +205,16 @@ export default function WorkspacePage() {
     try {
       const raw = localStorage.getItem("nvx.workspace.persist");
       if (!raw) return {};
+      // 2026-02-15 · Anti-hang fix — cap the mount-time JSON.parse.
+      // Real-world sessions with a large decoded output + AI narrative
+      // + investigation object can push this blob past 1 MB.  Parsing
+      // >500 KB synchronously on first paint delays the workspace by
+      // multiple seconds.  Drop the persisted state above the cap;
+      // the user can re-run the last investigation in one click.
+      if (raw.length > 500_000) {
+        try { localStorage.removeItem("nvx.workspace.persist"); } catch {}
+        return {};
+      }
       const p = JSON.parse(raw);
       return (p && typeof p === "object") ? p : {};
     } catch { return {}; }
