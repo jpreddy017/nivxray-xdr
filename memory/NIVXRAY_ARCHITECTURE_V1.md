@@ -772,3 +772,46 @@ Any commit that violates this rule is auto-reverted.
 R26 replaces every previous decoder-related migration plan.  Any
 attempt to skip Phase 0 or bypass the compatibility gate is
 architecturally invalid and must be rejected in review.
+
+### R26 Amendment (2026-08-07) — Baseline enhancements
+
+Approved refinements to Phase 0:
+
+**1. Baseline is a living contract** — new production cases are added
+   incrementally, never a reason to delay the migration.
+
+**2. Corpus organised by ARTIFACT CLASS (not source):**
+   ``tests/uaie_baseline/01_text/`` · ``02_powershell/`` ·
+   ``03_commandline/`` · ``04_archives/`` · ``05_office/`` ·
+   ``06_pdf/`` · ``07_images/`` · ``08_binaries/`` ·
+   ``09_shellcode/`` · ``10_network/`` · ``11_user_reported/``
+
+**3. Per-case folder shape (4 files):**
+   ``NNN_slug/{input.txt, expected.json, slo.json, metadata.json}``
+   ``metadata.json``: artifact_type, origin, description,
+   introduced_in, owner.
+
+**4. Five-layer compatibility compare (all must pass):**
+   - L1 Evidence          — URLs/IPs/domains/hashes/files/registry
+                             /commands: EXACT match.
+   - L2 Behavior          — behaviors, MITRE, timeline, children: EXACT.
+   - L3 Graph structure   — parent→child topology: EXACT (ids may differ).
+   - L4 Verdict           — severity EXACT, family EXACT when detected,
+                             confidence MAY INCREASE never decrease
+                             (a legitimate new recognizer may raise it).
+   - L5 Explainability    — recognizer path, capability path,
+                             evidence provenance: EXACT sequence.
+
+**5. Execution-plan baseline** — every case snapshots not just the
+   output but the ordered Recognizer → Capability chain so a
+   silent chain re-routing is caught by CI.
+
+**6. Two additional CI gates:**
+   - **Determinism gate:** every payload runs 5×; artifact graph +
+     evidence + verdict + execution plan MUST be byte-identical.
+   - **Plugin-independence gate:** disabling any single plugin
+     leaves core recognizers running; only that plugin's specific
+     evidence disappears.
+
+Any regression on L1-L3 or L5 = P0.  L4 confidence drop = P0 unless
+explicitly approved in the PR.

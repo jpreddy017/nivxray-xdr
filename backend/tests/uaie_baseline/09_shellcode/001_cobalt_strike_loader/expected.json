@@ -1,0 +1,111 @@
+{
+  "behavior": {
+    "behaviors": [
+      {
+        "label": "Encoded Command (Base64 / UTF-16)",
+        "mitre": [
+          "T1027",
+          "T1059.001"
+        ],
+        "mitre_tactics": [
+          "Defense Evasion"
+        ]
+      },
+      {
+        "label": "Execution Policy Bypass",
+        "mitre": [
+          "T1562.001"
+        ],
+        "mitre_tactics": [
+          "Defense Evasion"
+        ]
+      },
+      {
+        "label": "Hidden PowerShell Window",
+        "mitre": [
+          "T1564.003"
+        ],
+        "mitre_tactics": [
+          "Defense Evasion"
+        ]
+      },
+      {
+        "label": "In-Memory Execution (IEX / Invoke-Expression)",
+        "mitre": [
+          "T1059.001"
+        ],
+        "mitre_tactics": [
+          "Execution"
+        ]
+      }
+    ],
+    "timeline": [
+      {
+        "event": "In-Memory Execution (IEX / Invoke-Expression)",
+        "kind": "behavior",
+        "mitre_tactics": [
+          "Execution"
+        ]
+      },
+      {
+        "event": "Execution Policy Bypass",
+        "kind": "behavior",
+        "mitre_tactics": [
+          "Defense Evasion"
+        ]
+      },
+      {
+        "event": "Hidden PowerShell Window",
+        "kind": "behavior",
+        "mitre_tactics": [
+          "Defense Evasion"
+        ]
+      },
+      {
+        "event": "Encoded Command (Base64 / UTF-16)",
+        "kind": "behavior",
+        "mitre_tactics": [
+          "Defense Evasion"
+        ]
+      }
+    ]
+  },
+  "evidence": {
+    "url": [
+      "http://beacon.evil.tld/api/x"
+    ]
+  },
+  "explainability": {
+    "decoder_path": [
+      "bare_base64",
+      "from_base64_string",
+      "gzip",
+      "base64",
+      "utf16le"
+    ],
+    "engine_health": {
+      "die_analyze": "ok",
+      "health": "ok",
+      "ice_correlate": "ok",
+      "iocs": "ok",
+      "iue": "ok",
+      "paste_synthesis": "ok",
+      "preprocessor": "ok"
+    }
+  },
+  "graph": {
+    "layer_count": 5,
+    "stages": [
+      "bare_base64",
+      "from_base64_string",
+      "gzip",
+      "base64",
+      "utf16le"
+    ]
+  },
+  "verdict": {
+    "confidence": null,
+    "family": "",
+    "severity": ""
+  }
+}
