@@ -154,8 +154,18 @@ def test_plugin_metadata_shape():
 @pytest.mark.parametrize("plugin", PLUGINS, ids=lambda p: p["name"])
 def test_plugin_matches_legacy(plugin, corpus_id, corpus):
     """For every plugin × every corpus input, plugin output MUST be
-    byte-identical to what the wrapped legacy decoder would produce."""
-    legacy = _resolve_legacy(plugin["wraps_legacy"])
+    byte-identical to what the wrapped legacy decoder would produce.
+
+    Plugins that wrap a NEW capability (empty ``wraps_legacy`` OR a
+    module outside ``recursive_decoder``) are skipped — they have
+    their own dedicated CI gate (e.g. ``test_capability_pack_1_loop``)
+    since there is no legacy equivalent to compare against.
+    """
+    wraps = plugin["wraps_legacy"] or ""
+    if not wraps.startswith("recursive_decoder."):
+        pytest.skip(f"{plugin['name']} is a NEW capability (wraps={wraps!r}), "
+                    f"not a legacy-decoder migration — see its dedicated CI gate.")
+    legacy = _resolve_legacy(wraps)
     assert legacy, f"cannot resolve legacy for {plugin['name']}"
 
     art = make_artifact(

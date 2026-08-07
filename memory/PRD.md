@@ -1,3 +1,93 @@
+## 🟢 2026-02-08 · Fork · Capability Pack 1 · shellcode.analyzer WIRED (not reimplemented)
+
+**User insight was decisive:**
+> "I think, already we have this technology or setup earlier —
+> only thing is not wired right."
+
+That was exactly right.  Before writing new code, an audit surfaced
+what was already in `/app/backend/` (all deterministic, all
+production-tested, none of it reachable from the UAIE orchestrator):
+
+| Module                                            | LOC | Contains                                          |
+| ------------------------------------------------- | --- | ------------------------------------------------- |
+| `shellcode_analyzer.py`                           | 543 | Capstone disasm, IOC extraction (ASCII+UTF-16LE), family fingerprints (MSF / CS / …), entropy, shellcode classification, prologue detection |
+| `evidence_extractor.py`                           | 630 | Verdict Card builder, per-layer metadata, indicator collector + classifier |
+| `workspace_recovery/phase_r/cs_probe.py`          | 227 | Cobalt Strike probe                                |
+| `workspace_recovery/phase_r/capabilities.py`      |  91 | Capability registry (known families)              |
+| `workspace_recovery/phase_r/build_cobalt_strike.py`|593 | CS-specific investigation builder                 |
+| `workspace_recovery/phase_r/build_emotet.py`      | ... | Emotet builder                                    |
+| `workspace_recovery/phase_r/build_gootloader.py`  | ... | GootLoader builder                                |
+| `workspace_recovery/phase_r/build_socgholish.py`  | ... | SocGholish builder                                |
+| `workspace_recovery/phase_r/build_darkgate.py`    | ... | DarkGate builder                                  |
+| `workspace_recovery/phase_r/build_lumma_stealer.py`| ... | Lumma Stealer builder                             |
+
+### What landed this iteration
+- `backend/services/uaie/plugins/shellcode_analyzer/` — R26 plugin
+  that WRAPS `shellcode_analyzer.analyze()` (the existing 543-line
+  production module).  Zero re-implementation.  One source of truth.
+- Family evidence lifted from `_family_recognise()` (already had
+  Metasploit + CS + others) → surfaced as UAIE `kind='family'` with
+  MITRE mapping.
+- IOC evidence lifted from `extract_iocs()` (already handled ASCII
+  + UTF-16LE strings, URL/IP/domain regexes) → surfaced with kind
+  normalisation (`urls → url`, `ips → ipv4`, `domains → domain`) +
+  MITRE (`T1071.001` for URL/domain, `T1105` for IPv4).
+- Disassembly evidence lifted from `disassemble()` (already
+  Capstone-backed) → surfaced as `kind='disassembly'` with the
+  first 16 instructions embedded for the analyst SSOT panel.
+- Shellcode report evidence surfaces the full `analyze()` bundle
+  (entropy / arch / is_shellcode / hex_preview) for verdict-card
+  consumers.
+- All-plugin recognizer discovery via `plugins.all_recognizers()`
+  → pass one list to `Orchestrator(recognizers=...)` to activate
+  the full analyzer loop.
+- `plugins.__init__.register_plugin` accepts `wraps_legacy=""` for
+  genuinely new capabilities; the byte-equivalence CI gate skips
+  those and defers to per-plugin behavioural gates.
+
+### Testing (all green, 0 regressions)
+- **`test_capability_pack_1_loop.py` (6 tests)** — orchestrator
+  loop terminates on stable end-state, unlocks family +
+  disassembly + shellcode_report evidence kinds unavailable to the
+  legacy peel, propagates MITRE mapping, is a pure function,
+  agrees byte-for-byte with the underlying production module.
+- **Combined suite**: **98 passed, 9 skipped** (analyzer plugin
+  correctly skipped in the legacy-decoder byte-equivalence gate).
+
+### What the loop can now do that it could not before
+```
+   Input bytes
+       ↓
+   Recognize (shellcode.analyzer wrapper)
+       ↓
+   Execute → shellcode_analyzer.analyze()  ← the SAME 543-line prod module
+       ↓                                       that was already deployed
+   Emit:                                       everywhere else
+     · Evidence(kind=family, mitre=…)
+     · Evidence(kind=url|ipv4|domain, mitre=…)
+     · Evidence(kind=disassembly, capstone insns)
+     · Evidence(kind=shellcode_report)
+       ↓
+   Loop continues (queue-driven) until stable end-state
+```
+
+### Next
+- **Wire remaining existing modules** the same way (no
+  re-implementation): `evidence_extractor` (verdict card),
+  `workspace_recovery.phase_r.cs_probe` (Cobalt Strike probe),
+  the family builders (`build_cobalt_strike`, `build_emotet`,
+  `build_gootloader`, `build_socgholish`, `build_darkgate`,
+  `build_lumma_stealer`) — each becomes a Capability wrapper
+  driven by the family evidence emitted upstream.
+- **Route UAIE output back into the SSOT** so the workspace panels
+  render from the orchestrator's evidence + artifacts (currently
+  they render from the legacy convergence pipeline in
+  `analysis_core.py`).
+- **Notdecoded production baseline** — still awaiting the JSON.
+
+---
+
+
 ## 🟢 2026-02-08 · Fork · UAIE Phase 2 · Plugin Migration — LANDED
 
 **Six legacy decoders → six migrated plugins**, byte-for-byte

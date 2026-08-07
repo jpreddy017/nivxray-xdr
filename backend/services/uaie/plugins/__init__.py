@@ -65,6 +65,13 @@ def all_plugins() -> List[dict]:
     return list(_PLUGINS)
 
 
+def all_recognizers() -> List[Recognizer]:
+    """Every registered plugin's Recognizer — pass this list directly
+    to ``Orchestrator(recognizers=all_recognizers())``.  R25/R26: order
+    is registration order; deterministic across runs."""
+    return [p["recognizer"] for p in _PLUGINS]
+
+
 # ── Load every plugin so registration side-effects fire ────────────
 from . import base64_bare              # noqa: F401,E402
 from . import base64_frombase64string  # noqa: F401,E402
@@ -72,3 +79,4 @@ from . import powershell_encoded_command  # noqa: F401,E402
 from . import gzip_inflate             # noqa: F401,E402
 from . import zlib_inflate             # noqa: F401,E402
 from . import shellcode_string_scan    # noqa: F401,E402
+from . import shellcode_analyzer      # noqa: F401,E402  · Capability Pack 1 · #1
