@@ -32,6 +32,13 @@ class SaveCaseIn(BaseModel):
     # emitted the save. Accept Any to prevent 422s from the strict-str schema.
     verdict:     Optional[Any] = None
     iocs:        Dict[str, Any] = Field(default_factory=dict)
+    # ── Feb 2026 P0 · Full SSOT persistence ─────────────────────────────
+    # Workspace ships the complete Single-Source-Of-Truth bundle on save
+    # so that reopening the case restores 100% of the investigation
+    # (Timeline, Evidence, IUE, Decoder Trace, Attack Story, ATT&CK,
+    # Verdict, Analyst Narrative, IEDDE) WITHOUT re-running the pipeline.
+    # See /app/memory/NIVXRAY_ARCHITECTURE_V1.md · R27 SSOT Persistence.
+    ssot:        Optional[Dict[str, Any]] = None
 
 
 @router.post("/cases/save")
@@ -127,6 +134,45 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
         doc_body["reached_shellcode"] = fresh.get("reached_shellcode")
         doc_body["reinvestigated_at"] = fresh.get("reinvestigated_at")
 
+    # ── Feb 2026 P0 · Full SSOT persistence ─────────────────────────────
+    # Persist the analyst-facing Single-Source-Of-Truth bundle verbatim so
+    # reopening the case restores 100% of the investigation without any
+    # recomputation.  Guardrails:
+    #   • MongoDB 16 MB doc limit — if the pickled bundle exceeds 8 MB we
+    #     drop the largest sub-fields (in order of least-critical → most-
+    #     critical) and record which ones were dropped.
+    #   • ``ssot_version`` is bumped so restore logic can gate rehydration
+    #     against known-good shapes.
+    if body.ssot and isinstance(body.ssot, dict):
+        try:
+            import json as _json
+            ssot_bundle = dict(body.ssot)  # shallow copy
+            dropped: list[str] = []
+            # Compute size; drop from largest → smallest optional fields if we
+            # need to fit under the safety threshold.
+            _payload = _json.dumps(ssot_bundle, default=str)
+            if len(_payload) > 8_000_000:
+                _drop_order = [
+                    "predicted_tree", "semantic", "decode_trace",
+                    "inline_story_preproc", "analyst_narrative",
+                    "investigation_object", "understanding",
+                ]
+                for k in _drop_order:
+                    if k in ssot_bundle:
+                        dropped.append(k)
+                        ssot_bundle.pop(k, None)
+                        if len(_json.dumps(ssot_bundle, default=str)) <= 8_000_000:
+                            break
+            ssot_bundle.setdefault("version", "1.0")
+            ssot_bundle["persisted_at"] = now
+            if dropped:
+                ssot_bundle["dropped_for_size"] = dropped
+            doc_body["ssot"]         = ssot_bundle
+            doc_body["ssot_version"] = ssot_bundle["version"]
+        except Exception:
+            # SSOT persistence is best-effort — never fail the save.
+            pass
+
     if existing:
         _col.update_one(
             {"_id": existing["_id"]},
@@ -212,14 +258,24 @@ def _append_to_golden_vault(doc: Dict[str, Any]) -> None:
 
 @router.get("/cases")
 async def list_cases(limit: int = 50, user=Depends(get_current_user)):
-    """List saved cases (newest first) — metadata only."""
+    """List saved cases (newest first) — metadata only.
+
+    Feb 2026 · P0 SSOT · Also surfaces ``has_ssot`` and ``ssot_version`` so
+    the drawer can show a "🔒 Full SSOT" pill for cases that can restore
+    without recomputation.
+    """
     user_email = getattr(user, "email", None) or (user.get("email") if isinstance(user, dict) else None)
     q = {"user_email": user_email} if user_email else {}
     cur = _col.find(q, {
         "_id": 0, "id": 1, "created_at": 1, "name": 1, "engine": 1,
         "confidence": 1, "verdict": 1, "input_len": 1, "output_len": 1,
+        "ssot_version": 1,
     }).sort("created_at", -1).limit(min(int(limit), 200))
-    return {"cases": list(cur)}
+    cases = []
+    for c in cur:
+        c["has_ssot"] = bool(c.get("ssot_version"))
+        cases.append(c)
+    return {"cases": cases}
 
 
 @router.get("/cases/{case_id}")

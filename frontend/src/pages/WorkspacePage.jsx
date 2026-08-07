@@ -487,7 +487,24 @@ export default function WorkspacePage() {
     // indistinguishable from a fresh AUTO INVESTIGATE.  Also flip the
     // OUTPUT pane into INVESTIGATION RESULTS mode whenever the IUE
     // says no decoding was required.
-    if (_inp.trim()) {
+    //
+    // ── Feb 2026 P0 · Full SSOT rehydration (no recomputation) ──
+    // When the history record carries a full SSOT bundle (either from a
+    // linked workspace_case, or because the future /history endpoint
+    // shipped one), we rehydrate every workspace panel deterministically
+    // and skip the three /die/* re-fires below.
+    const _ssot = full.ssot;
+    if (_inp.trim() && _ssot && typeof _ssot === "object") {
+      setUnderstanding(_ssot.understanding || null);
+      setUnderstandingLoading(false);
+      setUnderstandingError(null);
+      setInlineStoryPreproc(_ssot.inline_story_preproc || null);
+      setAnalystNarrative(_ssot.analyst_narrative || null);
+      setInvestigationObject(_ssot.investigation_object || null);
+      setInvestigationMode(!!_ssot.investigation_mode);
+      if (_ssot.semantic !== undefined) setSemantic(_ssot.semantic);
+      if (_ssot.predicted_tree !== undefined) setPredictedTree(_ssot.predicted_tree);
+    } else if (_inp.trim()) {
       setUnderstanding(null);
       setUnderstandingError(null);
       setUnderstandingLoading(true);
@@ -1802,6 +1819,35 @@ export default function WorkspacePage() {
     }
     setStatus(savedCaseName && !opts.forcePrompt ? `UPDATING CASE "${name}"...` : "SAVING CASE...");
     try {
+      // ── Feb 2026 P0 · Full SSOT persistence bundle ───────────────────
+      // Ship the complete analyst-facing Single-Source-Of-Truth so that
+      // reopening the case restores 100% of the investigation WITHOUT
+      // re-running /die/understand, /die/analyze or /die/narrate.
+      const ssotBundle = {
+        version: "1.0",
+        understanding,
+        analyst_narrative: analystNarrative,
+        inline_story_preproc: inlineStoryPreproc,
+        investigation_object: investigationObject,
+        investigation_mode: investigationMode,
+        verdict_card: verdictCard,
+        decode_trace: decodeTrace,
+        decode_winner_engine: decodeWinnerEngine,
+        decode_confidence: decodeConfidence,
+        iedde,
+        iedde_terminal_state: iddeTerminalState,
+        canonical_confidence: canonicalConfidence,
+        canonical_confidence_reason: canonicalConfidenceReason,
+        mitre: analysis?.mitre || [],
+        lolbas: analysis?.lolbas || [],
+        semantic,
+        reached_shellcode: reachedShellcode,
+        corrupted_container: corruptedContainer,
+        chain,
+        steps,
+        predicted_tree: predictedTree,
+        analysis,
+      };
       const r = await api.post("/cases/save", {
         name,
         input,
@@ -1811,6 +1857,7 @@ export default function WorkspacePage() {
         chain_ids: (chain || []).map((c) => c.op_id || c.id).filter(Boolean),
         verdict: verdictCard?.verdict || analysis?.ai_verdict || null,
         iocs: analysis?.iocs || {},
+        ssot: ssotBundle,
       });
       setSavedCaseName(name);
       const wasUpdate = !!r.data?.updated;
@@ -3407,9 +3454,49 @@ export default function WorkspacePage() {
           skipLivePreviewRef.current = true;
           setInput(caseDoc.input || "");
           setOutput(caseDoc.output || "");
-          setDecodeTrace([]);
           setDecodeWinnerEngine(caseDoc.engine || null);
           setDecodeConfidence(caseDoc.confidence ?? null);
+          setSavedCaseName(caseDoc.name);
+          setCurrentCaseId(String(caseDoc.id || ""));
+
+          // ── Feb 2026 P0 · Full SSOT hydration ─────────────────────────
+          // If the case was saved with the SSOT bundle we rehydrate the
+          // entire workspace state deterministically and skip the three
+          // API re-fires below.  This guarantees "no recomputation on
+          // reopen" per NIVXRAY_ARCHITECTURE_V1.md · R27.
+          const ssot = caseDoc.ssot;
+          if (ssot && typeof ssot === "object") {
+            setDecodeTrace(ssot.decode_trace || []);
+            setVerdictCard(ssot.verdict_card || caseDoc.verdict_card || null);
+            setReachedShellcode(!!(ssot.reached_shellcode ?? caseDoc.reached_shellcode));
+            setCorruptedContainer(ssot.corrupted_container || null);
+            setSteps(ssot.steps || (caseDoc.chain_ids || []).map((op) => ({ op, args: {} })));
+            setChain(ssot.chain || (caseDoc.chain_ids || []).map((op) => ({ op, reason: "", output_preview: "" })));
+            setAnalysis(ssot.analysis || { iocs: caseDoc.iocs || {}, mitre: ssot.mitre || caseDoc.mitre || [], ai_verdict: caseDoc.verdict });
+            setIedde(ssot.iedde || null);
+            setIeddeTerminalState(ssot.iedde_terminal_state || null);
+            setCanonicalConfidence(
+              typeof ssot.canonical_confidence === "number" ? ssot.canonical_confidence : null,
+            );
+            setCanonicalConfidenceReason(ssot.canonical_confidence_reason || null);
+            setUnderstanding(ssot.understanding || null);
+            setUnderstandingLoading(false);
+            setUnderstandingError(null);
+            setAnalystNarrative(ssot.analyst_narrative || null);
+            setInlineStoryPreproc(ssot.inline_story_preproc || null);
+            setInvestigationObject(ssot.investigation_object || null);
+            setInvestigationMode(!!ssot.investigation_mode);
+            if (ssot.semantic !== undefined) setSemantic(ssot.semantic);
+            if (ssot.predicted_tree !== undefined) setPredictedTree(ssot.predicted_tree);
+            const droppedNote = Array.isArray(ssot.dropped_for_size) && ssot.dropped_for_size.length
+              ? ` · dropped: ${ssot.dropped_for_size.join(",")}`
+              : "";
+            setStatus(`▸ OPENED "${caseDoc.name}" · SSOT v${ssot.version || "1.0"} · no recomputation${droppedNote}`);
+            return;
+          }
+
+          // ── Legacy path (no SSOT persisted) — fall back to recompute ──
+          setDecodeTrace([]);
           setVerdictCard(caseDoc.verdict_card || null);
           setReachedShellcode(!!caseDoc.reached_shellcode);
           setSteps((caseDoc.chain_ids || []).map((op) => ({ op, args: {} })));
@@ -3422,8 +3509,7 @@ export default function WorkspacePage() {
             typeof caseDoc.canonical_confidence === "number" ? caseDoc.canonical_confidence : null,
           );
           setCanonicalConfidenceReason(caseDoc.canonical_confidence_reason || null);
-          setSavedCaseName(caseDoc.name);
-          setStatus(`▸ OPENED "${caseDoc.name}" (${caseDoc.engine} · ${caseDoc.confidence || 0}%)`);
+          setStatus(`▸ OPENED "${caseDoc.name}" (${caseDoc.engine} · ${caseDoc.confidence || 0}%) · legacy · recomputing panels…`);
           // ▲ 2026-02-28 · Restore IUE + Attack Story + Trajectory +
           // Analyst Narrative for saved cases so Prev-Mode surfaces
           // are identical to the freshly-analysed Workspace.

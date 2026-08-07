@@ -870,3 +870,80 @@ Approved architectural refinements before Phase 1 begins:
 Phase 1 deliverables (six files, protocols only, no plugins yet):
     services/uaie/{artifact.py, recognizer.py, capability.py,
                     evidence.py, ledger.py, orchestrator.py}
+
+
+---
+
+## R27 · SSOT Persistence Contract (2026-02 · PERMANENTLY FROZEN)
+
+> "Never build a new engine while the current product cannot reliably
+> restore its complete investigation state."
+
+**Rule.**  Every saved case in ``workspace_cases`` MUST persist the full
+analyst-facing Single-Source-Of-Truth bundle (``ssot``) so that reopening
+a case restores 100 % of the investigation surface WITHOUT re-running
+any decoder, understanding, narrative or analyze pipeline.
+
+### Acceptance Criteria (frozen)
+1. Timeline, Evidence, IUE (Input Understanding), Decoder Trace, Attack
+   Story, ATT&CK Trajectory, SOC Verdict, Analyst Narrative, IEDDE Decision
+   Trace and every deterministic panel render from the stored SSOT.
+2. Zero calls to ``/api/die/understand``, ``/api/die/analyze`` or
+   ``/api/die/narrate`` fire on case restore when ``case.ssot`` is present.
+3. Workspace remains the analyst cockpit with no UI regression and no
+   behavioural change vs. a freshly-analysed session.
+4. Backward-compat: cases saved before R27 (no ``ssot`` field) fall back
+   to the legacy recompute path — never fail.
+
+### Persisted SSOT shape (``workspace_cases.ssot``)
+```
+{
+  "version":                     "1.0",
+  "persisted_at":                <ISO8601-UTC>,
+  "understanding":               {...},   # /die/understand result
+  "analyst_narrative":           {...},   # /die/narrate result
+  "inline_story_preproc":        {...},   # preprocessor stages
+  "investigation_object":        {...},   # canonical IEP
+  "investigation_mode":          <bool>,
+  "verdict_card":                {...},
+  "decode_trace":                [...],
+  "decode_winner_engine":        <str>,
+  "decode_confidence":           <int>,
+  "iedde":                       {...},
+  "iedde_terminal_state":        <str>,
+  "canonical_confidence":        <float>,
+  "canonical_confidence_reason": <str>,
+  "mitre":                       [...],
+  "lolbas":                      [...],
+  "semantic":                    {...},
+  "reached_shellcode":           <bool>,
+  "corrupted_container":         {...} | null,
+  "chain":                       [...],
+  "steps":                       [...],
+  "predicted_tree":              {...},
+  "analysis":                    {...},
+  "dropped_for_size":            [...]    # optional — audit trail
+}
+```
+
+### Size Safety
+- Middleware allowlists ``/api/cases/save`` up to the 50 MB large-body cap.
+- Backend enforces an 8 MB pickled-JSON ceiling; over-large bundles drop
+  the least-critical sub-fields first (``predicted_tree`` →
+  ``semantic`` → ``decode_trace`` → ``inline_story_preproc`` →
+  ``analyst_narrative`` → ``investigation_object`` → ``understanding``)
+  and record which ones were dropped in ``ssot.dropped_for_size``.
+
+### Enforcement Suite
+``backend/tests/test_ssot_persistence.py`` (5 tests) covers:
+- Round-trip preserves every SSOT key.
+- ``/api/cases`` surfaces ``has_ssot`` + ``ssot_version``.
+- Oversized bundles drop gracefully.
+- Upserts (re-save same name) replace SSOT.
+- Legacy path (no SSOT) still saves + restores.
+
+### R27 → UAIE
+Once R27 is green, UAIE (R25/R26) can eventually replace the execution
+engine WITHOUT changing how Workspace behaves — the SSOT contract is
+the migration guardrail.
+

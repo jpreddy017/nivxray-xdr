@@ -48,6 +48,11 @@ _LARGE_BODY_PATHS  = (
     "/api/v2/auto-investigate",
     "/api/v2/report-writer/",
     "/api/v2/ingestion/",
+    # Feb 2026 · P0 SSOT — case save ships the full workspace bundle
+    # (understanding + investigation_object + decoder trace + analyst
+    # narrative + verdict + IEDDE etc.). Legitimately several MB for
+    # heavy investigations. Backend enforces its own 8 MB drop-order.
+    "/api/cases/save",
 )
 _MAX_LARGE_BODY_BYTES = 50 * 1024 * 1024   # 50 MB
 
