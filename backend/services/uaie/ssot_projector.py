@@ -358,6 +358,14 @@ def project(orchestrator_result: OrchestratorResult,
 
     return {
         "verdict_card":               verdict_card,
+        # ── R28.7.5 · Canonical output surface for the anti-regression
+        # gate (``tests/test_notdecoded_regression.py``).  The deepest
+        # artifact's payload text — the analyst-visible "final decoded
+        # output" — must be exposed at a stable top-level key so the
+        # user-reported baseline suite can prove OUTPUT != INPUT.
+        "root_output":                root_output,
+        "output":                     root_output,
+        "root_input":                 root_input,
         "analysis":                   {"iocs":   iocs,
                                        "mitre":  mitre,
                                        "ai_verdict": (verdict_card or {}).get("verdict")},

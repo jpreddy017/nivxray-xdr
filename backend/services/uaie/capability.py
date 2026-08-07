@@ -18,13 +18,37 @@ from .artifact import Artifact
 
 @dataclass(frozen=True)
 class CapabilityResult:
-    """A Capability's structured output."""
-    evidence:        List["Evidence"]                = field(default_factory=list)  # forward-ref, resolved at import time
-    child_artifacts: List[Artifact]                  = field(default_factory=list)
-    notes:           Dict[str, Any]                  = field(default_factory=dict)
-    elapsed_ms:      float                           = 0.0
-    failed:          bool                            = False
-    error:           Optional[str]                   = None
+    """A Capability's structured output.
+
+    Three semantic categories (R28.7.4 · artifact-driven recursion):
+
+      · ``child_artifacts``       — new analyzable artifacts.  The
+        orchestrator enqueues each one and lets the Registry Planner
+        continue recursively.  This is the ONLY mechanism by which a
+        capability advances the investigation.
+      · ``evidence``              — human-observable findings the
+        analyst should see (decoded text, extracted strings, layer
+        counts).  Added to the SSOT report only.
+      · ``derived_intelligence``  — structured IOC/ATT&CK/verdict
+        signals (ip, domain, url, hash, family, mitre technique,
+        confidence updates).  Feeds later phases (confidence
+        propagation, family attribution, verdict scoring) cleanly
+        separate from raw evidence.
+
+    ``derived_intelligence`` is *additive*: capabilities that only
+    care about the legacy two categories keep working unchanged
+    because the field defaults to an empty list.  The orchestrator
+    appends every ``derived_intelligence`` entry into
+    ``OrchestratorResult.evidence`` for backward compatibility while
+    also exposing them separately for downstream consumers.
+    """
+    evidence:             List["Evidence"] = field(default_factory=list)   # forward-ref, resolved at import time
+    child_artifacts:      List[Artifact]   = field(default_factory=list)
+    derived_intelligence: List["Evidence"] = field(default_factory=list)
+    notes:                Dict[str, Any]   = field(default_factory=dict)
+    elapsed_ms:           float            = 0.0
+    failed:               bool             = False
+    error:                Optional[str]    = None
 
 
 @runtime_checkable

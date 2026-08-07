@@ -50,6 +50,34 @@ class _Capability:
         )
 
     def execute(self, artifact: Artifact) -> CapabilityResult:
+        # ── R28.7.4 · Native raw-bytes fast-path ─────────────────
+        buf = artifact.payload or b""
+        if (len(buf) >= 2 and buf[0] == 0x78
+                and buf[1] in (0x01, 0x5E, 0x9C, 0xDA)):
+            import zlib as _zlib
+            try:
+                inflated = _zlib.decompress(buf)
+            except Exception:
+                return self._exec(artifact)
+            from ...artifact   import make_artifact
+            from ...evidence   import make_evidence
+            child = make_artifact(
+                inflated, "zlib_decoded",
+                parent_uri=artifact.uri,
+                depth=artifact.depth + 1,
+                discovered_by=NAME,
+                meta={"bytes_in": len(buf), "bytes_out": len(inflated),
+                        "path": "native_raw_bytes"},
+            )
+            ev = make_evidence(
+                artifact_uri=artifact.uri, kind="decode_layer",
+                value="zlib_decoded",
+                source_capability=NAME, confidence=0.95, severity="info",
+                location=f"depth={artifact.depth}",
+                meta={"bytes_in": len(buf), "bytes_out": len(inflated),
+                        "child_uri": child.uri, "path": "native_raw_bytes"},
+            )
+            return CapabilityResult(evidence=[ev], child_artifacts=[child])
         return self._exec(artifact)
 
 

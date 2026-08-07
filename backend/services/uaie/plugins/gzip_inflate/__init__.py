@@ -55,6 +55,40 @@ class _Capability:
         )
 
     def execute(self, artifact: Artifact) -> CapabilityResult:
+        # ── R28.7.4 · Native raw-bytes fast-path ─────────────────
+        # If the artifact carries raw gzip bytes directly (magic
+        # 0x1F 0x8B at the start of the payload — typically produced
+        # by ``analyzer.magic_byte_retyper`` from a legacy
+        # ``@@RAWBYTES@@`` sentinel), inflate here without dragging
+        # the payload through the text-sentinel path.  Preserves the
+        # text-mode legacy behaviour for every other input.
+        buf = artifact.payload or b""
+        if len(buf) >= 2 and buf[0] == 0x1F and buf[1] == 0x8B:
+            import gzip as _gzip
+            try:
+                inflated = _gzip.decompress(buf)
+            except Exception:
+                return self._exec(artifact)     # fall back to legacy
+            from ...artifact   import make_artifact
+            from ...evidence   import make_evidence
+            child = make_artifact(
+                inflated, "gzip_decoded",
+                parent_uri=artifact.uri,
+                depth=artifact.depth + 1,
+                discovered_by=NAME,
+                meta={"bytes_in": len(buf), "bytes_out": len(inflated),
+                        "path": "native_raw_bytes"},
+            )
+            ev = make_evidence(
+                artifact_uri=artifact.uri, kind="decode_layer",
+                value="gzip_decoded",
+                source_capability=NAME, confidence=0.95, severity="info",
+                location=f"depth={artifact.depth}",
+                meta={"bytes_in": len(buf), "bytes_out": len(inflated),
+                        "child_uri": child.uri, "path": "native_raw_bytes"},
+            )
+            return CapabilityResult(evidence=[ev], child_artifacts=[child])
+        # Text-mode legacy path.
         return self._exec(artifact)
 
 

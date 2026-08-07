@@ -127,3 +127,6 @@ from . import transformer_byte_array_xor_loop            # noqa: F401,E402
 # configuration → IOC artifacts).  Contract-only registrations.
 from . import extractor_binary_configuration              # noqa: F401,E402
 from . import promoter_configuration_iocs                 # noqa: F401,E402
+# ── R28.7.4 · Universal Magic-Byte Retyper (generic recursion
+# closer).  Zero malware-family knowledge — just magic-byte → type.
+from . import analyzer_magic_byte_retyper                 # noqa: F401,E402

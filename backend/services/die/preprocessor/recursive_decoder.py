@@ -311,6 +311,15 @@ def _decode_gzip_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     living inside the shellcode.  That closes the Sophos/Cobalt
     Strike terminal-layer gap where the innermost artifact is a
     byte blob rather than another PS layer.
+
+    2026-02-04 · R28.7.5 · Partial-gzip recovery.  Truncated Sophos-
+    shape payloads (Cisco / Sophos vendor reports often paste only
+    a fragment of the stager) previously returned None here — the
+    gzip stage silently gave up.  We now attempt a streaming
+    ``zlib.decompressobj`` inflate with ``wbits=31`` (gzip header) so
+    partial output can still be recovered and IOCs surfaced.  Never
+    breaks well-formed streams — the standard ``gzip.decompress`` path
+    runs first and only falls back on failure.
     """
     hit = _extract_rawbytes(text)
     if not hit:
@@ -318,9 +327,25 @@ def _decode_gzip_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     raw, start, end = hit
     if len(raw) < 4 or raw[0] != 0x1F or raw[1] != 0x8B:
         return None
+    inflated: Optional[bytes] = None
+    inflation_mode = "clean"
     try:
         inflated = gzip.decompress(raw)
     except (OSError, EOFError, zlib.error):
+        # ── Partial-inflate recovery ──
+        # wbits=31 tells zlib to accept the gzip header (16) with
+        # the max window (15).  ``decompressobj().decompress(buf)``
+        # returns as many bytes as it can decode before hitting the
+        # truncation; ``.flush()`` drains any final buffered output.
+        try:
+            do = zlib.decompressobj(wbits=31)
+            part = do.decompress(raw) + do.flush()
+            if part:
+                inflated = part
+                inflation_mode = "partial"
+        except (zlib.error, EOFError):
+            return None
+    if not inflated:
         return None
     for enc in ("utf-8", "utf-16-le", "latin-1"):
         try:
@@ -329,7 +354,8 @@ def _decode_gzip_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
                 new_text = text[:start] + plaintext + text[end:]
                 return new_text, {"encoding": enc,
                                     "bytes_in": len(raw),
-                                    "bytes_out": len(inflated)}
+                                    "bytes_out": len(inflated),
+                                    "inflation": inflation_mode}
         except UnicodeDecodeError:
             continue
     # ── Terminal shellcode layer — extract embedded IOCs ─────────
@@ -346,8 +372,8 @@ def _decode_gzip_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
         "bytes_out":        len(inflated),
         "shellcode":        True,
         "embedded_iocs":    iocs,
+        "inflation":        inflation_mode,
     }
-    return None
 
 
 # --- 4. zlib / deflate (rarer, but seen in some loaders) ─────────
@@ -359,9 +385,21 @@ def _decode_zlib_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     # zlib magic: 0x78 followed by 0x01/0x5E/0x9C/0xDA
     if len(raw) < 2 or raw[0] != 0x78 or raw[1] not in (0x01, 0x5E, 0x9C, 0xDA):
         return None
+    inflated: Optional[bytes] = None
+    inflation_mode = "clean"
     try:
         inflated = zlib.decompress(raw)
     except zlib.error:
+        # Partial-inflate recovery — see _decode_gzip_bytes rationale.
+        try:
+            do = zlib.decompressobj()   # wbits=15 (default zlib header)
+            part = do.decompress(raw) + do.flush()
+            if part:
+                inflated = part
+                inflation_mode = "partial"
+        except zlib.error:
+            return None
+    if not inflated:
         return None
     for enc in ("utf-8", "utf-16-le", "latin-1"):
         try:
@@ -370,7 +408,8 @@ def _decode_zlib_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
                 new_text = text[:start] + plaintext + text[end:]
                 return new_text, {"encoding": enc,
                                     "bytes_in": len(raw),
-                                    "bytes_out": len(inflated)}
+                                    "bytes_out": len(inflated),
+                                    "inflation": inflation_mode}
         except UnicodeDecodeError:
             continue
     return None
@@ -385,8 +424,21 @@ def _decode_bare_base64(text: str, *, min_len: int = 120) -> Optional[Tuple[str,
     that isn't inside a FromBase64String() call, try to decode it
     once.  We only fire when there's exactly one candidate and it's
     long enough — otherwise we could false-positive on IOC-style
-    hashes."""
-    matches = _BARE_B64_RE.findall(text or "")
+    hashes.
+
+    2026-02-04 · R28.7.5 · Sentinel guard.  Previously the regex
+    matched the hex characters INSIDE ``@@RAWBYTES@@<hex>`` sentinels
+    emitted by ``_decode_frombase64string``, causing a runaway
+    ``bare_base64`` loop that never let ``_decode_gzip_bytes`` fire on
+    the underlying gzip magic (Sophos-shape 3-layer stagers stall at
+    the wrapper layer).  We now strip every sentinel span from the
+    scan text before searching — the hex string is not base64.
+    """
+    if not text:
+        return None
+    # ── Sentinel guard — remove @@RAWBYTES@@<hex> spans before scan ─
+    scan = _RAWBYTES_RE.sub("", text)
+    matches = _BARE_B64_RE.findall(scan)
     if len(matches) != 1:
         return None
     b64 = matches[0]

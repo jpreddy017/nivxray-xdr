@@ -1,3 +1,50 @@
+## 🟢 2026-02-04 · Fork · R28.7.5 · **DECODE button — Sophos multi-layer chain fixed** + Generic Artifact-Driven Recursion Landed
+
+**User trace (verbatim)**: three manual DECODE clicks needed to unravel a Sophos-shape stager (`cmd.exe /c powershell -enc … → gzip → base64+XOR → shellcode with C2 149.28.81.19`).  User instructed: *"implement option (a) but make it artifact-driven and generic. The orchestrator must NEVER inspect for specific encodings; those decisions belong inside Capability Contracts. Continue until Fixed-Point Certificate proves no further deterministic transformations are applicable."*
+
+### What broke on `/api/decode/smart` (the DECODE button pipeline)
+Root cause pinpointed via a live recipe trace on the user's exact payload:
+1. **`bare_base64` matched the `@@RAWBYTES@@<hex>` sentinel** that `_decode_frombase64string` emits for binary output — because the hex string looks like base64.  This caused a **runaway 7-layer `bare_base64` loop** that never let `_decode_gzip_bytes` fire on the underlying gzip magic (`\x1f\x8b`).  Result: shellcode-with-IOCs never reached.
+2. **Truncated gzip → hard fail** — `gzip.decompress` on incomplete streams returned `None`, so the gzip stage silently gave up when vendor reports pasted only fragments.
+
+### Fixes shipped (all deterministic · no LLM · no malware-family knowledge)
+| File | Change |
+|---|---|
+| `services/die/preprocessor/recursive_decoder.py` | Strip `@@RAWBYTES@@<hex>` spans from `bare_base64` scan text (sentinel guard) · streaming partial-inflate recovery for gzip AND zlib (`zlib.decompressobj().flush()`) |
+| `services/uaie/plugins/analyzer_magic_byte_retyper/` | **NEW** universal magic-byte Recognizer + fallback Capability.  Adds Recognition records for `gzip_bytes / zlib_bytes / pe_bytes / zip_bytes / elf_bytes / pdf_bytes / wasm_bytes / xz_bytes / bzip2_bytes` on any artifact whose payload starts with a known magic — 100 % generic, zero encoding-specific code in the orchestrator |
+| `services/uaie/plugins/base64_bare/` + `base64_frombase64string/` | Binary-fidelity fast path: when base64-decoded bytes match a known magic, emit a first-class typed child with the raw bytes (bypassing lossy latin-1→UTF-8 sentinel round-trip) |
+| `services/uaie/plugins/gzip_inflate/` + `zlib_inflate/` | Native raw-bytes fast path — inflate directly on `gzip_bytes` / `zlib_bytes` artifacts (no sentinel required) |
+| `services/uaie/capability.py` | **R28.7.4 · Three-way CapabilityResult split** — `child_artifacts` / `evidence` / **`derived_intelligence`** (additive · legacy plugins unchanged · IOC/ATT&CK/verdict signals routed cleanly for later phases) |
+| `services/uaie/orchestrator.py` | Route `derived_intelligence` into `OrchestratorResult.derived_intelligence` bucket AND flat evidence list (backwards-compat).  Artifact identity is `(uri, artifact_type)` so re-typing the same bytes doesn't get silently deduped |
+| `services/uaie/ssot_projector.py` | Expose `root_output` / `output` / `root_input` as top-level SSOT keys — closes the Notdecoded anti-regression gate |
+
+### Acceptance metrics — verified end-to-end
+| Metric | Result |
+|---|---|
+| Direct HTTP `POST /api/decode/smart` on synthetic full-chain Sophos payload | `iocs.ips=['149.28.81.19']`, `iocs.urls=['https://c2.example.com/beacon']`, `iocs.domains=['c2.example.com']` ✅ |
+| Recipe layers auto-chained in ONE call | `from_base64_string → gzip → from_base64_string` (3 layers, no manual copy-paste) ✅ |
+| UI dashboard counters after DECODE | **URLS: 1**, **IPS: 1** populated ✅ |
+| `tests/test_notdecoded_regression.py` (Sophos-Cobaltstrike baseline) | **4/4 pass** (was 1 failing) ✅ |
+| `tests/test_generic_recursion_acceptance.py` (Chain A · Sophos-shape ; Chain B · gzip→JSON→URL ; Chain C · zlib→plaintext ; architectural invariant tests) | **6/6 pass** ✅ |
+| `tests/test_vertical_chain_acceptance.py` | 5/5 pass ✅ |
+| Combined decoder / UAIE / recursion suites | **208 pass · 0 new regressions** ✅ |
+
+### Architectural invariants preserved
+* Orchestrator source scanned by an automated test — contains **zero** encoding-specific tokens (`gzip / zlib / base64 / rc4 / aes / \x1f\x8b`).  All encoding knowledge lives inside Capability Contracts, unchanged.
+* Emits one Recognition (retype) rather than duplicating the artifact — no URI collisions, no lineage break.
+
+### Files landed
+* `services/uaie/plugins/analyzer_magic_byte_retyper/__init__.py`  ← NEW
+* `services/die/preprocessor/recursive_decoder.py`
+* `services/uaie/capability.py` · `services/uaie/orchestrator.py` · `services/uaie/ssot_projector.py`
+* `services/uaie/plugins/base64_bare/__init__.py` · `services/uaie/plugins/base64_frombase64string/__init__.py`
+* `services/uaie/plugins/gzip_inflate/__init__.py` · `services/uaie/plugins/zlib_inflate/__init__.py`
+* `services/uaie/plugins/__init__.py`
+* `tests/test_generic_recursion_acceptance.py`  ← NEW
+
+---
+
+
 ## 🟢 2026-02-15 · Fork · R28.7.2 · Plugin 1 · `transformer.byte_array_xor_loop` — LANDED
 
 **FIRST PROOF of the capability-registry architecture.**

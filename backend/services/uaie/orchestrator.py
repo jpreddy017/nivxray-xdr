@@ -57,6 +57,9 @@ from .recognizer import Recognition, Recognizer
 class OrchestratorResult:
     artifacts:   Dict[str, Artifact] = field(default_factory=dict)
     evidence:    List[Evidence]      = field(default_factory=list)
+    # ── R28.7.4 · Derived Intelligence (structured IOC / ATT&CK /
+    #    verdict / confidence signals — see CapabilityResult docstring)
+    derived_intelligence: List[Evidence] = field(default_factory=list)
     ledger:      Ledger              = field(default_factory=Ledger)
     warnings:    List[str]           = field(default_factory=list)
     total_ms:    float = 0.0
@@ -380,7 +383,13 @@ class Orchestrator:
                        actor="orchestrator.root",
                        reason="root_artifact_created")
         queue: deque = deque([root])
-        seen_uris = {root.uri}
+        # Artifact identity is ``(uri, artifact_type)`` — the same bytes
+        # may legitimately be re-typed (e.g. by the magic-byte retyper
+        # emitting a ``zlib_bytes`` child from a ``base64_decoded``
+        # parent whose payload IS the raw zlib bytes).  Deduping on URI
+        # alone silently drops those retypes; keying on (uri, type)
+        # preserves them while still preventing true duplicates.
+        seen_ids = {(root.uri, root.artifact_type)}
 
         while queue:
             if len(result.artifacts) >= self.max_artifacts:
@@ -560,8 +569,23 @@ class Orchestrator:
                         artifact_uri=art.uri, action=ACTION_EMIT_EVIDENCE, actor=cap.name,
                         output_summary=f"{ev.kind}={ev.value}",
                         evidence_ids=[ev.id], confidence=ev.confidence)
+                # ── R28.7.4 · Derived Intelligence routing ──
+                # Structured IOC / ATT&CK / verdict signals.  Additive:
+                # legacy capabilities never populate this list so this
+                # loop is a no-op for them.  We record them BOTH in
+                # ``derived_intelligence`` (typed bucket) AND in the
+                # flat ``evidence`` list so downstream consumers that
+                # only iterate ``evidence`` continue to see them.
+                for di in getattr(cr, "derived_intelligence", []) or []:
+                    result.derived_intelligence.append(di)
+                    result.evidence.append(di)
+                    _artifact_emitted_evidence = True
+                    result.ledger.append(
+                        artifact_uri=art.uri, action=ACTION_EMIT_EVIDENCE, actor=cap.name,
+                        output_summary=f"[derived] {di.kind}={di.value}",
+                        evidence_ids=[di.id], confidence=di.confidence)
                 for child in cr.child_artifacts:
-                    if child.uri in seen_uris:
+                    if (child.uri, child.artifact_type) in seen_ids:
                         continue
                     # ── Idempotency guard (2026-02-14 · anti-loop) ──
                     # If a capability produces a child whose ``artifact_type``
@@ -592,7 +616,7 @@ class Orchestrator:
                                                    f"max_depth={self.max_depth} "
                                                    f"depth={child.depth}"))
                         continue
-                    seen_uris.add(child.uri)
+                    seen_ids.add((child.uri, child.artifact_type))
                     result.artifacts[child.uri] = child
                     # Lifecycle · NEW for every child at the moment it
                     # enters the graph (before QA / re-enqueue).
@@ -612,9 +636,9 @@ class Orchestrator:
                         # evidence + certificates already record why.
                         continue
                     if to_enqueue.uri != child.uri:
-                        # Repaired artifact — track it under seen_uris
+                        # Repaired artifact — track it under seen_ids
                         # so the loop doesn't reprocess it.
-                        seen_uris.add(to_enqueue.uri)
+                        seen_ids.add((to_enqueue.uri, to_enqueue.artifact_type))
                     queue.append(to_enqueue)
                     result.ledger.append(artifact_uri=to_enqueue.uri,
                                            action=ACTION_ENQUEUE, actor=cap.name,
