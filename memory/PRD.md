@@ -1,3 +1,61 @@
+## 🟢 2026-02-08 · Fork · R27.1 + R28 + R28.1 refinements — LANDED
+
+**Session additions** on top of the R27 baseline:
+
+- **R28 · Restore is Rendering** (permanent rule) — `beginRestoreMode` /
+  `endRestoreMode` in `frontend/src/lib/api.js`; any request to
+  `/die/*` / `/decode/*` / `/analyze/*` / `/ai/*` / `/troubleshoot/*`
+  during restore logs a red `[R28 VIOLATION]` banner AND fires
+  `POST /api/telemetry/frontend` with `kind='r28_violation'`.  Backend
+  `routers/ssot.py` is AST-checked to import only IO + projection.
+- **R28.B · Compound version stamp** — every persisted SSOT now
+  carries `{schema, engine, uaie, baseline}`.  Legacy string `"1.0"`
+  is coerced on read (`coerce_version`).
+- **R28.C · Artifact Trace projection** — persisted `decode_trace`
+  lifted at read-time into the canonical shape
+  `Artifact → Recognizer → Capability → Evidence → Child`.  Rendered
+  by the new `ArtifactTracePanel` component.  Future domain artifacts
+  (PE, PDF, Office, Shellcode, PCAP, Memory) will use the same shape
+  post-UAIE — no rename needed.
+- **R28.1 · Immutable SSOT Store** (progressive migration · option c)
+  — new `investigation_ssot` collection keyed by
+  `investigation_id` (UUID) + `sha256(canonical_json)` checksum.
+  Consumer docs (`workspace_cases`, `investigations`, future
+  `reports`/`exports`) carry `ssot_ref = {id, checksum, version}` and
+  dereference at read-time.  Write-through keeps the inline copy on
+  `workspace_cases` for rollback safety until Phase 3 gate passes.
+  New endpoint `GET /api/ssot/{investigation_id}`.
+- **Content-hash dedupe** — two identical bundles collapse to one row
+  (ref_count + last_seen_at bookkeeping).
+- **AcquisitionPlanPanel** hardened against legacy SSOTs missing
+  `step.id` (defensive `step.id || STEP-i`).
+
+### Testing
+- Backend pytest: **31/31 pass** (13 SSOT + Phase-1 UAIE contracts +
+  baseline gates).
+- Live testing agent (iteration_69): backend **22/22** (13
+  in-process + 9 live via preview URL); frontend **100 %** on the R28
+  contract — zero `/die/*` calls during SSOT restore, zero
+  `r28_violation` telemetry pings on normal restore, compound version
+  ribbon rendered, `ArtifactTracePanel` visible.
+
+### Files touched
+- **NEW** `backend/services/ssot_store.py`
+- **NEW** `backend/routers/ssot.py`
+- **NEW** `frontend/src/components/investigation/ArtifactTracePanel.jsx`
+- Extended `backend/routers/cases.py`, `backend/server.py`
+- Extended `frontend/src/lib/api.js` (R28 guard)
+- Extended `frontend/src/pages/WorkspacePage.jsx` (restore-mode wrapping + artifact trace state + panel render)
+- Extended `backend/tests/test_ssot_persistence.py` (13 tests total)
+- Frozen `memory/NIVXRAY_ARCHITECTURE_V1.md` · R28 + R28.1.
+
+Next: **UAIE Phase 2** (port legacy decoders to `Recognizer` +
+`Capability` plugin pairs under strict R26 CI rule — legacy output ==
+plugin output before UAIE integration).
+
+---
+
+
 # NivXRay — Enterprise Attack Investigation Platform
 
 ## 🟢 2026-02-08 · Fork · P0 SSOT Persistence Contract (R27) — LANDED

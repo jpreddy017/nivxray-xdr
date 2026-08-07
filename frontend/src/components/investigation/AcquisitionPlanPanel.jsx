@@ -153,8 +153,8 @@ export default function AcquisitionPlanPanel({ investigation }) {
           const meta = STATUS_META[step.status] || STATUS_META.pending;
           return (
             <li
-              key={step.id}
-              data-testid={`acq-step-${step.id}`}
+              key={step.id || `acq-step-${i}`}
+              data-testid={`acq-step-${step.id || i}`}
               data-status={step.status}
               style={{
                 display: "grid",
@@ -175,7 +175,7 @@ export default function AcquisitionPlanPanel({ investigation }) {
                 <div style={{ fontSize: 13, color: "#e6ffe9" }}>
                   <span style={{ color: "#7ee6a8", marginRight: 8,
                                   fontSize: 10, letterSpacing: 0.8 }}>
-                    {step.id.toUpperCase()}
+                    {(step.id || `STEP-${i}`).toString().toUpperCase()}
                   </span>
                   {step.title}
                 </div>
