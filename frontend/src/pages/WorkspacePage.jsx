@@ -18,6 +18,7 @@ import InvestigationSessionGateway from "@/components/investigation/Investigatio
 import CollapsibleSection from "@/components/investigation/CollapsibleSection";
 import InlineAttackStory from "@/components/investigation/InlineAttackStory";
 import TrajectoryDiagram from "@/components/investigation/TrajectoryDiagram";
+import ArtifactTracePanel from "@/components/investigation/ArtifactTracePanel";
 
 // ── Local ErrorBoundary — protects the workspace from any single
 // downstream projection component crashing on a malformed case.
@@ -84,7 +85,7 @@ import EscalationLadder from "@/components/EscalationLadder";
 import TIShieldPanel from "@/components/TIShieldPanel";
 import MoEPanel from "@/components/MoEPanel";
 import InvestigationTimeline from "@/components/InvestigationTimeline";
-import api from "@/lib/api";
+import api, { beginRestoreMode, endRestoreMode } from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import { splitCommandLines, isMultiCommandInput } from "@/lib/commandSplitter";
 import InputToolbar from "@/components/InputToolbar";
@@ -217,6 +218,9 @@ export default function WorkspacePage() {
   const [corruptedContainer, setCorruptedContainer] = useState(null);
   // Decoding Trace panel — per-layer intermediate outputs from the deterministic decoder
   const [decodeTrace, setDecodeTrace] = useState([]);
+  // R28.C · Artifact Trace projection surfaced on SSOT restore
+  // (Artifact → Recognizer → Capability → Evidence → Child).
+  const [artifactTrace, setArtifactTrace] = useState([]);
   const [reachedShellcode, setReachedShellcode] = useState(false);
   // Client-side auto-detect on paste — 14 decoders raced instantly to surface a suggestion
   const [pasteHint, setPasteHint] = useState(null);
@@ -495,15 +499,22 @@ export default function WorkspacePage() {
     // and skip the three /die/* re-fires below.
     const _ssot = full.ssot;
     if (_inp.trim() && _ssot && typeof _ssot === "object") {
-      setUnderstanding(_ssot.understanding || null);
-      setUnderstandingLoading(false);
-      setUnderstandingError(null);
-      setInlineStoryPreproc(_ssot.inline_story_preproc || null);
-      setAnalystNarrative(_ssot.analyst_narrative || null);
-      setInvestigationObject(_ssot.investigation_object || null);
-      setInvestigationMode(!!_ssot.investigation_mode);
-      if (_ssot.semantic !== undefined) setSemantic(_ssot.semantic);
-      if (_ssot.predicted_tree !== undefined) setPredictedTree(_ssot.predicted_tree);
+      // R28 · Restore is Rendering — gate the /die/* firewall.
+      beginRestoreMode(`history:${full.case_name || full.id}`);
+      try {
+        setUnderstanding(_ssot.understanding || null);
+        setUnderstandingLoading(false);
+        setUnderstandingError(null);
+        setInlineStoryPreproc(_ssot.inline_story_preproc || null);
+        setAnalystNarrative(_ssot.analyst_narrative || null);
+        setInvestigationObject(_ssot.investigation_object || null);
+        setInvestigationMode(!!_ssot.investigation_mode);
+        setArtifactTrace(full.artifact_trace || []);
+        if (_ssot.semantic !== undefined) setSemantic(_ssot.semantic);
+        if (_ssot.predicted_tree !== undefined) setPredictedTree(_ssot.predicted_tree);
+      } finally {
+        setTimeout(() => endRestoreMode(), 0);
+      }
     } else if (_inp.trim()) {
       setUnderstanding(null);
       setUnderstandingError(null);
@@ -770,6 +781,7 @@ export default function WorkspacePage() {
     setDecodeConfidence(null);
     setDecodeWinnerEngine(null);
     setDecodeTrace([]);
+    setArtifactTrace([]);
     setReachedShellcode(false);
     setPasteHint(null);
     setPredictedTree(null);
@@ -2961,6 +2973,18 @@ export default function WorkspacePage() {
             <AcquisitionPlanPanel investigation={investigationObject} />
           )}
 
+          {/* R28.C · Artifact Trace projection (SSOT-only, no recompute)
+              Renders Artifact → Recognizer → Capability → Evidence →
+              Child-Artifact rows lifted from ``ssot.decode_trace`` via
+              the backend ``project_artifact_trace`` helper.  Future
+              domain artifacts (PE, PDF, Office, Shellcode, PCAP…) use
+              the same projection shape — no rename after UAIE lands. */}
+          {artifactTrace && artifactTrace.length > 0 && (
+            <div style={{ margin: "0 12px 8px" }}>
+              <ArtifactTracePanel trace={artifactTrace} />
+            </div>
+          )}
+
           {/* ▲ IDA · Investigation Session Gateway (Rule R22 · 2026-03-02)
               Replaces the inline extracted-artifacts table.  When IDA
               has acquired a document, the Workspace shows a compact
@@ -3466,7 +3490,12 @@ export default function WorkspacePage() {
           // reopen" per NIVXRAY_ARCHITECTURE_V1.md · R27.
           const ssot = caseDoc.ssot;
           if (ssot && typeof ssot === "object") {
+            // R28 · Restore is Rendering — any /die/* call fired inside
+            // this block is a bug.  api.js will log + telemetry-ping it.
+            beginRestoreMode(`case:${caseDoc.name || caseDoc.id}`);
+            try {
             setDecodeTrace(ssot.decode_trace || []);
+            setArtifactTrace(caseDoc.artifact_trace || []);
             setVerdictCard(ssot.verdict_card || caseDoc.verdict_card || null);
             setReachedShellcode(!!(ssot.reached_shellcode ?? caseDoc.reached_shellcode));
             setCorruptedContainer(ssot.corrupted_container || null);
@@ -3491,7 +3520,15 @@ export default function WorkspacePage() {
             const droppedNote = Array.isArray(ssot.dropped_for_size) && ssot.dropped_for_size.length
               ? ` · dropped: ${ssot.dropped_for_size.join(",")}`
               : "";
-            setStatus(`▸ OPENED "${caseDoc.name}" · SSOT v${ssot.version || "1.0"} · no recomputation${droppedNote}`);
+            const _sv = (ssot.version && typeof ssot.version === "object")
+              ? `${ssot.version.schema} · ${ssot.version.engine} · ${ssot.version.uaie} · ${ssot.version.baseline}`
+              : (ssot.version || "1.0");
+            setStatus(`▸ OPENED "${caseDoc.name}" · SSOT ${_sv} · no recomputation${droppedNote}`);
+            } finally {
+              // Defer to the next tick so any state-effect-triggered
+              // fetches also get gated by the guard.
+              setTimeout(() => endRestoreMode(), 0);
+            }
             return;
           }
 

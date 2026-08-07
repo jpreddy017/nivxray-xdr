@@ -56,10 +56,73 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const api = axios.create({ baseURL: API_BASE, timeout: TIMEOUT_DEFAULT });
 
+// ═══════════════════════════════════════════════════════════════════════
+// R28 · Restore is Rendering
+// ═══════════════════════════════════════════════════════════════════════
+// During a case/history restore, the frontend MUST NOT invoke any
+// business-logic endpoint (/die/understand, /die/analyze, /die/narrate,
+// /decode/*, /analyze/*, /ai/*).  Restore = deserialize + validate +
+// render — nothing else.  Any violation logs a red console warning
+// AND fires a telemetry ping so the regression is caught in CI + prod.
+let _restoreModeActive = false;
+let _restoreLabel      = "";
+
+/** Enter restore mode.  Call BEFORE hydrating panels from an SSOT. */
+export function beginRestoreMode(label = "unknown") {
+  _restoreModeActive = true;
+  _restoreLabel = label;
+}
+
+/** Exit restore mode.  Call in ``finally`` after hydration. */
+export function endRestoreMode() {
+  _restoreModeActive = false;
+  _restoreLabel = "";
+}
+
+const _R28_FORBIDDEN_PATTERNS = [
+  /\/die\/(understand|analyze|narrate)/i,
+  /\/decode\//i,
+  /\/analyze\//i,
+  /\/ai\//i,
+  /\/troubleshoot\//i,
+];
+
+function _r28_check(url = "") {
+  if (!_restoreModeActive) return;
+  if (!_R28_FORBIDDEN_PATTERNS.some((re) => re.test(url))) return;
+  // Red console banner — analysts + reviewers see it immediately.
+  // eslint-disable-next-line no-console
+  console.error(
+    `%c[R28 VIOLATION] Restore is rendering — business-logic endpoint called during restore: ${url} (label=${_restoreLabel})`,
+    "color:#fff;background:#c0392b;padding:2px 6px;border-radius:2px;font-weight:700",
+  );
+  // Non-blocking telemetry ping — never delays the caller.
+  try {
+    const token = localStorage.getItem("nvx_token");
+    fetch(`${API_BASE}/telemetry/frontend`, {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        kind: "r28_violation",
+        url,
+        label: _restoreLabel,
+        ts:  Date.now(),
+        page: window.location.pathname,
+      }),
+    }).catch(() => {});
+  } catch (_) { /* never block */ }
+}
+
 // ─── Request: per-URL timeout + AbortController ────────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("nvx_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  // R28 · Restore is Rendering — surface violations immediately.
+  _r28_check(config.url || "");
   // Only override if caller didn't pass an explicit timeout
   if (config.timeout == null || config.timeout === TIMEOUT_DEFAULT) {
     config.timeout = pickTimeout(config.url || "");

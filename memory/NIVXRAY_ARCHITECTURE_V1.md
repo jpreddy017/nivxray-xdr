@@ -947,3 +947,104 @@ Once R27 is green, UAIE (R25/R26) can eventually replace the execution
 engine WITHOUT changing how Workspace behaves — the SSOT contract is
 the migration guardrail.
 
+
+
+---
+
+## R28 · Restore is Rendering (2026-02 · PERMANENTLY FROZEN)
+
+> "Restore is not analysis.  Restore is rendering."
+
+**Rule.**  When re-opening a persisted investigation (case, history,
+report, deep-link) the platform MUST only deserialize, validate and
+render.  It MUST NOT invoke any decoder, classifier, AI enricher,
+preprocessor or LLM.
+
+### Allowed during restore
+- deserialize (load the SSOT from Mongo / immutable store)
+- validate (schema, checksum, version stamp)
+- render (project into UI panels)
+
+### Forbidden during restore
+- ``/api/die/understand`` / ``/die/analyze`` / ``/die/narrate``
+- ``/api/decode/*`` / ``/api/analyze/*``
+- ``/api/ai/*`` / any LLM call
+- ``/api/troubleshoot/*``
+- IOC re-enrichment / MITRE re-classification / any preprocessor
+
+### Enforcement
+- Frontend guard: ``beginRestoreMode(label)`` / ``endRestoreMode()`` in
+  ``frontend/src/lib/api.js``.  Any request to a forbidden path while
+  restore mode is active logs a red console banner AND fires
+  ``POST /api/telemetry/frontend`` with ``kind='r28_violation'``.
+- Backend guard: the dereference endpoint ``routers/ssot.py`` is
+  AST-checked to import only ``load_ssot`` + ``project_artifact_trace``
+  from ``services.ssot_store``.  See
+  ``tests/test_ssot_persistence.py::test_ssot_endpoint_does_not_touch_business_logic``.
+
+### Compound Version Stamp (R28.B)
+Every persisted SSOT records a four-way version:
+```
+{ schema: "1.0",
+  engine:   "legacy" | "uaie-plugin",
+  uaie:     "phase0" | "phase1" | "phase2" | "phase3",
+  baseline: "R27" | "R27.1" | ... }
+```
+Legacy R27 cases stored ``version="1.0"`` — coerced on read via
+``services.ssot_store.coerce_version``.
+
+### Artifact Trace Projection (R28.C)
+The persisted ``decode_trace`` is lifted at read-time into the
+canonical shape:
+```
+Artifact ─▶ Recognizer ─▶ Capability ─▶ Evidence ─▶ Child Artifact
+```
+Rendered by ``frontend/components/investigation/ArtifactTracePanel.jsx``.
+The projection is future-proof: PowerShell, PE, PDF, Office, Shellcode,
+Memory, and PCAP artifacts use the same shape once UAIE (R25/R26) lands.
+
+---
+
+## R28.1 · Immutable SSOT Store (2026-02 · PERMANENTLY FROZEN)
+
+> "The Investigation Package is the single source of truth.
+> Workspace, History, Reports and Exports reference it — they do
+> not duplicate it."
+
+**Rule.**  Every SSOT bundle is persisted into a single
+content-addressable collection ``investigation_ssot`` keyed by
+``investigation_id`` (UUID) with ``checksum = sha256(canonical_json)``.
+Consumer documents (``workspace_cases``, ``investigations``, future
+``reports`` and ``exports``) carry only a lightweight ``ssot_ref``
+pointer.
+
+### Progressive migration (Option c)
+1. **Write-through** — new saves persist to ``investigation_ssot`` AND
+   keep the inline ``ssot`` copy on the consumer doc for rollback
+   safety and parallel-run validation.
+2. **Read-preference** — reads dereference via ``ssot_ref`` when
+   present; fall back to inline ``ssot`` for R27 cases; fall back to
+   legacy flat fields for pre-R27 cases.
+3. **Retirement** — the inline copy is dropped ONLY after the Phase 3
+   compatibility gate has passed for 7 consecutive clean days (0
+   graph diffs, 0 analyst-visible regressions).
+
+### Dedupe
+The content-hash address means two identical investigations collapse
+to one row.  ``ref_count`` is incremented on collision and
+``last_seen_at`` refreshed.
+
+### Endpoint
+``GET /api/ssot/{investigation_id}`` returns
+``{ investigation_id, checksum, version, ssot, artifact_trace }`` —
+pure IO + projection, R28-compliant.
+
+### Enforcement suite
+``backend/tests/test_ssot_persistence.py`` (13 tests) covers:
+- Compound version stamp round-trip.
+- Immutable store dereference endpoint.
+- Content-hash dedupe (two identical bundles → one investigation_id).
+- 404 on unknown investigation_id.
+- Artifact Trace projection shape.
+- Restore-is-rendering contract on the dereference router.
+

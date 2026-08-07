@@ -143,9 +143,18 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
     #     critical) and record which ones were dropped.
     #   • ``ssot_version`` is bumped so restore logic can gate rehydration
     #     against known-good shapes.
+    #
+    # R28.1 (2026-02-08) · Progressive migration to the immutable SSOT
+    # store.  Write-through: the bundle is *also* deposited into the
+    # content-addressable ``investigation_ssot`` collection, and a light
+    # ``ssot_ref`` pointer is written back on the case doc.  Restore
+    # prefers the store; falls back to the inline copy for R27 cases.
     if body.ssot and isinstance(body.ssot, dict):
         try:
             import json as _json
+            from services.ssot_store import (
+                build_version_stamp, store_ssot,
+            )
             ssot_bundle = dict(body.ssot)  # shallow copy
             dropped: list[str] = []
             # Compute size; drop from largest → smallest optional fields if we
@@ -163,12 +172,28 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
                         ssot_bundle.pop(k, None)
                         if len(_json.dumps(ssot_bundle, default=str)) <= 8_000_000:
                             break
-            ssot_bundle.setdefault("version", "1.0")
+            # R28 · compound version stamp replaces the bare "1.0" string.
+            ssot_bundle["version"]      = build_version_stamp()
             ssot_bundle["persisted_at"] = now
             if dropped:
                 ssot_bundle["dropped_for_size"] = dropped
+            # R28.1 · write-through into the immutable store.
+            try:
+                ssot_ref = store_ssot(
+                    ssot_bundle,
+                    user_email=user_email,
+                    case_name=name,
+                )
+                doc_body["ssot_ref"] = ssot_ref
+            except Exception:
+                # Immutable-store failure must NEVER break the case save
+                # while we're in progressive migration — inline copy is
+                # the fallback.
+                pass
             doc_body["ssot"]         = ssot_bundle
-            doc_body["ssot_version"] = ssot_bundle["version"]
+            # Keep the flat ``ssot_version`` field so the listing endpoint
+            # can surface it without cracking the compound object.
+            doc_body["ssot_version"] = ssot_bundle["version"]["schema"]
         except Exception:
             # SSOT persistence is best-effort — never fail the save.
             pass
@@ -283,6 +308,29 @@ async def get_case(case_id: str, user=Depends(get_current_user)):
     doc = _col.find_one({"id": case_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="case not found")
+    # R28.1 · Read-preference: dereference the immutable SSOT store when
+    # a ``ssot_ref`` pointer exists.  Falls back to the inline ``ssot``
+    # copy for R27 cases (write-through migration) and to legacy shape
+    # for pre-R27 cases.
+    try:
+        ref = doc.get("ssot_ref") or {}
+        if isinstance(ref, dict) and ref.get("id"):
+            from services.ssot_store import load_ssot, project_artifact_trace
+            resolved = load_ssot(ref["id"])
+            if resolved:
+                doc["ssot"] = resolved
+                doc["ssot_source"] = "immutable_store"
+                # R28 · Artifact Trace projection surfaced on read so the
+                # analyst UI can render Artifact → Recognizer → Capability
+                # → Evidence → Child-Artifact directly.
+                doc["artifact_trace"] = project_artifact_trace(resolved)
+        elif doc.get("ssot"):
+            from services.ssot_store import project_artifact_trace
+            doc["ssot_source"] = "inline_legacy"
+            doc["artifact_trace"] = project_artifact_trace(doc["ssot"])
+    except Exception:
+        # Read-side failure must NEVER 500 — fall back to legacy shape.
+        pass
     return doc
 
 
