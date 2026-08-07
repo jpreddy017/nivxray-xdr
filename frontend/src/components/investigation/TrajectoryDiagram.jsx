@@ -139,6 +139,22 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
   // the legacy 6-lane tactic-bucket view.
   const isCanonical = Array.isArray(behaviors) && behaviors.length > 0;
 
+  // Stable content fingerprint — prevents runaway recomputation
+  // when the parent passes a NEW array reference on every render
+  // with the SAME content (R23 · frontend guarantee #3 — progressive
+  // rendering must not thrash on heavy pastes).
+  const behaviorsKey = useMemo(() => {
+    if (!isCanonical) return "legacy";
+    // Length + first/last id + total tactic count is enough for
+    // deterministic outputs — same input → same key.
+    const first = behaviors[0]?.id || behaviors[0]?.label || "";
+    const last  = behaviors[behaviors.length - 1]?.id
+                    || behaviors[behaviors.length - 1]?.label || "";
+    let tacticCount = 0;
+    for (const b of behaviors) tacticCount += (b?.mitre_tactics?.length || 0);
+    return `${behaviors.length}:${tacticCount}:${first}:${last}`;
+  }, [isCanonical, behaviors]);
+
   // ── Compute active lanes (empty tactics collapse) ─────────────
   const activeLanes = useMemo(() => {
     if (!isCanonical) return LANES;
@@ -149,13 +165,15 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
     return MITRE_LANES
       .filter((l) => seen.has(l.id))
       .map((l, i) => ({ ...l, y: 80 + i * MITRE_LANE_HEIGHT }));
-  }, [isCanonical, behaviors]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [behaviorsKey]);
 
   const initialNodes = useMemo(
     () => isCanonical
       ? _layoutBehaviorNodes(behaviors, activeLanes)
       : _layoutNodes(preprocessor),
-    [isCanonical, behaviors, preprocessor, activeLanes],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [behaviorsKey, preprocessor, activeLanes],
   );
   const [nodes, setNodes] = useState(initialNodes);
   const investigation = useInvestigationFilter();
@@ -172,7 +190,8 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
       ? _layoutBehaviorNodes(behaviors, activeLanes)
       : _layoutNodes(preprocessor));
     setPan({x:0,y:0}); setZoom(1);
-  }, [isCanonical, behaviors, preprocessor, activeLanes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [behaviorsKey, preprocessor, activeLanes]);
 
   const edges = useMemo(() => isCanonical
       ? _layoutBehaviorEdges(nodes)

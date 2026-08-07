@@ -407,8 +407,14 @@ function StatusPill({ status }) {
 
 // ── Attack Story tab — trajectory swim-lane + phases + behaviors ─
 function StoryTab({ incident, raw }) {
-  const behaviors = incident?.behaviors || raw?.ice?.behavior_clusters || [];
-  const phases    = incident?.phases    || [];
+  // Stabilise references so TrajectoryDiagram's useMemo doesn't
+  // recompute the 200-node SVG layout on every parent render — the
+  // #1 cause of "Page Unresponsive" on heavy pastes (R23).
+  const behaviors = useMemo(
+    () => incident?.behaviors || raw?.ice?.behavior_clusters || [],
+    [incident, raw],
+  );
+  const phases = incident?.phases || [];
   const preproc   = _preprocForTrajectory(raw, incident);
   const hasAny    = behaviors.length || phases.length || preproc;
   if (!hasAny) return <EmptyCard msg="No attack story derived yet." />;
