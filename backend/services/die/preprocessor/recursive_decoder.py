@@ -125,6 +125,20 @@ def _decode_frombase64string(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     # the raw bytes so the gzip / zlib detector can see the magic
     # header.  We prefix the hex with a sentinel so the recursion
     # driver can find + peel it deterministically.
+    # Non-printable — surface as raw bytes for the gzip / zlib
+    # detector on the next pass.  If neither compression signature
+    # matches (rare — happens when the inner blob is raw shellcode
+    # with no compression), we STILL scan the bytes for ASCII IOCs
+    # so the C2 IP / URL / domain surfaces regardless.
+    embedded = _shellcode_string_scan(raw)
+    if embedded and not (raw[0:2] == b"\x1F\x8B" or (raw[0] == 0x78 and raw[1] in (0x01, 0x5E, 0x9C, 0xDA))):
+        # Pure raw shellcode from FromBase64String — no compression.
+        tag = f"[shellcode-payload: {len(raw)} bytes · embedded_iocs=" + ", ".join(embedded) + "]"
+        return tag, {"encoding": "shellcode",
+                        "b64_len": len(padded),
+                        "raw_len": len(raw),
+                        "embedded_iocs": embedded,
+                        "shellcode": True}
     return "@@RAWBYTES@@" + raw.hex(), {"encoding": "raw", "b64_len": len(padded), "raw_len": len(raw)}
 
 
@@ -144,9 +158,66 @@ def _extract_rawbytes(text: str) -> Optional[Tuple[bytes, int, int]]:
 
 
 # --- 3. GZip inflate ─────────────────────────────────────────────
+_IP_RE  = re.compile(rb"(?<![0-9])(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?![0-9])")
+_URL_RE = re.compile(rb"https?://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]{4,}")
+_DOM_RE = re.compile(rb"(?<![A-Za-z0-9])(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.){1,}[A-Za-z]{2,24}(?![A-Za-z0-9])")
+
+
+def _shellcode_string_scan(raw: bytes) -> List[str]:
+    """Extract ASCII-embedded C2 indicators from raw byte payloads
+    (shellcode / packed configs).  Returns a human-readable list
+    like ``["ip:149.28.81.19", "url:http://…", "domain:evil.com"]``
+    suitable for surfacing on the decoded output block.
+
+    This is the terminal-layer bug fix for Sophos / Cobalt-Strike
+    style loaders where the innermost payload is raw shellcode
+    (non-printable bytes) that carries the beacon C2 config as
+    ASCII substrings.  Without this, the pipeline peels through
+    every text layer but never surfaces the actual IOC.
+    """
+    if not raw:
+        return []
+    findings: List[str] = []
+    for ip in _IP_RE.findall(raw):
+        try:
+            s = ip.decode("ascii")
+            # skip obvious non-IPs like version strings 0.0.0.0 / 127.0.0.1 loopbacks
+            parts = s.split(".")
+            if all(0 <= int(p) <= 255 for p in parts) and s not in ("0.0.0.0", "127.0.0.1"):
+                findings.append(f"ip:{s}")
+        except (UnicodeDecodeError, ValueError):
+            continue
+    for u in _URL_RE.findall(raw):
+        try:
+            findings.append(f"url:{u.decode('ascii', 'ignore')}")
+        except Exception:  # pragma: no cover
+            pass
+    for d in _DOM_RE.findall(raw):
+        try:
+            s = d.decode("ascii", "ignore").rstrip(".")
+            if "." in s and len(s) >= 4 and not s.replace(".", "").isdigit():
+                findings.append(f"domain:{s}")
+        except Exception:  # pragma: no cover
+            pass
+    # Dedupe while preserving order — deterministic.
+    seen, out = set(), []
+    for x in findings:
+        if x not in seen:
+            seen.add(x); out.append(x)
+    return out
+
+
 def _decode_gzip_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     """Look for a @@RAWBYTES@@ sentinel; if the payload starts with
-    GZip magic bytes (0x1F 0x8B), inflate it in place."""
+    GZip magic bytes (0x1F 0x8B), inflate it in place.
+
+    When the inflated payload is NOT printable text (i.e. raw
+    shellcode), we still emit a synthetic printable block that
+    surfaces the ASCII-embedded IOCs (C2 IPs / URLs / domains)
+    living inside the shellcode.  That closes the Sophos/Cobalt
+    Strike terminal-layer gap where the innermost artifact is a
+    byte blob rather than another PS layer.
+    """
     hit = _extract_rawbytes(text)
     if not hit:
         return None
@@ -161,13 +232,27 @@ def _decode_gzip_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
         try:
             plaintext = inflated.decode(enc)
             if _mostly_printable(plaintext):
-                # Replace the RAWBYTES sentinel with the plaintext.
                 new_text = text[:start] + plaintext + text[end:]
                 return new_text, {"encoding": enc,
                                     "bytes_in": len(raw),
                                     "bytes_out": len(inflated)}
         except UnicodeDecodeError:
             continue
+    # ── Terminal shellcode layer — extract embedded IOCs ─────────
+    iocs = _shellcode_string_scan(inflated)
+    tag = (
+        f"[shellcode-payload: {len(inflated)} bytes"
+        + (f" · embedded_iocs=" + ", ".join(iocs) if iocs else "")
+        + "]"
+    )
+    new_text = text[:start] + tag + text[end:]
+    return new_text, {
+        "encoding":         "shellcode",
+        "bytes_in":         len(raw),
+        "bytes_out":        len(inflated),
+        "shellcode":        True,
+        "embedded_iocs":    iocs,
+    }
     return None
 
 

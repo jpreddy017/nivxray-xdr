@@ -60,8 +60,17 @@ def _r23_deep_peel_and_merge(result: Dict[str, Any]) -> Dict[str, Any]:
         return result
     if not peeled or peeled == text or not layers:
         return result
-    # Merge deeper IOCs into the result.
+    # Harvest ASCII-embedded IOCs from any shellcode terminal layer
+    # (Sophos / Cobalt Strike-style beacon configs) BEFORE the regular
+    # extract_iocs pass so shellcode-only inputs still surface indicators.
     deep_iocs = {}
+    for _l in layers:
+        for tok in ((_l.get("meta") or {}).get("embedded_iocs") or []):
+            if ":" not in tok:
+                continue
+            kind, _, val = tok.partition(":")
+            if val:
+                deep_iocs.setdefault(kind.lower(), []).append(val)
     try:
         for i in (extract_iocs(peeled) or []):
             if isinstance(i, dict):
