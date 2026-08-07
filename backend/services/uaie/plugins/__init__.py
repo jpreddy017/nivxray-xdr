@@ -123,3 +123,7 @@ from . import repair_base64_surgical              # noqa: F401,E402
 # Registry — no orchestrator, planner, lifecycle, QA, or termination
 # change was required to land it.
 from . import transformer_byte_array_xor_loop            # noqa: F401,E402
+# ── R28.7.3 · Plugins 2 & 3 — vertical chain (binary_bytes →
+# configuration → IOC artifacts).  Contract-only registrations.
+from . import extractor_binary_configuration              # noqa: F401,E402
+from . import promoter_configuration_iocs                 # noqa: F401,E402
