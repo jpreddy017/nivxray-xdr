@@ -203,19 +203,47 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
     # 3) DIE analyze — LOLBAS, MITRE, IOCs, DKP
     env = _stage("die_analyze", lambda: analyze(src))
 
+    # 3b) R23/R24 · Recursive peel — IOCs and behaviors in DEEPER
+    # layers (e.g. the URL hidden inside a gzip-inside-b64-inside-
+    # -EncodedCommand loader) must ALSO be extracted.  We peel the
+    # raw input a second time here so the outer `analyze` result
+    # can be augmented with anything found in the recovered payload.
+    from services.die.preprocessor.recursive_decoder import peel_recursively as _peel
+    _peeled_deep, _ = _peel(src)
+    if _peeled_deep == src:
+        _peeled_deep = ""     # no new layers → nothing to augment
+
     # 4) Attack intent — deferred (needs augmented techniques)
     intent: Dict[str, Any] = {}
 
-    # 5) Aggregate IOCs — canonical shape
+    # 5) Aggregate IOCs — canonical shape.  Union of:
+    #    · outer `analyze` output (raw-input IOCs), and
+    #    · deep recursive-peel IOCs (inner-layer URLs / IPs / hashes
+    #      that only appear AFTER we've peeled base64+gzip+utf16).
     def _iocs_stage():
-        iocs_ = env.get("iocs") or extract_iocs(src)
+        outer_iocs = env.get("iocs") or extract_iocs(src)
+        combined = list(outer_iocs)
+        # Deep-layer IOCs — dedupe by (kind, value).
+        seen = {((i.get("kind") or "").lower(), i.get("value") or "")
+                  for i in combined}
+        if _peeled_deep and _peeled_deep != src:
+            try:
+                deep_iocs = extract_iocs(_peeled_deep)
+            except Exception:  # pragma: no cover
+                deep_iocs = []
+            for di in (deep_iocs or []):
+                key = ((di.get("kind") or "").lower(), di.get("value") or "")
+                if key not in seen and key[1]:
+                    di["source"] = di.get("source") or "recursive_peel"
+                    combined.append(di)
+                    seen.add(key)
         by_kind: Dict[str, List[str]] = {}
-        for i in iocs_:
+        for i in combined:
             k = (i.get("kind") or "unknown").lower()
             v = i.get("value") or i.get("indicator") or ""
             if v:
                 by_kind.setdefault(k, []).append(v)
-        return iocs_, by_kind
+        return combined, by_kind
     iocs, ioc_by_kind = _stage("iocs", _iocs_stage)
 
     # 6) LOLBAS surfaced by the analyze envelope + augmented from

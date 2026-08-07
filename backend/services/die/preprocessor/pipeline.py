@@ -34,6 +34,7 @@ from .decode_telemetry import reset as _reset_decode_layers, snapshot as _snapsh
 from .input_normalizer import normalize
 from .models import Artifact, ProcessEdge, Stage
 from .process_relations import build_edges
+from .recursive_decoder import peel_recursively
 from .stage_builder import build_stages, add_prose_phrase_stages
 
 
@@ -82,7 +83,25 @@ def preprocess(raw_text: str) -> PreprocessResult:
     # of this call becomes part of THIS PreprocessResult's trace.
     _reset_decode_layers()
 
-    ni = normalize(raw_text)
+    # ── R23/R24 · Recursive Multi-Layer Decoder ────────────────────
+    # Peel every recognisable encoding layer until nothing decodable
+    # remains (bounded by MAX_LAYERS + no-progress detector).  This
+    # is the fix for the "output equals input" / "decoded only one
+    # layer" bug on multi-stage PowerShell loaders (Encoded →
+    # FromBase64String → GZip → IEX).  Both the raw text AND the
+    # fully-peeled text are fed to the extractor so every layer's
+    # commands + IOCs surface.
+    peeled_text, _peel_layers = peel_recursively(raw_text)
+    if peeled_text and peeled_text != raw_text:
+        # Feed BOTH the original and the peeled payload to the
+        # extractor — the outer layers (cmd launcher, PS shim) stay
+        # in the SSOT, the inner payload gets fully parsed.  This
+        # preserves provenance while unlocking downstream analysis.
+        combined_for_extraction = raw_text + "\n\n# --- decoded (recursive) ---\n" + peeled_text
+    else:
+        combined_for_extraction = raw_text
+
+    ni = normalize(combined_for_extraction)
     artifacts = extract(ni)
     artifacts = classify(artifacts)
     artifacts = normalize_artifacts(artifacts)
