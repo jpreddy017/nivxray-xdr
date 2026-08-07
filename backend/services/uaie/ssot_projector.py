@@ -405,7 +405,23 @@ def project(orchestrator_result: OrchestratorResult,
         # replay every "why did this child fail / get healed / go
         # unreachable" without a log dive.
         "quality_assurance":   _quality_assurance(orchestrator_result),
+        # R28.4 · Fixed-Point Termination Certificate — mathematical
+        # proof (or refutation) that the investigation has exhausted
+        # every deterministic avenue.  Answers "is the graph
+        # provably complete?" in one look.
+        "termination_certificate": _termination_certificate(orchestrator_result),
     }
+
+
+def _termination_certificate(result: OrchestratorResult) -> Dict[str, Any]:
+    """Project the TerminationCertificate into the canonical SSOT.
+    Returns ``None`` if the orchestrator did not attach one (e.g.
+    legacy adapter path)."""
+    from dataclasses import asdict
+    cert = getattr(result, "termination_certificate", None)
+    if cert is None:
+        return None
+    return asdict(cert)
 
 
 def _quality_assurance(result: OrchestratorResult) -> Dict[str, Any]:

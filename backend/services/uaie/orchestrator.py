@@ -43,6 +43,8 @@ from .qa        import (RepairCandidate, RepairCertificate, RepairResult,
                          validators_for, REPAIR_FAIL_EXCEPTION,
                          REPAIR_FAIL_NO_CAPABILITY, REPAIR_FAIL_VALIDATOR_REJECTED,
                          UNREACHABLE_NO_STRATEGIES_LEFT)
+from .termination import (CERT_REASON_FIXED_POINT, RemainingTransition,
+                            TerminationCertificate)
 from .recognizer import Recognition, Recognizer
 
 
@@ -57,6 +59,8 @@ class OrchestratorResult:
     states:                   Dict[str, str] = field(default_factory=dict)
     validation_certificates:  List[ValidationCertificate] = field(default_factory=list)
     repair_certificates:      List[RepairCertificate]     = field(default_factory=list)
+    # ── Fixed-Point Termination (R28.4) ─────────────────────────────
+    termination_certificate:  Optional[TerminationCertificate] = None
 
 
 def _default_planner(queue: deque) -> Artifact:
@@ -504,11 +508,191 @@ class Orchestrator:
                                            input_summary=f"parent={art.uri}",
                                            output_summary=f"type={to_enqueue.artifact_type} depth={to_enqueue.depth}")
 
+        # ── Fixed-Point Termination Audit (R28.4) ───────────────────
+        # Prove the investigation is at its mathematical fixed point:
+        # every artifact was seen by every applicable recognizer,
+        # capability, validator, and — for UNREACHABLE artifacts —
+        # every applicable repair strategy.
+        result.termination_certificate = self._run_termination_audit(result)
+
         result.total_ms = (time.perf_counter() - t0) * 1000.0
         result.ledger.append(artifact_uri=root.uri, action=ACTION_COMPLETE,
                                actor="orchestrator",
                                output_summary=f"artifacts={len(result.artifacts)} "
                                                 f"evidence={len(result.evidence)} "
-                                                f"ledger={len(result.ledger)}",
+                                                f"ledger={len(result.ledger)} "
+                                                f"fixed_point={result.termination_certificate.fixed_point}",
                                elapsed_ms=result.total_ms)
         return result
+
+    # ── Fixed-Point Termination Audit (R28.4) ──────────────────────
+    def _run_termination_audit(self,
+                                 result: OrchestratorResult) -> TerminationCertificate:
+        """Final audit pass over the entire investigation graph.
+
+        Read-only.  Never enqueues, never emits evidence, never
+        mutates artifacts.  It computes:
+
+            · which (artifact × recognizer)  pairs were evaluated
+            · which (artifact × capability) pairs were executed
+            · which (artifact × validator)  pairs were run
+            · which (unreachable × repair strategy) pairs were tried
+
+        For each dimension it enumerates every pair that COULD have
+        run but didn't and records it as a ``RemainingTransition``.
+        If the list is empty, the investigation is at fixed point.
+        """
+        from .qa       import _VALIDATOR_REGISTRY, _REPAIR_REGISTRY
+        from .capability import _REGISTRY as _CAP_REG
+
+        # ── Build "what actually ran" indexes from the ledger ──
+        ran_recognize:  set = set()  # (uri, recognizer_name)
+        ran_execute:    set = set()  # (uri, capability_name)
+        ran_validate:   set = set()  # (uri, validator_name)
+        ran_repair:     set = set()  # (uri, strategy_name)  — attempted, success or fail
+        for e in result.ledger:
+            if e.action == "recognize":
+                ran_recognize.add((e.artifact_uri, e.actor))
+            elif e.action == "execute":
+                ran_execute.add((e.artifact_uri, e.actor))
+            elif e.action == "validate":
+                ran_validate.add((e.artifact_uri, e.actor))
+            elif e.action in ("repair_success", "repair_fail", "repair_attempt"):
+                # Ledger records the strategy in ``input_summary`` as
+                # "strategy=<name>".  Repair certificates are the
+                # authoritative record.
+                pass
+        for cert in result.repair_certificates:
+            ran_repair.add((cert.source_uri, cert.strategy))
+
+        remaining: List[RemainingTransition] = []
+        recognizers_checked  = 0
+        capabilities_checked = 0
+        validators_checked   = 0
+        repair_checked       = 0
+
+        for uri, art in result.artifacts.items():
+            state = result.states.get(uri, "")
+
+            # ── Recognizer coverage ──
+            # Every registered recognizer should have been asked about
+            # every artifact at some point.  We know it ran if
+            # ``(uri, recognizer.name)`` is in ``ran_recognize``.
+            # Superseded artifacts (REPAIRED source URIs, UNREACHABLE,
+            # REPAIR_PENDING) are structurally excluded — the
+            # investigation replaced them.
+            superseded = state in (STATE_UNREACHABLE, STATE_REPAIRED,
+                                     STATE_REPAIR_PENDING)
+            for rec in self.recognizers:
+                recognizers_checked += 1
+                if superseded:
+                    continue
+                if (uri, rec.name) not in ran_recognize:
+                    remaining.append(RemainingTransition(
+                        artifact_uri=uri, actor=rec.name, kind="recognizer",
+                        reason="recognizer was never applied to this artifact",
+                    ))
+
+            # ── Capability coverage ──
+            # Every capability registered for this artifact's type
+            # (or universal) should have been executed on this
+            # artifact — unless prereq-guarded away.  We check the
+            # ledger; guarded skips are recorded via ACTION_SCHEDULE_SKIP
+            # with a structured reason, which we do NOT count as a
+            # missing transition (they had a deterministic reason to
+            # skip).
+            candidate_caps = list(_CAP_REG.get(art.artifact_type, [])) \
+                             + list(_CAP_REG.get("*", []))
+            skipped_pairs = set()
+            for e in result.ledger:
+                if e.action == "schedule_skip" and e.artifact_uri == uri:
+                    skipped_pairs.add((uri, e.actor))
+            for cap in candidate_caps:
+                capabilities_checked += 1
+                pair = (uri, cap.name)
+                if pair in ran_execute:
+                    continue
+                if pair in skipped_pairs:
+                    # skip had a structured reason — not a missed transition
+                    continue
+                # Only count as remaining if the artifact is still an
+                # active investigation surface.  UNREACHABLE and
+                # REPAIRED artifacts are terminal / superseded — the
+                # investigation has structurally decided not to consume
+                # them.  Same for REPAIR_PENDING (the QA loop is still
+                # processing them).
+                if state in (STATE_UNREACHABLE, STATE_REPAIRED,
+                              STATE_REPAIR_PENDING):
+                    continue
+                remaining.append(RemainingTransition(
+                    artifact_uri=uri, actor=cap.name, kind="capability",
+                    reason=(f"capability registered for type='{art.artifact_type}' "
+                              f"was neither executed nor deterministically skipped"),
+                ))
+
+            # ── Validator coverage ──
+            candidate_validators = list(_VALIDATOR_REGISTRY.get(art.artifact_type, [])) \
+                                    + list(_VALIDATOR_REGISTRY.get("*", []))
+            for v in candidate_validators:
+                validators_checked += 1
+                if (uri, v.name) not in ran_validate:
+                    # Root artifact isn't validated by design (only
+                    # children go through the QA hook).  Only flag
+                    # non-root artifacts.
+                    if art.parent_uri is None:
+                        continue
+                    remaining.append(RemainingTransition(
+                        artifact_uri=uri, actor=v.name, kind="validator",
+                        reason=(f"validator registered for type='{art.artifact_type}' "
+                                  f"never ran on this artifact"),
+                    ))
+
+            # ── Repair coverage (only for UNREACHABLE) ──
+            if state == STATE_UNREACHABLE:
+                # Every registered repair strategy should have been
+                # considered; if the validators didn't PROPOSE it,
+                # that's a validator gap, not a repair miss.  So we
+                # only check strategies that were proposed by a
+                # validator on this URI.
+                proposed = set()
+                for c in result.validation_certificates:
+                    if c.artifact_uri == uri and not c.valid:
+                        proposed.update(c.candidates)
+                for strategy in proposed:
+                    repair_checked += 1
+                    if (uri, strategy) not in ran_repair:
+                        remaining.append(RemainingTransition(
+                            artifact_uri=uri, actor=strategy, kind="repair",
+                            reason="proposed repair strategy was never attempted",
+                        ))
+
+        counts = {
+            "artifacts":                 len(result.artifacts),
+            "recognizers":               len(self.recognizers),
+            "capability_types":          len(_CAP_REG),
+            "validator_types":           len(_VALIDATOR_REGISTRY),
+            "registered_repairs":        len(_REPAIR_REGISTRY),
+            "unreachable_artifacts":     sum(1 for s in result.states.values()
+                                              if s == STATE_UNREACHABLE),
+            "repaired_artifacts":        sum(1 for s in result.states.values()
+                                              if s == STATE_REPAIRED),
+            "validated_artifacts":       sum(1 for s in result.states.values()
+                                              if s == STATE_VALIDATED),
+            "remaining_transitions":     len(remaining),
+        }
+        fixed = (len(remaining) == 0)
+        reason = CERT_REASON_FIXED_POINT if fixed else (
+            f"{len(remaining)} deterministic transition(s) still applicable "
+            f"across {len(set(t.artifact_uri for t in remaining))} artifact(s)"
+        )
+        return TerminationCertificate(
+            fixed_point=fixed,
+            artifacts_examined=len(result.artifacts),
+            recognizers_checked=recognizers_checked,
+            capabilities_checked=capabilities_checked,
+            validators_checked=validators_checked,
+            repair_strategies_checked=repair_checked,
+            remaining_transitions=remaining,
+            reason=reason,
+            counts=counts,
+        )

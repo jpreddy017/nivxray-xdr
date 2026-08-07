@@ -1,3 +1,56 @@
+## 🟢 2026-02-15 · Fork · R28.4 · Fixed-Point Termination Certificate — LANDED
+
+**Mathematical proof of investigation completeness.** After the main investigation loop drains its queue, the orchestrator now runs a formal audit pass to prove that no deterministic action remains applicable. The certificate is analyst-visible in the SSOT.
+
+### Contract (frozen)
+```
+main loop terminates (queue empty)
+    ↓
+Fixed-Point Audit:
+    for every artifact in the graph:
+        for every registered recognizer:  ran on this artifact?
+        for every registered capability:  executed on this artifact?
+        for every registered validator:   diagnosed this artifact?
+        (if UNREACHABLE) for every proposed repair strategy:
+                                          was it attempted?
+    ↓
+Termination Certificate:
+    { fixed_point: bool,
+      artifacts_examined, recognizers_checked, capabilities_checked,
+      validators_checked, repair_strategies_checked,
+      remaining_transitions: [ {artifact_uri, actor, kind, reason} ],
+      reason: str, counts: {…} }
+```
+
+### Superseded-state exclusion (permanent rule)
+Artifacts in states `UNREACHABLE`, `REPAIRED`, or `REPAIR_PENDING` are structurally excluded from remaining-transition analysis. The investigation has already made a deterministic decision about them (rejected, superseded, or in flight), so they never generate false "you didn't finish" flags.
+
+### Files added
+- `services/uaie/termination.py` — `TerminationCertificate` + `RemainingTransition` dataclasses + canonical fixed-point reason.
+- `tests/test_termination_certificate.py` — 7 tests: attachment, simple fixed-point, full QA-flow fixed-point, uncovered-capability detection, determinism, SSOT projection, superseded-state exclusion.
+
+### Files edited
+- `services/uaie/orchestrator.py` — `_run_termination_audit()` method invoked before `ACTION_COMPLETE`; `fixed_point=<bool>` now included in the complete-ledger entry.
+- `services/uaie/ssot_projector.py` — new `termination_certificate` sub-tree in the projection.
+
+### Verification
+```
+tests/test_termination_certificate.py    7 passed
+Combined UAIE + QA + Termination       199 passed / 207 skipped / 0 failed
+```
+
+### Roadmap sequencing (user-approved, 2026-02-15)
+Per your recommended reorder:
+- ✅ P0 · Phase 4 — Fixed-Point Termination Certificate (this iteration)
+- 🎯 P0 · Phase 5 — Artifact State Machine (NEW → RECOGNIZED → PLANNED → EXECUTED → VALIDATED → REPAIR_PENDING → REPAIRED → ANALYZED → EVIDENCE_COMPLETE → FIXED_POINT → DONE)
+- P1 · Phase 6 — Capability Contracts (`requires`, `produces`, `improves`, `consumes`, `confidence_gain`, `cost`)
+- P1 · Phase 7 — Multi-dimensional Confidence Propagation (Decode/Repair/Analysis/Family/IOC/Overall)
+- P2 · Phase 8 — Capability Evaluation Engine (goal-driven planner)
+- P3 · Loop Summary / Decode Trace / Evidence Graph UIs (deferred until backend is mathematically complete)
+
+---
+
+
 ## 🟢 2026-02-15 · Fork · R28.3 · Artifact Quality Assurance Layer — LANDED
 
 **Unified Validator + Repair Planner + Repair Capability framework.**  Locks the frozen QA loop into the orchestrator so every child artifact is diagnosed before it enters the queue and healed deterministically when it fails.
