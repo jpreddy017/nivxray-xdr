@@ -815,3 +815,58 @@ Approved refinements to Phase 0:
 
 Any regression on L1-L3 or L5 = P0.  L4 confidence drop = P0 unless
 explicitly approved in the PR.
+
+### R25 Amendment (2026-08-07) — Investigation Ledger + 9 refinements
+
+Approved architectural refinements before Phase 1 begins:
+
+1. **Recognizer ≠ Capability (hard split).**
+   Recognizer answers *"what is this?"* — never decodes.
+   Capability answers *"given this type, what can I do?"* — decodes,
+   parses, extracts, disassembles.  A single artifact type may map
+   to N capabilities; the Capability Registry is the map.
+
+2. **Artifact Store.**  Artifacts live in a store keyed by URI.
+   Modules receive an ``artifact_uri``, not raw bytes.  Enables
+   replay, resume, caching, distributed execution.
+
+3. **Planner.**  The orchestrator dispatches via a Planner that
+   scores queued artifacts by ``(confidence · severity · depth)``.
+   FIFO is a fallback, not the contract.
+
+4. **Global Confidence semantics.**
+       0.00 Unknown · 0.25 Possible · 0.50 Likely · 0.75 High · 0.90+ Certain
+   Every plugin uses the same scale.  No local buckets.
+
+5. **Capability Registry.**  Recognizers do NOT know which
+   capabilities exist.  Registry answers ``for_type(t) → [Cap…]``.
+
+6. **Family engine is projection-only.**  Family classifiers read
+   the evidence graph and emit ``Family(label, confidence, reasons[])``.
+   They MUST NOT create new IOCs / URLs / MITRE entries.
+
+7. **Investigation Ledger (NEW · 6th core contract).**  Immutable,
+   append-only chronological log:
+       LedgerEntry(seq, ts, artifact_uri, action, actor,
+                     input_summary, output_summary, evidence_ids[],
+                     children_uris[], confidence, elapsed_ms, reasons[])
+   Every recognition · capability · scheduling decision · evidence
+   emission appends one entry.  The ledger is the single source of
+   truth for: explainability · replay · debugging · regression compare
+   · AI Copilot context · audit.
+
+8. **Capability dependencies declared, resolved by engine.**
+   Capabilities declare ``requires_artifact_type: List[str]`` and
+   optional ``requires_evidence: List[str]``.  Never call each other.
+
+9. **Parallel-safe APIs.**  Contracts allow concurrent execution
+   even though Phase 1 stays sequential.  No shared mutable state
+   in Recognizer / Capability signatures.
+
+10. **Stable Artifact URIs.**  Every artifact addressable as
+    ``uaie://artifact/<sha256-16-hex>``.  Evidence references URIs,
+    never in-memory refs.
+
+Phase 1 deliverables (six files, protocols only, no plugins yet):
+    services/uaie/{artifact.py, recognizer.py, capability.py,
+                    evidence.py, ledger.py, orchestrator.py}
