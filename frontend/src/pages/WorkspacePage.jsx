@@ -192,13 +192,14 @@ export default function WorkspacePage() {
 
   const _persisted = (() => {
     if (_pageWasReloaded) {
-      // Purge every persisted Workspace key on reload so the next
-      // component render starts from a truly empty state.
-      try {
-        localStorage.removeItem("nvx.workspace.persist");
-        localStorage.removeItem("nvx.pendingInput");
-        localStorage.removeItem("nvx_last_input");
-      } catch {}
+      // Reload → THIS tab starts empty.  We deliberately do NOT delete
+      // any localStorage keys here — localStorage is shared across every
+      // tab of the same origin, and wiping it on reload would clear
+      // OTHER open Workspace tabs whose state is untouched.  Skipping
+      // the restore is enough to give this tab a clean slate; other
+      // tabs keep their data, and if the user navigates away from this
+      // tab and back (or opens another new tab), the shared persist
+      // will still be there.
       return {};
     }
     try {
