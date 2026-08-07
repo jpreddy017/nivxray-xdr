@@ -1,3 +1,49 @@
+## 🟢 2026-02-08 · Fork · Capability Registry Adapter + Profiles + Priority 1 (xor_brute)
+
+**Locked your architectural direction — did NOT build a generic
+BaseDecoder→UAIE wrapper.**  Instead built a
+**semantic-typed Capability Registry Adapter** that preserves
+each module's role: `decoder`, `recognizer`, `analyzer`,
+`transformer`, `evidence_emitter`, `family_builder`.
+
+### Landed
+- `services/uaie/capability_adapter.py` — `adapt_and_register(legacy, semantic, artifact_types, child_artifact_type, profiles, ...)`.  Constructs a proper `Fingerprint(input_len=...)` + `AnalysisContext()` before calling the legacy `.detect()` / `.decode()` methods so pydantic-strict engine models don't blow up.
+- Lifts uniformly from `PluginResult`:
+  · `iocs` → normalised singular kinds + MITRE
+  · `family_hints` → `family` evidence with MITRE
+  · `mitre_hints`  → `mitre_hint` evidence
+  · `tradecraft`   → `tradecraft.<flag>` evidence
+- Semantic-typed handling: only `semantic='decoder'` emits child artifacts (queue re-entry); analyzers / recognizers / evidence_emitters emit evidence only.
+- `services/uaie/capability_profiles.py` — 8 profiles (minimal, enterprise, malware, memory, office, powershell, network, universal). `recognizers_for(profile)` gates the orchestrator so PDFs never invoke PowerShell plugins, PowerShell never invokes Office plugins, etc.
+- `services/uaie/plugins/xor_brute/__init__.py` — Priority 1 · **5-line wrapper** (`adapt_and_register(legacy=XorBruteDecoder, semantic='decoder', child_artifact_type='xor_decoded', profiles=[malware, enterprise, universal])`).  This is the template for every remaining legacy module.
+
+### Registry state (10 plugins loaded)
+| # | Plugin                                | Semantic         | Profiles                     |
+|---|---------------------------------------|------------------|------------------------------|
+| 1-6 | Legacy decoders (Phase 2)             | legacy-migration | universal                    |
+| 7 | `shellcode.analyzer`                  | (hand-wrapped)   | universal                    |
+| 8 | `pe.analyzer`                         | (hand-wrapped)   | universal                    |
+| 9 | `family.cobalt_strike.beacon_config`  | (hand-wrapped)   | universal                    |
+| 10 | `crypto.xor_brute` (via adapter)     | **decoder**      | **malware, enterprise, universal** |
+
+### Testing
+- **112 passed / 36 skipped / 0 regressions.**
+- Live-verified: adapter constructs valid Fingerprint/Context, legacy `.detect()` fires cleanly, `PluginResult` is lifted into UAIE Evidence without drift.
+- `crypto.xor_brute` respects the legacy decoder's own acceptance heuristics (UTF-16LE skip guard, printable+low-entropy skip guard) — no false-positive brute-force runs.
+
+### Why this matters
+- **Every remaining `decoders/*.py` module can now be wrapped in 5 lines** with correct semantic type.
+- **Profiles** mean the orchestrator can be scoped: PowerShell payloads don't invoke Office plugins, PDFs don't invoke shellcode analyzers → keeps UAIE fast while staying universal.
+- **Semantic preservation** means the SSOT projector can differentiate decoders (child artifacts) from analyzers (evidence only) from evidence_emitters (IOCs only) — no false-conflations.
+
+### Next in your priority order
+- **Priority 2 · PowerShell stack** (9 modules): `ps_alias_normalizer`, `ps_backtick_normalizer`, `ps_hex_escape`, `ps_inline_eval`, `ps_normalizer`, `ps_reconstruct`, `ps_reverse_swap`, `ps_semantic_mini`, `ps_encodedcommand_multilayer`.  Each is a 5-line wrapper via the adapter with `profiles=['powershell', 'malware', 'enterprise', 'universal']`.
+- **Priority 3 · `family_recognizer.py`** (269 LOC) — probably best as `semantic='recognizer'` so it fires on every artifact.
+- **Priority 4 · Crypto stack** — `crypto_symmetric`, `rc4_inline_decrypt`, `rc40_orchestrator_plugins` — via adapter with `profiles=['malware', 'enterprise', 'universal']`.
+
+---
+
+
 ## 🟢 2026-02-08 · Fork · Capability Pack 1 · #2 + #3 WIRED (audit-first)
 
 **Deep audit surfaced two huge production modules never wired to UAIE:**
