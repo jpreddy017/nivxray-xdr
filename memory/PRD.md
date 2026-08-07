@@ -1,3 +1,47 @@
+## 🟢 2026-02-08 · Fork · Capability Pack 1 · #2 + #3 WIRED (audit-first)
+
+**Deep audit surfaced two huge production modules never wired to UAIE:**
+- `services/pe_analyzer.py` (499 LOC) — full PE static analysis: hashes, overview, sections, imports/exports, resources, strings, packer hints, findings
+- `decoders/cobaltstrike_beacon_config.py` (240 LOC) — full Cobalt Strike Beacon Config Extractor: XOR key detection (v3 0x69, v4 0x2E), TLV parsing, structured field extraction (`beacon_type`, `port`, `sleep_time`, `jitter`, `c2_server`, `user_agent`, `watermark`, `spawnto_*`)
+- Also discovered but not yet wrapped: **40+ decoders under `/app/backend/decoders/`** (ascii85, base32/58/91, brotli/lzma/zstd, jwt, xor_brute, rc4_inline_decrypt, crypto_symmetric, crypto_api_annotator, rc40_orchestrator_plugins, families/*, and a full PowerShell decoder stack)
+
+### Landed
+- `services/uaie/plugins/pe_analyzer/` — thin R26 wrapper around `services.pe_analyzer.analyze_pe`. Consumes `pe_bytes` artifacts. Emits `pe_report` evidence + `sha256` IOC + all `findings` from the production module.
+- `services/uaie/plugins/cs_beacon_config_parser/` — thin R26 wrapper around `CobaltStrikeBeaconConfigExtractor`. Consumes `cs_config_raw` / `shellcode_bytes` / `pe_bytes` / `gzip_decoded`. Emits `family=cobalt_strike_beacon_config` + `cs_config.<field>` per parsed TLV + normalised IOCs + `mitre_hint` per MITRE technique surfaced by the extractor.
+- Live-verified end-to-end on synthetic CS payload:
+  - `family=cobalt_strike_beacon_config` with MITRE `T1071.001, T1573.002, T1027`
+  - `cs_config.beacon_type=HTTPS`, `cs_config.xor_key=46`, `cs_config.tlv_field_count=1`
+
+### Testing
+- **112 passed / 27 skipped / 0 regressions** across the eight-file suite.
+- 27 skipped is expected: three NEW capabilities (`shellcode.analyzer`, `pe.analyzer`, `family.cobalt_strike.beacon_config`) skip the legacy-decoder byte-equivalence gate (they wrap non-legacy modules — dedicated CI gates apply).
+
+### Registered plugins (9)
+| # | Plugin                                     | Wraps                                                              |
+|---|--------------------------------------------|--------------------------------------------------------------------|
+| 1 | `base64.bare`                              | `recursive_decoder._decode_bare_base64`                            |
+| 2 | `base64.from_base64_string`                | `recursive_decoder._decode_frombase64string`                       |
+| 3 | `powershell.encoded_command`               | `recursive_decoder._decode_ps_encoded_command`                     |
+| 4 | `gzip.inflate`                             | `recursive_decoder._decode_gzip_bytes`                             |
+| 5 | `zlib.inflate`                             | `recursive_decoder._decode_zlib_bytes`                             |
+| 6 | `shellcode.string_scan`                    | `recursive_decoder._shellcode_string_scan`                         |
+| 7 | `shellcode.analyzer`                       | `shellcode_analyzer.analyze` (Capstone, families, IOCs)            |
+| 8 | `pe.analyzer`                              | `services.pe_analyzer.analyze_pe` (pefile, findings)               |
+| 9 | `family.cobalt_strike.beacon_config`       | `decoders.cobaltstrike_beacon_config.CobaltStrikeBeaconConfigExtractor` |
+
+### Still to wire (huge inventory identified, not yet plumbed)
+Existing production modules waiting to be wrapped (in decreasing "output=input" gap-closure value):
+- `decoders/xor_brute.py` — auto-XOR key discovery (unblocks opaque XOR layers)
+- `decoders/rc4_inline_decrypt.py`, `decoders/crypto_symmetric.py`, `decoders/rc40_orchestrator_plugins.py` — RC4/AES/symmetric
+- `decoders/families/*` — family-specific extractors
+- `decoders/ps_*` — full PowerShell decoder stack (alias/backtick/hex_escape/inline_eval/normalizer/reconstruct/reverse_swap/semantic_mini)
+- `decoders/{ascii85,base32,base58,base91,brotli_stream,lzma_stream,zstd_stream,jwt,vbs_reconstruct,js_reconstruct,cmd_reconstruct,rot13,rot47,url,hex,html_unicode_escape,data_uri}.py`
+- `services/die/preprocessor/family_recognizer.py` (269 LOC)
+- `services/artifact_intelligence/analyzers/pe.py` (may be a scaffold — needs review)
+
+---
+
+
 ## 🟢 2026-02-08 · Fork · Phase 3 Graph-Diff Gate UNBLOCKED
 
 **#3 — Legacy SSOT adapter + graph-diff** (highest priority — LANDED):

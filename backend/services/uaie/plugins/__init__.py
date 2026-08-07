@@ -80,3 +80,5 @@ from . import gzip_inflate             # noqa: F401,E402
 from . import zlib_inflate             # noqa: F401,E402
 from . import shellcode_string_scan    # noqa: F401,E402
 from . import shellcode_analyzer      # noqa: F401,E402  · Capability Pack 1 · #1
+from . import pe_analyzer             # noqa: F401,E402  · Capability Pack 1 · #2
+from . import cs_beacon_config_parser # noqa: F401,E402  · Capability Pack 1 · #3
