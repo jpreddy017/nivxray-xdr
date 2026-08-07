@@ -42,6 +42,7 @@ import TrajectoryDiagram      from "@/components/investigation/TrajectoryDiagram
 import CollapsibleSection     from "@/components/investigation/CollapsibleSection"; // eslint-disable-line no-unused-vars
 import InvestigationSummaryPanel from "@/components/investigation/InvestigationSummaryPanel";
 import api from "@/lib/api";
+import { reportRenderTiming, markPaintStart } from "@/lib/telemetry";
 
 // ── Local ErrorBoundary — protects the whole session page from any
 // downstream projection component crashing on a malformed case.
@@ -193,6 +194,28 @@ export default function InvestigationSessionPage() {
   const inc      = session.incident || {};
   const raw      = session.raw_investigation || {};
   const inputs   = session.investigation_inputs || [];
+
+  // ── Rule R24 · Frontend Performance Contract ──
+  // Every session load reports render + layout timings back to the
+  // server so backend + frontend costs land on the same immutable
+  // performance record.  Fire-and-forget; never blocks the UI.
+  if (typeof window !== "undefined" && !window.__NIVXRAY_TELEM_SENT_FOR__?.[session.session_id]) {
+    markPaintStart();
+    setTimeout(() => {
+      const perf = raw?.metadata?.performance || {};
+      const behaviors = inc?.behaviors || [];
+      const tactics = new Set();
+      for (const b of behaviors) for (const t of (b.mitre_tactics || [])) tactics.add(t);
+      reportRenderTiming({
+        caseId:          session.case_id || null,
+        sessionId:       session.session_id,
+        backendMs:       perf.backend_ms ?? null,
+        behaviorsCount:  behaviors.length,
+        tacticsCount:    tactics.size,
+      });
+      window.__NIVXRAY_TELEM_SENT_FOR__ = { ...(window.__NIVXRAY_TELEM_SENT_FOR__ || {}), [session.session_id]: true };
+    }, 500);   // wait ~half a beat for the trajectory to lay out first
+  }
 
   return (
     <div style={sx.page} data-testid="investigation-session-page">

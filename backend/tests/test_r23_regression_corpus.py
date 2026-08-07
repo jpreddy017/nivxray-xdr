@@ -171,13 +171,13 @@ class TestR23RegressionCorpus:
 # Determinism — same input → byte-identical timings-free SSOT
 # ══════════════════════════════════════════════════════════════════
 def _timings_free(ssot: dict) -> dict:
-    """Strip pipeline_timings (they vary per run) so we can compare
+    """Strip perf telemetry (varies per run) so we can compare
     the deterministic content of two renders."""
     import copy
     ss = copy.deepcopy(ssot)
     meta = ss.get("metadata") or {}
-    if "pipeline_timings" in meta:
-        meta.pop("pipeline_timings")
+    meta.pop("pipeline_timings", None)
+    meta.pop("performance",      None)
     return ss
 
 

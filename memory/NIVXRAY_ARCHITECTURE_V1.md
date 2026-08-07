@@ -476,3 +476,74 @@ Every new adapter / behavior rule / decoder MUST ship with:
 Any PR that violates R23 is rejected.  Any regression that
 re-introduces a black screen or a swallowed decoder failure is a
 P0 hotfix.
+
+═════════════════════════════════════════════════════════════════════
+## R24 · Investigation Performance Contract (2026-08-07 · PERMANENTLY FROZEN)
+═════════════════════════════════════════════════════════════════════
+
+Every investigation MUST emit an immutable, projectable
+``metadata.performance{}`` block that captures the full life-cycle
+performance of the case — backend AND frontend — so historical
+cases are as reproducible in HOW they executed as they are in
+WHAT evidence they produced.
+
+### Mandatory schema
+```
+metadata.performance {
+  backend_ms:            float   // total render time
+  stages_ms:             {stage → ms}
+  warnings:              string[]
+  budget_total_ms:       float   // = 3000
+  budget_hit:            bool
+  peak_memory_mb:        float   // tracemalloc peak during render
+  peak_rss_kb:           int     // OS-level RSS at end of render
+  decode_layers:         [{stage, bytes_in, bytes_out, ratio, elapsed_ms}]
+  truncation:            {behaviors_capped, budget_hit}
+  engine_health:         {engine → "ok" | "error:*"}
+  input_bytes:           int
+  frontend_layout_ms:    float | null  // set by /api/telemetry/frontend
+  frontend_render_ms:    float | null
+  frontend_paint_ms:     float | null
+  frontend_total_ms:     float | null
+}
+```
+
+### Client contract
+1. Every workspace paint MUST fire
+   ``POST /api/telemetry/frontend`` with `{case_id, session_id,
+   backend_ms, layout_ms, render_ms, paint_ms, total_ms, renders,
+   layouts}`.  Fire-and-forget; never blocks the UI.
+2. Frontend timings are stored under
+   ``workspace_cases.performance_history[]`` (rolling 500-entry
+   window) and mirrored on ``frontend_telemetry`` collection
+   (rolling 5000-entry window).
+3. `window.__NIVXRAY_TRAJ_TELEM__ = { renders, layouts,
+   lastLayoutMs }` is exposed for DevTools inspection at any time.
+
+### Server contract
+1. Backend timings emitted by ``investigation_results.render()``.
+2. Peak memory captured via `tracemalloc` + `resource.getrusage()`.
+3. Decode layers recorded during recursive base64 / gzip /
+   powershell decoding by the DIE preprocessor.
+4. All engines wrapped in an isolating stage wrapper — one engine
+   failing NEVER prevents the SSOT from emitting.
+
+### Regression contract
+1. A file-based corpus harness (``tests/test_r24_raw_corpus.py``)
+   auto-discovers every ``.txt`` / ``.raw`` / ``.b64`` under
+   ``tests/user_reported_corpus/`` and asserts R23 + R24 SLOs.
+2. Optional ``<slug>.slo.json`` overrides SLO defaults.
+3. Adding a payload = dropping a file — NO code changes.
+4. Determinism assertion built in: same input → byte-identical
+   SSOT (excluding perf timings) across two renders.
+
+### Non-negotiable rules
+- No investigation may emit a SSOT without
+  ``metadata.performance``.  A missing block is a P0 hotfix.
+- Backend budget is 3000 ms.  Anything over is logged with warnings.
+- Behaviors are capped at 60 (R23) — truncation is recorded on
+  ``metadata.performance.truncation.behaviors_capped``.
+- The user's canonical hard-payloads (including the one that
+  motivated R23/R24) MUST live permanently in
+  ``tests/user_reported_corpus/`` with their measured SLOs
+  pinned — never remove, never weaken.

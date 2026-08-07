@@ -130,15 +130,29 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
     src = input_text or ""
 
     # ══════════════════════════════════════════════════════════════
-    # Rule R23 · Pipeline Telemetry
-    # Objective per-stage timings so any perf regression is caught
-    # BEFORE it reaches an analyst.  Every render emits an
-    # authoritative ``pipeline_timings{}`` block on the SSOT.  Total
-    # budget for a full deterministic render is 3000 ms per R23; any
-    # stage exceeding its own budget is logged.
+    # Rule R24 · Investigation Performance Contract
+    # Every investigation MUST emit an immutable, projectable
+    # `performance{}` block covering:
+    #   · per-stage backend timings
+    #   · peak memory usage (RSS + tracemalloc)
+    #   · decode-recursion layer telemetry (layer / bytes / ratio)
+    #   · truncation flags (did we hit any R23 cap?)
+    #   · engine health (which engines succeeded / failed)
+    # Frontend timings (layout / render / paint) are merged in
+    # after the workspace receives its first repaint via
+    # `POST /api/telemetry/frontend`.
     # ══════════════════════════════════════════════════════════════
     import time as _t
+    import tracemalloc as _tm
+    import resource as _res
     _T0 = _t.perf_counter()
+    _tm_started = False
+    try:
+        if not _tm.is_tracing():
+            _tm.start()
+            _tm_started = True
+    except Exception:  # pragma: no cover
+        pass
     _timings: Dict[str, float] = {}
     _budgets: Dict[str, float] = {   # ms — per-stage warning threshold
         "health":              50.0,
@@ -157,14 +171,23 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
         "paste_synthesis":    200.0,
     }
     _warnings: List[str] = []
+    _engine_health: Dict[str, str] = {}
     def _stage(name: str, fn):
         _s = _t.perf_counter()
-        result = fn()
-        elapsed_ms = (_t.perf_counter() - _s) * 1000.0
-        _timings[name] = round(elapsed_ms, 2)
-        budget = _budgets.get(name)
-        if budget is not None and elapsed_ms > budget:
-            _warnings.append(f"{name}={elapsed_ms:.0f}ms > budget {budget:.0f}ms")
+        try:
+            result = fn()
+            _engine_health[name] = "ok"
+        except Exception as _e:
+            # R23 · never let a single engine fail the pipeline.
+            _engine_health[name] = f"error:{type(_e).__name__}:{str(_e)[:120]}"
+            _warnings.append(f"{name} raised {type(_e).__name__}")
+            raise
+        finally:
+            elapsed_ms = (_t.perf_counter() - _s) * 1000.0
+            _timings[name] = round(elapsed_ms, 2)
+            budget = _budgets.get(name)
+            if budget is not None and elapsed_ms > budget:
+                _warnings.append(f"{name}={elapsed_ms:.0f}ms > budget {budget:.0f}ms")
         return result
 
     # 0) Stage-0 · Input Health Check (IUE v2.0 · Layer 0)
@@ -786,25 +809,77 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
             pass
     _stage("paste_synthesis", _do_paste_synth)
 
-    # ── Rule R23 · Pipeline Telemetry ─────────────────────────────
-    # Emit total time + per-stage timings on the SSOT.metadata so
-    # any consumer (frontend, admin telemetry, regression tests) can
-    # assert SLOs without instrumenting the pipeline separately.
+    # ── Rule R24 · Investigation Performance Contract ─────────────
     total_ms = (_t.perf_counter() - _T0) * 1000.0
-    canonical.setdefault("metadata", {})
-    canonical["metadata"]["pipeline_timings"] = {
-        "total_ms":      round(total_ms, 2),
-        "stages_ms":     _timings,
-        "warnings":      _warnings,
-        "budget_total_ms": 3000.0,
-        "budget_hit":    total_ms > 3000.0,
+    peak_kb  = 0
+    try:
+        peak_kb = _res.getrusage(_res.RUSAGE_SELF).ru_maxrss  # KB on Linux
+    except Exception:  # pragma: no cover
+        peak_kb = 0
+    tm_peak_mb = 0.0
+    try:
+        if _tm.is_tracing():
+            _, peak_bytes = _tm.get_traced_memory()
+            tm_peak_mb = round(peak_bytes / (1024 * 1024), 2)
+        if _tm_started:
+            _tm.stop()
+    except Exception:  # pragma: no cover
+        pass
+
+    # Read decode recursion telemetry emitted by the DIE preprocessor
+    # (layer-by-layer bytes / ratio / stage).  Preprocessor stores it
+    # on `pre.decode_layers` when the input required recursive base64
+    # / gzip / powershell decoding.
+    _decode_layers: List[Dict[str, Any]] = []
+    try:
+        _dl = getattr(pre, "decode_layers", None)
+        if isinstance(_dl, list):
+            _decode_layers = _dl
+    except Exception:  # pragma: no cover
+        pass
+
+    # Truncation flags — did we hit any R23 cap?
+    _truncation = {
+        "behaviors_capped": bool((canonical.get("incident") or {}).get("truncated_behaviors")),
+        "budget_hit":       total_ms > 3000.0,
     }
-    # Log a compact one-liner so ops can grep for slow renders.
+
+    performance = {
+        "backend_ms":       round(total_ms, 2),
+        "stages_ms":        _timings,
+        "warnings":         _warnings,
+        "budget_total_ms":  3000.0,
+        "budget_hit":       total_ms > 3000.0,
+        "peak_memory_mb":   tm_peak_mb,
+        "peak_rss_kb":      int(peak_kb),
+        "decode_layers":    _decode_layers,
+        "truncation":       _truncation,
+        "engine_health":    _engine_health,
+        "input_bytes":      len(src.encode("utf-8", "replace")),
+        # Frontend timings arrive out-of-band via
+        # `POST /api/telemetry/frontend` and are merged onto this
+        # block after the workspace paints (Rule R24 · guarantee #2).
+        "frontend_layout_ms": None,
+        "frontend_render_ms": None,
+        "frontend_paint_ms":  None,
+        "frontend_total_ms":  None,
+    }
+    canonical.setdefault("metadata", {})
+    canonical["metadata"]["performance"]       = performance
+    # Backward-compat alias so existing consumers reading the old
+    # `pipeline_timings` name continue to work unchanged.
+    canonical["metadata"]["pipeline_timings"]  = {
+        "total_ms":         performance["backend_ms"],
+        "stages_ms":        performance["stages_ms"],
+        "warnings":         performance["warnings"],
+        "budget_total_ms":  performance["budget_total_ms"],
+        "budget_hit":       performance["budget_hit"],
+    }
     if total_ms > 1500.0 or _warnings:
         import logging as _log
         _log.getLogger("nivxray.telemetry").info(
-            "render total=%.0fms warnings=%s stages=%s",
-            total_ms, _warnings, _timings,
+            "render total=%.0fms peak=%.1fMB layers=%d warnings=%s stages=%s",
+            total_ms, tm_peak_mb, len(_decode_layers), _warnings, _timings,
         )
 
     return {"output": output, "object": canonical}
