@@ -107,7 +107,13 @@ class Orchestrator:
                 continue
 
             # ── 2. Execute all capabilities registered for that type ──
-            caps = _caps_for_type(best.artifact_type)
+            # ── Priority 3 · Deterministic Planner (2026-02) ──
+            # Sort the capability list by artifact-type dependency graph
+            # so analyzers always run BEFORE family emitters and family
+            # emitters ALWAYS observe complete analyzer output.  This is
+            # a pure, deterministic reordering — never drops capabilities.
+            from .planner import plan as _plan_caps
+            caps = _plan_caps(_caps_for_type(best.artifact_type))
             for cap in caps:
                 # Dependency check — evidence prerequisites
                 if cap.requires_evidence:

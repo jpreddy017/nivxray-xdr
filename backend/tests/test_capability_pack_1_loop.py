@@ -98,12 +98,6 @@ def test_orchestrator_loop_terminates_on_stable_end_state():
 # ═════════════════════════════════════════════════════════════════════════
 # T3 · The analyzer unlocks NEW evidence kinds the legacy peel never had.
 # ═════════════════════════════════════════════════════════════════════════
-@pytest.mark.xfail(reason="Post-Priority-2 the family emission is subject to "
-                          "plugin-order interactions; will be re-armed once "
-                          "the deterministic Planner (Priority 3) lands and "
-                          "guarantees analyzer capabilities always run "
-                          "before family emitters.",
-                    strict=False)
 def test_analyzer_unlocks_new_evidence_kinds_over_legacy():
     """R25/Pack-1 objective: the loop produces family / disassembly /
     shellcode_report evidence — kinds the legacy ``_shellcode_string_scan``
@@ -134,11 +128,6 @@ def test_analyzer_unlocks_new_evidence_kinds_over_legacy():
 # ═════════════════════════════════════════════════════════════════════════
 # T4 · MITRE ATT&CK mapping propagates through the analyzer plugin.
 # ═════════════════════════════════════════════════════════════════════════
-@pytest.mark.xfail(reason="Family evidence emission through orchestrator "
-                          "depends on plugin-order interaction; behaviour "
-                          "verified via direct capability.execute() test; "
-                          "orchestrator-level assertion re-tuned post-Planner.",
-                    strict=False)
 def test_analyzer_maps_iocs_and_family_to_mitre():
     orch = Orchestrator(recognizers=_plugins_pkg.all_recognizers())
     result = orch.run(_make_msf_meterpreter_bytes(), root_type="shellcode_bytes")
@@ -177,12 +166,6 @@ def test_orchestrator_loop_is_pure():
 # T6 · The plugin agrees with the underlying production module —
 # no drift between UAIE Evidence and shellcode_analyzer.analyze output.
 # ═════════════════════════════════════════════════════════════════════════
-@pytest.mark.xfail(reason="Orchestrator-level family emission is subject to "
-                          "plugin-interaction reordering; direct plugin "
-                          "invocation still agrees byte-for-byte with the "
-                          "underlying production module.  Will be re-armed "
-                          "once the deterministic Planner (Priority 3) lands.",
-                    strict=False)
 def test_plugin_agrees_with_production_shellcode_analyzer():
     payload  = _make_msf_meterpreter_bytes()
     prod     = _sca.analyze(payload)
