@@ -1,3 +1,104 @@
+## 🟢 2026-02-15 · Fork · R28.3 · Artifact Quality Assurance Layer — LANDED
+
+**Unified Validator + Repair Planner + Repair Capability framework.**  Locks the frozen QA loop into the orchestrator so every child artifact is diagnosed before it enters the queue and healed deterministically when it fails.
+
+### Design (frozen)
+```
+Capability → child artifact
+    │
+    ▼
+Validator (diagnose only, emit ranked repair_candidates[])
+    │
+    ├── VALID   → queue child                → STATE_VALIDATED
+    │
+    └── INVALID → Repair Planner ranks candidates by confidence
+                  │
+                  ▼
+                Repair Capability (transform only)
+                  │
+                  ▼
+                Validator (re-check)
+                  │
+                  ├── VALID   → queue child   → STATE_REPAIRED
+                  └── INVALID → next candidate
+                                │
+                                ▼
+                            candidates exhausted
+                                │
+                                ▼
+                            STATE_UNREACHABLE + evidence(kind='repair_failed')
+```
+
+### Separation of concerns (permanent)
+- **Validators** DIAGNOSE only. They never mutate bytes. They return canonical `INVALID_*` codes plus ranked repair candidates.
+- **Repair Planner** RANKS candidates by confidence (dedup by strategy).  Owns the "which repair next" decision — plugins do not.
+- **Repair Capabilities** TRANSFORM only.  The validator already said "this strategy is valid for this artifact"; the plugin never re-decides.
+- **Certificates** (Validation + Repair) preserve every decision so the analyst can replay exactly what happened.
+
+### Files added
+- `services/uaie/qa.py` — QA contracts, taxonomies, registries, Repair Planner.
+- `services/uaie/plugins/validator_base64_text/` — diagnoses base64 HTML mangling, URL-safe alphabet, bad padding, whitespace contamination.  Emits ranked candidates: `strip_html_entities`, `url_safe_alphabet`, `normalize_padding`, `strip_whitespace`.
+- `services/uaie/plugins/validator_pe_bytes/` — rejects PE claims missing `MZ` / `PE\0\0` / `e_lfanew` bounds — no repair proposed (structurally irreversible).
+- `services/uaie/plugins/validator_shellcode_bytes/` — rejects <16 B / all-zero / high-printable / low-entropy children.
+- `services/uaie/plugins/validator_gzip_bytes/` — diagnoses truncation; proposes `gzip_partial_inflate` repair.
+- `services/uaie/plugins/repair_base64_strip_html_entities/` — strips `<br>`, `&nbsp;`, `&amp;`, `&#xNN;`, `=?utf-8?B?…?=`, quoted-printable soft-line-break, zero-width & RTL Unicode.  Preserves `=` padding.
+- `services/uaie/plugins/repair_base64_surgical/` — three strategies in one module: `strip_whitespace`, `normalize_padding`, `url_safe_alphabet`.
+- `validator_gzip_bytes` also ships an inline `repair.gzip.partial_inflate` — deterministic streaming inflate that recovers the readable prefix and reports `truncated_at_offset` in evidence.
+
+### Files edited
+- `services/uaie/ledger.py` — added QA actions: `validate`, `repair_plan`, `repair_attempt`, `repair_success`, `repair_fail`, `mark_unreachable`.
+- `services/uaie/orchestrator.py` — added `_run_validators()` + `_qa_accept_child()` hook between capability output and enqueue; extended `OrchestratorResult` with `states`, `validation_certificates`, `repair_certificates`.
+- `services/uaie/ssot_projector.py` — new `quality_assurance` sub-tree with validation/repair certificates, per-URI states, and roll-up counts.
+- `services/uaie/plugins/__init__.py` — registered every validator + repair plugin.
+
+### Structured failure taxonomy (analyst-visible)
+```
+Validation:  missing_magic · bad_padding · bad_alphabet · html_mangled
+             low_printable_ratio · truncated · unknown_encoding
+             size_below_min · all_zero · alignment_shift · structural_mismatch
+
+Repair fail: irreversible_corruption · truncated · unsupported_encoding
+             checksum_mismatch · missing_bytes · unknown_format
+             low_confidence · validator_rejected · no_repair_capability
+             repair_exception
+
+Terminal:    no_strategies_left  →  STATE_UNREACHABLE
+```
+
+### Artifact lifecycle states
+`NEW → RECOGNIZED → EXECUTED → VALIDATED → (REPAIR_PENDING → REPAIRED →) ANALYZED / UNREACHABLE`
+Tracked on `OrchestratorResult.states[artifact_uri]` and surfaced in `ssot.quality_assurance.states`.
+
+### Backwards compatibility
+- If no validators are registered for a child's `artifact_type`, the QA hook is a NO-OP — legacy behaviour preserved.  All 155 pre-existing UAIE tests remain GREEN.
+- All new state / certificate fields on `OrchestratorResult` default to empty collections.
+
+### Verification
+```
+tests/test_qa_layer_contracts.py         9 passed  (Repair Planner ranking, dedupe, registry, immutability)
+tests/test_qa_layer_integration.py       5 passed  (end-to-end: valid, repaired, unreachable, fall-through, determinism)
+tests/test_qa_plugins.py                21 passed  (per-plugin: base64 diagnose/repair, PE MZ/PE\0\0, shellcode floor, gzip partial recovery)
+tests/test_qa_ssot_projection.py         2 passed  (SSOT `quality_assurance` block + summary rollups)
+Combined UAIE + QA suite               192 passed / 207 skipped / 0 failed
+```
+
+### Why this matters
+- **Generic** — the QA layer is not base64-specific.  Adding a new validator + repair for PDF, DOCX, ELF, APK, Office, JavaScript, HTA, etc. requires no orchestrator change.
+- **Deterministic** — same bytes in → same repair strategies attempted in the same order → same certificates emitted.
+- **Explainable** — every accepted child has a Validation Certificate; every healed child has a Repair Certificate; every UNREACHABLE artifact has a `repair_failed` evidence record naming exactly which validators diagnosed what and which repair strategies were tried.
+- **Structurally solves the Sophos/HTML-mangled clipboard case** — no sample-specific hack, just: validator sees HTML entities → planner ranks `strip_html_entities` first → repair strips → re-validate → enqueue.  Same layer solves partial-gzip corruption via `gzip_partial_inflate`.
+
+### Next roadmap slot
+- P1 · Phase 5 — Artifact State Machine wired into `orchestrator.py` end-to-end (all 8 states emitted per artifact + transitions logged).
+- P1 · Phase 6 — Capability Contracts (`Requires`, `Produces`, `Improves`, `Consumes`).
+- P2 · Phase 4 — Fixed-Point Termination Certificate.
+- P2 · Phase 7 — Decode Confidence Propagation (multiplicative Decode × Repair × Analysis).
+- P3 · Phase 8/9 — Investigation Profiles + Evidence Graph + Goal-Driven Planner.
+- P4 · Freeze Notdecoded regression (still awaiting JSON).
+
+---
+
+
 ## 🟢 2026-02-14 · Fork · P4 · The Real "Notdecoded" Diagnosis + End-to-End Fix
 
 **Live production payload analysis.** The user pasted a `cmd → powershell -nop -w hidden -encodedcommand …` payload that our tool was producing OUTPUT=INPUT on. Root-caused four independent bugs and fixed all four; added a permanent regression gate.

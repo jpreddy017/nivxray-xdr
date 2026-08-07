@@ -26,6 +26,13 @@ ACTION_EMIT_EVIDENCE   = "emit_evidence"
 ACTION_SCHEDULE_SKIP   = "schedule_skip"    # planner deferred / rejected
 ACTION_BUDGET_HIT      = "budget_hit"
 ACTION_COMPLETE        = "complete"
+# ── QA-Layer actions (R28.3 · Artifact Quality Assurance) ─────────
+ACTION_VALIDATE        = "validate"          # validator diagnosed a child
+ACTION_REPAIR_PLAN     = "repair_plan"       # planner ranked repair candidates
+ACTION_REPAIR_ATTEMPT  = "repair_attempt"    # repair capability invoked
+ACTION_REPAIR_SUCCESS  = "repair_success"    # repair produced valid bytes (re-validated)
+ACTION_REPAIR_FAIL     = "repair_fail"       # repair attempt failed
+ACTION_MARK_UNREACHABLE = "mark_unreachable" # all repair strategies exhausted
 
 
 # ── Skip-reason taxonomy (structured — makes "why did decoding stop?"

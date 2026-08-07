@@ -25,13 +25,24 @@ from typing      import Callable, Dict, List, Optional
 
 from .artifact   import Artifact, make_artifact
 from .capability import Capability, for_type as _caps_for_type
-from .evidence   import Evidence
+from .evidence   import Evidence, make_evidence
 from .ledger     import (ACTION_COMPLETE, ACTION_EMIT_EVIDENCE, ACTION_ENQUEUE,
                           ACTION_EXECUTE, ACTION_RECOGNIZE, ACTION_SCHEDULE_SKIP,
+                          ACTION_VALIDATE, ACTION_REPAIR_PLAN, ACTION_REPAIR_ATTEMPT,
+                          ACTION_REPAIR_SUCCESS, ACTION_REPAIR_FAIL,
+                          ACTION_MARK_UNREACHABLE,
                           Ledger, SKIP_ARTIFACTS_CAP, SKIP_CAPABILITY_ERROR,
                           SKIP_DEPTH_CAP, SKIP_MISSING_EVIDENCE_PREREQ,
                           SKIP_NO_RECOGNIZER_MATCH,
                           format_skip_reason)
+from .qa        import (RepairCandidate, RepairCertificate, RepairResult,
+                         STATE_ANALYZED, STATE_EXECUTED, STATE_NEW,
+                         STATE_RECOGNIZED, STATE_REPAIR_PENDING, STATE_REPAIRED,
+                         STATE_UNREACHABLE, STATE_VALIDATED, ValidationCertificate,
+                         ValidationResult, plan_repairs, repair_for,
+                         validators_for, REPAIR_FAIL_EXCEPTION,
+                         REPAIR_FAIL_NO_CAPABILITY, REPAIR_FAIL_VALIDATOR_REJECTED,
+                         UNREACHABLE_NO_STRATEGIES_LEFT)
 from .recognizer import Recognition, Recognizer
 
 
@@ -42,6 +53,10 @@ class OrchestratorResult:
     ledger:      Ledger              = field(default_factory=Ledger)
     warnings:    List[str]           = field(default_factory=list)
     total_ms:    float = 0.0
+    # ── QA-Layer (R28.3) ────────────────────────────────────────────
+    states:                   Dict[str, str] = field(default_factory=dict)
+    validation_certificates:  List[ValidationCertificate] = field(default_factory=list)
+    repair_certificates:      List[RepairCertificate]     = field(default_factory=list)
 
 
 def _default_planner(queue: deque) -> Artifact:
@@ -56,11 +71,249 @@ class Orchestrator:
                   *,
                   planner: Optional[Callable[[deque], Artifact]] = None,
                   max_artifacts: int = 256,
-                  max_depth:     int = 12) -> None:
+                  max_depth:     int = 12,
+                  max_repair_attempts_per_artifact: int = 8) -> None:
         self.recognizers    = list(recognizers or [])
         self.planner        = planner or _default_planner
         self.max_artifacts  = max_artifacts
         self.max_depth      = max_depth
+        self.max_repair_attempts_per_artifact = max_repair_attempts_per_artifact
+
+    # ── QA-Layer helpers (R28.3) ────────────────────────────────────
+    def _run_validators(self, artifact: Artifact) -> List[ValidationResult]:
+        """Diagnose an artifact with every registered validator for its
+        type (+ universal ``*`` validators).  Pure function — validators
+        never mutate bytes."""
+        results: List[ValidationResult] = []
+        for v in validators_for(artifact.artifact_type):
+            try:
+                results.append(v.validate(artifact))
+            except Exception as e:  # pragma: no cover — validators are pure
+                results.append(ValidationResult(
+                    valid=True, validator=getattr(v, "name", "?"),
+                    confidence=0.0,
+                    detail=f"validator raised {type(e).__name__}: {e}",
+                ))
+        return results
+
+    def _qa_accept_child(self, child: Artifact, parent: Artifact,
+                          result: OrchestratorResult) -> Optional[Artifact]:
+        """Run the QA layer on a child artifact.
+
+        Returns the artifact to enqueue (either the original child if
+        it validates, or a repaired substitute), or ``None`` if the
+        artifact is UNREACHABLE and must not be enqueued.
+
+        Backwards-compat: if NO validators are registered for the
+        child's artifact_type (and no universal validators exist),
+        the child is accepted as-is with no ledger noise — exactly
+        the pre-QA behaviour.
+        """
+        validator_results = self._run_validators(child)
+        if not validator_results:
+            # No QA registered for this type — legacy behaviour.
+            result.states[child.uri] = STATE_VALIDATED
+            return child
+
+        # Aggregate validators' verdicts.  A child is VALID only if
+        # EVERY validator that ran says valid=True.
+        failures = [r for r in validator_results if not r.valid]
+        for r in validator_results:
+            result.validation_certificates.append(ValidationCertificate(
+                artifact_uri=child.uri, validator=r.validator,
+                valid=r.valid, reason=r.reason, detail=r.detail,
+                confidence=r.confidence,
+                candidates=[c.strategy for c in r.repair_candidates],
+            ))
+            result.ledger.append(
+                artifact_uri=child.uri, action=ACTION_VALIDATE,
+                actor=r.validator,
+                input_summary=f"type={child.artifact_type} size={child.size}",
+                output_summary=(
+                    f"valid={r.valid} reason={r.reason or '-'} "
+                    f"candidates={[c.strategy for c in r.repair_candidates]}"),
+                confidence=r.confidence,
+            )
+        if not failures:
+            result.states[child.uri] = STATE_VALIDATED
+            return child
+
+        # ── Repair phase ──
+        result.states[child.uri] = STATE_REPAIR_PENDING
+        # Union all candidates across failed validators, then rank.
+        all_candidates: List[RepairCandidate] = []
+        for r in failures:
+            all_candidates.extend(r.repair_candidates)
+        ranked = plan_repairs(all_candidates)
+        result.ledger.append(
+            artifact_uri=child.uri, action=ACTION_REPAIR_PLAN,
+            actor="qa.planner",
+            input_summary=(f"failures={[r.reason for r in failures]} "
+                             f"validators={[r.validator for r in failures]}"),
+            output_summary=f"ranked={[(c.strategy, round(c.confidence, 3)) for c in ranked]}",
+        )
+        if not ranked:
+            # No strategies proposed — mark UNREACHABLE.
+            self._mark_unreachable(child, failures, result,
+                                    reason=UNREACHABLE_NO_STRATEGIES_LEFT,
+                                    detail="validators diagnosed invalid but proposed no repairs")
+            return None
+
+        attempts = 0
+        for cand in ranked:
+            if attempts >= self.max_repair_attempts_per_artifact:
+                self._mark_unreachable(child, failures, result,
+                                        reason=UNREACHABLE_NO_STRATEGIES_LEFT,
+                                        detail=f"max_repair_attempts={self.max_repair_attempts_per_artifact}")
+                return None
+            attempts += 1
+            repair = repair_for(cand.strategy)
+            if repair is None:
+                result.ledger.append(
+                    artifact_uri=child.uri, action=ACTION_REPAIR_FAIL,
+                    actor="qa.planner",
+                    input_summary=f"strategy={cand.strategy}",
+                    output_summary=f"reason={REPAIR_FAIL_NO_CAPABILITY}",
+                )
+                result.repair_certificates.append(RepairCertificate(
+                    source_uri=child.uri, repaired_uri=None,
+                    strategy=cand.strategy, outcome="failed",
+                    reason=REPAIR_FAIL_NO_CAPABILITY,
+                    detail="no repair capability registered for strategy",
+                ))
+                continue
+            result.ledger.append(
+                artifact_uri=child.uri, action=ACTION_REPAIR_ATTEMPT,
+                actor=repair.name,
+                input_summary=(f"strategy={cand.strategy} "
+                                 f"cand_confidence={round(cand.confidence, 3)}"),
+                output_summary=f"reason={cand.reason} detail={cand.detail}",
+            )
+            try:
+                rres: RepairResult = repair.repair(child, cand)
+            except Exception as e:  # pragma: no cover
+                rres = RepairResult(
+                    success=False, strategy=cand.strategy,
+                    reason=REPAIR_FAIL_EXCEPTION,
+                    detail=f"{type(e).__name__}: {e}",
+                )
+            if not rres.success or rres.repaired_payload is None:
+                result.ledger.append(
+                    artifact_uri=child.uri, action=ACTION_REPAIR_FAIL,
+                    actor=repair.name,
+                    input_summary=f"strategy={cand.strategy}",
+                    output_summary=f"reason={rres.reason} detail={rres.detail}",
+                )
+                result.repair_certificates.append(RepairCertificate(
+                    source_uri=child.uri, repaired_uri=None,
+                    strategy=cand.strategy, outcome="failed",
+                    reason=rres.reason, detail=rres.detail,
+                ))
+                continue
+            # Repair produced bytes — build the repaired artifact and re-validate.
+            new_type = rres.repaired_artifact_type or child.artifact_type
+            repaired = make_artifact(
+                rres.repaired_payload, new_type,
+                parent_uri=child.uri, depth=child.depth,
+                discovered_by=f"repair.{cand.strategy}",
+                meta={**dict(child.meta),
+                        "repair_strategy": cand.strategy,
+                        "repair_source_uri": child.uri,
+                        "repair_source_type": child.artifact_type,
+                        **dict(rres.meta)},
+            )
+            re_results = self._run_validators(repaired)
+            re_failures = [r for r in re_results if not r.valid]
+            for r in re_results:
+                result.validation_certificates.append(ValidationCertificate(
+                    artifact_uri=repaired.uri, validator=r.validator,
+                    valid=r.valid, reason=r.reason, detail=r.detail,
+                    confidence=r.confidence,
+                    candidates=[c.strategy for c in r.repair_candidates],
+                ))
+                result.ledger.append(
+                    artifact_uri=repaired.uri, action=ACTION_VALIDATE,
+                    actor=r.validator,
+                    input_summary=f"post_repair strategy={cand.strategy}",
+                    output_summary=f"valid={r.valid} reason={r.reason or '-'}",
+                    confidence=r.confidence,
+                )
+            if re_failures:
+                # Repair produced bytes but they still don't validate.
+                result.ledger.append(
+                    artifact_uri=child.uri, action=ACTION_REPAIR_FAIL,
+                    actor=repair.name,
+                    input_summary=f"strategy={cand.strategy}",
+                    output_summary=(f"reason={REPAIR_FAIL_VALIDATOR_REJECTED} "
+                                      f"post_reasons={[r.reason for r in re_failures]}"),
+                )
+                result.repair_certificates.append(RepairCertificate(
+                    source_uri=child.uri, repaired_uri=repaired.uri,
+                    strategy=cand.strategy, outcome="failed",
+                    reason=REPAIR_FAIL_VALIDATOR_REJECTED,
+                    detail=f"post_reasons={[r.reason for r in re_failures]}",
+                ))
+                continue
+            # Success — emit certificate + evidence + return the repaired artifact.
+            result.ledger.append(
+                artifact_uri=child.uri, action=ACTION_REPAIR_SUCCESS,
+                actor=repair.name,
+                input_summary=f"strategy={cand.strategy}",
+                output_summary=f"repaired_uri={repaired.uri} size={repaired.size}",
+            )
+            result.repair_certificates.append(RepairCertificate(
+                source_uri=child.uri, repaired_uri=repaired.uri,
+                strategy=cand.strategy, outcome="success",
+                reason="", detail=f"repaired {child.size}B → {repaired.size}B",
+            ))
+            result.states[child.uri]    = STATE_REPAIRED
+            result.states[repaired.uri] = STATE_VALIDATED
+            # Track the repaired artifact so downstream consumers can look it up.
+            result.artifacts[repaired.uri] = repaired
+            return repaired
+
+        # Exhausted all candidates.
+        self._mark_unreachable(child, failures, result,
+                                reason=UNREACHABLE_NO_STRATEGIES_LEFT,
+                                detail=f"tried={[c.strategy for c in ranked]}")
+        return None
+
+    def _mark_unreachable(self, child: Artifact,
+                           failures: List[ValidationResult],
+                           result: OrchestratorResult,
+                           *, reason: str, detail: str) -> None:
+        result.states[child.uri] = STATE_UNREACHABLE
+        result.ledger.append(
+            artifact_uri=child.uri, action=ACTION_MARK_UNREACHABLE,
+            actor="qa.planner",
+            input_summary=(f"validators={[f.validator for f in failures]} "
+                             f"reasons={[f.reason for f in failures]}"),
+            output_summary=f"reason={reason} detail={detail}",
+        )
+        # Emit a first-class evidence record so the analyst SEES what
+        # was ruled unreachable and why (never silent).
+        ev = make_evidence(
+            artifact_uri=child.uri,
+            kind="repair_failed",
+            value={
+                "reason":       reason,
+                "detail":       detail,
+                "validators":   [f.validator for f in failures],
+                "failure_codes": [f.reason for f in failures],
+                "failure_detail": [f.detail  for f in failures],
+            },
+            source_capability="qa.planner",
+            confidence=0.99,
+            severity="medium",
+        )
+        result.evidence.append(ev)
+        result.ledger.append(
+            artifact_uri=child.uri, action=ACTION_EMIT_EVIDENCE,
+            actor="qa.planner",
+            output_summary=f"repair_failed reason={reason}",
+            evidence_ids=[ev.id], confidence=ev.confidence,
+        )
+
 
     def run(self, root_payload: bytes,
               *,
@@ -70,6 +323,7 @@ class Orchestrator:
                               discovered_by="orchestrator.root")
         result = OrchestratorResult()
         result.artifacts[root.uri] = root
+        result.states[root.uri] = STATE_NEW
         queue: deque = deque([root])
         seen_uris = {root.uri}
 
@@ -228,11 +482,27 @@ class Orchestrator:
                         continue
                     seen_uris.add(child.uri)
                     result.artifacts[child.uri] = child
-                    queue.append(child)
-                    result.ledger.append(artifact_uri=child.uri,
+                    # ── QA-Layer (R28.3) · Validate → Repair → Enqueue ──
+                    # If any validators are registered for this
+                    # artifact_type, run them.  Rejected children are
+                    # given a chance to be repaired deterministically.
+                    # If no validators exist for this type, this is a
+                    # no-op and legacy behaviour is preserved.
+                    to_enqueue = self._qa_accept_child(child, art, result)
+                    if to_enqueue is None:
+                        # UNREACHABLE — validators failed and no repair
+                        # strategy produced a valid replacement.  The
+                        # evidence + certificates already record why.
+                        continue
+                    if to_enqueue.uri != child.uri:
+                        # Repaired artifact — track it under seen_uris
+                        # so the loop doesn't reprocess it.
+                        seen_uris.add(to_enqueue.uri)
+                    queue.append(to_enqueue)
+                    result.ledger.append(artifact_uri=to_enqueue.uri,
                                            action=ACTION_ENQUEUE, actor=cap.name,
                                            input_summary=f"parent={art.uri}",
-                                           output_summary=f"type={child.artifact_type} depth={child.depth}")
+                                           output_summary=f"type={to_enqueue.artifact_type} depth={to_enqueue.depth}")
 
         result.total_ms = (time.perf_counter() - t0) * 1000.0
         result.ledger.append(artifact_uri=root.uri, action=ACTION_COMPLETE,

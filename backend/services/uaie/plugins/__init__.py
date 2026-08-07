@@ -107,3 +107,14 @@ from . import op_crypto_api_annotator           # noqa: F401,E402
 # ── Priority 6 · PE Extractor + .NET Recognizer ────────────────────
 from . import pe_extractor                       # noqa: F401,E402
 from . import pe_dotnet_recognizer               # noqa: F401,E402
+# ── R28.3 · Artifact Quality Assurance Layer ───────────────────────
+# Validators (diagnose only) MUST be imported before repairs so the
+# validator registry is populated before any downstream consumer.
+from . import validator_base64_text               # noqa: F401,E402
+from . import validator_pe_bytes                  # noqa: F401,E402
+from . import validator_shellcode_bytes           # noqa: F401,E402
+from . import validator_gzip_bytes                # noqa: F401,E402
+# Repair capabilities (transform only) — one strategy per plugin.
+from . import repair_base64_strip_html_entities   # noqa: F401,E402
+from . import repair_base64_surgical              # noqa: F401,E402
+# validator_gzip_bytes also registers its repair capability inline.

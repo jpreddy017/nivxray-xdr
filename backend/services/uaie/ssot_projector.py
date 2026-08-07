@@ -400,6 +400,47 @@ def project(orchestrator_result: OrchestratorResult,
         # R25.3 · Confidence-evolution trace — how certainty grew at
         # each stage of the peel.  Analyst-visible; pure ledger read.
         "confidence_evolution": _confidence_evolution(orchestrator_result),
+        # R28.3 · Artifact Quality Assurance Layer — validation +
+        # repair certificates + lifecycle states so the analyst can
+        # replay every "why did this child fail / get healed / go
+        # unreachable" without a log dive.
+        "quality_assurance":   _quality_assurance(orchestrator_result),
+    }
+
+
+def _quality_assurance(result: OrchestratorResult) -> Dict[str, Any]:
+    """Project the QA-layer state into a canonical, deterministic
+    sub-tree so the frontend + tests + auditors can consume it
+    without reaching into orchestrator internals.
+    """
+    from dataclasses import asdict
+    vcerts = [asdict(c) for c in getattr(result, "validation_certificates", [])]
+    rcerts = [asdict(c) for c in getattr(result, "repair_certificates", [])]
+    states = dict(getattr(result, "states", {}))
+
+    # Convenience roll-ups — counts by outcome for a quick verdict.
+    validators_by_outcome: Dict[str, int] = {}
+    for c in vcerts:
+        key = "valid" if c["valid"] else "invalid"
+        validators_by_outcome[key] = validators_by_outcome.get(key, 0) + 1
+    repairs_by_outcome: Dict[str, int] = {}
+    for c in rcerts:
+        repairs_by_outcome[c["outcome"]] = repairs_by_outcome.get(c["outcome"], 0) + 1
+    states_by_kind: Dict[str, int] = {}
+    for s in states.values():
+        states_by_kind[s] = states_by_kind.get(s, 0) + 1
+
+    unreachable_uris = [uri for uri, s in states.items() if s == "UNREACHABLE"]
+    return {
+        "validation_certificates": vcerts,
+        "repair_certificates":     rcerts,
+        "states":                  states,
+        "summary": {
+            "validators_by_outcome": validators_by_outcome,
+            "repairs_by_outcome":    repairs_by_outcome,
+            "states_by_kind":        states_by_kind,
+            "unreachable_uris":      unreachable_uris,
+        },
     }
 
 
