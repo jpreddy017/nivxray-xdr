@@ -101,6 +101,14 @@ class HistoryRecordIn(BaseModel):
     # case belongs to. `None` = standalone case. Set by
     # /api/correlations/link (manual) or the auto-correlator on record.
     correlation_id: Optional[str] = None
+    # ▲ R28.2 · Immutable Investigation Identity (2026-02 · FROZEN)
+    # Callers MAY ship the full analyst-facing SSOT bundle so the history
+    # row references the same immutable investigation object as the case,
+    # report, or export.  ``ssot_ref = {id, checksum, version}`` is stored
+    # on the row; the actual bundle lives in the content-addressable
+    # ``investigation_ssot`` collection.  Two identical bundles collapse
+    # to one row (dedupe).
+    ssot: Optional[Dict[str, Any]] = None
 
 
 class HistoryPatchIn(BaseModel):
@@ -244,6 +252,22 @@ async def _upsert_investigation(user_email: str, body: HistoryRecordIn) -> Dict[
             set_fields["canonical_confidence_reason"] = body.canonical_confidence_reason
         if body.verdict_card is not None:
             set_fields["verdict_card"] = body.verdict_card
+        # ▲ R28.2 · Immutable Investigation Identity — refresh the
+        # ssot_ref pointer whenever a fresh bundle is supplied.
+        if body.ssot is not None:
+            try:
+                from services.ssot_store import store_ssot, build_version_stamp
+                _ssot_bundle = dict(body.ssot)
+                _ssot_bundle["version"] = build_version_stamp()
+                _ssot_bundle["persisted_at"] = now.isoformat()
+                _ref = store_ssot(
+                    _ssot_bundle,
+                    user_email=user_email,
+                    case_name=body.case_name,
+                )
+                set_fields["ssot_ref"] = _ref
+            except Exception:
+                pass
         if is_chain:
             set_fields.update({
                 "stages": stored_stages,
@@ -290,6 +314,27 @@ async def _upsert_investigation(user_email: str, body: HistoryRecordIn) -> Dict[
         "canonical_confidence_reason": body.canonical_confidence_reason,
         "verdict_card": body.verdict_card,
     }
+    # ▲ R28.2 · Immutable Investigation Identity (2026-02 · FROZEN)
+    # If caller shipped the full SSOT bundle, deposit it into the
+    # content-addressable ``investigation_ssot`` collection and store
+    # only the ``ssot_ref`` pointer on the history row.  Identical
+    # bundles between a Workspace case and its history row collapse to
+    # one immutable investigation via content-hash dedupe.
+    if body.ssot is not None:
+        try:
+            from services.ssot_store import store_ssot, build_version_stamp
+            _ssot_bundle = dict(body.ssot)
+            _ssot_bundle["version"] = build_version_stamp()
+            _ssot_bundle["persisted_at"] = now.isoformat()
+            _ref = store_ssot(
+                _ssot_bundle,
+                user_email=user_email,
+                case_name=body.case_name,
+            )
+            doc["ssot_ref"] = _ref
+        except Exception:
+            # Immutable-store failure must never block history writes.
+            pass
     if is_chain:
         doc["stages"] = stored_stages
         doc["aggregate"] = body.aggregate
@@ -406,17 +451,26 @@ async def _post_record_investigation_hook(user_email: str, case_id: str) -> None
 
 
 async def tag_history_with_case(user_email: str, input_text: str, case_name: str,
-                                  case_id: Optional[str] = None) -> bool:
+                                  case_id: Optional[str] = None,
+                                  ssot_ref: Optional[Dict[str, Any]] = None) -> bool:
     """Attach a friendly `case_name` (and optional `case_id`) to the history
     row for the given input. Idempotent — called by /cases/save so History
-    Drawer rows show the analyst-chosen name."""
+    Drawer rows show the analyst-chosen name.
+
+    R28.2 · Also propagates the immutable ``ssot_ref`` pointer so a
+    single canonical investigation object is referenced by both the
+    workspace_case AND the history row (no duplicate SSOT copies).
+    """
     if not input_text or not case_name:
         return False
     await _ensure_indexes()
     h = _sha256(input_text)
+    set_fields: Dict[str, Any] = {"case_name": case_name[:200], "case_id": case_id}
+    if ssot_ref and isinstance(ssot_ref, dict) and ssot_ref.get("id"):
+        set_fields["ssot_ref"] = ssot_ref
     r = await db.investigations.update_one(
         {"user_email": user_email, "input_hash": h},
-        {"$set": {"case_name": case_name[:200], "case_id": case_id}},
+        {"$set": set_fields},
     )
     return r.matched_count > 0
 
@@ -555,6 +609,23 @@ async def get_history(iid: str, user=Depends(get_current_user)):
     if not doc:
         raise HTTPException(status_code=404, detail="not found")
     result = _serialize(doc)
+    # ▲ R28.2 · Immutable Investigation Identity (2026-02 · FROZEN)
+    # Resolve the ``ssot_ref`` pointer to the canonical immutable
+    # investigation and surface the Artifact Trace projection so the
+    # History Drawer restore path is bit-identical to the Workspace
+    # Case Library restore path.  Pure IO + projection — no business
+    # logic.
+    try:
+        _ref = result.get("ssot_ref") or {}
+        if isinstance(_ref, dict) and _ref.get("id"):
+            from services.ssot_store import load_ssot, project_artifact_trace
+            _resolved = load_ssot(_ref["id"])
+            if _resolved:
+                result["ssot"] = _resolved
+                result["ssot_source"] = "immutable_store"
+                result["artifact_trace"] = project_artifact_trace(_resolved)
+    except Exception:
+        pass
     # ▲ SOC EVIDENCE (Feb-2026) — regenerate verdict card + per-layer
     # metadata on rehydrate so History Playback shows the SAME analyst
     # workbench as fresh decodes. This is deterministic and stateless —

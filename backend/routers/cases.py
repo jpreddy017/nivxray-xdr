@@ -228,6 +228,10 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
         from routers.history import tag_history_with_case
         await tag_history_with_case(
             user_email or "", body.input or "", doc["name"], doc.get("id"),
+            # R28.2 · Propagate the immutable pointer so History Drawer
+            # rehydrate uses the SAME canonical investigation object as
+            # the Workspace Case Library.
+            ssot_ref=doc.get("ssot_ref"),
         )
     except Exception:
         pass
@@ -483,6 +487,7 @@ async def reinvestigate_case(case_id: str, user=Depends(get_current_user)):
         user_email = getattr(user, "email", None) or (user.get("email") if isinstance(user, dict) else None)
         await tag_history_with_case(
             user_email or "", doc.get("input") or "", doc.get("name") or "", doc.get("id"),
+            ssot_ref=doc.get("ssot_ref"),
         )
     except Exception:
         pass
@@ -555,6 +560,7 @@ async def reinvestigate_broken(user=Depends(get_current_user)):
                 )
                 await tag_history_with_case(
                     user_email_now or "", inp, d.get("name") or "", d.get("id"),
+                    ssot_ref=d.get("ssot_ref"),
                 )
             except Exception:
                 pass

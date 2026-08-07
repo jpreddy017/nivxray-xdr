@@ -1,3 +1,69 @@
+## 🟢 2026-02-08 · Fork · R28.2 Immutable Investigation Identity — LANDED
+
+**Locked invariant:** *One Investigation → One Immutable SSOT.
+Every consumer references the same canonical object; none owns or
+mutates investigation state.*
+
+### What landed
+- **R28.2 permanent rule** in `NIVXRAY_ARCHITECTURE_V1.md` codifying
+  the identity invariants: `investigation_id`, `checksum` and
+  `evidence_graph` are immutable; only projected views may change.
+  Six-month reconstructability guaranteed.
+- `backend/routers/history.py` · `HistoryRecordIn.ssot` accepts the
+  full SSOT bundle; both insert and upsert paths deposit into
+  `investigation_ssot` and store `ssot_ref` on the history row.
+  `GET /api/history/{id}` dereferences `ssot_ref` and surfaces
+  `ssot`, `ssot_source` and `artifact_trace`.
+- `backend/routers/history.py` · `tag_history_with_case()` extended
+  to also plumb `ssot_ref`, so a Workspace SAVE CASE propagates the
+  same immutable pointer to the linked history row.
+- `backend/routers/cases.py` · All three `tag_history_with_case`
+  call sites (save / reinvestigate / reinvestigate-broken) now
+  propagate `ssot_ref`.
+
+### Restore Equivalence CI Gate
+- `backend/tests/test_restore_equivalence.py` (2 in-process tests)
+  Workspace ↔ SSOT dereference identity + content-dedupe.
+- `backend/tests/test_restore_equivalence_live.py` (4 live tests via
+  preview URL) proves ALL consumer paths (Workspace, History, SSOT
+  dereference) return bit-identical SSOT fingerprint, checksum,
+  verdict, IOCs, version, and artifact_trace.
+- Combined enforcement pattern:
+  ```
+  Live Investigation → Save
+      ↓
+  Restore from Workspace  ─┐
+  Restore from History    ─┼─►  IDENTICAL:
+  Restore from SSOT       ─┤       checksum · artifact_trace
+                                    verdict · IOCs · version stamp
+  ```
+
+### Testing
+- **Backend pytest 33/33 in-process** (Restore Equivalence 2 +
+  R27/R27.1/R28/R28.1 SSOT 13 + UAIE Phase 1 baseline gates 18).
+- **Backend pytest 4/4 live** (Restore Equivalence CI Gate).
+
+### Files touched
+- Extended `backend/routers/history.py` (SSOT plumbing + read-side
+  dereference).
+- Extended `backend/routers/cases.py` (three `tag_history_with_case`
+  call sites now propagate `ssot_ref`).
+- **NEW** `backend/tests/test_restore_equivalence.py` (in-process).
+- **NEW** `backend/tests/test_restore_equivalence_live.py` (live).
+- Frozen `memory/NIVXRAY_ARCHITECTURE_V1.md` · R28.2.
+
+### Retirement Criteria (Phase 3)
+Legacy inline `ssot` on `workspace_cases` MAY be dropped ONLY when
+BOTH gates are clean for 7 consecutive days:
+1. **UAIE Graph Diff = 0** (legacy engine vs plugin output).
+2. **Restore Equivalence = pass** (all consumers agree).
+
+Next: **UAIE Phase 2 · Plugin Migration** with per-plugin
+`test_plugin_matches_legacy.py` CI gate.
+
+---
+
+
 ## 🟢 2026-02-08 · Fork · R27.1 + R28 + R28.1 refinements — LANDED
 
 **Session additions** on top of the R27 baseline:

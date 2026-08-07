@@ -1048,3 +1048,82 @@ pure IO + projection, R28-compliant.
 - Artifact Trace projection shape.
 - Restore-is-rendering contract on the dereference router.
 
+
+
+---
+
+## R28.2 · Immutable Investigation Identity (2026-02 · PERMANENTLY FROZEN)
+
+> "One Investigation → One Immutable SSOT.  No consumer may own or
+> mutate investigation state."
+
+**Rule.**  Every representation of an investigation MUST reference the
+same immutable SSOT via ``ssot_ref``.  Consumers are strictly views
+over the same canonical object.
+
+### Consumers that MUST reference (never duplicate)
+- ``workspace_cases``      (Workspace Case Library)
+- ``investigations``       (History Drawer)
+- ``reports``              (Report Writer, future)
+- ``exports``              (STIX / PDF / JSON exports)
+- ``bookmarks`` / ``shares`` (future)
+- Any future consumer
+
+### Identity Invariants
+1. **investigation_id never changes.**  Content-addressable UUID lives
+   for the life of the investigation.
+2. **SSOT checksum never changes.**  Immutable content (sha256).
+3. **Evidence Graph never changes.**  Derived from the SSOT.
+4. **Only projected views are mutable.**  UI, rendering, reports,
+   presentation — never the underlying investigation state.
+
+### Cross-Consumer Contract
+```
+    Investigation
+        │
+        ├──────────────┐
+        │              │
+        ▼              ▼
+Workspace Case     History Entry     Report     Export     API caller
+        │              │               │           │           │
+        └──────┬───────┴───────┬───────┴───────┬───┴───────────┘
+               │               │               │
+               ▼               ▼               ▼
+                         ssot_ref
+                             │
+                             ▼
+                    investigation_ssot
+                    (immutable, canonical)
+```
+
+### Six-Month Reconstructability
+Because ``investigation_id`` + ``checksum`` are immutable and stored
+on every consumer doc, we can answer at any point in the future:
+"What did the engine know when this case was saved?" — bit-identical
+reconstruction from ``GET /api/ssot/{investigation_id}``.
+
+### Restore Equivalence CI Gate
+``backend/tests/test_restore_equivalence.py`` enforces:
+
+```
+Live Investigation → Save
+    ↓
+Restore from Workspace  ─┐
+Restore from History    ─┼─►  identical:
+Restore from SSOT       ─┤       - checksum
+Restore from API        ─┘       - artifact_trace
+                                 - verdict
+                                 - IOCs
+                                 - version stamp
+```
+If any consumer path returns a different checksum, artifact trace,
+verdict, or IOC set — CI fails.  This gate is a prerequisite for
+Phase 3 legacy retirement (alongside the graph diff and the 7-day
+clean-window criteria).
+
+### Retirement Criteria (Phase 3)
+The inline ``ssot`` copy on ``workspace_cases`` MAY be dropped ONLY
+after both gates have been clean for 7 consecutive days:
+1. **Graph diff = 0** (legacy engine vs UAIE plugin output)
+2. **Restore Equivalence = pass** (all consumer paths agree)
+
