@@ -129,34 +129,71 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
     """Actual render implementation (see ``render`` for R23 wrapper)."""
     src = input_text or ""
 
+    # ══════════════════════════════════════════════════════════════
+    # Rule R23 · Pipeline Telemetry
+    # Objective per-stage timings so any perf regression is caught
+    # BEFORE it reaches an analyst.  Every render emits an
+    # authoritative ``pipeline_timings{}`` block on the SSOT.  Total
+    # budget for a full deterministic render is 3000 ms per R23; any
+    # stage exceeding its own budget is logged.
+    # ══════════════════════════════════════════════════════════════
+    import time as _t
+    _T0 = _t.perf_counter()
+    _timings: Dict[str, float] = {}
+    _budgets: Dict[str, float] = {   # ms — per-stage warning threshold
+        "health":              50.0,
+        "iue":                150.0,
+        "preprocessor":       800.0,
+        "die_analyze":        400.0,
+        "iocs":                80.0,
+        "lolbins":             40.0,
+        "mitre_merge":         40.0,
+        "intent":              60.0,
+        "ida":                200.0,
+        "acquisition":       1200.0,
+        "artifacts":           60.0,
+        "narrative":          120.0,
+        "ice_correlate":      400.0,
+        "paste_synthesis":    200.0,
+    }
+    _warnings: List[str] = []
+    def _stage(name: str, fn):
+        _s = _t.perf_counter()
+        result = fn()
+        elapsed_ms = (_t.perf_counter() - _s) * 1000.0
+        _timings[name] = round(elapsed_ms, 2)
+        budget = _budgets.get(name)
+        if budget is not None and elapsed_ms > budget:
+            _warnings.append(f"{name}={elapsed_ms:.0f}ms > budget {budget:.0f}ms")
+        return result
+
     # 0) Stage-0 · Input Health Check (IUE v2.0 · Layer 0)
-    health = _check_health(src)
+    health = _stage("health", lambda: _check_health(src))
 
     # 1) IUE — classification + plan
-    understanding = understand_input(src, execute=False)
+    understanding = _stage("iue", lambda: understand_input(src, execute=False))
     u_dict = understanding.to_dict()
 
     # 2) Preprocessor — stages + artifacts + relationships
-    pre = preprocess_input(src)
+    pre = _stage("preprocessor", lambda: preprocess_input(src))
 
     # 3) DIE analyze — LOLBAS, MITRE, IOCs, DKP
-    env = analyze(src)
+    env = _stage("die_analyze", lambda: analyze(src))
 
-    # 4) Attack intent — deterministic threat objective.
-    # We defer the intent call to AFTER we augment the technique list
-    # with preprocessor-stage MITRE codes so the classifier sees every
-    # observed tactic (Rule R11 · SSOT-consumption + R13 · engines
-    # never read raw input; intent reads the merged evidence set).
+    # 4) Attack intent — deferred (needs augmented techniques)
     intent: Dict[str, Any] = {}
 
     # 5) Aggregate IOCs — canonical shape
-    iocs = env.get("iocs") or extract_iocs(src)
-    ioc_by_kind: Dict[str, List[str]] = {}
-    for i in iocs:
-        k = (i.get("kind") or "unknown").lower()
-        v = i.get("value") or i.get("indicator") or ""
-        if v:
-            ioc_by_kind.setdefault(k, []).append(v)
+    def _iocs_stage():
+        iocs_ = env.get("iocs") or extract_iocs(src)
+        by_kind: Dict[str, List[str]] = {}
+        for i in iocs_:
+            k = (i.get("kind") or "unknown").lower()
+            v = i.get("value") or i.get("indicator") or ""
+            if v:
+                by_kind.setdefault(k, []).append(v)
+        return iocs_, by_kind
+    iocs, ioc_by_kind = _stage("iocs", _iocs_stage)
 
     # 6) LOLBAS surfaced by the analyze envelope + augmented from
     # preprocessor stages so every extracted LOLBIN (tar / msedge /
@@ -736,27 +773,39 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
     # the flat per-piece `ice{}` block (kept for backwards-compat with
     # existing projections built against the earlier shape).  New
     # projections MUST consume `SSOT.incident`.
-    ice_block = _ice_correlate(canonical)
+    ice_block = _stage("ice_correlate", lambda: _ice_correlate(canonical))
     canonical["ice"]      = ice_block
     canonical["incident"] = ice_block.get("incident")
 
     # ── Rule R22 · Paste-Only Synthesis ────────────────────────────
-    # When the analyst pasted raw text (no acquirable URL / document),
-    # ICE has nothing to correlate: `report_extraction.commands` is
-    # empty, so `incident.timeline` / `incident.behaviors` / the
-    # Evidence Explorer are all empty for what is otherwise a
-    # perfectly valid investigation.  Paste-only synthesis projects
-    # the deterministic behavior graph into the same canonical
-    # timeline / behaviors / evidence / acquired_document shape the
-    # other adapters produce so paste-only cases become
-    # indistinguishable from URL / EML / PDF / DOCX / ZIP / Image
-    # cases in the analyst workspace.  Additive / idempotent — never
-    # overwrites a real acquisition.
-    try:
-        from services.reasoning.paste_synthesis import synthesize as _paste_synthesize
-        _paste_synthesize(canonical)
-    except Exception:  # pragma: no cover — synthesis is additive
-        pass
+    def _do_paste_synth():
+        try:
+            from services.reasoning.paste_synthesis import synthesize as _paste_synthesize
+            _paste_synthesize(canonical)
+        except Exception:  # pragma: no cover — synthesis is additive
+            pass
+    _stage("paste_synthesis", _do_paste_synth)
+
+    # ── Rule R23 · Pipeline Telemetry ─────────────────────────────
+    # Emit total time + per-stage timings on the SSOT.metadata so
+    # any consumer (frontend, admin telemetry, regression tests) can
+    # assert SLOs without instrumenting the pipeline separately.
+    total_ms = (_t.perf_counter() - _T0) * 1000.0
+    canonical.setdefault("metadata", {})
+    canonical["metadata"]["pipeline_timings"] = {
+        "total_ms":      round(total_ms, 2),
+        "stages_ms":     _timings,
+        "warnings":      _warnings,
+        "budget_total_ms": 3000.0,
+        "budget_hit":    total_ms > 3000.0,
+    }
+    # Log a compact one-liner so ops can grep for slow renders.
+    if total_ms > 1500.0 or _warnings:
+        import logging as _log
+        _log.getLogger("nivxray.telemetry").info(
+            "render total=%.0fms warnings=%s stages=%s",
+            total_ms, _warnings, _timings,
+        )
 
     return {"output": output, "object": canonical}
 

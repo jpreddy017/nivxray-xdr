@@ -21,7 +21,7 @@
  *   · Reset button restores the auto-layout at 1× zoom.
  *   · Horizontal + vertical scrollbars appear when content overflows.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import { Maximize2, RotateCcw } from "lucide-react";
 import { useInvestigationFilter } from "./InvestigationFilter";
 
@@ -133,11 +133,22 @@ const KILL_CHAIN_COLOR = {
 };
 
 export default function TrajectoryDiagram({ preprocessor, behaviors }) {
+  // ── Rule R23 · Visualization Isolation ─────────────────────────
+  // The visualization layer MUST NEVER block the investigation
+  // pipeline.  React 18 `useDeferredValue` schedules the heavy
+  // 200-node SVG layout at LOW priority so user input, tab
+  // switches, and text selection stay responsive even if the
+  // graph takes 500 ms to lay out.  The trade-off is that on
+  // heavy pastes the graph may appear a beat after the tab
+  // switches — but the tab NEVER freezes.
+  const deferredBehaviors  = useDeferredValue(behaviors);
+  const deferredPreprocessor = useDeferredValue(preprocessor);
+
   // ── Rule R22 projection: canonical behaviors take priority over
   // legacy preprocessor stages.  When `behaviors` are present we
   // render the 14-tactic ATT&CK view; otherwise we fall back to
   // the legacy 6-lane tactic-bucket view.
-  const isCanonical = Array.isArray(behaviors) && behaviors.length > 0;
+  const isCanonical = Array.isArray(deferredBehaviors) && deferredBehaviors.length > 0;
 
   // Stable content fingerprint — prevents runaway recomputation
   // when the parent passes a NEW array reference on every render
@@ -145,15 +156,26 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
   // rendering must not thrash on heavy pastes).
   const behaviorsKey = useMemo(() => {
     if (!isCanonical) return "legacy";
-    // Length + first/last id + total tactic count is enough for
-    // deterministic outputs — same input → same key.
-    const first = behaviors[0]?.id || behaviors[0]?.label || "";
-    const last  = behaviors[behaviors.length - 1]?.id
-                    || behaviors[behaviors.length - 1]?.label || "";
+    const first = deferredBehaviors[0]?.id || deferredBehaviors[0]?.label || "";
+    const last  = deferredBehaviors[deferredBehaviors.length - 1]?.id
+                    || deferredBehaviors[deferredBehaviors.length - 1]?.label || "";
     let tacticCount = 0;
-    for (const b of behaviors) tacticCount += (b?.mitre_tactics?.length || 0);
-    return `${behaviors.length}:${tacticCount}:${first}:${last}`;
-  }, [isCanonical, behaviors]);
+    for (const b of deferredBehaviors) tacticCount += (b?.mitre_tactics?.length || 0);
+    return `${deferredBehaviors.length}:${tacticCount}:${first}:${last}`;
+  }, [isCanonical, deferredBehaviors]);
+
+  // ── Client-side telemetry (Rule R23 · guarantee #4).
+  // Every render logs its layout cost + recompute count to a
+  // rolling window on `window.__NIVXRAY_TRAJ_TELEM__` so ops /
+  // regression tests can assert "recomputations ≤ N" without
+  // instrumenting React itself.
+  const _telemRef = useRef({ renders: 0, layouts: 0, lastLayoutMs: 0 });
+  useEffect(() => {
+    _telemRef.current.renders += 1;
+    if (typeof window !== "undefined") {
+      window.__NIVXRAY_TRAJ_TELEM__ = { ..._telemRef.current };
+    }
+  });
 
   // ── Compute active lanes (empty tactics collapse) ─────────────
   const activeLanes = useMemo(() => {
@@ -169,11 +191,17 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
   }, [behaviorsKey]);
 
   const initialNodes = useMemo(
-    () => isCanonical
-      ? _layoutBehaviorNodes(behaviors, activeLanes)
-      : _layoutNodes(preprocessor),
+    () => {
+      const _t0 = (typeof performance !== "undefined") ? performance.now() : 0;
+      const built = isCanonical
+        ? _layoutBehaviorNodes(deferredBehaviors, activeLanes)
+        : _layoutNodes(deferredPreprocessor);
+      _telemRef.current.layouts    += 1;
+      _telemRef.current.lastLayoutMs = ((typeof performance !== "undefined") ? performance.now() : 0) - _t0;
+      return built;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [behaviorsKey, preprocessor, activeLanes],
+    [behaviorsKey, deferredPreprocessor, activeLanes],
   );
   const [nodes, setNodes] = useState(initialNodes);
   const investigation = useInvestigationFilter();
@@ -187,20 +215,20 @@ export default function TrajectoryDiagram({ preprocessor, behaviors }) {
 
   useEffect(() => {
     setNodes(isCanonical
-      ? _layoutBehaviorNodes(behaviors, activeLanes)
-      : _layoutNodes(preprocessor));
+      ? _layoutBehaviorNodes(deferredBehaviors, activeLanes)
+      : _layoutNodes(deferredPreprocessor));
     setPan({x:0,y:0}); setZoom(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [behaviorsKey, preprocessor, activeLanes]);
+  }, [behaviorsKey, deferredPreprocessor, activeLanes]);
 
   const edges = useMemo(() => isCanonical
       ? _layoutBehaviorEdges(nodes)
-      : _layoutEdges(nodes, preprocessor),
-    [isCanonical, nodes, preprocessor]);
+      : _layoutEdges(nodes, deferredPreprocessor),
+    [isCanonical, nodes, deferredPreprocessor]);
 
   if (isCanonical) {
     if (!nodes.length) return null;
-  } else if (!preprocessor || !preprocessor.stages || !preprocessor.stages.length) {
+  } else if (!deferredPreprocessor || !deferredPreprocessor.stages || !deferredPreprocessor.stages.length) {
     return null;
   }
 
