@@ -55,11 +55,13 @@ class TerminationCertificate:
     """The mathematical proof (or refutation) that the investigation
     has reached its fixed point.
 
-    Counter semantics (R28.4.1 · reporting refinement, 2026-02-15)
+    Counter semantics (R28.4.1 · reporting refinement, 2026-02-15;
+    ``skipped`` added R28.4.2, 2026-02-15)
     ─────────────────────────────────────────────────────────────
     Every dimension (recognizer / capability / validator / repair)
-    reports FOUR distinct counts so analysts can distinguish
-    "not implemented yet" from "not applicable to this input":
+    reports FIVE distinct counts so analysts can distinguish
+    "not implemented yet" from "not applicable to this input" from
+    "deferred by the planner":
 
         · ``registered``     – total plugins loaded in the registry
         · ``applicable``     – subset that could legally run on the
@@ -73,6 +75,11 @@ class TerminationCertificate:
                                  capability executed without error,
                                  validator returned ``valid=True``,
                                  repair returned ``success=True``)
+        · ``skipped``        – applicable but deliberately deferred
+                                 (schedule_skip in the ledger with a
+                                 structured reason: prereq missing,
+                                 depth cap, budget hit, superseded by
+                                 a higher-confidence sibling, etc.)
 
     ``fixed_point=True`` means: replaying the same input on the same
     registry state would produce zero additional artifacts, evidence,

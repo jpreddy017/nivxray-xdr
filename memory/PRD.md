@@ -1,3 +1,85 @@
+## 🟢 2026-02-15 · Fork · R28.6 · Capability Contracts & Registry (Phase 6 · Steps 1-2) — LANDED
+
+**The engine now has a first-class Capability Registry.**  The orchestrator asks the registry "what's applicable / what produces / what improves" instead of scanning Python modules.  Adding a new capability is now a data problem — drop in one plugin file with a contract — not an orchestration problem.
+
+### Contract schema (frozen, R28.6)
+```
+id                 · reverse-DNS unique name         (e.g. recognizer.vssadmin_delete_shadows)
+version            · SemVer, bumped on contract change
+category           · recognizer | executor | validator | repair | analyzer | family | mitre_mapper
+requires           · tuple[artifact_type] · "*" = universal
+optional_requires  · tuple[artifact_type] · applicability booster
+produces           · tuple[artifact_type] emitted as children
+consumes           · tuple[artifact_type] semantically used up
+improves           · tuple[confidence_dimension] · IMPROVES_DECODE|REPAIR|ANALYSIS|
+                     FAMILY|MITRE|IOC|ATTRIBUTION|EVIDENCE|VERDICT
+confidence_gain    · 0.00-1.00 lift on first `improves` dimension
+cost               · 1 (cheap) – 5 (expensive)
+parallelizable     · bool
+deterministic      · bool (R28 invariant — false = quarantine)
+description        · human-readable one-liner
+```
+
+### Registry API (single source of truth for the planner)
+```python
+register(contract, impl)                    # idempotent, replaces by id
+get(contract_id)                            # (contract, impl) tuple or None
+applicable_contracts(artifact_type)         # sorted: cost ASC, id ASC
+contracts_producing(artifact_type)          # for goal-driven planning
+contracts_improving(dimension)              # for confidence-vector planning
+contracts_by_category(category)             # e.g. all recognizers
+all_contracts()                             # deterministic full list
+stats()                                     # {contracts, by_category, by_requires,
+                                            #   by_produces, by_improves}
+```
+
+### `skipped` counter added (R28.4.2)
+Every dimension in the termination certificate now reports FIVE counts:
+`registered → applicable → evaluated → passed → skipped`.  A capability
+is "skipped" when it was applicable but deliberately deferred by the
+planner (prereq missing, depth cap, budget hit, superseded by a
+higher-confidence sibling).  Enables auditing planner behaviour as
+Phase 7/8 make it more sophisticated.
+
+### Backwards compatibility
+- Existing plugins (`capability.register` / `qa.register_validator` /
+  `qa.register_repair`) continue to work unchanged.
+- Contracts are **OPT-IN** — a plugin can register a contract in
+  addition to (or instead of) its legacy registration.
+- **All 211 pre-existing tests continue to pass** — Phase 6 steps 1-2
+  are additive.
+
+### Files added
+- `services/uaie/contract.py` — 7 categories, 9 improves dimensions, `CapabilityContract` dataclass with `__post_init__` validation, deterministic registry indexed by requires/produces/category/improves.
+- `tests/test_capability_contract.py` — 16 tests covering: validation rejections, immutability, universal-wildcard matching, register/get/replace, planner queries (`applicable_contracts`, `contracts_producing`, `contracts_improving`, `contracts_by_category`), deterministic ordering, stats shape, registry cleanliness.
+
+### Files edited
+- `services/uaie/termination.py` — docstring extended to document the 5-counter model including `skipped`.
+- `services/uaie/orchestrator.py` — audit pass increments `cap_skipped` when a `(uri, cap)` pair appears in `schedule_skip` ledger entries; all 4 dimension counter dicts now include `skipped`.
+
+### Verification
+```
+tests/test_capability_contract.py         16 passed
+Combined UAIE + QA + Term + LC + Contract  227 passed / 207 skipped / 0 failed
+Backend /api/health                        HTTP 200
+Baseline expected.json                     re-captured for `skipped` shape
+```
+
+### Roadmap sequencing (user-approved 2026-02-15, updated)
+- ✅ **Phase 4** — Fixed-Point Termination Certificate
+- ✅ **Phase 5** — Artifact State Machine
+- ✅ **Phase 6 · Step 1** — Capability Contract schema
+- ✅ **Phase 6 · Step 2** — Capability Registry
+- 🎯 **Phase 6 · Step 3** — Planner migration (query registry instead of scanning modules)
+- **Phase 6 · Step 4** — Capability Graph generation (input → cap → evidence → termination)
+- **Phase 6 · Step 5** — Tier-1 recognizers as contract-based plugins (`vssadmin_delete_shadows`, `wmic_product_uninstall`, `impacket_psexec_signature`)
+- **Phase 7** — Multi-Dimensional Confidence Propagation
+- **Phase 8** — Goal-Driven Capability Evaluation Engine
+- **Phase 9** — Investigation Knowledge Economy
+
+---
+
+
 ## 🟢 2026-02-15 · Fork · Permanent Anti-Hang Architecture — LANDED
 
 **Systemic fix for browser hangs on large inputs and tab-switching.**  No more whack-a-mole — every heavy operation in the Workspace has been moved off the critical render path and gated by page visibility.

@@ -696,10 +696,10 @@ class Orchestrator:
         validators_checked   = 0
         repair_checked       = 0
         # ── R28.4.1 · Structured per-dimension counters ────────────
-        rec_applicable = rec_evaluated = rec_passed = 0
-        cap_applicable = cap_evaluated = cap_passed = 0
-        val_applicable = val_evaluated = val_passed = 0
-        rep_applicable = rep_evaluated = rep_passed = 0
+        rec_applicable = rec_evaluated = rec_passed = rec_skipped = 0
+        cap_applicable = cap_evaluated = cap_passed = cap_skipped = 0
+        val_applicable = val_evaluated = val_passed = val_skipped = 0
+        rep_applicable = rep_evaluated = rep_passed = rep_skipped = 0
         # Which recognizers actually returned ≥1 match?  Derived from
         # ledger entries where output_summary contains "matches=N" with N>0.
         _rec_passed_pairs: set = set()
@@ -784,6 +784,7 @@ class Orchestrator:
                     continue
                 if pair in skipped_pairs:
                     # skip had a structured reason — not a missed transition
+                    cap_skipped += 1
                     continue
                 # Only count as remaining if the artifact is still an
                 # active investigation surface.  UNREACHABLE and
@@ -898,24 +899,28 @@ class Orchestrator:
                 "applicable": rec_applicable,
                 "evaluated":  rec_evaluated,
                 "passed":     rec_passed,
+                "skipped":    rec_skipped,
             },
             capabilities={
                 "registered": sum(len(v) for v in _CAP_REG.values()),
                 "applicable": cap_applicable,
                 "evaluated":  cap_evaluated,
                 "passed":     cap_passed,
+                "skipped":    cap_skipped,
             },
             validators={
                 "registered": sum(len(v) for v in _VALIDATOR_REGISTRY.values()),
                 "applicable": val_applicable,
                 "evaluated":  val_evaluated,
                 "passed":     val_passed,
+                "skipped":    val_skipped,
             },
             repairs={
                 "registered": len(_REPAIR_REGISTRY),
                 "applicable": rep_applicable,
                 "evaluated":  rep_evaluated,
                 "passed":     rep_passed,
+                "skipped":    rep_skipped,
             },
             opportunity_analysis=opportunity_analysis,
         )
