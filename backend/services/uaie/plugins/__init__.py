@@ -88,3 +88,11 @@ from . import ps_alias_normalizer     # noqa: F401,E402
 from . import ps_backtick_normalizer  # noqa: F401,E402
 from . import ps_hex_escape           # noqa: F401,E402
 from . import ps_reconstruct          # noqa: F401,E402
+# ── Priority 3 · function-only PS transformers (via transformer_op_adapter) ─
+from . import op_ps_encodedcommand_multilayer  # noqa: F401,E402
+from . import op_ps_hex_csv_inline             # noqa: F401,E402
+from . import op_ps_xor_inline_key             # noqa: F401,E402
+from . import op_ps_normalize                  # noqa: F401,E402
+from . import op_ps_reverse_string             # noqa: F401,E402
+from . import op_ps_reverse_regex_swap         # noqa: F401,E402
+from . import op_ps_semantic_mini              # noqa: F401,E402

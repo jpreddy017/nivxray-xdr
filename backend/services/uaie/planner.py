@@ -61,8 +61,16 @@ _PRIORITY: Dict[str, int] = {
     "powershell.alias_normalizer":       11,
     "powershell.backtick_normalizer":    12,
     "powershell.hex_escape":             13,
+    # Priority-3 op-adapter PS transformers (canonicalise → un-obfuscate)
+    "op.powershell-normalize":           14,
+    "op.powershell-reverse-string":      15,
+    "op.powershell-reverse-regex-swap":  16,
+    "op.powershell-semantic-mini":       17,
+    "op.powershell-hex-csv-inline":      18,
+    "op.powershell-xor-inline-key":      19,
     # Encoded-command → powershell
     "powershell.encoded_command":        20,
+    "op.ps-encodedcommand-multilayer":   21,
     # Base64 layer
     "base64.from_base64_string":         30,
     "base64.bare":                       31,

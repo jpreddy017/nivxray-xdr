@@ -1,3 +1,89 @@
+## 🟢 2026-02-14 · Fork · P1 · Transformer Op Adapter · 5 PS transformers wired
+
+The 5 function-only PowerShell decoders that shipped as bare `@op` transformers (not `BaseDecoder` subclasses) are now first-class UAIE capabilities via a new `transformer_op_adapter.py`. This closes the biggest remaining contributor to the "output = input" payload decode gap for PowerShell loaders.
+
+### Files added
+- `services/uaie/transformer_op_adapter.py` · adapter contract (marker-driven recognizer + op-runner capability).
+- `services/uaie/plugins/op_ps_encodedcommand_multilayer/` · wraps `ps-encodedcommand-multilayer` (Empire/Nishang -EncodedCommand multi-layer peel).
+- `services/uaie/plugins/op_ps_hex_csv_inline/` · wraps `powershell-hex-csv-inline`.
+- `services/uaie/plugins/op_ps_xor_inline_key/` · wraps `powershell-xor-inline-key`.
+- `services/uaie/plugins/op_ps_normalize/` · wraps `powershell-normalize` (RC4.3 canonicaliser).
+- `services/uaie/plugins/op_ps_reverse_string/` · wraps `powershell-reverse-string`.
+- `services/uaie/plugins/op_ps_reverse_regex_swap/` · wraps `powershell-reverse-regex-swap`.
+- `services/uaie/plugins/op_ps_semantic_mini/` · wraps `powershell-semantic-mini` (RC4.2 semantic chain evaluator).
+
+### Files updated
+- `services/uaie/plugins/__init__.py` · registers the 7 new plugins (7 ops across 5 legacy files).
+- `services/uaie/planner.py` · adds priority slots 14–19 (canonicalise → un-obfuscate) and 21 (encodedcommand-multilayer) so ops fire in forensic order.
+
+### Contract preserved (R25/R26/R28)
+- **No re-implementation** — the wrapper delegates to `operations.run_operation(op_id, …)`, the exact byte-for-byte legacy function.
+- **Sentinel-safe** — every legacy op returns `(op_id · reason)` on no-match; the adapter detects that and emits no child artifact, so orchestration never produces garbage cascades from marker false-positives.
+- **Deterministic** — same payload → same evidence & artifact set across independent Orchestrator instances.
+- **Semantic-typed** — each plugin registered as `semantic="transformer"` in the plugin registry (per the Semantic Capability Registry Adapter design).
+
+### Verification
+```
+tests/test_transformer_op_adapter.py .....................  7 passed
+    · test_all_op_adapter_plugins_registered
+    · test_hex_csv_inline_powershell_decodes  → produces 'calc.exe'
+    · test_reverse_string_decodes              → produces 'calc.exe'
+    · test_semantic_mini_chain_evaluator       → produces 'exe.calc' / 'clac.exe'
+    · test_normalize_canonicalises_parameters  → -NoProfile / -ExecutionPolicy / -Command
+    · test_op_adapter_run_is_deterministic
+    · test_op_returns_no_match_sentinel_does_not_produce_child
+Full core-UAIE suite:                        69 passed / 0 failed
+```
+
+### Next
+- P2 · `family_recognizer.py` wrap for all artifact types.
+- P3 · Legacy crypto stack (RC4/AES/symmetric).
+- P4 · Freeze user's "Notdecoded" payload as permanent regression.
+
+---
+
+
+## 🟢 2026-02-14 · Fork · Deterministic Planner GREEN · Multi-Type Recognition Union
+
+**P0 blocker resolved.** All 6 tests in `test_capability_pack_1_loop.py` now pass — the 3 previously-xfailed tests are green **without** re-arming any `@pytest.mark.xfail`.
+
+### Root cause of the "family=None" regression
+The orchestrator selected capabilities using **only** the highest-confidence recognizer's `artifact_type` (`best.artifact_type`). Raw MSF shellcode was claimed as `text` (conf 0.9) by PowerShell normalizer recognizers, beating `shellcode.analyzer`'s `shellcode_bytes` (conf 0.75). Consequence: `shellcode.analyzer` never ran on the root artifact → **no `family` evidence emitted**.
+
+### Fix (surgical, single file: `services/uaie/orchestrator.py`)
+- Recognition collects **every matched `artifact_type`** across all recognizers into `matched_types` (union), seeded with the artifact's declared type (`art.artifact_type`).
+- Capabilities are unioned across every matched type (dedup by name), then handed to the Deterministic Planner for ordering.
+- The single-winner `best` is now used **only** for ledger provenance (`recognize` output_summary + `execute` input_summary), not for capability filtering.
+- Skip-condition tightened: an artifact is only skipped when **no recognizer matched AND the declared type is `unknown`/empty**.
+
+### Contract preserved (R25/R26/R28)
+- **Deterministic:** same input → same execution order (planner sort by `priority_of` + name).
+- **Pure:** no hidden state; capabilities never dropped, only ordered.
+- **No re-implementation:** wrapped modules still own the logic; family evidence flows from `shellcode_analyzer._family_recognise` verbatim.
+
+### Verification
+```
+tests/test_capability_pack_1_loop.py .....................  6 passed
+tests/test_graph_diff.py             .....                  ...
+tests/test_ssot_persistence.py       .....                  ...
+tests/test_ssot_projector.py         .....                  ...
+tests/test_uaie_baseline_gates.py    .....                  ...
+tests/test_uaie_phase1_contracts.py  .....                  ...
+tests/test_restore_equivalence.py    .....                  ...
+tests/test_iedde_ssot_wiring.py      .....                  ...
+tests/test_iedde_ssot_api_iter56.py  .....                  ...
+                                     ─────────  68 passed / 0 failed
+```
+
+### Next
+- P1 · `transformer_op_adapter.py` for the 5 function-only PS decoders.
+- P2 · `family_recognizer.py` wrap for all artifact types.
+- P3 · Legacy crypto stack (RC4/AES/symmetric).
+- P4 · Freeze user's "Notdecoded" payload as permanent regression.
+
+---
+
+
 ## 🟢 2026-02-08 · Fork · PS Stack (4) + Termination Reason + Capability Coverage
 
 **Locked your revised priorities**: wrapped BaseDecoder-shaped PS decoders via the adapter, added loop-transparency fields, deferred Planner to next iteration.

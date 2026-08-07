@@ -77,17 +77,31 @@ class Orchestrator:
             art: Artifact = self.planner(queue)
 
             # ── 1. Recognize ──
+            # Priority 3 · Multi-type recognition: an artifact can be
+            # legitimately claimed by more than one recognizer (e.g. raw
+            # shellcode bytes ALSO look like ``text`` under latin-1
+            # decoding).  We collect every matched artifact_type so no
+            # analyzer capability is silently dropped just because a
+            # noisier recognizer emitted a higher confidence for a
+            # different type.  The declared ``art.artifact_type`` is
+            # always seeded — a root labelled ``shellcode_bytes`` never
+            # loses its shellcode-branch capabilities.
             best: Optional[Recognition] = None
+            matched_types: set[str] = {art.artifact_type}
             for rec in self.recognizers:
                 try:
                     matches = rec.recognize(art)
                 except Exception as e:  # pragma: no cover — never crash
                     result.warnings.append(f"recognizer {rec.name} raised {type(e).__name__}: {e}")
                     continue
+                rec_best: Optional[Recognition] = None
                 for m in matches or []:
                     m = m if isinstance(m, Recognition) else None
                     if not m:
                         continue
+                    matched_types.add(m.artifact_type)
+                    if rec_best is None or m.confidence > rec_best.confidence:
+                        rec_best = m
                     if best is None or m.confidence > best.confidence:
                         best = m
                 result.ledger.append(
@@ -95,25 +109,39 @@ class Orchestrator:
                     action=ACTION_RECOGNIZE,
                     actor=rec.name,
                     input_summary=f"{art.size}B · type={art.artifact_type}",
-                    output_summary=(best.artifact_type if best else "(no match)"),
-                    confidence=(best.confidence if best else None),
-                    reasons=(best.reasons if best else []),
+                    output_summary=(rec_best.artifact_type if rec_best else "(no match)"),
+                    confidence=(rec_best.confidence if rec_best else None),
+                    reasons=(rec_best.reasons if rec_best else []),
                 )
-            if best is None:
+            if best is None and art.artifact_type in ("unknown", ""):
+                # No recognizer matched AND artifact has no declared type
+                # → nothing to do.  A declared type (e.g. ``shellcode_bytes``
+                # on the root) is enough to run its typed capabilities.
                 result.ledger.append(artifact_uri=art.uri,
                                        action=ACTION_SCHEDULE_SKIP,
                                        actor="orchestrator",
                                        output_summary="no recognizer match")
                 continue
 
-            # ── 2. Execute all capabilities registered for that type ──
-            # ── Priority 3 · Deterministic Planner (2026-02) ──
-            # Sort the capability list by artifact-type dependency graph
-            # so analyzers always run BEFORE family emitters and family
+            # ── 2. Execute all capabilities registered for any matched
+            #      type ──
+            # Priority 3 · Deterministic Planner (2026-02):
+            # Union the capabilities across every matched artifact_type
+            # (plus the declared type), de-duplicate by name, then let
+            # the Planner order them by the dependency graph so
+            # analyzers always run BEFORE family emitters and family
             # emitters ALWAYS observe complete analyzer output.  This is
-            # a pure, deterministic reordering — never drops capabilities.
+            # a pure, deterministic union+reorder — never drops capabilities.
             from .planner import plan as _plan_caps
-            caps = _plan_caps(_caps_for_type(best.artifact_type))
+            seen_cap_names: set[str] = set()
+            union_caps: List[Capability] = []
+            for t in matched_types:
+                for c in _caps_for_type(t):
+                    if c.name in seen_cap_names:
+                        continue
+                    seen_cap_names.add(c.name)
+                    union_caps.append(c)
+            caps = _plan_caps(union_caps)
             for cap in caps:
                 # Dependency check — evidence prerequisites
                 if cap.requires_evidence:
@@ -138,7 +166,8 @@ class Orchestrator:
                 elapsed_ms = (time.perf_counter() - _t0) * 1000.0
                 result.ledger.append(
                     artifact_uri=art.uri, action=ACTION_EXECUTE, actor=cap.name,
-                    input_summary=f"type={best.artifact_type}",
+                    input_summary=(f"type={best.artifact_type}" if best
+                                     else f"type={art.artifact_type}"),
                     output_summary=f"evidence={len(cr.evidence)} children={len(cr.child_artifacts)}",
                     evidence_ids=[e.id for e in cr.evidence],
                     children_uris=[c.uri for c in cr.child_artifacts],
