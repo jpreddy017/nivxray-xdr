@@ -197,6 +197,25 @@ class Orchestrator:
                 for child in cr.child_artifacts:
                     if child.uri in seen_uris:
                         continue
+                    # ── Idempotency guard (2026-02-14 · anti-loop) ──
+                    # If a capability produces a child whose ``artifact_type``
+                    # equals its parent's, we're in a normalizer feedback
+                    # cycle (e.g. ``op.powershell-normalize`` running on its
+                    # own ``powershell_normalized`` output).  Every legitimate
+                    # peel changes the artifact type (base64 → base64_decoded,
+                    # gzip → gzip_decoded, etc.), so a same-type child is
+                    # always spurious.  Skip with a structured reason so the
+                    # analyst can still see why the loop terminated.
+                    if child.artifact_type == art.artifact_type:
+                        result.ledger.append(
+                            artifact_uri=child.uri,
+                            action=ACTION_SCHEDULE_SKIP,
+                            actor=cap.name,
+                            output_summary=format_skip_reason(
+                                "same_type_as_parent",
+                                f"parent_type={art.artifact_type} "
+                                f"child_type={child.artifact_type}"))
+                        continue
                     if child.depth > self.max_depth:
                         result.warnings.append(f"max_depth cap {self.max_depth} hit at {child.uri}")
                         result.ledger.append(artifact_uri=child.uri,

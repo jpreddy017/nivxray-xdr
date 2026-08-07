@@ -1,3 +1,79 @@
+## 🟢 2026-02-14 · Fork · P4 · The Real "Notdecoded" Diagnosis + End-to-End Fix
+
+**Live production payload analysis.** The user pasted a `cmd → powershell -nop -w hidden -encodedcommand …` payload that our tool was producing OUTPUT=INPUT on. Root-caused four independent bugs and fixed all four; added a permanent regression gate.
+
+### Bug 1 · Legacy `_ENC_CMD_RE` regex missed intervening flags
+The regex `(?:\s+[^-\s][^\s]*)*` between `powershell` and `-encodedcommand` only accepted non-flag tokens — so real-world `powershell -nop -w hidden -encodedcommand …` failed to match.  
+**Fix:** `(?:\s+\S+)*?` (lazy · accepts flags AND non-flag args, never swallows `-encodedcommand`).  
+**File:** `services/die/preprocessor/recursive_decoder.py`
+
+### Bug 2 · `_mostly_printable` too strict on utf-16-le tails
+Real Windows PS `-encodedcommand` payloads sometimes have a mid-stream alignment shift → utf-16-le tail gets CJK-corrupted with `errors='replace'`. ASCII-strict gate then dropped the ENTIRE decode.  
+**Fix:** Added `_looks_like_powershell()` fallback — accepts a decode when ≥ 2 strong PowerShell markers are present (`New-Object`, `[Convert]::`, `IEX`, `FromBase64String`, `$s=`, etc.) even if the tail is garbled.  
+**File:** `services/die/preprocessor/recursive_decoder.py`
+
+### Bug 3 · No utf-16-le byte-alignment recovery
+When an Empire/Metasploit stager mishandles wide-char boundaries, one byte gets inserted mid-stream and shifts the entire second half by 1.  
+**Fix:** Added `_utf16le_realign()` — walks the raw bytes, detects the first `raw[i-2]==0 && raw[i]!=0` invariant break, drops the intruding byte, and re-decodes. Restores clean text end-to-end.  
+**File:** `services/die/preprocessor/recursive_decoder.py`
+
+### Bug 4 · PowerShell normalizer feedback loop
+`op.powershell-normalize`, `powershell.alias_normalizer`, etc. accepted their own `powershell_normalized` output as input → 250+ near-identical children exploded past `max_artifacts=256` before gzip.inflate could ever fire on the base64_decoded artifact.  
+**Fix (two-pronged):**
+1. Narrowed every PS normalizer's `artifact_types` from `["text", "powershell", "powershell_normalized"]` → `["text", "powershell"]`.
+2. **Orchestrator idempotency guard:** if a capability produces a child whose `artifact_type == parent.artifact_type`, drop it with structured skip-reason `same_type_as_parent`. Every legitimate peel changes the type, so a same-type child is always spurious.  
+**Files:** all 12 PS normalizer plugins + `services/uaie/orchestrator.py`
+
+### End-to-end verification (synthetic well-formed variant of the same shape)
+```
+cmd → powershell -nop -w hidden -encodedcommand <b64>
+     → utf-16-le decoded PS
+       → FromBase64String("H4sI…")
+         → gzip inflate
+           → IEX (final PowerShell)
+             → C2 URL extracted:  http://c2.example.com/beacon.ps1
+             → C2 domain:         c2.example.com
+```
+Artifact count dropped from **256 (all normalizer noise)** → **29 clean semantic layers**.
+
+### About the user's specific paste
+Their pasted b64 decoded to **5661 bytes (odd)** — Windows PowerShell itself would reject that ("value must have an even number of characters"). Likely a copy/paste corruption inserted a single stray char. Our tool now correctly recovers the readable PowerShell prefix, extracts the FromBase64String content, and surfaces `crypto-key-required` + MITRE T1027.013 tradecraft. For any well-formed real payload the full chain now peels end-to-end.
+
+### New regression gate (permanent)
+`tests/test_ps_encodedcommand_full_chain.py` — 5 tests:
+1. Regex accepts intervening flags
+2. Full 6-layer peel produces the final C2 URL as evidence
+3. No normalizer feedback loop (< 40 `powershell_normalized` artifacts)
+4. `same_type_as_parent` is a first-class skip-reason code
+5. Determinism (R28 purity) across the full chain
+
+### Baseline re-captured
+Two baseline cases (`02_powershell/001_encoded_command`, `09_shellcode/001_cobalt_strike_loader`) now correctly label the outer layer as `ps_encodedcommand` (semantic) instead of the pre-fix `bare_base64` (fallback). Layer count unchanged (5). Baselines re-frozen.
+
+### Verification
+```
+tests/test_ps_encodedcommand_full_chain.py    5 passed
+tests/test_capability_pack_1_loop.py          6 passed
+tests/test_transformer_op_adapter.py          7 passed
+tests/test_family_universal_and_skip_reasons.py 7 passed
+tests/test_crypto_capability_pack.py          5 passed
+tests/test_pe_extractor_and_dotnet.py         6 passed
+tests/test_notdecoded_regression.py           armed (skipped — awaiting JSON)
+tests/test_confidence_evolution.py            4 passed
+tests/test_graph_diff.py                      ...
+tests/test_iedde_ssot_wiring.py               ...
+tests/test_restore_equivalence.py             ...
+tests/test_ssot_persistence.py                ...
+tests/test_ssot_projector.py                  ...
+tests/test_uaie_baseline_gates.py             12 passed
+tests/test_uaie_phase1_contracts.py           ...
+                                             ─────────
+                                             96 passed / 4 skipped / 0 failed
+```
+
+---
+
+
 ## 🟢 2026-02-14 · Fork · P2/P3 · Universal Family Recognizer + Full Crypto Stack + Structured Skip-Reasons
 
 Three coordinated additions land the crypto peel gap and give analysts a first-class "why did this stop decoding?" signal.

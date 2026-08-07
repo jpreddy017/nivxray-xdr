@@ -64,6 +64,72 @@ _ENC_CMD_RE = re.compile(
 )
 
 
+def _looks_like_powershell(text: str) -> bool:
+    """Cheap PowerShell-signature detector.
+
+    Used as a fallback acceptance gate on the ``-encodedcommand``
+    utf-16-le decode when the ASCII-strict ``_mostly_printable`` check
+    rejects a partially-garbled tail.  PowerShell has very distinctive
+    tokens that ASCII-decodable garbage or binary rarely produces
+    together, so requiring ≥ 2 of them is a reliable positive signal
+    without opening the door to false accepts.
+    """
+    if not text:
+        return False
+    # Cheap uppercase scan — case-insensitive markers.
+    hay = text[:4096]        # scan the first 4KB (fast + representative)
+    markers = (
+        "New-Object", "Invoke-Expression", "IEX", "[Convert]::",
+        "FromBase64String", "GzipStream", "MemoryStream", "StreamReader",
+        "IO.Compression", "System.Text.Encoding", "powershell",
+        "-EncodedCommand", "$s=", "$c=", "$x=", "$h=", "-bxor",
+    )
+    lower = hay.lower()
+    hits = sum(1 for m in markers if m.lower() in lower)
+    # Also require ``$`` (PowerShell variable prefix) present at all —
+    # binary garbage rarely carries clean ``$`` bytes plus 2 keyword
+    # markers together.
+    return hits >= 2 and "$" in hay
+
+
+def _utf16le_realign(raw: bytes) -> bytes:
+    """Heal a utf-16-le byte stream that has a mid-payload alignment
+    shift (common in real-world Windows PowerShell ``-encodedcommand``
+    payloads when a stager mishandles wide-char boundaries).
+
+    Well-formed utf-16-le ASCII PowerShell has ``raw[i] = 0x00`` at
+    every ODD byte index (the high byte of the wide char).  We walk
+    the bytes and, at the FIRST index where that invariant breaks by
+    a stray non-zero, drop that single byte and re-anchor.  Applied
+    at most once — after that we trust the decoder's ``errors='replace'``
+    to handle any remaining slop cheaply.
+
+    Returns the healed (possibly shorter) byte string ready for
+    ``.decode('utf-16-le')``.  If no alignment shift is detected,
+    returns ``raw`` unchanged (aside from trimming a trailing odd byte
+    so the decoder never trips on truncated data).
+    """
+    n = len(raw)
+    if n < 4:
+        return raw
+    # Fast path: perfectly-aligned utf-16-le ASCII from the start.
+    # Only run the heal if we see a real shift.
+    #
+    # Look for the first offset i (odd, >= 3) where raw[i] != 0 while
+    # raw[i-2] == 0.  That's the classic "alignment lost one byte
+    # in the middle of the wide-char stream" fingerprint.
+    for i in range(3, min(n, 65536), 2):
+        if raw[i] != 0 and raw[i - 2] == 0:
+            # Drop the byte at position (i - 1) — it's the intruder
+            # that shifted the wide-char stream by one byte.
+            healed = raw[: i - 1] + raw[i:]
+            if len(healed) % 2:
+                healed = healed[:-1]
+            return healed
+    # No mid-stream shift detected — just ensure even length.
+    return raw if (n % 2 == 0) else raw[:-1]
+
+
 def _decode_ps_encoded_command(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     m = _ENC_CMD_RE.search(text or "")
     if not m:
@@ -76,14 +142,35 @@ def _decode_ps_encoded_command(text: str) -> Optional[Tuple[str, Dict[str, Any]]
         return None
     if not raw:
         return None
-    # UTF-16LE first (PowerShell wire format), then UTF-8, then latin-1.
-    for enc in ("utf-16-le", "utf-8", "latin-1"):
+    # ─── Fix (2026-02-14 · user-reported "Notdecoded" class) ─────────
+    # PowerShell's ``-encodedcommand`` is spec-mandated utf-16-le, so
+    # we always try that encoding first with ``errors='replace'``.  In
+    # the wild, real production payloads often have a mid-payload
+    # alignment shift (Empire/Metasploit stagers concatenating strings
+    # without wide-char boundary discipline) — the strict ASCII gate
+    # in ``_mostly_printable`` then rejected the whole decode.  We now:
+    #   1. Heal the mid-stream alignment shift via ``_utf16le_realign``.
+    #   2. Accept a decode when the recovered text has ≥ 2 strong
+    #      PowerShell markers, so analysts see the valid content and
+    #      downstream capabilities still get a chance to peel the
+    #      inner ``FromBase64String`` / gzip layer.
+    healed_utf16 = _utf16le_realign(raw)
+    for enc, source_bytes in (
+        ("utf-16-le", healed_utf16),
+        ("utf-16-le", raw),
+        ("utf-8",     raw),
+        ("latin-1",   raw),
+    ):
         try:
-            decoded = raw.decode(enc)
-            if _mostly_printable(decoded):
-                return decoded, {"encoding": enc, "b64_len": len(padded)}
+            decoded = source_bytes.decode(enc, errors="replace")
         except UnicodeDecodeError:
             continue
+        if not decoded:
+            continue
+        if _mostly_printable(decoded) or _looks_like_powershell(decoded):
+            return decoded, {"encoding": enc, "b64_len": len(padded),
+                              "healed": source_bytes is healed_utf16
+                                          and healed_utf16 is not raw}
     return None
 
 

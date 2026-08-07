@@ -6,7 +6,7 @@ adapt_and_register(
     legacy=PsHexEscapeDecoder,
     semantic="decoder",
     child_artifact_type="powershell_normalized",
-    artifact_types=["text", "powershell", "powershell_normalized"],
+    artifact_types=["text", "powershell"],
     profiles=["powershell", "malware", "enterprise", "universal"],
     name_override="powershell.hex_escape",
 )

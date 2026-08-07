@@ -12,7 +12,7 @@ adapt_op_and_register(
         re.compile(r"""-replace\s*['"]\([^)]+\)\\\.\([^)]+\)['"]\s*,\s*['"]\$2\.\$1['"]""",
                     re.IGNORECASE),
     ),
-    artifact_types=["text", "powershell", "powershell_normalized"],
+    artifact_types=["text", "powershell"],
     child_artifact_type="powershell_normalized",
     profiles=["powershell", "malware", "universal"],
     min_len=8,

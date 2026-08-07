@@ -13,7 +13,7 @@ adapt_op_and_register(
                     re.IGNORECASE),
         re.compile(r"""-bxor\b""", re.IGNORECASE),
     ),
-    artifact_types=["text", "powershell", "powershell_normalized"],
+    artifact_types=["text", "powershell"],
     child_artifact_type="powershell_normalized",
     profiles=["powershell", "malware", "enterprise", "universal"],
     min_len=16,

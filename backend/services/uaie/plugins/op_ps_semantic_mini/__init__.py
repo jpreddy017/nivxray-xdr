@@ -16,7 +16,7 @@ adapt_op_and_register(
         re.compile(r"""ForEach-Object\s*\{\s*\$_\[\s*-1\s*\.\.\s*-\d+""",
                     re.IGNORECASE),
     ),
-    artifact_types=["text", "powershell", "powershell_normalized"],
+    artifact_types=["text", "powershell"],
     child_artifact_type="powershell_normalized",
     profiles=["powershell", "malware", "universal"],
     min_len=8,

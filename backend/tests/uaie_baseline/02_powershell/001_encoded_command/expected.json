@@ -93,7 +93,7 @@
   },
   "explainability": {
     "decoder_path": [
-      "bare_base64",
+      "ps_encodedcommand",
       "base64",
       "utf16le"
     ],
@@ -110,7 +110,7 @@
   "graph": {
     "layer_count": 3,
     "stages": [
-      "bare_base64",
+      "ps_encodedcommand",
       "base64",
       "utf16le"
     ]
