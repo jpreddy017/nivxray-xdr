@@ -743,23 +743,52 @@ export default function WorkspacePage() {
   // preprocessor bundle and analyst-narrative bundle to localStorage
   // so navigating away and back to the Workspace preserves the work.
   // Only CLEAR wipes the key (see clearAll above).
+  //
+  // 2026-02-15 · Anti-hang fix
+  // ────────────────────────────
+  // The previous implementation ran ``JSON.stringify`` on the FULL
+  // bundle synchronously on every dependency change.  For a real-world
+  // 7 KB PowerShell payload the multi-step analysis fires ~10 state
+  // updates in <2s → 10 × stringify(~2MB) starves the main thread and
+  // Chrome kills the tab ("Page Unresponsive").
+  //
+  // We now:
+  //   1. Debounce writes to localStorage by 800ms.
+  //   2. Cheap-size-guard BEFORE stringify (drop the biggest fields
+  //      when the raw payload length exceeds a soft cap).
+  //   3. Never call stringify on the render path — the timer callback
+  //      does the work off the critical path.
   useEffect(() => {
-    try {
-      const snapshot = {
-        input,
-        output,
-        understanding,
-        inlineStoryPreproc,
-        analystNarrative,
-        investigationMode,
-        investigationObject,
-        ts: Date.now(),
-      };
-      const s = JSON.stringify(snapshot);
-      if (s.length <= 1_500_000) {
-        localStorage.setItem("nvx.workspace.persist", s);
-      }
-    } catch { /* quota exceeded → ignore */ }
+    // Cheap upfront size estimate — sum of raw lengths only.  Avoids
+    // paying the stringify cost when we already know we'll drop bulk
+    // sub-fields.
+    const _bulkLen =
+      (input?.length || 0) +
+      (typeof output === "string" ? output.length : 0);
+    const t = setTimeout(() => {
+      try {
+        // Drop bulk sub-fields once the raw payload is already huge —
+        // preserves navigation continuity for the analyst without
+        // starving the tab on every keystroke of the deep bundle.
+        const heavy = _bulkLen > 200_000;
+        const snapshot = {
+          input,
+          output,
+          understanding:        heavy ? null : understanding,
+          inlineStoryPreproc:   heavy ? null : inlineStoryPreproc,
+          analystNarrative:     heavy ? null : analystNarrative,
+          investigationMode,
+          investigationObject:  heavy ? null : investigationObject,
+          ts: Date.now(),
+          dropped_for_size:     heavy ? true : false,
+        };
+        const s = JSON.stringify(snapshot);
+        if (s.length <= 1_500_000) {
+          localStorage.setItem("nvx.workspace.persist", s);
+        }
+      } catch { /* quota exceeded / cyclic → ignore */ }
+    }, 800);
+    return () => clearTimeout(t);
   }, [input, output, understanding, inlineStoryPreproc, analystNarrative, investigationMode, investigationObject]);
 
 
@@ -779,6 +808,20 @@ export default function WorkspacePage() {
     // must never echo the input.
     if (investigationMode) {
       setLivePreview(null);
+      return;
+    }
+    // 2026-02-15 · Anti-hang guard
+    // The client-side recipe preview runs base64/gzip/utf-16 decoders
+    // in JS on the main thread.  For big real-world payloads
+    // (> 4 KB, e.g. a full Sophos PowerShell -encodedcommand blob)
+    // this can starve the tab.  The backend investigation is
+    // deterministic and completes in <2s for the same input, so we
+    // simply skip the JS preview above the guard — Output still
+    // populates from the backend response.
+    if ((input?.length || 0) > 4096) {
+      setLivePreview({ output: "", ranSteps: [], unsupported: [],
+                          skipped_reason: "input_too_large_for_client_preview",
+                          latencyMs: 0 });
       return;
     }
     const t = setTimeout(() => {
