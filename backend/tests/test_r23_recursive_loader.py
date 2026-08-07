@@ -81,8 +81,6 @@ class TestRenderSurfacesDeepURL:
     def test_render_surfaces_url_from_deepest_layer(self):
         out = render(_build_loader())
         iocs = (out["object"].get("iocs") or {})
-        # `iocs` may be a dict-by-kind ({"url": [...]}) OR a list
-        # of {"kind": "url", "value": ...} — handle both.
         urls = []
         if isinstance(iocs, dict):
             urls = list(iocs.get("url") or [])
@@ -94,6 +92,26 @@ class TestRenderSurfacesDeepURL:
             f"URL {TARGET_URL} not surfaced by render()\n"
             f"iocs={iocs}"
         )
+
+
+class TestWorkspacePipelineSurfacesDeepURL:
+    """The WORKSPACE pipeline (`analysis_core.deterministic_best_decode`)
+    is the one the analyst actually hits — must also surface the
+    innermost URL on multi-layer loaders."""
+
+    def test_workspace_pipeline_decodes_full_loader(self):
+        from analysis_core import deterministic_best_decode
+        r = deterministic_best_decode(_build_loader())
+        output = r.get("output") or ""
+        assert TARGET_URL in output, (
+            f"WORKSPACE pipeline did not surface {TARGET_URL}\n"
+            f"engine={r.get('engine')}  output_tail={output[-300:]!r}"
+        )
+        iocs = r.get("iocs") or {}
+        if isinstance(iocs, dict):
+            assert TARGET_URL in (iocs.get("url") or []), (
+                f"WORKSPACE iocs.url missing {TARGET_URL}: {iocs}"
+            )
 
     def test_render_records_decode_layers_on_ssot(self):
         out = render(_build_loader())

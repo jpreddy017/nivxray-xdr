@@ -26,6 +26,80 @@ from deps import db, load_osint_keys, llm_json
 # ============================================================================
 # Deterministic winner picker (smart vs magic) — Auto Investigate parity fix
 # ============================================================================
+def _r23_deep_peel_and_merge(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Rule R23 · Post-decode recursive peel guarantee.
+
+    If a preflight engine (Convergence / RC2.2 Orchestrator) returned
+    a result whose ``output`` STILL contains an obvious inner loader
+    (``FromBase64String(...)`` + GZipStream / IEX), continue peeling
+    deterministically with the recursive_decoder.  Merges the deeper
+    IOCs (URLs / IPs) back into the result so the workspace shows the
+    final payload's indicators, not just the outer wrapper's.
+
+    Safe / additive — never overwrites a healthy result; only runs
+    when the deeper loader signature is detected.
+    """
+    if not isinstance(result, dict):
+        return result
+    text = (result.get("output") or "")
+    if not text:
+        return result
+    # Cheap sniff — only fire on the canonical loader shape.
+    sniff = text.lower()
+    if not ("frombase64string" in sniff and ("gzip" in sniff or "iex" in sniff
+                                                or "invoke-expression" in sniff)):
+        return result
+    try:
+        from services.die.preprocessor.recursive_decoder import peel_recursively
+        from services.die.ioc_semantic import extract_iocs
+    except Exception:  # pragma: no cover
+        return result
+    try:
+        peeled, layers = peel_recursively(text)
+    except Exception:  # pragma: no cover
+        return result
+    if not peeled or peeled == text or not layers:
+        return result
+    # Merge deeper IOCs into the result.
+    deep_iocs = {}
+    try:
+        for i in (extract_iocs(peeled) or []):
+            if isinstance(i, dict):
+                k = (i.get("kind") or "").lower()
+                v = i.get("value") or ""
+                if k and v:
+                    deep_iocs.setdefault(k, []).append(v)
+    except Exception:  # pragma: no cover
+        pass
+    outer_iocs = result.get("iocs") or {}
+    if isinstance(outer_iocs, dict):
+        for k, vs in deep_iocs.items():
+            bag = outer_iocs.get(k) or []
+            for v in vs:
+                if v not in bag:
+                    bag.append(v)
+            outer_iocs[k] = bag
+        result["iocs"] = outer_iocs
+    # Append the deeper output as a follow-up "decoded (recursive)"
+    # block so the analyst sees BOTH the outer decoded PowerShell AND
+    # the final payload, without losing provenance.
+    result["output"] = (
+        text.rstrip() + "\n\n# --- decoded (recursive) ---\n" + peeled.rstrip()
+    )
+    # Extend the recipe / all_steps trace so the layer count reflects
+    # the additional work.
+    for l in layers:
+        recipe = result.get("recipe") or []
+        recipe.append({
+            "op":     f"deep-peel-{l.get('stage','?')}",
+            "args":   {"bytes_in": l.get("bytes_in"),
+                        "bytes_out": l.get("bytes_out")},
+            "reason": f"R23 recursive peel · layer {l.get('layer')}",
+        })
+        result["recipe"] = recipe
+    return result
+
+
 def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> Dict[str, Any]:
     """Recursive deep-decode wrapper — keeps peeling nested obfuscation layers.
 
@@ -51,19 +125,16 @@ def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> 
     through so nothing regresses.
     """
     # ── M6 · Convergence Engine preflight (certificate-driven selector) ──
-    # Phase 5.5 replaces the legacy "highest score wins" winner-picker
-    # with a certificate-driven canonical selector. If the Convergence
-    # Engine reaches canonical_state=YES with a materially changed
-    # output, its result wins — deterministically, hash-stable across
-    # runs. Any un-modelled case falls through to the legacy pipeline
-    # unchanged, so this integration is strictly additive.
     try:
         from workspace.convergence.selector import convergence_decode
         adopted = convergence_decode(payload)
         if adopted is not None:
+            # Rule R23 · Recursive peel — if the convergence output
+            # still contains an inner FromBase64String + GZip loader
+            # (or any other decodable layer), continue peeling.
+            adopted = _r23_deep_peel_and_merge(adopted)
             return adopted
     except Exception:
-        # Never let the selector break the pipeline — legacy always available.
         pass
 
     # ── RC2.2 · Orchestrator preflight ────────────────────────────────────
@@ -71,9 +142,9 @@ def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> 
         from rc22_adapter import try_orchestrator_first
         adopted = try_orchestrator_first(payload, analysis_mode=analysis_mode)
         if adopted:
+            adopted = _r23_deep_peel_and_merge(adopted)
             return adopted
     except Exception:
-        # Never let the adapter break the pipeline — legacy always available
         pass
 
     # ── Reasoning Engine — text-mode linguistic hypothesis pass ──────────
