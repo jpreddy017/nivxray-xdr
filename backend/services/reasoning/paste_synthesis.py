@@ -471,19 +471,18 @@ def synthesize(ssot: Dict[str, Any]) -> Dict[str, Any]:
 
     behaviors = _behaviors_from_input(raw)
 
+    # ── Resource-Protection Policy · hard caps ────────────────────
+    # Prevent runaway inputs (deeply-nested pastes, mass-encoded
+    # blobs) from producing thousands of behaviors that overwhelm the
+    # SVG renderer and freeze the browser tab.  Deterministic ordering
+    # already ranks the most severe / earliest-in-kill-chain first, so
+    # truncation preserves the analyst's highest-signal view.
+    _MAX_BEHAVIORS       = 60      # trajectory renders ≤ 60 nodes / lane
+    _MAX_EVIDENCE_EACH   = 12      # each behavior keeps ≤ 12 evidence rows
+
     # ── Merge in preprocessor-stage behaviors ─────────────────────
-    # DIE recognises hundreds of attack techniques the 27-rule
-    # behavior_extractor doesn't cover (Reverse SSH Tunnel, AD
-    # Enumeration, MSI Installer, Shadow Copy Removal, WMIC Software
-    # Removal, Registry Modification, …).  Every stage already
-    # carries a canonical MITRE tactic + technique id upstream, so
-    # promoting them to behaviors makes the 14-lane trajectory a
-    # complete picture instead of a regex-limited slice.
     stage_behaviors = _behaviors_from_stages(ssot)
     if stage_behaviors:
-        # Dedupe by MITRE technique + tactic first (stages that name
-        # the same technique should collapse), falling back to title
-        # dedupe for stages that have no MITRE id.
         seen_keys: set = set()
         for b in behaviors:
             for tid in b.mitre_techniques:
@@ -504,6 +503,15 @@ def synthesize(ssot: Dict[str, Any]) -> Dict[str, Any]:
                     seen_keys.add((tid, t))
             seen_keys.add(("title", sb.title.lower()))
         behaviors = sorted(behaviors, key=_behavior_sort_key)
+
+    # Cap total behaviors, and each behavior's evidence rows.
+    truncated_count = 0
+    if len(behaviors) > _MAX_BEHAVIORS:
+        truncated_count = len(behaviors) - _MAX_BEHAVIORS
+        behaviors = behaviors[:_MAX_BEHAVIORS]
+    for b in behaviors:
+        if len(b.evidence) > _MAX_EVIDENCE_EACH:
+            b.evidence = b.evidence[:_MAX_EVIDENCE_EACH]
 
     if not behaviors:
         # No behaviors detected — still emit a synthetic acquired_document

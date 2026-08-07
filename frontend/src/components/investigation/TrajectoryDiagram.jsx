@@ -500,11 +500,20 @@ function _behaviorTactics(b) {
 function _layoutBehaviorNodes(behaviors, activeLanes) {
   if (!Array.isArray(behaviors) || !behaviors.length) return [];
   if (!Array.isArray(activeLanes) || !activeLanes.length) return [];
+  // ── Hard cap · Resource Protection Policy ────────────────────
+  // Prevent runaway pastes (deeply-nested / mass-encoded inputs)
+  // from producing thousands of behavior nodes that would freeze
+  // the SVG renderer.  The deterministic ordering already ranks the
+  // most severe / earliest kill-chain first so truncation preserves
+  // the analyst's highest-signal view.
+  const MAX_BEHAVIORS = 60;
+  const MAX_NODES     = 200;
   const laneY = {};
   for (const l of activeLanes) if (l && l.id) laneY[l.id] = l.y;
   const ordered = [...behaviors]
     .filter((b) => b && typeof b === "object")
-    .sort((a, b) => ((a.order ?? 0) - (b.order ?? 0)));
+    .sort((a, b) => ((a.order ?? 0) - (b.order ?? 0)))
+    .slice(0, MAX_BEHAVIORS);
   const X_START = 220;
   const X_STEP  = 240;
   const nodes = [];
@@ -525,6 +534,7 @@ function _layoutBehaviorNodes(behaviors, activeLanes) {
     const behaviorKey = b.id || `bhv-${i}`;
     const x = X_START + i * X_STEP;
     tactics.forEach((tactic, tIdx) => {
+      if (nodes.length >= MAX_NODES) return;   // hard cap SVG size
       nodes.push({
         id:          `${behaviorKey}--${_slug(tactic)}`,
         behaviorKey,               // stable link across sibling nodes

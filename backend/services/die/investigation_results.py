@@ -87,7 +87,46 @@ def render(input_text: str) -> Dict[str, Any]:
     Returns ``{output: str, object: dict}`` where ``output`` is the
     formatted text destined for the Workspace pane and ``object`` is
     the Canonical Investigation Object (SSOT) for downstream engines.
+
+    ── Rule R23 · Complete Decoding Contract ──
+    Any exception raised by an internal decoder / adapter / engine
+    is caught here and returned as a `partial_ssot` envelope so the
+    frontend always receives a valid, projectable payload.  A single
+    decoder crash NEVER black-screens the workspace.
     """
+    try:
+        return _render_impl(input_text)
+    except Exception as _exc:                     # pragma: no cover
+        import logging, traceback
+        logging.getLogger("nivxray.render").exception(
+            "investigation_results.render failed — returning partial_ssot")
+        return {
+            "output": "▲ Partial investigation — an internal decoder failed. "
+                       "Analyst receives a safe partial payload per Rule R23.",
+            "object": {
+                "metadata":       {"schema": "investigation-v1",
+                                     "partial": True},
+                "input":          {"raw": input_text or ""},
+                "decode_status":  {
+                    "failed":     True,
+                    "reason":     type(_exc).__name__,
+                    "detail":     str(_exc)[:400],
+                    "trace":      traceback.format_exc(limit=5)[:2000],
+                },
+                "commands":       [],
+                "iocs":           {},
+                "mitre":          [],
+                "artifacts":      [],
+                "acquired_document": {},
+                "acquisition_plan":  [],
+                "incident":       None,
+                "narrative":      {},
+            },
+        }
+
+
+def _render_impl(input_text: str) -> Dict[str, Any]:
+    """Actual render implementation (see ``render`` for R23 wrapper)."""
     src = input_text or ""
 
     # 0) Stage-0 · Input Health Check (IUE v2.0 · Layer 0)

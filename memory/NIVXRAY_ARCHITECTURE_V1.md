@@ -422,3 +422,57 @@ behavior model — never recomputed independently.
   `Registry Run Key → T1547.001`, `Shadow Copy Deletion → T1490` — lives
   ONLY in `services/reasoning/behavior_extractor.py`. Never in adapters,
   never in UI code.
+
+═════════════════════════════════════════════════════════════════════
+## R23 · Complete Decoding Contract (2026-08-07 · PERMANENTLY FROZEN)
+═════════════════════════════════════════════════════════════════════
+
+Non-negotiable end-to-end guarantees for EVERY input the analyst
+provides — regardless of size, encoding depth, nesting, or number of
+stages.
+
+### Backend guarantees
+1. **No partial decode surfaced as blocker.**  Every decoder / adapter /
+   engine that fails MUST log the failure and continue.  A single
+   decoder crashing NEVER prevents the SSOT from being emitted.
+2. **Bounded resource envelope.**  Deterministic hard caps prevent any
+   single input from consuming unbounded CPU/RAM:
+     • Behaviors emitted           ≤ 60 per SSOT
+     • Evidence per behavior       ≤ 12 rows
+     • Base64 recursive depth       ≤ 8 layers
+     • Regex catastrophic-backtrack watchdog: 250 ms per rule.
+3. **Deterministic output.**  Same input + same engine versions →
+   byte-identical SSOT.  Truncation, when it occurs, is stable
+   (highest-severity first, kill-chain-earliest first).
+4. **Top-level try/except in render pipeline.**  Any unexpected
+   exception in `investigation_results.render()` returns a
+   `partial_ssot` envelope with error breadcrumbs — never a 5xx.
+5. **Never mask real failures.**  When decoding genuinely cannot
+   proceed (unsupported binary, corrupt input), SSOT carries an
+   explicit `decode_status: "failed"` block with reason.  Never silent.
+
+### Frontend guarantees
+1. **No black screen.**  Every projection (Trajectory, Timeline, NIST
+   report, Evidence Explorer, MITRE lanes) is wrapped in a
+   React ErrorBoundary that falls back to an in-place error card + a
+   RELOAD button.  The workspace shell itself is unaffected.
+2. **Hard render caps.**  Trajectory SVG renders ≤ 200 nodes total;
+   when exceeded the diagram shows a "truncated for visibility"
+   banner and links to the raw behavior list.
+3. **Progressive rendering.**  Tabs are lazy; a slow projection
+   never blocks the summary / timeline tabs.
+4. **Every crash logged to console.**  ErrorBoundary emits the raw
+   Error + component stack via `console.error` so remote debugging
+   can always diagnose without an analyst screenshot.
+
+### Testing rule
+Every new adapter / behavior rule / decoder MUST ship with:
+  ✓ a positive test (recognises the pattern),
+  ✓ a negative test (does NOT fire on lookalikes),
+  ✓ a scale test (10 KB → 1 MB input runs in < 3s and produces
+      ≤ 60 behaviors).
+
+### Enforcement
+Any PR that violates R23 is rejected.  Any regression that
+re-introduces a black screen or a swallowed decoder failure is a
+P0 hotfix.
