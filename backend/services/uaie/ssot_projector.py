@@ -219,25 +219,41 @@ def _termination_reason(result: OrchestratorResult) -> Dict[str, Any]:
 
 
 def _capability_coverage(result: OrchestratorResult,
-                          all_plugin_names: List[str]) -> Dict[str, List[str]]:
+                          all_plugin_names: List[str]) -> Dict[str, Any]:
     """R25.2 · Per-capability outcome across the whole loop.
 
     Buckets every registered plugin into:
       · executed        — at least one 'execute' ledger entry
-      · skipped         — recognizer matched but prerequisites not met
-      · not_applicable  — recognizer never matched
-      · failed          — 'error' ledger entry
+      · skipped         — schedule_skip entry (grouped by skip_reason)
+      · failed          — schedule_skip with reason=capability_error
+      · not_applicable  — recognizer never matched, no skip logged
+
+    The ``skip_reasons`` sub-map lets the analyst see, per capability,
+    exactly why it didn't run (structured `skip_reason=<code>` codes
+    from the ledger).
     """
+    from .ledger import ACTION_EXECUTE, ACTION_SCHEDULE_SKIP, SKIP_CAPABILITY_ERROR
     executed: set = set()
     failed:   set = set()
     skipped:  set = set()
+    skip_reasons: Dict[str, str] = {}
     for e in result.ledger:
-        if e.action == "execute":
+        if e.action == ACTION_EXECUTE:
             executed.add(e.actor)
-        elif e.action == "error":
-            failed.add(e.actor)
-        elif e.action == "skip":
-            skipped.add(e.actor)
+            continue
+        if e.action == ACTION_SCHEDULE_SKIP:
+            # Parse structured `skip_reason=<code>` prefix (canonical
+            # format from ledger.format_skip_reason).
+            out = e.output_summary or ""
+            code = ""
+            if out.startswith("skip_reason="):
+                code = out[len("skip_reason="):].split(" ", 1)[0]
+            if code == SKIP_CAPABILITY_ERROR:
+                failed.add(e.actor)
+            else:
+                skipped.add(e.actor)
+            # First-seen reason wins so we surface the *initial* cause.
+            skip_reasons.setdefault(e.actor, code or "unknown")
     covered = executed | failed | skipped
     not_applicable = [n for n in all_plugin_names if n not in covered]
     return {
@@ -245,6 +261,9 @@ def _capability_coverage(result: OrchestratorResult,
         "skipped":        sorted(skipped - executed),
         "failed":         sorted(failed - executed),
         "not_applicable": sorted(not_applicable),
+        # Analyst-visible "why" — {capability_name: skip_reason_code}
+        "skip_reasons":   {k: v for k, v in sorted(skip_reasons.items())
+                             if k not in executed},
     }
 
 

@@ -28,6 +28,39 @@ ACTION_BUDGET_HIT      = "budget_hit"
 ACTION_COMPLETE        = "complete"
 
 
+# ── Skip-reason taxonomy (structured — makes "why did decoding stop?"
+#    a one-line query instead of a log dive).  Emitted inside
+#    ``output_summary`` as ``skip_reason=<code> detail=<free text>`` and
+#    surfaced in the SSOT `capability_coverage` bucket keys.
+SKIP_NO_RECOGNIZER_MATCH   = "no_recognizer_match"     # nothing claimed this artifact
+SKIP_MISSING_EVIDENCE_PREREQ = "missing_evidence_prereq"  # cap requires evidence not yet emitted
+SKIP_ARTIFACT_TYPE_MISMATCH = "artifact_type_mismatch" # cap can't consume this type
+SKIP_DEPTH_CAP             = "depth_cap"               # max_depth hit — child not enqueued
+SKIP_ARTIFACTS_CAP         = "artifacts_cap"           # max_artifacts hit — loop halted
+SKIP_ALREADY_SEEN          = "already_seen"            # child URI collision (idempotent)
+SKIP_CAPABILITY_ERROR      = "capability_error"        # cap.execute raised
+
+
+SKIP_REASONS = (
+    SKIP_NO_RECOGNIZER_MATCH,
+    SKIP_MISSING_EVIDENCE_PREREQ,
+    SKIP_ARTIFACT_TYPE_MISMATCH,
+    SKIP_DEPTH_CAP,
+    SKIP_ARTIFACTS_CAP,
+    SKIP_ALREADY_SEEN,
+    SKIP_CAPABILITY_ERROR,
+)
+
+
+def format_skip_reason(code: str, detail: str = "") -> str:
+    """Canonical ``skip_reason=<code> detail=<...>`` string for the
+    ledger ``output_summary``.  Keeps the field greppable and
+    downstream-parseable without breaking existing text consumers."""
+    if detail:
+        return f"skip_reason={code} detail={detail}"
+    return f"skip_reason={code}"
+
+
 @dataclass(frozen=True)
 class LedgerEntry:
     seq:              int

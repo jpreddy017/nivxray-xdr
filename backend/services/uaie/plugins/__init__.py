@@ -96,3 +96,11 @@ from . import op_ps_normalize                  # noqa: F401,E402
 from . import op_ps_reverse_string             # noqa: F401,E402
 from . import op_ps_reverse_regex_swap         # noqa: F401,E402
 from . import op_ps_semantic_mini              # noqa: F401,E402
+# ── Priority 4 · Universal Family Recognizer (all artifact types) ──
+from . import family_universal_recognizer      # noqa: F401,E402
+# ── Priority 5 · Crypto Stack (RC4 / AES / ciphertext-shape / annotator) ─
+from . import crypto_rc4                        # noqa: F401,E402
+from . import crypto_aes_cbc                    # noqa: F401,E402
+from . import crypto_shape_detector             # noqa: F401,E402
+from . import op_rc4_inline_decrypt             # noqa: F401,E402
+from . import op_crypto_api_annotator           # noqa: F401,E402

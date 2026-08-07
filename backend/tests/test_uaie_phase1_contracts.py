@@ -67,10 +67,18 @@ class _CountCapability:
 
 @pytest.fixture(autouse=True)
 def _reset_registry():
+    # Snapshot the production registry so we can restore it after each
+    # test — otherwise the ``clear()`` call in this module wipes every
+    # UAIE plugin registered at package import time, and any test file
+    # that runs after this one in the same worker sees an empty registry.
+    from services.uaie.capability import _REGISTRY
+    saved = {k: list(v) for k, v in _REGISTRY.items()}
     clear()
     register(_CountCapability())
     yield
     clear()
+    for k, v in saved.items():
+        _REGISTRY[k] = list(v)
 
 
 class TestPhase1ContractSoundness:

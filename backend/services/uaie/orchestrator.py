@@ -28,7 +28,10 @@ from .capability import Capability, for_type as _caps_for_type
 from .evidence   import Evidence
 from .ledger     import (ACTION_COMPLETE, ACTION_EMIT_EVIDENCE, ACTION_ENQUEUE,
                           ACTION_EXECUTE, ACTION_RECOGNIZE, ACTION_SCHEDULE_SKIP,
-                          Ledger)
+                          Ledger, SKIP_ARTIFACTS_CAP, SKIP_CAPABILITY_ERROR,
+                          SKIP_DEPTH_CAP, SKIP_MISSING_EVIDENCE_PREREQ,
+                          SKIP_NO_RECOGNIZER_MATCH,
+                          format_skip_reason)
 from .recognizer import Recognition, Recognizer
 
 
@@ -73,6 +76,12 @@ class Orchestrator:
         while queue:
             if len(result.artifacts) >= self.max_artifacts:
                 result.warnings.append(f"max_artifacts cap {self.max_artifacts} hit")
+                result.ledger.append(artifact_uri=(queue[0].uri if queue else ""),
+                                       action=ACTION_SCHEDULE_SKIP,
+                                       actor="orchestrator",
+                                       output_summary=format_skip_reason(
+                                           SKIP_ARTIFACTS_CAP,
+                                           f"max_artifacts={self.max_artifacts}"))
                 break
             art: Artifact = self.planner(queue)
 
@@ -120,7 +129,8 @@ class Orchestrator:
                 result.ledger.append(artifact_uri=art.uri,
                                        action=ACTION_SCHEDULE_SKIP,
                                        actor="orchestrator",
-                                       output_summary="no recognizer match")
+                                       output_summary=format_skip_reason(
+                                           SKIP_NO_RECOGNIZER_MATCH))
                 continue
 
             # ── 2. Execute all capabilities registered for any matched
@@ -146,11 +156,14 @@ class Orchestrator:
                 # Dependency check — evidence prerequisites
                 if cap.requires_evidence:
                     have = {ev.kind for ev in result.evidence}
-                    if not all(r in have for r in cap.requires_evidence):
+                    missing = [r for r in cap.requires_evidence if r not in have]
+                    if missing:
                         result.ledger.append(
                             artifact_uri=art.uri, action=ACTION_SCHEDULE_SKIP,
                             actor=cap.name,
-                            output_summary=f"missing evidence deps {cap.requires_evidence}")
+                            output_summary=format_skip_reason(
+                                SKIP_MISSING_EVIDENCE_PREREQ,
+                                f"requires={missing}"))
                         continue
                 _t0 = time.perf_counter()
                 try:
@@ -158,9 +171,11 @@ class Orchestrator:
                 except Exception as e:  # pragma: no cover
                     result.warnings.append(f"capability {cap.name} raised {type(e).__name__}")
                     result.ledger.append(artifact_uri=art.uri,
-                                           action=ACTION_EXECUTE,
+                                           action=ACTION_SCHEDULE_SKIP,
                                            actor=cap.name,
-                                           output_summary=f"error: {type(e).__name__}",
+                                           output_summary=format_skip_reason(
+                                               SKIP_CAPABILITY_ERROR,
+                                               f"{type(e).__name__}: {e}"),
                                            elapsed_ms=(time.perf_counter() - _t0) * 1000.0)
                     continue
                 elapsed_ms = (time.perf_counter() - _t0) * 1000.0
@@ -184,6 +199,13 @@ class Orchestrator:
                         continue
                     if child.depth > self.max_depth:
                         result.warnings.append(f"max_depth cap {self.max_depth} hit at {child.uri}")
+                        result.ledger.append(artifact_uri=child.uri,
+                                               action=ACTION_SCHEDULE_SKIP,
+                                               actor=cap.name,
+                                               output_summary=format_skip_reason(
+                                                   SKIP_DEPTH_CAP,
+                                                   f"max_depth={self.max_depth} "
+                                                   f"depth={child.depth}"))
                         continue
                     seen_uris.add(child.uri)
                     result.artifacts[child.uri] = child

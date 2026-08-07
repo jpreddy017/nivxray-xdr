@@ -1,3 +1,88 @@
+## 🟢 2026-02-14 · Fork · P2/P3 · Universal Family Recognizer + Full Crypto Stack + Structured Skip-Reasons
+
+Three coordinated additions land the crypto peel gap and give analysts a first-class "why did this stop decoding?" signal.
+
+### Duplicate-check first
+Grepped the whole `services/uaie/` tree for any prior wrap of `Rc4Decoder`, `AesCbcDecoder`, `CryptoDetectDecoder`, `rc4-inline-decrypt`, `crypto-api-annotator`, or `family_recognizer.recognize_families` — **none existed**. Skipped `rc40_orchestrator_plugins.*` (6 BaseDecoder classes) because their functionality is already covered by the `op.*` transformer-adapter plugins.
+
+### P2 · Universal Family Recognizer (⭐⭐⭐⭐⭐)
+- `services/uaie/plugins/family_universal_recognizer/` wraps `services.die.preprocessor.family_recognizer.recognize_families` (previously only invoked at the tail of the legacy pipeline).
+- Runs on **every** textual artifact type: `text`, `powershell`, `powershell_normalized`, `cmd`, `javascript`, `hta`, `office`, `base64_decoded`, `gzip_decoded`, `zlib_decoded`, `xor_decoded`, `shellcode_bytes`.
+- Every peeled child now gets immediate family attribution with MITRE + tactic + `commonly_observed_in`.
+- Planner priority slot 61 (runs LAST after analyzers, per the frozen dependency graph).
+
+### P3 · Crypto Stack (⭐⭐⭐⭐⭐)
+Five plugins covering the RC4/AES/detect/annotate surface:
+| Plugin | Semantic | Legacy wrapped |
+|---|---|---|
+| `crypto.rc4` | decoder | `decoders.crypto_symmetric.Rc4Decoder` |
+| `crypto.aes_cbc` | decoder | `decoders.crypto_symmetric.AesCbcDecoder` |
+| `crypto.shape_detector` | analyzer | `decoders.crypto_symmetric.CryptoDetectDecoder` |
+| `op.rc4-inline-decrypt` | transformer | `rc4_inline_decrypt.op_rc4_inline_decrypt` |
+| `op.crypto-api-annotator` | transformer | `crypto_api_annotator.op_crypto_api_annotator` |
+
+- Added `min_detect_confidence` parameter to `capability_adapter.adapt_and_register` so signal-only analyzers (like `CryptoDetectDecoder`, which fires at conf 0.30 by design) can run below the default 0.40 gate without changing decoder semantics.
+- Planner priorities 45–49 slot the crypto stack right after the compression layer so `annotate → detect → RC4 → AES → XOR` fires in forensic order.
+
+### Skip-Reason Taxonomy (analyst-visible)
+`services/uaie/ledger.py` now exports **canonical structured skip codes**:
+```
+SKIP_NO_RECOGNIZER_MATCH        SKIP_ARTIFACT_TYPE_MISMATCH
+SKIP_MISSING_EVIDENCE_PREREQ    SKIP_DEPTH_CAP
+SKIP_ARTIFACTS_CAP              SKIP_ALREADY_SEEN
+SKIP_CAPABILITY_ERROR
+```
+- Orchestrator emits `skip_reason=<code> detail=<free text>` in every `schedule_skip` ledger entry (parseable, greppable, testable).
+- `ssot_projector._capability_coverage` now returns a `skip_reasons: {capability_name: code}` sub-map so every SSOT payload answers "why didn't RC4 run on this artifact?" in one look — no log dive.
+
+### Bug fix (drive-by)
+`tests/test_uaie_phase1_contracts.py` had an `autouse=True` fixture that `clear()`ed the entire capability registry and never restored it, breaking every downstream test file that ran in the same pytest-xdist worker. Fixed by snapshot+restore.
+
+### Verification
+```
+tests/test_capability_pack_1_loop.py            6 passed
+tests/test_transformer_op_adapter.py            7 passed
+tests/test_family_universal_and_skip_reasons.py 7 passed
+tests/test_crypto_capability_pack.py            5 passed
+tests/test_graph_diff.py                        ...
+tests/test_iedde_ssot_wiring.py                 ...
+tests/test_restore_equivalence.py               ...
+tests/test_ssot_persistence.py                  ...
+tests/test_ssot_projector.py                    ...
+tests/test_uaie_baseline_gates.py               ...
+tests/test_uaie_phase1_contracts.py             ...
+                                              ─────────
+                                                81 passed / 0 failed
+```
+
+### Files added
+- `services/uaie/plugins/family_universal_recognizer/__init__.py`
+- `services/uaie/plugins/crypto_rc4/__init__.py`
+- `services/uaie/plugins/crypto_aes_cbc/__init__.py`
+- `services/uaie/plugins/crypto_shape_detector/__init__.py`
+- `services/uaie/plugins/op_rc4_inline_decrypt/__init__.py`
+- `services/uaie/plugins/op_crypto_api_annotator/__init__.py`
+- `tests/test_family_universal_and_skip_reasons.py`
+- `tests/test_crypto_capability_pack.py`
+
+### Files edited
+- `services/uaie/ledger.py` (skip-reason taxonomy + `format_skip_reason`)
+- `services/uaie/orchestrator.py` (structured skip codes in ledger)
+- `services/uaie/ssot_projector.py` (skip_reasons sub-map in capability_coverage)
+- `services/uaie/capability_adapter.py` (`min_detect_confidence` parameter)
+- `services/uaie/transformer_op_adapter.py` (import RC4 + crypto-annotator ops)
+- `services/uaie/planner.py` (priority slots 45–49, 61)
+- `services/uaie/plugins/__init__.py` (registration)
+- `tests/test_uaie_phase1_contracts.py` (registry snapshot+restore fixture)
+
+### Next
+- P4 · Freeze user's "Notdecoded" payload as permanent regression (pending JSON).
+- P5 · Decode-Trace API (`/api/uaie/decode-trace/{artifact_uri}`) — richer than a simple log; will surface the full "recognizer matched → planner decision → capability → child produced → termination reason" tree.
+- P6 · `LoopSummaryPanel.jsx` UI (after engine fully stabilises).
+
+---
+
+
 ## 🟢 2026-02-14 · Fork · P1 · Transformer Op Adapter · 5 PS transformers wired
 
 The 5 function-only PowerShell decoders that shipped as bare `@op` transformers (not `BaseDecoder` subclasses) are now first-class UAIE capabilities via a new `transformer_op_adapter.py`. This closes the biggest remaining contributor to the "output = input" payload decode gap for PowerShell loaders.

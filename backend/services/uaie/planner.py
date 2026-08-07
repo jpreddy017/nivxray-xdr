@@ -84,7 +84,13 @@ _PRIORITY: Dict[str, int] = {
     "shellcode.string_scan":             52,
     # FAMILY layer (runs LAST so it consumes analyzer output)
     "family.cobalt_strike.beacon_config": 60,
+    "family.universal_recognizer":        61,
     # CRYPTO fallback (only when nothing else has matched)
+    "op.crypto-api-annotator":           45,  # signal-only annotator early
+    "crypto.shape_detector":             46,  # detect ciphertext presence
+    "op.rc4-inline-decrypt":             47,  # deterministic inline RC4
+    "crypto.rc4":                        48,  # RC4 with key-hunt
+    "crypto.aes_cbc":                    49,  # AES-CBC with key/IV hunt
     "crypto.xor_brute":                  99,
 }
 _DEFAULT_PRIORITY = 55

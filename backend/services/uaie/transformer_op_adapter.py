@@ -59,6 +59,8 @@ import decoders.ps_inline_eval                  # noqa: F401,E402
 import decoders.ps_normalizer                   # noqa: F401,E402
 import decoders.ps_reverse_swap                 # noqa: F401,E402
 import decoders.ps_semantic_mini                # noqa: F401,E402
+import decoders.rc4_inline_decrypt              # noqa: F401,E402
+import decoders.crypto_api_annotator            # noqa: F401,E402
 
 
 _NO_MATCH_PREFIX = "("     # every op's sentinel starts with "(op_id · …)"

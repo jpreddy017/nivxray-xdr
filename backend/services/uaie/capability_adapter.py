@@ -99,13 +99,15 @@ class _AdaptedCapability:
     def __init__(self, *, plugin_name: str, semantic: str,
                  legacy_instance: Any,
                  artifact_types: List[str],
-                 child_artifact_type: Optional[str]):
+                 child_artifact_type: Optional[str],
+                 min_detect_confidence: float = 0.4):
         self.name = plugin_name
         self._legacy = legacy_instance
         self._semantic = semantic
         self._child_type = child_artifact_type
         self.requires_artifact_type = list(artifact_types)
         self.requires_evidence = []
+        self._min_conf = float(min_detect_confidence)
 
     def execute(self, artifact: Artifact) -> CapabilityResult:
         t0 = perf_counter()
@@ -115,7 +117,7 @@ class _AdaptedCapability:
             det = self._legacy.detect(payload_str, fp, ctx)
         except Exception:
             return CapabilityResult(elapsed_ms=(perf_counter() - t0) * 1000.0)
-        if not det or float(getattr(det, "confidence", 0) or 0) < 0.4:
+        if not det or float(getattr(det, "confidence", 0) or 0) < self._min_conf:
             return CapabilityResult(elapsed_ms=(perf_counter() - t0) * 1000.0)
         try:
             result = self._legacy.decode(
@@ -218,8 +220,14 @@ def adapt_and_register(
     profiles: Optional[Iterable[str]] = None,
     name_override: Optional[str] = None,
     version: str = "1.0.0",
+    min_detect_confidence: float = 0.4,
 ) -> Dict[str, Any]:
     """Adapt a legacy BaseDecoder-shaped class into UAIE and register it.
+
+    ``min_detect_confidence`` lets signal-only analyzers (e.g.
+    ``CryptoDetectDecoder``, which intentionally returns conf 0.30
+    because it never decrypts) run at a lower confidence gate than
+    decoders that MUST commit to a decode.
 
     Returns the registered plugin dict.
     """
@@ -237,6 +245,7 @@ def adapt_and_register(
     capability = _AdaptedCapability(
         plugin_name=name, semantic=semantic, legacy_instance=instance,
         artifact_types=artifact_types, child_artifact_type=child_artifact_type,
+        min_detect_confidence=min_detect_confidence,
     )
     _register_cap(capability)
     _plugin_registry.register_plugin(
