@@ -104,3 +104,6 @@ from . import crypto_aes_cbc                    # noqa: F401,E402
 from . import crypto_shape_detector             # noqa: F401,E402
 from . import op_rc4_inline_decrypt             # noqa: F401,E402
 from . import op_crypto_api_annotator           # noqa: F401,E402
+# ── Priority 6 · PE Extractor + .NET Recognizer ────────────────────
+from . import pe_extractor                       # noqa: F401,E402
+from . import pe_dotnet_recognizer               # noqa: F401,E402

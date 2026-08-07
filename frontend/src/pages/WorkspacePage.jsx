@@ -167,7 +167,40 @@ export default function WorkspacePage() {
   // Workspace session (input, output, and all generated panels) so
   // that navigating away and coming back does NOT lose the analyst's
   // work.  Cleared only when the CLEAR button is pressed.
+  //
+  // ▲ 2026-08-07 · User Request — a browser REFRESH (F5 / Cmd+R /
+  // Cmd+Shift+R) must behave EXACTLY like clicking CLEAR: wipe the
+  // input, output, and every generated panel.  This gives analysts a
+  // guaranteed clean slate on refresh without touching cross-tab
+  // navigation.  Detection uses the Navigation Timing API — the
+  // ``type`` field is "reload" on every browser refresh regardless
+  // of soft (F5) vs hard (Cmd+Shift+R), while remaining "navigate"
+  // for URL entry, link click, and back/forward-restore.
+  const _pageWasReloaded = (() => {
+    try {
+      const nav = (window.performance || {}).getEntriesByType
+        ? window.performance.getEntriesByType("navigation")
+        : [];
+      if (nav && nav.length && nav[0].type === "reload") return true;
+      // Fallback for older browsers that still expose PerformanceNavigation
+      const legacy = (window.performance || {}).navigation;
+      // 1 === TYPE_RELOAD in the deprecated PerformanceNavigation API.
+      if (legacy && legacy.type === 1) return true;
+    } catch { /* ignore — treat as fresh navigation */ }
+    return false;
+  })();
+
   const _persisted = (() => {
+    if (_pageWasReloaded) {
+      // Purge every persisted Workspace key on reload so the next
+      // component render starts from a truly empty state.
+      try {
+        localStorage.removeItem("nvx.workspace.persist");
+        localStorage.removeItem("nvx.pendingInput");
+        localStorage.removeItem("nvx_last_input");
+      } catch {}
+      return {};
+    }
     try {
       const raw = localStorage.getItem("nvx.workspace.persist");
       if (!raw) return {};
@@ -179,6 +212,7 @@ export default function WorkspacePage() {
   const [ops, setOps] = useState([]);
   const [examples, setExamples] = useState([]);
   const [input, setInput] = useState(() => {
+    if (_pageWasReloaded) return "";
     // Restore last input if a session expired mid-decode (see api.js 401 interceptor)
     try {
       const saved = localStorage.getItem("nvx_last_input");
@@ -190,7 +224,7 @@ export default function WorkspacePage() {
     // Fall back to the persisted Workspace session.
     return _persisted.input || "";
   });
-  const [output, setOutput] = useState(() => _persisted.output || "");
+  const [output, setOutput] = useState(() => _pageWasReloaded ? "" : (_persisted.output || ""));
   const [steps, setSteps] = useState([]);
   const [detected, setDetected] = useState(null);
   const [chain, setChain] = useState([]);

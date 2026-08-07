@@ -218,6 +218,51 @@ def _termination_reason(result: OrchestratorResult) -> Dict[str, Any]:
             "detail": "queue drained · no new artifacts, no new evidence"}
 
 
+def _confidence_evolution(result: OrchestratorResult) -> List[Dict[str, Any]]:
+    """R25.3 · Confidence-evolution trace (analyst-visible).
+
+    Walks the ledger and records the winning recognition confidence
+    for every artifact in the order it was discovered.  Analysts see
+    the exact chain:
+
+        text            0.31
+          → utf16       0.82
+          → base64      0.96
+          → gzip        0.99
+          → shellcode   1.00
+          → pe          1.00
+
+    which makes it obvious at which stage certainty jumped and where
+    it plateaued.  Purely derived from the ledger — no re-analysis.
+    """
+    from .ledger import ACTION_RECOGNIZE
+    by_uri: Dict[str, Dict[str, Any]] = {}
+    seq_by_uri: Dict[str, int] = {}
+    for e in result.ledger:
+        if e.action != ACTION_RECOGNIZE or e.confidence is None:
+            continue
+        cur = by_uri.get(e.artifact_uri)
+        # Keep the highest-confidence recognition per artifact.
+        if cur is None or (e.confidence or 0) > (cur.get("confidence") or 0):
+            by_uri[e.artifact_uri] = {
+                "artifact_uri":  e.artifact_uri,
+                "artifact_type": e.output_summary,
+                "recognizer":    e.actor,
+                "confidence":    float(e.confidence),
+            }
+            seq_by_uri.setdefault(e.artifact_uri, e.seq)
+    # Order by first-discovery seq so the chain reads root-to-leaf.
+    steps = sorted(by_uri.values(),
+                   key=lambda x: seq_by_uri.get(x["artifact_uri"], 0))
+    # Enrich each step with the artifact's declared type + depth.
+    for step in steps:
+        art = result.artifacts.get(step["artifact_uri"])
+        if art is not None:
+            step["declared_type"] = art.artifact_type
+            step["depth"]         = art.depth
+    return steps
+
+
 def _capability_coverage(result: OrchestratorResult,
                           all_plugin_names: List[str]) -> Dict[str, Any]:
     """R25.2 · Per-capability outcome across the whole loop.
@@ -352,6 +397,9 @@ def project(orchestrator_result: OrchestratorResult,
             orchestrator_result,
             list(all_plugin_names or []),
         ),
+        # R25.3 · Confidence-evolution trace — how certainty grew at
+        # each stage of the peel.  Analyst-visible; pure ledger read.
+        "confidence_evolution": _confidence_evolution(orchestrator_result),
     }
 
 

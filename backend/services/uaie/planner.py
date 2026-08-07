@@ -79,7 +79,9 @@ _PRIORITY: Dict[str, int] = {
     "zlib.inflate":                      41,
     # ANALYSIS layer (must run BEFORE family emitters — fixes xfails)
     "shellcode.analyzer":                50,
+    "pe.extractor":                      50,   # extract embedded PEs first
     "pe.analyzer":                       51,
+    "pe.dotnet_recognizer":              52,   # after pe.analyzer
     # STRING SCAN (baseline evidence — before family emitters)
     "shellcode.string_scan":             52,
     # FAMILY layer (runs LAST so it consumes analyzer output)

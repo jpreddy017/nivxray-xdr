@@ -49,7 +49,14 @@ _ENC_CMD_RE = re.compile(
     (?ix)
     (?:^|\s|['"`])
     (?:powershell(?:_ise)?(?:\.exe)?|pwsh(?:\.exe)?)
-    (?:\s+[^-\s][^\s]*)*
+    # Allow ANY intervening tokens — flags (``-nop``, ``-w hidden``,
+    # ``-executionpolicy bypass``) as well as non-flag args — before the
+    # ``-encodedcommand`` flag.  Lazy ``*?`` so we never accidentally
+    # swallow the ``-encodedcommand`` flag itself as an intervening
+    # argument.  This is the fix for the real-world
+    # ``powershell -nop -w hidden -encodedcommand …`` chain the
+    # legacy regex was silently missing.
+    (?:\s+\S+)*?
     (?:\s+-(?:e|en|enc|encode|encoded|encodedcommand|ec))\b
     \s*(?P<b64>[A-Za-z0-9+/]{16,}={0,2})
     """,
