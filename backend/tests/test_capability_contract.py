@@ -158,6 +158,7 @@ def test_contracts_producing_and_consuming_indexes():
 def test_contracts_improving_indexes_by_dimension():
     snap = _snap()
     try:
+        C.clear()
         register(CapabilityContract(id="m", version="1", category=CAT_ANALYZER,
                                        requires=("text",),
                                        improves=(IMPROVES_MITRE,)),
@@ -177,6 +178,7 @@ def test_contracts_improving_indexes_by_dimension():
 def test_contracts_by_category_indexes():
     snap = _snap()
     try:
+        C.clear()
         register(CapabilityContract(id="r1", version="1", category=CAT_RECOGNIZER,
                                        requires=("*",)), impl=1)
         register(CapabilityContract(id="r2", version="1", category=CAT_RECOGNIZER,
@@ -215,6 +217,7 @@ def test_stats_shape():
 def test_applicable_contracts_deterministic_ordering():
     snap = _snap()
     try:
+        C.clear()
         # Register in reverse alphabetical to prove ordering isn't
         # insertion order.
         register(CapabilityContract(id="z", version="1", category=CAT_EXECUTOR,

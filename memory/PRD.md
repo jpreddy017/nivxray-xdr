@@ -1,3 +1,83 @@
+## 🟢 2026-02-15 · Fork · R28.7.2 · Plugin 1 · `transformer.byte_array_xor_loop` — LANDED
+
+**FIRST PROOF of the capability-registry architecture.**
+
+A brand-new deterministic transformation was added to the engine as a pure plugin drop. Zero orchestrator, planner, lifecycle, QA, registry, termination, or SSOT change was needed. The R28.7.1 wiring picked up the contract-only registration automatically.
+
+### The plugin
+```
+id:                     transformer.byte_array_xor_loop
+version:                1.0
+category:               executor
+requires:               (text, powershell, powershell_normalized, gzip_decoded)
+produces:               (binary_bytes,)
+improves:               (decode_confidence, analysis_confidence)
+confidence_gain:        0.55
+produces_confidence:    (decode=0.55, analysis=0.20)
+cost:                   2
+priority_hint:          3
+parallelizable:         true
+deterministic:          true
+```
+
+**What it does** (generic, no malware-family logic):
+1. Scans script-shaped text for `[System.Convert]::FromBase64String('<b64>')`.
+2. Scans for a byte-array XOR loop `$buf[$i] = $buf[$i] -bxor <int>`.
+3. If both present → base64-decode the blob, apply XOR with the extracted key, emit `binary_bytes` child.
+
+The plugin's meta records `xor_key_dec`, `xor_key_hex`, `decoded_length_bytes` so downstream capabilities can inspect the transformation deterministically.
+
+### Acceptance metric (user-stipulated 2026-02-15) — verified
+| Metric | Target | Actual |
+|---|---:|---:|
+| New contracts added | 1 | **1** ✅ |
+| Orchestrator changes | 0 | **0** ✅ |
+| Planner changes | 0 | **0** ✅ |
+| Registry changes | 0 | **0** ✅ |
+| Lifecycle changes | 0 | **0** ✅ |
+| QA changes | 0 | **0** ✅ |
+| SSOT changes | 0 | **0** ✅ |
+| Termination changes | 0 | **0** ✅ |
+
+**Enforced by `test_core_engine_modules_unchanged_since_wiring`** — a structural check confirming every core-engine module still exposes its documented API surface after Plugin 1 lands.
+
+### Acceptance tests (all passing)
+- Deterministic extraction — same bytes in → same bytes out, byte-for-byte identical on repeated runs.
+- XOR key + sizes captured in artifact meta.
+- Plugin declines gracefully when only ONE of the two patterns is present (no false positives).
+- Plugin declines gracefully on invalid base64.
+- **End-to-end orchestrator run**: Sophos-shape script → `Orchestrator.run()` → `binary_bytes` child in graph → reconstructed shellcode matches original byte-for-byte → Fixed-Point Certificate cleanly issued.
+
+### Files added
+- `services/uaie/plugins/transformer_byte_array_xor_loop/__init__.py` — 130-line plugin (regex, extractor, executor, contract, one-line registration).
+- `tests/test_transformer_byte_array_xor_loop.py` — 8 acceptance tests including the architectural-boundary invariant.
+
+### Files edited
+- `services/uaie/plugins/__init__.py` — one `from . import transformer_byte_array_xor_loop` line.
+- `tests/test_capability_contract.py` — 3 tests updated to call `C.clear()` before their own registrations (registry is no longer empty on import now that Plugin 1 is present).
+
+### Verification
+```
+tests/test_transformer_byte_array_xor_loop.py     8 passed
+Combined UAIE + QA + Term + LC + Reg + P1        249 passed / 207 skipped / 0 failed
+Backend /api/health                              HTTP 200
+Baseline expected.json                           re-captured
+```
+
+### 🎯 What this proves
+The architecture is doing exactly what it was designed to do:
+- Adding a new deterministic transformation = **write one plugin file + one contract**.
+- No orchestrator, planner, lifecycle, QA, registry, termination, or SSOT change is required.
+- The engine automatically discovers, plans, executes, validates, and terminates cleanly with the new capability in the mix.
+
+### Roadmap next (per user direction · continue the vertical chain)
+- **Plugin 2 · `extractor.binary_configuration`** — consumes `binary_bytes`, extracts strings + embedded structures, produces a `configuration` artifact.
+- **Plugin 3 · `promoter.configuration_iocs`** — consumes `configuration`, promotes IPs/domains/URLs/mutexes into first-class IOC artifacts.
+- With plugins 2 + 3 landed, the Sophos payload reaches `c2 = 149.28.81.19` end-to-end with the same zero-core-change acceptance metric.
+
+---
+
+
 ## 🟢 2026-02-15 · Fork · R28.7.1 · Orchestrator ↔ Registry Wiring — LANDED
 
 **Plumbing complete.** The orchestrator now consumes the Capability Registry as a first-class citizen alongside the legacy plugin registry. Adding a new capability is now literally: write one `CapabilityContract` + implementation → drop-register it → orchestrator picks it up on the next run. No orchestrator, planner, lifecycle, QA, termination, or SSOT change needed.

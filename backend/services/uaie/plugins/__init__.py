@@ -118,3 +118,8 @@ from . import validator_gzip_bytes                # noqa: F401,E402
 from . import repair_base64_strip_html_entities   # noqa: F401,E402
 from . import repair_base64_surgical              # noqa: F401,E402
 # validator_gzip_bytes also registers its repair capability inline.
+# ── R28.7.2 · Plugin 1 · Contract-only registration (proves R28.7.1
+# wiring).  This plugin registers EXCLUSIVELY via the Capability
+# Registry — no orchestrator, planner, lifecycle, QA, or termination
+# change was required to land it.
+from . import transformer_byte_array_xor_loop            # noqa: F401,E402
