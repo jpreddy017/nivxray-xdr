@@ -32,6 +32,7 @@ import re
 from typing import List, Optional
 
 from .models import Artifact
+from .decode_telemetry import timed_layer
 
 
 _COMMA_JOIN_RE = re.compile(r"\s*,\s+(?=[/\-A-Za-z0-9\"'\\%])")
@@ -59,6 +60,8 @@ def _decode_encoded_command(text: str) -> Optional[str]:
     Deterministic: same input → same output.  No LLM, no heuristics
     beyond the well-documented PowerShell wire format:
         base64 → UTF-16LE → PowerShell script.
+
+    Emits R24 decode-layer telemetry for each transition.
     """
     if not text:
         return None
@@ -66,31 +69,32 @@ def _decode_encoded_command(text: str) -> Optional[str]:
     if not m:
         return None
     b64 = m.group("b64")
-    # Base64 length must be a multiple of 4 after padding — pad if
-    # the analyst pasted an unterminated blob.
     padded = b64 + "=" * (-len(b64) % 4)
-    try:
-        raw = base64.b64decode(padded, validate=False)
-    except (binascii.Error, ValueError):
-        return None
+    # Layer 1 · Base64 decode.
+    with timed_layer("base64", bytes_in=len(padded),
+                       meta={"padding": len(padded) - len(b64)}) as _t1:
+        try:
+            raw = base64.b64decode(padded, validate=False)
+        except (binascii.Error, ValueError):
+            return None
+        _t1.bytes_out = len(raw or b"")
     if not raw:
         return None
-    # PowerShell -EncodedCommand is always UTF-16LE.  Fall back to
-    # utf-8 only if the UTF-16LE decode yields non-printable garbage
-    # (analysts sometimes wrap non-standard payloads under -e).
-    try:
-        decoded = raw.decode("utf-16-le", errors="strict")
-    except UnicodeDecodeError:
+    # Layer 2 · UTF-16LE decode (fallback UTF-8).
+    with timed_layer("utf16le", bytes_in=len(raw)) as _t2:
         try:
-            decoded = raw.decode("utf-8", errors="strict")
+            decoded = raw.decode("utf-16-le", errors="strict")
+            _t2.bytes_out = len(decoded.encode("utf-8", "replace"))
         except UnicodeDecodeError:
-            return None
+            try:
+                decoded = raw.decode("utf-8", errors="strict")
+                _t2.meta = {**_t2.meta, "fallback": "utf-8"}
+                _t2.bytes_out = len(decoded.encode("utf-8", "replace"))
+            except UnicodeDecodeError:
+                return None
     # Very short decodes (< 4 chars) are almost always wrong — reject.
     if len(decoded.strip()) < 4:
         return None
-    # PowerShell scripts are effectively 100% ASCII printable.  Require
-    # ≥ 85% ASCII-printable (plus \r\n\t) so we don't surface random
-    # UTF-16 unicode noise as "the normalized command".
     def _ascii_printable(c: str) -> bool:
         o = ord(c)
         return (32 <= o < 127) or o in (9, 10, 13)

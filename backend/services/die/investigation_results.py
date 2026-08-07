@@ -826,25 +826,31 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
     except Exception:  # pragma: no cover
         pass
 
-    # Read decode recursion telemetry emitted by the DIE preprocessor
-    # (layer-by-layer bytes / ratio / stage).  Preprocessor stores it
-    # on `pre.decode_layers` when the input required recursive base64
-    # / gzip / powershell decoding.
+    # ── R24 · guarantee #5 — Decode recursion telemetry ─────────
+    # Layer-by-layer trace emitted by the DIE preprocessor (Base64,
+    # UTF-16LE, GZip, ZLib, PowerShell constant folding, …).
     _decode_layers: List[Dict[str, Any]] = []
     try:
         _dl = getattr(pre, "decode_layers", None)
         if isinstance(_dl, list):
-            _decode_layers = _dl
+            _decode_layers = list(_dl)
     except Exception:  # pragma: no cover
         pass
 
-    # Truncation flags — did we hit any R23 cap?
     _truncation = {
         "behaviors_capped": bool((canonical.get("incident") or {}).get("truncated_behaviors")),
         "budget_hit":       total_ms > 3000.0,
     }
 
+    # ── R24 · guarantee #3 — Backend ↔ Frontend correlation ID ──
+    # Every render receives a UUID that the frontend echoes back on
+    # POST /api/telemetry/frontend so backend + frontend timings for
+    # THIS EXACT investigation can always be joined.
+    import uuid as _uuid
+    telemetry_id = f"telem_{_uuid.uuid4().hex[:16]}"
+
     performance = {
+        "telemetry_id":     telemetry_id,
         "backend_ms":       round(total_ms, 2),
         "stages_ms":        _timings,
         "warnings":         _warnings,
@@ -856,9 +862,9 @@ def _render_impl(input_text: str) -> Dict[str, Any]:
         "truncation":       _truncation,
         "engine_health":    _engine_health,
         "input_bytes":      len(src.encode("utf-8", "replace")),
-        # Frontend timings arrive out-of-band via
-        # `POST /api/telemetry/frontend` and are merged onto this
-        # block after the workspace paints (Rule R24 · guarantee #2).
+        # Frontend timings arrive via `POST /api/telemetry/frontend`
+        # with the SAME `telemetry_id` so the two halves can always
+        # be joined for a per-investigation performance record.
         "frontend_layout_ms": None,
         "frontend_render_ms": None,
         "frontend_paint_ms":  None,

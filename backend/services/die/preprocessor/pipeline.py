@@ -30,6 +30,7 @@ from typing import Any, Dict, List
 from .artifact_extractor import extract
 from .artifact_router import classify, route
 from .command_normalizer import normalize_artifacts
+from .decode_telemetry import reset as _reset_decode_layers, snapshot as _snapshot_decode_layers
 from .input_normalizer import normalize
 from .models import Artifact, ProcessEdge, Stage
 from .process_relations import build_edges
@@ -44,6 +45,7 @@ class PreprocessResult:
     stages:            List[Stage]
     process_edges:     List[ProcessEdge]
     stats:             Dict[str, Any] = field(default_factory=dict)
+    decode_layers:     List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -53,6 +55,7 @@ class PreprocessResult:
             "stages":          [s.to_dict() for s in self.stages],
             "process_edges":   [e.to_dict() for e in self.process_edges],
             "stats":           dict(self.stats),
+            "decode_layers":   list(self.decode_layers),
         }
 
     # Convenience.
@@ -73,6 +76,11 @@ class PreprocessResult:
 def preprocess(raw_text: str) -> PreprocessResult:
     if raw_text is None:
         raw_text = ""
+
+    # Rule R24 · guarantee #5 — reset the per-call decode-layer buffer
+    # so any decoder-emitted `record_layer()` between now and the end
+    # of this call becomes part of THIS PreprocessResult's trace.
+    _reset_decode_layers()
 
     ni = normalize(raw_text)
     artifacts = extract(ni)
@@ -109,4 +117,5 @@ def preprocess(raw_text: str) -> PreprocessResult:
         stages=stages,
         process_edges=edges,
         stats=stats,
+        decode_layers=_snapshot_decode_layers(),
     )
