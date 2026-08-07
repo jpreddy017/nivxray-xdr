@@ -32,7 +32,9 @@ def _run_uaie(text: str) -> Dict[str, Any]:
     orch = Orchestrator(recognizers=_plugins_pkg.all_recognizers())
     result = orch.run((text or "").encode("utf-8", errors="replace"),
                       root_type="text")
-    return _uaie_project(result, root_input=text or "", root_output="")
+    all_names = [p["name"] for p in _plugins_pkg.all_plugins()]
+    return _uaie_project(result, root_input=text or "", root_output="",
+                         all_plugin_names=all_names)
 
 
 def _run_legacy(text: str) -> Dict[str, Any]:

@@ -35,7 +35,7 @@ pipeline elsewhere — they are NOT UAIE's responsibility.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .orchestrator import OrchestratorResult
 
@@ -187,10 +187,72 @@ def _reached_shellcode(result: OrchestratorResult) -> bool:
                 for a in result.artifacts.values())
 
 
+def _termination_reason(result: OrchestratorResult) -> Dict[str, Any]:
+    """R25.2 · Explain WHY the loop stopped.
+
+    Precedence:
+      1. max_artifacts / max_depth cap hit          → 'safety_cap'
+      2. any 'error' entry in the ledger tail       → 'capability_failed'
+      3. queue drained with no work last iteration  → 'stable_graph'
+      4. queue drained with unrecognised artifacts  → 'unsupported_artifact'
+      5. fallback                                    → 'unknown'
+    """
+    warnings = result.warnings or []
+    if any("cap" in w.lower() for w in warnings):
+        return {"reason": "safety_cap", "detail": "; ".join(warnings)}
+    tail = list(result.ledger)[-8:] if result.ledger else []
+    errored = [e for e in tail if getattr(e, "action", "") == "error"]
+    if errored:
+        return {"reason": "capability_failed",
+                "detail": errored[-1].output_summary or errored[-1].actor}
+    # Any artifacts that no capability could execute against?
+    executed = {e.artifact_uri for e in result.ledger if e.action == "execute"}
+    all_uris = set(result.artifacts.keys())
+    unsupported = all_uris - executed
+    if unsupported:
+        types = sorted({result.artifacts[u].artifact_type
+                        for u in unsupported if u in result.artifacts})
+        return {"reason": "unsupported_artifact",
+                "detail": f"artifact_types={types!r}"}
+    return {"reason": "stable_graph",
+            "detail": "queue drained · no new artifacts, no new evidence"}
+
+
+def _capability_coverage(result: OrchestratorResult,
+                          all_plugin_names: List[str]) -> Dict[str, List[str]]:
+    """R25.2 · Per-capability outcome across the whole loop.
+
+    Buckets every registered plugin into:
+      · executed        — at least one 'execute' ledger entry
+      · skipped         — recognizer matched but prerequisites not met
+      · not_applicable  — recognizer never matched
+      · failed          — 'error' ledger entry
+    """
+    executed: set = set()
+    failed:   set = set()
+    skipped:  set = set()
+    for e in result.ledger:
+        if e.action == "execute":
+            executed.add(e.actor)
+        elif e.action == "error":
+            failed.add(e.actor)
+        elif e.action == "skip":
+            skipped.add(e.actor)
+    covered = executed | failed | skipped
+    not_applicable = [n for n in all_plugin_names if n not in covered]
+    return {
+        "executed":       sorted(executed),
+        "skipped":        sorted(skipped - executed),
+        "failed":         sorted(failed - executed),
+        "not_applicable": sorted(not_applicable),
+    }
+
+
 def project(orchestrator_result: OrchestratorResult,
              *,
              root_input: str = "",
-             root_output: str = "") -> Dict[str, Any]:
+             root_output: str = "",
+             all_plugin_names: Optional[List[str]] = None) -> Dict[str, Any]:
     """Project the OrchestratorResult into the canonical Workspace SSOT.
 
     Wraps ``evidence_extractor.build_verdict_card`` — no reimplementation.
@@ -264,6 +326,13 @@ def project(orchestrator_result: OrchestratorResult,
             # NOTE: total_ms deliberately excluded — non-deterministic
             # timing must NOT enter the canonical SSOT (R28 purity).
         },
+        # R25.2 · Loop transparency for analysts (why the loop stopped
+        # + which capabilities considered the investigation).
+        "termination":         _termination_reason(orchestrator_result),
+        "capability_coverage": _capability_coverage(
+            orchestrator_result,
+            list(all_plugin_names or []),
+        ),
     }
 
 

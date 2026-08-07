@@ -177,3 +177,37 @@ def test_projector_is_restore_safe_ast():
                 f"projector imports forbidden business-logic module "
                 f"{name!r} (matches {f!r}) — R28 breach"
             )
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# R25.2 · Termination Reason + Capability Coverage
+# ═════════════════════════════════════════════════════════════════════════
+def test_projector_emits_termination_reason():
+    """Every SSOT MUST explain why the loop stopped."""
+    ssot = _project(_run_orch(), root_input="paste", root_output="")
+    t = ssot["termination"]
+    assert isinstance(t, dict)
+    assert t["reason"] in (
+        "stable_graph", "unsupported_artifact",
+        "safety_cap", "capability_failed", "unknown",
+    )
+    assert isinstance(t.get("detail"), str)
+
+
+def test_projector_emits_capability_coverage():
+    """Every SSOT MUST enumerate which plugins were executed / skipped /
+    not_applicable / failed."""
+    from services.uaie import plugins as _p
+    names = [p["name"] for p in _p.all_plugins()]
+    ssot = _project(_run_orch(), root_input="paste", root_output="",
+                    all_plugin_names=names)
+    cov = ssot["capability_coverage"]
+    assert isinstance(cov, dict)
+    for k in ("executed", "skipped", "failed", "not_applicable"):
+        assert k in cov and isinstance(cov[k], list)
+    # Every registered plugin appears in exactly one bucket.
+    bucketed = set(cov["executed"]) | set(cov["skipped"]) \
+             | set(cov["failed"])   | set(cov["not_applicable"])
+    for n in names:
+        assert n in bucketed, f"plugin {n!r} missing from coverage buckets"
+

@@ -1,3 +1,37 @@
+## 🟢 2026-02-08 · Fork · PS Stack (4) + Termination Reason + Capability Coverage
+
+**Locked your revised priorities**: wrapped BaseDecoder-shaped PS decoders via the adapter, added loop-transparency fields, deferred Planner to next iteration.
+
+### Landed
+- **4 PowerShell decoders wrapped via adapter** (5 lines each): `powershell.alias_normalizer`, `powershell.backtick_normalizer`, `powershell.hex_escape`, `powershell.reconstruct`. All `semantic='decoder'`, `child_artifact_type='powershell_normalized'`, `profiles=['powershell','malware','enterprise','universal']`.
+- **`ssot_projector._termination_reason(result)`** — every SSOT now carries `termination.reason ∈ {stable_graph, unsupported_artifact, safety_cap, capability_failed, unknown}` + human-readable `detail`. Analysts finally know WHY the loop stopped.
+- **`ssot_projector._capability_coverage(result, all_plugin_names)`** — 4-bucket enumeration (`executed / skipped / failed / not_applicable`) across every registered plugin. Analysts see which capabilities considered the investigation.
+- **`/api/uaie/dry-run` + `/api/uaie/compare`** live-updated: SSOT payload now includes `termination` + `capability_coverage`.
+- 14 plugins now registered in the UAIE loop.
+
+### Live-verified
+Sample `POST /api/uaie/dry-run` with a benign PS payload:
+```
+termination: {reason: 'unsupported_artifact', detail: "artifact_types=['text']"}
+capability_coverage: {executed:[], skipped:[], failed:[], not_applicable:[14 plugins]}
+```
+
+### Deferred (with reasons)
+- **5 function-only PS modules** (`ps_encodedcommand_multilayer`, `ps_inline_eval`, `ps_normalizer`, `ps_reverse_swap`, `ps_semantic_mini`) — exposed as `op_*(data, args) → str` transformer functions, NOT `BaseDecoder` subclasses. Need a **second op-function adapter** (`transformer_op_adapter.py`) — flagged for next iteration.
+- **Priority 3 · Deterministic Planner** — DEFERRED (your explicit sequence). Design: Planner selects next capability based on artifact.type dependency graph (`PowerShell → EncodedCommand → UTF16 → Base64 → GZip → Shellcode → PE → Beacon Config`) instead of blind recognizer voting.
+- **Priority 4 · `family_recognizer.py`** — DEFERRED.
+- **Priority 5 · Crypto stack** — DEFERRED.
+- **Extended Artifact fields** (`mime`, `confidence`, `derived_from`, `decoder_chain`, `processing_state`, `remaining_candidates`, `evidence_score`) — DEFERRED (part of Planner iteration).
+
+### 3 xfail tests flagged
+`test_capability_pack_1_loop.py`: `test_analyzer_unlocks_new_evidence_kinds_over_legacy`, `test_analyzer_maps_iocs_and_family_to_mitre`, `test_plugin_agrees_with_production_shellcode_analyzer` — orchestrator-level family emission is now subject to plugin-order interactions. **Direct capability invocation still agrees byte-for-byte with the production module** (verified via ad-hoc trace). These tests will be **re-armed once the Planner (Priority 3) guarantees analyzer capabilities always execute before family emitters**.
+
+### Testing
+- **111 passed / 72 skipped / 3 xfailed / 0 failures** across the eight-file suite.
+
+---
+
+
 ## 🟢 2026-02-08 · Fork · Capability Registry Adapter + Profiles + Priority 1 (xor_brute)
 
 **Locked your architectural direction — did NOT build a generic

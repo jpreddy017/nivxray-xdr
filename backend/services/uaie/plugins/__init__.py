@@ -83,3 +83,8 @@ from . import shellcode_analyzer      # noqa: F401,E402  · Capability Pack 1 ·
 from . import pe_analyzer             # noqa: F401,E402  · Capability Pack 1 · #2
 from . import cs_beacon_config_parser # noqa: F401,E402  · Capability Pack 1 · #3
 from . import xor_brute               # noqa: F401,E402  · Capability Pack 1 · #4 (via adapter)
+# ── Priority 2 · PowerShell stack (via adapter) ────────────────────
+from . import ps_alias_normalizer     # noqa: F401,E402
+from . import ps_backtick_normalizer  # noqa: F401,E402
+from . import ps_hex_escape           # noqa: F401,E402
+from . import ps_reconstruct          # noqa: F401,E402
