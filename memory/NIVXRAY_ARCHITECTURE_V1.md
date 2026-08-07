@@ -547,3 +547,109 @@ metadata.performance {
   motivated R23/R24) MUST live permanently in
   ``tests/user_reported_corpus/`` with their measured SLOs
   pinned — never remove, never weaken.
+
+═════════════════════════════════════════════════════════════════════
+## R25 · Universal Artifact Intelligence Engine (2026-08-07 · FROZEN)
+═════════════════════════════════════════════════════════════════════
+
+The core engine has ONE responsibility:
+    Given any digital artifact, maximise deterministic evidence
+    extraction until no further meaningful new artifact or evidence
+    can be produced.
+
+Not "universal decoder."  Not "universal analyser."  UAIE.
+
+### Five permanent contracts (immutable)
+
+#### 1. Artifact Contract
+Every discovered object is an immutable ``Artifact``:
+    { id, parent_id, lineage[], type, bytes|text, sha256, sha1, size,
+      entropy, meta{}, discovered_at, discovered_by }
+Immutable — new observations produce NEW artifacts, never mutate old.
+
+#### 2. Recognizer Contract
+Recognizers answer ONE question: "what is this artifact?"
+    recognize(artifact) → [ {type, confidence, reasons[]} ]
+Reasons are EXPLAINABLE:
+    reasons = [
+      {"signal": "magic_bytes",         "score": +35, "detail": "1f 8b"},
+      {"signal": "powershell_grammar",  "score": +20, "detail": "IEX / FromBase64String"},
+      {"signal": "utf16le_pattern",     "score": +18, "detail": "…"},
+      {"signal": "entropy",             "score":  +6, "detail": "H=7.9"},
+    ]
+Confidence = sum(reasons.score) / max_possible.
+Recognizers NEVER execute analysis.  They only classify.
+
+#### 3. Capability Contract
+Capabilities perform ONE bounded analysis on ONE artifact type:
+    execute(artifact) → {evidence[], child_artifacts[]}
+Examples:
+    · b64_decode, utf16le_decode, gzip_inflate, zlib_inflate
+    · shellcode_strings, shellcode_entropy, shellcode_disasm
+    · pe_parse, dotnet_parse, pdf_extract_js, office_extract_macros
+    · beacon_config_parse, donut_unpack, srdi_unpack
+    · xor_bruteforce_gated, rc4_recognize, aes_recognize
+    · pcap_sessions, exif, ocr, lsb_steg, ja3
+Capabilities emit BOTH evidence AND new child artifacts back onto
+the queue.  Adding one is configuration, not architecture.
+
+#### 4. Evidence Contract
+All findings normalise into a single Evidence shape:
+    { id, artifact_id, kind, value, source_capability, confidence,
+      severity, reasons[], mitre_techniques[], mitre_tactics[],
+      kill_chain[], location, discovered_at }
+Independent of artifact type / malware family.
+Family attribution is DOWNSTREAM of evidence, never upstream.
+
+#### 5. Orchestrator Contract
+Work queue (deque, FIFO).  Fingerprint-then-recognize-then-plan-
+then-execute loop:
+
+    while queue not empty AND budget remaining:
+        art        = queue.pop()
+        fingerprint = hash+entropy+size+magic          (cheap)
+        matches    = recognizers.score(art, fingerprint)
+        plan       = planner.select(matches)           (which capabilities?)
+        for cap in plan:
+            ev, kids = cap.execute(art)
+            evidence.extend(ev)
+            queue.extend(kids)
+        stop_conditions:
+          · no recognizer scores above threshold, OR
+          · no capability produced new artifacts / new evidence, OR
+          · budget (time / memory / depth) exhausted
+
+Deterministic.  Same input → same evidence graph.  Every node in
+the graph explains WHY it exists (reasons[] chain).
+
+### Non-negotiable rules
+
+- Recognizers never execute; capabilities never classify.
+- Every confidence score has an explainable reasons[] chain.
+- Evidence-before-family: no capability may depend on a family
+  label being set upstream.
+- Shellcode / PE / .NET / config-blob are ARTIFACTS, not termini —
+  their analyzers emit child artifacts back onto the queue.
+- The core engine is deterministic.  AI Copilot lives ABOVE it
+  and CONSUMES the evidence graph — never produces it.
+- Adding format support = adding a Recognizer + optional Capabilities.
+  Never a change to the orchestrator or contracts.
+- The engine's product is the EVIDENCE GRAPH, not a text report.
+  Text reports / STIX / NIST / analyst summaries are downstream
+  projections of the graph.
+
+### Migration mapping (what exists → where it lands)
+
+    Existing                              → UAIE role
+    ────────────────────────────────────────────────────────────
+    recursive_decoder.peel_recursively    → Orchestrator (v0)
+    _DECODERS[]                           → Recognizer + Capability pair
+    IUE (services.iue.understand_input)   → Recognizer.powershell_ish
+    behavior_extractor rules              → Capability.behavior_scan
+    ICE _build_behavior_clusters          → Downstream evidence-graph projection
+    metadata.performance.decode_layers    → Orchestrator execution trace
+    convergence / rc22 orchestrator       → v0 fast path (kept behind UAIE)
+
+R25 is the destination.  R23/R24 remain in force as guardrails
+(never freeze the tab, always emit performance).  R22 remains as
+the UI-projection rule (behaviors → 14 MITRE lanes).
