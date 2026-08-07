@@ -92,8 +92,21 @@ class CapabilityContract:
         · ``confidence_gain``  0.00–1.00: expected lift on the FIRST
                                  dimension in ``improves``.  Used by the
                                  goal-driven planner (Phase 8).
+        · ``produces_confidence``   Optional per-dimension confidence
+                                     lift map — e.g.
+                                     ``{"analysis": 0.20, "mitre": 0.15,
+                                        "ioc": 0.10}``.  When absent, the
+                                     planner uses ``confidence_gain`` on
+                                     the first ``improves`` dimension.
+                                     Phase 7 uses this directly.
         · ``cost``             1 (cheap) – 5 (expensive).  Used by the
                                  planner to prefer cheap wins.
+        · ``priority_hint``    Advisory tie-breaker (int, higher wins).
+                                 The planner is free to ignore it.
+                                 Used when two contracts have identical
+                                 gain × cost — e.g. prefer a
+                                 recognizer over an executor at the
+                                 same stage.
         · ``parallelizable``   Whether multiple instances can run at
                                  the same lifecycle stage without
                                  conflict.
@@ -101,19 +114,21 @@ class CapabilityContract:
                                  deterministic (R28 invariant).
         · ``description``      Human-readable one-liner.
     """
-    id:                 str
-    version:            str
-    category:           str
-    requires:           Tuple[str, ...] = ()
-    optional_requires:  Tuple[str, ...] = ()
-    produces:           Tuple[str, ...] = ()
-    consumes:           Tuple[str, ...] = ()
-    improves:           Tuple[str, ...] = ()
-    confidence_gain:    float           = 0.0
-    cost:               int             = 1
-    parallelizable:     bool            = True
-    deterministic:      bool            = True
-    description:        str             = ""
+    id:                    str
+    version:               str
+    category:              str
+    requires:              Tuple[str, ...] = ()
+    optional_requires:     Tuple[str, ...] = ()
+    produces:              Tuple[str, ...] = ()
+    consumes:              Tuple[str, ...] = ()
+    improves:              Tuple[str, ...] = ()
+    confidence_gain:       float           = 0.0
+    produces_confidence:   Tuple[Tuple[str, float], ...] = ()   # frozen k/v pairs
+    cost:                  int             = 1
+    priority_hint:         int             = 0
+    parallelizable:        bool            = True
+    deterministic:         bool            = True
+    description:           str             = ""
 
     def __post_init__(self):
         if self.category not in CATEGORIES:
@@ -126,6 +141,13 @@ class CapabilityContract:
                 f"{self.confidence_gain}")
         if not (1 <= self.cost <= 5):
             raise ValueError(f"cost must be in [1, 5]; got {self.cost}")
+        # Validate produces_confidence — every gain must be in [0, 1]
+        # and every key must be a recognised improves dimension OR match
+        # something already in ``improves`` (allow project-specific dims).
+        for k, v in (self.produces_confidence or ()):
+            if not (0.0 <= v <= 1.0):
+                raise ValueError(
+                    f"produces_confidence[{k!r}] must be in [0.0, 1.0]; got {v}")
 
     # Helpers ------------------------------------------------------
     def applies_to(self, artifact_type: str) -> bool:
@@ -136,6 +158,25 @@ class CapabilityContract:
         if "*" in self.requires:
             return True
         return artifact_type in self.requires
+
+    def gain_for(self, dimension: str) -> float:
+        """Return the confidence lift this contract delivers on the
+        given dimension.  Uses ``produces_confidence`` first, falling
+        back to ``confidence_gain`` when ``dimension`` matches the
+        first entry in ``improves``."""
+        for k, v in (self.produces_confidence or ()):
+            if k == dimension:
+                return v
+        if self.improves and self.improves[0] == dimension:
+            return self.confidence_gain
+        return 0.0
+
+    def total_expected_gain(self) -> float:
+        """Sum of all per-dimension gains — used by the planner as a
+        rough "how much does this move the investigation" score."""
+        if self.produces_confidence:
+            return sum(v for _, v in self.produces_confidence)
+        return self.confidence_gain
 
 
 # ══════════════════════════════════════════════════════════════════

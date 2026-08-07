@@ -1,3 +1,68 @@
+## 🟢 2026-02-15 · Fork · R28.7 · Registry-Driven Planner (Phase 6 · Step 3) — LANDED
+
+**The architectural boundary is now locked in code.**  The orchestrator asks the Capability Registry for a plan; it never inspects the implementation.  This is the boundary that keeps UAIE maintainable as it grows.
+
+### 🔒 Architectural Rule (frozen in `services/uaie/planner_v2.py` module docstring)
+```
+The orchestrator may ORCHESTRATE, but it must NEVER understand
+capability semantics.  All semantics — what a capability requires,
+produces, improves, consumes, at what cost, with what confidence
+lift — live EXCLUSIVELY in the Capability Registry as contracts.
+The orchestrator asks the registry what is applicable and executes
+the returned plan.  It has no other knowledge of what any
+individual plugin does.
+```
+
+Enforced by test `test_planner_treats_impl_as_opaque` — a mock impl that raises on ANY attribute access still produces a valid plan.  If the planner ever tries to introspect the impl, the test fails immediately.
+
+### Contract schema — 2 new fields (per user recommendation)
+- `priority_hint: int = 0` — advisory tie-breaker (higher wins). Planner may ignore.
+- `produces_confidence: Tuple[Tuple[str, float], ...]` — per-dimension confidence lift map, e.g. `(("analysis", 0.20), ("mitre", 0.15), ("ioc", 0.10))`.  Phase 7 uses this directly.
+
+New helpers:
+- `contract.gain_for(dimension)` — per-dimension lookup with `confidence_gain` fallback.
+- `contract.total_expected_gain()` — sum for planner scoring.
+
+### Files added
+- `services/uaie/planner_v2.py` — deterministic `plan_for(artifact)` returns ordered `[(contract, impl), ...]` using the 5-level sort ladder:
+  1. category order (recognizers → validators → executors → analyzers → mitre → family)
+  2. cost ASC (cheap first)
+  3. −priority_hint (higher wins)
+  4. −total_expected_gain (larger improvement first)
+  5. id ASC (final deterministic tie-break)
+- `tests/test_registry_planner.py` — 10 tests covering category ordering, cost/priority/gain tie-breaks, universal wildcard, per-dimension gain, plan stats, and the **architectural boundary invariant** (planner never touches impl).
+
+### Files edited
+- `services/uaie/contract.py` — added `priority_hint`, `produces_confidence`, `gain_for()`, `total_expected_gain()` + validation.
+
+### Verification
+```
+tests/test_registry_planner.py           10 passed
+tests/test_capability_contract.py         16 passed  (unchanged)
+Combined UAIE + QA + Term + LC + Reg + Planner  238 passed / 207 skipped / 0 failed
+Backend /api/health                       HTTP 200
+Baseline expected.json                    re-captured for new contract shape
+```
+
+### Backwards compatibility
+- Existing plugins keep working through the legacy `_CAP_REG` in the orchestrator.
+- `planner_v2.plan_for()` is a **pure query** — it doesn't mutate state, doesn't wire into the orchestrator's main loop yet.  Next iteration (R28.7.1) wires the orchestrator to prefer the registry-driven plan when contracts exist for the artifact_type, falling back to legacy otherwise.
+- **All 211 pre-existing tests continue to pass.**
+
+### Roadmap sequencing
+- ✅ Phase 6 · Step 1 — Contract schema
+- ✅ Phase 6 · Step 2 — Registry
+- ✅ Phase 6 · Step 3 — Registry-Driven Planner
+- 🎯 Phase 6 · Step 3.1 — Orchestrator wiring (opt-in: use registry-driven plan when applicable_contracts() is non-empty for the artifact's type)
+- Phase 6 · Step 4 — Capability Graph SSOT projection (input → cap → evidence → termination reasoning trace)
+- Phase 6 · Step 5 — Tier-1 recognizers as contract-based plugin exemplars (vssadmin_delete_shadows, wmic_product_uninstall, impacket_psexec_signature)
+- Phase 7 — Multi-Dimensional Confidence Propagation (uses `produces_confidence` directly)
+- Phase 8 — Goal-Driven Planner (uses `total_expected_gain()` × `cost` for goal satisfaction)
+- Phase 9 — Investigation Knowledge Economy (dependency graph from produces/consumes)
+
+---
+
+
 ## 🟢 2026-02-15 · Fork · R28.6 · Capability Contracts & Registry (Phase 6 · Steps 1-2) — LANDED
 
 **The engine now has a first-class Capability Registry.**  The orchestrator asks the registry "what's applicable / what produces / what improves" instead of scanning Python modules.  Adding a new capability is now a data problem — drop in one plugin file with a contract — not an orchestration problem.
