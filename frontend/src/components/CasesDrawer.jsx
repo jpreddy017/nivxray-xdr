@@ -198,6 +198,28 @@ export default function CasesDrawer({ open, onClose, onRestore }) {
                       {v.toUpperCase()}
                     </span>
                   )}
+                  {/* R27 · SSOT-backed cases restore with zero recompute */}
+                  {c.has_ssot ? (
+                    <span
+                      data-testid={`case-ssot-badge-${c.id}`}
+                      title={`Full SSOT v${c.ssot_version || "1.0"} · restores instantly, no recomputation`}
+                      style={{ fontSize: 9, color: "#7ee3c9",
+                               border: "1px solid #7ee3c9", padding: "1px 5px",
+                               letterSpacing: "0.08em" }}
+                    >
+                      🔒 SSOT v{c.ssot_version || "1.0"}
+                    </span>
+                  ) : (
+                    <span
+                      data-testid={`case-legacy-badge-${c.id}`}
+                      title="Legacy case (saved before R27) — reopening recomputes IUE, narrative and preprocessor panels"
+                      style={{ fontSize: 9, color: "var(--text-dim)",
+                               border: "1px dashed var(--text-dim)", padding: "1px 5px",
+                               letterSpacing: "0.08em" }}
+                    >
+                      ⚠ LEGACY
+                    </span>
+                  )}
                   <span style={{ fontSize: 10, color: "var(--text-dim)" }}>
                     {c.engine || "?"} · in {c.input_len || 0}c · out {c.output_len || 0}c
                   </span>

@@ -1,5 +1,67 @@
 # NivXRay — Enterprise Attack Investigation Platform
 
+## 🟢 2026-02-08 · Fork · P0 SSOT Persistence Contract (R27) — LANDED
+
+**Rule:** *Never build a new engine while the current product cannot
+reliably restore its complete investigation state.*  R27 frozen in
+`/app/memory/NIVXRAY_ARCHITECTURE_V1.md`.
+
+### What landed
+- `backend/routers/cases.py` · `SaveCaseIn` now accepts an optional
+  `ssot: Dict[str, Any]` bundle carrying the full analyst-facing
+  Single-Source-Of-Truth (understanding, analyst_narrative,
+  inline_story_preproc, investigation_object, verdict_card,
+  decode_trace, iedde, canonical_confidence, mitre, lolbas, semantic,
+  reached_shellcode, corrupted_container, chain, steps, predicted_tree,
+  analysis). Persisted verbatim under `workspace_cases.ssot`.
+- `list_cases` surfaces `has_ssot` + `ssot_version` so drawer rows can
+  differentiate SSOT-backed vs legacy cases at-a-glance.
+- 8 MB safety threshold; over-large bundles drop the least-critical
+  sub-fields first (`predicted_tree → semantic → decode_trace →
+  inline_story_preproc → analyst_narrative → investigation_object →
+  understanding`) and record eviction in `ssot.dropped_for_size`.
+- `backend/request_hardening.py` · `/api/cases/save` added to the
+  large-body allowlist (50 MB cap) so full bundles are never rejected
+  at the 512 KB middleware ceiling.
+- `frontend/pages/WorkspacePage.jsx` · `saveCase()` posts the full
+  SSOT bundle; `CasesDrawer.onRestore` hydrates every panel
+  deterministically from `caseDoc.ssot` and SKIPS the three
+  `/die/understand`, `/die/analyze`, `/die/narrate` re-fires when SSOT
+  is present. Legacy path unchanged (fallback recompute).
+- `rehydrateFromHistory` also honours `ssot` when the history record
+  carries it.
+- `frontend/components/CasesDrawer.jsx` · Each row now displays a
+  `🔒 SSOT v1.0` (SSOT-backed) or `⚠ LEGACY` (recompute) badge so
+  analysts predict restore mode before clicking OPEN.
+- `backend/tests/test_ssot_persistence.py` — 5 pytest contract tests
+  (round-trip, listing metadata, oversized drop-order, upsert
+  atomicity, legacy back-compat).
+- `backend/tests/test_ssot_persistence_live.py` — 7 live tests through
+  Kubernetes ingress with real JWT.
+
+### Testing
+- Backend pytest: 5/5 PASS locally + 7/7 PASS live (iteration_67.json).
+- Frontend Playwright: 5/5 P0 acceptance criteria PASS
+  (iteration_68.json). No recomputation observed on SSOT restore;
+  legacy fallback still triggers the three `/die/*` calls.
+- Combined UAIE + SSOT suites: 23/23 pass.
+
+### Acceptance criteria (all green)
+✅ Reloading a case restores 100% of the investigation.
+✅ Timeline, Evidence, IUE, Decoder Trace, Attack Story, ATT&CK,
+   Verdict, Analyst Narrative, IEDDE render from stored SSOT.
+✅ Zero calls to `/die/understand|analyze|narrate` on SSOT restore.
+✅ Workspace UI/behaviour unchanged from a freshly-analysed session.
+✅ Back-compat: legacy cases (no SSOT) still save + restore via the
+   recompute fallback.
+
+Next: **UAIE Phase 2** (port legacy decoders to plugins under R26).
+
+---
+
+
+# NivXRay — Enterprise Attack Investigation Platform
+
 ## Defining Principle (2026-03-01)
 
 > **IUE decides · IDA acquires · DIE decodes · Domain engines analyze
