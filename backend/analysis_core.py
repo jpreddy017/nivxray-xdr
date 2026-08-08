@@ -106,6 +106,24 @@ def _r23_deep_peel_and_merge(result: Dict[str, Any]) -> Dict[str, Any]:
             "reason": f"R23 recursive peel · layer {l.get('layer')}",
         })
         result["recipe"] = recipe
+    # ── reached_shellcode propagation ─────────────────────────────
+    # A deep-peel layer whose meta declares ``shellcode: True`` (or
+    # whose stage is a known terminal-shellcode stager such as
+    # ``byte_array_xor_loop``) has surfaced the terminal payload —
+    # flip the workspace-level flag so the SOC Verdict panel + Attack
+    # Story recognise that shellcode has been reached even when the
+    # preflight engine's own ``reached_shellcode`` heuristic didn't
+    # detect a known prologue in the synthetic tag output.
+    if not result.get("reached_shellcode"):
+        for l in layers:
+            meta = l.get("meta") or {}
+            if meta.get("shellcode") is True:
+                result["reached_shellcode"] = True
+                break
+            if str(l.get("stage") or "").lower() in (
+                "byte_array_xor_loop", "shellcode_payload"):
+                result["reached_shellcode"] = True
+                break
     return result
 
 
@@ -758,6 +776,23 @@ def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
             smart_reached_sc = starts_with_known_prologue(raw_s)
     except Exception:
         pass
+
+    # ── Terminal-stager idiom detection (2026-02-fork · Issue #2) ──
+    # If EITHER engine's recipe contains a byte-array XOR loop step,
+    # or the output text carries the ``[byte-array XOR loop decoded``
+    # synthetic tag, the analyst has demonstrably reached shellcode.
+    # The prologue heuristic returns False on that synthetic tag block
+    # (it isn't a real MSFvenom prologue) so we lift the flag here.
+    def _saw_terminal_xor_loop(recipe_steps, out_text) -> bool:
+        for step in recipe_steps or []:
+            op = str((step or {}).get("op") or "").lower()
+            if "byte_array_xor_loop" in op or "byte-array-xor-loop" in op:
+                return True
+        return "[byte-array XOR loop decoded" in (out_text or "")
+    if _saw_terminal_xor_loop(smart.get("steps"), smart_out):
+        smart_reached_sc = True
+    if _saw_terminal_xor_loop(top.get("chain"), magic_out):
+        magic_reached_sc = True
 
     # Score BOTH outputs with the same scoring function so english-density,
     # printable-ratio, structure-bonuses are directly comparable.

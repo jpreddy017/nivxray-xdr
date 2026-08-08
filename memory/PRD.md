@@ -1,3 +1,68 @@
+## 🟢 2026-02-04 · Fork · R28.10 · **Session 2 · Capability Discovery Report + Cleanup Before Phase A**
+
+Continuation of the user-locked (c) ordering: `S1 (Provenance) → S2 (Discovery Report) → cleanup → S3 (Phase A) → S4 (Freeze) → S5 → …`. This iteration finishes S2 and closes two correctness bugs (Issues #2 + #3) that would have polluted every Phase-A `assert_graphs_equivalent` comparison.
+
+### S2 · CapabilityDiscoveryReport (`services/uaie/discovery_report.py`) — GREEN
+Pure derivation from `OrchestratorResult` + Capability Registry + Termination Certificate. Zero new state written.  Emits the 6 analyst-visible sections requested:
+
+    Applicable · Executed · Produced · Not Applicable (with reason)
+    Coverage Summary · Termination
+
+Coverage math is coherent by construction — `applicable` is the union of (contract-registered ∪ legacy-registered for the artifact's declared type ∪ every capability observed executing or being skipped in the ledger).  The last two clauses close the gap opened by the orchestrator's matched-type union: a capability can legitimately execute on an artifact whose *declared* type isn't in its `requires_artifact_type` list because a recognizer promoted a secondary type.
+
+| Test | Result |
+|---|---|
+| `tests/test_capability_discovery_report.py` (7 tests) | **7 / 7 pass** |
+| Combined UAIE / Phase-0 / provenance / QA / lifecycle / termination / registry battery | **122 / 122 pass** |
+
+### Issue #2 · `reached_shellcode` flag flips on the byte-array XOR loop terminal stager
+The `starts_with_known_prologue()` heuristic returns False on the synthetic `[byte-array XOR loop decoded · key=0x… · N bytes]` tag the RTE emits, so the workspace SOC Verdict panel would never render the shellcode-reached badge on this class of Cobalt Strike / Empire / Nishang payloads.  Fixed in TWO places to close both the direct smart/magic race path AND the convergence-preflight adopt path:
+
+* `analysis_core.deterministic_best_decode` — lifts `reached_shellcode` when either engine's recipe records a `byte_array_xor_loop` step OR the output text carries the synthetic tag.
+* `analysis_core._r23_deep_peel_and_merge` — lifts `reached_shellcode` when any deep-peel layer's meta declares `shellcode: True` or its stage is `byte_array_xor_loop` / `shellcode_payload`.
+
+### Issue #3 · RTE lifts embedded IOCs into Artifact meta (not just Evidence meta)
+`v2/investigation/rte/engine.py` line 216 previously wrote `meta={"produced_by": transformation.NAME}` — so `embedded_iocs` and `extracted_strings` (which the `ps_byte_array_xor_loop` transformation put into `Evidence.meta`) never surfaced on the child Artifact.  Downstream SSOT projectors + Attack Story + Incident Graph consume these off `artifact.meta` directly.  Fix: hoist `(embedded_iocs, extracted_strings, xor_key, xor_key_hex, bytes_in, bytes_out, shellcode)` from every applied evidence into the new artifact's meta as it is constructed.  Verified end-to-end on the user's exact CS stager: L3 meta now carries `embedded_iocs=['ip:149.28.81.19', 'ua:Mozilla/5.0 (...BOIE9;PTBR)']`.
+
+### Golden Vertical Chain Regression — `tests/test_golden_vertical_chain.py`
+Locks the behavioural baseline that Phase A must preserve.  9 assertions on the user-reported CS stager:
+
+    Legacy engine · reached_shellcode flips           ✓
+    Legacy engine · C2 IP 149.28.81.19 in iocs.ip     ✓
+    Legacy engine · User-Agent in output text         ✓
+    Legacy engine · recipe records byte_array_xor_loop✓
+    RTE       · embedded_iocs lifted onto artifact meta✓
+    UAIE      · Termination Certificate emitted        ✓
+    UAIE      · Lifecycle transitions recorded          ✓
+    UAIE      · ProvenanceGraph is deterministic         ✓
+    UAIE      · DiscoveryReport coverage math coherent    ✓
+
+This is the reference regression Phase A engine-unification will run before AND after migrating each legacy transformation — `assert_graphs_equivalent(before, after)` on the ProvenanceGraph topology plus these 9 analyst-facing invariants.
+
+### Files landed
+* `services/uaie/discovery_report.py`  ← S2 report (fixed ledger iteration + registry union + skipped-in-applicable)
+* `analysis_core.py`  ← `reached_shellcode` propagation (2 sites)
+* `v2/investigation/rte/engine.py`  ← lifts evidence meta → artifact meta
+* `tests/test_capability_discovery_report.py`  ← 7 acceptance tests
+* `tests/test_golden_vertical_chain.py`  ← NEW · 9-check behavioural baseline
+
+### Acceptance metrics
+| Suite | Result |
+|---|---|
+| S2 discovery report | 7 / 7 pass |
+| Golden Vertical Chain | 9 / 9 pass |
+| Combined UAIE + RTE + phase-0 + provenance + termination + lifecycle + QA + capability contract battery (20 files) | **202 / 203 pass**, 1 pre-existing baseline failure verified via `git stash` regression check (`test_ps_encodedcommand_full_chain.py::test_full_realworld_payload_peels_to_final_c2_url` fails identically on unmodified `HEAD` — not caused by this iteration) |
+| HTTP `GET /api/health` | 200 OK |
+
+### Next up — Phase A (Engine Unification)
+Every migration of a legacy transformation into a UAIE Capability Contract lands with the paired gate:
+1. Run legacy engine on payload → build `graph_legacy`
+2. Run migrated UAIE capability on same payload → build `graph_uaie`
+3. `assert_graphs_equivalent(graph_legacy, graph_uaie)` + `test_golden_vertical_chain.py` still passes → retire legacy.
+
+---
+
+
 ## 🟢 2026-02-04 · Fork · R28.9 · **Session 1 · Provenance Graph API + AdapterResult Refinement**
 
 Session 1 of the user-locked (c) ordering: `Provenance + AdapterResult refinement → Phase A → Phase C → B → D → E → F`.

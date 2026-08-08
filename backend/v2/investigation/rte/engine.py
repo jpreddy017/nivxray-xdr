@@ -207,13 +207,33 @@ def transform(text: str, *, max_depth: int = DEFAULT_MAX_DEPTH) -> Transformatio
 
         seen.add(new_hash)
         new_layer = current.layer + 1
+        # ── Lift analyst-facing derived intelligence from the
+        #   transformation's evidence meta into the child artifact's
+        #   meta.  Downstream SSOT projectors + Attack Story +
+        #   Incident Graph consume ``embedded_iocs`` /
+        #   ``extracted_strings`` / ``xor_key_hex`` etc. off the
+        #   artifact directly — leaving them buried inside evidence
+        #   metadata forces every consumer to re-walk the evidence
+        #   list which they demonstrably were not doing.
+        _lifted: dict = {"produced_by": transformation.NAME}
+        _LIFT_KEYS = (
+            "embedded_iocs", "extracted_strings",
+            "xor_key", "xor_key_hex",
+            "bytes_in", "bytes_out",
+            "shellcode",
+        )
+        for _ev in apply_evidence:
+            _emeta = getattr(_ev, "meta", None) or {}
+            for _k in _LIFT_KEYS:
+                if _k in _emeta and _k not in _lifted:
+                    _lifted[_k] = _emeta[_k]
         new_artifact = Artifact(
             content=new_content,
             classification=classify(new_content),
             layer=new_layer,
             content_hash=new_hash,
             parent_hash=current.content_hash,
-            meta={"produced_by": transformation.NAME},
+            meta=_lifted,
         )
         artifacts.append(new_artifact)
         steps.append(TransformationStep(
