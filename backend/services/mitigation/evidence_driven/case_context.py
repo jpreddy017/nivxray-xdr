@@ -72,6 +72,8 @@ class CaseContext:
     # 9 · Attack Pattern / Correlation
     obfuscation_layers: int = 0
     kill_chain_phases:  FrozenSet[str] = field(default_factory=frozenset)
+    # 9b · Attack Posture (ATT&CK tactic-level status)
+    attack_posture:     Dict[str, str] = field(default_factory=dict)
 
     # 10 · Impact
     impacts:          FrozenSet[str] = field(default_factory=frozenset)
@@ -383,6 +385,7 @@ def project_from_investigation_outcome(outcome: Dict[str, Any]
 
         obfuscation_layers = int(attack.get("obfuscation_layers") or 0),
         kill_chain_phases  = _FS(attack.get("kill_chain_phases")),
+        attack_posture     = dict(o.get("attack_posture") or {}),
 
         impacts            = _FS(o.get("impacts")),
         reached_shellcode  = bool(o.get("reached_shellcode")),

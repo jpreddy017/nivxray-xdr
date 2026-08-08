@@ -81,6 +81,25 @@ def empty_outcome() -> Dict[str, Any]:
             "kill_chain_phases":  [],
         },
 
+        # ── 9b. Attack Posture (ATT&CK tactic-level) ─────────────
+        # One of: "confirmed" | "strong" | "partial" | "suspected" |
+        #        "not_observed"  (default when the tactic key is
+        # absent).  Populated by the projector — not by the engine.
+        "attack_posture": {
+            "initial_access":     "not_observed",
+            "execution":          "not_observed",
+            "persistence":        "not_observed",
+            "privilege_escalation": "not_observed",
+            "defense_evasion":    "not_observed",
+            "credential_access":  "not_observed",
+            "discovery":          "not_observed",
+            "lateral_movement":   "not_observed",
+            "collection":         "not_observed",
+            "command_and_control": "not_observed",
+            "exfiltration":       "not_observed",
+            "impact":             "not_observed",
+        },
+
         # ── 10. Impact ────────────────────────────────────────────
         "impacts":          [],  # ["data_encrypted","credential_exposed",...]
         "reached_shellcode": False,
