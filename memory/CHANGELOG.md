@@ -3953,3 +3953,29 @@ backup-tamper-without-encryption case to separate them.
 All three buckets are P1 follow-ups — none is a bug in the current
 mitigation engine (75 % rule efficiency is the honest current
 baseline).
+
+## 2026-02-08 · P0.15C bug precursor · Workspace timeout fix
+
+**Bug** — Saved case "Failed" (`https://securelist.com/octlurk-silklurk-backdoors-central-asia/120840/`)
+surfaced *"INPUT UNDERSTANDING FAILED · timeout of 30000ms exceeded"*.
+
+**Root cause** — `frontend/src/lib/api.js` · `pickTimeout()` had no
+pattern for `/die/understand`, so it fell through to the 30 s
+default.  Large threat-report URLs behind slow CDNs (Kaspersky
+Securelist + LLM enrichment + article extractor) routinely take
+30-60 s in synchronous mode.  Not caused by any P0.15A/B change —
+VEEE is flag-off, Canonicalizer is µs-level.
+
+**Fix** — one-line pattern in `pickTimeout()` routes
+`/die/understand` to `TIMEOUT_DECODE` (90 s).  Additive, no
+Workspace behaviour change, no route change, no API change.  A
+static-analysis regression guard at
+`frontend/tests/lib/api.timeout.guard.js` locks the policy so the
+30 s regression cannot silently return.
+
+**Verification** — live curl against the preview URL now returns
+`understanding` in 0.148 s.  Even a 60 s tail fits comfortably in
+the 90 s ceiling.
+
+**No test regressions** — backend suites still 224 passed /
+1 skipped (P0.15B baseline).

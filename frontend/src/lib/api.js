@@ -18,6 +18,13 @@ const TIMEOUT_DEFAULT = 30_000;   // everything else (auth, history, admin, etc.
 
 const pickTimeout = (url = "") => {
   if (/\/ai\/|\/decode\/chain\/narrative|\/troubleshoot\/auto\?use_ai=true/i.test(url)) return TIMEOUT_LLM;
+  // 2026-02-08 · /die/understand acquires the URL synchronously (fetch +
+  // article extraction + LLM classifier), which routinely takes 30-60s
+  // on large threat-report pages behind slow CDNs.  Previously the URL
+  // pattern didn't match anything in this table and the axios client
+  // aborted at the 30 s default → "INPUT UNDERSTANDING FAILED · timeout
+  // of 30000ms exceeded" on the Workspace.  Give it decode-tier headroom.
+  if (/\/die\/understand/i.test(url)) return TIMEOUT_DECODE;
   if (/\/decode\/|\/analyze/i.test(url)) return TIMEOUT_DECODE;
   // Corpus confusion matrix — cold compute walks all 245 samples through
   // the deterministic decoder. ~11s local, may be slower behind Cloudflare

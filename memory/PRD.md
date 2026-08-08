@@ -12291,3 +12291,47 @@ Workspace is BYTE-IDENTICAL to pre-P0.15B when the flag is off.
 3. Corpus-side · add a backup-tamper-without-encryption case so
    `erad.protect_shadow_copies` separates cleanly from
    `erad.reimage_ransomware`.
+
+---
+
+## 2026-02-08 · Workspace timeout fix — "Failed" case unblocked
+
+The saved case named "Failed" (Securelist Octlurk URL) hit the
+axios 30 s default because `/die/understand` wasn't in the
+per-path timeout table.  Fixed by adding the endpoint to the
+`TIMEOUT_DECODE` (90 s) bucket in `frontend/src/lib/api.js`.
+
+**Files:**
+- `frontend/src/lib/api.js`             (1-line fix + comment)
+- `frontend/tests/lib/api.timeout.guard.js`  (regression guard)
+
+Re-running the same investigation on the same URL should now
+succeed — user can safely retry.
+
+---
+
+## P0.15C — Deferred to next session (per additivity + quality rules)
+
+The full P0.15C sprint (5 sub-features) needs proper UI +
+backend + tests + regression fixtures and should not be crammed
+into a session already carrying P0.15A/B + trajectory-gap fix.
+Scope is preserved for continuation:
+
+1. **Wire VEEE into Acquisition** (behind `NVX_VEEE_ENABLED`)
+   — after `ida_acquire` returns HTML, walk `<img>` tags, feed
+   each through `extract_from_url`, append NormalizedEvidence
+   records to `structured_blocks`.
+2. **OCR line-reconstruction** — before commands reach the
+   Canonicalizer, merge fragmented multi-line OCR output while
+   preserving bboxes / confidence.
+3. **Acquisition Summary Panel** — new additive UI component:
+   HTML paragraphs / Images Found / OCR Candidates / Processed /
+   Skipped Logos / Skipped Charts / Recovered Command Lines /
+   PowerShell / Registry / URLs.
+4. **Jump-to-Source** — click a command → open original image →
+   highlight `provenance.bounding_box`.  Data is already present
+   in every VEEE record.
+5. **OCR Quality Metrics** — per-case acquisition telemetry
+   (never semantic): Images Found, OCR Success/Failed, Average
+   OCR Confidence, Commands / PowerShell / Registry / URLs
+   Recovered.
