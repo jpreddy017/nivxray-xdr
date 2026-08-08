@@ -393,6 +393,11 @@ class Orchestrator:
                                      filename=filename,
                                      declared_mime=declared_mime)
                 adapter_meta = dict(_ar.meta or {})
+                # Surface adapter-produced evidence in the SSOT
+                # exactly the same way capabilities do.  This keeps
+                # the "who observed this" trail intact.
+                for _ev in _ar.evidence or []:
+                    result.evidence.append(_ev)
                 for _diag in _ar.diagnostics or []:
                     result.warnings.append(
                         f"adapter · {_diag.get('code')} · "

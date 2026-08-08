@@ -1,4 +1,54 @@
-## 🟢 2026-02-04 · Fork · R28.8 · **Phase 0 — Universal Input Adapters (RADE)**
+## 🟢 2026-02-04 · Fork · R28.9 · **Session 1 · Provenance Graph API + AdapterResult Refinement**
+
+Session 1 of the user-locked (c) ordering: `Provenance + AdapterResult refinement → Phase A → Phase C → B → D → E → F`.
+
+### Provenance Graph API (`services/uaie/provenance.py`)
+Pure derivation — no new state written.  Every field of `ProvenanceNode` / `ProvenanceEdge` / `ProvenanceChain` is derived from what the orchestrator already records (`Artifact`, `Ledger`, `Evidence`).  Enables:
+- **Behavioural-equivalence regression testing** — `assert_graphs_equivalent(expected, actual)` compares topology (ignoring URI churn) so Phase A can migrate transformations from legacy engines and prove the graph is unchanged
+- **Explainability** — `graph.chains[]` gives every root→terminal path so analysts see "why this IOC" as a capability sequence
+- **Debugging** — two runs of the same input produce structurally-identical graphs (determinism gate landed as a test)
+
+Primitives:
+```python
+ProvenanceNode(uri, artifact_type, depth, size, discovered_by, state, is_root, is_terminal, confidence, meta)
+ProvenanceEdge(parent_uri, child_uri, via_capability, evidence_ids, confidence)
+ProvenanceChain(node_uris, capabilities, terminal_kind, length)
+ProvenanceGraph.topology_signature()   # URI-agnostic fingerprint for regressions
+```
+
+### AdapterResult now structurally matches CapabilityResult
+Added `evidence: List[Evidence]` field.  Existing adapters keep working (evidence defaults to `[]`); Phase B migration of adapters → first-class Capabilities is now mechanical because the return shapes align:
+```
+AdapterResult(artifacts, evidence, diagnostics, meta)
+CapabilityResult(child_artifacts, evidence, derived_intelligence, notes, elapsed_ms, failed, error)
+```
+The orchestrator's Phase-0 wiring now propagates adapter-emitted evidence into `OrchestratorResult.evidence` so the SSOT preserves the "who observed this" trail.
+
+### Architectural invariant test locked in
+`test_adapters_only_emit_primary_artifact_types` — every registered adapter must emit types from the PRIMARY vocabulary (`text`, `commandline`, `url`, `email_envelope`, `archive_entry`, `raw_bytes`, …).  If a future adapter emits `shellcode_bytes` / `configuration` / `decoded_bytes` the test fails — enforces the RADE invariant *"adapters produce first-level artifacts only, the UAIE loop does the rest"*.
+
+### Acceptance
+| Test | Result |
+|---|---|
+| `tests/test_provenance_graph_and_adapter_contract.py` (8 tests) | **8 / 8 pass** |
+| Combined UAIE / Phase-0 / provenance / decoder battery | **202 / 202 pass** |
+| HTTP `/api/decode/smart` on Chianed input | `iocs.ips=['149.28.81.19']`, IP + BOIE9 both in `output` ✅ |
+
+### Files landed
+* `services/uaie/provenance.py`  ← NEW · pure derivation from OrchestratorResult
+* `services/uaie/adapters/_base.py`  ← `AdapterResult` +evidence field
+* `services/uaie/orchestrator.py`  ← propagates adapter evidence into result
+* `tests/test_provenance_graph_and_adapter_contract.py`  ← 8 tests including determinism gate + regression harness + RADE invariant
+
+### Session 2 plan (locked · Phase A)
+Use `ProvenanceGraph` as the equivalence gate to migrate `services/die/preprocessor/recursive_decoder.py` transformations + `v2/investigation/rte/transformations/*` into UAIE Capability Contracts.  Every migration lands with a paired test:
+1. Run the legacy engine on payload P → build `graph_legacy`
+2. Run the migrated UAIE capability on P → build `graph_uaie`
+3. `assert_graphs_equivalent(graph_legacy, graph_uaie)` — retire legacy only after this passes
+
+---
+
+
 
 **Locked user-supplied ordering**: Phase 0 → A → C → B → D → E → F.  RADE = Recursive Artifact Discovery Engine, not a recursive decoder.
 

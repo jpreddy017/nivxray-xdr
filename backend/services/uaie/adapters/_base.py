@@ -9,13 +9,26 @@ from ..artifact import Artifact, make_artifact
 
 @dataclass(frozen=True)
 class AdapterResult:
-    """Adapter output — a small bundle of artifacts + diagnostics.
+    """Adapter output — structurally identical to ``CapabilityResult``.
 
-    All fields default to empty so an adapter can emit any subset.
-    ``artifacts`` MUST contain at least one artifact — the invariant
-    guarantees the orchestrator always has something to plan on.
+    R28.9 · Refined to match Capability contract so Phase B migration
+    (adapters → first-class Capabilities) becomes mechanical.  All
+    fields default to empty so existing adapters that only emit
+    ``artifacts`` / ``diagnostics`` / ``meta`` keep working unchanged.
+
+    Fields
+    ------
+    artifacts    · required — at least one primary artifact for the
+                   orchestrator to plan on
+    evidence     · optional analyst-visible findings surfaced BY the
+                   adapter itself (e.g. "PDF has 12 pages",
+                   "DOCX contains VBA macros") — never security
+                   conclusions, only observations
+    diagnostics  · malformed-input / parse-error records
+    meta         · adapter-selection breadcrumbs + format metadata
     """
     artifacts:   List[Artifact]          = field(default_factory=list)
+    evidence:    List[Any]               = field(default_factory=list)
     diagnostics: List[Dict[str, Any]]    = field(default_factory=list)
     meta:        Dict[str, Any]          = field(default_factory=dict)
 
@@ -125,6 +138,7 @@ def route_input(payload: bytes,
     ]
     return AdapterResult(
         artifacts=list(result.artifacts),
+        evidence=list(result.evidence or []),
         diagnostics=list(result.diagnostics or []),
         meta=meta,
     )
