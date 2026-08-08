@@ -52,8 +52,8 @@ def test_endpoint_returns_stable_schema_and_projection_chain():
     assert r.status_code == 200, r.text
     body = r.json()
 
-    # ── Stable versioned schema ────────────────────────────────
-    assert body["schema_version"] == "1.0"
+    # ── Stable versioned schema (1.1 · adds graph view) ─────────
+    assert body["schema_version"] == "1.1"
     assert "behaviors" in body
     assert "verdict"   in body
     assert "summary"   in body

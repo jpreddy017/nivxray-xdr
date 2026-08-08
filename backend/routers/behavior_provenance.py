@@ -38,7 +38,7 @@ from services.mitigation.evidence_driven.attack_posture_normalizer import (
 )
 
 
-PROVENANCE_SCHEMA_VERSION = "1.0"
+PROVENANCE_SCHEMA_VERSION = "1.1"
 
 
 # ── Public API schema ───────────────────────────────────────────
@@ -160,7 +160,90 @@ def explain_behaviors(body: _BehaviorRequest) -> Dict[str, Any]:
             "impacts":    inputs["impacts"],
             "mitre":      inputs["mitre_techniques"],
         },
+        # ── P0.8 · graph-oriented view — one canonical model every ──
+        # ── consumer (UI, report, investigation graph, device ──
+        # ── trajectory, future graph analytics) can use directly. ──
+        "graph": _build_provenance_graph(behaviors, engine,
+                                            recs_by_behavior),
     }
+
+
+def _build_provenance_graph(
+    behaviors: List[Behavior],
+    engine_result: Dict[str, Any],
+    recs_by_behavior: Dict[str, List[str]],
+) -> Dict[str, Any]:
+    """Return the Evidence → Behavior → Projection → Recommendation
+    chain as a stable ``{nodes, edges}`` graph.
+
+    Node types  : ``evidence`` · ``behavior`` · ``mitre`` ·
+                    ``kill_chain`` · ``impact`` · ``recommendation``.
+    Edge types  : ``produces`` (evidence → behavior)
+                    ``projects``  (behavior → mitre / kill_chain / impact)
+                    ``supports``  (behavior → recommendation).
+    """
+    nodes: List[Dict[str, Any]] = []
+    edges: List[Dict[str, Any]] = []
+    seen_nodes: set = set()
+
+    def _add_node(nid: str, ntype: str, **props: Any) -> None:
+        if nid in seen_nodes:
+            return
+        seen_nodes.add(nid)
+        nodes.append({"id": nid, "type": ntype, **props})
+
+    def _add_edge(src: str, dst: str, etype: str) -> None:
+        edges.append({"from": src, "to": dst, "type": etype})
+
+    for b in behaviors:
+        # Evidence node (opaque · one per (behavior_id, source_ref))
+        ev_id = f"ev-{b.id}"
+        _add_node(ev_id, "evidence",
+                     source     = b.source,
+                     source_ref = b.source_ref,
+                     provenance = b.provenance,
+                     payload    = b.evidence,
+                     observed_at= b.observed_at)
+
+        # Behavior node
+        bh_id = f"bh-{b.id}"
+        _add_node(bh_id, "behavior",
+                     behavior_type = b.behavior_type,
+                     label         = b.label,
+                     confidence    = b.confidence,
+                     provenance    = b.provenance)
+
+        # Edge: evidence produces behavior
+        _add_edge(ev_id, bh_id, "produces")
+
+        # Projection nodes + edges
+        for tid in mitre_for(b.behavior_type):
+            nid = f"mt-{tid}"
+            _add_node(nid, "mitre", value=tid)
+            _add_edge(bh_id, nid, "projects")
+        for tac in kill_chain_for(b.behavior_type):
+            nid = f"kc-{tac}"
+            _add_node(nid, "kill_chain", value=tac)
+            _add_edge(bh_id, nid, "projects")
+        for imp in impacts_for(b.behavior_type):
+            nid = f"im-{imp}"
+            _add_node(nid, "impact", value=imp)
+            _add_edge(bh_id, nid, "projects")
+
+        # Recommendation nodes + supports edges
+        for rec_id in recs_by_behavior.get(b.id, []):
+            rec_obj = next(
+                (r for r in engine_result.get("recommendations", [])
+                 if r.get("id") == rec_id), None)
+            nid = f"rc-{rec_id}"
+            _add_node(nid, "recommendation",
+                        value    = rec_id,
+                        priority = (rec_obj or {}).get("priority"),
+                        category = (rec_obj or {}).get("category"),
+                        action   = (rec_obj or {}).get("action"))
+            _add_edge(bh_id, nid, "supports")
+
+    return {"nodes": nodes, "edges": edges}
 
 
 __all__ = ["router", "PROVENANCE_SCHEMA_VERSION"]

@@ -1,3 +1,91 @@
+## 🟢 2026-02-05 · P0.8 · **Graph-oriented Provenance + UAIE Behavior Extractor (the last architectural piece)**
+
+Two shipments per user directive:
+1. **Graph-oriented Provenance response** — endpoint schema bumped to `1.1`; response now includes a `graph: {nodes, edges}` view alongside the flat behavior list.  One canonical model for UI, reports, investigation graphs, device trajectory, and future graph analytics.
+2. **UAIE-side Behavior Extractor** — every UAIE investigation (URL, PowerShell, Office, PE, command-line, base64, etc.) now converges on the same semantic layer, not just URL-ingested cases.
+
+### Graph schema (endpoint response · `1.1`)
+```jsonc
+"graph": {
+  "nodes": [
+    {"id":"ev-...","type":"evidence","source":"...","source_ref":"...","payload":{...}},
+    {"id":"bh-...","type":"behavior","behavior_type":"shadow_copy_deletion","provenance":"command_execution"},
+    {"id":"mt-T1490","type":"mitre","value":"T1490"},
+    {"id":"kc-impact","type":"kill_chain","value":"impact"},
+    {"id":"im-recovery_inhibited","type":"impact","value":"recovery_inhibited"},
+    {"id":"rc-erad.protect_shadow_copies","type":"recommendation","value":"...","priority":"critical","category":"eradicate","action":"..."}
+  ],
+  "edges": [
+    {"from":"ev-...","to":"bh-...","type":"produces"},
+    {"from":"bh-...","to":"mt-T1490","type":"projects"},
+    {"from":"bh-...","to":"kc-impact","type":"projects"},
+    {"from":"bh-...","to":"im-recovery_inhibited","type":"projects"},
+    {"from":"bh-...","to":"rc-erad.protect_shadow_copies","type":"supports"}
+  ]
+}
+```
+
+### UAIE Behavior Extractor (`services/uaie/behavior_extractor.py::extract_behaviors`)
+- Consumes `OrchestratorResult` (Producer-only role)
+- Classifies `commandline` + `text` artifacts via existing `classify_command()`
+- LOLBAS scan on artifact payloads matches both `foo.exe` and bare `foo` word-boundary form
+- Emits `powershell_encoded_command` when a `base64_decoded` or `powershell_normalized` artifact's parent is a PowerShell command
+- Consumes future `Evidence(kind="lolbas")` entries when UAIE plugins emit them
+- Deliberately EXCLUDES `powershell_normalized` internal-transform diagnostics from classification (they contain descriptor text, not evidence)
+
+### Static contract locks (Producer / Consumer roles)
+`test_uaie_extractor_is_a_producer_never_a_consumer` — AST-scans `behavior_extractor.py` and forbids imports of any projection module or the recommendation engine.  Producers must NEVER consume.
+
+### End-to-end · ransomware payload closes the P0.2 skip
+Real UAIE ransomware payload (`cmd /c vssadmin delete shadows`, `wbadmin delete catalog`, `bcdedit`) now flows through the pipeline and fires:
+- `erad.protect_shadow_copies`
+- One of `{erad.stop_encryption, rec.restore_backups}`
+
+Was previously skipped because UAIE emitted `T1490` but no `behaviors=["impact"]` / `impacts=["recovery_inhibited"]` tags.  The extractor now emits `shadow_copy_deletion` / `inhibit_recovery_wmic` / `inhibit_recovery_bcdedit` Behaviors, whose kill-chain / impact projections populate the engine-facing fields.
+
+### Files
+* NEW  `services/uaie/behavior_extractor.py`  · UAIE OrchestratorResult → List[Behavior]
+* NEW  `tests/test_p08_graph_and_uaie_extractor.py`  · 11 regression tests (graph + extractor + producer-only invariant)
+* MODIFIED  `routers/behavior_provenance.py`  · schema `1.1` + `graph` view
+* MODIFIED  `services/ida/projections/{mitre,kill_chain,impact}.py`  · `mitre_for()` / `kill_chain_for()` / `impacts_for()` accessors (introduced in P0.7, reused here)
+
+### Status
+- 123/123 tests green + 1 skip (the P0.2 synthetic ransomware test — now superseded by the P0.8 end-to-end UAIE test)
+- Every UAIE investigation now flows through the same Behavior semantic layer, regardless of input type (URL / raw text / PowerShell / command-line / base64 / etc.)
+
+### The behavior-centric architecture is now COMPLETE
+```
+Any input source (URL · PowerShell · Office · PE · cmd · raw text)
+        │
+        ▼
+UAIE / URL extractor (both Producers)
+        │
+        ▼
+Behavior objects  (framework-neutral · single semantic layer)
+        │
+   ┌────┼───────────────────┐
+   ▼    ▼                   ▼
+MITRE  Kill-chain / Impact  Provenance Graph
+   │    │                   │
+   └────┴───────┬───────────┘
+                ▼
+       Recommendation Engine
+                │
+                ▼
+       SSOT · Reports · UI · Future LLM
+```
+
+Locked at commit time by three AST-based CI invariants:
+1. No framework maps referenced outside projection layer or Behavior generator
+2. No RecommendationRule inspects raw Evidence
+3. Producer modules (Behavior extractors) never consume projection modules or the engine
+
+### Constraints honored
+Deterministic-only · Workspace/UI/`derive_mitigations` untouched · S4 architecture freeze intact.
+
+---
+
+
 ## 🟢 2026-02-05 · P0.7 · **Behavior Provenance Endpoint + rule-inspection CI invariant**
 
 Per user directive, exposed the explainable Evidence → Behavior → Projection → Recommendation chain as a stable public API and added the second architectural CI invariant *"No RecommendationRule may inspect raw Evidence"*.
