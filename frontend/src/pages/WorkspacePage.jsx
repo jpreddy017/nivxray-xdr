@@ -86,7 +86,7 @@ import EscalationLadder from "@/components/EscalationLadder";
 import TIShieldPanel from "@/components/TIShieldPanel";
 import MoEPanel from "@/components/MoEPanel";
 import InvestigationTimeline from "@/components/InvestigationTimeline";
-import api, { beginRestoreMode, endRestoreMode } from "@/lib/api";
+import api, { beginRestoreMode, endRestoreMode, callLlmGracefully, LLM_INPUT_BUDGET } from "@/lib/api";
 import { streamAnalyze } from "@/lib/sse";
 import { splitCommandLines, isMultiCommandInput } from "@/lib/commandSplitter";
 import InputToolbar from "@/components/InputToolbar";
@@ -317,6 +317,12 @@ export default function WorkspacePage() {
   const [understanding, setUnderstanding] = useState(() => _persisted.understanding || null);
   const [understandingLoading, setUnderstandingLoading] = useState(false);
   const [understandingError, setUnderstandingError] = useState(null);
+  // R28.10 · Graceful "skipped" state — the LLM Input-Understanding
+  // call is OPTIONAL; when it is skipped (large input) or fails (timeout,
+  // budget) we surface a friendly muted panel instead of the red
+  // "REQUEST FAILED" banner and let the deterministic path run to
+  // completion regardless.
+  const [understandingSkipReason, setUnderstandingSkipReason] = useState("");
   // Inline Attack Story feed — preprocessor stages come back inside
   // the DIE analyze envelope when the input is mixed / prose / chain.
   const [inlineStoryPreproc, setInlineStoryPreproc] = useState(() => _persisted.inlineStoryPreproc || null);
@@ -564,34 +570,42 @@ export default function WorkspacePage() {
     } else if (_inp.trim()) {
       setUnderstanding(null);
       setUnderstandingError(null);
+      setUnderstandingSkipReason("");
       setUnderstandingLoading(true);
       setInlineStoryPreproc(null);
       setAnalystNarrative(null);
       setInvestigationMode(false);
       setInvestigationObject(null);
-      api.post("/die/understand", { input: _inp, execute: true })
-        .then((r) => {
-          const u = r?.data?.understanding || null;
-          setUnderstanding(u);
-          // ▲ IUE v2.0 · The pane is ALWAYS Investigation Results.
-          // Whether decoding happened or not, replace the pane body
-          // with the deterministic structured findings so the analyst
-          // never stares at a raw echo or a lone decoded blob.
-          runInvestigationResults(_inp);
-        })
-        .catch((e) => setUnderstandingError(e?.response?.data?.detail || e?.message || String(e)))
-        .finally(() => setUnderstandingLoading(false));
-      api.post("/die/analyze", { input: _inp })
-        .then((r) => {
-          const pre = r?.data?.result?.preprocessor
-                   || r?.data?.result?.chain?.preprocessor
-                   || null;
-          if (pre) setInlineStoryPreproc(pre);
-        })
-        .catch(() => {});
-      api.post("/die/narrate", { input: _inp })
-        .then((r) => setAnalystNarrative(r?.data?.narrative || null))
-        .catch(() => {});
+      // ── R28.10 · ARCHITECTURAL SEPARATION ────────────────────
+      // The deterministic Investigation Results MUST run to completion
+      // regardless of whether the LLM-backed /die/understand succeeds,
+      // times out, or is skipped for size.  Fire it in parallel — never
+      // gate it on the AI narration.
+      runInvestigationResults(_inp);
+      callLlmGracefully("/die/understand", { input: _inp, execute: true }, {
+        budgetBytes: LLM_INPUT_BUDGET.understand,
+      }).then((res) => {
+        if (res.ok) {
+          setUnderstanding(res.data?.understanding || null);
+        } else {
+          setUnderstandingSkipReason(res.reason || "");
+        }
+        setUnderstandingLoading(false);
+      });
+      callLlmGracefully("/die/analyze", { input: _inp }, {
+        budgetBytes: LLM_INPUT_BUDGET.analyze,
+      }).then((res) => {
+        if (!res.ok) return;
+        const pre = res.data?.result?.preprocessor
+                 || res.data?.result?.chain?.preprocessor
+                 || null;
+        if (pre) setInlineStoryPreproc(pre);
+      });
+      callLlmGracefully("/die/narrate", { input: _inp }, {
+        budgetBytes: LLM_INPUT_BUDGET.narrate,
+      }).then((res) => {
+        if (res.ok) setAnalystNarrative(res.data?.narrative || null);
+      });
     }
     // Auto-fire re-investigate for echo cases so the analyst never
     // stares at a raw base64 blob wondering what to do.
@@ -1463,32 +1477,30 @@ export default function WorkspacePage() {
     if (input && input.trim()) {
       setUnderstanding(null);
       setUnderstandingError(null);
+      setUnderstandingSkipReason("");
       setUnderstandingLoading(true);
       setInlineStoryPreproc(null);
-      api.post("/die/understand", { input, execute: true })
-        .then((r) => {
-          setUnderstanding(r?.data?.understanding || null);
-          setUnderstandingLoading(false);
-        })
-        .catch((e) => {
-          setUnderstandingError(e?.response?.data?.detail || e?.message || String(e));
-          setUnderstandingLoading(false);
-        });
-      // Fetch the DIE analyze envelope in parallel so the Inline
-      // Attack Story can render preprocessor stages immediately.
-      api.post("/die/analyze", { input })
-        .then((r) => {
-          const pre = r?.data?.result?.preprocessor
-                   || r?.data?.result?.chain?.preprocessor
-                   || null;
-          if (pre) setInlineStoryPreproc(pre);
-        })
-        .catch(() => { /* silently absent */ });
-      api.post("/die/narrate", { input })
-        .then((r) => {
-          setAnalystNarrative(r?.data?.narrative || null);
-        })
-        .catch(() => { /* silently absent */ });
+      callLlmGracefully("/die/understand", { input, execute: true }, {
+        budgetBytes: LLM_INPUT_BUDGET.understand,
+      }).then((res) => {
+        if (res.ok) setUnderstanding(res.data?.understanding || null);
+        else setUnderstandingSkipReason(res.reason || "");
+        setUnderstandingLoading(false);
+      });
+      callLlmGracefully("/die/analyze", { input }, {
+        budgetBytes: LLM_INPUT_BUDGET.analyze,
+      }).then((res) => {
+        if (!res.ok) return;
+        const pre = res.data?.result?.preprocessor
+                 || res.data?.result?.chain?.preprocessor
+                 || null;
+        if (pre) setInlineStoryPreproc(pre);
+      });
+      callLlmGracefully("/die/narrate", { input }, {
+        budgetBytes: LLM_INPUT_BUDGET.narrate,
+      }).then((res) => {
+        if (res.ok) setAnalystNarrative(res.data?.narrative || null);
+      });
     }
     if (describe || aiVerdict) {
       // AI-heavy path — use job polling to bypass reverse-proxy timeouts
@@ -3017,7 +3029,7 @@ export default function WorkspacePage() {
               MUST be the first thing the analyst sees after clicking
               ANALYZE.  Explains WHAT the paste is, WHY each engine is
               running, and TRACKS the plan execution in real time. */}
-          {(understanding || understandingLoading || understandingError) && (
+          {(understanding || understandingLoading || understandingError || understandingSkipReason) && (
             <CollapsibleSection title="Input Understanding"
                                  testid="input-understanding-section"
                                  style={{ margin: "0 12px 8px" }}>
@@ -3025,6 +3037,8 @@ export default function WorkspacePage() {
                 understanding={understanding}
                 loading={understandingLoading}
                 error={understandingError}
+                skipped={!!understandingSkipReason && !understanding}
+                skipReason={understandingSkipReason}
               />
             </CollapsibleSection>
           )}
@@ -3620,6 +3634,7 @@ export default function WorkspacePage() {
           if (_input.trim()) {
             setUnderstanding(null);
             setUnderstandingError(null);
+            setUnderstandingSkipReason("");
             setUnderstandingLoading(true);
             setInlineStoryPreproc(null);
             setAnalystNarrative(null);
@@ -3627,26 +3642,29 @@ export default function WorkspacePage() {
             // below when the IUE decides no decoding is required.
             setInvestigationMode(false);
             setInvestigationObject(null);
-            api.post("/die/understand", { input: _input, execute: true })
-              .then((r) => {
-                const u = r?.data?.understanding || null;
-                setUnderstanding(u);
-                // ▲ IUE v2.0 · Always show Investigation Results.
-                runInvestigationResults(_input);
-              })
-              .catch((e) => setUnderstandingError(e?.response?.data?.detail || e?.message || String(e)))
-              .finally(() => setUnderstandingLoading(false));
-            api.post("/die/analyze", { input: _input })
-              .then((r) => {
-                const pre = r?.data?.result?.preprocessor
-                         || r?.data?.result?.chain?.preprocessor
-                         || null;
-                if (pre) setInlineStoryPreproc(pre);
-              })
-              .catch(() => {});
-            api.post("/die/narrate", { input: _input })
-              .then((r) => setAnalystNarrative(r?.data?.narrative || null))
-              .catch(() => {});
+            // R28.10 · Deterministic path is INDEPENDENT of LLM outcome
+            runInvestigationResults(_input);
+            callLlmGracefully("/die/understand", { input: _input, execute: true }, {
+              budgetBytes: LLM_INPUT_BUDGET.understand,
+            }).then((res) => {
+              if (res.ok) setUnderstanding(res.data?.understanding || null);
+              else setUnderstandingSkipReason(res.reason || "");
+              setUnderstandingLoading(false);
+            });
+            callLlmGracefully("/die/analyze", { input: _input }, {
+              budgetBytes: LLM_INPUT_BUDGET.analyze,
+            }).then((res) => {
+              if (!res.ok) return;
+              const pre = res.data?.result?.preprocessor
+                       || res.data?.result?.chain?.preprocessor
+                       || null;
+              if (pre) setInlineStoryPreproc(pre);
+            });
+            callLlmGracefully("/die/narrate", { input: _input }, {
+              budgetBytes: LLM_INPUT_BUDGET.narrate,
+            }).then((res) => {
+              if (res.ok) setAnalystNarrative(res.data?.narrative || null);
+            });
           }
         }}
       />

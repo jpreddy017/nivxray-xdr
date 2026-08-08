@@ -254,3 +254,59 @@ export async function apiStream(path, body, { onProgress, onDone, onError, signa
 }
 
 export default api;
+
+// ═══════════════════════════════════════════════════════════════════════
+// R28.10 · Graceful LLM helper — ARCHITECTURAL SEPARATION GATE
+// ═══════════════════════════════════════════════════════════════════════
+// The Workspace deterministic investigation must NEVER depend on the
+// success of an LLM-backed endpoint (/die/understand, /die/narrate,
+// /die/analyze).  This helper enforces that boundary:
+//
+//   • Skips the call when the input is above the per-endpoint budget
+//   • Uses a shorter LLM timeout (18s) so a hung LLM can't freeze the tab
+//   • Returns { ok, data, skipped, reason } — never throws
+//
+// Callers get a uniform shape and are free to render a friendly "skipped"
+// message instead of a red "REQUEST FAILED" banner.
+//
+// Budget defaults (bytes of input text):
+//     understand · 24 KB   — analyst-facing summary, small in / small out
+//     analyze    · 32 KB   — evidence extractor, wraps deterministic ops
+//     narrate    · 24 KB   — LLM narrative, quality drops on large inputs
+export const LLM_INPUT_BUDGET = {
+  understand:  24 * 1024,
+  analyze:     32 * 1024,
+  narrate:     24 * 1024,
+};
+export const LLM_SOFT_TIMEOUT_MS = 18_000;
+
+export async function callLlmGracefully(path, body, {
+  budgetBytes = LLM_INPUT_BUDGET.understand,
+  timeout     = LLM_SOFT_TIMEOUT_MS,
+  inputField  = "input",
+} = {}) {
+  const text = (body && body[inputField]) || "";
+  const size = typeof text === "string" ? text.length : 0;
+  if (size > budgetBytes) {
+    return {
+      ok: false, data: null, skipped: true,
+      reason: `Input is ${size.toLocaleString()} bytes — above the ${budgetBytes.toLocaleString()}-byte LLM budget.  Deterministic investigation continues without narration.`,
+    };
+  }
+  try {
+    const resp = await api.post(path, body, { timeout });
+    return { ok: true, data: resp?.data, skipped: false, reason: "" };
+  } catch (e) {
+    const detail = e?.response?.data?.detail || e?.message || String(e);
+    // Any LLM failure is treated as a *skip*, not an error — the
+    // deterministic path keeps working, the analyst just doesn't get
+    // the AI narration for this call.
+    return {
+      ok: false, data: null, skipped: true,
+      reason: (String(detail).includes("timeout")
+                 ? "AI narration timed out — deterministic investigation completed successfully."
+                 : `AI narration unavailable (${detail}). Deterministic investigation completed successfully.`),
+    };
+  }
+}
+

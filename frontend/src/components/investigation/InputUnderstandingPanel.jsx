@@ -44,13 +44,39 @@ const STATUS_TONE = {
   skipped: { fg: "#64748b", bg: "rgba(100,116,139,0.08)", bd: "rgba(100,116,139,0.30)" },
 };
 
-export default function InputUnderstandingPanel({ understanding, loading, error }) {
+export default function InputUnderstandingPanel({ understanding, loading, error, skipped, skipReason }) {
   if (loading) {
     return (
       <section data-testid="iue-panel-loading" style={panel}>
         <div style={{ ...sectionHeader, color: "#67e8f9" }}>
           <Loader2 size={14} className="spin" /> UNDERSTANDING INPUT…
         </div>
+      </section>
+    );
+  }
+  // R28.10 · Graceful "skipped" state — analyst confidence preserved.
+  // The deterministic investigation ran successfully; only the LLM-backed
+  // narration was skipped.  Rendered in muted tone (no red alarm) so
+  // analysts don't confuse a skipped narration for a broken investigation.
+  if (skipped || (error && !understanding)) {
+    const reason = skipReason || (error ? String(error) : "");
+    return (
+      <section data-testid="iue-panel-skipped" style={{
+        ...panel,
+        background: "linear-gradient(180deg, rgba(30,41,59,0.55), rgba(15,23,42,0.55))",
+        borderColor: "#334155",
+      }}>
+        <div style={{ ...sectionHeader, color: "#94a3b8" }}>
+          <Circle size={12} /> INPUT UNDERSTANDING · SKIPPED
+        </div>
+        <div style={{ marginTop: 8, fontSize: 13, color: "#e2e8f0", lineHeight: 1.5 }}>
+          The deterministic investigation completed successfully.
+        </div>
+        {reason && (
+          <div style={{ marginTop: 4, fontSize: 12, color: "#94a3b8", lineHeight: 1.5 }}>
+            {reason}
+          </div>
+        )}
       </section>
     );
   }

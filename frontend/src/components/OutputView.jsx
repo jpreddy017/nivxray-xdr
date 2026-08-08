@@ -317,8 +317,15 @@ export default function OutputView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shellcode?.family]);
   const renderedBody = useMemo(() => {
-    if (view === "hex") return toHexDump(output || "");
-    if (view === "base64") return toBase64(output || "");
+    // R28.10 · Bug A · Anti-hang — every view derives from the
+    // ``renderOutput`` slice (capped at DISPLAY_CAP=128 KB), never the
+    // raw ``output``.  HEX / B64 rendering on multi-MB blobs used to
+    // freeze the tab because ``toHexDump`` / ``toBase64`` are O(n)
+    // synchronous string-builders; capping them removes the freeze.
+    // Full bytes remain available in state for export + downstream
+    // consumers.
+    if (view === "hex") return toHexDump(renderOutput || "");
+    if (view === "base64") return toBase64(renderOutput || "");
     // TEXT view — if a terminal-tail is detected, show the clean head only.
     // Raw bytes remain fully available in HEX / B64 views (evidence preserved).
     if (terminalTail) return terminalTail.clean;
@@ -328,8 +335,8 @@ export default function OutputView({
     if (binaryPayload && !showRawBinary) {
       return formatExtractedIntel(binaryPayload);
     }
-    return output || "";
-  }, [output, view, terminalTail, binaryPayload, showRawBinary]);
+    return renderOutput || "";
+  }, [renderOutput, view, terminalTail, binaryPayload, showRawBinary]);
 
   return (
     <div className="nvx-card" data-testid="output-card">
@@ -536,6 +543,19 @@ export default function OutputView({
 
       {/* Body */}
       <div className="nvx-card-body">
+        {_outputTruncated && (
+          <div data-testid="output-truncated-banner" style={{
+            fontSize: 11, fontFamily: "JetBrains Mono, monospace",
+            color: "#fbbf24", background: "rgba(251,191,36,0.08)",
+            border: "1px solid rgba(251,191,36,0.30)",
+            borderRadius: 6, padding: "6px 10px", marginBottom: 8,
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <ShieldAlert size={12} />
+            Showing first {(DISPLAY_CAP / 1024).toFixed(0)}&nbsp;KB of&nbsp;
+            {(_fullOutputLen / 1024).toFixed(1)}&nbsp;KB · full output preserved for export and analysis
+          </div>
+        )}
         {showDiff && view === "text" ? (
           <DiffView segments={diff.segments} identical={diff.identical} />
         ) : (

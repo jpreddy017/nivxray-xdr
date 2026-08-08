@@ -1,3 +1,71 @@
+## 🟢 2026-02-04 · Fork · R28.10.1 · **Workspace Hardening — Bug A + Bug B + Architectural Separation**
+
+User-reported symptoms on the 7.6-KB Sophos-shape CS stager:
+* Browser dialog: **"Page Unresponsive"** on the workspace tab
+* Red panel: **"INPUT UNDERSTANDING FAILED · timeout of 30000ms exceeded"**
+
+Root cause was a violation of the architectural separation the user articulated in their reply:
+
+    User Input
+        │
+        ▼
+    Deterministic Investigation
+        │
+        ├─▶ Investigation Report          (critical path, must always run)
+        └─▶ Input Understanding (LLM)     (optional, allowed to fail/skip)
+
+`WorkspacePage.jsx` had `runInvestigationResults()` nested INSIDE the `/die/understand` `.then()` handler at 3 sites — an LLM timeout would kill the deterministic path with it.  `OutputView.jsx` also fed the FULL `output` string (not the capped 128 KB `renderOutput`) into the `toHexDump` / `toBase64` string-builders and the TEXT-view `<textarea>` — so a multi-MB decode blob synchronously blocked the render thread.
+
+### Fix 1 · `frontend/src/lib/api.js` · new `callLlmGracefully(path, body, opts)` helper
+Central choke-point that enforces the architectural separation.  Returns `{ok, data, skipped, reason}` — **never throws**.  Skips the call above a per-endpoint budget so a huge paste can't stall the LLM:
+```
+LLM_INPUT_BUDGET = { understand: 24 KB, analyze: 32 KB, narrate: 24 KB }
+LLM_SOFT_TIMEOUT_MS = 18_000        # tighter than the axios default (30 s)
+```
+All LLM failures (timeout, budget, backend error) are downgraded to *skipped* with a friendly analyst-facing reason string.
+
+### Fix 2 · `frontend/src/components/investigation/InputUnderstandingPanel.jsx`
+New `skipped` + `skipReason` props render a MUTED slate panel instead of a red-alarm banner:
+
+    INPUT UNDERSTANDING · SKIPPED
+    The deterministic investigation completed successfully.
+    <friendly reason string>
+
+Analyst confidence preserved.  No implication that the case is broken.
+
+### Fix 3 · `frontend/src/pages/WorkspacePage.jsx` · architectural separation enforced at 3 sites
+* Post-DECODE flow (`~L572`)
+* Post-ANALYZE flow (`~L1477`)
+* Case-restore flow (`~L3632`)
+
+Each site now:
+1. Fires `runInvestigationResults(input)` **first, in parallel** — the deterministic path is no longer inside any `.then()` block.
+2. Uses `callLlmGracefully(...)` for `/die/understand`, `/die/analyze`, `/die/narrate` — three independent optional consumers.
+3. Sets a new `understandingSkipReason` state that the panel renders in muted tone.
+
+### Fix 4 · `frontend/src/components/OutputView.jsx` · display-side anti-hang
+`renderedBody` now derives from **`renderOutput`** (the 128 KB-capped slice) for **all three views** — TEXT, HEX, B64.  `toHexDump` / `toBase64` on a multi-MB blob would previously call `String.repeat` / `Array.join` synchronously and freeze the tab; capping the input removes the freeze entirely.  A new `<div data-testid="output-truncated-banner">` renders above the textarea when the cap is hit, letting the analyst know the full bytes are preserved for export.
+
+### Verification
+| Check | Result |
+|---|---|
+| Frontend webpack compile | 0 errors, 1 pre-existing warning |
+| Preview `/login` reachable | 200 · rendered in < 2 s |
+| Workspace loads Sophos-shape 4.1 KB payload → clicks DECODE | **`ANALYSIS COMPLETE · Suspicious`**, INPUT 4148c → OUTPUT 1956c, `SUSPICIOUS · 65/100`, SHELLCODE TERMINAL flag, both action buttons responsive, no browser hang dialog, no red "INPUT UNDERSTANDING FAILED" banner |
+| Backend regression battery (S2 + Golden Vertical Chain + generic recursion + provenance) | **31 / 31 pass** |
+
+### Files landed
+* `frontend/src/lib/api.js`  ← `callLlmGracefully` + `LLM_INPUT_BUDGET` + `LLM_SOFT_TIMEOUT_MS`
+* `frontend/src/components/investigation/InputUnderstandingPanel.jsx`  ← `skipped`/`skipReason` friendly panel
+* `frontend/src/pages/WorkspacePage.jsx`  ← 3 call-sites migrated · `runInvestigationResults` no longer nested in LLM `.then()`
+* `frontend/src/components/OutputView.jsx`  ← `renderedBody` derives from `renderOutput` for all views + truncation banner
+
+### Architectural invariant now enforced
+The workspace deterministic path (`runInvestigationResults`) has **zero** dependencies on LLM outcomes.  A hung `/die/understand` cannot freeze the tab, cannot block DECODE completion, cannot break the SOC Verdict panel, and cannot render a scary red banner.  Ready to proceed with Phase A engine unification without carrying this risk into the migration.
+
+---
+
+
 ## 🟢 2026-02-04 · Fork · R28.10 · **Session 2 · Capability Discovery Report + Cleanup Before Phase A**
 
 Continuation of the user-locked (c) ordering: `S1 (Provenance) → S2 (Discovery Report) → cleanup → S3 (Phase A) → S4 (Freeze) → S5 → …`. This iteration finishes S2 and closes two correctness bugs (Issues #2 + #3) that would have polluted every Phase-A `assert_graphs_equivalent` comparison.
