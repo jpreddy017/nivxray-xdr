@@ -324,5 +324,73 @@ def _detect_lolbas(output_text: str, res: Dict[str, Any]) -> Set[str]:
 
 __all__ = [
     "CaseContext", "project_from_decode_result",
+    "project_from_investigation_outcome",
     "BEHAVIOUR_TAGS", "DETECTION_TYPES", "IMPACT_TAGS",
 ]
+
+
+# ══════════════════════════════════════════════════════════════════
+# Projection · InvestigationOutcome dict → CaseContext
+# ══════════════════════════════════════════════════════════════════
+def project_from_investigation_outcome(outcome: Dict[str, Any]
+                                          ) -> CaseContext:
+    """Project the Workspace-produced structured outcome.
+
+    Per user directive: the engine consumes what the Workspace
+    ALREADY DISCOVERED — no re-analysis, no string-matching, no
+    payload re-parsing.  This projector is the canonical entry
+    point going forward; ``project_from_decode_result`` remains
+    for the single legacy caller that still needs on-the-fly
+    analysis of a raw paste (compare endpoint).
+    """
+    o = outcome or {}
+    _S = lambda v, d=(): tuple(v) if isinstance(v, (list, tuple)) else d
+    _FS = lambda v: frozenset(v) if isinstance(v, (list, tuple, set,
+                                                     frozenset)) else frozenset()
+
+    malware = o.get("malware") or {}
+    apt      = o.get("apt")     or {}
+    iocs     = o.get("iocs")    or {}
+    attack   = o.get("attack_pattern") or {}
+    scope    = o.get("scope")   or {}
+
+    return CaseContext(
+        processes     = _S(o.get("processes")),
+        commands      = _S(o.get("commands")),
+        files         = _S(o.get("files")),
+        registry_keys = _S(o.get("registry_keys")),
+        users         = _S(o.get("users")),
+        hosts         = _S(o.get("hosts")),
+        artifacts     = _S(o.get("artifacts")),
+        output_text   = str(o.get("output_text") or ""),
+
+        detection_types  = _FS(o.get("detection_types")),
+        behaviors        = _FS(o.get("behaviors")),
+        mitre_techniques = _FS(o.get("mitre_techniques")),
+
+        malware_family   = malware.get("family"),
+        malware_capabilities = _FS(malware.get("capabilities")),
+
+        apt_group        = apt.get("group"),
+        apt_confidence   = str(apt.get("confidence") or ""),
+
+        lolbas_hits      = _S(o.get("lolbas_hits")),
+
+        ips              = _S(iocs.get("ips") or iocs.get("ip")),
+        domains          = _S(iocs.get("domains") or iocs.get("domain")),
+        urls             = _S(iocs.get("urls") or iocs.get("url")),
+        hashes           = _S(iocs.get("hashes")),
+
+        obfuscation_layers = int(attack.get("obfuscation_layers") or 0),
+        kill_chain_phases  = _FS(attack.get("kill_chain_phases")),
+
+        impacts            = _FS(o.get("impacts")),
+        reached_shellcode  = bool(o.get("reached_shellcode")),
+
+        affected_hosts             = int(scope.get("affected_hosts") or 0),
+        privileged_users_affected  = int(scope.get("privileged_users_affected") or 0),
+        critical_assets_affected   = int(scope.get("critical_assets_affected") or 0),
+
+        detection_confidence       = str(o.get("detection_confidence") or "low"),
+        false_positive_indicators  = _S(o.get("false_positive_indicators")),
+    )

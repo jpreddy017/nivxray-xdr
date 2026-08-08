@@ -26,8 +26,38 @@ class _EDRRequest(BaseModel):
     input: str = Field(..., description="Raw analyst input to decode")
 
 
+class _OutcomeRequest(BaseModel):
+    """Structured investigation outcome — the canonical engine input.
+
+    Consumers pass the Workspace's discovered findings; the engine
+    does NOT re-analyze the original payload.  Schema is documented
+    in ``services.mitigation.evidence_driven.investigation_outcome``.
+    """
+    outcome: Dict[str, Any] = Field(...,
+        description="Workspace-produced structured findings")
+
+
+@router.post("/mitigations/from_outcome")
+def post_from_outcome(body: _OutcomeRequest) -> Dict[str, Any]:
+    """Canonical path — reason ONLY over what the Workspace already
+    discovered.  No re-analysis, no payload re-parsing."""
+    if not body.outcome:
+        raise HTTPException(status_code=400, detail="empty outcome")
+    edr = evidence_driven_recommendations(
+        investigation_outcome=body.outcome)
+    return {
+        "ok":                       True,
+        "engine_enabled":           is_engine_enabled(),
+        "evidence_recommendations": edr,
+    }
+
+
 @router.post("/mitigations/evidence_driven")
 def post_evidence_driven(body: _EDRRequest) -> Dict[str, Any]:
+    """Legacy convenience path — accepts a RAW payload and re-runs
+    the deterministic decoder.  Kept for compatibility with the
+    compare endpoint.  New Workspace consumers should call
+    ``/mitigations/from_outcome`` instead."""
     text = (body.input or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="empty input")

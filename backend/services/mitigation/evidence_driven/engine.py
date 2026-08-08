@@ -35,9 +35,21 @@ def is_engine_enabled() -> bool:
     return os.environ.get("NVX_EVIDENCE_ENGINE", "on").strip().lower() != "off"
 
 
-def evidence_driven_recommendations(decode_result: Dict[str, Any]
-                                       ) -> Dict[str, Any]:
-    """The one function callers use.  Pure derivation."""
+def evidence_driven_recommendations(decode_result: Dict[str, Any] = None,
+                                      *,
+                                      investigation_outcome: Dict[str, Any] = None,
+                                      ) -> Dict[str, Any]:
+    """The one function callers use.  Pure derivation.
+
+    Preferred (per user directive 2026-02-04): pass
+    ``investigation_outcome=<workspace-produced findings>`` — the
+    engine reasons ONLY over what the Workspace already discovered.
+
+    Positional ``decode_result`` is kept for the ``/compare``
+    endpoint which still runs legacy v1 on a raw paste — its
+    projection uses light heuristics on the decode result, not a
+    full re-investigation.
+    """
     if not is_engine_enabled():
         return {
             "schema_version":  RECOMMENDATIONS_SCHEMA_VERSION,
@@ -48,12 +60,21 @@ def evidence_driven_recommendations(decode_result: Dict[str, Any]
             "dimensions":      {},
         }
 
+    if investigation_outcome is None and decode_result is None:
+        raise ValueError("investigation_outcome or decode_result required")
+    if investigation_outcome is not None and decode_result is not None:
+        raise ValueError("provide only one of investigation_outcome / decode_result")
+
     # Lazy imports — keeps disabled-mode overhead at zero.
-    from .case_context  import project_from_decode_result
+    from .case_context  import (project_from_decode_result,
+                                  project_from_investigation_outcome)
     from .rules         import evaluate_rules
     from .rule_library  import rules_for
 
-    ctx   = project_from_decode_result(decode_result or {})
+    if investigation_outcome is not None:
+        ctx = project_from_investigation_outcome(investigation_outcome)
+    else:
+        ctx = project_from_decode_result(decode_result or {})
     rules = rules_for(ctx)
     fired = evaluate_rules(rules, ctx)
     fired_dicts: List[Dict[str, Any]] = [r.as_dict() for r in fired]
