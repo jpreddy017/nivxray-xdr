@@ -63,6 +63,9 @@ from .ps_format import TRANSFORMATION as _T_PS_FORMAT                 # noqa: E4
 from .ps_iex_peel import TRANSFORMATION as _T_PS_IEX                  # noqa: E402
 from .ps_encoded_command import TRANSFORMATION as _T_PS_ENC           # noqa: E402
 from .ps_static_base64 import TRANSFORMATION as _T_PS_STATIC_B64      # noqa: E402
+from .ps_byte_array_xor_loop import (                                  # noqa: E402
+    TRANSFORMATION as _T_PS_BYTEARR_XOR,
+)
 from .ps_compression_stream import TRANSFORMATION as _T_PS_COMPRESS   # noqa: E402
 from .ps_indirect_compression_stream import (                          # noqa: E402
     TRANSFORMATION as _T_PS_INDIRECT_COMPRESS,
@@ -85,6 +88,12 @@ TRANSFORMATION_REGISTRY: list[Transformation] = [
     # compression handler runs BEFORE the strict-order one because it
     # covers a strictly larger surface (both idioms) and has slightly
     # higher confidence when it matches.
+    #
+    # 2026-02-04 · The byte-array-XOR-loop idiom (Cobalt Strike /
+    # Empire / Nishang terminal stager) MUST run before the bare
+    # ``ps_static_base64`` matcher, otherwise the FromBase64String
+    # blob is folded away and the XOR-loop context is lost.
+    _T_PS_BYTEARR_XOR,
     _T_PS_STATIC_B64,
     _T_PS_INDIRECT_COMPRESS,   # v1.5.0 · variable-bound base64 → compression
     _T_PS_COMPRESS,
