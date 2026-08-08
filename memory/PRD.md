@@ -12086,3 +12086,40 @@ automatic decoder recommendations.
 - `POST /api/investigation/summary` now emits both plural + severity + order
 - 117/117 pytest still green
 - **Slices c/d/b remain pending** — Knowledge-base expansion → Timeline/Evidence synth → 14-lane UI projection
+
+---
+
+## 2026-02-08 · P0.12 · Operational Trilogy · Coverage Metrics API — SHIPPED
+
+The operational-maturity trilogy the user ordered is complete and
+CI-gated. See `/app/memory/CHANGELOG.md` (2026-02-08 entry) for the
+full changelog.
+
+**Endpoints (read-only, /api-prefixed):**
+- `GET /api/investigation/coverage/summary`
+- `GET /api/investigation/coverage/consumer_matrix`
+
+**Files of reference:**
+- `/app/backend/routers/coverage_metrics.py`             — API surface
+- `/app/backend/tests/test_coverage_metrics_api.py`      — 15 tests
+- `/app/backend/tests/golden/coverage_summary_v1.json`   — contract lock
+- `/app/backend/pytest.ini`                              — `coverage_metrics` marker
+- `/app/backend/server.py`                               — router registration
+
+**KPI baseline captured at ship:** Reachable-Behaviors = 34.6 %
+(9 consumed / 26 reachable); universal consumers at 100 %;
+recommendation_engine reachability 31.8 %.
+
+**Next Priorities (P1):**
+1. Corpus Expansion — drive the Reachable-Behaviors KPI upward by
+   targeting `behavior_gap` and `corpus_gap` classifications first.
+2. `<InvestigationGraph />` React component — render the schema-1.1
+   provenance graph (nodes/edges) for L4 analysts.
+
+**Backlog (P2/P3):**
+- Semantic Impact Analyzer on top of Behavior Registry
+- Phase C · SSOT-Backed Analyst Views (Attack Story, Incident Graph,
+  Attack Chain, NIST Report) — user has strictly mandated protecting
+  the legacy Workspace, do not touch until explicitly directed
+- Phase B · Adapters as Capabilities
+- Phase F · Fixed-Point Termination Audit + chunked streaming

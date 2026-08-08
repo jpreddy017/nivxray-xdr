@@ -3602,3 +3602,55 @@ Scale buckets added to the corpus: 1 / 10 / 500 / 5000-page PDFs,
 Architecture v1.0 permanently frozen.  All remaining work is
 implementation of the 8 milestones (M1 complete, M2 in progress
 with EML shipped and ZIP next, M3-M8 pending).
+
+## 2026-02-08 · P0.12 · Operational Trilogy · Coverage Metrics API
+
+**Coverage Metrics API shipped** — the trilogy the user requested is
+now live and CI-locked:
+
+    · GET /api/investigation/coverage/summary
+        - schema_version 1.0
+        - per-layer coverage (evidence→behavior, behavior→projection,
+          projection→recommendation) with {current, previous, delta,
+          target, meets_target}
+        - Reachable-Behaviors KPI (reachable / consumed / percent) —
+          replaces the raw dead-rule count as the North-Star metric
+        - dead_rule_classification (five-bucket taxonomy)
+        - traceability_aggregate + latency percentiles
+        - Supports `?previous=<file>` for regression diffs, 404 on
+          missing report.
+
+    · GET /api/investigation/coverage/consumer_matrix
+        - Dense per-behavior × per-consumer boolean matrix
+        - Six declared consumer categories (ssot_projector,
+          provenance_endpoint, graph_api, recommendation_engine,
+          workspace_ui, llm_summary)
+        - per_consumer_pct summary — universal consumers must stay
+          at 100 %, recommendation_engine reflects the trilogy KPI.
+
+**Single-source-of-truth contract preserved** — the endpoint does
+zero recomputation; it reads exactly the artifact produced by the
+harness (`scripts/corpus_validation.py` → `corpus/reports/latest.json`).
+
+**Hardening** — `_REPORTS_DIR` is now module-relative
+(`Path(__file__).resolve().parents[1] / "corpus" / "reports"`) so
+the endpoint works regardless of process CWD.
+
+**CI · focused target** — new `coverage_metrics` marker registered
+in `pytest.ini`.  Fast validation path:
+
+    pytest -m coverage_metrics    # 15 tests, ~10 s
+
+**Contract-lock** — response shape frozen by a golden snapshot at
+`tests/golden/coverage_summary_v1.json`.  Tests assert SHAPE only;
+metric values can move.  Any accidental breaking change to the
+response contract now fails CI loudly.
+
+**Regression check** — 66/66 pass across behavior_registry_and_taxonomy,
+track_b_projector_and_ci_invariants, corpus_validation, behavior_graph,
+behavior_graph_schema_freeze, and coverage_metrics_api.
+
+**Live preview smoke test** — endpoint responds correctly on the
+preview host; current KPI reads 34.6 % (9 of 26 reachable behaviors
+consumed by ≥ 1 recommendation), universal consumers at 100 %,
+recommendation_engine reachability 31.8 %.

@@ -30,7 +30,10 @@ _TARGETS: Dict[str, float] = {
     "projection_to_recommendation_pct":   70.0,
 }
 
-_REPORTS_DIR = pathlib.Path("corpus/reports")
+# Resolve relative to the backend root so the endpoint works
+# regardless of the process CWD (uvicorn, pytest, ad-hoc scripts).
+_REPORTS_DIR = (pathlib.Path(__file__).resolve().parents[1]
+                / "corpus" / "reports")
 
 
 router = APIRouter(tags=["coverage"])

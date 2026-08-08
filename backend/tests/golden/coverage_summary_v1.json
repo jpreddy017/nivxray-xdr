@@ -1,0 +1,59 @@
+{
+  "_comment": "P0.12 · Coverage Metrics API response contract (schema v1.0). Locks response SHAPE only, not values. See tests/test_coverage_metrics_api.py.",
+  "schema_version": "1.0",
+  "required_top_level": [
+    "schema_version",
+    "generated_at",
+    "corpus_size",
+    "coverage",
+    "reachable_behaviors",
+    "dead_rule_classification",
+    "traceability_aggregate",
+    "latency_ms"
+  ],
+  "coverage_keys": [
+    "evidence_to_behavior",
+    "behavior_to_projection",
+    "projection_to_recommendation"
+  ],
+  "coverage_trend_fields": [
+    "current",
+    "previous",
+    "delta",
+    "target",
+    "meets_target"
+  ],
+  "reachable_behaviors_fields": [
+    "reachable",
+    "consumed_by_recommendations",
+    "percent"
+  ],
+  "dead_rule_classification_categories": [
+    "legitimately_dormant",
+    "corpus_gap",
+    "behavior_gap",
+    "logic_gap",
+    "mapping_gap"
+  ],
+  "traceability_aggregate_fields": [
+    "total_behaviors",
+    "complete_chains",
+    "broken_chains",
+    "complete_pct"
+  ],
+  "consumer_matrix_required_top_level": [
+    "schema_version",
+    "consumers",
+    "matrix",
+    "per_consumer_pct",
+    "total_behaviors"
+  ],
+  "consumer_matrix_expected_categories": [
+    "ssot_projector",
+    "provenance_endpoint",
+    "graph_api",
+    "recommendation_engine",
+    "workspace_ui",
+    "llm_summary"
+  ]
+}
