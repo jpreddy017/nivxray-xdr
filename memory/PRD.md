@@ -1,3 +1,43 @@
+## 🟢 2026-02-05 · P0.1 · **Posture Normalizer separation (projector = pure field-copy)**
+
+Per user directive, moved `_TECHNIQUE_TO_TACTIC` + `_derive_posture_from_mitre` out of `workspace_projector.py` into a new downstream module `services/mitigation/evidence_driven/attack_posture_normalizer.py`.  The projector is now strictly pure field-copy / normalization — no derivation of any kind.
+
+### New pipeline
+```
+SSOT → Workspace Projector (pure copy) → InvestigationOutcome
+                                              ↓
+                                    Attack Posture Normalizer   ← new module
+                                              ↓
+                                    InvestigationOutcome (posture filled)
+                                              ↓
+                                    Evidence-Driven Engine
+```
+
+### Files
+* NEW  `services/mitigation/evidence_driven/attack_posture_normalizer.py`
+* MODIFIED  `services/mitigation/evidence_driven/workspace_projector.py`  (stripped derivation, kept field-copy)
+* MODIFIED  `routers/mitigations_evidence_driven.py`  (wires normalizer between outcome and engine)
+* MODIFIED  `tests/test_workspace_outcome_projector.py`  (posture assertions moved to normalizer tests; end-to-end now chains projector → normalizer → engine)
+* NEW  `tests/test_attack_posture_normalizer.py`  (15 regression tests)
+
+### Contract locked by tests
+- Projector emits posture all `not_observed` regardless of MITRE input
+- Normalizer reads ONLY `mitre_techniques` (never raw text/evidence)
+- Unknown techniques never fabricate posture
+- Deterministic + idempotent + does not mutate input
+- Preserves upstream-asserted posture (no downgrade)
+
+### Status
+- 91/91 evidence-driven + projector + normalizer + S4 freeze + UAIE Slice 1–6 tests green
+- Legacy `derive_mitigations`, Workspace UI, `summary_narrative._recommendations()` untouched
+- S4 architecture freeze CI guard remains green
+
+### Constraints honored
+Workspace = frozen · derive_mitigations = byte-identical · existing APIs unchanged · projector = zero derivation · no new MITRE inference · no `output_text` inspection anywhere in the projector/normalizer path.
+
+---
+
+
 ## 🟢 2026-02-04 · Fork · R28.15 · **Evidence-Driven Response Recommendation Engine (isolated, feature-flagged)**
 
 Locked to the hard architectural constraint the user articulated: *the existing Workspace must remain frozen and protected*.  The new engine is a **downstream consumer** of the SSOT / decode result — never a mutator.  Ships behind `NVX_EVIDENCE_ENGINE` (defaults ON) so it can be disabled without touching a single line of the Workspace.  Legacy `services.mitigation.derive_mitigations` and `mitigation.schema_version = 1` are **byte-identical** — verified by regression test.

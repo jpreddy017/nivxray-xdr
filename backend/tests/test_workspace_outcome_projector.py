@@ -1,12 +1,18 @@
 """Workspace → InvestigationOutcome projector acceptance tests.
 
-Locks the projection-only contract: no new detection, no re-analysis,
-no field invention.
+Locks the projection-only contract:
+    · no new detection
+    · no re-analysis
+    · no field invention
+    · no tactic derivation (that lives in the posture normalizer)
 """
 from __future__ import annotations
 
 from services.mitigation.evidence_driven.workspace_projector import (
-    project_workspace_ssot, _TECHNIQUE_TO_TACTIC,
+    project_workspace_ssot,
+)
+from services.mitigation.evidence_driven.attack_posture_normalizer import (
+    normalize_attack_posture,
 )
 from services.mitigation.evidence_driven.investigation_outcome import (
     empty_outcome, INVESTIGATION_OUTCOME_SCHEMA_VERSION,
@@ -25,19 +31,40 @@ def test_projector_empty_ssot_returns_default_outcome():
         assert v == "not_observed", f"{t} != not_observed"
 
 
-def test_projector_maps_mitre_to_posture_confirmed():
+def test_projector_does_not_derive_posture_from_mitre():
+    """POST P0.1 — the projector is now pure field-copy.  Even when
+    the SSOT supplies MITRE techniques, the projector must NOT
+    derive tactic posture — that belongs to the downstream
+    ``attack_posture_normalizer``."""
     ssot = {
         "mitre": ["T1486", "T1490", "T1003", "T1059.001", "T1021.002"],
     }
     o = project_workspace_ssot(ssot)
-    p = o["attack_posture"]
-    assert p["impact"]            == "confirmed"
-    assert p["credential_access"] == "confirmed"
-    assert p["execution"]         == "confirmed"
-    assert p["lateral_movement"]  == "confirmed"
-    # Untouched tactics stay not_observed
-    assert p["exfiltration"]      == "not_observed"
-    assert p["discovery"]         == "not_observed"
+    # MITRE techniques passed through verbatim.
+    assert o["mitre_techniques"] == sorted(ssot["mitre"])
+    # Posture is DELIBERATELY all not_observed at the projector
+    # boundary — normalizer will fill it later.
+    for tactic, status in o["attack_posture"].items():
+        assert status == "not_observed", (
+            f"projector derived posture — {tactic}={status} — "
+            "posture derivation must live in the normalizer")
+
+
+def test_projector_passes_through_workspace_asserted_posture():
+    """If the SSOT itself already asserts a posture (e.g. Workspace
+    wants to force ``confirmed``), the projector preserves it
+    verbatim.  This is field-copy, not derivation."""
+    ssot = {
+        "attack_posture": {
+            "impact":            "confirmed",
+            "credential_access": "strong",
+        },
+    }
+    o = project_workspace_ssot(ssot)
+    assert o["attack_posture"]["impact"]            == "confirmed"
+    assert o["attack_posture"]["credential_access"] == "strong"
+    # Unrelated tactics stay at not_observed
+    assert o["attack_posture"]["exfiltration"]      == "not_observed"
 
 
 def test_projector_is_projection_only_never_derives_mitre():
@@ -56,10 +83,11 @@ def test_projector_is_projection_only_never_derives_mitre():
         assert v == "not_observed"
 
 
-def test_projector_talos_workspace_ssot_produces_correct_posture():
-    """SSOT resembles what the Workspace would produce for the
-    Talos ransomware engagement (with the 19 confirmed techniques
-    you enumerated).  Projector maps those into posture directly."""
+def test_projector_plus_normalizer_produces_talos_posture():
+    """End-to-end · SSOT → projector → normalizer.  The Talos
+    ransomware engagement (19 confirmed techniques) surfaces the
+    correct kill-chain posture ONLY after the normalizer runs.
+    The projector alone leaves posture empty."""
     ssot = {
         "verdict": {"severity": "critical", "one_liner": "Ransomware"},
         "mitre": ["T1656", "T1219.002", "T1053.005",
@@ -76,25 +104,29 @@ def test_projector_talos_workspace_ssot_produces_correct_posture():
         "iocs": {"ip": ["185.220.101.5"]},
         "detection_confidence": "high",
     }
-    o = project_workspace_ssot(ssot)
+    projected = project_workspace_ssot(ssot)
+    # Projector output has posture ALL not_observed
+    for t, v in projected["attack_posture"].items():
+        assert v == "not_observed"
+
+    # Only after normalization does posture reflect the kill chain.
+    o = normalize_attack_posture(projected)
     p = o["attack_posture"]
-    # Talos posture · confirmed across the whole kill chain
     for tactic in ("initial_access", "execution", "discovery",
                      "defense_evasion",
                      "lateral_movement", "collection",
                      "command_and_control", "impact"):
         assert p[tactic] == "confirmed", (
             f"expected {tactic} == confirmed, got {p[tactic]}")
-    # Credential-access is DELIBERATELY NOT confirmed for the Talos
-    # SSOT — the article doesn't establish LSASS/Mimikatz activity,
-    # so no T1003 technique was surfaced.  The projector must
-    # therefore leave the tactic at ``not_observed`` — this is the
-    # exact "no invention" discipline the projector is here to enforce.
+    # Credential-access is NOT confirmed for Talos — the article
+    # doesn't establish LSASS/Mimikatz activity, so no T1003
+    # technique was surfaced.  The normalizer must therefore leave
+    # the tactic at ``not_observed`` — no invention.
     assert p["credential_access"] == "not_observed"
 
 
 def test_projector_output_feeds_engine_and_produces_disjoint_recs():
-    """Full end-to-end: Workspace SSOT → projector → engine.
+    """Full end-to-end: SSOT → projector → normalizer → engine.
     The eSentire vs Talos SSOTs must still produce disjoint rules."""
     esentire_ssot = {
         "behaviors": ["c2"],
@@ -111,8 +143,8 @@ def test_projector_output_feeds_engine_and_produces_disjoint_recs():
         "iocs": {"ips": ["185.220.101.5"]},
         "detection_confidence": "high",
     }
-    a = project_workspace_ssot(esentire_ssot)
-    b = project_workspace_ssot(talos_ssot)
+    a = normalize_attack_posture(project_workspace_ssot(esentire_ssot))
+    b = normalize_attack_posture(project_workspace_ssot(talos_ssot))
     a_ids = {r["id"] for r in evidence_driven_recommendations(
                                     investigation_outcome=a
                                 )["recommendations"]}
@@ -132,16 +164,19 @@ def test_projector_output_feeds_engine_and_produces_disjoint_recs():
 
 
 def test_technique_to_tactic_map_is_dense_enough():
-    """Regression guard — the map covers every technique we currently
-    reference in the rule library so no fired rule is orphaned from
-    the posture view."""
+    """Regression guard — the normalizer's technique→tactic map
+    covers every technique currently referenced in the rule library
+    so no fired rule is orphaned from the posture view."""
     from services.mitigation.evidence_driven import rule_library
+    from services.mitigation.evidence_driven.attack_posture_normalizer import (
+        TECHNIQUE_TO_TACTIC,
+    )
     rule_techniques = set()
     for group in ("INVESTIGATE_RULES", "HUNT_RULES", "CONTAIN_RULES",
                     "ERADICATE_RULES", "RECOVER_RULES", "HARDEN_RULES"):
         for r in getattr(rule_library, group, []):
             rule_techniques.update(r.mitre or ())
-    missing = rule_techniques - set(_TECHNIQUE_TO_TACTIC.keys())
+    missing = rule_techniques - set(TECHNIQUE_TO_TACTIC.keys())
     assert not missing, (
         "rule_library references techniques not in the posture map: "
         f"{sorted(missing)}")

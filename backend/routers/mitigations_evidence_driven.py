@@ -18,6 +18,9 @@ from services.mitigation import derive_mitigations, MITIGATION_SCHEMA_VERSION
 from services.mitigation.evidence_driven.engine import (
     evidence_driven_recommendations, is_engine_enabled,
 )
+from services.mitigation.evidence_driven.attack_posture_normalizer import (
+    normalize_attack_posture,
+)
 
 router = APIRouter(prefix="/decode", tags=["decode"])
 
@@ -40,11 +43,18 @@ class _OutcomeRequest(BaseModel):
 @router.post("/mitigations/from_outcome")
 def post_from_outcome(body: _OutcomeRequest) -> Dict[str, Any]:
     """Canonical path — reason ONLY over what the Workspace already
-    discovered.  No re-analysis, no payload re-parsing."""
+    discovered.  No re-analysis, no payload re-parsing.
+
+    Pipeline:  Outcome → Attack Posture Normalizer → Engine.
+    The normalizer derives tactic-level posture from the already-
+    asserted MITRE techniques using the MITRE-published parent
+    relationship.  It never inspects raw evidence.
+    """
     if not body.outcome:
         raise HTTPException(status_code=400, detail="empty outcome")
+    normalized = normalize_attack_posture(body.outcome)
     edr = evidence_driven_recommendations(
-        investigation_outcome=body.outcome)
+        investigation_outcome=normalized)
     return {
         "ok":                       True,
         "engine_enabled":           is_engine_enabled(),
