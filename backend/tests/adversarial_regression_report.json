@@ -346,7 +346,7 @@
       "sha1": "5fd384bfadd38c3f124a8f654b47c069ee55dde9",
       "engine": "llm-l3",
       "chain": [],
-      "output_head": "\ufffd",
+      "output_head": "\ufffd\ufffd",
       "ok": false
     },
     {
@@ -444,9 +444,9 @@
     },
     {
       "sha1": "892ed1156a4390ee17d9583a72b5c90eb1eca957",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
-      "output_head": "var d='YmluYXJ5LUM=';        var b=atob(d);        var l=document.createElement('a');        l.download='stager.js';    ",
+      "output_head": "binary-C",
       "ok": false
     },
     {
@@ -910,7 +910,7 @@
     },
     {
       "sha1": "b35757d435e60cd49f380fe2a88acaa696173bb7",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
       "output_head": "TEST_iter63_1785997178 nivxray unique payload",
       "ok": false
@@ -924,7 +924,7 @@
     },
     {
       "sha1": "a783237740d9543c747b3d6cb11cd40dbba81510",
-      "engine": "magic",
+      "engine": "llm-l3",
       "chain": [],
       "output_head": "TEST_iter63_1786020098 nivxray unique payload",
       "ok": false

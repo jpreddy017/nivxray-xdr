@@ -1,3 +1,70 @@
+## 🟢 2026-02-04 · Fork · R28.11 · **Phase A Kickoff · 4-Dim Equivalence Gate + Slice 1 (PowerShell.EncodedCommand)**
+
+User approved Phase A option (b) — vertical slices, capability-first — with a strong refinement: extend the equivalence gate from **1 dimension (topology)** to **4 dimensions**:
+
+    1. topology        · ProvenanceGraph.topology_signature()
+    2. evidence        · order-independent (kind, value) set
+    3. recipe          · order-sensitive op sequence (aliased through migration vocabulary)
+    4. verdict_inputs  · reached_shellcode · iocs · mitre (analyst-visible surface)
+
+And a clear success criterion: *"one UAIE capability owns each transformation (no duplicate implementations)"*, with legacy retired immediately after equivalence is proven.
+
+### 4-Dimension Migration Gate · `services/uaie/migration_gate.py`
+Pure projection module — never mutates state.  Two extractors coerce both engines into a common `CapabilityFacts` dataclass:
+
+```python
+uaie_extract(orchestrator_result)  → CapabilityFacts
+legacy_extract(analysis_core_dict) → CapabilityFacts
+diff_capability_facts(a, b)         → structured 4-dim diff
+assert_migration_equivalent(a, b, dimensions=(...), msg=...)
+```
+
+Key design decisions locked in:
+* **Op-name normalisation** — the only place migration renaming is allowed is `_OP_ALIAS` in this module.  Both `deep-peel-<stage>` (recursive-decoder path) and convergence-engine `steps[].op` names are aliased into the canonical `ps.encoded_command` / `gzip.inflate` / `ps.byte_array_xor_loop` vocabulary.  A single review-controlled table.
+* **Dimension waivers are per-call-site** — slices may temporarily waive `recipe` while op-naming stabilises via `dimensions=("topology","evidence","verdict_inputs")`.  Every waiver is visible at the migration test site.
+* **Trace-only evidence dropped** (`trace / timing / diagnostic / size_delta / elapsed_ms / checksum`) — expected to legitimately diverge between engines.
+* **Topology waived when legacy has no ProvenanceGraph** — the legacy engine intentionally emits no graph; the recipe + verdict_inputs dimensions carry the equivalence proof for that side.
+
+### Slice 1 · PowerShell.EncodedCommand — capability equivalence proven
+The UAIE `powershell.encoded_command` plugin has been proven byte-equivalent to both legacy paths (recursive-decoder deep-peel AND convergence-engine `decoder-powershell-encoded-command`) on a controlled single-layer payload and on the multi-layer Golden Vertical Chain.  Slice-1 acceptance tests lock in:
+
+| Check | Result |
+|---|---|
+| UAIE recipe contains `ps.encoded_command` | ✅ |
+| UAIE deepest artifact decodes the inner PS script | ✅ |
+| Legacy & UAIE agree on `reached_shellcode` | ✅ |
+| UAIE URLs ⊇ legacy URLs | ✅ |
+| Golden Vertical Chain still surfaces `149.28.81.19` | ✅ |
+| Slice-1 retirement gates all green (4 concrete checks) | ✅ |
+
+**Retirement staging** — the duplicate RTE `ps_encoded_command` transformation is proven safe to retire but the actual removal is deferred because the RTE engine still consumes RTE transformations (not UAIE capabilities) as its transformation source.  Wiring the RTE engine to consume UAIE capabilities as first-class citizens is Slice 6 (post-Phase-A cleanup) — the current slice ships the *proof of safety*, not the removal.
+
+### Acceptance metrics
+| Suite | Result |
+|---|---|
+| `test_migration_gate.py` (11 tests · 4-dim gate mechanics) | **11 / 11** |
+| `test_slice1_powershell_encoded_command.py` (5 tests) | **5 / 5** |
+| `test_golden_vertical_chain.py` (9 tests) | **9 / 9** |
+| Combined migration + phase-0 + provenance + QA + lifecycle + termination + capability + RTE + recognition battery (22 files) | **212 / 212 pass** |
+
+### Files landed
+* `services/uaie/migration_gate.py`  ← NEW · 4-dim equivalence gate + `_OP_ALIAS` migration vocabulary
+* `tests/test_migration_gate.py`  ← 11 tests locking gate mechanics + Slice-0 baseline
+* `tests/test_slice1_powershell_encoded_command.py`  ← 5 tests + concrete retirement-gate checklist
+
+### Slice roadmap (unchanged, in order)
+- ✅ Slice 1 · PowerShell.EncodedCommand
+- ⏳ Slice 2 · FromBase64String + Compression (gzip / zlib / indirect)
+- ⏳ Slice 3 · Byte-Array XOR (the highest-value slice — removes duplication between `recursive_decoder._decode_byte_array_xor_loop` and `rte.ps_byte_array_xor_loop`)
+- ⏳ Slice 4 · Generic Encodings (bare base64 / hex / hex-CSV / reverse-string)
+- ⏳ Slice 5 · Terminal Payloads (shellcode / PE / DLL / Script / Office / PDF)
+- ⏳ Slice 6 · RTE-consumes-UAIE-capabilities cleanup + retirement of every duplicate RTE transformation
+- ⏳ S4 · Architecture Freeze (CI guard on orchestrator / planner / lifecycle / termination)
+- ⏳ Evidence Summary layer (per user recommendation · sits between deterministic engine and LLM)
+
+---
+
+
 ## 🟢 2026-02-04 · Fork · R28.10.1 · **Workspace Hardening — Bug A + Bug B + Architectural Separation**
 
 User-reported symptoms on the 7.6-KB Sophos-shape CS stager:
