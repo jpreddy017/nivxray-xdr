@@ -3861,3 +3861,95 @@ Behaviors 74 %).
 - **Recommendation Explainability Score** — reintroduced as a
   projection-layer consumer (ADR-002 §6 provenance-level
   awareness).
+
+## 2026-02-08 · P0.15B · Visual Evidence Extraction Engine (VEEE) · SHIPPED
+
+Additive, isolated capability per ADR-002.  **Workspace, routes,
+saved investigations, existing UI — all unchanged.**  Feature flag
+`NVX_VEEE_ENABLED` defaults to `0` (off) so the platform behaves
+byte-identically to pre-P0.15B unless explicitly enabled.
+
+**Files delivered:**
+- `services/veee/__init__.py`          — public entry points
+    (`extract_from_image`, `extract_from_url`, `is_enabled`)
+- `services/veee/image_classifier.py`  — Pillow-based heuristic
+    (aspect / size / luminance-std) · deterministic · zero ML
+- `services/veee/ocr_engine.py`        — Tesseract 5 via `--tsv`
+    with per-word bounding boxes + per-word confidence
+- `services/veee/evidence_extractor.py` — groups OCR lines into
+    NormalizedEvidence records (`commandline`, `caption`, `ioc`)
+
+**Provenance (ADR-002 §5):** every record carries
+`{source: "image", acquisition_level: "P3", image_url,
+image_sha256, ocr_engine: "tesseract-5", ocr_confidence,
+bounding_box}`.  Skipped records carry `{skipped: true, reason: …}`
+so the future Acquisition Summary panel can render
+"Images Found · OCR Candidates · Processed · Skipped Logos · …".
+
+**Feature flag:** `NVX_VEEE_ENABLED` written to `backend/.env`
+(default `0`).  `is_enabled()` gates the entire subsystem — with
+the flag off, every entry point returns `[]`.
+
+**CI invariants (ADR-002 §10):**
+1. VEEE module carries no imports from `services/mitigation/**`
+   or `services/ida/behaviors.py` (locked by
+   `test_veee_module_does_not_import_semantic_layer`).
+2. Every emitted record has `provenance.acquisition_level`.
+3. Records may not carry semantic fields
+   (`behaviors`, `mitre`, `recommendations`, `kill_chain`,
+   `impact`) — asserted by `test_records_do_not_emit_semantic_fields`.
+
+**End-to-end proof (Octlurk PNGs cached at `/tmp/silklurk*.png`):**
+- 5 real Kaspersky Securelist PNGs → **15 `commandline` records**
+- Provenance intact on every record (bboxes, SHA256, confidence)
+- Piped through Canonicalizer + classifier + bridge → **3 ATT&CK
+  tactics** (Persistence, Defense Evasion, Command & Control)
+- Remaining 5 lines collapsed to "Command execution" — legitimate
+  fidelity gap from OCR splitting multi-line commands.  Follow-up
+  work item filed for `line-joining` heuristic (see PRD Next).
+
+**Test surface · 224 passed · 1 skipped** across VEEE + Canonicalizer
++ Octlurk fixture + purpose-bridge + track_b CI invariants +
+evidence_driven + behavior_registry + corpus + coverage_metrics +
+regression_gate + behavior_graph + schema_freeze.
+
+**Not yet wired into IDA acquisition** — that's an explicit next
+step so we can validate VEEE in isolation before altering any
+existing acquisition flow.  When wired, the plumbing is: after
+`ida_acquire` returns the HTML, walk `<img>` tags, feed each
+through `extract_from_url`, append the resulting NormalizedEvidence
+records to `structured_blocks`.  Downstream IDA-4 → ICE → SSOT is
+zero-touch.
+
+---
+
+### Pending Mitigation / Recommendation items (surfaced per user reminder)
+
+Read from the P0.13 baseline harness (`corpus/reports/baseline.json`):
+
+**Suppressed rules · triggered by MITRE overlap but never actually fire**
+`hunt.b64_gzip_loader`, `hunt.byte_array_xor`, `contain.isolate_host`,
+`contain.kill_powershell`.  Root cause: these need runtime signals
+(`reached_shellcode`, `detection_confidence ≥ high`) that the
+harness never sets.  Two fixes possible:
+  1. Extend the corpus with cases that carry those signals
+     (harness change · low risk).
+  2. Relax the guards so MITRE overlap alone triggers a
+     lower-priority variant (rule change · needs care).
+
+**Dormant rules · no MITRE overlap in the current corpus**
+`contain.preserve_memory`, `harden.lolbas_allowlist` · both are
+architectural `logic_gap` (rules that don't declare MITRE tuples).
+Fix: assign appropriate MITRE tuples so they can be reasoned about
+by the projection layer.
+
+**Shadowed · always co-fires with a stricter rule of the same group**
+`erad.protect_shadow_copies` shadowed by `erad.reimage_ransomware`
+on every corpus case.  Distinct actions, distinct evidence — the
+signal points to a *corpus gap* (no case exercises
+`recovery_inhibited` WITHOUT `data_encrypted`).  Add a
+backup-tamper-without-encryption case to separate them.
+
+All three buckets are P1 follow-ups — none is a bug in the current
+mitigation engine (75 % rule efficiency is the honest current
+baseline).

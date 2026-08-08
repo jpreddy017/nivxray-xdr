@@ -12251,3 +12251,43 @@ Full details in `/app/memory/CHANGELOG.md` (2026-02-08 P0.15A entry).
 - Click-command → jump-to-image-region with bounding-box overlay.
 - Recommendation Explainability Score (reintroduced under the
   projection-layer contract).
+
+---
+
+## 2026-02-08 · P0.15B · VEEE — SHIPPED
+
+Full details in `/app/memory/CHANGELOG.md` (2026-02-08 P0.15B entry).
+
+**Files of reference:**
+- `services/veee/` — 4-file isolated capability
+- `backend/.env`   — `NVX_VEEE_ENABLED=0` (off by default)
+- `tests/test_veee.py` — 21 tests, incl. real-Octlurk end-to-end
+
+**Contract state:** VEEE is a first-class isolated capability that
+converts image bytes → NormalizedEvidence records.  It never
+touches Behaviors, MITRE, or Recommendations (ADR-002 §8).  The
+Workspace is BYTE-IDENTICAL to pre-P0.15B when the flag is off.
+
+**Next Phase (P0.15C · Analyst UX):**
+- Wire VEEE into IDA acquisition (behind the flag).  Fetch article
+  `<img>` tags, feed each through `extract_from_url`, append
+  NormalizedEvidence records to `structured_blocks`.
+- Acquisition Summary panel (Images Found / OCR Candidates /
+  Processed / Skipped Logos / Skipped Charts / Recovered).
+- Click-command → jump-to-image-region with bounding-box overlay
+  (all data already present in `provenance.bounding_box`).
+- Line-joining heuristic in the Evidence Extractor so multi-line
+  OCR outputs recombine before hitting the classifier — closes
+  the "5 of 15 collapse to Command execution" gap.
+
+**Pending Mitigation / Recommendation follow-ups (P1):**
+1. Corpus-side · add cases that exercise `reached_shellcode` +
+   `high_confidence` signals so `hunt.b64_gzip_loader`,
+   `hunt.byte_array_xor`, `contain.isolate_host`,
+   `contain.kill_powershell` can leave the "suppressed" bucket.
+2. Rule-metadata · assign MITRE tuples to `contain.preserve_memory`
+   and `harden.lolbas_allowlist` so they exit the `logic_gap`
+   classification.
+3. Corpus-side · add a backup-tamper-without-encryption case so
+   `erad.protect_shadow_copies` separates cleanly from
+   `erad.reimage_ransomware`.
