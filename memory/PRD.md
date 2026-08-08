@@ -1,3 +1,54 @@
+## 🟢 2026-02-05 · P0.11 · **Behavior Registry + BROKEN_AT_* traceability taxonomy**
+
+Executed the user's revised priority order — Behavior Registry as the single source of truth for the semantic vocabulary, plus the traceability taxonomy refinement that gives dashboards / CI / reports a shared BROKEN_AT_* vocabulary.
+
+### Behavior Registry (`services.ida.behavior_registry`)
+Read-only, deterministically composed from the frozen ADR-001 contracts.  For each behavior_type it exposes:
+- `id`, `canonical_name`, `description`, `introduced_in`, `deprecated_in`
+- `producers`  — modules capable of emitting this behavior (auto-derived from LOLBAS/malware/CVE maps + classify_command + UAIE extractor)
+- `consumers`  — fixed downstream set (projections, engine, SSOT projector, provenance endpoint)
+- `projections` — the ATT&CK / kill-chain / impact IDs for this behavior
+- `supporting_rules` — recommendation rules whose MITRE tuple overlaps the behavior's projection
+- `example_triggers` — the malware families / LOLBAS binaries / CVEs that generate this behavior
+
+Impact analysis is now trivial:
+- "Which rules depend on behavior X?" → `registry[x].supporting_rules`
+- "Which producers emit X?" → `registry[x].producers`
+- "Is X orphaned from any framework projection?" → check `registry[x].projections`
+
+### API surface
+- `GET  /api/behaviors/registry`                       — full catalog (schema `1.0`)
+- `GET  /api/behaviors/registry/{behavior_type}`       — single entry (404 on unknown)
+
+### BROKEN_AT_* taxonomy on Traceability
+Per user directive, the corpus harness now emits a fixed vocabulary for broken chains:
+- `BROKEN_AT_BEHAVIOR`         — reserved
+- `BROKEN_AT_PROJECTION`       — Behavior exists, no MITRE / kill-chain mapping
+- `BROKEN_AT_RULE`             — reserved
+- `BROKEN_AT_RECOMMENDATION`   — projections exist, no rule consumes them
+- `BROKEN_AT_POLICY`           — reserved
+- `BROKEN_AT_UI`               — reserved
+
+Each broken chain also carries `last_successful` (BEHAVIOR / PROJECTION / …) and a human-readable `reason` so dashboards can render the defect table the user described.
+
+### Files
+* NEW  `services/ida/behavior_registry.py`       — read-only catalog with descriptions + derivation logic
+* NEW  `routers/behavior_registry.py`            — list / detail endpoints
+* NEW  `tests/test_behavior_registry_and_taxonomy.py`  — 7 regression tests
+* MODIFIED  `scripts/corpus_validation.py`       — traceability taxonomy migrated to BROKEN_AT_*
+* MODIFIED  `tests/test_corpus_validation.py`    — broken_at assertion updated
+
+### Status
+- 145/145 tests green + 1 skip
+- Registry catalog: 44 behavior_types with full metadata, deterministically composed
+- Traceability taxonomy locked at the schema level so future dashboards and analytics use the same vocabulary
+
+### Constraints honored
+Deterministic-only · registry is READ-ONLY · no runtime semantics changed · Workspace/UI/derive_mitigations untouched · S4 freeze + all AST CI invariants intact (invariant #1 correctly demanded allow-listing the new registry as a diagnostic consumer, proving the guard is working).
+
+---
+
+
 ## 🟢 2026-02-05 · P0.10 · **Coverage Improvement Sprint · Traceability + Dead-Rule Classification**
 
 Executed the user's Coverage Improvement Sprint before building the Coverage Metrics API — corpus expanded, new architectural-health metrics added, provenance kinds all exercised.

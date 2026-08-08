@@ -139,6 +139,11 @@ _ALLOWED_MAP_IMPORTS: Tuple[str, ...] = (
     # coverage metrics against the full vocabulary — legitimate
     # diagnostic consumer (analogous to the projection tests).
     "scripts/corpus_validation.py",
+    # Behavior Registry composes projection data into a read-only
+    # catalog — diagnostic / documentation surface, not runtime
+    # semantics.
+    "services/ida/behavior_registry.py",
+    "tests/test_behavior_registry_and_taxonomy.py",
 )
 
 _BANNED_MAP_NAMES: Tuple[str, ...] = (

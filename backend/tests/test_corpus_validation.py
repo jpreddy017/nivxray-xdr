@@ -177,8 +177,13 @@ def test_per_case_traceability_lists_broken_chains_with_reason():
         for br in tc["broken_chains"]:
             assert "behavior_id"   in br
             assert "behavior_type" in br
-            assert br["gap"] in ("missing_projection",
-                                     "no_supporting_recommendation")
+            assert br["broken_at"] in ("BROKEN_AT_PROJECTION",
+                                            "BROKEN_AT_RECOMMENDATION",
+                                            "BROKEN_AT_BEHAVIOR",
+                                            "BROKEN_AT_RULE",
+                                            "BROKEN_AT_POLICY",
+                                            "BROKEN_AT_UI")
+            assert "reason" in br and br["reason"]
 
 
 def test_dead_rules_are_classified_into_five_buckets():

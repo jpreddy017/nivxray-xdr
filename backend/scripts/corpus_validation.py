@@ -287,28 +287,35 @@ def _run_one_case(case: Dict[str, Any],
     # ── Traceability Completeness ──────────────────────────────
     # A "complete chain" is a Behavior that has at least one MITRE
     # id + at least one kill-chain tag AND is traceable to at
-    # least one fired recommendation (either via MITRE overlap or
-    # via kill-chain/impact tag overlap).
+    # least one fired recommendation.  Broken chains carry a
+    # standardized ``broken_at`` taxonomy so dashboards / CI /
+    # reports share vocabulary.
     complete_chains = 0
     broken_chains:  List[Dict[str, Any]] = []
-    fired_ids = {r["id"] for r in engine_result.get("recommendations", [])}
     for b in behaviors:
         m  = list(BEHAVIOR_TO_MITRE.get(b.behavior_type, ()))
         kc = list(BEHAVIOR_TO_KILL_CHAIN.get(b.behavior_type, ()))
         im = list(BEHAVIOR_TO_IMPACTS.get(b.behavior_type, ()))
-        # Chain requirements: MITRE + kill_chain present, AND
-        # at least one fired rec correlates to this Behavior.
-        if not m or not kc:
+        if not m and not kc:
             broken_chains.append({
                 "behavior_id":     b.id,
                 "behavior_type":   b.behavior_type,
-                "gap":             "missing_projection",
-                "has_mitre":       bool(m),
-                "has_kill_chain":  bool(kc),
-                "has_impact":      bool(im),
+                "broken_at":       "BROKEN_AT_PROJECTION",
+                "last_successful": "BEHAVIOR",
+                "reason":          "no MITRE/kill-chain projection for "
+                                       "this behavior_type",
             })
             continue
-        # Correlate to fired recs via MITRE overlap.
+        if not m:
+            broken_chains.append({
+                "behavior_id":     b.id,
+                "behavior_type":   b.behavior_type,
+                "broken_at":       "BROKEN_AT_PROJECTION",
+                "last_successful": "BEHAVIOR",
+                "reason":          "MITRE map missing for behavior_type",
+                "has_kill_chain":  True, "has_mitre": False,
+            })
+            continue
         matched = False
         for r in engine_result.get("recommendations", []):
             r_mitre = set(r.get("mitre") or ())
@@ -322,7 +329,10 @@ def _run_one_case(case: Dict[str, Any],
             broken_chains.append({
                 "behavior_id":     b.id,
                 "behavior_type":   b.behavior_type,
-                "gap":             "no_supporting_recommendation",
+                "broken_at":       "BROKEN_AT_RECOMMENDATION",
+                "last_successful": "PROJECTION",
+                "reason":          "no rule consumes any of the projected "
+                                       "MITRE / kill-chain / impact tags",
                 "projections":     {"mitre": m, "kill_chain": kc,
                                        "impacts": im},
             })
@@ -335,7 +345,9 @@ def _run_one_case(case: Dict[str, Any],
         "kill_chain_tags":          inputs["behaviors"],
         "impact_tags":              inputs["impacts"],
         "mitre_ids":                inputs["mitre_techniques"],
-        "recommendation_ids":       sorted(fired_ids),
+        "recommendation_ids":       sorted(r["id"] for r in
+                                                engine_result.get(
+                                                     "recommendations", [])),
         "verdict":                  engine_result.get("verdict"),
         "duplicate_behavior_hits":  dup_hits,
         "unmapped_evidence":        unmapped,

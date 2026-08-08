@@ -64,6 +64,7 @@ from routers.telemetry import router as telemetry_router
 from routers.threat_intel import router as threat_intel_router, _ensure_iocs_indexes
 from routers.history import router as history_router
 from routers.behavior_provenance import router as behavior_provenance_router
+from routers.behavior_registry   import router as behavior_registry_router
 from routers.process_tree import router as process_tree_router
 from routers.kb import router as kb_router
 from routers.learning import router as learning_router
@@ -183,6 +184,7 @@ api.include_router(telemetry_router)
 api.include_router(threat_intel_router)
 api.include_router(history_router)
 api.include_router(behavior_provenance_router)
+api.include_router(behavior_registry_router)
 api.include_router(process_tree_router)
 api.include_router(kb_router)
 api.include_router(learning_router)
