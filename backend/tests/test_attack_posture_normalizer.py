@@ -189,3 +189,22 @@ def test_map_values_are_canonical_tactic_slugs():
     for tid, tactic in TECHNIQUE_TO_TACTIC.items():
         assert tactic in valid, (
             f"{tid} maps to unknown tactic {tactic!r}")
+
+
+def test_t1027_013_maps_to_defense_evasion():
+    """P0.2 · Track C · T1027.013 (Encrypted/Encoded File) is a
+    2024-added ATT&CK sub-technique the UAIE crypto_shape_detector
+    emits.  It must map to defense_evasion so posture is complete."""
+    outcome = empty_outcome()
+    outcome["mitre_techniques"] = ["T1027.013"]
+    o = normalize_attack_posture(outcome)
+    assert o["attack_posture"]["defense_evasion"] == "confirmed"
+
+
+def test_t1027_009_maps_to_defense_evasion():
+    """P0.2 · Track C · T1027.009 (Embedded Payloads) is the sub-
+    technique the UAIE pe_extractor emits."""
+    outcome = empty_outcome()
+    outcome["mitre_techniques"] = ["T1027.009"]
+    o = normalize_attack_posture(outcome)
+    assert o["attack_posture"]["defense_evasion"] == "confirmed"

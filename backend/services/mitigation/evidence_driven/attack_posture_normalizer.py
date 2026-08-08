@@ -71,6 +71,8 @@ TECHNIQUE_TO_TACTIC: Dict[str, str] = {
     "T1112":        "defense_evasion",  "T1070":     "defense_evasion",
     "T1070.001":    "defense_evasion",  "T1562":     "defense_evasion",
     "T1562.001":    "defense_evasion",  "T1620":     "defense_evasion",
+    "T1027.009":    "defense_evasion",   # Embedded Payloads (2023-added sub-technique)
+    "T1027.013":    "defense_evasion",   # Encrypted/Encoded File (2024-added sub-technique)
     # Credential Access
     "T1003":        "credential_access","T1003.001": "credential_access",
     "T1056":        "credential_access","T1056.003": "credential_access",

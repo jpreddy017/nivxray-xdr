@@ -158,16 +158,23 @@ def _ssot_for_bridge(ssot: Dict[str, Any]) -> Dict[str, Any]:
         }
     if isinstance(ssot.get("mitre"), list):
         out["mitre"] = ssot["mitre"]
-    if isinstance(ssot.get("iocs"), dict):
-        out["iocs"] = ssot["iocs"]
+    # UAIE places IOCs at ssot["analysis"]["iocs"] (NOT top-level).
+    # Fall back to top-level in case a future SSOT variant surfaces
+    # them there.
+    iocs_bag = ((ssot.get("analysis") or {}).get("iocs")
+                  or ssot.get("iocs"))
+    if isinstance(iocs_bag, dict):
+        out["iocs"] = iocs_bag
     lolbas = ssot.get("lolbas") or []
     if isinstance(lolbas, list):
-        # UAIE emits [{"name": "certutil.exe", ...}, ...] — reduce to
+        # UAIE emits [{"binary": "certutil.exe", ...}, ...] — reduce to
         # the binary-name list the projector already accepts.
         names: List[str] = []
         for item in lolbas:
-            if isinstance(item, dict) and item.get("name"):
-                names.append(str(item["name"]))
+            if isinstance(item, dict):
+                nm = item.get("binary") or item.get("name")
+                if nm:
+                    names.append(str(nm))
             elif isinstance(item, str):
                 names.append(item)
         out["lolbas_hits"] = names
