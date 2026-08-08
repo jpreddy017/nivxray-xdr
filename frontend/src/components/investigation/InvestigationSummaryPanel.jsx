@@ -27,6 +27,20 @@ import api from "@/lib/api";
 export default function InvestigationSummaryPanel({ narrative, onOpenSession }) {
   const [enriched, setEnriched] = useState(null);
   const [enriching, setEnriching] = useState(false);
+  // R28.15 · Drill-down expand/collapse for the whole brief.  The
+  // choice is persisted so analysts don't have to re-open the panel
+  // on every workspace mount.  Defaults to OPEN so first-time
+  // analysts see the full picture.
+  const [briefOpen, setBriefOpen] = useState(() => {
+    try {
+      const v = localStorage.getItem("nvx.brief.open");
+      return v == null ? true : v === "1";
+    } catch { return true; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("nvx.brief.open", briefOpen ? "1" : "0"); }
+    catch { /* noop */ }
+  }, [briefOpen]);
   const iocs = narrative?.ioc_intelligence   || [];
 
   // Kick off IOC intelligence enrichment as soon as the panel mounts
@@ -65,8 +79,11 @@ export default function InvestigationSummaryPanel({ narrative, onOpenSession }) 
   return (
     <section style={sx.wrap} data-testid="investigation-summary-panel">
       <Head risk={ex.risk} confidence={ex.confidence}
-             onOpen={onOpenSession} />
+             onOpen={onOpenSession}
+             open={briefOpen}
+             onToggle={() => setBriefOpen(o => !o)} />
 
+      {briefOpen && (<>
       <Card title="1 · Executive Investigation Summary"
              testid="summary-executive"
              copyable={ex.paragraph}>
@@ -176,6 +193,7 @@ export default function InvestigationSummaryPanel({ narrative, onOpenSession }) 
           Open Investigation Session →
         </button>
       </div>
+      </>)}
     </section>
   );
 }
@@ -184,13 +202,29 @@ export default function InvestigationSummaryPanel({ narrative, onOpenSession }) 
 // ══════════════════════════════════════════════════════════════════
 // Sub-components
 // ══════════════════════════════════════════════════════════════════
-function Head({ risk, confidence, onOpen }) {
+function Head({ risk, confidence, onOpen, open, onToggle }) {
+  // R28.15 · Clickable drill-down header — the entire eyebrow + title
+  // block toggles the brief.  Chevron rotates 0°/90° for open/closed.
   return (
     <div style={sx.head}>
-      <div>
-        <div style={sx.eyebrow}>DETERMINISTIC ANALYST BRIEF</div>
-        <div style={sx.title}>Every card below is derived from the SSOT · ready to ship</div>
-      </div>
+      <button type="button"
+              onClick={onToggle}
+              aria-expanded={!!open}
+              data-testid="brief-toggle"
+              style={sx.headToggle}>
+        <span style={{
+          ...sx.headChev,
+          transform: open ? "rotate(90deg)" : "rotate(0deg)",
+        }} aria-hidden>▸</span>
+        <div>
+          <div style={sx.eyebrow}>DETERMINISTIC ANALYST BRIEF</div>
+          <div style={sx.title}>
+            {open
+              ? "Every card below is derived from the SSOT · ready to ship"
+              : "Brief collapsed · click to expand"}
+          </div>
+        </div>
+      </button>
       <div style={sx.headRight}>
         <div style={sx.headStat}>
           <div style={sx.headStatLabel}>Risk</div>
@@ -463,6 +497,18 @@ const sx = {
     paddingBottom: 14,
     borderBottom: "1px solid rgba(126, 230, 168, 0.2)",
     marginBottom: 14,
+    gap: 12,
+  },
+  headToggle: {
+    display: "flex", alignItems: "center", gap: 12,
+    background: "transparent", border: 0, padding: 0,
+    color: "inherit", cursor: "pointer", textAlign: "left",
+    font: "inherit",
+  },
+  headChev: {
+    display: "inline-block", fontSize: 16, lineHeight: 1,
+    color: "#7ee6a8",
+    transition: "transform 180ms ease",
   },
   eyebrow: { fontSize: 10, letterSpacing: 2, color: "#7ee6a8" },
   title:   { fontSize: 16, color: "#e6ffe9", marginTop: 4 },
