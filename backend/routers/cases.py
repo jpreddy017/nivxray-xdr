@@ -332,6 +332,26 @@ async def get_case(case_id: str, user=Depends(get_current_user)):
             from services.ssot_store import project_artifact_trace
             doc["ssot_source"] = "inline_legacy"
             doc["artifact_trace"] = project_artifact_trace(doc["ssot"])
+        # 2026-02-08 · P0.14 · Lazy re-enrichment of stored clusters.
+        # Cases persisted BEFORE the purpose→MITRE bridge existed
+        # have `mitre=[]` on well-known TTPs (reverse SSH tunnel,
+        # rclone-style exfil, WMIC uninstall) so the Trajectory
+        # diagram drops those nodes.  Applying the bridge on read
+        # is idempotent, adds zero write-side cost, and lifts every
+        # historical case to the new fidelity.
+        try:
+            from services.ice.correlate import enrich_clusters_in_place
+            ssot_read = doc.get("ssot") or {}
+            for path_root in (ssot_read.get("investigation_object") or {},
+                                 ssot_read):
+                incident = (path_root.get("incident") or {}) if isinstance(path_root, dict) else {}
+                if isinstance(incident, dict) and incident.get("behaviors"):
+                    enrich_clusters_in_place(incident["behaviors"])
+                ice_blk = (path_root.get("ice") or {}) if isinstance(path_root, dict) else {}
+                if isinstance(ice_blk, dict) and ice_blk.get("behavior_clusters"):
+                    enrich_clusters_in_place(ice_blk["behavior_clusters"])
+        except Exception:
+            pass
     except Exception:
         # Read-side failure must NEVER 500 — fall back to legacy shape.
         pass

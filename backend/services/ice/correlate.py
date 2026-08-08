@@ -71,12 +71,186 @@ _TECHNIQUE_TO_TACTIC: Dict[str, str] = {
     "T1005":     "collection",             # Data from Local System
     "T1114":     "collection",             # Email Collection
     "T1041":     "exfiltration",           # Exfil over C2
+    "T1020":     "exfiltration",           # Automated Exfiltration
     "T1567":     "exfiltration",
+    "T1567.002": "exfiltration",           # Exfil to Cloud Storage
     "T1486":     "impact",                 # Data Encrypted for Impact
     "T1490":     "impact",                 # Inhibit System Recovery
     "T1219":     "command_and_control",    # Remote Access Tools
     "T1071":     "command_and_control",    # Application Layer Protocol
+    "T1572":     "command_and_control",    # Protocol Tunneling  (e.g. reverse SSH `-R`)
+    "T1112":     "defense_evasion",        # Modify Registry
+    "T1190":     "initial_access",         # Exploit Public-Facing Application
+    "T1218.007": "defense_evasion",        # Msiexec
 }
+
+
+# ══════════════════════════════════════════════════════════════════
+# Purpose-label → MITRE bridge  (2026-02-08 · P0.14 · trajectory-gap fix)
+# ══════════════════════════════════════════════════════════════════
+# The per-command DIE analyzer produces `techniques[]` from a mixture
+# of PS-AST / cmd-AST / LOLBAS detection.  A few analyst-recognised
+# TTPs — reverse SSH tunnel, WMIC-based product uninstall, rclone
+# exfil — surface a stable purpose label but no MITRE tag because
+# the AST pattern hits the SHELL, not a LOLBAS technique.  Rather
+# than duplicate that knowledge in each AST, we bridge it once here
+# at the cluster layer using the purpose label the classifier
+# already emits.  Every entry is a well-published mapping.
+_PURPOSE_TO_MITRE: Dict[str, List[Dict[str, str]]] = {
+    "Reverse SSH tunnel": [
+        {"id": "T1572", "name": "Protocol Tunneling"},
+    ],
+    "Software uninstall (defense evasion)": [
+        {"id": "T1562.001", "name": "Impair Defenses · Disable or Modify Tools"},
+    ],
+    "Data staging / exfil (rclone-style)": [
+        {"id": "T1567.002", "name": "Exfiltration to Cloud Storage"},
+        {"id": "T1020",    "name": "Automated Exfiltration"},
+    ],
+    "Registry modification": [
+        {"id": "T1112", "name": "Modify Registry"},
+    ],
+    "Registry Run-key persistence": [
+        {"id": "T1547.001", "name": "Registry Run Keys / Startup Folder"},
+    ],
+    "Self-deletion of stager": [
+        {"id": "T1070.004", "name": "Indicator Removal · File Deletion"},
+    ],
+    "Archive extraction": [
+        {"id": "T1140", "name": "Deobfuscate / Decode Files or Information"},
+    ],
+    "Unzip Python interpreter stager": [
+        {"id": "T1140", "name": "Deobfuscate / Decode Files or Information"},
+    ],
+    "Unzip encrypted payload archive": [
+        {"id": "T1140", "name": "Deobfuscate / Decode Files or Information"},
+    ],
+    "Microsoft Edge launch (extension load — Edgecution)": [
+        {"id": "T1176", "name": "Browser Extensions"},
+    ],
+    "Microsoft Edge launch (headless, extension load — Edgecution)": [
+        {"id": "T1176", "name": "Browser Extensions"},
+    ],
+    "Lateral movement via PsExec": [
+        {"id": "T1021.002", "name": "SMB / Windows Admin Shares"},
+    ],
+    "Lateral movement via Impacket": [
+        {"id": "T1021.002", "name": "SMB / Windows Admin Shares"},
+    ],
+    "Account / group discovery": [
+        {"id": "T1087", "name": "Account Discovery"},
+    ],
+    "Domain trust discovery": [
+        {"id": "T1482", "name": "Domain Trust Discovery"},
+    ],
+    "Current-user discovery": [
+        {"id": "T1033", "name": "System Owner / User Discovery"},
+    ],
+    "Host discovery": [
+        {"id": "T1082", "name": "System Information Discovery"},
+        {"id": "T1016", "name": "System Network Configuration Discovery"},
+    ],
+    "Active Directory discovery": [
+        {"id": "T1087.002", "name": "Domain Account Discovery"},
+    ],
+    "PowerShell in-memory execution": [
+        {"id": "T1059.001", "name": "Command and Scripting Interpreter · PowerShell"},
+    ],
+    "PowerShell download-and-execute": [
+        {"id": "T1059.001", "name": "Command and Scripting Interpreter · PowerShell"},
+        {"id": "T1105",     "name": "Ingress Tool Transfer"},
+    ],
+    "PowerShell encoded command": [
+        {"id": "T1059.001", "name": "Command and Scripting Interpreter · PowerShell"},
+        {"id": "T1027",     "name": "Obfuscated Files or Information"},
+    ],
+    "MSI installation": [
+        {"id": "T1218.007", "name": "System Binary Proxy Execution · Msiexec"},
+    ],
+    "MSI installer child (embedded)": [
+        {"id": "T1218.007", "name": "System Binary Proxy Execution · Msiexec"},
+    ],
+    "MSI execution": [
+        {"id": "T1218.007", "name": "System Binary Proxy Execution · Msiexec"},
+    ],
+    "Shadow copy deletion": [
+        {"id": "T1490", "name": "Inhibit System Recovery"},
+    ],
+    "Shadow copy deletion (WMIC)": [
+        {"id": "T1490", "name": "Inhibit System Recovery"},
+    ],
+}
+
+
+def _mitre_from_purpose(purpose: str) -> List[Dict[str, str]]:
+    """Bridge — return the deterministic MITRE mapping for a
+    recognised purpose label, or [] if unknown.  Never invents."""
+    if not purpose:
+        return []
+    entries = _PURPOSE_TO_MITRE.get(purpose)
+    if not entries:
+        return []
+    out: List[Dict[str, str]] = []
+    for e in entries:
+        out.append({
+            "id":     e["id"],
+            "name":   e["name"],
+            "tactic": tactic_for(e["id"]) or "",
+        })
+    return out
+
+
+# ══════════════════════════════════════════════════════════════════
+# Public · lazy re-enrichment for stored SSOTs (2026-02-08 · P0.14)
+# ══════════════════════════════════════════════════════════════════
+def enrich_clusters_in_place(clusters: List[Dict[str, Any]]) -> int:
+    """Apply the purpose-bridge + canonical ``mitre_tactics[]`` to a
+    list of behaviour clusters in place.  Idempotent — safe to run
+    on any cluster shape (freshly built or loaded from Mongo).
+    Returns the number of clusters that received a new mapping so
+    callers can log the enrichment ratio.
+
+    Used by the read-side of ``/api/cases/{id}`` so cases persisted
+    before the bridge existed benefit automatically without any
+    write-side migration.
+    """
+    if not isinstance(clusters, list):
+        return 0
+    changed = 0
+    for c in clusters:
+        if not isinstance(c, dict):
+            continue
+        mitre = c.get("mitre")
+        if not isinstance(mitre, list):
+            mitre = []
+            c["mitre"] = mitre
+        # Bridge · fill empty mitre[] from purpose label.
+        if not mitre:
+            bridged = _mitre_from_purpose(c.get("label") or c.get("title") or "")
+            if bridged:
+                c["mitre"] = bridged
+                changed += 1
+                mitre = bridged
+        # Canonical plural · always derived — never overwritten if
+        # the caller already provided a plural (respects R21 · single
+        # source of truth) unless it is falsy.
+        if not c.get("mitre_tactics"):
+            c["mitre_tactics"] = sorted({
+                _TACTIC_LABEL.get(m.get("tactic"), m.get("tactic"))
+                for m in mitre
+                if isinstance(m, dict) and m.get("tactic")
+            })
+        # Primary tactic · deterministic fallback for consumers that
+        # still key off the singular.
+        if not c.get("primary_tactic"):
+            counts: Dict[str, int] = {}
+            for m in mitre:
+                t = isinstance(m, dict) and m.get("tactic")
+                if t:
+                    counts[t] = counts.get(t, 0) + 1
+            if counts:
+                c["primary_tactic"] = max(counts, key=counts.get)
+    return changed
 
 # Kill-chain ordering — the analyst-facing sequence.
 _TACTIC_ORDER: List[str] = [
@@ -299,18 +473,39 @@ def _build_behavior_clusters(commands: List[Dict[str, Any]],
     out: List[Dict[str, Any]] = []
     for k in order:
         g = groups[k]
+        # ── Purpose-bridge (2026-02-08 · P0.14) ─────────────────
+        # If per-command DIE didn't tag any MITRE for the cluster
+        # but the classifier assigned a recognised purpose label,
+        # inject the deterministic mapping so downstream projections
+        # (Trajectory diagram, NIST report, Attack Chain) don't drop
+        # the node.  Never invents — only uses `_PURPOSE_TO_MITRE`.
+        if not g["mitre"]:
+            bridged = _mitre_from_purpose(g["label"])
+            for bm in bridged:
+                if bm["id"] not in [m["id"] for m in g["mitre"]]:
+                    g["mitre"].append(bm)
         # Primary tactic = most common tactic across the cluster's mitre.
         tactic_counts: Dict[str, int] = {}
         for m in g["mitre"]:
             if m["tactic"]:
                 tactic_counts[m["tactic"]] = tactic_counts.get(m["tactic"], 0) + 1
         primary_tactic = max(tactic_counts, key=tactic_counts.get) if tactic_counts else None
+        # Canonical plural — union of tactic labels the projections
+        # read (see TrajectoryDiagram Rule R22).  Uses the human
+        # tactic label (e.g. "Command and Control") because that is
+        # what the frontend swim-lane keys on.
+        mitre_tactics = sorted({
+            _TACTIC_LABEL.get(m["tactic"], m["tactic"])
+            for m in g["mitre"]
+            if m.get("tactic")
+        })
         conf = "high" if g["mitre"] else ("medium" if g["lolbins"] else "low")
         out.append({
             "label":          g["label"],
             "commands":       g["commands"],
             "command_count":  len(g["commands"]),
             "mitre":          g["mitre"],
+            "mitre_tactics":  mitre_tactics,
             "lolbins":        g["lolbins"],
             "languages":      sorted(g["languages"]),
             "primary_tactic": primary_tactic,
