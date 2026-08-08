@@ -96,6 +96,42 @@ INVESTIGATE_RULES: List[RecommendationRule] = [
         mitre    = ("T1003",),
         priority = "critical",
     ),
+    RecommendationRule(
+        id       = "inv.lateral_movement_trace",
+        trigger  = lambda c: "lateral_movement" in c.behaviors,
+        action   = "Trace lateral movement — SMB / WinRM / PSRemoting / "
+                    "PSExec / Enter-PSSession activity from this host "
+                    "over the last 24 hours.",
+        reason   = "Lateral-movement APIs / commands observed in the "
+                    "decoded content.",
+        category = "investigate",
+        mitre    = ("T1021",),
+        priority = "high",
+    ),
+    RecommendationRule(
+        id       = "inv.recon_activity",
+        trigger  = lambda c: "discovery" in c.behaviors,
+        action   = "Review discovery / reconnaissance activity — "
+                    "Get-ADUser, Get-ADComputer, net view, whoami /priv "
+                    "against the affected host and its peers.",
+        reason   = "Discovery / recon commands observed in the decoded "
+                    "content.",
+        category = "investigate",
+        mitre    = ("T1087", "T1018", "T1033"),
+        priority = "medium",
+    ),
+    RecommendationRule(
+        id       = "inv.ransomware_scope",
+        trigger  = _is_ransomware,
+        action   = "Identify every host with encrypted files, ransom "
+                    "notes, or the observed attacker file extensions — "
+                    "the scope is likely wider than the trigger host.",
+        reason   = "Ransomware behaviour observed — full scope must be "
+                    "established before eradication.",
+        category = "investigate",
+        mitre    = ("T1486",),
+        priority = "critical",
+    ),
 ]
 
 
@@ -264,6 +300,35 @@ ERADICATE_RULES: List[RecommendationRule] = [
         requires_confirmation = True,
         prerequisites = ("Verify the account list from Windows Security "
                           "log EIDs 4624 / 4672 before mass reset.",),
+    ),
+    # ── Ransomware-family rules · every one is trigger-guarded by
+    # observed impact evidence — never fires on non-ransomware cases.
+    RecommendationRule(
+        id       = "erad.stop_encryption",
+        trigger  = _is_ransomware,
+        action   = "Stop / suspend any process actively writing "
+                    ".locked / .encrypted / attacker-suffix files.",
+        reason   = "Active data-encryption impact observed — halting "
+                    "the process prevents further destruction.",
+        category = "eradicate",
+        mitre    = ("T1486",),
+        priority = "critical",
+        requires_confirmation = True,
+    ),
+    RecommendationRule(
+        id       = "erad.protect_shadow_copies",
+        trigger  = lambda c: (c.has_any_impact("recovery_inhibited")
+                                 and "impact" in c.behaviors),
+        action   = "Immediately protect backup infrastructure — deny "
+                    "attacker access to VSS / wbadmin / bcdedit and "
+                    "verify offline / immutable backups are unreachable "
+                    "from the compromised subnet.",
+        reason   = "Recovery-inhibition activity observed (VSS delete / "
+                    "wbadmin / bcdedit).  Backups are the next target.",
+        category = "eradicate",
+        mitre    = ("T1490",),
+        priority = "critical",
+        requires_confirmation = True,
     ),
     RecommendationRule(
         id       = "erad.reimage_ransomware",
