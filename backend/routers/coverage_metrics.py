@@ -26,29 +26,21 @@ COVERAGE_SCHEMA_VERSION = "1.0"
 # Executive KPI thresholds — hard architectural floors that must
 # never be breached.
 #
-# NOTE on the Projection → Recommendation floor:
-#   The aspirational target is 70 %.  As of the P0.13 corpus
-#   expansion (34 cases) the honest value is ~63 %, dragged down
-#   by 12 cases whose behaviors project cleanly to MITRE/kill-chain
-#   but for which the rule library has no recommendation yet
-#   (signed-binary-proxy, remote-access-software,
-#   defense-evasion-disable, exploit_public_app,
-#   registry_modification, archive_extraction, self_deletion).
-#   This is a *rule-library completeness* gap, not a projection
-#   gap.  We therefore hold the hard floor at 60 % (reality + a
-#   small headroom band) and surface the 70 % aspiration on
-#   ``/health`` so rule-library expansion (Phase 3.5) drives the
-#   number up.  When it does, bump this back to 70.
+# The P→R floor was temporarily lowered to 60 % during the P0.13
+# corpus expansion (which honestly surfaced 12 rule-library gaps).
+# Phase 3.5A (rule-library expansion) filled those gaps and P→R
+# is now 100 %, so the floor is back at the 70 % target with
+# 30 pp of headroom.  When the corpus expands again and P→R drops,
+# the honest response is: expand the rule library, don't lower
+# the floor.
 _TARGETS: Dict[str, float] = {
     "evidence_to_behavior_pct":           95.0,
     "behavior_to_projection_pct":         95.0,
-    "projection_to_recommendation_pct":   60.0,
-}
-# Aspirational target — surfaces on /health so Phase 3.5 work is
-# tracked without breaking CI.
-_ASPIRATIONAL_TARGETS: Dict[str, float] = {
     "projection_to_recommendation_pct":   70.0,
 }
+# Aspirational-target machinery is retained but currently no key
+# has one — a hard floor of 70 % is the actual contract.
+_ASPIRATIONAL_TARGETS: Dict[str, float] = {}
 REGRESSION_TOLERANCE_PP: float = 2.0
 
 # Resolve relative to the backend root so the endpoint works

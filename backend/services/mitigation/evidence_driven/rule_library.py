@@ -129,6 +129,118 @@ INVESTIGATE_RULES: List[RecommendationRule] = [
         mitre    = ("T1486",),
         priority = "critical",
     ),
+    # ── P0.13 · Phase 3.5A · Rule-library expansion ─────────────
+    # Investigate rules for behaviors that projected cleanly to
+    # MITRE/kill-chain but had no matching recommendation.  All
+    # additions here are enrichment (never destructive) so they
+    # can be trusted to run for every matching case.
+    RecommendationRule(
+        id       = "inv.signed_binary_proxy",
+        trigger  = lambda c: c.has_any_mitre(
+                          "T1218.005", "T1218.007", "T1218.010", "T1218.011"),
+        action   = "Investigate the signed-binary proxy execution — "
+                    "capture parent/child of msiexec / mshta / rundll32 / "
+                    "regsvr32, resolve loaded module + entry point, and "
+                    "correlate with proxy / DNS logs.",
+        reason   = "MITRE T1218 sub-technique observed · execution is "
+                    "proxied through a Microsoft-signed binary to bypass "
+                    "application control.",
+        category = "investigate",
+        mitre    = ("T1218.005", "T1218.007", "T1218.010", "T1218.011"),
+        priority = "high",
+    ),
+    RecommendationRule(
+        id       = "inv.remote_access_software",
+        trigger  = lambda c: "T1219" in c.mitre_techniques,
+        action   = "Investigate the remote-access software presence — "
+                    "confirm whether AnyDesk / ScreenConnect / SimpleHelp / "
+                    "TeamViewer / Quick Assist was authorised, extract "
+                    "session logs, and enumerate outbound sessions.",
+        reason   = "Remote-access software surfaced from the decoded "
+                    "content · a well-worn hands-on-keyboard vector.",
+        category = "investigate",
+        mitre    = ("T1219",),
+        priority = "high",
+    ),
+    RecommendationRule(
+        id       = "inv.defense_evasion_disable_tool",
+        trigger  = lambda c: "T1562.001" in c.mitre_techniques,
+        action   = "Investigate the security-tool disable attempt — "
+                    "confirm the target product, capture the responsible "
+                    "process/user, and verify whether protection was "
+                    "actually degraded (event ID 5001 / EDR agent state).",
+        reason   = "MITRE T1562.001 observed · defenders were disabled or "
+                    "uninstalled as a precursor to a higher-severity stage.",
+        category = "investigate",
+        mitre    = ("T1562.001",),
+        priority = "critical",
+    ),
+    RecommendationRule(
+        id       = "inv.exploit_public_app",
+        trigger  = lambda c: "T1190" in c.mitre_techniques,
+        action   = "Investigate the exploitation of the public-facing "
+                    "application — pull HTTP access logs for the CVE "
+                    "signature, capture WAF telemetry, and confirm asset "
+                    "patch state.",
+        reason   = "MITRE T1190 observed · initial access via a "
+                    "public-facing app leaves proxy / WAF / access-log "
+                    "trails that pinpoint the entry request.",
+        category = "investigate",
+        mitre    = ("T1190",),
+        priority = "critical",
+    ),
+    RecommendationRule(
+        id       = "inv.registry_modification",
+        trigger  = lambda c: "T1112" in c.mitre_techniques,
+        action   = "Investigate the registry modification — export the "
+                    "affected keys, correlate with the modifying process, "
+                    "and check whether Defender / EDR settings, run "
+                    "keys, or service configurations were altered.",
+        reason   = "MITRE T1112 observed · registry mutation is a common "
+                    "defence-evasion + persistence vehicle.",
+        category = "investigate",
+        mitre    = ("T1112",),
+        priority = "high",
+    ),
+    RecommendationRule(
+        id       = "inv.archive_extraction",
+        trigger  = lambda c: "T1140" in c.mitre_techniques,
+        action   = "Investigate the archive-extraction stager — capture "
+                    "the archive artefact, its origin (download / attachment "
+                    "/ dropper), and every file extracted to disk.",
+        reason   = "MITRE T1140 observed · archive-based staging obfuscates "
+                    "the payload chain until extraction.",
+        category = "investigate",
+        mitre    = ("T1140",),
+        priority = "medium",
+    ),
+    RecommendationRule(
+        id       = "inv.self_deletion",
+        trigger  = lambda c: "T1070.004" in c.mitre_techniques,
+        action   = "Investigate the self-deletion / anti-forensics tail — "
+                    "reconstruct the deleted files from USN journal / "
+                    "MFT, capture prior VSS snapshots, and preserve the "
+                    "process-command line before endpoint restart.",
+        reason   = "MITRE T1070.004 observed · stager cleanup removed "
+                    "the primary artefacts, so residual evidence is "
+                    "time-sensitive.",
+        category = "investigate",
+        mitre    = ("T1070.004",),
+        priority = "high",
+    ),
+    RecommendationRule(
+        id       = "inv.exfil_over_cloud",
+        trigger  = lambda c: c.has_any_mitre("T1567", "T1567.002", "T1020"),
+        action   = "Investigate the cloud-storage exfiltration — enumerate "
+                    "rclone / MegaSync / cloud-storage-CLI sessions, "
+                    "correlate outbound bytes, and identify the target "
+                    "bucket / account.",
+        reason   = "MITRE T1567/T1020 observed · cloud-storage exfil is the "
+                    "typical rclone-family final action.",
+        category = "investigate",
+        mitre    = ("T1567.002", "T1020"),
+        priority = "critical",
+    ),
 ]
 
 
@@ -300,18 +412,15 @@ ERADICATE_RULES: List[RecommendationRule] = [
     ),
     # ── Ransomware-family rules · every one is trigger-guarded by
     # observed impact evidence — never fires on non-ransomware cases.
-    RecommendationRule(
-        id       = "erad.stop_encryption",
-        trigger  = _is_ransomware,
-        action   = "Stop / suspend any process actively writing "
-                    ".locked / .encrypted / attacker-suffix files.",
-        reason   = "Active data-encryption impact observed — halting "
-                    "the process prevents further destruction.",
-        category = "eradicate",
-        mitre    = ("T1486",),
-        priority = "critical",
-        requires_confirmation = True,
-    ),
+    #
+    # 2026-02-08 · P0.13/3.5B · consolidated `erad.stop_encryption`
+    # into `erad.reimage_ransomware`.  They had identical triggers
+    # (both `_is_ransomware`) and their actions represented
+    # consecutive IR steps — Rule Efficiency (P0.13/3.3) surfaced
+    # this as always-co-fires.  Merging keeps both actions visible
+    # to the analyst without emitting two separate recommendations
+    # for the same evidence.  `erad.protect_shadow_copies` stays
+    # separate — it has a stricter trigger (`recovery_inhibited`).
     RecommendationRule(
         id       = "erad.protect_shadow_copies",
         trigger  = lambda c: (c.has_any_impact("recovery_inhibited")
@@ -330,15 +439,21 @@ ERADICATE_RULES: List[RecommendationRule] = [
     RecommendationRule(
         id       = "erad.reimage_ransomware",
         trigger  = _is_ransomware,
-        action   = "Re-image affected hosts from a known-good baseline.",
-        reason   = "Ransomware behaviour observed — file integrity on the "
-                    "host cannot be trusted.",
+        action   = "Ransomware response · (1) stop / suspend any process "
+                    "actively writing .locked / .encrypted / attacker-suffix "
+                    "files, then (2) once scope from inv.ransomware_scope is "
+                    "confirmed, re-image affected hosts from a known-good "
+                    "baseline.",
+        reason   = "Ransomware behaviour observed — halting the encrypting "
+                    "process first prevents further destruction, and file "
+                    "integrity on the host cannot be trusted after impact.",
         category = "eradicate",
+        mitre    = ("T1486",),
         priority = "critical",
         requires_confirmation = True,
         prerequisites = (
-            "Confirm the host list from encryption artifacts before "
-            "starting.",
+            "Confirm the affected-host list from encryption artefacts "
+            "and inv.ransomware_scope output before starting.",
             "Restore only after full containment.",
         ),
     ),

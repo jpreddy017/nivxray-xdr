@@ -359,7 +359,7 @@ def test_outcome_inputs_flow_end_to_end_into_v2_engine():
 
     # With behaviors=[impact] + impacts=[recovery_inhibited, data_encrypted],
     # the ransomware-family rules should fire.
-    assert "erad.stop_encryption"        in rec_ids
+    assert "erad.reimage_ransomware"     in rec_ids
     assert "erad.protect_shadow_copies"  in rec_ids
     # SSH tunnel + remote access → c2 behavior tagged
     # (No specific C2 rule guaranteed to fire without domain IOCs — but the

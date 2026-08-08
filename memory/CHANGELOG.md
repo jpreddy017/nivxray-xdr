@@ -3738,3 +3738,54 @@ schema-freeze suites.  Focused CI target unchanged:
 
 **Live preview smoke test** — all four endpoints respond:
 `/summary`, `/consumer_matrix`, `/health`, `/rule_efficiency`.
+
+## 2026-02-08 · P0.13 · Phase 3.5A + 3.5B · Rule library expansion + Shadow cleanup
+
+**3.5A · Rule library expansion** — added 8 focused INVESTIGATE rules
+(enrichment only, never destructive) to close the 12 rule-library
+gaps the P0.13 corpus surfaced:
+
+    · inv.signed_binary_proxy         (T1218.005/007/010/011)
+    · inv.remote_access_software      (T1219)
+    · inv.defense_evasion_disable_tool (T1562.001)
+    · inv.exploit_public_app          (T1190)
+    · inv.registry_modification       (T1112)
+    · inv.archive_extraction          (T1140)
+    · inv.self_deletion               (T1070.004)
+    · inv.exfil_over_cloud            (T1567.002, T1020)
+
+Also extended `TECHNIQUE_TO_TACTIC` in the posture normalizer with
+the seven new technique ids so every fired rule maps into the
+attack-posture view.
+
+**3.5B · Shadow rule cleanup** — Rule Efficiency (P0.13/3.3) flagged
+three eradication rules as always co-firing.  Root cause:
+`erad.stop_encryption` and `erad.reimage_ransomware` had identical
+triggers (`_is_ransomware`); their actions described consecutive IR
+steps.  Consolidated the "stop the encrypting process" action into
+`erad.reimage_ransomware` and removed `erad.stop_encryption`.
+`erad.protect_shadow_copies` stayed separate (distinct trigger —
+`recovery_inhibited` only).  Test suite updated (7 files) to
+reference the surviving id.
+
+**KPI impact (P0.13 baseline → 3.5A+3.5B baseline):**
+
+    Evidence → Behavior             100.0 → 100.0 %
+    Behavior → Projection           100.0 → 100.0 %
+    Projection → Recommendation      63.6 → 100.0 %   (+36.4 pp)
+    Reachable-Behaviors               36.0 →  74.0 %  (+38 pp)
+    Rule-efficiency score             57.1 →  75.0 %  (+17.9 pp)
+    Shadowed rules                       3 →     1    (−2, down 67 %)
+
+**Contract hardening** — restored the P→R hard floor to the
+original 70 % (from the temporary 60 % during rule-library gap
+period).  Aspirational-target machinery kept in place but no key
+currently carries one — a 70 % hard floor is the actual contract.
+
+**Tests · 151 passed / 1 skipped** across coverage_metrics +
+regression_gate + evidence_driven_from_outcome + ida_behavior_generation
++ workspace_outcome_projector + evidence_driven_rule_expansion +
+p08_graph_and_uaie_extractor + real_workspace_bridge_e2e +
+track_b_projector_and_ci_invariants + behavior_registry_and_taxonomy
++ corpus_validation + behavior_graph + schema_freeze suites.
+Live preview smoke test green on all four coverage endpoints.

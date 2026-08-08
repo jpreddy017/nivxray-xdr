@@ -1,11 +1,11 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-08-08T15:09:17Z",
+  "generated_at": "2026-08-08T15:25:28Z",
   "corpus_size": 34,
   "coverage": {
     "evidence_to_behavior_pct": 100.0,
     "behavior_to_projection_pct": 100.0,
-    "projection_to_recommendation_pct": 63.6
+    "projection_to_recommendation_pct": 100.0
   },
   "behavior_frequency": {
     "powershell_execution": 5,
@@ -58,16 +58,23 @@
     "harden.ps_script_block_logging": 4,
     "inv.analyze_ps_chain": 4,
     "inv.investigate_download": 4,
+    "inv.signed_binary_proxy": 4,
     "inv.lateral_movement_trace": 3,
     "inv.check_persistence": 3,
     "erad.reimage_ransomware": 2,
-    "erad.stop_encryption": 2,
     "inv.ransomware_scope": 2,
     "rec.restore_backups": 2,
     "hunt.encoded_powershell": 2,
+    "inv.exfil_over_cloud": 2,
     "erad.rotate_credentials": 2,
     "inv.check_credential_theft": 2,
-    "erad.protect_shadow_copies": 1
+    "erad.protect_shadow_copies": 1,
+    "inv.defense_evasion_disable_tool": 1,
+    "inv.remote_access_software": 1,
+    "inv.exploit_public_app": 1,
+    "inv.registry_modification": 1,
+    "inv.archive_extraction": 1,
+    "inv.self_deletion": 1
   },
   "dead_behavior_types": [
     "browser_launch_headless",
@@ -187,9 +194,9 @@
   ],
   "traceability_aggregate": {
     "total_behaviors": 50,
-    "complete_chains": 18,
-    "broken_chains": 32,
-    "complete_pct": 36.0
+    "complete_chains": 37,
+    "broken_chains": 13,
+    "complete_pct": 74.0
   },
   "rule_efficiency": {
     "per_rule": [
@@ -273,6 +280,106 @@
         "group": "investigate",
         "mitre": [
           "T1486"
+        ],
+        "triggered": true,
+        "fired": 2,
+        "suppressed": false,
+        "shadowed_by": [],
+        "status": "fired"
+      },
+      {
+        "rule_id": "inv.signed_binary_proxy",
+        "group": "investigate",
+        "mitre": [
+          "T1218.005",
+          "T1218.007",
+          "T1218.010",
+          "T1218.011"
+        ],
+        "triggered": true,
+        "fired": 4,
+        "suppressed": false,
+        "shadowed_by": [],
+        "status": "fired"
+      },
+      {
+        "rule_id": "inv.remote_access_software",
+        "group": "investigate",
+        "mitre": [
+          "T1219"
+        ],
+        "triggered": true,
+        "fired": 1,
+        "suppressed": false,
+        "shadowed_by": [],
+        "status": "fired"
+      },
+      {
+        "rule_id": "inv.defense_evasion_disable_tool",
+        "group": "investigate",
+        "mitre": [
+          "T1562.001"
+        ],
+        "triggered": true,
+        "fired": 1,
+        "suppressed": false,
+        "shadowed_by": [],
+        "status": "fired"
+      },
+      {
+        "rule_id": "inv.exploit_public_app",
+        "group": "investigate",
+        "mitre": [
+          "T1190"
+        ],
+        "triggered": true,
+        "fired": 1,
+        "suppressed": false,
+        "shadowed_by": [],
+        "status": "fired"
+      },
+      {
+        "rule_id": "inv.registry_modification",
+        "group": "investigate",
+        "mitre": [
+          "T1112"
+        ],
+        "triggered": true,
+        "fired": 1,
+        "suppressed": false,
+        "shadowed_by": [],
+        "status": "fired"
+      },
+      {
+        "rule_id": "inv.archive_extraction",
+        "group": "investigate",
+        "mitre": [
+          "T1140"
+        ],
+        "triggered": true,
+        "fired": 1,
+        "suppressed": false,
+        "shadowed_by": [],
+        "status": "fired"
+      },
+      {
+        "rule_id": "inv.self_deletion",
+        "group": "investigate",
+        "mitre": [
+          "T1070.004"
+        ],
+        "triggered": true,
+        "fired": 1,
+        "suppressed": false,
+        "shadowed_by": [],
+        "status": "fired"
+      },
+      {
+        "rule_id": "inv.exfil_over_cloud",
+        "group": "investigate",
+        "mitre": [
+          "T1020",
+          "T1567.002"
         ],
         "triggered": true,
         "fired": 2,
@@ -366,20 +473,6 @@
         "status": "fired"
       },
       {
-        "rule_id": "erad.stop_encryption",
-        "group": "eradicate",
-        "mitre": [
-          "T1486"
-        ],
-        "triggered": true,
-        "fired": 2,
-        "suppressed": false,
-        "shadowed_by": [
-          "erad.reimage_ransomware"
-        ],
-        "status": "shadowed"
-      },
-      {
         "rule_id": "erad.protect_shadow_copies",
         "group": "eradicate",
         "mitre": [
@@ -389,22 +482,21 @@
         "fired": 1,
         "suppressed": false,
         "shadowed_by": [
-          "erad.reimage_ransomware",
-          "erad.stop_encryption"
+          "erad.reimage_ransomware"
         ],
         "status": "shadowed"
       },
       {
         "rule_id": "erad.reimage_ransomware",
         "group": "eradicate",
-        "mitre": [],
+        "mitre": [
+          "T1486"
+        ],
         "triggered": true,
         "fired": 2,
         "suppressed": false,
-        "shadowed_by": [
-          "erad.stop_encryption"
-        ],
-        "status": "shadowed"
+        "shadowed_by": [],
+        "status": "fired"
       },
       {
         "rule_id": "rec.restore_backups",
@@ -455,20 +547,20 @@
       }
     ],
     "summary": {
-      "total": 21,
-      "fired": 12,
-      "shadowed": 3,
+      "total": 28,
+      "fired": 21,
+      "shadowed": 1,
       "suppressed": 4,
       "dormant": 2,
-      "efficiency_pct": 57.1
+      "efficiency_pct": 75.0
     }
   },
   "latency_ms": {
     "uaie_orchestrator": {
       "count": 27,
-      "median": 5.88,
+      "median": 5.87,
       "p95": 8.93,
-      "max": 15.66
+      "max": 15.7
     },
     "behavior_extraction": {
       "count": 34,
@@ -480,13 +572,13 @@
       "count": 34,
       "median": 0.01,
       "p95": 0.02,
-      "max": 0.03
+      "max": 0.04
     },
     "engine": {
       "count": 34,
       "median": 0.04,
       "p95": 0.07,
-      "max": 0.1
+      "max": 0.09
     }
   },
   "per_case": [
@@ -539,7 +631,6 @@
       "recommendation_ids": [
         "erad.protect_shadow_copies",
         "erad.reimage_ransomware",
-        "erad.stop_encryption",
         "inv.ransomware_scope",
         "rec.restore_backups"
       ],
@@ -680,10 +771,12 @@
         "T1047",
         "T1562.001"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.defense_evasion_disable_tool"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "critical",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 0,
       "unmapped_evidence": [
@@ -710,24 +803,8 @@
         "family"
       ],
       "traceability": {
-        "complete_chains": 0,
+        "complete_chains": 1,
         "broken_chains": [
-          {
-            "behavior_id": "a85d6df8ae4c",
-            "behavior_type": "defense_evasion_disable_tool",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1562.001"
-              ],
-              "kill_chain": [
-                "defense_evasion"
-              ],
-              "impacts": []
-            }
-          },
           {
             "behavior_id": "9c399c3247fe",
             "behavior_type": "wmi_execution",
@@ -745,7 +822,7 @@
             }
           }
         ],
-        "complete_pct": 0.0
+        "complete_pct": 50.0
       }
     },
     {
@@ -848,10 +925,12 @@
         "T1020",
         "T1567.002"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.exfil_over_cloud"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "critical",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 0,
       "unmapped_evidence": [
@@ -891,30 +970,9 @@
         "family"
       ],
       "traceability": {
-        "complete_chains": 0,
-        "broken_chains": [
-          {
-            "behavior_id": "fab097e2967d",
-            "behavior_type": "data_staging_exfil_rclone",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1567.002",
-                "T1020"
-              ],
-              "kill_chain": [
-                "exfiltration",
-                "collection"
-              ],
-              "impacts": [
-                "data_theft"
-              ]
-            }
-          }
-        ],
-        "complete_pct": 0.0
+        "complete_chains": 1,
+        "broken_chains": [],
+        "complete_pct": 100.0
       }
     },
     {
@@ -1254,7 +1312,6 @@
       ],
       "recommendation_ids": [
         "erad.reimage_ransomware",
-        "erad.stop_encryption",
         "inv.ransomware_scope",
         "rec.restore_backups"
       ],
@@ -1294,84 +1351,19 @@
         "T1219",
         "T1566.004"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.remote_access_software"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 1,
       "unmapped_evidence": [],
       "traceability": {
-        "complete_chains": 0,
-        "broken_chains": [
-          {
-            "behavior_id": "588ad6623f2c",
-            "behavior_type": "remote_access_software",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1219"
-              ],
-              "kill_chain": [
-                "c2"
-              ],
-              "impacts": []
-            }
-          },
-          {
-            "behavior_id": "a5e32f42a4db",
-            "behavior_type": "remote_access_software",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1219"
-              ],
-              "kill_chain": [
-                "c2"
-              ],
-              "impacts": []
-            }
-          },
-          {
-            "behavior_id": "fbaac6954c42",
-            "behavior_type": "remote_access_software",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1219"
-              ],
-              "kill_chain": [
-                "c2"
-              ],
-              "impacts": []
-            }
-          },
-          {
-            "behavior_id": "0d8690873884",
-            "behavior_type": "quickassist_it_impersonation",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1219",
-                "T1566.004"
-              ],
-              "kill_chain": [
-                "recon",
-                "c2"
-              ],
-              "impacts": []
-            }
-          }
-        ],
-        "complete_pct": 0.0
+        "complete_chains": 4,
+        "broken_chains": [],
+        "complete_pct": 100.0
       }
     },
     {
@@ -1391,35 +1383,19 @@
       "mitre_ids": [
         "T1190"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.exploit_public_app"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "critical",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 0,
       "unmapped_evidence": [],
       "traceability": {
-        "complete_chains": 0,
-        "broken_chains": [
-          {
-            "behavior_id": "ebeecf7b4c71",
-            "behavior_type": "exploit_public_app",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1190"
-              ],
-              "kill_chain": [
-                "recon",
-                "execution"
-              ],
-              "impacts": []
-            }
-          }
-        ],
-        "complete_pct": 0.0
+        "complete_chains": 1,
+        "broken_chains": [],
+        "complete_pct": 100.0
       }
     },
     {
@@ -1563,58 +1539,19 @@
         "T1020",
         "T1567.002"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.exfil_over_cloud"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "critical",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 1,
       "unmapped_evidence": [],
       "traceability": {
-        "complete_chains": 0,
-        "broken_chains": [
-          {
-            "behavior_id": "f642a6aab708",
-            "behavior_type": "data_staging_exfil_rclone",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1567.002",
-                "T1020"
-              ],
-              "kill_chain": [
-                "exfiltration",
-                "collection"
-              ],
-              "impacts": [
-                "data_theft"
-              ]
-            }
-          },
-          {
-            "behavior_id": "e5fa45e47847",
-            "behavior_type": "data_staging_exfil_rclone",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1567.002",
-                "T1020"
-              ],
-              "kill_chain": [
-                "exfiltration",
-                "collection"
-              ],
-              "impacts": [
-                "data_theft"
-              ]
-            }
-          }
-        ],
-        "complete_pct": 0.0
+        "complete_chains": 2,
+        "broken_chains": [],
+        "complete_pct": 100.0
       }
     },
     {
@@ -1634,10 +1571,12 @@
       "mitre_ids": [
         "T1218.005"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.signed_binary_proxy"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 0,
       "unmapped_evidence": [
@@ -1654,27 +1593,9 @@
         "domain"
       ],
       "traceability": {
-        "complete_chains": 0,
-        "broken_chains": [
-          {
-            "behavior_id": "c1b5f53c45d2",
-            "behavior_type": "signed_binary_proxy_mshta",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1218.005"
-              ],
-              "kill_chain": [
-                "defense_evasion",
-                "execution"
-              ],
-              "impacts": []
-            }
-          }
-        ],
-        "complete_pct": 0.0
+        "complete_chains": 1,
+        "broken_chains": [],
+        "complete_pct": 100.0
       }
     },
     {
@@ -1696,10 +1617,12 @@
       "mitre_ids": [
         "T1218.011"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.signed_binary_proxy"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 1,
       "unmapped_evidence": [
@@ -1713,44 +1636,9 @@
         "domain"
       ],
       "traceability": {
-        "complete_chains": 0,
-        "broken_chains": [
-          {
-            "behavior_id": "5d0664536bf2",
-            "behavior_type": "signed_binary_proxy_rundll32",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1218.011"
-              ],
-              "kill_chain": [
-                "defense_evasion",
-                "execution"
-              ],
-              "impacts": []
-            }
-          },
-          {
-            "behavior_id": "be55ed62a056",
-            "behavior_type": "signed_binary_proxy_rundll32",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1218.011"
-              ],
-              "kill_chain": [
-                "defense_evasion",
-                "execution"
-              ],
-              "impacts": []
-            }
-          }
-        ],
-        "complete_pct": 0.0
+        "complete_chains": 2,
+        "broken_chains": [],
+        "complete_pct": 100.0
       }
     },
     {
@@ -1772,10 +1660,12 @@
       "mitre_ids": [
         "T1218.010"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.signed_binary_proxy"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 1,
       "unmapped_evidence": [
@@ -1793,44 +1683,9 @@
         "domain"
       ],
       "traceability": {
-        "complete_chains": 0,
-        "broken_chains": [
-          {
-            "behavior_id": "3f5cde4d0e4d",
-            "behavior_type": "signed_binary_proxy_regsvr32",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1218.010"
-              ],
-              "kill_chain": [
-                "defense_evasion",
-                "execution"
-              ],
-              "impacts": []
-            }
-          },
-          {
-            "behavior_id": "0f9e90db9f6f",
-            "behavior_type": "signed_binary_proxy_regsvr32",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1218.010"
-              ],
-              "kill_chain": [
-                "defense_evasion",
-                "execution"
-              ],
-              "impacts": []
-            }
-          }
-        ],
-        "complete_pct": 0.0
+        "complete_chains": 2,
+        "broken_chains": [],
+        "complete_pct": 100.0
       }
     },
     {
@@ -1852,10 +1707,12 @@
       "mitre_ids": [
         "T1218.007"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.signed_binary_proxy"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 1,
       "unmapped_evidence": [
@@ -1892,44 +1749,9 @@
         "family"
       ],
       "traceability": {
-        "complete_chains": 0,
-        "broken_chains": [
-          {
-            "behavior_id": "33d265b57b2c",
-            "behavior_type": "signed_binary_proxy_msi",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1218.007"
-              ],
-              "kill_chain": [
-                "defense_evasion",
-                "execution"
-              ],
-              "impacts": []
-            }
-          },
-          {
-            "behavior_id": "35bdb7454e95",
-            "behavior_type": "signed_binary_proxy_msi",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1218.007"
-              ],
-              "kill_chain": [
-                "defense_evasion",
-                "execution"
-              ],
-              "impacts": []
-            }
-          }
-        ],
-        "complete_pct": 0.0
+        "complete_chains": 2,
+        "broken_chains": [],
+        "complete_pct": 100.0
       }
     },
     {
@@ -2354,10 +2176,12 @@
       "mitre_ids": [
         "T1112"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.registry_modification"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 0,
       "unmapped_evidence": [
@@ -2388,26 +2212,9 @@
         "family"
       ],
       "traceability": {
-        "complete_chains": 0,
-        "broken_chains": [
-          {
-            "behavior_id": "575fe4a7b7ae",
-            "behavior_type": "registry_modification",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1112"
-              ],
-              "kill_chain": [
-                "defense_evasion"
-              ],
-              "impacts": []
-            }
-          }
-        ],
-        "complete_pct": 0.0
+        "complete_chains": 1,
+        "broken_chains": [],
+        "complete_pct": 100.0
       }
     },
     {
@@ -2627,10 +2434,12 @@
       "mitre_ids": [
         "T1140"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.archive_extraction"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "medium",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 0,
       "unmapped_evidence": [
@@ -2659,26 +2468,9 @@
         "family"
       ],
       "traceability": {
-        "complete_chains": 0,
-        "broken_chains": [
-          {
-            "behavior_id": "53add72ca1fe",
-            "behavior_type": "archive_extraction",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1140"
-              ],
-              "kill_chain": [
-                "defense_evasion"
-              ],
-              "impacts": []
-            }
-          }
-        ],
-        "complete_pct": 0.0
+        "complete_chains": 1,
+        "broken_chains": [],
+        "complete_pct": 100.0
       }
     },
     {
@@ -2775,10 +2567,12 @@
       "mitre_ids": [
         "T1070.004"
       ],
-      "recommendation_ids": [],
+      "recommendation_ids": [
+        "inv.self_deletion"
+      ],
       "verdict": {
-        "severity": "informational",
-        "one_liner": "No recommendations \u2014 no evidence dimension satisfied a rule trigger for this case."
+        "severity": "high",
+        "one_liner": "Suspicious activity \u2014 recommendations limited to the actual evidence dimensions the engine could confirm."
       },
       "duplicate_behavior_hits": 0,
       "unmapped_evidence": [
@@ -2804,28 +2598,9 @@
         "family"
       ],
       "traceability": {
-        "complete_chains": 0,
-        "broken_chains": [
-          {
-            "behavior_id": "0b2517cddc62",
-            "behavior_type": "self_deletion",
-            "broken_at": "BROKEN_AT_RECOMMENDATION",
-            "last_successful": "PROJECTION",
-            "reason": "no rule consumes any of the projected MITRE / kill-chain / impact tags",
-            "projections": {
-              "mitre": [
-                "T1070.004"
-              ],
-              "kill_chain": [
-                "defense_evasion"
-              ],
-              "impacts": [
-                "data_destroyed"
-              ]
-            }
-          }
-        ],
-        "complete_pct": 0.0
+        "complete_chains": 1,
+        "broken_chains": [],
+        "complete_pct": 100.0
       }
     },
     {

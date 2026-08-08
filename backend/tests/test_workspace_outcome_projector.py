@@ -156,7 +156,7 @@ def test_projector_output_feeds_engine_and_produces_disjoint_recs():
     assert not (a_ids & b_ids), (
         f"projector-fed engine produced shared rules: {sorted(a_ids & b_ids)}")
     # Talos gets impact-family recommendations
-    assert "erad.stop_encryption" in b_ids
+    assert "erad.reimage_ransomware" in b_ids
     assert "erad.protect_shadow_copies" in b_ids
     # eSentire gets LOLBAS + URL block
     assert any(i.startswith("contain.block_url:") for i in a_ids)

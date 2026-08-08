@@ -54,12 +54,14 @@ TECHNIQUE_TO_TACTIC: Dict[str, str] = {
     "T1566":        "initial_access",   "T1566.001": "initial_access",
     "T1566.002":    "initial_access",   "T1656":     "initial_access",
     "T1219":        "initial_access",   "T1219.002": "initial_access",
+    "T1190":        "initial_access",   # Exploit Public-Facing Application
     # Execution
     "T1053":        "execution",        "T1053.005": "execution",
     "T1059":        "execution",        "T1059.001": "execution",
     "T1047":        "execution",        "T1569":     "execution",
     "T1569.002":    "execution",        "T1218":     "execution",
-    "T1218.007":    "execution",
+    "T1218.005":    "execution",        "T1218.007": "execution",
+    "T1218.010":    "execution",        "T1218.011": "execution",
     # Persistence
     "T1547":        "persistence",      "T1543":     "persistence",
     "T1543.003":    "persistence",      "T1136":     "persistence",
@@ -69,7 +71,8 @@ TECHNIQUE_TO_TACTIC: Dict[str, str] = {
     # Defense Evasion
     "T1027":        "defense_evasion",  "T1140":     "defense_evasion",
     "T1112":        "defense_evasion",  "T1070":     "defense_evasion",
-    "T1070.001":    "defense_evasion",  "T1562":     "defense_evasion",
+    "T1070.001":    "defense_evasion",  "T1070.004": "defense_evasion",
+    "T1562":        "defense_evasion",
     "T1562.001":    "defense_evasion",  "T1620":     "defense_evasion",
     "T1027.009":    "defense_evasion",   # Embedded Payloads (2023-added sub-technique)
     "T1027.013":    "defense_evasion",   # Encrypted/Encoded File (2024-added sub-technique)
@@ -93,7 +96,9 @@ TECHNIQUE_TO_TACTIC: Dict[str, str] = {
     "T1055":        "command_and_control",   # process-injection C2
     "T1105":        "command_and_control",   # ingress tool transfer
     # Exfiltration
+    "T1020":        "exfiltration",     # Automated Exfiltration
     "T1041":        "exfiltration",     "T1567":     "exfiltration",
+    "T1567.002":    "exfiltration",     # Exfil to Cloud Storage
     # Impact
     "T1486":        "impact",           "T1490":     "impact",
     "T1531":        "impact",           "T1485":     "impact",

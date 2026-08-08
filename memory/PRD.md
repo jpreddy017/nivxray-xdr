@@ -12178,3 +12178,44 @@ Full details in `/app/memory/CHANGELOG.md` (2026-02-08 P0.13 entry).
   moves P→R from 63.6 → ≥ 70 % (aspirational target)
 - Then promote the P→R floor back to 70
 - KPI sparkline on the analyst dashboard
+
+---
+
+## 2026-02-08 · P0.13 · Phase 3.5A + 3.5B — SHIPPED (Rule library expansion + Shadow cleanup)
+
+See `/app/memory/CHANGELOG.md` (2026-02-08 P0.13 3.5A+3.5B entry).
+
+**What shipped:**
+1. **3.5A · Rule Library Expansion** — 8 new INVESTIGATE rules closing
+   every rule-library gap the P0.13 corpus surfaced (signed-binary-proxy,
+   remote-access-software, defense-evasion-disable, exploit_public_app,
+   registry_modification, archive_extraction, self_deletion,
+   exfil_over_cloud).  Enrichment-only — no destructive actions added.
+2. **3.5B · Shadow Rule Cleanup** — consolidated `erad.stop_encryption`
+   into `erad.reimage_ransomware` (identical triggers, consecutive
+   IR-playbook steps).  Test suite updated.
+3. **Hard-floor restoration** — P→R floor back to the original 70 %
+   with 30 pp of headroom (currently 100 %).
+
+**KPI state (baseline promoted):**
+
+    Evidence → Behavior             100.0 %  (target 95)
+    Behavior → Projection           100.0 %  (target 95)
+    Projection → Recommendation     100.0 %  (target 70 — was 63.6 before 3.5A)
+    Reachable-Behaviors              74.0 %  (was 36.0 before 3.5A)
+    Rule efficiency                  75.0 %  (was 57.1; shadowed 3 → 1)
+
+**Next Phase (3.6 · Investigation Graph UI):**
+- Interactive Evidence → Behavior → Recommendation React canvas
+- Each node exposes producers, consumers, rules fired, coverage %,
+  registry entry, `broken_at` status, rule-efficiency status
+- Semantic-debugger surface, not just visualisation
+
+**Then (3.7 · Recommendation Explainability Score):**
+- Score every recommendation on its evidence-chain completeness
+- Contributors: Behavior link, Evidence link, MITRE, Registry entry,
+  Rule metadata
+- Analyst-facing confidence signal + engineering-facing quality gate
+
+**Then (3.8 · Dashboard polish):**
+- KPI sparklines, trend widgets, executive dashboard

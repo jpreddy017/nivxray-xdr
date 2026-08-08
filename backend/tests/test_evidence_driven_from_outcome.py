@@ -65,7 +65,6 @@ def test_outcome_cobalt_strike_case_produces_expected_rules():
     # Not-fired discipline — no credential/ransomware evidence.
     for forbidden in ("erad.rotate_credentials",
                         "erad.reimage_ransomware",
-                        "erad.stop_encryption",
                         "rec.restore_backups"):
         assert forbidden not in ids
 
@@ -88,7 +87,6 @@ def test_outcome_esentire_email_bombing_case_produces_narrow_rules():
     for forbidden in ("contain.isolate_host",
                         "erad.rotate_credentials",
                         "erad.reimage_ransomware",
-                        "erad.stop_encryption",
                         "rec.restore_backups"):
         assert forbidden not in ids
 
@@ -104,8 +102,7 @@ def test_outcome_talos_ransomware_case_produces_impact_rules():
     o["detection_confidence"] = "high"
     r = evidence_driven_recommendations(investigation_outcome=o)
     ids = {rec["id"] for rec in r["recommendations"]}
-    for expected in ("erad.stop_encryption",
-                       "erad.protect_shadow_copies",
+    for expected in ("erad.protect_shadow_copies",
                        "erad.reimage_ransomware",
                        "erad.rotate_credentials",
                        "rec.restore_backups",

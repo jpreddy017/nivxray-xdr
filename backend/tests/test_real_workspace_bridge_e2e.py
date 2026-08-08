@@ -197,7 +197,7 @@ def test_benign_case_yields_no_impact_credential_or_c2_recs():
     # Benign payload must not trigger any impact / credential /
     # ransomware / shadow-copy recommendation.
     forbidden = {
-        "erad.stop_encryption", "erad.protect_shadow_copies",
+        "erad.reimage_ransomware", "erad.protect_shadow_copies",
         "erad.rotate_credentials", "recover.restore_shadow_copies",
         "recover.data_restoration",
     }
@@ -242,7 +242,7 @@ def test_certutil_case_yields_evidence_supported_url_and_lolbas_recs():
 
     # Destructive recovery/eradication rules must not fire — no
     # ransomware evidence in this payload.
-    forbidden = {"erad.stop_encryption", "erad.protect_shadow_copies",
+    forbidden = {"erad.reimage_ransomware", "erad.protect_shadow_copies",
                     "recover.restore_shadow_copies"}
     fired_forbidden = rec_ids & forbidden
     assert not fired_forbidden, (
@@ -275,8 +275,7 @@ def test_ransomware_case_yields_impact_and_recovery_recs():
     # recovery/eradicate recommendation.  IF the outcome carries
     # zero such evidence, we DO NOT fail — we surface it as a
     # finding for the analyst / architecture review.
-    recovery_family = {"erad.stop_encryption",
-                          "erad.protect_shadow_copies",
+    recovery_family = {"erad.protect_shadow_copies",
                           "recover.restore_shadow_copies",
                           "recover.data_restoration",
                           "rec.restore_backups",
@@ -381,7 +380,7 @@ def test_cross_case_recommendation_deltas_match_evidence_deltas():
     print(f"  ps/cs       = {sorted(ids_ps)}")
 
     # Benign should NOT have any destructive-family rec.
-    destructive = {"erad.stop_encryption", "erad.protect_shadow_copies",
+    destructive = {"erad.reimage_ransomware", "erad.protect_shadow_copies",
                       "recover.restore_shadow_copies"}
     assert not (ids_ben & destructive), (
         f"benign got destructive recs: {sorted(ids_ben & destructive)}")

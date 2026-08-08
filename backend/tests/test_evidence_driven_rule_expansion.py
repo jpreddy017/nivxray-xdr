@@ -87,8 +87,7 @@ def _benign_case() -> dict:
 def test_ransomware_case_fires_impact_rules():
     ids = {r["id"] for r in evidence_driven_recommendations(
                                 _ransomware_case())["recommendations"]}
-    for expect in ("erad.stop_encryption",
-                     "erad.protect_shadow_copies",
+    for expect in ("erad.protect_shadow_copies",
                      "erad.reimage_ransomware",
                      "inv.ransomware_scope",
                      "rec.restore_backups"):
@@ -99,8 +98,7 @@ def test_ransomware_case_fires_impact_rules():
 def test_benign_case_does_NOT_fire_ransomware_rules():
     ids = {r["id"] for r in evidence_driven_recommendations(
                                 _benign_case())["recommendations"]}
-    for forbidden in ("erad.stop_encryption",
-                        "erad.protect_shadow_copies",
+    for forbidden in ("erad.protect_shadow_copies",
                         "erad.reimage_ransomware",
                         "inv.ransomware_scope",
                         "rec.restore_backups"):
@@ -197,8 +195,7 @@ def test_compare_endpoint_recon_case_v2_shows_recon_but_v1_static():
     # v2 recognises this as recon → fires the recon rule
     assert "inv.recon_activity" in v2_ids
     # v2 does NOT fire ransomware / credential-theft / shellcode rules
-    for forbidden in ("erad.stop_encryption",
-                        "erad.rotate_credentials",
+    for forbidden in ("erad.rotate_credentials",
                         "contain.isolate_host",
                         "erad.reimage_ransomware"):
         assert forbidden not in v2_ids, (

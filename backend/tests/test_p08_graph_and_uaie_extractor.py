@@ -172,7 +172,7 @@ def test_end_to_end_uaie_ransomware_now_fires_recovery_recs():
                     investigation_outcome=outcome)["recommendations"]}
     assert "erad.protect_shadow_copies" in rec_ids
     # At least one impact-family rule fires.
-    assert rec_ids & {"erad.stop_encryption",
+    assert rec_ids & {"erad.reimage_ransomware",
                           "erad.protect_shadow_copies",
                           "rec.restore_backups"}
 
