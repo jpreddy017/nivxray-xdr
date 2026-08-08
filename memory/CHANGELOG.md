@@ -3979,3 +3979,39 @@ the 90 s ceiling.
 
 **No test regressions** — backend suites still 224 passed /
 1 skipped (P0.15B baseline).
+
+## 2026-02-08 · P0.15C · Release Contract frozen
+
+**`docs/P0.15C-RELEASE-CONTRACT.md`** captures the P0.15C sprint
+scope exactly as endorsed by the user, including the four
+non-negotiable release-gate invariants:
+
+  1. Flag-OFF byte-identity with current production
+  2. Additivity — VEEE may never reduce evidence
+     (``len(on.structured_blocks) >= len(off.structured_blocks)``
+     and ``set(off.blocks) <= set(on.blocks)``)
+  3. Complete provenance on every OCR record — any missing
+     mandatory field is a CI fail
+  4. Zero Workspace regressions
+
+**Five slices locked** (P0.15C-1 through P0.15C-5).  P0.15C-5 is
+now a permanent multi-vendor regression corpus (Talos × 3,
+Securelist × 3, Mandiant × 2, Microsoft × 2, Elastic × 2,
+Huntress × 2 = 14 articles).  Every future release must pass.
+
+**Explicitly deferred** (do not touch during P0.15C): rule
+efficiency, mitigation gap sprint, explainability score, behavior
+engine, projection layer, Workspace UI redesign.
+
+**Diagnostic on the "Failed" case (Securelist Octlurk URL)** —
+the article carries 16 code-screenshot PNGs (`octlurk-silklurkN.png`
+`N=1..16`) hosting an estimated 45-50 attacker commands.  Current
+pipeline reads 0 of them (VEEE flag off).  Only ~4 command tokens
+leak from prose captions → 4 mapped behaviors → no mitigation
+recommendations (rule library is trigger-guarded on evidence that
+lives only in the images).  This is architecturally honest — the
+mitigation engine correctly refused to invent recommendations for
+evidence it couldn't see.  The fix is a single-step: flip
+`NVX_VEEE_ENABLED=1` after P0.15C-1 lands and the same case
+should surface ~15 MITRE tids across the 8 existing P0.15A
+investigation rules.
