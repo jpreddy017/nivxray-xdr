@@ -4015,3 +4015,34 @@ evidence it couldn't see.  The fix is a single-step: flip
 `NVX_VEEE_ENABLED=1` after P0.15C-1 lands and the same case
 should surface ~15 MITRE tids across the 8 existing P0.15A
 investigation rules.
+
+## 2026-02-08 · P0.15C Release Contract · Amendment 1
+
+Three additions locked into `docs/P0.15C-RELEASE-CONTRACT.md`:
+
+1. **§0 · Implementation Principle** — No speculative
+   refactoring.  Only files required for P0.15C are modified;
+   public interfaces / Workspace behaviour / API contracts /
+   saved-case compatibility preserved.  Every enhancement is
+   additive, feature-flagged, regression-tested, and must not
+   change behaviour outside the acquisition layer.
+
+2. **§3.5 · Deterministic Acquisition (5th release-gate
+   invariant)** — Same article + config + OCR engine version
+   MUST produce byte-identical NormalizedEvidence across
+   repeated runs.  No timestamps, UUIDs, or wall-clock values
+   inside emitted evidence.  Deterministic sort key defined:
+   `(image_url, bbox.y, bbox.x, image_sha256)`.  Regression
+   test `tests/test_veee_determinism.py` runs the full Vendor
+   Corpus v1 twice and asserts array equality.
+
+3. **§3.6 · Explicit 8-stage Acquisition Pipeline** —
+   HTML Acquisition → Image Discovery → Image Classification →
+   OCR → OCR Line Joining → Evidence Normalization →
+   Provenance Validation → append to structured_blocks.  Each
+   stage lives in its own module under `services/veee/` with a
+   single responsibility; skipping / merging / reordering is a
+   P0.15C violation.
+
+Definition of Done updated to reference all five invariants and
+the stage contract.
