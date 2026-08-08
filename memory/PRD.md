@@ -1,3 +1,46 @@
+## 🟢 2026-02-05 · P0.2 · **Real Workspace bridge e2e validation · findings surfaced**
+
+Per user directive, proved the real UAIE Workspace investigation feeds the Evidence-Driven Recommendation Engine via the projector + normalizer pipeline — using the actual `services.uaie.orchestrator.Orchestrator` + `services.uaie.ssot_projector.project()` on four representative payloads.  Not synthetic SSOTs.
+
+### Pipeline verified (production code)
+```
+Raw payload → UAIE Orchestrator → uaie ssot_projector.project()
+            → Workspace SSOT
+            → project_workspace_ssot()  [pure field-copy]
+            → InvestigationOutcome
+            → normalize_attack_posture()  [MITRE → tactic static lookup]
+            → InvestigationOutcome (posture filled)
+            → evidence_driven_recommendations()  [correlation only]
+            → Case-specific recommendations
+```
+
+### New file
+* NEW  `tests/test_real_workspace_bridge_e2e.py`  (7 e2e tests · 4 payloads + isolation invariants)
+
+### Passing invariants
+- Benign → zero destructive recs; posture stays `not_observed`
+- Certutil / Ransomware / PS-CS → no destructive recs fire without evidence
+- Cross-case rec sets differ; benign disjoint from destructive family
+- Engine never re-analyzes raw payload (tripwire on `project_from_decode_result` counted 0 calls)
+- Engine input dict contains no raw bytes (JSON-serializable; no `raw_bytes`/`payload_bytes`/etc)
+
+### Findings surfaced by real e2e (UAIE-side intel gaps, NOT bridge failures)
+- **F1** — UAIE emits `T1490` (Inhibit System Recovery) for ransomware but does not emit `behaviors=["impact"]` or `impacts=["recovery_inhibited"]`.  Existing rules require both tags → 0 recovery recs fire.  (Test skips with explicit finding message.)
+- **F2** — UAIE emits `T1027.013` (2024 sub-technique) — not in the posture normalizer's map yet.  Add row for `defense_evasion`.
+- **F3** — UAIE surfaces `iocs: None` on the tested payloads; URL block rules never fire on the real path.
+- **F4** — UAIE surfaces `lolbas: []` for a payload containing `certutil.exe`; harden-LOLBAS rule never fires.
+- **F5** — `reached_shellcode: False` for the base64-EncodedCommand PowerShell payload — UAIE didn't peel the outer command-line adapter.
+
+### Constraints honored
+Workspace = frozen · projector = zero derivation · normalizer = only MITRE tactic lookup · engine = zero raw-payload access · no rule-library change · no Workspace UI change · no analyst view change · S4 architecture freeze intact.
+
+### Status
+- 63/63 tests green (57 pre-existing + 6 new e2e passes) + 1 skip surfacing F1
+- Awaiting user review before picking any of Track A/B/C/D remediation
+
+---
+
+
 ## 🟢 2026-02-05 · P0.1 · **Posture Normalizer separation (projector = pure field-copy)**
 
 Per user directive, moved `_TECHNIQUE_TO_TACTIC` + `_derive_posture_from_mitre` out of `workspace_projector.py` into a new downstream module `services/mitigation/evidence_driven/attack_posture_normalizer.py`.  The projector is now strictly pure field-copy / normalization — no derivation of any kind.
